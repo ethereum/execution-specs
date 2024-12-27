@@ -5,7 +5,7 @@ import sys
 import textwrap
 from dataclasses import dataclass, field
 from types import FunctionType
-from typing import Any, Callable, List, Set, Tuple
+from typing import Any, Callable, ClassVar, Iterable, List, Set, Tuple, Type
 
 import pytest
 from _pytest.mark.structures import ParameterSet
@@ -14,7 +14,6 @@ from pytest import Metafunc
 from ethereum_clis import TransitionTool
 from ethereum_test_forks import (
     Fork,
-    ForkAttribute,
     get_deployed_forks,
     get_forks,
     get_forks_with_no_parents,
@@ -59,37 +58,56 @@ def pytest_addoption(parser):
 
 
 @dataclass(kw_only=True)
-class MarkedValue:
-    """
-    A processed value for a covariant parameter.
-
-    Value can be a list for inclusive parameters.
-    """
-
-    value: Any
-    marks: List[pytest.Mark | pytest.MarkDecorator] = field(default_factory=list)
-
-
-@dataclass(kw_only=True)
 class ForkCovariantParameter:
     """Value list for a fork covariant parameter in a given fork."""
 
     names: List[str]
-    values: List[List[MarkedValue]]
+    values: List[ParameterSet]
 
 
-@dataclass(kw_only=True)
 class ForkParametrizer:
     """A parametrizer for a test case that is parametrized by the fork."""
 
     fork: Fork
     fork_covariant_parameters: List[ForkCovariantParameter] = field(default_factory=list)
-    marks: List[pytest.MarkDecorator | pytest.Mark] = field(default_factory=list)
+
+    def __init__(
+        self,
+        fork: Fork,
+        marks: List[pytest.MarkDecorator | pytest.Mark] | None = None,
+        fork_covariant_parameters: List[ForkCovariantParameter] | None = None,
+    ):
+        """
+        Initialize a new fork parametrizer object for a given fork.
+
+        Args:
+            fork: The fork for which the test cases will be parametrized.
+            marks: A list of pytest marks to apply to all the test cases parametrized by the fork.
+            fork_covariant_parameters: A list of fork covariant parameters for the test case, for
+                unit testing purposes only.
+
+        """
+        if marks is None:
+            marks = []
+        self.fork_covariant_parameters = [
+            ForkCovariantParameter(
+                names=["fork"],
+                values=[
+                    pytest.param(
+                        fork,
+                        marks=marks,
+                    )
+                ],
+            )
+        ]
+        if fork_covariant_parameters is not None:
+            self.fork_covariant_parameters.extend(fork_covariant_parameters)
+        self.fork = fork
 
     @property
     def parameter_names(self) -> List[str]:
         """Return the parameter names for the test case."""
-        parameter_names = ["fork"]
+        parameter_names = []
         for p in self.fork_covariant_parameters:
             parameter_names.extend(p.names)
         return parameter_names
@@ -97,101 +115,174 @@ class ForkParametrizer:
     @property
     def parameter_values(self) -> List[ParameterSet]:
         """Return the parameter values for the test case."""
-        param_value_combinations = [
-            # Flatten the list of values for each parameter
-            list(itertools.chain(*params))
-            for params in itertools.product(
-                # Add the fork so it is multiplied by the other parameters.
-                # It's a list of lists because all parameters are, but it will
-                # flattened after the product.
-                [[MarkedValue(value=self.fork)]],
-                # Add the values for each parameter, all of them are lists of at least one element.
-                *[p.values for p in self.fork_covariant_parameters],
-            )
-        ]
+        parameter_set_combinations = itertools.product(
+            # Add the values for each parameter, all of them are lists of at least one element.
+            *[p.values for p in self.fork_covariant_parameters],
+        )
 
         parameter_set_list: List[ParameterSet] = []
-        for marked_params in param_value_combinations:
-            marks = self.marks.copy()
+        for parameter_set_combination in parameter_set_combinations:
             params: List[Any] = []
-            for p in marked_params:
-                params.append(p.value)
+            marks: List[pytest.Mark | pytest.MarkDecorator] = []
+            test_id: str | None = None
+            for p in parameter_set_combination:
+                assert isinstance(p, ParameterSet)
+                params.extend(p.values)
                 if p.marks:
                     marks.extend(p.marks)
-            parameter_set_list.append(pytest.param(*params, marks=marks))
+                if p.id:
+                    if test_id is None:
+                        test_id = f"fork_{self.fork.name()}-{p.id}"
+                    else:
+                        test_id = f"{test_id}-{p.id}"
+            parameter_set_list.append(pytest.param(*params, marks=marks, id=test_id))
 
         return parameter_set_list
 
 
-@dataclass(kw_only=True)
 class CovariantDescriptor:
     """
     A descriptor for a parameter that is covariant with the fork:
     the parametrized values change depending on the fork.
     """
 
-    marker_name: str
-    description: str
-    fork_attribute_name: str
-    parameter_names: List[str]
+    parameter_names: List[str] = []
+    fn: Callable[[Fork], List[Any] | Iterable[Any]] | None = None
 
-    def get_marker(self, metafunc: Metafunc) -> pytest.Mark | None:
-        """Get the marker for the given test function."""
-        m = metafunc.definition.iter_markers(self.marker_name)
-        if m is None:
-            return None
-        marker_list = list(m)
-        assert len(marker_list) <= 1, f"Multiple markers {self.marker_name} found"
-        if len(marker_list) == 0:
-            return None
-        return marker_list[0]
+    selector: FunctionType | None = None
+    marks: None | pytest.Mark | pytest.MarkDecorator | List[pytest.Mark | pytest.MarkDecorator] = (
+        None
+    )
 
-    def check_enabled(self, metafunc: Metafunc) -> bool:
-        """Check if the marker is enabled for the given test function."""
-        return self.get_marker(metafunc) is not None
-
-    @staticmethod
-    def process_value(
-        values: Any | List[Any] | Tuple[Any],
-        selector: FunctionType,
+    def __init__(
+        self,
+        parameter_names: List[str] | str,
+        fn: Callable[[Fork], List[Any] | Iterable[Any]] | None = None,
+        selector: FunctionType | None = None,
         marks: None
         | pytest.Mark
         | pytest.MarkDecorator
-        | List[pytest.Mark | pytest.MarkDecorator]
-        | Callable[
-            [Any],
-            List[pytest.Mark | pytest.MarkDecorator] | pytest.Mark | pytest.MarkDecorator | None,
-        ],
-    ) -> List[List[MarkedValue]]:
+        | List[pytest.Mark | pytest.MarkDecorator] = None,
+    ):
+        """
+        Initialize a new covariant descriptor.
+
+        Args:
+            parameter_names: The names of the parameters that are covariant with the fork.
+            fn: A function that takes the fork as the single parameter and returns the values for
+                the parameter for each fork.
+            selector: A function that filters the values for the parameter.
+            marks: A list of pytest marks to apply to the test cases parametrized by the parameter.
+
+        """
+        if isinstance(parameter_names, str):
+            self.parameter_names = parameter_names.split(",")
+        else:
+            self.parameter_names = parameter_names
+        self.fn = fn
+        self.selector = selector
+        self.marks = marks
+
+    def process_value(
+        self,
+        parameters_values: Any | List[Any] | Tuple[Any] | ParameterSet,
+    ) -> ParameterSet | None:
         """
         Process a value for a covariant parameter.
 
-        The `selector` is applied to values in order to filter them.
+        The `selector` is applied to parameters_values in order to filter them.
         """
-        if not isinstance(values, tuple) and not isinstance(values, list):
-            values = [values]
+        if isinstance(parameters_values, ParameterSet):
+            return parameters_values
 
-        if selector(*values[: selector.__code__.co_argcount]):
+        if len(self.parameter_names) == 1:
+            # Wrap values that are meant for a single parameter in a list
+            parameters_values = [parameters_values]
+        marks = self.marks
+        if self.selector is None or self.selector(
+            *parameters_values[: self.selector.__code__.co_argcount]  # type: ignore
+        ):
             if isinstance(marks, FunctionType):
-                marks = marks(*values[: marks.__code__.co_argcount])
+                marks = marks(*parameters_values[: marks.__code__.co_argcount])
             assert not isinstance(marks, FunctionType), "marks must be a list or None"
             if marks is None:
                 marks = []
             elif not isinstance(marks, list):
                 marks = [marks]  # type: ignore
 
-            return [[MarkedValue(value=v, marks=marks) for v in values]]
+            return pytest.param(*parameters_values, marks=marks)
 
-        return []
+        return None
 
-    def process_values(self, metafunc: Metafunc, values: List[Any]) -> List[List[MarkedValue]]:
+    def process_values(self, values: Iterable[Any]) -> List[ParameterSet]:
         """
         Filter the values for the covariant parameter.
 
         I.e. if the marker has an argument, the argument is interpreted as a lambda function
         that filters the values.
         """
-        marker = self.get_marker(metafunc)
+        processed_values: List[ParameterSet] = []
+        for value in values:
+            processed_value = self.process_value(value)
+            if processed_value is not None:
+                processed_values.append(processed_value)
+        return processed_values
+
+    def add_values(self, fork_parametrizer: ForkParametrizer) -> None:
+        """Add the values for the covariant parameter to the parametrizer."""
+        if self.fn is None:
+            return
+        fork = fork_parametrizer.fork
+        values = self.fn(fork)
+        values = self.process_values(values)
+        assert len(values) > 0
+        fork_parametrizer.fork_covariant_parameters.append(
+            ForkCovariantParameter(names=self.parameter_names, values=values)
+        )
+
+
+class CovariantDecorator(CovariantDescriptor):
+    """
+    A marker used to parametrize a function by a covariant parameter with the values
+    returned by a fork method.
+
+    The decorator must be subclassed with the appropriate class variables before initialization.
+
+    Attributes:
+        marker_name: Name of the marker.
+        description: Description of the marker.
+        fork_attribute_name: Name of the method to call on the fork to get the values.
+        marker_parameter_names: Names of the parameters to be parametrized in the test function.
+
+    """
+
+    marker_name: ClassVar[str]
+    description: ClassVar[str]
+    fork_attribute_name: ClassVar[str]
+    marker_parameter_names: ClassVar[List[str]]
+
+    def __init__(self, metafunc: Metafunc):
+        """
+        Initialize the covariant decorator.
+
+        The decorator must already be subclassed with the appropriate class variables before
+        initialization.
+
+        Args:
+            metafunc: The metafunc object that pytest uses when generating tests.
+
+        """
+        self.metafunc = metafunc
+
+        m = metafunc.definition.iter_markers(self.marker_name)
+        if m is None:
+            return
+        marker_list = list(m)
+        assert len(marker_list) <= 1, f"Multiple markers {self.marker_name} found"
+        if len(marker_list) == 0:
+            return
+        marker = marker_list[0]
+
         assert marker is not None
         assert len(marker.args) == 0, "Only keyword arguments are supported"
 
@@ -205,71 +296,81 @@ class CovariantDescriptor:
         if len(kwargs) > 0:
             raise ValueError(f"Unknown arguments to {self.marker_name}: {kwargs}")
 
-        processed_values: List[List[MarkedValue]] = []
-        for value in values:
-            processed_values.extend(self.process_value(value, selector, marks))
+        def fn(fork: Fork) -> List[Any]:
+            return getattr(fork, self.fork_attribute_name)(block_number=0, timestamp=0)
 
-        return processed_values
-
-    def add_values(self, metafunc: Metafunc, fork_parametrizer: ForkParametrizer) -> None:
-        """Add the values for the covariant parameter to the parametrizer."""
-        if not self.check_enabled(metafunc=metafunc):
-            return
-        fork = fork_parametrizer.fork
-        get_fork_covariant_values: ForkAttribute = getattr(fork, self.fork_attribute_name)
-        values = get_fork_covariant_values(block_number=0, timestamp=0)
-        assert isinstance(values, list)
-        assert len(values) > 0
-        values = self.process_values(metafunc, values)
-        fork_parametrizer.fork_covariant_parameters.append(
-            ForkCovariantParameter(names=self.parameter_names, values=values)
+        super().__init__(
+            parameter_names=self.marker_parameter_names,
+            fn=fn,
+            selector=selector,
+            marks=marks,
         )
 
 
-fork_covariant_descriptors = [
-    CovariantDescriptor(
+def covariant_decorator(
+    *,
+    marker_name: str,
+    description: str,
+    fork_attribute_name: str,
+    parameter_names: List[str],
+) -> Type[CovariantDecorator]:
+    """Generate a new covariant decorator subclass."""
+    return type(
+        marker_name,
+        (CovariantDecorator,),
+        {
+            "marker_name": marker_name,
+            "description": description,
+            "fork_attribute_name": fork_attribute_name,
+            "marker_parameter_names": parameter_names,
+        },
+    )
+
+
+fork_covariant_decorators: List[Type[CovariantDecorator]] = [
+    covariant_decorator(
         marker_name="with_all_tx_types",
         description="marks a test to be parametrized for all tx types at parameter named tx_type"
         " of type int",
         fork_attribute_name="tx_types",
         parameter_names=["tx_type"],
     ),
-    CovariantDescriptor(
+    covariant_decorator(
         marker_name="with_all_contract_creating_tx_types",
         description="marks a test to be parametrized for all tx types that can create a contract"
         " at parameter named tx_type of type int",
         fork_attribute_name="contract_creating_tx_types",
         parameter_names=["tx_type"],
     ),
-    CovariantDescriptor(
+    covariant_decorator(
         marker_name="with_all_precompiles",
         description="marks a test to be parametrized for all precompiles at parameter named"
         " precompile of type int",
         fork_attribute_name="precompiles",
         parameter_names=["precompile"],
     ),
-    CovariantDescriptor(
+    covariant_decorator(
         marker_name="with_all_evm_code_types",
         description="marks a test to be parametrized for all EVM code types at parameter named"
         " `evm_code_type` of type `EVMCodeType`, such as `LEGACY` and `EOF_V1`",
         fork_attribute_name="evm_code_types",
         parameter_names=["evm_code_type"],
     ),
-    CovariantDescriptor(
+    covariant_decorator(
         marker_name="with_all_call_opcodes",
         description="marks a test to be parametrized for all *CALL opcodes at parameter named"
         " call_opcode, and also the appropriate EVM code type at parameter named evm_code_type",
         fork_attribute_name="call_opcodes",
         parameter_names=["call_opcode", "evm_code_type"],
     ),
-    CovariantDescriptor(
+    covariant_decorator(
         marker_name="with_all_create_opcodes",
         description="marks a test to be parametrized for all *CREATE* opcodes at parameter named"
         " create_opcode, and also the appropriate EVM code type at parameter named evm_code_type",
         fork_attribute_name="create_opcodes",
         parameter_names=["create_opcode", "evm_code_type"],
     ),
-    CovariantDescriptor(
+    covariant_decorator(
         marker_name="with_all_system_contracts",
         description="marks a test to be parametrized for all system contracts at parameter named"
         " system_contract of type int",
@@ -277,6 +378,56 @@ fork_covariant_descriptors = [
         parameter_names=["system_contract"],
     ),
 ]
+
+
+FORK_COVARIANT_PARAMETRIZE_ATTRIBUTE = "fork_covariant_parametrize"
+
+
+def fork_covariant_parametrize(
+    *,
+    parameter_names: List[str] | str,
+    fn: Callable[[Fork], List[Any] | Iterable[Any]],
+    marks: None
+    | pytest.Mark
+    | pytest.MarkDecorator
+    | List[pytest.Mark | pytest.MarkDecorator] = None,
+):
+    """
+    Decorate a test function by fork-covariant parameters.
+
+    The decorated function will be parametrized by the values returned by the `fn` function
+    for each fork.
+
+    If the parameters that are being parametrized is only a single parameter, the return value
+    of `fn` should be a list of values for that parameter.
+
+    If the parameters that are being parametrized are multiple, the return value of `fn` should
+    be a list of tuples/lists, where each tuple contains the values for each parameter.
+
+    Args:
+        parameter_names: Names of the parameters to be parametrized and that are covariant with
+            the fork.
+        fn: Function that takes the fork as the single parameter and returns the values for
+            the parameter for each fork.
+        marks: List of pytest marks to apply to all test cases parametrized.
+
+    """
+
+    def decorator(decorated_function: FunctionType) -> FunctionType:
+        """Decorate a test function by covariant parameters."""
+        covariant_descriptor = CovariantDescriptor(
+            parameter_names=parameter_names,
+            fn=fn,
+            marks=marks,
+        )
+        covariant_descriptors: List[CovariantDescriptor] = getattr(
+            decorated_function, FORK_COVARIANT_PARAMETRIZE_ATTRIBUTE, []
+        )
+        covariant_descriptors.append(covariant_descriptor)
+        setattr(decorated_function, FORK_COVARIANT_PARAMETRIZE_ATTRIBUTE, covariant_descriptors)
+        return decorated_function
+
+    return decorator
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -303,7 +454,7 @@ def pytest_configure(config: pytest.Config):
         "valid_until(fork): specifies until which fork a test case is valid",
     )
 
-    for d in fork_covariant_descriptors:
+    for d in fork_covariant_decorators:
         config.addinivalue_line("markers", f"{d.marker_name}: {d.description}")
 
     forks = {fork for fork in get_forks() if not fork.ignore()}
@@ -594,9 +745,17 @@ def add_fork_covariant_parameters(
     metafunc: Metafunc, fork_parametrizers: List[ForkParametrizer]
 ) -> None:
     """Iterate over the fork covariant descriptors and add their values to the test function."""
-    for covariant_descriptor in fork_covariant_descriptors:
+    for covariant_descriptor in fork_covariant_decorators:
         for fork_parametrizer in fork_parametrizers:
-            covariant_descriptor.add_values(metafunc=metafunc, fork_parametrizer=fork_parametrizer)
+            covariant_descriptor(metafunc=metafunc).add_values(fork_parametrizer=fork_parametrizer)
+
+    if hasattr(metafunc.function, FORK_COVARIANT_PARAMETRIZE_ATTRIBUTE):
+        covariant_descriptors: List[CovariantDescriptor] = getattr(
+            metafunc.function, FORK_COVARIANT_PARAMETRIZE_ATTRIBUTE
+        )
+        for descriptor in covariant_descriptors:
+            for fork_parametrizer in fork_parametrizers:
+                descriptor.add_values(fork_parametrizer=fork_parametrizer)
 
 
 def parameters_from_fork_parametrizer_list(

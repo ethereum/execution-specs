@@ -10,7 +10,6 @@ from ethereum_test_forks import Frontier
 from ..forks import (
     ForkCovariantParameter,
     ForkParametrizer,
-    MarkedValue,
     parameters_from_fork_parametrizer_list,
 )
 
@@ -29,9 +28,7 @@ from ..forks import (
                 ForkParametrizer(
                     fork=Frontier,
                     fork_covariant_parameters=[
-                        ForkCovariantParameter(
-                            names=["some_value"], values=[[MarkedValue(value=1)]]
-                        )
+                        ForkCovariantParameter(names=["some_value"], values=[pytest.param(1)])
                     ],
                 )
             ],
@@ -46,7 +43,7 @@ from ..forks import (
                     fork_covariant_parameters=[
                         ForkCovariantParameter(
                             names=["some_value"],
-                            values=[[MarkedValue(value=1)], [MarkedValue(value=2)]],
+                            values=[pytest.param(1), pytest.param(2)],
                         )
                     ],
                 )
@@ -63,8 +60,8 @@ from ..forks import (
                         ForkCovariantParameter(
                             names=["some_value"],
                             values=[
-                                [MarkedValue(value=1, marks=[pytest.mark.some_mark])],
-                                [MarkedValue(value=2)],
+                                pytest.param(1, marks=[pytest.mark.some_mark]),
+                                pytest.param(2),
                             ],
                         )
                     ],
@@ -79,12 +76,8 @@ from ..forks import (
                 ForkParametrizer(
                     fork=Frontier,
                     fork_covariant_parameters=[
-                        ForkCovariantParameter(
-                            names=["some_value"], values=[[MarkedValue(value=1)]]
-                        ),
-                        ForkCovariantParameter(
-                            names=["another_value"], values=[[MarkedValue(value=2)]]
-                        ),
+                        ForkCovariantParameter(names=["some_value"], values=[pytest.param(1)]),
+                        ForkCovariantParameter(names=["another_value"], values=[pytest.param(2)]),
                     ],
                 )
             ],
@@ -97,12 +90,10 @@ from ..forks import (
                 ForkParametrizer(
                     fork=Frontier,
                     fork_covariant_parameters=[
-                        ForkCovariantParameter(
-                            names=["some_value"], values=[[MarkedValue(value=1)]]
-                        ),
+                        ForkCovariantParameter(names=["some_value"], values=[pytest.param(1)]),
                         ForkCovariantParameter(
                             names=["another_value"],
-                            values=[[MarkedValue(value=2)], [MarkedValue(value=3)]],
+                            values=[pytest.param(2), pytest.param(3)],
                         ),
                     ],
                 )
@@ -119,8 +110,8 @@ from ..forks import (
                         ForkCovariantParameter(
                             names=["some_value", "another_value"],
                             values=[
-                                [MarkedValue(value=1), MarkedValue(value="a")],
-                                [MarkedValue(value=2), MarkedValue(value="b")],
+                                pytest.param(1, "a"),
+                                pytest.param(2, "b"),
                             ],
                         )
                     ],
@@ -138,15 +129,15 @@ from ..forks import (
                         ForkCovariantParameter(
                             names=["some_value", "another_value"],
                             values=[
-                                [MarkedValue(value=1), MarkedValue(value="a")],
-                                [MarkedValue(value=2), MarkedValue(value="b")],
+                                pytest.param(1, "a"),
+                                pytest.param(2, "b"),
                             ],
                         ),
                         ForkCovariantParameter(
                             names=["yet_another_value", "last_value"],
                             values=[
-                                [MarkedValue(value=3), MarkedValue(value="x")],
-                                [MarkedValue(value=4), MarkedValue(value="y")],
+                                pytest.param(3, "x"),
+                                pytest.param(4, "y"),
                             ],
                         ),
                     ],
@@ -169,15 +160,15 @@ from ..forks import (
                         ForkCovariantParameter(
                             names=["shared_value", "different_value_1"],
                             values=[
-                                [MarkedValue(value=1), MarkedValue(value="a")],
-                                [MarkedValue(value=2), MarkedValue(value="b")],
+                                pytest.param(1, "a"),
+                                pytest.param(2, "b"),
                             ],
                         ),
                         ForkCovariantParameter(
                             names=["shared_value", "different_value_2"],
                             values=[
-                                [MarkedValue(value=1), MarkedValue(value="x")],
-                                [MarkedValue(value=2), MarkedValue(value="y")],
+                                pytest.param(1, "x"),
+                                pytest.param(2, "y"),
                             ],
                         ),
                     ],

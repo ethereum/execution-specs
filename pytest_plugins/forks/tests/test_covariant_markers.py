@@ -284,6 +284,100 @@ import pytest
             "Only keyword arguments are supported",
             id="selector_as_positional_argument",
         ),
+        pytest.param(
+            """
+            import pytest
+
+            from pytest_plugins import fork_covariant_parametrize
+
+            def covariant_function(fork):
+                return [1, 2] if fork.name() == "Paris" else [3, 4, 5]
+
+            @fork_covariant_parametrize(parameter_names=["test_parameter"], fn=covariant_function)
+            @pytest.mark.valid_from("Paris")
+            @pytest.mark.valid_until("Shanghai")
+            def test_case(state_test_only, test_parameter):
+                pass
+            """,
+            {"passed": 5, "failed": 0, "skipped": 0, "errors": 0},
+            None,
+            id="custom_covariant_marker",
+        ),
+        pytest.param(
+            """
+            import pytest
+
+            from pytest_plugins import fork_covariant_parametrize
+
+            def covariant_function(fork):
+                return [[1, 2], [3, 4]] if fork.name() == "Paris" else [[4, 5], [5, 6], [6, 7]]
+
+            @fork_covariant_parametrize(parameter_names=[
+                "test_parameter", "test_parameter_2"
+            ], fn=covariant_function)
+            @pytest.mark.valid_from("Paris")
+            @pytest.mark.valid_until("Shanghai")
+            def test_case(state_test_only, test_parameter, test_parameter_2):
+                pass
+            """,
+            {"passed": 5, "failed": 0, "skipped": 0, "errors": 0},
+            None,
+            id="multi_parameter_custom_covariant_marker",
+        ),
+        pytest.param(
+            """
+            import pytest
+
+            from pytest_plugins import fork_covariant_parametrize
+
+            def covariant_function(fork):
+                return [
+                    pytest.param(1, id="first_value"),
+                    2,
+                ] if fork.name() == "Paris" else [
+                    pytest.param(3, id="third_value"),
+                    4,
+                    5,
+                ]
+
+            @fork_covariant_parametrize(parameter_names=["test_parameter"], fn=covariant_function)
+            @pytest.mark.valid_from("Paris")
+            @pytest.mark.valid_until("Shanghai")
+            def test_case(state_test_only, test_parameter):
+                pass
+            """,
+            {"passed": 5, "failed": 0, "skipped": 0, "errors": 0},
+            None,
+            id="custom_covariant_marker_pytest_param_id",
+        ),
+        pytest.param(
+            """
+            import pytest
+
+            from pytest_plugins import fork_covariant_parametrize
+
+            def covariant_function(fork):
+                return [
+                    pytest.param(1, 2, id="first_test"),
+                    pytest.param(3, 4, id="second_test"),
+                ] if fork.name() == "Paris" else [
+                    pytest.param(4, 5, id="fourth_test"),
+                    pytest.param(5, 6, id="fifth_test"),
+                    pytest.param(6, 7, id="sixth_test"),
+                ]
+
+            @fork_covariant_parametrize(parameter_names=[
+                "test_parameter", "test_parameter_2"
+            ], fn=covariant_function)
+            @pytest.mark.valid_from("Paris")
+            @pytest.mark.valid_until("Shanghai")
+            def test_case(state_test_only, test_parameter, test_parameter_2):
+                pass
+            """,
+            {"passed": 5, "failed": 0, "skipped": 0, "errors": 0},
+            None,
+            id="multi_parameter_custom_covariant_marker_pytest_param_id",
+        ),
     ],
 )
 def test_fork_covariant_markers(
