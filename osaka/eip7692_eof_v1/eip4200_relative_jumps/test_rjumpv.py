@@ -191,75 +191,20 @@ def test_rjumpv_size_3(
     )
 
 
+@pytest.mark.parametrize(
+    "target",
+    [0, 1, 100, 254, 255, 256],
+)
 def test_rjumpv_full_table(
     eof_state_test: EOFStateTestFiller,
+    target: int,
 ):
-    """EOF1V4200_0012 (Valid) EOF with RJUMPV table size 256 (Target 0)."""
+    """EOF1V4200_0012/13/14/15 (Valid) EOF with RJUMPV table size 256 (target parameterized)."""
     eof_state_test(
         data=Container(
             sections=[
                 Section.Code(
-                    code=Op.PUSH1(0)
-                    + Op.RJUMPV[range(256)]
-                    + Op.NOOP * 256
-                    + Op.SSTORE(slot_code_worked, value_code_worked)
-                    + Op.STOP,
-                )
-            ],
-        ),
-        container_post=Account(storage={slot_code_worked: value_code_worked}),
-    )
-
-
-def test_rjumpv_full_table_mid(
-    eof_state_test: EOFStateTestFiller,
-):
-    """EOF1V4200_0013 (Valid) EOF with RJUMPV table size 256 (Target 100)."""
-    eof_state_test(
-        data=Container(
-            sections=[
-                Section.Code(
-                    code=Op.PUSH1(100)
-                    + Op.RJUMPV[range(256)]
-                    + Op.NOOP * 256
-                    + Op.SSTORE(slot_code_worked, value_code_worked)
-                    + Op.STOP,
-                )
-            ],
-        ),
-        container_post=Account(storage={slot_code_worked: value_code_worked}),
-    )
-
-
-def test_rjumpv_full_table_end(
-    eof_state_test: EOFStateTestFiller,
-):
-    """EOF1V4200_0014 (Valid) EOF with RJUMPV table size 256 (Target 254)."""
-    eof_state_test(
-        data=Container(
-            sections=[
-                Section.Code(
-                    code=Op.PUSH1(254)
-                    + Op.RJUMPV[range(256)]
-                    + Op.NOOP * 256
-                    + Op.SSTORE(slot_code_worked, value_code_worked)
-                    + Op.STOP,
-                )
-            ],
-        ),
-        container_post=Account(storage={slot_code_worked: value_code_worked}),
-    )
-
-
-def test_rjumpv_full_table_last(
-    eof_state_test: EOFStateTestFiller,
-):
-    """EOF1V4200_0015 (Valid) EOF with RJUMPV table size 256 (Target 256)."""
-    eof_state_test(
-        data=Container(
-            sections=[
-                Section.Code(
-                    code=Op.PUSH2(256)
+                    code=Op.PUSH2[target]
                     + Op.RJUMPV[range(256)]
                     + Op.NOOP * 256
                     + Op.SSTORE(slot_code_worked, value_code_worked)
@@ -320,7 +265,7 @@ def test_rjumpv_truncated(
     branches: int,
     byte_count_last_branch: int,
 ):
-    """EOF1I4200_0028/29/30/31 (Invalid) EOF code containing truncated RJUMPV."""
+    """EOF1I4200_0028/29/30 (Invalid) EOF code containing truncated RJUMPV."""
     rjumpv_bytes = int.to_bytes(branches - 1, 1, "big")
     rjumpv_bytes += b"\0" * ((2 * (branches - 1)) + byte_count_last_branch)
 
@@ -362,6 +307,7 @@ def test_rjumpv_into_header(
     )
 
 
+@pytest.mark.parametrize("offset", [-13, -23])
 @pytest.mark.parametrize(
     "table_size,invalid_index",
     [
@@ -374,12 +320,13 @@ def test_rjumpv_before_container(
     eof_test: EOFTestFiller,
     table_size: int,
     invalid_index: int,
+    offset: int,
 ):
     """
     EOF1I4200_0032 (Invalid) EOF code containing RJUMPV with target outside code bounds
     (Jumping to before code begin).
     """
-    invalid_destination = -13 - (2 * table_size)
+    invalid_destination = offset - (2 * table_size)
     jump_table = [0 for _ in range(table_size)]
     jump_table[invalid_index] = invalid_destination
     eof_test(
@@ -1051,18 +998,15 @@ def test_rjumpv_into_eofcreate(
     table_size: int,
     invalid_index: int,
 ):
-    """EOF code containing RJUMP with target EOFCREATE immediate."""
-    invalid_destination = 9
+    """EOF code containing RJUMPV with target EOFCREATE immediate."""
+    invalid_destination = 1
     jump_table = [0 for _ in range(table_size)]
     jump_table[invalid_index] = invalid_destination
     eof_test(
         data=Container(
             sections=[
                 Section.Code(
-                    code=Op.PUSH1(0)
-                    + Op.RJUMPV[jump_table]
-                    + Op.EOFCREATE[0](0, 0, 0, 0)
-                    + Op.STOP,
+                    code=Op.PUSH0 * 5 + Op.RJUMPV[jump_table] + Op.EOFCREATE[0] + Op.STOP,
                 ),
                 Section.Container(
                     container=Container(
@@ -1071,11 +1015,7 @@ def test_rjumpv_into_eofcreate(
                                 code=Op.RETURNCONTRACT[0](0, 0),
                             ),
                             Section.Container(
-                                container=Container(
-                                    sections=[
-                                        Section.Code(code=Op.STOP),
-                                    ]
-                                )
+                                container=Container.Code(Op.STOP),
                             ),
                         ]
                     )
@@ -1099,8 +1039,8 @@ def test_rjumpv_into_returncontract(
     table_size: int,
     invalid_index: int,
 ):
-    """EOF code containing RJUMP with target RETURNCONTRACT immediate."""
-    invalid_destination = 5
+    """EOF code containing RJUMPV with target RETURNCONTRACT immediate."""
+    invalid_destination = 1
     jump_table = [0 for _ in range(table_size)]
     jump_table[invalid_index] = invalid_destination
     eof_test(
@@ -1113,16 +1053,10 @@ def test_rjumpv_into_returncontract(
                     container=Container(
                         sections=[
                             Section.Code(
-                                code=Op.PUSH1(0)
-                                + Op.RJUMPV[jump_table]
-                                + Op.RETURNCONTRACT[0](0, 0),
+                                code=Op.PUSH0 * 3 + Op.RJUMPV[jump_table] + Op.RETURNCONTRACT[0],
                             ),
                             Section.Container(
-                                container=Container(
-                                    sections=[
-                                        Section.Code(code=Op.STOP),
-                                    ]
-                                )
+                                container=Container.Code(Op.STOP),
                             ),
                         ]
                     )

@@ -107,31 +107,31 @@
 
 ### Validation
 
-- [ ] Valid RJUMP with various offsets (ethereum/tests: src/EOFTestsFiller/efValidation/EOF1_valid_rjump_Copier.json src/EOFTestsFiller/EIP4200/validInvalidFiller.yml)
-- [ ] Valid RJUMP with maximum offset (ethereum/tests: src/EOFTestsFiller/EIP4200/validInvalidFiller.yml)
-- [ ] Valid RJUMP with minimum offset
-- [ ] Valid RJUMPI with various offsets (ethereum/tests: src/EOFTestsFiller/efValidation/EOF1_valid_rjumpi_Copier.json src/EOFTestsFiller/EIP4200/validInvalidFiller.yml)
-- [ ] Valid RJUMPI with maximum offset (ethereum/offset: src/EOFTestsFiller/EIP4200/validInvalidFiller.yml)
-- [ ] Valid RJUMPI with minimum offset
-- [ ] Valid RJUMPV with various number of offsets and various offsets (ethereum/tests: src/EOFTestsFiller/efValidation/EOF1_valid_rjumpv_Copier.json src/EOFTestsFiller/EIP4200/validInvalidFiller.yml)
-- [ ] Valid RJUMPV with table size 256 (ethereum/tests: src/EOFTestsFiller/EIP4200/validInvalidFiller.yml)
-- [ ] Valid RJUMPV containing maximum offset (ethereum/tests: src/EOFTestsFiller/EIP4200/validInvalidFiller.yml)
+- [x] Valid RJUMP with various offsets ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjump.py::test_rjump_positive_negative`](./eip4200_relative_jumps/test_rjump/test_rjump_positive_negative.md))
+- [x] Valid RJUMP with maximum offset ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjump.py::test_rjump_maxes`](./eip4200_relative_jumps/test_rjump/test_rjump_maxes.md))
+- [x] Valid RJUMP with minimum offset ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjump.py::test_rjump_maxes`](./eip4200_relative_jumps/test_rjump/test_rjump_maxes.md))
+- [x] Valid RJUMPI with various offsets ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjumpi.py::test_rjumpi_forwards`](./eip4200_relative_jumps/test_rjumpi/test_rjumpi_forwards.md))
+- [x] Valid RJUMPI with maximum offset ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjumpi.py::test_rjumpi_max_forward`](./eip4200_relative_jumps/test_rjumpi/test_rjumpi_max_forward.md))
+- [x] Valid RJUMPI with minimum offset ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjumpi.py::test_rjumpi_max_backward`](./eip4200_relative_jumps/test_rjumpi/test_rjumpi_max_backward.md))
+- [x] Valid RJUMPV with various number of offsets and various offsets ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjumpv.py::test_rjumpv_forwards`](./eip4200_relative_jumps/test_rjumpv/test_rjumpv_forwards.md))
+- [x] Valid RJUMPV with table size 256 ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjumpv.py::test_rjumpv_full_table`](./eip4200_relative_jumps/test_rjumpv/test_rjumpv_full_table.md))
+- [x] Valid RJUMPV containing maximum offset ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjumpv.py::test_rjumpv_max_forwards`](./eip4200_relative_jumps/test_rjumpv/test_rjumpv_max_forwards.md))
 - [ ] Valid RJUMPV containing minimum offset
-- [ ] Truncated before RJUMP immediate (ethereum/tests: ./src/EOFTestsFiller/efValidation/EOF1_rjump_truncated_Copier.json)
-- [ ] Truncated RJUMP immediate (ethereum/tests: ./src/EOFTestsFiller/efValidation/EOF1_rjump_truncated_Copier.json)
-- [ ] RJUMP out of container bounds (ethereum/tests: ./src/EOFTestsFiller/efValidation/EOF1_rjump_invalid_destination_Copier.json)
-- [ ] RJUMP out of section bounds (ethereum/tests: ./src/EOFTestsFiller/efValidation/EOF1_rjump_invalid_destination_Copier.json)
-- [ ] RJUMP into immediate (ethereum/tests: ./src/EOFTestsFiller/efValidation/EOF1_rjump_invalid_destination_Copier.json)
-- [ ] Truncated before RJUMPI immediate (ethereum/tests: ./src/EOFTestsFiller/efValidation/EOF1_rjumpi_truncated_Copier.json)
-- [ ] Truncated RJUMPI immediate (ethereum/tests: ./src/EOFTestsFiller/efValidation/EOF1_rjumpi_truncated_Copier.json)
-- [ ] RJUMPI out of container bounds (ethereum/tests: ./src/EOFTestsFiller/efValidation/EOF1_rjumpi_invalid_destination_Copier.json)
-- [ ] RJUMPI out of section bounds (ethereum/tests: ./src/EOFTestsFiller/efValidation/EOF1_rjumpi_invalid_destination_Copier.json)
-- [ ] RJUMPI into immediate (ethereum/tests: ./src/EOFTestsFiller/efValidation/EOF1_rjumpi_invalid_destination_Copier.json)
-- [ ] Truncated before RJUMPV immediate
-- [ ] Truncated RJUMPV immediate (ethereum/tests: ./src/EOFTestsFiller/efValidation/EOF1_rjumpv_truncated_Copier.json)
-- [ ] RJUMPV out of container bounds (ethereum/tests: ./src/EOFTestsFiller/efValidation/EOF1_rjumpv_invalid_destination_Copier.json)
-- [ ] RJUMPV out of section bounds (ethereum/tests: ./src/EOFTestsFiller/efValidation/EOF1_rjumpv_invalid_destination_Copier.json)
-- [ ] RJUMPV into immediate (ethereum/tests: ./src/EOFTestsFiller/efValidation/EOF1_rjumpv_invalid_destination_Copier.json)
+- [x] Truncated before RJUMP immediate ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjump.py::test_rjump_truncated_rjump`](./eip4200_relative_jumps/test_rjump/test_rjump_truncated_rjump.md))
+- [x] Truncated RJUMP immediate ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjump.py::test_rjump_truncated_rjump_2`](./eip4200_relative_jumps/test_rjump/test_rjump_truncated_rjump_2.md))
+- [x] RJUMP out of container bounds ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjump.py::test_rjump_after_container`](./eip4200_relative_jumps/test_rjump/test_rjump_after_container.md))
+- [x] RJUMP out of section bounds ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjump.py::test_rjump_into_data`](./eip4200_relative_jumps/test_rjump/test_rjump_into_data.md))
+- [x] RJUMP into immediate ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjump.py::test_rjump_into_push_1`](./eip4200_relative_jumps/test_rjump/test_rjump_into_push_1.md))
+- [x] Truncated before RJUMPI immediate ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjumpi.py::test_rjumpi_truncated`](./eip4200_relative_jumps/test_rjumpi/test_rjumpi_truncated.md))
+- [x] Truncated RJUMPI immediate ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjumpi.py::test_rjumpi_truncated_2`](./eip4200_relative_jumps/test_rjumpi/test_rjumpi_truncated_2.md))
+- [x] RJUMPI out of container bounds ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjumpi.py::test_rjumpi_after_container`](./eip4200_relative_jumps/test_rjumpi/test_rjumpi_after_container.md))
+- [x] RJUMPI out of section bounds ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjumpi.py::test_rjumpi_into_data`](./eip4200_relative_jumps/test_rjumpi/test_rjumpi_into_data.md))
+- [x] RJUMPI into immediate ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjumpi.py::test_rjumpi_into_push_1`](./eip4200_relative_jumps/test_rjumpi/test_rjumpi_into_push_1.md))
+- [x] Truncated before RJUMPV immediate ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjumpv.py::test_rjumpv_truncated_empty`](./eip4200_relative_jumps/test_rjumpv/test_rjumpv_truncated_empty.md))
+- [x] Truncated RJUMPV immediate ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjumpv.py::test_rjumpv_truncated`](./eip4200_relative_jumps/test_rjumpv/test_rjumpv_truncated.md))
+- [x] RJUMPV out of container bounds ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjumpv.py::test_rjumpv_after_container`](./eip4200_relative_jumps/test_rjumpv/test_rjumpv_after_container.md))
+- [x] RJUMPV out of section bounds ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjumpv.py::test_rjumpv_into_data`](./eip4200_relative_jumps/test_rjumpv/test_rjumpv_into_data.md))
+- [x] RJUMPV into immediate ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjumpv.py::test_rjumpv_into_push_1`](./eip4200_relative_jumps/test_rjumpv/test_rjumpv_into_push_1.md))
 
 ### Execution
 

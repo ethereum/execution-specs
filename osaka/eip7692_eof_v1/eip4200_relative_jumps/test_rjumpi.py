@@ -48,19 +48,15 @@ def test_rjumpi_condition_forwards(
     env = Environment()
     sender = pre.fund_eoa(10**18)
     contract_address = pre.deploy_contract(
-        code=Container(
-            sections=[
-                Section.Code(
-                    code=Op.PUSH1(0)
-                    + Op.CALLDATALOAD
-                    + Op.RJUMPI[6]
-                    + Op.SSTORE(slot_conditional_result, value_calldata_false)
-                    + Op.STOP
-                    + Op.SSTORE(slot_conditional_result, value_calldata_true)
-                    + Op.STOP,
-                )
-            ]
-        ),
+        code=Container.Code(
+            Op.PUSH1(0)
+            + Op.CALLDATALOAD
+            + Op.RJUMPI[6]
+            + Op.SSTORE(slot_conditional_result, value_calldata_false)
+            + Op.STOP
+            + Op.SSTORE(slot_conditional_result, value_calldata_true)
+            + Op.STOP,
+        )
     )
     tx = Transaction(
         to=contract_address,
@@ -93,20 +89,16 @@ def test_rjumpi_condition_backwards(
     env = Environment()
     sender = pre.fund_eoa(10**18)
     contract_address = pre.deploy_contract(
-        code=Container(
-            sections=[
-                Section.Code(
-                    code=Op.PUSH1(1)
-                    + Op.RJUMPI[6]
-                    + Op.SSTORE(slot_conditional_result, value_calldata_true)
-                    + Op.STOP
-                    + Op.PUSH0
-                    + Op.CALLDATALOAD
-                    + Op.RJUMPI[-11]
-                    + Op.SSTORE(slot_conditional_result, value_calldata_false)
-                    + Op.STOP,
-                )
-            ]
+        code=Container.Code(
+            Op.PUSH1(1)
+            + Op.RJUMPI[6]
+            + Op.SSTORE(slot_conditional_result, value_calldata_true)
+            + Op.STOP
+            + Op.PUSH0
+            + Op.CALLDATALOAD
+            + Op.RJUMPI[-11]
+            + Op.SSTORE(slot_conditional_result, value_calldata_false)
+            + Op.STOP,
         )
     )
     tx = Transaction(
@@ -316,8 +308,10 @@ def test_rjumpi_truncated_2(
     )
 
 
+@pytest.mark.parametrize("offset", [-7, -15])
 def test_rjumpi_into_header(
     eof_test: EOFTestFiller,
+    offset: int,
 ):
     """
     EOF1I4200_0016 (Invalid) EOF code containing RJUMPI with target outside code bounds
@@ -327,7 +321,7 @@ def test_rjumpi_into_header(
         data=Container(
             sections=[
                 Section.Code(
-                    code=Op.PUSH1(1) + Op.RJUMPI[-7] + Op.STOP,
+                    code=Op.PUSH1(1) + Op.RJUMPI[offset] + Op.STOP,
                 )
             ],
         ),
@@ -747,12 +741,12 @@ def test_rjumpi_into_exchange(
 def test_rjumpi_into_eofcreate(
     eof_test: EOFTestFiller,
 ):
-    """EOF code containing RJUMP with target EOFCREATE immediate."""
+    """EOF code containing RJUMPI with target EOFCREATE immediate."""
     eof_test(
         data=Container(
             sections=[
                 Section.Code(
-                    code=Op.PUSH0 + Op.RJUMPI[9] + Op.EOFCREATE[0](0, 0, 0, 0) + Op.STOP,
+                    code=Op.PUSH0 * 5 + Op.RJUMPI[1] + Op.EOFCREATE[0] + Op.STOP,
                 ),
                 Section.Container(
                     container=Container(
@@ -761,11 +755,7 @@ def test_rjumpi_into_eofcreate(
                                 code=Op.RETURNCONTRACT[0](0, 0),
                             ),
                             Section.Container(
-                                container=Container(
-                                    sections=[
-                                        Section.Code(code=Op.STOP),
-                                    ]
-                                )
+                                container=Container.Code(code=Op.STOP),
                             ),
                         ]
                     )
@@ -779,7 +769,7 @@ def test_rjumpi_into_eofcreate(
 def test_rjumpi_into_returncontract(
     eof_test: EOFTestFiller,
 ):
-    """EOF code containing RJUMP with target RETURNCONTRACT immediate."""
+    """EOF code containing RJUMPI with target RETURNCONTRACT immediate."""
     eof_test(
         data=Container(
             sections=[
@@ -790,14 +780,10 @@ def test_rjumpi_into_returncontract(
                     container=Container(
                         sections=[
                             Section.Code(
-                                code=Op.PUSH0 + Op.RJUMPI[5] + Op.RETURNCONTRACT[0](0, 0),
+                                code=Op.PUSH0 * 3 + Op.RJUMPI[1] + Op.RETURNCONTRACT[0],
                             ),
                             Section.Container(
-                                container=Container(
-                                    sections=[
-                                        Section.Code(code=Op.STOP),
-                                    ]
-                                )
+                                container=Container.Code(code=Op.STOP),
                             ),
                         ]
                     )
