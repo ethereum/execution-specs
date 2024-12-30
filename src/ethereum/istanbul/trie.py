@@ -461,7 +461,7 @@ def patricialize(
             branches[key[level]][key] = obj[key]
 
     return BranchNode(
-        (
+        tuple(
             encode_internal_node(patricialize(branches[k], level + Uint(1)))
             for k in range(16)
         ),
