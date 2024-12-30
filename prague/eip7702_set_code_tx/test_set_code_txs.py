@@ -2634,7 +2634,7 @@ def test_set_code_to_system_contract(
             )
             caller_payload = deposit_request.calldata
             call_value = deposit_request.value
-        case Address(0x09FC772D0857550724B07B850A4323F39112AAAA):  # EIP-7002
+        case Address(0x0C15F14308530B7CDB8460094BBB9CC28B9AAAAA):  # EIP-7002
             # Fabricate a valid withdrawal request to the set-code account
             withdrawal_request = WithdrawalRequest(
                 source_address=0x01,
