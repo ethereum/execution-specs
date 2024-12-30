@@ -2644,7 +2644,7 @@ def test_set_code_to_system_contract(
             )
             caller_payload = withdrawal_request.calldata
             call_value = withdrawal_request.value
-        case Address(0x01ABEA29659E5E97C95107F20BB753CD3E09BBBB):  # EIP-7251
+        case Address(0x00431F263CE400F4455C2DCF564E53007CA4BBBB):  # EIP-7251
             # Fabricate a valid consolidation request to the set-code account
             consolidation_request = ConsolidationRequest(
                 source_address=0x01,
