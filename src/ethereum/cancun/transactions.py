@@ -149,6 +149,43 @@ def decode_transaction(tx: Union[LegacyTransaction, Bytes]) -> Transaction:
         return tx
 
 
+def validate_transaction(tx: Transaction) -> bool:
+    """
+    Verifies a transaction.
+
+    The gas in a transaction gets used to pay for the intrinsic cost of
+    operations, therefore if there is insufficient gas then it would not
+    be possible to execute a transaction and it will be declared invalid.
+
+    Additionally, the nonce of a transaction must not equal or exceed the
+    limit defined in `EIP-2681 <https://eips.ethereum.org/EIPS/eip-2681>`_.
+    In practice, defining the limit as ``2**64-1`` has no impact because
+    sending ``2**64-1`` transactions is improbable. It's not strictly
+    impossible though, ``2**64-1`` transactions is the entire capacity of the
+    Ethereum blockchain at 2022 gas limits for a little over 22 years.
+
+    Parameters
+    ----------
+    tx :
+        Transaction to validate.
+
+    Returns
+    -------
+    verified : `bool`
+        True if the transaction can be executed, or False otherwise.
+    """
+    from .vm.interpreter import MAX_CODE_SIZE
+
+    if calculate_intrinsic_cost(tx) > tx.gas:
+        return False
+    if tx.nonce >= U256(U64.MAX_VALUE):
+        return False
+    if tx.to == Bytes0(b"") and len(tx.data) > 2 * MAX_CODE_SIZE:
+        return False
+
+    return True
+
+
 def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     """
     Calculates the gas that is charged before execution is started.
