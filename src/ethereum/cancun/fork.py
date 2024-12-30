@@ -15,7 +15,7 @@ Entry point for the Ethereum specification.
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Union
 
-from ethereum_types.bytes import Bytes, Bytes0, Bytes32
+from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
@@ -48,6 +48,7 @@ from .transactions import (
     decode_transaction,
     encode_transaction,
     recover_sender,
+    validate_transaction,
 )
 from .trie import Trie, root, trie_set
 from .utils.hexadecimal import hex_to_address
@@ -59,7 +60,7 @@ from .vm.gas import (
     calculate_excess_blob_gas,
     calculate_total_blob_gas,
 )
-from .vm.interpreter import MAX_CODE_SIZE, process_message_call
+from .vm.interpreter import process_message_call
 
 BASE_FEE_MAX_CHANGE_DENOMINATOR = Uint(8)
 ELASTICITY_MULTIPLIER = Uint(2)
@@ -366,18 +367,10 @@ def check_transaction(
     InvalidBlock :
         If the transaction is not includable.
     """
-    if calculate_intrinsic_cost(tx) > tx.gas:
-        raise InvalidBlock
-    if tx.nonce >= U256(U64.MAX_VALUE):
-        raise InvalidBlock
-    if tx.to == Bytes0(b"") and len(tx.data) > 2 * MAX_CODE_SIZE:
-        raise InvalidBlock
-
     if tx.gas > gas_available:
         raise InvalidBlock
-
-    sender = recover_sender(chain_id, tx)
-    sender_account = get_account(state, sender)
+    sender_address = recover_sender(chain_id, tx)
+    sender_account = get_account(state, sender_address)
 
     if isinstance(tx, (FeeMarketTransaction, BlobTransaction)):
         if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
@@ -423,7 +416,7 @@ def check_transaction(
     if sender_account.code != bytearray():
         raise InvalidSenderError("not EOA")
 
-    return sender, effective_gas_price, blob_versioned_hashes
+    return sender_address, effective_gas_price, blob_versioned_hashes
 
 
 def make_receipt(
@@ -730,6 +723,9 @@ def process_transaction(
     logs : `Tuple[ethereum.blocks.Log, ...]`
         Logs generated during execution.
     """
+    if not validate_transaction(tx):
+        raise InvalidBlock
+
     sender = env.origin
     sender_account = get_account(env.state, sender)
 
