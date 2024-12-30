@@ -94,10 +94,25 @@ class ExtensionNode:
     subnode: rlp.Extended
 
 
-BranchSubnodes = Tuple[rlp.Extended, rlp.Extended, rlp.Extended, rlp.Extended,
-                      rlp.Extended, rlp.Extended, rlp.Extended, rlp.Extended,
-                      rlp.Extended, rlp.Extended, rlp.Extended, rlp.Extended,
-                      rlp.Extended, rlp.Extended, rlp.Extended, rlp.Extended]
+BranchSubnodes = Tuple[
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+]
+
 
 @slotted_freezable
 @dataclass
