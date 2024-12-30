@@ -82,6 +82,7 @@ from .code import (
     Yul,
     YulCompiler,
 )
+from .utility.generators import generate_system_contract_deploy_test
 from .utility.pytest import extend_with_defaults
 
 __all__ = (
@@ -155,6 +156,7 @@ __all__ = (
     "compute_create2_address",
     "compute_eofcreate_address",
     "extend_with_defaults",
+    "generate_system_contract_deploy_test",
     "keccak256",
     "vm",
 )
