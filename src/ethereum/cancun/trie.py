@@ -97,12 +97,17 @@ class ExtensionNode:
     subnode: rlp.Extended
 
 
+BranchSubnodes = Tuple[rlp.Extended, rlp.Extended, rlp.Extended, rlp.Extended,
+                      rlp.Extended, rlp.Extended, rlp.Extended, rlp.Extended,
+                      rlp.Extended, rlp.Extended, rlp.Extended, rlp.Extended,
+                      rlp.Extended, rlp.Extended, rlp.Extended, rlp.Extended]
+
 @slotted_freezable
 @dataclass
 class BranchNode:
     """Branch node in the Merkle Trie"""
 
-    subnodes: Annotated[Tuple[rlp.Extended, ...], 16]
+    subnodes: BranchSubnodes
     value: rlp.Extended
 
 
