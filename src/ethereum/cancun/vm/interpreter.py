@@ -79,7 +79,7 @@ class MessageCallOutput:
     """
 
     gas_left: Uint
-    refund_counter: U256
+    refund_counter: Uint
     logs: Union[Tuple[()], Tuple[Log, ...]]
     accounts_to_delete: Set[Address]
     touched_accounts: Iterable[Address]
@@ -112,7 +112,7 @@ def process_message_call(
         )
         if is_collision:
             return MessageCallOutput(
-                Uint(0), U256(0), tuple(), set(), set(), AddressCollision()
+                Uint(0), Uint(0), tuple(), set(), set(), AddressCollision()
             )
         else:
             evm = process_create_message(message, env)
@@ -125,12 +125,12 @@ def process_message_call(
         logs: Tuple[Log, ...] = ()
         accounts_to_delete = set()
         touched_accounts = set()
-        refund_counter = U256(0)
+        refund_counter = Uint(0)
     else:
         logs = evm.logs
         accounts_to_delete = evm.accounts_to_delete
         touched_accounts = evm.touched_accounts
-        refund_counter = U256(evm.refund_counter)
+        refund_counter = evm.refund_counter
 
     tx_end = TransactionEnd(
         int(message.gas) - int(evm.gas_left), evm.output, evm.error

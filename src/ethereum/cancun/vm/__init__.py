@@ -87,7 +87,7 @@ class Evm:
     env: Environment
     valid_jump_destinations: Set[Uint]
     logs: Tuple[Log, ...]
-    refund_counter: int
+    refund_counter: Uint
     running: bool
     message: Message
     output: Bytes

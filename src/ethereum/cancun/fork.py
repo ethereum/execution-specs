@@ -779,7 +779,7 @@ def process_transaction(
     output = process_message_call(message, env)
 
     gas_used = tx.gas - output.gas_left
-    gas_refund = min(gas_used // Uint(5), Uint(output.refund_counter))
+    gas_refund = min(gas_used // Uint(5), output.refund_counter)
     gas_refund_amount = (output.gas_left + gas_refund) * env.gas_price
 
     # For non-1559 transactions env.gas_price == tx.gas_price
