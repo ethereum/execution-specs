@@ -16,7 +16,6 @@ The state trie is the structure responsible for storing
 import copy
 from dataclasses import dataclass, field
 from typing import (
-    Annotated,
     Callable,
     Dict,
     Generic,
