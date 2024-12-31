@@ -3,9 +3,9 @@ import pkgutil
 from typing import Any, Dict, List, cast
 
 import pytest
+from ethereum_rlp import rlp
 from ethereum_types.numeric import Uint
 
-from ethereum import rlp
 from ethereum.byzantium.blocks import Header
 from ethereum.byzantium.fork import (
     generate_header_hash_for_pow,

@@ -22,20 +22,14 @@ class InvalidTransaction(EthereumException):
     """
 
 
-class RLPDecodingError(EthereumException):
-    """
-    Indicates that RLP decoding failed.
-    """
-
-
-class RLPEncodingError(EthereumException):
-    """
-    Indicates that RLP encoding failed.
-    """
-
-
 class InvalidSenderError(InvalidTransaction):
     """
     Thrown when a transaction originates from an account that cannot send
     transactions.
+    """
+
+
+class InvalidSignatureError(InvalidTransaction):
+    """
+    Thrown when a transaction has an invalid signature.
     """

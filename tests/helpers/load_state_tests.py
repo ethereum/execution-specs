@@ -8,10 +8,13 @@ from unittest.mock import call, patch
 
 import pytest
 from _pytest.mark.structures import ParameterSet
+from ethereum_rlp import rlp
+from ethereum_rlp.exceptions import RLPException
 from ethereum_types.numeric import U64
 
-from ethereum import rlp
+from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import EthereumException
+from ethereum.fork_criteria import ByBlockNumber
 from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum_spec_tools.evm_tools.loaders.fixture_loader import Load
 
@@ -24,6 +27,7 @@ class NoTestsFound(Exception):
 
 
 def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
+    load.fork.fork_criteria = ByBlockNumber(0)
     test_file = test_case["test_file"]
     test_key = test_case["test_key"]
 
@@ -47,7 +51,7 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
     genesis_block = load.fork.Block(*parameters)
 
     genesis_header_hash = hex_to_bytes(json_data["genesisBlockHeader"]["hash"])
-    assert rlp.rlp_hash(genesis_header) == genesis_header_hash
+    assert keccak256(rlp.encode(genesis_header)) == genesis_header_hash
     genesis_rlp = hex_to_bytes(json_data["genesisRLP"])
     assert rlp.encode(genesis_block) == genesis_rlp
 
@@ -72,14 +76,14 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
             # TODO: Once all the specific exception types are thrown,
             #       only `pytest.raises` the correct exception type instead of
             #       all of them.
-            with pytest.raises(EthereumException):
+            with pytest.raises((EthereumException, RLPException)):
                 add_block_to_chain(chain, json_block, load, mock_pow)
             return
         else:
             add_block_to_chain(chain, json_block, load, mock_pow)
 
     last_block_hash = hex_to_bytes(json_data["lastblockhash"])
-    assert rlp.rlp_hash(chain.blocks[-1].header) == last_block_hash
+    assert keccak256(rlp.encode(chain.blocks[-1].header)) == last_block_hash
 
     expected_post_state = load.json_to_state(json_data["postState"])
     assert chain.state == expected_post_state
@@ -96,7 +100,7 @@ def add_block_to_chain(
         block_rlp,
     ) = load.json_to_block(json_block)
 
-    assert rlp.rlp_hash(block.header) == block_header_hash
+    assert keccak256(rlp.encode(block.header)) == block_header_hash
     assert rlp.encode(block) == block_rlp
 
     if not mock_pow:

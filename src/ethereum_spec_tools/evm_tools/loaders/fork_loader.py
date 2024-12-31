@@ -5,6 +5,7 @@ Loader for code from the relevant fork.
 import importlib
 from typing import Any
 
+from ethereum.fork_criteria import ForkCriteria
 from ethereum_spec_tools.forks import Hardfork
 
 
@@ -19,6 +20,17 @@ class ForkLoad:
     def __init__(self, fork_module: str):
         self._fork_module = fork_module
         self._forks = Hardfork.discover()
+
+    @property
+    def fork_criteria(self) -> ForkCriteria:
+        """Activation criteria for the loaded fork."""
+        mod = importlib.import_module(f"ethereum.{self._fork_module}")
+        return mod.FORK_CRITERIA
+
+    @fork_criteria.setter
+    def fork_criteria(self, value: ForkCriteria) -> None:
+        mod = importlib.import_module(f"ethereum.{self._fork_module}")
+        mod.FORK_CRITERIA = value  # type: ignore[attr-defined]
 
     @property
     def fork_module(self) -> str:
@@ -80,32 +92,32 @@ class ForkLoad:
     @property
     def signing_hash(self) -> Any:
         """signing_hash function of the fork"""
-        return self._module("fork").signing_hash
+        return self._module("transactions").signing_hash
 
     @property
     def signing_hash_pre155(self) -> Any:
         """signing_hash_pre155 function of the fork"""
-        return self._module("fork").signing_hash_pre155
+        return self._module("transactions").signing_hash_pre155
 
     @property
     def signing_hash_155(self) -> Any:
         """signing_hash_155 function of the fork"""
-        return self._module("fork").signing_hash_155
+        return self._module("transactions").signing_hash_155
 
     @property
     def signing_hash_2930(self) -> Any:
         """signing_hash_2930 function of the fork"""
-        return self._module("fork").signing_hash_2930
+        return self._module("transactions").signing_hash_2930
 
     @property
     def signing_hash_1559(self) -> Any:
         """signing_hash_1559 function of the fork"""
-        return self._module("fork").signing_hash_1559
+        return self._module("transactions").signing_hash_1559
 
     @property
     def signing_hash_4844(self) -> Any:
         """signing_hash_4844 function of the fork"""
-        return self._module("fork").signing_hash_4844
+        return self._module("transactions").signing_hash_4844
 
     @property
     def check_transaction(self) -> Any:

@@ -15,16 +15,25 @@ Entry point for the Ethereum specification.
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Union
 
+from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 
-from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import InvalidBlock, InvalidSenderError
+from ethereum.shanghai import fork as previous_fork
 
-from .. import rlp
 from . import vm
-from .blocks import Block, Header, Log, Receipt, Withdrawal
+from .blocks import (
+    AnyBlock,
+    AnyHeader,
+    Block,
+    Header,
+    Log,
+    Receipt,
+    Withdrawal,
+    header_base_fee_per_gas,
+)
 from .bloom import logs_bloom
 from .fork_types import Address, Bloom, Root, VersionedHash
 from .state import (
@@ -40,19 +49,15 @@ from .state import (
     state_root,
 )
 from .transactions import (
-    TX_ACCESS_LIST_ADDRESS_COST,
-    TX_ACCESS_LIST_STORAGE_KEY_COST,
-    TX_BASE_COST,
-    TX_CREATE_COST,
-    TX_DATA_COST_PER_NON_ZERO,
-    TX_DATA_COST_PER_ZERO,
     AccessListTransaction,
     BlobTransaction,
     FeeMarketTransaction,
     LegacyTransaction,
     Transaction,
+    calculate_intrinsic_cost,
     decode_transaction,
     encode_transaction,
+    recover_sender,
 )
 from .trie import Trie, root, trie_set
 from .utils.hexadecimal import hex_to_address
@@ -63,7 +68,6 @@ from .vm.gas import (
     calculate_data_fee,
     calculate_excess_blob_gas,
     calculate_total_blob_gas,
-    init_code_cost,
 )
 from .vm.interpreter import MAX_CODE_SIZE, process_message_call
 
@@ -71,6 +75,7 @@ BASE_FEE_MAX_CHANGE_DENOMINATOR = Uint(8)
 ELASTICITY_MULTIPLIER = Uint(2)
 GAS_LIMIT_ADJUSTMENT_FACTOR = Uint(1024)
 GAS_LIMIT_MINIMUM = Uint(5000)
+INITIAL_BASE_FEE = Uint(1000000000)
 EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
 SYSTEM_ADDRESS = hex_to_address("0xfffffffffffffffffffffffffffffffffffffffe")
 BEACON_ROOTS_ADDRESS = hex_to_address(
@@ -87,7 +92,7 @@ class BlockChain:
     History and current state of the block chain.
     """
 
-    blocks: List[Block]
+    blocks: List[AnyBlock]
     state: State
     chain_id: U64
 
@@ -285,7 +290,7 @@ def calculate_base_fee_per_gas(
     return Uint(expected_base_fee_per_gas)
 
 
-def validate_header(header: Header, parent_header: Header) -> None:
+def validate_header(header: AnyHeader, parent_header: AnyHeader) -> None:
     """
     Verifies a block header.
 
@@ -303,15 +308,25 @@ def validate_header(header: Header, parent_header: Header) -> None:
     parent_header :
         Parent Header of the header to check for correctness
     """
+    if not isinstance(header, Header):
+        assert not isinstance(parent_header, Header)
+        return previous_fork.validate_header(header, parent_header)
+
     if header.gas_used > header.gas_limit:
         raise InvalidBlock
 
-    expected_base_fee_per_gas = calculate_base_fee_per_gas(
-        header.gas_limit,
-        parent_header.gas_limit,
-        parent_header.gas_used,
-        parent_header.base_fee_per_gas,
-    )
+    expected_base_fee_per_gas = INITIAL_BASE_FEE
+    parent_base_fee_per_gas = header_base_fee_per_gas(parent_header)
+    if parent_base_fee_per_gas is not None:
+        # For every block except the first, calculate the base fee per gas
+        # based on the parent block.
+        expected_base_fee_per_gas = calculate_base_fee_per_gas(
+            header.gas_limit,
+            parent_header.gas_limit,
+            parent_header.gas_used,
+            parent_base_fee_per_gas,
+        )
+
     if expected_base_fee_per_gas != header.base_fee_per_gas:
         raise InvalidBlock
     if header.timestamp <= parent_header.timestamp:
@@ -813,271 +828,6 @@ def process_transaction(
     destroy_touched_empty_accounts(env.state, output.touched_accounts)
 
     return total_gas_used, output.logs, output.error
-
-
-def calculate_intrinsic_cost(tx: Transaction) -> Uint:
-    """
-    Calculates the gas that is charged before execution is started.
-
-    The intrinsic cost of the transaction is charged before execution has
-    begun. Functions/operations in the EVM cost money to execute so this
-    intrinsic cost is for the operations that need to be paid for as part of
-    the transaction. Data transfer, for example, is part of this intrinsic
-    cost. It costs ether to send data over the wire and that ether is
-    accounted for in the intrinsic cost calculated in this function. This
-    intrinsic cost must be calculated and paid for before execution in order
-    for all operations to be implemented.
-
-    Parameters
-    ----------
-    tx :
-        Transaction to compute the intrinsic cost of.
-
-    Returns
-    -------
-    verified : `ethereum.base_types.Uint`
-        The intrinsic cost of the transaction.
-    """
-    data_cost = 0
-
-    for byte in tx.data:
-        if byte == 0:
-            data_cost += TX_DATA_COST_PER_ZERO
-        else:
-            data_cost += TX_DATA_COST_PER_NON_ZERO
-
-    if tx.to == Bytes0(b""):
-        create_cost = TX_CREATE_COST + int(init_code_cost(Uint(len(tx.data))))
-    else:
-        create_cost = 0
-
-    access_list_cost = 0
-    if isinstance(
-        tx, (AccessListTransaction, FeeMarketTransaction, BlobTransaction)
-    ):
-        for _address, keys in tx.access_list:
-            access_list_cost += TX_ACCESS_LIST_ADDRESS_COST
-            access_list_cost += len(keys) * TX_ACCESS_LIST_STORAGE_KEY_COST
-
-    return Uint(TX_BASE_COST + data_cost + create_cost + access_list_cost)
-
-
-def recover_sender(chain_id: U64, tx: Transaction) -> Address:
-    """
-    Extracts the sender address from a transaction.
-
-    The v, r, and s values are the three parts that make up the signature
-    of a transaction. In order to recover the sender of a transaction the two
-    components needed are the signature (``v``, ``r``, and ``s``) and the
-    signing hash of the transaction. The sender's public key can be obtained
-    with these two values and therefore the sender address can be retrieved.
-
-    Parameters
-    ----------
-    tx :
-        Transaction of interest.
-    chain_id :
-        ID of the executing chain.
-
-    Returns
-    -------
-    sender : `ethereum.fork_types.Address`
-        The address of the account that signed the transaction.
-    """
-    r, s = tx.r, tx.s
-    if U256(0) >= r or r >= SECP256K1N:
-        raise InvalidBlock
-    if U256(0) >= s or s > SECP256K1N // U256(2):
-        raise InvalidBlock
-
-    if isinstance(tx, LegacyTransaction):
-        v = tx.v
-        if v == 27 or v == 28:
-            public_key = secp256k1_recover(
-                r, s, v - U256(27), signing_hash_pre155(tx)
-            )
-        else:
-            chain_id_x2 = U256(chain_id) * U256(2)
-            if v != U256(35) + chain_id_x2 and v != U256(36) + chain_id_x2:
-                raise InvalidBlock
-            public_key = secp256k1_recover(
-                r,
-                s,
-                v - U256(35) - chain_id_x2,
-                signing_hash_155(tx, chain_id),
-            )
-    elif isinstance(tx, AccessListTransaction):
-        public_key = secp256k1_recover(
-            r, s, tx.y_parity, signing_hash_2930(tx)
-        )
-    elif isinstance(tx, FeeMarketTransaction):
-        public_key = secp256k1_recover(
-            r, s, tx.y_parity, signing_hash_1559(tx)
-        )
-    elif isinstance(tx, BlobTransaction):
-        public_key = secp256k1_recover(
-            r, s, tx.y_parity, signing_hash_4844(tx)
-        )
-
-    return Address(keccak256(public_key)[12:32])
-
-
-def signing_hash_pre155(tx: LegacyTransaction) -> Hash32:
-    """
-    Compute the hash of a transaction used in a legacy (pre EIP 155) signature.
-
-    Parameters
-    ----------
-    tx :
-        Transaction of interest.
-
-    Returns
-    -------
-    hash : `ethereum.crypto.hash.Hash32`
-        Hash of the transaction.
-    """
-    return keccak256(
-        rlp.encode(
-            (
-                tx.nonce,
-                tx.gas_price,
-                tx.gas,
-                tx.to,
-                tx.value,
-                tx.data,
-            )
-        )
-    )
-
-
-def signing_hash_155(tx: LegacyTransaction, chain_id: U64) -> Hash32:
-    """
-    Compute the hash of a transaction used in a EIP 155 signature.
-
-    Parameters
-    ----------
-    tx :
-        Transaction of interest.
-    chain_id :
-        The id of the current chain.
-
-    Returns
-    -------
-    hash : `ethereum.crypto.hash.Hash32`
-        Hash of the transaction.
-    """
-    return keccak256(
-        rlp.encode(
-            (
-                tx.nonce,
-                tx.gas_price,
-                tx.gas,
-                tx.to,
-                tx.value,
-                tx.data,
-                chain_id,
-                Uint(0),
-                Uint(0),
-            )
-        )
-    )
-
-
-def signing_hash_2930(tx: AccessListTransaction) -> Hash32:
-    """
-    Compute the hash of a transaction used in a EIP 2930 signature.
-
-    Parameters
-    ----------
-    tx :
-        Transaction of interest.
-
-    Returns
-    -------
-    hash : `ethereum.crypto.hash.Hash32`
-        Hash of the transaction.
-    """
-    return keccak256(
-        b"\x01"
-        + rlp.encode(
-            (
-                tx.chain_id,
-                tx.nonce,
-                tx.gas_price,
-                tx.gas,
-                tx.to,
-                tx.value,
-                tx.data,
-                tx.access_list,
-            )
-        )
-    )
-
-
-def signing_hash_1559(tx: FeeMarketTransaction) -> Hash32:
-    """
-    Compute the hash of a transaction used in a EIP 1559 signature.
-
-    Parameters
-    ----------
-    tx :
-        Transaction of interest.
-
-    Returns
-    -------
-    hash : `ethereum.crypto.hash.Hash32`
-        Hash of the transaction.
-    """
-    return keccak256(
-        b"\x02"
-        + rlp.encode(
-            (
-                tx.chain_id,
-                tx.nonce,
-                tx.max_priority_fee_per_gas,
-                tx.max_fee_per_gas,
-                tx.gas,
-                tx.to,
-                tx.value,
-                tx.data,
-                tx.access_list,
-            )
-        )
-    )
-
-
-def signing_hash_4844(tx: BlobTransaction) -> Hash32:
-    """
-    Compute the hash of a transaction used in a EIP-4844 signature.
-
-    Parameters
-    ----------
-    tx :
-        Transaction of interest.
-
-    Returns
-    -------
-    hash : `ethereum.crypto.hash.Hash32`
-        Hash of the transaction.
-    """
-    return keccak256(
-        b"\x03"
-        + rlp.encode(
-            (
-                tx.chain_id,
-                tx.nonce,
-                tx.max_priority_fee_per_gas,
-                tx.max_fee_per_gas,
-                tx.gas,
-                tx.to,
-                tx.value,
-                tx.data,
-                tx.access_list,
-                tx.max_fee_per_blob_gas,
-                tx.blob_versioned_hashes,
-            )
-        )
-    )
 
 
 def compute_header_hash(header: Header) -> Hash32:

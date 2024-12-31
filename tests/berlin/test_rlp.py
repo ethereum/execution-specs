@@ -1,8 +1,8 @@
 import pytest
+from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes8
 from ethereum_types.numeric import U64, U256, Uint
 
-import ethereum.rlp as rlp
 from ethereum.berlin.blocks import Block, Header, Log, Receipt
 from ethereum.berlin.transactions import (
     AccessListTransaction,
@@ -74,7 +74,7 @@ header = Header(
     receipt_root=hash5,
     bloom=bloom,
     difficulty=Uint(1),
-    number=Uint(2),
+    number=Uint(12244000),
     gas_limit=Uint(3),
     gas_used=Uint(4),
     timestamp=U256(5),

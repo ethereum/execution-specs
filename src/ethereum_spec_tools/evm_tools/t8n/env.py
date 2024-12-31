@@ -5,10 +5,10 @@ import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 
-from ethereum import rlp
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.utils.byte import left_pad_zero_bytes
 from ethereum.utils.hexadecimal import hex_to_bytes

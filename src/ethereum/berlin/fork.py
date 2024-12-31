@@ -15,17 +15,17 @@ Entry point for the Ethereum specification.
 from dataclasses import dataclass
 from typing import List, Optional, Set, Tuple, Union
 
-from ethereum_types.bytes import Bytes, Bytes0
+from ethereum_rlp import rlp
+from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U64, U256, Uint
 
-from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
 from ethereum.exceptions import InvalidBlock, InvalidSenderError
+from ethereum.muir_glacier import fork as previous_fork
 
-from .. import rlp
 from . import vm
-from .blocks import Block, Header, Log, Receipt
+from .blocks import AnyBlock, AnyHeader, Block, Header, Log, Receipt
 from .bloom import logs_bloom
 from .fork_types import Address, Bloom, Root
 from .state import (
@@ -39,17 +39,14 @@ from .state import (
     state_root,
 )
 from .transactions import (
-    TX_ACCESS_LIST_ADDRESS_COST,
-    TX_ACCESS_LIST_STORAGE_KEY_COST,
-    TX_BASE_COST,
-    TX_CREATE_COST,
-    TX_DATA_COST_PER_NON_ZERO,
-    TX_DATA_COST_PER_ZERO,
     AccessListTransaction,
     LegacyTransaction,
     Transaction,
+    calculate_intrinsic_cost,
     decode_transaction,
     encode_transaction,
+    recover_sender,
+    validate_transaction,
 )
 from .trie import Trie, root, trie_set
 from .utils.message import prepare_message
@@ -70,7 +67,7 @@ class BlockChain:
     History and current state of the block chain.
     """
 
-    blocks: List[Block]
+    blocks: List[AnyBlock]
     state: State
     chain_id: U64
 
@@ -194,7 +191,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         chain.blocks = chain.blocks[-255:]
 
 
-def validate_header(header: Header, parent_header: Header) -> None:
+def validate_header(header: AnyHeader, parent_header: AnyHeader) -> None:
     """
     Verifies a block header.
 
@@ -212,6 +209,10 @@ def validate_header(header: Header, parent_header: Header) -> None:
     parent_header :
         Parent Header of the header to check for correctness
     """
+    if not isinstance(header, Header):
+        assert not isinstance(parent_header, Header)
+        return previous_fork.validate_header(header, parent_header)
+
     parent_has_ommers = parent_header.ommers_hash != EMPTY_OMMER_HASH
     if header.timestamp <= parent_header.timestamp:
         raise InvalidBlock
@@ -278,7 +279,7 @@ def generate_header_hash_for_pow(header: Header) -> Hash32:
         header.extra_data,
     )
 
-    return rlp.rlp_hash(header_data_without_pow_artefacts)
+    return keccak256(rlp.encode(header_data_without_pow_artefacts))
 
 
 def validate_proof_of_work(header: Header) -> None:
@@ -420,7 +421,7 @@ def apply_body(
     block_time: U256,
     block_difficulty: Uint,
     transactions: Tuple[Union[LegacyTransaction, Bytes], ...],
-    ommers: Tuple[Header, ...],
+    ommers: Tuple[AnyHeader, ...],
     chain_id: U64,
 ) -> ApplyBodyOutput:
     """
@@ -525,7 +526,7 @@ def apply_body(
 
 
 def validate_ommers(
-    ommers: Tuple[Header, ...], block_header: Header, chain: BlockChain
+    ommers: Tuple[AnyHeader, ...], block_header: Header, chain: BlockChain
 ) -> None:
     """
     Validates the ommers mentioned in the block.
@@ -548,8 +549,8 @@ def validate_ommers(
     chain :
         History and current state.
     """
-    block_hash = rlp.rlp_hash(block_header)
-    if rlp.rlp_hash(ommers) != block_header.ommers_hash:
+    block_hash = keccak256(rlp.encode(block_header))
+    if keccak256(rlp.encode(ommers)) != block_header.ommers_hash:
         raise InvalidBlock
 
     if len(ommers) == 0:
@@ -567,18 +568,19 @@ def validate_ommers(
     if len(ommers) > 2:
         raise InvalidBlock
 
-    ommers_hashes = [rlp.rlp_hash(ommer) for ommer in ommers]
+    ommers_hashes = [keccak256(rlp.encode(ommer)) for ommer in ommers]
     if len(ommers_hashes) != len(set(ommers_hashes)):
         raise InvalidBlock
 
     recent_canonical_blocks = chain.blocks[-(MAX_OMMER_DEPTH + Uint(1)) :]
     recent_canonical_block_hashes = {
-        rlp.rlp_hash(block.header) for block in recent_canonical_blocks
+        keccak256(rlp.encode(block.header))
+        for block in recent_canonical_blocks
     }
     recent_ommers_hashes: Set[Hash32] = set()
     for block in recent_canonical_blocks:
         recent_ommers_hashes = recent_ommers_hashes.union(
-            {rlp.rlp_hash(ommer) for ommer in block.ommers}
+            {keccak256(rlp.encode(ommer)) for ommer in block.ommers}
         )
 
     for ommer_index, ommer in enumerate(ommers):
@@ -605,7 +607,7 @@ def pay_rewards(
     state: State,
     block_number: Uint,
     coinbase: Address,
-    ommers: Tuple[Header, ...],
+    ommers: Tuple[AnyHeader, ...],
 ) -> None:
     """
     Pay rewards to the block miner as well as the ommers miners.
@@ -742,227 +744,6 @@ def process_transaction(
             destroy_account(env.state, address)
 
     return total_gas_used, output.logs, output.error
-
-
-def validate_transaction(tx: Transaction) -> bool:
-    """
-    Verifies a transaction.
-
-    The gas in a transaction gets used to pay for the intrinsic cost of
-    operations, therefore if there is insufficient gas then it would not
-    be possible to execute a transaction and it will be declared invalid.
-
-    Additionally, the nonce of a transaction must not equal or exceed the
-    limit defined in `EIP-2681 <https://eips.ethereum.org/EIPS/eip-2681>`_.
-    In practice, defining the limit as ``2**64-1`` has no impact because
-    sending ``2**64-1`` transactions is improbable. It's not strictly
-    impossible though, ``2**64-1`` transactions is the entire capacity of the
-    Ethereum blockchain at 2022 gas limits for a little over 22 years.
-
-    Parameters
-    ----------
-    tx :
-        Transaction to validate.
-
-    Returns
-    -------
-    verified : `bool`
-        True if the transaction can be executed, or False otherwise.
-    """
-    if calculate_intrinsic_cost(tx) > Uint(tx.gas):
-        return False
-    if tx.nonce >= U256(U64.MAX_VALUE):
-        return False
-    return True
-
-
-def calculate_intrinsic_cost(tx: Transaction) -> Uint:
-    """
-    Calculates the gas that is charged before execution is started.
-
-    The intrinsic cost of the transaction is charged before execution has
-    begun. Functions/operations in the EVM cost money to execute so this
-    intrinsic cost is for the operations that need to be paid for as part of
-    the transaction. Data transfer, for example, is part of this intrinsic
-    cost. It costs ether to send data over the wire and that ether is
-    accounted for in the intrinsic cost calculated in this function. This
-    intrinsic cost must be calculated and paid for before execution in order
-    for all operations to be implemented.
-
-    Parameters
-    ----------
-    tx :
-        Transaction to compute the intrinsic cost of.
-
-    Returns
-    -------
-    verified : `ethereum.base_types.Uint`
-        The intrinsic cost of the transaction.
-    """
-    data_cost = 0
-
-    for byte in tx.data:
-        if byte == 0:
-            data_cost += TX_DATA_COST_PER_ZERO
-        else:
-            data_cost += TX_DATA_COST_PER_NON_ZERO
-
-    if tx.to == Bytes0(b""):
-        create_cost = TX_CREATE_COST
-    else:
-        create_cost = 0
-
-    access_list_cost = 0
-    if isinstance(tx, AccessListTransaction):
-        for _address, keys in tx.access_list:
-            access_list_cost += TX_ACCESS_LIST_ADDRESS_COST
-            access_list_cost += len(keys) * TX_ACCESS_LIST_STORAGE_KEY_COST
-
-    return Uint(TX_BASE_COST + data_cost + create_cost + access_list_cost)
-
-
-def recover_sender(chain_id: U64, tx: Transaction) -> Address:
-    """
-    Extracts the sender address from a transaction.
-
-    The v, r, and s values are the three parts that make up the signature
-    of a transaction. In order to recover the sender of a transaction the two
-    components needed are the signature (``v``, ``r``, and ``s``) and the
-    signing hash of the transaction. The sender's public key can be obtained
-    with these two values and therefore the sender address can be retrieved.
-
-    Parameters
-    ----------
-    tx :
-        Transaction of interest.
-    chain_id :
-        ID of the executing chain.
-
-    Returns
-    -------
-    sender : `ethereum.fork_types.Address`
-        The address of the account that signed the transaction.
-    """
-    r, s = tx.r, tx.s
-    if U256(0) >= r or r >= SECP256K1N:
-        raise InvalidBlock
-    if U256(0) >= s or s > SECP256K1N // U256(2):
-        raise InvalidBlock
-
-    if isinstance(tx, LegacyTransaction):
-        v = tx.v
-        if v == 27 or v == 28:
-            public_key = secp256k1_recover(
-                r, s, v - U256(27), signing_hash_pre155(tx)
-            )
-        else:
-            chain_id_x2 = U256(chain_id) * U256(2)
-            if v != U256(35) + chain_id_x2 and v != U256(36) + chain_id_x2:
-                raise InvalidBlock
-            public_key = secp256k1_recover(
-                r,
-                s,
-                v - U256(35) - chain_id_x2,
-                signing_hash_155(tx, chain_id),
-            )
-    elif isinstance(tx, AccessListTransaction):
-        public_key = secp256k1_recover(
-            r, s, tx.y_parity, signing_hash_2930(tx)
-        )
-
-    return Address(keccak256(public_key)[12:32])
-
-
-def signing_hash_pre155(tx: Transaction) -> Hash32:
-    """
-    Compute the hash of a transaction used in a legacy (pre EIP 155) signature.
-
-    Parameters
-    ----------
-    tx :
-        Transaction of interest.
-
-    Returns
-    -------
-    hash : `ethereum.crypto.hash.Hash32`
-        Hash of the transaction.
-    """
-    return keccak256(
-        rlp.encode(
-            (
-                tx.nonce,
-                tx.gas_price,
-                tx.gas,
-                tx.to,
-                tx.value,
-                tx.data,
-            )
-        )
-    )
-
-
-def signing_hash_155(tx: Transaction, chain_id: U64) -> Hash32:
-    """
-    Compute the hash of a transaction used in a EIP 155 signature.
-
-    Parameters
-    ----------
-    tx :
-        Transaction of interest.
-    chain_id :
-        The id of the current chain.
-
-    Returns
-    -------
-    hash : `ethereum.crypto.hash.Hash32`
-        Hash of the transaction.
-    """
-    return keccak256(
-        rlp.encode(
-            (
-                tx.nonce,
-                tx.gas_price,
-                tx.gas,
-                tx.to,
-                tx.value,
-                tx.data,
-                chain_id,
-                Uint(0),
-                Uint(0),
-            )
-        )
-    )
-
-
-def signing_hash_2930(tx: AccessListTransaction) -> Hash32:
-    """
-    Compute the hash of a transaction used in a EIP 2930 signature.
-
-    Parameters
-    ----------
-    tx :
-        Transaction of interest.
-
-    Returns
-    -------
-    hash : `ethereum.crypto.hash.Hash32`
-        Hash of the transaction.
-    """
-    return keccak256(
-        b"\x01"
-        + rlp.encode(
-            (
-                tx.chain_id,
-                tx.nonce,
-                tx.gas_price,
-                tx.gas,
-                tx.to,
-                tx.value,
-                tx.data,
-                tx.access_list,
-            )
-        )
-    )
 
 
 def compute_header_hash(header: Header) -> Hash32:
