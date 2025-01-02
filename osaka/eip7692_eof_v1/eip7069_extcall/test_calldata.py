@@ -18,6 +18,7 @@ from .helpers import (
     slot_calldata_2,
     slot_code_worked,
     slot_delegate_code_worked,
+    slot_eof_target_returndata,
     value_calldata_1,
     value_calldata_2,
     value_code_worked,
@@ -444,6 +445,114 @@ def test_calldata_remains_after_subcall(
     }
 
     tx = Transaction(to=address_caller, gas_limit=4_000_000, sender=sender)
+
+    state_test(
+        env=env,
+        pre=pre,
+        tx=tx,
+        post=post,
+    )
+
+
+@pytest.mark.parametrize("operation", [Op.EXTCALL, Op.EXTSTATICCALL, Op.EXTDELEGATECALL])
+@pytest.mark.parametrize(
+    "offset_field",
+    [
+        pytest.param(True, id="offset"),
+        pytest.param(False, id="size"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("test_arg", "success"),
+    [
+        pytest.param(0, True, id="zero"),
+        pytest.param(0xFF, True, id="8-bit"),
+        pytest.param(0x100, True, id="9-bit"),
+        pytest.param(0xFFFF, True, id="16-bit"),
+        pytest.param(0x10000, True, id="17-bit"),
+        pytest.param(0x1FFFF20, False, id="32-bit-mem-cost"),
+        pytest.param(0x2D412E0, False, id="33-bit-mem-cost"),
+        pytest.param(0xFFFFFFFF, False, id="32-bit"),
+        pytest.param(0x100000000, False, id="33-bit"),
+        pytest.param(0x1FFFFFFFF20, False, id="64-bit-mem-cost"),
+        pytest.param(0x2D413CCCF00, False, id="65-bit-mem-cost"),
+        pytest.param(0xFFFFFFFFFFFFFFFF, False, id="64-bit"),
+        pytest.param(0x10000000000000000, False, id="65-bit"),
+        pytest.param(0xFFFFFFFFFFFFFFFF, False, id="128-bit"),
+        pytest.param(0x10000000000000000, False, id="129-bit"),
+        pytest.param(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, False, id="256-bit"),
+    ],
+)
+def test_extcalls_input_offset(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    operation: Op,
+    offset_field: str,
+    test_arg: int,
+    success: bool,
+):
+    """
+    Tests call data into EXT*CALL including multiple offset conditions.
+
+    Returner returns a success value, which caller stores. If memory expansion cost is less than
+    2 billion gas call succeeds. Else whole transaction aborts, leaving canaries in memory.
+
+    The name id of `*-mem-cost` refers to the bit-length of the result of the calculated memory
+    expansion cost. Their length choice is designed to cause problems on shorter bit-length
+    representations with native integers.
+
+    The `offset_field` param indicates what part of the input data arguments are being tested,
+    either the offset of the data in memory or the size of the data in memory.
+
+    The `test_arg` param is the value passed into the field being tested (offset or size),
+    intending to trigger integer size bugs for that particular field.
+    """
+    env = Environment()
+
+    sender = pre.fund_eoa()
+
+    address_returner = pre.deploy_contract(
+        Container(
+            sections=[
+                Section.Code(code=Op.MSTORE(0, value_code_worked) + Op.RETURN(0, 32)),
+            ]
+        ),
+    )
+    address_caller = pre.deploy_contract(
+        Container(
+            sections=[
+                Section.Code(
+                    code=(
+                        operation(address=address_returner, args_offset=test_arg, args_size=32)
+                        if offset_field
+                        else operation(
+                            address=address_returner, args_offset=32, args_size=test_arg
+                        )
+                    )
+                    + Op.SSTORE(slot_eof_target_returndata, Op.RETURNDATALOAD(0))
+                    + Op.SSTORE(slot_code_worked, value_code_worked)
+                    + Op.STOP
+                )
+            ]
+        ),
+        storage={
+            slot_code_worked: value_exceptional_abort_canary,
+            slot_eof_target_returndata: value_exceptional_abort_canary,
+        },
+    )
+
+    post = {
+        address_caller: Account(
+            storage={
+                slot_eof_target_returndata: value_code_worked
+                if success
+                else value_exceptional_abort_canary,
+                slot_code_worked: value_code_worked if success else value_exceptional_abort_canary,
+            }
+        ),
+    }
+
+    tx = Transaction(to=address_caller, gas_limit=1_000_000_000, sender=sender)
 
     state_test(
         env=env,
