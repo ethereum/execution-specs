@@ -1,6 +1,6 @@
 """
 abstract: Tests [EIP-7069: Revamped CALL instructions](https://eips.ethereum.org/EIPS/eip-7069)
-    Tests gas comsumption.
+    Tests gas consumption.
 """  # noqa: E501
 
 import pytest
