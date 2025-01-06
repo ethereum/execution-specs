@@ -27,6 +27,7 @@ from typing import (
     Tuple,
     TypeVar,
     Union,
+    cast,
 )
 
 from ethereum_types.bytes import Bytes
@@ -482,10 +483,11 @@ def patricialize(
         else:
             branches[key[level]][key] = obj[key]
 
+    subnodes = tuple(
+        encode_internal_node(patricialize(branches[k], level + Uint(1)))
+        for k in range(16)
+    )
     return BranchNode(
-        tuple(
-            encode_internal_node(patricialize(branches[k], level + Uint(1)))
-            for k in range(16)
-        ),
+        cast(BranchSubnodes, subnodes),
         value,
     )
