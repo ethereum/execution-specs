@@ -28,7 +28,7 @@ def pytest_addoption(parser):  # noqa: D103
         action="store",
         dest="evm_bin",
         type=Path,
-        default=None,
+        default=Path("evm"),
         help=(
             "Path to an evm executable that provides `blocktest`. Default: First 'evm' entry in "
             "PATH."

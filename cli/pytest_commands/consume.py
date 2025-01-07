@@ -78,8 +78,8 @@ def consume_command(is_hive: bool = False) -> Callable[[Callable[..., Any]], cli
         )
         @common_click_options
         def command(pytest_args: List[str], **kwargs) -> None:
-            args = handle_consume_command_flags(pytest_args, is_hive)
-            args += [str(p) for p in command_paths]
+            args = [str(p) for p in command_paths]
+            args += handle_consume_command_flags(pytest_args, is_hive)
             sys.exit(pytest.main(args))
 
         return command
