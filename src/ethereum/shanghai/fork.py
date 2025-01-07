@@ -15,13 +15,13 @@ Entry point for the Ethereum specification.
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Union
 
+from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import InvalidBlock, InvalidSenderError
 
-from .. import rlp
 from . import vm
 from .blocks import Block, Header, Log, Receipt, Withdrawal
 from .bloom import logs_bloom
