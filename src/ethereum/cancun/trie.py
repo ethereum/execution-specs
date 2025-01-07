@@ -37,6 +37,7 @@ from ethereum.shanghai import trie as previous_trie
 from ethereum.utils.hexadecimal import hex_to_bytes
 
 from .. import rlp
+from ..rlp import Extended
 from .blocks import Receipt, Withdrawal
 from .fork_types import Account, Address, Root, encode_account
 from .transactions import LegacyTransaction
@@ -83,7 +84,7 @@ class LeafNode:
     """Leaf node in the Merkle Trie"""
 
     rest_of_key: Bytes
-    value: rlp.Extended
+    value: Extended
 
 
 @slotted_freezable
@@ -92,7 +93,7 @@ class ExtensionNode:
     """Extension node in the Merkle Trie"""
 
     key_segment: Bytes
-    subnode: rlp.Extended
+    subnode: Extended
 
 
 @slotted_freezable
@@ -100,14 +101,14 @@ class ExtensionNode:
 class BranchNode:
     """Branch node in the Merkle Trie"""
 
-    subnodes: List[rlp.Extended]
-    value: rlp.Extended
+    subnodes: List[Extended]
+    value: Extended
 
 
 InternalNode = Union[LeafNode, ExtensionNode, BranchNode]
 
 
-def encode_internal_node(node: Optional[InternalNode]) -> rlp.Extended:
+def encode_internal_node(node: Optional[InternalNode]) -> Extended:
     """
     Encodes a Merkle Trie node into its RLP form. The RLP will then be
     serialized into a `Bytes` and hashed unless it is less that 32 bytes
@@ -123,10 +124,10 @@ def encode_internal_node(node: Optional[InternalNode]) -> rlp.Extended:
 
     Returns
     -------
-    encoded : `rlp.Extended`
+    encoded : `Extended`
         The node encoded as RLP.
     """
-    unencoded: rlp.Extended
+    unencoded: Extended
     if node is None:
         unencoded = b""
     elif isinstance(node, LeafNode):
