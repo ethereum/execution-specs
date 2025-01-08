@@ -67,17 +67,24 @@ def format_code(code: str) -> str:
         # Create a Path object for the input file
         input_file_path = Path(temp_file.name)
 
-        # Get the path to the black executable in the virtual environment
+        # Get the path to the formatter executable in the virtual environment
         if sys.platform.startswith("win"):
-            black_path = Path(sys.prefix) / "Scripts" / "black.exe"
+            formatter_path = Path(sys.prefix) / "Scripts" / "ruff.exe"
         else:
-            black_path = Path(sys.prefix) / "bin" / "black"
+            formatter_path = Path(sys.prefix) / "bin" / "ruff"
 
-        # Call black to format the file
+        # Call ruff to format the file
         config_path = Path(sys.prefix).parent / "pyproject.toml"
 
         subprocess.run(
-            [str(black_path), str(input_file_path), "--quiet", "--config", str(config_path)],
+            [
+                str(formatter_path),
+                "format",
+                str(input_file_path),
+                "--quiet",
+                "--config",
+                str(config_path),
+            ],
             check=True,
         )
 
