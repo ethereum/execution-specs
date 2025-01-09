@@ -20,6 +20,7 @@ from ethereum_test_tools import (
     Environment,
     StateTestFiller,
     Transaction,
+    TransactionReceipt,
 )
 from ethereum_test_tools import Opcodes as Op
 
@@ -108,11 +109,6 @@ def call_exact_cost(
 
 
 @pytest.fixture
-def tx_max_fee_per_gas() -> int:  # noqa: D103
-    return 7
-
-
-@pytest.fixture
 def block_gas_limit() -> int:  # noqa: D103
     return 100_000_000
 
@@ -139,8 +135,8 @@ def caller_address(pre: Alloc, callee_bytecode: bytes) -> Address:  # noqa: D103
 
 
 @pytest.fixture
-def sender(pre: Alloc, tx_max_fee_per_gas: int, tx_gas_limit: int) -> Address:  # noqa: D103
-    return pre.fund_eoa(tx_max_fee_per_gas * tx_gas_limit)
+def sender(pre: Alloc) -> Address:  # noqa: D103
+    return pre.fund_eoa()
 
 
 @pytest.fixture
@@ -148,7 +144,6 @@ def tx(  # noqa: D103
     sender: Address,
     caller_address: Address,
     initial_memory: bytes,
-    tx_max_fee_per_gas: int,
     tx_gas_limit: int,
     tx_access_list: List[AccessList],
 ) -> Transaction:
@@ -158,8 +153,7 @@ def tx(  # noqa: D103
         access_list=tx_access_list,
         data=initial_memory,
         gas_limit=tx_gas_limit,
-        max_fee_per_gas=tx_max_fee_per_gas,
-        max_priority_fee_per_gas=0,
+        expected_receipt=TransactionReceipt(gas_used=tx_gas_limit),
     )
 
 
