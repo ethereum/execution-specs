@@ -167,6 +167,7 @@ class StateTest(BaseTest):
                         logs_hash=transition_tool_output.result.logs_hash,
                         tx_bytes=tx.rlp,
                         expect_exception=tx.error,
+                        state=transition_tool_output.alloc,
                     )
                 ]
             },

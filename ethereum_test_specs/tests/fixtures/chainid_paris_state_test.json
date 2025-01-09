@@ -1,7 +1,7 @@
 {
     "000/my_chain_id_test/Paris": {
         "_info": {
-            "hash": "0x9533310242d3fe15fca5ea1d31f97121f7db0f54843c9f2160c01f2468b10535",
+            "hash": "0x14d892cf15f595cc7160e0e66020fa553252c33fc185c3b825bb018d4aac62b6",
             "fixture_format": "state_test"
         },
         "env": {
@@ -53,6 +53,28 @@
                         "data": 0,
                         "gas": 0,
                         "value": 0
+                    },
+                    "state": {
+                        "0x1000000000000000000000000000000000000000": {
+                            "nonce": "0x00",
+                            "balance": "0x00",
+                            "code": "0x4660015500",
+                            "storage": {
+                                "0x01": "0x01"
+                            }
+                        },
+                        "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba": {
+                            "balance": "0x01f923",
+                            "nonce": "0x00",
+                            "code": "0x",
+                            "storage": {}
+                        },
+                        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": {
+                            "nonce": "0x01",
+                            "balance": "0x3635c9adc5de996c36",
+                            "code": "0x",
+                            "storage": {}
+                        }
                     }
                 }
             ]

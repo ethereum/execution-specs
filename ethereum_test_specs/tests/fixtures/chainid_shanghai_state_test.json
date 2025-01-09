@@ -1,7 +1,7 @@
 {
     "000/my_chain_id_test/Shanghai": {
         "_info": {
-            "hash": "0xac10a919bea8bb3bc6b74cb291d92ce12549216dd78dde2d2bd6d94fd48897aa",
+            "hash": "0x288556997e3809e7b3a3f97415a661600fdf3652e9fedf617264d70ce255893f",
             "fixture_format": "state_test"
         },
         "env": {
@@ -53,6 +53,28 @@
                         "data": 0,
                         "gas": 0,
                         "value": 0
+                    },
+                    "state": {
+                        "0x1000000000000000000000000000000000000000": {
+                            "nonce": "0x00",
+                            "balance": "0x00",
+                            "code": "0x4660015500",
+                            "storage": {
+                                "0x01": "0x01"
+                            }
+                        },
+                        "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba": {
+                            "balance": "0x01f923",
+                            "nonce": "0x00",
+                            "code": "0x",
+                            "storage": {}
+                        },
+                        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": {
+                            "nonce": "0x01",
+                            "balance": "0x3635c9adc5de996c36",
+                            "code": "0x",
+                            "storage": {}
+                        }
                     }
                 }
             ]

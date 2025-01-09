@@ -82,6 +82,7 @@ class FixtureForkPost(CamelModel):
     logs_hash: Hash = Field(..., alias="logs")
     tx_bytes: Bytes = Field(..., alias="txbytes")
     indexes: FixtureForkPostIndexes = Field(default_factory=FixtureForkPostIndexes)
+    state: Alloc
     expect_exception: TransactionExceptionInstanceOrList | None = None
 
 

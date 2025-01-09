@@ -19,12 +19,14 @@ from ..state import FixtureForkPost
                 state_root="0x00",
                 logs_hash="0x01",
                 tx_bytes="0x02",
+                state={},
             ),
             {
                 "hash": Hash(0).hex(),
                 "logs": Hash(1).hex(),
                 "txbytes": Bytes(b"\x02").hex(),
                 "indexes": {"data": 0, "gas": 0, "value": 0},
+                "state": {},
             },
             id="state_fixture_fork_post",
         ),
@@ -35,6 +37,7 @@ from ..state import FixtureForkPost
                 logs_hash="0x01",
                 tx_bytes="0x02",
                 expect_exception=TransactionException.INITCODE_SIZE_EXCEEDED,
+                state={},
             ),
             {
                 "hash": Hash(0).hex(),
@@ -42,6 +45,7 @@ from ..state import FixtureForkPost
                 "txbytes": Bytes(b"\x02").hex(),
                 "expectException": "TransactionException.INITCODE_SIZE_EXCEEDED",
                 "indexes": {"data": 0, "gas": 0, "value": 0},
+                "state": {},
             },
             id="state_fixture_fork_post_exception",
         ),
@@ -53,6 +57,7 @@ from ..state import FixtureForkPost
                 logs_hash="0x01",
                 tx_bytes="0x02",
                 expect_exception=[TransactionException.INITCODE_SIZE_EXCEEDED],
+                state={},
             ),
             {
                 "hash": Hash(0).hex(),
@@ -60,6 +65,7 @@ from ..state import FixtureForkPost
                 "txbytes": Bytes(b"\x02").hex(),
                 "expectException": "TransactionException.INITCODE_SIZE_EXCEEDED",
                 "indexes": {"data": 0, "gas": 0, "value": 0},
+                "state": {},
             },
             id="state_fixture_fork_post_exception_list_1",
         ),
@@ -73,6 +79,7 @@ from ..state import FixtureForkPost
                     TransactionException.INITCODE_SIZE_EXCEEDED,
                     TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
                 ],
+                state={},
             ),
             {
                 "hash": Hash(0).hex(),
@@ -81,6 +88,7 @@ from ..state import FixtureForkPost
                 "expectException": "TransactionException.INITCODE_SIZE_EXCEEDED|"
                 "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS",
                 "indexes": {"data": 0, "gas": 0, "value": 0},
+                "state": {},
             },
             id="state_fixture_fork_post_exception_list_2",
         ),
