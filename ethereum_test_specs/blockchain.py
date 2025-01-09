@@ -402,7 +402,9 @@ class BlockchainTest(BaseTest):
 
         try:
             rejected_txs = verify_transactions(
-                t8n.exception_mapper, txs, transition_tool_output.result
+                txs=txs,
+                exception_mapper=t8n.exception_mapper,
+                result=transition_tool_output.result,
             )
             verify_result(transition_tool_output.result, env)
         except Exception as e:

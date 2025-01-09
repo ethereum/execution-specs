@@ -148,7 +148,11 @@ class StateTest(BaseTest):
             raise e
 
         try:
-            verify_transactions(t8n.exception_mapper, [tx], transition_tool_output.result)
+            verify_transactions(
+                txs=[tx],
+                exception_mapper=t8n.exception_mapper,
+                result=transition_tool_output.result,
+            )
         except Exception as e:
             print_traces(t8n.get_traces())
             pprint(transition_tool_output.result)

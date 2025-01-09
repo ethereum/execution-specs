@@ -1,13 +1,13 @@
 """Helper functions."""
 
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import pytest
 
 from ethereum_clis import Result
 from ethereum_test_exceptions import ExceptionBase, ExceptionMapper, UndefinedException
-from ethereum_test_types import Transaction
+from ethereum_test_types import Transaction, TransactionReceipt
 
 
 class TransactionExpectedToFailSucceedError(Exception):
@@ -70,12 +70,32 @@ class TransactionExceptionMismatchError(Exception):
         super().__init__(message)
 
 
+class TransactionReceiptMismatchError(Exception):
+    """Exception used when the actual transaction receipt differs from the expected one."""
+
+    def __init__(
+        self,
+        index: int,
+        field_name: str,
+        expected_value: Any,
+        actual_value: Any,
+    ):
+        """Initialize the exception."""
+        message = (
+            f"\nTransactionReceiptMismatch (pos={index}):"
+            f"\n   What: {field_name} mismatch!"
+            f"\n   Want: {expected_value}"
+            f"\n    Got: {actual_value}"
+        )
+        super().__init__(message)
+
+
 @dataclass
 class TransactionExceptionInfo:
     """Info to print transaction exception error messages."""
 
     t8n_error_message: str | None
-    transaction_ind: int
+    transaction_index: int
     tx: Transaction
 
 
@@ -90,11 +110,11 @@ def verify_transaction_exception(
     # info.tx.error is expected error code defined in .py test
     if expected_error and not info.t8n_error_message:
         raise TransactionExpectedToFailSucceedError(
-            index=info.transaction_ind, nonce=info.tx.nonce
+            index=info.transaction_index, nonce=info.tx.nonce
         )
     elif not expected_error and info.t8n_error_message:
         raise TransactionUnexpectedFailError(
-            index=info.transaction_ind,
+            index=info.transaction_index,
             nonce=info.tx.nonce,
             message=info.t8n_error_message,
             exception=exception_mapper.message_to_exception(info.t8n_error_message),
@@ -122,7 +142,7 @@ def verify_transaction_exception(
 
         if expected_error_msg is None or expected_error_msg not in info.t8n_error_message:
             raise TransactionExceptionMismatchError(
-                index=info.transaction_ind,
+                index=info.transaction_index,
                 nonce=info.tx.nonce,
                 expected_exception=expected_exception,
                 expected_message=expected_error_msg,
@@ -132,21 +152,59 @@ def verify_transaction_exception(
             )
 
 
+def verify_transaction_receipt(
+    transaction_index: int,
+    expected_receipt: TransactionReceipt | None,
+    actual_receipt: TransactionReceipt | None,
+):
+    """
+    Verify the actual receipt against the expected one.
+
+    If the expected receipt is None, validation is skipped.
+
+    Only verifies non-None values in the expected receipt if any.
+    """
+    if expected_receipt is None:
+        return
+    assert actual_receipt is not None
+    if (
+        expected_receipt.gas_used is not None
+        and actual_receipt.gas_used != expected_receipt.gas_used
+    ):
+        raise TransactionReceiptMismatchError(
+            index=transaction_index,
+            field_name="gas_used",
+            expected_value=expected_receipt.gas_used,
+            actual_value=actual_receipt.gas_used,
+        )
+    # TODO: Add more fields as needed
+
+
 def verify_transactions(
-    exception_mapper: ExceptionMapper, txs: List[Transaction], result: Result
+    *,
+    txs: List[Transaction],
+    exception_mapper: ExceptionMapper,
+    result: Result,
 ) -> List[int]:
     """
-    Verify rejected transactions (if any) against the expected outcome.
-    Raises exception on unexpected rejections or unexpected successful txs.
+    Verify accepted and rejected (if any) transactions against the expected outcome.
+    Raises exception on unexpected rejections, unexpected successful txs, or successful txs with
+    unexpected receipt values.
     """
     rejected_txs: Dict[int, str] = {
         rejected_tx.index: rejected_tx.error for rejected_tx in result.rejected_transactions
     }
 
+    receipt_index = 0
     for i, tx in enumerate(txs):
         error_message = rejected_txs[i] if i in rejected_txs else None
-        info = TransactionExceptionInfo(t8n_error_message=error_message, transaction_ind=i, tx=tx)
+        info = TransactionExceptionInfo(
+            t8n_error_message=error_message, transaction_index=i, tx=tx
+        )
         verify_transaction_exception(exception_mapper=exception_mapper, info=info)
+        if error_message is None:
+            verify_transaction_receipt(i, tx.expected_receipt, result.receipts[receipt_index])
+            receipt_index += 1
 
     return list(rejected_txs.keys())
 
