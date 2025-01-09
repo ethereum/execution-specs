@@ -24,6 +24,7 @@ from ethereum_test_tools import (
     StateTestFiller,
     Transaction,
     TransactionException,
+    TransactionReceipt,
     ceiling_division,
     compute_create_address,
 )
@@ -291,6 +292,8 @@ class TestContractCreationGasUsage:
             gas_price=10,
             error=tx_error,
             sender=sender,
+            # The entire gas limit is expected to be consumed.
+            expected_receipt=TransactionReceipt(gas_used=gas_limit),
         )
 
     @pytest.fixture
