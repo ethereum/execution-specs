@@ -101,7 +101,7 @@ def blobs_per_tx() -> List[int]:
 
 
 @pytest.fixture
-def blob_hashes_per_tx(blobs_per_tx: List[int]) -> List[List[bytes]]:
+def blob_hashes_per_tx(blobs_per_tx: List[int]) -> List[List[Hash]]:
     """
     Produce the list of blob hashes that are sent during the test.
 

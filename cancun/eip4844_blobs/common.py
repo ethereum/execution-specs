@@ -5,6 +5,7 @@ from typing import List, Literal, Tuple, Union
 
 from ethereum_test_tools import (
     Address,
+    Hash,
     TestAddress,
     YulCompiler,
     add_kzg_version,
@@ -263,7 +264,7 @@ class BlobhashScenario:
     """A utility class for generating blobhash calls."""
 
     @staticmethod
-    def create_blob_hashes_list(length: int, max_blobs_per_block: int) -> list[list[bytes]]:
+    def create_blob_hashes_list(length: int, max_blobs_per_block: int) -> List[List[Hash]]:
         """
         Create list of MAX_BLOBS_PER_BLOCK blob hashes
         using `random_blob_hashes`.

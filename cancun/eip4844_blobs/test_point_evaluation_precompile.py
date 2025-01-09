@@ -50,6 +50,7 @@ from ethereum_test_tools import (
     StateTestFiller,
     Storage,
     Transaction,
+    TransactionReceipt,
     call_return_code,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
@@ -532,8 +533,7 @@ def test_tx_entry_point(
     - Using `gas_limit` with exact necessary gas, insufficient gas and extra gas.
     - Using correct and incorrect proofs
     """
-    start_balance = 10**18
-    sender = pre.fund_eoa(amount=start_balance)
+    sender = pre.fund_eoa()
 
     # Starting from EIP-7623, we need to use an access list to raise the intrinsic gas cost to be
     # above the floor data cost.
@@ -557,7 +557,6 @@ def test_tx_entry_point(
         access_list=access_list,
         return_cost_deducted_prior_execution=True,
     )
-    fee_per_gas = 7
 
     tx = Transaction(
         sender=sender,
@@ -565,13 +564,12 @@ def test_tx_entry_point(
         access_list=access_list,
         to=Address(Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS),
         gas_limit=call_gas + intrinsic_gas_cost,
-        gas_price=fee_per_gas,
+        expected_receipt=TransactionReceipt(gas_used=consumed_gas),
     )
 
     post = {
         sender: Account(
             nonce=1,
-            balance=start_balance - (consumed_gas * fee_per_gas),
         )
     }
 

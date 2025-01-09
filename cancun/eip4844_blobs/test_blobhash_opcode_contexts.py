@@ -42,7 +42,7 @@ def create_opcode_context(pre, tx, post):
 @pytest.fixture()
 def simple_blob_hashes(
     max_blobs_per_block: int,
-) -> List[bytes]:
+) -> List[Hash]:
     """Return a simple list of blob versioned hashes ranging from bytes32(1 to 4)."""
     return add_kzg_version(
         [(1 << x) for x in range(max_blobs_per_block)],
