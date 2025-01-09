@@ -123,7 +123,8 @@ class Frontier(BaseFork, solc_name="homestead"):
             G_KECCAK_256_WORD=6,
             G_COPY=3,
             G_BLOCKHASH=20,
-            G_AUTHORIZATION=25_000,
+            G_AUTHORIZATION=0,
+            R_AUTHORIZATION_EXISTING_AUTHORITY=0,
         )
 
     @classmethod
@@ -1052,6 +1053,8 @@ class Prague(Cancun):
             super(Prague, cls).gas_costs(block_number, timestamp),
             G_TX_DATA_STANDARD_TOKEN_COST=4,  # https://eips.ethereum.org/EIPS/eip-7623
             G_TX_DATA_FLOOR_TOKEN_COST=10,
+            G_AUTHORIZATION=25_000,
+            R_AUTHORIZATION_EXISTING_AUTHORITY=12_500,
         )
 
     @classmethod

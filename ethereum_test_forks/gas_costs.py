@@ -58,3 +58,5 @@ class GasCosts:
     G_BLOCKHASH: int
 
     G_AUTHORIZATION: int
+
+    R_AUTHORIZATION_EXISTING_AUTHORITY: int
