@@ -14,14 +14,12 @@ from ethereum_test_tools import (
     Alloc,
     AuthorizationTuple,
     Bytes,
-    Hash,
     StateTestFiller,
     Transaction,
-    add_kzg_version,
+    TransactionReceipt,
 )
 from ethereum_test_tools import Opcodes as Op
 
-from ...cancun.eip4844_blobs.spec import Spec as EIP_4844_Spec
 from .helpers import DataTestType
 from .spec import ref_spec_7623
 
@@ -39,7 +37,7 @@ def data_test_type() -> DataTestType:
 
 
 @pytest.fixture
-def authorization_existing_authority() -> bool:
+def authorization_refund() -> bool:
     """
     Force the authority of the authorization tuple to be an existing authority in order
     to produce a refund.
@@ -68,27 +66,31 @@ class TestGasRefunds:
         """Return a contract that when executed results in refunds due to storage clearing."""
         return pre.deploy_contract(Op.SSTORE(0, 0) + Op.STOP, storage={0: 1})
 
+    @pytest.fixture
+    def refund(self, fork: Fork, ty: int) -> int:
+        """Return the refund gas of the transaction."""
+        gas_costs = fork.gas_costs()
+        refund = gas_costs.R_STORAGE_CLEAR
+        if ty == 4:
+            refund += gas_costs.R_AUTHORIZATION_EXISTING_AUTHORITY
+        return refund
+
     @pytest.mark.parametrize(
-        "ty,protected,blob_versioned_hashes,authorization_list",
+        "ty,protected,authorization_list",
         [
-            pytest.param(0, False, None, None, id="type_0_unprotected"),
-            pytest.param(0, True, None, None, id="type_0_protected"),
-            pytest.param(1, True, None, None, id="type_1"),
-            pytest.param(2, True, None, None, id="type_2"),
+            pytest.param(0, False, None, id="type_0_unprotected"),
+            pytest.param(0, True, None, id="type_0_protected"),
+            pytest.param(1, True, None, id="type_1"),
+            pytest.param(2, True, None, id="type_2"),
             pytest.param(
                 3,
                 True,
-                add_kzg_version(
-                    [Hash(1)],
-                    EIP_4844_Spec.BLOB_COMMITMENT_VERSION_KZG,
-                ),
                 None,
                 id="type_3",
             ),
             pytest.param(
                 4,
                 True,
-                None,
                 [Address(1)],
                 id="type_4_with_authorization_refund",
             ),
@@ -109,6 +111,8 @@ class TestGasRefunds:
         state_test: StateTestFiller,
         pre: Alloc,
         tx: Transaction,
+        tx_floor_data_cost: int,
+        refund: int,
     ) -> None:
         """
         Test gas refunds deducted from the data floor.
@@ -116,6 +120,7 @@ class TestGasRefunds:
         I.e. the used gas by the intrinsic gas cost plus the execution cost is less than the data
         floor, hence data floor is used, and then the gas refunds are applied to the data floor.
         """
+        tx.expected_receipt = TransactionReceipt(gas_used=tx_floor_data_cost - refund)
         state_test(
             pre=pre,
             post={
@@ -143,27 +148,36 @@ class TestGasConsumption:
         """Return a contract that consumes all gas when executed by calling an invalid opcode."""
         return pre.deploy_contract(Op.INVALID)
 
+    @pytest.fixture
+    def refund(
+        self,
+        fork: Fork,
+        ty: int,
+        authorization_refund: bool,
+    ) -> int:
+        """Return the refund gas of the transaction."""
+        gas_costs = fork.gas_costs()
+        refund = 0
+        if ty == 4 and authorization_refund:
+            refund += gas_costs.R_AUTHORIZATION_EXISTING_AUTHORITY
+        return refund
+
     @pytest.mark.parametrize(
-        "ty,protected,blob_versioned_hashes,authorization_list",
+        "ty,protected,authorization_list",
         [
-            pytest.param(0, False, None, None, id="type_0_unprotected"),
-            pytest.param(0, True, None, None, id="type_0_protected"),
-            pytest.param(1, True, None, None, id="type_1"),
-            pytest.param(2, True, None, None, id="type_2"),
+            pytest.param(0, False, None, id="type_0_unprotected"),
+            pytest.param(0, True, None, id="type_0_protected"),
+            pytest.param(1, True, None, id="type_1"),
+            pytest.param(2, True, None, id="type_2"),
             pytest.param(
                 3,
                 True,
-                add_kzg_version(
-                    [Hash(1)],
-                    EIP_4844_Spec.BLOB_COMMITMENT_VERSION_KZG,
-                ),
                 None,
                 id="type_3",
             ),
             pytest.param(
                 4,
                 True,
-                None,
                 [Address(1)],
                 id="type_4_with_authorization_refund",
             ),
@@ -184,8 +198,10 @@ class TestGasConsumption:
         state_test: StateTestFiller,
         pre: Alloc,
         tx: Transaction,
+        refund: int,
     ) -> None:
         """Test executing a transaction that fully consumes its execution gas allocation."""
+        tx.expected_receipt = TransactionReceipt(gas_used=tx.gas_limit - refund)
         state_test(
             pre=pre,
             post={},
@@ -202,6 +218,20 @@ class TestGasConsumptionBelowDataFloor:
         return False
 
     @pytest.fixture
+    def refund(
+        self,
+        fork: Fork,
+        ty: int,
+        authorization_refund: bool,
+    ) -> int:
+        """Return the refund gas of the transaction."""
+        gas_costs = fork.gas_costs()
+        refund = 0
+        if ty == 4 and authorization_refund:
+            refund += gas_costs.R_AUTHORIZATION_EXISTING_AUTHORITY
+        return refund
+
+    @pytest.fixture
     def to(
         self,
         pre: Alloc,
@@ -209,19 +239,14 @@ class TestGasConsumptionBelowDataFloor:
         tx_data: Bytes,
         access_list: List[AccessList] | None,
         authorization_list: List[AuthorizationTuple] | None,
+        tx_floor_data_cost: int,
     ) -> Address | None:
         """
         Return a contract that consumes almost all the gas before reaching the
         floor data cost.
         """
         intrinsic_gas_cost_calculator = fork.transaction_intrinsic_cost_calculator()
-        data_floor = intrinsic_gas_cost_calculator(
-            calldata=tx_data,
-            contract_creation=False,
-            access_list=access_list,
-            authorization_list_or_count=authorization_list,
-        )
-        execution_gas = data_floor - intrinsic_gas_cost_calculator(
+        execution_gas = tx_floor_data_cost - intrinsic_gas_cost_calculator(
             calldata=tx_data,
             contract_creation=False,
             access_list=access_list,
@@ -233,19 +258,15 @@ class TestGasConsumptionBelowDataFloor:
         return pre.deploy_contract((Op.JUMPDEST * (execution_gas - 1)) + Op.STOP)
 
     @pytest.mark.parametrize(
-        "ty,protected,blob_versioned_hashes,authorization_list,authorization_existing_authority",
+        "ty,protected,authorization_list,authorization_refund",
         [
-            pytest.param(0, False, None, None, False, id="type_0_unprotected"),
-            pytest.param(0, True, None, None, False, id="type_0_protected"),
-            pytest.param(1, True, None, None, False, id="type_1"),
-            pytest.param(2, True, None, None, False, id="type_2"),
+            pytest.param(0, False, None, False, id="type_0_unprotected"),
+            pytest.param(0, True, None, False, id="type_0_protected"),
+            pytest.param(1, True, None, False, id="type_1"),
+            pytest.param(2, True, None, False, id="type_2"),
             pytest.param(
                 3,
                 True,
-                add_kzg_version(
-                    [Hash(1)],
-                    EIP_4844_Spec.BLOB_COMMITMENT_VERSION_KZG,
-                ),
                 None,
                 False,
                 id="type_3",
@@ -253,7 +274,6 @@ class TestGasConsumptionBelowDataFloor:
             pytest.param(
                 4,
                 True,
-                None,
                 [Address(1)],
                 False,
                 id="type_4",
@@ -261,7 +281,6 @@ class TestGasConsumptionBelowDataFloor:
             pytest.param(
                 4,
                 True,
-                None,
                 [Address(1)],
                 True,
                 id="type_4_with_authorization_refund",
@@ -282,8 +301,11 @@ class TestGasConsumptionBelowDataFloor:
         state_test: StateTestFiller,
         pre: Alloc,
         tx: Transaction,
+        tx_floor_data_cost: int,
+        refund: int,
     ) -> None:
         """Test executing a transaction that almost consumes the floor data cost."""
+        tx.expected_receipt = TransactionReceipt(gas_used=tx_floor_data_cost - refund)
         state_test(
             pre=pre,
             post={},

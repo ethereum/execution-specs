@@ -16,9 +16,11 @@ from ethereum_test_tools import (
     Hash,
     Transaction,
     TransactionException,
+    add_kzg_version,
 )
 from ethereum_test_tools import Opcodes as Op
 
+from ...cancun.eip4844_blobs.spec import Spec as EIP_4844_Spec
 from .helpers import DataTestType, find_floor_cost_threshold
 
 
@@ -65,7 +67,7 @@ def access_list() -> List[AccessList] | None:
 
 
 @pytest.fixture
-def authorization_existing_authority() -> bool:
+def authorization_refund() -> bool:
     """Return whether the transaction has an existing authority in the authorization list."""
     return False
 
@@ -74,7 +76,7 @@ def authorization_existing_authority() -> bool:
 def authorization_list(
     request: pytest.FixtureRequest,
     pre: Alloc,
-    authorization_existing_authority: bool,
+    authorization_refund: bool,
 ) -> List[AuthorizationTuple] | None:
     """
     Authorization-list for the transaction.
@@ -88,17 +90,22 @@ def authorization_list(
     if request.param is None:
         return None
     return [
-        AuthorizationTuple(
-            signer=pre.fund_eoa(1 if authorization_existing_authority else 0), address=address
-        )
+        AuthorizationTuple(signer=pre.fund_eoa(1 if authorization_refund else 0), address=address)
         for address in request.param
     ]
 
 
 @pytest.fixture
-def blob_versioned_hashes() -> Sequence[Hash] | None:
+def blob_versioned_hashes(ty: int) -> Sequence[Hash] | None:
     """Versioned hashes for the transaction."""
-    return None
+    return (
+        add_kzg_version(
+            [Hash(1)],
+            EIP_4844_Spec.BLOB_COMMITMENT_VERSION_KZG,
+        )
+        if ty == 3
+        else None
+    )
 
 
 @pytest.fixture
@@ -224,32 +231,49 @@ def tx_gas_delta() -> int:
 
 
 @pytest.fixture
-def tx_gas(
+def tx_intrinsic_gas_cost(
     fork: Fork,
     tx_data: Bytes,
     access_list: List[AccessList] | None,
     authorization_list: List[AuthorizationTuple] | None,
     contract_creating_tx: bool,
+) -> int:
+    """
+    Transaction intrinsic gas cost.
+
+    The calculated value takes into account the normal intrinsic gas cost and the floor data gas
+    cost.
+    """
+    intrinsic_gas_cost_calculator = fork.transaction_intrinsic_cost_calculator()
+    return intrinsic_gas_cost_calculator(
+        calldata=tx_data,
+        contract_creation=contract_creating_tx,
+        access_list=access_list,
+        authorization_list_or_count=authorization_list,
+    )
+
+
+@pytest.fixture
+def tx_floor_data_cost(
+    fork: Fork,
+    tx_data: Bytes,
+) -> int:
+    """Floor data cost for the given transaction data."""
+    fork_data_floor_cost_calculator = fork.transaction_data_floor_cost_calculator()
+    return fork_data_floor_cost_calculator(data=tx_data)
+
+
+@pytest.fixture
+def tx_gas_limit(
+    tx_intrinsic_gas_cost: int,
     tx_gas_delta: int,
 ) -> int:
     """
     Gas limit for the transaction.
 
-    The calculated value takes into account the normal intrinsic gas cost and the floor data gas
-    cost.
-
     The gas delta is added to the intrinsic gas cost to generate different test scenarios.
     """
-    intrinsic_gas_cost_calculator = fork.transaction_intrinsic_cost_calculator()
-    return (
-        intrinsic_gas_cost_calculator(
-            calldata=tx_data,
-            contract_creation=contract_creating_tx,
-            access_list=access_list,
-            authorization_list_or_count=authorization_list,
-        )
-        + tx_gas_delta
-    )
+    return tx_intrinsic_gas_cost + tx_gas_delta
 
 
 @pytest.fixture
@@ -268,7 +292,7 @@ def tx(
     access_list: List[AccessList] | None,
     authorization_list: List[AuthorizationTuple] | None,
     blob_versioned_hashes: Sequence[Hash] | None,
-    tx_gas: int,
+    tx_gas_limit: int,
     tx_error: TransactionException | None,
 ) -> Transaction:
     """Create the transaction used in each test."""
@@ -280,7 +304,7 @@ def tx(
         protected=protected,
         access_list=access_list,
         authorization_list=authorization_list,
-        gas_limit=tx_gas,
+        gas_limit=tx_gas_limit,
         blob_versioned_hashes=blob_versioned_hashes,
         error=tx_error,
     )
