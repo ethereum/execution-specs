@@ -26,6 +26,7 @@ from ethereum_test_tools import (
     Storage,
     Transaction,
     TransactionException,
+    TransactionReceipt,
     extend_with_defaults,
 )
 from ethereum_test_tools import Opcodes as Op
@@ -688,12 +689,13 @@ def test_gas_cost(
     # We calculate the exact gas required to execute the test code.
     # We add SSTORE opcodes in order to make sure that the refund is less than one fifth (EIP-3529)
     # of the total gas used, so we can see the full discount being reflected in most of the tests.
-    gas_opcode_cost = 2
+    gas_costs = fork.gas_costs()
+    gas_opcode_cost = gas_costs.G_BASE
     sstore_opcode_count = 10
     push_opcode_count = (2 * (sstore_opcode_count)) - 1
-    push_opcode_cost = 3 * push_opcode_count
-    sstore_opcode_cost = 20_000 * sstore_opcode_count
-    cold_storage_cost = 2_100 * sstore_opcode_count
+    push_opcode_cost = gas_costs.G_VERY_LOW * push_opcode_count
+    sstore_opcode_cost = gas_costs.G_STORAGE_SET * sstore_opcode_count
+    cold_storage_cost = gas_costs.G_COLD_SLOAD * sstore_opcode_count
 
     execution_gas = gas_opcode_cost + push_opcode_cost + sstore_opcode_cost + cold_storage_cost
 
@@ -712,8 +714,6 @@ def test_gas_cost(
     test_code_address = pre.deploy_contract(test_code)
 
     tx_gas_limit = intrinsic_gas + execution_gas
-    tx_max_fee_per_gas = 1_000_000_000
-    tx_exact_cost = tx_gas_limit * tx_max_fee_per_gas
 
     # EIP-3529
     max_discount = tx_gas_limit // 5
@@ -722,20 +722,20 @@ def test_gas_cost(
         # Only one test hits this condition, but it's ok to also test this case.
         discount_gas = max_discount
 
-    discount_cost = discount_gas * tx_max_fee_per_gas
+    gas_used = tx_gas_limit - discount_gas
 
     sender_account = pre[sender]
     assert sender_account is not None
 
     tx = Transaction(
         gas_limit=tx_gas_limit,
-        max_fee_per_gas=tx_max_fee_per_gas,
         to=test_code_address,
         value=0,
         data=data,
         authorization_list=authorization_list,
         access_list=access_list,
         sender=sender,
+        expected_receipt=TransactionReceipt(gas_used=gas_used),
     )
 
     state_test(
@@ -744,7 +744,6 @@ def test_gas_cost(
         tx=tx,
         post={
             test_code_address: Account(storage=test_code_storage),
-            sender: Account(balance=sender_account.balance - tx_exact_cost + discount_cost),
         },
     )
 
