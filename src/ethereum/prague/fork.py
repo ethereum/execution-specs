@@ -1023,29 +1023,26 @@ def process_transaction(
 
     output = process_message_call(message, env)
 
-    # For EIP-7623 gas_used includes the intrinsic costs with the floor price
-    # for calldata.
-    gas_used = tx.gas - output.gas_left
+    # For EIP-7623 we first calculate the execution_gas_used, which includes
+    # the execution gas refund.
+    execution_gas_used = tx.gas - output.gas_left
+    gas_refund = min(execution_gas_used // 5, output.refund_counter)
+    execution_gas_used -= gas_refund
 
     # EIP-7623 floor price (note: no EVM costs)
-
-    # Transactions with less gas used than the floor pay at the floor cost.
     floor = Uint(tokens_in_calldata * FLOOR_CALLDATA_COST + TX_BASE_COST)
-    if gas_used < floor:
-        gas_used = floor
+    # Transactions with less execution_gas_used than the floor pay at the
+    # floor cost.
+    total_gas_used = execution_gas_used
+    if total_gas_used < floor:
+        total_gas_used = floor
 
-    output.gas_left = tx.gas - gas_used
-
-    gas_refund = min(gas_used // 5, output.refund_counter)
-    gas_refund_amount = (output.gas_left + gas_refund) * env.gas_price
+    output.gas_left = tx.gas - total_gas_used
+    gas_refund_amount = output.gas_left * env.gas_price
 
     # For non-1559 transactions env.gas_price == tx.gas_price
     priority_fee_per_gas = env.gas_price - env.base_fee_per_gas
-    transaction_fee = (
-        tx.gas - output.gas_left - gas_refund
-    ) * priority_fee_per_gas
-
-    total_gas_used = gas_used - gas_refund
+    transaction_fee = total_gas_used * priority_fee_per_gas
 
     # refund gas
     sender_balance_after_refund = (
