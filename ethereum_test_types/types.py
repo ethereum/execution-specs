@@ -27,6 +27,7 @@ from ethereum_test_base_types import (
     AccessList,
     Account,
     Address,
+    Bloom,
     BLSPublicKey,
     BLSSignature,
     Bytes,
@@ -558,6 +559,47 @@ class AuthorizationTuple(AuthorizationTupleGeneric[HexNumber]):
         self.s = HexNumber(signature[2])
 
 
+class TransactionLog(CamelModel):
+    """Transaction log."""
+
+    address: Address
+    topics: List[Hash]
+    data: Bytes
+    block_number: HexNumber
+    transaction_hash: Hash
+    transaction_index: HexNumber
+    block_hash: Hash
+    log_index: HexNumber
+    removed: bool
+
+
+class ReceiptDelegation(CamelModel):
+    """Transaction receipt set-code delegation."""
+
+    from_address: Address = Field(..., alias="from")
+    nonce: HexNumber
+    target: Address
+
+
+class TransactionReceipt(CamelModel):
+    """Transaction receipt."""
+
+    transaction_hash: Hash | None = None
+    gas_used: HexNumber | None = None
+    root: Bytes | None = None
+    status: HexNumber | None = None
+    cumulative_gas_used: HexNumber | None = None
+    logs_bloom: Bloom | None = None
+    logs: List[TransactionLog] | None = None
+    contract_address: Address | None = None
+    effective_gas_price: HexNumber | None = None
+    block_hash: Hash | None = None
+    transaction_index: HexNumber | None = None
+    blob_gas_used: HexNumber | None = None
+    blob_gas_price: HexNumber | None = None
+    delegations: List[ReceiptDelegation] | None = None
+
+
 @dataclass
 class TransactionDefaults:
     """Default values for transactions."""
@@ -659,6 +701,8 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
 
     protected: bool = Field(True, exclude=True)
     rlp_override: Bytes | None = Field(None, exclude=True)
+
+    expected_receipt: TransactionReceipt | None = Field(None, exclude=True)
 
     wrapped_blob_transaction: bool = Field(False, exclude=True)
     blobs: Sequence[Bytes] | None = Field(None, exclude=True)

@@ -4,49 +4,8 @@ from typing import List
 
 from pydantic import Field
 
-from ethereum_test_base_types import Address, Bloom, Bytes, CamelModel, Hash, HexNumber
-from ethereum_test_types import Alloc, Environment, Transaction
-
-
-class TransactionLog(CamelModel):
-    """Transaction log."""
-
-    address: Address
-    topics: List[Hash]
-    data: Bytes
-    block_number: HexNumber
-    transaction_hash: Hash
-    transaction_index: HexNumber
-    block_hash: Hash
-    log_index: HexNumber
-    removed: bool
-
-
-class SetCodeDelegation(CamelModel):
-    """Set code delegation."""
-
-    from_address: Address = Field(..., alias="from")
-    nonce: HexNumber
-    target: Address
-
-
-class TransactionReceipt(CamelModel):
-    """Transaction receipt."""
-
-    transaction_hash: Hash
-    gas_used: HexNumber
-    root: Bytes | None = None
-    status: HexNumber | None = None
-    cumulative_gas_used: HexNumber | None = None
-    logs_bloom: Bloom | None = None
-    logs: List[TransactionLog] | None = None
-    contract_address: Address | None = None
-    effective_gas_price: HexNumber | None = None
-    block_hash: Hash | None = None
-    transaction_index: HexNumber | None = None
-    blob_gas_used: HexNumber | None = None
-    blob_gas_price: HexNumber | None = None
-    delegations: List[SetCodeDelegation] | None = None
+from ethereum_test_base_types import Bloom, Bytes, CamelModel, Hash, HexNumber
+from ethereum_test_types import Alloc, Environment, Transaction, TransactionReceipt
 
 
 class RejectedTransaction(CamelModel):
