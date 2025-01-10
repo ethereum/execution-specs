@@ -14,23 +14,18 @@ from ethereum_test_vm import EVMCodeType, Opcodes
 
 from ..base_fork import (
     BaseFork,
+    BlobGasPriceCalculator,
     CalldataGasCalculator,
+    ExcessBlobGasCalculator,
     MemoryExpansionGasCalculator,
     TransactionDataFloorCostCalculator,
     TransactionIntrinsicCostCalculator,
 )
 from ..gas_costs import GasCosts
+from .helpers import ceiling_division, fake_exponential
 
 CURRENT_FILE = Path(realpath(__file__))
 CURRENT_FOLDER = CURRENT_FILE.parent
-
-
-def ceiling_division(a: int, b: int) -> int:
-    """
-    Calculate the ceil without using floating point.
-    Used by many of the EVM's formulas.
-    """
-    return -(a // -b)
 
 
 # All forks must be listed here !!! in the order they were introduced !!!
@@ -215,22 +210,46 @@ class Frontier(BaseFork, solc_name="homestead"):
         return fn
 
     @classmethod
-    def blob_gas_per_blob(cls, block_number: int, timestamp: int) -> int:
-        """Return amount of blob gas used per blob for a given fork."""
+    def blob_gas_price_calculator(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> BlobGasPriceCalculator:
+        """Return a callable that calculates the blob gas price at a given fork."""
+        raise NotImplementedError("Blob gas price calculator is not supported in Frontier")
+
+    @classmethod
+    def excess_blob_gas_calculator(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> ExcessBlobGasCalculator:
+        """Return a callable that calculates the excess blob gas for a block at a given fork."""
+        raise NotImplementedError("Excess blob gas calculator is not supported in Frontier")
+
+    @classmethod
+    def min_base_fee_per_blob_gas(cls, block_number: int = 0, timestamp: int = 0) -> int:
+        """Return the amount of blob gas used per blob at a given fork."""
+        raise NotImplementedError("Base fee per blob gas is not supported in Frontier")
+
+    @classmethod
+    def blob_base_fee_update_fraction(cls, block_number: int = 0, timestamp: int = 0) -> int:
+        """Return the blob base fee update fraction at a given fork."""
+        raise NotImplementedError("Blob base fee update fraction is not supported in Frontier")
+
+    @classmethod
+    def blob_gas_per_blob(cls, block_number: int = 0, timestamp: int = 0) -> int:
+        """Return the amount of blob gas used per blob at a given fork."""
         return 0
 
     @classmethod
-    def target_blobs_per_block(cls, block_number: int, timestamp: int) -> int:
-        """Return target number of blobs per block for a given fork."""
-        return 0
+    def target_blobs_per_block(cls, block_number: int = 0, timestamp: int = 0) -> int:
+        """Return the target number of blobs per block at a given fork."""
+        raise NotImplementedError("Target blobs per block is not supported in Frontier")
 
     @classmethod
-    def max_blobs_per_block(cls, block_number: int, timestamp: int) -> int:
-        """Return max number of blobs per block for a given fork."""
-        return 0
+    def max_blobs_per_block(cls, block_number: int = 0, timestamp: int = 0) -> int:
+        """Return the max number of blobs per block at a given fork."""
+        raise NotImplementedError("Max blobs per block is not supported in Frontier")
 
     @classmethod
-    def header_requests_required(cls, block_number: int, timestamp: int) -> bool:
+    def header_requests_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """At genesis, header must not contain beacon chain requests."""
         return False
 
@@ -858,17 +877,73 @@ class Cancun(Shanghai):
         return True
 
     @classmethod
-    def blob_gas_per_blob(cls, block_number: int, timestamp: int) -> int:
+    def blob_gas_price_calculator(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> BlobGasPriceCalculator:
+        """Return a callable that calculates the blob gas price at Cancun."""
+        min_base_fee_per_blob_gas = cls.min_base_fee_per_blob_gas(block_number, timestamp)
+        blob_base_fee_update_fraction = cls.blob_base_fee_update_fraction(block_number, timestamp)
+
+        def fn(*, excess_blob_gas) -> int:
+            return fake_exponential(
+                min_base_fee_per_blob_gas,
+                excess_blob_gas,
+                blob_base_fee_update_fraction,
+            )
+
+        return fn
+
+    @classmethod
+    def excess_blob_gas_calculator(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> ExcessBlobGasCalculator:
+        """Return a callable that calculates the excess blob gas for a block at Cancun."""
+        target_blobs_per_block = cls.target_blobs_per_block(block_number, timestamp)
+        blob_gas_per_blob = cls.blob_gas_per_blob(block_number, timestamp)
+        target_blob_gas_per_block = target_blobs_per_block * blob_gas_per_blob
+
+        def fn(
+            *,
+            parent_excess_blob_gas: int | None = None,
+            parent_excess_blobs: int | None = None,
+            parent_blob_gas_used: int | None = None,
+            parent_blob_count: int | None = None,
+        ) -> int:
+            if parent_excess_blob_gas is None:
+                assert parent_excess_blobs is not None, "Parent excess blobs are required"
+                parent_excess_blob_gas = parent_excess_blobs * blob_gas_per_blob
+            if parent_blob_gas_used is None:
+                assert parent_blob_count is not None, "Parent blob count is required"
+                parent_blob_gas_used = parent_blob_count * blob_gas_per_blob
+            if parent_excess_blob_gas + parent_blob_gas_used < target_blob_gas_per_block:
+                return 0
+            else:
+                return parent_excess_blob_gas + parent_blob_gas_used - target_blob_gas_per_block
+
+        return fn
+
+    @classmethod
+    def min_base_fee_per_blob_gas(cls, block_number: int = 0, timestamp: int = 0) -> int:
+        """Return the minimum base fee per blob gas for Cancun."""
+        return 1
+
+    @classmethod
+    def blob_base_fee_update_fraction(cls, block_number: int = 0, timestamp: int = 0) -> int:
+        """Return the blob base fee update fraction for Cancun."""
+        return 3338477
+
+    @classmethod
+    def blob_gas_per_blob(cls, block_number: int = 0, timestamp: int = 0) -> int:
         """Blobs are enabled starting from Cancun."""
         return 2**17
 
     @classmethod
-    def target_blobs_per_block(cls, block_number: int, timestamp: int) -> int:
+    def target_blobs_per_block(cls, block_number: int = 0, timestamp: int = 0) -> int:
         """Blobs are enabled starting from Cancun, with a static target of 3 blobs."""
         return 3
 
     @classmethod
-    def max_blobs_per_block(cls, block_number: int, timestamp: int) -> int:
+    def max_blobs_per_block(cls, block_number: int = 0, timestamp: int = 0) -> int:
         """Blobs are enabled starting from Cancun, with a static max of 6 blobs."""
         return 6
 
@@ -1074,6 +1149,21 @@ class Prague(Cancun):
         return fn
 
     @classmethod
+    def blob_base_fee_update_fraction(cls, block_number: int = 0, timestamp: int = 0) -> int:
+        """Return the blob base fee update fraction for Prague."""
+        return 5007716
+
+    @classmethod
+    def target_blobs_per_block(cls, block_number: int = 0, timestamp: int = 0) -> int:
+        """Target blob count of 6 for Prague."""
+        return 6
+
+    @classmethod
+    def max_blobs_per_block(cls, block_number: int = 0, timestamp: int = 0) -> int:
+        """Max blob count of 9 for Prague."""
+        return 9
+
+    @classmethod
     def pre_allocation_blockchain(cls) -> Mapping:
         """
         Prague requires pre-allocation of the beacon chain deposit contract for EIP-6110,
@@ -1136,7 +1226,7 @@ class Prague(Cancun):
         return new_allocation | super(Prague, cls).pre_allocation_blockchain()  # type: ignore
 
     @classmethod
-    def header_requests_required(cls, block_number: int, timestamp: int) -> bool:
+    def header_requests_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
         Prague requires that the execution layer header contains the beacon
         chain requests hash.
@@ -1144,27 +1234,8 @@ class Prague(Cancun):
         return True
 
     @classmethod
-    def header_target_blobs_per_block_required(
-        cls,
-        block_number: int = 0,
-        timestamp: int = 0,
-    ) -> bool:
-        """
-        Prague requires that the execution layer header contains the beacon
-        chain target blobs per block.
-        """
-        return True
-
-    @classmethod
     def engine_new_payload_requests(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """From Prague, new payloads include the requests hash as a parameter."""
-        return True
-
-    @classmethod
-    def engine_new_payload_target_blobs_per_block(
-        cls, block_number: int = 0, timestamp: int = 0
-    ) -> bool:
-        """From Prague, new payloads include the target blobs per block as a parameter."""
         return True
 
     @classmethod
@@ -1175,18 +1246,11 @@ class Prague(Cancun):
         return 4
 
     @classmethod
-    def engine_payload_attribute_target_blobs_per_block(
+    def engine_forkchoice_updated_version(
         cls, block_number: int = 0, timestamp: int = 0
-    ) -> bool:
-        """From Prague, payload attributes include the target blobs per block."""
-        return True
-
-    @classmethod
-    def engine_payload_attribute_max_blobs_per_block(
-        cls, block_number: int = 0, timestamp: int = 0
-    ) -> bool:
-        """From Prague, payload attributes include the max blobs per block."""
-        return True
+    ) -> Optional[int]:
+        """At Prague, version number of NewPayload and ForkchoiceUpdated diverge."""
+        return 3
 
 
 class CancunEIP7692(  # noqa: SC200

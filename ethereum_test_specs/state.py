@@ -30,8 +30,6 @@ from .blockchain import Block, BlockchainTest, Header
 from .debugging import print_traces
 from .helpers import is_slow_test, verify_transactions
 
-TARGET_BLOB_GAS_PER_BLOCK = 393216
-
 
 class StateTest(BaseTest):
     """Filler type that tests transactions over the period of a single block."""
@@ -54,7 +52,7 @@ class StateTest(BaseTest):
         TransactionPost,
     ]
 
-    def _generate_blockchain_genesis_environment(self) -> Environment:
+    def _generate_blockchain_genesis_environment(self, *, fork: Fork) -> Environment:
         """Generate the genesis environment for the BlockchainTest formatted test."""
         assert (
             self.env.number >= 1
@@ -73,8 +71,8 @@ class StateTest(BaseTest):
             # set the excess blob gas by setting the excess blob gas of the genesis block
             # to the expected value plus the TARGET_BLOB_GAS_PER_BLOCK, which is the value
             # that will be subtracted from the excess blob gas when the first block is mined.
-            updated_values["excess_blob_gas"] = (
-                self.env.excess_blob_gas + TARGET_BLOB_GAS_PER_BLOCK
+            updated_values["excess_blob_gas"] = self.env.excess_blob_gas + (
+                fork.target_blobs_per_block() * fork.blob_gas_per_blob()
             )
 
         return self.env.copy(**updated_values)
@@ -99,10 +97,10 @@ class StateTest(BaseTest):
             )
         ]
 
-    def generate_blockchain_test(self) -> BlockchainTest:
+    def generate_blockchain_test(self, *, fork: Fork) -> BlockchainTest:
         """Generate a BlockchainTest fixture from this StateTest fixture."""
         return BlockchainTest(
-            genesis_environment=self._generate_blockchain_genesis_environment(),
+            genesis_environment=self._generate_blockchain_genesis_environment(fork=fork),
             pre=self.pre,
             post=self.post,
             blocks=self._generate_blockchain_blocks(),
@@ -184,7 +182,7 @@ class StateTest(BaseTest):
     ) -> BaseFixture:
         """Generate the BlockchainTest fixture."""
         if fixture_format in BlockchainTest.supported_fixture_formats:
-            return self.generate_blockchain_test().generate(
+            return self.generate_blockchain_test(fork=fork).generate(
                 request=request, t8n=t8n, fork=fork, fixture_format=fixture_format, eips=eips
             )
         elif fixture_format == StateFixture:

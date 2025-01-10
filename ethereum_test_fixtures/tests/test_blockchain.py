@@ -14,7 +14,6 @@ from ethereum_test_base_types import (
     Bytes,
     Hash,
     HeaderNonce,
-    HexNumber,
     TestPrivateKey,
     ZeroPaddedHexNumber,
     to_json,
@@ -667,7 +666,6 @@ fixture_header_ones = FixtureHeader(
                     excess_blob_gas=18,
                     parent_beacon_block_root=19,
                     requests_hash=20,
-                    target_blobs_per_block=21,
                 ),
                 transactions=[
                     Transaction(
@@ -729,7 +727,7 @@ fixture_header_ones = FixtureHeader(
                         "blobGasUsed": hex(17),
                         "excessBlobGas": hex(18),
                         "blockHash": (
-                            "0x9f6459fb2eca2b75ee861e97d679ba91457bb446c8484a7ad76d1675a7f78fde"
+                            "0x93bd662d8a80a1f54bffc6d140b83d6cda233209998809f9540be51178b4d0b6"
                         ),
                         "transactions": [
                             Transaction(
@@ -787,9 +785,8 @@ fixture_header_ones = FixtureHeader(
                             ),
                         ).requests_list
                     ],
-                    HexNumber(21).hex(),
                 ],
-                "forkchoiceUpdatedVersion": "4",
+                "forkchoiceUpdatedVersion": "3",
                 "newPayloadVersion": "4",
                 "validationError": "BlockException.INCORRECT_BLOCK_FORMAT"
                 "|TransactionException.INTRINSIC_GAS_TOO_LOW",
@@ -824,7 +821,6 @@ fixture_header_ones = FixtureHeader(
                     excess_blob_gas=18,
                     parent_beacon_block_root=19,
                     requests_hash=20,
-                    target_blobs_per_block=21,
                 ),
                 transactions=[
                     Transaction(
@@ -885,7 +881,7 @@ fixture_header_ones = FixtureHeader(
                         "blobGasUsed": hex(17),
                         "excessBlobGas": hex(18),
                         "blockHash": (
-                            "0x9f6459fb2eca2b75ee861e97d679ba91457bb446c8484a7ad76d1675a7f78fde"
+                            "0x93bd662d8a80a1f54bffc6d140b83d6cda233209998809f9540be51178b4d0b6"
                         ),
                         "transactions": [
                             Transaction(
@@ -943,10 +939,9 @@ fixture_header_ones = FixtureHeader(
                             ),
                         ).requests_list
                     ],
-                    HexNumber(21).hex(),
                 ],
                 "newPayloadVersion": "4",
-                "forkchoiceUpdatedVersion": "4",
+                "forkchoiceUpdatedVersion": "3",
                 "validationError": "BlockException.INCORRECT_BLOCK_FORMAT"
                 "|TransactionException.INTRINSIC_GAS_TOO_LOW",
             },
@@ -1224,7 +1219,6 @@ EngineNewPayloadParametersAdapter = TypeAdapter(EngineNewPayloadParameters)  # t
                         target_pubkey=BLSPublicKey(2),
                     ),
                 ).requests_list,
-                HexNumber(9),
             ),
             [
                 {
@@ -1290,7 +1284,6 @@ EngineNewPayloadParametersAdapter = TypeAdapter(EngineNewPayloadParameters)  # t
                         ),
                     ).requests_list
                 ],
-                HexNumber(9).hex(),
             ],
             id="fixture_engine_new_payload_parameters_v4",
         ),

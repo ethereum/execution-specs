@@ -229,7 +229,6 @@ EngineNewPayloadV4Parameters = Tuple[
     List[Hash],
     Hash,
     List[Bytes],
-    HexNumber,
 ]
 
 # Important: We check EngineNewPayloadV3Parameters first as it has more fields, and pydantic
