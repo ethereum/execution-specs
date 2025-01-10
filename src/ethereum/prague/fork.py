@@ -1030,12 +1030,12 @@ def process_transaction(
     execution_gas_used -= gas_refund
 
     # EIP-7623 floor price (note: no EVM costs)
-    floor = Uint(tokens_in_calldata * FLOOR_CALLDATA_COST + TX_BASE_COST)
+    floor_gas_cost = Uint(
+        tokens_in_calldata * FLOOR_CALLDATA_COST + TX_BASE_COST
+    )
     # Transactions with less execution_gas_used than the floor pay at the
     # floor cost.
-    total_gas_used = execution_gas_used
-    if total_gas_used < floor:
-        total_gas_used = floor
+    total_gas_used = max(execution_gas_used, floor_gas_cost)
 
     output.gas_left = tx.gas - total_gas_used
     gas_refund_amount = output.gas_left * env.gas_price
