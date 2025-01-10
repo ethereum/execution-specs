@@ -5,7 +5,7 @@ abstract: Tests [EIP-7685: General purpose execution layer requests](https://eip
 """  # noqa: E501
 
 from itertools import permutations
-from typing import Any, Generator, List
+from typing import Any, Dict, Generator, List, Tuple
 
 import pytest
 
@@ -18,6 +18,7 @@ from ethereum_test_tools import (
     BlockchainTestFiller,
     BlockException,
     Bytecode,
+    Bytes,
     Environment,
     Header,
     Requests,
@@ -214,6 +215,10 @@ def get_contract_permutations(n: int = 3) -> Generator[Any, None, None]:
             ],
             id="withdrawal_from_eoa+consolidation_from_eoa+withdrawal_from_contract",
         ),
+        pytest.param(
+            [],
+            id="empty_requests",
+        ),
     ],
 )
 def test_valid_deposit_withdrawal_consolidation_requests(
@@ -320,148 +325,154 @@ def test_valid_deposit_withdrawal_consolidation_request_from_same_tx(
     )
 
 
-invalid_requests_block_combinations = [
-    pytest.param(
-        [],
-        [],  # Even with no requests, the requests hash is not sha256(b""),
-        # but sha256(sha256(b"\0") ++ sha256(b"\1") ++ sha256(b"\2") ++ ...)
-        BlockException.INVALID_REQUESTS,
-        id="no_requests_empty_list",
-    ),
-    pytest.param(
-        [
-            single_deposit_from_eoa(0),
+def invalid_requests_block_combinations(fork: Fork) -> List[Any]:
+    """
+    Return a list of invalid request combinations for the given fork.
+
+    In the event of a new request type, the `all_request_types` dictionary should be updated
+    with the new request type and its corresponding request-generating transaction.
+    """
+    assert fork.max_request_type() == 2, "Test update is needed for new request types"
+
+    all_request_types: Dict[
+        str,
+        Tuple[
+            DepositTransaction | WithdrawalRequestTransaction | ConsolidationRequestTransaction,
+            DepositRequest | WithdrawalRequest | ConsolidationRequest,
         ],
-        [
+    ] = {
+        "deposit": (
+            single_deposit_from_eoa(0),
             single_deposit(0),
-        ],
-        BlockException.INVALID_REQUESTS,
-        id="single_deposit_incomplete_requests_list",
-    ),
-    pytest.param(
-        [
-            single_deposit_from_eoa(0),
-        ],
-        [],
-        BlockException.INVALID_REQUESTS,
-        id="single_deposit_empty_requests_list",
-    ),
-    # Incorrect order tests
-    pytest.param(
-        [
-            single_deposit_from_eoa(0),
-        ],
-        [
-            b"",
-            single_deposit(0),
-            b"",
-        ],
-        BlockException.INVALID_REQUESTS,
-        id="single_deposit_incorrect_order_1",
-    ),
-    pytest.param(
-        [
-            single_deposit_from_eoa(0),
-        ],
-        [
-            b"",
-            b"",
-            single_deposit(0),
-        ],
-        BlockException.INVALID_REQUESTS,
-        id="single_deposit_incorrect_order_2",
-    ),
-    pytest.param(
-        [
+        ),
+        "withdrawal": (
             single_withdrawal_from_eoa(0),
-        ],
-        [
             single_withdrawal(0).with_source_address(TestAddress),
-            b"",
-            b"",
-        ],
-        BlockException.INVALID_REQUESTS,
-        id="single_withdrawal_incorrect_order_1",
-    ),
-    pytest.param(
-        [
-            single_withdrawal_from_eoa(0),
-        ],
-        [
-            b"",
-            b"",
-            single_withdrawal(0).with_source_address(TestAddress),
-        ],
-        BlockException.INVALID_REQUESTS,
-        id="single_withdrawal_incorrect_order_2",
-    ),
-    pytest.param(
-        [
+        ),
+        "consolidation": (
             single_consolidation_from_eoa(0),
-        ],
-        [
             single_consolidation(0).with_source_address(TestAddress),
-            b"",
-            b"",
-        ],
-        BlockException.INVALID_REQUESTS,
-        id="single_consolidation_incorrect_order_1",
-    ),
-    pytest.param(
-        [
-            single_consolidation_from_eoa(0),
-        ],
-        [
-            b"",
-            single_consolidation(0).with_source_address(TestAddress),
-            b"",
-        ],
-        BlockException.INVALID_REQUESTS,
-        id="single_consolidation_incorrect_order_2",
-    ),
-    pytest.param(
-        [
-            single_deposit_from_eoa(0),
-            single_withdrawal_from_eoa(0),
-        ],
-        [
-            single_deposit(0),
-            single_withdrawal(0).with_source_address(TestAddress),
-        ],
-        BlockException.INVALID_REQUESTS,
-        id="single_deposit_single_withdrawal_incomplete_requests_list",
-    ),
-    pytest.param(
-        [
-            single_deposit_from_eoa(0),
-            single_withdrawal_from_eoa(0),
-        ],
-        [
-            single_deposit(0),
-        ],
-        BlockException.INVALID_REQUESTS,
-        id="single_deposit_single_withdrawal_incomplete_requests_list_2",
-    ),
-    pytest.param(
-        [
-            single_deposit_from_eoa(0),
-            single_withdrawal_from_eoa(0),
-            single_consolidation_from_eoa(0),
-        ],
-        [
-            single_deposit(0),
-            single_withdrawal(0).with_source_address(TestAddress),
-        ],
-        BlockException.INVALID_REQUESTS,
-        id="single_deposit_single_withdrawal_single_consolidation_incomplete_requests_list",
-    ),
-]
+        ),
+    }
+
+    # - Empty requests list with invalid hash
+    combinations = [
+        pytest.param(
+            [],
+            [
+                bytes([i]) for i in range(fork.max_request_type() + 1)
+            ],  # Using empty requests, calculate the hash using an invalid calculation method:
+            # sha256(sha256(b"\0") ++ sha256(b"\1") ++ sha256(b"\2") ++ ...)
+            BlockException.INVALID_REQUESTS,
+            id="no_requests_invalid_hash_calculation_method",
+        ),
+        pytest.param(
+            [],
+            [
+                bytes([]) for _ in range(fork.max_request_type() + 1)
+            ],  # Using empty requests, calculate the hash using an invalid calculation method:
+            # sha256(sha256(b"") ++ sha256(b"") ++ sha256(b"") ++ ...)
+            BlockException.INVALID_REQUESTS,
+            id="no_requests_invalid_hash_calculation_method_2",
+        ),
+    ]
+
+    # - Missing request or request type byte tests
+    for request_type, (eoa_request, block_request) in all_request_types.items():
+        combinations.extend(
+            [
+                pytest.param(
+                    [eoa_request],
+                    [
+                        block_request
+                    ],  # The request type byte missing because we need to use the `Requests` class
+                    BlockException.INVALID_REQUESTS,
+                    id=f"single_{request_type}_missing_type_byte",
+                ),
+                pytest.param(
+                    [eoa_request],
+                    [],
+                    BlockException.INVALID_REQUESTS,
+                    id=f"single_{request_type}_empty_requests_list",
+                ),
+            ]
+        )
+
+    # - Incorrect order tests
+    correct_order: List[Bytes] = Requests(
+        *[r[1] for r in all_request_types.values()]
+    ).requests_list  # Requests automatically adds the type byte
+    correct_order_transactions: List[
+        DepositTransaction | WithdrawalRequestTransaction | ConsolidationRequestTransaction
+    ] = [r[0] for r in all_request_types.values()]
+
+    # Send first element to the end
+    combinations.append(
+        pytest.param(
+            correct_order_transactions[1:] + [correct_order_transactions[0]],
+            correct_order[1:] + [correct_order[0]],
+            BlockException.INVALID_REQUESTS,
+            id="incorrect_order_first_request_at_end",
+        ),
+    )
+
+    # Send second element to the end
+    combinations.append(
+        pytest.param(
+            [correct_order_transactions[0]]
+            + correct_order_transactions[2:]
+            + [correct_order_transactions[1]],
+            [correct_order[0]] + correct_order[2:] + [correct_order[1]],
+            BlockException.INVALID_REQUESTS,
+            id="incorrect_order_second_request_at_end",
+        ),
+    )
+
+    # Bring last element to the beginning
+    combinations.append(
+        pytest.param(
+            [correct_order_transactions[-1]] + correct_order_transactions[:-1],
+            [correct_order[-1]] + correct_order[:-1],
+            BlockException.INVALID_REQUESTS,
+            id="incorrect_order_last_request_at_beginning",
+        ),
+    )
+
+    # - Duplicate request tests
+    for request_type, (eoa_request, block_request) in all_request_types.items():
+        combinations.append(
+            pytest.param(
+                [eoa_request],
+                Requests(block_request).requests_list * 2,
+                BlockException.INVALID_REQUESTS,
+                id=f"duplicate_{request_type}_request",
+            ),
+        )
+
+    # - Extra invalid request tests
+    combinations.append(
+        pytest.param(
+            correct_order_transactions,
+            correct_order + [b""],
+            BlockException.INVALID_REQUESTS,
+            id="extra_empty_request",
+        ),
+    )
+    combinations.append(
+        pytest.param(
+            correct_order_transactions,
+            correct_order + [bytes([fork.max_request_type() + 1])],
+            BlockException.INVALID_REQUESTS,
+            id="extra_invalid_type_request",
+        ),
+    )
+
+    return combinations
 
 
-@pytest.mark.parametrize(
+@pytest.mark.parametrize_by_fork(
     "requests,block_body_override_requests,exception",
     invalid_requests_block_combinations,
-    indirect=["block_body_override_requests"],
 )
 def test_invalid_deposit_withdrawal_consolidation_requests(
     blockchain_test: BlockchainTestFiller,
@@ -484,10 +495,9 @@ def test_invalid_deposit_withdrawal_consolidation_requests(
     )
 
 
-@pytest.mark.parametrize(
+@pytest.mark.parametrize_by_fork(
     "requests,block_body_override_requests,exception",
     invalid_requests_block_combinations,
-    indirect=["block_body_override_requests"],
 )
 @pytest.mark.parametrize("correct_requests_hash_in_header", [True])
 def test_invalid_deposit_withdrawal_consolidation_requests_engine(
