@@ -5,12 +5,13 @@ abstract: Tests [EIP-7251: Increase the MAX_EFFECTIVE_BALANCE](https://eips.ethe
 
 from os.path import realpath
 from pathlib import Path
-from typing import Generator, Tuple
+from typing import Generator
 
 from ethereum_test_forks import Fork, Prague
 from ethereum_test_tools import (
     Address,
     Alloc,
+    Block,
     Header,
     Requests,
     Transaction,
@@ -28,13 +29,13 @@ REFERENCE_SPEC_VERSION = ref_spec_7251.version
     fork=Prague,
     tx_json_path=Path(realpath(__file__)).parent / "contract_deploy_tx.json",
     expected_deploy_address=Address(Spec.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS),
-    expected_system_contract_storage=None,
 )
 def test_system_contract_deployment(
     *,
     fork: Fork,
     pre: Alloc,
-) -> Generator[Tuple[Transaction, Header], None, None]:
+    **kwargs,
+) -> Generator[Block, None, None]:
     """Verify calling the consolidation system contract after deployment."""
     sender = pre.fund_eoa()
     consolidation_request = ConsolidationRequest(
@@ -55,11 +56,9 @@ def test_system_contract_deployment(
         value=consolidation_request.value,
     )
 
-    yield from [
-        (
-            test_transaction,
-            Header(
-                requests_hash=Requests(consolidation_request),
-            ),
+    yield Block(
+        txs=[test_transaction],
+        header=Header(
+            requests_hash=Requests(consolidation_request),
         ),
-    ]
+    )

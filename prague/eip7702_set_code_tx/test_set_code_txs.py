@@ -2654,7 +2654,7 @@ def test_set_code_to_system_contract(
             )
             caller_payload = consolidation_request.calldata
             call_value = consolidation_request.value
-        case Address(0x0AAE40965E6800CD9B1F4B05FF21581047E3F91E):  # EIP-2935
+        case Address(0x0F792BE4B0C0CB4DAE440EF133E90C0ECD48CCCC):  # EIP-2935
             caller_payload = Hash(0)
             caller_code_storage[call_return_data_size_slot] = 32
         case _:
