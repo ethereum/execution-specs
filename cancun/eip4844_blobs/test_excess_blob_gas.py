@@ -22,10 +22,11 @@ note: Adding a new test
 """  # noqa: E501
 
 import itertools
-from typing import Dict, Iterator, List, Mapping, Optional, Tuple
+from typing import Callable, Dict, Iterator, List, Mapping, Optional, Tuple
 
 import pytest
 
+from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     EOA,
     Account,
@@ -53,25 +54,9 @@ pytestmark = pytest.mark.valid_from("Cancun")
 
 
 @pytest.fixture
-def parent_excess_blobs() -> int:  # noqa: D103
+def parent_excess_blobs(fork: Fork) -> int:  # noqa: D103
     """By default we start with an intermediate value between the target and max."""
-    return (SpecHelpers.max_blobs_per_block() + SpecHelpers.target_blobs_per_block()) // 2 + 1
-
-
-@pytest.fixture
-def parent_excess_blob_gas(parent_excess_blobs: int) -> int:  # noqa: D103
-    return parent_excess_blobs * Spec.GAS_PER_BLOB
-
-
-@pytest.fixture
-def correct_excess_blob_gas(  # noqa: D103
-    parent_excess_blob_gas: int,
-    parent_blobs: int,
-) -> int:
-    return SpecHelpers.calc_excess_blob_gas_from_blob_count(
-        parent_excess_blob_gas=parent_excess_blob_gas,
-        parent_blob_count=parent_blobs,
-    )
+    return (fork.max_blobs_per_block() + fork.target_blobs_per_block()) // 2 + 1
 
 
 @pytest.fixture
@@ -89,10 +74,11 @@ def header_excess_blob_gas(  # noqa: D103
     correct_excess_blob_gas: int,
     header_excess_blobs_delta: Optional[int],
     header_excess_blob_gas_delta: Optional[int],
+    blob_gas_per_blob: int,
 ) -> Optional[int]:
     if header_excess_blobs_delta is not None:
         modified_excess_blob_gas = correct_excess_blob_gas + (
-            header_excess_blobs_delta * Spec.GAS_PER_BLOB
+            header_excess_blobs_delta * blob_gas_per_blob
         )
         if modified_excess_blob_gas < 0:
             modified_excess_blob_gas = 2**64 + (modified_excess_blob_gas)
@@ -103,58 +89,12 @@ def header_excess_blob_gas(  # noqa: D103
 
 
 @pytest.fixture
-def block_fee_per_blob_gas(  # noqa: D103
-    correct_excess_blob_gas: int,
-) -> int:
-    return Spec.get_blob_gasprice(excess_blob_gas=correct_excess_blob_gas)
-
-
-@pytest.fixture
-def block_base_fee() -> int:  # noqa: D103
-    return 7
-
-
-@pytest.fixture
-def env(  # noqa: D103
-    parent_excess_blob_gas: int,
-    block_base_fee: int,
-    parent_blobs: int,
-) -> Environment:
-    return Environment(
-        excess_blob_gas=(
-            parent_excess_blob_gas
-            if parent_blobs == 0
-            else parent_excess_blob_gas + Spec.TARGET_BLOB_GAS_PER_BLOCK
-        ),
-        base_fee_per_gas=block_base_fee,
-    )
-
-
-@pytest.fixture
-def tx_max_fee_per_gas(  # noqa: D103
-    block_base_fee: int,
-) -> int:
-    return block_base_fee
-
-
-@pytest.fixture
-def tx_max_fee_per_blob_gas(  # noqa: D103
-    block_fee_per_blob_gas: int,
-) -> int:
-    return block_fee_per_blob_gas
-
-
-@pytest.fixture
-def tx_data_cost(  # noqa: D103
+def tx_blob_data_cost(  # noqa: D103
     tx_max_fee_per_blob_gas: int,
     new_blobs: int,
+    blob_gas_per_blob: int,
 ) -> int:
-    return tx_max_fee_per_blob_gas * Spec.GAS_PER_BLOB * new_blobs
-
-
-@pytest.fixture
-def tx_value() -> int:  # noqa: D103
-    return 1
+    return tx_max_fee_per_blob_gas * blob_gas_per_blob * new_blobs
 
 
 @pytest.fixture
@@ -164,9 +104,9 @@ def tx_gas_limit() -> int:  # noqa: D103
 
 @pytest.fixture
 def tx_exact_cost(  # noqa: D103
-    tx_value: int, tx_max_fee_per_gas: int, tx_data_cost: int, tx_gas_limit: int
+    tx_value: int, tx_max_fee_per_gas: int, tx_blob_data_cost: int, tx_gas_limit: int
 ) -> int:
-    return (tx_gas_limit * tx_max_fee_per_gas) + tx_value + tx_data_cost
+    return (tx_gas_limit * tx_max_fee_per_gas) + tx_value + tx_blob_data_cost
 
 
 @pytest.fixture
@@ -190,11 +130,11 @@ def sender(pre: Alloc, tx_exact_cost: int) -> Address:  # noqa: D103
 
 @pytest.fixture
 def post(  # noqa: D103
-    destination_account: Address, tx_value: int, block_fee_per_blob_gas: int
+    destination_account: Address, tx_value: int, blob_gas_price: int
 ) -> Mapping[Address, Account]:
     return {
         destination_account: Account(
-            storage={0: block_fee_per_blob_gas},
+            storage={0: blob_gas_price},
             balance=tx_value,
         ),
     }
@@ -247,8 +187,9 @@ def header_blob_gas_used() -> Optional[int]:  # noqa: D103
 @pytest.fixture
 def correct_blob_gas_used(  # noqa: D103
     tx: Transaction,
+    blob_gas_per_blob: int,
 ) -> int:
-    return Spec.get_total_blob_gas(tx)
+    return Spec.get_total_blob_gas(tx=tx, blob_gas_per_blob=blob_gas_per_blob)
 
 
 @pytest.fixture
@@ -259,6 +200,8 @@ def blocks(  # noqa: D103
     correct_excess_blob_gas: int,
     correct_blob_gas_used: int,
     non_zero_blob_gas_used_genesis_block: Block,
+    max_blobs_per_block: int,
+    blob_gas_per_blob: int,
 ):
     blocks = (
         []
@@ -289,7 +232,7 @@ def blocks(  # noqa: D103
             exception_message=BlockException.INCORRECT_EXCESS_BLOB_GAS,
         )
     elif header_blob_gas_used is not None:
-        if header_blob_gas_used > Spec.MAX_BLOB_GAS_PER_BLOCK:
+        if header_blob_gas_used > (max_blobs_per_block * blob_gas_per_blob):
             add_block(
                 header_modifier={"blob_gas_used": header_blob_gas_used},
                 exception_message=[
@@ -308,8 +251,14 @@ def blocks(  # noqa: D103
     return blocks
 
 
-@pytest.mark.parametrize("parent_blobs", range(0, SpecHelpers.max_blobs_per_block() + 1))
-@pytest.mark.parametrize("parent_excess_blobs", range(0, SpecHelpers.target_blobs_per_block() + 1))
+@pytest.mark.parametrize_by_fork(
+    "parent_blobs",
+    lambda fork: range(0, fork.max_blobs_per_block() + 1),
+)
+@pytest.mark.parametrize_by_fork(
+    "parent_excess_blobs",
+    lambda fork: range(0, fork.target_blobs_per_block() + 1),
+)
 @pytest.mark.parametrize("new_blobs", [1])
 def test_correct_excess_blob_gas_calculation(
     blockchain_test: BlockchainTestFiller,
@@ -335,24 +284,42 @@ def test_correct_excess_blob_gas_calculation(
     )
 
 
-BLOB_GAS_COST_INCREASES = [
-    SpecHelpers.get_min_excess_blobs_for_blob_gas_price(i)
-    for i in [
-        2,  # First blob gas cost increase
-        2**32 // Spec.GAS_PER_BLOB,  # Data tx wei cost 2^32
-        2**32,  # blob gas cost 2^32
-        2**64 // Spec.GAS_PER_BLOB,  # Data tx wei cost 2^64
-        2**64,  # blob gas cost 2^64
-        (120_000_000 * (10**18) // Spec.GAS_PER_BLOB),  # Data tx wei is current total Ether supply
-    ]
-]
+def generate_blob_gas_cost_increases_tests(delta: int) -> Callable[[Fork], List[int]]:
+    """
+    Generate a list of block excess blob gas values where the blob gas price increases
+    based on fork properties.
+    """
+
+    def generator_function(fork: Fork) -> List[int]:
+        gas_per_blob = fork.blob_gas_per_blob()
+        return [
+            SpecHelpers.get_min_excess_blobs_for_blob_gas_price(
+                fork=fork, blob_gas_price=blob_gas_price
+            )
+            + delta
+            for blob_gas_price in [
+                2,  # First blob gas cost increase
+                2**32 // gas_per_blob,  # Data tx wei cost 2^32
+                2**32,  # blob gas cost 2^32
+                2**64 // gas_per_blob,  # Data tx wei cost 2^64
+                2**64,  # blob gas cost 2^64
+                (
+                    120_000_000 * (10**18) // gas_per_blob
+                ),  # Data tx wei is current total Ether supply
+            ]
+        ]
+
+    return generator_function
 
 
-@pytest.mark.parametrize(
+@pytest.mark.parametrize_by_fork(
     "parent_excess_blobs",
-    [g - 1 for g in BLOB_GAS_COST_INCREASES],
+    generate_blob_gas_cost_increases_tests(-1),
 )
-@pytest.mark.parametrize("parent_blobs", [SpecHelpers.target_blobs_per_block() + 1])
+@pytest.mark.parametrize_by_fork(
+    "parent_blobs",
+    lambda fork: [fork.target_blobs_per_block() + 1],
+)
 @pytest.mark.parametrize("new_blobs", [1])
 def test_correct_increasing_blob_gas_costs(
     blockchain_test: BlockchainTestFiller,
@@ -382,11 +349,14 @@ def test_correct_increasing_blob_gas_costs(
     )
 
 
-@pytest.mark.parametrize(
+@pytest.mark.parametrize_by_fork(
     "parent_excess_blobs",
-    list(BLOB_GAS_COST_INCREASES),
+    generate_blob_gas_cost_increases_tests(0),
 )
-@pytest.mark.parametrize("parent_blobs", [SpecHelpers.target_blobs_per_block() - 1])
+@pytest.mark.parametrize_by_fork(
+    "parent_blobs",
+    lambda fork: [fork.target_blobs_per_block() - 1],
+)
 @pytest.mark.parametrize("new_blobs", [1])
 def test_correct_decreasing_blob_gas_costs(
     blockchain_test: BlockchainTestFiller,
@@ -413,7 +383,10 @@ def test_correct_decreasing_blob_gas_costs(
 
 @pytest.mark.parametrize("header_excess_blob_gas", [0])
 @pytest.mark.parametrize("new_blobs", [0, 1])
-@pytest.mark.parametrize("parent_blobs", range(0, SpecHelpers.max_blobs_per_block() + 1))
+@pytest.mark.parametrize_by_fork(
+    "parent_blobs",
+    lambda fork: range(0, fork.max_blobs_per_block() + 1),
+)
 def test_invalid_zero_excess_blob_gas_in_header(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
@@ -447,18 +420,19 @@ def test_invalid_zero_excess_blob_gas_in_header(
     )
 
 
-def all_invalid_blob_gas_used_combinations() -> Iterator[Tuple[int, int]]:
+def all_invalid_blob_gas_used_combinations(fork: Fork) -> Iterator[Tuple[int, int]]:
     """Return all invalid blob gas used combinations."""
-    for new_blobs in range(0, SpecHelpers.max_blobs_per_block() + 1):
-        for header_blob_gas_used in range(0, SpecHelpers.max_blobs_per_block() + 1):
+    gas_per_blob = fork.blob_gas_per_blob()
+    for new_blobs in range(0, fork.max_blobs_per_block() + 1):
+        for header_blob_gas_used in range(0, fork.max_blobs_per_block() + 1):
             if new_blobs != header_blob_gas_used:
-                yield (new_blobs, header_blob_gas_used * Spec.GAS_PER_BLOB)
+                yield (new_blobs, header_blob_gas_used * gas_per_blob)
         yield (new_blobs, 2**64 - 1)
 
 
-@pytest.mark.parametrize(
+@pytest.mark.parametrize_by_fork(
     "new_blobs,header_blob_gas_used",
-    all_invalid_blob_gas_used_combinations(),
+    all_invalid_blob_gas_used_combinations,
 )
 @pytest.mark.parametrize("parent_blobs", [0])
 def test_invalid_blob_gas_used_in_header(
@@ -468,6 +442,7 @@ def test_invalid_blob_gas_used_in_header(
     blocks: List[Block],
     new_blobs: int,
     header_blob_gas_used: Optional[int],
+    blob_gas_per_blob: int,
 ):
     """
     Test rejection of blocks where the `blobGasUsed` in the header is invalid.
@@ -484,20 +459,24 @@ def test_invalid_blob_gas_used_in_header(
         genesis_environment=env,
         tag="-".join(
             [
-                f"correct:{hex(new_blobs * Spec.GAS_PER_BLOB)}",
+                f"correct:{hex(new_blobs * blob_gas_per_blob)}",
                 f"header:{hex(header_blob_gas_used)}",
             ]
         ),
     )
 
 
-@pytest.mark.parametrize(
+def generate_invalid_excess_blob_gas_above_target_change_tests(fork: Fork) -> List:
+    """Return all invalid excess blob gas above target change tests."""
+    return [
+        pytest.param(-1, 0, id="zero_blobs_decrease_more_than_expected"),
+        pytest.param(+1, fork.max_blobs_per_block(), id="max_blobs_increase_more_than_expected"),
+    ]
+
+
+@pytest.mark.parametrize_by_fork(
     "header_excess_blobs_delta,parent_blobs",
-    [
-        (-1, 0),
-        (+1, SpecHelpers.max_blobs_per_block()),
-    ],
-    ids=["zero_blobs_decrease_more_than_expected", "max_blobs_increase_more_than_expected"],
+    generate_invalid_excess_blob_gas_above_target_change_tests,
 )
 @pytest.mark.parametrize("new_blobs", [1])
 def test_invalid_excess_blob_gas_above_target_change(
@@ -534,15 +513,15 @@ def test_invalid_excess_blob_gas_above_target_change(
     )
 
 
-@pytest.mark.parametrize(
+@pytest.mark.parametrize_by_fork(
     "parent_blobs",
-    [
-        b
-        for b in range(0, SpecHelpers.max_blobs_per_block() + 1)
-        if b != SpecHelpers.target_blobs_per_block()
+    lambda fork: [
+        b for b in range(0, fork.max_blobs_per_block() + 1) if b != fork.target_blobs_per_block()
     ],
 )
-@pytest.mark.parametrize("parent_excess_blobs", [1, SpecHelpers.target_blobs_per_block()])
+@pytest.mark.parametrize_by_fork(
+    "parent_excess_blobs", lambda fork: [1, fork.target_blobs_per_block()]
+)
 @pytest.mark.parametrize("new_blobs", [1])
 def test_invalid_static_excess_blob_gas(
     blockchain_test: BlockchainTestFiller,
@@ -575,8 +554,14 @@ def test_invalid_static_excess_blob_gas(
     )
 
 
-@pytest.mark.parametrize("header_excess_blobs_delta", range(1, SpecHelpers.max_blobs_per_block()))
-@pytest.mark.parametrize("parent_blobs", range(0, SpecHelpers.target_blobs_per_block() + 1))
+@pytest.mark.parametrize_by_fork(
+    "header_excess_blobs_delta",
+    lambda fork: range(1, fork.max_blobs_per_block()),
+)
+@pytest.mark.parametrize_by_fork(
+    "parent_blobs",
+    lambda fork: range(0, fork.target_blobs_per_block() + 1),
+)
 @pytest.mark.parametrize("parent_excess_blobs", [0])  # Start at 0
 @pytest.mark.parametrize("new_blobs", [1])
 def test_invalid_excess_blob_gas_target_blobs_increase_from_zero(
@@ -614,9 +599,9 @@ def test_invalid_excess_blob_gas_target_blobs_increase_from_zero(
 
 
 @pytest.mark.parametrize("header_excess_blob_gas", [0])
-@pytest.mark.parametrize(
+@pytest.mark.parametrize_by_fork(
     "parent_blobs",
-    range(SpecHelpers.target_blobs_per_block() + 1, SpecHelpers.max_blobs_per_block() + 1),
+    lambda fork: range(fork.target_blobs_per_block() + 1, fork.max_blobs_per_block() + 1),
 )
 @pytest.mark.parametrize("parent_excess_blobs", [0])  # Start at 0
 @pytest.mark.parametrize("new_blobs", [1])
@@ -654,17 +639,15 @@ def test_invalid_static_excess_blob_gas_from_zero_on_blobs_above_target(
     )
 
 
-@pytest.mark.parametrize(
+@pytest.mark.parametrize_by_fork(
     "parent_blobs,header_excess_blobs_delta",
-    itertools.product(
+    lambda fork: itertools.product(
         # parent_blobs
-        range(0, SpecHelpers.max_blobs_per_block() + 1),
+        range(0, fork.max_blobs_per_block() + 1),
         # header_excess_blobs_delta (from correct value)
         [
             x
-            for x in range(
-                -SpecHelpers.target_blobs_per_block(), SpecHelpers.target_blobs_per_block() + 1
-            )
+            for x in range(-fork.target_blobs_per_block(), fork.target_blobs_per_block() + 1)
             if x != 0
         ],
     ),
@@ -706,13 +689,21 @@ def test_invalid_excess_blob_gas_change(
     )
 
 
-@pytest.mark.parametrize(
+@pytest.mark.parametrize_by_fork(
     "header_excess_blob_gas",
-    [(2**64 + (x * Spec.GAS_PER_BLOB)) for x in range(-SpecHelpers.target_blobs_per_block(), 0)],
+    lambda fork: [
+        (2**64 + (x * fork.blob_gas_per_blob())) for x in range(-fork.target_blobs_per_block(), 0)
+    ],
 )
-@pytest.mark.parametrize("parent_blobs", range(SpecHelpers.target_blobs_per_block()))
+@pytest.mark.parametrize_by_fork(
+    "parent_blobs",
+    lambda fork: range(fork.target_blobs_per_block()),
+)
 @pytest.mark.parametrize("new_blobs", [1])
-@pytest.mark.parametrize("parent_excess_blobs", range(SpecHelpers.target_blobs_per_block()))
+@pytest.mark.parametrize_by_fork(
+    "parent_excess_blobs",
+    lambda fork: range(fork.target_blobs_per_block()),
+)
 def test_invalid_negative_excess_blob_gas(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
@@ -748,17 +739,20 @@ def test_invalid_negative_excess_blob_gas(
     )
 
 
-@pytest.mark.parametrize(
+@pytest.mark.parametrize_by_fork(
     "parent_blobs,header_excess_blob_gas_delta",
-    [
-        (SpecHelpers.target_blobs_per_block() + 1, 1),
-        (SpecHelpers.target_blobs_per_block() + 1, Spec.GAS_PER_BLOB - 1),
-        (SpecHelpers.target_blobs_per_block() - 1, -1),
-        (SpecHelpers.target_blobs_per_block() - 1, -(Spec.GAS_PER_BLOB - 1)),
+    lambda fork: [
+        (fork.target_blobs_per_block() + 1, 1),
+        (fork.target_blobs_per_block() + 1, fork.blob_gas_per_blob() - 1),
+        (fork.target_blobs_per_block() - 1, -1),
+        (fork.target_blobs_per_block() - 1, -(fork.blob_gas_per_blob() - 1)),
     ],
 )
 @pytest.mark.parametrize("new_blobs", [1])
-@pytest.mark.parametrize("parent_excess_blobs", [SpecHelpers.target_blobs_per_block() + 1])
+@pytest.mark.parametrize_by_fork(
+    "parent_excess_blobs",
+    lambda fork: [fork.target_blobs_per_block() + 1],
+)
 def test_invalid_non_multiple_excess_blob_gas(
     blockchain_test: BlockchainTestFiller,
     env: Environment,

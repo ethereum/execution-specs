@@ -13,7 +13,7 @@ from ethereum_test_tools import (
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
-from .spec import Spec, SpecHelpers
+from .spec import Spec
 
 INF_POINT = (0xC0 << 376).to_bytes(48, byteorder="big")
 Z = 0x623CE31CF9759A5C8DAF3A357992F9F3DD7F9339D8998BC8E68373E54F00B75E
@@ -51,12 +51,6 @@ class Blob:
             kzg_proofs.append(blob.kzg_proof)
         return (blobs, kzg_commitments, kzg_proofs)
 
-
-# Simple list of blob versioned hashes ranging from bytes32(1 to 4)
-simple_blob_hashes: list[bytes] = add_kzg_version(
-    [(1 << x) for x in range(SpecHelpers.max_blobs_per_block())],
-    Spec.BLOB_COMMITMENT_VERSION_KZG,
-)
 
 # Random fixed list of blob versioned hashes
 random_blob_hashes = add_kzg_version(
@@ -269,7 +263,7 @@ class BlobhashScenario:
     """A utility class for generating blobhash calls."""
 
     @staticmethod
-    def create_blob_hashes_list(length: int) -> list[list[bytes]]:
+    def create_blob_hashes_list(length: int, max_blobs_per_block: int) -> list[list[bytes]]:
         """
         Create list of MAX_BLOBS_PER_BLOCK blob hashes
         using `random_blob_hashes`.
@@ -278,20 +272,20 @@ class BlobhashScenario:
         length: MAX_BLOBS_PER_BLOCK * length
         -> [0x01, 0x02, 0x03, 0x04, ..., 0x0A, 0x0B, 0x0C, 0x0D]
 
-        Then split list into smaller chunks of SpecHelpers.max_blobs_per_block()
+        Then split list into smaller chunks of max_blobs_per_block
         -> [[0x01, 0x02, 0x03, 0x04], ..., [0x0a, 0x0b, 0x0c, 0x0d]]
         """
         b_hashes = [
             random_blob_hashes[i % len(random_blob_hashes)]
-            for i in range(SpecHelpers.max_blobs_per_block() * length)
+            for i in range(max_blobs_per_block * length)
         ]
         return [
-            b_hashes[i : i + SpecHelpers.max_blobs_per_block()]
-            for i in range(0, len(b_hashes), SpecHelpers.max_blobs_per_block())
+            b_hashes[i : i + max_blobs_per_block]
+            for i in range(0, len(b_hashes), max_blobs_per_block)
         ]
 
     @staticmethod
-    def blobhash_sstore(index: int):
+    def blobhash_sstore(index: int, max_blobs_per_block: int):
         """
         Return BLOBHASH sstore to the given index.
 
@@ -300,33 +294,36 @@ class BlobhashScenario:
         the BLOBHASH sstore.
         """
         invalidity_check = Op.SSTORE(index, 0x01)
-        if index < 0 or index >= SpecHelpers.max_blobs_per_block():
+        if index < 0 or index >= max_blobs_per_block:
             return invalidity_check + Op.SSTORE(index, Op.BLOBHASH(index))
         return Op.SSTORE(index, Op.BLOBHASH(index))
 
     @classmethod
-    def generate_blobhash_bytecode(cls, scenario_name: str) -> bytes:
+    def generate_blobhash_bytecode(cls, scenario_name: str, max_blobs_per_block: int) -> bytes:
         """Return BLOBHASH bytecode for the given scenario."""
         scenarios = {
             "single_valid": sum(
-                cls.blobhash_sstore(i) for i in range(SpecHelpers.max_blobs_per_block())
+                cls.blobhash_sstore(i, max_blobs_per_block) for i in range(max_blobs_per_block)
             ),
             "repeated_valid": sum(
-                sum(cls.blobhash_sstore(i) for _ in range(10))
-                for i in range(SpecHelpers.max_blobs_per_block())
+                sum(cls.blobhash_sstore(i, max_blobs_per_block) for _ in range(10))
+                for i in range(max_blobs_per_block)
             ),
             "valid_invalid": sum(
-                cls.blobhash_sstore(i)
-                + cls.blobhash_sstore(SpecHelpers.max_blobs_per_block())
-                + cls.blobhash_sstore(i)
-                for i in range(SpecHelpers.max_blobs_per_block())
+                cls.blobhash_sstore(i, max_blobs_per_block)
+                + cls.blobhash_sstore(max_blobs_per_block, max_blobs_per_block)
+                + cls.blobhash_sstore(i, max_blobs_per_block)
+                for i in range(max_blobs_per_block)
             ),
             "varied_valid": sum(
-                cls.blobhash_sstore(i) + cls.blobhash_sstore(i + 1) + cls.blobhash_sstore(i)
-                for i in range(SpecHelpers.max_blobs_per_block() - 1)
+                cls.blobhash_sstore(i, max_blobs_per_block)
+                + cls.blobhash_sstore(i + 1, max_blobs_per_block)
+                + cls.blobhash_sstore(i, max_blobs_per_block)
+                for i in range(max_blobs_per_block - 1)
             ),
             "invalid_calls": sum(
-                cls.blobhash_sstore(i) for i in range(-5, SpecHelpers.max_blobs_per_block() + 5)
+                cls.blobhash_sstore(i, max_blobs_per_block)
+                for i in range(-5, max_blobs_per_block + 5)
             ),
         }
         scenario = scenarios.get(scenario_name)

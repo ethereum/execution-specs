@@ -8,6 +8,7 @@ from typing import List, Optional
 
 import pytest
 
+from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     Address,
     Alloc,
@@ -55,12 +56,6 @@ def tx_calldata() -> bytes:
     return b""
 
 
-@pytest.fixture
-def block_fee_per_gas() -> int:
-    """Max fee per gas for transactions sent during test."""
-    return 7
-
-
 @pytest.fixture(autouse=True)
 def parent_excess_blobs() -> int:
     """
@@ -83,28 +78,6 @@ def parent_blobs() -> int:
 
 
 @pytest.fixture
-def parent_excess_blob_gas(
-    parent_excess_blobs: int,
-) -> int:
-    """Calculate excess blob gas of the parent block from the excess blobs."""
-    return parent_excess_blobs * Spec.GAS_PER_BLOB
-
-
-@pytest.fixture
-def blob_gasprice(
-    parent_excess_blob_gas: int,
-    parent_blobs: int,
-) -> int:
-    """Blob gas price for the block of the test."""
-    return Spec.get_blob_gasprice(
-        excess_blob_gas=SpecHelpers.calc_excess_blob_gas_from_blob_count(
-            parent_excess_blob_gas=parent_excess_blob_gas,
-            parent_blob_count=parent_blobs,
-        ),
-    )
-
-
-@pytest.fixture
 def tx_max_priority_fee_per_gas() -> int:
     """
     Max priority fee per gas for transactions sent during test.
@@ -123,7 +96,7 @@ def txs_versioned_hashes(txs_blobs: List[List[Blob]]) -> List[List[bytes]]:
 
 @pytest.fixture(autouse=True)
 def tx_max_fee_per_gas(
-    block_fee_per_gas: int,
+    block_base_fee_per_gas: int,
 ) -> int:
     """
     Max fee per gas value used by all transactions sent during test.
@@ -133,12 +106,12 @@ def tx_max_fee_per_gas(
     Can be overloaded by a test case to test rejection of transactions where
     the max fee per gas is insufficient.
     """
-    return block_fee_per_gas
+    return block_base_fee_per_gas
 
 
 @pytest.fixture
 def tx_max_fee_per_blob_gas(  # noqa: D103
-    blob_gasprice: Optional[int],
+    blob_gas_price: Optional[int],
 ) -> int:
     """
     Max fee per blob gas for transactions sent during test.
@@ -148,10 +121,10 @@ def tx_max_fee_per_blob_gas(  # noqa: D103
     Can be overloaded by a test case to test rejection of transactions where
     the max fee per blob gas is insufficient.
     """
-    if blob_gasprice is None:
+    if blob_gas_price is None:
         # When fork transitioning, the default blob gas price is 1.
         return 1
-    return blob_gasprice
+    return blob_gas_price
 
 
 @pytest.fixture
@@ -227,6 +200,7 @@ def env(
 def blocks(
     txs: List[Transaction],
     txs_wrapped_blobs: List[bool],
+    blob_gas_per_blob: int,
 ) -> List[Block]:
     """Prepare the list of blocks for all test cases."""
     header_blob_gas_used = 0
@@ -247,7 +221,7 @@ def blocks(
                     if tx.blob_versioned_hashes is not None
                 ]
             )
-            * Spec.GAS_PER_BLOB
+            * blob_gas_per_blob
         )
     return [
         Block(
@@ -256,59 +230,63 @@ def blocks(
     ]
 
 
-@pytest.mark.parametrize(
-    "txs_blobs,txs_wrapped_blobs",
-    [
-        (
+def generate_full_blob_tests(
+    fork: Fork,
+) -> List:
+    """
+    Return a list of tests for invalid blob transactions due to insufficient max fee per blob gas
+    parametrized for each different fork.
+    """
+    blob_size = Spec.FIELD_ELEMENTS_PER_BLOB * SpecHelpers.BYTES_PER_FIELD_ELEMENT
+    max_blobs = fork.max_blobs_per_block()
+    return [
+        pytest.param(
             [  # Txs
                 [  # Blobs per transaction
                     Blob(
-                        blob=bytes(
-                            Spec.FIELD_ELEMENTS_PER_BLOB * SpecHelpers.BYTES_PER_FIELD_ELEMENT
-                        ),
+                        blob=bytes(blob_size),
                         kzg_commitment=INF_POINT,
                         kzg_proof=INF_POINT,
                     ),
                 ]
             ],
             [True],
+            id="one_full_blob_one_tx",
         ),
-        (
+        pytest.param(
             [  # Txs
                 [  # Blobs per transaction
                     Blob(
-                        blob=bytes(
-                            Spec.FIELD_ELEMENTS_PER_BLOB * SpecHelpers.BYTES_PER_FIELD_ELEMENT
-                        ),
+                        blob=bytes(blob_size),
                         kzg_commitment=INF_POINT,
                         kzg_proof=INF_POINT,
                     )
                 ]
-                for _ in range(SpecHelpers.max_blobs_per_block())
+                for _ in range(max_blobs)
             ],
-            [True] + ([False] * (SpecHelpers.max_blobs_per_block() - 1)),
+            [True] + ([False] * (max_blobs - 1)),
+            id="one_full_blob_max_txs",
         ),
-        (
+        pytest.param(
             [  # Txs
                 [  # Blobs per transaction
                     Blob(
-                        blob=bytes(
-                            Spec.FIELD_ELEMENTS_PER_BLOB * SpecHelpers.BYTES_PER_FIELD_ELEMENT
-                        ),
+                        blob=bytes(blob_size),
                         kzg_commitment=INF_POINT,
                         kzg_proof=INF_POINT,
                     )
                 ]
-                for _ in range(SpecHelpers.max_blobs_per_block())
+                for _ in range(max_blobs)
             ],
-            ([False] * (SpecHelpers.max_blobs_per_block() - 1)) + [True],
+            ([False] * (max_blobs - 1)) + [True],
+            id="one_full_blob_at_the_end_max_txs",
         ),
-    ],
-    ids=[
-        "one_full_blob_one_tx",
-        "one_full_blob_max_txs",
-        "one_full_blob_at_the_end_max_txs",
-    ],
+    ]
+
+
+@pytest.mark.parametrize_by_fork(
+    "txs_blobs,txs_wrapped_blobs",
+    generate_full_blob_tests,
 )
 @pytest.mark.valid_from("Cancun")
 def test_reject_valid_full_blob_in_block_rlp(

@@ -5,8 +5,11 @@ abstract: Tests `BLOBHASH` opcode in [EIP-4844: Shard Blob Transactions](https:/
 
 """  # noqa: E501
 
+from typing import List
+
 import pytest
 
+from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     Account,
     Block,
@@ -15,28 +18,16 @@ from ethereum_test_tools import (
     TestAddress,
     Transaction,
     YulCompiler,
+    add_kzg_version,
 )
 
-from .common import BlobhashContext, simple_blob_hashes
-from .spec import Spec, SpecHelpers, ref_spec_4844
+from .common import BlobhashContext
+from .spec import Spec, ref_spec_4844
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_4844.git_path
 REFERENCE_SPEC_VERSION = ref_spec_4844.version
 
 pytestmark = pytest.mark.valid_from("Cancun")
-
-
-# Blob transaction template
-tx_type_3 = Transaction(
-    ty=Spec.BLOB_TX_TYPE,
-    data=Hash(0),
-    gas_limit=3000000,
-    max_fee_per_gas=10,
-    max_priority_fee_per_gas=10,
-    max_fee_per_blob_gas=10,
-    access_list=[],
-    blob_versioned_hashes=simple_blob_hashes,
-)
 
 
 def create_opcode_context(pre, tx, post):
@@ -46,6 +37,35 @@ def create_opcode_context(pre, tx, post):
         "tx": tx,
         "post": post,
     }
+
+
+@pytest.fixture()
+def simple_blob_hashes(
+    max_blobs_per_block: int,
+) -> List[bytes]:
+    """Return a simple list of blob versioned hashes ranging from bytes32(1 to 4)."""
+    return add_kzg_version(
+        [(1 << x) for x in range(max_blobs_per_block)],
+        Spec.BLOB_COMMITMENT_VERSION_KZG,
+    )
+
+
+@pytest.fixture()
+def tx_type_3(
+    fork: Fork,
+    simple_blob_hashes: List[bytes],
+) -> Transaction:
+    """Blob transaction template."""
+    return Transaction(
+        ty=Spec.BLOB_TX_TYPE,
+        data=Hash(0),
+        gas_limit=3000000,
+        max_fee_per_gas=10,
+        max_priority_fee_per_gas=10,
+        max_fee_per_blob_gas=fork.min_base_fee_per_blob_gas() * 10,
+        access_list=[],
+        blob_versioned_hashes=simple_blob_hashes,
+    )
 
 
 @pytest.fixture(
@@ -63,7 +83,13 @@ def create_opcode_context(pre, tx, post):
         "on_type_0_tx",
     ]
 )
-def opcode_context(yul: YulCompiler, request):
+def opcode_context(
+    yul: YulCompiler,
+    request,
+    max_blobs_per_block: int,
+    simple_blob_hashes: List[bytes],
+    tx_type_3: Transaction,
+):
     """
     Fixture that is parameterized by each BLOBHASH opcode test case
     in order to return the corresponding constructed opcode context.
@@ -134,7 +160,7 @@ def opcode_context(yul: YulCompiler, request):
                 ),
             },
             tx_type_3.copy(
-                data=Hash(0) + Hash(SpecHelpers.max_blobs_per_block() - 1),
+                data=Hash(0) + Hash(max_blobs_per_block - 1),
                 to=BlobhashContext.address("delegatecall"),
             ),
             {
@@ -160,7 +186,7 @@ def opcode_context(yul: YulCompiler, request):
                 ),
             },
             tx_type_3.copy(
-                data=Hash(0) + Hash(SpecHelpers.max_blobs_per_block() - 1),
+                data=Hash(0) + Hash(max_blobs_per_block - 1),
                 to=BlobhashContext.address("staticcall"),
             ),
             {
@@ -182,7 +208,7 @@ def opcode_context(yul: YulCompiler, request):
                 ),
             },
             tx_type_3.copy(
-                data=Hash(0) + Hash(SpecHelpers.max_blobs_per_block() - 1),
+                data=Hash(0) + Hash(max_blobs_per_block - 1),
                 to=BlobhashContext.address("callcode"),
             ),
             {

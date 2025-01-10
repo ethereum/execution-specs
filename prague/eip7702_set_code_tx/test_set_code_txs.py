@@ -2722,6 +2722,7 @@ def test_eoa_tx_after_set_code(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     tx_type: int,
+    fork: Fork,
     evm_code_type: EVMCodeType,
 ):
     """Test sending a transaction from an EOA after code has been set to the account."""
@@ -2807,7 +2808,7 @@ def test_eoa_tx_after_set_code(
                     value=0,
                     max_fee_per_gas=1_000,
                     max_priority_fee_per_gas=1_000,
-                    max_fee_per_blob_gas=1_000,
+                    max_fee_per_blob_gas=fork.min_base_fee_per_blob_gas() * 10,
                     blob_versioned_hashes=add_kzg_version(
                         [Hash(1)],
                         Spec4844.BLOB_COMMITMENT_VERSION_KZG,

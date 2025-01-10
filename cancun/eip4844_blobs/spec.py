@@ -1,9 +1,11 @@
 """Defines EIP-4844 specification constants and functions."""
 
+import itertools
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import Optional
+from typing import List, Optional, Tuple
 
+from ethereum_test_forks import Fork
 from ethereum_test_tools import Transaction
 
 
@@ -16,14 +18,6 @@ class ReferenceSpec:
 
 
 ref_spec_4844 = ReferenceSpec("EIPS/eip-4844.md", "f0eb6a364aaf5ccb43516fa2c269a54fb881ecfd")
-
-
-@dataclass(frozen=True)
-class BlockHeaderBlobGasFields:
-    """A helper class for the blob gas fields in a block header."""
-
-    excess_blob_gas: int
-    blob_gas_used: int
 
 
 # Constants
@@ -43,17 +37,12 @@ class Spec:
     BLOB_COMMITMENT_VERSION_KZG = 1
     POINT_EVALUATION_PRECOMPILE_ADDRESS = 10
     POINT_EVALUATION_PRECOMPILE_GAS = 50_000
-    MAX_BLOB_GAS_PER_BLOCK = 786432
-    TARGET_BLOB_GAS_PER_BLOCK = 393216
-    MIN_BLOB_GASPRICE = 1
-    BLOB_GASPRICE_UPDATE_FRACTION = 3338477
     # MAX_VERSIONED_HASHES_LIST_SIZE = 2**24
     # MAX_CALLDATA_SIZE = 2**24
     # MAX_ACCESS_LIST_SIZE = 2**24
     # MAX_ACCESS_LIST_STORAGE_KEYS = 2**24
     # MAX_TX_WRAP_COMMITMENTS = 2**12
     # LIMIT_BLOBS_PER_TX = 2**12
-    GAS_PER_BLOB = 2**17
     HASH_OPCODE_BYTE = 0x49
     HASH_GAS_COST = 3
 
@@ -73,43 +62,11 @@ class Spec:
         return blob_commitment_version_kzg + sha256(kzg_commitment).digest()[1:]
 
     @classmethod
-    def fake_exponential(cls, factor: int, numerator: int, denominator: int) -> int:
-        """Calculate the blob gas cost."""
-        i = 1
-        output = 0
-        numerator_accumulator = factor * denominator
-        while numerator_accumulator > 0:
-            output += numerator_accumulator
-            numerator_accumulator = (numerator_accumulator * numerator) // (denominator * i)
-            i += 1
-        return output // denominator
-
-    @classmethod
-    def calc_excess_blob_gas(cls, parent: BlockHeaderBlobGasFields) -> int:
-        """
-        Calculate the excess blob gas for a block given the excess blob gas
-        and blob gas used from the parent block header.
-        """
-        if parent.excess_blob_gas + parent.blob_gas_used < cls.TARGET_BLOB_GAS_PER_BLOCK:
-            return 0
-        else:
-            return parent.excess_blob_gas + parent.blob_gas_used - cls.TARGET_BLOB_GAS_PER_BLOCK
-
-    @classmethod
-    def get_total_blob_gas(cls, tx: Transaction) -> int:
+    def get_total_blob_gas(cls, *, tx: Transaction, blob_gas_per_blob: int) -> int:
         """Calculate the total blob gas for a transaction."""
         if tx.blob_versioned_hashes is None:
             return 0
-        return cls.GAS_PER_BLOB * len(tx.blob_versioned_hashes)
-
-    @classmethod
-    def get_blob_gasprice(cls, *, excess_blob_gas: int) -> int:
-        """Calculate the blob gas price from the excess."""
-        return cls.fake_exponential(
-            cls.MIN_BLOB_GASPRICE,
-            excess_blob_gas,
-            cls.BLOB_GASPRICE_UPDATE_FRACTION,
-        )
+        return blob_gas_per_blob * len(tx.blob_versioned_hashes)
 
 
 @dataclass(frozen=True)
@@ -122,41 +79,85 @@ class SpecHelpers:
     BYTES_PER_FIELD_ELEMENT = 32
 
     @classmethod
-    def max_blobs_per_block(cls) -> int:  # MAX_BLOBS_PER_BLOCK =
-        """Return maximum number of blobs per block."""
-        return Spec.MAX_BLOB_GAS_PER_BLOCK // Spec.GAS_PER_BLOB
-
-    @classmethod
-    def target_blobs_per_block(cls) -> int:
-        """Return target number of blobs per block."""
-        return Spec.TARGET_BLOB_GAS_PER_BLOCK // Spec.GAS_PER_BLOB
-
-    @classmethod
-    def calc_excess_blob_gas_from_blob_count(
-        cls, parent_excess_blob_gas: int, parent_blob_count: int
+    def get_min_excess_blob_gas_for_blob_gas_price(
+        cls,
+        *,
+        fork: Fork,
+        blob_gas_price: int,
     ) -> int:
         """
-        Calculate the excess blob gas for a block given the parent excess blob gas
-        and the number of blobs in the block.
+        Get the minimum required excess blob gas value to get a given blob gas cost in a
+        block.
         """
-        parent_consumed_blob_gas = parent_blob_count * Spec.GAS_PER_BLOB
-        return Spec.calc_excess_blob_gas(
-            BlockHeaderBlobGasFields(parent_excess_blob_gas, parent_consumed_blob_gas)
-        )
-
-    @classmethod
-    def get_min_excess_blob_gas_for_blob_gas_price(cls, blob_gas_price: int) -> int:
-        """Get minimum required excess blob gas value to get a given blob gas cost in a block."""
         current_excess_blob_gas = 0
         current_blob_gas_price = 1
+        get_blob_gas_price = fork.blob_gas_price_calculator()
+        gas_per_blob = fork.blob_gas_per_blob()
         while current_blob_gas_price < blob_gas_price:
-            current_excess_blob_gas += Spec.GAS_PER_BLOB
-            current_blob_gas_price = Spec.get_blob_gasprice(
-                excess_blob_gas=current_excess_blob_gas
-            )
+            current_excess_blob_gas += gas_per_blob
+            current_blob_gas_price = get_blob_gas_price(excess_blob_gas=current_excess_blob_gas)
         return current_excess_blob_gas
 
     @classmethod
-    def get_min_excess_blobs_for_blob_gas_price(cls, blob_gas_price: int) -> int:
-        """Get minimum required excess blobs to get a given blob gas cost in a block."""
-        return cls.get_min_excess_blob_gas_for_blob_gas_price(blob_gas_price) // Spec.GAS_PER_BLOB
+    def get_min_excess_blobs_for_blob_gas_price(
+        cls,
+        *,
+        fork: Fork,
+        blob_gas_price: int,
+    ) -> int:
+        """Get the minimum required excess blobs to get a given blob gas cost in a block."""
+        gas_per_blob = fork.blob_gas_per_blob()
+        return (
+            cls.get_min_excess_blob_gas_for_blob_gas_price(
+                fork=fork,
+                blob_gas_price=blob_gas_price,
+            )
+            // gas_per_blob
+        )
+
+    @classmethod
+    def get_blob_combinations(
+        cls,
+        blob_count: int,
+    ) -> List[Tuple[int, ...]]:
+        """Get all possible combinations of blobs that result in a given blob count."""
+        combinations = [
+            seq
+            for i in range(
+                blob_count + 1, 0, -1
+            )  # We can have from 1 to at most MAX_BLOBS_PER_BLOCK blobs per block
+            for seq in itertools.combinations_with_replacement(
+                range(1, blob_count + 2), i
+            )  # We iterate through all possible combinations
+            if sum(seq) == blob_count  # And we only keep the ones that match the
+            # expected invalid blob count
+        ]
+
+        # We also add the reversed version of each combination, only if it's not
+        # already in the list. E.g. (4, 1) is added from (1, 4) but not
+        # (1, 1, 1, 1, 1) because its reversed version is identical.
+        combinations += [
+            tuple(reversed(x)) for x in combinations if tuple(reversed(x)) not in combinations
+        ]
+        return combinations
+
+    @classmethod
+    def all_valid_blob_combinations(cls, fork: Fork) -> List[Tuple[int, ...]]:
+        """
+        Return all valid blob tx combinations for a given block,
+        assuming the given MAX_BLOBS_PER_BLOCK.
+        """
+        max_blobs_per_block = fork.max_blobs_per_block()
+        combinations: List[Tuple[int, ...]] = []
+        for i in range(1, max_blobs_per_block + 1):
+            combinations += cls.get_blob_combinations(i)
+        return combinations
+
+    @classmethod
+    def invalid_blob_combinations(cls, fork: Fork) -> List[Tuple[int, ...]]:
+        """
+        Return invalid blob tx combinations for a given block that use up to
+        MAX_BLOBS_PER_BLOCK+1 blobs.
+        """
+        max_blobs_per_block = fork.max_blobs_per_block()
+        return cls.get_blob_combinations(max_blobs_per_block + 1)
