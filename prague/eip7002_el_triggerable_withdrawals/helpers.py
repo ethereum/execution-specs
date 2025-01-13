@@ -60,7 +60,7 @@ class WithdrawalRequest(WithdrawalRequestBase):
 class WithdrawalRequestInteractionBase:
     """Base class for all types of withdrawal transactions we want to test."""
 
-    sender_balance: int = 32_000_000_000_000_000_000 * 100
+    sender_balance: int = 1_000_000_000_000_000_000
     """
     Balance of the account that sends the transaction.
     """
@@ -96,7 +96,7 @@ class WithdrawalRequestTransaction(WithdrawalRequestInteractionBase):
         return [
             Transaction(
                 gas_limit=request.gas_limit,
-                gas_price=0x07,
+                gas_price=1_000_000_000,
                 to=request.interaction_contract_address,
                 value=request.value,
                 data=request.calldata,
@@ -128,7 +128,7 @@ class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
     Gas limit for the transaction.
     """
 
-    contract_balance: int = 32_000_000_000_000_000_000 * 100
+    contract_balance: int = 1_000_000_000_000_000_000
     """
     Balance of the contract that will make the call to the pre-deploy contract.
     """
@@ -181,7 +181,7 @@ class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
         return [
             Transaction(
                 gas_limit=self.tx_gas_limit,
-                gas_price=0x07,
+                gas_price=1_000_000_000,
                 to=self.entry_address,
                 value=0,
                 data=b"".join(r.calldata for r in self.requests),

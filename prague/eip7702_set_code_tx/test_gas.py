@@ -712,7 +712,7 @@ def test_gas_cost(
     test_code_address = pre.deploy_contract(test_code)
 
     tx_gas_limit = intrinsic_gas + execution_gas
-    tx_max_fee_per_gas = 7
+    tx_max_fee_per_gas = 1_000_000_000
     tx_exact_cost = tx_gas_limit * tx_max_fee_per_gas
 
     # EIP-3529
