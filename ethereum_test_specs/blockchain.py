@@ -224,6 +224,10 @@ class Block(Header):
     """
     Custom list of requests to embed in this block.
     """
+    expected_post_state: Alloc | None = None
+    """
+    Post state for verification after block execution in BlockchainTest
+    """
 
     def set_environment(self, env: Environment) -> Environment:
         """
@@ -491,10 +495,13 @@ class BlockchainTest(BaseTest):
             else fork.blockchain_test_network_name()
         )
 
-    def verify_post_state(self, t8n, alloc: Alloc):
+    def verify_post_state(self, t8n, t8n_state: Alloc, expected_state: Alloc | None = None):
         """Verify post alloc after all block/s or payload/s are generated."""
         try:
-            self.post.verify_post_alloc(alloc)
+            if expected_state:
+                expected_state.verify_post_alloc(t8n_state)
+            else:
+                self.post.verify_post_alloc(t8n_state)
         except Exception as e:
             print_traces(t8n.get_traces())
             raise e
@@ -570,7 +577,12 @@ class BlockchainTest(BaseTest):
                     ),
                 )
 
-        self.verify_post_state(t8n, alloc)
+            if block.expected_post_state:
+                self.verify_post_state(
+                    t8n, t8n_state=alloc, expected_state=block.expected_post_state
+                )
+
+        self.verify_post_state(t8n, t8n_state=alloc)
         return Fixture(
             fork=self.network_info(fork, eips),
             genesis=genesis.header,
@@ -628,7 +640,7 @@ class BlockchainTest(BaseTest):
         ), "A hive fixture was requested but no forkchoice update is defined. The framework should"
         " never try to execute this test case."
 
-        self.verify_post_state(t8n, alloc)
+        self.verify_post_state(t8n, t8n_state=alloc)
 
         sync_payload: Optional[FixtureEngineNewPayload] = None
         if self.verify_sync:
