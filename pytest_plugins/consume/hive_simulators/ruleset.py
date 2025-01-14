@@ -337,6 +337,8 @@ ruleset = {
         "HIVE_SHANGHAI_TIMESTAMP": 0,
         "HIVE_CANCUN_TIMESTAMP": 0,
         "HIVE_PRAGUE_TIMESTAMP": 0,
+        "HIVE_PRAGUE_BLOB_TARGET": 6,
+        "HIVE_PRAGUE_BLOB_MAX": 9,
     },
     "CancunToPragueAtTime15k": {
         "HIVE_FORK_HOMESTEAD": 0,
@@ -353,5 +355,7 @@ ruleset = {
         "HIVE_SHANGHAI_TIMESTAMP": 0,
         "HIVE_CANCUN_TIMESTAMP": 0,
         "HIVE_PRAGUE_TIMESTAMP": 15000,
+        "HIVE_PRAGUE_BLOB_TARGET": 6,
+        "HIVE_PRAGUE_BLOB_MAX": 9,
     },
 }
