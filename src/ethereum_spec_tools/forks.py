@@ -90,8 +90,15 @@ class Hardfork:
             # Use find_spec() to find the module specification.
             if isinstance(pkg.module_finder, importlib.abc.MetaPathFinder):
                 found = pkg.module_finder.find_spec(pkg.name, None)
-            else:
+            elif isinstance(pkg.module_finder, importlib.abc.PathEntryFinder):
                 found = pkg.module_finder.find_spec(pkg.name)
+            else:
+                raise Exception(
+                    "unsupported module_finder "
+                    f"`{type(pkg.module_finder).__name__}` while finding spec "
+                    f"for `{pkg.name}`"
+                )
+
             if not found:
                 raise Exception(f"unable to find module spec for {pkg.name}")
 
