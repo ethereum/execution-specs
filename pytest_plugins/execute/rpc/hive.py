@@ -245,13 +245,6 @@ def base_pre_genesis(
         requests_hash=Requests()
         if base_fork.header_requests_required(block_number=block_number, timestamp=timestamp)
         else None,
-        target_blobs_per_block=(
-            base_fork.target_blobs_per_block(block_number=block_number, timestamp=timestamp)
-            if base_fork.header_target_blobs_per_block_required(
-                block_number=block_number, timestamp=timestamp
-            )
-            else None
-        ),
     )
 
     return (pre_alloc, genesis)

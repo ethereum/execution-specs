@@ -118,9 +118,6 @@ class FixtureHeader(CamelModel):
         None
     )
     requests_hash: Annotated[Hash, HeaderForkRequirement("requests")] | None = Field(None)
-    target_blobs_per_block: (
-        Annotated[ZeroPaddedHexNumber, HeaderForkRequirement("target_blobs_per_block")] | None
-    ) = Field(None)
 
     fork: Fork | None = Field(None, exclude=True)
 
@@ -305,12 +302,6 @@ class FixtureEngineNewPayload(CamelModel):
             if requests is None:
                 raise ValueError(f"Requests are required for ${fork}.")
             params.append(requests)
-
-        if fork.engine_new_payload_target_blobs_per_block(header.number, header.timestamp):
-            target_blobs_per_block = header.target_blobs_per_block
-            if target_blobs_per_block is None:
-                raise ValueError(f"Target blobs per block is required for ${fork}.")
-            params.append(target_blobs_per_block)
 
         payload_params: EngineNewPayloadParameters = cast(
             EngineNewPayloadParameters,

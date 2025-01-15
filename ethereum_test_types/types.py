@@ -343,10 +343,6 @@ class EnvironmentGeneric(CamelModel, Generic[NumberBoundTypeVar]):
     difficulty: NumberBoundTypeVar | None = Field(None, alias="currentDifficulty")
     base_fee_per_gas: NumberBoundTypeVar | None = Field(None, alias="currentBaseFee")
     excess_blob_gas: NumberBoundTypeVar | None = Field(None, alias="currentExcessBlobGas")
-    target_blobs_per_block: NumberBoundTypeVar | None = Field(
-        None,
-        alias="currentTargetBlobsPerBlock",
-    )
 
     parent_difficulty: NumberBoundTypeVar | None = Field(None)
     parent_timestamp: NumberBoundTypeVar | None = Field(None)
@@ -429,14 +425,6 @@ class Environment(EnvironmentGeneric[Number]):
             and self.parent_beacon_block_root is None
         ):
             updated_values["parent_beacon_block_root"] = 0
-
-        if (
-            fork.header_target_blobs_per_block_required(number, timestamp)
-            and self.target_blobs_per_block is None
-        ):
-            updated_values["target_blobs_per_block"] = fork.target_blobs_per_block(
-                number, timestamp
-            )
 
         return self.copy(**updated_values)
 

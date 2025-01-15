@@ -274,15 +274,6 @@ class Frontier(BaseFork, solc_name="homestead"):
         return False
 
     @classmethod
-    def header_target_blobs_per_block_required(
-        cls,
-        block_number: int = 0,
-        timestamp: int = 0,
-    ) -> bool:
-        """At genesis, header must not contain target blobs per block."""
-        return False
-
-    @classmethod
     def engine_new_payload_blob_hashes(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """At genesis, payloads do not have blob hashes."""
         return False
