@@ -1,7 +1,7 @@
 {
     "000/my_chain_id_test/Cancun": {
         "_info": {
-            "hash": "0x3315ff9dd48a4cbcf7c09e2df2098c8f56800e64516088f6f8eacb468382c460",
+            "hash": "0x85756178b1a4315d675dd7a25ca319b61dd1f86a665baf8d51ba7faf7f3cb444",
             "fixture_format": "state_test"
         },
         "env": {
@@ -14,7 +14,15 @@
             "currentBaseFee": "0x07",
             "currentExcessBlobGas": "0x00"
         },
-        "config": {},
+        "config": {
+            "blobSchedule": {
+                "Cancun": {
+                    "max": "0x06",
+                    "target": "0x03",
+                    "baseFeeUpdateFraction": "0x32f0ed"
+                }
+            }
+        },
         "pre": {
             "0x1000000000000000000000000000000000000000": {
                 "nonce": "0x00",

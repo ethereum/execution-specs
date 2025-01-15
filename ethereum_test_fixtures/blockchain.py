@@ -43,6 +43,7 @@ from ethereum_test_types.types import (
 )
 
 from .base import BaseFixture
+from .common import FixtureBlobSchedule
 
 
 class HeaderForkRequirement(str):
@@ -400,6 +401,7 @@ class FixtureConfig(CamelModel):
     """Chain configuration for a fixture."""
 
     fork: str = Field(..., alias="network")
+    blob_schedule: FixtureBlobSchedule | None = None
 
 
 class InvalidFixtureBlock(CamelModel):

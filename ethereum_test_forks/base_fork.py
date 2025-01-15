@@ -5,7 +5,7 @@ from typing import Any, ClassVar, List, Mapping, Optional, Protocol, Sized, Tupl
 
 from semver import Version
 
-from ethereum_test_base_types import AccessList, Address
+from ethereum_test_base_types import AccessList, Address, BlobSchedule
 from ethereum_test_base_types.conversions import BytesConvertible
 from ethereum_test_vm import EVMCodeType, Opcodes
 
@@ -311,6 +311,13 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     @abstractmethod
     def max_blobs_per_block(cls, block_number: int = 0, timestamp: int = 0) -> int:
         """Return the max blobs per block at a given fork."""
+        pass
+
+    @classmethod
+    @prefer_transition_to_method
+    @abstractmethod
+    def blob_schedule(cls, block_number: int = 0, timestamp: int = 0) -> BlobSchedule | None:
+        """Return the blob schedule up until the given fork."""
         pass
 
     @classmethod

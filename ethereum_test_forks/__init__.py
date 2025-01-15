@@ -21,6 +21,7 @@ from .forks.forks import (
 )
 from .forks.transition import (
     BerlinToLondonAt5,
+    CancunToPragueAtTime15k,
     ParisToShanghaiAtTime15k,
     ShanghaiToCancunAtTime15k,
 )
@@ -64,6 +65,7 @@ __all__ = [
     "Shanghai",
     "ShanghaiToCancunAtTime15k",
     "Cancun",
+    "CancunToPragueAtTime15k",
     "Prague",
     "Osaka",
     "get_transition_forks",

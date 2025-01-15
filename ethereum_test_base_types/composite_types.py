@@ -462,3 +462,29 @@ class AccessList(CamelModel):
     def to_list(self) -> List[Address | List[Hash]]:
         """Return access list as a list of serializable elements."""
         return [self.address, self.storage_keys]
+
+
+class ForkBlobSchedule(CamelModel):
+    """Representation of the blob schedule of a given fork."""
+
+    target_blobs_per_block: HexNumber = Field(..., alias="target")
+    max_blobs_per_block: HexNumber = Field(..., alias="max")
+    base_fee_update_fraction: HexNumber = Field(...)
+
+
+class BlobSchedule(EthereumTestRootModel[Dict[str, ForkBlobSchedule]]):
+    """Blob schedule configuration dictionary."""
+
+    root: Dict[str, ForkBlobSchedule] = Field(default_factory=dict, validate_default=True)
+
+    def append(self, *, fork: str, schedule: Any):
+        """Append a new fork schedule."""
+        if not isinstance(schedule, ForkBlobSchedule):
+            schedule = ForkBlobSchedule(**schedule)
+        self.root[fork] = schedule
+
+    def last(self) -> ForkBlobSchedule | None:
+        """Return the last schedule."""
+        if len(self.root) == 0:
+            return None
+        return list(self.root.values())[-1]

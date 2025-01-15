@@ -1,9 +1,11 @@
 """Test fork utilities."""
 
-from typing import Mapping, cast
+from typing import Dict, cast
 
 import pytest
 from semver import Version
+
+from ethereum_test_base_types import BlobSchedule
 
 from ..base_fork import Fork
 from ..forks.forks import (
@@ -221,7 +223,7 @@ class PrePreAllocFork(Shanghai):
     """Dummy fork used for testing."""
 
     @classmethod
-    def pre_allocation(cls) -> Mapping:
+    def pre_allocation(cls) -> Dict:
         """Return some starting point for allocation."""
         return {"test": "test"}
 
@@ -230,12 +232,12 @@ class PreAllocFork(PrePreAllocFork):
     """Dummy fork used for testing."""
 
     @classmethod
-    def pre_allocation(cls) -> Mapping:
+    def pre_allocation(cls) -> Dict:
         """Add allocation to the pre-existing one from previous fork."""
         return {"test2": "test2"} | super(PreAllocFork, cls).pre_allocation()
 
 
-@transition_fork(to_fork=PreAllocFork, at_timestamp=15_000)
+@transition_fork(to_fork=PreAllocFork, at_timestamp=15_000)  # type: ignore
 class PreAllocTransitionFork(PrePreAllocFork):
     """PrePreAllocFork to PreAllocFork transition at Timestamp 15k."""
 
@@ -316,3 +318,60 @@ def test_tx_intrinsic_gas_functions(fork: Fork, calldata: bytes, create_tx: bool
         )
         == intrinsic_gas
     )
+
+
+@pytest.mark.parametrize(
+    "fork,expected_schedule",
+    [
+        pytest.param(Frontier, None, id="Frontier"),
+        pytest.param(
+            Cancun,
+            {
+                "Cancun": {
+                    "target_blobs_per_block": 3,
+                    "max_blobs_per_block": 6,
+                    "baseFeeUpdateFraction": 3338477,
+                },
+            },
+            id="Cancun",
+        ),
+        pytest.param(
+            Prague,
+            {
+                "Cancun": {
+                    "target_blobs_per_block": 3,
+                    "max_blobs_per_block": 6,
+                    "baseFeeUpdateFraction": 3338477,
+                },
+                "Prague": {
+                    "target_blobs_per_block": 6,
+                    "max_blobs_per_block": 9,
+                    "baseFeeUpdateFraction": 5007716,
+                },
+            },
+            id="Prague",
+        ),
+        pytest.param(
+            CancunToPragueAtTime15k,
+            {
+                "Cancun": {
+                    "target_blobs_per_block": 3,
+                    "max_blobs_per_block": 6,
+                    "baseFeeUpdateFraction": 3338477,
+                },
+                "Prague": {
+                    "target_blobs_per_block": 6,
+                    "max_blobs_per_block": 9,
+                    "baseFeeUpdateFraction": 5007716,
+                },
+            },
+            id="CancunToPragueAtTime15k",
+        ),
+    ],
+)
+def test_blob_schedules(fork: Fork, expected_schedule: Dict | None):
+    """Test blob schedules for different forks."""
+    if expected_schedule is None:
+        assert fork.blob_schedule() is None
+    else:
+        assert fork.blob_schedule() == BlobSchedule(**expected_schedule)

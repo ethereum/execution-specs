@@ -8,7 +8,7 @@ from typing import List, Mapping, Optional, Sized, Tuple
 
 from semver import Version
 
-from ethereum_test_base_types import AccessList, Address, Bytes
+from ethereum_test_base_types import AccessList, Address, BlobSchedule, Bytes, ForkBlobSchedule
 from ethereum_test_base_types.conversions import BytesConvertible
 from ethereum_test_vm import EVMCodeType, Opcodes
 
@@ -255,6 +255,11 @@ class Frontier(BaseFork, solc_name="homestead"):
     def max_blobs_per_block(cls, block_number: int = 0, timestamp: int = 0) -> int:
         """Return the max number of blobs per block at a given fork."""
         raise NotImplementedError(f"Max blobs per block is not supported in {cls.name()}")
+
+    @classmethod
+    def blob_schedule(cls, block_number: int = 0, timestamp: int = 0) -> BlobSchedule | None:
+        """At genesis, no blob schedule is used."""
+        return None
 
     @classmethod
     def header_requests_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
@@ -950,6 +955,29 @@ class Cancun(Shanghai):
     def max_blobs_per_block(cls, block_number: int = 0, timestamp: int = 0) -> int:
         """Blobs are enabled starting from Cancun, with a static max of 6 blobs."""
         return 6
+
+    @classmethod
+    def blob_schedule(cls, block_number: int = 0, timestamp: int = 0) -> BlobSchedule | None:
+        """
+        At Cancun, the fork object runs this routine to get the updated blob
+        schedule.
+        """
+        parent_fork = cls.parent()
+        assert parent_fork is not None, "Parent fork must be defined"
+        blob_schedule = parent_fork.blob_schedule(block_number, timestamp)
+        if blob_schedule is None:
+            last_blob_schedule = None
+            blob_schedule = BlobSchedule()
+        else:
+            last_blob_schedule = blob_schedule.last()
+        current_blob_schedule = ForkBlobSchedule(
+            target_blobs_per_block=cls.target_blobs_per_block(block_number, timestamp),
+            max_blobs_per_block=cls.max_blobs_per_block(block_number, timestamp),
+            base_fee_update_fraction=cls.blob_base_fee_update_fraction(block_number, timestamp),
+        )
+        if last_blob_schedule is None or last_blob_schedule != current_blob_schedule:
+            blob_schedule.append(fork=cls.__name__, schedule=current_blob_schedule)
+        return blob_schedule
 
     @classmethod
     def tx_types(cls, block_number: int = 0, timestamp: int = 0) -> List[int]:

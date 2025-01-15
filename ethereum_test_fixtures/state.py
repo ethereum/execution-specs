@@ -4,7 +4,14 @@ from typing import ClassVar, List, Mapping, Sequence
 
 from pydantic import BaseModel, Field
 
-from ethereum_test_base_types import AccessList, Address, Alloc, Bytes, Hash, ZeroPaddedHexNumber
+from ethereum_test_base_types import (
+    AccessList,
+    Address,
+    Alloc,
+    Bytes,
+    Hash,
+    ZeroPaddedHexNumber,
+)
 from ethereum_test_exceptions import TransactionExceptionInstanceOrList
 from ethereum_test_types.types import (
     AuthorizationTupleGeneric,
@@ -15,6 +22,7 @@ from ethereum_test_types.types import (
 )
 
 from .base import BaseFixture
+from .common import FixtureBlobSchedule
 
 
 class FixtureEnvironment(EnvironmentGeneric[ZeroPaddedHexNumber]):
@@ -89,7 +97,7 @@ class FixtureForkPost(CamelModel):
 class FixtureConfig(CamelModel):
     """Chain configuration for a fixture."""
 
-    pass
+    blob_schedule: FixtureBlobSchedule | None = None
 
 
 class StateFixture(BaseFixture):

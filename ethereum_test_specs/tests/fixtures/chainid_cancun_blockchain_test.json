@@ -1,7 +1,7 @@
 {
     "000/my_chain_id_test/Cancun": {
         "_info": {
-            "hash": "0x37875fcfb57e7ed60d05785caa956330c87de4101a83e479255af280fbf99ece",
+            "hash": "0xdc67839b9bbea740321a4ce4cd9124e14387e74627761cf65ff425bc44d56c1e",
             "fixture_format": "blockchain_test"
         },
         "network": "Cancun",
@@ -129,7 +129,14 @@
         },
         "sealEngine": "NoProof",
         "config": {
-            "network": "Cancun"
+            "network": "Cancun",
+            "blobSchedule": {
+                "Cancun": {
+                    "max": "0x06",
+                    "target": "0x03",
+                    "baseFeeUpdateFraction": "0x32f0ed"
+                }
+            }
         }
     }
 }

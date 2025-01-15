@@ -16,7 +16,15 @@ from .base_types import (
     Wei,
     ZeroPaddedHexNumber,
 )
-from .composite_types import AccessList, Account, Alloc, Storage, StorageRootType
+from .composite_types import (
+    AccessList,
+    Account,
+    Alloc,
+    BlobSchedule,
+    ForkBlobSchedule,
+    Storage,
+    StorageRootType,
+)
 from .constants import (
     AddrAA,
     AddrBB,
@@ -39,6 +47,7 @@ __all__ = (
     "AddrBB",
     "Address",
     "Alloc",
+    "BlobSchedule",
     "Bloom",
     "BLSPublicKey",
     "BLSSignature",
@@ -46,9 +55,10 @@ __all__ = (
     "CamelModel",
     "EmptyOmmersRoot",
     "EmptyTrieRoot",
-    "FixedSizeBytes",
     "EthereumTestBaseModel",
     "EthereumTestRootModel",
+    "FixedSizeBytes",
+    "ForkBlobSchedule",
     "Hash",
     "HashInt",
     "HeaderNonce",
