@@ -539,6 +539,15 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
         """Return whether the fork should be ignored during test generation."""
         return cls._ignore
 
+    @classmethod
+    def parent(cls) -> Type["BaseFork"] | None:
+        """Return the parent fork."""
+        base_class = cls.__bases__[0]
+        assert issubclass(base_class, BaseFork)
+        if base_class == BaseFork:
+            return None
+        return base_class
+
 
 # Fork Type
 Fork = Type[BaseFork]
