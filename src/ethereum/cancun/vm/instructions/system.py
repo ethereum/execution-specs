@@ -12,11 +12,11 @@ Introduction
 Implementations of the EVM system related instructions.
 """
 
-from ethereum_types.bytes import Bytes0, Bytes32
+from ethereum_types.bytes import Bytes0
 from ethereum_types.numeric import U256, Uint
-from .log import log_n
-
+from ethereum.crypto.hash import Hash32
 from ethereum.utils.numeric import ceil32
+from .log import log_n
 
 from ...fork_types import Address
 from ...state import (
@@ -60,7 +60,7 @@ from ..gas import (
 from ..memory import memory_read_bytes, memory_write
 from ..stack import pop, push
 
-MAGIC_LOG_KHASH = Bytes32(
+MAGIC_LOG_KHASH = Hash32(
     b"0xccb1f717aa77602faf03a594761a36956b1c4cf44c6b336d1db57da799b331b8"
 )
 
@@ -71,7 +71,7 @@ def generic_create(
     contract_address: Address,
     memory_start_position: U256,
     memory_size: U256,
-    init_code_gas: Uint,
+    init_code_gas: Uint,  # TODO can I remove this?
 ) -> None:
     """
     Core logic used by the `CREATE*` family of opcodes.
@@ -339,17 +339,33 @@ def generic_call(
     )
 
 
-def tx_log(evm: Evm, memory_start: U256, to: Address, amount: U256) -> None:
-    topic0 = MAGIC_LOG_KHASH
-    topic1 = evm.env.caller
-    topic2 = to
-    data_size = amount  # .size()? #TODO
-    evm.stack.push(log_data)
-    evm.stack.push(topic0)
-    evm.stack.push(topic1)
-    evm.stack.push(topic2)
-    evm.stack.push(data_size)
-    evm.stack.push(memory_start)
+def tx_log(evm: Evm, memory_start: U256, to: Address, tx_amount: U256) -> None:
+    """
+    Main functional unit satisfying EIP-7708
+
+    Args:
+        evm (Evm): The state of the ethereum virtual machine
+        memory_start (U256): The position in memory we start reading from
+        to (Address): The address of the transfer recipient
+        tx_amount (U256): The amount of ETH transacted in (TODO) Wei?
+    """
+    topic0 = U256.from_be_bytes(MAGIC_LOG_KHASH)  # TODO how do I know that
+    # these (Bytes20 && Hash32) are Big Endian encoded?
+    topic1 = U256.from_be_bytes(evm.env.caller)  # TODO should this be origin?
+    topic2 = U256.from_be_bytes(to)
+    data_size = U256(tx_amount.bit_length)
+    # TODO The value of data_size should be derived from tx_amount I think.
+    # Is tx_amount in Wei? This comes from the 'val' param of CALL or CALLCODE.
+    # I need the size of that amount for the memory.memory_read_bytes
+    # function where size is "Size of the data that needs to be read from
+    # `start_position`" and I suspect this is not the same thing as the
+    # amount of Wei in the tx.
+    push(evm.stack, tx_amount)
+    push(evm.stack, topic0)
+    push(evm.stack, topic1)
+    push(evm.stack, topic2)
+    push(evm.stack, data_size)
+    push(evm.stack, memory_start)
     log_n(evm, U256(3))
 
 
@@ -502,6 +518,7 @@ def callcode(evm: Evm) -> None:
             memory_output_start_position,
             memory_output_size,
         )
+        tx_log(evm, memory_output_start_position, to, value)
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
@@ -545,8 +562,11 @@ def selfdestruct(evm: Evm) -> None:
         originator_balance,
     )
 
-    # TODO 7708 emit log
-    tx_log(evm, beneficiary, originator_balance)
+    # 7708 emit log
+    # TODO Does SD even have a memory start position? The other calls pop
+    # it off the stack, but SD doesn't seem to have that on the stack in
+    # the first place...
+    tx_log(evm, U256(0), beneficiary, originator_balance)
 
     # register account for deletion only if it was created
     # in the same transaction
