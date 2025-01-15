@@ -1,8 +1,13 @@
 """
+TODO: Generate a log every time a value-transferring CALL or 
+SELFDESTRUCT happens. We also add a similar log for transfers in transactions, so that all ETH transfers can be tracked using one 
+mechanism.
+
 Transactions are atomic units of work created externally to Ethereum and
 submitted to be executed. If Ethereum is viewed as a state machine,
 transactions are the events that move between states.
 """
+
 from dataclasses import dataclass
 from typing import Tuple, Union
 
@@ -17,6 +22,7 @@ from ethereum.exceptions import InvalidSignatureError
 
 from .exceptions import TransactionTypeError
 from .fork_types import Address, VersionedHash
+from vm.instructions.log import log3
 
 TX_BASE_COST = 21000
 TX_DATA_COST_PER_NON_ZERO = 16
@@ -24,6 +30,9 @@ TX_DATA_COST_PER_ZERO = 4
 TX_CREATE_COST = 32000
 TX_ACCESS_LIST_ADDRESS_COST = 2400
 TX_ACCESS_LIST_STORAGE_KEY_COST = 1900
+MAGIC_LOG_KHASH = (
+    "ccb1f717aa77602faf03a594761a36956b1c4cf44c6b336d1db57da799b331b8"
+)
 
 
 @slotted_freezable
@@ -62,6 +71,7 @@ class AccessListTransaction:
     y_parity: U256
     r: U256
     s: U256
+    log: Bytes
 
 
 @slotted_freezable
@@ -184,6 +194,94 @@ def validate_transaction(tx: Transaction) -> bool:
         return False
 
     return True
+
+
+def emit_transaction_logs(tx: Transaction) -> None:
+    """
+    From EIP 7708, ensure that for every value transferring CALL or SELFDESTRUCT opcode is present in the data, there is a corresponding LOG3 in the transaction that specifies the sender and receiver of these operations. The transaction itself must also contain a call to LOG3 that matches the sender and receiver of the transaction.
+
+
+    CALL<F1>(gas, addr, val, argOst, argLen, retOst, retLen):
+        Calls another contract
+
+    _Params_
+        gas: the gas included by the invoker to pay for the transaction? the estimated cost of the transaction? The upper limit that the invoker will pay for this transaction?
+        addr: the address that all ETH is sent to
+
+    SELFDESTRUCT<FF>(addr):
+        Sends all ETH to addr; if executed in the same transaction as a contract was created it destroys the contract
+
+    _Params_
+        addr: The address that all ETH is sent to. This will be topic2 in our log call.
+
+
+    LOG3<A3>(ost, len, topic0, topic1, topic2):
+
+        Emits our special LOG3
+
+    _Params_
+        topic0: the magic keccak-256 hash of 42 which will indicate this type of log. Specified above as MAGIC_LOG_KHASH
+
+
+    Parameters
+    ----------
+    tx :
+        Transaction to insert logs into
+
+    Returns
+    -------
+    Transaction : `ethereum.base_types.Uint`
+        The intrinsic cost of the transaction.
+
+    TODO Questions:
+     - If the op is a SELFDESTRUCT, does that mean the corresponding LOG3 should specify topic1 as the initiator of the transaction, and the "addr" parameter then should be topic2?
+     - I see the "to" field of the transaction, but where do I get the address of the wallet (... contractId? address?) that originated the transaction?
+     - Do I need to check their transaction and see if they emit their own logs of the TX and each SD/CALL, or just assume that's on them, don't bother to check, and emit the "txlogs" (my term) anyway?
+     - Why are my imports breaking? I'm in the 3.10.* venv, and I can see the 3.10 type definitions for ethereum_types.numeric under ./.mypy_cache/3.10/ethereum_types/numeric.data.json. I can even click through to the class, and the popup definition appears as well, but somehow it can't import it?
+    """
+
+    # First version, check transaction for any CALLs or SELFDESTRUCTs
+    loggable_operations = []
+    logs = []
+    for byte in tx.data:
+        if byte == Bytes32(b"FF") or byte == Bytes32(b"F1"):
+            loggable_operations.append("""What goes here?""")
+        elif byte == Bytes32(b"A3"):
+            logs.append("""What goes here?""")
+
+        """
+        Are the next bytes the parameters of the opcode?
+        
+        e.g. The opcode is FF (SELFDESTRUCT). Does that mean the next byte in the transaction data is necessarily the 'addr' parameter?
+        
+        e.g. 2 The opcode is F1 (CALL). Does that mean the next seven bytes are the "gas, addr, val, argOst, argLen, retOst, retLen" parameters? 
+
+        I guess I'd need to keep track of my position within the array and then append [ current_pos : current_pos+1 ] for SD and    [ current_pos : current_pos+7 ].
+
+        Or wait, is this information actually on the stack and I should be popping it off? Do all the parameters of the tx data get pushed onto the stack at some point, and then I pop them off in order?
+
+        I'm starting to think I need to push the appropriate parameters onto the stack for this loggable operation (once I figure out how to get them) and then invoke log3?
+        """
+
+    for loggable in loggable_operations:
+        # If checking for their own logs
+        """
+        if loggable not in logs:
+            evm.stack.push(ost)
+            evm.stack.push(len)
+            evm.stack.push(receiver_addr)
+            evm.stack.push(sender_addr)
+            evm.stack.push(MAGIC_LOG_KHASH)
+            log3()
+        """
+
+        # If just emitting logs regardless
+        # evm.stack.push(ost)
+        # evm.stack.push(len)
+        # evm.stack.push(receiver_addr)
+        # evm.stack.push(sender_addr)
+        # evm.stack.push(MAGIC_LOG_KHASH)
+        log3()
 
 
 def calculate_intrinsic_cost(tx: Transaction) -> Uint:

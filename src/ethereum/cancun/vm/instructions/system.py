@@ -11,8 +11,10 @@ Introduction
 
 Implementations of the EVM system related instructions.
 """
-from ethereum_types.bytes import Bytes0
+
+from ethereum_types.bytes import Bytes0, Bytes32
 from ethereum_types.numeric import U256, Uint
+from .log import log_n
 
 from ethereum.utils.numeric import ceil32
 
@@ -57,6 +59,10 @@ from ..gas import (
 )
 from ..memory import memory_read_bytes, memory_write
 from ..stack import pop, push
+
+MAGIC_LOG_KHASH = Bytes32(
+    b"0xccb1f717aa77602faf03a594761a36956b1c4cf44c6b336d1db57da799b331b8"
+)
 
 
 def generic_create(
@@ -333,6 +339,20 @@ def generic_call(
     )
 
 
+def tx_log(evm: Evm, memory_start: U256, to: Address, amount: U256) -> None:
+    topic0 = MAGIC_LOG_KHASH
+    topic1 = evm.env.caller
+    topic2 = to
+    data_size = amount  # .size()? #TODO
+    evm.stack.push(log_data)
+    evm.stack.push(topic0)
+    evm.stack.push(topic1)
+    evm.stack.push(topic2)
+    evm.stack.push(data_size)
+    evm.stack.push(memory_start)
+    log_n(evm, U256(3))
+
+
 def call(evm: Evm) -> None:
     """
     Message-call into an account.
@@ -380,8 +400,10 @@ def call(evm: Evm) -> None:
         access_gas_cost + create_gas_cost + transfer_gas_cost,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
+
     if evm.message.is_static and value != U256(0):
         raise WriteInStaticContext
+
     evm.memory += b"\x00" * extend_memory.expand_by
     sender_balance = get_account(
         evm.env.state, evm.message.current_target
@@ -405,6 +427,7 @@ def call(evm: Evm) -> None:
             memory_output_start_position,
             memory_output_size,
         )
+        tx_log(evm, memory_output_start_position, to, value)
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
@@ -521,6 +544,9 @@ def selfdestruct(evm: Evm) -> None:
         beneficiary,
         originator_balance,
     )
+
+    # TODO 7708 emit log
+    tx_log(evm, beneficiary, originator_balance)
 
     # register account for deletion only if it was created
     # in the same transaction
