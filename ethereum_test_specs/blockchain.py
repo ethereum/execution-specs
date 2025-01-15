@@ -391,6 +391,7 @@ class BlockchainTest(BaseTest):
             fork=fork,
             chain_id=self.chain_id,
             reward=fork.get_reward(env.number, env.timestamp),
+            blob_schedule=fork.blob_schedule(),
             eips=eips,
             debug_output_path=self.get_next_transition_tool_output_path(),
             slow_request=slow,

@@ -176,6 +176,9 @@ def test_evm_t8n(
             txs=txs,
             env=env,
             fork=Berlin,
+            chain_id=1,
+            reward=0,
+            blob_schedule=Berlin.blob_schedule(),
         )
         assert to_json(t8n_output.alloc) == expected.get("alloc")
         if isinstance(t8n, ExecutionSpecsTransitionTool):

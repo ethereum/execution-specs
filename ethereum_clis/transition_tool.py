@@ -8,7 +8,7 @@ import tempfile
 import textwrap
 import time
 from abc import abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Type
 from urllib.parse import urlencode
@@ -17,6 +17,7 @@ from requests import Response
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests_unixsocket import Session  # type: ignore
 
+from ethereum_test_base_types import BlobSchedule
 from ethereum_test_exceptions import ExceptionMapper
 from ethereum_test_fixtures import FixtureFormat, FixtureVerifier
 from ethereum_test_forks import Fork
@@ -136,9 +137,10 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
         txs: List[Transaction]
         env: Environment
         fork_name: str
-        chain_id: int = field(default=1)
-        reward: int = field(default=0)
-        state_test: bool = field(default=False)
+        chain_id: int
+        reward: int
+        blob_schedule: BlobSchedule | None
+        state_test: bool
 
         def to_input(self) -> TransitionToolInput:
             """Convert the data to a TransactionToolInput object."""
@@ -155,6 +157,7 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
                     fork=self.fork_name,
                     chain_id=self.chain_id,
                     reward=self.reward,
+                    blob_schedule=self.blob_schedule,
                 ),
                 input=self.to_input(),
             )
@@ -474,8 +477,9 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
         txs: List[Transaction],
         env: Environment,
         fork: Fork,
-        chain_id: int = 1,
-        reward: int = 0,
+        chain_id: int,
+        reward: int,
+        blob_schedule: BlobSchedule | None,
         eips: Optional[List[int]] = None,
         debug_output_path: str = "",
         state_test: bool = False,
@@ -502,6 +506,7 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
             fork_name=fork_name,
             chain_id=chain_id,
             reward=reward,
+            blob_schedule=blob_schedule,
             state_test=state_test,
         )
 

@@ -11,6 +11,7 @@ from typing import List, Optional
 
 import requests
 
+from ethereum_test_base_types import BlobSchedule
 from ethereum_test_exceptions import (
     EOFException,
     ExceptionMapper,
@@ -101,8 +102,9 @@ class BesuTransitionTool(TransitionTool):
         txs: List[Transaction],
         env: Environment,
         fork: Fork,
-        chain_id: int = 1,
-        reward: int = 0,
+        chain_id: int,
+        reward: int,
+        blob_schedule: BlobSchedule | None = None,
         eips: Optional[List[int]] = None,
         debug_output_path: str = "",
         state_test: bool = False,

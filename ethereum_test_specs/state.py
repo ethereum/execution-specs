@@ -136,6 +136,7 @@ class StateTest(BaseTest):
             fork=fork,
             chain_id=self.chain_id,
             reward=0,  # Reward on state tests is always zero
+            blob_schedule=fork.blob_schedule(),
             eips=eips,
             debug_output_path=self.get_next_transition_tool_output_path(),
             state_test=True,
