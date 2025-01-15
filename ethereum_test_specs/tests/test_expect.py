@@ -6,10 +6,17 @@ import pytest
 
 from ethereum_clis import ExecutionSpecsTransitionTool
 from ethereum_test_base_types import Account, Address, TestAddress, TestPrivateKey
-from ethereum_test_fixtures import StateFixture
+from ethereum_test_exceptions import TransactionException
+from ethereum_test_fixtures import BlockchainFixture, FixtureFormat, StateFixture
 from ethereum_test_forks import Fork, get_deployed_forks
-from ethereum_test_types import Alloc, Environment, Storage, Transaction
+from ethereum_test_types import Alloc, Environment, Storage, Transaction, TransactionReceipt
 
+from ..helpers import (
+    TransactionExceptionMismatchError,
+    TransactionReceiptMismatchError,
+    TransactionUnexpectedFailError,
+    TransactionUnexpectedSuccessError,
+)
 from ..state import StateTest
 
 ADDRESS_UNDER_TEST = Address(0x01)
@@ -24,13 +31,19 @@ def tx() -> Transaction:
 @pytest.fixture
 def pre(request) -> Alloc:
     """Fixture set from the test's indirectly parametrized `pre` parameter."""
-    return Alloc(request.param | {TestAddress: Account(balance=(10**18))})
+    extra_accounts = {}
+    if hasattr(request, "param"):
+        extra_accounts = request.param
+    return Alloc(extra_accounts | {TestAddress: Account(balance=(10**18))})
 
 
 @pytest.fixture
 def post(request) -> Alloc:  # noqa: D103
     """Fixture set from the test's indirectly parametrized `post` parameter."""
-    return Alloc(request.param)
+    extra_accounts = {}
+    if hasattr(request, "param"):
+        extra_accounts = request.param
+    return Alloc(extra_accounts)
 
 
 @pytest.fixture
@@ -249,3 +262,90 @@ def test_post_account_mismatch(state_test, t8n, fork, exception_type: Type[Excep
         return
     with pytest.raises(exception_type) as _:
         state_test.generate(request=None, t8n=t8n, fork=fork, fixture_format=StateFixture)
+
+
+# Transaction result mismatch tests
+@pytest.mark.run_in_serial
+@pytest.mark.parametrize(
+    "tx,exception_type",
+    [
+        pytest.param(
+            Transaction(
+                secret_key=TestPrivateKey,
+                expected_receipt=TransactionReceipt(gas_used=21_000),
+            ),
+            TransactionExceptionMismatchError,
+            id="TransactionExceptionMismatchError",
+            marks=pytest.mark.xfail(
+                reason="Exceptions need to be better described in the t8n tool."
+            ),
+        ),
+        pytest.param(
+            Transaction(
+                secret_key=TestPrivateKey,
+                error=TransactionException.INTRINSIC_GAS_TOO_LOW,
+                expected_receipt=TransactionReceipt(gas_used=21_000),
+            ),
+            TransactionUnexpectedSuccessError,
+            id="TransactionUnexpectedSuccessError",
+        ),
+        pytest.param(
+            Transaction(
+                secret_key=TestPrivateKey,
+                gas_limit=20_999,
+                expected_receipt=TransactionReceipt(gas_used=21_000),
+            ),
+            TransactionUnexpectedFailError,
+            id="TransactionUnexpectedFailError",
+        ),
+        pytest.param(
+            Transaction(
+                secret_key=TestPrivateKey,
+                expected_receipt=TransactionReceipt(gas_used=21_001),
+            ),
+            TransactionReceiptMismatchError,
+            id="TransactionReceiptMismatchError",
+        ),
+        pytest.param(
+            Transaction(
+                secret_key=TestPrivateKey,
+                gas_limit=20_999,
+                expected_receipt=TransactionReceipt(gas_used=21_001),
+            ),
+            TransactionUnexpectedFailError,
+            id="TransactionUnexpectedFailError+TransactionReceiptMismatchError",
+        ),
+        pytest.param(
+            Transaction(
+                secret_key=TestPrivateKey,
+                error=TransactionException.INTRINSIC_GAS_TOO_LOW,
+                expected_receipt=TransactionReceipt(gas_used=21_001),
+            ),
+            TransactionUnexpectedSuccessError,
+            id="TransactionUnexpectedSuccessError+TransactionReceiptMismatchError",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "fixture_format",
+    [
+        StateFixture,
+        BlockchainFixture,
+    ],
+)
+def test_transaction_expectation(
+    state_test,
+    t8n,
+    fork,
+    exception_type: Type[Exception] | None,
+    fixture_format: FixtureFormat,
+):
+    """
+    Test a transaction that has an unexpected error, expected error, or expected a specific
+    value in its receipt.
+    """
+    if exception_type is None:
+        state_test.generate(request=None, t8n=t8n, fork=fork, fixture_format=fixture_format)
+    else:
+        with pytest.raises(exception_type) as _:
+            state_test.generate(request=None, t8n=t8n, fork=fork, fixture_format=fixture_format)

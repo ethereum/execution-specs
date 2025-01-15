@@ -10,8 +10,8 @@ from ethereum_test_exceptions import ExceptionBase, ExceptionMapper, UndefinedEx
 from ethereum_test_types import Transaction, TransactionReceipt
 
 
-class TransactionExpectedToFailSucceedError(Exception):
-    """Exception used when the transaction expected to return an error, did succeed."""
+class TransactionUnexpectedSuccessError(Exception):
+    """Exception used when the transaction expected to fail succeeded instead."""
 
     def __init__(self, index: int, nonce: int):
         """Initialize the exception with the transaction index and nonce."""
@@ -23,7 +23,7 @@ class TransactionExpectedToFailSucceedError(Exception):
 
 
 class TransactionUnexpectedFailError(Exception):
-    """Exception used when the transaction expected to succeed, did fail."""
+    """Exception used when the transaction expected to succeed failed instead."""
 
     def __init__(self, index: int, nonce: int, message: str, exception: ExceptionBase):
         """Initialize the exception."""
@@ -109,9 +109,7 @@ def verify_transaction_exception(
 
     # info.tx.error is expected error code defined in .py test
     if expected_error and not info.t8n_error_message:
-        raise TransactionExpectedToFailSucceedError(
-            index=info.transaction_index, nonce=info.tx.nonce
-        )
+        raise TransactionUnexpectedSuccessError(index=info.transaction_index, nonce=info.tx.nonce)
     elif not expected_error and info.t8n_error_message:
         raise TransactionUnexpectedFailError(
             index=info.transaction_index,
