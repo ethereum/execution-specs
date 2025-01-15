@@ -10,10 +10,9 @@ from pydantic import BaseModel, PlainSerializer, PlainValidator, RootModel
 from ethereum_test_base_types import HexNumber
 from ethereum_test_fixtures import FIXTURE_FORMATS, FixtureFormat
 
-from .blockchain import EngineFixture as BlockchainEngineFixture
-from .blockchain import Fixture as BlockchainFixture
+from .blockchain import BlockchainEngineFixture, BlockchainFixture
 from .file import Fixtures
-from .state import Fixture as StateFixture
+from .state import StateFixture
 
 
 class TestCaseBase(BaseModel):

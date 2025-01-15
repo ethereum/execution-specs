@@ -17,7 +17,6 @@ from ethereum_test_fixtures import (
     StateFixture,
 )
 from ethereum_test_fixtures.state import (
-    Fixture,
     FixtureEnvironment,
     FixtureForkPost,
     FixtureTransaction,
@@ -113,7 +112,7 @@ class StateTest(BaseTest):
         fork: Fork,
         eips: Optional[List[int]] = None,
         slow: bool = False,
-    ) -> Fixture:
+    ) -> StateFixture:
         """Create a fixture from the state test definition."""
         # We can't generate a state test fixture that names a transition fork,
         # so we get the fork at the block number and timestamp of the state test
@@ -159,7 +158,7 @@ class StateTest(BaseTest):
             pprint(transition_tool_output.alloc)
             raise e
 
-        return Fixture(
+        return StateFixture(
             env=FixtureEnvironment(**env.model_dump(exclude_none=True)),
             pre=pre_alloc,
             post={

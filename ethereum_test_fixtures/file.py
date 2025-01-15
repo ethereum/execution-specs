@@ -9,10 +9,9 @@ from pydantic import Discriminator, Tag
 from ethereum_test_base_types import EthereumTestRootModel
 
 from .base import FixtureFormat
-from .blockchain import EngineFixture as BlockchainEngineFixture
-from .blockchain import Fixture as BlockchainFixture
+from .blockchain import BlockchainEngineFixture, BlockchainFixture
 from .eof import Fixture as EOFFixture
-from .state import Fixture as StateFixture
+from .state import StateFixture
 from .transaction import Fixture as TransactionFixture
 
 FixtureModel = (

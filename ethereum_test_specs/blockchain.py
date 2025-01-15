@@ -28,8 +28,6 @@ from ethereum_test_fixtures import (
     FixtureFormat,
 )
 from ethereum_test_fixtures.blockchain import (
-    EngineFixture,
-    Fixture,
     FixtureBlock,
     FixtureBlockBase,
     FixtureEngineNewPayload,
@@ -504,7 +502,7 @@ class BlockchainTest(BaseTest):
         fork: Fork,
         eips: Optional[List[int]] = None,
         slow: bool = False,
-    ) -> Fixture:
+    ) -> BlockchainFixture:
         """Create a fixture from the blockchain test definition."""
         fixture_blocks: List[FixtureBlock | InvalidFixtureBlock] = []
 
@@ -575,7 +573,7 @@ class BlockchainTest(BaseTest):
                 )
 
         self.verify_post_state(t8n, t8n_state=alloc)
-        return Fixture(
+        return BlockchainFixture(
             fork=self.network_info(fork, eips),
             genesis=genesis.header,
             genesis_rlp=genesis.rlp,
@@ -591,7 +589,7 @@ class BlockchainTest(BaseTest):
         fork: Fork,
         eips: Optional[List[int]] = None,
         slow: bool = False,
-    ) -> EngineFixture:
+    ) -> BlockchainEngineFixture:
         """Create a hive fixture from the blocktest definition."""
         fixture_payloads: List[FixtureEngineNewPayload] = []
 
@@ -668,7 +666,7 @@ class BlockchainTest(BaseTest):
                 error_code=None,
             )
 
-        return EngineFixture(
+        return BlockchainEngineFixture(
             fork=self.network_info(fork, eips),
             genesis=genesis.header,
             payloads=fixture_payloads,

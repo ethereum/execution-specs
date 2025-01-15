@@ -404,7 +404,7 @@ class InvalidFixtureBlock(CamelModel):
     rlp_decoded: FixtureBlockBase | None = Field(None, alias="rlp_decoded")
 
 
-class FixtureCommon(BaseFixture):
+class BlockchainFixtureCommon(BaseFixture):
     """Base blockchain test fixture model."""
 
     fork: str = Field(..., alias="network")
@@ -418,7 +418,7 @@ class FixtureCommon(BaseFixture):
         return self.fork
 
 
-class Fixture(FixtureCommon):
+class BlockchainFixture(BlockchainFixtureCommon):
     """Cross-client specific blockchain test model use in JSON fixtures."""
 
     fixture_format_name: ClassVar[str] = "blockchain_test"
@@ -429,7 +429,7 @@ class Fixture(FixtureCommon):
     seal_engine: Literal["NoProof"] = Field("NoProof")
 
 
-class EngineFixture(FixtureCommon):
+class BlockchainEngineFixture(BlockchainFixtureCommon):
     """Engine specific test fixture information."""
 
     fixture_format_name: ClassVar[str] = "blockchain_test_engine"

@@ -86,7 +86,7 @@ class FixtureForkPost(CamelModel):
     expect_exception: TransactionExceptionInstanceOrList | None = None
 
 
-class Fixture(BaseFixture):
+class StateFixture(BaseFixture):
     """Fixture for a single StateTest."""
 
     fixture_format_name: ClassVar[str] = "state_test"
