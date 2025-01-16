@@ -37,6 +37,7 @@ SLOW_TESTS = (
 test_dirs = (
     "tests/fixtures/latest_fork_tests/state_tests/prague/eip2537_bls_12_381_precompiles",
     "tests/fixtures/latest_fork_tests/state_tests/prague/eip7702_set_code_tx",
+    "tests/fixtures/latest_fork_tests/state_tests/prague/eip7623_increase_calldata_cost",
 )
 
 IGNORE_TESTS = ()
