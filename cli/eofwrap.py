@@ -90,6 +90,8 @@ class EofWrapper:
     FIXTURES_CANT_WRAP = "fixtures_cant_wrap"
     # Test fixtures with EOF code but test doesn't pass and generation fails
     FIXTURES_CANT_GENERATE = "fixtures_cant_generate"
+    # Invalid blocks in fixtures skipped
+    INVALID_BLOCKS_SKIPPED = "invalid_blocks_skipped"
     # State accounts with code wrapped into valid EOF
     ACCOUNTS_WRAPPED = "accounts_wrapped"
     # State accounts with code wrapped into valid unique EOF
@@ -111,6 +113,7 @@ class EofWrapper:
             self.FIXTURES_GENERATED: 0,
             self.FIXTURES_CANT_WRAP: 0,
             self.FIXTURES_CANT_GENERATE: 0,
+            self.INVALID_BLOCKS_SKIPPED: 0,
             self.ACCOUNTS_WRAPPED: 0,
             self.UNIQUE_ACCOUNTS_WRAPPED: 0,
             self.ACCOUNTS_INVALID_EOF: 0,
@@ -282,15 +285,15 @@ class EofWrapper:
                         **fixture_tx_dump,
                     )
                     block.txs.append(tx)
+
+                test.blocks.append(block)
             elif isinstance(fixture_block, InvalidFixtureBlock):
-                block = Block(
-                    rlp=fixture_block.rlp,
-                    exception=fixture_block.expect_exception,
-                )
+                # Skip - invalid blocks are not supported. Reason: FixtureTransaction doesn't
+                # support expected exception. But we can continue and test the remaining
+                # blocks.
+                self.metrics[self.INVALID_BLOCKS_SKIPPED] += 1
             else:
                 raise TypeError("not a FixtureBlock")
-
-            test.blocks.append(block)
 
         result = test.generate(
             request=None,  # type: ignore
