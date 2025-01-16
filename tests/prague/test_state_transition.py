@@ -52,6 +52,7 @@ SLOW_TESTS = (
     "tests/prague/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_Prague-blockchain_test-bls_pairing_e\\(aG1,bG2\\)=e\\(G1,abG2\\)-\\]",
     "tests/prague/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_Prague-blockchain_test-inf_pair-\\]",
     "tests/prague/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_Prague-blockchain_test-multi_inf_pair-\\]",
+    "tests/prague/eip2935_historical_block_hashes_from_state/test_block_hashes\\.py\\:\\:test_block_hashes_history\\[fork_Prague-blockchain_test-full_history_plus_one_check_blockhash_first\\]",
 )
 
 # These are tests that are considered to be incorrect,
@@ -107,6 +108,7 @@ test_dirs = (
     "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip2537_bls_12_381_precompiles",
     "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip2935_historical_block_hashes_from_state",
     "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7702_set_code_tx",
+    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7623_increase_calldata_cost",
 )
 
 
