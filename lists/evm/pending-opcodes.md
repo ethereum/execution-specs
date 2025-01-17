@@ -142,7 +142,7 @@ scheduled or accepted) are in *italics*.
 | 0x5B   | JUMPDEST         | Control Flow            |                  |                                                                                |
 | *0x5C* | *TLOAD*          | *Transient Storage*     | *Cancun*         | *[EIP-1153](https://eips.ethereum.org/EIPS/eip-1153)*                          |
 | *0x5D* | *TSTORE*         | *Transient Storage*     | *Cancun*         | *[EIP-1153](https://eips.ethereum.org/EIPS/eip-1153)*                          |
-| *0x5E* | *MCOPY*          | *Memory*                | *????*           | *[EIP-5656](https://eips.ethereum.org/EIPS/eip-5656)*                          |
+| *0x5E* | *MCOPY*          | *Memory*                | *Cancun*         | *[EIP-5656](https://eips.ethereum.org/EIPS/eip-5656)*                          |
 | 0x5F   | PUSH0            | Push                    | Shanghai         | [EIP-3855](https://eips.ethereum.org/EIPS/eip-3855)                            |
 | 0x60   | PUSH1            | Push                    |                  |                                                                                |
 | 0x61   | PUSH2            | Push                    |                  |                                                                                |
