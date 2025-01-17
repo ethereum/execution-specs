@@ -12,7 +12,7 @@ from ethereum_test_forks import Fork, get_deployed_forks
 from ethereum_test_tools import Block
 from ethereum_test_types import Alloc, Environment, Storage, Transaction, TransactionReceipt
 
-from ..blockchain import BlockchainTest
+from ..blockchain import BlockchainEngineFixture, BlockchainTest
 from ..helpers import (
     TransactionExceptionMismatchError,
     TransactionReceiptMismatchError,
@@ -354,50 +354,96 @@ def test_transaction_expectation(
 
 
 @pytest.mark.parametrize(
+    "intermediate_state,expected_exception",
+    [
+        pytest.param(
+            {
+                TestAddress: Account(nonce=1),
+                Address(0x01): Account(balance=1),
+            },
+            None,
+            id="NoException",
+        ),
+        pytest.param(
+            {
+                TestAddress: Account(nonce=2),
+                Address(0x01): Account(balance=1),
+            },
+            Account.NonceMismatchError,
+            id="NonceMismatchError",
+        ),
+        pytest.param(
+            {
+                TestAddress: Account(nonce=1),
+                Address(0x01): Account(balance=2),
+            },
+            Account.BalanceMismatchError,
+            id="BalanceMismatchError",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
     "fixture_format",
     [
         BlockchainFixture,
+        BlockchainEngineFixture,
     ],
 )
-def test_block_intermediate_state(pre, t8n, fork, fixture_format: FixtureFormat):
+def test_block_intermediate_state(
+    pre, t8n, fork, fixture_format: FixtureFormat, intermediate_state, expected_exception
+):
     """Validate the state when building blockchain."""
     env = Environment()
-    # pre = Alloc()
-    sender = pre.fund_eoa()
 
-    tx = Transaction(gas_limit=100_000, to=None, data=b"", sender=sender)
-    tx_2 = Transaction(gas_limit=100_000, to=None, data=b"", sender=sender)
+    to = Address(0x01)
+    tx = Transaction(gas_limit=100_000, to=to, value=1, nonce=0, secret_key=TestPrivateKey)
+    tx_2 = Transaction(gas_limit=100_000, to=to, value=1, nonce=1, secret_key=TestPrivateKey)
 
     block_1 = Block(
         txs=[tx],
         expected_post_state={
-            sender: Account(
-                nonce=1,
-            ),
+            TestAddress: Account(nonce=1),
+            to: Account(balance=1),
         },
     )
 
-    block_2 = Block(txs=[])
+    block_2 = Block(txs=[], expected_post_state=intermediate_state)
 
     block_3 = Block(
         txs=[tx_2],
         expected_post_state={
-            sender: Account(
-                nonce=2,
-            ),
+            TestAddress: Account(nonce=2),
+            to: Account(balance=2),
         },
     )
 
-    BlockchainTest(
-        genesis_environment=env,
-        fork=fork,
-        t8n=t8n,
-        pre=pre,
-        post=block_3.expected_post_state,
-        blocks=[block_1, block_2, block_3],
-    ).generate(
-        request=None,  # type: ignore
-        t8n=t8n,
-        fork=fork,
-        fixture_format=fixture_format,
-    )
+    if expected_exception:
+        with pytest.raises(expected_exception) as _:
+            BlockchainTest(
+                genesis_environment=env,
+                fork=fork,
+                t8n=t8n,
+                pre=pre,
+                post=block_3.expected_post_state,
+                blocks=[block_1, block_2, block_3],
+            ).generate(
+                request=None,  # type: ignore
+                t8n=t8n,
+                fork=fork,
+                fixture_format=fixture_format,
+            )
+        return
+    else:
+        BlockchainTest(
+            genesis_environment=env,
+            fork=fork,
+            t8n=t8n,
+            pre=pre,
+            post=block_3.expected_post_state,
+            blocks=[block_1, block_2, block_3],
+        ).generate(
+            request=None,  # type: ignore
+            t8n=t8n,
+            fork=fork,
+            fixture_format=fixture_format,
+        )
