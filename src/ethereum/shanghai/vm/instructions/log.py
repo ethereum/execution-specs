@@ -13,7 +13,7 @@ Implementations of the EVM logging instructions.
 """
 from functools import partial
 
-from ethereum_types.numeric import U256, Uint
+from ethereum_types.numeric import Uint
 
 from ...blocks import Log
 from .. import Evm
@@ -29,7 +29,7 @@ from ..memory import memory_read_bytes
 from ..stack import pop
 
 
-def log_n(evm: Evm, num_topics: U256) -> None:
+def log_n(evm: Evm, num_topics: int) -> None:
     """
     Appends a log entry, having `num_topics` topics, to the evm logs.
 
