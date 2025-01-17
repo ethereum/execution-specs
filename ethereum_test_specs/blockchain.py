@@ -634,6 +634,12 @@ class BlockchainTest(BaseTest):
                     alloc = new_alloc
                     env = apply_new_parent(env, header)
                     head_hash = header.block_hash
+
+            if block.expected_post_state:
+                self.verify_post_state(
+                    t8n, t8n_state=alloc, expected_state=block.expected_post_state
+                )
+
         fcu_version = fork.engine_forkchoice_updated_version(header.number, header.timestamp)
         assert (
             fcu_version is not None
