@@ -19,8 +19,8 @@ def test_block_intermidiate_state(blockchain_test: BlockchainTestFiller, pre: Al
     env = Environment()
     sender = pre.fund_eoa()
 
-    tx = Transaction(gas_limit=100_000, to=None, data=b"", sender=sender)
-    tx_2 = Transaction(gas_limit=100_000, to=None, data=b"", sender=sender)
+    tx = Transaction(gas_limit=100_000, to=None, data=b"", sender=sender, protected=False)
+    tx_2 = Transaction(gas_limit=100_000, to=None, data=b"", sender=sender, protected=False)
 
     block_1 = Block(
         txs=[tx],
