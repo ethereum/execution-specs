@@ -364,7 +364,7 @@ def account_has_code_or_nonce(state: State, address: Address) -> bool:
     Returns
     -------
     has_code_or_nonce : `bool`
-        True if if an account has non zero nonce or non empty code,
+        True if an account has non zero nonce or non empty code,
         False otherwise.
     """
     account = get_account(state, address)
@@ -385,7 +385,7 @@ def is_account_empty(state: State, address: Address) -> bool:
     Returns
     -------
     is_empty : `bool`
-        True if if an account has zero nonce, empty code and zero balance,
+        True if an account has zero nonce, empty code and zero balance,
         False otherwise.
     """
     account = get_account(state, address)
