@@ -379,7 +379,7 @@ def is_account_empty(state: State, address: Address) -> bool:
     Returns
     -------
     is_empty : `bool`
-        True if if an account has zero nonce, empty code and zero balance,
+        True if an account has zero nonce, empty code and zero balance,
         False otherwise.
     """
     account = get_account(state, address)
