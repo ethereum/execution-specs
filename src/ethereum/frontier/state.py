@@ -338,7 +338,7 @@ def account_has_code_or_nonce(state: State, address: Address) -> bool:
     Returns
     -------
     has_code_or_nonce : `bool`
-        True if if an account has non zero nonce or non empty code,
+        True if an account has non zero nonce or non empty code,
         False otherwise.
     """
     account = get_account(state, address)
