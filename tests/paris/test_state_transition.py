@@ -16,9 +16,9 @@ from tests.helpers.load_state_tests import (
     run_blockchain_st_test,
 )
 
-fetch_paris_tests = partial(fetch_state_test_files, network="Merge")
+fetch_paris_tests = partial(fetch_state_test_files, network="Paris")
 
-FIXTURES_LOADER = Load("Merge", "paris")
+FIXTURES_LOADER = Load("Paris", "paris")
 
 run_paris_blockchain_st_tests = partial(
     run_blockchain_st_test, load=FIXTURES_LOADER
@@ -27,7 +27,7 @@ run_paris_blockchain_st_tests = partial(
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
 
 # Run state tests
-test_dir = f"{ETHEREUM_TESTS_PATH}/BlockchainTests/"
+test_dir = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Cancun/BlockchainTests/"
 
 # Every test below takes more than  60s to run and
 # hence they've been marked as slow
@@ -37,8 +37,8 @@ SLOW_TESTS = (
     "stTimeConsuming/static_Call50000_sha256.json",
     "vmPerformance/loopExp.json",
     "vmPerformance/loopMul.json",
-    "QuadraticComplexitySolidity_CallDataCopy_d0g1v0_Merge",
-    "CALLBlake2f_d9g0v0_Merge",
+    "QuadraticComplexitySolidity_CallDataCopy_d0g1v0_Paris",
+    "CALLBlake2f_d9g0v0_Paris",
     "CALLCODEBlake2f_d9g0v0",
     # GeneralStateTests
     "stRandom/randomStatetest177.json",
@@ -61,7 +61,7 @@ IGNORE_TESTS = (
     # InvalidBlockTest
     "bcForgedTest",
     "bcMultiChainTest",
-    "GasLimitHigherThan2p63m1_Merge",
+    "GasLimitHigherThan2p63m1_Paris",
 )
 
 # All tests that recursively create a large number of frames (50000)

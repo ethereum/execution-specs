@@ -420,4 +420,19 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
         """
         state.created_accounts.add(address)
 
+    @add_item(patches)
+    def account_has_storage(state: State, address: Address) -> bool:
+        """
+        See `state`
+        """
+        if address in state.dirty_storage:
+            for v in state.dirty_storage[address].values():
+                if v != U256(0):
+                    return True
+
+        if address in state.destroyed_accounts:
+            return False
+
+        return state.db.has_storage(address)
+
     return patches

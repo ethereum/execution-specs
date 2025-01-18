@@ -26,7 +26,7 @@ ETHEREUM_SPEC_TESTS_PATH = TEST_FIXTURES["execution_spec_tests"][
 
 
 # Run state tests
-test_dir = f"{ETHEREUM_TESTS_PATH}/BlockchainTests/"
+test_dir = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Cancun/BlockchainTests/"
 
 SLOW_TESTS = (
     # GeneralStateTests
