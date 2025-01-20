@@ -21,3 +21,6 @@ class AppConfig(BaseModel):
 
     DEFAULT_EVM_LOGS_DIR: Path = DEFAULT_LOGS_DIR / "evm"
     """The default directory where EVM log files are stored."""
+
+    ROOT_DIR: Path = Path(__file__).resolve().parents[2]
+    """The root directory of the project."""

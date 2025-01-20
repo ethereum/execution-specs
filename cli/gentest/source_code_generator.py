@@ -11,6 +11,8 @@ from pathlib import Path
 
 import jinja2
 
+from config import AppConfig
+
 from .test_context_providers import Provider
 
 template_loader = jinja2.PackageLoader("cli.gentest")
@@ -74,19 +76,22 @@ def format_code(code: str) -> str:
             formatter_path = Path(sys.prefix) / "bin" / "ruff"
 
         # Call ruff to format the file
-        config_path = Path(sys.prefix).parent / "pyproject.toml"
+        config_path = AppConfig().ROOT_DIR / "pyproject.toml"
 
-        subprocess.run(
-            [
-                str(formatter_path),
-                "format",
-                str(input_file_path),
-                "--quiet",
-                "--config",
-                str(config_path),
-            ],
-            check=True,
-        )
+        try:
+            subprocess.run(
+                [
+                    str(formatter_path),
+                    "format",
+                    str(input_file_path),
+                    "--quiet",
+                    "--config",
+                    str(config_path),
+                ],
+                check=True,
+            )
+        except subprocess.CalledProcessError as e:
+            raise Exception(f"Error formatting code using formatter '{formatter_path}'") from e
 
         # Return the formatted source code
         return input_file_path.read_text()
