@@ -49,7 +49,7 @@ from ..state import (
 from ..vm import Message
 from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
-from . import Environment, Evm
+from . import Environment, Evm, tx_log
 from .exceptions import (
     AddressCollision,
     ExceptionalHalt,
@@ -237,6 +237,9 @@ def process_message(message: Message, env: Environment) -> Evm:
             env.state, message.caller, message.current_target, message.value
         )
 
+    # TODO can I do this?
+    #   tx_log(execute_code(message, env), memory_output_start_position, message.current_target, message.caller, value,)
+
     evm = execute_code(message, env)
     if evm.error:
         # revert state to the last saved checkpoint
@@ -244,6 +247,13 @@ def process_message(message: Message, env: Environment) -> Evm:
         rollback_transaction(env.state, env.transient_storage)
     else:
         commit_transaction(env.state, env.transient_storage)
+        tx_log(
+            evm,
+            mem_start_pos,  # TODO how to get the start position? Usually it's a stack.pop()
+            message.current_target,
+            message.caller,
+            message.value,
+        )
     return evm
 
 

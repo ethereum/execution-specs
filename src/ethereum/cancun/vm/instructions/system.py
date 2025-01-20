@@ -16,7 +16,6 @@ from ethereum_types.bytes import Bytes0
 from ethereum_types.numeric import U256, Uint
 from ethereum.crypto.hash import Hash32
 from ethereum.utils.numeric import ceil32
-from .log import log_n
 
 from ...fork_types import Address
 from ...state import (
@@ -39,6 +38,7 @@ from .. import (
     Message,
     incorporate_child_on_error,
     incorporate_child_on_success,
+    tx_log,
 )
 from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
 from ..gas import (
@@ -339,36 +339,6 @@ def generic_call(
     )
 
 
-def tx_log(evm: Evm, memory_start: U256, to: Address, tx_amount: U256) -> None:
-    """
-    Main functional unit satisfying EIP-7708
-
-    Args:
-        evm (Evm): The state of the ethereum virtual machine
-        memory_start (U256): The position in memory we start reading from
-        to (Address): The address of the transfer recipient
-        tx_amount (U256): The amount of ETH transacted in (TODO) Wei?
-    """
-    topic0 = U256.from_be_bytes(MAGIC_LOG_KHASH)  # TODO how do I know that
-    # these (Bytes20 && Hash32) are Big Endian encoded?
-    topic1 = U256.from_be_bytes(evm.env.caller)  # TODO should this be origin?
-    topic2 = U256.from_be_bytes(to)
-    data_size = U256(tx_amount.bit_length)
-    # TODO The value of data_size should be derived from tx_amount I think.
-    # Is tx_amount in Wei? This comes from the 'val' param of CALL or CALLCODE.
-    # I need the size of that amount for the memory.memory_read_bytes
-    # function where size is "Size of the data that needs to be read from
-    # `start_position`" and I suspect this is not the same thing as the
-    # amount of Wei in the tx.
-    push(evm.stack, tx_amount)
-    push(evm.stack, topic0)
-    push(evm.stack, topic1)
-    push(evm.stack, topic2)
-    push(evm.stack, data_size)
-    push(evm.stack, memory_start)
-    log_n(evm, U256(3))
-
-
 def call(evm: Evm) -> None:
     """
     Message-call into an account.
@@ -443,7 +413,13 @@ def call(evm: Evm) -> None:
             memory_output_start_position,
             memory_output_size,
         )
-        tx_log(evm, memory_output_start_position, to, value)
+        tx_log(
+            evm,
+            memory_output_start_position,
+            evm.message.current_target,
+            to,
+            value,
+        )
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
@@ -518,7 +494,6 @@ def callcode(evm: Evm) -> None:
             memory_output_start_position,
             memory_output_size,
         )
-        tx_log(evm, memory_output_start_position, to, value)
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
@@ -566,7 +541,13 @@ def selfdestruct(evm: Evm) -> None:
     # TODO Does SD even have a memory start position? The other calls pop
     # it off the stack, but SD doesn't seem to have that on the stack in
     # the first place...
-    tx_log(evm, U256(0), beneficiary, originator_balance)
+    tx_log(
+        evm,
+        U256(0),
+        evm.message.current_target,
+        beneficiary,
+        originator_balance,
+    )
 
     # register account for deletion only if it was created
     # in the same transaction

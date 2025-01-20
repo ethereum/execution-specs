@@ -15,7 +15,6 @@ Implementations of the EVM logging instructions.
 from functools import partial
 
 from ethereum_types.numeric import U256, Uint
-from ethereum_types.bytes import Bytes32
 
 from ...blocks import Log
 from .. import Evm
@@ -29,10 +28,6 @@ from ..gas import (
 )
 from ..memory import memory_read_bytes
 from ..stack import pop
-
-MAGIC_LOG_KHASH = Bytes32(
-    b"0xccb1f717aa77602faf03a594761a36956b1c4cf44c6b336d1db57da799b331b8"
-)
 
 
 def log_n(evm: Evm, num_topics: int) -> None:
