@@ -16,7 +16,7 @@ The abstract computer which runs the code stored in an
 from dataclasses import dataclass
 from typing import List, Optional, Set, Tuple, Union
 
-from ethereum_types.bytes import Bytes, Bytes0, Bytes32, Bytes256
+from ethereum_types.bytes import Bytes, Bytes0, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
@@ -29,7 +29,7 @@ from .precompiled_contracts import RIPEMD160_ADDRESS
 
 __all__ = ("Environment", "Evm", "Message")
 # Magic number for transaction logs converted to Keccak Hash
-MAGIC_LOG_KHASH = keccak256(Hash32(b"42"))
+MAGIC_LOG_KHASH = keccak256(b"42")
 
 
 @dataclass
@@ -154,25 +154,34 @@ def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
     evm.gas_left += child_evm.gas_left
 
 
-def tx_log(
+def transfer_log(
     evm: Evm,
     sender: Address,
     recipient: Address,
-    tx_amount: U256,
+    transfer_amount: U256,
 ) -> None:
     """
     Main functional unit satisfying EIP-7708
 
-    Args:
-        evm (Evm): The state of the ethereum virtual machine
-        sender (Address): The account address sending the transfer
-        recipient (Address): The address of the transfer recipient account
-        tx_amount (U256): The amount of ETH transacted
+    Parameters
+    ----------
+    evm :
+        The state of the ethereum virtual machine
+    sender :
+        The account address sending the transfer
+    recipient :
+        The address of the transfer recipient account
+    transfer_amount :
+        The amount of ETH transacted
     """
+    # TODO Hash32 implicit conversion will not work here because it doesn't
+    # know the direction to pad.
+    # We will need to pre-pad the Address correctly before converting,
+    # otherwise it will throw because the lengths are not the same
     log_entry = Log(
         address=evm.message.current_target,
         topics=(MAGIC_LOG_KHASH, Hash32(sender), Hash32(recipient)),
-        data=Bytes256(tx_amount.to_be_bytes),
+        data=transfer_amount.to_be_bytes(),
     )
 
     evm.logs = evm.logs + (log_entry,)

@@ -63,7 +63,6 @@ class AccessListTransaction:
     y_parity: U256
     r: U256
     s: U256
-    log: Bytes
 
 
 @slotted_freezable

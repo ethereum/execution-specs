@@ -14,7 +14,7 @@ Implementations of the EVM system related instructions.
 
 from ethereum_types.bytes import Bytes0
 from ethereum_types.numeric import U256, Uint
-from ethereum.crypto.hash import Hash32
+
 from ethereum.utils.numeric import ceil32
 
 from ...fork_types import Address
@@ -38,7 +38,7 @@ from .. import (
     Message,
     incorporate_child_on_error,
     incorporate_child_on_success,
-    tx_log,
+    transfer_log,
 )
 from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
 from ..gas import (
@@ -59,10 +59,6 @@ from ..gas import (
 )
 from ..memory import memory_read_bytes, memory_write
 from ..stack import pop, push
-
-MAGIC_LOG_KHASH = Hash32(
-    b"0xccb1f717aa77602faf03a594761a36956b1c4cf44c6b336d1db57da799b331b8"
-)
 
 
 def generic_create(
@@ -413,7 +409,7 @@ def call(evm: Evm) -> None:
             memory_output_start_position,
             memory_output_size,
         )
-        tx_log(
+        transfer_log(
             evm,
             evm.message.current_target,
             to,
@@ -536,7 +532,7 @@ def selfdestruct(evm: Evm) -> None:
         originator_balance,
     )
 
-    tx_log(
+    transfer_log(
         evm,
         evm.message.current_target,
         beneficiary,
