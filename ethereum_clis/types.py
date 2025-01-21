@@ -52,3 +52,18 @@ class TransitionToolOutput(CamelModel):
     alloc: Alloc
     result: Result
     body: Bytes | None = None
+
+
+class TransitionToolContext(CamelModel):
+    """Transition tool context."""
+
+    fork: str
+    chain_id: int = Field(..., alias="chainid")
+    reward: int
+
+
+class TransitionToolRequest(CamelModel):
+    """Transition tool server request data."""
+
+    state: TransitionToolContext
+    input: TransitionToolInput

@@ -24,7 +24,13 @@ from ethereum_test_types import Alloc, Environment, Transaction
 
 from .ethereum_cli import EthereumCLI
 from .file_utils import dump_files_to_directory, write_json_file
-from .types import TransactionReceipt, TransitionToolInput, TransitionToolOutput
+from .types import (
+    TransactionReceipt,
+    TransitionToolContext,
+    TransitionToolInput,
+    TransitionToolOutput,
+    TransitionToolRequest,
+)
 
 model_dump_config: Mapping = {"by_alias": True, "exclude_none": True}
 
@@ -140,6 +146,17 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
                 alloc=self.alloc,
                 txs=self.txs,
                 env=self.env,
+            )
+
+        def get_request_data(self) -> TransitionToolRequest:
+            """Convert the data to a TransitionToolRequest object."""
+            return TransitionToolRequest(
+                state=TransitionToolContext(
+                    fork=self.fork_name,
+                    chain_id=self.chain_id,
+                    reward=self.reward,
+                ),
+                input=self.to_input(),
             )
 
     def _evaluate_filesystem(
@@ -298,37 +315,29 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
         timeout: int,
     ) -> TransitionToolOutput:
         """Execute the transition tool sending inputs and outputs via a server."""
-        input_contents = t8n_data.to_input()
-        input_json = input_contents.model_dump(mode="json", **model_dump_config)
-        post_data = {
-            "state": {
-                "fork": t8n_data.fork_name,
-                "chainid": t8n_data.chain_id,
-                "reward": t8n_data.reward,
-            },
-            "input": input_json,
-        }
+        request_data = t8n_data.get_request_data()
+        request_data_json = request_data.model_dump(mode="json", **model_dump_config)
 
         if debug_output_path:
             request_info = (
                 f"Server URL: {self.server_url}\n\n"
-                f"Request Data:\n{json.dumps(post_data, indent=2)}\n"
+                f"Request Data:\n{json.dumps(request_data_json, indent=2)}\n"
             )
             dump_files_to_directory(
                 debug_output_path,
                 {
-                    "input/alloc.json": input_contents.alloc,
-                    "input/env.json": input_contents.env,
+                    "input/alloc.json": request_data.input.alloc,
+                    "input/env.json": request_data.input.env,
                     "input/txs.json": [
                         tx.model_dump(mode="json", **model_dump_config)
-                        for tx in input_contents.txs
+                        for tx in request_data.input.txs
                     ],
                     "request_info.txt": request_info,
                 },
             )
 
         response = self._server_post(
-            data=post_data, url_args=self._generate_post_args(t8n_data), timeout=timeout
+            data=request_data_json, url_args=self._generate_post_args(t8n_data), timeout=timeout
         )
         output: TransitionToolOutput = TransitionToolOutput.model_validate(response.json())
 
