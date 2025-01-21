@@ -339,6 +339,7 @@ ruleset = {
         "HIVE_PRAGUE_TIMESTAMP": 0,
         "HIVE_PRAGUE_BLOB_TARGET": 6,
         "HIVE_PRAGUE_BLOB_MAX": 9,
+        "HIVE_PRAGUE_BLOB_BASE_FEE_UPDATE_FRACTION": 5007716,
     },
     "CancunToPragueAtTime15k": {
         "HIVE_FORK_HOMESTEAD": 0,
@@ -357,5 +358,6 @@ ruleset = {
         "HIVE_PRAGUE_TIMESTAMP": 15000,
         "HIVE_PRAGUE_BLOB_TARGET": 6,
         "HIVE_PRAGUE_BLOB_MAX": 9,
+        "HIVE_PRAGUE_BLOB_BASE_FEE_UPDATE_FRACTION": 5007716,
     },
 }
