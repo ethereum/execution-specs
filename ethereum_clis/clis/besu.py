@@ -212,7 +212,8 @@ class BesuExceptionMapper(ExceptionMapper):
         return [
             ExceptionMessage(
                 TransactionException.TYPE_4_TX_CONTRACT_CREATION,
-                "set code transaction must not be a create transaction",
+                "transaction code delegation transactions must have a non-empty code "
+                "delegation list",
             ),
             ExceptionMessage(
                 TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
@@ -252,7 +253,7 @@ class BesuExceptionMapper(ExceptionMapper):
             ),
             ExceptionMessage(
                 TransactionException.INTRINSIC_GAS_TOO_LOW,
-                "intrinsic gas too low",
+                "intrinsic gas",
             ),
             ExceptionMessage(
                 TransactionException.INITCODE_SIZE_EXCEEDED,
