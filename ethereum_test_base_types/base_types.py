@@ -242,12 +242,24 @@ class FixedSizeBytes(Bytes):
         Sized._sized_ = Sized
         return Sized
 
-    def __new__(cls, input_bytes: FixedSizeBytesConvertible | T):
+    def __new__(
+        cls,
+        input_bytes: FixedSizeBytesConvertible | T,
+        *,
+        left_padding: bool = False,
+        right_padding: bool = False,
+    ):
         """Create a new FixedSizeBytes object."""
         if type(input_bytes) is cls:
             return input_bytes
         return super(FixedSizeBytes, cls).__new__(
-            cls, to_fixed_size_bytes(input_bytes, cls.byte_length)
+            cls,
+            to_fixed_size_bytes(
+                input_bytes,
+                cls.byte_length,
+                left_padding=left_padding,
+                right_padding=right_padding,
+            ),
         )
 
     def __hash__(self) -> int:

@@ -327,13 +327,13 @@ def test_account_check_alloc(account: Account, alloc_dict: Dict[Any, Any], shoul
         ),
         pytest.param(
             Alloc({0x2: {"nonce": 1}}),  # type: ignore
-            Alloc({"0x02": {"nonce": 2}}),  # type: ignore
+            Alloc({"0x0000000000000000000000000000000000000002": {"nonce": 2}}),  # type: ignore
             Alloc({0x2: Account(nonce=2)}),  # type: ignore
             id="overwrite_account",
         ),
         pytest.param(
             Alloc({0x2: {"balance": 1}}),  # type: ignore
-            Alloc({"0x02": {"nonce": 1}}),  # type: ignore
+            Alloc({"0x0000000000000000000000000000000000000002": {"nonce": 1}}),  # type: ignore
             Alloc({0x2: Account(balance=1, nonce=1)}),  # type: ignore
             id="mix_account",
         ),
@@ -549,6 +549,27 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 "sender": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
             },
             id="transaction_t8n_to_none",
+        ),
+        pytest.param(
+            True,
+            Transaction(
+                to="",
+            ).with_signature_and_sender(),
+            {
+                "type": "0x0",
+                "chainId": "0x1",
+                "nonce": "0x0",
+                "to": None,
+                "value": "0x0",
+                "input": "0x",
+                "gas": "0x5208",
+                "gasPrice": "0xa",
+                "v": "0x25",
+                "r": "0x1cfe2cbb0c3577f74d9ae192a7f1ee2d670fe806a040f427af9cb768be3d07ce",
+                "s": "0xcbe2d029f52dbf93ade486625bed0603945d2c7358b31de99fe8786c00f13da",
+                "sender": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            },
+            id="transaction_t8n_to_empty_str",
         ),
         pytest.param(
             True,

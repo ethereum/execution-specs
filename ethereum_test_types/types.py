@@ -636,28 +636,8 @@ class TransactionGeneric(BaseModel, Generic[NumberBoundTypeVar]):
     sender: EOA | None = None
 
 
-class TransactionFixtureConverter(CamelModel):
-    """Handler for serializing and validating the `to` field as an empty string."""
-
-    @model_validator(mode="before")
-    @classmethod
-    def validate_to_as_empty_string(cls, data: Any) -> Any:
-        """If the `to` field is an empty string, set the model value to None."""
-        if isinstance(data, dict) and "to" in data and data["to"] == "":
-            data["to"] = None
-        return data
-
-    @model_serializer(mode="wrap", when_used="json-unless-none")
-    def serialize_to_as_empty_string(self, serializer):
-        """Serialize the `to` field as the empty string if the model value is None."""
-        default = serializer(self)
-        if default is not None and "to" not in default:
-            default["to"] = ""
-        return default
-
-
-class TransactionTransitionToolConverter(CamelModel):
-    """Handler for serializing and validating the `to` field as an empty string."""
+class TransactionValidateToAsEmptyString(CamelModel):
+    """Handler to validate the `to` field from an empty string."""
 
     @model_validator(mode="before")
     @classmethod
@@ -671,6 +651,22 @@ class TransactionTransitionToolConverter(CamelModel):
         ):
             data["to"] = None
         return data
+
+
+class TransactionFixtureConverter(TransactionValidateToAsEmptyString):
+    """Handler for serializing and validating the `to` field as an empty string."""
+
+    @model_serializer(mode="wrap", when_used="json-unless-none")
+    def serialize_to_as_empty_string(self, serializer):
+        """Serialize the `to` field as the empty string if the model value is None."""
+        default = serializer(self)
+        if default is not None and "to" not in default:
+            default["to"] = ""
+        return default
+
+
+class TransactionTransitionToolConverter(TransactionValidateToAsEmptyString):
+    """Handler for serializing and validating the `to` field as an empty string."""
 
     @model_serializer(mode="wrap", when_used="json-unless-none")
     def serialize_to_as_none(self, serializer):

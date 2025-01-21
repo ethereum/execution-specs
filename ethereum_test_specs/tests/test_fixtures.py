@@ -532,7 +532,7 @@ class TestFillBlockchainValidTxs:
 
         new_state_root = Hash(12345)
         # See description of https://github.com/ethereum/execution-spec-tests/pull/398
-        new_transactions_root = "0x100"
+        new_transactions_root = 0x100
         header_new_fields = Header(
             difficulty=new_difficulty,
             state_root=new_state_root,
