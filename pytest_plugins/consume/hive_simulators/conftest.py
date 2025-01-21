@@ -2,7 +2,7 @@
 
 import io
 import json
-from typing import Generator, List, cast
+from typing import Generator, List, Literal, cast
 
 import pytest
 import rich
@@ -64,8 +64,7 @@ def eest_consume_commands(
     hive_dev = f"./hive --dev --client-file configs/prague.yaml --client {client_type.name}"
     input_source = request.config.getoption("fixture_source")
     consume = (
-        f'consume {test_suite_name.split("-")[-1]} -v --input={input_source} -k '
-        f'"{test_case.id}"'
+        f'consume {test_suite_name.split("-")[-1]} -v --input={input_source} -k "{test_case.id}"'
     )
     return [hive_dev, consume]
 
@@ -89,13 +88,13 @@ def test_case_description(
     else:
         description += f"\n\n{blockchain_fixture.info['description']}"
     description += (
-        f"\n\nCommand to reproduce entirely in hive:" f"\n<code>{hive_consume_command}</code>"
+        f"\n\nCommand to reproduce entirely in hive:\n<code>{hive_consume_command}</code>"
     )
     eest_commands = "\n".join(
-        f"{i+1}. <code>{cmd}</code>" for i, cmd in enumerate(eest_consume_commands)
+        f"{i + 1}. <code>{cmd}</code>" for i, cmd in enumerate(eest_consume_commands)
     )
     description += (
-        "\n\nCommands to reproduce within EEST using a hive dev back-end:" f"\n{eest_commands}"
+        f"\n\nCommands to reproduce within EEST using a hive dev back-end:\n{eest_commands}"
     )
     description = description.replace("\n", "<br/>")
     return description
@@ -124,11 +123,22 @@ def client_genesis(blockchain_fixture: BlockchainFixtureCommon) -> dict:
 
 
 @pytest.fixture(scope="function")
-def environment(blockchain_fixture: BlockchainFixtureCommon) -> dict:
-    """
-    Define the environment that hive will start the client with using the fork
-    rules specific for the simulator.
-    """
+def check_live_port(test_suite_name: str) -> Literal[8545, 8551]:
+    """Port used by hive to check for liveness of the client."""
+    if test_suite_name == "eest/consume-rlp":
+        return 8545
+    elif test_suite_name == "eest/consume-engine":
+        return 8551
+    raise ValueError(
+        f"Unexpected test suite name '{test_suite_name}' while setting HIVE_CHECK_LIVE_PORT."
+    )
+
+
+@pytest.fixture(scope="function")
+def environment(
+    blockchain_fixture: BlockchainFixtureCommon, check_live_port: Literal[8545, 8551]
+) -> dict:
+    """Define the environment that hive will start the client with."""
     assert (
         blockchain_fixture.fork in ruleset
     ), f"fork '{blockchain_fixture.fork}' missing in hive ruleset"
@@ -136,16 +146,14 @@ def environment(blockchain_fixture: BlockchainFixtureCommon) -> dict:
         "HIVE_CHAIN_ID": "1",
         "HIVE_FORK_DAO_VOTE": "1",
         "HIVE_NODETYPE": "full",
+        "HIVE_CHECK_LIVE_PORT": str(check_live_port),
         **{k: f"{v:d}" for k, v in ruleset[blockchain_fixture.fork].items()},
     }
 
 
 @pytest.fixture(scope="function")
 def buffered_genesis(client_genesis: dict) -> io.BufferedReader:
-    """
-    Create a buffered reader for the genesis block header of the current test
-    fixture.
-    """
+    """Create a buffered reader for the genesis block header of the current test fixture."""
     genesis_json = json.dumps(client_genesis)
     genesis_bytes = genesis_json.encode("utf-8")
     return io.BufferedReader(cast(io.RawIOBase, io.BytesIO(genesis_bytes)))
