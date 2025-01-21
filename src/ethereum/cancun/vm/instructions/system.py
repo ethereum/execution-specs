@@ -71,7 +71,7 @@ def generic_create(
     contract_address: Address,
     memory_start_position: U256,
     memory_size: U256,
-    init_code_gas: Uint,  # TODO can I remove this?
+    init_code_gas: Uint,
 ) -> None:
     """
     Core logic used by the `CREATE*` family of opcodes.
@@ -389,8 +389,8 @@ def call(evm: Evm) -> None:
 
     if evm.message.is_static and value != U256(0):
         raise WriteInStaticContext
-
     evm.memory += b"\x00" * extend_memory.expand_by
+
     sender_balance = get_account(
         evm.env.state, evm.message.current_target
     ).balance
@@ -415,7 +415,6 @@ def call(evm: Evm) -> None:
         )
         tx_log(
             evm,
-            memory_output_start_position,
             evm.message.current_target,
             to,
             value,
@@ -537,13 +536,8 @@ def selfdestruct(evm: Evm) -> None:
         originator_balance,
     )
 
-    # 7708 emit log
-    # TODO Does SD even have a memory start position? The other calls pop
-    # it off the stack, but SD doesn't seem to have that on the stack in
-    # the first place...
     tx_log(
         evm,
-        U256(0),
         evm.message.current_target,
         beneficiary,
         originator_balance,
