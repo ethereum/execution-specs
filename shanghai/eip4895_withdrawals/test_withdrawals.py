@@ -201,7 +201,7 @@ def test_balance_within_block(blockchain_test: BlockchainTestFiller, pre: Alloc)
                     sender=sender,
                     gas_limit=100000,
                     to=contract_address,
-                    data=Hash(recipient),
+                    data=Hash(recipient, left_padding=True),
                 )
             ],
             withdrawals=[
@@ -219,7 +219,7 @@ def test_balance_within_block(blockchain_test: BlockchainTestFiller, pre: Alloc)
                     sender=sender,
                     gas_limit=100000,
                     to=contract_address,
-                    data=Hash(recipient),
+                    data=Hash(recipient, left_padding=True),
                 )
             ]
         ),
@@ -373,7 +373,7 @@ def test_self_destructing_account(
         sender=sender,
         gas_limit=100000,
         to=self_destruct_contract_address,
-        data=Hash(recipient),
+        data=Hash(recipient, left_padding=True),
     )
 
     withdrawal = Withdrawal(

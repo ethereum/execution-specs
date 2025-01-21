@@ -230,10 +230,10 @@ def test_reentrant_selfdestructing_call(
 
     caller_address = pre.deploy_contract(code=caller_bytecode)
 
-    data: Hash | Bytecode
+    data: bytes | Bytecode
     if pre_existing_contract:
         callee_address = pre.deploy_contract(code=callee_bytecode)
-        data = Hash(callee_address)
+        data = Hash(callee_address, left_padding=True)
     else:
         callee_address = compute_create_address(address=caller_address, nonce=1)
         data = Initcode(deploy_code=callee_bytecode)

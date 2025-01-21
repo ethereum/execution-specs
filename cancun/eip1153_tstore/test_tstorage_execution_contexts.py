@@ -308,7 +308,7 @@ def tx(pre: Alloc, caller_address: Address, callee_address: Address) -> Transact
     return Transaction(
         sender=pre.fund_eoa(),
         to=caller_address,
-        data=Hash(callee_address),
+        data=Hash(callee_address, left_padding=True),
         gas_limit=1_000_000,
     )
 
