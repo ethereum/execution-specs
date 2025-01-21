@@ -27,6 +27,7 @@ from typing import (
     Tuple,
     TypeVar,
     Union,
+    assert_type,
     cast,
 )
 
@@ -488,6 +489,6 @@ def patricialize(
         for k in range(16)
     )
     return BranchNode(
-        cast(BranchSubnodes, subnodes),
+        cast(BranchSubnodes, assert_type(subnodes, Tuple[rlp.Extended, ...])),
         value,
     )
