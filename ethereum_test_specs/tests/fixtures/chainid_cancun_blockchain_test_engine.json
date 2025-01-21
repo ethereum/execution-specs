@@ -1,16 +1,15 @@
 {
-    "000/my_chain_id_test/Shanghai": {
+    "000/my_chain_id_test/Cancun": {
         "_info": {
-            "hash": "0x0853409d8524239ae79581d1fcf8d2da12dc98cd7c1cfd7d730d33ec75e0c56e",
+            "hash": "0x032fd65c778b70737fffb69071aa24be48f576303ea6d5dcfbaf7b1301ad106c",
             "fixture_format": "blockchain_test_engine"
         },
-        "lastblockhash": "0x9c10141361e180632f7973f4f3a0aed2baa5ebb776bae84caafdcc07a24933e8",
-        "network": "Shanghai",
+        "network": "Cancun",
         "genesisBlockHeader": {
             "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
             "uncleHash": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
             "coinbase": "0x0000000000000000000000000000000000000000",
-            "stateRoot": "0xaff9f63320a482f8c4e4f15f659e6a7ac382138fbbb6919243b0cba4c5988a5a",
+            "stateRoot": "0x789d559bf5d313e15da4139b57627160d23146cf6cdf9995e0394d165b1527ef",
             "transactionsTrie": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
             "receiptTrie": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
             "bloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
@@ -24,15 +23,18 @@
             "nonce": "0x0000000000000000",
             "baseFeePerGas": "0x07",
             "withdrawalsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-            "hash": "0x62f038416dbe4a03ea264e084edd9024b3589b49e66f7d5528b72a138a34570f"
+            "blobGasUsed": "0x00",
+            "excessBlobGas": "0x00",
+            "parentBeaconBlockRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "hash": "0x28c341ffc393152bd02e8689d8172dd66939ac3be2b91c5841721d1755d13c2b"
         },
         "engineNewPayloads": [
             {
                 "params": [
                     {
-                        "parentHash": "0x62f038416dbe4a03ea264e084edd9024b3589b49e66f7d5528b72a138a34570f",
+                        "parentHash": "0x28c341ffc393152bd02e8689d8172dd66939ac3be2b91c5841721d1755d13c2b",
                         "feeRecipient": "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
-                        "stateRoot": "0x19919608275963e6e20a1191996f5b19db8208dd8df54097cfd2b9cb14f682b6",
+                        "stateRoot": "0xdb94ed1be4d52fb6360c88b363cb71af08df2493e57a66ec4751f90097f2fcbb",
                         "receiptsRoot": "0xc598f69a5674cae9337261b669970e24abc0b46e6d284372a239ec8ccbf20b0a",
                         "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
                         "blockNumber": "0x1",
@@ -42,18 +44,29 @@
                         "extraData": "0x00",
                         "prevRandao": "0x0000000000000000000000000000000000000000000000000000000000000000",
                         "baseFeePerGas": "0x7",
-                        "blockHash": "0x9c10141361e180632f7973f4f3a0aed2baa5ebb776bae84caafdcc07a24933e8",
+                        "blobGasUsed": "0x0",
+                        "excessBlobGas": "0x0",
+                        "blockHash": "0x3cce15f0f21f4ea23499856be01a090f0ea1be6bea4a11777b4d0cc70d105a4b",
                         "transactions": [
                             "0xf861800a8405f5e10094100000000000000000000000000000000000000080801ba07e09e26678ed4fac08a249ebe8ed680bf9051a5e14ad223e4b2b9d26e0208f37a05f6e3f188e3e6eab7d7d3b6568f5eac7d687b08d307d3154ccd8c87b4630509b"
                         ],
                         "withdrawals": []
-                    }
+                    },
+                    [],
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"
                 ],
-                "newPayloadVersion": "2",
-                "forkchoiceUpdatedVersion": "2"
+                "newPayloadVersion": "3",
+                "forkchoiceUpdatedVersion": "3"
             }
         ],
+        "lastblockhash": "0x3cce15f0f21f4ea23499856be01a090f0ea1be6bea4a11777b4d0cc70d105a4b",
         "pre": {
+            "0x000f3df6d732807ef1319fb7b8bb8522d0beac02": {
+                "balance": "0x00",
+                "code": "0x3373fffffffffffffffffffffffffffffffffffffffe14604d57602036146024575f5ffd5b5f35801560495762001fff810690815414603c575f5ffd5b62001fff01545f5260205ff35b5f5ffd5b62001fff42064281555f359062001fff015500",
+                "nonce": "0x01",
+                "storage": {}
+            },
             "0x1000000000000000000000000000000000000000": {
                 "nonce": "0x00",
                 "balance": "0x00",
@@ -68,6 +81,14 @@
             }
         },
         "postState": {
+            "0x000f3df6d732807ef1319fb7b8bb8522d0beac02": {
+                "balance": "0x00",
+                "code": "0x3373fffffffffffffffffffffffffffffffffffffffe14604d57602036146024575f5ffd5b5f35801560495762001fff810690815414603c575f5ffd5b62001fff01545f5260205ff35b5f5ffd5b62001fff42064281555f359062001fff015500",
+                "nonce": "0x01",
+                "storage": {
+                    "0x03e8": "0x03e8"
+                }
+            },
             "0x1000000000000000000000000000000000000000": {
                 "nonce": "0x00",
                 "balance": "0x00",
@@ -90,7 +111,7 @@
             }
         },
         "config": {
-            "network": "Shanghai"
+            "network": "Cancun"
         }
     }
 }

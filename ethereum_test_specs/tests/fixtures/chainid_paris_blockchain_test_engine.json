@@ -1,7 +1,7 @@
 {
     "000/my_chain_id_test/Paris": {
         "_info": {
-            "hash": "0x1c6d2ca8e03c5074e8afadbad869c90b61d2f9752c5ef2d7908900aa000a3878",
+            "hash": "0x72d0f1b29136f637f4e7cc22e990911fed6f9cdbd5f1987f1351cfc4efb4673b",
             "fixture_format": "blockchain_test_engine"
         },
         "network": "Paris",
@@ -51,7 +51,6 @@
                 "forkchoiceUpdatedVersion": "1"
             }
         ],
-        "lastblockhash": "0xe92eedff2a0489bd861f528e248994b6791b0f5b845d90b34c68bc8cbc51c369",
         "pre": {
             "0x1000000000000000000000000000000000000000": {
                 "nonce": "0x00",
@@ -87,6 +86,9 @@
                 "code": "0x",
                 "storage": {}
             }
+        },
+        "config": {
+            "network": "Paris"
         }
     }
 }

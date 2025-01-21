@@ -396,6 +396,12 @@ class FixtureBlock(FixtureBlockBase):
         )
 
 
+class FixtureConfig(CamelModel):
+    """Chain configuration for a fixture."""
+
+    fork: str = Field(..., alias="network")
+
+
 class InvalidFixtureBlock(CamelModel):
     """Representation of an invalid Ethereum block within a test Fixture."""
 
@@ -412,6 +418,7 @@ class BlockchainFixtureCommon(BaseFixture):
     pre: Alloc
     post_state: Alloc | None = Field(None)
     last_block_hash: Hash = Field(..., alias="lastblockhash")  # FIXME: lastBlockHash
+    config: FixtureConfig
 
     def get_fork(self) -> str | None:
         """Return fork of the fixture as a string."""

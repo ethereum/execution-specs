@@ -1,7 +1,7 @@
 {
     "000/my_chain_id_test/Istanbul": {
         "_info": {
-            "hash": "0x3ca9936ff21270dd7ac781b5fafd98e4264bc9fcff4ab3cc8dff0677ccf7fc25",
+            "hash": "0x523fefcabce674d5b2ef4d99a151dabac431d61aff3e44f42d6d3b8a910a464b",
             "fixture_format": "blockchain_test"
         },
         "network": "Istanbul",
@@ -102,6 +102,9 @@
                 "storage": {}
             }
         },
-        "sealEngine": "NoProof"
+        "sealEngine": "NoProof",
+        "config": {
+            "network": "Istanbul"
+        }
     }
 }

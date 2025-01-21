@@ -17,6 +17,7 @@ from ethereum_test_fixtures import (
     StateFixture,
 )
 from ethereum_test_fixtures.state import (
+    FixtureConfig,
     FixtureEnvironment,
     FixtureForkPost,
     FixtureTransaction,
@@ -173,6 +174,7 @@ class StateTest(BaseTest):
                 ]
             },
             transaction=FixtureTransaction.from_transaction(tx),
+            config=FixtureConfig(),
         )
 
     def generate(

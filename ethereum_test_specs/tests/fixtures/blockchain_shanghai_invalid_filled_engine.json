@@ -1,7 +1,7 @@
 {
     "000/my_blockchain_test/Shanghai": {
         "_info": {
-            "hash": "0x107426e7483fe00d8db263f7522d523a6efbed5c93fd98006e65593ce496a1c4",
+            "hash": "0x75f8ac4dbd5bfee6046a0edd5bec5448e23d1f249c10025a47bfb46ff7dab303",
             "fixture_format": "blockchain_test_engine"
         },
         "lastblockhash": "0xfc75f11c05ec814a890141bef919bb7c20dd29245e37e9bcea66008dfde98526",
@@ -188,7 +188,6 @@
                 "forkchoiceUpdatedVersion": "2"
             }
         ],
-        "lastblockhash": "0xfc75f11c05ec814a890141bef919bb7c20dd29245e37e9bcea66008dfde98526",
         "pre": {
             "0x000000000000000000000000000000000000c0de": {
                 "nonce": "0x01",
@@ -313,6 +312,9 @@
                 "code": "0x",
                 "storage": {}
             }
+        },
+        "config": {
+            "network": "Shanghai"
         }
     }
 }

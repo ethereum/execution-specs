@@ -86,6 +86,12 @@ class FixtureForkPost(CamelModel):
     expect_exception: TransactionExceptionInstanceOrList | None = None
 
 
+class FixtureConfig(CamelModel):
+    """Chain configuration for a fixture."""
+
+    pass
+
+
 class StateFixture(BaseFixture):
     """Fixture for a single StateTest."""
 
@@ -96,6 +102,7 @@ class StateFixture(BaseFixture):
     pre: Alloc
     transaction: FixtureTransaction
     post: Mapping[str, List[FixtureForkPost]]
+    config: FixtureConfig
 
     def get_fork(self) -> str | None:
         """Return fork of the fixture as a string."""

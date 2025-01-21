@@ -1,7 +1,7 @@
 {
-    "000/my_chain_id_test/Shanghai": {
+    "000/my_chain_id_test/Cancun": {
         "_info": {
-            "hash": "0x2f1baaa3821157d4bc534b6a0f6908a9900839261b7e6347d3dc5206b8a333b3",
+            "hash": "0x3315ff9dd48a4cbcf7c09e2df2098c8f56800e64516088f6f8eacb468382c460",
             "fixture_format": "state_test"
         },
         "env": {
@@ -11,8 +11,10 @@
             "currentTimestamp": "0x03e8",
             "currentRandom": "0x0000000000000000000000000000000000000000000000000000000000000000",
             "currentDifficulty": "0x00",
-            "currentBaseFee": "0x07"
+            "currentBaseFee": "0x07",
+            "currentExcessBlobGas": "0x00"
         },
+        "config": {},
         "pre": {
             "0x1000000000000000000000000000000000000000": {
                 "nonce": "0x00",
@@ -44,7 +46,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "Shanghai": [
+            "Cancun": [
                 {
                     "hash": "0x19919608275963e6e20a1191996f5b19db8208dd8df54097cfd2b9cb14f682b6",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -78,7 +80,6 @@
                     }
                 }
             ]
-        },
-        "config": {}
+        }
     }
 }
