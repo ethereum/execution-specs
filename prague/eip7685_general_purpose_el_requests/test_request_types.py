@@ -29,7 +29,11 @@ pytestmark = pytest.mark.valid_from("Prague")
 
 @pytest.fixture
 def block_body_extra_requests(fork: Fork, invalid_request_data: bytes) -> List[bytes]:
-    """List of requests that overwrite the requests in the header. None by default."""
+    """
+    Create a request with an invalid type for the fork.
+
+    This overrides the default fixture and its behavior defined in conftest.py.
+    """
     invalid_request_type = fork.max_request_type() + 1
     return [bytes([invalid_request_type]) + invalid_request_data]
 

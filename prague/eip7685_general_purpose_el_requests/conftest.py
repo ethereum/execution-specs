@@ -5,7 +5,15 @@ from typing import List, SupportsBytes
 import pytest
 
 from ethereum_test_forks import Fork
-from ethereum_test_tools import Alloc, Block, BlockException, Bytes, Header, Requests
+from ethereum_test_tools import (
+    Alloc,
+    Block,
+    BlockException,
+    Bytes,
+    EngineAPIError,
+    Header,
+    Requests,
+)
 
 from ..eip6110_deposits.helpers import DepositInteractionBase, DepositRequest
 from ..eip7002_el_triggerable_withdrawals.helpers import (
@@ -51,6 +59,26 @@ def exception() -> BlockException | None:
 
 
 @pytest.fixture
+def engine_api_error_code(
+    block_body_override_requests: List[Bytes | SupportsBytes] | None,
+) -> EngineAPIError | None:
+    """Engine API error code if any."""
+    if block_body_override_requests is None:
+        return None
+    block_body_override_requests_bytes = [bytes(r) for r in block_body_override_requests]
+    if any(len(r) <= 1 for r in block_body_override_requests_bytes):
+        return EngineAPIError.InvalidParams
+
+    def is_monotonically_increasing(requests: List[bytes]) -> bool:
+        return all(x[0] < y[0] for x, y in zip(requests, requests[1:], strict=False))
+
+    if not is_monotonically_increasing(block_body_override_requests_bytes):
+        return EngineAPIError.InvalidParams
+
+    return None
+
+
+@pytest.fixture
 def blocks(
     fork: Fork,
     pre: Alloc,
@@ -59,10 +87,11 @@ def blocks(
         | WithdrawalRequestInteractionBase
         | ConsolidationRequestInteractionBase
     ],
-    block_body_override_requests: (List[Bytes | SupportsBytes] | None),
+    block_body_override_requests: List[Bytes | SupportsBytes] | None,
     block_body_extra_requests: List[SupportsBytes],
     correct_requests_hash_in_header: bool,
     exception: BlockException | None,
+    engine_api_error_code: EngineAPIError | None,
 ) -> List[Block]:
     """List of blocks that comprise the test."""
     valid_requests_list: List[DepositRequest | WithdrawalRequest | ConsolidationRequest] = []
@@ -95,5 +124,6 @@ def blocks(
             requests=block_body_override_requests,
             exception=exception,
             rlp_modifier=rlp_modifier,
+            engine_api_error_code=engine_api_error_code,
         )
     ]

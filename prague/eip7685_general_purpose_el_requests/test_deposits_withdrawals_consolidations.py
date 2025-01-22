@@ -331,6 +331,8 @@ def invalid_requests_block_combinations(fork: Fork) -> List[Any]:
 
     In the event of a new request type, the `all_request_types` dictionary should be updated
     with the new request type and its corresponding request-generating transaction.
+
+    Returned parameters are: requests, block_body_override_requests, exception
     """
     assert fork.max_request_type() == 2, "Test update is needed for new request types"
 
