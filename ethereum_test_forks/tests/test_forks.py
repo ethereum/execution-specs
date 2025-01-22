@@ -17,7 +17,12 @@ from ..forks.forks import (
     Prague,
     Shanghai,
 )
-from ..forks.transition import BerlinToLondonAt5, ParisToShanghaiAtTime15k
+from ..forks.transition import (
+    BerlinToLondonAt5,
+    CancunToPragueAtTime15k,
+    ParisToShanghaiAtTime15k,
+    ShanghaiToCancunAtTime15k,
+)
 from ..helpers import (
     forks_from,
     forks_from_until,
@@ -40,7 +45,7 @@ def test_transition_forks():
     """Test transition fork utilities."""
     assert transition_fork_from_to(Berlin, London) == BerlinToLondonAt5
     assert transition_fork_from_to(Berlin, Paris) is None
-    assert transition_fork_to(Shanghai) == [ParisToShanghaiAtTime15k]
+    assert transition_fork_to(Shanghai) == {ParisToShanghaiAtTime15k}
 
     # Test forks transitioned to and from
     assert BerlinToLondonAt5.transitions_to() == London
@@ -119,6 +124,9 @@ def test_forks():
     assert cast(Fork, ParisToShanghaiAtTime15k).header_withdrawals_required(0, 15_000) is True
     assert cast(Fork, ParisToShanghaiAtTime15k).header_withdrawals_required() is True
 
+
+def test_fork_comparison():
+    """Test fork comparison operators."""
     # Test fork comparison
     assert Paris > Berlin
     assert not Berlin > Paris
@@ -151,6 +159,50 @@ def test_forks():
     assert not fork > Berlin
     assert not fork < Berlin
     assert fork == Berlin
+
+
+def test_transition_fork_comparison():
+    """
+    Test comparing to a transition fork.
+
+    The comparison logic is based on the logic we use to generate the tests.
+
+    E.g. given transition fork A->B, when filling, and given the from/until markers,
+    we expect the following logic:
+
+    Marker    Comparison   A->B Included
+    --------- ------------ ---------------
+    From A    fork >= A    True
+    Until A   fork <= A    False
+    From B    fork >= B    True
+    Until B   fork <= B    True
+    """
+    assert BerlinToLondonAt5 >= Berlin
+    assert not BerlinToLondonAt5 <= Berlin
+    assert BerlinToLondonAt5 >= London
+    assert BerlinToLondonAt5 <= London
+
+    # Comparisons between transition forks is done against the `transitions_to` fork
+    assert BerlinToLondonAt5 < ParisToShanghaiAtTime15k
+    assert ParisToShanghaiAtTime15k > BerlinToLondonAt5
+    assert BerlinToLondonAt5 == BerlinToLondonAt5
+    assert BerlinToLondonAt5 != ParisToShanghaiAtTime15k
+    assert BerlinToLondonAt5 <= ParisToShanghaiAtTime15k
+    assert ParisToShanghaiAtTime15k >= BerlinToLondonAt5
+
+    assert sorted(
+        {
+            CancunToPragueAtTime15k,
+            ParisToShanghaiAtTime15k,
+            ShanghaiToCancunAtTime15k,
+            BerlinToLondonAt5,
+        }
+    ) == [
+        BerlinToLondonAt5,
+        ParisToShanghaiAtTime15k,
+        ShanghaiToCancunAtTime15k,
+        CancunToPragueAtTime15k,
+    ]
 
 
 def test_get_forks():  # noqa: D103

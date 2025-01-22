@@ -100,7 +100,7 @@ def yul(fork: Fork, request: pytest.FixtureRequest):
             pytest.fail(
                 f"{request.node.name}: Expected one argument in 'compile_yul_with' marker."
             )
-        for fork in request.config.forks:  # type: ignore
+        for fork in request.config.all_forks:  # type: ignore
             if fork.name() == marker.args[0]:
                 solc_target_fork = fork
                 break

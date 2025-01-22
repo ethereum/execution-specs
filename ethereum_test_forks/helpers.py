@@ -81,16 +81,16 @@ def get_closest_fork_with_solc_support(fork: Fork, solc_version: Version) -> Opt
     )
 
 
-def get_transition_forks() -> List[Fork]:
+def get_transition_forks() -> Set[Fork]:
     """Return all the transition forks."""
-    transition_forks: List[Fork] = []
+    transition_forks: Set[Fork] = set()
 
     for fork_name in transition.__dict__:
         fork = transition.__dict__[fork_name]
         if not isinstance(fork, type):
             continue
         if issubclass(fork, TransitionBaseClass) and issubclass(fork, BaseFork):
-            transition_forks.append(fork)
+            transition_forks.add(fork)
 
     return transition_forks
 
@@ -164,14 +164,14 @@ def transition_fork_from_to(fork_from: Fork, fork_to: Fork) -> Fork | None:
     return None
 
 
-def transition_fork_to(fork_to: Fork) -> List[Fork]:
+def transition_fork_to(fork_to: Fork) -> Set[Fork]:
     """Return transition fork that transitions to the specified fork."""
-    transition_forks: List[Fork] = []
+    transition_forks: Set[Fork] = set()
     for transition_fork in get_transition_forks():
         if not issubclass(transition_fork, TransitionBaseClass):
             continue
         if transition_fork.transitions_to() == fork_to:
-            transition_forks.append(transition_fork)
+            transition_forks.add(transition_fork)
 
     return transition_forks
 

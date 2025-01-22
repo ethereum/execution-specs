@@ -104,29 +104,43 @@ class ExcessBlobGasCalculator(Protocol):
 class BaseForkMeta(ABCMeta):
     """Metaclass for BaseFork."""
 
+    @abstractmethod
     def name(cls) -> str:
-        """To be implemented by the fork base class."""
-        return ""
+        """Return the name of the fork (e.g., Berlin), must be implemented by subclasses."""
+        pass
 
     def __repr__(cls) -> str:
         """Print the name of the fork, instead of the class."""
         return cls.name()
 
+    @staticmethod
+    def _maybe_transitioned(fork_cls: "BaseForkMeta") -> "BaseForkMeta":
+        """Return the transitioned fork, if a transition fork, otherwise return `fork_cls`."""
+        return fork_cls.transitions_to() if hasattr(fork_cls, "transitions_to") else fork_cls
+
+    @staticmethod
+    def _is_subclass_of(a: "BaseForkMeta", b: "BaseForkMeta") -> bool:
+        """Check if `a` is a subclass of `b`, taking fork transitions into account."""
+        a = BaseForkMeta._maybe_transitioned(a)
+        b = BaseForkMeta._maybe_transitioned(b)
+        return issubclass(a, b)
+
     def __gt__(cls, other: "BaseForkMeta") -> bool:
-        """Compare if a fork is newer than some other fork."""
-        return cls != other and other.__subclasscheck__(cls)
+        """Compare if a fork is newer than some other fork (cls > other)."""
+        return cls is not other and BaseForkMeta._is_subclass_of(cls, other)
 
     def __ge__(cls, other: "BaseForkMeta") -> bool:
-        """Compare if a fork is newer than or equal to some other fork."""
-        return other.__subclasscheck__(cls)
+        """Compare if a fork is newer than or equal to some other fork (cls >= other)."""
+        return cls is other or BaseForkMeta._is_subclass_of(cls, other)
 
     def __lt__(cls, other: "BaseForkMeta") -> bool:
-        """Compare if a fork is older than some other fork."""
-        return cls != other and cls.__subclasscheck__(other)
+        """Compare if a fork is older than some other fork (cls < other)."""
+        # "Older" means other is a subclass of cls, but not the same.
+        return cls is not other and BaseForkMeta._is_subclass_of(other, cls)
 
     def __le__(cls, other: "BaseForkMeta") -> bool:
-        """Compare if a fork is older than or equal to some other fork."""
-        return cls.__subclasscheck__(other)
+        """Compare if a fork is older than or equal to some other fork (cls <= other)."""
+        return cls is other or BaseForkMeta._is_subclass_of(other, cls)
 
 
 class BaseFork(ABC, metaclass=BaseForkMeta):
@@ -287,6 +301,12 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     @abstractmethod
     def blob_base_fee_update_fraction(cls, block_number: int = 0, timestamp: int = 0) -> int:
         """Return the blob base fee update fraction at a given fork."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def supports_blobs(cls, block_number: int = 0, timestamp: int = 0) -> bool:
+        """Return whether the given fork supports blobs or not."""
         pass
 
     @classmethod

@@ -95,10 +95,10 @@ def pytest_configure(config):
     command_line_args = "fill " + " ".join(config.invocation_params.args)
     config.stash[metadata_key]["Command-line args"] = f"<code>{command_line_args}</code>"
 
-    if len(config.fork_set) != 1:
+    if len(config.selected_fork_set) != 1:
         pytest.exit(
             f"""
-            Expected exactly one fork to be specified, got {len(config.fork_set)}.
+            Expected exactly one fork to be specified, got {len(config.selected_fork_set)}.
             Make sure to specify exactly one fork using the --fork command line argument.
             """,
             returncode=pytest.ExitCode.USAGE_ERROR,

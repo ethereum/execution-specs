@@ -79,7 +79,7 @@ invalid_validity_marker_test_cases = (
         ),
     ),
     (
-        "valid_from_too_many_args",
+        "valid_from_duplicate_arg",
         (
             """
             import pytest
@@ -87,11 +87,11 @@ invalid_validity_marker_test_cases = (
             def test_case(state_test):
                 assert 0
             """,
-            "Too many arguments specified to 'valid_from'",
+            "Duplicate argument specified in 'valid_from'",
         ),
     ),
     (
-        "valid_until_too_many_args",
+        "valid_until_duplicate_arg",
         (
             """
             import pytest
@@ -99,11 +99,11 @@ invalid_validity_marker_test_cases = (
             def test_case(state_test):
                 assert 0
             """,
-            "Too many arguments specified to 'valid_until'",
+            "Duplicate argument specified in 'valid_until'",
         ),
     ),
     (
-        "valid_at_transition_too_many_args",
+        "valid_at_transition_duplicate_arg",
         (
             """
             import pytest
@@ -111,7 +111,7 @@ invalid_validity_marker_test_cases = (
             def test_case(state_test):
                 assert 0
             """,
-            "Too many arguments specified to 'valid_at_transition_to'",
+            "Duplicate argument specified in 'valid_at_transition_to'",
         ),
     ),
     (
@@ -123,7 +123,7 @@ invalid_validity_marker_test_cases = (
             def test_case(state_test):
                 assert 0
             """,
-            "invalid fork 'Marge'",
+            "Invalid fork 'Marge'",
         ),
     ),
     (
@@ -135,7 +135,7 @@ invalid_validity_marker_test_cases = (
             def test_case(state_test):
                 assert 0
             """,
-            "invalid fork 'Shangbye'",
+            "Invalid fork 'Shangbye'",
         ),
     ),
     (
@@ -147,7 +147,19 @@ invalid_validity_marker_test_cases = (
             def test_case(state_test):
                 assert 0
             """,
-            "invalid fork 'Cantcun'",
+            "Invalid fork 'Cantcun'",
+        ),
+    ),
+    (
+        "valid_at_transition_to_until_nonexistent_fork",
+        (
+            """
+            import pytest
+            @pytest.mark.valid_at_transition_to("Shanghai", until="Cantcun")
+            def test_case(state_test):
+                assert 0
+            """,
+            "Invalid fork 'Cantcun'",
         ),
     ),
     (
