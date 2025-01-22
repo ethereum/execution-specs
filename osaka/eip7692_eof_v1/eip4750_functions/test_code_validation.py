@@ -6,13 +6,20 @@ import pytest
 
 from ethereum_test_tools import EOFException, EOFTestFiller
 from ethereum_test_tools.eof.v1 import Container, Section
-from ethereum_test_tools.eof.v1.constants import MAX_CODE_SECTIONS
+from ethereum_test_tools.eof.v1.constants import (
+    MAX_CODE_OUTPUTS,
+    MAX_CODE_SECTIONS,
+    MAX_OPERAND_STACK_HEIGHT,
+)
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4750.md"
 REFERENCE_SPEC_VERSION = "14400434e1199c57d912082127b1d22643788d11"
+
+MAX_RUNTIME_OPERAND_STACK_HEIGHT = 1024
+"""Maximum height of the EVM runtime operand stack."""
 
 pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 
@@ -343,3 +350,82 @@ def test_unreachable_code_sections(
     (i.e. code sections not reachable from the code section 0).
     """
     eof_test(data=container, expect_exception=EOFException.UNREACHABLE_CODE_SECTIONS)
+
+
+@pytest.mark.parametrize("callee_outputs", [1, 2, MAX_CODE_OUTPUTS])
+def test_callf_stack_height_limit_exceeded(eof_test, callee_outputs):
+    """
+    Test for invalid EOF code containing CALLF instruction exceeding the stack height limit.
+    The code reaches the maximum runtime stack height (1024)
+    which is above the EOF limit for the stack height in the type section (1023).
+    """
+    callf_stack_height = MAX_RUNTIME_OPERAND_STACK_HEIGHT - callee_outputs
+    container = Container(
+        sections=[
+            Section.Code(
+                Op.PUSH0 * callf_stack_height + Op.CALLF[1] + Op.STOP,
+                max_stack_height=MAX_RUNTIME_OPERAND_STACK_HEIGHT,
+            ),
+            Section.Code(
+                Op.PUSH0 * callee_outputs + Op.RETF,
+                code_outputs=callee_outputs,
+                max_stack_height=callee_outputs,
+            ),
+        ],
+    )
+    eof_test(data=container, expect_exception=EOFException.MAX_STACK_HEIGHT_ABOVE_LIMIT)
+
+
+@pytest.mark.parametrize("callee_outputs", [1, 2, MAX_CODE_OUTPUTS - 1, MAX_CODE_OUTPUTS])
+@pytest.mark.parametrize(
+    "max_stack_height", [0, 1, MAX_OPERAND_STACK_HEIGHT - 1, MAX_OPERAND_STACK_HEIGHT]
+)
+def test_callf_stack_overflow_by_outputs(eof_test, callee_outputs, max_stack_height):
+    """
+    Test for invalid EOF code containing CALLF instruction exceeding the runtime stack height limit
+    by calling a function with at least one output. The computed stack height of the code section 0
+    is always above the maximum allowed in the EOF type section. Therefore, the test declares
+    an invalid max_stack_height.
+    """
+    callf_stack_height = (MAX_RUNTIME_OPERAND_STACK_HEIGHT + 1) - callee_outputs
+    container = Container(
+        sections=[
+            Section.Code(
+                Op.PUSH0 * callf_stack_height + Op.CALLF[1] + Op.STOP,
+                max_stack_height=max_stack_height,
+            ),
+            Section.Code(
+                Op.PUSH0 + Op.DUP1 + Op.RETF,
+                code_outputs=callee_outputs,
+                max_stack_height=callee_outputs,
+            ),
+        ],
+    )
+    eof_test(data=container, expect_exception=EOFException.STACK_OVERFLOW)
+
+
+@pytest.mark.parametrize(
+    "callee_stack_height",
+    [2, 3, MAX_OPERAND_STACK_HEIGHT - 1, MAX_OPERAND_STACK_HEIGHT],
+)
+def test_callf_stack_overflow_by_height(eof_test, callee_stack_height):
+    """
+    Test for invalid EOF code containing CALLF instruction exceeding the runtime stack height limit
+    by calling a function with 2+ maximum stack height.
+    The callee with the maximum stack height of 1 is valid because runtime limit (1024)
+    is 1 bigger than the EOF limit (1023).
+    """
+    container = Container(
+        sections=[
+            Section.Code(
+                Op.PUSH0 * MAX_OPERAND_STACK_HEIGHT + Op.CALLF[1] + Op.STOP,
+                max_stack_height=MAX_OPERAND_STACK_HEIGHT,
+            ),
+            Section.Code(
+                Op.PUSH0 * callee_stack_height + Op.POP * callee_stack_height + Op.RETF,
+                code_outputs=0,
+                max_stack_height=callee_stack_height,
+            ),
+        ],
+    )
+    eof_test(data=container, expect_exception=EOFException.STACK_OVERFLOW)
