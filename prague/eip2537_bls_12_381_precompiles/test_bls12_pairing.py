@@ -21,17 +21,19 @@ pytestmark = [
 
 
 @pytest.mark.parametrize(
-    "input_data,expected_output",
+    "input_data,expected_output,vector_gas_value",
     vectors_from_file("pairing_check_bls.json")
     + [
         pytest.param(
             Spec.INF_G1 + Spec.INF_G2,
             Spec.PAIRING_TRUE,
+            None,
             id="inf_pair",
         ),
         pytest.param(
             (Spec.INF_G1 + Spec.INF_G2) * 1000,
             Spec.PAIRING_TRUE,
+            None,
             id="multi_inf_pair",
         ),
     ],

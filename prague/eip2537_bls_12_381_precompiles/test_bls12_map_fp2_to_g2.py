@@ -32,12 +32,13 @@ G2_POINT_ZERO_FP = PointG2(
 
 
 @pytest.mark.parametrize(
-    "input_data,expected_output",
+    "input_data,expected_output,vector_gas_value",
     vectors_from_file("map_fp2_to_G2_bls.json")
     + [
         pytest.param(
             FP2((0, 0)),
             G2_POINT_ZERO_FP,
+            None,
             id="fp_0",
         ),
         pytest.param(
@@ -52,6 +53,7 @@ G2_POINT_ZERO_FP = PointG2(
                     0x171565CE4FCD047B35EA6BCEE4EF6FDBFEC8CC73B7ACDB3A1EC97A776E13ACDFEFFC21ED6648E3F0EEC53DDB6C20FB61,  # noqa: E501
                 ),
             ),
+            None,
             id="fp_p_minus_1",
         ),
     ],

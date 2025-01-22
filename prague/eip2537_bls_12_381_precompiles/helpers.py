@@ -25,7 +25,7 @@ class Vector(BaseModel):
 
     def to_pytest_param(self):
         """Convert the test vector to a tuple that can be used as a parameter in a pytest test."""
-        return pytest.param(self.input, self.expected, id=self.name)
+        return pytest.param(self.input, self.expected, self.gas, id=self.name)
 
 
 class FailVector(BaseModel):

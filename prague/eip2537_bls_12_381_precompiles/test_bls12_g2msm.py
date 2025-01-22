@@ -21,18 +21,20 @@ pytestmark = [
 
 
 @pytest.mark.parametrize(
-    "input_data,expected_output",
+    "input_data,expected_output,vector_gas_value",
     vectors_from_file("multiexp_G2_bls.json")
     + [
         pytest.param(
             (Spec.P2 + Scalar(Spec.Q)) * (len(Spec.G2MSM_DISCOUNT_TABLE) - 1),
             Spec.INF_G2,
+            None,
             id="max_discount",
             marks=pytest.mark.slow,
         ),
         pytest.param(
             (Spec.P2 + Scalar(Spec.Q)) * len(Spec.G2MSM_DISCOUNT_TABLE),
             Spec.INF_G2,
+            None,
             id="max_discount_plus_1",
             marks=pytest.mark.slow,
         ),

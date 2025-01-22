@@ -26,12 +26,13 @@ G1_POINT_ZERO_FP = PointG1(
 
 
 @pytest.mark.parametrize(
-    "input_data,expected_output",
+    "input_data,expected_output,vector_gas_value",
     vectors_from_file("map_fp_to_G1_bls.json")
     + [
         pytest.param(
             FP(0),
             G1_POINT_ZERO_FP,
+            None,
             id="fp_0",
         ),
         pytest.param(
@@ -40,6 +41,7 @@ G1_POINT_ZERO_FP = PointG1(
                 0x1073311196F8EF19477219CCEE3A48035FF432295AA9419EED45D186027D88B90832E14C4F0E2AA4D15F54D1C3ED0F93,  # noqa: E501
                 0x16B3A3B2E3DDDF6A11459DDAF657FDE21C4F10282A56029D9B55AB3CE1F41E1CF39AD27E0EA35823C7D3250E81FF3D66,  # noqa: E501
             ),
+            None,
             id="fp_p_minus_1",
         ),
     ],

@@ -21,22 +21,25 @@ pytestmark = [
 
 
 @pytest.mark.parametrize(
-    "input_data,expected_output",
+    "input_data,expected_output,vector_gas_value",
     vectors_from_file("add_G1_bls.json")
     + [
         pytest.param(
             Spec.INF_G1 + Spec.INF_G1,
             Spec.INF_G1,
+            None,
             id="inf_plus_inf",
         ),
         pytest.param(
             Spec.P1_NOT_IN_SUBGROUP + Spec.P1_NOT_IN_SUBGROUP,
             Spec.P1_NOT_IN_SUBGROUP_TIMES_2,
+            None,
             id="not_in_subgroup_1",
         ),
         pytest.param(
             Spec.P1_NOT_IN_SUBGROUP + Spec.P1_NOT_IN_SUBGROUP_TIMES_2,
             Spec.INF_G1,
+            None,
             id="not_in_subgroup_2",
         ),
     ],

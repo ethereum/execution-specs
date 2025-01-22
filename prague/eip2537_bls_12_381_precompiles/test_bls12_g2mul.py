@@ -21,17 +21,19 @@ pytestmark = [
 
 
 @pytest.mark.parametrize(
-    "input_data,expected_output",
+    "input_data,expected_output,vector_gas_value",
     vectors_from_file("mul_G2_bls.json")
     + [
         pytest.param(
             Spec.INF_G2 + Scalar(0),
             Spec.INF_G2,
+            None,
             id="bls_g2mul_(0*inf=inf)",
         ),
         pytest.param(
             Spec.INF_G2 + Scalar(2**256 - 1),
             Spec.INF_G2,
+            None,
             id="bls_g2mul_(2**256-1*inf=inf)",
         ),
         pytest.param(
@@ -46,36 +48,43 @@ pytestmark = [
                     0x5397DAD1357CF8333189821B737172B18099ECF7EE8BDB4B3F05EBCCDF40E1782A6C71436D5ACE0843D7F361CBC6DB2,  # noqa: E501
                 ),
             ),
+            None,
             id="bls_g2mul_(2**256-1*P2)",
         ),
         pytest.param(
             Spec.P2 + Scalar(Spec.Q - 1),
             -Spec.P2,  # negated P2
+            None,
             id="bls_g2mul_(q-1*P2)",
         ),
         pytest.param(
             Spec.P2 + Scalar(Spec.Q),
             Spec.INF_G2,
+            None,
             id="bls_g2mul_(q*P2)",
         ),
         pytest.param(
             Spec.G2 + Scalar(Spec.Q),
             Spec.INF_G2,
+            None,
             id="bls_g2mul_(q*G2)",
         ),
         pytest.param(
             Spec.P2 + Scalar(Spec.Q + 1),
             Spec.P2,
+            None,
             id="bls_g2mul_(q+1*P2)",
         ),
         pytest.param(
             Spec.P2 + Scalar(2 * Spec.Q),
             Spec.INF_G2,
+            None,
             id="bls_g2mul_(2q*P2)",
         ),
         pytest.param(
             Spec.P2 + Scalar((2**256 // Spec.Q) * Spec.Q),
             Spec.INF_G2,
+            None,
             id="bls_g2mul_(Nq*P2)",
         ),
     ],
