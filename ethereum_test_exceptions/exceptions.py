@@ -689,6 +689,10 @@ class EOFException(ExceptionBase):
     """
     EOF container's code produces an stack underflow.
     """
+    STACK_OVERFLOW = auto()
+    """
+    EOF container's code produces an stack overflow.
+    """
     STACK_HEIGHT_MISMATCH = auto()
     """
     EOF container section stack height mismatch.

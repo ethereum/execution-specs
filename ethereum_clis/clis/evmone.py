@@ -149,6 +149,7 @@ class EvmoneExceptionMapper(ExceptionMapper):
                 EOFException.UNREACHABLE_CODE_SECTIONS, "err: unreachable_code_sections"
             ),
             ExceptionMessage(EOFException.STACK_UNDERFLOW, "err: stack_underflow"),
+            ExceptionMessage(EOFException.STACK_OVERFLOW, "err: stack_overflow"),
             ExceptionMessage(
                 EOFException.MAX_STACK_HEIGHT_ABOVE_LIMIT, "err: max_stack_height_above_limit"
             ),
