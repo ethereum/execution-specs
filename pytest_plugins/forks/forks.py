@@ -440,7 +440,7 @@ def pytest_configure(config: pytest.Config):
             return set()
         forks_str = config_str.split(",")
         for i in range(len(forks_str)):
-            forks_str[i] = forks_str[i].strip()
+            forks_str[i] = forks_str[i].strip().capitalize()
             if forks_str[i] == "Merge":
                 forks_str[i] = "Paris"
 
