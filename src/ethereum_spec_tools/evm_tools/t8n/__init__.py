@@ -313,6 +313,20 @@ class T8N(Load):
         ):
             deposit_requests: Bytes = b""
 
+            self.fork.process_system_transaction(
+                self.fork.HISTORY_STORAGE_ADDRESS,
+                self.env.parent_hash,
+                self.env.block_hashes,
+                self.env.coinbase,
+                self.env.block_number,
+                self.env.base_fee_per_gas,
+                self.env.block_gas_limit,
+                self.env.block_timestamp,
+                self.env.prev_randao,
+                self.alloc.state,
+                self.chain_id,
+                self.env.excess_blob_gas,
+            )
 
         if (
             self.fork.is_after_fork("ethereum.cancun")

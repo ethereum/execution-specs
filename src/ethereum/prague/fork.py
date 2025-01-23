@@ -90,6 +90,10 @@ WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS = hex_to_address(
 CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS = hex_to_address(
     "0x00431F263cE400f4455c2dCf564e53007Ca4bbBb"
 )
+HISTORY_STORAGE_ADDRESS = hex_to_address(
+    "0x0F792be4B0c0cb4DAE440Ef133E90C0eCD48CCCC"
+)
+HISTORY_SERVE_WINDOW = 8192
 
 
 @dataclass
@@ -714,6 +718,20 @@ def apply_body(
         excess_blob_gas,
     )
 
+    process_system_transaction(
+        HISTORY_STORAGE_ADDRESS,
+        block_hashes[-1],  # The parent hash
+        block_hashes,
+        coinbase,
+        block_number,
+        base_fee_per_gas,
+        block_gas_limit,
+        block_time,
+        prev_randao,
+        state,
+        chain_id,
+        excess_blob_gas,
+    )
 
     for i, tx in enumerate(map(decode_transaction, transactions)):
         trie_set(
