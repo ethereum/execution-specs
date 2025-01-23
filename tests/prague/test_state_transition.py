@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Dict
+from typing import Dict, Generator, Tuple
 
 import pytest
 
@@ -11,11 +11,11 @@ from tests.helpers.load_state_tests import (
     run_blockchain_st_test,
 )
 
-fetch_cancun_tests = partial(fetch_state_test_files, network="Prague")
+fetch_prague_tests = partial(fetch_state_test_files, network="Prague")
 
 FIXTURES_LOADER = Load("Prague", "prague")
 
-run_cancun_blockchain_st_tests = partial(
+run_prague_blockchain_st_tests = partial(
     run_blockchain_st_test, load=FIXTURES_LOADER
 )
 
@@ -34,8 +34,8 @@ SLOW_TESTS = (
     "stTimeConsuming/static_Call50000_sha256.json",
     "vmPerformance/loopExp.json",
     "vmPerformance/loopMul.json",
-    "QuadraticComplexitySolidity_CallDataCopy_d0g1v0_Cancun",
-    "CALLBlake2f_d9g0v0_Cancun",
+    "QuadraticComplexitySolidity_CallDataCopy_d0g1v0_Prague",
+    "CALLBlake2f_d9g0v0_Prague",
     "CALLCODEBlake2f_d9g0v0",
     # GeneralStateTests
     "stRandom/randomStatetest177.json",
@@ -45,6 +45,14 @@ SLOW_TESTS = (
     # InvalidBlockTest
     "bcUncleHeaderValidity/nonceWrong.json",
     "bcUncleHeaderValidity/wrongMixHash.json",
+    "tests/prague/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_Prague-blockchain_test-bls_pairing_non-degeneracy-\\]",
+    "tests/prague/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_Prague-blockchain_test-bls_pairing_bilinearity-\\]",
+    "tests/prague/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_Prague-blockchain_test-bls_pairing_e\\(G1,-G2\\)=e\\(-G1,G2\\)-\\]",
+    "tests/prague/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_Prague-blockchain_test-bls_pairing_e\\(aG1,bG2\\)=e\\(abG1,G2\\)-\\]",
+    "tests/prague/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_Prague-blockchain_test-bls_pairing_e\\(aG1,bG2\\)=e\\(G1,abG2\\)-\\]",
+    "tests/prague/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_Prague-blockchain_test-inf_pair-\\]",
+    "tests/prague/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_Prague-blockchain_test-multi_inf_pair-\\]",
+    "tests/prague/eip2935_historical_block_hashes_from_state/test_block_hashes\\.py\\:\\:test_block_hashes_history\\[fork_Prague-blockchain_test-full_history_plus_one_check_blockhash_first\\]",
 )
 
 # These are tests that are considered to be incorrect,
@@ -58,7 +66,7 @@ IGNORE_TESTS = (
     # InvalidBlockTest
     "bcForgedTest",
     "bcMultiChainTest",
-    "GasLimitHigherThan2p63m1_Cancun",
+    "GasLimitHigherThan2p63m1_Prague",
 )
 
 # All tests that recursively create a large number of frames (50000)
@@ -75,31 +83,39 @@ BIG_MEMORY_TESTS = (
 )
 
 fetch_state_tests = partial(
-    fetch_cancun_tests,
-    test_dir,
+    fetch_prague_tests,
     ignore_list=IGNORE_TESTS,
     slow_list=SLOW_TESTS,
     big_memory_list=BIG_MEMORY_TESTS,
 )
 
 
-@pytest.mark.parametrize(
-    "test_case",
-    fetch_state_tests(),
-    ids=idfn,
+# Run temporary test fixtures for Prague
+test_dirs = (
+    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7002_el_triggerable_withdrawals",
+    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip6110_deposits",
+    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7251_consolidations",
+    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7685_general_purpose_el_requests",
+    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip2537_bls_12_381_precompiles",
+    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip2935_historical_block_hashes_from_state",
+    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7702_set_code_tx",
+    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7623_increase_calldata_cost",
 )
-def test_general_state_tests(test_case: Dict) -> None:
-    run_cancun_blockchain_st_tests(test_case)
 
 
-# Run execution-spec-generated-tests
-test_dir = f"{ETHEREUM_SPEC_TESTS_PATH}/fixtures/withdrawals"
+def fetch_temporary_tests(test_dirs: Tuple[str, ...]) -> Generator:
+    """
+    Fetch the relevant tests for a particular EIP-Implementation
+    from among the temporary fixtures from ethereum-spec-tests.
+    """
+    for test_dir in test_dirs:
+        yield from fetch_state_tests(test_dir)
 
 
 @pytest.mark.parametrize(
     "test_case",
-    fetch_cancun_tests(test_dir),
+    fetch_temporary_tests(test_dirs),
     ids=idfn,
 )
 def test_execution_specs_generated_tests(test_case: Dict) -> None:
-    run_cancun_blockchain_st_tests(test_case)
+    run_prague_blockchain_st_tests(test_case)

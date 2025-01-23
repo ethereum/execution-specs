@@ -22,6 +22,7 @@ hash3 = keccak256(b"baz")
 hash4 = keccak256(b"foobar")
 hash5 = keccak256(b"quux")
 hash6 = keccak256(b"foobarbaz")
+hash7 = keccak256(b"quuxbaz")
 
 address1 = hex_to_address("0x00000000219ab540356cbb839cbe05303d7705fa")
 address2 = hex_to_address("0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2")
@@ -105,6 +106,7 @@ header = Header(
     parent_beacon_block_root=Bytes32(b"1234567890abcdef1234567890abcdef"),
     blob_gas_used=U64(7),
     excess_blob_gas=U64(8),
+    requests_hash=hash7,
 )
 
 block = Block(
