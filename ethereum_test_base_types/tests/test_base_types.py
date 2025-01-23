@@ -135,6 +135,26 @@ def test_comparisons(a: Any, b: Any, equal: bool):
         assert not a == b
 
 
+def test_hash_padding():
+    """Test Hash objects are padded correctly."""
+    assert Hash(b"\x01", left_padding=True) == (
+        "0x0000000000000000000000000000000000000000000000000000000000000001"
+    )
+    assert Hash(b"\x02", right_padding=True) == (
+        "0x0200000000000000000000000000000000000000000000000000000000000000"
+    )
+
+
+def test_address_padding():
+    """Test that addresses are padded correctly."""
+    assert Address(b"\x01", left_padding=True) == Address(
+        "0x0000000000000000000000000000000000000001"
+    )
+    assert Address(b"\x80", right_padding=True) == Address(
+        "0x8000000000000000000000000000000000000000"
+    )
+
+
 @pytest.mark.parametrize(
     "s, expected",
     [
