@@ -277,6 +277,9 @@ class Txs:
         elif isinstance(tx_decoded, t8n.fork.BlobTransaction):
             signing_hash = t8n.fork.signing_hash_4844(tx_decoded)
             v_addend = U256(0)
+        elif isinstance(tx_decoded, t8n.fork.SetCodeTransaction):
+            signing_hash = t8n.fork.signing_hash_7702(tx_decoded)
+            v_addend = U256(0)
         else:
             raise FatalException("Unknown transaction type")
 

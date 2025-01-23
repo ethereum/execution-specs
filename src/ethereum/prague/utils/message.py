@@ -17,9 +17,10 @@ from typing import FrozenSet, Optional, Tuple, Union
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
 from ethereum_types.numeric import U256, Uint
 
-from ..fork_types import Address
+from ..fork_types import Address, Authorization
 from ..state import get_account
 from ..vm import Environment, Message
+from ..vm.eoa_delegation import get_delegated_code_address
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from .address import compute_contract_address
 
@@ -38,6 +39,7 @@ def prepare_message(
     preaccessed_storage_keys: FrozenSet[
         Tuple[(Address, Bytes32)]
     ] = frozenset(),
+    authorizations: Tuple[Authorization, ...] = (),
 ) -> Message:
     """
     Execute a transaction against the provided environment.
@@ -70,12 +72,19 @@ def prepare_message(
     preaccessed_storage_keys:
         Storage keys that should be marked as accessed prior to the message
         call
+    authorizations:
+        Authorizations that should be applied to the message call.
 
     Returns
     -------
     message: `ethereum.prague.vm.Message`
         Items containing contract creation or message call specific data.
     """
+    accessed_addresses = set()
+    accessed_addresses.add(caller)
+    accessed_addresses.update(PRE_COMPILED_CONTRACTS.keys())
+    accessed_addresses.update(preaccessed_addresses)
+
     if isinstance(target, Bytes0):
         current_target = compute_contract_address(
             caller,
@@ -87,16 +96,18 @@ def prepare_message(
         current_target = target
         msg_data = data
         code = get_account(env.state, target).code
+
+        delegated_address = get_delegated_code_address(code)
+        if delegated_address is not None:
+            accessed_addresses.add(delegated_address)
+            code = get_account(env.state, delegated_address).code
+
         if code_address is None:
             code_address = target
     else:
         raise AssertionError("Target must be address or empty bytes")
 
-    accessed_addresses = set()
     accessed_addresses.add(current_target)
-    accessed_addresses.add(caller)
-    accessed_addresses.update(PRE_COMPILED_CONTRACTS.keys())
-    accessed_addresses.update(preaccessed_addresses)
 
     return Message(
         caller=caller,
@@ -113,4 +124,5 @@ def prepare_message(
         accessed_addresses=accessed_addresses,
         accessed_storage_keys=set(preaccessed_storage_keys),
         parent_evm=None,
+        authorizations=authorizations,
     )

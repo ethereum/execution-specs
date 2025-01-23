@@ -32,6 +32,7 @@ from ...utils.address import (
     compute_create2_contract_address,
     to_address,
 )
+from ...vm.eoa_delegation import access_delegation
 from .. import (
     Evm,
     Message,
@@ -128,6 +129,7 @@ def generic_create(
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         parent_evm=evm,
+        authorizations=(),
     )
     child_evm = process_create_message(child_message, evm.env)
 
@@ -281,6 +283,8 @@ def generic_call(
     memory_input_size: U256,
     memory_output_start_position: U256,
     memory_output_size: U256,
+    code: bytes,
+    is_delegated_code: bool,
 ) -> None:
     """
     Perform the core logic of the `CALL*` family of opcodes.
@@ -298,6 +302,12 @@ def generic_call(
         evm.memory, memory_input_start_position, memory_input_size
     )
     code = get_account(evm.env.state, code_address).code
+
+    if is_delegated_code and len(code) == 0:
+        evm.gas_left += gas
+        push(evm.stack, U256(1))
+        return
+
     child_message = Message(
         caller=caller,
         target=to,
@@ -313,6 +323,7 @@ def generic_call(
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         parent_evm=evm,
+        authorizations=(),
     )
     child_evm = process_message(child_message, evm.env)
 
@@ -366,6 +377,15 @@ def call(evm: Evm) -> None:
         evm.accessed_addresses.add(to)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
+    code_address = to
+    (
+        is_delegated_code,
+        code_address,
+        code,
+        delegated_access_gas_cost,
+    ) = access_delegation(evm, code_address)
+    access_gas_cost += delegated_access_gas_cost
+
     create_gas_cost = (
         Uint(0)
         if is_account_alive(evm.env.state, to) or value == 0
@@ -397,13 +417,15 @@ def call(evm: Evm) -> None:
             value,
             evm.message.current_target,
             to,
-            to,
+            code_address,
             True,
             False,
             memory_input_start_position,
             memory_input_size,
             memory_output_start_position,
             memory_output_size,
+            code,
+            is_delegated_code,
         )
 
     # PROGRAM COUNTER
@@ -445,6 +467,14 @@ def callcode(evm: Evm) -> None:
         evm.accessed_addresses.add(code_address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
+    (
+        is_delegated_code,
+        code_address,
+        code,
+        delegated_access_gas_cost,
+    ) = access_delegation(evm, code_address)
+    access_gas_cost += delegated_access_gas_cost
+
     transfer_gas_cost = Uint(0) if value == 0 else GAS_CALL_VALUE
     message_call_gas = calculate_message_call_gas(
         value,
@@ -478,6 +508,8 @@ def callcode(evm: Evm) -> None:
             memory_input_size,
             memory_output_start_position,
             memory_output_size,
+            code,
+            is_delegated_code,
         )
 
     # PROGRAM COUNTER
@@ -573,6 +605,14 @@ def delegatecall(evm: Evm) -> None:
         evm.accessed_addresses.add(code_address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
+    (
+        is_delegated_code,
+        code_address,
+        code,
+        delegated_access_gas_cost,
+    ) = access_delegation(evm, code_address)
+    access_gas_cost += delegated_access_gas_cost
+
     message_call_gas = calculate_message_call_gas(
         U256(0), gas, Uint(evm.gas_left), extend_memory.cost, access_gas_cost
     )
@@ -593,6 +633,8 @@ def delegatecall(evm: Evm) -> None:
         memory_input_size,
         memory_output_start_position,
         memory_output_size,
+        code,
+        is_delegated_code,
     )
 
     # PROGRAM COUNTER
@@ -631,6 +673,15 @@ def staticcall(evm: Evm) -> None:
         evm.accessed_addresses.add(to)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
+    code_address = to
+    (
+        is_delegated_code,
+        code_address,
+        code,
+        delegated_access_gas_cost,
+    ) = access_delegation(evm, code_address)
+    access_gas_cost += delegated_access_gas_cost
+
     message_call_gas = calculate_message_call_gas(
         U256(0),
         gas,
@@ -648,13 +699,15 @@ def staticcall(evm: Evm) -> None:
         U256(0),
         evm.message.current_target,
         to,
-        to,
+        code_address,
         True,
         True,
         memory_input_start_position,
         memory_input_size,
         memory_output_start_position,
         memory_output_size,
+        code,
+        is_delegated_code,
     )
 
     # PROGRAM COUNTER

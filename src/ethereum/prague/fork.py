@@ -23,9 +23,9 @@ from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import InvalidBlock, InvalidSenderError
 
 from . import vm
-from .blocks import Block, Header, Log, Receipt, Withdrawal
+from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
-from .fork_types import Address, Bloom, Root, VersionedHash
+from .fork_types import Address, Authorization, Bloom, Root, VersionedHash
 from .state import (
     State,
     TransientStorage,
@@ -43,6 +43,7 @@ from .transactions import (
     BlobTransaction,
     FeeMarketTransaction,
     LegacyTransaction,
+    SetCodeTransaction,
     Transaction,
     calculate_intrinsic_cost,
     decode_transaction,
@@ -54,6 +55,7 @@ from .trie import Trie, root, trie_set
 from .utils.hexadecimal import hex_to_address
 from .utils.message import prepare_message
 from .vm import Message
+from .vm.eoa_delegation import is_valid_delegation
 from .vm.gas import (
     calculate_blob_gas_price,
     calculate_data_fee,
@@ -372,7 +374,9 @@ def check_transaction(
     sender_address = recover_sender(chain_id, tx)
     sender_account = get_account(state, sender_address)
 
-    if isinstance(tx, (FeeMarketTransaction, BlobTransaction)):
+    if isinstance(
+        tx, (FeeMarketTransaction, BlobTransaction, SetCodeTransaction)
+    ):
         if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
             raise InvalidBlock
         if tx.max_fee_per_gas < base_fee_per_gas:
@@ -391,8 +395,6 @@ def check_transaction(
         max_gas_fee = tx.gas * tx.gas_price
 
     if isinstance(tx, BlobTransaction):
-        if not isinstance(tx.to, Address):
-            raise InvalidBlock
         if len(tx.blob_versioned_hashes) == 0:
             raise InvalidBlock
         for blob_versioned_hash in tx.blob_versioned_hashes:
@@ -409,11 +411,22 @@ def check_transaction(
         blob_versioned_hashes = tx.blob_versioned_hashes
     else:
         blob_versioned_hashes = ()
+
+    if isinstance(tx, (BlobTransaction, SetCodeTransaction)):
+        if not isinstance(tx.to, Address):
+            raise InvalidBlock
+
+    if isinstance(tx, SetCodeTransaction):
+        if not any(tx.authorizations):
+            raise InvalidBlock
+
     if sender_account.nonce != tx.nonce:
         raise InvalidBlock
     if Uint(sender_account.balance) < max_gas_fee + Uint(tx.value):
         raise InvalidBlock
-    if sender_account.code != bytearray():
+    if sender_account.code != bytearray() and not is_valid_delegation(
+        sender_account.code
+    ):
         raise InvalidSenderError("not EOA")
 
     return sender_address, effective_gas_price, blob_versioned_hashes
@@ -452,14 +465,7 @@ def make_receipt(
         logs=logs,
     )
 
-    if isinstance(tx, AccessListTransaction):
-        return b"\x01" + rlp.encode(receipt)
-    elif isinstance(tx, FeeMarketTransaction):
-        return b"\x02" + rlp.encode(receipt)
-    elif isinstance(tx, BlobTransaction):
-        return b"\x03" + rlp.encode(receipt)
-    else:
-        return receipt
+    return encode_receipt(tx, receipt)
 
 
 @dataclass
@@ -748,12 +754,22 @@ def process_transaction(
     preaccessed_storage_keys = set()
     preaccessed_addresses.add(env.coinbase)
     if isinstance(
-        tx, (AccessListTransaction, FeeMarketTransaction, BlobTransaction)
+        tx,
+        (
+            AccessListTransaction,
+            FeeMarketTransaction,
+            BlobTransaction,
+            SetCodeTransaction,
+        ),
     ):
         for address, keys in tx.access_list:
             preaccessed_addresses.add(address)
             for key in keys:
                 preaccessed_storage_keys.add((address, key))
+
+    authorizations: Tuple[Authorization, ...] = ()
+    if isinstance(tx, SetCodeTransaction):
+        authorizations = tx.authorizations
 
     message = prepare_message(
         sender,
@@ -764,6 +780,7 @@ def process_transaction(
         env,
         preaccessed_addresses=frozenset(preaccessed_addresses),
         preaccessed_storage_keys=frozenset(preaccessed_storage_keys),
+        authorizations=authorizations,
     )
 
     output = process_message_call(message, env)
