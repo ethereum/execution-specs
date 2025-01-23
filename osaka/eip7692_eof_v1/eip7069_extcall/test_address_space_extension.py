@@ -69,7 +69,7 @@ def test_address_space_extension(
     env = Environment()
 
     ase_address = len(target_address) > 20
-    stripped_address = target_address[-20:] if ase_address else target_address
+    stripped_address = Address(target_address[-20:], left_padding=True)
     if ase_address and target_address[0] == b"00":
         raise ValueError("Test instrumentation requires target addresses trim leading zeros")
 
@@ -125,16 +125,16 @@ def test_address_space_extension(
             # add no account
             pass
         case "EOA":
-            pre.fund_address(Address(stripped_address), 10**18)
+            pre.fund_address(stripped_address, 10**18)
             # TODO: we could use pre.fund_eoa here with nonce!=0.
         case "LegacyContract":
-            pre[Address(stripped_address)] = Account(
+            pre[stripped_address] = Account(
                 code=Op.MSTORE(0, Op.ADDRESS) + Op.RETURN(0, 32),
                 balance=0,
                 nonce=0,
             )
         case "EOFContract":
-            pre[Address(stripped_address)] = Account(
+            pre[stripped_address] = Account(
                 code=Container(
                     sections=[
                         Section.Code(
