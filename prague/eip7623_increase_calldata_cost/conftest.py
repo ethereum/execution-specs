@@ -231,7 +231,30 @@ def tx_gas_delta() -> int:
 
 
 @pytest.fixture
-def tx_intrinsic_gas_cost(
+def tx_intrinsic_gas_cost_before_execution(
+    fork: Fork,
+    tx_data: Bytes,
+    access_list: List[AccessList] | None,
+    authorization_list: List[AuthorizationTuple] | None,
+    contract_creating_tx: bool,
+) -> int:
+    """
+    Return the intrinsic gas cost that is applied before the execution start.
+
+    This value never includes the floor data gas cost.
+    """
+    intrinsic_gas_cost_calculator = fork.transaction_intrinsic_cost_calculator()
+    return intrinsic_gas_cost_calculator(
+        calldata=tx_data,
+        contract_creation=contract_creating_tx,
+        access_list=access_list,
+        authorization_list_or_count=authorization_list,
+        return_cost_deducted_prior_execution=True,
+    )
+
+
+@pytest.fixture
+def tx_intrinsic_gas_cost_including_floor_data_cost(
     fork: Fork,
     tx_data: Bytes,
     access_list: List[AccessList] | None,
@@ -242,7 +265,9 @@ def tx_intrinsic_gas_cost(
     Transaction intrinsic gas cost.
 
     The calculated value takes into account the normal intrinsic gas cost and the floor data gas
-    cost.
+    cost if it is greater than the intrinsic gas cost.
+
+    In other words, this is the value that is required for the transaction to be valid.
     """
     intrinsic_gas_cost_calculator = fork.transaction_intrinsic_cost_calculator()
     return intrinsic_gas_cost_calculator(
@@ -265,7 +290,7 @@ def tx_floor_data_cost(
 
 @pytest.fixture
 def tx_gas_limit(
-    tx_intrinsic_gas_cost: int,
+    tx_intrinsic_gas_cost_including_floor_data_cost: int,
     tx_gas_delta: int,
 ) -> int:
     """
@@ -273,7 +298,7 @@ def tx_gas_limit(
 
     The gas delta is added to the intrinsic gas cost to generate different test scenarios.
     """
-    return tx_intrinsic_gas_cost + tx_gas_delta
+    return tx_intrinsic_gas_cost_including_floor_data_cost + tx_gas_delta
 
 
 @pytest.fixture
