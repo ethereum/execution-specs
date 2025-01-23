@@ -330,7 +330,7 @@ class T8N(Load):
 
         if (
             self.fork.is_after_fork("ethereum.cancun")
-            and self.env.parent_beacon_block_root is not None
+            and not self.options.state_test
         ):
             self.fork.process_system_transaction(
                 self.fork.BEACON_ROOTS_ADDRESS,
@@ -414,7 +414,10 @@ class T8N(Load):
 
         logs_hash = keccak256(rlp.encode(block_logs))
 
-        if self.fork.is_after_fork("ethereum.shanghai"):
+        if (
+            self.fork.is_after_fork("ethereum.shanghai")
+            and not self.options.state_test
+        ):
             withdrawals_trie = self.fork.Trie(secured=False, default=None)
 
             for i, wd in enumerate(self.env.withdrawals):
