@@ -48,9 +48,34 @@ class ForkLoad:
         return return_value
 
     @property
+    def SYSTEM_TRANSACTION_GAS(self) -> Any:
+        """SYSTEM_TRANSACTION_GAS of the given fork."""
+        return self._module("fork").SYSTEM_TRANSACTION_GAS
+
+    @property
+    def SYSTEM_ADDRESS(self) -> Any:
+        """SYSTEM_ADDRESS of the given fork."""
+        return self._module("fork").SYSTEM_ADDRESS
+
+    @property
+    def BEACON_ROOTS_ADDRESS(self) -> Any:
+        """BEACON_ROOTS_ADDRESS of the given fork."""
+        return self._module("fork").BEACON_ROOTS_ADDRESS
+
+    @property
+    def WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS(self) -> Any:
+        """WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS of the given fork."""
+        return self._module("fork").WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS
+
+    @property
     def process_general_purpose_requests(self) -> Any:
         """process_general_purpose_requests function of the given fork."""
         return self._module("fork").process_general_purpose_requests
+
+    @property
+    def process_system_transaction(self) -> Any:
+        """process_system_transaction function of the given fork."""
+        return self._module("fork").process_system_transaction
 
     @property
     def calculate_block_difficulty(self) -> Any:
