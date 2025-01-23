@@ -21,6 +21,7 @@ DEPOSIT_CONTRACT_ADDRESS = hex_to_address(
 )
 DEPOSIT_REQUEST_TYPE = b"\x00"
 WITHDRAWAL_REQUEST_TYPE = b"\x01"
+CONSOLIDATION_REQUEST_TYPE = b"\x02"
 
 
 def extract_deposit_data(data: Bytes) -> Bytes:
