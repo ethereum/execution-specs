@@ -46,6 +46,9 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
     if hasattr(genesis_header, "withdrawals_root"):
         parameters.append(())
 
+    if hasattr(genesis_header, "requests_root"):
+        parameters.append(())
+
     genesis_block = load.fork.Block(*parameters)
 
     genesis_header_hash = hex_to_bytes(json_data["genesisBlockHeader"]["hash"])
