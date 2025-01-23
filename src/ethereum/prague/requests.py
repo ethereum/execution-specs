@@ -20,6 +20,7 @@ DEPOSIT_CONTRACT_ADDRESS = hex_to_address(
     "0x00000000219ab540356cbb839cbe05303d7705fa"
 )
 DEPOSIT_REQUEST_TYPE = b"\x00"
+WITHDRAWAL_REQUEST_TYPE = b"\x01"
 
 
 def extract_deposit_data(data: Bytes) -> Bytes:
