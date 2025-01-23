@@ -66,6 +66,8 @@ U8
 ulen
 secp256k1
 secp256k1n
+secp256k1p
+secp256k1b
 statetest
 subclasses
 iadd
