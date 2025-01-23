@@ -122,6 +122,7 @@ def load_evm_tools_test(test_case: Dict[str, str], fork_name: str) -> None:
         "stdin",
         "--state.fork",
         f"{fork_name}",
+        "--state-test",
     ]
     t8n_options = parser.parse_args(t8n_args)
 
