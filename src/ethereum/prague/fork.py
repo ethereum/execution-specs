@@ -28,6 +28,7 @@ from .bloom import logs_bloom
 from .fork_types import Address, Authorization, Bloom, Root, VersionedHash
 from .requests import (
     DEPOSIT_REQUEST_TYPE,
+    WITHDRAWAL_REQUEST_TYPE,
     compute_requests_hash,
     parse_deposit_requests_from_receipt,
 )
@@ -67,7 +68,7 @@ from .vm.gas import (
     calculate_excess_blob_gas,
     calculate_total_blob_gas,
 )
-from .vm.interpreter import process_message_call
+from .vm.interpreter import MessageCallOutput, process_message_call
 
 BASE_FEE_MAX_CHANGE_DENOMINATOR = Uint(8)
 ELASTICITY_MULTIPLIER = Uint(2)
@@ -81,6 +82,10 @@ BEACON_ROOTS_ADDRESS = hex_to_address(
 SYSTEM_TRANSACTION_GAS = Uint(30000000)
 MAX_BLOB_GAS_PER_BLOCK = Uint(786432)
 VERSIONED_HASH_VERSION_KZG = b"\x01"
+
+WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS = hex_to_address(
+    "0x0c15F14308530b7CDB8460094BbB9cC28b9AaaAA"
+)
 
 
 @dataclass
@@ -511,6 +516,108 @@ class ApplyBodyOutput:
     requests_hash: Bytes
 
 
+def process_system_transaction(
+    target_address: Address,
+    data: Bytes,
+    block_hashes: List[Hash32],
+    coinbase: Address,
+    block_number: Uint,
+    base_fee_per_gas: Uint,
+    block_gas_limit: Uint,
+    block_time: U256,
+    prev_randao: Bytes32,
+    state: State,
+    chain_id: U64,
+    excess_blob_gas: U64,
+) -> MessageCallOutput:
+    """
+    Process a system transaction.
+
+    Parameters
+    ----------
+    target_address :
+        Address of the contract to call.
+    data :
+        Data to pass to the contract.
+    block_hashes :
+        List of hashes of the previous 256 blocks.
+    coinbase :
+        Address of the block's coinbase.
+    block_number :
+        Block number.
+    base_fee_per_gas :
+        Base fee per gas.
+    block_gas_limit :
+        Gas limit of the block.
+    block_time :
+        Time the block was produced.
+    prev_randao :
+        Previous randao value.
+    state :
+        Current state.
+    chain_id :
+        ID of the chain.
+    excess_blob_gas :
+        Excess blob gas.
+
+    Returns
+    -------
+    system_tx_output : `MessageCallOutput`
+        Output of processing the system transaction.
+    """
+    system_contract_code = get_account(state, target_address).code
+
+    system_tx_message = Message(
+        caller=SYSTEM_ADDRESS,
+        target=target_address,
+        gas=SYSTEM_TRANSACTION_GAS,
+        value=U256(0),
+        data=data,
+        code=system_contract_code,
+        depth=Uint(0),
+        current_target=target_address,
+        code_address=target_address,
+        should_transfer_value=False,
+        is_static=False,
+        accessed_addresses=set(),
+        accessed_storage_keys=set(),
+        parent_evm=None,
+        authorizations=(),
+    )
+
+    system_tx_env = vm.Environment(
+        caller=SYSTEM_ADDRESS,
+        block_hashes=block_hashes,
+        origin=SYSTEM_ADDRESS,
+        coinbase=coinbase,
+        number=block_number,
+        gas_limit=block_gas_limit,
+        base_fee_per_gas=base_fee_per_gas,
+        gas_price=base_fee_per_gas,
+        time=block_time,
+        prev_randao=prev_randao,
+        state=state,
+        chain_id=chain_id,
+        traces=[],
+        excess_blob_gas=excess_blob_gas,
+        blob_versioned_hashes=(),
+        transient_storage=TransientStorage(),
+    )
+
+    system_tx_output = process_message_call(system_tx_message, system_tx_env)
+
+    # TODO: Empty accounts in post-merge forks are impossible
+    # see Ethereum Improvement Proposal 7523.
+    # This line is only included to support invalid tests in the test suite
+    # and will have to be removed in the future.
+    # See https://github.com/ethereum/execution-specs/issues/955
+    destroy_touched_empty_accounts(
+        system_tx_env.state, system_tx_output.touched_accounts
+    )
+
+    return system_tx_output
+
+
 def apply_body(
     state: State,
     block_hashes: List[Hash32],
@@ -588,51 +695,21 @@ def apply_body(
     block_logs: Tuple[Log, ...] = ()
     deposit_requests: Bytes = b""
 
-    beacon_block_roots_contract_code = get_account(
-        state, BEACON_ROOTS_ADDRESS
-    ).code
-
-    system_tx_message = Message(
-        caller=SYSTEM_ADDRESS,
-        target=BEACON_ROOTS_ADDRESS,
-        gas=SYSTEM_TRANSACTION_GAS,
-        value=U256(0),
-        data=parent_beacon_block_root,
-        code=beacon_block_roots_contract_code,
-        depth=Uint(0),
-        current_target=BEACON_ROOTS_ADDRESS,
-        code_address=BEACON_ROOTS_ADDRESS,
-        should_transfer_value=False,
-        is_static=False,
-        accessed_addresses=set(),
-        accessed_storage_keys=set(),
-        parent_evm=None,
+    process_system_transaction(
+        BEACON_ROOTS_ADDRESS,
+        parent_beacon_block_root,
+        block_hashes,
+        coinbase,
+        block_number,
+        base_fee_per_gas,
+        block_gas_limit,
+        block_time,
+        prev_randao,
+        state,
+        chain_id,
+        excess_blob_gas,
     )
 
-    system_tx_env = vm.Environment(
-        caller=SYSTEM_ADDRESS,
-        origin=SYSTEM_ADDRESS,
-        block_hashes=block_hashes,
-        coinbase=coinbase,
-        number=block_number,
-        gas_limit=block_gas_limit,
-        base_fee_per_gas=base_fee_per_gas,
-        gas_price=base_fee_per_gas,
-        time=block_time,
-        prev_randao=prev_randao,
-        state=state,
-        chain_id=chain_id,
-        traces=[],
-        excess_blob_gas=excess_blob_gas,
-        blob_versioned_hashes=(),
-        transient_storage=TransientStorage(),
-    )
-
-    system_tx_output = process_message_call(system_tx_message, system_tx_env)
-
-    destroy_touched_empty_accounts(
-        system_tx_env.state, system_tx_output.touched_accounts
-    )
 
     for i, tx in enumerate(map(decode_transaction, transactions)):
         trie_set(
@@ -780,6 +857,26 @@ def process_general_purpose_requests(
     requests_from_execution: List[Bytes] = []
     if len(deposit_requests) > 0:
         requests_from_execution.append(DEPOSIT_REQUEST_TYPE + deposit_requests)
+
+    system_withdrawal_tx_output = process_system_transaction(
+        WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
+        b"",
+        block_hashes,
+        coinbase,
+        block_number,
+        base_fee_per_gas,
+        block_gas_limit,
+        block_time,
+        prev_randao,
+        state,
+        chain_id,
+        excess_blob_gas,
+    )
+
+    if len(system_withdrawal_tx_output.return_data) > 0:
+        requests_from_execution.append(
+            WITHDRAWAL_REQUEST_TYPE + system_withdrawal_tx_output.return_data
+        )
 
     return requests_from_execution
 
