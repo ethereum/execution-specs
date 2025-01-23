@@ -130,19 +130,6 @@ INVALID: List[Container] = [
         validity_error=EOFException.INVALID_MAX_STACK_HEIGHT,
     ),
     Container(
-        name="oob_callf_1",
-        sections=[
-            Section.Code(
-                code=(Op.CALLF[2] + Op.STOP),
-            ),
-            Section.Code(
-                code=(Op.RETF),
-                code_outputs=0,
-            ),
-        ],
-        validity_error=EOFException.INVALID_CODE_SECTION_INDEX,
-    ),
-    Container(
         name="overflow_code_sections_1",
         sections=[
             Section.Code(
@@ -186,6 +173,52 @@ def test_eof_validity(
 ):
     """Test EOF container validation for features around EIP-4750 / Functions / Code Sections."""
     eof_test(data=container)
+
+
+@pytest.mark.parametrize(
+    "container",
+    [
+        Container(
+            name="callf1",  # EOF1I4750_0010
+            sections=[
+                Section.Code(
+                    Op.CALLF[1] + Op.STOP,
+                )
+            ],
+        ),
+        Container(
+            name="callf2",  # EOF1I0011
+            sections=[
+                Section.Code(
+                    Op.CALLF[2] + Op.STOP,
+                ),
+                Section.Code(
+                    Op.RETF,
+                    code_outputs=0,
+                ),
+            ],
+        ),
+        Container(
+            name="callf1_callf2",
+            sections=[
+                Section.Code(
+                    Op.CALLF[1] + Op.STOP,
+                ),
+                Section.Code(
+                    Op.CALLF[2] + Op.RETF,
+                    code_outputs=0,
+                ),
+            ],
+        ),
+    ],
+    ids=container_name,
+)
+def test_invalid_code_section_index(
+    eof_test: EOFTestFiller,
+    container: Container,
+):
+    """Test cases for CALLF instructions with invalid target code section index."""
+    eof_test(data=container, expect_exception=EOFException.INVALID_CODE_SECTION_INDEX)
 
 
 @pytest.mark.parametrize(
