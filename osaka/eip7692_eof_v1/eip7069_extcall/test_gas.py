@@ -5,6 +5,7 @@ abstract: Tests [EIP-7069: Revamped CALL instructions](https://eips.ethereum.org
 
 import pytest
 
+from ethereum_test_base_types import Address
 from ethereum_test_forks import Fork
 from ethereum_test_tools import Alloc, Environment, StateTestFiller
 from ethereum_test_tools.eof.v1 import Container
@@ -183,5 +184,37 @@ def test_transfer_gas_is_cleared(
         warm_gas=2 * WARM_ACCOUNT_ACCESS_GAS
         + (CALL_WITH_VALUE_GAS if value > 0 else 0)
         + push_gas,
+        out_of_gas_testing=False,
+    )
+
+
+@pytest.mark.parametrize("opcode", [Op.EXTCALL, Op.EXTDELEGATECALL, Op.EXTSTATICCALL])
+def test_late_account_create(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    state_env: Environment,
+    opcode: Op,
+):
+    """
+    Test EXTCALL to a non-existent account after another EXT*CALL has called it and not
+    created it.
+    """
+    empty_address = Address(0xDECAFC0DE)
+
+    gas_test(
+        state_test,
+        state_env,
+        pre,
+        prelude_code=Op.BALANCE(address=empty_address),
+        setup_code=opcode(address=empty_address)
+        + Op.PUSH1(1)
+        + Op.PUSH0
+        + Op.PUSH0
+        + Op.PUSH20(empty_address),
+        subject_code=Op.EXTCALL,
+        subject_balance=5,
+        tear_down_code=Op.STOP,
+        cold_gas=WARM_ACCOUNT_ACCESS_GAS + CALL_WITH_VALUE_GAS + ACCOUNT_CREATION_GAS,
+        warm_gas=WARM_ACCOUNT_ACCESS_GAS + CALL_WITH_VALUE_GAS,
         out_of_gas_testing=False,
     )
