@@ -24,13 +24,13 @@ from .helpers import (
     slot_calldata,
     slot_code_worked,
     slot_create_address,
+    slot_data_load,
     slot_last_slot,
     slot_returndata_size,
     smallest_initcode_subcontainer,
     smallest_runtime_subcontainer,
     value_canary_to_be_overwritten,
     value_code_worked,
-    slot_data_load,
     value_long_value,
 )
 from .spec import EOFCREATE_FAILURE
@@ -99,9 +99,9 @@ def test_eofcreate_then_dataload(
                     + Op.STOP,
                 ),
                 Section.Container(
-                    container= small_auxdata_container,
+                    container=small_auxdata_container,
                 ),
-                Section.Data(data=value_long_value)
+                Section.Data(data=value_long_value),
             ],
         ),
         storage={slot_data_load: value_canary_to_be_overwritten},

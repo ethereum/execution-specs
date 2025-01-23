@@ -25,7 +25,7 @@ slot_last_slot = next(_slot)
 value_code_worked = 0x2015
 value_canary_should_not_change = 0x2019
 value_canary_to_be_overwritten = 0x2009
-value_long_value = b'abcdefghijklmnopqrstuvwxyz123456'
+value_long_value = b"abcdefghijklmnopqrstuvwxyz123456"
 
 smallest_runtime_subcontainer = Container.Code(code=Op.STOP, name="Runtime Subcontainer")
 
