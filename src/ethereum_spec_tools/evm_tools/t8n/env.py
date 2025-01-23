@@ -36,6 +36,7 @@ class Env:
     block_gas_limit: Uint
     block_number: Uint
     block_timestamp: U256
+    parent_hash: Any
     withdrawals: Any
     block_difficulty: Optional[Uint]
     prev_randao: Optional[Bytes32]
@@ -70,7 +71,7 @@ class Env:
         self.read_block_difficulty(data, t8n)
         self.read_base_fee_per_gas(data, t8n)
         self.read_randao(data, t8n)
-        self.read_block_hashes(data)
+        self.read_block_hashes(data, t8n)
         self.read_ommers(data, t8n)
         self.read_withdrawals(data, t8n)
 
@@ -231,10 +232,14 @@ class Env:
                     args.append(False)
             self.block_difficulty = t8n.fork.calculate_block_difficulty(*args)
 
-    def read_block_hashes(self, data: Any) -> None:
+    def read_block_hashes(self, data: Any, t8n: "T8N") -> None:
         """
         Read the block hashes. Returns a maximum of 256 block hashes.
         """
+        self.parent_hash = None
+        if t8n.fork.is_after_fork("ethereum.prague"):
+            self.parent_hash = Hash32(hex_to_bytes(data["parentHash"]))
+
         # Read the block hashes
         block_hashes: List[Any] = []
         # Store a maximum of 256 block hashes.

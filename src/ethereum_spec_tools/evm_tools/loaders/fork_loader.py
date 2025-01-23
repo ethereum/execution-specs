@@ -63,6 +63,11 @@ class ForkLoad:
         return self._module("fork").BEACON_ROOTS_ADDRESS
 
     @property
+    def HISTORY_STORAGE_ADDRESS(self) -> Any:
+        """HISTORY_STORAGE_ADDRESS of the given fork."""
+        return self._module("fork").HISTORY_STORAGE_ADDRESS
+
+    @property
     def WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS(self) -> Any:
         """WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS of the given fork."""
         return self._module("fork").WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS
@@ -71,6 +76,11 @@ class ForkLoad:
     def CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS(self) -> Any:
         """CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS of the given fork."""
         return self._module("fork").CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS
+
+    @property
+    def HISTORY_SERVE_WINDOW(self) -> Any:
+        """HISTORY_SERVE_WINDOW of the given fork."""
+        return self._module("fork").HISTORY_SERVE_WINDOW
 
     @property
     def process_general_purpose_requests(self) -> Any:
