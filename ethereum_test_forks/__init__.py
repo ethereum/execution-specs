@@ -25,6 +25,7 @@ from .forks.transition import (
     ParisToShanghaiAtTime15k,
     ShanghaiToCancunAtTime15k,
 )
+from .gas_costs import GasCosts
 from .helpers import (
     InvalidForkError,
     forks_from,
@@ -83,4 +84,5 @@ __all__ = [
     "get_last_descendants",
     "transition_fork_from_to",
     "transition_fork_to",
+    "GasCosts",
 ]
