@@ -693,14 +693,14 @@ def test_selfdestruct_pre_existing(
         - Different send-all recipient addresses: single, multiple, including self
         - Different initial balances for the self-destructing contract
     """
-    selfdestruct_contract_address = pre.deploy_contract(selfdestruct_code)
+    selfdestruct_contract_address = pre.deploy_contract(
+        selfdestruct_code, balance=selfdestruct_contract_initial_balance
+    )
     entry_code_storage = Storage()
 
     for i in range(len(sendall_recipient_addresses)):
         if sendall_recipient_addresses[i] == SELF_ADDRESS:
             sendall_recipient_addresses[i] = selfdestruct_contract_address
-    if selfdestruct_contract_initial_balance > 0:
-        pre.fund_address(selfdestruct_contract_address, selfdestruct_contract_initial_balance)
 
     # Create a dict to record the expected final balances
     sendall_final_balances = dict(
