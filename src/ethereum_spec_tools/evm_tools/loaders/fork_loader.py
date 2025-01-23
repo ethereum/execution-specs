@@ -48,6 +48,11 @@ class ForkLoad:
         return return_value
 
     @property
+    def process_general_purpose_requests(self) -> Any:
+        """process_general_purpose_requests function of the given fork."""
+        return self._module("fork").process_general_purpose_requests
+
+    @property
     def calculate_block_difficulty(self) -> Any:
         """calculate_block_difficulty function of the given fork."""
         return self._module("fork").calculate_block_difficulty
@@ -131,6 +136,16 @@ class ForkLoad:
     def Block(self) -> Any:
         """Block class of the fork"""
         return self._module("blocks").Block
+
+    @property
+    def parse_deposit_requests_from_receipt(self) -> Any:
+        """parse_deposit_requests_from_receipt function of the fork"""
+        return self._module("requests").parse_deposit_requests_from_receipt
+
+    @property
+    def compute_requests_hash(self) -> Any:
+        """compute_requests_hash function of the fork"""
+        return self._module("requests").compute_requests_hash
 
     @property
     def Bloom(self) -> Any:

@@ -52,6 +52,7 @@ class Env:
     parent_excess_blob_gas: Optional[U64]
     parent_blob_gas_used: Optional[U64]
     excess_blob_gas: Optional[U64]
+    requests: Any
 
     def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
         if t8n.options.input_env == "stdin":

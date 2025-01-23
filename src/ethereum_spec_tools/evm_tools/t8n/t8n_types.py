@@ -9,11 +9,11 @@ from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U64, U256, Uint
 
-from ethereum.crypto.hash import keccak256
+from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
 
 from ..loaders.transaction_loader import TransactionLoad, UnsupportedTx
-from ..utils import FatalException, secp256k1_sign
+from ..utils import FatalException, encode_to_hex, secp256k1_sign
 
 if TYPE_CHECKING:
     from . import T8N
@@ -309,6 +309,8 @@ class Result:
     gas_used: Any = None
     excess_blob_gas: Optional[U64] = None
     blob_gas_used: Optional[Uint] = None
+    requests_hash: Optional[Hash32] = None
+    requests: Optional[List[Bytes]] = None
 
     def to_json(self) -> Any:
         """Encode the result to JSON"""
@@ -350,5 +352,13 @@ class Result:
             }
             for item in self.receipts
         ]
+
+        if self.requests_hash is not None:
+            assert self.requests is not None
+
+            data["requestsHash"] = encode_to_hex(self.requests_hash)
+            # T8N doesn't consider the request type byte to be part of the
+            # request
+            data["requests"] = [encode_to_hex(req) for req in self.requests]
 
         return data
