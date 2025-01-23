@@ -27,6 +27,7 @@ from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
 from .fork_types import Address, Authorization, Bloom, Root, VersionedHash
 from .requests import (
+    CONSOLIDATION_REQUEST_TYPE,
     DEPOSIT_REQUEST_TYPE,
     WITHDRAWAL_REQUEST_TYPE,
     compute_requests_hash,
@@ -85,6 +86,9 @@ VERSIONED_HASH_VERSION_KZG = b"\x01"
 
 WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS = hex_to_address(
     "0x0c15F14308530b7CDB8460094BbB9cC28b9AaaAA"
+)
+CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS = hex_to_address(
+    "0x00431F263cE400f4455c2dCf564e53007Ca4bbBb"
 )
 
 
@@ -876,6 +880,27 @@ def process_general_purpose_requests(
     if len(system_withdrawal_tx_output.return_data) > 0:
         requests_from_execution.append(
             WITHDRAWAL_REQUEST_TYPE + system_withdrawal_tx_output.return_data
+        )
+
+    system_consolidation_tx_output = process_system_transaction(
+        CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
+        b"",
+        block_hashes,
+        coinbase,
+        block_number,
+        base_fee_per_gas,
+        block_gas_limit,
+        block_time,
+        prev_randao,
+        state,
+        chain_id,
+        excess_blob_gas,
+    )
+
+    if len(system_consolidation_tx_output.return_data) > 0:
+        requests_from_execution.append(
+            CONSOLIDATION_REQUEST_TYPE
+            + system_consolidation_tx_output.return_data
         )
 
     return requests_from_execution
