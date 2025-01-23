@@ -18,12 +18,12 @@ from ethereum.exceptions import InvalidSignatureError
 from .exceptions import TransactionTypeError
 from .fork_types import Address, Authorization, VersionedHash
 
-TX_BASE_COST = 21000
-TX_DATA_COST_PER_NON_ZERO = 16
-TX_DATA_COST_PER_ZERO = 4
-TX_CREATE_COST = 32000
-TX_ACCESS_LIST_ADDRESS_COST = 2400
-TX_ACCESS_LIST_STORAGE_KEY_COST = 1900
+TX_BASE_COST = Uint(21000)
+FLOOR_CALLDATA_COST = Uint(10)
+STANDARD_CALLDATA_TOKEN_COST = Uint(4)
+TX_CREATE_COST = Uint(32000)
+TX_ACCESS_LIST_ADDRESS_COST = Uint(2400)
+TX_ACCESS_LIST_STORAGE_KEY_COST = Uint(1900)
 
 
 @slotted_freezable
@@ -203,7 +203,9 @@ def validate_transaction(tx: Transaction) -> bool:
     """
     from .vm.interpreter import MAX_CODE_SIZE
 
-    if calculate_intrinsic_cost(tx) > tx.gas:
+    intrinsic_gas, tokens_in_calldata = calculate_intrinsic_cost(tx)
+    gas_floor = Uint(tokens_in_calldata * FLOOR_CALLDATA_COST + TX_BASE_COST)
+    if max(intrinsic_gas, gas_floor) > tx.gas:
         return False
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
         return False
@@ -213,7 +215,7 @@ def validate_transaction(tx: Transaction) -> bool:
     return True
 
 
-def calculate_intrinsic_cost(tx: Transaction) -> Uint:
+def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     """
     Calculates the gas that is charged before execution is started.
 
@@ -235,17 +237,20 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     -------
     verified : `ethereum.base_types.Uint`
         The intrinsic cost of the transaction.
+    tokens_in_calldata : `ethereum.base_types.Uint`
+        The eip-7623 calldata tokens used by the transaction.
     """
     from .vm.eoa_delegation import PER_EMPTY_ACCOUNT_COST
     from .vm.gas import init_code_cost
 
-    data_cost = 0
-
+    zero_bytes = 0
     for byte in tx.data:
         if byte == 0:
-            data_cost += TX_DATA_COST_PER_ZERO
-        else:
-            data_cost += TX_DATA_COST_PER_NON_ZERO
+            zero_bytes += 1
+
+    tokens_in_calldata = zero_bytes + (len(tx.data) - zero_bytes) * 4
+
+    data_cost = Uint(tokens_in_calldata) * STANDARD_CALLDATA_TOKEN_COST
 
     if tx.to == Bytes0(b""):
         create_cost = TX_CREATE_COST + init_code_cost(ulen(tx.data))
@@ -266,7 +271,20 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
             access_list_cost += TX_ACCESS_LIST_ADDRESS_COST
             access_list_cost += ulen(keys) * TX_ACCESS_LIST_STORAGE_KEY_COST
 
-    return Uint(TX_BASE_COST + data_cost + create_cost + access_list_cost)
+    auth_cost = Uint(0)
+    if isinstance(tx, SetCodeTransaction):
+        auth_cost += Uint(PER_EMPTY_ACCOUNT_COST * len(tx.authorizations))
+
+    return (
+        Uint(
+            TX_BASE_COST
+            + data_cost
+            + create_cost
+            + access_list_cost
+            + auth_cost
+        ),
+        Uint(tokens_in_calldata),
+    )
 
 
 def recover_sender(chain_id: U64, tx: Transaction) -> Address:
