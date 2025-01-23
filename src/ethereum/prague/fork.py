@@ -26,6 +26,11 @@ from . import vm
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
 from .fork_types import Address, Authorization, Bloom, Root, VersionedHash
+from .requests import (
+    DEPOSIT_REQUEST_TYPE,
+    compute_requests_hash,
+    parse_deposit_requests_from_receipt,
+)
 from .state import (
     State,
     TransientStorage,
@@ -211,6 +216,8 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     if apply_body_output.withdrawals_root != block.header.withdrawals_root:
         raise InvalidBlock
     if apply_body_output.blob_gas_used != block.header.blob_gas_used:
+        raise InvalidBlock
+    if apply_body_output.requests_hash != block.header.requests_hash:
         raise InvalidBlock
 
     chain.blocks.append(block)
@@ -490,6 +497,8 @@ class ApplyBodyOutput:
         Trie root of all the withdrawals in the block.
     blob_gas_used : `ethereum.base_types.Uint`
         Total blob gas used in the block.
+    requests_hash : `Bytes`
+        Hash of all the requests in the block.
     """
 
     block_gas_used: Uint
@@ -499,6 +508,7 @@ class ApplyBodyOutput:
     state_root: Root
     withdrawals_root: Root
     blob_gas_used: Uint
+    requests_hash: Bytes
 
 
 def apply_body(
@@ -576,6 +586,7 @@ def apply_body(
         secured=False, default=None
     )
     block_logs: Tuple[Log, ...] = ()
+    deposit_requests: Bytes = b""
 
     beacon_block_roots_contract_code = get_account(
         state, BEACON_ROOTS_ADDRESS
@@ -673,6 +684,8 @@ def apply_body(
             receipt,
         )
 
+        deposit_requests += parse_deposit_requests_from_receipt(receipt)
+
         block_logs += logs
         blob_gas_used += calculate_total_blob_gas(tx)
     if blob_gas_used > MAX_BLOB_GAS_PER_BLOCK:
@@ -689,6 +702,22 @@ def apply_body(
         if account_exists_and_is_empty(state, wd.address):
             destroy_account(state, wd.address)
 
+    requests_from_execution = process_general_purpose_requests(
+        deposit_requests,
+        state,
+        block_hashes,
+        coinbase,
+        block_number,
+        base_fee_per_gas,
+        block_gas_limit,
+        block_time,
+        prev_randao,
+        chain_id,
+        excess_blob_gas,
+    )
+
+    requests_hash = compute_requests_hash(requests_from_execution)
+
     return ApplyBodyOutput(
         block_gas_used,
         root(transactions_trie),
@@ -697,7 +726,62 @@ def apply_body(
         state_root(state),
         root(withdrawals_trie),
         blob_gas_used,
+        requests_hash,
     )
+
+
+def process_general_purpose_requests(
+    deposit_requests: Bytes,
+    state: State,
+    block_hashes: List[Hash32],
+    coinbase: Address,
+    block_number: Uint,
+    base_fee_per_gas: Uint,
+    block_gas_limit: Uint,
+    block_time: U256,
+    prev_randao: Bytes32,
+    chain_id: U64,
+    excess_blob_gas: U64,
+) -> List[Bytes]:
+    """
+    Process all the requests in the block.
+
+    Parameters
+    ----------
+    deposit_requests :
+        The deposit requests.
+    state :
+        Current state.
+    block_hashes :
+        List of hashes of the previous 256 blocks.
+    coinbase :
+        Address of the block's coinbase.
+    block_number :
+        Block number.
+    base_fee_per_gas :
+        Base fee per gas.
+    block_gas_limit :
+        Initial amount of gas available for execution in this block.
+    block_time :
+        Time the block was produced.
+    prev_randao :
+        The previous randao from the beacon chain.
+    chain_id :
+        ID of the executing chain.
+    excess_blob_gas :
+        Excess blob gas.
+
+    Returns
+    -------
+    requests_from_execution : `List[Bytes]`
+        The requests from the execution
+    """
+    # Requests are to be in ascending order of request type
+    requests_from_execution: List[Bytes] = []
+    if len(deposit_requests) > 0:
+        requests_from_execution.append(DEPOSIT_REQUEST_TYPE + deposit_requests)
+
+    return requests_from_execution
 
 
 def process_transaction(

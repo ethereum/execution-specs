@@ -178,4 +178,8 @@ class Load(BaseLoad):
             )
             parameters.append(parent_beacon_block_root)
 
+        if "requestsHash" in raw:
+            requests_hash = hex_to_bytes32(raw.get("requestsHash"))
+            parameters.append(requests_hash)
+
         return self.fork.Header(*parameters)

@@ -9,6 +9,7 @@ from functools import partial
 from typing import Any, TextIO
 
 from ethereum_rlp import rlp
+from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum import trace
@@ -73,6 +74,8 @@ def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
     t8n_parser.add_argument("--trace.nostack", action="store_true")
     t8n_parser.add_argument("--trace.returndata", action="store_true")
 
+    t8n_parser.add_argument("--state-test", action="store_true")
+
 
 class T8N(Load):
     """The class that carries out the transition"""
@@ -123,15 +126,6 @@ class T8N(Load):
         self.result = Result(
             self.env.block_difficulty, self.env.base_fee_per_gas
         )
-
-        if self.fork.is_after_fork("ethereum.cancun"):
-            self.SYSTEM_ADDRESS = self.fork.hex_to_address(
-                "0xfffffffffffffffffffffffffffffffffffffffe"
-            )
-            self.BEACON_ROOTS_ADDRESS = self.fork.hex_to_address(
-                "0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"
-            )
-            self.SYSTEM_TRANSACTION_GAS = Uint(30000000)
 
     @property
     def BLOCK_REWARD(self) -> Any:
@@ -313,6 +307,12 @@ class T8N(Load):
         receipts_trie = self.fork.Trie(secured=False, default=None)
         block_logs = ()
         blob_gas_used = Uint(0)
+        if (
+            self.fork.is_after_fork("ethereum.prague")
+            and not self.options.state_test
+        ):
+            deposit_requests: Bytes = b""
+
 
         if (
             self.fork.is_after_fork("ethereum.cancun")
@@ -410,6 +410,13 @@ class T8N(Load):
                     rlp.encode(Uint(i)),
                     receipt,
                 )
+                if (
+                    self.fork.is_after_fork("ethereum.prague")
+                    and not self.options.state_test
+                ):
+                    deposit_requests += (
+                        self.fork.parse_deposit_requests_from_receipt(receipt)
+                    )
 
                 self.txs.add_receipt(tx, gas_consumed)
 
@@ -447,6 +454,29 @@ class T8N(Load):
             self.result.blob_gas_used = blob_gas_used
             self.result.excess_blob_gas = self.env.excess_blob_gas
 
+        if (
+            self.fork.is_after_fork("ethereum.prague")
+            and not self.options.state_test
+        ):
+            requests_from_execution = (
+                self.fork.process_general_purpose_requests(
+                    deposit_requests,
+                    self.alloc.state,
+                    self.env.block_hashes,
+                    self.env.coinbase,
+                    self.env.block_number,
+                    self.env.base_fee_per_gas,
+                    self.env.block_gas_limit,
+                    self.env.block_timestamp,
+                    self.env.prev_randao,
+                    self.chain_id,
+                    self.env.excess_blob_gas,
+                )
+            )
+            requests_hash = self.fork.compute_requests_hash(
+                requests_from_execution
+            )
+
         self.result.state_root = self.fork.state_root(self.alloc.state)
         self.result.tx_root = self.fork.root(transactions_trie)
         self.result.receipt_root = self.fork.root(receipts_trie)
@@ -455,6 +485,13 @@ class T8N(Load):
         self.result.rejected = self.txs.rejected_txs
         self.result.receipts = self.txs.successful_receipts
         self.result.gas_used = block_gas_used
+
+        if (
+            self.fork.is_after_fork("ethereum.prague")
+            and not self.options.state_test
+        ):
+            self.result.requests_hash = requests_hash
+            self.result.requests = requests_from_execution
 
     def run(self) -> int:
         """Run the transition and provide the relevant outputs"""
