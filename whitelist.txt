@@ -12,12 +12,14 @@ Bytes64
 Bytes8
 Bytes256
 Bytes0
+calldata
 copyreg
 copytree
 coinbase
 coincurve
 crypto
 E501
+EIP
 encodings
 endian
 eth
