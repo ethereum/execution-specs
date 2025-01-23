@@ -14,9 +14,12 @@ from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes32,
     hex_to_hash,
+    hex_to_u8,
+    hex_to_u64,
     hex_to_u256,
     hex_to_uint,
 )
+from ethereum_spec_tools.evm_tools.utils import parse_hex_or_int
 
 
 class UnsupportedTx(Exception):
@@ -85,6 +88,22 @@ class TransactionLoad:
             )
         return access_list
 
+    def json_to_authorizations(self) -> Any:
+        """Get the authorization list of the transaction."""
+        authorizations = []
+        for sublist in self.raw["authorizationList"]:
+            authorizations.append(
+                self.fork.Authorization(
+                    chain_id=hex_to_u256(sublist.get("chainId")),
+                    nonce=hex_to_u64(sublist.get("nonce")),
+                    address=self.fork.hex_to_address(sublist.get("address")),
+                    y_parity=hex_to_u8(sublist.get("v")),
+                    r=hex_to_u256(sublist.get("r")),
+                    s=hex_to_u256(sublist.get("s")),
+                )
+            )
+        return authorizations
+
     def json_to_max_priority_fee_per_gas(self) -> Uint:
         """Get the max priority fee per gas of the transaction."""
         return hex_to_uint(self.raw.get("maxPriorityFeePerGas"))
@@ -145,23 +164,29 @@ class TransactionLoad:
     def read(self) -> Any:
         """Convert json transaction data to a transaction object"""
         if "type" in self.raw:
-            tx_type = self.raw.get("type")
-            if tx_type == "0x3":
+            tx_type = parse_hex_or_int(self.raw.get("type"), Uint)
+            if tx_type == Uint(4):
+                tx_cls = self.fork.SetCodeTransaction
+                tx_byte_prefix = b"\x04"
+            elif tx_type == Uint(3):
                 tx_cls = self.fork.BlobTransaction
                 tx_byte_prefix = b"\x03"
-            elif tx_type == "0x2":
+            elif tx_type == Uint(2):
                 tx_cls = self.fork.FeeMarketTransaction
                 tx_byte_prefix = b"\x02"
-            elif tx_type == "0x1":
+            elif tx_type == Uint(1):
                 tx_cls = self.fork.AccessListTransaction
                 tx_byte_prefix = b"\x01"
-            elif tx_type == "0x0":
+            elif tx_type == Uint(0):
                 tx_cls = self.get_legacy_transaction()
                 tx_byte_prefix = b""
             else:
                 raise ValueError(f"Unknown transaction type: {tx_type}")
         else:
-            if "maxFeePerBlobGas" in self.raw:
+            if "authorizationList" in self.raw:
+                tx_cls = self.fork.SetCodeTransaction
+                tx_byte_prefix = b"\x04"
+            elif "maxFeePerBlobGas" in self.raw:
                 tx_cls = self.fork.BlobTransaction
                 tx_byte_prefix = b"\x03"
             elif "maxFeePerGas" in self.raw:

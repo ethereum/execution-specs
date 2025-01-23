@@ -14,7 +14,7 @@ A straightforward interpreter that executes EVM code.
 from dataclasses import dataclass
 from typing import Iterable, Optional, Set, Tuple, Union
 
-from ethereum_types.bytes import Bytes0
+from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.numeric import U256, Uint, ulen
 
 from ethereum.trace import (
@@ -45,6 +45,7 @@ from ..state import (
     touch_account,
 )
 from ..vm import Message
+from ..vm.eoa_delegation import set_delegation
 from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import Environment, Evm
@@ -77,6 +78,7 @@ class MessageCallOutput:
           4. `accounts_to_delete`: Contracts which have self-destructed.
           5. `touched_accounts`: Accounts that have been touched.
           6. `error`: The error from the execution if any.
+          7. `return_data`: The output of the execution.
     """
 
     gas_left: Uint
@@ -85,6 +87,7 @@ class MessageCallOutput:
     accounts_to_delete: Set[Address]
     touched_accounts: Iterable[Address]
     error: Optional[Exception]
+    return_data: Bytes
 
 
 def process_message_call(
@@ -107,17 +110,26 @@ def process_message_call(
     output : `MessageCallOutput`
         Output of the message call
     """
+    refund_counter = U256(0)
     if message.target == Bytes0(b""):
         is_collision = account_has_code_or_nonce(
             env.state, message.current_target
         ) or account_has_storage(env.state, message.current_target)
         if is_collision:
             return MessageCallOutput(
-                Uint(0), U256(0), tuple(), set(), set(), AddressCollision()
+                Uint(0),
+                U256(0),
+                tuple(),
+                set(),
+                set(),
+                AddressCollision(),
+                Bytes(b""),
             )
         else:
             evm = process_create_message(message, env)
     else:
+        if message.authorizations != ():
+            refund_counter += set_delegation(message, env)
         evm = process_message(message, env)
         if account_exists_and_is_empty(env.state, Address(message.target)):
             evm.touched_accounts.add(Address(message.target))
@@ -126,12 +138,11 @@ def process_message_call(
         logs: Tuple[Log, ...] = ()
         accounts_to_delete = set()
         touched_accounts = set()
-        refund_counter = U256(0)
     else:
         logs = evm.logs
         accounts_to_delete = evm.accounts_to_delete
         touched_accounts = evm.touched_accounts
-        refund_counter = U256(evm.refund_counter)
+        refund_counter += U256(evm.refund_counter)
 
     tx_end = TransactionEnd(
         int(message.gas) - int(evm.gas_left), evm.output, evm.error
@@ -145,6 +156,7 @@ def process_message_call(
         accounts_to_delete=accounts_to_delete,
         touched_accounts=touched_accounts,
         error=evm.error,
+        return_data=evm.output,
     )
 
 

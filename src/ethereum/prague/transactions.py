@@ -9,14 +9,14 @@ from typing import Tuple, Union
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
 from ethereum_types.frozen import slotted_freezable
-from ethereum_types.numeric import U64, U256, Uint
+from ethereum_types.numeric import U64, U256, Uint, ulen
 
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import InvalidSignatureError
 
 from .exceptions import TransactionTypeError
-from .fork_types import Address, VersionedHash
+from .fork_types import Address, Authorization, VersionedHash
 
 TX_BASE_COST = 21000
 TX_DATA_COST_PER_NON_ZERO = 16
@@ -108,11 +108,34 @@ class BlobTransaction:
     s: U256
 
 
+@slotted_freezable
+@dataclass
+class SetCodeTransaction:
+    """
+    The transaction type added in EIP-7702.
+    """
+
+    chain_id: U64
+    nonce: U64
+    max_priority_fee_per_gas: Uint
+    max_fee_per_gas: Uint
+    gas: Uint
+    to: Address
+    value: U256
+    data: Bytes
+    access_list: Tuple[Tuple[Address, Tuple[Bytes32, ...]], ...]
+    authorizations: Tuple[Authorization, ...]
+    y_parity: U256
+    r: U256
+    s: U256
+
+
 Transaction = Union[
     LegacyTransaction,
     AccessListTransaction,
     FeeMarketTransaction,
     BlobTransaction,
+    SetCodeTransaction,
 ]
 
 
@@ -128,6 +151,8 @@ def encode_transaction(tx: Transaction) -> Union[LegacyTransaction, Bytes]:
         return b"\x02" + rlp.encode(tx)
     elif isinstance(tx, BlobTransaction):
         return b"\x03" + rlp.encode(tx)
+    elif isinstance(tx, SetCodeTransaction):
+        return b"\x04" + rlp.encode(tx)
     else:
         raise Exception(f"Unable to encode transaction of type {type(tx)}")
 
@@ -143,6 +168,8 @@ def decode_transaction(tx: Union[LegacyTransaction, Bytes]) -> Transaction:
             return rlp.decode_to(FeeMarketTransaction, tx[1:])
         elif tx[0] == 3:
             return rlp.decode_to(BlobTransaction, tx[1:])
+        elif tx[0] == 4:
+            return rlp.decode_to(SetCodeTransaction, tx[1:])
         else:
             raise TransactionTypeError(tx[0])
     else:
@@ -178,7 +205,7 @@ def validate_transaction(tx: Transaction) -> bool:
 
     if calculate_intrinsic_cost(tx) > tx.gas:
         return False
-    if tx.nonce >= U256(U64.MAX_VALUE):
+    if U256(tx.nonce) >= U256(U64.MAX_VALUE):
         return False
     if tx.to == Bytes0(b"") and len(tx.data) > 2 * MAX_CODE_SIZE:
         return False
@@ -209,6 +236,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     verified : `ethereum.base_types.Uint`
         The intrinsic cost of the transaction.
     """
+    from .vm.eoa_delegation import PER_EMPTY_ACCOUNT_COST
     from .vm.gas import init_code_cost
 
     data_cost = 0
@@ -220,17 +248,23 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
             data_cost += TX_DATA_COST_PER_NON_ZERO
 
     if tx.to == Bytes0(b""):
-        create_cost = TX_CREATE_COST + int(init_code_cost(Uint(len(tx.data))))
+        create_cost = TX_CREATE_COST + init_code_cost(ulen(tx.data))
     else:
-        create_cost = 0
+        create_cost = Uint(0)
 
-    access_list_cost = 0
+    access_list_cost = Uint(0)
     if isinstance(
-        tx, (AccessListTransaction, FeeMarketTransaction, BlobTransaction)
+        tx,
+        (
+            AccessListTransaction,
+            FeeMarketTransaction,
+            BlobTransaction,
+            SetCodeTransaction,
+        ),
     ):
         for _address, keys in tx.access_list:
             access_list_cost += TX_ACCESS_LIST_ADDRESS_COST
-            access_list_cost += len(keys) * TX_ACCESS_LIST_STORAGE_KEY_COST
+            access_list_cost += ulen(keys) * TX_ACCESS_LIST_STORAGE_KEY_COST
 
     return Uint(TX_BASE_COST + data_cost + create_cost + access_list_cost)
 
@@ -290,6 +324,10 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
     elif isinstance(tx, BlobTransaction):
         public_key = secp256k1_recover(
             r, s, tx.y_parity, signing_hash_4844(tx)
+        )
+    elif isinstance(tx, SetCodeTransaction):
+        public_key = secp256k1_recover(
+            r, s, tx.y_parity, signing_hash_7702(tx)
         )
 
     return Address(keccak256(public_key)[12:32])
@@ -448,6 +486,39 @@ def signing_hash_4844(tx: BlobTransaction) -> Hash32:
                 tx.access_list,
                 tx.max_fee_per_blob_gas,
                 tx.blob_versioned_hashes,
+            )
+        )
+    )
+
+
+def signing_hash_7702(tx: SetCodeTransaction) -> Hash32:
+    """
+    Compute the hash of a transaction used in a EIP-7702 signature.
+
+    Parameters
+    ----------
+    tx :
+        Transaction of interest.
+
+    Returns
+    -------
+    hash : `ethereum.crypto.hash.Hash32`
+        Hash of the transaction.
+    """
+    return keccak256(
+        b"\x04"
+        + rlp.encode(
+            (
+                tx.chain_id,
+                tx.nonce,
+                tx.max_priority_fee_per_gas,
+                tx.max_fee_per_gas,
+                tx.gas,
+                tx.to,
+                tx.value,
+                tx.data,
+                tx.access_list,
+                tx.authorizations,
             )
         )
     )

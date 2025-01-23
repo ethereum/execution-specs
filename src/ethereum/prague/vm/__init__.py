@@ -22,7 +22,7 @@ from ethereum_types.numeric import U64, U256, Uint
 from ethereum.crypto.hash import Hash32
 
 from ..blocks import Log
-from ..fork_types import Address, VersionedHash
+from ..fork_types import Address, Authorization, VersionedHash
 from ..state import State, TransientStorage, account_exists_and_is_empty
 from .precompiled_contracts import RIPEMD160_ADDRESS
 
@@ -73,6 +73,7 @@ class Message:
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     parent_evm: Optional["Evm"]
+    authorizations: Tuple[Authorization, ...]
 
 
 @dataclass

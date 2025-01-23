@@ -11,13 +11,21 @@ chain.
 from dataclasses import dataclass
 from typing import Tuple, Union
 
+from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint
 
 from ..crypto.hash import Hash32
 from .fork_types import Address, Bloom, Root
-from .transactions import LegacyTransaction
+from .transactions import (
+    AccessListTransaction,
+    BlobTransaction,
+    FeeMarketTransaction,
+    LegacyTransaction,
+    SetCodeTransaction,
+    Transaction,
+)
 
 
 @slotted_freezable
@@ -98,3 +106,30 @@ class Receipt:
     cumulative_gas_used: Uint
     bloom: Bloom
     logs: Tuple[Log, ...]
+
+
+def encode_receipt(tx: Transaction, receipt: Receipt) -> Union[Bytes, Receipt]:
+    """
+    Encodes a receipt.
+    """
+    if isinstance(tx, AccessListTransaction):
+        return b"\x01" + rlp.encode(receipt)
+    elif isinstance(tx, FeeMarketTransaction):
+        return b"\x02" + rlp.encode(receipt)
+    elif isinstance(tx, BlobTransaction):
+        return b"\x03" + rlp.encode(receipt)
+    elif isinstance(tx, SetCodeTransaction):
+        return b"\x04" + rlp.encode(receipt)
+    else:
+        return receipt
+
+
+def decode_receipt(receipt: Union[Bytes, Receipt]) -> Receipt:
+    """
+    Decodes a receipt.
+    """
+    if isinstance(receipt, Bytes):
+        assert receipt[0] in (1, 2, 3, 4)
+        return rlp.decode_to(Receipt, receipt[1:])
+    else:
+        return receipt
