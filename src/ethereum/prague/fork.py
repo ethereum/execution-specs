@@ -46,15 +46,12 @@ from .state import (
     state_root,
 )
 from .transactions import (
-    FLOOR_CALLDATA_COST,
-    TX_BASE_COST,
     AccessListTransaction,
     BlobTransaction,
     FeeMarketTransaction,
     LegacyTransaction,
     SetCodeTransaction,
     Transaction,
-    calculate_intrinsic_cost,
     decode_transaction,
     encode_transaction,
     recover_sender,
@@ -955,8 +952,7 @@ def process_transaction(
     logs : `Tuple[ethereum.blocks.Log, ...]`
         Logs generated during execution.
     """
-    if not validate_transaction(tx):
-        raise InvalidBlock
+    intrinsic_gas, calldata_floor_gas_cost = validate_transaction(tx)
 
     sender = env.origin
     sender_account = get_account(env.state, sender)
@@ -967,8 +963,6 @@ def process_transaction(
         blob_gas_fee = Uint(0)
 
     effective_gas_fee = tx.gas * env.gas_price
-
-    intrinsic_gas, tokens_in_calldata = calculate_intrinsic_cost(tx)
 
     gas = tx.gas - intrinsic_gas
     increment_nonce(env.state, sender)
@@ -1021,13 +1015,9 @@ def process_transaction(
     )
     execution_gas_used -= gas_refund
 
-    # EIP-7623 floor price (note: no EVM costs)
-    floor_gas_cost = Uint(
-        tokens_in_calldata * FLOOR_CALLDATA_COST + TX_BASE_COST
-    )
     # Transactions with less execution_gas_used than the floor pay at the
     # floor cost.
-    total_gas_used = max(execution_gas_used, floor_gas_cost)
+    total_gas_used = max(execution_gas_used, calldata_floor_gas_cost)
 
     output.gas_left = tx.gas - total_gas_used
     gas_refund_amount = output.gas_left * env.gas_price
