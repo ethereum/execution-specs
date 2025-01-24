@@ -179,6 +179,59 @@ def test_eof_validity(
     "container",
     [
         Container(
+            name="imm0",
+            sections=[
+                Section.Code(
+                    code=Op.CALLF,
+                )
+            ],
+            validity_error=EOFException.TRUNCATED_INSTRUCTION,
+        ),
+        Container(
+            name="imm1",
+            sections=[
+                Section.Code(
+                    code=Op.CALLF + Op.STOP,
+                )
+            ],
+            validity_error=EOFException.TRUNCATED_INSTRUCTION,
+        ),
+        Container(
+            name="imm_from_next_section",
+            sections=[
+                Section.Code(
+                    code=Op.PUSH0 + Op.PUSH0 + Op.CALLF[1] + Op.STOP,
+                ),
+                Section.Code(
+                    code=Op.CALLF + Op.STOP,  # would be valid with "02" + Op.RETF.
+                    code_inputs=2,
+                    code_outputs=1,
+                    max_stack_height=2,
+                ),
+                Section.Code(
+                    code=Op.SUB + Op.RETF,  # SUB (0x02) can be confused with CALLF[2].
+                    code_inputs=2,
+                    code_outputs=1,
+                    max_stack_height=2,
+                ),
+            ],
+            validity_error=EOFException.TRUNCATED_INSTRUCTION,
+        ),
+    ],
+    ids=container_name,
+)
+def test_callf_truncated_immediate(
+    eof_test: EOFTestFiller,
+    container: Container,
+):
+    """Test cases for CALLF instructions with truncated immediate bytes."""
+    eof_test(data=container, expect_exception=EOFException.TRUNCATED_INSTRUCTION)
+
+
+@pytest.mark.parametrize(
+    "container",
+    [
+        Container(
             name="callf1",  # EOF1I4750_0010
             sections=[
                 Section.Code(
