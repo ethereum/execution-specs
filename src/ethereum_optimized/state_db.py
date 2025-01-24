@@ -345,7 +345,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
 
     @add_item(patches)
     def get_storage_original(
-        state: State, address: Address, key: Bytes
+        state: State, address: Address, key: Bytes32
     ) -> U256:
         """
         See `state`.
