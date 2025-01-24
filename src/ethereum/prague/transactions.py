@@ -13,7 +13,7 @@ from ethereum_types.numeric import U64, U256, Uint, ulen
 
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.exceptions import InvalidSignatureError
+from ethereum.exceptions import InvalidBlock, InvalidSignatureError
 
 from .exceptions import TransactionTypeError
 from .fork_types import Address, Authorization, VersionedHash
@@ -176,7 +176,7 @@ def decode_transaction(tx: Union[LegacyTransaction, Bytes]) -> Transaction:
         return tx
 
 
-def validate_transaction(tx: Transaction) -> bool:
+def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
     """
     Verifies a transaction.
 
@@ -198,21 +198,28 @@ def validate_transaction(tx: Transaction) -> bool:
 
     Returns
     -------
-    verified : `bool`
-        True if the transaction can be executed, or False otherwise.
+    intrinsic_gas : `ethereum.base_types.Uint`
+        The intrinsic cost of the transaction.
+    calldata_floor_gas_cost : `ethereum.base_types.Uint`
+        The eip-7623 minimum gas cost charged to the transaction
+        based on the calldata size.
+
+    Raises
+    ------
+    InvalidBlock :
+        If the transaction is not valid.
     """
     from .vm.interpreter import MAX_CODE_SIZE
 
-    intrinsic_gas, tokens_in_calldata = calculate_intrinsic_cost(tx)
-    gas_floor = Uint(tokens_in_calldata * FLOOR_CALLDATA_COST + TX_BASE_COST)
-    if max(intrinsic_gas, gas_floor) > tx.gas:
-        return False
+    intrinsic_gas, calldata_floor_gas_cost = calculate_intrinsic_cost(tx)
+    if max(intrinsic_gas, calldata_floor_gas_cost) > tx.gas:
+        raise InvalidBlock
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
-        return False
+        raise InvalidBlock
     if tx.to == Bytes0(b"") and len(tx.data) > 2 * MAX_CODE_SIZE:
-        return False
+        raise InvalidBlock
 
-    return True
+    return intrinsic_gas, calldata_floor_gas_cost
 
 
 def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
@@ -235,10 +242,11 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
 
     Returns
     -------
-    verified : `ethereum.base_types.Uint`
+    intrinsic_gas : `ethereum.base_types.Uint`
         The intrinsic cost of the transaction.
-    tokens_in_calldata : `ethereum.base_types.Uint`
-        The eip-7623 calldata tokens used by the transaction.
+    calldata_floor_gas_cost : `ethereum.base_types.Uint`
+        The eip-7623 minimum gas cost used by the transaction
+        based on the calldata size.
     """
     from .vm.eoa_delegation import PER_EMPTY_ACCOUNT_COST
     from .vm.gas import init_code_cost
@@ -248,9 +256,13 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
         if byte == 0:
             zero_bytes += 1
 
-    tokens_in_calldata = zero_bytes + (len(tx.data) - zero_bytes) * 4
+    tokens_in_calldata = Uint(zero_bytes + (len(tx.data) - zero_bytes) * 4)
+    # EIP-7623 floor price (note: no EVM costs)
+    calldata_floor_gas_cost = (
+        tokens_in_calldata * FLOOR_CALLDATA_COST + TX_BASE_COST
+    )
 
-    data_cost = Uint(tokens_in_calldata) * STANDARD_CALLDATA_TOKEN_COST
+    data_cost = tokens_in_calldata * STANDARD_CALLDATA_TOKEN_COST
 
     if tx.to == Bytes0(b""):
         create_cost = TX_CREATE_COST + init_code_cost(ulen(tx.data))
@@ -283,7 +295,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
             + access_list_cost
             + auth_cost
         ),
-        Uint(tokens_in_calldata),
+        calldata_floor_gas_cost,
     )
 
 
