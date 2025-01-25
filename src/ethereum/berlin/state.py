@@ -19,7 +19,7 @@ There is a distinction between an account that does not exist and
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
-from ethereum_types.bytes import Bytes
+from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import modify
 from ethereum_types.numeric import U256, Uint
 
@@ -36,12 +36,13 @@ class State:
     _main_trie: Trie[Address, Optional[Account]] = field(
         default_factory=lambda: Trie(secured=True, default=None)
     )
-    _storage_tries: Dict[Address, Trie[Bytes, U256]] = field(
+    _storage_tries: Dict[Address, Trie[Bytes32, U256]] = field(
         default_factory=dict
     )
     _snapshots: List[
         Tuple[
-            Trie[Address, Optional[Account]], Dict[Address, Trie[Bytes, U256]]
+            Trie[Address, Optional[Account]],
+            Dict[Address, Trie[Bytes32, U256]],
         ]
     ] = field(default_factory=list)
     created_accounts: Set[Address] = field(default_factory=set)
@@ -228,7 +229,7 @@ def mark_account_created(state: State, address: Address) -> None:
     state.created_accounts.add(address)
 
 
-def get_storage(state: State, address: Address, key: Bytes) -> U256:
+def get_storage(state: State, address: Address, key: Bytes32) -> U256:
     """
     Get a value at a storage key on an account. Returns `U256(0)` if the
     storage key has not been set previously.
@@ -258,7 +259,7 @@ def get_storage(state: State, address: Address, key: Bytes) -> U256:
 
 
 def set_storage(
-    state: State, address: Address, key: Bytes, value: U256
+    state: State, address: Address, key: Bytes32, value: U256
 ) -> None:
     """
     Set a value at a storage key on an account. Setting to `U256(0)` deletes
@@ -599,7 +600,7 @@ def create_ether(state: State, address: Address, amount: U256) -> None:
     modify_state(state, address, increase_balance)
 
 
-def get_storage_original(state: State, address: Address, key: Bytes) -> U256:
+def get_storage_original(state: State, address: Address, key: Bytes32) -> U256:
     """
     Get the original value in a storage slot i.e. the value before the current
     transaction began. This function reads the value from the snapshots taken

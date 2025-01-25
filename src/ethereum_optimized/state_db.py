@@ -26,7 +26,7 @@ except ImportError as e:
         "package"
     )
 
-from ethereum_types.bytes import Bytes, Bytes20
+from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.crypto.hash import Hash32
@@ -76,7 +76,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
 
         db: Any
         dirty_accounts: Dict[Address, Optional[Account_]]
-        dirty_storage: Dict[Address, Dict[Bytes, U256]]
+        dirty_storage: Dict[Address, Dict[Bytes32, U256]]
         destroyed_accounts: Set[Address]
         tx_restore_points: List[int]
         journal: List[Any]
@@ -328,7 +328,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
             _rollback_transaction(state)
 
     @add_item(patches)
-    def get_storage(state: State, address: Address, key: Bytes) -> U256:
+    def get_storage(state: State, address: Address, key: Bytes32) -> U256:
         """
         See `state`.
         """
@@ -345,7 +345,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
 
     @add_item(patches)
     def get_storage_original(
-        state: State, address: Address, key: Bytes
+        state: State, address: Address, key: Bytes32
     ) -> U256:
         """
         See `state`.
@@ -357,7 +357,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
 
     @add_item(patches)
     def set_storage(
-        state: State, address: Address, key: Bytes, value: U256
+        state: State, address: Address, key: Bytes32, value: U256
     ) -> None:
         """
         See `state`.
