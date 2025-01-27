@@ -7,7 +7,7 @@ Each `engine_newPayloadVX` is verified against the appropriate VALID/INVALID res
 
 from ethereum_test_fixtures import BlockchainEngineFixture
 from ethereum_test_rpc import EngineRPC, EthRPC
-from ethereum_test_rpc.types import ForkchoiceState, PayloadStatusEnum
+from ethereum_test_rpc.types import ForkchoiceState, JSONRPCError, PayloadStatusEnum
 from pytest_plugins.consume.hive_simulators.exceptions import GenesisBlockMismatchExceptionError
 
 from ...decorator import fixture_format
@@ -52,13 +52,24 @@ def test_via_engine(
         for i, payload in enumerate(blockchain_fixture.payloads):
             with total_payload_timing.time(f"Payload {i + 1}") as payload_timing:
                 with payload_timing.time(f"engine_newPayloadV{payload.new_payload_version}"):
-                    payload_response = engine_rpc.new_payload(
-                        *payload.params,
-                        version=payload.new_payload_version,
-                    )
-                    assert payload_response.status == (
-                        PayloadStatusEnum.VALID if payload.valid() else PayloadStatusEnum.INVALID
-                    ), f"unexpected status: {payload_response}"
+                    try:
+                        payload_response = engine_rpc.new_payload(
+                            *payload.params,
+                            version=payload.new_payload_version,
+                        )
+                        assert payload_response.status == (
+                            PayloadStatusEnum.VALID
+                            if payload.valid()
+                            else PayloadStatusEnum.INVALID
+                        ), f"unexpected status: {payload_response}"
+                    except JSONRPCError as e:
+                        if payload.error_code is None:
+                            raise Exception(f"unexpected error: {e.code} - {e.message}") from e
+                        if e.code != payload.error_code:
+                            raise Exception(
+                                f"unexpected error code: {e.code}, expected: {payload.error_code}"
+                            ) from e
+
                 if payload.valid():
                     with payload_timing.time(
                         f"engine_forkchoiceUpdatedV{payload.forkchoice_updated_version}"

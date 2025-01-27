@@ -10,21 +10,20 @@ from ethereum_test_fixtures.blockchain import FixtureExecutionPayload
 from ethereum_test_types import Withdrawal
 
 
-class JSONRPCError(CamelModel):
+class JSONRPCError(Exception):
     """Model to parse a JSON RPC error response."""
 
     code: int
     message: str
 
+    def __init__(self, code: int | str, message: str, **kwargs):
+        """Initialize the JSONRPCError."""
+        self.code = int(code)
+        self.message = message
+
     def __str__(self) -> str:
         """Return string representation of the JSONRPCError."""
         return f"JSONRPCError(code={self.code}, message={self.message})"
-
-    def exception(self, method) -> Exception:
-        """Return exception representation of the JSONRPCError."""
-        return Exception(
-            f"Error calling JSON RPC {method}, code: {self.code}, " f"message: {self.message}"
-        )
 
 
 class TransactionByHashResponse(CamelModel):

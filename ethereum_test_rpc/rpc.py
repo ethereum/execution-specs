@@ -82,8 +82,7 @@ class BaseRPC:
         response_json = response.json()
 
         if "error" in response_json:
-            exception = JSONRPCError(**response_json["error"])
-            raise exception.exception(method)
+            raise JSONRPCError(**response_json["error"])
 
         assert "result" in response_json, "RPC response didn't contain a result field"
         result = response_json["result"]
