@@ -754,6 +754,10 @@ class EOFException(ExceptionBase):
     """
     Header parsing encounterd a section kind it wasn't expecting
     """
+    CALLF_TO_NON_RETURNING = auto()
+    """
+    CALLF instruction targeting a non-returning code section
+    """
 
 
 """

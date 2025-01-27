@@ -184,4 +184,7 @@ class EvmoneExceptionMapper(ExceptionMapper):
             ExceptionMessage(
                 EOFException.INVALID_CODE_SECTION_INDEX, "err: invalid_code_section_index"
             ),
+            ExceptionMessage(
+                EOFException.CALLF_TO_NON_RETURNING, "err: callf_to_non_returning_function"
+            ),
         ]
