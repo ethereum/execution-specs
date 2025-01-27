@@ -354,7 +354,7 @@
 ### Validation
 
 - [ ] Valid DATALOADN with various offsets (ethereum/tests: src/EOFTestsFiller/efValidation/dataloadn_Copier.json)
-- [ ] Truncated DATALOADN immediate (ethereum/tests: ./src/EOFTestsFiller/efValidation/EOF1_dataloadn_truncated_Copier.json)
+- [x] Truncated DATALOADN immediate ([`tests/osaka/eip7692_eof_v1/eip7480_data_section/test_code_validation.py::test_dataloadn_truncated_immediate`](./eip7480_data_section/test_code_validation/test_dataloadn_truncated_immediate.md)
 - [ ] DATALOADN offset out of bounds (ethereum/tests: src/EOFTestsFiller/efValidation/dataloadn_Copier.json)
 - [ ] DATALOADN accessing not full word (ethereum/tests: src/EOFTestsFiller/efValidation/dataloadn_Copier.json)
 

@@ -177,3 +177,48 @@ def test_legacy_initcode_invalid_eof_v1_contract(
         data=container,
         expect_exception=container.validity_error,
     )
+
+
+@pytest.mark.parametrize(
+    "container",
+    [
+        Container(
+            name="imm0",
+            sections=[
+                Section.Code(Op.DATALOADN),
+                Section.Data(b"\xff" * 32),
+            ],
+        ),
+        Container(
+            name="imm1",
+            sections=[
+                Section.Code(Op.DATALOADN + Op.STOP),
+                Section.Data(b"\xff" * 32),
+            ],
+        ),
+        Container(
+            name="imm_from_next_section",
+            sections=[
+                Section.Code(
+                    Op.CALLF[1] + Op.JUMPF[2],
+                    max_stack_height=1,
+                ),
+                Section.Code(
+                    Op.DATALOADN + Op.STOP,
+                    code_outputs=1,
+                ),
+                Section.Code(
+                    Op.STOP,
+                ),
+                Section.Data(b"\xff" * 32),
+            ],
+        ),
+    ],
+    ids=container_name,
+)
+def test_dataloadn_truncated_immediate(
+    eof_test: EOFTestFiller,
+    container: Container,
+):
+    """Test cases for DATALOADN instructions with truncated immediate bytes."""
+    eof_test(data=container, expect_exception=EOFException.TRUNCATED_INSTRUCTION)

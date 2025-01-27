@@ -185,7 +185,6 @@ def test_eof_validity(
                     code=Op.CALLF,
                 )
             ],
-            validity_error=EOFException.TRUNCATED_INSTRUCTION,
         ),
         Container(
             name="imm1",
@@ -194,7 +193,6 @@ def test_eof_validity(
                     code=Op.CALLF + Op.STOP,
                 )
             ],
-            validity_error=EOFException.TRUNCATED_INSTRUCTION,
         ),
         Container(
             name="imm_from_next_section",
@@ -215,7 +213,6 @@ def test_eof_validity(
                     max_stack_height=2,
                 ),
             ],
-            validity_error=EOFException.TRUNCATED_INSTRUCTION,
         ),
     ],
     ids=container_name,
