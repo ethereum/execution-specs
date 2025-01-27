@@ -412,3 +412,22 @@ def test_opcode_comparison():
     assert Op.ADD == Op.ADD
     assert Op.ADD != Op.STOP
     assert Op.ADD > Op.STOP
+
+
+def test_bytecode_concatenation_with_bytes():
+    """
+    Test that the bytecode can be concatenated with bytes.
+    Bytes work as verbatim code and don't affect the bytecode properties.
+    """
+    base = Op.PUSH1[0xFF] + Op.NOT
+    assert str(base) == ""
+
+    code = base + b"\x01\x02"
+    assert code == bytes([0x60, 0xFF, 0x19, 0x01, 0x02])
+
+    assert str(code) == ""
+    assert code.popped_stack_items == code.popped_stack_items
+    assert code.pushed_stack_items == code.pushed_stack_items
+    assert code.max_stack_height == code.max_stack_height
+    assert code.min_stack_height == code.min_stack_height
+    assert code.terminating == code.terminating
