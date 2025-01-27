@@ -158,6 +158,39 @@ def test_callf_fibonacci(eof_state_test: EOFStateTestFiller, n, result):
                 ),
             ],
         ),
+        Container(
+            name="multiple_sections_of_different_types",  # EOF1V4750_0005
+            sections=[
+                Section.Code(
+                    Op.PUSH0
+                    + Op.CALLF[1]
+                    + Op.CALLF[2]
+                    + Op.PUSH0
+                    + Op.CALLF[3]
+                    + Op.SSTORE
+                    + Op.STOP,
+                    max_stack_height=4,
+                ),
+                Section.Code(
+                    Op.POP + Op.RETF,
+                    code_inputs=1,
+                    code_outputs=0,
+                    max_stack_height=1,
+                ),
+                Section.Code(
+                    Op.PUSH2[value_code_worked] + Op.RETF,
+                    code_inputs=0,
+                    code_outputs=1,
+                    max_stack_height=1,
+                ),
+                Section.Code(
+                    Op.DUP2 + Op.PUSH2[slot_code_worked] + Op.RETF,
+                    code_inputs=2,
+                    code_outputs=4,
+                    max_stack_height=4,
+                ),
+            ],
+        ),
     ),
     ids=lambda x: x.name,
 )
