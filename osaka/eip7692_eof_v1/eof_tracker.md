@@ -334,7 +334,7 @@
 
 - [x] Zero section returning ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_nonreturning_validation.py::test_first_section_returning`](./eip6206_jumpf/test_nonreturning_validation/test_first_section_returning.md), ethereum/tests: ./src/EOFTestsFiller/efExample/validInvalidFiller.yml src/EOFTestsFiller/EIP4750/validInvalidFiller.yml)
 - [x] Zero section declared non-returning but ends with RETF ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_nonreturning_validation.py::test_retf_in_nonreturning`](./eip6206_jumpf/test_nonreturning_validation/test_retf_in_nonreturning.md), ethereum/tests: src/EOFTestsFiller/EIP4750/validInvalidFiller.yml)
-- [ ] CALLF into non-returning function (ethereum/tests: src/EOFTestsFiller/efValidation/callf_into_nonreturning_Copier.json)
+- [x] CALLF into non-returning function ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_nonreturning_validation.py::test_callf_to_nonreturning`](./eip6206_jumpf/test_nonreturning_validation/test_callf_to_nonreturning.md))
 - [ ] Valid JUMPF into sections with equal number of outputs (ethereum/tests: src/EOFTestsFiller/efValidation/jumpf_equal_outputs_Copier.json)
 - [ ] Valid JUMPF into sections with different but compatible number of outputs (ethereum/tests: src/EOFTestsFiller/efValidation/jumpf_compatible_outputs_Copier.json)
 - [ ] JUMPF into sections with incompatible outputs (ethereum/tests: src/EOFTestsFiller/efValidation/jumpf_incompatible_outputs_Copier.json)

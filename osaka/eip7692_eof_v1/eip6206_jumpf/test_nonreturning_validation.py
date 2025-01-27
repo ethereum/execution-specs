@@ -138,3 +138,71 @@ def test_jumpf_in_nonreturning(eof_test: EOFTestFiller, first: bool, code_prefix
             validity_error=EOFException.INVALID_NON_RETURNING_FLAG,
         )
     )
+
+
+@pytest.mark.parametrize(
+    "container",
+    [
+        Container(
+            name="0_to_1",
+            sections=[
+                Section.Code(
+                    Op.CALLF[1],
+                ),
+                Section.Code(
+                    Op.STOP,
+                ),
+            ],
+        ),
+        Container(
+            name="self_0",
+            sections=[
+                Section.Code(
+                    Op.CALLF[0] + Op.STOP,
+                )
+            ],
+        ),
+        Container(
+            name="self_1",
+            sections=[
+                Section.Code(
+                    Op.JUMPF[1],
+                ),
+                Section.Code(
+                    Op.CALLF[1] + Op.STOP,
+                ),
+            ],
+        ),
+        Container(
+            name="1_to_0",
+            sections=[
+                Section.Code(
+                    Op.CALLF[1] + Op.STOP,
+                ),
+                Section.Code(
+                    Op.CALLF[0] + Op.RETF,
+                    code_outputs=0,
+                ),
+            ],
+        ),
+        Container(
+            name="1_to_2",
+            sections=[
+                Section.Code(
+                    Op.CALLF[1] + Op.STOP,
+                ),
+                Section.Code(
+                    Op.CALLF[2] + Op.RETF,
+                    code_outputs=0,
+                ),
+                Section.Code(
+                    Op.INVALID,
+                ),
+            ],
+        ),
+    ],
+    ids=lambda x: x.name,
+)
+def test_callf_to_nonreturning(eof_test: EOFTestFiller, container: Container):
+    """Test EOF validation failing due to CALLF to non-returning section."""
+    eof_test(data=container, expect_exception=EOFException.CALLF_TO_NON_RETURNING)
