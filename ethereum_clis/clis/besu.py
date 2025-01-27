@@ -259,7 +259,7 @@ class BesuExceptionMapper(ExceptionMapper):
             ),
             ExceptionMessage(
                 TransactionException.INITCODE_SIZE_EXCEEDED,
-                "max initcode size exceeded",
+                "exceeds maximum size",
             ),
             # TODO EVMONE needs to differentiate when the section is missing in the header or body
             ExceptionMessage(EOFException.MISSING_STOP_OPCODE, "err: no_terminating_instruction"),
