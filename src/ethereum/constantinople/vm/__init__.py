@@ -20,6 +20,7 @@ from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.crypto.hash import Hash32
+from ethereum.exceptions import EthereumException
 
 from ..blocks import Log
 from ..fork_types import Address
@@ -87,7 +88,7 @@ class Evm:
     accounts_to_delete: Set[Address]
     touched_accounts: Set[Address]
     return_data: Bytes
-    error: Optional[Exception]
+    error: Optional[EthereumException]
 
 
 def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:

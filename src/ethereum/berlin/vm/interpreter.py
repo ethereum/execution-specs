@@ -11,8 +11,9 @@ Introduction
 
 A straightforward interpreter that executes EVM code.
 """
+
 from dataclasses import dataclass
-from typing import Iterable, Optional, Set, Tuple
+from typing import Optional, Set, Tuple
 
 from ethereum_types.bytes import Bytes0
 from ethereum_types.numeric import U256, Uint, ulen
@@ -50,6 +51,7 @@ from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import Environment, Evm
 from .exceptions import (
     AddressCollision,
+    EthereumException,
     ExceptionalHalt,
     InvalidOpcode,
     OutOfGasError,
@@ -82,8 +84,8 @@ class MessageCallOutput:
     refund_counter: U256
     logs: Tuple[Log, ...]
     accounts_to_delete: Set[Address]
-    touched_accounts: Iterable[Address]
-    error: Optional[Exception]
+    touched_accounts: Set[Address]
+    error: Optional[EthereumException]
 
 
 def process_message_call(

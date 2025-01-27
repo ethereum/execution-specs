@@ -16,8 +16,9 @@ It consists of a main account trie and storage tries for each contract.
 There is a distinction between an account that does not exist and
 `EMPTY_ACCOUNT`.
 """
+
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Callable, Dict, List, Optional, Set, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import modify
@@ -719,7 +720,7 @@ def set_transient_storage(
 
 
 def destroy_touched_empty_accounts(
-    state: State, touched_accounts: Iterable[Address]
+    state: State, touched_accounts: Set[Address]
 ) -> None:
     """
     Destroy all touched accounts that are empty.
@@ -727,7 +728,7 @@ def destroy_touched_empty_accounts(
     ----------
     state: `State`
         The current state.
-    touched_accounts: `Iterable[Address]`
+    touched_accounts: `Set[Address]`
         All the accounts that have been touched in the current transaction.
     """
     for address in touched_accounts:

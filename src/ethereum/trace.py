@@ -20,6 +20,8 @@ import enum
 from dataclasses import dataclass
 from typing import Optional, Protocol, Union
 
+from ethereum.exceptions import EthereumException
+
 
 @dataclass
 class TransactionStart:
@@ -44,7 +46,7 @@ class TransactionEnd:
     Return value or revert reason of the outermost frame of execution.
     """
 
-    error: Optional[Exception]
+    error: Optional[EthereumException]
     """
     The exception, if any, that caused the transaction to fail.
 
