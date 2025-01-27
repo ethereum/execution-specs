@@ -20,7 +20,7 @@ Ethereum achieves a consistent block time due to its' difficulty retargeting alg
 
 The primary problem with the Ice Age is that it is included in the complex mechanism that targets block times, which is an entirely separate in purpose. What is worse is due to being intwined with that algorithm, it is very difficult to simulate or predict its effect on the network. To predict the impact of the ice age, you must both make assumptions about the difficulty of main-net in the future, and predict the effect of changes in difficulty to the impact on the ice age and thus block-times.
 
-This fork will push back the Iceage as far as far as is reasonable and will give us time to update the Iceage to no longer have these design problems. There are two solutions to consider within that time frame.
+This fork will push back the Iceage as far as is reasonable and will give us time to update the Iceage to no longer have these design problems. There are two solutions to consider within that time frame.
 
  - Update the mechanism so that behavior is predictable.
  - Remove the Iceage entirely
