@@ -116,7 +116,7 @@ def test_rjump_truncated_rjump_2(
 ):
     """EOF1I4200_0002 (Invalid) EOF code containing truncated RJUMP."""
     eof_test(
-        data=Container.Code(Op.RJUMP + Op.STOP),
+        data=Container.Code(Op.RJUMP + b"\x00"),
         expect_exception=EOFException.TRUNCATED_INSTRUCTION,
     )
 

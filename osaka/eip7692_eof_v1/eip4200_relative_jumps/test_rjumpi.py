@@ -300,7 +300,7 @@ def test_rjumpi_truncated_2(
         data=Container(
             sections=[
                 Section.Code(
-                    code=Op.PUSH1(0) + Op.RJUMPI + Op.STOP,
+                    code=Op.PUSH1(0) + Op.RJUMPI + b"\x00",
                 )
             ],
         ),
