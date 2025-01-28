@@ -18,6 +18,7 @@ from typing import Optional, Set, Tuple
 from ethereum_types.bytes import Bytes0
 from ethereum_types.numeric import U256, Uint, ulen
 
+from ethereum.exceptions import EthereumException
 from ethereum.trace import (
     EvmStop,
     OpEnd,
@@ -51,7 +52,6 @@ from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import Environment, Evm
 from .exceptions import (
     AddressCollision,
-    EthereumException,
     ExceptionalHalt,
     InvalidContractPrefix,
     InvalidOpcode,
