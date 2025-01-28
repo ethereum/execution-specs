@@ -44,9 +44,7 @@ def handle_fill_command_flags(fill_args: List[str]) -> List[str]:
 def fill(pytest_args: List[str], **kwargs) -> None:
     """Entry point for the fill command."""
     result = pytest.main(
-        handle_fill_command_flags(
-            ["--index", *pytest_args],
-        ),
+        handle_fill_command_flags(list(pytest_args)),
     )
     sys.exit(result)
 
@@ -59,9 +57,7 @@ def fill(pytest_args: List[str], **kwargs) -> None:
 @common_click_options
 def phil(pytest_args: List[str], **kwargs) -> None:
     """Friendly alias for the fill command."""
-    args = handle_fill_command_flags(
-        ["--index", *pytest_args],
-    )
+    args = handle_fill_command_flags(list(pytest_args))
     result = pytest.main(
         args
         + [

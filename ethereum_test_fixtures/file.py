@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Annotated, Any, Dict, Optional
 
+from filelock import FileLock
 from pydantic import Discriminator, Tag
 
 from ethereum_test_base_types import EthereumTestRootModel
@@ -65,10 +66,16 @@ class BaseFixturesRootModel(EthereumTestRootModel):
         add the hash to the info field on per-fixture basis.
         """
         json_fixtures: Dict[str, Dict[str, Any]] = {}
-        for name, fixture in self.items():
-            json_fixtures[name] = fixture.json_dict_with_info()
-        with open(file_path, "w") as f:
-            json.dump(json_fixtures, f, indent=4)
+        lock_file_path = file_path.with_suffix(".lock")
+        with FileLock(lock_file_path):
+            if file_path.exists():
+                with open(file_path, "r") as f:
+                    json_fixtures = json.load(f)
+            for name, fixture in self.items():
+                json_fixtures[name] = fixture.json_dict_with_info()
+
+            with open(file_path, "w") as f:
+                json.dump(dict(sorted(json_fixtures.items())), f, indent=4)
 
     @classmethod
     def from_file(

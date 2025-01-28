@@ -15,8 +15,8 @@ from pathlib import Path
 from typing import Any, Dict, Generator, List, Type
 
 import pytest
+import xdist
 from _pytest.terminal import TerminalReporter
-from filelock import FileLock
 from pytest_metadata.plugin import metadata_key  # type: ignore
 
 from cli.gen_index import generate_fixtures_index
@@ -164,11 +164,11 @@ def pytest_addoption(parser: pytest.Parser):
         help="Specify a build name for the fixtures.ini file, e.g., 'stable'.",
     )
     test_group.addoption(
-        "--index",
-        action="store_true",
+        "--skip-index",
+        action="store_false",
         dest="generate_index",
-        default=False,
-        help="Generate an index file for all produced fixtures.",
+        default=True,
+        help="Skip generating an index file for all produced fixtures.",
     )
 
     debug_group = parser.getgroup("debug", "Arguments defining debug behavior")
@@ -532,27 +532,6 @@ def create_properties_file(
         config.write(f)
 
 
-@pytest.fixture(scope="session", autouse=True)
-def create_tarball(
-    request: pytest.FixtureRequest, output_dir: Path, is_output_tarball: bool
-) -> Generator[None, None, None]:
-    """
-    Create a tarball of json files the output directory if the configured
-    output ends with '.tar.gz'.
-
-    Only include .json and .ini files in the archive.
-    """
-    yield
-    if is_output_tarball:
-        source_dir = output_dir
-        tarball_filename = request.config.getoption("output")
-        with tarfile.open(tarball_filename, "w:gz") as tar:
-            for file in source_dir.rglob("*"):
-                if file.suffix in {".json", ".ini"}:
-                    arcname = Path("fixtures") / file.relative_to(source_dir)
-                    tar.add(file, arcname=arcname)
-
-
 @pytest.fixture(scope="function")
 def dump_dir_parameter_level(
     request: pytest.FixtureRequest, base_dump_dir: Path | None, filler_path: Path
@@ -590,11 +569,6 @@ def get_fixture_collection_scope(fixture_name, config):
     return "module"
 
 
-@pytest.fixture(scope="session")
-def generate_index(request) -> bool:  # noqa: D103
-    return request.config.option.generate_index
-
-
 @pytest.fixture(scope=get_fixture_collection_scope)
 def fixture_collector(
     request: pytest.FixtureRequest,
@@ -603,29 +577,11 @@ def fixture_collector(
     filler_path: Path,
     base_dump_dir: Path | None,
     output_dir: Path,
-    session_temp_folder: Path | None,
-    generate_index: bool,
 ) -> Generator[FixtureCollector, None, None]:
     """
     Return configured fixture collector instance used for all tests
     in one test module.
     """
-    if session_temp_folder is not None:
-        fixture_collector_count_file_name = "fixture_collector_count"
-        fixture_collector_count_file = session_temp_folder / fixture_collector_count_file_name
-        fixture_collector_count_file_lock = (
-            session_temp_folder / f"{fixture_collector_count_file_name}.lock"
-        )
-        with FileLock(fixture_collector_count_file_lock):
-            if fixture_collector_count_file.exists():
-                with open(fixture_collector_count_file, "r") as f:
-                    fixture_collector_count = int(f.read())
-            else:
-                fixture_collector_count = 0
-            fixture_collector_count += 1
-            with open(fixture_collector_count_file, "w") as f:
-                f.write(str(fixture_collector_count))
-
     fixture_collector = FixtureCollector(
         output_dir=output_dir,
         flat_output=request.config.getoption("flat_output"),
@@ -637,19 +593,6 @@ def fixture_collector(
     fixture_collector.dump_fixtures()
     if do_fixture_verification:
         fixture_collector.verify_fixture_files(evm_fixture_verification)
-
-    fixture_collector_count = 0
-    if session_temp_folder is not None:
-        with FileLock(fixture_collector_count_file_lock):
-            with open(fixture_collector_count_file, "r") as f:
-                fixture_collector_count = int(f.read())
-            fixture_collector_count -= 1
-            with open(fixture_collector_count_file, "w") as f:
-                f.write(str(fixture_collector_count))
-    if generate_index and fixture_collector_count == 0:
-        generate_fixtures_index(
-            output_dir, quiet_mode=True, force_flag=False, disable_infer_format=False
-        )
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -809,3 +752,41 @@ def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item
                     item.add_marker(mark)
         if "yul" in item.fixturenames:  # type: ignore
             item.add_marker(pytest.mark.yul_test)
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
+    """
+    Perform session finish tasks.
+
+    - Remove any lock files that may have been created.
+    - Generate index file for all produced fixtures.
+    - Create tarball of the output directory if the output is a tarball.
+    """
+    if xdist.is_xdist_worker(session):
+        return
+
+    output: Path = session.config.getoption("output")
+    if is_output_stdout(output):
+        return
+
+    output_dir = strip_output_tarball_suffix(output)
+    # Remove any lock files that may have been created.
+    for file in output_dir.rglob("*.lock"):
+        file.unlink()
+
+    # Generate index file for all produced fixtures.
+    if session.config.getoption("generate_index"):
+        generate_fixtures_index(
+            output_dir, quiet_mode=True, force_flag=False, disable_infer_format=False
+        )
+
+    # Create tarball of the output directory if the output is a tarball.
+    is_output_tarball = output.suffix == ".gz" and output.with_suffix("").suffix == ".tar"
+    if is_output_tarball:
+        source_dir = output_dir
+        tarball_filename = output
+        with tarfile.open(tarball_filename, "w:gz") as tar:
+            for file in source_dir.rglob("*"):
+                if file.suffix in {".json", ".ini"}:
+                    arcname = Path("fixtures") / file.relative_to(source_dir)
+                    tar.add(file, arcname=arcname)
