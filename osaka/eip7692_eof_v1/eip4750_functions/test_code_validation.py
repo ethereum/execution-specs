@@ -190,7 +190,7 @@ def test_eof_validity(
             name="imm1",
             sections=[
                 Section.Code(
-                    code=Op.CALLF + Op.STOP,
+                    code=Op.CALLF + b"\x00",
                 )
             ],
         ),
@@ -201,7 +201,7 @@ def test_eof_validity(
                     code=Op.PUSH0 + Op.PUSH0 + Op.CALLF[1] + Op.STOP,
                 ),
                 Section.Code(
-                    code=Op.CALLF + Op.STOP,  # would be valid with "02" + Op.RETF.
+                    code=Op.CALLF + b"\x00",  # would be valid with "02" + Op.RETF.
                     code_inputs=2,
                     code_outputs=1,
                     max_stack_height=2,

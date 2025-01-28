@@ -192,7 +192,7 @@ def test_legacy_initcode_invalid_eof_v1_contract(
         Container(
             name="imm1",
             sections=[
-                Section.Code(Op.DATALOADN + Op.STOP),
+                Section.Code(Op.DATALOADN + b"\x00"),
                 Section.Data(b"\xff" * 32),
             ],
         ),
@@ -204,7 +204,7 @@ def test_legacy_initcode_invalid_eof_v1_contract(
                     max_stack_height=1,
                 ),
                 Section.Code(
-                    Op.DATALOADN + Op.STOP,
+                    Op.DATALOADN + b"\x00",
                     code_outputs=1,
                 ),
                 Section.Code(
