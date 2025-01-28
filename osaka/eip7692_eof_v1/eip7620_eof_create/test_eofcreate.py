@@ -24,12 +24,14 @@ from .helpers import (
     slot_calldata,
     slot_code_worked,
     slot_create_address,
+    slot_data_load,
     slot_last_slot,
     slot_returndata_size,
     smallest_initcode_subcontainer,
     smallest_runtime_subcontainer,
     value_canary_to_be_overwritten,
     value_code_worked,
+    value_long_value,
 )
 from .spec import EOFCREATE_FAILURE
 
@@ -54,7 +56,6 @@ def test_simple_eofcreate(
                 ),
                 Section.Container(container=smallest_initcode_subcontainer),
             ],
-            data=b"abcdef",
         ),
         storage={0: 0xB17D},  # a canary to be overwritten
     )
@@ -63,6 +64,54 @@ def test_simple_eofcreate(
         contract_address: Account(
             storage={
                 0: compute_eofcreate_address(contract_address, 0, smallest_initcode_subcontainer)
+            }
+        )
+    }
+    tx = Transaction(
+        to=contract_address,
+        gas_limit=10_000_000,
+        gas_price=10,
+        protected=False,
+        sender=sender,
+    )
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+def test_eofcreate_then_dataload(
+    state_test: StateTestFiller,
+    pre: Alloc,
+):
+    """Verifies that a contract returned with auxdata does not overwrite the parent data."""
+    env = Environment()
+    sender = pre.fund_eoa()
+    small_auxdata_container = Container(
+        sections=[
+            Section.Code(code=Op.RETURNCONTRACT[0](0, 32)),
+            Section.Container(container=smallest_runtime_subcontainer),
+        ],
+    )
+    contract_address = pre.deploy_contract(
+        code=Container(
+            sections=[
+                Section.Code(
+                    code=Op.SSTORE(0, Op.EOFCREATE[0](0, 0, 0, 0))
+                    + Op.SSTORE(slot_data_load, Op.DATALOAD(0))
+                    + Op.STOP,
+                ),
+                Section.Container(
+                    container=small_auxdata_container,
+                ),
+                Section.Data(data=value_long_value),
+            ],
+        ),
+        storage={slot_data_load: value_canary_to_be_overwritten},
+    )
+
+    post = {
+        contract_address: Account(
+            storage={
+                0: compute_eofcreate_address(contract_address, 0, small_auxdata_container),
+                slot_data_load: value_long_value,
             }
         )
     }
