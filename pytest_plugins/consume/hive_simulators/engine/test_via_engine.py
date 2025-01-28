@@ -62,6 +62,11 @@ def test_via_engine(
                             if payload.valid()
                             else PayloadStatusEnum.INVALID
                         ), f"unexpected status: {payload_response}"
+                        if payload.error_code is not None:
+                            raise Exception(
+                                "Client failed to raise expected Engine API error code: "
+                                f"{payload.error_code}"
+                            )
                     except JSONRPCError as e:
                         if payload.error_code is None:
                             raise Exception(f"unexpected error: {e.code} - {e.message}") from e
