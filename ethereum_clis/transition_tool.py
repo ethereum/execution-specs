@@ -72,6 +72,7 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
         self.exception_mapper = exception_mapper
         super().__init__(binary=binary)
         self.trace = trace
+        self._info_metadata: Optional[Dict[str, Any]] = {}
 
     def __init_subclass__(cls):
         """Register all subclasses of TransitionTool as possible tools."""
@@ -342,7 +343,12 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
         response = self._server_post(
             data=request_data_json, url_args=self._generate_post_args(t8n_data), timeout=timeout
         )
-        output: TransitionToolOutput = TransitionToolOutput.model_validate(response.json())
+        response_json = response.json()
+
+        # pop optional test ``_info`` metadata from response, if present
+        self._info_metadata = response_json.pop("_info_metadata", {})
+
+        output: TransitionToolOutput = TransitionToolOutput.model_validate(response_json)
 
         if debug_output_path:
             response_info = (

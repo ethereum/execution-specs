@@ -679,6 +679,7 @@ def base_test_parametrizer(cls: Type[BaseTest]):
                     test_case_description,
                     fixture_source_url=fixture_source_url,
                     ref_spec=reference_spec,
+                    _info_metadata=t8n._info_metadata,
                 )
 
                 fixture_path = fixture_collector.add_fixture(

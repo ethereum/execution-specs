@@ -96,7 +96,7 @@ class GitReferenceSpec(ReferenceSpec):
         """
         return self.SpecVersion != ""
 
-    def write_info(self, info: Dict[str, str]):
+    def write_info(self, info: Dict[str, Dict[str, Any] | str]):
         """
         Write info about the reference specification used into the output
         fixture.

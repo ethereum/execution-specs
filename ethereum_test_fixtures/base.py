@@ -14,7 +14,7 @@ from ethereum_test_forks import Fork
 class BaseFixture(CamelModel):
     """Represents a base Ethereum test fixture of any type."""
 
-    info: Dict[str, str] = Field(default_factory=dict, alias="_info")
+    info: Dict[str, Dict[str, Any] | str] = Field(default_factory=dict, alias="_info")
 
     # Fixture format properties
     fixture_format_name: ClassVar[str] = "unset"
@@ -52,6 +52,7 @@ class BaseFixture(CamelModel):
         test_case_description: str,
         fixture_source_url: str,
         ref_spec: ReferenceSpec | None,
+        _info_metadata: Dict[str, Any],
     ):
         """Fill the info field for this fixture."""
         if "comment" not in self.info:
@@ -62,6 +63,8 @@ class BaseFixture(CamelModel):
         self.info["fixture_format"] = self.fixture_format_name
         if ref_spec is not None:
             ref_spec.write_info(self.info)
+        if _info_metadata:
+            self.info.update(_info_metadata)
 
     def get_fork(self) -> str | None:
         """Return fork of the fixture as a string."""
