@@ -21,6 +21,7 @@ from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import EthereumException
+from ethereum.utils.byte import right_pad_zero_bytes
 
 from ..blocks import Log
 from ..fork_types import Address, VersionedHash
@@ -174,13 +175,17 @@ def transfer_log(
     transfer_amount :
         The amount of ETH transacted
     """
-    # TODO Hash32 implicit conversion will not work here because it doesn't
-    # know the direction to pad.
-    # We will need to pre-pad the Address correctly before converting,
+    # We need to pre-pad the Address correctly before converting,
     # otherwise it will throw because the lengths are not the same
+    padded_sender = right_pad_zero_bytes(sender, 12)
+    padded_recipient = right_pad_zero_bytes(recipient, 12)
     log_entry = Log(
         address=evm.message.current_target,
-        topics=(MAGIC_LOG_KHASH, Hash32(sender), Hash32(recipient)),
+        topics=(
+            MAGIC_LOG_KHASH,  # noqa: SC200
+            Hash32(padded_sender),
+            Hash32(padded_recipient),
+        ),
         data=transfer_amount.to_be_bytes(),
     )
 
