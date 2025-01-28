@@ -426,8 +426,8 @@ def test_bytecode_concatenation_with_bytes():
     assert code == bytes([0x60, 0xFF, 0x19, 0x01, 0x02])
 
     assert str(code) == ""
-    assert code.popped_stack_items == code.popped_stack_items
-    assert code.pushed_stack_items == code.pushed_stack_items
-    assert code.max_stack_height == code.max_stack_height
-    assert code.min_stack_height == code.min_stack_height
-    assert code.terminating == code.terminating
+    assert code.popped_stack_items == base.popped_stack_items
+    assert code.pushed_stack_items == base.pushed_stack_items
+    assert code.max_stack_height == base.max_stack_height
+    assert code.min_stack_height == base.min_stack_height
+    assert code.terminating == base.terminating
