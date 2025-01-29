@@ -11,7 +11,7 @@ import pytest
 from pydantic import Field, model_validator
 
 from ethereum_clis import EvmoneExceptionMapper, TransitionTool
-from ethereum_test_base_types import Account, Bytes
+from ethereum_test_base_types import Account, Bytes, HexNumber
 from ethereum_test_exceptions.exceptions import EOFExceptionInstanceOrList, to_pipe_str
 from ethereum_test_execution import BaseExecute, ExecuteFormat, TransactionPost
 from ethereum_test_fixtures import (
@@ -141,7 +141,7 @@ class EOFParse:
 class EOFTest(BaseTest):
     """Filler type that tests EOF containers."""
 
-    data: Bytes
+    container: Bytes
     expect_exception: EOFExceptionInstanceOrList | None = None
     container_kind: ContainerKind | None = None
 
@@ -154,7 +154,7 @@ class EOFTest(BaseTest):
     def check_container_exception(cls, data: Any) -> Any:
         """Check if the container exception matches the expected exception."""
         if isinstance(data, dict):
-            container = data.get("data")
+            container = data.get("container")
             expect_exception = data.get("expect_exception")
             container_kind = data.get("container_kind")
             if container is not None and isinstance(container, Container):
@@ -192,14 +192,15 @@ class EOFTest(BaseTest):
         eips: Optional[List[int]],
     ) -> EOFFixture:
         """Generate the EOF test fixture."""
-        if self.data in existing_tests:
+        if self.container in existing_tests:
             pytest.fail(
-                f"Duplicate EOF test: {self.data}, existing test: {existing_tests[self.data]}"
+                f"Duplicate EOF test: {self.container}, "
+                f"existing test: {existing_tests[self.container]}"
             )
-        existing_tests[self.data] = request.node.nodeid
+        existing_tests[self.container] = request.node.nodeid
         vectors = [
             Vector(
-                code=self.data,
+                code=self.container,
                 container_kind=self.container_kind,
                 results={
                     fork.blockchain_test_network_name(): Result(
@@ -284,16 +285,16 @@ EOFTestSpec = Callable[[str], Generator[EOFTest, None, None]]
 EOFTestFiller = Type[EOFTest]
 
 
-class EOFStateTest(EOFTest):
+class EOFStateTest(EOFTest, Transaction):
     """Filler type that tests EOF containers and also generates a state/blockchain test."""
 
     deploy_tx: bool = False
-    tx_gas_limit: int = 10_000_000
-    tx_data: Bytes = Bytes(b"")
+    gas_limit: HexNumber = Field(HexNumber(10_000_000), serialization_alias="gas")
     tx_sender_funding_amount: int = 1_000_000_000_000_000_000_000
     env: Environment = Field(default_factory=Environment)
     container_post: Account = Field(default_factory=Account)
     pre: Alloc | None = None
+    post: Alloc | None = None
 
     supported_fixture_formats: ClassVar[List[FixtureFormat]] = [
         EOFFixture,
@@ -307,7 +308,7 @@ class EOFStateTest(EOFTest):
     def check_container_type(cls, data: Any) -> Any:
         """Check if the container exception matches the expected exception."""
         if isinstance(data, dict):
-            container = data.get("data")
+            container = data.get("container")
             deploy_tx = data.get("deploy_tx")
             container_kind = data.get("container_kind")
             if deploy_tx is None:
@@ -325,31 +326,52 @@ class EOFStateTest(EOFTest):
         """Workaround for pytest parameter name."""
         return "eof_state_test"
 
+    def model_post_init(self, __context):
+        """Prepare the transaction parameters required to fill the test."""
+        assert self.pre is not None, "pre must be set to generate a StateTest."
+
+        self.sender = self.pre.fund_eoa(amount=self.tx_sender_funding_amount)
+        if self.post is None:
+            self.post = Alloc()
+
+        if self.expect_exception is not None:  # Invalid EOF
+            self.to = None  # Make EIP-7698 create transaction
+            self.data = Bytes(
+                self.container + self.data
+            )  # by concatenating container and tx data.
+
+            # Run transaction model validation
+            Transaction.model_post_init(self, __context)
+
+            self.post[self.created_contract] = None  # Expect failure.
+        elif self.deploy_tx:
+            self.to = None  # Make EIP-7698 create transaction
+            self.data = Bytes(
+                self.container + self.data
+            )  # by concatenating container and tx data.
+
+            # Run transaction model validation
+            Transaction.model_post_init(self, __context)
+
+            self.post[self.created_contract] = self.container_post  # Successful.
+        else:
+            self.to = self.pre.deploy_contract(code=self.container)
+
+            # Run transaction model validation
+            Transaction.model_post_init(self, __context)
+
+            self.post[self.to] = self.container_post
+
     def generate_state_test(self) -> StateTest:
         """Generate the StateTest filler."""
         assert self.pre is not None, "pre must be set to generate a StateTest."
-        tx = Transaction(
-            sender=self.pre.fund_eoa(amount=self.tx_sender_funding_amount),
-            gas_limit=self.tx_gas_limit,
-        )
-        post = Alloc()
-        if self.expect_exception is not None:  # Invalid EOF
-            tx.to = None  # Make EIP-7698 create transaction
-            tx.data = Bytes(self.data + self.tx_data)  # by concatenating container and tx data.
-            post[tx.created_contract] = None  # Expect failure.
-        elif self.deploy_tx:
-            tx.to = None  # Make EIP-7698 create transaction
-            tx.data = Bytes(self.data + self.tx_data)  # by concatenating container and tx data.
-            post[tx.created_contract] = self.container_post  # Successful.
-        else:
-            tx.to = self.pre.deploy_contract(code=self.data)
-            tx.data = self.tx_data
-            post[tx.to] = self.container_post
+        assert self.post is not None, "post must be set to generate a StateTest."
+
         return StateTest(
             pre=self.pre,
-            tx=tx,
+            tx=self,
             env=self.env,
-            post=post,
+            post=self.post,
             t8n_dump_dir=self.t8n_dump_dir,
         )
 
@@ -365,16 +387,12 @@ class EOFStateTest(EOFTest):
     ) -> BaseFixture:
         """Generate the BlockchainTest fixture."""
         if fixture_format == EOFFixture:
-            if self.data in existing_tests:
+            if self.container in existing_tests:
                 # Gracefully skip duplicate tests because one EOFStateTest can generate multiple
                 # state fixtures with the same data.
                 pytest.skip(f"Duplicate EOF container on EOFStateTest: {request.node.nodeid}")
             return self.make_eof_test_fixture(request=request, fork=fork, eips=eips)
-        elif fixture_format in (
-            StateFixture,
-            BlockchainFixture,
-            BlockchainEngineFixture,
-        ):
+        elif fixture_format in StateTest.supported_fixture_formats:
             return self.generate_state_test().generate(
                 request=request, t8n=t8n, fork=fork, fixture_format=fixture_format, eips=eips
             )
