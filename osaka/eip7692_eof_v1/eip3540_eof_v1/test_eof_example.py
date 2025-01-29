@@ -60,7 +60,7 @@ def test_eof_example(eof_test: EOFTestFiller):
     )
 
     eof_test(
-        data=eof_code,
+        container=eof_code,
         expect_exception=eof_code.validity_error,
     )
 
@@ -110,7 +110,7 @@ def test_eof_example_custom_fields(eof_test: EOFTestFiller):
     )
 
     eof_test(
-        data=eof_code,
+        container=eof_code,
         expect_exception=eof_code.validity_error,
     )
 
@@ -143,6 +143,6 @@ def test_eof_example_parameters(
     )
 
     eof_test(
-        data=eof_code,
+        container=eof_code,
         expect_exception=eof_code.validity_error,
     )

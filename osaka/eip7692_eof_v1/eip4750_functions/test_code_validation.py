@@ -198,7 +198,7 @@ def test_eof_validity(
     container: Container,
 ):
     """Test EOF container validation for features around EIP-4750 / Functions / Code Sections."""
-    eof_test(data=container)
+    eof_test(container=container)
 
 
 @pytest.mark.parametrize(
@@ -248,7 +248,7 @@ def test_callf_truncated_immediate(
     container: Container,
 ):
     """Test cases for CALLF instructions with truncated immediate bytes."""
-    eof_test(data=container, expect_exception=EOFException.TRUNCATED_INSTRUCTION)
+    eof_test(container=container, expect_exception=EOFException.TRUNCATED_INSTRUCTION)
 
 
 @pytest.mark.parametrize(
@@ -294,7 +294,7 @@ def test_invalid_code_section_index(
     container: Container,
 ):
     """Test cases for CALLF instructions with invalid target code section index."""
-    eof_test(data=container, expect_exception=EOFException.INVALID_CODE_SECTION_INDEX)
+    eof_test(container=container, expect_exception=EOFException.INVALID_CODE_SECTION_INDEX)
 
 
 @pytest.mark.parametrize(
@@ -458,7 +458,7 @@ def test_unreachable_code_sections(
     Test cases for EOF unreachable code sections
     (i.e. code sections not reachable from the code section 0).
     """
-    eof_test(data=container, expect_exception=EOFException.UNREACHABLE_CODE_SECTIONS)
+    eof_test(container=container, expect_exception=EOFException.UNREACHABLE_CODE_SECTIONS)
 
 
 @pytest.mark.parametrize("callee_outputs", [1, 2, MAX_CODE_OUTPUTS])
@@ -482,7 +482,7 @@ def test_callf_stack_height_limit_exceeded(eof_test, callee_outputs):
             ),
         ],
     )
-    eof_test(data=container, expect_exception=EOFException.MAX_STACK_HEIGHT_ABOVE_LIMIT)
+    eof_test(container=container, expect_exception=EOFException.MAX_STACK_HEIGHT_ABOVE_LIMIT)
 
 
 @pytest.mark.parametrize("callee_outputs", [1, 2, MAX_CODE_OUTPUTS - 1, MAX_CODE_OUTPUTS])
@@ -510,7 +510,7 @@ def test_callf_stack_overflow_by_outputs(eof_test, callee_outputs, max_stack_hei
             ),
         ],
     )
-    eof_test(data=container, expect_exception=EOFException.STACK_OVERFLOW)
+    eof_test(container=container, expect_exception=EOFException.STACK_OVERFLOW)
 
 
 @pytest.mark.parametrize(
@@ -537,4 +537,4 @@ def test_callf_stack_overflow_by_height(eof_test, callee_stack_height):
             ),
         ],
     )
-    eof_test(data=container, expect_exception=EOFException.STACK_OVERFLOW)
+    eof_test(container=container, expect_exception=EOFException.STACK_OVERFLOW)

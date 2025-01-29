@@ -31,7 +31,7 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 def test_callf_factorial(eof_state_test: EOFStateTestFiller, n, result):
     """Test factorial implementation with recursive CALLF instructions."""
     eof_state_test(
-        data=Container(
+        container=Container(
             sections=[
                 Section.Code(
                     Op.CALLDATALOAD(0) + Op.SSTORE(0, Op.CALLF[1]) + Op.STOP,
@@ -60,7 +60,7 @@ def test_callf_factorial(eof_state_test: EOFStateTestFiller, n, result):
                 ),
             ]
         ),
-        tx_data=Hash(n),
+        data=Hash(n),
         container_post=Account(storage={0: result}),
     )
 
@@ -72,7 +72,7 @@ def test_callf_factorial(eof_state_test: EOFStateTestFiller, n, result):
 def test_callf_fibonacci(eof_state_test: EOFStateTestFiller, n, result):
     """Test fibonacci sequence implementation with recursive CALLF instructions."""
     eof_state_test(
-        data=Container(
+        container=Container(
             sections=[
                 Section.Code(
                     Op.CALLDATALOAD(0) + Op.SSTORE(0, Op.CALLF[1]) + Op.STOP,
@@ -104,8 +104,8 @@ def test_callf_fibonacci(eof_state_test: EOFStateTestFiller, n, result):
                 ),
             ]
         ),
-        tx_gas_limit=15_000_000,
-        tx_data=Hash(n),
+        gas_limit=15_000_000,
+        data=Hash(n),
         container_post=Account(storage={0: result}),
     )
 
@@ -197,7 +197,7 @@ def test_callf_fibonacci(eof_state_test: EOFStateTestFiller, n, result):
 def test_callf(eof_state_test: EOFStateTestFiller, container: Container):
     """Test basic usage of CALLF and RETF instructions."""
     eof_state_test(
-        data=container,
+        container=container,
         container_post=Account(storage={slot_code_worked: value_code_worked}),
     )
 
@@ -392,7 +392,7 @@ def test_callf(eof_state_test: EOFStateTestFiller, container: Container):
 def test_callf_operand_stack_size_max(eof_state_test: EOFStateTestFiller, container: Container):
     """Test operand stack reaching 1024 items."""
     eof_state_test(
-        data=container,
+        container=container,
         container_post=Account(storage={slot_code_worked: value_code_worked}),
     )
 
@@ -474,7 +474,7 @@ def test_callf_operand_stack_size_max(eof_state_test: EOFStateTestFiller, contai
 def test_callf_operand_stack_overflow(eof_state_test: EOFStateTestFiller, container: Container):
     """Test stack overflowing 1024 items in called function."""
     eof_state_test(
-        data=container,
+        container=container,
         container_post=Account(storage={slot_code_worked: 0}),
     )
 

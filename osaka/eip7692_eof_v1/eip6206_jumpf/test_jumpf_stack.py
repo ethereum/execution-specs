@@ -59,9 +59,9 @@ def test_jumpf_stack_non_returning_rules(
         container.validity_error = EOFException.STACK_UNDERFLOW
 
     eof_state_test(
-        data=container,
+        container=container,
         container_post=Account(storage={slot_code_worked: value_code_worked}),
-        tx_data=b"\1",
+        data=b"\1",
     )
 
 
@@ -129,9 +129,9 @@ def test_jumpf_stack_returning_rules(
         container.validity_error = EOFException.STACK_HIGHER_THAN_OUTPUTS
 
     eof_state_test(
-        data=container,
+        container=container,
         container_post=Account(storage={slot_code_worked: value_code_worked}),
-        tx_data=b"\1",
+        data=b"\1",
     )
 
 
@@ -162,7 +162,7 @@ def test_jumpf_incompatible_outputs(
     if (current_section_outputs + target_inputs - target_outputs) != stack_height:
         assert expected_exception is not None
     eof_test(
-        data=Container(
+        container=Container(
             sections=[
                 Section.Code(Op.CALLF(1) + Op.STOP, max_stack_height=1),
                 Section.Code(
@@ -206,7 +206,7 @@ def test_jumpf_diff_max_stack_height(
     """Tests jumpf with a different max stack height."""
     current_section_outputs = 1
     eof_test(
-        data=Container(
+        container=Container(
             sections=[
                 Section.Code(Op.CALLF(1) + Op.STOP, max_stack_height=1),
                 Section.Code(
@@ -254,7 +254,7 @@ def test_jumpf_diff_min_stack_height(
     """Tests jumpf with a different min stack height."""
     current_section_outputs = 1
     eof_test(
-        data=Container(
+        container=Container(
             sections=[
                 Section.Code(Op.CALLF(1) + Op.STOP, max_stack_height=1),
                 Section.Code(

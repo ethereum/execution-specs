@@ -144,7 +144,7 @@ def test_valid_containers(
         container.validity_error is None
     ), f"Valid container with validity error: {container.validity_error}"
     eof_test(
-        data=bytes(container),
+        container=bytes(container),
     )
 
 
@@ -1120,7 +1120,7 @@ def test_invalid_containers(
     """
     assert container.validity_error is not None, "Invalid container without validity error"
     eof_test(
-        data=bytes(container),
+        container=bytes(container),
         expect_exception=container.validity_error,
     )
 
@@ -1139,7 +1139,7 @@ def test_magic_validation(
     code[0] = magic_0
     code[1] = magic_1
     eof_test(
-        data=bytes(code),
+        container=bytes(code),
         expect_exception=None if magic_0 == 0xEF and magic_1 == 0 else EOFException.INVALID_MAGIC,
     )
 
@@ -1155,7 +1155,7 @@ def test_version_validation(
     code = bytearray(bytes(VALID_CONTAINER))
     code[2] = version
     eof_test(
-        data=bytes(code),
+        container=bytes(code),
         expect_exception=None if version == 1 else EOFException.INVALID_VERSION,
     )
 
@@ -1183,7 +1183,7 @@ def test_single_code_section(
     if plus_data:
         sections.append(Section.Data(data=b"\0"))
     eof_test(
-        data=Container(
+        container=Container(
             name="single_code_section",
             sections=sections,
             kind=ContainerKind.INITCODE if plus_container else ContainerKind.RUNTIME,
@@ -1224,7 +1224,7 @@ def test_max_code_sections(
     if plus_data:
         sections.append(Section.Data(data=b"\0"))
     eof_test(
-        data=Container(
+        container=Container(
             name="max_code_sections",
             sections=sections,
             kind=ContainerKind.INITCODE if plus_container else ContainerKind.RUNTIME,

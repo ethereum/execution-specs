@@ -155,7 +155,7 @@ def test_legacy_initcode_valid_eof_v1_contract(
         container.validity_error is None
     ), f"Valid container with validity error: {container.validity_error}"
     eof_test(
-        data=container,
+        container=container,
     )
 
 
@@ -174,7 +174,7 @@ def test_legacy_initcode_invalid_eof_v1_contract(
     """
     assert container.validity_error is not None, "Invalid container without validity error"
     eof_test(
-        data=container,
+        container=container,
         expect_exception=container.validity_error,
     )
 
@@ -221,4 +221,4 @@ def test_dataloadn_truncated_immediate(
     container: Container,
 ):
     """Test cases for DATALOADN instructions with truncated immediate bytes."""
-    eof_test(data=container, expect_exception=EOFException.TRUNCATED_INSTRUCTION)
+    eof_test(container=container, expect_exception=EOFException.TRUNCATED_INSTRUCTION)

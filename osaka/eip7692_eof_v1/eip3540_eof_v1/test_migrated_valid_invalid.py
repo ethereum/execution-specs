@@ -303,6 +303,6 @@ def test_migrated_valid_invalid(
 ):
     """Verify EOF container construction and exception."""
     eof_test(
-        data=eof_code,
+        container=eof_code,
         expect_exception=exception,
     )

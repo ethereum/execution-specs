@@ -163,7 +163,7 @@ def test_section_size(
     else:
         eof_code.sections.append(Section.Data("0x00aaaa"))
     eof_test(
-        data=eof_code,
+        container=eof_code,
         expect_exception=exception,
     )
 
@@ -191,7 +191,7 @@ def test_truncated_container_without_data(
     container = Container(sections=[Section.Code(Op.INVALID + Op.INVALID)])
     bytecode = bytes(container)
     eof_test(
-        data=bytecode[: len(bytecode) - truncation_len],
+        container=bytecode[: len(bytecode) - truncation_len],
         expect_exception=exception,
     )
 
@@ -221,6 +221,6 @@ def test_truncated_container_with_data(
         ]
     )
     eof_test(
-        data=container,
+        container=container,
         expect_exception=exception,
     )

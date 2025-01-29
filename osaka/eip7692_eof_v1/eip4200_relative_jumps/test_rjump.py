@@ -23,7 +23,7 @@ def test_rjump_negative(
 ):
     """Test for a forward RJUMPI and backward RJUMP."""
     eof_state_test(
-        data=Container.Code(
+        container=Container.Code(
             Op.PUSH1[1]
             + Op.RJUMPI[7]  # RJUMP cannot be used because of the backward jump restriction
             + Op.SSTORE(slot_code_worked, Op.MLOAD(0))
@@ -40,7 +40,7 @@ def test_rjump_positive_negative(
 ):
     """EOF1V4200_0001 (Valid) EOF code containing RJUMP (Positive, Negative)."""
     eof_state_test(
-        data=Container.Code(
+        container=Container.Code(
             Op.PUSH0
             + Op.RJUMPI[3]
             + Op.RJUMP[7]
@@ -57,7 +57,7 @@ def test_rjump_zero(
 ):
     """EOF1V4200_0002 (Valid) EOF code containing RJUMP (Zero)."""
     eof_state_test(
-        data=Container.Code(
+        container=Container.Code(
             Op.RJUMP[0] + Op.SSTORE(slot_code_worked, value_code_worked) + Op.STOP,
         ),
         container_post=Account(storage={slot_code_worked: value_code_worked}),
@@ -69,7 +69,7 @@ def test_rjump_maxes(
 ):
     """EOF1V4200_0003 EOF with RJUMP containing the max positive and negative offset (32767)."""
     eof_state_test(
-        data=Container.Code(
+        container=Container.Code(
             Op.PUSH0
             + Op.RJUMPI[RJUMP_LEN]  # The push/jumpi is to allow the NOOPs to be forward referenced
             + Op.RJUMP[0x7FFF]
@@ -98,7 +98,7 @@ def test_rjump_max_bytecode_size(
     )
     container = Container.Code(code)
     assert len(container) == MAX_BYTECODE_SIZE
-    eof_test(data=container)
+    eof_test(container=container)
 
 
 def test_rjump_truncated_rjump(
@@ -106,7 +106,7 @@ def test_rjump_truncated_rjump(
 ):
     """EOF1I4200_0001 (Invalid) EOF code containing truncated RJUMP."""
     eof_test(
-        data=Container.Code(Op.RJUMP),
+        container=Container.Code(Op.RJUMP),
         expect_exception=EOFException.TRUNCATED_INSTRUCTION,
     )
 
@@ -116,7 +116,7 @@ def test_rjump_truncated_rjump_2(
 ):
     """EOF1I4200_0002 (Invalid) EOF code containing truncated RJUMP."""
     eof_test(
-        data=Container.Code(Op.RJUMP + b"\x00"),
+        container=Container.Code(Op.RJUMP + b"\x00"),
         expect_exception=EOFException.TRUNCATED_INSTRUCTION,
     )
 
@@ -131,7 +131,7 @@ def test_rjump_into_header(
     (Jumping into header).
     """
     eof_test(
-        data=Container.Code(Op.RJUMP[offset]),
+        container=Container.Code(Op.RJUMP[offset]),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
     )
 
@@ -144,7 +144,7 @@ def test_rjump_before_header(
     (Jumping before code begin).
     """
     eof_test(
-        data=Container.Code(Op.RJUMP[-23]),
+        container=Container.Code(Op.RJUMP[-23]),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
     )
 
@@ -157,7 +157,7 @@ def test_rjump_into_data(
     (Jumping into data section).
     """
     eof_test(
-        data=Container(
+        container=Container(
             sections=[
                 Section.Code(Op.RJUMP[2]),
                 Section.Data(data=b"\xaa\xbb\xcc"),
@@ -172,7 +172,7 @@ def test_rjump_outside_other_section_before(
 ):
     """EOF code containing RJUMP with target outside code bounds (prior code section)."""
     eof_test(
-        data=Container(
+        container=Container(
             sections=[
                 Section.Code(code=Op.JUMPF[1]),
                 Section.Code(code=Op.RJUMP[-6]),
@@ -187,7 +187,7 @@ def test_rjump_outside_other_section_after(
 ):
     """EOF code containing RJUMP with target outside code bounds (Subsequent code section)."""
     eof_test(
-        data=Container(
+        container=Container(
             sections=[
                 Section.Code(code=Op.JUMPF[1]),
                 Section.Code(code=Op.RJUMP[3] + Op.JUMPF[2]),
@@ -206,7 +206,7 @@ def test_rjump_after_container(
     (Jumping after code end).
     """
     eof_test(
-        data=Container.Code(Op.RJUMP[2]),
+        container=Container.Code(Op.RJUMP[2]),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
     )
 
@@ -219,7 +219,7 @@ def test_rjump_to_code_end(
     (Jumping to code end).
     """
     eof_test(
-        data=Container.Code(Op.RJUMP[1] + Op.STOP),
+        container=Container.Code(Op.RJUMP[1] + Op.STOP),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
     )
 
@@ -231,7 +231,7 @@ def test_rjump_into_self_data_portion(
 ):
     """EOF1I4200_0008 (Invalid) EOF code containing RJUMP with target self RJUMP immediate."""
     eof_test(
-        data=Container.Code(Op.RJUMP[-offset] + Op.STOP),
+        container=Container.Code(Op.RJUMP[-offset] + Op.STOP),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
     )
 
@@ -244,7 +244,7 @@ def test_rjump_into_self_remaining_code(
     unreachable code.
     """
     eof_test(
-        data=Container.Code(Op.RJUMP[-len(Op.RJUMP[0])] + Op.STOP),
+        container=Container.Code(Op.RJUMP[-len(Op.RJUMP[0])] + Op.STOP),
         expect_exception=EOFException.UNREACHABLE_INSTRUCTIONS,
     )
 
@@ -254,7 +254,7 @@ def test_rjump_into_self(
 ):
     """EOF code containing RJUMP with target self RJUMP."""
     eof_test(
-        data=Container.Code(Op.RJUMP[-len(Op.RJUMP[0])]),
+        container=Container.Code(Op.RJUMP[-len(Op.RJUMP[0])]),
     )
 
 
@@ -263,7 +263,7 @@ def test_rjump_into_self_pre_code(
 ):
     """EOF code containing RJUMP with target self RJUMP with non-zero stack before RJUMP."""
     eof_test(
-        data=Container.Code(Op.PUSH1(0) + Op.RJUMP[-len(Op.RJUMP[0])]),
+        container=Container.Code(Op.PUSH1(0) + Op.RJUMP[-len(Op.RJUMP[0])]),
     )
 
 
@@ -272,7 +272,7 @@ def test_rjump_into_stack_height_diff(
 ):
     """EOF code containing RJUMP with target instruction that causes stack height difference."""
     eof_test(
-        data=Container.Code(Op.PUSH1(0) + Op.RJUMP[-(len(Op.RJUMP[0]) + len(Op.PUSH1(0)))]),
+        container=Container.Code(Op.PUSH1(0) + Op.RJUMP[-(len(Op.RJUMP[0]) + len(Op.PUSH1(0)))]),
         expect_exception=EOFException.STACK_HEIGHT_MISMATCH,
     )
 
@@ -282,7 +282,9 @@ def test_rjump_into_stack_height_diff_2(
 ):
     """EOF code containing RJUMP with target instruction that cause stack height difference."""
     eof_test(
-        data=Container.Code(Op.PUSH1(0) + Op.POP + Op.RJUMP[-(len(Op.RJUMP[0]) + len(Op.POP))]),
+        container=Container.Code(
+            Op.PUSH1(0) + Op.POP + Op.RJUMP[-(len(Op.RJUMP[0]) + len(Op.POP))]
+        ),
         expect_exception=EOFException.STACK_HEIGHT_MISMATCH,
     )
 
@@ -292,7 +294,7 @@ def test_rjump_into_stack_underflow(
 ):
     """EOF code containing RJUMP with target instruction that cause stack underflow."""
     eof_test(
-        data=Container.Code(
+        container=Container.Code(
             Op.ORIGIN
             + Op.RJUMPI[len(Op.RJUMP[0])]
             + Op.RJUMP[len(Op.STOP)]
@@ -309,7 +311,7 @@ def test_rjump_into_rjump(
 ):
     """EOF1I4200_0009 (Invalid) EOF code containing RJUMP with target other RJUMP immediate."""
     eof_test(
-        data=Container.Code(Op.RJUMP[1] + Op.RJUMP[0]),
+        container=Container.Code(Op.RJUMP[1] + Op.RJUMP[0]),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
     )
 
@@ -319,7 +321,7 @@ def test_rjump_into_rjumpi(
 ):
     """EOF1I4200_0010 (Invalid) EOF code containing RJUMP with target RJUMPI immediate."""
     eof_test(
-        data=Container.Code(Op.RJUMP[5] + Op.STOP + Op.PUSH1(1) + Op.RJUMPI[-6] + Op.STOP),
+        container=Container.Code(Op.RJUMP[5] + Op.STOP + Op.PUSH1(1) + Op.RJUMPI[-6] + Op.STOP),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
     )
 
@@ -331,7 +333,7 @@ def test_rjump_into_push_1(eof_test: EOFTestFiller, jump: JumpDirection):
         Op.PUSH1[1] + Op.RJUMP[-4] if jump == JumpDirection.BACKWARD else Op.RJUMP[1] + Op.PUSH1[1]
     ) + Op.STOP
     eof_test(
-        data=Container.Code(code),
+        container=Container.Code(code),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
     )
 
@@ -393,7 +395,7 @@ def test_rjump_into_push_n(
         offset = -4 if data_portion_end else -4 - data_portion_length + 1
         code = opcode[0] + Op.RJUMP[offset]
     eof_test(
-        data=Container.Code(code),
+        container=Container.Code(code),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
     )
 
@@ -413,7 +415,7 @@ def test_rjump_into_rjumpv(
     invalid_destination = 4 + (2 * target_rjumpv_table_size) if data_portion_end else 4
     target_jump_table = [0 for _ in range(target_rjumpv_table_size)]
     eof_test(
-        data=Container.Code(
+        container=Container.Code(
             Op.RJUMP[invalid_destination]
             + Op.STOP
             + Op.PUSH1(1)
@@ -436,7 +438,7 @@ def test_rjump_into_callf(
     """EOF1I4200_0013 (Invalid) EOF code containing RJUMP with target CALLF immediate."""
     invalid_destination = 2 if data_portion_end else 1
     eof_test(
-        data=Container(
+        container=Container(
             sections=[
                 Section.Code(
                     code=Op.RJUMP[invalid_destination] + Op.CALLF[1] + Op.STOP,
@@ -456,7 +458,7 @@ def test_rjump_into_dupn(
 ):
     """EOF code containing RJUMP with target DUPN immediate."""
     eof_test(
-        data=Container.Code(
+        container=Container.Code(
             Op.PUSH1(1) + Op.PUSH1(1) + Op.RJUMP[1] + Op.DUPN[1] + Op.SSTORE + Op.STOP,
         ),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
@@ -468,7 +470,7 @@ def test_rjump_into_swapn(
 ):
     """EOF code containing RJUMP with target SWAPN immediate."""
     eof_test(
-        data=Container.Code(
+        container=Container.Code(
             Op.PUSH1(1) + Op.PUSH1(1) + Op.RJUMP[1] + Op.SWAPN[1] + Op.SSTORE + Op.STOP,
         ),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
@@ -480,7 +482,7 @@ def test_rjump_into_exchange(
 ):
     """EOF code containing RJUMP with target EXCHANGE immediate."""
     eof_test(
-        data=Container.Code(
+        container=Container.Code(
             Op.PUSH1(1)
             + Op.PUSH1(2)
             + Op.PUSH1(3)
@@ -498,7 +500,7 @@ def test_rjump_into_eofcreate(
 ):
     """EOF code containing RJUMP with target EOFCREATE immediate."""
     eof_test(
-        data=Container(
+        container=Container(
             sections=[
                 Section.Code(
                     code=Op.PUSH0 * 4 + Op.RJUMP[1] + Op.EOFCREATE[0] + Op.STOP,
@@ -526,7 +528,7 @@ def test_rjump_into_returncontract(
 ):
     """EOF code containing RJUMP with target RETURNCONTRACT immediate."""
     eof_test(
-        data=Container(
+        container=Container(
             sections=[
                 Section.Code(
                     code=Op.EOFCREATE[0](0, 0, 0, 0) + Op.STOP,
@@ -555,7 +557,7 @@ def test_rjump_unreachable_code(
     """EOF code containing instructions skipped by RJUMP."""
     container = Container.Code(code=(Op.RJUMP[len(Op.STOP)] + Op.STOP + Op.STOP))
     eof_test(
-        data=container,
+        container=container,
         expect_exception=EOFException.UNREACHABLE_INSTRUCTIONS,
     )
 
@@ -568,7 +570,7 @@ def test_rjump_backwards_reference_only(
         code=(Op.RJUMP[RJUMP_LEN] + Op.RJUMP[RJUMP_LEN] + Op.RJUMP[-(2 * RJUMP_LEN)] + Op.STOP)
     )
     eof_test(
-        data=container,
+        container=container,
         expect_exception=EOFException.UNREACHABLE_INSTRUCTIONS,
     )
 
@@ -578,7 +580,7 @@ def test_rjump_backwards_illegal_stack_height(
 ):
     """Invalid backward jump, found via fuzzing coverage."""
     eof_test(
-        data=Container.Code(
+        container=Container.Code(
             code=(
                 Op.PUSH0
                 + Op.RJUMPI[3]
@@ -598,7 +600,7 @@ def test_rjump_backwards_infinite_loop(
 ):
     """Validate that a backwards RJUMP as terminal operation is valid."""
     eof_test(
-        data=Container(
+        container=Container(
             name="backwards_rjump_terminal",
             sections=[
                 Section.Code(

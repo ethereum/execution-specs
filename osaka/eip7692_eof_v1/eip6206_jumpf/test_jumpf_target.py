@@ -105,9 +105,9 @@ def test_jumpf_target_rules(
         container.validity_error = EOFException.JUMPF_DESTINATION_INCOMPATIBLE_OUTPUTS
 
     eof_state_test(
-        data=container,
+        container=container,
         container_post=Account(storage={slot_code_worked: value_code_worked}),
-        tx_data=b"\1",
+        data=b"\1",
     )
 
 

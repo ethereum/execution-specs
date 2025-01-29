@@ -215,7 +215,7 @@ def test_section_order(
     )
 
     eof_test(
-        data=eof_code,
+        container=eof_code,
         expect_exception=expected_exception,
     )
 
@@ -280,6 +280,6 @@ def test_container_section_order(
                 return EOFException.MISSING_TERMINATOR
 
     eof_test(
-        data=eof_code,
+        container=eof_code,
         expect_exception=get_expected_exception(),
     )

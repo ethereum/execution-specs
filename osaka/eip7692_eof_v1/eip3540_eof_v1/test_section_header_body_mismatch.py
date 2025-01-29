@@ -136,6 +136,6 @@ def test_code_section_header_body_mismatch(
     assert bytes(eof_code).hex() == bytes.fromhex(expected_code).hex()
 
     eof_test(
-        data=eof_code,
+        container=eof_code,
         expect_exception=expected_exception,
     )

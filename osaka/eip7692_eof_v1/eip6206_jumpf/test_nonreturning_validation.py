@@ -32,7 +32,7 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 def test_first_section_returning(eof_test: EOFTestFiller, code_section: Section):
     """Test EOF validation failing because the first section is not non-returning."""
     eof_test(
-        data=Container(
+        container=Container(
             sections=[code_section], validity_error=EOFException.INVALID_FIRST_SECTION_TYPE
         )
     )
@@ -56,7 +56,7 @@ def test_first_section_returning(eof_test: EOFTestFiller, code_section: Section)
 def test_returning_section_not_returning(eof_test: EOFTestFiller, code_section: Section):
     """Test EOF validation failing due to returning section with no RETF or JUMPF-to-returning."""
     eof_test(
-        data=Container(
+        container=Container(
             sections=[
                 Section.Code(Op.CALLF[1] + Op.STOP, max_stack_height=code_section.code_outputs),
                 code_section,
@@ -84,7 +84,7 @@ def test_returning_section_returncontract(eof_test: EOFTestFiller, code_section:
     RETURNCONTRACT version.
     """
     eof_test(
-        data=Container(
+        container=Container(
             sections=[
                 Section.Code(Op.CALLF[1] + Op.INVALID, max_stack_height=code_section.code_outputs),
                 code_section,
@@ -115,7 +115,9 @@ def test_retf_in_nonreturning(eof_test: EOFTestFiller, first: bool, code_prefix:
     if not first:  # Prefix sections with additional valid JUMPF to invalid section
         sections = [Section.Code(Op.JUMPF[1])] + sections
     eof_test(
-        data=Container(sections=sections, validity_error=EOFException.INVALID_NON_RETURNING_FLAG)
+        container=Container(
+            sections=sections, validity_error=EOFException.INVALID_NON_RETURNING_FLAG
+        )
     )
 
 
@@ -133,7 +135,7 @@ def test_jumpf_in_nonreturning(eof_test: EOFTestFiller, first: bool, code_prefix
         sections = [Section.Code(Op.JUMPF[1])] + sections
 
     eof_test(
-        data=Container(
+        container=Container(
             sections=sections,
             validity_error=EOFException.INVALID_NON_RETURNING_FLAG,
         )
@@ -205,4 +207,4 @@ def test_jumpf_in_nonreturning(eof_test: EOFTestFiller, first: bool, code_prefix
 )
 def test_callf_to_nonreturning(eof_test: EOFTestFiller, container: Container):
     """Test EOF validation failing due to CALLF to non-returning section."""
-    eof_test(data=container, expect_exception=EOFException.CALLF_TO_NON_RETURNING)
+    eof_test(container=container, expect_exception=EOFException.CALLF_TO_NON_RETURNING)

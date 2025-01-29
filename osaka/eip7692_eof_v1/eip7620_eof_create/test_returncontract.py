@@ -29,7 +29,7 @@ def test_returncontract_valid_index_0(
     """Deploy container index 0."""
     eof_test(
         container_kind=ContainerKind.INITCODE,
-        data=Container(
+        container=Container(
             sections=[
                 Section.Code(
                     code=Op.RETURNCONTRACT[0](0, 0),
@@ -46,7 +46,7 @@ def test_returncontract_valid_index_1(
     """Deploy container index 1."""
     eof_test(
         container_kind=ContainerKind.INITCODE,
-        data=Container(
+        container=Container(
             sections=[
                 Section.Code(
                     code=Op.RJUMPI[6](0) + Op.RETURNCONTRACT[0](0, 0) + Op.RETURNCONTRACT[1](0, 0),
@@ -65,7 +65,7 @@ def test_returncontract_valid_index_255(
     """Deploy container index 255."""
     eof_test(
         container_kind=ContainerKind.INITCODE,
-        data=Container(
+        container=Container(
             sections=[
                 Section.Code(
                     sum((Op.RJUMPI[6](0) + Op.RETURNCONTRACT[i](0, 0)) for i in range(256))
@@ -85,7 +85,7 @@ def test_returncontract_invalid_truncated_immediate(
     """Truncated immediate."""
     eof_test(
         container_kind=ContainerKind.INITCODE,
-        data=Container(
+        container=Container(
             sections=[
                 Section.Code(
                     code=Op.PUSH0 + Op.PUSH0 + Op.RETURNCONTRACT,
@@ -102,7 +102,7 @@ def test_returncontract_invalid_index_0(
     """Referring to non-existent container section index 0."""
     eof_test(
         container_kind=ContainerKind.INITCODE,
-        data=Container(
+        container=Container(
             sections=[
                 Section.Code(
                     code=Op.RETURNCONTRACT[0](0, 0),
@@ -119,7 +119,7 @@ def test_returncontract_invalid_index_1(
     """Referring to non-existent container section index 1."""
     eof_test(
         container_kind=ContainerKind.INITCODE,
-        data=Container(
+        container=Container(
             sections=[
                 Section.Code(
                     code=Op.RETURNCONTRACT[1](0, 0),
@@ -137,7 +137,7 @@ def test_returncontract_invalid_index_255(
     """Referring to non-existent container section index 255."""
     eof_test(
         container_kind=ContainerKind.INITCODE,
-        data=Container(
+        container=Container(
             sections=[
                 Section.Code(
                     code=Op.RETURNCONTRACT[255](0, 0),
@@ -155,7 +155,7 @@ def test_returncontract_terminating(
     """Unreachable code after RETURNCONTRACT."""
     eof_test(
         container_kind=ContainerKind.INITCODE,
-        data=Container(
+        container=Container(
             sections=[
                 Section.Code(
                     code=Op.RETURNCONTRACT[0](0, 0) + Op.REVERT(0, 0),

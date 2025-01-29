@@ -611,7 +611,7 @@ def test_eofcreate_invalid_index(
 ):
     """Referring to non-existent container section index."""
     eof_test(
-        data=Container(
+        container=Container(
             sections=[
                 Section.Code(
                     code=Op.EOFCREATE[index](0, 0, 0, 0) + Op.STOP,

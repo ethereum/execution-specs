@@ -113,7 +113,7 @@ def test_all_opcodes_in_container(
         eof_code = Container(sections=sections)
 
     eof_test(
-        data=eof_code,
+        container=eof_code,
         expect_exception=(
             None if opcode in valid_eof_opcodes else EOFException.UNDEFINED_INSTRUCTION
         ),
@@ -159,7 +159,7 @@ def test_invalid_opcodes_after_stop(
     )
 
     eof_test(
-        data=eof_code,
+        container=eof_code,
         expect_exception=EOFException.UNDEFINED_INSTRUCTION,
     )
 
@@ -204,7 +204,7 @@ def test_all_invalid_terminating_opcodes(
     sections += [Section.Data(b"\0" * 32)]
 
     eof_test(
-        data=Container(
+        container=Container(
             sections=sections,
         ),
         expect_exception=EOFException.MISSING_STOP_OPCODE,
@@ -253,7 +253,7 @@ def test_all_unreachable_terminating_opcodes_after_stop(
             raise NotImplementedError(f"Opcode {opcode} is not implemented")
 
     eof_test(
-        data=Container(
+        container=Container(
             sections=sections,
         ),
         expect_exception=EOFException.UNREACHABLE_INSTRUCTIONS
@@ -302,7 +302,7 @@ def test_all_unreachable_terminating_opcodes_before_stop(
             raise NotImplementedError(f"Opcode {opcode} is not implemented")
 
     eof_test(
-        data=Container(
+        container=Container(
             sections=sections,
         ),
         expect_exception=EOFException.UNREACHABLE_INSTRUCTIONS
@@ -365,7 +365,7 @@ def test_all_opcodes_stack_underflow(
     eof_code = Container(sections=sections)
 
     eof_test(
-        data=eof_code,
+        container=eof_code,
         expect_exception=EOFException.STACK_UNDERFLOW,
     )
 
@@ -415,7 +415,7 @@ def test_all_opcodes_stack_overflow(
     eof_code = Container(sections=sections)
 
     eof_test(
-        data=eof_code,
+        container=eof_code,
         expect_exception=exception,
     )
 
@@ -477,6 +477,6 @@ def test_truncated_data_portion_opcodes(
         ]
     )
     eof_test(
-        data=eof_code,
+        container=eof_code,
         expect_exception=EOFException.TRUNCATED_INSTRUCTION,
     )

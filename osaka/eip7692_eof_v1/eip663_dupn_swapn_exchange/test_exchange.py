@@ -47,7 +47,7 @@ def test_exchange_all_valid_immediates(eof_state_test: EOFStateTestFiller):
 
     eof_state_test(
         tx_sender_funding_amount=1_000_000_000,
-        data=eof_code,
+        container=eof_code,
         container_post=post,
     )
 
@@ -86,6 +86,6 @@ def test_exchange_all_invalid_immediates(
     )
 
     eof_test(
-        data=eof_code,
+        container=eof_code,
         expect_exception=EOFException.STACK_UNDERFLOW,
     )
