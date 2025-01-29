@@ -465,7 +465,31 @@ def invalid_requests_block_combinations(fork: Fork) -> List[Any]:
             correct_order_transactions,
             correct_order + [bytes([fork.max_request_type() + 1])],
             BlockException.INVALID_REQUESTS,
-            id="extra_invalid_type_request",
+            id="extra_invalid_type_request_with_no_data",
+        ),
+    )
+    combinations.append(
+        pytest.param(
+            correct_order_transactions,
+            correct_order + [bytes([fork.max_request_type() + 1, 0x00])],
+            BlockException.INVALID_REQUESTS,
+            id="extra_invalid_type_request_with_data_0x00",
+        ),
+    )
+    combinations.append(
+        pytest.param(
+            correct_order_transactions,
+            correct_order + [bytes([fork.max_request_type() + 1, 0x01])],
+            BlockException.INVALID_REQUESTS,
+            id="extra_invalid_type_request_with_data_0x01",
+        ),
+    )
+    combinations.append(
+        pytest.param(
+            correct_order_transactions,
+            correct_order + [bytes([fork.max_request_type() + 1, 0xFF])],
+            BlockException.INVALID_REQUESTS,
+            id="extra_invalid_type_request_with_data_0xff",
         ),
     )
 
@@ -515,6 +539,12 @@ def test_invalid_deposit_withdrawal_consolidation_requests_engine(
     In these tests, the requests hash in the header reflects what's actually in the executed block,
     so the block might execute properly if the client ignores the requests in the new payload
     parameters.
+
+    Note that the only difference between the engine version produced by this test and
+    the ones produced by `test_invalid_deposit_withdrawal_consolidation_requests` is the
+    `blockHash` value in the new payloads, which is calculated using different request hashes
+    for each test, but since the request hash is not a value that is included in the payload,
+    it might not be immediately apparent.
 
     Also these tests would not fail if the block is imported via RLP (syncing from a peer),
     so we only generate the BlockchainTestEngine for them.

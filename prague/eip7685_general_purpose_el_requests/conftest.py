@@ -4,7 +4,6 @@ from typing import List, SupportsBytes
 
 import pytest
 
-from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     Alloc,
     Block,
@@ -34,12 +33,6 @@ def block_body_override_requests(
     if hasattr(request, "param"):
         return request.param
     return None
-
-
-@pytest.fixture
-def block_body_extra_requests() -> List[SupportsBytes]:
-    """List of requests that overwrite the requests in the header. None by default."""
-    return []
 
 
 @pytest.fixture
@@ -80,7 +73,6 @@ def engine_api_error_code(
 
 @pytest.fixture
 def blocks(
-    fork: Fork,
     pre: Alloc,
     requests: List[
         DepositInteractionBase
@@ -88,7 +80,6 @@ def blocks(
         | ConsolidationRequestInteractionBase
     ],
     block_body_override_requests: List[Bytes | SupportsBytes] | None,
-    block_body_extra_requests: List[SupportsBytes],
     correct_requests_hash_in_header: bool,
     exception: BlockException | None,
     engine_api_error_code: EngineAPIError | None,
@@ -108,9 +99,6 @@ def blocks(
             valid_requests_list += r.valid_requests(consolidation_request_fee)
 
     valid_requests = Requests(*valid_requests_list)
-
-    if block_body_override_requests is None and block_body_extra_requests is not None:
-        block_body_override_requests = valid_requests.requests_list + block_body_extra_requests
 
     rlp_modifier: Header | None = None
     if correct_requests_hash_in_header:
