@@ -356,6 +356,60 @@ def test_valid_containers(
             validity_error=EOFException.INCOMPLETE_SECTION_SIZE,
         ),
         Container(
+            # EOF code missing mandatory type section
+            name="EOF1I4750_0001",
+            raw_bytes="ef000102000100010400000000800000fe",
+            validity_error=EOFException.MISSING_TYPE_HEADER,
+        ),
+        Container(
+            # EOF code containing multiple type headers
+            name="multiple_type_headers_1",  # EOF1I4750_0002
+            raw_bytes="ef00010100040100040400000000800000fe",
+            validity_error=EOFException.MISSING_CODE_HEADER,
+        ),
+        Container(
+            # EOF code containing multiple type headers, second one matches code length
+            name="multiple_type_headers_2",
+            raw_bytes="ef00010100040100010400000000800000fe",
+            validity_error=EOFException.MISSING_CODE_HEADER,
+        ),
+        Container(
+            # EOF code containing type section size (Size 1)
+            name="EOF1I4750_0003",
+            raw_bytes="ef000101000102000100010400000000800000fe",
+            validity_error=EOFException.INVALID_TYPE_SECTION_SIZE,
+        ),
+        Container(
+            # EOF code containing type section size (Size 8 - 1 Code section)
+            name="EOF1I4750_0004",
+            raw_bytes="ef000101000802000100010400000000800000fe",
+            validity_error=EOFException.INVALID_SECTION_BODIES_SIZE,
+        ),
+        Container(
+            # EOF code containing type section size (Size 8 - 3 Code sections)
+            name="EOF1I4750_0005",
+            raw_bytes="ef0001010008020003000100010001040000000080000000800000fefefe",
+            validity_error=EOFException.INVALID_TYPE_SECTION_SIZE,
+        ),
+        Container(
+            # EOF code containing invalid first section type (1,0)
+            name="EOF1I4750_0006",
+            raw_bytes="ef000101000402000100010400000001000000fe",
+            validity_error=EOFException.INVALID_FIRST_SECTION_TYPE,
+        ),
+        Container(
+            # EOF code containing invalid first section type (0,1)
+            name="EOF1I4750_0007",
+            raw_bytes="ef000101000402000100010400000000010000fe",
+            validity_error=EOFException.INVALID_FIRST_SECTION_TYPE,
+        ),
+        Container(
+            # EOF code containing invalid first section type (2,3)
+            name="EOF1I4750_0008",
+            raw_bytes="ef000101000402000100010400000002030000fe",
+            validity_error=EOFException.INVALID_FIRST_SECTION_TYPE,
+        ),
+        Container(
             name="no_sections",
             sections=[],
             auto_data_section=False,

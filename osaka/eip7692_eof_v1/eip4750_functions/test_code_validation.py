@@ -91,13 +91,39 @@ VALID: List[Container] = [
 
 INVALID: List[Container] = [
     Container(
-        name="function_underflow",
+        # CALLF to function with incorrectly specified number of inputs
+        name="code_inputs_underflow_1",  # EOF1I4750_0020
+        sections=[
+            Section.Code(code=(Op.PUSH0 + Op.PUSH0 + Op.CALLF[1] + Op.STOP)),
+            Section.Code(
+                code=(Op.ADD + Op.RETF),
+                code_inputs=0,
+                code_outputs=0,
+            ),
+        ],
+        validity_error=EOFException.STACK_UNDERFLOW,
+    ),
+    Container(
+        name="code_inputs_underflow_2",
         sections=[
             Section.Code(code=(Op.PUSH0 + Op.CALLF[1] + Op.STOP)),
             Section.Code(
                 code=(Op.POP + Op.POP + Op.RETF),
                 code_inputs=1,
                 code_outputs=0,
+            ),
+        ],
+        validity_error=EOFException.STACK_UNDERFLOW,
+    ),
+    Container(
+        # CALLF without enough inputs
+        name="callf_inputs_underflow",  # EOF1I4750_0019
+        sections=[
+            Section.Code(code=(Op.CALLF[1] + Op.STOP)),
+            Section.Code(
+                code=(Op.ADD + Op.RETF),
+                code_inputs=2,
+                code_outputs=1,
             ),
         ],
         validity_error=EOFException.STACK_UNDERFLOW,
