@@ -97,5 +97,5 @@ def test_generate_success(tmp_path, monkeypatch):
     assert gentest_result.exit_code == 0
 
     ## Fill ##
-    fill_result = runner.invoke(fill, ["-c", "pytest.ini", output_file])
+    fill_result = runner.invoke(fill, ["-c", "pytest.ini", "--skip-evm-dump", output_file])
     assert fill_result.exit_code == 0
