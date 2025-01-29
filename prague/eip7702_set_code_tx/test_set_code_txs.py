@@ -3367,3 +3367,95 @@ def test_many_delegations(
         tx=tx,
         post=post,
     )
+
+
+def test_invalid_transaction_after_authorization(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+):
+    """
+    Test an invalid block due to a transaction reusing the same nonce as an authorization
+    included in a prior transaction.
+    """
+    auth_signer = pre.fund_eoa()
+
+    txs = [
+        Transaction(
+            sender=pre.fund_eoa(),
+            gas_limit=500_000,
+            to=Address(0),
+            value=0,
+            authorization_list=[
+                AuthorizationTuple(
+                    address=Address(1),
+                    nonce=0,
+                    signer=auth_signer,
+                ),
+            ],
+        ),
+        Transaction(
+            sender=auth_signer,
+            nonce=0,
+            gas_limit=21_000,
+            to=Address(0),
+            value=1,
+            error=TransactionException.NONCE_MISMATCH_TOO_LOW,
+        ),
+    ]
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=txs,
+                exception=TransactionException.NONCE_MISMATCH_TOO_LOW,
+            )
+        ],
+        post={
+            Address(0): None,
+        },
+    )
+
+
+def test_authorization_reusing_nonce(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+):
+    """
+    Test an authorization reusing the same nonce as a prior transaction included in the same
+    block.
+    """
+    auth_signer = pre.fund_eoa()
+    sender = pre.fund_eoa()
+    txs = [
+        Transaction(
+            sender=auth_signer,
+            nonce=0,
+            gas_limit=21_000,
+            to=Address(0),
+            value=1,
+        ),
+        Transaction(
+            sender=sender,
+            gas_limit=500_000,
+            to=Address(0),
+            value=0,
+            authorization_list=[
+                AuthorizationTuple(
+                    address=Address(1),
+                    nonce=0,
+                    signer=auth_signer,
+                ),
+            ],
+        ),
+    ]
+
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=txs)],
+        post={
+            Address(0): Account(balance=1),
+            auth_signer: Account(nonce=1, code=b""),
+            sender: Account(nonce=1),
+        },
+    )
