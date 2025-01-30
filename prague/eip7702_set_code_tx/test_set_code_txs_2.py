@@ -254,22 +254,20 @@ def test_pointer_measurements(blockchain_test: BlockchainTestFiller, pre: Alloc)
         + Op.SSTORE(storage_normal.store_next(100, "balance"), Op.BALANCE(pointer))
         + Op.STOP,
     )
-
+    delegation_designation = Spec.delegation_designation(pointer_code)
     contract_measurements_pointer = pre.deploy_contract(
         code=Op.EXTCODECOPY(pointer, 0, 0, 32)
         + Op.SSTORE(
-            storage_pointer.store_next(
-                Spec.DELEGATION_DESIGNATION_READING.keccak256(), "extcodehash"
-            ),
+            storage_pointer.store_next(delegation_designation.keccak256(), "extcodehash"),
             Op.EXTCODEHASH(pointer),
         )
         + Op.SSTORE(
-            storage_pointer.store_next(len(Spec.DELEGATION_DESIGNATION_READING), "extcodesize"),
+            storage_pointer.store_next(len(delegation_designation), "extcodesize"),
             Op.EXTCODESIZE(pointer),
         )
         + Op.SSTORE(
             storage_pointer.store_next(
-                Hash(Spec.DELEGATION_DESIGNATION_READING, right_padding=True), "extcodecopy"
+                Hash(delegation_designation, right_padding=True), "extcodecopy"
             ),
             Op.MLOAD(0),
         )

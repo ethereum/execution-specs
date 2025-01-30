@@ -1075,11 +1075,15 @@ def test_ext_code_on_set_code(
             raise ValueError(f"Unsupported set code type: {set_code_type}")
 
     callee_storage = Storage()
-    callee_storage[slot_ext_code_size_result] = len(Spec.DELEGATION_DESIGNATION_READING)
-    callee_storage[slot_ext_code_hash_result] = Spec.DELEGATION_DESIGNATION_READING.keccak256()
-    callee_storage[slot_ext_code_copy_result] = Spec.DELEGATION_DESIGNATION_READING.ljust(
-        32, b"\x00"
-    )[:32]
+    callee_storage[slot_ext_code_size_result] = len(
+        Spec.delegation_designation(set_code_to_address)
+    )
+    callee_storage[slot_ext_code_hash_result] = Spec.delegation_designation(
+        set_code_to_address
+    ).keccak256()
+    callee_storage[slot_ext_code_copy_result] = Hash(
+        Spec.delegation_designation(set_code_to_address), right_padding=True
+    )
     callee_storage[slot_ext_balance_result] = balance
 
     tx = Transaction(
@@ -1144,11 +1148,15 @@ def test_ext_code_on_self_set_code(
     set_code_address = pre.deploy_contract(set_code)
 
     set_code_storage = Storage()
-    set_code_storage[slot_ext_code_size_result] = len(Spec.DELEGATION_DESIGNATION_READING)
-    set_code_storage[slot_ext_code_hash_result] = Spec.DELEGATION_DESIGNATION_READING.keccak256()
-    set_code_storage[slot_ext_code_copy_result] = Spec.DELEGATION_DESIGNATION_READING.ljust(
-        32, b"\x00"
-    )[:32]
+    set_code_storage[slot_ext_code_size_result] = len(
+        Spec.delegation_designation(set_code_address)
+    )
+    set_code_storage[slot_ext_code_hash_result] = Spec.delegation_designation(
+        set_code_address
+    ).keccak256()
+    set_code_storage[slot_ext_code_copy_result] = Hash(
+        Spec.delegation_designation(set_code_address), right_padding=True
+    )
     set_code_storage[slot_ext_balance_result] = balance
 
     tx = Transaction(
@@ -1364,11 +1372,13 @@ def test_ext_code_on_self_delegating_set_code(
     callee_address = pre.deploy_contract(callee_code)
     callee_storage = Storage()
 
-    callee_storage[slot_ext_code_size_result] = len(Spec.DELEGATION_DESIGNATION_READING)
-    callee_storage[slot_ext_code_hash_result] = Spec.DELEGATION_DESIGNATION_READING.keccak256()
-    callee_storage[slot_ext_code_copy_result] = Spec.DELEGATION_DESIGNATION_READING.ljust(
-        32, b"\x00"
-    )[:32]
+    callee_storage[slot_ext_code_size_result] = len(Spec.delegation_designation(auth_signer))
+    callee_storage[slot_ext_code_hash_result] = Spec.delegation_designation(
+        auth_signer
+    ).keccak256()
+    callee_storage[slot_ext_code_copy_result] = Hash(
+        Spec.delegation_designation(auth_signer), right_padding=True
+    )
     callee_storage[slot_ext_balance_result] = balance
 
     tx = Transaction(
@@ -1443,18 +1453,22 @@ def test_ext_code_on_chain_delegating_set_code(
     callee_address = pre.deploy_contract(callee_code)
     callee_storage = Storage()
 
-    callee_storage[slot_ext_code_size_result_1] = len(Spec.DELEGATION_DESIGNATION_READING)
-    callee_storage[slot_ext_code_hash_result_1] = Spec.DELEGATION_DESIGNATION_READING.keccak256()
-    callee_storage[slot_ext_code_copy_result_1] = Spec.DELEGATION_DESIGNATION_READING.ljust(
-        32, b"\x00"
-    )[:32]
+    callee_storage[slot_ext_code_size_result_1] = len(Spec.delegation_designation(auth_signer_2))
+    callee_storage[slot_ext_code_hash_result_1] = Spec.delegation_designation(
+        auth_signer_2
+    ).keccak256()
+    callee_storage[slot_ext_code_copy_result_1] = Hash(
+        Spec.delegation_designation(auth_signer_2), right_padding=True
+    )
     callee_storage[slot_ext_balance_result_1] = auth_signer_1_balance
 
-    callee_storage[slot_ext_code_size_result_2] = len(Spec.DELEGATION_DESIGNATION_READING)
-    callee_storage[slot_ext_code_hash_result_2] = Spec.DELEGATION_DESIGNATION_READING.keccak256()
-    callee_storage[slot_ext_code_copy_result_2] = Spec.DELEGATION_DESIGNATION_READING.ljust(
-        32, b"\x00"
-    )[:32]
+    callee_storage[slot_ext_code_size_result_2] = len(Spec.delegation_designation(auth_signer_1))
+    callee_storage[slot_ext_code_hash_result_2] = Spec.delegation_designation(
+        auth_signer_1
+    ).keccak256()
+    callee_storage[slot_ext_code_copy_result_2] = Hash(
+        Spec.delegation_designation(auth_signer_1), right_padding=True
+    )
     callee_storage[slot_ext_balance_result_2] = auth_signer_2_balance
 
     tx = Transaction(
