@@ -2648,7 +2648,7 @@ def test_set_code_to_system_contract(
             )
             caller_payload = deposit_request.calldata
             call_value = deposit_request.value
-        case Address(0x0C15F14308530B7CDB8460094BBB9CC28B9AAAAA):  # EIP-7002
+        case Address(0x00000961EF480EB55E80D19AD83579A64C007002):  # EIP-7002
             # Fabricate a valid withdrawal request to the set-code account
             withdrawal_request = WithdrawalRequest(
                 source_address=0x01,
@@ -2658,7 +2658,7 @@ def test_set_code_to_system_contract(
             )
             caller_payload = withdrawal_request.calldata
             call_value = withdrawal_request.value
-        case Address(0x00431F263CE400F4455C2DCF564E53007CA4BBBB):  # EIP-7251
+        case Address(0x0000BBDDC7CE488642FB579F8B00F3A590007251):  # EIP-7251
             # Fabricate a valid consolidation request to the set-code account
             consolidation_request = ConsolidationRequest(
                 source_address=0x01,
@@ -2668,7 +2668,7 @@ def test_set_code_to_system_contract(
             )
             caller_payload = consolidation_request.calldata
             call_value = consolidation_request.value
-        case Address(0x0F792BE4B0C0CB4DAE440EF133E90C0ECD48CCCC):  # EIP-2935
+        case Address(0x0000F90827F1C53A10CB7A02335B175320002935):  # EIP-2935
             caller_payload = Hash(0)
             caller_code_storage[call_return_data_size_slot] = 32
         case _:
