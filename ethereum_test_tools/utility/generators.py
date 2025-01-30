@@ -7,7 +7,7 @@ from typing import Dict, Generator, List, Protocol
 
 import pytest
 
-from ethereum_test_base_types import Account, Address
+from ethereum_test_base_types import Account, Address, Hash
 from ethereum_test_forks import Fork
 from ethereum_test_specs import BlockchainTestFiller
 from ethereum_test_specs.blockchain import Block
@@ -102,6 +102,10 @@ def generate_system_contract_deploy_test(
     assert gas_price is not None
     deployer_required_balance = deploy_tx.gas_limit * gas_price
     deployer_address = deploy_tx.sender
+    if "hash" in tx_json:
+        assert deploy_tx.hash == Hash(tx_json["hash"])
+    if "sender" in tx_json:
+        assert deploy_tx.sender == Address(tx_json["sender"])
 
     def decorator(func: SystemContractDeployTestFunction):
         @pytest.mark.parametrize(

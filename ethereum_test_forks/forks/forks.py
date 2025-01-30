@@ -1093,9 +1093,9 @@ class Prague(Cancun):
         """Prague introduces the system contracts for EIP-6110, EIP-7002, EIP-7251 and EIP-2935."""
         return [
             Address(0x00000000219AB540356CBB839CBE05303D7705FA),
-            Address(0x0C15F14308530B7CDB8460094BBB9CC28B9AAAAA),
-            Address(0x00431F263CE400F4455C2DCF564E53007CA4BBBB),
-            Address(0x0F792BE4B0C0CB4DAE440EF133E90C0ECD48CCCC),
+            Address(0x00000961EF480EB55E80D19AD83579A64C007002),
+            Address(0x0000BBDDC7CE488642FB579F8B00F3A590007251),
+            Address(0x0000F90827F1C53A10CB7A02335B175320002935),
         ] + super(Prague, cls).system_contracts(block_number, timestamp)
 
     @classmethod
@@ -1224,33 +1224,33 @@ class Prague(Cancun):
                 }
             )
 
-        # Add the withdrawal request contract
+        # EIP-7002: Add the withdrawal request contract
         with open(CURRENT_FOLDER / "contracts" / "withdrawal_request.bin", mode="rb") as f:
             new_allocation.update(
                 {
-                    0x0C15F14308530B7CDB8460094BBB9CC28B9AAAAA: {
+                    0x00000961EF480EB55E80D19AD83579A64C007002: {
                         "nonce": 1,
                         "code": f.read(),
                     },
                 }
             )
 
-        # Add the consolidation request contract
+        # EIP-7251: Add the consolidation request contract
         with open(CURRENT_FOLDER / "contracts" / "consolidation_request.bin", mode="rb") as f:
             new_allocation.update(
                 {
-                    0x00431F263CE400F4455C2DCF564E53007CA4BBBB: {
+                    0x0000BBDDC7CE488642FB579F8B00F3A590007251: {
                         "nonce": 1,
                         "code": f.read(),
                     },
                 }
             )
 
-        # Add the history storage contract
+        # EIP-2935: Add the history storage contract
         with open(CURRENT_FOLDER / "contracts" / "history_contract.bin", mode="rb") as f:
             new_allocation.update(
                 {
-                    0x0F792BE4B0C0CB4DAE440EF133E90C0ECD48CCCC: {
+                    0x0000F90827F1C53A10CB7A02335B175320002935: {
                         "nonce": 1,
                         "code": f.read(),
                     }
