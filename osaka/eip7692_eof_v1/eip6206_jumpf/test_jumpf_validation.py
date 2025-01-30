@@ -18,6 +18,62 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
     "container",
     [
         Container(
+            name="to_0",
+            sections=[
+                Section.Code(
+                    Op.CALLF[1] + Op.STOP,
+                ),
+                Section.Code(
+                    Op.JUMPF[0],
+                    code_outputs=0,
+                ),
+            ],
+        ),
+        Container(
+            name="to_2",
+            sections=[
+                Section.Code(
+                    Op.CALLF[1] + Op.STOP,
+                ),
+                Section.Code(
+                    Op.JUMPF[2],
+                    code_outputs=0,
+                ),
+                Section.Code(
+                    Op.INVALID,
+                ),
+            ],
+        ),
+        Container(
+            name="to_retf",
+            sections=[
+                Section.Code(
+                    Op.CALLF[1] + Op.STOP,
+                ),
+                Section.Code(
+                    Op.JUMPF[2],
+                    code_outputs=0,
+                ),
+                Section.Code(
+                    Op.RETF,
+                ),
+            ],
+        ),
+    ],
+    ids=lambda container: container.name,
+)
+def test_returning_jumpf(
+    eof_test: EOFTestFiller,
+    container: Container,
+):
+    """Test cases for JUMPF instruction validation in a returning sections."""
+    eof_test(container=container, expect_exception=EOFException.INVALID_NON_RETURNING_FLAG)
+
+
+@pytest.mark.parametrize(
+    "container",
+    [
+        Container(
             name="jumpf1",
             sections=[
                 Section.Code(

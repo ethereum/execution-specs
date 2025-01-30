@@ -149,8 +149,8 @@
 
 ### Validation
 
-- [x] Valid CALLFs  ([`tests/osaka/eip7692_eof_v1/eip4750_functions/test_callf_execution.py::test_callf`](./eip4750_functions/test_callf_execution/test_callf.md))
-- [x] CALLFs to non-existing sections  ([`tests/osaka/eip7692_eof_v1/eip4750_functions/test_code_validation.py::test_invalid_code_section_index`](./eip4750_functions/test_code_validation/test_invalid_code_section_index.md))
+- [x] Valid CALLFs ([`tests/osaka/eip7692_eof_v1/eip4750_functions/test_callf_execution.py::test_callf`](./eip4750_functions/test_callf_execution/test_callf.md))
+- [x] CALLFs to non-existing sections ([`tests/osaka/eip7692_eof_v1/eip4750_functions/test_code_validation.py::test_invalid_code_section_index`](./eip4750_functions/test_code_validation/test_invalid_code_section_index.md))
 - [x] Truncated CALLF immediate ([`tests/osaka/eip7692_eof_v1/eip4750_functions/test_code_validation.py::test_callf_truncated_immediate`](./eip4750_functions/test_code_validation/test_callf_truncated_immediate.md))
 - [x] Unreachable code sections ([`tests/osaka/eip7692_eof_v1/eip4750_functions/test_code_validation.py::test_unreachable_code_sections`](./eip4750_functions/test_code_validation/test_unreachable_code_sections.md))
 - [x] Sections reachable from other sections, but not reachable from section 0 ([`tests/osaka/eip7692_eof_v1/eip4750_functions/test_code_validation.py::test_unreachable_code_sections`](./eip4750_functions/test_code_validation/test_unreachable_code_sections.md))
@@ -339,16 +339,16 @@
 - [ ] Valid JUMPF into sections with equal number of outputs (ethereum/tests: src/EOFTestsFiller/efValidation/jumpf_equal_outputs_Copier.json)
 - [ ] Valid JUMPF into sections with different but compatible number of outputs (ethereum/tests: src/EOFTestsFiller/efValidation/jumpf_compatible_outputs_Copier.json)
 - [ ] JUMPF into sections with incompatible outputs (ethereum/tests: src/EOFTestsFiller/efValidation/jumpf_incompatible_outputs_Copier.json)
-- [ ] Non-returning section without JUMPF (ethereum/tests: src/EOFTestsFiller/efValidation/non_returning_status_Copier.json)
-- [x] Non-returning section with JUMPF ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_nonreturning_validation.py::test_jumpf_in_nonreturning`](./eip6206_jumpf/test_nonreturning_validation/test_jumpf_in_nonreturning.md), ethereum/tests: src/EOFTestsFiller/efValidation/non_returning_status_Copier.json)
-- [ ] Returning section with RETF (ethereum/tests: src/EOFTestsFiller/efValidation/non_returning_status_Copier.json)
-- [ ] Returning section with JUMPF (ethereum/tests: src/EOFTestsFiller/efValidation/non_returning_status_Copier.json)
-- [ ] Returning section with JUMPF to returning and RETF (ethereum/tests: src/EOFTestsFiller/efValidation/non_returning_status_Copier.json)
-- [ ] Returning section with JUMPF to non-returning and RETF (ethereum/tests: src/EOFTestsFiller/efValidation/non_returning_status_Copier.json)
+- [x] Non-returning section without JUMPF ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_execution.py::test_jumpf_forward`](./eip6206_jumpf/test_jumpf_execution/test_jumpf_forward.md))
+- [x] Non-returning section with JUMPF ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_nonreturning_validation.py::test_jumpf_in_nonreturning`](./eip6206_jumpf/test_nonreturning_validation/test_jumpf_in_nonreturning.md))
+- [x] Returning section with RETF ([`tests/osaka/eip7692_eof_v1/eip4750_functions/test_callf_execution.py::test_callf`](./eip4750_functions/test_callf_execution/test_callf.md))
+- [x] Returning section with JUMPF ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_validation.py::test_returning_jumpf`](./eip6206_jumpf/test_jumpf_validation/test_returning_jumpf.md))
+- [x] Returning section with JUMPF to returning and RETF ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_execution.py::test_jumpf_to_retf`](./eip6206_jumpf/test_jumpf_execution/test_jumpf_to_retf.md))
+- [x] Returning section with JUMPF to non-returning and RETF ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_validation.py::test_returning_jumpf`](./eip6206_jumpf/test_jumpf_validation/test_returning_jumpf.md))
 - [x] Returning section without JUMPF nor RETF ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_nonreturning_validation.py::test_returning_section_not_returning`](./eip6206_jumpf/test_nonreturning_validation/test_returning_section_not_returning.md))
-- [ ] Invalid non-returning flag (ethereum/tests: src/EOFTestsFiller/efValidation/non_returning_status_Copier.json)
-- [ ] Circular JUMPF between two sections (ethereum/tests: src/EOFTestsFiller/efValidation/non_returning_status_Copier.json)
-- [ ] JUMPF into non-existing section
+- [x] Invalid non-returning flag ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_nonreturning_validation.py::test_returning_section_not_returning`](./eip6206_jumpf/test_nonreturning_validation/test_returning_section_not_returning.md))
+- [x] Circular JUMPF between two sections ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_execution.py::test_jumpf_infinite_loop`](./eip6206_jumpf/test_jumpf_execution/test_jumpf_infinite_loop.md))
+- [x] JUMPF into non-existing section ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_validation.py::test_invalid_code_section_index`](./eip6206_jumpf/test_jumpf_validation/test_invalid_code_section_index.md))
 
 ## EIP-7480: EOF - Data section access instructions
 
