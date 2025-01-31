@@ -20,7 +20,11 @@ from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.exceptions import InvalidBlock, InvalidSenderError
+from ethereum.exceptions import (
+    EthereumException,
+    InvalidBlock,
+    InvalidSenderError,
+)
 
 from . import vm
 from .blocks import Block, Header, Log, Receipt, Withdrawal
@@ -358,7 +362,7 @@ def check_transaction(
 
 def make_receipt(
     tx: Transaction,
-    error: Optional[Exception],
+    error: Optional[EthereumException],
     cumulative_gas_used: Uint,
     logs: Tuple[Log, ...],
 ) -> Union[Bytes, Receipt]:
@@ -560,7 +564,7 @@ def apply_body(
 
 def process_transaction(
     env: vm.Environment, tx: Transaction
-) -> Tuple[Uint, Tuple[Log, ...], Optional[Exception]]:
+) -> Tuple[Uint, Tuple[Log, ...], Optional[EthereumException]]:
     """
     Execute a transaction against the provided environment.
 
