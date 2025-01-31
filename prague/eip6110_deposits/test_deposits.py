@@ -301,6 +301,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                 ),
             ],
             id="many_deposits_from_contract",
+            marks=pytest.mark.slow,
         ),
         pytest.param(
             [
@@ -472,6 +473,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                 ),
             ],
             id="many_deposits_from_contract_oog",
+            marks=pytest.mark.slow,
         ),
         pytest.param(
             [
