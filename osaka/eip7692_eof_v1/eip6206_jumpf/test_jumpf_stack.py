@@ -157,7 +157,7 @@ def test_jumpf_incompatible_outputs(
     stack_height: int,
     expected_exception: EOFException,
 ):
-    """Tests jumpf into fuction with incorrect output sizes."""
+    """Tests JUMPF into a section with incorrect number of outputs."""
     current_section_outputs = 1
     if (current_section_outputs + target_inputs - target_outputs) != stack_height:
         assert expected_exception is not None

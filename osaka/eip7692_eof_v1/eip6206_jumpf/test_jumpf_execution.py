@@ -71,6 +71,44 @@ def test_jumpf_forward(
                 ),
             ],
         ),
+        Container(
+            name="equal_outputs",
+            sections=[
+                Section.Code(
+                    Op.CALLF[1] + Op.SSTORE + Op.STOP,
+                    max_stack_height=2,
+                ),
+                Section.Code(
+                    Op.JUMPF[2],
+                    code_outputs=2,
+                    max_stack_height=0,
+                ),
+                Section.Code(
+                    Op.PUSH2[value_code_worked] + Op.PUSH2[slot_code_worked] + Op.RETF,
+                    code_outputs=2,
+                    max_stack_height=2,
+                ),
+            ],
+        ),
+        Container(
+            name="compatible_outputs",
+            sections=[
+                Section.Code(
+                    code=Op.CALLF[1] + Op.SSTORE + Op.STOP,
+                    max_stack_height=2,
+                ),
+                Section.Code(
+                    Op.PUSH2[value_code_worked] + Op.JUMPF[2],
+                    code_outputs=2,
+                    max_stack_height=1,
+                ),
+                Section.Code(
+                    Op.PUSH2[slot_code_worked] + Op.RETF,
+                    code_outputs=1,
+                    max_stack_height=1,
+                ),
+            ],
+        ),
     ],
     ids=lambda container: container.name,
 )
