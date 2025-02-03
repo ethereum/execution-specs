@@ -12,11 +12,12 @@ Introduction
 A straightforward interpreter that executes EVM code.
 """
 from dataclasses import dataclass
-from typing import Iterable, Optional, Set, Tuple, Union
+from typing import Optional, Set, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.numeric import U256, Uint, ulen
 
+from ethereum.exceptions import EthereumException
 from ethereum.trace import (
     EvmStop,
     OpEnd,
@@ -83,10 +84,10 @@ class MessageCallOutput:
 
     gas_left: Uint
     refund_counter: U256
-    logs: Union[Tuple[()], Tuple[Log, ...]]
+    logs: Tuple[Log, ...]
     accounts_to_delete: Set[Address]
-    touched_accounts: Iterable[Address]
-    error: Optional[Exception]
+    touched_accounts: Set[Address]
+    error: Optional[EthereumException]
     return_data: Bytes
 
 
