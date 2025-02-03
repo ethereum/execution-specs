@@ -29,9 +29,9 @@ def precompile_gas(
     """Gas cost for the precompile."""
     calculated_gas = GAS_CALCULATION_FUNCTION_MAP[precompile_address](len(input_data))
     if vector_gas_value is not None:
-        assert (
-            calculated_gas == vector_gas_value
-        ), f"Calculated gas {calculated_gas} != Vector gas {vector_gas_value}"
+        assert calculated_gas == vector_gas_value, (
+            f"Calculated gas {calculated_gas} != Vector gas {vector_gas_value}"
+        )
     return calculated_gas
 
 

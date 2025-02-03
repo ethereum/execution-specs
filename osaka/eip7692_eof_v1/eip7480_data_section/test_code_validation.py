@@ -151,9 +151,9 @@ def test_legacy_initcode_valid_eof_v1_contract(
     Test creating various types of valid EOF V1 contracts using legacy
     initcode and a contract creating transaction.
     """
-    assert (
-        container.validity_error is None
-    ), f"Valid container with validity error: {container.validity_error}"
+    assert container.validity_error is None, (
+        f"Valid container with validity error: {container.validity_error}"
+    )
     eof_test(
         container=container,
     )

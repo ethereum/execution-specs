@@ -90,9 +90,9 @@ class PytestParameterEnum(Enum):
                 if set(names) != set(test_case_names):
                     pprint(names)
                     pprint(test_case_names)
-                assert set(names) == set(
-                    test_case_names
-                ), "All test cases must have the same parameter names."
+                assert set(names) == set(test_case_names), (
+                    "All test cases must have the same parameter names."
+                )
         assert names is not None, "Enum must have at least one test case."
 
         return pytest.mark.parametrize(names, [test_case.param(names) for test_case in cls])

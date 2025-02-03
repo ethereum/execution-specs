@@ -47,9 +47,9 @@ class ModExpInput(TestParameterGroup):
         """Generate input for the MODEXP precompile."""
         return (
             "0x"
-            + f"{int(len(self.base)/2):x}".zfill(64)
-            + f"{int(len(self.exponent)/2):x}".zfill(64)
-            + f"{int(len(self.modulus)/2):x}".zfill(64)
+            + f"{int(len(self.base) / 2):x}".zfill(64)
+            + f"{int(len(self.exponent) / 2):x}".zfill(64)
+            + f"{int(len(self.modulus) / 2):x}".zfill(64)
             + self.base
             + self.exponent
             + self.modulus

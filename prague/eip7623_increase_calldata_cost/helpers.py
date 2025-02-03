@@ -42,8 +42,8 @@ def find_floor_cost_threshold(
     # Verify that increasing the tokens by one would always trigger the floor gas cost.
     assert (
         floor_data_gas_cost_calculator(tokens) <= intrinsic_gas_cost_calculator(tokens)
-    ) and floor_data_gas_cost_calculator(tokens + 1) > intrinsic_gas_cost_calculator(
-        tokens + 1
-    ), "invalid case"
+    ) and floor_data_gas_cost_calculator(tokens + 1) > intrinsic_gas_cost_calculator(tokens + 1), (
+        "invalid case"
+    )
 
     return tokens

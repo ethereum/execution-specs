@@ -118,9 +118,9 @@ def authority_iterator(
         for i, current_authority_type in enumerate(authority_type_iterator):
             match current_authority_type:
                 case AddressType.EMPTY_ACCOUNT:
-                    assert (
-                        not self_sponsored
-                    ), "Self-sponsored empty-account authority is not supported"
+                    assert not self_sponsored, (
+                        "Self-sponsored empty-account authority is not supported"
+                    )
                     yield AuthorityWithProperties(
                         authority=pre.fund_eoa(0),
                         address_type=current_authority_type,
@@ -158,9 +158,9 @@ def authority_iterator(
                             empty=False,
                         )
                 case AddressType.CONTRACT:
-                    assert (
-                        not self_sponsored or i > 0
-                    ), "Self-sponsored contract authority is not supported"
+                    assert not self_sponsored or i > 0, (
+                        "Self-sponsored contract authority is not supported"
+                    )
                     authority = pre.fund_eoa()
                     authority_account = pre[authority]
                     assert authority_account is not None
