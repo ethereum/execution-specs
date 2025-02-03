@@ -19,8 +19,9 @@ from typing import List, Optional, Set, Tuple, Union
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 
-from ethereum.crypto.hash import Hash32
+from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import EthereumException
+from ethereum.utils.byte import right_pad_zero_bytes
 
 from ..blocks import Log
 from ..fork_types import Address, VersionedHash
@@ -28,6 +29,8 @@ from ..state import State, TransientStorage, account_exists_and_is_empty
 from .precompiled_contracts import RIPEMD160_ADDRESS
 
 __all__ = ("Environment", "Evm", "Message")
+# Magic number for transaction logs converted to Keccak Hash
+MAGIC_LOG_KHASH = keccak256(b"42")
 
 
 @dataclass
@@ -150,3 +153,40 @@ def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
         ):
             evm.touched_accounts.add(RIPEMD160_ADDRESS)
     evm.gas_left += child_evm.gas_left
+
+
+def transfer_log(
+    evm: Evm,
+    sender: Address,
+    recipient: Address,
+    transfer_amount: U256,
+) -> None:
+    """
+    Main functional unit satisfying EIP-7708
+
+    Parameters
+    ----------
+    evm :
+        The state of the ethereum virtual machine
+    sender :
+        The account address sending the transfer
+    recipient :
+        The address of the transfer recipient account
+    transfer_amount :
+        The amount of ETH transacted
+    """
+    # We need to pre-pad the Address correctly before converting,
+    # otherwise it will throw because the lengths are not the same
+    padded_sender = right_pad_zero_bytes(sender, 12)
+    padded_recipient = right_pad_zero_bytes(recipient, 12)
+    log_entry = Log(
+        address=evm.message.current_target,
+        topics=(
+            MAGIC_LOG_KHASH,  # noqa: SC200
+            Hash32(padded_sender),
+            Hash32(padded_recipient),
+        ),
+        data=transfer_amount.to_be_bytes(),
+    )
+
+    evm.logs = evm.logs + (log_entry,)
