@@ -27,12 +27,12 @@ class ExceptionMapper(ABC):
         # Ensure that the subclass has properly defined _mapping_data before accessing it
         assert self._mapping_data is not None, "_mapping_data must be defined in subclass"
 
-        assert len({entry.exception for entry in self._mapping_data}) == len(
-            self._mapping_data
-        ), "Duplicate exception in _mapping_data"
-        assert len({entry.message for entry in self._mapping_data}) == len(
-            self._mapping_data
-        ), "Duplicate message in _mapping_data"
+        assert len({entry.exception for entry in self._mapping_data}) == len(self._mapping_data), (
+            "Duplicate exception in _mapping_data"
+        )
+        assert len({entry.message for entry in self._mapping_data}) == len(self._mapping_data), (
+            "Duplicate message in _mapping_data"
+        )
         self.exception_to_message_map: frozenbidict = frozenbidict(
             {entry.exception: entry.message for entry in self._mapping_data}
         )

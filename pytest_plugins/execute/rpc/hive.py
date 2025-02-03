@@ -203,12 +203,12 @@ def base_pre_genesis(
 ) -> Tuple[Alloc, FixtureHeader]:
     """Create a genesis block from the blockchain test definition."""
     env = Environment().set_fork_requirements(base_fork)
-    assert (
-        env.withdrawals is None or len(env.withdrawals) == 0
-    ), "withdrawals must be empty at genesis"
-    assert env.parent_beacon_block_root is None or env.parent_beacon_block_root == Hash(
-        0
-    ), "parent_beacon_block_root must be empty at genesis"
+    assert env.withdrawals is None or len(env.withdrawals) == 0, (
+        "withdrawals must be empty at genesis"
+    )
+    assert env.parent_beacon_block_root is None or env.parent_beacon_block_root == Hash(0), (
+        "parent_beacon_block_root must be empty at genesis"
+    )
 
     pre_alloc = Alloc.merge(
         Alloc.model_validate(base_fork.pre_allocation_blockchain()),
@@ -574,9 +574,9 @@ class EthRPC(BaseEthRPC):
                     head_block_hash=base_genesis_header.block_hash,
                 )
                 forkchoice_version = self.fork.engine_forkchoice_updated_version()
-                assert (
-                    forkchoice_version is not None
-                ), "Fork does not support engine forkchoice_updated"
+                assert forkchoice_version is not None, (
+                    "Fork does not support engine forkchoice_updated"
+                )
                 for _ in range(initial_forkchoice_update_retries):
                     response = self.engine_rpc.forkchoice_updated(
                         forkchoice_state,
@@ -618,9 +618,9 @@ class EthRPC(BaseEthRPC):
             ),
         )
         forkchoice_updated_version = self.fork.engine_forkchoice_updated_version()
-        assert (
-            forkchoice_updated_version is not None
-        ), "Fork does not support engine forkchoice_updated"
+        assert forkchoice_updated_version is not None, (
+            "Fork does not support engine forkchoice_updated"
+        )
         response = self.engine_rpc.forkchoice_updated(
             forkchoice_state,
             payload_attributes,

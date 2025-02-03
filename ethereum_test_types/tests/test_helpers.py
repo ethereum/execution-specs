@@ -58,7 +58,7 @@ def test_address():
             "0x06012c8cf97bead5deae237070f9587f8e7a266d",
             id="large-nonce-0x-str-address",
             marks=pytest.mark.xfail(
-                reason="Nonce too large to convert with hard-coded to_bytes " "length of 1"
+                reason="Nonce too large to convert with hard-coded to_bytes length of 1"
             ),
         ),
     ],

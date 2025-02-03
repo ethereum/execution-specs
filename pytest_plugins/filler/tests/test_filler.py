@@ -575,13 +575,13 @@ def test_fixture_output_based_on_command_line_args(
     all_fixtures = [file for file in all_files if file.name not in expected_additional_files]
     for fixture_file, fixture_count in zip(expected_fixture_files, expected_fixture_counts):
         assert fixture_file.exists(), f"{fixture_file} does not exist"
-        assert fixture_count == count_keys_in_fixture(
-            fixture_file
-        ), f"Fixture count mismatch for {fixture_file}"
+        assert fixture_count == count_keys_in_fixture(fixture_file), (
+            f"Fixture count mismatch for {fixture_file}"
+        )
 
-    assert set(all_fixtures) == set(
-        expected_fixture_files
-    ), f"Unexpected files in directory: {set(all_fixtures) - set(expected_fixture_files)}"
+    assert set(all_fixtures) == set(expected_fixture_files), (
+        f"Unexpected files in directory: {set(all_fixtures) - set(expected_fixture_files)}"
+    )
 
     assert ini_file is not None, f"No {expected_ini_file} file was found in {meta_dir}"
     config = configparser.ConfigParser()

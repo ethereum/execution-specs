@@ -40,7 +40,7 @@ class NimbusTransitionTool(TransitionTool):
             result = subprocess.run(args, capture_output=True, text=True)
         except subprocess.CalledProcessError as e:
             raise Exception(
-                "evm process unexpectedly returned a non-zero status code: " f"{e}."
+                f"evm process unexpectedly returned a non-zero status code: {e}."
             ) from e
         except Exception as e:
             raise Exception(f"Unexpected exception calling evm tool: {e}.") from e

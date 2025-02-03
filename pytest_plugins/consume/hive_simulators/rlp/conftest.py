@@ -38,9 +38,9 @@ def blockchain_fixture(fixture_source: JsonSource, test_case: TestCase) -> Block
     """
     if fixture_source == "stdin":
         assert isinstance(test_case, TestCaseStream), "Expected a stream test case"
-        assert isinstance(
-            test_case.fixture, BlockchainFixture
-        ), "Expected a blockchain test fixture"
+        assert isinstance(test_case.fixture, BlockchainFixture), (
+            "Expected a blockchain test fixture"
+        )
         fixture = test_case.fixture
     else:
         assert isinstance(test_case, TestCaseIndexFile), "Expected an index file test case"

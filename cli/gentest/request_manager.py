@@ -55,9 +55,9 @@ class RPCRequest:
         block_number = res.block_number
         assert block_number is not None, "Transaction does not seem to be included in any block"
 
-        assert (
-            res.ty == 0
-        ), f"Transaction has type {res.ty}: Currently only type 0 transactions are supported."
+        assert res.ty == 0, (
+            f"Transaction has type {res.ty}: Currently only type 0 transactions are supported."
+        )
 
         return RPCRequest.RemoteTransaction(
             block_number=block_number,

@@ -165,9 +165,9 @@ class Alloc(BaseAlloc):
             initcode_prefix += sum(Op.SSTORE(key, value) for key, value in storage.root.items())
             deploy_gas_limit += len(storage.root) * 22_600
 
-        assert isinstance(code, Bytecode) or isinstance(
-            code, Container
-        ), f"incompatible code type: {type(code)}"
+        assert isinstance(code, Bytecode) or isinstance(code, Container), (
+            f"incompatible code type: {type(code)}"
+        )
         code = self.code_pre_processor(code, evm_code_type=evm_code_type)
 
         assert len(code) <= MAX_BYTECODE_SIZE, f"code too large: {len(code)} > {MAX_BYTECODE_SIZE}"
@@ -184,9 +184,9 @@ class Alloc(BaseAlloc):
             memory_expansion_gas_calculator = self._fork.memory_expansion_gas_calculator()
             deploy_gas_limit += memory_expansion_gas_calculator(new_bytes=len(bytes(initcode)))
 
-        assert (
-            len(initcode) <= MAX_INITCODE_SIZE
-        ), f"initcode too large {len(initcode)} > {MAX_INITCODE_SIZE}"
+        assert len(initcode) <= MAX_INITCODE_SIZE, (
+            f"initcode too large {len(initcode)} > {MAX_INITCODE_SIZE}"
+        )
 
         calldata_gas_calculator = self._fork.calldata_gas_calculator()
         deploy_gas_limit += calldata_gas_calculator(data=initcode)

@@ -24,9 +24,9 @@ class TransactionPost(BaseExecute):
 
     def execute(self, eth_rpc: EthRPC):
         """Execute the format."""
-        assert not any(
-            tx.ty == 3 for tx in self.transactions
-        ), "Transaction type 3 is not supported in execute mode."
+        assert not any(tx.ty == 3 for tx in self.transactions), (
+            "Transaction type 3 is not supported in execute mode."
+        )
         if any(tx.error is not None for tx in self.transactions):
             for transaction in self.transactions:
                 if transaction.error is None:
@@ -49,17 +49,17 @@ class TransactionPost(BaseExecute):
                 assert nonce == 0, f"Nonce of {address} is {nonce}, expected 0."
             else:
                 if "balance" in account.model_fields_set:
-                    assert (
-                        balance == account.balance
-                    ), f"Balance of {address} is {balance}, expected {account.balance}."
+                    assert balance == account.balance, (
+                        f"Balance of {address} is {balance}, expected {account.balance}."
+                    )
                 if "code" in account.model_fields_set:
-                    assert (
-                        code == account.code
-                    ), f"Code of {address} is {code}, expected {account.code}."
+                    assert code == account.code, (
+                        f"Code of {address} is {code}, expected {account.code}."
+                    )
                 if "nonce" in account.model_fields_set:
-                    assert (
-                        nonce == account.nonce
-                    ), f"Nonce of {address} is {nonce}, expected {account.nonce}."
+                    assert nonce == account.nonce, (
+                        f"Nonce of {address} is {nonce}, expected {account.nonce}."
+                    )
                 if "storage" in account.model_fields_set:
                     for key, value in account.storage.items():
                         storage_value = eth_rpc.get_storage_at(address, Hash(key))

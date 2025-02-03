@@ -613,8 +613,7 @@ class ValidityMarker(ABC):
             fork_names |= set(fork_names_list)
             if len(fork_names) != expected_length_after_append:
                 pytest.fail(
-                    f"'{self.test_name}': Duplicate argument specified in "
-                    f"'{self.marker_name}'."
+                    f"'{self.test_name}': Duplicate argument specified in '{self.marker_name}'."
                 )
         forks: Set[Fork] = set()
         for fork_name in fork_names:
@@ -815,14 +814,12 @@ class ValidAtTransitionTo(ValidityMarker, mutually_exclusive=True):
         )
         if len(forks) == 0:
             pytest.fail(
-                f"'{self.test_name}': Missing fork argument with 'valid_at_transition_to' "
-                "marker."
+                f"'{self.test_name}': Missing fork argument with 'valid_at_transition_to' marker."
             )
 
         if len(forks) > 1:
             pytest.fail(
-                f"'{self.test_name}': Too many forks specified to 'valid_at_transition_to' "
-                "marker."
+                f"'{self.test_name}': Too many forks specified to 'valid_at_transition_to' marker."
             )
 
         resulting_set: Set[Fork] = set()

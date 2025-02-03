@@ -55,9 +55,9 @@ class StateTest(BaseTest):
 
     def _generate_blockchain_genesis_environment(self, *, fork: Fork) -> Environment:
         """Generate the genesis environment for the BlockchainTest formatted test."""
-        assert (
-            self.env.number >= 1
-        ), "genesis block number cannot be negative, set state test env.number to 1"
+        assert self.env.number >= 1, (
+            "genesis block number cannot be negative, set state test env.number to 1"
+        )
 
         # Modify values to the proper values for the genesis block
         # TODO: All of this can be moved to a new method in `Fork`

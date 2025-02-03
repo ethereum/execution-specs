@@ -36,9 +36,9 @@ def test_via_engine(
             payload_attributes=None,
             version=blockchain_fixture.payloads[0].forkchoice_updated_version,
         )
-        assert (
-            forkchoice_response.payload_status.status == PayloadStatusEnum.VALID
-        ), f"unexpected status on forkchoice updated to genesis: {forkchoice_response}"
+        assert forkchoice_response.payload_status.status == PayloadStatusEnum.VALID, (
+            f"unexpected status on forkchoice updated to genesis: {forkchoice_response}"
+        )
 
     with timing_data.time("Get genesis block"):
         genesis_block = eth_rpc.get_block_by_number(0)

@@ -196,9 +196,9 @@ class Frontier(BaseFork, solc_name="homestead"):
             return_cost_deducted_prior_execution: bool = False,
         ) -> int:
             assert access_list is None, f"Access list is not supported in {cls.name()}"
-            assert (
-                authorization_list_or_count is None
-            ), f"Authorizations are not supported in {cls.name()}"
+            assert authorization_list_or_count is None, (
+                f"Authorizations are not supported in {cls.name()}"
+            )
             intrinsic_cost: int = gas_costs.G_TRANSACTION
 
             if contract_creation:

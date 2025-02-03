@@ -139,9 +139,9 @@ def environment(
     blockchain_fixture: BlockchainFixtureCommon, check_live_port: Literal[8545, 8551]
 ) -> dict:
     """Define the environment that hive will start the client with."""
-    assert (
-        blockchain_fixture.fork in ruleset
-    ), f"fork '{blockchain_fixture.fork}' missing in hive ruleset"
+    assert blockchain_fixture.fork in ruleset, (
+        f"fork '{blockchain_fixture.fork}' missing in hive ruleset"
+    )
     return {
         "HIVE_CHAIN_ID": "1",
         "HIVE_FORK_DAO_VOTE": "1",

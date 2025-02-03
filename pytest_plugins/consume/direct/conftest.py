@@ -105,7 +105,7 @@ def fixture_path(test_case: TestCaseIndexFile | TestCaseStream, fixture_source):
     if fixture_source == "stdin":
         assert isinstance(test_case, TestCaseStream)
         temp_dir = tempfile.TemporaryDirectory()
-        fixture_path = Path(temp_dir.name) / f"{test_case.id.replace('/','_')}.json"
+        fixture_path = Path(temp_dir.name) / f"{test_case.id.replace('/', '_')}.json"
         fixtures = Fixtures({test_case.id: test_case.fixture})
         with open(fixture_path, "w") as f:
             json.dump(to_json(fixtures), f, indent=4)

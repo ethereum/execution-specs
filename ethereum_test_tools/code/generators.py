@@ -102,9 +102,9 @@ class Initcode(Bytecode):
         padding_bytes = bytes()
 
         if initcode_length is not None:
-            assert initcode_length >= len(
-                initcode_plus_deploy_code
-            ), "specified invalid length for initcode"
+            assert initcode_length >= len(initcode_plus_deploy_code), (
+                "specified invalid length for initcode"
+            )
 
             padding_bytes = bytes(
                 [padding_byte] * (initcode_length - len(initcode_plus_deploy_code))

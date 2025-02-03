@@ -164,7 +164,7 @@ def pytest_runtest_call(item: pytest.Item):
 
     if "state_test" in item.fixturenames and "blockchain_test" in item.fixturenames:
         raise InvalidFillerError(
-            "A filler should only implement either a state test or " "a blockchain test; not both."
+            "A filler should only implement either a state test or a blockchain test; not both."
         )
 
     # Check that the test defines either test type as parameter.

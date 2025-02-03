@@ -32,6 +32,6 @@ def test_via_rlp(
             )
     with timing_data.time("Get latest block"):
         block = eth_rpc.get_block_by_number("latest")
-        assert block["hash"] == str(
-            blockchain_fixture.last_block_hash
-        ), "hash mismatch in last block"
+        assert block["hash"] == str(blockchain_fixture.last_block_hash), (
+            "hash mismatch in last block"
+        )

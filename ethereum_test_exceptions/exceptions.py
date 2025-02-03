@@ -45,9 +45,9 @@ class ExceptionBase(Enum):
             exception_class = _exception_classes[class_name]
         else:
             # Otherwise, use the class that the method is called on
-            assert (
-                cls.__name__ == class_name
-            ), f"Unexpected exception type: {class_name}, expected {cls.__name__}"
+            assert cls.__name__ == class_name, (
+                f"Unexpected exception type: {class_name}, expected {cls.__name__}"
+            )
             exception_class = cls
 
         exception = getattr(exception_class, enum_name, None)
