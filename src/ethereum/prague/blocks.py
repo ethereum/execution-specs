@@ -51,14 +51,14 @@ class Header:
     parent_hash: Hash32
     ommers_hash: Hash32
     coinbase: Address
-    state_root: Root
+    pre_state_root: Root
     transactions_root: Root
-    receipt_root: Root
-    bloom: Bloom
+    parent_receipt_root: Root
+    parent_bloom: Bloom
     difficulty: Uint
     number: Uint
     gas_limit: Uint
-    gas_used: Uint
+    parent_gas_used: Uint
     timestamp: U256
     extra_data: Bytes
     prev_randao: Bytes32
@@ -68,7 +68,10 @@ class Header:
     blob_gas_used: U64
     excess_blob_gas: U64
     parent_beacon_block_root: Root
-    requests_hash: Hash32
+    parent_requests_hash: Hash32
+    y_parity: U256
+    r: U256
+    s: U256
 
 
 @slotted_freezable
