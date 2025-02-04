@@ -1,19 +1,23 @@
 from functools import partial
-from typing import Dict
+from typing import Dict, Generator, Tuple
 
 import pytest
 
-from tests.helpers import EEST_TESTS_PATH, ETHEREUM_TESTS_PATH
+from tests.helpers import TEST_FIXTURES
 from tests.helpers.load_evm_tools_tests import (
     fetch_evm_tools_tests,
     idfn,
     load_evm_tools_test,
 )
 
-ETHEREUM_STATE_TESTS_DIR = f"{ETHEREUM_TESTS_PATH}/GeneralStateTests/"
-EEST_STATE_TESTS_DIR = f"{EEST_TESTS_PATH}/state_tests/"
+ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
+TEST_DIR = f"{ETHEREUM_TESTS_PATH}/GeneralStateTests/"
 FORK_NAME = "Osaka"
 
+run_evm_tools_test = partial(
+    load_evm_tools_test,
+    fork_name=FORK_NAME,
+)
 
 SLOW_TESTS = (
     "CALLBlake2f_MaxRounds",
@@ -21,46 +25,34 @@ SLOW_TESTS = (
     "CALLBlake2f",
     "loopExp",
     "loopMul",
-    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Prague-state_test-bls_pairing_non-degeneracy-]",
-    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Prague-state_test-bls_pairing_bilinearity-]",
-    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Prague-state_test-bls_pairing_e(G1,-G2)=e(-G1,G2)-]",
-    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Prague-state_test-bls_pairing_e(aG1,bG2)=e(abG1,G2)-]",
-    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Prague-state_test-bls_pairing_e(aG1,bG2)=e(G1,abG2)-]",
-    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Prague-state_test-inf_pair-]",
-    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Prague-state_test-multi_inf_pair-]",
+    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Osaka-state_test-bls_pairing_non-degeneracy-]",
+    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Osaka-state_test-bls_pairing_bilinearity-]",
+    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Osaka-state_test-bls_pairing_e(G1,-G2)=e(-G1,G2)-]",
+    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Osaka-state_test-bls_pairing_e(aG1,bG2)=e(abG1,G2)-]",
+    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Osaka-state_test-bls_pairing_e(aG1,bG2)=e(G1,abG2)-]",
+    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Osaka-state_test-inf_pair-]",
+    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Osaka-state_test-multi_inf_pair-]",
+)
+
+test_dirs = (
+    "tests/fixtures/latest_fork_tests/osaka/eof/state_tests/eip7692_eof_v1",
 )
 
 
-# Define tests
-fetch_tests = partial(
-    fetch_evm_tools_tests,
-    fork_name=FORK_NAME,
-    slow_tests=SLOW_TESTS,
-)
-
-run_tests = partial(
-    load_evm_tools_test,
-    fork_name=FORK_NAME,
-)
+def fetch_temporary_tests(test_dirs: Tuple[str, ...]) -> Generator:
+    for test_dir in test_dirs:
+        yield from fetch_evm_tools_tests(
+            test_dir,
+            FORK_NAME,
+            SLOW_TESTS,
+        )
 
 
-# Run tests from ethereum/tests
 @pytest.mark.evm_tools
 @pytest.mark.parametrize(
     "test_case",
-    fetch_tests(ETHEREUM_STATE_TESTS_DIR),
+    fetch_temporary_tests(test_dirs),
     ids=idfn,
 )
-def test_ethereum_tests_evm_tools(test_case: Dict) -> None:
-    run_tests(test_case)
-
-
-# Run EEST test fixtures
-@pytest.mark.evm_tools
-@pytest.mark.parametrize(
-    "test_case",
-    fetch_tests(EEST_STATE_TESTS_DIR),
-    ids=idfn,
-)
-def test_eest_evm_tools(test_case: Dict) -> None:
-    run_tests(test_case)
+def test_evm_tools(test_case: Dict) -> None:
+    run_evm_tools_test(test_case)

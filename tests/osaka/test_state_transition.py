@@ -1,9 +1,9 @@
 from functools import partial
-from typing import Dict
+from typing import Dict, Generator, Tuple
 
 import pytest
 
-from tests.helpers import EEST_TESTS_PATH, ETHEREUM_TESTS_PATH
+from tests.helpers import TEST_FIXTURES
 from tests.helpers.load_state_tests import (
     Load,
     fetch_state_test_files,
@@ -11,10 +11,22 @@ from tests.helpers.load_state_tests import (
     run_blockchain_st_test,
 )
 
-ETHEREUM_BLOCKCHAIN_TESTS_DIR = f"{ETHEREUM_TESTS_PATH}/BlockchainTests/"
-EEST_BLOCKCHAIN_TESTS_DIR = f"{EEST_TESTS_PATH}/blockchain_tests/"
-NETWORK = "Osaka"
-PACKAGE = "osaka"
+fetch_osaka_tests = partial(fetch_state_test_files, network="Osaka")
+
+FIXTURES_LOADER = Load("Osaka", "osaka")
+
+run_osaka_blockchain_st_tests = partial(
+    run_blockchain_st_test, load=FIXTURES_LOADER
+)
+
+ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
+ETHEREUM_SPEC_TESTS_PATH = TEST_FIXTURES["execution_spec_tests"][
+    "fixture_path"
+]
+
+
+# Run state tests
+test_dir = f"{ETHEREUM_TESTS_PATH}/BlockchainTests/"
 
 SLOW_TESTS = (
     # GeneralStateTests
@@ -22,8 +34,8 @@ SLOW_TESTS = (
     "stTimeConsuming/static_Call50000_sha256.json",
     "vmPerformance/loopExp.json",
     "vmPerformance/loopMul.json",
-    "QuadraticComplexitySolidity_CallDataCopy_d0g1v0_Prague",
-    "CALLBlake2f_d9g0v0_Prague",
+    "QuadraticComplexitySolidity_CallDataCopy_d0g1v0_Osaka",
+    "CALLBlake2f_d9g0v0_Osaka",
     "CALLCODEBlake2f_d9g0v0",
     # GeneralStateTests
     "stRandom/randomStatetest177.json",
@@ -33,14 +45,14 @@ SLOW_TESTS = (
     # InvalidBlockTest
     "bcUncleHeaderValidity/nonceWrong.json",
     "bcUncleHeaderValidity/wrongMixHash.json",
-    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_Prague-blockchain_test-bls_pairing_non-degeneracy-\\]",
-    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_Prague-blockchain_test-bls_pairing_bilinearity-\\]",
-    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_Prague-blockchain_test-bls_pairing_e\\(G1,-G2\\)=e\\(-G1,G2\\)-\\]",
-    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_Prague-blockchain_test-bls_pairing_e\\(aG1,bG2\\)=e\\(abG1,G2\\)-\\]",
-    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_Prague-blockchain_test-bls_pairing_e\\(aG1,bG2\\)=e\\(G1,abG2\\)-\\]",
-    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_Prague-blockchain_test-inf_pair-\\]",
-    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_Prague-blockchain_test-multi_inf_pair-\\]",
-    "tests/osaka/eip2935_historical_block_hashes_from_state/test_block_hashes\\.py\\:\\:test_block_hashes_history\\[fork_Prague-blockchain_test-full_history_plus_one_check_blockhash_first\\]",
+    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_Osaka-blockchain_test-bls_pairing_non-degeneracy-\\]",
+    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_Osaka-blockchain_test-bls_pairing_bilinearity-\\]",
+    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_Osaka-blockchain_test-bls_pairing_e\\(G1,-G2\\)=e\\(-G1,G2\\)-\\]",
+    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_Osaka-blockchain_test-bls_pairing_e\\(aG1,bG2\\)=e\\(abG1,G2\\)-\\]",
+    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_Osaka-blockchain_test-bls_pairing_e\\(aG1,bG2\\)=e\\(G1,abG2\\)-\\]",
+    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_Osaka-blockchain_test-inf_pair-\\]",
+    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_Osaka-blockchain_test-multi_inf_pair-\\]",
+    "tests/osaka/eip2935_historical_block_hashes_from_state/test_block_hashes\\.py\\:\\:test_block_hashes_history\\[fork_Osaka-blockchain_test-full_history_plus_one_check_blockhash_first\\]",
 )
 
 # These are tests that are considered to be incorrect,
@@ -54,7 +66,7 @@ IGNORE_TESTS = (
     # InvalidBlockTest
     "bcForgedTest",
     "bcMultiChainTest",
-    "GasLimitHigherThan2p63m1_Prague",
+    "GasLimitHigherThan2p63m1_Osaka",
 )
 
 # All tests that recursively create a large number of frames (50000)
@@ -70,35 +82,33 @@ BIG_MEMORY_TESTS = (
     "stStaticCall/",
 )
 
-# Define Tests
-fetch_tests = partial(
-    fetch_state_test_files,
-    network=NETWORK,
+fetch_state_tests = partial(
+    fetch_osaka_tests,
     ignore_list=IGNORE_TESTS,
     slow_list=SLOW_TESTS,
     big_memory_list=BIG_MEMORY_TESTS,
 )
 
-FIXTURES_LOADER = Load(NETWORK, PACKAGE)
 
-run_tests = partial(run_blockchain_st_test, load=FIXTURES_LOADER)
+# Run temporary test fixtures for Osaka
+test_dirs = (
+    "tests/fixtures/latest_fork_tests/osaka/eof/blockchain_tests/eip7692_eof_v1",
+)
 
 
-# Run tests from ethereum/tests
+def fetch_temporary_tests(test_dirs: Tuple[str, ...]) -> Generator:
+    """
+    Fetch the relevant tests for a particular EIP-Implementation
+    from among the temporary fixtures from ethereum-spec-tests.
+    """
+    for test_dir in test_dirs:
+        yield from fetch_state_tests(test_dir)
+
+
 @pytest.mark.parametrize(
     "test_case",
-    fetch_tests(ETHEREUM_BLOCKCHAIN_TESTS_DIR),
+    fetch_temporary_tests(test_dirs),
     ids=idfn,
 )
-def test_ethereum_tests(test_case: Dict) -> None:
-    run_tests(test_case)
-
-
-# Run EEST test fixtures
-@pytest.mark.parametrize(
-    "test_case",
-    fetch_tests(EEST_BLOCKCHAIN_TESTS_DIR),
-    ids=idfn,
-)
-def test_eest_tests(test_case: Dict) -> None:
-    run_tests(test_case)
+def test_execution_specs_generated_tests(test_case: Dict) -> None:
+    run_osaka_blockchain_st_tests(test_case)
