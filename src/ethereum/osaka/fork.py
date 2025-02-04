@@ -67,6 +67,7 @@ from .utils.hexadecimal import hex_to_address
 from .utils.message import prepare_message
 from .vm import Message
 from .vm.eoa_delegation import is_valid_delegation
+from .vm.exceptions import InvalidEof
 from .vm.gas import (
     calculate_blob_gas_price,
     calculate_data_fee,
@@ -578,6 +579,7 @@ def process_system_transaction(
         accessed_addresses=set(),
         accessed_storage_keys=set(),
         parent_evm=None,
+        eof=None,
     )
 
     system_tx_output = process_message_call(system_tx_message)
@@ -796,9 +798,14 @@ def process_transaction(
         traces=[],
     )
 
-    message = prepare_message(block_env, tx_env, tx)
-
-    tx_output = process_message_call(message)
+    try:
+        message = prepare_message(block_env, tx_env, tx)
+    except InvalidEof as error:
+        tx_output = MessageCallOutput(
+            gas, U256(0), tuple(), set(), set(), error, b""
+        )
+    else:
+        tx_output = process_message_call(message)
 
     # For EIP-7623 we first calculate the execution_gas_used, which includes
     # the execution gas refund.

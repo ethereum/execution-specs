@@ -50,6 +50,7 @@ from ..vm.eoa_delegation import set_delegation
 from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import Evm
+from .eof import EofVersion, get_eof_version
 from .exceptions import (
     AddressCollision,
     ExceptionalHalt,
@@ -59,7 +60,7 @@ from .exceptions import (
     Revert,
     StackDepthLimitError,
 )
-from .instructions import Ops, op_implementation
+from .instructions import Ops, map_int_to_op, op_implementation
 from .runtime import get_valid_jump_destinations
 
 STACK_DEPTH_LIMIT = Uint(1024)
@@ -197,12 +198,23 @@ def process_create_message(message: Message) -> Evm:
     increment_nonce(state, message.current_target)
     evm = process_message(message)
     if not evm.error:
-        contract_code = evm.output
+        if evm.deploy_container is not None:
+            contract_code = evm.deploy_container
+        else:
+            contract_code = evm.output
         contract_code_gas = Uint(len(contract_code)) * GAS_CODE_DEPOSIT
         try:
             if len(contract_code) > 0:
-                if contract_code[0] == 0xEF:
+                eof_version = get_eof_version(contract_code)
+                if (
+                    eof_version == EofVersion.LEGACY
+                    and contract_code[0] == 0xEF
+                ):
                     raise InvalidContractPrefix
+                if evm.eof is None and eof_version == EofVersion.EOF1:
+                    raise ExceptionalHalt(
+                        "Cannot deploy EOF1 from legacy init code"
+                    )
             charge_gas(evm, contract_code_gas)
             if len(contract_code) > MAX_CODE_SIZE:
                 raise OutOfGasError
@@ -276,8 +288,16 @@ def execute_code(message: Message) -> Evm:
     evm: `ethereum.vm.EVM`
         Items containing execution specific objects
     """
-    code = message.code
-    valid_jump_destinations = get_valid_jump_destinations(code)
+    if message.eof is not None:
+        version = message.eof.version
+        eof = message.eof
+        code = eof.metadata.code_section_contents[0]
+        valid_jump_destinations = set()
+    else:
+        version = EofVersion.LEGACY
+        eof = None
+        code = message.code
+        valid_jump_destinations = get_valid_jump_destinations(code)
 
     evm = Evm(
         pc=Uint(0),
@@ -297,6 +317,10 @@ def execute_code(message: Message) -> Evm:
         error=None,
         accessed_addresses=message.accessed_addresses,
         accessed_storage_keys=message.accessed_storage_keys,
+        eof=eof,
+        current_section_index=Uint(0),
+        return_stack=[],
+        deploy_container=None,
     )
     try:
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:
@@ -307,7 +331,7 @@ def execute_code(message: Message) -> Evm:
 
         while evm.running and evm.pc < ulen(evm.code):
             try:
-                op = Ops(evm.code[evm.pc])
+                op = map_int_to_op(evm.code[evm.pc], version)
             except ValueError:
                 raise InvalidOpcode(evm.code[evm.pc])
 

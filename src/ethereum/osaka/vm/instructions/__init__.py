@@ -14,7 +14,8 @@ implementations.
 """
 
 import enum
-from typing import Callable, Dict
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Callable, Dict
 
 from . import arithmetic as arithmetic_instructions
 from . import bitwise as bitwise_instructions
@@ -28,6 +29,19 @@ from . import memory as memory_instructions
 from . import stack as stack_instructions
 from . import storage as storage_instructions
 from . import system as system_instructions
+
+if TYPE_CHECKING:
+    from ..eof import EofVersion
+
+
+@dataclass
+class OpcodeStackItemCount:
+    """
+    Stack height count for an Opcode.
+    """
+
+    inputs: int
+    outputs: int
 
 
 class Ops(enum.Enum):
@@ -85,6 +99,7 @@ class Ops(enum.Enum):
     EXTCODECOPY = 0x3C
     RETURNDATASIZE = 0x3D
     RETURNDATACOPY = 0x3E
+    RETURNDATALOAD = 0xF7
     EXTCODEHASH = 0x3F
 
     # Block Ops
@@ -202,15 +217,42 @@ class Ops(enum.Enum):
     LOG3 = 0xA3
     LOG4 = 0xA4
 
+    # EOF Data section operations
+    DATALOAD = 0xD0
+    DATALOADN = 0xD1
+    DATASIZE = 0xD2
+    DATACOPY = 0xD3
+
+    # Static Relative Jumps
+    RJUMP = 0xE0
+    RJUMPI = 0xE1
+    RJUMPV = 0xE2
+
+    # EOF Function Opcodes
+    CALLF = 0xE3
+    RETF = 0xE4
+    JUMPF = 0xE5
+
+    # EOF Stack Operations
+    DUPN = 0xE6
+    SWAPN = 0xE7
+    EXCHANGE = 0xE8
+
     # System Operations
+    EOFCREATE = 0xEC
+    RETURNCONTRACT = 0xEE
     CREATE = 0xF0
     CALL = 0xF1
     CALLCODE = 0xF2
     RETURN = 0xF3
     DELEGATECALL = 0xF4
     CREATE2 = 0xF5
+    EXTCALL = 0xF8
+    EXTDELEGATECALL = 0xF9
     STATICCALL = 0xFA
+    EXTSTATICCALL = 0xFB
     REVERT = 0xFD
+    INVALID = 0xFE
     SELFDESTRUCT = 0xFF
 
 
@@ -270,6 +312,7 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.EXTCODECOPY: environment_instructions.extcodecopy,
     Ops.RETURNDATASIZE: environment_instructions.returndatasize,
     Ops.RETURNDATACOPY: environment_instructions.returndatacopy,
+    Ops.RETURNDATALOAD: environment_instructions.returndataload,
     Ops.EXTCODEHASH: environment_instructions.extcodehash,
     Ops.SELFBALANCE: environment_instructions.self_balance,
     Ops.BASEFEE: environment_instructions.base_fee,
@@ -354,6 +397,21 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.LOG2: log_instructions.log2,
     Ops.LOG3: log_instructions.log3,
     Ops.LOG4: log_instructions.log4,
+    Ops.DATALOAD: environment_instructions.dataload,
+    Ops.DATALOADN: environment_instructions.dataload_n,
+    Ops.DATASIZE: environment_instructions.datasize,
+    Ops.DATACOPY: environment_instructions.datacopy,
+    Ops.RJUMP: control_flow_instructions.rjump,
+    Ops.RJUMPI: control_flow_instructions.rjumpi,
+    Ops.RJUMPV: control_flow_instructions.rjumpv,
+    Ops.CALLF: control_flow_instructions.callf,
+    Ops.RETF: control_flow_instructions.retf,
+    Ops.JUMPF: control_flow_instructions.jumpf,
+    Ops.DUPN: stack_instructions.dupn,
+    Ops.SWAPN: stack_instructions.swapn,
+    Ops.EXCHANGE: stack_instructions.exchange,
+    Ops.EOFCREATE: system_instructions.eof_create,
+    Ops.RETURNCONTRACT: system_instructions.return_contract,
     Ops.CREATE: system_instructions.create,
     Ops.RETURN: system_instructions.return_,
     Ops.CALL: system_instructions.call,
@@ -362,5 +420,270 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.SELFDESTRUCT: system_instructions.selfdestruct,
     Ops.STATICCALL: system_instructions.staticcall,
     Ops.REVERT: system_instructions.revert,
+    Ops.INVALID: system_instructions.invalid,
     Ops.CREATE2: system_instructions.create2,
+    Ops.EXTCALL: system_instructions.ext_call,
+    Ops.EXTDELEGATECALL: system_instructions.ext_delegatecall,
+    Ops.EXTSTATICCALL: system_instructions.ext_staticcall,
 }
+
+
+OPCODES_INVALID_IN_LEGACY = (
+    Ops.INVALID,
+    # Relative Jump instructions
+    Ops.RJUMP,
+    Ops.RJUMPI,
+    Ops.RJUMPV,
+    # EOF Data section operations
+    Ops.DATALOAD,
+    Ops.DATALOADN,
+    Ops.DATASIZE,
+    Ops.DATACOPY,
+    # EOF Function Opcodes
+    Ops.CALLF,
+    Ops.RETF,
+    Ops.JUMPF,
+    # EOF Stack Operations
+    Ops.DUPN,
+    Ops.SWAPN,
+    Ops.EXCHANGE,
+    # System Operations
+    Ops.EOFCREATE,
+    Ops.RETURNDATALOAD,
+    Ops.EXTCALL,
+    Ops.EXTDELEGATECALL,
+    Ops.EXTSTATICCALL,
+    Ops.RETURNCONTRACT,
+)
+
+OPCODES_INVALID_IN_EOF1 = (
+    # Environmental Ops
+    Ops.CODESIZE,
+    Ops.CODECOPY,
+    Ops.EXTCODESIZE,
+    Ops.EXTCODECOPY,
+    Ops.EXTCODEHASH,
+    # Control Flow Ops
+    Ops.JUMP,
+    Ops.JUMPI,
+    Ops.PC,
+    Ops.GAS,
+    # System Operations
+    Ops.CREATE,
+    Ops.CALL,
+    Ops.CALLCODE,
+    Ops.DELEGATECALL,
+    Ops.CREATE2,
+    Ops.STATICCALL,
+    Ops.SELFDESTRUCT,
+)
+
+
+EOF1_TERMINATING_INSTRUCTIONS = (
+    Ops.RETF,
+    Ops.JUMPF,
+    Ops.STOP,
+    Ops.RETURN,
+    Ops.RETURNCONTRACT,
+    Ops.REVERT,
+    Ops.INVALID,
+)
+
+
+op_stack_items: Dict[Ops, OpcodeStackItemCount] = {
+    Ops.STOP: OpcodeStackItemCount(inputs=0, outputs=0),
+    Ops.ADD: OpcodeStackItemCount(inputs=2, outputs=1),
+    Ops.MUL: OpcodeStackItemCount(inputs=2, outputs=1),
+    Ops.SUB: OpcodeStackItemCount(inputs=2, outputs=1),
+    Ops.DIV: OpcodeStackItemCount(inputs=2, outputs=1),
+    Ops.SDIV: OpcodeStackItemCount(inputs=2, outputs=1),
+    Ops.MOD: OpcodeStackItemCount(inputs=2, outputs=1),
+    Ops.SMOD: OpcodeStackItemCount(inputs=2, outputs=1),
+    Ops.ADDMOD: OpcodeStackItemCount(inputs=3, outputs=1),
+    Ops.MULMOD: OpcodeStackItemCount(inputs=3, outputs=1),
+    Ops.EXP: OpcodeStackItemCount(inputs=2, outputs=1),
+    Ops.SIGNEXTEND: OpcodeStackItemCount(inputs=2, outputs=1),
+    Ops.LT: OpcodeStackItemCount(inputs=2, outputs=1),
+    Ops.GT: OpcodeStackItemCount(inputs=2, outputs=1),
+    Ops.SLT: OpcodeStackItemCount(inputs=2, outputs=1),
+    Ops.SGT: OpcodeStackItemCount(inputs=2, outputs=1),
+    Ops.EQ: OpcodeStackItemCount(inputs=2, outputs=1),
+    Ops.ISZERO: OpcodeStackItemCount(inputs=1, outputs=1),
+    Ops.AND: OpcodeStackItemCount(inputs=2, outputs=1),
+    Ops.OR: OpcodeStackItemCount(inputs=2, outputs=1),
+    Ops.XOR: OpcodeStackItemCount(inputs=2, outputs=1),
+    Ops.NOT: OpcodeStackItemCount(inputs=1, outputs=1),
+    Ops.BYTE: OpcodeStackItemCount(inputs=2, outputs=1),
+    Ops.SHL: OpcodeStackItemCount(inputs=2, outputs=1),
+    Ops.SHR: OpcodeStackItemCount(inputs=2, outputs=1),
+    Ops.SAR: OpcodeStackItemCount(inputs=2, outputs=1),
+    Ops.KECCAK: OpcodeStackItemCount(inputs=2, outputs=1),
+    Ops.SLOAD: OpcodeStackItemCount(inputs=1, outputs=1),
+    Ops.BLOCKHASH: OpcodeStackItemCount(inputs=1, outputs=1),
+    Ops.COINBASE: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.TIMESTAMP: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.NUMBER: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PREVRANDAO: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.GASLIMIT: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.CHAINID: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.MLOAD: OpcodeStackItemCount(inputs=1, outputs=1),
+    Ops.MSTORE: OpcodeStackItemCount(inputs=2, outputs=0),
+    Ops.MSTORE8: OpcodeStackItemCount(inputs=2, outputs=0),
+    Ops.MSIZE: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.MCOPY: OpcodeStackItemCount(inputs=3, outputs=0),
+    Ops.ADDRESS: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.BALANCE: OpcodeStackItemCount(inputs=1, outputs=1),
+    Ops.ORIGIN: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.CALLER: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.CALLVALUE: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.CALLDATALOAD: OpcodeStackItemCount(inputs=1, outputs=1),
+    Ops.CALLDATASIZE: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.CALLDATACOPY: OpcodeStackItemCount(inputs=3, outputs=0),
+    Ops.CODESIZE: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.CODECOPY: OpcodeStackItemCount(inputs=3, outputs=0),
+    Ops.GASPRICE: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.EXTCODESIZE: OpcodeStackItemCount(inputs=1, outputs=1),
+    Ops.EXTCODECOPY: OpcodeStackItemCount(inputs=4, outputs=0),
+    Ops.RETURNDATASIZE: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.RETURNDATACOPY: OpcodeStackItemCount(inputs=3, outputs=0),
+    Ops.RETURNDATALOAD: OpcodeStackItemCount(inputs=1, outputs=1),
+    Ops.EXTCODEHASH: OpcodeStackItemCount(inputs=1, outputs=1),
+    Ops.SELFBALANCE: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.BASEFEE: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.BLOBHASH: OpcodeStackItemCount(inputs=1, outputs=1),
+    Ops.BLOBBASEFEE: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.SSTORE: OpcodeStackItemCount(inputs=2, outputs=0),
+    Ops.TLOAD: OpcodeStackItemCount(inputs=1, outputs=1),
+    Ops.TSTORE: OpcodeStackItemCount(inputs=2, outputs=0),
+    Ops.JUMP: OpcodeStackItemCount(inputs=1, outputs=0),
+    Ops.JUMPI: OpcodeStackItemCount(inputs=2, outputs=0),
+    Ops.PC: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.GAS: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.JUMPDEST: OpcodeStackItemCount(inputs=0, outputs=0),
+    Ops.POP: OpcodeStackItemCount(inputs=1, outputs=0),
+    Ops.PUSH0: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH1: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH2: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH3: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH4: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH5: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH6: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH7: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH8: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH9: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH10: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH11: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH12: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH13: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH14: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH15: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH16: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH17: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH18: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH19: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH20: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH21: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH22: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH23: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH24: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH25: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH26: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH27: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH28: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH29: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH30: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH31: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.PUSH32: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.DUP1: OpcodeStackItemCount(inputs=1, outputs=2),
+    Ops.DUP2: OpcodeStackItemCount(inputs=2, outputs=3),
+    Ops.DUP3: OpcodeStackItemCount(inputs=3, outputs=4),
+    Ops.DUP4: OpcodeStackItemCount(inputs=4, outputs=5),
+    Ops.DUP5: OpcodeStackItemCount(inputs=5, outputs=6),
+    Ops.DUP6: OpcodeStackItemCount(inputs=6, outputs=7),
+    Ops.DUP7: OpcodeStackItemCount(inputs=7, outputs=8),
+    Ops.DUP8: OpcodeStackItemCount(inputs=8, outputs=9),
+    Ops.DUP9: OpcodeStackItemCount(inputs=9, outputs=10),
+    Ops.DUP10: OpcodeStackItemCount(inputs=10, outputs=11),
+    Ops.DUP11: OpcodeStackItemCount(inputs=11, outputs=12),
+    Ops.DUP12: OpcodeStackItemCount(inputs=12, outputs=13),
+    Ops.DUP13: OpcodeStackItemCount(inputs=13, outputs=14),
+    Ops.DUP14: OpcodeStackItemCount(inputs=14, outputs=15),
+    Ops.DUP15: OpcodeStackItemCount(inputs=15, outputs=16),
+    Ops.DUP16: OpcodeStackItemCount(inputs=16, outputs=17),
+    Ops.SWAP1: OpcodeStackItemCount(inputs=2, outputs=2),
+    Ops.SWAP2: OpcodeStackItemCount(inputs=3, outputs=3),
+    Ops.SWAP3: OpcodeStackItemCount(inputs=4, outputs=4),
+    Ops.SWAP4: OpcodeStackItemCount(inputs=5, outputs=5),
+    Ops.SWAP5: OpcodeStackItemCount(inputs=6, outputs=6),
+    Ops.SWAP6: OpcodeStackItemCount(inputs=7, outputs=7),
+    Ops.SWAP7: OpcodeStackItemCount(inputs=8, outputs=8),
+    Ops.SWAP8: OpcodeStackItemCount(inputs=9, outputs=9),
+    Ops.SWAP9: OpcodeStackItemCount(inputs=10, outputs=10),
+    Ops.SWAP10: OpcodeStackItemCount(inputs=11, outputs=11),
+    Ops.SWAP11: OpcodeStackItemCount(inputs=12, outputs=12),
+    Ops.SWAP12: OpcodeStackItemCount(inputs=13, outputs=13),
+    Ops.SWAP13: OpcodeStackItemCount(inputs=14, outputs=14),
+    Ops.SWAP14: OpcodeStackItemCount(inputs=15, outputs=15),
+    Ops.SWAP15: OpcodeStackItemCount(inputs=16, outputs=16),
+    Ops.SWAP16: OpcodeStackItemCount(inputs=17, outputs=17),
+    Ops.LOG0: OpcodeStackItemCount(inputs=2, outputs=0),
+    Ops.LOG1: OpcodeStackItemCount(inputs=3, outputs=0),
+    Ops.LOG2: OpcodeStackItemCount(inputs=4, outputs=0),
+    Ops.LOG3: OpcodeStackItemCount(inputs=5, outputs=0),
+    Ops.LOG4: OpcodeStackItemCount(inputs=6, outputs=0),
+    Ops.DATALOAD: OpcodeStackItemCount(inputs=1, outputs=1),
+    Ops.DATALOADN: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.DATASIZE: OpcodeStackItemCount(inputs=0, outputs=1),
+    Ops.DATACOPY: OpcodeStackItemCount(inputs=3, outputs=0),
+    Ops.RJUMP: OpcodeStackItemCount(inputs=0, outputs=0),
+    Ops.RJUMPI: OpcodeStackItemCount(inputs=1, outputs=0),
+    Ops.RJUMPV: OpcodeStackItemCount(inputs=1, outputs=0),
+    Ops.CALLF: OpcodeStackItemCount(inputs=0, outputs=0),
+    Ops.RETF: OpcodeStackItemCount(inputs=0, outputs=0),
+    Ops.EOFCREATE: OpcodeStackItemCount(inputs=4, outputs=1),
+    Ops.RETURNCONTRACT: OpcodeStackItemCount(inputs=2, outputs=0),
+    Ops.CREATE: OpcodeStackItemCount(inputs=3, outputs=1),
+    Ops.RETURN: OpcodeStackItemCount(inputs=2, outputs=0),
+    Ops.CALL: OpcodeStackItemCount(inputs=7, outputs=1),
+    Ops.CALLCODE: OpcodeStackItemCount(inputs=7, outputs=1),
+    Ops.DELEGATECALL: OpcodeStackItemCount(inputs=6, outputs=1),
+    Ops.SELFDESTRUCT: OpcodeStackItemCount(inputs=1, outputs=0),
+    Ops.STATICCALL: OpcodeStackItemCount(inputs=6, outputs=1),
+    Ops.REVERT: OpcodeStackItemCount(inputs=2, outputs=0),
+    Ops.INVALID: OpcodeStackItemCount(inputs=0, outputs=0),
+    Ops.CREATE2: OpcodeStackItemCount(inputs=4, outputs=1),
+    Ops.EXTCALL: OpcodeStackItemCount(inputs=4, outputs=1),
+    Ops.EXTDELEGATECALL: OpcodeStackItemCount(inputs=3, outputs=1),
+    Ops.EXTSTATICCALL: OpcodeStackItemCount(inputs=3, outputs=1),
+}
+
+
+def map_int_to_op(opcode: int, eof_version: "EofVersion") -> Ops:
+    """
+    Get the opcode enum from the opcode value.
+
+    Parameters
+    ----------
+    opcode : `int`
+        The opcode value.
+    eof_version : `EofVersion`
+        The version of the EOF.
+
+    Returns
+    -------
+    opcode : `Ops`
+        The opcode enum.
+    """
+    from ..eof import EofVersion
+
+    try:
+        op = Ops(opcode)
+    except ValueError as e:
+        raise ValueError(f"Invalid opcode: {opcode}") from e
+
+    if eof_version == EofVersion.LEGACY and op in OPCODES_INVALID_IN_LEGACY:
+        raise ValueError(f"Invalid legacy opcode: {op}")
+    elif eof_version == EofVersion.EOF1 and op in OPCODES_INVALID_IN_EOF1:
+        raise ValueError(f"Invalid eof1 opcode: {op}")
+
+    return op

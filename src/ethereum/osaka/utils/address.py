@@ -23,6 +23,8 @@ from ethereum.utils.byte import left_pad_zero_bytes
 
 from ..fork_types import Address
 
+MAX_ADDRESS_U256 = U256.from_be_bytes(b"\xff" * 20)
+
 
 def to_address(data: Union[Uint, U256]) -> Address:
     """
@@ -41,9 +43,35 @@ def to_address(data: Union[Uint, U256]) -> Address:
     return Address(data.to_be_bytes32()[-20:])
 
 
+def to_address_without_mask(data: U256) -> Address:
+    """
+    Convert a Uint or U256 value to a valid address (20 bytes).
+    Raises a `ValueError` if the data is larger than `MAX_ADDRESS_U256
+
+    Parameters
+    ----------
+    data :
+        The string to be converted to bytes.
+
+    Raises
+    ------
+    ValueError
+        If `data` is larger than `MAX_ADDRESS_U256`.
+
+    Returns
+    -------
+    address : `Address`
+        The obtained address.
+    """
+    if data > MAX_ADDRESS_U256:
+        raise ValueError("Address is too large")
+    return Address(data.to_be_bytes32()[-20:])
+
+
 def compute_contract_address(address: Address, nonce: Uint) -> Address:
     """
-    Computes address of the new account that needs to be created.
+    Computes address of the new account that needs to be created based
+    on the account nonce.
 
     Parameters
     ----------
