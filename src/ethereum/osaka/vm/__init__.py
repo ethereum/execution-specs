@@ -14,7 +14,7 @@ The abstract computer which runs the code stored in an
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Set, Tuple, Union
 
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
@@ -26,7 +26,14 @@ from ..fork_types import Address, Authorization, VersionedHash
 from ..state import State, TransientStorage, account_exists_and_is_empty
 from .precompiled_contracts import RIPEMD160_ADDRESS
 
+if TYPE_CHECKING:
+    from .eof import Eof, ReturnStackItem
+
+
 __all__ = ("Environment", "Evm", "Message")
+
+
+MAX_CODE_SIZE = 0x6000
 
 
 @dataclass
@@ -74,6 +81,7 @@ class Message:
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     parent_evm: Optional["Evm"]
     authorizations: Tuple[Authorization, ...]
+    eof: Optional["Eof"]
 
 
 @dataclass
@@ -98,6 +106,10 @@ class Evm:
     error: Optional[Exception]
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
+    eof: Optional["Eof"]
+    current_section_index: Uint
+    return_stack: List["ReturnStackItem"]
+    deploy_container: Optional[Bytes]
 
 
 def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:

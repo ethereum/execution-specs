@@ -21,8 +21,11 @@ from ..fork_types import Address, Authorization
 from ..state import get_account
 from ..vm import Environment, Message
 from ..vm.eoa_delegation import get_delegated_code_address
+from ..vm.eof import ContainerContext, Eof, EofVersion, get_eof_version
+from ..vm.eof.utils import metadata_from_container
+from ..vm.eof.validation import parse_create_tx_call_data
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
-from .address import compute_contract_address
+from .address import compute_contract_address_1
 
 
 def prepare_message(
@@ -86,12 +89,17 @@ def prepare_message(
     accessed_addresses.update(preaccessed_addresses)
 
     if isinstance(target, Bytes0):
-        current_target = compute_contract_address(
+        current_target = compute_contract_address_1(
             caller,
             get_account(env.state, caller).nonce - Uint(1),
         )
-        msg_data = Bytes(b"")
-        code = data
+        if get_eof_version(data) == EofVersion.LEGACY:
+            msg_data = Bytes(b"")
+            code = data
+            eof = None
+        else:
+            eof, msg_data = parse_create_tx_call_data(data)
+            code = eof.container
     elif isinstance(target, Address):
         current_target = target
         msg_data = data
@@ -104,6 +112,20 @@ def prepare_message(
 
         if code_address is None:
             code_address = target
+
+        if get_eof_version(code) == EofVersion.LEGACY:
+            eof = None
+        else:
+            metadata = metadata_from_container(
+                code,
+                validate=False,
+                context=ContainerContext.RUNTIME,
+            )
+            eof = Eof(
+                version=get_eof_version(code),
+                container=code,
+                metadata=metadata,
+            )
     else:
         raise AssertionError("Target must be address or empty bytes")
 
@@ -125,4 +147,5 @@ def prepare_message(
         accessed_storage_keys=set(preaccessed_storage_keys),
         parent_evm=None,
         authorizations=authorizations,
+        eof=eof,
     )

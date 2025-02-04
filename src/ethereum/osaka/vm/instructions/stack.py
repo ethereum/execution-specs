@@ -207,3 +207,86 @@ swap13 = partial(swap_n, item_number=13)
 swap14 = partial(swap_n, item_number=14)
 swap15 = partial(swap_n, item_number=15)
 swap16 = partial(swap_n, item_number=16)
+
+
+def dupn(evm: Evm) -> None:
+    """
+    Duplicate the Nth stack item (from top of the stack) to the top of stack.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    """
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_VERY_LOW)
+
+    # OPERATION
+    immediate_data = evm.code[evm.pc + Uint(1)]
+    item_number = immediate_data + 1
+    data_to_duplicate = evm.stack[-item_number]
+    stack.push(evm.stack, data_to_duplicate)
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(2)
+
+
+def swapn(evm: Evm) -> None:
+    """
+    The n + 1‘th stack item is swapped with the top of the stack.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    """
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_VERY_LOW)
+
+    # OPERATION
+    immediate_data = evm.code[evm.pc + Uint(1)]
+    item_number = immediate_data + 1
+    evm.stack[-1], evm.stack[-1 - item_number] = (
+        evm.stack[-1 - item_number],
+        evm.stack[-1],
+    )
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(2)
+
+
+def exchange(evm: Evm) -> None:
+    """
+    Exchange the n+1 th stack item with the n+m+1 th.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    """
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_VERY_LOW)
+
+    # OPERATION
+    immediate_data = evm.code[evm.pc + Uint(1)]
+    n = (immediate_data >> 4) + 1
+    m = (immediate_data & 0x0F) + 1
+    evm.stack[-1 - n], evm.stack[-1 - n - m] = (
+        evm.stack[-1 - n - m],
+        evm.stack[-1 - n],
+    )
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(2)
