@@ -3,7 +3,7 @@
 from dataclasses import MISSING, dataclass, fields
 from typing import List, SupportsBytes
 
-from ethereum.rlp import encode
+import ethereum_rlp as eth_rlp
 
 from ethereum_test_base_types.base_types import Address, Bytes, Hash
 from ethereum_test_base_types.conversions import BytesConvertible, FixedSizeBytesConvertible
@@ -44,7 +44,7 @@ def compute_create_address(
             address = Address(address)
         if nonce is None:
             nonce = 0
-        hash_bytes = Bytes(encode([address, int_to_bytes(nonce)])).keccak256()
+        hash_bytes = Bytes(eth_rlp.encode([address, int_to_bytes(nonce)])).keccak256()
         return Address(hash_bytes[-20:])
     if opcode == Op.CREATE2:
         return compute_create2_address(address, salt, initcode)

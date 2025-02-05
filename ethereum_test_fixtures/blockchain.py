@@ -14,7 +14,7 @@ from typing import (
     get_type_hints,
 )
 
-from ethereum import rlp as eth_rlp
+import ethereum_rlp as eth_rlp
 from ethereum_types.numeric import Uint
 from pydantic import AliasChoices, Field, PlainSerializer, computed_field
 
