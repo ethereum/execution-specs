@@ -354,10 +354,10 @@
 
 ### Validation
 
-- [ ] Valid DATALOADN with various offsets (ethereum/tests: src/EOFTestsFiller/efValidation/dataloadn_Copier.json)
+- [x] Valid DATALOADN with various offsets ([`tests/osaka/eip7692_eof_v1/eip7480_data_section/test_data_opcodes.py::test_dataloadn`](./eip7480_data_section/test_data_opcodes/test_dataloadn.md)
 - [x] Truncated DATALOADN immediate ([`tests/osaka/eip7692_eof_v1/eip7480_data_section/test_code_validation.py::test_dataloadn_truncated_immediate`](./eip7480_data_section/test_code_validation/test_dataloadn_truncated_immediate.md)
-- [ ] DATALOADN offset out of bounds (ethereum/tests: src/EOFTestsFiller/efValidation/dataloadn_Copier.json)
-- [ ] DATALOADN accessing not full word (ethereum/tests: src/EOFTestsFiller/efValidation/dataloadn_Copier.json)
+- [x] DATALOADN offset out of bounds ([`tests/osaka/eip7692_eof_v1/eip7480_data_section/test_code_validation.py::test_invalid_containers_with_data_section`](./eip7480_data_section/test_code_validation/test_invalid_containers_with_data_section.md)
+- [x] DATALOADN accessing not full word ([`tests/osaka/eip7692_eof_v1/eip7480_data_section/test_code_validation.py::test_invalid_containers_with_data_section`](./eip7480_data_section/test_code_validation/test_invalid_containers_with_data_section.md)
 
 ## EIP-663: SWAPN, DUPN and EXCHANGE instructions
 

@@ -2,6 +2,7 @@
 
 import pytest
 
+from ethereum_test_specs import EOFStateTestFiller
 from ethereum_test_tools import Account, Alloc, Environment, StateTestFiller, Transaction
 from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.vm.opcode import Opcodes as Op
@@ -12,6 +13,26 @@ REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7480.md"
 REFERENCE_SPEC_VERSION = "3ee1334ef110420685f1c8ed63e80f9e1766c251"
 
 pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
+
+
+@pytest.mark.parametrize("index", [0, 1, 31, 32, 33, 63, 64])
+@pytest.mark.parametrize("suffix_len", [0, 1, 31, 32, 24000])
+def test_dataloadn(eof_state_test: EOFStateTestFiller, index: int, suffix_len: int):
+    """Basic tests for DATALOADN execution."""
+    sentinel = 0x8000000000000000000000000000000000000000000000000000000000000001
+    eof_state_test(
+        container=Container(
+            sections=[
+                Section.Code(
+                    Op.SSTORE(0, Op.DATALOADN[index]) + Op.STOP,
+                ),
+                Section.Data(
+                    index * b"\xbe" + sentinel.to_bytes(32, byteorder="big") + suffix_len * b"\xaf"
+                ),
+            ],
+        ),
+        container_post=Account(storage={0: sentinel}),
+    )
 
 
 def create_data_test(offset: int, datasize: int):

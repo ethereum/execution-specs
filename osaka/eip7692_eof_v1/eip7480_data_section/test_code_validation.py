@@ -90,11 +90,70 @@ VALID: List[Container] = [
 
 INVALID: List[Container] = [
     Container(
+        name="DATALOADN_0_empty_data",
+        sections=[
+            Section.Code(
+                code=Op.DATALOADN[0] + Op.POP + Op.STOP,
+            ),
+        ],
+        validity_error=EOFException.INVALID_DATALOADN_INDEX,
+    ),
+    Container(
         name="DATALOADN_max_empty_data",
         sections=[
             Section.Code(
                 code=Op.DATALOADN[0xFFFF - 32] + Op.POP + Op.STOP,
             ),
+        ],
+        validity_error=EOFException.INVALID_DATALOADN_INDEX,
+    ),
+    Container(
+        name="DATALOADN_1_over_data",
+        sections=[
+            Section.Code(
+                code=Op.DATALOADN[1] + Op.POP + Op.STOP,
+            ),
+            Section.Data(b"\x00"),
+        ],
+        validity_error=EOFException.INVALID_DATALOADN_INDEX,
+    ),
+    Container(
+        name="DATALOADN_32_over_data",
+        sections=[
+            Section.Code(
+                code=Op.DATALOADN[32] + Op.POP + Op.STOP,
+            ),
+            Section.Data(b"\xda" * 32),
+        ],
+        validity_error=EOFException.INVALID_DATALOADN_INDEX,
+    ),
+    Container(
+        name="DATALOADN_0_data_31",
+        sections=[
+            Section.Code(
+                code=Op.DATALOADN[0] + Op.POP + Op.STOP,
+            ),
+            Section.Data(b"\xda" * 31),
+        ],
+        validity_error=EOFException.INVALID_DATALOADN_INDEX,
+    ),
+    Container(
+        name="DATALOADN_32_data_63",
+        sections=[
+            Section.Code(
+                code=Op.DATALOADN[32] + Op.POP + Op.STOP,
+            ),
+            Section.Data(b"\xda" * 63),
+        ],
+        validity_error=EOFException.INVALID_DATALOADN_INDEX,
+    ),
+    Container(
+        name="DATALOADN_max_imm",
+        sections=[
+            Section.Code(
+                code=Op.DATALOADN[0xFFFF] + Op.POP + Op.STOP,
+            ),
+            Section.Data(b"\xda" * 32),
         ],
         validity_error=EOFException.INVALID_DATALOADN_INDEX,
     ),
@@ -143,14 +202,11 @@ def container_name(c: Container):
     VALID,
     ids=container_name,
 )
-def test_legacy_initcode_valid_eof_v1_contract(
+def test_valid_containers_with_data_section(
     eof_test: EOFTestFiller,
     container: Container,
 ):
-    """
-    Test creating various types of valid EOF V1 contracts using legacy
-    initcode and a contract creating transaction.
-    """
+    """Test EOF validation of valid containers with data sections."""
     assert container.validity_error is None, (
         f"Valid container with validity error: {container.validity_error}"
     )
@@ -164,14 +220,11 @@ def test_legacy_initcode_valid_eof_v1_contract(
     INVALID,
     ids=container_name,
 )
-def test_legacy_initcode_invalid_eof_v1_contract(
+def test_invalid_containers_with_data_section(
     eof_test: EOFTestFiller,
     container: Container,
 ):
-    """
-    Test creating various types of valid EOF V1 contracts using legacy
-    initcode and a contract creating transaction.
-    """
+    """Test EOF validation of invalid containers with data sections."""
     assert container.validity_error is not None, "Invalid container without validity error"
     eof_test(
         container=container,
