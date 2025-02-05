@@ -171,29 +171,36 @@ def test_contract_creating_tx(
     )
 
 
+def valid_gas_test_case(initcode: Initcode, gas_test_case: str) -> bool:
+    """Filter out invalid gas test case/initcode combinations."""
+    if gas_test_case == "too_little_execution_gas":
+        return (initcode.deployment_gas + initcode.execution_gas) > 0
+    return True
+
+
 @pytest.mark.parametrize(
-    "initcode",
+    "initcode,gas_test_case",
     [
-        INITCODE_ZEROS_MAX_LIMIT,
-        INITCODE_ONES_MAX_LIMIT,
-        EMPTY_INITCODE,
-        SINGLE_BYTE_INITCODE,
-        INITCODE_ZEROS_32_BYTES,
-        INITCODE_ZEROS_33_BYTES,
-        INITCODE_ZEROS_49120_BYTES,
-        INITCODE_ZEROS_49121_BYTES,
+        (i, g)
+        for i in [
+            INITCODE_ZEROS_MAX_LIMIT,
+            INITCODE_ONES_MAX_LIMIT,
+            EMPTY_INITCODE,
+            SINGLE_BYTE_INITCODE,
+            INITCODE_ZEROS_32_BYTES,
+            INITCODE_ZEROS_33_BYTES,
+            INITCODE_ZEROS_49120_BYTES,
+            INITCODE_ZEROS_49121_BYTES,
+        ]
+        for g in [
+            "too_little_intrinsic_gas",
+            "exact_intrinsic_gas",
+            "too_little_execution_gas",
+            "exact_execution_gas",
+        ]
+        if valid_gas_test_case(i, g)
     ],
-    ids=get_initcode_name,
-)
-@pytest.mark.parametrize(
-    "gas_test_case",
-    [
-        "too_little_intrinsic_gas",
-        "exact_intrinsic_gas",
-        "too_little_execution_gas",
-        "exact_execution_gas",
-    ],
-    ids=lambda x: x,
+    ids=lambda x: f"{get_initcode_name(x[0])}-{x[1]}" if isinstance(x, tuple) else x,
 )
 class TestContractCreationGasUsage:
     """
@@ -328,24 +335,8 @@ class TestContractCreationGasUsage:
         pre: Alloc,
         post: Alloc,
         tx: Transaction,
-        gas_test_case: str,
-        initcode: Initcode,
-        exact_intrinsic_gas: int,
-        exact_execution_gas: int,
     ):
-        """
-        Test transaction and contract creation behavior for different gas
-        limits.
-        """
-        if (gas_test_case == "too_little_execution_gas") and (
-            exact_execution_gas == exact_intrinsic_gas
-        ):
-            pytest.skip(
-                "Special case, the execution of the initcode and gas "
-                "cost to deploy are zero: Then this test case is "
-                "equivalent to that of 'test_exact_intrinsic_gas'."
-            )
-
+        """Test transaction and contract creation behavior for different gas limits."""
         state_test(
             env=env,
             pre=pre,
