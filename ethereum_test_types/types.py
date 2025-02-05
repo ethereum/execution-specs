@@ -11,7 +11,7 @@ from coincurve.keys import PrivateKey, PublicKey
 from ethereum.frontier.fork_types import Account as FrontierAccount
 from ethereum.frontier.fork_types import Address as FrontierAddress
 from ethereum.frontier.state import State, set_account, set_storage, state_root
-from ethereum_types.numeric import U256, Uint
+from ethereum_types.numeric import U256, Bytes32, Uint
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -231,7 +231,7 @@ class Alloc(BaseAlloc):
                     set_storage(
                         state=state,
                         address=FrontierAddress(address),
-                        key=Hash(key),
+                        key=Bytes32(Hash(key)),
                         value=U256(value),
                     )
         return state_root(state)
