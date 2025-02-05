@@ -356,10 +356,11 @@ def check_transaction(
     state: State,
     tx: Transaction,
     gas_available: Uint,
+    blob_gas_available: Uint,
     chain_id: U64,
     base_fee_per_gas: Uint,
     excess_blob_gas: U64,
-) -> Tuple[Address, Uint, Tuple[VersionedHash, ...]]:
+) -> Tuple[Address, Uint, Tuple[VersionedHash, ...], Uint]:
     """
     Check if the transaction is includable in the block.
 
@@ -371,6 +372,8 @@ def check_transaction(
         The transaction.
     gas_available :
         The gas remaining in the block.
+    blob_gas_available:
+        The gas remaining for blobs in a block.
     chain_id :
         The ID of the current chain.
     base_fee_per_gas :
@@ -386,6 +389,8 @@ def check_transaction(
         The price to charge for gas when the transaction is executed.
     blob_versioned_hashes :
         The blob versioned hashes of the transaction.
+    tx_blob_gas_used:
+        The blob gas used by the transaction.
 
     Raises
     ------
@@ -394,6 +399,11 @@ def check_transaction(
     """
     if tx.gas > gas_available:
         raise InvalidBlock
+
+    tx_blob_gas_used = calculate_total_blob_gas(tx)
+    if tx_blob_gas_used > blob_gas_available:
+        raise InvalidBlock
+
     sender_address = recover_sender(chain_id, tx)
     sender_account = get_account(state, sender_address)
 
@@ -452,7 +462,12 @@ def check_transaction(
     ):
         raise InvalidSenderError("not EOA")
 
-    return sender_address, effective_gas_price, blob_versioned_hashes
+    return (
+        sender_address,
+        effective_gas_price,
+        blob_versioned_hashes,
+        tx_blob_gas_used,
+    )
 
 
 def make_receipt(
@@ -692,8 +707,9 @@ def apply_body(
     apply_body_output : `ApplyBodyOutput`
         Output of applying the block body to the state.
     """
-    blob_gas_used = Uint(0)
     gas_available = block_gas_limit
+    blob_gas_available = MAX_BLOB_GAS_PER_BLOCK
+
     transactions_trie: Trie[
         Bytes, Optional[Union[Bytes, LegacyTransaction]]
     ] = Trie(secured=False, default=None)
@@ -745,10 +761,12 @@ def apply_body(
             sender_address,
             effective_gas_price,
             blob_versioned_hashes,
+            tx_blob_gas_used,
         ) = check_transaction(
             state,
             tx,
             gas_available,
+            blob_gas_available,
             chain_id,
             base_fee_per_gas,
             excess_blob_gas,
@@ -773,8 +791,9 @@ def apply_body(
             transient_storage=TransientStorage(),
         )
 
-        gas_used, logs, error = process_transaction(env, tx)
-        gas_available -= gas_used
+        tx_gas_used, logs, error = process_transaction(env, tx)
+        gas_available -= tx_gas_used
+        blob_gas_available -= tx_blob_gas_used
 
         receipt = make_receipt(
             tx, error, (block_gas_limit - gas_available), logs
@@ -789,10 +808,9 @@ def apply_body(
         deposit_requests += parse_deposit_requests_from_receipt(receipt)
 
         block_logs += logs
-        blob_gas_used += calculate_total_blob_gas(tx)
-    if blob_gas_used > MAX_BLOB_GAS_PER_BLOCK:
-        raise InvalidBlock
+
     block_gas_used = block_gas_limit - gas_available
+    block_blob_gas_used = MAX_BLOB_GAS_PER_BLOCK - blob_gas_available
 
     block_logs_bloom = logs_bloom(block_logs)
 
@@ -827,7 +845,7 @@ def apply_body(
         block_logs_bloom,
         state_root(state),
         root(withdrawals_trie),
-        blob_gas_used,
+        block_blob_gas_used,
         requests_hash,
     )
 
