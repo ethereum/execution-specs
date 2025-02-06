@@ -194,12 +194,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     block :
         Block to apply to `chain`.
     """
-    parent_header = chain.blocks[-1].header
-    excess_blob_gas = calculate_excess_blob_gas(parent_header)
-    if block.header.excess_blob_gas != excess_blob_gas:
-        raise InvalidBlock
-
-    validate_header(block.header, parent_header)
+    validate_header(chain, block.header)
     if block.ommers != ():
         raise InvalidBlock
 
@@ -311,7 +306,7 @@ def calculate_base_fee_per_gas(
     return Uint(expected_base_fee_per_gas)
 
 
-def validate_header(header: Header, parent_header: Header) -> None:
+def validate_header(chain: BlockChain, header: Header) -> None:
     """
     Verifies a block header.
 
@@ -324,11 +319,31 @@ def validate_header(header: Header, parent_header: Header) -> None:
 
     Parameters
     ----------
+    chain :
+        History and current state.
     header :
         Header to check for correctness.
-    parent_header :
-        Parent Header of the header to check for correctness
     """
+    if header.number < Uint(1):
+        raise InvalidBlock
+    parent_header_number = header.number - Uint(1)
+    first_block_number = chain.blocks[0].header.number
+    last_block_number = chain.blocks[-1].header.number
+
+    if (
+        parent_header_number < first_block_number
+        or parent_header_number > last_block_number
+    ):
+        raise InvalidBlock
+
+    parent_header = chain.blocks[
+        parent_header_number - first_block_number
+    ].header
+
+    excess_blob_gas = calculate_excess_blob_gas(parent_header)
+    if header.excess_blob_gas != excess_blob_gas:
+        raise InvalidBlock
+
     if header.gas_used > header.gas_limit:
         raise InvalidBlock
 
