@@ -22,9 +22,11 @@ from ethereum_types.numeric import U64, U256, Uint
 from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import EthereumException
 
-from ..blocks import Log
+from ..blocks import Log, Receipt, Withdrawal
 from ..fork_types import Address, Authorization, VersionedHash
 from ..state import State, TransientStorage, account_exists_and_is_empty
+from ..transactions import LegacyTransaction
+from ..trie import Trie
 from .precompiled_contracts import RIPEMD160_ADDRESS
 
 __all__ = ("Environment", "Evm", "Message")
@@ -47,6 +49,40 @@ class BlockEnvironment:
     prev_randao: Bytes32
     excess_blob_gas: U64
     parent_beacon_block_root: Hash32
+
+
+@dataclass
+class BlockOutput:
+    """
+    Output from applying the block body to the present state.
+
+    Contains the following:
+
+    block_gas_used : `ethereum.base_types.Uint`
+        Gas used for executing all transactions.
+    transactions_trie : `ethereum.fork_types.Root`
+        Trie of all the transactions in the block.
+    receipts_trie : `ethereum.fork_types.Root`
+        Trie root of all the receipts in the block.
+    block_logs : `Bloom`
+        Logs bloom of all the logs included in all the transactions of the
+        block.
+    withdrawals_trie : `ethereum.fork_types.Root`
+        Trie root of all the withdrawals in the block.
+    blob_gas_used : `ethereum.base_types.Uint`
+        Total blob gas used in the block.
+    requests : `Bytes`
+        Hash of all the requests in the block.
+    """
+
+    block_gas_used: Uint
+    transactions_trie: Trie[Bytes, Optional[Union[Bytes, LegacyTransaction]]]
+    receipts_trie: Trie[Bytes, Optional[Union[Bytes, Receipt]]]
+    block_logs: Tuple[Log, ...]
+    withdrawals_trie: Trie[Bytes, Optional[Union[Bytes, Withdrawal]]]
+    blob_gas_used: Uint
+    deposit_requests: Bytes
+    requests: List[Bytes]
 
 
 @dataclass

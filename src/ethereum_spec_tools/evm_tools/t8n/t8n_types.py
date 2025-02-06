@@ -3,7 +3,7 @@ Define the types used by the t8n tool.
 """
 import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
@@ -86,8 +86,6 @@ class Txs:
     """
 
     rejected_txs: Dict[int, str]
-    successful_txs: List[Any]
-    successful_receipts: List[Any]
     all_txs: List[Any]
     t8n: "T8N"
     data: Any
@@ -95,9 +93,8 @@ class Txs:
 
     def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
         self.t8n = t8n
+        self.transactions: List[Tuple[Uint, Any]] = []
         self.rejected_txs = {}
-        self.successful_txs = []
-        self.successful_receipts = []
         self.rlp_input = False
         self.all_txs = []
 
@@ -116,18 +113,12 @@ class Txs:
         else:
             self.data = data
 
-    @property
-    def transactions(self) -> Iterator[Tuple[int, Any]]:
-        """
-        Read the transactions file and return a list of transactions.
-        Can read from JSON or RLP.
-        """
         for idx, raw_tx in enumerate(self.data):
             try:
                 if self.rlp_input:
-                    yield idx, self.parse_rlp_tx(raw_tx)
+                    self.transactions.append(self.parse_rlp_tx(raw_tx))
                 else:
-                    yield idx, self.parse_json_tx(raw_tx)
+                    self.transactions.append(self.parse_json_tx(raw_tx))
             except UnsupportedTx as e:
                 self.t8n.logger.warning(
                     f"Unsupported transaction type {idx}: "
@@ -198,38 +189,6 @@ class Txs:
             transaction = tx
 
         return transaction
-
-    def add_transaction(self, tx: Any) -> None:
-        """
-        Add a transaction to the list of successful transactions.
-        """
-        if self.t8n.fork.is_after_fork("ethereum.berlin"):
-            self.successful_txs.append(self.t8n.fork.encode_transaction(tx))
-        else:
-            self.successful_txs.append(tx)
-
-    def get_tx_hash(self, tx: Any) -> bytes:
-        """
-        Get the transaction hash of a transaction.
-        """
-        if self.t8n.fork.is_after_fork("ethereum.berlin") and not isinstance(
-            tx, self.t8n.fork.LegacyTransaction
-        ):
-            return keccak256(self.t8n.fork.encode_transaction(tx))
-        else:
-            return keccak256(rlp.encode(tx))
-
-    def add_receipt(self, tx: Any, gas_consumed: Uint) -> None:
-        """
-        Add t8n receipt info for valid tx
-        """
-        tx_hash = self.get_tx_hash(tx)
-
-        data = {
-            "transactionHash": "0x" + tx_hash.hex(),
-            "gasUsed": hex(gas_consumed),
-        }
-        self.successful_receipts.append(data)
 
     def sign_transaction(self, json_tx: Any) -> None:
         """
@@ -312,6 +271,26 @@ class Result:
     requests_hash: Optional[Hash32] = None
     requests: Optional[List[Bytes]] = None
 
+    def update(self, t8n: "T8N", block_env: Any, block_output: Any) -> None:
+        """
+        Update the result after processing the inputs.
+        """
+        self.gas_used = block_output.block_gas_used
+        self.tx_root = t8n.fork.root(block_output.transactions_trie)
+        self.receipt_root = t8n.fork.root(block_output.receipts_trie)
+        self.bloom = t8n.fork.logs_bloom(block_output.block_logs)
+        self.logs_hash = keccak256(rlp.encode(block_output.block_logs))
+        self.state_root = t8n.fork.state_root(block_env.state)
+
+        if t8n.fork.is_after_fork("ethereum.shanghai"):
+            self.withdrawals_root = t8n.fork.root(
+                block_output.withdrawals_trie
+            )
+
+        if t8n.fork.is_after_fork("ethereum.prague"):
+            self.requests = block_output.requests
+            self.requests_hash = t8n.fork.compute_requests_hash(self.requests)
+
     def to_json(self) -> Any:
         """Encode the result to JSON"""
         data = {}
@@ -343,14 +322,6 @@ class Result:
         data["rejected"] = [
             {"index": idx, "error": error}
             for idx, error in self.rejected.items()
-        ]
-
-        data["receipts"] = [
-            {
-                "transactionHash": item["transactionHash"],
-                "gasUsed": item["gasUsed"],
-            }
-            for item in self.receipts
         ]
 
         if self.requests_hash is not None:

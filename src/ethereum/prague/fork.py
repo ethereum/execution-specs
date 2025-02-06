@@ -29,7 +29,7 @@ from ethereum.exceptions import (
 from . import vm
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
-from .fork_types import Address, Authorization, Bloom, Root, VersionedHash
+from .fork_types import Address, Authorization, VersionedHash
 from .requests import (
     CONSOLIDATION_REQUEST_TYPE,
     DEPOSIT_REQUEST_TYPE,
@@ -172,6 +172,27 @@ def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
     return recent_block_hashes
 
 
+def create_block_output() -> vm.BlockOutput:
+    """
+    Creates a new block output that is updated during block processing.
+
+    Parameters
+    ----------
+    block_output:
+        The new block output for the block.
+    """
+    return vm.BlockOutput(
+        block_gas_used=Uint(0),
+        transactions_trie=Trie(secured=False, default=None),
+        receipts_trie=Trie(secured=False, default=None),
+        block_logs=(),
+        withdrawals_trie=Trie(secured=False, default=None),
+        blob_gas_used=Uint(0),
+        deposit_requests=b"",
+        requests=[],
+    )
+
+
 def state_transition(chain: BlockChain, block: Block) -> None:
     """
     Attempts to apply a block to an existing block chain.
@@ -198,6 +219,8 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     if block.ommers != ():
         raise InvalidBlock
 
+    block_output = create_block_output()
+
     block_env = vm.BlockEnvironment(
         chain_id=chain.chain_id,
         state=chain.state,
@@ -212,29 +235,36 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         parent_beacon_block_root=block.header.parent_beacon_block_root,
     )
 
-    apply_body_output = apply_body(
-        block_env,
-        block.transactions,
-        block.withdrawals,
+    apply_body(
+        block_env=block_env,
+        block_output=block_output,
+        transactions=block.transactions,
+        withdrawals=block.withdrawals,
     )
+    block_state_root = state_root(block_env.state)
+    transactions_root = root(block_output.transactions_trie)
+    receipt_root = root(block_output.receipts_trie)
+    block_logs_bloom = logs_bloom(block_output.block_logs)
+    withdrawals_root = root(block_output.withdrawals_trie)
+    requests_hash = compute_requests_hash(block_output.requests)
 
-    if apply_body_output.block_gas_used != block.header.gas_used:
+    if block_output.block_gas_used != block.header.gas_used:
         raise InvalidBlock(
-            f"{apply_body_output.block_gas_used} != {block.header.gas_used}"
+            f"{block_output.block_gas_used} != {block.header.gas_used}"
         )
-    if apply_body_output.transactions_root != block.header.transactions_root:
+    if transactions_root != block.header.transactions_root:
         raise InvalidBlock
-    if apply_body_output.state_root != block.header.state_root:
+    if block_state_root != block.header.state_root:
         raise InvalidBlock
-    if apply_body_output.receipt_root != block.header.receipt_root:
+    if receipt_root != block.header.receipt_root:
         raise InvalidBlock
-    if apply_body_output.block_logs_bloom != block.header.bloom:
+    if block_logs_bloom != block.header.bloom:
         raise InvalidBlock
-    if apply_body_output.withdrawals_root != block.header.withdrawals_root:
+    if withdrawals_root != block.header.withdrawals_root:
         raise InvalidBlock
-    if apply_body_output.blob_gas_used != block.header.blob_gas_used:
+    if block_output.blob_gas_used != block.header.blob_gas_used:
         raise InvalidBlock
-    if apply_body_output.requests_hash != block.header.requests_hash:
+    if requests_hash != block.header.requests_hash:
         raise InvalidBlock
 
     chain.blocks.append(block)
@@ -375,9 +405,8 @@ def validate_header(chain: BlockChain, header: Header) -> None:
 
 def check_transaction(
     block_env: vm.BlockEnvironment,
+    block_output: vm.BlockOutput,
     tx: Transaction,
-    gas_available: Uint,
-    blob_gas_available: Uint,
 ) -> Tuple[Address, Uint, Tuple[VersionedHash, ...], Uint]:
     """
     Check if the transaction is includable in the block.
@@ -386,12 +415,10 @@ def check_transaction(
     ----------
     block_env :
         The block scoped environment.
+    block_output :
+        The block output for the current block.
     tx :
         The transaction.
-    gas_available :
-        The gas remaining in the block.
-    blob_gas_available :
-        The gas available for blobs in the block.
 
     Returns
     -------
@@ -409,6 +436,9 @@ def check_transaction(
     InvalidBlock :
         If the transaction is not includable.
     """
+    gas_available = block_env.block_gas_limit - block_output.block_gas_used
+    blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used
+
     if tx.gas > gas_available:
         raise InvalidBlock
 
@@ -518,42 +548,6 @@ def make_receipt(
     return encode_receipt(tx, receipt)
 
 
-@dataclass
-class ApplyBodyOutput:
-    """
-    Output from applying the block body to the present state.
-
-    Contains the following:
-
-    block_gas_used : `ethereum.base_types.Uint`
-        Gas used for executing all transactions.
-    transactions_root : `ethereum.fork_types.Root`
-        Trie root of all the transactions in the block.
-    receipt_root : `ethereum.fork_types.Root`
-        Trie root of all the receipts in the block.
-    block_logs_bloom : `Bloom`
-        Logs bloom of all the logs included in all the transactions of the
-        block.
-    state_root : `ethereum.fork_types.Root`
-        State root after all transactions have been executed.
-    withdrawals_root : `ethereum.fork_types.Root`
-        Trie root of all the withdrawals in the block.
-    blob_gas_used : `ethereum.base_types.Uint`
-        Total blob gas used in the block.
-    requests_hash : `Bytes`
-        Hash of all the requests in the block.
-    """
-
-    block_gas_used: Uint
-    transactions_root: Root
-    receipt_root: Root
-    block_logs_bloom: Bloom
-    state_root: Root
-    withdrawals_root: Root
-    blob_gas_used: Uint
-    requests_hash: Bytes
-
-
 def process_system_transaction(
     block_env: vm.BlockEnvironment,
     target_address: Address,
@@ -625,9 +619,10 @@ def process_system_transaction(
 
 def apply_body(
     block_env: vm.BlockEnvironment,
+    block_output: vm.BlockOutput,
     transactions: Tuple[Union[LegacyTransaction, Bytes], ...],
     withdrawals: Tuple[Withdrawal, ...],
-) -> ApplyBodyOutput:
+) -> None:
     """
     Executes a block.
 
@@ -642,31 +637,13 @@ def apply_body(
     ----------
     block_env :
         The block scoped environment.
+    block_output :
+        The block output for the current block.
     transactions :
         Transactions included in the block.
     withdrawals :
         Withdrawals to be processed in the current block.
-
-    Returns
-    -------
-    apply_body_output : `ApplyBodyOutput`
-        Output of applying the block body to the state.
     """
-    gas_available = block_env.block_gas_limit
-    blob_gas_available = MAX_BLOB_GAS_PER_BLOCK
-
-    transactions_trie: Trie[
-        Bytes, Optional[Union[Bytes, LegacyTransaction]]
-    ] = Trie(secured=False, default=None)
-    receipts_trie: Trie[Bytes, Optional[Union[Bytes, Receipt]]] = Trie(
-        secured=False, default=None
-    )
-    withdrawals_trie: Trie[Bytes, Optional[Union[Bytes, Withdrawal]]] = Trie(
-        secured=False, default=None
-    )
-    block_logs: Tuple[Log, ...] = ()
-    deposit_requests: Bytes = b""
-
     process_system_transaction(
         block_env=block_env,
         target_address=BEACON_ROOTS_ADDRESS,
@@ -680,66 +657,30 @@ def apply_body(
     )
 
     for i, tx in enumerate(map(decode_transaction, transactions)):
-        trie_set(
-            transactions_trie, rlp.encode(Uint(i)), encode_transaction(tx)
-        )
-
-        tx_gas_used, logs, error, tx_blob_gas_used = process_transaction(
-            block_env, tx, gas_available, blob_gas_available
-        )
-        gas_available -= tx_gas_used
-        blob_gas_available -= tx_blob_gas_used
-
-        receipt = make_receipt(
-            tx, error, (block_env.block_gas_limit - gas_available), logs
-        )
-
-        trie_set(
-            receipts_trie,
-            rlp.encode(Uint(i)),
-            receipt,
-        )
-
-        deposit_requests += parse_deposit_requests_from_receipt(receipt)
-
-        block_logs += logs
-
-    block_gas_used = block_env.block_gas_limit - gas_available
-    block_blob_gas_used = MAX_BLOB_GAS_PER_BLOCK - blob_gas_available
-
-    block_logs_bloom = logs_bloom(block_logs)
+        process_transaction(block_env, block_output, tx, Uint(i))
 
     for i, wd in enumerate(withdrawals):
-        trie_set(withdrawals_trie, rlp.encode(Uint(i)), rlp.encode(wd))
+        trie_set(
+            block_output.withdrawals_trie,
+            rlp.encode(Uint(i)),
+            rlp.encode(wd),
+        )
 
         process_withdrawal(block_env.state, wd)
 
         if account_exists_and_is_empty(block_env.state, wd.address):
             destroy_account(block_env.state, wd.address)
 
-    requests_from_execution = process_general_purpose_requests(
+    process_general_purpose_requests(
         block_env=block_env,
-        deposit_requests=deposit_requests,
-    )
-
-    requests_hash = compute_requests_hash(requests_from_execution)
-
-    return ApplyBodyOutput(
-        block_gas_used,
-        root(transactions_trie),
-        root(receipts_trie),
-        block_logs_bloom,
-        state_root(block_env.state),
-        root(withdrawals_trie),
-        block_blob_gas_used,
-        requests_hash,
+        block_output=block_output,
     )
 
 
 def process_general_purpose_requests(
     block_env: vm.BlockEnvironment,
-    deposit_requests: Bytes,
-) -> List[Bytes]:
+    block_output: vm.BlockOutput,
+) -> None:
     """
     Process all the requests in the block.
 
@@ -747,16 +688,12 @@ def process_general_purpose_requests(
     ----------
     block_env :
         The execution environment for the Block.
-    deposit_requests :
-        The deposit requests.
-
-    Returns
-    -------
-    requests_from_execution : `List[Bytes]`
-        The requests from the execution
+    block_output :
+        The block output for the current block.
     """
     # Requests are to be in ascending order of request type
-    requests_from_execution: List[Bytes] = []
+    deposit_requests = block_output.deposit_requests
+    requests_from_execution = block_output.requests
     if len(deposit_requests) > 0:
         requests_from_execution.append(DEPOSIT_REQUEST_TYPE + deposit_requests)
 
@@ -783,15 +720,13 @@ def process_general_purpose_requests(
             + system_consolidation_tx_output.return_data
         )
 
-    return requests_from_execution
-
 
 def process_transaction(
     block_env: vm.BlockEnvironment,
+    block_output: vm.BlockOutput,
     tx: Transaction,
-    gas_available: Uint,
-    blob_gas_available: Uint,
-) -> Tuple[Uint, Tuple[Log, ...], Optional[EthereumException], Uint]:
+    index: Uint,
+) -> None:
     """
     Execute a transaction against the provided environment.
 
@@ -808,22 +743,19 @@ def process_transaction(
     ----------
     block_env :
         Environment for the Ethereum Virtual Machine.
+    block_output :
+        The block output for the current block.
     tx :
         Transaction to execute.
     index:
         Index of the transaction in the block.
-    gas_available :
-        Gas available for the transaction in the block.
-    blob_gas_available :
-        Blob gas available for the transaction
-
-    Returns
-    -------
-    gas_left : `ethereum.base_types.U256`
-        Remaining gas after execution.
-    logs : `Tuple[ethereum.blocks.Log, ...]`
-        Logs generated during execution.
     """
+    trie_set(
+        block_output.transactions_trie,
+        rlp.encode(index),
+        encode_transaction(tx),
+    )
+
     intrinsic_gas, calldata_floor_gas_cost = validate_transaction(tx)
 
     (
@@ -833,9 +765,8 @@ def process_transaction(
         tx_blob_gas_used,
     ) = check_transaction(
         block_env=block_env,
+        block_output=block_output,
         tx=tx,
-        gas_available=gas_available,
-        blob_gas_available=blob_gas_available,
     )
 
     sender_account = get_account(block_env.state, sender)
@@ -892,13 +823,13 @@ def process_transaction(
 
     message = prepare_message(block_env, tx_env, tx)
 
-    output = process_message_call(message)
+    tx_output = process_message_call(message)
 
     # For EIP-7623 we first calculate the execution_gas_used, which includes
     # the execution gas refund.
-    execution_gas_used = tx.gas - output.gas_left
+    execution_gas_used = tx.gas - tx_output.gas_left
     gas_refund = min(
-        execution_gas_used // Uint(5), Uint(output.refund_counter)
+        execution_gas_used // Uint(5), Uint(tx_output.refund_counter)
     )
     execution_gas_used -= gas_refund
 
@@ -906,8 +837,8 @@ def process_transaction(
     # floor cost.
     tx_gas_used = max(execution_gas_used, calldata_floor_gas_cost)
 
-    output.gas_left = tx.gas - tx_gas_used
-    gas_refund_amount = output.gas_left * effective_gas_price
+    tx_output.gas_left = tx.gas - tx_gas_used
+    gas_refund_amount = tx_output.gas_left * effective_gas_price
 
     # For non-1559 transactions env.gas_price == tx.gas_price
     priority_fee_per_gas = effective_gas_price - block_env.base_fee_per_gas
@@ -932,12 +863,29 @@ def process_transaction(
     elif account_exists_and_is_empty(block_env.state, block_env.coinbase):
         destroy_account(block_env.state, block_env.coinbase)
 
-    for address in output.accounts_to_delete:
+    for address in tx_output.accounts_to_delete:
         destroy_account(block_env.state, address)
 
-    destroy_touched_empty_accounts(block_env.state, output.touched_accounts)
+    destroy_touched_empty_accounts(block_env.state, tx_output.touched_accounts)
 
-    return tx_gas_used, output.logs, output.error, tx_blob_gas_used
+    block_output.block_gas_used += tx_gas_used
+    block_output.blob_gas_used += tx_blob_gas_used
+
+    receipt = make_receipt(
+        tx, tx_output.error, block_output.block_gas_used, tx_output.logs
+    )
+
+    trie_set(
+        block_output.receipts_trie,
+        rlp.encode(Uint(index)),
+        receipt,
+    )
+
+    block_output.block_logs += tx_output.logs
+
+    block_output.deposit_requests += parse_deposit_requests_from_receipt(
+        receipt
+    )
 
 
 def compute_header_hash(header: Header) -> Hash32:
