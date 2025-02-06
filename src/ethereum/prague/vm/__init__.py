@@ -31,27 +31,39 @@ __all__ = ("Environment", "Evm", "Message")
 
 
 @dataclass
-class Environment:
+class BlockEnvironment:
     """
     Items external to the virtual machine itself, provided by the environment.
     """
 
-    caller: Address
+    chain_id: U64
+    state: State
+    block_gas_limit: Uint
     block_hashes: List[Hash32]
-    origin: Address
     coinbase: Address
     number: Uint
     base_fee_per_gas: Uint
-    gas_limit: Uint
-    gas_price: Uint
     time: U256
     prev_randao: Bytes32
-    state: State
-    chain_id: U64
-    traces: List[dict]
     excess_blob_gas: U64
-    blob_versioned_hashes: Tuple[VersionedHash, ...]
+    parent_beacon_block_root: Hash32
+
+
+@dataclass
+class TransactionEnvironment:
+    """
+    Items that are used by contract creation or message call.
+    """
+
+    origin: Address
+    gas_price: Uint
+    gas: Uint
+    access_list_addresses: Set[Address]
+    access_list_storage_keys: Set[Tuple[Address, Bytes32]]
     transient_storage: TransientStorage
+    blob_versioned_hashes: Tuple[VersionedHash, ...]
+    authorizations: Tuple[Authorization, ...]
+    traces: List[dict]
 
 
 @dataclass
@@ -60,6 +72,8 @@ class Message:
     Items that are used by contract creation or message call.
     """
 
+    block_env: BlockEnvironment
+    tx_env: TransactionEnvironment
     caller: Address
     target: Union[Bytes0, Address]
     current_target: Address
@@ -74,7 +88,6 @@ class Message:
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     parent_evm: Optional["Evm"]
-    authorizations: Tuple[Authorization, ...]
 
 
 @dataclass
@@ -86,7 +99,6 @@ class Evm:
     memory: bytearray
     code: Bytes
     gas_left: Uint
-    env: Environment
     valid_jump_destinations: Set[Uint]
     logs: Tuple[Log, ...]
     refund_counter: int
@@ -118,7 +130,7 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     evm.accounts_to_delete.update(child_evm.accounts_to_delete)
     evm.touched_accounts.update(child_evm.touched_accounts)
     if account_exists_and_is_empty(
-        evm.env.state, child_evm.message.current_target
+        evm.message.block_env.state, child_evm.message.current_target
     ):
         evm.touched_accounts.add(child_evm.message.current_target)
     evm.accessed_addresses.update(child_evm.accessed_addresses)
@@ -147,7 +159,7 @@ def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
         evm.touched_accounts.add(RIPEMD160_ADDRESS)
     if child_evm.message.current_target == RIPEMD160_ADDRESS:
         if account_exists_and_is_empty(
-            evm.env.state, child_evm.message.current_target
+            evm.message.block_env.state, child_evm.message.current_target
         ):
             evm.touched_accounts.add(RIPEMD160_ADDRESS)
     evm.gas_left += child_evm.gas_left
