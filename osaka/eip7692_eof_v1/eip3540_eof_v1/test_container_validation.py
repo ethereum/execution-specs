@@ -875,6 +875,46 @@ def test_valid_containers(
             validity_error=[EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
         ),
         Container(
+            name="no_type_section_2_codes",
+            sections=[
+                Section.Code(Op.INVALID),
+                Section.Code(Op.INVALID),
+            ],
+            auto_type_section=AutoSection.NONE,
+            auto_data_section=False,
+            expected_bytecode="ef0001 020002 0001 0001 00 fefe",
+            validity_error=[EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
+        ),
+        Container(
+            name="no_type_section_data_section",
+            sections=[
+                Section.Code(Op.INVALID),
+                Section.Data("0xda"),
+            ],
+            auto_type_section=AutoSection.NONE,
+            expected_bytecode="ef0001 020001 0001 040001 00 feda",
+            validity_error=[EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
+        ),
+        Container(
+            name="no_type_section_container_section",
+            sections=[
+                Section.Code(Op.INVALID),
+                Section.Container(
+                    Container(
+                        sections=[
+                            Section.Code(code=Op.RETURNCONTRACT[0](0, 0)),
+                            Section.Container(container=Container.Code(code=Op.STOP)),
+                        ],
+                    )
+                ),
+            ],
+            auto_type_section=AutoSection.NONE,
+            expected_bytecode="ef0001 020001 0001 030001 0032 040000 00 fe"
+            "ef0001 010004 020001 0006 030001 0014 040000 00 00800002 60006000ee00"
+            "ef0001 010004 020001 0001 040000 00 0080000000",
+            validity_error=[EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
+        ),
+        Container(
             name="too_many_type_sections",
             sections=[
                 Section(kind=SectionKind.TYPE, data="0x00000000"),
