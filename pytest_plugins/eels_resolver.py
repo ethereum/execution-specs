@@ -87,6 +87,8 @@ def output_metadata_dir_with_teardown(request):
     yield
     try:
         output_metadata_dir = request.getfixturevalue("output_metadata_dir")
+        if output_metadata_dir.name == "stdout":
+            return
     except pytest.FixtureLookupError:
         output_metadata_dir = None
 

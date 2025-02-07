@@ -256,6 +256,7 @@ def pytest_report_header(config: pytest.Config):
     return [(f"{t8n_version}")]
 
 
+@pytest.hookimpl(tryfirst=True)
 def pytest_report_teststatus(report, config: pytest.Config):
     """
     Modify test results in pytest's terminal output.
@@ -284,6 +285,8 @@ def pytest_terminal_summary(
     actually run the tests.
     """
     yield
+    if is_output_stdout(config.getoption("output")):
+        return
     stats = terminalreporter.stats
     if "passed" in stats and stats["passed"]:
         # append / to indicate this is a directory
@@ -479,6 +482,8 @@ def output_dir(request: pytest.FixtureRequest, is_output_tarball: bool) -> Path:
 @pytest.fixture(scope="session")
 def output_metadata_dir(output_dir: Path) -> Path:
     """Return metadata directory to store fixture meta files."""
+    if is_output_stdout(output_dir):
+        return output_dir
     return output_dir / ".meta"
 
 
