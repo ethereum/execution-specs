@@ -17,6 +17,8 @@ from ethereum_test_base_types import to_json
 from ethereum_test_fixtures.consume import TestCaseIndexFile, TestCaseStream
 from ethereum_test_fixtures.file import Fixtures
 
+from ..consume import FixturesSource
+
 
 def pytest_addoption(parser):  # noqa: D103
     consume_group = parser.getgroup(
@@ -96,13 +98,13 @@ def test_dump_dir(
 
 
 @pytest.fixture
-def fixture_path(test_case: TestCaseIndexFile | TestCaseStream, fixture_source):
+def fixture_path(test_case: TestCaseIndexFile | TestCaseStream, fixtures_source: FixturesSource):
     """
     Path to the current JSON fixture file.
 
     If the fixture source is stdin, the fixture is written to a temporary json file.
     """
-    if fixture_source == "stdin":
+    if fixtures_source == "stdin":
         assert isinstance(test_case, TestCaseStream)
         temp_dir = tempfile.TemporaryDirectory()
         fixture_path = Path(temp_dir.name) / f"{test_case.id.replace('/', '_')}.json"
@@ -113,7 +115,7 @@ def fixture_path(test_case: TestCaseIndexFile | TestCaseStream, fixture_source):
         temp_dir.cleanup()
     else:
         assert isinstance(test_case, TestCaseIndexFile)
-        yield fixture_source / test_case.json_path
+        yield fixtures_source / test_case.json_path
 
 
 @pytest.fixture(scope="function")

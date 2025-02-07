@@ -5,7 +5,6 @@ Configures the hive back-end & EL clients for each individual test execution.
 """
 
 import io
-from pathlib import Path
 from typing import Mapping
 
 import pytest
@@ -15,7 +14,7 @@ from ethereum_test_fixtures import BlockchainEngineFixture
 from ethereum_test_fixtures.consume import TestCaseIndexFile, TestCaseStream
 from ethereum_test_fixtures.file import BlockchainEngineFixtures
 from ethereum_test_rpc import EngineRPC
-from pytest_plugins.consume.consume import JsonSource
+from pytest_plugins.consume.consume import FixturesSource
 
 TestCase = TestCaseIndexFile | TestCaseStream
 
@@ -39,7 +38,9 @@ def test_suite_description() -> str:
 
 
 @pytest.fixture(scope="function")
-def blockchain_fixture(fixture_source: JsonSource, test_case: TestCase) -> BlockchainEngineFixture:
+def blockchain_fixture(
+    fixtures_source: FixturesSource, test_case: TestCase
+) -> BlockchainEngineFixture:
     """
     Create the blockchain engine fixture pydantic model for the current test case.
 
@@ -47,7 +48,7 @@ def blockchain_fixture(fixture_source: JsonSource, test_case: TestCase) -> Block
     is taking input on stdin) or loaded from the fixture json file if taking
     input from disk (fixture directory with index file).
     """
-    if fixture_source == "stdin":
+    if fixtures_source == "stdin":
         assert isinstance(test_case, TestCaseStream), "Expected a stream test case"
         assert isinstance(test_case.fixture, BlockchainEngineFixture), (
             "Expected a blockchain engine test fixture"
@@ -57,7 +58,7 @@ def blockchain_fixture(fixture_source: JsonSource, test_case: TestCase) -> Block
         assert isinstance(test_case, TestCaseIndexFile), "Expected an index file test case"
         # TODO: Optimize, json files will be loaded multiple times. This pytest fixture
         # is executed per test case, and a fixture json will contain multiple test cases.
-        fixtures = BlockchainEngineFixtures.from_file(Path(fixture_source) / test_case.json_path)
+        fixtures = BlockchainEngineFixtures.from_file(fixtures_source / test_case.json_path)
         fixture = fixtures[test_case.id]
     return fixture
 

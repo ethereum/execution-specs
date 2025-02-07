@@ -11,14 +11,18 @@ These fixtures are used when creating the hive test suite.
 
 import json
 import os
+import warnings
 from dataclasses import asdict
 from pathlib import Path
+from typing import List
 
 import pytest
 from filelock import FileLock
 from hive.client import ClientRole
 from hive.simulation import Simulation
 from hive.testing import HiveTest, HiveTestResult, HiveTestSuite
+
+from .hive_info import ClientInfo, HiveInfo
 
 
 def pytest_configure(config):  # noqa: D103
@@ -68,12 +72,38 @@ def pytest_addoption(parser: pytest.Parser):  # noqa: D103
     )
 
 
+def get_hive_info(simulator: Simulation) -> HiveInfo | None:
+    """Fetch and return the Hive instance information."""
+    try:
+        hive_info = simulator.hive_instance()
+        return HiveInfo(**hive_info)
+    except Exception as e:
+        warnings.warn(
+            f"Error fetching hive information: {str(e)}\n\n"
+            "Hive might need to be updated to a newer version.",
+            stacklevel=2,
+        )
+    return None
+
+
 @pytest.hookimpl(trylast=True)
 def pytest_report_header(config, start_path):
     """Add lines to pytest's console output header."""
     if config.option.collectonly:
         return
-    return [f"hive simulator: {config.hive_simulator_url}"]
+    header_lines = [f"hive simulator: {config.hive_simulator_url}"]
+    if hive_info := get_hive_info(config.hive_simulator):
+        hive_command = " ".join(hive_info.command)
+        header_lines += [
+            f"hive command: {hive_command}",
+            f"hive commit: {hive_info.commit}",
+            f"hive date: {hive_info.date}",
+        ]
+        for client in hive_info.client_file:
+            header_lines += [
+                f"hive client ({client.client}): {client.model_dump_json(exclude_none=True)}",
+            ]
+    return header_lines
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
@@ -95,8 +125,23 @@ def pytest_runtest_makereport(item, call):
 
 
 @pytest.fixture(scope="session")
-def simulator(request):  # noqa: D103
+def simulator(request) -> Simulation:
+    """Return the Hive simulator instance."""
     return request.config.hive_simulator
+
+
+@pytest.fixture(scope="session")
+def hive_info(simulator: Simulation):
+    """Fetch and return the Hive instance information."""
+    return get_hive_info(simulator)
+
+
+@pytest.fixture(scope="session")
+def client_file(hive_info: HiveInfo | None) -> List[ClientInfo]:
+    """Return the client file used when launching hive."""
+    if hive_info is None:
+        return []
+    return hive_info.client_file
 
 
 def get_test_suite_scope(fixture_name, config: pytest.Config):

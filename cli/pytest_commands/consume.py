@@ -57,6 +57,12 @@ def get_command_paths(command_name: str, is_hive: bool) -> List[Path]:
     return command_paths
 
 
+@click.group(context_settings={"help_option_names": ["-h", "--help"]})
+def consume() -> None:
+    """Consume command to aid client consumption of test fixtures."""
+    pass
+
+
 def consume_command(is_hive: bool = False) -> Callable[[Callable[..., Any]], click.Command]:
     """Generate a consume sub-command."""
 
@@ -93,16 +99,6 @@ def consume_command(is_hive: bool = False) -> Callable[[Callable[..., Any]], cli
     return decorator
 
 
-@click.group(
-    context_settings={
-        "help_option_names": ["-h", "--help"],
-    }
-)
-def consume() -> None:
-    """Consume command to aid client consumption of test fixtures."""
-    pass
-
-
 @consume_command(is_hive=False)
 def direct() -> None:
     """Clients consume directly via the `blocktest` interface."""
@@ -125,3 +121,14 @@ def engine() -> None:
 def hive() -> None:
     """Client consumes via all available hive methods (rlp, engine)."""
     pass
+
+
+@consume.command(
+    context_settings={"ignore_unknown_options": True},
+)
+@common_click_options
+def cache(pytest_args: List[str], **kwargs) -> None:
+    """Consume command to cache test fixtures."""
+    args = handle_consume_command_flags(pytest_args, is_hive=False)
+    args += ["src/pytest_plugins/consume/test_cache.py"]
+    sys.exit(pytest.main(args))

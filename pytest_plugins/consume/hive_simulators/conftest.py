@@ -14,6 +14,7 @@ from ethereum_test_fixtures import BlockchainFixtureCommon
 from ethereum_test_fixtures.consume import TestCaseIndexFile, TestCaseStream
 from ethereum_test_rpc import EthRPC
 from pytest_plugins.consume.hive_simulators.ruleset import ruleset  # TODO: generate dynamically
+from pytest_plugins.pytest_hive.hive_info import ClientInfo
 
 from .timing import TimingData
 
@@ -39,42 +40,68 @@ def eth_rpc(client: Client) -> EthRPC:
 
 
 @pytest.fixture(scope="function")
+def hive_client_config_file_parameter(
+    client_type: ClientType, client_file: List[ClientInfo]
+) -> List[str]:
+    """Return the hive client config file that is currently being used to configure tests."""
+    for client in client_file:
+        if client_type.name.startswith(client.client):
+            return ["--client-file", f"<('{client.model_dump_json(exclude_none=True)}')"]
+    return []
+
+
+@pytest.fixture(scope="function")
 def hive_consume_command(
     test_suite_name: str,
     client_type: ClientType,
     test_case: TestCaseIndexFile | TestCaseStream,
-) -> str:
+    hive_client_config_file_parameter: List[str],
+) -> List[str]:
     """Command to run the test within hive."""
-    return (
-        f"./hive --sim ethereum/{test_suite_name} "
-        f"--client-file configs/prague.yaml "
-        f"--client {client_type.name} "
-        f'--sim.limit "{test_case.id}"'
-    )
+    command = ["./hive", "--sim", f"ethereum/{test_suite_name}"]
+    if hive_client_config_file_parameter:
+        command += hive_client_config_file_parameter
+    command += ["--client", client_type.name, "--sim.limit", f'"{test_case.id}"']
+    return command
 
 
 @pytest.fixture(scope="function")
-def eest_consume_commands(
-    request: pytest.FixtureRequest,
-    test_suite_name: str,
+def hive_dev_command(
     client_type: ClientType,
+    hive_client_config_file_parameter: List[str],
+) -> List[str]:
+    """Return the command used to instantiate hive alongside the `consume` command."""
+    hive_dev = ["./hive", "--dev"]
+    if hive_client_config_file_parameter:
+        hive_dev += hive_client_config_file_parameter
+    hive_dev += ["--client", client_type.name]
+    return hive_dev
+
+
+@pytest.fixture(scope="function")
+def eest_consume_command(
+    test_suite_name: str,
     test_case: TestCaseIndexFile | TestCaseStream,
+    fixture_source_flags: List[str],
 ) -> List[str]:
     """Commands to run the test within EEST using a hive dev back-end."""
-    hive_dev = f"./hive --dev --client-file configs/prague.yaml --client {client_type.name}"
-    input_source = request.config.getoption("fixture_source")
-    consume = (
-        f'consume {test_suite_name.split("-")[-1]} -v --input={input_source} -k "{test_case.id}"'
+    return (
+        ["consume", test_suite_name.split("-")[-1], "-v"]
+        + fixture_source_flags
+        + [
+            "-k",
+            f'"{test_case.id}"',
+        ]
     )
-    return [hive_dev, consume]
 
 
 @pytest.fixture(scope="function")
 def test_case_description(
     blockchain_fixture: BlockchainFixtureCommon,
     test_case: TestCaseIndexFile | TestCaseStream,
-    hive_consume_command: str,
-    eest_consume_commands: List[str],
+    hive_consume_command: List[str],
+    hive_dev_command: List[str],
+    eest_consume_command: List[str],
 ) -> str:
     """
     Create the description of the current blockchain fixture test case.
@@ -88,10 +115,12 @@ def test_case_description(
     else:
         description += f"\n\n{blockchain_fixture.info['description']}"
     description += (
-        f"\n\nCommand to reproduce entirely in hive:\n<code>{hive_consume_command}</code>"
+        f"\n\nCommand to reproduce entirely in hive:"
+        f"\n<code>{' '.join(hive_consume_command)}</code>"
     )
     eest_commands = "\n".join(
-        f"{i + 1}. <code>{cmd}</code>" for i, cmd in enumerate(eest_consume_commands)
+        f"{i + 1}. <code>{' '.join(cmd)}</code>"
+        for i, cmd in enumerate([hive_dev_command, eest_consume_command])
     )
     description += (
         f"\n\nCommands to reproduce within EEST using a hive dev back-end:\n{eest_commands}"
