@@ -1,5 +1,7 @@
 """EOF validation tests for EIP-3540 container format."""
 
+import itertools
+
 import pytest
 
 from ethereum_test_tools import EOFException, EOFTestFiller
@@ -1119,38 +1121,35 @@ def test_invalid_containers(
     )
 
 
-@pytest.mark.parametrize("magic_0", [0, 1, 0xEE, 0xEF, 0xF0, 0xFF])
-@pytest.mark.parametrize("magic_1", [0, 1, 2, 0xFE, 0xFF])
+@pytest.mark.parametrize(
+    "magic",
+    set(itertools.product([0, 1, 0x60, 0xEE, 0xEF, 0xF0, 0xFF], [0, 1, 2, 0xFE, 0xFF]))
+    - {(0xEF, 0)},
+)
 def test_magic_validation(
     eof_test: EOFTestFiller,
-    magic_0: int,
-    magic_1: int,
+    magic: tuple[int, int],
 ):
     """Verify EOF container 2-byte magic."""
-    if magic_0 == 0xEF and magic_1 == 0:
-        pytest.skip("Valid magic")
     code = bytearray(bytes(VALID_CONTAINER))
-    code[0] = magic_0
-    code[1] = magic_1
+    code[0:2] = magic
     eof_test(
         container=bytes(code),
-        expect_exception=None if magic_0 == 0xEF and magic_1 == 0 else EOFException.INVALID_MAGIC,
+        expect_exception=EOFException.INVALID_MAGIC,
     )
 
 
-@pytest.mark.parametrize("version", [0, 1, 2, 0xFE, 0xFF])
+@pytest.mark.parametrize("version", [0, 2, 0xEF, 0xFE, 0xFF])
 def test_version_validation(
     eof_test: EOFTestFiller,
     version: int,
 ):
     """Verify EOF container version."""
-    if version == 1:
-        pytest.skip("Valid version")
     code = bytearray(bytes(VALID_CONTAINER))
     code[2] = version
     eof_test(
         container=bytes(code),
-        expect_exception=None if version == 1 else EOFException.INVALID_VERSION,
+        expect_exception=EOFException.INVALID_VERSION,
     )
 
 
