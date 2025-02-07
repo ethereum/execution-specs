@@ -136,10 +136,7 @@ def test_valid_containers(
     eof_test: EOFTestFiller,
     container: Container,
 ):
-    """
-    Test creating various types of valid EOF V1 contracts using legacy
-    initcode and a contract creating transaction.
-    """
+    """Test various types of valid containers."""
     assert container.validity_error is None, (
         f"Valid container with validity error: {container.validity_error}"
     )
@@ -1114,10 +1111,7 @@ def test_invalid_containers(
     eof_test: EOFTestFiller,
     container: Container,
 ):
-    """
-    Test creating various types of valid EOF V1 contracts using legacy
-    initcode and a contract creating transaction.
-    """
+    """Test invalid containers."""
     assert container.validity_error is not None, "Invalid container without validity error"
     eof_test(
         container=bytes(container),
@@ -1167,7 +1161,7 @@ def test_single_code_section(
     plus_data: bool,
     plus_container: bool,
 ):
-    """Verify EOF container maximum number of code sections."""
+    """Verify EOF container single code section."""
     sections = [Section.Code(Op.RETURNCONTRACT[0](0, 0) if plus_container else Op.STOP)]
     if plus_container:
         sections.append(

@@ -129,7 +129,7 @@ def test_eof_example_parameters(
     code_section_code: Bytecode,
     exception: EOFException,
 ):
-    """Example of python EOF classes."""
+    """Example of EOF example parameters."""
     eof_code = Container(
         name="parametrized_eof_example",
         sections=[

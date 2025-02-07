@@ -55,7 +55,7 @@ def test_swapn_on_max_stack(
     swapn_operand: int,
     eof_test: EOFTestFiller,
 ):
-    """Test case out of bounds DUPN immediate."""
+    """Test case out of bounds SWAPN (max stack)."""
     eof_code = Container(
         sections=[
             Section.Code(
@@ -84,7 +84,7 @@ def test_swapn_stack_underflow(
     stack_height: int,
     eof_test: EOFTestFiller,
 ):
-    """Test case out of bounds DUPN immediate."""
+    """Test case out of bounds SWAPN (underflow)."""
     eof_code = Container(
         sections=[
             Section.Code(

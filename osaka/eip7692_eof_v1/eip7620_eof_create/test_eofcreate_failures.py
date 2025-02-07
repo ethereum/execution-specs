@@ -507,7 +507,7 @@ def test_insufficient_returncontract_auxdata_gas(
     state_test: StateTestFiller,
     pre: Alloc,
 ):
-    """Excercises an EOFCREATE when there is not enough gas for the initcode charge."""
+    """Exercises a RETURNCONTRACT when there is not enough gas for the initcode charge."""
     env = Environment()
 
     auxdata_size = 0x5000

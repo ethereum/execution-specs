@@ -221,7 +221,7 @@ def test_gas(
     post: dict,
     tx: Transaction,
 ):
-    """Test the BLS12_G1MUL precompile gas requirements."""
+    """Test the BLS12_G2MUL precompile gas requirements."""
     state_test(
         env=Environment(),
         pre=pre,

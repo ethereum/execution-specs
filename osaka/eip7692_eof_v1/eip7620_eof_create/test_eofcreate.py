@@ -494,7 +494,7 @@ def test_address_collision(
     state_test: StateTestFiller,
     pre: Alloc,
 ):
-    """Verifies a simple EOFCREATE case."""
+    """Tests address collision."""
     env = Environment()
 
     slot_create_address_2 = slot_last_slot * 2 + slot_create_address

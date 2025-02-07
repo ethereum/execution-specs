@@ -112,7 +112,7 @@ def test_data_section_succeed(
     offset: int,
     datasize: int,
 ):
-    """Test simple contracts that are simply expected to succeed on call."""
+    """Test simple contracts that simply expect data section to succeed."""
     env = Environment()
 
     (container, expected_storage) = create_data_test(offset, datasize)

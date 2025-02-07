@@ -123,7 +123,7 @@ def test_rjumpv_backwards(
 def test_rjumpv_backwards_onto_dup(
     eof_test: EOFTestFiller,
 ):
-    """Backwards jump vector onto a dup."""
+    """Backwards jumpv vector onto a dup."""
     container = Container.Code(
         code=(Op.PUSH0 + Op.DUP1 + Op.RJUMPV[-5] + Op.STOP),
         max_stack_height=2,
@@ -765,7 +765,7 @@ def test_rjumpv_into_push_n(
     invalid_index: int,
     data_portion_end: bool,
 ):
-    """EOF1I4200_0039 (Invalid) EOF code containing RJUMPV with target PUSH1 immediate."""
+    """EOF1I4200_0039 (Invalid) EOF code containing RJUMPV with target PUSHN immediate."""
     data_portion_length = int.from_bytes(opcode, byteorder="big") - 0x5F
     if jump == JumpDirection.FORWARD:
         invalid_destination = data_portion_length + 1 if data_portion_end else 2
@@ -892,7 +892,7 @@ def test_rjumpv_into_dupn(
     table_size: int,
     invalid_index: int,
 ):
-    """EOF code containing RJUMP with target DUPN immediate."""
+    """EOF code containing RJUMPV with target DUPN immediate."""
     invalid_destination = 1
     jump_table = [0 for _ in range(table_size)]
     jump_table[invalid_index] = invalid_destination
@@ -927,7 +927,7 @@ def test_rjumpv_into_swapn(
     table_size: int,
     invalid_index: int,
 ):
-    """EOF code containing RJUMP with target SWAPN immediate."""
+    """EOF code containing RJUMPV with target SWAPN immediate."""
     invalid_destination = 1
     jump_table = [0 for _ in range(table_size)]
     jump_table[invalid_index] = invalid_destination
@@ -962,7 +962,7 @@ def test_rjumpv_into_exchange(
     table_size: int,
     invalid_index: int,
 ):
-    """EOF code containing RJUMP with target EXCHANGE immediate."""
+    """EOF code containing RJUMPV with target EXCHANGE immediate."""
     invalid_destination = 1
     jump_table = [0 for _ in range(table_size)]
     jump_table[invalid_index] = invalid_destination
@@ -1092,7 +1092,7 @@ def test_rjumpv_at_the_end(
 ):
     """
     https://github.com/ipsilon/eof/blob/main/spec/eof.md#stack-validation 4.i:
-    This implies that the last instruction may be a terminating instruction or RJUMP.
+    This implies that the last instruction may be a terminating instruction or RJUMPV.
     """
     eof_test(
         container=Container(
@@ -1131,7 +1131,7 @@ def test_rjumpv_backwards_min_stack_wrong(
 def test_rjumpv_rjumpi_backwards_min_stack_wrong(
     eof_test: EOFTestFiller,
 ):
-    """Backwards rjumpv where min_stack does not match."""
+    """Backwards rjumpv rjumpi where min_stack does not match."""
     container = Container.Code(
         code=(
             Op.PUSH0  # (0, 0)

@@ -2607,7 +2607,7 @@ def test_set_code_to_system_contract(
     system_contract: int,
     call_opcode: Op,
 ):
-    """Test setting the code of an account to a pre-compile address."""
+    """Test setting the code of an account to a system contract."""
     caller_code_storage = Storage()
     call_return_code_slot = caller_code_storage.store_next(
         call_return_code(

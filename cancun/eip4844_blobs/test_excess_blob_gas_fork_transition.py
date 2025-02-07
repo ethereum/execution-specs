@@ -388,12 +388,7 @@ def test_fork_transition_excess_blob_gas_post_blob_genesis(
     post_fork_blocks: List[Block],
     post: Mapping[Address, Account],
 ):
-    """
-    Test `excessBlobGas` calculation in the header when the fork is activated.
-
-    Also produce enough blocks to test the blob gas price increase when the block is full with
-    `SpecHelpers.max_blobs_per_block()` blobs.
-    """
+    """Test `excessBlobGas` calculation in the header when the fork is activated."""
     blockchain_test(
         pre=pre,
         post=post,

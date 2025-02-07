@@ -44,7 +44,7 @@ def test_rjumpi_condition_forwards(
     pre: Alloc,
     calldata: bytes,
 ):
-    """Test RJUMPI contract switching based on external input."""
+    """Test RJUMPI contract switching based on external input (forwards)."""
     env = Environment()
     sender = pre.fund_eoa(10**18)
     contract_address = pre.deploy_contract(
@@ -128,7 +128,7 @@ def test_rjumpi_condition_zero(
     pre: Alloc,
     calldata: bytes,
 ):
-    """Test RJUMPI contract switching based on external input."""
+    """Test RJUMPI contract switching based on external input (condition zero)."""
     env = Environment()
     sender = pre.fund_eoa(10**18)
     contract_address = pre.deploy_contract(
@@ -411,7 +411,10 @@ def test_rjumpi_into_self_data_portion(
     eof_test: EOFTestFiller,
     offset: int,
 ):
-    """EOF1I4200_0021 (Invalid) EOF code containing RJUMPI with target same RJUMPI immediate."""
+    """
+    EOF1I4200_0021 (Invalid) EOF code containing RJUMPI with target same RJUMPI immediate
+    (with offset).
+    """
     eof_test(
         container=Container(
             sections=[
@@ -674,7 +677,7 @@ def test_rjumpi_into_callf(
 def test_rjumpi_into_dupn(
     eof_test: EOFTestFiller,
 ):
-    """EOF code containing RJUMP with target DUPN immediate."""
+    """EOF code containing RJUMPI with target DUPN immediate."""
     eof_test(
         container=Container(
             sections=[
@@ -696,7 +699,7 @@ def test_rjumpi_into_dupn(
 def test_rjumpi_into_swapn(
     eof_test: EOFTestFiller,
 ):
-    """EOF code containing RJUMP with target SWAPN immediate."""
+    """EOF code containing RJUMPI with target SWAPN immediate."""
     eof_test(
         container=Container(
             sections=[
@@ -718,7 +721,7 @@ def test_rjumpi_into_swapn(
 def test_rjumpi_into_exchange(
     eof_test: EOFTestFiller,
 ):
-    """EOF code containing RJUMP with target EXCHANGE immediate."""
+    """EOF code containing RJUMPI with target EXCHANGE immediate."""
     eof_test(
         container=Container(
             sections=[
@@ -833,7 +836,7 @@ def test_rjumpi_at_the_end(
 ):
     """
     https://github.com/ipsilon/eof/blob/main/spec/eof.md#stack-validation 4.i:
-    This implies that the last instruction may be a terminating instruction or RJUMP.
+    This implies that the last instruction may be a terminating instruction or RJUMPI.
     """
     eof_test(
         container=Container(
@@ -909,7 +912,7 @@ def test_rjumpi_backwards_min_stack_wrong(
 def test_rjumpi_rjumpv_backwards_min_stack_wrong(
     eof_test: EOFTestFiller,
 ):
-    """Backwards rjumpv where min_stack does not match."""
+    """Backwards rjumpi rjumpv where min_stack does not match."""
     container = Container.Code(
         code=(
             Op.PUSH0  # (0, 0)
