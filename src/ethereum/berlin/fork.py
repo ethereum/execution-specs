@@ -24,7 +24,7 @@ from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
 from ethereum.exceptions import InvalidBlock, InvalidSenderError
 
 from . import vm
-from .blocks import Block, Header, Log, Receipt
+from .blocks import Block, Header, Log, Receipt, encode_receipt
 from .bloom import logs_bloom
 from .fork_types import Address, Bloom, Root
 from .state import (
@@ -373,10 +373,7 @@ def make_receipt(
         logs=logs,
     )
 
-    if isinstance(tx, AccessListTransaction):
-        return b"\x01" + rlp.encode(receipt)
-    else:
-        return receipt
+    return encode_receipt(tx, receipt)
 
 
 @dataclass

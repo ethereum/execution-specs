@@ -23,7 +23,7 @@ from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import InvalidBlock, InvalidSenderError
 
 from . import vm
-from .blocks import Block, Header, Log, Receipt, Withdrawal
+from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
 from .fork_types import Address, Bloom, Root
 from .state import (
@@ -388,12 +388,7 @@ def make_receipt(
         logs=logs,
     )
 
-    if isinstance(tx, AccessListTransaction):
-        return b"\x01" + rlp.encode(receipt)
-    elif isinstance(tx, FeeMarketTransaction):
-        return b"\x02" + rlp.encode(receipt)
-    else:
-        return receipt
+    return encode_receipt(tx, receipt)
 
 
 @dataclass
