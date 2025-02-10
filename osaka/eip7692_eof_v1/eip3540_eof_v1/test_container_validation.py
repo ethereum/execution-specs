@@ -373,6 +373,17 @@ def test_valid_containers(
             validity_error=EOFException.MISSING_CODE_HEADER,
         ),
         Container(
+            # EOF code containing multiple type headers followed by 2 code sections
+            name="multiple_type_headers_3",
+            sections=[
+                Section(kind=SectionKind.TYPE, data="00800000"),
+                Section(kind=SectionKind.TYPE, data="00800000"),
+                Section.Code(Op.JUMPF[1]),
+                Section.Code(Op.INVALID),
+            ],
+            validity_error=EOFException.MISSING_CODE_HEADER,
+        ),
+        Container(
             # EOF code containing type section size (Size 1)
             name="EOF1I4750_0003",
             raw_bytes="ef000101000102000100010400000000800000fe",
