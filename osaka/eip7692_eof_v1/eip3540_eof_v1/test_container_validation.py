@@ -935,9 +935,21 @@ def test_valid_containers(
             validity_error=[EOFException.MISSING_CODE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
         ),
         Container(
-            name="empty_type_section",
+            name="empty_type_section_empty_code",
             sections=[
-                Section(kind=SectionKind.TYPE, data="0x"),
+                Section(kind=SectionKind.TYPE),
+                Section.Code(),
+            ],
+            expected_bytecode="ef00 01 01 0000 02 0001 0000 04 0000 00",
+            validity_error=[
+                EOFException.ZERO_SECTION_SIZE,
+                EOFException.INVALID_SECTION_BODIES_SIZE,
+            ],
+        ),
+        Container(
+            name="empty_type_section_with_code",
+            sections=[
+                Section(kind=SectionKind.TYPE),
                 Section.Code(Op.STOP),
             ],
             expected_bytecode="ef00 01 01 0000 02 0001 0001 04 0000 00 00",
