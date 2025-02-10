@@ -248,6 +248,9 @@ def call(evm: Evm) -> None:
             (memory_output_start_position, memory_output_size),
         ],
     )
+
+    code_address = to
+
     _account_exists = account_exists(evm.env.state, to)
     create_gas_cost = Uint(0) if _account_exists else GAS_NEW_ACCOUNT
     transfer_gas_cost = Uint(0) if value == 0 else GAS_CALL_VALUE
@@ -275,7 +278,7 @@ def call(evm: Evm) -> None:
             value,
             evm.message.current_target,
             to,
-            to,
+            code_address,
             True,
             memory_input_start_position,
             memory_input_size,
