@@ -5097,7 +5097,7 @@ class Opcodes(Opcode, Enum):
     """
     !!! Note: This opcode is under development
 
-    EOFCREATE[initcontainer_index](value, salt, input_offset, input_size)
+    EOFCREATE[initcontainer_index] (value, salt, input_offset, input_size)
     ----
 
     Description
