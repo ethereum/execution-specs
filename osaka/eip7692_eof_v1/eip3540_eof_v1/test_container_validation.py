@@ -218,6 +218,15 @@ def test_valid_containers(
             validity_error=[EOFException.MISSING_CODE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
         ),
         Container(
+            name="no_code_header_4",
+            sections=[
+                Section(kind=SectionKind.TYPE, data="00800000"),
+                Section.Data("da"),
+            ],
+            expected_bytecode="ef0001 010004 040001 00 00800000 da",
+            validity_error=[EOFException.MISSING_CODE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
+        ),
+        Container(
             name="code_section_count_missing",
             raw_bytes=bytes([0xEF, 0x00, 0x01, 0x01, 0x00, 0x04, 0x02]),
             validity_error=EOFException.INCOMPLETE_SECTION_NUMBER,
