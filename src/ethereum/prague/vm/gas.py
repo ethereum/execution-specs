@@ -71,7 +71,7 @@ GAS_POINT_EVALUATION = Uint(50000)
 TARGET_BLOB_GAS_PER_BLOCK = U64(786432)
 GAS_PER_BLOB = Uint(2**17)
 MIN_BLOB_GASPRICE = Uint(1)
-BLOB_GASPRICE_UPDATE_FRACTION = Uint(5007716)
+BLOB_BASE_FEE_UPDATE_FRACTION = Uint(5007716)
 
 GAS_BLS_G1_ADD = Uint(375)
 GAS_BLS_G1_MUL = Uint(12000)
@@ -344,7 +344,7 @@ def calculate_blob_gas_price(excess_blob_gas: U64) -> Uint:
     return taylor_exponential(
         MIN_BLOB_GASPRICE,
         Uint(excess_blob_gas),
-        BLOB_GASPRICE_UPDATE_FRACTION,
+        BLOB_BASE_FEE_UPDATE_FRACTION,
     )
 
 
