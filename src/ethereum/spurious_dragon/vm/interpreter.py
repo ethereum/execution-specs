@@ -104,6 +104,7 @@ def process_message_call(
     output : `MessageCallOutput`
         Output of the message call
     """
+    refund_counter = U256(0)
     if message.target == Bytes0(b""):
         is_collision = account_has_code_or_nonce(
             env.state, message.current_target
@@ -123,12 +124,11 @@ def process_message_call(
         logs: Tuple[Log, ...] = ()
         accounts_to_delete = set()
         touched_accounts = set()
-        refund_counter = U256(0)
     else:
         logs = evm.logs
         accounts_to_delete = evm.accounts_to_delete
         touched_accounts = evm.touched_accounts
-        refund_counter = U256(evm.refund_counter)
+        refund_counter += U256(evm.refund_counter)
 
     tx_end = TransactionEnd(
         int(message.gas) - int(evm.gas_left), evm.output, evm.error
