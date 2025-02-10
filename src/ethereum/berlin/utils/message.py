@@ -76,6 +76,10 @@ def prepare_message(
     message: `ethereum.berlin.vm.Message`
         Items containing contract creation or message call specific data.
     """
+    accessed_addresses = set()
+    accessed_addresses.add(caller)
+    accessed_addresses.update(PRE_COMPILED_CONTRACTS.keys())
+    accessed_addresses.update(preaccessed_addresses)
     if isinstance(target, Bytes0):
         current_target = compute_contract_address(
             caller,
@@ -92,11 +96,7 @@ def prepare_message(
     else:
         raise AssertionError("Target must be address or empty bytes")
 
-    accessed_addresses = set()
     accessed_addresses.add(current_target)
-    accessed_addresses.add(caller)
-    accessed_addresses.update(PRE_COMPILED_CONTRACTS.keys())
-    accessed_addresses.update(preaccessed_addresses)
 
     return Message(
         caller=caller,
