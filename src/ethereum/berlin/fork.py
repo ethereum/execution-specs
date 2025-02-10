@@ -41,7 +41,6 @@ from .transactions import (
     AccessListTransaction,
     LegacyTransaction,
     Transaction,
-    calculate_intrinsic_cost,
     decode_transaction,
     encode_transaction,
     recover_sender,
@@ -669,8 +668,7 @@ def process_transaction(
     logs : `Tuple[ethereum.blocks.Log, ...]`
         Logs generated during execution.
     """
-    if not validate_transaction(tx):
-        raise InvalidBlock
+    intrinsic_gas = validate_transaction(tx)
 
     sender = env.origin
     sender_account = get_account(env.state, sender)
@@ -682,7 +680,7 @@ def process_transaction(
     if sender_account.code != bytearray():
         raise InvalidSenderError("not EOA")
 
-    gas = tx.gas - calculate_intrinsic_cost(tx)
+    gas = tx.gas - intrinsic_gas
     increment_nonce(env.state, sender)
     sender_balance_after_gas_fee = Uint(sender_account.balance) - gas_fee
     set_account_balance(env.state, sender, U256(sender_balance_after_gas_fee))

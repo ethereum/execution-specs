@@ -3,8 +3,11 @@ from functools import partial
 import pytest
 from ethereum_rlp import rlp
 
-from ethereum.berlin.fork import calculate_intrinsic_cost, validate_transaction
-from ethereum.berlin.transactions import LegacyTransaction
+from ethereum.berlin.transactions import (
+    LegacyTransaction,
+    validate_transaction,
+)
+from ethereum.exceptions import InvalidBlock
 from ethereum.utils.hexadecimal import hex_to_uint
 from tests.helpers import TEST_FIXTURES
 
@@ -30,7 +33,8 @@ def test_high_nonce(test_file_high_nonce: str) -> None:
 
     tx = rlp.decode_to(LegacyTransaction, test["tx_rlp"])
 
-    assert not validate_transaction(tx)
+    with pytest.raises(InvalidBlock):
+        validate_transaction(tx)
 
 
 @pytest.mark.parametrize(
@@ -49,5 +53,5 @@ def test_nonce(test_file_nonce: str) -> None:
         test["test_result"]["intrinsicGas"]
     )
 
-    assert validate_transaction(tx)
-    assert calculate_intrinsic_cost(tx) == result_intrinsic_gas_cost
+    intrinsic_gas = validate_transaction(tx)
+    assert intrinsic_gas == result_intrinsic_gas_cost

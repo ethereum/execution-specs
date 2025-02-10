@@ -40,7 +40,6 @@ from .transactions import (
     FeeMarketTransaction,
     LegacyTransaction,
     Transaction,
-    calculate_intrinsic_cost,
     decode_transaction,
     encode_transaction,
     recover_sender,
@@ -565,8 +564,7 @@ def process_transaction(
     logs : `Tuple[ethereum.blocks.Log, ...]`
         Logs generated during execution.
     """
-    if not validate_transaction(tx):
-        raise InvalidBlock
+    intrinsic_gas = validate_transaction(tx)
 
     sender = env.origin
     sender_account = get_account(env.state, sender)
@@ -584,7 +582,7 @@ def process_transaction(
 
     effective_gas_fee = tx.gas * env.gas_price
 
-    gas = tx.gas - calculate_intrinsic_cost(tx)
+    gas = tx.gas - intrinsic_gas
     increment_nonce(env.state, sender)
 
     sender_balance_after_gas_fee = (
