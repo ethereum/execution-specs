@@ -16,7 +16,7 @@ from typing import (
 
 import ethereum_rlp as eth_rlp
 from ethereum_types.numeric import Uint
-from pydantic import AliasChoices, Field, PlainSerializer, computed_field
+from pydantic import AliasChoices, Field, PlainSerializer, computed_field, model_validator
 
 from ethereum_test_base_types import (
     Address,
@@ -401,6 +401,7 @@ class FixtureConfig(CamelModel):
     """Chain configuration for a fixture."""
 
     fork: str = Field(..., alias="network")
+    chain_id: ZeroPaddedHexNumber = Field(ZeroPaddedHexNumber(1), alias="chainid")
     blob_schedule: FixtureBlobSchedule | None = None
 
 
@@ -421,6 +422,22 @@ class BlockchainFixtureCommon(BaseFixture):
     post_state: Alloc | None = Field(None)
     last_block_hash: Hash = Field(..., alias="lastblockhash")  # FIXME: lastBlockHash
     config: FixtureConfig
+
+    @model_validator(mode="before")
+    @classmethod
+    def config_network_default(cls, data: Any) -> Any:
+        """
+        Check if the config.network is populated, otherwise use the root-level field value for
+        backward compatibility.
+        """
+        if (
+            isinstance(data, dict)
+            and "config" in data
+            and isinstance(data["config"], dict)
+            and "network" not in data["config"]
+        ):
+            data["config"]["network"] = data["network"]
+        return data
 
     def get_fork(self) -> str | None:
         """Return fork of the fixture as a string."""

@@ -1,7 +1,7 @@
 {
     "000/my_chain_id_test/Shanghai": {
         "_info": {
-            "hash": "0x0853409d8524239ae79581d1fcf8d2da12dc98cd7c1cfd7d730d33ec75e0c56e",
+            "hash": "0x361818ee5736a45c10c34ec445bf872d280b2f2ad61c297cceb14772b1393006",
             "fixture_format": "blockchain_test_engine"
         },
         "lastblockhash": "0x9c10141361e180632f7973f4f3a0aed2baa5ebb776bae84caafdcc07a24933e8",
@@ -90,7 +90,8 @@
             }
         },
         "config": {
-            "network": "Shanghai"
+            "network": "Shanghai",
+            "chainid": "0x01"
         }
     }
 }

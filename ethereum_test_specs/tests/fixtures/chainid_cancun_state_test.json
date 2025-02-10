@@ -1,7 +1,7 @@
 {
     "000/my_chain_id_test/Cancun": {
         "_info": {
-            "hash": "0x85756178b1a4315d675dd7a25ca319b61dd1f86a665baf8d51ba7faf7f3cb444",
+            "hash": "0x9e980ae5cce8c6222831e99c0a33facfd7b8e50be053b84e3ed357c2c1818491",
             "fixture_format": "state_test"
         },
         "env": {
@@ -15,6 +15,7 @@
             "currentExcessBlobGas": "0x00"
         },
         "config": {
+            "chainid": "0x01",
             "blobSchedule": {
                 "Cancun": {
                     "max": "0x06",

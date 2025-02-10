@@ -178,6 +178,7 @@ class StateTest(BaseTest):
             transaction=FixtureTransaction.from_transaction(tx),
             config=FixtureConfig(
                 blob_schedule=FixtureBlobSchedule.from_blob_schedule(fork.blob_schedule()),
+                chain_id=self.chain_id,
             ),
         )
 

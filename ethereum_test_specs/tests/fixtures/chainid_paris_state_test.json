@@ -1,7 +1,7 @@
 {
     "000/my_chain_id_test/Paris": {
         "_info": {
-            "hash": "0x1384e915045d477e8d6d0b26fa32f27cc0d30ec2b05f3b166d48d4134017e071",
+            "hash": "0x9de75fac42e382815fa12e0252e64b901ed1b0225446209223c8a3569e1c2857",
             "fixture_format": "state_test"
         },
         "env": {
@@ -79,6 +79,8 @@
                 }
             ]
         },
-        "config": {}
+        "config": {
+            "chainid": "0x01"
+        }
     }
 }

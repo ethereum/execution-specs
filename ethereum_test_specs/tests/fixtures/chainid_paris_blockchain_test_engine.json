@@ -1,7 +1,7 @@
 {
     "000/my_chain_id_test/Paris": {
         "_info": {
-            "hash": "0x72d0f1b29136f637f4e7cc22e990911fed6f9cdbd5f1987f1351cfc4efb4673b",
+            "hash": "0xf07acbb0efdbea6064fa443f0c8a74de6bb3e9895a7717759deedb99310eec4e",
             "fixture_format": "blockchain_test_engine"
         },
         "network": "Paris",
@@ -88,7 +88,8 @@
             }
         },
         "config": {
-            "network": "Paris"
+            "network": "Paris",
+            "chainid": "0x01"
         }
     }
 }

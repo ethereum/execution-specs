@@ -9,7 +9,7 @@ import rich
 from hive.client import Client, ClientType
 from hive.testing import HiveTest
 
-from ethereum_test_base_types import to_json
+from ethereum_test_base_types import Number, to_json
 from ethereum_test_fixtures import BlockchainFixtureCommon
 from ethereum_test_fixtures.consume import TestCaseIndexFile, TestCaseStream
 from ethereum_test_rpc import EthRPC
@@ -172,7 +172,7 @@ def environment(
         f"fork '{blockchain_fixture.fork}' missing in hive ruleset"
     )
     return {
-        "HIVE_CHAIN_ID": "1",
+        "HIVE_CHAIN_ID": str(Number(blockchain_fixture.config.chain_id)),
         "HIVE_FORK_DAO_VOTE": "1",
         "HIVE_NODETYPE": "full",
         "HIVE_CHECK_LIVE_PORT": str(check_live_port),

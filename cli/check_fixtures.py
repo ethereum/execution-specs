@@ -48,10 +48,12 @@ def check_json(json_file_path: Path):
                 message=f"Fixture hash attributes do not match for {fixture_name}",
             )
         if "hash" in fixture.info and fixture.info["hash"] != original_hash:
+            info_hash = fixture.info["hash"]
             raise HashMismatchExceptionError(
                 original_hash,
                 fixture.info["hash"],
-                message=f"Fixture info['hash'] does not match calculated hash for {fixture_name}",
+                message=f"Fixture info['hash'] does not match calculated hash for {fixture_name}:"
+                f"'{info_hash}' != '{original_hash}'",
             )
 
 
