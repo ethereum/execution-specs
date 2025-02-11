@@ -97,7 +97,7 @@ def decode_receipt(receipt: Union[Bytes, Receipt]) -> Receipt:
     Decodes a receipt.
     """
     if isinstance(receipt, Bytes):
-        assert receipt[0] in (1, 2)
+        assert receipt[0] == 1
         return rlp.decode_to(Receipt, receipt[1:])
     else:
         return receipt
