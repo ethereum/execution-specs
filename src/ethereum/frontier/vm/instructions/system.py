@@ -238,6 +238,9 @@ def call(evm: Evm) -> None:
             (memory_output_start_position, memory_output_size),
         ],
     )
+
+    code_address = to
+
     message_call_gas = calculate_message_call_gas(
         evm.env.state, gas, to, value
     )
@@ -258,7 +261,7 @@ def call(evm: Evm) -> None:
             value,
             evm.message.current_target,
             to,
-            to,
+            code_address,
             memory_input_start_position,
             memory_input_size,
             memory_output_start_position,

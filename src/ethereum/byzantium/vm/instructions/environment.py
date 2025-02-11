@@ -336,8 +336,9 @@ def extcodesize(evm: Evm) -> None:
 
     # OPERATION
     # Non-existent accounts default to EMPTY_ACCOUNT, which has empty code.
-    codesize = U256(len(get_account(evm.env.state, address).code))
+    code = get_account(evm.env.state, address).code
 
+    codesize = U256(len(code))
     push(evm.stack, codesize)
 
     # PROGRAM COUNTER
@@ -371,6 +372,7 @@ def extcodecopy(evm: Evm) -> None:
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
     code = get_account(evm.env.state, address).code
+
     value = buffer_read(code, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
 

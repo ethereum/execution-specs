@@ -15,6 +15,7 @@ from ethereum_types.numeric import U256
 
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.exceptions import InvalidSignatureError
 from ethereum.utils.byte import left_pad_zero_bytes
 
 from ...vm import Evm
@@ -53,7 +54,7 @@ def ecrecover(evm: Evm) -> None:
 
     try:
         public_key = secp256k1_recover(r, s, v - U256(27), message_hash)
-    except ValueError:
+    except InvalidSignatureError:
         # unable to extract public key
         return
 

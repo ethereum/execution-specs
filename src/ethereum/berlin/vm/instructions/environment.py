@@ -340,15 +340,17 @@ def extcodesize(evm: Evm) -> None:
 
     # GAS
     if address in evm.accessed_addresses:
-        charge_gas(evm, GAS_WARM_ACCESS)
+        access_gas_cost = GAS_WARM_ACCESS
     else:
         evm.accessed_addresses.add(address)
-        charge_gas(evm, GAS_COLD_ACCOUNT_ACCESS)
+        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+
+    charge_gas(evm, access_gas_cost)
 
     # OPERATION
-    # Non-existent accounts default to EMPTY_ACCOUNT, which has empty code.
-    codesize = U256(len(get_account(evm.env.state, address).code))
+    code = get_account(evm.env.state, address).code
 
+    codesize = U256(len(code))
     push(evm.stack, codesize)
 
     # PROGRAM COUNTER
@@ -379,16 +381,17 @@ def extcodecopy(evm: Evm) -> None:
     )
 
     if address in evm.accessed_addresses:
-        charge_gas(evm, GAS_WARM_ACCESS + copy_gas_cost + extend_memory.cost)
+        access_gas_cost = GAS_WARM_ACCESS
     else:
         evm.accessed_addresses.add(address)
-        charge_gas(
-            evm, GAS_COLD_ACCOUNT_ACCESS + copy_gas_cost + extend_memory.cost
-        )
+        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+
+    charge_gas(evm, access_gas_cost + copy_gas_cost + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
     code = get_account(evm.env.state, address).code
+
     value = buffer_read(code, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
 
@@ -465,10 +468,12 @@ def extcodehash(evm: Evm) -> None:
 
     # GAS
     if address in evm.accessed_addresses:
-        charge_gas(evm, GAS_WARM_ACCESS)
+        access_gas_cost = GAS_WARM_ACCESS
     else:
         evm.accessed_addresses.add(address)
-        charge_gas(evm, GAS_COLD_ACCOUNT_ACCESS)
+        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+
+    charge_gas(evm, access_gas_cost)
 
     # OPERATION
     account = get_account(evm.env.state, address)
@@ -476,7 +481,8 @@ def extcodehash(evm: Evm) -> None:
     if account == EMPTY_ACCOUNT:
         codehash = U256(0)
     else:
-        codehash = U256.from_be_bytes(keccak256(account.code))
+        code = account.code
+        codehash = U256.from_be_bytes(keccak256(code))
 
     push(evm.stack, codehash)
 
