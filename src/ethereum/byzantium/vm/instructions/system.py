@@ -261,6 +261,9 @@ def call(evm: Evm) -> None:
             (memory_output_start_position, memory_output_size),
         ],
     )
+
+    code_address = to
+
     create_gas_cost = (
         Uint(0)
         if value == 0 or is_account_alive(evm.env.state, to)
@@ -292,7 +295,7 @@ def call(evm: Evm) -> None:
             value,
             evm.message.current_target,
             to,
-            to,
+            code_address,
             True,
             False,
             memory_input_start_position,
@@ -509,6 +512,9 @@ def staticcall(evm: Evm) -> None:
             (memory_output_start_position, memory_output_size),
         ],
     )
+
+    code_address = to
+
     message_call_gas = calculate_message_call_gas(
         U256(0),
         gas,
@@ -526,7 +532,7 @@ def staticcall(evm: Evm) -> None:
         U256(0),
         evm.message.current_target,
         to,
-        to,
+        code_address,
         True,
         True,
         memory_input_start_position,

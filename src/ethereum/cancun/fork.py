@@ -27,7 +27,7 @@ from ethereum.exceptions import (
 )
 
 from . import vm
-from .blocks import Block, Header, Log, Receipt, Withdrawal
+from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
 from .fork_types import Address, Bloom, Root, VersionedHash
 from .state import (
@@ -48,7 +48,6 @@ from .transactions import (
     FeeMarketTransaction,
     LegacyTransaction,
     Transaction,
-    calculate_intrinsic_cost,
     decode_transaction,
     encode_transaction,
     recover_sender,
@@ -64,7 +63,7 @@ from .vm.gas import (
     calculate_excess_blob_gas,
     calculate_total_blob_gas,
 )
-from .vm.interpreter import process_message_call
+from .vm.interpreter import MessageCallOutput, process_message_call
 
 BASE_FEE_MAX_CHANGE_DENOMINATOR = Uint(8)
 ELASTICITY_MULTIPLIER = Uint(2)
@@ -456,14 +455,7 @@ def make_receipt(
         logs=logs,
     )
 
-    if isinstance(tx, AccessListTransaction):
-        return b"\x01" + rlp.encode(receipt)
-    elif isinstance(tx, FeeMarketTransaction):
-        return b"\x02" + rlp.encode(receipt)
-    elif isinstance(tx, BlobTransaction):
-        return b"\x03" + rlp.encode(receipt)
-    else:
-        return receipt
+    return encode_receipt(tx, receipt)
 
 
 @dataclass
@@ -497,6 +489,107 @@ class ApplyBodyOutput:
     state_root: Root
     withdrawals_root: Root
     blob_gas_used: Uint
+
+
+def process_system_transaction(
+    target_address: Address,
+    data: Bytes,
+    block_hashes: List[Hash32],
+    coinbase: Address,
+    block_number: Uint,
+    base_fee_per_gas: Uint,
+    block_gas_limit: Uint,
+    block_time: U256,
+    prev_randao: Bytes32,
+    state: State,
+    chain_id: U64,
+    excess_blob_gas: U64,
+) -> MessageCallOutput:
+    """
+    Process a system transaction.
+
+    Parameters
+    ----------
+    target_address :
+        Address of the contract to call.
+    data :
+        Data to pass to the contract.
+    block_hashes :
+        List of hashes of the previous 256 blocks.
+    coinbase :
+        Address of the block's coinbase.
+    block_number :
+        Block number.
+    base_fee_per_gas :
+        Base fee per gas.
+    block_gas_limit :
+        Gas limit of the block.
+    block_time :
+        Time the block was produced.
+    prev_randao :
+        Previous randao value.
+    state :
+        Current state.
+    chain_id :
+        ID of the chain.
+    excess_blob_gas :
+        Excess blob gas.
+
+    Returns
+    -------
+    system_tx_output : `MessageCallOutput`
+        Output of processing the system transaction.
+    """
+    system_contract_code = get_account(state, target_address).code
+
+    system_tx_message = Message(
+        caller=SYSTEM_ADDRESS,
+        target=target_address,
+        gas=SYSTEM_TRANSACTION_GAS,
+        value=U256(0),
+        data=data,
+        code=system_contract_code,
+        depth=Uint(0),
+        current_target=target_address,
+        code_address=target_address,
+        should_transfer_value=False,
+        is_static=False,
+        accessed_addresses=set(),
+        accessed_storage_keys=set(),
+        parent_evm=None,
+    )
+
+    system_tx_env = vm.Environment(
+        caller=SYSTEM_ADDRESS,
+        block_hashes=block_hashes,
+        origin=SYSTEM_ADDRESS,
+        coinbase=coinbase,
+        number=block_number,
+        gas_limit=block_gas_limit,
+        base_fee_per_gas=base_fee_per_gas,
+        gas_price=base_fee_per_gas,
+        time=block_time,
+        prev_randao=prev_randao,
+        state=state,
+        chain_id=chain_id,
+        traces=[],
+        excess_blob_gas=excess_blob_gas,
+        blob_versioned_hashes=(),
+        transient_storage=TransientStorage(),
+    )
+
+    system_tx_output = process_message_call(system_tx_message, system_tx_env)
+
+    # TODO: Empty accounts in post-merge forks are impossible
+    # see Ethereum Improvement Proposal 7523.
+    # This line is only included to support invalid tests in the test suite
+    # and will have to be removed in the future.
+    # See https://github.com/ethereum/execution-specs/issues/955
+    destroy_touched_empty_accounts(
+        system_tx_env.state, system_tx_output.touched_accounts
+    )
+
+    return system_tx_output
 
 
 def apply_body(
@@ -575,50 +668,19 @@ def apply_body(
     )
     block_logs: Tuple[Log, ...] = ()
 
-    beacon_block_roots_contract_code = get_account(
-        state, BEACON_ROOTS_ADDRESS
-    ).code
-
-    system_tx_message = Message(
-        caller=SYSTEM_ADDRESS,
-        target=BEACON_ROOTS_ADDRESS,
-        gas=SYSTEM_TRANSACTION_GAS,
-        value=U256(0),
-        data=parent_beacon_block_root,
-        code=beacon_block_roots_contract_code,
-        depth=Uint(0),
-        current_target=BEACON_ROOTS_ADDRESS,
-        code_address=BEACON_ROOTS_ADDRESS,
-        should_transfer_value=False,
-        is_static=False,
-        accessed_addresses=set(),
-        accessed_storage_keys=set(),
-        parent_evm=None,
-    )
-
-    system_tx_env = vm.Environment(
-        caller=SYSTEM_ADDRESS,
-        origin=SYSTEM_ADDRESS,
-        block_hashes=block_hashes,
-        coinbase=coinbase,
-        number=block_number,
-        gas_limit=block_gas_limit,
-        base_fee_per_gas=base_fee_per_gas,
-        gas_price=base_fee_per_gas,
-        time=block_time,
-        prev_randao=prev_randao,
-        state=state,
-        chain_id=chain_id,
-        traces=[],
-        excess_blob_gas=excess_blob_gas,
-        blob_versioned_hashes=(),
-        transient_storage=TransientStorage(),
-    )
-
-    system_tx_output = process_message_call(system_tx_message, system_tx_env)
-
-    destroy_touched_empty_accounts(
-        system_tx_env.state, system_tx_output.touched_accounts
+    process_system_transaction(
+        BEACON_ROOTS_ADDRESS,
+        parent_beacon_block_root,
+        block_hashes,
+        coinbase,
+        block_number,
+        base_fee_per_gas,
+        block_gas_limit,
+        block_time,
+        prev_randao,
+        state,
+        chain_id,
+        excess_blob_gas,
     )
 
     for i, tx in enumerate(map(decode_transaction, transactions)):
@@ -727,8 +789,7 @@ def process_transaction(
     logs : `Tuple[ethereum.blocks.Log, ...]`
         Logs generated during execution.
     """
-    if not validate_transaction(tx):
-        raise InvalidBlock
+    intrinsic_gas = validate_transaction(tx)
 
     sender = env.origin
     sender_account = get_account(env.state, sender)
@@ -740,7 +801,7 @@ def process_transaction(
 
     effective_gas_fee = tx.gas * env.gas_price
 
-    gas = tx.gas - calculate_intrinsic_cost(tx)
+    gas = tx.gas - intrinsic_gas
     increment_nonce(env.state, sender)
 
     sender_balance_after_gas_fee = (
