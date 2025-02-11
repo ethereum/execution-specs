@@ -23,7 +23,7 @@ from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import InvalidBlock, InvalidSenderError
 
 from . import vm
-from .blocks import Block, Header, Log, Receipt
+from .blocks import Block, Header, Log, Receipt, encode_receipt
 from .bloom import logs_bloom
 from .fork_types import Address, Bloom, Root
 from .state import (
@@ -40,7 +40,6 @@ from .transactions import (
     FeeMarketTransaction,
     LegacyTransaction,
     Transaction,
-    calculate_intrinsic_cost,
     decode_transaction,
     encode_transaction,
     recover_sender,
@@ -385,12 +384,7 @@ def make_receipt(
         logs=logs,
     )
 
-    if isinstance(tx, AccessListTransaction):
-        return b"\x01" + rlp.encode(receipt)
-    elif isinstance(tx, FeeMarketTransaction):
-        return b"\x02" + rlp.encode(receipt)
-    else:
-        return receipt
+    return encode_receipt(tx, receipt)
 
 
 @dataclass
@@ -565,8 +559,7 @@ def process_transaction(
     logs : `Tuple[ethereum.blocks.Log, ...]`
         Logs generated during execution.
     """
-    if not validate_transaction(tx):
-        raise InvalidBlock
+    intrinsic_gas = validate_transaction(tx)
 
     sender = env.origin
     sender_account = get_account(env.state, sender)
@@ -584,7 +577,7 @@ def process_transaction(
 
     effective_gas_fee = tx.gas * env.gas_price
 
-    gas = tx.gas - calculate_intrinsic_cost(tx)
+    gas = tx.gas - intrinsic_gas
     increment_nonce(env.state, sender)
 
     sender_balance_after_gas_fee = (

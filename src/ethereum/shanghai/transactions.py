@@ -13,7 +13,7 @@ from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.exceptions import InvalidSignatureError
+from ethereum.exceptions import InvalidBlock, InvalidSignatureError
 
 from .exceptions import TransactionTypeError
 from .fork_types import Address
@@ -119,7 +119,7 @@ def decode_transaction(tx: Union[LegacyTransaction, Bytes]) -> Transaction:
         return tx
 
 
-def validate_transaction(tx: Transaction) -> bool:
+def validate_transaction(tx: Transaction) -> Uint:
     """
     Verifies a transaction.
 
@@ -141,19 +141,25 @@ def validate_transaction(tx: Transaction) -> bool:
 
     Returns
     -------
-    verified : `bool`
-        True if the transaction can be executed, or False otherwise.
+    intrinsic_gas : `ethereum.base_types.Uint`
+        The intrinsic cost of the transaction.
+
+    Raises
+    ------
+    InvalidBlock :
+        If the transaction is not valid.
     """
     from .vm.interpreter import MAX_CODE_SIZE
 
-    if calculate_intrinsic_cost(tx) > tx.gas:
-        return False
-    if tx.nonce >= U256(U64.MAX_VALUE):
-        return False
+    intrinsic_gas = calculate_intrinsic_cost(tx)
+    if intrinsic_gas > tx.gas:
+        raise InvalidBlock
+    if U256(tx.nonce) >= U256(U64.MAX_VALUE):
+        raise InvalidBlock
     if tx.to == Bytes0(b"") and len(tx.data) > 2 * MAX_CODE_SIZE:
-        return False
+        raise InvalidBlock
 
-    return True
+    return intrinsic_gas
 
 
 def calculate_intrinsic_cost(tx: Transaction) -> Uint:
