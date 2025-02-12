@@ -58,6 +58,7 @@ from .transactions import (
     Transaction,
     decode_transaction,
     encode_transaction,
+    get_transaction_hash,
     recover_sender,
     validate_transaction,
 )
@@ -581,6 +582,8 @@ def process_system_transaction(
         transient_storage=TransientStorage(),
         blob_versioned_hashes=(),
         authorizations=(),
+        tx_index=Uint(0),
+        tx_hash=None,
         traces=[],
     )
 
@@ -818,6 +821,8 @@ def process_transaction(
         transient_storage=TransientStorage(),
         blob_versioned_hashes=blob_versioned_hashes,
         authorizations=authorizations,
+        tx_index=index,
+        tx_hash=get_transaction_hash(tx),
         traces=[],
     )
 
