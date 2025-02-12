@@ -3,7 +3,7 @@
 import pytest
 
 from ethereum_test_base_types.base_types import Address
-from ethereum_test_tools import Account, Alloc, Environment, StateTestFiller, Transaction
+from ethereum_test_tools import Account, Alloc, Environment, Initcode, StateTestFiller, Transaction
 from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 from ethereum_test_types.helpers import compute_create_address
@@ -67,6 +67,32 @@ def test_eof_creation_tx_context(
 
     post = {
         destination_contract_address: Account(storage=destination_contract_storage),
+    }
+
+    state_test(
+        env=env,
+        pre=pre,
+        post=post,
+        tx=tx,
+    )
+
+
+def test_lecacy_cannot_create_eof(
+    state_test: StateTestFiller,
+    pre: Alloc,
+):
+    """Test that a legacy contract creation initcode cannot deploy an EOF contract."""
+    env = Environment()
+    sender = pre.fund_eoa()
+
+    initcode = Initcode(deploy_code=smallest_runtime_subcontainer)
+
+    destination_contract_address = compute_create_address(address=sender, nonce=sender.nonce)
+
+    tx = Transaction(sender=sender, to=None, gas_limit=100000, data=initcode)
+
+    post = {
+        destination_contract_address: Account.NONEXISTENT,
     }
 
     state_test(
