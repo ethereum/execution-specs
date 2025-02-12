@@ -68,7 +68,7 @@ def validate_transaction(tx: Transaction) -> bool:
     """
     if calculate_intrinsic_cost(tx) > Uint(tx.gas):
         return False
-    if tx.nonce >= U256(U64.MAX_VALUE):
+    if tx.nonce >= U64.MAX_VALUE:
         return False
     return True
 

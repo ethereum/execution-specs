@@ -178,7 +178,7 @@ def validate_transaction(tx: Transaction) -> bool:
 
     if calculate_intrinsic_cost(tx) > tx.gas:
         return False
-    if tx.nonce >= U256(U64.MAX_VALUE):
+    if tx.nonce >= U64.MAX_VALUE:
         return False
     if tx.to == Bytes0(b"") and len(tx.data) > 2 * MAX_CODE_SIZE:
         return False
