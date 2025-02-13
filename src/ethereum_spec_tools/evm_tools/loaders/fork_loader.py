@@ -5,6 +5,7 @@ Loader for code from the relevant fork.
 import importlib
 from typing import Any
 
+from ethereum.fork_criteria import ForkCriteria
 from ethereum_spec_tools.forks import Hardfork
 
 
@@ -19,6 +20,17 @@ class ForkLoad:
     def __init__(self, fork_module: str):
         self._fork_module = fork_module
         self._forks = Hardfork.discover()
+
+    @property
+    def fork_criteria(self) -> ForkCriteria:
+        """Activation criteria for the loaded fork."""
+        mod = importlib.import_module(f"ethereum.{self._fork_module}")
+        return mod.FORK_CRITERIA
+
+    @fork_criteria.setter
+    def fork_criteria(self, value: ForkCriteria) -> None:
+        mod = importlib.import_module(f"ethereum.{self._fork_module}")
+        mod.FORK_CRITERIA = value  # type: ignore[attr-defined]
 
     @property
     def fork_module(self) -> str:
