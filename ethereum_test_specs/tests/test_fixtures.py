@@ -2,6 +2,7 @@
 
 import json
 import os
+from enum import IntEnum
 from typing import Any, List, Mapping
 
 import pytest
@@ -9,7 +10,7 @@ from click.testing import CliRunner
 
 import cli.check_fixtures
 from ethereum_clis import ExecutionSpecsTransitionTool
-from ethereum_test_base_types import Account, Address, Hash
+from ethereum_test_base_types import AccessList, Account, Address, Hash
 from ethereum_test_exceptions import TransactionException
 from ethereum_test_fixtures import (
     BlockchainEngineFixture,
@@ -101,24 +102,36 @@ def test_make_genesis(fork: Fork, fixture_hash: bytes):  # noqa: D103
     assert fixture.genesis.block_hash.startswith(fixture_hash)
 
 
+class TransactionType(IntEnum):
+    """Transaction types."""
+
+    LEGACY = 0
+    ACCESS_LIST = 1
+    BASE_FEE = 2
+    BLOB_TRANSACTION = 3
+    SET_CODE = 4
+
+
 @pytest.mark.run_in_serial
 @pytest.mark.parametrize(
-    "fork,fixture_format",
+    "fork,fixture_format,tx_type",
     [
-        (Istanbul, BlockchainFixture),
-        (London, BlockchainFixture),
-        (Cancun, BlockchainFixture),
-        (Paris, BlockchainEngineFixture),
-        (Shanghai, BlockchainEngineFixture),
-        (Cancun, BlockchainEngineFixture),
-        (Paris, StateFixture),
-        (Shanghai, StateFixture),
-        (Cancun, StateFixture),
+        (Istanbul, BlockchainFixture, TransactionType.LEGACY),
+        (London, BlockchainFixture, TransactionType.LEGACY),
+        (Cancun, BlockchainFixture, TransactionType.LEGACY),
+        (Paris, BlockchainEngineFixture, TransactionType.LEGACY),
+        (Shanghai, BlockchainEngineFixture, TransactionType.LEGACY),
+        (Cancun, BlockchainEngineFixture, TransactionType.LEGACY),
+        (Paris, StateFixture, TransactionType.LEGACY),
+        (Shanghai, StateFixture, TransactionType.LEGACY),
+        (Cancun, StateFixture, TransactionType.LEGACY),
+        (Cancun, StateFixture, TransactionType.ACCESS_LIST),
     ],
 )
 def test_fill_state_test(
     fork: Fork,
     fixture_format: FixtureFormat,
+    tx_type: TransactionType,
 ):
     """Test `ethereum_test.filler.fill_fixtures` with `StateTest`."""
     env = Environment(
@@ -134,15 +147,30 @@ def test_fill_state_test(
         "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(balance=1000000000000000000000),
     }
 
-    tx = Transaction(
-        ty=0x0,
-        chain_id=0x0,
-        nonce=0,
-        to="0x1000000000000000000000000000000000000000",
-        gas_limit=100000000,
-        gas_price=10,
-        protected=False,
-    )
+    if tx_type == TransactionType.LEGACY:
+        tx = Transaction(
+            chain_id=0x0,
+            nonce=0,
+            to="0x1000000000000000000000000000000000000000",
+            gas_limit=100000000,
+            gas_price=10,
+            protected=False,
+        )
+    elif tx_type == TransactionType.ACCESS_LIST:
+        tx = Transaction(
+            ty=0x1,
+            chain_id=0x1,
+            nonce=0,
+            to="0x1000000000000000000000000000000000000000",
+            gas_limit=100000000,
+            gas_price=10,
+            access_list=[
+                AccessList(
+                    address=0x1234,
+                    storage_keys=[0, 1],
+                )
+            ],
+        )
 
     post = {
         "0x1000000000000000000000000000000000000000": Account(
@@ -165,10 +193,15 @@ def test_fill_state_test(
     )
     assert generated_fixture.__class__ == fixture_format
     fixture = {
-        f"000/my_chain_id_test/{fork}": generated_fixture.json_dict_with_info(hash_only=True),
+        f"000/my_chain_id_test/{fork}/tx_type_{tx_type}": generated_fixture.json_dict_with_info(
+            hash_only=True
+        ),
     }
 
-    expected_json_file = f"chainid_{fork.name().lower()}_{fixture_format.fixture_format_name}.json"
+    fixture_format_name = fixture_format.fixture_format_name
+    expected_json_file = (
+        f"chainid_{fork.name().lower()}_{fixture_format_name}_tx_type_{tx_type}.json"
+    )
     with open(
         os.path.join(
             "src",

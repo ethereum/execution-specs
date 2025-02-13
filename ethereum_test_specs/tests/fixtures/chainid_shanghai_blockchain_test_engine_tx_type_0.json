@@ -1,5 +1,5 @@
 {
-    "000/my_chain_id_test/Shanghai": {
+    "000/my_chain_id_test/Shanghai/tx_type_0": {
         "_info": {
             "hash": "0x361818ee5736a45c10c34ec445bf872d280b2f2ad61c297cceb14772b1393006",
             "fixture_format": "blockchain_test_engine"

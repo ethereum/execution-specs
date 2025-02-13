@@ -1,5 +1,5 @@
 {
-    "000/my_chain_id_test/Paris": {
+    "000/my_chain_id_test/Paris/tx_type_0": {
         "_info": {
             "hash": "0xf07acbb0efdbea6064fa443f0c8a74de6bb3e9895a7717759deedb99310eec4e",
             "fixture_format": "blockchain_test_engine"

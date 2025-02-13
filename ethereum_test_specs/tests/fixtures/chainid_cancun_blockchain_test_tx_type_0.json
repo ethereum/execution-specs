@@ -1,5 +1,5 @@
 {
-    "000/my_chain_id_test/Cancun": {
+    "000/my_chain_id_test/Cancun/tx_type_0": {
         "_info": {
             "hash": "0x6e77c3ba39a0874917e9dcd7f911de1e950e82e028603a0fc39630f973579fd9",
             "fixture_format": "blockchain_test"

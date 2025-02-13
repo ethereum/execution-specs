@@ -1,7 +1,7 @@
 {
-    "000/my_chain_id_test/Shanghai": {
+    "000/my_chain_id_test/Paris/tx_type_0": {
         "_info": {
-            "hash": "0xdd6900920530f2ba834d659b952c023a5962c352512529da8ed9614d99a0c1b8",
+            "hash": "0x9de75fac42e382815fa12e0252e64b901ed1b0225446209223c8a3569e1c2857",
             "fixture_format": "state_test"
         },
         "env": {
@@ -44,7 +44,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "Shanghai": [
+            "Paris": [
                 {
                     "hash": "0x19919608275963e6e20a1191996f5b19db8208dd8df54097cfd2b9cb14f682b6",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
