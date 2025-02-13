@@ -20,37 +20,83 @@ from ethereum_types.bytes import Bytes, Bytes0, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32
+from ethereum.exceptions import EthereumException
 
-from ..blocks import Log
+from ..blocks import Log, Receipt, Withdrawal
 from ..fork_types import Address, VersionedHash
 from ..state import State, TransientStorage, account_exists_and_is_empty
+from ..transactions import LegacyTransaction
+from ..trie import Trie
 from .precompiled_contracts import RIPEMD160_ADDRESS
 
 __all__ = ("Environment", "Evm", "Message")
 
 
 @dataclass
-class Environment:
+class BlockEnvironment:
     """
     Items external to the virtual machine itself, provided by the environment.
     """
 
-    caller: Address
+    chain_id: U64
+    state: State
+    block_gas_limit: Uint
     block_hashes: List[Hash32]
-    origin: Address
     coinbase: Address
     number: Uint
     base_fee_per_gas: Uint
-    gas_limit: Uint
-    gas_price: Uint
     time: U256
     prev_randao: Bytes32
-    state: State
-    chain_id: U64
-    traces: List[dict]
     excess_blob_gas: U64
-    blob_versioned_hashes: Tuple[VersionedHash, ...]
+    parent_beacon_block_root: Hash32
+
+
+@dataclass
+class BlockOutput:
+    """
+    Output from applying the block body to the present state.
+
+    Contains the following:
+
+    block_gas_used : `ethereum.base_types.Uint`
+        Gas used for executing all transactions.
+    transactions_trie : `ethereum.fork_types.Root`
+        Trie of all the transactions in the block.
+    receipts_trie : `ethereum.fork_types.Root`
+        Trie root of all the receipts in the block.
+    block_logs : `Bloom`
+        Logs bloom of all the logs included in all the transactions of the
+        block.
+    withdrawals_trie : `ethereum.fork_types.Root`
+        Trie root of all the withdrawals in the block.
+    blob_gas_used : `ethereum.base_types.Uint`
+        Total blob gas used in the block.
+    """
+
+    block_gas_used: Uint
+    transactions_trie: Trie[Bytes, Optional[Union[Bytes, LegacyTransaction]]]
+    receipts_trie: Trie[Bytes, Optional[Union[Bytes, Receipt]]]
+    block_logs: Tuple[Log, ...]
+    withdrawals_trie: Trie[Bytes, Optional[Union[Bytes, Withdrawal]]]
+    blob_gas_used: Uint
+
+
+@dataclass
+class TransactionEnvironment:
+    """
+    Items that are used by contract creation or message call.
+    """
+
+    origin: Address
+    gas_price: Uint
+    gas: Uint
+    access_list_addresses: Set[Address]
+    access_list_storage_keys: Set[Tuple[Address, Bytes32]]
     transient_storage: TransientStorage
+    blob_versioned_hashes: Tuple[VersionedHash, ...]
+    tx_index: Uint
+    tx_hash: Optional[Hash32]
+    traces: List[dict]
 
 
 @dataclass
@@ -59,6 +105,8 @@ class Message:
     Items that are used by contract creation or message call.
     """
 
+    block_env: BlockEnvironment
+    tx_env: TransactionEnvironment
     caller: Address
     target: Union[Bytes0, Address]
     current_target: Address
@@ -84,7 +132,6 @@ class Evm:
     memory: bytearray
     code: Bytes
     gas_left: Uint
-    env: Environment
     valid_jump_destinations: Set[Uint]
     logs: Tuple[Log, ...]
     refund_counter: int
@@ -94,7 +141,7 @@ class Evm:
     accounts_to_delete: Set[Address]
     touched_accounts: Set[Address]
     return_data: Bytes
-    error: Optional[Exception]
+    error: Optional[EthereumException]
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
 
@@ -116,7 +163,7 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     evm.accounts_to_delete.update(child_evm.accounts_to_delete)
     evm.touched_accounts.update(child_evm.touched_accounts)
     if account_exists_and_is_empty(
-        evm.env.state, child_evm.message.current_target
+        evm.message.block_env.state, child_evm.message.current_target
     ):
         evm.touched_accounts.add(child_evm.message.current_target)
     evm.accessed_addresses.update(child_evm.accessed_addresses)
@@ -145,7 +192,7 @@ def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
         evm.touched_accounts.add(RIPEMD160_ADDRESS)
     if child_evm.message.current_target == RIPEMD160_ADDRESS:
         if account_exists_and_is_empty(
-            evm.env.state, child_evm.message.current_target
+            evm.message.block_env.state, child_evm.message.current_target
         ):
             evm.touched_accounts.add(RIPEMD160_ADDRESS)
     evm.gas_left += child_evm.gas_left
