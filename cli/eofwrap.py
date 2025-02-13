@@ -38,7 +38,7 @@ from ethereum_test_vm.bytecode import Bytecode
 
 
 @click.command()
-@click.argument("input", type=click.Path(exists=True, dir_okay=True, file_okay=True))
+@click.argument("input_path", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @click.argument("output_dir", type=click.Path(dir_okay=True, file_okay=False))
 @click.option("--traces", is_flag=True, type=bool)
 def eof_wrap(input_path: str, output_dir: str, traces: bool):
@@ -169,7 +169,16 @@ class EofWrapper:
                 return
 
         with open(in_path, "r") as input_file:
-            fixtures = BlockchainFixtures.from_json_data(json.load(input_file))
+            data = json.load(input_file)
+            # TODO: temp solution until `ethereum/tests` are updated with the FixtureConfig
+            for _, f in data.items():
+                if isinstance(f, dict) and "config" not in f:
+                    network = f.get("network")
+                    f["config"] = {
+                        "chainid": "0x1",
+                        "network": network,
+                    }
+            fixtures = BlockchainFixtures.from_json_data(data)
 
         out_fixtures = BaseFixturesRootModel({})
         fixture: BlockchainFixture
