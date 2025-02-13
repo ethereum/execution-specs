@@ -322,6 +322,11 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
         request_data = t8n_data.get_request_data()
         request_data_json = request_data.model_dump(mode="json", **model_dump_config)
 
+        temp_dir = tempfile.TemporaryDirectory()
+        request_data_json["trace"] = self.trace
+        if self.trace:
+            request_data_json["output-basedir"] = temp_dir.name
+
         if debug_output_path:
             request_info = (
                 f"Server URL: {self.server_url}\n\n"
@@ -349,6 +354,10 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
         self._info_metadata = response_json.pop("_info_metadata", {})
 
         output: TransitionToolOutput = TransitionToolOutput.model_validate(response_json)
+
+        if self.trace:
+            self.collect_traces(output.result.receipts, temp_dir, debug_output_path)
+        temp_dir.cleanup()
 
         if debug_output_path:
             response_info = (
