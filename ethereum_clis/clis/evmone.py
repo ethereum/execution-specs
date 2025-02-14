@@ -105,6 +105,14 @@ class EvmoneExceptionMapper(ExceptionMapper):
                 TransactionException.TYPE_3_TX_ZERO_BLOBS,
                 "empty blob hashes list",
             ),
+            ExceptionMessage(
+                TransactionException.NONCE_MISMATCH_TOO_LOW,
+                "nonce too low",
+            ),
+            ExceptionMessage(
+                TransactionException.NONCE_MISMATCH_TOO_HIGH,
+                "nonce too high",
+            ),
             # TODO EVMONE needs to differentiate when the section is missing in the header or body
             ExceptionMessage(EOFException.MISSING_STOP_OPCODE, "err: no_terminating_instruction"),
             ExceptionMessage(EOFException.MISSING_CODE_HEADER, "err: code_section_missing"),
