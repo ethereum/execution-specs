@@ -166,8 +166,9 @@ def pre_fund_system_address(pre: Alloc, system_address_balance: int):
 
 
 @pytest.fixture
-def tx_to_address(request, caller_address: Account) -> Address:  # noqa: D103
-    return request.param if hasattr(request, "param") else caller_address
+def tx_to_address(caller_address: Address) -> Address:
+    """Specify the address for the `Transaction`'s `to` field."""
+    return caller_address
 
 
 @pytest.fixture
