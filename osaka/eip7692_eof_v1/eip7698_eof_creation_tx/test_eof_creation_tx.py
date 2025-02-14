@@ -2,11 +2,18 @@
 
 import pytest
 
-from ethereum_test_base_types.base_types import Address
-from ethereum_test_tools import Account, Alloc, Environment, Initcode, StateTestFiller, Transaction
-from ethereum_test_tools.eof.v1 import Container, Section
-from ethereum_test_tools.vm.opcode import Opcodes as Op
-from ethereum_test_types.helpers import compute_create_address
+from ethereum_test_forks import Fork
+from ethereum_test_tools import (
+    Account,
+    Address,
+    Alloc,
+    Environment,
+    Initcode,
+    StateTestFiller,
+    Transaction,
+)
+from ethereum_test_tools import Opcodes as Op
+from ethereum_test_tools.eof.v1 import Container, ContainerKind, Section
 from ethereum_test_vm.bytecode import Bytecode
 
 from .. import EOF_FORK_NAME
@@ -47,9 +54,9 @@ def test_eof_creation_tx_context(
         ]
     )
 
-    destination_contract_address = compute_create_address(address=sender, nonce=sender.nonce)
-
     tx = Transaction(sender=sender, to=None, gas_limit=100000, value=value, input=initcode)
+
+    destination_contract_address = tx.created_contract
 
     expected_bytes: Address | int
     if expected_result == "destination":
@@ -87,12 +94,199 @@ def test_lecacy_cannot_create_eof(
 
     initcode = Initcode(deploy_code=smallest_runtime_subcontainer)
 
-    destination_contract_address = compute_create_address(address=sender, nonce=sender.nonce)
-
     tx = Transaction(sender=sender, to=None, gas_limit=100000, data=initcode)
+
+    destination_contract_address = tx.created_contract
 
     post = {
         destination_contract_address: Account.NONEXISTENT,
+    }
+
+    state_test(
+        env=env,
+        pre=pre,
+        post=post,
+        tx=tx,
+    )
+
+
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "valid",
+        "invalid_deploy_container",
+        "invalid_initcode",
+        "invalid_opcode_during_initcode",
+        "invalid_opcode_with_sstore_during_initcode",
+        "revert_opcode_during_initcode",
+        "out_of_gas_during_initcode",
+        "out_of_gas_when_returning_contract",
+        "out_of_gas_when_returning_contract_due_to_memory_expansion",
+    ],
+)
+def test_invalid_container_deployment(
+    state_test: StateTestFiller,
+    fork: Fork,
+    pre: Alloc,
+    reason: str,
+):
+    """Verify nonce is not incremented when an invalid container deployment is attempted."""
+    env = Environment()
+    sender = pre.fund_eoa()
+
+    # Valid defaults
+    deployed_container = Container(
+        sections=[
+            Section.Code(code=Op.CALLF[1](Op.PUSH0, Op.PUSH0) + Op.STOP),
+            Section.Code(code=Op.ADD + Op.RETF, code_inputs=2, code_outputs=1),
+        ]
+    )
+    init_container: Container = Container(
+        sections=[
+            Section.Code(code=Op.RETURNCONTRACT[0](0, 0)),
+            Section.Container(deployed_container),
+        ],
+        kind=ContainerKind.INITCODE,
+    )
+    tx_gas_limit = 1_000_000
+    fork_intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
+    fork_gas_costs = fork.gas_costs()
+
+    # Modify defaults based on invalidity reason
+    if reason == "invalid_deploy_container":
+        deployed_container = Container(
+            sections=[
+                Section.Code(code=Op.CALLF[1](Op.PUSH0, Op.PUSH0) + Op.STOP),
+                Section.Code(code=Op.ADD + Op.RETF, code_outputs=0),
+            ]
+        )
+        init_container = Container(
+            sections=[
+                Section.Code(code=Op.RETURNCONTRACT[0](0, 0)),
+                Section.Container(deployed_container),
+            ],
+        )
+    elif reason == "invalid_initcode":
+        init_container = Container(
+            sections=[
+                Section.Code(code=Op.RETURNCONTRACT[1](0, 0)),
+                Section.Container(deployed_container),
+            ],
+        )
+    elif (
+        reason == "invalid_opcode_during_initcode"
+        or reason == "invalid_opcode_with_sstore_during_initcode"
+        or reason == "revert_opcode_during_initcode"
+        or reason == "out_of_gas_during_initcode"
+    ):
+        invalid_code_path: Bytecode
+        if reason == "invalid_opcode_during_initcode":
+            invalid_code_path = Op.SSTORE(0, 1) + Op.INVALID
+        elif reason == "revert_opcode_during_initcode":
+            invalid_code_path = Op.REVERT(0, 0)
+        elif reason == "out_of_gas_during_initcode":
+            invalid_code_path = Op.MSTORE(0xFFFFFFFFFFFFFFFFFFFFFFFFFFF, 1)
+        else:
+            invalid_code_path = Op.INVALID
+        init_container = Container(
+            sections=[
+                Section.Code(
+                    code=Op.RJUMPI[len(invalid_code_path)](Op.PUSH0)
+                    + invalid_code_path
+                    + Op.RETURNCONTRACT[0](0, 0)
+                ),
+                Section.Container(deployed_container),
+            ],
+        )
+    elif reason == "out_of_gas_when_returning_contract":
+        gas_cost = (
+            # Transaction intrinsic gas cost
+            fork_intrinsic_gas_calculator(calldata=init_container, contract_creation=True)
+            # Code deposit gas cost
+            + len(deployed_container) * fork_gas_costs.G_CODE_DEPOSIT_BYTE
+            # Two push opcodes
+            + 2 * fork_gas_costs.G_VERY_LOW
+        )
+        tx_gas_limit = gas_cost - 1
+    elif reason == "out_of_gas_when_returning_contract_due_to_memory_expansion":
+        gas_cost = (
+            # Transaction intrinsic gas cost
+            fork_intrinsic_gas_calculator(calldata=init_container, contract_creation=True)
+            # Code deposit gas cost
+            + (len(deployed_container) + 1) * fork_gas_costs.G_CODE_DEPOSIT_BYTE
+            # Two push opcodes
+            + 2 * fork_gas_costs.G_VERY_LOW
+        )
+        tx_gas_limit = gas_cost
+        init_container = Container(
+            sections=[
+                Section.Code(code=Op.RETURNCONTRACT[0](0, 1)),
+                Section.Container(deployed_container),
+            ],
+        )
+    elif reason == "valid":
+        pass
+    else:
+        raise TypeError("Unexpected reason", reason)
+
+    tx = Transaction(
+        sender=sender,
+        to=None,
+        gas_limit=tx_gas_limit,
+        data=init_container,
+    )
+
+    destination_contract_address = tx.created_contract
+
+    post = {
+        destination_contract_address: Account.NONEXISTENT
+        if reason != "valid"
+        else Account(nonce=1, code=deployed_container),
+        sender: Account(
+            nonce=sender.nonce,
+        ),
+    }
+
+    state_test(
+        env=env,
+        pre=pre,
+        post=post,
+        tx=tx,
+    )
+
+
+def test_short_data_subcontainer(
+    state_test: StateTestFiller,
+    pre: Alloc,
+):
+    """Deploy a subcontainer where the data is "short" and filled by deployment code."""
+    env = Environment()
+    sender = pre.fund_eoa()
+
+    tx = Transaction(
+        sender=sender,
+        to=None,
+        gas_limit=100000,
+        data=Container(
+            name="Runtime Subcontainer with truncated data",
+            sections=[
+                Section.Code(code=Op.RETURNCONTRACT[0](0, 1)),
+                Section.Container(
+                    Container(
+                        sections=[
+                            Section.Code(Op.STOP),
+                            Section.Data(data="001122", custom_size=4),
+                        ]
+                    )
+                ),
+            ],
+        ),
+    )
+
+    destination_contract_address = tx.created_contract
+
+    post = {
+        destination_contract_address: Account(nonce=1),
     }
 
     state_test(
