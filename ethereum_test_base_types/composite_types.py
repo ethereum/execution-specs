@@ -16,8 +16,15 @@ StorageRootType = Dict[NumberConvertible, NumberConvertible]
 
 
 class Storage(EthereumTestRootModel[Dict[StorageKeyValueType, StorageKeyValueType]]):
-    """Definition of a storage in pre or post state of a test."""
+    """
+    Definition of contract storage in the `pre` or `post` state of a test.
 
+    This model accepts a dictionary with keys and values as any of: str, int,
+    bytes, or any type that supports conversion to bytes, and automatically
+    casts them to `HashInt`.
+    """
+
+    # internal storage is maintained as a dict with HashInt keys and values.
     root: Dict[StorageKeyValueType, StorageKeyValueType] = Field(default_factory=dict)
 
     _current_slot: int = PrivateAttr(0)

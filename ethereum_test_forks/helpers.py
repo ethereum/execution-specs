@@ -54,7 +54,10 @@ def get_development_forks() -> List[Fork]:
 
 def get_parent_fork(fork: Fork) -> Fork:
     """Return parent fork of the specified fork."""
-    return fork.__base__
+    parent_fork = fork.__base__
+    if not parent_fork:
+        raise Exception(f"Parent fork of {fork} not found.")
+    return parent_fork
 
 
 def get_forks_with_solc_support(solc_version: Version) -> List[Fork]:
@@ -188,7 +191,7 @@ def forks_from_until(fork_from: Fork, fork_until: Fork) -> List[Fork]:
     while prev_fork != BaseFork and prev_fork != fork_from:
         forks.insert(0, prev_fork)
 
-        prev_fork = prev_fork.__base__
+        prev_fork = get_parent_fork(prev_fork)
 
     if prev_fork == BaseFork:
         return []
