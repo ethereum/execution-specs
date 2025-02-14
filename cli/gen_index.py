@@ -18,7 +18,6 @@ from rich.progress import (
 )
 
 from ethereum_test_base_types import HexNumber
-from ethereum_test_fixtures import FIXTURE_FORMATS, BlockchainFixture, FixtureFormat
 from ethereum_test_fixtures.consume import IndexFile, TestCaseIndexFile
 from ethereum_test_fixtures.file import Fixtures
 
@@ -42,16 +41,6 @@ def count_json_files_exclude_index(start_path: Path) -> int:
     """
     json_file_count = sum(1 for file in start_path.rglob("*.json") if file.name != "index.json")
     return json_file_count
-
-
-def infer_fixture_format_from_path(file: Path) -> FixtureFormat | None:
-    """Attempt to infer the fixture format from the file path."""
-    for fixture_type in FIXTURE_FORMATS.values():
-        if fixture_type.output_base_dir_name() in file.parts:
-            return fixture_type
-    if "BlockchainTests" in file.parts:  # ethereum/tests
-        return BlockchainFixture
-    return None
 
 
 @click.command(
@@ -171,10 +160,7 @@ def generate_fixtures_index(
                 continue
 
             try:
-                fixture_format = None
-                if not disable_infer_format:
-                    fixture_format = infer_fixture_format_from_path(file)
-                fixtures = Fixtures.from_file(file, fixture_format=fixture_format)
+                fixtures: Fixtures = Fixtures.model_validate_json(file.read_text())
             except Exception as e:
                 rich.print(f"[red]Error loading fixtures from {file}[/red]")
                 raise e

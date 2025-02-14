@@ -425,18 +425,19 @@ class BlockchainFixtureCommon(BaseFixture):
 
     @model_validator(mode="before")
     @classmethod
-    def config_network_default(cls, data: Any) -> Any:
+    def config_defaults_for_backwards_compatibility(cls, data: Any) -> Any:
         """
-        Check if the config.network is populated, otherwise use the root-level field value for
-        backward compatibility.
+        Check if the config field is populated, otherwise use the root-level field values for
+        backwards compatibility.
         """
-        if (
-            isinstance(data, dict)
-            and "config" in data
-            and isinstance(data["config"], dict)
-            and "network" not in data["config"]
-        ):
-            data["config"]["network"] = data["network"]
+        if isinstance(data, dict):
+            if "config" not in data:
+                data["config"] = {}
+            if isinstance(data["config"], dict):
+                if "network" not in data["config"]:
+                    data["config"]["network"] = data["network"]
+                if "chainid" not in data["config"]:
+                    data["config"]["chainid"] = "0x01"
         return data
 
     def get_fork(self) -> str | None:

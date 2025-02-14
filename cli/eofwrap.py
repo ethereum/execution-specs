@@ -15,17 +15,17 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Any, no_type_check
+from typing import Any, Dict, no_type_check
 
 import click
 
 from cli.evm_bytes import OpcodeWithOperands, process_evm_bytes
 from ethereum_clis import CLINotFoundInPathError
 from ethereum_clis.clis.evmone import EvmOneTransitionTool
-from ethereum_test_base_types.base_types import Bytes
+from ethereum_test_base_types import Bytes, EthereumTestRootModel
 from ethereum_test_base_types.conversions import to_hex
 from ethereum_test_fixtures.blockchain import FixtureBlock, InvalidFixtureBlock
-from ethereum_test_fixtures.file import BaseFixturesRootModel, BlockchainFixtures
+from ethereum_test_fixtures.file import Fixtures
 from ethereum_test_forks.forks.forks import Osaka
 from ethereum_test_specs.blockchain import Block, BlockchainFixture, BlockchainTest
 from ethereum_test_specs.debugging import print_traces
@@ -75,6 +75,15 @@ def eof_wrap(input_path: str, output_dir: str, traces: bool):
     os.makedirs(output_dir, exist_ok=True)
     with open(os.path.join(output_dir, "metrics.json"), "w") as f:
         json.dump(eof_wrapper.metrics, f, indent=4)
+
+
+class BlockchainFixtures(EthereumTestRootModel):
+    """
+    Class needed due to some of the `ethereum/tests` fixtures not having the
+    `_info.fixture_format` field in the JSON files.
+    """
+
+    root: Dict[str, BlockchainFixture]
 
 
 class EofWrapper:
@@ -168,21 +177,13 @@ class EofWrapper:
                 self.metrics[self.FILES_SKIPPED] += 1
                 return
 
-        with open(in_path, "r") as input_file:
-            data = json.load(input_file)
-            # TODO: temp solution until `ethereum/tests` are updated with the FixtureConfig
-            for _, f in data.items():
-                if isinstance(f, dict) and "config" not in f:
-                    network = f.get("network")
-                    f["config"] = {
-                        "chainid": "0x1",
-                        "network": network,
-                    }
-            fixtures = BlockchainFixtures.from_json_data(data)
+        fixtures: BlockchainFixtures = BlockchainFixtures.model_validate_json(
+            Path(in_path).read_text()
+        )
 
-        out_fixtures = BaseFixturesRootModel({})
+        out_fixtures = Fixtures({})
         fixture: BlockchainFixture
-        for fixture_id, fixture in fixtures.items():
+        for fixture_id, fixture in fixtures.root.items():
             fixture_eof_codes = []
             wrapped_at_least_one_account = False
 

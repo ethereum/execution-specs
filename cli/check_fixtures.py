@@ -36,9 +36,9 @@ def check_json(json_file_path: Path):
         a. Compare the newly calculated hashes from step 2. and 3. and
         b. If present, compare info["hash"] with the calculated hash from step 2.
     """
-    fixtures = Fixtures.from_file(json_file_path, fixture_format=None)
+    fixtures: Fixtures = Fixtures.model_validate_json(json_file_path.read_text())
     fixtures_json = to_json(fixtures)
-    fixtures_deserialized = Fixtures.from_json_data(fixtures_json, fixture_format=None)
+    fixtures_deserialized: Fixtures = Fixtures.model_validate(fixtures_json)
     for fixture_name, fixture in fixtures.items():
         new_hash = fixtures_deserialized[fixture_name].hash
         if (original_hash := fixture.hash) != new_hash:

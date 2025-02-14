@@ -28,16 +28,22 @@ BlockNumberType = Union[int, Literal["latest", "earliest", "pending"]]
 class SendTransactionExceptionError(Exception):
     """Represent an exception that is raised when a transaction fails to be sent."""
 
-    tx: Transaction
+    tx: Transaction | None = None
+    tx_rlp: Bytes | None = None
 
-    def __init__(self, *args, tx: Transaction):
+    def __init__(self, *args, tx: Transaction | None = None, tx_rlp: Bytes | None = None):
         """Initialize SendTransactionExceptionError class with the given transaction."""
         super().__init__(*args)
         self.tx = tx
+        self.tx_rlp = tx_rlp
 
     def __str__(self):
         """Return string representation of the exception."""
-        return f"{super().__str__()} Transaction={self.tx.model_dump_json()}"
+        if self.tx is not None:
+            f"{super().__str__()} Transaction={self.tx.model_dump_json()}"
+        elif self.tx_rlp is not None:
+            return f"{super().__str__()} Transaction RLP={self.tx_rlp.hex()}"
+        return super().__str__()
 
 
 class BaseRPC:
@@ -151,6 +157,15 @@ class EthRPC(BaseRPC):
     def gas_price(self) -> int:
         """`eth_gasPrice`: Returns the number of transactions sent from an address."""
         return int(self.post_request("gasPrice"), 16)
+
+    def send_raw_transaction(self, transaction_rlp: Bytes) -> Hash:
+        """`eth_sendRawTransaction`: Send a transaction to the client."""
+        try:
+            result_hash = Hash(self.post_request("sendRawTransaction", f"{transaction_rlp.hex()}"))
+            assert result_hash is not None
+            return result_hash
+        except Exception as e:
+            raise SendTransactionExceptionError(str(e), tx_rlp=transaction_rlp) from e
 
     def send_transaction(self, transaction: Transaction) -> Hash:
         """`eth_sendRawTransaction`: Send a transaction to the client."""

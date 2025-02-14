@@ -7,7 +7,7 @@ import pytest
 from ethereum_test_base_types import Bytes, to_json
 from ethereum_test_exceptions import EOFException
 
-from ..eof import ContainerKind, Fixture, Result, Vector
+from ..eof import ContainerKind, EOFFixture, Result, Vector
 
 
 @pytest.mark.parametrize(
@@ -15,7 +15,7 @@ from ..eof import ContainerKind, Fixture, Result, Vector
     [
         pytest.param(
             True,
-            Fixture(
+            EOFFixture(
                 vectors={
                     1: Vector(
                         code=Bytes(b"\x00"),
@@ -46,7 +46,7 @@ from ..eof import ContainerKind, Fixture, Result, Vector
         ),
         pytest.param(
             True,
-            Fixture(
+            EOFFixture(
                 vectors={
                     1: Vector(
                         code=Bytes(b"\x00"),

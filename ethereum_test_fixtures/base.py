@@ -3,16 +3,45 @@
 import hashlib
 import json
 from functools import cached_property
-from typing import Any, ClassVar, Dict, Type
+from typing import Annotated, Any, ClassVar, Dict, Type, Union
 
-from pydantic import Field
+from pydantic import (
+    Discriminator,
+    Field,
+    PlainSerializer,
+    PlainValidator,
+    Tag,
+    TypeAdapter,
+    model_validator,
+)
+from pydantic_core.core_schema import ValidatorFunctionWrapHandler
 
 from ethereum_test_base_types import CamelModel, ReferenceSpec
 from ethereum_test_forks import Fork
 
 
+def fixture_format_discriminator(v: Any) -> str | None:
+    """Discriminator function that returns the model type as a string."""
+    if v is None:
+        return None
+    if isinstance(v, dict):
+        info_dict = v.get("_info")
+    elif hasattr(v, "info"):
+        info_dict = v.info
+    assert info_dict is not None, (
+        f"Fixture does not have an info field, cannot determine fixture format: {v}"
+    )
+    fixture_format = info_dict.get("fixture_format")
+    assert fixture_format is not None, f"Fixture format not found in info field: {info_dict}"
+    return fixture_format
+
+
 class BaseFixture(CamelModel):
     """Represents a base Ethereum test fixture of any type."""
+
+    # Base Fixture class properties
+    formats: ClassVar[Dict[str, Type["BaseFixture"]]] = {}
+    formats_type_adapter: ClassVar[TypeAdapter]
 
     info: Dict[str, Dict[str, Any] | str] = Field(default_factory=dict, alias="_info")
 
@@ -25,6 +54,41 @@ class BaseFixture(CamelModel):
     def output_base_dir_name(cls) -> str:
         """Return name of the subdirectory where this type of fixture should be dumped to."""
         return cls.fixture_format_name.replace("test", "tests")
+
+    @classmethod
+    def __pydantic_init_subclass__(cls, **kwargs):
+        """
+        Register all subclasses of BaseFixture with a fixture format name set
+        as possible fixture formats.
+        """
+        if cls.fixture_format_name != "unset":
+            # Register the new fixture format
+            BaseFixture.formats[cls.fixture_format_name] = cls
+            if len(BaseFixture.formats) > 1:
+                BaseFixture.formats_type_adapter = TypeAdapter(
+                    Annotated[
+                        Union[
+                            tuple(
+                                Annotated[fixture_format, Tag(fixture_format_name)]
+                                for (
+                                    fixture_format_name,
+                                    fixture_format,
+                                ) in BaseFixture.formats.items()
+                            )
+                        ],
+                        Discriminator(fixture_format_discriminator),
+                    ]
+                )
+            else:
+                BaseFixture.formats_type_adapter = TypeAdapter(cls)
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def _parse_into_subclass(cls, v: Any, handler: ValidatorFunctionWrapHandler) -> "BaseFixture":
+        """Parse the fixture into the correct subclass."""
+        if cls is BaseFixture:
+            return BaseFixture.formats_type_adapter.validate_python(v)
+        return handler(v)
 
     @cached_property
     def json_dict(self) -> Dict[str, Any]:
@@ -80,5 +144,9 @@ class BaseFixture(CamelModel):
         return True
 
 
-# Type alias for a base fixture class
-FixtureFormat = Type[BaseFixture]
+# Annotated type alias for a base fixture class
+FixtureFormat = Annotated[
+    Type[BaseFixture],
+    PlainSerializer(lambda f: f.fixture_format_name),
+    PlainValidator(lambda f: BaseFixture.formats[f] if f in BaseFixture.formats else f),
+]

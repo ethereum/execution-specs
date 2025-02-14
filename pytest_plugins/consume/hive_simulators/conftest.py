@@ -2,7 +2,8 @@
 
 import io
 import json
-from typing import Generator, List, Literal, cast
+from pathlib import Path
+from typing import Dict, Generator, List, Literal, cast
 
 import pytest
 import rich
@@ -10,9 +11,15 @@ from hive.client import Client, ClientType
 from hive.testing import HiveTest
 
 from ethereum_test_base_types import Number, to_json
-from ethereum_test_fixtures import BlockchainFixtureCommon
+from ethereum_test_fixtures import (
+    BaseFixture,
+    BlockchainFixtureCommon,
+    FixtureFormat,
+)
 from ethereum_test_fixtures.consume import TestCaseIndexFile, TestCaseStream
+from ethereum_test_fixtures.file import Fixtures
 from ethereum_test_rpc import EthRPC
+from pytest_plugins.consume.consume import FixturesSource
 from pytest_plugins.consume.hive_simulators.ruleset import ruleset  # TODO: generate dynamically
 from pytest_plugins.pytest_hive.hive_info import ClientInfo
 
@@ -97,7 +104,7 @@ def eest_consume_command(
 
 @pytest.fixture(scope="function")
 def test_case_description(
-    blockchain_fixture: BlockchainFixtureCommon,
+    fixture: BaseFixture,
     test_case: TestCaseIndexFile | TestCaseStream,
     hive_consume_command: List[str],
     hive_dev_command: List[str],
@@ -108,12 +115,12 @@ def test_case_description(
     Includes reproducible commands to re-run the test case against the target client.
     """
     description = f"Test id: {test_case.id}"
-    if "url" in blockchain_fixture.info:
-        description += f"\n\nTest source: {blockchain_fixture.info['url']}"
-    if "description" not in blockchain_fixture.info:
+    if "url" in fixture.info:
+        description += f"\n\nTest source: {fixture.info['url']}"
+    if "description" not in fixture.info:
         description += "\n\nNo description field provided in the fixture's 'info' section."
     else:
-        description += f"\n\n{blockchain_fixture.info['description']}"
+        description += f"\n\n{fixture.info['description']}"
     description += (
         f"\n\nCommand to reproduce entirely in hive:"
         f"\n<code>{' '.join(hive_consume_command)}</code>"
@@ -142,10 +149,10 @@ def total_timing_data(request) -> Generator[TimingData, None, None]:
 
 @pytest.fixture(scope="function")
 @pytest.mark.usefixtures("total_timing_data")
-def client_genesis(blockchain_fixture: BlockchainFixtureCommon) -> dict:
+def client_genesis(fixture: BlockchainFixtureCommon) -> dict:
     """Convert the fixture genesis block header and pre-state to a client genesis state."""
-    genesis = to_json(blockchain_fixture.genesis)
-    alloc = to_json(blockchain_fixture.pre)
+    genesis = to_json(fixture.genesis)
+    alloc = to_json(fixture.pre)
     # NOTE: nethermind requires account keys without '0x' prefix
     genesis["alloc"] = {k.replace("0x", ""): v for k, v in alloc.items()}
     return genesis
@@ -165,18 +172,17 @@ def check_live_port(test_suite_name: str) -> Literal[8545, 8551]:
 
 @pytest.fixture(scope="function")
 def environment(
-    blockchain_fixture: BlockchainFixtureCommon, check_live_port: Literal[8545, 8551]
+    fixture: BlockchainFixtureCommon,
+    check_live_port: Literal[8545, 8551],
 ) -> dict:
     """Define the environment that hive will start the client with."""
-    assert blockchain_fixture.fork in ruleset, (
-        f"fork '{blockchain_fixture.fork}' missing in hive ruleset"
-    )
+    assert fixture.fork in ruleset, f"fork '{fixture.fork}' missing in hive ruleset"
     return {
-        "HIVE_CHAIN_ID": str(Number(blockchain_fixture.config.chain_id)),
+        "HIVE_CHAIN_ID": str(Number(fixture.config.chain_id)),
         "HIVE_FORK_DAO_VOTE": "1",
         "HIVE_NODETYPE": "full",
         "HIVE_CHECK_LIVE_PORT": str(check_live_port),
-        **{k: f"{v:d}" for k, v in ruleset[blockchain_fixture.fork].items()},
+        **{k: f"{v:d}" for k, v in ruleset[fixture.fork].items()},
     }
 
 
@@ -218,3 +224,57 @@ def timing_data(
     """Record timing data for the main execution of the test case."""
     with total_timing_data.time("Test case execution") as timing_data:
         yield timing_data
+
+
+class FixturesDict(Dict[Path, Fixtures]):
+    """
+    A dictionary caches loaded fixture files to avoid reloading the same file
+    multiple times.
+    """
+
+    def __init__(self) -> None:
+        """Initialize the dictionary that caches loaded fixture files."""
+        self._fixtures: Dict[Path, Fixtures] = {}
+
+    def __getitem__(self, key: Path) -> Fixtures:
+        """Return the fixtures from the index file, if not found, load from disk."""
+        assert key.is_file(), f"Expected a file path, got '{key}'"
+        if key not in self._fixtures:
+            self._fixtures[key] = Fixtures.model_validate_json(key.read_text())
+        return self._fixtures[key]
+
+
+@pytest.fixture(scope="session")
+def fixture_file_loader() -> Dict[Path, Fixtures]:
+    """Return a singleton dictionary that caches loaded fixture files used in all tests."""
+    return FixturesDict()
+
+
+@pytest.fixture(scope="function")
+def fixture(
+    fixtures_source: FixturesSource,
+    fixture_format: FixtureFormat,
+    fixture_file_loader: Dict[Path, Fixtures],
+    test_case: TestCaseIndexFile | TestCaseStream,
+) -> BaseFixture:
+    """
+    Load the fixture from a file or from stream in any of the supported
+    fixture formats.
+
+    The fixture is either already available within the test case (if consume
+    is taking input on stdin) or loaded from the fixture json file if taking
+    input from disk (fixture directory with index file).
+    """
+    fixture: BaseFixture
+    if fixtures_source == "stdin":
+        assert isinstance(test_case, TestCaseStream), "Expected a stream test case"
+        fixture = test_case.fixture
+    else:
+        assert isinstance(test_case, TestCaseIndexFile), "Expected an index file test case"
+        fixtures_file_path = Path(fixtures_source) / test_case.json_path
+        fixtures: Fixtures = fixture_file_loader[fixtures_file_path]
+        fixture = fixtures[test_case.id]
+    assert isinstance(fixture, fixture_format), (
+        f"Expected a {fixture_format.__name__} test fixture"
+    )
+    return fixture

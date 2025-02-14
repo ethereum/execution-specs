@@ -37,7 +37,7 @@ class Vector(CamelModel):
     results: Mapping[str, Result]
 
 
-class Fixture(BaseFixture):
+class EOFFixture(BaseFixture):
     """Fixture for a single EOFTest."""
 
     fixture_format_name: ClassVar[str] = "eof_test"

@@ -7,7 +7,7 @@ import pytest
 from ethereum_clis import TransitionTool
 from ethereum_test_execution import BaseExecute, ExecuteFormat, TransactionPost
 from ethereum_test_fixtures import BaseFixture, FixtureFormat, TransactionFixture
-from ethereum_test_fixtures.transaction import Fixture, FixtureResult
+from ethereum_test_fixtures.transaction import FixtureResult
 from ethereum_test_forks import Fork
 from ethereum_test_types import Alloc, Transaction
 
@@ -31,7 +31,7 @@ class TransactionTest(BaseTest):
         self,
         fork: Fork,
         eips: Optional[List[int]] = None,
-    ) -> Fixture:
+    ) -> TransactionFixture:
         """Create a fixture from the transaction test definition."""
         if self.tx.error is not None:
             result = FixtureResult(
@@ -55,7 +55,7 @@ class TransactionTest(BaseTest):
                 sender=self.tx.sender,
             )
 
-        return Fixture(
+        return TransactionFixture(
             result={
                 fork.blockchain_test_network_name(): result,
             },

@@ -295,12 +295,14 @@ class BlockchainTest(BaseTest):
         TransactionPost,
     ]
 
+    @staticmethod
     def make_genesis(
-        self,
+        genesis_environment: Environment,
+        pre: Alloc,
         fork: Fork,
     ) -> Tuple[Alloc, FixtureBlock]:
         """Create a genesis block from the blockchain test definition."""
-        env = self.genesis_environment.set_fork_requirements(fork)
+        env = genesis_environment.set_fork_requirements(fork)
         assert env.withdrawals is None or len(env.withdrawals) == 0, (
             "withdrawals must be empty at genesis"
         )
@@ -310,7 +312,7 @@ class BlockchainTest(BaseTest):
 
         pre_alloc = Alloc.merge(
             Alloc.model_validate(fork.pre_allocation_blockchain()),
-            self.pre,
+            pre,
         )
         if empty_accounts := pre_alloc.empty_accounts():
             raise Exception(f"Empty accounts in pre state: {empty_accounts}")
@@ -480,7 +482,8 @@ class BlockchainTest(BaseTest):
             env,
         )
 
-    def network_info(self, fork: Fork, eips: Optional[List[int]] = None):
+    @staticmethod
+    def network_info(fork: Fork, eips: Optional[List[int]] = None):
         """Return fixture network information for the fork & EIP/s."""
         return (
             "+".join([fork.blockchain_test_network_name()] + [str(eip) for eip in eips])
@@ -509,7 +512,7 @@ class BlockchainTest(BaseTest):
         """Create a fixture from the blockchain test definition."""
         fixture_blocks: List[FixtureBlock | InvalidFixtureBlock] = []
 
-        pre, genesis = self.make_genesis(fork)
+        pre, genesis = BlockchainTest.make_genesis(self.genesis_environment, self.pre, fork)
 
         alloc = pre
         env = environment_from_parent_header(genesis.header)
@@ -576,7 +579,7 @@ class BlockchainTest(BaseTest):
                 )
 
         self.verify_post_state(t8n, t8n_state=alloc)
-        network_info = self.network_info(fork, eips)
+        network_info = BlockchainTest.network_info(fork, eips)
         return BlockchainFixture(
             fork=network_info,
             genesis=genesis.header,
@@ -602,7 +605,7 @@ class BlockchainTest(BaseTest):
         """Create a hive fixture from the blocktest definition."""
         fixture_payloads: List[FixtureEngineNewPayload] = []
 
-        pre, genesis = self.make_genesis(fork)
+        pre, genesis = BlockchainTest.make_genesis(self.genesis_environment, self.pre, fork)
         alloc = pre
         env = environment_from_parent_header(genesis.header)
         head_hash = genesis.header.block_hash
@@ -675,7 +678,7 @@ class BlockchainTest(BaseTest):
                 error_code=None,
             )
 
-        network_info = self.network_info(fork, eips)
+        network_info = BlockchainTest.network_info(fork, eips)
         return BlockchainEngineFixture(
             fork=network_info,
             genesis=genesis.header,

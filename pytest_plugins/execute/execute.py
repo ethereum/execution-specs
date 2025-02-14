@@ -8,7 +8,7 @@ import pytest
 from pytest_metadata.plugin import metadata_key  # type: ignore
 
 from ethereum_test_base_types import Number
-from ethereum_test_execution import EXECUTE_FORMATS, BaseExecute
+from ethereum_test_execution import BaseExecute
 from ethereum_test_forks import Fork
 from ethereum_test_rpc import EthRPC
 from ethereum_test_tools import SPEC_TYPES, BaseTest, TestInfo, Transaction
@@ -264,7 +264,7 @@ def base_test_parametrizer(cls: Type[BaseTest]):
         When parametrize, indirect must be used along with the fixture format as value.
         """
         execute_format = request.param
-        assert execute_format in EXECUTE_FORMATS.values()
+        assert execute_format in BaseExecute.formats.values()
 
         class BaseTestWrapper(cls):  # type: ignore
             def __init__(self, *args, **kwargs):

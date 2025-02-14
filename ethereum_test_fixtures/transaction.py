@@ -20,7 +20,7 @@ class FixtureResult(CamelModel):
     exception: TransactionExceptionInstanceOrList | None = None
 
 
-class Fixture(BaseFixture):
+class TransactionFixture(BaseFixture):
     """Fixture for a single TransactionTest."""
 
     fixture_format_name: ClassVar[str] = "transaction_test"

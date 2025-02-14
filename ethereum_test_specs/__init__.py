@@ -25,10 +25,10 @@ from .transaction import TransactionTest, TransactionTestFiller, TransactionTest
 SPEC_TYPES: List[Type[BaseTest]] = [
     BlockchainTest,
     BlockchainTestEngine,
+    EOFStateTest,
+    EOFTest,
     StateTest,
     StateTestOnly,
-    EOFTest,
-    EOFStateTest,
     TransactionTest,
 ]
 

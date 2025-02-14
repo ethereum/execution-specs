@@ -213,6 +213,13 @@ def pytest_generate_tests(metafunc):
             and (not fork or test_case.fork == fork)
         ),
     )
+    metafunc.parametrize(
+        "fixture_format",
+        (
+            pytest.param(fixture_format, id=fixture_format.fixture_format_name)
+            for fixture_format in metafunc.function.fixture_format
+        ),
+    )
 
     if "client_type" in metafunc.fixturenames:
         client_ids = [client.name for client in metafunc.config.hive_execution_clients]
