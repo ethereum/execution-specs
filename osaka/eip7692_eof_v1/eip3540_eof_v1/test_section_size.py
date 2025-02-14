@@ -191,7 +191,7 @@ def test_truncated_container_without_data(
     container = Container(sections=[Section.Code(Op.INVALID + Op.INVALID)])
     bytecode = bytes(container)
     eof_test(
-        container=bytecode[: len(bytecode) - truncation_len],
+        container=Container(raw_bytes=bytecode[: len(bytecode) - truncation_len]),
         expect_exception=exception,
     )
 

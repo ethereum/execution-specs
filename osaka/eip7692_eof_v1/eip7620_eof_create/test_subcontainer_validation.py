@@ -27,7 +27,8 @@ returncontract_code_section = Section.Code(
     code=Op.SSTORE(slot_code_worked, value_code_worked) + Op.RETURNCONTRACT[0](0, 0),
     max_stack_height=2,
 )
-stop_sub_container = Section.Container(Container.Code(Op.STOP))
+stop_container = Container.Code(Op.STOP)
+stop_sub_container = Section.Container(stop_container)
 return_sub_container = Section.Container(Container.Code(Op.RETURN(0, 0)))
 revert_sub_container = Section.Container(Container.Code(Op.REVERT(0, 0)))
 returncontract_sub_container = Section.Container(
@@ -281,7 +282,10 @@ def test_container_combos_deeply_nested_valid(
             kind=ContainerKind.INITCODE,
         )
 
-    eof_test(container=container)
+    eof_test(
+        container=container,
+        deployed_container=None,  # Execution reverts before deployment
+    )
 
 
 @pytest.mark.parametrize(
@@ -459,6 +463,7 @@ def test_container_both_kinds_different_sub(eof_test: EOFTestFiller):
             ],
             kind=ContainerKind.INITCODE,
         ),
+        deployed_container=stop_container,
     )
 
 
@@ -544,7 +549,7 @@ def test_subcontainer_wrong_size(
     )
 
 
-@pytest.mark.parametrize(
+deep_container_parametrize = pytest.mark.parametrize(
     ["deepest_container", "exception"],
     [
         pytest.param(Container.Code(Op.STOP), None, id="valid"),
@@ -560,10 +565,18 @@ def test_subcontainer_wrong_size(
         ),
     ],
 )
+
+
+@deep_container_parametrize
+@pytest.mark.eof_test_only(reason="Initcontainer exceeds maximum")
 def test_deep_container(
-    eof_test: EOFTestFiller, deepest_container: Container, exception: EOFException
+    eof_test: EOFTestFiller, deepest_container: Container, exception: EOFException | None
 ):
-    """Test a very deeply nested container."""
+    """
+    Test a very deeply nested container.
+
+    This test skips generating a state test because the initcode size is too large.
+    """
     container = deepest_container
     last_container = deepest_container
     while len(container) < MAX_INITCODE_SIZE:
@@ -589,13 +602,70 @@ def test_deep_container(
     eof_test(container=last_container, expect_exception=exception)
 
 
+@deep_container_parametrize
+def test_deep_container_initcode(
+    eof_test: EOFTestFiller, deepest_container: Container, exception: EOFException | None
+):
+    """Test a very deeply nested initcontainer."""
+    container = Container(
+        sections=[
+            Section.Code(
+                code=Op.PUSH0 + Op.PUSH0 + Op.RETURNCONTRACT[0],
+            ),
+            Section.Container(container=deepest_container),
+        ],
+        kind=ContainerKind.INITCODE,
+    )
+    last_container = container
+    while len(container) < MAX_INITCODE_SIZE:
+        last_container = container
+        container = Container(
+            sections=[
+                Section.Code(
+                    code=Op.PUSH0 + Op.PUSH0 + Op.RETURNCONTRACT[0],
+                ),
+                Section.Container(
+                    container=Container(
+                        sections=[
+                            Section.Code(
+                                code=Op.PUSH0
+                                + Op.PUSH0
+                                + Op.PUSH0
+                                + Op.PUSH0
+                                + Op.EOFCREATE[0]
+                                + Op.STOP
+                            ),
+                            Section.Container(container=last_container),
+                        ]
+                    )
+                ),
+            ],
+            kind=ContainerKind.INITCODE,
+        )
+    eof_test(
+        container=last_container,
+        expect_exception=exception,
+        deployed_container=None,
+    )
+
+
 @pytest.mark.parametrize(
     ["width", "exception"],
     [
         pytest.param(256, None, id="256"),
         pytest.param(257, EOFException.TOO_MANY_CONTAINERS, id="257"),
-        pytest.param(0x8000, EOFException.CONTAINER_SIZE_ABOVE_LIMIT, id="negative_i16"),
-        pytest.param(0xFFFF, EOFException.CONTAINER_SIZE_ABOVE_LIMIT, id="max_u16"),
+        pytest.param(
+            0x8000,
+            EOFException.CONTAINER_SIZE_ABOVE_LIMIT,
+            marks=pytest.mark.eof_test_only(reason="int too big to convert"),
+            id="negative_i16",
+        ),
+        pytest.param(
+            0xFFFF,
+            EOFException.CONTAINER_SIZE_ABOVE_LIMIT,
+            marks=pytest.mark.eof_test_only(reason="int too big to convert"),
+            id="max_u16",
+        ),
     ],
 )
 def test_wide_container(eof_test: EOFTestFiller, width: int, exception: EOFException):

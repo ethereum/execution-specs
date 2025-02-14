@@ -142,9 +142,7 @@ def test_valid_containers(
     assert container.validity_error is None, (
         f"Valid container with validity error: {container.validity_error}"
     )
-    eof_test(
-        container=bytes(container),
-    )
+    eof_test(container=container)
 
 
 @pytest.mark.parametrize(
@@ -259,19 +257,25 @@ def test_valid_containers(
             raw_bytes=bytes([0xEF, 0x00, 0x01, 0x01, 0x00, 0x04, 0x02, 0xFF, 0xFF]),
             validity_error=EOFException.TOO_MANY_CODE_SECTIONS,
         ),
-        Container(
-            name="code_section_count_0x8000",
-            raw_bytes=bytes(
-                [0xEF, 0x00, 0x01, 0x01, 0x00, 0x04, 0x02, 0x80, 0x00] + [0x00, 0x01] * 0x8000
+        pytest.param(
+            Container(
+                name="code_section_count_0x8000",
+                raw_bytes=bytes(
+                    [0xEF, 0x00, 0x01, 0x01, 0x00, 0x04, 0x02, 0x80, 0x00] + [0x00, 0x01] * 0x8000
+                ),
+                validity_error=EOFException.CONTAINER_SIZE_ABOVE_LIMIT,
             ),
-            validity_error=EOFException.CONTAINER_SIZE_ABOVE_LIMIT,
+            marks=pytest.mark.eof_test_only(reason="initcode too large"),
         ),
-        Container(
-            name="code_section_count_0xFFFF",
-            raw_bytes=bytes(
-                [0xEF, 0x00, 0x01, 0x01, 0x00, 0x04, 0x02, 0xFF, 0xFF] + [0x00, 0x01] * 0xFFFF
+        pytest.param(
+            Container(
+                name="code_section_count_0xFFFF",
+                raw_bytes=bytes(
+                    [0xEF, 0x00, 0x01, 0x01, 0x00, 0x04, 0x02, 0xFF, 0xFF] + [0x00, 0x01] * 0xFFFF
+                ),
+                validity_error=EOFException.CONTAINER_SIZE_ABOVE_LIMIT,
             ),
-            validity_error=EOFException.CONTAINER_SIZE_ABOVE_LIMIT,
+            marks=pytest.mark.eof_test_only(reason="initcode too large"),
         ),
         Container(
             name="code_section_size_0x8000_truncated",
@@ -1188,7 +1192,7 @@ def test_invalid_containers(
     """Test invalid containers."""
     assert container.validity_error is not None, "Invalid container without validity error"
     eof_test(
-        container=bytes(container),
+        container=container,
         expect_exception=container.validity_error,
     )
 
@@ -1206,7 +1210,7 @@ def test_magic_validation(
     code = bytearray(bytes(VALID_CONTAINER))
     code[0:2] = magic
     eof_test(
-        container=bytes(code),
+        container=Container(raw_bytes=bytes(code)),
         expect_exception=EOFException.INVALID_MAGIC,
     )
 
@@ -1220,7 +1224,7 @@ def test_version_validation(
     code = bytearray(bytes(VALID_CONTAINER))
     code[2] = version
     eof_test(
-        container=bytes(code),
+        container=Container(raw_bytes=bytes(code)),
         expect_exception=EOFException.INVALID_VERSION,
     )
 

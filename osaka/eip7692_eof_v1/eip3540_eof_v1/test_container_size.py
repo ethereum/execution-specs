@@ -21,6 +21,7 @@ VALID_CONTAINER = Container(sections=[Section.Code(code=Op.STOP)])
     "over_limit",
     [0, 1, 2, 2**16 - MAX_INITCODE_SIZE],
 )
+@pytest.mark.eof_test_only
 def test_max_size(
     eof_test: EOFTestFiller,
     over_limit: int,
@@ -37,7 +38,7 @@ def test_max_size(
     )
     assert len(code) == MAX_INITCODE_SIZE + over_limit
     eof_test(
-        container=bytes(code),
+        container=code,
         expect_exception=None if over_limit == 0 else EOFException.CONTAINER_SIZE_ABOVE_LIMIT,
     )
 
@@ -46,6 +47,7 @@ def test_max_size(
     "size",
     [MAX_INITCODE_SIZE + 1, MAX_INITCODE_SIZE * 2],
 )
+@pytest.mark.eof_test_only
 def test_above_max_size_raw(
     eof_test: EOFTestFiller,
     size: int,
@@ -53,7 +55,7 @@ def test_above_max_size_raw(
     """Verify EOF container invalid above maximum size, regardless of header contents."""
     code = Op.INVALID * size
     eof_test(
-        container=bytes(code),
+        container=Container(raw_bytes=code),
         expect_exception=EOFException.CONTAINER_SIZE_ABOVE_LIMIT,
     )
 
@@ -101,6 +103,6 @@ def test_section_after_end_of_container(
 ):
     """Verify EOF container is invalid if any of sections declares above container size."""
     eof_test(
-        container=bytes(code),
+        container=code,
         expect_exception=EOFException.INVALID_SECTION_BODIES_SIZE,
     )

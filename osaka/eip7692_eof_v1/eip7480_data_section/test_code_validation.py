@@ -1,7 +1,5 @@
 """EOF V1 Code Validation tests."""
 
-from typing import List
-
 import pytest
 
 from ethereum_test_tools import EOFException, EOFTestFiller
@@ -23,171 +21,6 @@ smallest_runtime_subcontainer = Container(
     ],
 )
 
-VALID: List[Container] = [
-    Container(
-        name="empty_data_section",
-        sections=[
-            Section.Code(
-                code=Op.ADDRESS + Op.POP + Op.STOP,
-            ),
-            Section.Data(data=""),
-        ],
-    ),
-    Container(
-        name="small_data_section",
-        sections=[
-            Section.Code(
-                code=Op.ADDRESS + Op.POP + Op.STOP,
-            ),
-            Section.Data(data="1122334455667788" * 4),
-        ],
-    ),
-    Container(
-        name="large_data_section",
-        sections=[
-            Section.Code(
-                code=Op.ADDRESS + Op.POP + Op.STOP,
-            ),
-            Section.Data(data="1122334455667788" * 3 * 1024),
-        ],
-    ),
-    Container(
-        name="max_data_section",
-        sections=[
-            Section.Code(code=Op.STOP),
-            # Hits the 49152 bytes limit for the entire container
-            Section.Data(data=b"\x00" * (MAX_INITCODE_SIZE - len(smallest_runtime_subcontainer))),
-        ],
-    ),
-    Container(
-        name="DATALOADN_zero",
-        sections=[
-            Section.Code(
-                code=Op.DATALOADN[0] + Op.POP + Op.STOP,
-            ),
-            Section.Data(data="1122334455667788" * 16),
-        ],
-    ),
-    Container(
-        name="DATALOADN_middle",
-        sections=[
-            Section.Code(
-                code=Op.DATALOADN[16] + Op.POP + Op.STOP,
-            ),
-            Section.Data(data="1122334455667788" * 16),
-        ],
-    ),
-    Container(
-        name="DATALOADN_edge",
-        sections=[
-            Section.Code(
-                code=Op.DATALOADN[128 - 32] + Op.POP + Op.STOP,
-            ),
-            Section.Data(data="1122334455667788" * 16),
-        ],
-    ),
-]
-
-INVALID: List[Container] = [
-    Container(
-        name="DATALOADN_0_empty_data",
-        sections=[
-            Section.Code(
-                code=Op.DATALOADN[0] + Op.POP + Op.STOP,
-            ),
-        ],
-        validity_error=EOFException.INVALID_DATALOADN_INDEX,
-    ),
-    Container(
-        name="DATALOADN_max_empty_data",
-        sections=[
-            Section.Code(
-                code=Op.DATALOADN[0xFFFF - 32] + Op.POP + Op.STOP,
-            ),
-        ],
-        validity_error=EOFException.INVALID_DATALOADN_INDEX,
-    ),
-    Container(
-        name="DATALOADN_1_over_data",
-        sections=[
-            Section.Code(
-                code=Op.DATALOADN[1] + Op.POP + Op.STOP,
-            ),
-            Section.Data(b"\x00"),
-        ],
-        validity_error=EOFException.INVALID_DATALOADN_INDEX,
-    ),
-    Container(
-        name="DATALOADN_32_over_data",
-        sections=[
-            Section.Code(
-                code=Op.DATALOADN[32] + Op.POP + Op.STOP,
-            ),
-            Section.Data(b"\xda" * 32),
-        ],
-        validity_error=EOFException.INVALID_DATALOADN_INDEX,
-    ),
-    Container(
-        name="DATALOADN_0_data_31",
-        sections=[
-            Section.Code(
-                code=Op.DATALOADN[0] + Op.POP + Op.STOP,
-            ),
-            Section.Data(b"\xda" * 31),
-        ],
-        validity_error=EOFException.INVALID_DATALOADN_INDEX,
-    ),
-    Container(
-        name="DATALOADN_32_data_63",
-        sections=[
-            Section.Code(
-                code=Op.DATALOADN[32] + Op.POP + Op.STOP,
-            ),
-            Section.Data(b"\xda" * 63),
-        ],
-        validity_error=EOFException.INVALID_DATALOADN_INDEX,
-    ),
-    Container(
-        name="DATALOADN_max_imm",
-        sections=[
-            Section.Code(
-                code=Op.DATALOADN[0xFFFF] + Op.POP + Op.STOP,
-            ),
-            Section.Data(b"\xda" * 32),
-        ],
-        validity_error=EOFException.INVALID_DATALOADN_INDEX,
-    ),
-    Container(
-        name="DATALOADN_max_small_data",
-        sections=[
-            Section.Code(
-                code=Op.DATALOADN[0xFFFF - 32] + Op.POP + Op.STOP,
-            ),
-            Section.Data(data="1122334455667788" * 16),
-        ],
-        validity_error=EOFException.INVALID_DATALOADN_INDEX,
-    ),
-    Container(
-        name="DATALOADN_max_half_data",
-        sections=[
-            Section.Code(
-                code=Op.DATALOADN[0xFFFF - 32] + Op.POP + Op.STOP,
-            ),
-            Section.Data(data=("1122334455667788" * 4 * 1024)[2:]),
-        ],
-        validity_error=EOFException.INVALID_DATALOADN_INDEX,
-    ),
-    Container(
-        name="data_section_over_container_limit",
-        sections=[
-            Section.Code(code=Op.STOP),
-            # Over the 49152 bytes limit for the entire container
-            Section.Data(data=(b"12345678" * 6 * 1024)[len(smallest_runtime_subcontainer) - 1 :]),
-        ],
-        validity_error=EOFException.CONTAINER_SIZE_ABOVE_LIMIT,
-    ),
-]
-
 
 def container_name(c: Container):
     """Return the name of the container for use in pytest ids."""
@@ -199,7 +32,78 @@ def container_name(c: Container):
 
 @pytest.mark.parametrize(
     "container",
-    VALID,
+    [
+        Container(
+            name="empty_data_section",
+            sections=[
+                Section.Code(
+                    code=Op.ADDRESS + Op.POP + Op.STOP,
+                ),
+                Section.Data(data=""),
+            ],
+        ),
+        Container(
+            name="small_data_section",
+            sections=[
+                Section.Code(
+                    code=Op.ADDRESS + Op.POP + Op.STOP,
+                ),
+                Section.Data(data="1122334455667788" * 4),
+            ],
+        ),
+        pytest.param(
+            Container(
+                name="large_data_section",
+                sections=[
+                    Section.Code(
+                        code=Op.ADDRESS + Op.POP + Op.STOP,
+                    ),
+                    Section.Data(data="1122334455667788" * 3 * 1024),
+                ],
+            ),
+            marks=pytest.mark.eof_test_only(reason="initcode exceeds max size"),
+        ),
+        pytest.param(
+            Container(
+                name="max_data_section",
+                sections=[
+                    Section.Code(code=Op.STOP),
+                    # Hits the 49152 bytes limit for the entire container
+                    Section.Data(
+                        data=b"\x00" * (MAX_INITCODE_SIZE - len(smallest_runtime_subcontainer))
+                    ),
+                ],
+            ),
+            marks=pytest.mark.eof_test_only(reason="initcode exceeds max size"),
+        ),
+        Container(
+            name="DATALOADN_zero",
+            sections=[
+                Section.Code(
+                    code=Op.DATALOADN[0] + Op.POP + Op.STOP,
+                ),
+                Section.Data(data="1122334455667788" * 16),
+            ],
+        ),
+        Container(
+            name="DATALOADN_middle",
+            sections=[
+                Section.Code(
+                    code=Op.DATALOADN[16] + Op.POP + Op.STOP,
+                ),
+                Section.Data(data="1122334455667788" * 16),
+            ],
+        ),
+        Container(
+            name="DATALOADN_edge",
+            sections=[
+                Section.Code(
+                    code=Op.DATALOADN[128 - 32] + Op.POP + Op.STOP,
+                ),
+                Section.Data(data="1122334455667788" * 16),
+            ],
+        ),
+    ],
     ids=container_name,
 )
 def test_valid_containers_with_data_section(
@@ -217,7 +121,110 @@ def test_valid_containers_with_data_section(
 
 @pytest.mark.parametrize(
     "container",
-    INVALID,
+    [
+        Container(
+            name="DATALOADN_0_empty_data",
+            sections=[
+                Section.Code(
+                    code=Op.DATALOADN[0] + Op.POP + Op.STOP,
+                ),
+            ],
+            validity_error=EOFException.INVALID_DATALOADN_INDEX,
+        ),
+        Container(
+            name="DATALOADN_max_empty_data",
+            sections=[
+                Section.Code(
+                    code=Op.DATALOADN[0xFFFF - 32] + Op.POP + Op.STOP,
+                ),
+            ],
+            validity_error=EOFException.INVALID_DATALOADN_INDEX,
+        ),
+        Container(
+            name="DATALOADN_1_over_data",
+            sections=[
+                Section.Code(
+                    code=Op.DATALOADN[1] + Op.POP + Op.STOP,
+                ),
+                Section.Data(b"\x00"),
+            ],
+            validity_error=EOFException.INVALID_DATALOADN_INDEX,
+        ),
+        Container(
+            name="DATALOADN_32_over_data",
+            sections=[
+                Section.Code(
+                    code=Op.DATALOADN[32] + Op.POP + Op.STOP,
+                ),
+                Section.Data(b"\xda" * 32),
+            ],
+            validity_error=EOFException.INVALID_DATALOADN_INDEX,
+        ),
+        Container(
+            name="DATALOADN_0_data_31",
+            sections=[
+                Section.Code(
+                    code=Op.DATALOADN[0] + Op.POP + Op.STOP,
+                ),
+                Section.Data(b"\xda" * 31),
+            ],
+            validity_error=EOFException.INVALID_DATALOADN_INDEX,
+        ),
+        Container(
+            name="DATALOADN_32_data_63",
+            sections=[
+                Section.Code(
+                    code=Op.DATALOADN[32] + Op.POP + Op.STOP,
+                ),
+                Section.Data(b"\xda" * 63),
+            ],
+            validity_error=EOFException.INVALID_DATALOADN_INDEX,
+        ),
+        Container(
+            name="DATALOADN_max_imm",
+            sections=[
+                Section.Code(
+                    code=Op.DATALOADN[0xFFFF] + Op.POP + Op.STOP,
+                ),
+                Section.Data(b"\xda" * 32),
+            ],
+            validity_error=EOFException.INVALID_DATALOADN_INDEX,
+        ),
+        Container(
+            name="DATALOADN_max_small_data",
+            sections=[
+                Section.Code(
+                    code=Op.DATALOADN[0xFFFF - 32] + Op.POP + Op.STOP,
+                ),
+                Section.Data(data="1122334455667788" * 16),
+            ],
+            validity_error=EOFException.INVALID_DATALOADN_INDEX,
+        ),
+        Container(
+            name="DATALOADN_max_half_data",
+            sections=[
+                Section.Code(
+                    code=Op.DATALOADN[0xFFFF - 32] + Op.POP + Op.STOP,
+                ),
+                Section.Data(data=("1122334455667788" * 4 * 1024)[2:]),
+            ],
+            validity_error=EOFException.INVALID_DATALOADN_INDEX,
+        ),
+        pytest.param(
+            Container(
+                name="data_section_over_container_limit",
+                sections=[
+                    Section.Code(code=Op.STOP),
+                    # Over the 49152 bytes limit for the entire container
+                    Section.Data(
+                        data=(b"12345678" * 6 * 1024)[len(smallest_runtime_subcontainer) - 1 :]
+                    ),
+                ],
+                validity_error=EOFException.CONTAINER_SIZE_ABOVE_LIMIT,
+            ),
+            marks=pytest.mark.eof_test_only(reason="initcode exceeds max size"),
+        ),
+    ],
     ids=container_name,
 )
 def test_invalid_containers_with_data_section(
