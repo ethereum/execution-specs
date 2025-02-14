@@ -8,7 +8,7 @@
 set -euf
 
 if [ "$#" -ne 2 ]; then
-    echo "Usage: debug.sh [test_path] [test_name]"
+    echo "Usage: b2t.sh [test_path] [test_name]"
     exit
 fi
 
