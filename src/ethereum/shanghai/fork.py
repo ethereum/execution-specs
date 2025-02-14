@@ -151,7 +151,6 @@ def create_block_output() -> vm.BlockOutput:
         receipts_trie=Trie(secured=False, default=None),
         block_logs=(),
         withdrawals_trie=Trie(secured=False, default=None),
-        blob_gas_used=Uint(0),
     )
 
 

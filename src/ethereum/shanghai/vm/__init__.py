@@ -74,7 +74,6 @@ class BlockOutput:
     receipts_trie: Trie[Bytes, Optional[Union[Bytes, Receipt]]]
     block_logs: Tuple[Log, ...]
     withdrawals_trie: Trie[Bytes, Optional[Union[Bytes, Withdrawal]]]
-    blob_gas_used: Uint
 
 
 @dataclass
