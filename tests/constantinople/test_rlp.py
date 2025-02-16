@@ -1,7 +1,7 @@
 import pytest
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes8
-from ethereum_types.numeric import U256, Uint
+from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.constantinople.blocks import Block, Header, Log, Receipt
 from ethereum.constantinople.transactions import Transaction
@@ -34,7 +34,7 @@ bloom = hex_to_bytes256(
 )
 
 transaction1 = Transaction(
-    U256(1),
+    U64(1),
     Uint(2),
     Uint(3),
     Bytes0(),
@@ -46,7 +46,7 @@ transaction1 = Transaction(
 )
 
 transaction2 = Transaction(
-    U256(1),
+    U64(1),
     Uint(2),
     Uint(3),
     Bytes0(),

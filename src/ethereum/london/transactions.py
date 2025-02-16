@@ -33,7 +33,7 @@ class LegacyTransaction:
     Atomic operation performed on the block chain.
     """
 
-    nonce: U256
+    nonce: U64
     gas_price: Uint
     gas: Uint
     to: Union[Bytes0, Address]
@@ -52,7 +52,7 @@ class AccessListTransaction:
     """
 
     chain_id: U64
-    nonce: U256
+    nonce: U64
     gas_price: Uint
     gas: Uint
     to: Union[Bytes0, Address]
@@ -72,7 +72,7 @@ class FeeMarketTransaction:
     """
 
     chain_id: U64
-    nonce: U256
+    nonce: U64
     max_priority_fee_per_gas: Uint
     max_fee_per_gas: Uint
     gas: Uint
@@ -146,7 +146,7 @@ def validate_transaction(tx: Transaction) -> bool:
     """
     if calculate_intrinsic_cost(tx) > Uint(tx.gas):
         return False
-    if tx.nonce >= U256(U64.MAX_VALUE):
+    if tx.nonce >= U64.MAX_VALUE:
         return False
     return True
 
