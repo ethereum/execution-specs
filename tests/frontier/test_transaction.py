@@ -23,9 +23,21 @@ load_frontier_transaction = partial(load_test_transaction, network="Frontier")
 @pytest.mark.parametrize(
     "test_file_high_nonce",
     [
-        "ttNonce/TransactionWithHighNonce64Minus1.json",
         "ttNonce/TransactionWithHighNonce64.json",
         "ttNonce/TransactionWithHighNonce64Plus1.json",
+    ],
+)
+def test_really_high_nonce(test_file_high_nonce: str) -> None:
+    test = load_frontier_transaction(test_dir, test_file_high_nonce)
+
+    with pytest.raises(rlp.DecodingError):
+        rlp.decode_to(Transaction, test["tx_rlp"])
+
+
+@pytest.mark.parametrize(
+    "test_file_high_nonce",
+    [
+        "ttNonce/TransactionWithHighNonce64Minus1.json",
     ],
 )
 def test_high_nonce(test_file_high_nonce: str) -> None:
