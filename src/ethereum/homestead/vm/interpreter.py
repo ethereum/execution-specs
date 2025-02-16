@@ -17,6 +17,7 @@ from typing import Optional, Set, Tuple
 from ethereum_types.bytes import Bytes0
 from ethereum_types.numeric import U256, Uint, ulen
 
+from ethereum.exceptions import EthereumException
 from ethereum.trace import (
     EvmStop,
     OpEnd,
@@ -44,7 +45,7 @@ from ..state import (
 from ..vm import Message
 from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
-from . import Environment, Evm
+from . import Evm
 from .exceptions import (
     AddressCollision,
     ExceptionalHalt,
@@ -75,12 +76,10 @@ class MessageCallOutput:
     refund_counter: U256
     logs: Tuple[Log, ...]
     accounts_to_delete: Set[Address]
-    error: Optional[Exception]
+    error: Optional[EthereumException]
 
 
-def process_message_call(
-    message: Message, env: Environment
-) -> MessageCallOutput:
+def process_message_call(message: Message) -> MessageCallOutput:
     """
     If `message.current` is empty then it creates a smart contract
     else it executes a call from the `message.caller` to the `message.target`.
@@ -90,27 +89,25 @@ def process_message_call(
     message :
         Transaction specific items.
 
-    env :
-        External items required for EVM execution.
-
     Returns
     -------
     output : `MessageCallOutput`
         Output of the message call
     """
+    block_env = message.block_env
     refund_counter = U256(0)
     if message.target == Bytes0(b""):
         is_collision = account_has_code_or_nonce(
-            env.state, message.current_target
-        ) or account_has_storage(env.state, message.current_target)
+            block_env.state, message.current_target
+        ) or account_has_storage(block_env.state, message.current_target)
         if is_collision:
             return MessageCallOutput(
                 Uint(0), U256(0), tuple(), set(), AddressCollision()
             )
         else:
-            evm = process_create_message(message, env)
+            evm = process_create_message(message)
     else:
-        evm = process_message(message, env)
+        evm = process_message(message)
 
     if evm.error:
         logs: Tuple[Log, ...] = ()
@@ -134,7 +131,7 @@ def process_message_call(
     )
 
 
-def process_create_message(message: Message, env: Environment) -> Evm:
+def process_create_message(message: Message) -> Evm:
     """
     Executes a call to create a smart contract.
 
@@ -150,35 +147,36 @@ def process_create_message(message: Message, env: Environment) -> Evm:
     evm: :py:class:`~ethereum.homestead.vm.Evm`
         Items containing execution specific objects.
     """
+    state = message.block_env.state
     # take snapshot of state before processing the message
-    begin_transaction(env.state)
+    begin_transaction(state)
 
     # If the address where the account is being created has storage, it is
     # destroyed. This can only happen in the following highly unlikely
     # circumstances:
     # * The address created by two `CREATE` calls collide.
     # * The first `CREATE` left empty code.
-    destroy_storage(env.state, message.current_target)
+    destroy_storage(state, message.current_target)
 
-    evm = process_message(message, env)
+    evm = process_message(message)
     if not evm.error:
         contract_code = evm.output
         contract_code_gas = Uint(len(contract_code)) * GAS_CODE_DEPOSIT
         try:
             charge_gas(evm, contract_code_gas)
         except ExceptionalHalt as error:
-            rollback_transaction(env.state)
+            rollback_transaction(state)
             evm.gas_left = Uint(0)
             evm.error = error
         else:
-            set_code(env.state, message.current_target, contract_code)
-            commit_transaction(env.state)
+            set_code(state, message.current_target, contract_code)
+            commit_transaction(state)
     else:
-        rollback_transaction(env.state)
+        rollback_transaction(state)
     return evm
 
 
-def process_message(message: Message, env: Environment) -> Evm:
+def process_message(message: Message) -> Evm:
     """
     Executes a call to create a smart contract.
 
@@ -194,30 +192,31 @@ def process_message(message: Message, env: Environment) -> Evm:
     evm: :py:class:`~ethereum.homestead.vm.Evm`
         Items containing execution specific objects
     """
+    state = message.block_env.state
     if message.depth > STACK_DEPTH_LIMIT:
         raise StackDepthLimitError("Stack depth limit reached")
 
     # take snapshot of state before processing the message
-    begin_transaction(env.state)
+    begin_transaction(state)
 
-    touch_account(env.state, message.current_target)
+    touch_account(state, message.current_target)
 
     if message.should_transfer_value and message.value != 0:
         move_ether(
-            env.state, message.caller, message.current_target, message.value
+            state, message.caller, message.current_target, message.value
         )
 
-    evm = execute_code(message, env)
+    evm = execute_code(message)
     if evm.error:
         # revert state to the last saved checkpoint
         # since the message call resulted in an error
-        rollback_transaction(env.state)
+        rollback_transaction(state)
     else:
-        commit_transaction(env.state)
+        commit_transaction(state)
     return evm
 
 
-def execute_code(message: Message, env: Environment) -> Evm:
+def execute_code(message: Message) -> Evm:
     """
     Executes bytecode present in the `message`.
 
@@ -242,7 +241,6 @@ def execute_code(message: Message, env: Environment) -> Evm:
         memory=bytearray(),
         code=code,
         gas_left=message.gas,
-        env=env,
         valid_jump_destinations=valid_jump_destinations,
         logs=(),
         refund_counter=0,
