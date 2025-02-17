@@ -496,7 +496,7 @@ class ApplyBodyOutput:
     block_logs_bloom: Bloom
     state_root: Root
     withdrawals_root: Root
-    blob_gas_used: Uint
+    blob_gas_used: U64
 
 
 def apply_body(
@@ -562,7 +562,7 @@ def apply_body(
     apply_body_output : `ApplyBodyOutput`
         Output of applying the block body to the state.
     """
-    blob_gas_used = Uint(0)
+    blob_gas_used = U64(0)
     gas_available = block_gas_limit
     transactions_trie: Trie[
         Bytes, Optional[Union[Bytes, LegacyTransaction]]

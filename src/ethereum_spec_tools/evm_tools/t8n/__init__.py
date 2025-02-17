@@ -312,7 +312,7 @@ class T8N(Load):
         transactions_trie = self.fork.Trie(secured=False, default=None)
         receipts_trie = self.fork.Trie(secured=False, default=None)
         block_logs = ()
-        blob_gas_used = Uint(0)
+        blob_gas_used = U64(0)
 
         if (
             self.fork.is_after_fork("ethereum.cancun")
