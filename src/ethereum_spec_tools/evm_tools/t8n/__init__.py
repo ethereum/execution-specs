@@ -178,45 +178,64 @@ class T8N(Load):
         Apply a single transaction on pre-state. No system operations
         are performed.
         """
-        block_env = self.block_environment()
-        block_output = self.fork.BlockOutput()
-        self.backup_state()
-        if len(self.txs.transactions) > 0:
-            tx = self.txs.transactions[0]
-            try:
-                self.fork.process_transaction(
-                    block_env=block_env,
-                    block_output=block_output,
-                    tx=tx,
-                    index=Uint(0),
-                )
-            except EthereumException as e:
-                self.txs.rejected_txs[0] = f"Failed transaction: {e!r}"
-                self.restore_state()
-                self.logger.warning(f"Transaction {0} failed: {str(e)}")
+        block_gas_limit = self.env.block_gas_limit
 
-        self.result.update(self, block_env, block_output)
-        self.result.rejected = self.txs.rejected_txs
+        gas_available = block_gas_limit
+        transactions_trie = self.fork.Trie(secured=False, default=None)
+        receipts_trie = self.fork.Trie(secured=False, default=None)
+        block_logs = ()
+        blob_gas_used = U64(0)
 
-    def run_blockchain_test(self) -> None:
-        """
-        Apply a block on the pre-state. Also includes system operations.
-        """
-        block_env = self.block_environment()
-        block_output = self.fork.BlockOutput()
+        if (
+            self.fork.is_after_fork("ethereum.cancun")
+            and self.env.parent_beacon_block_root is not None
+        ):
+            beacon_block_roots_contract_code = self.fork.get_account(
+                self.alloc.state, self.BEACON_ROOTS_ADDRESS
+            ).code
 
-        if self.fork.is_after_fork("ethereum.prague"):
-            self.fork.process_system_transaction(
-                block_env=block_env,
-                target_address=self.fork.HISTORY_STORAGE_ADDRESS,
-                data=block_env.block_hashes[-1],  # The parent hash
+            system_tx_message = self.fork.Message(
+                caller=self.SYSTEM_ADDRESS,
+                target=self.BEACON_ROOTS_ADDRESS,
+                gas=self.SYSTEM_TRANSACTION_GAS,
+                value=U256(0),
+                data=self.env.parent_beacon_block_root,
+                code=beacon_block_roots_contract_code,
+                depth=Uint(0),
+                current_target=self.BEACON_ROOTS_ADDRESS,
+                code_address=self.BEACON_ROOTS_ADDRESS,
+                should_transfer_value=False,
+                is_static=False,
+                accessed_addresses=set(),
+                accessed_storage_keys=set(),
+                parent_evm=None,
             )
 
-        if self.fork.is_after_fork("ethereum.cancun"):
-            self.fork.process_system_transaction(
-                block_env=block_env,
-                target_address=self.fork.BEACON_ROOTS_ADDRESS,
-                data=block_env.parent_beacon_block_root,
+            system_tx_env = self.fork.Environment(
+                caller=self.SYSTEM_ADDRESS,
+                origin=self.SYSTEM_ADDRESS,
+                block_hashes=self.env.block_hashes,
+                coinbase=self.env.coinbase,
+                number=self.env.block_number,
+                gas_limit=self.env.block_gas_limit,
+                base_fee_per_gas=self.env.base_fee_per_gas,
+                gas_price=self.env.base_fee_per_gas,
+                time=self.env.block_timestamp,
+                prev_randao=self.env.prev_randao,
+                state=self.alloc.state,
+                chain_id=self.chain_id,
+                traces=[],
+                excess_blob_gas=self.env.excess_blob_gas,
+                blob_versioned_hashes=(),
+                transient_storage=self.fork.TransientStorage(),
+            )
+
+            system_tx_output = self.fork.process_message_call(
+                system_tx_message, system_tx_env
+            )
+
+            self.fork.destroy_touched_empty_accounts(
+                system_tx_env.state, system_tx_output.touched_accounts
             )
 
         for i, tx in zip(self.txs.successfully_parsed, self.txs.transactions):

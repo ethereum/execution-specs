@@ -493,77 +493,47 @@ def make_receipt(
         logs=logs,
     )
 
-    return encode_receipt(tx, receipt)
+    if isinstance(tx, AccessListTransaction):
+        return b"\x01" + rlp.encode(receipt)
+    elif isinstance(tx, FeeMarketTransaction):
+        return b"\x02" + rlp.encode(receipt)
+    elif isinstance(tx, BlobTransaction):
+        return b"\x03" + rlp.encode(receipt)
+    else:
+        return receipt
 
 
-def process_system_transaction(
-    block_env: vm.BlockEnvironment,
-    target_address: Address,
-    data: Bytes,
-) -> MessageCallOutput:
+@dataclass
+class ApplyBodyOutput:
     """
-    Process a system transaction.
+    Output from applying the block body to the present state.
 
-    Parameters
-    ----------
-    block_env :
-        The block scoped environment.
-    target_address :
-        Address of the contract to call.
-    data :
-        Data to pass to the contract.
+    Contains the following:
 
-    Returns
-    -------
-    system_tx_output : `MessageCallOutput`
-        Output of processing the system transaction.
+    block_gas_used : `ethereum.base_types.Uint`
+        Gas used for executing all transactions.
+    transactions_root : `ethereum.fork_types.Root`
+        Trie root of all the transactions in the block.
+    receipt_root : `ethereum.fork_types.Root`
+        Trie root of all the receipts in the block.
+    block_logs_bloom : `Bloom`
+        Logs bloom of all the logs included in all the transactions of the
+        block.
+    state_root : `ethereum.fork_types.Root`
+        State root after all transactions have been executed.
+    withdrawals_root : `ethereum.fork_types.Root`
+        Trie root of all the withdrawals in the block.
+    blob_gas_used : `ethereum.base_types.Uint`
+        Total blob gas used in the block.
     """
-    system_contract_code = get_account(block_env.state, target_address).code
 
-    tx_env = vm.TransactionEnvironment(
-        origin=SYSTEM_ADDRESS,
-        gas_price=block_env.base_fee_per_gas,
-        gas=SYSTEM_TRANSACTION_GAS,
-        access_list_addresses=set(),
-        access_list_storage_keys=set(),
-        transient_storage=TransientStorage(),
-        blob_versioned_hashes=(),
-        index_in_block=None,
-        tx_hash=None,
-        traces=[],
-    )
-
-    system_tx_message = Message(
-        block_env=block_env,
-        tx_env=tx_env,
-        caller=SYSTEM_ADDRESS,
-        target=target_address,
-        gas=SYSTEM_TRANSACTION_GAS,
-        value=U256(0),
-        data=data,
-        code=system_contract_code,
-        depth=Uint(0),
-        current_target=target_address,
-        code_address=target_address,
-        should_transfer_value=False,
-        is_static=False,
-        accessed_addresses=set(),
-        accessed_storage_keys=set(),
-        parent_evm=None,
-    )
-
-    system_tx_output = process_message_call(system_tx_message)
-
-    # TODO: Empty accounts in post-merge forks are impossible
-    # see Ethereum Improvement Proposal 7523.
-    # This line is only included to support invalid tests in the test suite
-    # and will have to be removed in the future.
-    # See https://github.com/ethereum/execution-specs/issues/955
-    destroy_touched_empty_accounts(
-        block_env.state, system_tx_output.touched_accounts
-    )
-
-    return system_tx_output
+    block_gas_used: Uint
+    transactions_root: Root
+    receipt_root: Root
+    block_logs_bloom: Bloom
+    state_root: Root
+    withdrawals_root: Root
+    blob_gas_used: U64
 
 
 def apply_body(
@@ -592,15 +562,66 @@ def apply_body(
 
     Returns
     -------
-    block_output :
-        The block output for the current block.
+    apply_body_output : `ApplyBodyOutput`
+        Output of applying the block body to the state.
     """
-    block_output = vm.BlockOutput()
+    blob_gas_used = U64(0)
+    gas_available = block_gas_limit
+    transactions_trie: Trie[
+        Bytes, Optional[Union[Bytes, LegacyTransaction]]
+    ] = Trie(secured=False, default=None)
+    receipts_trie: Trie[Bytes, Optional[Union[Bytes, Receipt]]] = Trie(
+        secured=False, default=None
+    )
+    withdrawals_trie: Trie[Bytes, Optional[Union[Bytes, Withdrawal]]] = Trie(
+        secured=False, default=None
+    )
+    block_logs: Tuple[Log, ...] = ()
 
-    process_system_transaction(
-        block_env=block_env,
-        target_address=BEACON_ROOTS_ADDRESS,
-        data=block_env.parent_beacon_block_root,
+    beacon_block_roots_contract_code = get_account(
+        state, BEACON_ROOTS_ADDRESS
+    ).code
+
+    system_tx_message = Message(
+        caller=SYSTEM_ADDRESS,
+        target=BEACON_ROOTS_ADDRESS,
+        gas=SYSTEM_TRANSACTION_GAS,
+        value=U256(0),
+        data=parent_beacon_block_root,
+        code=beacon_block_roots_contract_code,
+        depth=Uint(0),
+        current_target=BEACON_ROOTS_ADDRESS,
+        code_address=BEACON_ROOTS_ADDRESS,
+        should_transfer_value=False,
+        is_static=False,
+        accessed_addresses=set(),
+        accessed_storage_keys=set(),
+        parent_evm=None,
+    )
+
+    system_tx_env = vm.Environment(
+        caller=SYSTEM_ADDRESS,
+        origin=SYSTEM_ADDRESS,
+        block_hashes=block_hashes,
+        coinbase=coinbase,
+        number=block_number,
+        gas_limit=block_gas_limit,
+        base_fee_per_gas=base_fee_per_gas,
+        gas_price=base_fee_per_gas,
+        time=block_time,
+        prev_randao=prev_randao,
+        state=state,
+        chain_id=chain_id,
+        traces=[],
+        excess_blob_gas=excess_blob_gas,
+        blob_versioned_hashes=(),
+        transient_storage=TransientStorage(),
+    )
+
+    system_tx_output = process_message_call(system_tx_message, system_tx_env)
+
+    destroy_touched_empty_accounts(
+        system_tx_env.state, system_tx_output.touched_accounts
     )
 
     for i, tx in enumerate(map(decode_transaction, transactions)):
