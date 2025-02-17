@@ -835,14 +835,15 @@ def test_rjumpi_at_the_end(
     eof_test: EOFTestFiller,
 ):
     """
+    Test invalid RJUMPI as the end of a code section.
     https://github.com/ipsilon/eof/blob/main/spec/eof.md#stack-validation 4.i:
-    This implies that the last instruction may be a terminating instruction or RJUMPI.
+    This implies that the last instruction must be a terminating instruction or RJUMP.
     """
     eof_test(
         container=Container(
             sections=[
                 Section.Code(
-                    code=Op.PUSH1(0) + Op.PUSH1(0) + Op.RJUMPI[1] + Op.STOP + Op.RJUMPI[-4],
+                    code=Op.PUSH0 + Op.PUSH0 + Op.RJUMPI[1] + Op.STOP + Op.RJUMPI[-4],
                 )
             ],
         ),
