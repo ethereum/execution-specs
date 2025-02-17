@@ -23,6 +23,7 @@ from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import (
     EthereumException,
     InvalidBlock,
+    InvalidTransaction,
     InvalidSenderError,
 )
 
@@ -728,7 +729,7 @@ def process_transaction(
         Logs generated during execution.
     """
     if not validate_transaction(tx):
-        raise InvalidBlock
+        raise InvalidTransaction
 
     sender = env.origin
     sender_account = get_account(env.state, sender)

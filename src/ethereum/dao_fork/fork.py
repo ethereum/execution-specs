@@ -23,7 +23,7 @@ from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
-from ethereum.exceptions import InvalidBlock, InvalidSenderError
+from ethereum.exceptions import InvalidBlock, InvalidSenderError, InvalidTransaction
 
 from . import FORK_CRITERIA, vm
 from .blocks import Block, Header, Log, Receipt
@@ -666,7 +666,7 @@ def process_transaction(
         Logs generated during execution.
     """
     if not validate_transaction(tx):
-        raise InvalidBlock
+        raise InvalidTransaction
 
     sender = env.origin
     sender_account = get_account(env.state, sender)
