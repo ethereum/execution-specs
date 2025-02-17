@@ -118,6 +118,11 @@ class ForkLoad:
         return self._module("transactions").signing_hash_4844
 
     @property
+    def get_transaction_hash(self) -> Any:
+        """get_transaction_hash function of the fork"""
+        return self._module("transactions").get_transaction_hash
+
+    @property
     def process_transaction(self) -> Any:
         """process_transaction function of the fork"""
         return self._module("fork").process_transaction
@@ -131,6 +136,11 @@ class ForkLoad:
     def Block(self) -> Any:
         """Block class of the fork"""
         return self._module("blocks").Block
+
+    @property
+    def decode_receipt(self) -> Any:
+        """decode_receipt function of the fork"""
+        return self._module("blocks").decode_receipt
 
     @property
     def compute_requests_hash(self) -> Any:

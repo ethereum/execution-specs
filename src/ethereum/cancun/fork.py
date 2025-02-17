@@ -719,7 +719,7 @@ def process_transaction(
         transient_storage=TransientStorage(),
         blob_versioned_hashes=blob_versioned_hashes,
         tx_index=index,
-        tx_hash=get_transaction_hash(tx),
+        tx_hash=get_transaction_hash(encode_transaction(tx)),
         traces=[],
     )
 

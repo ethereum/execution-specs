@@ -271,6 +271,39 @@ class Result:
     requests_hash: Optional[Hash32] = None
     requests: Optional[List[Bytes]] = None
 
+    def get_receipts_from_tries(
+        self, t8n: Any, tx_trie: Any, receipts_trie: Any
+    ) -> List[Any]:
+        """
+        Get receipts from the transaction and receipts tries.
+        """
+        receipts: List[Any] = []
+        for index in tx_trie._data:
+            if index not in receipts_trie._data:
+                # Meaning the transaction has somehow failed
+                return receipts
+
+            tx = tx_trie._data.get(index)
+            tx_hash = t8n.fork.get_transaction_hash(tx)
+
+            receipt = receipts_trie._data.get(index)
+
+            if hasattr(t8n.fork, "decode_receipt"):
+                decoded_receipt = t8n.fork.decode_receipt(receipt)
+            else:
+                decoded_receipt = receipt
+
+            gas_consumed = decoded_receipt.cumulative_gas_used
+
+            receipts.append(
+                {
+                    "transactionHash": "0x" + tx_hash.hex(),
+                    "gasUsed": hex(gas_consumed),
+                }
+            )
+
+        return receipts
+
     def update(self, t8n: "T8N", block_env: Any, block_output: Any) -> None:
         """
         Update the result after processing the inputs.
@@ -281,13 +314,22 @@ class Result:
         self.bloom = t8n.fork.logs_bloom(block_output.block_logs)
         self.logs_hash = keccak256(rlp.encode(block_output.block_logs))
         self.state_root = t8n.fork.state_root(block_env.state)
+        self.receipts = self.get_receipts_from_tries(
+            t8n, block_output.transactions_trie, block_output.receipts_trie
+        )
 
-        if t8n.fork.is_after_fork("ethereum.shanghai"):
+        if hasattr(block_env, "base_fee_per_gas"):
+            self.base_fee = block_env.base_fee_per_gas
+
+        if hasattr(block_output, "withdrawals_trie"):
             self.withdrawals_root = t8n.fork.root(
                 block_output.withdrawals_trie
             )
 
-        if t8n.fork.is_after_fork("ethereum.prague"):
+        if hasattr(block_env, "excess_blob_gas"):
+            self.excess_blob_gas = block_env.excess_blob_gas
+
+        if hasattr(block_output, "requests"):
             self.requests = block_output.requests
             self.requests_hash = t8n.fork.compute_requests_hash(self.requests)
 
@@ -323,6 +365,8 @@ class Result:
             {"index": idx, "error": error}
             for idx, error in self.rejected.items()
         ]
+
+        data["receipts"] = self.receipts
 
         if self.requests_hash is not None:
             assert self.requests is not None

@@ -822,7 +822,7 @@ def process_transaction(
         blob_versioned_hashes=blob_versioned_hashes,
         authorizations=authorizations,
         tx_index=index,
-        tx_hash=get_transaction_hash(tx),
+        tx_hash=get_transaction_hash(encode_transaction(tx)),
         traces=[],
     )
 
