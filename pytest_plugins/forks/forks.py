@@ -474,7 +474,7 @@ def pytest_configure(config: pytest.Config):
 
     dev_forks_help = textwrap.dedent(
         "To run tests for a fork under active development, it must be "
-        "specified explicitly via --forks-until=FORK.\n"
+        "specified explicitly via --until=FORK.\n"
         "Tests are only ran for deployed mainnet forks by default, i.e., "
         f"until {get_deployed_forks()[-1].name()}.\n"
     )
