@@ -14,7 +14,6 @@ from ethereum_test_tools import (
     Account,
     Alloc,
     Block,
-    BlockchainTestEngineFiller,
     BlockchainTestFiller,
     BlockException,
     Bytecode,
@@ -526,8 +525,9 @@ def test_invalid_deposit_withdrawal_consolidation_requests(
     invalid_requests_block_combinations,
 )
 @pytest.mark.parametrize("correct_requests_hash_in_header", [True])
+@pytest.mark.blockchain_test_engine_only
 def test_invalid_deposit_withdrawal_consolidation_requests_engine(
-    blockchain_test_engine: BlockchainTestEngineFiller,
+    blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     blocks: List[Block],
 ):
@@ -549,7 +549,7 @@ def test_invalid_deposit_withdrawal_consolidation_requests_engine(
     Also these tests would not fail if the block is imported via RLP (syncing from a peer),
     so we only generate the BlockchainTestEngine for them.
     """
-    blockchain_test_engine(
+    blockchain_test(
         genesis_environment=Environment(),
         pre=pre,
         post={},

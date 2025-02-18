@@ -499,9 +499,10 @@ def test_invalid_tx_max_fee_per_blob_gas(
     "parent_excess_blobs,parent_blobs,tx_max_fee_per_blob_gas,tx_error",
     generate_invalid_tx_max_fee_per_blob_gas_tests,
 )
+@pytest.mark.state_test_only
 @pytest.mark.valid_from("Cancun")
 def test_invalid_tx_max_fee_per_blob_gas_state(
-    state_test_only: StateTestFiller,
+    state_test: StateTestFiller,
     state_env: Environment,
     pre: Alloc,
     txs: List[Transaction],
@@ -513,7 +514,7 @@ def test_invalid_tx_max_fee_per_blob_gas_state(
     - tx max_fee_per_blob_gas is zero
     """
     assert len(txs) == 1
-    state_test_only(
+    state_test(
         pre=pre,
         post={},
         tx=txs[0],
