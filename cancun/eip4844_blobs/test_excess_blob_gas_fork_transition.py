@@ -94,7 +94,7 @@ def pre_fork_excess_blobs(
     pre_fork_blocks: List[Block],
 ) -> int:
     """
-    Return the cummulative excess blobs up until the fork given the pre_fork_blobs_per_block
+    Return the cumulative excess blobs up until the fork given the pre_fork_blobs_per_block
     and the target blobs in the fork prior.
     """
     if not fork.supports_blobs(timestamp=0):
