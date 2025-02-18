@@ -195,4 +195,8 @@ class EvmoneExceptionMapper(ExceptionMapper):
             ExceptionMessage(
                 EOFException.CALLF_TO_NON_RETURNING, "err: callf_to_non_returning_function"
             ),
+            ExceptionMessage(
+                EOFException.EOFCREATE_WITH_TRUNCATED_CONTAINER,
+                "err: eofcreate_with_truncated_container",
+            ),
         ]

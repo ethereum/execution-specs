@@ -758,6 +758,10 @@ class EOFException(ExceptionBase):
     """
     CALLF instruction targeting a non-returning code section
     """
+    EOFCREATE_WITH_TRUNCATED_CONTAINER = auto()
+    """
+    EOFCREATE with truncated container
+    """
 
 
 """
