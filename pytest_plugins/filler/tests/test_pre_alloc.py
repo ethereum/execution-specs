@@ -29,7 +29,7 @@ pytestmark = [
 
 
 def test_alloc_deploy_contract(pre: Alloc, evm_code_type: EVMCodeType):
-    """Test `Alloc.deploy_contract` functionallity."""
+    """Test `Alloc.deploy_contract` functionality."""
     contract_1 = pre.deploy_contract(Op.SSTORE(0, 1) + Op.STOP)
     contract_2 = pre.deploy_contract(Op.SSTORE(0, 2) + Op.STOP)
     assert contract_1 == Address(CONTRACT_START_ADDRESS_DEFAULT)
@@ -57,7 +57,7 @@ def test_alloc_deploy_contract(pre: Alloc, evm_code_type: EVMCodeType):
 
 
 def test_alloc_fund_sender(pre: Alloc):
-    """Test `Alloc.fund_eoa` functionallity."""
+    """Test `Alloc.fund_eoa` functionality."""
     sender_1 = pre.fund_eoa(10**18)
     sender_2 = pre.fund_eoa(10**18)
     assert sender_1 != sender_2
