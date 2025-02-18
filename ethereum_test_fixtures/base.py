@@ -46,14 +46,14 @@ class BaseFixture(CamelModel):
     info: Dict[str, Dict[str, Any] | str] = Field(default_factory=dict, alias="_info")
 
     # Fixture format properties
-    fixture_format_name: ClassVar[str] = "unset"
+    format_name: ClassVar[str] = ""
     output_file_extension: ClassVar[str] = ".json"
     description: ClassVar[str] = "Unknown fixture format; it has not been set."
 
     @classmethod
     def output_base_dir_name(cls) -> str:
         """Return name of the subdirectory where this type of fixture should be dumped to."""
-        return cls.fixture_format_name.replace("test", "tests")
+        return cls.format_name.replace("test", "tests")
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs):
@@ -61,17 +61,17 @@ class BaseFixture(CamelModel):
         Register all subclasses of BaseFixture with a fixture format name set
         as possible fixture formats.
         """
-        if cls.fixture_format_name != "unset":
+        if cls.format_name:
             # Register the new fixture format
-            BaseFixture.formats[cls.fixture_format_name] = cls
+            BaseFixture.formats[cls.format_name] = cls
             if len(BaseFixture.formats) > 1:
                 BaseFixture.formats_type_adapter = TypeAdapter(
                     Annotated[
                         Union[
                             tuple(
-                                Annotated[fixture_format, Tag(fixture_format_name)]
+                                Annotated[fixture_format, Tag(format_name)]
                                 for (
-                                    fixture_format_name,
+                                    format_name,
                                     fixture_format,
                                 ) in BaseFixture.formats.items()
                             )
@@ -124,7 +124,7 @@ class BaseFixture(CamelModel):
         self.info["filling-transition-tool"] = t8n_version
         self.info["description"] = test_case_description
         self.info["url"] = fixture_source_url
-        self.info["fixture_format"] = self.fixture_format_name
+        self.info["fixture_format"] = self.format_name
         if ref_spec is not None:
             ref_spec.write_info(self.info)
         if _info_metadata:
@@ -144,9 +144,35 @@ class BaseFixture(CamelModel):
         return True
 
 
+class LabeledFixtureFormat:
+    """
+    Represents a fixture format with a custom label.
+
+    This label will be used in the test id and also will be added as a marker to the
+    generated test case when filling the test.
+    """
+
+    format: Type[BaseFixture]
+    label: str
+
+    def __init__(self, fixture_format: "Type[BaseFixture] | LabeledFixtureFormat", label: str):
+        """Initialize the fixture format with a custom label."""
+        self.format = (
+            fixture_format.format
+            if isinstance(fixture_format, LabeledFixtureFormat)
+            else fixture_format
+        )
+        self.label = label
+
+    @property
+    def format_name(self) -> str:
+        """Get the execute format name."""
+        return self.format.format_name
+
+
 # Annotated type alias for a base fixture class
 FixtureFormat = Annotated[
     Type[BaseFixture],
-    PlainSerializer(lambda f: f.fixture_format_name),
+    PlainSerializer(lambda f: f.format_name),
     PlainValidator(lambda f: BaseFixture.formats[f] if f in BaseFixture.formats else f),
 ]

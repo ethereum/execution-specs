@@ -15,6 +15,7 @@ from ethereum_test_tools import SPEC_TYPES, BaseTest, TestInfo, Transaction
 from ethereum_test_types import TransactionDefaults
 from pytest_plugins.spec_version_checker.spec_version_checker import EIPSpecTestItem
 
+from ..shared.helpers import get_spec_format_for_item, labeled_format_parameter_set
 from .pre_alloc import Alloc
 
 
@@ -343,12 +344,8 @@ def pytest_generate_tests(metafunc: pytest.Metafunc):
             metafunc.parametrize(
                 [test_type.pytest_parameter_name()],
                 [
-                    pytest.param(
-                        execute_format,
-                        id=execute_format.execute_format_name.lower(),
-                        marks=[getattr(pytest.mark, execute_format.execute_format_name.lower())],
-                    )
-                    for execute_format in test_type.supported_execute_formats
+                    labeled_format_parameter_set(format_with_or_without_label)
+                    for format_with_or_without_label in test_type.supported_execute_formats
                 ],
                 scope="function",
                 indirect=True,
@@ -366,7 +363,18 @@ def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item
     for item in items[:]:  # use a copy of the list, as we'll be modifying it
         if isinstance(item, EIPSpecTestItem):
             continue
-        for marker in item.iter_markers():
+        params: Dict[str, Any] = item.callspec.params  # type: ignore
+        if "fork" not in params or params["fork"] is None:
+            items.remove(item)
+            continue
+        fork: Fork = params["fork"]
+        spec_type, execute_format = get_spec_format_for_item(params)
+        assert issubclass(execute_format, BaseExecute)
+        markers = list(item.iter_markers())
+        if spec_type.discard_execute_format_by_marks(execute_format, fork, markers):
+            items.remove(item)
+            continue
+        for marker in markers:
             if marker.name == "execute":
                 for mark in marker.args:
                     item.add_marker(mark)

@@ -1,19 +1,23 @@
 """Ethereum state test spec definition and filler."""
 
 from pprint import pprint
-from typing import Any, Callable, ClassVar, Dict, Generator, List, Optional, Type
+from typing import Any, Callable, ClassVar, Dict, Generator, List, Optional, Sequence, Type
 
 import pytest
 from pydantic import Field
 
 from ethereum_clis import TransitionTool
 from ethereum_test_exceptions import EngineAPIError
-from ethereum_test_execution import BaseExecute, ExecuteFormat, TransactionPost
+from ethereum_test_execution import (
+    BaseExecute,
+    ExecuteFormat,
+    LabeledExecuteFormat,
+    TransactionPost,
+)
 from ethereum_test_fixtures import (
     BaseFixture,
-    BlockchainEngineFixture,
-    BlockchainFixture,
     FixtureFormat,
+    LabeledFixtureFormat,
     StateFixture,
 )
 from ethereum_test_fixtures.common import FixtureBlobSchedule
@@ -44,14 +48,34 @@ class StateTest(BaseTest):
     blockchain_test_rlp_modifier: Optional[Header] = None
     chain_id: int = 1
 
-    supported_fixture_formats: ClassVar[List[FixtureFormat]] = [
-        BlockchainFixture,
-        BlockchainEngineFixture,
+    supported_fixture_formats: ClassVar[Sequence[FixtureFormat | LabeledFixtureFormat]] = [
         StateFixture,
+    ] + [
+        LabeledFixtureFormat(
+            fixture_format,
+            f"{fixture_format.format_name}_from_state_test",
+        )
+        for fixture_format in BlockchainTest.supported_fixture_formats
     ]
-    supported_execute_formats: ClassVar[List[ExecuteFormat]] = [
+    supported_execute_formats: ClassVar[Sequence[ExecuteFormat | LabeledExecuteFormat]] = [
         TransactionPost,
     ]
+
+    supported_markers: ClassVar[Dict[str, str]] = {
+        "state_test_only": "Only generate a state test fixture",
+    }
+
+    @classmethod
+    def discard_fixture_format_by_marks(
+        cls,
+        fixture_format: FixtureFormat,
+        fork: Fork,
+        markers: List[pytest.Mark],
+    ) -> bool:
+        """Discard a fixture format from filling if the appropriate marker is used."""
+        if "state_test_only" in [m.name for m in markers]:
+            return fixture_format != StateFixture
+        return False
 
     def _generate_blockchain_genesis_environment(self, *, fork: Fork) -> Environment:
         """Generate the genesis environment for the BlockchainTest formatted test."""
@@ -214,12 +238,6 @@ class StateTest(BaseTest):
                 post=self.post,
             )
         raise Exception(f"Unsupported execute format: {execute_format}")
-
-
-class StateTestOnly(StateTest):
-    """StateTest filler that only generates a state test fixture."""
-
-    supported_fixture_formats: ClassVar[List[FixtureFormat]] = [StateFixture]
 
 
 StateTestSpec = Callable[[str], Generator[StateTest, None, None]]

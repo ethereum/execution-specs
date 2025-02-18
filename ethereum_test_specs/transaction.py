@@ -1,12 +1,22 @@
 """Ethereum transaction test spec definition and filler."""
 
-from typing import Callable, ClassVar, Generator, List, Optional, Type
+from typing import Callable, ClassVar, Generator, List, Optional, Sequence, Type
 
 import pytest
 
 from ethereum_clis import TransitionTool
-from ethereum_test_execution import BaseExecute, ExecuteFormat, TransactionPost
-from ethereum_test_fixtures import BaseFixture, FixtureFormat, TransactionFixture
+from ethereum_test_execution import (
+    BaseExecute,
+    ExecuteFormat,
+    LabeledExecuteFormat,
+    TransactionPost,
+)
+from ethereum_test_fixtures import (
+    BaseFixture,
+    FixtureFormat,
+    LabeledFixtureFormat,
+    TransactionFixture,
+)
 from ethereum_test_fixtures.transaction import FixtureResult
 from ethereum_test_forks import Fork
 from ethereum_test_types import Alloc, Transaction
@@ -20,10 +30,10 @@ class TransactionTest(BaseTest):
     tx: Transaction
     pre: Alloc | None = None
 
-    supported_fixture_formats: ClassVar[List[FixtureFormat]] = [
+    supported_fixture_formats: ClassVar[Sequence[FixtureFormat | LabeledFixtureFormat]] = [
         TransactionFixture,
     ]
-    supported_execute_formats: ClassVar[List[ExecuteFormat]] = [
+    supported_execute_formats: ClassVar[Sequence[ExecuteFormat | LabeledExecuteFormat]] = [
         TransactionPost,
     ]
 

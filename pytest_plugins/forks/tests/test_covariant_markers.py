@@ -12,7 +12,8 @@ import pytest
             @pytest.mark.with_all_tx_types()
             @pytest.mark.valid_from("Paris")
             @pytest.mark.valid_until("Paris")
-            def test_case(state_test_only, tx_type):
+            @pytest.mark.state_test_only
+            def test_case(state_test, tx_type):
                 pass
             """,
             {"passed": 3, "failed": 0, "skipped": 0, "errors": 0},
@@ -25,7 +26,8 @@ import pytest
             @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type != 0)
             @pytest.mark.valid_from("Paris")
             @pytest.mark.valid_until("Paris")
-            def test_case(state_test_only, tx_type):
+            @pytest.mark.state_test_only
+            def test_case(state_test, tx_type):
                 pass
             """,
             {"passed": 2, "failed": 0, "skipped": 0, "errors": 0},
@@ -40,7 +42,8 @@ import pytest
             )
             @pytest.mark.valid_from("Paris")
             @pytest.mark.valid_until("Paris")
-            def test_case(state_test_only, tx_type):
+            @pytest.mark.state_test_only
+            def test_case(state_test, tx_type):
                 assert tx_type != 1
             """,
             {"passed": 2, "xpassed": 0, "failed": 0, "skipped": 1, "errors": 0},
@@ -53,7 +56,8 @@ import pytest
             @pytest.mark.with_all_tx_types(marks=pytest.mark.skip("incompatible"))
             @pytest.mark.valid_from("Paris")
             @pytest.mark.valid_until("Paris")
-            def test_case(state_test_only, tx_type):
+            @pytest.mark.state_test_only
+            def test_case(state_test, tx_type):
                 assert False
             """,
             {"passed": 0, "xpassed": 0, "failed": 0, "skipped": 3, "errors": 0},
@@ -66,7 +70,8 @@ import pytest
             @pytest.mark.with_all_tx_types(marks=[pytest.mark.skip("incompatible")])
             @pytest.mark.valid_from("Paris")
             @pytest.mark.valid_until("Paris")
-            def test_case(state_test_only, tx_type):
+            @pytest.mark.state_test_only
+            def test_case(state_test, tx_type):
                 assert False
             """,
             {"passed": 0, "xpassed": 0, "failed": 0, "skipped": 3, "errors": 0},
@@ -85,7 +90,8 @@ import pytest
             )
             @pytest.mark.valid_from("Paris")
             @pytest.mark.valid_until("Paris")
-            def test_case(request, state_test_only, tx_type):
+            @pytest.mark.state_test_only
+            def test_case(request, state_test, tx_type):
                 mark_names = [mark.name for mark in request.node.iter_markers()]
 
                 assert "state_test" in mark_names
@@ -102,7 +108,8 @@ import pytest
             @pytest.mark.with_all_contract_creating_tx_types()
             @pytest.mark.valid_from("Paris")
             @pytest.mark.valid_until("Paris")
-            def test_case(state_test_only, tx_type):
+            @pytest.mark.state_test_only
+            def test_case(state_test, tx_type):
                 pass
             """,
             {"passed": 3, "failed": 0, "skipped": 0, "errors": 0},
@@ -115,7 +122,8 @@ import pytest
             @pytest.mark.with_all_contract_creating_tx_types()
             @pytest.mark.valid_from("Cancun")
             @pytest.mark.valid_until("Cancun")
-            def test_case(state_test_only, tx_type):
+            @pytest.mark.state_test_only
+            def test_case(state_test, tx_type):
                 pass
             """,
             {"passed": 3, "failed": 0, "skipped": 0, "errors": 0},
@@ -128,7 +136,8 @@ import pytest
             @pytest.mark.with_all_precompiles()
             @pytest.mark.valid_from("Cancun")
             @pytest.mark.valid_until("Cancun")
-            def test_case(state_test_only, precompile):
+            @pytest.mark.state_test_only
+            def test_case(state_test, precompile):
                 pass
             """,
             {"passed": 10, "failed": 0, "skipped": 0, "errors": 0},
@@ -141,7 +150,8 @@ import pytest
             @pytest.mark.with_all_evm_code_types()
             @pytest.mark.valid_from("Cancun")
             @pytest.mark.valid_until("Cancun")
-            def test_case(state_test_only, evm_code_type):
+            @pytest.mark.state_test_only
+            def test_case(state_test, evm_code_type):
                 pass
             """,
             {"passed": 1, "failed": 0, "skipped": 0, "errors": 0},
@@ -154,7 +164,8 @@ import pytest
             @pytest.mark.with_all_call_opcodes()
             @pytest.mark.valid_from("Cancun")
             @pytest.mark.valid_until("Cancun")
-            def test_case(state_test_only, call_opcode):
+            @pytest.mark.state_test_only
+            def test_case(state_test, call_opcode):
                 pass
             """,
             {"passed": 4, "failed": 0, "skipped": 0, "errors": 0},
@@ -170,7 +181,8 @@ import pytest
             )
             @pytest.mark.valid_from("Cancun")
             @pytest.mark.valid_until("Cancun")
-            def test_case(state_test_only, call_opcode):
+            @pytest.mark.state_test_only
+            def test_case(state_test, call_opcode):
                 pass
             """,
             {"passed": 4, "failed": 0, "skipped": 0, "errors": 0},
@@ -184,7 +196,8 @@ import pytest
             @pytest.mark.with_all_call_opcodes(selector=lambda call_opcode: call_opcode == Op.CALL)
             @pytest.mark.valid_from("Cancun")
             @pytest.mark.valid_until("Cancun")
-            def test_case(state_test_only, call_opcode):
+            @pytest.mark.state_test_only
+            def test_case(state_test, call_opcode):
                 pass
             """,
             {"passed": 1, "failed": 0, "skipped": 0, "errors": 0},
@@ -197,7 +210,8 @@ import pytest
             @pytest.mark.with_all_create_opcodes()
             @pytest.mark.valid_from("Cancun")
             @pytest.mark.valid_until("Cancun")
-            def test_case(state_test_only, create_opcode):
+            @pytest.mark.state_test_only
+            def test_case(state_test, create_opcode):
                 pass
             """,
             {"passed": 2, "failed": 0, "skipped": 0, "errors": 0},
@@ -211,7 +225,8 @@ import pytest
             @pytest.mark.with_all_precompiles()
             @pytest.mark.valid_from("Cancun")
             @pytest.mark.valid_until("Cancun")
-            def test_case(state_test_only, call_opcode, precompile):
+            @pytest.mark.state_test_only
+            def test_case(state_test, call_opcode, precompile):
                 pass
             """,
             {"passed": 4 * 10, "failed": 0, "skipped": 0, "errors": 0},
@@ -225,7 +240,8 @@ import pytest
             @pytest.mark.with_all_create_opcodes()
             @pytest.mark.valid_from("Cancun")
             @pytest.mark.valid_until("Cancun")
-            def test_case(state_test_only, call_opcode, create_opcode):
+            @pytest.mark.state_test_only
+            def test_case(state_test, call_opcode, create_opcode):
                 pass
             """,
             {"passed": 2 * 4, "failed": 0, "skipped": 0, "errors": 0},
@@ -238,7 +254,8 @@ import pytest
             @pytest.mark.with_all_system_contracts()
             @pytest.mark.valid_from("Cancun")
             @pytest.mark.valid_until("Cancun")
-            def test_case(state_test_only, system_contract):
+            @pytest.mark.state_test_only
+            def test_case(state_test, system_contract):
                 pass
             """,
             {"passed": 1, "failed": 0, "skipped": 0, "errors": 0},
@@ -251,7 +268,8 @@ import pytest
             @pytest.mark.with_all_tx_types(invalid_parameter="invalid")
             @pytest.mark.valid_from("Paris")
             @pytest.mark.valid_until("Paris")
-            def test_case(state_test_only, tx_type):
+            @pytest.mark.state_test_only
+            def test_case(state_test, tx_type):
                 pass
             """,
             {"passed": 0, "failed": 0, "skipped": 0, "errors": 1},
@@ -264,7 +282,8 @@ import pytest
             @pytest.mark.with_all_tx_types(selector=None)
             @pytest.mark.valid_from("Paris")
             @pytest.mark.valid_until("Paris")
-            def test_case(state_test_only, tx_type):
+            @pytest.mark.state_test_only
+            def test_case(state_test, tx_type):
                 pass
             """,
             {"passed": 0, "failed": 0, "skipped": 0, "errors": 1},
@@ -277,7 +296,8 @@ import pytest
             @pytest.mark.with_all_tx_types(lambda tx_type: tx_type != 0)
             @pytest.mark.valid_from("Paris")
             @pytest.mark.valid_until("Paris")
-            def test_case(state_test_only, tx_type):
+            @pytest.mark.state_test_only
+            def test_case(state_test, tx_type):
                 pass
             """,
             {"passed": 0, "failed": 0, "skipped": 0, "errors": 1},
@@ -297,7 +317,8 @@ import pytest
             )
             @pytest.mark.valid_from("Paris")
             @pytest.mark.valid_until("Shanghai")
-            def test_case(state_test_only, test_parameter):
+            @pytest.mark.state_test_only
+            def test_case(state_test, test_parameter):
                 pass
             """,
             {"passed": 5, "failed": 0, "skipped": 0, "errors": 0},
@@ -314,7 +335,8 @@ import pytest
             @pytest.mark.parametrize_by_fork("test_parameter,test_parameter_2", covariant_function)
             @pytest.mark.valid_from("Paris")
             @pytest.mark.valid_until("Shanghai")
-            def test_case(state_test_only, test_parameter, test_parameter_2):
+            @pytest.mark.state_test_only
+            def test_case(state_test, test_parameter, test_parameter_2):
                 pass
             """,
             {"passed": 5, "failed": 0, "skipped": 0, "errors": 0},
@@ -338,7 +360,8 @@ import pytest
             @pytest.mark.parametrize_by_fork("test_parameter",covariant_function)
             @pytest.mark.valid_from("Paris")
             @pytest.mark.valid_until("Shanghai")
-            def test_case(state_test_only, test_parameter):
+            @pytest.mark.state_test_only
+            def test_case(state_test, test_parameter):
                 pass
             """,
             {"passed": 5, "failed": 0, "skipped": 0, "errors": 0},
@@ -364,7 +387,8 @@ import pytest
             ], fn=covariant_function)
             @pytest.mark.valid_from("Paris")
             @pytest.mark.valid_until("Shanghai")
-            def test_case(state_test_only, test_parameter, test_parameter_2):
+            @pytest.mark.state_test_only
+            def test_case(state_test, test_parameter, test_parameter_2):
                 pass
             """,
             {"passed": 5, "failed": 0, "skipped": 0, "errors": 0},

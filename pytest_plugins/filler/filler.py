@@ -32,6 +32,8 @@ from ethereum_test_tools.utility.versioning import (
 )
 from pytest_plugins.spec_version_checker.spec_version_checker import EIPSpecTestItem
 
+from ..shared.helpers import get_spec_format_for_item, labeled_format_parameter_set
+
 
 def default_output_directory() -> str:
     """
@@ -697,7 +699,7 @@ def base_test_parametrizer(cls: Type[BaseTest]):
                 request.node.config.fixture_path_relative = str(
                     fixture_path.relative_to(output_dir)
                 )
-                request.node.config.fixture_format = fixture_format.fixture_format_name
+                request.node.config.fixture_format = fixture_format.format_name
 
         return BaseTestWrapper
 
@@ -720,12 +722,8 @@ def pytest_generate_tests(metafunc: pytest.Metafunc):
             metafunc.parametrize(
                 [test_type.pytest_parameter_name()],
                 [
-                    pytest.param(
-                        fixture_format,
-                        id=fixture_format.fixture_format_name.lower(),
-                        marks=[getattr(pytest.mark, fixture_format.fixture_format_name.lower())],
-                    )
-                    for fixture_format in test_type.supported_fixture_formats
+                    labeled_format_parameter_set(format_with_or_without_label)
+                    for format_with_or_without_label in test_type.supported_fixture_formats
                 ],
                 scope="function",
                 indirect=True,
@@ -748,11 +746,16 @@ def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item
             items.remove(item)
             continue
         fork: Fork = params["fork"]
-        for spec_name in [spec_type.pytest_parameter_name() for spec_type in SPEC_TYPES]:
-            if spec_name in params and not params[spec_name].supports_fork(fork):
-                items.remove(item)
-                break
-        for marker in item.iter_markers():
+        spec_type, fixture_format = get_spec_format_for_item(params)
+        assert issubclass(fixture_format, BaseFixture)
+        if not fixture_format.supports_fork(fork):
+            items.remove(item)
+            continue
+        markers = list(item.iter_markers())
+        if spec_type.discard_fixture_format_by_marks(fixture_format, fork, markers):
+            items.remove(item)
+            continue
+        for marker in markers:
             if marker.name == "fill":
                 for mark in marker.args:
                     item.add_marker(mark)

@@ -104,7 +104,7 @@ class FixtureConfig(CamelModel):
 class StateFixture(BaseFixture):
     """Fixture for a single StateTest."""
 
-    fixture_format_name: ClassVar[str] = "state_test"
+    format_name: ClassVar[str] = "state_test"
     description: ClassVar[str] = "Tests that generate a state test fixture."
 
     env: FixtureEnvironment

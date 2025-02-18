@@ -198,10 +198,8 @@ def test_fill_state_test(
         ),
     }
 
-    fixture_format_name = fixture_format.fixture_format_name
-    expected_json_file = (
-        f"chainid_{fork.name().lower()}_{fixture_format_name}_tx_type_{tx_type}.json"
-    )
+    format_name = fixture_format.format_name
+    expected_json_file = f"chainid_{fork.name().lower()}_{format_name}_tx_type_{tx_type}.json"
     with open(
         os.path.join(
             "src",

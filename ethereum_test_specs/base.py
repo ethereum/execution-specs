@@ -5,15 +5,15 @@ from functools import reduce
 from itertools import count
 from os import path
 from pathlib import Path
-from typing import Callable, ClassVar, Generator, Iterator, List, Optional
+from typing import Callable, ClassVar, Dict, Generator, Iterator, List, Optional, Sequence
 
 import pytest
 from pydantic import BaseModel, Field
 
 from ethereum_clis import Result, TransitionTool
 from ethereum_test_base_types import to_hex
-from ethereum_test_execution import BaseExecute, ExecuteFormat
-from ethereum_test_fixtures import BaseFixture, FixtureFormat
+from ethereum_test_execution import BaseExecute, ExecuteFormat, LabeledExecuteFormat
+from ethereum_test_fixtures import BaseFixture, FixtureFormat, LabeledFixtureFormat
 from ethereum_test_forks import Fork
 from ethereum_test_types import Environment, Withdrawal
 
@@ -51,8 +51,30 @@ class BaseTest(BaseModel):
     t8n_dump_dir: Path | None = Field(None, exclude=True)
     _t8n_call_counter: Iterator[int] = count(0)
 
-    supported_fixture_formats: ClassVar[List[FixtureFormat]] = []
-    supported_execute_formats: ClassVar[List[ExecuteFormat]] = []
+    supported_fixture_formats: ClassVar[Sequence[FixtureFormat | LabeledFixtureFormat]] = []
+    supported_execute_formats: ClassVar[Sequence[ExecuteFormat | LabeledExecuteFormat]] = []
+
+    supported_markers: ClassVar[Dict[str, str]] = {}
+
+    @classmethod
+    def discard_fixture_format_by_marks(
+        cls,
+        fixture_format: FixtureFormat,
+        fork: Fork,
+        markers: List[pytest.Mark],
+    ) -> bool:
+        """Discard a fixture format from filling if the appropriate marker is used."""
+        return False
+
+    @classmethod
+    def discard_execute_format_by_marks(
+        cls,
+        execute_format: ExecuteFormat,
+        fork: Fork,
+        markers: List[pytest.Mark],
+    ) -> bool:
+        """Discard an execute format from executing if the appropriate marker is used."""
+        return False
 
     @abstractmethod
     def generate(

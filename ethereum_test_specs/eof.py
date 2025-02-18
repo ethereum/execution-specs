@@ -5,7 +5,7 @@ import warnings
 from pathlib import Path
 from shutil import which
 from subprocess import CompletedProcess
-from typing import Any, Callable, ClassVar, Dict, Generator, List, Optional, Type
+from typing import Any, Callable, ClassVar, Dict, Generator, List, Optional, Sequence, Type
 
 import pytest
 from pydantic import Field, model_validator
@@ -13,14 +13,17 @@ from pydantic import Field, model_validator
 from ethereum_clis import EvmoneExceptionMapper, TransitionTool
 from ethereum_test_base_types import Account, Bytes, HexNumber
 from ethereum_test_exceptions.exceptions import EOFExceptionInstanceOrList, to_pipe_str
-from ethereum_test_execution import BaseExecute, ExecuteFormat, TransactionPost
+from ethereum_test_execution import (
+    BaseExecute,
+    ExecuteFormat,
+    LabeledExecuteFormat,
+    TransactionPost,
+)
 from ethereum_test_fixtures import (
     BaseFixture,
-    BlockchainEngineFixture,
-    BlockchainFixture,
     EOFFixture,
     FixtureFormat,
-    StateFixture,
+    LabeledFixtureFormat,
 )
 from ethereum_test_fixtures.eof import Result, Vector
 from ethereum_test_forks import Fork
@@ -145,7 +148,7 @@ class EOFTest(BaseTest):
     expect_exception: EOFExceptionInstanceOrList | None = None
     container_kind: ContainerKind | None = None
 
-    supported_fixture_formats: ClassVar[List[FixtureFormat]] = [
+    supported_fixture_formats: ClassVar[Sequence[FixtureFormat | LabeledFixtureFormat]] = [
         EOFFixture,
     ]
 
@@ -296,11 +299,22 @@ class EOFStateTest(EOFTest, Transaction):
     pre: Alloc | None = None
     post: Alloc | None = None
 
-    supported_fixture_formats: ClassVar[List[FixtureFormat]] = [
-        EOFFixture,
-        StateFixture,
-        BlockchainFixture,
-        BlockchainEngineFixture,
+    supported_fixture_formats: ClassVar[Sequence[FixtureFormat | LabeledFixtureFormat]] = [
+        EOFFixture
+    ] + [
+        LabeledFixtureFormat(
+            fixture_format,
+            f"eof_{fixture_format.format_name}",
+        )
+        for fixture_format in StateTest.supported_fixture_formats
+    ]
+
+    supported_execute_formats: ClassVar[Sequence[ExecuteFormat | LabeledExecuteFormat]] = [
+        LabeledExecuteFormat(
+            execute_format,
+            f"eof_{execute_format.format_name}",
+        )
+        for execute_format in StateTest.supported_execute_formats
     ]
 
     @model_validator(mode="before")

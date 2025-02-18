@@ -16,7 +16,7 @@ class BaseExecute(CamelModel):
     formats: ClassVar[Dict[str, Type["BaseExecute"]]] = {}
 
     # Execute format properties
-    execute_format_name: ClassVar[str] = "unset"
+    format_name: ClassVar[str] = ""
     description: ClassVar[str] = "Unknown execute format; it has not been set."
 
     @classmethod
@@ -25,9 +25,9 @@ class BaseExecute(CamelModel):
         Register all subclasses of BaseFixture with a fixture format name set
         as possible fixture formats.
         """
-        if cls.execute_format_name != "unset":
+        if cls.format_name:
             # Register the new fixture format
-            BaseExecute.formats[cls.execute_format_name] = cls
+            BaseExecute.formats[cls.format_name] = cls
 
     @abstractmethod
     def execute(self, eth_rpc: EthRPC):
@@ -35,9 +35,35 @@ class BaseExecute(CamelModel):
         pass
 
 
+class LabeledExecuteFormat:
+    """
+    Represents an execution format with a custom label.
+
+    This label will be used in the test id and also will be added as a marker to the
+    generated test case when executing the test.
+    """
+
+    format: Type[BaseExecute]
+    label: str
+
+    def __init__(self, execute_format: "Type[BaseExecute] | LabeledExecuteFormat", label: str):
+        """Initialize the execute format with a custom label."""
+        self.format = (
+            execute_format.format
+            if isinstance(execute_format, LabeledExecuteFormat)
+            else execute_format
+        )
+        self.label = label
+
+    @property
+    def format_name(self) -> str:
+        """Get the execute format name."""
+        return self.format.format_name
+
+
 # Type alias for a base execute class
 ExecuteFormat = Annotated[
     Type[BaseExecute],
-    PlainSerializer(lambda f: f.execute_format_name),
+    PlainSerializer(lambda f: f.format_name),
     PlainValidator(lambda f: BaseExecute.formats[f] if f in BaseExecute.formats else f),
 ]

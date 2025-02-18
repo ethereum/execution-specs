@@ -12,7 +12,8 @@ def generate_test(**kwargs: str):
     return f"""
 import pytest
 {marker_lines}
-def test_case(state_test_only):
+@pytest.mark.state_test_only
+def test_case(state_test):
     pass
 """
 
