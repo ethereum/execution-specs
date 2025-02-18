@@ -604,22 +604,68 @@ def test_eofcreate_revert_eof_returndata(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.parametrize("index", [1, 255], ids=lambda x: x)
+@pytest.mark.parametrize("index", [0, 1, 255], ids=lambda x: x)
 def test_eofcreate_invalid_index(
     eof_test: EOFTestFiller,
     index: int,
 ):
-    """Referring to non-existent container section index."""
+    """EOFCREATE referring non-existent container section index."""
+    container = Container.Code(code=Op.EOFCREATE[index](0, 0, 0, 0) + Op.STOP)
+    if index != 0:
+        container.sections.append(Section.Container(container=Container.Code(Op.INVALID)))
+
+    eof_test(
+        container=container,
+        expect_exception=EOFException.INVALID_CONTAINER_SECTION_INDEX,
+    )
+
+
+def test_eofcreate_invalid_truncated_immediate(
+    eof_test: EOFTestFiller,
+):
+    """EOFCREATE instruction with missing immediate byte."""
     eof_test(
         container=Container(
             sections=[
-                Section.Code(
-                    code=Op.EOFCREATE[index](0, 0, 0, 0) + Op.STOP,
-                ),
-                Section.Container(container=Container(sections=[Section.Code(code=Op.INVALID)])),
+                Section.Code(Op.PUSH0 * 4 + Op.EOFCREATE),
+                Section.Container(Container.Code(Op.INVALID)),
             ],
         ),
-        expect_exception=EOFException.INVALID_CONTAINER_SECTION_INDEX,
+        expect_exception=EOFException.TRUNCATED_INSTRUCTION,
+    )
+
+
+@pytest.mark.parametrize(
+    ["data_len", "data_section_size"],
+    [
+        (0, 1),
+        (0, 0xFFFF),
+        (2, 3),
+        (2, 0xFFFF),
+    ],
+)
+def test_eofcreate_truncated_container(
+    eof_test: EOFTestFiller,
+    data_len: int,
+    data_section_size: int,
+):
+    """EOFCREATE instruction targeting a container with truncated data section."""
+    assert data_len < data_section_size
+    eof_test(
+        container=Container(
+            sections=[
+                Section.Code(Op.EOFCREATE[0](0, 0, 0, 0) + Op.STOP),
+                Section.Container(
+                    Container(
+                        sections=[
+                            Section.Code(Op.INVALID),
+                            Section.Data(b"\xda" * data_len, custom_size=data_section_size),
+                        ],
+                    )
+                ),
+            ],
+        ),
+        expect_exception=EOFException.EOFCREATE_WITH_TRUNCATED_CONTAINER,
     )
 
 
