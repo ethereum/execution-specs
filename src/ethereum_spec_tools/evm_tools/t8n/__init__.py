@@ -241,9 +241,16 @@ class T8N(Load):
         for i, tx in zip(self.txs.successfully_parsed, self.txs.transactions):
             self.backup_state()
             try:
-                self.fork.process_transaction(
-                    block_env, block_output, tx, Uint(i)
+                env = self.environment(tx, gas_available)
+
+                process_transaction_return = self.fork.process_transaction(
+                    env, tx
                 )
+
+                if self.fork.is_after_fork("ethereum.cancun"):
+                    blob_gas_used += U64(self.fork.calculate_total_blob_gas(tx))
+                    if blob_gas_used > U64(self.fork.MAX_BLOB_GAS_PER_BLOCK):
+                        raise InvalidBlock
             except EthereumException as e:
                 self.txs.rejected_txs[i] = f"Failed transaction: {e!r}"
                 self.restore_state()

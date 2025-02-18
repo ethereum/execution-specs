@@ -625,11 +625,80 @@ def apply_body(
     )
 
     for i, tx in enumerate(map(decode_transaction, transactions)):
-        process_transaction(block_env, block_output, tx, Uint(i))
+        trie_set(
+            transactions_trie, rlp.encode(Uint(i)), encode_transaction(tx)
+        )
 
-    process_withdrawals(block_env, block_output, withdrawals)
+        (
+            sender_address,
+            effective_gas_price,
+            blob_versioned_hashes,
+        ) = check_transaction(
+            state,
+            tx,
+            gas_available,
+            chain_id,
+            base_fee_per_gas,
+            excess_blob_gas,
+        )
 
-    return block_output
+        env = vm.Environment(
+            caller=sender_address,
+            origin=sender_address,
+            block_hashes=block_hashes,
+            coinbase=coinbase,
+            number=block_number,
+            gas_limit=block_gas_limit,
+            base_fee_per_gas=base_fee_per_gas,
+            gas_price=effective_gas_price,
+            time=block_time,
+            prev_randao=prev_randao,
+            state=state,
+            chain_id=chain_id,
+            traces=[],
+            excess_blob_gas=excess_blob_gas,
+            blob_versioned_hashes=blob_versioned_hashes,
+            transient_storage=TransientStorage(),
+        )
+
+        gas_used, logs, error = process_transaction(env, tx)
+        gas_available -= gas_used
+
+        receipt = make_receipt(
+            tx, error, (block_gas_limit - gas_available), logs
+        )
+
+        trie_set(
+            receipts_trie,
+            rlp.encode(Uint(i)),
+            receipt,
+        )
+
+        block_logs += logs
+        blob_gas_used += U64(calculate_total_blob_gas(tx))
+    if Uint(blob_gas_used) > MAX_BLOB_GAS_PER_BLOCK:
+        raise InvalidBlock
+    block_gas_used = block_gas_limit - gas_available
+
+    block_logs_bloom = logs_bloom(block_logs)
+
+    for i, wd in enumerate(withdrawals):
+        trie_set(withdrawals_trie, rlp.encode(Uint(i)), rlp.encode(wd))
+
+        process_withdrawal(state, wd)
+
+        if account_exists_and_is_empty(state, wd.address):
+            destroy_account(state, wd.address)
+
+    return ApplyBodyOutput(
+        block_gas_used,
+        root(transactions_trie),
+        root(receipts_trie),
+        block_logs_bloom,
+        state_root(state),
+        root(withdrawals_trie),
+        blob_gas_used,
+    )
 
 
 def process_transaction(
