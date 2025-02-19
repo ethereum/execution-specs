@@ -353,13 +353,7 @@ def pytest_generate_tests(metafunc: pytest.Metafunc):
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item]):
-    """
-    Remove pre-Paris tests parametrized to generate hive type fixtures; these
-    can't be used in the Hive Pyspec Simulator.
-
-    This can't be handled in this plugins pytest_generate_tests() as the fork
-    parametrization occurs in the forks plugin.
-    """
+    """Remove transition tests and add the appropriate execute markers to the test."""
     for item in items[:]:  # use a copy of the list, as we'll be modifying it
         if isinstance(item, EIPSpecTestItem):
             continue
@@ -379,6 +373,6 @@ def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item
                 for mark in marker.args:
                     item.add_marker(mark)
             elif marker.name == "valid_at_transition_to":
-                item.add_marker(pytest.mark.skip(reason="transition tests not executable"))
+                items.remove(item)
         if "yul" in item.fixturenames:  # type: ignore
             item.add_marker(pytest.mark.yul_test)

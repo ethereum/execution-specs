@@ -1,16 +1,42 @@
 """Defines models for index files and consume test cases."""
 
 import datetime
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List, TextIO
 
 from pydantic import BaseModel, RootModel
 
 from ethereum_test_base_types import HexNumber
-from ethereum_test_fixtures import FixtureFormat
 
-from .base import BaseFixture
+from .base import BaseFixture, FixtureFormat
 from .file import Fixtures
+
+
+class FixtureConsumer(ABC):
+    """Abstract class for verifying Ethereum test fixtures."""
+
+    fixture_formats: List[FixtureFormat]
+
+    def can_consume(
+        self,
+        fixture_format: FixtureFormat,
+    ) -> bool:
+        """Return whether the fixture format is consumable by this consumer."""
+        return fixture_format in self.fixture_formats
+
+    @abstractmethod
+    def consume_fixture(
+        self,
+        fixture_format: FixtureFormat,
+        fixture_path: Path,
+        fixture_name: str | None = None,
+        debug_output_path: Path | None = None,
+    ):
+        """Test the client with the specified fixture using its direct consumer interface."""
+        raise NotImplementedError(
+            "The `consume_fixture()` function is not supported by this tool."
+        )
 
 
 class TestCaseBase(BaseModel):

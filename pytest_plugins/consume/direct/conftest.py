@@ -8,11 +8,11 @@ For example, via go-ethereum's `evm blocktest` or `evm statetest` commands.
 import json
 import tempfile
 from pathlib import Path
-from typing import Generator, Optional
+from typing import List
 
 import pytest
 
-from ethereum_clis import TransitionTool
+from ethereum_clis.fixture_consumer_tool import FixtureConsumerTool
 from ethereum_test_base_types import to_json
 from ethereum_test_fixtures.consume import TestCaseIndexFile, TestCaseStream
 from ethereum_test_fixtures.file import Fixtures
@@ -26,75 +26,57 @@ def pytest_addoption(parser):  # noqa: D103
     )
 
     consume_group.addoption(
-        "--evm-bin",
-        action="store",
-        dest="evm_bin",
-        type=Path,
-        default=Path("evm"),
+        "--fixture-consumer-bin",
+        action="append",
+        dest="fixture_consumer_bin",
+        type=list,
+        default=[Path("evm")],
         help=(
-            "Path to an evm executable that provides `blocktest`. Default: First 'evm' entry in "
-            "PATH."
+            "Path to a geth evm executable that provides `blocktest` or `statetest`. "
+            "Flag can be used multiple times to specify multiple fixture consumer binaries."
+            "Default: First 'evm' entry in PATH."
         ),
     )
     consume_group.addoption(
         "--traces",
         action="store_true",
-        dest="evm_collect_traces",
+        dest="consumer_collect_traces",
         default=False,
-        help="Collect traces of the execution information from the transition tool.",
+        help="Collect traces of the execution information from the fixture consumer tool.",
     )
     debug_group = parser.getgroup("debug", "Arguments defining debug behavior")
     debug_group.addoption(
-        "--evm-dump-dir",
+        "--dump-dir",
         action="store",
         dest="base_dump_dir",
         type=Path,
         default=None,
-        help="Path to dump the transition tool debug output.",
+        help="Path to dump the fixture consumer tool debug output.",
     )
 
 
 def pytest_configure(config):  # noqa: D103
-    evm = TransitionTool.from_binary_path(
-        binary_path=config.getoption("evm_bin"),
-        # TODO: The verify_fixture() method doesn't currently use this option.
-        trace=config.getoption("evm_collect_traces"),
-    )
-    try:
-        blocktest_help_string = evm.get_blocktest_help()
-    except NotImplementedError as e:
-        pytest.exit(str(e))
-    config.evm = evm
-    config.evm_run_single_test = "--run" in blocktest_help_string
-
-
-@pytest.fixture(autouse=True, scope="session")
-def evm(request) -> Generator[TransitionTool, None, None]:
-    """Return interface to the evm binary that will consume tests."""
-    yield request.config.evm
-    request.config.evm.shutdown()
-
-
-@pytest.fixture(scope="session")
-def evm_run_single_test(request) -> bool:
-    """Specify whether to execute one test per fixture in each json file."""
-    return request.config.evm_run_single_test
+    fixture_consumers = []
+    for fixture_consumer_bin_path in config.getoption("fixture_consumer_bin"):
+        fixture_consumers.append(
+            FixtureConsumerTool.from_binary_path(
+                binary_path=Path(fixture_consumer_bin_path),
+                trace=config.getoption("consumer_collect_traces"),
+            )
+        )
+    config.fixture_consumers = fixture_consumers
 
 
 @pytest.fixture(scope="function")
-def test_dump_dir(
-    request, fixture_path: Path, fixture_name: str, evm_run_single_test: bool
-) -> Optional[Path]:
+def test_dump_dir(request, fixture_path: Path, fixture_name: str) -> Path | None:
     """The directory to write evm debug output to."""
     base_dump_dir = request.config.getoption("base_dump_dir")
     if not base_dump_dir:
         return None
-    if evm_run_single_test:
-        if len(fixture_name) > 142:
-            # ensure file name is not too long for eCryptFS
-            fixture_name = fixture_name[:70] + "..." + fixture_name[-70:]
-        return base_dump_dir / fixture_path.stem / fixture_name.replace("/", "-")
-    return base_dump_dir / fixture_path.stem
+    if len(fixture_name) > 142:
+        # ensure file name is not too long for eCryptFS
+        fixture_name = fixture_name[:70] + "..." + fixture_name[-70:]
+    return base_dump_dir / fixture_path.stem / fixture_name.replace("/", "-")
 
 
 @pytest.fixture
@@ -122,3 +104,26 @@ def fixture_path(test_case: TestCaseIndexFile | TestCaseStream, fixtures_source:
 def fixture_name(test_case: TestCaseIndexFile | TestCaseStream):
     """Name of the current fixture."""
     return test_case.id
+
+
+def pytest_generate_tests(metafunc):
+    """Parametrize test cases for every fixture consumer."""
+    metafunc.parametrize(
+        "fixture_consumer",
+        (
+            pytest.param(fixture_consumer, id=str(fixture_consumer.__class__.__name__))
+            for fixture_consumer in metafunc.config.fixture_consumers
+        ),
+    )
+
+
+def pytest_collection_modifyitems(items: List):
+    """
+    Modify collected item names to remove the test cases that cannot be consumed by the
+    given fixture consumer.
+    """
+    for item in items[:]:  # use a copy of the list, as we'll be modifying it
+        fixture_consumer = item.callspec.params["fixture_consumer"]
+        fixture_format = item.callspec.params["fixture_format"]
+        if not fixture_consumer.can_consume(fixture_format):
+            items.remove(item)

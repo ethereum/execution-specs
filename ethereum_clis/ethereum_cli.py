@@ -3,7 +3,6 @@
 import os
 import shutil
 import subprocess
-from abc import ABC, abstractmethod
 from itertools import groupby
 from pathlib import Path
 from re import Pattern
@@ -26,7 +25,7 @@ class CLINotFoundInPathError(Exception):
         super().__init__(message)
 
 
-class EthereumCLI(ABC):
+class EthereumCLI:
     """
     Abstract base class to help create Python interfaces to Ethereum CLIs.
 
@@ -39,13 +38,13 @@ class EthereumCLI(ABC):
 
     registered_tools: List[Type[Any]] = []
     default_tool: Optional[Type[Any]] = None
+    binary: Path
     default_binary: Path
     detect_binary_pattern: Pattern
     version_flag: str = "-v"
     cached_version: Optional[str] = None
 
-    @abstractmethod
-    def __init__(self, *, binary: Optional[Path] = None, trace: bool = False):
+    def __init__(self, *, binary: Optional[Path] = None):
         """Abstract initialization method that all subclasses must implement."""
         if binary is None:
             binary = self.default_binary
@@ -58,7 +57,6 @@ class EthereumCLI(ABC):
         if not binary:
             raise CLINotFoundInPathError(binary=binary)
         self.binary = Path(binary)
-        self.trace = trace
 
     @classmethod
     def register_tool(cls, tool_subclass: Type[Any]):

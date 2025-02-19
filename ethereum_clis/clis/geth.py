@@ -5,8 +5,9 @@ import re
 import shutil
 import subprocess
 import textwrap
+from functools import cache
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from ethereum_test_exceptions import (
     EOFException,
@@ -14,140 +15,12 @@ from ethereum_test_exceptions import (
     ExceptionMessage,
     TransactionException,
 )
-from ethereum_test_fixtures import BlockchainFixture, StateFixture
+from ethereum_test_fixtures import BlockchainFixture, FixtureFormat, StateFixture
 from ethereum_test_forks import Fork
 
-from ..transition_tool import FixtureFormat, TransitionTool, dump_files_to_directory
-
-
-class GethTransitionTool(TransitionTool):
-    """Go-ethereum `evm` Transition tool interface wrapper class."""
-
-    default_binary = Path("evm")
-    detect_binary_pattern = re.compile(r"^evm(.exe)? version\b")
-    t8n_subcommand: Optional[str] = "t8n"
-    statetest_subcommand: Optional[str] = "statetest"
-    blocktest_subcommand: Optional[str] = "blocktest"
-    binary: Path
-    cached_version: Optional[str] = None
-    trace: bool
-    t8n_use_stream = True
-
-    def __init__(
-        self,
-        *,
-        binary: Optional[Path] = None,
-        trace: bool = False,
-    ):
-        """Initialize the Go-ethereum Transition tool interface."""
-        super().__init__(exception_mapper=GethExceptionMapper(), binary=binary, trace=trace)
-        args = [str(self.binary), str(self.t8n_subcommand), "--help"]
-        try:
-            result = subprocess.run(args, capture_output=True, text=True)
-        except subprocess.CalledProcessError as e:
-            raise Exception(
-                f"evm process unexpectedly returned a non-zero status code: {e}."
-            ) from e
-        except Exception as e:
-            raise Exception(f"Unexpected exception calling evm tool: {e}.") from e
-        self.help_string = result.stdout
-
-    def is_fork_supported(self, fork: Fork) -> bool:
-        """
-        Return True if the fork is supported by the tool.
-
-        If the fork is a transition fork, we want to check the fork it transitions to.
-        """
-        return fork.transition_tool_name() in self.help_string
-
-    def get_blocktest_help(self) -> str:
-        """Return the help string for the blocktest subcommand."""
-        args = [str(self.binary), "blocktest", "--help"]
-        try:
-            result = subprocess.run(args, capture_output=True, text=True)
-        except subprocess.CalledProcessError as e:
-            raise Exception(
-                f"evm process unexpectedly returned a non-zero status code: {e}."
-            ) from e
-        except Exception as e:
-            raise Exception(f"Unexpected exception calling evm tool: {e}.") from e
-        return result.stdout
-
-    def is_verifiable(
-        self,
-        fixture_format: FixtureFormat,
-    ) -> bool:
-        """Return whether the fixture format is verifiable by this Geth's evm tool."""
-        return fixture_format in {StateFixture, BlockchainFixture}
-
-    def verify_fixture(
-        self,
-        fixture_format: FixtureFormat,
-        fixture_path: Path,
-        fixture_name: Optional[str] = None,
-        debug_output_path: Optional[Path] = None,
-    ):
-        """Execute `evm [state|block]test` to verify the fixture at `fixture_path`."""
-        command: list[str] = [str(self.binary)]
-
-        if debug_output_path:
-            command += ["--debug", "--json", "--verbosity", "100"]
-
-        if fixture_format == StateFixture:
-            assert self.statetest_subcommand, "statetest subcommand not set"
-            command.append(self.statetest_subcommand)
-        elif fixture_format == BlockchainFixture:
-            assert self.blocktest_subcommand, "blocktest subcommand not set"
-            command.append(self.blocktest_subcommand)
-        else:
-            raise Exception(f"Invalid test fixture format: {fixture_format}")
-
-        if fixture_name and fixture_format == BlockchainFixture:
-            assert isinstance(fixture_name, str), "fixture_name must be a string"
-            command.append("--run")
-            command.append(fixture_name)
-        command.append(str(fixture_path))
-
-        result = subprocess.run(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-
-        if debug_output_path:
-            debug_fixture_path = debug_output_path / "fixtures.json"
-            # Use the local copy of the fixture in the debug directory
-            verify_fixtures_call = " ".join(command[:-1]) + f" {debug_fixture_path}"
-            verify_fixtures_script = textwrap.dedent(
-                f"""\
-                #!/bin/bash
-                {verify_fixtures_call}
-                """
-            )
-            dump_files_to_directory(
-                str(debug_output_path),
-                {
-                    "verify_fixtures_args.py": command,
-                    "verify_fixtures_returncode.txt": result.returncode,
-                    "verify_fixtures_stdout.txt": result.stdout.decode(),
-                    "verify_fixtures_stderr.txt": result.stderr.decode(),
-                    "verify_fixtures.sh+x": verify_fixtures_script,
-                },
-            )
-            shutil.copyfile(fixture_path, debug_fixture_path)
-
-        if result.returncode != 0:
-            raise Exception(
-                f"EVM test failed.\n{' '.join(command)}\n\n Error:\n{result.stderr.decode()}"
-            )
-
-        if fixture_format == StateFixture:
-            result_json = json.loads(result.stdout.decode())
-            if not isinstance(result_json, list):
-                raise Exception(f"Unexpected result from evm statetest: {result_json}")
-        else:
-            result_json = []  # there is no parseable format for blocktest output
-        return result_json
+from ..ethereum_cli import EthereumCLI
+from ..fixture_consumer_tool import FixtureConsumerTool
+from ..transition_tool import TransitionTool, dump_files_to_directory
 
 
 class GethExceptionMapper(ExceptionMapper):
@@ -280,3 +153,239 @@ class GethExceptionMapper(ExceptionMapper):
                 EOFException.INVALID_CODE_SECTION_INDEX, "err: invalid_code_section_index"
             ),
         ]
+
+
+class GethEvm(EthereumCLI):
+    """go-ethereum `evm` base class."""
+
+    default_binary = Path("evm")
+    detect_binary_pattern = re.compile(r"^evm(.exe)? version\b")
+    cached_version: Optional[str] = None
+
+    def __init__(
+        self,
+        binary: Path,
+        trace: bool = False,
+        exception_mapper: ExceptionMapper | None = None,
+    ):
+        """Initialize the GethEvm class."""
+        self.binary = binary
+        self.trace = trace
+        self.exception_mapper = exception_mapper if exception_mapper else GethExceptionMapper()
+
+    def _run_command(self, command: List[str]) -> subprocess.CompletedProcess:
+        try:
+            return subprocess.run(
+                command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            )
+        except subprocess.CalledProcessError as e:
+            raise Exception("Command failed with non-zero status.") from e
+        except Exception as e:
+            raise Exception("Unexpected exception calling evm tool.") from e
+
+    def _consume_debug_dump(
+        self,
+        command: List[str],
+        result: subprocess.CompletedProcess,
+        fixture_path: Path,
+        debug_output_path: Path,
+    ):
+        debug_fixture_path = debug_output_path / "fixtures.json"
+        consume_direct_call = " ".join(command[:-1]) + f" {debug_fixture_path}"
+        consume_direct_script = textwrap.dedent(
+            f"""\
+            #!/bin/bash
+            {consume_direct_call}
+            """
+        )
+        dump_files_to_directory(
+            str(debug_output_path),
+            {
+                "consume_direct_args.py": command,
+                "consume_direct_returncode.txt": result.returncode,
+                "consume_direct_stdout.txt": result.stdout,
+                "consume_direct_stderr.txt": result.stderr,
+                "consume_direct.sh+x": consume_direct_script,
+            },
+        )
+        shutil.copyfile(fixture_path, debug_fixture_path)
+
+    @cache  # noqa
+    def help(self, subcommand: str | None = None) -> str:
+        """Return the help string, optionally for a subcommand."""
+        help_command = [str(self.binary)]
+        if subcommand:
+            help_command.append(subcommand)
+        help_command.append("--help")
+        return self._run_command(help_command).stdout
+
+
+class GethTransitionTool(GethEvm, TransitionTool):
+    """go-ethereum `evm` Transition tool interface wrapper class."""
+
+    subcommand: Optional[str] = "t8n"
+    trace: bool
+    t8n_use_stream = True
+
+    def __init__(self, *, binary: Path, trace: bool = False):
+        """Initialize the GethTransitionTool class."""
+        super().__init__(binary=binary, trace=trace)
+        help_command = [str(self.binary), str(self.subcommand), "--help"]
+        result = self._run_command(help_command)
+        self.help_string = result.stdout
+
+    def is_fork_supported(self, fork: Fork) -> bool:
+        """
+        Return True if the fork is supported by the tool.
+
+        If the fork is a transition fork, we want to check the fork it transitions to.
+        """
+        return fork.transition_tool_name() in self.help_string
+
+
+class GethFixtureConsumer(
+    GethEvm,
+    FixtureConsumerTool,
+    fixture_formats=[StateFixture, BlockchainFixture],
+):
+    """Geth's implementation of the fixture consumer."""
+
+    def consume_blockchain_test(
+        self,
+        fixture_path: Path,
+        fixture_name: Optional[str] = None,
+        debug_output_path: Optional[Path] = None,
+    ):
+        """
+        Consume a single blockchain test.
+
+        The `evm blocktest` command takes the `--run` argument which can be used to select a
+        specific fixture from the fixture file when executing.
+        """
+        subcommand = "blocktest"
+        global_options = []
+        subcommand_options = []
+        if debug_output_path:
+            global_options += ["--verbosity", "100"]
+            subcommand_options += ["--trace"]
+
+        if fixture_name:
+            subcommand_options += ["--run", re.escape(fixture_name)]
+
+        command = (
+            [str(self.binary)]
+            + global_options
+            + [subcommand]
+            + subcommand_options
+            + [str(fixture_path)]
+        )
+
+        result = self._run_command(command)
+
+        if debug_output_path:
+            self._consume_debug_dump(command, result, fixture_path, debug_output_path)
+
+        if result.returncode != 0:
+            raise Exception(
+                f"Unexpected exit code:\n{' '.join(command)}\n\n Error:\n{result.stderr}"
+            )
+
+    @cache  # noqa
+    def consume_state_test_file(
+        self,
+        fixture_path: Path,
+        debug_output_path: Optional[Path] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Consume an entire state test file.
+
+        The `evm statetest` will always execute all the tests contained in a file without the
+        possibility of selecting a single test, so this function is cached in order to only call
+        the command once and `consume_state_test` can simply select the result that
+        was requested.
+        """
+        subcommand = "statetest"
+        global_options: List[str] = []
+        subcommand_options: List[str] = []
+        if debug_output_path:
+            global_options += ["--verbosity", "100"]
+            subcommand_options += ["--trace"]
+
+        command = (
+            [str(self.binary)]
+            + global_options
+            + [subcommand]
+            + subcommand_options
+            + [str(fixture_path)]
+        )
+        result = self._run_command(command)
+
+        if debug_output_path:
+            self._consume_debug_dump(command, result, fixture_path, debug_output_path)
+
+        if result.returncode != 0:
+            raise Exception(
+                f"Unexpected exit code:\n{' '.join(command)}\n\n Error:\n{result.stderr}"
+            )
+
+        result_json = json.loads(result.stdout)
+        if not isinstance(result_json, list):
+            raise Exception(f"Unexpected result from evm statetest: {result_json}")
+        return result_json
+
+    def consume_state_test(
+        self,
+        fixture_path: Path,
+        fixture_name: Optional[str] = None,
+        debug_output_path: Optional[Path] = None,
+    ):
+        """
+        Consume a single state test.
+
+        Uses the cached result from `consume_state_test_file` in order to not call the command
+        every time an select a single result from there.
+        """
+        file_results = self.consume_state_test_file(
+            fixture_path=fixture_path,
+            debug_output_path=debug_output_path,
+        )
+        if fixture_name:
+            test_result = [
+                test_result for test_result in file_results if test_result["name"] == fixture_name
+            ]
+            assert len(test_result) < 2, f"Multiple test results for {fixture_name}"
+            assert len(test_result) == 1, f"Test result for {fixture_name} missing"
+            assert test_result[0]["pass"], f"State test failed: {test_result[0]['error']}"
+        else:
+            if any(not test_result["pass"] for test_result in file_results):
+                exception_text = "State test failed: \n" + "\n".join(
+                    f"{test_result['name']}: " + test_result["error"]
+                    for test_result in file_results
+                    if not test_result["pass"]
+                )
+                raise Exception(exception_text)
+
+    def consume_fixture(
+        self,
+        fixture_format: FixtureFormat,
+        fixture_path: Path,
+        fixture_name: Optional[str] = None,
+        debug_output_path: Optional[Path] = None,
+    ):
+        """Execute the appropriate geth fixture consumer for the fixture at `fixture_path`."""
+        if fixture_format == BlockchainFixture:
+            self.consume_blockchain_test(
+                fixture_path=fixture_path,
+                fixture_name=fixture_name,
+                debug_output_path=debug_output_path,
+            )
+        elif fixture_format == StateFixture:
+            self.consume_state_test(
+                fixture_path=fixture_path,
+                fixture_name=fixture_name,
+                debug_output_path=debug_output_path,
+            )
+        else:
+            raise Exception(
+                f"Fixture format {fixture_format.format_name} not supported by {self.binary}"
+            )
