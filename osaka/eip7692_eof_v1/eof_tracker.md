@@ -179,14 +179,14 @@
 
 ##### RJUMP
 
-- [ ] Valid RJUMP backwards in a constant stack segment (ethereum/tests: src/EOFTestsFiller/efStack/backwards_rjump_Copier.json)
-- [ ] Invalid RJUMP backwards with mismatching stack in a constant stack segment(ethereum/tests: src/EOFTestsFiller/efStack/backwards_rjump_Copier.json)
-- [ ] Valid RJUMP backwards in a variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/backwards_rjump_variable_stack_Copier.json)
-- [ ] Invalid RJUMP backwards with mismatching stack in a variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/backwards_rjump_variable_stack_Copier.json)
-- [ ] Valid RJUMP forwards (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjump_Copier.json)
-- [ ] Valid RJUMP forwards from different stack (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjump_Copier.json)
-- [ ] Valid RJUMP forwards in variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjump_variable_stack_Copier.json)
-- [ ] Valid RJUMP forwards from different stack in variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjump_variable_stack_Copier.json)
+- [x] Valid RJUMP backwards in a constant stack segment ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjump.py::test_rjump_valid_backward`](./eip4200_relative_jumps/test_rjump/test_rjump_valid_backward.md)
+- [x] Invalid RJUMP backwards with mismatching stack in a constant stack segment ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjump.py::test_rjump_backward_invalid_max_stack_height`](./eip4200_relative_jumps/test_rjump/test_rjump_backward_invalid_max_stack_height.md)
+- [x] Valid RJUMP backwards in a variable stack segment ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjump.py::test_rjump_valid_backward`](./eip4200_relative_jumps/test_rjump/test_rjump_valid_backward.md)
+- [x] Invalid RJUMP backwards with mismatching stack in a variable stack segment ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjump.py::test_rjump_backward_invalid_max_stack_height`](./eip4200_relative_jumps/test_rjump/test_rjump_backward_invalid_max_stack_height.md)
+- [x] Valid RJUMP forwards ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjump.py::test_rjump_valid_forward`](./eip4200_relative_jumps/test_rjump/test_rjump_valid_forward.md)
+- [x] Valid RJUMP forwards from different stack ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjump.py::test_rjump_valid_forward`](./eip4200_relative_jumps/test_rjump/test_rjump_valid_forward.md)
+- [x] Valid RJUMP forwards in variable stack segment ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjump.py::test_rjump_valid_forward`](./eip4200_relative_jumps/test_rjump/test_rjump_valid_forward.md)
+- [x] Valid RJUMP forwards from different stack in variable stack segment ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjump.py::test_rjump_valid_forward`](./eip4200_relative_jumps/test_rjump/test_rjump_valid_forward.md)
 - [ ] Valid empty infinite loop with RJUMP (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
 - [ ] Valid balanced infinite loop (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
 
