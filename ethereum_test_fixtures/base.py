@@ -169,6 +169,19 @@ class LabeledFixtureFormat:
         """Get the execute format name."""
         return self.format.format_name
 
+    def __eq__(self, other: Any) -> bool:
+        """
+        Check if two labeled fixture formats are equal.
+
+        If the other object is a FixtureFormat type, the format of the labeled fixture
+        format will be compared with the format of the other object.
+        """
+        if isinstance(other, LabeledFixtureFormat):
+            return self.format == other.format
+        if isinstance(other, type) and issubclass(other, BaseFixture):
+            return self.format == other
+        return False
+
 
 # Annotated type alias for a base fixture class
 FixtureFormat = Annotated[

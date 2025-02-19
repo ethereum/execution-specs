@@ -1,7 +1,7 @@
 """Ethereum test execution base types."""
 
 from abc import abstractmethod
-from typing import Annotated, ClassVar, Dict, Type
+from typing import Annotated, Any, ClassVar, Dict, Type
 
 from pydantic import PlainSerializer, PlainValidator
 
@@ -22,11 +22,11 @@ class BaseExecute(CamelModel):
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs):
         """
-        Register all subclasses of BaseFixture with a fixture format name set
-        as possible fixture formats.
+        Register all subclasses of BaseExecute with a execute format name set
+        as possible execute formats.
         """
         if cls.format_name:
-            # Register the new fixture format
+            # Register the new execute format
             BaseExecute.formats[cls.format_name] = cls
 
     @abstractmethod
@@ -59,6 +59,19 @@ class LabeledExecuteFormat:
     def format_name(self) -> str:
         """Get the execute format name."""
         return self.format.format_name
+
+    def __eq__(self, other: Any) -> bool:
+        """
+        Check if two labeled execute formats are equal.
+
+        If the other object is a ExecuteFormat type, the format of the labeled execute
+        format will be compared with the format of the other object.
+        """
+        if isinstance(other, LabeledExecuteFormat):
+            return self.format == other.format
+        if isinstance(other, type) and issubclass(other, BaseExecute):
+            return self.format == other
+        return False
 
 
 # Type alias for a base execute class
