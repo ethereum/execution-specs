@@ -3,7 +3,7 @@ from typing import Dict
 
 import pytest
 
-from tests.helpers import TEST_FIXTURES
+from tests.helpers import EEST_TESTS_PATH, ETHEREUM_TESTS_PATH
 from tests.helpers.load_state_tests import (
     Load,
     fetch_state_test_files,
@@ -11,18 +11,12 @@ from tests.helpers.load_state_tests import (
     run_blockchain_st_test,
 )
 
-fetch_berlin_tests = partial(fetch_state_test_files, network="Berlin")
-
-FIXTURES_LOADER = Load("Berlin", "berlin")
-
-run_berlin_blockchain_st_tests = partial(
-    run_blockchain_st_test, load=FIXTURES_LOADER
+ETHEREUM_BLOCKCHAIN_TESTS_DIR = (
+    f"{ETHEREUM_TESTS_PATH}/LegacyTests/Cancun/BlockchainTests/"
 )
-
-ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
-
-# Run state tests
-test_dir = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Cancun/BlockchainTests/"
+EEST_BLOCKCHAIN_TESTS_DIR = f"{EEST_TESTS_PATH}/blockchain_tests/"
+NETWORK = "Berlin"
+PACKAGE = "berlin"
 
 # Every test below takes more than  60s to run and
 # hence they've been marked as slow
@@ -68,19 +62,35 @@ BIG_MEMORY_TESTS = (
     "stTimeConsuming/",
 )
 
-fetch_state_tests = partial(
-    fetch_berlin_tests,
-    test_dir,
+# Define Tests
+fetch_tests = partial(
+    fetch_state_test_files,
+    network=NETWORK,
     ignore_list=IGNORE_TESTS,
     slow_list=SLOW_TESTS,
     big_memory_list=BIG_MEMORY_TESTS,
 )
 
+FIXTURES_LOADER = Load(NETWORK, PACKAGE)
 
+run_tests = partial(run_blockchain_st_test, load=FIXTURES_LOADER)
+
+
+# Run tests from ethereum/tests
 @pytest.mark.parametrize(
     "test_case",
-    fetch_state_tests(),
+    fetch_tests(ETHEREUM_BLOCKCHAIN_TESTS_DIR),
     ids=idfn,
 )
-def test_general_state_tests(test_case: Dict) -> None:
-    run_berlin_blockchain_st_tests(test_case)
+def test_ethereum_tests(test_case: Dict) -> None:
+    run_tests(test_case)
+
+
+# Run EEST test fixtures
+@pytest.mark.parametrize(
+    "test_case",
+    fetch_tests(EEST_BLOCKCHAIN_TESTS_DIR),
+    ids=idfn,
+)
+def test_eest_tests(test_case: Dict) -> None:
+    run_tests(test_case)

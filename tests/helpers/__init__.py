@@ -17,7 +17,11 @@ TEST_FIXTURES = {
     },
     "latest_fork_tests": {
         "url": "https://github.com/gurukamath/latest_fork_tests.git",
-        "commit_hash": "e15efcb",
+        "commit_hash": "bc74af5",
         "fixture_path": "tests/fixtures/latest_fork_tests",
     },
 }
+
+
+ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
+EEST_TESTS_PATH = TEST_FIXTURES["latest_fork_tests"]["fixture_path"]

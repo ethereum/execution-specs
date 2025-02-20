@@ -3,7 +3,7 @@ from typing import Dict
 
 import pytest
 
-from tests.helpers import TEST_FIXTURES
+from tests.helpers import EEST_TESTS_PATH, ETHEREUM_TESTS_PATH
 from tests.helpers.load_state_tests import (
     Load,
     fetch_state_test_files,
@@ -11,19 +11,12 @@ from tests.helpers.load_state_tests import (
     run_blockchain_st_test,
 )
 
-fetch_homestead_tests = partial(fetch_state_test_files, network="Homestead")
-
-FIXTURES_LOADER = Load("Homestead", "homestead")
-
-run_homestead_blockchain_st_tests = partial(
-    run_blockchain_st_test, load=FIXTURES_LOADER
+ETHEREUM_BLOCKCHAIN_TESTS_DIR = (
+    f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/BlockchainTests/"
 )
-
-ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
-
-
-# Run legacy state tests
-test_dir = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/BlockchainTests/"
+EEST_BLOCKCHAIN_TESTS_DIR = f"{EEST_TESTS_PATH}/blockchain_tests/"
+NETWORK = "Homestead"
+PACKAGE = "homestead"
 
 # Every test below takes more than  60s to run and
 # hence they've been marked as slow
@@ -138,37 +131,35 @@ LEGACY_BIG_MEMORY_TESTS = (
     "randomStatetest94_",
 )
 
-fetch_legacy_state_tests = partial(
-    fetch_homestead_tests,
-    test_dir,
+# Define Tests
+fetch_tests = partial(
+    fetch_state_test_files,
+    network=NETWORK,
     ignore_list=LEGACY_IGNORE_LIST,
     slow_list=LEGACY_SLOW_TESTS,
     big_memory_list=LEGACY_BIG_MEMORY_TESTS,
 )
 
+FIXTURES_LOADER = Load(NETWORK, PACKAGE)
 
+run_tests = partial(run_blockchain_st_test, load=FIXTURES_LOADER)
+
+
+# Run tests from ethereum/tests
 @pytest.mark.parametrize(
     "test_case",
-    fetch_legacy_state_tests(),
+    fetch_tests(ETHEREUM_BLOCKCHAIN_TESTS_DIR),
     ids=idfn,
 )
-def test_legacy_state_tests(test_case: Dict) -> None:
-    run_homestead_blockchain_st_tests(test_case)
+def test_ethereum_tests(test_case: Dict) -> None:
+    run_tests(test_case)
 
 
-# Run Non-Legacy state tests
-test_dir = f"{ETHEREUM_TESTS_PATH}/BlockchainTests/GeneralStateTests/"
-
-non_legacy_only_in = (
-    "stCreateTest/CREATE_HighNonce.json",
-    "stCreateTest/CREATE_HighNonceMinus1.json",
-)
-
-
+# Run EEST test fixtures
 @pytest.mark.parametrize(
     "test_case",
-    fetch_homestead_tests(test_dir, only_in=non_legacy_only_in),
+    fetch_tests(EEST_BLOCKCHAIN_TESTS_DIR),
     ids=idfn,
 )
-def test_non_legacy_tests(test_case: Dict) -> None:
-    run_homestead_blockchain_st_tests(test_case)
+def test_eest_tests(test_case: Dict) -> None:
+    run_tests(test_case)

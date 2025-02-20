@@ -3,7 +3,7 @@ from typing import Dict
 
 import pytest
 
-from tests.helpers import TEST_FIXTURES
+from tests.helpers import EEST_TESTS_PATH, ETHEREUM_TESTS_PATH
 from tests.helpers.load_state_tests import (
     Load,
     fetch_state_test_files,
@@ -11,21 +11,12 @@ from tests.helpers.load_state_tests import (
     run_blockchain_st_test,
 )
 
-fetch_frontier_tests = partial(fetch_state_test_files, network="Frontier")
-
-FIXTURES_LOADER = Load("Frontier", "frontier")
-
-run_frontier_blockchain_st_tests = partial(
-    run_blockchain_st_test, load=FIXTURES_LOADER
-)
-
-ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
-
-
-# Run legacy general state tests
-legacy_test_dir = (
+ETHEREUM_BLOCKCHAIN_TESTS_DIR = (
     f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/BlockchainTests/"
 )
+EEST_BLOCKCHAIN_TESTS_DIR = f"{EEST_TESTS_PATH}/blockchain_tests/"
+NETWORK = "Frontier"
+PACKAGE = "frontier"
 
 LEGACY_IGNORE_LIST = (
     # Valid block tests to be ignored
@@ -54,39 +45,35 @@ SLOW_LIST = (
     "bcUncleHeaderValidity/wrongMixHash.json",
 )
 
-fetch_legacy_state_tests = partial(
-    fetch_frontier_tests,
-    legacy_test_dir,
+# Define Tests
+fetch_tests = partial(
+    fetch_state_test_files,
+    network=NETWORK,
     ignore_list=LEGACY_IGNORE_LIST,
     slow_list=SLOW_LIST,
     big_memory_list=LEGACY_BIG_MEMORY_TESTS,
 )
 
+FIXTURES_LOADER = Load(NETWORK, PACKAGE)
 
+run_tests = partial(run_blockchain_st_test, load=FIXTURES_LOADER)
+
+
+# Run tests from ethereum/tests
 @pytest.mark.parametrize(
     "test_case",
-    fetch_legacy_state_tests(),
+    fetch_tests(ETHEREUM_BLOCKCHAIN_TESTS_DIR),
     ids=idfn,
 )
-def test_legacy_state_tests(test_case: Dict) -> None:
-    run_frontier_blockchain_st_tests(test_case)
+def test_ethereum_tests(test_case: Dict) -> None:
+    run_tests(test_case)
 
 
-# Run Non-Legacy Tests
-non_legacy_test_dir = (
-    f"{ETHEREUM_TESTS_PATH}/BlockchainTests/GeneralStateTests/"
-)
-
-non_legacy_only_in = (
-    "stCreateTest/CREATE_HighNonce.json",
-    "stCreateTest/CREATE_HighNonceMinus1.json",
-)
-
-
+# Run EEST test fixtures
 @pytest.mark.parametrize(
     "test_case",
-    fetch_frontier_tests(non_legacy_test_dir, only_in=non_legacy_only_in),
+    fetch_tests(EEST_BLOCKCHAIN_TESTS_DIR),
     ids=idfn,
 )
-def test_non_legacy_tests(test_case: Dict) -> None:
-    run_frontier_blockchain_st_tests(test_case)
+def test_eest_tests(test_case: Dict) -> None:
+    run_tests(test_case)

@@ -3,7 +3,7 @@ from typing import Dict
 
 import pytest
 
-from tests.helpers import TEST_FIXTURES
+from tests.helpers import EEST_TESTS_PATH, ETHEREUM_TESTS_PATH
 from tests.helpers.load_state_tests import (
     Load,
     fetch_state_test_files,
@@ -11,21 +11,12 @@ from tests.helpers.load_state_tests import (
     run_blockchain_st_test,
 )
 
-fetch_tangerine_whistle_tests = partial(
-    fetch_state_test_files, network="EIP150"
+ETHEREUM_BLOCKCHAIN_TESTS_DIR = (
+    f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/BlockchainTests/"
 )
-
-FIXTURES_LOADER = Load("EIP150", "tangerine_whistle")
-
-run_tangerine_whistle_blockchain_st_tests = partial(
-    run_blockchain_st_test, load=FIXTURES_LOADER
-)
-
-ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
-
-
-# Run legacy state tests
-test_dir = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/BlockchainTests/"
+EEST_BLOCKCHAIN_TESTS_DIR = f"{EEST_TESTS_PATH}/blockchain_tests/"
+NETWORK = "EIP150"
+PACKAGE = "tangerine_whistle"
 
 LEGACY_SLOW_TESTS = (
     "stRandom/randomStatetest177.json",
@@ -58,37 +49,35 @@ LEGACY_IGNORE_LIST = (
     "GasLimitHigherThan2p63m1_EIP150",
 )
 
-fetch_legacy_state_tests = partial(
-    fetch_tangerine_whistle_tests,
-    test_dir,
+# Define Tests
+fetch_tests = partial(
+    fetch_state_test_files,
+    network=NETWORK,
     ignore_list=LEGACY_IGNORE_LIST,
     slow_list=LEGACY_SLOW_TESTS,
     big_memory_list=LEGACY_BIG_MEMORY_TESTS,
 )
 
+FIXTURES_LOADER = Load(NETWORK, PACKAGE)
 
+run_tests = partial(run_blockchain_st_test, load=FIXTURES_LOADER)
+
+
+# Run tests from ethereum/tests
 @pytest.mark.parametrize(
     "test_case",
-    fetch_legacy_state_tests(),
+    fetch_tests(ETHEREUM_BLOCKCHAIN_TESTS_DIR),
     ids=idfn,
 )
-def test_legacy_state_tests(test_case: Dict) -> None:
-    run_tangerine_whistle_blockchain_st_tests(test_case)
+def test_ethereum_tests(test_case: Dict) -> None:
+    run_tests(test_case)
 
 
-# Run Non-Legacy State Tests
-test_dir = f"{ETHEREUM_TESTS_PATH}/BlockchainTests/GeneralStateTests/"
-
-non_legacy_only_in = (
-    "stCreateTest/CREATE_HighNonce.json",
-    "stCreateTest/CREATE_HighNonceMinus1.json",
-)
-
-
+# Run EEST test fixtures
 @pytest.mark.parametrize(
     "test_case",
-    fetch_tangerine_whistle_tests(test_dir, only_in=non_legacy_only_in),
+    fetch_tests(EEST_BLOCKCHAIN_TESTS_DIR),
     ids=idfn,
 )
-def test_non_legacy_state_tests(test_case: Dict) -> None:
-    run_tangerine_whistle_blockchain_st_tests(test_case)
+def test_eest_tests(test_case: Dict) -> None:
+    run_tests(test_case)
