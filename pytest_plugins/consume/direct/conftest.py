@@ -7,17 +7,36 @@ For example, via go-ethereum's `evm blocktest` or `evm statetest` commands.
 
 import json
 import tempfile
+import warnings
 from pathlib import Path
 from typing import List
 
 import pytest
 
+from ethereum_clis.ethereum_cli import EthereumCLI
 from ethereum_clis.fixture_consumer_tool import FixtureConsumerTool
 from ethereum_test_base_types import to_json
+from ethereum_test_fixtures import BaseFixture
 from ethereum_test_fixtures.consume import TestCaseIndexFile, TestCaseStream
 from ethereum_test_fixtures.file import Fixtures
 
 from ..consume import FixturesSource
+
+
+class CollectOnlyCLI(EthereumCLI):
+    """A dummy CLI for use with `--collect-only`."""
+
+    def __init__(self):  # noqa: D107
+        pass
+
+
+class CollectOnlyFixtureConsumer(
+    FixtureConsumerTool, CollectOnlyCLI, fixture_formats=list(BaseFixture.formats.values())
+):
+    """A dummy fixture consumer for use with `--collect-only`."""
+
+    def consume_fixture(self):  # noqa: D102
+        pass
 
 
 def pytest_addoption(parser):  # noqa: D103
@@ -26,15 +45,14 @@ def pytest_addoption(parser):  # noqa: D103
     )
 
     consume_group.addoption(
-        "--fixture-consumer-bin",
+        "--bin",
         action="append",
         dest="fixture_consumer_bin",
-        type=list,
-        default=[Path("evm")],
+        type=Path,
+        default=[],
         help=(
             "Path to a geth evm executable that provides `blocktest` or `statetest`. "
             "Flag can be used multiple times to specify multiple fixture consumer binaries."
-            "Default: First 'evm' entry in PATH."
         ),
     )
     consume_group.addoption(
@@ -63,6 +81,20 @@ def pytest_configure(config):  # noqa: D103
                 binary_path=Path(fixture_consumer_bin_path),
                 trace=config.getoption("consumer_collect_traces"),
             )
+        )
+    if not fixture_consumers and config.option.collectonly:
+        warnings.warn(
+            (
+                "No fixture consumer binaries provided; using a dummy consumer for collect-only; "
+                "all possible fixture formats will be collected. "
+                "Specify fixture consumer(s) via `--bin` to see actual collection results."
+            ),
+            stacklevel=1,
+        )
+        fixture_consumers = [CollectOnlyFixtureConsumer()]
+    elif not fixture_consumers:
+        pytest.exit(
+            "No fixture consumer binaries provided; please specify a binary path via `--bin`."
         )
     config.fixture_consumers = fixture_consumers
 
