@@ -29,7 +29,7 @@ from ethereum.exceptions import (
 from . import vm
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
-from .fork_types import Address, Authorization, VersionedHash
+from .fork_types import Account, Address, Authorization, VersionedHash
 from .requests import (
     CONSOLIDATION_REQUEST_TYPE,
     DEPOSIT_REQUEST_TYPE,
@@ -45,7 +45,7 @@ from .state import (
     destroy_touched_empty_accounts,
     get_account,
     increment_nonce,
-    process_withdrawal,
+    modify_state,
     set_account_balance,
     state_root,
 )
@@ -662,17 +662,7 @@ def apply_body(
     for i, tx in enumerate(map(decode_transaction, transactions)):
         process_transaction(block_env, block_output, tx, Uint(i))
 
-    for i, wd in enumerate(withdrawals):
-        trie_set(
-            block_output.withdrawals_trie,
-            rlp.encode(Uint(i)),
-            rlp.encode(wd),
-        )
-
-        process_withdrawal(block_env.state, wd)
-
-        if account_exists_and_is_empty(block_env.state, wd.address):
-            destroy_account(block_env.state, wd.address)
+    process_withdrawals(block_env, block_output, withdrawals)
 
     process_general_purpose_requests(
         block_env=block_env,
@@ -891,6 +881,31 @@ def process_transaction(
     block_output.deposit_requests += parse_deposit_requests_from_receipt(
         receipt
     )
+
+
+def process_withdrawals(
+    block_env: vm.BlockEnvironment,
+    block_output: vm.BlockOutput,
+    withdrawals: Tuple[Withdrawal, ...],
+) -> None:
+    """
+    Increase the balance of the withdrawing account.
+    """
+
+    def increase_recipient_balance(recipient: Account) -> None:
+        recipient.balance += wd.amount * U256(10**9)
+
+    for i, wd in enumerate(withdrawals):
+        trie_set(
+            block_output.withdrawals_trie,
+            rlp.encode(Uint(i)),
+            rlp.encode(wd),
+        )
+
+        modify_state(block_env.state, wd.address, increase_recipient_balance)
+
+        if account_exists_and_is_empty(block_env.state, wd.address):
+            destroy_account(block_env.state, wd.address)
 
 
 def compute_header_hash(header: Header) -> Hash32:

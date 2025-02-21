@@ -190,6 +190,7 @@ class T8N(Load):
                     index=Uint(0),
                 )
             except EthereumException as e:
+                self.txs.rejected_txs[0] = f"Failed transaction: {e!r}"
                 self.restore_state()
                 self.logger.warning(f"Transaction {0} failed: {str(e)}")
 
@@ -202,23 +203,47 @@ class T8N(Load):
         """
         block_env = self.block_environment()
         block_output = self.fork.create_block_output()
-        self.backup_state()
-        transactions = self.txs.transactions
 
-        try:
-            kwargs = {
-                "block_env": block_env,
-                "block_output": block_output,
-                "transactions": transactions,
-            }
-            if not self.fork.is_after_fork("ethereum.paris"):
-                kwargs["ommers"] = self.env.ommers
-            if self.fork.is_after_fork("ethereum.shanghai"):
-                kwargs["withdrawals"] = self.env.withdrawals
-            self.fork.apply_body(**kwargs)
-        except EthereumException as e:
-            self.restore_state()
-            self.logger.warning(f"T8N run failed: {str(e)}")
+        if self.fork.is_after_fork("ethereum.prague"):
+            self.fork.process_system_transaction(
+                block_env=block_env,
+                target_address=self.fork.HISTORY_STORAGE_ADDRESS,
+                data=block_env.block_hashes[-1],  # The parent hash
+            )
+
+        if self.fork.is_after_fork("ethereum.cancun"):
+            self.fork.process_system_transaction(
+                block_env=block_env,
+                target_address=self.fork.BEACON_ROOTS_ADDRESS,
+                data=block_env.parent_beacon_block_root,
+            )
+
+        for i, tx in zip(self.txs.successfully_parsed, self.txs.transactions):
+            self.backup_state()
+            try:
+                self.fork.process_transaction(
+                    block_env, block_output, tx, Uint(i)
+                )
+            except EthereumException as e:
+                self.txs.rejected_txs[i] = f"Failed transaction: {e!r}"
+                self.restore_state()
+                self.logger.warning(f"Transaction {i} failed: {e!r}")
+
+        if not self.fork.is_after_fork("ethereum.paris"):
+            self.fork.pay_rewards(
+                block_env.state,
+                block_env.number,
+                block_env.coinbase,
+                self.env.ommers,
+            )
+
+        if self.fork.is_after_fork("ethereum.shanghai"):
+            self.fork.process_withdrawals(
+                block_env, block_output, self.env.withdrawals
+            )
+
+        if self.fork.is_after_fork("ethereum.prague"):
+            self.fork.process_general_purpose_requests(block_env, block_output)
 
         self.result.update(self, block_env, block_output)
         self.result.rejected = self.txs.rejected_txs

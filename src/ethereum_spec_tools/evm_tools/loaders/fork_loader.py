@@ -48,6 +48,31 @@ class ForkLoad:
         return return_value
 
     @property
+    def BEACON_ROOTS_ADDRESS(self) -> Any:
+        """BEACON_ROOTS_ADDRESS of the given fork."""
+        return self._module("fork").BEACON_ROOTS_ADDRESS
+
+    @property
+    def HISTORY_STORAGE_ADDRESS(self) -> Any:
+        """HISTORY_STORAGE_ADDRESS of the given fork."""
+        return self._module("fork").HISTORY_STORAGE_ADDRESS
+
+    @property
+    def process_general_purpose_requests(self) -> Any:
+        """process_general_purpose_requests function of the given fork."""
+        return self._module("fork").process_general_purpose_requests
+
+    @property
+    def process_system_transaction(self) -> Any:
+        """process_system_transaction function of the given fork."""
+        return self._module("fork").process_system_transaction
+
+    @property
+    def process_withdrawals(self) -> Any:
+        """process_withdrawals function of the given fork."""
+        return self._module("fork").process_withdrawals
+
+    @property
     def calculate_block_difficulty(self) -> Any:
         """calculate_block_difficulty function of the given fork."""
         return self._module("fork").calculate_block_difficulty
@@ -73,14 +98,14 @@ class ForkLoad:
         return self._module("fork").state_transition
 
     @property
-    def apply_body(self) -> Any:
-        """apply_body function of the fork"""
-        return self._module("fork").apply_body
-
-    @property
     def create_block_output(self) -> Any:
         """create_block_output function of the fork"""
         return self._module("fork").create_block_output
+
+    @property
+    def pay_rewards(self) -> Any:
+        """pay_rewards function of the fork"""
+        return self._module("fork").pay_rewards
 
     @property
     def signing_hash(self) -> Any:

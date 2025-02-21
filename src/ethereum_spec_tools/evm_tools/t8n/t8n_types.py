@@ -5,7 +5,7 @@ import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
-from ethereum_rlp import rlp
+from ethereum_rlp import Simple, rlp
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U64, U256, Uint
 
@@ -85,14 +85,9 @@ class Txs:
     return a list of transactions.
     """
 
-    rejected_txs: Dict[int, str]
-    all_txs: List[Any]
-    t8n: "T8N"
-    data: Any
-    rlp_input: bool
-
     def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
         self.t8n = t8n
+        self.successfully_parsed: List[int] = []
         self.transactions: List[Tuple[Uint, Any]] = []
         self.rejected_txs = {}
         self.rlp_input = False
@@ -106,7 +101,7 @@ class Txs:
                 data = json.load(f)
 
         if data is None:
-            self.data = []
+            self.data: Simple = []
         elif isinstance(data, str):
             self.rlp_input = True
             self.data = rlp.decode(hex_to_bytes(data))
@@ -117,8 +112,10 @@ class Txs:
             try:
                 if self.rlp_input:
                     self.transactions.append(self.parse_rlp_tx(raw_tx))
+                    self.successfully_parsed.append(idx)
                 else:
                     self.transactions.append(self.parse_json_tx(raw_tx))
+                    self.successfully_parsed.append(idx)
             except UnsupportedTx as e:
                 self.t8n.logger.warning(
                     f"Unsupported transaction type {idx}: "
