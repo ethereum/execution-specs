@@ -611,6 +611,21 @@ def test_rjump_into_stack_height_diff_2(
             expected_bytecode="ef0001010004020001000504000000008000015f50e0fffc",
         ),
         Container(
+            name="backwards_rjump_8",
+            sections=[
+                Section.Code(
+                    code=Op.PUSH0
+                    + Op.POP
+                    + Op.PUSH1[0]
+                    + Op.RJUMPI[-7]
+                    + Op.PUSH0
+                    + Op.RJUMP[-11],
+                    max_stack_height=1,
+                ),
+            ],
+            expected_bytecode="ef0001010004020001000b04000000008000015f506000e1fff95fe0fff5",
+        ),
+        Container(
             name="backwards_rjump_variable_stack_3",
             sections=[
                 Section.Code(
@@ -705,6 +720,26 @@ def test_rjump_into_stack_height_diff_2(
                 ),
             ],
             expected_bytecode="ef0001010004020001000d04000000008000035f6000e100025f5f5f50e0fffc",
+        ),
+        Container(
+            name="backwards_rjump_variable_stack_8",
+            sections=[
+                Section.Code(
+                    code=Op.PUSH0
+                    + Op.PUSH1[0]
+                    + Op.RJUMPI[2]
+                    + Op.PUSH0
+                    + Op.PUSH0
+                    + Op.PUSH0
+                    + Op.POP
+                    + Op.PUSH1[0]
+                    + Op.RJUMPI[-7]
+                    + Op.PUSH0
+                    + Op.RJUMP[-11],
+                    max_stack_height=4,
+                ),
+            ],
+            expected_bytecode="ef0001010004020001001304000000008000045f6000e100025f5f5f506000e1fff95fe0fff5",
         ),
     ],
     ids=lambda x: x.name,
