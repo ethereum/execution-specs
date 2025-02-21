@@ -195,6 +195,38 @@ def get_release_url_from_release_information(
     raise NoSuchReleaseError(release_string)
 
 
+def get_release_page_url(release_string: str) -> str:
+    """
+    Return the GitHub Release page URL for a specific release descriptor.
+
+    This function can handle:
+    - A standard release string (e.g., "eip7692@latest").
+    - A direct asset download link (e.g.,
+        "https://github.com/ethereum/execution-spec-tests/releases/download/v4.0.0/fixtures_eip7692.tar.gz").
+    """
+    release_information = get_release_information()
+
+    # Case 1: If it's a direct GitHub Releases download link,
+    #         find which release in `release_information` has an asset with this exact URL.
+    if release_string.startswith(
+        "https://github.com/ethereum/execution-spec-tests/releases/download/"
+    ):
+        for release in release_information:
+            for asset in release.assets.root:
+                if asset.url == release_string:
+                    return release.url  # The HTML page for this release
+        raise NoSuchReleaseError(f"No release found for asset URL: {release_string}")
+
+    # Case 2: Otherwise, treat it as a release descriptor (e.g., "eip7692@latest")
+    release_descriptor = ReleaseTag.from_string(release_string)
+    for release in release_information:
+        if release_descriptor in release:
+            return release.url
+
+    # If nothing matched, raise
+    raise NoSuchReleaseError(release_string)
+
+
 def get_release_information() -> List[ReleaseInformation]:
     """
     Get the release information.

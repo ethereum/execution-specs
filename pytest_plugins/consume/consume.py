@@ -2,9 +2,10 @@
 
 import sys
 import tarfile
+from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import List, Literal, Union
+from typing import List, Tuple
 from urllib.parse import urlparse
 
 import platformdirs
@@ -16,16 +17,14 @@ from cli.gen_index import generate_fixtures_index
 from ethereum_test_fixtures.consume import TestCases
 from ethereum_test_tools.utility.versioning import get_current_commit_hash_or_tag
 
-from .releases import ReleaseTag, get_release_url
+from .releases import ReleaseTag, get_release_page_url, get_release_url
 
 CACHED_DOWNLOADS_DIRECTORY = (
     Path(platformdirs.user_cache_dir("ethereum-execution-spec-tests")) / "cached_downloads"
 )
 
-FixturesSource = Union[Path, Literal["stdin"]]
 
-
-def default_input_directory() -> str:
+def default_input() -> str:
     """
     Directory (default) to consume generated test fixtures from. Defined as a
     function to allow for easier testing.
@@ -41,31 +40,91 @@ def default_html_report_file_path() -> str:
     return ".meta/report_consume.html"
 
 
+@dataclass
+class FixturesSource:
+    """Represents the source of test fixtures."""
+
+    input_option: str
+    path: Path
+    url: str = ""
+    release_page: str = ""
+    is_local: bool = True
+    is_stdin: bool = False
+    was_cached: bool = False
+
+    @classmethod
+    def from_input(cls, input_source: str) -> "FixturesSource":
+        """Determine the fixture source type and return an instance."""
+        if input_source == "stdin":
+            return cls(input_option=input_source, path=Path(), is_local=False, is_stdin=True)
+        if is_url(input_source):
+            return cls.from_url(input_source)
+        if ReleaseTag.is_release_string(input_source):
+            return cls.from_release_spec(input_source)
+        return cls.validate_local_path(Path(input_source))
+
+    @classmethod
+    def from_url(cls, url: str) -> "FixturesSource":
+        """Create a fixture source from a direct URL."""
+        release_page = get_release_page_url(url)
+        was_cached, path = download_and_extract(url, CACHED_DOWNLOADS_DIRECTORY)
+        return cls(
+            input_option=url,
+            path=path,
+            url=url,
+            release_page=release_page,
+            is_local=False,
+            was_cached=was_cached,
+        )
+
+    @classmethod
+    def from_release_spec(cls, spec: str) -> "FixturesSource":
+        """Create a fixture source from a release spec (e.g., develop@latest)."""
+        url = get_release_url(spec)
+        release_page = get_release_page_url(url)
+        was_cached, path = download_and_extract(url, CACHED_DOWNLOADS_DIRECTORY)
+        return cls(
+            input_option=spec,
+            path=path,
+            url=url,
+            release_page=release_page,
+            is_local=False,
+            was_cached=was_cached,
+        )
+
+    @staticmethod
+    def validate_local_path(path: Path) -> "FixturesSource":
+        """Validate that a local fixture path exists and contains JSON files."""
+        if not path.exists():
+            pytest.exit(f"Specified fixture directory '{path}' does not exist.")
+        if not any(path.glob("**/*.json")):
+            pytest.exit(f"Specified fixture directory '{path}' does not contain any JSON files.")
+        return FixturesSource(input_option=str(path), path=path)
+
+
 def is_url(string: str) -> bool:
     """Check if a string is a remote URL."""
     result = urlparse(string)
     return all([result.scheme, result.netloc])
 
 
-def download_and_extract(url: str, base_directory: Path) -> Path:
+def download_and_extract(url: str, base_directory: Path) -> Tuple[bool, Path]:
     """Download the URL and extract it locally if it hasn't already been downloaded."""
     parsed_url = urlparse(url)
     filename = Path(parsed_url.path).name
     version = Path(parsed_url.path).parts[-2]
     extract_to = base_directory / version / filename.removesuffix(".tar.gz")
-
-    if extract_to.exists():
-        # skip download if the archive has already been downloaded
-        return extract_to / "fixtures"
+    already_cached = extract_to.exists()
+    if already_cached:
+        return already_cached, extract_to / "fixtures"
 
     extract_to.mkdir(parents=True, exist_ok=False)
     response = requests.get(url)
     response.raise_for_status()
 
-    with tarfile.open(fileobj=BytesIO(response.content), mode="r:gz") as tar:  # noqa: SC200
+    with tarfile.open(fileobj=BytesIO(response.content), mode="r:gz") as tar:
         tar.extractall(path=extract_to)
-
-    return extract_to / "fixtures"
+    return already_cached, extract_to / "fixtures"
 
 
 def pytest_addoption(parser):  # noqa: D103
@@ -82,7 +141,7 @@ def pytest_addoption(parser):  # noqa: D103
             " fixtures.tar.gz archive, a release name and version in the form of `NAME@v1.2.3` "
             "(`stable` and `develop` are valid release names, and `latest` is a valid version), "
             "or the special keyword 'stdin'. "
-            f"Defaults to the following local directory: '{default_input_directory()}'."
+            f"Defaults to the following local directory: '{default_input()}'."
         ),
     )
     consume_group.addoption(
@@ -126,47 +185,53 @@ def pytest_configure(config):  # noqa: D103
     called before the pytest-html plugin's pytest_configure to ensure that
     it uses the modified `htmlpath` option.
     """
-    fixtures_source = config.getoption("fixtures_source")
-    if "cache" in sys.argv and not config.getoption("fixtures_source"):
+    if config.option.fixtures_source is None:
+        # NOTE: Setting the default value here is necessary for correct stdin/piping behavior.
+        config.fixtures_source = FixturesSource(
+            input_option=default_input(), path=Path(default_input())
+        )
+    else:
+        # NOTE: Setting `type=FixturesSource.from_input` in pytest_addoption() causes the option to
+        # be evaluated twice which breaks the result of `was_cached`; the work-around is to call it
+        # manually here.
+        config.fixtures_source = FixturesSource.from_input(config.option.fixtures_source)
+    config.fixture_source_flags = ["--input", config.fixtures_source.input_option]
+
+    if "cache" in sys.argv and not config.fixtures_source:
         pytest.exit("The --input flag is required when using the cache command.")
-    config.fixture_source_flags = ["--input", fixtures_source]
 
-    if fixtures_source is None:
-        config.fixture_source_flags = []
-        fixtures_source = default_input_directory()
-    elif fixtures_source == "stdin":
-        config.test_cases = TestCases.from_stream(sys.stdin)
-        config.fixtures_real_source = "stdin"
-        config.fixtures_source = "stdin"
-        return
-    elif ReleaseTag.is_release_string(fixtures_source):
-        fixtures_source = get_release_url(fixtures_source)
-
-    config.fixtures_real_source = fixtures_source
-    if is_url(fixtures_source):
-        cached_downloads_directory = Path(config.getoption("fixture_cache_folder"))
-        cached_downloads_directory.mkdir(parents=True, exist_ok=True)
-        fixtures_source = download_and_extract(fixtures_source, cached_downloads_directory)
-
-    fixtures_source = Path(fixtures_source)
-    config.fixtures_source = fixtures_source
-    if not fixtures_source.exists():
-        pytest.exit(f"Specified fixture directory '{fixtures_source}' does not exist.")
-    if not any(fixtures_source.glob("**/*.json")):
+    if "cache" in sys.argv:
+        reason = ""
+        if config.fixtures_source.was_cached:
+            reason += "Fixtures already cached."
+        elif not config.fixtures_source.is_local:
+            reason += "Fixtures downloaded and cached."
+        reason += (
+            f"\nPath: {config.fixtures_source.path}\n"
+            f"Input: {config.fixtures_source.url or config.fixtures_source.path}\n"
+            f"Release page: {config.fixtures_source.release_page or 'None'}"
+        )
         pytest.exit(
-            f"Specified fixture directory '{fixtures_source}' does not contain any JSON files."
+            returncode=0,
+            reason=reason,
         )
 
-    index_file = fixtures_source / ".meta" / "index.json"
+    if config.fixtures_source.is_stdin:
+        config.test_cases = TestCases.from_stream(sys.stdin)
+        return
+    index_file = config.fixtures_source.path / ".meta" / "index.json"
     index_file.parent.mkdir(parents=True, exist_ok=True)
     if not index_file.exists():
         rich.print(f"Generating index file [bold cyan]{index_file}[/]...")
         generate_fixtures_index(
-            fixtures_source, quiet_mode=False, force_flag=False, disable_infer_format=False
+            config.fixtures_source.path,
+            quiet_mode=False,
+            force_flag=False,
+            disable_infer_format=False,
         )
     config.test_cases = TestCases.from_index_file(index_file)
 
-    if config.option.collectonly or "cache" in sys.argv:
+    if config.option.collectonly:
         return
     if not config.getoption("disable_html") and config.getoption("htmlpath") is None:
         # generate an html report by default, unless explicitly disabled
@@ -178,10 +243,17 @@ def pytest_html_report_title(report):
     report.title = "Consume Test Report"
 
 
-def pytest_report_header(config):  # noqa: D103
-    consume_version = f"consume commit: {get_current_commit_hash_or_tag()}"
-    fixtures_real_source = f"fixtures: {config.fixtures_real_source}"
-    return [consume_version, fixtures_real_source]
+def pytest_report_header(config):
+    """Add the consume version and fixtures source to the report header."""
+    source = config.fixtures_source
+    lines = [
+        f"consume ref: {get_current_commit_hash_or_tag()}",
+        f"fixtures: {source.path}",
+    ]
+    if not source.is_local and not source.is_stdin:
+        lines.append(f"fixtures url: {source.url}")
+        lines.append(f"fixtures release: {source.release_page}")
+    return lines
 
 
 @pytest.fixture(scope="session")

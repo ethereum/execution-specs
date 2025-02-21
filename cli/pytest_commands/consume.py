@@ -130,5 +130,4 @@ def hive() -> None:
 def cache(pytest_args: List[str], **kwargs) -> None:
     """Consume command to cache test fixtures."""
     args = handle_consume_command_flags(pytest_args, is_hive=False)
-    args += ["src/pytest_plugins/consume/test_cache.py"]
     sys.exit(pytest.main(args))
