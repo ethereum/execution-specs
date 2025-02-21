@@ -15,12 +15,13 @@ specification.
 from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.numeric import Uint
 
+from ..fork_types import Address
 from ..state import get_account
 from ..transactions import Transaction
 from ..vm import BlockEnvironment, Message, TransactionEnvironment
 from ..vm.eoa_delegation import get_delegated_code_address
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
-from .address import Address, compute_contract_address
+from .address import compute_contract_address
 
 
 def prepare_message(
