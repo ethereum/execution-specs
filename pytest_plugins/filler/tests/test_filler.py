@@ -1,5 +1,5 @@
 """
-Test the forks plugin.
+Test the filler plugin.
 """
 
 import configparser

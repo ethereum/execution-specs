@@ -7,8 +7,7 @@ from pathlib import Path
 
 from ethereum_test_fixtures import BaseFixture, FixtureConsumer, FixtureFormat
 from ethereum_test_fixtures.consume import TestCaseIndexFile, TestCaseStream
-
-from ..decorator import fixture_format
+from pytest_plugins.consume.decorator import fixture_format
 
 
 @fixture_format(*BaseFixture.formats.values())

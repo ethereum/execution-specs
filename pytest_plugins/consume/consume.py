@@ -1,5 +1,6 @@
 """A pytest plugin providing common functionality for consuming test fixtures."""
 
+import re
 import sys
 import tarfile
 from dataclasses import dataclass
@@ -127,6 +128,56 @@ def download_and_extract(url: str, base_directory: Path) -> Tuple[bool, Path]:
     return already_cached, extract_to / "fixtures"
 
 
+class SimLimitBehavior:
+    """Represents options derived from the `--sim.limit` argument."""
+
+    def __init__(self, pattern: str, collectonly: bool = False):  # noqa: D107
+        self.pattern = pattern
+        self.collectonly = collectonly
+
+    @staticmethod
+    def _escape_id(pattern: str) -> str:
+        """
+        Escape regex char in the pattern; prepend and append '.*' (for `fill` IDs).
+
+        The `pattern` is prefixed and suffixed with a wildcard match to allow `fill`
+        test case IDs to be specified, otherwise the full `consume` test ID must be
+        specified.
+        """
+        return f".*{re.escape(pattern)}.*"
+
+    @classmethod
+    def from_string(cls, pattern: str) -> "SimLimitBehavior":
+        """
+        Parse the `--sim.limit` argument and return a `SimLimitBehavior` instance.
+
+        If `pattern`:
+        - Is "collectonly", enable collection mode without filtering.
+        - Starts with "collectonly:", enable collection mode and use the rest as a regex pattern.
+        - Starts with "id:", treat the rest as a literal test ID and escape special regex chars.
+        - Starts with "collectonly:id:", enable collection mode with a literal test ID.
+        """
+        if pattern == "collectonly":
+            return cls(pattern=".*", collectonly=True)
+
+        if pattern.startswith("collectonly:id:"):
+            literal_id = pattern[len("collectonly:id:") :]
+            if not literal_id:
+                raise ValueError("Empty literal ID provided.")
+            return cls(pattern=cls._escape_id(literal_id), collectonly=True)
+
+        if pattern.startswith("collectonly:"):
+            return cls(pattern=pattern[len("collectonly:") :], collectonly=True)
+
+        if pattern.startswith("id:"):
+            literal_id = pattern[len("id:") :]
+            if not literal_id:
+                raise ValueError("Empty literal ID provided.")
+            return cls(pattern=cls._escape_id(literal_id))
+
+        return cls(pattern=pattern)
+
+
 def pytest_addoption(parser):  # noqa: D103
     consume_group = parser.getgroup(
         "consume", "Arguments related to consuming fixtures via a client"
@@ -171,6 +222,22 @@ def pytest_addoption(parser):  # noqa: D103
         help=(
             "Don't generate an HTML test report (in the output directory). "
             "The --html flag can be used to specify a different path."
+        ),
+    )
+    consume_group.addoption(
+        "--sim.limit",
+        action="store",
+        dest="sim_limit",
+        type=SimLimitBehavior.from_string,
+        default=SimLimitBehavior(".*"),
+        help=(
+            "Filter tests by either a regex pattern or a literal test case ID. To match a "
+            "test case by its exact ID, prefix the ID with `id:`. The string following `id:` "
+            "will be automatically escaped so that all special regex characters are treated as "
+            "literals. Without the `id:` prefix, the argument is interpreted as a Python regex "
+            "pattern. To see which test cases are matched, without executing them, prefix with "
+            '`collectonly:`, e.g. `--sim.limit "collectonly:.*eip4788.*fork_Prague.*"`. '
+            "To list all available test case IDs, set the value to `collectonly`."
         ),
     )
 
@@ -230,6 +297,17 @@ def pytest_configure(config):  # noqa: D103
             disable_infer_format=False,
         )
     config.test_cases = TestCases.from_index_file(index_file)
+
+    if config.option.sim_limit:
+        if config.option.dest_regex != ".*":
+            pytest.exit(
+                "Both the --sim.limit (via env var?) and the --regex flags are set. "
+                "Please only set one of them."
+            )
+        config.option.dest_regex = config.option.sim_limit.pattern
+        if config.option.sim_limit.collectonly:
+            config.option.collectonly = True
+            config.option.verbose = -1  # equivalent to -q; only print test ids
 
     if config.option.collectonly:
         return

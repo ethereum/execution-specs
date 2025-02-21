@@ -14,14 +14,14 @@ from .common import common_click_options, handle_help_flags
 
 def handle_hive_env_flags(args: List[str]) -> List[str]:
     """Convert hive environment variables into pytest flags."""
-    env_var_mappings = {
-        "HIVE_TEST_PATTERN": ["-k"],
-        "HIVE_PARALLELISM": ["-n"],
-    }
-    for env_var, pytest_flag in env_var_mappings.items():
-        value = os.getenv(env_var)
-        if value is not None:
-            args.extend(pytest_flag + [value])
+    # handle hive --sim.limit arg
+    hive_test_pattern = os.getenv("HIVE_TEST_PATTERN")
+    if hive_test_pattern and ("--regex" not in args and "--sim.limit" not in args):
+        args += ["--sim.limit", hive_test_pattern]
+    hive_parallelism = os.getenv("HIVE_PARALLELISM")
+    # handle hive --sim.parallelism arg
+    if hive_parallelism not in [None, "", "1"] and "-n" not in args:
+        args += ["-n", str(hive_parallelism)]
     if os.getenv("HIVE_RANDOM_SEED") is not None:
         warnings.warn("HIVE_RANDOM_SEED is not yet supported.", stacklevel=2)
     if os.getenv("HIVE_LOGLEVEL") is not None:
