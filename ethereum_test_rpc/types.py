@@ -1,13 +1,13 @@
 """Types used in the RPC module for `eth` and `engine` namespaces' requests."""
 
 from enum import Enum
-from typing import List
+from typing import Any, List
 
-from pydantic import Field
+from pydantic import AliasChoices, Field, model_validator
 
 from ethereum_test_base_types import Address, Bytes, CamelModel, Hash, HexNumber
 from ethereum_test_fixtures.blockchain import FixtureExecutionPayload
-from ethereum_test_types import Withdrawal
+from ethereum_test_types import Transaction, Withdrawal
 
 
 class JSONRPCError(Exception):
@@ -26,27 +26,39 @@ class JSONRPCError(Exception):
         return f"JSONRPCError(code={self.code}, message={self.message})"
 
 
-class TransactionByHashResponse(CamelModel):
+class TransactionByHashResponse(Transaction):
     """Represents the response of a transaction by hash request."""
 
     block_hash: Hash | None = None
     block_number: HexNumber | None = None
 
+    gas_limit: HexNumber = Field(HexNumber(21_000), alias="gas")
     transaction_hash: Hash = Field(..., alias="hash")
     from_address: Address = Field(..., alias="from")
     to_address: Address | None = Field(..., alias="to")
 
-    ty: HexNumber = Field(..., alias="type")
-    gas_limit: HexNumber = Field(..., alias="gas")
-    gas_price: HexNumber | None = None
-    max_fee_per_gas: HexNumber | None = None
-    max_priority_fee_per_gas: HexNumber | None = None
-    value: HexNumber
-    data: Bytes = Field(..., alias="input")
-    nonce: HexNumber
-    v: HexNumber
-    r: HexNumber
-    s: HexNumber
+    v: HexNumber | None = Field(None, validation_alias=AliasChoices("v", "yParity"))
+
+    @model_validator(mode="before")
+    @classmethod
+    def adapt_clients_response(cls, data: Any) -> Any:
+        """
+        Perform modifications necessary to adapt the response returned by clients
+        so it can be parsed by our model.
+        """
+        if isinstance(data, dict):
+            if "gasPrice" in data and "maxFeePerGas" in data:
+                # Keep only one of the gas price fields.
+                del data["gasPrice"]
+        return data
+
+    def model_post_init(self, __context):
+        """
+        Check that the transaction hash returned by the client matches the one calculated by
+        us.
+        """
+        Transaction.model_post_init(self, __context)
+        assert self.transaction_hash == self.hash
 
 
 class ForkchoiceState(CamelModel):

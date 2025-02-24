@@ -13,6 +13,7 @@ from ethereum.frontier.fork_types import Address as FrontierAddress
 from ethereum.frontier.state import State, set_account, set_storage, state_root
 from ethereum_types.numeric import U256, Bytes32, Uint
 from pydantic import (
+    AliasChoices,
     BaseModel,
     ConfigDict,
     Field,
@@ -436,7 +437,7 @@ class AuthorizationTupleGeneric(CamelModel, Generic[NumberBoundTypeVar]):
     address: Address
     nonce: List[NumberBoundTypeVar] | NumberBoundTypeVar = Field(0)  # type: ignore
 
-    v: NumberBoundTypeVar = Field(0)  # type: ignore
+    v: NumberBoundTypeVar = Field(0, validation_alias=AliasChoices("v", "yParity"))  # type: ignore
     r: NumberBoundTypeVar = Field(0)  # type: ignore
     s: NumberBoundTypeVar = Field(0)  # type: ignore
 

@@ -17,15 +17,15 @@ from typing import Any, Dict
 from pydantic import BaseModel
 
 from ethereum_test_base_types import Account, Address, ZeroPaddedHexNumber
-
-from .request_manager import RPCRequest
+from ethereum_test_rpc.types import TransactionByHashResponse
+from ethereum_test_types import Environment
 
 
 class BlockchainTestProvider(BaseModel):
     """Provides context required to generate a `blockchain_test` using pytest."""
 
-    block: RPCRequest.RemoteBlock
-    transaction: RPCRequest.RemoteTransaction
+    block: Environment
+    transaction: TransactionByHashResponse
     state: Dict[Address, Account]
 
     def _get_environment_kwargs(self) -> str:
@@ -111,5 +111,5 @@ class BlockchainTestProvider(BaseModel):
             "environment_kwargs": self._get_environment_kwargs(),
             "pre_state_items": self._get_pre_state_items(),
             "transaction_items": self._get_transaction_items(),
-            "tx_hash": self.transaction.tx_hash,
+            "tx_hash": self.transaction.hash,
         }
