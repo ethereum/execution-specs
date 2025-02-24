@@ -46,6 +46,8 @@ class LabeledExecuteFormat:
     format: Type[BaseExecute]
     label: str
 
+    registered_labels: ClassVar[Dict[str, "LabeledExecuteFormat"]] = {}
+
     def __init__(self, execute_format: "Type[BaseExecute] | LabeledExecuteFormat", label: str):
         """Initialize the execute format with a custom label."""
         self.format = (
@@ -54,6 +56,8 @@ class LabeledExecuteFormat:
             else execute_format
         )
         self.label = label
+        if label not in LabeledExecuteFormat.registered_labels:
+            LabeledExecuteFormat.registered_labels[label] = self
 
     @property
     def format_name(self) -> str:

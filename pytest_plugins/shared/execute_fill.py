@@ -5,8 +5,8 @@ from typing import List, cast
 
 import pytest
 
-from ethereum_test_execution import BaseExecute
-from ethereum_test_fixtures import BaseFixture
+from ethereum_test_execution import BaseExecute, LabeledExecuteFormat
+from ethereum_test_fixtures import BaseFixture, LabeledFixtureFormat
 from ethereum_test_forks import (
     Fork,
     get_closest_fork_with_solc_support,
@@ -39,11 +39,21 @@ def pytest_configure(config: pytest.Config):
                 "markers",
                 (f"{fixture_format.format_name.lower()}: {fixture_format.description}"),
             )
+        for label, labeled_fixture_format in LabeledFixtureFormat.registered_labels.items():
+            config.addinivalue_line(
+                "markers",
+                (f"{label}: Custom label for {labeled_fixture_format.format.format_name}."),
+            )
     elif config.pluginmanager.has_plugin("pytest_plugins.execute.execute"):
         for execute_format in BaseExecute.formats.values():
             config.addinivalue_line(
                 "markers",
                 (f"{execute_format.format_name.lower()}: {execute_format.description}"),
+            )
+        for label, labeled_execute_format in LabeledExecuteFormat.registered_labels.items():
+            config.addinivalue_line(
+                "markers",
+                (f"{label}: Custom label for {labeled_execute_format.format.format_name}."),
             )
     else:
         raise Exception("Neither the filler nor the execute plugin is loaded.")
