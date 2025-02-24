@@ -54,6 +54,7 @@ class StateTest(BaseTest):
         LabeledFixtureFormat(
             fixture_format,
             f"{fixture_format.format_name}_from_state_test",
+            f"A {fixture_format.format_name} generated from a state_test",
         )
         for fixture_format in BlockchainTest.supported_fixture_formats
     ]

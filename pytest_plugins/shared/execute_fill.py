@@ -42,7 +42,7 @@ def pytest_configure(config: pytest.Config):
         for label, labeled_fixture_format in LabeledFixtureFormat.registered_labels.items():
             config.addinivalue_line(
                 "markers",
-                (f"{label}: Custom label for {labeled_fixture_format.format.format_name}."),
+                (f"{label}: {labeled_fixture_format.description}"),
             )
     elif config.pluginmanager.has_plugin("pytest_plugins.execute.execute"):
         for execute_format in BaseExecute.formats.values():
@@ -53,7 +53,7 @@ def pytest_configure(config: pytest.Config):
         for label, labeled_execute_format in LabeledExecuteFormat.registered_labels.items():
             config.addinivalue_line(
                 "markers",
-                (f"{label}: Custom label for {labeled_execute_format.format.format_name}."),
+                (f"{label}: {labeled_execute_format.description}"),
             )
     else:
         raise Exception("Neither the filler nor the execute plugin is loaded.")

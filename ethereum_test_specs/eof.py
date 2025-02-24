@@ -236,6 +236,7 @@ class EOFTest(BaseTest):
         LabeledFixtureFormat(
             fixture_format,
             f"{fixture_format.format_name}_from_eof_test",
+            f"A {fixture_format.format_name} generated from an eof_test.",
         )
         for fixture_format in StateTest.supported_fixture_formats
     ]
@@ -244,6 +245,7 @@ class EOFTest(BaseTest):
         LabeledExecuteFormat(
             execute_format,
             f"{execute_format.format_name}_from_eof_test",
+            f"A {execute_format.format_name} generated from an eof_test.",
         )
         for execute_format in StateTest.supported_execute_formats
     ]
@@ -519,6 +521,7 @@ class EOFStateTest(EOFTest, Transaction):
         LabeledFixtureFormat(
             fixture_format,
             f"eof_{fixture_format.format_name}",
+            f"Tests that generate an EOF {fixture_format.format_name}.",
         )
         for fixture_format in StateTest.supported_fixture_formats
     ]
@@ -527,6 +530,7 @@ class EOFStateTest(EOFTest, Transaction):
         LabeledExecuteFormat(
             execute_format,
             f"eof_{execute_format.format_name}",
+            f"Tests that generate an EOF {execute_format.format_name}.",
         )
         for execute_format in StateTest.supported_execute_formats
     ]

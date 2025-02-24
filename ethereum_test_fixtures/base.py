@@ -154,10 +154,16 @@ class LabeledFixtureFormat:
 
     format: Type[BaseFixture]
     label: str
+    description: str
 
     registered_labels: ClassVar[Dict[str, "LabeledFixtureFormat"]] = {}
 
-    def __init__(self, fixture_format: "Type[BaseFixture] | LabeledFixtureFormat", label: str):
+    def __init__(
+        self,
+        fixture_format: "Type[BaseFixture] | LabeledFixtureFormat",
+        label: str,
+        description: str,
+    ):
         """Initialize the fixture format with a custom label."""
         self.format = (
             fixture_format.format
@@ -165,6 +171,7 @@ class LabeledFixtureFormat:
             else fixture_format
         )
         self.label = label
+        self.description = description
         if label not in LabeledFixtureFormat.registered_labels:
             LabeledFixtureFormat.registered_labels[label] = self
 
