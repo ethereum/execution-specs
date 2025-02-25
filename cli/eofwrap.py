@@ -228,6 +228,8 @@ class EofWrapper:
                 self.metrics[self.FIXTURES_CANT_GENERATE] += 1
                 self.metrics[self.ACCOUNTS_CANT_GENERATE] += len(fixture_eof_codes)
 
+                print(f"Exception {e} occurred during generation of {in_path}: {fixture_id}")
+
         if len(out_fixtures) == 0:
             self.metrics[self.FILES_SKIPPED] += 1
             return
@@ -311,6 +313,7 @@ class EofWrapper:
             fork=Osaka,
             fixture_format=BlockchainFixture,
         )
+        result.info["fixture_format"] = "blockchain_test"
         if traces:
             print_traces(t8n.get_traces())
         return result
