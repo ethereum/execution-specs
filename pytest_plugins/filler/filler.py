@@ -793,7 +793,8 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
         return
 
     output: Path = session.config.getoption("output")
-    if is_output_stdout(output):
+    # When using --collect-only it should not matter whether fixtures folder exists or not
+    if is_output_stdout(output) or session.config.option.collectonly:
         return
 
     output_dir = strip_output_tarball_suffix(output)
