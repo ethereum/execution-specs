@@ -1017,11 +1017,23 @@ def test_rjump_into_returncontract(
     )
 
 
+@pytest.mark.parametrize(
+    "unreachable_op",
+    [Op.STOP, Op.PUSH1[0], Op.PUSH2[0], Op.RJUMP[-3], Op.RJUMP[0], Op.INVALID],
+)
+@pytest.mark.parametrize(
+    "terminating_op",
+    [Op.STOP, Op.RJUMP[-3], Op.INVALID],
+)
 def test_rjump_unreachable_code(
     eof_test: EOFTestFiller,
+    unreachable_op: Op,
+    terminating_op: Op,
 ):
     """EOF code containing instructions skipped by RJUMP."""
-    container = Container.Code(code=(Op.RJUMP[len(Op.STOP)] + Op.STOP + Op.STOP))
+    container = Container.Code(
+        code=(Op.RJUMP[len(unreachable_op)] + unreachable_op + terminating_op)
+    )
     eof_test(
         container=container,
         expect_exception=EOFException.UNREACHABLE_INSTRUCTIONS,
