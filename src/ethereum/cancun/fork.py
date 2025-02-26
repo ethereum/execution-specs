@@ -444,7 +444,7 @@ def check_transaction(
         raise InvalidBlock
     if Uint(sender_account.balance) < max_gas_fee + Uint(tx.value):
         raise InvalidBlock
-    if sender_account.code != bytearray():
+    if sender_account.code:
         raise InvalidSenderError("not EOA")
 
     return (
@@ -707,7 +707,7 @@ def process_transaction(
     tx_output.gas_left = tx.gas - tx_gas_used
     gas_refund_amount = tx_output.gas_left * effective_gas_price
 
-    # For non-1559 transactions env.gas_price == tx.gas_price
+    # For non-1559 transactions effective_gas_price == tx.gas_price
     priority_fee_per_gas = effective_gas_price - block_env.base_fee_per_gas
     transaction_fee = tx_gas_used * priority_fee_per_gas
 

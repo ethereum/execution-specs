@@ -378,7 +378,7 @@ def check_transaction(
         raise InvalidBlock
     if Uint(sender_account.balance) < max_gas_fee + Uint(tx.value):
         raise InvalidBlock
-    if sender_account.code != bytearray():
+    if sender_account.code:
         raise InvalidSenderError("not EOA")
 
     return sender_address
