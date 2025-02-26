@@ -112,3 +112,27 @@ def test_invalid_code_section_index(
 ):
     """Test cases for JUMPF instructions with invalid target code section index."""
     eof_test(container=container, expect_exception=EOFException.INVALID_CODE_SECTION_INDEX)
+
+
+def test_returning_section_aborts_jumpf(
+    eof_test: EOFTestFiller,
+):
+    """
+    Test EOF container validation where in the same code section we have returning
+    and nonreturning terminating instructions.
+    """
+    container = Container(
+        sections=[
+            Section.Code(code=Op.CALLF[1] + Op.STOP, max_stack_height=1),
+            Section.Code(
+                code=Op.PUSH0 * 2 + Op.RJUMPI[4] + Op.POP + Op.JUMPF[2] + Op.RETF,
+                code_outputs=1,
+            ),
+            Section.Code(
+                code=Op.PUSH0 * 2 + Op.RJUMPI[1] + Op.RETF + Op.INVALID,
+                code_inputs=0,
+                code_outputs=1,
+            ),
+        ],
+    )
+    eof_test(container=container)
