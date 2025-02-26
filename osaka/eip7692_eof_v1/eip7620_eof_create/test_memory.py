@@ -106,9 +106,7 @@ def test_eofcreate_memory(
         ),
         storage=initial_storage,
     )
-    destination_contract_address = compute_eofcreate_address(
-        calling_contract_address, 0, smallest_initcode_subcontainer
-    )
+    destination_contract_address = compute_eofcreate_address(calling_contract_address, 0)
 
     post = {
         calling_contract_address: Account(

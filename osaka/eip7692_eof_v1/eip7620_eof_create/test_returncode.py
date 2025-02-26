@@ -249,9 +249,7 @@ def test_returncode_memory_expansion(
     post = {
         contract_address: Account(
             storage={
-                slot_create_address: compute_eofcreate_address(
-                    contract_address, 0, mem_size_initcode_container
-                )
+                slot_create_address: compute_eofcreate_address(contract_address, 0)
                 if success and eof_size_acceptable
                 else 0,
             }
