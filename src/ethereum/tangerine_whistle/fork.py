@@ -41,7 +41,7 @@ from .transactions import (
     recover_sender,
     validate_transaction,
 )
-from .trie import Trie, root, trie_set
+from .trie import root, trie_set
 from .utils.message import prepare_message
 from .vm.interpreter import process_message_call
 
@@ -125,23 +125,6 @@ def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
     return recent_block_hashes
 
 
-def create_block_output() -> vm.BlockOutput:
-    """
-    Creates a new block output that is updated during block processing.
-
-    Parameters
-    ----------
-    block_output:
-        The new block output for the block.
-    """
-    return vm.BlockOutput(
-        block_gas_used=Uint(0),
-        transactions_trie=Trie(secured=False, default=None),
-        receipts_trie=Trie(secured=False, default=None),
-        block_logs=(),
-    )
-
-
 def state_transition(chain: BlockChain, block: Block) -> None:
     """
     Attempts to apply a block to an existing block chain.
@@ -167,8 +150,6 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     validate_header(chain, block.header)
     validate_ommers(block.ommers, block.header, chain)
 
-    block_output = create_block_output()
-
     block_env = vm.BlockEnvironment(
         chain_id=chain.chain_id,
         state=chain.state,
@@ -180,9 +161,8 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         difficulty=block.header.difficulty,
     )
 
-    apply_body(
+    block_output = apply_body(
         block_env=block_env,
-        block_output=block_output,
         transactions=block.transactions,
         ommers=block.ommers,
     )
@@ -425,10 +405,9 @@ def make_receipt(
 
 def apply_body(
     block_env: vm.BlockEnvironment,
-    block_output: vm.BlockOutput,
     transactions: Tuple[Transaction, ...],
     ommers: Tuple[Header, ...],
-) -> None:
+) -> vm.BlockOutput:
     """
     Executes a block.
 
@@ -443,18 +422,25 @@ def apply_body(
     ----------
     block_env :
         The block scoped environment.
-    block_output :
-        The block output for the current block.
     transactions :
         Transactions included in the block.
     ommers :
         Headers of ancestor blocks which are not direct parents (formerly
         uncles.)
+
+    Returns
+    -------
+    block_output :
+        The block output for the current block.
     """
+    block_output = vm.BlockOutput()
+
     for i, tx in enumerate(transactions):
         process_transaction(block_env, block_output, tx, Uint(i))
 
     pay_rewards(block_env.state, block_env.number, block_env.coinbase, ommers)
+
+    return block_output
 
 
 def validate_ommers(

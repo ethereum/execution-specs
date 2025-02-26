@@ -62,7 +62,7 @@ from .transactions import (
     recover_sender,
     validate_transaction,
 )
-from .trie import Trie, root, trie_set
+from .trie import root, trie_set
 from .utils.hexadecimal import hex_to_address
 from .utils.message import prepare_message
 from .vm import Message
@@ -173,27 +173,6 @@ def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
     return recent_block_hashes
 
 
-def create_block_output() -> vm.BlockOutput:
-    """
-    Creates a new block output that is updated during block processing.
-
-    Parameters
-    ----------
-    block_output:
-        The new block output for the block.
-    """
-    return vm.BlockOutput(
-        block_gas_used=Uint(0),
-        transactions_trie=Trie(secured=False, default=None),
-        receipts_trie=Trie(secured=False, default=None),
-        block_logs=(),
-        withdrawals_trie=Trie(secured=False, default=None),
-        blob_gas_used=Uint(0),
-        deposit_requests=b"",
-        requests=[],
-    )
-
-
 def state_transition(chain: BlockChain, block: Block) -> None:
     """
     Attempts to apply a block to an existing block chain.
@@ -220,8 +199,6 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     if block.ommers != ():
         raise InvalidBlock
 
-    block_output = create_block_output()
-
     block_env = vm.BlockEnvironment(
         chain_id=chain.chain_id,
         state=chain.state,
@@ -236,9 +213,8 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         parent_beacon_block_root=block.header.parent_beacon_block_root,
     )
 
-    apply_body(
+    block_output = apply_body(
         block_env=block_env,
-        block_output=block_output,
         transactions=block.transactions,
         withdrawals=block.withdrawals,
     )
@@ -622,10 +598,9 @@ def process_system_transaction(
 
 def apply_body(
     block_env: vm.BlockEnvironment,
-    block_output: vm.BlockOutput,
     transactions: Tuple[Union[LegacyTransaction, Bytes], ...],
     withdrawals: Tuple[Withdrawal, ...],
-) -> None:
+) -> vm.BlockOutput:
     """
     Executes a block.
 
@@ -640,13 +615,18 @@ def apply_body(
     ----------
     block_env :
         The block scoped environment.
-    block_output :
-        The block output for the current block.
     transactions :
         Transactions included in the block.
     withdrawals :
         Withdrawals to be processed in the current block.
+
+    Returns
+    -------
+    block_output :
+        The block output for the current block.
     """
+    block_output = vm.BlockOutput()
+
     process_system_transaction(
         block_env=block_env,
         target_address=BEACON_ROOTS_ADDRESS,
@@ -668,6 +648,8 @@ def apply_body(
         block_env=block_env,
         block_output=block_output,
     )
+
+    return block_output
 
 
 def process_general_purpose_requests(

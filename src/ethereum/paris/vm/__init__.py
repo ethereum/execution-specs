@@ -13,7 +13,7 @@ The abstract computer which runs the code stored in an
 `.fork_types.Account`.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional, Set, Tuple, Union
 
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
@@ -67,10 +67,14 @@ class BlockOutput:
         block.
     """
 
-    block_gas_used: Uint
-    transactions_trie: Trie[Bytes, Optional[Union[Bytes, LegacyTransaction]]]
-    receipts_trie: Trie[Bytes, Optional[Union[Bytes, Receipt]]]
-    block_logs: Tuple[Log, ...]
+    block_gas_used: Uint = Uint(0)
+    transactions_trie: Trie[
+        Bytes, Optional[Union[Bytes, LegacyTransaction]]
+    ] = field(default_factory=lambda: Trie(secured=False, default=None))
+    receipts_trie: Trie[Bytes, Optional[Union[Bytes, Receipt]]] = field(
+        default_factory=lambda: Trie(secured=False, default=None)
+    )
+    block_logs: Tuple[Log, ...] = field(default_factory=tuple)
 
 
 @dataclass

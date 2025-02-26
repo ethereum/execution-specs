@@ -178,7 +178,7 @@ class T8N(Load):
         are performed.
         """
         block_env = self.block_environment()
-        block_output = self.fork.create_block_output()
+        block_output = self.fork.BlockOutput()
         self.backup_state()
         if len(self.txs.transactions) > 0:
             tx = self.txs.transactions[0]
@@ -202,7 +202,7 @@ class T8N(Load):
         Apply a block on the pre-state. Also includes system operations.
         """
         block_env = self.block_environment()
-        block_output = self.fork.create_block_output()
+        block_output = self.fork.BlockOutput()
 
         if self.fork.is_after_fork("ethereum.prague"):
             self.fork.process_system_transaction(

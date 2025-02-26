@@ -98,11 +98,6 @@ class ForkLoad:
         return self._module("fork").state_transition
 
     @property
-    def create_block_output(self) -> Any:
-        """create_block_output function of the fork"""
-        return self._module("fork").create_block_output
-
-    @property
     def pay_rewards(self) -> Any:
         """pay_rewards function of the fork"""
         return self._module("fork").pay_rewards
@@ -281,6 +276,11 @@ class ForkLoad:
     def BlockEnvironment(self) -> Any:
         """Block environment class of the fork"""
         return self._module("vm").BlockEnvironment
+
+    @property
+    def BlockOutput(self) -> Any:
+        """Block output class of the fork"""
+        return self._module("vm").BlockOutput
 
     @property
     def Authorization(self) -> Any:
