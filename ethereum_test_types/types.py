@@ -42,6 +42,7 @@ from ethereum_test_base_types import (
     StorageRootType,
     TestAddress,
     TestPrivateKey,
+    ZeroPaddedHexNumber,
 )
 from ethereum_test_base_types import Alloc as BaseAlloc
 from ethereum_test_base_types.conversions import (
@@ -352,16 +353,16 @@ class EnvironmentGeneric(CamelModel, Generic[NumberBoundTypeVar]):
     parent_gas_limit: NumberBoundTypeVar | None = Field(None)
 
 
-class Environment(EnvironmentGeneric[HexNumber]):
+class Environment(EnvironmentGeneric[ZeroPaddedHexNumber]):
     """
     Structure used to keep track of the context in which a block
     must be executed.
     """
 
-    blob_gas_used: HexNumber | None = Field(None, alias="currentBlobGasUsed")
+    blob_gas_used: ZeroPaddedHexNumber | None = Field(None, alias="currentBlobGasUsed")
     parent_ommers_hash: Hash = Field(Hash(EmptyOmmersRoot), alias="parentUncleHash")
-    parent_blob_gas_used: HexNumber | None = Field(None)
-    parent_excess_blob_gas: HexNumber | None = Field(None)
+    parent_blob_gas_used: ZeroPaddedHexNumber | None = Field(None)
+    parent_excess_blob_gas: ZeroPaddedHexNumber | None = Field(None)
     parent_beacon_block_root: Hash | None = Field(None)
 
     block_hashes: Dict[Number, Hash] = Field(default_factory=dict)
