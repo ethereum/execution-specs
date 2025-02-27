@@ -898,7 +898,7 @@ def test_rjumpi_valid_backward(
     container: Container,
 ):
     """
-    Validate a valid code section containing at least one backward RJUMP.
+    Validate a valid code section containing at least one backward RJUMPI.
     These tests exercise the stack height validation.
     """
     eof_test(container=container)
@@ -1837,7 +1837,7 @@ def test_rjumpi_backward_invalid_max_stack_height(
     container: Container,
 ):
     """
-    Validate a code section containing at least one backward RJUMP
+    Validate a code section containing at least one backward RJUMPI
     invalid because of the incorrect max stack height.
     """
     eof_test(container=container, expect_exception=EOFException.STACK_HEIGHT_MISMATCH)
