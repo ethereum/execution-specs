@@ -187,6 +187,9 @@ class EvmoneExceptionMapper(ExceptionMapper):
             ExceptionMessage(
                 EOFException.INCOMPATIBLE_CONTAINER_KIND, "err: incompatible_container_kind"
             ),
+            ExceptionMessage(
+                EOFException.AMBIGUOUS_CONTAINER_KIND, "err: ambiguous_container_kind"
+            ),
             ExceptionMessage(EOFException.STACK_HEIGHT_MISMATCH, "err: stack_height_mismatch"),
             ExceptionMessage(EOFException.TOO_MANY_CONTAINERS, "err: too_many_container_sections"),
             ExceptionMessage(

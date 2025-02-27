@@ -742,6 +742,10 @@ class EOFException(ExceptionBase):
     """
     Incompatible instruction found in a container of a specific kind.
     """
+    AMBIGUOUS_CONTAINER_KIND = auto()
+    """
+    The kind of a sub-container cannot be uniquely deduced.
+    """
     TOO_MANY_CONTAINERS = auto()
     """
     EOF container header has too many sub-containers.
