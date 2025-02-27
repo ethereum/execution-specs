@@ -1,5 +1,6 @@
 """
-A blockchain test for [EIP-{{eip_number}} {{eip_name}}](https://eips.ethereum.org/EIPS/eip-{{eip_number}}).
+abstract: Tests [EIP-{{eip_number}} {{eip_name}}](https://eips.ethereum.org/EIPS/eip-{{eip_number}})
+    Test cases for [EIP-{{eip_number}} {{eip_name}}](https://eips.ethereum.org/EIPS/eip-{{eip_number}})].
 """
 
 import pytest
@@ -10,8 +11,9 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 REFERENCE_SPEC_GIT_PATH = "DUMMY/eip-DUMMY.md"
 REFERENCE_SPEC_VERSION = "DUMMY_VERSION"
 
+
 @pytest.mark.valid_from("{{fork}}")
-def test_{{test_name}}(blockchain_test: BlockchainTestFiller, pre: Alloc):
+def {{module_name}}(blockchain_test: BlockchainTestFiller, pre: Alloc):
     """
     TODO: Enter a one-line test summary here.
 
