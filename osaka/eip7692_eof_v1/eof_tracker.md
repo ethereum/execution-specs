@@ -296,8 +296,8 @@
 
 ##### JUMPF
 
-- [ ] Max allowed stack height reached in JUMPF-ed function (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_stack_overflow_Copier.json)
-- [ ] JUMPF validation time stack overflow (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_stack_overflow_Copier.json)
+- [x] Max allowed stack height reached in JUMPF-ed function ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_validation.py::test_jumpf_other_stack_overflow`](./eip6206_jumpf/test_jumpf_validation/test_jumpf_other_stack_overflow.md))
+- [x] JUMPF validation time stack overflow ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_validation.py::test_jumpf_other_stack_overflow`](./eip6206_jumpf/test_jumpf_validation/test_jumpf_other_stack_overflow.md))
 - [ ] Max allowed stack height reached in JUMPF-ed function with inputs
 - [ ] JUMPF validation time stack overflow in function with inputs (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_with_inputs_stack_overflow_Copier.json)
 - [ ] JUMPF validation time stack overflow in function with inputs, variable stack segment, only max overflow (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_with_inputs_stack_overflow_variable_stack_Copier.json)
