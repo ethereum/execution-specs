@@ -31,6 +31,7 @@ stop_container = Container.Code(Op.STOP)
 stop_sub_container = Section.Container(stop_container)
 return_sub_container = Section.Container(Container.Code(Op.RETURN(0, 0)))
 revert_sub_container = Section.Container(Container.Code(Op.REVERT(0, 0)))
+abort_sub_container = Section.Container(Container.Code(Op.INVALID))
 returncontract_sub_container = Section.Container(
     Container(
         sections=[
@@ -447,6 +448,41 @@ def test_container_both_kinds_same_sub(eof_test: EOFTestFiller):
     )
 
 
+@pytest.mark.parametrize("container_idx", [0, 1, 255])
+@pytest.mark.parametrize(
+    "sub_container",
+    [
+        pytest.param(abort_sub_container, id="abort"),
+        pytest.param(revert_sub_container, id="revert"),
+    ],
+)
+def test_container_ambiguous_kind(
+    eof_test: EOFTestFiller, container_idx: int, sub_container: Section
+):
+    """
+    Test ambiguous container kind:
+    a single subcontainer reference by both EOFCREATE and RETURNCONTRACT.
+    """
+    sections = [
+        Section.Code(
+            code=(
+                sum(Op.EOFCREATE[i](0, 0, 0, 0) for i in range(container_idx))
+                + Op.EOFCREATE[container_idx](0, 0, 0, 0)
+                + Op.RETURNCONTRACT[container_idx](0, 0)
+            ),
+        ),
+    ]
+    sections += (container_idx + 1) * [sub_container]
+
+    eof_test(
+        container=Container(
+            sections=sections,
+            kind=ContainerKind.INITCODE,
+        ),
+        expect_exception=EOFException.AMBIGUOUS_CONTAINER_KIND,
+    )
+
+
 def test_container_both_kinds_different_sub(eof_test: EOFTestFiller):
     """Test multiple kinds of subcontainer at the same level."""
     eof_test(
@@ -715,7 +751,7 @@ def test_wide_container(eof_test: EOFTestFiller, width: int, exception: EOFExcep
                         + Op.POP
                         + Op.STOP
                     ),
-                    Section.Container(Container.Code(Op.INVALID)),
+                    abort_sub_container,
                 ],
                 expected_bytecode="""
                 ef0001010004020001000b0300010014040000000080000436600060ff6000ec005000ef000101000402
@@ -727,7 +763,7 @@ def test_wide_container(eof_test: EOFTestFiller, width: int, exception: EOFExcep
             Container(
                 sections=[
                     Section.Code(Op.PUSH1[0] + Op.RJUMP[0] + Op.STOP),
-                    Section.Container(Container.Code(Op.INVALID)),
+                    abort_sub_container,
                 ],
                 expected_bytecode="""
                 ef00010100040200010006030001001404000000008000016000e0000000ef0001010004020001000104
@@ -742,7 +778,7 @@ def test_wide_container(eof_test: EOFTestFiller, width: int, exception: EOFExcep
             Container(
                 sections=[
                     Section.Code(Op.PUSH1[0] + Op.RJUMP[0] + Op.STOP),
-                    Section.Container(Container.Code(Op.INVALID)),
+                    abort_sub_container,
                     Section.Data(custom_size=2),
                 ],
                 expected_bytecode="""
@@ -758,7 +794,7 @@ def test_wide_container(eof_test: EOFTestFiller, width: int, exception: EOFExcep
             Container(
                 sections=[
                     Section.Code(Op.PUSH1[0] + Op.RJUMP[0] + Op.STOP),
-                    Section.Container(Container.Code(Op.INVALID)),
+                    abort_sub_container,
                     Section.Data("aabb"),
                 ],
                 expected_bytecode="""
@@ -794,7 +830,7 @@ def test_wide_container(eof_test: EOFTestFiller, width: int, exception: EOFExcep
                         + Op.STOP
                     )
                 ]
-                + 2 * [Section.Container(Container.Code(Op.INVALID))],
+                + 2 * [abort_sub_container],
                 expected_bytecode="""
                 ef0001010004020001000b03000200140014040000000080000436600060ff6000ec015000ef00010100
                 0402000100010400000000800000feef000101000402000100010400000000800000fe""",
@@ -808,7 +844,7 @@ def test_wide_container(eof_test: EOFTestFiller, width: int, exception: EOFExcep
             Container(
                 sections=[
                     Section.Code(Op.PUSH1[0] + Op.RJUMP[0] + Op.STOP),
-                    Section.Container(Container.Code(Op.INVALID)),
+                    abort_sub_container,
                     Section.Container(Container.Code(Op.PUSH0 + Op.PUSH0 + Op.RETURN)),
                 ],
                 expected_bytecode="""
@@ -833,7 +869,7 @@ def test_wide_container(eof_test: EOFTestFiller, width: int, exception: EOFExcep
                         + Op.STOP
                     )
                 ]
-                + 256 * [Section.Container(Container.Code(Op.INVALID))],
+                + 256 * [abort_sub_container],
                 # Originally this test was "valid" because it was created
                 # before "orphan subcontainer" rule was introduced.
                 validity_error=EOFException.ORPHAN_SUBCONTAINER,
@@ -843,7 +879,7 @@ def test_wide_container(eof_test: EOFTestFiller, width: int, exception: EOFExcep
         pytest.param(
             Container(
                 sections=[Section.Code(Op.PUSH1[0] + Op.RJUMP[0] + Op.STOP)]
-                + 256 * [Section.Container(Container.Code(Op.INVALID))],
+                + 256 * [abort_sub_container],
                 # Originally this test was "valid" because it was created
                 # before "orphan subcontainer" rule was introduced.
                 validity_error=EOFException.ORPHAN_SUBCONTAINER,
