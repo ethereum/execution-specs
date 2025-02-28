@@ -83,8 +83,8 @@ class TransactionEnvironment(Protocol):
     The class implements the tx_env interface for trace.
     """
 
-    tx_index: Uint
-    tx_hash: bytes
+    index_in_block: Optional[Uint]
+    tx_hash: Optional[Bytes]
     traces: List[Union["Trace", "FinalTrace"]]
 
 
@@ -145,8 +145,11 @@ def evm_trace(
     """
     Create a trace of the event.
     """
-    # System Transaction do not have a tx_hash
-    if evm.message.tx_env.tx_hash is None:
+    # System Transaction do not have a tx_hash or index
+    if (
+        evm.message.tx_env.index_in_block is None
+        or evm.message.tx_env.tx_hash is None
+    ):
         return
 
     assert isinstance(evm, (EvmWithoutReturnData, EvmWithReturnData))
@@ -183,7 +186,9 @@ def evm_trace(
         traces.append(final_trace)
 
         output_traces(
-            traces, evm.message.tx_env.tx_index, evm.message.tx_env.tx_hash
+            traces,
+            evm.message.tx_env.index_in_block,
+            evm.message.tx_env.tx_hash,
         )
     elif isinstance(event, PrecompileStart):
         new_trace = Trace(
@@ -342,7 +347,7 @@ def output_op_trace(
 
 def output_traces(
     traces: List[Union[Trace, FinalTrace]],
-    tx_index: int,
+    index_in_block: int,
     tx_hash: bytes,
 ) -> None:
     """
@@ -354,7 +359,7 @@ def output_traces(
         if isinstance(OUTPUT_DIR, str):
             tx_hash_str = "0x" + tx_hash.hex()
             output_path = os.path.join(
-                OUTPUT_DIR, f"trace-{tx_index}-{tx_hash_str}.jsonl"
+                OUTPUT_DIR, f"trace-{index_in_block}-{tx_hash_str}.jsonl"
             )
             json_file = open(output_path, "w")
             stack.push(json_file)

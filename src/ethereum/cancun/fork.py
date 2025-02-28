@@ -523,7 +523,7 @@ def process_system_transaction(
         access_list_storage_keys=set(),
         transient_storage=TransientStorage(),
         blob_versioned_hashes=(),
-        tx_index=Uint(0),
+        index_in_block=None,
         tx_hash=None,
         traces=[],
     )
@@ -692,7 +692,7 @@ def process_transaction(
         access_list_storage_keys=access_list_storage_keys,
         transient_storage=TransientStorage(),
         blob_versioned_hashes=blob_versioned_hashes,
-        tx_index=index,
+        index_in_block=index,
         tx_hash=get_transaction_hash(encode_transaction(tx)),
         traces=[],
     )

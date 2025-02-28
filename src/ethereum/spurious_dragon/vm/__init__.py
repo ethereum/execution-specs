@@ -85,7 +85,7 @@ class TransactionEnvironment:
     origin: Address
     gas_price: Uint
     gas: Uint
-    tx_index: Uint
+    index_in_block: Uint
     tx_hash: Optional[Hash32]
     traces: List[dict]
 

@@ -88,7 +88,7 @@ class TransactionEnvironment:
     gas: Uint
     access_list_addresses: Set[Address]
     access_list_storage_keys: Set[Tuple[Address, Bytes32]]
-    tx_index: Uint
+    index_in_block: Optional[Uint]
     tx_hash: Optional[Hash32]
     traces: List[dict]
 

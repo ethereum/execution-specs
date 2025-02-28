@@ -105,7 +105,7 @@ class TransactionEnvironment:
     transient_storage: TransientStorage
     blob_versioned_hashes: Tuple[VersionedHash, ...]
     authorizations: Tuple[Authorization, ...]
-    tx_index: Uint
+    index_in_block: Optional[Uint]
     tx_hash: Optional[Hash32]
     traces: List[dict]
 

@@ -645,7 +645,7 @@ def process_transaction(
         gas=gas,
         access_list_addresses=access_list_addresses,
         access_list_storage_keys=access_list_storage_keys,
-        tx_index=index,
+        index_in_block=index,
         tx_hash=get_transaction_hash(encode_transaction(tx)),
         traces=[],
     )

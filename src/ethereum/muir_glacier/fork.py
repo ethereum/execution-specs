@@ -624,7 +624,7 @@ def process_transaction(
         origin=sender,
         gas_price=tx.gas_price,
         gas=gas,
-        tx_index=index,
+        index_in_block=index,
         tx_hash=get_transaction_hash(tx),
         traces=[],
     )
