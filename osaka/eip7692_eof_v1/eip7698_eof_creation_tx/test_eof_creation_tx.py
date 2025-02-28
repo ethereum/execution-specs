@@ -32,6 +32,8 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
         pytest.param(Op.CALLER, "sender"),
         pytest.param(Op.CALLVALUE, "value"),
         pytest.param(Op.ORIGIN, "sender"),
+        pytest.param(Op.SELFBALANCE, "selfbalance"),
+        pytest.param(Op.BALANCE(Op.CALLER), "senderbalance"),
     ],
 )
 def test_eof_creation_tx_context(
@@ -42,7 +44,10 @@ def test_eof_creation_tx_context(
 ):
     """Test EOF creation txs' initcode context instructions."""
     env = Environment()
-    sender = pre.fund_eoa()
+    initial_sender_balance = 123412341234
+    gas_limit = 10000000
+    gas_price = 10
+    sender = pre.fund_eoa(amount=initial_sender_balance)
     value = 0x1123
 
     initcode = Container(
@@ -54,7 +59,14 @@ def test_eof_creation_tx_context(
         ]
     )
 
-    tx = Transaction(sender=sender, to=None, gas_limit=100000, value=value, input=initcode)
+    tx = Transaction(
+        sender=sender,
+        to=None,
+        gas_limit=gas_limit,
+        gas_price=gas_price,
+        value=value,
+        input=initcode,
+    )
 
     destination_contract_address = tx.created_contract
 
@@ -65,6 +77,10 @@ def test_eof_creation_tx_context(
         expected_bytes = sender
     elif expected_result == "value":
         expected_bytes = value
+    elif expected_result == "selfbalance":
+        expected_bytes = value
+    elif expected_result == "senderbalance":
+        expected_bytes = initial_sender_balance - gas_limit * gas_price - value
     else:
         raise TypeError("Unexpected expected_result", expected_result)
 
@@ -73,7 +89,7 @@ def test_eof_creation_tx_context(
     }
 
     post = {
-        destination_contract_address: Account(storage=destination_contract_storage),
+        destination_contract_address: Account(storage=destination_contract_storage, balance=value),
     }
 
     state_test(
