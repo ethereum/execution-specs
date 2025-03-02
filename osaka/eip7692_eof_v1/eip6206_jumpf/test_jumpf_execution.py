@@ -2,13 +2,21 @@
 
 import pytest
 
-from ethereum_test_tools import Account, EOFException, EOFStateTestFiller
+from ethereum_test_base_types import Storage
+from ethereum_test_specs import StateTestFiller
+from ethereum_test_tools import Account, Environment, EOFException, EOFStateTestFiller, Transaction
 from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.eof.v1.constants import NON_RETURNING_SECTION
 from ethereum_test_tools.vm.opcode import Opcodes as Op
+from ethereum_test_types import Alloc
 
 from .. import EOF_FORK_NAME
-from .helpers import slot_code_worked, slot_stack_canary, value_canary_written, value_code_worked
+from .helpers import (
+    slot_code_worked,
+    slot_stack_canary,
+    value_canary_written,
+    value_code_worked,
+)
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-6206.md"
 REFERENCE_SPEC_VERSION = "2f365ea0cd58faa6e26013ea77ce6d538175f7d0"
@@ -624,3 +632,92 @@ def test_jumpf_infinite_loop(eof_state_test: EOFStateTestFiller, container: Cont
         container=container,
         container_post=Account(storage={slot_code_worked: 0}),
     )
+
+
+def test_jumpf_memory_context(
+    state_test: StateTestFiller,
+    pre: Alloc,
+):
+    """Verifies JUMPF doesn't corrupt memory."""
+    env = Environment()
+    storage = Storage()
+    contract_address = pre.deploy_contract(
+        code=Container(
+            sections=[
+                Section.Code(
+                    Op.SSTORE(storage.store_next(value_code_worked), value_code_worked)
+                    + Op.MSTORE(0, 1)
+                    + Op.JUMPF[1],
+                ),
+                Section.Code(
+                    Op.SSTORE(storage.store_next(32), Op.MSIZE())
+                    + Op.SSTORE(storage.store_next(1), Op.MLOAD(0))
+                    + Op.STOP,
+                ),
+            ],
+        ),
+    )
+    post = {
+        contract_address: Account(
+            storage=storage,
+        ),
+    }
+    tx = Transaction(
+        to=contract_address,
+        gas_limit=500_000,
+        sender=pre.fund_eoa(),
+    )
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+def test_callf_jumpf_retf_memory_context(
+    state_test: StateTestFiller,
+    pre: Alloc,
+):
+    """Verifies CALLF, JUMPF and RETF don't corrupt memory."""
+    env = Environment()
+    storage = Storage()
+    contract_address = pre.deploy_contract(
+        code=Container(
+            sections=[
+                Section.Code(
+                    Op.SSTORE(storage.store_next(value_code_worked), value_code_worked)
+                    + Op.MSTORE(0, 1)
+                    + Op.CALLF[1]
+                    + Op.SSTORE(storage.store_next(96), Op.MSIZE())
+                    + Op.SSTORE(storage.store_next(2), Op.MLOAD(0))
+                    + Op.SSTORE(storage.store_next(21), Op.MLOAD(32))
+                    + Op.SSTORE(storage.store_next(31), Op.MLOAD(64))
+                    + Op.STOP,
+                ),
+                Section.Code(
+                    Op.SSTORE(storage.store_next(32), Op.MSIZE())
+                    + Op.SSTORE(storage.store_next(1), Op.MLOAD(0))
+                    + Op.MSTORE(0, 2)
+                    + Op.MSTORE(32, 3)
+                    + Op.JUMPF[2],
+                    code_outputs=0,
+                ),
+                Section.Code(
+                    Op.SSTORE(storage.store_next(64), Op.MSIZE())
+                    + Op.SSTORE(storage.store_next(2), Op.MLOAD(0))
+                    + Op.SSTORE(storage.store_next(3), Op.MLOAD(32))
+                    + Op.MSTORE(32, 21)
+                    + Op.MSTORE(64, 31)
+                    + Op.RETF,
+                    code_outputs=0,
+                ),
+            ],
+        ),
+    )
+    post = {
+        contract_address: Account(
+            storage=storage,
+        ),
+    }
+    tx = Transaction(
+        to=contract_address,
+        gas_limit=500_000,
+        sender=pre.fund_eoa(),
+    )
+    state_test(env=env, pre=pre, post=post, tx=tx)
