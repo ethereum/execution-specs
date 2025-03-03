@@ -270,7 +270,9 @@ def validate_header(header: Header, parent_header: Header) -> None:
     header :
         Header to check for correctness.
     parent_header :
-        Parent Header of the header to check for correctness
+        Parent Header of the header to check for correctness. For post-merge forks,
+        this is always the last header in the chain since ommers are
+        not allowed.
     """
     if header.gas_used > header.gas_limit:
         raise InvalidBlock
@@ -293,6 +295,7 @@ def validate_header(header: Header, parent_header: Header) -> None:
         raise InvalidBlock
     if header.nonce != b"\x00\x00\x00\x00\x00\x00\x00\x00":
         raise InvalidBlock
+    # Post-merge forks do not allow ommers, so parent_header is always the last header in the chain.
     if header.ommers_hash != EMPTY_OMMER_HASH:
         raise InvalidBlock
 
