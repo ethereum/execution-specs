@@ -125,7 +125,7 @@ class VmTestLoader:
             origin=self.hex_to_address(json_data["exec"]["caller"]),
             gas_price=tx.gas_price,
             gas=tx.gas,
-            tx_index=Uint(0),
+            index_in_block=Uint(0),
             tx_hash=b"56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
             traces=[],
         )
