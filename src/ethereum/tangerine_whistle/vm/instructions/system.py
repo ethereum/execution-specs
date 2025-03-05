@@ -79,11 +79,13 @@ def create(evm: Evm) -> None:
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
     sender_address = evm.message.current_target
-    sender = get_account(evm.env.state, sender_address)
+    sender = get_account(evm.message.block_env.state, sender_address)
 
     contract_address = compute_contract_address(
         evm.message.current_target,
-        get_account(evm.env.state, evm.message.current_target).nonce,
+        get_account(
+            evm.message.block_env.state, evm.message.current_target
+        ).nonce,
     )
 
     if (
@@ -94,18 +96,24 @@ def create(evm: Evm) -> None:
         push(evm.stack, U256(0))
         evm.gas_left += create_message_gas
     elif account_has_code_or_nonce(
-        evm.env.state, contract_address
-    ) or account_has_storage(evm.env.state, contract_address):
-        increment_nonce(evm.env.state, evm.message.current_target)
+        evm.message.block_env.state, contract_address
+    ) or account_has_storage(evm.message.block_env.state, contract_address):
+        increment_nonce(
+            evm.message.block_env.state, evm.message.current_target
+        )
         push(evm.stack, U256(0))
     else:
         call_data = memory_read_bytes(
             evm.memory, memory_start_position, memory_size
         )
 
-        increment_nonce(evm.env.state, evm.message.current_target)
+        increment_nonce(
+            evm.message.block_env.state, evm.message.current_target
+        )
 
         child_message = Message(
+            block_env=evm.message.block_env,
+            tx_env=evm.message.tx_env,
             caller=evm.message.current_target,
             target=Bytes0(),
             gas=create_message_gas,
@@ -118,7 +126,7 @@ def create(evm: Evm) -> None:
             should_transfer_value=True,
             parent_evm=evm,
         )
-        child_evm = process_create_message(child_message, evm.env)
+        child_evm = process_create_message(child_message)
 
         if child_evm.error:
             incorporate_child_on_error(evm, child_evm)
@@ -191,8 +199,10 @@ def generic_call(
     call_data = memory_read_bytes(
         evm.memory, memory_input_start_position, memory_input_size
     )
-    code = get_account(evm.env.state, code_address).code
+    code = get_account(evm.message.block_env.state, code_address).code
     child_message = Message(
+        block_env=evm.message.block_env,
+        tx_env=evm.message.tx_env,
         caller=caller,
         target=to,
         gas=gas,
@@ -205,7 +215,7 @@ def generic_call(
         should_transfer_value=should_transfer_value,
         parent_evm=evm,
     )
-    child_evm = process_message(child_message, evm.env)
+    child_evm = process_message(child_message)
 
     if child_evm.error:
         incorporate_child_on_error(evm, child_evm)
@@ -251,7 +261,7 @@ def call(evm: Evm) -> None:
 
     code_address = to
 
-    _account_exists = account_exists(evm.env.state, to)
+    _account_exists = account_exists(evm.message.block_env.state, to)
     create_gas_cost = Uint(0) if _account_exists else GAS_NEW_ACCOUNT
     transfer_gas_cost = Uint(0) if value == 0 else GAS_CALL_VALUE
     message_call_gas = calculate_message_call_gas(
@@ -266,7 +276,7 @@ def call(evm: Evm) -> None:
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
     sender_balance = get_account(
-        evm.env.state, evm.message.current_target
+        evm.message.block_env.state, evm.message.current_target
     ).balance
     if sender_balance < value:
         push(evm.stack, U256(0))
@@ -331,7 +341,7 @@ def callcode(evm: Evm) -> None:
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
     sender_balance = get_account(
-        evm.env.state, evm.message.current_target
+        evm.message.block_env.state, evm.message.current_target
     ).balance
     if sender_balance < value:
         push(evm.stack, U256(0))
@@ -369,7 +379,7 @@ def selfdestruct(evm: Evm) -> None:
 
     # GAS
     gas_cost = GAS_SELF_DESTRUCT
-    if not account_exists(evm.env.state, beneficiary):
+    if not account_exists(evm.message.block_env.state, beneficiary):
         gas_cost += GAS_SELF_DESTRUCT_NEW_ACCOUNT
 
     originator = evm.message.current_target
@@ -386,17 +396,23 @@ def selfdestruct(evm: Evm) -> None:
     charge_gas(evm, gas_cost)
 
     # OPERATION
-    beneficiary_balance = get_account(evm.env.state, beneficiary).balance
-    originator_balance = get_account(evm.env.state, originator).balance
+    beneficiary_balance = get_account(
+        evm.message.block_env.state, beneficiary
+    ).balance
+    originator_balance = get_account(
+        evm.message.block_env.state, originator
+    ).balance
 
     # First Transfer to beneficiary
     set_account_balance(
-        evm.env.state, beneficiary, beneficiary_balance + originator_balance
+        evm.message.block_env.state,
+        beneficiary,
+        beneficiary_balance + originator_balance,
     )
     # Next, Zero the balance of the address being deleted (must come after
     # sending to beneficiary in case the contract named itself as the
     # beneficiary).
-    set_account_balance(evm.env.state, originator, U256(0))
+    set_account_balance(evm.message.block_env.state, originator, U256(0))
 
     # register account for deletion
     evm.accounts_to_delete.add(originator)

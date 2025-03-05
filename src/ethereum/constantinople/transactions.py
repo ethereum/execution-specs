@@ -17,10 +17,10 @@ from ethereum.exceptions import InvalidBlock, InvalidSignatureError
 
 from .fork_types import Address
 
-TX_BASE_COST = 21000
-TX_DATA_COST_PER_NON_ZERO = 68
-TX_DATA_COST_PER_ZERO = 4
-TX_CREATE_COST = 32000
+TX_BASE_COST = Uint(21000)
+TX_DATA_COST_PER_NON_ZERO = Uint(68)
+TX_DATA_COST_PER_ZERO = Uint(4)
+TX_CREATE_COST = Uint(32000)
 
 
 @slotted_freezable
@@ -99,10 +99,10 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
 
     Returns
     -------
-    verified : `ethereum.base_types.Uint`
+    intrinsic_gas : `ethereum.base_types.Uint`
         The intrinsic cost of the transaction.
     """
-    data_cost = 0
+    data_cost = Uint(0)
 
     for byte in tx.data:
         if byte == 0:
@@ -113,9 +113,9 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     if tx.to == Bytes0(b""):
         create_cost = TX_CREATE_COST
     else:
-        create_cost = 0
+        create_cost = Uint(0)
 
-    return Uint(TX_BASE_COST + data_cost + create_cost)
+    return TX_BASE_COST + data_cost + create_cost
 
 
 def recover_sender(chain_id: U64, tx: Transaction) -> Address:
@@ -157,6 +157,7 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
         public_key = secp256k1_recover(
             r, s, v - U256(35) - chain_id_x2, signing_hash_155(tx, chain_id)
         )
+
     return Address(keccak256(public_key)[12:32])
 
 
@@ -219,3 +220,18 @@ def signing_hash_155(tx: Transaction, chain_id: U64) -> Hash32:
             )
         )
     )
+
+
+def get_transaction_hash(tx: Transaction) -> Hash32:
+    """
+    Parameters
+    ----------
+    tx :
+        Transaction of interest.
+
+    Returns
+    -------
+    hash : `ethereum.crypto.hash.Hash32`
+        Hash of the transaction.
+    """
+    return keccak256(rlp.encode(tx))

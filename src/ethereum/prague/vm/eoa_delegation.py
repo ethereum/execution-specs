@@ -17,7 +17,7 @@ from ..fork_types import Address, Authorization
 from ..state import account_exists, get_account, increment_nonce, set_code
 from ..utils.hexadecimal import hex_to_address
 from ..vm.gas import GAS_COLD_ACCOUNT_ACCESS, GAS_WARM_ACCESS
-from . import Environment, Evm, Message
+from . import Evm, Message
 
 SET_CODE_TX_MAGIC = b"\x05"
 EOA_DELEGATION_MARKER = b"\xEF\x01\x00"
@@ -130,7 +130,8 @@ def access_delegation(
     delegation : `Tuple[bool, Address, Bytes, Uint]`
         The delegation address, code, and access gas cost.
     """
-    code = get_account(evm.env.state, address).code
+    state = evm.message.block_env.state
+    code = get_account(state, address).code
     if not is_valid_delegation(code):
         return False, address, code, Uint(0)
 
@@ -140,12 +141,12 @@ def access_delegation(
     else:
         evm.accessed_addresses.add(address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
-    code = get_account(evm.env.state, address).code
+    code = get_account(state, address).code
 
     return True, address, code, access_gas_cost
 
 
-def set_delegation(message: Message, env: Environment) -> U256:
+def set_delegation(message: Message) -> U256:
     """
     Set the delegation code for the authorities in the message.
 
@@ -161,9 +162,10 @@ def set_delegation(message: Message, env: Environment) -> U256:
     refund_counter: `U256`
         Refund from authority which already exists in state.
     """
+    state = message.block_env.state
     refund_counter = U256(0)
-    for auth in message.authorizations:
-        if auth.chain_id not in (env.chain_id, U256(0)):
+    for auth in message.tx_env.authorizations:
+        if auth.chain_id not in (message.block_env.chain_id, U256(0)):
             continue
 
         if auth.nonce >= U64.MAX_VALUE:
@@ -176,32 +178,30 @@ def set_delegation(message: Message, env: Environment) -> U256:
 
         message.accessed_addresses.add(authority)
 
-        authority_account = get_account(env.state, authority)
+        authority_account = get_account(state, authority)
         authority_code = authority_account.code
 
-        if authority_code != bytearray() and not is_valid_delegation(
-            authority_code
-        ):
+        if authority_code and not is_valid_delegation(authority_code):
             continue
 
         authority_nonce = authority_account.nonce
         if authority_nonce != auth.nonce:
             continue
 
-        if account_exists(env.state, authority):
+        if account_exists(state, authority):
             refund_counter += U256(PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST)
 
         if auth.address == NULL_ADDRESS:
             code_to_set = b""
         else:
             code_to_set = EOA_DELEGATION_MARKER + auth.address
-        set_code(env.state, authority, code_to_set)
+        set_code(state, authority, code_to_set)
 
-        increment_nonce(env.state, authority)
+        increment_nonce(state, authority)
 
     if message.code_address is None:
         raise InvalidBlock("Invalid type 4 transaction: no target")
-    message.code = get_account(env.state, message.code_address).code
+    message.code = get_account(state, message.code_address).code
 
     if is_valid_delegation(message.code):
         message.code_address = Address(
@@ -209,6 +209,6 @@ def set_delegation(message: Message, env: Environment) -> U256:
         )
         message.accessed_addresses.add(message.code_address)
 
-        message.code = get_account(env.state, message.code_address).code
+        message.code = get_account(state, message.code_address).code
 
     return refund_counter

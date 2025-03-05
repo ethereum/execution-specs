@@ -5,7 +5,15 @@ import json
 import os
 from contextlib import ExitStack
 from dataclasses import asdict, dataclass, is_dataclass
-from typing import List, Optional, Protocol, TextIO, Union, runtime_checkable
+from typing import (
+    Any,
+    List,
+    Optional,
+    Protocol,
+    TextIO,
+    Union,
+    runtime_checkable,
+)
 
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256, Uint
@@ -24,6 +32,7 @@ from ethereum.trace import (
 )
 
 EXCLUDE_FROM_OUTPUT = ["gasCostTraced", "errorTraced", "precompile"]
+OUTPUT_DIR = "."
 
 
 @dataclass
@@ -69,11 +78,13 @@ class FinalTrace:
 
 
 @runtime_checkable
-class Environment(Protocol):
+class TransactionEnvironment(Protocol):
     """
-    The class implements the environment interface for trace.
+    The class implements the tx_env interface for trace.
     """
 
+    index_in_block: Optional[Uint]
+    tx_hash: Optional[Bytes]
     traces: List[Union["Trace", "FinalTrace"]]
 
 
@@ -84,6 +95,7 @@ class Message(Protocol):
     """
 
     depth: int
+    tx_env: TransactionEnvironment
     parent_evm: Optional["Evm"]
 
 
@@ -98,7 +110,6 @@ class EvmWithoutReturnData(Protocol):
     memory: bytearray
     code: Bytes
     gas_left: Uint
-    env: Environment
     refund_counter: int
     running: bool
     message: Message
@@ -115,7 +126,6 @@ class EvmWithReturnData(Protocol):
     memory: bytearray
     code: Bytes
     gas_left: Uint
-    env: Environment
     refund_counter: int
     running: bool
     message: Message
@@ -126,7 +136,7 @@ Evm = Union[EvmWithoutReturnData, EvmWithReturnData]
 
 
 def evm_trace(
-    evm: object,
+    evm: Any,
     event: TraceEvent,
     trace_memory: bool = False,
     trace_stack: bool = True,
@@ -135,11 +145,19 @@ def evm_trace(
     """
     Create a trace of the event.
     """
+    # System Transaction do not have a tx_hash or index
+    if (
+        evm.message.tx_env.index_in_block is None
+        or evm.message.tx_env.tx_hash is None
+    ):
+        return
+
     assert isinstance(evm, (EvmWithoutReturnData, EvmWithReturnData))
 
+    traces = evm.message.tx_env.traces
     last_trace = None
-    if evm.env.traces:
-        last_trace = evm.env.traces[-1]
+    if traces:
+        last_trace = traces[-1]
 
     refund_counter = evm.refund_counter
     parent_evm = evm.message.parent_evm
@@ -165,7 +183,13 @@ def evm_trace(
         pass
     elif isinstance(event, TransactionEnd):
         final_trace = FinalTrace(event.gas_used, event.output, event.error)
-        evm.env.traces.append(final_trace)
+        traces.append(final_trace)
+
+        output_traces(
+            traces,
+            evm.message.tx_env.index_in_block,
+            evm.message.tx_env.tx_hash,
+        )
     elif isinstance(event, PrecompileStart):
         new_trace = Trace(
             pc=int(evm.pc),
@@ -182,7 +206,7 @@ def evm_trace(
             precompile=True,
         )
 
-        evm.env.traces.append(new_trace)
+        traces.append(new_trace)
     elif isinstance(event, PrecompileEnd):
         assert isinstance(last_trace, Trace)
 
@@ -206,7 +230,7 @@ def evm_trace(
             opName=str(event.op).split(".")[-1],
         )
 
-        evm.env.traces.append(new_trace)
+        traces.append(new_trace)
     elif isinstance(event, OpEnd):
         assert isinstance(last_trace, Trace)
 
@@ -251,7 +275,7 @@ def evm_trace(
                 error=type(event.error).__name__,
             )
 
-            evm.env.traces.append(new_trace)
+            traces.append(new_trace)
         elif not last_trace.errorTraced:
             # If the error for the last trace is not covered
             # the exception is attributed to the last trace.
@@ -271,7 +295,7 @@ def evm_trace(
                 trace_return_data,
             )
     elif isinstance(event, GasAndRefund):
-        if not evm.env.traces:
+        if len(traces) == 0:
             # In contract creation transactions, there may not be any traces
             return
 
@@ -323,9 +347,8 @@ def output_op_trace(
 
 def output_traces(
     traces: List[Union[Trace, FinalTrace]],
-    tx_index: int,
+    index_in_block: int,
     tx_hash: bytes,
-    output_basedir: str | TextIO = ".",
 ) -> None:
     """
     Output the traces to a json file.
@@ -333,15 +356,15 @@ def output_traces(
     with ExitStack() as stack:
         json_file: TextIO
 
-        if isinstance(output_basedir, str):
+        if isinstance(OUTPUT_DIR, str):
             tx_hash_str = "0x" + tx_hash.hex()
             output_path = os.path.join(
-                output_basedir, f"trace-{tx_index}-{tx_hash_str}.jsonl"
+                OUTPUT_DIR, f"trace-{index_in_block}-{tx_hash_str}.jsonl"
             )
             json_file = open(output_path, "w")
             stack.push(json_file)
         else:
-            json_file = output_basedir
+            json_file = OUTPUT_DIR
 
         for trace in traces:
             if getattr(trace, "precompile", False):

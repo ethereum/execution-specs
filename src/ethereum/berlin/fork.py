@@ -11,7 +11,6 @@ Introduction
 
 Entry point for the Ethereum specification.
 """
-
 from dataclasses import dataclass
 from typing import List, Optional, Set, Tuple, Union
 
@@ -21,17 +20,22 @@ from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
-from ethereum.exceptions import InvalidBlock, InvalidSenderError
+from ethereum.exceptions import (
+    EthereumException,
+    InvalidBlock,
+    InvalidSenderError,
+)
 
 from . import vm
 from .blocks import Block, Header, Log, Receipt, encode_receipt
 from .bloom import logs_bloom
-from .fork_types import Address, Bloom, Root
+from .fork_types import Address
 from .state import (
     State,
     account_exists_and_is_empty,
     create_ether,
     destroy_account,
+    destroy_touched_empty_accounts,
     get_account,
     increment_nonce,
     set_account_balance,
@@ -43,10 +47,11 @@ from .transactions import (
     Transaction,
     decode_transaction,
     encode_transaction,
+    get_transaction_hash,
     recover_sender,
     validate_transaction,
 )
-from .trie import Trie, root, trie_set
+from .trie import root, trie_set
 from .utils.message import prepare_message
 from .vm.interpreter import process_message_call
 
@@ -154,32 +159,41 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     block :
         Block to apply to `chain`.
     """
-    parent_header = chain.blocks[-1].header
-    validate_header(block.header, parent_header)
+    validate_header(chain, block.header)
     validate_ommers(block.ommers, block.header, chain)
-    apply_body_output = apply_body(
-        chain.state,
-        get_last_256_block_hashes(chain),
-        block.header.coinbase,
-        block.header.number,
-        block.header.gas_limit,
-        block.header.timestamp,
-        block.header.difficulty,
-        block.transactions,
-        block.ommers,
-        chain.chain_id,
+
+    block_env = vm.BlockEnvironment(
+        chain_id=chain.chain_id,
+        state=chain.state,
+        block_gas_limit=block.header.gas_limit,
+        block_hashes=get_last_256_block_hashes(chain),
+        coinbase=block.header.coinbase,
+        number=block.header.number,
+        time=block.header.timestamp,
+        difficulty=block.header.difficulty,
     )
-    if apply_body_output.block_gas_used != block.header.gas_used:
+
+    block_output = apply_body(
+        block_env=block_env,
+        transactions=block.transactions,
+        ommers=block.ommers,
+    )
+    block_state_root = state_root(block_env.state)
+    transactions_root = root(block_output.transactions_trie)
+    receipt_root = root(block_output.receipts_trie)
+    block_logs_bloom = logs_bloom(block_output.block_logs)
+
+    if block_output.block_gas_used != block.header.gas_used:
         raise InvalidBlock(
-            f"{apply_body_output.block_gas_used} != {block.header.gas_used}"
+            f"{block_output.block_gas_used} != {block.header.gas_used}"
         )
-    if apply_body_output.transactions_root != block.header.transactions_root:
+    if transactions_root != block.header.transactions_root:
         raise InvalidBlock
-    if apply_body_output.state_root != block.header.state_root:
+    if block_state_root != block.header.state_root:
         raise InvalidBlock
-    if apply_body_output.receipt_root != block.header.receipt_root:
+    if receipt_root != block.header.receipt_root:
         raise InvalidBlock
-    if apply_body_output.block_logs_bloom != block.header.bloom:
+    if block_logs_bloom != block.header.bloom:
         raise InvalidBlock
 
     chain.blocks.append(block)
@@ -189,7 +203,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         chain.blocks = chain.blocks[-255:]
 
 
-def validate_header(header: Header, parent_header: Header) -> None:
+def validate_header(chain: BlockChain, header: Header) -> None:
     """
     Verifies a block header.
 
@@ -202,11 +216,30 @@ def validate_header(header: Header, parent_header: Header) -> None:
 
     Parameters
     ----------
+    chain :
+        History and current state.
     header :
         Header to check for correctness.
-    parent_header :
-        Parent Header of the header to check for correctness
     """
+    if header.number < Uint(1):
+        raise InvalidBlock
+    parent_header_number = header.number - Uint(1)
+    first_block_number = chain.blocks[0].header.number
+    last_block_number = chain.blocks[-1].header.number
+
+    if (
+        parent_header_number < first_block_number
+        or parent_header_number > last_block_number
+    ):
+        raise InvalidBlock
+
+    parent_header = chain.blocks[
+        parent_header_number - first_block_number
+    ].header
+
+    if header.gas_used > header.gas_limit:
+        raise InvalidBlock
+
     parent_has_ommers = parent_header.ommers_hash != EMPTY_OMMER_HASH
     if header.timestamp <= parent_header.timestamp:
         raise InvalidBlock
@@ -307,21 +340,21 @@ def validate_proof_of_work(header: Header) -> None:
 
 
 def check_transaction(
+    block_env: vm.BlockEnvironment,
+    block_output: vm.BlockOutput,
     tx: Transaction,
-    gas_available: Uint,
-    chain_id: U64,
 ) -> Address:
     """
     Check if the transaction is includable in the block.
 
     Parameters
     ----------
+    block_env :
+        The block scoped environment.
+    block_output :
+        The block output for the current block.
     tx :
         The transaction.
-    gas_available :
-        The gas remaining in the block.
-    chain_id :
-        The ID of the current chain.
 
     Returns
     -------
@@ -333,16 +366,27 @@ def check_transaction(
     InvalidBlock :
         If the transaction is not includable.
     """
+    gas_available = block_env.block_gas_limit - block_output.block_gas_used
     if tx.gas > gas_available:
         raise InvalidBlock
-    sender_address = recover_sender(chain_id, tx)
+    sender_address = recover_sender(block_env.chain_id, tx)
+    sender_account = get_account(block_env.state, sender_address)
+
+    max_gas_fee = tx.gas * tx.gas_price
+
+    if sender_account.nonce != tx.nonce:
+        raise InvalidBlock
+    if Uint(sender_account.balance) < max_gas_fee + Uint(tx.value):
+        raise InvalidBlock
+    if sender_account.code:
+        raise InvalidSenderError("not EOA")
 
     return sender_address
 
 
 def make_receipt(
     tx: Transaction,
-    error: Optional[Exception],
+    error: Optional[EthereumException],
     cumulative_gas_used: Uint,
     logs: Tuple[Log, ...],
 ) -> Union[Bytes, Receipt]:
@@ -376,45 +420,11 @@ def make_receipt(
     return encode_receipt(tx, receipt)
 
 
-@dataclass
-class ApplyBodyOutput:
-    """
-    Output from applying the block body to the present state.
-
-    Contains the following:
-
-    block_gas_used : `ethereum.base_types.Uint`
-        Gas used for executing all transactions.
-    transactions_root : `ethereum.fork_types.Root`
-        Trie root of all the transactions in the block.
-    receipt_root : `ethereum.fork_types.Root`
-        Trie root of all the receipts in the block.
-    block_logs_bloom : `Bloom`
-        Logs bloom of all the logs included in all the transactions of the
-        block.
-    state_root : `ethereum.fork_types.Root`
-        State root after all transactions have been executed.
-    """
-
-    block_gas_used: Uint
-    transactions_root: Root
-    receipt_root: Root
-    block_logs_bloom: Bloom
-    state_root: Root
-
-
 def apply_body(
-    state: State,
-    block_hashes: List[Hash32],
-    coinbase: Address,
-    block_number: Uint,
-    block_gas_limit: Uint,
-    block_time: U256,
-    block_difficulty: Uint,
+    block_env: vm.BlockEnvironment,
     transactions: Tuple[Union[LegacyTransaction, Bytes], ...],
     ommers: Tuple[Header, ...],
-    chain_id: U64,
-) -> ApplyBodyOutput:
+) -> vm.BlockOutput:
     """
     Executes a block.
 
@@ -427,93 +437,27 @@ def apply_body(
 
     Parameters
     ----------
-    state :
-        Current account state.
-    block_hashes :
-        List of hashes of the previous 256 blocks in the order of
-        increasing block number.
-    coinbase :
-        Address of account which receives block reward and transaction fees.
-    block_number :
-        Position of the block within the chain.
-    block_gas_limit :
-        Initial amount of gas available for execution in this block.
-    block_time :
-        Time the block was produced, measured in seconds since the epoch.
-    block_difficulty :
-        Difficulty of the block.
+    block_env :
+        The block scoped environment.
     transactions :
         Transactions included in the block.
     ommers :
         Headers of ancestor blocks which are not direct parents (formerly
         uncles.)
-    chain_id :
-        ID of the executing chain.
 
     Returns
     -------
-    apply_body_output : `ApplyBodyOutput`
-        Output of applying the block body to the state.
+    block_output :
+        The block output for the current block.
     """
-    gas_available = block_gas_limit
-    transactions_trie: Trie[
-        Bytes, Optional[Union[Bytes, LegacyTransaction]]
-    ] = Trie(secured=False, default=None)
-    receipts_trie: Trie[Bytes, Optional[Union[Bytes, Receipt]]] = Trie(
-        secured=False, default=None
-    )
-    block_logs: Tuple[Log, ...] = ()
+    block_output = vm.BlockOutput()
 
     for i, tx in enumerate(map(decode_transaction, transactions)):
-        trie_set(
-            transactions_trie, rlp.encode(Uint(i)), encode_transaction(tx)
-        )
+        process_transaction(block_env, block_output, tx, Uint(i))
 
-        sender_address = check_transaction(tx, gas_available, chain_id)
+    pay_rewards(block_env.state, block_env.number, block_env.coinbase, ommers)
 
-        env = vm.Environment(
-            caller=sender_address,
-            origin=sender_address,
-            block_hashes=block_hashes,
-            coinbase=coinbase,
-            number=block_number,
-            gas_limit=block_gas_limit,
-            gas_price=tx.gas_price,
-            time=block_time,
-            difficulty=block_difficulty,
-            state=state,
-            chain_id=chain_id,
-            traces=[],
-        )
-
-        gas_used, logs, error = process_transaction(env, tx)
-        gas_available -= gas_used
-
-        receipt = make_receipt(
-            tx, error, (block_gas_limit - gas_available), logs
-        )
-
-        trie_set(
-            receipts_trie,
-            rlp.encode(Uint(i)),
-            receipt,
-        )
-
-        block_logs += logs
-
-    pay_rewards(state, block_number, coinbase, ommers)
-
-    block_gas_used = block_gas_limit - gas_available
-
-    block_logs_bloom = logs_bloom(block_logs)
-
-    return ApplyBodyOutput(
-        block_gas_used,
-        root(transactions_trie),
-        root(receipts_trie),
-        block_logs_bloom,
-        state_root(state),
-    )
+    return block_output
 
 
 def validate_ommers(
@@ -552,10 +496,7 @@ def validate_ommers(
     for ommer in ommers:
         if Uint(1) > ommer.number or ommer.number >= block_header.number:
             raise InvalidBlock
-        ommer_parent_header = chain.blocks[
-            -(block_header.number - ommer.number) - 1
-        ].header
-        validate_header(ommer, ommer_parent_header)
+        validate_header(chain, ommer)
     if len(ommers) > 2:
         raise InvalidBlock
 
@@ -637,8 +578,11 @@ def pay_rewards(
 
 
 def process_transaction(
-    env: vm.Environment, tx: Transaction
-) -> Tuple[Uint, Tuple[Log, ...], Optional[Exception]]:
+    block_env: vm.BlockEnvironment,
+    block_output: vm.BlockOutput,
+    tx: Transaction,
+    index: Uint,
+) -> None:
     """
     Execute a transaction against the provided environment.
 
@@ -653,87 +597,108 @@ def process_transaction(
 
     Parameters
     ----------
-    env :
+    block_env :
         Environment for the Ethereum Virtual Machine.
+    block_output :
+        The block output for the current block.
     tx :
         Transaction to execute.
-
-    Returns
-    -------
-    gas_left : `ethereum.base_types.U256`
-        Remaining gas after execution.
-    logs : `Tuple[ethereum.blocks.Log, ...]`
-        Logs generated during execution.
+    index:
+        Index of the transaction in the block.
     """
-    intrinsic_gas = validate_transaction(tx)
-
-    sender = env.origin
-    sender_account = get_account(env.state, sender)
-    gas_fee = tx.gas * tx.gas_price
-    if sender_account.nonce != tx.nonce:
-        raise InvalidBlock
-    if Uint(sender_account.balance) < gas_fee + Uint(tx.value):
-        raise InvalidBlock
-    if sender_account.code != bytearray():
-        raise InvalidSenderError("not EOA")
-
-    gas = tx.gas - intrinsic_gas
-    increment_nonce(env.state, sender)
-    sender_balance_after_gas_fee = Uint(sender_account.balance) - gas_fee
-    set_account_balance(env.state, sender, U256(sender_balance_after_gas_fee))
-
-    preaccessed_addresses = set()
-    preaccessed_storage_keys = set()
-    if isinstance(tx, AccessListTransaction):
-        for address, keys in tx.access_list:
-            preaccessed_addresses.add(address)
-            for key in keys:
-                preaccessed_storage_keys.add((address, key))
-
-    message = prepare_message(
-        sender,
-        tx.to,
-        tx.value,
-        tx.data,
-        gas,
-        env,
-        preaccessed_addresses=frozenset(preaccessed_addresses),
-        preaccessed_storage_keys=frozenset(preaccessed_storage_keys),
+    trie_set(
+        block_output.transactions_trie,
+        rlp.encode(index),
+        encode_transaction(tx),
     )
 
-    output = process_message_call(message, env)
+    intrinsic_gas = validate_transaction(tx)
 
-    gas_used = tx.gas - output.gas_left
-    gas_refund = min(gas_used // Uint(2), Uint(output.refund_counter))
-    gas_refund_amount = (output.gas_left + gas_refund) * tx.gas_price
-    transaction_fee = (tx.gas - output.gas_left - gas_refund) * tx.gas_price
-    total_gas_used = gas_used - gas_refund
+    sender = check_transaction(
+        block_env=block_env,
+        block_output=block_output,
+        tx=tx,
+    )
+
+    sender_account = get_account(block_env.state, sender)
+
+    gas = tx.gas - intrinsic_gas
+    increment_nonce(block_env.state, sender)
+
+    gas_fee = tx.gas * tx.gas_price
+    sender_balance_after_gas_fee = Uint(sender_account.balance) - gas_fee
+    set_account_balance(
+        block_env.state, sender, U256(sender_balance_after_gas_fee)
+    )
+
+    access_list_addresses = set()
+    access_list_storage_keys = set()
+    if isinstance(tx, AccessListTransaction):
+        for address, keys in tx.access_list:
+            access_list_addresses.add(address)
+            for key in keys:
+                access_list_storage_keys.add((address, key))
+
+    tx_env = vm.TransactionEnvironment(
+        origin=sender,
+        gas_price=tx.gas_price,
+        gas=gas,
+        access_list_addresses=access_list_addresses,
+        access_list_storage_keys=access_list_storage_keys,
+        index_in_block=index,
+        tx_hash=get_transaction_hash(encode_transaction(tx)),
+        traces=[],
+    )
+
+    message = prepare_message(block_env, tx_env, tx)
+
+    tx_output = process_message_call(message)
+
+    gas_used = tx.gas - tx_output.gas_left
+    gas_refund = min(gas_used // Uint(2), Uint(tx_output.refund_counter))
+    tx_gas_used = gas_used - gas_refund
+    tx_output.gas_left = tx.gas - tx_gas_used
+    gas_refund_amount = tx_output.gas_left * tx.gas_price
+
+    transaction_fee = tx_gas_used * tx.gas_price
 
     # refund gas
     sender_balance_after_refund = get_account(
-        env.state, sender
+        block_env.state, sender
     ).balance + U256(gas_refund_amount)
-    set_account_balance(env.state, sender, sender_balance_after_refund)
+    set_account_balance(block_env.state, sender, sender_balance_after_refund)
 
     # transfer miner fees
     coinbase_balance_after_mining_fee = get_account(
-        env.state, env.coinbase
+        block_env.state, block_env.coinbase
     ).balance + U256(transaction_fee)
     if coinbase_balance_after_mining_fee != 0:
         set_account_balance(
-            env.state, env.coinbase, coinbase_balance_after_mining_fee
+            block_env.state,
+            block_env.coinbase,
+            coinbase_balance_after_mining_fee,
         )
-    elif account_exists_and_is_empty(env.state, env.coinbase):
-        destroy_account(env.state, env.coinbase)
+    elif account_exists_and_is_empty(block_env.state, block_env.coinbase):
+        destroy_account(block_env.state, block_env.coinbase)
 
-    for address in output.accounts_to_delete:
-        destroy_account(env.state, address)
+    for address in tx_output.accounts_to_delete:
+        destroy_account(block_env.state, address)
 
-    for address in output.touched_accounts:
-        if account_exists_and_is_empty(env.state, address):
-            destroy_account(env.state, address)
+    destroy_touched_empty_accounts(block_env.state, tx_output.touched_accounts)
 
-    return total_gas_used, output.logs, output.error
+    block_output.block_gas_used += tx_gas_used
+
+    receipt = make_receipt(
+        tx, tx_output.error, block_output.block_gas_used, tx_output.logs
+    )
+
+    trie_set(
+        block_output.receipts_trie,
+        rlp.encode(Uint(index)),
+        receipt,
+    )
+
+    block_output.block_logs += tx_output.logs
 
 
 def compute_header_hash(header: Header) -> Hash32:

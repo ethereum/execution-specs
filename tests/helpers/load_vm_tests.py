@@ -40,6 +40,9 @@ class VmTestLoader:
         self.Account = self.fork_types.Account
         self.Address = self.fork_types.Address
 
+        self.transactions = self._module("transactions")
+        self.Transaction = self.transactions.Transaction
+
         self.hexadecimal = self._module("utils.hexadecimal")
         self.hex_to_address = self.hexadecimal.hex_to_address
 
@@ -47,7 +50,8 @@ class VmTestLoader:
         self.prepare_message = self.message.prepare_message
 
         self.vm = self._module("vm")
-        self.Environment = self.vm.Environment
+        self.BlockEnvironment = self.vm.BlockEnvironment
+        self.TransactionEnvironment = self.vm.TransactionEnvironment
 
         self.interpreter = self._module("vm.interpreter")
         self.process_message_call = self.interpreter.process_message_call
@@ -62,18 +66,17 @@ class VmTestLoader:
         Execute a test case and check its post state.
         """
         test_data = self.load_test(test_dir, test_file)
-        target = test_data["target"]
-        env = test_data["env"]
+        block_env = test_data["block_env"]
+        tx_env = test_data["tx_env"]
+        tx = test_data["tx"]
+
         message = self.prepare_message(
-            caller=test_data["caller"],
-            target=target,
-            value=test_data["value"],
-            data=test_data["data"],
-            gas=test_data["gas"],
-            env=env,
+            block_env=block_env,
+            tx_env=tx_env,
+            tx=tx,
         )
 
-        output = self.process_message_call(message, env)
+        output = self.process_message_call(message)
 
         if test_data["has_post_state"]:
             if check_gas_left:
@@ -89,10 +92,10 @@ class VmTestLoader:
             for addr in test_data["post_state_addresses"]:
                 assert self.storage_root(
                     test_data["expected_post_state"], addr
-                ) == self.storage_root(env.state, addr)
+                ) == self.storage_root(block_env.state, addr)
         else:
             assert output.error is not None
-        self.close_state(env.state)
+        self.close_state(block_env.state)
         self.close_state(test_data["expected_post_state"])
 
     def load_test(self, test_dir: str, test_file: str) -> Any:
@@ -104,16 +107,33 @@ class VmTestLoader:
         with open(path, "r") as fp:
             json_data = json.load(fp)[test_name]
 
-        env = self.json_to_env(json_data)
+        block_env = self.json_to_block_env(json_data)
+
+        tx = self.Transaction(
+            nonce=U256(0),
+            gas_price=hex_to_u256(json_data["exec"]["gasPrice"]),
+            gas=hex_to_uint(json_data["exec"]["gas"]),
+            to=self.hex_to_address(json_data["exec"]["address"]),
+            value=hex_to_u256(json_data["exec"]["value"]),
+            data=hex_to_bytes(json_data["exec"]["data"]),
+            v=U256(0),
+            r=U256(0),
+            s=U256(0),
+        )
+
+        tx_env = self.TransactionEnvironment(
+            origin=self.hex_to_address(json_data["exec"]["caller"]),
+            gas_price=tx.gas_price,
+            gas=tx.gas,
+            index_in_block=Uint(0),
+            tx_hash=b"56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            traces=[],
+        )
 
         return {
-            "caller": self.hex_to_address(json_data["exec"]["caller"]),
-            "target": self.hex_to_address(json_data["exec"]["address"]),
-            "data": hex_to_bytes(json_data["exec"]["data"]),
-            "value": hex_to_u256(json_data["exec"]["value"]),
-            "gas": hex_to_uint(json_data["exec"]["gas"]),
-            "depth": Uint(0),
-            "env": env,
+            "block_env": block_env,
+            "tx_env": tx_env,
+            "tx": tx,
             "expected_gas_left": hex_to_u256(json_data.get("gas", "0x64")),
             "expected_logs_hash": hex_to_bytes(json_data.get("logs", "0x00")),
             "expected_post_state": self.json_to_state(
@@ -125,9 +145,9 @@ class VmTestLoader:
             "has_post_state": bool(json_data.get("post", {})),
         }
 
-    def json_to_env(self, json_data: Any) -> Any:
+    def json_to_block_env(self, json_data: Any) -> Any:
         """
-        Deserialize an `Environment` instance from JSON.
+        Deserialize a `BlockEnvironment` instance from JSON.
         """
         caller_hex_address = json_data["exec"]["caller"]
         # Some tests don't have the caller state defined in the test case. Hence
@@ -146,18 +166,15 @@ class VmTestLoader:
             chain_id=U64(1),
         )
 
-        return self.Environment(
-            caller=self.hex_to_address(json_data["exec"]["caller"]),
-            origin=self.hex_to_address(json_data["exec"]["origin"]),
+        return self.BlockEnvironment(
+            chain_id=chain.chain_id,
+            state=current_state,
             block_hashes=self.get_last_256_block_hashes(chain),
             coinbase=self.hex_to_address(json_data["env"]["currentCoinbase"]),
             number=hex_to_uint(json_data["env"]["currentNumber"]),
-            gas_limit=hex_to_uint(json_data["env"]["currentGasLimit"]),
-            gas_price=hex_to_u256(json_data["exec"]["gasPrice"]),
+            block_gas_limit=hex_to_uint(json_data["env"]["currentGasLimit"]),
             time=hex_to_u256(json_data["env"]["currentTimestamp"]),
             difficulty=hex_to_uint(json_data["env"]["currentDifficulty"]),
-            state=current_state,
-            traces=[],
         )
 
     def json_to_state(self, raw: Any) -> Any:

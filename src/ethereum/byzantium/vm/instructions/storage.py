@@ -45,7 +45,9 @@ def sload(evm: Evm) -> None:
     charge_gas(evm, GAS_SLOAD)
 
     # OPERATION
-    value = get_storage(evm.env.state, evm.message.current_target, key)
+    value = get_storage(
+        evm.message.block_env.state, evm.message.current_target, key
+    )
 
     push(evm.stack, value)
 
@@ -68,7 +70,8 @@ def sstore(evm: Evm) -> None:
     new_value = pop(evm.stack)
 
     # GAS
-    current_value = get_storage(evm.env.state, evm.message.current_target, key)
+    state = evm.message.block_env.state
+    current_value = get_storage(state, evm.message.current_target, key)
     if new_value != 0 and current_value == 0:
         gas_cost = GAS_STORAGE_SET
     else:
@@ -80,7 +83,7 @@ def sstore(evm: Evm) -> None:
     charge_gas(evm, gas_cost)
     if evm.message.is_static:
         raise WriteInStaticContext
-    set_storage(evm.env.state, evm.message.current_target, key, new_value)
+    set_storage(state, evm.message.current_target, key, new_value)
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
