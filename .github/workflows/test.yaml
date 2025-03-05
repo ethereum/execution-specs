@@ -41,11 +41,11 @@ jobs:
 
       - name: Run Tox (CPython)
         if: "${{ !startsWith(matrix.py, 'pypy') }}"
-        run: tox -e static,optimized,py3
+        run: tox -e optimized,py3
 
       - name: Run Tox (PyPy)
         if: "${{ startsWith(matrix.py, 'pypy') }}"
-        run: tox -e pypy3
+        run: tox -e static,pypy3
         env:
           PYPY_GC_MAX: "10G"
 
