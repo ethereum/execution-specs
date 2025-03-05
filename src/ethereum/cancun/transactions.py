@@ -13,7 +13,7 @@ from ethereum_types.numeric import U64, U256, Uint, ulen
 
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.exceptions import InvalidBlock, InvalidSignatureError
+from ethereum.exceptions import InvalidTransaction, InvalidSignatureError
 
 from .exceptions import TransactionTypeError
 from .fork_types import Address, VersionedHash
@@ -176,18 +176,18 @@ def validate_transaction(tx: Transaction) -> Uint:
 
     Raises
     ------
-    InvalidBlock :
+    InvalidTransaction :
         If the transaction is not valid.
     """
     from .vm.interpreter import MAX_CODE_SIZE
 
     intrinsic_gas = calculate_intrinsic_cost(tx)
     if intrinsic_gas > tx.gas:
-        raise InvalidBlock
+        raise InvalidTransaction
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
-        raise InvalidBlock
+        raise InvalidTransaction
     if tx.to == Bytes0(b"") and len(tx.data) > 2 * MAX_CODE_SIZE:
-        raise InvalidBlock
+        raise InvalidTransaction
 
     return intrinsic_gas
 
