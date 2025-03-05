@@ -17,13 +17,12 @@ There is a distinction between an account that does not exist and
 `EMPTY_ACCOUNT`.
 """
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Set, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import modify
 from ethereum_types.numeric import U256, Uint
 
-from .blocks import Withdrawal
 from .fork_types import EMPTY_ACCOUNT, Account, Address, Root
 from .trie import EMPTY_TRIE_ROOT, Trie, copy_trie, root, trie_get, trie_set
 
@@ -502,20 +501,6 @@ def move_ether(
     modify_state(state, recipient_address, increase_recipient_balance)
 
 
-def process_withdrawal(
-    state: State,
-    wd: Withdrawal,
-) -> None:
-    """
-    Increase the balance of the withdrawing account.
-    """
-
-    def increase_recipient_balance(recipient: Account) -> None:
-        recipient.balance += wd.amount * U256(10**9)
-
-    modify_state(state, wd.address, increase_recipient_balance)
-
-
 def set_account_balance(state: State, address: Address, amount: U256) -> None:
     """
     Sets the balance of an account.
@@ -626,3 +611,20 @@ def get_storage_original(state: State, address: Address, key: Bytes32) -> U256:
     assert isinstance(original_value, U256)
 
     return original_value
+
+
+def destroy_touched_empty_accounts(
+    state: State, touched_accounts: Iterable[Address]
+) -> None:
+    """
+    Destroy all touched accounts that are empty.
+    Parameters
+    ----------
+    state: `State`
+        The current state.
+    touched_accounts: `Iterable[Address]`
+        All the accounts that have been touched in the current transaction.
+    """
+    for address in touched_accounts:
+        if account_exists_and_is_empty(state, address):
+            destroy_account(state, address)

@@ -27,6 +27,15 @@ def pytest_addoption(parser: Parser) -> None:
         help="Use optimized state and ethash",
     )
 
+    parser.addoption(
+        "--evm_trace",
+        dest="evm_trace",
+        default=False,
+        action="store_const",
+        const=True,
+        help="Create an evm trace",
+    )
+
 
 def pytest_configure(config: Config) -> None:
     """
@@ -36,6 +45,19 @@ def pytest_configure(config: Config) -> None:
         import ethereum_optimized
 
         ethereum_optimized.monkey_patch(None)
+
+    if config.getoption("evm_trace"):
+        path = config.getoption("evm_trace")
+        import ethereum.trace
+        import ethereum_spec_tools.evm_tools.t8n.evm_trace as evm_trace_module
+        from ethereum_spec_tools.evm_tools.t8n.evm_trace import (
+            evm_trace as new_trace_function,
+        )
+
+        # Replace the function in the module
+        ethereum.trace.evm_trace = new_trace_function
+        # Set the output directory for traces
+        evm_trace_module.OUTPUT_DIR = path
 
 
 def download_fixtures(url: str, location: str) -> None:

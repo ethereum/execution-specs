@@ -24,7 +24,6 @@ from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import modify
 from ethereum_types.numeric import U256, Uint
 
-from .blocks import Withdrawal
 from .fork_types import EMPTY_ACCOUNT, Account, Address, Root
 from .trie import EMPTY_TRIE_ROOT, Trie, copy_trie, root, trie_get, trie_set
 
@@ -533,20 +532,6 @@ def move_ether(
 
     modify_state(state, sender_address, reduce_sender_balance)
     modify_state(state, recipient_address, increase_recipient_balance)
-
-
-def process_withdrawal(
-    state: State,
-    wd: Withdrawal,
-) -> None:
-    """
-    Increase the balance of the withdrawing account.
-    """
-
-    def increase_recipient_balance(recipient: Account) -> None:
-        recipient.balance += wd.amount * U256(10**9)
-
-    modify_state(state, wd.address, increase_recipient_balance)
 
 
 def set_account_balance(state: State, address: Address, amount: U256) -> None:

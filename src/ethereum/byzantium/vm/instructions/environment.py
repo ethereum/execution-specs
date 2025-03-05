@@ -75,7 +75,7 @@ def balance(evm: Evm) -> None:
 
     # OPERATION
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
-    balance = get_account(evm.env.state, address).balance
+    balance = get_account(evm.message.block_env.state, address).balance
 
     push(evm.stack, balance)
 
@@ -101,7 +101,7 @@ def origin(evm: Evm) -> None:
     charge_gas(evm, GAS_BASE)
 
     # OPERATION
-    push(evm.stack, U256.from_be_bytes(evm.env.origin))
+    push(evm.stack, U256.from_be_bytes(evm.message.tx_env.origin))
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
@@ -312,7 +312,7 @@ def gasprice(evm: Evm) -> None:
     charge_gas(evm, GAS_BASE)
 
     # OPERATION
-    push(evm.stack, U256(evm.env.gas_price))
+    push(evm.stack, U256(evm.message.tx_env.gas_price))
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
@@ -335,8 +335,7 @@ def extcodesize(evm: Evm) -> None:
     charge_gas(evm, GAS_EXTERNAL)
 
     # OPERATION
-    # Non-existent accounts default to EMPTY_ACCOUNT, which has empty code.
-    code = get_account(evm.env.state, address).code
+    code = get_account(evm.message.block_env.state, address).code
 
     codesize = U256(len(code))
     push(evm.stack, codesize)
@@ -371,7 +370,7 @@ def extcodecopy(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-    code = get_account(evm.env.state, address).code
+    code = get_account(evm.message.block_env.state, address).code
 
     value = buffer_read(code, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)

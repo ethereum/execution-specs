@@ -17,7 +17,7 @@ There is a distinction between an account that does not exist and
 `EMPTY_ACCOUNT`.
 """
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import modify
@@ -572,3 +572,20 @@ def create_ether(state: State, address: Address, amount: U256) -> None:
         account.balance += amount
 
     modify_state(state, address, increase_balance)
+
+
+def destroy_touched_empty_accounts(
+    state: State, touched_accounts: Iterable[Address]
+) -> None:
+    """
+    Destroy all touched accounts that are empty.
+    Parameters
+    ----------
+    state: `State`
+        The current state.
+    touched_accounts: `Iterable[Address]`
+        All the accounts that have been touched in the current transaction.
+    """
+    for address in touched_accounts:
+        if account_exists_and_is_empty(state, address):
+            destroy_account(state, address)

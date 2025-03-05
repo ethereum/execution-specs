@@ -44,13 +44,19 @@ def block_hash(evm: Evm) -> None:
 
     # OPERATION
     max_block_number = block_number + Uint(256)
-    if evm.env.number <= block_number or evm.env.number > max_block_number:
+    current_block_number = evm.message.block_env.number
+    if (
+        current_block_number <= block_number
+        or current_block_number > max_block_number
+    ):
         # Default hash to 0, if the block of interest is not yet on the chain
         # (including the block which has the current executing transaction),
         # or if the block's age is more than 256.
         hash = b"\x00"
     else:
-        hash = evm.env.block_hashes[-(evm.env.number - block_number)]
+        hash = evm.message.block_env.block_hashes[
+            -(current_block_number - block_number)
+        ]
 
     push(evm.stack, U256.from_be_bytes(hash))
 
@@ -85,7 +91,7 @@ def coinbase(evm: Evm) -> None:
     charge_gas(evm, GAS_BASE)
 
     # OPERATION
-    push(evm.stack, U256.from_be_bytes(evm.env.coinbase))
+    push(evm.stack, U256.from_be_bytes(evm.message.block_env.coinbase))
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
@@ -118,7 +124,7 @@ def timestamp(evm: Evm) -> None:
     charge_gas(evm, GAS_BASE)
 
     # OPERATION
-    push(evm.stack, evm.env.time)
+    push(evm.stack, evm.message.block_env.time)
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
@@ -150,7 +156,7 @@ def number(evm: Evm) -> None:
     charge_gas(evm, GAS_BASE)
 
     # OPERATION
-    push(evm.stack, U256(evm.env.number))
+    push(evm.stack, U256(evm.message.block_env.number))
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
@@ -182,7 +188,7 @@ def prev_randao(evm: Evm) -> None:
     charge_gas(evm, GAS_BASE)
 
     # OPERATION
-    push(evm.stack, U256.from_be_bytes(evm.env.prev_randao))
+    push(evm.stack, U256.from_be_bytes(evm.message.block_env.prev_randao))
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
@@ -214,7 +220,7 @@ def gas_limit(evm: Evm) -> None:
     charge_gas(evm, GAS_BASE)
 
     # OPERATION
-    push(evm.stack, U256(evm.env.gas_limit))
+    push(evm.stack, U256(evm.message.block_env.block_gas_limit))
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
@@ -243,7 +249,7 @@ def chain_id(evm: Evm) -> None:
     charge_gas(evm, GAS_BASE)
 
     # OPERATION
-    push(evm.stack, U256(evm.env.chain_id))
+    push(evm.stack, U256(evm.message.block_env.chain_id))
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
