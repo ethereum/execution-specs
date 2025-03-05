@@ -187,7 +187,8 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     block :
         Block to apply to `chain`.
     """
-    validate_header(chain, block.header)
+    parent = parent_header(chain, block.header)
+    validate_header(parent, block.header)
     if block.ommers != ():
         raise InvalidBlock
 
@@ -302,7 +303,24 @@ def calculate_base_fee_per_gas(
     return Uint(expected_base_fee_per_gas)
 
 
-def validate_header(chain: BlockChain, header: AnyHeader) -> None:
+def parent_header(chain: BlockChain, header: AnyHeader) -> AnyHeader:
+    """
+    Gets the parent of a block, given that block's `header` and `chain`.
+    """
+    if header.number < Uint(1):
+        raise InvalidBlock
+
+    parent_number = header.number - Uint(1)
+    first_number = chain.blocks[0].header.number
+    last_number = chain.blocks[-1].header.number
+
+    if parent_number < first_number or parent_number > last_number:
+        raise InvalidBlock
+
+    return chain.blocks[parent_number - first_number].header
+
+
+def validate_header(header: AnyHeader, parent_header: AnyHeader) -> None:
     """
     Verifies a block header.
 
@@ -315,34 +333,18 @@ def validate_header(chain: BlockChain, header: AnyHeader) -> None:
 
     Parameters
     ----------
-    chain :
-        History and current state.
     header :
         Header to check for correctness.
+    parent_header :
+        Parent Header of the header to check for correctness
     """
-    if header.number < Uint(1):
-        raise InvalidBlock
-    parent_header_number = header.number - Uint(1)
-    first_block_number = chain.blocks[0].header.number
-    last_block_number = chain.blocks[-1].header.number
-
-    if (
-        parent_header_number < first_block_number
-        or parent_header_number > last_block_number
-    ):
-        raise InvalidBlock
-
-    parent_header = chain.blocks[
-        parent_header_number - first_block_number
-    ].header
+    if not isinstance(header, Header):
+        assert not isinstance(parent_header, Header)
+        return previous_fork.validate_header(header, parent_header)
 
     excess_blob_gas = calculate_excess_blob_gas(parent_header)
     if header.excess_blob_gas != excess_blob_gas:
         raise InvalidBlock
-
-    if not isinstance(header, Header):
-        assert not isinstance(parent_header, Header)
-        return previous_fork.validate_header(chain, header)
 
     if header.gas_used > header.gas_limit:
         raise InvalidBlock

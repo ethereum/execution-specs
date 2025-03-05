@@ -148,7 +148,8 @@ def state_transition(chain: BlockChain, block: AnyBlock) -> None:
     block :
         Block to apply to `chain`.
     """
-    validate_header(chain, block.header)
+    parent = parent_header(chain, block.header)
+    validate_header(block.header, parent)
     validate_ommers(block.ommers, block.header, chain)
 
     block_env = vm.BlockEnvironment(
@@ -192,7 +193,24 @@ def state_transition(chain: BlockChain, block: AnyBlock) -> None:
         chain.blocks = chain.blocks[-255:]
 
 
-def validate_header(chain: BlockChain, header: AnyHeader) -> None:
+def parent_header(chain: BlockChain, header: AnyHeader) -> AnyHeader:
+    """
+    Gets the parent of a block, given that block's `header` and `chain`.
+    """
+    if header.number < Uint(1):
+        raise InvalidBlock
+
+    parent_number = header.number - Uint(1)
+    first_number = chain.blocks[0].header.number
+    last_number = chain.blocks[-1].header.number
+
+    if parent_number < first_number or parent_number > last_number:
+        raise InvalidBlock
+
+    return chain.blocks[parent_number - first_number].header
+
+
+def validate_header(header: AnyHeader, parent_header: AnyHeader) -> None:
     """
     Verifies a block header.
 
@@ -205,27 +223,11 @@ def validate_header(chain: BlockChain, header: AnyHeader) -> None:
 
     Parameters
     ----------
-    chain :
-        History and current state.
     header :
         Header to check for correctness.
+    parent_header :
+        Parent Header of the header to check for correctness
     """
-    if header.number < Uint(1):
-        raise InvalidBlock
-    parent_header_number = header.number - Uint(1)
-    first_block_number = chain.blocks[0].header.number
-    last_block_number = chain.blocks[-1].header.number
-
-    if (
-        parent_header_number < first_block_number
-        or parent_header_number > last_block_number
-    ):
-        raise InvalidBlock
-
-    parent_header = chain.blocks[
-        parent_header_number - first_block_number
-    ].header
-
     if header.gas_used > header.gas_limit:
         raise InvalidBlock
 
@@ -480,7 +482,8 @@ def validate_ommers(
     for ommer in ommers:
         if Uint(1) > ommer.number or ommer.number >= block_header.number:
             raise InvalidBlock
-        validate_header(chain, ommer)
+        parent = parent_header(chain, ommer)
+        validate_header(ommer, parent)
     if len(ommers) > 2:
         raise InvalidBlock
 
