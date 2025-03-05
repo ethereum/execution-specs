@@ -558,3 +558,22 @@ def signing_hash_7702(tx: SetCodeTransaction) -> Hash32:
             )
         )
     )
+
+
+def get_transaction_hash(tx: Union[Bytes, LegacyTransaction]) -> Hash32:
+    """
+    Parameters
+    ----------
+    tx :
+        Transaction of interest.
+
+    Returns
+    -------
+    hash : `ethereum.crypto.hash.Hash32`
+        Hash of the transaction.
+    """
+    assert isinstance(tx, (LegacyTransaction, Bytes))
+    if isinstance(tx, LegacyTransaction):
+        return keccak256(rlp.encode(tx))
+    else:
+        return keccak256(tx)

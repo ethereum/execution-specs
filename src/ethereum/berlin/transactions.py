@@ -9,7 +9,7 @@ from typing import Tuple, Union
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
 from ethereum_types.frozen import slotted_freezable
-from ethereum_types.numeric import U64, U256, Uint
+from ethereum_types.numeric import U64, U256, Uint, ulen
 
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
@@ -18,12 +18,12 @@ from ethereum.exceptions import InvalidBlock, InvalidSignatureError
 from .exceptions import TransactionTypeError
 from .fork_types import Address
 
-TX_BASE_COST = 21000
-TX_DATA_COST_PER_NON_ZERO = 16
-TX_DATA_COST_PER_ZERO = 4
-TX_CREATE_COST = 32000
-TX_ACCESS_LIST_ADDRESS_COST = 2400
-TX_ACCESS_LIST_STORAGE_KEY_COST = 1900
+TX_BASE_COST = Uint(21000)
+TX_DATA_COST_PER_NON_ZERO = Uint(16)
+TX_DATA_COST_PER_ZERO = Uint(4)
+TX_CREATE_COST = Uint(32000)
+TX_ACCESS_LIST_ADDRESS_COST = Uint(2400)
+TX_ACCESS_LIST_STORAGE_KEY_COST = Uint(1900)
 
 
 @slotted_freezable
@@ -149,10 +149,10 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
 
     Returns
     -------
-    verified : `ethereum.base_types.Uint`
+    intrinsic_gas : `ethereum.base_types.Uint`
         The intrinsic cost of the transaction.
     """
-    data_cost = 0
+    data_cost = Uint(0)
 
     for byte in tx.data:
         if byte == 0:
@@ -163,15 +163,15 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     if tx.to == Bytes0(b""):
         create_cost = TX_CREATE_COST
     else:
-        create_cost = 0
+        create_cost = Uint(0)
 
-    access_list_cost = 0
+    access_list_cost = Uint(0)
     if isinstance(tx, AccessListTransaction):
         for _address, keys in tx.access_list:
             access_list_cost += TX_ACCESS_LIST_ADDRESS_COST
-            access_list_cost += len(keys) * TX_ACCESS_LIST_STORAGE_KEY_COST
+            access_list_cost += ulen(keys) * TX_ACCESS_LIST_STORAGE_KEY_COST
 
-    return Uint(TX_BASE_COST + data_cost + create_cost + access_list_cost)
+    return TX_BASE_COST + data_cost + create_cost + access_list_cost
 
 
 def recover_sender(chain_id: U64, tx: Transaction) -> Address:
@@ -318,3 +318,22 @@ def signing_hash_2930(tx: AccessListTransaction) -> Hash32:
             )
         )
     )
+
+
+def get_transaction_hash(tx: Union[Bytes, LegacyTransaction]) -> Hash32:
+    """
+    Parameters
+    ----------
+    tx :
+        Transaction of interest.
+
+    Returns
+    -------
+    hash : `ethereum.crypto.hash.Hash32`
+        Hash of the transaction.
+    """
+    assert isinstance(tx, (LegacyTransaction, Bytes))
+    if isinstance(tx, LegacyTransaction):
+        return keccak256(rlp.encode(tx))
+    else:
+        return keccak256(tx)

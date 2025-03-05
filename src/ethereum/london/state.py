@@ -17,7 +17,7 @@ There is a distinction between an account that does not exist and
 `EMPTY_ACCOUNT`.
 """
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Set, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import modify
@@ -631,3 +631,20 @@ def get_storage_original(state: State, address: Address, key: Bytes32) -> U256:
     assert isinstance(original_value, U256)
 
     return original_value
+
+
+def destroy_touched_empty_accounts(
+    state: State, touched_accounts: Iterable[Address]
+) -> None:
+    """
+    Destroy all touched accounts that are empty.
+    Parameters
+    ----------
+    state: `State`
+        The current state.
+    touched_accounts: `Iterable[Address]`
+        All the accounts that have been touched in the current transaction.
+    """
+    for address in touched_accounts:
+        if account_exists_and_is_empty(state, address):
+            destroy_account(state, address)

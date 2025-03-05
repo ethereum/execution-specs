@@ -48,16 +48,6 @@ class ForkLoad:
         return return_value
 
     @property
-    def SYSTEM_TRANSACTION_GAS(self) -> Any:
-        """SYSTEM_TRANSACTION_GAS of the given fork."""
-        return self._module("fork").SYSTEM_TRANSACTION_GAS
-
-    @property
-    def SYSTEM_ADDRESS(self) -> Any:
-        """SYSTEM_ADDRESS of the given fork."""
-        return self._module("fork").SYSTEM_ADDRESS
-
-    @property
     def BEACON_ROOTS_ADDRESS(self) -> Any:
         """BEACON_ROOTS_ADDRESS of the given fork."""
         return self._module("fork").BEACON_ROOTS_ADDRESS
@@ -68,21 +58,6 @@ class ForkLoad:
         return self._module("fork").HISTORY_STORAGE_ADDRESS
 
     @property
-    def WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS(self) -> Any:
-        """WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS of the given fork."""
-        return self._module("fork").WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS
-
-    @property
-    def CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS(self) -> Any:
-        """CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS of the given fork."""
-        return self._module("fork").CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS
-
-    @property
-    def HISTORY_SERVE_WINDOW(self) -> Any:
-        """HISTORY_SERVE_WINDOW of the given fork."""
-        return self._module("fork").HISTORY_SERVE_WINDOW
-
-    @property
     def process_general_purpose_requests(self) -> Any:
         """process_general_purpose_requests function of the given fork."""
         return self._module("fork").process_general_purpose_requests
@@ -91,6 +66,11 @@ class ForkLoad:
     def process_system_transaction(self) -> Any:
         """process_system_transaction function of the given fork."""
         return self._module("fork").process_system_transaction
+
+    @property
+    def process_withdrawals(self) -> Any:
+        """process_withdrawals function of the given fork."""
+        return self._module("fork").process_withdrawals
 
     @property
     def calculate_block_difficulty(self) -> Any:
@@ -118,9 +98,9 @@ class ForkLoad:
         return self._module("fork").state_transition
 
     @property
-    def make_receipt(self) -> Any:
-        """make_receipt function of the fork"""
-        return self._module("fork").make_receipt
+    def pay_rewards(self) -> Any:
+        """pay_rewards function of the fork"""
+        return self._module("fork").pay_rewards
 
     @property
     def signing_hash(self) -> Any:
@@ -158,9 +138,9 @@ class ForkLoad:
         return self._module("transactions").signing_hash_4844
 
     @property
-    def check_transaction(self) -> Any:
-        """check_transaction function of the fork"""
-        return self._module("fork").check_transaction
+    def get_transaction_hash(self) -> Any:
+        """get_transaction_hash function of the fork"""
+        return self._module("transactions").get_transaction_hash
 
     @property
     def process_transaction(self) -> Any:
@@ -178,9 +158,9 @@ class ForkLoad:
         return self._module("blocks").Block
 
     @property
-    def parse_deposit_requests_from_receipt(self) -> Any:
-        """parse_deposit_requests_from_receipt function of the fork"""
-        return self._module("requests").parse_deposit_requests_from_receipt
+    def decode_receipt(self) -> Any:
+        """decode_receipt function of the fork"""
+        return self._module("blocks").decode_receipt
 
     @property
     def compute_requests_hash(self) -> Any:
@@ -253,49 +233,14 @@ class ForkLoad:
         return self._module("state").State
 
     @property
-    def TransientStorage(self) -> Any:
-        """Transient storage class of the fork"""
-        return self._module("state").TransientStorage
-
-    @property
-    def get_account(self) -> Any:
-        """get_account function of the fork"""
-        return self._module("state").get_account
-
-    @property
     def set_account(self) -> Any:
         """set_account function of the fork"""
         return self._module("state").set_account
 
     @property
-    def create_ether(self) -> Any:
-        """create_ether function of the fork"""
-        return self._module("state").create_ether
-
-    @property
     def set_storage(self) -> Any:
         """set_storage function of the fork"""
         return self._module("state").set_storage
-
-    @property
-    def account_exists_and_is_empty(self) -> Any:
-        """account_exists_and_is_empty function of the fork"""
-        return self._module("state").account_exists_and_is_empty
-
-    @property
-    def destroy_touched_empty_accounts(self) -> Any:
-        """destroy_account function of the fork"""
-        return self._module("state").destroy_touched_empty_accounts
-
-    @property
-    def destroy_account(self) -> Any:
-        """destroy_account function of the fork"""
-        return self._module("state").destroy_account
-
-    @property
-    def process_withdrawal(self) -> Any:
-        """process_withdrawal function of the fork"""
-        return self._module("state").process_withdrawal
 
     @property
     def state_root(self) -> Any:
@@ -308,11 +253,6 @@ class ForkLoad:
         return self._module("state").close_state
 
     @property
-    def Trie(self) -> Any:
-        """Trie class of the fork"""
-        return self._module("trie").Trie
-
-    @property
     def root(self) -> Any:
         """Root function of the fork"""
         return self._module("trie").root
@@ -321,11 +261,6 @@ class ForkLoad:
     def copy_trie(self) -> Any:
         """copy_trie function of the fork"""
         return self._module("trie").copy_trie
-
-    @property
-    def trie_set(self) -> Any:
-        """trie_set function of the fork"""
-        return self._module("trie").trie_set
 
     @property
     def hex_to_address(self) -> Any:
@@ -338,34 +273,24 @@ class ForkLoad:
         return self._module("utils.hexadecimal").hex_to_root
 
     @property
-    def Environment(self) -> Any:
-        """Environment class of the fork"""
-        return self._module("vm").Environment
+    def BlockEnvironment(self) -> Any:
+        """Block environment class of the fork"""
+        return self._module("vm").BlockEnvironment
 
     @property
-    def Message(self) -> Any:
-        """Message class of the fork"""
-        return self._module("vm").Message
+    def BlockOutput(self) -> Any:
+        """Block output class of the fork"""
+        return self._module("vm").BlockOutput
 
     @property
     def Authorization(self) -> Any:
         """Authorization class of the fork"""
-        return self._module("vm.eoa_delegation").Authorization
+        return self._module("fork_types").Authorization
 
     @property
     def TARGET_BLOB_GAS_PER_BLOCK(self) -> Any:
         """TARGET_BLOB_GAS_PER_BLOCK of the fork"""
         return self._module("vm.gas").TARGET_BLOB_GAS_PER_BLOCK
-
-    @property
-    def calculate_total_blob_gas(self) -> Any:
-        """calculate_total_blob_gas function of the fork"""
-        return self._module("vm.gas").calculate_total_blob_gas
-
-    @property
-    def process_message_call(self) -> Any:
-        """process_message_call function of the fork"""
-        return self._module("vm.interpreter").process_message_call
 
     @property
     def apply_dao(self) -> Any:

@@ -13,39 +13,80 @@ The abstract computer which runs the code stored in an
 `.fork_types.Account`.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional, Set, Tuple, Union
 
 from ethereum_types.bytes import Bytes, Bytes0
-from ethereum_types.numeric import U256, Uint
+from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import EthereumException
 
-from ..blocks import Log
+from ..blocks import Log, Receipt
 from ..fork_types import Address
 from ..state import State, account_exists_and_is_empty
+from ..transactions import Transaction
+from ..trie import Trie
 from .precompiled_contracts import RIPEMD160_ADDRESS
 
 __all__ = ("Environment", "Evm", "Message")
 
 
 @dataclass
-class Environment:
+class BlockEnvironment:
     """
     Items external to the virtual machine itself, provided by the environment.
     """
 
-    caller: Address
+    chain_id: U64
+    state: State
+    block_gas_limit: Uint
     block_hashes: List[Hash32]
-    origin: Address
     coinbase: Address
     number: Uint
-    gas_limit: Uint
-    gas_price: Uint
     time: U256
     difficulty: Uint
-    state: State
+
+
+@dataclass
+class BlockOutput:
+    """
+    Output from applying the block body to the present state.
+
+    Contains the following:
+
+    block_gas_used : `ethereum.base_types.Uint`
+        Gas used for executing all transactions.
+    transactions_trie : `ethereum.fork_types.Root`
+        Trie of all the transactions in the block.
+    receipts_trie : `ethereum.fork_types.Root`
+        Trie root of all the receipts in the block.
+    block_logs : `Bloom`
+        Logs bloom of all the logs included in all the transactions of the
+        block.
+    """
+
+    block_gas_used: Uint = Uint(0)
+    transactions_trie: Trie[Bytes, Optional[Transaction]] = field(
+        default_factory=lambda: Trie(secured=False, default=None)
+    )
+    receipts_trie: Trie[Bytes, Optional[Receipt]] = field(
+        default_factory=lambda: Trie(secured=False, default=None)
+    )
+    block_logs: Tuple[Log, ...] = field(default_factory=tuple)
+
+
+@dataclass
+class TransactionEnvironment:
+    """
+    Items that are used by contract creation or message call.
+    """
+
+    origin: Address
+    gas_price: Uint
+    gas: Uint
+    index_in_block: Uint
+    tx_hash: Optional[Hash32]
     traces: List[dict]
 
 
@@ -55,6 +96,8 @@ class Message:
     Items that are used by contract creation or message call.
     """
 
+    block_env: BlockEnvironment
+    tx_env: TransactionEnvironment
     caller: Address
     target: Union[Bytes0, Address]
     current_target: Address
@@ -77,7 +120,6 @@ class Evm:
     memory: bytearray
     code: Bytes
     gas_left: Uint
-    env: Environment
     valid_jump_destinations: Set[Uint]
     logs: Tuple[Log, ...]
     refund_counter: int
@@ -106,7 +148,7 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     evm.accounts_to_delete.update(child_evm.accounts_to_delete)
     evm.touched_accounts.update(child_evm.touched_accounts)
     if account_exists_and_is_empty(
-        evm.env.state, child_evm.message.current_target
+        evm.message.block_env.state, child_evm.message.current_target
     ):
         evm.touched_accounts.add(child_evm.message.current_target)
 
@@ -133,7 +175,7 @@ def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
         evm.touched_accounts.add(RIPEMD160_ADDRESS)
     if child_evm.message.current_target == RIPEMD160_ADDRESS:
         if account_exists_and_is_empty(
-            evm.env.state, child_evm.message.current_target
+            evm.message.block_env.state, child_evm.message.current_target
         ):
             evm.touched_accounts.add(RIPEMD160_ADDRESS)
     evm.gas_left += child_evm.gas_left
