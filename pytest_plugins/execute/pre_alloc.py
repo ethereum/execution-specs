@@ -90,14 +90,14 @@ def eoa_iterator(request) -> Iterator[EOA]:
 class Alloc(BaseAlloc):
     """A custom class that inherits from the original Alloc class."""
 
-    _fork: Fork = PrivateAttr(...)
-    _sender: EOA = PrivateAttr(...)
-    _eth_rpc: EthRPC = PrivateAttr(...)
+    _fork: Fork = PrivateAttr()
+    _sender: EOA = PrivateAttr()
+    _eth_rpc: EthRPC = PrivateAttr()
     _txs: List[Transaction] = PrivateAttr(default_factory=list)
     _deployed_contracts: List[Tuple[Address, bytes]] = PrivateAttr(default_factory=list)
     _funded_eoa: List[EOA] = PrivateAttr(default_factory=list)
     _evm_code_type: EVMCodeType | None = PrivateAttr(None)
-    _chain_id: int = PrivateAttr(...)
+    _chain_id: int = PrivateAttr()
 
     def __init__(
         self,

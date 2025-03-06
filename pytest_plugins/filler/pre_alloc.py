@@ -88,9 +88,9 @@ DELEGATION_DESIGNATION = b"\xef\x01\x00"
 class Alloc(BaseAlloc):
     """Allocation of accounts in the state, pre and post test execution."""
 
-    _alloc_mode: AllocMode = PrivateAttr(...)
-    _contract_address_iterator: Iterator[Address] = PrivateAttr(...)
-    _eoa_iterator: Iterator[EOA] = PrivateAttr(...)
+    _alloc_mode: AllocMode = PrivateAttr()
+    _contract_address_iterator: Iterator[Address] = PrivateAttr()
+    _eoa_iterator: Iterator[EOA] = PrivateAttr()
     _evm_code_type: EVMCodeType | None = PrivateAttr(None)
 
     def __init__(

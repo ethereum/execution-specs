@@ -1,15 +1,16 @@
 """Basic type primitives used to define other types."""
 
 from hashlib import sha256
-from typing import Any, ClassVar, SupportsBytes, Type, TypeVar
+from typing import Annotated, Any, ClassVar, SupportsBytes, Type, TypeVar
 
 from Crypto.Hash import keccak
-from pydantic import GetCoreSchemaHandler
+from pydantic import GetCoreSchemaHandler, StringConstraints
 from pydantic_core.core_schema import (
     PlainValidatorFunctionSchema,
     no_info_plain_validator_function,
     to_string_ser_schema,
 )
+from typing_extensions import Self
 
 from .conversions import (
     BytesConvertible,
@@ -114,6 +115,19 @@ class HexNumber(Number):
         """Return the string representation of the number."""
         return self.hex()
 
+    @staticmethod
+    def __get_pydantic_core_schema__(
+        source_type: Any, handler: GetCoreSchemaHandler
+    ) -> PlainValidatorFunctionSchema:
+        """Call the class constructor without info and appends the serialization schema."""
+        return no_info_plain_validator_function(
+            source_type,
+            serialization=to_string_ser_schema(),
+            json_schema_input_schema=handler(
+                Annotated[str, StringConstraints(pattern=r"^0x[0-9a-fA-F]*$")]
+            ),
+        )
+
 
 class ZeroPaddedHexNumber(HexNumber):
     """Class that helps represent zero padded hexadecimal numbers in tests."""
@@ -126,6 +140,19 @@ class ZeroPaddedHexNumber(HexNumber):
         if len(hex_str) % 2 == 1:
             return "0x0" + hex_str
         return "0x" + hex_str
+
+    @staticmethod
+    def __get_pydantic_core_schema__(
+        source_type: Any, handler: GetCoreSchemaHandler
+    ) -> PlainValidatorFunctionSchema:
+        """Call the class constructor without info and appends the serialization schema."""
+        return no_info_plain_validator_function(
+            source_type,
+            serialization=to_string_ser_schema(),
+            json_schema_input_schema=handler(
+                Annotated[str, StringConstraints(pattern=r"^0x([0-9a-fA-F]{2})*$")]
+            ),
+        )
 
 
 NumberBoundTypeVar = TypeVar("NumberBoundTypeVar", Number, HexNumber, ZeroPaddedHexNumber)
@@ -167,6 +194,19 @@ class Bytes(bytes, ToStringSchema):
     def sha256(self) -> "Hash":
         """Return the sha256 hash of the opcode byte representation."""
         return Hash(sha256(self).digest())
+
+    @staticmethod
+    def __get_pydantic_core_schema__(
+        source_type: Any, handler: GetCoreSchemaHandler
+    ) -> PlainValidatorFunctionSchema:
+        """Call the class constructor without info and appends the serialization schema."""
+        return no_info_plain_validator_function(
+            source_type,
+            serialization=to_string_ser_schema(),
+            json_schema_input_schema=handler(
+                Annotated[str, StringConstraints(pattern=r"^0x([0-9a-fA-F]{2})*$")]
+            ),
+        )
 
 
 S = TypeVar("S", bound="FixedSizeHexNumber")
@@ -216,6 +256,18 @@ class FixedSizeHexNumber(int, ToStringSchema):
         if len(hex_str) % 2 == 1:
             return "0x0" + hex_str
         return "0x" + hex_str
+
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls: Type[Self], source_type: Any, handler: GetCoreSchemaHandler
+    ) -> PlainValidatorFunctionSchema:
+        """Call the class constructor without info and appends the serialization schema."""
+        pattern = f"^0x([0-9a-fA-F]{{{cls.byte_length * 2}}})*$"
+        return no_info_plain_validator_function(
+            source_type,
+            serialization=to_string_ser_schema(),
+            json_schema_input_schema=handler(Annotated[str, StringConstraints(pattern=pattern)]),
+        )
 
 
 class HashInt(FixedSizeHexNumber[32]):  # type: ignore
@@ -290,6 +342,18 @@ class FixedSizeBytes(Bytes):
     def __ne__(self, other: object) -> bool:
         """Compare two FixedSizeBytes objects to be not equal."""
         return not self.__eq__(other)
+
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls: Type[Self], source_type: Any, handler: GetCoreSchemaHandler
+    ) -> PlainValidatorFunctionSchema:
+        """Call the class constructor without info and appends the serialization schema."""
+        pattern = f"^0x([0-9a-fA-F]{{{cls.byte_length * 2}}})*$"
+        return no_info_plain_validator_function(
+            source_type,
+            serialization=to_string_ser_schema(),
+            json_schema_input_schema=handler(Annotated[str, StringConstraints(pattern=pattern)]),
+        )
 
 
 class Address(FixedSizeBytes[20]):  # type: ignore
