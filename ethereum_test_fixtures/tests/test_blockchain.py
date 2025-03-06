@@ -215,6 +215,7 @@ fixture_header_ones = FixtureHeader(
                         "r": "0xda29c3bd0304ae475b06d1a11344e0b6d75590f2c23138c9507f4b5bedde3c79",
                         "s": "0x3e1fb143ae0460373d567cf901645757b321e42c423a53b2d46ed13c9ef0a9ab",
                         "signer": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+                        "yParity": "0x00",
                     }
                 ],
                 "v": "0x01",

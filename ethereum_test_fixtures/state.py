@@ -14,7 +14,6 @@ from ethereum_test_base_types import (
 )
 from ethereum_test_exceptions import TransactionExceptionInstanceOrList
 from ethereum_test_types.types import (
-    AuthorizationTupleGeneric,
     CamelModel,
     EnvironmentGeneric,
     Transaction,
@@ -22,26 +21,13 @@ from ethereum_test_types.types import (
 )
 
 from .base import BaseFixture
-from .common import FixtureBlobSchedule
+from .common import FixtureAuthorizationTuple, FixtureBlobSchedule
 
 
 class FixtureEnvironment(EnvironmentGeneric[ZeroPaddedHexNumber]):
     """Type used to describe the environment of a state test."""
 
     prev_randao: Hash | None = Field(None, alias="currentRandom")  # type: ignore
-
-
-class FixtureAuthorizationTuple(AuthorizationTupleGeneric[ZeroPaddedHexNumber]):
-    """Authorization tuple for fixture transactions."""
-
-    signer: Address | None = None
-
-    @classmethod
-    def from_authorization_tuple(
-        cls, auth_tuple: AuthorizationTupleGeneric
-    ) -> "FixtureAuthorizationTuple":
-        """Return FixtureAuthorizationTuple from an AuthorizationTuple."""
-        return cls(**auth_tuple.model_dump())
 
 
 class FixtureTransaction(TransactionFixtureConverter):

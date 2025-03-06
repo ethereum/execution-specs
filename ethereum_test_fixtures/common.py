@@ -2,7 +2,7 @@
 
 from typing import Dict
 
-from pydantic import Field
+from pydantic import Field, model_serializer
 
 from ethereum_test_base_types import (
     BlobSchedule,
@@ -10,6 +10,7 @@ from ethereum_test_base_types import (
     EthereumTestRootModel,
     ZeroPaddedHexNumber,
 )
+from ethereum_test_types.types import Address, AuthorizationTupleGeneric
 
 
 class FixtureForkBlobSchedule(CamelModel):
@@ -35,3 +36,28 @@ class FixtureBlobSchedule(EthereumTestRootModel[Dict[str, FixtureForkBlobSchedul
         return cls(
             root=blob_schedule.model_dump(),
         )
+
+
+class FixtureAuthorizationTuple(AuthorizationTupleGeneric[ZeroPaddedHexNumber]):
+    """Authorization tuple for fixture transactions."""
+
+    signer: Address | None = None
+
+    @classmethod
+    def from_authorization_tuple(
+        cls, auth_tuple: AuthorizationTupleGeneric
+    ) -> "FixtureAuthorizationTuple":
+        """Return FixtureAuthorizationTuple from an AuthorizationTuple."""
+        return cls(**auth_tuple.model_dump())
+
+    @model_serializer(mode="wrap", when_used="json-unless-none")
+    def duplicate_v_as_y_parity(self, serializer):
+        """
+        Add a duplicate 'yParity' field (same as `v`) in JSON fixtures.
+
+        Background: https://github.com/erigontech/erigon/issues/14073
+        """
+        data = serializer(self)
+        if "v" in data and data["v"] is not None:
+            data["yParity"] = data["v"]
+        return data
