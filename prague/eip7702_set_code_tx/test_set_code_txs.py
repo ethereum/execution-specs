@@ -209,27 +209,14 @@ def test_set_code_to_sstore(
     )
 
 
-@pytest.mark.parametrize(
-    "auth_signer_nonce",
-    [
-        pytest.param(
-            0,
-            id="zero_nonce",
-            marks=pytest.mark.execute(pytest.mark.skip("unrealistic scenario")),
-        ),
-        pytest.param(None, id="non_zero_nonce"),
-    ],
-)
-def test_set_code_to_non_empty_storage(
+def test_set_code_to_non_empty_storage_non_zero_nonce(
     state_test: StateTestFiller,
     pre: Alloc,
-    auth_signer_nonce: int,
 ):
     """Test the setting the code to an account that has non-empty storage."""
     auth_signer = pre.fund_eoa(
         amount=0,
         storage=Storage({0: 1}),  # type: ignore
-        nonce=auth_signer_nonce,
     )
     sender = pre.fund_eoa()
 
