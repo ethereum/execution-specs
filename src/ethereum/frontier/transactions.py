@@ -72,9 +72,9 @@ def validate_transaction(tx: Transaction) -> Uint:
     """
     intrinsic_gas = calculate_intrinsic_cost(tx)
     if intrinsic_gas > tx.gas:
-        raise InvalidTransaction
+        raise InvalidTransaction("insufficient gas")
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
-        raise InvalidTransaction
+        raise InvalidTransaction("nonce too high")
     return intrinsic_gas
 
 

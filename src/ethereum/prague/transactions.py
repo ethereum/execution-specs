@@ -213,11 +213,11 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
 
     intrinsic_gas, calldata_floor_gas_cost = calculate_intrinsic_cost(tx)
     if max(intrinsic_gas, calldata_floor_gas_cost) > tx.gas:
-        raise InvalidTransaction
+        raise InvalidTransaction("Insufficient gas")
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
-        raise InvalidTransaction
+        raise InvalidTransaction("Nonce too high")
     if tx.to == Bytes0(b"") and len(tx.data) > 2 * MAX_CODE_SIZE:
-        raise InvalidTransaction
+        raise InvalidTransaction("Code size too large")
 
     return intrinsic_gas, calldata_floor_gas_cost
 
