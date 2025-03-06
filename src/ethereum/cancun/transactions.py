@@ -185,7 +185,7 @@ def validate_transaction(tx: Transaction) -> Uint:
     if intrinsic_gas > tx.gas:
         raise InvalidTransaction("Transaction gas too low")
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
-        raise InvalidTransaction
+        raise InvalidTransaction("Transaction nonce too high")
     if tx.to == Bytes0(b"") and len(tx.data) > 2 * MAX_CODE_SIZE:
         raise InvalidTransaction
 
