@@ -13,11 +13,16 @@ from typing import List, Union
 
 from ethereum_types.bytes import Bytes
 
+from ethereum.utils.hexadecimal import hex_to_bytes32
+
 from .blocks import Receipt, decode_receipt
 from .utils.hexadecimal import hex_to_address
 
 DEPOSIT_CONTRACT_ADDRESS = hex_to_address(
     "0x00000000219ab540356cbb839cbe05303d7705fa"
+)
+DEPOSIT_EVENT_SIGNATURE_HASH = hex_to_bytes32(
+    "0x649bbc62d0e31342afea4e5cd82d4049e7e1ee912fc0889aa790803be39038c5"
 )
 DEPOSIT_REQUEST_TYPE = b"\x00"
 WITHDRAWAL_REQUEST_TYPE = b"\x01"
@@ -46,7 +51,12 @@ def parse_deposit_requests_from_receipt(
     deposit_requests: Bytes = b""
     decoded_receipt = decode_receipt(receipt)
     for log in decoded_receipt.logs:
-        if log.address == DEPOSIT_CONTRACT_ADDRESS:
+        is_deposit_event = (
+            len(log.topics) > 0
+            and log.topics[0] == DEPOSIT_EVENT_SIGNATURE_HASH
+        )
+
+        if log.address == DEPOSIT_CONTRACT_ADDRESS and is_deposit_event:
             request = extract_deposit_data(log.data)
             deposit_requests += request
 
