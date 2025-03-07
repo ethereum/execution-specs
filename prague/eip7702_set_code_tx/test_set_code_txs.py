@@ -3489,18 +3489,26 @@ def test_authorization_reusing_nonce(
     list(AddressType),
     ids=lambda address_type: address_type.name,
 )
+@pytest.mark.parametrize(
+    "self_sponsored",
+    [True, False],
+)
 @pytest.mark.execute(pytest.mark.skip(reason="Requires contract-eoa address collision"))
 def test_set_code_from_account_with_non_delegating_code(
     state_test: StateTestFiller,
     pre: Alloc,
     set_code_type: AddressType,
+    self_sponsored: bool,
 ):
     """
     Test that a transaction is correctly rejected if the sender account has a non-delegating code
     set.
     """
     sender = pre.fund_eoa()
-    auth_signer = pre.fund_eoa(0)
+    if self_sponsored:
+        auth_signer = sender
+    else:
+        auth_signer = pre.fund_eoa(0)
 
     set_code_to_address: Address
     set_code: Bytecode | Bytes
@@ -3533,7 +3541,7 @@ def test_set_code_from_account_with_non_delegating_code(
         authorization_list=[
             AuthorizationTuple(
                 address=set_code_to_address,
-                nonce=0,
+                nonce=1 if self_sponsored else 0,
                 signer=auth_signer,
             ),
         ],
@@ -3551,7 +3559,9 @@ def test_set_code_from_account_with_non_delegating_code(
                 if set_code_type == AddressType.EMPTY_ACCOUNT
                 else Account(storage={})
             ),
-            auth_signer: Account.NONEXISTENT,
+            auth_signer: Account.NONEXISTENT
+            if not self_sponsored
+            else Account(code=Bytes(Op.STOP)),
             callee_address: Account(storage={0: 0}),
         },
     )
