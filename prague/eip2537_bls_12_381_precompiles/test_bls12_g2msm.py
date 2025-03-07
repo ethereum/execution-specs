@@ -22,7 +22,7 @@ pytestmark = [
 
 @pytest.mark.parametrize(
     "input_data,expected_output,vector_gas_value",
-    vectors_from_file("multiexp_G2_bls.json")
+    vectors_from_file("msm_G2_bls.json")
     + [
         pytest.param(
             (Spec.P2 + Scalar(Spec.Q)) * (len(Spec.G2MSM_DISCOUNT_TABLE) - 1),
@@ -57,7 +57,7 @@ def test_valid(
 
 @pytest.mark.parametrize(
     "input_data",
-    vectors_from_file("fail-multiexp_G2_bls.json")
+    vectors_from_file("fail-msm_G2_bls.json")
     + [
         pytest.param(
             PointG2((1, 0), (0, 0)) + Scalar(0),
