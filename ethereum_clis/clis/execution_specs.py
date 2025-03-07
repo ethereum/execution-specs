@@ -137,6 +137,10 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
                 "Failed transaction: InvalidBlock()",
             ),
             ExceptionMessage(
+                TransactionException.SENDER_NOT_EOA,
+                "Failed transaction: InvalidSenderError('not EOA')",
+            ),
+            ExceptionMessage(
                 TransactionException.TYPE_4_TX_CONTRACT_CREATION,
                 "Failed transaction: ",
             ),
