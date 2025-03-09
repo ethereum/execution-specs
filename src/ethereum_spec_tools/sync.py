@@ -14,12 +14,13 @@ import shutil
 import time
 from queue import Empty, Full, Queue
 from threading import Thread
-from typing import Any, Dict, List, Optional, TypeVar, Union, cast
+from typing import Any, Dict, List, Optional, TypeVar, Union,Set, cast
 from urllib import request
 
 from ethereum_rlp import rlp
-from ethereum_types.bytes import Bytes0, Bytes256
+from ethereum_types.bytes import Bytes0, Bytes256, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
+from .fork_types import Address
 
 from ethereum import genesis
 from ethereum.utils.hexadecimal import (
@@ -301,19 +302,14 @@ class BlockDownloader(ForkTracking):
         """
         Turn a json transaction into a `Transaction`.
         """
-        access_list = []
+        access_list: Dict[Address, Set[Bytes32]] = {}
         for sublist in t.get("accessList", []):
-            access_list.append(
-                (
-                    self.module("utils.hexadecimal").hex_to_address(
-                        sublist.get("address")
-                    ),
-                    [
-                        hex_to_bytes32(key)
-                        for key in sublist.get("storageKeys")
-                    ],
-                )
-            )
+            
+                address = self.module("utils.hexadecimal").hex_to_address(sublist.get("address"))
+                storage_keys = {hex_to_bytes32(key) for key in sublist.get("storageKeys")}   
+                access_list[address] = storage_keys                                                        
+                
+            
         if hasattr(self.module("transactions"), "LegacyTransaction"):
             if t["type"] == "0x1":
                 return b"\x01" + rlp.encode(

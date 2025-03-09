@@ -4,7 +4,7 @@ submitted to be executed. If Ethereum is viewed as a state machine,
 transactions are the events that move between states.
 """
 from dataclasses import dataclass
-from typing import Tuple, Union
+from typing import Tuple, Union, Dict, Set
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
@@ -58,7 +58,7 @@ class AccessListTransaction:
     to: Union[Bytes0, Address]
     value: U256
     data: Bytes
-    access_list: Tuple[Tuple[Address, Tuple[Bytes32, ...]], ...]
+    access_list: Dict[Address, Set[Bytes32]]
     y_parity: U256
     r: U256
     s: U256
@@ -79,7 +79,7 @@ class FeeMarketTransaction:
     to: Union[Bytes0, Address]
     value: U256
     data: Bytes
-    access_list: Tuple[Tuple[Address, Tuple[Bytes32, ...]], ...]
+    access_list: Dict[Address, Set[Bytes32]]
     y_parity: U256
     r: U256
     s: U256
@@ -100,7 +100,7 @@ class BlobTransaction:
     to: Address
     value: U256
     data: Bytes
-    access_list: Tuple[Tuple[Address, Tuple[Bytes32, ...]], ...]
+    access_list: Dict[Address, Set[Bytes32]]
     max_fee_per_blob_gas: U256
     blob_versioned_hashes: Tuple[VersionedHash, ...]
     y_parity: U256
@@ -228,7 +228,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     if isinstance(
         tx, (AccessListTransaction, FeeMarketTransaction, BlobTransaction)
     ):
-        for _address, keys in tx.access_list:
+        for _address, keys in tx.access_list.items():
             access_list_cost += TX_ACCESS_LIST_ADDRESS_COST
             access_list_cost += len(keys) * TX_ACCESS_LIST_STORAGE_KEY_COST
 

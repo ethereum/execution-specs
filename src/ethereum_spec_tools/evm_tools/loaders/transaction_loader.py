@@ -4,11 +4,12 @@ relevant transaction.
 """
 
 from dataclasses import fields
-from typing import Any, List
+from typing import Any, List, Dict, Set
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
+from .fork_types import Address
 
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
@@ -72,17 +73,13 @@ class TransactionLoad:
 
     def json_to_access_list(self) -> Any:
         """Get the access list of the transaction."""
-        access_list = []
+        access_list = Dict[Address, Set[Bytes32]]= {}
         for sublist in self.raw["accessList"]:
-            access_list.append(
-                (
-                    self.fork.hex_to_address(sublist.get("address")),
-                    [
-                        hex_to_bytes32(key)
-                        for key in sublist.get("storageKeys")
-                    ],
-                )
-            )
+            
+                    address = self.fork.hex_to_address(sublist.get("address")),
+                    storage_keys = {hex_to_bytes32(key) for key in sublist.get("storageKeys")}
+                    access_list[address] = storage_keys
+                    
         return access_list
 
     def json_to_max_priority_fee_per_gas(self) -> Uint:

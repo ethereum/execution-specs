@@ -59,7 +59,7 @@ access_list_transaction = AccessListTransaction(
     Bytes0(),
     U256(4),
     Bytes(b"bar"),
-    ((address1, (hash1, hash2)), (address2, tuple())),
+    {address1: (hash1, hash2), address2: tuple()},
     U256(27),
     U256(5),
     U256(6),
