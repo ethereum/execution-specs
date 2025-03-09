@@ -13,7 +13,7 @@ from ethereum_types.numeric import U64, U256, Uint, ulen
 
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.exceptions import InvalidTransaction, InvalidSignatureError
+from ethereum.exceptions import InvalidSignatureError, InvalidTransaction
 
 from .exceptions import TransactionTypeError
 from .fork_types import Address, Authorization, VersionedHash
