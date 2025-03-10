@@ -47,17 +47,13 @@ def pytest_configure(config: Config) -> None:
         ethereum_optimized.monkey_patch(None)
 
     if config.getoption("evm_trace"):
-        path = config.getoption("evm_trace")
         import ethereum.trace
-        import ethereum_spec_tools.evm_tools.t8n.evm_trace as evm_trace_module
         from ethereum_spec_tools.evm_tools.t8n.evm_trace import (
             evm_trace as new_trace_function,
         )
 
         # Replace the function in the module
         ethereum.trace.evm_trace = new_trace_function
-        # Set the output directory for traces
-        evm_trace_module.OUTPUT_DIR = path
 
 
 def download_fixtures(url: str, location: str) -> None:
