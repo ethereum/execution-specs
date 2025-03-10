@@ -109,6 +109,7 @@ class T8N(Load):
                 trace_memory=trace_memory,
                 trace_stack=trace_stack,
                 trace_return_data=trace_return_data,
+                output_basedir=self.options.output_basedir,
             )
         self.logger = get_stream_logger("T8N")
 
