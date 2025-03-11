@@ -95,7 +95,7 @@ def load_evm_tools_test(test_case: Dict[str, str], fork_name: str) -> None:
             tx[k] = value[v]
         elif k == "accessLists":
             if value[d] is not None:
-                tx["accessList"] = value[d]
+                tx["accessLists"] = value[d]
         else:
             tx[k] = value
 
