@@ -8,7 +8,7 @@ TEST_FIXTURES = {
     },
     "ethereum_tests": {
         "url": "https://github.com/ethereum/tests.git",
-        "commit_hash": "a0e8482",
+        "commit_hash": "afed83b",
         "fixture_path": "tests/fixtures/ethereum_tests",
     },
     "latest_fork_tests": {
