@@ -135,6 +135,7 @@ def run_test_case(
         "stdin",
         "--state.fork",
         f"{test_case.fork_name}",
+        "--state-test",
     ]
 
     if t8n_extra is not None:

@@ -32,7 +32,6 @@ from ethereum.trace import (
 )
 
 EXCLUDE_FROM_OUTPUT = ["gasCostTraced", "errorTraced", "precompile"]
-OUTPUT_DIR = "."
 
 
 @dataclass
@@ -141,6 +140,7 @@ def evm_trace(
     trace_memory: bool = False,
     trace_stack: bool = True,
     trace_return_data: bool = False,
+    output_basedir: str | TextIO = ".",
 ) -> None:
     """
     Create a trace of the event.
@@ -189,6 +189,7 @@ def evm_trace(
             traces,
             evm.message.tx_env.index_in_block,
             evm.message.tx_env.tx_hash,
+            output_basedir,
         )
     elif isinstance(event, PrecompileStart):
         new_trace = Trace(
@@ -349,6 +350,7 @@ def output_traces(
     traces: List[Union[Trace, FinalTrace]],
     index_in_block: int,
     tx_hash: bytes,
+    output_basedir: str | TextIO,
 ) -> None:
     """
     Output the traces to a json file.
@@ -356,15 +358,15 @@ def output_traces(
     with ExitStack() as stack:
         json_file: TextIO
 
-        if isinstance(OUTPUT_DIR, str):
+        if isinstance(output_basedir, str):
             tx_hash_str = "0x" + tx_hash.hex()
             output_path = os.path.join(
-                OUTPUT_DIR, f"trace-{index_in_block}-{tx_hash_str}.jsonl"
+                output_basedir, f"trace-{index_in_block}-{tx_hash_str}.jsonl"
             )
             json_file = open(output_path, "w")
             stack.push(json_file)
         else:
-            json_file = OUTPUT_DIR
+            json_file = output_basedir
 
         for trace in traces:
             if getattr(trace, "precompile", False):
