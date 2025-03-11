@@ -31,7 +31,9 @@ def fixture_format_discriminator(v: Any) -> str | None:
     assert info_dict is not None, (
         f"Fixture does not have an info field, cannot determine fixture format: {v}"
     )
-    fixture_format = info_dict.get("fixture_format")
+    fixture_format = info_dict.get("fixture-format")
+    if not fixture_format:
+        fixture_format = info_dict.get("fixture_format")
     assert fixture_format is not None, f"Fixture format not found in info field: {info_dict}"
     return fixture_format
 
@@ -124,7 +126,7 @@ class BaseFixture(CamelModel):
         self.info["filling-transition-tool"] = t8n_version
         self.info["description"] = test_case_description
         self.info["url"] = fixture_source_url
-        self.info["fixture_format"] = self.format_name
+        self.info["fixture-format"] = self.format_name
         if ref_spec is not None:
             ref_spec.write_info(self.info)
         if _info_metadata:
