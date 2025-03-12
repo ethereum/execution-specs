@@ -7,7 +7,7 @@ from ethereum.berlin.transactions import (
     LegacyTransaction,
     validate_transaction,
 )
-from ethereum.exceptions import InvalidBlock
+from ethereum.exceptions import InvalidTransaction
 from ethereum.utils.hexadecimal import hex_to_uint
 from tests.helpers import TEST_FIXTURES
 
@@ -33,7 +33,7 @@ def test_high_nonce(test_file_high_nonce: str) -> None:
 
     tx = rlp.decode_to(LegacyTransaction, test["tx_rlp"])
 
-    with pytest.raises(InvalidBlock):
+    with pytest.raises(InvalidTransaction):
         validate_transaction(tx)
 
 
