@@ -23,18 +23,6 @@ from ethereum_test_fixtures.file import Fixtures
 
 from .hasher import HashableItem
 
-# TODO: remove when these tests are ported from ethereum/tests to execution-spec-tests.
-fixtures_to_skip = {
-    # ethereum/tests fixtures with fields (bigint) that aren't supported by EEST's pydantic models.
-    # Specifying only the file name without path allows index file generation at any level of the
-    # fixtures directory tree; the file names are unique.
-    "ValueOverflowParis.json",
-    "withdrawalsAmountBounds.json",
-    "withdrawalsIndexBounds.json",
-    "withdrawalsValidatorIndexBounds.json",
-    "withdrawalsAddressBounds.json",
-}
-
 
 def count_json_files_exclude_index(start_path: Path) -> int:
     """
@@ -156,9 +144,6 @@ def generate_fixtures_index(
         test_cases: List[TestCaseIndexFile] = []
         for file in input_path.rglob("*.json"):
             if file.name == "index.json" or ".meta" in file.parts:
-                continue
-            if any(fixture in str(file) for fixture in fixtures_to_skip):
-                rich.print(f"Skipping '{file}'")
                 continue
 
             try:
