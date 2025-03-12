@@ -3,7 +3,7 @@ from functools import partial
 import pytest
 from ethereum_rlp import rlp
 
-from ethereum.exceptions import InvalidBlock
+from ethereum.exceptions import InvalidTransaction
 from ethereum.london.transactions import (
     LegacyTransaction,
     validate_transaction,
@@ -33,7 +33,7 @@ def test_high_nonce(test_file_high_nonce: str) -> None:
 
     tx = rlp.decode_to(LegacyTransaction, test["tx_rlp"])
 
-    with pytest.raises(InvalidBlock):
+    with pytest.raises(InvalidTransaction):
         validate_transaction(tx)
 
 
