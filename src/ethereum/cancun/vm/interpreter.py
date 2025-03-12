@@ -49,7 +49,7 @@ from ..state import (
 from ..vm import Message
 from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
-from . import Environment, Evm
+from . import Environment, Evm, eth_transfer_log
 from .exceptions import (
     AddressCollision,
     ExceptionalHalt,
@@ -89,6 +89,7 @@ class MessageCallOutput:
     error: Optional[EthereumException]
 
 
+## This is where a general transfer tx would start from
 def process_message_call(
     message: Message, env: Environment
 ) -> MessageCallOutput:
@@ -121,6 +122,7 @@ def process_message_call(
             evm = process_create_message(message, env)
     else:
         evm = process_message(message, env)
+        ## can append to logs here
         if account_exists_and_is_empty(env.state, Address(message.target)):
             evm.touched_accounts.add(Address(message.target))
 
@@ -232,12 +234,17 @@ def process_message(message: Message, env: Environment) -> Evm:
 
     touch_account(env.state, message.current_target)
 
+    log_entry = ()
     if message.should_transfer_value and message.value != 0:
         move_ether(
             env.state, message.caller, message.current_target, message.value
         )
+        ## add log here for transfer CALL (child evm calls) and normal ETH value transfers
+        log_entry = eth_transfer_log(message.caller, message.current_target, message.value)
 
-    evm = execute_code(message, env)
+    # this ensures value transfer tx logs are before the child evm logs
+    evm = execute_code(message, env, log_entry)
+
     if evm.error:
         # revert state to the last saved checkpoint
         # since the message call resulted in an error
@@ -247,7 +254,7 @@ def process_message(message: Message, env: Environment) -> Evm:
     return evm
 
 
-def execute_code(message: Message, env: Environment) -> Evm:
+def execute_code(message: Message, env: Environment, log_entry: Log) -> Evm:
     """
     Executes bytecode present in the `message`.
 
@@ -274,7 +281,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
         gas_left=message.gas,
         env=env,
         valid_jump_destinations=valid_jump_destinations,
-        logs=(),
+        logs=(log_entry,) if log_entry != () else (),
         refund_counter=0,
         running=True,
         message=message,
@@ -286,6 +293,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
         accessed_addresses=message.accessed_addresses,
         accessed_storage_keys=message.accessed_storage_keys,
     )
+
     try:
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:
             evm_trace(evm, PrecompileStart(evm.message.code_address))

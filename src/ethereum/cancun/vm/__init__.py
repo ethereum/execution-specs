@@ -19,8 +19,9 @@ from typing import List, Optional, Set, Tuple, Union
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 
-from ethereum.crypto.hash import Hash32
+from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import EthereumException
+from ethereum.utils.byte import left_pad_zero_bytes
 
 from ..blocks import Log
 from ..fork_types import Address, VersionedHash
@@ -150,3 +151,32 @@ def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
         ):
             evm.touched_accounts.add(RIPEMD160_ADDRESS)
     evm.gas_left += child_evm.gas_left
+
+def eth_transfer_log(sender: Address, recipient: Address, amount: U256) -> Log:
+    """
+    EIP-7708 style logs for all kinds of ETH transfers
+
+    Parameters
+    ----------
+    sender :
+        The address of the sender
+    recipient :
+        The address of the recipient
+    amount :
+        The amount transferred
+    Returns
+    -------
+    log_entry:
+        A log entry that can be appended to the current evm context
+    """
+    magic_signature = "MAGIC_00"
+    topic1 = keccak256(magic_signature.encode()) # Magic Signature
+    topic2 = Hash32(left_pad_zero_bytes(sender, 32))
+    topic3 = Hash32(left_pad_zero_bytes(recipient, 32))
+    amount_bytes = amount.to_bytes(32, byteorder='big')
+
+    return Log(
+        address=sender,
+        topics=(topic1, topic2, topic3),
+        data=amount_bytes,
+    )

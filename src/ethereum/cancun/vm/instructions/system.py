@@ -37,6 +37,7 @@ from .. import (
     Message,
     incorporate_child_on_error,
     incorporate_child_on_success,
+    eth_transfer_log
 )
 from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
 from ..gas import (
@@ -321,6 +322,7 @@ def generic_call(
         evm.return_data = child_evm.output
         push(evm.stack, U256(0))
     else:
+        # child CALL logs would be appended to parent logs
         incorporate_child_on_success(evm, child_evm)
         evm.return_data = child_evm.output
         push(evm.stack, U256(1))
@@ -384,7 +386,7 @@ def call(evm: Evm) -> None:
         raise WriteInStaticContext
     evm.memory += b"\x00" * extend_memory.expand_by
     sender_balance = get_account(
-        evm.env.state, evm.message.current_target
+        evm.env.state, evm.message.current_target # current_target is the contract that is calling the call opcode
     ).balance
     if sender_balance < value:
         push(evm.stack, U256(0))
@@ -521,6 +523,11 @@ def selfdestruct(evm: Evm) -> None:
         beneficiary,
         originator_balance,
     )
+
+    # check if amount was non zero, then update evm logs with the new log
+    if originator_balance > 0:
+        log_entry = eth_transfer_log(originator, beneficiary, originator_balance)
+        evm.logs = evm.logs + (log_entry,)
 
     # register account for deletion only if it was created
     # in the same transaction
