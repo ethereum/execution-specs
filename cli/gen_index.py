@@ -173,7 +173,9 @@ def generate_fixtures_index(
                     TestCaseIndexFile(
                         id=fixture_name,
                         json_path=relative_file_path,
-                        fixture_hash=fixture.info.get("hash", None),
+                        # eest uses hash; ethereum/tests uses generatedTestHash
+                        fixture_hash=fixture.info.get("hash")
+                        or f"0x{fixture.info.get('generatedTestHash')}",
                         fork=fixture.get_fork(),
                         format=fixture.__class__,
                     )
