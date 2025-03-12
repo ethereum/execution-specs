@@ -243,6 +243,7 @@ def process_message(message: Message, env: Environment) -> Evm:
         log_entry = eth_transfer_log(message.caller, message.current_target, message.value)
 
     # this ensures value transfer tx logs are before the child evm logs
+    # both eth value transfers and CALL opcode invocations reach this execution phase
     evm = execute_code(message, env, log_entry)
 
     if evm.error:
