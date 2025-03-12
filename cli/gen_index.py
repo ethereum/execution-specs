@@ -23,14 +23,16 @@ from ethereum_test_fixtures.file import Fixtures
 
 from .hasher import HashableItem
 
-# TODO: remove when these tests are ported or fixed within ethereum/tests.
+# TODO: remove when these tests are ported from ethereum/tests to execution-spec-tests.
 fixtures_to_skip = {
-    # These fixtures have invalid fields that we can't load into our pydantic models (bigint).
-    "BlockchainTests/GeneralStateTests/stTransactionTest/ValueOverflowParis.json",
-    "BlockchainTests/InvalidBlocks/bc4895-withdrawals/withdrawalsAmountBounds.json",
-    "BlockchainTests/InvalidBlocks/bc4895-withdrawals/withdrawalsIndexBounds.json",
-    "BlockchainTests/InvalidBlocks/bc4895-withdrawals/withdrawalsValidatorIndexBounds.json",
-    "BlockchainTests/InvalidBlocks/bc4895-withdrawals/withdrawalsAddressBounds.json",
+    # ethereum/tests fixtures with fields (bigint) that aren't supported by EEST's pydantic models.
+    # Specifying only the file name without path allows index file generation at any level of the
+    # fixtures directory tree; the file names are unique.
+    "ValueOverflowParis.json",
+    "withdrawalsAmountBounds.json",
+    "withdrawalsIndexBounds.json",
+    "withdrawalsValidatorIndexBounds.json",
+    "withdrawalsAddressBounds.json",
 }
 
 
