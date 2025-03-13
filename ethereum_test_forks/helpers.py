@@ -208,3 +208,28 @@ def forks_from(fork: Fork, deployed_only: bool = True) -> List[Fork]:
     else:
         latest_fork = get_forks()[-1]
     return forks_from_until(fork, latest_fork)
+
+
+def get_relative_fork_markers(fork_identifier: Fork | str) -> list[str]:
+    """
+    Return a list of marker names for a given fork.
+    For a base fork (e.g. `Shanghai`), return [ `Shanghai` ].
+    For a transition fork (e.g. `ShanghaiToCancunAtTime15k` which transitions to `Cancun`),
+    return [ `ShanghaiToCancunAtTime15k`, `Cancun` ].
+    """
+    all_forks = set(get_forks()) | set(get_transition_forks())
+    if isinstance(fork_identifier, str):
+        fork_class = None
+        for candidate in all_forks:
+            if candidate.name() == fork_identifier:
+                fork_class = candidate
+                break
+        if fork_class is None:
+            raise Exception(f"Unknown fork: {fork_identifier}")
+    else:
+        fork_class = fork_identifier
+
+    if issubclass(fork_class, TransitionBaseClass):
+        return [fork_class.name(), fork_class.transitions_to().name()]
+    else:
+        return [fork_class.name()]

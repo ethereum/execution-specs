@@ -30,7 +30,6 @@ def test_local_arguments_present_in_fill_help(pytester, help_flag):
 
 CONSUME_TEST_ARGS = (
     "--input",
-    "--fork",
     "--no-html",
     "--help",
 )

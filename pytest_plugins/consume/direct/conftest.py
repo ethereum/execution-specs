@@ -81,7 +81,7 @@ def pytest_configure(config):  # noqa: D103
                 trace=config.getoption("consumer_collect_traces"),
             )
         )
-    if not fixture_consumers and config.option.collectonly:
+    if not fixture_consumers and (config.option.collectonly or config.option.markers):
         warnings.warn(
             (
                 "No fixture consumer binaries provided; using a dummy consumer for collect-only; "

@@ -16,6 +16,7 @@ import rich
 
 from cli.gen_index import generate_fixtures_index
 from ethereum_test_fixtures.consume import TestCases
+from ethereum_test_forks import get_forks, get_relative_fork_markers, get_transition_forks
 from ethereum_test_tools.utility.versioning import get_current_commit_hash_or_tag
 
 from .releases import ReleaseTag, get_release_page_url, get_release_url
@@ -208,13 +209,6 @@ def pytest_addoption(parser):  # noqa: D103
     if "cache" in sys.argv:
         return
     consume_group.addoption(
-        "--fork",
-        action="store",
-        dest="single_fork",
-        default=None,
-        help="Only consume tests for the specified fork.",
-    )
-    consume_group.addoption(
         "--no-html",
         action="store_true",
         dest="disable_html",
@@ -298,6 +292,12 @@ def pytest_configure(config):  # noqa: D103
         )
     config.test_cases = TestCases.from_index_file(index_file)
 
+    all_forks_with_transitions = {  # type: ignore
+        fork for fork in set(get_forks()) | get_transition_forks() if not fork.ignore()
+    }
+    for fork in all_forks_with_transitions:
+        config.addinivalue_line("markers", f"{fork}: Mark test for {fork} fork")
+
     if config.option.sim_limit:
         if config.option.dest_regex != ".*":
             pytest.exit(
@@ -309,7 +309,7 @@ def pytest_configure(config):  # noqa: D103
             config.option.collectonly = True
             config.option.verbose = -1  # equivalent to -q; only print test ids
 
-    if config.option.collectonly:
+    if config.option.collectonly or config.option.markers:
         return
     if not config.getoption("disable_html") and config.getoption("htmlpath") is None:
         # generate an html report by default, unless explicitly disabled
@@ -353,16 +353,19 @@ def pytest_generate_tests(metafunc):
     if "cache" in sys.argv:
         return
 
-    fork = metafunc.config.getoption("single_fork")
-    metafunc.parametrize(
-        "test_case,fixture_format",
-        (
-            pytest.param(test_case, test_case.format, id=test_case.id)
-            for test_case in metafunc.config.test_cases
-            if test_case.format in metafunc.function.fixture_format
-            and (not fork or test_case.fork == fork)
-        ),
-    )
+    test_cases = metafunc.config.test_cases
+    param_list = []
+    for test_case in test_cases:
+        fork_markers = get_relative_fork_markers(test_case.fork)
+        param = pytest.param(
+            test_case,
+            test_case.format,
+            id=test_case.id,
+            marks=[getattr(pytest.mark, m) for m in fork_markers],
+        )
+        param_list.append(param)
+
+    metafunc.parametrize("test_case,fixture_format", param_list)
 
     if "client_type" in metafunc.fixturenames:
         client_ids = [client.name for client in metafunc.config.hive_execution_clients]
