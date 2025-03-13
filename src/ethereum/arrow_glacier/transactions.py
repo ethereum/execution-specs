@@ -48,7 +48,8 @@ class LegacyTransaction:
 @dataclass
 class Access:
     """
-    Hoisted from AccessListTransaction for readability
+    A mapping from account address to storage slots that are pre-warmed as part
+    of a transaction.
     """
 
     account: Address
@@ -208,8 +209,9 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     if isinstance(tx, (AccessListTransaction, FeeMarketTransaction)):
         for access in tx.access_list:
             access_list_cost += TX_ACCESS_LIST_ADDRESS_COST
-            for slot in access.slots:
-                access_list_cost += ulen(keys) * TX_ACCESS_LIST_STORAGE_KEY_COST
+            access_list_cost += (
+                ulen(access.slots) * TX_ACCESS_LIST_STORAGE_KEY_COST
+            )
 
     return TX_BASE_COST + data_cost + create_cost + access_list_cost
 
