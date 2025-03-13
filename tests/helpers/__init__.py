@@ -13,7 +13,7 @@ TEST_FIXTURES = {
     },
     "latest_fork_tests": {
         "url": "https://github.com/gurukamath/latest_fork_tests.git",
-        "commit_hash": "bc74af5",
+        "commit_hash": "57c7104",
         "fixture_path": "tests/fixtures/latest_fork_tests",
     },
 }
