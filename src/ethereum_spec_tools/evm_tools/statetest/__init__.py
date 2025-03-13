@@ -107,7 +107,7 @@ def run_test_case(
             tx[k] = value[v]
         elif k == "accessLists":
             if value[d] is not None:
-                tx["accessList"] = value[d]
+                tx["accessLists"] = value[d]
         else:
             tx[k] = value
 
