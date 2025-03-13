@@ -5,6 +5,7 @@ from .clis.ethereumjs import EthereumJSTransitionTool
 from .clis.evmone import EvmoneExceptionMapper, EvmOneTransitionTool
 from .clis.execution_specs import ExecutionSpecsTransitionTool
 from .clis.geth import GethFixtureConsumer, GethTransitionTool
+from .clis.nethermind import Nethtest, NethtestFixtureConsumer
 from .clis.nimbus import NimbusTransitionTool
 from .ethereum_cli import CLINotFoundInPathError, UnknownCLIError
 from .fixture_consumer_tool import FixtureConsumerTool
@@ -24,6 +25,8 @@ __all__ = (
     "FixtureConsumerTool",
     "GethFixtureConsumer",
     "GethTransitionTool",
+    "Nethtest",
+    "NethtestFixtureConsumer",
     "NimbusTransitionTool",
     "Result",
     "TransitionTool",
