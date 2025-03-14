@@ -10,10 +10,7 @@ from .transition_base_fork import TransitionBaseClass
 
 
 class InvalidForkError(Exception):
-    """
-    Invalid fork error raised when the fork specified by command-line option
-    --latest-fork is not found.
-    """
+    """Invalid fork error raised when the fork specified is not found or incompatible."""
 
     def __init__(self, message):
         """Initialize the InvalidForkError exception."""
@@ -56,7 +53,7 @@ def get_parent_fork(fork: Fork) -> Fork:
     """Return parent fork of the specified fork."""
     parent_fork = fork.__base__
     if not parent_fork:
-        raise Exception(f"Parent fork of {fork} not found.")
+        raise InvalidForkError(f"Parent fork of {fork} not found.")
     return parent_fork
 
 
@@ -96,6 +93,20 @@ def get_transition_forks() -> Set[Fork]:
             transition_forks.add(fork)
 
     return transition_forks
+
+
+def get_transition_fork_predecessor(transition_fork: Fork) -> Fork:
+    """Return the fork from which the transition fork transitions."""
+    if not issubclass(transition_fork, TransitionBaseClass):
+        raise InvalidForkError(f"{transition_fork} is not a transition fork.")
+    return transition_fork.transitions_from()
+
+
+def get_transition_fork_successor(transition_fork: Fork) -> Fork:
+    """Return the fork to which the transition fork transitions."""
+    if not issubclass(transition_fork, TransitionBaseClass):
+        raise InvalidForkError(f"{transition_fork} is not a transition fork.")
+    return transition_fork.transitions_to()
 
 
 def get_from_until_fork_set(
@@ -225,7 +236,7 @@ def get_relative_fork_markers(fork_identifier: Fork | str) -> list[str]:
                 fork_class = candidate
                 break
         if fork_class is None:
-            raise Exception(f"Unknown fork: {fork_identifier}")
+            raise InvalidForkError(f"Unknown fork: {fork_identifier}")
     else:
         fork_class = fork_identifier
 
