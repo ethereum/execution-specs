@@ -754,10 +754,10 @@ def process_transaction(
     if isinstance(
         tx, (AccessListTransaction, FeeMarketTransaction, BlobTransaction)
     ):
-        for address, keys in tx.access_list:
-            preaccessed_addresses.add(address)
-            for key in keys:
-                preaccessed_storage_keys.add((address, key))
+        for access in tx.access_list:
+            preaccessed_addresses.add(access.account)
+            for account, slot in access:
+                preaccessed_storage_keys.add((account, slot))
 
     message = prepare_message(
         sender,
