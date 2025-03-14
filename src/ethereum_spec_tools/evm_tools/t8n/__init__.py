@@ -312,7 +312,7 @@ class T8N(Load):
         transactions_trie = self.fork.Trie(secured=False, default=None)
         receipts_trie = self.fork.Trie(secured=False, default=None)
         block_logs = ()
-        blob_gas_used = Uint(0)
+        blob_gas_used = U64(0)
 
         if (
             self.fork.is_after_fork("ethereum.cancun")
@@ -380,8 +380,8 @@ class T8N(Load):
                 )
 
                 if self.fork.is_after_fork("ethereum.cancun"):
-                    blob_gas_used += self.fork.calculate_total_blob_gas(tx)
-                    if blob_gas_used > self.fork.MAX_BLOB_GAS_PER_BLOCK:
+                    blob_gas_used += U64(self.fork.calculate_total_blob_gas(tx))
+                    if blob_gas_used > U64(self.fork.MAX_BLOB_GAS_PER_BLOCK):
                         raise InvalidBlock
             except EthereumException as e:
                 # The tf tools expects some non-blank error message
