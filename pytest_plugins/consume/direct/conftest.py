@@ -9,14 +9,13 @@ import json
 import tempfile
 import warnings
 from pathlib import Path
-from typing import List
 
 import pytest
 
 from ethereum_clis.ethereum_cli import EthereumCLI
 from ethereum_clis.fixture_consumer_tool import FixtureConsumerTool
 from ethereum_test_base_types import to_json
-from ethereum_test_fixtures import BaseFixture
+from ethereum_test_fixtures import BaseFixture, BlockchainFixture, EOFFixture, StateFixture
 from ethereum_test_fixtures.consume import TestCaseIndexFile, TestCaseStream
 from ethereum_test_fixtures.file import Fixtures
 from pytest_plugins.consume.consume import FixturesSource
@@ -73,6 +72,10 @@ def pytest_addoption(parser):  # noqa: D103
 
 
 def pytest_configure(config):  # noqa: D103
+    config._supported_fixture_formats = [
+        fixture_format.format_name
+        for fixture_format in [StateFixture, BlockchainFixture, EOFFixture]
+    ]
     fixture_consumers = []
     for fixture_consumer_bin_path in config.getoption("fixture_consumer_bin"):
         fixture_consumers.append(
@@ -148,15 +151,3 @@ def pytest_generate_tests(metafunc):
             for fixture_consumer in metafunc.config.fixture_consumers
         ),
     )
-
-
-def pytest_collection_modifyitems(items: List):
-    """
-    Modify collected item names to remove the test cases that cannot be consumed by the
-    given fixture consumer.
-    """
-    for item in items[:]:  # use a copy of the list, as we'll be modifying it
-        fixture_consumer = item.callspec.params["fixture_consumer"]
-        fixture_format = item.callspec.params["fixture_format"]
-        if not fixture_consumer.can_consume(fixture_format):
-            items.remove(item)

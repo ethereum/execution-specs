@@ -14,7 +14,6 @@ from ethereum_test_base_types import Number, to_json
 from ethereum_test_fixtures import (
     BaseFixture,
     BlockchainFixtureCommon,
-    FixtureFormat,
 )
 from ethereum_test_fixtures.consume import TestCaseIndexFile, TestCaseStream
 from ethereum_test_fixtures.file import Fixtures
@@ -253,7 +252,6 @@ def fixture_file_loader() -> Dict[Path, Fixtures]:
 @pytest.fixture(scope="function")
 def fixture(
     fixtures_source: FixturesSource,
-    fixture_format: FixtureFormat,
     fixture_file_loader: Dict[Path, Fixtures],
     test_case: TestCaseIndexFile | TestCaseStream,
 ) -> BaseFixture:
@@ -274,7 +272,7 @@ def fixture(
         fixtures_file_path = fixtures_source.path / test_case.json_path
         fixtures: Fixtures = fixture_file_loader[fixtures_file_path]
         fixture = fixtures[test_case.id]
-    assert isinstance(fixture, fixture_format), (
-        f"Expected a {fixture_format.__name__} test fixture"
+    assert isinstance(fixture, test_case.format), (
+        f"Expected a {test_case.format.format_name} test fixture"
     )
     return fixture

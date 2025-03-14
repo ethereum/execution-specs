@@ -12,6 +12,11 @@ from ethereum_test_fixtures.consume import TestCaseIndexFile, TestCaseStream
 TestCase = TestCaseIndexFile | TestCaseStream
 
 
+def pytest_configure(config):
+    """Set the supported fixture formats for the rlp simulator."""
+    config._supported_fixture_formats = [BlockchainFixture.format_name]
+
+
 @pytest.fixture(scope="module")
 def test_suite_name() -> str:
     """The name of the hive test suite used in this simulator."""

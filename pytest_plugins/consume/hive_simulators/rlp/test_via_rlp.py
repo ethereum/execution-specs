@@ -5,20 +5,17 @@ A hive based simulator that executes RLP-encoded blocks against clients. The sim
 Clients consume the genesis and RLP-encoded blocks from input files upon start-up.
 """
 
-from ethereum_test_fixtures import BlockchainFixture, FixtureFormat
+from ethereum_test_fixtures import BlockchainFixture
 from ethereum_test_rpc import EthRPC
 from pytest_plugins.consume.hive_simulators.exceptions import GenesisBlockMismatchExceptionError
 
-from ...decorator import fixture_format
 from ..timing import TimingData
 
 
-@fixture_format(BlockchainFixture)
 def test_via_rlp(
     timing_data: TimingData,
     eth_rpc: EthRPC,
     fixture: BlockchainFixture,
-    fixture_format: FixtureFormat,
 ):
     """
     1. Check the client genesis block hash matches `fixture.genesis.block_hash`.
