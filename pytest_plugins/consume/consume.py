@@ -15,6 +15,7 @@ import requests
 import rich
 
 from cli.gen_index import generate_fixtures_index
+from ethereum_test_fixtures import BaseFixture
 from ethereum_test_fixtures.consume import TestCases
 from ethereum_test_forks import get_forks, get_relative_fork_markers, get_transition_forks
 from ethereum_test_tools.utility.versioning import get_current_commit_hash_or_tag
@@ -295,8 +296,13 @@ def pytest_configure(config):  # noqa: D103
     all_forks_with_transitions = {  # type: ignore
         fork for fork in set(get_forks()) | get_transition_forks() if not fork.ignore()
     }
+    for fixture_format in BaseFixture.formats.values():
+        config.addinivalue_line(
+            "markers",
+            f"{fixture_format.format_name}: Tests in `{fixture_format.format_name}` format ",
+        )
     for fork in all_forks_with_transitions:
-        config.addinivalue_line("markers", f"{fork}: Mark test for {fork} fork")
+        config.addinivalue_line("markers", f"{fork}: Tests for the {fork} fork")
 
     if config.option.sim_limit:
         if config.option.dest_regex != ".*":
@@ -361,7 +367,8 @@ def pytest_generate_tests(metafunc):
             test_case,
             test_case.format,
             id=test_case.id,
-            marks=[getattr(pytest.mark, m) for m in fork_markers],
+            marks=[getattr(pytest.mark, m) for m in fork_markers]
+            + [getattr(pytest.mark, test_case.format.format_name)],
         )
         param_list.append(param)
 
