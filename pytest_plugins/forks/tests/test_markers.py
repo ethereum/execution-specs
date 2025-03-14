@@ -112,6 +112,14 @@ def test_case(state_test):
             {"passed": 2, "failed": 0, "skipped": 0, "errors": 0},
             id="valid_at_transition_to,subsequent_forks=True,until",
         ),
+        pytest.param(
+            generate_test(
+                valid_at_transition_to='"Cancun"',
+            ),
+            ["--fork=ShanghaiToCancunAtTime15k"],
+            {"passed": 1, "failed": 0, "skipped": 0, "errors": 0},
+            id="valid_at_transition_to,--fork=transition_fork_only",
+        ),
     ],
 )
 def test_fork_markers(pytester, test_function: str, outcomes: dict, pytest_args: List[str]):

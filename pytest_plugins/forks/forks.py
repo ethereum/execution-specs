@@ -443,15 +443,14 @@ def pytest_configure(config: pytest.Config):
         config_str = config.getoption(option_name)
         if not config_str:
             return set()
+
         forks_str = config_str.split(",")
-        for i in range(len(forks_str)):
-            forks_str[i] = forks_str[i].strip().capitalize()
-            if forks_str[i] == "Merge":
-                forks_str[i] = "Paris"
+        forks_str = [s.strip() for s in config_str.split(",")]
+        # Alias for "Merge"
+        forks_str = [("Paris" if s.lower() == "merge" else s) for s in forks_str]
 
         resulting_forks = set()
-
-        for fork in get_forks():
+        for fork in config.all_forks_with_transitions:
             if fork.name() in forks_str:
                 resulting_forks.add(fork)
 
@@ -490,18 +489,16 @@ def pytest_configure(config: pytest.Config):
         pytest.exit("Invalid command-line options.", returncode=pytest.ExitCode.USAGE_ERROR)
 
     if single_fork:
-        forks_from = single_fork
-        forks_until = single_fork
+        selected_fork_set = single_fork
     else:
         if not forks_from:
             forks_from = get_forks_with_no_parents(forks)
         if not forks_until:
             forks_until = get_last_descendants(set(get_deployed_forks()), forks_from)
-
-    selected_fork_set = get_from_until_fork_set(forks, forks_from, forks_until)
-    for fork in list(selected_fork_set):
-        transition_fork_set = transition_fork_to(fork)
-        selected_fork_set |= transition_fork_set
+        selected_fork_set = get_from_until_fork_set(forks, forks_from, forks_until)
+        for fork in list(selected_fork_set):
+            transition_fork_set = transition_fork_to(fork)
+            selected_fork_set |= transition_fork_set
 
     config.selected_fork_set = selected_fork_set  # type: ignore
 
