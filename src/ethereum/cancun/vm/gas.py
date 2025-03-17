@@ -69,7 +69,7 @@ GAS_BLOBHASH_OPCODE = Uint(3)
 GAS_POINT_EVALUATION = Uint(50000)
 
 TARGET_BLOB_GAS_PER_BLOCK = U64(393216)
-GAS_PER_BLOB = Uint(2**17)
+GAS_PER_BLOB = U64(2**17)
 MIN_BLOB_GASPRICE = Uint(1)
 BLOB_BASE_FEE_UPDATE_FRACTION = Uint(3338477)
 
@@ -300,7 +300,7 @@ def calculate_excess_blob_gas(parent_header: Header) -> U64:
         return parent_blob_gas - TARGET_BLOB_GAS_PER_BLOCK
 
 
-def calculate_total_blob_gas(tx: Transaction) -> Uint:
+def calculate_total_blob_gas(tx: Transaction) -> U64:
     """
     Calculate the total blob gas for a transaction.
 
@@ -315,9 +315,9 @@ def calculate_total_blob_gas(tx: Transaction) -> Uint:
         The total blob gas for the transaction.
     """
     if isinstance(tx, BlobTransaction):
-        return GAS_PER_BLOB * Uint(len(tx.blob_versioned_hashes))
+        return GAS_PER_BLOB * U64(len(tx.blob_versioned_hashes))
     else:
-        return Uint(0)
+        return U64(0)
 
 
 def calculate_blob_gas_price(excess_blob_gas: U64) -> Uint:

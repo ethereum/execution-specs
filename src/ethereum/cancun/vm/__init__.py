@@ -84,7 +84,7 @@ class BlockOutput:
     withdrawals_trie: Trie[Bytes, Optional[Union[Bytes, Withdrawal]]] = field(
         default_factory=lambda: Trie(secured=False, default=None)
     )
-    blob_gas_used: Uint = Uint(0)
+    blob_gas_used: U64 = U64(0)
 
 
 @dataclass

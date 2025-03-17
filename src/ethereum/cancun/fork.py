@@ -81,7 +81,7 @@ BEACON_ROOTS_ADDRESS = hex_to_address(
     "0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"
 )
 SYSTEM_TRANSACTION_GAS = Uint(30000000)
-MAX_BLOB_GAS_PER_BLOCK = Uint(786432)
+MAX_BLOB_GAS_PER_BLOCK = U64(786432)
 VERSIONED_HASH_VERSION_KZG = b"\x01"
 
 
@@ -366,7 +366,7 @@ def check_transaction(
     block_env: vm.BlockEnvironment,
     block_output: vm.BlockOutput,
     tx: Transaction,
-) -> Tuple[Address, Uint, Tuple[VersionedHash, ...], Uint]:
+) -> Tuple[Address, Uint, Tuple[VersionedHash, ...], U64]:
     """
     Check if the transaction is includable in the block.
 
@@ -439,7 +439,7 @@ def check_transaction(
         if Uint(tx.max_fee_per_blob_gas) < blob_gas_price:
             raise InvalidBlock
 
-        max_gas_fee += calculate_total_blob_gas(tx) * Uint(
+        max_gas_fee += calculate_total_blob_gas(tx) * U64(
             tx.max_fee_per_blob_gas
         )
         blob_versioned_hashes = tx.blob_versioned_hashes
@@ -675,8 +675,8 @@ def apply_body(
         )
 
         block_logs += logs
-        blob_gas_used += U64(calculate_total_blob_gas(tx))
-    if Uint(blob_gas_used) > MAX_BLOB_GAS_PER_BLOCK:
+        blob_gas_used += calculate_total_blob_gas(tx)
+    if blob_gas_used > MAX_BLOB_GAS_PER_BLOCK:
         raise InvalidBlock
     block_gas_used = block_gas_limit - gas_available
 
