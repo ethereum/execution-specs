@@ -33,7 +33,6 @@ from ethereum.trace import (
 from ..blocks import Log
 from ..fork_types import Address
 from ..state import (
-    account_exists_and_is_empty,
     account_has_code_or_nonce,
     account_has_storage,
     begin_transaction,
@@ -44,7 +43,6 @@ from ..state import (
     move_ether,
     rollback_transaction,
     set_code,
-    touch_account,
 )
 from ..vm import Message
 from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
@@ -77,15 +75,13 @@ class MessageCallOutput:
           2. `refund_counter`: gas to refund after execution.
           3. `logs`: list of `Log` generated during execution.
           4. `accounts_to_delete`: Contracts which have self-destructed.
-          5. `touched_accounts`: Accounts that have been touched.
-          6. `error`: The error from the execution if any.
+          5. `error`: The error from the execution if any.
     """
 
     gas_left: Uint
     refund_counter: U256
     logs: Tuple[Log, ...]
     accounts_to_delete: Set[Address]
-    touched_accounts: Set[Address]
     error: Optional[EthereumException]
 
 
@@ -112,25 +108,19 @@ def process_message_call(message: Message) -> MessageCallOutput:
         ) or account_has_storage(block_env.state, message.current_target)
         if is_collision:
             return MessageCallOutput(
-                Uint(0), U256(0), tuple(), set(), set(), AddressCollision()
+                Uint(0), U256(0), tuple(), set(), AddressCollision()
             )
         else:
             evm = process_create_message(message)
     else:
         evm = process_message(message)
-        if account_exists_and_is_empty(
-            block_env.state, Address(message.target)
-        ):
-            evm.touched_accounts.add(Address(message.target))
 
     if evm.error:
         logs: Tuple[Log, ...] = ()
         accounts_to_delete = set()
-        touched_accounts = set()
     else:
         logs = evm.logs
         accounts_to_delete = evm.accounts_to_delete
-        touched_accounts = evm.touched_accounts
         refund_counter += U256(evm.refund_counter)
 
     tx_end = TransactionEnd(
@@ -143,7 +133,6 @@ def process_message_call(message: Message) -> MessageCallOutput:
         refund_counter=refund_counter,
         logs=logs,
         accounts_to_delete=accounts_to_delete,
-        touched_accounts=touched_accounts,
         error=evm.error,
     )
 
@@ -230,8 +219,6 @@ def process_message(message: Message) -> Evm:
     # take snapshot of state before processing the message
     begin_transaction(state)
 
-    touch_account(state, message.current_target)
-
     if message.should_transfer_value and message.value != 0:
         move_ether(
             state, message.caller, message.current_target, message.value
@@ -279,7 +266,6 @@ def execute_code(message: Message) -> Evm:
         message=message,
         output=b"",
         accounts_to_delete=set(),
-        touched_accounts=set(),
         return_data=b"",
         error=None,
         accessed_addresses=message.accessed_addresses,

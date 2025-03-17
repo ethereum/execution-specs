@@ -35,7 +35,6 @@ from .state import (
     TransientStorage,
     account_exists_and_is_empty,
     destroy_account,
-    destroy_touched_empty_accounts,
     get_account,
     increment_nonce,
     modify_state,
@@ -538,15 +537,6 @@ def process_system_transaction(
 
     system_tx_output = process_message_call(system_tx_message)
 
-    # TODO: Empty accounts in post-merge forks are impossible
-    # see Ethereum Improvement Proposal 7523.
-    # This line is only included to support invalid tests in the test suite
-    # and will have to be removed in the future.
-    # See https://github.com/ethereum/execution-specs/issues/955
-    destroy_touched_empty_accounts(
-        block_env.state, system_tx_output.touched_accounts
-    )
-
     return system_tx_output
 
 
@@ -721,8 +711,6 @@ def process_transaction(
 
     for address in tx_output.accounts_to_delete:
         destroy_account(block_env.state, address)
-
-    destroy_touched_empty_accounts(block_env.state, tx_output.touched_accounts)
 
     block_output.block_gas_used += tx_gas_used
     block_output.blob_gas_used += tx_blob_gas_used

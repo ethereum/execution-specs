@@ -13,7 +13,7 @@ from ethereum_rlp.exceptions import RLPException
 from ethereum_types.numeric import U64
 
 from ethereum.crypto.hash import keccak256
-from ethereum.exceptions import EthereumException
+from ethereum.exceptions import EthereumException, StateWithEmptyAccount
 from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum_spec_tools.evm_tools.loaders.fixture_loader import Load
 
@@ -56,9 +56,14 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
     genesis_rlp = hex_to_bytes(json_data["genesisRLP"])
     assert rlp.encode(genesis_block) == genesis_rlp
 
+    try:
+        state = load.json_to_state(json_data["pre"])
+    except StateWithEmptyAccount as e:
+        pytest.xfail(str(e))
+
     chain = load.fork.BlockChain(
         blocks=[genesis_block],
-        state=load.json_to_state(json_data["pre"]),
+        state=state,
         chain_id=U64(json_data["genesisBlockHeader"].get("chainId", 1)),
     )
 

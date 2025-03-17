@@ -173,6 +173,11 @@ class ForkLoad:
         return self._module("fork_types").Bloom
 
     @property
+    def EMPTY_ACCOUNT(self) -> Any:
+        """EMPTY_ACCOUNT of the fork"""
+        return self._module("fork_types").EMPTY_ACCOUNT
+
+    @property
     def Header(self) -> Any:
         """Header class of the fork"""
         return self._module("blocks").Header

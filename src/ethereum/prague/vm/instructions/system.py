@@ -19,7 +19,6 @@ from ethereum.utils.numeric import ceil32
 
 from ...fork_types import Address
 from ...state import (
-    account_exists_and_is_empty,
     account_has_code_or_nonce,
     account_has_storage,
     get_account,
@@ -573,10 +572,6 @@ def selfdestruct(evm: Evm) -> None:
         # the ether is burnt.
         set_account_balance(evm.message.block_env.state, originator, U256(0))
         evm.accounts_to_delete.add(originator)
-
-    # mark beneficiary as touched
-    if account_exists_and_is_empty(evm.message.block_env.state, beneficiary):
-        evm.touched_accounts.add(beneficiary)
 
     # HALT the execution
     evm.running = False
