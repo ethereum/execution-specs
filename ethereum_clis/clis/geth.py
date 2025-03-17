@@ -229,7 +229,10 @@ class GethTransitionTool(GethEvm, TransitionTool):
 
     def __init__(self, *, binary: Path, trace: bool = False):
         """Initialize the GethTransitionTool class."""
-        super().__init__(binary=binary, trace=trace)
+        GethEvm.__init__(self, binary=binary, trace=trace)
+        TransitionTool.__init__(
+            self, exception_mapper=self.exception_mapper, binary=binary, trace=trace
+        )
         help_command = [str(self.binary), str(self.subcommand), "--help"]
         result = self._run_command(help_command)
         self.help_string = result.stdout
