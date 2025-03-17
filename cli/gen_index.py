@@ -140,7 +140,8 @@ def generate_fixtures_index(
         disable=quiet_mode,
     ) as progress:  # type: Progress
         task_id = progress.add_task("[cyan]Processing files...", total=total_files, filename="...")
-
+        forks = set()
+        fixture_formats = set()
         test_cases: List[TestCaseIndexFile] = []
         for file in input_path.rglob("*.json"):
             if file.name == "index.json" or ".meta" in file.parts:
@@ -165,6 +166,8 @@ def generate_fixtures_index(
                         format=fixture.__class__,
                     )
                 )
+                forks.add(fixture.get_fork())
+                fixture_formats.add(fixture.format_name)
 
             display_filename = file.name
             if len(display_filename) > filename_display_width:
@@ -185,6 +188,8 @@ def generate_fixtures_index(
         root_hash=root_hash,
         created_at=datetime.datetime.now(),
         test_count=len(test_cases),
+        forks=list(forks),
+        fixture_formats=list(fixture_formats),
     )
 
     with open(output_file, "w") as f:

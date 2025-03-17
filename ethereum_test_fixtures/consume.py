@@ -3,7 +3,7 @@
 import datetime
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import List, TextIO
+from typing import List, Optional, TextIO
 
 from pydantic import BaseModel, RootModel
 
@@ -80,6 +80,8 @@ class IndexFile(BaseModel):
     root_hash: HexNumber | None
     created_at: datetime.datetime
     test_count: int
+    forks: Optional[List[str]] = []
+    fixture_formats: Optional[List[str]] = []
     test_cases: List[TestCaseIndexFile]
 
 

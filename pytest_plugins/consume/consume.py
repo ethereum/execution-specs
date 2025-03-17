@@ -16,7 +16,7 @@ import rich
 
 from cli.gen_index import generate_fixtures_index
 from ethereum_test_fixtures import BaseFixture
-from ethereum_test_fixtures.consume import TestCases
+from ethereum_test_fixtures.consume import IndexFile, TestCases
 from ethereum_test_forks import get_forks, get_relative_fork_markers, get_transition_forks
 from ethereum_test_tools.utility.versioning import get_current_commit_hash_or_tag
 
@@ -291,17 +291,23 @@ def pytest_configure(config):  # noqa: D103
             force_flag=False,
             disable_infer_format=False,
         )
-    config.test_cases = TestCases.from_index_file(index_file)
 
-    all_forks_with_transitions = {  # type: ignore
-        fork for fork in set(get_forks()) | get_transition_forks() if not fork.ignore()
-    }
+    index = IndexFile.model_validate_json(index_file.read_text())
+    config.test_cases = index.test_cases
+
     for fixture_format in BaseFixture.formats.values():
         config.addinivalue_line(
             "markers",
             f"{fixture_format.format_name}: Tests in `{fixture_format.format_name}` format ",
         )
-    for fork in all_forks_with_transitions:
+
+    # All forked defined within EEST
+    all_forks = {  # type: ignore
+        fork for fork in set(get_forks()) | get_transition_forks() if not fork.ignore()
+    }
+    # Append all forks within the index file (compatibility with `ethereum/tests`)
+    all_forks.update(getattr(index, "forks", []))
+    for fork in all_forks:
         config.addinivalue_line("markers", f"{fork}: Tests for the {fork} fork")
 
     if config.option.sim_limit:
@@ -364,7 +370,7 @@ def pytest_generate_tests(metafunc):
     for test_case in test_cases:
         if test_case.format.format_name not in metafunc.config._supported_fixture_formats:
             continue
-        fork_markers = get_relative_fork_markers(test_case.fork)
+        fork_markers = get_relative_fork_markers(test_case.fork, strict_mode=False)
         param = pytest.param(
             test_case,
             id=test_case.id,

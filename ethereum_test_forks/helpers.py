@@ -221,12 +221,17 @@ def forks_from(fork: Fork, deployed_only: bool = True) -> List[Fork]:
     return forks_from_until(fork, latest_fork)
 
 
-def get_relative_fork_markers(fork_identifier: Fork | str) -> list[str]:
+def get_relative_fork_markers(fork_identifier: Fork | str, strict_mode: bool = True) -> list[str]:
     """
     Return a list of marker names for a given fork.
+
     For a base fork (e.g. `Shanghai`), return [ `Shanghai` ].
     For a transition fork (e.g. `ShanghaiToCancunAtTime15k` which transitions to `Cancun`),
     return [ `ShanghaiToCancunAtTime15k`, `Cancun` ].
+
+    If `strict_mode` is set to `True`, raise an `InvalidForkError` if the fork is not found,
+    otherwise, simply return the provided (str) `fork_identifier` (this is required to run
+    `consume` with forks that are unknown to EEST).
     """
     all_forks = set(get_forks()) | set(get_transition_forks())
     if isinstance(fork_identifier, str):
@@ -235,8 +240,9 @@ def get_relative_fork_markers(fork_identifier: Fork | str) -> list[str]:
             if candidate.name() == fork_identifier:
                 fork_class = candidate
                 break
-        if fork_class is None:
+        if strict_mode and fork_class is None:
             raise InvalidForkError(f"Unknown fork: {fork_identifier}")
+        return [fork_identifier]
     else:
         fork_class = fork_identifier
 
