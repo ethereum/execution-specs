@@ -43,6 +43,58 @@ def default_html_report_file_path() -> str:
     return ".meta/report_consume.html"
 
 
+class FixtureDownloader:
+    """Handles downloading and extracting fixture archives."""
+
+    def __init__(self, url: str, base_directory: Path):  # noqa: D107
+        self.url = url
+        self.base_directory = base_directory
+        self.parsed_url = urlparse(url)
+        self.org_repo = self.extract_github_repo()
+        self.version = Path(self.parsed_url.path).parts[-2]
+        self.archive_name = self.strip_archive_extension(Path(self.parsed_url.path).name)
+        self.extract_to = base_directory / self.org_repo / self.version / self.archive_name
+
+    def download_and_extract(self) -> Tuple[bool, Path]:
+        """Download the URL and extract it locally if it hasn't already been downloaded."""
+        if self.extract_to.exists():
+            return True, self.detect_extracted_directory()
+
+        return False, self.fetch_and_extract()
+
+    def extract_github_repo(self) -> str:
+        """Extract <username>/<repo> from GitHub URLs, otherwise return 'other'."""
+        parts = self.parsed_url.path.strip("/").split("/")
+        return (
+            f"{parts[0]}/{parts[1]}"
+            if self.parsed_url.netloc == "github.com" and len(parts) >= 2
+            else "other"
+        )
+
+    @staticmethod
+    def strip_archive_extension(filename: str) -> str:
+        """Remove .tar.gz or .tgz extensions from filename."""
+        return filename.removesuffix(".tar.gz").removesuffix(".tgz")
+
+    def fetch_and_extract(self) -> Path:
+        """Download and extract an archive from the given URL."""
+        self.extract_to.mkdir(parents=True, exist_ok=False)
+        response = requests.get(self.url)
+        response.raise_for_status()
+
+        with tarfile.open(fileobj=BytesIO(response.content), mode="r:gz") as tar:
+            tar.extractall(path=self.extract_to)
+
+        return self.detect_extracted_directory()
+
+    def detect_extracted_directory(self) -> Path:
+        """
+        Detect a single top-level dir within the extracted archive, otherwise return extract_to.
+        """  # noqa: D200
+        extracted_dirs = [d for d in self.extract_to.iterdir() if d.is_dir()]
+        return extracted_dirs[0] if len(extracted_dirs) == 1 else self.extract_to
+
+
 @dataclass
 class FixturesSource:
     """Represents the source of test fixtures."""
@@ -70,7 +122,8 @@ class FixturesSource:
     def from_url(cls, url: str) -> "FixturesSource":
         """Create a fixture source from a direct URL."""
         release_page = get_release_page_url(url)
-        was_cached, path = download_and_extract(url, CACHED_DOWNLOADS_DIRECTORY)
+        downloader = FixtureDownloader(url, CACHED_DOWNLOADS_DIRECTORY)
+        was_cached, path = downloader.download_and_extract()
         return cls(
             input_option=url,
             path=path,
@@ -85,7 +138,8 @@ class FixturesSource:
         """Create a fixture source from a release spec (e.g., develop@latest)."""
         url = get_release_url(spec)
         release_page = get_release_page_url(url)
-        was_cached, path = download_and_extract(url, CACHED_DOWNLOADS_DIRECTORY)
+        downloader = FixtureDownloader(url, CACHED_DOWNLOADS_DIRECTORY)
+        was_cached, path = downloader.download_and_extract()
         return cls(
             input_option=spec,
             path=path,
@@ -109,25 +163,6 @@ def is_url(string: str) -> bool:
     """Check if a string is a remote URL."""
     result = urlparse(string)
     return all([result.scheme, result.netloc])
-
-
-def download_and_extract(url: str, base_directory: Path) -> Tuple[bool, Path]:
-    """Download the URL and extract it locally if it hasn't already been downloaded."""
-    parsed_url = urlparse(url)
-    filename = Path(parsed_url.path).name
-    version = Path(parsed_url.path).parts[-2]
-    extract_to = base_directory / version / filename.removesuffix(".tar.gz")
-    already_cached = extract_to.exists()
-    if already_cached:
-        return already_cached, extract_to / "fixtures"
-
-    extract_to.mkdir(parents=True, exist_ok=False)
-    response = requests.get(url)
-    response.raise_for_status()
-
-    with tarfile.open(fileobj=BytesIO(response.content), mode="r:gz") as tar:
-        tar.extractall(path=extract_to)
-    return already_cached, extract_to / "fixtures"
 
 
 class SimLimitBehavior:

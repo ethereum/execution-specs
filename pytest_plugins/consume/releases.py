@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -11,12 +12,11 @@ import platformdirs
 import requests
 from pydantic import BaseModel, Field, RootModel
 
-RELEASE_INFORMATION_URL = "https://api.github.com/repos/ethereum/execution-spec-tests/releases"
-
-
 CACHED_RELEASE_INFORMATION_FILE = (
     Path(platformdirs.user_cache_dir("ethereum-execution-spec-tests")) / "release_information.json"
 )
+
+SUPPORTED_REPOS = ["ethereum/execution-spec-tests", "ethereum/tests", "ethereum/legacytests"]
 
 
 class NoSuchReleaseError(Exception):
@@ -154,19 +154,20 @@ def download_release_information(destination_file: Path | None) -> List[ReleaseI
     crucial for finding older version or latest releases.
     """
     all_releases = []
-    current_url: str | None = RELEASE_INFORMATION_URL
-    max_pages = 2
-    while current_url and max_pages > 0:
-        max_pages -= 1
-        response = requests.get(current_url)
-        response.raise_for_status()
-        all_releases.extend(response.json())
-        current_url = None
-        if "link" in response.headers:
-            for link in requests.utils.parse_header_links(response.headers["link"]):
-                if link["rel"] == "next":
-                    current_url = link["url"]
-                    break
+    for repo in SUPPORTED_REPOS:
+        current_url: str | None = f"https://api.github.com/repos/{repo}/releases"
+        max_pages = 2
+        while current_url and max_pages > 0:
+            max_pages -= 1
+            response = requests.get(current_url)
+            response.raise_for_status()
+            all_releases.extend(response.json())
+            current_url = None
+            if "link" in response.headers:
+                for link in requests.utils.parse_header_links(response.headers["link"]):
+                    if link["rel"] == "next":
+                        current_url = link["url"]
+                        break
 
     if destination_file:
         destination_file.parent.mkdir(parents=True, exist_ok=True)
@@ -200,7 +201,7 @@ def get_release_page_url(release_string: str) -> str:
     Return the GitHub Release page URL for a specific release descriptor.
 
     This function can handle:
-    - A standard release string (e.g., "eip7692@latest").
+    - A standard release string (e.g., "eip7692@latest") - from execution-spec-tests only.
     - A direct asset download link (e.g.,
         "https://github.com/ethereum/execution-spec-tests/releases/download/v4.0.0/fixtures_eip7692.tar.gz").
     """
@@ -208,9 +209,9 @@ def get_release_page_url(release_string: str) -> str:
 
     # Case 1: If it's a direct GitHub Releases download link,
     #         find which release in `release_information` has an asset with this exact URL.
-    if release_string.startswith(
-        "https://github.com/ethereum/execution-spec-tests/releases/download/"
-    ):
+    repo_pattern = "|".join(re.escape(repo) for repo in SUPPORTED_REPOS)
+    regex_pattern = rf"https://github\.com/({repo_pattern})/releases/download/"
+    if re.match(regex_pattern, release_string):
         for release in release_information:
             for asset in release.assets.root:
                 if asset.url == release_string:
