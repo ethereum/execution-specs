@@ -1,9 +1,11 @@
 import json
 import os
-from typing import List, Sequence, Tuple, Union
+from typing import Any, Dict, List, Sequence, Tuple, Union
 
 import pytest
-from ethereum_rlp import Extended, rlp
+from ethereum_rlp import rlp
+from ethereum_rlp.exceptions import DecodingError
+from ethereum_rlp.rlp import Extended
 
 from ethereum.frontier.fork_types import Bytes, Uint
 from ethereum.utils.hexadecimal import hex_to_bytes
@@ -34,12 +36,12 @@ def ethtest_fixtures_as_pytest_fixtures(
 ) -> List[Tuple[Extended, Bytes]]:
     base_path = f"{ETHEREUM_TESTS_PATH}/RLPTests/"
 
-    test_data = dict()
+    test_data: Dict[str, Any] = dict()
     for test_file in test_files:
         with open(os.path.join(base_path, test_file), "r") as fp:
             test_data.update(json.load(fp))
 
-    pytest_fixtures = []
+    pytest_fixtures: List[Tuple[Extended, Bytes]] = []
     for test_details in test_data.values():
         if isinstance(test_details["in"], str) and test_details[
             "in"
@@ -84,5 +86,5 @@ def test_ethtest_fixtures_for_successfully_rlp_decoding(
 def test_ethtest_fixtures_for_fails_in_rlp_decoding(
     raw_data: Bytes, encoded_data: Bytes
 ) -> None:
-    with pytest.raises(rlp.DecodingError):
-        rlp.decode(encoded_data)
+    with pytest.raises(DecodingError):
+        _ = rlp.decode(encoded_data)

@@ -3,7 +3,7 @@ import pkgutil
 import shutil
 import subprocess
 from random import randint
-from typing import Tuple, cast
+from typing import List, Tuple, cast
 
 import pytest
 from ethereum_types.numeric import Uint
@@ -240,7 +240,11 @@ def test_pow_random_blocks(
 def generate_dag_via_geth(
     geth_path: str, block_number: Uint, dag_dump_dir: str
 ) -> None:
-    subprocess.call([geth_path, "makedag", str(block_number), dag_dump_dir])
+    exit_code = subprocess.call(
+        [geth_path, "makedag", str(block_number), dag_dump_dir]
+    )
+    if exit_code != 0:
+        raise Exception("makedag failed")
 
 
 def fetch_dag_data(dag_dump_dir: str, epoch_seed: bytes) -> Tuple[bytes, ...]:
@@ -250,7 +254,7 @@ def fetch_dag_data(dag_dump_dir: str, epoch_seed: bytes) -> Tuple[bytes, ...]:
         # The first 8 bytes are Magic Bytes and can be ignored.
         dag_dataset = dag_dataset[8:]
 
-    dag_dataset_items = []
+    dag_dataset_items: List[bytes] = []
     for i in (Uint(j) for j in range(0, len(dag_dataset), HASH_BYTES)):
         dag_dataset_items.append(dag_dataset[i : i + HASH_BYTES])
 

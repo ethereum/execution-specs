@@ -108,54 +108,54 @@ class _Visitor(ast.NodeVisitor):
         """
         return list(self._items.keys())
 
-    def visit_AsyncFunctionDef(self, function: ast.AsyncFunctionDef) -> None:
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
         """
         Visit an asynchronous function.
         """
-        self._insert(function.name)
+        self._insert(node.name)
         # Explicitly don't visit the children of functions.
 
-    def visit_FunctionDef(self, function: ast.FunctionDef) -> None:
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         """
         Visit a function.
         """
-        self._insert(function.name)
+        self._insert(node.name)
         # Explicitly don't visit the children of functions.
 
-    def visit_ClassDef(self, klass: ast.ClassDef) -> None:
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
         """
         Visit a class.
         """
-        self._insert(klass.name)
-        self.path.append(klass.name)
-        self.generic_visit(klass)
+        self._insert(node.name)
+        self.path.append(node.name)
+        self.generic_visit(node)
         got = self.path.pop()
-        assert klass.name == got
+        assert node.name == got
 
-    def visit_Assign(self, assign: ast.Assign) -> None:
+    def visit_Assign(self, node: ast.Assign) -> None:
         """
         Visit an assignment.
         """
         self.in_assign += 1
-        for target in assign.targets:
+        for target in node.targets:
             self.visit(target)
         self.in_assign -= 1
-        self.visit(assign.value)
+        self.visit(node.value)
 
-    def visit_AnnAssign(self, assign: ast.AnnAssign) -> None:
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
         """
         Visit an annotated assignment.
         """
         self.in_assign += 1
-        self.visit(assign.target)
+        self.visit(node.target)
         self.in_assign -= 1
-        self.visit(assign.annotation)
-        if assign.value is not None:
-            self.visit(assign.value)
+        self.visit(node.annotation)
+        if node.value is not None:
+            self.visit(node.value)
 
-    def visit_Name(self, identifier: ast.Name) -> None:
+    def visit_Name(self, node: ast.Name) -> None:
         """
         Visit an identifier.
         """
         if self.in_assign > 0:
-            self._insert(identifier.id)
+            self._insert(node.id)

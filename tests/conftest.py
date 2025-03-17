@@ -66,7 +66,7 @@ def download_fixtures(url: str, location: str) -> None:
                 with urllib.request.urlopen(url) as response:
                     shutil.copyfileobj(response, tfile)
 
-                tfile.seek(0)
+                _ = tfile.seek(0)
 
                 with tarfile.open(fileobj=tfile, mode="r:gz") as tar:
                     tar.extractall(location)
@@ -92,7 +92,7 @@ def git_clone_fixtures(url: str, commit_hash: str, location: str) -> None:
         try:
             repo.git.checkout(commit_hash)
         except GitCommandError:
-            repo.remotes.origin.fetch(branch.name)
+            _ = repo.remotes.origin.fetch(branch.name)
             repo.git.checkout(commit_hash)
 
         # Check if the submodule head matches the parent commit
@@ -102,7 +102,7 @@ def git_clone_fixtures(url: str, commit_hash: str, location: str) -> None:
             try:
                 submodule_repo = submodule.module()
             except InvalidGitRepositoryError:
-                submodule.update(init=True, recursive=True)
+                _ = submodule.update(init=True, recursive=True)
                 continue
 
             # Commit expected by the parent repo
@@ -111,7 +111,7 @@ def git_clone_fixtures(url: str, commit_hash: str, location: str) -> None:
             # Actual submodule head
             submodule_head = submodule_repo.head.commit.hexsha
             if parent_commit != submodule_head:
-                submodule.update(init=True, recursive=True)
+                _ = submodule.update(init=True, recursive=True)
 
 
 def pytest_sessionstart(session: Session) -> None:

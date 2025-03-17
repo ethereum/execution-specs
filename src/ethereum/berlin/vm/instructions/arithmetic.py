@@ -364,7 +364,7 @@ def signextend(evm: Evm) -> None:
         else:
             num_bytes_prepend = U256(32) - (byte_num + U256(1))
             result = U256.from_be_bytes(
-                bytearray([0xFF] * num_bytes_prepend) + value_bytes
+                bytes([0xFF] * num_bytes_prepend) + value_bytes
             )
 
     push(evm.stack, result)
