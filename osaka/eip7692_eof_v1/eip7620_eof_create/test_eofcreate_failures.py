@@ -185,7 +185,7 @@ def test_eofcreate_deploy_sizes(
         name="Initcode Subcontainer",
         sections=[
             Section.Code(
-                code=Op.RETURNCONTRACT[0](0, 0),
+                code=Op.RETURNCODE[0](0, 0),
             ),
             Section.Container(container=runtime_container),
         ],
@@ -281,8 +281,7 @@ def test_auxdata_size_failures(state_test: StateTestFiller, pre: Alloc, auxdata_
         name="Initcode Subcontainer",
         sections=[
             Section.Code(
-                code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-                + Op.RETURNCONTRACT[0](0, Op.CALLDATASIZE),
+                code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE) + Op.RETURNCODE[0](0, Op.CALLDATASIZE),
             ),
             Section.Container(container=smallest_runtime_subcontainer),
         ],
@@ -397,7 +396,7 @@ def test_insufficient_initcode_gas(
         name="Large Initcode Subcontainer",
         sections=[
             Section.Code(
-                code=Op.RETURNCONTRACT[0](0, 0),
+                code=Op.RETURNCODE[0](0, 0),
             ),
             Section.Container(container=smallest_runtime_subcontainer),
             Section.Data(data=initcode_data),
@@ -503,11 +502,11 @@ def test_insufficient_gas_memory_expansion(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-def test_insufficient_returncontract_auxdata_gas(
+def test_insufficient_returncode_auxdata_gas(
     state_test: StateTestFiller,
     pre: Alloc,
 ):
-    """Exercises a RETURNCONTRACT when there is not enough gas for the initcode charge."""
+    """Exercises a RETURNCODE when there is not enough gas for the initcode charge."""
     env = Environment()
 
     auxdata_size = 0x5000
@@ -515,7 +514,7 @@ def test_insufficient_returncontract_auxdata_gas(
         name="Large Initcode Subcontainer",
         sections=[
             Section.Code(
-                code=Op.RETURNCONTRACT[0](0, auxdata_size),
+                code=Op.RETURNCODE[0](0, auxdata_size),
             ),
             Section.Container(container=smallest_runtime_subcontainer),
         ],
@@ -773,7 +772,7 @@ def test_reentrant_eofcreate(
                 Op.CALLDATALOAD(0)
                 + Op.RJUMPI[len(reenter_code)]
                 + reenter_code
-                + Op.RETURNCONTRACT[0](0, 0)
+                + Op.RETURNCODE[0](0, 0)
             ),
             Section.Container(smallest_runtime_subcontainer),
         ]

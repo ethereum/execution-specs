@@ -1,4 +1,4 @@
-"""Tests for RETURNCONTRACT instruction validation."""
+"""Tests for RETURNCODE instruction validation."""
 
 import pytest
 
@@ -23,7 +23,7 @@ REFERENCE_SPEC_VERSION = "f20b164b00ae5553f7536a6d7a83a0f254455e09"
 pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 
 
-def test_returncontract_valid_index_0(
+def test_returncode_valid_index_0(
     eof_test: EOFTestFiller,
 ):
     """Deploy container index 0."""
@@ -32,7 +32,7 @@ def test_returncontract_valid_index_0(
         container=Container(
             sections=[
                 Section.Code(
-                    code=Op.RETURNCONTRACT[0](0, 0),
+                    code=Op.RETURNCODE[0](0, 0),
                 ),
                 Section.Container(container=Container(sections=[Section.Code(code=Op.INVALID)])),
             ],
@@ -40,7 +40,7 @@ def test_returncontract_valid_index_0(
     )
 
 
-def test_returncontract_valid_index_1(
+def test_returncode_valid_index_1(
     eof_test: EOFTestFiller,
 ):
     """Deploy container index 1."""
@@ -49,7 +49,7 @@ def test_returncontract_valid_index_1(
         container=Container(
             sections=[
                 Section.Code(
-                    code=Op.RJUMPI[6](0) + Op.RETURNCONTRACT[0](0, 0) + Op.RETURNCONTRACT[1](0, 0),
+                    code=Op.RJUMPI[6](0) + Op.RETURNCODE[0](0, 0) + Op.RETURNCODE[1](0, 0),
                     max_stack_height=2,
                 ),
                 Section.Container(container=Container(sections=[Section.Code(code=Op.INVALID)])),
@@ -59,7 +59,7 @@ def test_returncontract_valid_index_1(
     )
 
 
-def test_returncontract_valid_index_255(
+def test_returncode_valid_index_255(
     eof_test: EOFTestFiller,
 ):
     """Deploy container index 255."""
@@ -68,7 +68,7 @@ def test_returncontract_valid_index_255(
         container=Container(
             sections=[
                 Section.Code(
-                    sum((Op.RJUMPI[6](0) + Op.RETURNCONTRACT[i](0, 0)) for i in range(256))
+                    sum((Op.RJUMPI[6](0) + Op.RETURNCODE[i](0, 0)) for i in range(256))
                     + Op.REVERT(0, 0),
                     max_stack_height=2,
                 )
@@ -79,7 +79,7 @@ def test_returncontract_valid_index_255(
     )
 
 
-def test_returncontract_invalid_truncated_immediate(
+def test_returncode_invalid_truncated_immediate(
     eof_test: EOFTestFiller,
 ):
     """Truncated immediate."""
@@ -88,7 +88,7 @@ def test_returncontract_invalid_truncated_immediate(
         container=Container(
             sections=[
                 Section.Code(
-                    code=Op.PUSH0 + Op.PUSH0 + Op.RETURNCONTRACT,
+                    code=Op.PUSH0 + Op.PUSH0 + Op.RETURNCODE,
                 ),
             ],
         ),
@@ -96,7 +96,7 @@ def test_returncontract_invalid_truncated_immediate(
     )
 
 
-def test_returncontract_invalid_index_0(
+def test_returncode_invalid_index_0(
     eof_test: EOFTestFiller,
 ):
     """Referring to non-existent container section index 0."""
@@ -105,7 +105,7 @@ def test_returncontract_invalid_index_0(
         container=Container(
             sections=[
                 Section.Code(
-                    code=Op.RETURNCONTRACT[0](0, 0),
+                    code=Op.RETURNCODE[0](0, 0),
                 ),
             ],
         ),
@@ -113,7 +113,7 @@ def test_returncontract_invalid_index_0(
     )
 
 
-def test_returncontract_invalid_index_1(
+def test_returncode_invalid_index_1(
     eof_test: EOFTestFiller,
 ):
     """Referring to non-existent container section index 1."""
@@ -122,7 +122,7 @@ def test_returncontract_invalid_index_1(
         container=Container(
             sections=[
                 Section.Code(
-                    code=Op.RETURNCONTRACT[1](0, 0),
+                    code=Op.RETURNCODE[1](0, 0),
                 ),
                 Section.Container(container=Container(sections=[Section.Code(code=Op.INVALID)])),
             ],
@@ -131,7 +131,7 @@ def test_returncontract_invalid_index_1(
     )
 
 
-def test_returncontract_invalid_index_255(
+def test_returncode_invalid_index_255(
     eof_test: EOFTestFiller,
 ):
     """Referring to non-existent container section index 255."""
@@ -140,7 +140,7 @@ def test_returncontract_invalid_index_255(
         container=Container(
             sections=[
                 Section.Code(
-                    code=Op.RETURNCONTRACT[255](0, 0),
+                    code=Op.RETURNCODE[255](0, 0),
                 ),
                 Section.Container(container=Container(sections=[Section.Code(code=Op.INVALID)])),
             ],
@@ -149,16 +149,16 @@ def test_returncontract_invalid_index_255(
     )
 
 
-def test_returncontract_terminating(
+def test_returncode_terminating(
     eof_test: EOFTestFiller,
 ):
-    """Unreachable code after RETURNCONTRACT."""
+    """Unreachable code after RETURNCODE."""
     eof_test(
         container_kind=ContainerKind.INITCODE,
         container=Container(
             sections=[
                 Section.Code(
-                    code=Op.RETURNCONTRACT[0](0, 0) + Op.REVERT(0, 0),
+                    code=Op.RETURNCODE[0](0, 0) + Op.REVERT(0, 0),
                 ),
                 Section.Container(container=Container(sections=[Section.Code(code=Op.INVALID)])),
             ],
@@ -195,7 +195,7 @@ def test_returncontract_terminating(
         pytest.param(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, False, id="256-bit"),
     ],
 )
-def test_returncontract_memory_expansion(
+def test_returncode_memory_expansion(
     state_test: StateTestFiller,
     pre: Alloc,
     offset_field: str,
@@ -224,7 +224,7 @@ def test_returncontract_memory_expansion(
     mem_size_initcode_container = Container(
         sections=[
             Section.Code(
-                code=Op.RETURNCONTRACT[0](
+                code=Op.RETURNCODE[0](
                     auxdata_offset=test_arg if offset_field else 32,
                     auxdata_size=32 if offset_field else test_arg,
                 )

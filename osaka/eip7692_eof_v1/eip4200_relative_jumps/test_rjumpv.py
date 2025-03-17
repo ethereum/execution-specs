@@ -1012,7 +1012,7 @@ def test_rjumpv_into_eofcreate(
                     container=Container(
                         sections=[
                             Section.Code(
-                                code=Op.RETURNCONTRACT[0](0, 0),
+                                code=Op.RETURNCODE[0](0, 0),
                             ),
                             Section.Container(
                                 container=Container.Code(Op.STOP),
@@ -1034,12 +1034,12 @@ def test_rjumpv_into_eofcreate(
         pytest.param(256, 255, id="t256i255"),
     ],
 )
-def test_rjumpv_into_returncontract(
+def test_rjumpv_into_returncode(
     eof_test: EOFTestFiller,
     table_size: int,
     invalid_index: int,
 ):
-    """EOF code containing RJUMPV with target RETURNCONTRACT immediate."""
+    """EOF code containing RJUMPV with target RETURNCODE immediate."""
     invalid_destination = 1
     jump_table = [0 for _ in range(table_size)]
     jump_table[invalid_index] = invalid_destination
@@ -1053,7 +1053,7 @@ def test_rjumpv_into_returncontract(
                     container=Container(
                         sections=[
                             Section.Code(
-                                code=Op.PUSH0 * 3 + Op.RJUMPV[jump_table] + Op.RETURNCONTRACT[0],
+                                code=Op.PUSH0 * 3 + Op.RJUMPV[jump_table] + Op.RETURNCODE[0],
                             ),
                             Section.Container(
                                 container=Container.Code(Op.STOP),

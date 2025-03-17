@@ -139,7 +139,7 @@ def test_section_size(
             Section.Container(
                 container=Container(
                     sections=[
-                        Section.Code(Op.RETURNCONTRACT[0](0, 0)),
+                        Section.Code(Op.RETURNCODE[0](0, 0)),
                         Section.Container(container=Container(sections=[Section.Code(Op.STOP)])),
                     ]
                 ),
@@ -151,7 +151,7 @@ def test_section_size(
             Section.Container(
                 container=Container(
                     sections=[
-                        Section.Code(Op.RETURNCONTRACT[0](0, 0)),
+                        Section.Code(Op.RETURNCODE[0](0, 0)),
                         Section.Container(container=Container(sections=[Section.Code(Op.STOP)])),
                     ]
                 ),

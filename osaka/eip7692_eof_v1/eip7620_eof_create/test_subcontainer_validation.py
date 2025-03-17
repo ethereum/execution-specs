@@ -23,8 +23,8 @@ eofcreate_code_section = Section.Code(
 eofcreate_revert_code_section = Section.Code(
     code=Op.EOFCREATE[0](0, 0, 0, 0) + Op.REVERT(0, 0),
 )
-returncontract_code_section = Section.Code(
-    code=Op.SSTORE(slot_code_worked, value_code_worked) + Op.RETURNCONTRACT[0](0, 0),
+returncode_code_section = Section.Code(
+    code=Op.SSTORE(slot_code_worked, value_code_worked) + Op.RETURNCODE[0](0, 0),
     max_stack_height=2,
 )
 stop_container = Container.Code(Op.STOP)
@@ -32,10 +32,10 @@ stop_sub_container = Section.Container(stop_container)
 return_sub_container = Section.Container(Container.Code(Op.RETURN(0, 0)))
 revert_sub_container = Section.Container(Container.Code(Op.REVERT(0, 0)))
 abort_sub_container = Section.Container(Container.Code(Op.INVALID))
-returncontract_sub_container = Section.Container(
+returncode_sub_container = Section.Container(
     Container(
         sections=[
-            Section.Code(Op.RETURNCONTRACT[0](0, 0)),
+            Section.Code(Op.RETURNCODE[0](0, 0)),
             stop_sub_container,
         ],
     )
@@ -50,7 +50,7 @@ def test_simple_create_from_deployed(
         container=Container(
             sections=[
                 eofcreate_code_section,
-                returncontract_sub_container,
+                returncode_sub_container,
             ],
         ),
         container_post=Account(storage={slot_code_worked: value_code_worked}),
@@ -64,7 +64,7 @@ def test_simple_create_from_creation(
     eof_state_test(
         container=Container(
             sections=[
-                returncontract_code_section,
+                returncode_code_section,
                 stop_sub_container,
             ],
             kind=ContainerKind.INITCODE,
@@ -75,8 +75,8 @@ def test_simple_create_from_creation(
 
 @pytest.mark.parametrize(
     "zero_section",
-    [eofcreate_code_section, returncontract_code_section],
-    ids=["eofcreate", "returncontract"],
+    [eofcreate_code_section, returncode_code_section],
+    ids=["eofcreate", "returncode"],
 )
 def test_reverting_container(
     eof_state_test: EOFStateTestFiller,
@@ -91,7 +91,7 @@ def test_reverting_container(
             ],
             kind=(
                 ContainerKind.INITCODE
-                if zero_section == returncontract_code_section
+                if zero_section == returncode_code_section
                 else ContainerKind.RUNTIME
             ),
         ),
@@ -102,15 +102,15 @@ def test_reverting_container(
 @pytest.mark.parametrize(
     "code_section,first_sub_container,container_kind",
     [
-        (eofcreate_code_section, returncontract_sub_container, ContainerKind.RUNTIME),
-        (returncontract_code_section, stop_sub_container, ContainerKind.INITCODE),
+        (eofcreate_code_section, returncode_sub_container, ContainerKind.RUNTIME),
+        (returncode_code_section, stop_sub_container, ContainerKind.INITCODE),
     ],
-    ids=["eofcreate", "returncontract"],
+    ids=["eofcreate", "returncode"],
 )
 @pytest.mark.parametrize(
     "extra_sub_container",
-    [stop_sub_container, revert_sub_container, returncontract_sub_container],
-    ids=["stop", "revert", "returncontract"],
+    [stop_sub_container, revert_sub_container, returncode_sub_container],
+    ids=["stop", "revert", "returncode"],
 )
 def test_orphan_container(
     eof_test: EOFTestFiller,
@@ -138,21 +138,21 @@ def test_orphan_container(
     [
         pytest.param(
             eofcreate_code_section,
-            returncontract_sub_container,
+            returncode_sub_container,
             ContainerKind.RUNTIME,
-            id="EOFCREATE_RETURNCONTRACT",
+            id="EOFCREATE_RETURNCODE",
         ),
         pytest.param(
-            returncontract_code_section,
+            returncode_code_section,
             stop_sub_container,
             ContainerKind.INITCODE,
-            id="RETURNCONTRACT_STOP",
+            id="RETURNCODE_STOP",
         ),
         pytest.param(
-            returncontract_code_section,
+            returncode_code_section,
             return_sub_container,
             ContainerKind.INITCODE,
-            id="RETURNCONTRACT_RETURN",
+            id="RETURNCODE_RETURN",
         ),
         pytest.param(
             eofcreate_code_section,
@@ -161,10 +161,10 @@ def test_orphan_container(
             id="EOFCREATE_REVERT",
         ),
         pytest.param(
-            returncontract_code_section,
+            returncode_code_section,
             revert_sub_container,
             ContainerKind.INITCODE,
-            id="RETURNCONTRACT_REVERT",
+            id="RETURNCODE_REVERT",
         ),
     ],
 )
@@ -203,10 +203,10 @@ def test_container_combos_valid(
             id="EOFCREATE_RETURN",
         ),
         pytest.param(
-            returncontract_code_section,
-            returncontract_sub_container,
+            returncode_code_section,
+            returncode_sub_container,
             ContainerKind.INITCODE,
-            id="RETURNCONTRACT_RETURNCONTRACT",
+            id="RETURNCODE_RETURNCODE",
         ),
     ],
 )
@@ -234,18 +234,18 @@ def test_container_combos_invalid(
     [
         pytest.param(
             eofcreate_revert_code_section,
-            returncontract_sub_container,
-            id="EOFCREATE_RETURNCONTRACT",
+            returncode_sub_container,
+            id="EOFCREATE_RETURNCODE",
         ),
         pytest.param(
-            returncontract_code_section,
+            returncode_code_section,
             stop_sub_container,
-            id="RETURNCONTRACT_STOP",
+            id="RETURNCODE_STOP",
         ),
         pytest.param(
-            returncontract_code_section,
+            returncode_code_section,
             return_sub_container,
-            id="RETURNCONTRACT_RETURN",
+            id="RETURNCODE_RETURN",
         ),
         pytest.param(
             eofcreate_revert_code_section,
@@ -253,9 +253,9 @@ def test_container_combos_invalid(
             id="EOFCREATE_REVERT",
         ),
         pytest.param(
-            returncontract_code_section,
+            returncode_code_section,
             revert_sub_container,
-            id="RETURNCONTRACT_REVERT",
+            id="RETURNCODE_REVERT",
         ),
     ],
 )
@@ -303,9 +303,9 @@ def test_container_combos_deeply_nested_valid(
             id="EOFCREATE_RETURN",
         ),
         pytest.param(
-            returncontract_code_section,
-            returncontract_sub_container,
-            id="RETURNCONTRACT_RETURNCONTRACT",
+            returncode_code_section,
+            returncode_sub_container,
+            id="RETURNCODE_RETURNCODE",
         ),
     ],
 )
@@ -344,21 +344,21 @@ def test_container_combos_deeply_nested_invalid(
     [
         pytest.param(
             eofcreate_code_section,
-            returncontract_sub_container,
+            returncode_sub_container,
             ContainerKind.RUNTIME,
-            id="EOFCREATE_RETURNCONTRACT",
+            id="EOFCREATE_RETURNCODE",
         ),
         pytest.param(
-            returncontract_code_section,
+            returncode_code_section,
             stop_sub_container,
             ContainerKind.INITCODE,
-            id="RETURNCONTRACT_STOP",
+            id="RETURNCODE_STOP",
         ),
         pytest.param(
-            returncontract_code_section,
+            returncode_code_section,
             return_sub_container,
             ContainerKind.INITCODE,
-            id="RETURNCONTRACT_RETURN",
+            id="RETURNCODE_RETURN",
         ),
         pytest.param(
             eofcreate_code_section,
@@ -367,10 +367,10 @@ def test_container_combos_deeply_nested_invalid(
             id="EOFCREATE_REVERT",
         ),
         pytest.param(
-            returncontract_code_section,
+            returncode_code_section,
             revert_sub_container,
             ContainerKind.INITCODE,
-            id="RETURNCONTRACT_REVERT",
+            id="RETURNCODE_REVERT",
         ),
     ],
 )
@@ -406,10 +406,10 @@ def test_container_combos_non_first_code_sections_valid(
             id="EOFCREATE_RETURN",
         ),
         pytest.param(
-            returncontract_code_section,
-            returncontract_sub_container,
+            returncode_code_section,
+            returncode_sub_container,
             ContainerKind.INITCODE,
-            id="RETURNCONTRACT_RETURNCONTRACT",
+            id="RETURNCODE_RETURNCODE",
         ),
     ],
 )
@@ -431,7 +431,7 @@ def test_container_combos_non_first_code_sections_invalid(
 
 
 def test_container_both_kinds_same_sub(eof_test: EOFTestFiller):
-    """Test subcontainer conflicts (both EOFCREATE and RETURNCONTRACT Reference)."""
+    """Test subcontainer conflicts (both EOFCREATE and RETURNCODE Reference)."""
     eof_test(
         container=Container(
             sections=[
@@ -439,7 +439,7 @@ def test_container_both_kinds_same_sub(eof_test: EOFTestFiller):
                     code=Op.EOFCREATE[0](0, 0, 0, 0) + Op.JUMPF[1],
                 ),
                 Section.Code(
-                    code=Op.RETURNCONTRACT[0](0, 0),
+                    code=Op.RETURNCODE[0](0, 0),
                 ),
                 revert_sub_container,
             ],
@@ -461,14 +461,14 @@ def test_container_ambiguous_kind(
 ):
     """
     Test ambiguous container kind:
-    a single subcontainer reference by both EOFCREATE and RETURNCONTRACT.
+    a single subcontainer reference by both EOFCREATE and RETURNCODE.
     """
     sections = [
         Section.Code(
             code=(
                 sum(Op.EOFCREATE[i](0, 0, 0, 0) for i in range(container_idx))
                 + Op.EOFCREATE[container_idx](0, 0, 0, 0)
-                + Op.RETURNCONTRACT[container_idx](0, 0)
+                + Op.RETURNCODE[container_idx](0, 0)
             ),
         ),
     ]
@@ -492,9 +492,9 @@ def test_container_both_kinds_different_sub(eof_test: EOFTestFiller):
                     code=Op.EOFCREATE[0](0, 0, 0, 0) + Op.JUMPF[1],
                 ),
                 Section.Code(
-                    code=Op.RETURNCONTRACT[1](0, 0),
+                    code=Op.RETURNCODE[1](0, 0),
                 ),
-                returncontract_sub_container,
+                returncode_sub_container,
                 stop_sub_container,
             ],
             kind=ContainerKind.INITCODE,
@@ -511,13 +511,13 @@ def test_container_multiple_eofcreate_references(eof_test: EOFTestFiller):
                 Section.Code(
                     code=Op.EOFCREATE[0](0, 0, 0, 0) + Op.EOFCREATE[0](0, 0, 0, 0) + Op.STOP,
                 ),
-                returncontract_sub_container,
+                returncode_sub_container,
             ],
         ),
     )
 
 
-def test_container_multiple_returncontract_references(eof_test: EOFTestFiller):
+def test_container_multiple_returncode_references(eof_test: EOFTestFiller):
     """Test multiple references to the same subcontainer from a RETURNCONTACT operation."""
     eof_test(
         container=Container(
@@ -526,8 +526,8 @@ def test_container_multiple_returncontract_references(eof_test: EOFTestFiller):
                     code=Op.PUSH0
                     + Op.CALLDATALOAD
                     + Op.RJUMPI[6]
-                    + Op.RETURNCONTRACT[0](0, 0)
-                    + Op.RETURNCONTRACT[0](0, 0)
+                    + Op.RETURNCODE[0](0, 0)
+                    + Op.RETURNCODE[0](0, 0)
                 ),
                 stop_sub_container,
             ],
@@ -572,7 +572,7 @@ def test_subcontainer_wrong_size(
                 Section.Code(
                     code=(Op.EOFCREATE[0](0, 0, 0, 0) + Op.STOP)
                     if kind == ContainerKind.RUNTIME
-                    else (Op.RETURNCONTRACT[0](0, 0)),
+                    else (Op.RETURNCODE[0](0, 0)),
                 ),
                 Section.Container(
                     container=Container(sections=[Section.Code(code=Op.STOP)]),
@@ -626,7 +626,7 @@ def test_deep_container(
                     container=Container(
                         sections=[
                             Section.Code(
-                                code=Op.PUSH0 + Op.PUSH0 + Op.RETURNCONTRACT[0],
+                                code=Op.PUSH0 + Op.PUSH0 + Op.RETURNCODE[0],
                             ),
                             Section.Container(container=last_container),
                         ]
@@ -646,7 +646,7 @@ def test_deep_container_initcode(
     container = Container(
         sections=[
             Section.Code(
-                code=Op.PUSH0 + Op.PUSH0 + Op.RETURNCONTRACT[0],
+                code=Op.PUSH0 + Op.PUSH0 + Op.RETURNCODE[0],
             ),
             Section.Container(container=deepest_container),
         ],
@@ -658,7 +658,7 @@ def test_deep_container_initcode(
         container = Container(
             sections=[
                 Section.Code(
-                    code=Op.PUSH0 + Op.PUSH0 + Op.RETURNCONTRACT[0],
+                    code=Op.PUSH0 + Op.PUSH0 + Op.RETURNCODE[0],
                 ),
                 Section.Container(
                     container=Container(
@@ -721,7 +721,7 @@ def test_wide_container(eof_test: EOFTestFiller, width: int, exception: EOFExcep
                             container=Container(
                                 sections=[
                                     Section.Code(
-                                        code=Op.PUSH0 + Op.PUSH0 + Op.RETURNCONTRACT[0],
+                                        code=Op.PUSH0 + Op.PUSH0 + Op.RETURNCODE[0],
                                     ),
                                     stop_sub_container,
                                 ]
@@ -900,7 +900,7 @@ def test_dangling_initcode_subcontainer_bytes(
     eof_test(
         container=Container(
             sections=[
-                returncontract_code_section,
+                returncode_code_section,
                 Section.Container(
                     container=Container(
                         raw_bytes=stop_sub_container.data + b"\x99",
@@ -923,7 +923,7 @@ def test_dangling_runtime_subcontainer_bytes(
                 eofcreate_code_section,
                 Section.Container(
                     container=Container(
-                        raw_bytes=returncontract_sub_container.data + b"\x99",
+                        raw_bytes=returncode_sub_container.data + b"\x99",
                     ),
                 ),
             ],

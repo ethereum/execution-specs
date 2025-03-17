@@ -431,10 +431,10 @@
 - [ ] EOFCREATE is not a valid terminating instruction
 - [x] EOFCREATE immediate referring to non-existing container ([`tests/osaka/eip7692_eof_v1/eip7620_eof_create/test_eofcreate.py`](./eip7620_eof_create/test_eofcreate/index.md)`-k test_eofcreate_invalid_index`)
 - [x] EOFCREATE immediate referring to container with truncated data ([`tests/osaka/eip7692_eof_v1/eip7620_eof_create/test_eofcreate.py`](./eip7620_eof_create/test_eofcreate/index.md)`-k test_eofcreate_truncated_container`)
-- [x] Valid RETURNCONTRACTs referring to various container numbers ([`tests/osaka/eip7692_eof_v1/eip7620_eof_create/test_returncontract.py`](./eip7620_eof_create/test_returncontract/index.md)`-k test_returncontract_valid_index`)
-- [x] Truncated before RETURNCONTRACT immediate ([`tests/osaka/eip7692_eof_v1/eip7620_eof_create/test_returncontract.py::test_returncontract_invalid_truncated_immediate`](./eip7620_eof_create/test_returncontract/test_returncontract_invalid_truncated_immediate.md))
-- [x] RETURNCONTRACT immediate referring to non-existing container ([`tests/osaka/eip7692_eof_v1/eip7620_eof_create/test_returncontract.py`](./eip7620_eof_create/test_returncontract/index.md)`-k test_returncontract_invalid_index`)
-- [x] Unreachable code after RETURNCONTRACT, check that RETURNCONTRACT is terminating ([`tests/osaka/eip7692_eof_v1/eip7620_eof_create/test_returncontract.py::test_returncontract_terminating`](./eip7620_eof_create/test_returncontract/test_returncontract_terminating.md))
+- [x] Valid RETURNCODEs referring to various container numbers ([`tests/osaka/eip7692_eof_v1/eip7620_eof_create/test_returncode.py`](./eip7620_eof_create/test_returncode/index.md)`-k test_returncode_valid_index`)
+- [x] Truncated before RETURNCODE immediate ([`tests/osaka/eip7692_eof_v1/eip7620_eof_create/test_returncode.py::test_returncode_invalid_truncated_immediate`](./eip7620_eof_create/test_returncode/test_returncode_invalid_truncated_immediate.md))
+- [x] RETURNCODE immediate referring to non-existing container ([`tests/osaka/eip7692_eof_v1/eip7620_eof_create/test_returncode.py`](./eip7620_eof_create/test_returncode/index.md)`-k test_returncode_invalid_index`)
+- [x] Unreachable code after RETURNCODE, check that RETURNCODE is terminating ([`tests/osaka/eip7692_eof_v1/eip7620_eof_create/test_returncode.py::test_returncode_terminating`](./eip7620_eof_create/test_returncode/test_returncode_terminating.md))
 
 ### Execution
 
@@ -463,7 +463,7 @@
 - [ ] EOFCREATE with value - not enough caller balance (evmone-tests: state_tests/state_transition/eof_create/eofcreate_caller_balance_too_low.json)
 - [ ] EOFCREATE not enough gas for initcode (EIP-3860) charge (evmone-tests: state_tests/state_transition/eof_create/eofcreate_not_enough_gas_for_initcode_charge.json)
 - [ ] EOFCREATE not enough gas for input memory expansion (evmone-tests: state_tests/state_transition/eof_create/eofcreate_not_enough_gas_for_mem_expansion.json)
-- [ ] RETURNCONTRACT not enough gas for aux data memory expansion (evmone-tests: state_tests/state_transition/eof_create/returncontract_not_enough_gas_for_mem_expansion.json)
+- [ ] RETURNCODE not enough gas for aux data memory expansion (evmone-tests: state_tests/state_transition/eof_create/returncode_not_enough_gas_for_mem_expansion.json)
 - [ ] Successful EOFCREATE clears returndata  (evmone-tests: state_tests/state_transition/eof_create/eofcreate_clears_returndata.json)
 - [ ] Second EOFCREATE with the same container and salt fails (evmone-tests: state_tests/state_transition/eof_create/eofcreate_failure_after_eofcreate_success.json)
 - [ ] Call created contract after EOFCREATE (evmone-tests: state_tests/state_transition/eof_create/eofcreate_call_created_contract.json)

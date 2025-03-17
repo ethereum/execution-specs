@@ -87,7 +87,7 @@ def test_eofcreate_then_dataload(
     sender = pre.fund_eoa()
     small_auxdata_container = Container(
         sections=[
-            Section.Code(code=Op.RETURNCONTRACT[0](0, 32)),
+            Section.Code(code=Op.RETURNCODE[0](0, 32)),
             Section.Container(container=smallest_runtime_subcontainer),
         ],
     )
@@ -142,7 +142,7 @@ def test_eofcreate_then_call(
     callable_contract_initcode = Container(
         sections=[
             Section.Code(
-                code=Op.RETURNCONTRACT[0](0, 0),
+                code=Op.RETURNCODE[0](0, 0),
             ),
             Section.Container(container=callable_contract),
         ]
@@ -196,7 +196,7 @@ def test_eofcreate_then_call(
     ],
 )
 def test_auxdata_variations(state_test: StateTestFiller, pre: Alloc, auxdata_bytes: bytes):
-    """Verifies that auxdata bytes are correctly handled in RETURNCONTRACT."""
+    """Verifies that auxdata bytes are correctly handled in RETURNCODE."""
     env = Environment()
     auxdata_size = len(auxdata_bytes)
     pre_deploy_header_data_size = 18
@@ -216,7 +216,7 @@ def test_auxdata_variations(state_test: StateTestFiller, pre: Alloc, auxdata_byt
         sections=[
             Section.Code(
                 code=Op.MSTORE(0, Op.PUSH32(auxdata_bytes.ljust(32, b"\0")))
-                + Op.RETURNCONTRACT[0](0, auxdata_size),
+                + Op.RETURNCODE[0](0, auxdata_size),
             ),
             Section.Container(container=runtime_subcontainer),
         ],
@@ -269,7 +269,7 @@ def test_calldata(state_test: StateTestFiller, pre: Alloc):
             Section.Code(
                 code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
                 + Op.SSTORE(slot_calldata, Op.MLOAD(0))
-                + Op.RETURNCONTRACT[0](0, Op.CALLDATASIZE),
+                + Op.RETURNCODE[0](0, Op.CALLDATASIZE),
             ),
             Section.Container(container=smallest_runtime_subcontainer),
         ],
@@ -328,7 +328,7 @@ def test_eofcreate_in_initcode(
             Section.Code(
                 code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0))
                 + Op.SSTORE(slot_code_worked, value_code_worked)
-                + Op.RETURNCONTRACT[1](0, 0),
+                + Op.RETURNCODE[1](0, 0),
             ),
             Section.Container(container=smallest_initcode_subcontainer),
             Section.Container(container=smallest_runtime_subcontainer),
@@ -695,9 +695,7 @@ def test_eofcreate_context(
 
     initcode = Container(
         sections=[
-            Section.Code(
-                Op.SSTORE(slot_call_result, destination_code) + Op.RETURNCONTRACT[0](0, 0)
-            ),
+            Section.Code(Op.SSTORE(slot_call_result, destination_code) + Op.RETURNCODE[0](0, 0)),
             Section.Container(smallest_runtime_subcontainer),
         ]
     )
@@ -773,7 +771,7 @@ def test_eofcreate_memory_context(
                 + Op.SSTORE(destination_storage.store_next(0), Op.MLOAD(0))
                 + Op.MSTORE(0, 2)
                 + Op.MSTORE(32, 2)
-                + Op.RETURNCONTRACT[0](0, 0)
+                + Op.RETURNCODE[0](0, 0)
             ),
             Section.Container(smallest_runtime_subcontainer),
         ]

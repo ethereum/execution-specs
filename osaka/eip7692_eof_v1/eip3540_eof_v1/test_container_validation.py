@@ -926,7 +926,7 @@ def test_valid_containers(
                 Section.Container(
                     Container(
                         sections=[
-                            Section.Code(code=Op.RETURNCONTRACT[0](0, 0)),
+                            Section.Code(code=Op.RETURNCODE[0](0, 0)),
                             Section.Container(container=Container.Code(code=Op.STOP)),
                         ],
                     )
@@ -1237,7 +1237,7 @@ def test_single_code_section(
     plus_container: bool,
 ):
     """Verify EOF container single code section."""
-    sections = [Section.Code(Op.RETURNCONTRACT[0](0, 0) if plus_container else Op.STOP)]
+    sections = [Section.Code(Op.RETURNCODE[0](0, 0) if plus_container else Op.STOP)]
     if plus_container:
         sections.append(
             Section.Container(
@@ -1271,7 +1271,7 @@ def test_max_code_sections(
     if plus_container:
         sections = [
             Section.Code(
-                Op.JUMPF[i + 1] if i < (MAX_CODE_SECTIONS - 1) else Op.RETURNCONTRACT[0](0, 0)
+                Op.JUMPF[i + 1] if i < (MAX_CODE_SECTIONS - 1) else Op.RETURNCODE[0](0, 0)
             )
             for i in range(MAX_CODE_SECTIONS)
         ]

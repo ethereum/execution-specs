@@ -69,19 +69,17 @@ def test_returning_section_not_returning(eof_test: EOFTestFiller, code_section: 
 @pytest.mark.parametrize(
     "code_section",
     [
+        pytest.param(Section.Code(Op.RETURNCODE[0](0, 0), code_outputs=0), id="returncode0"),
         pytest.param(
-            Section.Code(Op.RETURNCONTRACT[0](0, 0), code_outputs=0), id="returncontract0"
-        ),
-        pytest.param(
-            Section.Code(Op.PUSH0 + Op.RETURNCONTRACT[0](0, 0), code_outputs=1),
-            id="returncontract1",
+            Section.Code(Op.PUSH0 + Op.RETURNCODE[0](0, 0), code_outputs=1),
+            id="returncode1",
         ),
     ],
 )
-def test_returning_section_returncontract(eof_test: EOFTestFiller, code_section: Section):
+def test_returning_section_returncode(eof_test: EOFTestFiller, code_section: Section):
     """
     Test EOF validation failing because a returning section has no RETF or JUMPF-to-returning -
-    RETURNCONTRACT version.
+    RETURNCODE version.
     """
     eof_test(
         container=Container(

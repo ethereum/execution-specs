@@ -52,9 +52,7 @@ def test_eof_creation_tx_context(
 
     initcode = Container(
         sections=[
-            Section.Code(
-                Op.SSTORE(slot_call_result, destination_code) + Op.RETURNCONTRACT[0](0, 0)
-            ),
+            Section.Code(Op.SSTORE(slot_call_result, destination_code) + Op.RETURNCODE[0](0, 0)),
             Section.Container(smallest_runtime_subcontainer),
         ]
     )
@@ -159,7 +157,7 @@ def test_invalid_container_deployment(
     )
     init_container: Container = Container(
         sections=[
-            Section.Code(code=Op.RETURNCONTRACT[0](0, 0)),
+            Section.Code(code=Op.RETURNCODE[0](0, 0)),
             Section.Container(deployed_container),
         ],
         kind=ContainerKind.INITCODE,
@@ -178,14 +176,14 @@ def test_invalid_container_deployment(
         )
         init_container = Container(
             sections=[
-                Section.Code(code=Op.RETURNCONTRACT[0](0, 0)),
+                Section.Code(code=Op.RETURNCODE[0](0, 0)),
                 Section.Container(deployed_container),
             ],
         )
     elif reason == "invalid_initcode":
         init_container = Container(
             sections=[
-                Section.Code(code=Op.RETURNCONTRACT[1](0, 0)),
+                Section.Code(code=Op.RETURNCODE[1](0, 0)),
                 Section.Container(deployed_container),
             ],
         )
@@ -209,7 +207,7 @@ def test_invalid_container_deployment(
                 Section.Code(
                     code=Op.RJUMPI[len(invalid_code_path)](Op.PUSH0)
                     + invalid_code_path
-                    + Op.RETURNCONTRACT[0](0, 0)
+                    + Op.RETURNCODE[0](0, 0)
                 ),
                 Section.Container(deployed_container),
             ],
@@ -236,7 +234,7 @@ def test_invalid_container_deployment(
         tx_gas_limit = gas_cost
         init_container = Container(
             sections=[
-                Section.Code(code=Op.RETURNCONTRACT[0](0, 1)),
+                Section.Code(code=Op.RETURNCODE[0](0, 1)),
                 Section.Container(deployed_container),
             ],
         )
@@ -286,7 +284,7 @@ def test_short_data_subcontainer(
         data=Container(
             name="Runtime Subcontainer with truncated data",
             sections=[
-                Section.Code(code=Op.RETURNCONTRACT[0](0, 1)),
+                Section.Code(code=Op.RETURNCODE[0](0, 1)),
                 Section.Container(
                     Container(
                         sections=[

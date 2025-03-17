@@ -31,7 +31,7 @@ V1_EOF_OPCODES: List[Op] = [
     Op.DATACOPY,
     # EIP-7620 EOF Create and Return Contract operation
     Op.EOFCREATE,
-    Op.RETURNCONTRACT,
+    Op.RETURNCODE,
     # Non-deprecated Legacy Opcodes
     Op.STOP,
     Op.ADD,
@@ -216,7 +216,7 @@ V1_EOF_ONLY_OPCODES = [
     Op.DATACOPY,
     # EIP-7620 EOF Create and Return Contract operation
     Op.EOFCREATE,
-    Op.RETURNCONTRACT,
+    Op.RETURNCODE,
 ]
 """
 List of valid EOF V1 opcodes that are disabled in legacy bytecode.

@@ -975,7 +975,7 @@ def test_rjump_into_eofcreate(
                     container=Container(
                         sections=[
                             Section.Code(
-                                code=Op.RETURNCONTRACT[0](0, 0),
+                                code=Op.RETURNCODE[0](0, 0),
                             ),
                             Section.Container(
                                 container=Container.Code(code=Op.STOP),
@@ -989,10 +989,10 @@ def test_rjump_into_eofcreate(
     )
 
 
-def test_rjump_into_returncontract(
+def test_rjump_into_returncode(
     eof_test: EOFTestFiller,
 ):
-    """EOF code containing RJUMP with target RETURNCONTRACT immediate."""
+    """EOF code containing RJUMP with target RETURNCODE immediate."""
     eof_test(
         container=Container(
             sections=[
@@ -1003,7 +1003,7 @@ def test_rjump_into_returncontract(
                     container=Container(
                         sections=[
                             Section.Code(
-                                code=Op.PUSH0 * 2 + Op.RJUMP[1] + Op.RETURNCONTRACT[0],
+                                code=Op.PUSH0 * 2 + Op.RJUMP[1] + Op.RETURNCODE[0],
                             ),
                             Section.Container(
                                 container=Container.Code(code=Op.STOP),
