@@ -133,6 +133,10 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
     def _mapping_data(self):
         return [
             ExceptionMessage(
+                TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST,
+                "Failed transaction: InvalidBlock()",
+            ),
+            ExceptionMessage(
                 TransactionException.TYPE_4_TX_CONTRACT_CREATION,
                 "Failed transaction: ",
             ),
