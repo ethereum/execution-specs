@@ -2930,6 +2930,28 @@ def test_contract_create(
     )
 
 
+def test_empty_authorization_list(
+    state_test: StateTestFiller,
+    pre: Alloc,
+):
+    """Test sending an invalid transaction with empty authorization list."""
+    tx = Transaction(
+        gas_limit=100_000,
+        to=pre.deploy_contract(code=b""),
+        value=0,
+        authorization_list=[],
+        error=TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST,
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        env=Environment(),
+        pre=pre,
+        tx=tx,
+        post={},
+    )
+
+
 @pytest.mark.parametrize(
     "self_sponsored",
     [
