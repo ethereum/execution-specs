@@ -24,14 +24,17 @@ from typing import (
     MutableMapping,
     Optional,
     Sequence,
+    Tuple,
     TypeVar,
     Union,
+    cast,
 )
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U256, Uint
+from typing_extensions import assert_type
 
 from ethereum.crypto.hash import keccak256
 from ethereum.shanghai import trie as previous_trie
@@ -95,12 +98,32 @@ class ExtensionNode:
     subnode: rlp.Extended
 
 
+BranchSubnodes = Tuple[
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+    rlp.Extended,
+]
+
+
 @slotted_freezable
 @dataclass
 class BranchNode:
     """Branch node in the Merkle Trie"""
 
-    subnodes: List[rlp.Extended]
+    subnodes: BranchSubnodes
     value: rlp.Extended
 
 
@@ -140,7 +163,7 @@ def encode_internal_node(node: Optional[InternalNode]) -> rlp.Extended:
             node.subnode,
         )
     elif isinstance(node, BranchNode):
-        unencoded = node.subnodes + [node.value]
+        unencoded = list(node.subnodes) + [node.value]
     else:
         raise AssertionError(f"Invalid internal node type {type(node)}!")
 
@@ -461,10 +484,11 @@ def patricialize(
         else:
             branches[key[level]][key] = obj[key]
 
+    subnodes = tuple(
+        encode_internal_node(patricialize(branches[k], level + Uint(1)))
+        for k in range(16)
+    )
     return BranchNode(
-        [
-            encode_internal_node(patricialize(branches[k], level + Uint(1)))
-            for k in range(16)
-        ],
+        cast(BranchSubnodes, assert_type(subnodes, Tuple[rlp.Extended, ...])),
         value,
     )

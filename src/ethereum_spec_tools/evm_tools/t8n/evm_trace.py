@@ -1,6 +1,7 @@
 """
 The module implements the raw EVM tracer for t8n.
 """
+
 import json
 import os
 from contextlib import ExitStack
@@ -18,6 +19,7 @@ from typing import (
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256, Uint
 
+from ethereum.exceptions import EthereumException
 from ethereum.trace import (
     EvmStop,
     GasAndRefund,
@@ -68,7 +70,7 @@ class FinalTrace:
     error: Optional[str] = None
 
     def __init__(
-        self, gas_used: int, output: bytes, error: Optional[Exception]
+        self, gas_used: int, output: bytes, error: Optional[EthereumException]
     ) -> None:
         self.output = output.hex()
         self.gasUsed = hex(gas_used)

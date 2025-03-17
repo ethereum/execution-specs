@@ -26,6 +26,11 @@ from ethereum.exceptions import (
     InvalidBlock,
     InvalidSenderError,
 )
+from ethereum.exceptions import (
+    EthereumException,
+    InvalidBlock,
+    InvalidSenderError,
+)
 
 from . import vm
 from .blocks import Block, Header, Log, Receipt, encode_receipt
@@ -671,11 +676,8 @@ def pay_rewards(
 
 
 def process_transaction(
-    block_env: vm.BlockEnvironment,
-    block_output: vm.BlockOutput,
-    tx: Transaction,
-    index: Uint,
-) -> None:
+    env: vm.Environment, tx: Transaction
+) -> Tuple[Uint, Tuple[Log, ...], Optional[EthereumException]]:
     """
     Execute a transaction against the provided environment.
 
