@@ -3501,40 +3501,36 @@ def test_set_code_from_account_with_non_delegating_code(
     self_sponsored: bool,
 ):
     """
-    Test that a transaction is correctly rejected if the sender account has a non-delegating code
-    set.
+    Test that a transaction is correctly rejected,
+    if the sender account has a non-delegating code set.
+
+    The auth transaction is sent from sender which has contract code (not delegating)
+    But at the same time it has auth tuple that will point this sender account
+    To be eoa, delegation, contract .. etc
     """
     sender = pre.fund_eoa()
-    if self_sponsored:
-        auth_signer = sender
-    else:
-        auth_signer = pre.fund_eoa(0)
+    random_address = pre.fund_eoa(0)
 
     set_code_to_address: Address
-    set_code: Bytecode | Bytes
     match set_code_type:
         case AddressType.EMPTY_ACCOUNT:
-            set_code = Bytecode()
             set_code_to_address = pre.fund_eoa(0)
         case AddressType.EOA:
-            set_code = Bytecode()
             set_code_to_address = pre.fund_eoa(1)
         case AddressType.EOA_WITH_SET_CODE:
             set_code_account = pre.fund_eoa(0)
-            set_code = Spec.delegation_designation(set_code_account)
             set_code_to_address = pre.fund_eoa(1, delegation=set_code_account)
         case AddressType.CONTRACT:
-            set_code = Op.STOP
-            set_code_to_address = pre.deploy_contract(set_code)
+            set_code_to_address = pre.deploy_contract(Op.STOP)
         case _:
             raise ValueError(f"Unsupported set code type: {set_code_type}")
     callee_address = pre.deploy_contract(Op.SSTORE(0, 1) + Op.STOP)
 
-    # Set the sender account to have some code, that is specifically not
-    # a delegation.
+    # Set the sender account to have some code, that is specifically not a delegation.
     sender_account = pre[sender]
     assert sender_account is not None
     sender_account.code = Bytes(Op.STOP)
+
     tx = Transaction(
         gas_limit=100_000,
         to=callee_address,
@@ -3542,7 +3538,7 @@ def test_set_code_from_account_with_non_delegating_code(
             AuthorizationTuple(
                 address=set_code_to_address,
                 nonce=1 if self_sponsored else 0,
-                signer=auth_signer,
+                signer=sender if self_sponsored else random_address,
             ),
         ],
         sender=sender,
@@ -3559,7 +3555,7 @@ def test_set_code_from_account_with_non_delegating_code(
                 if set_code_type == AddressType.EMPTY_ACCOUNT
                 else Account(storage={})
             ),
-            auth_signer: Account.NONEXISTENT
+            random_address: Account.NONEXISTENT
             if not self_sponsored
             else Account(code=Bytes(Op.STOP)),
             callee_address: Account(storage={0: 0}),
