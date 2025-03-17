@@ -415,7 +415,7 @@ class EOFTest(BaseTest):
             )
             initcode = Container(
                 sections=[
-                    Section.Code(Op.RETURNCONTRACT[0](0, 0)),
+                    Section.Code(Op.RETURNCODE[0](0, 0)),
                     Section.Container(self.container),
                 ]
             )

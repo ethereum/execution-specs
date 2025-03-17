@@ -454,7 +454,7 @@ class Container(CopyValidateModel):
         return cls(
             sections=[
                 Section.Code(
-                    code=initcode_prefix + Op.RETURNCONTRACT[0](0, 0),
+                    code=initcode_prefix + Op.RETURNCODE[0](0, 0),
                 ),
                 Section.Container(
                     container=deploy_container,
@@ -502,7 +502,7 @@ class Initcode(Bytecode):
         return Container(
             sections=[
                 Section.Code(
-                    code=Op.RETURNCONTRACT[0](0, 0),
+                    code=Op.RETURNCODE[0](0, 0),
                     max_stack_height=2,
                 ),
                 Section.Container(

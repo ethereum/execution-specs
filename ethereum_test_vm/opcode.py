@@ -5117,7 +5117,7 @@ class Opcodes(Opcode, Enum):
 
     """
 
-    RETURNCONTRACT = Opcode(
+    RETURNCODE = Opcode(
         0xEE,
         popped_stack_items=2,
         data_portion_length=1,
@@ -5127,7 +5127,7 @@ class Opcodes(Opcode, Enum):
     """
     !!! Note: This opcode is under development
 
-    RETURNCONTRACT()
+    RETURNCODE()
     ----
 
     Description

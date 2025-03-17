@@ -790,7 +790,7 @@ test_cases: List[Tuple[str, Container, str]] = [
               # Code segment 0 code
          6000 #  1 PUSH1 0
          6000 #  2 PUSH1 0
-         ee00 #  3 RETURNCONTRACT[0]
+         ee00 #  3 RETURNCODE[0]
               # Subcontainer 0
       ef0001  # Magic followed by version
       010004  # Types section
@@ -823,7 +823,7 @@ test_cases: List[Tuple[str, Container, str]] = [
            55 #  3 SSTORE
          6000 #  4 PUSH1 0
          6000 #  5 PUSH1 0
-         ee00 #  6 RETURNCONTRACT[0]
+         ee00 #  6 RETURNCODE[0]
               # Subcontainer 0
       ef0001  # Magic followed by version
       010004  # Types section
