@@ -734,9 +734,9 @@ def process_transaction(
     access_list_storage_keys = set()
     if isinstance(tx, (AccessListTransaction, FeeMarketTransaction)):
         for access in tx.access_list:
-            access_list_addresses.add(access.address)
-            for account, slot in access:
-                access_list_storage_keys.add((account, slot))
+            access_list_addresses.add(access.account)
+            for slot in access.slots:
+                access_list_storage_keys.add((access.account, slot))
 
     tx_env = vm.TransactionEnvironment(
         origin=sender,

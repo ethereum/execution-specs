@@ -670,8 +670,8 @@ def process_transaction(
     ):
         for access in tx.access_list:
             access_list_addresses.add(access.account)
-            for account, slot in access:
-                access_list_storage_keys.add((account, slot))
+            for slot in access.slots:
+                access_list_storage_keys.add((access.account, slot))
 
     tx_env = vm.TransactionEnvironment(
         origin=sender,

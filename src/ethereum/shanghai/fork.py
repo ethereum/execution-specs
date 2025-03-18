@@ -521,14 +521,14 @@ def process_transaction(
         block_env.state, sender, U256(sender_balance_after_gas_fee)
     )
 
-    preaccessed_addresses = set()
-    preaccessed_storage_keys = set()
-    preaccessed_addresses.add(block_env.coinbase)
+    access_list_addresses = set()
+    access_list_storage_keys = set()
+    access_list_addresses.add(block_env.coinbase)
     if isinstance(tx, (AccessListTransaction, FeeMarketTransaction)):
         for access in tx.access_list:
-            preaccessed_addresses.add(access.account)
-            for account, slot in access:
-                preaccessed_storage_keys.add((account, slot))
+            access_list_addresses.add(access.account)
+            for slot in access.slots:
+                access_list_storage_keys.add((access.account, slot))
 
     tx_env = vm.TransactionEnvironment(
         origin=sender,
