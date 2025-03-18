@@ -2,12 +2,12 @@
 
 from itertools import count
 from random import randint
-from typing import Iterator, List, Literal, Tuple
+from typing import Generator, Iterator, List, Literal, Tuple
 
 import pytest
 from pydantic import PrivateAttr
 
-from ethereum_test_base_types import Number, StorageRootType, ZeroPaddedHexNumber
+from ethereum_test_base_types import Bytes, Number, StorageRootType, ZeroPaddedHexNumber
 from ethereum_test_base_types.conversions import (
     BytesConvertible,
     FixedSizeBytesConvertible,
@@ -94,7 +94,7 @@ class Alloc(BaseAlloc):
     _sender: EOA = PrivateAttr()
     _eth_rpc: EthRPC = PrivateAttr()
     _txs: List[Transaction] = PrivateAttr(default_factory=list)
-    _deployed_contracts: List[Tuple[Address, bytes]] = PrivateAttr(default_factory=list)
+    _deployed_contracts: List[Tuple[Address, Bytes]] = PrivateAttr(default_factory=list)
     _funded_eoa: List[EOA] = PrivateAttr(default_factory=list)
     _evm_code_type: EVMCodeType | None = PrivateAttr(None)
     _chain_id: int = PrivateAttr()
@@ -206,7 +206,7 @@ class Alloc(BaseAlloc):
         self._txs.append(deploy_tx)
 
         contract_address = deploy_tx.created_contract
-        self._deployed_contracts.append((contract_address, bytes(code)))
+        self._deployed_contracts.append((contract_address, Bytes(code)))
 
         assert Number(nonce) >= 1, "impossible to deploy contract with nonce lower than one"
 
@@ -373,9 +373,14 @@ def pre(
     evm_code_type: EVMCodeType,
     chain_id: int,
     eoa_fund_amount_default: int,
-) -> Alloc:
+    default_gas_price: int,
+) -> Generator[Alloc, None, None]:
     """Return default pre allocation for all tests (Empty alloc)."""
-    return Alloc(
+    # Record the starting balance of the sender
+    sender_test_starting_balance = eth_rpc.get_balance(sender_key)
+
+    # Prepare the pre-alloc
+    pre = Alloc(
         fork=fork,
         sender=sender_key,
         eth_rpc=eth_rpc,
@@ -384,3 +389,31 @@ def pre(
         chain_id=chain_id,
         eoa_fund_amount_default=eoa_fund_amount_default,
     )
+
+    # Yield the pre-alloc for usage during the test
+    yield pre
+
+    # Refund all EOAs (regardless of whether the test passed or failed)
+    refund_txs = []
+    for eoa in pre._funded_eoa:
+        remaining_balance = eth_rpc.get_balance(eoa)
+        eoa.nonce = Number(eth_rpc.get_transaction_count(eoa))
+        refund_gas_limit = 21_000
+        tx_cost = refund_gas_limit * default_gas_price
+        if remaining_balance < tx_cost:
+            continue
+        refund_txs.append(
+            Transaction(
+                sender=eoa,
+                to=sender_key,
+                gas_limit=21_000,
+                gas_price=default_gas_price,
+                value=remaining_balance - tx_cost,
+            ).with_signature_and_sender()
+        )
+    eth_rpc.send_wait_transactions(refund_txs)
+
+    # Record the ending balance of the sender
+    sender_test_ending_balance = eth_rpc.get_balance(sender_key)
+    used_balance = sender_test_starting_balance - sender_test_ending_balance
+    print(f"Used balance={used_balance / 10**18:.18f}")

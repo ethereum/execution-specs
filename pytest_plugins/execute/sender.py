@@ -34,7 +34,7 @@ def pytest_addoption(parser):
         action="store",
         dest="sender_funding_transactions_gas_price",
         type=Wei,
-        default=10**9,
+        default=None,
         help=("Gas price set for the funding transactions of each worker's sender key."),
     )
 
@@ -49,9 +49,15 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture(scope="session")
-def sender_funding_transactions_gas_price(request: pytest.FixtureRequest) -> int:
+def sender_funding_transactions_gas_price(
+    request: pytest.FixtureRequest, default_gas_price: int
+) -> int:
     """Get the gas price for the funding transactions."""
-    return request.config.option.sender_funding_transactions_gas_price
+    gas_price: int | None = request.config.option.sender_funding_transactions_gas_price
+    if gas_price is None:
+        gas_price = default_gas_price
+    assert gas_price > 0, "Gas price must be greater than 0"
+    return gas_price
 
 
 @pytest.fixture(scope="session")
@@ -159,13 +165,16 @@ def sender_key(
 
     # refund seed sender
     remaining_balance = eth_rpc.get_balance(sender)
+    sender.nonce = Number(eth_rpc.get_transaction_count(sender))
     used_balance = sender_key_initial_balance - remaining_balance
     request.config.stash[metadata_key]["Senders"][str(sender)] = (
         f"Used balance={used_balance / 10**18:.18f}"
     )
 
     refund_gas_limit = sender_fund_refund_gas_limit
-    refund_gas_price = sender_funding_transactions_gas_price
+    # double the gas price to ensure the transaction is included and overwrites any other
+    # transaction that might have been sent by the sender.
+    refund_gas_price = sender_funding_transactions_gas_price * 2
     tx_cost = refund_gas_limit * refund_gas_price
 
     if (remaining_balance - 1) < tx_cost:

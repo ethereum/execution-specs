@@ -721,6 +721,7 @@ class EthRPC(BaseEthRPC):
             while tx_id < len(tx_hashes):
                 tx_hash = tx_hashes[tx_id]
                 tx = self.get_transaction_by_hash(tx_hash)
+                assert tx is not None, f"Transaction {tx_hash} not found"
                 if tx.block_number is not None:
                     responses.append(tx)
                     tx_hashes.pop(tx_id)

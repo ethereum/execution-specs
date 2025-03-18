@@ -136,13 +136,13 @@ class EthRPC(BaseRPC):
         block = hex(block_number) if isinstance(block_number, int) else block_number
         return int(self.post_request("getTransactionCount", f"{address}", block), 16)
 
-    def get_transaction_by_hash(self, transaction_hash: Hash) -> TransactionByHashResponse:
+    def get_transaction_by_hash(self, transaction_hash: Hash) -> TransactionByHashResponse | None:
         """`eth_getTransactionByHash`: Returns transaction details."""
         try:
-            resp = TransactionByHashResponse(
-                **self.post_request("getTransactionByHash", f"{transaction_hash}")
-            )
-            return resp
+            response = self.post_request("getTransactionByHash", f"{transaction_hash}")
+            if response is None:
+                return None
+            return TransactionByHashResponse(**response)
         except ValidationError as e:
             pprint(e.errors())
             raise e
@@ -200,7 +200,7 @@ class EthRPC(BaseRPC):
         start_time = time.time()
         while True:
             tx = self.get_transaction_by_hash(tx_hash)
-            if tx.block_number is not None:
+            if tx is not None and tx.block_number is not None:
                 return tx
             if (time.time() - start_time) > self.transaction_wait_timeout:
                 break
@@ -225,7 +225,7 @@ class EthRPC(BaseRPC):
             while i < len(tx_hashes):
                 tx_hash = tx_hashes[i]
                 tx = self.get_transaction_by_hash(tx_hash)
-                if tx.block_number is not None:
+                if tx is not None and tx.block_number is not None:
                     responses.append(tx)
                     tx_hashes.pop(i)
                 else:

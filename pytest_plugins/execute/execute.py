@@ -7,11 +7,10 @@ from typing import Any, Dict, Generator, List, Type
 import pytest
 from pytest_metadata.plugin import metadata_key  # type: ignore
 
-from ethereum_test_base_types import Number
 from ethereum_test_execution import BaseExecute
 from ethereum_test_forks import Fork
 from ethereum_test_rpc import EthRPC
-from ethereum_test_tools import SPEC_TYPES, BaseTest, TestInfo, Transaction
+from ethereum_test_tools import SPEC_TYPES, BaseTest, TestInfo
 from ethereum_test_types import TransactionDefaults
 from pytest_plugins.spec_version_checker.spec_version_checker import EIPSpecTestItem
 
@@ -173,7 +172,9 @@ def pytest_html_report_title(report):
 @pytest.fixture(scope="session")
 def default_gas_price(request) -> int:
     """Return default gas price used for transactions."""
-    return request.config.getoption("default_gas_price")
+    gas_price = request.config.getoption("default_gas_price")
+    assert gas_price > 0, "Gas price must be greater than 0"
+    return gas_price
 
 
 @pytest.fixture(scope="session")
@@ -252,7 +253,6 @@ def base_test_parametrizer(cls: Type[BaseTest]):
         eips: List[int],
         eth_rpc: EthRPC,
         collector: Collector,
-        default_gas_price: int,
     ):
         """
         Fixture used to instantiate an auto-fillable BaseTest object from within
@@ -281,13 +281,14 @@ def base_test_parametrizer(cls: Type[BaseTest]):
 
                 # wait for pre-requisite transactions to be included in blocks
                 pre.wait_for_transactions()
-                for deployed_contract, deployed_code in pre._deployed_contracts:
-                    if eth_rpc.get_code(deployed_contract) == deployed_code:
-                        pass
-                    else:
+                for deployed_contract, expected_code in pre._deployed_contracts:
+                    actual_code = eth_rpc.get_code(deployed_contract)
+                    if actual_code != expected_code:
                         raise Exception(
                             f"Deployed test contract didn't match expected code at address "
-                            f"{deployed_contract} (not enough gas_limit?)."
+                            f"{deployed_contract} (not enough gas_limit?).\n"
+                            f"Expected: {expected_code}\n"
+                            f"Actual: {actual_code}"
                         )
                 request.node.config.funded_accounts = ", ".join(
                     [str(eoa) for eoa in pre._funded_eoa]
@@ -297,33 +298,7 @@ def base_test_parametrizer(cls: Type[BaseTest]):
                 execute.execute(eth_rpc)
                 collector.collect(request.node.nodeid, execute)
 
-        sender_start_balance = eth_rpc.get_balance(pre._sender)
-
-        yield BaseTestWrapper
-
-        # Refund all EOAs (regardless of whether the test passed or failed)
-        refund_txs = []
-        for eoa in pre._funded_eoa:
-            remaining_balance = eth_rpc.get_balance(eoa)
-            eoa.nonce = Number(eth_rpc.get_transaction_count(eoa))
-            refund_gas_limit = 21_000
-            tx_cost = refund_gas_limit * default_gas_price
-            if remaining_balance < tx_cost:
-                continue
-            refund_txs.append(
-                Transaction(
-                    sender=eoa,
-                    to=pre._sender,
-                    gas_limit=21_000,
-                    gas_price=default_gas_price,
-                    value=remaining_balance - tx_cost,
-                ).with_signature_and_sender()
-            )
-        eth_rpc.send_wait_transactions(refund_txs)
-
-        sender_end_balance = eth_rpc.get_balance(pre._sender)
-        used_balance = sender_start_balance - sender_end_balance
-        print(f"Used balance={used_balance / 10**18:.18f}")
+        return BaseTestWrapper
 
     return base_test_parametrizer_func
 
