@@ -48,7 +48,8 @@ class LegacyTransaction:
 @dataclass
 class Access:
     """
-    A mapping from account address to storage slots that are pre-warmed as part of a transaction.
+    A mapping from account address to storage slots that are pre-warmed as part
+    of a transaction.
     """
 
     account: Address
