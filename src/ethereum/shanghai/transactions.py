@@ -91,7 +91,7 @@ class FeeMarketTransaction:
     to: Union[Bytes0, Address]
     value: U256
     data: Bytes
-    access_list: Tuple[Tuple[Address, Tuple[Bytes32, ...]], ...]
+    access_list: Tuple[Access, ...]
     y_parity: U256
     r: U256
     s: U256

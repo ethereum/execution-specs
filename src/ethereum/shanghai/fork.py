@@ -624,8 +624,8 @@ def process_transaction(
     if isinstance(tx, (AccessListTransaction, FeeMarketTransaction)):
         for access in tx.access_list:
             preaccessed_addresses.add(access.account)
-            for account, slot in access:
-                preaccessed_storage_keys.add((account, slot))
+            for slot in access.slots:
+                preaccessed_storage_keys.add((access.account, slot))
 
     message = prepare_message(
         sender,
