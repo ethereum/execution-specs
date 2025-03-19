@@ -349,6 +349,7 @@ def validate_header(chain: BlockChain, header: Header) -> None:
         raise InvalidBlock
     if header.nonce != b"\x00\x00\x00\x00\x00\x00\x00\x00":
         raise InvalidBlock
+     # Post-merge forks do not allow ommers, so parent_header is always the last header in the chain.
     if header.ommers_hash != EMPTY_OMMER_HASH:
         raise InvalidBlock
 
