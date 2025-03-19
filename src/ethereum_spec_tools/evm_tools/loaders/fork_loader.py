@@ -153,6 +153,11 @@ class ForkLoad:
         return self._module("transactions").LegacyTransaction
 
     @property
+    def Access(self) -> Any:
+        """Access class of the fork"""
+        return self._module("transactions").Access
+
+    @property
     def AccessListTransaction(self) -> Any:
         """Access List transaction class of the fork"""
         return self._module("transactions").AccessListTransaction
