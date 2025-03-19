@@ -20,9 +20,21 @@ load_berlin_transaction = partial(load_test_transaction, network="Berlin")
 @pytest.mark.parametrize(
     "test_file_high_nonce",
     [
-        "ttNonce/TransactionWithHighNonce64Minus1.json",
-        "ttNonce/TransactionWithHighNonce64.json",
         "ttNonce/TransactionWithHighNonce64Plus1.json",
+        "ttNonce/TransactionWithHighNonce64.json",
+    ],
+)
+def test_really_high_nonce(test_file_high_nonce: str) -> None:
+    test = load_berlin_transaction(test_dir, test_file_high_nonce)
+
+    with pytest.raises(rlp.DecodingError):
+        rlp.decode_to(LegacyTransaction, test["tx_rlp"])
+
+
+@pytest.mark.parametrize(
+    "test_file_high_nonce",
+    [
+        "ttNonce/TransactionWithHighNonce64Minus1.json",
     ],
 )
 def test_high_nonce(test_file_high_nonce: str) -> None:

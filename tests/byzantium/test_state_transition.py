@@ -4,7 +4,7 @@ from typing import Dict
 import pytest
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32
-from ethereum_types.numeric import U256, Uint
+from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import InvalidBlock
@@ -159,7 +159,7 @@ def test_transaction_with_insufficient_balance_for_value() -> None:
     FIXTURES_LOADER.fork.set_account(state, address, account)
 
     tx = FIXTURES_LOADER.fork.Transaction(
-        nonce=U256(0x00),
+        nonce=U64(0x00),
         gas_price=Uint(1000),
         gas=Uint(150000),
         to=FIXTURES_LOADER.fork.hex_to_address(

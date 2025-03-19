@@ -14,6 +14,7 @@ from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes32,
     hex_to_hash,
+    hex_to_u64,
     hex_to_u256,
     hex_to_uint,
 )
@@ -41,9 +42,9 @@ class TransactionLoad:
         """Get chain ID for the transaction."""
         return U64(1)
 
-    def json_to_nonce(self) -> U256:
+    def json_to_nonce(self) -> U64:
         """Get the nonce for the transaction."""
-        return hex_to_u256(self.raw.get("nonce"))
+        return hex_to_u64(self.raw.get("nonce"))
 
     def json_to_gas_price(self) -> Uint:
         """Get the gas price for the transaction."""
