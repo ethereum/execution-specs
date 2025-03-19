@@ -148,6 +148,7 @@ class PrimeField(int, Field):
     def __pow__(self: T, exponent: int) -> T:  # type: ignore[override]
         # For reasons that are unclear, self must be cast to int here under
         # PyPy.
+        # TODO check if this is still the case in the new version
         return self.__new__(
             type(self), int.__pow__(int(self), exponent, self.PRIME)
         )
