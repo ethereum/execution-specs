@@ -41,7 +41,7 @@ class FixtureTransaction(TransactionFixtureConverter):
     to: Address | None = None
     value: List[ZeroPaddedHexNumber]
     data: List[Bytes]
-    access_lists: List[List[AccessList]] | None = None
+    access_lists: List[List[AccessList] | None] | None = None
     authorization_list: List[FixtureAuthorizationTuple] | None = None
     max_fee_per_blob_gas: ZeroPaddedHexNumber | None = None
     blob_versioned_hashes: Sequence[Hash] | None = None
