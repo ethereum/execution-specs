@@ -11,7 +11,7 @@ Introduction
 
 Message specific functions used in this homestead version of specification.
 """
-from typing import Optional, Union
+from typing import Optional
 
 from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.numeric import U256, Uint
@@ -24,7 +24,7 @@ from .address import compute_contract_address
 
 def prepare_message(
     caller: Address,
-    target: Union[Bytes0, Address],
+    target: Bytes0 | Address,
     value: U256,
     data: Bytes,
     gas: Uint,

@@ -14,7 +14,7 @@ import shutil
 import time
 from queue import Empty, Full, Queue
 from threading import Thread
-from typing import Any, Dict, List, Optional, TypeVar, Union, cast
+from typing import Any, Dict, List, Optional, TypeVar, cast
 from urllib import request
 
 from ethereum_rlp import rlp
@@ -185,7 +185,7 @@ class BlockDownloader(ForkTracking):
         self,
         first: Uint,
         count: Uint,
-    ) -> List[Union[Any, RpcError]]:
+    ) -> List[Any | RpcError]:
         """
         Fetch the block specified by the given number from the RPC provider.
         """
@@ -198,7 +198,7 @@ class BlockDownloader(ForkTracking):
         self,
         first: Uint,
         count: Uint,
-    ) -> List[Union[bytes, RpcError]]:
+    ) -> List[bytes | RpcError]:
         """
         Fetch the block specified by the given number from the RPC provider as
         an RLP encoded byte array.
@@ -240,7 +240,7 @@ class BlockDownloader(ForkTracking):
                 )
                 raise ValueError
 
-            block_rlps: Dict[Uint, Union[RpcError, bytes]] = {}
+            block_rlps: Dict[Uint, RpcError | bytes] = {}
 
             for reply in replies:
                 try:
@@ -269,7 +269,7 @@ class BlockDownloader(ForkTracking):
 
             self.log.info("blocks [%d, %d) fetched", first, first + count)
 
-            blocks: List[Union[RpcError, Any]] = []
+            blocks: List[RpcError | Any] = []
             for _, block_rlp in sorted(block_rlps.items()):
                 if isinstance(block_rlp, RpcError):
                     blocks.append(block_rlp)
@@ -389,7 +389,7 @@ class BlockDownloader(ForkTracking):
         self,
         first: Uint,
         count: Uint,
-    ) -> List[Union[Any, RpcError]]:
+    ) -> List[Any | RpcError]:
         """
         Fetch the block specified by the given number from the RPC provider
         using only standard endpoints.
@@ -427,7 +427,7 @@ class BlockDownloader(ForkTracking):
             replies = json.load(response)
             block_jsons: Dict[Uint, Any] = {}
             ommers_needed: Dict[Uint, int] = {}
-            blocks: Dict[Uint, Union[Any, RpcError]] = {}
+            blocks: Dict[Uint, Any | RpcError] = {}
 
             for reply in replies:
                 reply_id = Uint(int(reply["id"], 0))

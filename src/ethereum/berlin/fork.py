@@ -13,7 +13,7 @@ Entry point for the Ethereum specification.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Set, Tuple, Union
+from typing import List, Optional, Set, Tuple
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
@@ -350,7 +350,7 @@ def make_receipt(
     error: Optional[EthereumException],
     cumulative_gas_used: Uint,
     logs: Tuple[Log, ...],
-) -> Union[Bytes, Receipt]:
+) -> Bytes | Receipt:
     """
     Make the receipt for a transaction that was executed.
 
@@ -419,7 +419,7 @@ def apply_body(
     block_gas_limit: Uint,
     block_time: U256,
     block_difficulty: Uint,
-    transactions: Tuple[Union[LegacyTransaction, Bytes], ...],
+    transactions: Tuple[LegacyTransaction | Bytes, ...],
     ommers: Tuple[Header, ...],
     chain_id: U64,
 ) -> ApplyBodyOutput:
@@ -464,10 +464,10 @@ def apply_body(
         Output of applying the block body to the state.
     """
     gas_available = block_gas_limit
-    transactions_trie: Trie[
-        Bytes, Optional[Union[Bytes, LegacyTransaction]]
-    ] = Trie(secured=False, default=None)
-    receipts_trie: Trie[Bytes, Optional[Union[Bytes, Receipt]]] = Trie(
+    transactions_trie: Trie[Bytes, Optional[Bytes | LegacyTransaction]] = Trie(
+        secured=False, default=None
+    )
+    receipts_trie: Trie[Bytes, Optional[Bytes | Receipt]] = Trie(
         secured=False, default=None
     )
     block_logs: Tuple[Log, ...] = ()

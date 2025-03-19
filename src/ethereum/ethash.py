@@ -26,7 +26,7 @@ At a high level, the Ethash algorithm is as follows:
 [mem-hard]: https://en.wikipedia.org/wiki/Memory-hard_function
 """
 
-from typing import Callable, Tuple, Union
+from typing import Callable, Tuple
 
 from ethereum_types.bytes import Bytes8
 from ethereum_types.numeric import U32, Uint, ulen
@@ -249,7 +249,7 @@ def generate_cache(block_number: Uint) -> Tuple[Tuple[U32, ...], ...]:
     )
 
 
-def fnv(a: Union[Uint, U32], b: Union[Uint, U32]) -> U32:
+def fnv(a: Uint | U32, b: Uint | U32) -> U32:
     """
     A non-associative substitute for XOR, inspired by the [FNV] hash by Fowler,
     Noll, and Vo. See [`fnv_hash`], [`generate_dataset_item`], and

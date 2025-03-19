@@ -4,7 +4,6 @@ submitted to be executed. If Ethereum is viewed as a state machine,
 transactions are the events that move between states.
 """
 from dataclasses import dataclass
-from typing import Union
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0
@@ -32,7 +31,7 @@ class Transaction:
     nonce: U256
     gas_price: Uint
     gas: Uint
-    to: Union[Bytes0, Address]
+    to: Bytes0 | Address
     value: U256
     data: Bytes
     v: U256

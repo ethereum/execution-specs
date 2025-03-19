@@ -9,7 +9,7 @@ history of all state transitions that have happened since the genesis of the
 chain.
 """
 from dataclasses import dataclass
-from typing import Tuple, Union
+from typing import Tuple
 
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32
 from ethereum_types.frozen import slotted_freezable
@@ -53,7 +53,7 @@ class Block:
     """
 
     header: Header
-    transactions: Tuple[Union[Bytes, LegacyTransaction], ...]
+    transactions: Tuple[Bytes | LegacyTransaction, ...]
     ommers: Tuple[Header, ...]
 
 

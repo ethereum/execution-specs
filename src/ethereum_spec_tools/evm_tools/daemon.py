@@ -11,7 +11,7 @@ from http.server import BaseHTTPRequestHandler
 from io import StringIO, TextIOWrapper
 from socket import socket
 from threading import Thread
-from typing import Any, Tuple, Union
+from typing import Any, Tuple
 from urllib.parse import parse_qs, urlparse
 
 
@@ -100,7 +100,7 @@ class _UnixSocketHttpServer(socketserver.UnixStreamServer):
         return (request, ["local", 0])
 
     def finish_request(
-        self, request: Union[socket, Tuple[bytes, socket]], client_address: Any
+        self, request: socket | Tuple[bytes, socket], client_address: Any
     ) -> None:
         try:
             super().finish_request(request, client_address)

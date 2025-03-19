@@ -12,7 +12,7 @@ Introduction
 Message specific functions used in this london version of
 specification.
 """
-from typing import FrozenSet, Optional, Tuple, Union
+from typing import FrozenSet, Optional, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
 from ethereum_types.numeric import U256, Uint
@@ -26,7 +26,7 @@ from .address import compute_contract_address
 
 def prepare_message(
     caller: Address,
-    target: Union[Bytes0, Address],
+    target: Bytes0 | Address,
     value: U256,
     data: Bytes,
     gas: Uint,

@@ -6,7 +6,7 @@ import json
 import os
 from contextlib import ExitStack
 from dataclasses import asdict, dataclass, is_dataclass
-from typing import List, Optional, Protocol, TextIO, Union, runtime_checkable
+from typing import List, Optional, Protocol, TextIO, runtime_checkable
 
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256, Uint
@@ -35,7 +35,7 @@ class Trace:
     """
 
     pc: int
-    op: Optional[Union[str, int]]
+    op: Optional[str | int]
     gas: str
     gasCost: str
     memory: Optional[str]
@@ -76,7 +76,7 @@ class Environment(Protocol):
     The class implements the environment interface for trace.
     """
 
-    traces: List[Union["Trace", "FinalTrace"]]
+    traces: List["Trace" | "FinalTrace"]
 
 
 @runtime_checkable
@@ -124,7 +124,7 @@ class EvmWithReturnData(Protocol):
     return_data: Bytes
 
 
-Evm = Union[EvmWithoutReturnData, EvmWithReturnData]
+Evm = EvmWithoutReturnData | EvmWithReturnData
 
 
 def evm_trace(
@@ -313,9 +313,7 @@ class _TraceJsonEncoder(json.JSONEncoder):
         return trace
 
 
-def output_op_trace(
-    trace: Union[Trace, FinalTrace], json_file: TextIO
-) -> None:
+def output_op_trace(trace: Trace | FinalTrace, json_file: TextIO) -> None:
     """
     Output a single trace to a json file.
     """
@@ -324,7 +322,7 @@ def output_op_trace(
 
 
 def output_traces(
-    traces: List[Union[Trace, FinalTrace]],
+    traces: List[Trace | FinalTrace],
     tx_index: int,
     tx_hash: bytes,
     output_basedir: str | TextIO = ".",

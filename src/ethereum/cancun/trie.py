@@ -26,7 +26,6 @@ from typing import (
     Sequence,
     Tuple,
     TypeVar,
-    Union,
     cast,
 )
 
@@ -63,18 +62,25 @@ EMPTY_TRIE_ROOT = Root(
     )
 )
 
-Node = Union[
-    Account, Bytes, LegacyTransaction, Receipt, Uint, U256, Withdrawal, None
-]
+Node = (
+    Account
+    | Bytes
+    | LegacyTransaction
+    | Receipt
+    | Uint
+    | U256
+    | Withdrawal
+    | None
+)
 K = TypeVar("K", bound=Bytes)
 V = TypeVar(
     "V",
     Optional[Account],
     Optional[Bytes],
     Bytes,
-    Optional[Union[LegacyTransaction, Bytes]],
-    Optional[Union[Receipt, Bytes]],
-    Optional[Union[Withdrawal, Bytes]],
+    Optional[LegacyTransaction | Bytes],
+    Optional[Receipt | Bytes],
+    Optional[Withdrawal | Bytes],
     Uint,
     U256,
 )
@@ -127,7 +133,7 @@ class BranchNode:
     value: rlp.Extended
 
 
-InternalNode = Union[LeafNode, ExtensionNode, BranchNode]
+InternalNode = LeafNode | ExtensionNode | BranchNode
 
 
 def encode_internal_node(node: Optional[InternalNode]) -> rlp.Extended:

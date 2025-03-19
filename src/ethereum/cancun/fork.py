@@ -13,7 +13,7 @@ Entry point for the Ethereum specification.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes32
@@ -428,7 +428,7 @@ def make_receipt(
     error: Optional[EthereumException],
     cumulative_gas_used: Uint,
     logs: Tuple[Log, ...],
-) -> Union[Bytes, Receipt]:
+) -> Bytes | Receipt:
     """
     Make the receipt for a transaction that was executed.
 
@@ -508,7 +508,7 @@ def apply_body(
     block_gas_limit: Uint,
     block_time: U256,
     prev_randao: Bytes32,
-    transactions: Tuple[Union[LegacyTransaction, Bytes], ...],
+    transactions: Tuple[LegacyTransaction | Bytes, ...],
     chain_id: U64,
     withdrawals: Tuple[Withdrawal, ...],
     parent_beacon_block_root: Root,
@@ -564,13 +564,13 @@ def apply_body(
     """
     blob_gas_used = Uint(0)
     gas_available = block_gas_limit
-    transactions_trie: Trie[
-        Bytes, Optional[Union[Bytes, LegacyTransaction]]
-    ] = Trie(secured=False, default=None)
-    receipts_trie: Trie[Bytes, Optional[Union[Bytes, Receipt]]] = Trie(
+    transactions_trie: Trie[Bytes, Optional[Bytes | LegacyTransaction]] = Trie(
         secured=False, default=None
     )
-    withdrawals_trie: Trie[Bytes, Optional[Union[Bytes, Withdrawal]]] = Trie(
+    receipts_trie: Trie[Bytes, Optional[Bytes | Receipt]] = Trie(
+        secured=False, default=None
+    )
+    withdrawals_trie: Trie[Bytes, Optional[Bytes | Withdrawal]] = Trie(
         secured=False, default=None
     )
     block_logs: Tuple[Log, ...] = ()

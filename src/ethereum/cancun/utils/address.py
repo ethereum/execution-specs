@@ -12,7 +12,6 @@ Introduction
 Address specific functions used in this cancun version of
 specification.
 """
-from typing import Union
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes32
@@ -24,7 +23,7 @@ from ethereum.utils.byte import left_pad_zero_bytes
 from ..fork_types import Address
 
 
-def to_address(data: Union[Uint, U256]) -> Address:
+def to_address(data: Uint | U256) -> Address:
     """
     Convert a Uint or U256 value to a valid address (20 bytes).
 

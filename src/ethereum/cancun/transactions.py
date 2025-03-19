@@ -4,7 +4,7 @@ submitted to be executed. If Ethereum is viewed as a state machine,
 transactions are the events that move between states.
 """
 from dataclasses import dataclass
-from typing import Tuple, Union
+from typing import Tuple
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
@@ -36,7 +36,7 @@ class LegacyTransaction:
     nonce: U256
     gas_price: Uint
     gas: Uint
-    to: Union[Bytes0, Address]
+    to: Bytes0 | Address
     value: U256
     data: Bytes
     v: U256
@@ -55,7 +55,7 @@ class AccessListTransaction:
     nonce: U256
     gas_price: Uint
     gas: Uint
-    to: Union[Bytes0, Address]
+    to: Bytes0 | Address
     value: U256
     data: Bytes
     access_list: Tuple[Tuple[Address, Tuple[Bytes32, ...]], ...]
@@ -76,7 +76,7 @@ class FeeMarketTransaction:
     max_priority_fee_per_gas: Uint
     max_fee_per_gas: Uint
     gas: Uint
-    to: Union[Bytes0, Address]
+    to: Bytes0 | Address
     value: U256
     data: Bytes
     access_list: Tuple[Tuple[Address, Tuple[Bytes32, ...]], ...]
@@ -108,15 +108,15 @@ class BlobTransaction:
     s: U256
 
 
-Transaction = Union[
-    LegacyTransaction,
-    AccessListTransaction,
-    FeeMarketTransaction,
-    BlobTransaction,
-]
+Transaction = (
+    LegacyTransaction
+    | AccessListTransaction
+    | FeeMarketTransaction
+    | BlobTransaction
+)
 
 
-def encode_transaction(tx: Transaction) -> Union[LegacyTransaction, Bytes]:
+def encode_transaction(tx: Transaction) -> LegacyTransaction | Bytes:
     """
     Encode a transaction. Needed because non-legacy transactions aren't RLP.
     """
@@ -132,7 +132,7 @@ def encode_transaction(tx: Transaction) -> Union[LegacyTransaction, Bytes]:
         raise Exception(f"Unable to encode transaction of type {type(tx)}")
 
 
-def decode_transaction(tx: Union[LegacyTransaction, Bytes]) -> Transaction:
+def decode_transaction(tx: LegacyTransaction | Bytes) -> Transaction:
     """
     Decode a transaction. Needed because non-legacy transactions aren't RLP.
     """

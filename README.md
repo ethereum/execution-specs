@@ -52,7 +52,7 @@ The execution specification is a python implementation of Ethereum that prioriti
 
 The Ethereum specification is maintained as a Python library, for better integration with tooling and testing.
 
-Requires Python 3.10+
+Requires Python 3.11+
 
 ### Building
 
