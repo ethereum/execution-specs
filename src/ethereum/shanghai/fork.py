@@ -289,19 +289,8 @@ def validate_header(chain: BlockChain, header: Header) -> None:
     """
     if header.number < Uint(1):
         raise InvalidBlock
-    parent_header_number = header.number - Uint(1)
-    first_block_number = chain.blocks[0].header.number
-    last_block_number = chain.blocks[-1].header.number
-
-    if (
-        parent_header_number < first_block_number
-        or parent_header_number > last_block_number
-    ):
-        raise InvalidBlock
-
-    parent_header = chain.blocks[
-        parent_header_number - first_block_number
-    ].header
+    # Post-merge forks do not allow ommers, so parent_header is always the last header in the chain
+    parent_header = chain.blocks[-1].header
 
     if header.gas_used > header.gas_limit:
         raise InvalidBlock
@@ -323,9 +312,6 @@ def validate_header(chain: BlockChain, header: Header) -> None:
     if header.difficulty != 0:
         raise InvalidBlock
     if header.nonce != b"\x00\x00\x00\x00\x00\x00\x00\x00":
-        raise InvalidBlock
-     # Post-merge forks do not allow ommers, so parent_header is always the last header in the chain.
-    if header.ommers_hash != EMPTY_OMMER_HASH:
         raise InvalidBlock
 
     block_parent_hash = keccak256(rlp.encode(parent_header))
