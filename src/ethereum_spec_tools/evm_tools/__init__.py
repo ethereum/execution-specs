@@ -98,24 +98,31 @@ def main(
 
     options, _ = parser.parse_known_args(args)
 
+    checked_out_file: TextIO
+    checked_in_file: TextIO
+
     if out_file is None:
-        out_file = sys.stdout
+        checked_out_file = sys.stdout
+    else:
+        checked_out_file = out_file
 
     if in_file is None:
-        in_file = sys.stdin
+        checked_in_file = sys.stdin
+    else:
+        checked_in_file = in_file
 
     if options.evm_tool == "t8n":
-        t8n_tool = T8N(options, out_file, in_file)
+        t8n_tool = T8N(options, checked_out_file, checked_in_file)
         return t8n_tool.run()
     elif options.evm_tool == "b11r":
-        b11r_tool = B11R(options, out_file, in_file)
+        b11r_tool = B11R(options, checked_out_file, checked_in_file)
         return b11r_tool.run()
     elif options.evm_tool == "daemon":
         daemon = Daemon(options)
         return daemon.run()
     elif options.evm_tool == "statetest":
-        state_test = StateTest(options, out_file, in_file)
+        state_test = StateTest(options, checked_out_file, checked_in_file)
         return state_test.run()
     else:
-        parser.print_help(file=out_file)
+        parser.print_help(file=checked_out_file)
         return 0

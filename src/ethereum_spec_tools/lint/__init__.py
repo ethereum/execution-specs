@@ -12,12 +12,14 @@ import pkgutil
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from itertools import zip_longest
-from typing import Generator, List, Optional, Sequence, Tuple
+from typing import Generator, List, Optional, Sequence, Set, Tuple, Union
 
 from ..forks import Hardfork
 
 
-def compare_ast(old: ast.AST, new: ast.AST) -> bool:
+def compare_ast(
+    old: Union[ast.AST, List[ast.AST]], new: Union[ast.AST, List[ast.AST]]
+) -> bool:
     """
     Check if two nodes are the equal.
     """
@@ -131,11 +133,11 @@ class Linter:
         modules = pkgutil.iter_modules(path, lints.__name__ + ".")
         for _, name, _ in modules:
             try:
-                importlib.import_module(name)
+                _ = importlib.import_module(name)
             except Exception:
                 continue
 
-        found = set()
+        found: Set[Lint] = set()
         for subclass in Lint.__subclasses__():
             if inspect.isabstract(subclass):
                 continue
@@ -148,6 +150,7 @@ class Linter:
         return list(found)
 
     def __init__(self, lints: Optional[Sequence[Lint]] = None) -> None:
+        super().__init__()
         if lints is None:
             lints = Linter.discover_lints()
 

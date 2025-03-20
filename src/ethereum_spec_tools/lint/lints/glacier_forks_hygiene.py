@@ -186,77 +186,77 @@ class _Visitor(ast.NodeVisitor):
         """
         return self._items
 
-    def visit_Module(self, module: ast.Module) -> None:
+    def visit_Module(self, node: ast.Module) -> None:
         """
         Visit a python module.
         """
-        for item in module.__dict__["body"]:
+        for item in node.__dict__["body"]:
             self.visit(item)
 
-    def visit_Import(self, import_: ast.Import) -> None:
+    def visit_Import(self, node: ast.Import) -> None:
         """
         Visit an Import
         """
         pass
 
-    def visit_ImportFrom(self, import_from: ast.ImportFrom) -> None:
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         """
         Visit an Import From
         """
         pass
 
-    def visit_Expr(self, expr: ast.Expr) -> None:
+    def visit_Expr(self, node: ast.Expr) -> None:
         """
         Visit an Expression
         """
         # This is a way to identify comments in the current specs code
         # ignore comments
-        if isinstance(expr.value, ast.Constant) and isinstance(
-            expr.value.value, str
+        if isinstance(node.value, ast.Constant) and isinstance(
+            node.value.value, str
         ):
             return
 
-        print(f"The expression {type(expr)} has been ignored.")
+        print(f"The expression {type(node)} has been ignored.")
 
-    def visit_AsyncFunctionDef(self, function: ast.AsyncFunctionDef) -> None:
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
         """
         Visit an asynchronous function.
         """
-        self._insert(function.name, function)
+        self._insert(node.name, node)
 
-    def visit_FunctionDef(self, function: ast.FunctionDef) -> None:
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         """
         Visit a function.
         """
-        self._insert(function.name, function)
+        self._insert(node.name, node)
 
-    def visit_ClassDef(self, klass: ast.ClassDef) -> None:
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
         """
         Visit a class.
         """
-        self._insert(klass.name, klass)
+        self._insert(node.name, node)
 
-    def visit_Assign(self, assign: ast.Assign) -> None:
+    def visit_Assign(self, node: ast.Assign) -> None:
         """
         Visit an assignment.
         """
-        if isinstance(assign.targets[0], ast.Name):
-            self._insert(assign.targets[0].id, assign)
+        if isinstance(node.targets[0], ast.Name):
+            self._insert(node.targets[0].id, node)
         else:
             print(
                 "Assign node with target of type "
-                f"{type(assign.targets[0])} has been ignored."
+                f"{type(node.targets[0])} has been ignored."
             )
 
-    def visit_AnnAssign(self, assign: ast.AnnAssign) -> None:
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
         """
         Visit an annotated assignment.
         """
-        if isinstance(assign.target, ast.Name):
-            self._insert(assign.target.id, assign)
+        if isinstance(node.target, ast.Name):
+            self._insert(node.target.id, node)
         else:
             print(
-                f"AnnAssign node with target of type {type(assign.target)}"
+                f"AnnAssign node with target of type {type(node.target)}"
                 " has been ignored."
             )
 

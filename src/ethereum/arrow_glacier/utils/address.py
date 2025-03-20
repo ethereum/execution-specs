@@ -65,7 +65,7 @@ def compute_contract_address(address: Address, nonce: Uint) -> Address:
 
 
 def compute_create2_contract_address(
-    address: Address, salt: Bytes32, call_data: bytearray
+    address: Address, salt: Bytes32, call_data: bytes
 ) -> Address:
     """
     Computes address of the new account that needs to be created, which is
