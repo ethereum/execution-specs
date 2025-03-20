@@ -49,9 +49,10 @@ jobs:
         env:
           PYPY_GC_MAX: "10G"
 
-      - name: Upload coverage to Codecov
+      - name: Upload coverage reports to Codecov
         if: "${{ !startsWith(matrix.py, 'pypy') }}"
-        uses: codecov/codecov-action@v1
+        uses: codecov/codecov-action@v5
         with:
           files: .tox/coverage.xml
           flags: unittests
+          token: ${{ secrets.CODECOV_TOKEN }}

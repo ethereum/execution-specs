@@ -59,6 +59,24 @@ class _EvmToolHandler(BaseHTTPRequestHandler):
             f"--state.reward={content['state']['reward']}",
         ]
 
+        trace = content.get("trace", False)
+        output_basedir = content.get("output-basedir")
+        if trace:
+            if not output_basedir:
+                raise ValueError(
+                    "`output-basedir` should be provided when `--trace` "
+                    "is enabled."
+                )
+            # send full trace output if ``trace`` is ``True``
+            args.extend(
+                [
+                    "--trace",
+                    "--trace.memory",
+                    "--trace.returndata",
+                    f"--output.basedir={output_basedir}",
+                ]
+            )
+
         query_string = urlparse(self.path).query
         if query_string:
             query = parse_qs(

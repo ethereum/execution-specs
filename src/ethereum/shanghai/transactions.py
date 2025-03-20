@@ -246,10 +246,14 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
                 signing_hash_155(tx, chain_id),
             )
     elif isinstance(tx, AccessListTransaction):
+        if tx.y_parity not in (U256(0), U256(1)):
+            raise InvalidSignatureError("bad y_parity")
         public_key = secp256k1_recover(
             r, s, tx.y_parity, signing_hash_2930(tx)
         )
     elif isinstance(tx, FeeMarketTransaction):
+        if tx.y_parity not in (U256(0), U256(1)):
+            raise InvalidSignatureError("bad y_parity")
         public_key = secp256k1_recover(
             r, s, tx.y_parity, signing_hash_1559(tx)
         )

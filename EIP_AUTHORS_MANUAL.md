@@ -65,4 +65,4 @@ Please refer the following tutorial for writing new EIP. It takes you through a 
 
 In addition to having a reference implementation, it is also very useful for the community and core development if the EIP author concieves and writes test vectors for the EIP. There is a very user friendly framework for writing ethereum tests in the `execution-spec-tests` repository. Please refer to the following guide for writing tests to your EIP.
 
-[Writing Tests with `execution-spec-tests`](https://ethereum.github.io/execution-spec-tests/main/getting_started/quick_start/)
+[Writing Tests with `execution-spec-tests`](https://ethereum.github.io/execution-spec-tests/getting_started/quick_start/)
