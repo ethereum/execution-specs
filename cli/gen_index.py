@@ -155,6 +155,7 @@ def generate_fixtures_index(
 
             relative_file_path = Path(file).absolute().relative_to(Path(input_path).absolute())
             for fixture_name, fixture in fixtures.items():
+                fixture_fork = fixture.get_fork()
                 test_cases.append(
                     TestCaseIndexFile(
                         id=fixture_name,
@@ -162,11 +163,12 @@ def generate_fixtures_index(
                         # eest uses hash; ethereum/tests uses generatedTestHash
                         fixture_hash=fixture.info.get("hash")
                         or f"0x{fixture.info.get('generatedTestHash')}",
-                        fork=fixture.get_fork(),
+                        fork=fixture_fork,
                         format=fixture.__class__,
                     )
                 )
-                forks.add(fixture.get_fork())
+                if fixture_fork:
+                    forks.add(fixture_fork)
                 fixture_formats.add(fixture.format_name)
 
             display_filename = file.name
