@@ -1,6 +1,6 @@
 import json
 import os
-from typing import List, Sequence, Tuple, Union
+from typing import List, Sequence, Tuple
 
 import pytest
 from ethereum_rlp import Extended, rlp
@@ -17,9 +17,7 @@ ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
 #
 
 
-def convert_to_rlp_native(
-    obj: Union[str, int, Sequence[Union[str, int]]]
-) -> Extended:
+def convert_to_rlp_native(obj: str | int | Sequence[str | int]) -> Extended:
     if isinstance(obj, str):
         return bytes(obj, "utf-8")
     elif isinstance(obj, int):

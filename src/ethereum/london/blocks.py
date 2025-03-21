@@ -9,7 +9,7 @@ history of all state transitions that have happened since the genesis of the
 chain.
 """
 from dataclasses import dataclass
-from typing import Tuple, Union
+from typing import Tuple
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32
@@ -210,7 +210,7 @@ class Block:
     [headers]: ref:ethereum.london.blocks.Header
     """
 
-    transactions: Tuple[Union[Bytes, LegacyTransaction], ...]
+    transactions: Tuple[Bytes | LegacyTransaction, ...]
     """
     A tuple of transactions included in this block. Each transaction can be
     any of a legacy transaction, an access list transaction, or a fee market
@@ -289,7 +289,7 @@ class Receipt:
     """
 
 
-def encode_receipt(tx: Transaction, receipt: Receipt) -> Union[Bytes, Receipt]:
+def encode_receipt(tx: Transaction, receipt: Receipt) -> Bytes | Receipt:
     r"""
     Encodes a transaction receipt based on the transaction type.
 
@@ -306,7 +306,7 @@ def encode_receipt(tx: Transaction, receipt: Receipt) -> Union[Bytes, Receipt]:
         return receipt
 
 
-def decode_receipt(receipt: Union[Bytes, Receipt]) -> Receipt:
+def decode_receipt(receipt: Bytes | Receipt) -> Receipt:
     r"""
     Decodes a receipt from its serialized form.
 
