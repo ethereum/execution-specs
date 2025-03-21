@@ -2913,11 +2913,16 @@ def test_contract_create(
     pre: Alloc,
 ):
     """Test sending type-4 tx as a create transaction."""
+    authorization_tuple = AuthorizationTuple(
+        address=Address(0x01),
+        nonce=0,
+        signer=pre.fund_eoa(),
+    )
     tx = Transaction(
         gas_limit=100_000,
         to=None,
         value=0,
-        authorization_list=[],
+        authorization_list=[authorization_tuple],
         error=TransactionException.TYPE_4_TX_CONTRACT_CREATION,
         sender=pre.fund_eoa(),
     )
