@@ -14,7 +14,7 @@ The abstract computer which runs the code stored in an
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Set, Tuple, Union
+from typing import List, Optional, Set, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.numeric import U64, U256, Uint
@@ -57,7 +57,7 @@ class Message:
     """
 
     caller: Address
-    target: Union[Bytes0, Address]
+    target: Bytes0 | Address
     current_target: Address
     gas: Uint
     value: U256

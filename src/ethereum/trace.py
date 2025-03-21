@@ -18,7 +18,7 @@ See [EIP-3155] for more details on EVM traces.
 
 import enum
 from dataclasses import dataclass
-from typing import Optional, Protocol, Union
+from typing import Optional, Protocol
 
 from ethereum.exceptions import EthereumException
 
@@ -149,17 +149,17 @@ class GasAndRefund:
     """
 
 
-TraceEvent = Union[
-    TransactionStart,
-    TransactionEnd,
-    PrecompileStart,
-    PrecompileEnd,
-    OpStart,
-    OpEnd,
-    OpException,
-    EvmStop,
-    GasAndRefund,
-]
+TraceEvent = (
+    TransactionStart
+    | TransactionEnd
+    | PrecompileStart
+    | PrecompileEnd
+    | OpStart
+    | OpEnd
+    | OpException
+    | EvmStop
+    | GasAndRefund
+)
 """
 All possible types of events that an [`EvmTracer`] is expected to handle.
 

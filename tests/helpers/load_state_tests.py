@@ -3,7 +3,7 @@ import json
 import os.path
 import re
 from glob import glob
-from typing import Any, Dict, Generator, Tuple, Union
+from typing import Any, Dict, Generator, Tuple
 from unittest.mock import call, patch
 
 import pytest
@@ -154,7 +154,7 @@ def fetch_state_test_files(
     slow_list: Tuple[str, ...] = (),
     big_memory_list: Tuple[str, ...] = (),
     ignore_list: Tuple[str, ...] = (),
-) -> Generator[Union[Dict, ParameterSet], None, None]:
+) -> Generator[Dict | ParameterSet, None, None]:
     all_slow = [re.compile(x) for x in slow_list]
     all_big_memory = [re.compile(x) for x in big_memory_list]
     all_ignore = [re.compile(x) for x in ignore_list]
