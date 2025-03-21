@@ -67,7 +67,7 @@ def hive_consume_command(
     command = ["./hive", "--sim", f"ethereum/{test_suite_name}"]
     if hive_client_config_file_parameter:
         command += hive_client_config_file_parameter
-    command += ["--client", client_type.name, "--sim.limit", f'"{test_case.id}"']
+    command += ["--client", client_type.name, "--sim.limit", f'"id:{test_case.id}"']
     return command
 
 
