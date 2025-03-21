@@ -4,7 +4,6 @@ submitted to be executed. If Ethereum is viewed as a state machine,
 transactions are the events that move between states.
 """
 from dataclasses import dataclass
-from typing import Union
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0
@@ -61,7 +60,7 @@ class Transaction:
     The maximum amount of gas that can be used by this transaction.
     """
 
-    to: Union[Bytes0, Address]
+    to: Bytes0 | Address
     """
     The address of the recipient. If empty, the transaction is a contract
     creation.

@@ -26,7 +26,7 @@ from typing import (
     Sequence,
     Tuple,
     TypeVar,
-    Union,
+    assert_type,
     cast,
 )
 
@@ -34,7 +34,6 @@ from ethereum_rlp import Extended, rlp
 from ethereum_types.bytes import Bytes
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U256, Uint
-from typing_extensions import assert_type
 
 from ethereum.byzantium import trie as previous_trie
 from ethereum.crypto.hash import keccak256
@@ -63,7 +62,7 @@ EMPTY_TRIE_ROOT = Root(
     )
 )
 
-Node = Union[Account, Bytes, Transaction, Receipt, Uint, U256, None]
+Node = Account | Bytes | Transaction | Receipt | Uint | U256 | None
 K = TypeVar("K", bound=Bytes)
 V = TypeVar(
     "V",
@@ -124,7 +123,7 @@ class BranchNode:
     value: Extended
 
 
-InternalNode = Union[LeafNode, ExtensionNode, BranchNode]
+InternalNode = LeafNode | ExtensionNode | BranchNode
 
 
 def encode_internal_node(node: Optional[InternalNode]) -> Extended:
