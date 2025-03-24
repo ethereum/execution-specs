@@ -310,7 +310,7 @@ def validate_header(chain: BlockChain, header: Header) -> None:
     """
     if header.number < Uint(1):
         raise InvalidBlock
-    # Post-merge forks do not allow ommers, so parent_header is always the last header in the chain
+    
     parent_header = chain.blocks[-1].header
 
     excess_blob_gas = calculate_excess_blob_gas(parent_header)
@@ -337,6 +337,8 @@ def validate_header(chain: BlockChain, header: Header) -> None:
     if header.difficulty != 0:
         raise InvalidBlock
     if header.nonce != b"\x00\x00\x00\x00\x00\x00\x00\x00":
+        raise InvalidBlock
+    if header.ommers_hash != EMPTY_OMMER_HASH:
         raise InvalidBlock
 
     block_parent_hash = keccak256(rlp.encode(parent_header))
