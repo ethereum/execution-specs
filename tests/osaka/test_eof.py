@@ -9,11 +9,12 @@ from ethereum.osaka.vm.eof import ContainerContext
 from ethereum.osaka.vm.eof.validation import validate_eof_container
 from ethereum.osaka.vm.exceptions import InvalidEof
 from ethereum.utils.hexadecimal import hex_to_bytes
+from tests.helpers import EEST_TESTS_PATH
 
 TEST_DIRS = (
-    "tests/fixtures/latest_fork_tests/osaka/eof/eof_tests/eip7692_eof_v1",
+    f"{EEST_TESTS_PATH}/osaka/eof/eof_tests/eip7692_eof_v1",
     "tests/fixtures/ethereum_tests/EOFTests/",
-    "tests/fixtures/latest_fork_tests/osaka/eof/evmone_tests/eof_tests",
+    f"{EEST_TESTS_PATH}/osaka/eof/evmone_tests/eof_tests",
 )
 
 

@@ -1,9 +1,9 @@
 from functools import partial
-from typing import Dict, Generator, Tuple
+from typing import Dict
 
 import pytest
 
-from tests.helpers import TEST_FIXTURES
+from tests.helpers import EEST_TESTS_PATH
 from tests.helpers.load_state_tests import (
     Load,
     fetch_state_test_files,
@@ -11,22 +11,11 @@ from tests.helpers.load_state_tests import (
     run_blockchain_st_test,
 )
 
-fetch_osaka_tests = partial(fetch_state_test_files, network="Osaka")
-
-FIXTURES_LOADER = Load("Osaka", "osaka")
-
-run_osaka_blockchain_st_tests = partial(
-    run_blockchain_st_test, load=FIXTURES_LOADER
+EEST_BLOCKCHAIN_TESTS_DIR = (
+    f"{EEST_TESTS_PATH}/osaka/eof/blockchain_tests/eip7692_eof_v1/"
 )
-
-ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
-ETHEREUM_SPEC_TESTS_PATH = TEST_FIXTURES["execution_spec_tests"][
-    "fixture_path"
-]
-
-
-# Run state tests
-test_dir = f"{ETHEREUM_TESTS_PATH}/BlockchainTests/"
+NETWORK = "Osaka"
+PACKAGE = "osaka"
 
 SLOW_TESTS = (
     # GeneralStateTests
@@ -82,33 +71,25 @@ BIG_MEMORY_TESTS = (
     "stStaticCall/",
 )
 
-fetch_state_tests = partial(
-    fetch_osaka_tests,
+# Define Tests
+fetch_tests = partial(
+    fetch_state_test_files,
+    network=NETWORK,
     ignore_list=IGNORE_TESTS,
     slow_list=SLOW_TESTS,
     big_memory_list=BIG_MEMORY_TESTS,
 )
 
+FIXTURES_LOADER = Load(NETWORK, PACKAGE)
 
-# Run temporary test fixtures for Osaka
-test_dirs = (
-    "tests/fixtures/latest_fork_tests/osaka/eof/blockchain_tests/eip7692_eof_v1",
-)
+run_tests = partial(run_blockchain_st_test, load=FIXTURES_LOADER)
 
 
-def fetch_temporary_tests(test_dirs: Tuple[str, ...]) -> Generator:
-    """
-    Fetch the relevant tests for a particular EIP-Implementation
-    from among the temporary fixtures from ethereum-spec-tests.
-    """
-    for test_dir in test_dirs:
-        yield from fetch_state_tests(test_dir)
-
-
+# Run EEST test fixtures
 @pytest.mark.parametrize(
     "test_case",
-    fetch_temporary_tests(test_dirs),
+    fetch_tests(EEST_BLOCKCHAIN_TESTS_DIR),
     ids=idfn,
 )
-def test_execution_specs_generated_tests(test_case: Dict) -> None:
-    run_osaka_blockchain_st_tests(test_case)
+def test_eest_tests(test_case: Dict) -> None:
+    run_tests(test_case)

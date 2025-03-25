@@ -21,3 +21,7 @@ TEST_FIXTURES = {
         "fixture_path": "tests/fixtures/latest_fork_tests",
     },
 }
+
+
+ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
+EEST_TESTS_PATH = TEST_FIXTURES["latest_fork_tests"]["fixture_path"]
