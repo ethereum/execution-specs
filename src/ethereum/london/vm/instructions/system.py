@@ -75,8 +75,6 @@ def generic_create(
         evm.memory, memory_start_position, memory_size
     )
 
-    evm.accessed_addresses.add(contract_address)
-
     create_message_gas = max_message_call_gas(Uint(evm.gas_left))
     evm.gas_left -= create_message_gas
     if evm.message.is_static:
@@ -94,6 +92,7 @@ def generic_create(
         evm.gas_left += create_message_gas
         push(evm.stack, U256(0))
         return
+    
 
     if account_has_code_or_nonce(
         evm.message.block_env.state, contract_address
@@ -105,6 +104,8 @@ def generic_create(
         return
 
     increment_nonce(evm.message.block_env.state, evm.message.current_target)
+
+    evm.accessed_addresses.add(contract_address)
 
     child_message = Message(
         block_env=evm.message.block_env,
