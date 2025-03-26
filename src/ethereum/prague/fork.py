@@ -333,7 +333,7 @@ def validate_header(chain: BlockChain, header: Header) -> None:
     """
     if header.number < Uint(1):
         raise InvalidBlock
-    
+
     parent_header = chain.blocks[-1].header
 
     excess_blob_gas = calculate_excess_blob_gas(parent_header)
