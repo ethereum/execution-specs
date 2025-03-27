@@ -76,7 +76,7 @@ BEACON_ROOTS_ADDRESS = hex_to_address(
     "0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"
 )
 SYSTEM_TRANSACTION_GAS = Uint(30000000)
-MAX_BLOB_GAS_PER_BLOCK = Uint(786432)
+MAX_BLOB_GAS_PER_BLOCK = U64(786432)
 VERSIONED_HASH_VERSION_KZG = b"\x01"
 
 
@@ -350,7 +350,7 @@ def check_transaction(
     block_env: vm.BlockEnvironment,
     block_output: vm.BlockOutput,
     tx: Transaction,
-) -> Tuple[Address, Uint, Tuple[VersionedHash, ...], Uint]:
+) -> Tuple[Address, Uint, Tuple[VersionedHash, ...], U64]:
     """
     Check if the transaction is includable in the block.
 
