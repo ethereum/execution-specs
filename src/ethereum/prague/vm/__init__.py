@@ -69,7 +69,7 @@ class BlockOutput:
         block.
     withdrawals_trie : `ethereum.fork_types.Root`
         Trie root of all the withdrawals in the block.
-    blob_gas_used : `ethereum.base_types.Uint`
+    blob_gas_used : `ethereum.base_types.U64`
         Total blob gas used in the block.
     requests : `Bytes`
         Hash of all the requests in the block.
@@ -86,7 +86,7 @@ class BlockOutput:
     withdrawals_trie: Trie[Bytes, Optional[Union[Bytes, Withdrawal]]] = field(
         default_factory=lambda: Trie(secured=False, default=None)
     )
-    blob_gas_used: Uint = Uint(0)
+    blob_gas_used: U64 = U64(0)
     deposit_requests: Bytes = Bytes(b"")
     requests: List[Bytes] = field(default_factory=list)
 
