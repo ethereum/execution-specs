@@ -423,7 +423,7 @@ def check_transaction(
         if Uint(tx.max_fee_per_blob_gas) < blob_gas_price:
             raise InvalidBlock
 
-        max_gas_fee += calculate_total_blob_gas(tx) * Uint(
+        max_gas_fee += Uint(calculate_total_blob_gas(tx)) * Uint(
             tx.max_fee_per_blob_gas
         )
         blob_versioned_hashes = tx.blob_versioned_hashes

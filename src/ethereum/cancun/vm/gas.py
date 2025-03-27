@@ -357,6 +357,6 @@ def calculate_data_fee(excess_blob_gas: U64, tx: Transaction) -> Uint:
     data_fee: `Uint`
         The blob data fee.
     """
-    return calculate_total_blob_gas(tx) * calculate_blob_gas_price(
+    return Uint(calculate_total_blob_gas(tx)) * calculate_blob_gas_price(
         excess_blob_gas
     )
