@@ -16,6 +16,12 @@ class InvalidBlock(EthereumException):
     """
 
 
+class StateWithEmptyAccount(EthereumException):
+    """
+    Thrown when the state has empty account.
+    """
+
+
 class InvalidTransaction(EthereumException):
     """
     Thrown when a transaction being processed is found to be invalid.
