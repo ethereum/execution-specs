@@ -3513,7 +3513,7 @@ def test_set_code_from_account_with_non_delegating_code(
     But at the same time it has auth tuple that will point this sender account
     To be eoa, delegation, contract .. etc
     """
-    sender = pre.fund_eoa()
+    sender = pre.fund_eoa(nonce=1)
     random_address = pre.fund_eoa(0)
 
     set_code_to_address: Address
@@ -3560,9 +3560,8 @@ def test_set_code_from_account_with_non_delegating_code(
                 if set_code_type == AddressType.EMPTY_ACCOUNT
                 else Account(storage={})
             ),
-            random_address: Account.NONEXISTENT
-            if not self_sponsored
-            else Account(code=Bytes(Op.STOP)),
+            random_address: Account.NONEXISTENT,
+            sender: Account(nonce=1),
             callee_address: Account(storage={0: 0}),
         },
     )
