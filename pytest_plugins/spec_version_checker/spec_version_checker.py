@@ -5,6 +5,7 @@ modules matches that of https://github.com/ethereum/EIPs.
 
 import re
 from types import ModuleType
+from typing import List, Set
 
 import pytest
 from _pytest.nodes import Item
@@ -132,20 +133,19 @@ class EIPSpecTestItem(Item):
         return "spec_version_checker", 0, f"{self.name}"
 
 
-def pytest_collection_modifyitems(session, config, items):
+def pytest_collection_modifyitems(
+    session: pytest.Session, config: pytest.Config, items: List[Item]
+):
     """
     Insert a new test EIPSpecTestItem for every test modules that
     contains 'eip' in its path.
     """
-    modules = {item.parent for item in items if isinstance(item.parent, Module)}
+    modules: Set[Module] = {item.parent for item in items if isinstance(item.parent, Module)}
     new_test_eip_spec_version_items = [
         EIPSpecTestItem.from_parent(module, module.obj)
-        for module in modules
+        for module in sorted(modules, key=lambda module: module.path)
         if is_test_for_an_eip(str(module.path))
     ]
     for item in new_test_eip_spec_version_items:
         item.add_marker("eip_version_check", append=True)
     items.extend(new_test_eip_spec_version_items)
-    # this gives a nice ordering for the new tests added here, but re-orders the entire
-    # default pytest item ordering which based on ordering of test functions in test modules
-    # items.sort(key=lambda x: x.nodeid)
