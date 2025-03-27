@@ -11,8 +11,10 @@ from http.server import BaseHTTPRequestHandler
 from io import StringIO, TextIOWrapper
 from socket import socket
 from threading import Thread
-from typing import Any, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 from urllib.parse import parse_qs, urlparse
+
+from typing_extensions import override
 
 
 def daemon_arguments(subparsers: argparse._SubParsersAction) -> None:
@@ -83,7 +85,7 @@ class _EvmToolHandler(BaseHTTPRequestHandler):
 
 
 class _UnixSocketHttpServer(socketserver.UnixStreamServer):
-    last_response: float
+    last_response: Optional[float]
     shutdown_timeout: int
 
     def __init__(
@@ -99,6 +101,7 @@ class _UnixSocketHttpServer(socketserver.UnixStreamServer):
         request, client_address = super().get_request()
         return (request, ["local", 0])
 
+    @override
     def finish_request(
         self, request: Union[socket, Tuple[bytes, socket]], client_address: Any
     ) -> None:
@@ -125,6 +128,8 @@ class Daemon:
     """
 
     def __init__(self, options: argparse.Namespace) -> None:
+        super().__init__()
+
         if options.uds is None:
             try:
                 from platformdirs import user_runtime_dir

@@ -187,7 +187,7 @@ def evm_trace(
 
         output_traces(
             traces,
-            evm.message.tx_env.index_in_block,
+            int(evm.message.tx_env.index_in_block),
             evm.message.tx_env.tx_hash,
             output_basedir,
         )
@@ -259,9 +259,10 @@ def evm_trace(
                     f"OpException event error type `{name}` does not have code"
                 ) from event.error
 
+            op = event.error.code
             new_trace = Trace(
                 pc=int(evm.pc),
-                op=event.error.code,
+                op=op,
                 gas=hex(evm.gas_left),
                 gasCost="0x0",
                 memory=memory,
@@ -323,13 +324,13 @@ class _TraceJsonEncoder(json.JSONEncoder):
 
         return True
 
-    def default(self, obj: object) -> object:
-        if not is_dataclass(obj) or isinstance(obj, type):
-            return super().default(obj)
+    def default(self, o: object) -> object:
+        if not is_dataclass(o) or isinstance(o, type):
+            return super().default(o)
 
         trace = {
             k: v
-            for k, v in asdict(obj).items()
+            for k, v in asdict(o).items()
             if _TraceJsonEncoder.retain(k, v)
         }
 

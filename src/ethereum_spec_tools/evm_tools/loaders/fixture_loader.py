@@ -56,12 +56,12 @@ class Load(BaseLoad):
         self._fork_module = fork_module
         self.fork = ForkLoad(fork_module)
 
-    def json_to_state(self, raw: Any) -> Any:
+    def json_to_state(self, json_data: Any) -> Any:
         """Converts json state data to a state object"""
         state = self.fork.State()
         set_storage = self.fork.set_storage
 
-        for address_hex, account_state in raw.items():
+        for address_hex, account_state in json_data.items():
             address = self.fork.hex_to_address(address_hex)
             account = self.fork.Account(
                 nonce=hex_to_uint(account_state.get("nonce", "0x0")),
@@ -92,23 +92,23 @@ class Load(BaseLoad):
 
     def json_to_block(
         self,
-        json_block: Any,
+        json_data: Any,
     ) -> Tuple[Any, Hash32, bytes]:
         """Converts json block data to a block object"""
-        if "rlp" in json_block:
+        if "rlp" in json_data:
             # Always decode from rlp
-            block_rlp = hex_to_bytes(json_block["rlp"])
+            block_rlp = hex_to_bytes(json_data["rlp"])
             block = rlp.decode_to(self.fork.Block, block_rlp)
             block_header_hash = keccak256(rlp.encode(block.header))
             return block, block_header_hash, block_rlp
 
-        header = self.json_to_header(json_block["blockHeader"])
+        header = self.json_to_header(json_data["blockHeader"])
         transactions = tuple(
             TransactionLoad(tx, self.fork).read()
-            for tx in json_block["transactions"]
+            for tx in json_data["transactions"]
         )
         uncles = tuple(
-            self.json_to_header(uncle) for uncle in json_block["uncleHeaders"]
+            self.json_to_header(uncle) for uncle in json_data["uncleHeaders"]
         )
 
         parameters = [
@@ -117,69 +117,75 @@ class Load(BaseLoad):
             uncles,
         ]
 
-        if "withdrawals" in json_block:
+        if "withdrawals" in json_data:
             withdrawals = tuple(
-                self.json_to_withdrawals(wd)
-                for wd in json_block["withdrawals"]
+                self.json_to_withdrawals(wd) for wd in json_data["withdrawals"]
             )
             parameters.append(withdrawals)
 
         block = self.fork.Block(*parameters)
         block_header_hash = Hash32(
-            hex_to_bytes(json_block["blockHeader"]["hash"])
+            hex_to_bytes(json_data["blockHeader"]["hash"])
         )
-        block_rlp = hex_to_bytes(json_block["rlp"])
+        block_rlp = hex_to_bytes(json_data["rlp"])
 
         return block, block_header_hash, block_rlp
 
-    def json_to_header(self, raw: Any) -> Any:
+    def json_to_header(self, json_data: Any) -> Any:
         """Converts json header data to a header object"""
         parameters = [
-            hex_to_hash(raw.get("parentHash")),
-            hex_to_hash(raw.get("uncleHash") or raw.get("sha3Uncles")),
-            self.fork.hex_to_address(raw.get("coinbase") or raw.get("miner")),
-            self.fork.hex_to_root(raw.get("stateRoot")),
+            hex_to_hash(json_data.get("parentHash")),
+            hex_to_hash(
+                json_data.get("uncleHash") or json_data.get("sha3Uncles")
+            ),
+            self.fork.hex_to_address(
+                json_data.get("coinbase") or json_data.get("miner")
+            ),
+            self.fork.hex_to_root(json_data.get("stateRoot")),
             self.fork.hex_to_root(
-                raw.get("transactionsTrie") or raw.get("transactionsRoot")
+                json_data.get("transactionsTrie")
+                or json_data.get("transactionsRoot")
             ),
             self.fork.hex_to_root(
-                raw.get("receiptTrie") or raw.get("receiptsRoot")
+                json_data.get("receiptTrie") or json_data.get("receiptsRoot")
             ),
             self.fork.Bloom(
-                hex_to_bytes(raw.get("bloom") or raw.get("logsBloom"))
+                hex_to_bytes(
+                    json_data.get("bloom") or json_data.get("logsBloom")
+                )
             ),
-            hex_to_uint(raw.get("difficulty")),
-            hex_to_uint(raw.get("number")),
-            hex_to_uint(raw.get("gasLimit")),
-            hex_to_uint(raw.get("gasUsed")),
-            hex_to_u256(raw.get("timestamp")),
-            hex_to_bytes(raw.get("extraData")),
-            hex_to_bytes32(raw.get("mixHash")),
-            hex_to_bytes8(raw.get("nonce")),
+            hex_to_uint(json_data.get("difficulty")),
+            hex_to_uint(json_data.get("number")),
+            hex_to_uint(json_data.get("gasLimit")),
+            hex_to_uint(json_data.get("gasUsed")),
+            hex_to_u256(json_data.get("timestamp")),
+            hex_to_bytes(json_data.get("extraData")),
+            hex_to_bytes32(json_data.get("mixHash")),
+            hex_to_bytes8(json_data.get("nonce")),
         ]
 
-        if "baseFeePerGas" in raw:
-            base_fee_per_gas = hex_to_uint(raw.get("baseFeePerGas"))
+        if "baseFeePerGas" in json_data:
+            base_fee_per_gas = hex_to_uint(json_data.get("baseFeePerGas"))
             parameters.append(base_fee_per_gas)
 
-        if "withdrawalsRoot" in raw:
+        if "withdrawalsRoot" in json_data:
             withdrawals_root = self.fork.hex_to_root(
-                raw.get("withdrawalsRoot")
+                json_data.get("withdrawalsRoot")
             )
             parameters.append(withdrawals_root)
 
-        if "excessBlobGas" in raw:
-            blob_gas_used = hex_to_u64(raw.get("blobGasUsed"))
+        if "excessBlobGas" in json_data:
+            blob_gas_used = hex_to_u64(json_data.get("blobGasUsed"))
             parameters.append(blob_gas_used)
-            excess_blob_gas = hex_to_u64(raw.get("excessBlobGas"))
+            excess_blob_gas = hex_to_u64(json_data.get("excessBlobGas"))
             parameters.append(excess_blob_gas)
             parent_beacon_block_root = self.fork.hex_to_root(
-                raw.get("parentBeaconBlockRoot")
+                json_data.get("parentBeaconBlockRoot")
             )
             parameters.append(parent_beacon_block_root)
 
-        if "requestsHash" in raw:
-            requests_hash = hex_to_bytes32(raw.get("requestsHash"))
+        if "requestsHash" in json_data:
+            requests_hash = hex_to_bytes32(json_data.get("requestsHash"))
             parameters.append(requests_hash)
 
         return self.fork.Header(*parameters)

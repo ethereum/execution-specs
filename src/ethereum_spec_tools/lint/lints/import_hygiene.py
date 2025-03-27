@@ -101,14 +101,14 @@ class _Visitor(ast.NodeVisitor):
     def __init__(self) -> None:
         self.item_imports = []
 
-    def visit_Import(self, mod: ast.Import) -> None:
+    def visit_Import(self, node: ast.Import) -> None:
         """
         Visit an Import.
         """
-        self.item_imports.append(mod.names[0].name)
+        self.item_imports.append(node.names[0].name)
 
-    def visit_ImportFrom(self, mod: ast.ImportFrom) -> None:
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         """
         Visit an ImportFrom.
         """
-        self.item_imports.append(str(mod.module))
+        self.item_imports.append(str(node.module))

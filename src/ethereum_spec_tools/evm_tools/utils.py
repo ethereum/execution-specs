@@ -117,12 +117,13 @@ def get_module_name(
 
         block_number = parse_hex_or_int(data["currentNumber"], Uint)
 
+        current_fork = None
         for fork, fork_block in exception_config["fork_blocks"]:
             if block_number >= Uint(fork_block):
-                current_fork_module = fork
-                current_fork_block = fork_block
+                current_fork = (fork, fork_block)
 
-        return current_fork_module, current_fork_block
+        assert current_fork is not None, f"no fork for block {block_number}"
+        return current_fork
 
     # If the state fork is not an exception, use the fork name.
     for fork in forks:
