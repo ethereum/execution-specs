@@ -11,6 +11,7 @@ Introduction
 
 Implementations of the EVM system related instructions.
 """
+
 from ethereum_types.bytes import Bytes0
 from ethereum_types.numeric import U256, Uint
 
@@ -75,7 +76,6 @@ def generic_create(
     call_data = memory_read_bytes(
         evm.memory, memory_start_position, memory_size
     )
-
 
     create_message_gas = max_message_call_gas(Uint(evm.gas_left))
     evm.gas_left -= create_message_gas
