@@ -9,7 +9,7 @@ import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Literal, Optional, Tuple
+from typing import ClassVar, Dict, Literal, Optional, Tuple
 
 from ethereum_test_base_types import to_json
 
@@ -18,40 +18,26 @@ from .consume import FixtureConsumer
 from .file import Fixtures
 
 
-def strip_test_prefix(name: str) -> str:
-    """Remove test prefix from a test case name."""
-    test_prefix = "test_"
-    if name.startswith(test_prefix):
-        return name[len(test_prefix) :]
-    return name
-
-
-def get_module_relative_output_dir(test_module: Path, filler_path: Path) -> Path:
-    """
-    Return a directory name for the provided test_module (relative to the
-    base ./tests directory) that can be used for output (within the
-    configured fixtures output path or the base_dump_dir directory).
-
-    Example:
-    tests/shanghai/eip3855_push0/test_push0.py -> shanghai/eip3855_push0/test_push0
-
-    """
-    basename = test_module.with_suffix("").absolute()
-    basename_relative = basename.relative_to(
-        os.path.commonpath([filler_path.absolute(), basename])
-    )
-    module_path = basename_relative.parent / basename_relative.stem
-    return module_path
-
-
 @dataclass(kw_only=True)
 class TestInfo:
     """Contains test information from the current node."""
 
-    name: str  # pytest: Item.name
-    id: str  # pytest: Item.nodeid
-    original_name: str  # pytest: Item.originalname
-    path: Path  # pytest: Item.path
+    name: str  # pytest: Item.name, e.g. test_paris_one[fork_Paris-state_test]
+    id: str  # pytest: Item.nodeid, e.g. tests/paris/test_module_paris.py::test_paris_one[...]
+    original_name: str  # pytest: Item.originalname, e.g. test_paris_one
+    module_path: Path  # pytest: Item.path, e.g. .../tests/paris/test_module_paris.py
+
+    test_prefix: ClassVar[str] = "test_"  # Python test prefix
+    filler_suffix: ClassVar[str] = "Filler"  # Static test suffix
+
+    @classmethod
+    def strip_test_name(cls, name: str) -> str:
+        """Remove test prefix from a python test case name."""
+        if name.startswith(cls.test_prefix):
+            return name[len(cls.test_prefix) :]
+        if name.endswith(cls.filler_suffix):
+            return name[: -len(cls.filler_suffix)]
+        return name
 
     def get_name_and_parameters(self) -> Tuple[str, str]:
         """
@@ -64,10 +50,16 @@ class TestInfo:
         test_name, parameters = self.name.split("[")
         return test_name, re.sub(r"[\[\-]", "_", parameters).replace("]", "")
 
-    def get_single_test_name(self) -> str:
+    def get_single_test_name(self, mode: Literal["module", "test"] = "module") -> str:
         """Convert test name to a single test name."""
-        test_name, test_parameters = self.get_name_and_parameters()
-        return f"{test_name}__{test_parameters}"
+        if mode == "module":
+            # Use the module name as the test name
+            return self.strip_test_name(self.original_name)
+        elif mode == "test":
+            # Mix the module name and the test name/arguments
+            test_name, test_parameters = self.get_name_and_parameters()
+            test_name = self.strip_test_name(test_name)
+            return f"{test_name}__{test_parameters}"
 
     def get_dump_dir_path(
         self,
@@ -78,7 +70,7 @@ class TestInfo:
         """Path to dump the debug output as defined by the level to dump at."""
         if not base_dump_dir:
             return None
-        test_module_relative_dir = get_module_relative_output_dir(self.path, filler_path)
+        test_module_relative_dir = self.get_module_relative_output_dir(filler_path)
         if level == "test_module":
             return Path(base_dump_dir) / Path(str(test_module_relative_dir).replace(os.sep, "__"))
         test_name, test_parameter_string = self.get_name_and_parameters()
@@ -88,6 +80,27 @@ class TestInfo:
         elif level == "test_parameter":
             return Path(base_dump_dir) / flat_path / test_parameter_string
         raise Exception("Unexpected level.")
+
+    def get_id(self) -> str:
+        """Return the test id."""
+        return self.id
+
+    def get_module_relative_output_dir(self, filler_path: Path) -> Path:
+        """
+        Return a directory name for the provided test_module (relative to the
+        base ./tests directory) that can be used for output (within the
+        configured fixtures output path or the base_dump_dir directory).
+
+        Example:
+        tests/shanghai/eip3855_push0/test_push0.py -> shanghai/eip3855_push0/test_push0
+
+        """
+        basename = self.module_path.with_suffix("").absolute()
+        basename_relative = basename.relative_to(
+            os.path.commonpath([filler_path.absolute(), basename])
+        )
+        module_path = basename_relative.parent / self.strip_test_name(basename_relative.stem)
+        return module_path
 
 
 @dataclass(kw_only=True)
@@ -108,19 +121,14 @@ class FixtureCollector:
         """Return basename of the fixture file for a given test case."""
         if self.flat_output:
             if self.single_fixture_per_file:
-                return Path(strip_test_prefix(info.get_single_test_name()))
-            return Path(strip_test_prefix(info.original_name))
+                return Path(info.get_single_test_name(mode="test"))
+            return Path(info.get_single_test_name(mode="module"))
         else:
-            relative_fixture_output_dir = Path(info.path).parent / strip_test_prefix(
-                Path(info.path).stem
-            )
-            module_relative_output_dir = get_module_relative_output_dir(
-                relative_fixture_output_dir, self.filler_path
-            )
+            module_relative_output_dir = info.get_module_relative_output_dir(self.filler_path)
 
             if self.single_fixture_per_file:
-                return module_relative_output_dir / strip_test_prefix(info.get_single_test_name())
-            return module_relative_output_dir / strip_test_prefix(info.original_name)
+                return module_relative_output_dir / info.get_single_test_name(mode="test")
+            return module_relative_output_dir / info.get_single_test_name(mode="module")
 
     def add_fixture(self, info: TestInfo, fixture: BaseFixture) -> Path:
         """Add fixture to the list of fixtures of a given test case."""
@@ -135,7 +143,7 @@ class FixtureCollector:
             self.all_fixtures[fixture_path] = Fixtures(root={})
             self.json_path_to_test_item[fixture_path] = info
 
-        self.all_fixtures[fixture_path][info.id] = fixture
+        self.all_fixtures[fixture_path][info.get_id()] = fixture
 
         return fixture_path
 

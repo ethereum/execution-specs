@@ -10,7 +10,7 @@ from pytest_metadata.plugin import metadata_key  # type: ignore
 from ethereum_test_execution import BaseExecute
 from ethereum_test_forks import Fork
 from ethereum_test_rpc import EthRPC
-from ethereum_test_tools import SPEC_TYPES, BaseTest, TestInfo
+from ethereum_test_tools import SPEC_TYPES, BaseTest
 from ethereum_test_types import TransactionDefaults
 from pytest_plugins.spec_version_checker.spec_version_checker import EIPSpecTestItem
 
@@ -222,16 +222,6 @@ def collector(
     """
     collector = Collector(eth_rpc=eth_rpc)
     yield collector
-
-
-def node_to_test_info(node) -> TestInfo:
-    """Return test info of the current node item."""
-    return TestInfo(
-        name=node.name,
-        id=node.nodeid,
-        original_name=node.originalname,
-        path=Path(node.path),
-    )
 
 
 def base_test_parametrizer(cls: Type[BaseTest]):

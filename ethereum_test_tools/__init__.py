@@ -21,7 +21,7 @@ from ethereum_test_exceptions import (
     EOFException,
     TransactionException,
 )
-from ethereum_test_fixtures import BaseFixture, FixtureCollector, TestInfo
+from ethereum_test_fixtures import BaseFixture, FixtureCollector
 from ethereum_test_specs import (
     SPEC_TYPES,
     BaseTest,
@@ -134,7 +134,6 @@ __all__ = (
     "Switch",
     "TestAddress",
     "TestAddress2",
-    "TestInfo",
     "TestParameterGroup",
     "TestPrivateKey",
     "TestPrivateKey2",

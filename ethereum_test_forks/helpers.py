@@ -1,7 +1,9 @@
 """Helper methods to resolve forks during test filling."""
 
-from typing import List, Optional, Set
+import re
+from typing import Any, List, Optional, Set
 
+from pydantic import BaseModel, ConfigDict, ValidatorFunctionWrapHandler, model_validator
 from semver import Version
 
 from .base_fork import BaseFork, Fork
@@ -17,18 +19,20 @@ class InvalidForkError(Exception):
         super().__init__(message)
 
 
+all_forks: List[Fork] = []
+for fork_name in forks.__dict__:
+    fork = forks.__dict__[fork_name]
+    if not isinstance(fork, type):
+        continue
+    if issubclass(fork, BaseFork) and fork is not BaseFork:
+        all_forks.append(fork)
+
+
 def get_forks() -> List[Fork]:
     """
     Return list of all the fork classes implemented by
     `ethereum_test_forks` ordered chronologically by deployment.
     """
-    all_forks: List[Fork] = []
-    for fork_name in forks.__dict__:
-        fork = forks.__dict__[fork_name]
-        if not isinstance(fork, type):
-            continue
-        if issubclass(fork, BaseFork) and fork is not BaseFork:
-            all_forks.append(fork)
     return all_forks
 
 
@@ -250,3 +254,61 @@ def get_relative_fork_markers(fork_identifier: Fork | str, strict_mode: bool = T
         return [fork_class.name(), fork_class.transitions_to().name()]
     else:
         return [fork_class.name()]
+
+
+def get_fork_by_name(fork_name: str) -> Fork | None:
+    """Get a fork by name."""
+    for fork in get_forks():
+        if fork.name() == fork_name:
+            return fork
+    return None
+
+
+class ForkRangeDescriptor(BaseModel):
+    """Fork descriptor parsed from string normally contained in ethereum/tests fillers."""
+
+    greater_equal: Fork | None = None
+    less_than: Fork | None = None
+    model_config = ConfigDict(frozen=True)
+
+    def fork_in_range(self, fork: Fork) -> bool:
+        """Return whether the given fork is within range."""
+        if self.greater_equal is not None and fork < self.greater_equal:
+            return False
+        if self.less_than is not None and fork >= self.less_than:
+            return False
+        return True
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def validate_fork_range_descriptor(cls, v: Any, handler: ValidatorFunctionWrapHandler):
+        """
+        Validate the fork range descriptor from a string.
+
+        Examples:
+        - ">=Osaka" validates to {greater_equal=Osaka, less_than=None}
+        - ">=Prague<Osaka" validates to {greater_equal=Prague, less_than=Osaka}
+
+        """
+        if isinstance(v, str):
+            # Decompose the string into its parts
+            descriptor_string = re.sub(r"\s+", "", v.strip())
+            v = {}
+            if m := re.search(r">=(\w+)", descriptor_string):
+                fork: Fork | None = get_fork_by_name(m.group(1))
+                if fork is None:
+                    raise Exception(f"Unable to parse fork name: {m.group(1)}")
+                v["greater_equal"] = fork
+                descriptor_string = re.sub(r">=(\w+)", "", descriptor_string)
+            if m := re.search(r"<(\w+)", descriptor_string):
+                fork = get_fork_by_name(m.group(1))
+                if fork is None:
+                    raise Exception(f"Unable to parse fork name: {m.group(1)}")
+                v["less_than"] = fork
+                descriptor_string = re.sub(r"<(\w+)", "", descriptor_string)
+            if descriptor_string:
+                raise Exception(
+                    "Unable to completely parse fork range descriptor. "
+                    + f'Remaining string: "{descriptor_string}"'
+                )
+        return handler(v)

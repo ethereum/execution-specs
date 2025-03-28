@@ -3,6 +3,7 @@
 from typing import List, Type
 
 from .base import BaseTest, TestSpec
+from .base_static import BaseStaticTest
 from .blockchain import (
     BlockchainTest,
     BlockchainTestFiller,
@@ -30,6 +31,7 @@ SPEC_TYPES: List[Type[BaseTest]] = [
 
 __all__ = (
     "SPEC_TYPES",
+    "BaseStaticTest",
     "BaseTest",
     "BlockchainTest",
     "BlockchainTestEngineFiller",

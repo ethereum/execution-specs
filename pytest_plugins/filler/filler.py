@@ -31,7 +31,6 @@ from ethereum_test_tools.utility.versioning import (
     generate_github_url,
     get_current_commit_hash_or_tag,
 )
-from pytest_plugins.spec_version_checker.spec_version_checker import EIPSpecTestItem
 
 from ..shared.helpers import get_spec_format_for_item, labeled_format_parameter_set
 
@@ -632,13 +631,15 @@ def node_to_test_info(node: pytest.Item) -> TestInfo:
         name=node.name,
         id=node.nodeid,
         original_name=node.originalname,  # type: ignore
-        path=Path(node.path),
+        module_path=Path(node.path),
     )
 
 
 @pytest.fixture(scope="function")
 def fixture_source_url(request: pytest.FixtureRequest) -> str:
     """Return URL to the fixture source."""
+    if hasattr(request.node, "github_url"):
+        return request.node.github_url
     function_line_number = request.function.__code__.co_firstlineno
     module_relative_path = os.path.relpath(request.module.__file__)
     hash_or_tag = get_current_commit_hash_or_tag()
@@ -683,8 +684,14 @@ def base_test_parametrizer(cls: Type[BaseTest]):
 
         When parametrize, indirect must be used along with the fixture format as value.
         """
-        fixture_format = request.param
+        if hasattr(request.node, "fixture_format"):
+            fixture_format = request.node.fixture_format
+        else:
+            fixture_format = request.param
         assert issubclass(fixture_format, BaseFixture)
+        if fork is None:
+            assert hasattr(request.node, "fork")
+            fork = request.node.fork
 
         class BaseTestWrapper(cls):  # type: ignore
             def __init__(self, *args, **kwargs):
@@ -748,7 +755,9 @@ def pytest_generate_tests(metafunc: pytest.Metafunc):
             )
 
 
-def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item]):
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: List[pytest.Item | pytest.Function]
+):
     """
     Remove pre-Paris tests parametrized to generate hive type fixtures; these
     can't be used in the Hive Pyspec Simulator.
@@ -759,10 +768,12 @@ def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item
     parametrization occurs in the forks plugin.
     """
     for item in items[:]:  # use a copy of the list, as we'll be modifying it
-        if isinstance(item, EIPSpecTestItem):
-            continue
-        params: Dict[str, Any] = item.callspec.params  # type: ignore
-        if "fork" not in params or params["fork"] is None:
+        params: Dict[str, Any] | None = None
+        if isinstance(item, pytest.Function):
+            params = item.callspec.params
+        elif hasattr(item, "params"):
+            params = item.params
+        if not params or "fork" not in params or params["fork"] is None:
             items.remove(item)
             continue
         fork: Fork = params["fork"]

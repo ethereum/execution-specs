@@ -27,12 +27,14 @@ from .forks.transition import (
 )
 from .gas_costs import GasCosts
 from .helpers import (
+    ForkRangeDescriptor,
     InvalidForkError,
     forks_from,
     forks_from_until,
     get_closest_fork_with_solc_support,
     get_deployed_forks,
     get_development_forks,
+    get_fork_by_name,
     get_forks,
     get_forks_with_no_descendants,
     get_forks_with_no_parents,
@@ -57,6 +59,7 @@ __all__ = [
     "Byzantium",
     "Constantinople",
     "ConstantinopleFix",
+    "ForkRangeDescriptor",
     "Frontier",
     "GrayGlacier",
     "Homestead",
@@ -80,6 +83,7 @@ __all__ = [
     "get_development_forks",
     "get_transition_fork_predecessor",
     "get_transition_fork_successor",
+    "get_fork_by_name",
     "get_forks_with_no_descendants",
     "get_forks_with_no_parents",
     "get_forks_with_solc_support",

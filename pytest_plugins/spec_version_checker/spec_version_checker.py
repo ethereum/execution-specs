@@ -69,7 +69,9 @@ def reference_spec(request) -> None | ReferenceSpec:
 
     See `get_ref_spec_from_module`.
     """
-    return get_ref_spec_from_module(request.module)
+    if hasattr(request, "module"):
+        return get_ref_spec_from_module(request.module)
+    return None
 
 
 def is_test_for_an_eip(input_string: str) -> bool:

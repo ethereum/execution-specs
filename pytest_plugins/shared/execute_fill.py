@@ -1,7 +1,7 @@
 """Shared pytest fixtures and hooks for EEST generation modes (fill and execute)."""
 
 import warnings
-from typing import List, cast
+from typing import List
 
 import pytest
 
@@ -145,12 +145,16 @@ def test_case_description(request: pytest.FixtureRequest) -> str:
     description_unavailable = (
         "No description available - add a docstring to the python test class or function."
     )
-    test_class_doc = f"Test class documentation:\n{request.cls.__doc__}" if request.cls else ""
-    test_function_doc = (
-        f"Test function documentation:\n{request.function.__doc__}"
-        if request.function.__doc__
-        else ""
-    )
+    test_class_doc = ""
+    test_function_doc = ""
+    if hasattr(request.node, "cls"):
+        test_class_doc = f"Test class documentation:\n{request.cls.__doc__}" if request.cls else ""
+    if hasattr(request.node, "function"):
+        test_function_doc = (
+            f"Test function documentation:\n{request.function.__doc__}"
+            if request.function.__doc__
+            else ""
+        )
     if not test_class_doc and not test_function_doc:
         return description_unavailable
     combined_docstring = f"{test_class_doc}\n\n{test_function_doc}".strip()
@@ -177,7 +181,8 @@ def pytest_runtest_call(item: pytest.Item):
         def __init__(self, message):
             super().__init__(message)
 
-    item = cast(pytest.Function, item)  # help mypy infer type
+    if not isinstance(item, pytest.Function):
+        return
 
     if "state_test" in item.fixturenames and "blockchain_test" in item.fixturenames:
         raise InvalidFillerError(

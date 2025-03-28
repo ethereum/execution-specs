@@ -620,14 +620,18 @@ class ValidityMarker(ABC):
         return forks
 
     @classmethod
-    def get_validity_marker(cls, metafunc: Metafunc) -> "ValidityMarker | None":
+    def get_validity_marker(
+        cls,
+        test_name: str,
+        config: pytest.Config,
+        markers: Iterable[pytest.Mark],
+    ) -> "ValidityMarker | None":
         """
         Instantiate a validity marker for the test function.
 
         If the test function does not contain the marker, return None.
         """
-        test_name = metafunc.function.__name__
-        validity_markers = list(metafunc.definition.iter_markers(cls.marker_name))
+        validity_markers = [mark for mark in markers if mark.name == cls.marker_name]
         if not validity_markers:
             return None
 
@@ -637,8 +641,8 @@ class ValidityMarker(ABC):
         if len(mark.args) == 0:
             pytest.fail(f"'{test_name}': Missing fork argument with '{cls.marker_name}' marker. ")
 
-        all_forks_by_name: Mapping[str, Fork] = metafunc.config.all_forks_by_name  # type: ignore
-        all_forks: Set[Fork] = metafunc.config.all_forks  # type: ignore
+        all_forks_by_name: Mapping[str, Fork] = config.all_forks_by_name  # type: ignore
+        all_forks: Set[Fork] = config.all_forks  # type: ignore
 
         return cls(
             test_name=test_name,
@@ -648,13 +652,19 @@ class ValidityMarker(ABC):
         )
 
     @staticmethod
-    def get_all_validity_markers(metafunc: Metafunc) -> List["ValidityMarker"]:
+    def get_all_validity_markers(
+        test_name: str,
+        config: pytest.Config,
+        markers: Iterable[pytest.Mark],
+    ) -> List["ValidityMarker"]:
         """Get all the validity markers applied to the test function."""
-        test_name = metafunc.function.__name__
-
         validity_markers: List[ValidityMarker] = []
         for validity_marker_class in ALL_VALIDITY_MARKERS:
-            if validity_marker := validity_marker_class.get_validity_marker(metafunc):
+            if validity_marker := validity_marker_class.get_validity_marker(
+                test_name,
+                config,
+                markers,
+            ):
                 validity_markers.append(validity_marker)
 
         if len(validity_markers) > 1:
@@ -671,6 +681,15 @@ class ValidityMarker(ABC):
                 pytest.fail(f"'{test_name}': The markers {concatenated_names} can't be combined. ")
 
         return validity_markers
+
+    @staticmethod
+    def get_all_validity_markers_from_metafunc(metafunc: Metafunc) -> List["ValidityMarker"]:
+        """Get all the validity markers applied to the test function using its meta-function."""
+        return ValidityMarker.get_all_validity_markers(
+            metafunc.function.__name__,
+            metafunc.config,
+            list(metafunc.definition.iter_markers()),
+        )
 
     def process(self) -> Set[Fork]:
         """Process the fork arguments."""
@@ -746,6 +765,31 @@ class ValidUntil(ValidityMarker):
         for fork in forks:
             resulting_set |= {f for f in self.all_forks if f <= fork}
         return resulting_set
+
+
+class ValidAt(ValidityMarker):
+    """
+    Marker to specify each fork individualy for which the test is valid.
+
+    ```python
+    import pytest
+
+    from ethereum_test_tools import Alloc, StateTestFiller
+
+    @pytest.mark.valid_at("London", "Cancun")
+    def test_something_only_valid_at_london_and_cancun(
+        state_test: StateTestFiller,
+        pre: Alloc
+    ):
+        pass
+    ```
+
+    In this example, the test will only be filled for the London and Cancun forks.
+    """
+
+    def _process_with_marker_args(self, *fork_args) -> Set[Fork]:
+        """Process the fork arguments."""
+        return self.process_fork_arguments(*fork_args)
 
 
 class ValidAtTransitionTo(ValidityMarker, mutually_exclusive=True):
@@ -835,18 +879,18 @@ class ValidAtTransitionTo(ValidityMarker, mutually_exclusive=True):
         return resulting_set
 
 
-def pytest_generate_tests(metafunc: pytest.Metafunc):
-    """Pytest hook used to dynamically generate test cases."""
-    test_name = metafunc.function.__name__
-
-    validity_markers: List[ValidityMarker] = ValidityMarker.get_all_validity_markers(metafunc)
-
+def get_intersection_set(
+    test_name: str,
+    validity_markers: List[ValidityMarker],
+    config: pytest.Config,
+) -> Set[Fork]:
+    """Get the intersection set of forks from the validity markers."""
     if not validity_markers:
         # Limit to non-transition forks if no validity markers were applied
-        test_fork_set: Set[Fork] = metafunc.config.all_forks  # type: ignore
+        test_fork_set: Set[Fork] = config.all_forks  # type: ignore
     else:
         # Start with all forks and transitions if any validity markers were applied
-        test_fork_set: Set[Fork] = metafunc.config.all_forks_with_transitions  # type: ignore
+        test_fork_set: Set[Fork] = config.all_forks_with_transitions  # type: ignore
         for validity_marker in validity_markers:
             # Apply the validity markers to the test function if applicable
             test_fork_set = test_fork_set & validity_marker.process()
@@ -860,7 +904,17 @@ def pytest_generate_tests(metafunc: pytest.Metafunc):
             f"@pytest.mark.valid_until."
         )
 
-    intersection_set = test_fork_set & metafunc.config.selected_fork_set  # type: ignore
+    return test_fork_set & config.selected_fork_set  # type: ignore
+
+
+def pytest_generate_tests(metafunc: pytest.Metafunc):
+    """Pytest hook used to dynamically generate test cases."""
+    validity_markers: List[ValidityMarker] = ValidityMarker.get_all_validity_markers_from_metafunc(
+        metafunc
+    )
+
+    test_name = metafunc.function.__name__
+    intersection_set = get_intersection_set(test_name, validity_markers, metafunc.config)
 
     if "fork" not in metafunc.fixturenames:
         return
