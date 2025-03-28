@@ -40,20 +40,41 @@ def pytest_configure(config: Config) -> None:
 
 def download_fixtures(url: str, location: str) -> None:
     # xdist processes will all try to download the fixtures.
+
+    version_file = os.path.join(location, "version.txt")
+
     # Using lockfile to make it parallel safe
     with SoftFileLock(f"{location}.lock"):
-        if not os.path.exists(location):
+
+        current_version = url
+        stored_version = None
+
+        if os.path.exists(version_file):
+            with open(version_file, "r") as vf:
+                stored_version = vf.read().strip()
+
+        if not os.path.exists(location) or stored_version != current_version:
             print(f"Downloading {location}...")
-            with tempfile.TemporaryFile() as tfile:
-                with urllib.request.urlopen(url) as response:
+
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_file = os.path.join(temp_dir, "fixtures.tar.gz")
+                with urllib.request.urlopen(url) as response, open(temp_file, "wb") as tfile:
                     shutil.copyfileobj(response, tfile)
+                with tarfile.open(temp_file, mode="r:gz") as tar:
+                    tar.extractall(temp_dir)
 
-                tfile.seek(0)
+                if os.path.exists(location):
+                    shutil.rmtree(location)
 
-                with tarfile.open(fileobj=tfile, mode="r:gz") as tar:
-                    tar.extractall(location)
+                os.makedirs(location, exist_ok=True)
+
+                for item in os.listdir(temp_dir):
+                    shutil.move(os.path.join(temp_dir, item), location)
+
+            with open(version_file, "w") as f:
+                f.write(url)
         else:
-            print(f"{location} already available.")
+            print(f"{location} already available")
 
 
 def git_clone_fixtures(url: str, commit_hash: str, location: str) -> None:
