@@ -36,7 +36,6 @@ from typing import (
     Tuple,
     Type,
     TypeVar,
-    Union,
 )
 
 from docc.context import Context
@@ -1014,7 +1013,7 @@ def render_diff(
     """
     assert isinstance(diff, DiffNode)
     assert isinstance(parent, (html.HTMLTag, html.HTMLRoot))
-    parent_: Union[html.HTMLTag, html.HTMLRoot] = parent
+    parent_: html.HTMLTag | html.HTMLRoot = parent
 
     if isinstance(parent_, html.HTMLTag) and parent_.tag_name == "table":
         tag = html.HTMLTag("tbody", {"class": "diff"})
@@ -1037,7 +1036,7 @@ def render_before_after(
     assert isinstance(parent, (html.HTMLTag, html.HTMLRoot))
     assert isinstance(context, Context)
 
-    node: Union[BeforeNode, AfterNode] = node_
+    node: BeforeNode | AfterNode = node_
 
     if isinstance(node, BeforeNode):
         tag_name = "del"
