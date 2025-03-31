@@ -1,7 +1,7 @@
 All Proposed Opcodes
 --------------------
 
-All EIP propsoed opcodes that have not shipped. This includes all
+All EIP proposed opcodes that have not shipped. This includes all
 unshipped EIPs, even withdrawn and non-viable proposals.
 
 | EIP                                                                    | Opcode | Name               | Description                                                                  |
