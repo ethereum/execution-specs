@@ -35,7 +35,7 @@ def modexp(evm: Evm) -> None:
 
     exp_start = U256(96) + base_length
 
-    exp_head = Uint.from_be_bytes(
+    exp_head = U256.from_be_bytes(
         buffer_read(data, exp_start, min(U256(32), exp_length))
     )
 
@@ -89,7 +89,7 @@ def complexity(base_length: U256, modulus_length: U256) -> Uint:
     return words ** Uint(2)
 
 
-def iterations(exponent_length: U256, exponent_head: Uint) -> Uint:
+def iterations(exponent_length: U256, exponent_head: U256) -> Uint:
     """
     Calculate the number of iterations required to perform a modular
     exponentiation.
@@ -102,7 +102,7 @@ def iterations(exponent_length: U256, exponent_head: Uint) -> Uint:
 
     exponent_head :
         First 32 bytes of the exponent (with leading zero padding if it is
-        shorter than 32 bytes), as an unsigned integer.
+        shorter than 32 bytes), as a U256.
 
     Returns
     -------
@@ -113,7 +113,7 @@ def iterations(exponent_length: U256, exponent_head: Uint) -> Uint:
     if exponent_length <= U256(32) and exponent_head == U256(0):
         count = Uint(0)
     elif exponent_length <= U256(32):
-        bit_length = Uint(exponent_head.bit_length())
+        bit_length = exponent_head.bit_length()
 
         if bit_length > Uint(0):
             bit_length -= Uint(1)
@@ -121,7 +121,7 @@ def iterations(exponent_length: U256, exponent_head: Uint) -> Uint:
         count = bit_length
     else:
         length_part = Uint(8) * (Uint(exponent_length) - Uint(32))
-        bits_part = Uint(exponent_head.bit_length())
+        bits_part = exponent_head.bit_length()
 
         if bits_part > Uint(0):
             bits_part -= Uint(1)
@@ -135,7 +135,7 @@ def gas_cost(
     base_length: U256,
     modulus_length: U256,
     exponent_length: U256,
-    exponent_head: Uint,
+    exponent_head: U256,
 ) -> Uint:
     """
     Calculate the gas cost of performing a modular exponentiation.
@@ -154,7 +154,7 @@ def gas_cost(
 
     exponent_head :
         First 32 bytes of the exponent (with leading zero padding if it is
-        shorter than 32 bytes), as an unsigned integer.
+        shorter than 32 bytes), as a U256.
 
     Returns
     -------
