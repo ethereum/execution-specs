@@ -52,7 +52,7 @@ class BaseTest(BaseModel):
     _t8n_call_counter: Iterator[int] = count(0)
 
     supported_fixture_formats: ClassVar[Sequence[FixtureFormat | LabeledFixtureFormat]] = []
-    supported_execute_formats: ClassVar[Sequence[ExecuteFormat | LabeledExecuteFormat]] = []
+    supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = []
 
     supported_markers: ClassVar[Dict[str, str]] = {}
 

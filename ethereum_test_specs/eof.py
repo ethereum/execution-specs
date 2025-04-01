@@ -241,11 +241,11 @@ class EOFTest(BaseTest):
         for fixture_format in StateTest.supported_fixture_formats
     ]
 
-    supported_execute_formats: ClassVar[Sequence[ExecuteFormat | LabeledExecuteFormat]] = [
+    supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = [
         LabeledExecuteFormat(
             execute_format,
-            f"{execute_format.format_name}_from_eof_test",
-            f"A {execute_format.format_name} generated from an eof_test.",
+            f"{execute_format.label}_from_eof_test",
+            f"A {execute_format.label} generated from an eof_test.",
         )
         for execute_format in StateTest.supported_execute_formats
     ]
@@ -526,11 +526,11 @@ class EOFStateTest(EOFTest, Transaction):
         for fixture_format in StateTest.supported_fixture_formats
     ]
 
-    supported_execute_formats: ClassVar[Sequence[ExecuteFormat | LabeledExecuteFormat]] = [
+    supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = [
         LabeledExecuteFormat(
             execute_format,
-            f"eof_{execute_format.format_name}",
-            f"Tests that generate an EOF {execute_format.format_name}.",
+            f"eof_{execute_format.label}",
+            f"Tests that generate an EOF {execute_format.label}.",
         )
         for execute_format in StateTest.supported_execute_formats
     ]

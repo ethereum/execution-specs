@@ -33,8 +33,12 @@ class TransactionTest(BaseTest):
     supported_fixture_formats: ClassVar[Sequence[FixtureFormat | LabeledFixtureFormat]] = [
         TransactionFixture,
     ]
-    supported_execute_formats: ClassVar[Sequence[ExecuteFormat | LabeledExecuteFormat]] = [
-        TransactionPost,
+    supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = [
+        LabeledExecuteFormat(
+            TransactionPost,
+            "transaction_test",
+            "An execute test derived from a transaction test",
+        ),
     ]
 
     def make_transaction_test_fixture(

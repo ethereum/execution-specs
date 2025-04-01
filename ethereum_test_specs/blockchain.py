@@ -297,8 +297,12 @@ class BlockchainTest(BaseTest):
         BlockchainFixture,
         BlockchainEngineFixture,
     ]
-    supported_execute_formats: ClassVar[Sequence[ExecuteFormat | LabeledExecuteFormat]] = [
-        TransactionPost,
+    supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = [
+        LabeledExecuteFormat(
+            TransactionPost,
+            "blockchain_test",
+            "An execute test derived from a blockchain test",
+        ),
     ]
 
     supported_markers: ClassVar[Dict[str, str]] = {
