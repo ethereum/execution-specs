@@ -4,10 +4,19 @@ from typing import Any, Dict, List
 
 import pytest
 
-from ethereum_test_base_types import AccessList, Address, TestPrivateKey, to_json
+from ethereum_test_base_types import AccessList, Address, Bytes, TestPrivateKey, to_json
 from ethereum_test_base_types.pydantic import CopyValidateModel
 
-from ..types import Account, Alloc, Environment, Storage, Transaction, Withdrawal
+from ..types import (
+    EOA,
+    Account,
+    Alloc,
+    AuthorizationTuple,
+    Environment,
+    Storage,
+    Transaction,
+    Withdrawal,
+)
 
 
 def test_storage():
@@ -833,3 +842,117 @@ def test_model_copy(model: CopyValidateModel):
     """Test that the copy method returns a correct copy of the model."""
     assert to_json(model.copy()) == to_json(model)
     assert model.copy().model_fields_set == model.model_fields_set
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        pytest.param(
+            Transaction().with_signature_and_sender(),
+            Bytes(
+                "0xf85f800a8252089400000000000000000000000000000000000000aa808026a0cc61d852649c34"
+                "cc0b71803115f38036ace257d2914f087bf885e6806a664fbda02020cb35f5d7731ab540d6261450"
+                "3a7f2344301a86342f67daf011c1341551ff"
+            ),
+            id="type-0-transaction",
+        ),
+        pytest.param(
+            Transaction(
+                access_list=[AccessList(address=0, storage_keys=[0, 1])],
+            ).with_signature_and_sender(),
+            Bytes(
+                "0x01f8bd01800a8252089400000000000000000000000000000000000000aa8080f85bf859940000"
+                "000000000000000000000000000000000000f842a000000000000000000000000000000000000000"
+                "00000000000000000000000000a00000000000000000000000000000000000000000000000000000"
+                "00000000000180a0d48930fdc0183ff3e5f5a6d87cbdb8a719bfcd0396d22ef360166fb4cc35e42e"
+                "a063aba729e7a5f7b55c41b68dc6250769c98a25b5d21f5649576c5e79aa71a90e"
+            ),
+            id="type-1-transaction",
+        ),
+        pytest.param(
+            Transaction(
+                access_list=[AccessList(address=0, storage_keys=[0, 1])],
+                max_fee_per_gas=10,
+                max_priority_fee_per_gas=5,
+            ).with_signature_and_sender(),
+            Bytes(
+                "0x02f8be0180050a8252089400000000000000000000000000000000000000aa8080f85bf8599400"
+                "00000000000000000000000000000000000000f842a0000000000000000000000000000000000000"
+                "0000000000000000000000000000a000000000000000000000000000000000000000000000000000"
+                "0000000000000180a0759123c15b9b06a9a063c9e9568e52631e8161cf663a5035505896070f67c3"
+                "21a0562291c94c89b5ab380c68fb8e254d34e373f4cd546a0ca3f40e455ce7072575"
+            ),
+            id="type-2-transaction",
+        ),
+        pytest.param(
+            Transaction(
+                access_list=[AccessList(address=1, storage_keys=[2, 3])],
+                max_fee_per_gas=10,
+                max_priority_fee_per_gas=5,
+                max_fee_per_blob_gas=20,
+                blob_versioned_hashes=[0, 1],
+            ).with_signature_and_sender(),
+            Bytes(
+                "0x03f901030180050a8252089400000000000000000000000000000000000000aa8080f85bf85994"
+                "0000000000000000000000000000000000000001f842a00000000000000000000000000000000000"
+                "000000000000000000000000000002a0000000000000000000000000000000000000000000000000"
+                "000000000000000314f842a000000000000000000000000000000000000000000000000000000000"
+                "00000000a0000000000000000000000000000000000000000000000000000000000000000101a0cf"
+                "df45e03bb79a725059abfdff26243794e4f2cedc31cb951bae0064cb0d18ffa07af8ae0e4eb39dad"
+                "4f8210c49e3c81f4d2c50d0d94987122b788d17efa623de1"
+            ),
+            id="type-3-transaction",
+        ),
+        pytest.param(
+            Transaction(
+                access_list=[AccessList(address=0, storage_keys=[0, 1])],
+                max_fee_per_gas=10,
+                max_priority_fee_per_gas=5,
+                authorization_list=[
+                    AuthorizationTuple(
+                        address=0,
+                        signer=EOA(key=TestPrivateKey),
+                    ),
+                ],
+            ).with_signature_and_sender(),
+            Bytes(
+                "0x04f9011c0180050a8252089400000000000000000000000000000000000000aa8080f85bf85994"
+                "0000000000000000000000000000000000000000f842a00000000000000000000000000000000000"
+                "000000000000000000000000000000a0000000000000000000000000000000000000000000000000"
+                "0000000000000001f85cf85a809400000000000000000000000000000000000000008080a0def12a"
+                "a13571bba668b619dc7523da4a44b4373f26ff19356a6b58a66217839fa0130454fb52ed23b604de"
+                "189d89b7b119698408a1cd80995959c8e3560aabb8ca80a051b5d457dfc118d4b0793c83c728c1ee"
+                "b9890ee98391493e8bb1c31855bcf3eca05d1d0c49babee471a39d63c9d5ca15f8e71051cc87335f"
+                "16d9bc7e4d56de278e"
+            ),
+            id="type-4-transaction",
+        ),
+        pytest.param(
+            Transaction(
+                access_list=[AccessList(address=0, storage_keys=[0, 1])],
+                max_fee_per_gas=10,
+                max_priority_fee_per_gas=5,
+                authorization_list=[
+                    AuthorizationTuple(
+                        address=0,
+                        secret_key=TestPrivateKey,
+                    ),
+                ],
+            ).with_signature_and_sender(),
+            Bytes(
+                "0x04f9011c0180050a8252089400000000000000000000000000000000000000aa8080f85bf85994"
+                "0000000000000000000000000000000000000000f842a00000000000000000000000000000000000"
+                "000000000000000000000000000000a0000000000000000000000000000000000000000000000000"
+                "0000000000000001f85cf85a809400000000000000000000000000000000000000008080a0def12a"
+                "a13571bba668b619dc7523da4a44b4373f26ff19356a6b58a66217839fa0130454fb52ed23b604de"
+                "189d89b7b119698408a1cd80995959c8e3560aabb8ca80a051b5d457dfc118d4b0793c83c728c1ee"
+                "b9890ee98391493e8bb1c31855bcf3eca05d1d0c49babee471a39d63c9d5ca15f8e71051cc87335f"
+                "16d9bc7e4d56de278e"
+            ),
+            id="type-4-transaction-auth-secret-key",
+        ),
+    ],
+)
+def test_serialization(value: Any, expected: Bytes):
+    """Test `to_serializable_element` function."""
+    assert value.rlp().hex() == expected.hex()

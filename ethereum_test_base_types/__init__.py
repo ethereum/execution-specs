@@ -39,6 +39,7 @@ from .conversions import to_bytes, to_hex
 from .json import to_json
 from .pydantic import CamelModel, EthereumTestBaseModel, EthereumTestRootModel
 from .reference_spec import ReferenceSpec
+from .serialization import RLPSerializable, SignableRLPSerializable
 
 __all__ = (
     "AccessList",
@@ -66,6 +67,8 @@ __all__ = (
     "Number",
     "NumberBoundTypeVar",
     "ReferenceSpec",
+    "RLPSerializable",
+    "SignableRLPSerializable",
     "Storage",
     "StorageRootType",
     "TestAddress",

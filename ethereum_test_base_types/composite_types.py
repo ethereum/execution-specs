@@ -8,6 +8,7 @@ from pydantic import Field, PrivateAttr, TypeAdapter
 from .base_types import Address, Bytes, Hash, HashInt, HexNumber, ZeroPaddedHexNumber
 from .conversions import BytesConvertible, NumberConvertible
 from .pydantic import CamelModel, EthereumTestRootModel
+from .serialization import RLPSerializable
 
 StorageKeyValueTypeConvertible = NumberConvertible
 StorageKeyValueType = HashInt
@@ -460,15 +461,13 @@ class Alloc(EthereumTestRootModel[Dict[Address, Account | None]]):
     root: Dict[Address, Account | None] = Field(default_factory=dict, validate_default=True)
 
 
-class AccessList(CamelModel):
+class AccessList(CamelModel, RLPSerializable):
     """Access List for transactions."""
 
     address: Address
     storage_keys: List[Hash]
 
-    def to_list(self) -> List[Address | List[Hash]]:
-        """Return access list as a list of serializable elements."""
-        return [self.address, self.storage_keys]
+    rlp_fields: ClassVar[List[str]] = ["address", "storage_keys"]
 
 
 class ForkBlobSchedule(CamelModel):

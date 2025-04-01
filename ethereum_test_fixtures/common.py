@@ -2,12 +2,13 @@
 
 from typing import Dict
 
-from pydantic import Field, model_serializer
+from pydantic import AliasChoices, Field, model_serializer
 
 from ethereum_test_base_types import (
     BlobSchedule,
     CamelModel,
     EthereumTestRootModel,
+    SignableRLPSerializable,
     ZeroPaddedHexNumber,
 )
 from ethereum_test_types.types import Address, AuthorizationTupleGeneric
@@ -38,8 +39,14 @@ class FixtureBlobSchedule(EthereumTestRootModel[Dict[str, FixtureForkBlobSchedul
         )
 
 
-class FixtureAuthorizationTuple(AuthorizationTupleGeneric[ZeroPaddedHexNumber]):
+class FixtureAuthorizationTuple(
+    AuthorizationTupleGeneric[ZeroPaddedHexNumber], SignableRLPSerializable
+):
     """Authorization tuple for fixture transactions."""
+
+    v: ZeroPaddedHexNumber = Field(validation_alias=AliasChoices("v", "yParity"))  # type: ignore
+    r: ZeroPaddedHexNumber
+    s: ZeroPaddedHexNumber
 
     signer: Address | None = None
 
@@ -61,3 +68,8 @@ class FixtureAuthorizationTuple(AuthorizationTupleGeneric[ZeroPaddedHexNumber]):
         if "v" in data and data["v"] is not None:
             data["yParity"] = data["v"]
         return data
+
+    def sign(self):
+        """Sign the current object for further serialization."""
+        # No-op, as the object is always already signed
+        return

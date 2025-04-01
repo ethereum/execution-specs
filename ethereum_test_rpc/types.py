@@ -37,7 +37,7 @@ class TransactionByHashResponse(Transaction):
     from_address: Address = Field(..., alias="from")
     to_address: Address | None = Field(..., alias="to")
 
-    v: HexNumber | None = Field(None, validation_alias=AliasChoices("v", "yParity"))
+    v: HexNumber = Field(0, validation_alias=AliasChoices("v", "yParity"))  # type: ignore
 
     @model_validator(mode="before")
     @classmethod

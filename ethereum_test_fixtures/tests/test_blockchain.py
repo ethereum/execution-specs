@@ -633,7 +633,8 @@ fixture_header_ones = FixtureHeader(
                         blob_versioned_hashes=[0, 1],
                     )
                     .with_signature_and_sender()
-                    .rlp.hex()
+                    .rlp()
+                    .hex()
                 ],
                 "withdrawals": [
                     to_json(Withdrawal(index=0, validator_index=1, address=0x1234, amount=2))
@@ -746,7 +747,8 @@ fixture_header_ones = FixtureHeader(
                                 blob_versioned_hashes=[0, 1],
                             )
                             .with_signature_and_sender()
-                            .rlp.hex()
+                            .rlp()
+                            .hex()
                         ],
                         "withdrawals": [
                             to_json(
@@ -900,7 +902,8 @@ fixture_header_ones = FixtureHeader(
                                 blob_versioned_hashes=[0, 1],
                             )
                             .with_signature_and_sender()
-                            .rlp.hex()
+                            .rlp()
+                            .hex()
                         ],
                         "withdrawals": [
                             to_json(
@@ -1054,7 +1057,8 @@ EngineNewPayloadParametersAdapter = TypeAdapter(EngineNewPayloadParameters)  # t
                             blob_versioned_hashes=[0, 1],
                         )
                         .with_signature_and_sender()
-                        .rlp.hex()
+                        .rlp()
+                        .hex()
                     ],
                     "withdrawals": [
                         to_json(Withdrawal(index=0, validator_index=1, address=0x1234, amount=2))
@@ -1144,7 +1148,8 @@ EngineNewPayloadParametersAdapter = TypeAdapter(EngineNewPayloadParameters)  # t
                             blob_versioned_hashes=[0, 1],
                         )
                         .with_signature_and_sender()
-                        .rlp.hex()
+                        .rlp()
+                        .hex()
                     ],
                     "withdrawals": [
                         to_json(Withdrawal(index=0, validator_index=1, address=0x1234, amount=2))
@@ -1255,7 +1260,8 @@ EngineNewPayloadParametersAdapter = TypeAdapter(EngineNewPayloadParameters)  # t
                             blob_versioned_hashes=[0, 1],
                         )
                         .with_signature_and_sender()
-                        .rlp.hex()
+                        .rlp()
+                        .hex()
                     ],
                     "withdrawals": [
                         to_json(Withdrawal(index=0, validator_index=1, address=0x1234, amount=2))

@@ -4,7 +4,7 @@ from abc import abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, ClassVar, Dict, Generic, List, Literal, Sequence, SupportsBytes, Tuple
+from typing import Any, ClassVar, Dict, Generic, List, Literal, Sequence, SupportsBytes
 
 import ethereum_rlp as eth_rlp
 from coincurve.keys import PrivateKey, PublicKey
@@ -38,6 +38,8 @@ from ethereum_test_base_types import (
     HexNumber,
     Number,
     NumberBoundTypeVar,
+    RLPSerializable,
+    SignableRLPSerializable,
     Storage,
     StorageRootType,
     TestAddress,
@@ -435,76 +437,29 @@ class Environment(EnvironmentGeneric[ZeroPaddedHexNumber]):
         return self.copy(**updated_values)
 
 
-class AuthorizationTupleGeneric(CamelModel, Generic[NumberBoundTypeVar]):
+class AuthorizationTupleGeneric(CamelModel, Generic[NumberBoundTypeVar], SignableRLPSerializable):
     """Authorization tuple for transactions."""
 
     chain_id: NumberBoundTypeVar = Field(0)  # type: ignore
     address: Address
     nonce: List[NumberBoundTypeVar] | NumberBoundTypeVar = Field(0)  # type: ignore
 
-    v: NumberBoundTypeVar = Field(0, validation_alias=AliasChoices("v", "yParity"))  # type: ignore
+    v: NumberBoundTypeVar = Field(default=0, validation_alias=AliasChoices("v", "yParity"))  # type: ignore
     r: NumberBoundTypeVar = Field(0)  # type: ignore
     s: NumberBoundTypeVar = Field(0)  # type: ignore
 
     magic: ClassVar[int] = 0x05
 
-    def to_list(self) -> List[Any]:
-        """Return authorization tuple as a list of serializable elements."""
-        if isinstance(self.nonce, list):
-            # Nonce list for testing purposes only
-            return [
-                Uint(self.chain_id),
-                self.address,
-                [Uint(nonce) for nonce in self.nonce],
-                Uint(self.v),
-                Uint(self.r),
-                Uint(self.s),
-            ]
-        return [
-            Uint(self.chain_id),
-            self.address,
-            Uint(self.nonce),
-            Uint(self.v),
-            Uint(self.r),
-            Uint(self.s),
-        ]
+    rlp_fields: ClassVar[List[str]] = ["chain_id", "address", "nonce", "v", "r", "s"]
+    rlp_signing_fields: ClassVar[List[str]] = ["chain_id", "address", "nonce"]
 
-    @cached_property
-    def signing_bytes(self) -> Bytes:
-        """Returns the data to be signed."""
-        if isinstance(self.nonce, list):
-            # Nonce list for testing purposes only
-            return Bytes(
-                int.to_bytes(self.magic, length=1, byteorder="big")
-                + eth_rlp.encode(
-                    [
-                        Uint(self.chain_id),
-                        self.address,
-                        [Uint(nonce) for nonce in self.nonce],
-                    ]
-                )
-            )
-        return Bytes(
-            int.to_bytes(self.magic, length=1, byteorder="big")
-            + eth_rlp.encode(
-                [
-                    Uint(self.chain_id),
-                    self.address,
-                    Uint(self.nonce),
-                ]
-            )
-        )
+    def get_rlp_signing_prefix(self) -> bytes:
+        """
+        Return a prefix that has to be appended to the serialized signing object.
 
-    def signature(self, private_key: Hash) -> Tuple[int, int, int]:
-        """Return signature of the authorization tuple."""
-        signature_bytes = PrivateKey(secret=private_key).sign_recoverable(
-            self.signing_bytes, hasher=keccak256
-        )
-        return (
-            signature_bytes[64],
-            int.from_bytes(signature_bytes[0:32], byteorder="big"),
-            int.from_bytes(signature_bytes[32:64], byteorder="big"),
-        )
+        By default, an empty string is returned.
+        """
+        return self.magic.to_bytes(1, byteorder="big")
 
 
 class AuthorizationTuple(AuthorizationTupleGeneric[HexNumber]):
@@ -516,26 +471,48 @@ class AuthorizationTuple(AuthorizationTupleGeneric[HexNumber]):
     def model_post_init(self, __context: Any) -> None:
         """Automatically signs the authorization tuple if a secret key or sender are provided."""
         super().model_post_init(__context)
+        self.sign()
 
-        if self.secret_key is not None:
-            self.sign(self.secret_key)
-        elif self.signer is not None:
-            assert self.signer.key is not None, "signer must have a key"
-            self.sign(self.signer.key)
-        else:
-            assert self.v is not None, "v must be set"
-            assert self.r is not None, "r must be set"
-            assert self.s is not None, "s must be set"
+    def sign(self: "AuthorizationTuple"):
+        """Signs the authorization tuple with a private key."""
+        signature_bytes: bytes | None = None
+        rlp_signing_bytes = self.rlp_signing_bytes()
+        if (
+            "v" not in self.model_fields_set
+            and "r" not in self.model_fields_set
+            and "s" not in self.model_fields_set
+        ):
+            signing_key: Hash | None = None
+            if self.secret_key is not None:
+                signing_key = self.secret_key
+            elif self.signer is not None:
+                eoa = self.signer
+                assert eoa is not None, "signer must be set"
+                signing_key = eoa.key
+            assert signing_key is not None, "secret_key or signer must be set"
 
-            # Calculate the address from the signature
+            signature_bytes = PrivateKey(secret=signing_key).sign_recoverable(
+                rlp_signing_bytes, hasher=keccak256
+            )
+            self.v, self.r, self.s = (
+                HexNumber(signature_bytes[64]),
+                HexNumber(int.from_bytes(signature_bytes[0:32], byteorder="big")),
+                HexNumber(int.from_bytes(signature_bytes[32:64], byteorder="big")),
+            )
+            self.model_fields_set.add("v")
+            self.model_fields_set.add("r")
+            self.model_fields_set.add("s")
+
+        if self.signer is None:
             try:
-                signature_bytes = (
-                    int(self.r).to_bytes(32, byteorder="big")
-                    + int(self.s).to_bytes(32, byteorder="big")
-                    + bytes([self.v])
-                )
+                if not signature_bytes:
+                    signature_bytes = (
+                        int(self.r).to_bytes(32, byteorder="big")
+                        + int(self.s).to_bytes(32, byteorder="big")
+                        + bytes([self.v])
+                    )
                 public_key = PublicKey.from_signature_and_message(
-                    signature_bytes, self.signing_bytes.keccak256(), hasher=None
+                    signature_bytes, rlp_signing_bytes.keccak256(), hasher=None
                 )
                 self.signer = EOA(
                     address=Address(keccak256(public_key.format(compressed=False)[1:])[32 - 20 :])
@@ -543,14 +520,6 @@ class AuthorizationTuple(AuthorizationTupleGeneric[HexNumber]):
             except Exception:
                 # Signer remains `None` in this case
                 pass
-
-    def sign(self, private_key: Hash) -> None:
-        """Signs the authorization tuple with a private key."""
-        signature = self.signature(private_key)
-
-        self.v = HexNumber(signature[0])
-        self.r = HexNumber(signature[1])
-        self.s = HexNumber(signature[2])
 
 
 class TransactionLog(CamelModel):
@@ -624,9 +593,9 @@ class TransactionGeneric(BaseModel, Generic[NumberBoundTypeVar]):
     max_fee_per_blob_gas: NumberBoundTypeVar | None = None
     blob_versioned_hashes: Sequence[Hash] | None = None
 
-    v: NumberBoundTypeVar | None = None
-    r: NumberBoundTypeVar | None = None
-    s: NumberBoundTypeVar | None = None
+    v: NumberBoundTypeVar = Field(0)  # type: ignore
+    r: NumberBoundTypeVar = Field(0)  # type: ignore
+    s: NumberBoundTypeVar = Field(0)  # type: ignore
     sender: EOA | None = None
 
 
@@ -677,7 +646,9 @@ class TransactionTransitionToolConverter(TransactionValidateToAsEmptyString):
         return default
 
 
-class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConverter):
+class Transaction(
+    TransactionGeneric[HexNumber], TransactionTransitionToolConverter, SignableRLPSerializable
+):
     """Generic object that can represent all Ethereum transaction types."""
 
     gas_limit: HexNumber = Field(HexNumber(21_000), serialization_alias="gas")
@@ -690,14 +661,10 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
     error: List[TransactionException] | TransactionException | None = Field(None, exclude=True)
 
     protected: bool = Field(True, exclude=True)
-    rlp_override: Bytes | None = Field(None, exclude=True)
 
     expected_receipt: TransactionReceipt | None = Field(None, exclude=True)
 
-    wrapped_blob_transaction: bool = Field(False, exclude=True)
-    blobs: Sequence[Bytes] | None = Field(None, exclude=True)
-    blob_kzg_commitments: Sequence[Bytes] | None = Field(None, exclude=True)
-    blob_kzg_proofs: Sequence[Bytes] | None = Field(None, exclude=True)
+    zero: ClassVar[Literal[0]] = 0
 
     model_config = ConfigDict(validate_assignment=True)
 
@@ -733,7 +700,7 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
             # Try to deduce transaction type from included fields
             if self.authorization_list is not None:
                 self.ty = 4
-            elif self.max_fee_per_blob_gas is not None or self.blob_kzg_commitments is not None:
+            elif self.max_fee_per_blob_gas is not None or self.blob_versioned_hashes is not None:
                 self.ty = 3
             elif self.max_fee_per_gas is not None or self.max_priority_fee_per_gas is not None:
                 self.ty = 2
@@ -742,10 +709,10 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
             else:
                 self.ty = 0
 
-        if self.v is not None and self.secret_key is not None:
+        if "v" in self.model_fields_set and self.secret_key is not None:
             raise Transaction.InvalidSignaturePrivateKeyError()
 
-        if self.v is None and self.secret_key is None:
+        if "v" not in self.model_fields_set and self.secret_key is None:
             if self.sender is not None:
                 self.secret_key = self.sender.key
             else:
@@ -792,17 +759,93 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
         """Create a copy of the transaction with a modified nonce."""
         return self.copy(nonce=nonce)
 
+    @cached_property
+    def signature_bytes(self) -> Bytes:
+        """Returns the serialized bytes of the transaction signature."""
+        assert "v" in self.model_fields_set, "transaction must be signed"
+        v = int(self.v)
+        if self.ty == 0:
+            if self.protected:
+                assert self.chain_id is not None
+                v -= 35 + (self.chain_id * 2)
+            else:
+                v -= 27
+        return Bytes(
+            self.r.to_bytes(32, byteorder="big")
+            + self.s.to_bytes(32, byteorder="big")
+            + bytes([v])
+        )
+
+    def sign(self: "Transaction"):
+        """Signs the authorization tuple with a private key."""
+        signature_bytes: bytes | None = None
+        rlp_signing_bytes = self.rlp_signing_bytes()
+        if (
+            "v" not in self.model_fields_set
+            and "r" not in self.model_fields_set
+            and "s" not in self.model_fields_set
+        ):
+            signing_key: Hash | None = None
+            if self.secret_key is not None:
+                signing_key = self.secret_key
+                self.secret_key = None
+            elif self.sender is not None:
+                eoa = self.sender
+                assert eoa is not None, "signer must be set"
+                signing_key = eoa.key
+            assert signing_key is not None, "secret_key or signer must be set"
+
+            signature_bytes = PrivateKey(secret=signing_key).sign_recoverable(
+                rlp_signing_bytes, hasher=keccak256
+            )
+            v, r, s = (
+                signature_bytes[64],
+                int.from_bytes(signature_bytes[0:32], byteorder="big"),
+                int.from_bytes(signature_bytes[32:64], byteorder="big"),
+            )
+            if self.ty == 0:
+                if self.protected:
+                    v += 35 + (self.chain_id * 2)
+                else:  # not protected
+                    v += 27
+            self.v, self.r, self.s = (HexNumber(v), HexNumber(r), HexNumber(s))
+            self.model_fields_set.add("v")
+            self.model_fields_set.add("r")
+            self.model_fields_set.add("s")
+
+        if self.sender is None:
+            try:
+                if not signature_bytes:
+                    signature_bytes = (
+                        int(self.r).to_bytes(32, byteorder="big")
+                        + int(self.s).to_bytes(32, byteorder="big")
+                        + bytes([self.v])
+                    )
+                public_key = PublicKey.from_signature_and_message(
+                    signature_bytes, rlp_signing_bytes.keccak256(), hasher=None
+                )
+                self.signer = EOA(
+                    address=Address(keccak256(public_key.format(compressed=False)[1:])[32 - 20 :])
+                )
+            except Exception:
+                # Signer remains `None` in this case
+                pass
+
     def with_signature_and_sender(self, *, keep_secret_key: bool = False) -> "Transaction":
         """Return signed version of the transaction using the private key."""
         updated_values: Dict[str, Any] = {}
 
-        if self.v is not None:
+        if (
+            "v" in self.model_fields_set
+            or "r" in self.model_fields_set
+            or "s" in self.model_fields_set
+        ):
             # Transaction already signed
             if self.sender is not None:
                 return self
 
             public_key = PublicKey.from_signature_and_message(
-                self.signature_bytes, self.signing_bytes.keccak256(), hasher=None
+                self.signature_bytes, self.rlp_signing_bytes().keccak256(), hasher=None
             )
             updated_values["sender"] = Address(
                 keccak256(public_key.format(compressed=False)[1:])[32 - 20 :]
@@ -813,7 +856,7 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
             raise ValueError("secret_key must be set to sign a transaction")
 
         # Get the signing bytes
-        signing_hash = self.signing_bytes.keccak256()
+        signing_hash = self.rlp_signing_bytes().keccak256()
 
         # Sign the bytes
         signature_bytes = PrivateKey(secret=self.secret_key).sign_recoverable(
@@ -850,204 +893,125 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
             updated_tx.secret_key = self.secret_key
         return updated_tx
 
-    @cached_property
-    def signing_envelope(self) -> List[Any]:
-        """Returns the list of values included in the envelope used for signing."""
-        to = self.to if self.to else bytes()
+    def get_rlp_signing_fields(self) -> List[str]:
+        """
+        Return the list of values included in the envelope used for signing depending on
+        the transaction type.
+        """
+        field_list: List[str]
         if self.ty == 4:
             # EIP-7702: https://eips.ethereum.org/EIPS/eip-7702
-            if self.max_priority_fee_per_gas is None:
-                raise ValueError(f"max_priority_fee_per_gas must be set for type {self.ty} tx")
-            if self.max_fee_per_gas is None:
-                raise ValueError(f"max_fee_per_gas must be set for type {self.ty} tx")
-            if self.access_list is None:
-                raise ValueError(f"access_list must be set for type {self.ty} tx")
-            if self.authorization_list is None:
-                raise ValueError(f"authorization_tuples must be set for type {self.ty} tx")
-            return [
-                Uint(self.chain_id),
-                Uint(self.nonce),
-                Uint(self.max_priority_fee_per_gas),
-                Uint(self.max_fee_per_gas),
-                Uint(self.gas_limit),
-                to,
-                Uint(self.value),
-                self.data,
-                [a.to_list() for a in self.access_list],
-                [a.to_list() for a in self.authorization_list],
+            field_list = [
+                "chain_id",
+                "nonce",
+                "max_priority_fee_per_gas",
+                "max_fee_per_gas",
+                "gas_limit",
+                "to",
+                "value",
+                "data",
+                "access_list",
+                "authorization_list",
             ]
         elif self.ty == 3:
             # EIP-4844: https://eips.ethereum.org/EIPS/eip-4844
-            if self.max_priority_fee_per_gas is None:
-                raise ValueError(f"max_priority_fee_per_gas must be set for type {self.ty} tx")
-            if self.max_fee_per_gas is None:
-                raise ValueError(f"max_fee_per_gas must be set for type {self.ty} tx")
-            if self.max_fee_per_blob_gas is None:
-                raise ValueError(f"max_fee_per_blob_gas must be set for type {self.ty} tx")
-            if self.blob_versioned_hashes is None:
-                raise ValueError(f"blob_versioned_hashes must be set for type {self.ty} tx")
-            if self.access_list is None:
-                raise ValueError(f"access_list must be set for type {self.ty} tx")
-            return [
-                Uint(self.chain_id),
-                Uint(self.nonce),
-                Uint(self.max_priority_fee_per_gas),
-                Uint(self.max_fee_per_gas),
-                Uint(self.gas_limit),
-                to,
-                Uint(self.value),
-                self.data,
-                [a.to_list() for a in self.access_list],
-                Uint(self.max_fee_per_blob_gas),
-                list(self.blob_versioned_hashes),
+            field_list = [
+                "chain_id",
+                "nonce",
+                "max_priority_fee_per_gas",
+                "max_fee_per_gas",
+                "gas_limit",
+                "to",
+                "value",
+                "data",
+                "access_list",
+                "max_fee_per_blob_gas",
+                "blob_versioned_hashes",
             ]
         elif self.ty == 2:
             # EIP-1559: https://eips.ethereum.org/EIPS/eip-1559
-            if self.max_priority_fee_per_gas is None:
-                raise ValueError(f"max_priority_fee_per_gas must be set for type {self.ty} tx")
-            if self.max_fee_per_gas is None:
-                raise ValueError(f"max_fee_per_gas must be set for type {self.ty} tx")
-            if self.access_list is None:
-                raise ValueError(f"access_list must be set for type {self.ty} tx")
-            return [
-                Uint(self.chain_id),
-                Uint(self.nonce),
-                Uint(self.max_priority_fee_per_gas),
-                Uint(self.max_fee_per_gas),
-                Uint(self.gas_limit),
-                to,
-                Uint(self.value),
-                self.data,
-                [a.to_list() for a in self.access_list],
+            field_list = [
+                "chain_id",
+                "nonce",
+                "max_priority_fee_per_gas",
+                "max_fee_per_gas",
+                "gas_limit",
+                "to",
+                "value",
+                "data",
+                "access_list",
             ]
         elif self.ty == 1:
             # EIP-2930: https://eips.ethereum.org/EIPS/eip-2930
-            if self.gas_price is None:
-                raise ValueError(f"gas_price must be set for type {self.ty} tx")
-            if self.access_list is None:
-                raise ValueError(f"access_list must be set for type {self.ty} tx")
-
-            return [
-                Uint(self.chain_id),
-                Uint(self.nonce),
-                Uint(self.gas_price),
-                Uint(self.gas_limit),
-                to,
-                Uint(self.value),
-                self.data,
-                [a.to_list() for a in self.access_list],
+            field_list = [
+                "chain_id",
+                "nonce",
+                "gas_price",
+                "gas_limit",
+                "to",
+                "value",
+                "data",
+                "access_list",
             ]
         elif self.ty == 0:
-            if self.gas_price is None:
-                raise ValueError(f"gas_price must be set for type {self.ty} tx")
-
+            field_list = ["nonce", "gas_price", "gas_limit", "to", "value", "data"]
             if self.protected:
                 # EIP-155: https://eips.ethereum.org/EIPS/eip-155
-                return [
-                    Uint(self.nonce),
-                    Uint(self.gas_price),
-                    Uint(self.gas_limit),
-                    to,
-                    Uint(self.value),
-                    self.data,
-                    Uint(self.chain_id),
-                    Uint(0),
-                    Uint(0),
-                ]
-            else:
-                return [
-                    Uint(self.nonce),
-                    Uint(self.gas_price),
-                    Uint(self.gas_limit),
-                    to,
-                    Uint(self.value),
-                    self.data,
-                ]
-        raise NotImplementedError("signing for transaction type {self.ty} not implemented")
-
-    @cached_property
-    def payload_body(self) -> List[Any]:
-        """Returns the list of values included in the transaction body."""
-        if self.v is None or self.r is None or self.s is None:
-            raise ValueError("signature must be set before serializing any tx type")
-
-        signing_envelope = self.signing_envelope
-
-        if self.ty == 0 and self.protected:
-            # Remove the chain_id and the two zeros from the signing envelope
-            signing_envelope = signing_envelope[:-3]
-        elif self.ty == 3 and self.wrapped_blob_transaction:
-            # EIP-4844: https://eips.ethereum.org/EIPS/eip-4844
-            if self.blobs is None:
-                raise ValueError(f"blobs must be set for type {self.ty} tx")
-            if self.blob_kzg_commitments is None:
-                raise ValueError(f"blob_kzg_commitments must be set for type {self.ty} tx")
-            if self.blob_kzg_proofs is None:
-                raise ValueError(f"blob_kzg_proofs must be set for type {self.ty} tx")
-            return [
-                signing_envelope + [Uint(self.v), Uint(self.r), Uint(self.s)],
-                list(self.blobs),
-                list(self.blob_kzg_commitments),
-                list(self.blob_kzg_proofs),
-            ]
-
-        return signing_envelope + [Uint(self.v), Uint(self.r), Uint(self.s)]
-
-    @cached_property
-    def rlp(self) -> Bytes:
-        """
-        Returns bytes of the serialized representation of the transaction,
-        which is almost always RLP encoding.
-        """
-        if self.rlp_override is not None:
-            return self.rlp_override
-        if self.ty > 0:
-            return Bytes(bytes([self.ty]) + eth_rlp.encode(self.payload_body))
+                field_list.extend(["chain_id", "zero", "zero"])
         else:
-            return Bytes(eth_rlp.encode(self.payload_body))
+            raise NotImplementedError(f"signing for transaction type {self.ty} not implemented")
+
+        for field in field_list:
+            if field != "to":
+                assert getattr(self, field) is not None, (
+                    f"{field} must be set for type {self.ty} tx"
+                )
+        return field_list
+
+    def get_rlp_fields(self) -> List[str]:
+        """
+        Return the list of values included in the list used for rlp encoding depending on
+        the transaction type.
+        """
+        fields = self.get_rlp_signing_fields()
+        if self.ty == 0 and self.protected:
+            fields = fields[:-3]
+        return fields + ["v", "r", "s"]
+
+    def get_rlp_prefix(self) -> bytes:
+        """
+        Return the transaction type as bytes to be appended at the beginning of the
+        serialized transaction if type is not 0.
+        """
+        if self.ty > 0:
+            return bytes([self.ty])
+        return b""
+
+    def get_rlp_signing_prefix(self) -> bytes:
+        """
+        Return the transaction type as bytes to be appended at the beginning of the
+        serialized transaction signing envelope if type is not 0.
+        """
+        if self.ty > 0:
+            return bytes([self.ty])
+        return b""
 
     @cached_property
     def hash(self) -> Hash:
         """Returns hash of the transaction."""
-        return self.rlp.keccak256()
-
-    @cached_property
-    def signing_bytes(self) -> Bytes:
-        """Returns the serialized bytes of the transaction used for signing."""
-        return Bytes(
-            bytes([self.ty]) + eth_rlp.encode(self.signing_envelope)
-            if self.ty > 0
-            else eth_rlp.encode(self.signing_envelope)
-        )
-
-    @cached_property
-    def signature_bytes(self) -> Bytes:
-        """Returns the serialized bytes of the transaction signature."""
-        assert self.v is not None and self.r is not None and self.s is not None
-        v = int(self.v)
-        if self.ty == 0:
-            if self.protected:
-                assert self.chain_id is not None
-                v -= 35 + (self.chain_id * 2)
-            else:
-                v -= 27
-        return Bytes(
-            self.r.to_bytes(32, byteorder="big")
-            + self.s.to_bytes(32, byteorder="big")
-            + bytes([v])
-        )
+        return self.rlp().keccak256()
 
     @cached_property
     def serializable_list(self) -> Any:
         """Return list of values included in the transaction as a serializable object."""
-        return self.rlp if self.ty > 0 else self.payload_body
+        return self.rlp() if self.ty > 0 else self.to_list(signing=False)
 
     @staticmethod
     def list_root(input_txs: List["Transaction"]) -> Hash:
         """Return transactions root of a list of transactions."""
         t = HexaryTrie(db={})
         for i, tx in enumerate(input_txs):
-            t.set(eth_rlp.encode(Uint(i)), tx.rlp)
+            t.set(eth_rlp.encode(Uint(i)), tx.rlp())
         return Hash(t.root_hash)
 
     @staticmethod
@@ -1069,6 +1033,30 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
             raise ValueError("sender address is None")
         hash_bytes = Bytes(eth_rlp.encode([self.sender, int_to_bytes(self.nonce)])).keccak256()
         return Address(hash_bytes[-20:])
+
+
+class NetworkWrappedTransaction(CamelModel, RLPSerializable):
+    """
+    Network wrapped transaction as defined in
+    [EIP-4844](https://eips.ethereum.org/EIPS/eip-4844#networking).
+    """
+
+    tx: Transaction
+
+    blobs: Sequence[Bytes] | None = Field(None, exclude=True)
+    blob_kzg_commitments: Sequence[Bytes] | None = Field(None, exclude=True)
+    blob_kzg_proofs: Sequence[Bytes] | None = Field(None, exclude=True)
+
+    rlp_fields: ClassVar[List[str]] = ["tx", "blobs", "blob_kzg_commitments", "blob_kzg_proofs"]
+
+    def get_rlp_prefix(self) -> bytes:
+        """
+        Return the transaction type as bytes to be appended at the beginning of the
+        serialized transaction if type is not 0.
+        """
+        if self.tx.ty > 0:
+            return bytes([self.tx.ty])
+        return b""
 
 
 class RequestBase:

@@ -261,4 +261,4 @@ def test_transaction_signing(
     assert signature == expected_signature
     assert tx.sender is not None
     assert tx.sender.hex() == expected_sender
-    assert (tx.rlp.hex()) == expected_serialized
+    assert (tx.rlp().hex()) == expected_serialized
