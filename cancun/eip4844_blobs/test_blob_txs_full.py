@@ -17,6 +17,7 @@ from ethereum_test_tools import (
     BlockException,
     Environment,
     Header,
+    NetworkWrappedTransaction,
     Transaction,
     TransactionException,
 )
@@ -161,27 +162,31 @@ def txs(  # noqa: D103
     for tx_blobs, tx_versioned_hashes, tx_wrapped_blobs in zip(
         txs_blobs, txs_versioned_hashes, txs_wrapped_blobs, strict=False
     ):
-        blobs_info = Blob.blobs_to_transaction_input(tx_blobs)
-        txs.append(
-            Transaction(
-                ty=Spec.BLOB_TX_TYPE,
-                sender=sender,
-                to=destination_account,
-                value=tx_value,
-                gas_limit=tx_gas,
-                data=tx_calldata,
-                max_fee_per_gas=tx_max_fee_per_gas,
-                max_priority_fee_per_gas=tx_max_priority_fee_per_gas,
-                max_fee_per_blob_gas=tx_max_fee_per_blob_gas,
-                access_list=[],
-                blob_versioned_hashes=tx_versioned_hashes,
-                error=tx_error,
+        tx = Transaction(
+            ty=Spec.BLOB_TX_TYPE,
+            sender=sender,
+            to=destination_account,
+            value=tx_value,
+            gas_limit=tx_gas,
+            data=tx_calldata,
+            max_fee_per_gas=tx_max_fee_per_gas,
+            max_priority_fee_per_gas=tx_max_priority_fee_per_gas,
+            max_fee_per_blob_gas=tx_max_fee_per_blob_gas,
+            access_list=[],
+            blob_versioned_hashes=tx_versioned_hashes,
+            error=tx_error,
+            wrapped_blob_transaction=tx_wrapped_blobs,
+        )
+        if tx_wrapped_blobs:
+            blobs_info = Blob.blobs_to_transaction_input(tx_blobs)
+            network_wrapped_tx = NetworkWrappedTransaction(
+                tx=tx,
                 blobs=blobs_info[0],
                 blob_kzg_commitments=blobs_info[1],
                 blob_kzg_proofs=blobs_info[2],
-                wrapped_blob_transaction=tx_wrapped_blobs,
             )
-        )
+            tx.rlp_override = network_wrapped_tx.rlp()
+        txs.append(tx)
     return txs
 
 

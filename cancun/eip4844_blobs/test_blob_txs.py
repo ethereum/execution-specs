@@ -1008,7 +1008,7 @@ def test_invalid_blob_tx_contract_creation(
     assert txs[0].blob_versioned_hashes is not None and len(txs[0].blob_versioned_hashes) == 1
     # Replace the transaction with a contract creating one, only in the RLP version
     contract_creating_tx = txs[0].copy(to=None).with_signature_and_sender()
-    txs[0].rlp_override = contract_creating_tx.rlp
+    txs[0].rlp_override = contract_creating_tx.rlp()
     blockchain_test(
         pre=pre,
         post={},
