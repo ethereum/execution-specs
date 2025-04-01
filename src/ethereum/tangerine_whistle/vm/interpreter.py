@@ -139,8 +139,6 @@ def process_create_message(message: Message) -> Evm:
     ----------
     message :
         Transaction specific items.
-    env :
-        External items required for EVM execution.
 
     Returns
     -------
@@ -178,14 +176,12 @@ def process_create_message(message: Message) -> Evm:
 
 def process_message(message: Message) -> Evm:
     """
-    Executes a call to create a smart contract.
+    Move ether and execute the relevant code.
 
     Parameters
     ----------
     message :
         Transaction specific items.
-    env :
-        External items required for EVM execution.
 
     Returns
     -------
@@ -224,8 +220,6 @@ def execute_code(message: Message) -> Evm:
     ----------
     message :
         Transaction specific items.
-    env :
-        External items required for EVM execution.
 
     Returns
     -------
