@@ -123,11 +123,10 @@ def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
         Hashes of the recent 256 blocks in order of increasing block number.
     """
     recent_blocks = chain.blocks[-255:]
-    # TODO: This function has not been tested rigorously
     if len(recent_blocks) == 0:
         return []
 
-    recent_block_hashes = []
+    recent_block_hashes: List[Hash32] = []
 
     for block in recent_blocks:
         prev_block_hash = block.header.parent_hash
