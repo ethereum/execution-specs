@@ -310,12 +310,12 @@ class TestDocsGenerator:
         mike deploys a version of the site underneath a sub-directory named
         after the version, e.g.:
 
-        - https://ethereum.github.io/execution-spec-tests/main/
-        - https://ethereum.github.io/execution-spec-tests/v1.2.3/
+        - https://eest.ethereum.org/main/
+        - https://eest.ethereum.org/v4.1.0/
 
         We need to be able to include the javascript available at:
 
-        - https://ethereum.github.io/execution-spec-tests/main/javascripts/site.js
+        - https://eest.ethereum.org/main/javascripts/site.js
         """
         ci = os.getenv("CI", None)
         github_ref_name = os.getenv("GITHUB_REF_NAME", None)
