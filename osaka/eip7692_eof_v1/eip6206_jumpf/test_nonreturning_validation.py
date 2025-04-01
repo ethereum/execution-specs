@@ -17,23 +17,57 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 
 
 @pytest.mark.parametrize(
-    "code_section",
+    "code",
     [
-        pytest.param(Section.Code(Op.STOP, code_outputs=0), id="stop"),
-        pytest.param(Section.Code(Op.INVALID, code_outputs=0), id="invalid0"),
-        pytest.param(
-            Section.Code(Op.ADDRESS + Op.POP + Op.INVALID, code_outputs=0), id="invalid1"
-        ),
-        pytest.param(Section.Code(Op.RETURN(0, 0), code_outputs=0), id="return"),
-        pytest.param(Section.Code(Op.RETF, code_outputs=0), id="retf0"),
-        pytest.param(Section.Code(Op.PUSH0 + Op.RETF, code_outputs=1), id="retf1"),
+        pytest.param(Op.STOP, id="STOP"),
+        pytest.param(Op.INVALID, id="INVALID"),
+        pytest.param(Op.ADDRESS + Op.POP + Op.INVALID, id="ADDRESS_POP_INVALID"),
+        pytest.param(Op.RETURN(0, 0), id="RETURN"),
+        pytest.param(Op.RETF, id="RETF"),
+        pytest.param(Op.PUSH0 + Op.RETF, id="PUSH0_RETF"),
     ],
 )
-def test_first_section_returning(eof_test: EOFTestFiller, code_section: Section):
+@pytest.mark.parametrize(
+    "outputs",
+    [0, 1, 0x7F, 0x81, 0xFF],
+)
+def test_first_section_returning(eof_test: EOFTestFiller, code: Bytecode, outputs: int):
     """Test EOF validation failing because the first section is not non-returning."""
     eof_test(
         container=Container(
-            sections=[code_section], validity_error=EOFException.INVALID_FIRST_SECTION_TYPE
+            sections=[Section.Code(code, code_outputs=outputs)],
+            validity_error=EOFException.INVALID_FIRST_SECTION_TYPE,
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        pytest.param(Op.INVALID, id="INVALID"),
+        pytest.param(Op.RETF, id="RETF"),
+        pytest.param(Op.POP + Op.RETF, id="POP_RETF"),
+    ],
+)
+@pytest.mark.parametrize(
+    "inputs",
+    [1, 2, 0x7F, 0x80, 0x81, 0xFF],
+)
+@pytest.mark.parametrize(
+    "outputs",
+    [
+        0,
+        NON_RETURNING_SECTION,
+    ],
+)
+def test_first_section_with_inputs(
+    eof_test: EOFTestFiller, code: Bytecode, inputs: int, outputs: int
+):
+    """Test EOF validation failing because the first section has non-zero number of inputs."""
+    eof_test(
+        container=Container(
+            sections=[Section.Code(code, code_inputs=inputs, code_outputs=outputs)],
+            validity_error=EOFException.INVALID_FIRST_SECTION_TYPE,
         )
     )
 

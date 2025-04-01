@@ -415,24 +415,6 @@ def test_valid_containers(
             validity_error=EOFException.INVALID_TYPE_SECTION_SIZE,
         ),
         Container(
-            # EOF code containing invalid first section type (1,0)
-            name="EOF1I4750_0006",
-            raw_bytes="ef000101000402000100010400000001000000fe",
-            validity_error=EOFException.INVALID_FIRST_SECTION_TYPE,
-        ),
-        Container(
-            # EOF code containing invalid first section type (0,1)
-            name="EOF1I4750_0007",
-            raw_bytes="ef000101000402000100010400000000010000fe",
-            validity_error=EOFException.INVALID_FIRST_SECTION_TYPE,
-        ),
-        Container(
-            # EOF code containing invalid first section type (2,3)
-            name="EOF1I4750_0008",
-            raw_bytes="ef000101000402000100010400000002030000fe",
-            validity_error=EOFException.INVALID_FIRST_SECTION_TYPE,
-        ),
-        Container(
             name="no_sections",
             sections=[],
             auto_data_section=False,
@@ -1038,41 +1020,6 @@ def test_valid_containers(
             ],
             auto_type_section=AutoSection.NONE,
             validity_error=EOFException.INVALID_TYPE_SECTION_SIZE,
-        ),
-        Container(
-            name="invalid_first_code_section_inputs_0x01",
-            sections=[Section.Code(code=Op.POP + Op.RETF, code_inputs=1)],
-            validity_error=EOFException.INVALID_FIRST_SECTION_TYPE,
-        ),
-        Container(
-            name="invalid_first_code_section_inputs_0x80",
-            sections=[Section.Code(code=Op.POP + Op.RETF, code_inputs=0x80)],
-            validity_error=EOFException.INVALID_FIRST_SECTION_TYPE,
-        ),
-        Container(
-            name="invalid_first_code_section_inputs_0xff",
-            sections=[Section.Code(code=Op.POP + Op.RETF, code_inputs=0xFF)],
-            validity_error=EOFException.INVALID_FIRST_SECTION_TYPE,
-        ),
-        Container(
-            name="invalid_first_code_section_outputs_0x00",
-            sections=[Section.Code(code=Op.PUSH0 + Op.RETF, code_outputs=0)],
-            validity_error=EOFException.INVALID_FIRST_SECTION_TYPE,
-        ),
-        Container(
-            name="invalid_first_code_section_outputs_0x7f",
-            sections=[Section.Code(code=Op.PUSH0 + Op.RETF, code_outputs=0x7F)],
-            validity_error=EOFException.INVALID_FIRST_SECTION_TYPE,
-        ),
-        Container(
-            name="invalid_first_code_section_outputs_0x81",
-            sections=[Section.Code(code=Op.PUSH0 + Op.RETF, code_outputs=0x81)],
-            validity_error=EOFException.INVALID_FIRST_SECTION_TYPE,
-        ),
-        Container(
-            name="invalid_first_code_section_outputs_0xff",
-            sections=[Section.Code(code=Op.PUSH0 + Op.RETF, code_outputs=0xFF)],
-            validity_error=EOFException.INVALID_FIRST_SECTION_TYPE,
         ),
         Container(
             name="multiple_code_section_non_zero_inputs",
