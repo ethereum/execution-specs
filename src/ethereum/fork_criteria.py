@@ -29,6 +29,7 @@ from abc import ABC, abstractmethod
 from typing import Final, Literal, SupportsInt, Tuple
 
 from ethereum_types.numeric import U256, Uint
+from typing_extensions import override
 
 
 @functools.total_ordering
@@ -68,6 +69,7 @@ class ForkCriteria(ABC):
 
     _internal: Tuple[int, int]
 
+    @override
     def __eq__(self, other: object) -> bool:
         """
         Equality for fork criteria.
@@ -92,6 +94,7 @@ class ForkCriteria(ABC):
             return self._internal < other._internal
         return NotImplemented
 
+    @override
     def __hash__(self) -> int:
         """
         Compute a hash for this instance, so it can be stored in dictionaries.
@@ -108,6 +111,7 @@ class ForkCriteria(ABC):
         """
         raise NotImplementedError()
 
+    @override
     @abstractmethod
     def __repr__(self) -> str:
         """
@@ -127,9 +131,11 @@ class ByBlockNumber(ForkCriteria):
     """
 
     def __init__(self, block_number: SupportsInt):
+        super().__init__()
         self._internal = (ForkCriteria.BLOCK_NUMBER, int(block_number))
         self.block_number = Uint(int(block_number))
 
+    @override
     def check(self, block_number: Uint, timestamp: U256) -> bool:
         """
         Check whether the block number has been reached.
@@ -141,6 +147,7 @@ class ByBlockNumber(ForkCriteria):
         """
         return block_number >= self.block_number
 
+    @override
     def __repr__(self) -> str:
         """
         String representation of this object.
@@ -159,9 +166,11 @@ class ByTimestamp(ForkCriteria):
     """
 
     def __init__(self, timestamp: SupportsInt):
+        super().__init__()
         self._internal = (ForkCriteria.TIMESTAMP, int(timestamp))
         self.timestamp = U256(timestamp)
 
+    @override
     def check(self, block_number: Uint, timestamp: U256) -> bool:
         """
         Check whether the timestamp has been reached.
@@ -173,6 +182,7 @@ class ByTimestamp(ForkCriteria):
         """
         return timestamp >= self.timestamp
 
+    @override
     def __repr__(self) -> str:
         """
         String representation of this object.
@@ -186,14 +196,17 @@ class Unscheduled(ForkCriteria):
     """
 
     def __init__(self) -> None:
+        super().__init__()
         self._internal = (ForkCriteria.UNSCHEDULED, 0)
 
+    @override
     def check(self, block_number: Uint, timestamp: U256) -> Literal[False]:
         """
         Unscheduled forks never occur; always returns `False`.
         """
         return False
 
+    @override
     def __repr__(self) -> str:
         """
         String representation of this object.

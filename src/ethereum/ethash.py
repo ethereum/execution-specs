@@ -26,7 +26,7 @@ At a high level, the Ethash algorithm is as follows:
 [mem-hard]: https://en.wikipedia.org/wiki/Memory-hard_function
 """
 
-from typing import Callable, Tuple, Union
+from typing import Callable, List, Tuple, Union
 
 from ethereum_types.bytes import Bytes8
 from ethereum_types.numeric import U32, Uint, ulen
@@ -380,7 +380,7 @@ def hashimoto(
 
         mix = fnv_hash(mix, new_data)
 
-    compressed_mix = []
+    compressed_mix: List[U32] = []
     for i in range(0, len(mix), 4):
         compressed_mix.append(
             fnv(fnv(fnv(mix[i], mix[i + 1]), mix[i + 2]), mix[i + 3])
