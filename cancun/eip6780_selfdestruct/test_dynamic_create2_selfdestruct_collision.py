@@ -76,8 +76,8 @@ def test_dynamic_create2_selfdestruct_collision(
     Then:
         a) on the same tx, attempt to recreate the contract
         b) on a different tx, attempt to recreate the contract
-    Verify that the test case described
-    in https://wiki.hyperledger.org/pages/viewpage.action?pageId=117440824 is covered
+    Verify that the test case described in
+    https://lf-hyperledger.atlassian.net/wiki/spaces/BESU/pages/22156575/2024-01-06+Mainnet+Halting+Event
     """
     assert call_create2_contract_in_between or call_create2_contract_at_the_end, "invalid test"
 
@@ -261,8 +261,8 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
     Then:
         a) on the same tx, attempt to recreate the contract
         b) on a different tx, attempt to recreate the contract
-    Verify that the test case described
-    in https://wiki.hyperledger.org/pages/viewpage.action?pageId=117440824 is covered
+    Verify that the test case described in
+    https://lf-hyperledger.atlassian.net/wiki/spaces/BESU/pages/22156575/2024-01-06+Mainnet+Halting+Event
     """
     # assert call_create2_contract_at_the_end, "invalid test"
 
@@ -504,8 +504,8 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
     Then:
         a) on the same tx, attempt to recreate the contract       <=== Covered in this test
         b) on a different tx, attempt to recreate the contract    <=== Covered in this test
-    Verify that the test case described
-    in https://wiki.hyperledger.org/pages/viewpage.action?pageId=117440824 is covered
+    Verify that the test case described in
+    https://lf-hyperledger.atlassian.net/wiki/spaces/BESU/pages/22156575/2024-01-06+Mainnet+Halting+Event
     """
     if recreate_on_first_tx:
         assert selfdestruct_on_first_tx, "invalid test"
