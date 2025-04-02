@@ -36,12 +36,6 @@ def data_test_type() -> DataTestType:
     return DataTestType.FLOOR_GAS_COST_GREATER_THAN_INTRINSIC_GAS
 
 
-@pytest.fixture
-def authorization_refund() -> bool:
-    """Disable the refunds on these tests (see ./test_refunds.py)."""
-    return False
-
-
 class TestGasConsumption:
     """Test gas consumption with EIP-7623 active."""
 
