@@ -2,6 +2,7 @@
 
 import io
 import json
+import logging
 from pathlib import Path
 from typing import Dict, Generator, List, Literal, cast
 
@@ -23,6 +24,8 @@ from pytest_plugins.consume.hive_simulators.ruleset import ruleset  # TODO: gene
 from pytest_plugins.pytest_hive.hive_info import ClientInfo
 
 from .timing import TimingData
+
+logger = logging.getLogger(__name__)
 
 
 def pytest_addoption(parser):
@@ -202,6 +205,7 @@ def client(
     total_timing_data: TimingData,
 ) -> Generator[Client, None, None]:
     """Initialize the client with the appropriate files and environment variables."""
+    logger.info(f"Starting client ({client_type.name})...")
     with total_timing_data.time("Start client"):
         client = hive_test.start_client(
             client_type=client_type, environment=environment, files=client_files
@@ -211,9 +215,12 @@ def client(
         "setup. Check the client or Hive server logs for more information."
     )
     assert client is not None, error_message
+    logger.info(f"Client ({client_type.name}) ready!")
     yield client
+    logger.info(f"Stopping client ({client_type.name})...")
     with total_timing_data.time("Stop client"):
         client.stop()
+    logger.info(f"Client ({client_type.name}) stopped!")
 
 
 @pytest.fixture(scope="function", autouse=True)

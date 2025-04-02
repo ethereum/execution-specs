@@ -171,12 +171,9 @@ def test_consume_simlimit_collectonly(
     result = pytester.runpytest(*args)
     assert result.ret == 0
     stdout_lines = str(result.stdout).splitlines()
+    test_id_pattern = r"^(?:\s*)([^:\s]+\.py::[^:\s]+(?:::[^:\s]+)?)(?:\[[^\]]*\])?(?:\s*)$"
     collected_test_ids = [
-        line
-        for line in stdout_lines
-        if line.strip()
-        and "tests collected in" not in line
-        and "pytest-regex selected" not in line
+        line for line in stdout_lines if line.strip() and re.match(test_id_pattern, line)
     ]
     expected_collected_test_ids = [
         line for line in consume_test_case_ids if expected_filter_pattern.search(line)
