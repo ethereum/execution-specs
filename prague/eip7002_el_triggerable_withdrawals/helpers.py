@@ -121,7 +121,7 @@ class WithdrawalRequestTransaction(WithdrawalRequestInteractionBase):
 
 @dataclass(kw_only=True)
 class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
-    """Class used to describe a deposit originated from a contract."""
+    """Class used to describe a withdrawal originated from a contract."""
 
     tx_gas_limit: int = 1_000_000
     """
@@ -176,7 +176,7 @@ class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
         return code + self.extra_code
 
     def transactions(self) -> List[Transaction]:
-        """Return a transaction for the deposit request."""
+        """Return a transaction for the withdrawal request."""
         assert self.entry_address is not None, "Entry address not initialized"
         return [
             Transaction(
