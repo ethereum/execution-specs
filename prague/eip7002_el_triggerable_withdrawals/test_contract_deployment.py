@@ -29,6 +29,7 @@ REFERENCE_SPEC_VERSION = ref_spec_7002.version
     fork=Prague,
     tx_json_path=Path(realpath(__file__)).parent / "contract_deploy_tx.json",
     expected_deploy_address=Address(Spec.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS),
+    fail_on_empty_code=True,
 )
 def test_system_contract_deployment(
     *,
