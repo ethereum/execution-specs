@@ -9,7 +9,7 @@ then process each one.
 """
 
 from hashlib import sha256
-from typing import List, Union
+from typing import List
 
 from ethereum_types.bytes import Bytes
 
@@ -38,7 +38,7 @@ def extract_deposit_data(data: Bytes) -> Bytes:
 
 
 def parse_deposit_requests_from_receipt(
-    receipt: Union[Bytes, Receipt],
+    receipt: Bytes | Receipt,
 ) -> Bytes:
     """
     Parse deposit requests from a receipt.

@@ -11,7 +11,7 @@ Introduction
 
 Precompile for BLS12-381 curve operations.
 """
-from typing import Tuple, Union
+from typing import Tuple
 
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256, Uint
@@ -398,9 +398,7 @@ def decode_G1_scalar_pair(data: Bytes) -> Tuple[Point2D, int]:
     return p, m
 
 
-def bytes_to_FQ(
-    data: Bytes, optimized: bool = False
-) -> Union[FQ, OPTIMIZED_FQ]:
+def bytes_to_FQ(data: Bytes, optimized: bool = False) -> FQ | OPTIMIZED_FQ:
     """
     Decode 64 bytes to a FQ element.
 
@@ -413,7 +411,7 @@ def bytes_to_FQ(
 
     Returns
     -------
-    fq : Union[FQ, OPTIMIZED_FQ]
+    fq : FQ | OPTIMIZED_FQ
         The FQ element.
 
     Raises
@@ -435,9 +433,7 @@ def bytes_to_FQ(
         return FQ(c)
 
 
-def bytes_to_FQ2(
-    data: Bytes, optimized: bool = False
-) -> Union[FQ2, OPTIMIZED_FQ2]:
+def bytes_to_FQ2(data: Bytes, optimized: bool = False) -> FQ2 | OPTIMIZED_FQ2:
     """
     Decode 128 bytes to a FQ2 element.
 
@@ -450,7 +446,7 @@ def bytes_to_FQ2(
 
     Returns
     -------
-    fq2 : Union[FQ2, OPTIMIZED_FQ2]
+    fq2 : FQ2 | OPTIMIZED_FQ2
         The FQ2 element.
 
     Raises
