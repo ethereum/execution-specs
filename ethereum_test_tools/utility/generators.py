@@ -8,6 +8,7 @@ from typing import Dict, Generator, List, Protocol
 import pytest
 
 from ethereum_test_base_types import Account, Address, Hash
+from ethereum_test_exceptions import BlockException
 from ethereum_test_forks import Fork
 from ethereum_test_specs import BlockchainTestFiller
 from ethereum_test_specs.blockchain import Block
@@ -18,6 +19,7 @@ class DeploymentTestType(Enum):
     """Represents the type of deployment test."""
 
     DEPLOY_BEFORE_FORK = "deploy_before_fork"
+    DEPLOY_ON_FORK_BLOCK = "deploy_on_fork_block"
     DEPLOY_AFTER_FORK = "deploy_after_fork"
 
 
@@ -63,22 +65,25 @@ def generate_system_contract_deploy_test(
     fork: Fork,
     tx_json_path: Path,
     expected_deploy_address: Address,
+    fail_on_empty_code: bool,
     expected_system_contract_storage: Dict | None = None,
 ):
     """
     Generate a test that verifies the correct deployment of a system contract.
 
-    Generates four test cases:
+    Generates following test cases:
 
-                                        | before/after fork | has balance |
-    ------------------------------------|-------------------|-------------|
-    `deploy_before_fork-nonzero_balance`| before            | True        |
-    `deploy_before_fork-zero_balance`   | before            | False       |
-    `deploy_after_fork-nonzero_balance` | after             | True        |
-    `deploy_after_fork-zero_balance`    | after             | False       |
+                                          | before/after fork | fail on     | invalid block |
+                                          |                   | empty block |               |
+    --------------------------------------|-------------------|-------------|---------------|
+    `deploy_before_fork-nonzero_balance`  | before            | False       | False         |
+    `deploy_before_fork-zero_balance`     | before            | True        | False         |
+    `deploy_on_fork_block-nonzero_balance`| on fork block     | False       | False         |
+    `deploy_on_fork_block-zero_balance`   | on fork block     | True        | False         |
+    `deploy_after_fork-nonzero_balance`   | after             | False       | False         |
+    `deploy_after_fork-zero_balance`      | after             | True        | True          |
 
-    where `has balance` refers to whether the contract address has a non-zero balance before
-    deployment, or not.
+    The `has balance` parametrization does not have an effect on the expectation of the test.
 
     Args:
         fork (Fork): The fork to test.
@@ -86,6 +91,7 @@ def generate_system_contract_deploy_test(
             contract.
             Providing a JSON file is useful to copy-paste the transaction from the EIP.
         expected_deploy_address (Address): The expected address of the deployed contract.
+        fail_on_empty_code (bool): If True, the test is expected to fail on empty code.
         expected_system_contract_storage (Dict | None): The expected storage of the system
             contract.
 
@@ -120,7 +126,11 @@ def generate_system_contract_deploy_test(
             "test_type",
             [
                 pytest.param(DeploymentTestType.DEPLOY_BEFORE_FORK),
-                pytest.param(DeploymentTestType.DEPLOY_AFTER_FORK),
+                pytest.param(DeploymentTestType.DEPLOY_ON_FORK_BLOCK),
+                pytest.param(
+                    DeploymentTestType.DEPLOY_AFTER_FORK,
+                    marks=[pytest.mark.exception_test] if fail_on_empty_code else [],
+                ),
             ],
             ids=lambda x: x.name.lower(),
         )
@@ -148,17 +158,40 @@ def generate_system_contract_deploy_test(
                         timestamp=15_000,
                     ),
                 ]
+            elif test_type == DeploymentTestType.DEPLOY_ON_FORK_BLOCK:
+                blocks = [
+                    Block(  # Deployment on fork block
+                        txs=[deploy_tx],
+                        timestamp=15_000,
+                    ),
+                    Block(  # Empty block after fork
+                        txs=[],
+                        timestamp=15_001,
+                    ),
+                ]
             elif test_type == DeploymentTestType.DEPLOY_AFTER_FORK:
                 blocks = [
                     Block(  # Empty block on fork
                         txs=[],
                         timestamp=15_000,
-                    ),
-                    Block(  # Deployment block
-                        txs=[deploy_tx],
-                        timestamp=15_001,
-                    ),
+                        exception=BlockException.SYSTEM_CONTRACT_EMPTY
+                        if fail_on_empty_code
+                        else None,
+                    )
                 ]
+                if not fail_on_empty_code:
+                    blocks.append(
+                        Block(  # Deployment after fork block
+                            txs=[deploy_tx],
+                            timestamp=15_001,
+                        )
+                    )
+                    blocks.append(
+                        Block(  # Empty block after deployment
+                            txs=[],
+                            timestamp=15_002,
+                        ),
+                    )
             balance = 1 if has_balance == ContractAddressHasBalance.NONZERO_BALANCE else 0
             pre[expected_deploy_address] = Account(
                 code=b"",  # Remove the code that is automatically allocated on the fork
@@ -176,24 +209,23 @@ def generate_system_contract_deploy_test(
             assert expected_deploy_address_int in fork_pre_allocation
             expected_code = fork_pre_allocation[expected_deploy_address_int]["code"]
             # Note: balance check is omitted; it may be modified by the underlying, decorated test
-            if expected_system_contract_storage is None:
-                post[expected_deploy_address] = Account(
-                    code=expected_code,
+            account_kwargs = {
+                "code": expected_code,
+                "nonce": 1,
+            }
+            if expected_system_contract_storage:
+                account_kwargs["storage"] = expected_system_contract_storage
+            if test_type != DeploymentTestType.DEPLOY_AFTER_FORK or not fail_on_empty_code:
+                post[expected_deploy_address] = Account(**account_kwargs)
+                post[deployer_address] = Account(
                     nonce=1,
                 )
-            else:
-                post[expected_deploy_address] = Account(
-                    storage=expected_system_contract_storage,
-                    code=expected_code,
-                    nonce=1,
-                )
-            post[deployer_address] = Account(
-                nonce=1,
-            )
 
             # Extra blocks (if any) returned by the decorated function to add after the
             # contract is deployed.
-            blocks += list(func(fork=fork, pre=pre, post=post, test_type=test_type))
+            if test_type != DeploymentTestType.DEPLOY_AFTER_FORK or not fail_on_empty_code:
+                # Only fill more blocks if the deploy block does not fail.
+                blocks += list(func(fork=fork, pre=pre, post=post, test_type=test_type))
 
             blockchain_test(
                 pre=pre,
