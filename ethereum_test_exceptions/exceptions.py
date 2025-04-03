@@ -574,6 +574,14 @@ class BlockException(ExceptionBase):
     """
     Trying to import a block after paris fork that has difficulty != 0.
     """
+    SYSTEM_CONTRACT_EMPTY = auto()
+    """
+    A system contract address contains no code at the end of fork activation block.
+    """
+    SYSTEM_CONTRACT_CALL_FAILED = auto()
+    """
+    A system contract call at the end of block execution (from the system address) fails.
+    """
 
 
 @unique

@@ -13,6 +13,7 @@ from tempfile import TemporaryDirectory
 from typing import ClassVar, Dict, List, Optional
 
 from ethereum_test_exceptions import (
+    BlockException,
     EOFException,
     ExceptionBase,
     ExceptionMapper,
@@ -159,6 +160,8 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_3_TX_CONTRACT_CREATION: "ction: ",
         TransactionException.NONCE_IS_MAX: "tion: ",
         TransactionException.GAS_ALLOWANCE_EXCEEDED: "ion: ",
+        BlockException.SYSTEM_CONTRACT_EMPTY: "System contract address",
+        BlockException.SYSTEM_CONTRACT_CALL_FAILED: "call failed:",
         # TODO EVMONE needs to differentiate when the section is missing in the header or body
         EOFException.MISSING_STOP_OPCODE: "err: no_terminating_instruction",
         EOFException.MISSING_CODE_HEADER: "err: code_section_missing",
