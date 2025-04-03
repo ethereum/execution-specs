@@ -237,10 +237,10 @@
 
 #### Stack underflow
 
-- [x] Stack underflows ([`tests/osaka/eip7692_eof_v1/eip5450_stack/test_code_validation.py::test_all_opcodes_variadic_stack_underflow`](./eip5450_stack/test_code_validation/test_all_opcodes_variadic_stack_underflow.md))
+- [x] Stack underflows ([`tests/osaka/eip7692_eof_v1/eip5450_stack/test_code_validation.py::test_all_opcodes_stack_underflow`](./eip5450_stack/test_code_validation/test_all_opcodes_stack_underflow.md))
 - [x] Stack underflow with enough items available in caller stack - can't dig into caller frame ([`tests/osaka/eip7692_eof_v1/eip4750_functions/test_code_validation.py::test_eof_validity`](./eip4750_functions/test_code_validation/test_eof_validity.md))
-- [x] Stack underflow in variable stack segment, only min underflow ([`tests/osaka/eip7692_eof_v1/eip5450_stack/test_code_validation.py::test_all_opcodes_variadic_stack_underflow`](./eip5450_stack/test_code_validation/test_all_opcodes_variadic_stack_underflow.md))
-- [x] Stack underflow in variable stack segment, both min and max underflow ([`tests/osaka/eip7692_eof_v1/eip5450_stack/test_code_validation.py::test_all_opcodes_variadic_stack_underflow`](./eip5450_stack/test_code_validation/test_all_opcodes_variadic_stack_underflow.md))
+- [x] Stack underflow in variable stack segment, only min underflow ([`tests/osaka/eip7692_eof_v1/eip5450_stack/test_code_validation.py::test_all_opcodes_stack_underflow`](./eip5450_stack/test_code_validation/test_all_opcodes_stack_underflow.md))
+- [x] Stack underflow in variable stack segment, both min and max underflow ([`tests/osaka/eip7692_eof_v1/eip5450_stack/test_code_validation.py::test_all_opcodes_stack_underflow`](./eip5450_stack/test_code_validation/test_all_opcodes_stack_underflow.md))
 
 #### CALLF
 

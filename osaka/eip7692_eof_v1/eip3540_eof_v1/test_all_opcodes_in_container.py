@@ -313,65 +313,6 @@ def test_all_unreachable_terminating_opcodes_before_stop(
 
 @pytest.mark.parametrize(
     "opcode",
-    sorted(op for op in valid_eof_opcodes if op.min_stack_height > 0)
-    + [
-        # Opcodes that have variable min_stack_height
-        Op.SWAPN[0x00],
-        Op.SWAPN[0xFF],
-        Op.DUPN[0x00],
-        Op.DUPN[0xFF],
-        Op.EXCHANGE[0x00],
-        Op.EXCHANGE[0xFF],
-    ],
-)
-def test_all_opcodes_stack_underflow(
-    eof_test: EOFTestFiller,
-    opcode: Opcode,
-):
-    """Test stack underflow on all opcodes that require at least one item on the stack."""
-    sections: List[Section]
-    if opcode == Op.EOFCREATE:
-        sections = [
-            Section.Code(code=Op.PUSH0 * (opcode.min_stack_height - 1) + opcode[0] + Op.STOP),
-            Section.Container(
-                container=Container(
-                    sections=[
-                        Section.Code(code=Op.RETURNCODE[0](0, 0)),
-                        Section.Container(Container.Code(code=Op.STOP)),
-                    ]
-                )
-            ),
-        ]
-    elif opcode == Op.RETURNCODE:
-        sections = [
-            Section.Code(code=Op.EOFCREATE[0](0, 0, 0, 0) + Op.STOP),
-            Section.Container(
-                container=Container(
-                    sections=[
-                        Section.Code(code=Op.PUSH0 * (opcode.min_stack_height - 1) + opcode[0]),
-                        Section.Container(Container.Code(code=Op.STOP)),
-                    ]
-                )
-            ),
-        ]
-    else:
-        bytecode = Op.PUSH0 * (opcode.min_stack_height - 1)
-        if opcode.has_data_portion():
-            bytecode += opcode[0]
-        else:
-            bytecode += opcode
-        bytecode += Op.STOP
-        sections = [Section.Code(code=bytecode)]
-    eof_code = Container(sections=sections)
-
-    eof_test(
-        container=eof_code,
-        expect_exception=EOFException.STACK_UNDERFLOW,
-    )
-
-
-@pytest.mark.parametrize(
-    "opcode",
     sorted(op for op in valid_eof_opcodes if op.pushed_stack_items > op.popped_stack_items)
     + [
         Op.DUPN[0xFF],

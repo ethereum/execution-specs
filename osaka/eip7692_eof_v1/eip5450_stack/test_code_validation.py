@@ -2,7 +2,7 @@
 
 import itertools
 from enum import Enum, auto, unique
-from typing import Generator, Tuple
+from typing import Tuple
 
 import pytest
 
@@ -15,6 +15,10 @@ from ethereum_test_vm.bytecode import Bytecode
 
 from .. import EOF_FORK_NAME
 from ..eip3540_eof_v1.test_all_opcodes_in_container import valid_eof_opcodes
+from ..eip7620_eof_create.helpers import (
+    smallest_initcode_subcontainer,
+    smallest_runtime_subcontainer,
+)
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-5450.md"
 REFERENCE_SPEC_VERSION = "f20b164b00ae5553f7536a6d7a83a0f254455e09"
@@ -436,37 +440,42 @@ def test_rjumps_jumpf_nonreturning(
     eof_test(container=Container(sections=sections), expect_exception=possible_exceptions or None)
 
 
-def gen_stack_underflow_params() -> Generator[Tuple[Op, int], None, None]:
+def gen_stack_underflow_params():
     """Generate parameters for stack underflow tests."""
-    for op in sorted(valid_eof_opcodes):
-        if op.min_stack_height == 0:
-            continue
-        if op in (Op.EOFCREATE, Op.RETURNCODE):
-            continue
+    opcodes = sorted(op for op in valid_eof_opcodes if op.min_stack_height > 0) + [
+        # Opcodes that have variable min_stack_height
+        Op.SWAPN[0x00],
+        Op.SWAPN[0xFF],
+        Op.DUPN[0x00],
+        Op.DUPN[0xFF],
+        Op.EXCHANGE[0x00],
+        Op.EXCHANGE[0xFF],
+    ]
+    for op in opcodes:
         yield op, 0
         if op.min_stack_height > 1:
             yield op, op.min_stack_height - 1
 
 
-@pytest.mark.parametrize("spread", [0, 1, MAX_OPERAND_STACK_HEIGHT])
+@pytest.mark.parametrize("spread", [-1, 0, 1, MAX_OPERAND_STACK_HEIGHT])
 @pytest.mark.parametrize("op,stack_height", gen_stack_underflow_params())
-def test_all_opcodes_variadic_stack_underflow(
+def test_all_opcodes_stack_underflow(
     eof_test: EOFTestFiller, op: Op, stack_height: int, spread: int
 ):
     """
     Test EOF validation failing due to stack overflow
     caused by the specific instruction `op`.
-    There is similar non-variadic test variant in test_all_opcodes_stack_underflow().
     """
     code = Bytecode()
 
-    # Check if the op increases the stack height (e.g. DUP instructions).
-    # We need to leave space for this increase not to cause stack overflow.
-    stack_height_increase = max(op.pushed_stack_items - op.popped_stack_items, 0)
-    # Cap the spread if it would exceed the maximum stack height.
-    spread = min(spread, MAX_OPERAND_STACK_HEIGHT - (stack_height + stack_height_increase))
-    # Create a range stack height of 0-spread.
-    code = Op.RJUMPI[spread](Op.CALLVALUE) + Op.PUSH0 * spread
+    if spread >= 0:
+        # Check if the op increases the stack height (e.g. DUP instructions).
+        # We need to leave space for this increase not to cause stack overflow.
+        stack_height_increase = max(op.pushed_stack_items - op.popped_stack_items, 0)
+        # Cap the spread if it would exceed the maximum stack height.
+        spread = min(spread, MAX_OPERAND_STACK_HEIGHT - (stack_height + stack_height_increase))
+        # Create a range stack height of 0-spread.
+        code += Op.RJUMPI[spread](Op.CALLVALUE) + Op.PUSH0 * spread
 
     # Create the desired stack height.
     code += Op.PUSH0 * stack_height
@@ -479,9 +488,35 @@ def test_all_opcodes_variadic_stack_underflow(
     if not op.terminating:
         code += Op.STOP
 
+    sections = [
+        Section.Code(
+            code,
+            # Set reasonable stack height. Don't rely on automatic calculation,
+            # because we are in the invalid stack height scenario.
+            max_stack_height=max(spread, stack_height, int(spread >= 0)),
+        )
+    ]
+
+    if op == Op.EOFCREATE:
+        # Make EOFCREATE valid by adding the target subcontainer.
+        sections.append(Section.Container(smallest_initcode_subcontainer))
+    elif op == Op.RETURNCODE:
+        # Make RETURNCODE valid by wrapping it with a container with EOFCREATE.
+        sections = [
+            Section.Code(Op.EOFCREATE[0](0, 0, 0, 0) + Op.STOP),
+            Section.Container(
+                container=Container(
+                    sections=[
+                        sections[0],
+                        Section.Container(smallest_runtime_subcontainer),
+                    ]
+                )
+            ),
+        ]
+
     eof_test(
         container=Container(
-            sections=[Section.Code(code)],
+            sections=sections,
             validity_error=EOFException.STACK_UNDERFLOW,
         )
     )
