@@ -19,11 +19,13 @@ from .exceptions import TransactionTypeError
 from .fork_types import Address, Authorization, VersionedHash
 
 TX_BASE_COST = Uint(21000)
-FLOOR_CALLDATA_COST = Uint(10)
-STANDARD_CALLDATA_TOKEN_COST = Uint(4)
+TOTAL_COST_FLOOR_PER_TOKEN = Uint(10)
+STANDARD_TOKEN_COST = Uint(4)
 TX_CREATE_COST = Uint(32000)
 TX_ACCESS_LIST_ADDRESS_COST = Uint(2400)
 TX_ACCESS_LIST_STORAGE_KEY_COST = Uint(1900)
+
+MAX_INIT_CODE_COUNT = 256
 
 
 @slotted_freezable
@@ -130,12 +132,35 @@ class SetCodeTransaction:
     s: U256
 
 
+@slotted_freezable
+@dataclass
+class EofInitCodeTransaction:
+    """
+    The transaction type added in EIP-7873.
+    """
+
+    chain_id: U64
+    nonce: U256
+    max_priority_fee_per_gas: Uint
+    max_fee_per_gas: Uint
+    gas: Uint
+    to: Union[Bytes0, Address]
+    value: U256
+    data: Bytes
+    access_list: Tuple[Tuple[Address, Tuple[Bytes32, ...]], ...]
+    init_codes: Tuple[Bytes, ...]
+    y_parity: U256
+    r: U256
+    s: U256
+
+
 Transaction = Union[
     LegacyTransaction,
     AccessListTransaction,
     FeeMarketTransaction,
     BlobTransaction,
     SetCodeTransaction,
+    EofInitCodeTransaction,
 ]
 
 
@@ -153,6 +178,8 @@ def encode_transaction(tx: Transaction) -> Union[LegacyTransaction, Bytes]:
         return b"\x03" + rlp.encode(tx)
     elif isinstance(tx, SetCodeTransaction):
         return b"\x04" + rlp.encode(tx)
+    elif isinstance(tx, EofInitCodeTransaction):
+        return b"\x05" + rlp.encode(tx)
     else:
         raise Exception(f"Unable to encode transaction of type {type(tx)}")
 
@@ -170,6 +197,8 @@ def decode_transaction(tx: Union[LegacyTransaction, Bytes]) -> Transaction:
             return rlp.decode_to(BlobTransaction, tx[1:])
         elif tx[0] == 4:
             return rlp.decode_to(SetCodeTransaction, tx[1:])
+        elif tx[0] == 5:
+            return rlp.decode_to(EofInitCodeTransaction, tx[1:])
         else:
             raise TransactionTypeError(tx[0])
     else:
@@ -211,6 +240,12 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
     """
     from .vm.interpreter import MAX_CODE_SIZE
 
+    if isinstance(tx, EofInitCodeTransaction):
+        if len(tx.init_codes) == 0:
+            raise InvalidTransaction("Type 5 tx with no init codes")
+        if len(tx.init_codes) > MAX_INIT_CODE_COUNT:
+            raise InvalidTransaction("Type 5 tx with too many init codes")
+
     intrinsic_gas, calldata_floor_gas_cost = calculate_intrinsic_cost(tx)
     if max(intrinsic_gas, calldata_floor_gas_cost) > tx.gas:
         raise InvalidTransaction("Insufficient gas")
@@ -220,6 +255,28 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
         raise InvalidTransaction("Code size too large")
 
     return intrinsic_gas, calldata_floor_gas_cost
+
+
+def calculate_tokens_in_data(data: Bytes) -> Uint:
+    """
+    Calculate the tokens in a certain data.
+
+    Parameters
+    ----------
+    data :
+        Data in which tokens are to be calculated.
+
+    Returns
+    -------
+    tokens_in_data :
+        Tokens in the data.
+    """
+    zero_bytes = 0
+    for byte in data:
+        if byte == 0:
+            zero_bytes += 1
+
+    return Uint(zero_bytes + (len(data) - zero_bytes) * 4)
 
 
 def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
@@ -250,19 +307,27 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     """
     from .vm.eoa_delegation import PER_EMPTY_ACCOUNT_COST
     from .vm.gas import init_code_cost
+    from .vm.interpreter import MAX_CODE_SIZE
 
-    zero_bytes = 0
-    for byte in tx.data:
-        if byte == 0:
-            zero_bytes += 1
+    tokens_in_tx = Uint(0)
 
-    tokens_in_calldata = Uint(zero_bytes + (len(tx.data) - zero_bytes) * 4)
+    tokens_in_tx += calculate_tokens_in_data(tx.data)
+
+    if isinstance(tx, EofInitCodeTransaction):
+        for init_code in tx.init_codes:
+            if len(init_code) == 0:
+                raise InvalidTransaction(
+                    "Type 5 tx with zero-length init code"
+                )
+            if len(init_code) > 2 * MAX_CODE_SIZE:
+                raise InvalidTransaction("Type 5 tx with too large init code")
+
+            tokens_in_tx += calculate_tokens_in_data(init_code)
+
     # EIP-7623 floor price (note: no EVM costs)
-    calldata_floor_gas_cost = (
-        tokens_in_calldata * FLOOR_CALLDATA_COST + TX_BASE_COST
-    )
+    floor_gas_cost = tokens_in_tx * TOTAL_COST_FLOOR_PER_TOKEN + TX_BASE_COST
 
-    data_cost = tokens_in_calldata * STANDARD_CALLDATA_TOKEN_COST
+    data_cost = tokens_in_tx * STANDARD_TOKEN_COST
 
     if tx.to == Bytes0(b""):
         create_cost = TX_CREATE_COST + init_code_cost(ulen(tx.data))
@@ -277,6 +342,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
             FeeMarketTransaction,
             BlobTransaction,
             SetCodeTransaction,
+            EofInitCodeTransaction,
         ),
     ):
         for _address, keys in tx.access_list:
@@ -295,7 +361,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
             + access_list_cost
             + auth_cost
         ),
-        calldata_floor_gas_cost,
+        floor_gas_cost,
     )
 
 
@@ -364,6 +430,10 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
     elif isinstance(tx, SetCodeTransaction):
         public_key = secp256k1_recover(
             r, s, tx.y_parity, signing_hash_7702(tx)
+        )
+    elif isinstance(tx, EofInitCodeTransaction):
+        public_key = secp256k1_recover(
+            r, s, tx.y_parity, signing_hash_7873(tx)
         )
 
     return Address(keccak256(public_key)[12:32])
@@ -555,6 +625,39 @@ def signing_hash_7702(tx: SetCodeTransaction) -> Hash32:
                 tx.data,
                 tx.access_list,
                 tx.authorizations,
+            )
+        )
+    )
+
+
+def signing_hash_7873(tx: EofInitCodeTransaction) -> Hash32:
+    """
+    Compute the hash of a transaction used in a EIP-7873 signature.
+
+    Parameters
+    ----------
+    tx :
+        Transaction of interest.
+
+    Returns
+    -------
+    hash : `ethereum.crypto.hash.Hash32`
+        Hash of the transaction.
+    """
+    return keccak256(
+        b"\x05"
+        + rlp.encode(
+            (
+                tx.chain_id,
+                tx.nonce,
+                tx.max_priority_fee_per_gas,
+                tx.max_fee_per_gas,
+                tx.gas,
+                tx.to,
+                tx.value,
+                tx.data,
+                tx.access_list,
+                tx.init_codes,
             )
         )
     )

@@ -21,6 +21,7 @@ from .fork_types import Address, Bloom, Root
 from .transactions import (
     AccessListTransaction,
     BlobTransaction,
+    EofInitCodeTransaction,
     FeeMarketTransaction,
     LegacyTransaction,
     SetCodeTransaction,
@@ -121,6 +122,8 @@ def encode_receipt(tx: Transaction, receipt: Receipt) -> Union[Bytes, Receipt]:
         return b"\x03" + rlp.encode(receipt)
     elif isinstance(tx, SetCodeTransaction):
         return b"\x04" + rlp.encode(receipt)
+    elif isinstance(tx, EofInitCodeTransaction):
+        return b"\x05" + rlp.encode(receipt)
     else:
         return receipt
 
@@ -130,7 +133,7 @@ def decode_receipt(receipt: Union[Bytes, Receipt]) -> Receipt:
     Decodes a receipt.
     """
     if isinstance(receipt, Bytes):
-        assert receipt[0] in (1, 2, 3, 4)
+        assert receipt[0] in (1, 2, 3, 4, 5)
         return rlp.decode_to(Receipt, receipt[1:])
     else:
         return receipt
