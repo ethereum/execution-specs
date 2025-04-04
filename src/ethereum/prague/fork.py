@@ -573,6 +573,10 @@ def process_system_transaction(
         Output of processing the system transaction.
     """
     system_contract_code = get_account(state, target_address).code
+    if len(system_contract_code) == 0:
+            raise InvalidBlock(
+                f"System contract address {target_address.hex()} does not contain code"
+            )
 
     system_tx_message = Message(
         caller=SYSTEM_ADDRESS,
@@ -612,6 +616,12 @@ def process_system_transaction(
     )
 
     system_tx_output = process_message_call(system_tx_message, system_tx_env)
+
+    if system_tx_output.error:
+        raise InvalidBlock(
+            f"System contract ({target_address.hex()}) call failed: "
+            f"{system_tx_output.error}"
+        )
 
     # TODO: Empty accounts in post-merge forks are impossible
     # see Ethereum Improvement Proposal 7523.
