@@ -315,6 +315,55 @@ def test_block_hashes_history(
     )
 
 
+@pytest.mark.valid_from("Prague")
+@pytest.mark.with_all_call_opcodes
+def test_block_hashes_call_opcodes(
+    blockchain_test: BlockchainTestFiller, pre: Alloc, call_opcode: Op
+):
+    """Test that the call opcodes can be used to call the history contract and get the block hashes."""  # noqa: E501
+    blocks = []
+    blocks.append(Block())
+
+    storage = Storage()
+    return_code_slot = storage.store_next(0x1)
+    blockhash_value_slot = storage.store_next(
+        True if call_opcode in [Op.DELEGATECALL, Op.CALLCODE] else False
+    )
+
+    code = (
+        Op.MSTORE(0, 1)
+        + Op.SSTORE(
+            return_code_slot,
+            call_opcode(
+                address=Spec.HISTORY_STORAGE_ADDRESS,
+                args_offset=0,
+                args_size=32,
+                ret_offset=32,
+                ret_size=32,
+            ),
+        )
+        + Op.SSTORE(blockhash_value_slot, Op.ISZERO(Op.MLOAD(32)))
+    )
+
+    contract_address = pre.deploy_contract(code, storage=storage.canary())
+    blocks.append(
+        Block(
+            txs=[
+                Transaction(
+                    to=contract_address,
+                    gas_limit=10_000_000,
+                    sender=pre.fund_eoa(),
+                )
+            ]
+        )
+    )
+    blockchain_test(
+        pre=pre,
+        blocks=blocks,
+        post={contract_address: Account(storage=storage)},
+    )
+
+
 @pytest.mark.parametrize(
     "block_number,reverts",
     [
