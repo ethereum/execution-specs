@@ -25,6 +25,32 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 
 VALID: List[Container] = [
     Container(
+        name="retf_stack_validation_0",
+        sections=[
+            Section.Code(code=Op.CALLF[1] + Op.STOP, max_stack_height=2),
+            Section.Code(
+                code=Op.PUSH0 * 2 + Op.RETF,
+                code_outputs=2,
+                max_stack_height=2,
+            ),
+        ],
+    ),
+    Container(
+        name="retf_stack_validation_3",
+        sections=[
+            Section.Code(
+                code=Op.PUSH0 + Op.CALLF[1] + Op.STOP,
+                max_stack_height=2,
+            ),
+            Section.Code(
+                code=Op.RJUMPI[7] + Op.PUSH1[1] * 2 + Op.RJUMP[2] + Op.PUSH0 * 2 + Op.RETF,
+                code_inputs=1,
+                code_outputs=2,
+                max_stack_height=2,
+            ),
+        ],
+    ),
+    Container(
         name="retf_code_input_output",
         sections=[
             Section.Code(code=Op.PUSH0 + Op.CALLF[1] + Op.POP + Op.POP + Op.STOP),
@@ -91,6 +117,72 @@ VALID: List[Container] = [
 
 INVALID: List[Container] = [
     Container(
+        name="retf_stack_validation_1",
+        sections=[
+            Section.Code(code=Op.CALLF[1] + Op.STOP, max_stack_height=2),
+            Section.Code(
+                code=Op.PUSH0 + Op.RETF,
+                code_outputs=2,
+                max_stack_height=1,
+            ),
+        ],
+        validity_error=EOFException.STACK_UNDERFLOW,
+    ),
+    Container(
+        name="retf_variable_stack_0",
+        sections=[
+            Section.Code(code=Op.CALLF[1] + Op.STOP, max_stack_height=5),
+            Section.Code(
+                code=Op.PUSH0 + Op.PUSH1[0] + Op.RJUMPI[2] + Op.PUSH0 * 2 + Op.RETF,
+                code_outputs=5,
+                max_stack_height=3,
+            ),
+        ],
+        validity_error=EOFException.STACK_UNDERFLOW,
+    ),
+    Container(
+        name="retf_variable_stack_1",
+        sections=[
+            Section.Code(code=Op.CALLF[1] + Op.STOP, max_stack_height=3),
+            Section.Code(
+                code=Op.PUSH0 + Op.PUSH1[0] + Op.RJUMPI[2] + Op.PUSH0 * 2 + Op.RETF,
+                code_outputs=3,
+                max_stack_height=3,
+            ),
+        ],
+        validity_error=EOFException.STACK_UNDERFLOW,
+    ),
+    Container(
+        name="retf_variable_stack_4",
+        sections=[
+            Section.Code(code=Op.CALLF[1] + Op.STOP, max_stack_height=3),
+            Section.Code(
+                code=Op.PUSH0 * 3 + Op.PUSH1[0] + Op.RJUMPI[2] + Op.POP * 2 + Op.RETF,
+                code_outputs=3,
+                max_stack_height=4,
+            ),
+        ],
+        validity_error=EOFException.STACK_UNDERFLOW,
+    ),
+    Container(
+        name="callf_inputs_underflow_0",
+        sections=[
+            Section.Code(code=Op.CALLF[1] + Op.STOP, max_stack_height=1),
+            Section.Code(
+                code=Op.PUSH0 + Op.CALLF[2] + Op.RETF,
+                code_outputs=1,
+                max_stack_height=1,
+            ),
+            Section.Code(
+                code=Op.POP + Op.RETF,
+                code_inputs=2,
+                code_outputs=1,
+                max_stack_height=2,
+            ),
+        ],
+        validity_error=EOFException.STACK_UNDERFLOW,
+    ),
+    Container(
         # CALLF to function with incorrectly specified number of inputs
         name="code_inputs_underflow_1",  # EOF1I4750_0020
         sections=[
@@ -127,6 +219,66 @@ INVALID: List[Container] = [
             ),
         ],
         validity_error=EOFException.STACK_UNDERFLOW,
+    ),
+    Container(
+        name="retf_stack_validation_2",
+        sections=[
+            Section.Code(code=Op.CALLF[1] + Op.STOP, max_stack_height=2),
+            Section.Code(
+                code=Op.PUSH0 * 3 + Op.RETF,
+                code_outputs=2,
+                max_stack_height=3,
+            ),
+        ],
+        validity_error=EOFException.STACK_HIGHER_THAN_OUTPUTS,
+    ),
+    Container(
+        name="retf_variable_stack_2",
+        sections=[
+            Section.Code(code=Op.CALLF[1] + Op.STOP, max_stack_height=1),
+            Section.Code(
+                code=Op.PUSH0 + Op.PUSH1[0] + Op.RJUMPI[2] + Op.PUSH0 * 2 + Op.RETF,
+                code_outputs=1,
+                max_stack_height=3,
+            ),
+        ],
+        validity_error=EOFException.STACK_HIGHER_THAN_OUTPUTS,
+    ),
+    Container(
+        name="retf_variable_stack_5",
+        sections=[
+            Section.Code(code=Op.CALLF[1] + Op.STOP, max_stack_height=1),
+            Section.Code(
+                code=Op.PUSH0 + Op.PUSH1[0] + Op.RJUMPI[1] + Op.PUSH0 + Op.RETF,
+                code_outputs=1,
+                max_stack_height=3,
+            ),
+        ],
+        validity_error=EOFException.STACK_HIGHER_THAN_OUTPUTS,
+    ),
+    Container(
+        name="retf_variable_stack_6",
+        sections=[
+            Section.Code(code=Op.CALLF[1] + Op.STOP, max_stack_height=1),
+            Section.Code(
+                code=Op.PUSH0 * 2 + Op.PUSH1[0] + Op.RJUMPI[1] + Op.POP + Op.RETF,
+                code_outputs=1,
+                max_stack_height=3,
+            ),
+        ],
+        validity_error=EOFException.STACK_HIGHER_THAN_OUTPUTS,
+    ),
+    Container(
+        name="retf_variable_stack_3",
+        sections=[
+            Section.Code(code=Op.CALLF[1] + Op.STOP),
+            Section.Code(
+                code=Op.PUSH0 + Op.PUSH1[0] + Op.RJUMPI[2] + Op.PUSH0 * 2 + Op.RETF,
+                code_outputs=0,
+                max_stack_height=3,
+            ),
+        ],
+        validity_error=EOFException.STACK_HIGHER_THAN_OUTPUTS,
     ),
     Container(
         name="stack_higher_than_code_outputs",
