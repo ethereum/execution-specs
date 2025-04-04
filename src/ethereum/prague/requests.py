@@ -12,6 +12,7 @@ from hashlib import sha256
 from typing import List, Union
 
 from ethereum_types.bytes import Bytes
+from ethereum_types.numeric import Uint, ulen
 
 from ethereum.exceptions import InvalidBlock
 from ethereum.utils.hexadecimal import hex_to_bytes32
@@ -30,19 +31,19 @@ WITHDRAWAL_REQUEST_TYPE = b"\x01"
 CONSOLIDATION_REQUEST_TYPE = b"\x02"
 
 
-DEPOSIT_EVENT_LENGTH = 576
+DEPOSIT_EVENT_LENGTH = Uint(576)
 
-PUBKEY_OFFSET = 160
-WITHDRAWAL_CREDENTIALS_OFFSET = 256
-AMOUNT_OFFSET = 320
-SIGNATURE_OFFSET = 384
-INDEX_OFFSET = 512
+PUBKEY_OFFSET = Uint(160)
+WITHDRAWAL_CREDENTIALS_OFFSET = Uint(256)
+AMOUNT_OFFSET = Uint(320)
+SIGNATURE_OFFSET = Uint(384)
+INDEX_OFFSET = Uint(512)
 
-PUBKEY_SIZE = 48
-WITHDRAWAL_CREDENTIALS_SIZE = 32
-AMOUNT_SIZE = 8
-SIGNATURE_SIZE = 96
-INDEX_SIZE = 8
+PUBKEY_SIZE = Uint(48)
+WITHDRAWAL_CREDENTIALS_SIZE = Uint(32)
+AMOUNT_SIZE = Uint(8)
+SIGNATURE_SIZE = Uint(96)
+INDEX_SIZE = Uint(8)
 
 
 def extract_deposit_data(data: Bytes) -> Bytes:
@@ -54,46 +55,48 @@ def extract_deposit_data(data: Bytes) -> Bytes:
     InvalidBlock :
         If the deposit contract did not produce a valid log.
     """
-    if len(data) != DEPOSIT_EVENT_LENGTH:
+    if ulen(data) != DEPOSIT_EVENT_LENGTH:
         raise InvalidBlock("Invalid deposit event data length")
 
     # Check that all the offsets are in order
-    pubkey_offset = int.from_bytes(data[0:32], "big")
+    pubkey_offset = Uint.from_be_bytes(data[0:32])
     if pubkey_offset != PUBKEY_OFFSET:
         raise InvalidBlock("Invalid pubkey offset in deposit log")
 
-    withdrawal_credentials_offset = int.from_bytes(data[32:64], "big")
+    withdrawal_credentials_offset = Uint.from_be_bytes(data[32:64])
     if withdrawal_credentials_offset != WITHDRAWAL_CREDENTIALS_OFFSET:
         raise InvalidBlock(
             "Invalid withdrawal credentials offset in deposit log"
         )
 
-    amount_offset = int.from_bytes(data[64:96], "big")
+    amount_offset = Uint.from_be_bytes(data[64:96])
     if amount_offset != AMOUNT_OFFSET:
         raise InvalidBlock("Invalid amount offset in deposit log")
 
-    signature_offset = int.from_bytes(data[96:128], "big")
+    signature_offset = Uint.from_be_bytes(data[96:128])
     if signature_offset != SIGNATURE_OFFSET:
         raise InvalidBlock("Invalid signature offset in deposit log")
 
-    index_offset = int.from_bytes(data[128:160], "big")
+    index_offset = Uint.from_be_bytes(data[128:160])
     if index_offset != INDEX_OFFSET:
         raise InvalidBlock("Invalid index offset in deposit log")
 
     # Check that all the sizes are in order
-    pubkey_size = int.from_bytes(
-        data[pubkey_offset : pubkey_offset + 32], "big"
+    pubkey_size = Uint.from_be_bytes(
+        data[pubkey_offset : pubkey_offset + Uint(32)]
     )
     if pubkey_size != PUBKEY_SIZE:
         raise InvalidBlock("Invalid pubkey size in deposit log")
 
-    pubkey = data[pubkey_offset + 32 : pubkey_offset + 32 + PUBKEY_SIZE]
+    pubkey = data[
+        pubkey_offset + Uint(32) : pubkey_offset + Uint(32) + PUBKEY_SIZE
+    ]
 
-    withdrawal_credentials_size = int.from_bytes(
+    withdrawal_credentials_size = Uint.from_be_bytes(
         data[
-            withdrawal_credentials_offset : withdrawal_credentials_offset + 32
+            withdrawal_credentials_offset : withdrawal_credentials_offset
+            + Uint(32)
         ],
-        "big",
     )
     if withdrawal_credentials_size != WITHDRAWAL_CREDENTIALS_SIZE:
         raise InvalidBlock(
@@ -102,34 +105,43 @@ def extract_deposit_data(data: Bytes) -> Bytes:
 
     withdrawal_credentials = data[
         withdrawal_credentials_offset
-        + 32 : withdrawal_credentials_offset
-        + 32
+        + Uint(32) : withdrawal_credentials_offset
+        + Uint(32)
         + WITHDRAWAL_CREDENTIALS_SIZE
     ]
 
-    amount_size = int.from_bytes(
-        data[amount_offset : amount_offset + 32], "big"
+    amount_size = Uint.from_be_bytes(
+        data[amount_offset : amount_offset + Uint(32)]
     )
     if amount_size != AMOUNT_SIZE:
         raise InvalidBlock("Invalid amount size in deposit log")
 
-    amount = data[amount_offset + 32 : amount_offset + 32 + AMOUNT_SIZE]
+    amount = data[
+        amount_offset + Uint(32) : amount_offset + Uint(32) + AMOUNT_SIZE
+    ]
 
-    signature_size = int.from_bytes(
-        data[signature_offset : signature_offset + 32], "big"
+    signature_size = Uint.from_be_bytes(
+        data[signature_offset : signature_offset + Uint(32)]
     )
     if signature_size != SIGNATURE_SIZE:
         raise InvalidBlock("Invalid signature size in deposit log")
 
     signature = data[
-        signature_offset + 32 : signature_offset + 32 + SIGNATURE_SIZE
+        signature_offset
+        + Uint(32) : signature_offset
+        + Uint(32)
+        + SIGNATURE_SIZE
     ]
 
-    index_size = int.from_bytes(data[index_offset : index_offset + 32], "big")
+    index_size = Uint.from_be_bytes(
+        data[index_offset : index_offset + Uint(32)]
+    )
     if index_size != INDEX_SIZE:
         raise InvalidBlock("Invalid index size in deposit log")
 
-    index = data[index_offset + 32 : index_offset + 32 + INDEX_SIZE]
+    index = data[
+        index_offset + Uint(32) : index_offset + Uint(32) + INDEX_SIZE
+    ]
 
     return pubkey + withdrawal_credentials + amount + signature + index
 
