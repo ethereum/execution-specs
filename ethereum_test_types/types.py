@@ -1160,8 +1160,5 @@ class Requests:
 
     def __bytes__(self) -> bytes:
         """Return requests hash."""
-        s: bytes = b""
-        for r in self.requests_list:
-            # Append the index of the request type to the request data before hashing
-            s = s + r.sha256()
+        s: bytes = b"".join(r.sha256() for r in self.requests_list)
         return Bytes(s).sha256()
