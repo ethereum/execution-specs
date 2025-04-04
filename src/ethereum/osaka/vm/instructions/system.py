@@ -11,9 +11,12 @@ Introduction
 
 Implementations of the EVM system related instructions.
 """
-from ethereum_types.bytes import Bytes0
+from typing import Optional
+
+from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.numeric import U256, Uint, ulen
 
+from ethereum.crypto.hash import keccak256
 from ethereum.utils.numeric import ceil32
 
 from ...fork_types import Address
@@ -30,10 +33,12 @@ from ...state import (
 from ...utils.address import (
     compute_contract_address,
     compute_create2_contract_address,
+    compute_eof_tx_create_contract_address,
     to_address,
     to_address_without_mask,
 )
 from ...vm.eoa_delegation import access_delegation
+from ...vm.exceptions import InvalidEof
 from .. import (
     MAX_CODE_SIZE,
     Evm,
@@ -1097,6 +1102,170 @@ def ext_staticcall(evm: Evm) -> None:
     evm.pc += Uint(1)
 
 
+def generic_eof_create(
+    evm: Evm,
+    endowment: U256,
+    contract_address: Address,
+    init_code: Bytes,
+    input_offset: U256,
+    input_size: U256,
+) -> None:
+    """
+    Core logic used by the `CREATE*` family of opcodes.
+    """
+    # This import causes a circular import error
+    # if it's not moved inside this method
+    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_create_message
+    from ..eof import ContainerContext, Eof, get_eof_version
+
+    sender_address = evm.message.current_target
+    sender = get_account(evm.message.block_env.state, sender_address)
+
+    if (
+        sender.balance < endowment
+        or sender.nonce == Uint(2**64 - 1)
+        or evm.message.depth + Uint(1) > STACK_DEPTH_LIMIT
+    ):
+        push(evm.stack, U256(0))
+        return
+
+    create_message_gas = max_message_call_gas(Uint(evm.gas_left))
+    evm.gas_left -= create_message_gas
+
+    if account_has_code_or_nonce(
+        evm.message.block_env.state, contract_address
+    ) or account_has_storage(evm.message.block_env.state, contract_address):
+        increment_nonce(
+            evm.message.block_env.state, evm.message.current_target
+        )
+        push(evm.stack, U256(0))
+        return
+
+    try:
+        metadata = metadata_from_container(
+            init_code,
+            validate=True,
+            context=ContainerContext.INIT,
+        )
+    except InvalidEof:
+        push(evm.stack, U256(0))
+        return
+
+    call_data = memory_read_bytes(evm.memory, input_offset, input_size)
+
+    eof = Eof(
+        version=get_eof_version(init_code),
+        container=init_code,
+        metadata=metadata,
+    )
+
+    evm.accessed_addresses.add(contract_address)
+
+    increment_nonce(evm.message.block_env.state, evm.message.current_target)
+
+    child_message = Message(
+        block_env=evm.message.block_env,
+        tx_env=evm.message.tx_env,
+        caller=evm.message.current_target,
+        target=Bytes0(),
+        gas=create_message_gas,
+        value=endowment,
+        data=call_data,
+        code=init_code,
+        current_target=contract_address,
+        depth=evm.message.depth + Uint(1),
+        code_address=None,
+        should_transfer_value=True,
+        is_static=False,
+        accessed_addresses=evm.accessed_addresses.copy(),
+        accessed_storage_keys=evm.accessed_storage_keys.copy(),
+        parent_evm=evm,
+        eof=eof,
+    )
+    child_evm = process_create_message(child_message)
+
+    if child_evm.error:
+        incorporate_child_on_error(evm, child_evm)
+        evm.return_data = child_evm.output
+        push(evm.stack, U256(0))
+    else:
+        incorporate_child_on_success(evm, child_evm)
+        evm.return_data = b""
+        push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
+
+
+def eof_tx_create(evm: Evm) -> None:
+    """
+    Creates a new account with associated code. Introduced in EOF1 as
+    per EIP-7873.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    # STACK
+    tx_init_code_hash = pop(evm.stack).to_be_bytes32()
+    salt = pop(evm.stack).to_be_bytes32()
+    input_offset = pop(evm.stack)
+    input_size = pop(evm.stack)
+    value = pop(evm.stack)
+
+    # GAS
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory, [(input_offset, input_size)]
+    )
+    call_data_words = ceil32(Uint(input_size)) // Uint(32)
+    init_code_gas = init_code_cost(Uint(input_size))
+    charge_gas(
+        evm,
+        GAS_CREATE
+        + GAS_KECCAK256_WORD * call_data_words
+        + extend_memory.cost
+        + init_code_gas,
+    )
+
+    # OPERATION
+    if evm.message.is_static:
+        raise WriteInStaticContext("TX CREATE in static mode")
+
+    evm.memory += b"\x00" * extend_memory.expand_by
+
+    contract_address = compute_eof_tx_create_contract_address(
+        evm.message.current_target, salt
+    )
+
+    # tx_env.init_codes are None for all but Type 5 transactions
+    if evm.message.tx_env.init_codes is None:
+        push(evm.stack, U256(0))
+    else:
+        # If none of the init codes in the tx match, the
+        # code could still be None
+        code: Optional[Bytes] = None
+
+        for init_code in evm.message.tx_env.init_codes:
+            if keccak256(init_code) == tx_init_code_hash:
+                code = init_code
+                break
+
+        # None of the init codes in the transaction match the
+        # provided init code hash
+        if code is None:
+            push(evm.stack, U256(0))
+        else:
+            generic_eof_create(
+                evm=evm,
+                endowment=value,
+                contract_address=contract_address,
+                init_code=code,
+                input_offset=input_offset,
+                input_size=input_size,
+            )
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(1)
+
+
 def eof_create(evm: Evm) -> None:
     """
     Creates a new account with associated code for EOF.
@@ -1106,9 +1275,6 @@ def eof_create(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_create_message
-    from ..eof import ContainerContext, Eof, get_eof_version
-
     assert evm.eof is not None
 
     # STACK
@@ -1141,78 +1307,20 @@ def eof_create(evm: Evm) -> None:
         raise WriteInStaticContext("EOFCREATE in static mode")
     evm.memory += b"\x00" * extend_memory.expand_by
 
-    state = evm.message.block_env.state
-
-    sender_address = evm.message.current_target
-    sender = get_account(state, sender_address)
-
     contract_address = compute_create2_contract_address(
         evm.message.current_target,
         salt,
         bytearray(init_container),
     )
 
-    evm.accessed_addresses.add(contract_address)
-    create_message_gas = max_message_call_gas(Uint(evm.gas_left))
-    evm.gas_left -= create_message_gas
-
-    if (
-        sender.balance < value
-        or sender.nonce == Uint(2**64 - 1)
-        or evm.message.depth + Uint(1) > STACK_DEPTH_LIMIT
-    ):
-        evm.gas_left += create_message_gas
-        push(evm.stack, U256(0))
-    elif account_has_code_or_nonce(state, contract_address):
-        increment_nonce(state, evm.message.current_target)
-        push(evm.stack, U256(0))
-    else:
-        call_data = memory_read_bytes(evm.memory, input_offset, input_size)
-
-        increment_nonce(state, evm.message.current_target)
-
-        metadata = metadata_from_container(
-            init_container,
-            validate=True,
-            context=ContainerContext.INIT,
-        )
-        eof = Eof(
-            version=get_eof_version(init_container),
-            container=init_container,
-            metadata=metadata,
-        )
-
-        child_message = Message(
-            block_env=evm.message.block_env,
-            tx_env=evm.message.tx_env,
-            caller=evm.message.current_target,
-            target=Bytes0(),
-            gas=create_message_gas,
-            value=value,
-            data=call_data,
-            code=init_container,
-            current_target=contract_address,
-            depth=evm.message.depth + Uint(1),
-            code_address=None,
-            should_transfer_value=True,
-            is_static=False,
-            accessed_addresses=evm.accessed_addresses.copy(),
-            accessed_storage_keys=evm.accessed_storage_keys.copy(),
-            parent_evm=evm,
-            eof=eof,
-        )
-        child_evm = process_create_message(child_message)
-
-        if child_evm.error:
-            incorporate_child_on_error(evm, child_evm)
-            evm.return_data = child_evm.output
-            push(evm.stack, U256(0))
-        else:
-            incorporate_child_on_success(evm, child_evm)
-            evm.return_data = b""
-            push(
-                evm.stack, U256.from_be_bytes(child_evm.message.current_target)
-            )
+    generic_eof_create(
+        evm=evm,
+        endowment=value,
+        contract_address=contract_address,
+        init_code=init_container,
+        input_offset=input_offset,
+        input_size=input_size,
+    )
 
     # PROGRAM COUNTER
     evm.pc += Uint(2)

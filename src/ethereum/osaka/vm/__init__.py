@@ -12,7 +12,6 @@ Introduction
 The abstract computer which runs the code stored in an
 `.fork_types.Account`.
 """
-
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, List, Optional, Set, Tuple, Union
 
@@ -112,6 +111,7 @@ class TransactionEnvironment:
     transient_storage: TransientStorage
     blob_versioned_hashes: Tuple[VersionedHash, ...]
     authorizations: Tuple[Authorization, ...]
+    init_codes: Optional[Tuple[Bytes, ...]]
     index_in_block: Optional[Uint]
     tx_hash: Optional[Hash32]
     traces: List[dict]

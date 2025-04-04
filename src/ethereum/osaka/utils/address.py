@@ -119,3 +119,30 @@ def compute_create2_contract_address(
     padded_address = left_pad_zero_bytes(canonical_address, 20)
 
     return Address(padded_address)
+
+
+def compute_eof_tx_create_contract_address(
+    address: Address, salt: Bytes32
+) -> Address:
+    """
+    Computes address of the new account that needs to be created, in the
+    EOF1 TXCREATE Opcode.
+
+    Parameters
+    ----------
+    address :
+        The address of the account that wants to create the new account.
+    salt :
+        Address generation salt.
+
+    Returns
+    -------
+    address: `ethereum.osaka.fork_types.Address`
+        The computed address of the new account.
+    """
+    preimage = b"\xff" + address + salt
+    computed_address = keccak256(preimage)
+    canonical_address = computed_address[-20:]
+    padded_address = left_pad_zero_bytes(canonical_address, 20)
+
+    return Address(padded_address)

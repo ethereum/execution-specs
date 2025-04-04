@@ -240,6 +240,7 @@ class Ops(enum.Enum):
 
     # System Operations
     EOFCREATE = 0xEC
+    TXCREATE = 0xED
     RETURNCONTRACT = 0xEE
     CREATE = 0xF0
     CALL = 0xF1
@@ -411,6 +412,7 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.SWAPN: stack_instructions.swapn,
     Ops.EXCHANGE: stack_instructions.exchange,
     Ops.EOFCREATE: system_instructions.eof_create,
+    Ops.TXCREATE: system_instructions.eof_tx_create,
     Ops.RETURNCONTRACT: system_instructions.return_contract,
     Ops.CREATE: system_instructions.create,
     Ops.RETURN: system_instructions.return_,
@@ -449,6 +451,7 @@ OPCODES_INVALID_IN_LEGACY = (
     Ops.EXCHANGE,
     # System Operations
     Ops.EOFCREATE,
+    Ops.TXCREATE,
     Ops.RETURNDATALOAD,
     Ops.EXTCALL,
     Ops.EXTDELEGATECALL,
@@ -641,6 +644,7 @@ op_stack_items: Dict[Ops, OpcodeStackItemCount] = {
     Ops.CALLF: OpcodeStackItemCount(inputs=0, outputs=0),
     Ops.RETF: OpcodeStackItemCount(inputs=0, outputs=0),
     Ops.EOFCREATE: OpcodeStackItemCount(inputs=4, outputs=1),
+    Ops.TXCREATE: OpcodeStackItemCount(inputs=5, outputs=1),
     Ops.RETURNCONTRACT: OpcodeStackItemCount(inputs=2, outputs=0),
     Ops.CREATE: OpcodeStackItemCount(inputs=3, outputs=1),
     Ops.RETURN: OpcodeStackItemCount(inputs=2, outputs=0),
