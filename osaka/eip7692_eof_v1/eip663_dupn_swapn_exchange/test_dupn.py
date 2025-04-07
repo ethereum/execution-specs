@@ -55,7 +55,7 @@ def test_dupn_all_valid_immediates(eof_state_test: EOFStateTestFiller):
 @pytest.mark.parametrize(
     "stack_height,max_stack_height",
     [
-        [0, 0],
+        # [0, 0] is tested in test_all_opcodes_stack_underflow()
         [0, 1],
         [1, 1],
         [1, 2],

@@ -65,9 +65,9 @@ def test_exchange_all_valid_immediates(eof_state_test: EOFStateTestFiller):
 @pytest.mark.parametrize(
     "stack_height,x,y",
     [
-        # 2 and 3 are the lowest valid values for x and y, which translates to a
-        # zero immediate value.
-        pytest.param(0, 2, 3, id="stack_height=0_n=1_m=1"),
+        # 2 and 3 are the lowest valid values for x and y,
+        # which translates to the zero immediate value.
+        # (0, 2, 3) is tested in test_all_opcodes_stack_underflow()
         pytest.param(1, 2, 3, id="stack_height=1_n=1_m=1"),
         pytest.param(2, 2, 3, id="stack_height=2_n=1_m=1"),
         pytest.param(17, 2, 18, id="stack_height=17_n=1_m=16"),
@@ -75,13 +75,13 @@ def test_exchange_all_valid_immediates(eof_state_test: EOFStateTestFiller):
         pytest.param(32, 17, 33, id="stack_height=32_n=16_m=16"),
     ],
 )
-def test_exchange_all_invalid_immediates(
+def test_exchange_stack_underflow(
     eof_test: EOFTestFiller,
     stack_height: int,
     x: int,
     y: int,
 ):
-    """Test case for all invalid EXCHANGE immediates."""
+    """Test case the EXCHANGE causing stack underflow."""
     eof_code = Container(
         sections=[
             Section.Code(

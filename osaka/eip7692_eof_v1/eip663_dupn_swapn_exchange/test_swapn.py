@@ -99,7 +99,9 @@ def test_swapn_stack_underflow(
                 code=sum(Op.PUSH2[v] for v in range(0, stack_height))
                 + Op.SWAPN[stack_height]
                 + Op.STOP,
-                max_stack_height=stack_height,
+                # This is also tested in test_all_opcodes_stack_underflow()
+                # so make it differ by the declared stack height.
+                max_stack_height=stack_height + 1,
             )
         ],
     )
