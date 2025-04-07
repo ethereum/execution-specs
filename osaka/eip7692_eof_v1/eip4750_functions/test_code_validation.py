@@ -724,6 +724,113 @@ def test_callf_stack_overflow_by_height(eof_test, callee_stack_height):
     eof_test(container=container, expect_exception=EOFException.STACK_OVERFLOW)
 
 
+@pytest.mark.parametrize(
+    "container",
+    [
+        Container(
+            name="underflow_1",
+            sections=[
+                Section.Code(
+                    code=Op.CALLF[1] + Op.STOP,
+                    max_stack_height=1,
+                ),
+                Section.Code(
+                    code=Op.PUSH0 + Op.RETF,
+                    code_inputs=1,
+                    code_outputs=2,
+                    max_stack_height=2,
+                ),
+            ],
+        ),
+        Container(
+            name="underflow_2",
+            sections=[
+                Section.Code(
+                    code=Op.CALLF[1] + Op.STOP,
+                    max_stack_height=2,
+                ),
+                Section.Code(
+                    code=Op.PUSH0 + Op.RETF,
+                    code_inputs=1,
+                    code_outputs=2,
+                    max_stack_height=2,
+                ),
+            ],
+        ),
+        Container(
+            name="underflow_variable_stack_2",
+            sections=[
+                Section.Code(
+                    code=Op.PUSH0 + Op.RJUMPI[2](0) + Op.PUSH0 + Op.PUSH0 + Op.CALLF[1] + Op.STOP,
+                    max_stack_height=4,
+                ),
+                Section.Code(
+                    code=Op.PUSH0 + Op.RETF,
+                    code_inputs=4,
+                    code_outputs=5,
+                    max_stack_height=5,
+                ),
+            ],
+        ),
+        Container(
+            name="underflow_variable_stack_2a",
+            sections=[
+                Section.Code(
+                    code=Op.PUSH0
+                    + Op.PUSH0
+                    + Op.RJUMPI[2](0)
+                    + Op.PUSH0
+                    + Op.PUSH0
+                    + Op.CALLF[1]
+                    + Op.STOP,
+                    max_stack_height=5,
+                ),
+                Section.Code(
+                    code=Op.PUSH0 + Op.RETF,
+                    code_inputs=4,
+                    code_outputs=5,
+                    max_stack_height=5,
+                ),
+            ],
+        ),
+        Container(
+            name="underflow_variable_stack_3",
+            sections=[
+                Section.Code(
+                    code=Op.PUSH0 + Op.RJUMPI[2](0) + Op.PUSH0 + Op.PUSH0 + Op.CALLF[1] + Op.STOP,
+                    max_stack_height=4,
+                ),
+                Section.Code(
+                    code=Op.PUSH0 + Op.RETF,
+                    code_inputs=3,
+                    code_outputs=4,
+                    max_stack_height=4,
+                ),
+            ],
+        ),
+        Container(
+            name="underflow_variable_stack_4",
+            sections=[
+                Section.Code(
+                    code=Op.PUSH0 * 3 + Op.RJUMPI[1](0) + Op.POP + Op.CALLF[1] + Op.STOP,
+                    max_stack_height=4,
+                ),
+                Section.Code(
+                    code=Op.PUSH0 + Op.RETF,
+                    code_inputs=3,
+                    code_outputs=4,
+                    max_stack_height=4,
+                ),
+            ],
+        ),
+    ],
+    ids=lambda x: x.name,
+)
+def test_callf_stack_underflow_examples(eof_test, container):
+    """Test CALLF instruction causing validation time stack underflow."""
+    eof_test(container=container, expect_exception=EOFException.STACK_UNDERFLOW)
+
+
 def test_returning_section_aborts(
     eof_test: EOFTestFiller,
 ):

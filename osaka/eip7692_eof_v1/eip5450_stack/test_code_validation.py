@@ -520,3 +520,50 @@ def test_all_opcodes_stack_underflow(
             validity_error=EOFException.STACK_UNDERFLOW,
         )
     )
+
+
+@pytest.mark.parametrize(
+    "container",
+    [
+        Container(
+            name="underflow_0",
+            sections=[
+                Section.Code(
+                    code=Op.ADD + Op.STOP,
+                    max_stack_height=1,
+                ),
+            ],
+        ),
+        Container(
+            name="underflow_variable_stack_0",
+            sections=[
+                Section.Code(
+                    code=Op.PUSH0 + Op.RJUMPI[2](0) + Op.PUSH0 + Op.PUSH0 + Op.LOG2 + Op.STOP,
+                    max_stack_height=3,
+                ),
+            ],
+        ),
+        Container(
+            name="underflow_variable_stack_1",
+            sections=[
+                Section.Code(
+                    code=Op.PUSH0 + Op.RJUMPI[2](0) + Op.PUSH0 + Op.PUSH0 + Op.ADD + Op.STOP,
+                    max_stack_height=3,
+                ),
+            ],
+        ),
+        Container(
+            name="underflow_variable_stack_2",
+            sections=[
+                Section.Code(
+                    code=Op.PUSH0 * 2 + Op.RJUMPI[1](0) + Op.POP + Op.ADD + Op.STOP,
+                    max_stack_height=3,
+                ),
+            ],
+        ),
+    ],
+    ids=lambda x: x.name,
+)
+def test_stack_underflow_examples(eof_test, container):
+    """Test EOF validation failing due to stack underflow at basic instructions."""
+    eof_test(container=container, expect_exception=EOFException.STACK_UNDERFLOW)
