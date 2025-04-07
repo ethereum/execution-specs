@@ -3,6 +3,7 @@ Create a transition tool for the given fork.
 """
 
 import argparse
+import fnmatch
 import json
 import os
 from functools import partial
@@ -251,10 +252,25 @@ class T8N(Load):
 
     def run(self) -> int:
         """Run the transition and provide the relevant outputs"""
-        # Clean out files from the output directory
+        # Clear files that may have been created in a previous
+        # run of the t8n tool.
+        # Define the specific files and pattern to delete
+        files_to_delete = [
+            self.options.output_result,
+            self.options.output_alloc,
+            self.options.output_body,
+        ]
+        pattern_to_delete = "trace-*.jsonl"
+
+        # Iterate through the directory
         for file in os.listdir(self.options.output_basedir):
-            if file.endswith(".json") or file.endswith(".jsonl"):
-                os.remove(os.path.join(self.options.output_basedir, file))
+            file_path = os.path.join(self.options.output_basedir, file)
+
+            # Check if the file matches the specific names or the pattern
+            if file in files_to_delete or fnmatch.fnmatch(
+                file, pattern_to_delete
+            ):
+                os.remove(file_path)
 
         try:
             if self.options.state_test:
