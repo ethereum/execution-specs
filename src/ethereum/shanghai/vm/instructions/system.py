@@ -11,6 +11,7 @@ Introduction
 
 Implementations of the EVM system related instructions.
 """
+
 from ethereum_types.bytes import Bytes0
 from ethereum_types.numeric import U256, Uint
 
@@ -83,8 +84,6 @@ def generic_create(
     if len(call_data) > 2 * MAX_CODE_SIZE:
         raise OutOfGasError
 
-    evm.accessed_addresses.add(contract_address)
-
     create_message_gas = max_message_call_gas(Uint(evm.gas_left))
     evm.gas_left -= create_message_gas
     if evm.message.is_static:
@@ -102,6 +101,8 @@ def generic_create(
         evm.gas_left += create_message_gas
         push(evm.stack, U256(0))
         return
+
+    evm.accessed_addresses.add(contract_address)
 
     if account_has_code_or_nonce(
         evm.message.block_env.state, contract_address
