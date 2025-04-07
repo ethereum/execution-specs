@@ -15,7 +15,7 @@ The genesis configuration for a chain is specified with a
 import json
 import pkgutil
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Generic, Type, TypeVar
+from typing import Any, Callable, Dict, Generic, Type, TypeVar, Union
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32, FixedBytes
@@ -83,7 +83,7 @@ class GenesisConfiguration:
     [`timestamp`]: ref:ethereum.frontier.blocks.Header.timestamp
     """
 
-    initial_accounts: Dict[str, Dict]
+    initial_accounts: Dict[str, Dict[str, Union[str, Dict[str, str]]]]
     """
     State of the blockchain at genesis.
     """
@@ -204,16 +204,31 @@ def add_genesis_block(
 
     for hex_address, account in genesis.initial_accounts.items():
         address = hardfork.hex_to_address(hex_address)
+
+        nonce = account.get("nonce", "0")
+        assert isinstance(nonce, (str, int))
+
+        balance = account.get("balance", "0")
+        assert isinstance(balance, str)
+
+        code = account.get("code", "0x")
+        assert isinstance(code, str)
+
         hardfork.set_account(
             chain.state,
             address,
             hardfork.Account(
-                Uint(int(account.get("nonce", "0"))),
-                hex_or_base_10_str_to_u256(account.get("balance", 0)),
-                hex_to_bytes(account.get("code", "0x")),
+                Uint(int(nonce)),
+                hex_or_base_10_str_to_u256(balance),
+                hex_to_bytes(code),
             ),
         )
-        for key, value in account.get("storage", {}).items():
+
+        maybe_storage = account.get("storage", {})
+        assert isinstance(maybe_storage, dict)
+        storage: Dict[str, str] = maybe_storage
+
+        for key, value in storage.items():
             hardfork.set_storage(
                 chain.state, address, hex_to_bytes32(key), hex_to_u256(value)
             )
