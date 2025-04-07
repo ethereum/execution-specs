@@ -180,3 +180,180 @@ def test_jumpf_other_stack_overflow(
         container=container,
         expect_exception=EOFException.STACK_OVERFLOW if stack_overflow else None,
     )
+
+
+@pytest.mark.parametrize("code_inputs", [0, 3])
+@pytest.mark.parametrize("stack_height", [0, 2, 3, 4])
+def test_jumpf_to_non_returning(eof_test: EOFTestFiller, stack_height: int, code_inputs: int):
+    """Test JUMPF jumping to a non-returning function."""
+    container = Container(
+        sections=[
+            Section.Code(
+                code=Op.PUSH0 * stack_height + Op.JUMPF[1], max_stack_height=stack_height
+            ),
+            Section.Code(code=Op.STOP, code_inputs=code_inputs, max_stack_height=code_inputs),
+        ],
+    )
+    eof_test(
+        container=container,
+        expect_exception=EOFException.STACK_UNDERFLOW if stack_height < code_inputs else None,
+    )
+
+
+@pytest.mark.parametrize("code_inputs", [0, 1, 3, 5])
+def test_jumpf_to_non_returning_variable_stack(eof_test: EOFTestFiller, code_inputs: int):
+    """Test JUMPF jumping to a non-returning function with stack depending on RJUMPI."""
+    container = Container(
+        sections=[
+            Section.Code(
+                code=Op.PUSH0 + Op.RJUMPI[2](0) + Op.PUSH0 * 2 + Op.JUMPF[1],
+                max_stack_height=3,
+            ),
+            Section.Code(code=Op.INVALID, code_inputs=code_inputs, max_stack_height=code_inputs),
+        ],
+    )
+    eof_test(
+        container=container,
+        expect_exception=EOFException.STACK_UNDERFLOW if code_inputs >= 3 else None,
+    )
+
+
+@pytest.mark.parametrize("code_inputs", [0, 3])
+@pytest.mark.parametrize("code_outputs", [1, 2])
+@pytest.mark.parametrize("stack_height", [0, 1, 2, 3, 4, 5])
+def test_jumpf_to_returning(
+    eof_test: EOFTestFiller, code_inputs: int, code_outputs: int, stack_height: int
+):
+    """Test JUMPF jumping to a returning function."""
+    exceptions = []
+    if code_inputs > stack_height or (stack_height - code_inputs + code_outputs) < 2:
+        exceptions.append(EOFException.STACK_UNDERFLOW)
+    if stack_height - code_inputs + code_outputs > 2:
+        exceptions.append(EOFException.STACK_HIGHER_THAN_OUTPUTS)
+
+    third_cs_stack_height = code_inputs if code_inputs > code_outputs else code_outputs
+    third_cs = None
+    if code_outputs < code_inputs:
+        third_cs = Op.POP * (code_inputs - code_outputs) + Op.RETF
+    else:
+        third_cs = Op.PUSH0 * (code_outputs - code_inputs) + Op.RETF
+
+    container = Container(
+        sections=[
+            Section.Code(code=Op.CALLF[1] + Op.STOP, max_stack_height=2),
+            Section.Code(code=Op.PUSH0 * stack_height + Op.JUMPF[2], code_outputs=2),
+            Section.Code(
+                code=third_cs,
+                code_inputs=code_inputs,
+                code_outputs=code_outputs,
+                max_stack_height=third_cs_stack_height,
+            ),
+        ],
+    )
+
+    eof_test(
+        container=container,
+        expect_exception=exceptions if exceptions else None,
+    )
+
+
+@pytest.mark.parametrize("code_inputs", [0, 1, 3, 5])
+@pytest.mark.parametrize("code_outputs", [1, 3])
+@pytest.mark.parametrize("stack_increase", [0, 1, 2, 3, 4])
+def test_jumpf_to_returning_variable_stack_1(
+    eof_test: EOFTestFiller,
+    code_inputs: int,
+    code_outputs: int,
+    stack_increase: int,
+):
+    """Test JUMPF with variable stack jumping to a returning function increasing the stack."""
+    exception = None
+    if code_inputs >= 3 or code_outputs + 1 < 3:  # 3 = Section 1's max stack
+        exception = EOFException.STACK_UNDERFLOW
+    if 3 - code_inputs + code_outputs > 3:
+        exception = EOFException.STACK_HIGHER_THAN_OUTPUTS
+
+    container = Container(
+        sections=[
+            Section.Code(code=Op.CALLF[1] + Op.STOP, max_stack_height=3),
+            Section.Code(
+                code=Op.PUSH0 + Op.RJUMPI[2](0) + Op.PUSH0 * 2 + Op.JUMPF[2],
+                code_outputs=3,
+                max_stack_height=3,
+            ),
+            Section.Code(
+                code=Op.PUSH0 * stack_increase + Op.RETF,
+                code_inputs=code_inputs,
+                code_outputs=code_outputs,
+                max_stack_height=code_inputs if code_inputs > code_outputs else code_outputs,
+            ),
+        ],
+    )
+
+    eof_test(
+        container=container,
+        expect_exception=exception,
+    )
+
+
+@pytest.mark.parametrize("code_inputs", [1, 3, 5])
+@pytest.mark.parametrize("code_outputs", [1])
+@pytest.mark.parametrize("stack_decrease", [0, 2, 4])
+def test_jumpf_to_returning_variable_stack_2(
+    eof_test: EOFTestFiller,
+    code_inputs: int,
+    code_outputs: int,
+    stack_decrease: int,
+):
+    """Test JUMPF with variable stack jumping to a returning function decreasing the stack."""
+    exceptions = []
+    if code_inputs >= 3 or code_outputs + 1 < 3:  # 3 = Section 1's max stack
+        exceptions.append(EOFException.STACK_UNDERFLOW)
+    if 3 - code_inputs + code_outputs > 2:
+        exceptions.append(EOFException.STACK_HIGHER_THAN_OUTPUTS)
+
+    container = Container(
+        sections=[
+            Section.Code(code=Op.CALLF[1] + Op.STOP, max_stack_height=2),
+            Section.Code(
+                code=Op.PUSH0 + Op.RJUMPI[2](0) + Op.PUSH0 * 2 + Op.JUMPF[2],
+                code_outputs=2,
+                max_stack_height=3,
+            ),
+            Section.Code(
+                code=Op.POP * stack_decrease + Op.RETF,
+                code_inputs=code_inputs,
+                code_outputs=code_outputs,
+                max_stack_height=code_inputs if code_inputs > code_outputs else code_outputs,
+            ),
+        ],
+    )
+
+    eof_test(
+        container=container,
+        expect_exception=exceptions,
+    )
+
+
+def test_jumpf_to_returning_variable_stack_3(eof_test: EOFTestFiller):
+    """Test JUMPF with variable stack jumping to a returning function increasing the stack."""
+    container = Container(
+        sections=[
+            Section.Code(code=Op.CALLF[1] + Op.STOP, max_stack_height=2),
+            Section.Code(
+                code=Op.PUSH0 + Op.PUSH1[0] + Op.RJUMPI[2] + Op.PUSH0 * 2 + Op.JUMPF[2],
+                code_outputs=2,
+                max_stack_height=3,
+            ),
+            Section.Code(
+                code=Op.PUSH0 + Op.RETF,
+                code_outputs=1,
+                max_stack_height=1,
+            ),
+        ],
+    )
+
+    eof_test(
+        container=container,
+        expect_exception=EOFException.STACK_HIGHER_THAN_OUTPUTS,
+    )

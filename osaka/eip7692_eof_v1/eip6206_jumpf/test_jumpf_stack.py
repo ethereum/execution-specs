@@ -8,6 +8,7 @@ from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
+from ..eip4750_functions.test_code_validation import MAX_RUNTIME_OPERAND_STACK_HEIGHT
 from .helpers import slot_code_worked, value_code_worked
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-6206.md"
@@ -275,3 +276,91 @@ def test_jumpf_diff_min_stack_height(
         ),
         expect_exception=expected_exception,
     )
+
+
+def test_jumpf_self_variadic_stack_overflow(eof_test: EOFTestFiller):
+    """Test JUMPF calling self causing EOF validation stack overflow."""
+    container = Container(
+        name="jumpf_stack_overflow_variable_stack_0",
+        sections=[
+            Section.Code(
+                code=Op.PUSH0 + Op.RJUMPI[2](0) + Op.PUSH0 * 511 + Op.JUMPF[0],
+                max_stack_height=512,
+            ),
+        ],
+    )
+    eof_test(container=container)
+
+
+@pytest.mark.parametrize("stack_height", [512, 1022, 1023])
+@pytest.mark.parametrize("callee_stack_height", [0, 1, 2, 5, 511, 512, 513])
+def test_jumpf_variadic_stack_overflow(
+    eof_test: EOFTestFiller, stack_height: int, callee_stack_height: int
+):
+    """Test JUMPF stack validation causing stack overflow with variable stack height."""
+    container = Container(
+        sections=[
+            Section.Code(
+                code=Op.PUSH0 + Op.RJUMPI[2](0) + Op.PUSH0 * (stack_height - 1) + Op.JUMPF[1],
+                max_stack_height=stack_height,
+            ),
+            Section.Code(
+                code=Op.PUSH0 * callee_stack_height + Op.STOP,
+                max_stack_height=callee_stack_height,
+            ),
+        ],
+        validity_error=EOFException.STACK_OVERFLOW
+        if stack_height + callee_stack_height > MAX_RUNTIME_OPERAND_STACK_HEIGHT
+        else None,
+    )
+    eof_test(container=container)
+
+
+@pytest.mark.parametrize("stack_height", [1022, 1023])
+@pytest.mark.parametrize("callee_stack_increase", [0, 1, 2])
+def test_jumpf_with_inputs_stack_overflow(
+    eof_test: EOFTestFiller, stack_height: int, callee_stack_increase: int
+):
+    """Test validation of JUMPF with inputs causing stack overflow."""
+    container = Container(
+        sections=[
+            Section.Code(
+                code=Op.PUSH0 * stack_height + Op.JUMPF[1],
+                max_stack_height=stack_height,
+            ),
+            Section.Code(
+                code=Op.PUSH0 * callee_stack_increase + Op.STOP,
+                code_inputs=2,
+                max_stack_height=2 + callee_stack_increase,
+            ),
+        ],
+        validity_error=EOFException.STACK_OVERFLOW
+        if stack_height + callee_stack_increase > MAX_RUNTIME_OPERAND_STACK_HEIGHT
+        else None,
+    )
+    eof_test(container=container)
+
+
+@pytest.mark.parametrize("stack_height", [1022, 1023])
+@pytest.mark.parametrize("callee_stack_increase", [0, 1, 2])
+def test_jumpf_with_inputs_stack_overflow_variable_stack(
+    eof_test: EOFTestFiller, stack_height: int, callee_stack_increase: int
+):
+    """Test JUMPF with variable stack depending on RJUMPI calling function with inputs."""
+    container = Container(
+        sections=[
+            Section.Code(
+                code=Op.PUSH0 + Op.RJUMPI[2](0) + Op.PUSH0 * (stack_height - 1) + Op.JUMPF[1],
+                max_stack_height=stack_height,
+            ),
+            Section.Code(
+                code=Op.PUSH0 * callee_stack_increase + Op.STOP,
+                code_inputs=2,
+                max_stack_height=2 + callee_stack_increase,
+            ),
+        ],
+        validity_error=EOFException.STACK_OVERFLOW
+        if stack_height + callee_stack_increase > MAX_RUNTIME_OPERAND_STACK_HEIGHT
+        else None,
+    )
+    eof_test(container=container)

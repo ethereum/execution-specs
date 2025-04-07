@@ -265,14 +265,15 @@
 
 #### JUMPF
 
-- [ ] Extra items on stack are allowed for JUMPF to non-returning function (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_to_nonreturning_Copier.json src/EOFTestsFiller/efStack/jumpf_to_nonreturning_variable_stack_Copier.json)
-- [ ] JUMPF stack underflows (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_to_nonreturning_Copier.json src/EOFTestsFiller/efStack/jumpf_to_returning_Copier.json)
-- [ ] JUMPF stack underflow in a variable stack segment - only min underflow (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_to_nonreturning_variable_stack_Copier.json)
-- [ ] JUMPF stack underflow in a variable stack segment - both min and max underflow (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_to_nonreturning_variable_stack_Copier.json)
-- [ ] JUMPF into function with the same number of outputs (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_to_returning_Copier.json)
-- [ ] JUMPF into function with fewer outputs than current one (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_to_returning_Copier.json)
-- [ ] Extra items on stack are allowed for JUMPF to returning function (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_to_returning_Copier.json)
-- [ ] JUMPF to returning in a variable stack segment is not allowed (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_to_returning_variable_stack_Copier.json)
+- [x] Extra items on stack are allowed for JUMPF to non-returning function ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_validation.py::test_jumpf_to_non_returning`](./eip6206_jumpf/test_jumpf_validation/test_jumpf_to_non_returning.md) [`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_validation.py::test_jumpf_to_non_returning_variable_stack`](./eip6206_jumpf/test_jumpf_validation/test_jumpf_to_non_returning_variable_stack.md))
+- [x] JUMPF stack underflows ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_validation.py::test_jumpf_to_non_returning`](./eip6206_jumpf/test_jumpf_validation/test_jumpf_to_non_returning.md) [`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_validation.py::test_jumpf_to_returning`](./eip6206_jumpf/test_jumpf_validation/test_jumpf_to_returning.md))
+- [x] JUMPF stack underflow in a variable stack segment - only min underflow ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_validation.py::test_jumpf_to_non_returning_variable_stack`](./eip6206_jumpf/test_jumpf_validation/test_jumpf_to_non_returning_variable_stack.md))
+- [x] JUMPF stack underflow in a variable stack segment - both min and max underflow ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_validation.py::test_jumpf_to_non_returning_variable_stack`](./eip6206_jumpf/test_jumpf_validation/test_jumpf_to_non_returning_variable_stack.md))
+- [x] JUMPF into function with the same number of outputs ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_validation.py::test_jumpf_to_returning`](./eip6206_jumpf/test_jumpf_validation/test_jumpf_to_returning.md))
+- [x] JUMPF into function with fewer outputs than current one ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_validation.py::test_jumpf_to_returning`](./eip6206_jumpf/test_jumpf_validation/test_jumpf_to_returning.md))
+- [x] Extra items on stack are allowed for JUMPF to returning function ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_validation.py::test_jumpf_to_returning`](./eip6206_jumpf/test_jumpf_validation/test_jumpf_to_returning.md))
+- [x] JUMPF to returning in a variable stack segment is not allowed ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_validation.py::test_jumpf_to_returning_variable_stack_1`](./eip6206_jumpf/test_jumpf_validation/test_jumpf_to_returning_variable_stack_1.md)  [`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_validation.py::test_jumpf_to_returning_variable_stack_2`](./eip6206_jumpf/test_jumpf_validation/test_jumpf_to_returning_variable_stack_2.md)  [`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_validation.py::test_jumpf_to_returning_variable_stack_3`](./eip6206_jumpf/test_jumpf_validation/test_jumpf_to_returning_variable_stack_3.md)) 
+- (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_to_returning_variable_stack_Copier.json)
 - [x] Invalid JUMPF in a non-returning function ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_nonreturning_validation.py::test_retf_in_nonreturning`](./eip6206_jumpf/test_nonreturning_validation/test_retf_in_nonreturning.md))
 - [ ] Truncated JUMPF immediate
 
@@ -294,15 +295,15 @@
 
 - [x] Max allowed stack height reached in JUMPF-ed function ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_validation.py::test_jumpf_other_stack_overflow`](./eip6206_jumpf/test_jumpf_validation/test_jumpf_other_stack_overflow.md))
 - [x] JUMPF validation time stack overflow ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_validation.py::test_jumpf_other_stack_overflow`](./eip6206_jumpf/test_jumpf_validation/test_jumpf_other_stack_overflow.md))
-- [ ] Max allowed stack height reached in JUMPF-ed function with inputs
-- [ ] JUMPF validation time stack overflow in function with inputs (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_with_inputs_stack_overflow_Copier.json)
-- [ ] JUMPF validation time stack overflow in function with inputs, variable stack segment, only max overflow (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_with_inputs_stack_overflow_variable_stack_Copier.json)
-- [ ] JUMPF validation time stack overflow in function with inputs, variable stack segment, both max and min overflow (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_with_inputs_stack_overflow_variable_stack_Copier.json)
-- [ ] Max allowed stack height reached in JUMPF-ed function. JUMPF in variable stack segment. (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_stack_overflow_variable_stack_Copier.json)
-- [ ] JUMPF validation time stack overflow in variable stack segment - only max overflow. (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_stack_overflow_variable_stack_Copier.json)
-- [ ] JUMPF validation time stack overflow in variable stack segment - both min and max overflow. (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_stack_overflow_variable_stack_Copier.json)
-- [ ] Max allowed stack height reached in JUMPF-ed function with inputs. JUMPF in variable stack segment.
-- [ ] JUMPF validation time stack overflow in function with inputs in variable stack segment.
+- [x] Max allowed stack height reached in JUMPF-ed function with inputs ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_stack.py::test_jumpf_with_inputs_stack_overflow`](./eip6206_jumpf/test_jumpf_stack/test_jumpf_with_inputs_stack_overflow.md))
+- [x] JUMPF validation time stack overflow in function with inputs ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_stack.py::test_jumpf_with_inputs_stack_overflow`](./eip6206_jumpf/test_jumpf_stack/test_jumpf_with_inputs_stack_overflow.md))
+- [x] JUMPF validation time stack overflow in function with inputs, variable stack segment, only max overflow ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_stack.py::test_jumpf_with_inputs_stack_overflow_variable_stack`](./eip6206_jumpf/test_jumpf_stack/test_jumpf_with_inputs_stack_overflow_variable_stack.md))
+- [x] JUMPF validation time stack overflow in function with inputs, variable stack segment, both max and min overflow  ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_stack.py::test_jumpf_with_inputs_stack_overflow_variable_stack`](./eip6206_jumpf/test_jumpf_stack/test_jumpf_with_inputs_stack_overflow_variable_stack.md))
+- [x] Max allowed stack height reached in JUMPF-ed function. JUMPF in variable stack segment. ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_stack.py::test_jumpf_variadic_stack_overflow`](./eip6206_jumpf/test_jumpf_stack/test_jumpf_variadic_stack_overflow.md))
+- [x] JUMPF validation time stack overflow in variable stack segment - only max overflow. ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_stack.py::test_jumpf_variadic_stack_overflow`](./eip6206_jumpf/test_jumpf_stack/test_jumpf_variadic_stack_overflow.md))
+- [x] JUMPF validation time stack overflow in variable stack segment - both min and max overflow. ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_stack.py::test_jumpf_variadic_stack_overflow`](./eip6206_jumpf/test_jumpf_stack/test_jumpf_variadic_stack_overflow.md))
+- [x] Max allowed stack height reached in JUMPF-ed function with inputs. JUMPF in variable stack segment. ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_stack.py::test_jumpf_with_inputs_stack_overflow_variable_stack`](./eip6206_jumpf/test_jumpf_stack/test_jumpf_with_inputs_stack_overflow_variable_stack.md))
+- [x] JUMPF validation time stack overflow in function with inputs in variable stack segment. ([`tests/osaka/eip7692_eof_v1/eip6206_jumpf/test_jumpf_stack.py::test_jumpf_with_inputs_stack_overflow_variable_stack`](./eip6206_jumpf/test_jumpf_stack/test_jumpf_with_inputs_stack_overflow_variable_stack.md))
 
 #### SWAPN/DUPN/EXCHANGE
 
