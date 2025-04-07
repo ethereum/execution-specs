@@ -1,6 +1,7 @@
 # Ethereum Execution Client Specifications
 
 [![GitPOAP Badge](https://public-api.gitpoap.io/v1/repo/ethereum/execution-specs/badge)](https://www.gitpoap.io/gh/ethereum/execution-specs)
+[![Github release](https://img.shields.io/github/v/tag/ethereum/execution-specs.svg?sort=semver)](https://github.com/ethereum/execution-specs/releases)
 
 ## Description
 
