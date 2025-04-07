@@ -287,12 +287,13 @@ test_cases: List[Tuple[str, Container, str]] = [
                 Section.Code(
                     "0x00",
                     code_inputs=1,
+                    max_stack_height=1,
                 ),
             ],
         ),
         """
             ef0001 01 0004 02 0001 0001 04 0000 00
-            01800000
+            01800001
             00
             """,
     ),
@@ -303,12 +304,13 @@ test_cases: List[Tuple[str, Container, str]] = [
                 Section.Code(
                     "0x00",
                     code_inputs=0xFF,
+                    max_stack_height=0xFF,
                 ),
             ],
         ),
         """
             ef0001 01 0004 02 0001 0001 04 0000 00
-            ff800000
+            ff8000ff
             00
             """,
     ),

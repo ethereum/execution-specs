@@ -200,6 +200,8 @@ class Section(CopyValidateModel):
                     auto_code_outputs,
                 )
 
+        assert max_stack_height >= code_inputs, "incorrect max_stack_height value"
+
         return (
             code_inputs.to_bytes(length=TYPES_INPUTS_BYTE_LENGTH, byteorder="big")
             + code_outputs.to_bytes(length=TYPES_OUTPUTS_BYTE_LENGTH, byteorder="big")
