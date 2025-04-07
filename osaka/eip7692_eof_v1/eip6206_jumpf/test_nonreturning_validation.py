@@ -66,7 +66,14 @@ def test_first_section_with_inputs(
     """Test EOF validation failing because the first section has non-zero number of inputs."""
     eof_test(
         container=Container(
-            sections=[Section.Code(code, code_inputs=inputs, code_outputs=outputs)],
+            sections=[
+                Section.Code(
+                    code,
+                    code_inputs=inputs,
+                    code_outputs=outputs,
+                    max_stack_height=max(inputs, outputs),
+                )
+            ],
             validity_error=EOFException.INVALID_FIRST_SECTION_TYPE,
         )
     )

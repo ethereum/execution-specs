@@ -1081,7 +1081,7 @@ def test_valid_containers(
                     code=(Op.POP * (MAX_CODE_INPUTS + 1)) + Op.RETF,
                     code_inputs=(MAX_CODE_INPUTS + 1),
                     code_outputs=0,
-                    max_stack_height=0,
+                    max_stack_height=(MAX_CODE_INPUTS + 1),
                 ),
             ],
             validity_error=EOFException.INPUTS_OUTPUTS_NUM_ABOVE_LIMIT,
