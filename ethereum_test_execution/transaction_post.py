@@ -14,7 +14,7 @@ from .base import BaseExecute
 class TransactionPost(BaseExecute):
     """Represents a simple transaction-send then post-check execution format."""
 
-    transactions: List[Transaction]
+    blocks: List[List[Transaction]]
     post: Alloc
 
     format_name: ClassVar[str] = "transaction_post"
@@ -24,20 +24,19 @@ class TransactionPost(BaseExecute):
 
     def execute(self, eth_rpc: EthRPC):
         """Execute the format."""
-        assert not any(tx.ty == 3 for tx in self.transactions), (
+        assert not any(tx.ty == 3 for block in self.blocks for tx in block), (
             "Transaction type 3 is not supported in execute mode."
         )
-        if any(tx.error is not None for tx in self.transactions):
-            for transaction in self.transactions:
-                if transaction.error is None:
-                    eth_rpc.send_wait_transaction(transaction.with_signature_and_sender())
-                else:
-                    with pytest.raises(SendTransactionExceptionError):
-                        eth_rpc.send_transaction(transaction.with_signature_and_sender())
-        else:
-            eth_rpc.send_wait_transactions(
-                [tx.with_signature_and_sender() for tx in self.transactions]
-            )
+        for block in self.blocks:
+            if any(tx.error is not None for tx in block):
+                for transaction in block:
+                    if transaction.error is None:
+                        eth_rpc.send_wait_transaction(transaction.with_signature_and_sender())
+                    else:
+                        with pytest.raises(SendTransactionExceptionError):
+                            eth_rpc.send_transaction(transaction.with_signature_and_sender())
+            else:
+                eth_rpc.send_wait_transactions([tx.with_signature_and_sender() for tx in block])
 
         for address, account in self.post.root.items():
             balance = eth_rpc.get_balance(address)

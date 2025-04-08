@@ -750,11 +750,11 @@ class BlockchainTest(BaseTest):
     ) -> BaseExecute:
         """Generate the list of test fixtures."""
         if execute_format == TransactionPost:
-            txs: List[Transaction] = []
+            blocks: List[List[Transaction]] = []
             for block in self.blocks:
-                txs += block.txs
+                blocks += [block.txs]
             return TransactionPost(
-                transactions=txs,
+                blocks=blocks,
                 post=self.post,
             )
         raise Exception(f"Unsupported execute format: {execute_format}")

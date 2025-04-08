@@ -100,7 +100,7 @@ class TransactionTest(BaseTest):
         """Execute the transaction test by sending it to the live network."""
         if execute_format == TransactionPost:
             return TransactionPost(
-                transactions=[self.tx],
+                blocks=[[self.tx]],
                 post={},
             )
         raise Exception(f"Unsupported execute format: {execute_format}")
