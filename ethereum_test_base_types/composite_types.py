@@ -30,6 +30,7 @@ class Storage(EthereumTestRootModel[Dict[StorageKeyValueType, StorageKeyValueTyp
 
     _current_slot: int = PrivateAttr(0)
     _hint_map: Dict[StorageKeyValueType, str] = PrivateAttr(default_factory=dict)
+    _any_map: Dict[StorageKeyValueType, bool] = PrivateAttr(default_factory=dict)
 
     StorageDictType: ClassVar[TypeAlias] = Dict[
         str | int | bytes | SupportsBytes, str | int | bytes | SupportsBytes
@@ -181,6 +182,10 @@ class Storage(EthereumTestRootModel[Dict[StorageKeyValueType, StorageKeyValueTyp
         """Return the items of the storage."""
         return self.root.items()
 
+    def set_expect_any(self, key: StorageKeyValueTypeConvertible | StorageKeyValueType):
+        """Mark key to be able to have any expected value when comparing storages."""
+        self._any_map[StorageKeyValueTypeAdapter.validate_python(key)] = True
+
     def store_next(
         self, value: StorageKeyValueTypeConvertible | StorageKeyValueType | bool, hint: str = ""
     ) -> StorageKeyValueType:
@@ -265,6 +270,9 @@ class Storage(EthereumTestRootModel[Dict[StorageKeyValueType, StorageKeyValueTyp
                     )
 
             elif other[key] != 0:
+                # Skip key verification if we allow this key to be ANY
+                if self._any_map.get(key) is True:
+                    continue
                 raise Storage.KeyValueMismatchError(
                     address=address,
                     key=key,

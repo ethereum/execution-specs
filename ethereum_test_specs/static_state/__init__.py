@@ -1,0 +1,1 @@
+"""Ethereum/tests structures."""

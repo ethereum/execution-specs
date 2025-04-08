@@ -155,6 +155,9 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: "nsaction: ",
         TransactionException.NONCE_MISMATCH_TOO_HIGH: "saction: ",
         TransactionException.NONCE_MISMATCH_TOO_LOW: "action: ",
+        TransactionException.TYPE_3_TX_CONTRACT_CREATION: "ction: ",
+        TransactionException.NONCE_IS_MAX: "tion: ",
+        TransactionException.GAS_ALLOWANCE_EXCEEDED: "ion: ",
         # TODO EVMONE needs to differentiate when the section is missing in the header or body
         EOFException.MISSING_STOP_OPCODE: "err: no_terminating_instruction",
         EOFException.MISSING_CODE_HEADER: "err: code_section_missing",

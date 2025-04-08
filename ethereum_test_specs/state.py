@@ -7,6 +7,7 @@ import pytest
 from pydantic import Field
 
 from ethereum_clis import TransitionTool
+from ethereum_test_base_types import HexNumber
 from ethereum_test_exceptions import EngineAPIError
 from ethereum_test_execution import (
     BaseExecute,
@@ -104,28 +105,40 @@ class StateTest(BaseTest):
             updated_values["excess_blob_gas"] = self.env.excess_blob_gas + (
                 fork.target_blobs_per_block() * fork.blob_gas_per_blob()
             )
+        if self.env.base_fee_per_gas:
+            # Calculate genesis base fee per gas from state test's block#1 env
+            updated_values["base_fee_per_gas"] = HexNumber(
+                int(int(str(self.env.base_fee_per_gas), 0) * 8 / 7)
+            )
+        if fork.header_prev_randao_required():
+            # Set current random
+            updated_values["difficulty"] = None
+            updated_values["prev_randao"] = (
+                self.env.prev_randao if self.env.prev_randao is not None else self.env.difficulty
+            )
 
         return self.env.copy(**updated_values)
 
-    def _generate_blockchain_blocks(self) -> List[Block]:
+    def _generate_blockchain_blocks(self, *, fork: Fork) -> List[Block]:
         """Generate the single block that represents this state test in a BlockchainTest format."""
-        return [
-            Block(
-                number=self.env.number,
-                timestamp=self.env.timestamp,
-                fee_recipient=self.env.fee_recipient,
-                difficulty=self.env.difficulty,
-                gas_limit=self.env.gas_limit,
-                extra_data=self.env.extra_data,
-                withdrawals=self.env.withdrawals,
-                parent_beacon_block_root=self.env.parent_beacon_block_root,
-                txs=[self.tx],
-                ommers=[],
-                exception=self.tx.error,
-                header_verify=self.blockchain_test_header_verify,
-                rlp_modifier=self.blockchain_test_rlp_modifier,
-            )
-        ]
+        kwargs = {
+            "number": self.env.number,
+            "timestamp": self.env.timestamp,
+            "prev_randao": self.env.prev_randao,
+            "fee_recipient": self.env.fee_recipient,
+            "gas_limit": self.env.gas_limit,
+            "extra_data": self.env.extra_data,
+            "withdrawals": self.env.withdrawals,
+            "parent_beacon_block_root": self.env.parent_beacon_block_root,
+            "txs": [self.tx],
+            "ommers": [],
+            "exception": self.tx.error,
+            "header_verify": self.blockchain_test_header_verify,
+            "rlp_modifier": self.blockchain_test_rlp_modifier,
+        }
+        if not fork.header_prev_randao_required():
+            kwargs["difficulty"] = self.env.difficulty
+        return [Block(**kwargs)]
 
     def generate_blockchain_test(self, *, fork: Fork) -> BlockchainTest:
         """Generate a BlockchainTest fixture from this StateTest fixture."""
@@ -133,7 +146,7 @@ class StateTest(BaseTest):
             genesis_environment=self._generate_blockchain_genesis_environment(fork=fork),
             pre=self.pre,
             post=self.post,
-            blocks=self._generate_blockchain_blocks(),
+            blocks=self._generate_blockchain_blocks(fork=fork),
             t8n_dump_dir=self.t8n_dump_dir,
         )
 

@@ -6,6 +6,7 @@ fixtures.
 import inspect
 import itertools
 import json
+import warnings
 from pathlib import Path
 from typing import Any, Callable, Dict, Generator, List, Tuple, Type
 
@@ -130,6 +131,22 @@ def pytest_collect_file(file_path: Path, parent) -> pytest.Collector | None:
     return None
 
 
+class NoIntResolver(yaml.SafeLoader):
+    """Class that tells yaml to not resolve int values."""
+
+    pass
+
+
+# Remove the implicit resolver for integers
+# Because yaml treat unquoted numbers 000001000 as oct numbers
+# Treat all numbers as str instead
+for ch in list(NoIntResolver.yaml_implicit_resolvers):
+    resolvers = NoIntResolver.yaml_implicit_resolvers[ch]
+    NoIntResolver.yaml_implicit_resolvers[ch] = [
+        (tag, regexp) for tag, regexp in resolvers if tag != "tag:yaml.org,2002:int"
+    ]
+
+
 class FillerFile(pytest.File):
     """
     Filler file that reads test cases from static files and fills them into test
@@ -141,96 +158,105 @@ class FillerFile(pytest.File):
         if not self.path.stem.endswith("Filler"):
             return
         with open(self.path, "r") as file:
-            loaded_file = json.load(file) if self.path.suffix == ".json" else yaml.safe_load(file)
-            for key in loaded_file:
-                filler = BaseStaticTest.model_validate(loaded_file[key])
-                func = filler.fill_function()
-
-                function_marks: List[pytest.Mark] = []
-                if hasattr(func, "pytestmark"):
-                    function_marks = func.pytestmark[:]
-                parametrize_marks: List[pytest.Mark] = [
-                    mark for mark in function_marks if mark.name == "parametrize"
-                ]
-
-                func_parameters = inspect.signature(func).parameters
-
-                fixture_formats: List[Type[BaseFixture] | LabeledFixtureFormat] = []
-                spec_parameter_name = ""
-                for test_type in SPEC_TYPES:
-                    if test_type.pytest_parameter_name() in func_parameters:
-                        assert spec_parameter_name == "", "Multiple spec parameters found"
-                        spec_parameter_name = test_type.pytest_parameter_name()
-                        fixture_formats.extend(test_type.supported_fixture_formats)
-
-                validity_markers: List[ValidityMarker] = ValidityMarker.get_all_validity_markers(
-                    key, self.config, function_marks
+            try:
+                loaded_file = (
+                    json.load(file)
+                    if self.path.suffix == ".json"
+                    else yaml.load(file, Loader=NoIntResolver)
                 )
-                intersection_set = get_intersection_set(key, validity_markers, self.config)
+                for key in loaded_file:
+                    filler = BaseStaticTest.model_validate(loaded_file[key])
+                    func = filler.fill_function()
 
-                for format_with_or_without_label in fixture_formats:
-                    fixture_format_parameter_set = labeled_format_parameter_set(
-                        format_with_or_without_label
-                    )
-                    fixture_format = (
-                        format_with_or_without_label.format
-                        if isinstance(format_with_or_without_label, LabeledFixtureFormat)
-                        else format_with_or_without_label
-                    )
-                    for fork in intersection_set:
-                        params: Dict[str, Any] = {spec_parameter_name: fixture_format}
-                        fixturenames = [
-                            spec_parameter_name,
-                        ]
-                        marks: List[pytest.Mark] = [
-                            mark  # type: ignore
-                            for mark in fixture_format_parameter_set.marks
-                            if mark.name != "parametrize"
-                        ]
-                        test_id = f"fork_{fork.name()}-{fixture_format_parameter_set.id}"
-                        if "fork" in func_parameters:
-                            params["fork"] = fork
-                        if "pre" in func_parameters:
-                            fixturenames.append("pre")
+                    function_marks: List[pytest.Mark] = []
+                    if hasattr(func, "pytestmark"):
+                        function_marks = func.pytestmark[:]
+                    parametrize_marks: List[pytest.Mark] = [
+                        mark for mark in function_marks if mark.name == "parametrize"
+                    ]
 
-                        if parametrize_marks:
-                            parameter_names, parameter_set_list = (
-                                get_all_combinations_from_parametrize_marks(parametrize_marks)
-                            )
-                            for parameter_set in parameter_set_list:
-                                # Copy and extend the params with the parameter set
-                                case_marks = marks[:] + [
-                                    mark
-                                    for mark in parameter_set.marks
-                                    if mark.name != "parametrize"
-                                ]
-                                case_params = params.copy() | dict(
-                                    zip(parameter_names, parameter_set.values, strict=True)
+                    func_parameters = inspect.signature(func).parameters
+
+                    fixture_formats: List[Type[BaseFixture] | LabeledFixtureFormat] = []
+                    spec_parameter_name = ""
+                    for test_type in SPEC_TYPES:
+                        if test_type.pytest_parameter_name() in func_parameters:
+                            assert spec_parameter_name == "", "Multiple spec parameters found"
+                            spec_parameter_name = test_type.pytest_parameter_name()
+                            fixture_formats.extend(test_type.supported_fixture_formats)
+
+                    validity_markers: List[ValidityMarker] = (
+                        ValidityMarker.get_all_validity_markers(key, self.config, function_marks)
+                    )
+                    intersection_set = get_intersection_set(key, validity_markers, self.config)
+
+                    for format_with_or_without_label in fixture_formats:
+                        fixture_format_parameter_set = labeled_format_parameter_set(
+                            format_with_or_without_label
+                        )
+                        fixture_format = (
+                            format_with_or_without_label.format
+                            if isinstance(format_with_or_without_label, LabeledFixtureFormat)
+                            else format_with_or_without_label
+                        )
+                        for fork in intersection_set:
+                            params: Dict[str, Any] = {spec_parameter_name: fixture_format}
+                            fixturenames = [
+                                spec_parameter_name,
+                            ]
+                            marks: List[pytest.Mark] = [
+                                mark  # type: ignore
+                                for mark in fixture_format_parameter_set.marks
+                                if mark.name != "parametrize"
+                            ]
+                            test_id = f"fork_{fork.name()}-{fixture_format_parameter_set.id}"
+                            if "fork" in func_parameters:
+                                params["fork"] = fork
+                            if "pre" in func_parameters:
+                                fixturenames.append("pre")
+
+                            if parametrize_marks:
+                                parameter_names, parameter_set_list = (
+                                    get_all_combinations_from_parametrize_marks(parametrize_marks)
                                 )
+                                for parameter_set in parameter_set_list:
+                                    # Copy and extend the params with the parameter set
+                                    case_marks = marks[:] + [
+                                        mark
+                                        for mark in parameter_set.marks
+                                        if mark.name != "parametrize"
+                                    ]
+                                    case_params = params.copy() | dict(
+                                        zip(parameter_names, parameter_set.values, strict=True)
+                                    )
 
+                                    yield FillerTestItem.from_parent(
+                                        self,
+                                        original_name=key,
+                                        func=func,
+                                        params=case_params,
+                                        fixturenames=fixturenames,
+                                        name=f"{key}[{test_id}-{parameter_set.id}]",
+                                        fork=fork,
+                                        fixture_format=fixture_format,
+                                        marks=case_marks,
+                                    )
+                            else:
                                 yield FillerTestItem.from_parent(
                                     self,
                                     original_name=key,
                                     func=func,
-                                    params=case_params,
+                                    params=params,
                                     fixturenames=fixturenames,
-                                    name=f"{key}[{test_id}-{parameter_set.id}]",
+                                    name=f"{key}[{test_id}]",
                                     fork=fork,
                                     fixture_format=fixture_format,
-                                    marks=case_marks,
+                                    marks=marks,
                                 )
-                        else:
-                            yield FillerTestItem.from_parent(
-                                self,
-                                original_name=key,
-                                func=func,
-                                params=params,
-                                fixturenames=fixturenames,
-                                name=f"{key}[{test_id}]",
-                                fork=fork,
-                                fixture_format=fixture_format,
-                                marks=marks,
-                            )
+            except Exception as e:
+                pytest.fail(f"Error loading file {self.path} as a test: {e}")
+                warnings.warn(f"Error loading file {self.path} as a test: {e}", stacklevel=1)
+                return
 
 
 class FillerTestItem(pytest.Item):

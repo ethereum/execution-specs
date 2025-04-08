@@ -252,6 +252,7 @@ class Block(Header):
         this block need to be set to their defaults.
         """
         new_env_values["difficulty"] = self.difficulty
+        new_env_values["prev_randao"] = self.prev_randao
         new_env_values["fee_recipient"] = (
             self.fee_recipient if self.fee_recipient is not None else Environment().fee_recipient
         )

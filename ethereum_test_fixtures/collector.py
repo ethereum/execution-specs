@@ -125,7 +125,6 @@ class FixtureCollector:
             return Path(info.get_single_test_name(mode="module"))
         else:
             module_relative_output_dir = info.get_module_relative_output_dir(self.filler_path)
-
             if self.single_fixture_per_file:
                 return module_relative_output_dir / info.get_single_test_name(mode="test")
             return module_relative_output_dir / info.get_single_test_name(mode="module")

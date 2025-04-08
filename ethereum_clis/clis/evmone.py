@@ -47,6 +47,12 @@ class EvmoneExceptionMapper(ExceptionMapper):
     """Translate between EEST exceptions and error strings returned by Evmone."""
 
     mapping_substring: ClassVar[Dict[ExceptionBase, str]] = {
+        TransactionException.SENDER_NOT_EOA: "sender not an eoa:",
+        TransactionException.GAS_ALLOWANCE_EXCEEDED: "gas limit reached",
+        TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
+            "max priority fee per gas higher than max fee per gas"
+        ),
+        TransactionException.NONCE_IS_MAX: "nonce has max value:",
         TransactionException.TYPE_4_TX_CONTRACT_CREATION: "set code transaction must ",
         TransactionException.TYPE_4_INVALID_AUTHORITY_SIGNATURE: "invalid authorization signature",
         TransactionException.TYPE_4_INVALID_AUTHORITY_SIGNATURE_S_TOO_HIGH: (
@@ -69,6 +75,9 @@ class EvmoneExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: "invalid blob hash version",
         TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: "blob gas limit exceeded",
         TransactionException.TYPE_3_TX_ZERO_BLOBS: "empty blob hashes list",
+        TransactionException.TYPE_3_TX_CONTRACT_CREATION: (
+            "blob transaction must not be a create transaction"
+        ),
         TransactionException.NONCE_MISMATCH_TOO_LOW: "nonce too low",
         TransactionException.NONCE_MISMATCH_TOO_HIGH: "nonce too high",
         # TODO EVMONE needs to differentiate when the section is missing in the header or body
