@@ -17,6 +17,12 @@ markers = [
     "evm_tools: marks tests as evm_tools (deselect with '-m \"not evm_tools\"')",
 ]
 
+[tool.coverage.run]
+omit = [
+    "*/ethereum/*_glacier/*",
+    "*/ethereum/dao_fork/*",
+]
+
 [tool.docc]
 context = [
     "docc.references.context",
