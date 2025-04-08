@@ -406,6 +406,14 @@ def t8n(request: pytest.FixtureRequest, evm_bin: Path) -> Generator[TransitionTo
     t8n = TransitionTool.from_binary_path(
         binary_path=evm_bin, trace=request.config.getoption("evm_collect_traces")
     )
+    if not t8n.exception_mapper.reliable:
+        warnings.warn(
+            f"The t8n tool that is currently being used to fill tests ({t8n.__class__.__name__}) "
+            "does not provide reliable exception messages. This may lead to false positives when "
+            "writing tests and extra care should be taken when writing tests that produce "
+            "exceptions.",
+            stacklevel=2,
+        )
     yield t8n
     t8n.shutdown()
 

@@ -1,7 +1,7 @@
 """Exceptions for invalid execution."""
 
 from enum import Enum, auto, unique
-from typing import Annotated, Any, Dict, List
+from typing import Annotated, Any, Dict, List, TypeVar
 
 from pydantic import BeforeValidator, GetCoreSchemaHandler, PlainSerializer
 from pydantic_core.core_schema import (
@@ -86,14 +86,27 @@ def from_pipe_str(value: Any) -> str | List[str]:
     return value
 
 
-@unique
-class UndefinedException(ExceptionBase):
-    """Default Exception."""
+class UndefinedException(str):
+    """Undefined Exception."""
 
-    UNDEFINED_EXCEPTION = auto()
-    """
-    Exception to alert to define a proper exception
-    """
+    mapper_name: str | None
+
+    def __new__(cls, value: str, *, mapper_name: str | None = None) -> "UndefinedException":
+        """Create a new UndefinedException instance."""
+        assert isinstance(value, str)
+        instance = super().__new__(cls, value)
+        instance.mapper_name = mapper_name
+        return instance
+
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls, source_type: Any, handler: GetCoreSchemaHandler
+    ) -> PlainValidatorFunctionSchema:
+        """Call class constructor without info and appends the serialization schema."""
+        return no_info_plain_validator_function(
+            cls,
+            serialization=to_string_ser_schema(),
+        )
 
 
 @unique
@@ -795,3 +808,7 @@ EOFExceptionInstanceOrList = Annotated[
     BeforeValidator(from_pipe_str),
     PlainSerializer(to_pipe_str),
 ]
+
+ExceptionBoundTypeVar = TypeVar(
+    "ExceptionBoundTypeVar", TransactionException, BlockException, EOFException
+)

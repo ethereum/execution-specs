@@ -4,7 +4,7 @@ from typing import Any, Mapping, Type
 
 import pytest
 
-from ethereum_clis import ExecutionSpecsTransitionTool
+from ethereum_clis import TransitionTool
 from ethereum_test_base_types import Account, Address, TestAddress, TestPrivateKey
 from ethereum_test_exceptions import TransactionException
 from ethereum_test_fixtures import BlockchainFixture, FixtureFormat, StateFixture
@@ -14,10 +14,10 @@ from ethereum_test_types import Alloc, Environment, Storage, Transaction, Transa
 
 from ..blockchain import BlockchainEngineFixture, BlockchainTest
 from ..helpers import (
-    TransactionExceptionMismatchError,
+    ExecutionExceptionMismatchError,
     TransactionReceiptMismatchError,
-    TransactionUnexpectedFailError,
-    TransactionUnexpectedSuccessError,
+    UnexpectedExecutionFailError,
+    UnexpectedExecutionSuccessError,
 )
 from ..state import StateTest
 
@@ -65,13 +65,7 @@ def state_test(  # noqa: D103
     )
 
 
-@pytest.fixture
-def t8n() -> ExecutionSpecsTransitionTool:  # noqa: D103
-    return ExecutionSpecsTransitionTool()
-
-
 # Storage value mismatch tests
-@pytest.mark.run_in_serial
 @pytest.mark.parametrize(
     "pre,post,expected_exception",
     [
@@ -123,15 +117,14 @@ def t8n() -> ExecutionSpecsTransitionTool:  # noqa: D103
     ],
     indirect=["pre", "post"],
 )
-def test_post_storage_value_mismatch(expected_exception, state_test, t8n, fork):
+def test_post_storage_value_mismatch(expected_exception, state_test, default_t8n, fork):
     """Test post state `Account.storage` exceptions during state test fixture generation."""
     with pytest.raises(Storage.KeyValueMismatchError) as e_info:
-        state_test.generate(request=None, t8n=t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(request=None, t8n=default_t8n, fork=fork, fixture_format=StateFixture)
     assert e_info.value == expected_exception
 
 
 # Nonce value mismatch tests
-@pytest.mark.run_in_serial
 @pytest.mark.parametrize(
     "pre,post",
     [
@@ -141,7 +134,7 @@ def test_post_storage_value_mismatch(expected_exception, state_test, t8n, fork):
     ],
     indirect=["pre", "post"],
 )
-def test_post_nonce_value_mismatch(pre: Alloc, post: Alloc, state_test, t8n, fork):
+def test_post_nonce_value_mismatch(pre: Alloc, post: Alloc, state_test, default_t8n, fork):
     """
     Test post state `Account.nonce` verification and exceptions during state test
     fixture generation.
@@ -153,17 +146,16 @@ def test_post_nonce_value_mismatch(pre: Alloc, post: Alloc, state_test, t8n, for
     pre_nonce = pre_account.nonce
     post_nonce = post_account.nonce
     if "nonce" not in post_account.model_fields_set:  # no exception
-        state_test.generate(request=None, t8n=t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(request=None, t8n=default_t8n, fork=fork, fixture_format=StateFixture)
         return
     with pytest.raises(Account.NonceMismatchError) as e_info:
-        state_test.generate(request=None, t8n=t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(request=None, t8n=default_t8n, fork=fork, fixture_format=StateFixture)
     assert e_info.value == Account.NonceMismatchError(
         address=ADDRESS_UNDER_TEST, want=post_nonce, got=pre_nonce
     )
 
 
 # Code value mismatch tests
-@pytest.mark.run_in_serial
 @pytest.mark.parametrize(
     "pre,post",
     [
@@ -173,7 +165,7 @@ def test_post_nonce_value_mismatch(pre: Alloc, post: Alloc, state_test, t8n, for
     ],
     indirect=["pre", "post"],
 )
-def test_post_code_value_mismatch(pre: Alloc, post: Alloc, state_test, t8n, fork):
+def test_post_code_value_mismatch(pre: Alloc, post: Alloc, state_test, default_t8n, fork):
     """
     Test post state `Account.code` verification and exceptions during state test
     fixture generation.
@@ -185,17 +177,16 @@ def test_post_code_value_mismatch(pre: Alloc, post: Alloc, state_test, t8n, fork
     pre_code = pre_account.code
     post_code = post_account.code
     if "code" not in post_account.model_fields_set:  # no exception
-        state_test.generate(request=None, t8n=t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(request=None, t8n=default_t8n, fork=fork, fixture_format=StateFixture)
         return
     with pytest.raises(Account.CodeMismatchError) as e_info:
-        state_test.generate(request=None, t8n=t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(request=None, t8n=default_t8n, fork=fork, fixture_format=StateFixture)
     assert e_info.value == Account.CodeMismatchError(
         address=ADDRESS_UNDER_TEST, want=post_code, got=pre_code
     )
 
 
 # Balance value mismatch tests
-@pytest.mark.run_in_serial
 @pytest.mark.parametrize(
     "pre,post",
     [
@@ -205,7 +196,7 @@ def test_post_code_value_mismatch(pre: Alloc, post: Alloc, state_test, t8n, fork
     ],
     indirect=["pre", "post"],
 )
-def test_post_balance_value_mismatch(pre: Alloc, post: Alloc, state_test, t8n, fork):
+def test_post_balance_value_mismatch(pre: Alloc, post: Alloc, state_test, default_t8n, fork):
     """
     Test post state `Account.balance` verification and exceptions during state test
     fixture generation.
@@ -217,17 +208,16 @@ def test_post_balance_value_mismatch(pre: Alloc, post: Alloc, state_test, t8n, f
     pre_balance = pre_account.balance
     post_balance = post_account.balance
     if "balance" not in post_account.model_fields_set:  # no exception
-        state_test.generate(request=None, t8n=t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(request=None, t8n=default_t8n, fork=fork, fixture_format=StateFixture)
         return
     with pytest.raises(Account.BalanceMismatchError) as e_info:
-        state_test.generate(request=None, t8n=t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(request=None, t8n=default_t8n, fork=fork, fixture_format=StateFixture)
     assert e_info.value == Account.BalanceMismatchError(
         address=ADDRESS_UNDER_TEST, want=post_balance, got=pre_balance
     )
 
 
 # Account mismatch tests
-@pytest.mark.run_in_serial
 @pytest.mark.parametrize(
     "pre,post,exception_type",
     [
@@ -254,33 +244,32 @@ def test_post_balance_value_mismatch(pre: Alloc, post: Alloc, state_test, t8n, f
     ],
     indirect=["pre", "post"],
 )
-def test_post_account_mismatch(state_test, t8n, fork, exception_type: Type[Exception] | None):
+def test_post_account_mismatch(
+    state_test, default_t8n, fork, exception_type: Type[Exception] | None
+):
     """
     Test post state `Account` verification and exceptions during state test
     fixture generation.
     """
     if exception_type is None:
-        state_test.generate(request=None, t8n=t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(request=None, t8n=default_t8n, fork=fork, fixture_format=StateFixture)
         return
     with pytest.raises(exception_type) as _:
-        state_test.generate(request=None, t8n=t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(request=None, t8n=default_t8n, fork=fork, fixture_format=StateFixture)
 
 
 # Transaction result mismatch tests
-@pytest.mark.run_in_serial
 @pytest.mark.parametrize(
     "tx,exception_type",
     [
         pytest.param(
             Transaction(
                 secret_key=TestPrivateKey,
-                expected_receipt=TransactionReceipt(gas_used=21_000),
+                gas_limit=20_999,
+                error=TransactionException.SENDER_NOT_EOA,
             ),
-            TransactionExceptionMismatchError,
-            id="TransactionExceptionMismatchError",
-            marks=pytest.mark.xfail(
-                reason="Exceptions need to be better described in the t8n tool."
-            ),
+            ExecutionExceptionMismatchError,
+            id="TransactionExecutionExceptionMismatchError",
         ),
         pytest.param(
             Transaction(
@@ -288,8 +277,8 @@ def test_post_account_mismatch(state_test, t8n, fork, exception_type: Type[Excep
                 error=TransactionException.INTRINSIC_GAS_TOO_LOW,
                 expected_receipt=TransactionReceipt(gas_used=21_000),
             ),
-            TransactionUnexpectedSuccessError,
-            id="TransactionUnexpectedSuccessError",
+            UnexpectedExecutionSuccessError,
+            id="TransactionUnexpectedExecutionSuccessError",
         ),
         pytest.param(
             Transaction(
@@ -297,8 +286,8 @@ def test_post_account_mismatch(state_test, t8n, fork, exception_type: Type[Excep
                 gas_limit=20_999,
                 expected_receipt=TransactionReceipt(gas_used=21_000),
             ),
-            TransactionUnexpectedFailError,
-            id="TransactionUnexpectedFailError",
+            UnexpectedExecutionFailError,
+            id="TransactionUnexpectedExecutionFailError",
         ),
         pytest.param(
             Transaction(
@@ -314,8 +303,8 @@ def test_post_account_mismatch(state_test, t8n, fork, exception_type: Type[Excep
                 gas_limit=20_999,
                 expected_receipt=TransactionReceipt(gas_used=21_001),
             ),
-            TransactionUnexpectedFailError,
-            id="TransactionUnexpectedFailError+TransactionReceiptMismatchError",
+            UnexpectedExecutionFailError,
+            id="TransactionUnexpectedExecutionFailError+TransactionReceiptMismatchError",
         ),
         pytest.param(
             Transaction(
@@ -323,8 +312,8 @@ def test_post_account_mismatch(state_test, t8n, fork, exception_type: Type[Excep
                 error=TransactionException.INTRINSIC_GAS_TOO_LOW,
                 expected_receipt=TransactionReceipt(gas_used=21_001),
             ),
-            TransactionUnexpectedSuccessError,
-            id="TransactionUnexpectedSuccessError+TransactionReceiptMismatchError",
+            UnexpectedExecutionSuccessError,
+            id="TransactionUnexpectedExecutionSuccessError+TransactionReceiptMismatchError",
         ),
     ],
 )
@@ -337,8 +326,8 @@ def test_post_account_mismatch(state_test, t8n, fork, exception_type: Type[Excep
 )
 def test_transaction_expectation(
     state_test,
-    t8n,
-    fork,
+    default_t8n: TransitionTool,
+    fork: Fork,
     exception_type: Type[Exception] | None,
     fixture_format: FixtureFormat,
 ):
@@ -346,11 +335,23 @@ def test_transaction_expectation(
     Test a transaction that has an unexpected error, expected error, or expected a specific
     value in its receipt.
     """
+    if (
+        exception_type == ExecutionExceptionMismatchError
+        and not default_t8n.exception_mapper.reliable
+    ):
+        pytest.xfail(
+            reason="Exceptions need to be better described in the t8n tool "
+            f"({default_t8n.__class__.__name__})."
+        )
     if exception_type is None:
-        state_test.generate(request=None, t8n=t8n, fork=fork, fixture_format=fixture_format)
+        state_test.generate(
+            request=None, t8n=default_t8n, fork=fork, fixture_format=fixture_format
+        )
     else:
         with pytest.raises(exception_type) as _:
-            state_test.generate(request=None, t8n=t8n, fork=fork, fixture_format=fixture_format)
+            state_test.generate(
+                request=None, t8n=default_t8n, fork=fork, fixture_format=fixture_format
+            )
 
 
 @pytest.mark.parametrize(
@@ -390,7 +391,7 @@ def test_transaction_expectation(
     ],
 )
 def test_block_intermediate_state(
-    pre, t8n, fork, fixture_format: FixtureFormat, intermediate_state, expected_exception
+    pre, default_t8n, fork, fixture_format: FixtureFormat, intermediate_state, expected_exception
 ):
     """Validate the state when building blockchain."""
     env = Environment()
@@ -422,13 +423,13 @@ def test_block_intermediate_state(
             BlockchainTest(
                 genesis_environment=env,
                 fork=fork,
-                t8n=t8n,
+                t8n=default_t8n,
                 pre=pre,
                 post=block_3.expected_post_state,
                 blocks=[block_1, block_2, block_3],
             ).generate(
                 request=None,  # type: ignore
-                t8n=t8n,
+                t8n=default_t8n,
                 fork=fork,
                 fixture_format=fixture_format,
             )
@@ -437,13 +438,13 @@ def test_block_intermediate_state(
         BlockchainTest(
             genesis_environment=env,
             fork=fork,
-            t8n=t8n,
+            t8n=default_t8n,
             pre=pre,
             post=block_3.expected_post_state,
             blocks=[block_1, block_2, block_3],
         ).generate(
             request=None,  # type: ignore
-            t8n=t8n,
+            t8n=default_t8n,
             fork=fork,
             fixture_format=fixture_format,
         )

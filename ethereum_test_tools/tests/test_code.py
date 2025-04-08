@@ -6,7 +6,7 @@ from typing import Mapping, SupportsBytes
 import pytest
 from semver import Version
 
-from ethereum_clis import ExecutionSpecsTransitionTool
+from ethereum_clis import TransitionTool
 from ethereum_test_base_types import Account, Address, Bytes, Hash, TestAddress, TestPrivateKey
 from ethereum_test_fixtures import BlockchainFixture
 from ethereum_test_forks import (
@@ -288,7 +288,6 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes):
     assert bytes(conditional_bytecode) == expected
 
 
-@pytest.mark.run_in_serial
 @pytest.mark.parametrize(
     "tx_data,switch_bytecode,expected_storage",
     [
@@ -611,7 +610,9 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes):
         ),
     ],
 )
-def test_switch(tx_data: bytes, switch_bytecode: bytes, expected_storage: Mapping):
+def test_switch(
+    tx_data: bytes, switch_bytecode: bytes, expected_storage: Mapping, default_t8n: TransitionTool
+):
     """Test that the switch opcode macro gets executed as using the t8n tool."""
     code_address = Address(0x1000)
     pre = Alloc(
@@ -630,7 +631,7 @@ def test_switch(tx_data: bytes, switch_bytecode: bytes, expected_storage: Mappin
     )
     state_test.generate(
         request=None,  # type: ignore
-        t8n=ExecutionSpecsTransitionTool(),
+        t8n=default_t8n,
         fork=Cancun,
         fixture_format=BlockchainFixture,
         eips=None,

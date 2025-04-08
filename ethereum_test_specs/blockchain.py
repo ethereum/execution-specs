@@ -49,7 +49,7 @@ from ethereum_test_types import Alloc, Environment, Removable, Requests, Transac
 
 from .base import BaseTest, verify_result
 from .debugging import print_traces
-from .helpers import is_slow_test, verify_transactions
+from .helpers import is_slow_test, verify_block, verify_transactions
 
 
 def environment_from_parent_header(parent: "FixtureHeader") -> "Environment":
@@ -208,6 +208,12 @@ class Block(Header):
     ) = None
     """
     If set, the block is expected to be rejected by the client.
+    """
+    skip_exception_verification: bool = False
+    """
+    Skip verifying that the exception is returned by the transition tool.
+    This could be because the exception is inserted in the block after the transition tool
+    evaluates it.
     """
     engine_api_error_code: EngineAPIError | None = None
     """
@@ -431,9 +437,28 @@ class BlockchainTest(BaseTest):
         try:
             rejected_txs = verify_transactions(
                 txs=txs,
-                exception_mapper=t8n.exception_mapper,
                 result=transition_tool_output.result,
+                transition_tool_exceptions_reliable=t8n.exception_mapper.reliable,
             )
+            if (
+                not rejected_txs
+                and block.rlp_modifier is None
+                and block.requests is None
+                and not block.skip_exception_verification
+            ):
+                # Only verify block level exception if:
+                # - No transaction exception was raised, because these are not reported as block
+                #   exceptions.
+                # - No RLP modifier was specified, because the modifier is what normally
+                #   produces the block exception.
+                # - No requests were specified, because modified requests are also what normally
+                #   produces the block exception.
+                verify_block(
+                    block_number=env.number,
+                    want_exception=block.exception,
+                    result=transition_tool_output.result,
+                    transition_tool_exceptions_reliable=t8n.exception_mapper.reliable,
+                )
             verify_result(transition_tool_output.result, env)
         except Exception as e:
             print_traces(t8n.get_traces())

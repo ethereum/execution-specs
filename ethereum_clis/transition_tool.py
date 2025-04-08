@@ -262,7 +262,9 @@ class TransitionTool(EthereumCLI):
                 continue
             with open(file_path, "r+") as file:
                 output_contents[key] = json.load(file)
-        output = TransitionToolOutput(**output_contents)
+        output = TransitionToolOutput.model_validate(
+            output_contents, context={"exception_mapper": self.exception_mapper}
+        )
         if self.trace:
             self.collect_traces(output.result.receipts, temp_dir, debug_output_path)
 
@@ -349,7 +351,9 @@ class TransitionTool(EthereumCLI):
         # pop optional test ``_info`` metadata from response, if present
         self._info_metadata = response_json.pop("_info_metadata", {})
 
-        output: TransitionToolOutput = TransitionToolOutput.model_validate(response_json)
+        output: TransitionToolOutput = TransitionToolOutput.model_validate(
+            response_json, context={"exception_mapper": self.exception_mapper}
+        )
 
         if self.trace:
             self.collect_traces(output.result.receipts, temp_dir, debug_output_path)
@@ -397,7 +401,9 @@ class TransitionTool(EthereumCLI):
         if result.returncode != 0:
             raise Exception("failed to evaluate: " + result.stderr.decode())
 
-        output: TransitionToolOutput = TransitionToolOutput.model_validate_json(result.stdout)
+        output: TransitionToolOutput = TransitionToolOutput.model_validate_json(
+            result.stdout, context={"exception_mapper": self.exception_mapper}
+        )
 
         if debug_output_path:
             dump_files_to_directory(

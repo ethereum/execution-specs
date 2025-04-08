@@ -34,13 +34,6 @@ def monkeypatch_path_for_entry_points(monkeypatch):
     monkeypatch.setenv("PATH", f"{bin_dir}:{os.environ['PATH']}")
 
 
-@pytest.fixture
-def t8n(request):
-    """Fixture for the `t8n` argument."""
-    return request.param()
-
-
-@pytest.mark.parametrize("t8n", [ExecutionSpecsTransitionTool], indirect=True)
 @pytest.mark.parametrize("fork", [London, Istanbul])
 @pytest.mark.parametrize(
     "alloc,base_fee,expected_hash",
@@ -93,7 +86,7 @@ def t8n(request):
     ],
 )
 def test_calc_state_root(
-    t8n: TransitionTool,
+    default_t8n: TransitionTool,
     fork: Fork,
     alloc: Dict,
     base_fee: int | None,
@@ -156,10 +149,9 @@ def env(test_dir: str) -> Environment:
         return Environment.model_validate_json(f.read())
 
 
-@pytest.mark.parametrize("t8n", [ExecutionSpecsTransitionTool], indirect=True)
 @pytest.mark.parametrize("test_dir", os.listdir(path=FIXTURES_ROOT))
 def test_evm_t8n(
-    t8n: TransitionTool,
+    default_t8n: TransitionTool,
     alloc: Alloc,
     txs: List[Transaction],
     env: Environment,
@@ -171,7 +163,7 @@ def test_evm_t8n(
     with open(expected_path, "r") as exp:
         expected = json.load(exp)
 
-        t8n_output = t8n.evaluate(
+        t8n_output = default_t8n.evaluate(
             alloc=alloc,
             txs=txs,
             env=env,
@@ -181,7 +173,7 @@ def test_evm_t8n(
             blob_schedule=Berlin.blob_schedule(),
         )
         assert to_json(t8n_output.alloc) == expected.get("alloc")
-        if isinstance(t8n, ExecutionSpecsTransitionTool):
+        if isinstance(default_t8n, ExecutionSpecsTransitionTool):
             # The expected output was generated with geth, instead of deleting any info from
             # this expected output, the fields not returned by eels are handled here.
             missing_receipt_fields = [

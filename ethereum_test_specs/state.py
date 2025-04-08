@@ -181,8 +181,8 @@ class StateTest(BaseTest):
         try:
             verify_transactions(
                 txs=[tx],
-                exception_mapper=t8n.exception_mapper,
                 result=transition_tool_output.result,
+                transition_tool_exceptions_reliable=t8n.exception_mapper.reliable,
             )
         except Exception as e:
             print_traces(t8n.get_traces())

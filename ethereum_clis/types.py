@@ -1,18 +1,39 @@
 """Types used in the transition tool interactions."""
 
-from typing import List
+from typing import Annotated, List
 
 from pydantic import Field
 
 from ethereum_test_base_types import BlobSchedule, Bloom, Bytes, CamelModel, Hash, HexNumber
+from ethereum_test_exceptions import (
+    BlockException,
+    ExceptionMapperValidator,
+    ExceptionWithMessage,
+    TransactionException,
+    UndefinedException,
+)
 from ethereum_test_types import Alloc, Environment, Transaction, TransactionReceipt
+
+
+class TransactionExceptionWithMessage(ExceptionWithMessage[TransactionException]):
+    """Transaction exception with message."""
+
+    pass
+
+
+class BlockExceptionWithMessage(ExceptionWithMessage[BlockException]):
+    """Block exception with message."""
+
+    pass
 
 
 class RejectedTransaction(CamelModel):
     """Rejected transaction."""
 
     index: HexNumber
-    error: str
+    error: Annotated[
+        TransactionExceptionWithMessage | UndefinedException, ExceptionMapperValidator
+    ]
 
 
 class Result(CamelModel):
@@ -36,6 +57,9 @@ class Result(CamelModel):
     blob_gas_used: HexNumber | None = None
     requests_hash: Hash | None = None
     requests: List[Bytes] | None = None
+    block_exception: Annotated[
+        BlockExceptionWithMessage | UndefinedException | None, ExceptionMapperValidator
+    ] = None
 
 
 class TransitionToolInput(CamelModel):
