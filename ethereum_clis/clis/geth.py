@@ -104,14 +104,13 @@ class GethEvm(EthereumCLI):
 
     def __init__(
         self,
-        binary: Path,
+        binary: Optional[Path] = None,
         trace: bool = False,
-        exception_mapper: ExceptionMapper | None = None,
     ):
         """Initialize the GethEvm class."""
-        self.binary = binary
+        self.binary = binary if binary else self.default_binary
         self.trace = trace
-        self.exception_mapper = exception_mapper if exception_mapper else GethExceptionMapper()
+        self._info_metadata: Optional[Dict[str, Any]] = {}
 
     def _run_command(self, command: List[str]) -> subprocess.CompletedProcess:
         try:
@@ -167,12 +166,18 @@ class GethTransitionTool(GethEvm, TransitionTool):
     trace: bool
     t8n_use_stream = True
 
-    def __init__(self, *, binary: Path, trace: bool = False):
+    def __init__(
+        self,
+        *,
+        exception_mapper: Optional[ExceptionMapper] = None,
+        binary: Optional[Path] = None,
+        trace: bool = False,
+    ):
         """Initialize the GethTransitionTool class."""
+        if not exception_mapper:
+            exception_mapper = GethExceptionMapper()
         GethEvm.__init__(self, binary=binary, trace=trace)
-        TransitionTool.__init__(
-            self, exception_mapper=self.exception_mapper, binary=binary, trace=trace
-        )
+        TransitionTool.__init__(self, binary=binary, exception_mapper=exception_mapper)
         help_command = [str(self.binary), str(self.subcommand), "--help"]
         result = self._run_command(help_command)
         self.help_string = result.stdout

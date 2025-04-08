@@ -126,6 +126,18 @@ class EthereumCLI:
 
         return cls.detect_binary_pattern.match(binary_output) is not None
 
+    @classmethod
+    def is_installed(cls, binary_path: Optional[Path] = None) -> bool:
+        """Return whether the tool is installed in the current system."""
+        if binary_path is None:
+            binary_path = cls.default_binary
+        else:
+            resolved_path = Path(os.path.expanduser(binary_path)).resolve()
+            if resolved_path.exists():
+                binary_path = resolved_path
+        binary = shutil.which(binary_path)
+        return binary is not None
+
     def version(self) -> str:
         """Return the name and version of the CLI as reported by the CLI's version flag."""
         if self.cached_version is None:
