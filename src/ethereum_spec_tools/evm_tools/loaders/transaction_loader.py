@@ -78,7 +78,7 @@ class TransactionLoad:
         access_list = []
         for sublist in self.raw.get("accessLists", []):
             access_list.append(
-                (
+                self.fork.Access(
                     self.fork.hex_to_address(sublist.get("address")),
                     [
                         hex_to_bytes32(key)
