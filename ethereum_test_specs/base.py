@@ -2,10 +2,9 @@
 
 from abc import abstractmethod
 from functools import reduce
-from itertools import count
 from os import path
 from pathlib import Path
-from typing import Callable, ClassVar, Dict, Generator, Iterator, List, Optional, Sequence
+from typing import Callable, ClassVar, Dict, Generator, List, Optional, Sequence
 
 import pytest
 from pydantic import BaseModel, Field
@@ -49,7 +48,7 @@ class BaseTest(BaseModel):
 
     # Transition tool specific fields
     t8n_dump_dir: Path | None = Field(None, exclude=True)
-    _t8n_call_counter: Iterator[int] = count(0)
+    t8n_call_counter: int = Field(0, exclude=True)
 
     supported_fixture_formats: ClassVar[Sequence[FixtureFormat | LabeledFixtureFormat]] = []
     supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = []
@@ -113,9 +112,11 @@ class BaseTest(BaseModel):
         """Return path to the next transition tool output file."""
         if not self.t8n_dump_dir:
             return ""
+        current_value = self.t8n_call_counter
+        self.t8n_call_counter += 1
         return path.join(
             self.t8n_dump_dir,
-            str(next(self._t8n_call_counter)),
+            str(current_value),
         )
 
 
