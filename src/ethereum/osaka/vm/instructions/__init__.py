@@ -252,6 +252,7 @@ class Ops(enum.Enum):
     EXTDELEGATECALL = 0xF9
     STATICCALL = 0xFA
     EXTSTATICCALL = 0xFB
+    PAY = 0xFC
     REVERT = 0xFD
     INVALID = 0xFE
     SELFDESTRUCT = 0xFF
@@ -427,6 +428,7 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.EXTCALL: system_instructions.ext_call,
     Ops.EXTDELEGATECALL: system_instructions.ext_delegatecall,
     Ops.EXTSTATICCALL: system_instructions.ext_staticcall,
+    Ops.PAY: system_instructions.pay,
 }
 
 
@@ -659,6 +661,7 @@ op_stack_items: Dict[Ops, OpcodeStackItemCount] = {
     Ops.EXTCALL: OpcodeStackItemCount(inputs=4, outputs=1),
     Ops.EXTDELEGATECALL: OpcodeStackItemCount(inputs=3, outputs=1),
     Ops.EXTSTATICCALL: OpcodeStackItemCount(inputs=3, outputs=1),
+    Ops.PAY: OpcodeStackItemCount(inputs=2, outputs=1),
 }
 
 
