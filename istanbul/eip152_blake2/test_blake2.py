@@ -24,30 +24,6 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_152.git_path
 REFERENCE_SPEC_VERSION = ref_spec_152.version
 
 
-@pytest.fixture
-def blake2b_contract_bytecode():
-    """Contract code that performs a CALL to the BLAKE2b precompile and stores the result."""
-    return (
-        # Store all CALLDATA into memory (offset 0)
-        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
-        # Store the returned CALL status (success = 1, fail = 0) into slot 0:
-        + Op.SSTORE(
-            0,
-            # Setup stack to CALL into Blake2b with the CALLDATA and CALL into it (+ pop value)
-            Op.CALL(
-                address=9,
-                args_offset=0,
-                args_size=Op.CALLDATASIZE(),
-                ret_offset=0x200,
-                ret_size=0x40,
-            ),
-        )
-        + Op.SSTORE(1, Op.MLOAD(0x200))
-        + Op.SSTORE(2, Op.MLOAD(0x220))
-        + Op.STOP()
-    )
-
-
 @pytest.mark.valid_from("Istanbul")
 @pytest.mark.parametrize("call_opcode", [Op.CALL])
 @pytest.mark.parametrize(
@@ -406,7 +382,6 @@ def test_blake2b(
     """Test BLAKE2b precompile."""
     env = Environment()
 
-    account = pre.deploy_contract(blake2b_contract_bytecode, storage={0: 0xDEADBEEF})
     account = pre.deploy_contract(blake2b_contract_bytecode, storage={0: 0xDEADBEEF})
     sender = pre.fund_eoa()
 
