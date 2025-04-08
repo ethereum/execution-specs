@@ -81,6 +81,10 @@ def pytest_configure(config: pytest.Config):
         "markers",
         "execute: Markers to be added in execute mode only.",
     )
+    config.addinivalue_line(
+        "markers",
+        "zkevm: Tests that are relevant to zkEVM.",
+    )
 
 
 @pytest.fixture(autouse=True)
