@@ -669,6 +669,356 @@ def test_callf_stack_height_limit_exceeded(eof_test, callee_outputs):
     eof_test(container=container, expect_exception=EOFException.MAX_STACK_HEIGHT_ABOVE_LIMIT)
 
 
+@pytest.mark.parametrize("stack_height", [512, 513, 1023])
+def test_callf_stack_overflow(eof_test: EOFTestFiller, stack_height: int):
+    """Test CALLF instruction recursively calling itself causing stack overflow."""
+    container = Container(
+        sections=[
+            Section.Code(code=Op.CALLF[1] + Op.STOP),
+            Section.Code(
+                code=Op.PUSH1[1] * stack_height + Op.CALLF[1] + Op.POP * stack_height + Op.RETF,
+                code_outputs=0,
+                max_stack_height=stack_height,
+            ),
+        ],
+    )
+    stack_overflow = stack_height > MAX_RUNTIME_OPERAND_STACK_HEIGHT // 2
+    eof_test(
+        container=container,
+        expect_exception=EOFException.STACK_OVERFLOW if stack_overflow else None,
+    )
+
+
+@pytest.mark.parametrize("stack_height", [1, 2])
+def test_callf_stack_overflow_after_callf(eof_test: EOFTestFiller, stack_height: int):
+    """Test CALLF instruction calling next function causing stack overflow at validation time."""
+    container = Container(
+        sections=[
+            Section.Code(code=Op.CALLF[1] + Op.STOP),
+            Section.Code(
+                code=Op.PUSH1[1] * 1023 + Op.CALLF[2] + Op.POP * 1023 + Op.RETF,
+                code_outputs=0,
+                max_stack_height=1023,
+            ),
+            Section.Code(
+                code=Op.PUSH0 * stack_height + Op.POP * stack_height + Op.RETF,
+                code_outputs=0,
+                max_stack_height=stack_height,
+            ),
+        ],
+    )
+    stack_overflow = 1023 + stack_height > MAX_RUNTIME_OPERAND_STACK_HEIGHT
+    eof_test(
+        container=container,
+        expect_exception=EOFException.STACK_OVERFLOW if stack_overflow else None,
+    )
+
+
+@pytest.mark.parametrize("stack_height", [512, 514, 515])
+def test_callf_stack_overflow_variable_stack(eof_test: EOFTestFiller, stack_height: int):
+    """Test CALLF instruction causing stack overflow."""
+    container = Container(
+        sections=[
+            Section.Code(
+                code=Op.RJUMPI[2](0)
+                + Op.PUSH0 * (MAX_RUNTIME_OPERAND_STACK_HEIGHT // 2)
+                + Op.CALLF[1]
+                + Op.STOP,
+                max_stack_height=512,
+            ),
+            Section.Code(
+                code=Op.PUSH1[1] * stack_height + Op.POP * stack_height + Op.RETF,
+                code_outputs=0,
+                max_stack_height=stack_height,
+            ),
+        ],
+    )
+    stack_overflow = stack_height > MAX_RUNTIME_OPERAND_STACK_HEIGHT // 2
+    eof_test(
+        container=container,
+        expect_exception=EOFException.STACK_OVERFLOW if stack_overflow else None,
+    )
+
+
+@pytest.mark.parametrize("stack_height", [509, 510, 512])
+def test_callf_stack_overflow_variable_stack_2(eof_test: EOFTestFiller, stack_height: int):
+    """Test CALLF instruction causing stack overflow."""
+    container = Container(
+        sections=[
+            Section.Code(
+                code=Op.PUSH0 * 2
+                + Op.RJUMPI[2](0)
+                + Op.POP * 2
+                + Op.PUSH0 * (MAX_RUNTIME_OPERAND_STACK_HEIGHT // 2)
+                + Op.CALLF[1]
+                + Op.STOP,
+                max_stack_height=514,
+            ),
+            Section.Code(
+                code=Op.PUSH1[1] * stack_height + Op.POP * stack_height + Op.RETF,
+                code_outputs=0,
+                max_stack_height=stack_height,
+            ),
+        ],
+    )
+    stack_overflow = stack_height > (MAX_RUNTIME_OPERAND_STACK_HEIGHT // 2) - 2
+    eof_test(
+        container=container,
+        expect_exception=EOFException.STACK_OVERFLOW if stack_overflow else None,
+    )
+
+
+@pytest.mark.parametrize("stack_height", [1, 2, 5])
+def test_callf_stack_overflow_variable_stack_3(eof_test: EOFTestFiller, stack_height: int):
+    """Test CALLF instruction causing stack overflow."""
+    container = Container(
+        sections=[
+            Section.Code(
+                code=Op.RJUMPI[2](0)
+                + Op.PUSH0 * (MAX_RUNTIME_OPERAND_STACK_HEIGHT - 1)
+                + Op.CALLF[1]
+                + Op.STOP,
+                max_stack_height=1023,
+            ),
+            Section.Code(
+                code=Op.PUSH0 * stack_height + Op.POP * stack_height + Op.RETF,
+                code_outputs=0,
+                max_stack_height=stack_height,
+            ),
+        ],
+    )
+    stack_overflow = (
+        container.sections[0].max_stack_height + stack_height > MAX_RUNTIME_OPERAND_STACK_HEIGHT
+    )
+    eof_test(
+        container=container,
+        expect_exception=EOFException.STACK_OVERFLOW if stack_overflow else None,
+    )
+
+
+def test_callf_stack_overflow_variable_stack_4(eof_test: EOFTestFiller):
+    """Test reaching stack overflow before CALLF instruction."""
+    container = Container(
+        sections=[
+            Section.Code(
+                code=Op.PUSH0 * 2
+                + Op.RJUMPI[2](0)
+                + Op.POP * 2
+                + Op.PUSH0 * (MAX_RUNTIME_OPERAND_STACK_HEIGHT - 1)
+                + Op.CALLF[1]
+                + Op.STOP,
+                max_stack_height=1023,
+            ),
+            Section.Code(
+                code=Op.RETF,
+                code_outputs=0,
+                max_stack_height=0,
+            ),
+        ],
+    )
+    eof_test(
+        container=container,
+        expect_exception=EOFException.STACK_OVERFLOW,
+    )
+
+
+@pytest.mark.parametrize("stack_height", [2, 3])
+def test_callf_validate_outputs(eof_test: EOFTestFiller, stack_height: int):
+    """Test CALLF instruction when calling a function returning more outputs than expected."""
+    container = Container(
+        sections=[
+            Section.Code(code=Op.CALLF[1] + Op.STOP, max_stack_height=1),
+            Section.Code(
+                code=Op.PUSH0 * stack_height + Op.CALLF[2] + Op.RETF,
+                code_outputs=1,
+                max_stack_height=stack_height,
+            ),
+            Section.Code(
+                code=Op.POP + Op.RETF,
+                code_inputs=2,
+                code_outputs=1,
+                max_stack_height=2,
+            ),
+        ],
+    )
+    # Only 1 item consumed by function 2, if stack height > 2
+    # there will be more than 1 item as outputs in function 1
+    outputs_error = stack_height > 2
+    eof_test(
+        container=container,
+        expect_exception=EOFException.STACK_HIGHER_THAN_OUTPUTS if outputs_error else None,
+    )
+
+
+@pytest.mark.parametrize("push_stack", [1023, 1024])
+@pytest.mark.parametrize("pop_stack", [1019, 1020, 1021])
+@pytest.mark.parametrize(
+    "code_section",
+    [
+        Section.Code(
+            code=Op.POP * 2 + Op.RETF,
+            code_inputs=2,
+            code_outputs=0,
+            max_stack_height=2,
+        ),
+        Section.Code(
+            code=Op.PUSH1[1] + Op.POP + Op.RETF,
+            code_inputs=3,
+            code_outputs=3,
+            max_stack_height=4,
+        ),
+        Section.Code(
+            code=Op.PUSH0 * 2 + Op.RETF,
+            code_inputs=3,
+            code_outputs=5,
+            max_stack_height=5,
+        ),
+        Section.Code(
+            code=Op.PUSH0 * 2 + Op.POP * 2 + Op.RETF,
+            code_inputs=3,
+            code_outputs=3,
+            max_stack_height=5,
+        ),
+        Section.Code(
+            code=Op.PUSH0 + Op.POP * 3 + Op.RETF,
+            code_inputs=2,
+            code_outputs=0,
+            max_stack_height=3,
+        ),
+        Section.Code(
+            code=Op.PUSH0 * 2 + Op.POP * 4 + Op.RETF,
+            code_inputs=2,
+            code_outputs=0,
+            max_stack_height=4,
+        ),
+    ],
+)
+def test_callf_with_inputs_stack_overflow(
+    eof_test: EOFTestFiller, code_section: Section, push_stack: int, pop_stack: int
+):
+    """Test CALLF to code section with inputs."""
+    container = Container(
+        name="callf_with_inputs_stack_overflow_0",
+        sections=[
+            Section.Code(
+                code=Op.PUSH1[1] * push_stack + Op.CALLF[1] + Op.POP * pop_stack + Op.RETURN,
+                max_stack_height=1023,
+            ),
+            code_section,
+        ],
+    )
+    exception = None
+    if (
+        push_stack + code_section.max_stack_height - code_section.code_inputs
+        > MAX_RUNTIME_OPERAND_STACK_HEIGHT
+    ):
+        exception = EOFException.STACK_OVERFLOW
+    elif push_stack - code_section.code_inputs + code_section.code_outputs - pop_stack < 2:
+        exception = EOFException.STACK_UNDERFLOW
+    elif push_stack != container.sections[0].max_stack_height:
+        exception = EOFException.INVALID_MAX_STACK_HEIGHT
+
+    eof_test(container=container, expect_exception=exception)
+
+
+@pytest.mark.parametrize(
+    "code_section",
+    [
+        Section.Code(
+            code=Op.POP * 2 + Op.RETF,
+            code_inputs=2,
+            code_outputs=0,
+            max_stack_height=2,
+        ),
+        Section.Code(
+            code=Op.PUSH1[1] + Op.POP + Op.RETF,
+            code_inputs=3,
+            code_outputs=3,
+            max_stack_height=4,
+        ),
+        Section.Code(
+            code=Op.PUSH0 * 4 + Op.RETF,
+            code_inputs=3,
+            code_outputs=7,
+            max_stack_height=7,
+        ),
+        Section.Code(
+            code=Op.PUSH0 * 2 + Op.RETF,
+            code_inputs=3,
+            code_outputs=5,
+            max_stack_height=5,
+        ),
+        Section.Code(
+            code=Op.PUSH0 * 4 + Op.POP * 2 + Op.RETF,
+            code_inputs=3,
+            code_outputs=3,
+            max_stack_height=7,
+        ),
+        Section.Code(
+            code=Op.PUSH0 * 2 + Op.POP * 2 + Op.RETF,
+            code_inputs=3,
+            code_outputs=3,
+            max_stack_height=5,
+        ),
+        Section.Code(
+            code=Op.PUSH0 * 3 + Op.POP * 5 + Op.RETF,
+            code_inputs=2,
+            code_outputs=0,
+            max_stack_height=5,
+        ),
+        Section.Code(
+            code=Op.PUSH0 + Op.POP * 3 + Op.RETF,
+            code_inputs=2,
+            code_outputs=0,
+            max_stack_height=3,
+        ),
+        Section.Code(
+            code=Op.PUSH0 * 4 + Op.POP * 6 + Op.RETF,
+            code_inputs=2,
+            code_outputs=0,
+            max_stack_height=6,
+        ),
+        Section.Code(
+            code=Op.PUSH0 * 2 + Op.POP * 4 + Op.RETF,
+            code_inputs=2,
+            code_outputs=0,
+            max_stack_height=4,
+        ),
+    ],
+)
+@pytest.mark.parametrize("push_stack", [1020, 1021])
+def test_callf_with_inputs_stack_overflow_variable_stack(
+    eof_test: EOFTestFiller, code_section: Section, push_stack: int
+):
+    """Test CALLF to code section with inputs (variable stack)."""
+    container = Container(
+        sections=[
+            Section.Code(
+                code=Op.PUSH0
+                + Op.PUSH1[0]
+                + Op.RJUMPI[2]
+                + Op.PUSH0 * 2
+                + Op.PUSH1[1] * push_stack
+                + Op.CALLF[1]
+                + Op.STOP,
+                max_stack_height=1023,
+            ),
+            code_section,
+        ],
+    )
+    initial_stack = 3  # Initial items in the scak
+    exception = None
+    if (
+        push_stack + initial_stack + code_section.max_stack_height - code_section.code_inputs
+        > MAX_RUNTIME_OPERAND_STACK_HEIGHT
+    ):
+        exception = EOFException.STACK_OVERFLOW
+    elif push_stack + initial_stack > 1023:
+        exception = EOFException.INVALID_MAX_STACK_HEIGHT
+
+    eof_test(container=container, expect_exception=exception)
+
+
 @pytest.mark.parametrize("callee_outputs", [1, 2, MAX_CODE_OUTPUTS - 1, MAX_CODE_OUTPUTS])
 @pytest.mark.parametrize(
     "max_stack_height", [0, 1, MAX_OPERAND_STACK_HEIGHT - 1, MAX_OPERAND_STACK_HEIGHT]
