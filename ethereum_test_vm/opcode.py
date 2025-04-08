@@ -5092,12 +5092,12 @@ class Opcodes(Opcode, Enum):
         popped_stack_items=4,
         pushed_stack_items=1,
         data_portion_length=1,
-        kwargs=["value", "salt", "input_offset", "input_size"],
+        kwargs=["salt", "input_offset", "input_size", "value"],
     )
     """
     !!! Note: This opcode is under development
 
-    EOFCREATE[initcontainer_index] (value, salt, input_offset, input_size)
+    EOFCREATE[initcontainer_index] (salt, input_offset, input_size, value)
     ----
 
     Description
