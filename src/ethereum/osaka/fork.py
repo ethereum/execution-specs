@@ -52,6 +52,7 @@ from .state import (
 from .transactions import (
     AccessListTransaction,
     BlobTransaction,
+    EofInitCodeTransaction,
     FeeMarketTransaction,
     LegacyTransaction,
     SetCodeTransaction,
@@ -428,7 +429,13 @@ def check_transaction(
     sender_account = get_account(block_env.state, sender_address)
 
     if isinstance(
-        tx, (FeeMarketTransaction, BlobTransaction, SetCodeTransaction)
+        tx,
+        (
+            FeeMarketTransaction,
+            BlobTransaction,
+            SetCodeTransaction,
+            EofInitCodeTransaction,
+        ),
     ):
         if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
             raise InvalidBlock
@@ -465,7 +472,9 @@ def check_transaction(
     else:
         blob_versioned_hashes = ()
 
-    if isinstance(tx, (BlobTransaction, SetCodeTransaction)):
+    if isinstance(
+        tx, (BlobTransaction, SetCodeTransaction, EofInitCodeTransaction)
+    ):
         if not isinstance(tx.to, Address):
             raise InvalidBlock
 
@@ -557,6 +566,7 @@ def process_system_transaction(
         transient_storage=TransientStorage(),
         blob_versioned_hashes=(),
         authorizations=(),
+        init_codes=None,
         index_in_block=None,
         tx_hash=None,
         traces=[],
@@ -731,7 +741,7 @@ def process_transaction(
         encode_transaction(tx),
     )
 
-    intrinsic_gas, calldata_floor_gas_cost = validate_transaction(tx)
+    intrinsic_gas, floor_gas_cost = validate_transaction(tx)
 
     (
         sender,
@@ -773,6 +783,7 @@ def process_transaction(
             FeeMarketTransaction,
             BlobTransaction,
             SetCodeTransaction,
+            EofInitCodeTransaction,
         ),
     ):
         for address, keys in tx.access_list:
@@ -784,6 +795,11 @@ def process_transaction(
     if isinstance(tx, SetCodeTransaction):
         authorizations = tx.authorizations
 
+    if isinstance(tx, EofInitCodeTransaction):
+        init_codes = tx.init_codes
+    else:
+        init_codes = None
+
     tx_env = vm.TransactionEnvironment(
         origin=sender,
         gas_price=effective_gas_price,
@@ -793,6 +809,7 @@ def process_transaction(
         transient_storage=TransientStorage(),
         blob_versioned_hashes=blob_versioned_hashes,
         authorizations=authorizations,
+        init_codes=init_codes,
         index_in_block=index,
         tx_hash=get_transaction_hash(encode_transaction(tx)),
         traces=[],
@@ -817,7 +834,7 @@ def process_transaction(
 
     # Transactions with less execution_gas_used than the floor pay at the
     # floor cost.
-    tx_gas_used = max(execution_gas_used, calldata_floor_gas_cost)
+    tx_gas_used = max(execution_gas_used, floor_gas_cost)
 
     tx_output.gas_left = tx.gas - tx_gas_used
     gas_refund_amount = tx_output.gas_left * effective_gas_price
