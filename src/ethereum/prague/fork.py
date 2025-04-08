@@ -762,10 +762,10 @@ def process_transaction(
             SetCodeTransaction,
         ),
     ):
-        for address, keys in tx.access_list:
-            access_list_addresses.add(address)
-            for key in keys:
-                access_list_storage_keys.add((address, key))
+        for access in tx.access_list:
+            access_list_addresses.add(access.account)
+            for slot in access.slots:
+                access_list_storage_keys.add((access.account, slot))
 
     authorizations: Tuple[Authorization, ...] = ()
     if isinstance(tx, SetCodeTransaction):
