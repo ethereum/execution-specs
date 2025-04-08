@@ -12,7 +12,7 @@ Reserved or Tentative.
 
 | Prefix byte | Specs or Purpose |
 |-------------|------------------|
-| 0x00  | Reserved: indicates legacy (untyped) trancactions |
+| 0x00  | Reserved: indicates legacy (untyped) transactions |
 | 0x01  | Reserved: [EIP-2930](https://eips.ethereum.org/EIPS/eip-2930) *(available in Berlin)* |
 | 0x02  | Reserved: [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559) *(available in London)* |
 | 0x03  | Reserved: [EIP-4844](https://eips.ethereum.org/EIPS/eip-4844) *(available in Cancun)* |
@@ -49,7 +49,7 @@ since a valid RLP-encoded transaction could not begin with it (prior to
 [EIP-2718](https://eips.ethereum.org/EIPS/eip-2718)) and represents the
 Bitcoin varint length of the string `"Ethereum signed Message:\n"`.
 
-It was carried over from the technique Bitcon used to sign personal messages
+It was carried over from the technique Bitcoin used to sign personal messages
 (which uses `"\18Bitcoin signed message:\n"`) but was extended with
 [EIP-191](https://eips.ethereum.org/EIPS/eip-191), which effectively
 retconned signed personal messages into a scheme that is extensible,
