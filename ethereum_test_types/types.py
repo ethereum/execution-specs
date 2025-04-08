@@ -461,6 +461,18 @@ class AuthorizationTupleGeneric(CamelModel, Generic[NumberBoundTypeVar], Signabl
         """
         return self.magic.to_bytes(1, byteorder="big")
 
+    @model_serializer(mode="wrap", when_used="json-unless-none")
+    def duplicate_v_as_y_parity(self, serializer):
+        """
+        Add a duplicate 'yParity' field (same as `v`) in JSON fixtures.
+
+        Background: https://github.com/erigontech/erigon/issues/14073
+        """
+        data = serializer(self)
+        if "v" in data and data["v"] is not None:
+            data["yParity"] = data["v"]
+        return data
+
 
 class AuthorizationTuple(AuthorizationTupleGeneric[HexNumber]):
     """Authorization tuple for transactions."""

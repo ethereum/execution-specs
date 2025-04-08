@@ -2,7 +2,7 @@
 
 from typing import Dict
 
-from pydantic import AliasChoices, Field, model_serializer
+from pydantic import AliasChoices, Field
 
 from ethereum_test_base_types import (
     BlobSchedule,
@@ -56,18 +56,6 @@ class FixtureAuthorizationTuple(
     ) -> "FixtureAuthorizationTuple":
         """Return FixtureAuthorizationTuple from an AuthorizationTuple."""
         return cls(**auth_tuple.model_dump())
-
-    @model_serializer(mode="wrap", when_used="json-unless-none")
-    def duplicate_v_as_y_parity(self, serializer):
-        """
-        Add a duplicate 'yParity' field (same as `v`) in JSON fixtures.
-
-        Background: https://github.com/erigontech/erigon/issues/14073
-        """
-        data = serializer(self)
-        if "v" in data and data["v"] is not None:
-            data["yParity"] = data["v"]
-        return data
 
     def sign(self):
         """Sign the current object for further serialization."""
