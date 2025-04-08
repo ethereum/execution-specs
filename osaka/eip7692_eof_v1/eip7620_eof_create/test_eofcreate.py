@@ -61,13 +61,7 @@ def test_simple_eofcreate(
         storage={0: 0xB17D},  # a canary to be overwritten
     )
     # Storage in 0 should have the address,
-    post = {
-        contract_address: Account(
-            storage={
-                0: compute_eofcreate_address(contract_address, 0, smallest_initcode_subcontainer)
-            }
-        )
-    }
+    post = {contract_address: Account(storage={0: compute_eofcreate_address(contract_address, 0)})}
     tx = Transaction(
         to=contract_address,
         gas_limit=10_000_000,
@@ -111,7 +105,7 @@ def test_eofcreate_then_dataload(
     post = {
         contract_address: Account(
             storage={
-                0: compute_eofcreate_address(contract_address, 0, small_auxdata_container),
+                0: compute_eofcreate_address(contract_address, 0),
                 slot_data_load: value_long_value,
             }
         )
@@ -163,7 +157,7 @@ def test_eofcreate_then_call(
         )
     )
 
-    callable_address = compute_eofcreate_address(contract_address, 0, callable_contract_initcode)
+    callable_address = compute_eofcreate_address(contract_address, 0)
 
     # Storage in 0 should have the address,
     #
@@ -239,9 +233,7 @@ def test_auxdata_variations(state_test: StateTestFiller, pre: Alloc, auxdata_byt
     post = {
         contract_address: Account(
             storage={
-                slot_create_address: compute_eofcreate_address(
-                    contract_address, 0, initcode_subcontainer
-                )
+                slot_create_address: compute_eofcreate_address(contract_address, 0)
                 if deploy_success
                 else b"\0"
             }
@@ -301,7 +293,7 @@ def test_calldata(state_test: StateTestFiller, pre: Alloc):
     )
     # factory contract Storage in 0 should have the created address,
     # created contract storage in 0 should have the calldata
-    created_address = compute_eofcreate_address(contract_address, 0, initcode_subcontainer)
+    created_address = compute_eofcreate_address(contract_address, 0)
     post = {
         contract_address: Account(storage={slot_create_address: created_address}),
         created_address: Account(code=deployed_contract, storage={slot_calldata: calldata}),
@@ -350,8 +342,8 @@ def test_eofcreate_in_initcode(
         )
     )
 
-    outer_address = compute_eofcreate_address(contract_address, 0, nested_initcode_subcontainer)
-    inner_address = compute_eofcreate_address(outer_address, 0, smallest_initcode_subcontainer)
+    outer_address = compute_eofcreate_address(contract_address, 0)
+    inner_address = compute_eofcreate_address(outer_address, 0)
     post = {
         contract_address: Account(
             storage={slot_create_address: outer_address, slot_code_worked: value_code_worked}
@@ -404,8 +396,8 @@ def test_eofcreate_in_initcode_reverts(
         storage={slot_create_address: value_canary_to_be_overwritten},
     )
 
-    outer_address = compute_eofcreate_address(contract_address, 0, nested_initcode_subcontainer)
-    inner_address = compute_eofcreate_address(outer_address, 0, smallest_initcode_subcontainer)
+    outer_address = compute_eofcreate_address(contract_address, 0)
+    inner_address = compute_eofcreate_address(outer_address, 0)
     post = {
         contract_address: Account(
             storage={
@@ -463,9 +455,7 @@ def test_return_data_cleared(
         )
     )
 
-    new_contract_address = compute_eofcreate_address(
-        contract_address, 0, smallest_initcode_subcontainer
-    )
+    new_contract_address = compute_eofcreate_address(contract_address, 0)
     post = {
         contract_address: Account(
             storage={
@@ -515,12 +505,8 @@ def test_address_collision(
             ],
         )
     )
-    salt_zero_address = compute_eofcreate_address(
-        contract_address, 0, smallest_initcode_subcontainer
-    )
-    salt_one_address = compute_eofcreate_address(
-        contract_address, 1, smallest_initcode_subcontainer
-    )
+    salt_zero_address = compute_eofcreate_address(contract_address, 0)
+    salt_one_address = compute_eofcreate_address(contract_address, 1)
 
     # Hard-code address for collision, no other way to do this.
     # We should mark tests that do this, and fail on unmarked tests.
@@ -579,9 +565,7 @@ def test_eofcreate_revert_eof_returndata(
         ),
         storage={slot_create_address: value_canary_to_be_overwritten},
     )
-    eof_create_address = compute_eofcreate_address(
-        contract_address, salt, code_reverts_with_calldata
-    )
+    eof_create_address = compute_eofcreate_address(contract_address, salt)
 
     post = {
         contract_address: Account(
@@ -712,7 +696,7 @@ def test_eofcreate_context(
     )
     factory_address = pre.deploy_contract(factory_contract)
 
-    destination_contract_address = compute_eofcreate_address(factory_address, 0, initcode)
+    destination_contract_address = compute_eofcreate_address(factory_address, 0)
 
     tx = Transaction(sender=sender, to=factory_address, gas_limit=200_000, value=value)
 
@@ -792,7 +776,7 @@ def test_eofcreate_memory_context(
             ],
         ),
     )
-    destination_contract_address = compute_eofcreate_address(contract_address, 0, initcontainer)
+    destination_contract_address = compute_eofcreate_address(contract_address, 0)
     post = {
         contract_address: Account(storage=contract_storage),
         destination_contract_address: Account(storage=destination_storage),
