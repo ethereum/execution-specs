@@ -275,7 +275,7 @@ def test_calldata(state_test: StateTestFiller, pre: Alloc):
             sections=[
                 Section.Code(
                     code=Op.MSTORE(0, Op.PUSH32(calldata))
-                    + Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, calldata_size))
+                    + Op.SSTORE(slot_create_address, Op.EOFCREATE[0](input_size=calldata_size))
                     + Op.STOP,
                 ),
                 Section.Container(container=initcode_subcontainer),
@@ -497,7 +497,7 @@ def test_address_collision(
                 Section.Code(
                     code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0))
                     + Op.SSTORE(slot_create_address_2, Op.EOFCREATE[0](0, 0, 0, 0))
-                    + Op.SSTORE(slot_create_address_3, Op.EOFCREATE[0](0, 1, 0, 0))
+                    + Op.SSTORE(slot_create_address_3, Op.EOFCREATE[0](salt=1))
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.STOP,
                 ),
@@ -556,7 +556,9 @@ def test_eofcreate_revert_eof_returndata(
             sections=[
                 Section.Code(
                     code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-                    + Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, salt, 0, Op.CALLDATASIZE))
+                    + Op.SSTORE(
+                        slot_create_address, Op.EOFCREATE[0](salt=salt, input_size=Op.CALLDATASIZE)
+                    )
                     + Op.SSTORE(slot_returndata_size, Op.RETURNDATASIZE)
                     + Op.STOP,
                 ),
@@ -688,7 +690,7 @@ def test_eofcreate_context(
         sections=[
             Section.Code(
                 Op.SSTORE(slot_code_worked, value_code_worked)
-                + Op.EOFCREATE[0](eofcreate_value, 0, 0, 0)
+                + Op.EOFCREATE[0](value=eofcreate_value)
                 + Op.STOP
             ),
             Section.Container(initcode),

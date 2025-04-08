@@ -140,10 +140,10 @@ def test_eofcreate_gas(
         state_test,
         Environment(),
         pre,
-        setup_code=Op.PUSH1(mem_expansion_bytes)
+        setup_code=Op.PUSH32(value)
+        + Op.PUSH1(mem_expansion_bytes)
         + Op.PUSH0
-        + code_increment_counter
-        + Op.PUSH32(value),
+        + code_increment_counter,
         subject_code=Op.EOFCREATE[0],
         tear_down_code=Op.STOP,
         cold_gas=EOFCREATE_GAS

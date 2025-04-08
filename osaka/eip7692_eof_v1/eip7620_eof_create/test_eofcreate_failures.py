@@ -291,7 +291,7 @@ def test_auxdata_size_failures(state_test: StateTestFiller, pre: Alloc, auxdata_
             sections=[
                 Section.Code(
                     code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-                    + Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, Op.CALLDATASIZE))
+                    + Op.SSTORE(slot_create_address, Op.EOFCREATE[0](input_size=Op.CALLDATASIZE))
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.STOP,
                 ),
@@ -347,7 +347,7 @@ def test_eofcreate_insufficient_stipend(
     initcode_container = Container(
         sections=[
             Section.Code(
-                code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](value, 0, 0, 0))
+                code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](value=value))
                 + Op.SSTORE(slot_code_worked, value_code_worked)
                 + Op.STOP,
             ),
@@ -451,7 +451,7 @@ def test_insufficient_gas_memory_expansion(
     initcode_container = Container(
         sections=[
             Section.Code(
-                code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, auxdata_size))
+                code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](input_size=auxdata_size))
                 + Op.SSTORE(slot_code_should_fail, slot_code_worked)
                 + Op.STOP,
             ),
