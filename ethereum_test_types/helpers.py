@@ -65,14 +65,10 @@ def compute_create2_address(
 
 
 def compute_eofcreate_address(
-    address: FixedSizeBytesConvertible,
-    salt: FixedSizeBytesConvertible,
-    init_container: BytesConvertible,
+    address: FixedSizeBytesConvertible, salt: FixedSizeBytesConvertible
 ) -> Address:
     """Compute address of the resulting contract created using the `EOFCREATE` opcode."""
-    hash_bytes = Bytes(
-        b"\xff" + Address(address) + Hash(salt) + Bytes(init_container).keccak256()
-    ).keccak256()
+    hash_bytes = Bytes(b"\xff" + b"\x00" * 12 + Address(address) + Hash(salt)).keccak256()
     return Address(hash_bytes[-20:])
 
 
