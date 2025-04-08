@@ -108,6 +108,14 @@ class OutOfBoundsRead(ExceptionalHalt):
     pass
 
 
+class InvalidParameter(ExceptionalHalt):
+    """
+    Raised when invalid parameters are passed.
+    """
+
+    pass
+
+
 class AddressCollision(ExceptionalHalt):
     """
     Raised when the new contract address has a collision.
