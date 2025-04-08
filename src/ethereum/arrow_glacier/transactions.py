@@ -46,6 +46,18 @@ class LegacyTransaction:
 
 @slotted_freezable
 @dataclass
+class Access:
+    """
+    A mapping from account address to storage slots that are pre-warmed as part
+    of a transaction.
+    """
+
+    account: Address
+    slots: Tuple[Bytes32, ...]
+
+
+@slotted_freezable
+@dataclass
 class AccessListTransaction:
     """
     The transaction type added in EIP-2930 to support access lists.
@@ -58,7 +70,7 @@ class AccessListTransaction:
     to: Union[Bytes0, Address]
     value: U256
     data: Bytes
-    access_list: Tuple[Tuple[Address, Tuple[Bytes32, ...]], ...]
+    access_list: Tuple[Access, ...]
     y_parity: U256
     r: U256
     s: U256
@@ -79,7 +91,7 @@ class FeeMarketTransaction:
     to: Union[Bytes0, Address]
     value: U256
     data: Bytes
-    access_list: Tuple[Tuple[Address, Tuple[Bytes32, ...]], ...]
+    access_list: Tuple[Access, ...]
     y_parity: U256
     r: U256
     s: U256
@@ -195,9 +207,11 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
 
     access_list_cost = Uint(0)
     if isinstance(tx, (AccessListTransaction, FeeMarketTransaction)):
-        for _address, keys in tx.access_list:
+        for access in tx.access_list:
             access_list_cost += TX_ACCESS_LIST_ADDRESS_COST
-            access_list_cost += ulen(keys) * TX_ACCESS_LIST_STORAGE_KEY_COST
+            access_list_cost += (
+                ulen(access.slots) * TX_ACCESS_LIST_STORAGE_KEY_COST
+            )
 
     return TX_BASE_COST + data_cost + create_cost + access_list_cost
 

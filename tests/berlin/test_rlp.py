@@ -5,6 +5,7 @@ from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.berlin.blocks import Block, Header, Log, Receipt
 from ethereum.berlin.transactions import (
+    Access,
     AccessListTransaction,
     LegacyTransaction,
     Transaction,
@@ -59,7 +60,10 @@ access_list_transaction = AccessListTransaction(
     Bytes0(),
     U256(4),
     Bytes(b"bar"),
-    ((address1, (hash1, hash2)), (address2, tuple())),
+    (
+        Access(account=address1, slots=(hash1, hash2)),
+        Access(account=address2, slots=()),
+    ),
     U256(27),
     U256(5),
     U256(6),
