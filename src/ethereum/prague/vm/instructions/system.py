@@ -133,6 +133,7 @@ def generic_create(
         is_static=False,
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
+        is_delegated=False,
         parent_evm=evm,
     )
     child_evm = process_create_message(child_message)
@@ -307,12 +308,6 @@ def generic_call(
     call_data = memory_read_bytes(
         evm.memory, memory_input_start_position, memory_input_size
     )
-    code = get_account(evm.message.block_env.state, code_address).code
-
-    if is_delegated_code and len(code) == 0:
-        evm.gas_left += gas
-        push(evm.stack, U256(1))
-        return
 
     child_message = Message(
         block_env=evm.message.block_env,
@@ -330,6 +325,7 @@ def generic_call(
         is_static=True if is_staticcall else evm.message.is_static,
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
+        is_delegated=is_delegated_code,
         parent_evm=evm,
     )
     child_evm = process_message(child_message)
