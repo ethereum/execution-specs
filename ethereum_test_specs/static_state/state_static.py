@@ -62,7 +62,7 @@ class StateStaticTest(StateTestInFiller, BaseStaticTest):
                             post=post,
                             tx=tx,
                         )
-            pytest.skip(f"Expectation not found for d={d}, g={g}, v={v}, fork={fork}")
+            pytest.fail(f"Expectation not found for d={d}, g={g}, v={v}, fork={fork}")
 
         return test_state_vectors
 
