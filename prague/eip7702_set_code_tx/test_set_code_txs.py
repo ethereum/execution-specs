@@ -39,6 +39,7 @@ from ethereum_test_tools import (
 from ethereum_test_tools import Macros as Om
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools.eof.v1 import Container, Section
+from ethereum_test_types import TransactionReceipt
 
 from ...cancun.eip4844_blobs.spec import Spec as Spec4844
 from ..eip6110_deposits.helpers import DepositRequest
@@ -2514,12 +2515,7 @@ def test_set_code_to_log(
     )
 
 
-@pytest.mark.with_all_call_opcodes(
-    selector=(
-        lambda opcode: opcode
-        not in [Op.STATICCALL, Op.CALLCODE, Op.DELEGATECALL, Op.EXTDELEGATECALL, Op.EXTSTATICCALL]
-    )
-)
+@pytest.mark.with_all_call_opcodes
 @pytest.mark.with_all_precompiles
 def test_set_code_to_precompile(
     state_test: StateTestFiller,
@@ -2527,19 +2523,23 @@ def test_set_code_to_precompile(
     precompile: int,
     call_opcode: Op,
 ):
-    """Test setting the code of an account to a pre-compile address."""
+    """
+    Test setting the code of an account to a pre-compile address and executing all call
+    opcodes.
+    """
     auth_signer = pre.fund_eoa(auth_account_start_balance)
 
+    value = 1 if call_opcode in {Op.CALL, Op.CALLCODE, Op.EXTCALL} else 0
     caller_code_storage = Storage()
     caller_code = (
         Op.SSTORE(
             caller_code_storage.store_next(call_return_code(opcode=call_opcode, success=True)),
-            call_opcode(address=auth_signer),
+            call_opcode(address=auth_signer, value=value, gas=0),
         )
         + Op.SSTORE(caller_code_storage.store_next(0), Op.RETURNDATASIZE)
         + Op.STOP
     )
-    caller_code_address = pre.deploy_contract(caller_code)
+    caller_code_address = pre.deploy_contract(caller_code, balance=value)
 
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -2565,6 +2565,52 @@ def test_set_code_to_precompile(
             ),
             caller_code_address: Account(
                 storage=caller_code_storage,
+            ),
+        },
+    )
+
+
+@pytest.mark.with_all_precompiles
+def test_set_code_to_precompile_not_enough_gas_for_precompile_execution(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    precompile: int,
+):
+    """
+    Test set code to precompile and making direct call in same transaction with intrinsic gas
+    only, no extra gas for precompile execution.
+    """
+    auth_signer = pre.fund_eoa(amount=1)
+    auth = AuthorizationTuple(address=Address(precompile), nonce=0, signer=auth_signer)
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        authorization_list_or_count=[auth],
+    )
+    discount = min(
+        Spec.PER_EMPTY_ACCOUNT_COST - Spec.PER_AUTH_BASE_COST,
+        intrinsic_gas // 5,  # max discount EIP-3529
+    )
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=auth_signer,
+        gas_limit=intrinsic_gas,
+        value=1,
+        authorization_list=[auth],
+        # explicitly check expected gas, no precompile code executed
+        expected_receipt=TransactionReceipt(gas_used=intrinsic_gas - discount),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            auth_signer: Account(
+                # implicitly checks no OOG, successful tx transfers ``value=1``
+                balance=2,
+                code=Spec.delegation_designation(Address(precompile)),
+                nonce=1,
             ),
         },
     )
