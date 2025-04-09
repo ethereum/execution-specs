@@ -410,6 +410,10 @@ def pytest_configure(config: pytest.Config):
     )
     config.addinivalue_line(
         "markers",
+        "valid_at(fork): specifies at which fork a test case is valid",
+    )
+    config.addinivalue_line(
+        "markers",
         (
             "parametrize_by_fork(names, values_fn): parametrize a test case by fork using the "
             "specified names and values returned by the function values_fn(fork)"
