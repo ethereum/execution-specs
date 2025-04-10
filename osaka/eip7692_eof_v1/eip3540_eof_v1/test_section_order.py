@@ -40,12 +40,12 @@ def get_expected_code_exception(
     match (section_kind, section_test, test_position):
         case (SectionKind.TYPE, SectionTest.MISSING, CasePosition.HEADER):
             return (
-                "ef000102000100030400010000800001305000ef",
+                "ef00010200010003ff00010000800001305000ef",
                 [EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             )
         case (SectionKind.TYPE, SectionTest.MISSING, CasePosition.BODY):
             return (
-                "ef0001010004020001000304000100305000ef",
+                "ef00010100040200010003ff000100305000ef",
                 [
                     EOFException.INVALID_SECTION_BODIES_SIZE,
                     EOFException.INVALID_FIRST_SECTION_TYPE,
@@ -53,55 +53,55 @@ def get_expected_code_exception(
             )
         case (SectionKind.TYPE, SectionTest.MISSING, CasePosition.BODY_AND_HEADER):
             return (
-                "ef0001020001000304000100305000ef",
+                "ef00010200010003ff000100305000ef",
                 [EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             )
         case (SectionKind.TYPE, SectionTest.WRONG_ORDER, CasePosition.HEADER):
             return (
-                "ef000102000100030100040400010000800001305000ef",
+                "ef00010200010003010004ff00010000800001305000ef",
                 [EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             )
         case (SectionKind.TYPE, SectionTest.WRONG_ORDER, CasePosition.BODY):
             return (
-                "ef000101000402000100030400010030500000800001ef",
+                "ef00010100040200010003ff00010030500000800001ef",
                 # TODO why invalid first section type? it should say that the body incorrect
                 EOFException.INVALID_FIRST_SECTION_TYPE,
             )
         case (SectionKind.TYPE, SectionTest.WRONG_ORDER, CasePosition.BODY_AND_HEADER):
             return (
-                "ef000102000100030100040400010030500000800001ef",
+                "ef00010200010003010004ff00010030500000800001ef",
                 [EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             )
         case (SectionKind.CODE, SectionTest.MISSING, CasePosition.HEADER):
             return (
-                "ef00010100040400010000800001305000ef",
+                "ef0001010004ff00010000800001305000ef",
                 [EOFException.MISSING_CODE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             )
         case (SectionKind.CODE, SectionTest.MISSING, CasePosition.BODY):
             return (
-                "ef000101000402000100030400010000800001ef",
+                "ef00010100040200010003ff00010000800001ef",
                 # TODO should be an exception of empty code bytes, because it can understand that
                 # last byte is data section byte
                 [EOFException.INVALID_SECTION_BODIES_SIZE, EOFException.UNEXPECTED_HEADER_KIND],
             )
         case (SectionKind.CODE, SectionTest.MISSING, CasePosition.BODY_AND_HEADER):
             return (
-                "ef00010100040400010000800001ef",
+                "ef0001010004ff00010000800001ef",
                 [EOFException.MISSING_CODE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             )
         case (SectionKind.CODE, SectionTest.WRONG_ORDER, CasePosition.HEADER):
             return (
-                "ef000101000404000102000100030000800001305000ef",
+                "ef0001010004ff000102000100030000800001305000ef",
                 [EOFException.MISSING_CODE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             )
         case (SectionKind.CODE, SectionTest.WRONG_ORDER, CasePosition.BODY):
             return (
-                "ef000101000402000100030400010000800001ef305000",
+                "ef00010100040200010003ff00010000800001ef305000",
                 EOFException.UNDEFINED_INSTRUCTION,
             )
         case (SectionKind.CODE, SectionTest.WRONG_ORDER, CasePosition.BODY_AND_HEADER):
             return (
-                "ef000101000404000102000100030000800001ef305000",
+                "ef0001010004ff000102000100030000800001ef305000",
                 [EOFException.MISSING_CODE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             )
         case (SectionKind.DATA, SectionTest.MISSING, CasePosition.HEADER):
@@ -111,7 +111,7 @@ def get_expected_code_exception(
             )
         case (SectionKind.DATA, SectionTest.MISSING, CasePosition.BODY):
             return (
-                "ef000101000402000100030400010000800001305000",
+                "ef00010100040200010003ff00010000800001305000",
                 EOFException.TOPLEVEL_CONTAINER_TRUNCATED,
             )
         case (SectionKind.DATA, SectionTest.MISSING, CasePosition.BODY_AND_HEADER):
@@ -121,17 +121,17 @@ def get_expected_code_exception(
             )
         case (SectionKind.DATA, SectionTest.WRONG_ORDER, CasePosition.HEADER):
             return (
-                "ef000104000101000402000100030000800001305000ef",
+                "ef0001ff000101000402000100030000800001305000ef",
                 [EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             )
         case (SectionKind.DATA, SectionTest.WRONG_ORDER, CasePosition.BODY):
             return (
-                "ef0001010004020001000304000100ef00800001305000",
+                "ef00010100040200010003ff000100ef00800001305000",
                 EOFException.INVALID_FIRST_SECTION_TYPE,
             )
         case (SectionKind.DATA, SectionTest.WRONG_ORDER, CasePosition.BODY_AND_HEADER):
             return (
-                "ef0001040001010004020001000300ef00800001305000",
+                "ef0001ff0001010004020001000300ef00800001305000",
                 [EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             )
     return "", None

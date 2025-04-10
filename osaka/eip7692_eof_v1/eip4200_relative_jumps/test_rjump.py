@@ -278,7 +278,7 @@ def test_rjump_into_self_pre_code(
                     max_stack_height=0,
                 ),
             ],
-            expected_bytecode="ef000101000402000100040400000000800000e0000000",
+            expected_bytecode="ef00010100040200010004ff00000000800000e0000000",
         ),
         Container(
             name="forwards_rjump_1",
@@ -288,7 +288,7 @@ def test_rjump_into_self_pre_code(
                     max_stack_height=2,
                 ),
             ],
-            expected_bytecode="ef0001010004020001000b04000000008000025f6000e10003e000011900",
+            expected_bytecode="ef0001010004020001000bff000000008000025f6000e10003e000011900",
         ),
         Container(
             name="forwards_rjump_2",
@@ -306,7 +306,7 @@ def test_rjump_into_self_pre_code(
                     max_stack_height=2,
                 ),
             ],
-            expected_bytecode="ef0001010004020001001304000000008000025f6000e100086000e10006e00004e000011900",
+            expected_bytecode="ef00010100040200010013ff000000008000025f6000e100086000e10006e00004e000011900",
         ),
         Container(
             name="forwards_rjump_3",
@@ -316,7 +316,7 @@ def test_rjump_into_self_pre_code(
                     max_stack_height=2,
                 ),
             ],
-            expected_bytecode="ef0001010004020001000b04000000008000025f6000e10003e000015f00",
+            expected_bytecode="ef0001010004020001000bff000000008000025f6000e10003e000015f00",
         ),
         Container(
             name="forwards_rjump_4",
@@ -335,7 +335,7 @@ def test_rjump_into_self_pre_code(
                     max_stack_height=2,
                 ),
             ],
-            expected_bytecode="ef0001010004020001001404000000008000025f6000e100086000e10007e000055fe000011900",
+            expected_bytecode="ef00010100040200010014ff000000008000025f6000e100086000e10007e000055fe000011900",
         ),
         Container(
             name="forwards_rjump_variable_stack_0",
@@ -351,7 +351,7 @@ def test_rjump_into_self_pre_code(
                     max_stack_height=3,
                 ),
             ],
-            expected_bytecode="ef0001010004020001000c04000000008000035f6000e100025f5fe0000000",
+            expected_bytecode="ef0001010004020001000cff000000008000035f6000e100025f5fe0000000",
         ),
         Container(
             name="forwards_rjump_variable_stack_1",
@@ -371,7 +371,7 @@ def test_rjump_into_self_pre_code(
                     max_stack_height=5,
                 ),
             ],
-            expected_bytecode="ef0001010004020001001304000000008000055f6000e100025f5f5f6000e10003e000011900",
+            expected_bytecode="ef00010100040200010013ff000000008000055f6000e100025f5f5f6000e10003e000011900",
         ),
         Container(
             name="forwards_rjump_variable_stack_2",
@@ -394,7 +394,7 @@ def test_rjump_into_self_pre_code(
                     max_stack_height=5,
                 ),
             ],
-            expected_bytecode="ef0001010004020001001b04000000008000055f6000e100025f5f5f6000e100086000e10006e00004e000011900",
+            expected_bytecode="ef0001010004020001001bff000000008000055f6000e100025f5f5f6000e100086000e10006e00004e000011900",
         ),
         Container(
             name="forwards_rjump_variable_stack_3",
@@ -414,7 +414,7 @@ def test_rjump_into_self_pre_code(
                     max_stack_height=5,
                 ),
             ],
-            expected_bytecode="ef0001010004020001001304000000008000055f6000e100025f5f5f6000e10003e000015f00",
+            expected_bytecode="ef00010100040200010013ff000000008000055f6000e100025f5f5f6000e10003e000015f00",
         ),
         Container(
             name="forwards_rjump_variable_stack_4",
@@ -437,7 +437,7 @@ def test_rjump_into_self_pre_code(
                     max_stack_height=4,
                 ),
             ],
-            expected_bytecode="ef0001010004020001001b04000000008000045f6000e100025f5f6000e100086000e10007e000055fe000011900",
+            expected_bytecode="ef0001010004020001001bff000000008000045f6000e100025f5f6000e100086000e10007e000055fe000011900",
         ),
     ],
     ids=lambda x: x.name,
@@ -464,7 +464,7 @@ def test_rjump_valid_forward(
                     max_stack_height=1,
                 ),
             ],
-            expected_bytecode="ef0001010004020001000504000000008000015f50e0fffb",
+            expected_bytecode="ef00010100040200010005ff000000008000015f50e0fffb",
         ),
         Container(
             name="backwards_rjump_2",
@@ -479,7 +479,7 @@ def test_rjump_valid_forward(
                     max_stack_height=1,
                 ),
             ],
-            expected_bytecode="ef0001010004020001000d04000000008000015f506001e10003e0fff8e0fff5",
+            expected_bytecode="ef0001010004020001000dff000000008000015f506001e10003e0fff8e0fff5",
         ),
         Container(
             name="backwards_rjump_variable_stack_0",
@@ -494,7 +494,7 @@ def test_rjump_valid_forward(
                     max_stack_height=3,
                 ),
             ],
-            expected_bytecode="ef0001010004020001000b04000000008000035f6000e100025f5fe0fffd",
+            expected_bytecode="ef0001010004020001000bff000000008000035f6000e100025f5fe0fffd",
         ),
         Container(
             name="backwards_rjump_variable_stack_1",
@@ -511,7 +511,7 @@ def test_rjump_valid_forward(
                     max_stack_height=4,
                 ),
             ],
-            expected_bytecode="ef0001010004020001000d04000000008000045f6000e100025f5f5f50e0fffb",
+            expected_bytecode="ef0001010004020001000dff000000008000045f6000e100025f5f5f50e0fffb",
         ),
         Container(
             name="backwards_rjump_variable_stack_2",
@@ -533,7 +533,7 @@ def test_rjump_valid_forward(
                     max_stack_height=4,
                 ),
             ],
-            expected_bytecode="ef0001010004020001001504000000008000045f6000e100025f5f5f506001e10003e0fff8e0fff5",
+            expected_bytecode="ef00010100040200010015ff000000008000045f6000e100025f5f5f506001e10003e0fff8e0fff5",
         ),
     ],
     ids=lambda x: x.name,
@@ -588,7 +588,7 @@ def test_rjump_into_stack_height_diff_2(
                     max_stack_height=1,
                 ),
             ],
-            expected_bytecode="ef0001010004020001000e04000000008000015f506001e10003e0fff85fe0fff4",
+            expected_bytecode="ef0001010004020001000eff000000008000015f506001e10003e0fff85fe0fff4",
         ),
         Container(
             name="backwards_rjump_4",
@@ -598,7 +598,7 @@ def test_rjump_into_stack_height_diff_2(
                     max_stack_height=1,
                 ),
             ],
-            expected_bytecode="ef0001010004020001000404000000008000015fe0fffc",
+            expected_bytecode="ef00010100040200010004ff000000008000015fe0fffc",
         ),
         Container(
             name="backwards_rjump_5",
@@ -608,7 +608,7 @@ def test_rjump_into_stack_height_diff_2(
                     max_stack_height=1,
                 ),
             ],
-            expected_bytecode="ef0001010004020001000504000000008000015f50e0fffc",
+            expected_bytecode="ef00010100040200010005ff000000008000015f50e0fffc",
         ),
         Container(
             name="backwards_rjump_8",
@@ -623,7 +623,7 @@ def test_rjump_into_stack_height_diff_2(
                     max_stack_height=1,
                 ),
             ],
-            expected_bytecode="ef0001010004020001000b04000000008000015f506000e1fff95fe0fff5",
+            expected_bytecode="ef0001010004020001000bff000000008000015f506000e1fff95fe0fff5",
         ),
         Container(
             name="backwards_rjump_variable_stack_3",
@@ -646,7 +646,7 @@ def test_rjump_into_stack_height_diff_2(
                     max_stack_height=4,
                 ),
             ],
-            expected_bytecode="ef0001010004020001001604000000008000045f6000e100025f5f5f506001e10003e0fff85fe0fff4",
+            expected_bytecode="ef00010100040200010016ff000000008000045f6000e100025f5f5f506001e10003e0fff85fe0fff4",
         ),
         Container(
             name="backwards_rjump_variable_stack_4",
@@ -666,7 +666,7 @@ def test_rjump_into_stack_height_diff_2(
                     max_stack_height=4,
                 ),
             ],
-            expected_bytecode="ef0001010004020001001104000000008000045f6000e100025f5f6000e100015fe0fff9",
+            expected_bytecode="ef00010100040200010011ff000000008000045f6000e100025f5f6000e100015fe0fff9",
         ),
         Container(
             name="backwards_rjump_variable_stack_5",
@@ -686,7 +686,7 @@ def test_rjump_into_stack_height_diff_2(
                     max_stack_height=4,
                 ),
             ],
-            expected_bytecode="ef0001010004020001001104000000008000045f6000e100025f5f6000e1000150e0fff9",
+            expected_bytecode="ef00010100040200010011ff000000008000045f6000e100025f5f6000e1000150e0fff9",
         ),
         Container(
             name="backwards_rjump_variable_stack_6",
@@ -702,7 +702,7 @@ def test_rjump_into_stack_height_diff_2(
                     max_stack_height=4,
                 ),
             ],
-            expected_bytecode="ef0001010004020001000c04000000008000045f6000e100025f5f5fe0fffc",
+            expected_bytecode="ef0001010004020001000cff000000008000045f6000e100025f5f5fe0fffc",
         ),
         Container(
             name="backwards_rjump_variable_stack_7",
@@ -719,7 +719,7 @@ def test_rjump_into_stack_height_diff_2(
                     max_stack_height=3,
                 ),
             ],
-            expected_bytecode="ef0001010004020001000d04000000008000035f6000e100025f5f5f50e0fffc",
+            expected_bytecode="ef0001010004020001000dff000000008000035f6000e100025f5f5f50e0fffc",
         ),
         Container(
             name="backwards_rjump_variable_stack_8",
@@ -739,7 +739,7 @@ def test_rjump_into_stack_height_diff_2(
                     max_stack_height=4,
                 ),
             ],
-            expected_bytecode="ef0001010004020001001304000000008000045f6000e100025f5f5f506000e1fff95fe0fff5",
+            expected_bytecode="ef00010100040200010013ff000000008000045f6000e100025f5f5f506000e1fff95fe0fff5",
         ),
     ],
     ids=lambda x: x.name,
