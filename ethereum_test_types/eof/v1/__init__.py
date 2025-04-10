@@ -31,8 +31,6 @@ from .constants import (
     VERSION_NUMBER_BYTES,
 )
 
-VERSION_MAX_SECTION_KIND = 3
-
 
 class SectionKind(IntEnum):
     """Enum class of V1 valid section kind values."""
@@ -40,7 +38,7 @@ class SectionKind(IntEnum):
     TYPE = 1
     CODE = 2
     CONTAINER = 3
-    DATA = 4
+    DATA = 0xFF
 
     def __str__(self) -> str:
         """Return string representation of the section kind."""

@@ -1,7 +1,6 @@
 """Mirror module to import `ethereum_test_types.eof.v1`."""
 
 from ethereum_test_types.eof.v1 import (
-    VERSION_MAX_SECTION_KIND,
     AutoSection,
     Container,
     ContainerKind,
@@ -11,7 +10,6 @@ from ethereum_test_types.eof.v1 import (
 )
 
 __all__ = (
-    "VERSION_MAX_SECTION_KIND",
     "AutoSection",
     "Container",
     "ContainerKind",
