@@ -25,7 +25,6 @@ from typing import (
     Optional,
     Sequence,
     TypeVar,
-    Union,
 )
 
 from ethereum_rlp import rlp
@@ -59,7 +58,7 @@ EMPTY_TRIE_ROOT = Root(
     )
 )
 
-Node = Union[Account, Bytes, Transaction, Receipt, Uint, U256, None]
+Node = Account | Bytes | Transaction | Receipt | Uint | U256 | None
 K = TypeVar("K", bound=Bytes)
 V = TypeVar(
     "V",
@@ -100,7 +99,7 @@ class BranchNode:
     value: rlp.Extended
 
 
-InternalNode = Union[LeafNode, ExtensionNode, BranchNode]
+InternalNode = LeafNode | ExtensionNode | BranchNode
 
 
 def encode_internal_node(node: Optional[InternalNode]) -> rlp.Extended:
