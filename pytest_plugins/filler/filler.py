@@ -643,16 +643,26 @@ def node_to_test_info(node: pytest.Item) -> TestInfo:
     )
 
 
+@pytest.fixture(scope="session")
+def commit_hash_or_tag() -> str:
+    """Cache the git commit hash or tag for the entire test session."""
+    return get_current_commit_hash_or_tag()
+
+
 @pytest.fixture(scope="function")
-def fixture_source_url(request: pytest.FixtureRequest) -> str:
+def fixture_source_url(
+    request: pytest.FixtureRequest,
+    commit_hash_or_tag: str,
+) -> str:
     """Return URL to the fixture source."""
     if hasattr(request.node, "github_url"):
         return request.node.github_url
     function_line_number = request.function.__code__.co_firstlineno
     module_relative_path = os.path.relpath(request.module.__file__)
-    hash_or_tag = get_current_commit_hash_or_tag()
     github_url = generate_github_url(
-        module_relative_path, branch_or_commit_or_tag=hash_or_tag, line_number=function_line_number
+        module_relative_path,
+        branch_or_commit_or_tag=commit_hash_or_tag,
+        line_number=function_line_number,
     )
     return github_url
 
