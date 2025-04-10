@@ -855,41 +855,59 @@ def test_callf_validate_outputs(eof_test: EOFTestFiller, stack_height: int):
 @pytest.mark.parametrize(
     "code_section",
     [
-        Section.Code(
-            code=Op.POP * 2 + Op.RETF,
-            code_inputs=2,
-            code_outputs=0,
-            max_stack_height=2,
+        pytest.param(
+            Section.Code(
+                code=Op.POP * 2 + Op.RETF,
+                code_inputs=2,
+                code_outputs=0,
+                max_stack_height=2,
+            ),
+            id="pop2",
         ),
-        Section.Code(
-            code=Op.PUSH1[1] + Op.POP + Op.RETF,
-            code_inputs=3,
-            code_outputs=3,
-            max_stack_height=4,
+        pytest.param(
+            Section.Code(
+                code=Op.PUSH1[1] + Op.POP + Op.RETF,
+                code_inputs=3,
+                code_outputs=3,
+                max_stack_height=4,
+            ),
+            id="push_pop",
         ),
-        Section.Code(
-            code=Op.PUSH0 * 2 + Op.RETF,
-            code_inputs=3,
-            code_outputs=5,
-            max_stack_height=5,
+        pytest.param(
+            Section.Code(
+                code=Op.PUSH0 * 2 + Op.RETF,
+                code_inputs=3,
+                code_outputs=5,
+                max_stack_height=5,
+            ),
+            id="push2",
         ),
-        Section.Code(
-            code=Op.PUSH0 * 2 + Op.POP * 2 + Op.RETF,
-            code_inputs=3,
-            code_outputs=3,
-            max_stack_height=5,
+        pytest.param(
+            Section.Code(
+                code=Op.PUSH0 * 2 + Op.POP * 2 + Op.RETF,
+                code_inputs=3,
+                code_outputs=3,
+                max_stack_height=5,
+            ),
+            id="push2_pop2",
         ),
-        Section.Code(
-            code=Op.PUSH0 + Op.POP * 3 + Op.RETF,
-            code_inputs=2,
-            code_outputs=0,
-            max_stack_height=3,
+        pytest.param(
+            Section.Code(
+                code=Op.PUSH0 + Op.POP * 3 + Op.RETF,
+                code_inputs=2,
+                code_outputs=0,
+                max_stack_height=3,
+            ),
+            id="push_pop3",
         ),
-        Section.Code(
-            code=Op.PUSH0 * 2 + Op.POP * 4 + Op.RETF,
-            code_inputs=2,
-            code_outputs=0,
-            max_stack_height=4,
+        pytest.param(
+            Section.Code(
+                code=Op.PUSH0 * 2 + Op.POP * 4 + Op.RETF,
+                code_inputs=2,
+                code_outputs=0,
+                max_stack_height=4,
+            ),
+            id="push2_pop4",
         ),
     ],
 )
@@ -924,65 +942,95 @@ def test_callf_with_inputs_stack_overflow(
 @pytest.mark.parametrize(
     "code_section",
     [
-        Section.Code(
-            code=Op.POP * 2 + Op.RETF,
-            code_inputs=2,
-            code_outputs=0,
-            max_stack_height=2,
+        pytest.param(
+            Section.Code(
+                code=Op.POP * 2 + Op.RETF,
+                code_inputs=2,
+                code_outputs=0,
+                max_stack_height=2,
+            ),
+            id="pop2",
         ),
-        Section.Code(
-            code=Op.PUSH1[1] + Op.POP + Op.RETF,
-            code_inputs=3,
-            code_outputs=3,
-            max_stack_height=4,
+        pytest.param(
+            Section.Code(
+                code=Op.PUSH1[1] + Op.POP + Op.RETF,
+                code_inputs=3,
+                code_outputs=3,
+                max_stack_height=4,
+            ),
+            id="push_pop",
         ),
-        Section.Code(
-            code=Op.PUSH0 * 4 + Op.RETF,
-            code_inputs=3,
-            code_outputs=7,
-            max_stack_height=7,
+        pytest.param(
+            Section.Code(
+                code=Op.PUSH0 * 4 + Op.RETF,
+                code_inputs=3,
+                code_outputs=7,
+                max_stack_height=7,
+            ),
+            id="push4",
         ),
-        Section.Code(
-            code=Op.PUSH0 * 2 + Op.RETF,
-            code_inputs=3,
-            code_outputs=5,
-            max_stack_height=5,
+        pytest.param(
+            Section.Code(
+                code=Op.PUSH0 * 2 + Op.RETF,
+                code_inputs=3,
+                code_outputs=5,
+                max_stack_height=5,
+            ),
+            id="push2",
         ),
-        Section.Code(
-            code=Op.PUSH0 * 4 + Op.POP * 2 + Op.RETF,
-            code_inputs=3,
-            code_outputs=3,
-            max_stack_height=7,
+        pytest.param(
+            Section.Code(
+                code=Op.PUSH0 * 4 + Op.POP * 2 + Op.RETF,
+                code_inputs=3,
+                code_outputs=3,
+                max_stack_height=7,
+            ),
+            id="push4_pop2",
         ),
-        Section.Code(
-            code=Op.PUSH0 * 2 + Op.POP * 2 + Op.RETF,
-            code_inputs=3,
-            code_outputs=3,
-            max_stack_height=5,
+        pytest.param(
+            Section.Code(
+                code=Op.PUSH0 * 2 + Op.POP * 2 + Op.RETF,
+                code_inputs=3,
+                code_outputs=3,
+                max_stack_height=5,
+            ),
+            id="push2_pop2",
         ),
-        Section.Code(
-            code=Op.PUSH0 * 3 + Op.POP * 5 + Op.RETF,
-            code_inputs=2,
-            code_outputs=0,
-            max_stack_height=5,
+        pytest.param(
+            Section.Code(
+                code=Op.PUSH0 * 3 + Op.POP * 5 + Op.RETF,
+                code_inputs=2,
+                code_outputs=0,
+                max_stack_height=5,
+            ),
+            id="push3_pop5",
         ),
-        Section.Code(
-            code=Op.PUSH0 + Op.POP * 3 + Op.RETF,
-            code_inputs=2,
-            code_outputs=0,
-            max_stack_height=3,
+        pytest.param(
+            Section.Code(
+                code=Op.PUSH0 + Op.POP * 3 + Op.RETF,
+                code_inputs=2,
+                code_outputs=0,
+                max_stack_height=3,
+            ),
+            id="push_pop3",
         ),
-        Section.Code(
-            code=Op.PUSH0 * 4 + Op.POP * 6 + Op.RETF,
-            code_inputs=2,
-            code_outputs=0,
-            max_stack_height=6,
+        pytest.param(
+            Section.Code(
+                code=Op.PUSH0 * 4 + Op.POP * 6 + Op.RETF,
+                code_inputs=2,
+                code_outputs=0,
+                max_stack_height=6,
+            ),
+            id="push4_pop6",
         ),
-        Section.Code(
-            code=Op.PUSH0 * 2 + Op.POP * 4 + Op.RETF,
-            code_inputs=2,
-            code_outputs=0,
-            max_stack_height=4,
+        pytest.param(
+            Section.Code(
+                code=Op.PUSH0 * 2 + Op.POP * 4 + Op.RETF,
+                code_inputs=2,
+                code_outputs=0,
+                max_stack_height=4,
+            ),
+            id="push2_pop4",
         ),
     ],
 )
