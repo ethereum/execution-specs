@@ -26,6 +26,8 @@ class SectionSize(IntEnum):
     OVERSIZE = 100
     HUGE = 0x8000
     MAX = 0xFFFF
+    CONTAINER_BIG = 0x00010000
+    CONTAINER_MAX = 0xFFFFFFFF
 
     def __str__(self) -> str:
         """Return string representation of the section kind."""
@@ -98,7 +100,14 @@ class SectionSize(IntEnum):
             SectionKind.CONTAINER, SectionSize.HUGE, EOFException.INVALID_SECTION_BODIES_SIZE
         ),
         pytest.param(
-            SectionKind.CONTAINER, SectionSize.MAX, EOFException.INVALID_SECTION_BODIES_SIZE
+            SectionKind.CONTAINER,
+            SectionSize.CONTAINER_BIG,
+            EOFException.INVALID_SECTION_BODIES_SIZE,
+        ),
+        pytest.param(
+            SectionKind.CONTAINER,
+            SectionSize.CONTAINER_MAX,
+            EOFException.INVALID_SECTION_BODIES_SIZE,
         ),
     ],
 )
@@ -108,7 +117,7 @@ def test_section_size(
     section_kind: SectionKind,
     exception: EOFExceptionInstanceOrList,
 ):
-    """Test custom_size is auto, more or less then the actual size of the section."""
+    """Test custom_size is auto, more or less than the actual size of the section."""
     eof_code = Container()
 
     if section_size != SectionSize.NORMAL and section_kind == SectionKind.TYPE:

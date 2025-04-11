@@ -754,7 +754,7 @@ def test_wide_container(eof_test: EOFTestFiller, width: int, exception: EOFExcep
                     abort_sub_container,
                 ],
                 expected_bytecode="""
-                ef0001010004020001000b0300010014ff0000000080000436600060ff6000ec005000ef000101000402
+                ef0001010004020001000b03000100000014ff0000000080000436600060ff6000ec005000ef000101000402
                 00010001ff00000000800000fe""",
             ),
             id="eofcreate_0",
@@ -766,8 +766,8 @@ def test_wide_container(eof_test: EOFTestFiller, width: int, exception: EOFExcep
                     abort_sub_container,
                 ],
                 expected_bytecode="""
-                ef000101000402000100060300010014ff000000008000016000e0000000ef00010100040200010001ff
-                00000000800000fe""",
+                ef0001010004020001000603000100000014ff000000008000016000e0000000ef000101000402000100
+                01ff00000000800000fe""",
                 # Originally this test was "valid" because it was created
                 # before "orphan subcontainer" rule was introduced.
                 validity_error=EOFException.ORPHAN_SUBCONTAINER,
@@ -782,8 +782,8 @@ def test_wide_container(eof_test: EOFTestFiller, width: int, exception: EOFExcep
                     Section.Data(custom_size=2),
                 ],
                 expected_bytecode="""
-                ef000101000402000100060300010014ff000200008000016000e0000000ef00010100040200010001ff
-                00000000800000fe""",
+                ef0001010004020001000603000100000014ff000200008000016000e0000000ef000101000402000100
+                01ff00000000800000fe""",
                 # Originally this test was "valid" but against the current spec
                 # it contains two errors: data section truncated and orphan subcontainer.
                 validity_error=EOFException.TOPLEVEL_CONTAINER_TRUNCATED,
@@ -798,8 +798,8 @@ def test_wide_container(eof_test: EOFTestFiller, width: int, exception: EOFExcep
                     Section.Data("aabb"),
                 ],
                 expected_bytecode="""
-                ef000101000402000100060300010014ff000200008000016000e0000000ef00010100040200010001ff
-                00000000800000feaabb""",
+                ef0001010004020001000603000100000014ff000200008000016000e0000000ef000101000402000100
+                01ff00000000800000feaabb""",
                 # Originally this test was "valid" because it was created
                 # before "orphan subcontainer" rule was introduced.
                 validity_error=EOFException.ORPHAN_SUBCONTAINER,
@@ -832,7 +832,7 @@ def test_wide_container(eof_test: EOFTestFiller, width: int, exception: EOFExcep
                 ]
                 + 2 * [abort_sub_container],
                 expected_bytecode="""
-                ef0001010004020001000b03000200140014ff0000000080000436600060ff6000ec015000ef00010100
+                ef0001010004020001000b0300020000001400000014ff0000000080000436600060ff6000ec015000ef00010100
                 040200010001ff00000000800000feef00010100040200010001ff00000000800000fe""",
                 # Originally this test was "valid" because it was created
                 # before "orphan subcontainer" rule was introduced.
@@ -848,7 +848,7 @@ def test_wide_container(eof_test: EOFTestFiller, width: int, exception: EOFExcep
                     Section.Container(Container.Code(Op.PUSH0 + Op.PUSH0 + Op.RETURN)),
                 ],
                 expected_bytecode="""
-                ef0001010004020001000603000200140016ff000000008000016000e0000000ef000101000402000100
+                ef000101000402000100060300020000001400000016ff000000008000016000e0000000ef000101000402000100
                 01ff00000000800000feef00010100040200010003ff000000008000025f5ff3""",
                 # Originally this test was "valid" because it was created
                 # before "orphan subcontainer" rule was introduced.

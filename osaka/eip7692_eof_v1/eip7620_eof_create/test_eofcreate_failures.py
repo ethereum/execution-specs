@@ -142,7 +142,7 @@ def test_initcode_aborts(
 Size of the factory portion of test_eofcreate_deploy_sizes, but as the runtime code is dynamic, we
 have to use a pre-calculated size
 """
-factory_size = 74
+factory_size = 78
 
 
 @pytest.mark.parametrize(
@@ -206,7 +206,7 @@ def test_eofcreate_deploy_sizes(
         "factory_size is wrong, expected factory_size is %d, calculated is %d"
         % (
             factory_size,
-            len(factory_container),
+            len(factory_container) - len(runtime_container),
         )
     )
 
