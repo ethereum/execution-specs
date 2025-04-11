@@ -16,14 +16,13 @@ def get_current_commit_hash_or_tag(repo_path=".", shorten_hash=False):
     """
     try:
         repo = Repo(repo_path)
-        # Try to get the current tag that points to the current commit
         current_commit = repo.head.commit
-        current_tag = next((tag for tag in repo.tags if tag.commit == current_commit), None)
-        if current_tag:
-            return current_tag.name
-        else:
-            commit_hash = current_commit.hexsha
-            return commit_hash[:8] if shorten_hash else commit_hash
+        # Check if current commit has a tag using lookup
+        for tag in repo.tags:
+            if tag.commit == current_commit:
+                return tag.name
+        # No tag found, return commit hash
+        return current_commit.hexsha[:8] if shorten_hash else current_commit.hexsha
     except InvalidGitRepositoryError:
         # Handle the case where the repository is not a valid Git repository
         return "Not a git repository; this should only be seen in framework tests."
