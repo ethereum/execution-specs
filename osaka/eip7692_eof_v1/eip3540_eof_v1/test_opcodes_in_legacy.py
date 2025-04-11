@@ -48,6 +48,7 @@ eof_opcode_blocks = [
     pytest.param(Op.DATASIZE, id="DATASIZE"),
     pytest.param(Op.DATACOPY(0, 0, 32), id="DATACOPY"),
     pytest.param(Op.EOFCREATE[0](0, 0, 0, 0), id="EOFCREATE"),
+    # pytest.param(Op.TXCREATE(0, 0, 0, 0, 0), id="TXCREATE"), not EOF-only anymore
     pytest.param(Op.RETURNCODE[0], id="RETURNCODE"),
 ]
 

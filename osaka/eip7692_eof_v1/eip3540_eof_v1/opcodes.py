@@ -31,6 +31,9 @@ V1_EOF_OPCODES: List[Op] = [
     Op.DATACOPY,
     # EIP-7620 EOF Create and Return Contract operation
     Op.EOFCREATE,
+    # EIP-7873 TXCREATE and InitcodeTransaction
+    Op.TXCREATE,
+    # EIP-7620 EOF Create and Return Contract operation
     Op.RETURNCODE,
     # Non-deprecated Legacy Opcodes
     Op.STOP,
