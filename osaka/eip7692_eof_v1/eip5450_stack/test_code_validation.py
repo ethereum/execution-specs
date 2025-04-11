@@ -7,7 +7,7 @@ from typing import Tuple
 import pytest
 
 from ethereum_test_exceptions.exceptions import EOFException
-from ethereum_test_tools import EOFTestFiller
+from ethereum_test_tools import Account, EOFStateTestFiller, EOFTestFiller
 from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 from ethereum_test_types.eof.v1.constants import MAX_OPERAND_STACK_HEIGHT, NON_RETURNING_SECTION
@@ -561,9 +561,68 @@ def test_all_opcodes_stack_underflow(
                 ),
             ],
         ),
+        Container(
+            name="underflow_variable_stack_3",
+            sections=[
+                Section.Code(
+                    Op.RJUMPI[8](0)
+                    + Op.PUSH0 * 2
+                    + Op.RJUMPI[1](0)
+                    + Op.POP * 2
+                    + Op.PUSH0 * 2
+                    + Op.REVERT,
+                    max_stack_height=3,
+                ),
+            ],
+        ),
     ],
     ids=lambda x: x.name,
 )
 def test_stack_underflow_examples(eof_test, container):
     """Test EOF validation failing due to stack underflow at basic instructions."""
     eof_test(container=container, expect_exception=EOFException.STACK_UNDERFLOW)
+
+
+@pytest.mark.parametrize("initial_stack", [0, 1, 2])
+@pytest.mark.parametrize("calldata_1", [0, 1])
+@pytest.mark.parametrize("calldata_2", [0, 1])
+def test_valid_non_constant_stack_examples(
+    eof_state_test: EOFStateTestFiller, initial_stack: int, calldata_1: int, calldata_2: int
+):
+    """Test valid containers with non constant stack items."""
+    # Stores the number of added items to the stack in storage slot 0
+    # calldata_1 == 1: number of items = 2
+    # calldata_1 == 0:
+    #   calldata_2 == 0: number of items: 3
+    #   calldata_2 == 1: number of items: 4
+    expected_storage = {0: 2} if calldata_1 == 1 else ({0: 3} if calldata_2 == 0 else {0: 4})
+    data = calldata_1.to_bytes(32, "big") + calldata_2.to_bytes(32, "big")
+    container = Container(
+        sections=[
+            Section.Code(
+                code=Op.PUSH0 * initial_stack
+                + Op.CALLDATALOAD(0)
+                + Op.RJUMPI[19]
+                + Op.PUSH0 * 2
+                + Op.SSTORE(0, 2)  # Stores added items (2)
+                + Op.CALLDATALOAD(32)
+                + Op.RJUMPI[6]
+                + Op.POP
+                + Op.SSTORE(0, 1)  # Updates number of added items to 1
+                + Op.PUSH0 * 2  # <-- RJUMPI[19]/RJUMPI[6] target
+                + Op.SLOAD(0)
+                + Op.PUSH1(2)
+                + Op.ADD  # Add latest added items (+2)
+                + Op.PUSH1(0)
+                + Op.SSTORE
+                + Op.STOP,
+                max_stack_height=6 + initial_stack,
+            ),
+        ],
+    )
+    eof_state_test(
+        container=container,
+        expect_exception=None,
+        data=data,
+        container_post=Account(storage=expected_storage),
+    )
