@@ -463,11 +463,7 @@ def is_account_alive(state: State, address: Address) -> bool:
     if account is None:
         return False
     else:
-        return not (
-            account.nonce == Uint(0)
-            and account.code == b""
-            and account.balance == 0
-        )
+        return not account == EMPTY_ACCOUNT
 
 
 def modify_state(
