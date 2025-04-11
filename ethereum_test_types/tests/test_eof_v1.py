@@ -37,7 +37,7 @@ test_cases: List[Tuple[str, Container, str]] = [
                 Section.Container("0x0B"),
             ],
         ),
-        "ef0001 01 0004 02 0001 0001 03 0001 0001 ff 0000 00 00800000 0A 0B",
+        "ef0001 01 0004 02 0001 0001 03 0001 00000001 ff 0000 00 00800000 0A 0B",
     ),
     (
         "Single code section, single container section, single data",
@@ -48,7 +48,7 @@ test_cases: List[Tuple[str, Container, str]] = [
                 Section.Data("0x0C"),
             ],
         ),
-        "ef0001 01 0004 02 0001 0001 03 0001 0001 ff 0001 00 00800000 0A 0B 0C",
+        "ef0001 01 0004 02 0001 0001 03 0001 00000001 ff 0001 00 00800000 0A 0B 0C",
     ),
     (
         "Single code section, single container section, single data 2",
@@ -59,7 +59,7 @@ test_cases: List[Tuple[str, Container, str]] = [
                 Section.Container("0x0B"),
             ],
         ),
-        "ef0001 01 0004 02 0001 0001 03 0001 0001 ff 0001 00 00800000 0A 0B 0C",
+        "ef0001 01 0004 02 0001 0001 03 0001 00000001 ff 0001 00 00800000 0A 0B 0C",
     ),
     (
         "Single code section, multiple container section, single data",
@@ -71,7 +71,7 @@ test_cases: List[Tuple[str, Container, str]] = [
                 Section.Container("0x0D"),
             ],
         ),
-        "ef0001 01 0004 02 0001 0001 03 0002 0001 0001 ff 0001 00 00800000 0A 0B 0D 0C",
+        "ef0001 01 0004 02 0001 0001 03 0002 00000001 00000001 ff 0001 00 00800000 0A 0B 0D 0C",
     ),
     (
         "Single code section, multiple container sections",
@@ -82,7 +82,7 @@ test_cases: List[Tuple[str, Container, str]] = [
                 Section.Container("0x00"),
             ],
         ),
-        "ef0001 01 0004 02 0001 0001 03 0002 0002 0001 ff 0000 00 00800000 00 0001 00",
+        "ef0001 01 0004 02 0001 0001 03 0002 00000002 00000001 ff 0000 00 00800000 00 0001 00",
     ),
     (
         "No code section",
@@ -188,7 +188,7 @@ test_cases: List[Tuple[str, Container, str]] = [
                 ),
             ],
         ),
-        "ef0001 01 0004 02 0001 0001 03 0001 0014 ff 0000 00 00800000 00"
+        "ef0001 01 0004 02 0001 0001 03 0001 00000014 ff 0000 00 00800000 00"
         "ef0001 01 0004 02 0001 0001 ff 0000 00 00800000 01",
     ),
     (
@@ -785,7 +785,7 @@ test_cases: List[Tuple[str, Container, str]] = [
       020001  # One code segment
         0006  #   code seg 0: 6 bytes
       030001  # One container segment
-        0014  #   container seg 0: 20 bytes
+    00000014  #   container seg 0: 20 bytes
       ff0000  # Zero byte data segment
       00      # End of header
    0080 0002  # Types section
@@ -815,7 +815,7 @@ test_cases: List[Tuple[str, Container, str]] = [
       020001  # One code segment
         000b  #   code seg 0: 11 bytes
       030001  # One container segment
-        0014  #   container seg 0: 20 bytes
+    00000014  #   container seg 0: 20 bytes
       ff0000  # Zero byte data segment
       00      # End of header
    0080 0002  # Types section
