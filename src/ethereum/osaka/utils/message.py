@@ -54,6 +54,8 @@ def prepare_message(
     accessed_addresses.update(PRE_COMPILED_CONTRACTS.keys())
     accessed_addresses.update(tx_env.access_list_addresses)
 
+    is_delegated = False
+
     if isinstance(tx.to, Bytes0):
         current_target = compute_contract_address(
             tx_env.origin,
@@ -74,6 +76,7 @@ def prepare_message(
 
         delegated_address = get_delegated_code_address(code)
         if delegated_address is not None:
+            is_delegated = True
             accessed_addresses.add(delegated_address)
             code = get_account(block_env.state, delegated_address).code
 
@@ -113,6 +116,7 @@ def prepare_message(
         is_static=False,
         accessed_addresses=accessed_addresses,
         accessed_storage_keys=set(tx_env.access_list_storage_keys),
+        is_delegated=is_delegated,
         parent_evm=None,
         eof=eof,
     )

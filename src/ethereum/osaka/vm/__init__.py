@@ -138,6 +138,7 @@ class Message:
     is_static: bool
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
+    is_delegated: bool
     parent_evm: Optional["Evm"]
     eof: Optional["Eof"]
 
