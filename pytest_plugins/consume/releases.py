@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import List
+from urllib.parse import urlparse
 
 import platformdirs
 import requests
@@ -72,7 +73,11 @@ class ReleaseTag:
         """
         assert isinstance(value, str), f"Expected a string, but got: {value}"
         if self.version is not None:
-            return value == f"{self.tag_name}@{self.version}"
+            # normal release, e.g., stable@v4.0.0
+            normal_release_match = value == self.version
+            # pre release, e.g., pectra-devnet-6@v1.0.0
+            pre_release_match = value == f"{self.tag_name}@{self.version}"
+            return normal_release_match or pre_release_match
         return value.startswith(self.tag_name)
 
     @property
@@ -138,6 +143,21 @@ class Releases(RootModel[List[ReleaseInformation]]):
 def is_docker_or_ci() -> bool:
     """Check if the code is running inside a Docker container or a CI environment."""
     return "GITHUB_ACTIONS" in os.environ or Path("/.dockerenv").exists()
+
+
+def is_url(string: str) -> bool:
+    """Check if a string is a remote URL."""
+    result = urlparse(string)
+    return all([result.scheme, result.netloc])
+
+
+def is_release_url(input_str: str) -> bool:
+    """Check if the release string is a URL."""
+    if not is_url(input_str):
+        return False
+    repo_pattern = "|".join(re.escape(repo) for repo in SUPPORTED_REPOS)
+    regex_pattern = rf"https://github\.com/({repo_pattern})/releases/download/"
+    return re.match(regex_pattern, input_str) is not None
 
 
 def parse_release_information(release_information: List) -> List[ReleaseInformation]:

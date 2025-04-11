@@ -20,7 +20,7 @@ from ethereum_test_fixtures.consume import IndexFile, TestCases
 from ethereum_test_forks import get_forks, get_relative_fork_markers, get_transition_forks
 from ethereum_test_tools.utility.versioning import get_current_commit_hash_or_tag
 
-from .releases import ReleaseTag, get_release_page_url, get_release_url
+from .releases import ReleaseTag, get_release_page_url, get_release_url, is_release_url, is_url
 
 CACHED_DOWNLOADS_DIRECTORY = (
     Path(platformdirs.user_cache_dir("ethereum-execution-spec-tests")) / "cached_downloads"
@@ -50,10 +50,16 @@ class FixtureDownloader:
         self.url = url
         self.base_directory = base_directory
         self.parsed_url = urlparse(url)
-        self.org_repo = self.extract_github_repo()
-        self.version = Path(self.parsed_url.path).parts[-2]
         self.archive_name = self.strip_archive_extension(Path(self.parsed_url.path).name)
-        self.extract_to = base_directory / self.org_repo / self.version / self.archive_name
+
+    @property
+    def extract_to(self) -> Path:
+        """Path to the directory where the archive will be extracted."""
+        if is_release_url(self.url):
+            version = Path(self.parsed_url.path).parts[-2]
+            self.org_repo = self.extract_github_repo()
+            return self.base_directory / self.org_repo / version / self.archive_name
+        return self.base_directory / "other" / self.archive_name
 
     def download_and_extract(self) -> Tuple[bool, Path]:
         """Download the URL and extract it locally if it hasn't already been downloaded."""
@@ -91,7 +97,7 @@ class FixtureDownloader:
         """
         Detect a single top-level dir within the extracted archive, otherwise return extract_to.
         """  # noqa: D200
-        extracted_dirs = [d for d in self.extract_to.iterdir() if d.is_dir()]
+        extracted_dirs = [d for d in self.extract_to.iterdir() if d.is_dir() and d.name != ".meta"]
         return extracted_dirs[0] if len(extracted_dirs) == 1 else self.extract_to
 
 
@@ -112,6 +118,8 @@ class FixturesSource:
         """Determine the fixture source type and return an instance."""
         if input_source == "stdin":
             return cls(input_option=input_source, path=Path(), is_local=False, is_stdin=True)
+        if is_release_url(input_source):
+            return cls.from_release_url(input_source)
         if is_url(input_source):
             return cls.from_url(input_source)
         if ReleaseTag.is_release_string(input_source):
@@ -119,8 +127,8 @@ class FixturesSource:
         return cls.validate_local_path(Path(input_source))
 
     @classmethod
-    def from_url(cls, url: str) -> "FixturesSource":
-        """Create a fixture source from a direct URL."""
+    def from_release_url(cls, url: str) -> "FixturesSource":
+        """Create a fixture source from a supported github repo release URL."""
         release_page = get_release_page_url(url)
         downloader = FixtureDownloader(url, CACHED_DOWNLOADS_DIRECTORY)
         was_cached, path = downloader.download_and_extract()
@@ -129,6 +137,20 @@ class FixturesSource:
             path=path,
             url=url,
             release_page=release_page,
+            is_local=False,
+            was_cached=was_cached,
+        )
+
+    @classmethod
+    def from_url(cls, url: str) -> "FixturesSource":
+        """Create a fixture source from a direct URL."""
+        downloader = FixtureDownloader(url, CACHED_DOWNLOADS_DIRECTORY)
+        was_cached, path = downloader.download_and_extract()
+        return cls(
+            input_option=url,
+            path=path,
+            url=url,
+            release_page="",
             is_local=False,
             was_cached=was_cached,
         )
@@ -157,12 +179,6 @@ class FixturesSource:
         if not any(path.glob("**/*.json")):
             pytest.exit(f"Specified fixture directory '{path}' does not contain any JSON files.")
         return FixturesSource(input_option=str(path), path=path)
-
-
-def is_url(string: str) -> bool:
-    """Check if a string is a remote URL."""
-    result = urlparse(string)
-    return all([result.scheme, result.netloc])
 
 
 class SimLimitBehavior:
