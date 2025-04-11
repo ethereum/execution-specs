@@ -669,6 +669,8 @@ class Transaction(
 
     authorization_list: List[AuthorizationTuple] | None = None
 
+    initcodes: List[Bytes] | None = None
+
     secret_key: Hash | None = None
     error: List[TransactionException] | TransactionException | None = Field(None, exclude=True)
 
@@ -710,7 +712,9 @@ class Transaction(
 
         if "ty" not in self.model_fields_set:
             # Try to deduce transaction type from included fields
-            if self.authorization_list is not None:
+            if self.initcodes is not None:
+                self.ty = 6
+            elif self.authorization_list is not None:
                 self.ty = 4
             elif self.max_fee_per_blob_gas is not None or self.blob_versioned_hashes is not None:
                 self.ty = 3
@@ -757,6 +761,11 @@ class Transaction(
             self.authorization_list = []
         if self.ty != 4:
             assert self.authorization_list is None, "authorization_list must be None"
+
+        if self.ty == 6 and self.initcodes is None:
+            self.initcodes = []
+        if self.ty != 6:
+            assert self.initcodes is None, "initcodes must be None"
 
         if "nonce" not in self.model_fields_set and self.sender is not None:
             self.nonce = HexNumber(self.sender.get_nonce())
@@ -911,7 +920,21 @@ class Transaction(
         the transaction type.
         """
         field_list: List[str]
-        if self.ty == 4:
+        if self.ty == 6:
+            # EIP-7873: https://eips.ethereum.org/EIPS/eip-7873
+            field_list = [
+                "chain_id",
+                "nonce",
+                "max_priority_fee_per_gas",
+                "max_fee_per_gas",
+                "gas_limit",
+                "to",
+                "value",
+                "data",
+                "access_list",
+                "initcodes",
+            ]
+        elif self.ty == 4:
             # EIP-7702: https://eips.ethereum.org/EIPS/eip-7702
             field_list = [
                 "chain_id",

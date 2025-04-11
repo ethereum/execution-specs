@@ -12,7 +12,7 @@ from pydantic_core.core_schema import (
     to_string_ser_schema,
 )
 
-from ethereum_test_base_types import Bytes
+from ethereum_test_base_types import Bytes, Hash
 from ethereum_test_base_types.conversions import BytesConvertible
 from ethereum_test_base_types.pydantic import CopyValidateModel
 from ethereum_test_exceptions.exceptions import EOFExceptionInstanceOrList
@@ -467,6 +467,11 @@ class Container(CopyValidateModel):
                 ),
             ],
         )
+
+    @cached_property
+    def hash(self) -> Hash:
+        """Returns hash of the container bytecode."""
+        return Bytes(self.bytecode).keccak256()
 
     def __bytes__(self) -> bytes:
         """Return bytecode of the container."""

@@ -321,6 +321,7 @@ class FixtureTransaction(TransactionFixtureConverter, TransactionGeneric[ZeroPad
     """Representation of an Ethereum transaction within a test Fixture."""
 
     authorization_list: List[FixtureAuthorizationTuple] | None = None
+    initcodes: List[Bytes] | None = None
 
     @classmethod
     def from_transaction(cls, tx: Transaction) -> "FixtureTransaction":

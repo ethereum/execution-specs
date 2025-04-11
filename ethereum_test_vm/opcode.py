@@ -5117,6 +5117,35 @@ class Opcodes(Opcode, Enum):
 
     """
 
+    TXCREATE = Opcode(
+        0xED,
+        popped_stack_items=5,
+        pushed_stack_items=1,
+        kwargs=["tx_initcode_hash", "salt", "input_offset", "input_size", "value"],
+    )
+    """
+    !!! Note: This opcode is under development
+
+    TXCREATE (tx_initcode_hash, salt, input_offset, input_size, value)
+    ----
+
+    Description
+    ----
+
+    Inputs
+    ----
+
+    Outputs
+    ----
+
+    Fork
+    ----
+
+    Gas
+    ----
+
+    """
+
     RETURNCODE = Opcode(
         0xEE,
         popped_stack_items=2,
@@ -5869,7 +5898,6 @@ class UndefinedOpcodes(Opcode, Enum):
     OPCODE_E9 = Opcode(0xE9)
     OPCODE_EA = Opcode(0xEA)
     OPCODE_EB = Opcode(0xEB)
-    OPCODE_ED = Opcode(0xED)
     OPCODE_EF = Opcode(0xEF)
     OPCODE_F6 = Opcode(0xF6)
     OPCODE_FC = Opcode(0xFC)
