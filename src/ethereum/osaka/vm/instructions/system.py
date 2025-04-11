@@ -140,6 +140,7 @@ def generic_create(
         is_static=False,
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
+        is_delegated=False,
         parent_evm=evm,
         eof=None,
     )
@@ -316,12 +317,6 @@ def generic_call(
     call_data = memory_read_bytes(
         evm.memory, memory_input_start_position, memory_input_size
     )
-    code = get_account(evm.message.block_env.state, code_address).code
-
-    if is_delegated_code and len(code) == 0:
-        evm.gas_left += gas
-        push(evm.stack, U256(1))
-        return
 
     eof_version = get_eof_version(code)
     if eof_version == EofVersion.LEGACY:
@@ -354,6 +349,7 @@ def generic_call(
         is_static=True if is_staticcall else evm.message.is_static,
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
+        is_delegated=is_delegated_code,
         parent_evm=evm,
         eof=eof,
     )
@@ -814,6 +810,7 @@ def generic_eof_call(
     value: U256,
     should_transfer_value: bool,
     is_static: bool,
+    is_delegated: bool,
     allow_legacy_code: bool,
 ) -> None:
     """
@@ -841,6 +838,8 @@ def generic_eof_call(
         Whether the value should be transferred.
     is_static :
         Whether the call is static.
+    is_delegated :
+        Whether the code is a delegated.
     allow_legacy_code :
         Whether to allow legacy code.
 
@@ -914,6 +913,7 @@ def generic_eof_call(
         is_static=is_static,
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
+        is_delegated=is_delegated,
         parent_evm=evm,
         eof=eof,
     )
@@ -961,6 +961,15 @@ def ext_call(evm: Evm) -> None:
         evm.accessed_addresses.add(target_address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
+    code_address = target_address
+    (
+        is_delegated_code,
+        code_address,
+        code,
+        delegated_access_gas_cost,
+    ) = access_delegation(evm, code_address)
+    access_gas_cost += delegated_access_gas_cost
+
     create_gas_cost = (
         Uint(0)
         if is_account_alive(evm.message.block_env.state, target_address)
@@ -985,10 +994,11 @@ def ext_call(evm: Evm) -> None:
         caller=evm.message.current_target,
         target=target_address,
         current_target=target_address,
-        code_address=target_address,
+        code_address=code_address,
         value=value,
         should_transfer_value=True,
         is_static=False,
+        is_delegated=is_delegated_code,
         allow_legacy_code=True,
     )
 
@@ -1025,6 +1035,15 @@ def ext_delegatecall(evm: Evm) -> None:
         evm.accessed_addresses.add(target_address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
+    code_address = target_address
+    (
+        is_delegated_code,
+        code_address,
+        code,
+        delegated_access_gas_cost,
+    ) = access_delegation(evm, code_address)
+    access_gas_cost += delegated_access_gas_cost
+
     charge_gas(evm, extend_memory.cost + access_gas_cost)
 
     # OPERATION
@@ -1036,10 +1055,11 @@ def ext_delegatecall(evm: Evm) -> None:
         caller=evm.message.caller,
         target=evm.message.current_target,
         current_target=evm.message.current_target,
-        code_address=target_address,
+        code_address=code_address,
         value=evm.message.value,
         should_transfer_value=False,
         is_static=evm.message.is_static,
+        is_delegated=is_delegated_code,
         allow_legacy_code=False,
     )
 
@@ -1075,6 +1095,15 @@ def ext_staticcall(evm: Evm) -> None:
         evm.accessed_addresses.add(target_address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
+    code_address = target_address
+    (
+        is_delegated_code,
+        code_address,
+        code,
+        delegated_access_gas_cost,
+    ) = access_delegation(evm, code_address)
+    access_gas_cost += delegated_access_gas_cost
+
     charge_gas(evm, extend_memory.cost + access_gas_cost)
 
     # OPERATION
@@ -1086,10 +1115,11 @@ def ext_staticcall(evm: Evm) -> None:
         caller=evm.message.current_target,
         target=target_address,
         current_target=target_address,
-        code_address=target_address,
+        code_address=code_address,
         value=U256(0),
         should_transfer_value=False,
         is_static=True,
+        is_delegated=is_delegated_code,
         allow_legacy_code=True,
     )
 
@@ -1198,6 +1228,7 @@ def eof_create(evm: Evm) -> None:
             is_static=False,
             accessed_addresses=evm.accessed_addresses.copy(),
             accessed_storage_keys=evm.accessed_storage_keys.copy(),
+            is_delegated=False,
             parent_evm=evm,
             eof=eof,
         )

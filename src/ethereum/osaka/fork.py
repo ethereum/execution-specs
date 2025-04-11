@@ -578,6 +578,7 @@ def process_system_transaction(
         is_static=False,
         accessed_addresses=set(),
         accessed_storage_keys=set(),
+        is_delegated=False,
         parent_evm=None,
         eof=None,
     )
