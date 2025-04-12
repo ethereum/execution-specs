@@ -213,6 +213,7 @@ def post(  # noqa: D103
         (True, True),
     ],
 )
+@pytest.mark.exception_test
 def test_invalid_pre_fork_block_with_blob_fields(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
@@ -257,6 +258,7 @@ def test_invalid_pre_fork_block_with_blob_fields(
         (True, True),
     ],
 )
+@pytest.mark.exception_test
 def test_invalid_post_fork_block_without_blob_fields(
     blockchain_test: BlockchainTestFiller,
     env: Environment,

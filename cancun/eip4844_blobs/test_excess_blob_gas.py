@@ -387,6 +387,7 @@ def test_correct_decreasing_blob_gas_costs(
     "parent_blobs",
     lambda fork: range(0, fork.max_blobs_per_block() + 1),
 )
+@pytest.mark.exception_test
 def test_invalid_zero_excess_blob_gas_in_header(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
@@ -435,6 +436,7 @@ def all_invalid_blob_gas_used_combinations(fork: Fork) -> Iterator[Tuple[int, in
     all_invalid_blob_gas_used_combinations,
 )
 @pytest.mark.parametrize("parent_blobs", [0])
+@pytest.mark.exception_test
 def test_invalid_blob_gas_used_in_header(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
@@ -479,6 +481,7 @@ def generate_invalid_excess_blob_gas_above_target_change_tests(fork: Fork) -> Li
     generate_invalid_excess_blob_gas_above_target_change_tests,
 )
 @pytest.mark.parametrize("new_blobs", [1])
+@pytest.mark.exception_test
 def test_invalid_excess_blob_gas_above_target_change(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
@@ -523,6 +526,7 @@ def test_invalid_excess_blob_gas_above_target_change(
     "parent_excess_blobs", lambda fork: [1, fork.target_blobs_per_block()]
 )
 @pytest.mark.parametrize("new_blobs", [1])
+@pytest.mark.exception_test
 def test_invalid_static_excess_blob_gas(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
@@ -564,6 +568,7 @@ def test_invalid_static_excess_blob_gas(
 )
 @pytest.mark.parametrize("parent_excess_blobs", [0])  # Start at 0
 @pytest.mark.parametrize("new_blobs", [1])
+@pytest.mark.exception_test
 def test_invalid_excess_blob_gas_target_blobs_increase_from_zero(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
@@ -605,6 +610,7 @@ def test_invalid_excess_blob_gas_target_blobs_increase_from_zero(
 )
 @pytest.mark.parametrize("parent_excess_blobs", [0])  # Start at 0
 @pytest.mark.parametrize("new_blobs", [1])
+@pytest.mark.exception_test
 def test_invalid_static_excess_blob_gas_from_zero_on_blobs_above_target(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
@@ -653,6 +659,7 @@ def test_invalid_static_excess_blob_gas_from_zero_on_blobs_above_target(
     ),
 )
 @pytest.mark.parametrize("new_blobs", [1])
+@pytest.mark.exception_test
 def test_invalid_excess_blob_gas_change(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
@@ -704,6 +711,7 @@ def test_invalid_excess_blob_gas_change(
     "parent_excess_blobs",
     lambda fork: range(fork.target_blobs_per_block()),
 )
+@pytest.mark.exception_test
 def test_invalid_negative_excess_blob_gas(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
@@ -753,6 +761,7 @@ def test_invalid_negative_excess_blob_gas(
     "parent_excess_blobs",
     lambda fork: [fork.target_blobs_per_block() + 1],
 )
+@pytest.mark.exception_test
 def test_invalid_non_multiple_excess_blob_gas(
     blockchain_test: BlockchainTestFiller,
     env: Environment,

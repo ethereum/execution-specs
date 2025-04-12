@@ -37,7 +37,7 @@ pytestmark += [
             # the data floor does not consume more gas than it should.
             pytest.param(1, id="extra_gas"),
             pytest.param(0, id="exact_gas"),
-            pytest.param(-1, id="insufficient_gas"),
+            pytest.param(-1, id="insufficient_gas", marks=pytest.mark.exception_test),
         ],
     ),
     pytest.mark.parametrize(

@@ -604,6 +604,7 @@ def invalid_requests_block_combinations(fork: Fork) -> List[ParameterSet]:
     "requests,block_body_override_requests,exception",
     invalid_requests_block_combinations,
 )
+@pytest.mark.exception_test
 def test_invalid_deposit_withdrawal_consolidation_requests(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -631,6 +632,7 @@ def test_invalid_deposit_withdrawal_consolidation_requests(
 )
 @pytest.mark.parametrize("correct_requests_hash_in_header", [True])
 @pytest.mark.blockchain_test_engine_only
+@pytest.mark.exception_test
 def test_invalid_deposit_withdrawal_consolidation_requests_engine(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

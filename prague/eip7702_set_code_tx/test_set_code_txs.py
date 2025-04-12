@@ -2973,6 +2973,7 @@ def test_reset_code(
     )
 
 
+@pytest.mark.exception_test
 def test_contract_create(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -3000,6 +3001,7 @@ def test_contract_create(
     )
 
 
+@pytest.mark.exception_test
 def test_empty_authorization_list(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -3488,6 +3490,7 @@ def test_many_delegations(
     )
 
 
+@pytest.mark.exception_test
 def test_invalid_transaction_after_authorization(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -3589,6 +3592,7 @@ def test_authorization_reusing_nonce(
     "self_sponsored",
     [True, False],
 )
+@pytest.mark.exception_test
 @pytest.mark.execute(pytest.mark.skip(reason="Requires contract-eoa address collision"))
 def test_set_code_from_account_with_non_delegating_code(
     state_test: StateTestFiller,
@@ -3669,6 +3673,7 @@ def test_set_code_from_account_with_non_delegating_code(
         "priority_greater_than_max_fee_per_gas",
     ],
 )
+@pytest.mark.exception_test
 def test_set_code_transaction_fee_validations(
     state_test: StateTestFiller,
     pre: Alloc,

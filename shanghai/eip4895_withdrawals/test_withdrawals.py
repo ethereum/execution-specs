@@ -37,8 +37,14 @@ ONE_GWEI = 10**9
 
 @pytest.mark.parametrize(
     "test_case",
-    ["tx_in_withdrawals_block", "tx_after_withdrawals_block"],
-    ids=lambda x: x,
+    [
+        pytest.param(
+            "tx_in_withdrawals_block",
+            id="tx_in_withdrawals_block",
+            marks=pytest.mark.exception_test,
+        ),
+        pytest.param("tx_after_withdrawals_block", id="tx_after_withdrawals_block"),
+    ],
 )
 class TestUseValueInTx:
     """

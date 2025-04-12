@@ -122,8 +122,8 @@ Test cases using a contract creating transaction
     [
         INITCODE_ZEROS_MAX_LIMIT,
         INITCODE_ONES_MAX_LIMIT,
-        INITCODE_ZEROS_OVER_LIMIT,
-        INITCODE_ONES_OVER_LIMIT,
+        pytest.param(INITCODE_ZEROS_OVER_LIMIT, marks=pytest.mark.exception_test),
+        pytest.param(INITCODE_ONES_OVER_LIMIT, marks=pytest.mark.exception_test),
     ],
     ids=get_initcode_name,
 )
@@ -181,7 +181,11 @@ def valid_gas_test_case(initcode: Initcode, gas_test_case: str) -> bool:
 @pytest.mark.parametrize(
     "initcode,gas_test_case",
     [
-        (i, g)
+        pytest.param(
+            i,
+            g,
+            marks=([pytest.mark.exception_test] if g == "too_little_intrinsic_gas" else []),
+        )
         for i in [
             INITCODE_ZEROS_MAX_LIMIT,
             INITCODE_ONES_MAX_LIMIT,

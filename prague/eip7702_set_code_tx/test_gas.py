@@ -894,7 +894,7 @@ def test_account_warming(
 @pytest.mark.parametrize(**gas_test_parameter_args(include_pre_authorized=False))
 @pytest.mark.parametrize(
     "valid",
-    [True, False],
+    [True, pytest.param(False, marks=pytest.mark.exception_test)],
 )
 def test_intrinsic_gas_cost(
     state_test: StateTestFiller,
