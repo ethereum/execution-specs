@@ -268,6 +268,7 @@ def base_test_parametrizer(cls: Type[BaseTest]):
                 request.node.config.sender_address = str(pre._sender)
 
                 super(BaseTestWrapper, self).__init__(*args, **kwargs)
+                self._request = request
 
                 # wait for pre-requisite transactions to be included in blocks
                 pre.wait_for_transactions()

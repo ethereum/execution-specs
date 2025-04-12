@@ -717,8 +717,8 @@ def base_test_parametrizer(cls: Type[BaseTest]):
                 if "pre" not in kwargs:
                     kwargs["pre"] = pre
                 super(BaseTestWrapper, self).__init__(*args, **kwargs)
+                self._request = request
                 fixture = self.generate(
-                    request=request,
                     t8n=t8n,
                     fork=fork,
                     fixture_format=fixture_format,

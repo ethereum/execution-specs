@@ -85,6 +85,10 @@ def pytest_configure(config: pytest.Config):
         "markers",
         "zkevm: Tests that are relevant to zkEVM.",
     )
+    config.addinivalue_line(
+        "markers",
+        "exception_test: Negative tests that include an invalid block or transaction.",
+    )
 
 
 @pytest.fixture(autouse=True)

@@ -120,7 +120,7 @@ def state_test(  # noqa: D103
 def test_post_storage_value_mismatch(expected_exception, state_test, default_t8n, fork):
     """Test post state `Account.storage` exceptions during state test fixture generation."""
     with pytest.raises(Storage.KeyValueMismatchError) as e_info:
-        state_test.generate(request=None, t8n=default_t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(t8n=default_t8n, fork=fork, fixture_format=StateFixture)
     assert e_info.value == expected_exception
 
 
@@ -146,10 +146,10 @@ def test_post_nonce_value_mismatch(pre: Alloc, post: Alloc, state_test, default_
     pre_nonce = pre_account.nonce
     post_nonce = post_account.nonce
     if "nonce" not in post_account.model_fields_set:  # no exception
-        state_test.generate(request=None, t8n=default_t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(t8n=default_t8n, fork=fork, fixture_format=StateFixture)
         return
     with pytest.raises(Account.NonceMismatchError) as e_info:
-        state_test.generate(request=None, t8n=default_t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(t8n=default_t8n, fork=fork, fixture_format=StateFixture)
     assert e_info.value == Account.NonceMismatchError(
         address=ADDRESS_UNDER_TEST, want=post_nonce, got=pre_nonce
     )
@@ -177,10 +177,10 @@ def test_post_code_value_mismatch(pre: Alloc, post: Alloc, state_test, default_t
     pre_code = pre_account.code
     post_code = post_account.code
     if "code" not in post_account.model_fields_set:  # no exception
-        state_test.generate(request=None, t8n=default_t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(t8n=default_t8n, fork=fork, fixture_format=StateFixture)
         return
     with pytest.raises(Account.CodeMismatchError) as e_info:
-        state_test.generate(request=None, t8n=default_t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(t8n=default_t8n, fork=fork, fixture_format=StateFixture)
     assert e_info.value == Account.CodeMismatchError(
         address=ADDRESS_UNDER_TEST, want=post_code, got=pre_code
     )
@@ -208,10 +208,10 @@ def test_post_balance_value_mismatch(pre: Alloc, post: Alloc, state_test, defaul
     pre_balance = pre_account.balance
     post_balance = post_account.balance
     if "balance" not in post_account.model_fields_set:  # no exception
-        state_test.generate(request=None, t8n=default_t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(t8n=default_t8n, fork=fork, fixture_format=StateFixture)
         return
     with pytest.raises(Account.BalanceMismatchError) as e_info:
-        state_test.generate(request=None, t8n=default_t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(t8n=default_t8n, fork=fork, fixture_format=StateFixture)
     assert e_info.value == Account.BalanceMismatchError(
         address=ADDRESS_UNDER_TEST, want=post_balance, got=pre_balance
     )
@@ -252,10 +252,10 @@ def test_post_account_mismatch(
     fixture generation.
     """
     if exception_type is None:
-        state_test.generate(request=None, t8n=default_t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(t8n=default_t8n, fork=fork, fixture_format=StateFixture)
         return
     with pytest.raises(exception_type) as _:
-        state_test.generate(request=None, t8n=default_t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(t8n=default_t8n, fork=fork, fixture_format=StateFixture)
 
 
 # Transaction result mismatch tests
@@ -344,14 +344,10 @@ def test_transaction_expectation(
             f"({default_t8n.__class__.__name__})."
         )
     if exception_type is None:
-        state_test.generate(
-            request=None, t8n=default_t8n, fork=fork, fixture_format=fixture_format
-        )
+        state_test.generate(t8n=default_t8n, fork=fork, fixture_format=fixture_format)
     else:
         with pytest.raises(exception_type) as _:
-            state_test.generate(
-                request=None, t8n=default_t8n, fork=fork, fixture_format=fixture_format
-            )
+            state_test.generate(t8n=default_t8n, fork=fork, fixture_format=fixture_format)
 
 
 @pytest.mark.parametrize(
@@ -427,12 +423,7 @@ def test_block_intermediate_state(
                 pre=pre,
                 post=block_3.expected_post_state,
                 blocks=[block_1, block_2, block_3],
-            ).generate(
-                request=None,  # type: ignore
-                t8n=default_t8n,
-                fork=fork,
-                fixture_format=fixture_format,
-            )
+            ).generate(t8n=default_t8n, fork=fork, fixture_format=fixture_format)
         return
     else:
         BlockchainTest(
@@ -442,9 +433,4 @@ def test_block_intermediate_state(
             pre=pre,
             post=block_3.expected_post_state,
             blocks=[block_1, block_2, block_3],
-        ).generate(
-            request=None,  # type: ignore
-            t8n=default_t8n,
-            fork=fork,
-            fixture_format=fixture_format,
-        )
+        ).generate(t8n=default_t8n, fork=fork, fixture_format=fixture_format)

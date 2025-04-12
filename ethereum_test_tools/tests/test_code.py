@@ -630,7 +630,6 @@ def test_switch(
         post=post,
     )
     state_test.generate(
-        request=None,  # type: ignore
         t8n=default_t8n,
         fork=Cancun,
         fixture_format=BlockchainFixture,

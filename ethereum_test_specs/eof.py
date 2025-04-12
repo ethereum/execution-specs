@@ -305,7 +305,6 @@ class EOFTest(BaseTest):
     def make_eof_test_fixture(
         self,
         *,
-        request: pytest.FixtureRequest,
         fork: Fork,
         eips: Optional[List[int]],
     ) -> EOFFixture:
@@ -316,7 +315,7 @@ class EOFTest(BaseTest):
                 f"Duplicate EOF test: {container_bytes}, "
                 f"existing test: {existing_tests[container_bytes]}"
             )
-        existing_tests[container_bytes] = request.node.nodeid
+        existing_tests[container_bytes] = self.node_id()
         vectors = [
             Vector(
                 code=container_bytes,
@@ -438,18 +437,17 @@ class EOFTest(BaseTest):
 
     def generate_state_test(self, fork: Fork) -> StateTest:
         """Generate the StateTest filler."""
-        return StateTest(
+        return StateTest.from_test(
+            base_test=self,
             pre=self.pre,
             tx=self.generate_eof_contract_create_transaction(),
             env=Environment(),
             post=self.post,
-            t8n_dump_dir=self.t8n_dump_dir,
         )
 
     def generate(
         self,
         *,
-        request: pytest.FixtureRequest,
         t8n: TransitionTool,
         fork: Fork,
         eips: Optional[List[int]] = None,
@@ -458,10 +456,10 @@ class EOFTest(BaseTest):
     ) -> BaseFixture:
         """Generate the BlockchainTest fixture."""
         if fixture_format == EOFFixture:
-            return self.make_eof_test_fixture(request=request, fork=fork, eips=eips)
+            return self.make_eof_test_fixture(fork=fork, eips=eips)
         elif fixture_format in StateTest.supported_fixture_formats:
             return self.generate_state_test(fork).generate(
-                request=request, t8n=t8n, fork=fork, fixture_format=fixture_format, eips=eips
+                t8n=t8n, fork=fork, fixture_format=fixture_format, eips=eips
             )
         raise Exception(f"Unknown fixture format: {fixture_format}")
 
@@ -583,18 +581,17 @@ class EOFStateTest(EOFTest, Transaction):
         assert self.pre is not None, "pre must be set to generate a StateTest."
         assert self.post is not None, "post must be set to generate a StateTest."
 
-        return StateTest(
+        return StateTest.from_test(
+            base_test=self,
             pre=self.pre,
             tx=self,
             env=self.env,
             post=self.post,
-            t8n_dump_dir=self.t8n_dump_dir,
         )
 
     def generate(
         self,
         *,
-        request: pytest.FixtureRequest,
         t8n: TransitionTool,
         fork: Fork,
         eips: Optional[List[int]] = None,
@@ -606,11 +603,11 @@ class EOFStateTest(EOFTest, Transaction):
             if Bytes(self.container) in existing_tests:
                 # Gracefully skip duplicate tests because one EOFStateTest can generate multiple
                 # state fixtures with the same data.
-                pytest.skip(f"Duplicate EOF container on EOFStateTest: {request.node.nodeid}")
-            return self.make_eof_test_fixture(request=request, fork=fork, eips=eips)
+                pytest.skip(f"Duplicate EOF container on EOFStateTest: {self.node_id()}")
+            return self.make_eof_test_fixture(fork=fork, eips=eips)
         elif fixture_format in StateTest.supported_fixture_formats:
             return self.generate_state_test(fork).generate(
-                request=request, t8n=t8n, fork=fork, fixture_format=fixture_format, eips=eips
+                t8n=t8n, fork=fork, fixture_format=fixture_format, eips=eips
             )
 
         raise Exception(f"Unknown fixture format: {fixture_format}")

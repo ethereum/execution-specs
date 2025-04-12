@@ -2,8 +2,6 @@
 
 from typing import Callable, ClassVar, Generator, List, Optional, Sequence, Type
 
-import pytest
-
 from ethereum_clis import TransitionTool
 from ethereum_test_execution import (
     BaseExecute,
@@ -78,13 +76,13 @@ class TransactionTest(BaseTest):
 
     def generate(
         self,
-        request: pytest.FixtureRequest,
         t8n: TransitionTool,
         fork: Fork,
         fixture_format: FixtureFormat,
         eips: Optional[List[int]] = None,
     ) -> BaseFixture:
         """Generate the TransactionTest fixture."""
+        self.check_exception_test(exception=self.tx.error is not None)
         if fixture_format == TransactionFixture:
             return self.make_transaction_test_fixture(fork, eips)
 

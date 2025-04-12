@@ -87,12 +87,7 @@ def test_make_genesis(fork: Fork, fixture_hash: bytes, default_t8n: TransitionTo
         post={},
         blocks=[],
         tag="some_state_test",
-    ).generate(
-        request=None,  # type: ignore
-        t8n=default_t8n,
-        fork=fork,
-        fixture_format=BlockchainFixture,
-    )
+    ).generate(t8n=default_t8n, fork=fork, fixture_format=BlockchainFixture)
     assert isinstance(fixture, BlockchainFixture)
     assert fixture.genesis is not None
 
@@ -182,12 +177,7 @@ def test_fill_state_test(
         post=post,
         tx=tx,
         tag="my_chain_id_test",
-    ).generate(
-        request=None,  # type: ignore
-        t8n=default_t8n,
-        fork=fork,
-        fixture_format=fixture_format,
-    )
+    ).generate(t8n=default_t8n, fork=fork, fixture_format=fixture_format)
     assert generated_fixture.__class__ == fixture_format
     fixture = {
         f"000/my_chain_id_test/{fork}/tx_type_{tx_type}": generated_fixture.json_dict_with_info(
@@ -515,12 +505,7 @@ class TestFillBlockchainValidTxs:
             blocks=blocks,
             genesis_environment=genesis_environment,
             tag="my_blockchain_test_valid_txs",
-        ).generate(
-            request=None,  # type: ignore
-            t8n=default_t8n,
-            fork=fork,
-            fixture_format=fixture_format,
-        )
+        ).generate(t8n=default_t8n, fork=fork, fixture_format=fixture_format)
 
     @pytest.mark.parametrize("fork", [London, Shanghai], indirect=True)
     def test_fill_blockchain_valid_txs(  # noqa: D102
@@ -896,12 +881,7 @@ def test_fill_blockchain_invalid_txs(
         post=post,
         blocks=blocks,
         genesis_environment=genesis_environment,
-    ).generate(
-        request=None,  # type: ignore
-        t8n=default_t8n,
-        fork=fork,
-        fixture_format=fixture_format,
-    )
+    ).generate(t8n=default_t8n, fork=fork, fixture_format=fixture_format)
     assert generated_fixture.__class__ == fixture_format
     assert isinstance(generated_fixture, BlockchainFixtureCommon)
 

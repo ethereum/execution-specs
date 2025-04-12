@@ -34,7 +34,7 @@ from ethereum_test_types import Alloc, Environment, Transaction
 from .base import BaseTest
 from .blockchain import Block, BlockchainTest, Header
 from .debugging import print_traces
-from .helpers import is_slow_test, verify_transactions
+from .helpers import verify_transactions
 
 
 class StateTest(BaseTest):
@@ -142,12 +142,12 @@ class StateTest(BaseTest):
 
     def generate_blockchain_test(self, *, fork: Fork) -> BlockchainTest:
         """Generate a BlockchainTest fixture from this StateTest fixture."""
-        return BlockchainTest(
+        return BlockchainTest.from_test(
+            base_test=self,
             genesis_environment=self._generate_blockchain_genesis_environment(fork=fork),
             pre=self.pre,
             post=self.post,
             blocks=self._generate_blockchain_blocks(fork=fork),
-            t8n_dump_dir=self.t8n_dump_dir,
         )
 
     def make_state_test_fixture(
@@ -155,7 +155,6 @@ class StateTest(BaseTest):
         t8n: TransitionTool,
         fork: Fork,
         eips: Optional[List[int]] = None,
-        slow: bool = False,
     ) -> StateFixture:
         """Create a fixture from the state test definition."""
         # We can't generate a state test fixture that names a transition fork,
@@ -182,7 +181,7 @@ class StateTest(BaseTest):
             eips=eips,
             debug_output_path=self.get_next_transition_tool_output_path(),
             state_test=True,
-            slow_request=slow,
+            slow_request=self.is_slow_test(),
         )
 
         try:
@@ -226,19 +225,19 @@ class StateTest(BaseTest):
 
     def generate(
         self,
-        request: pytest.FixtureRequest,
         t8n: TransitionTool,
         fork: Fork,
         fixture_format: FixtureFormat,
         eips: Optional[List[int]] = None,
     ) -> BaseFixture:
         """Generate the BlockchainTest fixture."""
+        self.check_exception_test(exception=self.tx.error is not None)
         if fixture_format in BlockchainTest.supported_fixture_formats:
             return self.generate_blockchain_test(fork=fork).generate(
-                request=request, t8n=t8n, fork=fork, fixture_format=fixture_format, eips=eips
+                t8n=t8n, fork=fork, fixture_format=fixture_format, eips=eips
             )
         elif fixture_format == StateFixture:
-            return self.make_state_test_fixture(t8n, fork, eips, slow=is_slow_test(request))
+            return self.make_state_test_fixture(t8n, fork, eips)
 
         raise Exception(f"Unknown fixture format: {fixture_format}")
 

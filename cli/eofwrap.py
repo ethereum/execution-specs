@@ -308,7 +308,6 @@ class EofWrapper:
                 raise TypeError("not a FixtureBlock")
 
         result = test.generate(
-            request=None,  # type: ignore
             t8n=t8n,
             fork=Osaka,
             fixture_format=BlockchainFixture,

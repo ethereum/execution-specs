@@ -4,8 +4,6 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List
 
-import pytest
-
 from ethereum_clis import Result
 from ethereum_test_exceptions import (
     BlockException,
@@ -306,10 +304,3 @@ def verify_block(
         got_exception=result.block_exception,
     )
     info.verify(strict_match=transition_tool_exceptions_reliable)
-
-
-def is_slow_test(request: pytest.FixtureRequest) -> bool:
-    """Check if the test is slow."""
-    if hasattr(request, "node"):
-        return request.node.get_closest_marker("slow") is not None
-    return False

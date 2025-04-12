@@ -22,7 +22,6 @@ from .helpers import remove_info_metadata
 def test_transaction_test_filling(name: str, tx: Transaction, fork: Fork):
     """Test the transaction test filling."""
     generated_fixture = TransactionTest(tx=tx.with_signature_and_sender()).generate(
-        request=None,  # type: ignore
         t8n=None,  # type: ignore
         fork=fork,
         fixture_format=TransactionFixture,

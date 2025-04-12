@@ -236,7 +236,6 @@ def test_t8n_support(fork: Fork, installed_t8n: TransitionTool):
         blocks=[block_1, block_2],
     )
     test.generate(
-        request=None,  # type: ignore
         t8n=installed_t8n,
         fork=fork,
         fixture_format=BlockchainFixture,
