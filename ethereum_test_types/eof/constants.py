@@ -20,3 +20,10 @@ VERSION_BYTE_LENGTH = 1
 """
 Length of the version byte.
 """
+
+MAX_RUNTIME_STACK_HEIGHT = 1024
+"""
+Maximum height of the EVM runtime operand stack.
+Exceeding this value during execution will result in the stack overflow exception.
+This value applies to both legacy EVM and EOF.
+"""

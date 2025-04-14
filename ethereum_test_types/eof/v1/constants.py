@@ -13,7 +13,10 @@ MAX_CODE_SECTIONS = 1024
 
 MAX_RETURN_STACK_HEIGHT = 1024
 
-MAX_OPERAND_STACK_HEIGHT = 1023
+MAX_STACK_INCREASE_LIMIT = 0x3FF
+"""
+Maximum value for the max stack increase accepted by the EOF format.
+"""
 
 MAX_CODE_INPUTS = 127
 
