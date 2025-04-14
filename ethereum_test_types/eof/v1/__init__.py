@@ -133,7 +133,11 @@ class Section(CopyValidateModel):
     Data stack items produced by or expected at the end of this code section
     (function)
     """
-    max_stack_height: int = 0
+    max_stack_increase: int | None = None
+    """
+    Maximum operand stack height increase above the code section inputs.
+    """
+    max_stack_height: int | None = None
     """
     Maximum height data stack reaches during execution of code section.
     """
@@ -180,9 +184,10 @@ class Section(CopyValidateModel):
         if self.kind != SectionKind.CODE and not self.force_type_listing:
             return bytes()
 
-        code_inputs, code_outputs, max_stack_height = (
+        code_inputs, code_outputs, max_stack_increase, max_stack_height = (
             self.code_inputs,
             self.code_outputs,
+            self.max_stack_increase,
             self.max_stack_height,
         )
         if self.auto_max_stack_height or self.auto_code_inputs_outputs:
@@ -191,15 +196,20 @@ class Section(CopyValidateModel):
                 auto_code_outputs,
                 auto_max_height,
             ) = compute_code_stack_values(self.data)
-            if self.auto_max_stack_height:
-                max_stack_height = auto_max_height
             if self.auto_code_inputs_outputs:
                 code_inputs, code_outputs = (
                     auto_code_inputs,
                     auto_code_outputs,
                 )
+            if self.auto_max_stack_height:
+                max_stack_increase = auto_max_height - code_inputs
 
-        max_stack_increase = max_stack_height - code_inputs
+        if max_stack_increase is not None:
+            assert max_stack_height is None
+        elif max_stack_height is not None:
+            max_stack_increase = max_stack_height - code_inputs
+        else:
+            max_stack_increase = 0
         assert max_stack_increase >= 0, "incorrect max stack height value"
         return (
             code_inputs.to_bytes(length=TYPES_INPUTS_BYTE_LENGTH, byteorder="big")
@@ -269,8 +279,13 @@ class Section(CopyValidateModel):
         if code is None:
             code = Bytecode()
         kwargs.pop("kind", None)
-        if "max_stack_height" not in kwargs and isinstance(code, Bytecode):
-            kwargs["max_stack_height"] = code.max_stack_height
+        if (
+            "max_stack_height" not in kwargs
+            and "max_stack_increase" not in kwargs
+            and isinstance(code, Bytecode)
+        ):
+            # If not specified, take the max_stack_increase from the Bytecode.
+            kwargs["max_stack_increase"] = code.max_stack_height - kwargs.get("code_inputs", 0)
         return cls(kind=SectionKind.CODE, data=code, **kwargs)
 
     @classmethod
