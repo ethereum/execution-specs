@@ -1156,7 +1156,7 @@ def test_valid_containers(
                 ),
             ],
             # TODO auto types section generation probably failed, the exception must be about code
-            validity_error=EOFException.MAX_STACK_HEIGHT_ABOVE_LIMIT,
+            validity_error=EOFException.MAX_STACK_INCREASE_ABOVE_LIMIT,
         ),
     ],
     ids=lambda c: c.name,

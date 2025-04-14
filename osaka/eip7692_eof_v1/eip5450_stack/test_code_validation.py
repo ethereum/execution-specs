@@ -471,9 +471,9 @@ def test_all_opcodes_stack_underflow(
     if spread >= 0:
         # Check if the op increases the stack height (e.g. DUP instructions).
         # We need to leave space for this increase not to cause stack overflow.
-        stack_height_increase = max(op.pushed_stack_items - op.popped_stack_items, 0)
+        max_stack_increase = max(op.pushed_stack_items - op.popped_stack_items, 0)
         # Cap the spread if it would exceed the maximum stack height.
-        spread = min(spread, MAX_OPERAND_STACK_HEIGHT - (stack_height + stack_height_increase))
+        spread = min(spread, MAX_OPERAND_STACK_HEIGHT - (stack_height + max_stack_increase))
         # Create a range stack height of 0-spread.
         code += Op.RJUMPI[spread](Op.CALLVALUE) + Op.PUSH0 * spread
 

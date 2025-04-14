@@ -1642,7 +1642,7 @@ def test_double_rjumpi_invalid_max_stack_height(
                 ),
             ],
         ),
-        expect_exception=EOFException.INVALID_MAX_STACK_HEIGHT,
+        expect_exception=EOFException.INVALID_MAX_STACK_INCREASE,
     )
 
 

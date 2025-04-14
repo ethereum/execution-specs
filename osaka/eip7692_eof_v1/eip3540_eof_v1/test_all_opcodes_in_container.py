@@ -326,7 +326,7 @@ def test_all_unreachable_terminating_opcodes_before_stop(
     #    for stack overflow.
     # 2. Max stack height above limit, where we don't modify the `max_stack_height` field of the
     #    code section, so the actual code doesn't have to be verified for the stack overflow.
-    [EOFException.INVALID_MAX_STACK_HEIGHT, EOFException.MAX_STACK_HEIGHT_ABOVE_LIMIT],
+    [EOFException.INVALID_MAX_STACK_INCREASE, EOFException.MAX_STACK_INCREASE_ABOVE_LIMIT],
 )
 def test_all_opcodes_stack_overflow(
     eof_test: EOFTestFiller,
@@ -345,7 +345,7 @@ def test_all_opcodes_stack_overflow(
 
     kwargs: Dict[str, Any] = {"code": bytecode}
 
-    if exception == EOFException.INVALID_MAX_STACK_HEIGHT:
+    if exception == EOFException.INVALID_MAX_STACK_INCREASE:
         # Lie about the max stack height to make the code be checked for stack overflow.
         kwargs["max_stack_height"] = MAX_OPERAND_STACK_HEIGHT
 

@@ -51,12 +51,9 @@ def test_eof_example(eof_test: EOFTestFiller):
             # DATA section
             Section.Data("0xef"),
         ],
-    )
-
-    # This will construct a valid EOF container with these bytes
-    assert bytes(eof_code) == bytes.fromhex(
-        "ef00010100100200040005000600080002ff000100008000010100000100010003020300035fe300010050"
-        "e3000250e43080e300035050e480e4ef"
+        expected_bytecode="ef00010100100200040005000600080002ff000100"
+        "00800001 01000000 00010003 02030001"
+        "5fe300010050e3000250e43080e300035050e480e4ef",
     )
 
     eof_test(

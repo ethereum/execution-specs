@@ -305,7 +305,7 @@ INVALID: List[Container] = [
                 max_stack_height=1,
             ),
         ],
-        validity_error=EOFException.INVALID_MAX_STACK_HEIGHT,
+        validity_error=EOFException.INVALID_MAX_STACK_INCREASE,
     ),
     Container(
         name="stack_shorter_than_code_outputs_1",
@@ -321,7 +321,7 @@ INVALID: List[Container] = [
                 max_stack_height=1,
             ),
         ],
-        validity_error=EOFException.INVALID_MAX_STACK_HEIGHT,
+        validity_error=EOFException.INVALID_MAX_STACK_INCREASE,
     ),
     Container(
         name="stack_shorter_than_code_outputs_2",
@@ -666,7 +666,7 @@ def test_callf_stack_height_limit_exceeded(eof_test, callee_outputs):
             ),
         ],
     )
-    eof_test(container=container, expect_exception=EOFException.MAX_STACK_HEIGHT_ABOVE_LIMIT)
+    eof_test(container=container, expect_exception=EOFException.MAX_STACK_INCREASE_ABOVE_LIMIT)
 
 
 @pytest.mark.parametrize("stack_height", [512, 513, 1023])
@@ -934,7 +934,7 @@ def test_callf_with_inputs_stack_overflow(
     elif push_stack - code_section.code_inputs + code_section.code_outputs - pop_stack < 2:
         exception = EOFException.STACK_UNDERFLOW
     elif push_stack != container.sections[0].max_stack_height:
-        exception = EOFException.INVALID_MAX_STACK_HEIGHT
+        exception = EOFException.INVALID_MAX_STACK_INCREASE
 
     eof_test(container=container, expect_exception=exception)
 
@@ -1062,7 +1062,7 @@ def test_callf_with_inputs_stack_overflow_variable_stack(
     ):
         exception = EOFException.STACK_OVERFLOW
     elif push_stack + initial_stack > 1023:
-        exception = EOFException.INVALID_MAX_STACK_HEIGHT
+        exception = EOFException.INVALID_MAX_STACK_INCREASE
 
     eof_test(container=container, expect_exception=exception)
 

@@ -88,10 +88,10 @@ def test_dupn_stack_underflow(
 @pytest.mark.parametrize(
     "dupn_operand,max_stack_height,expect_exception",
     [
-        [0, MAX_OPERAND_STACK_HEIGHT, EOFException.INVALID_MAX_STACK_HEIGHT],
-        [0, MAX_OPERAND_STACK_HEIGHT + 1, EOFException.MAX_STACK_HEIGHT_ABOVE_LIMIT],
-        [2**8 - 1, MAX_OPERAND_STACK_HEIGHT, EOFException.INVALID_MAX_STACK_HEIGHT],
-        [2**8 - 1, MAX_OPERAND_STACK_HEIGHT + 1, EOFException.MAX_STACK_HEIGHT_ABOVE_LIMIT],
+        [0, MAX_OPERAND_STACK_HEIGHT, EOFException.INVALID_MAX_STACK_INCREASE],
+        [0, MAX_OPERAND_STACK_HEIGHT + 1, EOFException.MAX_STACK_INCREASE_ABOVE_LIMIT],
+        [2**8 - 1, MAX_OPERAND_STACK_HEIGHT, EOFException.INVALID_MAX_STACK_INCREASE],
+        [2**8 - 1, MAX_OPERAND_STACK_HEIGHT + 1, EOFException.MAX_STACK_INCREASE_ABOVE_LIMIT],
     ],
 )
 def test_dupn_stack_overflow(
