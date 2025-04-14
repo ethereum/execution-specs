@@ -787,6 +787,7 @@ def test_callf_stack_overflow_variable_stack_3(eof_test: EOFTestFiller, stack_he
             ),
         ],
     )
+    assert container.sections[0].max_stack_height is not None
     stack_overflow = (
         container.sections[0].max_stack_height + stack_height > MAX_RUNTIME_OPERAND_STACK_HEIGHT
     )
@@ -925,6 +926,7 @@ def test_callf_with_inputs_stack_overflow(
             code_section,
         ],
     )
+    assert code_section.max_stack_height is not None
     exception = None
     if (
         push_stack + code_section.max_stack_height - code_section.code_inputs
@@ -1055,6 +1057,7 @@ def test_callf_with_inputs_stack_overflow_variable_stack(
         ],
     )
     initial_stack = 3  # Initial items in the scak
+    assert code_section.max_stack_height is not None
     exception = None
     if (
         push_stack + initial_stack + code_section.max_stack_height - code_section.code_inputs
