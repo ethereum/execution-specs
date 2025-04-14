@@ -16,7 +16,7 @@ from ethereum_test_tools import (
     Transaction,
 )
 from ethereum_test_tools.eof.v1 import Container, Section
-from ethereum_test_tools.eof.v1.constants import MAX_OPERAND_STACK_HEIGHT
+from ethereum_test_tools.eof.v1.constants import MAX_STACK_INCREASE_LIMIT
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
@@ -88,10 +88,10 @@ def test_dupn_stack_underflow(
 @pytest.mark.parametrize(
     "dupn_operand,max_stack_height,expect_exception",
     [
-        [0, MAX_OPERAND_STACK_HEIGHT, EOFException.INVALID_MAX_STACK_INCREASE],
-        [0, MAX_OPERAND_STACK_HEIGHT + 1, EOFException.MAX_STACK_INCREASE_ABOVE_LIMIT],
-        [2**8 - 1, MAX_OPERAND_STACK_HEIGHT, EOFException.INVALID_MAX_STACK_INCREASE],
-        [2**8 - 1, MAX_OPERAND_STACK_HEIGHT + 1, EOFException.MAX_STACK_INCREASE_ABOVE_LIMIT],
+        [0, MAX_STACK_INCREASE_LIMIT, EOFException.INVALID_MAX_STACK_INCREASE],
+        [0, MAX_STACK_INCREASE_LIMIT + 1, EOFException.MAX_STACK_INCREASE_ABOVE_LIMIT],
+        [2**8 - 1, MAX_STACK_INCREASE_LIMIT, EOFException.INVALID_MAX_STACK_INCREASE],
+        [2**8 - 1, MAX_STACK_INCREASE_LIMIT + 1, EOFException.MAX_STACK_INCREASE_ABOVE_LIMIT],
     ],
 )
 def test_dupn_stack_overflow(
@@ -104,7 +104,7 @@ def test_dupn_stack_overflow(
     eof_code = Container(
         sections=[
             Section.Code(
-                code=sum(Op.PUSH2[v] for v in range(0, MAX_OPERAND_STACK_HEIGHT))
+                code=sum(Op.PUSH2[v] for v in range(0, MAX_STACK_INCREASE_LIMIT))
                 + Op.DUPN[dupn_operand]
                 + Op.STOP,
                 max_stack_height=max_stack_height,

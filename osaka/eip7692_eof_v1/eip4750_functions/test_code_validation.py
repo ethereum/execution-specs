@@ -9,17 +9,15 @@ from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.eof.v1.constants import (
     MAX_CODE_OUTPUTS,
     MAX_CODE_SECTIONS,
-    MAX_OPERAND_STACK_HEIGHT,
+    MAX_STACK_INCREASE_LIMIT,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
+from ethereum_test_types.eof.constants import MAX_RUNTIME_STACK_HEIGHT
 
 from .. import EOF_FORK_NAME
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4750.md"
 REFERENCE_SPEC_VERSION = "14400434e1199c57d912082127b1d22643788d11"
-
-MAX_RUNTIME_OPERAND_STACK_HEIGHT = 1024
-"""Maximum height of the EVM runtime operand stack."""
 
 pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 
@@ -652,12 +650,12 @@ def test_callf_stack_height_limit_exceeded(eof_test, callee_outputs):
     The code reaches the maximum runtime stack height (1024)
     which is above the EOF limit for the stack height in the type section (1023).
     """
-    callf_stack_height = MAX_RUNTIME_OPERAND_STACK_HEIGHT - callee_outputs
+    callf_stack_height = MAX_RUNTIME_STACK_HEIGHT - callee_outputs
     container = Container(
         sections=[
             Section.Code(
                 Op.PUSH0 * callf_stack_height + Op.CALLF[1] + Op.STOP,
-                max_stack_height=MAX_RUNTIME_OPERAND_STACK_HEIGHT,
+                max_stack_height=MAX_RUNTIME_STACK_HEIGHT,
             ),
             Section.Code(
                 Op.PUSH0 * callee_outputs + Op.RETF,
@@ -682,7 +680,7 @@ def test_callf_stack_overflow(eof_test: EOFTestFiller, stack_height: int):
             ),
         ],
     )
-    stack_overflow = stack_height > MAX_RUNTIME_OPERAND_STACK_HEIGHT // 2
+    stack_overflow = stack_height > MAX_RUNTIME_STACK_HEIGHT // 2
     eof_test(
         container=container,
         expect_exception=EOFException.STACK_OVERFLOW if stack_overflow else None,
@@ -707,7 +705,7 @@ def test_callf_stack_overflow_after_callf(eof_test: EOFTestFiller, stack_height:
             ),
         ],
     )
-    stack_overflow = 1023 + stack_height > MAX_RUNTIME_OPERAND_STACK_HEIGHT
+    stack_overflow = 1023 + stack_height > MAX_RUNTIME_STACK_HEIGHT
     eof_test(
         container=container,
         expect_exception=EOFException.STACK_OVERFLOW if stack_overflow else None,
@@ -721,7 +719,7 @@ def test_callf_stack_overflow_variable_stack(eof_test: EOFTestFiller, stack_heig
         sections=[
             Section.Code(
                 code=Op.RJUMPI[2](0)
-                + Op.PUSH0 * (MAX_RUNTIME_OPERAND_STACK_HEIGHT // 2)
+                + Op.PUSH0 * (MAX_RUNTIME_STACK_HEIGHT // 2)
                 + Op.CALLF[1]
                 + Op.STOP,
                 max_stack_height=512,
@@ -733,7 +731,7 @@ def test_callf_stack_overflow_variable_stack(eof_test: EOFTestFiller, stack_heig
             ),
         ],
     )
-    stack_overflow = stack_height > MAX_RUNTIME_OPERAND_STACK_HEIGHT // 2
+    stack_overflow = stack_height > MAX_RUNTIME_STACK_HEIGHT // 2
     eof_test(
         container=container,
         expect_exception=EOFException.STACK_OVERFLOW if stack_overflow else None,
@@ -749,7 +747,7 @@ def test_callf_stack_overflow_variable_stack_2(eof_test: EOFTestFiller, stack_he
                 code=Op.PUSH0 * 2
                 + Op.RJUMPI[2](0)
                 + Op.POP * 2
-                + Op.PUSH0 * (MAX_RUNTIME_OPERAND_STACK_HEIGHT // 2)
+                + Op.PUSH0 * (MAX_RUNTIME_STACK_HEIGHT // 2)
                 + Op.CALLF[1]
                 + Op.STOP,
                 max_stack_height=514,
@@ -761,7 +759,7 @@ def test_callf_stack_overflow_variable_stack_2(eof_test: EOFTestFiller, stack_he
             ),
         ],
     )
-    stack_overflow = stack_height > (MAX_RUNTIME_OPERAND_STACK_HEIGHT // 2) - 2
+    stack_overflow = stack_height > (MAX_RUNTIME_STACK_HEIGHT // 2) - 2
     eof_test(
         container=container,
         expect_exception=EOFException.STACK_OVERFLOW if stack_overflow else None,
@@ -775,7 +773,7 @@ def test_callf_stack_overflow_variable_stack_3(eof_test: EOFTestFiller, stack_he
         sections=[
             Section.Code(
                 code=Op.RJUMPI[2](0)
-                + Op.PUSH0 * (MAX_RUNTIME_OPERAND_STACK_HEIGHT - 1)
+                + Op.PUSH0 * (MAX_RUNTIME_STACK_HEIGHT - 1)
                 + Op.CALLF[1]
                 + Op.STOP,
                 max_stack_height=1023,
@@ -789,7 +787,7 @@ def test_callf_stack_overflow_variable_stack_3(eof_test: EOFTestFiller, stack_he
     )
     assert container.sections[0].max_stack_height is not None
     stack_overflow = (
-        container.sections[0].max_stack_height + stack_height > MAX_RUNTIME_OPERAND_STACK_HEIGHT
+        container.sections[0].max_stack_height + stack_height > MAX_RUNTIME_STACK_HEIGHT
     )
     eof_test(
         container=container,
@@ -805,7 +803,7 @@ def test_callf_stack_overflow_variable_stack_4(eof_test: EOFTestFiller):
                 code=Op.PUSH0 * 2
                 + Op.RJUMPI[2](0)
                 + Op.POP * 2
-                + Op.PUSH0 * (MAX_RUNTIME_OPERAND_STACK_HEIGHT - 1)
+                + Op.PUSH0 * (MAX_RUNTIME_STACK_HEIGHT - 1)
                 + Op.CALLF[1]
                 + Op.STOP,
                 max_stack_height=1023,
@@ -930,7 +928,7 @@ def test_callf_with_inputs_stack_overflow(
     exception = None
     if (
         push_stack + code_section.max_stack_height - code_section.code_inputs
-        > MAX_RUNTIME_OPERAND_STACK_HEIGHT
+        > MAX_RUNTIME_STACK_HEIGHT
     ):
         exception = EOFException.STACK_OVERFLOW
     elif push_stack - code_section.code_inputs + code_section.code_outputs - pop_stack < 2:
@@ -1061,7 +1059,7 @@ def test_callf_with_inputs_stack_overflow_variable_stack(
     exception = None
     if (
         push_stack + initial_stack + code_section.max_stack_height - code_section.code_inputs
-        > MAX_RUNTIME_OPERAND_STACK_HEIGHT
+        > MAX_RUNTIME_STACK_HEIGHT
     ):
         exception = EOFException.STACK_OVERFLOW
     elif push_stack + initial_stack > 1023:
@@ -1072,7 +1070,7 @@ def test_callf_with_inputs_stack_overflow_variable_stack(
 
 @pytest.mark.parametrize("callee_outputs", [1, 2, MAX_CODE_OUTPUTS - 1, MAX_CODE_OUTPUTS])
 @pytest.mark.parametrize(
-    "max_stack_height", [0, 1, MAX_OPERAND_STACK_HEIGHT - 1, MAX_OPERAND_STACK_HEIGHT]
+    "max_stack_height", [0, 1, MAX_STACK_INCREASE_LIMIT - 1, MAX_STACK_INCREASE_LIMIT]
 )
 def test_callf_stack_overflow_by_outputs(eof_test, callee_outputs, max_stack_height):
     """
@@ -1081,7 +1079,7 @@ def test_callf_stack_overflow_by_outputs(eof_test, callee_outputs, max_stack_hei
     is always above the maximum allowed in the EOF type section. Therefore, the test declares
     an invalid max_stack_height.
     """
-    callf_stack_height = (MAX_RUNTIME_OPERAND_STACK_HEIGHT + 1) - callee_outputs
+    callf_stack_height = (MAX_RUNTIME_STACK_HEIGHT + 1) - callee_outputs
     container = Container(
         sections=[
             Section.Code(
@@ -1100,7 +1098,7 @@ def test_callf_stack_overflow_by_outputs(eof_test, callee_outputs, max_stack_hei
 
 @pytest.mark.parametrize(
     "callee_stack_height",
-    [2, 3, MAX_OPERAND_STACK_HEIGHT - 1, MAX_OPERAND_STACK_HEIGHT],
+    [2, 3, MAX_STACK_INCREASE_LIMIT - 1, MAX_STACK_INCREASE_LIMIT],
 )
 def test_callf_stack_overflow_by_height(eof_test, callee_stack_height):
     """
@@ -1112,8 +1110,8 @@ def test_callf_stack_overflow_by_height(eof_test, callee_stack_height):
     container = Container(
         sections=[
             Section.Code(
-                Op.PUSH0 * MAX_OPERAND_STACK_HEIGHT + Op.CALLF[1] + Op.STOP,
-                max_stack_height=MAX_OPERAND_STACK_HEIGHT,
+                Op.PUSH0 * MAX_STACK_INCREASE_LIMIT + Op.CALLF[1] + Op.STOP,
+                max_stack_height=MAX_STACK_INCREASE_LIMIT,
             ),
             Section.Code(
                 Op.PUSH0 * callee_stack_height + Op.POP * callee_stack_height + Op.RETF,

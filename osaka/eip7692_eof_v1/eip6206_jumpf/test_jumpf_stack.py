@@ -6,9 +6,9 @@ from ethereum_test_specs import EOFTestFiller
 from ethereum_test_tools import Account, EOFException, EOFStateTestFiller
 from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.vm.opcode import Opcodes as Op
+from ethereum_test_types.eof.constants import MAX_RUNTIME_STACK_HEIGHT
 
 from .. import EOF_FORK_NAME
-from ..eip4750_functions.test_code_validation import MAX_RUNTIME_OPERAND_STACK_HEIGHT
 from .helpers import slot_code_worked, value_code_worked
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-6206.md"
@@ -310,7 +310,7 @@ def test_jumpf_variadic_stack_overflow(
             ),
         ],
         validity_error=EOFException.STACK_OVERFLOW
-        if stack_height + callee_stack_height > MAX_RUNTIME_OPERAND_STACK_HEIGHT
+        if stack_height + callee_stack_height > MAX_RUNTIME_STACK_HEIGHT
         else None,
     )
     eof_test(container=container)
@@ -335,7 +335,7 @@ def test_jumpf_with_inputs_stack_overflow(
             ),
         ],
         validity_error=EOFException.STACK_OVERFLOW
-        if stack_height + callee_stack_increase > MAX_RUNTIME_OPERAND_STACK_HEIGHT
+        if stack_height + callee_stack_increase > MAX_RUNTIME_STACK_HEIGHT
         else None,
     )
     eof_test(container=container)
@@ -360,7 +360,7 @@ def test_jumpf_with_inputs_stack_overflow_variable_stack(
             ),
         ],
         validity_error=EOFException.STACK_OVERFLOW
-        if stack_height + callee_stack_increase > MAX_RUNTIME_OPERAND_STACK_HEIGHT
+        if stack_height + callee_stack_increase > MAX_RUNTIME_STACK_HEIGHT
         else None,
     )
     eof_test(container=container)
