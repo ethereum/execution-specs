@@ -105,12 +105,12 @@ class EvmoneExceptionMapper(ExceptionMapper):
         EOFException.UNREACHABLE_CODE_SECTIONS: "err: unreachable_code_sections",
         EOFException.STACK_UNDERFLOW: "err: stack_underflow",
         EOFException.STACK_OVERFLOW: "err: stack_overflow",
-        EOFException.MAX_STACK_HEIGHT_ABOVE_LIMIT: "err: max_stack_height_above_limit",
+        EOFException.MAX_STACK_INCREASE_ABOVE_LIMIT: "err: max_stack_increase_above_limit",
         EOFException.STACK_HIGHER_THAN_OUTPUTS: "err: stack_higher_than_outputs_required",
         EOFException.JUMPF_DESTINATION_INCOMPATIBLE_OUTPUTS: (
             "err: jumpf_destination_incompatible_outputs"
         ),
-        EOFException.INVALID_MAX_STACK_HEIGHT: "err: invalid_max_stack_height",
+        EOFException.INVALID_MAX_STACK_INCREASE: "err: invalid_max_stack_increase",
         EOFException.INVALID_DATALOADN_INDEX: "err: invalid_dataloadn_index",
         EOFException.TRUNCATED_INSTRUCTION: "err: truncated_instruction",
         EOFException.TOPLEVEL_CONTAINER_TRUNCATED: "err: toplevel_container_truncated",

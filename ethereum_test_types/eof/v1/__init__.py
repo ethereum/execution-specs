@@ -199,12 +199,12 @@ class Section(CopyValidateModel):
                     auto_code_outputs,
                 )
 
-        assert max_stack_height >= code_inputs, "incorrect max_stack_height value"
-
+        max_stack_increase = max_stack_height - code_inputs
+        assert max_stack_increase >= 0, "incorrect max stack height value"
         return (
             code_inputs.to_bytes(length=TYPES_INPUTS_BYTE_LENGTH, byteorder="big")
             + code_outputs.to_bytes(length=TYPES_OUTPUTS_BYTE_LENGTH, byteorder="big")
-            + max_stack_height.to_bytes(length=TYPES_STACK_BYTE_LENGTH, byteorder="big")
+            + max_stack_increase.to_bytes(length=TYPES_STACK_BYTE_LENGTH, byteorder="big")
         )
 
     def with_max_stack_height(self, max_stack_height) -> "Section":

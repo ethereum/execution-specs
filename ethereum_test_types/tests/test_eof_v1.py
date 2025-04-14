@@ -293,7 +293,7 @@ test_cases: List[Tuple[str, Container, str]] = [
         ),
         """
             ef0001 01 0004 02 0001 0001 ff 0000 00
-            01800001
+            01800000
             00
             """,
     ),
@@ -310,7 +310,7 @@ test_cases: List[Tuple[str, Container, str]] = [
         ),
         """
             ef0001 01 0004 02 0001 0001 ff 0000 00
-            ff8000ff
+            ff800000
             00
             """,
     ),

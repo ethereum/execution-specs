@@ -710,9 +710,9 @@ class EOFException(ExceptionBase):
     """
     EOF container section stack height mismatch.
     """
-    MAX_STACK_HEIGHT_ABOVE_LIMIT = auto()
+    MAX_STACK_INCREASE_ABOVE_LIMIT = auto()
     """
-    EOF container's specified max stack height is above the limit.
+    EOF container's specified max stack increase is above the limit.
     """
     STACK_HIGHER_THAN_OUTPUTS = auto()
     """
@@ -723,9 +723,9 @@ class EOFException(ExceptionBase):
     """
     EOF container section JUMPF's to a destination section with incompatible outputs.
     """
-    INVALID_MAX_STACK_HEIGHT = auto()
+    INVALID_MAX_STACK_INCREASE = auto()
     """
-    EOF container section's specified max stack height does not match the actual stack height.
+    EOF container section's specified max stack increase does not match the actual stack height.
     """
     INVALID_DATALOADN_INDEX = auto()
     """
