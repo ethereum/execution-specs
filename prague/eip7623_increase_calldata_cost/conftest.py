@@ -43,8 +43,8 @@ def to(
 
     if param is None:
         return None
-    if isinstance(param, Address):
-        return param
+    if isinstance(param, str) and param == "eoa":
+        return pre.fund_eoa(amount=0)
     if isinstance(param, Bytecode):
         return pre.deploy_contract(param)
 
