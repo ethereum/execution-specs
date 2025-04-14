@@ -11,23 +11,123 @@ Introduction
 
 Implementation of the ALT_BN128 precompiled contracts.
 """
+from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256, Uint
-
-from ethereum.crypto.alt_bn128 import (
-    ALT_BN128_CURVE_ORDER,
-    ALT_BN128_PRIME,
-    BNF,
-    BNF2,
-    BNF12,
-    BNP,
-    BNP2,
-    pairing,
+from py_ecc.bn128.bn128_curve import (
+    FQ,
+    FQ2,
+    FQ12,
+    add,
+    b,
+    b2,
+    curve_order,
+    field_modulus,
+    is_on_curve,
+    multiply,
 )
+from py_ecc.bn128.bn128_pairing import pairing
+from py_ecc.typing import Point2D
 
 from ...vm import Evm
 from ...vm.gas import charge_gas
 from ...vm.memory import buffer_read
-from ..exceptions import OutOfGasError
+from ..exceptions import InvalidParameter, OutOfGasError
+
+
+def bytes_to_G1(data: Bytes) -> Point2D:
+    """
+    Decode 64 bytes to a point on the curve.
+
+    Parameters
+    ----------
+    data :
+        The bytes data to decode.
+
+    Returns
+    -------
+    point : Point2D
+        A point on the curve.
+
+    Raises
+    ------
+    InvalidParameter
+        Either a field element is invalid or the point is not on the curve.
+    """
+    if len(data) != 64:
+        raise InvalidParameter("Input should be 64 bytes long")
+
+    x_bytes = buffer_read(data, U256(0), U256(32))
+    x = int(U256.from_be_bytes(x_bytes))
+    y_bytes = buffer_read(data, U256(32), U256(32))
+    y = int(U256.from_be_bytes(y_bytes))
+
+    if x >= field_modulus:
+        raise InvalidParameter("Invalid field element")
+    if y >= field_modulus:
+        raise InvalidParameter("Invalid field element")
+
+    if x == 0 and y == 0:
+        return None
+
+    point = (FQ(x), FQ(y))
+
+    # Check if the point is on the curve
+    if not is_on_curve(point, b):
+        raise InvalidParameter("Point is not on curve")
+
+    return point
+
+
+def bytes_to_G2(data: Bytes) -> Point2D:
+    """
+    Decode 128 bytes to a G2 point.
+
+    Parameters
+    ----------
+    data :
+        The bytes data to decode.
+
+    Returns
+    -------
+    point : Point2D
+        A point on the curve.
+
+    Raises
+    ------
+    InvalidParameter
+        Either a field element is invalid or the point is not on the curve.
+    """
+    if len(data) != 128:
+        raise InvalidParameter("G2 should be 128 bytes long")
+
+    x0_bytes = buffer_read(data, U256(0), U256(32))
+    x0 = int(U256.from_be_bytes(x0_bytes))
+    x1_bytes = buffer_read(data, U256(32), U256(32))
+    x1 = int(U256.from_be_bytes(x1_bytes))
+
+    y0_bytes = buffer_read(data, U256(64), U256(32))
+    y0 = int(U256.from_be_bytes(y0_bytes))
+    y1_bytes = buffer_read(data, U256(96), U256(32))
+    y1 = int(U256.from_be_bytes(y1_bytes))
+
+    if x0 >= field_modulus or x1 >= field_modulus:
+        raise InvalidParameter("Invalid field element")
+    if y0 >= field_modulus or y1 >= field_modulus:
+        raise InvalidParameter("Invalid field element")
+
+    x = FQ2((x1, x0))
+    y = FQ2((y1, y0))
+
+    if x == FQ2((0, 0)) and y == FQ2((0, 0)):
+        return None
+
+    point = (x, y)
+
+    # Check if the point is on the curve
+    if not is_on_curve(point, b2):
+        raise InvalidParameter("Point is not on curve")
+
+    return point
 
 
 def alt_bn128_add(evm: Evm) -> None:
@@ -45,28 +145,19 @@ def alt_bn128_add(evm: Evm) -> None:
     charge_gas(evm, Uint(500))
 
     # OPERATION
-    x0_bytes = buffer_read(data, U256(0), U256(32))
-    x0_value = int(U256.from_be_bytes(x0_bytes))
-    y0_bytes = buffer_read(data, U256(32), U256(32))
-    y0_value = int(U256.from_be_bytes(y0_bytes))
-    x1_bytes = buffer_read(data, U256(64), U256(32))
-    x1_value = int(U256.from_be_bytes(x1_bytes))
-    y1_bytes = buffer_read(data, U256(96), U256(32))
-    y1_value = int(U256.from_be_bytes(y1_bytes))
-
-    for i in (x0_value, y0_value, x1_value, y1_value):
-        if i >= ALT_BN128_PRIME:
-            raise OutOfGasError
-
     try:
-        p0 = BNP(BNF(x0_value), BNF(y0_value))
-        p1 = BNP(BNF(x1_value), BNF(y1_value))
-    except ValueError:
-        raise OutOfGasError
+        p0 = bytes_to_G1(buffer_read(data, U256(0), U256(64)))
+        p1 = bytes_to_G1(buffer_read(data, U256(64), U256(64)))
+    except InvalidParameter as e:
+        raise OutOfGasError from e
 
-    p = p0 + p1
+    p = add(p0, p1)
+    if p is None:
+        x, y = (0, 0)
+    else:
+        x, y = p
 
-    evm.output = p.x.to_be_bytes32() + p.y.to_be_bytes32()
+    evm.output = Uint(x).to_be_bytes32() + Uint(y).to_be_bytes32()
 
 
 def alt_bn128_mul(evm: Evm) -> None:
@@ -84,24 +175,19 @@ def alt_bn128_mul(evm: Evm) -> None:
     charge_gas(evm, Uint(40000))
 
     # OPERATION
-    x0_bytes = buffer_read(data, U256(0), U256(32))
-    x0_value = int(U256.from_be_bytes(x0_bytes))
-    y0_bytes = buffer_read(data, U256(32), U256(32))
-    y0_value = int(U256.from_be_bytes(y0_bytes))
+    try:
+        p0 = bytes_to_G1(buffer_read(data, U256(0), U256(64)))
+    except InvalidParameter as e:
+        raise OutOfGasError from e
     n = int(U256.from_be_bytes(buffer_read(data, U256(64), U256(32))))
 
-    for i in (x0_value, y0_value):
-        if i >= ALT_BN128_PRIME:
-            raise OutOfGasError
+    p = multiply(p0, n)
+    if p is None:
+        x, y = (0, 0)
+    else:
+        x, y = p
 
-    try:
-        p0 = BNP(BNF(x0_value), BNF(y0_value))
-    except ValueError:
-        raise OutOfGasError
-
-    p = p0.mul_by(n)
-
-    evm.output = p.x.to_be_bytes32() + p.y.to_be_bytes32()
+    evm.output = Uint(x).to_be_bytes32() + Uint(y).to_be_bytes32()
 
 
 def alt_bn128_pairing_check(evm: Evm) -> None:
@@ -121,34 +207,21 @@ def alt_bn128_pairing_check(evm: Evm) -> None:
     # OPERATION
     if len(data) % 192 != 0:
         raise OutOfGasError
-    result = BNF12.from_int(1)
+    result = FQ12.one()
     for i in range(len(data) // 192):
-        values = []
-        for j in range(6):
-            value = int(
-                U256.from_be_bytes(
-                    data[i * 192 + 32 * j : i * 192 + 32 * (j + 1)]
-                )
-            )
-            if value >= ALT_BN128_PRIME:
-                raise OutOfGasError
-            values.append(value)
-
         try:
-            p = BNP(BNF(values[0]), BNF(values[1]))
-            q = BNP2(
-                BNF2((values[3], values[2])), BNF2((values[5], values[4]))
-            )
-        except ValueError:
-            raise OutOfGasError()
-        if p.mul_by(ALT_BN128_CURVE_ORDER) != BNP.point_at_infinity():
+            p = bytes_to_G1(buffer_read(data, U256(192 * i), U256(64)))
+            q = bytes_to_G2(buffer_read(data, U256(192 * i + 64), U256(128)))
+        except InvalidParameter as e:
+            raise OutOfGasError from e
+        if multiply(p, curve_order) is not None:
             raise OutOfGasError
-        if q.mul_by(ALT_BN128_CURVE_ORDER) != BNP2.point_at_infinity():
+        if multiply(q, curve_order) is not None:
             raise OutOfGasError
-        if p != BNP.point_at_infinity() and q != BNP2.point_at_infinity():
-            result = result * pairing(q, p)
+        if p is not None and q is not None:
+            result *= pairing(q, p)
 
-    if result == BNF12.from_int(1):
+    if result == FQ12.one():
         evm.output = U256(1).to_be_bytes32()
     else:
         evm.output = U256(0).to_be_bytes32()
