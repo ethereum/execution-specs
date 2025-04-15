@@ -92,9 +92,22 @@ class AuthorityWithProperties:
     """Dataclass to hold the properties of the authority address."""
 
     authority: EOA
+    """
+    The address of the authority to be used in the transaction.
+    """
     address_type: AddressType
+    """
+    The type of the address the authority was before the authorization.
+    """
     invalidity_type: AuthorizationInvalidityType | None
-    empty: bool
+    """
+    Whether the authorization will be invalid and if so, which type of invalidity it is.
+    """
+
+    @property
+    def empty(self) -> bool:
+        """Return True if the authority address is an empty account before the authorization."""
+        return self.address_type == AddressType.EMPTY_ACCOUNT
 
 
 @pytest.fixture()
@@ -125,7 +138,6 @@ def authority_iterator(
                         authority=pre.fund_eoa(0),
                         address_type=current_authority_type,
                         invalidity_type=None,
-                        empty=True,
                     )
                 case AddressType.EOA:
                     if i == 0 and self_sponsored:
@@ -133,14 +145,12 @@ def authority_iterator(
                             authority=sender,
                             address_type=current_authority_type,
                             invalidity_type=None,
-                            empty=False,
                         )
                     else:
                         yield AuthorityWithProperties(
                             authority=pre.fund_eoa(),
                             address_type=current_authority_type,
                             invalidity_type=None,
-                            empty=False,
                         )
                 case AddressType.EOA_WITH_SET_CODE:
                     if i == 0 and self_sponsored:
@@ -148,14 +158,12 @@ def authority_iterator(
                             authority=sender,
                             address_type=current_authority_type,
                             invalidity_type=None,
-                            empty=False,
                         )
                     else:
                         yield AuthorityWithProperties(
                             authority=pre.fund_eoa(0, delegation=authorize_to_address),
                             address_type=current_authority_type,
                             invalidity_type=None,
-                            empty=False,
                         )
                 case AddressType.CONTRACT:
                     assert not self_sponsored or i > 0, (
@@ -169,7 +177,6 @@ def authority_iterator(
                         authority=authority,
                         address_type=current_authority_type,
                         invalidity_type=AuthorizationInvalidityType.AUTHORITY_IS_CONTRACT,
-                        empty=False,
                     )
                 case _:
                     raise ValueError(f"Unsupported authority type: {current_authority_type}")
@@ -182,9 +189,29 @@ class AuthorizationWithProperties:
     """Dataclass to hold the properties of the authorization list."""
 
     tuple: AuthorizationTuple
+    """
+    The authorization tuple to be used in the transaction.
+    """
     invalidity_type: AuthorizationInvalidityType | None
-    empty: bool
+    """
+    Whether the authorization is invalid and if so, which type of invalidity it is.
+    """
+    authority_type: AddressType
+    """
+    The type of the address the authority was before the authorization.
+    """
     skip: bool
+    """
+    Whether the authorization should be skipped and therefore not included in the transaction.
+
+    Used for tests where the authorization was already in the state before the transaction was
+    created.
+    """
+
+    @property
+    def empty(self) -> bool:
+        """Return True if the authority address is an empty account before the authorization."""
+        return self.authority_type == AddressType.EMPTY_ACCOUNT
 
 
 @pytest.fixture
@@ -192,6 +219,7 @@ def authorization_list_with_properties(
     signer_type: SignerType,
     authorization_invalidity_type: AuthorizationInvalidityType | None,
     authorizations_count: int,
+    invalid_authorization_index: int,
     chain_id_type: ChainIDType,
     authority_iterator: Iterator[AuthorityWithProperties],
     authorize_to_address: Address,
@@ -199,10 +227,6 @@ def authorization_list_with_properties(
     re_authorize: bool,
 ) -> List[AuthorizationWithProperties]:
     """Fixture to return the authorization-list-with-properties for the given case."""
-    chain_id = 0 if chain_id_type == ChainIDType.GENERIC else 1
-    if authorization_invalidity_type == AuthorizationInvalidityType.INVALID_CHAIN_ID:
-        chain_id = 2
-
     authorization_list: List[AuthorizationWithProperties] = []
     match signer_type:
         case SignerType.SINGLE_SIGNER:
@@ -214,15 +238,6 @@ def authorization_list_with_properties(
                 or authority_with_properties.address_type == AddressType.EOA_WITH_SET_CODE
             )
             for i in range(authorizations_count):
-                # Get the nonce of this authorization
-                match authorization_invalidity_type:
-                    case AuthorizationInvalidityType.INVALID_NONCE:
-                        nonce = 0 if increased_nonce else 1
-                    case AuthorizationInvalidityType.REPEATED_NONCE:
-                        nonce = 1 if increased_nonce else 0
-                    case _:
-                        nonce = i if not increased_nonce else i + 1
-
                 # Get the validity of this authorization
                 invalidity_type: AuthorizationInvalidityType | None
                 if authorization_invalidity_type is None or (
@@ -231,13 +246,28 @@ def authorization_list_with_properties(
                 ):
                     invalidity_type = authority_with_properties.invalidity_type
                 else:
-                    invalidity_type = authorization_invalidity_type
-                skip = False
-                if (
+                    if i == invalid_authorization_index or invalid_authorization_index == -1:
+                        invalidity_type = authorization_invalidity_type
+                    else:
+                        invalidity_type = authority_with_properties.invalidity_type
+
+                # Get the nonce of this authorization
+                match invalidity_type:
+                    case AuthorizationInvalidityType.INVALID_NONCE:
+                        nonce = 0 if increased_nonce else 1
+                    case AuthorizationInvalidityType.REPEATED_NONCE:
+                        nonce = 1 if increased_nonce else 0
+                    case _:
+                        nonce = i if not increased_nonce else i + 1
+
+                chain_id = 0 if chain_id_type == ChainIDType.GENERIC else 1
+                if invalidity_type == AuthorizationInvalidityType.INVALID_CHAIN_ID:
+                    chain_id = 2
+
+                skip = (
                     authority_with_properties.address_type == AddressType.EOA_WITH_SET_CODE
                     and not re_authorize
-                ):
-                    skip = True
+                )
                 authorization_list.append(
                     AuthorizationWithProperties(
                         tuple=AuthorizationTuple(
@@ -247,7 +277,7 @@ def authorization_list_with_properties(
                             signer=authority_with_properties.authority,
                         ),
                         invalidity_type=invalidity_type,
-                        empty=authority_with_properties.empty,
+                        authority_type=authority_with_properties.address_type,
                         skip=skip,
                     )
                 )
@@ -259,22 +289,7 @@ def authorization_list_with_properties(
                 authority_iterator = cycle([next(authority_iterator), next(authority_iterator)])
 
             for i in range(authorizations_count):
-                # Get the nonce of this authorization
                 authority_with_properties = next(authority_iterator)
-                increased_nonce = (
-                    self_sponsored and i == 0
-                ) or authority_with_properties.address_type == AddressType.EOA_WITH_SET_CODE
-                if increased_nonce:
-                    if authorization_invalidity_type == AuthorizationInvalidityType.INVALID_NONCE:
-                        nonce = 0
-                    else:
-                        nonce = 1
-                else:
-                    if authorization_invalidity_type == AuthorizationInvalidityType.INVALID_NONCE:
-                        nonce = 1
-                    else:
-                        nonce = 0
-
                 # Get the validity of this authorization
                 if authorization_invalidity_type is None or (
                     authorization_invalidity_type == AuthorizationInvalidityType.REPEATED_NONCE
@@ -282,7 +297,30 @@ def authorization_list_with_properties(
                 ):
                     invalidity_type = authority_with_properties.invalidity_type
                 else:
-                    invalidity_type = authorization_invalidity_type
+                    if i == invalid_authorization_index or invalid_authorization_index == -1:
+                        invalidity_type = authorization_invalidity_type
+                    else:
+                        invalidity_type = authority_with_properties.invalidity_type
+
+                # Get the nonce of this authorization
+                increased_nonce = (
+                    self_sponsored and i == 0
+                ) or authority_with_properties.address_type == AddressType.EOA_WITH_SET_CODE
+                if increased_nonce:
+                    if invalidity_type == AuthorizationInvalidityType.INVALID_NONCE:
+                        nonce = 0
+                    else:
+                        nonce = 1
+                else:
+                    if invalidity_type == AuthorizationInvalidityType.INVALID_NONCE:
+                        nonce = 1
+                    else:
+                        nonce = 0
+
+                chain_id = 0 if chain_id_type == ChainIDType.GENERIC else 1
+                if invalidity_type == AuthorizationInvalidityType.INVALID_CHAIN_ID:
+                    chain_id = 2
+
                 skip = False
                 if (
                     authority_with_properties.address_type == AddressType.EOA_WITH_SET_CODE
@@ -298,7 +336,7 @@ def authorization_list_with_properties(
                             signer=authority_with_properties.authority,
                         ),
                         invalidity_type=invalidity_type,
-                        empty=authority_with_properties.empty,
+                        authority_type=authority_with_properties.address_type,
                         skip=skip,
                     )
                 )
@@ -387,6 +425,7 @@ def gas_test_parameter_args(
         "signer_type": SignerType.SINGLE_SIGNER,
         "authorization_invalidity_type": None,
         "authorizations_count": 1,
+        "invalid_authorization_index": -1,  # All authorizations are equally invalid
         "chain_id_type": ChainIDType.GENERIC,
         "authorize_to_address": AddressType.EMPTY_ACCOUNT,
         "access_list_case": AccessListType.EMPTY,
@@ -437,6 +476,28 @@ def gas_test_parameter_args(
         ),
         pytest.param(
             {
+                "authority_type": AddressType.EOA_WITH_SET_CODE,
+                "signer_type": SignerType.MULTIPLE_SIGNERS,
+                "re_authorize": True,
+                "authorization_invalidity_type": AuthorizationInvalidityType.INVALID_NONCE,
+                "authorizations_count": multiple_authorizations_count,
+                "invalid_authorization_index": 0,
+            },
+            id="single_invalid_authorization_eoa_authority_multiple_signers_1",
+        ),
+        pytest.param(
+            {
+                "authority_type": AddressType.EOA_WITH_SET_CODE,
+                "signer_type": SignerType.MULTIPLE_SIGNERS,
+                "re_authorize": True,
+                "authorization_invalidity_type": AuthorizationInvalidityType.INVALID_NONCE,
+                "authorizations_count": multiple_authorizations_count,
+                "invalid_authorization_index": multiple_authorizations_count - 1,
+            },
+            id="single_invalid_authorization_eoa_authority_multiple_signers_2",
+        ),
+        pytest.param(
+            {
                 "signer_type": SignerType.SINGLE_SIGNER,
                 "authorization_invalidity_type": AuthorizationInvalidityType.INVALID_NONCE,
                 "authorizations_count": multiple_authorizations_count,
@@ -450,6 +511,16 @@ def gas_test_parameter_args(
                 "authorizations_count": multiple_authorizations_count,
             },
             id="multiple_invalid_nonce_authorizations_multiple_signers",
+        ),
+        pytest.param(
+            {
+                "signer_type": SignerType.MULTIPLE_SIGNERS,
+                "authority_type": AddressType.EOA,
+                "authorization_invalidity_type": AuthorizationInvalidityType.INVALID_NONCE,
+                "self_sponsored": True,
+                "authorizations_count": multiple_authorizations_count,
+            },
+            id="multiple_invalid_nonce_authorizations_self_sponsored_multiple_signers",
         ),
         pytest.param(
             {
@@ -755,7 +826,6 @@ def test_account_warming(
     pre: Alloc,
     authorization_list_with_properties: List[AuthorizationWithProperties],
     authorization_list: List[AuthorizationTuple],
-    access_list_case: AccessListType,
     access_list: List[AccessList],
     data: bytes,
     sender: EOA,
@@ -768,6 +838,8 @@ def test_account_warming(
     cold_account_cost = 2600
     warm_account_cost = 100
 
+    access_list_addresses = {access_list.address for access_list in access_list}
+
     # Dictionary to keep track of the addresses to check for warming, and the expected cost of
     # accessing such account.
     addresses_to_check: Dict[Address, int] = {}
@@ -777,11 +849,19 @@ def test_account_warming(
         assert authority is not None, "authority address is not set"
         delegated_account = authorization_with_properties.tuple.address
 
+        authority_contains_delegation_after_authorization = (
+            authorization_with_properties.invalidity_type is None
+            # If the authority already contained a delegation prior to the transaction,
+            # even if the authorization is invalid, there will be a delegation when we
+            # check the address.
+            or authorization_with_properties.authority_type == AddressType.EOA_WITH_SET_CODE
+        )
+
         if check_delegated_account_first:
             if delegated_account not in addresses_to_check:
                 addresses_to_check[delegated_account] = (
                     warm_account_cost
-                    if access_list_case.contains_set_code_address()
+                    if delegated_account in access_list_addresses
                     else cold_account_cost
                 )
 
@@ -793,21 +873,22 @@ def test_account_warming(
                             authorization_with_properties.invalidity_type
                             != AuthorizationInvalidityType.INVALID_CHAIN_ID
                         )
-                        or access_list_case.contains_authority()
+                        or authority in access_list_addresses
                     ):
                         access_cost = warm_account_cost
                     else:
                         access_cost = cold_account_cost
-                    if authorization_with_properties.invalidity_type is None:
-                        access_cost += warm_account_cost
                 else:
                     access_cost = (
                         cold_account_cost
                         if Address(sender) != authorization_with_properties.tuple.signer
                         else warm_account_cost
                     )
-                    if authorization_with_properties.invalidity_type is None:
-                        access_cost += warm_account_cost
+
+                if authority_contains_delegation_after_authorization:
+                    # The double charge for accessing the delegated account, only if the
+                    # account ends up with a delegation in its code.
+                    access_cost += warm_account_cost
 
                 addresses_to_check[authority] = access_cost
 
@@ -824,18 +905,18 @@ def test_account_warming(
                         authorization_with_properties.invalidity_type
                         != AuthorizationInvalidityType.INVALID_CHAIN_ID
                     )
-                    or access_list_case.contains_authority()
+                    or authority in access_list_addresses
                 ):
                     access_cost = warm_account_cost
 
                 if (
                     # We can only charge the delegated account access cost if the authorization
                     # went through
-                    authorization_with_properties.invalidity_type is None
+                    authority_contains_delegation_after_authorization
                 ):
                     if (
                         delegated_account in addresses_to_check
-                        or access_list_case.contains_set_code_address()
+                        or delegated_account in access_list_addresses
                     ):
                         access_cost += warm_account_cost
                     else:
@@ -845,29 +926,31 @@ def test_account_warming(
 
             if delegated_account not in addresses_to_check:
                 if (
-                    authorization_with_properties.invalidity_type is None
-                    or access_list_case.contains_set_code_address()
+                    authority_contains_delegation_after_authorization
+                    or delegated_account in access_list_addresses
                 ):
                     access_cost = warm_account_cost
                 else:
                     access_cost = cold_account_cost
                 addresses_to_check[delegated_account] = access_cost
 
-    callee_storage = Storage()
     callee_code: Bytecode = sum(  # type: ignore
         (
             CodeGasMeasure(
                 code=Op.CALL(gas=0, address=check_address),
                 overhead_cost=overhead_cost,
                 extra_stack_items=1,
-                sstore_key=callee_storage.store_next(access_cost),
+                sstore_key=check_address,
                 stop=False,
             )
-            for check_address, access_cost in addresses_to_check.items()
+            for check_address in addresses_to_check
         )
     )
     callee_code += Op.STOP
-    callee_address = pre.deploy_contract(callee_code, storage=callee_storage.canary())
+    callee_address = pre.deploy_contract(
+        callee_code,
+        storage={check_address: 0xDEADBEEF for check_address in addresses_to_check},
+    )
 
     tx = Transaction(
         gas_limit=1_000_000,
@@ -879,7 +962,7 @@ def test_account_warming(
     )
     post = {
         callee_address: Account(
-            storage=callee_storage,
+            storage=addresses_to_check,
         ),
     }
 
