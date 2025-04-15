@@ -13,7 +13,7 @@ from ethereum_test_tools import (
     Transaction,
 )
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools.eof.v1 import Container, ContainerKind, Section
+from ethereum_test_types.eof.v1 import Container, ContainerKind, Section
 from ethereum_test_vm.bytecode import Bytecode
 
 from .. import EOF_FORK_NAME

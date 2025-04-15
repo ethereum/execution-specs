@@ -6,8 +6,8 @@ abstract: Tests [EIP-7069: Revamped CALL instructions](https://eips.ethereum.org
 import pytest
 
 from ethereum_test_tools import Account, Alloc, Environment, StateTestFiller, Transaction
-from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.vm.opcode import Opcodes as Op
+from ethereum_test_types.eof.v1 import Container, Section
 
 from .. import EOF_FORK_NAME
 from . import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION

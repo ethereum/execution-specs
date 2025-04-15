@@ -5,7 +5,7 @@ import pytest
 from ethereum_test_exceptions.exceptions import EOFExceptionInstanceOrList
 from ethereum_test_tools import EOFException, EOFTestFiller, extend_with_defaults
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools.eof.v1 import Container, Section
+from ethereum_test_types.eof.v1 import Container, Section
 
 from .. import EOF_FORK_NAME
 

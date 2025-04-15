@@ -8,9 +8,9 @@ import pytest
 
 from ethereum_test_exceptions.exceptions import EOFException
 from ethereum_test_tools import Account, EOFStateTestFiller, EOFTestFiller
-from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.vm.opcode import Opcodes as Op
-from ethereum_test_types.eof.v1.constants import MAX_OPERAND_STACK_HEIGHT, NON_RETURNING_SECTION
+from ethereum_test_types.eof.v1 import Container, Section
+from ethereum_test_types.eof.v1.constants import MAX_STACK_INCREASE_LIMIT, NON_RETURNING_SECTION
 from ethereum_test_vm.bytecode import Bytecode
 
 from .. import EOF_FORK_NAME
@@ -457,7 +457,7 @@ def gen_stack_underflow_params():
             yield op, op.min_stack_height - 1
 
 
-@pytest.mark.parametrize("spread", [-1, 0, 1, MAX_OPERAND_STACK_HEIGHT])
+@pytest.mark.parametrize("spread", [-1, 0, 1, MAX_STACK_INCREASE_LIMIT])
 @pytest.mark.parametrize("op,stack_height", gen_stack_underflow_params())
 def test_all_opcodes_stack_underflow(
     eof_test: EOFTestFiller, op: Op, stack_height: int, spread: int
@@ -473,7 +473,7 @@ def test_all_opcodes_stack_underflow(
         # We need to leave space for this increase not to cause stack overflow.
         max_stack_increase = max(op.pushed_stack_items - op.popped_stack_items, 0)
         # Cap the spread if it would exceed the maximum stack height.
-        spread = min(spread, MAX_OPERAND_STACK_HEIGHT - (stack_height + max_stack_increase))
+        spread = min(spread, MAX_STACK_INCREASE_LIMIT - (stack_height + max_stack_increase))
         # Create a range stack height of 0-spread.
         code += Op.RJUMPI[spread](Op.CALLVALUE) + Op.PUSH0 * spread
 

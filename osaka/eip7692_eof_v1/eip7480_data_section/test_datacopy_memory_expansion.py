@@ -15,8 +15,8 @@ from ethereum_test_tools import (
     Storage,
     Transaction,
 )
-from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.vm.opcode import Opcodes as Op
+from ethereum_test_types.eof.v1 import Container, Section
 
 from .. import EOF_FORK_NAME
 

@@ -8,8 +8,8 @@ import pytest
 from ethereum_test_base_types import Address
 from ethereum_test_forks import Fork
 from ethereum_test_tools import Alloc, Environment, StateTestFiller
-from ethereum_test_tools.eof.v1 import Container
 from ethereum_test_tools.vm.opcode import Opcodes as Op
+from ethereum_test_types.eof.v1 import Container
 
 from .. import EOF_FORK_NAME
 from ..gas_test import gas_test

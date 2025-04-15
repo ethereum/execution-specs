@@ -5,10 +5,10 @@ import pytest
 from ethereum_test_base_types import Storage
 from ethereum_test_specs import StateTestFiller
 from ethereum_test_tools import Account, Environment, EOFException, EOFStateTestFiller, Transaction
-from ethereum_test_tools.eof.v1 import Container, Section
-from ethereum_test_tools.eof.v1.constants import NON_RETURNING_SECTION
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 from ethereum_test_types import Alloc
+from ethereum_test_types.eof.v1 import Container, Section
+from ethereum_test_types.eof.v1.constants import NON_RETURNING_SECTION
 
 from .. import EOF_FORK_NAME
 from .helpers import (

@@ -15,9 +15,9 @@ from ethereum_test_tools import (
     StateTestFiller,
     Transaction,
 )
-from ethereum_test_tools.eof.v1 import Container, Section
-from ethereum_test_tools.eof.v1.constants import MAX_OPERAND_STACK_HEIGHT
 from ethereum_test_tools.vm.opcode import Opcodes as Op
+from ethereum_test_types.eof.v1 import Container, Section
+from ethereum_test_types.eof.v1.constants import MAX_STACK_INCREASE_LIMIT
 
 from .. import EOF_FORK_NAME
 from . import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION
@@ -68,7 +68,7 @@ def test_swapn_on_max_stack(
     eof_code = Container(
         sections=[
             Section.Code(
-                code=sum(Op.PUSH2[v] for v in range(0, MAX_OPERAND_STACK_HEIGHT))
+                code=sum(Op.PUSH2[v] for v in range(0, MAX_STACK_INCREASE_LIMIT))
                 + Op.SWAPN[swapn_operand]
                 + Op.STOP,
             )

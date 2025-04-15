@@ -5,20 +5,20 @@ import itertools
 import pytest
 
 from ethereum_test_tools import EOFException, EOFTestFiller
-from ethereum_test_tools.eof.v1 import (
+from ethereum_test_tools.vm.opcode import Opcodes as Op
+from ethereum_test_types.eof.v1 import (
     AutoSection,
     Container,
     ContainerKind,
     Section,
     SectionKind,
 )
-from ethereum_test_tools.eof.v1.constants import (
+from ethereum_test_types.eof.v1.constants import (
     MAX_CODE_INPUTS,
     MAX_CODE_OUTPUTS,
     MAX_CODE_SECTIONS,
-    MAX_OPERAND_STACK_HEIGHT,
+    MAX_STACK_INCREASE_LIMIT,
 )
-from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 
@@ -37,10 +37,10 @@ VALID_CONTAINER = Container(sections=[Section.Code(code=Op.STOP)])
             name="single_code_section_max_stack_size",
             sections=[
                 Section.Code(
-                    code=(Op.CALLER * MAX_OPERAND_STACK_HEIGHT)
-                    + (Op.POP * MAX_OPERAND_STACK_HEIGHT)
+                    code=(Op.CALLER * MAX_STACK_INCREASE_LIMIT)
+                    + (Op.POP * MAX_STACK_INCREASE_LIMIT)
                     + Op.STOP,
-                    max_stack_height=MAX_OPERAND_STACK_HEIGHT,
+                    max_stack_height=MAX_STACK_INCREASE_LIMIT,
                 ),
             ],
         ),

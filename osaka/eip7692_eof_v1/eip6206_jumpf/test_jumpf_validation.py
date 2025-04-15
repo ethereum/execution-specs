@@ -3,11 +3,11 @@
 import pytest
 
 from ethereum_test_tools import EOFException, EOFTestFiller
-from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.vm.opcode import Opcodes as Op
+from ethereum_test_types.eof.constants import MAX_RUNTIME_STACK_HEIGHT
+from ethereum_test_types.eof.v1 import Container, Section
 
 from .. import EOF_FORK_NAME
-from ..eip4750_functions.test_code_validation import MAX_RUNTIME_OPERAND_STACK_HEIGHT
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-6206.md"
 REFERENCE_SPEC_VERSION = "2f365ea0cd58faa6e26013ea77ce6d538175f7d0"
@@ -150,7 +150,7 @@ def test_jumpf_self_stack_overflow(eof_test: EOFTestFiller, stack_height: int):
             ),
         ],
     )
-    stack_overflow = stack_height > MAX_RUNTIME_OPERAND_STACK_HEIGHT // 2
+    stack_overflow = stack_height > MAX_RUNTIME_STACK_HEIGHT // 2
     eof_test(
         container=container,
         expect_exception=EOFException.STACK_OVERFLOW if stack_overflow else None,
@@ -175,7 +175,7 @@ def test_jumpf_other_stack_overflow(
             ),
         ],
     )
-    stack_overflow = stack_height + stack_height_other > MAX_RUNTIME_OPERAND_STACK_HEIGHT
+    stack_overflow = stack_height + stack_height_other > MAX_RUNTIME_STACK_HEIGHT
     eof_test(
         container=container,
         expect_exception=EOFException.STACK_OVERFLOW if stack_overflow else None,

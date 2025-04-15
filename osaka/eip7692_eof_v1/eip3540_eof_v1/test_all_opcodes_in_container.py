@@ -7,8 +7,9 @@ import pytest
 
 from ethereum_test_tools import EOFException, EOFTestFiller, Opcode, UndefinedOpcodes
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools.eof.v1 import Container, ContainerKind, Section
-from ethereum_test_tools.eof.v1.constants import MAX_OPERAND_STACK_HEIGHT
+from ethereum_test_types.eof.constants import MAX_RUNTIME_STACK_HEIGHT
+from ethereum_test_types.eof.v1 import Container, ContainerKind, Section
+from ethereum_test_types.eof.v1.constants import MAX_STACK_INCREASE_LIMIT
 from ethereum_test_vm import Bytecode
 
 from .. import EOF_FORK_NAME
@@ -337,7 +338,7 @@ def test_all_opcodes_stack_overflow(
     opcode = opcode[0] if opcode.has_data_portion() else opcode
 
     assert opcode.pushed_stack_items - opcode.popped_stack_items == 1
-    opcode_count = MAX_OPERAND_STACK_HEIGHT + 1 - opcode.min_stack_height
+    opcode_count = MAX_RUNTIME_STACK_HEIGHT - opcode.min_stack_height
 
     bytecode = Op.PUSH0 * opcode.min_stack_height
     bytecode += opcode * opcode_count
@@ -347,7 +348,7 @@ def test_all_opcodes_stack_overflow(
 
     if exception == EOFException.INVALID_MAX_STACK_INCREASE:
         # Lie about the max stack height to make the code be checked for stack overflow.
-        kwargs["max_stack_height"] = MAX_OPERAND_STACK_HEIGHT
+        kwargs["max_stack_height"] = MAX_STACK_INCREASE_LIMIT
 
     sections = [Section.Code(**kwargs)]
 
