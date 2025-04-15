@@ -248,10 +248,11 @@ class T8N(Load):
             if self.fork.is_after_fork("ethereum.prague"):
                 self.fork.process_general_purpose_requests(block_env, block_output)
 
-            self.result.update(self, block_env, block_output)
-            self.result.rejected = self.txs.rejected_txs
         except InvalidBlock as e:
             self.result.block_exception = f"{e}"
+        
+        self.result.update(self, block_env, block_output)
+        self.result.rejected = self.txs.rejected_txs
 
     def run(self) -> int:
         """Run the transition and provide the relevant outputs"""
