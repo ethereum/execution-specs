@@ -4,9 +4,9 @@ import pytest
 
 from ethereum_test_specs import EOFTestFiller
 from ethereum_test_tools import Account, EOFException, EOFStateTestFiller
-from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 from ethereum_test_types.eof.constants import MAX_RUNTIME_STACK_HEIGHT
+from ethereum_test_types.eof.v1 import Container, Section
 
 from .. import EOF_FORK_NAME
 from .helpers import slot_code_worked, value_code_worked

@@ -5,14 +5,14 @@ from typing import List
 import pytest
 
 from ethereum_test_tools import EOFException, EOFTestFiller
-from ethereum_test_tools.eof.v1 import Container, Section
-from ethereum_test_tools.eof.v1.constants import (
+from ethereum_test_tools.vm.opcode import Opcodes as Op
+from ethereum_test_types.eof.constants import MAX_RUNTIME_STACK_HEIGHT
+from ethereum_test_types.eof.v1 import Container, Section
+from ethereum_test_types.eof.v1.constants import (
     MAX_CODE_OUTPUTS,
     MAX_CODE_SECTIONS,
     MAX_STACK_INCREASE_LIMIT,
 )
-from ethereum_test_tools.vm.opcode import Opcodes as Op
-from ethereum_test_types.eof.constants import MAX_RUNTIME_STACK_HEIGHT
 
 from .. import EOF_FORK_NAME
 

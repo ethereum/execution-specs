@@ -38,8 +38,8 @@ from ethereum_test_tools import (
 )
 from ethereum_test_tools import Macros as Om
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_types import TransactionReceipt
+from ethereum_test_types.eof.v1 import Container, Section
 
 from ...cancun.eip4844_blobs.spec import Spec as Spec4844
 from ..eip6110_deposits.helpers import DepositRequest

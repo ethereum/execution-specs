@@ -4,9 +4,9 @@ import pytest
 
 from ethereum_test_base_types import Account, Storage
 from ethereum_test_tools import Alloc, Environment, StateTestFiller, compute_eofcreate_address
-from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 from ethereum_test_types import Transaction
+from ethereum_test_types.eof.v1 import Container, Section
 
 from .. import EOF_FORK_NAME
 from .helpers import (

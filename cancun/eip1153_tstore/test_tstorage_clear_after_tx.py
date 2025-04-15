@@ -17,8 +17,8 @@ from ethereum_test_tools import (
     Initcode,
     Transaction,
 )
-from ethereum_test_tools.eof.v1 import Container
 from ethereum_test_tools.vm.opcode import Opcodes as Op
+from ethereum_test_types.eof.v1 import Container
 
 from .spec import ref_spec_1153
 

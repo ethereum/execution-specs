@@ -3,9 +3,8 @@
 import pytest
 
 from ethereum_test_tools import EOFException, EOFTestFiller
-from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.vm.opcode import Opcodes as Op
-from ethereum_test_types.eof.v1 import NON_RETURNING_SECTION, ContainerKind
+from ethereum_test_types.eof.v1 import NON_RETURNING_SECTION, Container, ContainerKind, Section
 from ethereum_test_vm import Bytecode
 
 from .. import EOF_FORK_NAME

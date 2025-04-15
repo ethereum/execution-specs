@@ -23,8 +23,8 @@ from ethereum_test_tools import (
     Transaction,
     compute_create_address,
 )
-from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.vm.opcode import Opcodes as Op
+from ethereum_test_types.eof.v1 import Container, Section
 from ethereum_test_vm import Macros
 
 from .spec import Spec, ref_spec_7702
