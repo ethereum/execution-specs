@@ -270,7 +270,7 @@ def test_rjumpi_max_backward(
             sections=[
                 Section.Code(
                     code=Op.PUSH1[1] + Op.RJUMPI[0] + Op.STOP,
-                    max_stack_height=1,
+                    max_stack_increase=1,
                 ),
             ],
             expected_bytecode="ef00010100040200010006ff000000008000016001e1000000",
@@ -280,7 +280,7 @@ def test_rjumpi_max_backward(
             sections=[
                 Section.Code(
                     code=Op.PUSH0 + Op.PUSH1[0] + Op.RJUMPI[1] + Op.NOT + Op.STOP,
-                    max_stack_height=2,
+                    max_stack_increase=2,
                 ),
             ],
             expected_bytecode="ef00010100040200010008ff000000008000025f6000e100011900",
@@ -296,7 +296,7 @@ def test_rjumpi_max_backward(
                     + Op.RJUMP[1]
                     + Op.NOT
                     + Op.STOP,
-                    max_stack_height=2,
+                    max_stack_increase=2,
                 ),
             ],
             expected_bytecode="ef0001010004020001000cff000000008000025f6000e1000450e000011900",
@@ -306,7 +306,7 @@ def test_rjumpi_max_backward(
             sections=[
                 Section.Code(
                     code=Op.PUSH0 + Op.PUSH1[0] + Op.RJUMPI[3] + Op.RJUMP[0] + Op.STOP,
-                    max_stack_height=2,
+                    max_stack_increase=2,
                 ),
             ],
             expected_bytecode="ef0001010004020001000aff000000008000025f6000e10003e0000000",
@@ -316,7 +316,7 @@ def test_rjumpi_max_backward(
             sections=[
                 Section.Code(
                     code=Op.PUSH0 + Op.PUSH1[0] + Op.RJUMPI[4] + Op.PUSH0 + Op.RJUMP[0] + Op.STOP,
-                    max_stack_height=2,
+                    max_stack_increase=2,
                 ),
             ],
             expected_bytecode="ef0001010004020001000bff000000008000025f6000e100045fe0000000",
@@ -332,7 +332,7 @@ def test_rjumpi_max_backward(
                     + Op.RJUMPI[1]
                     + Op.NOT
                     + Op.STOP,
-                    max_stack_height=2,
+                    max_stack_increase=2,
                 ),
             ],
             expected_bytecode="ef0001010004020001000dff000000008000025f6000e100066000e100011900",
@@ -342,7 +342,7 @@ def test_rjumpi_max_backward(
             sections=[
                 Section.Code(
                     code=Op.PUSH0 + Op.PUSH1[0] + Op.RJUMPI[1] + Op.PUSH0 + Op.STOP,
-                    max_stack_height=2,
+                    max_stack_increase=2,
                 ),
             ],
             expected_bytecode="ef00010100040200010008ff000000008000025f6000e100015f00",
@@ -359,7 +359,7 @@ def test_rjumpi_max_backward(
                     + Op.RJUMPI[1]
                     + Op.NOT
                     + Op.STOP,
-                    max_stack_height=3,
+                    max_stack_increase=3,
                 ),
             ],
             expected_bytecode="ef0001010004020001000eff000000008000035f6000e100075f6000e100011900",
@@ -378,7 +378,7 @@ def test_rjumpi_max_backward(
                     + Op.DUP1
                     + Op.RJUMPI[-14]
                     + Op.STOP,
-                    max_stack_height=3,
+                    max_stack_increase=3,
                 ),
             ],
             expected_bytecode="ef00010100040200010010ff000000008000035f60010180600a11e1000480e1fff200",
@@ -398,7 +398,7 @@ def test_rjumpi_max_backward(
                     + Op.DUP1
                     + Op.RJUMPI[-13]
                     + Op.STOP,
-                    max_stack_height=3,
+                    max_stack_increase=3,
                 ),
             ],
             expected_bytecode="ef00010100040200010011ff000000008000035f60010180600a11e100055f80e1fff300",
@@ -414,7 +414,7 @@ def test_rjumpi_max_backward(
                     + Op.RJUMP[1]
                     + Op.PUSH0
                     + Op.STOP,
-                    max_stack_height=2,
+                    max_stack_increase=2,
                 ),
             ],
             expected_bytecode="ef0001010004020001000cff000000008000025f6000e100045fe000015f00",
@@ -430,7 +430,7 @@ def test_rjumpi_max_backward(
                     + Op.RJUMP[1]
                     + Op.NOT
                     + Op.STOP,
-                    max_stack_height=2,
+                    max_stack_increase=2,
                 ),
             ],
             expected_bytecode="ef0001010004020001000cff000000008000025f6000e100045fe000011900",
@@ -446,7 +446,7 @@ def test_rjumpi_max_backward(
                     + Op.RJUMP[1]
                     + Op.POP
                     + Op.STOP,
-                    max_stack_height=2,
+                    max_stack_increase=2,
                 ),
             ],
             expected_bytecode="ef0001010004020001000cff000000008000025f6000e1000450e000015000",
@@ -463,7 +463,7 @@ def test_rjumpi_max_backward(
                     + Op.PUSH1[1]
                     + Op.RJUMPI[0]
                     + Op.STOP,
-                    max_stack_height=4,
+                    max_stack_increase=4,
                 ),
             ],
             expected_bytecode="ef0001010004020001000eff000000008000045f6000e100025f5f6001e1000000",
@@ -482,7 +482,7 @@ def test_rjumpi_max_backward(
                     + Op.RJUMPI[1]
                     + Op.NOT
                     + Op.STOP,
-                    max_stack_height=5,
+                    max_stack_increase=5,
                 ),
             ],
             expected_bytecode="ef00010100040200010010ff000000008000055f6000e100025f5f5f6000e100011900",
@@ -503,7 +503,7 @@ def test_rjumpi_max_backward(
                     + Op.RJUMP[1]
                     + Op.NOT
                     + Op.STOP,
-                    max_stack_height=5,
+                    max_stack_increase=5,
                 ),
             ],
             expected_bytecode="ef00010100040200010014ff000000008000055f6000e100025f5f5f6000e1000450e000011900",
@@ -522,7 +522,7 @@ def test_rjumpi_max_backward(
                     + Op.RJUMPI[3]
                     + Op.RJUMP[0]
                     + Op.STOP,
-                    max_stack_height=5,
+                    max_stack_increase=5,
                 ),
             ],
             expected_bytecode="ef00010100040200010012ff000000008000055f6000e100025f5f5f6000e10003e0000000",
@@ -542,7 +542,7 @@ def test_rjumpi_max_backward(
                     + Op.PUSH0
                     + Op.RJUMP[0]
                     + Op.STOP,
-                    max_stack_height=5,
+                    max_stack_increase=5,
                 ),
             ],
             expected_bytecode="ef00010100040200010013ff000000008000055f6000e100025f5f5f6000e100045fe0000000",
@@ -563,7 +563,7 @@ def test_rjumpi_max_backward(
                     + Op.RJUMPI[1]
                     + Op.NOT
                     + Op.STOP,
-                    max_stack_height=5,
+                    max_stack_increase=5,
                 ),
             ],
             expected_bytecode="ef00010100040200010015ff000000008000055f6000e100025f5f5f6000e100066000e100011900",
@@ -582,7 +582,7 @@ def test_rjumpi_max_backward(
                     + Op.RJUMPI[1]
                     + Op.PUSH0
                     + Op.STOP,
-                    max_stack_height=5,
+                    max_stack_increase=5,
                 ),
             ],
             expected_bytecode="ef00010100040200010010ff000000008000055f6000e100025f5f5f6000e100015f00",
@@ -604,7 +604,7 @@ def test_rjumpi_max_backward(
                     + Op.RJUMPI[1]
                     + Op.NOT
                     + Op.STOP,
-                    max_stack_height=6,
+                    max_stack_increase=6,
                 ),
             ],
             expected_bytecode="ef00010100040200010016ff000000008000065f6000e100025f5f5f6000e100075f6000e100011900",
@@ -628,7 +628,7 @@ def test_rjumpi_max_backward(
                     + Op.DUP1
                     + Op.RJUMPI[-14]
                     + Op.STOP,
-                    max_stack_height=6,
+                    max_stack_increase=6,
                 ),
             ],
             expected_bytecode="ef00010100040200010018ff000000008000065f6000e100025f5f5f60010180600a11e1000480e1fff200",
@@ -653,7 +653,7 @@ def test_rjumpi_max_backward(
                     + Op.DUP1
                     + Op.RJUMPI[-13]
                     + Op.STOP,
-                    max_stack_height=6,
+                    max_stack_increase=6,
                 ),
             ],
             expected_bytecode="ef00010100040200010019ff000000008000065f6000e100025f5f5f60010180600a11e100055f80e1fff300",
@@ -674,7 +674,7 @@ def test_rjumpi_max_backward(
                     + Op.RJUMP[1]
                     + Op.PUSH0
                     + Op.STOP,
-                    max_stack_height=5,
+                    max_stack_increase=5,
                 ),
             ],
             expected_bytecode="ef00010100040200010014ff000000008000055f6000e100025f5f5f6000e100045fe000015f00",
@@ -695,7 +695,7 @@ def test_rjumpi_max_backward(
                     + Op.RJUMP[1]
                     + Op.NOT
                     + Op.STOP,
-                    max_stack_height=5,
+                    max_stack_increase=5,
                 ),
             ],
             expected_bytecode="ef00010100040200010014ff000000008000055f6000e100025f5f5f6000e100045fe000011900",
@@ -716,7 +716,7 @@ def test_rjumpi_max_backward(
                     + Op.RJUMP[1]
                     + Op.POP
                     + Op.STOP,
-                    max_stack_height=5,
+                    max_stack_increase=5,
                 ),
             ],
             expected_bytecode="ef00010100040200010014ff000000008000055f6000e100025f5f5f6000e1000450e000015000",
@@ -743,7 +743,7 @@ def test_rjumpi_valid_forward(
             sections=[
                 Section.Code(
                     code=Op.PUSH1[0] + Op.RJUMPI[-5] + Op.STOP,
-                    max_stack_height=1,
+                    max_stack_increase=1,
                 ),
             ],
             expected_bytecode="ef00010100040200010006ff000000008000016000e1fffb00",
@@ -753,7 +753,7 @@ def test_rjumpi_valid_forward(
             sections=[
                 Section.Code(
                     code=Op.PUSH0 + Op.POP + Op.PUSH1[0] + Op.RJUMPI[-7] + Op.STOP,
-                    max_stack_height=1,
+                    max_stack_increase=1,
                 ),
             ],
             expected_bytecode="ef00010100040200010008ff000000008000015f506000e1fff900",
@@ -769,7 +769,7 @@ def test_rjumpi_valid_forward(
                     + Op.PUSH1[0]
                     + Op.RJUMPI[-12]
                     + Op.STOP,
-                    max_stack_height=1,
+                    max_stack_increase=1,
                 ),
             ],
             expected_bytecode="ef0001010004020001000dff000000008000015f506000e1fff96000e1fff400",
@@ -779,7 +779,7 @@ def test_rjumpi_valid_forward(
             sections=[
                 Section.Code(
                     code=Op.PUSH0 + Op.PUSH1[1] + Op.ADD + Op.DUP1 + Op.RJUMPI[-7] + Op.STOP,
-                    max_stack_height=2,
+                    max_stack_increase=2,
                 ),
             ],
             expected_bytecode="ef00010100040200010009ff00000000800002 5f60010180e1fff900",
@@ -789,7 +789,7 @@ def test_rjumpi_valid_forward(
             sections=[
                 Section.Code(
                     code=Op.PUSH0 + Op.POP + Op.PUSH1[0] + Op.RJUMPI[-7] + Op.RJUMP[-10],
-                    max_stack_height=1,
+                    max_stack_increase=1,
                 ),
             ],
             expected_bytecode="ef0001010004020001000aff000000008000015f506000e1fff9e0fff6",
@@ -806,7 +806,7 @@ def test_rjumpi_valid_forward(
                     + Op.PUSH1[0]
                     + Op.RJUMPI[-5]
                     + Op.STOP,
-                    max_stack_height=4,
+                    max_stack_increase=4,
                 ),
             ],
             expected_bytecode="ef0001010004020001000eff000000008000045f6000e100025f5f6000e1fffb00",
@@ -825,7 +825,7 @@ def test_rjumpi_valid_forward(
                     + Op.PUSH1[0]
                     + Op.RJUMPI[-7]
                     + Op.STOP,
-                    max_stack_height=4,
+                    max_stack_increase=4,
                 ),
             ],
             expected_bytecode="ef00010100040200010010ff000000008000045f6000e100025f5f5f506000e1fff900",
@@ -846,7 +846,7 @@ def test_rjumpi_valid_forward(
                     + Op.PUSH1[0]
                     + Op.RJUMPI[-12]
                     + Op.STOP,
-                    max_stack_height=4,
+                    max_stack_increase=4,
                 ),
             ],
             expected_bytecode="ef00010100040200010015ff000000008000045f6000e100025f5f5f506000e1fff96000e1fff400",
@@ -866,7 +866,7 @@ def test_rjumpi_valid_forward(
                     + Op.DUP1
                     + Op.RJUMPI[-7]
                     + Op.STOP,
-                    max_stack_height=5,
+                    max_stack_increase=5,
                 ),
             ],
             expected_bytecode="ef00010100040200010011ff000000008000055f6000e100025f5f5f60010180e1fff900",
@@ -885,7 +885,7 @@ def test_rjumpi_valid_forward(
                     + Op.PUSH1[0]
                     + Op.RJUMPI[-7]
                     + Op.RJUMP[-10],
-                    max_stack_height=4,
+                    max_stack_increase=4,
                 ),
             ],
             expected_bytecode="ef00010100040200010012ff000000008000045f6000e100025f5f5f506000e1fff9e0fff6",
@@ -1523,7 +1523,7 @@ def test_rjumpi_backwards_onto_dup(
     """Backwards jumpi onto a dup."""
     container = Container.Code(
         code=(Op.PUSH0 + Op.DUP1 + Op.RJUMPI[-4] + Op.STOP),
-        max_stack_height=2,
+        max_stack_increase=2,
     )
     eof_test(
         container=container,
@@ -1544,7 +1544,7 @@ def test_rjumpi_backwards_min_stack_wrong(
             + Op.RJUMPI[-9]  # (2, 3) To first RJUMPI with (1, 2)
             + Op.STOP  # (1, 2)
         ),
-        max_stack_height=3,
+        max_stack_increase=3,
     )
     eof_test(
         container=container,
@@ -1566,7 +1566,7 @@ def test_rjumpi_rjumpv_backwards_min_stack_wrong(
             + Op.RJUMPV[-10]  # (2, 3) To first RJUMPI with (1, 2)
             + Op.STOP  # (1, 2)
         ),
-        max_stack_height=3,
+        max_stack_increase=3,
     )
     eof_test(
         container=container,
@@ -1588,7 +1588,7 @@ def test_double_rjumpi_stack_underflow(
             + Op.RJUMPI[0]  # (3, 3)
             + Op.RETURN  # (1, 2) Underflow
         ),
-        max_stack_height=3,
+        max_stack_increase=3,
     )
     eof_test(
         container=container,
@@ -1612,7 +1612,7 @@ def test_double_rjumpi_stack_height_mismatch(
                     + Op.RJUMPI[3]  # (2, 2) to LAST
                     + Op.RJUMPI[0]  # (1, 1) to LAST
                     + Op.RJUMP[-11],  # LAST: (0, 1) to BEGIN; stack height mismatch
-                    max_stack_height=2,
+                    max_stack_increase=2,
                 ),
             ],
         ),
@@ -1638,7 +1638,7 @@ def test_double_rjumpi_invalid_max_stack_height(
                     + Op.PUSH0  # EXIT: (0, 1)
                     + Op.PUSH0  # (1, 2)
                     + Op.INVALID,  # (2, 3)
-                    max_stack_height=2,  # should be 3
+                    max_stack_increase=2,  # should be 3
                 ),
             ],
         ),
@@ -1660,7 +1660,7 @@ def test_double_rjumpi_invalid_max_stack_height(
                     + Op.PUSH1[0]
                     + Op.RJUMPI[-11]
                     + Op.STOP,
-                    max_stack_height=3,
+                    max_stack_increase=3,
                 ),
             ],
             expected_bytecode="ef0001010004020001000eff0000000080000360be6000e10001506000e1fff500",
@@ -1677,7 +1677,7 @@ def test_double_rjumpi_invalid_max_stack_height(
                     + Op.PUSH1[0]
                     + Op.RJUMPI[-13]
                     + Op.STOP,
-                    max_stack_height=2,
+                    max_stack_increase=2,
                 ),
             ],
             expected_bytecode="ef0001010004020001000eff000000008000025f506000e1fff95f6000e1fff300",
@@ -1693,7 +1693,7 @@ def test_double_rjumpi_invalid_max_stack_height(
                     + Op.DUP1
                     + Op.RJUMPI[-8]
                     + Op.STOP,
-                    max_stack_height=2,
+                    max_stack_increase=2,
                 ),
             ],
             expected_bytecode="ef0001010004020001000aff000000008000025f6001018080e1fff800",
@@ -1708,7 +1708,7 @@ def test_double_rjumpi_invalid_max_stack_height(
                     + Op.RJUMPI[-6]
                     + Op.PUSH0
                     + Op.RJUMP[-10],
-                    max_stack_height=1,
+                    max_stack_increase=1,
                 ),
             ],
         ),
@@ -1723,7 +1723,7 @@ def test_double_rjumpi_invalid_max_stack_height(
                     + Op.PUSH1[0]
                     + Op.RJUMPI[-11]
                     + Op.STOP,
-                    max_stack_height=3,
+                    max_stack_increase=3,
                 ),
             ],
             expected_bytecode="ef0001010004020001000dff000000008000035f6000e100015f6000e1fff500",
@@ -1745,7 +1745,7 @@ def test_double_rjumpi_invalid_max_stack_height(
                     + Op.PUSH1[0]
                     + Op.RJUMPI[-13]
                     + Op.STOP,
-                    max_stack_height=5,
+                    max_stack_increase=5,
                 ),
             ],
             expected_bytecode="ef00010100040200010016ff000000008000055f6000e100025f5f5f506000e1fff95f6000e1fff300",
@@ -1766,7 +1766,7 @@ def test_double_rjumpi_invalid_max_stack_height(
                     + Op.DUP1
                     + Op.RJUMPI[-8]
                     + Op.STOP,
-                    max_stack_height=5,
+                    max_stack_increase=5,
                 ),
             ],
             expected_bytecode="ef00010100040200010012ff000000008000055f6000e100025f5f5f6001018080e1fff800",
@@ -1786,7 +1786,7 @@ def test_double_rjumpi_invalid_max_stack_height(
                     + Op.POP
                     + Op.RJUMPI[-4]
                     + Op.STOP,
-                    max_stack_height=5,
+                    max_stack_increase=5,
                 ),
             ],
             expected_bytecode="ef00010100040200010010ff000000008000055f6000e100025f5f5f5f5f50e1fffc00",
@@ -1806,7 +1806,7 @@ def test_double_rjumpi_invalid_max_stack_height(
                     + Op.PUSH0
                     + Op.RJUMPI[-5]
                     + Op.STOP,
-                    max_stack_height=5,
+                    max_stack_increase=5,
                 ),
             ],
         ),
@@ -1825,7 +1825,7 @@ def test_double_rjumpi_invalid_max_stack_height(
                     + Op.RJUMPI[-8]
                     + Op.PUSH0
                     + Op.RJUMP[-10],
-                    max_stack_height=4,
+                    max_stack_increase=4,
                 ),
             ],
         ),
