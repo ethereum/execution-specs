@@ -204,9 +204,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                     )
                 ],
             ],
-            marks=pytest.mark.skip(
-                reason="duplicate test due to MAX_CONSOLIDATION_REQUESTS_PER_BLOCK==1"
-            ),
             id="single_block_max_consolidation_requests_from_eoa",
         ),
         pytest.param(

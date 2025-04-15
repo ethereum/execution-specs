@@ -189,7 +189,6 @@ def get_contract_permutations(n: int = 3) -> Generator[ParameterSet, None, None]
                 single_deposit_from_eoa(0),
                 single_consolidation_from_contract(1),
             ],
-            marks=pytest.mark.skip("Only one consolidation request is allowed per block"),
             id="consolidation_from_eoa+deposit_from_eoa+consolidation_from_contract",
         ),
         pytest.param(
@@ -198,7 +197,6 @@ def get_contract_permutations(n: int = 3) -> Generator[ParameterSet, None, None]
                 single_withdrawal_from_eoa(0),
                 single_consolidation_from_contract(1),
             ],
-            marks=pytest.mark.skip("Only one consolidation request is allowed per block"),
             id="consolidation_from_eoa+withdrawal_from_eoa+consolidation_from_contract",
         ),
         pytest.param(
