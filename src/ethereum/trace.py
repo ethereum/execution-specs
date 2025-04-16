@@ -17,8 +17,8 @@ See [EIP-3155] for more details on EVM traces.
 """
 
 import enum
-from dataclasses import dataclass
-from typing import Optional, Protocol, Union
+from dataclasses import dataclass, field
+from typing import Optional, Union
 
 from ethereum.exceptions import EthereumException
 
@@ -167,40 +167,29 @@ All possible types of events that an [`EvmTracer`] is expected to handle.
 """
 
 
-def discard_evm_trace(
-    evm: object,
-    event: TraceEvent,
-    trace_memory: bool = False,
-    trace_stack: bool = True,
-    trace_return_data: bool = False,
-) -> None:
+@dataclass
+class BaseTrace:
     """
-    An [`EvmTracer`] that discards all events.
-
-    [`EvmTracer`]: ref:ethereum.trace.EvmTracer
+    A basic trace.
     """
 
 
-class EvmTracer(Protocol):
+@dataclass
+class BaseEvmTracer:
     """
-    [`Protocol`] that describes tracer functions.
-
-    See [`ethereum.trace`] for details about tracing in general, and
-    [`__call__`] for more on how to implement a tracer.
-
-    [`Protocol`]: https://docs.python.org/3/library/typing.html#typing.Protocol
-    [`ethereum.trace`]: ref:ethereum.trace
-    [`__call__`]: ref:ethereum.trace.EvmTracer.__call__
+    Default tracer for an EVM.
     """
 
-    def __call__(
+    traces: list[BaseTrace] = field(default_factory=list)
+    trace_memory: bool = False
+    trace_stack: bool = True
+    trace_return_data: bool = False
+    output_basedir: str = "."
+
+    def capture(
         self,
         evm: object,
         event: TraceEvent,
-        /,
-        trace_memory: bool = False,
-        trace_stack: bool = True,
-        trace_return_data: bool = False,
     ) -> None:
         """
         Call `self` as a function, recording a trace event.
@@ -210,13 +199,6 @@ class EvmTracer(Protocol):
 
         `event`, a [`TraceEvent`], is the reason why the tracer was triggered.
 
-        `trace_memory` requests a full memory dump in the resulting trace.
-
-        `trace_stack` requests the full stack in the resulting trace.
-
-        `trace_return_data` requests that return data be included in the
-        resulting trace.
-
         See [`discard_evm_trace`] for an example function implementing this
         protocol.
 
@@ -224,11 +206,4 @@ class EvmTracer(Protocol):
         [evm]: ref:ethereum.frontier.vm.Evm
         [`TraceEvent`]: ref:ethereum.trace.TraceEvent
         """
-
-
-evm_trace: EvmTracer = discard_evm_trace
-"""
-Active [`EvmTracer`] that is used for generating traces.
-
-[`EvmTracer`]: ref:ethereum.trace.EvmTracer
-"""
+        pass

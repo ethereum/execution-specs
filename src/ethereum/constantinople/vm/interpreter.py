@@ -27,7 +27,6 @@ from ethereum.trace import (
     PrecompileEnd,
     PrecompileStart,
     TransactionEnd,
-    evm_trace,
 )
 
 from ..blocks import Log
@@ -103,6 +102,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
         Output of the message call
     """
     block_env = message.block_env
+    tx_env = message.tx_env
     refund_counter = U256(0)
     if message.target == Bytes0(b""):
         is_collision = account_has_code_or_nonce(
@@ -134,7 +134,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
     tx_end = TransactionEnd(
         int(message.gas) - int(evm.gas_left), evm.output, evm.error
     )
-    evm_trace(evm, tx_end)
+    tx_env.tracer.capture(evm, tx_end)
 
     return MessageCallOutput(
         gas_left=evm.gas_left,
@@ -255,6 +255,7 @@ def execute_code(message: Message) -> Evm:
     """
     code = message.code
     valid_jump_destinations = get_valid_jump_destinations(code)
+    tracer = message.tx_env.tracer
 
     evm = Evm(
         pc=Uint(0),
@@ -275,9 +276,9 @@ def execute_code(message: Message) -> Evm:
     )
     try:
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:
-            evm_trace(evm, PrecompileStart(evm.message.code_address))
+            tracer.capture(evm, PrecompileStart(evm.message.code_address))
             PRE_COMPILED_CONTRACTS[evm.message.code_address](evm)
-            evm_trace(evm, PrecompileEnd())
+            tracer.capture(evm, PrecompileEnd())
             return evm
 
         while evm.running and evm.pc < ulen(evm.code):
@@ -286,18 +287,18 @@ def execute_code(message: Message) -> Evm:
             except ValueError:
                 raise InvalidOpcode(evm.code[evm.pc])
 
-            evm_trace(evm, OpStart(op))
+            tracer.capture(evm, OpStart(op))
             op_implementation[op](evm)
-            evm_trace(evm, OpEnd())
+            tracer.capture(evm, OpEnd())
 
-        evm_trace(evm, EvmStop(Ops.STOP))
+        tracer.capture(evm, EvmStop(Ops.STOP))
 
     except ExceptionalHalt as error:
-        evm_trace(evm, OpException(error))
+        tracer.capture(evm, OpException(error))
         evm.gas_left = Uint(0)
         evm.output = b""
         evm.error = error
     except Revert as error:
-        evm_trace(evm, OpException(error))
+        tracer.capture(evm, OpException(error))
         evm.error = error
     return evm

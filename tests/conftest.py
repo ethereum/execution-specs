@@ -48,12 +48,10 @@ def pytest_configure(config: Config) -> None:
 
     if config.getoption("evm_trace"):
         import ethereum.trace
-        from ethereum_spec_tools.evm_tools.t8n.evm_trace import (
-            evm_trace as new_trace_function,
-        )
+        from ethereum_spec_tools.evm_tools.t8n.evm_trace import FullEvmTracer
 
         # Replace the function in the module
-        ethereum.trace.evm_trace = new_trace_function
+        ethereum.trace.BaseEvmTracer = FullEvmTracer  # type: ignore[misc]
 
 
 def download_fixtures(url: str, location: str) -> None:

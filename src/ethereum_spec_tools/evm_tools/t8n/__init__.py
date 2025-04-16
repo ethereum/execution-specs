@@ -6,14 +6,13 @@ import argparse
 import fnmatch
 import json
 import os
-from functools import partial
-from typing import Any, TextIO
+from typing import Any, TextIO, Union
 
 from ethereum_rlp import rlp
 from ethereum_types.numeric import U64, Uint
 
-from ethereum import trace
 from ethereum.exceptions import EthereumException
+from ethereum.trace import BaseEvmTracer
 from ethereum_spec_tools.forks import Hardfork
 
 from ..loaders.fixture_loader import Load
@@ -25,7 +24,7 @@ from ..utils import (
     parse_hex_or_int,
 )
 from .env import Env
-from .evm_trace import evm_trace
+from .evm_trace import FullEvmTracer
 from .t8n_types import Alloc, Result, Txs
 
 
@@ -105,13 +104,15 @@ class T8N(Load):
             trace_memory = getattr(self.options, "trace.memory", False)
             trace_stack = not getattr(self.options, "trace.nostack", False)
             trace_return_data = getattr(self.options, "trace.returndata")
-            trace.evm_trace = partial(
-                evm_trace,
+            self.tracer: Union[BaseEvmTracer, FullEvmTracer] = FullEvmTracer(
                 trace_memory=trace_memory,
                 trace_stack=trace_stack,
                 trace_return_data=trace_return_data,
-                output_basedir=self.options.output_basedir,
+                output_basedir=self.options.output_basedir or ".",
             )
+        else:
+            self.tracer = BaseEvmTracer()
+
         self.logger = get_stream_logger("T8N")
 
         super().__init__(
@@ -190,6 +191,7 @@ class T8N(Load):
                     block_output=block_output,
                     tx=tx,
                     index=Uint(0),
+                    tracer=self.tracer,
                 )
             except EthereumException as e:
                 self.txs.rejected_txs[0] = f"Failed transaction: {e!r}"
@@ -224,7 +226,11 @@ class T8N(Load):
             self.backup_state()
             try:
                 self.fork.process_transaction(
-                    block_env, block_output, tx, Uint(i)
+                    block_env,
+                    block_output,
+                    tx,
+                    Uint(i),
+                    tracer=self.tracer,
                 )
             except EthereumException as e:
                 self.txs.rejected_txs[i] = f"Failed transaction: {e!r}"

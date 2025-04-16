@@ -21,6 +21,8 @@ from ethereum_types.numeric import U256, Uint
 
 from ethereum.exceptions import EthereumException
 from ethereum.trace import (
+    BaseEvmTracer,
+    BaseTrace,
     EvmStop,
     GasAndRefund,
     OpEnd,
@@ -37,7 +39,7 @@ EXCLUDE_FROM_OUTPUT = ["gasCostTraced", "errorTraced", "precompile"]
 
 
 @dataclass
-class Trace:
+class Trace(BaseTrace):
     """
     The class implements the raw EVM trace.
     """
@@ -60,7 +62,7 @@ class Trace:
 
 
 @dataclass
-class FinalTrace:
+class FinalTrace(BaseTrace):
     """
     The class implements final trace for a tx.
     """
@@ -86,7 +88,6 @@ class TransactionEnvironment(Protocol):
 
     index_in_block: Optional[Uint]
     tx_hash: Optional[Bytes]
-    traces: List[Union["Trace", "FinalTrace"]]
 
 
 @runtime_checkable
@@ -136,134 +137,69 @@ class EvmWithReturnData(Protocol):
 Evm = Union[EvmWithoutReturnData, EvmWithReturnData]
 
 
-def evm_trace(
-    evm: Any,
-    event: TraceEvent,
-    trace_memory: bool = False,
-    trace_stack: bool = True,
-    trace_return_data: bool = False,
-    output_basedir: str | TextIO = ".",
-) -> None:
+@dataclass
+class FullEvmTracer(BaseEvmTracer):
     """
-    Create a trace of the event.
+    Default tracer for the t8n.
     """
-    # System Transaction do not have a tx_hash or index
-    if (
-        evm.message.tx_env.index_in_block is None
-        or evm.message.tx_env.tx_hash is None
-    ):
-        return
 
-    assert isinstance(evm, (EvmWithoutReturnData, EvmWithReturnData))
-
-    traces = evm.message.tx_env.traces
-    last_trace = None
-    if traces:
-        last_trace = traces[-1]
-
-    refund_counter = evm.refund_counter
-    parent_evm = evm.message.parent_evm
-    while parent_evm is not None:
-        refund_counter += parent_evm.refund_counter
-        parent_evm = parent_evm.message.parent_evm
-
-    len_memory = len(evm.memory)
-
-    return_data = None
-    if isinstance(evm, EvmWithReturnData) and trace_return_data:
-        return_data = "0x" + evm.return_data.hex()
-
-    memory = None
-    if trace_memory and len_memory > 0:
-        memory = "0x" + evm.memory.hex()
-
-    stack = None
-    if trace_stack:
-        stack = [hex(i) for i in evm.stack]
-
-    if isinstance(event, TransactionStart):
-        pass
-    elif isinstance(event, TransactionEnd):
-        final_trace = FinalTrace(event.gas_used, event.output, event.error)
-        traces.append(final_trace)
-
-        output_traces(
-            traces,
-            evm.message.tx_env.index_in_block,
-            evm.message.tx_env.tx_hash,
-            output_basedir,
-        )
-    elif isinstance(event, PrecompileStart):
-        new_trace = Trace(
-            pc=int(evm.pc),
-            op="0x" + event.address.hex().lstrip("0"),
-            gas=hex(evm.gas_left),
-            gasCost="0x0",
-            memory=memory,
-            memSize=len_memory,
-            stack=stack,
-            returnData=return_data,
-            depth=int(evm.message.depth) + 1,
-            refund=refund_counter,
-            opName="0x" + event.address.hex().lstrip("0"),
-            precompile=True,
-        )
-
-        traces.append(new_trace)
-    elif isinstance(event, PrecompileEnd):
-        assert isinstance(last_trace, Trace)
-
-        last_trace.gasCostTraced = True
-        last_trace.errorTraced = True
-    elif isinstance(event, OpStart):
-        op = event.op.value
-        if op == "InvalidOpcode":
-            op = "Invalid"
-        new_trace = Trace(
-            pc=int(evm.pc),
-            op=op,
-            gas=hex(evm.gas_left),
-            gasCost="0x0",
-            memory=memory,
-            memSize=len_memory,
-            stack=stack,
-            returnData=return_data,
-            depth=int(evm.message.depth) + 1,
-            refund=refund_counter,
-            opName=str(event.op).split(".")[-1],
-        )
-
-        traces.append(new_trace)
-    elif isinstance(event, OpEnd):
-        assert isinstance(last_trace, Trace)
-
-        last_trace.gasCostTraced = True
-        last_trace.errorTraced = True
-    elif isinstance(event, OpException):
-        if last_trace is not None:
-            assert isinstance(last_trace, Trace)
+    def capture(
+        self,
+        evm: Any,
+        event: TraceEvent,
+    ) -> None:
+        """
+        Create a trace of the event.
+        """
+        # System Transaction do not have a tx_hash or index
         if (
-            # The first opcode in the code is an InvalidOpcode.
-            # So we add a new trace with InvalidOpcode as op.
-            not last_trace
-            # The current opcode is an InvalidOpcode. This condition
-            # is true if an InvalidOpcode is found in any location
-            # other than the first opcode.
-            or last_trace.errorTraced
-            # The first opcode in a child message is an InvalidOpcode.
-            # This case has to be explicitly handled since the first
-            # two conditions do not cover it.
-            or last_trace.depth == evm.message.depth
+            evm.message.tx_env.index_in_block is None
+            or evm.message.tx_env.tx_hash is None
         ):
-            if not hasattr(event.error, "code"):
-                name = event.error.__class__.__name__
-                raise TypeError(
-                    f"OpException event error type `{name}` does not have code"
-                ) from event.error
+            return
 
+        assert isinstance(evm, (EvmWithoutReturnData, EvmWithReturnData))
+
+        last_trace = None
+        if self.traces:
+            last_trace = self.traces[-1]
+
+        refund_counter = evm.refund_counter
+        parent_evm = evm.message.parent_evm
+        while parent_evm is not None:
+            refund_counter += parent_evm.refund_counter
+            parent_evm = parent_evm.message.parent_evm
+
+        len_memory = len(evm.memory)
+
+        return_data = None
+        if isinstance(evm, EvmWithReturnData) and self.trace_return_data:
+            return_data = "0x" + evm.return_data.hex()
+
+        memory = None
+        if self.trace_memory and len_memory > 0:
+            memory = "0x" + evm.memory.hex()
+
+        stack = None
+        if self.trace_stack:
+            stack = [hex(i) for i in evm.stack]
+
+        if isinstance(event, TransactionStart):
+            pass
+        elif isinstance(event, TransactionEnd):
+            final_trace = FinalTrace(event.gas_used, event.output, event.error)
+            self.traces.append(final_trace)
+
+            output_traces(
+                self.traces,
+                evm.message.tx_env.index_in_block,
+                evm.message.tx_env.tx_hash,
+                self.output_basedir,
+            )
+        elif isinstance(event, PrecompileStart):
             new_trace = Trace(
                 pc=int(evm.pc),
-                op=event.error.code,
+                op="0x" + event.address.hex().lstrip("0"),
                 gas=hex(evm.gas_left),
                 gasCost="0x0",
                 memory=memory,
@@ -272,42 +208,108 @@ def evm_trace(
                 returnData=return_data,
                 depth=int(evm.message.depth) + 1,
                 refund=refund_counter,
-                opName="InvalidOpcode",
-                gasCostTraced=True,
-                errorTraced=True,
-                error=type(event.error).__name__,
+                opName="0x" + event.address.hex().lstrip("0"),
+                precompile=True,
             )
 
-            traces.append(new_trace)
-        elif not last_trace.errorTraced:
-            # If the error for the last trace is not covered
-            # the exception is attributed to the last trace.
-            last_trace.error = type(event.error).__name__
-            last_trace.errorTraced = True
-    elif isinstance(event, EvmStop):
-        if not evm.running:
-            return
-        elif len(evm.code) == 0:
-            return
-        else:
-            evm_trace(
-                evm,
-                OpStart(event.op),
-                trace_memory,
-                trace_stack,
-                trace_return_data,
-            )
-    elif isinstance(event, GasAndRefund):
-        if len(traces) == 0:
-            # In contract creation transactions, there may not be any traces
-            return
+            self.traces.append(new_trace)
+        elif isinstance(event, PrecompileEnd):
+            assert isinstance(last_trace, Trace)
 
-        assert isinstance(last_trace, Trace)
-
-        if not last_trace.gasCostTraced:
-            last_trace.gasCost = hex(event.gas_cost)
-            last_trace.refund = refund_counter
             last_trace.gasCostTraced = True
+            last_trace.errorTraced = True
+        elif isinstance(event, OpStart):
+            op = event.op.value
+            if op == "InvalidOpcode":
+                op = "Invalid"
+            new_trace = Trace(
+                pc=int(evm.pc),
+                op=op,
+                gas=hex(evm.gas_left),
+                gasCost="0x0",
+                memory=memory,
+                memSize=len_memory,
+                stack=stack,
+                returnData=return_data,
+                depth=int(evm.message.depth) + 1,
+                refund=refund_counter,
+                opName=str(event.op).split(".")[-1],
+            )
+
+            self.traces.append(new_trace)
+        elif isinstance(event, OpEnd):
+            assert isinstance(last_trace, Trace)
+
+            last_trace.gasCostTraced = True
+            last_trace.errorTraced = True
+        elif isinstance(event, OpException):
+            if last_trace is not None:
+                assert isinstance(last_trace, Trace)
+            if (
+                # The first opcode in the code is an InvalidOpcode.
+                # So we add a new trace with InvalidOpcode as op.
+                not last_trace
+                # The current opcode is an InvalidOpcode. This condition
+                # is true if an InvalidOpcode is found in any location
+                # other than the first opcode.
+                or last_trace.errorTraced
+                # The first opcode in a child message is an InvalidOpcode.
+                # This case has to be explicitly handled since the first
+                # two conditions do not cover it.
+                or last_trace.depth == evm.message.depth
+            ):
+                if not hasattr(event.error, "code"):
+                    name = event.error.__class__.__name__
+                    raise TypeError(
+                        f"OpException event error type `{name}` does"
+                        " not have code"
+                    ) from event.error
+
+                new_trace = Trace(
+                    pc=int(evm.pc),
+                    op=event.error.code,
+                    gas=hex(evm.gas_left),
+                    gasCost="0x0",
+                    memory=memory,
+                    memSize=len_memory,
+                    stack=stack,
+                    returnData=return_data,
+                    depth=int(evm.message.depth) + 1,
+                    refund=refund_counter,
+                    opName="InvalidOpcode",
+                    gasCostTraced=True,
+                    errorTraced=True,
+                    error=type(event.error).__name__,
+                )
+
+                self.traces.append(new_trace)
+            elif not last_trace.errorTraced:
+                # If the error for the last trace is not covered
+                # the exception is attributed to the last trace.
+                last_trace.error = type(event.error).__name__
+                last_trace.errorTraced = True
+        elif isinstance(event, EvmStop):
+            if not evm.running:
+                return
+            elif len(evm.code) == 0:
+                return
+            else:
+                self.capture(
+                    evm,
+                    OpStart(event.op),
+                )
+        elif isinstance(event, GasAndRefund):
+            if len(self.traces) == 0:
+                # In contract creation transactions, there may
+                # not be any traces
+                return
+
+            assert isinstance(last_trace, Trace)
+
+            if not last_trace.gasCostTraced:
+                last_trace.gasCost = hex(event.gas_cost)
+                last_trace.refund = refund_counter
+                last_trace.gasCostTraced = True
 
 
 class _TraceJsonEncoder(json.JSONEncoder):
@@ -338,9 +340,7 @@ class _TraceJsonEncoder(json.JSONEncoder):
         return trace
 
 
-def output_op_trace(
-    trace: Union[Trace, FinalTrace], json_file: TextIO
-) -> None:
+def output_op_trace(trace: BaseTrace, json_file: TextIO) -> None:
     """
     Output a single trace to a json file.
     """
@@ -349,7 +349,7 @@ def output_op_trace(
 
 
 def output_traces(
-    traces: List[Union[Trace, FinalTrace]],
+    traces: List[BaseTrace],
     index_in_block: int,
     tx_hash: bytes,
     output_basedir: str | TextIO,

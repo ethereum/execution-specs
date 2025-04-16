@@ -13,7 +13,7 @@ from ethereum.utils.hexadecimal import (
     hex_to_u256,
     hex_to_uint,
 )
-
+from ethereum.trace import BaseEvmTracer
 
 class VmTestLoader:
     """
@@ -127,7 +127,7 @@ class VmTestLoader:
             gas=tx.gas,
             index_in_block=Uint(0),
             tx_hash=b"56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-            traces=[],
+            tracer=BaseEvmTracer(),
         )
 
         return {

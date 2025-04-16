@@ -16,7 +16,7 @@ from typing import List, Tuple
 
 from ethereum_types.numeric import U64, U256, Uint
 
-from ethereum.trace import GasAndRefund, evm_trace
+from ethereum.trace import GasAndRefund
 from ethereum.utils.numeric import ceil32, taylor_exponential
 
 from ..blocks import Header
@@ -125,7 +125,8 @@ def charge_gas(evm: Evm, amount: Uint) -> None:
         The amount of gas the current operation requires.
 
     """
-    evm_trace(evm, GasAndRefund(int(amount)))
+    tracer = evm.message.tx_env.tracer
+    tracer.capture(evm, GasAndRefund(int(amount)))
 
     if evm.gas_left < amount:
         raise OutOfGasError

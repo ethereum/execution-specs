@@ -25,6 +25,7 @@ from ethereum.exceptions import (
     InvalidBlock,
     InvalidSenderError,
 )
+from ethereum.trace import BaseEvmTracer
 
 from . import vm
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
@@ -514,7 +515,7 @@ def process_system_transaction(
         blob_versioned_hashes=(),
         index_in_block=None,
         tx_hash=None,
-        traces=[],
+        tracer=BaseEvmTracer(),
     )
 
     system_tx_message = Message(
@@ -588,7 +589,9 @@ def apply_body(
     )
 
     for i, tx in enumerate(map(decode_transaction, transactions)):
-        process_transaction(block_env, block_output, tx, Uint(i))
+        process_transaction(
+            block_env, block_output, tx, Uint(i), BaseEvmTracer()
+        )
 
     process_withdrawals(block_env, block_output, withdrawals)
 
@@ -600,6 +603,7 @@ def process_transaction(
     block_output: vm.BlockOutput,
     tx: Transaction,
     index: Uint,
+    tracer: BaseEvmTracer,
 ) -> None:
     """
     Execute a transaction against the provided environment.
@@ -623,6 +627,8 @@ def process_transaction(
         Transaction to execute.
     index:
         Index of the transaction in the block.
+    tracer:
+        Evm tracer for the transaction.
     """
     trie_set(
         block_output.transactions_trie,
@@ -683,7 +689,7 @@ def process_transaction(
         blob_versioned_hashes=blob_versioned_hashes,
         index_in_block=index,
         tx_hash=get_transaction_hash(encode_transaction(tx)),
-        traces=[],
+        tracer=tracer,
     )
 
     message = prepare_message(block_env, tx_env, tx)

@@ -26,6 +26,7 @@ from ethereum.exceptions import (
     InvalidBlock,
     InvalidSenderError,
 )
+from ethereum.trace import BaseEvmTracer
 
 from . import FORK_CRITERIA, vm
 from .blocks import Block, Header, Log, Receipt, encode_receipt
@@ -552,7 +553,9 @@ def apply_body(
     block_output = vm.BlockOutput()
 
     for i, tx in enumerate(map(decode_transaction, transactions)):
-        process_transaction(block_env, block_output, tx, Uint(i))
+        process_transaction(
+            block_env, block_output, tx, Uint(i), BaseEvmTracer()
+        )
 
     pay_rewards(block_env.state, block_env.number, block_env.coinbase, ommers)
 
@@ -681,6 +684,7 @@ def process_transaction(
     block_output: vm.BlockOutput,
     tx: Transaction,
     index: Uint,
+    tracer: BaseEvmTracer,
 ) -> None:
     """
     Execute a transaction against the provided environment.
@@ -704,6 +708,8 @@ def process_transaction(
         Transaction to execute.
     index:
         Index of the transaction in the block.
+    tracer:
+        Evm tracer for the transaction.
     """
     trie_set(
         block_output.transactions_trie,
@@ -752,7 +758,7 @@ def process_transaction(
         access_list_storage_keys=access_list_storage_keys,
         index_in_block=index,
         tx_hash=get_transaction_hash(encode_transaction(tx)),
-        traces=[],
+        tracer=tracer,
     )
 
     message = prepare_message(block_env, tx_env, tx)

@@ -21,6 +21,7 @@ from ethereum_types.numeric import U64, U256, Uint
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
 from ethereum.exceptions import InvalidBlock, InvalidSenderError
+from ethereum.trace import BaseEvmTracer
 
 from . import vm
 from .blocks import Block, Header, Log, Receipt
@@ -438,7 +439,9 @@ def apply_body(
     block_output = vm.BlockOutput()
 
     for i, tx in enumerate(transactions):
-        process_transaction(block_env, block_output, tx, Uint(i))
+        process_transaction(
+            block_env, block_output, tx, Uint(i), BaseEvmTracer()
+        )
 
     pay_rewards(block_env.state, block_env.number, block_env.coinbase, ommers)
 
@@ -567,6 +570,7 @@ def process_transaction(
     block_output: vm.BlockOutput,
     tx: Transaction,
     index: Uint,
+    tracer: BaseEvmTracer,
 ) -> None:
     """
     Execute a transaction against the provided environment.
@@ -590,6 +594,8 @@ def process_transaction(
         Transaction to execute.
     index:
         Index of the transaction in the block.
+    tracer:
+        Evm tracer for the transaction.
     """
     trie_set(block_output.transactions_trie, rlp.encode(Uint(index)), tx)
     intrinsic_gas = validate_transaction(tx)
@@ -617,7 +623,7 @@ def process_transaction(
         gas=gas,
         index_in_block=index,
         tx_hash=get_transaction_hash(tx),
-        traces=[],
+        tracer=tracer,
     )
 
     message = prepare_message(block_env, tx_env, tx)
