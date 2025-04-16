@@ -21,6 +21,7 @@ from ethereum_test_tools import (
     Storage,
     Switch,
     Transaction,
+    TransactionException,
     compute_create_address,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
@@ -1688,4 +1689,64 @@ def test_pointer_resets_an_empty_code_account_with_storage(
             ),
             Block(txs=[tx_create_suicide_from_pointer]),
         ],
+    )
+
+
+@pytest.mark.parametrize(
+    "tx_value",
+    [0, 1],
+)
+@pytest.mark.exception_test
+@pytest.mark.valid_at_transition_to("Prague")
+def test_set_code_type_tx_pre_fork(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    tx_value: int,
+):
+    """
+    Reject blocks with set code type transactions before the Prague fork.
+
+    This test was based on:
+    tests/prague/eip7702_set_code_tx/test_set_code_txs.py::test_self_sponsored_set_code
+    """
+    storage = Storage()
+    sender = pre.fund_eoa()
+
+    set_code = (
+        Op.SSTORE(storage.store_next(sender), Op.ORIGIN)
+        + Op.SSTORE(storage.store_next(sender), Op.CALLER)
+        + Op.SSTORE(storage.store_next(tx_value), Op.CALLVALUE)
+        + Op.STOP
+    )
+    set_code_to_address = pre.deploy_contract(
+        set_code,
+    )
+
+    tx = Transaction(
+        gas_limit=10_000_000,
+        to=sender,
+        value=tx_value,
+        authorization_list=[
+            AuthorizationTuple(
+                address=set_code_to_address,
+                nonce=1,
+                signer=sender,
+            ),
+        ],
+        sender=sender,
+        error=TransactionException.TYPE_4_TX_PRE_FORK,
+    )
+
+    state_test(
+        env=Environment(),
+        pre=pre,
+        tx=tx,
+        post={
+            set_code_to_address: Account(storage={k: 0 for k in storage}),
+            sender: Account(
+                nonce=0,
+                code="",
+                storage={},
+            ),
+        },
     )
