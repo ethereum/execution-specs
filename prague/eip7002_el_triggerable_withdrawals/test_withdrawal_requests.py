@@ -303,6 +303,41 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestContract(
                         requests=[
                             WithdrawalRequest(
+                                validator_pubkey=0x01,
+                                amount=0,
+                                fee=Spec.get_fee(0),
+                            ),
+                        ],
+                        call_depth=3,
+                    ),
+                ],
+            ],
+            id="single_block_single_withdrawal_request_from_contract_call_depth_3",
+        ),
+        pytest.param(
+            [
+                [
+                    WithdrawalRequestContract(
+                        requests=[
+                            WithdrawalRequest(
+                                validator_pubkey=0x01,
+                                amount=0,
+                                fee=Spec.get_fee(0),
+                            ),
+                        ],
+                        call_depth=100,
+                        tx_gas_limit=30_000_000,
+                    ),
+                ],
+            ],
+            id="single_block_single_withdrawal_request_from_contract_call_depth_high",
+        ),
+        pytest.param(
+            [
+                [
+                    WithdrawalRequestContract(
+                        requests=[
+                            WithdrawalRequest(
                                 validator_pubkey=i + 1,
                                 amount=Spec.MAX_AMOUNT - 1 if i % 2 == 0 else 0,
                                 fee=Spec.get_fee(0),
@@ -504,6 +539,92 @@ pytestmark = pytest.mark.valid_from("Prague")
                 ],
             ],
             id="single_block_single_withdrawal_request_delegatecall_staticcall_callcode",
+        ),
+        pytest.param(
+            [
+                [
+                    WithdrawalRequestContract(
+                        requests=[
+                            WithdrawalRequest(
+                                validator_pubkey=0x01,
+                                amount=0,
+                                fee=Spec.get_fee(0),
+                                valid=False,
+                            )
+                        ],
+                        call_type=Op.DELEGATECALL,
+                        call_depth=3,
+                    ),
+                    WithdrawalRequestContract(
+                        requests=[
+                            WithdrawalRequest(
+                                validator_pubkey=0x01,
+                                amount=0,
+                                fee=Spec.get_fee(0),
+                                valid=False,
+                            )
+                        ],
+                        call_type=Op.STATICCALL,
+                        call_depth=3,
+                    ),
+                    WithdrawalRequestContract(
+                        requests=[
+                            WithdrawalRequest(
+                                validator_pubkey=0x01,
+                                amount=0,
+                                fee=Spec.get_fee(0),
+                                valid=False,
+                            )
+                        ],
+                        call_type=Op.CALLCODE,
+                        call_depth=3,
+                    ),
+                ],
+            ],
+            id="single_block_single_withdrawal_request_delegatecall_staticcall_callcode_call_depth_3",
+        ),
+        pytest.param(
+            [
+                [
+                    WithdrawalRequestContract(
+                        requests=[
+                            WithdrawalRequest(
+                                validator_pubkey=0x01,
+                                amount=0,
+                                fee=Spec.get_fee(0),
+                                valid=False,
+                            )
+                        ],
+                        call_type=Op.DELEGATECALL,
+                        call_depth=1024,
+                    ),
+                    WithdrawalRequestContract(
+                        requests=[
+                            WithdrawalRequest(
+                                validator_pubkey=0x01,
+                                amount=0,
+                                fee=Spec.get_fee(0),
+                                valid=False,
+                            )
+                        ],
+                        call_type=Op.STATICCALL,
+                        call_depth=1024,
+                    ),
+                    WithdrawalRequestContract(
+                        requests=[
+                            WithdrawalRequest(
+                                validator_pubkey=0x01,
+                                amount=0,
+                                fee=Spec.get_fee(0),
+                                valid=False,
+                            )
+                        ],
+                        call_type=Op.CALLCODE,
+                        call_depth=1024,
+                    ),
+                ],
+            ],
+            id="single_block_single_withdrawal_request_delegatecall_staticcall_callcode_call_depth_high",
         ),
     ],
 )

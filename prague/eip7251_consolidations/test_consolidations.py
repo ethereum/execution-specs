@@ -350,6 +350,43 @@ pytestmark = pytest.mark.valid_from("Prague")
                     ConsolidationRequestContract(
                         requests=[
                             ConsolidationRequest(
+                                source_pubkey=i * 2,
+                                target_pubkey=i * 2 + 1,
+                                fee=Spec.get_fee(0),
+                            )
+                            for i in range(Spec.MAX_CONSOLIDATION_REQUESTS_PER_BLOCK * 5)
+                        ],
+                        call_depth=3,
+                    ),
+                ],
+            ],
+            id="single_block_multiple_consolidation_requests_from_contract_call_depth_3",
+        ),
+        pytest.param(
+            [
+                [
+                    ConsolidationRequestContract(
+                        requests=[
+                            ConsolidationRequest(
+                                source_pubkey=i * 2,
+                                target_pubkey=i * 2 + 1,
+                                fee=Spec.get_fee(0),
+                                gas_limit=6_000_000,
+                            )
+                            for i in range(Spec.MAX_CONSOLIDATION_REQUESTS_PER_BLOCK * 5)
+                        ],
+                        call_depth=100,
+                    ),
+                ],
+            ],
+            id="single_block_multiple_consolidation_requests_from_contract_call_depth_high",
+        ),
+        pytest.param(
+            [
+                [
+                    ConsolidationRequestContract(
+                        requests=[
+                            ConsolidationRequest(
                                 source_pubkey=0x00,
                                 target_pubkey=0x01,
                                 fee=0,
@@ -530,6 +567,92 @@ pytestmark = pytest.mark.valid_from("Prague")
                 ],
             ],
             id="single_block_single_consolidation_request_delegatecall_staticcall_callcode",
+        ),
+        pytest.param(
+            [
+                [
+                    ConsolidationRequestContract(
+                        requests=[
+                            ConsolidationRequest(
+                                source_pubkey=0x01,
+                                target_pubkey=0x02,
+                                fee=Spec.get_fee(0),
+                                valid=False,
+                            )
+                        ],
+                        call_type=Op.DELEGATECALL,
+                        call_depth=3,
+                    ),
+                    ConsolidationRequestContract(
+                        requests=[
+                            ConsolidationRequest(
+                                source_pubkey=0x01,
+                                target_pubkey=0x02,
+                                fee=Spec.get_fee(0),
+                                valid=False,
+                            )
+                        ],
+                        call_type=Op.STATICCALL,
+                        call_depth=3,
+                    ),
+                    ConsolidationRequestContract(
+                        requests=[
+                            ConsolidationRequest(
+                                source_pubkey=0x01,
+                                target_pubkey=0x02,
+                                fee=Spec.get_fee(0),
+                                valid=False,
+                            )
+                        ],
+                        call_type=Op.CALLCODE,
+                        call_depth=3,
+                    ),
+                ],
+            ],
+            id="single_block_single_consolidation_request_delegatecall_staticcall_callcode_call_depth_3",
+        ),
+        pytest.param(
+            [
+                [
+                    ConsolidationRequestContract(
+                        requests=[
+                            ConsolidationRequest(
+                                source_pubkey=0x01,
+                                target_pubkey=0x02,
+                                fee=Spec.get_fee(0),
+                                valid=False,
+                            )
+                        ],
+                        call_type=Op.DELEGATECALL,
+                        call_depth=1024,
+                    ),
+                    ConsolidationRequestContract(
+                        requests=[
+                            ConsolidationRequest(
+                                source_pubkey=0x01,
+                                target_pubkey=0x02,
+                                fee=Spec.get_fee(0),
+                                valid=False,
+                            )
+                        ],
+                        call_type=Op.STATICCALL,
+                        call_depth=1024,
+                    ),
+                    ConsolidationRequestContract(
+                        requests=[
+                            ConsolidationRequest(
+                                source_pubkey=0x01,
+                                target_pubkey=0x02,
+                                fee=Spec.get_fee(0),
+                                valid=False,
+                            )
+                        ],
+                        call_type=Op.CALLCODE,
+                        call_depth=1024,
+                    ),
+                ],
+            ],
+            id="single_block_single_consolidation_request_delegatecall_staticcall_callcode_call_depth_high",
         ),
     ],
 )

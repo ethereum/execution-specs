@@ -692,7 +692,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                     tx_gas_limit=2_500_000_000_000,
                 ),
             ],
-            id="single_deposit_from_contract_call_high_depth",
+            id="single_deposit_from_contract_call_depth_high",
         ),
         # TODO: Send eth with the transaction to the contract
     ],
