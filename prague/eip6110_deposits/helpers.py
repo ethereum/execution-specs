@@ -17,6 +17,62 @@ def sha256(*args: bytes) -> bytes:
     return sha256_hashlib(b"".join(args)).digest()
 
 
+def create_deposit_log_bytes(
+    pubkey_size: int = 48,
+    pubkey_data: bytes = b"",
+    pubkey_offset: int = 160,
+    withdrawal_credentials_size: int = 32,
+    withdrawal_credentials_data: bytes = b"",
+    withdrawal_credentials_offset: int = 256,
+    amount_size: int = 8,
+    amount_data: bytes = b"",
+    amount_offset: int = 320,
+    signature_size: int = 96,
+    signature_data: bytes = b"",
+    signature_offset: int = 384,
+    index_size: int = 8,
+    index_data: bytes = b"",
+    index_offset: int = 512,
+) -> bytes:
+    """Create the deposit log bytes."""
+    result = bytearray(576)
+    offset = 0
+
+    def write_uint256(value: int):
+        nonlocal offset
+        result[offset : offset + 32] = value.to_bytes(32, byteorder="big")
+        offset += 32
+
+    def write_bytes(data: bytes, size: int):
+        nonlocal offset
+        padded = data.ljust(size, b"\x00")
+        result[offset : offset + size] = padded
+        offset += size
+
+    write_uint256(pubkey_offset)
+    write_uint256(withdrawal_credentials_offset)
+    write_uint256(amount_offset)
+    write_uint256(signature_offset)
+    write_uint256(index_offset)
+
+    write_uint256(pubkey_size)
+    write_bytes(pubkey_data, 64)
+
+    write_uint256(withdrawal_credentials_size)
+    write_bytes(withdrawal_credentials_data, 32)
+
+    write_uint256(amount_size)
+    write_bytes(amount_data, 32)
+
+    write_uint256(signature_size)
+    write_bytes(signature_data, 96)
+
+    write_uint256(index_size)
+    write_bytes(index_data, 32)
+
+    return bytes(result)
+
+
 class DepositRequest(DepositRequestBase):
     """Deposit request descriptor."""
 
@@ -93,6 +149,45 @@ class DepositRequest(DepositRequestBase):
             + len(self.signature).to_bytes(offset_length, byteorder="big")
             + self.signature
         )
+
+    def log(self, *, include_abi_encoding: bool = True) -> bytes:
+        """
+        Return the log data for the deposit event.
+
+        event DepositEvent(
+            bytes pubkey,
+            bytes withdrawal_credentials,
+            bytes amount,
+            bytes signature,
+            bytes index
+        );
+        """
+        data = bytearray(576)
+        if include_abi_encoding:
+            # Insert ABI encoding
+            data[30:32] = b"\x00\xa0"  # Offset: pubkey (160)
+            data[62:64] = b"\x01\x00"  # Offset: withdrawal_credentials (256)
+            data[94:96] = b"\x01\x40"  # Offset: amount (320)
+            data[126:128] = b"\x01\x80"  # Offset: signature (384)
+            data[158:160] = b"\x02\x00"  # Offset: index (512)
+            data[190:192] = b"\x00\x30"  # Size: pubkey (48)
+            data[286:288] = b"\x00\x20"  # Size: withdrawal_credentials (32)
+            data[350:352] = b"\x00\x08"  # Size: amount (8)
+            data[414:416] = b"\x00\x60"  # Size: signature (96)
+            data[542:544] = b"\x00\x08"  # Size: index (8)
+        offset = 192
+        data[offset : offset + len(self.pubkey)] = self.pubkey  # [192:240]
+        offset += 48 + len(self.pubkey)
+        data[offset : offset + len(self.withdrawal_credentials)] = (
+            self.withdrawal_credentials
+        )  # [288:320]
+        offset += 32 + len(self.withdrawal_credentials)
+        data[offset : offset + 8] = (self.amount).to_bytes(8, byteorder="little")  # [352:360]
+        offset += 56 + 8
+        data[offset : offset + len(self.signature)] = self.signature  # [416:512]
+        offset += 32 + len(self.signature)
+        data[offset : offset + 8] = (self.index).to_bytes(8, byteorder="little")  # [544:552]
+        return bytes(data)
 
     def with_source_address(self, source_address: Address) -> "DepositRequest":
         """Return a copy."""
