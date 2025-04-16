@@ -467,3 +467,4 @@ eoa
 
 blockchain
 listdir
+precompiles

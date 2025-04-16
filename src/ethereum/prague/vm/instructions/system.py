@@ -133,7 +133,7 @@ def generic_create(
         is_static=False,
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
-        is_delegated=False,
+        disable_precompiles=False,
         parent_evm=evm,
     )
     child_evm = process_create_message(child_message)
@@ -291,7 +291,7 @@ def generic_call(
     memory_output_start_position: U256,
     memory_output_size: U256,
     code: bytes,
-    is_delegated_code: bool,
+    disable_precompiles: bool,
 ) -> None:
     """
     Perform the core logic of the `CALL*` family of opcodes.
@@ -325,7 +325,7 @@ def generic_call(
         is_static=True if is_staticcall else evm.message.is_static,
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
-        is_delegated=is_delegated_code,
+        disable_precompiles=disable_precompiles,
         parent_evm=evm,
     )
     child_evm = process_message(child_message)
@@ -382,7 +382,7 @@ def call(evm: Evm) -> None:
 
     code_address = to
     (
-        is_delegated_code,
+        disable_precompiles,
         code_address,
         code,
         delegated_access_gas_cost,
@@ -428,7 +428,7 @@ def call(evm: Evm) -> None:
             memory_output_start_position,
             memory_output_size,
             code,
-            is_delegated_code,
+            disable_precompiles,
         )
 
     # PROGRAM COUNTER
@@ -471,7 +471,7 @@ def callcode(evm: Evm) -> None:
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
     (
-        is_delegated_code,
+        disable_precompiles,
         code_address,
         code,
         delegated_access_gas_cost,
@@ -512,7 +512,7 @@ def callcode(evm: Evm) -> None:
             memory_output_start_position,
             memory_output_size,
             code,
-            is_delegated_code,
+            disable_precompiles,
         )
 
     # PROGRAM COUNTER
@@ -614,7 +614,7 @@ def delegatecall(evm: Evm) -> None:
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
     (
-        is_delegated_code,
+        disable_precompiles,
         code_address,
         code,
         delegated_access_gas_cost,
@@ -642,7 +642,7 @@ def delegatecall(evm: Evm) -> None:
         memory_output_start_position,
         memory_output_size,
         code,
-        is_delegated_code,
+        disable_precompiles,
     )
 
     # PROGRAM COUNTER
@@ -683,7 +683,7 @@ def staticcall(evm: Evm) -> None:
 
     code_address = to
     (
-        is_delegated_code,
+        disable_precompiles,
         code_address,
         code,
         delegated_access_gas_cost,
@@ -715,7 +715,7 @@ def staticcall(evm: Evm) -> None:
         memory_output_start_position,
         memory_output_size,
         code,
-        is_delegated_code,
+        disable_precompiles,
     )
 
     # PROGRAM COUNTER

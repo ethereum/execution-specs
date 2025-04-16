@@ -131,7 +131,7 @@ class Message:
     is_static: bool
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
-    is_delegated: bool
+    disable_precompiles: bool
     parent_evm: Optional["Evm"]
 
 

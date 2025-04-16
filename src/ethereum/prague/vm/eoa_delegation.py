@@ -204,7 +204,7 @@ def set_delegation(message: Message) -> U256:
     message.code = get_account(state, message.code_address).code
 
     if is_valid_delegation(message.code):
-        message.is_delegated = True
+        message.disable_precompiles = True
         message.code_address = Address(
             message.code[EOA_DELEGATION_MARKER_LENGTH:]
         )
