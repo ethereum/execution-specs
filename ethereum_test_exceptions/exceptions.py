@@ -385,6 +385,11 @@ class TransactionException(ExceptionBase):
     """
     Transaction type 4 included before activation fork.
     """
+    INVALID_DEPOSIT_EVENT_LAYOUT = auto()
+    """
+    Transaction emits a `DepositEvent` in the deposit contract (EIP-6110), but the layout
+    of the event does not match the required layout.
+    """
 
 
 @unique
