@@ -196,6 +196,10 @@ class FullEvmTracer(BaseEvmTracer):
                 evm.message.tx_env.tx_hash,
                 self.output_basedir,
             )
+        
+            # Empty the traces after output
+            self.traces.clear()
+
         elif isinstance(event, PrecompileStart):
             new_trace = Trace(
                 pc=int(evm.pc),
