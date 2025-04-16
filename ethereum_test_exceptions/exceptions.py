@@ -381,6 +381,10 @@ class TransactionException(ExceptionBase):
     """
     Transaction is type 4, but contains an authorization that has an invalid format.
     """
+    TYPE_4_TX_PRE_FORK = auto()
+    """
+    Transaction type 4 included before activation fork.
+    """
 
 
 @unique

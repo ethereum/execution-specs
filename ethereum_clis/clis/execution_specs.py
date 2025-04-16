@@ -146,6 +146,7 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_3_TX_PRE_FORK: (
             "module 'ethereum.shanghai.transactions' has no attribute 'BlobTransaction'"
         ),
+        TransactionException.TYPE_4_TX_PRE_FORK: "Unknown transaction type: 0x4",
         TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: "d transaction: ",
         # This message is the same as TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED
         TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: " transaction: ",
