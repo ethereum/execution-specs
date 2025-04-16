@@ -17,7 +17,7 @@ class ConsolidationRequest(ConsolidationRequestBase):
 
     fee: int = 0
     """
-    Fee to be paid for the consolidation request.
+    Fee to be paid to the system contract for the consolidation request.
     """
     valid: bool = True
     """
@@ -38,13 +38,16 @@ class ConsolidationRequest(ConsolidationRequestBase):
 
     @property
     def value(self) -> int:
-        """Returns the value of the consolidation request."""
+        """
+        Return the value of the call to the consolidation request contract, equal to the fee
+        to be paid.
+        """
         return self.fee
 
     @cached_property
     def calldata(self) -> bytes:
         """
-        Returns the calldata needed to call the consolidation request contract and make the
+        Return the calldata needed to call the consolidation request contract and make the
         consolidation.
         """
         return self.calldata_modifier(self.source_pubkey + self.target_pubkey)
