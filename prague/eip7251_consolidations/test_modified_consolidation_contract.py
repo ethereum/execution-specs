@@ -10,11 +10,13 @@ import pytest
 
 from ethereum_test_tools import (
     Account,
+    Address,
     Alloc,
     Block,
     BlockchainTestFiller,
     Bytecode,
     Transaction,
+    generate_system_contract_error_test,
 )
 from ethereum_test_tools import Macros as Om
 from ethereum_test_tools import Opcodes as Op
@@ -130,3 +132,20 @@ def test_extra_consolidations(
         ],
         post={},
     )
+
+
+@pytest.mark.parametrize(
+    "system_contract", [Address(Spec_EIP7251.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS)]
+)
+@generate_system_contract_error_test(
+    max_gas_limit=Spec_EIP7251.SYSTEM_CALL_GAS_LIMIT,
+)
+def test_system_contract_errors():
+    """
+    Test system contract raising different errors when called by the system account at the
+    end of the block execution.
+
+    To see the list of generated tests, please refer to the
+    `generate_system_contract_error_test` decorator definition.
+    """
+    pass
