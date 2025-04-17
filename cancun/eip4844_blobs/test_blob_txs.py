@@ -1347,6 +1347,7 @@ def test_blob_tx_attribute_gasprice_opcode(
         "parent_excess_blobs",
         "tx_max_fee_per_blob_gas",
         "tx_error",
+        "block_error",
     ],
     [
         (
@@ -1354,8 +1355,15 @@ def test_blob_tx_attribute_gasprice_opcode(
             None,
             1,
             [TransactionException.TYPE_3_TX_PRE_FORK, TransactionException.TYPE_3_TX_ZERO_BLOBS],
+            [TransactionException.TYPE_3_TX_PRE_FORK, TransactionException.TYPE_3_TX_ZERO_BLOBS],
         ),
-        ([1], None, 1, TransactionException.TYPE_3_TX_PRE_FORK),
+        (
+            [1],
+            None,
+            1,
+            TransactionException.TYPE_3_TX_PRE_FORK,
+            [TransactionException.TYPE_3_TX_PRE_FORK, BlockException.INVALID_VERSIONED_HASHES],
+        ),
     ],
     ids=["no_blob_tx", "one_blob_tx"],
 )
@@ -1365,6 +1373,7 @@ def test_blob_type_tx_pre_fork(
     state_test: StateTestFiller,
     pre: Alloc,
     txs: List[Transaction],
+    block_error: Optional[TransactionException | BlockException],
 ):
     """
     Reject blocks with blob type transactions before Cancun fork.
@@ -1378,4 +1387,5 @@ def test_blob_type_tx_pre_fork(
         post={},
         tx=txs[0],
         env=Environment(),  # `env` fixture has blob fields
+        block_exception=block_error,
     )
