@@ -9,7 +9,7 @@ then process each one.
 """
 
 from hashlib import sha256
-from typing import List, Union
+from typing import List, Tuple, Union
 
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import Uint, ulen
@@ -146,22 +146,23 @@ def extract_deposit_data(data: Bytes) -> Bytes:
     return pubkey + withdrawal_credentials + amount + signature + index
 
 
-def parse_deposit_requests_from_receipt(
-    receipt: Union[Bytes, Receipt],
+def parse_deposit_requests_from_receipts(
+    receipts: Tuple[Union[Bytes, Receipt], ...],
 ) -> Bytes:
     """
     Parse deposit requests from a receipt.
     """
     deposit_requests: Bytes = b""
-    decoded_receipt = decode_receipt(receipt)
-    for log in decoded_receipt.logs:
-        if log.address == DEPOSIT_CONTRACT_ADDRESS:
-            if (
-                len(log.topics) > 0
-                and log.topics[0] == DEPOSIT_EVENT_SIGNATURE_HASH
-            ):
-                request = extract_deposit_data(log.data)
-                deposit_requests += request
+    for receipt in receipts:
+        decoded_receipt = decode_receipt(receipt)
+        for log in decoded_receipt.logs:
+            if log.address == DEPOSIT_CONTRACT_ADDRESS:
+                if (
+                    len(log.topics) > 0
+                    and log.topics[0] == DEPOSIT_EVENT_SIGNATURE_HASH
+                ):
+                    request = extract_deposit_data(log.data)
+                    deposit_requests += request
 
     return deposit_requests
 
