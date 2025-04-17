@@ -626,3 +626,21 @@ def test_valid_non_constant_stack_examples(
         data=data,
         container_post=Account(storage=expected_storage),
     )
+
+
+@pytest.mark.parametrize("num_rjumpi", [MAX_STACK_INCREASE_LIMIT, MAX_STACK_INCREASE_LIMIT + 1])
+def test_stack_range_maximally_broad(eof_test, num_rjumpi: int):
+    """Test stack range 0-1023 at final instruction."""
+    code = Op.STOP()
+    for i in range(0, num_rjumpi):
+        offset = i * 5 + 1
+        code = Op.PUSH0 + Op.RJUMPI[offset] + Op.PUSH0 + code
+
+    container = Container.Code(code=code, max_stack_increase=MAX_STACK_INCREASE_LIMIT)
+
+    eof_test(
+        container=container,
+        expect_exception=None
+        if num_rjumpi <= MAX_STACK_INCREASE_LIMIT
+        else EOFException.INVALID_MAX_STACK_INCREASE,
+    )

@@ -321,7 +321,7 @@
 - [ ] Wrong max_stack_height (ethereum/tests: ./src/EOFTestsFiller/efExample/validInvalidFiller.yml src/EOFTestsFiller/efValidation/max_stack_height_Copier.json)
 - [ ] All opcodes correctly account for stack inputs/outputs (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
 - [ ] Code reachable only via backwards jump is invalid
-- [ ] Maximally broad [0, 1023] stack range (ethereum/tests: src/EOFTestsFiller/efStack/stack_range_maximally_broad_Copier.json)
+- [x] Maximally broad [0, 1023] stack range ([`tests/osaka/eip7692_eof_v1/eip_5450_stack/test_code_validation.py::test_stack_range_maximally_broad`](./eip5450_stack/test_code_validation/test_stack_range_maximally_broad.md))
 
 ### Execution
 
