@@ -2,7 +2,7 @@
 
 import re
 from abc import ABC
-from typing import Any, ClassVar, Dict, Generic
+from typing import Any, ClassVar, Dict, Generic, List
 
 from pydantic import BaseModel, BeforeValidator, ValidationInfo
 
@@ -48,14 +48,19 @@ class ExceptionMapper(ABC):
             exception: re.compile(message) for exception, message in self.mapping_regex.items()
         }
 
-    def message_to_exception(self, exception_string: str) -> ExceptionBase | UndefinedException:
+    def message_to_exception(
+        self, exception_string: str
+    ) -> List[ExceptionBase] | UndefinedException:
         """Match a formatted string to an exception."""
+        exceptions: List[ExceptionBase] = []
         for exception, substring in self.mapping_substring.items():
             if substring in exception_string:
-                return exception
+                exceptions.append(exception)
         for exception, pattern in self._mapping_compiled_regex.items():
             if pattern.search(exception_string):
-                return exception
+                exceptions.append(exception)
+        if exceptions:
+            return exceptions
         return UndefinedException(exception_string, mapper_name=self.mapper_name)
 
 
@@ -65,8 +70,18 @@ class ExceptionWithMessage(BaseModel, Generic[ExceptionBoundTypeVar]):
     tool/client.
     """
 
-    exception: ExceptionBoundTypeVar
+    exceptions: List[ExceptionBoundTypeVar]
     message: str
+
+    def __contains__(self, item: Any) -> bool:
+        """Check if the item is in the exceptions list."""
+        if isinstance(item, list):
+            return any(exception in self.exceptions for exception in item)
+        return item in self.exceptions
+
+    def __str__(self):
+        """Return the string representation of the exception message."""
+        return f"[{' | '.join(str(e) for e in self.exceptions)}] {self.message}"
 
 
 def mapper_validator(v: str, info: ValidationInfo) -> Dict[str, Any] | UndefinedException | None:
@@ -76,16 +91,19 @@ def mapper_validator(v: str, info: ValidationInfo) -> Dict[str, Any] | Undefined
     """
     if v is None:
         return v
-    assert isinstance(info.context, dict), f"Invalid context provided: {info.context}"
+    if not isinstance(info.context, dict):
+        return UndefinedException(v, mapper_name="UndefinedExceptionMapper: No context")
     exception_mapper = info.context.get("exception_mapper")
+    if exception_mapper is None:
+        return UndefinedException(v, mapper_name="UndefinedExceptionMapper: No mapper")
     assert isinstance(exception_mapper, ExceptionMapper), (
         f"Invalid mapper provided {exception_mapper}"
     )
-    exception = exception_mapper.message_to_exception(v)
-    if isinstance(exception, UndefinedException):
-        return exception
+    exceptions = exception_mapper.message_to_exception(v)
+    if isinstance(exceptions, UndefinedException):
+        return exceptions
     return {
-        "exception": exception,
+        "exceptions": exceptions,
         "message": v,
     }
 

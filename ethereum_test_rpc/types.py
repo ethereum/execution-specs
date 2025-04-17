@@ -1,11 +1,18 @@
 """Types used in the RPC module for `eth` and `engine` namespaces' requests."""
 
 from enum import Enum
-from typing import Any, List
+from typing import Annotated, Any, List, Union
 
 from pydantic import AliasChoices, Field, model_validator
 
 from ethereum_test_base_types import Address, Bytes, CamelModel, Hash, HexNumber
+from ethereum_test_exceptions import (
+    BlockException,
+    ExceptionMapperValidator,
+    ExceptionWithMessage,
+    TransactionException,
+    UndefinedException,
+)
 from ethereum_test_fixtures.blockchain import FixtureExecutionPayload
 from ethereum_test_types import Transaction, Withdrawal
 
@@ -79,12 +86,25 @@ class PayloadStatusEnum(str, Enum):
     INVALID_BLOCK_HASH = "INVALID_BLOCK_HASH"
 
 
+class BlockTransactionExceptionWithMessage(
+    ExceptionWithMessage[Union[BlockException, TransactionException]]  # type: ignore
+):
+    """Exception returned from the execution client with a message."""
+
+    pass
+
+
 class PayloadStatus(CamelModel):
     """Represents the status of a payload after execution."""
 
     status: PayloadStatusEnum
     latest_valid_hash: Hash | None
-    validation_error: str | None
+    validation_error: (
+        Annotated[
+            BlockTransactionExceptionWithMessage | UndefinedException, ExceptionMapperValidator
+        ]
+        | None
+    )
 
 
 class ForkchoiceUpdateResponse(CamelModel):

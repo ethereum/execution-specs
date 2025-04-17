@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import pytest
 
-from ethereum_test_exceptions import ExceptionMapper
+from ethereum_test_exceptions import BlockException, ExceptionMapper, TransactionException
 from ethereum_test_fixtures import BlockchainFixture, EOFFixture, FixtureFormat, StateFixture
 
 from ..ethereum_cli import EthereumCLI
@@ -316,3 +316,63 @@ class NethtestFixtureConsumer(
             raise Exception(
                 f"Fixture format {fixture_format.format_name} not supported by {self.binary}"
             )
+
+
+class NethermindExceptionMapper(ExceptionMapper):
+    """Nethermind exception mapper."""
+
+    mapping_substring = {
+        TransactionException.SENDER_NOT_EOA: "sender has deployed code",
+        TransactionException.INTRINSIC_GAS_TOO_LOW: "intrinsic gas too low",
+        TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: "miner premium is negative",
+        TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
+            "InvalidMaxPriorityFeePerGas: Cannot be higher than maxFeePerGas"
+        ),
+        TransactionException.INITCODE_SIZE_EXCEEDED: "max initcode size exceeded",
+        TransactionException.NONCE_MISMATCH_TOO_LOW: "wrong transaction nonce",
+        TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
+            "InsufficientMaxFeePerBlobGas: Not enough to cover blob gas fee"
+        ),
+        TransactionException.TYPE_3_TX_PRE_FORK: (
+            "InvalidTxType: Transaction type in Custom is not supported"
+        ),
+        TransactionException.TYPE_3_TX_ZERO_BLOBS: "blob transaction missing blob hashes",
+        TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: (
+            "InvalidBlobVersionedHashVersion: Blob version not supported"
+        ),
+        TransactionException.TYPE_3_TX_CONTRACT_CREATION: "blob transaction of type create",
+        TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: (
+            "MissingAuthorizationList: Must be set"
+        ),
+        TransactionException.TYPE_4_TX_CONTRACT_CREATION: (
+            "NotAllowedCreateTransaction: To must be set"
+        ),
+        TransactionException.TYPE_4_TX_PRE_FORK: (
+            "InvalidTxType: Transaction type in Custom is not supported"
+        ),
+        BlockException.INCORRECT_BLOB_GAS_USED: (
+            "HeaderBlobGasMismatch: Blob gas in header does not match calculated"
+        ),
+        BlockException.INVALID_REQUESTS: "InvalidRequestsHash: Requests hash mismatch in block",
+    }
+    mapping_regex = {
+        TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
+            r"insufficient sender balance|insufficient MaxFeePerGas for sender balance"
+        ),
+        TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: r"Transaction \d+ is not valid",
+        TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
+            r"BlobTxGasLimitExceeded: Transaction's totalDataGas=\d+ "
+            r"exceeded MaxBlobGas per transaction=\d+"
+        ),
+        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: (
+            r"BlockBlobGasExceeded: A block cannot have more than \d+ blob gas, blobs count \d+, "
+            r"blobs gas used: \d+"
+        ),
+        BlockException.INCORRECT_EXCESS_BLOB_GAS: (
+            r"HeaderExcessBlobGasMismatch: Excess blob gas in header does not match calculated"
+            r"|Overflow in excess blob gas"
+        ),
+        BlockException.INVALID_BLOCK_HASH: (
+            r"Invalid block hash 0x[0-9a-f]+ does not match calculated hash 0x[0-9a-f]+"
+        ),
+    }

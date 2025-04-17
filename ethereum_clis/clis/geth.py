@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional
 
 from ethereum_test_exceptions import (
+    BlockException,
     EOFException,
     ExceptionBase,
     ExceptionMapper,
@@ -27,9 +28,7 @@ class GethExceptionMapper(ExceptionMapper):
     """Translate between EEST exceptions and error strings returned by Geth."""
 
     mapping_substring: ClassVar[Dict[ExceptionBase, str]] = {
-        TransactionException.TYPE_4_TX_CONTRACT_CREATION: (
-            "set code transaction must not be a create transaction"
-        ),
+        TransactionException.SENDER_NOT_EOA: "sender not an eoa",
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
             "insufficient funds for gas * price + value"
         ),
@@ -42,15 +41,35 @@ class GethExceptionMapper(ExceptionMapper):
         TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
             "max fee per gas less than block base fee"
         ),
-        TransactionException.TYPE_3_TX_PRE_FORK: (
-            "blob tx used but field env.ExcessBlobGas missing"
+        TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
+            "max priority fee per gas higher than max fee per gas"
         ),
+        TransactionException.TYPE_3_TX_PRE_FORK: ("transaction type not supported"),
         TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: "has invalid hash version",
         # This message is the same as TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED
         TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: "exceed maximum allowance",
         TransactionException.TYPE_3_TX_ZERO_BLOBS: "blob transaction missing blob hashes",
-        TransactionException.INTRINSIC_GAS_TOO_LOW: "intrinsic gas too low",
+        TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: (
+            "unexpected blob sidecar in transaction at index"
+        ),
+        TransactionException.TYPE_3_TX_CONTRACT_CREATION: (
+            "input string too short for common.Address, decoding into (types.BlobTx).To"
+        ),
+        TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: (
+            "EIP-7702 transaction with empty auth list"
+        ),
+        TransactionException.TYPE_4_TX_CONTRACT_CREATION: (
+            "input string too short for common.Address, decoding into (types.SetCodeTx).To"
+        ),
+        TransactionException.TYPE_4_TX_PRE_FORK: ("transaction type not supported"),
         TransactionException.INITCODE_SIZE_EXCEEDED: "max initcode size exceeded",
+        TransactionException.NONCE_MISMATCH_TOO_LOW: "nonce too low",
+        TransactionException.INVALID_DEPOSIT_EVENT_LAYOUT: "unable to parse deposit data",
+        BlockException.INCORRECT_BLOB_GAS_USED: "blob gas used mismatch",
+        BlockException.INCORRECT_EXCESS_BLOB_GAS: "invalid excessBlobGas",
+        BlockException.INVALID_VERSIONED_HASHES: "invalid number of versionedHashes",
+        BlockException.INVALID_REQUESTS: "invalid requests hash",
+        BlockException.INVALID_BLOCK_HASH: "blockhash mismatch",
         # TODO EVMONE needs to differentiate when the section is missing in the header or body
         EOFException.MISSING_STOP_OPCODE: "err: no_terminating_instruction",
         EOFException.MISSING_CODE_HEADER: "err: code_section_missing",
@@ -92,7 +111,17 @@ class GethExceptionMapper(ExceptionMapper):
         EOFException.TOO_MANY_CONTAINERS: "err: too_many_container_sections",
         EOFException.INVALID_CODE_SECTION_INDEX: "err: invalid_code_section_index",
     }
-    mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {}
+    mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {
+        TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
+            r"blob gas used \d+ exceeds maximum allowance \d+"
+        ),
+        TransactionException.INTRINSIC_GAS_TOO_LOW: (
+            r"intrinsic gas too low|insufficient gas for floor data gas cost"
+        ),
+        BlockException.BLOB_GAS_USED_ABOVE_LIMIT: (
+            r"blob gas used \d+ exceeds maximum allowance \d+"
+        ),
+    }
 
 
 class GethEvm(EthereumCLI):

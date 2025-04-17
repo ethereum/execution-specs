@@ -12,6 +12,7 @@ from hive.client import Client, ClientType
 from hive.testing import HiveTest
 
 from ethereum_test_base_types import Number, to_json
+from ethereum_test_exceptions import ExceptionMapper
 from ethereum_test_fixtures import (
     BaseFixture,
     BlockchainFixtureCommon,
@@ -23,6 +24,7 @@ from pytest_plugins.consume.consume import FixturesSource
 from pytest_plugins.consume.hive_simulators.ruleset import ruleset  # TODO: generate dynamically
 from pytest_plugins.pytest_hive.hive_info import ClientInfo
 
+from .exceptions import EXCEPTION_MAPPERS
 from .timing import TimingData
 
 logger = logging.getLogger(__name__)
@@ -39,6 +41,16 @@ def pytest_addoption(parser):
         dest="timing_data",
         default=False,
         help="Log the timing data for each test case execution.",
+    )
+    consume_group.addoption(
+        "--disable-strict-exception-matching",
+        action="store",
+        dest="disable_strict_exception_matching",
+        default="",
+        help=(
+            "Comma-separated list of client names and/or forks which should NOT use strict "
+            "exception matching."
+        ),
     )
 
 
@@ -194,6 +206,67 @@ def buffered_genesis(client_genesis: dict) -> io.BufferedReader:
     genesis_json = json.dumps(client_genesis)
     genesis_bytes = genesis_json.encode("utf-8")
     return io.BufferedReader(cast(io.RawIOBase, io.BytesIO(genesis_bytes)))
+
+
+@pytest.fixture(scope="session")
+def client_exception_mapper_cache():
+    """Cache for exception mappers by client type."""
+    return {}
+
+
+@pytest.fixture(scope="function")
+def client_exception_mapper(
+    client_type: ClientType, client_exception_mapper_cache
+) -> ExceptionMapper | None:
+    """Return the exception mapper for the client type, with caching."""
+    if client_type.name not in client_exception_mapper_cache:
+        for client in EXCEPTION_MAPPERS:
+            if client in client_type.name:
+                client_exception_mapper_cache[client_type.name] = EXCEPTION_MAPPERS[client]
+                break
+        else:
+            client_exception_mapper_cache[client_type.name] = None
+
+    return client_exception_mapper_cache[client_type.name]
+
+
+@pytest.fixture(scope="session")
+def disable_strict_exception_matching(request: pytest.FixtureRequest) -> List[str]:
+    """Return the list of clients or forks that should NOT use strict exception matching."""
+    config_string = request.config.getoption("disable_strict_exception_matching")
+    return config_string.split(",") if config_string else []
+
+
+@pytest.fixture(scope="function")
+def client_strict_exception_matching(
+    client_type: ClientType,
+    disable_strict_exception_matching: List[str],
+) -> bool:
+    """Return True if the client type should use strict exception matching."""
+    return not any(
+        client.lower() in client_type.name.lower() for client in disable_strict_exception_matching
+    )
+
+
+@pytest.fixture(scope="function")
+def fork_strict_exception_matching(
+    fixture: BlockchainFixtureCommon,
+    disable_strict_exception_matching: List[str],
+) -> bool:
+    """Return True if the fork should use strict exception matching."""
+    # NOTE: `in` makes it easier for transition forks ("Prague" in "CancunToPragueAtTime15k")
+    return not any(
+        fork.lower() in fixture.fork.lower() for fork in disable_strict_exception_matching
+    )
+
+
+@pytest.fixture(scope="function")
+def strict_exception_matching(
+    client_strict_exception_matching: bool,
+    fork_strict_exception_matching: bool,
+) -> bool:
+    """Return True if the test should use strict exception matching."""
+    return client_strict_exception_matching and fork_strict_exception_matching
 
 
 @pytest.fixture(scope="function")

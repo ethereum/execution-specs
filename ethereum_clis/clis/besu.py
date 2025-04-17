@@ -13,6 +13,7 @@ import requests
 
 from ethereum_test_base_types import BlobSchedule
 from ethereum_test_exceptions import (
+    BlockException,
     EOFException,
     ExceptionBase,
     ExceptionMapper,
@@ -212,36 +213,53 @@ class BesuExceptionMapper(ExceptionMapper):
     """Translate between EEST exceptions and error strings returned by Besu."""
 
     mapping_substring: ClassVar[Dict[ExceptionBase, str]] = {
-        TransactionException.TYPE_4_TX_CONTRACT_CREATION: (
-            "transaction code delegation transactions must have a non-empty code delegation list"
-        ),
-        TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
-            "exceeds transaction sender account balance"
-        ),
-        TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
-            "would exceed block maximum"
-        ),
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
-            "max fee per blob gas less than block blob gas fee"
+            "transaction invalid tx max fee per blob gas less than block blob gas fee"
         ),
         TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
-            "gasPrice is less than the current BaseFee"
+            "transaction invalid gasPrice is less than the current BaseFee"
         ),
-        TransactionException.TYPE_3_TX_PRE_FORK: (
-            "Transaction type BLOB is invalid, accepted transaction types are "
-            "[EIP1559, ACCESS_LIST, FRONTIER]"
+        TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
+            "transaction invalid max priority fee per gas cannot be greater than max fee per gas"
         ),
-        TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: (
-            "Only supported hash version is 0x01, sha256 hash."
+        TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: "Invalid versionedHash",
+        TransactionException.TYPE_3_TX_CONTRACT_CREATION: (
+            "transaction invalid transaction blob transactions must have a to address"
         ),
-        # This message is the same as TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED
-        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: "exceed block maximum",
+        TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: (
+            "Failed to decode transactions from block parameter"
+        ),
         TransactionException.TYPE_3_TX_ZERO_BLOBS: (
-            "Blob transaction must have at least one versioned hash"
+            "Failed to decode transactions from block parameter"
         ),
-        TransactionException.INTRINSIC_GAS_TOO_LOW: "intrinsic gas",
-        TransactionException.INITCODE_SIZE_EXCEEDED: "exceeds maximum size",
-        TransactionException.NONCE_MISMATCH_TOO_LOW: "below sender account nonce",
+        TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: "Invalid Blob Count",
+        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: "Invalid Blob Count",
+        TransactionException.TYPE_3_TX_PRE_FORK: (
+            "Transaction type BLOB is invalid, accepted transaction types are"
+        ),
+        TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: (
+            "transaction invalid transaction code delegation transactions must have a "
+            "non-empty code delegation list"
+        ),
+        TransactionException.TYPE_4_TX_CONTRACT_CREATION: (
+            "transaction invalid transaction code delegation transactions must have a to address"
+        ),
+        TransactionException.TYPE_4_TX_PRE_FORK: (
+            "transaction invalid Transaction type DELEGATE_CODE is invalid"
+        ),
+        TransactionException.INVALID_DEPOSIT_EVENT_LAYOUT: "Invalid deposit log",
+        BlockException.RLP_STRUCTURES_ENCODING: (
+            "Failed to decode transactions from block parameter"
+        ),
+        BlockException.INCORRECT_EXCESS_BLOB_GAS: (
+            "Payload excessBlobGas does not match calculated excessBlobGas"
+        ),
+        BlockException.BLOB_GAS_USED_ABOVE_LIMIT: (
+            "Payload BlobGasUsed does not match calculated BlobGasUsed"
+        ),
+        BlockException.INCORRECT_BLOB_GAS_USED: (
+            "Payload BlobGasUsed does not match calculated BlobGasUsed"
+        ),
         # TODO EVMONE needs to differentiate when the section is missing in the header or body
         EOFException.MISSING_STOP_OPCODE: "err: no_terminating_instruction",
         EOFException.MISSING_CODE_HEADER: "err: code_section_missing",
@@ -283,4 +301,32 @@ class BesuExceptionMapper(ExceptionMapper):
         EOFException.TOO_MANY_CONTAINERS: "err: too_many_container_sections",
         EOFException.INVALID_CODE_SECTION_INDEX: "err: invalid_code_section_index",
     }
-    mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {}
+    mapping_regex = {
+        BlockException.INVALID_REQUESTS: (
+            r"Invalid execution requests|Requests hash mismatch, calculated: 0x[0-9a-f]+ header: "
+            r"0x[0-9a-f]+"
+        ),
+        BlockException.INVALID_BLOCK_HASH: (
+            r"Computed block hash 0x[0-9a-f]+ does not match block hash parameter 0x[0-9a-f]+"
+        ),
+        BlockException.SYSTEM_CONTRACT_CALL_FAILED: (
+            r"System call halted|System call did not execute to completion"
+        ),
+        TransactionException.INITCODE_SIZE_EXCEEDED: (
+            r"transaction invalid Initcode size of \d+ exceeds maximum size of \d+"
+        ),
+        TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
+            r"transaction invalid transaction up-front cost 0x[0-9a-f]+ exceeds transaction "
+            r"sender account balance 0x[0-9a-f]+"
+        ),
+        TransactionException.INTRINSIC_GAS_TOO_LOW: (
+            r"transaction invalid intrinsic gas cost \d+ exceeds gas limit \d+"
+        ),
+        TransactionException.SENDER_NOT_EOA: (
+            r"transaction invalid Sender 0x[0-9a-f]+ has deployed code and so is not authorized "
+            r"to send transactions"
+        ),
+        TransactionException.NONCE_MISMATCH_TOO_LOW: (
+            r"transaction invalid transaction nonce \d+ below sender account nonce \d+"
+        ),
+    }

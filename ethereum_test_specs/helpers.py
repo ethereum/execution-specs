@@ -41,7 +41,7 @@ class UnexpectedExecutionFailError(Exception):
         self,
         execution_context: ExecutionContext,
         message: str,
-        exception: ExceptionBase | UndefinedException,
+        exception: ExceptionWithMessage | UndefinedException,
         **kwargs,
     ):
         """Initialize the exception."""
@@ -85,7 +85,7 @@ class ExecutionExceptionMismatchError(Exception):
         self,
         execution_context: ExecutionContext,
         want_exception: ExceptionBase | List[ExceptionBase],
-        got_exception: ExceptionBase,
+        got_exception: ExceptionWithMessage,
         got_message: str,
         **kwargs,
     ):
@@ -125,7 +125,7 @@ class ExceptionInfo:
 
     execution_context: ExecutionContext
     want_exception: List[ExceptionBase] | ExceptionBase | None
-    got_exception: ExceptionBase | UndefinedException | None
+    got_exception: ExceptionWithMessage | UndefinedException | None
     got_message: str | None
     context: Dict[str, Any]
 
@@ -140,11 +140,7 @@ class ExceptionInfo:
         """Initialize the exception."""
         self.execution_context = execution_context
         self.want_exception = want_exception
-        self.got_exception = (
-            got_exception.exception
-            if isinstance(got_exception, ExceptionWithMessage)
-            else got_exception
-        )
+        self.got_exception = got_exception
         if self.got_exception is None:
             self.got_message = None
         else:
@@ -182,7 +178,7 @@ class ExceptionInfo:
                     **self.context,
                 )
             if strict_match:
-                if got_exception not in want_exception:
+                if want_exception not in got_exception:
                     got_message = self.got_message
                     assert got_message is not None
                     raise ExecutionExceptionMismatchError(

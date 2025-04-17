@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import ClassVar, Dict, Optional
 
 from ethereum_test_exceptions import (
+    BlockException,
     EOFException,
     ExceptionBase,
     ExceptionMapper,
@@ -48,30 +49,45 @@ class EthereumJSExceptionMapper(ExceptionMapper):
     """Translate between EEST exceptions and error strings returned by EthereumJS."""
 
     mapping_substring: ClassVar[Dict[ExceptionBase, str]] = {
-        TransactionException.TYPE_4_TX_CONTRACT_CREATION: (
-            "set code transaction must not be a create transaction"
-        ),
-        TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
-            "insufficient funds for gas * price + value"
-        ),
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             "would exceed maximum allowance"
         ),
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
-            "max fee per blob gas less than block blob gas fee"
+            "Invalid 4844 transactions: undefined"
         ),
         TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
-            "max fee per gas less than block base fee"
+            "tx unable to pay base fee (EIP-1559 tx)"
         ),
-        TransactionException.TYPE_3_TX_PRE_FORK: (
-            "blob tx used but field env.ExcessBlobGas missing"
+        TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
+            "maxFeePerGas cannot be less than maxPriorityFeePerGas"
         ),
-        TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: "has invalid hash version",
+        TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: (
+            "versioned hash does not start with KZG commitment version"
+        ),
         # This message is the same as TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED
         TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: "exceed maximum allowance",
-        TransactionException.TYPE_3_TX_ZERO_BLOBS: "blob transaction missing blob hashes",
+        TransactionException.TYPE_3_TX_ZERO_BLOBS: "tx should contain at least one blob",
+        TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: "Invalid EIP-4844 transaction",
+        TransactionException.TYPE_3_TX_CONTRACT_CREATION: (
+            'tx should have a "to" field and cannot be used to create contracts'
+        ),
+        TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: (
+            "Invalid EIP-7702 transaction: authorization list is empty"
+        ),
         TransactionException.INTRINSIC_GAS_TOO_LOW: "is lower than the minimum gas limit of",
-        TransactionException.INITCODE_SIZE_EXCEEDED: "max initcode size exceeded",
+        TransactionException.INITCODE_SIZE_EXCEEDED: (
+            "the initcode size of this transaction is too large"
+        ),
+        TransactionException.TYPE_4_TX_CONTRACT_CREATION: (
+            'tx should have a "to" field and cannot be used to create contracts'
+        ),
+        TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
+            "sender doesn't have enough funds to send tx"
+        ),
+        TransactionException.NONCE_MISMATCH_TOO_LOW: "the tx doesn't have the correct nonce",
+        TransactionException.INVALID_DEPOSIT_EVENT_LAYOUT: "Error verifying block while running",
+        BlockException.INCORRECT_EXCESS_BLOB_GAS: "Invalid 4844 transactions",
+        BlockException.INVALID_RECEIPTS_ROOT: "invalid receipttrie",
         # TODO EVMONE needs to differentiate when the section is missing in the header or body
         EOFException.MISSING_STOP_OPCODE: "err: no_terminating_instruction",
         EOFException.MISSING_CODE_HEADER: "err: code_section_missing",
@@ -113,4 +129,22 @@ class EthereumJSExceptionMapper(ExceptionMapper):
         EOFException.TOO_MANY_CONTAINERS: "err: too_many_container_sections",
         EOFException.INVALID_CODE_SECTION_INDEX: "err: invalid_code_section_index",
     }
-    mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {}
+    mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {
+        TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
+            r"tx causes total blob gas of \d+ to exceed maximum blob gas per block of \d+|"
+            r"tx can contain at most \d+ blobs"
+        ),
+        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: (
+            r"tx causes total blob gas of \d+ to exceed maximum blob gas per block of \d+|"
+            r"tx can contain at most \d+ blobs"
+        ),
+        TransactionException.TYPE_3_TX_PRE_FORK: (
+            r"blob tx used but field env.ExcessBlobGas missing|EIP-4844 not enabled on Common"
+        ),
+        BlockException.BLOB_GAS_USED_ABOVE_LIMIT: r"invalid blobGasUsed expected=\d+ actual=\d+",
+        BlockException.INCORRECT_BLOB_GAS_USED: r"invalid blobGasUsed expected=\d+ actual=\d+",
+        BlockException.INVALID_BLOCK_HASH: (
+            r"Invalid blockHash, expected: 0x[0-9a-f]+, received: 0x[0-9a-f]+"
+        ),
+        BlockException.INVALID_REQUESTS: r"Unknown request identifier|invalid requestshash",
+    }

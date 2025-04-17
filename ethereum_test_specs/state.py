@@ -8,7 +8,7 @@ from pydantic import Field
 
 from ethereum_clis import TransitionTool
 from ethereum_test_base_types import HexNumber
-from ethereum_test_exceptions import EngineAPIError
+from ethereum_test_exceptions import BlockException, EngineAPIError, TransactionException
 from ethereum_test_execution import (
     BaseExecute,
     ExecuteFormat,
@@ -44,6 +44,9 @@ class StateTest(BaseTest):
     pre: Alloc
     post: Alloc
     tx: Transaction
+    block_exception: (
+        List[TransactionException | BlockException] | TransactionException | BlockException | None
+    ) = None
     engine_api_error_code: Optional[EngineAPIError] = None
     blockchain_test_header_verify: Optional[Header] = None
     blockchain_test_rlp_modifier: Optional[Header] = None
@@ -132,12 +135,15 @@ class StateTest(BaseTest):
             "parent_beacon_block_root": self.env.parent_beacon_block_root,
             "txs": [self.tx],
             "ommers": [],
-            "exception": self.tx.error,
             "header_verify": self.blockchain_test_header_verify,
             "rlp_modifier": self.blockchain_test_rlp_modifier,
         }
         if not fork.header_prev_randao_required():
             kwargs["difficulty"] = self.env.difficulty
+        if "block_exception" in self.model_fields_set:
+            kwargs["exception"] = self.block_exception  # type: ignore
+        elif "error" in self.tx.model_fields_set:
+            kwargs["exception"] = self.tx.error  # type: ignore
         return [Block(**kwargs)]
 
     def generate_blockchain_test(self, *, fork: Fork) -> BlockchainTest:

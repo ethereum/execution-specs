@@ -93,6 +93,8 @@ class UndefinedException(str):
 
     def __new__(cls, value: str, *, mapper_name: str | None = None) -> "UndefinedException":
         """Create a new UndefinedException instance."""
+        if isinstance(value, UndefinedException):
+            return value
         assert isinstance(value, str)
         instance = super().__new__(cls, value)
         instance.mapper_name = mapper_name
@@ -514,6 +516,10 @@ class BlockException(ExceptionBase):
     """
     Block's excess blob gas in header is incorrect.
     """
+    INVALID_VERSIONED_HASHES = auto()
+    """
+    Incorrect number of versioned hashes in a payload.
+    """
     RLP_STRUCTURES_ENCODING = auto()
     """
     Block's rlp encoding is valid but ethereum structures in it are invalid.
@@ -581,6 +587,10 @@ class BlockException(ExceptionBase):
     SYSTEM_CONTRACT_CALL_FAILED = auto()
     """
     A system contract call at the end of block execution (from the system address) fails.
+    """
+    INVALID_BLOCK_HASH = auto()
+    """
+    Block header's hash does not match the actually computed hash of the block.
     """
 
 
