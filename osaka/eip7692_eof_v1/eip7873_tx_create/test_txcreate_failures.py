@@ -17,6 +17,7 @@ from ethereum_test_tools import (
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 from ethereum_test_types.eof.v1 import Container, Section
 from ethereum_test_types.eof.v1.constants import MAX_BYTECODE_SIZE, MAX_INITCODE_SIZE
+from ethereum_test_vm.bytecode import Bytecode
 
 from .. import EOF_FORK_NAME
 from ..eip7069_extcall.spec import EXTCALL_FAILURE, EXTCALL_REVERT, LEGACY_CALL_FAILURE
@@ -787,3 +788,181 @@ def test_reentrant_txcreate(
         sender=pre.fund_eoa(),
     )
     state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.with_all_evm_code_types
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "valid",
+        "invalid_deploy_container",
+        "invalid_initcode",
+        "invalid_opcode_during_initcode",
+        "invalid_opcode_with_sstore_during_initcode",
+        "revert_opcode_during_initcode",
+        "out_of_gas_during_initcode",
+        "out_of_gas_when_returning_contract",
+        "out_of_gas_when_returning_contract_due_to_memory_expansion",
+    ],
+)
+def test_invalid_container_deployment(
+    state_test: StateTestFiller,
+    fork: Fork,
+    pre: Alloc,
+    reason: str,
+):
+    """Verify contract is not deployed when an invalid container deployment is attempted."""
+    env = Environment()
+    sender = pre.fund_eoa()
+
+    # Valid defaults
+    deployed_container = Container(
+        sections=[
+            Section.Code(code=Op.CALLF[1](Op.PUSH0, Op.PUSH0) + Op.STOP),
+            Section.Code(code=Op.ADD + Op.RETF, code_inputs=2, code_outputs=1),
+        ]
+    )
+    initcontainer: Container = Container(
+        sections=[
+            Section.Code(code=Op.RETURNCODE[0](0, 0)),
+            Section.Container(deployed_container),
+        ],
+    )
+    tx_gas_limit = 100_000
+    fork_intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
+    fork_gas_costs = fork.gas_costs()
+
+    # Modify defaults based on invalidity reason
+    if reason == "invalid_deploy_container":
+        deployed_container = Container(
+            sections=[
+                Section.Code(code=Op.CALLF[1](Op.PUSH0, Op.PUSH0) + Op.STOP),
+                Section.Code(code=Op.ADD + Op.RETF, code_outputs=0),
+            ]
+        )
+        initcontainer = Container(
+            sections=[
+                Section.Code(code=Op.RETURNCODE[0](0, 0)),
+                Section.Container(deployed_container),
+            ],
+        )
+    elif reason == "invalid_initcode":
+        initcontainer = Container(
+            sections=[
+                Section.Code(code=Op.RETURNCODE[1](0, 0)),
+                Section.Container(deployed_container),
+            ],
+        )
+    elif (
+        reason == "invalid_opcode_during_initcode"
+        or reason == "invalid_opcode_with_sstore_during_initcode"
+        or reason == "revert_opcode_during_initcode"
+        or reason == "out_of_gas_during_initcode"
+    ):
+        invalid_code_path: Bytecode
+        if reason == "invalid_opcode_with_sstore_during_initcode":
+            invalid_code_path = Op.SSTORE(0, 1) + Op.INVALID
+        elif reason == "revert_opcode_during_initcode":
+            invalid_code_path = Op.REVERT(0, 0)
+        elif reason == "out_of_gas_during_initcode":
+            invalid_code_path = Op.MSTORE(0xFFFFFFFFFFFFFFFFFFFFFFFFFFF, 1)
+        elif reason == "invalid_opcode_during_initcode":
+            invalid_code_path = Op.INVALID
+        else:
+            raise Exception(f"invalid case: {reason}")
+        initcontainer = Container(
+            sections=[
+                Section.Code(
+                    code=Op.RJUMPI[len(invalid_code_path)](Op.PUSH0)
+                    + invalid_code_path
+                    + Op.RETURNCODE[0](0, 0)
+                ),
+                Section.Container(deployed_container),
+            ],
+        )
+    elif reason == "out_of_gas_when_returning_contract":
+        factory_gas_cost = (
+            7 * fork_gas_costs.G_VERY_LOW
+            + fork_gas_costs.G_STORAGE_SET
+            + fork_gas_costs.G_COLD_SLOAD
+            + fork_gas_costs.G_CREATE
+        )
+        initcode_gas_cost = 2 * fork_gas_costs.G_VERY_LOW
+        tx_gas_limit = (
+            fork_intrinsic_gas_calculator(calldata=initcontainer)
+            + factory_gas_cost
+            + (initcode_gas_cost - 1) * 64 // 63
+        )
+    elif reason == "out_of_gas_when_returning_contract_due_to_memory_expansion":
+        factory_gas_cost = (
+            7 * fork_gas_costs.G_VERY_LOW
+            + fork_gas_costs.G_STORAGE_SET
+            + fork_gas_costs.G_COLD_SLOAD
+            + fork_gas_costs.G_CREATE
+        )
+        initcode_gas_cost = (
+            # Code deposit gas cost
+            len(deployed_container) * fork_gas_costs.G_CODE_DEPOSIT_BYTE
+            # Two push opcodes
+            + 2 * fork_gas_costs.G_VERY_LOW
+        )
+        tx_gas_limit = (
+            fork_intrinsic_gas_calculator(calldata=initcontainer)
+            + factory_gas_cost
+            + initcode_gas_cost * 64 // 63
+        )
+        initcontainer = Container(
+            sections=[
+                Section.Code(code=Op.RETURNCODE[0](0xFFFFFFFFFFFFFFFFFFFFFFFFFFF, 0x1)),
+                Section.Container(deployed_container),
+            ],
+        )
+    elif reason == "valid":
+        pass
+    else:
+        raise TypeError("Unexpected reason", reason)
+
+    initcode_hash = initcontainer.hash
+    contract_address = pre.deploy_contract(
+        code=Op.SSTORE(slot_code_worked, value_code_worked)
+        + Op.TXCREATE(tx_initcode_hash=initcode_hash)
+        + Op.STOP
+    )
+
+    tx = Transaction(
+        to=contract_address,
+        sender=sender,
+        gas_limit=tx_gas_limit,
+        initcodes=[initcontainer],
+    )
+
+    destination_contract_address = compute_eofcreate_address(contract_address, 0)
+
+    post = (
+        {
+            destination_contract_address: Account.NONEXISTENT,
+            contract_address: Account(
+                nonce=1 if reason in ["invalid_initcode", "invalid_deploy_container"] else 2,
+                storage={
+                    slot_code_worked: value_code_worked,
+                },
+            ),
+        }
+        if reason != "valid"
+        else {
+            destination_contract_address: Account(nonce=1, code=deployed_container),
+            contract_address: Account(
+                nonce=2,
+                storage={
+                    slot_code_worked: value_code_worked,
+                },
+            ),
+        }
+    )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post=post,
+        tx=tx,
+    )

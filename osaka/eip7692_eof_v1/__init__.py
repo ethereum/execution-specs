@@ -12,7 +12,7 @@ abstract: Test cases for [EIP-7692: EVM Object Format (EOFv1) Meta](https://eips
     * [EIP-7069: Revamped CALL instructions](https://eips.ethereum.org/EIPS/eip-7069).
     * [EIP-7480: EOF - Data section access instructions](https://eips.ethereum.org/EIPS/eip-7480).
     * [EIP-7620: EOF Contract Creation](https://eips.ethereum.org/EIPS/eip-7620).
-    * [EIP-7698: EOF - Creation transaction](https://eips.ethereum.org/EIPS/eip-7698).
+    * [EIP-7873: EOF - TXCREATE and InitcodeTransaction type](https://eips.ethereum.org/EIPS/eip-7873).
 
 ## Devnet Specifications
 

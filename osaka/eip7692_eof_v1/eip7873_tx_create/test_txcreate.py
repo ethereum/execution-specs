@@ -693,3 +693,52 @@ def test_txcreate_memory_context(
         initcodes=[initcontainer],
     )
     state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.with_all_evm_code_types
+def test_short_data_subcontainer(
+    state_test: StateTestFiller,
+    pre: Alloc,
+):
+    """Deploy a subcontainer where the data is "short" and filled by deployment code."""
+    env = Environment()
+    sender = pre.fund_eoa()
+
+    deploy_container = Container(
+        sections=[
+            Section.Code(Op.STOP),
+            Section.Data(data="001122", custom_size=4),
+        ]
+    )
+    initcontainer = Container(
+        sections=[
+            Section.Code(code=Op.RETURNCODE[0](0, 5)),
+            Section.Container(deploy_container),
+        ],
+    )
+    initcode_hash = initcontainer.hash
+    contract_address = pre.deploy_contract(
+        code=Op.SSTORE(0, Op.TXCREATE(tx_initcode_hash=initcode_hash)) + Op.STOP,
+        storage={0: 0xB17D},  # a canary to be overwritten
+    )
+    # Storage in 0 should have the address,
+    destination_address = compute_eofcreate_address(contract_address, 0)
+    destination_code = deploy_container.copy()
+    destination_code.sections[1] = Section.Data(data="0011220000000000")
+    post = {
+        contract_address: Account(storage={0: compute_eofcreate_address(contract_address, 0)}),
+        destination_address: Account(code=destination_code),
+    }
+    tx = Transaction(
+        to=contract_address,
+        gas_limit=100_000,
+        sender=sender,
+        initcodes=[initcontainer],
+    )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post=post,
+        tx=tx,
+    )

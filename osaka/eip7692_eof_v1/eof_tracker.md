@@ -476,6 +476,8 @@
 
 ## EIP-7698: EOF - Creation transaction
 
+TODO: replace with `EIP-7873: EOF - TXCREATE and InitcodeTransaction type` test cases
+
 ### Execution
 
 - [ ] Creation transaction success with empty deploy container data (evmone-tests: state_tests/state_transition/eof_create/creation_tx.json)

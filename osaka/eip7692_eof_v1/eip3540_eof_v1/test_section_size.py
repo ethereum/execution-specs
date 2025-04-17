@@ -71,7 +71,10 @@ class SectionSize(IntEnum):
             id="type_size_zero",
         ),
         pytest.param(
-            SectionKind.TYPE, SectionSize.UNDERSIZE, EOFException.INVALID_TYPE_SECTION_SIZE
+            SectionKind.TYPE,
+            SectionSize.UNDERSIZE,
+            [EOFException.INVALID_SECTION_BODIES_SIZE, EOFException.INVALID_TYPE_SECTION_SIZE],
+            id="type_size_undersize",
         ),
         pytest.param(
             SectionKind.TYPE, SectionSize.OVERSIZE, EOFException.INVALID_SECTION_BODIES_SIZE

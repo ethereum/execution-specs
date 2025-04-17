@@ -426,7 +426,10 @@ def test_valid_containers(
             # EOF code containing type section size (Size 1)
             name="EOF1I4750_0003",
             raw_bytes="ef00010100010200010001ff00000000800000fe",
-            validity_error=EOFException.INVALID_TYPE_SECTION_SIZE,
+            validity_error=[
+                EOFException.INVALID_TYPE_SECTION_SIZE,
+                EOFException.INVALID_SECTION_BODIES_SIZE,
+            ],
         ),
         Container(
             # EOF code containing type section size (Size 8 - 1 Code section)

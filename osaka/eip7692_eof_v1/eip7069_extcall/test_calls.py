@@ -14,10 +14,10 @@ from ethereum_test_tools import (
     StateTestFiller,
     Storage,
     Transaction,
-    compute_create_address,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 from ethereum_test_types.eof.v1 import Container, Section
+from ethereum_test_types.helpers import compute_eofcreate_address
 from ethereum_test_vm.bytecode import Bytecode
 from ethereum_test_vm.evm_types import EVMCodeType
 
@@ -1168,13 +1168,18 @@ def test_extdelegate_call_targets(
                 Section.Container(Container.Code(Op.STOP)),
             ]
         )
+        initcode_hash = caller_contract.hash
+        factory_address = pre.deploy_contract(
+            code=Op.TXCREATE(tx_initcode_hash=initcode_hash) + Op.STOP,
+        )
         tx = Transaction(
             sender=sender,
-            to=None,
+            to=factory_address,
             data=caller_contract,
             gas_limit=4_000_000,
+            initcodes=[caller_contract],
         )
-        calling_contract_address = tx.created_contract
+        calling_contract_address = compute_eofcreate_address(factory_address, 0)
     else:
         # Normal call from existing contract
         caller_contract = Container.Code(
@@ -1196,14 +1201,9 @@ def test_extdelegate_call_targets(
         if target_account_type == TargetAccountType.EOF_CONTRACT_INVALID
         else EXTCALL_REVERT,
     }
-    storage_address = (
-        compute_create_address(address=sender, nonce=0)
-        if call_from_initcode
-        else calling_contract_address
-    )
 
     post = {
-        storage_address: Account(storage=calling_storage),
+        calling_contract_address: Account(storage=calling_storage),
     }
 
     state_test(
