@@ -64,6 +64,8 @@ class BlockOutput:
         Trie of all the transactions in the block.
     receipts_trie : `ethereum.fork_types.Root`
         Trie root of all the receipts in the block.
+    receipts :
+        Receipts of all the transactions in the block.
     block_logs : `Bloom`
         Logs bloom of all the logs included in all the transactions of the
         block.
@@ -82,12 +84,12 @@ class BlockOutput:
     receipts_trie: Trie[Bytes, Optional[Union[Bytes, Receipt]]] = field(
         default_factory=lambda: Trie(secured=False, default=None)
     )
+    receipts: Tuple[Union[Bytes, Receipt], ...] = field(default_factory=tuple)
     block_logs: Tuple[Log, ...] = field(default_factory=tuple)
     withdrawals_trie: Trie[Bytes, Optional[Union[Bytes, Withdrawal]]] = field(
         default_factory=lambda: Trie(secured=False, default=None)
     )
     blob_gas_used: U64 = U64(0)
-    deposit_requests: Bytes = Bytes(b"")
     requests: List[Bytes] = field(default_factory=list)
 
 
