@@ -5,13 +5,19 @@ import warnings
 from pathlib import Path
 from shutil import which
 from subprocess import CompletedProcess
-from typing import Callable, ClassVar, Dict, Generator, List, Optional, Sequence, Type
+from typing import Annotated, Callable, ClassVar, Dict, Generator, List, Optional, Sequence, Type
 
 import pytest
-from pydantic import Field
+from pydantic import Field, TypeAdapter
 
 from ethereum_clis import EvmoneExceptionMapper, TransitionTool
 from ethereum_test_base_types import Account, Bytes, HexNumber
+from ethereum_test_exceptions import (
+    EOFException,
+    ExceptionMapperValidator,
+    ExceptionWithMessage,
+    UndefinedException,
+)
 from ethereum_test_exceptions.exceptions import EOFExceptionInstanceOrList, to_pipe_str
 from ethereum_test_execution import (
     BaseExecute,
@@ -100,6 +106,19 @@ class EOFExceptionMismatchError(EOFBaseExceptionError):
             f"     Got: {got}"
         )
         super().__init__(message)
+
+
+class EOFExceptionWithMessage(
+    ExceptionWithMessage[EOFException]  # type: ignore
+):
+    """Exception returned from the eof validator with a message."""
+
+    pass
+
+
+eof_exception_type_adapter: TypeAdapter[EOFExceptionWithMessage | UndefinedException] = (
+    TypeAdapter(Annotated[EOFExceptionWithMessage | UndefinedException, ExceptionMapperValidator])
+)
 
 
 class EOFParse:
@@ -352,33 +371,32 @@ class EOFTest(BaseTest):
 
     def verify_result(self, result: CompletedProcess, expected_result: Result, code: Bytes):
         """Check that the reported exception string matches the expected error."""
-        parser = EvmoneExceptionMapper()
-        actual_message = result.stdout.strip()
-        actual_exception = parser.message_to_exception(actual_message)
+        evmone_exception_mapper = EvmoneExceptionMapper()
+        actual_exception_str = result.stdout.strip()
+        actual_exception: EOFExceptionWithMessage | UndefinedException | None = None
+        if not actual_exception_str.startswith("OK"):
+            actual_exception = eof_exception_type_adapter.validate_python(
+                actual_exception_str, context={"exception_mapper": evmone_exception_mapper}
+            )
 
         if expected_result.exception is None:
-            if "OK" in actual_message:
-                return
-            else:
-                raise UnexpectedEOFExceptionError(
-                    code=code, got=f"{actual_exception} ({actual_message})"
-                )
+            if actual_exception is not None:
+                raise UnexpectedEOFExceptionError(code=code, got=f"{actual_exception}")
         else:
             expected_string = to_pipe_str(expected_result.exception)
-            print(expected_string)
-            print(actual_exception)
-            if "OK" in actual_message:
+            if actual_exception is None:
                 raise ExpectedEOFExceptionError(
                     code=code,
                     expected=f"{expected_string}",
                 )
-            elif actual_exception in expected_result.exception:
-                return
-            else:
+            if (
+                not isinstance(actual_exception, EOFExceptionWithMessage)
+                or expected_result.exception not in actual_exception
+            ):
                 raise EOFExceptionMismatchError(
                     code=code,
                     expected=f"{expected_string}",
-                    got=f"{actual_exception} ({actual_message})",
+                    got=f"{actual_exception}",
                 )
 
     def generate_eof_contract_create_transaction(self) -> Transaction:
