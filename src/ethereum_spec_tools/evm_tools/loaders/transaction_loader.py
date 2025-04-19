@@ -76,7 +76,7 @@ class TransactionLoad:
     def json_to_access_list(self) -> Any:
         """Get the access list of the transaction."""
         access_list = []
-        for sublist in self.raw.get("accessLists", []):
+        for sublist in self.raw.get("accessList", []):
             access_list.append(
                 self.fork.Access(
                     self.fork.hex_to_address(sublist.get("address")),
@@ -192,7 +192,7 @@ class TransactionLoad:
             elif "maxFeePerGas" in self.raw:
                 tx_cls = self.fork.FeeMarketTransaction
                 tx_byte_prefix = b"\x02"
-            elif "accessLists" in self.raw:
+            elif "accessList" in self.raw:
                 tx_cls = self.fork.AccessListTransaction
                 tx_byte_prefix = b"\x01"
             else:

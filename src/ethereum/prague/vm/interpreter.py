@@ -300,6 +300,8 @@ def execute_code(message: Message) -> Evm:
     )
     try:
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:
+            if message.disable_precompiles:
+                return evm
             evm_trace(evm, PrecompileStart(evm.message.code_address))
             PRE_COMPILED_CONTRACTS[evm.message.code_address](evm)
             evm_trace(evm, PrecompileEnd())
