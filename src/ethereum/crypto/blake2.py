@@ -4,7 +4,7 @@ The Blake2 Implementation
 """
 import struct
 from dataclasses import dataclass
-from typing import Final, List, Tuple
+from typing import Final, List, Tuple, Self
 
 from ethereum_types.numeric import Uint
 
@@ -151,7 +151,7 @@ class Blake2:
 
     def G(
         self, v: List, a: Uint, b: Uint, c: Uint, d: Uint, x: Uint, y: Uint
-    ) -> List:
+    ) -> Self:
         """
         The mixing function used in Blake2
         https://datatracker.ietf.org/doc/html/rfc7693#section-3.1
@@ -185,7 +185,7 @@ class Blake2:
             (v[b] ^ v[c]) << self.w_R4
         ) % self.max_word
 
-        return v
+        return self
 
     def compress(
         self,

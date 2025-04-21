@@ -15,7 +15,7 @@ module to use an optimized database backed state.
 import logging
 from dataclasses import dataclass
 from importlib import import_module
-from typing import Any, ClassVar, Dict, List, Optional, Set, cast
+from typing import Any, ClassVar, Dict, List, Optional, Set, Self, cast
 
 try:
     import rust_pyspec_glue
@@ -105,7 +105,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
                 return NotImplemented
             return state_root(self) == state_root(other)
 
-        def __enter__(self) -> "State":
+        def __enter__(self) -> Self:
             """Support with statements"""
             return self
 
