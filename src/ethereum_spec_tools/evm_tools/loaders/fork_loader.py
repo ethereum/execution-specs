@@ -213,6 +213,11 @@ class ForkLoad:
         return self._module("transactions").SetCodeTransaction
 
     @property
+    def EofInitCodeTransaction(self) -> Any:
+        """Eof initcode transaction class of the fork"""
+        return self._module("transactions").EofInitCodeTransaction
+
+    @property
     def Withdrawal(self) -> Any:
         """Withdrawal class of the fork"""
         return self._module("blocks").Withdrawal

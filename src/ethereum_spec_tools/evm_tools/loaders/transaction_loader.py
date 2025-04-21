@@ -125,6 +125,13 @@ class TransactionLoad:
             for blob_hash in self.raw.get("blobVersionedHashes")
         ]
 
+    def json_to_init_codes(self) -> List[Bytes]:
+        """Get the EOF init codes of the  transaction."""
+        return [
+            hex_to_hash(init_code)
+            for init_code in self.raw.get("initcodes")
+        ]
+
     def json_to_v(self) -> U256:
         """Get the v value of the transaction."""
         return hex_to_u256(
@@ -165,7 +172,10 @@ class TransactionLoad:
         """Convert json transaction data to a transaction object"""
         if "type" in self.raw:
             tx_type = parse_hex_or_int(self.raw.get("type"), Uint)
-            if tx_type == Uint(4):
+            if tx_type == Uint(6):
+                tx_cls = self.fork.EofInitCodeTransaction
+                tx_byte_prefix = b"\x06"
+            elif tx_type == Uint(4):
                 tx_cls = self.fork.SetCodeTransaction
                 tx_byte_prefix = b"\x04"
             elif tx_type == Uint(3):
@@ -183,7 +193,10 @@ class TransactionLoad:
             else:
                 raise ValueError(f"Unknown transaction type: {tx_type}")
         else:
-            if "authorizationList" in self.raw:
+            if "initcodes" in self.raw:
+                tx_cls = self.fork.EOFInitCodeTransaction
+                tx_byte_prefix = b"\x06"
+            elif "authorizationList" in self.raw:
                 tx_cls = self.fork.SetCodeTransaction
                 tx_byte_prefix = b"\x04"
             elif "maxFeePerBlobGas" in self.raw:
