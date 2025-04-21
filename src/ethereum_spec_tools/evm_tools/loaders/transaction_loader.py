@@ -128,7 +128,7 @@ class TransactionLoad:
     def json_to_init_codes(self) -> List[Bytes]:
         """Get the EOF init codes of the  transaction."""
         return [
-            hex_to_hash(init_code)
+            hex_to_bytes(init_code)
             for init_code in self.raw.get("initcodes")
         ]
 

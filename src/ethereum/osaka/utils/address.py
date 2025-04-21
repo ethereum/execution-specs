@@ -140,7 +140,7 @@ def compute_eof_tx_create_contract_address(
     address: `ethereum.osaka.fork_types.Address`
         The computed address of the new account.
     """
-    preimage = b"\xff" + address + salt
+    preimage = b"\xff" + left_pad_zero_bytes(address, 32) + salt
     computed_address = keccak256(preimage)
     canonical_address = computed_address[-20:]
     padded_address = left_pad_zero_bytes(canonical_address, 20)

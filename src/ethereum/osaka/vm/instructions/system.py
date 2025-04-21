@@ -1204,6 +1204,10 @@ def eof_tx_create(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
+    # This import causes a circular import error
+    # if it's not moved inside this method
+    from ...vm.eof.validation import parse_create_tx_call_data
+
     # STACK
     tx_init_code_hash = pop(evm.stack).to_be_bytes32()
     salt = pop(evm.stack).to_be_bytes32()
@@ -1217,13 +1221,7 @@ def eof_tx_create(evm: Evm) -> None:
     )
     call_data_words = ceil32(Uint(input_size)) // Uint(32)
     init_code_gas = init_code_cost(Uint(input_size))
-    charge_gas(
-        evm,
-        GAS_CREATE
-        + GAS_KECCAK256_WORD * call_data_words
-        + extend_memory.cost
-        + init_code_gas,
-    )
+    charge_gas(evm, GAS_CREATE + extend_memory.cost)
 
     # OPERATION
     if evm.message.is_static:
@@ -1235,7 +1233,7 @@ def eof_tx_create(evm: Evm) -> None:
         evm.message.current_target, salt
     )
 
-    # tx_env.init_codes are None for all but Type 5 transactions
+    # tx_env.init_codes are None for all but Type 6 transactions
     if evm.message.tx_env.init_codes is None:
         push(evm.stack, U256(0))
     else:
@@ -1253,14 +1251,21 @@ def eof_tx_create(evm: Evm) -> None:
         if code is None:
             push(evm.stack, U256(0))
         else:
-            generic_eof_create(
-                evm=evm,
-                endowment=value,
-                contract_address=contract_address,
-                init_code=code,
-                input_offset=input_offset,
-                input_size=input_size,
-            )
+            try :
+                eof, calldata = parse_create_tx_call_data(code)
+                if len(calldata) > 0:
+                     raise InvalidEof("Data after end of container")
+                generic_eof_create(
+                    evm=evm,
+                    endowment=value,
+                    contract_address=contract_address,
+                    init_code=code,
+                    input_offset=input_offset,
+                    input_size=input_size,
+                )
+            except InvalidEof :
+                # soft failure
+                push(evm.stack, U256(0))
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
@@ -1278,10 +1283,10 @@ def eof_create(evm: Evm) -> None:
     assert evm.eof is not None
 
     # STACK
-    value = pop(evm.stack)
     salt = pop(evm.stack).to_be_bytes32()
     input_offset = pop(evm.stack)
     input_size = pop(evm.stack)
+    value = pop(evm.stack)
 
     # GAS
     init_container_index = Uint.from_be_bytes(
@@ -1307,10 +1312,9 @@ def eof_create(evm: Evm) -> None:
         raise WriteInStaticContext("EOFCREATE in static mode")
     evm.memory += b"\x00" * extend_memory.expand_by
 
-    contract_address = compute_create2_contract_address(
+    contract_address = compute_eof_tx_create_contract_address(
         evm.message.current_target,
-        salt,
-        bytearray(init_container),
+        salt
     )
 
     generic_eof_create(

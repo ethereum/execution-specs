@@ -453,7 +453,6 @@ OPCODES_INVALID_IN_LEGACY = (
     Ops.EXCHANGE,
     # System Operations
     Ops.EOFCREATE,
-    Ops.TXCREATE,
     Ops.RETURNDATALOAD,
     Ops.EXTCALL,
     Ops.EXTDELEGATECALL,

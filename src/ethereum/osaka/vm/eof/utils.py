@@ -114,15 +114,15 @@ def metadata_from_container(
             raise InvalidEof("Invalid number of container sections")
 
         for i in range(num_container_sections):
-            # Get the 2 bytes container_size
-            if validate and len(container) < counter + 2:
+            # Get the 4 bytes container_size
+            if validate and len(container) < counter + 4:
                 raise InvalidEof(
                     f"Container section {i} does not have a size specified"
                 )
             container_size = Uint.from_be_bytes(
-                container[counter : counter + 2]
+                container[counter : counter + 4]
             )
-            counter += 2
+            counter += 4
             if validate and container_size == 0:
                 raise InvalidEof("Invalid container size")
             container_sizes.append(container_size)
@@ -133,7 +133,7 @@ def metadata_from_container(
     # Get 1 byte kind_data
     kind_data = container[counter]
     counter += 1
-    if validate and kind_data != 4:
+    if validate and kind_data != 0xff:
         raise InvalidEof("Invalid kind data")
     # Get 2 bytes data_size
     if validate and len(container) < counter + 2:
@@ -254,10 +254,10 @@ def container_from_metadata(eof_metadata: EofMetadata) -> bytes:
             Uint(2), "big"
         )
         for container_size in eof_metadata.container_sizes:
-            container += container_size.to_bytes(Uint(2), "big")
+            container += container_size.to_bytes(Uint(4), "big")
 
     # Add the kind data
-    container += b"\x04"
+    container += b"\xff"
     container += eof_metadata.data_size.to_bytes(Uint(2), "big")
 
     # Add the terminator
