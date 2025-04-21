@@ -320,6 +320,17 @@ def test_tx_intrinsic_gas_functions(fork: Fork, calldata: bytes, create_tx: bool
     )
 
 
+class FutureFork(Prague):
+    """
+    Dummy fork used for testing.
+
+    Contains no changes to the blob parameters from the parent fork in order to confirm that
+    it's added to the blob schedule even if it doesn't have any changes.
+    """
+
+    pass
+
+
 @pytest.mark.parametrize(
     "fork,expected_schedule",
     [
@@ -366,6 +377,27 @@ def test_tx_intrinsic_gas_functions(fork: Fork, calldata: bytes, create_tx: bool
                 },
             },
             id="CancunToPragueAtTime15k",
+        ),
+        pytest.param(
+            FutureFork,
+            {
+                "Cancun": {
+                    "target_blobs_per_block": 3,
+                    "max_blobs_per_block": 6,
+                    "baseFeeUpdateFraction": 3338477,
+                },
+                "Prague": {
+                    "target_blobs_per_block": 6,
+                    "max_blobs_per_block": 9,
+                    "baseFeeUpdateFraction": 5007716,
+                },
+                "FutureFork": {
+                    "target_blobs_per_block": 6,
+                    "max_blobs_per_block": 9,
+                    "baseFeeUpdateFraction": 5007716,
+                },
+            },
+            id="FutureFork",
         ),
     ],
 )

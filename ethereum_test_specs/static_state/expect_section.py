@@ -86,7 +86,7 @@ def parse_networks(fork_with_operand: str) -> List[str]:
         idx = all_forks_by_name.index(fork)
         # ['Frontier', 'Homestead', 'Byzantium', 'Constantinople', 'ConstantinopleFix',
         #  'Istanbul', 'MuirGlacier', 'Berlin', 'London', 'ArrowGlacier', 'GrayGlacier',
-        #  'Paris', 'Shanghai', 'Cancun', 'Prague', 'CancunEIP7692', 'Osaka']
+        #  'Paris', 'Shanghai', 'Cancun', 'Prague', 'Osaka']
     except ValueError:
         raise ValueError(f"Unsupported fork: {fork}") from Exception
 
