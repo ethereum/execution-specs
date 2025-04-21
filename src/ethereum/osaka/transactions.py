@@ -178,8 +178,9 @@ def encode_transaction(tx: Transaction) -> Union[LegacyTransaction, Bytes]:
         return b"\x03" + rlp.encode(tx)
     elif isinstance(tx, SetCodeTransaction):
         return b"\x04" + rlp.encode(tx)
+    # Type 5 is skipped as it is used for EIP-7702 delegate signing
     elif isinstance(tx, EofInitCodeTransaction):
-        return b"\x05" + rlp.encode(tx)
+        return b"\x06" + rlp.encode(tx)
     else:
         raise Exception(f"Unable to encode transaction of type {type(tx)}")
 
@@ -197,7 +198,8 @@ def decode_transaction(tx: Union[LegacyTransaction, Bytes]) -> Transaction:
             return rlp.decode_to(BlobTransaction, tx[1:])
         elif tx[0] == 4:
             return rlp.decode_to(SetCodeTransaction, tx[1:])
-        elif tx[0] == 5:
+        # Type 5 is skipped as it is used for EIP-7702 delegate signing
+        elif tx[0] == 6:
             return rlp.decode_to(EofInitCodeTransaction, tx[1:])
         else:
             raise TransactionTypeError(tx[0])
@@ -242,9 +244,9 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
 
     if isinstance(tx, EofInitCodeTransaction):
         if len(tx.init_codes) == 0:
-            raise InvalidTransaction("Type 5 tx with no init codes")
+            raise InvalidTransaction("Type 6 tx with no init codes")
         if len(tx.init_codes) > MAX_INIT_CODE_COUNT:
-            raise InvalidTransaction("Type 5 tx with too many init codes")
+            raise InvalidTransaction("Type 6 tx with too many init codes")
 
     intrinsic_gas, calldata_floor_gas_cost = calculate_intrinsic_cost(tx)
     if max(intrinsic_gas, calldata_floor_gas_cost) > tx.gas:
@@ -317,10 +319,10 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
         for init_code in tx.init_codes:
             if len(init_code) == 0:
                 raise InvalidTransaction(
-                    "Type 5 tx with zero-length init code"
+                    "Type 6 tx with zero-length init code"
                 )
             if len(init_code) > 2 * MAX_CODE_SIZE:
-                raise InvalidTransaction("Type 5 tx with too large init code")
+                raise InvalidTransaction("Type 6 tx with too large init code")
 
             tokens_in_tx += calculate_tokens_in_data(init_code)
 
@@ -645,7 +647,7 @@ def signing_hash_7873(tx: EofInitCodeTransaction) -> Hash32:
         Hash of the transaction.
     """
     return keccak256(
-        b"\x05"
+        b"\x06"
         + rlp.encode(
             (
                 tx.chain_id,
