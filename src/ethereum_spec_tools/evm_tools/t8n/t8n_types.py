@@ -269,22 +269,23 @@ class Result:
     requests: Optional[List[Bytes]] = None
     block_exception: Optional[str] = None
 
-    def get_receipts_from_tries(
-        self, t8n: Any, tx_trie: Any, receipts_trie: Any
+    def get_receipts_from_output(
+        self,
+        t8n: Any,
+        block_output: Any,
     ) -> List[Any]:
         """
         Get receipts from the transaction and receipts tries.
         """
         receipts: List[Any] = []
-        for index in tx_trie._data:
-            if index not in receipts_trie._data:
-                # Meaning the transaction has somehow failed
-                return receipts
+        for key in block_output.receipt_keys:
+            tx = t8n.fork.trie_get(block_output.transactions_trie, key)
+            receipt = t8n.fork.trie_get(block_output.receipts_trie, key)
 
-            tx = tx_trie._data.get(index)
+            assert tx is not None
+            assert receipt is not None
+
             tx_hash = t8n.fork.get_transaction_hash(tx)
-
-            receipt = receipts_trie._data.get(index)
 
             if hasattr(t8n.fork, "decode_receipt"):
                 decoded_receipt = t8n.fork.decode_receipt(receipt)
@@ -312,9 +313,7 @@ class Result:
         self.bloom = t8n.fork.logs_bloom(block_output.block_logs)
         self.logs_hash = keccak256(rlp.encode(block_output.block_logs))
         self.state_root = t8n.fork.state_root(block_env.state)
-        self.receipts = self.get_receipts_from_tries(
-            t8n, block_output.transactions_trie, block_output.receipts_trie
-        )
+        self.receipts = self.get_receipts_from_output(t8n, block_output)
 
         if hasattr(block_env, "base_fee_per_gas"):
             self.base_fee = block_env.base_fee_per_gas
