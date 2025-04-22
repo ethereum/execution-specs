@@ -307,10 +307,9 @@ def callf(evm: Evm) -> None:
     target_section = evm.eof.metadata.type_section_contents[
         target_section_index
     ]
-    target_inputs = Uint(target_section[0])
-    target_max_stack_height = Uint.from_be_bytes(target_section[2:])
+    target_max_increase = Uint.from_be_bytes(target_section[2:])
 
-    if ulen(evm.stack) > Uint(1024) - target_max_stack_height + target_inputs:
+    if ulen(evm.stack) > Uint(1024) - target_max_increase:
         raise StackOverflowError
     if ulen(evm.return_stack) == Uint(1024):
         raise StackOverflowError("Return stack overflow")
@@ -379,10 +378,9 @@ def jumpf(evm: Evm) -> None:
     target_section = evm.eof.metadata.type_section_contents[
         target_section_index
     ]
-    target_inputs = Uint(target_section[0])
-    target_max_stack_height = Uint.from_be_bytes(target_section[2:])
+    target_max_stack_increase = Uint.from_be_bytes(target_section[2:])
 
-    if ulen(evm.stack) > Uint(1024) - target_max_stack_height + target_inputs:
+    if ulen(evm.stack) > Uint(1024) - target_max_stack_increase :
         raise StackOverflowError
 
     # PROGRAM COUNTER

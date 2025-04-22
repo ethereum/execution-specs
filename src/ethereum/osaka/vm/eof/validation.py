@@ -58,8 +58,8 @@ def validate_body(validator: Validator) -> None:
         if num_outputs > 128:
             raise InvalidEof(f"Invalid number of outputs for type {i}")
 
-        max_stack_height = Uint.from_be_bytes(type_section[2:])
-        if max_stack_height > Uint(1023):
+        max_stack_increase = Uint.from_be_bytes(type_section[2:])
+        if max_stack_increase + Uint(num_inputs) > Uint(1023):
             raise InvalidEof(f"Invalid max stack height for type {i}")
 
         # 4750: Input and output for first section should
@@ -160,7 +160,7 @@ def validate_code_section(validator: Validator) -> None:
     section_type = validator.eof.metadata.type_section_contents[code_index]
     section_inputs = section_type[0]
     section_outputs = section_type[1]
-    section_max_stack_height = Uint.from_be_bytes(section_type[2:])
+    section_max_stack_increase = Uint.from_be_bytes(section_type[2:])
 
     # If the return flag from the section type does not agree with
     # the instructions in the code.
@@ -202,8 +202,8 @@ def validate_code_section(validator: Validator) -> None:
     if computed_maximum_stack_height > 1023:
         raise InvalidEof("Invalid stack height")
 
-    if computed_maximum_stack_height != section_max_stack_height:
-        raise InvalidEof("Invalid stack height")
+    if computed_maximum_stack_height != section_max_stack_increase + Uint(section_inputs):
+        raise InvalidEof("Invalid max stack increase")
 
 
 def get_reached_code_sections(

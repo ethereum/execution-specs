@@ -33,14 +33,14 @@ def stack_validation_callf(validator: Validator) -> None:
     ]
     target_inputs = target_section_type[0]
     target_outputs = target_section_type[1]
-    target_max_height = int.from_bytes(target_section_type[2:], "big")
+    target_max_stack_increase = int.from_bytes(target_section_type[2:], "big")
 
     # Stack Height Check
     if op_metadata.stack_height.min < target_inputs:
         raise InvalidEof("Invalid stack height")
 
     # Stack Overflow Check
-    if op_metadata.stack_height.max > 1024 - target_max_height + target_inputs:
+    if op_metadata.stack_height.max > 1024 - target_max_stack_increase:
         raise InvalidEof("Stack overflow")
 
     # Update the stack height after instruction
@@ -75,7 +75,7 @@ def stack_validation_jumpf(validator: Validator) -> None:
     current_outputs = current_section_type[1]
     target_inputs = target_section_type[0]
     target_outputs = target_section_type[1]
-    target_max_height = int.from_bytes(target_section_type[2:], "big")
+    target_max_stack_increase = int.from_bytes(target_section_type[2:], "big")
 
     # Stack Height Check
     if target_outputs != 0x80:
@@ -91,7 +91,7 @@ def stack_validation_jumpf(validator: Validator) -> None:
             raise InvalidEof("Invalid stack height")
 
     # Stack Overflow Check
-    if op_metadata.stack_height.max > 1024 - target_max_height + target_inputs:
+    if op_metadata.stack_height.max > 1024 - target_max_stack_increase:
         raise InvalidEof("Stack overflow")
 
     # Update the stack height after instruction

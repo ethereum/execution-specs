@@ -1250,8 +1250,6 @@ def eof_tx_create(evm: Evm) -> None:
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(input_offset, input_size)]
     )
-    call_data_words = ceil32(Uint(input_size)) // Uint(32)
-    init_code_gas = init_code_cost(Uint(input_size))
     charge_gas(evm, GAS_CREATE + extend_memory.cost)
 
     # OPERATION
@@ -1329,14 +1327,8 @@ def eof_create(evm: Evm) -> None:
     init_container = evm.eof.metadata.container_section_contents[
         init_container_index
     ]
-    init_container_size = evm.eof.metadata.container_sizes[
-        init_container_index
-    ]
-    init_code_gas = (
-        GAS_KECCAK256_WORD * ceil32(init_container_size) // Uint(32)
-    )
 
-    charge_gas(evm, GAS_CREATE + extend_memory.cost + init_code_gas)
+    charge_gas(evm, GAS_CREATE + extend_memory.cost)
 
     # OPERATION
     if evm.message.is_static:
