@@ -199,58 +199,60 @@ class T8N(Load):
         self.result.update(self, block_env, block_output)
         self.result.rejected = self.txs.rejected_txs
 
+    def _run_blockchain_test(self, block_env: Any, block_output: Any) -> None:
+        if self.fork.is_after_fork("ethereum.prague"):
+            self.fork.process_system_transaction(
+                block_env=block_env,
+                target_address=self.fork.HISTORY_STORAGE_ADDRESS,
+                data=block_env.block_hashes[-1],  # The parent hash
+            )
+
+        if self.fork.is_after_fork("ethereum.cancun"):
+            self.fork.process_system_transaction(
+                block_env=block_env,
+                target_address=self.fork.BEACON_ROOTS_ADDRESS,
+                data=block_env.parent_beacon_block_root,
+            )
+
+        for i, tx in zip(self.txs.successfully_parsed, self.txs.transactions):
+            self.backup_state()
+            try:
+                self.fork.process_transaction(
+                    block_env, block_output, tx, Uint(i)
+                )
+            except EthereumException as e:
+                self.txs.rejected_txs[i] = f"Failed transaction: {e!r}"
+                self.restore_state()
+                self.logger.warning(f"Transaction {i} failed: {e!r}")
+
+        if not self.fork.is_after_fork("ethereum.paris"):
+            self.fork.pay_rewards(
+                block_env.state,
+                block_env.number,
+                block_env.coinbase,
+                self.env.ommers,
+            )
+
+        if self.fork.is_after_fork("ethereum.shanghai"):
+            self.fork.process_withdrawals(
+                block_env, block_output, self.env.withdrawals
+            )
+
+        if self.fork.is_after_fork("ethereum.prague"):
+            self.fork.process_general_purpose_requests(block_env, block_output)
+
     def run_blockchain_test(self) -> None:
         """
         Apply a block on the pre-state. Also includes system operations.
         """
+        block_env = self.block_environment()
+        block_output = self.fork.BlockOutput()
+
         try:
-            block_env = self.block_environment()
-            block_output = self.fork.BlockOutput()
-
-            if self.fork.is_after_fork("ethereum.prague"):
-                self.fork.process_system_transaction(
-                    block_env=block_env,
-                    target_address=self.fork.HISTORY_STORAGE_ADDRESS,
-                    data=block_env.block_hashes[-1],  # The parent hash
-                )
-
-            if self.fork.is_after_fork("ethereum.cancun"):
-                self.fork.process_system_transaction(
-                    block_env=block_env,
-                    target_address=self.fork.BEACON_ROOTS_ADDRESS,
-                    data=block_env.parent_beacon_block_root,
-                )
-
-            for i, tx in zip(self.txs.successfully_parsed, self.txs.transactions):
-                self.backup_state()
-                try:
-                    self.fork.process_transaction(
-                        block_env, block_output, tx, Uint(i)
-                    )
-                except EthereumException as e:
-                    self.txs.rejected_txs[i] = f"Failed transaction: {e!r}"
-                    self.restore_state()
-                    self.logger.warning(f"Transaction {i} failed: {e!r}")
-
-            if not self.fork.is_after_fork("ethereum.paris"):
-                self.fork.pay_rewards(
-                    block_env.state,
-                    block_env.number,
-                    block_env.coinbase,
-                    self.env.ommers,
-                )
-
-            if self.fork.is_after_fork("ethereum.shanghai"):
-                self.fork.process_withdrawals(
-                    block_env, block_output, self.env.withdrawals
-                )
-
-            if self.fork.is_after_fork("ethereum.prague"):
-                self.fork.process_general_purpose_requests(block_env, block_output)
-
+            self._run_blockchain_test(block_env, block_output)
         except InvalidBlock as e:
             self.result.block_exception = f"{e}"
-        
+
         self.result.update(self, block_env, block_output)
         self.result.rejected = self.txs.rejected_txs
 
