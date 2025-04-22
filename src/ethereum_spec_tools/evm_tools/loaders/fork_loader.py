@@ -268,6 +268,11 @@ class ForkLoad:
         return self._module("trie").copy_trie
 
     @property
+    def trie_get(self) -> Any:
+        """trie_get function of the fork"""
+        return self._module("trie").trie_get
+
+    @property
     def hex_to_address(self) -> Any:
         """hex_to_address function of the fork"""
         return self._module("utils.hexadecimal").hex_to_address

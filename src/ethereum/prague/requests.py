@@ -9,7 +9,7 @@ then process each one.
 """
 
 from hashlib import sha256
-from typing import List, Tuple, Union
+from typing import List
 
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import Uint, ulen
@@ -17,8 +17,10 @@ from ethereum_types.numeric import Uint, ulen
 from ethereum.exceptions import InvalidBlock
 from ethereum.utils.hexadecimal import hex_to_bytes32
 
-from .blocks import Receipt, decode_receipt
+from .blocks import decode_receipt
+from .state import trie_get
 from .utils.hexadecimal import hex_to_address
+from .vm import BlockOutput
 
 DEPOSIT_CONTRACT_ADDRESS = hex_to_address(
     "0x00000000219ab540356cbb839cbe05303d7705fa"
@@ -146,14 +148,14 @@ def extract_deposit_data(data: Bytes) -> Bytes:
     return pubkey + withdrawal_credentials + amount + signature + index
 
 
-def parse_deposit_requests_from_receipts(
-    receipts: Tuple[Union[Bytes, Receipt], ...],
-) -> Bytes:
+def parse_deposit_requests(block_output: BlockOutput) -> Bytes:
     """
-    Parse deposit requests from a receipt.
+    Parse deposit requests from the block output.
     """
     deposit_requests: Bytes = b""
-    for receipt in receipts:
+    for key in block_output.receipt_keys:
+        receipt = trie_get(block_output.receipts_trie, key)
+        assert receipt is not None
         decoded_receipt = decode_receipt(receipt)
         for log in decoded_receipt.logs:
             if log.address == DEPOSIT_CONTRACT_ADDRESS:
