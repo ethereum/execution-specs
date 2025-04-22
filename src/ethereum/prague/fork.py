@@ -35,7 +35,7 @@ from .requests import (
     DEPOSIT_REQUEST_TYPE,
     WITHDRAWAL_REQUEST_TYPE,
     compute_requests_hash,
-    parse_deposit_requests_from_receipts,
+    parse_deposit_requests,
 )
 from .state import (
     State,
@@ -655,9 +655,7 @@ def process_general_purpose_requests(
         The block output for the current block.
     """
     # Requests are to be in ascending order of request type
-    deposit_requests = parse_deposit_requests_from_receipts(
-        block_output.receipts
-    )
+    deposit_requests = parse_deposit_requests(block_output)
     requests_from_execution = block_output.requests
     if len(deposit_requests) > 0:
         requests_from_execution.append(DEPOSIT_REQUEST_TYPE + deposit_requests)
@@ -842,15 +840,16 @@ def process_transaction(
         tx, tx_output.error, block_output.block_gas_used, tx_output.logs
     )
 
+    receipt_key = rlp.encode(Uint(index))
+    block_output.receipt_keys += (receipt_key,)
+
     trie_set(
         block_output.receipts_trie,
-        rlp.encode(Uint(index)),
+        receipt_key,
         receipt,
     )
 
     block_output.block_logs += tx_output.logs
-
-    block_output.receipts += (receipt,)
 
 
 def process_withdrawals(
