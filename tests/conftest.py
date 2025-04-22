@@ -53,7 +53,7 @@ def pytest_configure(config: Config) -> None:
         )
 
         # Replace the function in the module
-        ethereum.trace.evm_trace = new_trace_function
+        ethereum.trace.set_evm_trace(new_trace_function)
 
 
 def download_fixtures(url: str, location: str) -> None:

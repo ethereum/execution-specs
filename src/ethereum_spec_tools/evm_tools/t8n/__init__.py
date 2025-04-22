@@ -105,12 +105,14 @@ class T8N(Load):
             trace_memory = getattr(self.options, "trace.memory", False)
             trace_stack = not getattr(self.options, "trace.nostack", False)
             trace_return_data = getattr(self.options, "trace.returndata")
-            trace.evm_trace = partial(
-                evm_trace,
-                trace_memory=trace_memory,
-                trace_stack=trace_stack,
-                trace_return_data=trace_return_data,
-                output_basedir=self.options.output_basedir,
+            trace.set_evm_trace(
+                partial(
+                    evm_trace,
+                    trace_memory=trace_memory,
+                    trace_stack=trace_stack,
+                    trace_return_data=trace_return_data,
+                    output_basedir=self.options.output_basedir,
+                )
             )
         self.logger = get_stream_logger("T8N")
 

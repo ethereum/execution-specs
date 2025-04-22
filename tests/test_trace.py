@@ -29,7 +29,7 @@ def test_modify_evm_trace() -> None:
         nonlocal trace2
         trace2 = event
 
-    ethereum.trace.evm_trace = tracer1
+    ethereum.trace.set_evm_trace(tracer1)
 
     from ethereum.prague.vm import Evm, Message
     from ethereum.prague.vm.gas import charge_gas
@@ -60,7 +60,7 @@ def test_modify_evm_trace() -> None:
     assert isinstance(trace1, ethereum.trace.GasAndRefund)
     assert trace1.gas_cost == 5
 
-    ethereum.trace.evm_trace = tracer2
+    ethereum.trace.set_evm_trace(tracer2)
 
     charge_gas(evm, Uint(6))
 
