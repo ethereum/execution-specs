@@ -373,7 +373,7 @@ class Result:
             # T8N doesn't consider the request type byte to be part of the
             # request
             data["requests"] = [encode_to_hex(req) for req in self.requests]
-        
+
         if self.block_exception is not None:
             data["blockException"] = self.block_exception
 
