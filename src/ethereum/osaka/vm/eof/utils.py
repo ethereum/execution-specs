@@ -133,7 +133,7 @@ def metadata_from_container(
     # Get 1 byte kind_data
     kind_data = container[counter]
     counter += 1
-    if validate and kind_data != 0xff:
+    if validate and kind_data != 0xFF:
         raise InvalidEof("Invalid kind data")
     # Get 2 bytes data_size
     if validate and len(container) < counter + 2:

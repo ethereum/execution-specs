@@ -380,7 +380,7 @@ def jumpf(evm: Evm) -> None:
     ]
     target_max_stack_increase = Uint.from_be_bytes(target_section[2:])
 
-    if ulen(evm.stack) > Uint(1024) - target_max_stack_increase :
+    if ulen(evm.stack) > Uint(1024) - target_max_stack_increase:
         raise StackOverflowError
 
     # PROGRAM COUNTER

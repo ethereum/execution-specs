@@ -202,7 +202,9 @@ def validate_code_section(validator: Validator) -> None:
     if computed_maximum_stack_height > 1023:
         raise InvalidEof("Invalid stack height")
 
-    if computed_maximum_stack_height != section_max_stack_increase + Uint(section_inputs):
+    if computed_maximum_stack_height != section_max_stack_increase + Uint(
+        section_inputs
+    ):
         raise InvalidEof("Invalid max stack increase")
 
 

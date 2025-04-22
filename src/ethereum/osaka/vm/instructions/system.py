@@ -1280,10 +1280,10 @@ def eof_tx_create(evm: Evm) -> None:
         if code is None:
             push(evm.stack, U256(0))
         else:
-            try :
+            try:
                 eof, calldata = parse_create_tx_call_data(code)
                 if len(calldata) > 0:
-                     raise InvalidEof("Data after end of container")
+                    raise InvalidEof("Data after end of container")
                 generic_eof_create(
                     evm=evm,
                     endowment=value,
@@ -1292,7 +1292,7 @@ def eof_tx_create(evm: Evm) -> None:
                     input_offset=input_offset,
                     input_size=input_size,
                 )
-            except InvalidEof :
+            except InvalidEof:
                 # soft failure
                 push(evm.stack, U256(0))
 
@@ -1336,8 +1336,7 @@ def eof_create(evm: Evm) -> None:
     evm.memory += b"\x00" * extend_memory.expand_by
 
     contract_address = compute_eof_tx_create_contract_address(
-        evm.message.current_target,
-        salt
+        evm.message.current_target, salt
     )
 
     generic_eof_create(
