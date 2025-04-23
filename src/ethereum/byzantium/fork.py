@@ -669,9 +669,12 @@ def process_transaction(
         tx_output.error, block_output.block_gas_used, tx_output.logs
     )
 
+    receipt_key = rlp.encode(Uint(index))
+    block_output.receipt_keys += (receipt_key,)
+
     trie_set(
         block_output.receipts_trie,
-        rlp.encode(Uint(index)),
+        receipt_key,
         receipt,
     )
 
