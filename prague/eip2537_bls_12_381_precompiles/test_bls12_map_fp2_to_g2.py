@@ -8,6 +8,7 @@ import pytest
 from ethereum_test_tools import Alloc, Environment, StateTestFiller, Transaction
 from ethereum_test_tools import Opcodes as Op
 
+from .conftest import G2_FIELD_POINTS_MAP_TO_IDENTITY
 from .helpers import vectors_from_file
 from .spec import FP2, PointG2, Spec, ref_spec_2537
 
@@ -33,6 +34,7 @@ G2_POINT_ZERO_FP = PointG2(
 
 @pytest.mark.parametrize(
     "input_data,expected_output,vector_gas_value",
+    # Test vectors from the reference spec (from the cryptography team)
     vectors_from_file("map_fp2_to_G2_bls.json")
     + [
         pytest.param(
@@ -73,8 +75,43 @@ def test_valid(
     )
 
 
+@pytest.mark.parametrize("expected_output", [Spec.INF_G2], ids=[""])
+@pytest.mark.parametrize(
+    "input_data,vector_gas_value",
+    [
+        pytest.param(t, None, id=f"isogeny_kernel_{i}")
+        for i, t in enumerate(G2_FIELD_POINTS_MAP_TO_IDENTITY)
+    ],
+)
+def test_isogeny_kernel_values(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    post: dict,
+    tx: Transaction,
+):
+    """
+    Test the BLS12_MAP_FP2_TO_G2 precompile with isogeny kernel values. Note this test only exists
+    to align with the G1 test. `G2_FIELD_POINTS_MAP_TO_IDENTITY` is empty so there are no cases.
+
+    The isogeny kernel is simply the set of special field values, that after the two step mapping
+    (first SWU onto an auxiliary curve, then a 3-degree isogeny back to G2), collapse exactly
+    to the identity point.
+
+    For the G2 case the only kernel element is the point at infinity, and SWU never produces the
+    identity point from a finite input t. Hence `G2_FIELD_POINTS_MAP_TO_IDENTITY` is empty. Please
+    proceed to the generator in `helpers.py` for more details.
+    """
+    state_test(
+        env=Environment(),
+        pre=pre,
+        tx=tx,
+        post=post,
+    )
+
+
 @pytest.mark.parametrize(
     "input_data",
+    # Test vectors from the reference spec (from the cryptography team)
     vectors_from_file("fail-map_fp2_to_G2_bls.json")
     + [
         pytest.param(b"\x80" + bytes(FP2((0, 0)))[1:], id="invalid_encoding"),
@@ -86,6 +123,14 @@ def test_valid(
         pytest.param(FP2((2**512 - 1, 0)), id="fq_eq_2_512_minus_1"),
         pytest.param(FP2((0, 2**512 - 1)), id="fq_eq_2_512_minus_1_2"),
         pytest.param(Spec.G2, id="g2_input"),
+        pytest.param(FP2((Spec.P + 1, 0)), id="fp2_above_modulus_c0"),
+        pytest.param(FP2((0, Spec.P + 1)), id="fp2_above_modulus_c1"),
+        pytest.param(FP2((2**384, 0)), id="fp2_large_power_of_2_c0"),
+        pytest.param(FP2((0, 2**384)), id="fp2_large_power_of_2_c1"),
+        pytest.param(bytes(FP2((0, 0))) + bytes([0x00]), id="fp2_with_extra_byte"),
+        pytest.param(bytes(FP2((0, 0)))[:95], id="fp2_one_byte_short"),
+        pytest.param(bytes([0xFF]) + bytes(FP2((0, 0)))[1:], id="fp2_invalid_first_byte"),
+        pytest.param(Spec.INF_G2, id="g2_inf_input"),
     ],
 )
 @pytest.mark.parametrize("expected_output", [Spec.INVALID], ids=[""])
@@ -137,7 +182,7 @@ def test_gas(
 
 
 @pytest.mark.parametrize(
-    "call_opcode",
+    "call_opcode",  # Note `Op.CALL` is used for all the `test_valid` cases.
     [
         Op.STATICCALL,
         Op.DELEGATECALL,

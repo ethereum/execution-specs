@@ -7,6 +7,7 @@ import pytest
 from ethereum_test_tools import EOA, Address, Alloc, Bytecode, Storage, Transaction, keccak256
 from ethereum_test_tools import Opcodes as Op
 
+from .helpers import BLSPointGenerator
 from .spec import GAS_CALCULATION_FUNCTION_MAP
 
 
@@ -187,3 +188,29 @@ def tx(
         to=call_contract_address,
         sender=sender,
     )
+
+
+NUM_TEST_POINTS = 5
+
+# Random points not in the subgroup (fast to generate)
+G1_POINTS_NOT_IN_SUBGROUP = [
+    BLSPointGenerator.generate_random_g1_point_not_in_subgroup(seed=i)
+    for i in range(NUM_TEST_POINTS)
+]
+G2_POINTS_NOT_IN_SUBGROUP = [
+    BLSPointGenerator.generate_random_g2_point_not_in_subgroup(seed=i)
+    for i in range(NUM_TEST_POINTS)
+]
+# Field points that maps to the identity point using `BLS12_MAP_FP_TO_G1`
+G1_FIELD_POINTS_MAP_TO_IDENTITY = BLSPointGenerator.generate_g1_map_isogeny_kernel_points()
+
+# Random points not on the curve (fast to generate)
+G1_POINTS_NOT_ON_CURVE = [
+    BLSPointGenerator.generate_random_g1_point_not_on_curve(seed=i) for i in range(NUM_TEST_POINTS)
+]
+G2_POINTS_NOT_ON_CURVE = [
+    BLSPointGenerator.generate_random_g2_point_not_on_curve(seed=i) for i in range(NUM_TEST_POINTS)
+]
+
+# Field points that maps to the identity point using `BLS12_MAP_FP_TO_G2`
+G2_FIELD_POINTS_MAP_TO_IDENTITY = BLSPointGenerator.generate_g2_map_isogeny_kernel_points()
