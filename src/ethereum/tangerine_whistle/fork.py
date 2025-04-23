@@ -667,41 +667,6 @@ def process_transaction(
     block_output.block_logs += tx_output.logs
 
 
-def compute_header_hash(header: Header) -> Hash32:
-    """
-    Computes the hash of a block header.
-
-    The header hash of a block is the canonical hash that is used to refer
-    to a specific block and completely distinguishes a block from another.
-
-    ``keccak256`` is a function that produces a 256 bit hash of any input.
-    It also takes in any number of bytes as an input and produces a single
-    hash for them. A hash is a completely unique output for a single input.
-    So an input corresponds to one unique hash that can be used to identify
-    the input exactly.
-
-    Prior to using the ``keccak256`` hash function, the header must be
-    encoded using the Recursive-Length Prefix. See :ref:`rlp`.
-    RLP encoding the header converts it into a space-efficient format that
-    allows for easy transfer of data between nodes. The purpose of RLP is to
-    encode arbitrarily nested arrays of binary data, and RLP is the primary
-    encoding method used to serialize objects in Ethereum's execution layer.
-    The only purpose of RLP is to encode structure; encoding specific data
-    types (e.g. strings, floats) is left up to higher-order protocols.
-
-    Parameters
-    ----------
-    header :
-        Header of interest.
-
-    Returns
-    -------
-    hash : `ethereum.crypto.hash.Hash32`
-        Hash of the header.
-    """
-    return keccak256(rlp.encode(header))
-
-
 def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
     """
     Validates the gas limit for a block.
