@@ -4,6 +4,7 @@ from functools import cached_property
 from typing import Any, Callable, ClassVar, Dict, List, Tuple
 
 import pytest
+from _pytest.mark.structures import ParameterSet
 
 from ethereum_test_base_types import Address, Hash, HexNumber, Storage, ZeroPaddedHexNumber
 from ethereum_test_exceptions import TransactionExceptionInstanceOrList
@@ -32,11 +33,23 @@ class StateStaticTest(StateTestInFiller, BaseStaticTest):
 
     def fill_function(self) -> Callable:
         """Return a StateTest spec from a static file."""
+        d_g_v_parameters: List[ParameterSet] = []
+        for d in range(len(self.transaction.data)):
+            for g in range(len(self.transaction.gas_limit)):
+                for v in range(len(self.transaction.value)):
+                    exception_test = False
+                    for expect in self.expect:
+                        if expect.has_index(d, g, v) and expect.expect_exception is not None:
+                            exception_test = True
+                    # TODO: This does not take into account exceptions that only happen on
+                    #       specific forks, but this requires a covariant parametrize
+                    marks = [pytest.mark.exception_test] if exception_test else []
+                    d_g_v_parameters.append(
+                        pytest.param(d, g, v, marks=marks, id=f"d{d}-g{g}-v{v}")
+                    )
 
         @pytest.mark.valid_at(*self.get_valid_at_forks())
-        @pytest.mark.parametrize("d", range(len(self.transaction.data)))
-        @pytest.mark.parametrize("g", range(len(self.transaction.gas_limit)))
-        @pytest.mark.parametrize("v", range(len(self.transaction.value)))
+        @pytest.mark.parametrize("d,g,v", d_g_v_parameters)
         def test_state_vectors(
             state_test: StateTestFiller,
             fork: Fork,
@@ -63,6 +76,11 @@ class StateStaticTest(StateTestInFiller, BaseStaticTest):
                             tx=tx,
                         )
             pytest.fail(f"Expectation not found for d={d}, g={g}, v={v}, fork={fork}")
+
+        if self.info and self.info.pytest_marks:
+            for mark in self.info.pytest_marks:
+                apply_mark = getattr(pytest.mark, mark)
+                test_state_vectors = apply_mark(test_state_vectors)
 
         return test_state_vectors
 
@@ -110,11 +128,10 @@ class StateStaticTest(StateTestInFiller, BaseStaticTest):
             for key, value in account.storage.items():
                 storage[key] = value
 
-            acc_code, acc_code_opt = account.code
             pre[account_address] = Account(
                 balance=account.balance,
                 nonce=account.nonce,
-                code=acc_code,
+                code=account.code.compiled,
                 storage=storage,
             )
         return pre
@@ -129,13 +146,11 @@ class StateStaticTest(StateTestInFiller, BaseStaticTest):
     ) -> Tuple[Alloc, Transaction]:
         """Compose test vector from test data."""
         general_tr = self.transaction
-        data = general_tr.data[d]
-
-        data_code, options = data.data
+        data_box = general_tr.data[d]
 
         tr: Transaction = Transaction(
-            data=data_code,
-            access_list=data.access_list,
+            data=data_box.data.compiled,
+            access_list=data_box.access_list,
             gas_limit=HexNumber(general_tr.gas_limit[g]),
             value=HexNumber(general_tr.value[v]),
             gas_price=general_tr.gas_price,
@@ -165,8 +180,7 @@ class StateStaticTest(StateTestInFiller, BaseStaticTest):
                         storage.set_expect_any(key)
                 account_kwargs["storage"] = storage
             if account.code is not None:
-                code_bytes, code_options = account.code
-                account_kwargs["code"] = code_bytes
+                account_kwargs["code"] = account.code.compiled
             if account.balance is not None:
                 account_kwargs["balance"] = account.balance
             if account.nonce is not None:

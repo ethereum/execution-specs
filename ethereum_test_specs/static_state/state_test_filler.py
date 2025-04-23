@@ -17,7 +17,8 @@ from .general_transaction import GeneralTransactionInFiller
 class Info(BaseModel):
     """Class that represents an info filler."""
 
-    comment: str
+    comment: str | None = Field(None)
+    pytest_marks: List[str] = Field(default_factory=list)
 
 
 class StateTestInFiller(BaseModel):
@@ -46,8 +47,7 @@ class StateTestInFiller(BaseModel):
                 indexes = indexes.replace(":label ", "")
                 tx_matches: List[int] = []
                 for idx, d in enumerate(self.transaction.data):
-                    _, code_opt = d.data
-                    if indexes == code_opt.label:
+                    if indexes == d.data.code_label:
                         tx_matches.append(idx)
                 return tx_matches
             else:

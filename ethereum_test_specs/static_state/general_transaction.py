@@ -19,6 +19,7 @@ class DataWithAccessList(BaseModel):
         """Model Config."""
 
         extra = "forbid"
+        arbitrary_types_allowed = True  # For CodeInFiller
 
     @field_validator("access_list", mode="before")
     def convert_keys_to_hash(cls, access_list):  # noqa: N805

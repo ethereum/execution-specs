@@ -86,8 +86,10 @@ def get_all_combinations_from_parametrize_marks(
     test_ids = set()
     for combination in itertools.product(*list_of_values):
         values: List[Any] = []
+        marks: List[pytest.Mark | pytest.MarkDecorator] = []
         for param_set in combination:
             values.extend(param_set.values)
+            marks.extend(param_set.marks)
         test_id = "-".join([param.id or "" for param in combination])
         if test_id in test_ids:
             current_int = 2
@@ -97,7 +99,7 @@ def get_all_combinations_from_parametrize_marks(
         all_value_combinations.append(
             ParameterSet(
                 values=values,
-                marks=[],
+                marks=marks,
                 id=test_id,
             )
         )
@@ -190,6 +192,13 @@ class FillerFile(pytest.File):
                     )
                     intersection_set = get_intersection_set(key, validity_markers, self.config)
 
+                    extra_function_marks: List[pytest.Mark] = [
+                        mark
+                        for mark in function_marks
+                        if mark.name != "parametrize"
+                        and (mark.name not in [v.mark.name for v in validity_markers])
+                    ]
+
                     for format_with_or_without_label in fixture_formats:
                         fixture_format_parameter_set = labeled_format_parameter_set(
                             format_with_or_without_label
@@ -199,7 +208,7 @@ class FillerFile(pytest.File):
                             if isinstance(format_with_or_without_label, LabeledFixtureFormat)
                             else format_with_or_without_label
                         )
-                        for fork in intersection_set:
+                        for fork in sorted(intersection_set):
                             params: Dict[str, Any] = {spec_parameter_name: fixture_format}
                             fixturenames = [
                                 spec_parameter_name,
@@ -221,11 +230,15 @@ class FillerFile(pytest.File):
                                 )
                                 for parameter_set in parameter_set_list:
                                     # Copy and extend the params with the parameter set
-                                    case_marks = marks[:] + [
-                                        mark
-                                        for mark in parameter_set.marks
-                                        if mark.name != "parametrize"
-                                    ]
+                                    case_marks = (
+                                        marks[:]
+                                        + [
+                                            mark
+                                            for mark in parameter_set.marks
+                                            if mark.name != "parametrize"
+                                        ]
+                                        + extra_function_marks
+                                    )
                                     case_params = params.copy() | dict(
                                         zip(parameter_names, parameter_set.values, strict=True)
                                     )
@@ -291,7 +304,10 @@ class FillerTestItem(pytest.Item):
         self.fork = fork
         self.fixture_format = fixture_format
         for marker in marks:
-            self.add_marker(marker)  # type: ignore
+            if type(marker) is pytest.Mark:
+                self.own_markers.append(marker)
+            else:
+                self.add_marker(marker)  # type: ignore
 
     def setup(self):
         """Resolve and apply fixtures before test execution."""

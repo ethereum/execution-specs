@@ -38,6 +38,7 @@ class AccountInExpectSection(BaseModel):
         """Model Config."""
 
         extra = "forbid"
+        arbitrary_types_allowed = True  # For CodeInFiller
 
 
 class CMP(Enum):

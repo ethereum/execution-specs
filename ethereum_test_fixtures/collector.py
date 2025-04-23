@@ -109,6 +109,7 @@ class FixtureCollector:
 
     output_dir: Path
     flat_output: bool
+    fill_static_tests: bool
     single_fixture_per_file: bool
     filler_path: Path
     base_dump_dir: Optional[Path] = None
@@ -125,6 +126,12 @@ class FixtureCollector:
             return Path(info.get_single_test_name(mode="module"))
         else:
             module_relative_output_dir = info.get_module_relative_output_dir(self.filler_path)
+
+            # Each legacy test filler has only 1 test per file if it's a !state test!
+            # So no need to create directory Add11/add11.json it can be plain add11.json
+            if self.fill_static_tests:
+                return module_relative_output_dir.parent / info.original_name
+
             if self.single_fixture_per_file:
                 return module_relative_output_dir / info.get_single_test_name(mode="test")
             return module_relative_output_dir / info.get_single_test_name(mode="module")
