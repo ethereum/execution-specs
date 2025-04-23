@@ -19,6 +19,7 @@ slot_max_depth = next(_slot)
 slot_call_or_create = next(_slot)
 slot_counter = next(_slot)
 slot_data_load = next(_slot)
+slot_all_subcall_gas_gone = next(_slot)
 
 slot_last_slot = next(_slot)
 
