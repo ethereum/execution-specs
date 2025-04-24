@@ -1,0 +1,548 @@
+clearReturnBuffer:
+
+  # Make sure that if information is returned by an intermediate step it is not
+  # Returned by subsequent steps.
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    # Return a buffer (of a specified length)
+    000000000000000000000000000000000000f3f3:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        :yul berlin
+        {
+           // no need to complicate things with an ABI
+           let bufLen := calldataload(0)
+           mstore(0, 0x60A7)
+           return(0, bufLen)                      
+        }
+      nonce: 1
+      storage: {}
+
+
+
+    # Revert a buffer (of a specified length)
+    000000000000000000000000000000000000fdfd:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        :yul berlin
+        {
+           // no need to complicate things with an ABI
+           let bufLen := calldataload(0)
+           mstore(0, 0x60A7)
+           revert(0, bufLen)       
+        }
+      nonce: 1
+      storage: {}
+
+
+    # This contract is CALLed to receive a buffer
+    # which it then does not return
+    0000000000000000000000000000000000ca11ed:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        :yul berlin
+        {
+           // no need to complicate things with an ABI
+           let addr   := calldataload(0x00)
+           let bufLen := calldataload(0x20)
+           let static := calldataload(0x40)
+           mstore(0, bufLen)
+           pop(call(gas(), addr, 0, 0, 0x20, 0, 0x20))
+           sstore(0, returndatasize())
+           sstore(1, address())
+           stop()
+        }
+      nonce: 1
+      storage: {}
+
+
+
+    # This contract is CALLed to receive a buffer
+    # which it then does not return, without SSTORE because it is 
+    # for static calls
+    000000000000000000000000000057A700ca11ed:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        :yul berlin
+        {
+           // no need to complicate things with an ABI
+           let addr   := calldataload(0x00)
+           let bufLen := calldataload(0x20)
+           let static := calldataload(0x40)
+           mstore(0, bufLen)
+           pop(call(gas(), addr, 0, 0, 0x20, 0, 0x20))
+           sstore(0, returndatasize())
+           sstore(1, address())
+           stop()
+        }
+      nonce: 1
+      storage: {}
+
+
+    # This contract is CALLed to receive a buffer
+    # which it then does not return. It fails
+    00000000000000000000000000000000bad0ca11:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        :yul berlin
+        {
+           // no need to complicate things with an ABI
+           let addr   := calldataload(0x00)
+           let bufLen := calldataload(0x20)
+           mstore(0, bufLen)
+           pop(call(gas(), addr, 0, 0, 0x20, 0, 0x20))
+
+           // Crash with an illegal opcode
+           verbatim_0i_0o("0xFE")
+        }
+      nonce: 1
+      storage: {}
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        :yul berlin
+        {
+           // The operation that we ran and that after which we're supposed
+           // to have an empty buffer
+           //
+           // 0xF0 means CREATE
+           // 0xF1 means CALL
+           // 0xF2 means CALLCODE
+           // 0xF4 means DELEGATECALL
+           // 0xF5 means CREATE2
+           // 0xFA means STATICCALL
+           // 0x11<operation> means that operation, but it fails
+           let operation := calldataload(0x04)
+
+           // 0xF3F3 means the buffer is RETURNed
+           // 0xFDFD means the buffer is REVERTed
+           let bufferFrom := calldataload(0x24)
+
+           // The length of the buffer that the RETURN or REVERT returns
+           let bufLen := calldataload(0x44)
+
+           let codeLen
+
+           // Put the constructor code at 0x00-length, and return that length
+           function makeConstructor(addr, len) -> retVal {
+             // The constructor code CALLs the appropriate contract with the specified
+             // buffer length
+             // 
+             // Write the buffer length to memory (so we can send it)
+             //    0x0 PUSH32 <bufLen>
+             mstore8(0x0, 0x7F)
+             mstore(0x1, len)
+
+             //   0x21 PUSH1 0
+             mstore8(0x21, 0x60)
+             mstore8(0x22, 0x00)
+
+             //   0x23 MSTORE
+             mstore8(0x23, 0x52)
+ 
+             // With the buffer length handled, the next step is to PUSH 
+             // the call parameters
+             //   0x24 PUSH1 0xFF     (return buffer length)
+             mstore8(0x24, 0x60)
+             mstore8(0x25, 0xFF)
+
+             //   0x26 PUSH1 0x20     (return buffer location)
+             mstore8(0x26, 0x60)
+             mstore8(0x27, 0x20)
+
+             //   0x28 PUSH1 0x20     (argument length)
+             mstore8(0x28, 0x60)
+             mstore8(0x29, 0x20)
+
+             //   0x2A PUSH1 0x00     (argument location)
+             mstore8(0x2A, 0x60)
+             mstore8(0x2B, 0x00)
+
+             //   0x2C PUSH1 0x00     (value)
+             mstore8(0x2C, 0x60)
+             mstore8(0x2D, 0x00)
+
+             //   0x2E PUSH32 bufferFrom  (address to call)
+             mstore8(0x2E, 0x7F)
+             mstore(0x2F, addr)
+
+             //   0x4F GAS   (the gas to send for the call)
+             mstore8(0x4F, 0x5A)
+
+             //   0x50 CALL
+             mstore8(0x50, 0xF1)
+
+             // Write the return data (first word and size) to storage as 
+             // a sanity check (to make sure there really was a buffer to erase)
+             //   0x51 PUSH 0x20   (the return data location)
+             mstore8(0x51, 0x60)
+             mstore8(0x52, 0x20)
+             
+             //   0x53 MLOAD
+             mstore8(0x53, 0x51)
+
+             //   0x54 PUSH1 0
+             mstore8(0x54, 0x60)
+             mstore8(0x55, 0x00)
+             
+             //   0x56 SSTORE
+             mstore8(0x56, 0x55)
+
+             //   0x57 RETURNDATASIZE
+             mstore8(0x57, 0x3D)
+         
+             //   0x58 PUSH1 1
+             mstore8(0x58, 0x60)
+             mstore8(0x59, 0x01)
+
+             //   0x5A SSTORE
+             mstore8(0x5A, 0x55)
+
+             //   0x5B STOP
+             mstore8(0x5B, 0x00)
+
+             // Return the length
+             retVal := 0x5C
+              
+           }   // function makeConstructor
+
+
+           // Put the constructor code at 0x00-length, and return that length - but this
+           // constructor fails with an illegal opcode
+           function makeFailConstructor(addr, len) -> retVal {
+              let endOfGood := makeConstructor(addr, len)
+              
+              // Replace the STOP with 0xFE, which is the designated bad opcode
+              mstore8(sub(endOfGood, 1), 0xFE)
+              retVal := endOfGood
+           }
+
+
+           switch operation
+           case 0xF0 {  // CREATE
+              codeLen := makeConstructor(bufferFrom, bufLen)
+              pop(create(0, 0, codeLen))
+           }
+           case 0x11F0 {  // CREATE, which fails
+              codeLen := makeFailConstructor(bufferFrom, bufLen)
+              pop(create(0, 0, codeLen))
+           }
+           case 0xF5 {  // CREATE2
+              codeLen := makeConstructor(bufferFrom, bufLen)
+              pop(create2(0, 0, codeLen, 0x5a17))
+           }
+           case 0x11F5 {  // CREATE2, which fails
+              codeLen := makeFailConstructor(bufferFrom, bufLen)
+              pop(create2(0, 0, codeLen, 0x5a17))
+           }
+           case 0xF1 { // CALL
+              mstore(0x00, bufferFrom)
+              mstore(0x20, bufLen)
+              pop(call(gas(), 0x00ca11ed, 0, 0, 0x40, 0x100, 0x20))
+           }
+           case 0x11F1 { // CALL, but it fails
+              mstore(0x00, bufferFrom)
+              mstore(0x20, bufLen)
+              pop(call(gas(), 0xbad0ca11, 0, 0, 0x40, 0x100, 0x20))
+           }
+           case 0xF2 { // CALLCODE
+              mstore(0x00, bufferFrom)
+              mstore(0x20, bufLen)
+              pop(callcode(gas(), 0x00ca11ed, 0, 0, 0x40, 0x100, 0x20))
+           }
+           case 0x11F2 { // CALLCODE, but it fails
+              mstore(0x00, bufferFrom)
+              mstore(0x20, bufLen)
+              pop(callcode(gas(), 0xbad0ca11, 0, 0, 0x40, 0x100, 0x20))
+           }
+           case 0xF4 { // DELEGATECALL
+              mstore(0x00, bufferFrom)
+              mstore(0x20, bufLen)
+              pop(delegatecall(gas(), 0x00ca11ed, 0, 0x40, 0x100, 0x20))
+           }
+           case 0x11F4 { // DELEGATECALL, but it fails
+              mstore(0x00, bufferFrom)
+              mstore(0x20, bufLen)
+              pop(delegatecall(gas(), 0xbad0ca11, 0, 0x40, 0x100, 0x20))
+           }
+           case 0xFA { // STATICCALL
+              mstore(0x00, bufferFrom)
+              mstore(0x20, bufLen)
+              pop(staticcall(gas(), 0x57A700ca11ed, 0, 0x40, 0x100, 0x20))
+           }
+           case 0x11FA { // STATICCALL, but it fails
+              mstore(0x00, bufferFrom)
+              mstore(0x20, bufLen)
+              pop(staticcall(gas(), 0xbad0ca11, 0, 0x40, 0x100, 0x20))
+           }
+           default {  // We shouldn't get here
+             revert(0,0)
+           }
+           // End of switch operation
+
+           sstore(0, returndatasize())    // Should be zero
+           // We can't do returndatacopy() here because it causes the transaction 
+           // to revert
+           sstore(1, mload(0))
+        }
+      nonce: 1
+      storage:     # To verify it is overwritten
+        0: 0x60A7
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: 1
+      storage: {}
+      
+
+
+
+  transaction:
+    data:
+    # CREATE inside which a RETURN returns a 0x20 byte buffer
+    - :abi f(uint,uint,uint) 0x11F0 0xF3F3 0x20
+
+    # Same as above but with REVERT
+    - :abi f(uint,uint,uint) 0xF0 0xFDFD 0x20
+
+    # Try different buffer sizes
+    - :abi f(uint,uint,uint) 0xF0 0xF3F3 0x01
+    - :abi f(uint,uint,uint) 0xF0 0xF3F3 0x10
+    - :abi f(uint,uint,uint) 0xF0 0xF3F3 0xFF
+    - :abi f(uint,uint,uint) 0xF0 0xF3F3 0x0100
+    - :abi f(uint,uint,uint) 0xF0 0xF3F3 0x0FFF
+    - :abi f(uint,uint,uint) 0xF0 0xF3F3 0x1000
+
+    # Different buffer sizes and REVERTs
+    - :abi f(uint,uint,uint) 0xF0 0xF3FD 0x01
+    - :abi f(uint,uint,uint) 0xF0 0xFDFD 0x10
+    - :abi f(uint,uint,uint) 0xF0 0xFDFD 0xFF
+    - :abi f(uint,uint,uint) 0xF0 0xFDFD 0x0100
+    - :abi f(uint,uint,uint) 0xF0 0xFDFD 0x0FFF
+    - :abi f(uint,uint,uint) 0xF0 0xFDFD 0x1000
+
+
+    # Same as the tests above, but with CREATE2
+    - :abi f(uint,uint,uint) 0xF5 0xF3F3 0x20
+    - :abi f(uint,uint,uint) 0xF5 0xFDFD 0x20
+    - :abi f(uint,uint,uint) 0xF5 0xF3F3 0x01
+    - :abi f(uint,uint,uint) 0xF5 0xF3F3 0x10
+    - :abi f(uint,uint,uint) 0xF5 0xF3F3 0xFF
+    - :abi f(uint,uint,uint) 0xF5 0xF3F3 0x0100
+    - :abi f(uint,uint,uint) 0xF5 0xF3F3 0x0FFF
+    - :abi f(uint,uint,uint) 0xF5 0xF3F3 0x1000
+    - :abi f(uint,uint,uint) 0xF5 0xF3FD 0x01
+    - :abi f(uint,uint,uint) 0xF5 0xFDFD 0x10
+    - :abi f(uint,uint,uint) 0xF5 0xFDFD 0xFF
+    - :abi f(uint,uint,uint) 0xF5 0xFDFD 0x0100
+    - :abi f(uint,uint,uint) 0xF5 0xFDFD 0x0FFF
+    - :abi f(uint,uint,uint) 0xF5 0xFDFD 0x1000
+
+
+    # CALL
+    - :abi f(uint,uint,uint) 0xF1 0xF3F3 0x20
+    - :abi f(uint,uint,uint) 0xF1 0xFDFD 0x20
+    - :abi f(uint,uint,uint) 0xF1 0xF3F3 0x01
+    - :abi f(uint,uint,uint) 0xF1 0xF3F3 0x10
+    - :abi f(uint,uint,uint) 0xF1 0xF3F3 0xFF
+    - :abi f(uint,uint,uint) 0xF1 0xF3F3 0x0100
+    - :abi f(uint,uint,uint) 0xF1 0xF3F3 0x0FFF
+    - :abi f(uint,uint,uint) 0xF1 0xF3F3 0x1000
+    - :abi f(uint,uint,uint) 0xF1 0xF3FD 0x01
+    - :abi f(uint,uint,uint) 0xF1 0xFDFD 0x10
+    - :abi f(uint,uint,uint) 0xF1 0xFDFD 0xFF
+    - :abi f(uint,uint,uint) 0xF1 0xFDFD 0x0100
+    - :abi f(uint,uint,uint) 0xF1 0xFDFD 0x0FFF
+    - :abi f(uint,uint,uint) 0xF1 0xFDFD 0x1000
+
+    # CALLCODE
+    - :abi f(uint,uint,uint) 0xF2 0xF3F3 0x20
+    - :abi f(uint,uint,uint) 0xF2 0xFDFD 0x20
+    - :abi f(uint,uint,uint) 0xF2 0xF3F3 0x01
+    - :abi f(uint,uint,uint) 0xF2 0xF3F3 0x10
+    - :abi f(uint,uint,uint) 0xF2 0xF3F3 0xFF
+    - :abi f(uint,uint,uint) 0xF2 0xF3F3 0x0100
+    - :abi f(uint,uint,uint) 0xF2 0xF3F3 0x0FFF
+    - :abi f(uint,uint,uint) 0xF2 0xF3F3 0x1000
+    - :abi f(uint,uint,uint) 0xF2 0xF3FD 0x01
+    - :abi f(uint,uint,uint) 0xF2 0xFDFD 0x10
+    - :abi f(uint,uint,uint) 0xF2 0xFDFD 0xFF
+    - :abi f(uint,uint,uint) 0xF2 0xFDFD 0x0100
+    - :abi f(uint,uint,uint) 0xF2 0xFDFD 0x0FFF
+    - :abi f(uint,uint,uint) 0xF2 0xFDFD 0x1000
+
+    # DELEGATECALL
+    - :abi f(uint,uint,uint) 0xF4 0xF3F3 0x20
+    - :abi f(uint,uint,uint) 0xF4 0xFDFD 0x20
+    - :abi f(uint,uint,uint) 0xF4 0xF3F3 0x01
+    - :abi f(uint,uint,uint) 0xF4 0xF3F3 0x10
+    - :abi f(uint,uint,uint) 0xF4 0xF3F3 0xFF
+    - :abi f(uint,uint,uint) 0xF4 0xF3F3 0x0100
+    - :abi f(uint,uint,uint) 0xF4 0xF3F3 0x0FFF
+    - :abi f(uint,uint,uint) 0xF4 0xF3F3 0x1000
+    - :abi f(uint,uint,uint) 0xF4 0xF3FD 0x01
+    - :abi f(uint,uint,uint) 0xF4 0xFDFD 0x10
+    - :abi f(uint,uint,uint) 0xF4 0xFDFD 0xFF
+    - :abi f(uint,uint,uint) 0xF4 0xFDFD 0x0100
+    - :abi f(uint,uint,uint) 0xF4 0xFDFD 0x0FFF
+    - :abi f(uint,uint,uint) 0xF4 0xFDFD 0x1000
+
+    # STATICCALL
+    - :abi f(uint,uint,uint) 0xFA 0xF3F3 0x20
+    - :abi f(uint,uint,uint) 0xFA 0xFDFD 0x20
+    - :abi f(uint,uint,uint) 0xFA 0xF3F3 0x01
+    - :abi f(uint,uint,uint) 0xFA 0xF3F3 0x10
+    - :abi f(uint,uint,uint) 0xFA 0xF3F3 0xFF
+    - :abi f(uint,uint,uint) 0xFA 0xF3F3 0x0100
+    - :abi f(uint,uint,uint) 0xFA 0xF3F3 0x0FFF
+    - :abi f(uint,uint,uint) 0xFA 0xF3F3 0x1000
+    - :abi f(uint,uint,uint) 0xFA 0xF3FD 0x01
+    - :abi f(uint,uint,uint) 0xFA 0xFDFD 0x10
+    - :abi f(uint,uint,uint) 0xFA 0xFDFD 0xFF
+    - :abi f(uint,uint,uint) 0xFA 0xFDFD 0x0100
+    - :abi f(uint,uint,uint) 0xFA 0xFDFD 0x0FFF
+    - :abi f(uint,uint,uint) 0xFA 0xFDFD 0x1000
+
+
+
+    # CALL, which fails
+    - :abi f(uint,uint,uint) 0x11F1 0xF3F3 0x20
+    - :abi f(uint,uint,uint) 0x11F1 0xFDFD 0x20
+    - :abi f(uint,uint,uint) 0x11F1 0xF3F3 0x01
+    - :abi f(uint,uint,uint) 0x11F1 0xF3F3 0x10
+    - :abi f(uint,uint,uint) 0x11F1 0xF3F3 0xFF
+    - :abi f(uint,uint,uint) 0x11F1 0xF3F3 0x0100
+    - :abi f(uint,uint,uint) 0x11F1 0xF3F3 0x0FFF
+    - :abi f(uint,uint,uint) 0x11F1 0xF3F3 0x1000
+    - :abi f(uint,uint,uint) 0x11F1 0xF3FD 0x01
+    - :abi f(uint,uint,uint) 0x11F1 0xFDFD 0x10
+    - :abi f(uint,uint,uint) 0x11F1 0xFDFD 0xFF
+    - :abi f(uint,uint,uint) 0x11F1 0xFDFD 0x0100
+    - :abi f(uint,uint,uint) 0x11F1 0xFDFD 0x0FFF
+    - :abi f(uint,uint,uint) 0x11F1 0xFDFD 0x1000
+
+    # CALLCODE, which fails
+    - :abi f(uint,uint,uint) 0x11F2 0xF3F3 0x20
+    - :abi f(uint,uint,uint) 0x11F2 0xFDFD 0x20
+    - :abi f(uint,uint,uint) 0x11F2 0xF3F3 0x01
+    - :abi f(uint,uint,uint) 0x11F2 0xF3F3 0x10
+    - :abi f(uint,uint,uint) 0x11F2 0xF3F3 0xFF
+    - :abi f(uint,uint,uint) 0x11F2 0xF3F3 0x0100
+    - :abi f(uint,uint,uint) 0x11F2 0xF3F3 0x0FFF
+    - :abi f(uint,uint,uint) 0x11F2 0xF3F3 0x1000
+    - :abi f(uint,uint,uint) 0x11F2 0xF3FD 0x01
+    - :abi f(uint,uint,uint) 0x11F2 0xFDFD 0x10
+    - :abi f(uint,uint,uint) 0x11F2 0xFDFD 0xFF
+    - :abi f(uint,uint,uint) 0x11F2 0xFDFD 0x0100
+    - :abi f(uint,uint,uint) 0x11F2 0xFDFD 0x0FFF
+    - :abi f(uint,uint,uint) 0x11F2 0xFDFD 0x1000
+
+    # DELEGATECALL, which fails
+    - :abi f(uint,uint,uint) 0x11F4 0xF3F3 0x20
+    - :abi f(uint,uint,uint) 0x11F4 0xFDFD 0x20
+    - :abi f(uint,uint,uint) 0x11F4 0xF3F3 0x01
+    - :abi f(uint,uint,uint) 0x11F4 0xF3F3 0x10
+    - :abi f(uint,uint,uint) 0x11F4 0xF3F3 0xFF
+    - :abi f(uint,uint,uint) 0x11F4 0xF3F3 0x0100
+    - :abi f(uint,uint,uint) 0x11F4 0xF3F3 0x0FFF
+    - :abi f(uint,uint,uint) 0x11F4 0xF3F3 0x1000
+    - :abi f(uint,uint,uint) 0x11F4 0xF3FD 0x01
+    - :abi f(uint,uint,uint) 0x11F4 0xFDFD 0x10
+    - :abi f(uint,uint,uint) 0x11F4 0xFDFD 0xFF
+    - :abi f(uint,uint,uint) 0x11F4 0xFDFD 0x0100
+    - :abi f(uint,uint,uint) 0x11F4 0xFDFD 0x0FFF
+    - :abi f(uint,uint,uint) 0x11F4 0xFDFD 0x1000
+
+    # STATICCALL, which fails
+    - :abi f(uint,uint,uint) 0x11FA 0xF3F3 0x20
+    - :abi f(uint,uint,uint) 0x11FA 0xFDFD 0x20
+    - :abi f(uint,uint,uint) 0x11FA 0xF3F3 0x01
+    - :abi f(uint,uint,uint) 0x11FA 0xF3F3 0x10
+    - :abi f(uint,uint,uint) 0x11FA 0xF3F3 0xFF
+    - :abi f(uint,uint,uint) 0x11FA 0xF3F3 0x0100
+    - :abi f(uint,uint,uint) 0x11FA 0xF3F3 0x0FFF
+    - :abi f(uint,uint,uint) 0x11FA 0xF3F3 0x1000
+    - :abi f(uint,uint,uint) 0x11FA 0xF3FD 0x01
+    - :abi f(uint,uint,uint) 0x11FA 0xFDFD 0x10
+    - :abi f(uint,uint,uint) 0x11FA 0xFDFD 0xFF
+    - :abi f(uint,uint,uint) 0x11FA 0xFDFD 0x0100
+    - :abi f(uint,uint,uint) 0x11FA 0xFDFD 0x0FFF
+    - :abi f(uint,uint,uint) 0x11FA 0xFDFD 0x1000
+
+
+    # CREATE, which fails
+    - :abi f(uint,uint,uint) 0x11F0 0xF3F3 0x20
+    - :abi f(uint,uint,uint) 0x11F0 0xFDFD 0x20
+    - :abi f(uint,uint,uint) 0x11F0 0xF3F3 0x01
+    - :abi f(uint,uint,uint) 0x11F0 0xF3F3 0x10
+    - :abi f(uint,uint,uint) 0x11F0 0xF3F3 0xFF
+    - :abi f(uint,uint,uint) 0x11F0 0xF3F3 0x0100
+    - :abi f(uint,uint,uint) 0x11F0 0xF3F3 0x0FFF
+    - :abi f(uint,uint,uint) 0x11F0 0xF3F3 0x1000
+    - :abi f(uint,uint,uint) 0x11F0 0xF3FD 0x01
+    - :abi f(uint,uint,uint) 0x11F0 0xFDFD 0x10
+    - :abi f(uint,uint,uint) 0x11F0 0xFDFD 0xFF
+    - :abi f(uint,uint,uint) 0x11F0 0xFDFD 0x0100
+    - :abi f(uint,uint,uint) 0x11F0 0xFDFD 0x0FFF
+    - :abi f(uint,uint,uint) 0x11F0 0xFDFD 0x1000
+
+
+    # CREATE2, which fails
+    - :abi f(uint,uint,uint) 0x11F5 0xF3F3 0x20
+    - :abi f(uint,uint,uint) 0x11F5 0xFDFD 0x20
+    - :abi f(uint,uint,uint) 0x11F5 0xF3F3 0x01
+    - :abi f(uint,uint,uint) 0x11F5 0xF3F3 0x10
+    - :abi f(uint,uint,uint) 0x11F5 0xF3F3 0xFF
+    - :abi f(uint,uint,uint) 0x11F5 0xF3F3 0x0100
+    - :abi f(uint,uint,uint) 0x11F5 0xF3F3 0x0FFF
+    - :abi f(uint,uint,uint) 0x11F5 0xF3F3 0x1000
+    - :abi f(uint,uint,uint) 0x11F5 0xF3FD 0x01
+    - :abi f(uint,uint,uint) 0x11F5 0xFDFD 0x10
+    - :abi f(uint,uint,uint) 0x11F5 0xFDFD 0xFF
+    - :abi f(uint,uint,uint) 0x11F5 0xFDFD 0x0100
+    - :abi f(uint,uint,uint) 0x11F5 0xFDFD 0x0FFF
+    - :abi f(uint,uint,uint) 0x11F5 0xFDFD 0x1000
+
+
+
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: 1
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    
+    
+  expect:
+    # Regardless of how we got the buffer, it shouldn't be returned to the
+    # top level
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result: 
+        cccccccccccccccccccccccccccccccccccccccc: 
+          storage:
+            0: 0   # RETURNDATASIZE
+            1: 'ANY'
+             
+

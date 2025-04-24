@@ -1,0 +1,211 @@
+return:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+
+    # Return a normal value
+    0000000000000000000000000000000000001000:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [0] 0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+           [[0xFF]] 0x600D
+           (return 0x00 0x40)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # "Infinite" (-1 = 0xfff..ffff) buffer
+    0000000000000000000000000000000000001001:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [0] 0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+           [[0xFF]] 0x600D
+           (return 0x00 (- 0 1))
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # Big but reasonable buffer
+    0000000000000000000000000000000000001002:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [0] 0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+           [[0xFF]] 0x600D
+           (return 0x00 0x1000)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # Return at an offset
+    0000000000000000000000000000000000001003:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [0] 0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+           [[0xFF]] 0x600D
+           (return 0x05 0x20)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    # The old return2
+    # This seems needlessly complicated to me, but it was part of the old
+    # test suite so we might as well keep it. Here's the disassembler (courtesy of
+    # Etherscan):
+    #[1] PUSH1 0x01
+    #[3] PUSH1 0x80
+    #[4] MSTORE
+    #[6] PUSH1 0x00
+    #[8] PUSH1 0x80
+    #[9] MLOAD
+    #[10] GT
+    #[12] PUSH1 0x1b
+    #[13] JUMPI
+    #[15] PUSH1 0x01
+    #[17] PUSH1 0x00
+    #[18] MSTORE
+    #[20] PUSH1 0x20
+    #[22] PUSH1 0x00
+    #[23] RETURN
+    #[25] PUSH1 0x2b
+    #[26] JUMP
+    #[27] JUMPDEST
+    #[29] PUSH1 0x27
+    #[31] PUSH1 0x00
+    #[32] MSTORE
+    #[34] PUSH1 0x20
+    #[36] PUSH1 0x00
+    #[37] RETURN
+    #[39] PUSH1 0x02
+    #[41] PUSH1 0x80
+    #[42] MSTORE
+    #[43] JUMPDEST
+    # [44] STOP
+    0000000000000000000000000000000000001004:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: :raw 0x6001608052600060805111601b57600160005260206000f3602b565b602760005260206000f360026080525b00
+      nonce: '0'
+      storage: {}
+
+
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            ; read 0x40 bytes of return data
+            (delegatecall 0xffffff (+ 0x1000 $4) 0 0 0x00 0x40)
+
+            [[0]] @0x00
+            [[1]] @0x20
+        }
+      nonce: '0'
+      storage:
+        0xFF: 0x0BAD
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+
+
+
+  transaction:
+    data:
+    - :label return        :abi f(uint) 0
+    - :label returnInfBuff :abi f(uint) 1
+    - :label returnBigBuff :abi f(uint) 2
+    - :label returnOffset  :abi f(uint) 3
+    - :label returnOld     :abi f(uint) 4
+
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+  expect:
+
+    - indexes:
+        data:
+        - :label return
+        - :label returnBigBuff
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+            0x01: 0x00
+            0xFF: 0x600D
+
+
+    - indexes:
+        data:
+        - :label returnInfBuff
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0xFF: 0x0BAD
+
+
+    - indexes:
+        data:
+        - :label returnOffset
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            # Remember that the higher significant bytes come first in EVM
+            0x00: 0xabcdef0123456789abcdef0123456789abcdef0123456789abcdef0000000000
+            0x01: 0x00
+            0xFF: 0x600D
+
+
+    - indexes:
+        data:
+        - :label returnOld
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0x0027
+            0xFF: 0x0BAD

@@ -1,0 +1,123 @@
+# Test limit RS values for EC Recover precompile (R, S == secp256k1n)
+# secp256k1n == 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141
+
+CallEcrecover_Overflow:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: '0xFF112233445566'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+
+  pre:  
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      code: |
+        :yul berlin
+        {
+         // Copy Hash, V, R, S values
+         calldatacopy(0x00, 0x04, 0x80)
+
+         // Call the EC Recover Precompile
+         sstore(0, call(3000, 1, 0, 0, 0x80, 0x80, 0x20))
+         sstore(1, mload(0x80))
+        }  
+      nonce: '0'
+      storage: {}
+      balance: 0
+
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: 0x
+      nonce: '0'
+      storage: {}
+
+
+  transaction:
+    data:
+    # R Overflow == secp256k1N
+    - :label fail     :abi f(uint,uint,uint,uint) 0x18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c 0x1c 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141 0x1fffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804
+    # R Overflow == secp256k1N + 1
+    - :label fail     :abi f(uint,uint,uint,uint) 0x18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c 0x1c 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364142 0x1fffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804
+    # R High == secp256k1N - 1 (Fails due to R not being able to be a point on the curve, not due to the secp256k1N limit)
+    - :label fail     :abi f(uint,uint,uint,uint) 0x18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c 0x1c 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364140 0xefffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804
+    # R High == secp256k1N - 2
+    - :label pass01   :abi f(uint,uint,uint,uint) 0x18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c 0x1c 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd036413f 0xefffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804
+    # S Overflow == secp256k1N
+    - :label fail     :abi f(uint,uint,uint,uint) 0x18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c 0x1c 0x48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141
+    # S Overflow == secp256k1N + 1
+    - :label fail     :abi f(uint,uint,uint,uint) 0x18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c 0x1c 0x48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364142
+    # S High == secp256k1N - 1
+    - :label pass02   :abi f(uint,uint,uint,uint) 0x18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c 0x1c 0x48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364140
+    # S High == secp256k1N - 2
+    - :label pass03   :abi f(uint,uint,uint,uint) 0x18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c 0x1c 0x48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd036413f
+
+    gasLimit:
+    - 'F000000000'
+    gasPrice: '10'
+    nonce: '0'
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: cccccccccccccccccccccccccccccccccccccccc
+
+    value:
+    - '100000'
+
+
+
+  expect:
+
+  - indexes:
+      data: 
+      - :label fail
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - ">=Cancun"
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0x00
+
+  - indexes:
+      data: 
+      - :label pass01
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - ">=Cancun"
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0x2182da748249a933bf737586b80212df19b8f829
+
+  - indexes:
+      data: 
+      - :label pass02
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - ">=Cancun"
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0x1b85ac3c9b09de43659c5d04a2d9c75457d9abf4
+
+  - indexes:
+      data: 
+      - :label pass03
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - ">=Cancun"
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0xd0277c8a3eccd462a313fc60161bac36b16e8699

@@ -1,0 +1,110 @@
+# 10
+# Revert undoes transient storage writes from inner calls that successfully returned.
+# TSTORE(x, y), CALL(self, ...), CALL(self, ...), TSTORE(x, y + 1), RETURN, REVERT, TLOAD(x) returns y
+#
+# Expect slot 0 to have 5 from the first tstore & tload.
+# Expect slot 1 to have 0. Call was unsuccessful.
+# Expect slot 2 to have 1. Inner call was successful.
+# Expect slot 3 to have 5. Should load the value stored before the unsuccessful call.
+
+10_revertUndoesStoreAfterReturn:
+  _info:
+    comment: Revert undoes the transient storage writes after a successful call.
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentNumber: 1
+    currentTimestamp: 1000
+    currentGasLimit: 0x10000000000000
+    currentBaseFee: 10
+
+  pre:
+    A00000000000000000000000000000000000000A:
+      balance: 1000000000000000000
+      nonce: 0
+      code: |
+        :yul {
+          switch selector()
+
+          case 0x70ac643e { // doFirstCall()
+            doFirstCall()
+          }
+
+          case 0x76b85d23 { // doCallThenRevert()
+            doCallThenRevert()
+          }
+
+          case 0x4ccca553 { // doSuccessfulStore()
+            doSuccessfulStore()
+          }
+
+          function doFirstCall() {
+            verbatim_2i_0o(hex"5D", 0, 5)
+
+            let v := verbatim_1i_1o(hex"5C", 0)
+            sstore(0, v)
+
+            mstore(0, hex"76b85d23") // calls doCallThenRevert()
+            let fail := call(gas(), address(), 0, 0, 32, 0, 32)
+
+            sstore(1, fail) // should be 0 (revert)
+            sstore(2, mload(0)) // load 1 (successful call)
+
+            let val := verbatim_1i_1o(hex"5C", 0)
+            sstore(3, val)
+          }
+
+          
+          function doCallThenRevert() {
+            mstore(0, hex"4ccca553") // calls doSuccessfulStore()
+            let s := call(gas(), address(), 0, 0, 32, 0, 0)
+            mstore(0, s)
+            revert(0, 32)
+          }
+
+          function doSuccessfulStore() {
+            verbatim_2i_0o(hex"5D", 0, 6)
+          }
+
+          function doReenter(fs) -> f {
+             mstore(0, fs)
+             f := call(gas(), address(), 0, 0, 32, 0, 0)
+           }
+
+          function selector() -> s {
+            let value := calldataload(0)
+            s := shr(224, value)
+          }
+        }
+      storage: { 0x01: 0xffff }
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 1000000000000000000000
+      code: "0x"
+      nonce: 0
+      storage: {}
+
+  transaction:
+    data:
+      - data: :abi doFirstCall()
+        accessList: []
+    gasLimit:
+      - "400000"
+    nonce: 0
+    to: A00000000000000000000000000000000000000A
+    value:
+      - 0
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    maxPriorityFeePerGas: 0
+    maxFeePerGas: 2000
+
+  expect:
+    - network:
+        - ">=Cancun"
+      result:
+        A00000000000000000000000000000000000000A:
+          storage:
+            0x00: 5
+            0x01: 0
+            0x02: 1
+            0x03: 5

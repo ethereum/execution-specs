@@ -1,0 +1,341 @@
+# Check what happens with various values of the source offset
+# in opcodes that copy between somewhere else and memory
+
+bufferSrcOffset:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    000000000000000000000000000000000000c0de:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+              (return 0 0x120)
+        }
+      nonce: 0
+      storage: {}
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           (def 'opcode $4)
+           (def 'bufferType $36)
+           (def 'bufferLength $68)
+           (def 'NOP 0)
+
+           ; Variables           
+           (def 'srcOffset  0x2020)
+           (def 'offset     0x2040)
+           (def 'length     0x2060)
+
+           [offset] 0    ; Write to the first word in memory
+
+           ; bufferType 0  is no offset (0x0)
+           ; bufferType 1  is a reasonable number as an offset (0x10)
+           ; bufferType 2  is a high number that could happen in theory (0x100000)
+           ; bufferType 3  is a negative number (- 0 0x10)
+           ; bufferType 4  is 2^31-1 0x7FFFFFFF
+           ; bufferType 5  is 2^31   0x80000000
+           ; bufferType 6  is 2^32-1 0xFFFFFFFF
+           ; bufferType 7  is 2^32   0x0100000000
+           ; bufferType 8  is 2^63-1 0x7FFFFFFFFFFFFFFF
+           ; bufferType 9  is 2^63   0x8000000000000000
+           ; bufferType 10 is 2^64-1 0xFFFFFFFFFFFFFFFF
+           ; bufferType 11 is 2^64   0x010000000000000000
+           (if (= bufferType 0)  [srcOffset] 0 NOP)
+           (if (= bufferType 1)  [srcOffset] 0x10 NOP)
+           (if (= bufferType 2)  [srcOffset] 0100000 NOP)
+           (if (= bufferType 3)  [srcOffset] (- 0 0x10) NOP)
+           (if (= bufferType 4)  [srcOffset] 0x7FFFFFFF NOP)
+           (if (= bufferType 5)  [srcOffset] 0x80000000 NOP)
+           (if (= bufferType 6)  [srcOffset] 0xFFFFFFFF NOP)
+           (if (= bufferType 7)  [srcOffset] 0x0100000000 NOP)
+           (if (= bufferType 8)  [srcOffset] 0x7FFFFFFFFFFFFFFF NOP)
+           (if (= bufferType 9)  [srcOffset] 0x8000000000000000 NOP)
+           (if (= bufferType 10) [srcOffset] 0xFFFFFFFFFFFFFFFF NOP)
+           (if (= bufferType 11) [srcOffset] 0x010000000000000000 NOP)
+
+
+           ; bufferLength 0 is zero length
+           ; bufferLength 1 is a reasonable number as the length (0x10)
+           ; bufferLength 2 is a high number that could happen in theory (0x100000)
+           ; bufferLength 3 is a negative number (- 0 0x10)
+           (if (= bufferLength 0) [length] 0 NOP)
+           (if (= bufferLength 1) [length] 0x10 NOP)
+           (if (= bufferLength 2) [length] 0100000 NOP)
+           (if (= bufferLength 3) [length] (- 0 0x10) NOP)
+
+
+           (if (= opcode 0x37) (calldatacopy @offset @srcOffset @length) NOP)
+           (if (= opcode 0x39) (codecopy @offset @srcOffset @length) NOP)
+           (if (= opcode 0x3C) (extcodecopy 0xc0de @offset @srcOffset @length) NOP)
+           (if (= opcode 0x3E) (returndatacopy @offset @srcOffset @length) NOP)
+
+           ; RETURNDATACOPY, after making sure there is return data
+           (if (= opcode 0x13E) {
+               (call 0x1000 0xc0de 0 0 0 0x100 0x100)
+               (returndatacopy @offset @srcOffset @length) 
+           } NOP)
+
+           ; Kill the goat
+           [[0x100]] 0
+
+           ; Write the first two words of memory, which are copied from the source,
+           ; to storage. This is important for cases 4-11, which discover wrap-arounds
+           (if (>= bufferType 3) {
+               [[0]] @0x00
+               [[1]] @0x20
+           } NOP)
+        }
+      nonce: '0'
+      storage:
+        # Sacrificial goat to tell reverts apart from successes
+        0x100: 0x60A7
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+      
+  transaction:
+    data:
+    # Param #1: The opcode
+
+    # Param #2: bufferType (the source offset value)
+    #    0 is no offset (0x0)
+    #    1 is a reasonable number as an offset (0x10)
+    #    2 is a high number that could happen in theory (0x100000)
+    #    3 is a negative number (- 0 0x10)
+
+    #  At these (4-11) offsets the value should be zero, but if they are type cast
+    #  in correctly they wrap around to zero, so we make sure the copied to memory
+    #  value is zero
+    #
+    #    4 is 2^31-1
+    #    5 is 2^31
+    #    6 is 2^32-1
+    #    7 is 2^32
+    #    8 is 2^63-1
+    #    9 is 2^63
+    #   10 is 2^64-1
+    #   11 is 2^64
+    
+
+    # Param #3: The bufferLength
+    #    0 is zero length
+    #    1 is a reasonable number as the length (0x10)
+    #    2 is a high number that could happen in theory (0x100000)
+    #    3 is a negative number (- 0 0x10)
+
+
+    # CALLDATACOPY
+    # Everything is OK except for a negative length
+    - :label ok   :abi f(uint,uint,uint) 0x37 0 0  
+    - :label ok   :abi f(uint,uint,uint) 0x37 0 1  
+    - :label ok   :abi f(uint,uint,uint) 0x37 0 2  
+    - :label fail :abi f(uint,uint,uint) 0x37 0 3
+
+    - :label ok   :abi f(uint,uint,uint) 0x37 1 0  
+    - :label ok   :abi f(uint,uint,uint) 0x37 1 1  
+    - :label ok   :abi f(uint,uint,uint) 0x37 1 2  
+    - :label fail :abi f(uint,uint,uint) 0x37 1 3
+
+    - :label ok   :abi f(uint,uint,uint) 0x37 2 0  
+    - :label ok   :abi f(uint,uint,uint) 0x37 2 1  
+    - :label ok   :abi f(uint,uint,uint) 0x37 2 2  
+    - :label fail :abi f(uint,uint,uint) 0x37 2 3
+
+    - :label ok   :abi f(uint,uint,uint) 0x37 3 0  
+    - :label ok   :abi f(uint,uint,uint) 0x37 3 1  
+    - :label ok   :abi f(uint,uint,uint) 0x37 3 2  
+    - :label fail :abi f(uint,uint,uint) 0x37 3 3
+
+    - :label ok   :abi f(uint,uint,uint) 0x37 4 1  
+    - :label ok   :abi f(uint,uint,uint) 0x37 5 1  
+    - :label ok   :abi f(uint,uint,uint) 0x37 6 1  
+    - :label ok   :abi f(uint,uint,uint) 0x37 7 1  
+    - :label ok   :abi f(uint,uint,uint) 0x37 8 1  
+    - :label ok   :abi f(uint,uint,uint) 0x37 9 1  
+    - :label ok   :abi f(uint,uint,uint) 0x37 10 1  
+    - :label ok   :abi f(uint,uint,uint) 0x37 11 1  
+
+    # CODECOPY
+    # Everything is OK except for a negative length
+    - :label ok   :abi f(uint,uint,uint) 0x39 0 0  
+    - :label ok   :abi f(uint,uint,uint) 0x39 0 1  
+    - :label ok   :abi f(uint,uint,uint) 0x39 0 2  
+    - :label fail :abi f(uint,uint,uint) 0x39 0 3
+
+    - :label ok   :abi f(uint,uint,uint) 0x39 1 0  
+    - :label ok   :abi f(uint,uint,uint) 0x39 1 1  
+    - :label ok   :abi f(uint,uint,uint) 0x39 1 2  
+    - :label fail :abi f(uint,uint,uint) 0x39 1 3
+
+    - :label ok   :abi f(uint,uint,uint) 0x39 2 0  
+    - :label ok   :abi f(uint,uint,uint) 0x39 2 1  
+    - :label ok   :abi f(uint,uint,uint) 0x39 2 2  
+    - :label fail :abi f(uint,uint,uint) 0x39 2 3
+
+    - :label ok   :abi f(uint,uint,uint) 0x39 3 0  
+    - :label ok   :abi f(uint,uint,uint) 0x39 3 1  
+    - :label ok   :abi f(uint,uint,uint) 0x39 3 2  
+    - :label fail :abi f(uint,uint,uint) 0x39 3 3
+
+    - :label ok   :abi f(uint,uint,uint) 0x39 4 1  
+    - :label ok   :abi f(uint,uint,uint) 0x39 5 1  
+    - :label ok   :abi f(uint,uint,uint) 0x39 6 1  
+    - :label ok   :abi f(uint,uint,uint) 0x39 7 1  
+    - :label ok   :abi f(uint,uint,uint) 0x39 8 1  
+    - :label ok   :abi f(uint,uint,uint) 0x39 9 1  
+    - :label ok   :abi f(uint,uint,uint) 0x39 10 1  
+    - :label ok   :abi f(uint,uint,uint) 0x39 11 1  
+
+    # EXTCODECOPY
+    # Everything is OK except for a negative length
+    - :label ok   :abi f(uint,uint,uint) 0x3C 0 0  
+    - :label ok   :abi f(uint,uint,uint) 0x3C 0 1  
+    - :label ok   :abi f(uint,uint,uint) 0x3C 0 2  
+    - :label fail :abi f(uint,uint,uint) 0x3C 0 3
+
+    - :label ok   :abi f(uint,uint,uint) 0x3C 1 0  
+    - :label ok   :abi f(uint,uint,uint) 0x3C 1 1  
+    - :label ok   :abi f(uint,uint,uint) 0x3C 1 2  
+    - :label fail :abi f(uint,uint,uint) 0x3C 1 3
+
+    - :label ok   :abi f(uint,uint,uint) 0x3C 2 0  
+    - :label ok   :abi f(uint,uint,uint) 0x3C 2 1  
+    - :label ok   :abi f(uint,uint,uint) 0x3C 2 2  
+    - :label fail :abi f(uint,uint,uint) 0x3C 2 3
+
+    - :label ok   :abi f(uint,uint,uint) 0x3C 3 0  
+    - :label ok   :abi f(uint,uint,uint) 0x3C 3 1  
+    - :label ok   :abi f(uint,uint,uint) 0x3C 3 2  
+    - :label fail :abi f(uint,uint,uint) 0x3C 3 3
+
+    - :label ok   :abi f(uint,uint,uint) 0x3C 4 1  
+    - :label ok   :abi f(uint,uint,uint) 0x3C 5 1  
+    - :label ok   :abi f(uint,uint,uint) 0x3C 6 1  
+    - :label ok   :abi f(uint,uint,uint) 0x3C 7 1  
+    - :label ok   :abi f(uint,uint,uint) 0x3C 8 1  
+    - :label ok   :abi f(uint,uint,uint) 0x3C 9 1  
+    - :label ok   :abi f(uint,uint,uint) 0x3C 10 1  
+    - :label ok   :abi f(uint,uint,uint) 0x3C 11 1  
+
+    # RETURNDATACOPY, fails when there is no return data unless asked for 0 bytes
+    # at offset 0
+    - :label ok   :abi f(uint,uint,uint) 0x3E 0 0  
+    - :label fail :abi f(uint,uint,uint) 0x3E 0 1  
+    - :label fail :abi f(uint,uint,uint) 0x3E 0 2  
+    - :label fail :abi f(uint,uint,uint) 0x3E 0 3
+
+    - :label fail :abi f(uint,uint,uint) 0x3E 1 0  
+    - :label fail :abi f(uint,uint,uint) 0x3E 1 1  
+    - :label fail :abi f(uint,uint,uint) 0x3E 1 2  
+    - :label fail :abi f(uint,uint,uint) 0x3E 1 3
+
+    - :label fail :abi f(uint,uint,uint) 0x3E 2 0  
+    - :label fail :abi f(uint,uint,uint) 0x3E 2 1  
+    - :label fail :abi f(uint,uint,uint) 0x3E 2 2  
+    - :label fail :abi f(uint,uint,uint) 0x3E 2 3
+
+    - :label fail :abi f(uint,uint,uint) 0x3E 3 0  
+    - :label fail :abi f(uint,uint,uint) 0x3E 3 1  
+    - :label fail :abi f(uint,uint,uint) 0x3E 3 2  
+    - :label fail :abi f(uint,uint,uint) 0x3E 3 3
+
+    - :label fail :abi f(uint,uint,uint) 0x3E 4 1  
+    - :label fail :abi f(uint,uint,uint) 0x3E 5 1  
+    - :label fail :abi f(uint,uint,uint) 0x3E 6 1  
+    - :label fail :abi f(uint,uint,uint) 0x3E 7 1  
+    - :label fail :abi f(uint,uint,uint) 0x3E 8 1  
+    - :label fail :abi f(uint,uint,uint) 0x3E 9 1  
+    - :label fail :abi f(uint,uint,uint) 0x3E 10 1  
+    - :label fail :abi f(uint,uint,uint) 0x3E 11 1  
+
+    # RETURNDATACOPY, after making sure there is return data
+    # fails if attempting to read beyond the bounds of
+    # that data
+    - :label ok   :abi f(uint,uint,uint) 0x13E 0 0  
+    - :label ok   :abi f(uint,uint,uint) 0x13E 0 1  
+    - :label fail :abi f(uint,uint,uint) 0x13E 0 2  
+    - :label fail :abi f(uint,uint,uint) 0x13E 0 3
+
+    - :label ok   :abi f(uint,uint,uint) 0x13E 1 0  
+    - :label ok   :abi f(uint,uint,uint) 0x13E 1 1  
+    - :label fail :abi f(uint,uint,uint) 0x13E 1 2  
+    - :label fail :abi f(uint,uint,uint) 0x13E 1 3
+
+    - :label fail :abi f(uint,uint,uint) 0x13E 2 0  
+    - :label fail :abi f(uint,uint,uint) 0x13E 2 1  
+    - :label fail :abi f(uint,uint,uint) 0x13E 2 2  
+    - :label fail :abi f(uint,uint,uint) 0x13E 2 3
+
+    - :label fail :abi f(uint,uint,uint) 0x13E 3 0  
+    - :label fail :abi f(uint,uint,uint) 0x13E 3 1  
+    - :label fail :abi f(uint,uint,uint) 0x13E 3 2  
+    - :label fail :abi f(uint,uint,uint) 0x13E 3 3
+
+    - :label fail :abi f(uint,uint,uint) 0x13E 4 1  
+    - :label fail :abi f(uint,uint,uint) 0x13E 5 1  
+    - :label fail :abi f(uint,uint,uint) 0x13E 6 1  
+    - :label fail :abi f(uint,uint,uint) 0x13E 7 1  
+    - :label fail :abi f(uint,uint,uint) 0x13E 8 1  
+    - :label fail :abi f(uint,uint,uint) 0x13E 9 1  
+    - :label fail :abi f(uint,uint,uint) 0x13E 10 1  
+    - :label fail :abi f(uint,uint,uint) 0x13E 11 1  
+
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    
+    
+  expect:
+    # No revert, valid value
+    - indexes:
+        data: :label ok
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            # Values copied from close to the wrap-around boundary
+            0x000: 0
+            0x001: 0  
+     
+            # Dead goat
+            0x100: 0 
+
+
+    # Revert, invalid value. The goat survives
+    - indexes:
+        data: :label fail
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x100: 0x60A7
+

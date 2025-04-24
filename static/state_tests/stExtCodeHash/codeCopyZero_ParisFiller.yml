@@ -1,0 +1,123 @@
+# https://github.com/ethereum/tests/issues/493,  CODECOPY and EXTCODECOPY where codesize = 0
+---
+codeCopyZero_Paris:
+  _info:
+    comment: "https://github.com/ethereum/tests/issues/493,  CODECOPY and EXTCODECOPY where codesize = 0"
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "10000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+  pre:
+    a000000000000000000000000000000000000000:
+      balance: '1000000000000000000'
+      code: |
+        {
+
+          ;; EXTCODECOPY of nonexistent account
+          (EXTCODECOPY 0xa222000000000000000000000000000000000000 0 0 32)
+          (SSTORE 0x10 (MLOAD 0))
+          (SSTORE 0x11 (EXTCODESIZE 0xa222000000000000000000000000000000000000))
+          (SSTORE 0x12 (EXTCODEHASH 0xa222000000000000000000000000000000000000))
+          (SSTORE 0x13 (CALLCODE 50000 0xa222000000000000000000000000000000000000 0 0 0 0 0))
+
+
+          ;; EXTCODECOPY of account with empty code
+          (EXTCODECOPY 0xa200000000000000000000000000000000000000 0 0 32)
+          (SSTORE 0x20 (MLOAD 0))
+          (SSTORE 0x21 (EXTCODESIZE 0xa200000000000000000000000000000000000000))
+          (SSTORE 0x22 (EXTCODEHASH 0xa200000000000000000000000000000000000000))
+          (SSTORE 0x23 (CALLCODE 50000 0xa200000000000000000000000000000000000000 0 0 0 0 0))
+
+
+          ;; EXTCODECOPY of empty account with empty code
+          (EXTCODECOPY 0xa300000000000000000000000000000000000000 0 0 32)
+          (SSTORE 0x30 (MLOAD 0))
+          (SSTORE 0x31 (EXTCODESIZE 0xa300000000000000000000000000000000000000))
+          (SSTORE 0x32 (EXTCODEHASH 0xa300000000000000000000000000000000000000))
+          (SSTORE 0x33 (CALLCODE 50000 0xa300000000000000000000000000000000000000 0 0 0 0 0))
+
+          ;; CODECOPY of dynamic account which has empty code
+          (CALL 550000 0xa100000000000000000000000000000000000000 0 0 0 0 32)
+          (SSTORE 0x40 (MLOAD 0))
+        }
+      nonce: '0'
+      storage: {}
+    a100000000000000000000000000000000000000:
+      balance: '1000000000000000000'
+      code: |
+        { 
+          (MSTORE 0
+            (CREATE2 0 0
+              (lll
+              {
+                ;; codecopy of empty code
+                (CODECOPY 0 0 32)
+                [[0x50]] (MLOAD 0)
+                [[0x51]] (EXTCODESIZE (ADDRESS))
+                [[0x52]] (EXTCODEHASH (ADDRESS))
+                [[0x53]] (EXTCODESIZE (CALLCODE 50000 (ADDRESS) 0 0 0 0 0))
+                (EXTCODECOPY (ADDRESS) 0 0 32)
+                (SSTORE 0x54 (MLOAD 0))
+              }
+              0)
+            0))
+           (RETURN 0 32)
+           (STOP)
+        }
+      nonce: '0'
+      storage: {}
+    #account with empty code
+    a200000000000000000000000000000000000000:
+      balance: '1000000000000000000'
+      code: ''
+      nonce: '0'
+      storage: {}
+    #empty with empty code
+    a300000000000000000000000000000000000000:
+      balance: '10'
+      code: ''
+      nonce: '0'
+      storage: {}
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: ''
+      nonce: '0'
+      storage: {}
+  expect:
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        a000000000000000000000000000000000000000:
+          storage: {
+             '0x13': '0x01',
+             '0x22': '0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470',
+             '0x23': '0x01',
+             '0x33': '0x01',
+             '0x32': '0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470',
+             '0x40': '0x64bc50092fd622c9cc47d658b99c1af75aaa3d68'
+          }
+        64bc50092fd622c9cc47d658b99c1af75aaa3d68:
+          storage: {
+             '0x50': '0x60206000600039600051605055303b605155303f605255600060006000600060',
+             '0x51': '0x00',
+             '0x52': '0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470',
+             '0x53': '0x00',
+             '0x54': '0x00'
+          }
+  transaction:
+    data:
+    - ''
+    gasLimit:
+    - '1400000'
+    gasPrice: '10'
+    nonce: '0'
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 'a000000000000000000000000000000000000000'
+    value:
+    - '1'

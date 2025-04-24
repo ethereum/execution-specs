@@ -1,0 +1,164 @@
+# EXTCODEHASH of precompiles addresses
+---
+extCodeHashPrecompiles:
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "1000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+  pre:
+    095e7baea6a6c7c4c2dfeb977efac326af552d87:
+      balance: '1000000000000000000'
+      code: |
+        {
+          (CALLDATACOPY 12 0 20)
+          [[0]] (EXTCODEHASH (MLOAD 0))
+          [[1]] (EXTCODESIZE (MLOAD 0))
+        }
+      nonce: '0'
+      storage: { # set initial values to be overwritten
+        "0x00": '0xab',
+        "0x01": '0xab'}
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: ''
+      nonce: '0'
+      storage: {}
+  expect:
+    - indexes:
+        data: !!int 0
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          balance: '1000000000000000001'
+          storage: {
+            "0x00": '0xe5fbfc8ab6f527df72b0a0ea8e0605dcc45e3cea1c7f2437b8c06592f7957451',
+            "0x01": '0x16'
+            }
+    - indexes:
+        data: !!int 1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          balance: '1000000000000000001'
+          storage: {
+            "0x00": '0x00',
+            "0x01": '0x00'
+            }
+    - indexes:
+        data: !!int 2
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          balance: '1000000000000000001'
+          storage: {
+            "0x00": '0x00',
+            "0x01": '0x00'
+            }
+    - indexes:
+        data: !!int 3
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          balance: '1000000000000000001'
+          storage: {
+            "0x00": '0x00',
+            "0x01": '0x00'
+            }
+    - indexes:
+        data: !!int 4
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          balance: '1000000000000000001'
+          storage: {
+            "0x00": '0x00',
+            "0x01": '0x00'
+            }
+    - indexes:
+        data: !!int 5
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          balance: '1000000000000000001'
+          storage: {
+            "0x00": '0x00',
+            "0x01": '0x00'
+            }
+    - indexes:
+        data: !!int 6
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          balance: '1000000000000000001'
+          storage: {
+            "0x00": '0x00',
+            "0x01": '0x00'
+            }
+    - indexes:
+        data: !!int 7
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          balance: '1000000000000000001'
+          storage: {
+            "0x00": '0x00',
+            "0x01": '0x00'
+            }
+    - indexes:
+        data: !!int 8
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          balance: '1000000000000000001'
+          storage: {
+            "0x00": '0x00',
+            "0x01": '0x00'
+            }
+  transaction:
+    data:
+    - ':raw 0x095e7baea6a6c7c4c2dfeb977efac326af552d87'
+    - ':raw 0x0000000000000000000000000000000000000001'
+    - ':raw 0x0000000000000000000000000000000000000002'
+    - ':raw 0x0000000000000000000000000000000000000003'
+    - ':raw 0x0000000000000000000000000000000000000004'
+    - ':raw 0x0000000000000000000000000000000000000005'
+    - ':raw 0x0000000000000000000000000000000000000006'
+    - ':raw 0x0000000000000000000000000000000000000007'
+    - ':raw 0x0000000000000000000000000000000000000008'
+    gasLimit:
+    - '400000'
+    gasPrice: '10'
+    nonce: '0'
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 095e7baea6a6c7c4c2dfeb977efac326af552d87
+    value:
+    - '1'

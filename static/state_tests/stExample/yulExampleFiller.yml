@@ -1,0 +1,63 @@
+# An example of using simple yul contracts in the test
+# More examples at https://ethereum-tests.readthedocs.io/en/latest/state-transition-tutorial.html#solidity-tests
+yulExample:
+  _info:
+    comment: An example test for using simple yul contracts in the test
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "100000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+
+  expect:
+    - indexes:
+        data: !!int -1
+        gas:  !!int 0
+        value: !!int -1
+
+      network:
+        - '>=Cancun'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          storage:
+            0: 3
+
+  pre:
+
+    # requires solc compiler to be installed in the system
+    095e7baea6a6c7c4c2dfeb977efac326af552d87:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        :yul berlin
+        {
+          function f(a, b) -> c {
+            c := add(a, b)
+          }
+
+          sstore(0, f(1, 2))
+          return(0, 32)
+        }
+      nonce: '0'
+      storage: {}
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+
+  transaction:
+    data:
+    - ""
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: 095e7baea6a6c7c4c2dfeb977efac326af552d87
+    value:
+    - '0'
+    secretKey: '45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8'
+

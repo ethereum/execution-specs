@@ -1,0 +1,1056 @@
+# Test successful uses of TLOAD and TSTORE
+# Tests:
+#
+# sumTo(uint)
+# 1. Forward avail: TSTORE affects future calls to the contract (when inside a nester call)
+# 2. Backward avail: TSTORE affects existing calls to the contract (when inside a nested call)
+#
+# callcodeSumTo(uint)
+# 3. Forward and backward avail when using CALLCODE
+#
+# delegateSumTo(uint)
+# 4. Forward and backward avail when using DELEGATECALL
+#
+# callbackSum(uint)
+# 5. Forward and backward avail not affected by having an intervening CALL contract between 
+#    TSTORE and TLOAD
+# 6. The intervening CALL contract does not have access to the transient storage of the caller
+#
+# binTree(uint)
+# 7. Verify forward avail when the two calls are "at the same level". The same contract
+#    calls both, rather than forward avail from caller to callee.
+#
+# delegateBinTree(uint)
+# 8. Same as 7, but with CALLCODE and DELEGATECALL.
+#
+# inheritTrans()
+# 9. CALL does not inherit transient storage
+# 10. CALLCODE inherits transient storage
+# 11. DELEGATECALL inherits transient storage
+#
+# deepCall(uint)
+# 12. A deep stack of CALL, CALLCODE, and DELEGATECALL still preserves transient storage
+#
+# staticCall(uint)
+# 13. STATICCALL can read transient storage
+# 14. STATICCALL cannot write transient storage (even to the same value it has)
+
+
+# In general, the way these tests work is that the transaction calls 0xCCCCCC with
+# 36 bytes of data. Four bytes for a function signature and 32 for a parameter.
+# This is created using :abi funName(uint) <value>
+# 
+# 0xCCC...CCC then calls the contract that actually runs the test. The contract's address
+# is, conveniently, the four bytes of the signature. 
+#
+# Note that because of the nature of transient storage, in most cases the test contract
+# has to call itself (directly or indirectly). This means it has to effectively have
+# at least two entry points.
+
+transStorageOK:
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "100000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+
+  pre:
+
+    # sumTo(uint)
+    # 
+    # Add ints, 0+1+...+depth
+    # If called by itself, get depth from trans[0]
+    # If called by anybody else, get depth from calldata 
+    #
+    # This checks two things:
+    # 1. Forward availability of transient storage. 
+    #    The counter is changed and then the contract is called again, with the
+    #    new value in transient storage
+    # 2. Backward availability of transient storage.
+    #    The sum is updated and then the contract returns, and the new 
+    #    value is available to the caller frame.
+    #
+    # Without the recursion, this code will look like this:
+    #
+    # for (Trans[0] = calldataload(4); Trans[0]!=0; Trans[0]--}
+    #     Trans[1] += Trans[0]
+    #
+
+    00000000000000000000000000000000ebd141d5:
+      balance: 0
+      nonce: 1
+      code: |
+        :yul {
+            // These two functions use transient storage.
+            // Once the relevant opcodes are added to Yul, simply remove
+            // them (from all contracts) and remove the _temp suffices.
+            function tload_temp(loc) -> val {
+              val := verbatim_1i_1o(hex"5C", loc)
+            }
+          
+            function tstore_temp(loc, val) {
+              verbatim_2i_0o(hex"5D", loc, val)
+            }
+
+            // If we are called by ourselves, this is part of the loop.
+            if eq(caller(), address()) {
+              let counter := tload_temp(0)
+
+              // If the counter is equal to zero, we're done - return.
+              if eq(counter,0) {
+                return(0,0)
+              }
+
+              // If counter isn't zero, add counter to Trans[1] and do recursion
+              tstore_temp(1, add(tload_temp(1), counter))
+
+              // Change the loop variable and call yourself
+              tstore_temp(0, sub(counter, 1))
+              let res := call(gas(), address(), 0, 0,0, 0,0)
+              if iszero(res) { // If the call failed, fail too
+                 revert(0,0)
+              }
+            }
+
+            // If called by a different address, we are the first call and need
+            // to setup Trans[0] before starting the loop. 
+            //
+            // This first frame is also responsible for putting results in storage,
+            // so the test will be able to read them.
+            if iszero(eq(caller(), address())) { 
+              let data := calldataload(0)
+              sstore(1, data)
+              tstore_temp(0, data)
+              sstore(2, call(gas(), address(), 0, 0,0,0,0))
+              sstore(3, tload_temp(1))
+            }
+        }
+      storage: {}
+
+
+
+
+    # callcodeSumTo(uint)
+    #
+    # Similar to sumTo, but uses callcode instead of call
+    #
+    # Without the recursion, this code will look like this:
+    #
+    # for (Trans[0] = calldataload(4); Trans[0]!=0; Trans[0]--}
+    #     Trans[1] += Trans[0]
+    #
+
+    000000000000000000000000000000006e3a7204:
+      balance: 0
+      nonce: 1
+      code: |
+        :yul {
+            function tload_temp(loc) -> val {
+              val := verbatim_1i_1o(hex"5C", loc)
+            }
+          
+            function tstore_temp(loc, val) {
+              verbatim_2i_0o(hex"5D", loc, val)
+            }
+
+            // If we are called by ourselves, this is part of the loop.
+            if eq(caller(), address()) {
+              let counter := tload_temp(0)
+
+              // Loop ended, return
+              if eq(counter,0) {
+                return(0,0)
+              }
+
+
+              // Change the loop variable and call yourself
+              tstore_temp(1, add(tload_temp(1), counter))
+              tstore_temp(0, sub(counter, 1))
+              let res := callcode(gas(), address(), 0, 0,0, 0,0)
+              if iszero(res) { // If the call failed, fail too
+                 revert(0,0)
+              }
+            }
+
+            // If called by a different address, we are the first call and need
+            // to setup Trans[0] before starting the loop. 
+            //
+            // This first frame is also responsible for putting results in storage,
+            // so the test will be able to read them.
+            if iszero(eq(caller(), address())) { 
+              let data := calldataload(0)
+              sstore(1, data)
+              tstore_temp(0, data)
+
+              // This needs to be call, so that the loop contracts will get the 
+              // correct caller() (otherwise they'll get the contract that called up,
+              // 0xCCCC...CCCC)
+              sstore(2, call(gas(), address(), 0, 0,0,0,0))
+              sstore(3, tload_temp(1))
+            }
+        }
+      storage: {}
+
+
+
+    # delegateSumTo(uint)
+    #
+    # Similar to sumTo, but uses delegatecall instead of call
+    #
+    # Without the recursion, this code will look like this:
+    #
+    # for (Trans[0] = calldataload(4); Trans[0]!=0; Trans[0]--}
+    #     Trans[1] += Trans[0]
+    00000000000000000000000000000000c1c922f1:
+      balance: 0
+      nonce: 1
+      code: |
+        :yul {
+            function tload_temp(loc) -> val {
+              val := verbatim_1i_1o(hex"5C", loc)
+            }
+          
+            function tstore_temp(loc, val) {
+              verbatim_2i_0o(hex"5D", loc, val)
+            }
+
+            // If we are called by ourselves, this is part of the loop.
+            if eq(caller(), address()) {
+              let counter := tload_temp(0)
+
+              // If the counter is equal to zero, we're done - return.
+              if eq(counter,0) {
+                return(0,0)
+              }
+
+              // Change the loop variable and call yourself
+              tstore_temp(1, add(tload_temp(1), counter))
+              tstore_temp(0, sub(counter, 1))
+              let res := delegatecall(gas(), address(), 0,0, 0,0)
+              if iszero(res) { // If the call failed, fail too
+                 revert(0,0)
+              }
+            }
+
+
+            // If called by a different address, we are the first call and need
+            // to setup Trans[0] before starting the loop. 
+            //
+            // This first frame is also responsible for putting results in storage,
+            // so the test will be able to read them.
+            if iszero(eq(caller(), address())) { 
+              let data := calldataload(0)
+              sstore(1, data)
+              tstore_temp(0, data)
+
+              // This needs to be call, so that the loop contracts will get the 
+              // correct caller() (otherwise they'll get the contract that called up,
+              // 0xCCCC...CCCC)
+              sstore(2, call(gas(), address(), 0, 0,0,0,0))
+              sstore(3, tload_temp(1))
+            }
+        }
+      storage: {}
+
+
+
+
+    # Call back the contract that called you.
+    # This shows that a contract between two frames
+    # of the same contract doesn't have access to the transient storage
+    #
+    # This contract implements this calling structure:
+    # <contract A> -> ca11bacc -> <contract A>
+    # This is important because transient storage is tied to the contract.
+    # This contract's transient storage should be empty, and the call 
+    # to it should not affect contract A's tranient storage.
+
+    00000000000000000000000000000000ca11bacc:
+      balance: 0
+      nonce: 1
+      code: |
+        :yul {
+            function tload_temp(loc) -> val {
+              val := verbatim_1i_1o(hex"5C", loc)
+            }
+          
+            function tstore_temp(loc, val) {
+              verbatim_2i_0o(hex"5D", loc, val)
+            }
+
+            // Write these values to storage (overwriting the 0x60A7's).
+            // If these values are not zero, there is a problem.
+            sstore(0, tload_temp(0))
+            sstore(1, tload_temp(1))
+            pop(call(gas(), caller(), 0, 0,0, 0,0))
+        }
+      storage:
+        0: 0x60A7
+        1: 0x60A7
+
+
+    # callbackSum(uint)
+    # 
+    # Add ints, 0+1+...+depth
+    # If called by itself, get depth from trans[0]
+    # If called by anybody else, get depth from calldata 
+    #
+    # When doing the recursion, go through 0xca11bacc. This 
+    # verifies that changes propagate through a different contract
+    # without affecting that contract's transient storage
+    #
+    # Without the recursion, this code will look like this:
+    #
+    # for (Trans[0] = calldataload(4); Trans[0]!=0; Trans[0]--}
+    #     Trans[1] += Trans[0]
+    # 
+    000000000000000000000000000000005114e2c8:
+      balance: 0
+      nonce: 1
+      code: |
+        :yul {
+            function tload_temp(loc) -> val {
+              val := verbatim_1i_1o(hex"5C", loc)
+            }
+          
+            function tstore_temp(loc, val) {
+              verbatim_2i_0o(hex"5D", loc, val)
+            }
+
+            // If we are called by 0xca11bacc, this is part of the loop
+            if eq(caller(), 0xca11bacc) {
+              let counter := tload_temp(0)
+
+              // If the counter is equal to zero, we're done - return.
+              if eq(counter,0) {
+                return(0,0)
+              }
+
+              // If counter isn't zero, add counter to Trans[1] and do recursion
+              tstore_temp(1, add(tload_temp(1), counter))
+
+              // Change the loop variable and call 0xca11bacc, which calls us back.
+              tstore_temp(0, sub(counter, 1))
+              let res := call(gas(), 0xca11bacc, 0, 0,0, 0,0)
+              if iszero(res) { // If the call failed, fail too
+                 revert(0,0)
+              }
+            }
+
+            // If called by a different address from 0xca11bacc, we are the first 
+            // call and need to setup Trans[0] before starting the loop. 
+            //
+            // This first frame is also responsible for putting results in storage,
+            // so the test will be able to read them.
+            if iszero(eq(caller(), 0xca11bacc)) { 
+              let data := calldataload(0)
+              sstore(1, data)
+              tstore_temp(0, data)
+              sstore(2, call(gas(), 0xca11bacc, 0, 0,0,0,0))
+              sstore(3, tload_temp(1))
+            }
+        }
+      storage: {}
+
+
+    # binTree(uint)
+    #
+    # Calculate 2^depth-1
+    # 
+    # If called by itself, get depth from Trans[0]
+    # If called by anybody else, get depth from calldata 
+    #
+    # Check that even if we call the contract twice, transient storage works
+    # 
+    # In JavaScript this would look like this:
+    # 
+    # let Trans0 = 0
+    # let Trans1 = 0
+    #
+    # function binTree(caller) {
+    #    if(caller == "binTree()") {
+    #       counter = Trans0
+    #       if (counter == 0) 
+    #           return
+    #       // Call yourself twice
+    #       Trans0 = counter-1
+    #       binTree("binTree()")
+    #       Trans0 = counter-1
+    #       binTree("binTree()")
+    #       Trans1 ++
+    #    } else
+    #       Trans0 = calldataload(0)
+    # }
+    00000000000000000000000000000000264bb86a:
+      balance: 0
+      nonce: 1
+      code: |
+        :yul {
+            function tload_temp(loc) -> val {
+              val := verbatim_1i_1o(hex"5C", loc)
+            }
+          
+            function tstore_temp(loc, val) {
+              verbatim_2i_0o(hex"5D", loc, val)
+            }
+
+            // We are inside the loop
+            if eq(caller(), address()) {
+              let counter := tload_temp(0)
+
+              // If counter is zero, we're at an end of the loop (a leaf of 
+              // the tree), return.
+              if eq(counter,0) {
+                return(0,0)
+              }
+
+              // If counter isn't zero, call yourself with counter-1 twice and
+              // add one to Trans[1]
+              tstore_temp(0, sub(counter, 1))
+              let res := call(gas(), address(), 0, 0,0, 0,0)
+              if iszero(res) { // If the call failed, fail too
+                 revert(0,0)
+              }
+
+              // We need to repair Trans[0] because it got overwritten in
+              // the previous call
+              tstore_temp(0, sub(counter, 1))
+              res := call(gas(), address(), 0, 0,0, 0,0)
+              if iszero(res) { // If the call failed, fail too
+                 revert(0,0)
+              }
+
+              // Increment Trans[1]
+              tstore_temp(1, add(tload_temp(1), 1))
+            }
+
+            // If called by a different address, we are the first call and need
+            // to setup Trans[0] before starting the loop. 
+            //
+            // This first frame is also responsible for putting results in storage,
+            // so the test will be able to read them.
+            if iszero(eq(caller(), address())) { 
+              let data := calldataload(0)
+              sstore(1, data)
+              tstore_temp(0, data)
+              sstore(2, call(gas(), address(), 0, 0,0,0,0))
+              sstore(3, tload_temp(1))
+            }
+        }
+      storage: {}
+
+
+
+    # delegateBinTree(uint)
+    #
+    # Similar to binTree, but uses callcode and delegatecall instead of call
+    # Calculate 2^depth-1
+    # 
+    # If called by itself, get depth from Trans[0]
+    # If called by anybody else, get depth from calldata 
+    #
+    # Check that even if we call the contract twice, transient storage works
+    # 
+    # In JavaScript this would look like this:
+    # 
+    # let Trans0 = 0
+    # let Trans1 = 0
+    #
+    # function binTree(caller) {
+    #    if(caller == "binTree()") {
+    #       counter = Trans0
+    #       if (counter == 0) 
+    #           return
+    #       // Call yourself twice
+    #       Trans0 = counter-1
+    #       binTree("binTree()")
+    #       Trans0 = counter-1
+    #       binTree("binTree()")
+    #       Trans1 ++
+    #    } else
+    #       Trans0 = calldataload(0)
+    # }
+    000000000000000000000000000000007074a486:
+      balance: 0
+      nonce: 1
+      code: |
+        :yul {
+            function tload_temp(loc) -> val {
+              val := verbatim_1i_1o(hex"5C", loc)
+            }
+          
+            function tstore_temp(loc, val) {
+              verbatim_2i_0o(hex"5D", loc, val)
+            }
+
+            // If we are in the loop
+            if eq(caller(), address()) {
+              let counter := tload_temp(0)
+
+              // If the counter is zero, we're at loop's end, return
+              if eq(counter,0) {
+                return(0,0)
+              }
+
+              // If counter isn't zero
+              // Call yourself with counter-1 twice then add 1 to Trans[1]
+              // Note that one call is callcode() and the other delegatecall().
+              // This way the same test checks both of them.
+
+              tstore_temp(0, sub(counter, 1))
+              let res := callcode(gas(), address(), 0, 0,0, 0,0)
+              if iszero(res) { // If the call failed, fail too
+                 revert(0,0)
+              }
+
+              // We need to repair Trans[0] because it got overwritten in
+              // the previous call
+              tstore_temp(0, sub(counter, 1))
+              res := delegatecall(gas(), address(), 0,0, 0,0)
+              if iszero(res) { // If the call failed, fail too
+                 revert(0,0)
+              }
+
+              // Increment Trans[1]
+              tstore_temp(1, add(tload_temp(1), 1))
+            }
+
+
+            // If called by a different address, we are the first call and need
+            // to setup Trans[0] before starting the loop. 
+            //
+            // This first frame is also responsible for putting results in storage,
+            // so the test will be able to read them.
+            if iszero(eq(caller(), address())) { 
+              let data := calldataload(0)
+              sstore(1, data)
+              tstore_temp(0, data)
+              sstore(2, call(gas(), address(), 0, 0,0,0,0))
+              sstore(3, tload_temp(1))
+            }
+        }
+      storage: {}
+
+
+    # Increment Trans[0]
+    #
+    # This is used by inheritTrans() below to show that 
+    # 1. If you CALL a contract, it has separate transient storage
+    # 2. If you CALLCODE or DELEGATECALL a contract, it is the same transient storage
+    000000000000000000000000000000000000add1:
+      balance: 0
+      nonce: 1
+      code: |
+        :yul {
+            function tload_temp(loc) -> val {
+              val := verbatim_1i_1o(hex"5C", loc)
+            }
+
+            function tstore_temp(loc, val) {
+              verbatim_2i_0o(hex"5D", loc, val)
+            }
+
+            tstore_temp(0, add(tload_temp(0), 1))
+        }
+      storage: {}
+
+
+
+    # inheritTrans()
+    # 
+    # Show that CALL doesn't inherit our transient storage, but CALLCODE and
+    # DELEGATECALL do
+    000000000000000000000000000000007f9317bd:
+      balance: 0
+      nonce: 1
+      code: |
+        :yul {
+            function tload_temp(loc) -> val {
+              val := verbatim_1i_1o(hex"5C", loc)
+            }
+          
+            function tstore_temp(loc, val) {
+              verbatim_2i_0o(hex"5D", loc, val)
+            }
+
+            // The initial value of the counter is zero
+            sstore(0, tload_temp(0))
+
+            // CALLCODE increments our Trans[0]
+            sstore(0x11, callcode(gas(), 0xadd1, 0, 0,0, 0,0))
+            sstore(1, tload_temp(0))
+
+            // DELEGATECALL increments our Trans[0]
+            sstore(0x12, delegatecall(gas(), 0xadd1, 0,0, 0,0))
+            sstore(2, tload_temp(0))
+
+            // CALL does not increment our Trans[0], it means a different
+            // transient storage
+            sstore(0x13, call(gas(), 0xadd1, 0, 0,0, 0,0))
+            sstore(3, tload_temp(0))
+        }
+      storage:
+        0: 0x60A7   # To show it gets overwritten by zero
+                    # The other storage cells get a different value
+                    # so we can keep them at the default of zero
+
+
+
+
+    # deepCall(uint)
+    #
+    # Show transients are preserved even after a stack of CALLCODEs,
+    # DELEGATECALLs, and CALLs
+    #
+    # The parameter to deepCall(uint) is a 32 bytes, each telling us what type of 
+    # call to do next. The values are the same as opcode values: 0xF1, 0xF2, and 0xF4.
+    #
+    # The way this works is that the first (most significant byte) is the type of call
+    # to do now, and then we give that call input that includes all the input bytes 
+    # except for that one.
+    #
+    # We increment Trans[0] in the first call and the last one.
+    00000000000000000000000000000000c54b5829:
+      balance: 0
+      nonce: 1
+      code: |
+        :yul {
+            function tload_temp(loc) -> val {
+              val := verbatim_1i_1o(hex"5C", loc)
+            }
+          
+            function tstore_temp(loc, val) {
+              verbatim_2i_0o(hex"5D", loc, val)
+            }
+
+            // If we are at the bottom of the call stack, increment
+            // the counter and return
+            if eq(calldatasize(), 0) {
+               tstore_temp(0, add(tload_temp(0),1))
+               return(0,0)
+            }
+
+            // If we are at the top of the stack (called by a different contract),
+            // set the counter to one
+            if iszero(eq(address(), caller())) {
+               tstore_temp(0, 1)
+            }
+
+            // Read the most significant byte of the input.
+            // Luckily for us the input is top justified - if the caller provided
+            // just n bytes (n<20), they will be the top n bytes of calldataload(0).
+            let callType := shr(
+                248,
+                calldataload(0)
+            )
+
+            // Prepare the data to send to the next call
+            mstore(0, calldataload(0))
+            let newSize := sub(calldatasize(), 1)
+            let newStart := 1
+  
+            // Mem[0x00] contains the most significant byte (the call type here)
+            // Mem[0x01] contains the second most significant (the next call type)
+            // Mem[calldatasize()-1) contains the final call type
+            //
+            // So we call ourselves with a buffer start of one, and a call data size
+            // of calldatasize()-1
+
+
+            // CALL, CALLCODE or DELEGATECALL, as requested
+            switch callType
+            case 0xF1 {    // CALL
+               pop(call(gas(), address(), 0, newStart,newSize, 0,0))
+            }
+            case 0xF2 {    // CALLCODE
+               pop(callcode(gas(), address(), 0, newStart,newSize, 0,0))
+            }
+            case 0xF4 {    // DELEGATECALL
+               pop(delegatecall(gas(), address(), newStart,newSize, 0,0))
+            }
+
+            // If we are at the top of the stack (called by a different contract),
+            // write up the result. Should be two
+            if iszero(eq(address(), caller())) {
+               sstore(0, tload_temp(0))
+            }
+
+          }
+      storage: {}
+
+
+
+    # This code is called to check that STATICCALL has access to transients
+    # (read only). When called, it checks if there is calldata. If there is,
+    # it writes to Trans[0]. Whether there is or not, it reads from Trans[0]
+    # and returns that (the only way that a static call can return data).
+    00000000000000000000000000000000000057A7:
+      balance: 0
+      nonce: 1
+      code: |
+        :yul {
+            function tload_temp(loc) -> val {
+              val := verbatim_1i_1o(hex"5C", loc)
+            }
+          
+            function tstore_temp(loc, val) {
+              verbatim_2i_0o(hex"5D", loc, val)
+            }
+
+            // There is calldata, so write to Trans[0]
+            if calldatasize() {
+               tstore_temp(0, 0x60A7)
+            }
+
+            // Return Trans[0]
+            // This happens whether we are called with data or not.
+            mstore(0, tload_temp(0))
+            return(0,32)            
+        }
+      storage: {}
+
+
+    # staticCall()
+    #
+    # This contract calls 0x57A7 three time. 
+    # 1. Set up Trans[0]
+    # 2. STATICCALL, show you can read it
+    # 3. STATICCALL, shows you can't write it, even when the value is unchanged
+    000000000000000000000000000000005d7935df:
+      balance: 0
+      nonce: 1
+      code: |
+        :yul {
+            // Set up Trans[0] with a regular call. 
+            sstore(0x10,call(gas(), 0x57A7, 0, 0,1, 0,32))
+            sstore(0, mload(0))
+
+            // Use staticcall to read Trans[0] of 0x0..57A7.
+            mstore(0,0)
+            sstore(0x11,staticcall(gas(), 0x57A7, 0,0, 0,32))
+            sstore(1, mload(0))
+
+            // Try to use staticall to write Trans[0]. This should fail.
+            mstore(0,0)
+            sstore(0x12,staticcall(gas(), 0x57A7, 0,1, 0,32))
+            sstore(2, mload(0))
+        }
+      storage:
+        # Values that should be overwritten by zero (because the tstore causes a revert)
+        0x02: 0x60A7
+        0x12: 0x60A7
+
+
+    # The contract called by the transaction
+    # Receives ABI calldata
+    # Bytes 0x00-0x03 (the function hash) is the address of the contract to call
+    # Bytes 0x04-0x23 are the first parameter
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: 0
+      code: |
+        :yul {
+          let func := shr(224, calldataload(0))
+          let param := calldataload(4)
+          sstore(0, func)
+          mstore(0, param)
+          sstore(1, call(gas(), func, 0, 0,32, 0,0))
+        }
+      nonce: 1
+      storage: {}
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: 1
+      storage: {}
+
+
+  transaction:
+    data:
+    # Sum up the integers 1-16. 
+    - :label sum_16 :abi sumTo(uint) 16
+    - :label callcode_sum_16 :abi callcodeSumTo(uint) 16
+    - :label delegate_sum_16 :abi delegateSumTo(uint) 16
+
+    # Sum up the integers 1-256.
+    - :label sum_256 :abi sumTo(uint) 256
+
+    # Sum up integers, while calling a different contract between each two calls to 
+    # the function
+    - :label callback_sum_10 :abi callbackSum(uint) 10
+    - :label callback_sum_50 :abi callbackSum(uint) 50
+
+    # Calculate 2^6-1 by calling recursively the same contract twice.
+    - :label bin_tree_6 :abi binTree(uint) 6
+
+    # Calculate 2^6-1 by calling recursively the same contract twice.
+    # Both DELEGATECALL and CODECALL here 
+    - :label delegate_bin_tree_6 :abi delegateBinTree(uint) 6
+
+    # Show that transient value is inherited through callcode and delegateall, 
+    # but not a regular call.
+    - :label inherit_trans :abi inheritTrans()
+
+    # Show that transient storage is inherited through multiple calls, callcodes, and
+    # delegatecalls.
+    # Because of the way this is written, the call stack has to be exactly 32 bytes
+    - :label deep_call :abi deepCall(uint) 0xF1F2F4F1F2F4F1F2F4F1F2F4F1F2F4F1F2F4F1F2F4F1F2F4F1F2F4F1F2F4F1F1F1
+    - :label deep_call :abi deepCall(uint) 0xF1F1F1F1F2F2F2F2F4F4F4F4F1F1F1F1F2F2F2F2F4F4F4F4F1F1F1F1F2F2F2F2
+    - :label deep_call :abi deepCall(uint) 0xF1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1
+    - :label deep_call :abi deepCall(uint) 0xF1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1
+    - :label deep_call :abi deepCall(uint) 0xF2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2
+    - :label deep_call :abi deepCall(uint) 0xF4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4
+
+    # Show that a static call can read transient storage, but not write to it
+    # This test also shows that call and staticcall get to the same transient storage
+    - :label static_call :abi staticCall()
+
+    gasLimit:
+    - 80000000
+    gasPrice: 10
+    nonce: 1
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '0'
+    secretKey: '45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8'
+
+
+
+  expect:
+    - indexes:
+        data: :label sum_16
+
+      network:
+        - ">=Cancun"
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0xebd141d5  # Call to sumTo(uint)
+            1: 1    # Call was successful
+        00000000000000000000000000000000ebd141d5:
+          storage:
+            1: 16    # Sum 1+2+3+...+16
+            2: 1     # Call successful
+            3: 136   # Resulting sum
+
+
+    - indexes:
+        data: :label callcode_sum_16
+
+      network:
+        - ">=Cancun"
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x6e3a7204  # Call to callcodeSumTo(uint)
+            1: 1    # Call was successful
+        000000000000000000000000000000006e3a7204:
+          storage:
+            1: 16    # Sum 1+2+3+...+16
+            2: 1     # Call successful
+            3: 136   # Resulting sum
+
+
+
+    - indexes:
+        data: :label delegate_sum_16
+
+      network:
+        - ">=Cancun"
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0xc1c922f1  # Call to delegateSumTo(uint)
+            1: 1    # Call was successful
+        00000000000000000000000000000000c1c922f1:
+          storage:
+            1: 16    # Sum 1+2+3+...+16
+            2: 1     # Call successful
+            3: 136   # Resulting sum
+
+
+    - indexes:
+        data: :label sum_256
+
+      network:
+        - ">=Cancun"
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0xebd141d5  # Call to sumTo(uint)
+            1: 1    # Call was successful
+        00000000000000000000000000000000ebd141d5:
+          storage:
+            1: 256    # Sum 1+2+3+...+256
+            2: 1      # Call successful
+            3: 32896  # Resulting sum
+
+
+
+
+    - indexes:
+        data: :label callback_sum_10
+
+      network:
+        - ">=Cancun"
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x5114e2c8  # Call to callbackSum(uint)
+            1: 1    # Call was successful
+
+        # Sum where there's an intervening contract
+        000000000000000000000000000000005114e2c8:
+          storage:
+            1: 10     # Sum 1+2+3+...+10
+            2: 1      # Call successful
+            3: 55     # Resulting sum
+
+        # The transient storage of the contract in the middle is untouched
+        00000000000000000000000000000000ca11bacc:
+          storage:
+            0: 0
+            1: 0
+
+
+
+    - indexes:
+        data: :label callback_sum_50
+
+      network:
+        - ">=Cancun"
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x5114e2c8  # Call to callbackSum(uint)
+            1: 1    # Call was successful
+
+        # Sum where there's an intervening contract
+        000000000000000000000000000000005114e2c8:
+          storage:
+            1: 50     # Sum 1+2+3+...+50
+            2: 1      # Call successful
+            3: 1275   # Resulting sum
+
+        # The transient storage of the contract in the middle is untouched
+        00000000000000000000000000000000ca11bacc:
+          storage:
+            0: 0
+            1: 0
+
+
+
+    - indexes:
+        data: :label bin_tree_6
+
+      network:
+        - ">=Cancun"
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x264bb86a  # Call to binTree(uint)
+            1: 1    # Call was successful
+
+
+        # Binary tree, showing that transients work correctly when there are two
+        # calls to the contract
+        00000000000000000000000000000000264bb86a:
+          storage:
+            1: 6      # Get 2^6
+            2: 1      # Call successful
+            3: 63     # Resulting power
+
+
+
+
+    - indexes:
+        data: :label delegate_bin_tree_6
+
+      network:
+        - ">=Cancun"
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x7074a486  # Call to delegateBinTree(uint)
+            1: 1    # Call was successful
+
+
+        # Binary tree, showing that transients work correctly when there are two
+        # calls to the contract
+        000000000000000000000000000000007074a486:
+          storage:
+            1: 6      # Get 2^6
+            2: 1      # Call successful
+            3: 63     # Resulting power
+
+
+
+
+    - indexes:
+        data: :label inherit_trans
+
+      network:
+        - ">=Cancun"
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x7f9317bd  # Call to inheritTrans()
+            1: 1    # Call was successful
+
+        # Show when transients are inherited and then they aren't
+        000000000000000000000000000000007f9317bd:
+          storage:
+            0x00: 0    # Initial value
+            0x01: 1    # CALLCODE increments
+            0x02: 2    # DELEGATECODE increments
+            0x03: 2    # CALL does not increment (or rather, it increments its own storage)
+            0x11: 1    # CALLCODE success
+            0x12: 1    # DELEGATECALL success
+            0x13: 1    # CALL success
+
+
+
+    - indexes:
+        data: :label deep_call
+
+      network:
+        - ">=Cancun"
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0xc54b5829  # Call to deepCall()
+            1: 1    # Call was successful
+
+        # Show transients are preserved even after a stack of CALLCODEs and
+        # DELEGATECALLs
+        00000000000000000000000000000000c54b5829:
+          storage:
+            0: 2   # Two updates, one at the top of the stack, one at the bottom
+
+
+
+    - indexes:
+        data: :label static_call
+
+      network:
+        - ">=Cancun"
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x5d7935df  # Call to staticCall()
+            1: 1    # Call was successful
+
+
+        # Show that static calls have access to transient storage
+        000000000000000000000000000000005d7935df:
+          storage:
+            0x00: 0x60A7  # After regular call
+            0x01: 0x60A7  # After static call
+            0x02: 0       # After failed static call
+            0x10: 1 # Regular call successful
+            0x11: 1 # Static call successful
+            0x12: 0 # Static call that attempts to TSTORE fails

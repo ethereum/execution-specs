@@ -1,0 +1,824 @@
+
+# Created by tests/src/Templates/DiffPlaces/templateGen.js
+#
+# With the template code:
+# // Run an invalid opcode (make sure it doesn't fail due to a stack underflow) and then
+#            // kill the goat if we don't revert.
+#            
+#            
+#            verbatim_9i_0o(hex"F8", 1, 2, 3, 4, 5, 6, 7, 8, 9)
+#            
+#            // A bunch of NOPs in case the opcode has immediate operands
+#            // (starting in Cancun we have opcodes with immediate operands)
+#            
+#            verbatim_0i_0o(hex"5B5B5B5B5B")
+#            
+#            // If we get here, kill the goat so we'll get an error
+#            mstore(0, hex"DEAD60A7")
+#            
+#
+# Expected result: 0x60A7
+#
+opcF8DiffPlaces:
+  _info:
+    comment: Ori Pomerantz   qbzzt1@gmail.com
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentNumber: 1
+    currentTimestamp: 1000
+    currentGasLimit: 0x10000000000000
+    currentBaseFee: 10
+
+  pre:
+
+    # It is not trivial to use the Yul compiler to get the
+    # binary code for the code we're checking, so we'll use EXTCODECOPY
+    # from this contract
+    000000000000000000000000000000000000C0DE:
+      balance: 1000000000000000000
+      code: |
+        :yul berlin {
+           // Run an invalid opcode (make sure it doesn't fail due to a stack underflow) and then
+            // kill the goat if we don't revert.
+            
+            
+            verbatim_9i_0o(hex"F8", 1, 2, 3, 4, 5, 6, 7, 8, 9)
+            
+            // A bunch of NOPs in case the opcode has immediate operands
+            // (starting in Cancun we have opcodes with immediate operands)
+            
+            verbatim_0i_0o(hex"5B5B5B5B5B")
+            
+            // If we get here, kill the goat so we'll get an error
+            mstore(0, hex"DEAD60A7")
+            
+
+           // Here the result is is mload(0). We want to run it, but
+           // prefix it with a zero so we'll be safe from being considered
+           // an invalid program.
+           //
+           // If we use this as a contructor the result will be
+           // the code of the created contract, but we can live
+           // with that. We won't call it.
+           mstore(0x40, mload(0x00))
+           return(0x3F, 0x21)
+        }
+      nonce: 1
+      storage: {}
+
+    # When we create a contract and then call it, we don't want the
+    # zero prefix in the return value
+    000000000000000000000000000000000020C0DE:
+      balance: 1000000000000000000
+      code: |
+        :yul berlin {
+           // Run an invalid opcode (make sure it doesn't fail due to a stack underflow) and then
+            // kill the goat if we don't revert.
+            
+            
+            verbatim_9i_0o(hex"F8", 1, 2, 3, 4, 5, 6, 7, 8, 9)
+            
+            // A bunch of NOPs in case the opcode has immediate operands
+            // (starting in Cancun we have opcodes with immediate operands)
+            
+            verbatim_0i_0o(hex"5B5B5B5B5B")
+            
+            // If we get here, kill the goat so we'll get an error
+            mstore(0, hex"DEAD60A7")
+            
+
+           // Here the result is is mload(0).
+           return(0x00, 0x20)
+        }
+      nonce: 1
+      storage: {}
+
+
+
+    # Code for a construct to create a contract with the template code
+    00000000000000000000000000000000C0DEC0DE:
+      balance: 1000000000000000000
+      code: |
+        :yul berlin {
+           let addr := 0x20C0DE
+           let length := extcodesize(addr)
+
+           // Read the code from 0x20C0DE
+           extcodecopy(addr, 0, 0, length)
+
+           // Return this memory as the code for the contract
+           return(0, length)
+        }
+      nonce: 1
+      storage: {}
+
+
+    # Perform the action (directly or indirectly). Either way,
+    # store the result in sload(0).
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: 1000000000000000000
+      code: |
+          :yul berlin {
+             let action := calldataload(4)
+             let res := 1   // If the result of a call is revert, revert here too
+             let addr := 1  // If the result of CREATE[2] is zero, it reverted
+
+             // For when we need code in our memory
+             let codeBuffer := 0x20
+             // When running the template in the constructor
+             let codeLength := extcodesize(0xC0DE)
+             // When running the template in the created code
+             let codeLength2 := extcodesize(0xC0DEC0DE)
+
+             // Goat should be overwritten
+             mstore(0, 0x60A7)
+
+             switch action
+             case 0 {  // run the code snippet as normal code
+                // Run an invalid opcode (make sure it doesn't fail due to a stack underflow) and then
+            // kill the goat if we don't revert.
+            
+            
+            verbatim_9i_0o(hex"F8", 1, 2, 3, 4, 5, 6, 7, 8, 9)
+            
+            // A bunch of NOPs in case the opcode has immediate operands
+            // (starting in Cancun we have opcodes with immediate operands)
+            
+            verbatim_0i_0o(hex"5B5B5B5B5B")
+            
+            // If we get here, kill the goat so we'll get an error
+            mstore(0, hex"DEAD60A7")
+            
+             }
+
+             // One level of call stack
+             case 0xF1 {  // call a contract to run this code
+                res := call(gas(), 0xca11, 0, 0, 0, 0, 0x20) // call template code
+             }
+             case 0xF2 {  // callcode a contract to run this code
+                res := callcode(gas(), 0xca11, 0, 0, 0, 0, 0x20)
+             }
+             case 0xF4 {  // delegate call a contract to run this code
+                res := delegatecall(gas(), 0xca11, 0, 0, 0, 0x20)
+             }
+             case 0xFA {  // static call a contract to run this code
+                res := staticcall(gas(), 0xca11, 0, 0, 0, 0x20)
+             }
+
+             // Two levels of call stack
+             case 0xF1F1 {  // call, call
+                res := call(gas(), 0xca1100f1, 0, 0, 0, 0, 0x20)
+             }
+             case 0xF2F1 {  // callcode, call
+                res := callcode(gas(), 0xca1100f1, 0, 0, 0, 0, 0x20)
+             }
+             case 0xF4F1 {  // delegatecall, call
+                res := delegatecall(gas(), 0xca1100f1, 0, 0, 0, 0x20)
+             }
+             case 0xFAF1 {  // staticcall, call
+                res := staticcall(gas(), 0xca1100f1, 0, 0, 0, 0x20)
+             }
+             case 0xF1F2 {  // call, callcode
+                res := call(gas(), 0xca1100f2, 0, 0, 0, 0, 0x20)
+             }
+             case 0xF2F2 {  // callcode, callcode
+                res := callcode(gas(), 0xca1100f2, 0, 0, 0, 0, 0x20)
+             }
+             case 0xF4F2 {  // delegatecall, callcode
+                res := delegatecall(gas(), 0xca1100f2, 0, 0, 0, 0x20)
+             }
+             case 0xFAF2 {  // staticcall, callcode
+                res := staticcall(gas(), 0xca1100f2, 0, 0, 0, 0x20)
+             }
+             case 0xF1F4 {  // call, delegatecall
+                res := call(gas(), 0xca1100f4, 0, 0, 0, 0, 0x20)
+             }
+             case 0xF2F4 {  // callcode, delegatecall
+                res := callcode(gas(), 0xca1100f4, 0, 0, 0, 0, 0x20)
+             }
+             case 0xF4F4 {  // delegatecall, delegatecall
+                res := delegatecall(gas(), 0xca1100f4, 0, 0, 0, 0x20)
+             }
+             case 0xFAF4 {  // staticcall, delegatecall
+                res := staticcall(gas(), 0xca1100f4, 0, 0, 0, 0x20)
+             }
+             case 0xF1FA {  // call, staticcall
+                res := call(gas(), 0xca1100fa, 0, 0, 0, 0, 0x20)
+             }
+             case 0xF2FA {  // callcode, staticcall
+                res := callcode(gas(), 0xca1100fa, 0, 0, 0, 0, 0x20)
+             }
+             case 0xF4FA {  // delegatecall, staticcall
+                res := delegatecall(gas(), 0xca1100fa, 0, 0, 0, 0x20)
+             }
+             case 0xFAFA {  // staticcall, staticcall
+                res := staticcall(gas(), 0xca1100fa, 0, 0, 0, 0x20)
+             }
+             case 0xFD {   // Rerun the code after a REVERT
+                // Run an invalid opcode (make sure it doesn't fail due to a stack underflow) and then
+            // kill the goat if we don't revert.
+            
+            
+            verbatim_9i_0o(hex"F8", 1, 2, 3, 4, 5, 6, 7, 8, 9)
+            
+            // A bunch of NOPs in case the opcode has immediate operands
+            // (starting in Cancun we have opcodes with immediate operands)
+            
+            verbatim_0i_0o(hex"5B5B5B5B5B")
+            
+            // If we get here, kill the goat so we'll get an error
+            mstore(0, hex"DEAD60A7")
+            
+                sstore(0, mload(0))
+
+                pop(call(gas(), 0x60BACC, 0, 0, 0, 0, 0))
+                // Run an invalid opcode (make sure it doesn't fail due to a stack underflow) and then
+            // kill the goat if we don't revert.
+            
+            
+            verbatim_9i_0o(hex"F8", 1, 2, 3, 4, 5, 6, 7, 8, 9)
+            
+            // A bunch of NOPs in case the opcode has immediate operands
+            // (starting in Cancun we have opcodes with immediate operands)
+            
+            verbatim_0i_0o(hex"5B5B5B5B5B")
+            
+            // If we get here, kill the goat so we'll get an error
+            mstore(0, hex"DEAD60A7")
+            
+
+                // The two results should be equal
+                if iszero(eq(sload(0), mload(0))) {mstore(0, 0xBADBADBAD)}
+             }
+             case 0xFE {   // Rerun the code after an out of gas
+                // Run an invalid opcode (make sure it doesn't fail due to a stack underflow) and then
+            // kill the goat if we don't revert.
+            
+            
+            verbatim_9i_0o(hex"F8", 1, 2, 3, 4, 5, 6, 7, 8, 9)
+            
+            // A bunch of NOPs in case the opcode has immediate operands
+            // (starting in Cancun we have opcodes with immediate operands)
+            
+            verbatim_0i_0o(hex"5B5B5B5B5B")
+            
+            // If we get here, kill the goat so we'll get an error
+            mstore(0, hex"DEAD60A7")
+            
+                sstore(0, mload(0))
+
+                pop(call(25000, 0x60006, 0, 0, 0, 0, 0))
+                // Run an invalid opcode (make sure it doesn't fail due to a stack underflow) and then
+            // kill the goat if we don't revert.
+            
+            
+            verbatim_9i_0o(hex"F8", 1, 2, 3, 4, 5, 6, 7, 8, 9)
+            
+            // A bunch of NOPs in case the opcode has immediate operands
+            // (starting in Cancun we have opcodes with immediate operands)
+            
+            verbatim_0i_0o(hex"5B5B5B5B5B")
+            
+            // If we get here, kill the goat so we'll get an error
+            mstore(0, hex"DEAD60A7")
+            
+
+                // The two results should be equal
+                if iszero(eq(sload(0), mload(0))) {mstore(0, 0xBADBADBAD)}
+             }
+             case 0xFF {   // Rerun the code after a SELFDESTRUCT
+                // Run an invalid opcode (make sure it doesn't fail due to a stack underflow) and then
+            // kill the goat if we don't revert.
+            
+            
+            verbatim_9i_0o(hex"F8", 1, 2, 3, 4, 5, 6, 7, 8, 9)
+            
+            // A bunch of NOPs in case the opcode has immediate operands
+            // (starting in Cancun we have opcodes with immediate operands)
+            
+            verbatim_0i_0o(hex"5B5B5B5B5B")
+            
+            // If we get here, kill the goat so we'll get an error
+            mstore(0, hex"DEAD60A7")
+            
+                sstore(0, mload(0))
+
+                pop(call(gas(), 0xDEADDEAD, 0, 0, 0, 0, 0))
+                // Run an invalid opcode (make sure it doesn't fail due to a stack underflow) and then
+            // kill the goat if we don't revert.
+            
+            
+            verbatim_9i_0o(hex"F8", 1, 2, 3, 4, 5, 6, 7, 8, 9)
+            
+            // A bunch of NOPs in case the opcode has immediate operands
+            // (starting in Cancun we have opcodes with immediate operands)
+            
+            verbatim_0i_0o(hex"5B5B5B5B5B")
+            
+            // If we get here, kill the goat so we'll get an error
+            mstore(0, hex"DEAD60A7")
+            
+
+                // The two results should be equal
+                if iszero(eq(sload(0), mload(0))) {mstore(0, 0xBADBADBAD)}
+             }
+
+
+
+             case 0xF0 {  // CREATE, run the code in the constructor
+                // Read the code from 0xC0DE and create a contract based on it
+                extcodecopy(0xC0DE, codeBuffer, 0, codeLength)
+                addr := create(1000000000000000000, codeBuffer, codeLength)
+
+                // Read the created contract, that is the result
+                // We start it from the second byte so the first byte of
+                // code will be STOP (0x00). Otherwise we might run into
+                // invalid program issues (because the result isn't a valid
+                // program
+                extcodecopy(addr, 0, 1, 0x20)
+             }
+
+
+             case 0xF5 {  // CREATE2, run the code in the constructor
+                // Read the code from 0xC0DE and create a contract based on it
+                extcodecopy(0xC0DE, codeBuffer, 0, codeLength)
+                addr := create2(1000000000000000000, codeBuffer, codeLength, 0x5a17)
+
+                // Read the created contract, that is the result
+                // We start it from the second byte so the first byte of
+                // code will be STOP (0x00). Otherwise we might run into
+                // invalid program issues (because the result isn't a valid
+                // program
+                extcodecopy(addr, 0, 1, 0x20)
+             }
+
+             case 0xF0F1 { // CREATE, then CALL the created code for the result
+
+                // Read the code from 0xC0DEC0DE and create a
+                // contract based on it
+                extcodecopy(0xC0DEC0DE, codeBuffer, 0, codeLength2)
+                addr := create(1000000000000000000, codeBuffer, codeLength2)
+
+                // Call the contract
+                res := call(gas(), addr, 0, 0, 0, 0, 0x20)
+
+             }
+
+             case 0xF5F1 { // CREATE2, then CALL the created code for the result
+
+                // Read the code from 0xC0DEC0DE and create a
+                // contract based on it
+                extcodecopy(0xC0DEC0DE, codeBuffer, 0, codeLength2)
+                addr := create2(1000000000000000000, codeBuffer, codeLength2, 0x5a17)
+
+                // Call the contract
+                res := call(gas(), addr, 0, 0, 0, 0, 0x20)
+
+             }
+
+
+             case 0xF0F2 { // CREATE, then CALLCODE the created code
+                           // for the result
+
+                // Read the code from 0xC0DEC0DE and create a
+                // contract based on it
+                extcodecopy(0xC0DEC0DE, codeBuffer, 0, codeLength2)
+
+                // Here we don't transfer cc..cc's ETH to the new contract
+                // because if we run SELFBALANCE it will run in the context
+                // of CC....CC and therefore return 0
+                addr := create(0, codeBuffer, codeLength2)
+
+                // Call the contract
+                res := callcode(gas(), addr, 0, 0, 0, 0, 0x20)
+
+             }
+
+             case 0xF5F2 { // CREATE2, then CALLCODE the created code for
+                           // the result
+
+                // Read the code from 0xC0DEC0DE and create a
+                // contract based on it
+                extcodecopy(0xC0DEC0DE, codeBuffer, 0, codeLength2)
+
+                // Here we don't transfer cc..cc's ETH to the new contract
+                // because if we run SELFBALANCE it will run in the context
+                // of CC....CC and therefore return 0
+                addr := create2(0, codeBuffer, codeLength2, 0x5a17)
+
+                // Call the contract
+                res := callcode(gas(), addr, 0, 0, 0, 0, 0x20)
+
+             }
+
+
+             case 0xF0F4 { // CREATE, then DELEGATECALL the created code
+                           // for the result
+
+                // Read the code from 0xC0DEC0DE and create a
+                // contract based on it
+                extcodecopy(0xC0DEC0DE, codeBuffer, 0, codeLength2)
+
+                // Here we don't transfer cc..cc's ETH to the new contract
+                // because if we run SELFBALANCE it will run in the context
+                // of CC....CC and therefore return 0
+                addr := create(0, codeBuffer, codeLength2)
+
+                // Call the contract
+                res := delegatecall(gas(), addr, 0, 0, 0, 0x20)
+
+             }
+
+             case 0xF5F4 { // CREATE2, then DELEGATECALL the created code
+                           // for the result
+
+                // Read the code from 0xC0DEC0DE and create a
+                // contract based on it
+                extcodecopy(0xC0DEC0DE, codeBuffer, 0, codeLength2)
+
+                // Here we don't transfer cc..cc's ETH to the new contract
+                // because if we run SELFBALANCE it will run in the context
+                // of CC....CC and therefore return 0
+                addr := create2(0, codeBuffer, codeLength2, 0x5a17)
+
+                // Call the contract
+                res := delegatecall(gas(), addr, 0, 0, 0, 0x20)
+
+             }
+
+
+             case 0xF0FA { // CREATE, then CALLSTATIC the created code
+                           // for the result
+
+                // Read the code from 0xC0DEC0DE and create a
+                // contract based on it
+                extcodecopy(0xC0DEC0DE, codeBuffer, 0, codeLength2)
+                addr := create(1000000000000000000, codeBuffer, codeLength2)
+
+                // Call the contract
+                res := staticcall(gas(), addr, 0, 0, 0, 0x20)
+
+             }
+
+             case 0xF5FA { // CREATE2, then STATICCALL the created code
+                           // for the result
+
+                // Read the code from 0xC0DEC0DE and create a
+                // contract based on it
+                extcodecopy(0xC0DEC0DE, codeBuffer, 0, codeLength2)
+                addr := create2(1000000000000000000, codeBuffer, codeLength2, 0x5a17)
+
+                // Call the contract
+                res := staticcall(gas(), addr, 0, 0, 0, 0x20)
+
+             }
+
+              // Recurse (= run backwards)
+              case 0x60BACCFA57 {
+                 mstore(0, 1023)
+                 res := call(gas(), 0x60BACCFA57, 0, 0, 0x20, 0, 0x20)
+              }
+
+
+             default {    // Fail, we should never get here
+               mstore(0, 0xBAD0BAD0BAD0)
+             }
+
+             // If res is zero, that means a call failed, so fail too
+             if iszero(res) { revert(0,0x20) }
+
+             // If addr is zero, that means a create failed, so fail too
+             if iszero(addr) { revert(0,0x20) }
+
+             // Here the result is is mload(0), store it so
+             // the test can check it
+             sstore(0, mload(0))
+          }
+      nonce: 1
+      storage:
+        0: 0x60A7   # To be overwritten by the code snippet
+
+
+
+    # Called to perform the code snippet and return the result
+    000000000000000000000000000000000000ca11:
+      balance: '1000000000000000000'
+      code: |
+          :yul berlin {
+            // Run an invalid opcode (make sure it doesn't fail due to a stack underflow) and then
+            // kill the goat if we don't revert.
+            
+            
+            verbatim_9i_0o(hex"F8", 1, 2, 3, 4, 5, 6, 7, 8, 9)
+            
+            // A bunch of NOPs in case the opcode has immediate operands
+            // (starting in Cancun we have opcodes with immediate operands)
+            
+            verbatim_0i_0o(hex"5B5B5B5B5B")
+            
+            // If we get here, kill the goat so we'll get an error
+            mstore(0, hex"DEAD60A7")
+            
+            return(0, 0x20)     // return the result as our return value
+          }
+      nonce: 1
+      storage: {}
+
+
+    # Called to CALL the code (two level call stack)
+    00000000000000000000000000000000ca1100f1:
+      balance: '1000000000000000000'
+      code: |
+          :yul berlin {
+            if iszero(call(gas(), 0xca11, 0, 0, 0, 0, 0x20))
+               { revert(0,0x20) }
+
+            return(0, 0x20)     // return the result as our return value
+          }
+      nonce: 1
+      storage: {}
+
+
+    # Called to CALLCODE the code (two level call stack)
+    00000000000000000000000000000000ca1100f2:
+      balance: '1000000000000000000'
+      code: |
+          :yul berlin {
+            if iszero(callcode(gas(), 0xca11, 0, 0, 0, 0, 0x20))
+               { revert(0,0x20) }
+
+            return(0, 0x20)     // return the result as our return value
+          }
+      nonce: 1
+      storage: {}
+
+
+    # Called to DELEGATECALL the code (two level call stack)
+    00000000000000000000000000000000ca1100f4:
+      balance: '1000000000000000000'
+      code: |
+          :yul berlin {
+            if iszero(delegatecall(gas(), 0xca11, 0, 0, 0, 0x20))
+               { revert(0,0x20) }
+
+            return(0, 0x20)     // return the result as our return value
+          }
+      nonce: 1
+      storage: {}
+
+
+    # Called to STATICCALL the code (two level call stack)
+    00000000000000000000000000000000ca1100fa:
+      balance: '1000000000000000000'
+      code: |
+          :yul berlin {
+            if iszero(staticcall(gas(), 0xca11, 0, 0, 0, 0x20))
+               { revert(0,0x20) }
+
+            return(0, 0x20)     // return the result as our return value
+          }
+      nonce: 1
+      storage: {}
+
+
+    # Failures (to run the code after a failure, see it works)
+
+    # Out of gas
+    0000000000000000000000000000000000060006:
+      balance: '1000000000000000000'
+      code: |
+        :yul berlin {
+           // Run an invalid opcode (make sure it doesn't fail due to a stack underflow) and then
+            // kill the goat if we don't revert.
+            
+            
+            verbatim_9i_0o(hex"F8", 1, 2, 3, 4, 5, 6, 7, 8, 9)
+            
+            // A bunch of NOPs in case the opcode has immediate operands
+            // (starting in Cancun we have opcodes with immediate operands)
+            
+            verbatim_0i_0o(hex"5B5B5B5B5B")
+            
+            // If we get here, kill the goat so we'll get an error
+            mstore(0, hex"DEAD60A7")
+            
+           sstore(0,mload(0))
+           invalid()
+        }
+      nonce: 1
+      storage:
+        0: 0x60A7   # If it changes, we have a problem
+
+
+    # REVERT
+    000000000000000000000000000000000060BACC:
+      balance: '1000000000000000000'
+      code: |
+        :yul berlin {
+           // Run an invalid opcode (make sure it doesn't fail due to a stack underflow) and then
+            // kill the goat if we don't revert.
+            
+            
+            verbatim_9i_0o(hex"F8", 1, 2, 3, 4, 5, 6, 7, 8, 9)
+            
+            // A bunch of NOPs in case the opcode has immediate operands
+            // (starting in Cancun we have opcodes with immediate operands)
+            
+            verbatim_0i_0o(hex"5B5B5B5B5B")
+            
+            // If we get here, kill the goat so we'll get an error
+            mstore(0, hex"DEAD60A7")
+            
+           sstore(0,mload(0))
+           revert(0,0x20)
+        }
+      nonce: 1
+      storage:
+        0: 0x60A7   # If it changes, we have a problem
+
+
+    # SELFDESTRUCT
+    00000000000000000000000000000000DEADDEAD:
+      balance: '1000000000000000000'
+      code: |
+        :yul berlin {
+           selfdestruct(0)
+        }
+      nonce: 1
+      storage: {}
+
+
+
+
+    # Recursively call until reaching the stack depth, then run the template
+    00000000000000000000000000000060BACCFA57:
+      balance: 1000000000000000000
+      code: |
+        :yul berlin {
+           let depth := calldataload(0)
+
+           if eq(depth,0) {
+               // Run an invalid opcode (make sure it doesn't fail due to a stack underflow) and then
+            // kill the goat if we don't revert.
+            
+            
+            verbatim_9i_0o(hex"F8", 1, 2, 3, 4, 5, 6, 7, 8, 9)
+            
+            // A bunch of NOPs in case the opcode has immediate operands
+            // (starting in Cancun we have opcodes with immediate operands)
+            
+            verbatim_0i_0o(hex"5B5B5B5B5B")
+            
+            // If we get here, kill the goat so we'll get an error
+            mstore(0, hex"DEAD60A7")
+            
+               return(0, 0x20)
+           }
+
+           // Dig deeper
+           mstore(0, sub(depth,1))
+
+           // Call yourself with depth-1
+           if iszero(call(gas(), 0x60BACCFA57, 0, 0, 0x20, 0, 0x20)) {
+              // Propagate failure if we failed
+              revert(0, 0x20)
+           }
+
+           // Propagate success
+           return (0, 0x20)
+        }
+      nonce: 1
+      storage: {}
+
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 1000000000000000000000
+      code: '0x'
+      nonce: 1
+      storage: {}
+
+
+  transaction:
+    data:
+    # Run the code snippet normally
+    - :label normal :abi f(uint) 0x00
+
+    # Single level call stack
+    # CALL
+    - :label normal :abi f(uint) 0xf1
+    # CALLCODE
+    - :label normal :abi f(uint) 0xf2
+    # DELEGATECALL
+    - :abi f(uint) 0xf4
+    # STATICCALL
+    - :abi f(uint) 0xfa
+
+    # Two level call stack
+    # CALL CALL
+    - :abi f(uint) 0xf1f1
+    # CALLCODE CALL
+    - :abi f(uint) 0xf2f1
+    # DELEGATECALL CALL
+    - :abi f(uint) 0xf4f1
+    # STATICCALL CALL
+    - :abi f(uint) 0xfaf1
+    # CALL CALLCODE
+    - :abi f(uint) 0xf1f2
+    # CALLCODE CALLCODE
+    - :abi f(uint) 0xf2f2
+    # DELEGATECALL CALLCODE
+    - :abi f(uint) 0xf4f2
+    # STATICCALL CALLCODE
+    - :abi f(uint) 0xfaf2
+    # CALL DELEGATECALL
+    - :abi f(uint) 0xf1f4
+    # CALLCODE DELEGATECALL
+    - :abi f(uint) 0xf2f4
+    # DELEGATECALL DELEGATECALL
+    - :abi f(uint) 0xf4f4
+    # STATICCALL DELEGATECALL
+    - :abi f(uint) 0xfaf4
+    # CALL STATICCALL
+    - :abi f(uint) 0xf1fa
+    # CALLCODE STATICCALL
+    - :abi f(uint) 0xf2fa
+    # DELEGATECALL STATICCALL
+    - :abi f(uint) 0xf4fa
+    # STATICCALL STATICCALL
+    - :abi f(uint) 0xfafa
+
+    # Call after something fails
+    # REVERT
+    - :abi f(uint) 0xfd
+    # Out of gas
+    - :abi f(uint) 0xfe
+    # SELFDESTRUCT
+    - :abi f(uint) 0xff
+
+
+    # Combined with creation of contracts
+    # CREATE (run code in the constructor)
+    - :abi f(uint) 0xf0
+    # CREATE2 (run code in the constructor)
+    - :abi f(uint) 0xf5
+    # CREATE and then CALL
+    - :abi f(uint) 0xf0f1
+    # CREATE2 and then CALL
+    - :abi f(uint) 0xf5f1
+    # CREATE and then CALLCODE
+    - :abi f(uint) 0xf0f2
+    # CREATE2 and then CALLCODE
+    - :abi f(uint) 0xf5f2
+    # CREATE and then DELEGATECALL
+    - :abi f(uint) 0xf0f4
+    # CREATE2 and then DELEGATECALL
+    - :abi f(uint) 0xf5f4
+    # CREATE and then STATICCALL
+    - :abi f(uint) 0xf0fa
+    # CREATE2 and then STATICCALL
+    - :abi f(uint) 0xf5fa
+
+
+    # Recurse almost until the limit
+    - :abi f(uint) 0x60BACCFA57
+
+
+    gasLimit:
+    - 0x10000000000000
+    nonce: 1
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - 0
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    gasPrice: 2000
+
+
+  expect:
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+
+      network:
+        - '>=Cancun'
+
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            # The result we expect
+            0x00: 0x60A7
+
+        000000000000000000000000000000000060BACC:
+          storage:
+            0x00: 0x60A7  # Anything that happens should be reverted out of
+
+        0000000000000000000000000000000000060006:
+          storage:
+            0x00: 0x60A7  # Anything that happens should be reverted out of
+
+
+
+

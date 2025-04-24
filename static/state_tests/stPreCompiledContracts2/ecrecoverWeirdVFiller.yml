@@ -1,0 +1,184 @@
+# Check various weird V values on ecRecover, see they don't work even though the signature is legal.
+# These tests are >=Byzantium because using staticcall, but should be >=Frontier otherwise.
+
+# Using (on hardhat console): 
+#     wallet = ethers.Wallet.createRandom()
+#     zero = "0x0000000000000000000000000000000000000000000000000000000000000000"
+#     wallet._signingKey().signDigest(zero)
+#     ethers.utils.recoverAddress(zero, wallet._signingKey().signDigest(zero).compact)
+#
+# Wallet used:
+# Wallet {
+#  _isSigner: true,
+#  _signingKey: [Function (anonymous)],
+#  address: '0xB957B0Da344F6A17F0081d63be7345A860E5B7A2',
+#  _mnemonic: [Function (anonymous)],
+#  provider: null
+# }
+#  
+# wallet._mnemonic()
+# {
+#  phrase: 'unveil tower patrol spike aerobic vague frown crew agree motor tilt elevator',
+#  path: "m/44'/60'/0'/0/0",
+#  locale: 'en'
+# }
+
+
+ecrecoverWeirdV:
+  _info: 
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 0xFF112233445566
+    currentNumber: 1
+    currentTimestamp: 1000
+
+  pre:
+    2adc25665018aa1fe0e6bc666dac8fc2697ff9ba:
+      balance: 0
+      nonce: 1
+      code: ''
+      storage: {}
+
+    000000000000000000000000000000000000c0de:
+      balance: 0
+      code: |
+          :yul berlin
+          {
+             let ecRecoverAddr := 1
+
+             // Call ecRecover
+
+             // Not the most efficient code, but it is more readable to see what each parameter means
+             mstore(0x00, calldataload(0x04))    // msgHash
+             mstore(0x20, calldataload(0x24))    // v
+             mstore(0x40, calldataload(0x44))    // r  
+             mstore(0x60, calldataload(0x64))    // s 
+             let res := staticcall(gas(), ecRecoverAddr, 0, 0x80, 0x100, 0x100)
+             
+             // write results
+             sstore(0, res)
+             sstore(1, mload(0x100))
+             sstore(2, mload(0x120))
+          }
+      nonce: 1
+      storage:
+          0: 0x60A7
+          1: 0x60A7
+          2: 0x60A7
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: '0x'
+      nonce: 1
+      storage: {}
+
+
+  transaction:
+    data:
+    # msgHash v r s
+    - :label fail :abi f(uint,uint,uint,uint) 0x7E57 0x7E57 0x7E57 0x7E57
+    - :label good :abi f(uint,uint,uint,uint) 0x00 27 0xce354e1b07ba96e325aa4851999f07aabcb4471e49f0a0daafed98caab963f03 0x79d9f3993cdd509f1bfba63dbd23dbdff879fb95203a5049f348a95ce8249f3b
+    - :label good :abi f(uint,uint,uint,uint) 0x01 28 0x541c4ce1565a646ddde26e1b483a88a6500ce15bd24622492f05cdd18b97161d 0x1827e364c15cfa61dab02339904b1e542f3939c6e8d6367d352026e71ffd6af5
+    - :label good :abi f(uint,uint,uint,uint) 0xdeaf0dead0600D0F00D00000000000000060A70000000000000F0AD0bad0beef 27 0x8a41a35dfd03f28615dc64b7754457691c66bd73f630c7423280282fa431a5be 0x2d40decf11713d564fa2df10dea5eb2adf45455ed309b4c8cc6853e2498323f5
+
+    # Valid signature from https://github.com/ethereum/EIPs/blob/master/EIPS/eip-155.md
+    - :label fail :abi f(uint,uint,uint,uint) 0xdaf5a779ae972f972197303d7b574746c7ef83eadac0f2791ad23db92e4c8e53 37 18515461264373351373200002665853028612451056578545711640558177340181847433846 46948507304638947509940763649030358759909902576025900602547168820602576006531
+
+    # Only the bottom bit of V is relevant to the actual signature. 
+    # The value is either:
+    #     parity+27           (no chaind)
+    #     parity+35+2*chainid (with a chainid)
+    # 
+    # Try a bunch of values that would be correct, but aren't ecrecover friendly
+
+      # Chainid 1
+    - :label fail :abi f(uint,uint,uint,uint) 0x00 37 0xce354e1b07ba96e325aa4851999f07aabcb4471e49f0a0daafed98caab963f03 0x79d9f3993cdd509f1bfba63dbd23dbdff879fb95203a5049f348a95ce8249f3b
+    - :label fail :abi f(uint,uint,uint,uint) 0x01 38 0x541c4ce1565a646ddde26e1b483a88a6500ce15bd24622492f05cdd18b97161d 0x1827e364c15cfa61dab02339904b1e542f3939c6e8d6367d352026e71ffd6af5
+
+      # Chainid 6
+    - :label fail :abi f(uint,uint,uint,uint) 0x00 47 0xce354e1b07ba96e325aa4851999f07aabcb4471e49f0a0daafed98caab963f03 0x79d9f3993cdd509f1bfba63dbd23dbdff879fb95203a5049f348a95ce8249f3b
+    - :label fail :abi f(uint,uint,uint,uint) 0x01 48 0x541c4ce1565a646ddde26e1b483a88a6500ce15bd24622492f05cdd18b97161d 0x1827e364c15cfa61dab02339904b1e542f3939c6e8d6367d352026e71ffd6af5
+
+      # Chainid 11
+    - :label fail :abi f(uint,uint,uint,uint) 0x00 57 0xce354e1b07ba96e325aa4851999f07aabcb4471e49f0a0daafed98caab963f03 0x79d9f3993cdd509f1bfba63dbd23dbdff879fb95203a5049f348a95ce8249f3b
+    - :label fail :abi f(uint,uint,uint,uint) 0x01 58 0x541c4ce1565a646ddde26e1b483a88a6500ce15bd24622492f05cdd18b97161d 0x1827e364c15cfa61dab02339904b1e542f3939c6e8d6367d352026e71ffd6af5
+
+      # Chainid 21
+    - :label fail :abi f(uint,uint,uint,uint) 0x00 77 0xce354e1b07ba96e325aa4851999f07aabcb4471e49f0a0daafed98caab963f03 0x79d9f3993cdd509f1bfba63dbd23dbdff879fb95203a5049f348a95ce8249f3b
+    - :label fail :abi f(uint,uint,uint,uint) 0x01 78 0x541c4ce1565a646ddde26e1b483a88a6500ce15bd24622492f05cdd18b97161d 0x1827e364c15cfa61dab02339904b1e542f3939c6e8d6367d352026e71ffd6af5
+
+      # Chainid 0
+    - :label fail :abi f(uint,uint,uint,uint) 0x00 35 0xce354e1b07ba96e325aa4851999f07aabcb4471e49f0a0daafed98caab963f03 0x79d9f3993cdd509f1bfba63dbd23dbdff879fb95203a5049f348a95ce8249f3b
+    - :label fail :abi f(uint,uint,uint,uint) 0x01 36 0x541c4ce1565a646ddde26e1b483a88a6500ce15bd24622492f05cdd18b97161d 0x1827e364c15cfa61dab02339904b1e542f3939c6e8d6367d352026e71ffd6af5
+
+      # Chainid 100
+    - :label fail :abi f(uint,uint,uint,uint) 0x00 235 0xce354e1b07ba96e325aa4851999f07aabcb4471e49f0a0daafed98caab963f03 0x79d9f3993cdd509f1bfba63dbd23dbdff879fb95203a5049f348a95ce8249f3b
+    - :label fail :abi f(uint,uint,uint,uint) 0x01 236 0x541c4ce1565a646ddde26e1b483a88a6500ce15bd24622492f05cdd18b97161d 0x1827e364c15cfa61dab02339904b1e542f3939c6e8d6367d352026e71ffd6af5
+
+      # "Negative" chainId values
+    - :label fail :abi f(uint,uint,uint,uint) 0x01 0 0x541c4ce1565a646ddde26e1b483a88a6500ce15bd24622492f05cdd18b97161d 0x1827e364c15cfa61dab02339904b1e542f3939c6e8d6367d352026e71ffd6af5
+    - :label fail :abi f(uint,uint,uint,uint) 0x00 1 0xce354e1b07ba96e325aa4851999f07aabcb4471e49f0a0daafed98caab963f03 0x79d9f3993cdd509f1bfba63dbd23dbdff879fb95203a5049f348a95ce8249f3b
+    - :label fail :abi f(uint,uint,uint,uint) 0x01 2 0x541c4ce1565a646ddde26e1b483a88a6500ce15bd24622492f05cdd18b97161d 0x1827e364c15cfa61dab02339904b1e542f3939c6e8d6367d352026e71ffd6af5
+    - :label fail :abi f(uint,uint,uint,uint) 0x00 3 0xce354e1b07ba96e325aa4851999f07aabcb4471e49f0a0daafed98caab963f03 0x79d9f3993cdd509f1bfba63dbd23dbdff879fb95203a5049f348a95ce8249f3b
+    - :label fail :abi f(uint,uint,uint,uint) 0x01 4 0x541c4ce1565a646ddde26e1b483a88a6500ce15bd24622492f05cdd18b97161d 0x1827e364c15cfa61dab02339904b1e542f3939c6e8d6367d352026e71ffd6af5
+    - :label fail :abi f(uint,uint,uint,uint) 0x00 5 0xce354e1b07ba96e325aa4851999f07aabcb4471e49f0a0daafed98caab963f03 0x79d9f3993cdd509f1bfba63dbd23dbdff879fb95203a5049f348a95ce8249f3b
+    - :label fail :abi f(uint,uint,uint,uint) 0x01 6 0x541c4ce1565a646ddde26e1b483a88a6500ce15bd24622492f05cdd18b97161d 0x1827e364c15cfa61dab02339904b1e542f3939c6e8d6367d352026e71ffd6af5
+    - :label fail :abi f(uint,uint,uint,uint) 0x00 7 0xce354e1b07ba96e325aa4851999f07aabcb4471e49f0a0daafed98caab963f03 0x79d9f3993cdd509f1bfba63dbd23dbdff879fb95203a5049f348a95ce8249f3b
+    - :label fail :abi f(uint,uint,uint,uint) 0x01 8 0x541c4ce1565a646ddde26e1b483a88a6500ce15bd24622492f05cdd18b97161d 0x1827e364c15cfa61dab02339904b1e542f3939c6e8d6367d352026e71ffd6af5
+
+      # V values above one byte
+    - :label fail :abi f(uint,uint,uint,uint) 0x00 0x0000000000ff 0xce354e1b07ba96e325aa4851999f07aabcb4471e49f0a0daafed98caab963f03 0x79d9f3993cdd509f1bfba63dbd23dbdff879fb95203a5049f348a95ce8249f3b
+    - :label fail :abi f(uint,uint,uint,uint) 0x01 0x000000000100 0x541c4ce1565a646ddde26e1b483a88a6500ce15bd24622492f05cdd18b97161d 0x1827e364c15cfa61dab02339904b1e542f3939c6e8d6367d352026e71ffd6af5
+    - :label fail :abi f(uint,uint,uint,uint) 0x00 0x0000000010ff 0xce354e1b07ba96e325aa4851999f07aabcb4471e49f0a0daafed98caab963f03 0x79d9f3993cdd509f1bfba63dbd23dbdff879fb95203a5049f348a95ce8249f3b
+    - :label fail :abi f(uint,uint,uint,uint) 0x01 0x000000001100 0x541c4ce1565a646ddde26e1b483a88a6500ce15bd24622492f05cdd18b97161d 0x1827e364c15cfa61dab02339904b1e542f3939c6e8d6367d352026e71ffd6af5
+    - :label fail :abi f(uint,uint,uint,uint) 0x00 0x0000000100ff 0xce354e1b07ba96e325aa4851999f07aabcb4471e49f0a0daafed98caab963f03 0x79d9f3993cdd509f1bfba63dbd23dbdff879fb95203a5049f348a95ce8249f3b
+    - :label fail :abi f(uint,uint,uint,uint) 0x01 0x000000010100 0x541c4ce1565a646ddde26e1b483a88a6500ce15bd24622492f05cdd18b97161d 0x1827e364c15cfa61dab02339904b1e542f3939c6e8d6367d352026e71ffd6af5
+    - :label fail :abi f(uint,uint,uint,uint) 0x00 0x0000123456ff 0xce354e1b07ba96e325aa4851999f07aabcb4471e49f0a0daafed98caab963f03 0x79d9f3993cdd509f1bfba63dbd23dbdff879fb95203a5049f348a95ce8249f3b
+    - :label fail :abi f(uint,uint,uint,uint) 0x01 0x000012345700 0x541c4ce1565a646ddde26e1b483a88a6500ce15bd24622492f05cdd18b97161d 0x1827e364c15cfa61dab02339904b1e542f3939c6e8d6367d352026e71ffd6af5
+    - :label fail :abi f(uint,uint,uint,uint) 0x00 0xdeadbeef00ff 0xce354e1b07ba96e325aa4851999f07aabcb4471e49f0a0daafed98caab963f03 0x79d9f3993cdd509f1bfba63dbd23dbdff879fb95203a5049f348a95ce8249f3b
+    - :label fail :abi f(uint,uint,uint,uint) 0x01 0xdeadbeef0100 0x541c4ce1565a646ddde26e1b483a88a6500ce15bd24622492f05cdd18b97161d 0x1827e364c15cfa61dab02339904b1e542f3939c6e8d6367d352026e71ffd6af5
+
+    gasLimit:
+    - 40000000
+    gasPrice: 10
+    nonce: 1
+    to: 000000000000000000000000000000000000c0de
+    value:
+    - 0
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+  expect:
+
+    # The result with invalid parameters (parameters that aren't a valid signature
+    - indexes:
+        data: :label fail
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000c0de:
+          storage:
+            0x00: 1
+            0x01: 0
+            0x02: 0
+
+
+    # Valid parameters (with the B95...7A2 address)
+    - indexes:
+        data: :label good
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000c0de:
+          storage:
+            0x00: 1
+            0x01: 0xB957B0Da344F6A17F0081d63be7345A860E5B7A2
+            0x02: 0

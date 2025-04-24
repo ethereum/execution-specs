@@ -1,0 +1,421 @@
+# These are tests for precomp 5, modexp 
+# (specified in https://github.com/ethereum/EIPs/blob/master/EIPS/eip-198.md)
+#
+# For every case there are two parameters to test:
+# 1. The result
+# 2. The gas cost
+
+modexpTests:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "100000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+
+  pre:
+
+    # Test for cases where all three parameters are <2^256. 
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+          // Our input values, 20 bytes each
+          // This is not the most efficient use of gas, but 
+          // this is a test. Readability is more important
+          let base := calldataload(0x04)
+          let expV := calldataload(0x24)
+          let modV := calldataload(0x44)
+
+          // Prepare the calldata
+          mstore(0x00, 0x20)
+          mstore(0x20, 0x20)
+          mstore(0x40, 0x20)
+          mstore(0x60, base)
+          mstore(0x80, expV)
+          mstore(0xA0, modV)
+
+          let gas0 := gas()
+          pop(call(gas(), 0x05, 0, 0, 0xC0, 0x100, 0x20))
+          let gas1 := gas()
+          sstore(0, mload(0x100))
+          sstore(1, sub(sub(gas0, gas1), 0x14c))
+       }
+      nonce: 1
+      storage: {}
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x
+      nonce: 1
+      storage: {}
+
+
+  transaction:
+    data: 
+    - :label m_n_01 :abi f(uint,uint,uint) 0 0 0
+    - :label m_n_01 :abi f(uint,uint,uint) 0 0 1
+    - :label 0_0_n :abi f(uint,uint,uint) 0 0 2
+    - :label 0_0_n :abi f(uint,uint,uint) 0 0 4
+    - :label 0_0_n :abi f(uint,uint,uint) 0 0 8
+    - :label 0_0_n :abi f(uint,uint,uint) 0 0 0x10
+    - :label 0_0_n :abi f(uint,uint,uint) 0 0 0x20
+    - :label 0_0_n :abi f(uint,uint,uint) 0 0 0x40
+    - :label 0_0_n :abi f(uint,uint,uint) 0 0 100
+    - :label 0_0_n :abi f(uint,uint,uint) 0 0 0x80
+    - :label 0_0_n :abi f(uint,uint,uint) 0 0 0x1001
+    - :label 0_0_n :abi f(uint,uint,uint) 0 0 0x100002
+    - :label 0_0_n :abi f(uint,uint,uint) 0 0 0x10000004
+    - :label 0_0_n :abi f(uint,uint,uint) 0 0 0x1000000008
+    - :label 0_0_n :abi f(uint,uint,uint) 0 0 0xFFFFFFFFFFFF
+    - :label 0_0_n :abi f(uint,uint,uint) 0 0 0xFFFFFFFFFFFFFF
+    - :label 0_0_n :abi f(uint,uint,uint) 0 0 0xFFFFFFFFFFFFFFFF
+    - :label m_n_01 :abi f(uint,uint,uint) 0 1 0
+    - :label m_n_01 :abi f(uint,uint,uint) 0 1 1
+    - :label 0_m_n :abi f(uint,uint,uint) 0 1 2
+    - :label 0_m_n :abi f(uint,uint,uint) 0 1 4
+    - :label 0_m_n :abi f(uint,uint,uint) 0 1 8
+    - :label 0_m_n :abi f(uint,uint,uint) 0 1 0x10
+    - :label 0_m_n :abi f(uint,uint,uint) 0 1 0x20
+    - :label 0_m_n :abi f(uint,uint,uint) 0 1 0x40
+    - :label 0_m_n :abi f(uint,uint,uint) 0 1 100
+    - :label 0_m_n :abi f(uint,uint,uint) 0 1 0x80
+    - :label 0_m_n :abi f(uint,uint,uint) 0 1 0x1001
+    - :label 0_m_n :abi f(uint,uint,uint) 0 1 0x100002
+    - :label 0_m_n :abi f(uint,uint,uint) 0 1 0x10000004
+    - :label 0_m_n :abi f(uint,uint,uint) 0 1 0x1000000008
+    - :label 0_m_n :abi f(uint,uint,uint) 0 1 0xFFFFFFFFFFFF
+    - :label 0_m_n :abi f(uint,uint,uint) 0 1 0xFFFFFFFFFFFFFF
+    - :label 0_m_n :abi f(uint,uint,uint) 0 1 0xFFFFFFFFFFFFFFFF
+    - :label m_n_01 :abi f(uint,uint,uint) 0 2 0
+    - :label m_n_01 :abi f(uint,uint,uint) 0 2 1
+    - :label 0_m_n :abi f(uint,uint,uint) 0 2 2
+    - :label 0_m_n :abi f(uint,uint,uint) 0 3 2
+    - :label 0_m_n :abi f(uint,uint,uint) 0 3 4
+    - :label 0_m_n :abi f(uint,uint,uint) 0 3 8
+    - :label 0_m_n :abi f(uint,uint,uint) 0 3 0x10
+    - :label 0_m_n :abi f(uint,uint,uint) 0 3 0x20
+    - :label 0_m_n :abi f(uint,uint,uint) 0 3 0x40
+    - :label 0_m_n :abi f(uint,uint,uint) 0 3 100
+    - :label 0_m_n :abi f(uint,uint,uint) 0 3 0x80
+    - :label 0_m_n :abi f(uint,uint,uint) 0 3 0x1001
+    - :label 0_m_n :abi f(uint,uint,uint) 0 3 0x100002
+    - :label 0_m_n :abi f(uint,uint,uint) 0 3 0x10000004
+    - :label 0_m_n :abi f(uint,uint,uint) 0 3 0x1000000008
+    - :label 0_m_n :abi f(uint,uint,uint) 0 3 0xFFFFFFFFFFFF
+    - :label 0_m_n :abi f(uint,uint,uint) 0 3 0xFFFFFFFFFFFFFF
+    - :label 0_m_n :abi f(uint,uint,uint) 0 3 0xFFFFFFFFFFFFFFFF
+    - :label 0_m_n :abi f(uint,uint,uint) 0 0xFFFFFF 2
+    - :label 0_m_n :abi f(uint,uint,uint) 0 0xFFFFFF 4
+    - :label 0_m_n :abi f(uint,uint,uint) 0 0xFFFFFF 8
+    - :label 0_m_n :abi f(uint,uint,uint) 0 0xFFFFFF 0x10
+    - :label 0_m_n :abi f(uint,uint,uint) 0 0xFFFFFF 0x20
+    - :label 0_m_n :abi f(uint,uint,uint) 0 0xFFFFFF 0x40
+    - :label 0_m_n :abi f(uint,uint,uint) 0 0xFFFFFF 100
+    - :label 0_m_n :abi f(uint,uint,uint) 0 0xFFFFFF 0x80
+    - :label 0_m_n :abi f(uint,uint,uint) 0 0xFFFFFF 0x1001
+    - :label 0_m_n :abi f(uint,uint,uint) 0 0xFFFFFF 0x100002
+    - :label 0_m_n :abi f(uint,uint,uint) 0 0xFFFFFF 0x10000004
+    - :label 0_m_n :abi f(uint,uint,uint) 0 0xFFFFFF 0x1000000008
+    - :label 0_m_n :abi f(uint,uint,uint) 0 0xFFFFFF 0xFFFFFFFFFFFF
+    - :label 0_m_n :abi f(uint,uint,uint) 0 0xFFFFFF 0xFFFFFFFFFFFFFF
+    - :label 0_m_n :abi f(uint,uint,uint) 0 0xFFFFFF 0xFFFFFFFFFFFFFFFF
+    - :label m_n_01 :abi f(uint,uint,uint) 1 0 0
+    - :label m_n_01 :abi f(uint,uint,uint) 1 0 1
+    - :label 1_0_n :abi f(uint,uint,uint) 1 0 2
+    - :label 1_0_n :abi f(uint,uint,uint) 1 0 4
+    - :label 1_0_n :abi f(uint,uint,uint) 1 0 8
+    - :label 1_0_n :abi f(uint,uint,uint) 1 0 0x10
+    - :label 1_0_n :abi f(uint,uint,uint) 1 0 0x20
+    - :label 1_0_n :abi f(uint,uint,uint) 1 0 0x40
+    - :label 1_0_n :abi f(uint,uint,uint) 1 0 100
+    - :label 1_0_n :abi f(uint,uint,uint) 1 0 0x80
+    - :label 1_0_n :abi f(uint,uint,uint) 1 0 0x1001
+    - :label 1_0_n :abi f(uint,uint,uint) 1 0 0x100002
+    - :label 1_0_n :abi f(uint,uint,uint) 1 0 0x10000004
+    - :label 1_0_n :abi f(uint,uint,uint) 1 0 0x1000000008
+    - :label 1_0_n :abi f(uint,uint,uint) 1 0 0xFFFFFFFFFFFF
+    - :label 1_0_n :abi f(uint,uint,uint) 1 0 0xFFFFFFFFFFFFFF
+    - :label 1_0_n :abi f(uint,uint,uint) 1 0 0xFFFFFFFFFFFFFFFF
+    - :label m_n_01 :abi f(uint,uint,uint) 1 1 0
+    - :label m_n_01 :abi f(uint,uint,uint) 1 1 1
+    - :label 1_m_n :abi f(uint,uint,uint) 1 1 2
+    - :label 1_m_n :abi f(uint,uint,uint) 1 1 4
+    - :label 1_m_n :abi f(uint,uint,uint) 1 1 8
+    - :label 1_m_n :abi f(uint,uint,uint) 1 1 0x10
+    - :label 1_m_n :abi f(uint,uint,uint) 1 1 0x20
+    - :label 1_m_n :abi f(uint,uint,uint) 1 1 0x40
+    - :label 1_m_n :abi f(uint,uint,uint) 1 1 100
+    - :label 1_m_n :abi f(uint,uint,uint) 1 1 0x80
+    - :label 1_m_n :abi f(uint,uint,uint) 1 1 0x1001
+    - :label 1_m_n :abi f(uint,uint,uint) 1 1 0x100002
+    - :label 1_m_n :abi f(uint,uint,uint) 1 1 0x10000004
+    - :label 1_m_n :abi f(uint,uint,uint) 1 1 0x1000000008
+    - :label 1_m_n :abi f(uint,uint,uint) 1 1 0xFFFFFFFFFFFF
+    - :label 1_m_n :abi f(uint,uint,uint) 1 1 0xFFFFFFFFFFFFFF
+    - :label 1_m_n :abi f(uint,uint,uint) 1 1 0xFFFFFFFFFFFFFFFF
+    - :label m_n_01 :abi f(uint,uint,uint) 1 2 0
+    - :label m_n_01 :abi f(uint,uint,uint) 1 2 1
+    - :label 1_m_n :abi f(uint,uint,uint) 1 2 2
+    - :label m_n_01 :abi f(uint,uint,uint) 2 0 0
+    - :label m_n_01 :abi f(uint,uint,uint) 2 0 1
+    - :label 2_0_2 :abi f(uint,uint,uint) 2 0 2
+    - :label m_n_01 :abi f(uint,uint,uint) 2 1 0
+    - :label m_n_01 :abi f(uint,uint,uint) 2 1 1
+    - :label 2_n_2 :abi f(uint,uint,uint) 2 1 2
+    - :label m_n_01 :abi f(uint,uint,uint) 2 2 0
+    - :label m_n_01 :abi f(uint,uint,uint) 2 2 1
+    - :label 2_n_2 :abi f(uint,uint,uint) 2 2 2
+    - :label 3_5_100 :abi f(uint,uint,uint) 3 5 100
+    - :label 3_9984_39936 :abi f(uint,uint,uint) 3 9984 39936
+    - :label 3_28948_11579 :abi f(uint,uint,uint) 3 28948 11579
+    - :label 9_37111_37111 :abi f(uint,uint,uint) 9 37111 37111
+    - :label 9_3711_37111 :abi f(uint,uint,uint) 9 3711 37111
+    - :label 49_2401_2401 :abi f(uint,uint,uint) 49 2401 2401 
+    - :label 37120_22411_22000 :abi f(uint,uint,uint) 37120 22411 22000
+    - :label 37120_37111_0 :abi f(uint,uint,uint) 37120 37111 0
+    - :label 37120_37111_1 :abi f(uint,uint,uint) 37120 37111 1
+    - :label 37120_37111_37111 :abi f(uint,uint,uint) 37120 37111 37111
+    - :label 7120_37111_97 :abi f(uint,uint,uint) 7120 37111 97
+    - :label 37120_37111_97 :abi f(uint,uint,uint) 37120 37111 97
+    - :label 39936_1_55201 :abi f(uint,uint,uint) 39936 1 55201
+    - :label 55190_55190_42965 :abi f(uint,uint,uint) 55190 55190 42965
+    gasLimit:
+    - 80000000
+    gasPrice: 10
+    nonce: 1
+    to: cccccccccccccccccccccccccccccccccccccccc
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    value:
+    - 0
+
+  expect:
+    - indexes:
+        data:
+        - :label 0_m_n
+        - :label m_n_01
+        - :label 2_n_2
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x0   # Result
+            1: 0x1   # Gas cost
+
+
+    - indexes:
+        data:
+        - :label 0_0_n
+        - :label 1_0_n
+        - :label 1_m_n
+        - :label 2_0_2
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x1   # Result
+            1: 0x1   # Gas cost
+
+
+
+    - indexes:
+        data:
+        - :label 3_5_100
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 43     # Result
+            1: 0x1    # Gas cost
+
+
+
+
+    - indexes:
+        data:
+        - :label 3_9984_39936
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x6801 # Result
+            1: 0x1    # Gas cost
+
+
+
+
+
+    - indexes:
+        data:
+        - :label 3_28948_11579
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x1B   # Result
+            1: 0x1    # Gas cost
+
+
+
+    - indexes:
+        data:
+        - :label 9_3711_37111
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x8615 # Result
+            1: 0x1    # Gas cost
+
+
+
+    - indexes:
+        data:
+        - :label 9_37111_37111
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x1C3B # Result
+            1: 0x1    # Gas cost
+
+
+    - indexes:
+        data:
+        - :label 49_2401_2401
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x00   # Result
+            1: 0x1    # Gas cost
+
+
+    - indexes:
+        data:
+        - :label 37120_22411_22000
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x3e80 # Result
+            1: 0x1    # Gas cost
+
+
+    - indexes:
+        data:
+        - :label 37120_37111_0
+        - :label 37120_37111_1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0      # Result
+            1: 0x1    # Gas cost
+
+
+
+    - indexes:
+        data:
+        - :label 37120_37111_37111
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x1C3B # Result
+            1: 0x1    # Gas cost
+
+
+    - indexes:
+        data:
+        - :label 7120_37111_97
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x50   # Result
+            1: 0x1    # Gas cost
+
+
+    - indexes:
+        data:
+        - :label 37120_37111_97
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x5F   # Result
+            1: 0x1    # Gas cost
+
+
+    - indexes:
+        data:
+        - :label 39936_1_55201
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x9C00 # Result
+            1: 0x1    # Gas cost
+
+
+    - indexes:
+        data:
+        - :label 55190_55190_42965
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x866A # Result
+            1: 0x1    # Gas cost

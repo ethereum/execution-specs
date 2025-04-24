@@ -1,0 +1,112 @@
+valCausesOOF:
+
+# This tests shows that regardless of the real gas, a transaction is rejected if
+# gasPrice * gasLimit + value > balance
+
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 0xFF112233445566
+    currentNumber: 1
+    currentTimestamp: 1000
+    currentBaseFee: 1000
+
+
+  pre:
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: 100_000_000_000_000
+      code: |
+          :yul london
+          {
+              // This loop runs a number of times specified in the data, 
+              // so the gas cost depends on the data
+              for { let i := calldataload(4) } gt(i,0) { i := sub(i,1) } {
+                 sstore(i, 0x60A7)
+              }     // for loop
+          }
+      nonce: '0'
+      storage: {}
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 100_000_000
+      code: '0x'
+      nonce: 1
+      storage: {}
+
+
+  transaction:
+    data:
+    # Costs 43397 gas
+    - data: :abi f(uint) 1
+      accessList: []
+
+    # Costs 65555 gas
+    - data: :abi f(uint) 2
+      accessList: []
+
+    maxFeePerGas: 1000
+    maxPriorityFeePerGas:  0
+    gasLimit:
+    - 100_000   # The balance is high enough only if we aren't also sending wei
+    -  90_000   # The balance is always high enough
+    - 110_000   # The balance is never high enough
+    nonce: 1
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - 0
+    - 1
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+  expect:
+
+    # value: 0 wei, so the balance is compared to gasLimit * gasPrice
+    - indexes:
+        data:  !!int -1
+        gas:   0-1
+        value: !!int  0
+      network:
+        - '>=Cancun'
+      result: {}     # The real result is whether an exception happens or not
+
+
+
+    # value: 1 wei, so the balance is compared to gasLimit * gasPrice + 1.
+    # with a gasLimit of 100k, this is going to fail
+    - indexes:
+        data:  !!int -1
+        gas:   !!int  0
+        value: !!int  1
+      network:
+        - '>=Cancun'
+      result: {}     # The real result is whether an exception happens or not
+      expectException:
+        '>=Cancun': TransactionException.INSUFFICIENT_ACCOUNT_FUNDS
+
+
+
+    # value: 1 wei, so the balance is compared to gasLimit * gasPrice + 1.
+    # with a gasLimit of 90k, this is going to be successful
+    - indexes:
+        data:  !!int -1
+        gas:   !!int  1
+        value: !!int  1
+      network:
+        - '>=Cancun'
+      result: {}     # The real result is whether an exception happens or not
+
+
+    # gasLimit 110k, so we fail regardless of value
+    - indexes:
+        data:  !!int -1
+        gas:   !!int  2
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result: {}     # The real result is whether an exception happens or not
+      expectException:
+        '>=Cancun': TransactionException.INSUFFICIENT_ACCOUNT_FUNDS

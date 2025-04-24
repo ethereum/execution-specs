@@ -1,0 +1,105 @@
+# EXTCODEHASH to a deleted account
+---
+extCodeHashDeletedAccount1:
+  _info:
+    comment: |
+      1) Account A already exists in the state and contains code
+      Call to Account B do the following:
+      - stores Account A code hash to 1
+      - stores Account A code size to 2
+      - stores Account A code to 3
+      - Run selfdestruct on A
+      - stores Account A code hash to 4
+      - stores Account A code size to 5
+      - stores Account A code to 6
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "1000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+  pre:
+    095e7baea6a6c7c4c2dfeb977efac326af552d87:
+      balance: '1000000000000000000'
+      code: |
+        {
+          (CALL 260000 0xbbbbbbbb00000000000000000000000000000000 0 0 0 0 32)
+        }
+      nonce: '0'
+      storage: {}
+    # Account A: already exists in the state
+    # contains selfdestruct code
+    aaaaaaaa00000000000000000000000000000000:
+      balance: '1000000000000000000'
+      code: |
+        {
+          (SELFDESTRUCT (BALANCE 0xdeadbeef00000000000000000000000000000000))
+        }
+      nonce: '0'
+      storage: {}
+    # Account B
+    # Stores Account A code hash to 1, code size to 2, code to 3
+    # Run selfdestruct on A
+    # Stores Account A code hash to 4, code size to 5, code to 6
+    bbbbbbbb00000000000000000000000000000000:
+      balance: '1000000000000000000'
+      code: |
+        {
+          [[1]] (EXTCODEHASH 0xaaaaaaaa00000000000000000000000000000000)
+          [[2]] (EXTCODESIZE 0xaaaaaaaa00000000000000000000000000000000)
+          (EXTCODECOPY 0xaaaaaaaa00000000000000000000000000000000 0 0 (SLOAD 2))
+          [[3]] (MLOAD 0)
+          
+          (CALL 150000 0xaaaaaaaa00000000000000000000000000000000 0 0 0 0 32)
+
+          [[4]] (EXTCODEHASH 0xaaaaaaaa00000000000000000000000000000000)
+          [[5]] (EXTCODESIZE 0xaaaaaaaa00000000000000000000000000000000)
+          (EXTCODECOPY 0xaaaaaaaa00000000000000000000000000000000 32 0 (SLOAD 5))
+          [[6]] (MLOAD 32)
+        }
+      nonce: '0'
+      storage: {}
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: ''
+      nonce: '0'
+      storage: {}
+  expect:
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          balance: '1000000000000000001'
+          storage: {         
+          }
+        aaaaaaaa00000000000000000000000000000000:
+          balance: '0'
+          nonce: 0
+          code: '0x73deadbeef0000000000000000000000000000000031ff00'
+          storage: {}
+        bbbbbbbb00000000000000000000000000000000:
+          balance: '1000000000000000000'
+          storage: {
+            "0x01": '0x94e08c34847a4e52a3e523b70a5d9b2151155bd0bc10f7b7c550bda63229c756',
+            "0x02": '0x18',
+            "0x03": '0x73deadbeef0000000000000000000000000000000031ff000000000000000000',
+            "0x04": '0x94e08c34847a4e52a3e523b70a5d9b2151155bd0bc10f7b7c550bda63229c756',
+            "0x05": '0x18',
+            "0x06": '0x73deadbeef0000000000000000000000000000000031ff000000000000000000'
+          }
+
+  transaction:
+    data:
+    - ''
+    gasLimit:
+    - '400000'
+    gasPrice: '10'
+    nonce: '0'
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 095e7baea6a6c7c4c2dfeb977efac326af552d87
+    value:
+    - '1'

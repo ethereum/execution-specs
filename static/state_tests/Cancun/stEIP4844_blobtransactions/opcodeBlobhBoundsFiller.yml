@@ -1,0 +1,73 @@
+# nimbus blobhash test
+opcodeBlobhBounds:
+  _info:
+    comment: BLOB005
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentNumber: 1
+    currentTimestamp: 1000
+    currentGasLimit: 0x1000000000
+    currentBaseFee: 1
+    currentExcessBlobGas: 0
+
+  expect:
+    - network:
+        - '>=Cancun'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          storage:
+            0x00: 0x01a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+
+  pre:
+    095e7baea6a6c7c4c2dfeb977efac326af552d87:
+      balance: '1000000000000000000'
+      code: |
+          {
+             ; Can also add lll style comments here
+             [[0]] (BLOBHASH 0)
+             [[1]] (BLOBHASH 10) 
+             [[2]] (BLOBHASH 0xffffffff) ; 32
+             [[3]] (BLOBHASH 0xffffffffffffffff)  ; 64
+             [[4]] (BLOBHASH 0xffffffffffffffffffffffffffffffff) ; 128
+             [[5]] (BLOBHASH 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) ; 256
+          }
+      nonce: '0'
+      storage:
+        0x00: 0x01
+        0x01: 0x01
+        0x02: 0x01
+        0x03: 0x01
+        0x04: 0x01
+        0x05: 0x01
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+
+  transaction:
+    data:
+        - data: :raw 0x00
+          accessList:
+          - address: 0x095e7baea6a6c7c4c2dfeb977efac326af552d87
+            storageKeys:
+            - 0x00
+            - 0x01
+
+    maxFeePerGas: '0x12A05F200'
+    maxPriorityFeePerGas: '2'
+    gasLimit:
+    - '4000000'
+    nonce: '0'
+    to: '095e7baea6a6c7c4c2dfeb977efac326af552d87'
+    value:
+    - '100000'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    maxFeePerBlobGas: '10'
+    blobVersionedHashes:
+        - "0x01a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+        - "0x01a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"

@@ -1,0 +1,395 @@
+# Various jumps
+
+jump:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    # This should fail (jump to something that isn't a JUMPDEST)
+    0000000000000000000000000000000000001000:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+          [[0]] 0x600D
+          (asm 0x10 0x20 mul jump jumpdest)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # This should fail (jumpi to something that isn't a JUMPDEST)
+    0000000000000000000000000000000000001001:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+          [[0]] 0x600D
+          (asm 0x01 0x10 0x20 mul jumpi jumpdest)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # Jump to after the STOP. Shouldn't be a problem
+    0000000000000000000000000000000000001002:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      # 0  PUSH1 0x04
+      # 2  JUMP
+      # 3  STOP
+      # 4  JUMPDEST
+      # 5  PUSH2 0x600D
+      # 8  PUSH1 0x00
+      # A  SSTORE
+      # B  STOP
+      code: :raw 0x600456005B61600D60005500
+      nonce: '0'
+      storage: {}
+
+
+    # This should fail (the old jumpHigh)
+    0000000000000000000000000000000000001003:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+          [[0]] 0x600D
+          (asm 0x0fffffff jump)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # The old jump0_AfterJumpdest
+    0000000000000000000000000000000000001004:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      #  0  PUSH1 0x23
+      #  2  PUSH1 0x08
+      #  4  JUMP
+      #  5  PUSH1 0x01
+      #  7  JUMPDEST
+      #  8  PUSH1 0x02
+      #  A  SSTORE
+      code: :raw 0x602360085660015b600255
+      nonce: '0'
+      storage: {}
+
+
+    # Endless loop (well, endless until it runs out of gas, so mostly endless)
+    0000000000000000000000000000000000001005:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      #  0  PUSH2 0x600D
+      #  3  PUSH1 0x00
+      #  5  SSTORE
+      #  6  JUMPDEST
+      #  7  PUSH1 0x06
+      #  9  JUMP
+      code: :raw 0x61600D6000555B600656
+      nonce: '0'
+      storage: {}
+
+
+    # Skip an opcode with jump, see it doesn't run
+    0000000000000000000000000000000000001006:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      #  0  PUSH2 0x600D
+      #  3  PUSH1 0x08
+      #  5  JUMP
+      #  6  PUSH1 0xFF
+      #  8  JUMPDEST
+      #  9  PUSH1 0x00
+      #  B  SSTORE
+      code: :raw 0x61600D60085660FF5B600055
+      nonce: '0'
+      storage: {}
+
+
+
+    # Jump backwards, see that works too
+    0000000000000000000000000000000000001007:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      #  0  PUSH1 0x0B
+      #  2  JUMP
+      #  3  JUMPDEST
+      #  4  PUSH2 0x600D
+      #  7  PUSH1 0x00
+      #  9  SSTORE
+      #  A  STOP
+      #  B  JUMPDEST
+      #  C  PUSH1 0x03
+      #  E  JUMP
+      code: :raw 0x600B565B61600D600055005B600356
+      nonce: '0'
+      storage: {}
+
+
+
+    # Dynamic jump
+    0000000000000000000000000000000000001008:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      #  0  PUSH1 0x05
+      #  2  PUSH1 0x02
+      #  4  ADD
+      #  5  JUMP
+      #  6  STOP
+      #  7  JUMPDEST
+      #  8  PUSH2 0x600D
+      #  B  PUSH1 0x00
+      #  D  SSTORE
+      code: :raw 0x600260050156005B61600D600055
+      nonce: '0'
+      storage: {}
+
+
+    # Jump to the data of a push, when it just happens to be
+    # 0x5B (jumpdest)
+    #
+    # Amazingly, but correctly, this fails
+    0000000000000000000000000000000000001009:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      #  0  PUSH1 0x05
+      #  2  JUMP
+      #  3  STOP
+      #  4  PUSH1 0x5B
+      #  6  PUSH2 0x600D
+      #  9  PUSH1 0x00
+      #  B  SSTORE
+      code: :raw 0x60055600605B61600D600055
+      nonce: '0'
+      storage: {}
+
+
+
+    # Jump to the data of a push, when it isn't a 0x5B (JUMPDEST)
+    000000000000000000000000000000000000100A:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      #  0  PUSH1 0x05
+      #  2  JUMP
+      #  3  STOP
+      #  4  PUSH1 0x01
+      #  6  PUSH2 0x600D
+      #  9  PUSH1 0x00
+      #  B  SSTORE
+      code: :raw 0x60055600600161600D600055
+      nonce: '0'
+      storage: {}
+
+
+    # Jump one instruction after the JUMPDEST
+    000000000000000000000000000000000000100B:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      #  0  PUSH2 0x600D
+      #  3  PUSH1 0x00
+      #  5  SSTORE
+      #  6  PUSH1 0x0B
+      #  8  JUMP
+      #  9  GAS
+      #  A  JUMMPDEST
+      #  B  GAS
+      #  C  PUSH1 0x01
+      #  E  SSTORE
+      code: :raw 0x61600D600055600B565A5B5A600155
+      nonce: '0'
+      storage: {}
+
+
+    # Jump one instruction before the JUMPDEST
+    000000000000000000000000000000000000100C:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      #  0  PUSH2 0x600D
+      #  3  PUSH1 0x00
+      #  5  SSTORE
+      #  6  PUSH1 0x09
+      #  8  JUMP
+      #  9  GAS
+      #  A  JUMMPDEST
+      #  B  GAS
+      #  C  PUSH1 0x01
+      #  E  SSTORE
+      code: :raw 0x61600D6000556009565A5B5A600155
+      nonce: '0'
+      storage: {}
+
+
+    # Another jump into hyperspace
+    # The old jumpToUint64maxPlus1
+    000000000000000000000000000000000000100D:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      # [ 0] PUSH9 0x01000000000000000b
+      # [ A] JUMP
+      # [ B] JUMPDEST
+      # [ C] JUMPDEST
+      # [ D] PUSH1 0x01
+      # [ F] PUSH1 0x01
+      # [11] SSTORE
+      code: :raw 0x6801000000000000000b565b5b6001600155
+      nonce: '0'
+      storage: {}
+
+
+    # Another jump into hyperspace
+    # The old jumpToUintmaxPlus1
+    000000000000000000000000000000000000100E:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      # [ 0] PUSH5 0x0100000007
+      # [ 6] JUMP
+      # [ 7] JUMPDEST
+      # [ 8] JUMPDEST
+      # [ 9] PUSH1 0x01
+      # [ B] PUSH1 0x01
+      # [ D] SSTORE
+      code: :raw 0x640100000007565b5b6001600155
+      nonce: '0'
+      storage: {}
+
+
+    # The furthest into hyperspace jump imaginable: to -1
+    000000000000000000000000000000000000100F:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+          @0 (- 0 1)
+          (asm 0 mload jump 0x600D 0x00 sstore)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # Jump into a big list of JUMPDESTs
+    0000000000000000000000000000000000001010:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      #  0 PUSH1 0x0e
+      #  2 JUMP
+      #  3 JUMPDEST
+      #  4 JUMPDEST
+      #  .
+      #  .
+      #  .
+      # 12 JUMPDEST
+      # 13 PUSH2 0x600D
+      # 16 PUSH1 0x00
+      # 18 SSTORE
+      code: :raw 0x600E565B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B61600D600055
+      nonce: '0'
+      storage: {}
+
+
+
+    # Using DELEGATECALL lets us group results together, because everything
+    # is written to the same storage.
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            ; limited gas because of the endless loop
+            (delegatecall 0x10000 (+ 0x1000 $4) 0 0 0 0)
+        }
+      nonce: '0'
+      storage:
+        0x00: 0x0BAD
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0x100000000000
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+
+
+
+  transaction:
+    data:
+    # The two old bad_indirect_jump tests
+    - :label jump-hyperspace    :abi f(uint) 0
+    - :label jump-hyperspace    :abi f(uint) 1
+
+    # The old jump to after the STOP
+    - :label jump-stop-dest     :abi f(uint) 2
+
+    # The old jumpHigh
+    - :label jump-hyperspace    :abi f(uint) 3
+
+    # The old jump0_AfterJumpdest
+    - :label jump-not-jumpdest  :abi f(uint) 4
+
+    # "Endless" loop  (not really endless, it just runs out of gas)
+    - :label endless-loop       :abi f(uint) 5
+
+
+    # Just checking JUMP / JUMPDEST is various ways
+    - :label jump-dest          :abi f(uint) 6
+    - :label jump-dest          :abi f(uint) 7
+
+    # A dynamic jump
+    - :label jump-dynamic       :abi f(uint) 8
+
+    # Jump into push (this fails, even if you jump to a 0x5B)
+    - :label jump-2-push        :abi f(uint) 9
+    - :label jump-2-push        :abi f(uint) 10
+
+    # JUMP one instruction before or after the JUMPDEST
+    - :label jump-not-jumpdest  :abi f(uint) 11
+    - :label jump-not-jumpdest  :abi f(uint) 12
+
+    # The old jumpToUint64maxPlus1
+    - :label jump-hyperspace    :abi f(uint) 13
+
+    # The old jumpToUintmaxPlus1
+    - :label jump-hyperspace    :abi f(uint) 14
+
+    # Jump to -1  (aka 0xfff...ffff)
+    - :label jump-hyperspace    :abi f(uint) 15
+
+    # Jump to the middle of a JUMPDEST list
+    - :label jump-to-list       :abi f(uint) 16
+
+
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+  expect:
+    - indexes:
+        data:
+        - :label jump-hyperspace
+        - :label jump-not-jumpdest
+        - :label endless-loop
+        - :label jump-2-push
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0x0BAD
+
+
+
+    - indexes:
+        data:
+        - :label jump-stop-dest
+        - :label jump-dest
+        - :label jump-dynamic
+        - :label jump-to-list
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0x600D

@@ -1,0 +1,266 @@
+tooLongReturnDataCopy:
+  _info:
+    comment: Ori Pomerantz   qbzzt1@gmail.com
+
+# When a contract ends (RETURN or REVERT), it returns a buffer. That buffer
+# is available either directly (written to memory specified in the CALL opcode)
+# or through RETURNDATACOPY. However, if you attempt in RETURNDATACOPY to read
+# beyond the buffer size the contract reverts. This test verifies this behavior.
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentNumber: 1
+    currentTimestamp: 1000
+    currentGasLimit: 0x10000000000000
+    currentBaseFee: 10
+
+  pre:
+    # Return the requested amount of data
+    000000000000000000000000000000000000C0DE:
+      balance: 0
+      code: |
+        :yul berlin
+        {
+           // How many bytes to return
+           let byteCount := calldataload(0)
+
+           // Some junk data
+           mstore(0, 0x1F1E1D1C1B1A191817161514131211100F0E0D0C0B0A090807060504030201FF)
+
+           sstore(0, byteCount)
+
+           // Return the result
+           return(0x00, byteCount)
+        }
+      nonce: 1
+      storage: {}
+
+
+    # Revert with the requested amount of data
+    0000000000000000000000000000000000000BAD:
+      balance: 0
+      code: |
+        :yul berlin
+        {
+           // How many bytes to return
+           let byteCount := calldataload(0)
+
+           // Some junk data
+           mstore(0, 0x1F1E1D1C1B1A191817161514131211100F0E0D0C0B0A090807060504030201FF)
+
+           sstore(0, byteCount)
+
+           // Return the result
+           revert(0x00, byteCount)
+        }
+      nonce: 1
+      storage: {}
+
+
+    # Call 0xC0DE or 0x0BAD and then copy return data (possibly an excessive
+    # amount of it)
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: 1000000000000000000
+      code: |
+          :yul berlin
+          {
+             let lengthReturned := calldataload(0x04)
+             let offsetCopied   := calldataload(0x24)
+             let lengthCopied   := calldataload(0x44)
+             let contract       := calldataload(0x64)
+             mstore(0, lengthReturned)
+
+             // The length of the buffer to be returned is part of the calldata
+             // for this contract. However, it is necessary to send it to the 
+             // contract we're calling (either 0xC0DE or 0x0BAD) so it will know
+             // what size of buffer to return to us
+             let retVal := call(gas(), contract, 0, 
+                0, 0x20,    // input buffer with lengthReturned
+                0, 0x100)    // output buffer
+
+             // Copy the return data (which fails if
+             // offsetCopied+lengthCopied > lengthReturned)
+             returndatacopy(0x100, offsetCopied, lengthCopied)
+
+
+             // Show that other copies of excess length work (otherwise
+             // the goat will never die)
+             extcodecopy(0xC0DE, 0,0, add(0x20,extcodesize(0xC0DE)))
+             calldatacopy(0,0, add(0x20,calldatasize()))
+             codecopy(0,0, add(0x20,codesize()))
+             
+
+             // If we get here, kill the goat to show success
+             sstore(0, 0xDEAD)
+          }
+      nonce: 1
+      storage:
+        0: 0x60A7   # To be overwritten
+
+
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 1000000000000000000000
+      code: '0x'
+      nonce: 1
+      storage: {}
+
+
+  transaction:
+    data:
+# Parameters:
+# 1. The length of the returned buffer
+# 2. The offset for the RETURNDATACOPY opcode
+# 3. The length for the RETURNDATACOPY opcode
+# 4. The contract call. 
+#    0xC0DE - contract that returns a buffer
+#    0x0BAD - contract that reverts with a buffer
+#    In both cases, the returned buffer is the length specified in the first parameter
+
+    # Receive an empty buffer, copy zero bytes from offset zero.
+    - :label success :abi f(uint,uint,uint,uint) 0x00 0x00 0x00 0xC0DE
+      
+
+    # Receive an empty buffer, copy the first byte from it
+    - :label fail    :abi f(uint,uint,uint,uint) 0x00 0x00 0x01 0xC0DE
+      
+
+    # Receive sixteen bytes, copy the first eight
+    - :label success :abi f(uint,uint,uint,uint) 0x10 0x00 0x08 0xC0DE
+      
+
+    # Receive sixteen bytes, copy the first sixteen
+    - :label success :abi f(uint,uint,uint,uint) 0x10 0x00 0x10 0xC0DE
+      
+
+    # Receive sixteen bytes, copy the first seventeen
+    - :label fail    :abi f(uint,uint,uint,uint) 0x10 0x00 0x11 0xC0DE
+      
+
+    # Receive sixteen bytes, copy fifteen (except for the first one)
+    - :label success :abi f(uint,uint,uint,uint) 0x10 0x01 0x0f 0xC0DE
+      
+
+    # Receive sixteen bytes, copy sixteen (except for the first one)
+    - :label fail    :abi f(uint,uint,uint,uint) 0x10 0x01 0x10 0xC0DE
+      
+
+    # Receive sixteen bytes, copy numbers 8-15
+    - :label success :abi f(uint,uint,uint,uint) 0x10 0x08 0x08 0xC0DE
+      
+
+    # Receive sixteen bytes, copy numbers 9-16
+    - :label fail    :abi f(uint,uint,uint,uint) 0x10 0x09 0x08 0xC0DE
+      
+
+    # Receive sixteen bytes, copy numbers 16-23
+    - :label fail    :abi f(uint,uint,uint,uint) 0x10 0x10 0x08 0xC0DE
+      
+
+    # Receive sixteen bytes, copy numbers 16-31
+    - :label fail    :abi f(uint,uint,uint,uint) 0x10 0x10 0x10 0xC0DE
+      
+
+    # Receive sixteen bytes, copy numbers 32-47
+    - :label fail    :abi f(uint,uint,uint,uint) 0x10 0x20 0x10 0xC0DE
+      
+
+
+
+    # Show that REVERT behaves the same way as RETURN
+
+    # Receive an empty buffer, copy zero bytes from offset zero.
+    - :label success :abi f(uint,uint,uint,uint) 0x00 0x00 0x00 0x0BAD
+      
+
+    # Receive an empty buffer, copy the first byte from it
+    - :label fail    :abi f(uint,uint,uint,uint) 0x00 0x00 0x01 0x0BAD
+      
+
+    # Receive sixteen bytes, copy the first eight
+    - :label success :abi f(uint,uint,uint,uint) 0x10 0x00 0x08 0x0BAD
+      
+
+    # Receive sixteen bytes, copy the first sixteen
+    - :label success :abi f(uint,uint,uint,uint) 0x10 0x00 0x10 0x0BAD
+      
+
+    # Receive sixteen bytes, copy the first seventeen
+    - :label fail    :abi f(uint,uint,uint,uint) 0x10 0x00 0x11 0x0BAD
+      
+
+    # Receive sixteen bytes, copy fifteen (except for the first one)
+    - :label success :abi f(uint,uint,uint,uint) 0x10 0x01 0x0f 0x0BAD
+      
+
+    # Receive sixteen bytes, copy sixteen (except for the first one)
+    - :label fail    :abi f(uint,uint,uint,uint) 0x10 0x01 0x10 0x0BAD
+      
+
+    # Receive sixteen bytes, copy numbers 8-15
+    - :label success :abi f(uint,uint,uint,uint) 0x10 0x08 0x08 0x0BAD
+      
+
+    # Receive sixteen bytes, copy numbers 9-16
+    - :label fail    :abi f(uint,uint,uint,uint) 0x10 0x09 0x08 0x0BAD
+      
+
+    # Receive sixteen bytes, copy numbers 16-23
+    - :label fail    :abi f(uint,uint,uint,uint) 0x10 0x10 0x08 0x0BAD
+      
+
+    # Receive sixteen bytes, copy numbers 16-31
+    - :label fail    :abi f(uint,uint,uint,uint) 0x10 0x10 0x10 0x0BAD
+      
+
+    # Receive sixteen bytes, copy numbers 32-47
+    - :label fail    :abi f(uint,uint,uint,uint) 0x10 0x20 0x10 0x0BAD
+      
+
+
+
+    gasLimit:
+    - 0x10000000000000
+    nonce: 1
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - 0
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    gasPrice: 100
+
+
+  expect:
+    # If we attempt to copy more than RETURNDATASIZE(), the transaction reverts
+    # and the goat lives
+    - indexes:
+        data: :label fail
+        gas:  !!int -1
+        value: !!int -1
+
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            # The result we expect
+            0x00: 0x60A7
+
+
+    # If we attempt to copy RETURNDATASIZE() or less, we get to the 
+    # capraicide code and the goat dies
+    - indexes:
+        data: :label success
+        gas:  !!int -1
+        value: !!int -1
+
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0xDEAD
+
+
+

@@ -1,0 +1,147 @@
+{
+    "RevertDepthCreateAddressCollision" : {
+	    "_info" : {
+	        "comment" : "copy of this test for CREATE2"
+	    },
+        "env" : {
+            "currentCoinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x020000",
+            "currentGasLimit" : "10000000",
+            "currentNumber" : "1",
+            "currentTimestamp" : "1000"
+        },
+        "expect" : [
+	    {
+                "indexes" : {
+                    "data" : 1,
+                    "gas" : 1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+				    "3e180b1862f9d158abb5e519a6d8605540c23682" : {
+                        "nonce" : "54",
+                        "storage" : {
+						    "0x00" : "0x01",
+						    "0x01" : "0x01",
+						    "0x04" : "0x0c"
+                        }
+				    },
+				    "b000000000000000000000000000000000000000" : {
+				        "storage" : {
+						    "0x02" : "0x08",
+						    "0x03" : "0x0c"
+				        }
+				    }
+                }
+            },
+		    {
+                "//comment" : "OOG in subcall",
+                "indexes" : {
+                    "data" : 0,
+                    "gas" : 1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "3e180b1862f9d158abb5e519a6d8605540c23682" : {
+                        "nonce" : "54",
+                        "storage" : {
+                            "0x00" : "0x01",
+                            "0x04" : "0x0c"
+                        }
+				    },
+				    "b000000000000000000000000000000000000000" : {
+				        "storage" : {
+				        }
+				    }
+                }
+            },
+		    {
+                "//comment" : "OOG after subcall",
+                "indexes" : {
+                    "data" : 1,
+                    "gas" : 0,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "3e180b1862f9d158abb5e519a6d8605540c23682" : {
+                        "balance" : "0x05",
+                        "code" : "0x60016000556000600060006000600073b000000000000000000000000000000000000000600035f1600155600c60045500",
+                        "nonce" : "54",
+                        "storage" : {
+                        }
+				    },
+				    "b000000000000000000000000000000000000000" : {
+				        "storage" : {
+				        }
+				    }
+                }
+            },
+	    	{
+                "//comment" : "double OOG",
+                "indexes" : {
+                    "data" : 0,
+                    "gas" : 0,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "3e180b1862f9d158abb5e519a6d8605540c23682" : {
+                        "code" : "0x60016000556000600060006000600073b000000000000000000000000000000000000000600035f1600155600c60045500",
+                        "nonce" : "54",
+                        "storage" : {
+                        }
+		    		},
+		    		"b000000000000000000000000000000000000000" : {
+		    		    "storage" : {
+		    		    }
+		    		}
+                }
+            }
+        ],
+        "pre" :
+        {
+            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "1000000000000",
+                "code" : "",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+    	    "3e180b1862f9d158abb5e519a6d8605540c23682" : {
+                "balance" : "5",
+                "code" : "{ [[0]] 1 [[1]] (CALL (CALLDATALOAD 0) 0xb000000000000000000000000000000000000000 0 0 0 0 0) [[4]] 12 }",
+                "nonce" : "54",
+                "storage" : {
+                }
+            },
+    	    "b000000000000000000000000000000000000000" : {
+                "balance" : "",
+                "code" : "{ [[2]] 8 (CREATE2 0 0 0 0) [[3]] 12}",
+                "nonce" : "",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+	    "//0 data" : "Call with value to address A, then another call X, in the call X CREATE of account A, OOG -> revert call X.",
+	    "//1 data" : "d0g0 - double OOG,  d0g1 - OOG inside subcall, d1g0 - OOG after subcall, d1g1 - no OOG",
+            "data" : [
+        		":raw 0x000000000000000000000000000000000000000000000000000000000000ea60", 
+        		":raw 0x000000000000000000000000000000000000000000000000000000000001ea60" 
+            ],
+            "gasLimit" : [
+                "110000", "170000"
+            ],
+            "gasPrice" : "10",
+            "nonce" : "0",
+            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "3e180b1862f9d158abb5e519a6d8605540c23682",
+            "value" : [
+                "1", "0"
+            ]
+        }
+    }
+}

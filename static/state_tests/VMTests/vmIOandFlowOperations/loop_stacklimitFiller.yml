@@ -1,0 +1,108 @@
+
+loop_stacklimit:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    # loop_stacklimit_1021
+    0000000000000000000000000000000000001000:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           (asm 0 CALLVALUE JUMPDEST 1 SWAP1 SUB SWAP1 1 ADD DUP2 DUP1 3 JUMPI 0 MSTORE 1 MSTORE 0 MSIZE RETURN)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # loop_stacklimit_1020
+    0000000000000000000000000000000000001001:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      # [1] PUSH1 0x00
+      # [2] CALLVALUE
+      # [3] JUMPDEST
+      # [5] PUSH1 0x01
+      # [6] SWAP1
+      # [7] SUB
+      # [8] SWAP1
+      # [10] PUSH1 0x01
+      # [11] ADD
+      # [12] DUP2
+      # [13] DUP1
+      # [15] PUSH1 0x03
+      # [16] JUMPI
+      # [18] PUSH1 0x00
+      # [19] MSTORE
+      # [21] PUSH1 0x01
+      # [22] MSTORE
+      # [24] PUSH1 0x00
+      # [25] MSIZE
+      # [26] RETURN
+      # [27] STOP
+      code: :raw 0x6000345b60019003906001018180600357600052600152600059f300
+      nonce: '0'
+      storage: {}
+
+
+
+
+    # Using DELEGATECALL lets us group results together, because everything
+    # is written to the same storage.
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            (delegatecall (gas) (+ 0x1000 $4) 0 0 0 0)
+        }
+      nonce: '0'
+      storage:
+        0x00: 0x00
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0x100000000000
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+
+
+
+  transaction:
+    data:
+    - :label loop_1021  :abi f(uint) 0
+    - :label loop_1020  :abi f(uint) 1
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+
+
+  expect:
+    - indexes:
+        data:
+        - :label loop_1020
+        - :label loop_1021
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0x00

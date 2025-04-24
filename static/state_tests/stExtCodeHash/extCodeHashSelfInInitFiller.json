@@ -1,0 +1,73 @@
+{
+  "extCodeHashSelfInInit": {
+    "_info": {
+      "comment": "EXTCODEHASH/EXTCODESIZE of the account currently being created"
+    },
+    "env": {
+      "currentCoinbase": "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+      "currentDifficulty": "0x20000",
+      "currentGasLimit": "1000000",
+      "currentNumber": "1",
+      "currentTimestamp": "1000"
+    },
+    "expect": [
+      {
+        "indexes": {
+          "data": -1,
+          "gas": -1,
+          "value": -1
+        },
+        "network": [
+          ">=Cancun"
+        ],
+        "result": {
+          "deadbeef00000000000000000000000000000000": {
+            "balance": "1000000000000000001",
+            "storage": {
+              "0x00": "0xdeadbeef"
+            }
+          },
+          "0x8d540e2aaf9828712749afedf7c53ed034a6fd0e": {
+            "balance": "0",
+            "storage": {
+              "0x00": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+              "0x01": "0x00"
+            }
+          }
+        }
+      }
+    ],
+    "pre": {
+      "deadbeef00000000000000000000000000000000": {
+        "balance": "1000000000000000000",
+        "code": "{ (CREATE2 0 0 (lll {[[0]] (EXTCODEHASH (ADDRESS)) [[1]] (EXTCODESIZE (ADDRESS)) (RETURN 0 0)} 0) 0x10) (STOP) }",
+        "nonce": "0",
+        "storage": {
+          "0x00": "0xdeadbeef"
+        }
+      },
+      "a94f5374fce5edbc8e2a8697c15331677e6ebf0b": {
+        "balance": "1000000000000000000",
+        "code": "",
+        "nonce": "0",
+        "storage": {
+        }
+      }
+    },
+    "transaction": {
+      "data": [
+        ""
+      ],
+      "gasLimit": [
+        "400000"
+      ],
+      "gasPrice": "10",
+      "nonce": "0",
+      "secretKey": "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+      "to": "deadbeef00000000000000000000000000000000",
+      "value": [
+        "1"
+      ]
+    }
+  }
+}

@@ -1,0 +1,387 @@
+addmod:
+
+  # This test deals with the addmod opcode
+  # (addmod a b c) = (a + b) % c
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    0000000000000000000000000000000000001000:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (addmod 1 2 2)
+        }
+      nonce: '0'
+      storage: {}
+
+    0000000000000000000000000000000000001001:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (addmod (- 0 1) (- 0 2) 2)
+        }
+      nonce: '0'
+      storage: {}
+
+    0000000000000000000000000000000000001002:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (addmod (- 0 6) 1 3)
+        }
+      nonce: '0'
+      storage: {}
+
+    0000000000000000000000000000000000001003:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (eq (smod (- 0 5) 3) (addmod (- 0 6) 1 3) )
+        }
+      nonce: '0'
+      storage: {}
+
+    0000000000000000000000000000000000001004:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (eq (mod  (- 0 5) 3) (addmod (- 0 6) 1 3) )
+        }
+      nonce: '0'
+      storage: {}
+
+    0000000000000000000000000000000000001005:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (addmod 4 1 (- 0 3) )
+        }
+      nonce: '0'
+      storage: {}
+
+    0000000000000000000000000000000000001006:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (eq (addmod 4 1 (- 0 3) ) 2 )
+        }
+      nonce: '0'
+      storage: {}
+
+    0000000000000000000000000000000000001007:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (addmod (- 0 1) 0 5)
+        }
+      nonce: '0'
+      storage: {}
+
+    0000000000000000000000000000000000001008:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (addmod (- 0 1) 1 5)
+        }
+      nonce: '0'
+      storage: {}
+
+    0000000000000000000000000000000000001009:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (addmod (- 0 1) 2 5)
+        }
+      nonce: '0'
+      storage: {}
+
+    000000000000000000000000000000000000100a:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (addmod (- 0 1) (- 0 2) 5)
+        }
+      nonce: '0'
+      storage: {}
+
+    000000000000000000000000000000000000100b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; ((2^160)-1 + 1) % 5
+           [[0]] (addmod 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 1 5)
+        }
+      nonce: '0'
+      storage: {}
+
+    000000000000000000000000000000000000100c:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (addmod 4 1 0)
+        }
+      nonce: '0'
+      storage: {}
+
+    000000000000000000000000000000000000100d:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (addmod 0 1 0)
+        }
+      nonce: '0'
+      storage: {}
+
+    000000000000000000000000000000000000100e:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (addmod 1 0 0)
+        }
+      nonce: '0'
+      storage: {}
+
+    000000000000000000000000000000000000100f:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (- (addmod 0 0 0) 1)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            (call 0xffffff (+ 0x1000 $4) 0 0 0 0 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+# The transaction to check
+  transaction:
+    data:
+    - :label addmod_1_2_2        :abi f(uint) 0x00
+    - :label addmod_neg1_neg2_2  :abi f(uint) 0x01
+    - :label addmod_neg6_1_3     :abi f(uint) 0x02
+    - :label addmod_eq_smod      :abi f(uint) 0x03
+    - :label addmod_eq_mod       :abi f(uint) 0x04
+    - :label addmod_4_1_neg3     :abi f(uint) 0x05
+    - :label addmod_4_1_neg3_eq  :abi f(uint) 0x06
+    - :label addmod_neg1_0_5     :abi f(uint) 0x07
+    - :label addmod_neg1_1_5     :abi f(uint) 0x08
+    - :label addmod_neg1_2_5     :abi f(uint) 0x09
+    - :label addmod_neg1_neg2_5  :abi f(uint) 0x0a
+
+    # ((2^160-1) + 1) % 5
+    - :label addmod_2_160_1_5    :abi f(uint) 0x0b
+    - :label addmod_4_1_0        :abi f(uint) 0x0c
+    - :label addmod_0_1_0        :abi f(uint) 0x0d
+    - :label addmod_1_0_0        :abi f(uint) 0x0e
+    - :label addmod_0_0_0_min_1  :abi f(uint) 0x0f
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+  expect:
+    - indexes:
+        data: :label addmod_1_2_2
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001000:
+          storage:
+            0: 0x01
+
+    - indexes:
+        data: :label addmod_neg1_neg2_2
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001001:
+          storage:
+            0: 0x01
+
+    - indexes:
+        data: :label addmod_neg6_1_3
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001002:
+          storage:
+            0: 0x02
+
+    - indexes:
+        data: :label addmod_eq_smod
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001003:
+          storage:
+            0: 0x00
+
+    - indexes:
+        data: :label addmod_eq_mod
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001004:
+          storage:
+            0: 0x01
+
+    - indexes:
+        data: :label addmod_4_1_neg3
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001005:
+          storage:
+            0: 0x05
+
+    - indexes:
+        data: :label addmod_4_1_neg3_eq
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001006:
+          storage:
+            0: 0x00
+
+    - indexes:
+        data: :label addmod_neg1_0_5
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001007:
+          storage:
+            0: 0x00
+
+    - indexes:
+        data: :label addmod_neg1_1_5
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001008:
+          storage:
+            0: 0x01
+
+    - indexes:
+        data: :label addmod_neg1_2_5
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001009:
+          storage:
+            0: 0x02
+
+    - indexes:
+        data: :label addmod_neg1_neg2_5
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000100a:
+          storage:
+            0: 0x04
+
+    - indexes:
+        data: :label addmod_2_160_1_5
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000100b:
+          storage:
+            0: 0x01
+
+    - indexes:
+        data: :label addmod_4_1_0
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000100c:
+          storage:
+            0: 0x00
+
+    - indexes:
+        data: :label addmod_0_1_0
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000100d:
+          storage:
+            0: 0x00
+
+    - indexes:
+        data: :label addmod_1_0_0
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000100e:
+          storage:
+            0: 0x00
+
+    - indexes:
+        data: :label addmod_0_0_0_min_1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000100f:
+          storage:
+            0: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff

@@ -1,0 +1,194 @@
+mod:
+
+  # This test is for the MOD opcode
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    0000000000000000000000000000000000001000:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (% 2 3)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000001001:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; -1 % 2  (2^256-1 = -1 in evm arithmetic)
+           [[0]] (% 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 2)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000001002:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; 0 % -1
+           [[0]] (% 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000001003:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+              [[0]] (% 3 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000001004:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+              ; The expected result is 2, which is counter
+              ; intuitive. The reason is that MOD uses unsigned
+              ; arithmetic. -2 % 3 is indeed 1, but 2^256 % 3 = 1
+              ; and therefore (2^256-2) % 3 = 2
+              ;
+              [[0]] (% (- 0 2) 3)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000001005:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+              ; The original test was (3%0)-1, but since we're
+              ; already checking 3%0 (contract 0...0103), I decided
+              ; it would be better to check a different number
+              [[0]] (- (% 16 0) 1)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            (call 0xffffff (+ 0x1000 $4) 0 0 0 0 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+# The transaction to check
+  transaction:
+    data:
+    - :label mod_2_3    :abi f(uint) 0
+    - :label mod_neg1_2 :abi f(uint) 1
+    - :label mod_0_neg1 :abi f(uint) 2
+    - :label mod_3_0    :abi f(uint) 3
+    - :label mod_neg2_3 :abi f(uint) 4
+    - :label mod_16_0   :abi f(uint) 5
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+  expect:
+    - indexes:
+        data: :label mod_2_3
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001000:
+          storage:
+            0: 0x02
+
+
+
+
+    - indexes:
+        data: :label mod_neg1_2
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001001:
+          storage:
+            0: 0x01
+
+
+
+    - indexes:
+        data:
+        - :label mod_0_neg1
+        - :label mod_3_0
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001002:
+          storage:
+            0: 0x00
+        0000000000000000000000000000000000001003:
+          storage:
+            0: 0x00
+
+
+
+    - indexes:
+        data: :label mod_neg2_3
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001004:
+          storage:
+            0: 0x02
+
+
+
+    - indexes:
+        data: :label mod_16_0
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001005:
+          storage:
+            # The expression is actually (16 % 0) - 1, so
+            # The result here is -1 = 256^2-1
+            0: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff

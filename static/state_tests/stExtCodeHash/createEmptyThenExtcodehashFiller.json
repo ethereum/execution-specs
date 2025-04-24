@@ -1,0 +1,72 @@
+{
+    "createEmptyThenExtcodehash" : {
+		"_info" : {
+			"comment" : "https://github.com/ethereum/tests/issues/652"
+		},
+        "env" : {
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x20000",
+            "currentGasLimit" : "0x0b00000000",
+            "currentNumber" : "0x01",
+            "currentTimestamp" : "0x03e8"
+        },
+        "expect" : [
+            {   "indexes" : {
+                   "data" : -1,
+                   "gas" : -1,
+                   "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "1000000000000000000000000000000000000000" : {
+                        "storage" : {
+				            "0x00" : "0x0826562ac9373818f7a055166f7b0cc87485f05d",
+				            "0x01" : "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+							"0x02" : "0x7c5a2c91b22d7a9226523d4ba717db6afb741ebd",
+							"0x03" : "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
+                        }
+                    },
+					"0x0826562ac9373818f7a055166f7b0cc87485f05d" : {
+						"nonce" : "1",
+						"code" : ""
+					}
+                }
+            }
+        ],
+        "pre" : {
+            "1000000000000000000000000000000000000000" : {
+                "balance" : "0x00",
+                "code" : "{  [[0]] (CREATE2 0 0  (lll (seq (sstore 0 0x112233)  (STOP)) 0) 0)  [[1]] (EXTCODEHASH 0x0826562ac9373818f7a055166f7b0cc87485f05d)  [[2]] (CREATE 0 0 (lll (seq (sstore 0 0x112233)  (STOP)) 0))  [[3]] (EXTCODEHASH 0x7c5a2c91b22d7a9226523d4ba717db6afb741ebd) }",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x00" : "0x01",
+                    "0x01" : "0x01",
+                    "0x02" : "0x01",
+                    "0x03" : "0x01"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6400000000",
+                "code" : "",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                ""
+            ],
+            "gasLimit" : [
+                "300000"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "0x1000000000000000000000000000000000000000",
+            "value" : [
+                "0"
+            ]
+        }
+    }
+}

@@ -1,0 +1,110 @@
+# Check the value of the program counter
+#
+# Note: The original tests also had gasOverFlow, but I didn't
+#       see it doing anything relevant, so I didn't copy it
+
+gas:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    0000000000000000000000000000000000001000:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [0]  0xffffffffff
+           [90] 0xeeee
+           [[0]] (gas)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000001001:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (gas)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    # Using DELEGATECALL lets us group results together, because everything
+    # is written to the same storage.
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            (delegatecall (gas) (+ 0x1000 $4) 0 0 0 0)
+        }
+      nonce: '0'
+      storage:
+        0x00: 0x0BAD
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0x100000000000
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+
+
+
+  transaction:
+    data:
+    - :label gas1 :abi f(uint) 0
+    - :label gas2 :abi f(uint) 1
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+  expect:
+    # gas1 has a different cost because the cost of memory access changed
+    # between Istanbul and Berlin
+    #
+    # The change in the cost of SSTORE doesn't matter, because it happens
+    # AFTER the (gas)
+
+    - indexes:
+        data:
+        - :label gas1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0x04b1457b
+
+
+
+    - indexes:
+        data:
+        - :label gas2
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0x04b1458d

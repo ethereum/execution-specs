@@ -1,0 +1,87 @@
+# EIP-3855: PUSH0 instruction - test for gas cost
+push0Gas2:
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x020000'
+    currentGasLimit: '89128960'
+    currentBaseFee: '10'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+
+  pre:
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 10000000
+      code: ''
+      nonce: '0'
+      storage: {}
+
+    b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      code: |
+        :yul berlin
+        {
+           sstore(0, call(100000, shr(96, calldataload(0)), 0, 0, 0, 0, 0))
+           sstore(1, 1)
+        }
+      nonce: 0
+      storage: {}
+
+    0000000000000000000000000000000000001000:
+      balance: 0
+      # Calculates the difference between initial gas and gas after using
+      # PUSH0, stores the result in storage key 0x00
+      # gas push0 gas swap1 swap2 sub swap1 sstore
+      code: ':raw 0x5a5f5a9091039055'
+      nonce: '0'
+      storage: {}
+
+    0000000000000000000000000000000000000200:
+      balance: 0
+      # Calculates the difference between initial gas and gas after using
+      # PUSH1(0), stores the result in storage key 0x00
+      # gas push1(0) gas swap1 swap2 sub swap1 sstore
+      code: ':raw 0x5a60005a9091039055'
+      nonce: '0'
+      storage: {}
+
+  transaction:
+    data:
+      - ':label use_push0 :raw 0x0000000000000000000000000000000000001000'
+      - ':label use_push1_00 :raw 0x0000000000000000000000000000000000000200'
+    gasLimit:
+      - 300000
+    gasPrice: 10
+    nonce: 0
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 'b94f5374fce5edbc8e2a8697c15331677e6ebf0b'
+    value:
+    - 0
+
+  expect:
+    - indexes:
+        data: ':label use_push0'
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001000:
+          balance: 0
+          storage:  # GAS PUSH0
+            0x00: 4 #  2 + 2
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            0x00: 1  #Subcall successfull
+            0x01: 1
+
+    - indexes:
+        data: ':label use_push1_00'
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000000200:
+          balance: 0
+          storage:  # GAS   PUSH1(0)
+            0x00: 5 # 2   +   3
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            0x00: 1  #Subcall successfull
+            0x01: 1

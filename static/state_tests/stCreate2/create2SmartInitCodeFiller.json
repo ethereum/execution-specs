@@ -1,0 +1,105 @@
+{
+    "create2SmartInitCode" : {
+	    "_info" : {
+	        "comment" : "create2SmartInitCode. create2 works different each time you call it"
+	    },
+        "env" : {
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x20000",
+            "currentGasLimit" : "0x0b00000000",
+            "currentNumber" : "0x01",
+            "currentTimestamp" : "0x03e8"
+        },
+        "expect" : [
+            {   
+        		"indexes" : {
+                   "data" : 0,
+                   "gas" : -1,
+                   "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "0x0000000000000000000000000000000000000001" : {
+                        "balance" : "1"
+                    },
+		            "0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6" : {
+                        "nonce" : "0x02"                
+                    }
+                }
+            },
+	    {   
+		"indexes" : {
+                   "data" : 1,
+                   "gas" : -1,
+                   "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+        		    "0x1f572e5295c57f15886f9b263e2f6d2d6c7b5ec6" : {
+                        "storage" : {
+			                "0x01" : "0xd27e800c69122409ac5609fe4df903745f3988a0",
+			                "0x02" : "0"
+			            }
+                    },
+		            "0xd27e800c69122409ac5609fe4df903745f3988a0" : {
+			            "nonce" : "1",
+			            "code" : "0x00000000000000000000",
+                        "storage" : {
+			                "0x01" : "0x01"
+			            } 
+                    }
+                }
+            }
+        ],
+        "pre" : {
+            "0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6" : {
+                "balance" : "100",
+                "//code" : "{ (if (EQ (SLOAD 1) 0) (seq (SSTORE 1 1) (SELFDESTRUCT 1))  (RETURN 0 10)  )  }",
+		        "//code" : "          0x112233445566778899101112131415161718192021222324252627",
+		        "code" : "{ (MSTORE 0 0x600060015414601157600a6000f3601a565b60016001556001ff5b) [[1]](CREATE2 1 5 27 0) [[2]](CREATE2 1 5 27 0) }",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+    	    "0x1f572e5295c57f15886f9b263e2f6d2d6c7b5ec6" : {
+                "balance" : "100",
+                "//code" : "{ (if (EQ (SLOAD 1) 0) (seq (SSTORE 1 1) (RETURN 0 10))  (RETURN 0 10)  )  }",
+        		"//code" : "            0x1122334455667788991011121314151617181920212223242526272829",
+        		"code" : "{ (MSTORE 0 0x600060015414601157600a6000f3601c565b6001600155600a6000f35b) [[1]](CREATE2 1 3 29 0) [[2]](CREATE2 1 5 27 0) }",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6400000000",
+                "code" : "",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6400000000",
+                "code" : "{ (CALL (GAS) (CALLDATALOAD 0) 0 0 0 0 0) }",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+        		":raw 0x0000000000000000000000000f572e5295c57f15886f9b263e2f6d2d6c7b5ec6",
+        		":raw 0x0000000000000000000000001f572e5295c57f15886f9b263e2f6d2d6c7b5ec6"
+            ],
+            "gasLimit" : [
+                "0x0a00000000"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "value" : [
+                "0x00"
+            ]
+        }
+    }
+}

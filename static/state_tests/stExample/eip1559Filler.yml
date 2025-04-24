@@ -1,0 +1,68 @@
+eip1559:
+  _info:
+    comment: Ori Pomerantz   qbzzt1@gmail.com
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentNumber: 1
+    currentTimestamp: 1000
+    currentGasLimit: 0x1000000
+
+    # New in London because of EIP1559
+    currentBaseFee: 1000
+
+  pre:
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '1000000000000000000'
+      code: |
+          {
+             (sstore 0 (gasprice))
+             (sstore 1 (basefee))
+          }
+      nonce: 1
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: '0x'
+      nonce: 1
+      storage: {}
+
+
+  transaction:
+    data:
+        - data: :raw 0x00
+          accessList:
+          - address: 0xcccccccccccccccccccccccccccccccccccccccc
+            storageKeys:
+            - 0x00
+            - 0x01
+    gasLimit:
+    - 4000000
+    nonce: 1
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - 0
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+    # New in London because of EIP 1559
+    maxPriorityFeePerGas: 10
+    maxFeePerGas: 2000
+    
+
+  expect:
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 1010    # GASPRICE
+            0x01: 1000    # BASEFEE
+

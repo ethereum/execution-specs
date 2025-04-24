@@ -1,0 +1,170 @@
+sub:
+
+  # This test deals with addition, mostly addition that causes an overflow.
+  # It is based on the fact that arithmetic in the evm is modulu 2^256.
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    0000000000000000000000000000000000001000:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (- 23 1)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000001001:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (- 2 3)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000001002:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (- 0 23)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000001003:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; 0 - (-1)
+           [[0]] (-   0
+                    0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000001004:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; (-1) - 0
+           ; evm arithmetic is mod 2^256, and the big number is 2^256-1
+          [[0]] (- 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+                     0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            (call 0xffffff (+ 0x1000 $4) 0 0 0 0 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+# The transaction to check
+  transaction:
+    data:
+    - :label sub_23_1   :abi f(uint) 0
+    - :label sub_2_3    :abi f(uint) 1
+    - :label sub_0_23   :abi f(uint) 2
+    - :label sub_0_neg1 :abi f(uint) 3
+    - :label sub_neg1_0 :abi f(uint) 4
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+  expect:
+    - indexes:
+        data: :label sub_23_1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001000:
+          storage:
+            # 0x16 = 22, a.k.a. 23-1
+            0: 0x16
+
+
+    - indexes:
+        data: :label sub_2_3
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001001:
+          storage:
+            # -1
+            0: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+
+
+    - indexes:
+        data: :label sub_0_23
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001002:
+          storage:
+            # -23
+            0: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe9
+
+    - indexes:
+        data: :label sub_0_neg1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001003:
+          storage:
+            0: 0x01
+
+
+    - indexes:
+        data: :label sub_neg1_0
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001004:
+          storage:
+            # -1
+            0: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff

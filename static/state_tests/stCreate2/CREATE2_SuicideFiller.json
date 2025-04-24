@@ -1,0 +1,169 @@
+{
+    "CREATE2_Suicide" : {
+	"_info" : {
+	    "comment" : "CREATE2 suicide with/without value, CREATE2 sucide to itself   +  this cases during init of the CREATE2"
+	},
+        "env" : {
+            "currentCoinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x020000",
+            "currentGasLimit" : "10000000",
+            "currentNumber" : "1",
+            "currentTimestamp" : "1000"
+        },
+        "expect" : [
+            {
+                "indexes" : {
+                    "data" : [0,1],
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+		    "0000000000000000000000000000000000000001" : {
+			"shouldnotexist" : "1"
+		    },
+		    "6295ee1b4f6dd65047762f924ecd367c17eabf8f" : {
+			"nonce" : "2"
+		    },
+		    "5649527a8464a86cae579719d347065f6eb27279" : {
+			"shouldnotexist" : "1"
+		    }
+                }
+            },
+	    {
+                "indexes" : {
+                    "data" : [2,3],
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+		    "0000000000000000000000000000000000000001" : {
+			"balance" : "1"
+		    },
+		    "6295ee1b4f6dd65047762f924ecd367c17eabf8f" : {
+			"nonce" : "2"
+		    },
+		    "5649527a8464a86cae579719d347065f6eb27279" : {
+			"shouldnotexist" : "1"
+		    }
+                }
+            },
+	    {
+                "indexes" : {
+                    "data" : [4, 5],
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+		    "6295ee1b4f6dd65047762f924ecd367c17eabf8f" : {
+			"nonce" : "2"
+		    },
+		    "6cd0e5133771823da00d4cb545ec8cdab0e38203" : {
+			"shouldnotexist" : "1"
+		    }
+                }
+            },
+	    {
+                "indexes" : {
+                    "data" : [6, 7],
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+		    "6295ee1b4f6dd65047762f924ecd367c17eabf8f" : {
+			"nonce" : "2",
+			"balance" : "9"
+		    },
+		    "6cd0e5133771823da00d4cb545ec8cdab0e38203" : {
+			"shouldnotexist" : "1"
+		    }
+                }
+            },
+	    {
+                "indexes" : {
+                    "data" : [8, 9],
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+		    "6295ee1b4f6dd65047762f924ecd367c17eabf8f" : {
+			"nonce" : "2"
+		    },
+		    "0x5649527a8464a86cae579719d347065f6eb27279" : {
+			"code" : "0x6001ff"
+		    }
+                }
+            },
+	    {
+                "indexes" : {
+                    "data" : [10, 11],
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+		    "6295ee1b4f6dd65047762f924ecd367c17eabf8f" : {
+			"nonce" : "2"
+		    },
+		    "0x6cd0e5133771823da00d4cb545ec8cdab0e38203" : {
+			"code" : "0x30ff"
+		    }
+                }
+            }
+        ],
+        "pre" :
+        {
+            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "1000000000000",
+                "code" : "",
+                "nonce" : "0",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+	    "//data" : [
+		"0 - Create2 suicide without value during the init code",
+		"1 - Create2 suicide without value with the call",
+		"2 - Create2 suicide with value during the init code",
+		"3 - Create2 suicide with value with the call",
+		"4 - Create2 suicide to itself without value during init",
+		"5 - Create2 suicide to itself without value with the call",
+		"6 - Create2 suicide to itself with value during init",
+		"7 - Create2 suicide to itself with value with the call",
+		"8 - Create2 suicide without value with the staticcall",
+		"9 - Create2 suicide with value with the staticcall",
+		"10 - Create2 suicide to itself without value with the staticcall",
+		"11 - Create2 suicide to itself with value with the staticcall"
+	    ],
+	    "data" : [
+                "{ (MSTORE 0 0x6001ff) (CREATE2 0 29 3 0) }",
+		"{ (MSTORE 0 0x626001ff6000526003601df3) (CREATE2 0 20 12 0) (CALL 150000 0x5649527a8464a86cae579719d347065f6eb27279 0 0 0 0 0) }",
+		"{ (MSTORE 0 0x6001ff) (CREATE2 1 29 3 0) }",		
+		"{ (MSTORE 0 0x626001ff6000526003601df3) (CREATE2 1 20 12 0) (CALL 150000 0x5649527a8464a86cae579719d347065f6eb27279 0 0 0 0 0) }",
+		"{ (MSTORE 0 0x30ff) (CREATE2 0 30 2 0)  }",
+		"{ (MSTORE 0 0x6130ff6000526002601ef3) (CREATE2 0 21 11 0) (CALL 150000 0x6cd0e5133771823da00d4cb545ec8cdab0e38203 0 0 0 0 0 ) }",
+		"{ (MSTORE 0 0x30ff) (CREATE2 1 30 2 0)  }",
+		"{ (MSTORE 0 0x6130ff6000526002601ef3) (CREATE2 1 21 11 0) (CALL 150000 0x6cd0e5133771823da00d4cb545ec8cdab0e38203 0 0 0 0 0 ) }",
+		"{ (MSTORE 0 0x626001ff6000526003601df3) (CREATE2 0 20 12 0) (STATICCALL 150000 0x5649527a8464a86cae579719d347065f6eb27279 0 0 0 0) }",
+		"{ (MSTORE 0 0x626001ff6000526003601df3) (CREATE2 1 20 12 0) (STATICCALL 150000 0x5649527a8464a86cae579719d347065f6eb27279 0 0 0 0) }",
+		"{ (MSTORE 0 0x6130ff6000526002601ef3) (CREATE2 0 21 11 0) (STATICCALL 150000 0x6cd0e5133771823da00d4cb545ec8cdab0e38203 0 0 0 0 ) }",
+		"{ (MSTORE 0 0x6130ff6000526002601ef3) (CREATE2 1 21 11 0) (STATICCALL 150000 0x6cd0e5133771823da00d4cb545ec8cdab0e38203 0 0 0 0 ) }"
+            ],
+            "gasLimit" : [
+                "600000"
+            ],
+            "gasPrice" : "10",
+            "nonce" : "0",
+            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "",
+            "value" : [
+                "10"
+            ]
+        }
+    }
+}

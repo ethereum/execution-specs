@@ -1,0 +1,369 @@
+# The extcodehash opcode returns zero when an account is truly empty
+# (no data what so ever), or when an account only has storage entries.
+#
+# When an account has either a balance or a nonce, extcodehash returns
+# the hash of the empty string.
+#
+# This test was requested in issue https://github.com/ethereum/tests/issues/581
+
+extcodehashEmpty_Paris:
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+
+  _info:
+    comment: Ori Pomerantz  qbzzt1@gmail.com
+
+  pre:
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           (def 'addr $4)
+           (def 'NOP   0)
+
+           ; If the address is above 0x2000, we should call it first
+           ; and then check the extcodehash
+           (if (> addr 0x2000)
+             (call (gas) addr 0 0 0 0 0)
+             NOP
+           )
+
+           ; Normal result
+           [[0]] (extcodesize addr)
+           [[1]] (extcodehash addr)
+           (extcodecopy addr 0 0 @@0)
+           [[2]] @0
+
+           ; Send a wei to the account and see that you ALWAYS get the
+           ; empty string's hash, but only for "normal", sub 0x2000 addresses
+           (if (< addr 0x2000)
+             (call (gas) addr 1 0 0 0 0)
+             NOP
+           )
+           [[3]] (extcodehash addr)
+
+           ; As long as we're here, check the gas cost of EXTCODEHASH
+           ; Note that the space between the (gas) checks also includes:
+           ; GAS           2
+           ; PUSH1         3
+           ; MSTORE        6
+           ; PUSH1         3
+           ; CALLDATALOAD  3
+           ;   << EXTCODEHASH is here >>
+           ; POP           2
+
+           [0x20] (gas)
+           (extcodehash addr)
+           [0x40] (gas)
+           [[4]] (- @0x20 @0x40 19)
+
+           ; Also, the EXTCODEHASH cost here is for a previously touched
+           ; account, which makes it a lot lower (>=Cancun)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # Really empty, the EXTCODEHASH is zero
+    # 0000000000000000000000000000000000001000:
+    #  balance: 0
+    #  code: 0x
+    #  nonce: 0
+    #  storage: {}
+
+
+    # If there is a balance, it's the hash of the empty string
+    0000000000000000000000000000000000001001:
+      balance: 1
+      code: 0x
+      nonce: 0
+      storage: {}
+
+
+
+    # The actual balance doesn't matter
+    0000000000000000000000000000000000001101:
+      balance: 0x100000000000000
+      code: 0x
+      nonce: 0
+      storage: {}
+
+
+    # If there is a nonce, it's also the hash of the empty string
+    0000000000000000000000000000000000001002:
+      balance: 0
+      code: 0x
+      nonce: 1
+      storage: {}
+
+    # The nonce value doesn't matter
+    0000000000000000000000000000000000001102:
+      balance: 0
+      code: 0x
+      nonce: 1000000000000
+      storage: {}
+
+
+    # Storage doesn't make it look an account exists
+    0000000000000000000000000000000000001003:
+      balance: 10
+      code: 0x
+      nonce: 0
+      storage:
+        0x00: 0x01000000
+        0xFFFFFFF: 0xFFFFFFFF
+
+    0000000000000000000000000000000000001004:
+      balance: 0
+      code: :raw 0x00
+      nonce: 0
+      storage: {}
+
+
+    # What happens when a contract commits suicide?
+    # (nothing, suicide is not processed until the end of the transaction)
+    000000000000000000000000000000000000DEAD:
+      balance: 100
+      code: :raw 0x6160A7FF
+      nonce: 0
+      storage: {}
+
+
+    # What happens when it CREATEs another contract,
+    # and that one is empty?
+    #
+    # The new contract is created with nonce:1, so it is never empty
+    # and EXTCODEHASH always returns the hash of the empty string
+    0000000000000000000000000000000000C0EA7E:
+      balance: 100
+      code: |
+        {
+            (def 'constructorCode   0x100)
+            (def 'constructorLength 0x020)
+            (def 'addr              0x040)
+
+            [constructorLength] (lll
+                {
+                   ; The constructor code, nothing happens
+                   ; except we return an empty buffer with "all"
+                   ; the code of the created contract
+                   (return 0 0)
+                }
+                constructorCode   ; write to 0x100 and above
+            )
+
+            [addr] (create 0 constructorCode @constructorLength)
+            [[0]] (extcodehash @addr)
+        }
+      nonce: 0
+      storage: {}
+
+
+
+    # What happens when it CREATE2s another contract,
+    # and that one is empty?
+    #
+    # The new contract is created with nonce:1, so it is never empty
+    # and EXTCODEHASH always returns the hash of the empty string
+    000000000000000000000000000000000C0EA7E2:
+      balance: 100
+      code: |
+        {
+            (def 'constructorCode   0x100)
+            (def 'constructorLength 0x020)
+            (def 'addr              0x040)
+
+            [constructorLength] (lll
+                {
+                   ; The constructor code, nothing happens
+                   ; except we return an empty buffer with "all"
+                   ; the code of the created contract
+                   (return 0 0)
+                }
+                constructorCode   ; write to 0x100 and above
+            )
+
+            [addr] (create2 0 constructorCode @constructorLength 0x60A7)
+            [[0]] (extcodehash @addr)
+            [[1]] @addr
+        }
+      nonce: 0
+      storage: {}
+
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x
+      nonce: 0
+      storage: {}
+
+
+  transaction:
+    data:
+    # These give an EXTCODEHASH of zero
+    - :label empty   :abi f(uint) 0x1000
+    - :label storage :abi f(uint) 0x1003
+
+    # These give an EXTCODEHASH of the empty string
+    - :label balance :abi f(uint) 0x1001
+    - :label balance :abi f(uint) 0x1101
+    - :label nonce   :abi f(uint) 0x1002
+    - :label nonce   :abi f(uint) 0x1102
+
+    # There is a difference between not having code, and having
+    # a single byte of 00 as the code
+    - :label hasCode :abi f(uint) 0x1004
+
+
+    # This contract commits suicide and then we EXTCODEHASH it
+    # However, it seems that suicides don't happen before the end
+    # of the transaction
+    - :label dead    :abi f(uint) 0xDEAD
+
+
+    # When we create an empty contract, what happens?
+    - :label born    :abi f(uint) 0x00C0EA7E
+    - :label born2   :abi f(uint) 0x0C0EA7E2
+
+
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+  expect:
+
+    - indexes:
+        data:
+        - :label storage
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0x00
+            0x01: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
+            0x02: 0x00
+            0x03: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
+            0x04: 0x64   # 100
+
+    - indexes:
+        data:
+        - :label empty
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0x00
+            0x01: 0x00
+            0x02: 0x00
+            0x03: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
+            0x04: 0x64   # 100
+
+
+
+
+    - indexes:
+        data:
+        - :label balance
+        - :label nonce
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0x00
+            0x01: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
+            0x02: 0x00
+            0x03: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
+            0x04: 0x64   # 100
+
+
+
+
+    - indexes:
+        data:
+        - :label hasCode
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0x01
+            0x01: 0xbc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a
+            0x02: 0x00
+            0x03: 0xbc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a
+            0x04: 0x64
+
+
+
+    - indexes:
+        data:
+        - :label dead
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0x04
+            0x01: 0x2951f94cc6db6e9b3de9e43ccbd2c84491c46fc3be255c6634299f82b37baaf8
+            0x02: 0x6160a7ff00000000000000000000000000000000000000000000000000000000
+            0x03: 0x2951f94cc6db6e9b3de9e43ccbd2c84491c46fc3be255c6634299f82b37baaf8
+            0x04: 0x64   # 100
+
+
+
+    - indexes:
+        data:
+        - :label born
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        # We don't care about C0EA7E (which obviously is not empty)
+        # We care about the account it creates.
+        0000000000000000000000000000000000C0EA7E:
+          storage:
+            0x00: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
+
+
+
+    - indexes:
+        data:
+        - :label born2
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        # We don't care about C0EA7E2 (which obviously is not empty)
+        # We care about the account it creates.
+        000000000000000000000000000000000C0EA7E2:
+          storage:
+            0x00: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
+            0x01: 0xb41b458cea588432cef2494454a360143004984c
+        b41b458cea588432cef2494454a360143004984c:
+          nonce: 1

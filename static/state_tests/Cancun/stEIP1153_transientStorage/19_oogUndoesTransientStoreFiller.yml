@@ -1,0 +1,87 @@
+# 19
+# Out of gas undoes the transient storage write from reentrant subcall: TSTORE(x, y), CALL(self, ...), TSTORE(x, z), where oog reverts subcall
+#
+# Expect slot 0 to have 0x4e from tstore.
+# Expect slot 1 to have 0x4e from the original tstore.
+# Expect slot 2 to have 0 for unsuccessful call.
+
+19_oogUndoesTransientStore:
+  _info:
+    comment: Out of gas undoes the transient storage writes from a call.
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentNumber: 1
+    currentTimestamp: 1000
+    currentGasLimit: 0x10000000000000
+    currentBaseFee: 10
+
+  pre:
+    A00000000000000000000000000000000000000A:
+      balance: 1000000000000000000
+      nonce: 0
+      code: |
+        :yul {
+          switch selector()
+
+          case 0xe2da2eb0 { // doStoreAndRevert()
+            doStoreAndRevert()
+          }
+
+          case 0x3f371692 { // doReenter()
+            doReenter()
+          }
+
+          function doStoreAndRevert() {
+            verbatim_2i_0o(hex"5D", 0, 11)
+            let hash := keccak256(0, 0x2fffff)
+          }
+
+          function doReenter() {
+            verbatim_2i_0o(hex"5D", 0, 0x4e)
+            let v := verbatim_1i_1o(hex"5C", 0)
+            sstore(0, v)
+
+            mstore(0, hex"e2da2eb0") // doStoreAndRevert() runs out of gas
+            let fail := call(0xC350, address(), 0, 0, 32, 0, 0)
+            sstore(2, fail)
+
+            sstore(1, verbatim_1i_1o(hex"5C", 0))
+          }
+
+          function selector() -> s {
+            let value := calldataload(0)
+            s := shr(224, value)
+          }
+        }
+      storage: { 0x00: 0xffff, 0x01: 0xffff, 0x02: 0xffff }
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 1000000000000000000000
+      code: "0x"
+      nonce: 0
+      storage: {}
+
+  transaction:
+    data:
+      - data: :abi doReenter()
+        accessList: []
+    gasLimit:
+      - "400000"
+    nonce: 0
+    to: A00000000000000000000000000000000000000A
+    value:
+      - 0
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    maxPriorityFeePerGas: 0
+    maxFeePerGas: 2000
+
+  expect:
+    - network:
+        - ">=Cancun"
+      result:
+        A00000000000000000000000000000000000000A:
+          storage:
+            0x00: 0x4e
+            0x01: 0x4e
+            0x02: 0

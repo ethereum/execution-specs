@@ -1,0 +1,71 @@
+{
+  "extCodeHashNewAccount": {
+    "_info": {
+      "comment": "EXTCODEHASH/EXTCODESIZE of an account created in same transaction"
+    },
+    "env": {
+      "currentCoinbase": "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+      "currentDifficulty": "0x20000",
+      "currentGasLimit": "1000000",
+      "currentNumber": "1",
+      "currentTimestamp": "1000"
+    },
+    "expect": [
+      {
+        "indexes": {
+          "data": -1,
+          "gas": -1,
+          "value": -1
+        },
+        "network": [
+          ">=Cancun"
+        ],
+        "result": {
+          "0x75e23f851ce92ee62896c1fb1127d4be2c53f59d": {
+            "code": "0x0000000000000000000000000000000000000000000000000000000000001234",
+            "nonce": "0x01",
+            "storage": {
+            }
+          },
+          "deadbeef00000000000000000000000000000000": {
+            "storage": {
+              "0x00": "0xe321d900f3fd366734e2d071e30949ded20c27fd638f1a059390091c643b62c5",
+              "0x01": "0x20"
+            }
+          }
+        }
+      }
+    ],
+    "pre": {
+      "a94f5374fce5edbc8e2a8697c15331677e6ebf0b": {
+        "balance": "1000000000000000000",
+        "code": "",
+        "nonce": "0",
+        "storage": {
+        }
+      },
+      "deadbeef00000000000000000000000000000000": {
+        "balance": "1000000000000000000",
+        "code": "{ (MSTORE 0 (CREATE2 0 0 (lll {(MSTORE 0 0x1234) (RETURN 0 32)} 0) 0x10)) [[0]] (EXTCODEHASH (MLOAD 0)) [[1]] (EXTCODESIZE (MLOAD 0)) (STOP)}",
+        "nonce": "0",
+        "storage": {
+        }
+      }
+    },
+    "transaction": {
+      "data": [
+        ""
+      ],
+      "gasLimit": [
+        "400000"
+      ],
+      "gasPrice": "10",
+      "nonce": "0",
+      "secretKey": "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+      "to": "deadbeef00000000000000000000000000000000",
+      "value": [
+        "1"
+      ]
+    }
+  }
+}

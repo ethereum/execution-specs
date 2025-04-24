@@ -1,0 +1,411 @@
+byte:
+
+  # A test of the byte opcode
+  # (byte n a) gets the n'th byte of a,
+  # with n=0 being the most significant and n=31 the least
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    0000000000000000000000000000000000001000:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (byte (- 31 0) 0x8040201008040201)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000001001:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (byte (- 31 1) 0x8040201008040201)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001002:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (byte (- 31 2) 0x8040201008040201)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001003:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (byte (- 31 3) 0x8040201008040201)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001004:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (byte (- 31 4) 0x8040201008040201)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001005:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (byte (- 31 5) 0x8040201008040201)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001006:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (byte (- 31 6) 0x8040201008040201)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001007:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (byte (- 31 7) 0x8040201008040201)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001008:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (byte (- 31 31) 0x8040201008040201)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001009:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (byte (sdiv 31 32) 0x8040201008040201)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    000000000000000000000000000000000000100a:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      #  0 PUSH5 0x1234523456
+      #  6 PUSH1 0x1F   (a.k.a. 31 the least significant byte)
+      #  8 BYTE
+      #  9 DUP1
+      #  A ADD
+      #  B PUSH1 0x01
+      #  D SSTORE
+      code: :raw 0x641234523456601F1A8001600155
+      nonce: '0'
+      storage: {}
+
+
+    # Check all 32 options (0 - 31)
+    0000000000000000000000000000000000000200:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           (def 'i   0x0100)    ; index
+
+           ;   (byte <n> num) = n
+           (def 'num 0x000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f)
+
+           [i] 0x00
+
+           (while (< @i 0x20) {
+              [[@i]] (byte @i num)
+              [i] (+ @i 1)
+           })  ; while loop
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            (call 0xffffff $4 0 0 0 0 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+  transaction:
+    data:
+    # The big number is 0x8040201008040201
+    - :label byte_31_big     :abi f(uint) 0x1000
+    - :label byte_30_big     :abi f(uint) 0x1001
+    - :label byte_29_big     :abi f(uint) 0x1002
+    - :label byte_28_big     :abi f(uint) 0x1003
+    - :label byte_27_big     :abi f(uint) 0x1004
+    - :label byte_26_big     :abi f(uint) 0x1005
+    - :label byte_25_big     :abi f(uint) 0x1006
+    - :label byte_24_big     :abi f(uint) 0x1007
+    - :label byte_00_big     :abi f(uint) 0x1008
+    - :label byte_00_big_2nd :abi f(uint) 0x1009
+
+    # A different test of the opcode, written in assembly
+    - :label byte_asm        :abi f(uint) 0x100a
+
+    # A test for all possible byte positions
+    - :label byte_all        :abi f(uint) 0x200
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+  expect:
+
+    - indexes:
+        data:
+        - :label byte_31_big
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001000:
+          storage:
+            0: 0x01
+
+
+    - indexes:
+        data:
+        - :label byte_30_big
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001001:
+          storage:
+            0: 0x02
+
+
+
+
+    - indexes:
+        data:
+        - :label byte_29_big
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001002:
+          storage:
+            0: 0x04
+
+
+
+    - indexes:
+        data:
+        - :label byte_28_big
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001003:
+          storage:
+            0: 0x08
+
+
+    - indexes:
+        data:
+        - :label byte_27_big
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001004:
+          storage:
+            0: 0x10
+
+
+
+
+    - indexes:
+        data:
+        - :label byte_26_big
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001005:
+          storage:
+            0: 0x20
+
+
+
+    - indexes:
+        data:
+        - :label byte_25_big
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001006:
+          storage:
+            0: 0x40
+
+
+    - indexes:
+        data:
+        - :label byte_24_big
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001007:
+          storage:
+            0: 0x80
+
+
+
+
+    - indexes:
+        data:
+        - :label byte_00_big
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001008:
+          storage:
+            0: 0x00
+
+
+
+
+
+    - indexes:
+        data:
+        - :label byte_00_big_2nd
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001009:
+          storage:
+            0: 0x00
+
+
+
+
+    - indexes:
+        data:
+        - :label byte_asm
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000100A:
+          storage:
+            1: 0xAC
+
+
+
+    - indexes:
+        data:
+        - :label byte_all
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000000200:
+          storage:
+            0x00: 0x00
+            0x01: 0x01
+            0x02: 0x02
+            0x03: 0x03
+            0x04: 0x04
+            0x05: 0x05
+            0x06: 0x06
+            0x07: 0x07
+            0x08: 0x08
+            0x09: 0x09
+            0x0a: 0x0a
+            0x0b: 0x0b
+            0x0c: 0x0c
+            0x0d: 0x0d
+            0x0e: 0x0e
+            0x0f: 0x0f
+            0x10: 0x10
+            0x11: 0x11
+            0x12: 0x12
+            0x13: 0x13
+            0x14: 0x14
+            0x15: 0x15
+            0x16: 0x16
+            0x17: 0x17
+            0x18: 0x18
+            0x19: 0x19
+            0x1a: 0x1a
+            0x1b: 0x1b
+            0x1c: 0x1c
+            0x1d: 0x1d
+            0x1e: 0x1e
+            0x1f: 0x1f

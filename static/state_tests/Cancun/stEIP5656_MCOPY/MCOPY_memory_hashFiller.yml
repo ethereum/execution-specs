@@ -1,0 +1,144 @@
+MCOPY_memory_hash:
+
+  _info:
+    comment: Performs exact the same MCOPY twice and dumps the hash of all memory after each MCOPY
+
+  env:
+    currentNumber: 1
+    currentTimestamp: 1687174231
+    currentGasLimit: 1000000
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+
+  pre:
+
+    # Executed code (transaction destination)
+    000000000000000000000000000000000000c0de:
+      balance: 0
+      nonce: 1
+      code: |
+        :yul {
+          function mcopy(dst, src, size) { verbatim_3i_0o(hex"5e", dst, src, size) }
+        
+          // Fill one word of memory at 0x1020 with the pattern of unique bytes.
+          mstore(0x1020, 0xa0a1a2a3a4a5a6a7a8a9aAaBaCaDaEaFb0b1b2b3b4b5b6b7b8b9bAbBbCbDbEbF)
+        
+          // MCOPY using parameters from CALLDATA.
+          mcopy(calldataload(0), calldataload(32), calldataload(64))
+        
+          // Dump the hash of full memory.
+          sstore(1, keccak256(0, msize()))
+        
+          // Do exact the same MCOPY once again.
+          mcopy(calldataload(0), calldataload(32), calldataload(64))
+        
+          // Dump the hash of full memory again.
+          sstore(2, keccak256(0, msize()))
+        }
+      storage: { }
+
+    # Transaction sender
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 1000000000
+      nonce: 0
+      code: ''
+      storage: { }
+
+  transaction:
+    to: 000000000000000000000000000000000000c0de
+    nonce: 0
+    gasLimit:
+      - 1000000
+    gasPrice: 10
+    value:
+      - 0
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    data:
+      - >
+        :label clear_low_half_0 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000001010
+        0000000000000000000000000000000000000000000000000000000000000000
+        0000000000000000000000000000000000000000000000000000000000000020
+      - >
+        :label clear_low_half_1 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000001020
+        0000000000000000000000000000000000000000000000000000000000001010
+        0000000000000000000000000000000000000000000000000000000000000010
+      - >
+        :label clear_low_half_2 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000001020
+        0000000000000000000000000000000000000000000000000000000000001040
+        0000000000000000000000000000000000000000000000000000000000000010
+      - >
+        :label clear_high_half_0 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000001030
+        0000000000000000000000000000000000000000000000000000000000000000
+        0000000000000000000000000000000000000000000000000000000000001020
+      - >
+        :label memmove_forward :raw 0x
+        0000000000000000000000000000000000000000000000000000000000001021
+        0000000000000000000000000000000000000000000000000000000000001020
+        0000000000000000000000000000000000000000000000000000000000000123
+      - >
+        :label memmove_backward :raw 0x
+        0000000000000000000000000000000000000000000000000000000000001020
+        0000000000000000000000000000000000000000000000000000000000001023
+        000000000000000000000000000000000000000000000000000000000000001d
+      
+
+  expect:
+
+    - indexes:
+        data:
+          - :label clear_low_half_0
+          - :label clear_low_half_1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000c0de:
+          storage:
+            1: 0x1a75c0c32a7dc05e25e0f0280e8ee7456edc0092a13a86ed7d20c8edc87fcba9
+            2: 0x1a75c0c32a7dc05e25e0f0280e8ee7456edc0092a13a86ed7d20c8edc87fcba9
+
+    - indexes:
+        data:
+          - :label clear_low_half_2
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000c0de:
+          storage:
+            1: 0x6a1cf6752c1b8df514452c3004a65c46b1afe7e52030e8100adfb036c180172e
+            2: 0x6a1cf6752c1b8df514452c3004a65c46b1afe7e52030e8100adfb036c180172e
+
+    - indexes:
+        data:
+          - :label clear_high_half_0
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000c0de:
+          storage:
+            1: 0x6216fe67a1c972fc4bf45303ab3449e0e30c6964d2d458cb786233f9f2afe595
+            2: 0x6216fe67a1c972fc4bf45303ab3449e0e30c6964d2d458cb786233f9f2afe595
+
+    - indexes:
+        data:
+          - :label memmove_forward
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000c0de:
+          storage:
+            1: 0xb04d651a3b0932c57cb624b7e0bbcc5bc5a546ec5805ebca5b95cec66f695def
+            2: 0xc10df02254713fafe8ed614f51f5e8fa111578a060ecc8bb28e56f4ece9a82ee
+
+    - indexes:
+        data:
+          - :label memmove_backward
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000c0de:
+          storage:
+            1: 0xf6a2c41ad18ff89feebf7b54a7bac01e27eb1fb3c3ae8919e2fdb4b7c704ca70
+            2: 0xdedd31c55b058c4165ce1daec55b4811a781d716fc87e249a4c0b829196acc2f

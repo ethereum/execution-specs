@@ -1,0 +1,229 @@
+divByZero:
+
+  # A standard location for division by zero tests.
+  #
+  # Opcodes where this is relevant:
+  #   DIV
+  #   SDIV
+  #   MOD
+  #   SMOD
+  #   ADDMOD
+  #   MULMOD
+  #
+  # Any division or mod by zero returns zero.
+
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    # The first parameter is the opcode:
+    #  0 - DIV
+    #  1 - SDIV
+    #  2 - MOD
+    #  3 - SMOD
+    #  4 - ADDMOD
+    #  5 - MULMOD
+    #
+    # The other parameters are the parameters for the opcode
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+            (def 'NOP 0)
+            (def 'opcode $4)
+            (def 'a      $36)
+            (def 'b      $68)
+
+            (if (= opcode 0x04) [[0]] (div a 0) NOP)
+            (if (= opcode 0x05) [[0]] (sdiv a 0) NOP)
+            (if (= opcode 0x06) [[0]] (mod a 0) NOP)
+            (if (= opcode 0x07) [[0]] (smod a 0) NOP)
+            (if (= opcode 0x08) [[0]] (addmod a b 0) NOP)
+            (if (= opcode 0x09) [[0]] (mulmod a b 0) NOP)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+      
+
+
+
+  transaction:
+    data:
+
+    # DIV tests  (opcode 0x04)
+    - :label div_2_0       :abi f(uint,uint) 0x04 2
+    - :label div_1_0       :abi f(uint,uint) 0x04 1
+    - :label div_0_0       :abi f(uint,uint) 0x04 0
+    - :label div_neg1_0    :abi f(uint,uint) 0x04 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    - :label div_neg2_0    :abi f(uint,uint) 0x04 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
+    - :label div_maxint_0  :abi f(uint,uint) 0x04 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    - :label div_minint_0  :abi f(uint,uint) 0x04 0x8000000000000000000000000000000000000000000000000000000000000000
+
+    # SDIV tests (opcode 0x05)
+    - :label sdiv_2_0      :abi f(uint,uint) 0x05 2
+    - :label sdiv_1_0      :abi f(uint,uint) 0x05 1
+    - :label sdiv_0_0      :abi f(uint,uint) 0x05 0
+    - :label sdiv_neg1_0   :abi f(uint,uint) 0x05 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    - :label sdiv_neg2_0   :abi f(uint,uint) 0x05 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
+    - :label sdiv_maxint_0 :abi f(uint,uint) 0x05 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    - :label sdiv_minint_0 :abi f(uint,uint) 0x05 0x8000000000000000000000000000000000000000000000000000000000000000
+
+
+
+    # MOD tests  (opcode 0x06)
+    - :label mod_2_0       :abi f(uint,uint) 0x06 2
+    - :label mod_1_0       :abi f(uint,uint) 0x06 1
+    - :label mod_0_0       :abi f(uint,uint) 0x06 0
+    - :label mod_neg1_0    :abi f(uint,uint) 0x06 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    - :label mod_neg2_0    :abi f(uint,uint) 0x06 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
+    - :label mod_maxint_0  :abi f(uint,uint) 0x06 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    - :label mod_minint_0  :abi f(uint,uint) 0x06 0x8000000000000000000000000000000000000000000000000000000000000000
+
+    # SMOD tests (opcode 0x07)
+    - :label smod_2_0      :abi f(uint,uint) 0x07 2
+    - :label smod_1_0      :abi f(uint,uint) 0x07 1
+    - :label smod_0_0      :abi f(uint,uint) 0x07 0
+    - :label smod_neg1_0   :abi f(uint,uint) 0x07 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    - :label smod_neg2_0   :abi f(uint,uint) 0x07 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
+    - :label smod_maxint_0 :abi f(uint,uint) 0x07 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    - :label smod_minint_0 :abi f(uint,uint) 0x07 0x8000000000000000000000000000000000000000000000000000000000000000
+
+    # ADDMOD tests (opcode 0x08)
+    - :label addmod_0_0_0  :abi f(uint,uint,uint) 0x08 0 0
+    - :label addmod_0_1_0  :abi f(uint,uint,uint) 0x08 0 1
+    - :label addmod_1_0_0  :abi f(uint,uint,uint) 0x08 1 0
+    - :label addmod_1_1_0  :abi f(uint,uint,uint) 0x08 1 1
+
+    - :label addmod_0_2_0  :abi f(uint,uint,uint) 0x08 0 2
+    - :label addmod_2_0_0  :abi f(uint,uint,uint) 0x08 2 0
+    - :label addmod_2_2_0  :abi f(uint,uint,uint) 0x08 2 2
+
+    - :label addmod_1_2_0  :abi f(uint,uint,uint) 0x08 1 2
+    - :label addmod_2_1_0  :abi f(uint,uint,uint) 0x08 2 1
+
+    - :label addmod_0_0_0  :abi f(uint,uint,uint) 0x08 0 0
+    - :label addmod_0_1_0  :abi f(uint,uint,uint) 0x08 0 1
+    - :label addmod_1_0_0  :abi f(uint,uint,uint) 0x08 1 0
+    - :label addmod_1_1_0  :abi f(uint,uint,uint) 0x08 1 1
+
+    - :label addmod_0_neg1_0     :abi f(uint,uint,uint) 0x08 0 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    - :label addmod_neg1_0_0     :abi f(uint,uint,uint) 0x08 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 0
+    - :label addmod_neg1_neg1_0  :abi f(uint,uint,uint) 0x08 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+
+    - :label addmod_0_neg2_0     :abi f(uint,uint,uint) 0x08 0 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
+    - :label addmod_neg2_0_0     :abi f(uint,uint,uint) 0x08 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE 0
+    - :label addmod_neg2_neg2_0  :abi f(uint,uint,uint) 0x08 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
+
+    - :label addmod_0_neg1_0     :abi f(uint,uint,uint) 0x08 0 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    - :label addmod_neg1_0_0     :abi f(uint,uint,uint) 0x08 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 0
+    - :label addmod_neg1_neg1_0  :abi f(uint,uint,uint) 0x08 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+
+    - :label addmod_0_neg2_0     :abi f(uint,uint,uint) 0x08 0 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
+    - :label addmod_neg2_0_0     :abi f(uint,uint,uint) 0x08 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE 0
+    - :label addmod_neg2_neg2_0  :abi f(uint,uint,uint) 0x08 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
+
+    - :label addmod_1_neg1_0     :abi f(uint,uint,uint) 0x08 1 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    - :label addmod_neg1_1_0     :abi f(uint,uint,uint) 0x08 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 1
+
+    - :label addmod_1_neg2_0     :abi f(uint,uint,uint) 0x08 1 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
+    - :label addmod_neg2_1_0     :abi f(uint,uint,uint) 0x08 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE 1
+
+    - :label addmod_1_neg1_0     :abi f(uint,uint,uint) 0x08 1 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    - :label addmod_neg1_1_0     :abi f(uint,uint,uint) 0x08 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 1
+
+    - :label addmod_2_neg2_0     :abi f(uint,uint,uint) 0x08 2 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
+    - :label addmod_neg2_2_0     :abi f(uint,uint,uint) 0x08 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE 2
+
+    - :label addmod_neg1_neg2_0  :abi f(uint,uint,uint) 0x08 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
+    - :label addmod_neg2_neg1_0  :abi f(uint,uint,uint) 0x08 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+
+
+
+    # MULMOD tests (opcode 0x09)
+    - :label mulmod_0_0_0  :abi f(uint,uint,uint) 0x09 0 0
+    - :label mulmod_0_1_0  :abi f(uint,uint,uint) 0x09 0 1
+    - :label mulmod_1_0_0  :abi f(uint,uint,uint) 0x09 1 0
+    - :label mulmod_1_1_0  :abi f(uint,uint,uint) 0x09 1 1
+
+    - :label mulmod_0_2_0  :abi f(uint,uint,uint) 0x09 0 2
+    - :label mulmod_2_0_0  :abi f(uint,uint,uint) 0x09 2 0
+    - :label mulmod_2_2_0  :abi f(uint,uint,uint) 0x09 2 2
+
+    - :label mulmod_1_2_0  :abi f(uint,uint,uint) 0x09 1 2
+    - :label mulmod_2_1_0  :abi f(uint,uint,uint) 0x09 2 1
+
+    - :label mulmod_0_0_0  :abi f(uint,uint,uint) 0x09 0 0
+    - :label mulmod_0_1_0  :abi f(uint,uint,uint) 0x09 0 1
+    - :label mulmod_1_0_0  :abi f(uint,uint,uint) 0x09 1 0
+    - :label mulmod_1_1_0  :abi f(uint,uint,uint) 0x09 1 1
+
+    - :label mulmod_0_neg1_0     :abi f(uint,uint,uint) 0x09 0 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    - :label mulmod_neg1_0_0     :abi f(uint,uint,uint) 0x09 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 0
+    - :label mulmod_neg1_neg1_0  :abi f(uint,uint,uint) 0x09 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+
+    - :label mulmod_0_neg2_0     :abi f(uint,uint,uint) 0x09 0 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
+    - :label mulmod_neg2_0_0     :abi f(uint,uint,uint) 0x09 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE 0
+    - :label mulmod_neg2_neg2_0  :abi f(uint,uint,uint) 0x09 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
+
+    - :label mulmod_0_neg1_0     :abi f(uint,uint,uint) 0x09 0 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    - :label mulmod_neg1_0_0     :abi f(uint,uint,uint) 0x09 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 0
+    - :label mulmod_neg1_neg1_0  :abi f(uint,uint,uint) 0x09 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+
+    - :label mulmod_0_neg2_0     :abi f(uint,uint,uint) 0x09 0 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
+    - :label mulmod_neg2_0_0     :abi f(uint,uint,uint) 0x09 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE 0
+    - :label mulmod_neg2_neg2_0  :abi f(uint,uint,uint) 0x09 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
+
+    - :label mulmod_1_neg1_0     :abi f(uint,uint,uint) 0x09 1 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    - :label mulmod_neg1_1_0     :abi f(uint,uint,uint) 0x09 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 1
+
+    - :label mulmod_1_neg2_0     :abi f(uint,uint,uint) 0x09 1 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
+    - :label mulmod_neg2_1_0     :abi f(uint,uint,uint) 0x09 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE 1
+
+    - :label mulmod_1_neg1_0     :abi f(uint,uint,uint) 0x09 1 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    - :label mulmod_neg1_1_0     :abi f(uint,uint,uint) 0x09 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 1
+
+    - :label mulmod_2_neg2_0     :abi f(uint,uint,uint) 0x09 2 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
+    - :label mulmod_neg2_2_0     :abi f(uint,uint,uint) 0x09 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE 2
+
+    - :label mulmod_neg1_neg2_0  :abi f(uint,uint,uint) 0x09 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
+    - :label mulmod_neg2_neg1_0  :abi f(uint,uint,uint) 0x09 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+
+
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    
+    
+  expect:
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result: 
+        cccccccccccccccccccccccccccccccccccccccc: 
+          storage:
+            0: 0x0
+

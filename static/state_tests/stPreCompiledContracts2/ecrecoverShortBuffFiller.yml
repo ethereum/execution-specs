@@ -1,0 +1,235 @@
+# Call the ecrecover precompile with a short (<128 bytes) buffer, or an excessively long one.
+# These tests are >=TangerineWhistle for using the 63/64th rule, but let's use >=Byzantium. Should be >=FRontier otherwise.
+
+# Using 
+#     wallet = ethers.Wallet.createRandom()
+# 
+# SigningKey {
+#  curve: 'secp256k1',
+#  privateKey: '0xaedd8fff1fea5cc2513c2db88712d7e2345cd9ba6bcebdd745ec77640961695e',
+#  publicKey: '0x04b2a40facc0b5f39f3d6f2c8986586ceb8a98cf1574d63f5f797b4db6d3a6ae5efaafdb83ee78f78c2b10021a5cb$
+#  compressedPublicKey: '0x03b2a40facc0b5f39f3d6f2c8986586ceb8a98cf1574d63f5f797b4db6d3a6ae5e',
+#  _isSigningKey: true
+# }
+#
+# Wallet {
+#  _isSigner: true,
+#  _signingKey: [Function (anonymous)],
+#  address: '0x3f9Ecb7B25fa567AFB2a4c7B633749bdA578B593',
+#  _mnemonic: [Function (anonymous)],
+#  provider: null
+# }
+#
+#     zero = "0x0000000000000000000000000000000000000000000000000000000000000000"
+#
+# wallet._signingKey().signDigest(zero)
+# wallet._signingKey().signDigest(zero)
+#    {
+#       r: '0x184870a8e4faa6065ddf65c873935d3e48e3d1c7b7853f25cd79b8247f771910',
+#       s: '0x226140b6b66554c7fcfa38589e433cc148ebe5c8482eb3093ab1d9a932c96f58',
+#       _vs: '0x226140b6b66554c7fcfa38589e433cc148ebe5c8482eb3093ab1d9a932c96f58',
+#       recoveryParam: 0,
+#       v: 27,
+#       yParityAndS: '0x226140b6b66554c7fcfa38589e433cc148ebe5c8482eb3093ab1d9a932c96f58',
+#       compact: '0x184870a8e4faa6065ddf65c873935d3e48e3d1c7b7853f25cd79b8247f771910226140b6b66554c7fcfa38589e$
+#    }
+#
+# ethers.utils.recoverAddress(zero, 
+#      "0x184870a8e4faa6065ddf65c873935d3e48e3d1c7b7853f25cd79b8247f771910226140b6b66554c7fcfa38589e433cc148eb$
+#
+# '0x3f9Ecb7B25fa567AFB2a4c7B633749bdA578B593'
+
+ecrecoverShortBuff:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: '0xFF112233445566'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+
+
+  pre:  
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      code: |
+        :yul berlin
+        {
+          let maxLength := 0xA0     
+
+          // Initialization
+          for { let i := 0 } lt(i, maxLength) { i := add(i, 1) } {
+             // Initialize storage to verify it gets overwritten 
+             sstore(i, 0xdead60A7)
+             sstore(add(0x1000,i), 0xdead60A7)
+          }
+
+          // Create a legitimate signature
+          mstore(0, 0)
+
+          // The signature (for zero)
+          mstore(0x20, 27)  // v
+          mstore(0x40, 0x184870a8e4faa6065ddf65c873935d3e48e3d1c7b7853f25cd79b8247f771910) // r
+          mstore(0x60, 0x226140b6b66554c7fcfa38589e433cc148ebe5c8482eb3093ab1d9a932c96f58) // s
+
+    
+
+          // Call ecrecover with every possible length that's too short, the right length
+          // (0x80), and some excessive lengths
+          for { let len := 0 } lt(len, maxLength) { len := add(len,1) } {
+             // Call ecrecoer
+             sstore(len, call(gas(), 1, 0, 0, len, 0x100, 0x20))
+
+             // The expected retval is one, so to avoid specifying every length
+             // in the expect: section we subtract one.
+             sstore(len, sub(sload(len), 1))
+
+             // The returned address should always be zero, because it is not a valid signature
+             sstore(add(0x1000,len), mload(0x100))
+          }
+        }
+      nonce: 1
+      storage:     # Some values to make sure we overwrite storage
+        0x0000: 0x60A7
+        0x0011: 0x60A7
+        0x0022: 0x60A7
+        0x0033: 0x60A7
+        0x0044: 0x60A7
+        0x0055: 0x60A7
+        0x0066: 0x60A7
+        0x0077: 0x60A7
+        0x0080: 0x60A7
+        0x0099: 0x60A7
+        0x1000: 0x60A7
+        0x1011: 0x60A7
+        0x1022: 0x60A7
+        0x1033: 0x60A7
+        0x1044: 0x60A7
+        0x1055: 0x60A7
+        0x1066: 0x60A7
+        0x1077: 0x60A7
+        0x1080: 0x60A7
+        0x1099: 0x60A7
+      balance: 0
+
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: 0x
+      nonce: 1
+      storage: {}
+
+
+  transaction:
+    data:
+    - :raw 0x00
+    gasLimit:
+    - 'F000000000'
+    gasPrice: '10'
+    nonce: 1
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '100000'
+
+
+
+  expect:
+
+  - indexes:
+      data: !!int -1
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - ">=Cancun"
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          # The return value for ecrecover is always one, the smart contract subtracts that
+          # so we won't have to specify every value
+          0x00: 0
+          0x01: 0
+          # .
+          # .
+          # .
+          0x9F: 0
+
+          # For buffer lengths 0x00 - 0x60 s is zero, so we get a zero as the address
+          0x1000: 0x00
+          0x1010: 0x00
+          0x1030: 0x00
+          0x1060: 0x00
+
+
+          # For buffer lengths 0x61 - 0x7F we get incorrect addresses, because the input is value
+          # but valid for a different address than ours (because s is a non-zero value, 
+          # just not the correct one)
+          0x1061: 0x8e5817968f74ffb0255ae41eefa6f89dd0183fa1
+          0x1062: 0xb7529ed60a10291754a635ed9fd67c1723f4d83b
+          0x1063: 0x0669457ce81442f235ffc4123662ba14a72b3d68
+          0x1064: 0xdcc53a4a0719101437e8791abf273af5893cb174
+          0x1065: 0xa1889691e30136d95c0543f516bf2357b282d835
+          0x1066: 0x06642c4fd062a12b980d2bf28334e48ffe609248
+          0x1067: 0x628f176bc4c64973abaf9acb6bd8bb8d9b1ae97c
+          0x1068: 0x16fe7fa0cb8a861f855039c2eda9251ca7cc79d0
+          0x1069: 0x01c954021193a220878900cf5f7db5b3ea4c2b24
+          0x106a: 0x5c4725e00d8f9415e2b77630543fe41dcdaaa304
+          0x106b: 0xf6defd0f92f2a018ba20bf6051698a8dde7cc949
+          0x106c: 0x99cd51158e59da36ba48b457c02db77c17a6b91a
+          0x106d: 0xfc4539330fee551b296f9396d01ab7643521d5df
+          0x106e: 0x389a57ba1c546578b67167c6571d92e047bd4029
+          0x106f: 0x294091b609877b020b4f5a01357936fc0a877a3f
+          0x1070: 0xad5a9fc193dcf16041d4e96433ef3a6d82d36b16
+          0x1071: 0x8324683aaae32ccebdeb758e2777ab2b1ce3d3f1
+          0x1072: 0x295ad34cb312eaf9574511208848caf57b7429e0
+          0x1073: 0x0a74178ec0a865b84eed705e85ddf9b5002389ab
+          0x1074: 0xd1d3bc125318dd71176248d9c86f41a842d4bec9
+          0x1075: 0xe8e2d3e49d1bb0ddf5beeff311456f251dae9ea9
+          0x1076: 0xd8765900c0f467df6bc4f514ed39c568497a8ead
+          0x1077: 0xdb658a31f5a174be0e3fc0d0ce05dd6a76084910
+          0x1078: 0x1387af122c1e31a2dd1dac303b3f20ad83f0ed1b
+          0x1079: 0x9ca540e3f00347324bd94a94ce8e3a34b97c8244
+          0x107a: 0x8d682238981c4940830fa6971d25e036d1fb3d27
+          0x107b: 0xf571eb5abd7da99c6b32b3f3ed0740f6fac7d14b
+          0x107c: 0x79e727f2f0f816efd56fc2af37d98af6798551df
+          0x107d: 0x0f00d6a30e65104b909aa43d947ef2010e09446a
+          0x107e: 0x4c78739de03a70dbcf9b94bc21daf2bf46d44375
+          0x107f: 0x364a9dae48110760306b009bf2297819176be559
+          #
+          # At a length of 0x80 or more we get the correct result
+          0x1080: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x1081: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x1082: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x1083: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x1084: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x1085: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x1086: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x1087: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x1088: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x1089: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x108a: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x108b: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x108c: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x108d: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x108e: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x108f: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x1090: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x1091: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x1092: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x1093: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x1094: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x1095: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x1096: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x1097: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x1098: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x1099: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x109a: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x109b: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x109c: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x109d: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x109e: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+          0x109f: 0x3f9ecb7b25fa567afb2a4c7b633749bda578b593
+
+

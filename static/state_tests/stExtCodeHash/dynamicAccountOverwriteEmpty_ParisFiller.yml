@@ -1,0 +1,95 @@
+# EXTCODEHASH of empty account, then CREATE or CREATE2 over it, EXTCODEHASH again.
+# This should check that code hash cache is correctly updated during the transaction.
+---
+dynamicAccountOverwriteEmpty_Paris:
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "1000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+  _info:
+    comment: "EXTCODEHASH of empty account, then CREATE or CREATE2 over it, EXTCODEHASH again.
+This should check that code hash cache is correctly updated during the transaction."
+  pre:
+    095e7baea6a6c7c4c2dfeb977efac326af552d87:
+      balance: '1000000000000000000'
+      code: |
+        {
+          ;; Check stats of empty account
+          [[0]] (EXTCODEHASH 0xc5691dc90d9fd2a2e9a5fa5bd28bf77ffd60aa78)
+          [[1]] (EXTCODESIZE 0xc5691dc90d9fd2a2e9a5fa5bd28bf77ffd60aa78)
+          (EXTCODECOPY 0xc5691dc90d9fd2a2e9a5fa5bd28bf77ffd60aa78 0 0 32)
+          (SSTORE 2 (MLOAD 0))
+          (SSTORE 3 (CALLCODE 50000 0xc5691dc90d9fd2a2e9a5fa5bd28bf77ffd60aa78 0 0 0 0 0))
+
+
+          ;; Create account 0xc5691dc90d9fd2a2e9a5fa5bd28bf77ffd60aa78 again. should be overwritten without collision
+          [[10]](CREATE2 0 0 (lll
+              {
+                ;; Put some code into it
+                (MSTORE 0 (EXTCODESIZE 0xdddddddd00000000000000000000000000000000))
+                (EXTCODECOPY 0xdddddddd00000000000000000000000000000000
+                             32
+                             0
+                             (MLOAD 0))
+                (RETURN 32 (MLOAD 0))
+              }
+              0) 
+          0)
+
+          ;; Check stats of same account after overwrite
+          [[4]] (EXTCODEHASH 0xc5691dc90d9fd2a2e9a5fa5bd28bf77ffd60aa78)
+          [[5]] (EXTCODESIZE 0xc5691dc90d9fd2a2e9a5fa5bd28bf77ffd60aa78)
+          (EXTCODECOPY 0xc5691dc90d9fd2a2e9a5fa5bd28bf77ffd60aa78 0 0 32)
+          (SSTORE 6 (MLOAD 0))
+          (SSTORE 7 (CALLCODE 50000 0xc5691dc90d9fd2a2e9a5fa5bd28bf77ffd60aa78 0 0 0 0 0))
+
+          (STOP)
+        }
+      nonce: '0'
+      storage: {}
+    # empty account
+    c5691dc90d9fd2a2e9a5fa5bd28bf77ffd60aa78:
+      balance: '10'
+      code: ''
+      nonce: '0'
+      storage: {
+         "0x01": '1'
+      }
+    dddddddd00000000000000000000000000000000:
+      balance: '1000000000000000000'
+      code: |
+       {
+            [[80]] 11
+       }
+      nonce: '0'
+      storage: {}
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: ''
+      nonce: '0'
+      storage: {}
+  expect:
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          balance: '1000000000000000000'
+          storage: {
+          }
+  transaction:
+    data:
+    - ''
+    gasLimit:
+    - '400000'
+    gasPrice: '10'
+    nonce: '0'
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 095e7baea6a6c7c4c2dfeb977efac326af552d87
+    value:
+    - '1'

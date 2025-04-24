@@ -1,0 +1,1870 @@
+# All boundary combinations for opcodes PUSH1-PUSH32 that attempt to
+# jump and execute into a portion of a push opcode data.
+
+jumpToPush:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+
+  pre:
+    
+    # PUSH1 - A: OK
+    000000000000000000000000000000000000001A:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x0A (JUMPDEST location)
+      #  07         JUMP
+      #  08-09      PUSH1 0x5B
+      #  0A         JUMPDEST
+      code: :raw 0x6001600055600A56605B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH1 - B: FAIL
+    000000000000000000000000000000000000001B:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (PUSH data location)
+      #  07         JUMP
+      #  08-09      PUSH1 0x5B
+      #  0A         JUMPDEST
+      code: :raw 0x6001600055600956605B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH2 - A: OK
+    000000000000000000000000000000000000002A:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x0B (JUMPDEST location)
+      #  07         JUMP
+      #  08-0A      PUSH2 0x5B5B
+      #  0B         JUMPDEST
+      code: :raw 0x6001600055600B56615B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH2 - B: FAIL
+    000000000000000000000000000000000000002B:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-0A      PUSH2 0x5B5B
+      #  0B         JUMPDEST
+      code: :raw 0x6001600055600956615B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH2 - C: FAIL
+    000000000000000000000000000000000000002C:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x0A (End of PUSH data location)
+      #  07         JUMP
+      #  08-0A      PUSH2 0x5B5B
+      #  0B         JUMPDEST
+      code: :raw 0x6001600055600A56615B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH3 - A: OK
+    000000000000000000000000000000000000003A:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x0C (JUMPDEST location)
+      #  07         JUMP
+      #  08-0B      PUSH3 0x5B5B5B
+      #  0C         JUMPDEST
+      code: :raw 0x6001600055600C56625B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH3 - B: FAIL
+    000000000000000000000000000000000000003B:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-0B      PUSH3 0x5B5B5B
+      #  0C         JUMPDEST
+      code: :raw 0x6001600055600956625B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH3 - C: FAIL
+    000000000000000000000000000000000000003C:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x0B (End of PUSH data location)
+      #  07         JUMP
+      #  08-0B      PUSH3 0x5B5B5B
+      #  0C         JUMPDEST
+      code: :raw 0x6001600055600B56625B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH4 - A: OK
+    000000000000000000000000000000000000004A:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x0D (JUMPDEST location)
+      #  07         JUMP
+      #  08-0C      PUSH4 0x5B5B...5B
+      #  0D         JUMPDEST
+      code: :raw 0x6001600055600D56635B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH4 - B: FAIL
+    000000000000000000000000000000000000004B:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-0C      PUSH4 0x5B5B...5B
+      #  0D         JUMPDEST
+      code: :raw 0x6001600055600956635B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH4 - C: FAIL
+    000000000000000000000000000000000000004C:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x0C (End of PUSH data location)
+      #  07         JUMP
+      #  08-0C      PUSH4 0x5B5B...5B
+      #  0D         JUMPDEST
+      code: :raw 0x6001600055600C56635B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH5 - A: OK
+    000000000000000000000000000000000000005A:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x0E (JUMPDEST location)
+      #  07         JUMP
+      #  08-0D      PUSH5 0x5B5B...5B
+      #  0E         JUMPDEST
+      code: :raw 0x6001600055600E56645B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH5 - B: FAIL
+    000000000000000000000000000000000000005B:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-0D      PUSH5 0x5B5B...5B
+      #  0E         JUMPDEST
+      code: :raw 0x6001600055600956645B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH5 - C: FAIL
+    000000000000000000000000000000000000005C:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x0D (End of PUSH data location)
+      #  07         JUMP
+      #  08-0D      PUSH5 0x5B5B...5B
+      #  0E         JUMPDEST
+      code: :raw 0x6001600055600D56645B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH6 - A: OK
+    000000000000000000000000000000000000006A:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x0F (JUMPDEST location)
+      #  07         JUMP
+      #  08-0E      PUSH6 0x5B5B...5B
+      #  0F         JUMPDEST
+      code: :raw 0x6001600055600F56655B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH6 - B: FAIL
+    000000000000000000000000000000000000006B:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-0E      PUSH6 0x5B5B...5B
+      #  0F         JUMPDEST
+      code: :raw 0x6001600055600956655B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH6 - C: FAIL
+    000000000000000000000000000000000000006C:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x0E (End of PUSH data location)
+      #  07         JUMP
+      #  08-0E      PUSH6 0x5B5B...5B
+      #  0F         JUMPDEST
+      code: :raw 0x6001600055600E56655B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH7 - A: OK
+    000000000000000000000000000000000000007A:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x10 (JUMPDEST location)
+      #  07         JUMP
+      #  08-0F      PUSH7 0x5B5B...5B
+      #  10         JUMPDEST
+      code: :raw 0x6001600055601056665B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH7 - B: FAIL
+    000000000000000000000000000000000000007B:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-0F      PUSH7 0x5B5B...5B
+      #  10         JUMPDEST
+      code: :raw 0x6001600055600956665B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH7 - C: FAIL
+    000000000000000000000000000000000000007C:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x0F (End of PUSH data location)
+      #  07         JUMP
+      #  08-0F      PUSH7 0x5B5B...5B
+      #  10         JUMPDEST
+      code: :raw 0x6001600055600F56665B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH8 - A: OK
+    000000000000000000000000000000000000008A:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x11 (JUMPDEST location)
+      #  07         JUMP
+      #  08-10      PUSH8 0x5B5B...5B
+      #  11         JUMPDEST
+      code: :raw 0x6001600055601156675B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH8 - B: FAIL
+    000000000000000000000000000000000000008B:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-10      PUSH8 0x5B5B...5B
+      #  11         JUMPDEST
+      code: :raw 0x6001600055600956675B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH8 - C: FAIL
+    000000000000000000000000000000000000008C:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x10 (End of PUSH data location)
+      #  07         JUMP
+      #  08-10      PUSH8 0x5B5B...5B
+      #  11         JUMPDEST
+      code: :raw 0x6001600055601056675B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH9 - A: OK
+    000000000000000000000000000000000000009A:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x12 (JUMPDEST location)
+      #  07         JUMP
+      #  08-11      PUSH9 0x5B5B...5B
+      #  12         JUMPDEST
+      code: :raw 0x6001600055601256685B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH9 - B: FAIL
+    000000000000000000000000000000000000009B:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-11      PUSH9 0x5B5B...5B
+      #  12         JUMPDEST
+      code: :raw 0x6001600055600956685B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH9 - C: FAIL
+    000000000000000000000000000000000000009C:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x11 (End of PUSH data location)
+      #  07         JUMP
+      #  08-11      PUSH9 0x5B5B...5B
+      #  12         JUMPDEST
+      code: :raw 0x6001600055601156685B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH10 - A: OK
+    00000000000000000000000000000000000000AA:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x13 (JUMPDEST location)
+      #  07         JUMP
+      #  08-12      PUSH10 0x5B5B...5B
+      #  13         JUMPDEST
+      code: :raw 0x6001600055601356695B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH10 - B: FAIL
+    00000000000000000000000000000000000000AB:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-12      PUSH10 0x5B5B...5B
+      #  13         JUMPDEST
+      code: :raw 0x6001600055600956695B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH10 - C: FAIL
+    00000000000000000000000000000000000000AC:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x12 (End of PUSH data location)
+      #  07         JUMP
+      #  08-12      PUSH10 0x5B5B...5B
+      #  13         JUMPDEST
+      code: :raw 0x6001600055601256695B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH11 - A: OK
+    00000000000000000000000000000000000000BA:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x14 (JUMPDEST location)
+      #  07         JUMP
+      #  08-13      PUSH11 0x5B5B...5B
+      #  14         JUMPDEST
+      code: :raw 0x60016000556014566A5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH11 - B: FAIL
+    00000000000000000000000000000000000000BB:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-13      PUSH11 0x5B5B...5B
+      #  14         JUMPDEST
+      code: :raw 0x60016000556009566A5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH11 - C: FAIL
+    00000000000000000000000000000000000000BC:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x13 (End of PUSH data location)
+      #  07         JUMP
+      #  08-13      PUSH11 0x5B5B...5B
+      #  14         JUMPDEST
+      code: :raw 0x60016000556013566A5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH12 - A: OK
+    00000000000000000000000000000000000000CA:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x15 (JUMPDEST location)
+      #  07         JUMP
+      #  08-14      PUSH12 0x5B5B...5B
+      #  15         JUMPDEST
+      code: :raw 0x60016000556015566B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH12 - B: FAIL
+    00000000000000000000000000000000000000CB:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-14      PUSH12 0x5B5B...5B
+      #  15         JUMPDEST
+      code: :raw 0x60016000556009566B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH12 - C: FAIL
+    00000000000000000000000000000000000000CC:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x14 (End of PUSH data location)
+      #  07         JUMP
+      #  08-14      PUSH12 0x5B5B...5B
+      #  15         JUMPDEST
+      code: :raw 0x60016000556014566B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH13 - A: OK
+    00000000000000000000000000000000000000DA:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x16 (JUMPDEST location)
+      #  07         JUMP
+      #  08-15      PUSH13 0x5B5B...5B
+      #  16         JUMPDEST
+      code: :raw 0x60016000556016566C5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH13 - B: FAIL
+    00000000000000000000000000000000000000DB:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-15      PUSH13 0x5B5B...5B
+      #  16         JUMPDEST
+      code: :raw 0x60016000556009566C5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH13 - C: FAIL
+    00000000000000000000000000000000000000DC:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x15 (End of PUSH data location)
+      #  07         JUMP
+      #  08-15      PUSH13 0x5B5B...5B
+      #  16         JUMPDEST
+      code: :raw 0x60016000556015566C5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH14 - A: OK
+    00000000000000000000000000000000000000EA:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x17 (JUMPDEST location)
+      #  07         JUMP
+      #  08-16      PUSH14 0x5B5B...5B
+      #  17         JUMPDEST
+      code: :raw 0x60016000556017566D5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH14 - B: FAIL
+    00000000000000000000000000000000000000EB:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-16      PUSH14 0x5B5B...5B
+      #  17         JUMPDEST
+      code: :raw 0x60016000556009566D5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH14 - C: FAIL
+    00000000000000000000000000000000000000EC:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x16 (End of PUSH data location)
+      #  07         JUMP
+      #  08-16      PUSH14 0x5B5B...5B
+      #  17         JUMPDEST
+      code: :raw 0x60016000556016566D5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH15 - A: OK
+    00000000000000000000000000000000000000FA:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x18 (JUMPDEST location)
+      #  07         JUMP
+      #  08-17      PUSH15 0x5B5B...5B
+      #  18         JUMPDEST
+      code: :raw 0x60016000556018566E5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH15 - B: FAIL
+    00000000000000000000000000000000000000FB:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-17      PUSH15 0x5B5B...5B
+      #  18         JUMPDEST
+      code: :raw 0x60016000556009566E5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH15 - C: FAIL
+    00000000000000000000000000000000000000FC:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x17 (End of PUSH data location)
+      #  07         JUMP
+      #  08-17      PUSH15 0x5B5B...5B
+      #  18         JUMPDEST
+      code: :raw 0x60016000556017566E5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH16 - A: OK
+    000000000000000000000000000000000000010A:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x19 (JUMPDEST location)
+      #  07         JUMP
+      #  08-18      PUSH16 0x5B5B...5B
+      #  19         JUMPDEST
+      code: :raw 0x60016000556019566F5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH16 - B: FAIL
+    000000000000000000000000000000000000010B:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-18      PUSH16 0x5B5B...5B
+      #  19         JUMPDEST
+      code: :raw 0x60016000556009566F5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH16 - C: FAIL
+    000000000000000000000000000000000000010C:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x18 (End of PUSH data location)
+      #  07         JUMP
+      #  08-18      PUSH16 0x5B5B...5B
+      #  19         JUMPDEST
+      code: :raw 0x60016000556018566F5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH17 - A: OK
+    000000000000000000000000000000000000011A:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x1A (JUMPDEST location)
+      #  07         JUMP
+      #  08-19      PUSH17 0x5B5B...5B
+      #  1A         JUMPDEST
+      code: :raw 0x6001600055601A56705B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH17 - B: FAIL
+    000000000000000000000000000000000000011B:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-19      PUSH17 0x5B5B...5B
+      #  1A         JUMPDEST
+      code: :raw 0x6001600055600956705B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH17 - C: FAIL
+    000000000000000000000000000000000000011C:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x19 (End of PUSH data location)
+      #  07         JUMP
+      #  08-19      PUSH17 0x5B5B...5B
+      #  1A         JUMPDEST
+      code: :raw 0x6001600055601956705B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH18 - A: OK
+    000000000000000000000000000000000000012A:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x1B (JUMPDEST location)
+      #  07         JUMP
+      #  08-1A      PUSH18 0x5B5B...5B
+      #  1B         JUMPDEST
+      code: :raw 0x6001600055601B56715B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH18 - B: FAIL
+    000000000000000000000000000000000000012B:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-1A      PUSH18 0x5B5B...5B
+      #  1B         JUMPDEST
+      code: :raw 0x6001600055600956715B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH18 - C: FAIL
+    000000000000000000000000000000000000012C:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x1A (End of PUSH data location)
+      #  07         JUMP
+      #  08-1A      PUSH18 0x5B5B...5B
+      #  1B         JUMPDEST
+      code: :raw 0x6001600055601A56715B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH19 - A: OK
+    000000000000000000000000000000000000013A:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x1C (JUMPDEST location)
+      #  07         JUMP
+      #  08-1B      PUSH19 0x5B5B...5B
+      #  1C         JUMPDEST
+      code: :raw 0x6001600055601C56725B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH19 - B: FAIL
+    000000000000000000000000000000000000013B:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-1B      PUSH19 0x5B5B...5B
+      #  1C         JUMPDEST
+      code: :raw 0x6001600055600956725B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH19 - C: FAIL
+    000000000000000000000000000000000000013C:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x1B (End of PUSH data location)
+      #  07         JUMP
+      #  08-1B      PUSH19 0x5B5B...5B
+      #  1C         JUMPDEST
+      code: :raw 0x6001600055601B56725B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH20 - A: OK
+    000000000000000000000000000000000000014A:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x1D (JUMPDEST location)
+      #  07         JUMP
+      #  08-1C      PUSH20 0x5B5B...5B
+      #  1D         JUMPDEST
+      code: :raw 0x6001600055601D56735B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH20 - B: FAIL
+    000000000000000000000000000000000000014B:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-1C      PUSH20 0x5B5B...5B
+      #  1D         JUMPDEST
+      code: :raw 0x6001600055600956735B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH20 - C: FAIL
+    000000000000000000000000000000000000014C:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x1C (End of PUSH data location)
+      #  07         JUMP
+      #  08-1C      PUSH20 0x5B5B...5B
+      #  1D         JUMPDEST
+      code: :raw 0x6001600055601C56735B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH21 - A: OK
+    000000000000000000000000000000000000015A:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x1E (JUMPDEST location)
+      #  07         JUMP
+      #  08-1D      PUSH21 0x5B5B...5B
+      #  1E         JUMPDEST
+      code: :raw 0x6001600055601E56745B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH21 - B: FAIL
+    000000000000000000000000000000000000015B:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-1D      PUSH21 0x5B5B...5B
+      #  1E         JUMPDEST
+      code: :raw 0x6001600055600956745B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH21 - C: FAIL
+    000000000000000000000000000000000000015C:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x1D (End of PUSH data location)
+      #  07         JUMP
+      #  08-1D      PUSH21 0x5B5B...5B
+      #  1E         JUMPDEST
+      code: :raw 0x6001600055601D56745B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH22 - A: OK
+    000000000000000000000000000000000000016A:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x1F (JUMPDEST location)
+      #  07         JUMP
+      #  08-1E      PUSH22 0x5B5B...5B
+      #  1F         JUMPDEST
+      code: :raw 0x6001600055601F56755B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH22 - B: FAIL
+    000000000000000000000000000000000000016B:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-1E      PUSH22 0x5B5B...5B
+      #  1F         JUMPDEST
+      code: :raw 0x6001600055600956755B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH22 - C: FAIL
+    000000000000000000000000000000000000016C:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x1E (End of PUSH data location)
+      #  07         JUMP
+      #  08-1E      PUSH22 0x5B5B...5B
+      #  1F         JUMPDEST
+      code: :raw 0x6001600055601E56755B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH23 - A: OK
+    000000000000000000000000000000000000017A:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x20 (JUMPDEST location)
+      #  07         JUMP
+      #  08-1F      PUSH23 0x5B5B...5B
+      #  20         JUMPDEST
+      code: :raw 0x6001600055602056765B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH23 - B: FAIL
+    000000000000000000000000000000000000017B:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-1F      PUSH23 0x5B5B...5B
+      #  20         JUMPDEST
+      code: :raw 0x6001600055600956765B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH23 - C: FAIL
+    000000000000000000000000000000000000017C:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x1F (End of PUSH data location)
+      #  07         JUMP
+      #  08-1F      PUSH23 0x5B5B...5B
+      #  20         JUMPDEST
+      code: :raw 0x6001600055601F56765B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH24 - A: OK
+    000000000000000000000000000000000000018A:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x21 (JUMPDEST location)
+      #  07         JUMP
+      #  08-20      PUSH24 0x5B5B...5B
+      #  21         JUMPDEST
+      code: :raw 0x6001600055602156775B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH24 - B: FAIL
+    000000000000000000000000000000000000018B:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-20      PUSH24 0x5B5B...5B
+      #  21         JUMPDEST
+      code: :raw 0x6001600055600956775B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH24 - C: FAIL
+    000000000000000000000000000000000000018C:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x20 (End of PUSH data location)
+      #  07         JUMP
+      #  08-20      PUSH24 0x5B5B...5B
+      #  21         JUMPDEST
+      code: :raw 0x6001600055602056775B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH25 - A: OK
+    000000000000000000000000000000000000019A:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x22 (JUMPDEST location)
+      #  07         JUMP
+      #  08-21      PUSH25 0x5B5B...5B
+      #  22         JUMPDEST
+      code: :raw 0x6001600055602256785B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH25 - B: FAIL
+    000000000000000000000000000000000000019B:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-21      PUSH25 0x5B5B...5B
+      #  22         JUMPDEST
+      code: :raw 0x6001600055600956785B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH25 - C: FAIL
+    000000000000000000000000000000000000019C:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x21 (End of PUSH data location)
+      #  07         JUMP
+      #  08-21      PUSH25 0x5B5B...5B
+      #  22         JUMPDEST
+      code: :raw 0x6001600055602156785B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH26 - A: OK
+    00000000000000000000000000000000000001AA:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x23 (JUMPDEST location)
+      #  07         JUMP
+      #  08-22      PUSH26 0x5B5B...5B
+      #  23         JUMPDEST
+      code: :raw 0x6001600055602356795B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH26 - B: FAIL
+    00000000000000000000000000000000000001AB:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-22      PUSH26 0x5B5B...5B
+      #  23         JUMPDEST
+      code: :raw 0x6001600055600956795B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH26 - C: FAIL
+    00000000000000000000000000000000000001AC:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x22 (End of PUSH data location)
+      #  07         JUMP
+      #  08-22      PUSH26 0x5B5B...5B
+      #  23         JUMPDEST
+      code: :raw 0x6001600055602256795B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH27 - A: OK
+    00000000000000000000000000000000000001BA:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x24 (JUMPDEST location)
+      #  07         JUMP
+      #  08-23      PUSH27 0x5B5B...5B
+      #  24         JUMPDEST
+      code: :raw 0x60016000556024567A5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH27 - B: FAIL
+    00000000000000000000000000000000000001BB:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-23      PUSH27 0x5B5B...5B
+      #  24         JUMPDEST
+      code: :raw 0x60016000556009567A5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH27 - C: FAIL
+    00000000000000000000000000000000000001BC:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x23 (End of PUSH data location)
+      #  07         JUMP
+      #  08-23      PUSH27 0x5B5B...5B
+      #  24         JUMPDEST
+      code: :raw 0x60016000556023567A5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH28 - A: OK
+    00000000000000000000000000000000000001CA:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x25 (JUMPDEST location)
+      #  07         JUMP
+      #  08-24      PUSH28 0x5B5B...5B
+      #  25         JUMPDEST
+      code: :raw 0x60016000556025567B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH28 - B: FAIL
+    00000000000000000000000000000000000001CB:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-24      PUSH28 0x5B5B...5B
+      #  25         JUMPDEST
+      code: :raw 0x60016000556009567B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH28 - C: FAIL
+    00000000000000000000000000000000000001CC:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x24 (End of PUSH data location)
+      #  07         JUMP
+      #  08-24      PUSH28 0x5B5B...5B
+      #  25         JUMPDEST
+      code: :raw 0x60016000556024567B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH29 - A: OK
+    00000000000000000000000000000000000001DA:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x26 (JUMPDEST location)
+      #  07         JUMP
+      #  08-25      PUSH29 0x5B5B...5B
+      #  26         JUMPDEST
+      code: :raw 0x60016000556026567C5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH29 - B: FAIL
+    00000000000000000000000000000000000001DB:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-25      PUSH29 0x5B5B...5B
+      #  26         JUMPDEST
+      code: :raw 0x60016000556009567C5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH29 - C: FAIL
+    00000000000000000000000000000000000001DC:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x25 (End of PUSH data location)
+      #  07         JUMP
+      #  08-25      PUSH29 0x5B5B...5B
+      #  26         JUMPDEST
+      code: :raw 0x60016000556025567C5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH30 - A: OK
+    00000000000000000000000000000000000001EA:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x27 (JUMPDEST location)
+      #  07         JUMP
+      #  08-26      PUSH30 0x5B5B...5B
+      #  27         JUMPDEST
+      code: :raw 0x60016000556027567D5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH30 - B: FAIL
+    00000000000000000000000000000000000001EB:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-26      PUSH30 0x5B5B...5B
+      #  27         JUMPDEST
+      code: :raw 0x60016000556009567D5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH30 - C: FAIL
+    00000000000000000000000000000000000001EC:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x26 (End of PUSH data location)
+      #  07         JUMP
+      #  08-26      PUSH30 0x5B5B...5B
+      #  27         JUMPDEST
+      code: :raw 0x60016000556026567D5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH31 - A: OK
+    00000000000000000000000000000000000001FA:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x28 (JUMPDEST location)
+      #  07         JUMP
+      #  08-27      PUSH31 0x5B5B...5B
+      #  28         JUMPDEST
+      code: :raw 0x60016000556028567E5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH31 - B: FAIL
+    00000000000000000000000000000000000001FB:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-27      PUSH31 0x5B5B...5B
+      #  28         JUMPDEST
+      code: :raw 0x60016000556009567E5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH31 - C: FAIL
+    00000000000000000000000000000000000001FC:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x27 (End of PUSH data location)
+      #  07         JUMP
+      #  08-27      PUSH31 0x5B5B...5B
+      #  28         JUMPDEST
+      code: :raw 0x60016000556027567E5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH32 - A: OK
+    000000000000000000000000000000000000020A:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x29 (JUMPDEST location)
+      #  07         JUMP
+      #  08-28      PUSH32 0x5B5B...5B
+      #  29         JUMPDEST
+      code: :raw 0x60016000556029567F5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH32 - B: FAIL
+    000000000000000000000000000000000000020B:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x09 (Start of PUSH data location)
+      #  07         JUMP
+      #  08-28      PUSH32 0x5B5B...5B
+      #  29         JUMPDEST
+      code: :raw 0x60016000556009567F5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH32 - C: FAIL
+    000000000000000000000000000000000000020C:
+      balance: 0
+      #  Bytes      Opcode
+      #  Location
+      #  --------   ----------
+      #  00-01      PUSH1 0x01
+      #  02-03      PUSH1 0x00
+      #  04         SSTORE
+      #  05-06      PUSH1 0x28 (End of PUSH data location)
+      #  07         JUMP
+      #  08-28      PUSH32 0x5B5B...5B
+      #  29         JUMPDEST
+      code: :raw 0x60016000556028567F5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+      nonce: '0'
+      storage: {}
+
+
+
+    
+    # DelegateCall to the test contract
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: 0
+      code: |
+        :yul berlin {
+          let addr := calldataload(4)
+          pop(delegatecall(sub(gas(), 5000), addr, 0, 0, 0, 0))
+        }
+      # pop(delegatecall(gas(), addr, 0, 0, 0, 0))
+      nonce: '0'
+      storage:
+        0x00: 0x00
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0x100000000000
+      code: '0x'
+      nonce: '0'
+      storage: {}
+      
+
+  transaction:
+    data:
+    # All contracts ending with A will succeed:
+    # Jump right after the data portion ends.
+    - :label jump-ok      :abi f(uint) 0x01A
+    - :label jump-ok      :abi f(uint) 0x02A
+    - :label jump-ok      :abi f(uint) 0x03A
+    - :label jump-ok      :abi f(uint) 0x04A
+    - :label jump-ok      :abi f(uint) 0x05A
+    - :label jump-ok      :abi f(uint) 0x06A
+    - :label jump-ok      :abi f(uint) 0x07A
+    - :label jump-ok      :abi f(uint) 0x08A
+    - :label jump-ok      :abi f(uint) 0x09A
+    - :label jump-ok      :abi f(uint) 0x0AA
+    - :label jump-ok      :abi f(uint) 0x0BA
+    - :label jump-ok      :abi f(uint) 0x0CA
+    - :label jump-ok      :abi f(uint) 0x0DA
+    - :label jump-ok      :abi f(uint) 0x0EA
+    - :label jump-ok      :abi f(uint) 0x0FA
+    - :label jump-ok      :abi f(uint) 0x10A
+    - :label jump-ok      :abi f(uint) 0x11A
+    - :label jump-ok      :abi f(uint) 0x12A
+    - :label jump-ok      :abi f(uint) 0x13A
+    - :label jump-ok      :abi f(uint) 0x14A
+    - :label jump-ok      :abi f(uint) 0x15A
+    - :label jump-ok      :abi f(uint) 0x16A
+    - :label jump-ok      :abi f(uint) 0x17A
+    - :label jump-ok      :abi f(uint) 0x18A
+    - :label jump-ok      :abi f(uint) 0x19A
+    - :label jump-ok      :abi f(uint) 0x20A
+
+    # All contracts ending with B/C will produce exception
+    # B: Jump to the first byte of the data portion.
+    # C: Jump to the last byte of the data portion.
+    - :label jump-fail    :abi f(uint) 0x01C
+    - :label jump-fail    :abi f(uint) 0x02C
+    - :label jump-fail    :abi f(uint) 0x03C
+    - :label jump-fail    :abi f(uint) 0x04C
+    - :label jump-fail    :abi f(uint) 0x05C
+    - :label jump-fail    :abi f(uint) 0x06C
+    - :label jump-fail    :abi f(uint) 0x07C
+    - :label jump-fail    :abi f(uint) 0x08C
+    - :label jump-fail    :abi f(uint) 0x09C
+    - :label jump-fail    :abi f(uint) 0x0AC
+    - :label jump-fail    :abi f(uint) 0x0BC
+    - :label jump-fail    :abi f(uint) 0x0CC
+    - :label jump-fail    :abi f(uint) 0x0DC
+    - :label jump-fail    :abi f(uint) 0x0EC
+    - :label jump-fail    :abi f(uint) 0x0FC
+    - :label jump-fail    :abi f(uint) 0x10C
+    - :label jump-fail    :abi f(uint) 0x11C
+    - :label jump-fail    :abi f(uint) 0x12C
+    - :label jump-fail    :abi f(uint) 0x13C
+    - :label jump-fail    :abi f(uint) 0x14C
+    - :label jump-fail    :abi f(uint) 0x15C
+    - :label jump-fail    :abi f(uint) 0x16C
+    - :label jump-fail    :abi f(uint) 0x17C
+    - :label jump-fail    :abi f(uint) 0x18C
+    - :label jump-fail    :abi f(uint) 0x19C
+    - :label jump-fail    :abi f(uint) 0x20C
+
+    - :label jump-fail    :abi f(uint) 0x01C
+    - :label jump-fail    :abi f(uint) 0x02C
+    - :label jump-fail    :abi f(uint) 0x03C
+    - :label jump-fail    :abi f(uint) 0x04C
+    - :label jump-fail    :abi f(uint) 0x05C
+    - :label jump-fail    :abi f(uint) 0x06C
+    - :label jump-fail    :abi f(uint) 0x07C
+    - :label jump-fail    :abi f(uint) 0x08C
+    - :label jump-fail    :abi f(uint) 0x09C
+    - :label jump-fail    :abi f(uint) 0x0AC
+    - :label jump-fail    :abi f(uint) 0x0BC
+    - :label jump-fail    :abi f(uint) 0x0CC
+    - :label jump-fail    :abi f(uint) 0x0DC
+    - :label jump-fail    :abi f(uint) 0x0EC
+    - :label jump-fail    :abi f(uint) 0x0FC
+    - :label jump-fail    :abi f(uint) 0x10C
+    - :label jump-fail    :abi f(uint) 0x11C
+    - :label jump-fail    :abi f(uint) 0x12C
+    - :label jump-fail    :abi f(uint) 0x13C
+    - :label jump-fail    :abi f(uint) 0x14C
+    - :label jump-fail    :abi f(uint) 0x15C
+    - :label jump-fail    :abi f(uint) 0x16C
+    - :label jump-fail    :abi f(uint) 0x17C
+    - :label jump-fail    :abi f(uint) 0x18C
+    - :label jump-fail    :abi f(uint) 0x19C
+    - :label jump-fail    :abi f(uint) 0x20C
+
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    
+    
+  expect:
+    - indexes:
+        data: 
+        - :label jump-fail
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0x00
+
+    - indexes:
+        data: 
+        - :label jump-ok
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0x01
+

@@ -1,0 +1,438 @@
+CreateOOGafterMaxCodesize:
+  _info:
+    pytest_marks:
+      - slow
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: 0x100000000
+    currentNumber: "1"
+    currentTimestamp: "1000"
+
+  pre:
+    # Code that will end up in the created contracts
+    00000000000000000000000000000000000c0de0:
+      balance: 0
+      code: |
+        :yul berlin
+        {
+          // If calldata > 0, self-destruct, otherwise 
+          sstore(0, codesize())
+          if gt(calldatasize(), 0) {
+            selfdestruct(0)
+          }
+        }
+      nonce: 0
+      storage: {}
+    # Init code that creates max codesize contracts with 00000000000000000000000000000000000c0de0 code
+    00000000000000000000000000000000000c0de1:
+      balance: 0
+      code: |
+        :yul berlin
+        {
+          // Init code that uses max codesize and can be called to selfdestruct
+          let code_addr := 0x00000000000000000000000000000000000c0de0
+          extcodecopy(code_addr, 0, 0, extcodesize(code_addr))
+          return(0, 0x6000)
+        }
+      nonce: 0
+      storage: {}
+    00000000000000000000000000000000000c0deb:
+      balance: 0
+      # The purpose of this contract is to create a given number of max-codesize-contracts, specified by the first argument of the call.
+      # The created contracts can self-destruct when called.
+      # The second parameter is used to determine if this call should OOG instead of returning,
+      # which should revert the creation of any contracts.
+      code: |
+        :yul berlin
+        {
+          sstore (1, 1)
+          let contract_count := calldataload(0)
+          let should_oog := calldataload(32)
+
+          // get the init code that returns max codesize from another contract
+          let initcode_addr := 0x00000000000000000000000000000000000c0de1
+          let initcode_size := extcodesize(initcode_addr)
+          extcodecopy(initcode_addr, 0, 0, initcode_size)
+
+          // create contracts with max codesize in loop
+          for { let i := 0 } lt(i, contract_count) { i := add(i, 1) }
+          {
+              let address_created := create(0, 0, initcode_size)
+              mstore( add(initcode_size, mul(i, 32)), address_created )
+          }
+          if gt(should_oog, 0) {
+            invalid()
+          }
+          return(initcode_size, mul(contract_count, 32))
+        }
+      nonce: 1
+      storage: {}
+
+    00000000000000000000000000000000000c0dea:
+      balance: 0
+      # This test contract performs 3 actions, which are configured by the parameters passed:
+      # First action is to delegate call 0xc0deb to create self-destructing contracts on 0xc0dea context without OOG'ing;
+      # this way we can create max-codesize-contracts that later can be self-destructed.
+      # Second action is to call 0xc0deb, in a call that creates several max-codesize-contracts and can OOG, to test the contract
+      # creation correctly reverts.
+      # Third action is to call the created contracts for self-destruct, which will test the max-codesize-contracts are
+      # correctly removed.
+      code: |
+        :yul berlin
+        {
+
+          // Get the amount of contracts to create on this level
+          let delegate_contract_count := calldataload(4)
+
+          // Get the amount of contracts to create on the sub level call
+          let subcall_contract_count := calldataload(36)
+
+          // Get whether the subcall should oog
+          let subcall_oog := calldataload(68)
+
+          // Get count of contracts to call to self-destruct
+          let selfdestruct_count := calldataload(100)
+
+          // Delegate call for contract creation
+          mstore(0, delegate_contract_count)
+          mstore(32, 0)
+          let returnStart := 64
+          let returnLength := mul(delegate_contract_count, 32)
+          let retcode := delegatecall(div(gas(), 2), 0x00000000000000000000000000000000000c0deb, 0, 64, returnStart, returnLength)
+
+          if eq(retcode, 0) {
+            // We oog'd, fail test
+            revert(0, 0)
+          }
+
+          // Call for OOG contract creation
+          mstore(0, subcall_contract_count)
+          mstore(32, subcall_oog)
+          returnStart := add(64, mul(delegate_contract_count, 32))
+          returnLength := mul(subcall_contract_count, 32)
+          retcode := call(div(gas(), 2), 0x00000000000000000000000000000000000c0deb, 0,	0, 64, returnStart, returnLength)
+
+          if eq(retcode, 0) {
+            // We oog'd
+            if eq(subcall_oog, 0) {
+              // We shouldn't have
+              revert(0, 0)
+            }
+          }
+
+          let contract_created_count := delegate_contract_count
+          if eq(subcall_oog, 0) {
+            contract_created_count := add(delegate_contract_count, subcall_contract_count)
+          }
+          // Call all contracts so they sstore their codesize()
+          for { let i := 0 } lt(i, contract_created_count) { i := add(i, 1) }
+          {
+              let contract_addr := mload(add(64, mul(i, 32)))
+              pop(call(sub(gas(), 1000), contract_addr, 0, 0, 0, 0, 0))
+          }
+
+          // Self-destruct contracts
+          for { let i := 0 } lt(i, selfdestruct_count) { i := add(i, 1) }
+          {
+              let contract_addr := mload(add(64, mul(i, 32)))
+              pop(call(sub(gas(), 1000), contract_addr, 0, 0, 1, 0, 0))
+          }
+
+        }
+      nonce: 1
+      storage: {}
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+
+  transaction:
+    data:
+    # - Low number of contracts (10): Create 0 contracts at 0xc0dea, 10 contracts at 0xc0deb, OOG on 0xc0deb, call 0 contracts to self-destruct.
+    - :label LowContractCount_NoDelegateCreate_CallCreateOOG :abi f(uint,uint,bool,uint) 0x00 0x0a 0x01 0x00
+    # - Low number of contracts (10): Create 10 contracts at 0xc0dea, 10 contracts at 0xc0deb, OOG on 0xc0deb, call 0 contracts to self-destruct.
+    - :label LowContractCount_DelegateCreate_CallCreateOOG :abi f(uint,uint,bool,uint) 0x0a 0x0a 0x01 0x00
+    # - Low number of contracts (10): Create 10 contracts at 0xc0dea, 10 contracts at 0xc0deb, don't OOG on 0xc0deb, call 14 out of 20 contracts to self-destruct.
+    - :label LowContractCount_DelegateCreate_CallCreate_SelfDestruct :abi f(uint,uint,bool,uint) 0x0a 0x0a 0x00 0x0e
+    # - High number of contracts (250): Create 0 contracts at 0xc0dea, 250 contracts at 0xc0deb, OOG on 0xc0deb, call 0 contracts to self-destruct.
+    - :label HighContractCount_NoDelegateCreate_CallCreateOOG :abi f(uint,uint,bool,uint) 0x00 0xfa 0x01 0x00
+    # - High number of contracts (250): Create 250 contracts at 0xc0dea, 250 contracts at 0xc0deb, OOG on 0xc0deb, call 0 contracts to self-destruct.
+    - :label HighContractCount_DelegateCreate_CallCreateOOG :abi f(uint,uint,bool,uint) 0xfa 0xfa 0x01 0x00
+    # - High number of contracts (250): Create 250 contracts at 0xc0dea, 250 contracts at 0xc0deb, don't OOG on 0xc0deb, call 494 out of 500 contracts to self-destruct.
+    - :label HighContractCount_DelegateCreate_CallCreate_SelfDestruct :abi f(uint,uint,bool,uint) 0xfa 0xfa 0x00 0x01ee
+    gasLimit:
+    - 0x100000000
+    gasPrice: '10'
+    nonce: '0'
+    to: 00000000000000000000000000000000000c0dea
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    value:
+    - 0
+
+  expect:
+
+    - indexes:
+        data: 
+        - :label LowContractCount_NoDelegateCreate_CallCreateOOG
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+
+        00000000000000000000000000000000000c0dea:
+          nonce: 1
+          storage:
+            0x1: 0x1
+
+        00000000000000000000000000000000000c0deb:
+          nonce: 1
+          storage: {}
+
+        # Call contracts (OOG'd):
+        # #1
+        76e2310dc9277b22ffceb40d49229131674ebe02:
+          shouldnotexist: 1
+        # #10
+        b3210b741a5dfbddc1636521965b3558defa3e60:
+          shouldnotexist: 1
+
+    - indexes:
+        data:
+        - :label LowContractCount_DelegateCreate_CallCreateOOG
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+
+        00000000000000000000000000000000000c0dea:
+          nonce: 11
+          storage:
+            0x1: 0x1
+
+        00000000000000000000000000000000000c0deb:
+          nonce: 1
+          storage: {}
+
+        # Delegatecall contracts (No OOG):
+        # #1
+        396b47fae89161b1959b5a833acf816be526b860:
+          storage: {
+            '0': '0x6000'
+          }
+        # #10
+        bd205415c24eb289b6a275baae74527b92b49fe2:
+          storage: {
+            '0': '0x6000'
+          }
+        
+        # Call contracts (OOG'd):
+        # #1
+        76e2310dc9277b22ffceb40d49229131674ebe02:
+          shouldnotexist: 1
+        # #10
+        b3210b741a5dfbddc1636521965b3558defa3e60:
+          shouldnotexist: 1
+
+    - indexes:
+        data:
+        - :label LowContractCount_DelegateCreate_CallCreate_SelfDestruct
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+
+        00000000000000000000000000000000000c0dea:
+          nonce: 11
+          storage:
+            0x1: 0x1
+
+        00000000000000000000000000000000000c0deb:
+          nonce: 11
+          storage:
+            0x1: 0x1
+
+        # Delegatecall contracts (No OOG, Self-destructed):
+        # #1
+        396b47fae89161b1959b5a833acf816be526b860:
+          shouldnotexist: 1
+        # #10
+        bd205415c24eb289b6a275baae74527b92b49fe2:
+          shouldnotexist: 1
+        
+        # Call contracts (No OOG, Self-destructed):
+        # #1
+        76e2310dc9277b22ffceb40d49229131674ebe02:
+          shouldnotexist: 1
+        # #4
+        936d5e529580a9cc92bc2b2963a9d0a99f437e89:
+          shouldnotexist: 1
+
+        # Call contracts (No OOG, Not Self-destructed):
+        # #5
+        2e5a5ec103443f6b299cf31a52c69cf222ae4e6b:
+          storage: {
+            '0': '0x6000'
+          }
+        # #6
+        bade62b355fe6b7117f4f7c913321b318ca3a4da:
+          storage: {
+            '0': '0x6000'
+          }
+        # #7
+        d8a8f3569a1d76027f9ece5010489576897014ea:
+          storage: {
+            '0': '0x6000'
+          }
+        # #8
+        fcdccc3b46b9fbe71221061091e8fe82b77e02f2:
+          storage: {
+            '0': '0x6000'
+          }
+        # #9
+        67262aa10552371ec665c2f90c56d9d65c16715e:
+          storage: {
+            '0': '0x6000'
+          }
+        # #10
+        b3210b741a5dfbddc1636521965b3558defa3e60:
+          storage: {
+            '0': '0x6000'
+          }
+
+    - indexes:
+        data:
+        - :label HighContractCount_NoDelegateCreate_CallCreateOOG
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+
+        00000000000000000000000000000000000c0dea:
+          nonce: 1
+          storage:
+            0x1: 0x1
+
+        00000000000000000000000000000000000c0deb:
+          nonce: 1
+          storage: {}
+
+        # Call contracts (OOG'd):
+        # #1
+        76e2310dc9277b22ffceb40d49229131674ebe02:
+          shouldnotexist: 1
+        # #250
+        782f34ee13897680a5000838ce53d07b9558b5e2:
+          shouldnotexist: 1
+
+    - indexes:
+        data:
+        - :label HighContractCount_DelegateCreate_CallCreateOOG
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+
+        00000000000000000000000000000000000c0dea:
+          nonce: 251
+          storage:
+            0x1: 0x1
+
+        00000000000000000000000000000000000c0deb:
+          nonce: 1
+          storage: {}
+
+        # Delegatecall contracts (No OOG):
+        # #1
+        396b47fae89161b1959b5a833acf816be526b860:
+          storage: {
+            '0': '0x6000'
+          }
+        # #250
+        336debb8ce5a3cf4b40be471ac04f77b51f2d2e1:
+          storage: {
+            '0': '0x6000'
+          }
+        
+        # Call contracts (OOG'd):
+        # #1
+        76e2310dc9277b22ffceb40d49229131674ebe02:
+          shouldnotexist: 1
+        # #250
+        782f34ee13897680a5000838ce53d07b9558b5e2:
+          shouldnotexist: 1
+
+    - indexes:
+        data:
+        - :label HighContractCount_DelegateCreate_CallCreate_SelfDestruct
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+
+        00000000000000000000000000000000000c0dea:
+          nonce: 251
+          storage:
+            0x1: 0x1
+
+        00000000000000000000000000000000000c0deb:
+          nonce: 251
+          storage:
+            0x1: 0x1
+
+        # Delegatecall contracts (No OOG, Self-destructed):
+        # #1
+        396b47fae89161b1959b5a833acf816be526b860:
+          shouldnotexist: 1
+        # #250
+        336debb8ce5a3cf4b40be471ac04f77b51f2d2e1:
+          shouldnotexist: 1
+        
+        # Call contracts (No OOG, Self-destructed):
+        # #1
+        76e2310dc9277b22ffceb40d49229131674ebe02:
+          shouldnotexist: 1
+        # #244
+        638e1b782452eaf5270509651f665d2c00e599ff:
+          shouldnotexist: 1
+          
+        # Call contracts (No OOG, Not Self-destructed):
+        # #245
+        511c6c5591eacfc8b9bf2658916225418508f548:
+          storage: {
+            '0': '0x6000'
+          }
+        # #246
+        9ca6a1cfda677fc2679fce570dd47120686cb7c0:
+          storage: {
+            '0': '0x6000'
+          }
+        # #247
+        df7cd0b9839e4d93b98f09bf4c79366b9ffbe638:
+          storage: {
+            '0': '0x6000'
+          }
+        # #248
+        ee8b40edee25283a8c934b9c3a2ad8c848dc61b9:
+          storage: {
+            '0': '0x6000'
+          }
+        # #249
+        e0fad4310f169961f052ac02bb70707ebfa3ece2:
+          storage: {
+            '0': '0x6000'
+          }
+        # #250
+        782f34ee13897680a5000838ce53d07b9558b5e2:
+          storage: {
+            '0': '0x6000'
+          }

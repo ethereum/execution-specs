@@ -1,0 +1,232 @@
+{
+    "create2callPrecompiles" : {
+	    "_info" : {
+	        "comment" : "CALL precompiles during init code of CREATE2 contract "
+	    },
+        "env" : {
+            "currentCoinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x20000",
+            "currentGasLimit" : "1000000000000",
+            "currentNumber" : "1",
+            "currentTimestamp" : "1000"
+        },
+        "expect" : [
+            {
+                "indexes" : {
+                    "data" : 0,
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "1"
+                    },
+                    "0xf68e26002db0f9ca9b54367c57c25e474c581622" : {
+                        "storage" : {
+						    "0x00" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+                            "0x01" : "0x01",
+                            "0x02" : "0x01"
+						}
+                    }
+                }
+            },
+		    {
+                "indexes" : {
+                    "data" : 1,
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "1"
+                    },
+                    "0x3b9ea59b92545beb727022289665cf38fa462bae" : {
+                        "storage" : {
+						    "0x00" : "0xcb39b3bde22925b2f931111130c774761d8895e0e08437c9b396c1e97d10f34d",
+						    "0x02" : "0x01"
+						}
+                    }
+                }
+            },
+		    {
+                "indexes" : {
+                    "data" : 2,
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "1"
+                    },
+                    "0x7525f19e2970539fd2897357777a4c275175bcf5" : {
+                        "storage" : {
+						    "0x00" : "0x9c1185a5c5e9fc54612808977ee8f548b2258d31",
+						    "0x02" : "0x01"
+						}
+                    }
+                }
+            },
+		    {
+                "indexes" : {
+                    "data" : 3,
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "1"
+                    },
+                    "0x0ee431db7c48fc10a9a56c909bfefa87661442fb" : {
+                        "storage" : {
+						    "0x00" : "0xf34578907f",
+						    "0x02" : "0x01"
+						}
+                    }
+                }
+            },
+		    {
+                "indexes" : {
+                    "data" : 4,
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "1"
+                    },
+                    "0xbbd394930b408da783ee071ced240ece997bc8b2" : {
+                        "storage" : {
+						    "0x01" : "0x01",
+						    "0x02" : "0x162ead82cadefaeaf6e9283248fdf2f2845f6396f6f17c4d5a39f820b6f6b5f9"
+						}
+                    }
+                }
+            },
+		    {
+                "indexes" : {
+                    "data" : 5,
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "1"
+                    },
+                    "0x2e3ec33a50ed32c2fcbef07a1bab8643db4dc670" : {
+                        "storage" : {
+						    "0x00" : "0x01",
+						    "0x02" : "0x00"
+						}
+                    }
+                }
+            },
+		    {
+                "indexes" : {
+                    "data" : 6,
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "1"
+                    },
+                    "0xaa0ab87aa0e27e22e21671040c11f3537cdc7b3e" : {
+                        "storage" : {
+						    "0x00" : "0x01",
+						    "0x01" : "0x1f4d1d80177b1377743d1901f70d7389be7f7a35a35bfd234a8aaee615b88c49",
+						    "0x02" : "0x018683193ae021a2f8920fed186cde5d9b1365116865281ccf884c1f28b1df8f"
+						}
+                    }
+                }
+            },
+		    {
+                "indexes" : {
+                    "data" : 7,
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "1"
+                    },
+                    "0xab7cf4e4980432e892fa512ec2b9e8532c23ac15" : {
+                        "storage" : {
+							"0x00" : "0x01",
+							"0x01" : "0x01",
+							"0x02" : "0x01",
+							"0x03" : "0x01",
+							"0x0a" : "0x1de49a4b0233273bba8146af82042d004f2085ec982397db0d97da17204cc286",
+							"0x0b" : "0x0217327ffc463919bef80cc166d09c6172639d8589799928761bcd9f22c903d4",
+							"0x14" : "0x1de49a4b0233273bba8146af82042d004f2085ec982397db0d97da17204cc286",
+							"0x15" : "0x0217327ffc463919bef80cc166d09c6172639d8589799928761bcd9f22c903d4"
+						}
+                    }
+                }
+            }
+        ],
+        "pre" : {
+            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "1000000000000000000",
+                "code" : "",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+	    "addf5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "",
+                "code" : "{(MSTORE 0 (CALLDATALOAD 0)) (MSTORE 32 (CALLDATALOAD 32)) (MSTORE 64 (CALLDATALOAD 64)) (MSTORE 96 (CALLDATALOAD 96)) [[0]](CALLCODE 500000 6 0 0 128 200 64)  [[1]] (MLOAD 200)  [[2]] (MLOAD 232) }",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+	    "b94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "",
+		"//code" : "ECMUl ChecK", 
+                "code" : "{(MSTORE 0 (CALLDATALOAD 0)) (MSTORE 32 (CALLDATALOAD 32)) (MSTORE 64 (CALLDATALOAD 64)) (MSTORE 96 (CALLDATALOAD 96))  (MSTORE 128 (CALLDATALOAD 128)) (MSTORE 160 (CALLDATALOAD 160)) (MSTORE 192 (CALLDATALOAD 192)) [[0]](CALLCODE 500000 6 0 0 128 300 64)  [[1]](CALLCODE 500000 7 0 128 96 400 64) [[10]] (MLOAD 300)  [[11]] (MLOAD 332) [[20]] (MLOAD 400)  [[21]] (MLOAD 432) [[2]] (EQ (SLOAD 10) (SLOAD 20)) [[3]] (EQ (SLOAD 11) (SLOAD 21))}",
+                "nonce" : "0",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+	        "//data" : [
+		        "0 - call ecrevocer (1) from init code of create2",
+		        "1 - call sha256 (2) from init code of create2",
+		        "2 - call REMPID160",
+		        "3 - call Identity",
+		        "4 - call Modexp",
+		        "5 - call paring",
+		        "6 - call addition on ec",
+		        "7 - call ecmul"
+	        ],
+            "data" : [
+                "{ (CREATE2 0 0 (lll (seq (MSTORE 0 0x18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c) (MSTORE 32 28) (MSTORE 64 0x73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75f) (MSTORE 96 0xeeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549) [[ 2 ]] (CALL 300000 1 0 0 128 128 32) [[ 0 ]] (MOD (MLOAD 128) (EXP 2 160)) [[ 1 ]] (EQ (ORIGIN) (SLOAD 0)) (STOP) ) 0) 0) (STOP) }",
+		        "{ (CREATE2 0 0 (lll (seq (MSTORE 5 0xf34578907f) [[ 2 ]] (CALL 500 2 0 0 37 0 32) [[ 0 ]] (MLOAD 0) (STOP) ) 0) 0) (STOP) }",
+		        "{ (CREATE2 0 0 (lll (seq  [[ 2 ]] (CALL 600 3 0 0 0 0 32) [[ 0 ]] (MLOAD 0) (STOP) ) 0) 0) (STOP) }",
+		        "{ (CREATE2 0 0 (lll (seq (MSTORE 0 0xf34578907f) [[ 2 ]] (CALL 500 4 0 0 37 0 32) [[ 0 ]] (MLOAD 0) (STOP) ) 0) 0) (STOP) }",
+		        "{ (CREATE2 0 0 (lll (seq (MSTORE 0 0x0000000000000000000000000000000000000000000000000000000000000001) (MSTORE 32 0x0000000000000000000000000000000000000000000000000000000000000020) (MSTORE 64 0x0000000000000000000000000000000000000000000000000000000000000020) (MSTORE 96 0x03fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc) (MSTORE 128 0x2efffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc) (MSTORE 150 0x2f00000000000000000000000000000000000000000000000000000000000000)[[ 1 ]] (CALLCODE (GAS) 5 0 0 151 1000 32) [[ 2 ]](MLOAD 1000) (STOP) ) 0) 0) (STOP) }",
+		        "{ (CREATE2 0 0 (lll (seq (MSTORE 0 0x0000000000000000000000000000000000000000000000000000000000000001) [[ 2 ]](CALL 600000 6 0 0 256 0 32) [[ 0 ]] (MLOAD 0) (STOP) ) 0) 0)  (STOP) }",
+		        "{ (CREATE2 0 0 (lll (seq (MSTORE 0 0x0f25929bcb43d5a57391564615c9e70a992b10eafa4db109709649cf48c50dd2) (MSTORE 32 0x16da2f5cb6be7a0aa72c440c53c9bbdfec6c36c7d515536431b3a865468acbba) (MSTORE 64 0x1de49a4b0233273bba8146af82042d004f2085ec982397db0d97da17204cc286) (MSTORE 96 0x0217327ffc463919bef80cc166d09c6172639d8589799928761bcd9f22c903d4) (CALLCODE 500000 0xaddf5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 128 0 0) (STOP) ) 0) 0) (STOP) }",
+		        "{ (CREATE2 0 0 (lll (seq (MSTORE 0 0x1de49a4b0233273bba8146af82042d004f2085ec982397db0d97da17204cc286) (MSTORE 32 0x0217327ffc463919bef80cc166d09c6172639d8589799928761bcd9f22c903d4) (MSTORE 64 0x0000000000000000000000000000000000000000000000000000000000000000) (MSTORE 96 0x0000000000000000000000000000000000000000000000000000000000000000) (MSTORE 128 0x1de49a4b0233273bba8146af82042d004f2085ec982397db0d97da17204cc286) (MSTORE 160 0x0217327ffc463919bef80cc166d09c6172639d8589799928761bcd9f22c903d4 ) (MSTORE 192 0x0000000000000000000000000000000000000000000000000000000000000001) (CALLCODE 500000 0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 224 0 0) (STOP) ) 0) 0)  (STOP) }"
+            ],
+            "gasLimit" : [
+                "15000000"
+            ],
+            "gasPrice" : "10",
+            "nonce" : "0",
+            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "",
+            "value" : [
+                "1"
+            ]
+        }
+    }
+}

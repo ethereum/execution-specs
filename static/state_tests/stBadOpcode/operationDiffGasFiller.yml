@@ -1,0 +1,308 @@
+# Run the same operations with different amounts of gas until it is successful
+# This lets it run out of gas in different points of the opcode, as requested
+# in https://github.com/ethereum/tests/issues/909
+
+
+
+
+operationDiffGas:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "100000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+
+  _info:
+    comment: Ori Pomerantz   qbzzt1@gmail.com
+
+
+  pre:
+
+    # The operations to run with different amounts of gas
+
+    # CREATE
+    0000000000000000000000000000000000C0DEF0:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin {
+          sstore(0,create(0, 0, 0x200))
+       }        
+      nonce: 1
+      storage: {}
+
+
+    # CREATE2
+    0000000000000000000000000000000000C0DEF5:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin {
+          sstore(0,create2(0, 0, 0x200, 0x5A17))
+       }        
+      nonce: 1
+      storage: {}
+
+
+    # CALL
+    0000000000000000000000000000000000C0DEF1:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin {
+          let retval := call(gas(), 0xCA11, 0, 0, 0x100, 0, 0x100)
+       }        
+      nonce: 1
+      storage: {}
+
+
+
+
+    # CALLCODE
+    0000000000000000000000000000000000C0DEF2:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin {
+          let retval := callcode(gas(), 0xCA11, 0, 0, 0x100, 0, 0x100)
+       }        
+      nonce: 1
+      storage: {}
+
+
+    # DELEGATECALL
+    0000000000000000000000000000000000C0DEF4:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin {
+          let retval := delegatecall(gas(), 0xCA11, 0, 0x100, 0, 0x100)
+       }        
+      nonce: 1
+      storage: {}
+
+
+    # STATICCALL
+    0000000000000000000000000000000000C0DEFA:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin {
+          let retval := staticcall(gas(), 0xCA11, 0, 0x100, 0, 0x100)
+       }        
+      nonce: 1
+      storage: {}
+
+
+    # Contract to the called
+    000000000000000000000000000000000000CA11:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin {
+          mstore(0, 0xDEADBEEF)
+          return(0, 0x100)
+       }        
+      nonce: 1
+      storage: {}
+
+
+
+    # Memory access that expands the allocated memory
+    0000000000000000000000000000000000C0DE51:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin {
+          let useless := mload(0xBEEF)
+       }        
+      nonce: 1
+      storage: {}
+
+
+
+
+    0000000000000000000000000000000000C0DE52:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin {
+          mstore(0xBEEF, 0xFF)
+       }        
+      nonce: 1
+      storage: {}
+
+
+
+
+    0000000000000000000000000000000000C0DE53:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin {
+          mstore8(0xBEEF, 0xFF)
+       }        
+      nonce: 1
+      storage: {}
+
+
+    0000000000000000000000000000000000C0DE20:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin {
+          let useless := keccak256(0,0xBEEF)
+       }        
+      nonce: 1
+      storage: {}
+
+
+    # Access to external code
+    0000000000000000000000000000000000C0DE3B:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin {
+         let addr := 0xCA11
+         extcodecopy(addr, 0, 0, extcodesize(addr))
+       }        
+      nonce: 1
+      storage: {}
+
+
+
+
+
+
+
+
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin {
+         // Run the operation with gasAmt, gasAmt+gasDiff, gasAmt+2*gasDiff, etc.
+         let gasAmt := calldataload(0x24)
+         let gasDiff := calldataload(0x44)
+         let addr := add(0xC0DE00, calldataload(0x04))
+         let result := 0
+
+         for { } eq(result, 0) { } {     // Until the operation is successful
+            result := call(gasAmt, addr, 0, 0, 0, 0, 0)
+            gasAmt := add(gasAmt, gasDiff)
+         }
+         sstore(0, sub(gasAmt, gasDiff))
+       }        
+      nonce: 1
+      storage: {}
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x
+      nonce: 1
+      storage: {}
+
+
+  transaction:
+    data:
+    - :label CREATE       :abi f(uint,uint,uint) 0xF0 0 100
+    - :label CREATE2      :abi f(uint,uint,uint) 0xF5 0 100
+
+    - :label CALL         :abi f(uint,uint,uint) 0xF1 0 100
+    - :label CALLCODE     :abi f(uint,uint,uint) 0xF2 0 100
+    - :label DELEGATECALL :abi f(uint,uint,uint) 0xF4 0 100
+    - :label STATICCALL   :abi f(uint,uint,uint) 0xFA 0 100
+
+    # Memory access that extends the allocated memory has multiple places to
+    # run out of gas
+    - :label MLOAD        :abi f(uint,uint,uint) 0x51 0 100
+    - :label MSTORE       :abi f(uint,uint,uint) 0x52 0 100
+    - :label MSTORE8      :abi f(uint,uint,uint) 0x53 0 100
+    - :label SHA3         :abi f(uint,uint,uint) 0x20 0 100
+
+    # Load and read external code
+    - :label EXTCODE      :abi f(uint,uint,uint) 0x3B 0 100
+
+    gasLimit:
+    - 80000000
+    gasPrice: 10
+    nonce: 1
+    to: cccccccccccccccccccccccccccccccccccccccc
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    value:
+    - 0
+
+  expect:
+    # CREATE
+    - indexes:
+        data: :label CREATE
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 54200
+
+
+    # CREATE2
+    - indexes:
+        data: :label CREATE2
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 54300
+
+
+    - indexes:
+        data: 
+        - :label CALL
+        - :label CALLCODE
+        - :label DELEGATECALL
+        - :label STATICCALL
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 2700
+
+
+    - indexes:
+        data: 
+        - :label MLOAD
+        - :label MSTORE
+        - :label MSTORE8
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 9200
+
+
+
+    - indexes:
+        data: 
+        - :label EXTCODE
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 2800
+
+
+
+    - indexes:
+        data: :label SHA3
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 18400

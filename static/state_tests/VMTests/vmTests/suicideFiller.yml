@@ -1,0 +1,118 @@
+suicide:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    # suicide0, self balance to CALLER (the account
+    # that called us, not the source of the transaction)
+    0000000000000000000000000000000000001000:
+      balance: 0xFF000000000000
+      code: |
+        {
+           (selfdestruct (caller))
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # suicideNotExisting
+    0000000000000000000000000000000000001001:
+      balance: 0x100000000000
+      code: |
+        {
+           (selfdestruct 0xdead)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    # suicideEtherToMe
+    0000000000000000000000000000000000001002:
+      balance: 0x100000000000
+      code: |
+        {
+           (selfdestruct (address))
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: 0x100000000000
+      code: |
+        {
+           (call (gas) $4 0 0 0 0 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '100000000000000'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+
+
+
+  transaction:
+    data:
+    - :label caller   :abi f(uint) 0x1000
+    - :label random   :abi f(uint) 0x1001
+    - :label myself   :abi f(uint) 0x1002
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - 0
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+  expect:
+    - indexes:
+        data: :label caller
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          balance: 99999999711710
+        cccccccccccccccccccccccccccccccccccccccc:
+          balance: 0xff100000000000
+
+
+    - indexes:
+        data: :label random
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000dead:
+          balance: 0x100000000000
+
+
+    - indexes:
+        data: :label myself
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          balance: 0x100000000000

@@ -1,0 +1,59 @@
+# 17
+# Tstore arbitrary value in arbitrary slot costs 100 gas : TSTORE(x, y) costs 100 gas.
+#
+# Expect storage slot 1 to be 100. Cost of tstore.
+
+17_tstoreGas:
+  _info:
+    comment: Tstore arbitrary value in arbitrary slot costs 100 gas.
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentNumber: 1
+    currentTimestamp: 1000
+    currentGasLimit: 0x10000000000000
+    currentBaseFee: 10
+
+  pre:
+    A00000000000000000000000000000000000000A:
+      balance: 1000000000000000000
+      nonce: 0
+      code: |
+        :yul {
+          let extraOpcodes := 7
+          
+          // calculate tstore gas
+          let g1 := gas()
+          verbatim_2i_0o(hex"5D", 0, 3)
+          let g2 := gas()
+          sstore(1, sub(sub(g1, g2), extraOpcodes))
+        }
+      storage: {}
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 1000000000000000000000
+      code: "0x"
+      nonce: 0
+      storage: {}
+
+  transaction:
+    data:
+      - data: 0x
+        accessList: []
+    gasLimit:
+      - "400000"
+    nonce: 0
+    to: A00000000000000000000000000000000000000A
+    value:
+      - 0
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    maxPriorityFeePerGas: 0
+    maxFeePerGas: 2000
+
+  expect:
+    - network:
+        - ">=Cancun"
+      result:
+        A00000000000000000000000000000000000000A:
+          storage:
+            0x01: 100

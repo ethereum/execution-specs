@@ -1,0 +1,430 @@
+mulmod:
+
+  # Test modular multiplication
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    0000000000000000000000000000000000001000:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; (1*2) % 2 is zero
+           [[0]] (mulmod 1 2 2)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001001:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; -a is actually 2^256-a
+           ;
+           ; 2^256 % 3 = 1
+           ; (2^256-1) % 3 = (1-1)%3 = 0
+           [[0]] (mulmod (- 0 1) (- 0 2) 3)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001002:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; -5 % 3 = (2^256 - 5) % 3 = (1-2)%3 = (-1) % 3 = 2
+           [[0]] (mulmod (- 0 5) 1 3)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001003:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; -3 is actually 2^256-3, which is much more than five
+           [[0]] (mulmod 5 1 (- 0 3))
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001004:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (mulmod 27 37 100)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001005:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           (def 'pow2_255 0x8000000000000000000000000000000000000000000000000000000000000000)
+
+           ; 2^255%5 = 3
+           ;     2%5 = 2
+           ;           6%5 = 1
+           [[0]] (mulmod pow2_255 2 5)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000001006:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; (256^2-1) % 5 = 0
+           [[0]] (mulmod (- 0 1) 2 5)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000001007:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           (def 'pow2_255 0x8000000000000000000000000000000000000000000000000000000000000000)
+
+           ; 2^255%5 = 3
+           ;     2%5 = 2
+           ; (3-1) * 2 = 4
+           [[0]] (mulmod (- pow2_255 1) 2 5)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001008:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           (def 'pow2_255 0x8000000000000000000000000000000000000000000000000000000000000000)
+
+           ; 2^255%5 = 3
+           ;     2%5 = 2
+           ; ((3+1) * 2) % 5 = 3
+           [[0]] (mulmod (+ pow2_255 1) 2 5)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001009:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; smod   is signed mod, -5%3 = -1
+           ; mulmod is unsigned mod, -5%3 = 2
+           ; -1 != 2
+           [[0]] (= (smod (- 0 5) 3) (mulmod (- 0 5) 1 3))
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    000000000000000000000000000000000000100a:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; mod and mulmod are both unsigned mod
+           ; equal
+           [[0]] (= (mod (- 0 5) 3) (mulmod (- 0 5) 1 3))
+        }
+      nonce: '0'
+      storage: {}
+
+
+    000000000000000000000000000000000000100b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; (mulmod a b -c) is usually a*b, because -c is
+           ; actually 2^256-c, which is huge
+           ; not equal
+           [[0]] (= (mulmod 5 1 (- 0 3)) 2)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    000000000000000000000000000000000000100c:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; (mulmod x y 0) is zero
+           [[0]] (mulmod 0 1 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    000000000000000000000000000000000000100d:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; (mulmod x y 0) is zero
+           [[0]] (mulmod 1 0 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    000000000000000000000000000000000000100e:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; (mulmod x y 0) is zero
+           [[0]] (- 1 (mulmod 0 0 0))
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+
+    000000000000000000000000000000000000100f:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; (mulmod x y 0) is zero
+           [[0]] (mulmod 5 1 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            (call 0xffffff (+ 0x1000 $4) 0 0 0 0 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+  transaction:
+    data:
+    - :label mm_1_2_2             :abi f(uint) 0
+    - :label mm_neg1_neg2_3       :abi f(uint) 1
+    - :label mm_neg5_1_3          :abi f(uint) 2
+    - :label mm_5_1_neg3          :abi f(uint) 3
+    - :label mm_27_37_100         :abi f(uint) 4
+    - :label mm_2pow255_2_5       :abi f(uint) 5
+    - :label mm_neg1_2_5          :abi f(uint) 6
+    - :label mm_2pow255min1_2_5   :abi f(uint) 7
+    - :label mm_2pow255plus1_2_5  :abi f(uint) 8
+    - :label mulmod_vs_smod       :abi f(uint) 9
+    - :label mulmod_vs_mod        :abi f(uint) 0x0a
+    - :label mulmod_pos_pos_neg   :abi f(uint) 0x0b
+    - :label mm_0_1_0             :abi f(uint) 0x0c
+    - :label mm_1_0_0             :abi f(uint) 0x0d
+    - :label one_minus_mm_0_0_0   :abi f(uint) 0x0e
+    - :label mm_5_1_0             :abi f(uint) 0x0d
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+  expect:
+
+    # All zero results
+
+    - indexes:
+        data:
+        - :label mm_1_2_2
+        - :label mm_neg1_neg2_3
+        - :label mm_neg1_2_5
+        - :label mulmod_vs_smod
+        - :label mulmod_pos_pos_neg
+        - :label mm_0_1_0
+        - :label mm_1_0_0
+        - :label mm_5_1_0
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001000:
+          storage:
+            0: 0x00
+        0000000000000000000000000000000000001001:
+          storage:
+            0: 0x00
+        0000000000000000000000000000000000001006:
+          storage:
+            0: 0x00
+        0000000000000000000000000000000000001009:
+          storage:
+            0: 0x00
+        000000000000000000000000000000000000100b:
+          storage:
+            0: 0x00
+        000000000000000000000000000000000000100c:
+          storage:
+            0: 0x00
+        000000000000000000000000000000000000100d:
+          storage:
+            0: 0x00
+        000000000000000000000000000000000000100f:
+          storage:
+            0: 0x00
+
+
+
+
+
+    - indexes:
+        data:
+        - :label mm_neg5_1_3
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001002:
+          storage:
+            0: 0x02
+
+
+
+    - indexes:
+        data:
+        - :label mm_5_1_neg3
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001003:
+          storage:
+            0: 0x05
+
+
+
+
+    - indexes:
+        data:
+        - :label mm_27_37_100
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001004:
+          storage:
+            # 27x37 is 999, so mod 100 is 99 or 0x63
+            0: 0x63
+
+
+
+    - indexes:
+        data:
+        - :label mm_2pow255_2_5
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001005:
+          storage:
+            0: 0x01
+
+
+
+
+
+    - indexes:
+        data:
+        - :label mm_2pow255min1_2_5
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001007:
+          storage:
+            0: 0x04
+
+
+
+    - indexes:
+        data:
+        - :label mm_2pow255plus1_2_5
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001008:
+          storage:
+            0: 0x03
+
+
+
+
+    - indexes:
+        data:
+        - :label mulmod_vs_mod
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000100a:
+          storage:
+            0: 0x01
+
+
+    - indexes:
+        data:
+        - :label one_minus_mm_0_0_0
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000100e:
+          storage:
+            0: 0x01

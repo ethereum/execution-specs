@@ -1,0 +1,80 @@
+fib:
+
+  # The Fibonnaci sequence
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+      
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+           (def 'fib (n) [[n]] (+ @@(- n 1) @@(- n 2)))
+           (fib  2)
+           (fib  3)
+           (fib  4)
+           (fib  5)
+           (fib  6)
+           (fib  7)
+           (fib  8)
+           (fib  9)
+           (fib 10)
+        }
+      nonce: '0'
+      storage:
+        0: 0x00
+        1: 0x01
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+      
+# The transaction to check
+  transaction:
+    data: 
+    - :raw 0x01
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    
+    
+  expect:
+    - indexes:
+        data:  !!int -1
+        gas:   !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0:  0x00
+            1:  0x01
+            2:  0x01
+            3:  0x02
+            4:  0x03
+            5:  0x05
+            6:  0x08
+            7:  0x0D # 13
+            8:  0x15 # 21
+            9:  0x22 # 34
+            10: 0x37 # 55

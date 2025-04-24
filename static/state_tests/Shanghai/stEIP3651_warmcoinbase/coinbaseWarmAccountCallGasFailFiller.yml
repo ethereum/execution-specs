@@ -1,0 +1,133 @@
+# Check the call is successful due to barely enough gas, only when coinbase is warm
+
+coinbaseWarmAccountCallGasFail:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "100000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+
+
+  pre:
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        :yul berlin
+        {
+           // Depending on the called contract here, the subcall will perform
+           // another call/delegatecall/staticcall/callcode that will only succeed
+           // if coinbase is considered warm by default (post-Shanghai).
+           let calladdr := calldataload(4)
+
+           let callgas := 100
+           switch calladdr
+           case 0x1000 {
+             // Extra: COINBASE + 6xPUSH1 + DUP6 + 2xPOP
+             callgas := add(callgas, 27)
+           }
+           case 0x2000 {
+             // Extra: COINBASE + 6xPUSH1 + DUP6 + 2xPOP
+             callgas := add(callgas, 27)
+           }
+           case 0x3000 {
+             // Extra: COINBASE + 5xPUSH1 + DUP6 + 2xPOP
+             callgas := add(callgas, 24)
+           }
+           case 0x4000 {
+             // Extra: COINBASE + 5xPUSH1 + DUP6 + 2xPOP
+             callgas := add(callgas, 24)
+           }
+           // Call and save result
+           sstore(0, call(callgas, calladdr, 0, 0, 0, 0, 0))
+
+        }
+      nonce: 1
+      storage: {}
+    # Call
+    0000000000000000000000000000000000001000:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code:  |
+        :yul berlin
+        {
+           let cb := coinbase()
+           pop(call(0, cb, 0, 0, 0, 0, 0))
+        }
+      nonce: 1
+      storage: {}
+    # CallCode
+    0000000000000000000000000000000000002000:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code:  |
+        :yul berlin
+        {
+           let cb := coinbase()
+           pop(callcode(0, cb, 0, 0, 0, 0, 0))
+        }
+      nonce: 1
+      storage: {}
+    # DelegateCall
+    0000000000000000000000000000000000003000:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code:  |
+        :yul berlin
+        {
+           let cb := coinbase()
+           pop(delegatecall(0, cb, 0, 0, 0, 0))
+        }
+      nonce: 1
+      storage: {}
+    # StaticCall
+    0000000000000000000000000000000000004000:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code:  |
+        :yul berlin
+        {
+           let cb := coinbase()
+           pop(staticcall(0, cb, 0, 0, 0, 0))
+        }
+      nonce: 1
+      storage: {}
+    # This account is coinbase and will receive the call/staticcall/delegatecall/callcode
+    2adc25665018aa1fe0e6bc666dac8fc2697ff9ba:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x
+      nonce: 1
+      storage: {}
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x
+      nonce: 1
+      storage: {}
+
+
+  transaction:
+    data:
+    # CALL - WRMCB0009
+    - :abi f(uint) 0x1000
+    # CALLCODE - WRMCB0010
+    - :abi f(uint) 0x2000
+    # DELEGATECALL - WRMCB0011
+    - :abi f(uint) 0x3000
+    # STATICCALL - WRMCB0012
+    - :abi f(uint) 0x4000
+    gasLimit:
+    - 80000
+    gasPrice: 10
+    nonce: 1
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - 0
+    secretKey: '45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8'
+
+
+
+  expect:
+    - network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            # Coinbase access post-Shanghai is warm, hence subcall has enough gas and succeeds
+            0x0:  1

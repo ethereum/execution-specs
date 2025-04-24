@@ -1,0 +1,88 @@
+# Get the maximum refund (by refunding eight SSTOREs, in a transaction that doesn't
+# do much other than that) and see what it is.
+#
+# The cost of the transaction without refunds is 61057 gas
+#    (obtained by running with newVal := <not zero>)
+#
+# Berlin Refund: 30528 gas   ( 61057 / 2 )
+# London Refund: 12211 gas   ( 61057 / 5 )
+#
+# EIP 3529 sets MAX_REFUND_QUOTIENT to 5 (previously it was 2)
+
+refundMax:
+  _info:
+    comment: Ori Pomerantz   qbzzt1@gmail.com
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentNumber: 1
+    currentTimestamp: 1000
+    currentGasLimit: 0x1000000
+    currentBaseFee: 1000
+
+  pre:
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '1000000000000000000'
+      code: |
+          :yul berlin
+          {
+             let newVal := 0
+             sstore(0x00,newVal)
+             sstore(0x01,newVal)
+             sstore(0x02,newVal)
+             sstore(0x03,newVal)
+             sstore(0x04,newVal)
+             sstore(0x05,newVal)
+             sstore(0x06,newVal)
+             sstore(0x07,newVal)
+
+             // Get rid of Yul optimizations
+             newVal := msize()
+          }
+      nonce: 1
+      storage:
+        0x00: 0x60A7
+        0x01: 0x60A7
+        0x02: 0x60A7
+        0x03: 0x60A7
+        0x04: 0x60A7
+        0x05: 0x60A7
+        0x06: 0x60A7
+        0x07: 0x60A7
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 1000061060000
+      code: '0x'
+      nonce: 1
+      storage: {}
+
+
+  transaction:
+    data:
+    - data: :raw 0x00
+      accessList: []
+    gasLimit:
+    - 2601000
+    nonce: 1
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - 0
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    gasPrice: 1000
+    
+
+  expect:
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+
+      network:
+        - '>=Cancun'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          # Without a refund, the balance would be 1000000000000
+          # The London refund is 12218000 wei, which is 12218 gas 
+          balance: 1000012218000
+

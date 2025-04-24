@@ -1,0 +1,101 @@
+# https://github.com/ethereum/tests/issues/558 (subcall/opcode return more data then expected)
+---
+subcallReturnMoreThenExpected:
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "10000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+  _info:
+    comment: "https://github.com/ethereum/tests/issues/558 (subcall/opcode return more data then expected)"
+  pre:
+    095e7baea6a6c7c4c2dfeb977efac326af552d87:
+      balance: '1000000000000000000'
+      code: |
+        {
+          ;; Get returndata from a subcall
+          (CALL 200000 0x194f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0 12)
+          [[0]] (MLOAD 0)
+          (MSTORE 0 0x0000000000000000000000000000000000000000000000000000000000000000)
+          (DELEGATECALL 200000 0x194f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 12)
+          [[1]] (MLOAD 0)
+          (MSTORE 0 0x0000000000000000000000000000000000000000000000000000000000000000)
+          (STATICCALL 200000 0x194f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 12)
+          [[2]] (MLOAD 0)
+          (MSTORE 0 0x0000000000000000000000000000000000000000000000000000000000000000)
+          (CALLCODE 200000 0x194f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0 12)
+          [[3]] (MLOAD 0)
+          (MSTORE 0 0x0000000000000000000000000000000000000000000000000000000000000000)
+
+          ;; Get revert data from a subcall
+          (CALL 200000 0x294f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0 12)
+          [[4]] (MLOAD 0)
+          (MSTORE 0 0x0000000000000000000000000000000000000000000000000000000000000000)
+          (DELEGATECALL 200000 0x294f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 12)
+          [[5]] (MLOAD 0)
+          (MSTORE 0 0x0000000000000000000000000000000000000000000000000000000000000000)
+          (STATICCALL 200000 0x294f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 12)
+          [[6]] (MLOAD 0)
+          (MSTORE 0 0x0000000000000000000000000000000000000000000000000000000000000000)
+          (CALLCODE 200000 0x294f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0 12)
+          [[7]] (MLOAD 0)
+        }
+      nonce: '0'
+      storage: {}
+    194f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: |
+        {
+          (MSTORE 0  0x1122334455667788991011121314151617181920212223242526272829303132)
+          (MSTORE 32 0x3334353637383940414243444546474849505152535455565758596061626364)
+          (RETURN 0 64)
+        }
+      nonce: '0'
+      storage: {}
+    294f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: |
+        {
+          (MSTORE 0  0x1122334455667788991011121314151617181920212223242526272829303132)
+          (MSTORE 32 0x3334353637383940414243444546474849505152535455565758596061626364)
+          (REVERT 0 64)
+        }
+      nonce: '0'
+      storage: {} 
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: ''
+      nonce: '0'
+      storage: {}
+  expect:
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          balance: '1000000000000000001'
+          storage: {
+            "0x00": '0x1122334455667788991011120000000000000000000000000000000000000000',
+            "0x01": '0x1122334455667788991011120000000000000000000000000000000000000000',
+            "0x02": '0x1122334455667788991011120000000000000000000000000000000000000000',
+            "0x03": '0x1122334455667788991011120000000000000000000000000000000000000000',
+            "0x04": '0x1122334455667788991011120000000000000000000000000000000000000000',
+            "0x05": '0x1122334455667788991011120000000000000000000000000000000000000000',
+            "0x06": '0x1122334455667788991011120000000000000000000000000000000000000000',
+            "0x07": '0x1122334455667788991011120000000000000000000000000000000000000000'
+          }
+  transaction:
+    data:
+    - ''
+    gasLimit:
+    - '400000'
+    gasPrice: '10'
+    nonce: '0'
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 095e7baea6a6c7c4c2dfeb977efac326af552d87
+    value:
+    - '1'

@@ -1,0 +1,113 @@
+{
+    "add11" : {
+        "_info" : {
+            "comment" : "A test for (add 1 1) opcode result"
+        },
+        "env" : {
+            "//comment" : "A blockinfo section (obsolite). Do not change. (only coinbase and gasLimit could be changed)",
+            "currentCoinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x20000",
+            "currentGasLimit" : "0xFF112233445566",
+            "currentNumber" : "1",
+            "currentTimestamp" : "1000"
+        },
+        "//comment" : "Expect section is the post condition for the transaction result",
+        "expect" : [
+            {
+                "//comment" : "indexes are used to specify post condition for a given transaction range.",
+                "//comment" : "transaction section describe multiple transaction which will be executed on pre state",
+                "indexes" : {
+                    "//comment" : "-1 for transaction with any data from this field. or a particular index, or range [0, 1, 2]",
+                    "data" : -1,
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "//comment" : "hard fork order: Frontier, Homestead, EIP150, EIP155, Byzantium, Constantinople, Istanbul",
+                "network" : [">=Cancun"],
+                "result" : {
+                    "//comment" : "Account in expect section would be checked for the fields specified here (balance, code, storage)",
+                    "095e7baea6a6c7c4c2dfeb977efac326af552d87" : {
+                        "//comment" : "Better not to check the gas or mining reward affected account's balances.",
+                        "//comment" : "A change in gasPrice will affect the test and this post condition.",
+                        "//comment" : "So unless the test doesn't really requrie it, don't check coinbase/miner address balance or sender balance in post section",
+                        "//balance" : "1000000000000100000",
+                        "//comment" : "Byte Code example",
+                        "code" : "0x600160010160005500",
+                        "storage" : {
+                            "0x00" : "0x02"
+                        }
+                    },
+                    "//comment" : "could be incomplete type. only balance field would be checked.",
+                    "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba" : {
+                        "//balance" : "43112",
+                        "nonce" : "1"
+                    },
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "//balance" : "999999999999856888",
+                        "code" : "0x",
+                        "nonce" : "1",
+                        "storage" : {
+                        }
+                    },
+                    "//comment" : "check that this address is not generated to the post state",
+                    "e94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "shouldnotexist" : "1"
+                    }
+                }
+            }
+        ],
+        "//comment" : "Pre condition state for the test",
+        "pre" : {
+            "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba" : {
+                "balance" : "0",
+                "code" : "0x",
+                "nonce" : "1",
+                "storage" : {
+                }
+            },
+            "095e7baea6a6c7c4c2dfeb977efac326af552d87" : {
+                "balance" : "1000000000000000000",
+                "//comment": "If lllc compiler is installed, LLL code will be converted into EVM bytecode when --filltests",
+                "//code" : "put result of add(1,1) into storage cell 0",
+                "//comment" : "Bytecode example: ",
+                "//code" : "0x600160010160005500",
+                "//comment" : "LLL Code example. Use LLL with comments, so your tests would have transparent source logic.",
+                "//comment" : "If the LLL is to bit for .json use .yml test format for better sourcing of the contract",
+                "code" : "{ [[0]] (ADD 1 1) }",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+            "//comment" : "A pre state account description must be complete (balance, code, nonce, storage)",
+            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "1000000000000000000",
+                "code" : "0x",
+                "nonce" : "0",
+                "storage" : {
+                }
+            }
+        },
+        "//comment" : "multiple transaction description that will be applied on a pre state",
+        "transaction" : {
+            "//comment" : "foreach d in `data` { foreach g in `gasLimit` { foreach v in `value`  {  pre.applyTransaction(d, g, v)  }}}",
+            "//comment" : "each element of the data array is treated same as account's code field. You could use LLL here",
+            "data" : [
+                ""
+            ],
+            "//comment" : "Be careful when adding gasLimits that are < then intrinsic gas cost. StateTests are not allowed to have invalid transactions",
+            "gasLimit" : [
+                "400000"
+            ],
+            "gasPrice" : "10",
+            "//comment" : "nonce must be same as account nonce a94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "nonce" : "0",
+            "//comment" : "secretKey is a privKey of a94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "//comment" : "if `to` field is empty, the transaction becomes contract creation. code from data will be executed as a deployment code",
+            "to" : "095e7baea6a6c7c4c2dfeb977efac326af552d87",
+            "value" : [
+                "100000"
+            ]
+        }
+    }
+}

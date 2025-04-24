@@ -1,0 +1,515 @@
+# Run CREATE[2] operations with different amounts of gas so they'll go OOG,
+# REVERT, or be successful. This can create a return buffer with information
+# about the failure according to https://eips.ethereum.org/EIPS/eip-211:
+#
+# As an exception, CREATE and CREATE2 are considered to return the empty buffer 
+# in the success case and the failure data in the failure case.
+#
+# Requested in issue #942
+
+
+createFailResult:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "100000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+
+  _info:
+    comment: Ori Pomerantz   qbzzt1@gmail.com
+
+
+  pre:
+    # Just return with some data to fill up the returndata buffer
+    000000000000000000000000000000000000DA7A:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+           mstore(0x00, 0xDEADBEEF)
+           mstore(0x20, 0x60A7)
+ 
+           // Return with two words of data
+           return(0, 0x40)
+       }        
+      nonce: 1
+      storage: {}
+
+
+    # Constructor code for BAD constructor (one that returns with REVERT)
+    0000000000000000000000000000000000000BAD:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+          mstore(0, 0x0BAD0BAD0BAD)
+          revert(0, 0x20)
+       }        
+      nonce: 1
+      storage: {}
+
+
+    # Constructor code for 600D constructor (one that returns with RETURN)
+    000000000000000000000000000000000000600D:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+          mstore(0, 0x600D)
+          return(0, 0x20)
+       }        
+      nonce: 1
+      storage: {}
+    
+
+
+
+    # CREATE
+    0000000000000000000000000000000000C0DEF0:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+          // Before the main call, call DA7A to fill up the return buffer
+          sstore(0x10, call(gas(), 0xDA7A, 0, 0, 0, 0x100, 0x40))
+          sstore(0x11, returndatasize())
+          sstore(0x12, mload(0x100))
+          sstore(0x13, mload(0x120))
+
+
+          // Read the constructor code from the appropriate contract
+          let srcAddr := calldataload(0)   // either 600D or BAD
+
+          let codeSize := extcodesize(srcAddr)      
+          extcodecopy(srcAddr, 0, 0, codeSize)
+
+          // Create
+          sstore(0,create(0, 0, codeSize))
+
+          // If we have a returned buffer, see what it is
+          sstore(1,returndatasize())
+          returndatacopy(0x200, 0, returndatasize())
+          sstore(2, mload(0x200))
+          sstore(3, mload(0x220))
+       }        
+      nonce: 1
+      storage: {}
+
+
+    # CREATE2
+    0000000000000000000000000000000000C0DEF5:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+          // Before the main call, call DA7A to fill up the return buffer
+          sstore(0x10, call(gas(), 0xDA7A, 0, 0, 0, 0x100, 0x40))
+          sstore(0x11, returndatasize())
+          sstore(0x12, mload(0x100))
+          sstore(0x13, mload(0x120))
+
+          // Read the constructor code from the appropriate contract
+          let srcAddr := calldataload(0)   // either 600D or BAD
+
+          let codeSize := extcodesize(srcAddr)      
+          extcodecopy(srcAddr, 0, 0, codeSize)
+
+          // Create
+          sstore(0,create2(0, 0, codeSize, 0x5A17))
+
+          // If we have a returned buffer, see what it is
+          sstore(1,returndatasize())
+          returndatacopy(0x200, 0, returndatasize())
+          sstore(2, mload(0x200))
+          sstore(3, mload(0x220))
+       }        
+      nonce: 1
+      storage: {}
+
+
+
+    # Also CREATE2, but fails due to collision
+    0000000000000000000000000000000000C0DEFF:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+          // Before the main call, call DA7A to fill up the return buffer
+          sstore(0x10, call(gas(), 0xDA7A, 0, 0, 0, 0x100, 0x40))
+          sstore(0x11, returndatasize())
+          sstore(0x12, mload(0x100))
+          sstore(0x13, mload(0x120))
+
+          // Read the constructor code from the appropriate contract
+          let srcAddr := calldataload(0)   // either 600D or BAD
+
+          let codeSize := extcodesize(srcAddr)      
+          extcodecopy(srcAddr, 0, 0, codeSize)
+
+          // Create
+          sstore(0,create2(0, 0, codeSize, 0xBAD05A17))
+
+          // If we have a returned buffer, see what it is
+          sstore(1,returndatasize())
+          returndatacopy(0x200, 0, returndatasize())
+          sstore(2, mload(0x200))
+          sstore(3, mload(0x220))
+       }        
+      nonce: 1
+      storage: {}
+
+
+    # The existing account CREATE2 collides with (600D)
+    bb0237ab04970e3cf3e813c02064662adc89336b:
+      balance: 0x600D
+      code: :raw 0x600100
+      nonce: 1
+      storage: {}
+
+
+    # The existing account CREATE2 collides with (BAD) 
+    13c950f8740ffaea1869a88d70b029e8b0c9a8da:
+      balance: 0x600D
+      code: :raw 0x600100
+      nonce: 1
+      storage: {}
+
+
+    # Also CREATE, but fails due to collision
+    0000000000000000000000000000000000C0DEEE:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+          // Before the main call, call DA7A to fill up the return buffer
+          sstore(0x10, call(gas(), 0xDA7A, 0, 0, 0, 0x100, 0x40))
+          sstore(0x11, returndatasize())
+          sstore(0x12, mload(0x100))
+          sstore(0x13, mload(0x120))
+
+          // Read the constructor code from the appropriate contract
+          let srcAddr := calldataload(0)   // either 600D or BAD
+
+          let codeSize := extcodesize(srcAddr)      
+          extcodecopy(srcAddr, 0, 0, codeSize)
+
+          // Create
+          sstore(0,create(0, 0, codeSize))
+
+          // If we have a returned buffer, see what it is
+          sstore(1,returndatasize())
+          returndatacopy(0x200, 0, returndatasize())
+          sstore(2, mload(0x200))
+          sstore(3, mload(0x220))
+       }        
+      nonce: 1
+      storage: {}
+
+
+
+    # The existing account CREATE collides with
+    f9d1ea8eab6963659ee85b3e0b4d8a57e7edba2b:
+      balance: 0x600D
+      code: :raw 0x600100
+      nonce: 1
+      storage: {}
+
+
+    # The contract we call
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+         // The operation to run
+         // F0 - CREATE
+         // F5 - CREATE2
+         let oper := calldataload(0x04)
+
+         // The condition for it
+         // 0x0006 - OUT OF GAS
+         // 0x0BAD - REVERT with data
+         // 0x600D - Success
+         let cond := calldataload(0x24)
+         let addr := add(0xC0DE00, oper)
+
+
+
+         // Before the main call, call DA7A to fill up the return buffer
+         sstore(0x10, call(gas(), 0xDA7A, 0, 0, 0, 0x100, 0x40))
+         sstore(0x11, returndatasize())
+         sstore(0x12, mload(0x100))
+         sstore(0x13, mload(0x120))
+
+
+         let gasAmt := gas()
+
+         // Out Of Gas, CREATE[2] always costs more than 32k in gas
+         // but we need to also pay for the four SSTOREs that verify DA7A was
+         // called correctly
+         if eq(cond,0x0006) { gasAmt := add(30000,mul(22100,4)) }
+
+         // Send the condition to the contract we call so it'll know whether
+         // the construct needs to be end with RETURN or REVERT
+         mstore(0, cond)
+
+
+         let result := call(gasAmt, addr, 0, 0, 0x20, 0x200, 0x20)
+
+         sstore(0, result)
+         sstore(1, returndatasize())
+
+         // First word of the return data
+         sstore(2, mload(0x200))
+
+       }        
+      nonce: 1
+      storage: {}
+
+
+
+    # User account
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x
+      nonce: 1
+      storage: {}
+
+
+  transaction:
+    data:
+    - :label CREATE--OOG      :abi f(uint,uint) 0xF0 0x0006
+    - :label CREATE2-OOG      :abi f(uint,uint) 0xF5 0x0006
+    - :label CREATE--GOOD     :abi f(uint,uint) 0xF0 0x600D
+    - :label CREATE2-GOOD     :abi f(uint,uint) 0xF5 0x600D
+    - :label CREATE--BAD      :abi f(uint,uint) 0xF0 0x0BAD
+    - :label CREATE2-BAD      :abi f(uint,uint) 0xF5 0x0BAD
+    - :label CREATE2-BOOM     :abi f(uint,uint) 0xFF 0x600D
+    - :label CREATE2-BAD-BOOM :abi f(uint,uint) 0xFF 0x0BAD
+    - :label CREATE--BOOM     :abi f(uint,uint) 0xEE 0x600D
+    - :label CREATE--BAD-BOOM :abi f(uint,uint) 0xEE 0x0BAD
+
+    gasLimit:
+    - 80000000
+    gasPrice: 10
+    nonce: 1
+    to: cccccccccccccccccccccccccccccccccccccccc
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    value:
+    - 0
+
+  expect:
+    # CREATE[2] runs out of gas
+    - indexes:
+        data: 
+        - :label CREATE--OOG
+        - :label CREATE2-OOG
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0  # Return value of failed call
+            1: 0  # RETURNDATASIZE
+            2: 0  # First word of return data
+
+            ## Verify the DA7A call was OK
+            0x10:    1   # Return value of DA7A call
+            0x11: 0x40   # Length of output
+
+            # Output from DA7A
+            0x12: 0xDEADBEEF
+            0x13: 0x60A7
+
+
+    # CREATE is successful
+    - indexes:
+        data: 
+        - :label CREATE--GOOD
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000c0def0:
+          storage:
+            # Address of newly created contract
+            0x00: 0xb44f2c88d3d4283cd1e54e418c4ff7e6a6c73202
+            0x01: 0  # No RETURNDATA
+            0x02: 0
+            0x03: 0
+
+            # Verify the DA7A call was OK
+            0x10:    1   # Return value of DA7A call
+            0x11: 0x40   # Length of output
+            0x12: 0xDEADBEEF
+            0x13: 0x60A7
+
+
+
+    # CREATE2 is successful
+    - indexes:
+        data: 
+        - :label CREATE2-GOOD
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000c0def5:
+          storage:
+            # Address of newly created contract
+            0x00: 0x65ee26a034447b6ac64abdca1cccb7b747e4a231
+            0x01: 0  # No RETURNDATA
+            0x02: 0
+            0x03: 0
+
+            # Verify the DA7A call was OK
+            0x10:    1   # Return value of DA7A call
+            0x11: 0x40   # Length of output
+            0x12: 0xDEADBEEF
+            0x13: 0x60A7
+
+
+    # CREATE failed (REVERT)
+    - indexes:
+        data: 
+        - :label CREATE--BAD
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000c0def0:
+          storage:
+            0x00: 0    # No newly created contract
+            0x01: 0x20 # There is returned data 
+            0x02: 0x0bad0bad0bad  # Which just says how bad things are
+
+            # Verify the DA7A call was OK
+            0x10:    1   # Return value of DA7A call
+            0x11: 0x40   # Length of output
+            0x12: 0xDEADBEEF
+            0x13: 0x60A7
+
+
+
+    # CREATE2 failed (REVERT)
+    - indexes:
+        data: 
+        - :label CREATE2-BAD
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000c0def5:
+          storage:
+            0x00: 0    # No newly created contract
+            0x01: 0x20 # There is returned data 
+            0x02: 0x0bad0bad0bad  # Which just says how bad things are
+
+            # Verify the DA7A call was OK
+            0x10:    1   # Return value of DA7A call
+            0x11: 0x40   # Length of output
+            0x12: 0xDEADBEEF
+            0x13: 0x60A7
+
+
+
+    # CREATE2 failed due to collision
+    - indexes:
+        data: 
+        - :label CREATE2-BOOM
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000c0deff:
+          storage:
+            0x00: 0    # No newly created contract
+            0x01: 0    # No returned data in case of collision
+
+            # Verify the DA7A call was OK
+            0x10:    1   # Return value of DA7A call
+            0x11: 0x40   # Length of output
+            0x12: 0xDEADBEEF
+            0x13: 0x60A7
+
+
+
+    # CREATE2 failed (REVERT, but it would have failed due to a collision anyway)
+    - indexes:
+        data: 
+        - :label CREATE2-BAD-BOOM
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000c0deff:
+          storage:
+            0x00: 0    # No newly created contract
+            0x01: 0    # There is no returned data 
+
+            # Verify the DA7A call was OK
+            0x10:    1   # Return value of DA7A call
+            0x11: 0x40   # Length of output
+            0x12: 0xDEADBEEF
+            0x13: 0x60A7
+
+
+
+
+
+
+
+    # CREATE failed due to collision
+    - indexes:
+        data: 
+        - :label CREATE--BOOM
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000c0deee:
+          storage:
+            0x00: 0    # No newly created contract
+            0x01: 0    # No returned data in case of collision
+
+            # Verify the DA7A call was OK
+            0x10:    1   # Return value of DA7A call
+            0x11: 0x40   # Length of output
+            0x12: 0xDEADBEEF
+            0x13: 0x60A7
+
+
+
+    # CREATE failed (REVERT, but it would have failed due to a collision anyway)
+    - indexes:
+        data: 
+        - :label CREATE--BAD-BOOM
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000c0deee:
+          storage:
+            0x00: 0    # No newly created contract
+            0x01: 0    # There is no returned data 
+
+            # Verify the DA7A call was OK
+            0x10:    1   # Return value of DA7A call
+            0x11: 0x40   # Length of output
+            0x12: 0xDEADBEEF
+            0x13: 0x60A7
+
+
+

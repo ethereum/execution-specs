@@ -1,0 +1,318 @@
+MCOPY:
+
+  _info:
+    comment: MCOPY memory copy test cases
+
+  env:
+    currentNumber: 1
+    currentTimestamp: 1687174231
+    currentGasLimit: 1000000
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+
+  pre:
+
+    # Executed code (transaction destination)
+    000000000000000000000000000000000000c0de:
+      balance: 0
+      nonce: 1
+      code: |
+        :yul {
+          function mcopy(dst, src, size) { verbatim_3i_0o(hex"5e", dst, src, size) }
+        
+          // Fill memory at [0-96] (3x32) with the pattern of unique bytes.
+          mstore( 0, 0xa0a1a2a3a4a5a6a7a8a9aAaBaCaDaEaFb0b1b2b3b4b5b6b7b8b9bAbBbCbDbEbF)
+          mstore(32, 0xc0c1c2c3c4c5c6c7c8c9cAcBcCcDcEcFd0d1d2d3d4d5d6d7d8d9dAdBdCdDdEdF)
+          mstore(64, 0xe0e1e2e3e4e5e6e7e8e9eAeBeCeDeEeFf0f1f2f3f4f5f6f7f8f9fAfBfCfDfEfF)
+        
+          // MCOPY using parameters from CALLDATA.
+          mcopy(calldataload(0), calldataload(32), calldataload(64))
+        
+          // Dump memory at [0-96] to 3 storage slots.
+          sstore(0, mload( 0))
+          sstore(1, mload(32))
+          sstore(2, mload(64))
+        }
+      storage: { }
+
+    # Transaction sender
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 1000000000
+      nonce: 0
+      code: ''
+      storage: { }
+
+  transaction:
+    to: 000000000000000000000000000000000000c0de
+    nonce: 0
+    gasLimit:
+      - 1000000
+    gasPrice: 10
+    value:
+      - 0
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    data:
+      - >
+        :label forward_size0_0 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000002
+        0000000000000000000000000000000000000000000000000000000000000000
+        0000000000000000000000000000000000000000000000000000000000000000
+      - >
+        :label forward_size0_1 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000020
+        0000000000000000000000000000000000000000000000000000000000000001
+        0000000000000000000000000000000000000000000000000000000000000000
+      - >
+        :label backward_size0_0 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000000
+        0000000000000000000000000000000000000000000000000000000000000001
+        0000000000000000000000000000000000000000000000000000000000000000
+      - >
+        :label backward_size0_1 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000020
+        0000000000000000000000000000000000000000000000000000000000000021
+        0000000000000000000000000000000000000000000000000000000000000000
+      - >
+        :label inplace_size0_0 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000000
+        0000000000000000000000000000000000000000000000000000000000000000
+        0000000000000000000000000000000000000000000000000000000000000000
+      - >
+        :label inplace_size0_1 :raw 0x
+        000000000000000000000000000000000000000000000000000000000000001f
+        000000000000000000000000000000000000000000000000000000000000001f
+        0000000000000000000000000000000000000000000000000000000000000000
+      - >
+        :label forward_overlapped_0 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000001
+        0000000000000000000000000000000000000000000000000000000000000000
+        0000000000000000000000000000000000000000000000000000000000000002
+      - >
+        :label forward_overlapped_1 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000002
+        0000000000000000000000000000000000000000000000000000000000000001
+        000000000000000000000000000000000000000000000000000000000000001f
+      - >
+        :label forward_disjoint_0 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000020
+        0000000000000000000000000000000000000000000000000000000000000000
+        000000000000000000000000000000000000000000000000000000000000001f
+      - >
+        :label forward_disjoint_1 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000020
+        0000000000000000000000000000000000000000000000000000000000000001
+        0000000000000000000000000000000000000000000000000000000000000002
+      - >
+        :label forward_adjacent_0 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000002
+        0000000000000000000000000000000000000000000000000000000000000000
+        0000000000000000000000000000000000000000000000000000000000000002
+      - >
+        :label forward_adjacent_1 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000020
+        000000000000000000000000000000000000000000000000000000000000001f
+        0000000000000000000000000000000000000000000000000000000000000001
+      - >
+        :label backward_overlapped_0 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000000
+        000000000000000000000000000000000000000000000000000000000000001f
+        0000000000000000000000000000000000000000000000000000000000000021
+      - >
+        :label backward_overlapped_1 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000001
+        0000000000000000000000000000000000000000000000000000000000000002
+        0000000000000000000000000000000000000000000000000000000000000021
+      - >
+        :label backward_disjoint_0 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000000
+        0000000000000000000000000000000000000000000000000000000000000021
+        0000000000000000000000000000000000000000000000000000000000000020
+      - >
+        :label backward_disjoint_1 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000002
+        0000000000000000000000000000000000000000000000000000000000000021
+        0000000000000000000000000000000000000000000000000000000000000001
+      - >
+        :label backward_adjacent_0 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000000
+        0000000000000000000000000000000000000000000000000000000000000020
+        0000000000000000000000000000000000000000000000000000000000000020
+      - >
+        :label backward_adjacent_1 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000020
+        0000000000000000000000000000000000000000000000000000000000000021
+        0000000000000000000000000000000000000000000000000000000000000001
+      - >
+        :label inplace_0 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000000
+        0000000000000000000000000000000000000000000000000000000000000000
+        0000000000000000000000000000000000000000000000000000000000000001
+      - >
+        :label inplace_1 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000002
+        0000000000000000000000000000000000000000000000000000000000000002
+        0000000000000000000000000000000000000000000000000000000000000033
+
+  expect:
+
+    - indexes:
+        data:
+          - :label forward_size0_0
+          - :label forward_size0_1
+          - :label backward_size0_0
+          - :label backward_size0_1
+          - :label inplace_size0_0
+          - :label inplace_size0_1
+          - :label inplace_0
+          - :label inplace_1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000c0de:
+          storage:
+            0: 0xa0a1a2a3a4a5a6a7a8a9aAaBaCaDaEaFb0b1b2b3b4b5b6b7b8b9bAbBbCbDbEbF
+            1: 0xc0c1c2c3c4c5c6c7c8c9cAcBcCcDcEcFd0d1d2d3d4d5d6d7d8d9dAdBdCdDdEdF
+            2: 0xe0e1e2e3e4e5e6e7e8e9eAeBeCeDeEeFf0f1f2f3f4f5f6f7f8f9fAfBfCfDfEfF
+
+    - indexes:
+        data:
+          - :label forward_overlapped_0
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000c0de:
+          storage:
+            0: 0xa0a0a1a3a4a5a6a7a8a9aAaBaCaDaEaFb0b1b2b3b4b5b6b7b8b9bAbBbCbDbEbF
+            1: 0xc0c1c2c3c4c5c6c7c8c9cAcBcCcDcEcFd0d1d2d3d4d5d6d7d8d9dAdBdCdDdEdF
+            2: 0xe0e1e2e3e4e5e6e7e8e9eAeBeCeDeEeFf0f1f2f3f4f5f6f7f8f9fAfBfCfDfEfF
+
+    - indexes:
+        data:
+          - :label forward_overlapped_1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000c0de:
+          storage:
+            0: 0xa0a1a1a2a3a4a5a6a7a8a9aAaBaCaDaEaFb0b1b2b3b4b5b6b7b8b9bAbBbCbDbE
+            1: 0xbFc1c2c3c4c5c6c7c8c9cAcBcCcDcEcFd0d1d2d3d4d5d6d7d8d9dAdBdCdDdEdF
+            2: 0xe0e1e2e3e4e5e6e7e8e9eAeBeCeDeEeFf0f1f2f3f4f5f6f7f8f9fAfBfCfDfEfF
+
+    - indexes:
+        data:
+          - :label forward_disjoint_0
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000c0de:
+          storage:
+            0: 0xa0a1a2a3a4a5a6a7a8a9aAaBaCaDaEaFb0b1b2b3b4b5b6b7b8b9bAbBbCbDbEbF
+            1: 0xa0a1a2a3a4a5a6a7a8a9aAaBaCaDaEaFb0b1b2b3b4b5b6b7b8b9bAbBbCbDbEdF
+            2: 0xe0e1e2e3e4e5e6e7e8e9eAeBeCeDeEeFf0f1f2f3f4f5f6f7f8f9fAfBfCfDfEfF
+
+    - indexes:
+        data:
+          - :label forward_disjoint_1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000c0de:
+          storage:
+            0: 0xa0a1a2a3a4a5a6a7a8a9aAaBaCaDaEaFb0b1b2b3b4b5b6b7b8b9bAbBbCbDbEbF
+            1: 0xa1a2c2c3c4c5c6c7c8c9cAcBcCcDcEcFd0d1d2d3d4d5d6d7d8d9dAdBdCdDdEdF
+            2: 0xe0e1e2e3e4e5e6e7e8e9eAeBeCeDeEeFf0f1f2f3f4f5f6f7f8f9fAfBfCfDfEfF
+
+    - indexes:
+        data:
+          - :label forward_adjacent_0
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000c0de:
+          storage:
+            0: 0xa0a1a0a1a4a5a6a7a8a9aAaBaCaDaEaFb0b1b2b3b4b5b6b7b8b9bAbBbCbDbEbF
+            1: 0xc0c1c2c3c4c5c6c7c8c9cAcBcCcDcEcFd0d1d2d3d4d5d6d7d8d9dAdBdCdDdEdF
+            2: 0xe0e1e2e3e4e5e6e7e8e9eAeBeCeDeEeFf0f1f2f3f4f5f6f7f8f9fAfBfCfDfEfF
+
+    - indexes:
+        data:
+          - :label forward_adjacent_1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000c0de:
+          storage:
+            0: 0xa0a1a2a3a4a5a6a7a8a9aAaBaCaDaEaFb0b1b2b3b4b5b6b7b8b9bAbBbCbDbEbF
+            1: 0xbFc1c2c3c4c5c6c7c8c9cAcBcCcDcEcFd0d1d2d3d4d5d6d7d8d9dAdBdCdDdEdF
+            2: 0xe0e1e2e3e4e5e6e7e8e9eAeBeCeDeEeFf0f1f2f3f4f5f6f7f8f9fAfBfCfDfEfF
+
+    - indexes:
+        data:
+          - :label backward_overlapped_0
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000c0de:
+          storage:
+            0: 0xbFc0c1c2c3c4c5c6c7c8c9cAcBcCcDcEcFd0d1d2d3d4d5d6d7d8d9dAdBdCdDdE
+            1: 0xdFc1c2c3c4c5c6c7c8c9cAcBcCcDcEcFd0d1d2d3d4d5d6d7d8d9dAdBdCdDdEdF
+            2: 0xe0e1e2e3e4e5e6e7e8e9eAeBeCeDeEeFf0f1f2f3f4f5f6f7f8f9fAfBfCfDfEfF
+
+    - indexes:
+        data:
+          - :label backward_overlapped_1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000c0de:
+          storage:
+            0: 0xa0a2a3a4a5a6a7a8a9aAaBaCaDaEaFb0b1b2b3b4b5b6b7b8b9bAbBbCbDbEbFc0
+            1: 0xc1c2c2c3c4c5c6c7c8c9cAcBcCcDcEcFd0d1d2d3d4d5d6d7d8d9dAdBdCdDdEdF
+            2: 0xe0e1e2e3e4e5e6e7e8e9eAeBeCeDeEeFf0f1f2f3f4f5f6f7f8f9fAfBfCfDfEfF
+
+    - indexes:
+        data:
+          - :label backward_disjoint_0
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000c0de:
+          storage:
+            0: 0xc1c2c3c4c5c6c7c8c9cAcBcCcDcEcFd0d1d2d3d4d5d6d7d8d9dAdBdCdDdEdFe0
+            1: 0xc0c1c2c3c4c5c6c7c8c9cAcBcCcDcEcFd0d1d2d3d4d5d6d7d8d9dAdBdCdDdEdF
+            2: 0xe0e1e2e3e4e5e6e7e8e9eAeBeCeDeEeFf0f1f2f3f4f5f6f7f8f9fAfBfCfDfEfF
+
+    - indexes:
+        data:
+          - :label backward_disjoint_1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000c0de:
+          storage:
+            0: 0xa0a1c1a3a4a5a6a7a8a9aAaBaCaDaEaFb0b1b2b3b4b5b6b7b8b9bAbBbCbDbEbF
+            1: 0xc0c1c2c3c4c5c6c7c8c9cAcBcCcDcEcFd0d1d2d3d4d5d6d7d8d9dAdBdCdDdEdF
+            2: 0xe0e1e2e3e4e5e6e7e8e9eAeBeCeDeEeFf0f1f2f3f4f5f6f7f8f9fAfBfCfDfEfF
+
+    - indexes:
+        data:
+          - :label backward_adjacent_0
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000c0de:
+          storage:
+            0: 0xc0c1c2c3c4c5c6c7c8c9cAcBcCcDcEcFd0d1d2d3d4d5d6d7d8d9dAdBdCdDdEdF
+            1: 0xc0c1c2c3c4c5c6c7c8c9cAcBcCcDcEcFd0d1d2d3d4d5d6d7d8d9dAdBdCdDdEdF
+            2: 0xe0e1e2e3e4e5e6e7e8e9eAeBeCeDeEeFf0f1f2f3f4f5f6f7f8f9fAfBfCfDfEfF
+
+    - indexes:
+        data:
+          - :label backward_adjacent_1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000c0de:
+          storage:
+            0: 0xa0a1a2a3a4a5a6a7a8a9aAaBaCaDaEaFb0b1b2b3b4b5b6b7b8b9bAbBbCbDbEbF
+            1: 0xc1c1c2c3c4c5c6c7c8c9cAcBcCcDcEcFd0d1d2d3d4d5d6d7d8d9dAdBdCdDdEdF
+            2: 0xe0e1e2e3e4e5e6e7e8e9eAeBeCeDeEeFf0f1f2f3f4f5f6f7f8f9fAfBfCfDfEfF

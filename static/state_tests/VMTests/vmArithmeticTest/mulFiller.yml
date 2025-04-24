@@ -1,0 +1,290 @@
+mul:
+
+  # Multiplication
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    0000000000000000000000000000000000001000:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            [[0]] (* 2 3)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000001001:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            ; -1 * -1
+            ; -1 = 2^256-1 in evm arithmetic
+            [[0]] (*
+                     0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+                     0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+                  )
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001002:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+             [[0]] (* 0 23)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000001003:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+             [[0]] (* 23 1)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001004:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; 2^255 * -1 (the expected answer is 2^255,
+           ;             because -2^255 = 2^256-2^255 in evm arithmetic)
+           [[0]] (*
+               0x8000000000000000000000000000000000000000000000000000000000000000
+               0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+           )
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001005:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; 2^255 * 2^255
+           ;
+           ; the expected answer is 0, because 2^510 % 2^256 = 0
+           [[0]] (*
+               0x8000000000000000000000000000000000000000000000000000000000000000
+               0x8000000000000000000000000000000000000000000000000000000000000000
+           )
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000001006:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; (2^255-1) * (2^255-1)
+           ;
+           ; = 2^510 - 2*2^255 + 1 = 2^510 - 2^256 + 1 = 1
+           [[0]] (*
+               0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+               0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+           )
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001007:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (* (*
+                 0x1234567890abcdef0fedcba0987654321
+                 0x1234567890abcdef0fedcba0987654321
+              )
+              0x1234567890abcdef0fedcba0987654321
+           )
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # Do a mul underflow, see that the transaction is reverted
+    0000000000000000000000000000000000001008:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      # [[0]] 1   so the test will fail if there is no revert
+      # 00 PUSH1 01
+      # 02 PUSH1 00
+      # 04 SSTORE
+      #  Do a stack underflow
+      # 05 PUSH1 01
+      # 07 MUL
+      # 08 STOP
+      code: :raw 0x600160005560010200
+      nonce: '0'
+      storage: {}
+
+
+
+
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            (call 0xffffff (+ 0x1000 $4) 0 0 0 0 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+# The transaction to check
+  transaction:
+    data:
+    - :label mul_2_3                     :abi f(uint) 0
+    - :label mul_neg1_neg1               :abi f(uint) 1
+    - :label mul_0_23                    :abi f(uint) 2
+    - :label mul_23_1                    :abi f(uint) 3
+    - :label mul_2pow255_neg1            :abi f(uint) 4
+    - :label mul_2pow255_2pow255         :abi f(uint) 5
+    - :label mul_2pow255min1_2pow255min1 :abi f(uint) 6
+    - :label big_pow_3                   :abi f(uint) 7
+    - :label stack_underflow             :abi f(uint) 8
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+  expect:
+    - indexes:
+        data:
+        - :label mul_0_23
+        - :label mul_2pow255_2pow255
+        - :label stack_underflow
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001002:
+          storage:
+             0: 0x00
+        0000000000000000000000000000000000001005:
+          storage:
+             0: 0x00
+        # It's 1 unless the transaction is reverted
+        0000000000000000000000000000000000001008:
+          storage:
+             0: 0x00
+
+
+
+    - indexes:
+        data: :label mul_2_3
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001000:
+          storage:
+             0: 0x06
+
+
+
+
+    - indexes:
+        data: :label mul_neg1_neg1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001001:
+          storage:
+             0: 0x01
+
+
+
+    - indexes:
+        data: :label mul_23_1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001003:
+          storage:
+             # 0x17 = 23
+             0: 0x17
+
+
+
+    - indexes:
+        data: :label mul_2pow255_neg1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001004:
+          storage:
+             # 2^255, which is equal to -2^255 in evm arithmetic
+             0: 0x8000000000000000000000000000000000000000000000000000000000000000
+
+
+
+    - indexes:
+        data: :label mul_2pow255min1_2pow255min1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001006:
+          storage:
+             # (2^255-1)*(2^255-1) = 2^510 - 2*255 + 1 = 2^510-2^256+1 = 1
+             0: 0x01
+
+
+
+    - indexes:
+        data: :label big_pow_3
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001007:
+          storage:
+             # Just a big number, multipled by itself to raise it to the power
+             # of three
+             0: 0x47D0817E4167B1EB4F9FC722B133EF9D7D9A6FB4C2C1C442D000107A5E419561

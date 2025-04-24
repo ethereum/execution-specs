@@ -1,0 +1,55 @@
+senderBalance:
+  _info:
+    comment: |
+      The execution records the EIP-1559 transaction origin balance to make sure its value is 
+      properly computed based on the effective gas price (not the maximum gas price as in 
+      the transaction validity check).
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 1
+    currentGasLimit: 30000000
+    currentNumber: 1
+    currentTimestamp: 1000
+    currentBaseFee: 11
+
+  pre:
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: 0
+      code: |
+        :yul london
+        {
+          sstore(0, balance(caller()))
+        }
+      nonce: 0
+      storage: {}
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 1000000000000000000
+      code: ''
+      nonce: 0
+      storage: {}
+
+  transaction:
+    nonce: 0
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+      - 0
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    maxFeePerGas: 1000
+    maxPriorityFeePerGas: 100
+    gasLimit:
+      - 60000
+    data:
+      - data: ''
+        accessList: []
+
+  expect:
+    - indexes:
+        data: !!int -1
+      network:
+        - ">=Cancun"
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 999999999993340000

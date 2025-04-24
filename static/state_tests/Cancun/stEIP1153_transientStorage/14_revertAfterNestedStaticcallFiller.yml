@@ -1,0 +1,103 @@
+# 14
+# Transient storage cannot be manipulated in a nested static context: TSTORE(x, y), STATICCALL(self, ...), CALL(self, ...), TSTORE(x, z) reverts
+#
+# Expect slot 0 to have 10 from the first tstore & tload.
+# Expect slot 1 to have 0 (for revert).
+# Expect slot 2 to have 1 (for success).
+# Expect slot 3 to have 10 (original value).
+
+14_revertAfterNestedStaticcall:
+  _info:
+    comment: Transient storage can't be manipulated from nested staticcall.
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentNumber: 1
+    currentTimestamp: 1000
+    currentGasLimit: 0x10000000000000
+    currentBaseFee: 10
+
+  pre:
+    A00000000000000000000000000000000000000A:
+      balance: 1000000000000000000
+      nonce: 0
+      code: |
+        :yul {
+          switch selector()
+
+          case 0xf5f40590 { // doStoreAndStaticCall()
+            doStoreAndStaticCall()
+          }
+
+          case 0xf8dfc2d0 { // doCallToStore()
+            doCallToStore()
+          }
+
+          case 0x62fdb9be { // doStore()
+            doStore()
+          }
+
+          function doStoreAndStaticCall() {
+            verbatim_2i_0o(hex"5D", 0, 10)
+
+            let v := verbatim_1i_1o(hex"5C", 0)
+            sstore(0, v)
+
+            mstore(0, hex"f8dfc2d0") // doCallToStore()
+            let success := staticcall(0xffff, address(), 0, 32, 0, 32)
+            
+            sstore(1, mload(0)) // should be 0 from nested unsuccessful call
+            sstore(2, success) // should be 1
+
+            let val := verbatim_1i_1o(hex"5C", 0)
+            sstore(3, val)
+          }
+          
+          function doCallToStore() {
+            mstore(0, hex"62fdb9be") // doStore()
+            let f := call(gas(), address(), 0, 0, 32, 0, 0) // call with zero-value
+            mstore(0, f)
+            return(0, 32)
+          }
+
+          function doStore() {
+            verbatim_2i_0o(hex"5D", 0, 11) // will revert
+          }
+
+          function selector() -> s {
+            let value := calldataload(0)
+            s := shr(224, value)
+          }
+        }
+      storage: { 0x01: 0xffff }
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 1000000000000000000000
+      code: "0x"
+      nonce: 0
+      storage: {}
+
+  transaction:
+    data:
+      - data: :abi doStoreAndStaticCall()
+        accessList: []
+    gasLimit:
+      - "400000"
+    nonce: 0
+    to: A00000000000000000000000000000000000000A
+    value:
+      - 0
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    maxPriorityFeePerGas: 0
+    maxFeePerGas: 2000
+
+  expect:
+    - network:
+        - ">=Cancun"
+      result:
+        A00000000000000000000000000000000000000A:
+          storage:
+            0x00: 10
+            0x01: 0
+            0x02: 1
+            0x03: 10

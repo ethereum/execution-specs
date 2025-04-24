@@ -1,0 +1,713 @@
+# Check the various swap opcodes
+#
+# NOTE: The functionality of the old swap2errorFiller.json is available in
+# GeneralStateTests/stStackTests/underflowTest.
+#
+# I fail to see the point of the old swapjump1
+#
+# We can't use lll with SWAP, swap, or push (lll needs to manage the stack
+# on its own). Instead, we do
+#  [1] PUSH1 0x00
+#  [3] PUSH1 0x01
+#  [5] PUSH1 0x02
+# .
+# .
+# .
+# [31] PUSH1 0x0F
+# [33] PUSH1 0x10
+# [34] **** OPCODE BEING TESTED
+# [36] PUSH1 0x00
+# [37] SSTORE       put stack top at @@0
+# [39] PUSH1 0x01
+# [40] SSTORE       put next value down at @@1
+# .
+# .
+# .
+# [78] PUSH1 0x0E
+# [79] SSTORE
+# [81] PUSH1 0x0F
+# [82] SSTORE
+
+swap:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    # SWAP1
+    0000000000000000000000000000000000001000:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: :raw 0x6000600160026003600460056006600760086009600A600B600C600D600E600F601090600055600155600255600355600455600555600655600755600855600955600A55600B55600C55600D55600E55600F55
+      #          PUSH1 0x01                         ...                      PUSH1 0x10@@
+      #     @@ is the opcode being tested
+      nonce: '0'
+      storage: {}
+
+
+
+    # SWAP2
+    0000000000000000000000000000000000001001:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: :raw 0x6000600160026003600460056006600760086009600A600B600C600D600E600F601091600055600155600255600355600455600555600655600755600855600955600A55600B55600C55600D55600E55600F55
+      #          PUSH1 0x01                         ...                      PUSH1 0x10@@
+      #          @@ is the opcode being tested
+      nonce: '0'
+      storage: {}
+
+
+
+    # SWAP3
+    0000000000000000000000000000000000001002:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: :raw 0x6000600160026003600460056006600760086009600A600B600C600D600E600F601092600055600155600255600355600455600555600655600755600855600955600A55600B55600C55600D55600E55600F55
+      #          PUSH1 0x01                         ...                      PUSH1 0x10@@
+      #     @@ is the opcode being tested
+      nonce: '0'
+      storage: {}
+
+
+
+    # SWAP4
+    0000000000000000000000000000000000001003:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x6000600160026003600460056006600760086009600A600B600C600D600E600F601093600055600155600255600355600455600555600655600755600855600955600A55600B55600C55600D55600E55600F55
+      #     PUSH1 0x01                         ...                      PUSH1 0x10@@
+      #     @@ is the opcode being tested
+      nonce: '0'
+      storage: {}
+
+
+
+
+
+    # SWAP5
+    0000000000000000000000000000000000001004:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x6000600160026003600460056006600760086009600A600B600C600D600E600F601094600055600155600255600355600455600555600655600755600855600955600A55600B55600C55600D55600E55600F55
+      #     PUSH1 0x01                         ...                      PUSH1 0x10@@
+      #     @@ is the opcode being tested
+      nonce: '0'
+      storage: {}
+
+
+
+    # SWAP6
+    0000000000000000000000000000000000001005:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x6000600160026003600460056006600760086009600A600B600C600D600E600F601095600055600155600255600355600455600555600655600755600855600955600A55600B55600C55600D55600E55600F55
+      #     PUSH1 0x01                         ...                      PUSH1 0x10@@
+      #     @@ is the opcode being tested
+      nonce: '0'
+      storage: {}
+
+
+
+    # SWAP7
+    0000000000000000000000000000000000001006:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x6000600160026003600460056006600760086009600A600B600C600D600E600F601096600055600155600255600355600455600555600655600755600855600955600A55600B55600C55600D55600E55600F55
+      #     PUSH1 0x01                         ...                      PUSH1 0x10@@
+      #     @@ is the opcode being tested
+      nonce: '0'
+      storage: {}
+
+
+
+    # SWAP8
+    0000000000000000000000000000000000001007:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x6000600160026003600460056006600760086009600A600B600C600D600E600F601097600055600155600255600355600455600555600655600755600855600955600A55600B55600C55600D55600E55600F55
+      #     PUSH1 0x01                         ...                      PUSH1 0x10@@
+      #     @@ is the opcode being tested
+      nonce: '0'
+      storage: {}
+
+
+
+
+
+    # SWAP9
+    0000000000000000000000000000000000001008:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x6000600160026003600460056006600760086009600A600B600C600D600E600F601098600055600155600255600355600455600555600655600755600855600955600A55600B55600C55600D55600E55600F55
+      #     PUSH1 0x01                         ...                      PUSH1 0x10@@
+      #     @@ is the opcode being tested
+      nonce: '0'
+      storage: {}
+
+
+
+    # SWAP10
+    0000000000000000000000000000000000001009:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x6000600160026003600460056006600760086009600A600B600C600D600E600F601099600055600155600255600355600455600555600655600755600855600955600A55600B55600C55600D55600E55600F55
+      #     PUSH1 0x01                         ...                      PUSH1 0x10@@
+      #     @@ is the opcode being tested
+      nonce: '0'
+      storage: {}
+
+
+
+    # SWAP11
+    000000000000000000000000000000000000100A:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x6000600160026003600460056006600760086009600A600B600C600D600E600F60109A600055600155600255600355600455600555600655600755600855600955600A55600B55600C55600D55600E55600F55
+      #     PUSH1 0x01                         ...                      PUSH1 0x10@@
+      #     @@ is the opcode being tested
+      nonce: '0'
+      storage: {}
+
+
+
+    # SWAP12
+    000000000000000000000000000000000000100B:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x6000600160026003600460056006600760086009600A600B600C600D600E600F60109B600055600155600255600355600455600555600655600755600855600955600A55600B55600C55600D55600E55600F55
+      #     PUSH1 0x01                         ...                      PUSH1 0x10@@
+      #     @@ is the opcode being tested
+      nonce: '0'
+      storage: {}
+
+
+
+
+
+    # SWAP13
+    000000000000000000000000000000000000100C:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x6000600160026003600460056006600760086009600A600B600C600D600E600F60109C600055600155600255600355600455600555600655600755600855600955600A55600B55600C55600D55600E55600F55
+      #     PUSH1 0x01                         ...                      PUSH1 0x10@@
+      #     @@ is the opcode being tested
+      nonce: '0'
+      storage: {}
+
+
+
+    # SWAP14
+    000000000000000000000000000000000000100D:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x6000600160026003600460056006600760086009600A600B600C600D600E600F60109D600055600155600255600355600455600555600655600755600855600955600A55600B55600C55600D55600E55600F55
+      #     PUSH1 0x01                         ...                      PUSH1 0x10@@
+      #     @@ is the opcode being tested
+      nonce: '0'
+      storage: {}
+
+
+
+    # SWAP15
+    000000000000000000000000000000000000100E:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x6000600160026003600460056006600760086009600A600B600C600D600E600F60109E600055600155600255600355600455600555600655600755600855600955600A55600B55600C55600D55600E55600F55
+      #     PUSH1 0x01                         ...                      PUSH1 0x10@@
+      #     @@ is the opcode being tested
+      nonce: '0'
+      storage: {}
+
+
+
+    # SWAP16
+    000000000000000000000000000000000000100F:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x6000600160026003600460056006600760086009600A600B600C600D600E600F60109F600055600155600255600355600455600555600655600755600855600955600A55600B55600C55600D55600E55600F55
+      #     PUSH1 0x01                         ...                      PUSH1 0x10@@
+      #     @@ is the opcode being tested
+      nonce: '0'
+      storage: {}
+
+
+
+
+
+
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            (call (gas) (+ 0x1000 $4) 0 0 0 0 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0x100000000000
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+
+
+
+  transaction:
+    data:
+    - :label swap1  :abi f(uint) 0
+    - :label swap2  :abi f(uint) 1
+    - :label swap3  :abi f(uint) 2
+    - :label swap4  :abi f(uint) 3
+    - :label swap5  :abi f(uint) 4
+    - :label swap6  :abi f(uint) 5
+    - :label swap7  :abi f(uint) 6
+    - :label swap8  :abi f(uint) 7
+    - :label swap9  :abi f(uint) 8
+    - :label swap10 :abi f(uint) 9
+    - :label swap11 :abi f(uint) 10
+    - :label swap12 :abi f(uint) 11
+    - :label swap13 :abi f(uint) 12
+    - :label swap14 :abi f(uint) 13
+    - :label swap15 :abi f(uint) 14
+    - :label swap16 :abi f(uint) 15
+
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+  expect:
+    - indexes:
+        data: :label swap1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001000:
+          storage:
+            0x00: 0x0F
+            0x01: 0x10
+            0x02: 0x0E
+            0x03: 0x0D
+            0x04: 0x0C
+            0x05: 0x0B
+            0x06: 0x0A
+            0x07: 0x09
+            0x08: 0x08
+            0x09: 0x07
+            0x0A: 0x06
+            0x0B: 0x05
+            0x0C: 0x04
+            0x0D: 0x03
+            0x0E: 0x02
+            0x0F: 0x01
+
+
+    - indexes:
+        data: :label swap2
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001001:
+          storage:
+            0x00: 0x0E
+            0x01: 0x0F
+            0x02: 0x10
+            0x03: 0x0D
+            0x04: 0x0C
+            0x05: 0x0B
+            0x06: 0x0A
+            0x07: 0x09
+            0x08: 0x08
+            0x09: 0x07
+            0x0A: 0x06
+            0x0B: 0x05
+            0x0C: 0x04
+            0x0D: 0x03
+            0x0E: 0x02
+            0x0F: 0x01
+
+
+    - indexes:
+        data: :label swap3
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001002:
+          storage:
+            0x00: 0x0D
+            0x01: 0x0F
+            0x02: 0x0E
+            0x03: 0x10
+            0x04: 0x0C
+            0x05: 0x0B
+            0x06: 0x0A
+            0x07: 0x09
+            0x08: 0x08
+            0x09: 0x07
+            0x0A: 0x06
+            0x0B: 0x05
+            0x0C: 0x04
+            0x0D: 0x03
+            0x0E: 0x02
+            0x0F: 0x01
+
+
+    - indexes:
+        data: :label swap4
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001003:
+          storage:
+            0x00: 0x0C
+            0x01: 0x0F
+            0x02: 0x0E
+            0x03: 0x0D
+            0x04: 0x10
+            0x05: 0x0B
+            0x06: 0x0A
+            0x07: 0x09
+            0x08: 0x08
+            0x09: 0x07
+            0x0A: 0x06
+            0x0B: 0x05
+            0x0C: 0x04
+            0x0D: 0x03
+            0x0E: 0x02
+            0x0F: 0x01
+
+
+
+    - indexes:
+        data: :label swap5
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001004:
+          storage:
+            0x00: 0x0B
+            0x01: 0x0F
+            0x02: 0x0E
+            0x03: 0x0D
+            0x04: 0x0C
+            0x05: 0x10
+            0x06: 0x0A
+            0x07: 0x09
+            0x08: 0x08
+            0x09: 0x07
+            0x0A: 0x06
+            0x0B: 0x05
+            0x0C: 0x04
+            0x0D: 0x03
+            0x0E: 0x02
+            0x0F: 0x01
+
+
+    - indexes:
+        data: :label swap6
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001005:
+          storage:
+            0x00: 0x0A
+            0x01: 0x0F
+            0x02: 0x0E
+            0x03: 0x0D
+            0x04: 0x0C
+            0x05: 0x0B
+            0x06: 0x10
+            0x07: 0x09
+            0x08: 0x08
+            0x09: 0x07
+            0x0A: 0x06
+            0x0B: 0x05
+            0x0C: 0x04
+            0x0D: 0x03
+            0x0E: 0x02
+            0x0F: 0x01
+
+
+    - indexes:
+        data: :label swap7
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001006:
+          storage:
+            0x00: 0x09
+            0x01: 0x0F
+            0x02: 0x0E
+            0x03: 0x0D
+            0x04: 0x0C
+            0x05: 0x0B
+            0x06: 0x0A
+            0x07: 0x10
+            0x08: 0x08
+            0x09: 0x07
+            0x0A: 0x06
+            0x0B: 0x05
+            0x0C: 0x04
+            0x0D: 0x03
+            0x0E: 0x02
+            0x0F: 0x01
+
+
+    - indexes:
+        data: :label swap8
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001007:
+          storage:
+            0x00: 0x08
+            0x01: 0x0F
+            0x02: 0x0E
+            0x03: 0x0D
+            0x04: 0x0C
+            0x05: 0x0B
+            0x06: 0x0A
+            0x07: 0x09
+            0x08: 0x10
+            0x09: 0x07
+            0x0A: 0x06
+            0x0B: 0x05
+            0x0C: 0x04
+            0x0D: 0x03
+            0x0E: 0x02
+            0x0F: 0x01
+
+
+
+    - indexes:
+        data: :label swap9
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001008:
+          storage:
+            0x00: 0x07
+            0x01: 0x0F
+            0x02: 0x0E
+            0x03: 0x0D
+            0x04: 0x0C
+            0x05: 0x0B
+            0x06: 0x0A
+            0x07: 0x09
+            0x08: 0x08
+            0x09: 0x10
+            0x0A: 0x06
+            0x0B: 0x05
+            0x0C: 0x04
+            0x0D: 0x03
+            0x0E: 0x02
+            0x0F: 0x01
+
+
+    - indexes:
+        data: :label swap10
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001009:
+          storage:
+            0x00: 0x06
+            0x01: 0x0F
+            0x02: 0x0E
+            0x03: 0x0D
+            0x04: 0x0C
+            0x05: 0x0B
+            0x06: 0x0A
+            0x07: 0x09
+            0x08: 0x08
+            0x09: 0x07
+            0x0A: 0x10
+            0x0B: 0x05
+            0x0C: 0x04
+            0x0D: 0x03
+            0x0E: 0x02
+            0x0F: 0x01
+
+
+    - indexes:
+        data: :label swap11
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000100A:
+          storage:
+            0x00: 0x05
+            0x01: 0x0F
+            0x02: 0x0E
+            0x03: 0x0D
+            0x04: 0x0C
+            0x05: 0x0B
+            0x06: 0x0A
+            0x07: 0x09
+            0x08: 0x08
+            0x09: 0x07
+            0x0A: 0x06
+            0x0B: 0x10
+            0x0C: 0x04
+            0x0D: 0x03
+            0x0E: 0x02
+            0x0F: 0x01
+
+
+    - indexes:
+        data: :label swap12
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000100B:
+          storage:
+            0x00: 0x04
+            0x01: 0x0F
+            0x02: 0x0E
+            0x03: 0x0D
+            0x04: 0x0C
+            0x05: 0x0B
+            0x06: 0x0A
+            0x07: 0x09
+            0x08: 0x08
+            0x09: 0x07
+            0x0A: 0x06
+            0x0B: 0x05
+            0x0C: 0x10
+            0x0D: 0x03
+            0x0E: 0x02
+            0x0F: 0x01
+
+
+
+    - indexes:
+        data: :label swap13
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000100C:
+          storage:
+            0x00: 0x03
+            0x01: 0x0F
+            0x02: 0x0E
+            0x03: 0x0D
+            0x04: 0x0C
+            0x05: 0x0B
+            0x06: 0x0A
+            0x07: 0x09
+            0x08: 0x08
+            0x09: 0x07
+            0x0A: 0x06
+            0x0B: 0x05
+            0x0C: 0x04
+            0x0D: 0x10
+            0x0E: 0x02
+            0x0F: 0x01
+
+
+    - indexes:
+        data: :label swap14
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000100D:
+          storage:
+            0x00: 0x02
+            0x01: 0x0F
+            0x02: 0x0E
+            0x03: 0x0D
+            0x04: 0x0C
+            0x05: 0x0B
+            0x06: 0x0A
+            0x07: 0x09
+            0x08: 0x08
+            0x09: 0x07
+            0x0A: 0x06
+            0x0B: 0x05
+            0x0C: 0x04
+            0x0D: 0x03
+            0x0E: 0x10
+            0x0F: 0x01
+
+
+    - indexes:
+        data: :label swap15
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000100E:
+          storage:
+            0x00: 0x01
+            0x01: 0x0F
+            0x02: 0x0E
+            0x03: 0x0D
+            0x04: 0x0C
+            0x05: 0x0B
+            0x06: 0x0A
+            0x07: 0x09
+            0x08: 0x08
+            0x09: 0x07
+            0x0A: 0x06
+            0x0B: 0x05
+            0x0C: 0x04
+            0x0D: 0x03
+            0x0E: 0x02
+            0x0F: 0x10
+
+
+    - indexes:
+        data: :label swap16
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000100F:
+          storage:
+            0x00: 0x00
+            0x01: 0x0F
+            0x02: 0x0E
+            0x03: 0x0D
+            0x04: 0x0C
+            0x05: 0x0B
+            0x06: 0x0A
+            0x07: 0x09
+            0x08: 0x08
+            0x09: 0x07
+            0x0A: 0x06
+            0x0B: 0x05
+            0x0C: 0x04
+            0x0D: 0x03
+            0x0E: 0x02
+            0x0F: 0x01

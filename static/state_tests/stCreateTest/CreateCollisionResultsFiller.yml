@@ -1,0 +1,200 @@
+CreateCollisionResults:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: 0x100000000
+    currentNumber: "1"
+    currentTimestamp: "1000"
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+
+  pre:
+
+    # Same address as CREATE creates. 
+    8af6a7af30d840ba137e8f3f34d54cfb8beba6e2:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code:   | 
+        {
+          [[0]] 0x001D
+        }
+      nonce: '0'
+      storage:
+        0x0: 0x60A7
+
+
+    # Same address as CREATE2 creates
+    40f1299359ea754ac29eb2662a1900752bf8275f:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code:   | 
+        {
+          [[0]] 0x001D
+        }
+      nonce: '0'
+      storage:
+        0x0: 0x60A7
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code:   | 
+        {
+          ; Variables are 0x20 bytes (= 256 bits) apart, except for
+          ; code buffers that get 0x100 (256 bytes)
+          (def 'creation          0x100)
+          (def 'contractCode      0x200)
+          (def 'constructorCode   0x300)
+          (def 'contractLength    0x520)
+          (def 'constructorLength 0x540)
+          (def 'addr1             0x600)
+          (def 'callRet           0x640)
+          (def 'buffer            0x660)
+          ; Addresses of the contracts (to check what code is there)
+          (def 'OrigAddr1 0x8af6a7af30d840ba137e8f3f34d54cfb8beba6e2)
+          (def 'OrigAddr2 0x40f1299359ea754ac29eb2662a1900752bf8275f)
+          ; Other constants
+          (def 'NOP 0)   ; No OPeration
+          ; Understand the input.
+          [creation]       (shr $ 0 248)
+          ; Code for created contract
+          (def 'contractMacro
+              (lll
+                 (sstore 0 0xFF)
+                 contractCode
+              )
+          )
+          ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          ; Create the contract and a constructor to pass to CREATE[2]
+          ;
+          [constructorLength] 
+            (lll
+               (return contractCode contractMacro)
+               constructorCode            
+            )   
+          [contractLength] contractMacro
+          ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          ; Actually create the contract
+          ;
+          (if (= @creation 1)
+            [addr1] (create 0 constructorCode @constructorLength)
+            [addr1] (create2 0 constructorCode @constructorLength 0x5a17)
+          )
+          ; PC after contract creation
+          [[0x20]] (pc)
+          ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          ; RETURNDATASIZE should be zero
+          ;
+          [[0x10]] (returndatasize)
+          [[0x11]] @addr1
+          ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          ; CALL the address where the contract should have been created
+          [callRet] (call 0xFFFF 
+                         0x8af6a7af30d840ba137e8f3f34d54cfb8beba6e2 0 0 0 0 0)
+          ; PC after contract call (CREATE)
+          [[0x21]] (pc)
+          [[0x12]] (- @callRet 1)
+          [[0x13]] (returndatasize)  
+          [callRet] (call 0xFFFF 
+                         0x40f1299359ea754ac29eb2662a1900752bf8275f 0 0 0 0 0)
+          ; PC after contract call (CREATE2)
+          [[0x22]] (pc)
+          [[0x14]] (- @callRet 1)
+          [[0x15]] (returndatasize)  
+          ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          ; Read code from contracts
+          ; The code CREATE attempted to overwrite
+          [[0x30]] (extcodesize OrigAddr1)
+          (extcodecopy OrigAddr1 buffer 0 @@0x30)
+          [[0x31]] @buffer
+          ; The code CREATE2 attempted to overwrite
+          [[0x32]] (extcodesize OrigAddr2)
+          (extcodecopy OrigAddr2 buffer 0 @@0x32)
+          [[0x33]] @buffer
+        }   ; end of LLL code
+      nonce: '0'
+      storage:
+        0x10: 0x60A7 # Return data size from CREATE[2]
+        0x11: 0x60A7 # Address of created contract
+        0x12: 0x60A7 # Return value of the first CALL minus 1 (0 if success)
+        0x13: 0x60A7 # Return data size from the first CALL
+        0x14: 0x60A7 # Return value of the second CALL minus 1 (0 if success)
+        0x15: 0x60A7 # Return data size from the second CALL
+        0x20: 0x60A7 # PC after CREATE[2]
+        0x21: 0x60A7 # PC after call for CREATE
+        0x22: 0x60A7 # PC after call for CREATE2
+
+
+    # User account
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+
+  transaction:
+    data:
+    # MSB
+    #
+    # Create type:    01 - CREATE  02 - CREATE2
+    #
+    # LSB  
+    - :raw 0x01
+    - :raw 0x02
+    gasLimit:
+    - 0xf0000000
+
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    value:
+    - 0
+
+  expect:
+
+    # All but static calls (which cannot change storage), with sufficient gas
+    - indexes:
+        data: !!int -1
+        gas:  !!int 0
+        value: !!int 0
+      network:
+        - '>=Cancun'
+      result:
+
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            # In the case of a collision CREATE[2] just pops the 
+            # parameter values from the stack and returns zero, so the
+            # results should all be zero except for these:
+
+            # PC values at various locations
+            0x20: 0x59
+            0x21: 0x8f
+            0x22: 0xC8
+
+            # EXTCODE values
+            0x30: 0x06
+            0x31: 0x601d600055000000000000000000000000000000000000000000000000000000
+            0x32: 0x06
+            0x33: 0x601d600055000000000000000000000000000000000000000000000000000000
+
+        # The address CREATE would have chosen
+        8af6a7af30d840ba137e8f3f34d54cfb8beba6e2:
+          code: 0x601d60005500
+          storage:
+            0: 0x001D
+            # 0x60A7 - no contract ran
+            # 0x001D - the old contract ran
+            # 0x00FF - the new contract ran
+
+        # The address CREATE2 would have chosen
+        40f1299359ea754ac29eb2662a1900752bf8275f:
+          code: 0x601d60005500
+          storage:
+            0: 0x001D
+            # 0x60A7 - no contract ran
+            # 0x001D - the old contract ran
+            # 0x00FF - the new contract ran

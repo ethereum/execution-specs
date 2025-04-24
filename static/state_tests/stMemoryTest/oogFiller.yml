@@ -1,0 +1,435 @@
+# Check for out of gas with various memory opcodes
+
+oog:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "100000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+
+  pre:
+    # SHA3
+    0000000000000000000000000000000000010020:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        :yul berlin
+        {
+            // Instead of keccak256, which seems to be optimized into
+            // not happening
+            pop(verbatim_2i_1o(hex"20", 0, 0x1000))
+        }
+      nonce: 1
+      storage: {}
+
+
+
+    # CALLDATACOPY
+    0000000000000000000000000000000000010037:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+          calldatacopy(0,0,0x1000)
+       }    
+      nonce: 1
+      storage: {}
+
+
+
+    # CODECOPY
+    0000000000000000000000000000000000010039:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin 
+       {
+          codecopy(0,0,0x1000)
+       }    
+      nonce: 1
+      storage: {}
+
+
+    # EXTCODECOPY
+    000000000000000000000000000000000001003C:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin 
+       {
+          extcodecopy(address(),0,0,0x1000)
+       }    
+      nonce: 1
+      storage: {}
+
+
+
+    # RETURNDATACOPY
+    000000000000000000000000000000000001003E:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+          // Make sure there is return data to be copied
+          pop(call(gas(), 0x1113e, 0, 0, 0x20, 0, 0x20))
+
+          returndatacopy(0x1000,0,0x10)
+       }    
+      nonce: 1
+      storage: {}
+
+
+    # Create return data
+    000000000000000000000000000000000001113E:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+          mstore(0, 0x0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F20)
+          return(0,0x20)
+       }    
+      nonce: 1
+      storage: {}
+
+
+    # MLOAD
+    0000000000000000000000000000000000010051:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+           pop(verbatim_1i_1o(hex"51", 0x1000))
+       }    
+      nonce: 1
+      storage: {}
+
+
+    # MSTORE
+    0000000000000000000000000000000000010052:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+           mstore(0x1000, 0xFF)
+       }    
+      nonce: 1
+      storage: {}
+
+
+    # MSTORE8
+    0000000000000000000000000000000000010053:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+           mstore8(0x1000, 0xFF)
+       }    
+      nonce: 1
+      storage: {}
+
+
+    # LOG0
+    00000000000000000000000000000000000100A0:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+          log0(0x10000, 0x20)
+       }    
+      nonce: 1
+      storage: {}
+
+
+    # LOG1
+    00000000000000000000000000000000000100A1:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+          log1(0x10000, 0x20, 0x1)
+       }    
+      nonce: 1
+      storage: {}
+
+
+    # LOG2
+    00000000000000000000000000000000000100A2:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+          log2(0x10000, 0x20, 0x1, 0x2)
+       }    
+      nonce: 1
+      storage: {}
+
+
+    # LOG3
+    00000000000000000000000000000000000100A3:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+          log3(0x10000, 0x20, 0x1, 0x2, 0x3)
+       }    
+      nonce: 1
+      storage: {}
+
+
+    # LOG4
+    00000000000000000000000000000000000100A4:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+          log4(0x10000, 0x20, 0x1, 0x2, 0x3, 0x4)
+       }    
+      nonce: 1
+      storage: {}
+
+
+    # CREATE
+    00000000000000000000000000000000000100F0:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+          pop(create(0, 0x10000, 0x20))
+       }    
+      nonce: 1
+      storage: {}
+
+
+    # CREATE2
+    00000000000000000000000000000000000100F5:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+          pop(create2(0, 0x10000, 0x20, 0x5a17))
+       }    
+      nonce: 1
+      storage: {}
+
+
+
+    # RETURN
+    00000000000000000000000000000000000100F3:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+          return(0x10000, 0x20)
+       }    
+      nonce: 1
+      storage: {}
+
+
+    # CALL
+    00000000000000000000000000000000000100f1:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+          pop(call(gas(), 0x111f1, 0, 0x10000, 0, 0, 0))
+       }    
+      nonce: 1
+      storage: {}
+
+
+    # CALLCODE
+    00000000000000000000000000000000000100f2:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+          pop(callcode(gas(), 0x111f1, 0, 0x10000, 0, 0, 0))
+       }    
+      nonce: 1
+      storage: {}
+
+
+    # DELEGATECALL
+    00000000000000000000000000000000000100f4:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+          pop(delegatecall(gas(), 0x111f1, 0x10000, 0, 0, 0))
+       }    
+      nonce: 1
+      storage: {}
+
+
+    # STATICCALL
+    00000000000000000000000000000000000100fa:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+          pop(staticcall(gas(), 0x111f1, 0x10000, 0, 0, 0))
+       }    
+      nonce: 1
+      storage: {}
+
+
+    # Contract to be called
+    00000000000000000000000000000000000111f1:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+          stop()
+       }    
+      nonce: 1
+      storage: {}
+
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+          let op     := calldataload(0x04)
+          let gasAmt := calldataload(0x24)
+
+          // Call the function that actually goes OOG (or not)
+          sstore(0, call(gasAmt, add(0x10000,op), 0, 0, 0, 0, 0))
+       }
+      nonce: 1
+      storage: {}
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x
+      nonce: 1
+      storage: {}
+
+
+  transaction:
+    data:
+    # SHA3 0,1
+    - :label success :abi f(uint,uint) 0x20 0xFFFF
+    - :label failure :abi f(uint,uint) 0x20 1210
+
+    # CALLDATACOPY 2,3
+    - :label success :abi f(uint,uint) 0x37 0xFFFF
+    - :label failure :abi f(uint,uint) 0x37 810
+
+    # CODECOPY 4,5
+    - :label success :abi f(uint,uint) 0x39 0xFFFF
+    - :label failure :abi f(uint,uint) 0x39 810
+
+    # EXTCODECOPY 6,7
+    - :label success :abi f(uint,uint) 0x3C 0xFFFF
+    - :label failure :abi f(uint,uint) 0x3C 700
+
+    # RETURNDATACOPY 8,9
+    - :label success :abi f(uint,uint) 0x3E 0xFFFF
+    - :label success :abi f(uint,uint) 0x3E 3074
+
+    # Two failures because @chfast has two memory related
+    # gas costs in his RETURNDATACOPY code, and we want to check both:
+    # 10
+    - :label failure :abi f(uint,uint) 0x3E 2000   # Memory extension cost
+    # 11
+    - :label failure :abi f(uint,uint) 0x3E 3073   # Memory copying cost (I think)
+
+    # MLOAD 12,30
+    - :label success :abi f(uint,uint) 0x51 0xFFFF
+    - :label failure :abi f(uint,uint) 0x51 400
+
+    # MSTORE
+    - :label success :abi f(uint,uint) 0x52 0xFFFF
+    - :label failure :abi f(uint,uint) 0x52 400
+
+    # MSTORE8
+    - :label success :abi f(uint,uint) 0x53 0xFFFF
+    - :label failure :abi f(uint,uint) 0x53 400
+
+    # LOG0
+    - :label success :abi f(uint,uint) 0xa0 0xFFFF
+    - :label failure :abi f(uint,uint) 0xa0 14800
+
+    # LOG1
+    - :label success :abi f(uint,uint) 0xa1 0xFFFF
+    - :label failure :abi f(uint,uint) 0xa1 14800
+
+    # LOG2
+    - :label success :abi f(uint,uint) 0xa2 0xFFFF
+    - :label failure :abi f(uint,uint) 0xa2 14800
+
+    # LOG3
+    - :label success :abi f(uint,uint) 0xa3 0xFFFF
+    - :label failure :abi f(uint,uint) 0xa3 14800
+
+    # LOG4
+    - :label success :abi f(uint,uint) 0xa4 0xFFFF
+    - :label failure :abi f(uint,uint) 0xa4 14800
+
+    # CREATE
+    - :label success :abi f(uint,uint) 0xf0 0xFFFF
+    - :label failure :abi f(uint,uint) 0xf0 32000
+
+    # CREATE2
+    - :label success :abi f(uint,uint) 0xf5 0xFFFF
+    - :label failure :abi f(uint,uint) 0xf5 32000
+
+    # RETURN
+    - :label success :abi f(uint,uint) 0xf3 0xFFFF
+    - :label failure :abi f(uint,uint) 0xf3 14000
+
+
+    # CALL
+    - :label success :abi f(uint,uint) 0xf1 0xFFFF
+    - :label failure :abi f(uint,uint) 0xf1 700
+
+    # CALLCODE
+    - :label success :abi f(uint,uint) 0xf2 0xFFFF
+    - :label failure :abi f(uint,uint) 0xf2 700
+
+    # DELEGATECALL
+    - :label success :abi f(uint,uint) 0xf4 0xFFFF
+    - :label failure :abi f(uint,uint) 0xf4 700
+
+    # STATICCALL
+    - :label success :abi f(uint,uint) 0xfa 0xFFFF
+    - :label failure :abi f(uint,uint) 0xfa 700
+
+
+    gasLimit:
+    - 80000000
+    gasPrice: 10
+    nonce: 1
+    to: cccccccccccccccccccccccccccccccccccccccc
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    value:
+    - 0
+
+  expect:
+    - indexes:
+        data: :label success
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 1
+
+
+    - indexes:
+        data: :label failure
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0

@@ -1,0 +1,59 @@
+# Account with non-empty code attempts to send tx to call itself
+
+transactionCollidingWithNonEmptyAccount_callsItself:
+  _info:
+    comment: Account with non-empty code attempts to send tx to call itself
+
+  env:
+    # A blockinfo section (obsolete). Do not change. (only coinbase and gasLimit could be changed)
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 0xFF112233445566
+    currentNumber: 1
+    currentTimestamp: 1000
+
+  # We prepare a state where the sending account already has code in it.
+  pre:
+     # Even if this account is not involved in transaction, it will be miner-reward touched upon generation of a state test
+    2adc25665018aa1fe0e6bc666dac8fc2697ff9ba:
+      balance: '0'
+      nonce: '1'
+      code: ''
+      storage: {}
+
+    # Account containing code from which we will try to send a transaction from
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      nonce: '0'
+      code: ':raw 0x6000600155'
+      storage: {}
+
+  # Transaction originating from account with code
+  transaction:
+    data:
+    - ''
+    gasLimit:
+    - '400000'
+    gasPrice: '10'
+    nonce: '0'
+    to: a94f5374fce5edbc8e2a8697c15331677e6ebf0b
+    value:
+    - '100000'
+    # secretKey is a privKey of a94f5374fce5edbc8e2a8697c15331677e6ebf0b
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+  expect:
+    - indexes:
+        data: !!int -1
+        gas:  !!int 0
+        value: !!int -1
+
+      network:
+        - '>=Cancun'
+      
+      # Transaction should be rejected since it is being sent by a EOA with code in it.
+      expectException:
+        '>=Cancun': 'TransactionException.SENDER_NOT_EOA'
+      
+      result: {}  # No point checking the result when no transaction happened

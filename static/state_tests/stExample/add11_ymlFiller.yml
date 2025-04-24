@@ -1,0 +1,113 @@
+# add11Filler.json representation in .yml format
+# YML format allows multiline strings which makes it easier to write contracts code using solidity, lll, yul
+# As well as adding comments to the test
+# However there is a little downside: yml is extremely sensitive to white spaces
+
+add11_yml:
+  _info:
+    comment: A test for (add 1 1) opcode result
+
+  env:
+    # A blockinfo section (obsolite). Do not change. (only coinbase and gasLimit could be changed)
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 0xFF112233445566
+    currentNumber: 1
+    currentTimestamp: 1000
+
+  # Expect section is the post condition for the transaction result
+  expect:
+
+    # indexes are used to specify post condition for a given transaction range.
+    # transaction section describe multiple transaction which will be executed on pre state
+    - indexes:
+
+         # -1 for transaction with any data from this field. or a particular index, or range [0, 1, 2]
+        data: !!int -1
+        gas:  !!int 0
+        value: !!int -1
+
+      # hard fork order Frontier, Homestead, EIP150, EIP155, Byzantium, Constantinople, Istanbul
+      network:
+        - '>=Cancun'
+      result:
+         # Account in expect section would be checked for the fields specified here (balance, code, storage)
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+           # Better not to check the gas or mining reward affected account's balances.
+           # A change in gasPrice will affect the test and this post condition.
+           # So unless the test doesn't really requrie it, don't check coinbase/miner address balance or sender balance in post section
+           # balance 1000000000000100000
+
+           # Byte Code example
+          code: '0x600160010160005500'
+          storage:
+            0x00: 2
+
+         # could be incomplete type. only balance field would be checked.",
+        2adc25665018aa1fe0e6bc666dac8fc2697ff9ba:
+           # balance 43112
+          nonce: '1'
+
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+           # Avoid checking balance field as it actually affected by many EIPs that can break the test
+           # balance 999999999999856888
+          code: '0x'
+          nonce: '1'
+          storage: {}
+
+         # check that this address is not generated to the post state
+        e94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          shouldnotexist: 1
+
+  # Pre condition state for the test
+  pre:
+     # Even if this account is not involved in transaction, it will be miner-rawrd touched upon generation of a state test
+    2adc25665018aa1fe0e6bc666dac8fc2697ff9ba:
+      balance: '0'
+      nonce: '1'
+      code: ''
+      storage: {}
+
+    095e7baea6a6c7c4c2dfeb977efac326af552d87:
+      balance: '1000000000000000000'
+      # If lllc compiler is installed, LLL code will be converted into EVM bytecode when --filltests"
+      # put result of add(1,1) into storage cell 0
+      # Bytecode example code '0x600160010160005500', use :raw to disable the source code warning
+      # LLL Code example. Use LLL with comments, so your tests would have transparent source logic.
+      # If the LLL is to bit for .json use .yml test format for better sourcing of the contract
+      code: |
+          {
+             ; Can also add lll style comments here
+             [[0]] (ADD 1 1) 
+          }
+      nonce: '0'
+      storage: {}
+
+    # A pre state account description must be complete (balance, code, nonce, storage)",
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+
+
+  # Multiple transaction description that will be applied on a pre state      
+  transaction:
+    # foreach d in `data` { foreach g in `gasLimit` { foreach v in `value`  {  pre.applyTransaction(d, g, v)  }}}
+    # each element of the data array is treated same as account's code field. You could use LLL here
+    data:
+    - ''
+    # Be careful when adding gasLimits that are < then intrinsic gas cost. StateTests are not allowed to have invalid transactions
+    gasLimit:
+    - '400000'
+    gasPrice: '10'
+    # Nonce must be same as account nonce a94f5374fce5edbc8e2a8697c15331677e6ebf0b
+    nonce: '0'
+    # if `to` field is empty, the transaction becomes contract creation. code from data will be executed as a deployment code
+    to: 095e7baea6a6c7c4c2dfeb977efac326af552d87
+    value:
+    - '100000'
+    # secretKey is a privKey of a94f5374fce5edbc8e2a8697c15331677e6ebf0b
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+

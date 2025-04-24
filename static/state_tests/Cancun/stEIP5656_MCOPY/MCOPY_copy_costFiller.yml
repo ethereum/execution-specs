@@ -1,0 +1,282 @@
+MCOPY_copy_cost:
+
+  _info:
+    comment: Test cases for the cost of memory copy in the MCOPY instruction
+
+  env:
+    currentNumber: 1
+    currentTimestamp: 1687174231
+    currentGasLimit: 1000000
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+
+  pre:
+
+    # Executed code (transaction destination)
+    000000000000000000000000000000000000c0de:
+      balance: 0
+      nonce: 1
+      code: |
+        :yul shanghai optimise {
+          function mcopy(dst, src, size) { verbatim_3i_0o(hex"5e", dst, src, size) }
+        
+          // Put a flag in storage indicating successful execution (will be reverted in case of OOG).
+          sstore(0, 1)
+        
+          // Expand memory to cover memory expansion cost before MCOPY.
+          // The test uses up to 1400 memory words.
+          mstore(44800, 1)
+        
+          // MCOPY using src and size from CALLDATA to 0 destination.
+          mcopy(0, calldataload(0), calldataload(32))
+        }
+      storage: { }
+
+    # Transaction sender
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 1000000000
+      nonce: 0
+      code: ''
+      storage: { }
+
+  transaction:
+    to: 000000000000000000000000000000000000c0de
+    nonce: 0
+    gasLimit:
+      # Every test case should pass easily. The amount of gas consumed is reflected in the sender's balance update.
+      - 100000
+      # Cut-off point for the copy of size 44769 (1399*32+1) to go out-of-gas.
+      # This may be unstable because of yul compiler updates or gas cost changes in upgrades after Cancun.
+      # Also, the transaction data cost affects this, so the value has been tuned to src0 cases.
+      - 55697
+    gasPrice: 10
+    value:
+      - 0
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    data:
+      - >
+        :label src0_size0 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000000
+        0000000000000000000000000000000000000000000000000000000000000000
+      - >
+        :label src0_size1 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000000
+        0000000000000000000000000000000000000000000000000000000000000001
+      - >
+        :label src0_size31 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000000
+        000000000000000000000000000000000000000000000000000000000000001f
+      - >
+        :label src0_size32 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000000
+        0000000000000000000000000000000000000000000000000000000000000020
+      - >
+        :label src0_size33 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000000
+        0000000000000000000000000000000000000000000000000000000000000021
+      - >
+        :label src0_size44767 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000000
+        000000000000000000000000000000000000000000000000000000000000aedf
+      - >
+        :label src0_size44768 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000000
+        000000000000000000000000000000000000000000000000000000000000aee0
+      - >
+        :label src0_size44769 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000000
+        000000000000000000000000000000000000000000000000000000000000aee1
+      - >
+        :label src1_size0 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000001
+        0000000000000000000000000000000000000000000000000000000000000000
+      - >
+        :label src1_size1 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000001
+        0000000000000000000000000000000000000000000000000000000000000001
+      - >
+        :label src1_size31 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000001
+        000000000000000000000000000000000000000000000000000000000000001f
+      - >
+        :label src1_size32 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000001
+        0000000000000000000000000000000000000000000000000000000000000020
+      - >
+        :label src1_size33 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000001
+        0000000000000000000000000000000000000000000000000000000000000021
+      - >
+        :label src1_size44767 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000001
+        000000000000000000000000000000000000000000000000000000000000aedf
+      - >
+        :label src1_size44768 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000001
+        000000000000000000000000000000000000000000000000000000000000aee0
+      - >
+        :label src1_size44769 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000001
+        000000000000000000000000000000000000000000000000000000000000aee1
+      - >
+        :label src31_size0 :raw 0x
+        000000000000000000000000000000000000000000000000000000000000001f
+        0000000000000000000000000000000000000000000000000000000000000000
+      - >
+        :label src31_size1 :raw 0x
+        000000000000000000000000000000000000000000000000000000000000001f
+        0000000000000000000000000000000000000000000000000000000000000001
+      - >
+        :label src31_size31 :raw 0x
+        000000000000000000000000000000000000000000000000000000000000001f
+        000000000000000000000000000000000000000000000000000000000000001f
+      - >
+        :label src31_size32 :raw 0x
+        000000000000000000000000000000000000000000000000000000000000001f
+        0000000000000000000000000000000000000000000000000000000000000020
+      - >
+        :label src31_size33 :raw 0x
+        000000000000000000000000000000000000000000000000000000000000001f
+        0000000000000000000000000000000000000000000000000000000000000021
+      - >
+        :label src31_size44767 :raw 0x
+        000000000000000000000000000000000000000000000000000000000000001f
+        000000000000000000000000000000000000000000000000000000000000aedf
+      - >
+        :label src31_size44768 :raw 0x
+        000000000000000000000000000000000000000000000000000000000000001f
+        000000000000000000000000000000000000000000000000000000000000aee0
+      - >
+        :label src31_size44769 :raw 0x
+        000000000000000000000000000000000000000000000000000000000000001f
+        000000000000000000000000000000000000000000000000000000000000aee1
+      - >
+        :label src32_size0 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000020
+        0000000000000000000000000000000000000000000000000000000000000000
+      - >
+        :label src32_size1 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000020
+        0000000000000000000000000000000000000000000000000000000000000001
+      - >
+        :label src32_size31 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000020
+        000000000000000000000000000000000000000000000000000000000000001f
+      - >
+        :label src32_size32 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000020
+        0000000000000000000000000000000000000000000000000000000000000020
+      - >
+        :label src32_size33 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000020
+        0000000000000000000000000000000000000000000000000000000000000021
+      - >
+        :label src32_size44767 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000020
+        000000000000000000000000000000000000000000000000000000000000aedf
+      - >
+        :label src32_size44768 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000020
+        000000000000000000000000000000000000000000000000000000000000aee0
+      - >
+        :label src32_size44769 :raw 0x
+        0000000000000000000000000000000000000000000000000000000000000020
+        000000000000000000000000000000000000000000000000000000000000aee1
+
+  expect:
+
+    - indexes:
+        gas: !!int 0
+        data:
+          - :label src0_size0
+          - :label src0_size1
+          - :label src0_size31
+          - :label src0_size32
+          - :label src0_size33
+          - :label src0_size44767
+          - :label src0_size44768
+          - :label src0_size44769
+          - :label src1_size0
+          - :label src1_size1
+          - :label src1_size31
+          - :label src1_size32
+          - :label src1_size33
+          - :label src1_size44767
+          - :label src1_size44768
+          - :label src1_size44769
+          - :label src31_size0
+          - :label src31_size1
+          - :label src31_size31
+          - :label src31_size32
+          - :label src31_size33
+          - :label src31_size44767
+          - :label src31_size44768
+          - :label src31_size44769
+          - :label src32_size0
+          - :label src32_size1
+          - :label src32_size31
+          - :label src32_size32
+          - :label src32_size33
+          - :label src32_size44767
+          - :label src32_size44768
+          - :label src32_size44769
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000c0de:
+          storage:
+            0: 1
+
+    - indexes:
+        gas: !!int 1
+        data:
+          - :label src0_size0
+          - :label src0_size1
+          - :label src0_size31
+          - :label src0_size32
+          - :label src0_size33
+          - :label src0_size44767
+          - :label src0_size44768
+          - :label src1_size0
+          - :label src1_size1
+          - :label src1_size31
+          - :label src1_size32
+          - :label src1_size33
+          - :label src31_size0
+          - :label src31_size1
+          - :label src31_size31
+          - :label src31_size32
+          - :label src31_size33
+          - :label src32_size0
+          - :label src32_size1
+          - :label src32_size31
+          - :label src32_size32
+          - :label src32_size33
+          - :label src0_size44769
+
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000c0de:
+          storage:
+            0: 1
+
+    - indexes:
+        gas: !!int 1
+        data:
+          # Can't regenerate this vectors as failed, now all works
+          - :label src1_size44767
+          - :label src1_size44768
+          - :label src1_size44769
+          - :label src31_size44767
+          - :label src31_size44768
+          - :label src31_size44769
+          - :label src32_size44768
+          - :label src32_size44769
+          - :label src32_size44767
+
+      network:
+        - '>=Cancun'
+      result:
+        000000000000000000000000000000000000c0de:
+          storage:
+            0: 0

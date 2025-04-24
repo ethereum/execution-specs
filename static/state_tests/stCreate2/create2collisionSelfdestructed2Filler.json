@@ -1,0 +1,94 @@
+{
+    "create2collisionSelfdestructed2" : {
+	    "_info" : {
+	        "comment" : "A contract which performs SUICIDE, and is then attempted to be recreated (different code, same init-code) during the same transaction. This ought to fail, since the code is not cleaned out until after the transaction is ended."
+	    },
+        "env" : {
+            "currentCoinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x20000",
+            "currentGasLimit" : "1000000",
+            "currentNumber" : "1",
+            "currentTimestamp" : "1000"
+        },
+        "expect" : [
+            {
+                "indexes" : {
+                    "data" : 0
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "fce41d047b4a1d4450382dcc29ec7e5fedc5f9a3" : {
+                        "balance" : "0",
+                        "nonce" : "0",
+                        "code" : "0x6010ff00",
+                        "storage" : {}
+                    },
+        		    "0000000000000000000000000000000000000010" : {
+            			"balance" : "0x01"
+        		    },
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "1"
+                    }
+                }
+            },
+    	    {
+                "indexes" : {
+                    "data" : 1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "cff64f4c5df8f436c4f2c1af4b2e3f9e3004c779" : {
+                        "balance" : "0",
+                        "nonce" : "1"
+                    },
+        		    "0000000000000000000000000000000000000010" : {
+            			"balance" : "0x01"
+        		    },
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "1"
+                    }
+                }
+            }
+        ],
+        "pre" : {
+            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "1000000000000000000",
+                "code" : "",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+    	    "fce41d047b4a1d4450382dcc29ec7e5fedc5f9a3" : {
+                "balance" : "1",
+                "code" : "{ (SELFDESTRUCT 0x10) }",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+            "0xcff64f4c5df8f436c4f2c1af4b2e3f9e3004c779" : {
+                "balance" : "1",
+                "code" : ":raw 0x6010ff",
+                "nonce" : "0x01",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+    	    "//data" : "0 - different code,  1 - same code",
+            "data" : [
+                "{ (CALL 50000 0xfce41d047b4a1d4450382dcc29ec7e5fedc5f9a3 0 0 0 0 0) (MSTORE 0 0x620102036000526003601df3) (CREATE2 0 20 12 0) }",
+        		"{ (CALL 50000 0xcff64f4c5df8f436c4f2c1af4b2e3f9e3004c779 0 0 0 0 0) (MSTORE 0 0x626010ff6000526003601df3) (CREATE2 0 20 12 0) }"
+            ],
+            "gasLimit" : [
+                "400000"
+            ],
+            "gasPrice" : "10",
+            "nonce" : "0",
+            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "",
+            "value" : [
+                "0"
+            ]
+        }
+    }
+}

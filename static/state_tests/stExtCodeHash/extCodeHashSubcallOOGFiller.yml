@@ -1,0 +1,148 @@
+# create contract A in a subcall. go OOG in a subcall (revert happens) check EXTCODEHASH of A (in upper call)
+---
+extCodeHashSubcallOOG:
+  _info:
+    comment: "create contract A in a subcall. go OOG in a subcall (revert happens) check EXTCODEHASH of A (in upper call)"
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "10000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+  pre:
+    '1000000000000000000000000000000000000000':
+      balance: '1000000000000000000'
+      code: |
+        {
+          (CALLCODE 350000 (CALLDATALOAD 0) 0 0 0 0 32)
+          (SSTORE 1 (EXTCODEHASH (MLOAD 0)))
+          (SSTORE 2 (EXTCODESIZE (MLOAD 0)))
+          (EXTCODECOPY (MLOAD 0) 0 0 32)
+          (SSTORE 3 (MLOAD 0))
+          (SSTORE 4 (CALLCODE 50000 (MLOAD 0) 0 0 0 0 0))
+        }
+      nonce: '0'
+      storage: {}
+    '2000000000000000000000000000000000000000':
+      balance: '1000000000000000000'
+      code: |
+        { (CALL 150000 0xa000000000000000000000000000000000000000 0 0 0 0 32) (RETURN 0 32)}
+      nonce: '0'
+      storage: {}
+    '2100000000000000000000000000000000000000':
+      balance: '1000000000000000000'
+      code: |
+        { (CALLCODE 150000 0xa000000000000000000000000000000000000000 0 0 0 0 32) (RETURN 0 32)}
+      nonce: '0'
+      storage: {}
+    '2200000000000000000000000000000000000000':
+      balance: '1000000000000000000'
+      code: |
+        { (DELEGATECALL 150000 0xa000000000000000000000000000000000000000 0 0 0 32) (RETURN 0 32)}
+      nonce: '0'
+      storage: {}
+    '3000000000000000000000000000000000000000':
+      balance: '1000000000000000000'
+      code: |
+        { (CALL 150000 0xa100000000000000000000000000000000000000 0 0 0 0 32) (RETURN 0 32)}
+      nonce: '0'
+      storage: {}
+    '3100000000000000000000000000000000000000':
+      balance: '1000000000000000000'
+      code: |
+        { (CALLCODE 250000 0xa100000000000000000000000000000000000000 0 0 0 0 32) (RETURN 0 32)}
+      nonce: '0'
+      storage: {}
+    '3200000000000000000000000000000000000000':
+      balance: '1000000000000000000'
+      code: |
+        { (DELEGATECALL 150000 0xa100000000000000000000000000000000000000 0 0 0 32) (RETURN 0 32)}
+      nonce: '0'
+      storage: {}
+    #create dynamic contract not going out of gas
+    a000000000000000000000000000000000000000:
+      balance: '1000000000000000000'
+      code: |
+        { 
+          (MSTORE 0
+            (CREATE2 0 0
+              (lll
+              {
+                (MSTORE 0 0x6020602055)
+                (RETURN 27 5)
+              }
+              0)
+            0))
+           (RETURN 0 32)
+           (STOP)
+        }
+      nonce: '0'
+      storage: {}
+    #create dynamic contract and go OOG
+    a100000000000000000000000000000000000000:
+      balance: '1000000000000000000'
+      code: |
+        {
+          (MSTORE 0
+            (CREATE2 0 0
+              (lll
+              {
+                (MSTORE 0 0x6020602055)
+                (RETURN 27 5)
+              }
+              0)
+            0))
+          (SSTORE 1 1) (SSTORE 2 1) (SSTORE 3 1) (SSTORE 4 1) (SSTORE 5 1) (SSTORE 6 1) (SSTORE 7 1)
+          (SSTORE 8 1) (SSTORE 9 1) (SSTORE 10 1) (SSTORE 11 1) (SSTORE 12 1) (SSTORE 13 1) (SSTORE 14 1)
+          (RETURN 0 32)
+          (STOP) 
+        }
+      nonce: '0'
+      storage: {}
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: ''
+      nonce: '0'
+      storage: {}
+  expect:
+    - indexes:
+        data: [ !!int 0, !!int 1, !!int 2 ]
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        1000000000000000000000000000000000000000:
+          storage: {
+             "0x01": '0x9ff1f274b33e3b56edd7734520cbcdf2699fc1dc78b51644cdc56ca65bebeeae',
+             "0x02": '0x05',
+             "0x03": '0x6020602055000000000000000000000000000000000000000000000000000000',
+             "0x04": '0x01'
+          }
+    - indexes:
+        data: [ !!int 3, !!int 4, !!int 5 ]
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        62ae0b997c8230e321b19d06b7004f25e1ac0637:
+          shouldnotexist: '1'
+        c566c94b132ce77d6e67add86c5a74e808578876:
+          shouldnotexist: '1' 
+  transaction:
+    data:
+    - ':raw 0x0000000000000000000000002000000000000000000000000000000000000000'
+    - ':raw 0x0000000000000000000000002100000000000000000000000000000000000000'
+    - ':raw 0x0000000000000000000000002200000000000000000000000000000000000000'
+    - ':raw 0x0000000000000000000000003000000000000000000000000000000000000000'
+    - ':raw 0x0000000000000000000000003100000000000000000000000000000000000000'
+    - ':raw 0x0000000000000000000000003200000000000000000000000000000000000000'
+    gasLimit:
+    - '400000'
+    gasPrice: '10'
+    nonce: '0'
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: '1000000000000000000000000000000000000000'
+    value:
+    - '1'

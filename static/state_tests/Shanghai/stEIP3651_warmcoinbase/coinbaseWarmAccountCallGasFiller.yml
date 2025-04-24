@@ -1,0 +1,151 @@
+# Check the gas cost of accessing the coinbase account using different opcodes
+
+coinbaseWarmAccountCallGas:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "100000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+
+
+  pre:
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        :yul berlin
+        {
+           // Save the coinbase value 
+           let cb := coinbase()
+           
+           // Minimum gas spent on the measurement, which changes depending on
+           // the tested opcode
+           //
+           // Note that this value can change (mostly down) when Yul rolls out new
+           // optimizations
+           let measureGas
+
+           let gas0, gas1
+           let retVal
+
+           // We can only check the gas of one opcode per transaction,
+           // because the first check adds the account to the
+           // 'accessed_addresses' list.
+           switch calldataload(4)
+           case 0 {
+             // EXTCODESIZE
+             measureGas := 8
+             gas0 := gas()
+             retVal := extcodesize(cb)
+             gas1 := gas()
+           }
+           case 1 {
+             // EXTCODECOPY
+             measureGas := 5
+             gas0 := gas()
+             extcodecopy(cb, 0, 0, 0)
+             gas1 := gas()
+           }
+           case 2 {
+             // EXTCODEHASH
+             measureGas := 8
+             gas0 := gas()
+             retVal := extcodehash(cb)
+             gas1 := gas()
+           }
+           case 3 {
+             // BALANCE
+             measureGas := 8
+             gas0 := gas()
+             retVal := balance(cb)
+             gas1 := gas()
+           }
+           case 4 {
+             // CALL
+             measureGas := 11
+             gas0 := gas()
+             retVal := call(10000, cb, 0, 0, 0, 0, 0)
+             gas1 := gas()
+           }
+           case 5 {
+             // CALLCODE
+             measureGas := 11
+             gas0 := gas()
+             retVal := callcode(10000, cb, 0, 0, 0, 0, 0)
+             gas1 := gas()
+           }
+           case 6 {
+             // DELEGATECALL
+             measureGas := 11
+             gas0 := gas()
+             retVal := delegatecall(10000, cb, 0, 0, 0, 0)
+             gas1 := gas()
+           }
+           case 7 {
+             // STATICCALL
+             measureGas := 11
+             gas0 := gas()
+             retVal := staticcall(10000, cb, 0, 0, 0, 0)
+             gas1 := gas()
+           }
+           default {
+             revert(0, 0)
+           }
+
+           // Save the measured gas
+           sstore(0, sub(sub(gas0, gas1), measureGas))
+           mstore(0, retVal)
+           return(0, 32)
+        }
+      nonce: 1
+      storage: {}
+    2adc25665018aa1fe0e6bc666dac8fc2697ff9ba:
+      balance: 0x0ba1a9ce0ba1a9ce
+      code: 0x
+      nonce: 1
+      storage: {}
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0x0ba1a9ce0ba1a9ce
+      code: 0x
+      nonce: 1
+      storage: {}
+
+
+  transaction:
+    data:
+    # EXTCODESIZE - WRMCB0001
+    - :abi f(uint) 0
+    # EXTCODECOPY - WRMCB0002
+    - :abi f(uint) 1
+    # EXTCODEHASH - WRMCB0003
+    - :abi f(uint) 2
+    # BALANCE - WRMCB0004
+    - :abi f(uint) 3
+    # CALL - WRMCB0005
+    - :abi f(uint) 4
+    # CALLCODE - WRMCB0006
+    - :abi f(uint) 5
+    # DELEGATECALL - WRMCB0007
+    - :abi f(uint) 6
+    # STATICCALL - WRMCB0008
+    - :abi f(uint) 7
+    gasLimit:
+    - 80000
+    gasPrice: 10
+    nonce: 1
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - 0
+    secretKey: '45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8'
+
+
+
+  expect:
+    - network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            # Coinbase access post-Shanghai is warm
+            0x0:  100

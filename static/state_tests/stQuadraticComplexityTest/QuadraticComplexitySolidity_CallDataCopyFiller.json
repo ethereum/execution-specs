@@ -1,0 +1,87 @@
+{
+    "QuadraticComplexitySolidity_CallDataCopy" : {
+        "env" : {
+            "currentCoinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x020000",
+            "currentGasLimit" : "350000000",
+            "currentNumber" : "1",
+            "currentTimestamp" : "1000"
+        },
+        "expect" : [
+    	    {
+                "indexes" : {
+                    "data" : -1,
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [ ">=Cancun"],
+                "result" : {
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "code" : "0x60003560e060020a9004806361a4770614601557005b601e6004356024565b60006000f35b60008160008190555073b94f5374fce5edbc8e2a8697c15331677e6ebf0b90505b600082131560bf5780600160a060020a03166000600060007f6a7573740000000000000000000000000000000000000000000000000000000081526004017f63616c6c000000000000000000000000000000000000000000000000000000008152602001600060008560155a03f150506001820391506045565b505056",
+                        "nonce" : "0x00",
+                        "storage" : {
+                        }
+                    },
+                    "b94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "code" : "0x61c350600060003700",
+                        "nonce" : "0x00",
+                        "storage" : {
+                        }
+                    }
+                }
+            }
+        ],
+        "pre" : {
+            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "//comment1" : "contract caller",
+                "//comment2" : "{",
+                "//comment3" : "    int value;",
+                "//comment4" : "    function run(int count)",
+                "//comment5" : "    {",
+                "//comment6" : "        value = count;",
+                "//comment7" : "        address a = 0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b;",
+                "//comment8" : "        while(count > 0)",
+                "//comment9" : "        {",
+                "//comment10" : "            a.call('just', 'call');",
+                "//comment11" : "            count = count - 1;",
+                "//comment12" : "        }",
+                "//comment13" : "    }",
+                "//comment14" : "}",
+                "balance" : "5000000000000000",
+                "code" : ":raw 0x60003560e060020a9004806361a4770614601557005b601e6004356024565b60006000f35b60008160008190555073b94f5374fce5edbc8e2a8697c15331677e6ebf0b90505b600082131560bf5780600160a060020a03166000600060007f6a7573740000000000000000000000000000000000000000000000000000000081526004017f63616c6c000000000000000000000000000000000000000000000000000000008152602001600060008560155a03f150506001820391506045565b505056",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+            "b94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "5000000",
+                "code" : "{ (CALLDATACOPY 0 0 50000) }",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+            "c9c5a15a403e41498b6f69f6f89dd9f5892d21f7" : {
+                "balance" : "5000000000000000",
+                "code" : "0x",
+                "nonce" : "0",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                ":raw 0x61a47706000000000000000000000000000000000000000000000000000000000000c350"
+            ],
+            "gasLimit" : [
+               "150000", "250000000"
+            ],
+            "gasPrice" : "10",
+            "nonce" : "0",
+            "secretKey" : "6a7eeac5f12b409d42028f66b0b2132535ee158cfda439e3bfdd4558e8f4bf6c",
+            "to" : "a94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "value" : [
+                "1"
+            ]
+        }
+    }
+}

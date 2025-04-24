@@ -1,0 +1,93 @@
+{
+    "callToNonExistent" : {
+		"_info" : {
+			"comment" : "https://github.com/ethereum/tests/issues/652"
+		},
+        "env" : {
+            "currentCoinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x20000",
+            "currentGasLimit" : "3000000000",
+            "currentNumber" : "1",
+            "currentTimestamp" : "1000"
+        },
+        "expect" : [
+            {
+                "indexes" : { "data" : [0,1,2,3], "gas" : -1, "value" : -1 },
+                "network" : [ ">=Cancun"],
+                "result" : {
+					"//comment" : "Call[0] Callcode[1] delegatecall[2] staticcall[3] to nonexistent, then extcodehash of nonexistent",
+	    			"1000000000000000000000000000000000000000" : {
+               		    "balance" : "1",
+						"storage" : {
+							"0x00" : "1",
+							"0x01" : "0x00"
+						}
+            		 }
+                }
+            }
+        ],
+        "pre" : {
+            "1000000000000000000000000000000000000000" : {
+                "balance" : "0",
+                "nonce" : "0",
+				"//comment" : "Redirect call to calldataload",
+                "code" : "{ (CALLCODE (GAS) (CALLDATALOAD 0) 0 0 64 0 64 ) }",
+                "storage": {
+					"0x01" : "0x1122"
+				}
+            },
+            "1000000000000000000000000000000000000001" : {
+                "balance" : "",
+                "code" : "{ [[0]] (CALL 25000 0xdead000000000000000000000000000000000001 0 0 0 0 0) [[1]] (EXTCODEHASH 0xdead000000000000000000000000000000000001) }",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+            "2000000000000000000000000000000000000001" : {
+                "balance" : "",
+                "code" : "{ [[0]] (CALLCODE 25000 0xdead000000000000000000000000000000000001 0 0 0 0 0) [[1]] (EXTCODEHASH 0xdead000000000000000000000000000000000001) }",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+            "3000000000000000000000000000000000000001" : {
+                "balance" : "",
+                "code" : "{ [[0]] (DELEGATECALL 25000 0xdead000000000000000000000000000000000001 0 0 0 0) [[1]] (EXTCODEHASH 0xdead000000000000000000000000000000000001) }",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+            "4000000000000000000000000000000000000001" : {
+                "balance" : "",
+                "code" : "{ [[0]] (STATICCALL 25000 0xdead000000000000000000000000000000000001 0 0 0 0) [[1]] (EXTCODEHASH 0xdead000000000000000000000000000000000001) }",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "1000000000000000000",
+                "nonce" : "0",
+                "code" : "",
+                "storage": {}
+            }
+        },
+        "transaction" : {
+            "data" : [
+                ":raw 0x0000000000000000000000001000000000000000000000000000000000000001",
+                ":raw 0x0000000000000000000000002000000000000000000000000000000000000001",
+                ":raw 0x0000000000000000000000003000000000000000000000000000000000000001",
+                ":raw 0x0000000000000000000000004000000000000000000000000000000000000001"
+            ],
+            "gasLimit" : [
+                "100000"
+            ],
+            "gasPrice" : "10",
+            "nonce" : "0",
+            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "1000000000000000000000000000000000000000",
+            "value" : [
+                "1"
+            ]
+        }
+    }
+}

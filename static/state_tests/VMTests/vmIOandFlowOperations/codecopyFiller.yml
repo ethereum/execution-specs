@@ -1,0 +1,232 @@
+codecopy:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+
+    0000000000000000000000000000000000001000:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; Copy our code into [[0]] and [[1]]
+           (codecopy 0 0 0x40)
+           [[0]] @0
+           [[1]] @0x20
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # "Infinite" (-1 = 0xfff..ffff) buffer
+    0000000000000000000000000000000000001001:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; Copy our code into [[0]] and [[1]]
+           (codecopy 0 0 (- 0 1))
+           [[0]] @0
+           [[1]] @0x20
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # Big but reasonable buffer
+    0000000000000000000000000000000000001002:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; Copy our code into [[0]] and [[1]]
+           (codecopy 0 0 0x1000)
+           [[0]] @0
+           [[1]] @0x20
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # Do the copy in two buffer-loads
+    0000000000000000000000000000000000001003:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; Waste some space so we'll be over 0x20 bytes of code
+           [0x100] (+ 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16)
+
+           ; Copy our code into [[0]] and [[1]]
+           (codecopy    0    0 0x20)
+           (codecopy 0x20 0x20 0x40)
+           [[0]] @0
+           [[1]] @0x20
+           [[2]] @0x40
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # Check that CODECOPY works when there are special opcodes in the code
+    0000000000000000000000000000000000001004:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; Get our size
+           [[0xFF]] (codesize)
+
+           ; Copy our code to memory
+           (codecopy 0 0 @@0xFF)
+
+           ; Make it clear the storage we use gets overwritten
+           [[0]] 0x60A7
+           [[1]] 0x60A7
+           [[2]] 0x60A7
+
+           ; Copy the memory into storage
+           [[0]] @0x00
+           [[1]] @0x20
+           [[2]] @0x40
+           [[3]] @0x60
+           [[4]] @0x80
+           [[5]] @0xA0
+
+           ; Potentially problematic opcodes
+           (stop)
+           (selfdestruct 0xDEAD)
+           (return 0x0 @@0xFF)
+           (delegatecall 0xFF 0xEE 0xDD 0xCC 0xBB 0xAA)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            (delegatecall 0xffffff (+ 0x1000 $4) 0 0 0 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+
+
+
+  transaction:
+    data:
+    - :label codecopy          :abi f(uint) 0
+
+    # "Infinite" (- 0 1) size buffer
+    - :label codecopy_infbuff  :abi f(uint) 1
+
+    # Big buffer
+    - :label codecopy_bigbuff  :abi f(uint) 2
+
+    # Copy the code in two steps
+    - :label codecopy_2buff    :abi f(uint) 3
+
+    # Prove we also copy the code for problematic opcodes
+    - :label codecopy_opcodes  :abi f(uint) 4
+
+
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+  expect:
+    - indexes:
+        data: :label codecopy
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+             0x00: 0x6040600060003960005160005560205160015500000000000000000000000000
+             0x01: 0x00
+
+
+
+
+    - indexes:
+        data: :label codecopy_bigbuff
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+             0x00: 0x6110006000600039600051600055602051600155000000000000000000000000
+             0x01: 0x00
+
+
+
+    - indexes:
+        data: :label codecopy_infbuff
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+             0x00: 0x00
+             0x01: 0x00
+
+
+
+    - indexes:
+        data: :label codecopy_2buff
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+             0x00: 0x6010600f600e600d600c600b600a600960086007600660056004600360026001
+             0x01: 0x0101010101010101010101010101016101005260206000600039604060206020
+             0x02: 0x3960005160005560205160015560405160025500000000000000000000000000
+
+
+
+    - indexes:
+        data: :label codecopy_opcodes
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+             0x00: 0x3860ff5560ff5460006000396160a76000556160a76001556160a76002556000
+             0x01: 0x5160005560205160015560405160025560605160035560805160045560a05160
+             0x02: 0x05550061deadff60ff546000f360aa60bb60cc60dd60ee60fff4000000000000
+             0xFF: 0x5b     # (codesize)
+
+             # You can use https://etherscan.io/opcode-tool
+             # to see this code includes the opcodes suspected by #130
+             # https://github.com/ethereum/tests/issues/130

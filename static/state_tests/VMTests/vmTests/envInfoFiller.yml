@@ -1,0 +1,310 @@
+
+envInfo:
+
+  # Opcodes that read the environment
+  #
+  # Except for CALLDATACOPY, CALLDATALOAD, and CALLDATASIZE
+  # because have lots of test cases each
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    0000000000000000000000000000000000001000:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (address)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001001:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {   ; Copy first seven bytes of code to memory
+            ; and from there to storage
+           (codecopy 0 0 7)
+           [[0]] @0
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001002:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; codecopy zero bytes
+           (codecopy 0 0 0)
+           [[0]] @0
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001003:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; codecopy from unrealistically high in the code
+           ; segment (so high you wrap around)
+           (def 'neg6
+              0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa)
+           (codecopy 0 neg6 8)
+           [[0]] @0
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000001004:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (caller)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001005:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (callvalue)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001006:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (codesize)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001007:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (gasprice)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000001008:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (origin)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000001009:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] (calldatasize)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            (call 0xffffff (+ 0x1000 $4) 0x10 0 0 0 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+  transaction:
+    data:
+    - :label address             :abi f(uint) 0
+    - :label codecopy            :abi f(uint) 1
+    - :label codecopy_len0       :abi f(uint) 2
+    - :label codecopy_neg_offset :abi f(uint) 3
+    - :label caller              :abi f(uint) 4
+    - :label callvalue           :abi f(uint) 5
+    - :label codesize            :abi f(uint) 6
+    - :label gasprice            :abi f(uint) 7
+    - :label origin              :abi f(uint) 8
+    - :label calldatasize        :abi f(uint) 9
+    gasLimit:
+    - '80000000'
+    gasPrice: 0x1234
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+  expect:
+  - indexes:
+      data: :label address
+      gas:  !!int -1
+      value: !!int -1
+    network:
+      - '>=Cancun'
+    result:
+      0000000000000000000000000000000000001000:
+        storage:
+          0: 0x1000
+
+
+  - indexes:
+      data: :label codecopy
+      gas:  !!int -1
+      value: !!int -1
+    network:
+      - '>=Cancun'
+    result:
+      0000000000000000000000000000000000001001:
+        storage:
+          #  0 PUSH1 0x07
+          #  2 PUSH1 0x00
+          #  4 PUSH1 0x00
+          #  6 CODECOPY
+          0: 0x6007600060003900000000000000000000000000000000000000000000000000
+
+
+
+  - indexes:
+      data: :label codecopy_len0
+      gas:  !!int -1
+      value: !!int -1
+    network:
+      - '>=Cancun'
+    result:
+      0000000000000000000000000000000000001002:
+        storage:
+          0: 0x00
+
+
+  - indexes:
+      data: :label codecopy_neg_offset
+      gas:  !!int -1
+      value: !!int -1
+    network:
+      - '>=Cancun'
+    result:
+      0000000000000000000000000000000000001003:
+        storage:
+          0: 0x00
+
+
+
+  - indexes:
+      data: :label caller
+      gas:  !!int -1
+      value: !!int -1
+    network:
+      - '>=Cancun'
+    result:
+      0000000000000000000000000000000000001004:
+        storage:
+          0: 0xcccccccccccccccccccccccccccccccccccccccc
+
+
+
+  - indexes:
+      data: :label callvalue
+      gas:  !!int -1
+      value: !!int -1
+    network:
+      - '>=Cancun'
+    result:
+      0000000000000000000000000000000000001005:
+        storage:
+          0: 0x10
+
+
+
+
+  - indexes:
+      data: :label codesize
+      gas:  !!int -1
+      value: !!int -1
+    network:
+      - '>=Cancun'
+    result:
+      0000000000000000000000000000000000001006:
+        storage:
+          0: 0x05
+
+
+
+
+  - indexes:
+      data: :label gasprice
+      gas:  !!int -1
+      value: !!int -1
+    network:
+      - '>=Cancun'
+    result:
+      0000000000000000000000000000000000001007:
+        storage:
+          0: 0x1234
+
+
+
+  - indexes:
+      data: :label origin
+      gas:  !!int -1
+      value: !!int -1
+    network:
+      - '>=Cancun'
+    result:
+      0000000000000000000000000000000000001008:
+        storage:
+          0: 0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b
+
+
+
+  - indexes:
+      data: :label calldatasize
+      gas:  !!int -1
+      value: !!int -1
+    network:
+      - '>=Cancun'
+    result:
+      0000000000000000000000000000000000001009:
+        storage:
+          0: 0x00

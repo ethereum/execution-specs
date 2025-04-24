@@ -1,0 +1,147 @@
+doubleSelfdestructTest:
+  _info:
+    comment: |
+      The first test case required here 
+      https://github.com/ethereum/tests/issues/431#issue-306081539
+
+      Implements: SUC007.0, SUC007.1, SUC007.2, SUC007.3,
+                  SUC008.0, SUC008.1, SUC008.2, SUC008.3
+
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: '10000000000'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+
+
+  pre:
+    000000000000000000000000000000000000c0de:
+      balance: 1_000_000
+      code: |
+        :yul berlin
+        {
+           // If there's data, call this again and then
+           // try to selfdestruct.
+           // Necessary to use data, because delegatecall and staticcall don't
+           // affect calldata
+           if gt(calldatasize(), 2) {
+             // Type of call to make
+             let opcode := shr(248, calldataload(0))
+
+             // Address for caller selfdestruct
+             let caller_ff := and(shr(232, calldataload(0)), 0xFFFF)
+
+             // Address for called selfdestruct, which we need to send with the call
+             let called_ff := and(shr(216, calldataload(0)), 0xFFFF)
+             mstore8(0, and(shr(8, called_ff), 0xFF))
+             mstore8(1, and(called_ff, 0xFF))
+
+             if eq(opcode, 0xF1) { pop(call(gas(), 0xc0de, 0, 0,2, 0,0)) }
+             if eq(opcode, 0xF2) { pop(callcode(gas(), 0xc0de, 0, 0,2, 0,0)) }
+             if eq(opcode, 0xF4) { pop(delegatecall(gas(), 0xc0de, 0,2, 0,0)) }
+             if eq(opcode, 0xFA) { pop(staticcall(gas(), 0xc0de, 0,2, 0,0)) }
+             selfdestruct(caller_ff)
+           }
+
+           // If there are only two bytes of call data, that is the
+           // selfdestruct address
+           let called_ff := and(shr(240, calldataload(0)), 0xFFFF)
+           if eq(calldatasize(), 2) {
+             selfdestruct(called_ff)
+           }
+        }
+      nonce: 1
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: 0x
+      nonce: 1
+      storage: {}
+
+
+
+  transaction:
+    data:
+    # Byte    1 is the call opcode to use
+    # Bytes 2-3 are the address for a caller selfdestruct
+    # Bytes 4-5 are the address for a called selfdestruct
+    #
+    - :label called-self-destruct :raw 0xF110011002   # CALL
+    - :label called-self-destruct :raw 0xF210011002   # CALLCODE
+    - :label called-self-destruct :raw 0xF410011002   # DELEGATECALL
+
+    # In the case of STATICCALL the called SELFDESTRUCT is ineffective.
+    - :label caller-self-destruct :raw 0xFA10011002   # STATICCALL
+
+    # When the called is 0xC0DE, the balance is destroyed
+    - :label code-self-destruct :raw 0xF11001c0de   # CALL
+    - :label code-self-destruct :raw 0xF21001c0de   # CALLCODE
+    - :label code-self-destruct :raw 0xF41001c0de   # DELEGATECALL
+
+    # In the case of STATICCALL the called SELFDESTRUCT is ineffective.
+    - :label caller-self-destruct :raw 0xFA1001c0de   # STATICCALL
+
+    gasLimit:
+    - 1000000000
+    gasPrice: 10
+    nonce: 1
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 000000000000000000000000000000000000c0de
+    value:
+    - 1
+
+
+
+  expect:
+  - indexes:
+      data:
+      - :label called-self-destruct
+    network:
+    - '>=Cancun'
+    result:
+      # Caller self destruct
+      0000000000000000000000000000000000001001:
+        shouldnotexist: 1
+      # Called self destruct
+      0000000000000000000000000000000000001002:
+        balance: 1_000_001
+
+
+
+
+  - indexes:
+      data:
+      - :label caller-self-destruct
+    network:
+    - '>=Cancun'
+    result:
+      # Caller self destruct
+      0000000000000000000000000000000000001001:
+        balance: 1000001
+        nonce: 0
+      # Called self destruct
+      0000000000000000000000000000000000001002:
+        shouldnotexist: 1
+      # The code itself
+      000000000000000000000000000000000000c0de:
+        nonce: 1
+
+
+
+  - indexes:
+      data:
+      - :label code-self-destruct
+    network:
+    - '>=Cancun'
+    result:
+      # Caller self destruct
+      0000000000000000000000000000000000001001:
+        balance: 1000001
+        nonce: 0
+      # Called self destruct
+      000000000000000000000000000000000000c0de:
+        nonce: 1

@@ -1,0 +1,90 @@
+# transaction to B
+# B call to A
+# A delegatecall/callcode to C (C has selfdestruct)
+# A selfdestructed. returned to B. now we could check extcodehash of A (in account B code)
+---
+extCodeHashSubcallSuicide:
+  _info:
+    comment: "transaction to B | B call to A | A delegatecall/callcode to C (C has selfdestruct) | A selfdestructed. returned to B. now we could check extcodehash of A (in account B code)"
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "10000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+  pre:
+    b000000000000000000000000000000000000000:
+      balance: '1000000000000000000'
+      code: |
+        {
+          (SSTORE 1 (EXTCODEHASH 0xa000000000000000000000000000000000000000))
+          (SSTORE 2 (EXTCODESIZE 0xa000000000000000000000000000000000000000))
+          (EXTCODECOPY 0xa000000000000000000000000000000000000000 0 0 32)
+          (SSTORE 3 (MLOAD 0))
+ 
+          (CALL 350000 0xa000000000000000000000000000000000000000 0 0 0 0 32)
+
+          (SSTORE 4 (EXTCODEHASH 0xa000000000000000000000000000000000000000))
+          (SSTORE 5 (EXTCODESIZE 0xa000000000000000000000000000000000000000))
+          (EXTCODECOPY 0xa000000000000000000000000000000000000000 0 0 32)
+          (SSTORE 6 (MLOAD 0))
+
+          [[7]] (CALL 350000 0xa000000000000000000000000000000000000000 0 0 0 0 32)
+        }
+      nonce: '0'
+      storage: {}
+    a000000000000000000000000000000000000000:
+      balance: '1000000000000000000'
+      code: |
+        {
+          (CALLCODE 350000 0xc000000000000000000000000000000000000000 0 0 0 0 32)
+        }
+      nonce: '0'
+      storage: {}
+    c000000000000000000000000000000000000000:
+      balance: '1000000000000000000'
+      code: |
+        { 
+          (SELFDESTRUCT 0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b)
+        }
+      nonce: '0'
+      storage: {}
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: ''
+      nonce: '0'
+      storage: {}
+  expect:
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        b000000000000000000000000000000000000000:
+          storage: {
+             "0x01": '0x367d3c0e810bbdebc72c25e80dcb9a337c7c87e3a36e6fae87d1d51b3c745d24',
+             "0x02": '0x25',
+             "0x03": '0x6020600060006000600073c00000000000000000000000000000000000000062',
+             "0x04": '0x367d3c0e810bbdebc72c25e80dcb9a337c7c87e3a36e6fae87d1d51b3c745d24',
+             "0x05": '0x25',
+             "0x06": '0x6020600060006000600073c00000000000000000000000000000000000000062',
+             "0x07": '0x01'
+          }
+        a000000000000000000000000000000000000000:
+            balance: 0
+            nonce: 0
+            code: '0x6020600060006000600073c00000000000000000000000000000000000000062055730f200'
+            storage: {}
+  transaction:
+    data:
+    - ''
+    gasLimit:
+    - '500000'
+    gasPrice: '10'
+    nonce: '0'
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 'b000000000000000000000000000000000000000'
+    value:
+    - '1'

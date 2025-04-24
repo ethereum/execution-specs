@@ -1,0 +1,96 @@
+# Copy memory over itself, a weird edge case that caused
+# Geth <1.10.8 to have an inconsistent state when a CALL to 
+# precompile 4 (the identity precompile) overwrote the memory
+# where the call parameters were. It caused RETURNDATACOPY
+# to be invalid afterwards
+#
+# This is explained here: https://twitter.com/kelvinfichter/status/1431336698911338496
+
+memCopySelf:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "100000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+
+  pre:
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+       :yul berlin
+       {
+          let idPrecomp := 0x04
+
+          for { let i := 0} lt(i, 0x0F) { i := add(i, 1) } 
+          {
+              mstore8(i, mul(add(i, 1), 0x11)) 
+          }
+           
+          // The initial memory value
+          sstore(0, mload(0))
+          
+          // Call idPrecomp
+          pop(call(gas(), idPrecomp, 0, 
+            0, 10,     // input buffer
+            2, 10      // output buffer (overlapping the input)
+          ))
+
+          // Memory value immediately after the call
+          sstore(1, mload(0))
+
+          // Copy the return data (to check if it is corrupt)
+          returndatacopy(0x20, 0, 10)
+          sstore(2, mload(0x20))
+       }
+      nonce: 1
+      storage:
+        0: 0x60A7
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x
+      nonce: 1
+      storage: {}
+
+
+  transaction:
+    data: 
+    - 0x
+    gasLimit:
+    - 80000000
+    gasPrice: 10
+    nonce: 1
+    to: cccccccccccccccccccccccccccccccccccccccc
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    value:
+    - 0
+
+  expect:
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+
+            # Initial data
+            0x00: 0x112233445566778899aabbccddeeff0000000000000000000000000000000000
+
+            # Data after the call (copied correctly, two bytes ahead of where it was)
+            0x01: 0x1122112233445566778899aaddeeff0000000000000000000000000000000000
+
+            # Result of RETURNDATACOPY, which should be the same as the initial
+            # data, not the new data
+            0x02: 0x112233445566778899aa00000000000000000000000000000000000000000000
+

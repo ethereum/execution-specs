@@ -1,0 +1,49 @@
+# EIP-3855: PUSH0 instruction - test for gas price
+push0Gas:
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x020000'
+    currentGasLimit: '89128960'
+    currentBaseFee: '10'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+
+  pre:
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 10000000
+      code: ''
+      nonce: '0'
+      storage: {}
+
+    0000000000000000000000000000000000001000:
+      balance: 0
+      # sstore(0, gas) push0 sstore(0, (sub(sload(0), gas))) stop
+      code: ':raw 0x5a6000555f5a6000540360015500'
+      nonce: '0'
+      storage: {}
+
+  transaction:
+    data:
+      - ''
+    gasLimit:
+      - 100000
+    gasPrice: 10
+    nonce: 0
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: '0000000000000000000000000000000000001000'
+    value:
+    - 0
+
+  expect:
+    - network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001000:
+          # Initial gas: 100000
+          #                         Initial Gas     Intrinsic cost   GAS
+          # Initial EVM Gas: 78998 (100000          - 21000          - 2)
+          #                         PUSH1   SSTORE  PUSH0   GAS
+          # Gas Used :       21107 ( 3    + 22100   + 2    + 2  )
+          storage:
+            0: 78998
+            1: 22107

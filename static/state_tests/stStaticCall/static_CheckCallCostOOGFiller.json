@@ -1,0 +1,63 @@
+{
+    "static_CheckCallCostOOG" : {
+        "_info" : {
+            "comment" : "Check balance in blackbox, just fill the balance consumed"
+        },
+        "env" : {
+            "currentCoinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x020000",
+            "currentGasLimit" : "10000000",
+            "currentNumber" : "1",
+            "currentTimestamp" : "1000"
+        },
+        "expect" : [
+            {
+                "network" : [">=Cancun"],
+                "result" : {
+		            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+		               "nonce" : "1"
+		            }
+                }
+            }
+        ],
+        "pre" :
+        {
+            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "100000000000000",
+                "code" : "",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+    	    "1000000000000000000000000000000000000000" : {
+                "balance" : "0",
+		        "nonce" : "0",
+		        "code" : "{ (STATICCALL 100 0x2000000000000000000000000000000000000000 0 0 0 0) }",
+		        "storage": {
+		        }
+            },
+    	    "2000000000000000000000000000000000000000" : {
+                "balance" : "0",
+		        "nonce" : "0",
+		        "code" : "{ (MSTORE 1 1) (KECCAK256 0x00 0x2fffff) }",
+		        "storage": {
+		        }
+            }
+        },
+        "transaction" : {
+            "data" : [
+        		""
+            ],
+            "gasLimit" : [
+                "22000", "1000000"
+            ],
+            "gasPrice" : "10",
+            "nonce" : "0",
+            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "1000000000000000000000000000000000000000",
+            "value" : [
+                "0"
+            ]
+        }
+    }
+}

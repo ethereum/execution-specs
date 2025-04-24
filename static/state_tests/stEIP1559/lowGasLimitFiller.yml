@@ -1,0 +1,101 @@
+lowGasLimit:
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 80000
+    currentNumber: 1
+    currentTimestamp: 1000
+    currentBaseFee: 1000
+
+
+  pre:
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '1000000000000000000'
+      code: |
+          :yul berlin
+          {
+              sstore(0, add(1,1))
+          }
+      nonce: '0'
+      storage:
+        0: 0x60A7
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: '0x'
+      nonce: 1
+      storage: {}
+
+
+  transaction:
+    data:
+        - data: :raw 0x00
+          accessList: []
+    maxFeePerGas: 1000
+    maxPriorityFeePerGas: 1000
+    gasLimit:
+    - 90000 # Fail because it exceeds the block gas limit
+    - 50000 # Success
+    - 25000 # Runs out of gas, so reverted out of
+    - 20000 # Fail because it is below the intrinsic cost
+    nonce: 1
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - 0
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+  expect:
+ 
+    # Going above the block gas limit
+    - indexes:
+        data: !!int -1
+        gas:  !!int 0
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      expectException:
+         '>=Cancun': TransactionException.GAS_ALLOWANCE_EXCEEDED
+      result: {}
+
+
+    # Success
+    - indexes:
+        data: !!int -1
+        gas:  !!int 1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+           storage:
+             0: 2
+
+
+    # Out of gas revert
+    - indexes:
+        data: !!int -1
+        gas:  !!int 2
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+           storage:
+             0: 0x60A7
+
+
+    # gasLimit below intrinsic cost
+    - indexes:
+        data: !!int -1
+        gas:  !!int 3
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      expectException:
+        '>=Cancun': TransactionException.INTRINSIC_GAS_TOO_LOW
+      result: {}
+

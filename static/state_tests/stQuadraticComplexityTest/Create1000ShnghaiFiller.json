@@ -1,0 +1,206 @@
+{
+    "Create1000Shnghai" : {
+        "env" : {
+            "currentCoinbase" : "b94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "currentDifficulty" : "0x020000",
+            "currentGasLimit" : "8600000000",
+            "currentNumber" : "1",
+            "currentTimestamp" : "1000"
+        },
+        "expect" : [
+     	    {
+                "indexes" : {
+                    "data" : -1,
+                    "gas" : 0,
+                    "value" : -1
+                },
+                "network" : [ ">=Cancun"],
+                "result" : {
+                    "010d8b0816e30ff51ba07678c64b272cdeddb807" : {
+                        "shouldnotexist" : "1"
+                    },
+                    "014830fe159f418212e5c39b4b2e2ddc7b295395" : {
+                        "shouldnotexist" : "1"
+                    },
+                    "bbbf5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "0x00",
+                        "storage" : {
+                            "0x00" : "0x00",
+                            "0x01" : "0x00"
+                        }
+                    },
+                    "0c6a8f1bf692cb9e4f9d9c5a2785d58edfd42457" : {
+                        "shouldnotexist" : "1"
+                    },
+                    "198d23bedd1a9fdbd4adb5760930f6877f5d142f" : {
+                        "shouldnotexist" : "1"
+                    },
+                    "266c09580d28c1c576e5c6b9adc926be1fecffb1" : {
+                        "shouldnotexist" : "1"
+                    },
+                    "e5dc2e5b40069a91f688e56ea8d12149c5480b42" : {
+                        "shouldnotexist" : "1"
+                    },
+                    "fdbd2625737df76e194c99994be160c5f8248dad" : {
+                        "shouldnotexist" : "1"                    },
+                    "fff043abcbf2b0972c1dca19b2ba3cd682f10e90" : {
+                        "shouldnotexist" : "1"                    }
+                }
+            },
+            {
+                "indexes" : {
+                    "data" : -1,
+                    "gas" : 1,
+                    "value" : -1
+                },
+                "network" : [ ">=Cancun"],
+                "result" : {
+                    "010d8b0816e30ff51ba07678c64b272cdeddb807" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "014830fe159f418212e5c39b4b2e2ddc7b295395" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "bbbf5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "balance" : "0x0ffffffffffc21",
+                        "nonce" : "0x03e8",
+                        "storage" : {
+                            "0x00" : "0x7981fa24b134deb51d71d250d7b0d9e33c8c5457",
+                            "0x01" : "0x03e8"
+                        }
+                    },
+                    "0443d33cbefcfb9dedd1885b4c58b06cb1bb0c09" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "0c6a8f1bf692cb9e4f9d9c5a2785d58edfd42457" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "198d23bedd1a9fdbd4adb5760930f6877f5d142f" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "266c09580d28c1c576e5c6b9adc926be1fecffb1" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "38382e1ec7bf834f328feb3170293b1ae558aed0" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "49198360b42d89332f8cc121182e071493045c40" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "69eada7f1d77ff9bf9c789d44990f9141e39d71f" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "901cc1c13f30eb2fc6de17ba1867dcc8c1561d46" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "cb78de6453fe67ac38868ac60825f0288e509167" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "de8ae395bafe56c8968a2cec0567ec2562598189" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "e5dc2e5b40069a91f688e56ea8d12149c5480b42" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "fdbd2625737df76e194c99994be160c5f8248dad" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "fff043abcbf2b0972c1dca19b2ba3cd682f10e90" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    }
+                }
+            }
+        ],
+        "pre" : {
+            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0xffffffffffffffffffffffffffffffff",
+                "code" : "",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+            "bbbf5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0xfffffffffffff",
+                "code" : "{ (def 'i 0x80) (for {} (< @i 1000) [i](+ @i 1) [[ 0 ]] (CREATE 1 0 10) ) [[ 1 ]] @i}",
+                "nonce" : "0",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                ""
+            ],
+            "gasLimit" : [
+                "150000", "250000000"
+            ],
+            "gasPrice" : "10",
+            "nonce" : "",
+            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "bbbf5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "value" : [
+                "10"
+            ]
+        }
+    }
+}

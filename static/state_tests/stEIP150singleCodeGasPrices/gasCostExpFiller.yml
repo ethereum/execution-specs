@@ -1,0 +1,99 @@
+gasCostExp:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+
+# Human readable information
+  _info:
+    comment: "Ori Pomerantz qbzzt1@gmail.com"
+
+  pre:
+
+    095e7baea6a6c7c4c2dfeb977efac326af552d87:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+          ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          ; Initialization
+ 
+          ; Variables (0x20 byte wide)
+          (def 'powerOf           0x000)  ; A to the power of @powerOf
+          (def 'expectedCost      0x020)  ; Expected gas cost
+          (def 'gasB4             0x040)  ; Before the action being measured
+          (def 'gasAfter          0x060)  ; After the action being measured
+
+          ; Understand CALLDATA. It is four bytes of function
+          ; selector (irrelevant) followed by 32 byte words
+          ; of the parameters
+          [powerOf]       $4
+          [expectedCost]  $36
+
+
+          ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          ; Run the operation
+          [gasB4]    (gas)
+          (exp 2 @powerOf)
+          [gasAfter] (gas)
+
+
+          ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          ; Return value
+
+          [[0]] (- @gasB4 @gasAfter @expectedCost)
+        }
+      nonce: '0'
+      storage:
+         0: 60A7
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+
+  transaction:
+    data:
+    # 
+    # fun(powerOf,cost)
+    #   
+    # The cost of EXP depends on the base 256 log of the value we raise
+    # to the power of. The total gas cost is 0x20 for x^0, plus 0x32 for
+    # each "unit" (so 0x52 for x^1 to x^255, 0x84 for x^256 to x^0xFFFF, etc.)
+    - :abi fun(uint,uint) 0x00000000 0x20
+    - :abi fun(uint,uint) 0x00000001 0x52
+    - :abi fun(uint,uint) 0x000000FF 0x52
+    - :abi fun(uint,uint) 0x00000100 0x84
+    - :abi fun(uint,uint) 0x0000FFFF 0x84
+    - :abi fun(uint,uint) 0x00010000 0xB6
+    - :abi fun(uint,uint) 0x00FFFFFF 0xB6
+    - :abi fun(uint,uint) 0x01000000 0xE8
+    - :abi fun(uint,uint) 0xFFFFFFFF 0xE8
+
+
+    gasLimit:
+    - 80000000
+    gasPrice: 10
+    nonce: 0
+    to: 095e7baea6a6c7c4c2dfeb977efac326af552d87
+    value:
+    - 1
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+  expect:
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          storage:
+            0x00: 0
+

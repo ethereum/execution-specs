@@ -1,0 +1,257 @@
+gasCostMemSeg:
+
+# Opcodes that involve memory segments:
+#
+# SHA
+# CODECOPY
+# CALLDATACOPY
+# LOG0
+# LOG1
+# LOG2
+# LOG3
+# LOG4
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+
+# Human readable information
+  _info:
+    comment: "Ori Pomerantz qbzzt1@gmail.com"
+
+  pre:
+
+    095e7baea6a6c7c4c2dfeb977efac326af552d87:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+          ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          ; Initialization
+ 
+          ; Variables (0x20 byte wide)
+          (def 'gasB4             0x000)  ; Before the action being measured
+          (def 'gasAfter          0x020)  ; After the action being measured
+
+          (def 'afterVars         0x100)  ; Memory after the variables,
+                                          ; safe to copy into
+
+          ; Understand CALLDATA. It is four bytes of function
+          ; selector (irrelevant) followed by 32 byte words
+          ; of the parameters
+          (def 'opcode     $4 )
+          (def 'length     $36)
+          (def 'expectedCost $68)
+
+          ; NOP for if statements
+          (def 'NOP     0)
+
+          ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          ; Run the operation
+
+          ; SHA3
+          (if (= opcode 0x20) {
+              [gasB4]    (gas)
+              (sha3 0 length)
+              [gasAfter] (gas)
+          } NOP)
+
+
+
+          ; CALLDATACOPY
+          (if (= opcode 0x37) {
+              [gasB4]    (gas)
+              (calldatacopy afterVars 0 length)
+              [gasAfter] (gas)
+          } NOP)
+
+
+          ; CODECOPY
+          (if (= opcode 0x39) {
+              [gasB4]    (gas)
+              (codecopy afterVars 0 length)
+              [gasAfter] (gas)
+          } NOP)
+
+
+
+          ; LOG0
+          (if (= opcode 0xA0) {
+              [gasB4]    (gas)
+              (log0 0 length)
+              [gasAfter] (gas)
+          } NOP)
+
+
+
+          ; LOG1
+          (if (= opcode 0xA1) {
+              [gasB4]    (gas)
+              (log1 0 length 1)
+              [gasAfter] (gas)
+          } NOP)
+
+
+
+          ; LOG2
+          (if (= opcode 0xA2) {
+              [gasB4]    (gas)
+              (log2 0 length 1 2)
+              [gasAfter] (gas)
+          } NOP)
+
+
+
+          ; LOG3
+          (if (= opcode 0xA3) {
+              [gasB4]    (gas)
+              (log3 0 length 1 2 3)
+              [gasAfter] (gas)
+          } NOP)
+
+
+
+          ; LOG4
+          (if (= opcode 0xA4) {
+              [gasB4]    (gas)
+              (log4 0 length 1 2 3 4)
+              [gasAfter] (gas)
+          } NOP)
+
+
+
+          ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          ; Return value
+
+          [[0]] (- @gasB4 @gasAfter expectedCost)
+        }
+      nonce: '0'
+      storage:
+         0: 60A7
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+
+  transaction:
+    data:
+    # 
+    # fun(opcode,length,expectedCost,filler,filler,filler)
+    # Lots of extra parameters for a long CALLDATA to be copied
+    #
+
+    # SHA3
+    # Nine gas per word, six for the SHA3 and three for the memory access
+    #  0 \/
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x20 0x0001 0x3A 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x20 0x0020 0x3A 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x20 0x0021 0x43 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x20 0x0040 0x43 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x20 0x0060 0x4C 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    #  5 \/
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x20 0x0080 0x55 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x20 0x00A0 0x5E 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x20 0x00C0 0x67 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x20 0x00E0 0x70 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x20 0x0100 0x79 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+
+
+    # CALLDATACOPY
+    # Six gas per word, six for the CALLDATACOPY and three for the memory access
+    # 10 \/
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x37 0x0001 0x35 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x37 0x0020 0x35 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x37 0x0021 0x3B 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x37 0x0040 0x3B 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x37 0x0060 0x41 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF  
+    # 15 \/ 
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x37 0x0080 0x47 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x37 0x00A0 0x4D 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x37 0x00C0 0x53 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x37 0x00E0 0x59 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x37 0x0100 0x5F 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+
+
+
+    # CODECOPY
+    # Six gas per word, six for the CODECOPY and three for the memory access
+    # 20 \/
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x39 0x0001 0x35 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x39 0x0020 0x35 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x39 0x0021 0x3B 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x39 0x0040 0x3B 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x39 0x0060 0x41 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    # 25 \/
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x39 0x0080 0x47 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x39 0x00A0 0x4D 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x39 0x00C0 0x53 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x39 0x00E0 0x59 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+    - :abi fun(uint,uint,uint,uint,uint,uint) 0x39 0x0100 0x5F 0xDEAD60A7 0xDEADBEEF 0x60A7BEEF   
+
+
+    # LOG0    30 \/     8 gas per byte
+    - :abi fun(uint,uint,uint) 0xA0 0 0x018b 
+    - :abi fun(uint,uint,uint) 0xA0 1 0x0193
+    - :abi fun(uint,uint,uint) 0xA0 2 0x019b
+    - :abi fun(uint,uint,uint) 0xA0 3 0x01a3
+    - :abi fun(uint,uint,uint) 0xA0 4 0x01ab 
+
+    # LOG1    35 \/     8 gas per byte
+    - :abi fun(uint,uint,uint) 0xA1 0 0x0305
+    - :abi fun(uint,uint,uint) 0xA1 1 0x030d
+    - :abi fun(uint,uint,uint) 0xA1 2 0x0315
+    - :abi fun(uint,uint,uint) 0xA1 3 0x031d
+    - :abi fun(uint,uint,uint) 0xA1 4 0x0325
+
+    # LOG2    40 \/     8 gas per byte
+    - :abi fun(uint,uint,uint) 0xA2 0 0x047f
+    - :abi fun(uint,uint,uint) 0xA2 1 0x0487
+    - :abi fun(uint,uint,uint) 0xA2 2 0x048f
+    - :abi fun(uint,uint,uint) 0xA2 3 0x0497
+    - :abi fun(uint,uint,uint) 0xA2 4 0x049f
+
+    # LOG3    45 \/     8 gas per byte
+    - :abi fun(uint,uint,uint) 0xA3 0 0x05f9 
+    - :abi fun(uint,uint,uint) 0xA3 1 0x0601
+    - :abi fun(uint,uint,uint) 0xA3 2 0x0609
+    - :abi fun(uint,uint,uint) 0xA3 3 0x0611
+    - :abi fun(uint,uint,uint) 0xA3 4 0x0619 
+
+    # LOG4    50 \/     8 gas per byte
+    - :abi fun(uint,uint,uint) 0xA4 0 0x0773 
+    - :abi fun(uint,uint,uint) 0xA4 1 0x077b
+    - :abi fun(uint,uint,uint) 0xA4 2 0x0783
+    - :abi fun(uint,uint,uint) 0xA4 3 0x078b
+    - :abi fun(uint,uint,uint) 0xA4 4 0x0793
+
+
+
+
+
+    gasLimit:
+    - 80000000
+    gasPrice: 10
+    nonce: 0
+    to: 095e7baea6a6c7c4c2dfeb977efac326af552d87
+    value:
+    - 1
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+  expect:
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          storage:
+            0x00: 0
+

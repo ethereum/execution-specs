@@ -1,0 +1,99 @@
+# CREATE2 with max allowed init code size
+create2InitCodeSizeLimit:
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x020000'
+    currentGasLimit: '20000000'
+    currentBaseFee: '10'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+
+  pre:
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 200000000
+      code: ''
+      nonce: 0
+      storage: {}
+    b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      code: |
+        :yul berlin 
+        {
+          mstore(0, calldataload(0))
+          let call_result := call(10000000, 0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b, 0, 0, calldatasize(), 0, 0)
+          sstore(0, call_result)
+          sstore(1, 1)
+        }
+      nonce: 0
+      storage: {}
+    c94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      code: |
+        :yul berlin 
+        {
+          // :yul { codecopy(0x00, 0x00, 0x0a) return(0x00, 0x0a) }
+          mstore(0, 0x600a80600080396000f300000000000000000000000000000000000000000000) 
+          // get initcode size from calldata
+          let initcode_size := calldataload(0)
+          let gas_before := gas()
+          let create_result := create2(0, 0, initcode_size, 0xdeadbeef)
+          sstore(10, sub(gas_before, gas()))
+          sstore(0, create_result)
+        }
+      nonce: 0
+      storage: {}
+
+  transaction:
+    data: 
+      # Valid initcode size = 49152 bytes
+      - ':label valid :raw 0x000000000000000000000000000000000000000000000000000000000000c000'
+      # Invalid initcode size = 49153 bytes
+      - ':label invalid :raw 0x000000000000000000000000000000000000000000000000000000000000c001'
+    gasLimit:
+      - 15000000
+    gasPrice: 10
+    nonce: 0
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 'b94f5374fce5edbc8e2a8697c15331677e6ebf0b'
+    value:
+    - 0
+
+  expect:
+    - indexes:
+       data: ':label valid'
+      network:
+        - '>=Cancun'
+      result:
+       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+       b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+              '0': 1 # subcall successful
+              '1': 1 # test successful, no OOG
+       c94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+              '0': '9e7a3337d18c31fe4c1fe51ab2da6cfd3629923d' # created account
+               # Difference with Paris is the charge for initcode 49152 // 32 * 2 = 3072 gas
+              '10': 55539                                     # gas used by CREATE
+       9e7a3337d18c31fe4c1fe51ab2da6cfd3629923d:
+          balance: 0
+          code: '0x600a80600080396000f3'
+          nonce: 1
+          storage: {}
+
+    - indexes:
+       data: ':label invalid'
+      network:
+        - '>=Cancun'
+      result:
+       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+       b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 0
+          storage:
+              '0': 0 # subcall aborted
+              '1': 1 # test successful, no OOG
+       c94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage: {}
+       67d49ae27e912b3b508d62ce1e463298db6edf32:
+          shouldnotexist: 1

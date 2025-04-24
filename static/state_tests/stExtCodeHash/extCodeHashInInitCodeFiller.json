@@ -1,0 +1,80 @@
+{
+    "extCodeHashInInitCode" : {
+	    "_info" : {
+	        "comment": "EXTCODEHASH/EXTCODESIZE of an account during init code(creation code)"
+	    },
+        "env" : {
+            "currentCoinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x20000",
+            "currentGasLimit" : "1000000",
+            "currentNumber" : "1",
+            "currentTimestamp" : "1000"
+        },
+        "expect" : [
+            {
+                "indexes" : {
+                    "data" : 0,
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "6295ee1b4f6dd65047762f924ecd367c17eabf8f" : {
+                        "storage" : {
+                            "0x00" : "0x36712aa4d0dd2f64a9ae6ac09555133a157c74ddf7c079a70c33e8b4bf70dd73",
+                            "0x01" : "4"
+                        }
+                    }
+                }
+            },
+            {
+                "indexes" : {
+                    "data" : 1,
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "0xd89b2fe30e76dc80d2e93f7db8d32f5865bdad83" : {
+                        "storage" : {
+                            "0x00" : "0x36712aa4d0dd2f64a9ae6ac09555133a157c74ddf7c079a70c33e8b4bf70dd73",
+                            "0x01" : "4"
+                        }
+                    }
+                }
+            }
+        ],
+        "pre" : {
+            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "1000000000000000000",
+                "code" : "",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+	        "b94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "1000000000000000000",
+                "code" : ":raw 0x11223344",
+                "nonce" : "0",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "{ [[0]] (EXTCODEHASH 0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b) [[1]] (EXTCODESIZE 0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b) }",
+        		"{ (seq (CREATE2 0 0 (lll (seq          [[0]] (EXTCODEHASH 0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b) [[1]] (EXTCODESIZE 0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b)            ) 0) 0) (STOP) )}"
+            ],
+            "gasLimit" : [
+                "400000"
+            ],
+            "gasPrice" : "10",
+            "nonce" : "0",
+            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "",
+            "value" : [
+                "1"
+            ]
+        }
+    }
+}

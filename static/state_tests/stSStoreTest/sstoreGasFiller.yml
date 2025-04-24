@@ -1,0 +1,143 @@
+# Check the gas cost of sstore in different circumstances
+
+sstoreGas:
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "100000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+
+
+  pre:
+
+    
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        :yul berlin
+        {
+           // Use storage of 0x1000 and above for gas figures
+           let storageLoc := 0x1000
+           
+           // Gas spent on the measurement (two PUSHs, GAS, and SWAPs as 
+           // needed for the variables)
+           let measureGas := 8
+
+           let gas0, gas1
+
+           // Cold storage, non-zero to non-zero
+           gas0 := gas()
+           sstore(0, 0xBEEF)
+           gas1 := gas()
+           sstore(storageLoc, sub(sub(gas0, gas1), measureGas)) 
+           storageLoc := add(storageLoc, 1)
+
+           // Warm storage, non-zero to non-zero
+           gas0 := gas()
+           sstore(0, 0xDEADBEEF)
+           gas1 := gas()
+           sstore(storageLoc, sub(sub(gas0, gas1), measureGas)) 
+           storageLoc := add(storageLoc, 1)
+
+           // Warm storage, non-zero to zero
+           gas0 := gas()
+           sstore(0, 0)  
+           gas1 := gas()
+           sstore(storageLoc, sub(sub(gas0, gas1), measureGas)) 
+           storageLoc := add(storageLoc, 1)
+
+           // Warm storage, zero to zero
+           gas0 := gas()
+           sstore(0, 0)  
+           gas1 := gas()
+           sstore(storageLoc, sub(sub(gas0, gas1), measureGas)) 
+           storageLoc := add(storageLoc, 1)
+
+           // Warm storage, zero to non-zero
+           gas0 := gas()
+           sstore(0, 0x1234)  
+           gas1 := gas()
+           sstore(storageLoc, sub(sub(gas0, gas1), measureGas)) 
+           storageLoc := add(storageLoc, 1)
+
+           // Cold storage, non-zero to zero
+           gas0 := gas()
+           sstore(1, 0) 
+           gas1 := gas()
+           sstore(storageLoc, sub(sub(gas0, gas1), measureGas)) 
+           storageLoc := add(storageLoc, 1)
+
+           // Cold storage, zero to non-zero
+           gas0 := gas()
+           sstore(2, 0x60A7) 
+           gas1 := gas()
+           sstore(storageLoc, sub(sub(gas0, gas1), measureGas)) 
+           storageLoc := add(storageLoc, 1)
+
+           // Cold storage, zero to zero
+           gas0 := gas()
+           sstore(3, 0)
+           gas1 := gas()
+           sstore(storageLoc, sub(sub(gas0, gas1), measureGas)) 
+           storageLoc := add(storageLoc, 1)
+
+           // Warm storage, zero to non-zero (cell started as zero)
+           gas0 := gas()
+           sstore(3, 0x60A7)
+           gas1 := gas()
+           sstore(storageLoc, sub(sub(gas0, gas1), measureGas)) 
+           storageLoc := add(storageLoc, 1)
+
+           // Cleanup
+           sstore(0, 0)
+           sstore(1, 0)
+           sstore(2, 0)
+           sstore(3, 0)
+        }
+      nonce: 1
+      storage: 
+          0: 0x60A7
+          1: 0x60A7
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: 1
+      storage: {}
+
+
+  transaction:
+    data:
+    - 0x
+    gasLimit:
+    - 80000000
+    gasPrice: 10
+    nonce: 1
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - 0
+    secretKey: '45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8'
+
+
+
+  expect:
+    - network:
+        - '>=Cancun'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x1000:  5000    # Non zero to non zero, cold storage
+            0x1001:   100    # Non zero to non zero, warm storage
+            0x1002:   100    # Non zero to zero, warm storage
+            0x1003:   100    # Zero to zero, warm storage
+            0x1004:   100    # Zero to non zero, warm storage
+            0x1005:  5000    # Non zero to zero, cold storage
+            0x1006: 22100    # Zero to non zero, cold storage
+            0x1007:  2200    # Zero to zero, cold storage
+            0x1008: 20000    # Zero to non-zero, warm storage that started as zero
+
+

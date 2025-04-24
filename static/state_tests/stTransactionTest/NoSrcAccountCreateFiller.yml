@@ -1,0 +1,166 @@
+# Send transactions where the source address is empty (no nonce, no eth).
+# These are contract creation transactions
+# Should always fail
+
+NoSrcAccountCreate:
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x020000'
+    currentGasLimit: '89128960'
+    currentBaseFee: '10'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+
+  pre:
+    # The empty address is a94f5374fce5edbc8e2a8697c15331677e6ebf0b.
+
+    # Just a random address to call    
+    d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0:
+      balance: 0
+      code: :raw 0x00
+      nonce: 0
+      storage: {}
+
+  transaction:
+    data:
+      # Nothing
+      - 0x
+      # Some junk data
+      - :raw 0xDEAD60A7
+
+      # The accessList makes this transaction type 1.
+      # Empty access list
+      - data: :raw 0x00
+        accessList: []
+      # Access list, but no storage keys
+      - data: :raw 0x00
+        accessList:
+        - address: 0xd0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0
+          storageKeys: []
+      # Access list with a storage key
+      - data: :raw 0x00
+        accessList:
+        - address: 0xd0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0
+          storageKeys:
+          - 0x00
+          - 0x01
+    gasLimit:
+      - 21000    # Minimum
+      - 210000   # Higher than minimum
+      - 0        # We have enough ETH for this one
+    gasPrice: 100
+    nonce: 0
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: ""
+    value:
+      - 0
+      - 1
+
+  expect:
+    # Not enough ETH for executing the transaction
+    - network:
+        - '>=Cancun'
+      indexes:
+        data: !!int 0
+        gas: !!int 0
+        value: !!int -1
+      expectException:
+        ">=Homestead" : "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS|TransactionException.INTRINSIC_GAS_TOO_LOW"    #nimbus have different exception type here
+        "<Homestead" : "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+      result: {}
+    - network:
+        - '>=Cancun'
+      indexes:
+        data: !!int 1
+        gas: !!int 0
+        value: !!int -1
+      expectException:
+        ">=Frontier" : "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS|TransactionException.INTRINSIC_GAS_TOO_LOW"    #nimbus have different exception type here
+      result: {}
+    - network:
+        - '>=Cancun'
+      indexes:
+        data: 0-1
+        gas: !!int 1
+        value: !!int -1
+      expectException:
+        ">=Frontier" : "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+      result: {}
+
+
+    # Not enough ETH for the value we transfer
+    - network:
+        - '>=Cancun'
+      indexes:
+        data: 0-1
+        gas: !!int 2
+        value: !!int 1
+      expectException:
+        ">=Frontier" : "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS|TransactionException.INTRINSIC_GAS_TOO_LOW"        #nimbus have different exception type here
+      result: {}
+
+
+
+    # Gas limit of zero, should be at least 21000
+    - network:
+        - '>=Cancun'
+      indexes:
+        data: 0-1
+        gas: !!int 2
+        value: !!int 0
+      expectException:
+        ">=Frontier" : "TransactionException.INTRINSIC_GAS_TOO_LOW"
+      result: {}
+
+
+    # Transaction type 1 starts at Berlin 
+
+    # Not enough ETH for executing the transaction
+    - network:
+        - '>=Cancun'
+      indexes:
+        data: 2-4
+        gas: !!int 0
+        value: !!int -1
+      expectException:
+        ">=Cancun" : "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS|TransactionException.INTRINSIC_GAS_TOO_LOW"
+        "<Berlin" : "TransactionException.TYPE_NOT_SUPPORTED"
+      result: {}
+    - network:
+        - '>=Cancun'
+      indexes:
+        data: 2-4
+        gas: !!int 1
+        value: !!int -1
+      expectException:
+        ">=Cancun" : "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+        "<Berlin" : "TransactionException.TYPE_NOT_SUPPORTED"
+      result: {}
+
+
+    # Not enough ETH for the value we transfer
+    - network:
+        - '>=Cancun'
+      indexes:
+        data: 2-4
+        gas: !!int 2
+        value: !!int 1
+      expectException:
+        ">=Cancun" : "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS|TransactionException.INTRINSIC_GAS_TOO_LOW"
+        "<Berlin" : "TransactionException.TYPE_NOT_SUPPORTED"
+      result: {}
+
+
+
+    # Gas limit of zero, should be at least 21000
+    - network:
+        - '>=Cancun'
+      indexes:
+        data: 2-4
+        gas: !!int 2
+        value: !!int 0
+      expectException:
+        ">=Cancun" : "TransactionException.INTRINSIC_GAS_TOO_LOW"
+        "<Berlin" : "TransactionException.TYPE_NOT_SUPPORTED"
+      result: {}
+
