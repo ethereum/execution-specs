@@ -2,6 +2,8 @@
 
 import pytest
 
+from ethereum_test_base_types.base_types import Address, Bytes
+from ethereum_test_exceptions.exceptions import TransactionException
 from ethereum_test_tools import (
     Account,
     Alloc,
@@ -10,6 +12,8 @@ from ethereum_test_tools import (
     Transaction,
 )
 from ethereum_test_tools.code.generators import Initcode as LegacyInitcode
+from ethereum_test_types.eof.v1 import Container
+from tests.prague.eip7702_set_code_tx.spec import Spec
 
 from .. import EOF_FORK_NAME
 from ..eip7620_eof_create.helpers import (
@@ -24,16 +28,32 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 
 
 @pytest.mark.with_all_contract_creating_tx_types(selector=lambda tx_type: tx_type != 6)
+@pytest.mark.parametrize(
+    "deploy_code",
+    [
+        Bytes("0xEF"),
+        Bytes("0xEF00"),
+        Bytes("0xEF0001"),
+        Bytes("0xEF01"),
+        smallest_runtime_subcontainer,
+        smallest_initcode_subcontainer,
+    ],
+)
 def test_legacy_create_tx_legacy_initcode_eof_bytecode(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_type: int,
+    deploy_code: Bytes | Container,
 ):
-    """Test that a legacy contract creation tx cannot create EOF code."""
+    """
+    Test that a legacy contract creation tx cannot create EOF code.
+
+    This tests only ensures EIP-3541 behavior is kept, not altered by EIP-7873
+    """
     env = Environment()
     sender = pre.fund_eoa()
 
-    initcode = LegacyInitcode(deploy_code=smallest_runtime_subcontainer)
+    initcode = LegacyInitcode(deploy_code=deploy_code)
 
     tx = Transaction(
         ty=tx_type,
@@ -58,13 +78,26 @@ def test_legacy_create_tx_legacy_initcode_eof_bytecode(
 
 
 @pytest.mark.with_all_contract_creating_tx_types(selector=lambda tx_type: tx_type != 6)
-@pytest.mark.xfail(reason="evmone incorrectly deploys the contract")
+@pytest.mark.parametrize(
+    "initcode",
+    [
+        Bytes("0xEF00"),
+        Bytes("0xEF0001"),
+        smallest_runtime_subcontainer,
+        smallest_initcode_subcontainer,
+    ],
+)
+@pytest.mark.exception_test
 def test_legacy_create_tx_eof_initcode(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_type: int,
+    initcode: Bytes | Container,
 ):
-    """Test that a legacy contract creation tx cannot use EOF initcode."""
+    """
+    Test that a legacy contract creation tx with EOF initcode (or anything starting with
+    `0xEF00` in data) is invalid.
+    """
     env = Environment()
     sender = pre.fund_eoa()
 
@@ -73,7 +106,55 @@ def test_legacy_create_tx_eof_initcode(
         sender=sender,
         to=None,
         gas_limit=100_000,
-        data=smallest_initcode_subcontainer,
+        data=initcode,
+        error=TransactionException.EOF_CREATION_TRANSACTION,
+    )
+
+    destination_contract_address = tx.created_contract
+
+    post = {
+        destination_contract_address: Account.NONEXISTENT,
+    }
+
+    state_test(
+        env=env,
+        pre=pre,
+        post=post,
+        tx=tx,
+    )
+
+
+@pytest.mark.with_all_contract_creating_tx_types(selector=lambda tx_type: tx_type != 6)
+@pytest.mark.parametrize(
+    "initcode",
+    [
+        Bytes("0xEF"),
+        Bytes("0xEF01"),
+        Bytes("0xEF0101"),
+        Spec.delegation_designation(Address(0xAA)),
+        Bytes("0xEF02"),
+    ],
+)
+def test_legacy_create_tx_prefix_initcode(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    tx_type: int,
+    initcode: Bytes,
+):
+    """
+    Test that a legacy contract creation tx behaves as it did before EIP-7873 for
+    initcode stating with `EF`, but not falling into the special case of `EF00`.
+    The transaction should be valid but fail on executing of the first byte `EF`.
+    """
+    env = Environment()
+    sender = pre.fund_eoa()
+
+    tx = Transaction(
+        ty=tx_type,
+        sender=sender,
+        to=None,
+        gas_limit=100_000,
+        data=initcode,
     )
 
     destination_contract_address = tx.created_contract
