@@ -81,7 +81,6 @@ def update_successor_stack_height(validator: Validator) -> None:
     section_metadata = validator.sections[index]
     code = validator.eof.metadata.code_section_contents[index]
     op_metadata = section_metadata[validator.current_pc]
-    valid_opcode_positions = list(section_metadata.keys())
     current_stack_height = validator.current_stack_height
     assert current_stack_height is not None
 
@@ -95,7 +94,7 @@ def update_successor_stack_height(validator: Validator) -> None:
         )
         if (
             successor_position + Uint(1) > ulen(code)
-            or successor_position not in valid_opcode_positions
+            or successor_position not in section_metadata.keys()
         ):
             raise InvalidEof("Invalid successor or jump destination")
 
