@@ -659,12 +659,22 @@ def fixture_source_url(
     if hasattr(request.node, "github_url"):
         return request.node.github_url
     function_line_number = request.function.__code__.co_firstlineno
-    module_relative_path = os.path.relpath(request.module.__file__)
+    module_relative_path = os.path.relpath(request.function.__code__.co_filename)
+
     github_url = generate_github_url(
         module_relative_path,
         branch_or_commit_or_tag=commit_hash_or_tag,
         line_number=function_line_number,
     )
+    test_module_relative_path = os.path.relpath(request.module.__file__)
+    if module_relative_path != test_module_relative_path:
+        # This can be the case when the test function's body only contains pass and the entire
+        # test logic is implemented as a test generator from the framework.
+        test_module_github_url = generate_github_url(
+            test_module_relative_path,
+            branch_or_commit_or_tag=commit_hash_or_tag,
+        )
+        github_url += f" called via `{request.node.originalname}()` in {test_module_github_url}"
     return github_url
 
 
