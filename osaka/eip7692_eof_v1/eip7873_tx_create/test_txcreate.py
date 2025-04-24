@@ -57,8 +57,6 @@ def test_simple_txcreate(state_test: StateTestFiller, pre: Alloc, tx_initcode_co
     tx = Transaction(
         to=contract_address,
         gas_limit=10_000_000,
-        max_priority_fee_per_gas=10,
-        max_fee_per_gas=10,
         sender=sender,
         initcodes=[smallest_initcode_subcontainer] * tx_initcode_count,
     )
@@ -104,8 +102,6 @@ def test_txcreate_then_dataload(
     tx = Transaction(
         to=contract_address,
         gas_limit=10_000_000,
-        max_priority_fee_per_gas=10,
-        max_fee_per_gas=10,
         sender=sender,
         initcodes=[small_auxdata_container],
     )
@@ -156,8 +152,6 @@ def test_txcreate_then_call(state_test: StateTestFiller, pre: Alloc, evm_code_ty
     tx = Transaction(
         to=contract_address,
         gas_limit=10_000_000,
-        max_priority_fee_per_gas=10,
-        max_fee_per_gas=10,
         sender=sender,
         initcodes=[callable_contract_initcode],
     )
@@ -224,8 +218,6 @@ def test_auxdata_variations(state_test: StateTestFiller, pre: Alloc, auxdata_byt
     tx = Transaction(
         to=contract_address,
         gas_limit=10_000_000,
-        max_priority_fee_per_gas=10,
-        max_fee_per_gas=10,
         sender=sender,
         initcodes=[initcode_subcontainer],
     )
@@ -282,8 +274,6 @@ def test_calldata(state_test: StateTestFiller, pre: Alloc):
     tx = Transaction(
         to=contract_address,
         gas_limit=10_000_000,
-        max_priority_fee_per_gas=10,
-        max_fee_per_gas=10,
         sender=sender,
         initcodes=[initcode_subcontainer],
     )
@@ -382,8 +372,6 @@ def test_txcreate_in_initcode(
     tx = Transaction(
         to=contract_address,
         gas_limit=10_000_000,
-        max_priority_fee_per_gas=10,
-        max_fee_per_gas=10,
         sender=sender,
         initcodes=[nested_initcode_subcontainer, smallest_initcode_subcontainer],
     )
@@ -445,8 +433,6 @@ def test_return_data_cleared(
     tx = Transaction(
         to=contract_address,
         gas_limit=10_000_000,
-        max_priority_fee_per_gas=10,
-        max_fee_per_gas=10,
         sender=sender,
         initcodes=[smallest_initcode_subcontainer],
     )
@@ -495,8 +481,6 @@ def test_address_collision(
     tx = Transaction(
         to=contract_address,
         gas_limit=300_000_000_000,
-        max_priority_fee_per_gas=10,
-        max_fee_per_gas=10,
         sender=sender,
         initcodes=[smallest_initcode_subcontainer],
     )
@@ -546,8 +530,6 @@ def test_txcreate_revert_eof_returndata(
     tx = Transaction(
         to=contract_address,
         gas_limit=1_000_000,
-        max_priority_fee_per_gas=10,
-        max_fee_per_gas=10,
         sender=sender,
         initcodes=[code_reverts_with_calldata],
         # Simplest possible valid EOF container, which is going to be
@@ -603,8 +585,6 @@ def test_txcreate_context(
         to=factory_address,
         gas_limit=200_000,
         value=value,
-        max_priority_fee_per_gas=10,
-        max_fee_per_gas=10,
         initcodes=[initcode],
     )
 
@@ -688,8 +668,6 @@ def test_txcreate_memory_context(
         to=contract_address,
         gas_limit=200_000,
         sender=pre.fund_eoa(),
-        max_priority_fee_per_gas=10,
-        max_fee_per_gas=10,
         initcodes=[initcontainer],
     )
     state_test(env=env, pre=pre, post=post, tx=tx)

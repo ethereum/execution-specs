@@ -3,7 +3,7 @@
 import pytest
 
 from ethereum_test_base_types import Bytes
-from ethereum_test_base_types.base_types import Address
+from ethereum_test_base_types.base_types import Address, Hash
 from ethereum_test_forks.base_fork import Fork
 from ethereum_test_tools import (
     Account,
@@ -27,6 +27,7 @@ from ..eip7620_eof_create.helpers import (
     slot_call_result,
     slot_code_should_fail,
     slot_code_worked,
+    slot_counter,
     slot_create_address,
     slot_max_depth,
     slot_returndata,
@@ -86,13 +87,12 @@ def test_initcode_revert(state_test: StateTestFiller, pre: Alloc, revert: bytes)
                 slot_returndata: revert,
                 slot_code_worked: value_code_worked,
             }
-        )
+        ),
+        compute_eofcreate_address(contract_address, 0): Account.NONEXISTENT,
     }
     tx = Transaction(
         to=contract_address,
         gas_limit=10_000_000,
-        max_priority_fee_per_gas=10,
-        max_fee_per_gas=10,
         sender=sender,
         initcodes=[initcode_subcontainer],
     )
@@ -100,13 +100,22 @@ def test_initcode_revert(state_test: StateTestFiller, pre: Alloc, revert: bytes)
 
 
 @pytest.mark.with_all_evm_code_types
+@pytest.mark.parametrize(
+    "initcode_hash",
+    [
+        Bytes("").keccak256(),
+        Bytes("00" * 32),
+        Bytes("FF" * 32),
+        Bytes("EF01").keccak256(),
+        smallest_runtime_subcontainer.hash,
+    ],
+)
 @pytest.mark.parametrize("tx_initcode_count", [1, 255, 256])
 def test_txcreate_invalid_hash(
-    state_test: StateTestFiller, pre: Alloc, fork: Fork, tx_initcode_count: int
+    state_test: StateTestFiller, pre: Alloc, tx_initcode_count: int, initcode_hash: Hash
 ):
     """Verifies proper handling of REVERT in initcode."""
     env = Environment()
-    initcode_hash = Bytes("").keccak256()
 
     sender = pre.fund_eoa()
     contract_address = pre.deploy_contract(
@@ -121,13 +130,12 @@ def test_txcreate_invalid_hash(
                 slot_create_address: TXCREATE_FAILURE,
                 slot_code_worked: value_code_worked,
             }
-        )
+        ),
+        compute_eofcreate_address(contract_address, 0): Account.NONEXISTENT,
     }
     tx = Transaction(
         to=contract_address,
         gas_limit=10_000_000,
-        max_priority_fee_per_gas=10,
-        max_fee_per_gas=10,
         sender=sender,
         initcodes=[smallest_initcode_subcontainer] * tx_initcode_count,
     )
@@ -155,13 +163,12 @@ def test_initcode_aborts(
                 slot_create_address: TXCREATE_FAILURE,
                 slot_code_worked: value_code_worked,
             }
-        )
+        ),
+        compute_eofcreate_address(contract_address, 0): Account.NONEXISTENT,
     }
     tx = Transaction(
         to=contract_address,
         gas_limit=10_000_000,
-        max_priority_fee_per_gas=10,
-        max_fee_per_gas=10,
         sender=sender,
         initcodes=[aborting_container],
     )
@@ -233,21 +240,23 @@ def test_txcreate_deploy_sizes(
     # Storage in 0 should have the address,
     # Storage 1 is a canary of 1 to make sure it tried to execute, which also covers cases of
     #   data+code being greater than initcode_size_max, which is allowed.
+    success = target_deploy_size <= MAX_BYTECODE_SIZE
     post = {
         contract_address: Account(
             storage={
                 slot_create_address: compute_eofcreate_address(contract_address, 0)
-                if target_deploy_size <= MAX_BYTECODE_SIZE
+                if success
                 else TXCREATE_FAILURE,
                 slot_code_worked: value_code_worked,
             }
-        )
+        ),
+        compute_eofcreate_address(contract_address, 0): Account()
+        if success
+        else Account.NONEXISTENT,
     }
     tx = Transaction(
         to=contract_address,
         gas_limit=20_000_000,
-        max_priority_fee_per_gas=10,
-        max_fee_per_gas=10,
         sender=sender,
         initcodes=[initcode_subcontainer],
     )
@@ -298,6 +307,7 @@ def test_auxdata_size_failures(state_test: StateTestFiller, pre: Alloc, auxdata_
 
     # Storage in 0 will have address in first test, 0 in all other cases indicating failure
     # Storage 1 in 1 is a canary to see if TXCREATE opcode halted
+    success = deployed_container_size <= MAX_BYTECODE_SIZE
     post = {
         contract_address: Account(
             storage={
@@ -306,14 +316,15 @@ def test_auxdata_size_failures(state_test: StateTestFiller, pre: Alloc, auxdata_
                 else 0,
                 slot_code_worked: value_code_worked,
             }
-        )
+        ),
+        compute_eofcreate_address(contract_address, 0): Account()
+        if success
+        else Account.NONEXISTENT,
     }
 
     tx = Transaction(
         to=contract_address,
         gas_limit=20_000_000,
-        max_priority_fee_per_gas=10,
-        max_fee_per_gas=10,
         sender=sender,
         initcodes=[initcode_subcontainer],
         data=auxdata_bytes,
@@ -365,8 +376,6 @@ def test_txcreate_insufficient_stipend(
     tx = Transaction(
         to=contract_address,
         gas_limit=20_000_000,
-        max_priority_fee_per_gas=10,
-        max_fee_per_gas=10,
         sender=sender,
         initcodes=[smallest_initcode_subcontainer],
     )
@@ -418,8 +427,6 @@ def test_insufficient_initcode_gas(state_test: StateTestFiller, pre: Alloc, fork
     tx = Transaction(
         to=contract_address,
         gas_limit=gas_limit,
-        max_priority_fee_per_gas=10,
-        max_fee_per_gas=10,
         sender=sender,
         initcodes=[initcode_container],
     )
@@ -473,8 +480,6 @@ def test_insufficient_gas_memory_expansion(
     tx = Transaction(
         to=contract_address,
         gas_limit=gas_limit,
-        max_priority_fee_per_gas=10,
-        max_fee_per_gas=10,
         sender=sender,
         initcodes=[smallest_initcode_subcontainer],
     )
@@ -535,8 +540,6 @@ def test_insufficient_returncode_auxdata_gas(
     tx = Transaction(
         to=contract_address,
         gas_limit=gas_limit,
-        max_priority_fee_per_gas=10,
-        max_fee_per_gas=10,
         sender=sender,
         initcodes=[initcode_container],
     )
@@ -591,13 +594,12 @@ def test_static_flag_txcreate(
                 else LEGACY_CALL_FAILURE,
                 slot_code_worked: value_code_worked,
             }
-        )
+        ),
+        compute_eofcreate_address(contract_address, 0): Account.NONEXISTENT,
     }
     tx = Transaction(
         to=calling_address,
         gas_limit=10_000_000,
-        max_priority_fee_per_gas=10,
-        max_fee_per_gas=10,
         sender=sender,
         initcodes=[initcode],
     )
@@ -701,8 +703,6 @@ def test_eof_txcreate_msg_depth(
     )
 
     tx = Transaction(
-        max_priority_fee_per_gas=10,
-        max_fee_per_gas=10,
         sender=sender,
         initcodes=[initcode],
         to=calling_contract_address if who_fails == magic_value_call else passthrough_address,
@@ -743,7 +743,8 @@ def test_reentrant_txcreate(
     initcontainer = Container(
         sections=[
             Section.Code(
-                Op.CALLDATALOAD(0)
+                Op.SSTORE(slot_counter, Op.ADD(Op.SLOAD(slot_counter), 1))
+                + Op.CALLDATALOAD(0)
                 + Op.RJUMPI[len(reenter_code)]
                 + reenter_code
                 + Op.RETURNCODE[0](0, 0)
@@ -771,19 +772,21 @@ def test_reentrant_txcreate(
     # inicode marked (!).
     # Storage in 0 should have the address from the outer TXCREATE.
     # Storage in 1 should have 0 from the inner TXCREATE.
+    # For the created contract storage in `slot_counter` should be 1 as initcode executes only once
     post = {
         contract_address: Account(
             storage={
                 0: compute_eofcreate_address(contract_address, 0),
                 1: 0,
             }
-        )
+        ),
+        compute_eofcreate_address(contract_address, 0): Account(
+            nonce=1, code=smallest_runtime_subcontainer, storage={slot_counter: 1}
+        ),
     }
     tx = Transaction(
         to=contract_address,
         gas_limit=500_000,
-        max_priority_fee_per_gas=10,
-        max_fee_per_gas=10,
         initcodes=[initcontainer],
         sender=pre.fund_eoa(),
     )

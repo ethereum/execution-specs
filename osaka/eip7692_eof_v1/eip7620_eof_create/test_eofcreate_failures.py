@@ -23,6 +23,7 @@ from .helpers import (
     slot_call_result,
     slot_code_should_fail,
     slot_code_worked,
+    slot_counter,
     slot_create_address,
     slot_max_depth,
     slot_returndata,
@@ -87,7 +88,8 @@ def test_initcode_revert(state_test: StateTestFiller, pre: Alloc, revert: bytes)
                 slot_returndata: revert,
                 slot_code_worked: value_code_worked,
             }
-        )
+        ),
+        compute_eofcreate_address(contract_address, 0): Account.NONEXISTENT,
     }
     tx = Transaction(
         to=contract_address,
@@ -125,7 +127,8 @@ def test_initcode_aborts(
                 slot_create_address: EOFCREATE_FAILURE,
                 slot_code_worked: value_code_worked,
             }
-        )
+        ),
+        compute_eofcreate_address(contract_address, 0): Account.NONEXISTENT,
     }
     tx = Transaction(
         to=contract_address,
@@ -215,15 +218,19 @@ def test_eofcreate_deploy_sizes(
     # Storage in 0 should have the address,
     # Storage 1 is a canary of 1 to make sure it tried to execute, which also covers cases of
     #   data+code being greater than initcode_size_max, which is allowed.
+    success = target_deploy_size <= MAX_BYTECODE_SIZE
     post = {
         contract_address: Account(
             storage={
                 slot_create_address: compute_eofcreate_address(contract_address, 0)
-                if target_deploy_size <= MAX_BYTECODE_SIZE
+                if success
                 else EOFCREATE_FAILURE,
                 slot_code_worked: value_code_worked,
             }
-        )
+        ),
+        compute_eofcreate_address(contract_address, 0): Account()
+        if success
+        else Account.NONEXISTENT,
     }
     tx = Transaction(
         to=contract_address,
@@ -304,15 +311,19 @@ def test_auxdata_size_failures(state_test: StateTestFiller, pre: Alloc, auxdata_
 
     # Storage in 0 will have address in first test, 0 in all other cases indicating failure
     # Storage 1 in 1 is a canary to see if EOFCREATE opcode halted
+    success = deployed_container_size <= MAX_BYTECODE_SIZE
     post = {
         contract_address: Account(
             storage={
                 slot_create_address: compute_eofcreate_address(contract_address, 0)
-                if deployed_container_size <= MAX_BYTECODE_SIZE
+                if success
                 else 0,
                 slot_code_worked: value_code_worked,
             }
-        )
+        ),
+        compute_eofcreate_address(contract_address, 0): Account()
+        if success
+        else Account.NONEXISTENT,
     }
 
     tx = Transaction(
@@ -615,7 +626,8 @@ def test_static_flag_eofcreate(
                 else LEGACY_CALL_FAILURE,
                 slot_code_worked: value_code_worked,
             }
-        )
+        ),
+        compute_eofcreate_address(contract_address, 0): Account.NONEXISTENT,
     }
     tx = Transaction(
         to=calling_address,
@@ -765,7 +777,8 @@ def test_reentrant_eofcreate(
     initcontainer = Container(
         sections=[
             Section.Code(
-                Op.CALLDATALOAD(0)
+                Op.SSTORE(slot_counter, Op.ADD(Op.SLOAD(slot_counter), 1))
+                + Op.CALLDATALOAD(0)
                 + Op.RJUMPI[len(reenter_code)]
                 + reenter_code
                 + Op.RETURNCODE[0](0, 0)
@@ -796,13 +809,17 @@ def test_reentrant_eofcreate(
     # inicode marked (!).
     # Storage in 0 should have the address from the outer EOFCREATE.
     # Storage in 1 should have 0 from the inner EOFCREATE.
+    # For the created contract storage in `slot_counter` should be 1 as initcode executes only once
     post = {
         contract_address: Account(
             storage={
                 0: compute_eofcreate_address(contract_address, 0),
                 1: 0,
             }
-        )
+        ),
+        compute_eofcreate_address(contract_address, 0): Account(
+            nonce=1, code=smallest_runtime_subcontainer, storage={slot_counter: 1}
+        ),
     }
     tx = Transaction(
         to=contract_address,
