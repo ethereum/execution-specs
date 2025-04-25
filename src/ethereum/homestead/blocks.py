@@ -65,7 +65,7 @@ class Log:
 
     address: Address
     topics: Tuple[Hash32, ...]
-    data: bytes
+    data: Bytes
 
 
 @slotted_freezable

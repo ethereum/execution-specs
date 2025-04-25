@@ -13,12 +13,13 @@ Runtime related operations used while executing EVM code.
 """
 from typing import Set
 
+from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import Uint, ulen
 
 from .instructions import Ops
 
 
-def get_valid_jump_destinations(code: bytes) -> Set[Uint]:
+def get_valid_jump_destinations(code: Bytes) -> Set[Uint]:
     """
     Analyze the evm code to obtain the set of valid jump destinations.
 

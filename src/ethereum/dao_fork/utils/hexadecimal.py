@@ -12,6 +12,8 @@ Introduction
 Hexadecimal utility functions used in this specification, specific to Dao Fork
 types.
 """
+from ethereum_types.bytes import Bytes
+
 from ethereum.utils.hexadecimal import remove_hex_prefix
 
 from ..fork_types import Address, Bloom, Root
@@ -31,7 +33,7 @@ def hex_to_root(hex_string: str) -> Root:
     root : `Root`
         Trie root obtained from the given hexadecimal string.
     """
-    return Root(bytes.fromhex(remove_hex_prefix(hex_string)))
+    return Root(Bytes.fromhex(remove_hex_prefix(hex_string)))
 
 
 def hex_to_bloom(hex_string: str) -> Bloom:
@@ -48,7 +50,7 @@ def hex_to_bloom(hex_string: str) -> Bloom:
     bloom : `Bloom`
         Bloom obtained from the given hexadecimal string.
     """
-    return Bloom(bytes.fromhex(remove_hex_prefix(hex_string)))
+    return Bloom(Bytes.fromhex(remove_hex_prefix(hex_string)))
 
 
 def hex_to_address(hex_string: str) -> Address:
@@ -65,4 +67,4 @@ def hex_to_address(hex_string: str) -> Address:
     address : `Address`
         The address obtained from the given hexadecimal string.
     """
-    return Address(bytes.fromhex(remove_hex_prefix(hex_string).rjust(40, "0")))
+    return Address(Bytes.fromhex(remove_hex_prefix(hex_string).rjust(40, "0")))

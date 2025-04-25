@@ -18,6 +18,7 @@ eliminating blocks and receipts from their search.
 
 from typing import Tuple
 
+from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import Uint
 
 from ethereum.crypto.hash import keccak256
@@ -26,7 +27,7 @@ from .blocks import Log
 from .fork_types import Bloom
 
 
-def add_to_bloom(bloom: bytearray, bloom_entry: bytes) -> None:
+def add_to_bloom(bloom: bytearray, bloom_entry: Bytes) -> None:
     """
     Add a bloom entry to the bloom filter (`bloom`).
 
