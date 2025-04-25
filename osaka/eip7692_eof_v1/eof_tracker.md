@@ -183,6 +183,7 @@
 - [x] Valid RJUMP forwards from different stack in variable stack segment ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjump.py::test_rjump_valid_forward`](./eip4200_relative_jumps/test_rjump/test_rjump_valid_forward.md)
 - [ ] Valid empty infinite loop with RJUMP (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
 - [ ] Valid balanced infinite loop (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
+- [x] RJUMP to self (including variadic stack height) ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjump.py::test_rjump_into_self`](./eip4200_relative_jumps/test_rjump/test_rjump_into_self.md))
 
 ##### RJUMPI
 
@@ -203,6 +204,7 @@
 - [x] If-then-else with equal stack height in branches, variable stack segment ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjumpi.py::test_rjumpi_valid_forward`](./eip4200_relative_jumps/test_rjumpi/test_rjumpi_valid_forward.md)
 - [x] If-then-else with different stack height in branches ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjumpi.py::test_rjumpi_valid_forward`](./eip4200_relative_jumps/test_rjumpi/test_rjumpi_valid_forward.md)
 - [x] If-then-else with different stack height in branches, variable stack segment ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjumpi.py::test_rjumpi_valid_forward`](./eip4200_relative_jumps/test_rjumpi/test_rjumpi_valid_forward.md)
+- [x] RJUMPI to self (including variadic stack height) ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjumpi.py::test_rjumpi_into_self`](./eip4200_relative_jumps/test_rjumpi/test_rjumpi_into_self.md))
 
 ##### RJUMPV
 
@@ -219,6 +221,7 @@
 - [x] Switch with equal stack height in branches, variable stack segment ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjumpv.py::test_rjumpv_valid_forward`](./eip4200_relative_jumps/test_rjumpv/test_rjumpv_valid_forward.md)
 - [x] Switch with different stack height in branches ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjumpv.py::test_rjumpv_valid_forward`](./eip4200_relative_jumps/test_rjumpv/test_rjumpv_valid_forward.md)
 - [x] Switch with different stack height in branches, variable stack segment ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjumpv.py::test_rjumpv_valid_forward`](./eip4200_relative_jumps/test_rjumpv/test_rjumpv_valid_forward.md)
+- [x] RJUMPV to self (including variadic stack height) ([`tests/osaka/eip7692_eof_v1/eip4200_relative_jumps/test_rjumpv.py::test_rjumpv_into_self`](./eip4200_relative_jumps/test_rjumpv/test_rjumpv_into_self.md))
 
 ##### Combinations
 
@@ -231,9 +234,6 @@
 - [ ] RJUMP and RJUMPV with the same target and different stack height (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpv_Copier.json)
 - [ ] RJUMP and RJUMPV with the same target and different stack height in a variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpv_variable_stack_Copier.json)
 - [ ] RJUMPI and RJUMPV with the same target
-
-- [ ] RJUMP* to self (ethereum/tests: src/EOFTestsFiller/efStack/self_referencing_jumps_Copier.json)
-- [ ] RJUMP* to self in a variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/self_referencing_jumps_variable_stack_Copier.json)
 
 #### Stack underflow
 

@@ -15,6 +15,7 @@ from ethereum_test_tools import (
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 from ethereum_test_types.eof.v1 import Container, Section
 from ethereum_test_types.eof.v1.constants import MAX_BYTECODE_SIZE
+from ethereum_test_vm import Bytecode
 
 from .. import EOF_FORK_NAME
 from .helpers import (
@@ -1069,15 +1070,25 @@ def test_rjumpi_into_self_data_portion(
     )
 
 
+@pytest.mark.parametrize("stack_height_spread", [-1, 0, 1, 2])
 def test_rjumpi_into_self(
     eof_test: EOFTestFiller,
+    stack_height_spread: int,
 ):
-    """EOF1I4200_0021 (Invalid) EOF code containing RJUMPI with target same RJUMPI immediate."""
+    """
+    EOF code containing RJUMPI targeting itself (-3).
+    This can never be valid because this is backward jump and RJUMPI consumes one stack item.
+    """
+    # Create variadic stack height by the parametrized spread.
+    stack_spread_code = Bytecode()
+    if stack_height_spread >= 0:
+        stack_spread_code = Op.RJUMPI[stack_height_spread](0) + Op.PUSH0 * stack_height_spread
+
     eof_test(
         container=Container(
             sections=[
                 Section.Code(
-                    code=Op.PUSH1(1) + Op.RJUMPI[-len(Op.RJUMPI[0])] + Op.STOP,
+                    code=stack_spread_code + Op.RJUMPI[-len(Op.RJUMPI[0])](0) + Op.STOP,
                 )
             ],
         ),

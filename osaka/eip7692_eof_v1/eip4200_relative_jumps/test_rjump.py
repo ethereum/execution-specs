@@ -6,6 +6,7 @@ from ethereum_test_tools import Account, EOFException, EOFStateTestFiller, EOFTe
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 from ethereum_test_types.eof.v1 import Container, Section
 from ethereum_test_types.eof.v1.constants import MAX_BYTECODE_SIZE
+from ethereum_test_vm import Bytecode
 
 from .. import EOF_FORK_NAME
 from .helpers import JumpDirection, slot_code_worked, value_code_worked
@@ -249,12 +250,19 @@ def test_rjump_into_self_remaining_code(
     )
 
 
+@pytest.mark.parametrize("stack_height_spread", [-1, 0, 1, 2])
 def test_rjump_into_self(
     eof_test: EOFTestFiller,
+    stack_height_spread: int,
 ):
     """EOF code containing RJUMP with target self RJUMP."""
+    # Create variadic stack height by the parametrized spread.
+    stack_spread_code = Bytecode()
+    if stack_height_spread >= 0:
+        stack_spread_code = Op.RJUMPI[stack_height_spread](0) + Op.PUSH0 * stack_height_spread
+
     eof_test(
-        container=Container.Code(Op.RJUMP[-len(Op.RJUMP[0])]),
+        container=Container.Code(stack_spread_code + Op.RJUMP[-len(Op.RJUMP[0])]),
     )
 
 

@@ -5,6 +5,7 @@ import pytest
 from ethereum_test_tools import Account, EOFException, EOFStateTestFiller, EOFTestFiller
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 from ethereum_test_types.eof.v1 import Container, Section
+from ethereum_test_vm import Bytecode
 
 from .. import EOF_FORK_NAME
 from .helpers import JumpDirection, slot_code_worked, slot_conditional_result, value_code_worked
@@ -481,12 +482,22 @@ def test_rjumpv_into_self_data_portion(
         pytest.param(256, 255, id="t256i255"),
     ],
 )
+@pytest.mark.parametrize("stack_height_spread", [-1, 0, 1, 2])
 def test_rjumpv_into_self(
     eof_test: EOFTestFiller,
     table_size: int,
     invalid_index: int,
+    stack_height_spread: int,
 ):
-    """EOF code containing RJUMPV with target same RJUMPV immediate."""
+    """
+    EOF code containing RJUMPV targeting itself.
+    This can never be valid because this is backward jump and RJUMPV consumes one stack item.
+    """
+    # Create variadic stack height by the parametrized spread.
+    stack_spread_code = Bytecode()
+    if stack_height_spread >= 0:
+        stack_spread_code = Op.RJUMPI[stack_height_spread](0) + Op.PUSH0 * stack_height_spread
+
     jump_table = [0 for _ in range(table_size)]
     jump_table[invalid_index] = -len(Op.RJUMPV[jump_table])
 
@@ -494,7 +505,8 @@ def test_rjumpv_into_self(
         container=Container(
             sections=[
                 Section.Code(
-                    code=Op.PUSH1(1) + Op.RJUMPV[jump_table] + Op.STOP,
+                    code=stack_spread_code + Op.RJUMPV[jump_table](0) + Op.STOP,
+                    # max stack increase is computed correctly
                 )
             ],
         ),
@@ -517,13 +529,13 @@ def test_rjumpv_into_stack_height_diff(
 ):
     """EOF code containing RJUMPV with target instruction that causes stack height difference."""
     jump_table = [0 for _ in range(table_size)]
-    jump_table[invalid_index] = -(len(Op.RJUMPV[jump_table]) + len(Op.PUSH1(0)) + len(Op.PUSH1(0)))
+    jump_table[invalid_index] = -(len(Op.RJUMPV[jump_table]) + len(Op.PUSH1[0]) + len(Op.PUSH1[0]))
 
     eof_test(
         container=Container(
             sections=[
                 Section.Code(
-                    code=Op.PUSH1(0) + Op.PUSH1(0) + Op.RJUMPV[jump_table] + Op.STOP,
+                    code=Op.PUSH1[0] + Op.PUSH1[0] + Op.RJUMPV[jump_table] + Op.STOP,
                 ),
             ],
         ),
