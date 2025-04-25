@@ -235,6 +235,33 @@ class Conditional(Bytecode):
         return super().__new__(cls, bytecode)
 
 
+class While(Bytecode):
+    """Helper class used to generate while-loop bytecode."""
+
+    def __new__(
+        cls,
+        *,
+        body: Bytecode | Op,
+        condition: Bytecode | Op,
+        evm_code_type: EVMCodeType = EVMCodeType.LEGACY,
+    ):
+        """
+        Assemble the loop bytecode.
+
+        The condition nor the body can leave a stack item on the stack.
+        """
+        bytecode = Bytecode()
+        if evm_code_type == EVMCodeType.LEGACY:
+            bytecode += Op.JUMPDEST
+            bytecode += body
+            bytecode += Op.JUMPI(
+                Op.SUB(Op.PC, Op.PUSH4[len(body) + len(condition) + 6]), condition
+            )
+        elif evm_code_type == EVMCodeType.EOF_V1:
+            raise NotImplementedError("EOF while loops are not implemented")
+        return super().__new__(cls, bytecode)
+
+
 @dataclass(kw_only=True)
 class Case:
     """
