@@ -11,7 +11,7 @@ Introduction
 
 Implementations of the EVM system related instructions.
 """
-from ethereum_types.bytes import Bytes0
+from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.utils.numeric import ceil32
@@ -658,7 +658,7 @@ def revert(evm: Evm) -> None:
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
     output = memory_read_bytes(evm.memory, memory_start_index, size)
-    evm.output = bytes(output)
+    evm.output = Bytes(output)
     raise Revert
 
     # PROGRAM COUNTER

@@ -69,7 +69,7 @@ def hex_to_bytes(hex_string: str) -> Bytes:
     byte_stream : `bytes`
         Byte stream corresponding to the given hexadecimal string.
     """
-    return bytes.fromhex(remove_hex_prefix(hex_string))
+    return Bytes.fromhex(remove_hex_prefix(hex_string))
 
 
 def hex_to_bytes8(hex_string: str) -> Bytes8:
@@ -86,7 +86,7 @@ def hex_to_bytes8(hex_string: str) -> Bytes8:
     8_byte_stream : `Bytes8`
         8-byte stream corresponding to the given hexadecimal string.
     """
-    return Bytes8(bytes.fromhex(remove_hex_prefix(hex_string).rjust(16, "0")))
+    return Bytes8(Bytes.fromhex(remove_hex_prefix(hex_string).rjust(16, "0")))
 
 
 def hex_to_bytes20(hex_string: str) -> Bytes20:
@@ -103,7 +103,7 @@ def hex_to_bytes20(hex_string: str) -> Bytes20:
     20_byte_stream : `Bytes20`
         20-byte stream corresponding to the given hexadecimal string.
     """
-    return Bytes20(bytes.fromhex(remove_hex_prefix(hex_string).rjust(20, "0")))
+    return Bytes20(Bytes.fromhex(remove_hex_prefix(hex_string).rjust(20, "0")))
 
 
 def hex_to_bytes32(hex_string: str) -> Bytes32:
@@ -120,7 +120,7 @@ def hex_to_bytes32(hex_string: str) -> Bytes32:
     32_byte_stream : `Bytes32`
         32-byte stream corresponding to the given hexadecimal string.
     """
-    return Bytes32(bytes.fromhex(remove_hex_prefix(hex_string).rjust(64, "0")))
+    return Bytes32(Bytes.fromhex(remove_hex_prefix(hex_string).rjust(64, "0")))
 
 
 def hex_to_bytes256(hex_string: str) -> Bytes256:
@@ -138,7 +138,7 @@ def hex_to_bytes256(hex_string: str) -> Bytes256:
         256-byte stream corresponding to the given hexadecimal string.
     """
     return Bytes256(
-        bytes.fromhex(remove_hex_prefix(hex_string).rjust(512, "0"))
+        Bytes.fromhex(remove_hex_prefix(hex_string).rjust(512, "0"))
     )
 
 
@@ -156,7 +156,7 @@ def hex_to_hash(hex_string: str) -> Hash32:
     hash : `Hash32`
         32-byte stream obtained from the given hexadecimal string.
     """
-    return Hash32(bytes.fromhex(remove_hex_prefix(hex_string)))
+    return Hash32(Bytes.fromhex(remove_hex_prefix(hex_string)))
 
 
 def hex_to_uint(hex_string: str) -> Uint:

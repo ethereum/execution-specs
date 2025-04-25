@@ -143,7 +143,7 @@ class GenesisFork(
     """
 
     Address: Type[FixedBytes]
-    Account: Callable[[Uint, U256, bytes], AccountT]
+    Account: Callable[[Uint, U256, Bytes], AccountT]
     Trie: Callable[[bool, object], TrieT]
     Bloom: Type[FixedBytes]
     Header: Type[HeaderT]

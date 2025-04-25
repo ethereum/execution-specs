@@ -20,6 +20,8 @@ import enum
 from dataclasses import dataclass
 from typing import Optional, Protocol, Union
 
+from ethereum_types.bytes import Bytes
+
 from ethereum.exceptions import EthereumException
 
 
@@ -41,7 +43,7 @@ class TransactionEnd:
     Total gas consumed by this transaction.
     """
 
-    output: bytes
+    output: Bytes
     """
     Return value or revert reason of the outermost frame of execution.
     """
@@ -64,7 +66,7 @@ class PrecompileStart:
     Trace event that is triggered before executing a precompile.
     """
 
-    address: bytes
+    address: Bytes
     """
     Precompile that is about to be executed.
     """
