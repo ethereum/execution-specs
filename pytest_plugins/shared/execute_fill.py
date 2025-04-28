@@ -158,11 +158,7 @@ def test_case_description(request: pytest.FixtureRequest) -> str:
     if hasattr(request.node, "cls"):
         test_class_doc = f"Test class documentation:\n{request.cls.__doc__}" if request.cls else ""
     if hasattr(request.node, "function"):
-        test_function_doc = (
-            f"Test function documentation:\n{request.function.__doc__}"
-            if request.function.__doc__
-            else ""
-        )
+        test_function_doc = f"{request.function.__doc__}" if request.function.__doc__ else ""
     if not test_class_doc and not test_function_doc:
         return description_unavailable
     combined_docstring = f"{test_class_doc}\n\n{test_function_doc}".strip()

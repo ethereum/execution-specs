@@ -34,7 +34,6 @@ import os
 import warnings
 from dataclasses import asdict
 from pathlib import Path
-from typing import List
 
 import pytest
 from filelock import FileLock
@@ -43,7 +42,7 @@ from hive.simulation import Simulation
 from hive.testing import HiveTest, HiveTestResult, HiveTestSuite
 
 from ..logging import get_logger
-from .hive_info import ClientInfo, HiveInfo
+from .hive_info import ClientFile, HiveInfo
 
 logger = get_logger(__name__)
 
@@ -122,7 +121,7 @@ def pytest_report_header(config, start_path):
             f"hive commit: {hive_info.commit}",
             f"hive date: {hive_info.date}",
         ]
-        for client in hive_info.client_file:
+        for client in hive_info.client_file.root:
             header_lines += [
                 f"hive client ({client.client}): {client.model_dump_json(exclude_none=True)}",
             ]
@@ -160,10 +159,10 @@ def hive_info(simulator: Simulation):
 
 
 @pytest.fixture(scope="session")
-def client_file(hive_info: HiveInfo | None) -> List[ClientInfo]:
+def client_file(hive_info: HiveInfo | None) -> ClientFile:
     """Return the client file used when launching hive."""
     if hive_info is None:
-        return []
+        return ClientFile(root=[])
     return hive_info.client_file
 
 
