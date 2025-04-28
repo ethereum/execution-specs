@@ -61,7 +61,7 @@ run_control_flow_ops_vm_test = partial(
         "JDfromStorageDynamicJump1.json",
         "JDfromStorageDynamicJumpInsidePushWithJumpDest.json",
         "JDfromStorageDynamicJumpInsidePushWithoutJumpDest.json",
-        "DyanmicJump0_outOfBoundary.json",
+        "DynamicJump0_outOfBoundary.json",
         "DynamicJump0_AfterJumpdest.json",
         "DynamicJump0_AfterJumpdest3.json",
         "DynamicJump0_withoutJumpdest.json",
