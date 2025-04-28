@@ -11,6 +11,7 @@ Introduction
 
 Implementations of the EVM system related instructions.
 """
+
 from ethereum_types.bytes import Bytes0
 from ethereum_types.numeric import U256, Uint
 
@@ -37,6 +38,7 @@ from .. import (
     Message,
     incorporate_child_on_error,
     incorporate_child_on_success,
+    transfer_log,
 )
 from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
 from ..gas import (
@@ -380,9 +382,11 @@ def call(evm: Evm) -> None:
         access_gas_cost + create_gas_cost + transfer_gas_cost,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
+
     if evm.message.is_static and value != U256(0):
         raise WriteInStaticContext
     evm.memory += b"\x00" * extend_memory.expand_by
+
     sender_balance = get_account(
         evm.env.state, evm.message.current_target
     ).balance
@@ -404,6 +408,12 @@ def call(evm: Evm) -> None:
             memory_input_size,
             memory_output_start_position,
             memory_output_size,
+        )
+        transfer_log(
+            evm,
+            evm.message.current_target,
+            to,
+            value,
         )
 
     # PROGRAM COUNTER
@@ -518,6 +528,13 @@ def selfdestruct(evm: Evm) -> None:
     move_ether(
         evm.env.state,
         originator,
+        beneficiary,
+        originator_balance,
+    )
+
+    transfer_log(
+        evm,
+        evm.message.current_target,
         beneficiary,
         originator_balance,
     )

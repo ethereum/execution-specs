@@ -49,7 +49,7 @@ from ..state import (
 from ..vm import Message
 from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
-from . import Environment, Evm
+from . import Environment, Evm, transfer_log
 from .exceptions import (
     AddressCollision,
     ExceptionalHalt,
@@ -286,6 +286,13 @@ def execute_code(message: Message, env: Environment) -> Evm:
         accessed_addresses=message.accessed_addresses,
         accessed_storage_keys=message.accessed_storage_keys,
     )
+    transfer_log(
+        evm,
+        message.current_target,
+        message.caller,
+        message.value,
+    )
+
     try:
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:
             evm_trace(evm, PrecompileStart(evm.message.code_address))
