@@ -29,9 +29,11 @@ class GethExceptionMapper(ExceptionMapper):
 
     mapping_substring: ClassVar[Dict[ExceptionBase, str]] = {
         TransactionException.SENDER_NOT_EOA: "sender not an eoa",
+        TransactionException.GAS_ALLOWANCE_EXCEEDED: "gas limit reached",
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
             "insufficient funds for gas * price + value"
         ),
+        TransactionException.NONCE_IS_MAX: "nonce has max value",
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             "would exceed maximum allowance"
         ),
@@ -122,6 +124,7 @@ class GethExceptionMapper(ExceptionMapper):
         BlockException.BLOB_GAS_USED_ABOVE_LIMIT: (
             r"blob gas used \d+ exceeds maximum allowance \d+"
         ),
+        BlockException.INVALID_GAS_USED_ABOVE_LIMIT: r"invalid gasUsed: have \d+, gasLimit \d+",
     }
 
 

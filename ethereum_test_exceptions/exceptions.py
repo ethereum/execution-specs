@@ -495,6 +495,10 @@ class BlockException(ExceptionBase):
     """
     Block header's actual gas used does not match the provided header's value
     """
+    INVALID_GAS_USED_ABOVE_LIMIT = auto()
+    """
+    Block header's gas used value is above the gas limit field's value.
+    """
     INVALID_WITHDRAWALS_ROOT = auto()
     """
     Block header's withdrawals root does not match calculated withdrawals root.

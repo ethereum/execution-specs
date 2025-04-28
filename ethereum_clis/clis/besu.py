@@ -213,12 +213,17 @@ class BesuExceptionMapper(ExceptionMapper):
     """Translate between EEST exceptions and error strings returned by Besu."""
 
     mapping_substring: ClassVar[Dict[ExceptionBase, str]] = {
+        TransactionException.NONCE_IS_MAX: "invalid Nonce must be less than",
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
             "transaction invalid tx max fee per blob gas less than block blob gas fee"
+        ),
+        TransactionException.GASLIMIT_PRICE_PRODUCT_OVERFLOW: (
+            "invalid Upfront gas cost cannot exceed 2^256 Wei"
         ),
         TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
             "transaction invalid gasPrice is less than the current BaseFee"
         ),
+        TransactionException.GAS_ALLOWANCE_EXCEEDED: "provided gas insufficient",
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
             "transaction invalid max priority fee per gas cannot be greater than max fee per gas"
         ),
@@ -259,6 +264,7 @@ class BesuExceptionMapper(ExceptionMapper):
         BlockException.INCORRECT_BLOB_GAS_USED: (
             "Payload BlobGasUsed does not match calculated BlobGasUsed"
         ),
+        BlockException.INVALID_GAS_USED_ABOVE_LIMIT: "Header validation failed (FULL)",
         # TODO EVMONE needs to differentiate when the section is missing in the header or body
         EOFException.MISSING_STOP_OPCODE: "err: no_terminating_instruction",
         EOFException.MISSING_CODE_HEADER: "err: code_section_missing",

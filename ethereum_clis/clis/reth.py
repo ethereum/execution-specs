@@ -19,6 +19,7 @@ class RethExceptionMapper(ExceptionMapper):
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
             "priority fee is greater than max fee"
         ),
+        TransactionException.GASLIMIT_PRICE_PRODUCT_OVERFLOW: "overflow",
         TransactionException.TYPE_3_TX_CONTRACT_CREATION: "unexpected length",
         TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: "unexpected list",
         TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: "blob version not supported",
@@ -47,11 +48,17 @@ class RethExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_3_TX_ZERO_BLOBS: (
             r"blob transactions present in pre-cancun payload|empty blobs"
         ),
-        BlockException.SYSTEM_CONTRACT_CALL_FAILED: (r"failed to apply .* requests contract call"),
+        TransactionException.GAS_ALLOWANCE_EXCEEDED: (
+            r"transaction gas limit \w+ is more than blocks available gas \w+"
+        ),
+        BlockException.SYSTEM_CONTRACT_CALL_FAILED: r"failed to apply .* requests contract call",
         BlockException.INCORRECT_BLOB_GAS_USED: (
             r"blob gas used mismatch|blob gas used \d+ is not a multiple of blob gas per blob"
         ),
         BlockException.INCORRECT_EXCESS_BLOB_GAS: (
             r"excess blob gas \d+ is not a multiple of blob gas per blob|invalid excess blob gas"
+        ),
+        BlockException.INVALID_GAS_USED_ABOVE_LIMIT: (
+            r"block used gas \(\d+\) is greater than gas limit \(\d+\)"
         ),
     }

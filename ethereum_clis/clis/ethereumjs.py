@@ -55,9 +55,11 @@ class EthereumJSExceptionMapper(ExceptionMapper):
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
             "Invalid 4844 transactions: undefined"
         ),
-        TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
-            "tx unable to pay base fee (EIP-1559 tx)"
+        TransactionException.GASLIMIT_PRICE_PRODUCT_OVERFLOW: (
+            "gas limit * gasPrice cannot exceed MAX_INTEGER"
         ),
+        TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: "tx unable to pay base fee",
+        TransactionException.NONCE_IS_MAX: "nonce cannot equal or exceed",
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
             "maxFeePerGas cannot be less than maxPriorityFeePerGas"
         ),
@@ -85,7 +87,10 @@ class EthereumJSExceptionMapper(ExceptionMapper):
             "sender doesn't have enough funds to send tx"
         ),
         TransactionException.NONCE_MISMATCH_TOO_LOW: "the tx doesn't have the correct nonce",
-        TransactionException.INVALID_DEPOSIT_EVENT_LAYOUT: "Error verifying block while running",
+        TransactionException.INVALID_DEPOSIT_EVENT_LAYOUT: (
+            "Error verifying block while running: error: number exceeds 53 bits"
+        ),
+        TransactionException.GAS_ALLOWANCE_EXCEEDED: "tx has a higher gas limit than the block",
         BlockException.INCORRECT_EXCESS_BLOB_GAS: "Invalid 4844 transactions",
         BlockException.INVALID_RECEIPTS_ROOT: "invalid receipttrie",
         # TODO EVMONE needs to differentiate when the section is missing in the header or body
@@ -147,4 +152,7 @@ class EthereumJSExceptionMapper(ExceptionMapper):
             r"Invalid blockHash, expected: 0x[0-9a-f]+, received: 0x[0-9a-f]+"
         ),
         BlockException.INVALID_REQUESTS: r"Unknown request identifier|invalid requestshash",
+        BlockException.INVALID_GAS_USED_ABOVE_LIMIT: (
+            r"Invalid block: too much gas used. Used: \d+, gas limit: \d+"
+        ),
     }
