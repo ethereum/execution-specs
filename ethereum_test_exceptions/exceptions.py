@@ -327,10 +327,6 @@ class TransactionException(ExceptionBase):
     """
     Transaction's initcode for a contract-creating transaction is too large.
     """
-    EOF_CREATION_TRANSACTION = auto()
-    """
-    Creation transaction (to: nil) contains EOF initcode
-    """
     TYPE_3_TX_PRE_FORK = auto()
     """
     Transaction type 3 included before activation fork.
