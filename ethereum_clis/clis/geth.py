@@ -268,6 +268,18 @@ class GethFixtureConsumer(
                 f"Unexpected exit code:\n{' '.join(command)}\n\n Error:\n{result.stderr}"
             )
 
+        result_json = json.loads(result.stdout)
+        if not isinstance(result_json, list):
+            raise Exception(f"Unexpected result from evm blocktest: {result_json}")
+
+        if any(not test_result["pass"] for test_result in result_json):
+            exception_text = "Blockchain test failed: \n" + "\n".join(
+                f"{test_result['name']}: " + test_result["error"]
+                for test_result in result_json
+                if not test_result["pass"]
+            )
+            raise Exception(exception_text)
+
     @cache  # noqa
     def consume_state_test_file(
         self,
