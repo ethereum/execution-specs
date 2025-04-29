@@ -302,7 +302,7 @@ ruleset = {
         "HIVE_TERMINAL_TOTAL_DIFFICULTY": 0,
         "HIVE_SHANGHAI_TIMESTAMP": 0,
     },
-    "MergeToShanghaiAtTime15k": {
+    "ParisToShanghaiAtTime15k": {
         "HIVE_FORK_HOMESTEAD": 0,
         "HIVE_FORK_TANGERINE": 0,
         "HIVE_FORK_SPURIOUS": 0,
