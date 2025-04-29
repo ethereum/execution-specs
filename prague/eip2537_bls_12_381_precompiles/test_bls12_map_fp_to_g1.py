@@ -46,6 +46,14 @@ G1_POINT_ZERO_FP = PointG1(
             None,
             id="fp_p_minus_1",
         ),
+        pytest.param(
+            FP(
+                799950832265136997107648781861994410980648980263584507133499364313075404851459407870655748616451882783569609925573  # noqa: E501
+            ),
+            Spec.INF_G1,
+            None,
+            id="fp_map_to_inf",
+        ),
     ],
 )
 def test_valid(
