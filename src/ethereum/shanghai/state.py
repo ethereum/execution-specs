@@ -460,10 +460,7 @@ def is_account_alive(state: State, address: Address) -> bool:
         True if the account is alive.
     """
     account = get_account_optional(state, address)
-    if account is None:
-        return False
-    else:
-        return not account == EMPTY_ACCOUNT
+    return account is not None and account != EMPTY_ACCOUNT
 
 
 def modify_state(
