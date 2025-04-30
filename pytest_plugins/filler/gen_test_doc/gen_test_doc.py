@@ -566,6 +566,8 @@ class TestDocsGenerator:
             length = len(x.path.parts)
             if length > 1:
                 fork = str(x.path.parts[1]).lower()  # the fork folder from the relative path
+                if fork not in fork_order:  # speculative features added to the end
+                    return (999, str(x.path))
             if length == 1:
                 return (0,)
             elif length == 2:
