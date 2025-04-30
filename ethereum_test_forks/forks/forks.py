@@ -1285,6 +1285,13 @@ class Osaka(Prague, solc_name="cancun"):
     """Osaka fork."""
 
     @classmethod
+    def engine_get_payload_version(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> Optional[int]:
+        """From Osaka, get payload calls must use version 5."""
+        return 5
+
+    @classmethod
     def evm_code_types(cls, block_number: int = 0, timestamp: int = 0) -> List[EVMCodeType]:
         """EOF V1 is supported starting from Osaka."""
         return super(Osaka, cls).evm_code_types(

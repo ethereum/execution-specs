@@ -15,6 +15,7 @@ from ethereum_test_types import Transaction
 from .types import (
     ForkchoiceState,
     ForkchoiceUpdateResponse,
+    GetBlobsResponse,
     GetPayloadResponse,
     JSONRPCError,
     PayloadAttributes,
@@ -341,6 +342,21 @@ class EngineRPC(BaseRPC):
             self.post_request(
                 f"getPayloadV{version}",
                 f"{payload_id}",
+            ),
+            context=self.response_validation_context,
+        )
+
+    def get_blobs(
+        self,
+        params: List[Hash],
+        *,
+        version: int,
+    ) -> GetBlobsResponse:
+        """`engine_getBlobsVX`: Retrieves blobs from an execution layers tx pool."""
+        return GetBlobsResponse.model_validate(
+            self.post_request(
+                f"getBlobsV{version}",
+                *[to_json(param) for param in params],
             ),
             context=self.response_validation_context,
         )
