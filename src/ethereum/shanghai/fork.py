@@ -34,7 +34,6 @@ from .state import (
     State,
     account_exists_and_is_empty,
     destroy_account,
-    destroy_touched_empty_accounts,
     get_account,
     increment_nonce,
     modify_state,
@@ -576,8 +575,6 @@ def process_transaction(
 
     for address in tx_output.accounts_to_delete:
         destroy_account(block_env.state, address)
-
-    destroy_touched_empty_accounts(block_env.state, tx_output.touched_accounts)
 
     block_output.block_gas_used += tx_gas_used
 

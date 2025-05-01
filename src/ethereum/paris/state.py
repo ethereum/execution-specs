@@ -17,7 +17,7 @@ There is a distinction between an account that does not exist and
 `EMPTY_ACCOUNT`.
 """
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Callable, Dict, List, Optional, Set, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import modify
@@ -477,6 +477,8 @@ def modify_state(
     Modify an `Account` in the `State`.
     """
     set_account(state, address, modify(get_account(state, address), f))
+    if account_exists_and_is_empty(state, address):
+        destroy_account(state, address)
 
 
 def move_ether(
@@ -521,22 +523,6 @@ def set_account_balance(state: State, address: Address, amount: U256) -> None:
         account.balance = amount
 
     modify_state(state, address, set_balance)
-
-
-def touch_account(state: State, address: Address) -> None:
-    """
-    Initializes an account to state.
-
-    Parameters
-    ----------
-    state:
-        The current state.
-
-    address:
-        The address of the account that need to initialised.
-    """
-    if not account_exists(state, address):
-        set_account(state, address, EMPTY_ACCOUNT)
 
 
 def increment_nonce(state: State, address: Address) -> None:
@@ -611,20 +597,3 @@ def get_storage_original(state: State, address: Address, key: Bytes32) -> U256:
     assert isinstance(original_value, U256)
 
     return original_value
-
-
-def destroy_touched_empty_accounts(
-    state: State, touched_accounts: Iterable[Address]
-) -> None:
-    """
-    Destroy all touched accounts that are empty.
-    Parameters
-    ----------
-    state: `State`
-        The current state.
-    touched_accounts: `Iterable[Address]`
-        All the accounts that have been touched in the current transaction.
-    """
-    for address in touched_accounts:
-        if account_exists_and_is_empty(state, address):
-            destroy_account(state, address)
