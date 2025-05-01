@@ -318,8 +318,7 @@ class BesuExceptionMapper(ExceptionMapper):
             r"System call halted|System call did not execute to completion"
         ),
         BlockException.SYSTEM_CONTRACT_EMPTY: (
-            r"(Invalid system call, no code at address)|"
-            r"(Invalid system call address:)"
+            r"(Invalid system call, no code at address)|" r"(Invalid system call address:)"
         ),
         TransactionException.INITCODE_SIZE_EXCEEDED: (
             r"transaction invalid Initcode size of \d+ exceeds maximum size of \d+"
@@ -340,6 +339,7 @@ class BesuExceptionMapper(ExceptionMapper):
         ),
         TransactionException.INVALID_DEPOSIT_EVENT_LAYOUT: (
             r"Invalid (amount|index|pubKey|signature|withdrawalCred) (offset|size): "
-            r"expected (\d+), but got (-?\d+)"
+            r"expected (\d+), but got (-?\d+)|"
+            r"Invalid deposit log length\. Must be \d+ bytes, but is \d+ bytes"
         ),
     }
