@@ -11,6 +11,7 @@ from ethereum_rlp import rlp
 from ethereum_types.numeric import U256
 
 from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.exceptions import StateWithEmptyAccount
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,
@@ -60,6 +61,7 @@ class Load(BaseLoad):
         """Converts json state data to a state object"""
         state = self.fork.State()
         set_storage = self.fork.set_storage
+        EMPTY_ACCOUNT = self.fork.EMPTY_ACCOUNT
 
         for address_hex, account_state in raw.items():
             address = self.fork.hex_to_address(address_hex)
@@ -68,6 +70,9 @@ class Load(BaseLoad):
                 balance=U256(hex_to_uint(account_state.get("balance", "0x0"))),
                 code=hex_to_bytes(account_state.get("code", "")),
             )
+            if self.fork.proof_of_stake and account == EMPTY_ACCOUNT:
+                raise StateWithEmptyAccount(f"Empty account at {address_hex}.")
+
             self.fork.set_account(state, address, account)
 
             for k, v in account_state.get("storage", {}).items():

@@ -24,10 +24,9 @@ from ethereum.exceptions import EthereumException
 
 from ..blocks import Log, Receipt, Withdrawal
 from ..fork_types import Address, VersionedHash
-from ..state import State, TransientStorage, account_exists_and_is_empty
+from ..state import State, TransientStorage
 from ..transactions import LegacyTransaction
 from ..trie import Trie
-from .precompiled_contracts import RIPEMD160_ADDRESS
 
 __all__ = ("Environment", "Evm", "Message")
 
@@ -148,7 +147,6 @@ class Evm:
     message: Message
     output: Bytes
     accounts_to_delete: Set[Address]
-    touched_accounts: Set[Address]
     return_data: Bytes
     error: Optional[EthereumException]
     accessed_addresses: Set[Address]
@@ -170,11 +168,6 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     evm.logs += child_evm.logs
     evm.refund_counter += child_evm.refund_counter
     evm.accounts_to_delete.update(child_evm.accounts_to_delete)
-    evm.touched_accounts.update(child_evm.touched_accounts)
-    if account_exists_and_is_empty(
-        evm.message.block_env.state, child_evm.message.current_target
-    ):
-        evm.touched_accounts.add(child_evm.message.current_target)
     evm.accessed_addresses.update(child_evm.accessed_addresses)
     evm.accessed_storage_keys.update(child_evm.accessed_storage_keys)
 
@@ -190,18 +183,4 @@ def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
     child_evm :
         The child evm to incorporate.
     """
-    # In block 2675119, the empty account at 0x3 (the RIPEMD160 precompile) was
-    # cleared despite running out of gas. This is an obscure edge case that can
-    # only happen to a precompile.
-    # According to the general rules governing clearing of empty accounts, the
-    # touch should have been reverted. Due to client bugs, this event went
-    # unnoticed and 0x3 has been exempted from the rule that touches are
-    # reverted in order to preserve this historical behaviour.
-    if RIPEMD160_ADDRESS in child_evm.touched_accounts:
-        evm.touched_accounts.add(RIPEMD160_ADDRESS)
-    if child_evm.message.current_target == RIPEMD160_ADDRESS:
-        if account_exists_and_is_empty(
-            evm.message.block_env.state, child_evm.message.current_target
-        ):
-            evm.touched_accounts.add(RIPEMD160_ADDRESS)
     evm.gas_left += child_evm.gas_left
