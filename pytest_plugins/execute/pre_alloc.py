@@ -343,6 +343,34 @@ class Alloc(BaseAlloc):
 
         super().__setitem__(address, Account(balance=amount))
 
+    def empty_account(self) -> Address:
+        """
+        Add a previously unused account guaranteed to be empty to the pre-alloc.
+
+        This ensures the account has:
+        - Zero balance
+        - Zero nonce
+        - No code
+        - No storage
+
+        This is different from precompiles or system contracts. The function does not
+        send any transactions, ensuring that the account remains "empty."
+
+        Returns:
+            Address: The address of the created empty account.
+
+        """
+        eoa = next(self._eoa_iterator)
+
+        super().__setitem__(
+            eoa,
+            Account(
+                nonce=0,
+                balance=0,
+            ),
+        )
+        return Address(eoa)
+
     def wait_for_transactions(self) -> List[TransactionByHashResponse]:
         """Wait for all transactions to be included in blocks."""
         return self._eth_rpc.wait_for_transactions(self._txs)

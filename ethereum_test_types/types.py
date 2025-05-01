@@ -298,6 +298,15 @@ class Alloc(BaseAlloc):
         """
         raise NotImplementedError("fund_address is not implemented in the base class")
 
+    def empty_account(self) -> Address:
+        """
+        Return a previously unused account guaranteed to be empty.
+
+        This ensures the account has zero balance, zero nonce, no code, and no storage.
+        The account is not a precompile or a system contract.
+        """
+        raise NotImplementedError("empty_account is not implemented in the base class")
+
 
 class WithdrawalGeneric(CamelModel, Generic[NumberBoundTypeVar]):
     """Withdrawal generic type, used as a parent class for `Withdrawal` and `FixtureWithdrawal`."""

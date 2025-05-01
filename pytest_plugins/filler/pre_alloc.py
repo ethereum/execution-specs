@@ -250,6 +250,27 @@ class Alloc(BaseAlloc):
                 return
         super().__setitem__(address, Account(balance=amount))
 
+    def empty_account(self) -> Address:
+        """
+        Add a previously unused account guaranteed to be empty to the pre-alloc.
+
+        This ensures the account has:
+        - Zero balance
+        - Zero nonce
+        - No code
+        - No storage
+
+        This is different from precompiles or system contracts. The function does not
+        send any transactions, ensuring that the account remains "empty."
+
+        Returns:
+            Address: The address of the created empty account.
+
+        """
+        eoa = next(self._eoa_iterator)
+
+        return Address(eoa)
+
 
 @pytest.fixture(scope="session")
 def alloc_mode(request: pytest.FixtureRequest) -> AllocMode:
