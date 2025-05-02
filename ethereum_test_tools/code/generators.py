@@ -242,7 +242,7 @@ class While(Bytecode):
         cls,
         *,
         body: Bytecode | Op,
-        condition: Bytecode | Op,
+        condition: Bytecode | Op | None = None,
         evm_code_type: EVMCodeType = EVMCodeType.LEGACY,
     ):
         """
@@ -254,9 +254,12 @@ class While(Bytecode):
         if evm_code_type == EVMCodeType.LEGACY:
             bytecode += Op.JUMPDEST
             bytecode += body
-            bytecode += Op.JUMPI(
-                Op.SUB(Op.PC, Op.PUSH4[len(body) + len(condition) + 6]), condition
-            )
+            if condition is not None:
+                bytecode += Op.JUMPI(
+                    Op.SUB(Op.PC, Op.PUSH4[len(body) + len(condition) + 6]), condition
+                )
+            else:
+                bytecode += Op.JUMP(Op.SUB(Op.PC, Op.PUSH4[len(body) + 6]))
         elif evm_code_type == EVMCodeType.EOF_V1:
             raise NotImplementedError("EOF while loops are not implemented")
         return super().__new__(cls, bytecode)
