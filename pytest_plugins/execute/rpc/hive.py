@@ -357,7 +357,7 @@ def base_hive_test(
 
     test_pass = True
     test_details = "All tests have completed"
-    if request.session.testsfailed > 0:  # noqa: SC200
+    if request.session.testsfailed > 0:
         test_pass = False
         test_details = "One or more tests have failed"
 
