@@ -5,6 +5,8 @@ abstract: Tests for zkEVMs
 Tests for zkEVMs worst-cases scenarios.
 """
 
+import math
+
 import pytest
 
 from ethereum_test_forks import Fork
@@ -17,7 +19,7 @@ from ethereum_test_tools import (
     Hash,
     Transaction,
     While,
-    compute_create_address,
+    compute_create2_address,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
@@ -33,7 +35,6 @@ XOR_TABLE_SIZE = 256
 XOR_TABLE = [Hash(i).sha256() for i in range(XOR_TABLE_SIZE)]
 
 
-# TODO: Parametrize for EOF
 @pytest.mark.zkevm
 @pytest.mark.parametrize(
     "opcode",
@@ -95,12 +96,14 @@ def test_worst_bytecode_single_opcode(
         )
         + Op.MSTORE(
             0,
-            Op.CREATE(
+            Op.CREATE2(
                 value=0,
                 offset=0,
                 size=Op.MSIZE,
+                salt=Op.SLOAD(0),
             ),
         )
+        + Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1))
         + Op.RETURN(0, 32)
     )
     factory_address = pre.deploy_contract(code=factory_code)
@@ -115,9 +118,18 @@ def test_worst_bytecode_single_opcode(
 
     gas_costs = fork.gas_costs()
     intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
-    max_number_of_contract_calls = (OPCODE_GAS_LIMIT - intrinsic_gas_cost_calc()) // (
-        gas_costs.G_VERY_LOW + gas_costs.G_BASE + gas_costs.G_COLD_ACCOUNT_ACCESS
+    loop_cost = (
+        gas_costs.G_KECCAK_256  # KECCAK static cost
+        + math.ceil(85 / 32) * gas_costs.G_KECCAK_256_WORD  # KECCAK dynamic cost for CREATE2
+        + gas_costs.G_VERY_LOW * 3  # ~MSTOREs+ADDs
+        + gas_costs.G_COLD_ACCOUNT_ACCESS  # EXTCODESIZE
+        + 30  # ~Gluing opcodes
     )
+    max_number_of_contract_calls = (
+        # Base available gas = GAS_LIMIT - intrinsic - (out of loop MSTOREs)
+        OPCODE_GAS_LIMIT - intrinsic_gas_cost_calc() - gas_costs.G_VERY_LOW * 4
+    ) // loop_cost
+
     total_contracts_to_deploy = max_number_of_contract_calls
     approximate_gas_per_deployment = 4_970_000  # Obtained from evm tracing
     contracts_deployed_per_tx = BLOCK_GAS_LIMIT // approximate_gas_per_deployment
@@ -144,16 +156,27 @@ def test_worst_bytecode_single_opcode(
     post = {}
     deployed_contract_addresses = []
     for i in range(total_contracts_to_deploy):
-        deployed_contract_address = compute_create_address(
+        deployed_contract_address = compute_create2_address(
             address=factory_address,
-            nonce=i + 1,
+            salt=i,
+            initcode=initcode,
         )
         post[deployed_contract_address] = Account(nonce=1)
         deployed_contract_addresses.append(deployed_contract_address)
 
     opcode_code = (
-        sum(Op.POP(opcode(address=address)) for address in deployed_contract_addresses) + Op.STOP
+        # Setup memory for later CREATE2 address generation loop.
+        Op.MSTORE(0, factory_address)
+        + Op.MSTORE8(32 - 20 - 1, 0xFF)  # 0xFF prefix byte
+        + Op.MSTORE(32, 0)
+        + Op.MSTORE(64, initcode.keccak256())
+        # Main loop
+        + While(
+            body=Op.POP(Op.EXTCODESIZE(Op.SHA3(32 - 20 - 1, 85)))
+            + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
+        )
     )
+
     if len(opcode_code) > MAX_CONTRACT_SIZE:
         # TODO: A workaround could be to split the opcode code into multiple contracts
         # and call them in sequence.
