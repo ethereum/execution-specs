@@ -83,7 +83,7 @@ def parse_networks(fork_with_operand: str) -> List[str]:
         return parsed_forks
 
     try:
-        print(all_forks_by_name)
+        # print(all_forks_by_name)
         idx = all_forks_by_name.index(fork)
         # ['Frontier', 'Homestead', 'Byzantium', 'Constantinople', 'ConstantinopleFix',
         #  'Istanbul', 'MuirGlacier', 'Berlin', 'London', 'ArrowGlacier', 'GrayGlacier',
