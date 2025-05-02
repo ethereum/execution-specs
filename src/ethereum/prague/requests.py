@@ -18,7 +18,7 @@ from ethereum.exceptions import InvalidBlock
 from ethereum.utils.hexadecimal import hex_to_bytes32
 
 from .blocks import decode_receipt
-from .state import trie_get
+from .trie import trie_get
 from .utils.hexadecimal import hex_to_address
 from .vm import BlockOutput
 
