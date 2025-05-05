@@ -689,7 +689,7 @@ def test_set_code_max_depth_call_stack(
     )
 
     state_test(
-        env=Environment(),
+        env=Environment(gas_limit=tx.gas_limit),
         pre=pre,
         tx=tx,
         post={
@@ -3415,29 +3415,13 @@ def test_creating_delegation_designation_contract(
         ),
     ],
 )
-@pytest.mark.parametrize(
-    "max_gas",
-    [
-        pytest.param(
-            120_000_000,
-            id="120m",
-            marks=pytest.mark.execute(pytest.mark.skip(reason="excessive gas")),
-        ),
-        pytest.param(
-            20_000_000,
-            id="20m",
-            marks=pytest.mark.fill(pytest.mark.skip(reason="execute-only test")),
-        ),
-    ],
-)
 def test_many_delegations(
     state_test: StateTestFiller,
     pre: Alloc,
-    max_gas: int,
     signer_balance: int,
 ):
     """
-    Perform as many delegations as possible in a single 120 million gas transaction.
+    Perform as many delegations as possible in a transaction using the entire block gas limit.
 
     Every delegation comes from a different signer.
 
@@ -3446,6 +3430,8 @@ def test_many_delegations(
     The transaction is expected to succeed and the state after the transaction is expected to have
     the code of the entry contract set to 1.
     """
+    env = Environment()
+    max_gas = env.gas_limit
     gas_for_delegations = max_gas - 21_000 - 20_000 - (3 * 2)
 
     delegation_count = gas_for_delegations // Spec.PER_EMPTY_ACCOUNT_COST

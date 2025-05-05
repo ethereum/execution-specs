@@ -415,11 +415,13 @@ def sender(
 
 
 def gas_test_parameter_args(
-    include_many: bool = True, include_data: bool = True, include_pre_authorized: bool = True
+    include_many: bool = True,
+    include_data: bool = True,
+    include_pre_authorized: bool = True,
+    execution_gas_allowance: bool = False,
 ):
     """Return the parametrize decorator that can be used in all gas test functions."""
     multiple_authorizations_count = 2
-    many_authorizations_count = 5_000
 
     defaults = {
         "signer_type": SignerType.SINGLE_SIGNER,
@@ -691,6 +693,12 @@ def gas_test_parameter_args(
         ]
 
     if include_many:
+        # Fit as many authorizations as possible within the block gas limit.
+        max_gas = Environment().gas_limit - 21_000
+        if execution_gas_allowance:
+            # Leave some gas for the execution of the test code.
+            max_gas -= 1_000_000
+        many_authorizations_count = max_gas // Spec.PER_EMPTY_ACCOUNT_COST
         cases += [
             pytest.param(
                 {
@@ -721,7 +729,9 @@ def gas_test_parameter_args(
 # Tests
 
 
-@pytest.mark.parametrize(**gas_test_parameter_args(include_pre_authorized=False))
+@pytest.mark.parametrize(
+    **gas_test_parameter_args(include_pre_authorized=False, execution_gas_allowance=True)
+)
 def test_gas_cost(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -810,7 +820,6 @@ def test_gas_cost(
     )
 
     state_test(
-        env=Environment(gas_limit=max(tx_gas_limit, 30_000_000)),
         pre=pre,
         tx=tx,
         post={
@@ -967,7 +976,6 @@ def test_account_warming(
     }
 
     state_test(
-        env=Environment(),
         pre=pre,
         tx=tx,
         post=post,
@@ -1020,7 +1028,6 @@ def test_intrinsic_gas_cost(
     )
 
     state_test(
-        env=Environment(),
         pre=pre,
         tx=tx,
         post={},
@@ -1070,7 +1077,6 @@ def test_self_set_code_cost(
     )
 
     state_test(
-        env=Environment(),
         pre=pre,
         tx=tx,
         post={
@@ -1123,7 +1129,6 @@ def test_call_to_pre_authorized_oog(
     )
 
     state_test(
-        env=Environment(),
         pre=pre,
         tx=tx,
         post={

@@ -6,14 +6,7 @@ Port call_then_create2_successful_then_returndatasizeFiller.json test.
 
 import pytest
 
-from ethereum_test_tools import (
-    Account,
-    Alloc,
-    Environment,
-    StateTestFiller,
-    Transaction,
-    keccak256,
-)
+from ethereum_test_tools import Account, Alloc, StateTestFiller, Transaction, keccak256
 from ethereum_test_tools import Opcodes as Op
 
 from .spec import ref_spec_1014
@@ -133,8 +126,8 @@ def test_create2_return_data(
         to=address_to,
         protected=False,
         data=initcode,
-        gas_limit=0x0A00000000,
+        gas_limit=500_000,
         value=0,
     )  # type: ignore
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

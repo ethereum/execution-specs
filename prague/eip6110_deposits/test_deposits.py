@@ -918,7 +918,7 @@ def test_deposit(
 ):
     """Test making a deposit to the beacon chain deposit contract."""
     blockchain_test(
-        genesis_environment=Environment(),
+        genesis_environment=Environment(gas_limit=sum(tx.gas_limit for tx in blocks[0].txs)),
         pre=pre,
         post={},
         blocks=blocks,

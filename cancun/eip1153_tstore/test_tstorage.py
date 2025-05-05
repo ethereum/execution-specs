@@ -263,6 +263,7 @@ class LoopRunUntilOutOfGasCases(PytestParameterEnum):
 
 
 @LoopRunUntilOutOfGasCases.parametrize()
+@pytest.mark.slow()
 def test_run_until_out_of_gas(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -270,14 +271,16 @@ def test_run_until_out_of_gas(
     bytecode_repeat_times: int,
 ):
     """Use TSTORE over and over to different keys until we run out of gas."""
+    env = Environment()
+
     bytecode = Op.JUMPDEST + repeat_bytecode * bytecode_repeat_times + Op.JUMP(Op.PUSH0)
     code_address = pre.deploy_contract(code=bytecode)
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=30_000_000,
+        gas_limit=env.gas_limit,
     )
     post = {
         code_address: Account(code=bytecode, storage={}),
     }
-    state_test(env=Environment(), pre=pre, tx=tx, post=post)
+    state_test(env=env, pre=pre, tx=tx, post=post)

@@ -66,7 +66,9 @@ def test_all_opcodes(state_test: StateTestFiller, pre: Alloc, fork: Fork):
         code=sum(
             Op.SSTORE(
                 Op.PUSH1(opcode.int()),
-                Op.CALL(1_000_000, opcode_address, 0, 0, 0, 0, 0),
+                # Limit gas to limit the gas consumed by the exceptional aborts in each
+                # subcall that uses an undefined opcode.
+                Op.CALL(50_000, opcode_address, 0, 0, 0, 0, 0),
             )
             for opcode, opcode_address in code_contract.items()
         )
@@ -82,14 +84,14 @@ def test_all_opcodes(state_test: StateTestFiller, pre: Alloc, fork: Fork):
 
     tx = Transaction(
         sender=pre.fund_eoa(),
-        gas_limit=500_000_000,
+        gas_limit=15_000_000,
         to=contract_address,
         data=b"",
         value=0,
         protected=False,
     )
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("Cancun")

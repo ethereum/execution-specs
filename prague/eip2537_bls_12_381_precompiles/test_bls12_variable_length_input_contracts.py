@@ -7,6 +7,7 @@ from typing import List, SupportsBytes
 
 import pytest
 
+from ethereum_test_forks import Fork
 from ethereum_test_tools import Alloc, Bytecode, Environment, StateTestFiller, Storage, Transaction
 from ethereum_test_tools import Opcodes as Op
 
@@ -97,6 +98,20 @@ def call_contract_code(
     return code
 
 
+@pytest.fixture
+def tx_gas_limit(fork: Fork, input_data: bytes, precompile_gas_list: List[int]) -> int:
+    """Transaction gas limit used for the test (Can be overridden in the test)."""
+    intrinsic_gas_cost_calculator = fork.transaction_intrinsic_cost_calculator()
+    memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
+    extra_gas = 100_000 * len(precompile_gas_list)
+    return (
+        extra_gas
+        + intrinsic_gas_cost_calculator(calldata=input_data)
+        + memory_expansion_gas_calculator(new_bytes=len(input_data))
+        + sum(precompile_gas_list)
+    )
+
+
 @pytest.mark.parametrize(
     "precompile_gas_list,precompile_data_length_list",
     [
@@ -116,7 +131,6 @@ def call_contract_code(
     ],
 )
 @pytest.mark.parametrize("expected_output", [PointG1()], ids=[""])
-@pytest.mark.parametrize("tx_gas_limit", [100_000_000], ids=[""])
 @pytest.mark.parametrize("precompile_address", [Spec.G1MSM])
 def test_valid_gas_g1msm(
     state_test: StateTestFiller,
@@ -131,7 +145,7 @@ def test_valid_gas_g1msm(
     If any of the calls fail, the test will fail.
     """
     state_test(
-        env=Environment(),
+        env=Environment(gas_limit=tx.gas_limit),
         pre=pre,
         tx=tx,
         post=post,
@@ -157,7 +171,6 @@ def test_valid_gas_g1msm(
     ],
 )
 @pytest.mark.parametrize("expected_output", [Spec.INVALID], ids=[""])
-@pytest.mark.parametrize("tx_gas_limit", [100_000_000], ids=[""])
 @pytest.mark.parametrize("precompile_address", [Spec.G1MSM])
 def test_invalid_gas_g1msm(
     state_test: StateTestFiller,
@@ -172,7 +185,7 @@ def test_invalid_gas_g1msm(
     If any of the calls succeeds, the test will fail.
     """
     state_test(
-        env=Environment(),
+        env=Environment(gas_limit=tx.gas_limit),
         pre=pre,
         tx=tx,
         post=post,
@@ -200,7 +213,6 @@ def test_invalid_gas_g1msm(
     ],
 )
 @pytest.mark.parametrize("expected_output", [Spec.INVALID], ids=[""])
-@pytest.mark.parametrize("tx_gas_limit", [100_000_000], ids=[""])
 @pytest.mark.parametrize("precompile_address", [Spec.G1MSM])
 def test_invalid_length_g1msm(
     state_test: StateTestFiller,
@@ -215,7 +227,7 @@ def test_invalid_length_g1msm(
     If any of the calls succeeds, the test will fail.
     """
     state_test(
-        env=Environment(),
+        env=Environment(gas_limit=tx.gas_limit),
         pre=pre,
         tx=tx,
         post=post,
@@ -241,7 +253,6 @@ def test_invalid_length_g1msm(
     ],
 )
 @pytest.mark.parametrize("expected_output", [PointG2()], ids=[""])
-@pytest.mark.parametrize("tx_gas_limit", [110_000_000], ids=[""])
 @pytest.mark.parametrize("precompile_address", [Spec.G2MSM])
 def test_valid_gas_g2msm(
     state_test: StateTestFiller,
@@ -256,7 +267,7 @@ def test_valid_gas_g2msm(
     If any of the calls fail, the test will fail.
     """
     state_test(
-        env=Environment(),
+        env=Environment(gas_limit=tx.gas_limit),
         pre=pre,
         tx=tx,
         post=post,
@@ -282,7 +293,6 @@ def test_valid_gas_g2msm(
     ],
 )
 @pytest.mark.parametrize("expected_output", [Spec.INVALID], ids=[""])
-@pytest.mark.parametrize("tx_gas_limit", [100_000_000], ids=[""])
 @pytest.mark.parametrize("precompile_address", [Spec.G2MSM])
 def test_invalid_gas_g2msm(
     state_test: StateTestFiller,
@@ -297,7 +307,7 @@ def test_invalid_gas_g2msm(
     If any of the calls succeeds, the test will fail.
     """
     state_test(
-        env=Environment(),
+        env=Environment(gas_limit=tx.gas_limit),
         pre=pre,
         tx=tx,
         post=post,
@@ -325,7 +335,6 @@ def test_invalid_gas_g2msm(
     ],
 )
 @pytest.mark.parametrize("expected_output", [Spec.INVALID], ids=[""])
-@pytest.mark.parametrize("tx_gas_limit", [100_000_000], ids=[""])
 @pytest.mark.parametrize("precompile_address", [Spec.G2MSM])
 def test_invalid_length_g2msm(
     state_test: StateTestFiller,
@@ -340,7 +349,7 @@ def test_invalid_length_g2msm(
     If any of the calls succeeds, the test will fail.
     """
     state_test(
-        env=Environment(),
+        env=Environment(gas_limit=tx.gas_limit),
         pre=pre,
         tx=tx,
         post=post,
@@ -363,7 +372,6 @@ def test_invalid_length_g2msm(
     ],
 )
 @pytest.mark.parametrize("expected_output", [Spec.PAIRING_TRUE], ids=[""])
-@pytest.mark.parametrize("tx_gas_limit", [100_000_000], ids=[""])
 @pytest.mark.parametrize("precompile_address", [Spec.PAIRING])
 def test_valid_gas_pairing(
     state_test: StateTestFiller,
@@ -378,7 +386,7 @@ def test_valid_gas_pairing(
     If any of the calls fails, the test will fail.
     """
     state_test(
-        env=Environment(),
+        env=Environment(gas_limit=tx.gas_limit),
         pre=pre,
         tx=tx,
         post=post,
@@ -401,7 +409,6 @@ def test_valid_gas_pairing(
     ],
 )
 @pytest.mark.parametrize("expected_output", [Spec.INVALID], ids=[""])
-@pytest.mark.parametrize("tx_gas_limit", [100_000_000], ids=[""])
 @pytest.mark.parametrize("precompile_address", [Spec.PAIRING])
 def test_invalid_gas_pairing(
     state_test: StateTestFiller,
@@ -416,7 +423,7 @@ def test_invalid_gas_pairing(
     If any of the calls succeeds, the test will fail.
     """
     state_test(
-        env=Environment(),
+        env=Environment(gas_limit=tx.gas_limit),
         pre=pre,
         tx=tx,
         post=post,
@@ -444,7 +451,6 @@ def test_invalid_gas_pairing(
     ],
 )
 @pytest.mark.parametrize("expected_output", [Spec.INVALID], ids=[""])
-@pytest.mark.parametrize("tx_gas_limit", [100_000_000], ids=[""])
 @pytest.mark.parametrize("precompile_address", [Spec.PAIRING])
 def test_invalid_length_pairing(
     state_test: StateTestFiller,
@@ -459,7 +465,7 @@ def test_invalid_length_pairing(
     If any of the calls succeeds, the test will fail.
     """
     state_test(
-        env=Environment(),
+        env=Environment(gas_limit=tx.gas_limit),
         pre=pre,
         tx=tx,
         post=post,

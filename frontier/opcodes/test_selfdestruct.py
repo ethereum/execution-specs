@@ -2,15 +2,7 @@
 
 import pytest
 
-from ethereum_test_tools import (
-    Account,
-    Alloc,
-    Block,
-    BlockchainTestFiller,
-    Environment,
-    Initcode,
-    Transaction,
-)
+from ethereum_test_tools import Account, Alloc, Block, BlockchainTestFiller, Initcode, Transaction
 from ethereum_test_tools import Opcodes as Op
 
 
@@ -22,7 +14,6 @@ def test_double_kill(blockchain_test: BlockchainTestFiller, pre: Alloc):
     the second transaction actually resurrects the contract as an empty account (prior to Spurious
     Dragon).
     """
-    env = Environment()
     sender = pre.fund_eoa()
 
     deploy_code = Op.SELFDESTRUCT(Op.ADDRESS)
@@ -30,7 +21,7 @@ def test_double_kill(blockchain_test: BlockchainTestFiller, pre: Alloc):
     initcode = Initcode(deploy_code=deploy_code)
 
     create_tx = Transaction(
-        gas_limit=100000000,
+        gas_limit=100_000,
         protected=False,
         to=None,
         data=initcode,
@@ -40,14 +31,14 @@ def test_double_kill(blockchain_test: BlockchainTestFiller, pre: Alloc):
     block_1 = Block(txs=[create_tx])
 
     first_kill = Transaction(
-        gas_limit=100000000,
+        gas_limit=100_000,
         protected=False,
         to=create_tx.created_contract,
         sender=sender,
     )
 
     second_kill = Transaction(
-        gas_limit=100000000,
+        gas_limit=100_000,
         protected=False,
         to=create_tx.created_contract,
         sender=sender,
@@ -64,4 +55,4 @@ def test_double_kill(blockchain_test: BlockchainTestFiller, pre: Alloc):
         ),
     }
 
-    blockchain_test(genesis_environment=env, pre=pre, post=post, blocks=[block_1, block_2])
+    blockchain_test(pre=pre, post=post, blocks=[block_1, block_2])
