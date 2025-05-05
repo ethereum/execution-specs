@@ -654,13 +654,15 @@ def process_transaction(
 
     tx_output = process_message_call(message)
 
-    gas_used = tx.gas - tx_output.gas_left
-    gas_refund = min(gas_used // Uint(2), Uint(tx_output.refund_counter))
-    tx_gas_used = gas_used - gas_refund
-    tx_output.gas_left = tx.gas - tx_gas_used
-    gas_refund_amount = tx_output.gas_left * tx.gas_price
+    tx_gas_used_before_refund = tx.gas - tx_output.gas_left
+    tx_gas_refund = min(
+        tx_gas_used_before_refund // Uint(2), Uint(tx_output.refund_counter)
+    )
+    tx_gas_used_after_refund = tx_gas_used_before_refund - tx_gas_refund
+    tx_gas_left = tx.gas - tx_gas_used_after_refund
+    gas_refund_amount = tx_gas_left * tx.gas_price
 
-    transaction_fee = tx_gas_used * tx.gas_price
+    transaction_fee = tx_gas_used_after_refund * tx.gas_price
 
     # refund gas
     sender_balance_after_refund = get_account(
@@ -686,7 +688,7 @@ def process_transaction(
 
     destroy_touched_empty_accounts(block_env.state, tx_output.touched_accounts)
 
-    block_output.block_gas_used += tx_gas_used
+    block_output.block_gas_used += tx_gas_used_after_refund
 
     receipt = make_receipt(
         tx, tx_output.error, block_output.block_gas_used, tx_output.logs
