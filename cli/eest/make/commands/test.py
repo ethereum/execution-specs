@@ -23,6 +23,12 @@ template_env = jinja2.Environment(
 )
 
 
+def exit_now():
+    """Interrupt execution instantly via ctrl+C."""
+    print("Ctrl+C detected, exiting..")
+    exit(0)
+
+
 @click.command(
     short_help="Generate a new test file for an EIP.",
     epilog=f"Further help: {DocsConfig().DOCS_URL__WRITING_TESTS}",
@@ -53,9 +59,13 @@ def test():
     test_type = input_select(
         "Choose the type of test to generate", choices=["State", "Blockchain"]
     )
+    if test_type is None:
+        exit_now()
 
     fork_choices = [str(fork) for fork in get_forks()]
     fork = input_select("Select the fork", choices=fork_choices)
+    if fork is None:
+        exit_now()
 
     base_path = Path("tests") / fork.lower()
     base_path.mkdir(parents=True, exist_ok=True)
@@ -70,6 +80,8 @@ def test():
             {"name": "** Create new sub-directory **", "value": "new"},
         ],
     )
+    if location_choice is None:
+        exit_now()
 
     if location_choice == "new":
         eip_number = input_text("Enter the EIP number (int)").strip()
