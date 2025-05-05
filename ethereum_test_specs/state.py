@@ -1,5 +1,6 @@
 """Ethereum state test spec definition and filler."""
 
+import warnings
 from pprint import pprint
 from typing import Any, Callable, ClassVar, Dict, Generator, List, Optional, Sequence, Type
 
@@ -169,6 +170,11 @@ class StateTest(BaseTest):
 
         env = self.env.set_fork_requirements(fork)
         tx = self.tx.with_signature_and_sender(keep_secret_key=True)
+        if not self.is_slow_test() and tx.gas_limit >= Environment().gas_limit:
+            warnings.warn(
+                f"{self.node_id()} uses a high Transaction gas_limit: {tx.gas_limit}",
+                stacklevel=2,
+            )
         pre_alloc = Alloc.merge(
             Alloc.model_validate(fork.pre_allocation()),
             self.pre,

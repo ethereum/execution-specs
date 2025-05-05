@@ -68,7 +68,7 @@ def test_check_helper_fixtures():
     ],
 )
 def test_make_genesis(fork: Fork, fixture_hash: bytes, default_t8n: TransitionTool):  # noqa: D103
-    env = Environment()
+    env = Environment(gas_limit=100_000_000_000_000_000)
 
     pre = Alloc(
         {
@@ -479,6 +479,7 @@ class TestFillBlockchainValidTxs:
     @pytest.fixture
     def genesis_environment(self):  # noqa: D102
         return Environment(
+            gas_limit=100_000_000_000_000_000,
             base_fee_per_gas=1000,
             fee_recipient="0xba5e000000000000000000000000000000000000",
         )
@@ -869,6 +870,7 @@ def test_fill_blockchain_invalid_txs(
 
     # We start genesis with a baseFee of 1000
     genesis_environment = Environment(
+        gas_limit=100_000_000_000_000_000,
         base_fee_per_gas=1000,
         fee_recipient="0xba5e000000000000000000000000000000000000",
     )

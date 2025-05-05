@@ -31,6 +31,7 @@ from ethereum_test_tools.utility.versioning import (
     generate_github_url,
     get_current_commit_hash_or_tag,
 )
+from ethereum_test_types import EnvironmentDefaults
 
 from ..shared.helpers import get_spec_format_for_item, labeled_format_parameter_set
 
@@ -172,6 +173,17 @@ def pytest_addoption(parser: pytest.Parser):
         default=True,
         help="Skip generating an index file for all produced fixtures.",
     )
+    test_group.addoption(
+        "--block-gas-limit",
+        action="store",
+        dest="block_gas_limit",
+        default=EnvironmentDefaults.gas_limit,
+        type=int,
+        help=(
+            "Default gas limit used ceiling used for blocks and tests that attempt to "
+            f"consume an entire block's gas. (Default: {EnvironmentDefaults.gas_limit})"
+        ),
+    )
 
     debug_group = parser.getgroup("debug", "Arguments defining debug behavior")
     debug_group.addoption(
@@ -211,6 +223,9 @@ def pytest_configure(config):
         called before the pytest-html plugin's pytest_configure to ensure that
         it uses the modified `htmlpath` option.
     """
+    # Modify the block gas limit if specified.
+    if config.getoption("block_gas_limit"):
+        EnvironmentDefaults.gas_limit = config.getoption("block_gas_limit")
     if config.option.collectonly:
         return
     if not config.getoption("disable_html") and config.getoption("htmlpath") is None:

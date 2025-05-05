@@ -344,6 +344,18 @@ class Withdrawal(WithdrawalGeneric[HexNumber]):
 
 
 DEFAULT_BASE_FEE = 7
+CURRENT_MAINNET_BLOCK_GAS_LIMIT = 36_000_000
+DEFAULT_BLOCK_GAS_LIMIT = CURRENT_MAINNET_BLOCK_GAS_LIMIT * 2
+
+
+@dataclass
+class EnvironmentDefaults:
+    """Default environment values."""
+
+    # By default, the constant `DEFAULT_BLOCK_GAS_LIMIT` is used.
+    # Other libraries (pytest plugins) may override this value by modifying the
+    # `EnvironmentDefaults.gas_limit` class attribute.
+    gas_limit: int = DEFAULT_BLOCK_GAS_LIMIT
 
 
 class EnvironmentGeneric(CamelModel, Generic[NumberBoundTypeVar]):
@@ -353,7 +365,9 @@ class EnvironmentGeneric(CamelModel, Generic[NumberBoundTypeVar]):
         Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba"),
         alias="currentCoinbase",
     )
-    gas_limit: NumberBoundTypeVar = Field(100_000_000_000_000_000, alias="currentGasLimit")  # type: ignore
+    gas_limit: NumberBoundTypeVar = Field(
+        default_factory=lambda: EnvironmentDefaults.gas_limit, alias="currentGasLimit"
+    )  # type: ignore
     number: NumberBoundTypeVar = Field(1, alias="currentNumber")  # type: ignore
     timestamp: NumberBoundTypeVar = Field(1_000, alias="currentTimestamp")  # type: ignore
     prev_randao: NumberBoundTypeVar | None = Field(None, alias="currentRandom")

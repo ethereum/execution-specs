@@ -1,5 +1,6 @@
 """Ethereum blockchain test spec definition and filler."""
 
+import warnings
 from pprint import pprint
 from typing import Any, Callable, ClassVar, Dict, Generator, List, Optional, Sequence, Tuple, Type
 
@@ -409,7 +410,15 @@ class BlockchainTest(BaseTest):
         env = block.set_environment(previous_env)
         env = env.set_fork_requirements(fork)
 
-        txs = [tx.with_signature_and_sender() for tx in block.txs]
+        txs: List[Transaction] = []
+        for tx in block.txs:
+            if not self.is_slow_test() and tx.gas_limit >= Environment().gas_limit:
+                warnings.warn(
+                    f"{self.node_id()} uses a high Transaction gas_limit: {tx.gas_limit}",
+                    stacklevel=2,
+                )
+
+            txs.append(tx.with_signature_and_sender())
 
         if failing_tx_count := len([tx for tx in txs if tx.error]) > 0:
             if failing_tx_count > 1:
