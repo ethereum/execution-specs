@@ -292,14 +292,7 @@ class Result:
             else:
                 decoded_receipt = receipt
 
-            gas_consumed = decoded_receipt.cumulative_gas_used
-
-            receipts.append(
-                {
-                    "transactionHash": "0x" + tx_hash.hex(),
-                    "gasUsed": hex(gas_consumed),
-                }
-            )
+            receipts.append((tx_hash, decoded_receipt))
 
         return receipts
 
@@ -329,6 +322,35 @@ class Result:
         if hasattr(block_output, "requests"):
             self.requests = block_output.requests
             self.requests_hash = t8n.fork.compute_requests_hash(self.requests)
+
+    def json_encode_receipts(self) -> Any:
+        """
+        Encode receipts to JSON.
+        """
+        receipts_json = []
+        for tx_hash, receipt in self.receipts:
+            receipt_dict = {"transactionHash": "0x" + tx_hash.hex()}
+
+            if hasattr(receipt, "succeeded"):
+                receipt_dict["succeeded"] = receipt.succeeded
+            else:
+                assert hasattr(receipt, "post_state")
+                receipt_dict["post_state"] = "0x" + receipt.post_state.hex()
+
+            receipt_dict["gasUsed"] = hex(receipt.cumulative_gas_used)
+            receipt_dict["bloom"] = "0x" + receipt.bloom.hex()
+            receipt_dict["logs"] = [
+                {
+                    "address": "0x" + log.address.hex(),
+                    "topics": ["0x" + topic.hex() for topic in log.topics],
+                    "data": "0x" + log.data.hex(),
+                }
+                for log in receipt.logs
+            ]
+
+            receipts_json.append(receipt_dict)
+
+            return receipt_dict
 
     def to_json(self) -> Any:
         """Encode the result to JSON"""
@@ -363,7 +385,7 @@ class Result:
             for idx, error in self.rejected.items()
         ]
 
-        data["receipts"] = self.receipts
+        data["receipts"] = self.json_encode_receipts()
 
         if self.requests_hash is not None:
             assert self.requests is not None
