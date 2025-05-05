@@ -1,5 +1,6 @@
 """Shared pytest definitions local to EIP-2537 tests."""
 
+from pathlib import Path
 from typing import SupportsBytes
 
 import pytest
@@ -10,6 +11,13 @@ from ethereum_test_tools import Opcodes as Op
 
 from .helpers import BLSPointGenerator
 from .spec import GAS_CALCULATION_FUNCTION_MAP
+
+
+def pytest_collection_modifyitems(config, items):
+    """Add the `zkevm` marker to all tests in `./tests/prague/eip2537_bls_12_381_precompiles`."""
+    for item in items:
+        if Path(__file__).parent in Path(item.fspath).parents:
+            item.add_marker(pytest.mark.zkevm)
 
 
 @pytest.fixture

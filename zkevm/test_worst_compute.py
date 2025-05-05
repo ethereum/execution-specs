@@ -20,7 +20,6 @@ MAX_CODE_SIZE = 24 * 1024
 KECCAK_RATE = 136
 
 
-@pytest.mark.zkevm
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "gas_limit",

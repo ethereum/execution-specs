@@ -35,7 +35,6 @@ XOR_TABLE_SIZE = 256
 XOR_TABLE = [Hash(i).sha256() for i in range(XOR_TABLE_SIZE)]
 
 
-@pytest.mark.zkevm
 @pytest.mark.parametrize(
     "opcode",
     [
