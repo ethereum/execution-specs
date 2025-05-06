@@ -4,7 +4,7 @@ Ethereum tests.
 """
 
 from abc import abstractmethod
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 
 # Exceptions
@@ -75,6 +75,15 @@ class ReferenceSpec:
 
     @staticmethod
     @abstractmethod
-    def parse_from_module(module_dict: Dict[str, Any]) -> "ReferenceSpec":
-        """Parse the module's dict into a reference spec."""
+    def parse_from_module(
+        module_dict: Dict[str, Any], github_token: Optional[str] = None
+    ) -> "ReferenceSpec":
+        """
+        Parse the module's dict into a reference spec.
+
+        Args:
+            module_dict: Dictionary containing module information
+            github_token: Optional GitHub token for API authentication
+
+        """
         pass

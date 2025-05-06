@@ -62,7 +62,7 @@ LWV0aGVyZXVtLWNvbnNlbnN1cy1wcm90b2NvbC1mbGF3Lwo="
 def test_git_reference_spec(monkeypatch):
     """Test Git reference spec."""
 
-    def mock_get(self):
+    def mock_get(self, headers=None):
         class Response:
             content = (
                 '{"content": "'

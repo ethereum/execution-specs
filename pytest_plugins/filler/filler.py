@@ -34,6 +34,7 @@ from ethereum_test_tools.utility.versioning import (
 from ethereum_test_types import EnvironmentDefaults
 
 from ..shared.helpers import get_spec_format_for_item, labeled_format_parameter_set
+from ..spec_version_checker.spec_version_checker import get_ref_spec_from_module
 
 
 def default_output_directory() -> str:
@@ -614,6 +615,18 @@ def get_fixture_collection_scope(fixture_name, config):
     if config.getoption("single_fixture_per_file"):
         return "function"
     return "module"
+
+
+@pytest.fixture(autouse=True, scope="module")
+def reference_spec(request) -> None | ReferenceSpec:
+    """
+    Pytest fixture that returns the reference spec defined in a module.
+
+    See `get_ref_spec_from_module`.
+    """
+    if hasattr(request, "module"):
+        return get_ref_spec_from_module(request.module)
+    return None
 
 
 @pytest.fixture(scope=get_fixture_collection_scope)

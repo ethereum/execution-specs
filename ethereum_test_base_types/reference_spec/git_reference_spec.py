@@ -2,9 +2,10 @@
 
 import base64
 import json
+import os
 import warnings
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import requests
 
@@ -25,6 +26,7 @@ class GitReferenceSpec(ReferenceSpec):
     BranchName: str = "master"
     SpecVersion: str = ""
     _latest_spec: Dict | None = None
+    _github_token: Optional[str] = None
 
     def name(self) -> str:
         """Return the name of the spec."""
@@ -44,8 +46,17 @@ class GitReferenceSpec(ReferenceSpec):
             f"{self.RepositoryName}/contents/{self.SpecPath}"
         )
 
+    def _get_request_headers(self) -> Dict[str, str]:
+        """Get headers for GitHub API request, including token if available."""
+        headers = {}
+        token = self._github_token or os.environ.get("GITHUB_TOKEN")
+        if token:
+            headers["Authorization"] = f"token {token}"
+        return headers
+
     def _get_latest_known_spec(self) -> Dict | None:
-        response = requests.get(self.api_url())
+        headers = self._get_request_headers()
+        response = requests.get(self.api_url(), headers=headers)
         if response.status_code != 200:
             return None
         content = json.loads(response.content)
@@ -55,7 +66,10 @@ class GitReferenceSpec(ReferenceSpec):
     def _get_latest_spec(self) -> Dict | None:
         if self._latest_spec is not None:
             return self._latest_spec
-        response = requests.get(self.api_url())
+
+        headers = self._get_request_headers()
+        response = requests.get(self.api_url(), headers=headers)
+
         if response.status_code != 200:
             warnings.warn(
                 f"Unable to get latest version, status code: {response.status_code} - "
@@ -110,13 +124,22 @@ class GitReferenceSpec(ReferenceSpec):
         return "REFERENCE_SPEC_GIT_PATH" in module_dict
 
     @staticmethod
-    def parse_from_module(module_dict: Dict[str, Any]) -> "ReferenceSpec":
-        """Parse the module's dict into a reference spec."""
+    def parse_from_module(
+        module_dict: Dict[str, Any], github_token: Optional[str] = None
+    ) -> "ReferenceSpec":
+        """
+        Parse the module's dict into a reference spec.
+
+        Args:
+            module_dict: Dictionary containing module information
+            github_token: Optional GitHub token for API authentication
+
+        """
         if "REFERENCE_SPEC_GIT_PATH" not in module_dict:
             raise ParseModuleError
 
         spec_path = module_dict["REFERENCE_SPEC_GIT_PATH"]
-        spec = GitReferenceSpec(SpecPath=spec_path)
+        spec = GitReferenceSpec(SpecPath=spec_path, _github_token=github_token)
         if "REFERENCE_SPEC_VERSION" in module_dict:
             spec.SpecVersion = module_dict["REFERENCE_SPEC_VERSION"]
         return spec

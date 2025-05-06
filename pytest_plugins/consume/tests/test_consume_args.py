@@ -63,7 +63,7 @@ def fill_tests(
             "pytest.ini",
             "--skip-evm-dump",
             "-m",
-            "(not blockchain_test_engine) and (not eip_version_check)",
+            "not blockchain_test_engine",
             f"--from={fill_fork_from}",
             f"--until={fill_fork_until}",
             f"--output={str(fixtures_dir)}",

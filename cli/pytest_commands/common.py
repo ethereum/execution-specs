@@ -37,6 +37,7 @@ def common_click_options(func: Callable[..., Any]) -> Decorator:
 
 
 REQUIRED_FLAGS: Dict[str, List] = {
+    "check-eip-versions": [],
     "fill": [],
     "consume": [],
     "execute": [
@@ -74,7 +75,15 @@ def handle_help_flags(pytest_args: List[str], pytest_type: str) -> List[str]:
     if ctx.params.get("help_flag"):
         return (
             [f"--{pytest_type}-help", *REQUIRED_FLAGS[pytest_type]]
-            if pytest_type in {"consume", "fill", "execute", "execute-hive", "execute-recover"}
+            if pytest_type
+            in {
+                "check-eip-versions",
+                "consume",
+                "fill",
+                "execute",
+                "execute-hive",
+                "execute-recover",
+            }
             else pytest_args
         )
     elif ctx.params.get("pytest_help_flag"):
