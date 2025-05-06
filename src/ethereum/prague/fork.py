@@ -12,7 +12,6 @@ Introduction
 Entry point for the Ethereum specification.
 """
 
-from copy import deepcopy
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Union
 
@@ -217,7 +216,6 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         block_env=block_env,
         transactions=block.transactions,
         withdrawals=block.withdrawals,
-        inclusion_list=block.inclusion_list,
     )
     block_state_root = state_root(block_env.state)
     transactions_root = root(block_output.transactions_trie)
@@ -580,7 +578,6 @@ def apply_body(
     block_env: vm.BlockEnvironment,
     transactions: Tuple[Union[LegacyTransaction, Bytes], ...],
     withdrawals: Tuple[Withdrawal, ...],
-    inclusion_list: Tuple[Union[LegacyTransaction, Bytes], ...],
 ) -> vm.BlockOutput:
     """
     Executes a block.
@@ -600,8 +597,6 @@ def apply_body(
         Transactions included in the block.
     withdrawals :
         Withdrawals to be processed in the current block.
-    inclusion_list :
-        Transactions that must be included in the block if possible.
 
     Returns
     -------
@@ -624,13 +619,6 @@ def apply_body(
 
     for i, tx in enumerate(map(decode_transaction, transactions)):
         process_transaction(block_env, block_output, tx, Uint(i))
-
-    validate_inclusion_list(
-        block_env,
-        block_output,
-        transactions,
-        inclusion_list,
-    )
 
     process_withdrawals(block_env, block_output, withdrawals)
 
@@ -875,35 +863,6 @@ def process_withdrawals(
 
         if account_exists_and_is_empty(block_env.state, wd.address):
             destroy_account(block_env.state, wd.address)
-
-
-def validate_inclusion_list(
-    block_env: vm.BlockEnvironment,
-    block_output: vm.BlockOutput,
-    transactions: Tuple[Union[Bytes, LegacyTransaction], ...],
-    inclusion_list: Tuple[Union[Bytes, LegacyTransaction], ...],
-) -> None:
-    """
-    Validate the block satisfies the inclusion list.
-    """
-
-    for tx in inclusion_list:
-        # If the transaction is already present in the block, then skip.
-        if tx in transactions:
-            continue
-
-        block_env = deepcopy(block_env)
-        block_output = deepcopy(block_output)
-        try:
-            tx = decode_transaction(tx)
-            index = Uint(len(transactions))
-            process_transaction(block_env, block_output, tx, index)
-        except Exception:
-            continue
-        else:
-            # If the transaction was not in the block and was decoded and
-            # executed successfully, then mark the block invalid.
-            raise InvalidBlock
 
 
 def compute_header_hash(header: Header) -> Hash32:
