@@ -30,7 +30,7 @@ from ethereum_test_tools.code.generators import Conditional
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-6780.md"
-REFERENCE_SPEC_VERSION = "2f8299df31bb8173618901a03a8366a3183479b0"
+REFERENCE_SPEC_VERSION = "1b6a0e94cc47e859b9866e570391cf37dc55059a"
 
 SELFDESTRUCT_DISABLE_FORK = Cancun
 

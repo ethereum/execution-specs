@@ -11,4 +11,4 @@ class ReferenceSpec:
     version: str
 
 
-ref_spec_3855 = ReferenceSpec("EIPS/eip-3855.md", "42034250ae8dd4b21fdc6795773893c6f1e74d3a")
+ref_spec_3855 = ReferenceSpec("EIPS/eip-3855.md", "6f85bd73336de4aacfad7ac3bb3a7e1ba2d68f51")

@@ -23,7 +23,7 @@ from ethereum_test_tools import (
 from ethereum_test_tools import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7516.md"
-REFERENCE_SPEC_VERSION = "2ade0452efe8124378f35284676ddfd16dd56ecd"
+REFERENCE_SPEC_VERSION = "dcd2f4ede58a6ed908acd3cc2c198e9f605cbf3b"
 
 BLOBBASEFEE_GAS = 2
 

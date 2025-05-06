@@ -6,7 +6,7 @@ Common procedures to test
 from copy import copy
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-5656.md"
-REFERENCE_SPEC_VERSION = "2ade0452efe8124378f35284676ddfd16dd56ecd"
+REFERENCE_SPEC_VERSION = "d0cd8902e2243b66e2b9a858b691bc106cebddfc"
 
 
 def mcopy(*, src: int, dest: int, length: int, memory: bytes) -> bytes:

@@ -18,7 +18,7 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 pytestmark = pytest.mark.valid_from("Prague")
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7702.md"
-REFERENCE_SPEC_VERSION = "37ce65b354756ac51c6a6f114e15de4a523a7f2e"
+REFERENCE_SPEC_VERSION = "99f1be49f37c034bdd5c082946f5968710dbfc87"
 
 LEGACY_CALL_FAILURE = 0
 LEGACY_CALL_SUCCESS = 1

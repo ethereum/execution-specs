@@ -20,7 +20,7 @@ from ethereum_test_tools import (
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-198.md"
-REFERENCE_SPEC_VERSION = "9e393a79d9937f579acbdcb234a67869259d5a96"
+REFERENCE_SPEC_VERSION = "5c8f066acb210c704ef80c1033a941aa5374aac5"
 
 
 @dataclass(kw_only=True, frozen=True, repr=False)

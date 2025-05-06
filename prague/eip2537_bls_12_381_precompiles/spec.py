@@ -13,7 +13,7 @@ class ReferenceSpec:
     version: str
 
 
-ref_spec_2537 = ReferenceSpec("EIPS/eip-2537.md", "cd0f016ad0c4c68b8b1f5c502ef61ab9353b6e5e")
+ref_spec_2537 = ReferenceSpec("EIPS/eip-2537.md", "c561ec1426fe5ec470eade499a0bd4174f270583")
 
 
 class BytesConcatenation(SupportsBytes, Sized):
