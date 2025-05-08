@@ -36,8 +36,8 @@ from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U256, Uint
 from typing_extensions import assert_type
 
-from ethereum.cancun import trie as previous_trie
 from ethereum.crypto.hash import keccak256
+from ethereum.prague import trie as previous_trie
 from ethereum.utils.hexadecimal import hex_to_bytes
 
 from .blocks import Receipt, Withdrawal
