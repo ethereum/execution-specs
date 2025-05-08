@@ -3,7 +3,7 @@ Elliptic Curves
 ^^^^^^^^^^^^^^^
 """
 
-from typing import Generic, Type, TypeVar
+from typing import Generic, Type, TypeVar, Self
 
 import coincurve
 from ethereum_types.bytes import Bytes
@@ -17,7 +17,6 @@ SECP256K1N = U256(
 )
 
 F = TypeVar("F", bound=Field)
-T = TypeVar("T", bound="EllipticCurve")
 
 
 def secp256k1_recover(r: U256, s: U256, v: U256, msg_hash: Hash32) -> Bytes:
@@ -69,7 +68,7 @@ class EllipticCurve(Generic[F]):
     x: F
     y: F
 
-    def __new__(cls: Type[T], x: F, y: F) -> T:
+    def __new__(cls, x: F, y: F) -> Self:
         """
         Make new point on the curve. The point is not checked to see if it is
         on the curve.
@@ -104,7 +103,7 @@ class EllipticCurve(Generic[F]):
         return str((self.x, self.y))
 
     @classmethod
-    def point_at_infinity(cls: Type[T]) -> T:
+    def point_at_infinity(cls) -> Self:
         """
         Return the point at infinity. This is the identity element of the group
         operation.
@@ -114,7 +113,7 @@ class EllipticCurve(Generic[F]):
         """
         return cls.__new__(cls, cls.FIELD.zero(), cls.FIELD.zero())
 
-    def double(self: T) -> T:
+    def double(self) -> Self:
         """
         Add a point to itself.
         """
@@ -126,7 +125,7 @@ class EllipticCurve(Generic[F]):
         new_y = lam * (x - new_x) - y
         return self.__new__(type(self), new_x, new_y)
 
-    def __add__(self: T, other: T) -> T:
+    def __add__(self, other: Self) -> Self:
         """
         Add two points together.
         """
@@ -146,7 +145,7 @@ class EllipticCurve(Generic[F]):
         y = lam * (self_x - x) - self_y
         return self.__new__(type(self), x, y)
 
-    def mul_by(self: T, n: int) -> T:
+    def mul_by(self, n: int) -> Self:
         """
         Multiply `self` by `n` using the double and add algorithm.
         """
