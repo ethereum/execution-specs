@@ -2,6 +2,6 @@
 The Osaka fork.
 """
 
-from ethereum.fork_criteria import ByTimestamp
+from ethereum.fork_criteria import Unscheduled
 
-FORK_CRITERIA = ByTimestamp(1746612311)
+FORK_CRITERIA = Unscheduled()
