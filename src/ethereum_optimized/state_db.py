@@ -15,7 +15,7 @@ module to use an optimized database backed state.
 import logging
 from dataclasses import dataclass
 from importlib import import_module
-from typing import Any, ClassVar, Dict, List, Optional, Set, cast
+from typing import Any, ClassVar, Dict, List, Optional, Set, Self, cast
 
 try:
     import rust_pyspec_glue
@@ -105,8 +105,12 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
                 return NotImplemented
             return state_root(self) == state_root(other)
 
-        def __enter__(self) -> "State":
-            """Support with statements"""
+        def __enter__(self) -> Self:
+            """Support with statements
+            Note: Uses `typing.Self` (PEP 673) for methods returning instances
+            of this class. Future methods that return `self` should also
+            use `-> Self`.
+            """
             return self
 
         def __exit__(self, *args: Any) -> None:
