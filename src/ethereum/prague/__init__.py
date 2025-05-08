@@ -2,6 +2,6 @@
 The Prague fork.
 """
 
-from ethereum.fork_criteria import Unscheduled
+from ethereum.fork_criteria import ByTimestamp
 
-FORK_CRITERIA = Unscheduled()
+FORK_CRITERIA = ByTimestamp(1746612311)
