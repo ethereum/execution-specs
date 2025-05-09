@@ -20,7 +20,7 @@ from ethereum.trace import GasAndRefund, evm_trace
 from ethereum.utils.numeric import ceil32, taylor_exponential
 
 from ..blocks import Header
-from ..transactions import BlobTransaction, Transaction
+from ..transactions import TX_BASE_COST, BlobTransaction, Transaction
 from . import Evm
 from .exceptions import OutOfGasError
 
@@ -305,7 +305,14 @@ def calculate_excess_blob_gas(parent_header: Header) -> U64:
     if parent_blob_gas < TARGET_BLOB_GAS_PER_BLOCK:
         return U64(0)
     else:
-        return parent_blob_gas - TARGET_BLOB_GAS_PER_BLOCK
+        target_blob_gas_price = Uint(
+            TARGET_BLOB_GAS_PER_BLOCK
+        ) * calculate_blob_gas_price(parent_header.excess_blob_gas)
+        base_blob_tx_price = TX_BASE_COST * parent_header.base_fee_per_gas
+        if base_blob_tx_price > target_blob_gas_price:
+            return parent_blob_gas // U64(3)
+        else:
+            return parent_blob_gas - TARGET_BLOB_GAS_PER_BLOCK
 
 
 def calculate_total_blob_gas(tx: Transaction) -> U64:
