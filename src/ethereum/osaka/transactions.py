@@ -57,6 +57,8 @@ Gas cost for including a storage key in the access list of a transaction.
 
 TX_MAX_GAS_LIMIT = Uint(30_000_000)
 
+TX_MAX_GAS_LIMIT = Uint(30_000_000)
+
 
 @slotted_freezable
 @dataclass
