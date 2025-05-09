@@ -53,6 +53,7 @@ from ..gas import (
     calculate_gas_extend_memory,
     calculate_message_call_gas,
     charge_gas,
+    code_access_cost,
     init_code_cost,
     max_message_call_gas,
 )
@@ -375,6 +376,9 @@ def call(evm: Evm) -> None:
     else:
         evm.accessed_addresses.add(to)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+        access_gas_cost += code_access_cost(
+            get_account(evm.message.block_env.state, to).code
+        )
 
     code_address = to
     (
@@ -465,6 +469,9 @@ def callcode(evm: Evm) -> None:
     else:
         evm.accessed_addresses.add(code_address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+        access_gas_cost += code_access_cost(
+            get_account(evm.message.block_env.state, code_address).code
+        )
 
     (
         disable_precompiles,
@@ -604,6 +611,9 @@ def delegatecall(evm: Evm) -> None:
     else:
         evm.accessed_addresses.add(code_address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+        access_gas_cost += code_access_cost(
+            get_account(evm.message.block_env.state, code_address).code
+        )
 
     (
         disable_precompiles,
@@ -672,6 +682,9 @@ def staticcall(evm: Evm) -> None:
     else:
         evm.accessed_addresses.add(to)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+        access_gas_cost += code_access_cost(
+            get_account(evm.message.block_env.state, to).code
+        )
 
     code_address = to
     (

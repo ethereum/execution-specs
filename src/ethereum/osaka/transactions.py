@@ -556,8 +556,6 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
         raise InsufficientTransactionGasError("Insufficient gas")
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
         raise NonceOverflowError("Nonce too high")
-    if tx.to == Bytes0(b"") and len(tx.data) > MAX_INIT_CODE_SIZE:
-        raise InitCodeTooLargeError("Code size too large")
     if tx.gas > TX_MAX_GAS_LIMIT:
         raise InvalidTransaction("Gas limit too high")
 
