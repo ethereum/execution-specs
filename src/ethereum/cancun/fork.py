@@ -482,10 +482,14 @@ def make_receipt(
 def process_system_transaction(
     block_env: vm.BlockEnvironment,
     target_address: Address,
+    system_contract_code: Bytes,
     data: Bytes,
 ) -> MessageCallOutput:
     """
-    Process a system transaction.
+    Process a system transaction with the given code.
+
+    Prefer calling `process_unchecked_system_transaction` unless the contract
+    code has already been read from the state.
 
     Parameters
     ----------
@@ -493,6 +497,8 @@ def process_system_transaction(
         The block scoped environment.
     target_address :
         Address of the contract to call.
+    system_contract_code :
+        Code of the contract to call.
     data :
         Data to pass to the contract.
 
@@ -501,8 +507,6 @@ def process_system_transaction(
     system_tx_output : `MessageCallOutput`
         Output of processing the system transaction.
     """
-    system_contract_code = get_account(block_env.state, target_address).code
-
     tx_env = vm.TransactionEnvironment(
         origin=SYSTEM_ADDRESS,
         gas_price=block_env.base_fee_per_gas,
@@ -540,6 +544,38 @@ def process_system_transaction(
     return system_tx_output
 
 
+def process_unchecked_system_transaction(
+    block_env: vm.BlockEnvironment,
+    target_address: Address,
+    data: Bytes,
+) -> MessageCallOutput:
+    """
+    Process a system transaction without checking if the contract contains code
+    or if the transaction fails.
+
+    Parameters
+    ----------
+    block_env :
+        The block scoped environment.
+    target_address :
+        Address of the contract to call.
+    data :
+        Data to pass to the contract.
+
+    Returns
+    -------
+    system_tx_output : `MessageCallOutput`
+        Output of processing the system transaction.
+    """
+    system_contract_code = get_account(block_env.state, target_address).code
+    return process_system_transaction(
+        block_env,
+        target_address,
+        system_contract_code,
+        data,
+    )
+
+
 def apply_body(
     block_env: vm.BlockEnvironment,
     transactions: Tuple[Union[LegacyTransaction, Bytes], ...],
@@ -571,7 +607,7 @@ def apply_body(
     """
     block_output = vm.BlockOutput()
 
-    process_system_transaction(
+    process_unchecked_system_transaction(
         block_env=block_env,
         target_address=BEACON_ROOTS_ADDRESS,
         data=block_env.parent_beacon_block_root,
