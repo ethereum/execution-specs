@@ -55,6 +55,8 @@ TX_ACCESS_LIST_STORAGE_KEY_COST = Uint(1900)
 Gas cost for including a storage key in the access list of a transaction.
 """
 
+TX_MAX_GAS_LIMIT = Uint(30_000_000)
+
 
 @slotted_freezable
 @dataclass
@@ -549,6 +551,8 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
         raise InvalidTransaction("Nonce too high")
     if tx.to == Bytes0(b"") and len(tx.data) > 2 * MAX_CODE_SIZE:
         raise InvalidTransaction("Code size too large")
+    if tx.gas > TX_MAX_GAS_LIMIT:
+        raise InvalidTransaction("Gas limit too high")
 
     return intrinsic_gas, calldata_floor_gas_cost
 
