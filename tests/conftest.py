@@ -21,7 +21,7 @@ try:
     from xdist import get_xdist_worker_id  # type: ignore[import-untyped]
 except ImportError:
 
-    def get_xdist_worker_id(request_or_session: object) -> str:
+    def get_xdist_worker_id(request_or_session: object) -> str:  # noqa: U100
         return "master"
 
 
@@ -185,10 +185,15 @@ def pytest_sessionstart(session: Session) -> None:  # noqa: U100
                     props["url"], fixture_path, props["commit_hash"]
                 )
             else:
-                downloader.fetch_http(props["url"], fixture_path)
+                downloader.fetch_http(
+                    props["url"],
+                    fixture_path,
+                )
 
 
-def pytest_sessionfinish(session: Session, exitstatus: int) -> None:
+def pytest_sessionfinish(
+    session: Session, exitstatus: int  # noqa: U100
+) -> None:
     if get_xdist_worker_id(session) != "master":
         return
 

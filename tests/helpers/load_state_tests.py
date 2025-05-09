@@ -176,11 +176,7 @@ def fetch_state_test_files(
             files_to_iterate.append(os.path.join(test_dir, test_path))
     else:
         # If there isn't a custom list, iterate over the test_dir
-        all_jsons = [
-            y
-            for x in os.walk(test_dir)
-            for y in glob(os.path.join(x[0], "*.json"))
-        ]
+        all_jsons = glob(os.path.join(test_dir, "**/*.json"), recursive=True)
 
         for full_path in all_jsons:
             if not any(x.search(full_path) for x in all_ignore):
