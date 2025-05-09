@@ -95,7 +95,11 @@ def complexity(base_length: U256, modulus_length: U256) -> Uint:
     """
     max_length = max(Uint(base_length), Uint(modulus_length))
     words = (max_length + Uint(7)) // Uint(8)
-    return words ** Uint(2)
+    complexity = words ** Uint(2)
+    if max_length <= Uint(32):
+        return complexity
+    else:
+        return Uint(2) * complexity
 
 
 def iterations(exponent_length: U256, exponent_head: U256) -> Uint:
@@ -129,7 +133,7 @@ def iterations(exponent_length: U256, exponent_head: U256) -> Uint:
 
         count = bit_length
     else:
-        length_part = Uint(8) * (Uint(exponent_length) - Uint(32))
+        length_part = Uint(16) * (Uint(exponent_length) - Uint(32))
         bits_part = exponent_head.bit_length()
 
         if bits_part > Uint(0):
@@ -175,4 +179,4 @@ def gas_cost(
     iteration_count = iterations(exponent_length, exponent_head)
     cost = multiplication_complexity * iteration_count
     cost //= GQUADDIVISOR
-    return max(Uint(200), cost)
+    return max(Uint(500), cost)
