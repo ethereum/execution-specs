@@ -375,7 +375,8 @@ identity = Address(0x04)
 # `blake2f`` is chosen for the test because it fails unless args_size == 213, which is what we are
 # interested in.
 blake2f = Address(0x09)
-# `p256verify` / RIP-7212 has been in and out of prague and osaka. Hence we need to test explicitly
+# `p256verify` / RIP-7212 has been in and out of prague and osaka.
+# Hence we need to test explicitly
 p256verify = Address(0x100)
 
 

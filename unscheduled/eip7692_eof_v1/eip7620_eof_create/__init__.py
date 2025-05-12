@@ -12,7 +12,7 @@ evmone tests not ported
 - eofcreate_extcall_returncode - per the new initcode mode tests you cannot have RETURNCODE
     in a deployed contract
 - eofcreate_dataloadn_referring_to_auxdata - covered by
-    tests.osaka.eip7480_data_section.test_data_opcodes.test_data_section_succeed
+    tests.unscheduled.eip7480_data_section.test_data_opcodes.test_data_section_succeed
 - eofcreate_initcontainer_return - RETURN is banned in initcode containers
 - eofcreate_initcontainer_stop - STOP is banned in initcode containers
 - All TXCREATE tests.

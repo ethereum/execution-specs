@@ -891,7 +891,7 @@ def test_static_to_pointer(state_test: StateTestFiller, pre: Alloc):
     )
 
 
-@pytest.mark.valid_from("Osaka")
+@pytest.mark.valid_from("EOFv1")
 def test_pointer_to_eof(state_test: StateTestFiller, pre: Alloc):
     """
     Tx -> call -> pointer A -> EOF
