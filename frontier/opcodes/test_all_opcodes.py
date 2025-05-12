@@ -34,6 +34,8 @@ def prepare_stack(opcode: Opcode) -> Bytecode:
         return Op.PUSH1(1) + Op.PUSH1(5)
     if opcode == Op.JUMP:
         return Op.PUSH1(3)
+    if opcode == Op.RETURNDATACOPY:
+        return Op.PUSH1(0) * 3
     return Op.PUSH1(0x01) * 32
 
 
@@ -68,7 +70,7 @@ def test_all_opcodes(state_test: StateTestFiller, pre: Alloc, fork: Fork):
                 Op.PUSH1(opcode.int()),
                 # Limit gas to limit the gas consumed by the exceptional aborts in each
                 # subcall that uses an undefined opcode.
-                Op.CALL(50_000, opcode_address, 0, 0, 0, 0, 0),
+                Op.CALL(35_000, opcode_address, 0, 0, 0, 0, 0),
             )
             for opcode, opcode_address in code_contract.items()
         )
@@ -78,13 +80,19 @@ def test_all_opcodes(state_test: StateTestFiller, pre: Alloc, fork: Fork):
 
     post = {
         contract_address: Account(
-            storage={**{opcode.int(): 1 for opcode in fork.valid_opcodes()}, code_worked: 1}
+            storage={
+                **{
+                    opcode.int(): 1 if opcode != Op.REVERT else 0
+                    for opcode in fork.valid_opcodes()
+                },
+                code_worked: 1,
+            }
         ),
     }
 
     tx = Transaction(
         sender=pre.fund_eoa(),
-        gas_limit=15_000_000,
+        gas_limit=9_000_000,
         to=contract_address,
         data=b"",
         value=0,
