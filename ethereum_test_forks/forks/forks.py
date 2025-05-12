@@ -1292,9 +1292,26 @@ class Osaka(Prague, solc_name="cancun"):
         return 5
 
     @classmethod
+    def is_deployed(cls) -> bool:
+        """
+        Flag that the fork has not been deployed to mainnet; it is under active
+        development.
+        """
+        return False
+
+    @classmethod
+    def solc_min_version(cls) -> Version:
+        """Return minimum version of solc that supports this fork."""
+        return Version.parse("1.0.0")  # set a high version; currently unknown
+
+
+class EOFv1(Prague, solc_name="cancun"):
+    """EOF fork."""
+
+    @classmethod
     def evm_code_types(cls, block_number: int = 0, timestamp: int = 0) -> List[EVMCodeType]:
         """EOF V1 is supported starting from Osaka."""
-        return super(Osaka, cls).evm_code_types(
+        return super(EOFv1, cls).evm_code_types(
             block_number,
             timestamp,
         ) + [EVMCodeType.EOF_V1]
@@ -1308,7 +1325,7 @@ class Osaka(Prague, solc_name="cancun"):
             (Opcodes.EXTCALL, EVMCodeType.EOF_V1),
             (Opcodes.EXTSTATICCALL, EVMCodeType.EOF_V1),
             (Opcodes.EXTDELEGATECALL, EVMCodeType.EOF_V1),
-        ] + super(Osaka, cls).call_opcodes(block_number, timestamp)
+        ] + super(EOFv1, cls).call_opcodes(block_number, timestamp)
 
     @classmethod
     def is_deployed(cls) -> bool:
