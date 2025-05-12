@@ -2703,17 +2703,32 @@ def test_set_code_to_system_contract(
             caller_payload = consolidation_request.calldata
             call_value = consolidation_request.value
         case Address(0x0000F90827F1C53A10CB7A02335B175320002935):  # EIP-2935
-            caller_payload = Hash(0)
+            # This payload is used to identify the number of blocks to be subtracted from the
+            # latest block number
+            caller_payload = Hash(1)
             caller_code_storage[call_return_data_size_slot] = 32
         case _:
             raise ValueError(f"Not implemented system contract: {system_contract}")
 
+    # Setup the code to call the system contract
+    match system_contract:
+        case Address(0x0000F90827F1C53A10CB7A02335B175320002935):  # EIP-2935
+            # Do a trick here to get the block number of the penultimate block to ensure it is
+            # saved in the history contract
+            check_block_number = Op.SUB(Op.NUMBER, Op.CALLDATALOAD(0))
+            call_system_contract_code = Op.MSTORE(0, check_block_number) + Op.SSTORE(
+                call_return_code_slot,
+                call_opcode(address=auth_signer, value=call_value, args_size=32),
+            )
+        case _:
+            # Call another system contract with fabricated payload
+            call_system_contract_code = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE) + Op.SSTORE(
+                call_return_code_slot,
+                call_opcode(address=auth_signer, value=call_value, args_size=Op.CALLDATASIZE),
+            )
+
     caller_code = (
-        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-        + Op.SSTORE(
-            call_return_code_slot,
-            call_opcode(address=auth_signer, value=call_value, args_size=Op.CALLDATASIZE),
-        )
+        call_system_contract_code
         + Op.SSTORE(call_return_data_size_slot, Op.RETURNDATASIZE)
         + Op.STOP
     )
