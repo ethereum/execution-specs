@@ -11,7 +11,7 @@ multiple workers with pytest-xdist.
 import os
 import shutil
 from pathlib import Path
-from tempfile import gettempdir as get_temp_dir  # noqa: SC200
+from tempfile import gettempdir as get_temp_dir
 from typing import Generator
 
 import pytest
@@ -19,7 +19,7 @@ from filelock import FileLock
 
 
 @pytest.fixture(scope="session")
-def session_temp_folder_name(testrun_uid: str) -> str:  # noqa: SC200
+def session_temp_folder_name(testrun_uid: str) -> str:
     """
     Define the name of the temporary folder that will be shared among all the
     xdist workers to coordinate the tests.
@@ -27,7 +27,7 @@ def session_temp_folder_name(testrun_uid: str) -> str:  # noqa: SC200
     "testrun_uid" is a fixture provided by the xdist plugin, and is unique for each test run,
     so it is used to create the unique folder name.
     """
-    return f"pytest-{testrun_uid}"  # noqa: SC200
+    return f"pytest-{testrun_uid}"
 
 
 @pytest.fixture(scope="session")

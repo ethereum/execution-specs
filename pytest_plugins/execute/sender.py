@@ -194,6 +194,6 @@ def sender_key(
     eth_rpc.send_wait_transaction(refund_tx)
 
 
-def pytest_sessionstart(session):  # noqa: SC200
+def pytest_sessionstart(session):
     """Reset the sender info before the session starts."""
     session.config.stash[metadata_key]["Senders"] = {}

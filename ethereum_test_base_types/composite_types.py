@@ -135,7 +135,7 @@ class Storage(EthereumTestRootModel[Dict[StorageKeyValueType, StorageKeyValueTyp
         self,
         key: StorageKeyValueTypeConvertible | StorageKeyValueType,
         value: StorageKeyValueTypeConvertible | StorageKeyValueType,
-    ):  # noqa: SC200
+    ):
         """Set an item in the storage."""
         self.root[StorageKeyValueTypeAdapter.validate_python(key)] = (
             StorageKeyValueTypeAdapter.validate_python(value)
