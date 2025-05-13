@@ -300,6 +300,11 @@ class BlockchainTest(BaseTest):
     genesis_environment: Environment = Field(default_factory=Environment)
     verify_sync: bool = False
     chain_id: int = 1
+    exclude_full_post_state_in_output: bool = False
+    """
+    Exclude the post state from the fixture output.
+    In this case, the state verification is only performed based on the state root.
+    """
 
     supported_fixture_formats: ClassVar[Sequence[FixtureFormat | LabeledFixtureFormat]] = [
         BlockchainFixture,
@@ -652,7 +657,7 @@ class BlockchainTest(BaseTest):
             blocks=fixture_blocks,
             last_block_hash=head,
             pre=pre,
-            post_state=alloc,
+            post_state=alloc if not self.exclude_full_post_state_in_output else None,
             config=FixtureConfig(
                 fork=network_info,
                 blob_schedule=FixtureBlobSchedule.from_blob_schedule(fork.blob_schedule()),
@@ -751,7 +756,7 @@ class BlockchainTest(BaseTest):
             payloads=fixture_payloads,
             fcu_version=fcu_version,
             pre=pre,
-            post_state=alloc,
+            post_state=alloc if not self.exclude_full_post_state_in_output else None,
             sync_payload=sync_payload,
             last_block_hash=head_hash,
             config=FixtureConfig(
