@@ -72,6 +72,7 @@ class EvmoneExceptionMapper(ExceptionMapper):
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
             "max blob fee per gas less than block base fee"
         ),
+        TransactionException.TYPE_4_TX_PRE_FORK: "transaction type not supported",
         TransactionException.TYPE_3_TX_PRE_FORK: "transaction type not supported",
         TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: "invalid blob hash version",
         TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: "blob gas limit exceeded",

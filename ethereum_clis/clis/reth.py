@@ -23,6 +23,7 @@ class RethExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_3_TX_CONTRACT_CREATION: "unexpected length",
         TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: "unexpected list",
         TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: "blob version not supported",
+        TransactionException.TYPE_3_TX_ZERO_BLOBS: "empty blobs",
         TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: "empty authorization list",
         TransactionException.TYPE_4_TX_CONTRACT_CREATION: "unexpected length",
         TransactionException.TYPE_4_TX_PRE_FORK: (
@@ -48,7 +49,7 @@ class RethExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             r"blob gas used \d+ exceeds maximum allowance \d+"
         ),
-        TransactionException.TYPE_3_TX_ZERO_BLOBS: (
+        TransactionException.TYPE_3_TX_PRE_FORK: (
             r"blob transactions present in pre-cancun payload|empty blobs"
         ),
         TransactionException.GAS_ALLOWANCE_EXCEEDED: (
