@@ -9,7 +9,6 @@ writes the generated fixtures to file.
 import configparser
 import datetime
 import os
-import tarfile
 import warnings
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Type
@@ -35,6 +34,7 @@ from ethereum_test_types import EnvironmentDefaults
 
 from ..shared.helpers import get_spec_format_for_item, labeled_format_parameter_set
 from ..spec_version_checker.spec_version_checker import get_ref_spec_from_module
+from .fixture_output import FixtureOutput
 
 
 def default_output_directory() -> str:
@@ -51,18 +51,6 @@ def default_html_report_file_path() -> str:
     function to allow for easier testing.
     """
     return ".meta/report_fill.html"
-
-
-def strip_output_tarball_suffix(output: Path) -> Path:
-    """Strip the '.tar.gz' suffix from the output path."""
-    if str(output).endswith(".tar.gz"):
-        return output.with_suffix("").with_suffix("")
-    return output
-
-
-def is_output_stdout(output: Path) -> bool:
-    """Return True if the fixture output is configured to be stdout."""
-    return strip_output_tarball_suffix(output).name == "stdout"
 
 
 def pytest_addoption(parser: pytest.Parser):
@@ -229,12 +217,14 @@ def pytest_configure(config):
         EnvironmentDefaults.gas_limit = config.getoption("block_gas_limit")
     if config.option.collectonly:
         return
+
+    # Initialize fixture output configuration
+    config.fixture_output = FixtureOutput.from_config(config)
+
     if not config.getoption("disable_html") and config.getoption("htmlpath") is None:
         # generate an html report by default, unless explicitly disabled
-        config.option.htmlpath = (
-            strip_output_tarball_suffix(config.getoption("output"))
-            / default_html_report_file_path()
-        )
+        config.option.htmlpath = config.fixture_output.directory / default_html_report_file_path()
+
     # Instantiate the transition tool here to check that the binary path/trace option is valid.
     # This ensures we only raise an error once, if appropriate, instead of for every test.
     t8n = TransitionTool.from_binary_path(
@@ -288,7 +278,7 @@ def pytest_report_teststatus(report, config: pytest.Config):
     ...x...
     ```
     """
-    if is_output_stdout(config.getoption("output")):
+    if config.fixture_output.is_stdout:  # type: ignore[attr-defined]
         return report.outcome, "", report.outcome.upper()
 
 
@@ -303,12 +293,12 @@ def pytest_terminal_summary(
     actually run the tests.
     """
     yield
-    if is_output_stdout(config.getoption("output")):
+    if config.fixture_output.is_stdout:  # type: ignore[attr-defined]
         return
     stats = terminalreporter.stats
     if "passed" in stats and stats["passed"]:
         # append / to indicate this is a directory
-        output_dir = str(strip_output_tarball_suffix(config.getoption("output"))) + "/"
+        output_dir = str(config.fixture_output.directory) + "/"  # type: ignore[attr-defined]
         terminalreporter.write_sep(
             "=",
             (
@@ -505,45 +495,33 @@ def base_dump_dir(request: pytest.FixtureRequest) -> Path | None:
 
 
 @pytest.fixture(scope="session")
-def is_output_tarball(request: pytest.FixtureRequest) -> bool:
+def fixture_output(request: pytest.FixtureRequest) -> FixtureOutput:
+    """Return the fixture output configuration."""
+    return request.config.fixture_output  # type: ignore[attr-defined]
+
+
+@pytest.fixture(scope="session")
+def is_output_tarball(fixture_output: FixtureOutput) -> bool:
     """Return True if the output directory is a tarball."""
-    output: Path = request.config.getoption("output")
-    if output.suffix == ".gz" and output.with_suffix("").suffix == ".tar":
-        return True
-    return False
+    return fixture_output.is_tarball
 
 
 @pytest.fixture(scope="session")
-def output_dir(request: pytest.FixtureRequest, is_output_tarball: bool) -> Path:
+def output_dir(fixture_output: FixtureOutput) -> Path:
     """Return directory to store the generated test fixtures."""
-    output = request.config.getoption("output")
-    if is_output_tarball:
-        return strip_output_tarball_suffix(output)
-    return output
-
-
-@pytest.fixture(scope="session")
-def output_metadata_dir(output_dir: Path) -> Path:
-    """Return metadata directory to store fixture meta files."""
-    if is_output_stdout(output_dir):
-        return output_dir
-    return output_dir / ".meta"
+    return fixture_output.directory
 
 
 @pytest.fixture(scope="session", autouse=True)
-def create_properties_file(
-    request: pytest.FixtureRequest, output_dir: Path, output_metadata_dir: Path
-) -> None:
+def create_properties_file(request: pytest.FixtureRequest, fixture_output: FixtureOutput) -> None:
     """
     Create ini file with fixture build properties in the fixture output
     directory.
     """
-    if is_output_stdout(request.config.getoption("output")):
+    if fixture_output.is_stdout:
         return
-    if not output_dir.exists():
-        output_dir.mkdir(parents=True)
-    if not output_metadata_dir.exists():
-        output_metadata_dir.mkdir(parents=True)
+
+    fixture_output.create_directories()
 
     fixture_properties = {
         "timestamp": datetime.datetime.now().isoformat(),
@@ -574,7 +552,7 @@ def create_properties_file(
             )
     config["environment"] = environment_properties
 
-    ini_filename = output_metadata_dir / "fixtures.ini"
+    ini_filename = fixture_output.metadata_dir / "fixtures.ini"
     with open(ini_filename, "w") as f:
         f.write("; This file describes fixture build properties\n\n")
         config.write(f)
@@ -610,9 +588,9 @@ def get_fixture_collection_scope(fixture_name, config):
 
     See: https://docs.pytest.org/en/stable/how-to/fixtures.html#dynamic-scope
     """
-    if is_output_stdout(config.getoption("output")):
+    if config.fixture_output.is_stdout:
         return "session"
-    if config.getoption("single_fixture_per_file"):
+    if config.fixture_output.single_fixture_per_file:
         return "function"
     return "module"
 
@@ -636,17 +614,17 @@ def fixture_collector(
     evm_fixture_verification: FixtureConsumer,
     filler_path: Path,
     base_dump_dir: Path | None,
-    output_dir: Path,
+    fixture_output: FixtureOutput,
 ) -> Generator[FixtureCollector, None, None]:
     """
     Return configured fixture collector instance used for all tests
     in one test module.
     """
     fixture_collector = FixtureCollector(
-        output_dir=output_dir,
-        flat_output=request.config.getoption("flat_output"),
+        output_dir=fixture_output.directory,
+        flat_output=fixture_output.flat_output,
         fill_static_tests=request.config.getoption("fill_static_tests_enabled"),
-        single_fixture_per_file=request.config.getoption("single_fixture_per_file"),
+        single_fixture_per_file=fixture_output.single_fixture_per_file,
         filler_path=filler_path,
         base_dump_dir=base_dump_dir,
     )
@@ -875,29 +853,20 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
     if xdist.is_xdist_worker(session):
         return
 
-    output: Path = session.config.getoption("output")
+    fixture_output = session.config.fixture_output  # type: ignore[attr-defined]
     # When using --collect-only it should not matter whether fixtures folder exists or not
-    if is_output_stdout(output) or session.config.option.collectonly:
+    if fixture_output.is_stdout or session.config.option.collectonly:
         return
 
-    output_dir = strip_output_tarball_suffix(output)
     # Remove any lock files that may have been created.
-    for file in output_dir.rglob("*.lock"):
+    for file in fixture_output.directory.rglob("*.lock"):
         file.unlink()
 
     # Generate index file for all produced fixtures.
     if session.config.getoption("generate_index"):
         generate_fixtures_index(
-            output_dir, quiet_mode=True, force_flag=False, disable_infer_format=False
+            fixture_output.directory, quiet_mode=True, force_flag=False, disable_infer_format=False
         )
 
     # Create tarball of the output directory if the output is a tarball.
-    is_output_tarball = output.suffix == ".gz" and output.with_suffix("").suffix == ".tar"
-    if is_output_tarball:
-        source_dir = output_dir
-        tarball_filename = output
-        with tarfile.open(tarball_filename, "w:gz") as tar:
-            for file in source_dir.rglob("*"):
-                if file.suffix in {".json", ".ini"}:
-                    arcname = Path("fixtures") / file.relative_to(source_dir)
-                    tar.add(file, arcname=arcname)
+    fixture_output.create_tarball()

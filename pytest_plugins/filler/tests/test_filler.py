@@ -569,6 +569,7 @@ def test_fixture_output_based_on_command_line_args(
     expected_ini_file = "fixtures.ini"
     expected_index_file = "index.json"
     expected_resolver_file = None
+    resolver_file = None
     if TransitionTool.default_tool == ExecutionSpecsTransitionTool:
         expected_resolver_file = "eels_resolutions.json"
 
@@ -698,6 +699,7 @@ def test_fill_variables(
     expected_ini_file = "fixtures.ini"
     expected_index_file = "index.json"
     expected_resolver_file = None
+    resolver_file = None
     if TransitionTool.default_tool == ExecutionSpecsTransitionTool:
         expected_resolver_file = "eels_resolutions.json"
 

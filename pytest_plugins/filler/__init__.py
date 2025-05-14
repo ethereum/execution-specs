@@ -1,4 +1,7 @@
-"""
-A pytest plugin that provides fixtures that fill tests and generate
-fixtures.
-"""
+"""A pytest plugin to fill tests and generate JSON fixtures."""
+
+from .fixture_output import FixtureOutput
+
+__all__ = [
+    "FixtureOutput",
+]
