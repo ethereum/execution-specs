@@ -89,6 +89,7 @@ class NimbusExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: "exceeds maximum allowance",
         TransactionException.TYPE_3_TX_ZERO_BLOBS: "blob transaction missing blob hashes",
         TransactionException.INTRINSIC_GAS_TOO_LOW: "intrinsic gas too low",
+        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: "intrinsic gas too low",
         TransactionException.INITCODE_SIZE_EXCEEDED: "max initcode size exceeded",
         # TODO EVMONE needs to differentiate when the section is missing in the header or body
         EOFException.MISSING_STOP_OPCODE: "err: no_terminating_instruction",

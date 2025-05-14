@@ -77,6 +77,9 @@ class EthereumJSExceptionMapper(ExceptionMapper):
             "Invalid EIP-7702 transaction: authorization list is empty"
         ),
         TransactionException.INTRINSIC_GAS_TOO_LOW: "is lower than the minimum gas limit of",
+        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
+            "is lower than the minimum gas limit of"
+        ),
         TransactionException.INITCODE_SIZE_EXCEEDED: (
             "the initcode size of this transaction is too large"
         ),

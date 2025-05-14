@@ -153,6 +153,7 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: " transaction: ",
         TransactionException.TYPE_3_TX_ZERO_BLOBS: "transaction: ",
         TransactionException.INTRINSIC_GAS_TOO_LOW: "ransaction: ",
+        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: "ransaction: ",
         TransactionException.INITCODE_SIZE_EXCEEDED: "ansaction: ",
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: "nsaction: ",
         TransactionException.NONCE_MISMATCH_TOO_HIGH: "saction: ",

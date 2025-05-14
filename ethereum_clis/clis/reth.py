@@ -40,7 +40,10 @@ class RethExceptionMapper(ExceptionMapper):
     mapping_regex = {
         TransactionException.NONCE_MISMATCH_TOO_LOW: r"nonce \d+ too low, expected \d+",
         TransactionException.INTRINSIC_GAS_TOO_LOW: (
-            r"(call gas cost|gas floor) \(\d+\) exceeds the gas limit \(\d+\)"
+            r"call gas cost \(\d+\) exceeds the gas limit \(\d+\)"
+        ),
+        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
+            r"gas floor \(\d+\) exceeds the gas limit \(\d+\)"
         ),
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             r"blob gas used \d+ exceeds maximum allowance \d+"

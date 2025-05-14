@@ -33,6 +33,10 @@ class GethExceptionMapper(ExceptionMapper):
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
             "insufficient funds for gas * price + value"
         ),
+        TransactionException.INTRINSIC_GAS_TOO_LOW: "intrinsic gas too low",
+        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
+            "insufficient gas for floor data gas cost"
+        ),
         TransactionException.NONCE_IS_MAX: "nonce has max value",
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             "would exceed maximum allowance"
@@ -117,9 +121,6 @@ class GethExceptionMapper(ExceptionMapper):
     mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             r"blob gas used \d+ exceeds maximum allowance \d+"
-        ),
-        TransactionException.INTRINSIC_GAS_TOO_LOW: (
-            r"intrinsic gas too low|insufficient gas for floor data gas cost"
         ),
         BlockException.BLOB_GAS_USED_ABOVE_LIMIT: (
             r"blob gas used \d+ exceeds maximum allowance \d+"

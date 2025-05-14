@@ -14,6 +14,7 @@ class ErigonExceptionMapper(ExceptionMapper):
         ),
         TransactionException.NONCE_IS_MAX: "nonce has max value",
         TransactionException.INTRINSIC_GAS_TOO_LOW: "intrinsic gas too low",
+        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: "intrinsic gas too low",
         TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: "fee cap less than block base fee",
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: "tip higher than fee cap",
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: "max fee per blob gas too low",

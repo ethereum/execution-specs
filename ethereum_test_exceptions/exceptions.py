@@ -323,6 +323,10 @@ class TransactionException(ExceptionBase):
     """
     Transaction's gas limit is too low.
     """
+    INTRINSIC_GAS_BELOW_FLOOR_GAS_COST = auto()
+    """
+    Transaction's gas limit is below the floor gas cost.
+    """
     INITCODE_SIZE_EXCEEDED = auto()
     """
     Transaction's initcode for a contract-creating transaction is too large.

@@ -330,6 +330,9 @@ class BesuExceptionMapper(ExceptionMapper):
         TransactionException.INTRINSIC_GAS_TOO_LOW: (
             r"transaction invalid intrinsic gas cost \d+ exceeds gas limit \d+"
         ),
+        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
+            r"transaction invalid intrinsic gas cost \d+ exceeds gas limit \d+"
+        ),
         TransactionException.SENDER_NOT_EOA: (
             r"transaction invalid Sender 0x[0-9a-f]+ has deployed code and so is not authorized "
             r"to send transactions"

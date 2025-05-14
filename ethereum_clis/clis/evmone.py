@@ -60,6 +60,7 @@ class EvmoneExceptionMapper(ExceptionMapper):
         ),
         TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: "empty authorization list",
         TransactionException.INTRINSIC_GAS_TOO_LOW: "intrinsic gas too low",
+        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: "intrinsic gas too low",
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: "blob gas limit exceeded",
         TransactionException.INITCODE_SIZE_EXCEEDED: "max initcode size exceeded",
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
