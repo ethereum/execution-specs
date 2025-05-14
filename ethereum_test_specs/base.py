@@ -139,10 +139,13 @@ class BaseTest(BaseModel):
             str(current_value),
         )
 
-    def is_slow_test(self) -> bool:
-        """Check if the test is slow."""
+    def is_tx_gas_heavy_test(self) -> bool:
+        """Check if the test is gas-heavy for transaction execution."""
         if self._request is not None and hasattr(self._request, "node"):
-            return self._request.node.get_closest_marker("slow") is not None
+            node = self._request.node
+            has_slow_marker = node.get_closest_marker("slow") is not None
+            has_zkevm_marker = node.get_closest_marker("zkevm") is not None
+            return has_slow_marker or has_zkevm_marker
         return False
 
     def is_exception_test(self) -> bool | None:

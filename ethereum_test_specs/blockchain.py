@@ -402,7 +402,6 @@ class BlockchainTest(BaseTest):
         previous_env: Environment,
         previous_alloc: Alloc,
         eips: Optional[List[int]] = None,
-        slow: bool = False,
     ) -> Tuple[FixtureHeader, List[Transaction], List[Bytes] | None, Alloc, Environment]:
         """Generate common block data for both make_fixture and make_hive_fixture."""
         if block.rlp and block.exception is not None:
@@ -417,7 +416,7 @@ class BlockchainTest(BaseTest):
 
         txs: List[Transaction] = []
         for tx in block.txs:
-            if not self.is_slow_test() and tx.gas_limit >= Environment().gas_limit:
+            if not self.is_tx_gas_heavy_test() and tx.gas_limit >= Environment().gas_limit:
                 warnings.warn(
                     f"{self.node_id()} uses a high Transaction gas_limit: {tx.gas_limit}",
                     stacklevel=2,
@@ -446,7 +445,7 @@ class BlockchainTest(BaseTest):
             blob_schedule=fork.blob_schedule(),
             eips=eips,
             debug_output_path=self.get_next_transition_tool_output_path(),
-            slow_request=slow,
+            slow_request=self.is_tx_gas_heavy_test(),
         )
 
         try:
@@ -598,7 +597,6 @@ class BlockchainTest(BaseTest):
                     previous_env=env,
                     previous_alloc=alloc,
                     eips=eips,
-                    slow=self.is_slow_test(),
                 )
                 fixture_block = FixtureBlockBase(
                     header=header,
@@ -687,7 +685,6 @@ class BlockchainTest(BaseTest):
                 previous_env=env,
                 previous_alloc=alloc,
                 eips=eips,
-                slow=self.is_slow_test(),
             )
             if block.rlp is None:
                 fixture_payloads.append(
