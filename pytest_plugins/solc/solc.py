@@ -1,5 +1,7 @@
 """Pytest plugin for configuring and installing the solc compiler."""
 
+import platform
+import subprocess
 from argparse import ArgumentTypeError
 from shutil import which
 
@@ -63,6 +65,18 @@ def pytest_configure(config: pytest.Config):
         except ArgumentTypeError:
             version = None
         if version != solc_version:
+            # solc-select current does not support ARM linux
+            if platform.system().lower() == "linux" and platform.machine().lower() == "aarch64":
+                error_message = (
+                    f"Version {version} does not match solc_version {solc_version} "
+                    "and since solc-select currently does not support ARM linux you must "
+                    "manually do the following: "
+                    "Build solc from source, and manually move the binary to "
+                    ".venv/.solc-select/artifacts/solc-x.y.z/solc-x.y.z, then run "
+                    "'uv run solc-select use <x.y.z>'"
+                )
+                pytest.exit(error_message, returncode=pytest.ExitCode.USAGE_ERROR)
+
             if config.getoption("verbose") > 0:
                 print(f"Setting solc version {solc_version} via solc-select...")
             try:
@@ -89,6 +103,27 @@ def pytest_configure(config: pytest.Config):
             returncode=pytest.ExitCode.USAGE_ERROR,
         )
     config.solc_version = solc_version_semver  # type: ignore
+
+    # test whether solc_version matches actual one
+    # using subprocess because that's how yul is compiled in
+    # ./src/ethereum_test_specs/static_state/common/compile_yul.py
+    expected_solc_version_string: str = str(solc_version_semver)
+    actual_solc_version = subprocess.run(
+        ["solc", "--version"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=True,
+    )
+    actual_solc_version_string = actual_solc_version.stdout
+    # use only look at first 10 chars to pass e.g.
+    # actual: 0.8.25+commit.b61c2a91.Linux.g++ should pass with expected: "0.8.25+commit.b61c2a91
+    if (
+        expected_solc_version_string[:10] not in actual_solc_version_string
+    ) or expected_solc_version_string == "":
+        error_message = f"Expected solc version {solc_version_semver} but detected a\
+ different solc version:\n{actual_solc_version_string}\nCritical error, aborting.."
+        pytest.exit(error_message, returncode=pytest.ExitCode.USAGE_ERROR)
 
 
 @pytest.fixture(autouse=True, scope="session")
