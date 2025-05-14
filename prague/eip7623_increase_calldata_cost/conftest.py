@@ -302,9 +302,14 @@ def tx_gas_limit(
 
 
 @pytest.fixture
-def tx_error(tx_gas_delta: int) -> TransactionException | None:
+def tx_error(tx_gas_delta: int, data_test_type: DataTestType) -> TransactionException | None:
     """Transaction error, only expected if the gas delta is negative."""
-    return TransactionException.INTRINSIC_GAS_TOO_LOW if tx_gas_delta < 0 else None
+    if tx_gas_delta < 0:
+        if data_test_type == DataTestType.FLOOR_GAS_COST_GREATER_THAN_INTRINSIC_GAS:
+            return TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST
+        else:
+            return TransactionException.INTRINSIC_GAS_TOO_LOW
+    return None
 
 
 @pytest.fixture
