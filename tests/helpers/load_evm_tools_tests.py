@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+from glob import glob
 from io import StringIO
 from typing import Dict, Generator, Optional, Tuple
 
@@ -26,27 +27,23 @@ def fetch_evm_tools_tests(
     if slow_tests is None:
         slow_tests = tuple()
 
-    for root, _, files in os.walk(test_dir):
-        for filename in files:
-            if not filename.endswith(".json"):
+    pattern = os.path.join(test_dir, "**/*.json")
+    for test_file_path in glob(pattern, recursive=True):
+        test_cases = read_test_cases(test_file_path)
+        for test_case in test_cases:
+            if test_case.fork_name != fork_name:
                 continue
 
-            test_file_path = os.path.join(root, filename)
-            test_cases = read_test_cases(test_file_path)
-            for test_case in test_cases:
-                if test_case.fork_name != fork_name:
-                    continue
+            test_case_dict = {
+                "test_file": test_case.path,
+                "test_key": test_case.key,
+                "index": test_case.index,
+            }
 
-                test_case_dict = {
-                    "test_file": test_case.path,
-                    "test_key": test_case.key,
-                    "index": test_case.index,
-                }
-
-                if test_case.key in slow_tests:
-                    yield pytest.param(test_case_dict, marks=pytest.mark.slow)
-                else:
-                    yield test_case_dict
+            if test_case.key in slow_tests:
+                yield pytest.param(test_case_dict, marks=pytest.mark.slow)
+            else:
+                yield test_case_dict
 
 
 def idfn(test_case: Dict) -> str:
