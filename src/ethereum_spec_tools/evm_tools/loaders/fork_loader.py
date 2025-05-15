@@ -63,9 +63,9 @@ class ForkLoad:
         return self._module("fork").process_general_purpose_requests
 
     @property
-    def process_system_transaction(self) -> Any:
-        """process_system_transaction function of the given fork."""
-        return self._module("fork").process_system_transaction
+    def process_unchecked_system_transaction(self) -> Any:
+        """process_unchecked_system_transaction function of the given fork."""
+        return self._module("fork").process_unchecked_system_transaction
 
     @property
     def process_withdrawals(self) -> Any:

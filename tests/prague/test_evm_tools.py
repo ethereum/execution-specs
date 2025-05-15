@@ -16,11 +16,9 @@ FORK_NAME = "Prague"
 
 
 SLOW_TESTS = (
-    "CALLBlake2f_MaxRounds",
-    "CALLCODEBlake2f",
-    "CALLBlake2f",
-    "loopExp",
-    "loopMul",
+    "GeneralStateTests/stTimeConsuming/CALLBlake2f_MaxRounds.json::CALLBlake2f_MaxRounds-fork_[Cancun-Prague]-d0g0v0",
+    "GeneralStateTests/VMTests/vmPerformance/loopExp.json::loopExp-fork_[Cancun-Prague]-d[0-14]g0v0",
+    "GeneralStateTests/VMTests/vmPerformance/loopMul.json::loopMul-fork_[Cancun-Prague]-d[0-2]g0v0",
     "tests/prague/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Prague-state_test-bls_pairing_non-degeneracy-]",
     "tests/prague/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Prague-state_test-bls_pairing_bilinearity-]",
     "tests/prague/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Prague-state_test-bls_pairing_e(G1,-G2)=e(-G1,G2)-]",
