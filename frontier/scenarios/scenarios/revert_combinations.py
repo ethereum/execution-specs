@@ -34,6 +34,7 @@ def scenarios_revert_combinations(scenario_input: ScenarioGeneratorInput) -> Lis
         )
         scenarios_list.append(
             Scenario(
+                category="revert_combinations",
                 name=f"scenario_revert_by_{revert}",
                 code=scenario_contract,
                 env=env,

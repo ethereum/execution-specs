@@ -67,6 +67,7 @@ from .programs.static_violation import (
 )
 from .scenarios.call_combinations import ScenariosCallCombinations
 from .scenarios.create_combinations import scenarios_create_combinations
+from .scenarios.double_call_combinations import scenarios_double_call_combinations
 from .scenarios.revert_combinations import scenarios_revert_combinations
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -94,6 +95,10 @@ def scenarios(fork: Fork, pre: Alloc, test_program: ScenarioTestProgram) -> List
 
     revert_combinations = scenarios_revert_combinations(scenario_input)
     for combination in revert_combinations:
+        scenarios_list.append(combination)
+
+    double_call_combinations = scenarios_double_call_combinations(scenario_input)
+    for combination in double_call_combinations:
         scenarios_list.append(combination)
 
     return scenarios_list
@@ -144,7 +149,12 @@ program_classes = [
     # scenario_name="" select all scenarios
     # Example: [ScenarioDebug(program_id=ProgramSstoreSload().id, scenario_name="scenario_CALL_CALL")],  # noqa: E501
     "debug",
-    [ScenarioDebug(program_id="", scenario_name="")],
+    [
+        ScenarioDebug(
+            program_id="",
+            scenario_name="",
+        )
+    ],
     ids=["debug"],
 )
 @pytest.mark.parametrize(
@@ -188,6 +198,9 @@ def test_scenarios(
         result_slot = post_storage.store_next(1, hint=f"runner result {scenario.name}")
 
         tx_max_gas = 7_000_000 if test_program.id == ProgramInvalidOpcode().id else 1_000_000
+        if scenario.category == "double_call_combinations":
+            tx_max_gas *= 2
+
         tx_gasprice: int = 10
         exec_env = ExecutionEnvironment(
             fork=fork,

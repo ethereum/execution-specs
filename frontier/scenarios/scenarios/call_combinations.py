@@ -116,6 +116,7 @@ class ScenariosCallCombinations:
         )
 
         return Scenario(
+            category="call_combinations",
             name=f"scenario_{first_call}",
             code=root_contract,
             env=ScenarioEnvironment(
@@ -263,6 +264,7 @@ class ScenariosCallCombinations:
         )
 
         return Scenario(
+            category="call_combinations",
             name=f"scenario_{first_call}_{second_call}",
             code=root_contract,
             env=ScenarioEnvironment(

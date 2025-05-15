@@ -79,6 +79,7 @@ def scenarios_create_combinations(scenario_input: ScenarioGeneratorInput) -> Lis
         )
         scenarios_list.append(
             Scenario(
+                category="create_constructor_combinations",
                 name=f"scenario_{create}_constructor",
                 code=scenario_contract,
                 env=env,
@@ -162,6 +163,7 @@ def scenarios_create_combinations(scenario_input: ScenarioGeneratorInput) -> Lis
             )
             scenarios_list.append(
                 Scenario(
+                    category="create_call_combinations",
                     name=f"scenario_{create}_then_{call}",
                     code=root_contract,
                     env=env,

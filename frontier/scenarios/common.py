@@ -168,6 +168,7 @@ class Scenario:
     Describe test scenario that will be run in test for each program.
 
     Attributes:
+        category (str): Scenario category name
         name (str): Scenario name for the test vector
         code (Address): Address that is an entry point for scenario code
         env (ScenarioEnvironment): Evm values for ScenarioExpectAddress map
@@ -175,6 +176,7 @@ class Scenario:
 
     """
 
+    category: str
     name: str
     code: Address
     env: ScenarioEnvironment
