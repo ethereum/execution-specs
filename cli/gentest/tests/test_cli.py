@@ -1,5 +1,7 @@
 """Tests for the gentest CLI command."""
 
+from tempfile import TemporaryDirectory
+
 import pytest
 from click.testing import CliRunner
 
@@ -111,5 +113,13 @@ def test_tx_type(tmp_path, monkeypatch, tx_type, transaction_hash):
     assert gentest_result.exit_code == 0
 
     ## Fill ##
-    fill_result = runner.invoke(fill, ["-c", "pytest.ini", "--skip-evm-dump", output_file])
+    args = [
+        "-c",
+        "pytest.ini",
+        "--skip-evm-dump",
+        "--output",
+        TemporaryDirectory().name,
+        output_file,
+    ]
+    fill_result = runner.invoke(fill, args)
     assert fill_result.exit_code == 0, f"Fill command failed:\n{fill_result.output}"

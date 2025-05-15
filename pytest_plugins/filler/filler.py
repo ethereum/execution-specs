@@ -114,11 +114,18 @@ def pytest_addoption(parser: pytest.Parser):
         type=Path,
         default=Path(default_output_directory()),
         help=(
-            "Directory path to store the generated test fixtures. "
+            "Directory path to store the generated test fixtures. Must be empty if it exists. "
             "If the specified path ends in '.tar.gz', then the specified tarball is additionally "
             "created (the fixtures are still written to the specified path without the '.tar.gz' "
             f"suffix). Can be deleted. Default: '{default_output_directory()}'."
         ),
+    )
+    test_group.addoption(
+        "--clean",
+        action="store_true",
+        dest="clean",
+        default=False,
+        help="Clean (remove) the output directory before filling fixtures.",
     )
     test_group.addoption(
         "--flat-output",
@@ -220,6 +227,12 @@ def pytest_configure(config):
 
     # Initialize fixture output configuration
     config.fixture_output = FixtureOutput.from_config(config)
+
+    try:
+        # Check whether the directory exists and is not empty; if --clean is set, it will delete it
+        config.fixture_output.create_directories(is_master=not hasattr(config, "workerinput"))
+    except ValueError as e:
+        pytest.exit(str(e), returncode=pytest.ExitCode.USAGE_ERROR)
 
     if not config.getoption("disable_html") and config.getoption("htmlpath") is None:
         # generate an html report by default, unless explicitly disabled
@@ -520,8 +533,6 @@ def create_properties_file(request: pytest.FixtureRequest, fixture_output: Fixtu
     """
     if fixture_output.is_stdout:
         return
-
-    fixture_output.create_directories()
 
     fixture_properties = {
         "timestamp": datetime.datetime.now().isoformat(),
