@@ -152,7 +152,6 @@ program_classes = [
     program_classes,
     ids=[cls.id for cls in program_classes],
 )
-@pytest.mark.execute(pytest.mark.skip("Requires gasprice"))
 def test_scenarios(
     blockchain_test: BlockchainTestFiller,
     fork: Fork,

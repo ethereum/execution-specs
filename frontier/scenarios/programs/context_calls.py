@@ -177,7 +177,14 @@ class ProgramGasPrice(ScenarioTestProgram):
 
     def make_test_code(self, pre: Alloc, fork: Fork) -> Bytecode:
         """Test code."""
-        return Op.MSTORE(0, Op.GASPRICE) + Op.RETURN(0, 32)
+        gas_hash = make_gas_hash_contract(pre)
+
+        return (
+            Op.MSTORE(64, Op.GASPRICE)
+            + Op.CALL(Op.SUB(Op.GAS, 200000), gas_hash, 0, 64, 32, 0, 0)
+            + Op.MSTORE(0, 1)
+            + Op.RETURN(0, 32)
+        )
 
     @cached_property
     def id(self) -> str:
@@ -186,7 +193,7 @@ class ProgramGasPrice(ScenarioTestProgram):
 
     def result(self) -> ProgramResult:
         """Test result."""
-        return ProgramResult(result=ScenarioExpectOpcode.GASPRICE)
+        return ProgramResult(result=1)
 
 
 class ProgramExtCodeCopyExtCodeSize(ScenarioTestProgram):
