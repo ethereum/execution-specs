@@ -18,6 +18,7 @@ from ethereum_test_tools import (
     Bytecode,
     Environment,
     Transaction,
+    While,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
@@ -282,3 +283,79 @@ def code_loop_precompile_call(calldata: Bytecode, attack_block: Bytecode):
         raise ValueError(f"Code size {len(code)} exceeds maximum code size {MAX_CODE_SIZE}")
 
     return code
+
+
+@pytest.mark.zkevm
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.slow
+def test_worst_jumps(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+):
+    """Test running a JUMP-intensive contract."""
+    env = Environment()
+
+    def jump_seq():
+        return Op.JUMP(Op.ADD(Op.PC, 1)) + Op.JUMPDEST
+
+    bytes_per_seq = len(jump_seq())
+    seqs_per_call = MAX_CODE_SIZE // bytes_per_seq
+
+    # Create and deploy the jump-intensive contract
+    jumps_code = sum([jump_seq() for _ in range(seqs_per_call)])
+    jumps_address = pre.deploy_contract(code=jumps_code)
+
+    # Call the contract repeatedly until gas runs out.
+    caller_code = While(body=Op.POP(Op.CALL(address=jumps_address)))
+    caller_address = pre.deploy_contract(caller_code)
+
+    txs = [
+        Transaction(
+            to=caller_address,
+            gas_limit=env.gas_limit,
+            sender=pre.fund_eoa(),
+        )
+    ]
+
+    blockchain_test(
+        genesis_environment=env,
+        pre=pre,
+        post={},
+        blocks=[Block(txs=txs)],
+    )
+
+
+@pytest.mark.zkevm
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.slow
+def test_worst_jumpdests(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+):
+    """Test running a JUMPDEST-intensive contract."""
+    env = Environment()
+
+    # Create and deploy a contract with many JUMPDESTs
+    jumpdests_code = sum([Op.JUMPDEST] * MAX_CODE_SIZE)
+    jumpdests_address = pre.deploy_contract(code=jumpdests_code)
+
+    # Call the contract repeatedly until gas runs out.
+    caller_code = While(body=Op.POP(Op.CALL(address=jumpdests_address)))
+    caller_address = pre.deploy_contract(caller_code)
+
+    txs = [
+        Transaction(
+            to=caller_address,
+            gas_limit=env.gas_limit,
+            sender=pre.fund_eoa(),
+        )
+    ]
+
+    blockchain_test(
+        genesis_environment=env,
+        pre=pre,
+        post={},
+        blocks=[Block(txs=txs)],
+    )
