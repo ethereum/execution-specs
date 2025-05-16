@@ -247,15 +247,21 @@ class Env:
 
         # Read the block hashes
         block_hashes: List[Any] = []
+
+        # The hex key strings provided might not have standard formatting
+        clean_block_hashes: Dict[int, Hash32] = {}
+        if "blockHashes" in data:
+            for key, value in data["blockHashes"].items():
+                int_key = int(key, 16)
+                clean_block_hashes[int_key] = Hash32(hex_to_bytes(value))
+
         # Store a maximum of 256 block hashes.
         max_blockhash_count = min(Uint(256), self.block_number)
         for number in range(
             self.block_number - max_blockhash_count, self.block_number
         ):
-            if "blockHashes" in data and str(number) in data["blockHashes"]:
-                block_hashes.append(
-                    Hash32(hex_to_bytes(data["blockHashes"][str(number)]))
-                )
+            if number in clean_block_hashes.keys():
+                block_hashes.append(clean_block_hashes[number])
             else:
                 block_hashes.append(None)
 
