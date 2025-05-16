@@ -304,7 +304,7 @@ def test_worst_jumps(
 
     # Create and deploy the jump-intensive contract
     jumps_code = sum([jump_seq() for _ in range(seqs_per_call)])
-    jumps_address = pre.deploy_contract(code=jumps_code)
+    jumps_address = pre.deploy_contract(code=bytes(jumps_code))
 
     # Call the contract repeatedly until gas runs out.
     caller_code = While(body=Op.POP(Op.CALL(address=jumps_address)))
@@ -339,7 +339,7 @@ def test_worst_jumpdests(
 
     # Create and deploy a contract with many JUMPDESTs
     jumpdests_code = sum([Op.JUMPDEST] * MAX_CODE_SIZE)
-    jumpdests_address = pre.deploy_contract(code=jumpdests_code)
+    jumpdests_address = pre.deploy_contract(code=bytes(jumpdests_code))
 
     # Call the contract repeatedly until gas runs out.
     caller_code = While(body=Op.POP(Op.CALL(address=jumpdests_address)))
