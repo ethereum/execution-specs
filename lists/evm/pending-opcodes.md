@@ -277,7 +277,7 @@ scheduled or accepted) are in *italics*.
 | *0xE2* | *RJUMPV*         | *EOF*                   | *????*           | *[EIP-4200](https://eips.ethereum.org/EIPS/eip-4200)*                          |
 | *0xE3* | *CALLF*          | *EOF*                   | *????*           | *[EIP-4750](https://eips.ethereum.org/EIPS/eip-4750)*                          |
 | *0xE4* | *RETF*           | *EOF*                   | *????*           | *[EIP-4750](https://eips.ethereum.org/EIPS/eip-4750)*                          |
-| *0xE5* | *JUMPF*          | *EOF*                   | *????*           | *[EIP-4750](https://eips.ethereum.org/EIPS/eip-6209)*                          |
+| *0xE5* | *JUMPF*          | *EOF*                   | *????*           | *[EIP-4750](https://eips.ethereum.org/EIPS/eip-4750)*                          |
 | *0xE6* | *DUPN*           | *EOF*                   | *????*           | *[EIP-663](https://eips.ethereum.org/EIPS/eip-663)*                            |
 | *0xE7* | *SWAPN*          | *EOF*                   | *????*           | *[EIP-663](https://eips.ethereum.org/EIPS/eip-663)*                            |
 | *0xE8* | *EXCHANGE*       | *EOF*                   | *????*           | *[EIP-663](https://eips.ethereum.org/EIPS/eip-663)*                            |
