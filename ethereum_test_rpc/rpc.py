@@ -348,7 +348,7 @@ class EngineRPC(BaseRPC):
 
     def get_blobs(
         self,
-        params: List[Hash],
+        versioned_hashes: List[Hash],
         *,
         version: int,
     ) -> GetBlobsResponse:
@@ -356,7 +356,7 @@ class EngineRPC(BaseRPC):
         return GetBlobsResponse.model_validate(
             self.post_request(
                 f"getBlobsV{version}",
-                *[to_json(param) for param in params],
+                [f"{h}" for h in versioned_hashes],
             ),
             context=self.response_validation_context,
         )

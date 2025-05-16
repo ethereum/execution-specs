@@ -1,11 +1,19 @@
 """Types used in the RPC module for `eth` and `engine` namespaces' requests."""
 
 from enum import Enum
+from hashlib import sha256
 from typing import Annotated, Any, List, Union
 
 from pydantic import AliasChoices, Field, model_validator
 
-from ethereum_test_base_types import Address, Bytes, CamelModel, Hash, HexNumber
+from ethereum_test_base_types import (
+    Address,
+    Bytes,
+    CamelModel,
+    EthereumTestRootModel,
+    Hash,
+    HexNumber,
+)
 from ethereum_test_exceptions import (
     BlockException,
     ExceptionMapperValidator,
@@ -131,18 +139,28 @@ class BlobsBundle(CamelModel):
     proofs: List[Bytes]
     blobs: List[Bytes]
 
-    def blob_versioned_hashes(self) -> List[Hash]:
+    def blob_versioned_hashes(self, versioned_hash_version: int = 1) -> List[Hash]:
         """Return versioned hashes of the blobs."""
-        return [Hash(b"\1" + commitment[1:]) for commitment in self.commitments]
+        versioned_hashes: List[Hash] = []
+        for commitment in self.commitments:
+            commitment_hash = sha256(commitment).digest()
+            versioned_hash = Hash(bytes([versioned_hash_version]) + commitment_hash[1:])
+            versioned_hashes.append(versioned_hash)
+        return versioned_hashes
 
 
-class BlobAndProof(CamelModel):
+class BlobAndProofV1(CamelModel):
+    """Represents a blob and single-proof structure."""
+
+    blob: Bytes
+    proof: Bytes
+
+
+class BlobAndProofV2(CamelModel):
     """Represents a blob and proof structure."""
 
     blob: Bytes
-    proofs: List[Bytes] | None = None  # >= Osaka (V2)
-
-    proof: Bytes | None = None  # <= Prague (V1)
+    proofs: List[Bytes]
 
 
 class GetPayloadResponse(CamelModel):
@@ -153,7 +171,15 @@ class GetPayloadResponse(CamelModel):
     execution_requests: List[Bytes] | None = None
 
 
-class GetBlobsResponse(CamelModel):
+class GetBlobsResponse(EthereumTestRootModel):
     """Represents the response of a get blobs request."""
 
-    result: List[BlobAndProof | None]
+    root: List[BlobAndProofV1 | BlobAndProofV2 | None]
+
+    def __len__(self) -> int:
+        """Return the number of blobs in the response."""
+        return len(self.root)
+
+    def __getitem__(self, index: int) -> BlobAndProofV1 | BlobAndProofV2 | None:
+        """Return the blob at the given index."""
+        return self.root[index]
