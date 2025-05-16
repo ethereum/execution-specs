@@ -4,6 +4,7 @@ from abc import abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
 from functools import cached_property
+from hashlib import sha256
 from typing import Any, ClassVar, Dict, Generic, List, Literal, Sequence, SupportsBytes
 
 import ethereum_rlp as eth_rlp
@@ -1093,6 +1094,19 @@ class Transaction(
         return Address(hash_bytes[-20:])
 
 
+class Blob(CamelModel):
+    """Class representing a full blob."""
+
+    data: Bytes
+    kzg_commitment: Bytes
+    kzg_proof: Bytes | None = None
+    kzg_cell_proofs: List[Bytes] | None = None
+
+    def versioned_hash(self, version: int = 1) -> Hash:
+        """Calculate versioned hash for a given blob."""
+        return Hash(bytes([version]) + sha256(self.kzg_commitment).digest()[1:])
+
+
 class NetworkWrappedTransaction(CamelModel, RLPSerializable):
     """
     Network wrapped transaction as defined in
@@ -1100,12 +1114,47 @@ class NetworkWrappedTransaction(CamelModel, RLPSerializable):
     """
 
     tx: Transaction
+    wrapper_version: Literal[1] | None = None
+    blobs: Sequence[Blob]
 
-    blobs: Sequence[Bytes] | None = Field(None, exclude=True)
-    blob_kzg_commitments: Sequence[Bytes] | None = Field(None, exclude=True)
-    blob_kzg_proofs: Sequence[Bytes] | None = Field(None, exclude=True)
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def blob_data(self) -> Sequence[Bytes]:
+        """Return a list of blobs as bytes."""
+        return [blob.data for blob in self.blobs]
 
-    rlp_fields: ClassVar[List[str]] = ["tx", "blobs", "blob_kzg_commitments", "blob_kzg_proofs"]
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def blob_kzg_commitments(self) -> Sequence[Bytes]:
+        """Return a list of kzg commitments."""
+        return [blob.kzg_commitment for blob in self.blobs]
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def blob_kzg_proofs(self) -> Sequence[Bytes]:
+        """Return a list of kzg proofs."""
+        proofs: List[Bytes] = []
+        for blob in self.blobs:
+            if blob.kzg_proof is not None:
+                proofs.append(blob.kzg_proof)
+            elif blob.kzg_cell_proofs is not None:
+                proofs.extend(blob.kzg_cell_proofs)
+        return proofs
+
+    def get_rlp_fields(self) -> List[str]:
+        """
+        Return an ordered list of field names to be included in RLP serialization.
+
+        Function can be overridden to customize the logic to return the fields.
+
+        By default, rlp_fields class variable is used.
+
+        The list can be nested list up to one extra level to represent nested fields.
+        """
+        wrapper = []
+        if self.wrapper_version is not None:
+            wrapper = ["wrapper_version"]
+        return ["tx", *wrapper, "blob_data", "blob_kzg_commitments", "blob_kzg_proofs"]
 
     def get_rlp_prefix(self) -> bytes:
         """
