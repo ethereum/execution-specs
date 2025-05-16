@@ -12,6 +12,7 @@ from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     Address,
     Alloc,
+    Blob,
     Block,
     BlockchainTestFiller,
     BlockException,
@@ -22,7 +23,7 @@ from ethereum_test_tools import (
     TransactionException,
 )
 
-from .common import INF_POINT, Blob
+from .common import INF_POINT
 from .spec import Spec, SpecHelpers, ref_spec_4844
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_4844.git_path
@@ -178,13 +179,7 @@ def txs(  # noqa: D103
             wrapped_blob_transaction=tx_wrapped_blobs,
         )
         if tx_wrapped_blobs:
-            blobs_info = Blob.blobs_to_transaction_input(tx_blobs)
-            network_wrapped_tx = NetworkWrappedTransaction(
-                tx=tx,
-                blobs=blobs_info[0],
-                blob_kzg_commitments=blobs_info[1],
-                blob_kzg_proofs=blobs_info[2],
-            )
+            network_wrapped_tx = NetworkWrappedTransaction(tx=tx, blobs=tx_blobs)
             tx.rlp_override = network_wrapped_tx.rlp()
         txs.append(tx)
     return txs
@@ -249,7 +244,7 @@ def generate_full_blob_tests(
             [  # Txs
                 [  # Blobs per transaction
                     Blob(
-                        blob=bytes(blob_size),
+                        data=bytes(blob_size),
                         kzg_commitment=INF_POINT,
                         kzg_proof=INF_POINT,
                     ),
@@ -262,7 +257,7 @@ def generate_full_blob_tests(
             [  # Txs
                 [  # Blobs per transaction
                     Blob(
-                        blob=bytes(blob_size),
+                        data=bytes(blob_size),
                         kzg_commitment=INF_POINT,
                         kzg_proof=INF_POINT,
                     )
@@ -276,7 +271,7 @@ def generate_full_blob_tests(
             [  # Txs
                 [  # Blobs per transaction
                     Blob(
-                        blob=bytes(blob_size),
+                        data=bytes(blob_size),
                         kzg_commitment=INF_POINT,
                         kzg_proof=INF_POINT,
                     )

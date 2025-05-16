@@ -22,8 +22,8 @@ from ethereum_test_tools import (
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
-from .common import INF_POINT, Spec, Z
-from .spec import ref_spec_4844
+from .common import INF_POINT, Z
+from .spec import Spec, ref_spec_4844
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_4844.git_path
 REFERENCE_SPEC_VERSION = ref_spec_4844.version
