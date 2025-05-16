@@ -222,11 +222,12 @@ def pytest_configure(config):
     # Modify the block gas limit if specified.
     if config.getoption("block_gas_limit"):
         EnvironmentDefaults.gas_limit = config.getoption("block_gas_limit")
-    if config.option.collectonly:
-        return
 
     # Initialize fixture output configuration
     config.fixture_output = FixtureOutput.from_config(config)
+
+    if config.option.collectonly:
+        return
 
     try:
         # Check whether the directory exists and is not empty; if --clean is set, it will delete it
@@ -865,7 +866,6 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
         return
 
     fixture_output = session.config.fixture_output  # type: ignore[attr-defined]
-    # When using --collect-only it should not matter whether fixtures folder exists or not
     if fixture_output.is_stdout or session.config.option.collectonly:
         return
 
