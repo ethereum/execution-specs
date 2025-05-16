@@ -48,6 +48,7 @@ from ..gas import (
     GAS_NEW_ACCOUNT,
     GAS_SELF_DESTRUCT,
     GAS_SELF_DESTRUCT_NEW_ACCOUNT,
+    GAS_VERY_LOW,
     GAS_WARM_ACCESS,
     GAS_ZERO,
     calculate_gas_extend_memory,
@@ -56,7 +57,7 @@ from ..gas import (
     init_code_cost,
     max_message_call_gas,
 )
-from ..memory import memory_read_bytes, memory_write
+from ..memory import buffer_read, memory_read_bytes, memory_write
 from ..stack import pop, push
 
 
@@ -742,3 +743,31 @@ def revert(evm: Evm) -> None:
 
     # PROGRAM COUNTER
     pass
+
+def asserttxindex(evm: Evm) -> None:
+    """
+	Reverts if expected transaction index does not match actual transaction
+    index, or if not executed at the start of a transaction (after PUSHN).
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    # STACK
+    start_index = pop(evm.stack)
+
+    # GAS
+    charge_gas(evm, GAS_VERY_LOW)
+
+    # OPERATION
+    expected_tx_index = U256(buffer_read(evm.message.data, start_index, U256(32)))
+
+    if evm.message.depth != 0 or\
+       evm.message.gas - evm.gas_left > 2 * GAS_VERY_LOW or\
+       evm.message.tx_env.index_in_block is None or\
+       expected_tx_index != evm.message.tx_env.index_in_block and expected_tx_index != U256(-1):
+	    # assertion failed
+        raise Revert
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(1)
