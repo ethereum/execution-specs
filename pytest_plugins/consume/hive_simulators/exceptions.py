@@ -6,6 +6,7 @@ from typing import Dict, List, Tuple
 from ethereum_clis.clis.besu import BesuExceptionMapper
 from ethereum_clis.clis.erigon import ErigonExceptionMapper
 from ethereum_clis.clis.ethereumjs import EthereumJSExceptionMapper
+from ethereum_clis.clis.ethrex import EthrexExceptionMapper
 from ethereum_clis.clis.geth import GethExceptionMapper
 from ethereum_clis.clis.nethermind import NethermindExceptionMapper
 from ethereum_clis.clis.nimbus import NimbusExceptionMapper
@@ -70,4 +71,5 @@ EXCEPTION_MAPPERS: Dict[str, ExceptionMapper] = {
     "reth": RethExceptionMapper(),
     "nimbus": NimbusExceptionMapper(),
     "ethereumjs": EthereumJSExceptionMapper(),
+    "ethrex": EthrexExceptionMapper(),
 }
