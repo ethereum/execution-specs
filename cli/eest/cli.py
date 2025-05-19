@@ -5,7 +5,7 @@ Invoke using `uv run eest`.
 
 import click
 
-from cli.eest.commands import clean
+from cli.eest.commands import clean, info
 from cli.eest.make.cli import make
 
 
@@ -27,3 +27,4 @@ https://click.palletsprojects.com/en/8.0.x/commands/#nested-handling-and-context
 """
 eest.add_command(make)
 eest.add_command(clean)
+eest.add_command(info)

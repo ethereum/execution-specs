@@ -5,5 +5,6 @@ Run `uv run eest` for complete list.
 """
 
 from .clean import clean
+from .info import info
 
-__all__ = ["clean"]
+__all__ = ["clean", "info"]
