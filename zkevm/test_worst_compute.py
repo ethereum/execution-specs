@@ -519,3 +519,37 @@ def test_worst_binop_simple(
         post={},
         blocks=[Block(txs=[tx])],
     )
+
+
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize("opcode", [Op.ISZERO, Op.NOT])
+def test_worst_unop(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    opcode: Op,
+):
+    """
+    Test running a block with as many unary instructions (takes one arg, produces one value)
+    as possible.
+    """
+    env = Environment()
+
+    code_prefix = Op.JUMPDEST + Op.PUSH0  # Start with the arg 0.
+    code_suffix = Op.POP + Op.PUSH0 + Op.JUMP
+    code_body_len = MAX_CODE_SIZE - len(code_prefix) - len(code_suffix)
+    code_body = opcode * code_body_len
+    code = code_prefix + code_body + code_suffix
+    assert len(code) == MAX_CODE_SIZE
+
+    tx = Transaction(
+        to=pre.deploy_contract(code=code),
+        gas_limit=env.gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    blockchain_test(
+        env=env,
+        pre=pre,
+        post={},
+        blocks=[Block(txs=[tx])],
+    )
