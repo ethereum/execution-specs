@@ -350,7 +350,7 @@ class Result:
 
             receipts_json.append(receipt_dict)
 
-            return receipt_dict
+        return receipts_json
 
     def to_json(self) -> Any:
         """Encode the result to JSON"""
