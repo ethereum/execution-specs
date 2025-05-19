@@ -359,3 +359,163 @@ def test_worst_jumpdests(
         post={},
         blocks=[Block(txs=txs)],
     )
+
+
+DEFAULT_BINOP_ARGS = (
+    0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,
+    0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001,
+)
+
+
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize(
+    "opcode,opcode_args",
+    [
+        (
+            Op.ADD,
+            DEFAULT_BINOP_ARGS,
+        ),
+        (
+            Op.MUL,
+            DEFAULT_BINOP_ARGS,
+        ),
+        (
+            # This has the cycle of 2, after two SUBs values are back to initials.
+            Op.SUB,
+            DEFAULT_BINOP_ARGS,
+        ),
+        (
+            # This has the cycle of 2:
+            # v[0] = a // b
+            # v[1] = a // v[0] = a // (a // b) = b
+            # v[2] = a // b
+            Op.DIV,
+            (
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,
+                # We want the first divisor to be slightly bigger than 2**128:
+                # this is the worst case for the division algorithm.
+                0x100000000000000000000000000000033,
+            ),
+        ),
+        (
+            # Same as DIV, but the numerator made positive, and the divisor made negative.
+            Op.SDIV,
+            (
+                0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFCD,
+            ),
+        ),
+        (
+            # This scenario is not suitable for MOD because the values quickly become 0.
+            Op.MOD,
+            DEFAULT_BINOP_ARGS,
+        ),
+        (
+            # This scenario is not suitable for SMOD because the values quickly become 0.
+            Op.SMOD,
+            DEFAULT_BINOP_ARGS,
+        ),
+        (
+            # This keeps the values unchanged, pow(2**256-1, 2**256-1, 2**256) == 2**256-1.
+            Op.EXP,
+            (
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
+            ),
+        ),
+        (
+            # Not great because we always sign-extend the 4 bytes.
+            Op.SIGNEXTEND,
+            (
+                3,
+                0xFFDADADA,  # Negative to have more work.
+            ),
+        ),
+        (
+            Op.LT,  # Keeps getting result 1.
+            (0, 1),
+        ),
+        (
+            Op.GT,  # Keeps getting result 0.
+            (0, 1),
+        ),
+        (
+            Op.SLT,  # Keeps getting result 1.
+            (0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, 1),
+        ),
+        (
+            Op.SGT,  # Keeps getting result 0.
+            (0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, 1),
+        ),
+        (
+            # The worst case is if the arguments are equal (no early return),
+            # so let's keep it comparing ones.
+            Op.EQ,
+            (1, 1),
+        ),
+        (
+            Op.AND,
+            DEFAULT_BINOP_ARGS,
+        ),
+        (
+            Op.OR,
+            DEFAULT_BINOP_ARGS,
+        ),
+        (
+            Op.XOR,
+            DEFAULT_BINOP_ARGS,
+        ),
+        (
+            Op.BYTE,  # Keep extracting the last byte: 0x2F.
+            (31, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F),
+        ),
+        (
+            Op.SHL,  # Shift by 1 until getting 0.
+            (1, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F),
+        ),
+        (
+            Op.SHR,  # Shift by 1 until getting 0.
+            (1, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F),
+        ),
+        (
+            Op.SAR,  # Shift by 1 until getting -1.
+            (1, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F),
+        ),
+    ],
+    ids=lambda param: "" if isinstance(param, tuple) else param,
+)
+def test_worst_binop_simple(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    opcode: Op,
+    opcode_args: tuple[int, int],
+):
+    """
+    Test running a block with as many binary instructions (takes two args, produces one value)
+    as possible. The execution starts with two initial values on the stack, and the stack is
+    balanced by the DUP2 instruction.
+    """
+    env = Environment()
+
+    tx_data = b"".join(arg.to_bytes(32, byteorder="big") for arg in opcode_args)
+
+    code_prefix = Op.JUMPDEST + Op.CALLDATALOAD(0) + Op.CALLDATALOAD(32)
+    code_suffix = Op.POP + Op.POP + Op.PUSH0 + Op.JUMP
+    code_body_len = MAX_CODE_SIZE - len(code_prefix) - len(code_suffix)
+    code_body = (Op.DUP2 + opcode) * (code_body_len // 2)
+    code = code_prefix + code_body + code_suffix
+    assert len(code) == MAX_CODE_SIZE - 1
+
+    tx = Transaction(
+        to=pre.deploy_contract(code=code),
+        data=tx_data,
+        gas_limit=env.gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    blockchain_test(
+        env=env,
+        pre=pre,
+        post={},
+        blocks=[Block(txs=[tx])],
+    )
