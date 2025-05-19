@@ -26,7 +26,7 @@ from ethereum.exceptions import (
     InvalidSenderError,
 )
 
-from . import vm
+from . import FORK_CRITERIA, vm
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
 from .fork_types import Account, Address, Authorization, VersionedHash
@@ -335,7 +335,15 @@ def validate_header(chain: BlockChain, header: Header) -> None:
 
     parent_header = chain.blocks[-1].header
 
-    excess_blob_gas = calculate_excess_blob_gas(parent_header)
+    if FORK_CRITERIA.check(
+        header.number, header.timestamp
+    ) and not FORK_CRITERIA.check(
+        parent_header.number, parent_header.timestamp
+    ):
+        excess_blob_gas = U64(0)
+    else:
+        excess_blob_gas = calculate_excess_blob_gas(parent_header)
+
     if header.excess_blob_gas != excess_blob_gas:
         raise InvalidBlock
 
