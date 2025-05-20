@@ -21,6 +21,12 @@ def get_input_for_push_opcode(opcode: Op) -> bytes:
     return ethereum_state_machine[0:input_size]
 
 
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/VMTests/vmTests/pushFiller.yml",
+    ],
+    pr=["https://github.com/ethereum/execution-spec-tests/pull/975"],
+)
 @pytest.mark.parametrize(
     "push_opcode",
     [getattr(Op, f"PUSH{i}") for i in range(1, 33)],  # Dynamically parametrize PUSH opcodes
@@ -67,6 +73,12 @@ def test_push(state_test: StateTestFiller, fork: Fork, pre: Alloc, push_opcode: 
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/VMTests/vmTests/pushFiller.yml",
+    ],
+    pr=["https://github.com/ethereum/execution-spec-tests/pull/975"],
+)
 @pytest.mark.parametrize(
     "push_opcode",
     [getattr(Op, f"PUSH{i}") for i in range(1, 33)],

@@ -8,6 +8,12 @@ from ethereum_test_tools import Macros as Om
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/VMTests/vmTests/calldataloadFiller.yml",
+    ],
+    pr=["https://github.com/ethereum/execution-spec-tests/pull/1236"],
+)
 @pytest.mark.parametrize(
     "calldata,calldata_offset,expected_storage",
     [

@@ -46,6 +46,13 @@ def prepare_suffix(opcode: Opcode) -> Bytecode:
     return Op.STOP
 
 
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stBadOpcode/badOpcodesFiller.json",
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stBugs/evmBytecodeFiller.json",
+    ],
+    pr=["https://github.com/ethereum/execution-spec-tests/pull/748"],
+)
 @pytest.mark.valid_from("Frontier")
 def test_all_opcodes(state_test: StateTestFiller, pre: Alloc, fork: Fork):
     """

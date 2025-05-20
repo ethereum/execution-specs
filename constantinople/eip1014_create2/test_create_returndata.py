@@ -15,6 +15,13 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_1014.git_path
 REFERENCE_SPEC_VERSION = ref_spec_1014.version
 
 
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stCreate2/call_outsize_then_create2_successful_then_returndatasizeFiller.json",
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stCreate2/call_then_create2_successful_then_returndatasizeFiller.json",
+    ],
+    pr=["https://github.com/ethereum/execution-spec-tests/pull/497"],
+)
 @pytest.mark.valid_from("Istanbul")
 @pytest.mark.parametrize("call_return_size", [35, 32, 0])
 @pytest.mark.parametrize("create_type", [Op.CREATE, Op.CREATE2])

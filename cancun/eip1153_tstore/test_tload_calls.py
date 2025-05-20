@@ -13,6 +13,13 @@ REFERENCE_SPEC_GIT_PATH = "EIPS/eip-1153.md"
 REFERENCE_SPEC_VERSION = "1eb863b534a5a3e19e9c196ab2a7f3db4bb9da17"
 
 
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153-transientStorage/04_tloadAfterCallFiller.yml",
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153-transientStorage/12_tloadDelegateCallFiller.yml",
+    ],
+    pr=["https://github.com/ethereum/execution-spec-tests/pull/440"],
+)
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize("call_type", [Op.CALL, Op.CALLCODE, Op.DELEGATECALL])
 def test_tload_calls(state_test: StateTestFiller, pre: Alloc, call_type: Op):

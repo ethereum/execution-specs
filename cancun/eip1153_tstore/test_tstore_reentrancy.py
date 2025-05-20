@@ -33,6 +33,18 @@ class CallDestType(Enum):
     EXTERNAL_CALL = 2
 
 
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153-transientStorage/06_tstoreInReentrancyCallFiller.yml",
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153-transientStorage/07_tloadAfterReentrancyStoreFiller.yml",
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153-transientStorage/08_revertUndoesTransientStoreFiller.yml",
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153-transientStorage/09_revertUndoesAllFiller.yml",
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153-transientStorage/11_tstoreDelegateCallFiller.yml",
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153-transientStorage/13_tloadStaticCallFiller.yml",
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153-transientStorage/20_oogUndoesTransientStoreInCallFiller.yml",
+    ],
+    pr=["https://github.com/ethereum/execution-spec-tests/pull/440"],
+)
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize("call_type", [Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL])
 @pytest.mark.parametrize("call_return", [Op.RETURN, Op.REVERT, Om.OOG])

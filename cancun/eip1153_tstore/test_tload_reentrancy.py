@@ -33,6 +33,12 @@ class CallDestType(Enum):
     EXTERNAL_CALL = 2
 
 
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153-transientStorage/05_tloadReentrancyFiller.yml",
+    ],
+    pr=["https://github.com/ethereum/execution-spec-tests/pull/440"],
+)
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize("call_type", [Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL])
 @pytest.mark.parametrize("call_return", [Op.RETURN, Op.REVERT, Om.OOG])

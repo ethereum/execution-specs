@@ -16,6 +16,12 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_1153.git_path
 REFERENCE_SPEC_VERSION = ref_spec_1153.version
 
 
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153-transientStorage/01_tloadBeginningTxnFiller.yml",
+    ],
+    pr=["https://github.com/ethereum/execution-spec-tests/pull/440"],
+)
 @pytest.mark.valid_from("Cancun")
 def test_basic_tload_transaction_begin(
     state_test: StateTestFiller,
@@ -61,6 +67,12 @@ def test_basic_tload_transaction_begin(
     state_test(env=Environment(), pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153-transientStorage/02_tloadAfterTstoreFiller.yml",
+    ],
+    pr=["https://github.com/ethereum/execution-spec-tests/pull/440"],
+)
 @pytest.mark.valid_from("Cancun")
 def test_basic_tload_works(
     state_test: StateTestFiller,
@@ -113,6 +125,12 @@ def test_basic_tload_works(
     state_test(env=Environment(), pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153-transientStorage/03_tloadAfterStoreIs0Filler.yml",
+    ],
+    pr=["https://github.com/ethereum/execution-spec-tests/pull/440"],
+)
 @pytest.mark.valid_from("Cancun")
 def test_basic_tload_other_after_tstore(
     state_test: StateTestFiller,
@@ -161,6 +179,12 @@ def test_basic_tload_other_after_tstore(
     state_test(env=Environment(), pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153-transientStorage/16_tloadGasFiller.yml",
+    ],
+    pr=["https://github.com/ethereum/execution-spec-tests/pull/440"],
+)
 @pytest.mark.valid_from("Cancun")
 def test_basic_tload_gasprice(
     state_test: StateTestFiller,
@@ -239,6 +263,12 @@ def test_basic_tload_gasprice(
     state_test(env=Environment(), pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153-transientStorage/18_tloadAfterStoreFiller.yml",
+    ],
+    pr=["https://github.com/ethereum/execution-spec-tests/pull/440"],
+)
 @pytest.mark.valid_from("Cancun")
 def test_basic_tload_after_store(
     state_test: StateTestFiller,

@@ -42,6 +42,12 @@ def precompile_addresses(fork: Fork) -> Iterator[Tuple[str, bool]]:
             num_unsupported -= 1
 
 
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stPreCompiledContracts/idPrecompsFiller.yml"
+    ],
+    pr=["https://github.com/ethereum/execution-spec-tests/pull/1120"],
+)
 @pytest.mark.valid_from("Berlin")
 @pytest.mark.parametrize_by_fork("address,precompile_exists", precompile_addresses)
 def test_precompiles(
