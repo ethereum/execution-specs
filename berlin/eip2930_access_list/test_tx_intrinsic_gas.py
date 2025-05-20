@@ -36,12 +36,12 @@ tx_intrinsic_gas_data_vectors = [
     pytest.param(Bytes(b"0xFE00"), id="data_1_zero_byte_1_non_zero_byte_reversed"),
     pytest.param(Bytes(b"0x0102030405060708090A0B0C0D0E0F10"), id="data_set_1"),
     pytest.param(
-        Bytes(b"0x0102030405060708090A0B0C0D0E0F101112131415161718191a1b1c1d1e1f20"),
-        id="data_set_1",
-    ),
-    pytest.param(
         Bytes(b"0x00010203040506000708090A0B0C0D0E0F10111200131415161718191a1b1c1d1e1f"),
         id="data_set_2",
+    ),
+    pytest.param(
+        Bytes(b"0x0102030405060708090A0B0C0D0E0F101112131415161718191a1b1c1d1e1f20"),
+        id="data_set_3",
     ),
     pytest.param(
         Bytes(b"0x01020304050607080910111213141516171819202122232425262728293031"),
