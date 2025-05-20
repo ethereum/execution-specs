@@ -698,4 +698,4 @@ def revert(evm: Evm) -> None:
     raise Revert
 
     # PROGRAM COUNTER
-    pass
+    # no-op

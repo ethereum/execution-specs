@@ -200,14 +200,14 @@ class _Visitor(ast.NodeVisitor):
         """
         Visit an Import
         """
-        pass
+        del import_
 
     @override
     def visit_ImportFrom(self, import_from: ast.ImportFrom) -> None:
         """
         Visit an Import From
         """
-        pass
+        del import_from
 
     def visit_Expr(self, expr: ast.Expr) -> None:
         """
