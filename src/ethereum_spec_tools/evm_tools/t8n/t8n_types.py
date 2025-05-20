@@ -339,14 +339,6 @@ class Result:
 
             receipt_dict["gasUsed"] = hex(receipt.cumulative_gas_used)
             receipt_dict["bloom"] = "0x" + receipt.bloom.hex()
-            receipt_dict["logs"] = [
-                {
-                    "address": "0x" + log.address.hex(),
-                    "topics": ["0x" + topic.hex() for topic in log.topics],
-                    "data": "0x" + log.data.hex(),
-                }
-                for log in receipt.logs
-            ]
 
             receipts_json.append(receipt_dict)
 
