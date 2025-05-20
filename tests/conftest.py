@@ -22,6 +22,7 @@ try:
 except ImportError:
 
     def get_xdist_worker_id(request_or_session: object) -> str:  # noqa: U100
+        del request_or_session
         return "master"
 
 
@@ -151,6 +152,7 @@ class _FixturesDownloader:
     def __exit__(
         self, exc_type: object, exc_value: object, traceback: object
     ) -> None:
+        del exc_type, exc_value, traceback
         cached = self.cache.filter(expired=True, invalid=True)
         to_delete = set(x.cache_key for x in cached) - self.keep_cache_keys
         if to_delete:
@@ -194,6 +196,7 @@ def pytest_sessionstart(session: Session) -> None:  # noqa: U100
 def pytest_sessionfinish(
     session: Session, exitstatus: int  # noqa: U100
 ) -> None:
+    del exitstatus
     if get_xdist_worker_id(session) != "master":
         return
 
