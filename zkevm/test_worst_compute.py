@@ -6,6 +6,7 @@ Tests running worst-case compute opcodes and precompile scenarios for zkEVMs.
 """
 
 import math
+import random
 
 import pytest
 
@@ -21,6 +22,7 @@ from ethereum_test_tools import (
     While,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
+from ethereum_test_vm import Opcode
 
 REFERENCE_SPEC_GIT_PATH = "TODO"
 REFERENCE_SPEC_VERSION = "TODO"
@@ -543,6 +545,95 @@ def test_worst_unop(
 
     tx = Transaction(
         to=pre.deploy_contract(code=code),
+        gas_limit=env.gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    blockchain_test(
+        env=env,
+        pre=pre,
+        post={},
+        blocks=[Block(txs=[tx])],
+    )
+
+
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize("shift_right", [Op.SHR, Op.SAR])
+def test_worst_shifts(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    shift_right: Op,
+):
+    """
+    Test running a block with as many shift instructions with non-trivial arguments.
+    This test generates left-right pairs of shifts to avoid zeroing the argument.
+    The shift amounts are randomly pre-selected from the constant pool of 15 values on the stack.
+    """
+
+    def to_signed(x):
+        return x if x < 2**255 else x - 2**256
+
+    def to_unsigned(x):
+        return x if x >= 0 else x + 2**256
+
+    def shr(x, s):
+        return x >> s
+
+    def shl(x, s):
+        return x << s
+
+    def sar(x, s):
+        return to_unsigned(to_signed(x) >> s)
+
+    match shift_right:
+        case Op.SHR:
+            shift_right_fn = shr
+        case Op.SAR:
+            shift_right_fn = sar
+        case _:
+            raise ValueError(f"Unexpected shift op: {shift_right}")
+
+    rng = random.Random(1)  # Use random with a fixed seed.
+    initial_value = 2**256 - 1  # The initial value to be shifted; should be negative for SAR.
+
+    # Create the list of shift amounts if length 15 (max reachable by DUPs instructions).
+    # For the worst case keep the values small and omit values divisible by 8.
+    shift_amounts = [x + (x >= 8) + (x >= 15) for x in range(1, 16)]
+
+    code_prefix = sum(Op.PUSH1[sh] for sh in shift_amounts) + Op.JUMPDEST + Op.CALLDATALOAD(0)
+    code_suffix = Op.POP + Op.JUMP(len(shift_amounts) * 2)
+    code_body_len = MAX_CODE_SIZE - len(code_prefix) - len(code_suffix)
+
+    def select_shift_amount(shift_fn, v):
+        """Select a shift amount that will produce a non-zero result."""
+        while True:
+            index = rng.randint(0, len(shift_amounts) - 1)
+            sh = shift_amounts[index]
+            new_v = shift_fn(v, sh) % 2**256
+            if new_v != 0:
+                return new_v, index
+
+    def make_dup(i):
+        """Create a DUP instruction to get the i-th shift amount constant from the stack."""
+        # TODO: Create a global helper for this.
+        return Opcode(0x80 + (len(shift_amounts) - i))
+
+    code_body = Bytecode()
+    v = initial_value
+    while len(code_body) <= code_body_len - 4:
+        v, i = select_shift_amount(shl, v)
+        code_body += make_dup(i) + Op.SHL
+        v, i = select_shift_amount(shift_right_fn, v)
+        code_body += make_dup(i) + shift_right
+
+    code = code_prefix + code_body + code_suffix
+    assert len(code) == MAX_CODE_SIZE - 2
+
+    env = Environment()
+
+    tx = Transaction(
+        to=pre.deploy_contract(code=code),
+        data=initial_value.to_bytes(32, byteorder="big"),
         gas_limit=env.gas_limit,
         sender=pre.fund_eoa(),
     )
