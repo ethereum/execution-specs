@@ -26,6 +26,7 @@ from ethereum_test_tools import (
     Account,
     Address,
     Alloc,
+    AuthorizationTuple,
     Block,
     BlockchainTestFiller,
     CodeGasMeasure,
@@ -33,10 +34,10 @@ from ethereum_test_tools import (
     Hash,
     StateTestFiller,
     Transaction,
+    add_kzg_version,
 )
-from ethereum_test_tools.vm.opcode import Opcodes as Op
+from ethereum_test_tools import Opcodes as Op
 
-from .common import BlobhashScenario, random_blob_hashes
 from .spec import Spec, ref_spec_4844
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_4844.git_path
@@ -55,6 +56,96 @@ blobhash_index_values = [
     2**256 - 1,
     0xA12C8B6A8B11410C7D98D790E1098F1ED6D93CB7A64711481AAAB1848E13212F,
 ]
+
+# Random fixed list of blob versioned hashes
+random_blob_hashes = add_kzg_version(
+    [
+        "0x00b8c5b09810b5fc07355d3da42e2c3a3e200c1d9a678491b7e8e256fc50cc4f",
+        "0x005b4c8cc4f86aa2d2cf9e9ce97fca704a11a6c20f6b1d6c00a6e15f6d60a6df",
+        "0x00878f80eaf10be1a6f618e6f8c071b10a6c14d9b89a3bf2a3f3cf2db6c5681d",
+        "0x004eb72b108d562c639faeb6f8c6f366a28b0381c7d30431117ec8c7bb89f834",
+        "0x00a9b2a6c3f3f0675b768d49b5f5dc5b5d988f88d55766247ba9e40b125f16bb",
+        "0x00a4d4cde4aa01e57fb2c880d1d9c778c33bdf85e48ef4c4d4b4de51abccf4ed",
+        "0x0071c9b8a0c72d38f5e5b5d08e5cb5ce5e23fb1bc5d75f9c29f7b94df0bceeb7",
+        "0x002c8b6a8b11410c7d98d790e1098f1ed6d93cb7a64711481aaab1848e13212f",
+        "0x00d78c25f8a1d6aa04d0e2e2a71cf8dfaa4239fa0f301eb57c249d1e6bfe3c3d",
+        "0x00c778eb1348a73b9c30c7b1d282a5f8b2c5b5a12d5c5e4a4a35f9c5f639b4a4",
+    ],
+    Spec.BLOB_COMMITMENT_VERSION_KZG,
+)
+
+
+class BlobhashScenario:
+    """A utility class for generating blobhash calls."""
+
+    @staticmethod
+    def create_blob_hashes_list(length: int, max_blobs_per_block: int) -> List[List[Hash]]:
+        """
+        Create list of MAX_BLOBS_PER_BLOCK blob hashes
+        using `random_blob_hashes`.
+
+        Cycle over random_blob_hashes to get a large list of
+        length: MAX_BLOBS_PER_BLOCK * length
+        -> [0x01, 0x02, 0x03, 0x04, ..., 0x0A, 0x0B, 0x0C, 0x0D]
+
+        Then split list into smaller chunks of max_blobs_per_block
+        -> [[0x01, 0x02, 0x03, 0x04], ..., [0x0a, 0x0b, 0x0c, 0x0d]]
+        """
+        b_hashes = [
+            random_blob_hashes[i % len(random_blob_hashes)]
+            for i in range(max_blobs_per_block * length)
+        ]
+        return [
+            b_hashes[i : i + max_blobs_per_block]
+            for i in range(0, len(b_hashes), max_blobs_per_block)
+        ]
+
+    @staticmethod
+    def blobhash_sstore(index: int, max_blobs_per_block: int):
+        """
+        Return BLOBHASH sstore to the given index.
+
+        If the index is out of the valid bounds, 0x01 is written
+        in storage, as we later check it is overwritten by
+        the BLOBHASH sstore.
+        """
+        invalidity_check = Op.SSTORE(index, 0x01)
+        if index < 0 or index >= max_blobs_per_block:
+            return invalidity_check + Op.SSTORE(index, Op.BLOBHASH(index))
+        return Op.SSTORE(index, Op.BLOBHASH(index))
+
+    @classmethod
+    def generate_blobhash_bytecode(cls, scenario_name: str, max_blobs_per_block: int) -> bytes:
+        """Return BLOBHASH bytecode for the given scenario."""
+        scenarios = {
+            "single_valid": sum(
+                cls.blobhash_sstore(i, max_blobs_per_block) for i in range(max_blobs_per_block)
+            ),
+            "repeated_valid": sum(
+                sum(cls.blobhash_sstore(i, max_blobs_per_block) for _ in range(10))
+                for i in range(max_blobs_per_block)
+            ),
+            "valid_invalid": sum(
+                cls.blobhash_sstore(i, max_blobs_per_block)
+                + cls.blobhash_sstore(max_blobs_per_block, max_blobs_per_block)
+                + cls.blobhash_sstore(i, max_blobs_per_block)
+                for i in range(max_blobs_per_block)
+            ),
+            "varied_valid": sum(
+                cls.blobhash_sstore(i, max_blobs_per_block)
+                + cls.blobhash_sstore(i + 1, max_blobs_per_block)
+                + cls.blobhash_sstore(i, max_blobs_per_block)
+                for i in range(max_blobs_per_block - 1)
+            ),
+            "invalid_calls": sum(
+                cls.blobhash_sstore(i, max_blobs_per_block)
+                for i in range(-5, max_blobs_per_block + 5)
+            ),
+        }
+        scenario = scenarios.get(scenario_name)
+        if scenario is None:
+            raise ValueError(f"Invalid scenario: {scenario_name}")
+        return scenario
 
 
 @pytest.mark.parametrize("blobhash_index", blobhash_index_values)
@@ -83,21 +174,28 @@ def test_blobhash_gas_cost(
     address = pre.deploy_contract(gas_measure_code)
     sender = pre.fund_eoa()
 
-    tx = Transaction(
-        ty=tx_type,
-        sender=sender,
-        to=address,
-        data=Hash(0),
-        gas_limit=3_000_000,
-        gas_price=10 if tx_type < 2 else None,
-        access_list=[] if tx_type >= 1 else None,
-        max_fee_per_gas=10 if tx_type >= 2 else None,
-        max_priority_fee_per_gas=10 if tx_type >= 2 else None,
-        max_fee_per_blob_gas=(fork.min_base_fee_per_blob_gas() * 10) if tx_type == 3 else None,
-        blob_versioned_hashes=random_blob_hashes[0:target_blobs_per_block]
+    tx_kwargs = {
+        "ty": tx_type,
+        "sender": sender,
+        "to": address,
+        "data": Hash(0),
+        "gas_limit": 500_000,
+        "max_fee_per_blob_gas": (fork.min_base_fee_per_blob_gas() * 10) if tx_type == 3 else None,
+        "blob_versioned_hashes": random_blob_hashes[0:target_blobs_per_block]
         if tx_type == 3
         else None,
-    )
+    }
+    if tx_type == 4:
+        signer = pre.fund_eoa(amount=0)
+        tx_kwargs["authorization_list"] = [
+            AuthorizationTuple(
+                signer=signer,
+                address=Address(0),
+                nonce=0,
+            )
+        ]
+
+    tx = Transaction(**tx_kwargs)
     post = {address: Account(storage={0: Spec.HASH_GAS_COST})}
 
     state_test(
@@ -152,10 +250,8 @@ def test_blobhash_scenarios(
                         sender=sender,
                         to=address,
                         data=Hash(0),
-                        gas_limit=3_000_000,
+                        gas_limit=500_000,
                         access_list=[],
-                        max_fee_per_gas=10,
-                        max_priority_fee_per_gas=10,
                         max_fee_per_blob_gas=(fork.min_base_fee_per_blob_gas() * 10),
                         blob_versioned_hashes=b_hashes_list[i],
                     )
@@ -213,11 +309,9 @@ def test_blobhash_invalid_blob_index(
                         ty=Spec.BLOB_TX_TYPE,
                         sender=sender,
                         to=address,
-                        gas_limit=3_000_000,
+                        gas_limit=500_000,
                         data=Hash(0),
                         access_list=[],
-                        max_fee_per_gas=10,
-                        max_priority_fee_per_gas=10,
                         max_fee_per_blob_gas=(fork.min_base_fee_per_blob_gas() * 10),
                         blob_versioned_hashes=blobs,
                     )
@@ -265,11 +359,8 @@ def test_blobhash_multiple_txs_in_block(
             sender=sender,
             to=address,
             data=Hash(0),
-            gas_limit=3_000_000,
-            gas_price=10 if tx_type < 2 else None,
+            gas_limit=500_000,
             access_list=[] if tx_type >= 1 else None,
-            max_fee_per_gas=10,
-            max_priority_fee_per_gas=10,
             max_fee_per_blob_gas=(fork.min_base_fee_per_blob_gas() * 10) if tx_type >= 3 else None,
             blob_versioned_hashes=random_blob_hashes[0:max_blobs_per_block]
             if tx_type >= 3
