@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: self-hosted
+    runs-on: [self-hosted-ghr, size-xl-x64]
     strategy:
       matrix:
         py: [ "3.11", "pypy3.11" ]
@@ -31,7 +31,9 @@ jobs:
           python-version: ${{ matrix.py }}
 
       - name: Install Tox and any other packages
-        run: "pip install 'tox>=4.11,<5' requests"
+        run: |
+          DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential pkg-config
+          pip install 'tox>=4.11,<5' requests
 
       - name: Download Geth and add to $PATH
         run: |
