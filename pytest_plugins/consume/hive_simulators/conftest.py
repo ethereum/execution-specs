@@ -235,7 +235,6 @@ def total_timing_data(request) -> Generator[TimingData, None, None]:
 
 
 @pytest.fixture(scope="function")
-@pytest.mark.usefixtures("total_timing_data")
 def client_genesis(fixture: BlockchainFixtureCommon) -> dict:
     """Convert the fixture genesis block header and pre-state to a client genesis state."""
     genesis = to_json(fixture.genesis)

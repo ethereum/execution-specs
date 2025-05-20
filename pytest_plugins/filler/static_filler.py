@@ -12,8 +12,9 @@ from typing import Any, Callable, Dict, Generator, List, Tuple, Type
 
 import pytest
 import yaml
-from _pytest.fixtures import FixtureRequest
+from _pytest.fixtures import TopRequest
 from _pytest.mark import ParameterSet
+from _pytest.python import Module
 
 from ethereum_test_fixtures import BaseFixture, LabeledFixtureFormat
 from ethereum_test_forks import Fork
@@ -129,7 +130,13 @@ def pytest_collect_file(file_path: Path, parent) -> pytest.Collector | None:
         # No formats registered, so no need to collect any files.
         return None
     if file_path.suffix in (".json", ".yml", ".yaml"):
-        return FillerFile.from_parent(parent, path=file_path)
+        init_file = file_path.parent / "__init__.py"
+        module = Module.from_parent(
+            parent=parent,
+            path=init_file,
+            nodeid=str(init_file),
+        )
+        return FillerFile.from_parent(module, path=file_path)
     return None
 
 
@@ -315,9 +322,8 @@ class FillerTestItem(pytest.Item):
             self,
             None,
             None,
-            funcargs=False,
         )
-        request = FixtureRequest(self, _ispytest=True)
+        request = TopRequest(self, _ispytest=True)
         for fixture_name in self.fixturenames:
             self.params[fixture_name] = request.getfixturevalue(fixture_name)
 
