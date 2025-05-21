@@ -1075,6 +1075,11 @@ class Prague(Cancun):
         )
 
     @classmethod
+    def tx_types(cls, block_number: int = 0, timestamp: int = 0) -> List[int]:
+        """At Prague, set-code type transactions are introduced."""
+        return [4] + super(Prague, cls).tx_types(block_number, timestamp)
+
+    @classmethod
     def gas_costs(cls, block_number: int = 0, timestamp: int = 0) -> GasCosts:
         """
         On Prague, the standard token cost and the floor token costs are introduced due to
