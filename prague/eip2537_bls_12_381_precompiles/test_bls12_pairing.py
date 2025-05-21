@@ -5,7 +5,15 @@ abstract: Tests BLS12_PAIRING precompile of [EIP-2537: Precompile for BLS12-381 
 
 import pytest
 
-from ethereum_test_tools import Alloc, Environment, StateTestFiller, Transaction
+from ethereum_test_forks import Fork
+from ethereum_test_tools import (
+    EOA,
+    Address,
+    Alloc,
+    Environment,
+    StateTestFiller,
+    Transaction,
+)
 from ethereum_test_tools import Opcodes as Op
 
 from .conftest import (
@@ -15,7 +23,7 @@ from .conftest import (
     G2_POINTS_NOT_ON_CURVE,
 )
 from .helpers import vectors_from_file
-from .spec import PointG1, PointG2, Spec, ref_spec_2537
+from .spec import PointG1, PointG2, Spec, pairing_gas, ref_spec_2537
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_2537.git_path
 REFERENCE_SPEC_VERSION = ref_spec_2537.version
@@ -48,12 +56,6 @@ pytestmark = [
             Spec.PAIRING_TRUE,
             None,
             id="inf_pair",
-        ),
-        pytest.param(  # 1000 copies of e(inf, inf) == 1
-            (Spec.INF_G1 + Spec.INF_G2) * 1000,
-            Spec.PAIRING_TRUE,
-            None,
-            id="multi_inf_pair",
         ),
         pytest.param(  # e(P, Q) . e(P, −Q) == 1 (inverse pair, factors cancel)
             Spec.G1 + Spec.G2 + Spec.G1 + (-Spec.G2),
@@ -133,6 +135,57 @@ def test_valid(
     )
 
 
+@pytest.mark.slow
+@pytest.mark.parametrize("precompile_gas", [None], ids=[""])
+@pytest.mark.parametrize("expected_output", [Spec.PAIRING_TRUE], ids=[""])
+def test_valid_multi_inf(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    call_contract_address: Address,
+    sender: EOA,
+    fork: Fork,
+    post: dict,
+):
+    """
+    Test maximum input given the current environment gas limit for the BLS12_PAIRING
+    precompile.
+    """
+    intrinsic_gas_cost_calculator = fork.transaction_intrinsic_cost_calculator()
+    memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
+    extra_gas = 100_000
+
+    environment_gas_limit = Environment().gas_limit
+
+    inf_data = Spec.INF_G1 + Spec.INF_G2
+    input_data = inf_data
+
+    while True:
+        precompile_gas = pairing_gas(len(input_data + inf_data))
+        new_tx_gas_limit = (
+            extra_gas
+            + intrinsic_gas_cost_calculator(calldata=input_data + inf_data)
+            + memory_expansion_gas_calculator(new_bytes=len(input_data + inf_data))
+            + precompile_gas
+        )
+        if new_tx_gas_limit > environment_gas_limit:
+            break
+        tx_gas_limit = new_tx_gas_limit
+        input_data += inf_data
+
+    tx = Transaction(
+        gas_limit=tx_gas_limit,
+        data=input_data,
+        to=call_contract_address,
+        sender=sender,
+    )
+    state_test(
+        env=Environment(),
+        pre=pre,
+        tx=tx,
+        post=post,
+    )
+
+
 @pytest.mark.parametrize(
     "input_data",
     # Test vectors from the reference spec (from the cryptography team)
@@ -180,10 +233,6 @@ def test_valid(
             Spec.INF_G1 + Spec.P2_NOT_IN_SUBGROUP,
             id="p2_not_in_subgroup",
         ),
-        pytest.param(
-            (Spec.INF_G1 + Spec.INF_G2) * 1000 + PointG1(Spec.P, 0) + Spec.INF_G2,
-            id="long_input_with_invalid_tail",
-        ),
         # Points not in the subgroup or not on the curve randomly generated.
         pytest.param(
             G1_POINTS_NOT_ON_CURVE[0] + Spec.INF_G2,
@@ -227,6 +276,57 @@ def test_invalid(
     tx: Transaction,
 ):
     """Negative tests for the BLS12_PAIRING precompile."""
+    state_test(
+        env=Environment(),
+        pre=pre,
+        tx=tx,
+        post=post,
+    )
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("precompile_gas", [None], ids=[""])
+@pytest.mark.parametrize("expected_output", [Spec.INVALID], ids=[""])
+def test_invalid_multi_inf(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    call_contract_address: Address,
+    sender: EOA,
+    fork: Fork,
+    post: dict,
+):
+    """
+    Test maximum input given the current environment gas limit for the BLS12_PAIRING
+    precompile and an invalid tail.
+    """
+    intrinsic_gas_cost_calculator = fork.transaction_intrinsic_cost_calculator()
+    memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
+    extra_gas = 100_000
+
+    environment_gas_limit = Environment().gas_limit
+
+    inf_data = Spec.INF_G1 + Spec.INF_G2
+    input_data = PointG1(Spec.P, 0) + Spec.INF_G2
+
+    while True:
+        precompile_gas = pairing_gas(len(input_data + inf_data))
+        new_tx_gas_limit = (
+            extra_gas
+            + intrinsic_gas_cost_calculator(calldata=input_data + inf_data)
+            + memory_expansion_gas_calculator(new_bytes=len(input_data + inf_data))
+            + precompile_gas
+        )
+        if new_tx_gas_limit > environment_gas_limit:
+            break
+        tx_gas_limit = new_tx_gas_limit
+        input_data = inf_data + input_data
+
+    tx = Transaction(
+        gas_limit=tx_gas_limit,
+        data=input_data,
+        to=call_contract_address,
+        sender=sender,
+    )
     state_test(
         env=Environment(),
         pre=pre,

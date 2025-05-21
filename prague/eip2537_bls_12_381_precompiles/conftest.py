@@ -90,7 +90,7 @@ def call_succeeds(
 @pytest.fixture
 def call_contract_code(
     precompile_address: int,
-    precompile_gas: int,
+    precompile_gas: int | None,
     precompile_gas_modifier: int,
     expected_output: bytes | SupportsBytes,
     call_succeeds: bool,
@@ -126,12 +126,18 @@ def call_contract_code(
     assert call_opcode in [Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL]
     value = [0] if call_opcode in [Op.CALL, Op.CALLCODE] else []
 
+    precompile_gas_value_opcode: int | Op
+    if precompile_gas is None:
+        precompile_gas_value_opcode = Op.GAS
+    else:
+        precompile_gas_value_opcode = precompile_gas + precompile_gas_modifier
+
     code = (
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
         + Op.SSTORE(
             call_contract_post_storage.store_next(call_succeeds),
             call_opcode(
-                precompile_gas + precompile_gas_modifier,
+                precompile_gas_value_opcode,
                 precompile_address,
                 *value,  # Optional, only used for CALL and CALLCODE.
                 0,
