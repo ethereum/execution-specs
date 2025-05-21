@@ -66,7 +66,6 @@ GAS_COLD_SLOAD = Uint(2100)
 GAS_COLD_ACCOUNT_ACCESS = Uint(2600)
 GAS_WARM_ACCESS = Uint(100)
 GAS_INIT_CODE_WORD_COST = Uint(2)
-GAS_EXCESS_WORD_COST = Uint(2)
 GAS_BLOBHASH_OPCODE = Uint(3)
 GAS_POINT_EVALUATION = Uint(50000)
 
@@ -305,7 +304,9 @@ def code_access_cost(code: Bytes) -> Uint:
         return Uint(0)
 
     return (
-        GAS_EXCESS_WORD_COST * ceil32(Uint(excess_contract_size)) // Uint(32)
+        GAS_INIT_CODE_WORD_COST
+        * ceil32(Uint(excess_contract_size))
+        // Uint(32)
     )
 
 
