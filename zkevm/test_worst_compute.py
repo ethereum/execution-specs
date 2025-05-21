@@ -37,6 +37,21 @@ MAX_CODE_SIZE = 24 * 1024
 KECCAK_RATE = 136
 
 
+def neg(x: int) -> int:
+    """Negate the given integer in the two's complement 256-bit range."""
+    assert 0 <= x < 2**256
+    return 2**256 - x
+
+
+def make_dup(index: int) -> Opcode:
+    """
+    Create a DUP instruction which duplicates the index-th (counting from 0) element
+    from the top of the stack. E.g. make_dup(0) → DUP1.
+    """
+    assert 0 <= index < 16
+    return Opcode(0x80 + index, pushed_stack_items=1, min_stack_height=index + 1)
+
+
 @pytest.mark.valid_from("Cancun")
 def test_worst_keccak(
     blockchain_test: BlockchainTestFiller,
@@ -758,7 +773,7 @@ def test_worst_shifts(
     rng = random.Random(1)  # Use random with a fixed seed.
     initial_value = 2**256 - 1  # The initial value to be shifted; should be negative for SAR.
 
-    # Create the list of shift amounts if length 15 (max reachable by DUPs instructions).
+    # Create the list of shift amounts with 15 elements (max reachable by DUPs instructions).
     # For the worst case keep the values small and omit values divisible by 8.
     shift_amounts = [x + (x >= 8) + (x >= 15) for x in range(1, 16)]
 
@@ -775,18 +790,13 @@ def test_worst_shifts(
             if new_v != 0:
                 return new_v, index
 
-    def make_dup(i):
-        """Create a DUP instruction to get the i-th shift amount constant from the stack."""
-        # TODO: Create a global helper for this.
-        return Opcode(0x80 + (len(shift_amounts) - i))
-
     code_body = Bytecode()
     v = initial_value
     while len(code_body) <= code_body_len - 4:
         v, i = select_shift_amount(shl, v)
-        code_body += make_dup(i) + Op.SHL
+        code_body += make_dup(len(shift_amounts) - i) + Op.SHL
         v, i = select_shift_amount(shift_right_fn, v)
-        code_body += make_dup(i) + shift_right
+        code_body += make_dup(len(shift_amounts) - i) + shift_right
 
     code = code_prefix + code_body + code_suffix
     assert len(code) == MAX_CODE_SIZE - 2
@@ -796,6 +806,128 @@ def test_worst_shifts(
     tx = Transaction(
         to=pre.deploy_contract(code=code),
         data=initial_value.to_bytes(32, byteorder="big"),
+        gas_limit=env.gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    blockchain_test(
+        env=env,
+        pre=pre,
+        post={},
+        blocks=[Block(txs=[tx])],
+    )
+
+
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize("mod_bits", [255, 191, 127, 63])
+@pytest.mark.parametrize("op", [Op.MOD, Op.SMOD])
+def test_worst_mod(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    mod_bits: int,
+    op: Op,
+):
+    """
+    Test running a block with as many MOD instructions with arguments of the parametrized range.
+    The test program consists of code segments evaluating the "MOD chain":
+    mod[0] = calldataload(0)
+    mod[1] = numerators[indexes[0]] % mod[0]
+    mod[2] = numerators[indexes[1]] % mod[1] ...
+    The "numerators" is a pool of 15 constants pushed to the EVM stack at the program start.
+    The order of accessing the numerators is selected in a way the mod value remains in the range
+    as long as possible.
+    """
+    # For SMOD we negate both numerator and modulus. The underlying computation is the same,
+    # just the SMOD implementation will have to additionally handle the sign bits.
+    # The result stays negative.
+    should_negate = op == Op.SMOD
+
+    num_numerators = 15
+    numerator_bits = 256 if not should_negate else 255
+    numerator_max = 2**numerator_bits - 1
+    numerator_min = 2 ** (numerator_bits - 1)
+
+    # Pick the modulus min value so that it is _unlikely_ to drop to the lower word count.
+    assert mod_bits >= 63
+    mod_min = 2 ** (mod_bits - 63)
+
+    # Select the random seed giving the longest found MOD chain.
+    # You can look for a longer one by increasing the numerators_min_len. This will activate
+    # the while loop below.
+    match op, mod_bits:
+        case Op.MOD, 255:
+            seed = 20393
+            numerators_min_len = 750
+        case Op.MOD, 191:
+            seed = 25979
+            numerators_min_len = 770
+        case Op.MOD, 127:
+            seed = 17671
+            numerators_min_len = 750
+        case Op.MOD, 63:
+            seed = 29181
+            numerators_min_len = 730
+        case Op.SMOD, 255:
+            seed = 4015
+            numerators_min_len = 750
+        case Op.SMOD, 191:
+            seed = 17355
+            numerators_min_len = 750
+        case Op.SMOD, 127:
+            seed = 897
+            numerators_min_len = 750
+        case Op.SMOD, 63:
+            seed = 7562
+            numerators_min_len = 720
+        case _:
+            raise ValueError(f"{mod_bits}-bit {op} not supported.")
+
+    while True:
+        rng = random.Random(seed)
+
+        # Create the list of random numerators.
+        numerators = [rng.randint(numerator_min, numerator_max) for _ in range(num_numerators)]
+
+        # Create the random initial modulus.
+        initial_mod = rng.randint(2 ** (mod_bits - 1), 2**mod_bits - 1)
+
+        # Evaluate the MOD chain and collect the order of accessing numerators.
+        mod = initial_mod
+        indexes = []
+        while mod >= mod_min:
+            results = [n % mod for n in numerators]  # Compute results for each numerator.
+            i = max(range(len(results)), key=results.__getitem__)  # And pick the best one.
+            mod = results[i]
+            indexes.append(i)
+
+        assert len(indexes) > numerators_min_len  # Disable if you want to find longer MOD chains.
+        if len(indexes) > numerators_min_len:
+            break
+        seed += 1
+        print(f"{seed=}")
+
+    # TODO: Don't use fixed PUSH32. Let Bytecode helpers to select optimal push opcode.
+    code_constant_pool = sum((Op.PUSH32[n] for n in numerators), Bytecode())
+    code_prefix = code_constant_pool + Op.JUMPDEST
+    code_suffix = Op.JUMP(len(code_constant_pool))
+    code_body_len = MAX_CODE_SIZE - len(code_prefix) - len(code_suffix)
+    code_segment = (
+        Op.CALLDATALOAD(0) + sum(make_dup(len(numerators) - i) + op for i in indexes) + Op.POP
+    )
+    code = (
+        code_prefix
+        # TODO: Add int * Bytecode support
+        + sum(code_segment for _ in range(code_body_len // len(code_segment)))
+        + code_suffix
+    )
+    assert (MAX_CODE_SIZE - len(code_segment)) < len(code) <= MAX_CODE_SIZE
+
+    env = Environment()
+
+    input_value = initial_mod if not should_negate else neg(initial_mod)
+    tx = Transaction(
+        to=pre.deploy_contract(code=code),
+        data=input_value.to_bytes(32, byteorder="big"),
         gas_limit=env.gas_limit,
         sender=pre.fund_eoa(),
     )
