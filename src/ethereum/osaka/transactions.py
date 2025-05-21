@@ -221,14 +221,14 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
     InvalidBlock :
         If the transaction is not valid.
     """
-    from .vm.interpreter import MAX_CODE_SIZE
+    from .vm.interpreter import MAX_INIT_CODE_SIZE
 
     intrinsic_gas, calldata_floor_gas_cost = calculate_intrinsic_cost(tx)
     if max(intrinsic_gas, calldata_floor_gas_cost) > tx.gas:
         raise InvalidTransaction("Insufficient gas")
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
         raise InvalidTransaction("Nonce too high")
-    if tx.to == Bytes0(b"") and len(tx.data) > 2 * MAX_CODE_SIZE:
+    if tx.to == Bytes0(b"") and len(tx.data) > MAX_INIT_CODE_SIZE:
         raise InvalidTransaction("Code size too large")
 
     return intrinsic_gas, calldata_floor_gas_cost

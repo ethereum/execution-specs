@@ -53,6 +53,7 @@ from ..gas import (
     calculate_gas_extend_memory,
     calculate_message_call_gas,
     charge_gas,
+    code_access_cost,
     init_code_cost,
     max_message_call_gas,
 )
@@ -73,7 +74,7 @@ def generic_create(
     # This import causes a circular import error
     # if it's not moved inside this method
     from ...vm.interpreter import (
-        MAX_CODE_SIZE,
+        MAX_INIT_CODE_SIZE,
         STACK_DEPTH_LIMIT,
         process_create_message,
     )
@@ -81,7 +82,7 @@ def generic_create(
     call_data = memory_read_bytes(
         evm.memory, memory_start_position, memory_size
     )
-    if len(call_data) > 2 * MAX_CODE_SIZE:
+    if len(call_data) > MAX_INIT_CODE_SIZE:
         raise OutOfGasError
 
     create_message_gas = max_message_call_gas(Uint(evm.gas_left))
@@ -132,6 +133,7 @@ def generic_create(
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         disable_precompiles=False,
+        warm_code_addresses=evm.warm_code_addresses.copy(),
         parent_evm=evm,
     )
     child_evm = process_create_message(child_message)
@@ -322,6 +324,7 @@ def generic_call(
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         disable_precompiles=disable_precompiles,
+        warm_code_addresses=evm.warm_code_addresses.copy(),
         parent_evm=evm,
     )
     child_evm = process_message(child_message)
@@ -375,6 +378,12 @@ def call(evm: Evm) -> None:
     else:
         evm.accessed_addresses.add(to)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+
+    if to not in evm.warm_code_addresses:
+        evm.warm_code_addresses.add(to)
+        access_gas_cost += code_access_cost(
+            get_account(evm.message.block_env.state, to).code
+        )
 
     code_address = to
     (
@@ -465,6 +474,12 @@ def callcode(evm: Evm) -> None:
     else:
         evm.accessed_addresses.add(code_address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+
+    if code_address not in evm.warm_code_addresses:
+        evm.warm_code_addresses.add(code_address)
+        access_gas_cost += code_access_cost(
+            get_account(evm.message.block_env.state, code_address).code
+        )
 
     (
         disable_precompiles,
@@ -605,6 +620,12 @@ def delegatecall(evm: Evm) -> None:
         evm.accessed_addresses.add(code_address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
+    if code_address not in evm.warm_code_addresses:
+        evm.warm_code_addresses.add(code_address)
+        access_gas_cost += code_access_cost(
+            get_account(evm.message.block_env.state, code_address).code
+        )
+
     (
         disable_precompiles,
         code_address,
@@ -672,6 +693,12 @@ def staticcall(evm: Evm) -> None:
     else:
         evm.accessed_addresses.add(to)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+
+    if to not in evm.warm_code_addresses:
+        evm.warm_code_addresses.add(to)
+        access_gas_cost += code_access_cost(
+            get_account(evm.message.block_env.state, to).code
+        )
 
     code_address = to
     (
