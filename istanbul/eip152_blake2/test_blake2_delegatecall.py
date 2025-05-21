@@ -13,10 +13,10 @@ from ethereum_test_tools import (
 )
 from ethereum_test_tools import Opcodes as Op
 
+from .spec import Spec
+
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-152.md"
 REFERENCE_SPEC_VERSION = "2762bfcff3e549ef263342e5239ef03ac2b07400"
-
-BLAKE2_PRECOMPILE_ADDRESS = 0x09
 
 
 @pytest.mark.valid_from("ConstantinopleFix")
@@ -29,7 +29,7 @@ def test_blake2_precompile_delegatecall(state_test: StateTestFiller, pre: Alloc,
             0,
             Op.DELEGATECALL(
                 gas=1,
-                address=BLAKE2_PRECOMPILE_ADDRESS,
+                address=Spec.BLAKE2_PRECOMPILE_ADDRESS,
             ),
         )
         + Op.STOP,
