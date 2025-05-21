@@ -20,7 +20,7 @@ next or subsequent hard fork.
 |   0xE2   | RJUMV           | relative jump table                             | [EIP-4200](https://eips.ethereum.org/EIPS/eip-4200)                          |
 |   0xE3   | CALLF           | EOF Subroutine Call                             | [EIP-4750](https://eips.ethereum.org/EIPS/eip-4750)                          |
 |   0xE4   | RETF            | EOF Subroutine return                           | [EIP-4750](https://eips.ethereum.org/EIPS/eip-4750)                          |
-|   0xE5   | JUMPF           | EOF Function Jump                               | [EIP-6209](https://eips.ethereum.org/EIPS/eip-6209)                          |
+|   0xE5   | JUMPF           | EOF Function Jump                               | [EIP-6206](https://eips.ethereum.org/EIPS/eip-6206)                          |
 |   0xE6   | DUPN            | Unlimited dup                                   | [EIP-663](https://eips.ethereum.org/EIPS/eip-663)                            |
 |   0xE7   | SWAPN           | Unlimited swap                                  | [EIP-663](https://eips.ethereum.org/EIPS/eip-663)                            |
 |   0xE8   | EXCHANGE        | Deep swap                                       | [EIP-663](https://eips.ethereum.org/EIPS/eip-663)                            |
@@ -277,7 +277,7 @@ scheduled or accepted) are in *italics*.
 | *0xE2* | *RJUMPV*         | *EOF*                   | *????*           | *[EIP-4200](https://eips.ethereum.org/EIPS/eip-4200)*                          |
 | *0xE3* | *CALLF*          | *EOF*                   | *????*           | *[EIP-4750](https://eips.ethereum.org/EIPS/eip-4750)*                          |
 | *0xE4* | *RETF*           | *EOF*                   | *????*           | *[EIP-4750](https://eips.ethereum.org/EIPS/eip-4750)*                          |
-| *0xE5* | *JUMPF*          | *EOF*                   | *????*           | *[EIP-4750](https://eips.ethereum.org/EIPS/eip-6209)*                          |
+| *0xE5* | *JUMPF*          | *EOF*                   | *????*           | *[EIP-6206](https://eips.ethereum.org/EIPS/eip-6206)*                          |
 | *0xE6* | *DUPN*           | *EOF*                   | *????*           | *[EIP-663](https://eips.ethereum.org/EIPS/eip-663)*                            |
 | *0xE7* | *SWAPN*          | *EOF*                   | *????*           | *[EIP-663](https://eips.ethereum.org/EIPS/eip-663)*                            |
 | *0xE8* | *EXCHANGE*       | *EOF*                   | *????*           | *[EIP-663](https://eips.ethereum.org/EIPS/eip-663)*                            |
