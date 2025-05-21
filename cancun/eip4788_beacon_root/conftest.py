@@ -11,6 +11,7 @@ from ethereum_test_tools import (
     Account,
     Address,
     Alloc,
+    AuthorizationTuple,
     Bytecode,
     Environment,
     Hash,
@@ -236,7 +237,17 @@ def tx(
         kwargs["max_fee_per_blob_gas"] = fork.min_base_fee_per_blob_gas()
         kwargs["blob_versioned_hashes"] = add_kzg_version([0], BLOB_COMMITMENT_VERSION_KZG)
 
-    if tx_type > 3:
+    if tx_type == 4:
+        signer = pre.fund_eoa(amount=0)
+        kwargs["authorization_list"] = [
+            AuthorizationTuple(
+                signer=signer,
+                address=Address(0),
+                nonce=0,
+            )
+        ]
+
+    if tx_type > 4:
         raise Exception(f"Unexpected transaction type: '{tx_type}'. Test requires update.")
 
     return Transaction(**kwargs)
