@@ -274,6 +274,16 @@ def post(
     "z,y,kzg_commitment,kzg_proof,versioned_hash",
     [
         pytest.param(Spec.BLS_MODULUS - 1, 0, INF_POINT, INF_POINT, None, id="in_bounds_z"),
+        pytest.param(
+            # Example valid input from a Mainnet transaction
+            # https://etherscan.io/tx/0xcb3dc8f3b14f1cda0c16a619a112102a8ec70dce1b3f1b28272227cf8d5fbb0e
+            0x019123BCB9D06356701F7BE08B4494625B87A7B02EDC566126FB81F6306E915F,
+            0x6C2EB1E94C2532935B8465351BA1BD88EABE2B3FA1AADFF7D1CD816E8315BD38,
+            0xA9546D41993E10DF2A7429B8490394EA9EE62807BAE6F326D1044A51581306F58D4B9DFD5931E044688855280FF3799E,
+            0xA2EA83D9391E0EE42E0C650ACC7A1F842A7D385189485DDB4FD54ADE3D9FD50D608167DCA6C776AAD4B8AD5C20691BFE,
+            0x018156B94FE9735E573BAB36DAD05D60FEB720D424CCD20AAF719343C31E4246,
+            id="mainnet_1",
+        ),
     ],
 )
 @pytest.mark.parametrize("result", [Result.SUCCESS])
