@@ -15,6 +15,7 @@ from typing import Any, Dict, Generator, List, Type
 
 import pytest
 import xdist
+from _pytest.compat import NotSetType
 from _pytest.terminal import TerminalReporter
 from pytest_metadata.plugin import metadata_key  # type: ignore
 
@@ -836,6 +837,9 @@ def pytest_collection_modifyitems(
             continue
         fork: Fork = params["fork"]
         spec_type, fixture_format = get_spec_format_for_item(params)
+        if isinstance(fixture_format, NotSetType):
+            items.remove(item)
+            continue
         assert issubclass(fixture_format, BaseFixture)
         if not fixture_format.supports_fork(fork):
             items.remove(item)
