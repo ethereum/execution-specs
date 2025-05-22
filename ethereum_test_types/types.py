@@ -861,15 +861,21 @@ class Transaction(
         if self.sender is None:
             try:
                 if not signature_bytes:
+                    v = self.v
+                    if self.ty == 0:
+                        if v > 28:
+                            v -= 35 + (self.chain_id * 2)
+                        else:  # not protected
+                            v -= 27
                     signature_bytes = (
                         int(self.r).to_bytes(32, byteorder="big")
                         + int(self.s).to_bytes(32, byteorder="big")
-                        + bytes([self.v])
+                        + bytes([v])
                     )
                 public_key = PublicKey.from_signature_and_message(
                     signature_bytes, rlp_signing_bytes.keccak256(), hasher=None
                 )
-                self.signer = EOA(
+                self.sender = EOA(
                     address=Address(keccak256(public_key.format(compressed=False)[1:])[32 - 20 :])
                 )
             except Exception:
