@@ -5,7 +5,8 @@ from typing import ClassVar, List
 import pytest
 
 from ethereum_test_base_types import Alloc, Hash
-from ethereum_test_rpc import EthRPC, SendTransactionExceptionError
+from ethereum_test_forks import Fork
+from ethereum_test_rpc import EngineRPC, EthRPC, SendTransactionExceptionError
 from ethereum_test_types import Transaction
 
 from .base import BaseExecute
@@ -22,7 +23,7 @@ class TransactionPost(BaseExecute):
         "Simple transaction sending, then post-check after all transactions are included"
     )
 
-    def execute(self, eth_rpc: EthRPC):
+    def execute(self, fork: Fork, eth_rpc: EthRPC, engine_rpc: EngineRPC | None):
         """Execute the format."""
         assert not any(tx.ty == 3 for block in self.blocks for tx in block), (
             "Transaction type 3 is not supported in execute mode."

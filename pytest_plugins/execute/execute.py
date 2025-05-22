@@ -9,7 +9,7 @@ from pytest_metadata.plugin import metadata_key  # type: ignore
 
 from ethereum_test_execution import BaseExecute
 from ethereum_test_forks import Fork
-from ethereum_test_rpc import EthRPC
+from ethereum_test_rpc import EngineRPC, EthRPC
 from ethereum_test_tools import BaseTest
 from ethereum_test_types import EnvironmentDefaults, TransactionDefaults
 from pytest_plugins.spec_version_checker.spec_version_checker import EIPSpecTestItem
@@ -101,6 +101,7 @@ def pytest_configure(config):
     # Modify the block gas limit if specified.
     if config.getoption("transaction_gas_limit"):
         EnvironmentDefaults.gas_limit = config.getoption("transaction_gas_limit")
+    config.engine_rpc_supported = False
     if config.option.collectonly:
         return
     if config.getoption("disable_html") and config.getoption("htmlpath") is None:
@@ -257,6 +258,7 @@ def base_test_parametrizer(cls: Type[BaseTest]):
         pre: Alloc,
         eips: List[int],
         eth_rpc: EthRPC,
+        engine_rpc: EngineRPC | None,
         collector: Collector,
     ):
         """
@@ -271,6 +273,10 @@ def base_test_parametrizer(cls: Type[BaseTest]):
         """
         execute_format = request.param
         assert execute_format in BaseExecute.formats.values()
+        assert issubclass(execute_format, BaseExecute)
+
+        if execute_format.requires_engine_rpc:
+            assert engine_rpc is not None, "Engine RPC is required for this format."
 
         class BaseTestWrapper(cls):  # type: ignore
             def __init__(self, *args, **kwargs):
@@ -301,7 +307,7 @@ def base_test_parametrizer(cls: Type[BaseTest]):
                 )
 
                 execute = self.execute(fork=fork, execute_format=execute_format, eips=eips)
-                execute.execute(eth_rpc)
+                execute.execute(fork=fork, eth_rpc=eth_rpc, engine_rpc=engine_rpc)
                 collector.collect(request.node.nodeid, execute)
 
         return BaseTestWrapper
@@ -320,14 +326,18 @@ def pytest_generate_tests(metafunc: pytest.Metafunc):
     Pytest hook used to dynamically generate test cases for each fixture format a given
     test spec supports.
     """
+    engine_rpc_supported = metafunc.config.engine_rpc_supported  # type: ignore
     for test_type in BaseTest.spec_types.values():
         if test_type.pytest_parameter_name() in metafunc.fixturenames:
+            parameter_set = []
+            for format_with_or_without_label in test_type.supported_execute_formats:
+                param = labeled_format_parameter_set(format_with_or_without_label)
+                if format_with_or_without_label.requires_engine_rpc and not engine_rpc_supported:
+                    param.marks.append(pytest.mark.skip(reason="Engine RPC is not supported"))  # type: ignore
+                parameter_set.append(param)
             metafunc.parametrize(
                 [test_type.pytest_parameter_name()],
-                [
-                    labeled_format_parameter_set(format_with_or_without_label)
-                    for format_with_or_without_label in test_type.supported_execute_formats
-                ],
+                parameter_set,
                 scope="function",
                 indirect=True,
             )

@@ -2,7 +2,7 @@
 
 import pytest
 
-from ethereum_test_rpc import EthRPC
+from ethereum_test_rpc import EngineRPC, EthRPC
 from ethereum_test_types import TransactionDefaults
 
 
@@ -33,6 +33,12 @@ def pytest_addoption(parser):
         default=60,
         help="Maximum time in seconds to wait for a transaction to be included in a block",
     )
+
+
+@pytest.fixture(scope="session")
+def engine_rpc() -> EngineRPC | None:
+    """Execute remote command does not have access to the engine RPC."""
+    return None
 
 
 @pytest.fixture(autouse=True, scope="session")

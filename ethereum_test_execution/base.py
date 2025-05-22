@@ -6,7 +6,8 @@ from typing import Annotated, Any, ClassVar, Dict, Type
 from pydantic import PlainSerializer, PlainValidator
 
 from ethereum_test_base_types import CamelModel
-from ethereum_test_rpc import EthRPC
+from ethereum_test_forks import Fork
+from ethereum_test_rpc import EngineRPC, EthRPC
 
 
 class BaseExecute(CamelModel):
@@ -18,6 +19,7 @@ class BaseExecute(CamelModel):
     # Execute format properties
     format_name: ClassVar[str] = ""
     description: ClassVar[str] = "Unknown execute format; it has not been set."
+    requires_engine_rpc: ClassVar[bool] = False
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs):
@@ -30,7 +32,7 @@ class BaseExecute(CamelModel):
             BaseExecute.formats[cls.format_name] = cls
 
     @abstractmethod
-    def execute(self, eth_rpc: EthRPC):
+    def execute(self, fork: Fork, eth_rpc: EthRPC, engine_rpc: EngineRPC | None):
         """Execute the format."""
         pass
 
@@ -70,6 +72,11 @@ class LabeledExecuteFormat:
     def format_name(self) -> str:
         """Get the execute format name."""
         return self.format.format_name
+
+    @property
+    def requires_engine_rpc(self) -> bool:
+        """Get the requires engine RPC flag."""
+        return self.format.requires_engine_rpc
 
     def __eq__(self, other: Any) -> bool:
         """
