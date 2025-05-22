@@ -89,6 +89,8 @@ transaction_1559 = FeeMarketTransaction(
     U256(6),
 )
 
+inclusion_list = (legacy_transaction, rlp.encode(access_list_transaction))
+
 withdrawal = Withdrawal(U64(0), U64(1), address1, U256(2))
 
 
@@ -123,6 +125,7 @@ block = Block(
         encode_transaction(access_list_transaction),
         encode_transaction(transaction_1559),
     ),
+    inclusion_list=inclusion_list,
     ommers=(),
     withdrawals=(withdrawal,),
 )
