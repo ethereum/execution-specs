@@ -18,7 +18,7 @@ class TransactionPost(BaseExecute):
     blocks: List[List[Transaction]]
     post: Alloc
 
-    format_name: ClassVar[str] = "transaction_post"
+    format_name: ClassVar[str] = "transaction_post_test"
     description: ClassVar[str] = (
         "Simple transaction sending, then post-check after all transactions are included"
     )

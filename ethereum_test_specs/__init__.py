@@ -2,6 +2,7 @@
 
 from .base import BaseTest, TestSpec
 from .base_static import BaseStaticTest
+from .blobs import BlobsTest, BlobsTestFiller, BlobsTestSpec
 from .blockchain import (
     BlockchainTest,
     BlockchainTestFiller,
@@ -22,6 +23,9 @@ from .transaction import TransactionTest, TransactionTestFiller, TransactionTest
 __all__ = (
     "BaseStaticTest",
     "BaseTest",
+    "BlobsTest",
+    "BlobsTestFiller",
+    "BlobsTestSpec",
     "BlockchainTest",
     "BlockchainTestEngineFiller",
     "BlockchainTestEngineSpec",

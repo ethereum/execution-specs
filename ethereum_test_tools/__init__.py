@@ -24,6 +24,8 @@ from ethereum_test_exceptions import (
 from ethereum_test_fixtures import BaseFixture, FixtureCollector
 from ethereum_test_specs import (
     BaseTest,
+    BlobsTest,
+    BlobsTestFiller,
     BlockchainTest,
     BlockchainTestFiller,
     EOFStateTest,
@@ -99,6 +101,8 @@ __all__ = (
     "BaseFixture",
     "BaseTest",
     "Blob",
+    "BlobsTest",
+    "BlobsTestFiller",
     "Block",
     "BlockchainTest",
     "BlockchainTestFiller",
