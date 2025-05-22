@@ -51,6 +51,8 @@ class BaseTest(BaseModel):
 
     _request: pytest.FixtureRequest | None = PrivateAttr(None)
 
+    spec_types: ClassVar[Dict[str, Type["BaseTest"]]] = {}
+
     # Transition tool specific fields
     t8n_dump_dir: Path | None = Field(None, exclude=True)
     t8n_call_counter: int = Field(0, exclude=True)
@@ -69,6 +71,16 @@ class BaseTest(BaseModel):
     ) -> bool:
         """Discard a fixture format from filling if the appropriate marker is used."""
         return False
+
+    @classmethod
+    def __pydantic_init_subclass__(cls, **kwargs):
+        """
+        Register all subclasses of BaseFixture with a fixture format name set
+        as possible fixture formats.
+        """
+        if cls.pytest_parameter_name():
+            # Register the new fixture format
+            BaseTest.spec_types[cls.pytest_parameter_name()] = cls
 
     @classmethod
     def from_test(
@@ -126,6 +138,8 @@ class BaseTest(BaseModel):
 
         By default, it returns the underscore separated name of the class.
         """
+        if cls == BaseTest:
+            return ""
         return reduce(lambda x, y: x + ("_" if y.isupper() else "") + y, cls.__name__).lower()
 
     def get_next_transition_tool_output_path(self) -> str:

@@ -18,7 +18,7 @@ from _pytest.python import Module
 
 from ethereum_test_fixtures import BaseFixture, LabeledFixtureFormat
 from ethereum_test_forks import Fork
-from ethereum_test_specs import SPEC_TYPES, BaseStaticTest
+from ethereum_test_specs import BaseStaticTest, BaseTest
 
 from ..forks.forks import ValidityMarker, get_intersection_set
 from ..shared.helpers import labeled_format_parameter_set
@@ -188,7 +188,7 @@ class FillerFile(pytest.File):
 
                     fixture_formats: List[Type[BaseFixture] | LabeledFixtureFormat] = []
                     spec_parameter_name = ""
-                    for test_type in SPEC_TYPES:
+                    for test_type in BaseTest.spec_types.values():
                         if test_type.pytest_parameter_name() in func_parameters:
                             assert spec_parameter_name == "", "Multiple spec parameters found"
                             spec_parameter_name = test_type.pytest_parameter_name()

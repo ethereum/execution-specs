@@ -23,7 +23,6 @@ from ethereum_test_exceptions import (
 )
 from ethereum_test_fixtures import BaseFixture, FixtureCollector
 from ethereum_test_specs import (
-    SPEC_TYPES,
     BaseTest,
     BlockchainTest,
     BlockchainTestFiller,
@@ -92,7 +91,6 @@ from .utility.generators import (
 from .utility.pytest import extend_with_defaults
 
 __all__ = (
-    "SPEC_TYPES",
     "AccessList",
     "Account",
     "Address",

@@ -12,7 +12,7 @@ from ethereum_test_forks import (
     get_closest_fork_with_solc_support,
     get_forks_with_solc_support,
 )
-from ethereum_test_specs import SPEC_TYPES
+from ethereum_test_specs import BaseTest
 from ethereum_test_tools import Yul
 from pytest_plugins.spec_version_checker.spec_version_checker import EIPSpecTestItem
 
@@ -58,7 +58,7 @@ def pytest_configure(config: pytest.Config):
     else:
         raise Exception("Neither the filler nor the execute plugin is loaded.")
 
-    for spec_type in SPEC_TYPES:
+    for spec_type in BaseTest.spec_types.values():
         for marker, description in spec_type.supported_markers.items():
             config.addinivalue_line(
                 "markers",
@@ -173,7 +173,7 @@ def pytest_make_parametrize_id(config: pytest.Config, val: str, argname: str):
     return f"{argname}_{val}"
 
 
-SPEC_TYPES_PARAMETERS: List[str] = [s.pytest_parameter_name() for s in SPEC_TYPES]
+SPEC_TYPES_PARAMETERS: List[str] = list(BaseTest.spec_types.keys())
 
 
 def pytest_runtest_call(item: pytest.Item):
