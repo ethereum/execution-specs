@@ -15,6 +15,7 @@ from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256, Uint
 
 from ...vm import Evm
+from ...vm.exceptions import ExceptionalHalt
 from ...vm.gas import charge_gas
 from ..memory import buffer_read
 
@@ -30,8 +31,16 @@ def modexp(evm: Evm) -> None:
 
     # GAS
     base_length = U256.from_be_bytes(buffer_read(data, U256(0), U256(32)))
+    if base_length > U256(1024):
+        raise ExceptionalHalt("Mod-exp base length is too large")
+
     exp_length = U256.from_be_bytes(buffer_read(data, U256(32), U256(32)))
+    if exp_length > U256(1024):
+        raise ExceptionalHalt("Mod-exp exponent length is too large")
+
     modulus_length = U256.from_be_bytes(buffer_read(data, U256(64), U256(32)))
+    if modulus_length > U256(1024):
+        raise ExceptionalHalt("Mod-exp modulus length is too large")
 
     exp_start = U256(96) + base_length
 
