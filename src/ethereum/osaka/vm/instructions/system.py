@@ -31,7 +31,7 @@ from ...utils.address import (
     compute_contract_address,
     compute_create2_contract_address,
     to_address,
-    to_address_without_mask,
+    to_address_unmasked,
 )
 from ...vm.eoa_delegation import access_delegation
 from .. import (
@@ -747,7 +747,7 @@ def revert(evm: Evm) -> None:
 
 def pay(evm: Evm) -> None:
     """
-    Transfer ether to an account.
+    Transfer ether to an account without executing its code.
 
     Parameters
     ----------
@@ -755,7 +755,7 @@ def pay(evm: Evm) -> None:
         The current EVM frame.
     """
     # STACK
-    to = to_address_without_mask(pop(evm.stack))
+    to = to_address_unmasked(pop(evm.stack))
     value = pop(evm.stack)
 
     # GAS
@@ -765,11 +765,9 @@ def pay(evm: Evm) -> None:
         evm.accessed_addresses.add(to)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
-    create_gas_cost = (
-        Uint(0)
-        if is_account_alive(evm.message.block_env.state, to) or value == 0
-        else GAS_NEW_ACCOUNT
-    )
+    create_gas_cost = GAS_NEW_ACCOUNT
+    if value == 0 or is_account_alive(evm.message.block_env.state, to):
+        create_gas_cost = Uint(0)
 
     transfer_gas_cost = Uint(0) if value == U256(0) else GAS_CALL_VALUE
 

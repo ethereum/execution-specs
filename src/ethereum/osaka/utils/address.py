@@ -44,9 +44,10 @@ def to_address(data: Union[Uint, U256]) -> Address:
     return Address(data.to_be_bytes32()[-20:])
 
 
-def to_address_without_mask(data: U256) -> Address:
+def to_address_unmasked(data: U256) -> Address:
     """
-    Convert a U256 value to a valid address (20 bytes).
+    Convert a U256 value to a valid address (20 bytes),
+    raising an error if the input is too large to fit.
 
     Parameters
     ----------
@@ -65,7 +66,7 @@ def to_address_without_mask(data: U256) -> Address:
     """
     if data > U256.from_be_bytes(MAX_ADDRESS):
         raise InvalidParameter("Address is too large")
-    return Address(data.to_be_bytes32()[-20:])
+    return to_address(data)
 
 
 def compute_contract_address(address: Address, nonce: Uint) -> Address:
