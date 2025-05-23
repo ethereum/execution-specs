@@ -246,7 +246,8 @@ def mark_account_created(state: State, address: Address) -> None:
     """
     Mark an account as having been created in the current transaction.
     This information is used by `get_storage_original()` to handle an obscure
-    edgecase.
+    edgecase, and to respect the constraints added to SELFDESTRUCT by
+    EIP-6780.
 
     The marker is not removed even if the account creation reverts. Since the
     account cannot have had code prior to its creation and can't call
