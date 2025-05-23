@@ -4,6 +4,11 @@ Elliptic Curves
 """
 
 import coincurve
+from Crypto.Util.asn1 import DerSequence
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric.utils import Prehashed
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256
 
@@ -71,3 +76,38 @@ def secp256k1_recover(r: U256, s: U256, v: U256, msg_hash: Hash32) -> Bytes:
 
     public_key = public_key.format(compressed=False)[1:]
     return public_key
+
+
+def secp256r1_verify(r: U256, s: U256, x: U256, y: U256, msg_hash: Hash32) -> None:
+    """
+    Verifies a P-256 signature.
+
+    Parameters
+    ----------
+    r :
+        the `r` component of the signature
+    s :
+        the `s` component of the signature
+    x:
+        the `x` coordinate of the public key
+    y:
+        the `y` coordinate of the public key
+    msg_hash :
+        Hash of the message being recovered.
+
+    Returns
+    -------
+    result : `ethereum.base_types.Bytes`
+        return 1 if the signature is valid, empty bytes otherwise
+    """
+
+    sig = DerSequence([r, s]).encode()
+    
+    try:
+        pubnum = ec.EllipticCurvePublicNumbers(x, y, ec.SECP256R1())
+        pubkey = pubnum.public_key(default_backend())
+        pubkey.verify(sig, msg_hash, ec.ECDSA(Prehashed(hashes.SHA256())))
+    except ValueError as e:
+        raise InvalidSignatureError from e
+
+    return
