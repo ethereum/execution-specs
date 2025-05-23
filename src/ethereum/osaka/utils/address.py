@@ -22,6 +22,9 @@ from ethereum.crypto.hash import keccak256
 from ethereum.utils.byte import left_pad_zero_bytes
 
 from ..fork_types import Address
+from ..vm.exceptions import InvalidParameter
+
+MAX_ADDRESS = Address(b"\xff" * 20)
 
 
 def to_address(data: Union[Uint, U256]) -> Address:
@@ -39,6 +42,31 @@ def to_address(data: Union[Uint, U256]) -> Address:
         The obtained address.
     """
     return Address(data.to_be_bytes32()[-20:])
+
+
+def to_address_unmasked(data: U256) -> Address:
+    """
+    Convert a U256 value to a valid address (20 bytes),
+    raising an error if the input is too large to fit.
+
+    Parameters
+    ----------
+    data :
+        The string to be converted to bytes.
+
+    Raises
+    ------
+    InvalidParameter
+        If `data` is larger than `MAX_ADDRESS`.
+
+    Returns
+    -------
+    address : `Address`
+        The obtained address.
+    """
+    if data > U256.from_be_bytes(MAX_ADDRESS):
+        raise InvalidParameter("Address is too large")
+    return to_address(data)
 
 
 def compute_contract_address(address: Address, nonce: Uint) -> Address:
