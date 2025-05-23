@@ -17,7 +17,7 @@ from ethereum_types.numeric import U256, Uint
 from ethereum.utils.numeric import ceil32
 
 from ...state import get_account
-from ...utils.address import to_address
+from ...utils.address import to_address_masked
 from ...vm.memory import buffer_read, memory_write
 from .. import Evm
 from ..gas import (
@@ -66,7 +66,7 @@ def balance(evm: Evm) -> None:
 
     """
     # STACK
-    address = to_address(pop(evm.stack))
+    address = to_address_masked(pop(evm.stack))
 
     # GAS
     charge_gas(evm, GAS_BALANCE)
@@ -327,7 +327,7 @@ def extcodesize(evm: Evm) -> None:
 
     """
     # STACK
-    address = to_address(pop(evm.stack))
+    address = to_address_masked(pop(evm.stack))
 
     # GAS
     charge_gas(evm, GAS_EXTERNAL)
@@ -353,7 +353,7 @@ def extcodecopy(evm: Evm) -> None:
 
     """
     # STACK
-    address = to_address(pop(evm.stack))
+    address = to_address_masked(pop(evm.stack))
     memory_start_index = pop(evm.stack)
     code_start_index = pop(evm.stack)
     size = pop(evm.stack)

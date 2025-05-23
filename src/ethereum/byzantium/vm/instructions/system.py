@@ -24,7 +24,7 @@ from ...state import (
     is_account_alive,
     set_account_balance,
 )
-from ...utils.address import compute_contract_address, to_address
+from ...utils.address import compute_contract_address, to_address_masked
 from .. import (
     Evm,
     Message,
@@ -256,7 +256,7 @@ def call(evm: Evm) -> None:
     """
     # STACK
     gas = Uint(pop(evm.stack))
-    to = to_address(pop(evm.stack))
+    to = to_address_masked(pop(evm.stack))
     value = pop(evm.stack)
     memory_input_start_position = pop(evm.stack)
     memory_input_size = pop(evm.stack)
@@ -329,7 +329,7 @@ def callcode(evm: Evm) -> None:
     """
     # STACK
     gas = Uint(pop(evm.stack))
-    code_address = to_address(pop(evm.stack))
+    code_address = to_address_masked(pop(evm.stack))
     value = pop(evm.stack)
     memory_input_start_position = pop(evm.stack)
     memory_input_size = pop(evm.stack)
@@ -395,7 +395,7 @@ def selfdestruct(evm: Evm) -> None:
         The current EVM frame.
     """
     # STACK
-    beneficiary = to_address(pop(evm.stack))
+    beneficiary = to_address_masked(pop(evm.stack))
 
     # GAS
     gas_cost = GAS_SELF_DESTRUCT
@@ -466,7 +466,7 @@ def delegatecall(evm: Evm) -> None:
     """
     # STACK
     gas = Uint(pop(evm.stack))
-    code_address = to_address(pop(evm.stack))
+    code_address = to_address_masked(pop(evm.stack))
     memory_input_start_position = pop(evm.stack)
     memory_input_size = pop(evm.stack)
     memory_output_start_position = pop(evm.stack)
@@ -517,7 +517,7 @@ def staticcall(evm: Evm) -> None:
     """
     # STACK
     gas = Uint(pop(evm.stack))
-    to = to_address(pop(evm.stack))
+    to = to_address_masked(pop(evm.stack))
     memory_input_start_position = pop(evm.stack)
     memory_input_size = pop(evm.stack)
     memory_output_start_position = pop(evm.stack)
