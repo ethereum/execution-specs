@@ -4,7 +4,7 @@ submitted to be executed. If Ethereum is viewed as a state machine,
 transactions are the events that move between states.
 """
 from dataclasses import dataclass
-from typing import Tuple, Union
+from typing import Tuple
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
@@ -36,7 +36,7 @@ class LegacyTransaction:
     nonce: U256
     gas_price: Uint
     gas: Uint
-    to: Union[Bytes0, Address]
+    to: Bytes0 | Address
     value: U256
     data: Bytes
     v: U256
@@ -67,7 +67,7 @@ class AccessListTransaction:
     nonce: U256
     gas_price: Uint
     gas: Uint
-    to: Union[Bytes0, Address]
+    to: Bytes0 | Address
     value: U256
     data: Bytes
     access_list: Tuple[Access, ...]
@@ -76,10 +76,10 @@ class AccessListTransaction:
     s: U256
 
 
-Transaction = Union[LegacyTransaction, AccessListTransaction]
+Transaction = LegacyTransaction | AccessListTransaction
 
 
-def encode_transaction(tx: Transaction) -> Union[LegacyTransaction, Bytes]:
+def encode_transaction(tx: Transaction) -> LegacyTransaction | Bytes:
     """
     Encode a transaction. Needed because non-legacy transactions aren't RLP.
     """
@@ -91,7 +91,7 @@ def encode_transaction(tx: Transaction) -> Union[LegacyTransaction, Bytes]:
         raise Exception(f"Unable to encode transaction of type {type(tx)}")
 
 
-def decode_transaction(tx: Union[LegacyTransaction, Bytes]) -> Transaction:
+def decode_transaction(tx: LegacyTransaction | Bytes) -> Transaction:
     """
     Decode a transaction. Needed because non-legacy transactions aren't RLP.
     """
@@ -334,7 +334,7 @@ def signing_hash_2930(tx: AccessListTransaction) -> Hash32:
     )
 
 
-def get_transaction_hash(tx: Union[Bytes, LegacyTransaction]) -> Hash32:
+def get_transaction_hash(tx: Bytes | LegacyTransaction) -> Hash32:
     """
     Parameters
     ----------
