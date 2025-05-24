@@ -20,10 +20,9 @@ Audit reports are published in the
 folder:
 
 
-| Scope | Date | Report Link | | ------- | ------- | ----------- | | `geth` |
-20170425 |
-[pdf](https://github.com/ethereum/go-ethereum/blob/master/docs/audits/2017-04-25_Geth-audit_Truesec.pdf)
-|
+| Scope | Date | Report Link |
+| ------- | ------- | ----------- |
+| `execution-specs` | 20260101 | [somefutureaudit.pdf](#) |
 
 ## Reporting a Vulnerability
 
@@ -36,13 +35,15 @@ page](https://github.com/ethereum/go-ethereum/security/advisories?state=publishe
 for more information about publicly disclosed security vulnerabilities.
 
 
-The following key may be used to communicate sensitive information to
+The following PGP key may be used to communicate sensitive information to
 developers.
 
 TODO
 
 Fingerprint: `XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX`
 
-``` -----BEGIN PGP PUBLIC KEY BLOCK-----
+``` 
+-----BEGIN PGP PUBLIC KEY BLOCK-----
 
------END PGP PUBLIC KEY BLOCK----- ```
+-----END PGP PUBLIC KEY BLOCK----- 
+```
