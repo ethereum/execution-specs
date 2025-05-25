@@ -20,7 +20,6 @@ from ..fork_types import Address
 from ..state import get_account
 from ..transactions import Transaction
 from ..vm import BlockEnvironment, Message, TransactionEnvironment
-from ..vm.eoa_delegation import get_delegated_code_address
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from .address import compute_contract_address
 
