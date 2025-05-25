@@ -124,7 +124,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
     else:
         if message.tx_env.authorizations != ():
             refund_counter += set_delegation(message)
-        
+
         delegated_address = get_delegated_code_address(message.code)
         if delegated_address is not None:
             message.disable_precompiles = True
@@ -142,7 +142,9 @@ def process_message_call(message: Message) -> MessageCallOutput:
         accounts_to_delete = evm.accounts_to_delete
         refund_counter += U256(evm.refund_counter)
 
-    tx_end = TransactionEnd(int(message.gas) - int(evm.gas_left), evm.output, evm.error)
+    tx_end = TransactionEnd(
+        int(message.gas) - int(evm.gas_left), evm.output, evm.error
+    )
     evm_trace(evm, tx_end)
 
     return MessageCallOutput(
@@ -236,7 +238,9 @@ def process_message(message: Message) -> Evm:
     begin_transaction(state, transient_storage)
 
     if message.should_transfer_value and message.value != 0:
-        move_ether(state, message.caller, message.current_target, message.value)
+        move_ether(
+            state, message.caller, message.current_target, message.value
+        )
 
     evm = execute_code(message)
     if evm.error:
