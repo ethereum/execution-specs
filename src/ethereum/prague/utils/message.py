@@ -12,6 +12,7 @@ Introduction
 Message specific functions used in this prague version of
 specification.
 """
+
 from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.numeric import Uint
 
@@ -51,8 +52,6 @@ def prepare_message(
     accessed_addresses.update(PRE_COMPILED_CONTRACTS.keys())
     accessed_addresses.update(tx_env.access_list_addresses)
 
-    disable_precompiles = False
-
     if isinstance(tx.to, Bytes0):
         current_target = compute_contract_address(
             tx_env.origin,
@@ -65,13 +64,6 @@ def prepare_message(
         current_target = tx.to
         msg_data = tx.data
         code = get_account(block_env.state, tx.to).code
-
-        delegated_address = get_delegated_code_address(code)
-        if delegated_address is not None:
-            disable_precompiles = True
-            accessed_addresses.add(delegated_address)
-            code = get_account(block_env.state, delegated_address).code
-
         code_address = tx.to
     else:
         raise AssertionError("Target must be address or empty bytes")
@@ -94,6 +86,6 @@ def prepare_message(
         is_static=False,
         accessed_addresses=accessed_addresses,
         accessed_storage_keys=set(tx_env.access_list_storage_keys),
-        disable_precompiles=disable_precompiles,
+        disable_precompiles=False,
         parent_evm=None,
     )
