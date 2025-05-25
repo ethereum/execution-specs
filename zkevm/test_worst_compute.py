@@ -938,3 +938,20 @@ def test_worst_mod(
         post={},
         blocks=[Block(txs=[tx])],
     )
+
+
+@pytest.mark.valid_from("Cancun")
+def test_empty_block(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+):
+    """Test running an empty block as a baseline for fixed proving costs."""
+    env = Environment()
+
+    blockchain_test(
+        env=env,
+        pre=pre,
+        post={},
+        blocks=[Block(txs=[])],
+    )
