@@ -203,6 +203,17 @@ def pytest_addoption(parser: pytest.Parser):
     )
 
 
+def is_help_or_collectonly_mode(config: pytest.Config) -> bool:
+    """Check if pytest is running in a help or collectonly mode."""
+    return (
+        config.getoption("markers")
+        or config.getoption("collectonly")
+        or config.getoption("markers")
+        or config.getoption("show_ported_from")
+        or config.getoption("links_as_filled")
+    )
+
+
 @pytest.hookimpl(tryfirst=True)
 def pytest_configure(config):
     """
@@ -226,7 +237,7 @@ def pytest_configure(config):
     # Initialize fixture output configuration
     config.fixture_output = FixtureOutput.from_config(config)
 
-    if config.option.collectonly:
+    if is_help_or_collectonly_mode(config):
         return
 
     try:
@@ -272,7 +283,7 @@ def pytest_configure(config):
 @pytest.hookimpl(trylast=True)
 def pytest_report_header(config: pytest.Config):
     """Add lines to pytest's console output header."""
-    if config.option.collectonly:
+    if is_help_or_collectonly_mode(config):
         return
     t8n_version = config.stash[metadata_key]["Tools"]["t8n"]
     return [(f"{t8n_version}")]
@@ -866,7 +877,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
         return
 
     fixture_output = session.config.fixture_output  # type: ignore[attr-defined]
-    if fixture_output.is_stdout or session.config.option.collectonly:
+    if fixture_output.is_stdout or is_help_or_collectonly_mode(session.config):
         return
 
     # Remove any lock files that may have been created.

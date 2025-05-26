@@ -79,6 +79,7 @@ def pytest_configure(config):
                 "filler location",
                 "defining debug",
                 "pre-allocation behavior during test filling",
+                "ported",
             ],
         )
     elif config.getoption("show_consume_help"):
