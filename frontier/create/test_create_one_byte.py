@@ -20,6 +20,12 @@ from ethereum_test_tools import Opcodes as Op
 from ethereum_test_types import compute_create_address
 
 
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stCreateTest/CREATE_FirstByte_loopFiller.yml",
+    ],
+    pr=["https://github.com/ethereum/execution-spec-tests/pull/1615"],
+)
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.with_all_create_opcodes
 def test_create_one_byte(

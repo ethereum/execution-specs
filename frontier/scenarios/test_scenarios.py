@@ -142,6 +142,16 @@ program_classes = [
 ]
 
 
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/Templates/DiffPlaces/templateGen.js",
+        "https://github.com/ethereum/tests/blob/v13.3/src/Templates/DiffPlaces/createDiffPlacesTests.sh",
+        "https://github.com/ethereum/tests/blob/v13.3/src/Templates/DiffPlaces/createBadOpcodeTest.sh",
+        "https://github.com/ethereum/tests/blob/v13.3/src/Templates/DiffPlaces/createAllBadOpcodeTests.sh",
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stSelfBalance/diffPlacesFiller.yml",
+    ],
+    pr=["https://github.com/ethereum/execution-spec-tests/pull/808"],
+)
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.parametrize(
     # select program to debug ("program_id", "scenario_name")

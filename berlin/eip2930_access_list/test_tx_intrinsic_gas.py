@@ -126,6 +126,13 @@ tx_intrinsic_gas_access_list_vectors = [
 ]
 
 
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stEIP1559/intrinsicGen.js",
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stEIP1559/intrinsicFiller.yml",
+    ],
+    pr=["https://github.com/ethereum/execution-spec-tests/pull/1535"],
+)
 @pytest.mark.parametrize("data", tx_intrinsic_gas_data_vectors)
 @pytest.mark.parametrize("access_list", tx_intrinsic_gas_access_list_vectors)
 @pytest.mark.parametrize(
