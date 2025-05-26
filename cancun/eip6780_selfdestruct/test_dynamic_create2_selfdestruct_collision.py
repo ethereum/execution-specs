@@ -12,6 +12,7 @@ from ethereum_test_forks import Cancun, Fork
 from ethereum_test_tools import (
     Account,
     Address,
+    Alloc,
     Block,
     BlockchainTestFiller,
     Bytecode,
@@ -19,7 +20,6 @@ from ethereum_test_tools import (
     Environment,
     Initcode,
     StateTestFiller,
-    TestAddress,
     Transaction,
     compute_create2_address,
 )
@@ -59,6 +59,7 @@ def test_dynamic_create2_selfdestruct_collision(
     create2_dest_already_in_state: bool,
     call_create2_contract_in_between: bool,
     call_create2_contract_at_the_end: bool,
+    pre: Alloc,
     state_test: StateTestFiller,
 ):
     """
@@ -87,15 +88,20 @@ def test_dynamic_create2_selfdestruct_collision(
     second_create2_result = 3
     code_worked = 4
 
-    # Pre-Existing Addresses
+    # Constants
     address_zero = Address(0x00)
-    address_to = Address(0x0600)
-    address_code = Address(0x0601)
-    address_create2_storage = Address(0x0512)
-    sendall_destination = Address(0x03E8)
+    create2_salt = 1
+
+    # Create EOA for sendall destination (receives selfdestruct funds)
+    sendall_destination = pre.fund_eoa(0)  # Will be funded by selfdestruct calls
+
+    # Create storage contract that will be called during initialization
+    address_create2_storage = pre.deploy_contract(
+        code=Op.SSTORE(1, 1),
+        balance=7000000000000000000,
+    )
 
     # CREATE2 Initcode
-    create2_salt = 1
     deploy_code = Op.SELFDESTRUCT(sendall_destination)
     initcode = Initcode(
         deploy_code=deploy_code,
@@ -103,7 +109,17 @@ def test_dynamic_create2_selfdestruct_collision(
         + Op.CALL(Op.GAS(), address_create2_storage, 0, 0, 0, 0, 0),
     )
 
-    # Created addresses
+    # Create the contract that performs CREATE2 operations
+    address_code = pre.deploy_contract(
+        code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
+        + Op.MSTORE(
+            0,
+            Op.CREATE2(Op.SELFBALANCE(), 0, Op.CALLDATASIZE(), create2_salt),
+        )
+        + Op.RETURN(0, 32),
+    )
+
+    # Created addresses - now we can compute create2_address
     create2_address = compute_create2_address(address_code, create2_salt, initcode)
     call_address_in_between = create2_address if call_create2_contract_in_between else address_zero
     call_address_in_the_end = create2_address if call_create2_contract_at_the_end else address_zero
@@ -115,58 +131,36 @@ def test_dynamic_create2_selfdestruct_collision(
     second_create2_value = 1000
     second_call_value = 10000
 
-    pre = {
-        address_to: Account(
-            balance=100000000,
-            nonce=0,
-            code=Op.JUMPDEST()
-            # Make a subcall that do CREATE2 and returns its the result
-            + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
-            + Op.CALL(100000, address_code, first_create2_value, 0, Op.CALLDATASIZE(), 0, 32)
-            + Op.SSTORE(
-                first_create2_result,
-                Op.MLOAD(0),
-            )
-            # In case the create2 didn't work, flush account balance
-            + Op.CALL(100000, address_code, 0, 0, 0, 0, 0)
-            # Call to the created account to trigger selfdestruct
-            + Op.CALL(100000, call_address_in_between, first_call_value, 0, 0, 0, 0)
-            # Make a subcall that do CREATE2 collision and returns its address as the result
-            + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
-            + Op.CALL(100000, address_code, second_create2_value, 0, Op.CALLDATASIZE(), 0, 32)
-            + Op.SSTORE(
-                second_create2_result,
-                Op.MLOAD(0),
-            )
-            # Call to the created account to trigger selfdestruct
-            + Op.CALL(100000, call_address_in_the_end, second_call_value, 0, 0, 0, 0)
-            + Op.SSTORE(code_worked, 1),
-            storage={first_create2_result: 0xFF, second_create2_result: 0xFF},
-        ),
-        address_code: Account(
-            balance=0,
-            nonce=0,
-            code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
-            + Op.MSTORE(
-                0,
-                Op.CREATE2(Op.SELFBALANCE(), 0, Op.CALLDATASIZE(), create2_salt),
-            )
-            + Op.RETURN(0, 32),
-            storage={},
-        ),
-        address_create2_storage: Account(
-            balance=7000000000000000000,
-            nonce=0,
-            code=Op.SSTORE(1, 1),
-            storage={},
-        ),
-        TestAddress: Account(
-            balance=7000000000000000000,
-            nonce=0,
-            code="0x",
-            storage={},
-        ),
-    }
+    # Create the main contract that orchestrates the test
+    address_to = pre.deploy_contract(
+        code=Op.JUMPDEST()
+        # Make a subcall that do CREATE2 and returns its the result
+        + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
+        + Op.CALL(100000, address_code, first_create2_value, 0, Op.CALLDATASIZE(), 0, 32)
+        + Op.SSTORE(
+            first_create2_result,
+            Op.MLOAD(0),
+        )
+        # In case the create2 didn't work, flush account balance
+        + Op.CALL(100000, address_code, 0, 0, 0, 0, 0)
+        # Call to the created account to trigger selfdestruct
+        + Op.CALL(100000, call_address_in_between, first_call_value, 0, 0, 0, 0)
+        # Make a subcall that do CREATE2 collision and returns its address as the result
+        + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
+        + Op.CALL(100000, address_code, second_create2_value, 0, Op.CALLDATASIZE(), 0, 32)
+        + Op.SSTORE(
+            second_create2_result,
+            Op.MLOAD(0),
+        )
+        # Call to the created account to trigger selfdestruct
+        + Op.CALL(100000, call_address_in_the_end, second_call_value, 0, 0, 0, 0)
+        + Op.SSTORE(code_worked, 1),
+        balance=100000000,
+        storage={first_create2_result: 0xFF, second_create2_result: 0xFF},
+    )
+
+    # Create the sender EOA
+    sender = pre.fund_eoa(7000000000000000000)
 
     if create2_dest_already_in_state:
         # Create2 address already in the state, e.g. deployed in a previous block
@@ -225,6 +219,7 @@ def test_dynamic_create2_selfdestruct_collision(
         data=initcode,
         gas_limit=5000000,
         value=0,
+        sender=sender,
     )
 
     state_test(env=env, pre=pre, post=post, tx=tx)
@@ -244,6 +239,7 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
     fork: Fork,
     create2_dest_already_in_state: bool,
     call_create2_contract_at_the_end: bool,
+    pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ):
     """
@@ -272,21 +268,35 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
     second_create2_result = 3
     code_worked = 4
 
-    # Pre-Existing Addresses
+    # Constants
     address_zero = Address(0x00)
-    address_to = Address(0x0600)
-    address_to_second = Address(0x0700)
-    address_code = Address(0x0601)
-    address_create2_storage = Address(0x0512)
-    sendall_destination = Address(0x03E8)
+    create2_salt = 1
+
+    # Create EOA for sendall destination (receives selfdestruct funds)
+    sendall_destination = pre.fund_eoa(0)  # Will be funded by selfdestruct calls
+
+    # Create storage contract that will be called during initialization
+    address_create2_storage = pre.deploy_contract(
+        code=Op.SSTORE(1, 1),
+        balance=7000000000000000000,
+    )
 
     # CREATE2 Initcode
-    create2_salt = 1
     deploy_code = Op.SELFDESTRUCT(sendall_destination)
     initcode = Initcode(
         deploy_code=deploy_code,
         initcode_prefix=Op.SSTORE(create2_constructor_worked, 1)
         + Op.CALL(Op.GAS(), address_create2_storage, 0, 0, 0, 0, 0),
+    )
+
+    # Create the contract that performs CREATE2 operations
+    address_code = pre.deploy_contract(
+        code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
+        + Op.MSTORE(
+            0,
+            Op.CREATE2(Op.SELFBALANCE(), 0, Op.CALLDATASIZE(), create2_salt),
+        )
+        + Op.RETURN(0, 32),
     )
 
     # Created addresses
@@ -300,65 +310,44 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
     second_create2_value = 1000
     second_call_value = 10000
 
-    pre = {
-        address_to: Account(
-            balance=100000000,
-            nonce=0,
-            code=Op.JUMPDEST()
-            # Make a subcall that do CREATE2 and returns its the result
-            + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
-            + Op.CALL(100000, address_code, first_create2_value, 0, Op.CALLDATASIZE(), 0, 32)
-            + Op.SSTORE(
-                first_create2_result,
-                Op.MLOAD(0),
-            )
-            # In case the create2 didn't work, flush account balance
-            + Op.CALL(100000, address_code, 0, 0, 0, 0, 0)
-            # Call to the created account to trigger selfdestruct
-            + Op.CALL(100000, create2_address, first_call_value, 0, 0, 0, 0)
-            + Op.SSTORE(code_worked, 1),
-            storage={first_create2_result: 0xFF},
-        ),
-        address_to_second: Account(
-            balance=100000000,
-            nonce=0,
-            code=Op.JUMPDEST()
-            # Make a subcall that do CREATE2 collision and returns its address as the result
-            + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
-            + Op.CALL(100000, address_code, second_create2_value, 0, Op.CALLDATASIZE(), 0, 32)
-            + Op.SSTORE(
-                second_create2_result,
-                Op.MLOAD(0),
-            )
-            # Call to the created account to trigger selfdestruct
-            + Op.CALL(200000, call_address_in_the_end, second_call_value, 0, 0, 0, 0)
-            + Op.SSTORE(code_worked, 1),
-            storage={second_create2_result: 0xFF},
-        ),
-        address_code: Account(
-            balance=0,
-            nonce=0,
-            code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
-            + Op.MSTORE(
-                0,
-                Op.CREATE2(Op.SELFBALANCE(), 0, Op.CALLDATASIZE(), create2_salt),
-            )
-            + Op.RETURN(0, 32),
-            storage={},
-        ),
-        address_create2_storage: Account(
-            balance=7000000000000000000,
-            nonce=0,
-            code=Op.SSTORE(1, 1),
-            storage={},
-        ),
-        TestAddress: Account(
-            balance=7000000000000000000,
-            nonce=0,
-            code="0x",
-            storage={},
-        ),
-    }
+    # Create the first contract that performs the first transaction
+    address_to = pre.deploy_contract(
+        code=Op.JUMPDEST()
+        # Make a subcall that do CREATE2 and returns its the result
+        + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
+        + Op.CALL(100000, address_code, first_create2_value, 0, Op.CALLDATASIZE(), 0, 32)
+        + Op.SSTORE(
+            first_create2_result,
+            Op.MLOAD(0),
+        )
+        # In case the create2 didn't work, flush account balance
+        + Op.CALL(100000, address_code, 0, 0, 0, 0, 0)
+        # Call to the created account to trigger selfdestruct
+        + Op.CALL(100000, create2_address, first_call_value, 0, 0, 0, 0)
+        + Op.SSTORE(code_worked, 1),
+        balance=100000000,
+        storage={first_create2_result: 0xFF},
+    )
+
+    # Create the second contract that performs the second transaction
+    address_to_second = pre.deploy_contract(
+        code=Op.JUMPDEST()
+        # Make a subcall that do CREATE2 collision and returns its address as the result
+        + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
+        + Op.CALL(100000, address_code, second_create2_value, 0, Op.CALLDATASIZE(), 0, 32)
+        + Op.SSTORE(
+            second_create2_result,
+            Op.MLOAD(0),
+        )
+        # Call to the created account to trigger selfdestruct
+        + Op.CALL(200000, call_address_in_the_end, second_call_value, 0, 0, 0, 0)
+        + Op.SSTORE(code_worked, 1),
+        balance=100000000,
+        storage={second_create2_result: 0xFF},
+    )
+
+    # Create the sender EOA
+    sender = pre.fund_eoa(7000000000000000000)
 
     if create2_dest_already_in_state:
         # Create2 address already in the state, e.g. deployed in a previous block
@@ -458,6 +447,7 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
                         data=initcode,
                         gas_limit=5000000,
                         value=0,
+                        sender=sender,
                     ),
                     Transaction(
                         ty=0x0,
@@ -469,6 +459,7 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
                         data=initcode,
                         gas_limit=5000000,
                         value=0,
+                        sender=sender,
                     ),
                 ]
             )
@@ -489,6 +480,7 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
     fork: Fork,
     selfdestruct_on_first_tx: bool,
     recreate_on_first_tx: bool,
+    pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ):
     """
@@ -517,19 +509,34 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
     part_1_worked = 4
     part_2_worked = 5
 
-    # Pre-Existing Addresses
-    address_to = Address(0x0600)
-    address_code = Address(0x0601)
-    address_create2_storage = Address(0x0512)
-    sendall_destination = Address(0x03E8)
+    # Constants
+    create2_salt = 1
+
+    # Create EOA for sendall destination (receives selfdestruct funds)
+    sendall_destination = pre.fund_eoa(0)  # Will be funded by selfdestruct calls
+
+    # Create storage contract that will be called during initialization
+    address_create2_storage = pre.deploy_contract(
+        code=Op.SSTORE(1, 1),
+        balance=7000000000000000000,
+    )
 
     # CREATE2 Initcode
-    create2_salt = 1
     deploy_code = Op.SELFDESTRUCT(sendall_destination)
     initcode = Initcode(
         deploy_code=deploy_code,
         initcode_prefix=Op.SSTORE(create2_constructor_worked, 1)
         + Op.CALL(Op.GAS(), address_create2_storage, 0, 0, 0, 0, 0),
+    )
+
+    # Create the contract that performs CREATE2 operations
+    address_code = pre.deploy_contract(
+        code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
+        + Op.MSTORE(
+            0,
+            Op.CREATE2(Op.SELFBALANCE(), 0, Op.CALLDATASIZE(), create2_salt),
+        )
+        + Op.RETURN(0, 32),
     )
 
     # Created addresses
@@ -595,42 +602,20 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
     first_tx_code += Op.SSTORE(part_1_worked, 1)
     second_tx_code += Op.SSTORE(part_2_worked, 1)
 
-    pre = {
-        address_to: Account(
-            balance=100000000,
-            nonce=0,
-            code=Conditional(
-                # Depending on the tx, execute the first or second tx code
-                condition=Op.EQ(Op.SLOAD(part_1_worked), 0),
-                if_true=first_tx_code,
-                if_false=second_tx_code,
-            ),
-            storage={first_create2_result: 0xFF, second_create2_result: 0xFF},
+    # Create the main contract that uses conditional logic to handle both transactions
+    address_to = pre.deploy_contract(
+        code=Conditional(
+            # Depending on the tx, execute the first or second tx code
+            condition=Op.EQ(Op.SLOAD(part_1_worked), 0),
+            if_true=first_tx_code,
+            if_false=second_tx_code,
         ),
-        address_code: Account(
-            balance=0,
-            nonce=0,
-            code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
-            + Op.MSTORE(
-                0,
-                Op.CREATE2(Op.SELFBALANCE(), 0, Op.CALLDATASIZE(), create2_salt),
-            )
-            + Op.RETURN(0, 32),
-            storage={},
-        ),
-        address_create2_storage: Account(
-            balance=7000000000000000000,
-            nonce=0,
-            code=Op.SSTORE(1, 1),
-            storage={},
-        ),
-        TestAddress: Account(
-            balance=7000000000000000000,
-            nonce=0,
-            code="0x",
-            storage={},
-        ),
-    }
+        balance=100000000,
+        storage={first_create2_result: 0xFF, second_create2_result: 0xFF},
+    )
+
+    # Create the sender EOA
+    sender = pre.fund_eoa(7000000000000000000)
 
     post: Dict[Address, Union[Account, object]] = {}
 
@@ -697,6 +682,7 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
                         data=initcode,
                         gas_limit=5000000,
                         value=0,
+                        sender=sender,
                     ),
                     Transaction(
                         ty=0x0,
@@ -708,6 +694,7 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
                         data=initcode,
                         gas_limit=5000000,
                         value=0,
+                        sender=sender,
                     ),
                 ]
             )
