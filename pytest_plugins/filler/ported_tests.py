@@ -30,7 +30,7 @@ Marker Format:
 """
 
 import re
-from typing import Set
+from typing import List, Set
 from urllib.parse import urlparse
 
 import pytest
@@ -73,6 +73,13 @@ def pytest_addoption(parser: pytest.Parser):
         ),
     )
     ported_from_group.addoption(
+        "--ported-from-output-file",
+        action="store",
+        dest="ported_from_output_file",
+        default=None,
+        help="Output file for ported_from information.",
+    )
+    ported_from_group.addoption(
         "--links-as-filled",
         action="store_true",
         dest="links_as_filled",
@@ -99,9 +106,15 @@ class PortedFromDisplay:
         self.config = config
         self.show_mode = config.getoption("show_ported_from")
         self.links_as_filled = config.getoption("links_as_filled")
+        self.ported_from_output_file = config.getoption("ported_from_output_file")
 
     @pytest.hookimpl(hookwrapper=True, trylast=True)
-    def pytest_collection_modifyitems(self, session, config, items):
+    def pytest_collection_modifyitems(
+        self,
+        session: pytest.Session,
+        config: pytest.Config,
+        items: List[pytest.Item],
+    ):
         """Extract ported_from information from collected test items."""
         yield
 
@@ -133,25 +146,27 @@ class PortedFromDisplay:
 
         # Output results based on mode
         if self.show_mode == "prs":
-            output = sorted(prs)
+            outputs = sorted(prs)
         else:  # default to "paths"
-            output = sorted(paths)
-
+            outputs = sorted(paths)
+        output_lines: List[str] = []
         if self.links_as_filled:
-            all_files: list = []
-            for item in output:
-                converted_link = convert_to_filled(item)
-                if converted_link is not None:
-                    all_files.append(converted_link)
-            print(" ".join(all_files))
+            for output in outputs:
+                converted_link_output = convert_to_filled(output)
+                if converted_link_output is not None:
+                    output_lines.append(converted_link_output)
         else:
-            for item in output:
-                print(item)
+            output_lines.extend(outputs)
+        if self.ported_from_output_file:
+            with open(self.ported_from_output_file, "w") as f:
+                f.write("\n".join(output_lines))
+        else:
+            for line in output_lines:
+                print(line)
 
     @pytest.hookimpl(tryfirst=True)
     def pytest_runtestloop(self, session):
         """Skip test execution, only show ported_from information."""
-        session.testscollected = 0
         return True
 
     def pytest_terminal_summary(self, terminalreporter, exitstatus, config):
