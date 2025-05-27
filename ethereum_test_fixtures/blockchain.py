@@ -407,8 +407,17 @@ class BlockchainFixtureCommon(BaseFixture):
     genesis: FixtureHeader = Field(..., alias="genesisBlockHeader")
     pre: Alloc
     post_state: Alloc | None = Field(None)
+    post_state_hash: Hash | None = Field(None)
     last_block_hash: Hash = Field(..., alias="lastblockhash")  # FIXME: lastBlockHash
     config: FixtureConfig
+
+    def model_post_init(self, __context):
+        """Model post init method to check mutually exclusive fields."""
+        super().model_post_init(__context)
+        if self.post_state_hash is None and self.post_state is None:
+            raise ValueError("Either post_state_hash or post_state must be provided.")
+        if self.post_state_hash is not None and self.post_state is not None:
+            raise ValueError("Only one of post_state_hash or post_state must be provided.")
 
     @model_validator(mode="before")
     @classmethod

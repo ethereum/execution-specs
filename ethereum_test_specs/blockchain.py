@@ -656,6 +656,7 @@ class BlockchainTest(BaseTest):
             last_block_hash=head,
             pre=pre,
             post_state=alloc if not self.exclude_full_post_state_in_output else None,
+            post_state_hash=alloc.state_root() if self.exclude_full_post_state_in_output else None,
             config=FixtureConfig(
                 fork=network_info,
                 blob_schedule=FixtureBlobSchedule.from_blob_schedule(fork.blob_schedule()),
@@ -754,6 +755,7 @@ class BlockchainTest(BaseTest):
             fcu_version=fcu_version,
             pre=pre,
             post_state=alloc if not self.exclude_full_post_state_in_output else None,
+            post_state_hash=alloc.state_root() if self.exclude_full_post_state_in_output else None,
             sync_payload=sync_payload,
             last_block_hash=head_hash,
             config=FixtureConfig(
