@@ -92,6 +92,8 @@ class HiveEnvironmentProcessor(ArgumentProcessor):
         if os.getenv("HIVE_LOGLEVEL") is not None:
             warnings.warn("HIVE_LOG_LEVEL is not yet supported.", stacklevel=2)
 
+        modified_args.extend(["-p", "pytest_plugins.pytest_hive.pytest_hive"])
+
         return modified_args
 
     def _has_regex_or_sim_limit(self, args: List[str]) -> bool:
