@@ -5,12 +5,12 @@ from typing import Any, Mapping, Type
 import pytest
 
 from ethereum_clis import TransitionTool
-from ethereum_test_base_types import Account, Address, TestAddress, TestPrivateKey
+from ethereum_test_base_types import Account, Address, Storage, TestAddress, TestPrivateKey
 from ethereum_test_exceptions import TransactionException
 from ethereum_test_fixtures import BlockchainFixture, FixtureFormat, StateFixture
 from ethereum_test_forks import Fork, get_deployed_forks
 from ethereum_test_tools import Block
-from ethereum_test_types import Alloc, Environment, Storage, Transaction, TransactionReceipt
+from ethereum_test_types import Alloc, Environment, Transaction, TransactionReceipt
 
 from ..blockchain import BlockchainEngineFixture, BlockchainTest
 from ..helpers import (

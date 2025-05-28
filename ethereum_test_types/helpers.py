@@ -9,7 +9,8 @@ from ethereum_test_base_types.base_types import Address, Bytes, Hash
 from ethereum_test_base_types.conversions import BytesConvertible, FixedSizeBytesConvertible
 from ethereum_test_vm import Opcodes as Op
 
-from .types import EOA, int_to_bytes
+from .account_types import EOA
+from .utils import int_to_bytes
 
 """
 Helper functions

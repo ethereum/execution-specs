@@ -11,7 +11,8 @@ from ethereum_test_base_types import (
     SignableRLPSerializable,
     ZeroPaddedHexNumber,
 )
-from ethereum_test_types.types import Address, AuthorizationTupleGeneric
+from ethereum_test_types.account_types import Address
+from ethereum_test_types.transaction_types import AuthorizationTupleGeneric
 
 
 class FixtureForkBlobSchedule(CamelModel):

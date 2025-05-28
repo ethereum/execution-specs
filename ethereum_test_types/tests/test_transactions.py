@@ -4,7 +4,9 @@ from typing import Tuple
 
 import pytest
 
-from ..types import AccessList, Hash, Transaction
+from ethereum_test_base_types import AccessList, Hash
+
+from ..transaction_types import Transaction
 
 
 @pytest.mark.parametrize(

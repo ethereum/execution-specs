@@ -6,23 +6,24 @@ import pytest
 
 from ethereum_test_base_types import (
     AccessList,
+    Account,
     Address,
     Bytes,
+    Storage,
     TestPrivateKey,
     ZeroPaddedHexNumber,
     to_json,
 )
 from ethereum_test_base_types.pydantic import CopyValidateModel
 
-from ..types import (
-    EOA,
-    Account,
-    Alloc,
-    AuthorizationTuple,
+from ..account_types import EOA, Alloc
+from ..block_types import (
     Environment,
-    Storage,
-    Transaction,
     Withdrawal,
+)
+from ..transaction_types import (
+    AuthorizationTuple,
+    Transaction,
 )
 
 

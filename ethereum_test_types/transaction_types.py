@@ -1,24 +1,17 @@
-"""Useful types for generating Ethereum tests."""
+"""Transaction-related types for Ethereum tests."""
 
-from abc import abstractmethod
-from collections import defaultdict
 from dataclasses import dataclass
 from functools import cached_property
-from hashlib import sha256
-from typing import Any, ClassVar, Dict, Generic, List, Literal, Sequence, SupportsBytes
+from typing import Any, ClassVar, Dict, Generic, List, Literal, Sequence
 
 import ethereum_rlp as eth_rlp
 from coincurve.keys import PrivateKey, PublicKey
-from ethereum.frontier.fork_types import Account as FrontierAccount
-from ethereum.frontier.fork_types import Address as FrontierAddress
-from ethereum.frontier.state import State, set_account, set_storage, state_root
-from ethereum_types.numeric import U256, Bytes32, Uint
+from ethereum_types.numeric import Uint
 from pydantic import (
     AliasChoices,
     BaseModel,
     ConfigDict,
     Field,
-    PrivateAttr,
     computed_field,
     model_serializer,
     model_validator,
@@ -27,438 +20,33 @@ from trie import HexaryTrie
 
 from ethereum_test_base_types import (
     AccessList,
-    Account,
     Address,
-    Bloom,
-    BLSPublicKey,
-    BLSSignature,
     Bytes,
     CamelModel,
-    EmptyOmmersRoot,
     Hash,
     HexNumber,
-    Number,
     NumberBoundTypeVar,
     RLPSerializable,
     SignableRLPSerializable,
-    Storage,
-    StorageRootType,
     TestAddress,
     TestPrivateKey,
-    ZeroPaddedHexNumber,
-)
-from ethereum_test_base_types import Alloc as BaseAlloc
-from ethereum_test_base_types.conversions import (
-    BytesConvertible,
-    FixedSizeBytesConvertible,
-    NumberConvertible,
 )
 from ethereum_test_exceptions import TransactionException
-from ethereum_test_forks import Fork
-from ethereum_test_vm import EVMCodeType
 
-
-def keccak256(data: bytes) -> Hash:
-    """Calculate keccak256 hash of the given data."""
-    return Bytes(data).keccak256()
-
-
-def int_to_bytes(value: int) -> bytes:
-    """Convert integer to its big-endian representation."""
-    if value == 0:
-        return b""
-
-    return int_to_bytes(value // 256) + bytes([value % 256])
-
-
-# Sentinel classes
-class Removable:
-    """
-    Sentinel class to detect if a parameter should be removed.
-    (`None` normally means "do not modify").
-    """
-
-    def __eq__(self, other: Any) -> bool:
-        """Return True for all Removable."""
-        if not isinstance(other, Removable):
-            return NotImplemented
-        return True
-
-
-class EOA(Address):
-    """
-    An Externally Owned Account (EOA) is an account controlled by a private key.
-
-    The EOA is defined by its address and (optionally) by its corresponding private key.
-    """
-
-    key: Hash | None
-    nonce: Number
-
-    def __new__(
-        cls,
-        address: "FixedSizeBytesConvertible | Address | EOA | None" = None,
-        *,
-        key: FixedSizeBytesConvertible | None = None,
-        nonce: NumberConvertible = 0,
-    ):
-        """Init the EOA."""
-        if address is None:
-            if key is None:
-                raise ValueError("impossible to initialize EOA without address")
-            private_key = PrivateKey(Hash(key))
-            public_key = private_key.public_key
-            address = Address(keccak256(public_key.format(compressed=False)[1:])[32 - 20 :])
-        elif isinstance(address, EOA):
-            return address
-        instance = super(EOA, cls).__new__(cls, address)
-        instance.key = Hash(key) if key is not None else None
-        instance.nonce = Number(nonce)
-        return instance
-
-    def get_nonce(self) -> Number:
-        """Return current nonce of the EOA and increments it by one."""
-        nonce = self.nonce
-        self.nonce = Number(nonce + 1)
-        return nonce
-
-    def copy(self) -> "EOA":
-        """Return copy of the EOA."""
-        return EOA(Address(self), key=self.key, nonce=self.nonce)
-
-
-class Alloc(BaseAlloc):
-    """Allocation of accounts in the state, pre and post test execution."""
-
-    _eoa_fund_amount_default: int = PrivateAttr(10**21)
-
-    @dataclass(kw_only=True)
-    class UnexpectedAccountError(Exception):
-        """Unexpected account found in the allocation."""
-
-        address: Address
-        account: Account | None
-
-        def __init__(self, address: Address, account: Account | None, *args):
-            """Initialize the exception."""
-            super().__init__(args)
-            self.address = address
-            self.account = account
-
-        def __str__(self):
-            """Print exception string."""
-            return f"unexpected account in allocation {self.address}: {self.account}"
-
-    @dataclass(kw_only=True)
-    class MissingAccountError(Exception):
-        """Expected account not found in the allocation."""
-
-        address: Address
-
-        def __init__(self, address: Address, *args):
-            """Initialize the exception."""
-            super().__init__(args)
-            self.address = address
-
-        def __str__(self):
-            """Print exception string."""
-            return f"Account missing from allocation {self.address}"
-
-    @classmethod
-    def merge(cls, alloc_1: "Alloc", alloc_2: "Alloc") -> "Alloc":
-        """Return merged allocation of two sources."""
-        merged = alloc_1.model_dump()
-
-        for address, other_account in alloc_2.root.items():
-            merged_account = Account.merge(merged.get(address, None), other_account)
-            if merged_account:
-                merged[address] = merged_account
-            elif address in merged:
-                merged.pop(address, None)
-
-        return Alloc(merged)
-
-    def __iter__(self):
-        """Return iterator over the allocation."""
-        return iter(self.root)
-
-    def items(self):
-        """Return iterator over the allocation items."""
-        return self.root.items()
-
-    def __getitem__(self, address: Address | FixedSizeBytesConvertible) -> Account | None:
-        """Return account associated with an address."""
-        if not isinstance(address, Address):
-            address = Address(address)
-        return self.root[address]
-
-    def __setitem__(self, address: Address | FixedSizeBytesConvertible, account: Account | None):
-        """Set account associated with an address."""
-        if not isinstance(address, Address):
-            address = Address(address)
-        self.root[address] = account
-
-    def __delitem__(self, address: Address | FixedSizeBytesConvertible):
-        """Delete account associated with an address."""
-        if not isinstance(address, Address):
-            address = Address(address)
-        self.root.pop(address, None)
-
-    def __eq__(self, other) -> bool:
-        """Return True if both allocations are equal."""
-        if not isinstance(other, Alloc):
-            return False
-        return self.root == other.root
-
-    def __contains__(self, address: Address | FixedSizeBytesConvertible) -> bool:
-        """Check if an account is in the allocation."""
-        if not isinstance(address, Address):
-            address = Address(address)
-        return address in self.root
-
-    def empty_accounts(self) -> List[Address]:
-        """Return list of addresses of empty accounts."""
-        return [address for address, account in self.root.items() if not account]
-
-    def state_root(self) -> bytes:
-        """Return state root of the allocation."""
-        state = State()
-        for address, account in self.root.items():
-            if account is None:
-                continue
-            set_account(
-                state=state,
-                address=FrontierAddress(address),
-                account=FrontierAccount(
-                    nonce=Uint(account.nonce) if account.nonce is not None else Uint(0),
-                    balance=(U256(account.balance) if account.balance is not None else U256(0)),
-                    code=account.code if account.code is not None else b"",
-                ),
-            )
-            if account.storage is not None:
-                for key, value in account.storage.root.items():
-                    set_storage(
-                        state=state,
-                        address=FrontierAddress(address),
-                        key=Bytes32(Hash(key)),
-                        value=U256(value),
-                    )
-        return state_root(state)
-
-    def verify_post_alloc(self, got_alloc: "Alloc"):
-        """
-        Verify that the allocation matches the expected post in the test.
-        Raises exception on unexpected values.
-        """
-        assert isinstance(got_alloc, Alloc), f"got_alloc is not an Alloc: {got_alloc}"
-        for address, account in self.root.items():
-            if account is None:
-                # Account must not exist
-                if address in got_alloc.root and got_alloc.root[address] is not None:
-                    raise Alloc.UnexpectedAccountError(address, got_alloc.root[address])
-            else:
-                if address in got_alloc.root:
-                    got_account = got_alloc.root[address]
-                    assert isinstance(got_account, Account)
-                    assert isinstance(account, Account)
-                    account.check_alloc(address, got_account)
-                else:
-                    raise Alloc.MissingAccountError(address)
-
-    def deploy_contract(
-        self,
-        code: BytesConvertible,
-        *,
-        storage: Storage | StorageRootType | None = None,
-        balance: NumberConvertible = 0,
-        nonce: NumberConvertible = 1,
-        address: Address | None = None,
-        evm_code_type: EVMCodeType | None = None,
-        label: str | None = None,
-    ) -> Address:
-        """Deploy a contract to the allocation."""
-        raise NotImplementedError("deploy_contract is not implemented in the base class")
-
-    def fund_eoa(
-        self,
-        amount: NumberConvertible | None = None,
-        label: str | None = None,
-        storage: Storage | None = None,
-        delegation: Address | Literal["Self"] | None = None,
-        nonce: NumberConvertible | None = None,
-    ) -> EOA:
-        """Add a previously unused EOA to the pre-alloc with the balance specified by `amount`."""
-        raise NotImplementedError("fund_eoa is not implemented in the base class")
-
-    def fund_address(self, address: Address, amount: NumberConvertible):
-        """
-        Fund an address with a given amount.
-
-        If the address is already present in the pre-alloc the amount will be
-        added to its existing balance.
-        """
-        raise NotImplementedError("fund_address is not implemented in the base class")
-
-    def empty_account(self) -> Address:
-        """
-        Return a previously unused account guaranteed to be empty.
-
-        This ensures the account has zero balance, zero nonce, no code, and no storage.
-        The account is not a precompile or a system contract.
-        """
-        raise NotImplementedError("empty_account is not implemented in the base class")
-
-
-class WithdrawalGeneric(CamelModel, Generic[NumberBoundTypeVar]):
-    """Withdrawal generic type, used as a parent class for `Withdrawal` and `FixtureWithdrawal`."""
-
-    index: NumberBoundTypeVar
-    validator_index: NumberBoundTypeVar
-    address: Address
-    amount: NumberBoundTypeVar
-
-    def to_serializable_list(self) -> List[Any]:
-        """
-        Return list of the withdrawal's attributes in the order they should
-        be serialized.
-        """
-        return [
-            Uint(self.index),
-            Uint(self.validator_index),
-            self.address,
-            Uint(self.amount),
-        ]
-
-    @staticmethod
-    def list_root(withdrawals: Sequence["WithdrawalGeneric"]) -> bytes:
-        """Return withdrawals root of a list of withdrawals."""
-        t = HexaryTrie(db={})
-        for i, w in enumerate(withdrawals):
-            t.set(eth_rlp.encode(Uint(i)), eth_rlp.encode(w.to_serializable_list()))
-        return t.root_hash
-
-
-class Withdrawal(WithdrawalGeneric[HexNumber]):
-    """Withdrawal type."""
-
-    pass
-
-
-DEFAULT_BASE_FEE = 7
-CURRENT_MAINNET_BLOCK_GAS_LIMIT = 36_000_000
-DEFAULT_BLOCK_GAS_LIMIT = CURRENT_MAINNET_BLOCK_GAS_LIMIT * 2
+from .account_types import EOA
+from .blob_types import Blob
+from .receipt_types import TransactionReceipt
+from .utils import int_to_bytes, keccak256
 
 
 @dataclass
-class EnvironmentDefaults:
-    """Default environment values."""
+class TransactionDefaults:
+    """Default values for transactions."""
 
-    # By default, the constant `DEFAULT_BLOCK_GAS_LIMIT` is used.
-    # Other libraries (pytest plugins) may override this value by modifying the
-    # `EnvironmentDefaults.gas_limit` class attribute.
-    gas_limit: int = DEFAULT_BLOCK_GAS_LIMIT
-
-
-class EnvironmentGeneric(CamelModel, Generic[NumberBoundTypeVar]):
-    """Used as a parent class for `Environment` and `FixtureEnvironment`."""
-
-    fee_recipient: Address = Field(
-        Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba"),
-        alias="currentCoinbase",
-    )
-    gas_limit: NumberBoundTypeVar = Field(
-        default_factory=lambda: EnvironmentDefaults.gas_limit, alias="currentGasLimit"
-    )  # type: ignore
-    number: NumberBoundTypeVar = Field(1, alias="currentNumber")  # type: ignore
-    timestamp: NumberBoundTypeVar = Field(1_000, alias="currentTimestamp")  # type: ignore
-    prev_randao: NumberBoundTypeVar | None = Field(None, alias="currentRandom")
-    difficulty: NumberBoundTypeVar | None = Field(None, alias="currentDifficulty")
-    base_fee_per_gas: NumberBoundTypeVar | None = Field(None, alias="currentBaseFee")
-    excess_blob_gas: NumberBoundTypeVar | None = Field(None, alias="currentExcessBlobGas")
-
-    parent_difficulty: NumberBoundTypeVar | None = Field(None)
-    parent_timestamp: NumberBoundTypeVar | None = Field(None)
-    parent_base_fee_per_gas: NumberBoundTypeVar | None = Field(None, alias="parentBaseFee")
-    parent_gas_used: NumberBoundTypeVar | None = Field(None)
-    parent_gas_limit: NumberBoundTypeVar | None = Field(None)
-
-
-class Environment(EnvironmentGeneric[ZeroPaddedHexNumber]):
-    """
-    Structure used to keep track of the context in which a block
-    must be executed.
-    """
-
-    blob_gas_used: ZeroPaddedHexNumber | None = Field(None, alias="currentBlobGasUsed")
-    parent_ommers_hash: Hash = Field(Hash(EmptyOmmersRoot), alias="parentUncleHash")
-    parent_blob_gas_used: ZeroPaddedHexNumber | None = Field(None)
-    parent_excess_blob_gas: ZeroPaddedHexNumber | None = Field(None)
-    parent_beacon_block_root: Hash | None = Field(None)
-
-    block_hashes: Dict[Number, Hash] = Field(default_factory=dict)
-    ommers: List[Hash] = Field(default_factory=list)
-    withdrawals: List[Withdrawal] | None = Field(None)
-    extra_data: Bytes = Field(Bytes(b"\x00"), exclude=True)
-
-    @computed_field  # type: ignore[misc]
-    @cached_property
-    def parent_hash(self) -> Hash | None:
-        """
-        Obtains the latest hash according to the highest block number in
-        `block_hashes`.
-        """
-        if len(self.block_hashes) == 0:
-            return None
-
-        last_index = max(self.block_hashes.keys())
-        return Hash(self.block_hashes[last_index])
-
-    def set_fork_requirements(self, fork: Fork) -> "Environment":
-        """Fill required fields in an environment depending on the fork."""
-        number = self.number
-        timestamp = self.timestamp
-
-        updated_values: Dict[str, Any] = {}
-
-        if fork.header_prev_randao_required(number, timestamp) and self.prev_randao is None:
-            updated_values["prev_randao"] = 0
-
-        if fork.header_withdrawals_required(number, timestamp) and self.withdrawals is None:
-            updated_values["withdrawals"] = []
-
-        if (
-            fork.header_base_fee_required(number, timestamp)
-            and self.base_fee_per_gas is None
-            and self.parent_base_fee_per_gas is None
-        ):
-            updated_values["base_fee_per_gas"] = DEFAULT_BASE_FEE
-
-        if fork.header_zero_difficulty_required(number, timestamp):
-            updated_values["difficulty"] = 0
-        elif self.difficulty is None and self.parent_difficulty is None:
-            updated_values["difficulty"] = 0x20000
-
-        if (
-            fork.header_excess_blob_gas_required(number, timestamp)
-            and self.excess_blob_gas is None
-            and self.parent_excess_blob_gas is None
-        ):
-            updated_values["excess_blob_gas"] = 0
-
-        if (
-            fork.header_blob_gas_used_required(number, timestamp)
-            and self.blob_gas_used is None
-            and self.parent_blob_gas_used is None
-        ):
-            updated_values["blob_gas_used"] = 0
-
-        if (
-            fork.header_beacon_root_required(number, timestamp)
-            and self.parent_beacon_block_root is None
-        ):
-            updated_values["parent_beacon_block_root"] = 0
-
-        return self.copy(**updated_values)
+    chain_id: int = 1
+    gas_price = 10
+    max_fee_per_gas = 7
+    max_priority_fee_per_gas: int = 0
 
 
 class AuthorizationTupleGeneric(CamelModel, Generic[NumberBoundTypeVar], SignableRLPSerializable):
@@ -556,57 +144,6 @@ class AuthorizationTuple(AuthorizationTupleGeneric[HexNumber]):
             except Exception:
                 # Signer remains `None` in this case
                 pass
-
-
-class TransactionLog(CamelModel):
-    """Transaction log."""
-
-    address: Address
-    topics: List[Hash]
-    data: Bytes
-    block_number: HexNumber
-    transaction_hash: Hash
-    transaction_index: HexNumber
-    block_hash: Hash
-    log_index: HexNumber
-    removed: bool
-
-
-class ReceiptDelegation(CamelModel):
-    """Transaction receipt set-code delegation."""
-
-    from_address: Address = Field(..., alias="from")
-    nonce: HexNumber
-    target: Address
-
-
-class TransactionReceipt(CamelModel):
-    """Transaction receipt."""
-
-    transaction_hash: Hash | None = None
-    gas_used: HexNumber | None = None
-    root: Bytes | None = None
-    status: HexNumber | None = None
-    cumulative_gas_used: HexNumber | None = None
-    logs_bloom: Bloom | None = None
-    logs: List[TransactionLog] | None = None
-    contract_address: Address | None = None
-    effective_gas_price: HexNumber | None = None
-    block_hash: Hash | None = None
-    transaction_index: HexNumber | None = None
-    blob_gas_used: HexNumber | None = None
-    blob_gas_price: HexNumber | None = None
-    delegations: List[ReceiptDelegation] | None = None
-
-
-@dataclass
-class TransactionDefaults:
-    """Default values for transactions."""
-
-    chain_id: int = 1
-    gas_price = 10
-    max_fee_per_gas = 7
-    max_priority_fee_per_gas: int = 0
 
 
 class TransactionGeneric(BaseModel, Generic[NumberBoundTypeVar]):
@@ -1100,19 +637,6 @@ class Transaction(
         return Address(hash_bytes[-20:])
 
 
-class Blob(CamelModel):
-    """Class representing a full blob."""
-
-    data: Bytes
-    kzg_commitment: Bytes
-    kzg_proof: Bytes | None = None
-    kzg_cell_proofs: List[Bytes] | None = None
-
-    def versioned_hash(self, version: int = 1) -> Hash:
-        """Calculate versioned hash for a given blob."""
-        return Hash(bytes([version]) + sha256(self.kzg_commitment).digest()[1:])
-
-
 class NetworkWrappedTransaction(CamelModel, RLPSerializable):
     """
     Network wrapped transaction as defined in
@@ -1170,142 +694,3 @@ class NetworkWrappedTransaction(CamelModel, RLPSerializable):
         if self.tx.ty > 0:
             return bytes([self.tx.ty])
         return b""
-
-
-class RequestBase:
-    """Base class for requests."""
-
-    type: ClassVar[int]
-
-    @abstractmethod
-    def __bytes__(self) -> bytes:
-        """Return request's attributes as bytes."""
-        ...
-
-
-class DepositRequest(RequestBase, CamelModel):
-    """Deposit Request type."""
-
-    pubkey: BLSPublicKey
-    """
-    The public key of the beacon chain validator.
-    """
-    withdrawal_credentials: Hash
-    """
-    The withdrawal credentials of the beacon chain validator.
-    """
-    amount: HexNumber
-    """
-    The amount in gwei of the deposit.
-    """
-    signature: BLSSignature
-    """
-    The signature of the deposit using the validator's private key that matches the
-    `pubkey`.
-    """
-    index: HexNumber
-    """
-    The index of the deposit.
-    """
-
-    type: ClassVar[int] = 0
-
-    def __bytes__(self) -> bytes:
-        """Return deposit's attributes as bytes."""
-        return (
-            bytes(self.pubkey)
-            + bytes(self.withdrawal_credentials)
-            + self.amount.to_bytes(8, "little")
-            + bytes(self.signature)
-            + self.index.to_bytes(8, "little")
-        )
-
-
-class WithdrawalRequest(RequestBase, CamelModel):
-    """Withdrawal Request type."""
-
-    source_address: Address = Address(0)
-    """
-    The address of the execution layer account that made the withdrawal request.
-    """
-    validator_pubkey: BLSPublicKey
-    """
-    The current public key of the validator as it currently is in the beacon state.
-    """
-    amount: HexNumber
-    """
-    The amount in gwei to be withdrawn on the beacon chain.
-    """
-
-    type: ClassVar[int] = 1
-
-    def __bytes__(self) -> bytes:
-        """Return withdrawal's attributes as bytes."""
-        return (
-            bytes(self.source_address)
-            + bytes(self.validator_pubkey)
-            + self.amount.to_bytes(8, "little")
-        )
-
-
-class ConsolidationRequest(RequestBase, CamelModel):
-    """Consolidation Request type."""
-
-    source_address: Address = Address(0)
-    """
-    The address of the execution layer account that made the consolidation request.
-    """
-    source_pubkey: BLSPublicKey
-    """
-    The public key of the source validator as it currently is in the beacon state.
-    """
-    target_pubkey: BLSPublicKey
-    """
-    The public key of the target validator as it currently is in the beacon state.
-    """
-
-    type: ClassVar[int] = 2
-
-    def __bytes__(self) -> bytes:
-        """Return consolidation's attributes as bytes."""
-        return bytes(self.source_address) + bytes(self.source_pubkey) + bytes(self.target_pubkey)
-
-
-def requests_list_to_bytes(requests_list: List[RequestBase] | Bytes | SupportsBytes) -> Bytes:
-    """Convert list of requests to bytes."""
-    if not isinstance(requests_list, list):
-        return Bytes(requests_list)
-    return Bytes(b"".join([bytes(r) for r in requests_list]))
-
-
-class Requests:
-    """Requests for the transition tool."""
-
-    requests_list: List[Bytes]
-
-    def __init__(
-        self,
-        *requests: RequestBase,
-        requests_lists: List[List[RequestBase] | Bytes] | None = None,
-    ):
-        """Initialize requests object."""
-        if requests_lists is not None:
-            assert len(requests) == 0, "requests must be empty if list is provided"
-            self.requests_list = []
-            for requests_list in requests_lists:
-                self.requests_list.append(requests_list_to_bytes(requests_list))
-            return
-        else:
-            lists: Dict[int, List[RequestBase]] = defaultdict(list)
-            for r in requests:
-                lists[r.type].append(r)
-
-            self.requests_list = [
-                Bytes(bytes([request_type]) + requests_list_to_bytes(lists[request_type]))
-                for request_type in sorted(lists.keys())
-            ]
-
-    def __bytes__(self) -> bytes:
-        """Return requests hash."""
-        s: bytes = b"".join(r.sha256() for r in self.requests_list)
-        return Bytes(s).sha256()

@@ -6,10 +6,17 @@ from typing import Any, Callable, ClassVar, Dict, List, Tuple
 import pytest
 from _pytest.mark.structures import ParameterSet
 
-from ethereum_test_base_types import Address, Hash, HexNumber, Storage, ZeroPaddedHexNumber
+from ethereum_test_base_types import (
+    Account,
+    Address,
+    Hash,
+    HexNumber,
+    Storage,
+    ZeroPaddedHexNumber,
+)
 from ethereum_test_exceptions import TransactionExceptionInstanceOrList
 from ethereum_test_forks import Fork
-from ethereum_test_types import Account, Alloc, Environment, Transaction
+from ethereum_test_types import Alloc, Environment, Transaction
 
 from ..base_static import BaseStaticTest
 from ..state import StateTestFiller

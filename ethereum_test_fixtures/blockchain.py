@@ -33,13 +33,12 @@ from ethereum_test_base_types import (
 )
 from ethereum_test_exceptions import EngineAPIError, ExceptionInstanceOrList
 from ethereum_test_forks import Fork, Paris
-from ethereum_test_types.types import (
+from ethereum_test_types import (
     Transaction,
-    TransactionFixtureConverter,
-    TransactionGeneric,
     Withdrawal,
-    WithdrawalGeneric,
 )
+from ethereum_test_types.block_types import WithdrawalGeneric
+from ethereum_test_types.transaction_types import TransactionFixtureConverter, TransactionGeneric
 
 from .base import BaseFixture
 from .common import FixtureAuthorizationTuple, FixtureBlobSchedule

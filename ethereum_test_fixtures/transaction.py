@@ -4,9 +4,8 @@ from typing import ClassVar, Mapping
 
 from pydantic import Field
 
-from ethereum_test_base_types import Address, Bytes, Hash, ZeroPaddedHexNumber
+from ethereum_test_base_types import Address, Bytes, CamelModel, Hash, ZeroPaddedHexNumber
 from ethereum_test_exceptions import TransactionExceptionInstanceOrList
-from ethereum_test_types.types import CamelModel
 
 from .base import BaseFixture
 

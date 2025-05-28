@@ -32,8 +32,8 @@ from ethereum_test_specs.debugging import print_traces
 from ethereum_test_specs.eof import EOFParse
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_types import Transaction
+from ethereum_test_types.block_types import Environment
 from ethereum_test_types.eof.v1 import Container
-from ethereum_test_types.types import Environment
 from ethereum_test_vm.bytecode import Bytecode
 
 
