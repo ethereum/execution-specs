@@ -1004,6 +1004,49 @@ def test_worst_mod(
 
 
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize("opcode", [Op.MLOAD, Op.MSTORE, Op.MSTORE8])
+@pytest.mark.parametrize("offset", [0, 1, 31])
+@pytest.mark.parametrize("offset_initialized", [True, False])
+@pytest.mark.parametrize("big_memory_expansion", [True, False])
+def test_worst_memory_access(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    opcode: Op,
+    offset: int,
+    offset_initialized: bool,
+    big_memory_expansion: bool,
+):
+    """Test running a block with as many memory access instructions as possible."""
+    env = Environment()
+
+    mem_exp_code = Op.MSTORE8(10 * 1024, 1) if big_memory_expansion else Bytecode()
+    offset_set_code = Op.MSTORE(offset, 43) if offset_initialized else Bytecode()
+    code_prefix = mem_exp_code + offset_set_code + Op.PUSH1(42) + Op.PUSH1(offset) + Op.JUMPDEST
+
+    code_suffix = Op.JUMP(len(code_prefix) - 1)
+
+    loop_iter = Op.POP(Op.MLOAD(Op.DUP1)) if opcode == Op.MLOAD else opcode(Op.DUP2, Op.DUP2)
+
+    code_body_len = (MAX_CODE_SIZE - len(code_prefix) - len(code_suffix)) // len(loop_iter)
+    code_body = loop_iter * code_body_len
+    code = code_prefix + code_body + code_suffix
+    assert len(code) <= MAX_CODE_SIZE
+
+    tx = Transaction(
+        to=pre.deploy_contract(code=code),
+        gas_limit=env.gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post={},
+        tx=tx,
+    )
+
+
+@pytest.mark.valid_from("Cancun")
 def test_empty_block(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
