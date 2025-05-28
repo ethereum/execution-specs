@@ -1,12 +1,11 @@
 """CLI entry point for the `execute` pytest-based command."""
 
-import sys
-from typing import Tuple
+from typing import List
 
 import click
-import pytest
 
-from .common import common_click_options, handle_help_flags
+from .base import PytestCommand, common_pytest_options
+from .processors import HelpFlagsProcessor
 
 
 @click.group(
@@ -19,61 +18,47 @@ def execute() -> None:
     pass
 
 
-@execute.command(
-    context_settings={
-        "ignore_unknown_options": True,
-    }
+def _create_execute_subcommand(
+    command_name: str,
+    config_file: str,
+    help_text: str,
+) -> click.Command:
+    """Create an execute subcommand with standardized structure."""
+
+    @execute.command(
+        name=command_name,
+        context_settings={"ignore_unknown_options": True},
+    )
+    @common_pytest_options
+    def command(pytest_args: List[str], **kwargs) -> None:
+        pytest_command = PytestCommand(
+            config_file=config_file,
+            argument_processors=[HelpFlagsProcessor(f"execute-{command_name}")],
+        )
+        pytest_command.execute(list(pytest_args))
+
+    command.__doc__ = help_text
+    return command
+
+
+# Create the subcommands
+hive = _create_execute_subcommand(
+    "hive",
+    "pytest-execute-hive.ini",
+    (
+        "Execute tests using hive in dev-mode as backend, requires hive to be running "
+        "(using command: `./hive --dev`)."
+    ),
 )
-@common_click_options
-def hive(
-    pytest_args: Tuple[str, ...],
-    **kwargs,
-) -> None:
-    """
-    Execute tests using hive in dev-mode as backend, requires hive to be running
-    (using command: `./hive --dev`).
-    """
-    pytest_type = "execute-hive"
-    args = handle_help_flags(list(pytest_args), pytest_type=pytest_type)
-    ini_file = "pytest-execute-hive.ini"
-    args = ["-c", ini_file] + args
-    result = pytest.main(args)
-    sys.exit(result)
 
-
-@execute.command(
-    context_settings={
-        "ignore_unknown_options": True,
-    }
+remote = _create_execute_subcommand(
+    "remote",
+    "pytest-execute.ini",
+    "Execute tests using a remote RPC endpoint.",
 )
-@common_click_options
-def remote(
-    pytest_args: Tuple[str, ...],
-    **kwargs,
-) -> None:
-    """Execute tests using a remote RPC endpoint."""
-    pytest_type = "execute"
-    args = handle_help_flags(list(pytest_args), pytest_type=pytest_type)
-    ini_file = "pytest-execute.ini"
-    args = ["-c", ini_file] + args
-    result = pytest.main(args)
-    sys.exit(result)
 
-
-@execute.command(
-    context_settings={
-        "ignore_unknown_options": True,
-    }
+recover = _create_execute_subcommand(
+    "recover",
+    "pytest-execute-recover.ini",
+    "Recover funds from a failed test execution using a remote RPC endpoint.",
 )
-@common_click_options
-def recover(
-    pytest_args: Tuple[str, ...],
-    **kwargs,
-) -> None:
-    """Recover funds from a failed test execution using a remote RPC endpoint."""
-    pytest_type = "execute-recover"
-    args = handle_help_flags(list(pytest_args), pytest_type=pytest_type)
-    ini_file = "pytest-execute-recover.ini"
-    args = ["-c", ini_file] + args
-    result = pytest.main(args)
-    sys.exit(result)

@@ -33,7 +33,11 @@ from ethereum_test_tools.utility.versioning import (
 )
 from ethereum_test_types import EnvironmentDefaults
 
-from ..shared.helpers import get_spec_format_for_item, labeled_format_parameter_set
+from ..shared.helpers import (
+    get_spec_format_for_item,
+    is_help_or_collectonly_mode,
+    labeled_format_parameter_set,
+)
 from ..spec_version_checker.spec_version_checker import get_ref_spec_from_module
 from .fixture_output import FixtureOutput
 
@@ -201,17 +205,6 @@ def pytest_addoption(parser: pytest.Parser):
         dest="skip_dump_dir",
         default=False,
         help=("Skip dumping the the transition tool debug output."),
-    )
-
-
-def is_help_or_collectonly_mode(config: pytest.Config) -> bool:
-    """Check if pytest is running in a help or collectonly mode."""
-    return (
-        config.getoption("markers")
-        or config.getoption("collectonly")
-        or config.getoption("markers")
-        or config.getoption("show_ported_from")
-        or config.getoption("links_as_filled")
     )
 
 

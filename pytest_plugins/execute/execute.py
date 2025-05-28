@@ -14,7 +14,11 @@ from ethereum_test_tools import BaseTest
 from ethereum_test_types import EnvironmentDefaults, TransactionDefaults
 from pytest_plugins.spec_version_checker.spec_version_checker import EIPSpecTestItem
 
-from ..shared.helpers import get_spec_format_for_item, labeled_format_parameter_set
+from ..shared.helpers import (
+    get_spec_format_for_item,
+    is_help_or_collectonly_mode,
+    labeled_format_parameter_set,
+)
 from .pre_alloc import Alloc
 
 
@@ -101,9 +105,10 @@ def pytest_configure(config):
     # Modify the block gas limit if specified.
     if config.getoption("transaction_gas_limit"):
         EnvironmentDefaults.gas_limit = config.getoption("transaction_gas_limit")
-    config.engine_rpc_supported = False
-    if config.option.collectonly:
+    if is_help_or_collectonly_mode(config):
         return
+
+    config.engine_rpc_supported = False
     if config.getoption("disable_html") and config.getoption("htmlpath") is None:
         # generate an html report by default, unless explicitly disabled
         config.option.htmlpath = Path(default_html_report_file_path())

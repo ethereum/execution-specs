@@ -1,45 +1,52 @@
 """CLI entry point for the `consume` pytest-based command."""
 
-import os
-import sys
-import warnings
+import functools
 from pathlib import Path
 from typing import Any, Callable, List
 
 import click
-import pytest
 
-from .common import common_click_options, handle_help_flags
-
-
-def handle_hive_env_flags(args: List[str]) -> List[str]:
-    """Convert hive environment variables into pytest flags."""
-    # handle hive --sim.limit arg
-    hive_test_pattern = os.getenv("HIVE_TEST_PATTERN")
-    if hive_test_pattern and ("--regex" not in args and "--sim.limit" not in args):
-        args += ["--sim.limit", hive_test_pattern]
-    hive_parallelism = os.getenv("HIVE_PARALLELISM")
-    # handle hive --sim.parallelism arg
-    if hive_parallelism not in [None, "", "1"] and "-n" not in args:
-        args += ["-n", str(hive_parallelism)]
-    if os.getenv("HIVE_RANDOM_SEED") is not None:
-        warnings.warn("HIVE_RANDOM_SEED is not yet supported.", stacklevel=2)
-    if os.getenv("HIVE_LOGLEVEL") is not None:
-        warnings.warn("HIVE_LOG_LEVEL is not yet supported.", stacklevel=2)
-    return args
+from .base import ArgumentProcessor, PytestCommand, PytestExecution, common_pytest_options
+from .processors import ConsumeCommandProcessor, HelpFlagsProcessor, HiveEnvironmentProcessor
 
 
-def handle_consume_command_flags(consume_args: List[str], is_hive: bool) -> List[str]:
-    """Handle all consume CLI flag pre-processing."""
-    args = list(handle_help_flags(consume_args, pytest_type="consume"))
-    args += ["-c", "pytest-consume.ini"]
-    if is_hive:
-        args = handle_hive_env_flags(args)
-        args += ["-p", "pytest_plugins.pytest_hive.pytest_hive"]
-        # Ensure stdout is captured when timing data is enabled.
-        if "--timing-data" in args and "-s" not in args:
-            args.append("-s")
-    return args
+class ConsumeCommand(PytestCommand):
+    """Pytest command for consume operations."""
+
+    def __init__(self, command_paths: List[Path], is_hive: bool = False):
+        """Initialize consume command with paths and processors."""
+        processors: List[ArgumentProcessor] = [HelpFlagsProcessor("consume")]
+
+        if is_hive:
+            processors.extend(
+                [
+                    HiveEnvironmentProcessor(),
+                    ConsumeCommandProcessor(is_hive=True),
+                ]
+            )
+        else:
+            processors.append(ConsumeCommandProcessor(is_hive=False))
+
+        super().__init__(
+            config_file="pytest-consume.ini",
+            argument_processors=processors,
+        )
+        self.command_paths = command_paths
+
+    def create_executions(self, pytest_args: List[str]) -> List[PytestExecution]:
+        """Create execution with test paths prepended."""
+        processed_args = self.process_arguments(pytest_args)
+
+        # Prepend test paths to arguments
+        test_path_args = [str(p) for p in self.command_paths]
+        final_args = test_path_args + processed_args
+
+        return [
+            PytestExecution(
+                config_file=self.config_file,
+                args=final_args,
+            )
+        ]
 
 
 def get_command_paths(command_name: str, is_hive: bool) -> List[Path]:
@@ -66,35 +73,23 @@ def consume() -> None:
 def consume_command(is_hive: bool = False) -> Callable[[Callable[..., Any]], click.Command]:
     """Generate a consume sub-command."""
 
-    def create_command(
-        func: Callable[..., Any],
-        command_name: str,
-        command_help: str | None,
-        command_paths: List[Path],
-        is_hive: bool,
-    ) -> click.Command:
-        """Create the command function to be decorated."""
-
-        @consume.command(
-            name=command_name,
-            help=command_help,
-            context_settings={
-                "ignore_unknown_options": True,
-            },
-        )
-        @common_click_options
-        def command(pytest_args: List[str], **kwargs) -> None:
-            args = [str(p) for p in command_paths]
-            args += handle_consume_command_flags(pytest_args, is_hive)
-            sys.exit(pytest.main(args))
-
-        return command
-
     def decorator(func: Callable[..., Any]) -> click.Command:
         command_name = func.__name__
         command_help = func.__doc__
         command_paths = get_command_paths(command_name, is_hive)
-        return create_command(func, command_name, command_help, command_paths, is_hive)
+
+        @consume.command(
+            name=command_name,
+            help=command_help,
+            context_settings={"ignore_unknown_options": True},
+        )
+        @common_pytest_options
+        @functools.wraps(func)
+        def command(pytest_args: List[str], **kwargs) -> None:
+            consume_cmd = ConsumeCommand(command_paths, is_hive)
+            consume_cmd.execute(list(pytest_args))
+
+        return command
 
     return decorator
 
@@ -126,8 +121,8 @@ def hive() -> None:
 @consume.command(
     context_settings={"ignore_unknown_options": True},
 )
-@common_click_options
+@common_pytest_options
 def cache(pytest_args: List[str], **kwargs) -> None:
     """Consume command to cache test fixtures."""
-    args = handle_consume_command_flags(pytest_args, is_hive=False)
-    sys.exit(pytest.main(args))
+    cache_cmd = ConsumeCommand([], is_hive=False)
+    cache_cmd.execute(list(pytest_args))
