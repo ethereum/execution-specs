@@ -15,7 +15,7 @@ from ethereum_types.numeric import U256
 
 from ethereum.crypto.elliptic_curve import secp256r1_verify
 from ethereum.crypto.hash import Hash32
-from ethereum.exceptions import InvalidSignatureError
+from cryptography.exceptions import InvalidSignature
 from ethereum.utils.byte import left_pad_zero_bytes
 
 from ...vm import Evm
@@ -48,11 +48,11 @@ def p256verify(evm: Evm) -> None:
     if x == U256(0) or y == U256(0):
         return
     
-    success_return_value = left_pad_zero_bytes(bytes("1"), 32)
+    success_return_value = left_pad_zero_bytes(b"\x01", 32)
     
     try:
         secp256r1_verify(r, s, x, y, message_hash)
-    except InvalidSignatureError:
+    except InvalidSignature:
         return
 
     evm.output = success_return_value

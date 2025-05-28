@@ -9,6 +9,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import Prehashed
+from cryptography.exceptions import InvalidSignature
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256
 
@@ -101,13 +102,19 @@ def secp256r1_verify(r: U256, s: U256, x: U256, y: U256, msg_hash: Hash32) -> No
         return 1 if the signature is valid, empty bytes otherwise
     """
 
-    sig = DerSequence([r, s]).encode()
+    # Convert U256 to regular integers for DerSequence
+    r_int = int(r)
+    s_int = int(s)
+    x_int = int(x)
+    y_int = int(y)
+    
+    sig = DerSequence([r_int, s_int]).encode()
     
     try:
-        pubnum = ec.EllipticCurvePublicNumbers(x, y, ec.SECP256R1())
+        pubnum = ec.EllipticCurvePublicNumbers(x_int, y_int, ec.SECP256R1())
         pubkey = pubnum.public_key(default_backend())
         pubkey.verify(sig, msg_hash, ec.ECDSA(Prehashed(hashes.SHA256())))
-    except ValueError as e:
-        raise InvalidSignatureError from e
+    except InvalidSignature as e:
+        raise InvalidSignature from e
 
     return
