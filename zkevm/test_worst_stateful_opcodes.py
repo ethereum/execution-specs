@@ -16,6 +16,7 @@ from ethereum_test_tools import (
     BlockchainTestFiller,
     Bytecode,
     Environment,
+    StateTestFiller,
     Transaction,
     While,
     compute_create_address,
@@ -134,9 +135,8 @@ def test_worst_address_state_cold(
 )
 @pytest.mark.slow()
 def test_worst_address_state_warm(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
     opcode: Op,
     absent_target: bool,
 ):
@@ -165,17 +165,17 @@ def test_worst_address_state_warm(
         # Must never happen, but keep it as a sanity check.
         raise ValueError(f"Code size {len(op_code)} exceeds maximum code size {MAX_CODE_SIZE}")
     op_address = pre.deploy_contract(code=op_code)
-    op_tx = Transaction(
+    tx = Transaction(
         to=op_address,
         gas_limit=attack_gas_limit,
         sender=pre.fund_eoa(),
     )
 
-    blockchain_test(
+    state_test(
         genesis_environment=env,
         pre=pre,
         post=post,
-        blocks=[Block(txs=[op_tx])],
+        tx=tx,
     )
 
 
@@ -313,7 +313,6 @@ def test_worst_storage_access_cold(
 def test_worst_storage_access_warm(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
     storage_action: StorageAction,
 ):
     """Test running a block with as many warm storage slot accesses as possible."""
@@ -380,7 +379,6 @@ def test_worst_storage_access_warm(
 def test_worst_blockhash(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
 ):
     """Test running a block with as many blockhash accessing oldest allowed block as possible."""
     env = Environment()
@@ -411,9 +409,8 @@ def test_worst_blockhash(
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.slow()
 def test_worst_selfbalance(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ):
     """Test running a block with as many SELFBALANCE opcodes as possible."""
     env = Environment()
@@ -422,17 +419,17 @@ def test_worst_selfbalance(
         body=Op.POP(Op.SELFBALANCE),
     )
     execution_code_address = pre.deploy_contract(code=execution_code)
-    op_tx = Transaction(
+    tx = Transaction(
         to=execution_code_address,
         gas_limit=env.gas_limit,
         sender=pre.fund_eoa(),
     )
 
-    blockchain_test(
+    state_test(
         genesis_environment=env,
         pre=pre,
         post={},
-        blocks=[Block(txs=[op_tx])],
+        tx=tx,
     )
 
 
@@ -447,9 +444,8 @@ def test_worst_selfbalance(
 )
 @pytest.mark.slow()
 def test_worst_extcodecopy_warm(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
     copied_size: int,
 ):
     """Test running a block with as many wamr EXTCODECOPY work as possible."""
@@ -467,15 +463,15 @@ def test_worst_extcodecopy_warm(
         )
     )
     execution_code_address = pre.deploy_contract(code=execution_code)
-    op_tx = Transaction(
+    tx = Transaction(
         to=execution_code_address,
         gas_limit=env.gas_limit,
         sender=pre.fund_eoa(),
     )
 
-    blockchain_test(
+    state_test(
         genesis_environment=env,
         pre=pre,
         post={},
-        blocks=[Block(txs=[op_tx])],
+        tx=tx,
     )

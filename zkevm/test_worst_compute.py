@@ -57,7 +57,7 @@ def make_dup(index: int) -> Opcode:
 
 @pytest.mark.valid_from("Cancun")
 def test_worst_keccak(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ):
@@ -122,11 +122,11 @@ def test_worst_keccak(
         sender=pre.fund_eoa(),
     )
 
-    blockchain_test(
+    state_test(
         env=env,
         pre=pre,
         post={},
-        blocks=[Block(txs=[tx])],
+        tx=tx,
     )
 
 
@@ -141,7 +141,7 @@ def test_worst_keccak(
 )
 @pytest.mark.slow()
 def test_worst_precompile_only_data_input(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     address: Address,
@@ -203,19 +203,18 @@ def test_worst_precompile_only_data_input(
         sender=pre.fund_eoa(),
     )
 
-    blockchain_test(
+    state_test(
         env=env,
         pre=pre,
         post={},
-        blocks=[Block(txs=[tx])],
+        tx=tx,
     )
 
 
 @pytest.mark.valid_from("Cancun")
 def test_worst_modexp(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ):
     """Test running a block with as many MODEXP calls as possible."""
     env = Environment()
@@ -252,11 +251,11 @@ def test_worst_modexp(
         sender=pre.fund_eoa(),
     )
 
-    blockchain_test(
+    state_test(
         env=env,
         pre=pre,
         post={},
-        blocks=[Block(txs=[tx])],
+        tx=tx,
     )
 
 
@@ -407,7 +406,7 @@ def test_worst_modexp(
 )
 @pytest.mark.slow()
 def test_worst_precompile_fixed_cost(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
     precompile_address: Address,
     parameters: list[str] | list[BytesConcatenation] | list[bytes],
@@ -452,11 +451,11 @@ def test_worst_precompile_fixed_cost(
         sender=pre.fund_eoa(),
     )
 
-    blockchain_test(
+    state_test(
         env=env,
         pre=pre,
         post={},
-        blocks=[Block(txs=[tx])],
+        tx=tx,
     )
 
 
@@ -480,9 +479,8 @@ def code_loop_precompile_call(calldata: Bytecode, attack_block: Bytecode):
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.slow
 def test_worst_jumps(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ):
     """Test running a JUMP-intensive contract."""
     env = Environment()
@@ -501,19 +499,17 @@ def test_worst_jumps(
     caller_code = While(body=Op.POP(Op.CALL(address=jumps_address)))
     caller_address = pre.deploy_contract(caller_code)
 
-    txs = [
-        Transaction(
-            to=caller_address,
-            gas_limit=env.gas_limit,
-            sender=pre.fund_eoa(),
-        )
-    ]
+    tx = Transaction(
+        to=caller_address,
+        gas_limit=env.gas_limit,
+        sender=pre.fund_eoa(),
+    )
 
-    blockchain_test(
+    state_test(
         genesis_environment=env,
         pre=pre,
         post={},
-        blocks=[Block(txs=txs)],
+        tx=tx,
     )
 
 
@@ -521,9 +517,8 @@ def test_worst_jumps(
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.slow
 def test_worst_jumpdests(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ):
     """Test running a JUMPDEST-intensive contract."""
     env = Environment()
@@ -536,19 +531,17 @@ def test_worst_jumpdests(
     caller_code = While(body=Op.POP(Op.CALL(address=jumpdests_address)))
     caller_address = pre.deploy_contract(caller_code)
 
-    txs = [
-        Transaction(
-            to=caller_address,
-            gas_limit=env.gas_limit,
-            sender=pre.fund_eoa(),
-        )
-    ]
+    tx = Transaction(
+        to=caller_address,
+        gas_limit=env.gas_limit,
+        sender=pre.fund_eoa(),
+    )
 
-    blockchain_test(
+    state_test(
         genesis_environment=env,
         pre=pre,
         post={},
-        blocks=[Block(txs=txs)],
+        tx=tx,
     )
 
 
@@ -676,7 +669,7 @@ DEFAULT_BINOP_ARGS = (
     ids=lambda param: "" if isinstance(param, tuple) else param,
 )
 def test_worst_binop_simple(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
     opcode: Op,
     opcode_args: tuple[int, int],
@@ -704,18 +697,18 @@ def test_worst_binop_simple(
         sender=pre.fund_eoa(),
     )
 
-    blockchain_test(
+    state_test(
         env=env,
         pre=pre,
         post={},
-        blocks=[Block(txs=[tx])],
+        tx=tx,
     )
 
 
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize("opcode", [Op.ISZERO, Op.NOT])
 def test_worst_unop(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
     opcode: Op,
 ):
@@ -738,18 +731,18 @@ def test_worst_unop(
         sender=pre.fund_eoa(),
     )
 
-    blockchain_test(
+    state_test(
         env=env,
         pre=pre,
         post={},
-        blocks=[Block(txs=[tx])],
+        tx=tx,
     )
 
 
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize("shift_right", [Op.SHR, Op.SAR])
 def test_worst_shifts(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
     shift_right: Op,
 ):
@@ -822,11 +815,11 @@ def test_worst_shifts(
         sender=pre.fund_eoa(),
     )
 
-    blockchain_test(
+    state_test(
         env=env,
         pre=pre,
         post={},
-        blocks=[Block(txs=[tx])],
+        tx=tx,
     )
 
 
@@ -834,7 +827,7 @@ def test_worst_shifts(
 @pytest.mark.parametrize("mod_bits", [255, 191, 127, 63])
 @pytest.mark.parametrize("op", [Op.MOD, Op.SMOD])
 def test_worst_mod(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
     mod_bits: int,
     op: Op,
@@ -944,11 +937,11 @@ def test_worst_mod(
         sender=pre.fund_eoa(),
     )
 
-    blockchain_test(
+    state_test(
         env=env,
         pre=pre,
         post={},
-        blocks=[Block(txs=[tx])],
+        tx=tx,
     )
 
 
@@ -956,7 +949,6 @@ def test_worst_mod(
 def test_empty_block(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
 ):
     """Test running an empty block as a baseline for fixed proving costs."""
     env = Environment()
