@@ -28,7 +28,7 @@ from ethereum_test_tools import (
 )
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools.utility.pytest import ParameterSet
-from ethereum_test_types.types import EOA
+from ethereum_test_types import EOA
 
 from ..eip6110_deposits.helpers import DepositContract, DepositRequest, DepositTransaction
 from ..eip6110_deposits.spec import Spec as Spec_EIP6110
