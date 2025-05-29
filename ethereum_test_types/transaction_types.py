@@ -1,6 +1,7 @@
 """Transaction-related types for Ethereum tests."""
 
 from dataclasses import dataclass
+from enum import IntEnum
 from functools import cached_property
 from typing import Any, ClassVar, Dict, Generic, List, Literal, Sequence
 
@@ -37,6 +38,16 @@ from .account_types import EOA
 from .blob_types import Blob
 from .receipt_types import TransactionReceipt
 from .utils import int_to_bytes, keccak256
+
+
+class TransactionType(IntEnum):
+    """Transaction types."""
+
+    LEGACY = 0
+    ACCESS_LIST = 1
+    BASE_FEE = 2
+    BLOB_TRANSACTION = 3
+    SET_CODE = 4
 
 
 @dataclass

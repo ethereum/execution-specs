@@ -27,6 +27,7 @@ from .transaction_types import (
     NetworkWrappedTransaction,
     Transaction,
     TransactionDefaults,
+    TransactionType,
 )
 from .utils import Removable, keccak256
 
@@ -46,6 +47,7 @@ __all__ = (
     "Transaction",
     "TransactionDefaults",
     "TransactionReceipt",
+    "TransactionType",
     "Withdrawal",
     "WithdrawalRequest",
     "add_kzg_version",
