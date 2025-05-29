@@ -24,6 +24,7 @@ from ethereum_test_tools import (
     TransactionException,
     compute_create_address,
 )
+from ethereum_test_tools.code.generators import CodeGasMeasure
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 from ethereum_test_types.eof.v1 import Container, Section
 from ethereum_test_vm import Macros
@@ -1748,5 +1749,60 @@ def test_set_code_type_tx_pre_fork(
                 code="",
                 storage={},
             ),
+        },
+    )
+
+
+@pytest.mark.valid_from("Prague")
+def test_delegation_replacement_call_previous_contract(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+):
+    """
+    Test setting the code of an EOA that already has
+    delegation, calling the previous delegated contract.
+    Previous contract shouldn't be warm when doing the CALL.
+    """
+    pre_set_delegation_code = Op.STOP
+    pre_set_delegation_address = pre.deploy_contract(pre_set_delegation_code)
+
+    auth_signer = pre.fund_eoa(delegation=pre_set_delegation_address)
+    sender = pre.fund_eoa()
+
+    gsc = fork.gas_costs()
+    overhead_cost = gsc.G_VERY_LOW * len(Op.CALL.kwargs)  # type: ignore
+    set_code = CodeGasMeasure(
+        code=Op.CALL(gas=0, address=pre_set_delegation_address),
+        overhead_cost=overhead_cost,
+        extra_stack_items=1,
+    )
+
+    set_code_to_address = pre.deploy_contract(
+        set_code,
+    )
+
+    tx = Transaction(
+        gas_limit=500_000,
+        to=auth_signer,
+        value=0,
+        authorization_list=[
+            AuthorizationTuple(
+                address=set_code_to_address,
+                nonce=auth_signer.nonce,
+                signer=auth_signer,
+            ),
+        ],
+        sender=sender,
+    )
+
+    state_test(
+        env=Environment(),
+        pre=pre,
+        tx=tx,
+        post={
+            auth_signer: Account(
+                storage={0: gsc.G_COLD_ACCOUNT_ACCESS},
+            )
         },
     )
