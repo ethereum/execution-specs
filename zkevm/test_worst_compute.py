@@ -14,7 +14,6 @@ from py_ecc.bn128 import G1, G2, multiply
 
 from ethereum_test_base_types.base_types import Bytes
 from ethereum_test_forks import Fork
-from ethereum_test_specs.tests.test_fixtures import TransactionType
 from ethereum_test_tools import (
     Address,
     Alloc,
@@ -28,6 +27,7 @@ from ethereum_test_tools import (
 )
 from ethereum_test_tools.code.generators import While
 from ethereum_test_tools.vm.opcode import Opcodes as Op
+from ethereum_test_types import TransactionType
 from ethereum_test_vm.opcode import Opcode
 from tests.cancun.eip4844_blobs.spec import Spec as BlobsSpec
 from tests.istanbul.eip152_blake2.common import Blake2bInput
