@@ -54,11 +54,16 @@ class Env:
     parent_blob_gas_used: Optional[U64]
     excess_blob_gas: Optional[U64]
     requests: Any
+    inclusion_list: Any
 
     def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
+        inclusion_list = None
+
         if t8n.options.input_env == "stdin":
             assert stdin is not None
+            print(list(stdin.keys()))
             data = stdin["env"]
+            inclusion_list = stdin["inclusionList"]
         else:
             with open(t8n.options.input_env, "r") as f:
                 data = json.load(f)
@@ -74,6 +79,8 @@ class Env:
         self.read_block_hashes(data, t8n)
         self.read_ommers(data, t8n)
         self.read_withdrawals(data, t8n)
+
+        self.read_inclusion_list(inclusion_list, t8n)
 
         self.parent_beacon_block_root = None
         if t8n.fork.is_after_fork("ethereum.cancun"):
@@ -189,6 +196,16 @@ class Env:
         if t8n.fork.is_after_fork("ethereum.shanghai"):
             self.withdrawals = tuple(
                 t8n.json_to_withdrawals(wd) for wd in data["withdrawals"]
+            )
+
+    def read_inclusion_list(self, inclusion_list: Any, t8n: "T8N") -> None:
+        """
+        Read the inclusion list from the data.
+        """
+        self.inclusion_list = None
+        if t8n.fork.is_after_fork("ethereum.osaka"):
+            self.inclusion_list = tuple(
+                hex_to_bytes(tx) for tx in inclusion_list
             )
 
     def read_block_difficulty(self, data: Any, t8n: "T8N") -> None:

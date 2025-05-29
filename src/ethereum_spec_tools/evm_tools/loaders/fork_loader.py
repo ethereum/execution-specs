@@ -148,6 +148,11 @@ class ForkLoad:
         return self._module("fork").process_transaction
 
     @property
+    def validate_inclusion_list(self) -> Any:
+        """validate_inclusion_list function of the fork"""
+        return self._module("fork").validate_inclusion_list
+
+    @property
     def MAX_BLOB_GAS_PER_BLOCK(self) -> Any:
         """MAX_BLOB_GAS_PER_BLOCK parameter of the fork"""
         return self._module("fork").MAX_BLOB_GAS_PER_BLOCK
