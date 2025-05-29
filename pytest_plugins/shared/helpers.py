@@ -13,12 +13,11 @@ from ethereum_test_tools import BaseTest
 def is_help_or_collectonly_mode(config: pytest.Config) -> bool:
     """Check if pytest is running in a help or collectonly mode."""
     return (
-        config.getoption("markers")
-        or config.getoption("collectonly")
-        or config.getoption("markers")
-        or config.getoption("show_ported_from")
-        or config.getoption("links_as_filled")
-        or config.getoption("help")
+        config.getoption("markers", default=False)
+        or config.getoption("collectonly", default=False)
+        or config.getoption("show_ported_from", default=False)
+        or config.getoption("links_as_filled", default=False)
+        or config.getoption("help", default=False)
     )
 
 
