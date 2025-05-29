@@ -61,7 +61,6 @@ class Env:
 
         if t8n.options.input_env == "stdin":
             assert stdin is not None
-            print(list(stdin.keys()))
             data = stdin["env"]
             inclusion_list = stdin["inclusionList"]
         else:
