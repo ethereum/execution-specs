@@ -203,14 +203,14 @@ class T8N(Load):
 
     def _run_blockchain_test(self, block_env: Any, block_output: Any) -> None:
         if self.fork.is_after_fork("ethereum.prague"):
-            self.fork.process_system_transaction(
+            self.fork.process_unchecked_system_transaction(
                 block_env=block_env,
                 target_address=self.fork.HISTORY_STORAGE_ADDRESS,
                 data=block_env.block_hashes[-1],  # The parent hash
             )
 
         if self.fork.is_after_fork("ethereum.cancun"):
-            self.fork.process_system_transaction(
+            self.fork.process_unchecked_system_transaction(
                 block_env=block_env,
                 target_address=self.fork.BEACON_ROOTS_ADDRESS,
                 data=block_env.parent_beacon_block_root,
@@ -233,14 +233,6 @@ class T8N(Load):
                 block_env.number,
                 block_env.coinbase,
                 self.env.ommers,
-            )
-
-        if self.fork.is_after_fork("ethereum.osaka"):
-            self.fork.validate_inclusion_list(
-                block_env,
-                block_output,
-                self.txs.transactions,
-                self.env.inclusion_list,
             )
 
         if self.fork.is_after_fork("ethereum.shanghai"):

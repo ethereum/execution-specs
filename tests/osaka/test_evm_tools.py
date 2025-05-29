@@ -16,18 +16,16 @@ FORK_NAME = "Osaka"
 
 
 SLOW_TESTS = (
-    "CALLBlake2f_MaxRounds",
-    "CALLCODEBlake2f",
-    "CALLBlake2f",
-    "loopExp",
-    "loopMul",
-    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Prague-state_test-bls_pairing_non-degeneracy-]",
-    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Prague-state_test-bls_pairing_bilinearity-]",
-    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Prague-state_test-bls_pairing_e(G1,-G2)=e(-G1,G2)-]",
-    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Prague-state_test-bls_pairing_e(aG1,bG2)=e(abG1,G2)-]",
-    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Prague-state_test-bls_pairing_e(aG1,bG2)=e(G1,abG2)-]",
-    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Prague-state_test-inf_pair-]",
-    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Prague-state_test-multi_inf_pair-]",
+    "GeneralStateTests/stTimeConsuming/CALLBlake2f_MaxRounds.json::CALLBlake2f_MaxRounds-fork_[Cancun-Osaka]-d0g0v0",
+    "GeneralStateTests/VMTests/vmPerformance/loopExp.json::loopExp-fork_[Cancun-Osaka]-d[0-14]g0v0",
+    "GeneralStateTests/VMTests/vmPerformance/loopMul.json::loopMul-fork_[Cancun-Osaka]-d[0-2]g0v0",
+    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Osaka-state_test-bls_pairing_non-degeneracy-]",
+    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Osaka-state_test-bls_pairing_bilinearity-]",
+    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Osaka-state_test-bls_pairing_e(G1,-G2)=e(-G1,G2)-]",
+    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Osaka-state_test-bls_pairing_e(aG1,bG2)=e(abG1,G2)-]",
+    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Osaka-state_test-bls_pairing_e(aG1,bG2)=e(G1,abG2)-]",
+    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Osaka-state_test-inf_pair-]",
+    "tests/osaka/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_Osaka-state_test-multi_inf_pair-]",
 )
 
 

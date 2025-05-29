@@ -514,10 +514,16 @@ def make_receipt(
 def process_system_transaction(
     block_env: vm.BlockEnvironment,
     target_address: Address,
+    system_contract_code: Bytes,
     data: Bytes,
 ) -> MessageCallOutput:
     """
-    Process a system transaction.
+    Process a system transaction with the given code.
+
+    Prefer calling `process_checked_system_transaction` or
+    `process_unchecked_system_transaction` depending on
+    whether missing code or an execution error should cause
+    the block to be rejected.
 
     Parameters
     ----------
@@ -525,6 +531,8 @@ def process_system_transaction(
         The block scoped environment.
     target_address :
         Address of the contract to call.
+    system_contract_code :
+        Code of the contract to call.
     data :
         Data to pass to the contract.
 
@@ -533,8 +541,6 @@ def process_system_transaction(
     system_tx_output : `MessageCallOutput`
         Output of processing the system transaction.
     """
-    system_contract_code = get_account(block_env.state, target_address).code
-
     tx_env = vm.TransactionEnvironment(
         origin=SYSTEM_ADDRESS,
         gas_price=block_env.base_fee_per_gas,
@@ -574,6 +580,86 @@ def process_system_transaction(
     return system_tx_output
 
 
+def process_checked_system_transaction(
+    block_env: vm.BlockEnvironment,
+    target_address: Address,
+    data: Bytes,
+) -> MessageCallOutput:
+    """
+    Process a system transaction and raise an error if the contract does not
+    contain code or if the transaction fails.
+
+    Parameters
+    ----------
+    block_env :
+        The block scoped environment.
+    target_address :
+        Address of the contract to call.
+    data :
+        Data to pass to the contract.
+
+    Returns
+    -------
+    system_tx_output : `MessageCallOutput`
+        Output of processing the system transaction.
+    """
+    system_contract_code = get_account(block_env.state, target_address).code
+
+    if len(system_contract_code) == 0:
+        raise InvalidBlock(
+            f"System contract address {target_address.hex()} does not "
+            "contain code"
+        )
+
+    system_tx_output = process_system_transaction(
+        block_env,
+        target_address,
+        system_contract_code,
+        data,
+    )
+
+    if system_tx_output.error:
+        raise InvalidBlock(
+            f"System contract ({target_address.hex()}) call failed: "
+            f"{system_tx_output.error}"
+        )
+
+    return system_tx_output
+
+
+def process_unchecked_system_transaction(
+    block_env: vm.BlockEnvironment,
+    target_address: Address,
+    data: Bytes,
+) -> MessageCallOutput:
+    """
+    Process a system transaction without checking if the contract contains code
+    or if the transaction fails.
+
+    Parameters
+    ----------
+    block_env :
+        The block scoped environment.
+    target_address :
+        Address of the contract to call.
+    data :
+        Data to pass to the contract.
+
+    Returns
+    -------
+    system_tx_output : `MessageCallOutput`
+        Output of processing the system transaction.
+    """
+    system_contract_code = get_account(block_env.state, target_address).code
+    return process_system_transaction(
+        block_env,
+        target_address,
+        system_contract_code,
+        data,
+    )
+
+
+>>>>>>> upstream/eips/osaka/eip-7805
 def apply_body(
     block_env: vm.BlockEnvironment,
     transactions: Tuple[Union[LegacyTransaction, Bytes], ...],
@@ -605,13 +691,13 @@ def apply_body(
     """
     block_output = vm.BlockOutput()
 
-    process_system_transaction(
+    process_unchecked_system_transaction(
         block_env=block_env,
         target_address=BEACON_ROOTS_ADDRESS,
         data=block_env.parent_beacon_block_root,
     )
 
-    process_system_transaction(
+    process_unchecked_system_transaction(
         block_env=block_env,
         target_address=HISTORY_STORAGE_ADDRESS,
         data=block_env.block_hashes[-1],  # The parent hash
@@ -650,7 +736,7 @@ def process_general_purpose_requests(
     if len(deposit_requests) > 0:
         requests_from_execution.append(DEPOSIT_REQUEST_TYPE + deposit_requests)
 
-    system_withdrawal_tx_output = process_system_transaction(
+    system_withdrawal_tx_output = process_checked_system_transaction(
         block_env=block_env,
         target_address=WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
         data=b"",
@@ -661,7 +747,7 @@ def process_general_purpose_requests(
             WITHDRAWAL_REQUEST_TYPE + system_withdrawal_tx_output.return_data
         )
 
-    system_consolidation_tx_output = process_system_transaction(
+    system_consolidation_tx_output = process_checked_system_transaction(
         block_env=block_env,
         target_address=CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
         data=b"",
@@ -782,22 +868,24 @@ def process_transaction(
 
     # For EIP-7623 we first calculate the execution_gas_used, which includes
     # the execution gas refund.
-    execution_gas_used = tx.gas - tx_output.gas_left
-    gas_refund = min(
-        execution_gas_used // Uint(5), Uint(tx_output.refund_counter)
+    tx_gas_used_before_refund = tx.gas - tx_output.gas_left
+    tx_gas_refund = min(
+        tx_gas_used_before_refund // Uint(5), Uint(tx_output.refund_counter)
     )
-    execution_gas_used -= gas_refund
+    tx_gas_used_after_refund = tx_gas_used_before_refund - tx_gas_refund
 
     # Transactions with less execution_gas_used than the floor pay at the
     # floor cost.
-    tx_gas_used = max(execution_gas_used, calldata_floor_gas_cost)
+    tx_gas_used_after_refund = max(
+        tx_gas_used_after_refund, calldata_floor_gas_cost
+    )
 
-    tx_output.gas_left = tx.gas - tx_gas_used
-    gas_refund_amount = tx_output.gas_left * effective_gas_price
+    tx_gas_left = tx.gas - tx_gas_used_after_refund
+    gas_refund_amount = tx_gas_left * effective_gas_price
 
     # For non-1559 transactions effective_gas_price == tx.gas_price
     priority_fee_per_gas = effective_gas_price - block_env.base_fee_per_gas
-    transaction_fee = tx_gas_used * priority_fee_per_gas
+    transaction_fee = tx_gas_used_after_refund * priority_fee_per_gas
 
     # refund gas
     sender_balance_after_refund = get_account(
@@ -821,7 +909,7 @@ def process_transaction(
     for address in tx_output.accounts_to_delete:
         destroy_account(block_env.state, address)
 
-    block_output.block_gas_used += tx_gas_used
+    block_output.block_gas_used += tx_gas_used_after_refund
     block_output.blob_gas_used += tx_blob_gas_used
 
     receipt = make_receipt(
