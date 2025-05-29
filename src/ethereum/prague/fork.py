@@ -659,7 +659,6 @@ def process_unchecked_system_transaction(
     )
 
 
->>>>>>> upstream/eips/osaka/eip-7805
 def apply_body(
     block_env: vm.BlockEnvironment,
     transactions: Tuple[Union[LegacyTransaction, Bytes], ...],
