@@ -486,7 +486,9 @@ def test_address_collision(
     pre: Alloc,
 ):
     """Tests address collision."""
-    env = Environment()
+    env = Environment(
+        gas_limit=300_000_000_000,
+    )
 
     slot_create_address_2 = slot_last_slot * 2 + slot_create_address
     slot_create_address_3 = slot_last_slot * 3 + slot_create_address

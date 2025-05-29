@@ -75,7 +75,7 @@ def test_eofcreate_memory(
     The `test_arg` param is the value passed into the field being tested (offset or size),
     intending to trigger integer size bugs for that particular field.
     """
-    env = Environment()
+    env = Environment(gas_limit=2_000_000_000)
 
     sender = pre.fund_eoa(10**27)
 
