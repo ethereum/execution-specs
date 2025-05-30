@@ -235,6 +235,14 @@ class T8N(Load):
                 self.env.ommers,
             )
 
+        if self.fork.is_after_fork("ethereum.osaka"):
+            self.fork.validate_inclusion_list(
+                block_env,
+                block_output,
+                self.txs.transactions,
+                self.env.inclusion_list,
+            )
+
         if self.fork.is_after_fork("ethereum.shanghai"):
             self.fork.process_withdrawals(
                 block_env, block_output, self.env.withdrawals
