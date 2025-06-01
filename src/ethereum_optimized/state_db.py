@@ -13,6 +13,7 @@ This module contains functions can be monkey patched into the fork's `state`
 module to use an optimized database backed state.
 """
 import logging
+from collections import defaultdict
 from dataclasses import dataclass
 from importlib import import_module
 from typing import Any, ClassVar, Dict, List, Optional, Set, cast
@@ -77,7 +78,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
         db: Any
         dirty_accounts: Dict[Address, Optional[Account_]]
         dirty_storage: Dict[Address, Dict[Bytes32, U256]]
-        destroyed_accounts: Set[Address]
+        destroyed_accounts: Dict[Address, Uint]
         tx_restore_points: List[int]
         journal: List[Any]
         created_accounts: Set[Address]
@@ -91,7 +92,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
             self.db = rust_pyspec_glue.DB(path)
             self.dirty_accounts = {}
             self.dirty_storage = {}
-            self.destroyed_accounts = set()
+            self.destroyed_accounts = defaultdict(lambda: Uint(0))
             self.tx_restore_points = []
             self.journal = []
             self.created_accounts = set()
@@ -184,14 +185,15 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
         """
         if state.tx_restore_points:
             raise Exception("In a non-db transaction")
-        for address in state.destroyed_accounts:
-            state.db.destroy_storage(address)
+        for address, count in state.destroyed_accounts.items():
+            if count:
+                state.db.destroy_storage(address)
         for address, account in state.dirty_accounts.items():
             state.db.set_account(address, account)
         for address, storage in state.dirty_storage.items():
             for key, value in storage.items():
                 state.db.set_storage(address, key, value)
-        state.destroyed_accounts = set()
+        state.destroyed_accounts.clear()
         state.dirty_accounts.clear()
         state.dirty_storage.clear()
 
@@ -205,7 +207,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
         state.db.rollback_mutable()
         state.dirty_accounts.clear()
         state.dirty_storage.clear()
-        state.destroyed_accounts = set()
+        state.destroyed_accounts.clear()
 
     def _begin_transaction(state: State) -> None:
         """
@@ -291,8 +293,10 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
                     state.dirty_storage[item[0]][item[1]] = item[2]
             elif type(item[1]) is dict:
                 # Restore storage that was destroyed by `destroy_storage()`
-                state.destroyed_accounts.remove(item[0])
-                state.dirty_storage[item[0]] = item[1]
+                state.destroyed_accounts[item[0]] -= Uint(1)
+                if state.destroyed_accounts[item[0]] == 0:
+                    state.dirty_storage[item[0]] = item[1]
+                    del state.destroyed_accounts[item[0]]
             else:
                 # Revert a change to an account
                 if item[1] is Unmodified:
@@ -338,7 +342,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
         ):
             return state.dirty_storage[address][key]
 
-        if address in state.destroyed_accounts:
+        if state.destroyed_accounts[address]:
             return U256(0)
         else:
             return U256(state.db.get_storage(address, key))
@@ -410,7 +414,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
         See `state`.
         """
         state.journal.append((address, state.dirty_storage.pop(address, {})))
-        state.destroyed_accounts.add(address)
+        state.destroyed_accounts[address] += Uint(1)
         set_account(state, address, get_account_optional(state, address))
 
     @add_item(patches)
@@ -430,7 +434,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
                 if v != U256(0):
                     return True
 
-        if address in state.destroyed_accounts:
+        if state.destroyed_accounts[address]:
             return False
 
         return state.db.has_storage(address)
