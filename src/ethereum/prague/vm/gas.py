@@ -304,8 +304,8 @@ def calculate_excess_blob_gas(parent_header: Header) -> U64:
     parent_blob_gas = excess_blob_gas + blob_gas_used
     if parent_blob_gas < TARGET_BLOB_GAS_PER_BLOCK:
         return U64(0)
-    else:
-        return parent_blob_gas - TARGET_BLOB_GAS_PER_BLOCK
+
+    return parent_blob_gas - TARGET_BLOB_GAS_PER_BLOCK
 
 
 def calculate_total_blob_gas(tx: Transaction) -> U64:
