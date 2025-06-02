@@ -26,7 +26,6 @@ hash6 = keccak256(b"foobarbaz")
 
 address1 = hex_to_address("0x00000000219ab540356cbb839cbe05303d7705fa")
 address2 = hex_to_address("0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2")
-address3 = hex_to_address("0xbe0eb53f46cd790cd13851d5eff43d12404d33e8")
 
 bloom = hex_to_bytes256(
     "0x886480c00200620d84180d0470000c503081160044d05015808"
