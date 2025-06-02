@@ -593,37 +593,6 @@ class BlockDownloader(ForkTracking):
             *extra_fields,
         )
 
-    def download_chain_id(self) -> U64:
-        """
-        Fetch the chain id of the executing chain from the rpc provider.
-        """
-        call = [
-            {
-                "jsonrpc": "2.0",
-                "id": hex(2),
-                "method": "eth_chainId",
-                "params": [],
-            }
-        ]
-        data = json.dumps(call).encode("utf-8")
-
-        post = request.Request(
-            self.rpc_url,
-            data=data,
-            headers={
-                "Content-Length": str(len(data)),
-                "Content-Type": "application/json",
-                "User-Agent": "ethereum-spec-sync",
-            },
-        )
-
-        with request.urlopen(post) as response:
-            reply = json.load(response)[0]
-            assert reply["id"] == hex(2)
-            chain_id = U64(int(reply["result"], 16))
-
-        return chain_id
-
 
 class Sync(ForkTracking):
     """
