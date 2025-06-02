@@ -38,13 +38,6 @@ def idfn(test_case: Dict) -> str:
     return test_case["name"]
 
 
-def get_rejected_indices(rejected: Dict) -> List[int]:
-    rejected_indices = []
-    for item in rejected:
-        rejected_indices.append(item["index"])
-    return rejected_indices
-
-
 def b11r_tool_test(test_case: Dict) -> None:
     options = parser.parse_args(test_case["args"])
 
