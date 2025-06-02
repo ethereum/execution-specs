@@ -7,6 +7,7 @@ Tests running worst-case compute opcodes and precompile scenarios for zkEVMs.
 
 import math
 import random
+from enum import Enum, auto
 from typing import cast
 
 import pytest
@@ -55,6 +56,274 @@ def make_dup(index: int) -> Opcode:
     """
     assert 0 <= index < 16
     return Opcode(0x80 + index, pushed_stack_items=1, min_stack_height=index + 1)
+
+
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize(
+    "opcode",
+    [
+        Op.ADDRESS,
+        Op.ORIGIN,
+        Op.CALLER,
+        Op.CODESIZE,
+        Op.GASPRICE,
+        Op.COINBASE,
+        Op.TIMESTAMP,
+        Op.NUMBER,
+        Op.PREVRANDAO,
+        Op.GASLIMIT,
+        Op.CHAINID,
+        Op.BASEFEE,
+        Op.BLOBBASEFEE,
+        Op.GAS,
+        # Note that other 0-param opcodes are covered in separate tests.
+    ],
+)
+def test_worst_zero_param(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    opcode: Op,
+):
+    """Test running a block with as many zero-parameter opcodes as possible."""
+    env = Environment()
+
+    code_prefix = Op.JUMPDEST
+    iter_loop = Op.POP(opcode)
+    code_suffix = Op.PUSH0 + Op.JUMP
+    code_iter_len = (MAX_CODE_SIZE - len(code_prefix) - len(code_suffix)) // len(iter_loop)
+    code = code_prefix + iter_loop * code_iter_len + code_suffix
+    assert len(code) <= MAX_CODE_SIZE
+
+    tx = Transaction(
+        to=pre.deploy_contract(code=bytes(code)),
+        gas_limit=env.gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post={},
+        tx=tx,
+    )
+
+
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize("calldata_length", [0, 1_000, 10_000])
+def test_worst_calldatasize(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    calldata_length: int,
+):
+    """Test running a block with as many CALLDATASIZE as possible."""
+    env = Environment()
+
+    code_prefix = Op.JUMPDEST
+    iter_loop = Op.POP(Op.CALLDATASIZE)
+    code_suffix = Op.PUSH0 + Op.JUMP
+    code_iter_len = (MAX_CODE_SIZE - len(code_prefix) - len(code_suffix)) // len(iter_loop)
+    code = code_prefix + iter_loop * code_iter_len + code_suffix
+    assert len(code) <= MAX_CODE_SIZE
+
+    tx = Transaction(
+        to=pre.deploy_contract(code=bytes(code)),
+        gas_limit=env.gas_limit,
+        sender=pre.fund_eoa(),
+        data=b"\x00" * calldata_length,
+    )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post={},
+        tx=tx,
+    )
+
+
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize("non_zero_value", [True, False])
+@pytest.mark.parametrize("from_origin", [True, False])
+def test_worst_callvalue(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    non_zero_value: bool,
+    from_origin: bool,
+):
+    """
+    Test running a block with as many CALLVALUE opcodes as possible.
+
+    The `non_zero_value` parameter controls whether opcode must return non-zero value.
+    The `from_origin` parameter controls whether the call frame is the immediate from the
+    transaction or a previous CALL.
+    """
+    env = Environment()
+
+    code_prefix = Op.JUMPDEST
+    iter_loop = Op.POP(Op.CALLVALUE)
+    code_suffix = Op.PUSH0 + Op.JUMP
+    code_iter_len = (MAX_CODE_SIZE - len(code_prefix) - len(code_suffix)) // len(iter_loop)
+    code = code_prefix + iter_loop * code_iter_len + code_suffix
+    assert len(code) <= MAX_CODE_SIZE
+    code_address = pre.deploy_contract(code=bytes(code))
+
+    tx_to = (
+        code_address
+        if from_origin
+        else pre.deploy_contract(
+            code=Op.CALL(address=code_address, value=1 if non_zero_value else 0), balance=10
+        )
+    )
+
+    tx = Transaction(
+        to=tx_to,
+        gas_limit=env.gas_limit,
+        value=1 if non_zero_value and from_origin else 0,
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post={},
+        tx=tx,
+    )
+
+
+class ReturnDataStyle(Enum):
+    """Helper enum to specify return data is returned to the caller."""
+
+    RETURN = auto()
+    REVERT = auto()
+    IDENTITY = auto()
+
+
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize(
+    "return_data_style",
+    [
+        ReturnDataStyle.RETURN,
+        ReturnDataStyle.REVERT,
+        ReturnDataStyle.IDENTITY,
+    ],
+)
+@pytest.mark.parametrize("returned_size", [1, 0])
+def test_worst_returndatasize_nonzero(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    returned_size: int,
+    return_data_style: ReturnDataStyle,
+):
+    """
+    Test running a block which execute as many RETURNDATASIZE opcodes which return a non-zero
+    buffer as possible.
+
+    The `returned_size` parameter indicates the size of the returned data buffer.
+    The `return_data_style` indicates how returned data is produced for the opcode caller.
+    """
+    env = Environment()
+
+    dummy_contract_call = Bytecode()
+    if return_data_style != ReturnDataStyle.IDENTITY:
+        dummy_contract_call = Op.STATICCALL(
+            address=pre.deploy_contract(
+                code=Op.REVERT(0, returned_size)
+                if return_data_style == ReturnDataStyle.REVERT
+                else Op.RETURN(0, returned_size)
+            )
+        )
+    else:
+        dummy_contract_call = Op.MSTORE8(0, 1) + Op.STATICCALL(
+            address=0x04,  # Identity precompile
+            args_size=returned_size,
+        )
+
+    code_prefix = dummy_contract_call + Op.JUMPDEST
+    iter_loop = Op.POP(Op.RETURNDATASIZE)
+    code_suffix = Op.JUMP(len(code_prefix) - 1)
+    code_iter_len = (MAX_CODE_SIZE - len(code_prefix) - len(code_suffix)) // len(iter_loop)
+    code = code_prefix + iter_loop * code_iter_len + code_suffix
+    assert len(code) <= MAX_CODE_SIZE
+
+    tx = Transaction(
+        to=pre.deploy_contract(code=bytes(code)),
+        gas_limit=env.gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post={},
+        tx=tx,
+    )
+
+
+@pytest.mark.valid_from("Cancun")
+def test_worst_returndatasize_zero(
+    state_test: StateTestFiller,
+    pre: Alloc,
+):
+    """Test running a block with as many RETURNDATASIZE opcodes as possible with a zero buffer."""
+    env = Environment()
+
+    dummy_contract_call = Bytecode()
+
+    code_prefix = dummy_contract_call + Op.JUMPDEST
+    iter_loop = Op.POP(Op.RETURNDATASIZE)
+    code_suffix = Op.JUMP(len(code_prefix) - 1)
+    code_iter_len = (MAX_CODE_SIZE - len(code_prefix) - len(code_suffix)) // len(iter_loop)
+    code = code_prefix + iter_loop * code_iter_len + code_suffix
+    assert len(code) <= MAX_CODE_SIZE
+
+    tx = Transaction(
+        to=pre.deploy_contract(code=bytes(code)),
+        gas_limit=env.gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post={},
+        tx=tx,
+    )
+
+
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize("mem_size", [0, 1, 1_000, 100_000, 1_000_000])
+def test_worst_msize(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    mem_size: int,
+):
+    """
+    Test running a block with as many MSIZE opcodes as possible.
+
+    The `mem_size` parameter indicates by how much the memory is expanded.
+    """
+    env = Environment()
+
+    # We use CALLVALUE for the parameter since is 1 gas cheaper than PUSHX.
+    code_prefix = Op.MLOAD(Op.CALLVALUE) + Op.JUMPDEST
+    iter_loop = Op.POP(Op.MSIZE)
+    code_suffix = Op.JUMP(len(code_prefix) - 1)
+    code_iter_len = (MAX_CODE_SIZE - len(code_prefix) - len(code_suffix)) // len(iter_loop)
+    code = code_prefix + iter_loop * code_iter_len + code_suffix
+    assert len(code) <= MAX_CODE_SIZE
+
+    tx = Transaction(
+        to=pre.deploy_contract(code=bytes(code)),
+        gas_limit=env.gas_limit,
+        sender=pre.fund_eoa(),
+        value=mem_size,
+    )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post={},
+        tx=tx,
+    )
 
 
 @pytest.mark.valid_from("Cancun")
