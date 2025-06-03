@@ -6,6 +6,7 @@ Tests running worst-case compute opcodes and precompile scenarios for zkEVMs.
 """
 
 import math
+import operator
 import random
 from enum import Enum, auto
 from typing import cast
@@ -1303,6 +1304,109 @@ def test_worst_memory_access(
 
     tx = Transaction(
         to=pre.deploy_contract(code=code),
+        gas_limit=env.gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post={},
+        tx=tx,
+    )
+
+
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize("mod_bits", [255, 191, 127, 63])
+@pytest.mark.parametrize("op", [Op.ADDMOD, Op.MULMOD])
+def test_worst_modarith(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    mod_bits: int,
+    op: Op,
+):
+    """
+    Test running a block with as many "op" instructions with arguments of the parametrized range.
+    The test program consists of code segments evaluating the "op chain":
+    mod[0] = calldataload(0)
+    mod[1] = (fixed_arg op args[indexes[0]]) % mod[0]
+    mod[2] = (fixed_arg op args[indexes[1]]) % mod[1]
+    The "args" is a pool of 15 constants pushed to the EVM stack at the program start.
+    The "fixed_arg" is the 0xFF...FF constant added to the EVM stack by PUSH32
+    just before executing the "op".
+    The order of accessing the numerators is selected in a way the mod value remains in the range
+    as long as possible.
+    """
+    fixed_arg = 2**256 - 1
+    num_args = 15
+
+    # Pick the modulus min value so that it is _unlikely_ to drop to the lower word count.
+    assert mod_bits >= 63
+    mod_min = 2 ** (mod_bits - 63)
+
+    # Select the random seed giving the longest found op chain.
+    # You can look for a longer one by increasing the op_chain_len. This will activate
+    # the while loop below.
+    op_chain_len = 666
+    match op, mod_bits:
+        case Op.ADDMOD, 255:
+            seed = 4
+        case Op.ADDMOD, 191:
+            seed = 2
+        case Op.ADDMOD, 127:
+            seed = 2
+        case Op.ADDMOD, 63:
+            seed = 64
+        case Op.MULMOD, 255:
+            seed = 5
+        case Op.MULMOD, 191:
+            seed = 389
+        case Op.MULMOD, 127:
+            seed = 5
+        case Op.MULMOD, 63:
+            # For this setup we were not able to find an op-chain longer than 600.
+            seed = 4193
+            op_chain_len = 600
+        case _:
+            raise ValueError(f"{mod_bits}-bit {op} not supported.")
+
+    while True:
+        rng = random.Random(seed)
+        args = [rng.randint(2**255, 2**256 - 1) for _ in range(num_args)]
+        initial_mod = rng.randint(2 ** (mod_bits - 1), 2**mod_bits - 1)
+
+        # Evaluate the op chain and collect the order of accessing numerators.
+        op_fn = operator.add if op == Op.ADDMOD else operator.mul
+        mod = initial_mod
+        indexes: list[int] = []
+        while mod >= mod_min and len(indexes) < op_chain_len:
+            results = [op_fn(a, fixed_arg) % mod for a in args]
+            i = max(range(len(results)), key=results.__getitem__)  # And pick the best one.
+            mod = results[i]
+            indexes.append(i)
+
+        assert len(indexes) == op_chain_len  # Disable if you want to find longer op chains.
+        if len(indexes) == op_chain_len:
+            break
+        seed += 1
+        print(f"{seed=}")
+
+    code_constant_pool = sum((Op.PUSH32[n] for n in args), Bytecode())
+    code_segment = (
+        Op.CALLDATALOAD(0)
+        + sum(make_dup(len(args) - i) + Op.PUSH32[fixed_arg] + op for i in indexes)
+        + Op.POP
+    )
+    # Construct the final code. Because of the usage of PUSH32 the code segment is very long,
+    # so don't try to include multiple of these.
+    code = code_constant_pool + Op.JUMPDEST + code_segment + Op.JUMP(len(code_constant_pool))
+    assert (MAX_CODE_SIZE - len(code_segment)) < len(code) <= MAX_CODE_SIZE
+
+    env = Environment()
+
+    tx = Transaction(
+        to=pre.deploy_contract(code=code),
+        data=initial_mod.to_bytes(32, byteorder="big"),
         gas_limit=env.gas_limit,
         sender=pre.fund_eoa(),
     )
