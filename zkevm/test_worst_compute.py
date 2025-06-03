@@ -849,16 +849,36 @@ DEFAULT_BINOP_ARGS = (
             (
                 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,
                 # We want the first divisor to be slightly bigger than 2**128:
-                # this is the worst case for the division algorithm.
+                # this is the worst case for the division algorithm with optimized paths
+                # for division by 1 and 2 words.
                 0x100000000000000000000000000000033,
             ),
         ),
         (
-            # Same as DIV, but the numerator made positive, and the divisor made negative.
+            # This has the cycle of 2, see above.
+            Op.DIV,
+            (
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,
+                # We want the first divisor to be slightly bigger than 2**64:
+                # this is the worst case for the division algorithm with an optimized path
+                # for division by 1 word.
+                0x10000000000000033,
+            ),
+        ),
+        (
+            # Same as DIV-0, but the numerator made positive, and the divisor made negative.
             Op.SDIV,
             (
                 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,
                 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFCD,
+            ),
+        ),
+        (
+            # Same as DIV-1, but the numerator made positive, and the divisor made negative.
+            Op.SDIV,
+            (
+                0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFCD,
             ),
         ),
         (
