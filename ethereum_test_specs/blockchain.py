@@ -401,7 +401,6 @@ class BlockchainTest(BaseTest):
         block: Block,
         previous_env: Environment,
         previous_alloc: Alloc,
-        eips: Optional[List[int]] = None,
     ) -> Tuple[FixtureHeader, List[Transaction], List[Bytes] | None, Alloc, Environment]:
         """Generate common block data for both make_fixture and make_hive_fixture."""
         if block.rlp and block.exception is not None:
@@ -443,7 +442,6 @@ class BlockchainTest(BaseTest):
             chain_id=self.chain_id,
             reward=fork.get_reward(env.number, env.timestamp),
             blob_schedule=fork.blob_schedule(),
-            eips=eips,
             debug_output_path=self.get_next_transition_tool_output_path(),
             slow_request=self.is_tx_gas_heavy_test(),
         )
@@ -550,15 +548,6 @@ class BlockchainTest(BaseTest):
             env,
         )
 
-    @staticmethod
-    def network_info(fork: Fork, eips: Optional[List[int]] = None):
-        """Return fixture network information for the fork & EIP/s."""
-        return (
-            "+".join([fork.blockchain_test_network_name()] + [str(eip) for eip in eips])
-            if eips
-            else fork.blockchain_test_network_name()
-        )
-
     def verify_post_state(self, t8n, t8n_state: Alloc, expected_state: Alloc | None = None):
         """Verify post alloc after all block/s or payload/s are generated."""
         try:
@@ -574,7 +563,6 @@ class BlockchainTest(BaseTest):
         self,
         t8n: TransitionTool,
         fork: Fork,
-        eips: Optional[List[int]] = None,
     ) -> BlockchainFixture:
         """Create a fixture from the blockchain test definition."""
         fixture_blocks: List[FixtureBlock | InvalidFixtureBlock] = []
@@ -596,7 +584,6 @@ class BlockchainTest(BaseTest):
                     block=block,
                     previous_env=env,
                     previous_alloc=alloc,
-                    eips=eips,
                 )
                 fixture_block = FixtureBlockBase(
                     header=header,
@@ -647,9 +634,8 @@ class BlockchainTest(BaseTest):
                 )
         self.check_exception_test(exception=invalid_blocks > 0)
         self.verify_post_state(t8n, t8n_state=alloc)
-        network_info = BlockchainTest.network_info(fork, eips)
         return BlockchainFixture(
-            fork=network_info,
+            fork=fork,
             genesis=genesis.header,
             genesis_rlp=genesis.rlp,
             blocks=fixture_blocks,
@@ -658,7 +644,7 @@ class BlockchainTest(BaseTest):
             post_state=alloc if not self.exclude_full_post_state_in_output else None,
             post_state_hash=alloc.state_root() if self.exclude_full_post_state_in_output else None,
             config=FixtureConfig(
-                fork=network_info,
+                fork=fork,
                 blob_schedule=FixtureBlobSchedule.from_blob_schedule(fork.blob_schedule()),
                 chain_id=self.chain_id,
             ),
@@ -668,7 +654,6 @@ class BlockchainTest(BaseTest):
         self,
         t8n: TransitionTool,
         fork: Fork,
-        eips: Optional[List[int]] = None,
     ) -> BlockchainEngineFixture:
         """Create a hive fixture from the blocktest definition."""
         fixture_payloads: List[FixtureEngineNewPayload] = []
@@ -685,7 +670,6 @@ class BlockchainTest(BaseTest):
                 block=block,
                 previous_env=env,
                 previous_alloc=alloc,
-                eips=eips,
             )
             if block.rlp is None:
                 fixture_payloads.append(
@@ -735,7 +719,6 @@ class BlockchainTest(BaseTest):
                 block=Block(),
                 previous_env=env,
                 previous_alloc=alloc,
-                eips=eips,
             )
             sync_payload = FixtureEngineNewPayload.from_fixture_header(
                 fork=fork,
@@ -747,9 +730,8 @@ class BlockchainTest(BaseTest):
                 error_code=None,
             )
 
-        network_info = BlockchainTest.network_info(fork, eips)
         return BlockchainEngineFixture(
-            fork=network_info,
+            fork=fork,
             genesis=genesis.header,
             payloads=fixture_payloads,
             fcu_version=fcu_version,
@@ -759,7 +741,7 @@ class BlockchainTest(BaseTest):
             sync_payload=sync_payload,
             last_block_hash=head_hash,
             config=FixtureConfig(
-                fork=network_info,
+                fork=fork,
                 chain_id=self.chain_id,
                 blob_schedule=FixtureBlobSchedule.from_blob_schedule(fork.blob_schedule()),
             ),
@@ -770,14 +752,13 @@ class BlockchainTest(BaseTest):
         t8n: TransitionTool,
         fork: Fork,
         fixture_format: FixtureFormat,
-        eips: Optional[List[int]] = None,
     ) -> BaseFixture:
         """Generate the BlockchainTest fixture."""
         t8n.reset_traces()
         if fixture_format == BlockchainEngineFixture:
-            return self.make_hive_fixture(t8n, fork, eips)
+            return self.make_hive_fixture(t8n, fork)
         elif fixture_format == BlockchainFixture:
-            return self.make_fixture(t8n, fork, eips)
+            return self.make_fixture(t8n, fork)
 
         raise Exception(f"Unknown fixture format: {fixture_format}")
 
@@ -786,7 +767,6 @@ class BlockchainTest(BaseTest):
         *,
         fork: Fork,
         execute_format: ExecuteFormat,
-        eips: Optional[List[int]] = None,
     ) -> BaseExecute:
         """Generate the list of test fixtures."""
         if execute_format == TransactionPost:

@@ -1,6 +1,6 @@
 """Ethereum test fork definitions."""
 
-from .base_fork import Fork, ForkAttribute
+from .base_fork import ForkAttribute
 from .forks.forks import (
     ArrowGlacier,
     Berlin,
@@ -24,12 +24,15 @@ from .forks.transition import (
     BerlinToLondonAt5,
     CancunToPragueAtTime15k,
     ParisToShanghaiAtTime15k,
+    PragueToOsakaAtTime15k,
     ShanghaiToCancunAtTime15k,
 )
 from .gas_costs import GasCosts
 from .helpers import (
+    Fork,
     ForkRangeDescriptor,
     InvalidForkError,
+    TransitionFork,
     forks_from,
     forks_from_until,
     get_closest_fork_with_solc_support,
@@ -53,6 +56,7 @@ from .helpers import (
 
 __all__ = [
     "Fork",
+    "TransitionFork",
     "ForkAttribute",
     "ArrowGlacier",
     "Berlin",
@@ -76,6 +80,7 @@ __all__ = [
     "Cancun",
     "CancunToPragueAtTime15k",
     "Prague",
+    "PragueToOsakaAtTime15k",
     "Osaka",
     "get_transition_forks",
     "forks_from",

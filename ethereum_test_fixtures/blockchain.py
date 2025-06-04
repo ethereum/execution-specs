@@ -386,7 +386,7 @@ class FixtureBlock(FixtureBlockBase):
 class FixtureConfig(CamelModel):
     """Chain configuration for a fixture."""
 
-    fork: str = Field(..., alias="network")
+    fork: Fork = Field(..., alias="network")
     chain_id: ZeroPaddedHexNumber = Field(ZeroPaddedHexNumber(1), alias="chainid")
     blob_schedule: FixtureBlobSchedule | None = None
 
@@ -402,7 +402,7 @@ class InvalidFixtureBlock(CamelModel):
 class BlockchainFixtureCommon(BaseFixture):
     """Base blockchain test fixture model."""
 
-    fork: str = Field(..., alias="network")
+    fork: Fork = Field(..., alias="network")
     genesis: FixtureHeader = Field(..., alias="genesisBlockHeader")
     pre: Alloc
     post_state: Alloc | None = Field(None)
@@ -435,7 +435,7 @@ class BlockchainFixtureCommon(BaseFixture):
                     data["config"]["chainid"] = "0x01"
         return data
 
-    def get_fork(self) -> str | None:
+    def get_fork(self) -> Fork | None:
         """Return fork of the fixture as a string."""
         return self.fork
 

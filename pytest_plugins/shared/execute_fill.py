@@ -91,19 +91,6 @@ def pytest_configure(config: pytest.Config):
     )
 
 
-@pytest.fixture(autouse=True)
-def eips():
-    """
-    Fixture for specifying that, by default, no EIPs should be activated for
-    tests.
-
-    This fixture (function) may be redefined in test filler modules in order
-    to overwrite this default and return a list of integers specifying which
-    EIPs should be activated for the tests in scope.
-    """
-    return []
-
-
 @pytest.fixture
 def yul(fork: Fork, request: pytest.FixtureRequest):
     """

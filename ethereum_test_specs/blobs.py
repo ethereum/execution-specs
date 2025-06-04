@@ -1,6 +1,6 @@
 """Test specification for blob tests."""
 
-from typing import Callable, ClassVar, Generator, List, Optional, Sequence, Type
+from typing import Callable, ClassVar, Generator, List, Sequence, Type
 
 from ethereum_clis import TransitionTool
 from ethereum_test_base_types import Alloc
@@ -35,7 +35,6 @@ class BlobsTest(BaseTest):
         t8n: TransitionTool,
         fork: Fork,
         fixture_format: FixtureFormat,
-        eips: Optional[List[int]] = None,
     ) -> BaseFixture:
         """Generate the list of test fixtures."""
         raise Exception(f"Unknown fixture format: {fixture_format}")
@@ -45,7 +44,6 @@ class BlobsTest(BaseTest):
         *,
         fork: Fork,
         execute_format: ExecuteFormat,
-        eips: Optional[List[int]] = None,
     ) -> BaseExecute:
         """Generate the list of test fixtures."""
         if execute_format == BlobTransaction:

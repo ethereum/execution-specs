@@ -4,7 +4,7 @@ from abc import abstractmethod
 from functools import reduce
 from os import path
 from pathlib import Path
-from typing import Callable, ClassVar, Dict, Generator, List, Optional, Sequence, Type, TypeVar
+from typing import Callable, ClassVar, Dict, Generator, List, Sequence, Type, TypeVar
 
 import pytest
 from pydantic import BaseModel, Field, PrivateAttr
@@ -115,7 +115,6 @@ class BaseTest(BaseModel):
         t8n: TransitionTool,
         fork: Fork,
         fixture_format: FixtureFormat,
-        eips: Optional[List[int]] = None,
     ) -> BaseFixture:
         """Generate the list of test fixtures."""
         pass
@@ -125,7 +124,6 @@ class BaseTest(BaseModel):
         *,
         fork: Fork,
         execute_format: ExecuteFormat,
-        eips: Optional[List[int]] = None,
     ) -> BaseExecute:
         """Generate the list of test fixtures."""
         raise Exception(f"Unsupported execute format: {execute_format}")

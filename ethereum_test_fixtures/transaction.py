@@ -6,6 +6,7 @@ from pydantic import Field
 
 from ethereum_test_base_types import Address, Bytes, CamelModel, Hash, ZeroPaddedHexNumber
 from ethereum_test_exceptions import TransactionExceptionInstanceOrList
+from ethereum_test_forks import Fork
 
 from .base import BaseFixture
 
@@ -25,10 +26,10 @@ class TransactionFixture(BaseFixture):
     format_name: ClassVar[str] = "transaction_test"
     description: ClassVar[str] = "Tests that generate a transaction test fixture."
 
-    result: Mapping[str, FixtureResult]
+    result: Mapping[Fork, FixtureResult]
     transaction: Bytes = Field(..., alias="txbytes")
 
-    def get_fork(self) -> str | None:
+    def get_fork(self) -> Fork | None:
         """Return the fork of the fixture as a string."""
         forks = list(self.result.keys())
         assert len(forks) == 1, "Expected transaction test fixture with single fork"

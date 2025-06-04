@@ -1,6 +1,6 @@
 """Ethereum transaction test spec definition and filler."""
 
-from typing import Callable, ClassVar, Generator, List, Optional, Sequence, Type
+from typing import Callable, ClassVar, Generator, Sequence, Type
 
 from ethereum_clis import TransitionTool
 from ethereum_test_execution import (
@@ -42,7 +42,6 @@ class TransactionTest(BaseTest):
     def make_transaction_test_fixture(
         self,
         fork: Fork,
-        eips: Optional[List[int]] = None,
     ) -> TransactionFixture:
         """Create a fixture from the transaction test definition."""
         if self.tx.error is not None:
@@ -69,7 +68,7 @@ class TransactionTest(BaseTest):
 
         return TransactionFixture(
             result={
-                fork.blockchain_test_network_name(): result,
+                fork: result,
             },
             transaction=self.tx.with_signature_and_sender().rlp(),
         )
@@ -79,12 +78,11 @@ class TransactionTest(BaseTest):
         t8n: TransitionTool,
         fork: Fork,
         fixture_format: FixtureFormat,
-        eips: Optional[List[int]] = None,
     ) -> BaseFixture:
         """Generate the TransactionTest fixture."""
         self.check_exception_test(exception=self.tx.error is not None)
         if fixture_format == TransactionFixture:
-            return self.make_transaction_test_fixture(fork, eips)
+            return self.make_transaction_test_fixture(fork)
 
         raise Exception(f"Unknown fixture format: {fixture_format}")
 
@@ -93,7 +91,6 @@ class TransactionTest(BaseTest):
         *,
         fork: Fork,
         execute_format: ExecuteFormat,
-        eips: Optional[List[int]] = None,
     ) -> BaseExecute:
         """Execute the transaction test by sending it to the live network."""
         if execute_format == TransactionPost:

@@ -151,7 +151,6 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     """
 
     _transition_tool_name: ClassVar[Optional[str]] = None
-    _blockchain_test_network_name: ClassVar[Optional[str]] = None
     _solc_name: ClassVar[Optional[str]] = None
     _ignore: ClassVar[bool] = False
 
@@ -159,13 +158,11 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
         cls,
         *,
         transition_tool_name: Optional[str] = None,
-        blockchain_test_network_name: Optional[str] = None,
         solc_name: Optional[str] = None,
         ignore: bool = False,
     ) -> None:
         """Initialize new fork with values that don't carry over to subclass forks."""
         cls._transition_tool_name = transition_tool_name
-        cls._blockchain_test_network_name = blockchain_test_network_name
         cls._solc_name = solc_name
         cls._ignore = ignore
 
@@ -546,13 +543,6 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
         pass
 
     @classmethod
-    def blockchain_test_network_name(cls) -> str:
-        """Return network configuration name to be used in BlockchainTests for this fork."""
-        if cls._blockchain_test_network_name is not None:
-            return cls._blockchain_test_network_name
-        return cls.name()
-
-    @classmethod
     def is_deployed(cls) -> bool:
         """
         Return whether the fork has been deployed to mainnet, or not.
@@ -575,7 +565,3 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
         if base_class == BaseFork:
             return None
         return base_class
-
-
-# Fork Type
-Fork = Type[BaseFork]

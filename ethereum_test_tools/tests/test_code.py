@@ -633,7 +633,6 @@ def test_switch(
         t8n=default_t8n,
         fork=Cancun,
         fixture_format=BlockchainFixture,
-        eips=None,
     )
 
 

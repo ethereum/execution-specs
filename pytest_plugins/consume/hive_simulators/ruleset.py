@@ -7,7 +7,27 @@ Remove this file afterwards.
 
 from typing import Dict, List
 
-from ethereum_test_forks import Cancun, Fork, Osaka, Prague
+from ethereum_test_forks import (
+    Berlin,
+    BerlinToLondonAt5,
+    Byzantium,
+    Cancun,
+    CancunToPragueAtTime15k,
+    Constantinople,
+    ConstantinopleFix,
+    Fork,
+    Frontier,
+    Homestead,
+    Istanbul,
+    London,
+    Osaka,
+    Paris,
+    ParisToShanghaiAtTime15k,
+    Prague,
+    PragueToOsakaAtTime15k,
+    Shanghai,
+    ShanghaiToCancunAtTime15k,
+)
 
 
 def get_blob_schedule_entries(fork: Fork) -> Dict[str, int]:
@@ -36,8 +56,8 @@ def get_blob_schedule_entries(fork: Fork) -> Dict[str, int]:
     return entries
 
 
-ruleset = {
-    "Frontier": {
+ruleset: Dict[Fork, Dict[str, int]] = {
+    Frontier: {
         "HIVE_FORK_HOMESTEAD": 2000,
         "HIVE_FORK_DAO_BLOCK": 2000,
         "HIVE_FORK_TANGERINE": 2000,
@@ -49,7 +69,7 @@ ruleset = {
         "HIVE_FORK_BERLIN": 2000,
         "HIVE_FORK_LONDON": 2000,
     },
-    "Homestead": {
+    Homestead: {
         "HIVE_FORK_HOMESTEAD": 0,
         "HIVE_FORK_DAO_BLOCK": 2000,
         "HIVE_FORK_TANGERINE": 2000,
@@ -61,29 +81,7 @@ ruleset = {
         "HIVE_FORK_BERLIN": 2000,
         "HIVE_FORK_LONDON": 2000,
     },
-    "EIP150": {
-        "HIVE_FORK_HOMESTEAD": 0,
-        "HIVE_FORK_TANGERINE": 0,
-        "HIVE_FORK_SPURIOUS": 2000,
-        "HIVE_FORK_BYZANTIUM": 2000,
-        "HIVE_FORK_CONSTANTINOPLE": 2000,
-        "HIVE_FORK_PETERSBURG": 2000,
-        "HIVE_FORK_ISTANBUL": 2000,
-        "HIVE_FORK_BERLIN": 2000,
-        "HIVE_FORK_LONDON": 2000,
-    },
-    "EIP158": {
-        "HIVE_FORK_HOMESTEAD": 0,
-        "HIVE_FORK_TANGERINE": 0,
-        "HIVE_FORK_SPURIOUS": 0,
-        "HIVE_FORK_BYZANTIUM": 2000,
-        "HIVE_FORK_CONSTANTINOPLE": 2000,
-        "HIVE_FORK_PETERSBURG": 2000,
-        "HIVE_FORK_ISTANBUL": 2000,
-        "HIVE_FORK_BERLIN": 2000,
-        "HIVE_FORK_LONDON": 2000,
-    },
-    "Byzantium": {
+    Byzantium: {
         "HIVE_FORK_HOMESTEAD": 0,
         "HIVE_FORK_TANGERINE": 0,
         "HIVE_FORK_SPURIOUS": 0,
@@ -94,7 +92,7 @@ ruleset = {
         "HIVE_FORK_BERLIN": 2000,
         "HIVE_FORK_LONDON": 2000,
     },
-    "Constantinople": {
+    Constantinople: {
         "HIVE_FORK_HOMESTEAD": 0,
         "HIVE_FORK_TANGERINE": 0,
         "HIVE_FORK_SPURIOUS": 0,
@@ -105,7 +103,7 @@ ruleset = {
         "HIVE_FORK_BERLIN": 2000,
         "HIVE_FORK_LONDON": 2000,
     },
-    "ConstantinopleFix": {
+    ConstantinopleFix: {
         "HIVE_FORK_HOMESTEAD": 0,
         "HIVE_FORK_TANGERINE": 0,
         "HIVE_FORK_SPURIOUS": 0,
@@ -116,7 +114,7 @@ ruleset = {
         "HIVE_FORK_BERLIN": 2000,
         "HIVE_FORK_LONDON": 2000,
     },
-    "Istanbul": {
+    Istanbul: {
         "HIVE_FORK_HOMESTEAD": 0,
         "HIVE_FORK_TANGERINE": 0,
         "HIVE_FORK_SPURIOUS": 0,
@@ -127,7 +125,7 @@ ruleset = {
         "HIVE_FORK_BERLIN": 2000,
         "HIVE_FORK_LONDON": 2000,
     },
-    "Berlin": {
+    Berlin: {
         "HIVE_FORK_HOMESTEAD": 0,
         "HIVE_FORK_TANGERINE": 0,
         "HIVE_FORK_SPURIOUS": 0,
@@ -138,97 +136,7 @@ ruleset = {
         "HIVE_FORK_BERLIN": 0,
         "HIVE_FORK_LONDON": 2000,
     },
-    "FrontierToHomesteadAt5": {
-        "HIVE_FORK_HOMESTEAD": 5,
-        "HIVE_FORK_DAO_BLOCK": 2000,
-        "HIVE_FORK_TANGERINE": 2000,
-        "HIVE_FORK_SPURIOUS": 2000,
-        "HIVE_FORK_BYZANTIUM": 2000,
-        "HIVE_FORK_CONSTANTINOPLE": 2000,
-        "HIVE_FORK_PETERSBURG": 2000,
-        "HIVE_FORK_ISTANBUL": 2000,
-        "HIVE_FORK_BERLIN": 2000,
-        "HIVE_FORK_LONDON": 2000,
-    },
-    "HomesteadToEIP150At5": {
-        "HIVE_FORK_HOMESTEAD": 0,
-        "HIVE_FORK_TANGERINE": 5,
-        "HIVE_FORK_SPURIOUS": 2000,
-        "HIVE_FORK_BYZANTIUM": 2000,
-        "HIVE_FORK_CONSTANTINOPLE": 2000,
-        "HIVE_FORK_PETERSBURG": 2000,
-        "HIVE_FORK_ISTANBUL": 2000,
-        "HIVE_FORK_BERLIN": 2000,
-        "HIVE_FORK_LONDON": 2000,
-    },
-    "HomesteadToDaoAt5": {
-        "HIVE_FORK_HOMESTEAD": 0,
-        "HIVE_FORK_DAO_BLOCK": 5,
-        "HIVE_FORK_TANGERINE": 2000,
-        "HIVE_FORK_SPURIOUS": 2000,
-        "HIVE_FORK_BYZANTIUM": 2000,
-        "HIVE_FORK_CONSTANTINOPLE": 2000,
-        "HIVE_FORK_PETERSBURG": 2000,
-        "HIVE_FORK_ISTANBUL": 2000,
-        "HIVE_FORK_BERLIN": 2000,
-        "HIVE_FORK_LONDON": 2000,
-    },
-    "EIP158ToByzantiumAt5": {
-        "HIVE_FORK_HOMESTEAD": 0,
-        "HIVE_FORK_TANGERINE": 0,
-        "HIVE_FORK_SPURIOUS": 0,
-        "HIVE_FORK_BYZANTIUM": 5,
-        "HIVE_FORK_CONSTANTINOPLE": 2000,
-        "HIVE_FORK_PETERSBURG": 2000,
-        "HIVE_FORK_ISTANBUL": 2000,
-        "HIVE_FORK_BERLIN": 2000,
-        "HIVE_FORK_LONDON": 2000,
-    },
-    "ByzantiumToConstantinopleAt5": {
-        "HIVE_FORK_HOMESTEAD": 0,
-        "HIVE_FORK_TANGERINE": 0,
-        "HIVE_FORK_SPURIOUS": 0,
-        "HIVE_FORK_BYZANTIUM": 0,
-        "HIVE_FORK_CONSTANTINOPLE": 5,
-        "HIVE_FORK_PETERSBURG": 2000,
-        "HIVE_FORK_ISTANBUL": 2000,
-        "HIVE_FORK_BERLIN": 2000,
-        "HIVE_FORK_LONDON": 2000,
-    },
-    "ByzantiumToConstantinopleFixAt5": {
-        "HIVE_FORK_HOMESTEAD": 0,
-        "HIVE_FORK_TANGERINE": 0,
-        "HIVE_FORK_SPURIOUS": 0,
-        "HIVE_FORK_BYZANTIUM": 0,
-        "HIVE_FORK_CONSTANTINOPLE": 5,
-        "HIVE_FORK_PETERSBURG": 5,
-        "HIVE_FORK_ISTANBUL": 2000,
-        "HIVE_FORK_BERLIN": 2000,
-        "HIVE_FORK_LONDON": 2000,
-    },
-    "ConstantinopleFixToIstanbulAt5": {
-        "HIVE_FORK_HOMESTEAD": 0,
-        "HIVE_FORK_TANGERINE": 0,
-        "HIVE_FORK_SPURIOUS": 0,
-        "HIVE_FORK_BYZANTIUM": 0,
-        "HIVE_FORK_CONSTANTINOPLE": 0,
-        "HIVE_FORK_PETERSBURG": 0,
-        "HIVE_FORK_ISTANBUL": 5,
-        "HIVE_FORK_BERLIN": 2000,
-        "HIVE_FORK_LONDON": 2000,
-    },
-    "IstanbulToBerlinAt5": {
-        "HIVE_FORK_HOMESTEAD": 0,
-        "HIVE_FORK_TANGERINE": 0,
-        "HIVE_FORK_SPURIOUS": 0,
-        "HIVE_FORK_BYZANTIUM": 0,
-        "HIVE_FORK_CONSTANTINOPLE": 0,
-        "HIVE_FORK_PETERSBURG": 0,
-        "HIVE_FORK_ISTANBUL": 0,
-        "HIVE_FORK_BERLIN": 5,
-        "HIVE_FORK_LONDON": 2000,
-    },
-    "BerlinToLondonAt5": {
+    BerlinToLondonAt5: {
         "HIVE_FORK_HOMESTEAD": 0,
         "HIVE_FORK_TANGERINE": 0,
         "HIVE_FORK_SPURIOUS": 0,
@@ -239,7 +147,7 @@ ruleset = {
         "HIVE_FORK_BERLIN": 0,
         "HIVE_FORK_LONDON": 5,
     },
-    "London": {
+    London: {
         "HIVE_FORK_HOMESTEAD": 0,
         "HIVE_FORK_TANGERINE": 0,
         "HIVE_FORK_SPURIOUS": 0,
@@ -250,19 +158,7 @@ ruleset = {
         "HIVE_FORK_BERLIN": 0,
         "HIVE_FORK_LONDON": 0,
     },
-    "ArrowGlacierToMergeAtDiffC0000": {
-        "HIVE_FORK_HOMESTEAD": 0,
-        "HIVE_FORK_TANGERINE": 0,
-        "HIVE_FORK_SPURIOUS": 0,
-        "HIVE_FORK_BYZANTIUM": 0,
-        "HIVE_FORK_CONSTANTINOPLE": 0,
-        "HIVE_FORK_PETERSBURG": 0,
-        "HIVE_FORK_ISTANBUL": 0,
-        "HIVE_FORK_BERLIN": 0,
-        "HIVE_FORK_LONDON": 0,
-        "HIVE_TERMINAL_TOTAL_DIFFICULTY": 786432,
-    },
-    "Merge": {
+    Paris: {
         "HIVE_FORK_HOMESTEAD": 0,
         "HIVE_FORK_TANGERINE": 0,
         "HIVE_FORK_SPURIOUS": 0,
@@ -275,20 +171,7 @@ ruleset = {
         "HIVE_FORK_MERGE": 0,
         "HIVE_TERMINAL_TOTAL_DIFFICULTY": 0,
     },
-    "Paris": {
-        "HIVE_FORK_HOMESTEAD": 0,
-        "HIVE_FORK_TANGERINE": 0,
-        "HIVE_FORK_SPURIOUS": 0,
-        "HIVE_FORK_BYZANTIUM": 0,
-        "HIVE_FORK_CONSTANTINOPLE": 0,
-        "HIVE_FORK_PETERSBURG": 0,
-        "HIVE_FORK_ISTANBUL": 0,
-        "HIVE_FORK_BERLIN": 0,
-        "HIVE_FORK_LONDON": 0,
-        "HIVE_FORK_MERGE": 0,
-        "HIVE_TERMINAL_TOTAL_DIFFICULTY": 0,
-    },
-    "Shanghai": {
+    Shanghai: {
         "HIVE_FORK_HOMESTEAD": 0,
         "HIVE_FORK_TANGERINE": 0,
         "HIVE_FORK_SPURIOUS": 0,
@@ -302,7 +185,7 @@ ruleset = {
         "HIVE_TERMINAL_TOTAL_DIFFICULTY": 0,
         "HIVE_SHANGHAI_TIMESTAMP": 0,
     },
-    "ParisToShanghaiAtTime15k": {
+    ParisToShanghaiAtTime15k: {
         "HIVE_FORK_HOMESTEAD": 0,
         "HIVE_FORK_TANGERINE": 0,
         "HIVE_FORK_SPURIOUS": 0,
@@ -316,7 +199,7 @@ ruleset = {
         "HIVE_TERMINAL_TOTAL_DIFFICULTY": 0,
         "HIVE_SHANGHAI_TIMESTAMP": 15000,
     },
-    "Cancun": {
+    Cancun: {
         "HIVE_FORK_HOMESTEAD": 0,
         "HIVE_FORK_TANGERINE": 0,
         "HIVE_FORK_SPURIOUS": 0,
@@ -332,7 +215,7 @@ ruleset = {
         "HIVE_CANCUN_TIMESTAMP": 0,
         **get_blob_schedule_entries(Cancun),
     },
-    "ShanghaiToCancunAtTime15k": {
+    ShanghaiToCancunAtTime15k: {
         "HIVE_FORK_HOMESTEAD": 0,
         "HIVE_FORK_TANGERINE": 0,
         "HIVE_FORK_SPURIOUS": 0,
@@ -348,7 +231,7 @@ ruleset = {
         "HIVE_CANCUN_TIMESTAMP": 15000,
         **get_blob_schedule_entries(Cancun),
     },
-    "Prague": {
+    Prague: {
         "HIVE_FORK_HOMESTEAD": 0,
         "HIVE_FORK_TANGERINE": 0,
         "HIVE_FORK_SPURIOUS": 0,
@@ -365,7 +248,7 @@ ruleset = {
         "HIVE_PRAGUE_TIMESTAMP": 0,
         **get_blob_schedule_entries(Prague),
     },
-    "CancunToPragueAtTime15k": {
+    CancunToPragueAtTime15k: {
         "HIVE_FORK_HOMESTEAD": 0,
         "HIVE_FORK_TANGERINE": 0,
         "HIVE_FORK_SPURIOUS": 0,
@@ -382,7 +265,7 @@ ruleset = {
         "HIVE_PRAGUE_TIMESTAMP": 15000,
         **get_blob_schedule_entries(Prague),
     },
-    "Osaka": {
+    Osaka: {
         "HIVE_FORK_HOMESTEAD": 0,
         "HIVE_FORK_TANGERINE": 0,
         "HIVE_FORK_SPURIOUS": 0,
@@ -400,7 +283,7 @@ ruleset = {
         "HIVE_OSAKA_TIMESTAMP": 0,
         **get_blob_schedule_entries(Osaka),
     },
-    "PragueToOsakaAtTime15k": {
+    PragueToOsakaAtTime15k: {
         "HIVE_FORK_HOMESTEAD": 0,
         "HIVE_FORK_TANGERINE": 0,
         "HIVE_FORK_SPURIOUS": 0,

@@ -132,7 +132,7 @@ class BaseFixture(CamelModel):
         if _info_metadata:
             self.info.update(_info_metadata)
 
-    def get_fork(self) -> str | None:
+    def get_fork(self) -> Fork | None:
         """Return fork of the fixture as a string."""
         raise NotImplementedError
 

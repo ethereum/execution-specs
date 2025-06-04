@@ -21,7 +21,7 @@ from ..eof import ContainerKind, EOFFixture, Result, Vector
                         code=Bytes(b"\x00"),
                         container_kind=ContainerKind.INITCODE,
                         results={
-                            "result1": Result(
+                            "Paris": Result(
                                 exception=None,
                                 valid=True,
                             ),
@@ -35,7 +35,7 @@ from ..eof import ContainerKind, EOFFixture, Result, Vector
                         "code": "0x00",
                         "containerKind": "INITCODE",
                         "results": {
-                            "result1": {
+                            "Paris": {
                                 "result": True,
                             },
                         },
@@ -52,7 +52,7 @@ from ..eof import ContainerKind, EOFFixture, Result, Vector
                         code=Bytes(b"\x00"),
                         container_kind=ContainerKind.RUNTIME,
                         results={
-                            "result1": Result(
+                            "Paris": Result(
                                 exception=EOFException.INVALID_MAGIC,
                                 valid=False,
                             ),
@@ -66,7 +66,7 @@ from ..eof import ContainerKind, EOFFixture, Result, Vector
                         "code": "0x00",
                         "containerKind": "RUNTIME",
                         "results": {
-                            "result1": {
+                            "Paris": {
                                 "exception": "EOFException.INVALID_MAGIC",
                                 "result": False,
                             },

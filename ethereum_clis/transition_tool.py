@@ -500,7 +500,6 @@ class TransitionTool(EthereumCLI):
         chain_id: int,
         reward: int,
         blob_schedule: BlobSchedule | None,
-        eips: Optional[List[int]] = None,
         debug_output_path: str = "",
         state_test: bool = False,
         slow_request: bool = False,
@@ -515,8 +514,6 @@ class TransitionTool(EthereumCLI):
             block_number=env.number,
             timestamp=env.timestamp,
         )
-        if eips is not None:
-            fork_name = "+".join([fork_name] + [str(eip) for eip in eips])
         if env.number == 0:
             reward = -1
         t8n_data = self.TransitionToolData(

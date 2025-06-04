@@ -3,7 +3,7 @@
 from inspect import signature
 from typing import Callable, List, Type
 
-from .base_fork import BaseFork, Fork
+from .base_fork import BaseFork
 
 ALWAYS_TRANSITIONED_BLOCK_NUMBER = 10_000
 ALWAYS_TRANSITIONED_BLOCK_TIMESTAMP = 10_000_000
@@ -13,12 +13,12 @@ class TransitionBaseClass:
     """Base class for transition forks."""
 
     @classmethod
-    def transitions_to(cls) -> Fork:
+    def transitions_to(cls) -> Type[BaseFork]:
         """Return fork where the transition ends."""
         raise Exception("Not implemented")
 
     @classmethod
-    def transitions_from(cls) -> Fork:
+    def transitions_from(cls) -> Type[BaseFork]:
         """Return fork where the transition starts."""
         raise Exception("Not implemented")
 
@@ -28,7 +28,7 @@ def base_fork_abstract_methods() -> List[str]:
     return list(BaseFork.__abstractmethods__)
 
 
-def transition_fork(to_fork: Fork, at_block: int = 0, at_timestamp: int = 0):
+def transition_fork(to_fork: Type[BaseFork], at_block: int = 0, at_timestamp: int = 0):
     """Mark a class as a transition fork."""
 
     def decorator(cls) -> Type[TransitionBaseClass]:
@@ -41,16 +41,15 @@ def transition_fork(to_fork: Fork, at_block: int = 0, at_timestamp: int = 0):
             TransitionBaseClass,
             BaseFork,
             transition_tool_name=cls._transition_tool_name,
-            blockchain_test_network_name=cls._blockchain_test_network_name,
             solc_name=cls._solc_name,
             ignore=cls._ignore,
         ):
             @classmethod
-            def transitions_to(cls) -> Fork:
+            def transitions_to(cls) -> Type[BaseFork]:
                 return to_fork
 
             @classmethod
-            def transitions_from(cls) -> Fork:
+            def transitions_from(cls) -> Type[BaseFork]:
                 return from_fork
 
         NewTransitionClass.name = lambda: transition_name  # type: ignore

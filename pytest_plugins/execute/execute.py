@@ -261,7 +261,6 @@ def base_test_parametrizer(cls: Type[BaseTest]):
         request: Any,
         fork: Fork,
         pre: Alloc,
-        eips: List[int],
         eth_rpc: EthRPC,
         engine_rpc: EngineRPC | None,
         collector: Collector,
@@ -311,7 +310,7 @@ def base_test_parametrizer(cls: Type[BaseTest]):
                     [str(eoa) for eoa in pre._funded_eoa]
                 )
 
-                execute = self.execute(fork=fork, execute_format=execute_format, eips=eips)
+                execute = self.execute(fork=fork, execute_format=execute_format)
                 execute.execute(fork=fork, eth_rpc=eth_rpc, engine_rpc=engine_rpc)
                 collector.collect(request.node.nodeid, execute)
 

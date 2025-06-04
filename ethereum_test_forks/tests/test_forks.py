@@ -3,11 +3,11 @@
 from typing import Dict, cast
 
 import pytest
+from pydantic import BaseModel
 from semver import Version
 
 from ethereum_test_base_types import BlobSchedule
 
-from ..base_fork import Fork
 from ..forks.forks import (
     Berlin,
     Cancun,
@@ -26,6 +26,7 @@ from ..forks.transition import (
     ShanghaiToCancunAtTime15k,
 )
 from ..helpers import (
+    Fork,
     forks_from,
     forks_from_until,
     get_closest_fork_with_solc_support,
@@ -108,9 +109,9 @@ def test_forks():
     # the default
     assert Paris.transition_tool_name() == "Merge"
     assert Shanghai.transition_tool_name() == "Shanghai"
-    assert Paris.blockchain_test_network_name() == "Paris"
-    assert Shanghai.blockchain_test_network_name() == "Shanghai"
-    assert ParisToShanghaiAtTime15k.blockchain_test_network_name() == "ParisToShanghaiAtTime15k"
+    assert f"{Paris}" == "Paris"
+    assert f"{Shanghai}" == "Shanghai"
+    assert f"{ParisToShanghaiAtTime15k}" == "ParisToShanghaiAtTime15k"
 
     # Test some fork properties
     assert Berlin.header_base_fee_required(0, 0) is False
@@ -125,6 +126,34 @@ def test_forks():
     assert cast(Fork, ParisToShanghaiAtTime15k).header_withdrawals_required(0, 14_999) is False
     assert cast(Fork, ParisToShanghaiAtTime15k).header_withdrawals_required(0, 15_000) is True
     assert cast(Fork, ParisToShanghaiAtTime15k).header_withdrawals_required() is True
+
+
+class ForkInPydanticModel(BaseModel):
+    """Fork in pydantic model."""
+
+    fork_1: Fork
+    fork_2: Fork
+    fork_3: Fork | None
+
+
+def test_fork_in_pydantic_model():
+    """Test fork in pydantic model."""
+    model = ForkInPydanticModel(fork_1=Paris, fork_2=ParisToShanghaiAtTime15k, fork_3=None)
+    assert model.model_dump() == {
+        "fork_1": "Paris",
+        "fork_2": "ParisToShanghaiAtTime15k",
+        "fork_3": None,
+    }
+    assert (
+        model.model_dump_json()
+        == '{"fork_1":"Paris","fork_2":"ParisToShanghaiAtTime15k","fork_3":null}'
+    )
+    model = ForkInPydanticModel.model_validate_json(
+        '{"fork_1": "Paris", "fork_2": "ParisToShanghaiAtTime15k", "fork_3": null}'
+    )
+    assert model.fork_1 == Paris
+    assert model.fork_2 == ParisToShanghaiAtTime15k
+    assert model.fork_3 is None
 
 
 def test_fork_comparison():

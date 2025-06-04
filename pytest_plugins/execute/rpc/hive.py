@@ -299,12 +299,12 @@ def environment(base_fork: Fork) -> dict:
     Define the environment that hive will start the client with using the fork
     rules specific for the simulator.
     """
-    assert base_fork.name() in ruleset, f"fork '{base_fork.name()}' missing in hive ruleset"
+    assert base_fork in ruleset, f"fork '{base_fork}' missing in hive ruleset"
     return {
         "HIVE_CHAIN_ID": "1",
         "HIVE_FORK_DAO_VOTE": "1",
         "HIVE_NODETYPE": "full",
-        **{k: f"{v:d}" for k, v in ruleset[base_fork.name()].items()},
+        **{k: f"{v:d}" for k, v in ruleset[base_fork].items()},
     }
 
 

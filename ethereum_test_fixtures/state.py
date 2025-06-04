@@ -14,6 +14,7 @@ from ethereum_test_base_types import (
     ZeroPaddedHexNumber,
 )
 from ethereum_test_exceptions import TransactionExceptionInstanceOrList
+from ethereum_test_forks import Fork
 from ethereum_test_types.block_types import EnvironmentGeneric
 from ethereum_test_types.transaction_types import (
     Transaction,
@@ -97,10 +98,10 @@ class StateFixture(BaseFixture):
     env: FixtureEnvironment
     pre: Alloc
     transaction: FixtureTransaction
-    post: Mapping[str, List[FixtureForkPost]]
+    post: Mapping[Fork, List[FixtureForkPost]]
     config: FixtureConfig
 
-    def get_fork(self) -> str | None:
+    def get_fork(self) -> Fork | None:
         """Return fork of the fixture as a string."""
         forks = list(self.post.keys())
         assert len(forks) == 1, "Expected state test fixture with single fork"

@@ -328,7 +328,7 @@ def fork_strict_exception_matching(
     """Return True if the fork should use strict exception matching."""
     # NOTE: `in` makes it easier for transition forks ("Prague" in "CancunToPragueAtTime15k")
     return not any(
-        fork.lower() in fixture.fork.lower() for fork in disable_strict_exception_matching
+        s.lower() in str(fixture.fork).lower() for s in disable_strict_exception_matching
     )
 
 

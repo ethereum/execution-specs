@@ -8,6 +8,7 @@ from typing import List, Optional, TextIO
 from pydantic import BaseModel, RootModel
 
 from ethereum_test_base_types import HexNumber
+from ethereum_test_forks import Fork
 
 from .base import BaseFixture, FixtureFormat
 from .file import Fixtures
@@ -44,7 +45,7 @@ class TestCaseBase(BaseModel):
 
     id: str
     fixture_hash: HexNumber | None
-    fork: str | None
+    fork: Fork | None
     format: FixtureFormat
     __test__ = False  # stop pytest from collecting this class as a test
 
@@ -80,7 +81,7 @@ class IndexFile(BaseModel):
     root_hash: HexNumber | None
     created_at: datetime.datetime
     test_count: int
-    forks: Optional[List[str]] = []
+    forks: Optional[List[Fork]] = []
     fixture_formats: Optional[List[str]] = []
     test_cases: List[TestCaseIndexFile]
 

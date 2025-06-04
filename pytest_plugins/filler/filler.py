@@ -718,7 +718,6 @@ def base_test_parametrizer(cls: Type[BaseTest]):
         t8n: TransitionTool,
         fork: Fork,
         reference_spec: ReferenceSpec,
-        eips: List[int],
         pre: Alloc,
         output_dir: Path,
         dump_dir_parameter_level: Path | None,
@@ -756,7 +755,6 @@ def base_test_parametrizer(cls: Type[BaseTest]):
                     t8n=t8n,
                     fork=fork,
                     fixture_format=fixture_format,
-                    eips=eips,
                 )
                 fixture.fill_info(
                     t8n.version(),

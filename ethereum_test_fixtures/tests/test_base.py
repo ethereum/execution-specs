@@ -12,7 +12,7 @@ def test_json_dict():
     """Test that the json_dict property does not include the info field."""
     fixture = TransactionFixture(
         txbytes="0x1234",
-        result={"fork": FixtureResult(intrinsic_gas=0)},
+        result={"Paris": FixtureResult(intrinsic_gas=0)},
     )
     assert "_info" not in fixture.json_dict, "json_dict should exclude the 'info' field"
 
@@ -38,7 +38,7 @@ def test_json_dict():
         pytest.param(
             TransactionFixture(
                 transaction="0x1234",
-                result={"fork": FixtureResult(intrinsic_gas=0)},
+                result={"Paris": FixtureResult(intrinsic_gas=0)},
             ),
             id="TransactionFixture",
         ),

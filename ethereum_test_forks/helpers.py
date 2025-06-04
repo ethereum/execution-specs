@@ -1,12 +1,19 @@
 """Helper methods to resolve forks during test filling."""
 
 import re
-from typing import Any, List, Optional, Set
+from typing import Annotated, Any, Callable, List, Optional, Set, Type
 
-from pydantic import BaseModel, ConfigDict, ValidatorFunctionWrapHandler, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    PlainSerializer,
+    PlainValidator,
+    ValidatorFunctionWrapHandler,
+    model_validator,
+)
 from semver import Version
 
-from .base_fork import BaseFork, Fork
+from .base_fork import BaseFork
 from .forks import forks, transition
 from .transition_base_fork import TransitionBaseClass
 
@@ -19,7 +26,7 @@ class InvalidForkError(Exception):
         super().__init__(message)
 
 
-all_forks: List[Fork] = []
+all_forks: List[Type[BaseFork]] = []
 for fork_name in forks.__dict__:
     fork = forks.__dict__[fork_name]
     if not isinstance(fork, type):
@@ -27,8 +34,17 @@ for fork_name in forks.__dict__:
     if issubclass(fork, BaseFork) and fork is not BaseFork:
         all_forks.append(fork)
 
+transition_forks: List[Type[BaseFork]] = []
 
-def get_forks() -> List[Fork]:
+for fork_name in transition.__dict__:
+    fork = transition.__dict__[fork_name]
+    if not isinstance(fork, type):
+        continue
+    if issubclass(fork, TransitionBaseClass) and issubclass(fork, BaseFork):
+        transition_forks.append(fork)
+
+
+def get_forks() -> List[Type[BaseFork]]:
     """
     Return list of all the fork classes implemented by
     `ethereum_test_forks` ordered chronologically by deployment.
@@ -36,7 +52,7 @@ def get_forks() -> List[Fork]:
     return all_forks
 
 
-def get_deployed_forks() -> List[Fork]:
+def get_deployed_forks() -> List[Type[BaseFork]]:
     """
     Return list of all the fork classes implemented by `ethereum_test_forks`
     that have been deployed to mainnet, chronologically ordered by deployment.
@@ -44,7 +60,7 @@ def get_deployed_forks() -> List[Fork]:
     return [fork for fork in get_forks() if fork.is_deployed()]
 
 
-def get_development_forks() -> List[Fork]:
+def get_development_forks() -> List[Type[BaseFork]]:
     """
     Return list of all the fork classes implemented by `ethereum_test_forks`
     that have been not yet deployed to mainnet and are currently under
@@ -53,7 +69,7 @@ def get_development_forks() -> List[Fork]:
     return [fork for fork in get_forks() if not fork.is_deployed()]
 
 
-def get_parent_fork(fork: Fork) -> Fork:
+def get_parent_fork(fork: Type[BaseFork]) -> Type[BaseFork]:
     """Return parent fork of the specified fork."""
     parent_fork = fork.__base__
     if not parent_fork:
@@ -61,17 +77,19 @@ def get_parent_fork(fork: Fork) -> Fork:
     return parent_fork
 
 
-def get_forks_with_solc_support(solc_version: Version) -> List[Fork]:
+def get_forks_with_solc_support(solc_version: Version) -> List[Type[BaseFork]]:
     """Return list of all fork classes that are supported by solc."""
     return [fork for fork in get_forks() if solc_version >= fork.solc_min_version()]
 
 
-def get_forks_without_solc_support(solc_version: Version) -> List[Fork]:
+def get_forks_without_solc_support(solc_version: Version) -> List[Type[BaseFork]]:
     """Return list of all fork classes that aren't supported by solc."""
     return [fork for fork in get_forks() if solc_version < fork.solc_min_version()]
 
 
-def get_closest_fork_with_solc_support(fork: Fork, solc_version: Version) -> Optional[Fork]:
+def get_closest_fork_with_solc_support(
+    fork: Type[BaseFork], solc_version: Version
+) -> Optional[Type[BaseFork]]:
     """
     Return closest fork, potentially the provided fork itself, that has
     solc support.
@@ -85,28 +103,19 @@ def get_closest_fork_with_solc_support(fork: Fork, solc_version: Version) -> Opt
     )
 
 
-def get_transition_forks() -> Set[Fork]:
+def get_transition_forks() -> Set[Type[BaseFork]]:
     """Return all the transition forks."""
-    transition_forks: Set[Fork] = set()
-
-    for fork_name in transition.__dict__:
-        fork = transition.__dict__[fork_name]
-        if not isinstance(fork, type):
-            continue
-        if issubclass(fork, TransitionBaseClass) and issubclass(fork, BaseFork):
-            transition_forks.add(fork)
-
-    return transition_forks
+    return set(transition_forks)
 
 
-def get_transition_fork_predecessor(transition_fork: Fork) -> Fork:
+def get_transition_fork_predecessor(transition_fork: Type[BaseFork]) -> Type[BaseFork]:
     """Return the fork from which the transition fork transitions."""
     if not issubclass(transition_fork, TransitionBaseClass):
         raise InvalidForkError(f"{transition_fork} is not a transition fork.")
     return transition_fork.transitions_from()
 
 
-def get_transition_fork_successor(transition_fork: Fork) -> Fork:
+def get_transition_fork_successor(transition_fork: Type[BaseFork]) -> Type[BaseFork]:
     """Return the fork to which the transition fork transitions."""
     if not issubclass(transition_fork, TransitionBaseClass):
         raise InvalidForkError(f"{transition_fork} is not a transition fork.")
@@ -114,8 +123,8 @@ def get_transition_fork_successor(transition_fork: Fork) -> Fork:
 
 
 def get_from_until_fork_set(
-    forks: Set[Fork], forks_from: Set[Fork], forks_until: Set[Fork]
-) -> Set[Fork]:
+    forks: Set[Type[BaseFork]], forks_from: Set[Type[BaseFork]], forks_until: Set[Type[BaseFork]]
+) -> Set[Type[BaseFork]]:
     """Get fork range from forks_from to forks_until."""
     resulting_set = set()
     for fork_from in forks_from:
@@ -126,9 +135,9 @@ def get_from_until_fork_set(
     return resulting_set
 
 
-def get_forks_with_no_parents(forks: Set[Fork]) -> Set[Fork]:
+def get_forks_with_no_parents(forks: Set[Type[BaseFork]]) -> Set[Type[BaseFork]]:
     """Get forks with no parents in the inheritance hierarchy."""
-    resulting_forks: Set[Fork] = set()
+    resulting_forks: Set[Type[BaseFork]] = set()
     for fork in forks:
         parents = False
         for next_fork in forks - {fork}:
@@ -140,9 +149,9 @@ def get_forks_with_no_parents(forks: Set[Fork]) -> Set[Fork]:
     return resulting_forks
 
 
-def get_forks_with_no_descendants(forks: Set[Fork]) -> Set[Fork]:
+def get_forks_with_no_descendants(forks: Set[Type[BaseFork]]) -> Set[Type[BaseFork]]:
     """Get forks with no descendants in the inheritance hierarchy."""
-    resulting_forks: Set[Fork] = set()
+    resulting_forks: Set[Type[BaseFork]] = set()
     for fork in forks:
         descendants = False
         for next_fork in forks - {fork}:
@@ -154,9 +163,11 @@ def get_forks_with_no_descendants(forks: Set[Fork]) -> Set[Fork]:
     return resulting_forks
 
 
-def get_last_descendants(forks: Set[Fork], forks_from: Set[Fork]) -> Set[Fork]:
+def get_last_descendants(
+    forks: Set[Type[BaseFork]], forks_from: Set[Type[BaseFork]]
+) -> Set[Type[BaseFork]]:
     """Get last descendant of a class in the inheritance hierarchy."""
-    resulting_forks: Set[Fork] = set()
+    resulting_forks: Set[Type[BaseFork]] = set()
     forks = get_forks_with_no_descendants(forks)
     for fork_from in forks_from:
         for fork in forks:
@@ -165,7 +176,9 @@ def get_last_descendants(forks: Set[Fork], forks_from: Set[Fork]) -> Set[Fork]:
     return resulting_forks
 
 
-def transition_fork_from_to(fork_from: Fork, fork_to: Fork) -> Fork | None:
+def transition_fork_from_to(
+    fork_from: Type[BaseFork], fork_to: Type[BaseFork]
+) -> Type[BaseFork] | None:
     """
     Return transition fork that transitions to and from the specified
     forks.
@@ -182,9 +195,9 @@ def transition_fork_from_to(fork_from: Fork, fork_to: Fork) -> Fork | None:
     return None
 
 
-def transition_fork_to(fork_to: Fork) -> Set[Fork]:
+def transition_fork_to(fork_to: Type[BaseFork]) -> Set[Type[BaseFork]]:
     """Return transition fork that transitions to the specified fork."""
-    transition_forks: Set[Fork] = set()
+    transition_forks: Set[Type[BaseFork]] = set()
     for transition_fork in get_transition_forks():
         if not issubclass(transition_fork, TransitionBaseClass):
             continue
@@ -194,14 +207,16 @@ def transition_fork_to(fork_to: Fork) -> Set[Fork]:
     return transition_forks
 
 
-def forks_from_until(fork_from: Fork, fork_until: Fork) -> List[Fork]:
+def forks_from_until(
+    fork_from: Type[BaseFork], fork_until: Type[BaseFork]
+) -> List[Type[BaseFork]]:
     """
     Return specified fork and all forks after it until and including the
     second specified fork.
     """
     prev_fork = fork_until
 
-    forks: List[Fork] = []
+    forks: List[Type[BaseFork]] = []
 
     while prev_fork != BaseFork and prev_fork != fork_from:
         forks.insert(0, prev_fork)
@@ -216,7 +231,7 @@ def forks_from_until(fork_from: Fork, fork_until: Fork) -> List[Fork]:
     return forks
 
 
-def forks_from(fork: Fork, deployed_only: bool = True) -> List[Fork]:
+def forks_from(fork: Type[BaseFork], deployed_only: bool = True) -> List[Type[BaseFork]]:
     """Return specified fork and all forks after it."""
     if deployed_only:
         latest_fork = get_deployed_forks()[-1]
@@ -225,7 +240,9 @@ def forks_from(fork: Fork, deployed_only: bool = True) -> List[Fork]:
     return forks_from_until(fork, latest_fork)
 
 
-def get_relative_fork_markers(fork_identifier: Fork | str, strict_mode: bool = True) -> list[str]:
+def get_relative_fork_markers(
+    fork_identifier: Type[BaseFork] | str, strict_mode: bool = True
+) -> list[str]:
     """
     Return a list of marker names for a given fork.
 
@@ -256,7 +273,7 @@ def get_relative_fork_markers(fork_identifier: Fork | str, strict_mode: bool = T
         return [fork_class.name()]
 
 
-def get_fork_by_name(fork_name: str) -> Fork | None:
+def get_fork_by_name(fork_name: str) -> Type[BaseFork] | None:
     """Get a fork by name."""
     for fork in get_forks():
         if fork.name() == fork_name:
@@ -267,11 +284,11 @@ def get_fork_by_name(fork_name: str) -> Fork | None:
 class ForkRangeDescriptor(BaseModel):
     """Fork descriptor parsed from string normally contained in ethereum/tests fillers."""
 
-    greater_equal: Fork | None = None
-    less_than: Fork | None = None
+    greater_equal: Type[BaseFork] | None = None
+    less_than: Type[BaseFork] | None = None
     model_config = ConfigDict(frozen=True)
 
-    def fork_in_range(self, fork: Fork) -> bool:
+    def fork_in_range(self, fork: Type[BaseFork]) -> bool:
         """Return whether the given fork is within range."""
         if self.greater_equal is not None and fork < self.greater_equal:
             return False
@@ -295,7 +312,7 @@ class ForkRangeDescriptor(BaseModel):
             descriptor_string = re.sub(r"\s+", "", v.strip())
             v = {}
             if m := re.search(r">=(\w+)", descriptor_string):
-                fork: Fork | None = get_fork_by_name(m.group(1))
+                fork: Type[BaseFork] | None = get_fork_by_name(m.group(1))
                 if fork is None:
                     raise Exception(f"Unable to parse fork name: {m.group(1)}")
                 v["greater_equal"] = fork
@@ -312,3 +329,36 @@ class ForkRangeDescriptor(BaseModel):
                     + f'Remaining string: "{descriptor_string}"'
                 )
         return handler(v)
+
+
+def fork_validator_generator(
+    cls_name: str, forks: List[Type[BaseFork]]
+) -> Callable[[Any], Type[BaseFork]]:
+    """Generate a fork validator function."""
+    forks_dict = {fork.name(): fork for fork in forks}
+
+    def fork_validator(obj: Any) -> Type[BaseFork]:
+        """Get a fork by name or raise an error."""
+        if obj is None:
+            raise InvalidForkError("Fork cannot be None")
+        if isinstance(obj, type) and issubclass(obj, BaseFork):
+            return obj
+        if isinstance(obj, str):
+            if obj in forks_dict:
+                return forks_dict[obj]
+        raise InvalidForkError(f"Invalid {cls_name}: {obj} (type: {type(obj)})")
+
+    return fork_validator
+
+
+# Annotated Pydantic-Friendly Fork Types
+Fork = Annotated[
+    Type[BaseFork],
+    PlainSerializer(str),
+    PlainValidator(fork_validator_generator("Fork", all_forks + transition_forks)),
+]
+TransitionFork = Annotated[
+    Type[BaseFork],
+    PlainSerializer(str),
+    PlainValidator(fork_validator_generator("TransitionFork", transition_forks)),
+]
