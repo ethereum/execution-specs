@@ -2,12 +2,12 @@
 
 from dataclasses import dataclass
 
+from ethereum_test_base_types import Bytes
 from ethereum_test_types.helpers import TestParameterGroup
 
 from .spec import Spec, SpecTestVectors
 
 
-@dataclass(kw_only=True, frozen=True, repr=False)
 class Blake2bInput(TestParameterGroup):
     """
     Helper class that defines the BLAKE2b precompile inputs and creates the
@@ -27,31 +27,29 @@ class Blake2bInput(TestParameterGroup):
     """
 
     rounds_length: int = Spec.BLAKE2_PRECOMPILE_ROUNDS_LENGTH
-    rounds: int | str = Spec.BLAKE2B_PRECOMPILE_ROUNDS
-    h: str = SpecTestVectors.BLAKE2_STATE_VECTOR
-    m: str = SpecTestVectors.BLAKE2_MESSAGE_BLOCK_VECTOR
-    t_0: int | str = SpecTestVectors.BLAKE2_OFFSET_COUNTER_0
-    t_1: int | str = SpecTestVectors.BLAKE2_OFFSET_COUNTER_1
+    rounds: int = Spec.BLAKE2B_PRECOMPILE_ROUNDS
+    h: Bytes = SpecTestVectors.BLAKE2_STATE_VECTOR  # type: ignore
+    m: Bytes = SpecTestVectors.BLAKE2_MESSAGE_BLOCK_VECTOR  # type: ignore
+    t_0: int | Bytes = SpecTestVectors.BLAKE2_OFFSET_COUNTER_0
+    t_1: int | Bytes = SpecTestVectors.BLAKE2_OFFSET_COUNTER_1
     f: bool | int = True
 
     def create_blake2b_tx_data(self):
         """Generate input for the BLAKE2b precompile."""
         _rounds = self.rounds.to_bytes(length=self.rounds_length, byteorder="big")
-        _h = bytes.fromhex(self.h)
-        _m = bytes.fromhex(self.m)
         _t_0 = (
-            bytes.fromhex(self.t_0)
-            if isinstance(self.t_0, str)
+            self.t_0
+            if isinstance(self.t_0, bytes)
             else self.t_0.to_bytes(length=Spec.BLAKE2_PRECOMPILE_T_0_LENGTH, byteorder="little")
         )
         _t_1 = (
-            bytes.fromhex(self.t_1)
-            if isinstance(self.t_1, str)
+            self.t_1
+            if isinstance(self.t_1, bytes)
             else self.t_1.to_bytes(length=Spec.BLAKE2_PRECOMPILE_T_1_LENGTH, byteorder="little")
         )
         _f = int(self.f).to_bytes(length=Spec.BLAKE2_PRECOMPILE_F_LENGTH, byteorder="big")
 
-        return _rounds + _h + _m + _t_0 + _t_1 + _f
+        return _rounds + self.h + self.m + _t_0 + _t_1 + _f
 
 
 @dataclass(kw_only=True, frozen=True, repr=False)
