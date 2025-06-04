@@ -1,9 +1,9 @@
 """Helper functions/classes used to generate Ethereum tests."""
 
-from dataclasses import MISSING, dataclass, fields
 from typing import List, SupportsBytes
 
 import ethereum_rlp as eth_rlp
+from pydantic import BaseModel, ConfigDict
 
 from ethereum_test_base_types.base_types import Address, Bytes, Hash
 from ethereum_test_base_types.conversions import BytesConvertible, FixedSizeBytesConvertible
@@ -93,8 +93,7 @@ def add_kzg_version(
     return kzg_versioned_hashes
 
 
-@dataclass(kw_only=True, frozen=True, repr=False)
-class TestParameterGroup:
+class TestParameterGroup(BaseModel):
     """
     Base class for grouping test parameters in a dataclass. Provides a generic
     __repr__ method to generate clean test ids, including only non-default
@@ -103,18 +102,18 @@ class TestParameterGroup:
 
     __test__ = False  # explicitly prevent pytest collecting this class
 
+    model_config = ConfigDict(frozen=True, validate_default=True)
+
     def __repr__(self):
         """
         Generate repr string, intended to be used as a test id, based on the class
         name and the values of the non-default optional fields.
         """
         class_name = self.__class__.__name__
-        field_strings = []
-
-        for field in fields(self):
-            value = getattr(self, field.name)
+        field_strings = [
+            f"{field}_{value}"
             # Include the field only if it is not optional or not set to its default value
-            if field.default is MISSING or field.default != value:
-                field_strings.append(f"{field.name}_{value}")
+            for field, value in self.model_dump(exclude_defaults=True, exclude_unset=True).items()
+        ]
 
         return f"{class_name}_{'-'.join(field_strings)}"
