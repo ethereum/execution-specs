@@ -11,7 +11,6 @@ Introduction
 
 A straightforward interpreter that executes EVM code.
 """
-
 from dataclasses import dataclass
 from typing import Optional, Set, Tuple
 
@@ -38,7 +37,6 @@ from ..state import (
     begin_transaction,
     commit_transaction,
     destroy_storage,
-    get_account,
     increment_nonce,
     mark_account_created,
     move_ether,
@@ -46,7 +44,7 @@ from ..state import (
     set_code,
 )
 from ..vm import Message
-from ..vm.eoa_delegation import get_delegated_code_address, set_delegation
+from ..vm.eoa_delegation import set_delegation
 from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import Evm
@@ -124,14 +122,6 @@ def process_message_call(message: Message) -> MessageCallOutput:
     else:
         if message.tx_env.authorizations != ():
             refund_counter += set_delegation(message)
-
-        delegated_address = get_delegated_code_address(message.code)
-        if delegated_address is not None:
-            message.disable_precompiles = True
-            message.accessed_addresses.add(delegated_address)
-            message.code = get_account(block_env.state, delegated_address).code
-            message.code_address = delegated_address
-
         evm = process_message(message)
 
     if evm.error:

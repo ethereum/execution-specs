@@ -201,5 +201,15 @@ def set_delegation(message: Message) -> U256:
 
     if message.code_address is None:
         raise InvalidBlock("Invalid type 4 transaction: no target")
+    message.code = get_account(state, message.code_address).code
+
+    if is_valid_delegation(message.code):
+        message.disable_precompiles = True
+        message.code_address = Address(
+            message.code[EOA_DELEGATION_MARKER_LENGTH:]
+        )
+        message.accessed_addresses.add(message.code_address)
+
+        message.code = get_account(state, message.code_address).code
 
     return refund_counter
