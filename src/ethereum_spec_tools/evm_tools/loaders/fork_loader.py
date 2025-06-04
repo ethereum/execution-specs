@@ -308,6 +308,31 @@ class ForkLoad:
         return self._module("vm.gas").TARGET_BLOB_GAS_PER_BLOCK
 
     @property
+    def GAS_PER_BLOB(self) -> Any:
+        """GAS_PER_BLOB of the fork"""
+        return self._module("vm.gas").GAS_PER_BLOB
+
+    @property
+    def BLOB_BASE_COST(self) -> Any:
+        """BLOB_BASE_COST of the fork"""
+        return self._module("vm.gas").BLOB_BASE_COST
+
+    @property
+    def BLOB_SCHEDULE_MAX(self) -> Any:
+        """BLOB_SCHEDULE_MAX of the fork"""
+        return self._module("vm.gas").BLOB_SCHEDULE_MAX
+
+    @property
+    def BLOB_SCHEDULE_TARGET(self) -> Any:
+        """BLOB_SCHEDULE_TARGET of the fork"""
+        return self._module("vm.gas").BLOB_SCHEDULE_TARGET
+
+    @property
+    def calculate_blob_gas_price(self) -> Any:
+        """calculate_blob_gas_price of the fork"""
+        return self._module("vm.gas").calculate_blob_gas_price
+
+    @property
     def apply_dao(self) -> Any:
         """apply_dao function of the fork"""
         return self._module("dao").apply_dao
