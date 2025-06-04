@@ -26,8 +26,6 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 REFERENCE_SPEC_GIT_PATH = "TODO"
 REFERENCE_SPEC_VERSION = "TODO"
 
-MAX_CODE_SIZE = 24 * 1024
-
 
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
@@ -137,11 +135,13 @@ def test_worst_address_state_cold(
 def test_worst_address_state_warm(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     opcode: Op,
     absent_target: bool,
 ):
     """Test running a block with as many stateful opcodes doing warm access for an account."""
     env = Environment(gas_limit=100_000_000_000)
+    max_code_size = fork.max_code_size()
     attack_gas_limit = Environment().gas_limit
 
     # Setup
@@ -157,13 +157,13 @@ def test_worst_address_state_warm(
     jumpdest = Op.JUMPDEST
     jump_back = Op.JUMP(len(prep))
     iter_block = Op.POP(opcode(address=Op.MLOAD(0)))
-    max_iters_loop = (MAX_CODE_SIZE - len(prep) - len(jumpdest) - len(jump_back)) // len(
+    max_iters_loop = (max_code_size - len(prep) - len(jumpdest) - len(jump_back)) // len(
         iter_block
     )
     op_code = prep + jumpdest + sum([iter_block] * max_iters_loop) + jump_back
-    if len(op_code) > MAX_CODE_SIZE:
+    if len(op_code) > max_code_size:
         # Must never happen, but keep it as a sanity check.
-        raise ValueError(f"Code size {len(op_code)} exceeds maximum code size {MAX_CODE_SIZE}")
+        raise ValueError(f"Code size {len(op_code)} exceeds maximum code size {max_code_size}")
     op_address = pre.deploy_contract(code=op_code)
     tx = Transaction(
         to=op_address,

@@ -27,8 +27,6 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 REFERENCE_SPEC_GIT_PATH = "TODO"
 REFERENCE_SPEC_VERSION = "TODO"
 
-MAX_CONTRACT_SIZE = 24 * 1024  # TODO: This could be a fork property
-
 XOR_TABLE_SIZE = 256
 XOR_TABLE = [Hash(i).sha256() for i in range(XOR_TABLE_SIZE)]
 
@@ -65,10 +63,43 @@ def test_worst_bytecode_single_opcode(
     The test is performed in the last block of the test, and the entire block gas limit is
     consumed by repeated opcode executions.
     """
-    # We use 100G gas limit to be able to deploy a large number of contracts in a single block,
-    # avoiding bloating the number of preparing blocks in the test.
-    env = Environment(gas_limit=100_000_000_000)
+    # The attack gas limit is the gas limit which the target tx will use
+    # The test will scale the block gas limit to setup the contracts accordingly to be
+    # able to pay for the contract deposit. This has to take into account the 200 gas per byte,
+    # but also the quadratic memory expansion costs which have to be paid each time the
+    # memory is being setup
     attack_gas_limit = Environment().gas_limit
+    max_contract_size = fork.max_code_size()
+
+    gas_costs = fork.gas_costs()
+
+    # Calculate the absolute minimum gas costs to deploy the contract
+    # This does not take into account setting up the actual memory (using KECCAK256 and XOR)
+    # so the actual costs of deploying the contract is higher
+    memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
+    memory_gas_minimum = memory_expansion_gas_calculator(new_bytes=len(bytes(max_contract_size)))
+    code_deposit_gas_minimum = (
+        fork.gas_costs().G_CODE_DEPOSIT_BYTE * max_contract_size + memory_gas_minimum
+    )
+
+    intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
+    # Calculate the loop cost of the attacker to query one address
+    loop_cost = (
+        gas_costs.G_KECCAK_256  # KECCAK static cost
+        + math.ceil(85 / 32) * gas_costs.G_KECCAK_256_WORD  # KECCAK dynamic cost for CREATE2
+        + gas_costs.G_VERY_LOW * 3  # ~MSTOREs+ADDs
+        + gas_costs.G_COLD_ACCOUNT_ACCESS  # Opcode cost
+        + 30  # ~Gluing opcodes
+    )
+    # Calculate the number of contracts to be targeted
+    num_contracts = (
+        # Base available gas = GAS_LIMIT - intrinsic - (out of loop MSTOREs)
+        attack_gas_limit - intrinsic_gas_cost_calc() - gas_costs.G_VERY_LOW * 4
+    ) // loop_cost
+
+    # Set the block gas limit to a relative high value to ensure the code deposit tx
+    # fits in the block (there is enough gas available in the block to execute this)
+    env = Environment(gas_limit=code_deposit_gas_minimum * 2 * num_contracts)
 
     # The initcode will take its address as a starting point to the input to the keccak
     # hash function.
@@ -86,13 +117,13 @@ def test_worst_bytecode_single_opcode(
                 )
                 + Op.POP
             ),
-            condition=Op.LT(Op.MSIZE, MAX_CONTRACT_SIZE),
+            condition=Op.LT(Op.MSIZE, max_contract_size),
         )
         # Despite the whole contract has random bytecode, we make the first opcode be a STOP
         # so CALL-like attacks return as soon as possible, while EXTCODE(HASH|SIZE) work as
         # intended.
         + Op.MSTORE8(0, 0x00)
-        + Op.RETURN(0, MAX_CONTRACT_SIZE)
+        + Op.RETURN(0, max_contract_size)
     )
     initcode_address = pre.deploy_contract(code=initcode)
 
@@ -127,24 +158,10 @@ def test_worst_bytecode_single_opcode(
     )
     factory_caller_address = pre.deploy_contract(code=factory_caller_code)
 
-    gas_costs = fork.gas_costs()
-    intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
-    loop_cost = (
-        gas_costs.G_KECCAK_256  # KECCAK static cost
-        + math.ceil(85 / 32) * gas_costs.G_KECCAK_256_WORD  # KECCAK dynamic cost for CREATE2
-        + gas_costs.G_VERY_LOW * 3  # ~MSTOREs+ADDs
-        + gas_costs.G_COLD_ACCOUNT_ACCESS  # Opcode cost
-        + 30  # ~Gluing opcodes
-    )
-    num_contracts = (
-        # Base available gas = GAS_LIMIT - intrinsic - (out of loop MSTOREs)
-        attack_gas_limit - intrinsic_gas_cost_calc() - gas_costs.G_VERY_LOW * 4
-    ) // loop_cost
-
     contracts_deployment_tx = Transaction(
         to=factory_caller_address,
         gas_limit=env.gas_limit,
-        gas_price=10**9,
+        gas_price=10**6,
         data=Hash(num_contracts),
         sender=pre.fund_eoa(),
     )
@@ -180,11 +197,11 @@ def test_worst_bytecode_single_opcode(
         )
     )
 
-    if len(attack_code) > MAX_CONTRACT_SIZE:
+    if len(attack_code) > max_contract_size:
         # TODO: A workaround could be to split the opcode code into multiple contracts
         # and call them in sequence.
         raise ValueError(
-            f"Code size {len(attack_code)} exceeds maximum code size {MAX_CONTRACT_SIZE}"
+            f"Code size {len(attack_code)} exceeds maximum code size {max_contract_size}"
         )
     opcode_address = pre.deploy_contract(code=attack_code)
     opcode_tx = Transaction(
