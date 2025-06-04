@@ -1032,6 +1032,107 @@ def test_worst_unop(state_test: StateTestFiller, pre: Alloc, opcode: Op, fork: F
 
 
 @pytest.mark.valid_from("Cancun")
+# `key_mut` indicates the key isn't fixed.
+@pytest.mark.parametrize("key_mut", [True, False])
+# `val_mut` indicates that at the end of each big-loop, the value of the target key changes.
+@pytest.mark.parametrize("val_mut", [True, False])
+def test_worst_tload(
+    state_test: StateTestFiller,
+    fork: Fork,
+    pre: Alloc,
+    key_mut: bool,
+    val_mut: bool,
+):
+    """Test running a block with as many TLOAD calls as possible."""
+    env = Environment()
+    max_code_size = fork.max_code_size()
+
+    start_key = 41
+    code_key_mut = Bytecode()
+    code_val_mut = Bytecode()
+    if key_mut and val_mut:
+        code_prefix = Op.PUSH1(start_key) + Op.JUMPDEST
+        loop_iter = Op.POP(Op.TLOAD(Op.DUP1))
+        code_key_mut = Op.POP + Op.GAS
+        code_val_mut = Op.TSTORE(Op.DUP2, Op.GAS)
+    if key_mut and not val_mut:
+        code_prefix = Op.JUMPDEST
+        loop_iter = Op.POP(Op.TLOAD(Op.GAS))
+    if not key_mut and val_mut:
+        code_prefix = Op.JUMPDEST
+        loop_iter = Op.POP(Op.TLOAD(Op.CALLVALUE))
+        code_val_mut = Op.TSTORE(Op.CALLVALUE, Op.GAS)  # CALLVALUE configured in the tx
+    if not key_mut and not val_mut:
+        code_prefix = Op.JUMPDEST
+        loop_iter = Op.POP(Op.TLOAD(Op.CALLVALUE))
+
+    code_suffix = code_key_mut + code_val_mut + Op.JUMP(len(code_prefix) - 1)
+
+    code_body_len = (max_code_size - len(code_prefix) - len(code_suffix)) // len(loop_iter)
+    code_body = loop_iter * code_body_len
+    code = code_prefix + code_body + code_suffix
+    assert len(code) <= max_code_size
+
+    tx = Transaction(
+        to=pre.deploy_contract(code),
+        gas_limit=env.gas_limit,
+        sender=pre.fund_eoa(),
+        value=start_key if not key_mut and val_mut else 0,
+    )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post={},
+        tx=tx,
+    )
+
+
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize("key_mut", [True, False])
+@pytest.mark.parametrize("dense_val_mut", [True, False])
+def test_worst_tstore(
+    state_test: StateTestFiller,
+    fork: Fork,
+    pre: Alloc,
+    key_mut: bool,
+    dense_val_mut: bool,
+):
+    """Test running a block with as many TSTORE calls as possible."""
+    env = Environment()
+    max_code_size = fork.max_code_size()
+
+    init_key = 42
+    code_prefix = Op.PUSH1(init_key) + Op.JUMPDEST
+
+    # If `key_mut` is True, we mutate the key on every iteration of the big loop.
+    code_key_mut = Op.POP + Op.GAS if key_mut else Bytecode()
+    code_suffix = code_key_mut + Op.JUMP(len(code_prefix) - 1)
+
+    # If `dense_val_mut` is set, we use GAS as a cheap way of always storing a different value than
+    # the previous one.
+    loop_iter = Op.TSTORE(Op.DUP2, Op.GAS if dense_val_mut else Op.DUP1)
+
+    code_body_len = (max_code_size - len(code_prefix) - len(code_suffix)) // len(loop_iter)
+    code_body = loop_iter * code_body_len
+    code = code_prefix + code_body + code_suffix
+    assert len(code) <= max_code_size
+
+    tx = Transaction(
+        to=pre.deploy_contract(code),
+        gas_limit=env.gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post={},
+        tx=tx,
+    )
+
+
+@pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize("shift_right", [Op.SHR, Op.SAR])
 def test_worst_shifts(
     state_test: StateTestFiller,
