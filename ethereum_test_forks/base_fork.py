@@ -473,6 +473,18 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def max_code_size(cls) -> int:
+        """Return the maximum code size allowed to be deployed in a contract creation."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def max_initcode_size(cls) -> int:
+        """Return the maximum initcode size allowed to be used in a contract creation."""
+        pass
+
+    @classmethod
+    @abstractmethod
     def call_opcodes(
         cls, block_number: int = 0, timestamp: int = 0
     ) -> List[Tuple[Opcodes, EVMCodeType]]:
