@@ -54,7 +54,7 @@ def ecrecover(evm: Evm) -> None:
 
     try:
         public_key = secp256k1_recover(r, s, v - U256(27), message_hash)
-    except InvalidSignatureError:
+    except Exception:
         # unable to extract public key
         return
 

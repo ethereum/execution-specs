@@ -9,7 +9,6 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import Prehashed
-from cryptography.exceptions import InvalidSignature
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256
 
@@ -18,12 +17,8 @@ from ethereum.exceptions import InvalidSignatureError
 from .hash import Hash32
 
 SECP256K1B = U256(7)
-SECP256K1P = U256(
-    0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
-)
-SECP256K1N = U256(
-    0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
-)
+SECP256K1P = U256(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F)
+SECP256K1N = U256(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141)
 
 
 def secp256k1_recover(r: U256, s: U256, v: U256, msg_hash: Hash32) -> Bytes:
@@ -53,9 +48,7 @@ def secp256k1_recover(r: U256, s: U256, v: U256, msg_hash: Hash32) -> Bytes:
     )
 
     if is_square != 1:
-        raise InvalidSignatureError(
-            "r is not the x-coordinate of a point on the secp256k1 curve"
-        )
+        raise InvalidSignatureError("r is not the x-coordinate of a point on the secp256k1 curve")
 
     r_bytes = r.to_be_bytes32()
     s_bytes = s.to_be_bytes32()
@@ -77,6 +70,12 @@ def secp256k1_recover(r: U256, s: U256, v: U256, msg_hash: Hash32) -> Bytes:
 
     public_key = public_key.format(compressed=False)[1:]
     return public_key
+
+
+SECP256R1N = U256(0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551)
+SECP256R1P = U256(0xFFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF)
+SECP256R1A = U256(0xFFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFC)
+SECP256R1B = U256(0x5AC635D8AA3A93E7B3EBBD55769886BC651D06B0CC53B0F63BCE3C3E27D2604B)
 
 
 def secp256r1_verify(r: U256, s: U256, x: U256, y: U256, msg_hash: Hash32) -> None:
@@ -107,14 +106,14 @@ def secp256r1_verify(r: U256, s: U256, x: U256, y: U256, msg_hash: Hash32) -> No
     s_int = int(s)
     x_int = int(x)
     y_int = int(y)
-    
+
     sig = DerSequence([r_int, s_int]).encode()
-    
+
     try:
         pubnum = ec.EllipticCurvePublicNumbers(x_int, y_int, ec.SECP256R1())
         pubkey = pubnum.public_key(default_backend())
         pubkey.verify(sig, msg_hash, ec.ECDSA(Prehashed(hashes.SHA256())))
-    except InvalidSignature as e:
-        raise InvalidSignature from e
+    except Exception as e:
+        raise Exception from e
 
     return
