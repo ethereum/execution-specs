@@ -22,3 +22,9 @@ class TransactionTypeError(InvalidTransaction):
     def __init__(self, transaction_type: int):
         super().__init__(f"unknown transaction type `{transaction_type}`")
         self.transaction_type = transaction_type
+
+
+class InsufficientMaxFeePerBlobGasError(InvalidTransaction):
+    """
+    The maximum fee per blob gas is insufficient for the transaction.
+    """
