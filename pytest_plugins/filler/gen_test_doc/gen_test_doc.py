@@ -254,7 +254,7 @@ class TestDocsGenerator:
         self.page_props: PagePropsLookup = {}
 
     @pytest.hookimpl(hookwrapper=True, trylast=True)
-    def pytest_collection_modifyitems(self, session, config, items):
+    def pytest_collection_modifyitems(self, config: pytest.Config, items: List[pytest.Item]):
         """Generate html doc for each test item that pytest has collected."""
         yield
 
@@ -264,11 +264,15 @@ class TestDocsGenerator:
         for item in items:  # group test case by test function
             functions[get_test_function_id(item)].append(item)
 
+        if hasattr(config, "checklist_props"):
+            checklist_props = config.checklist_props
+            self.page_props = {**self.page_props, **checklist_props}
+
         # the heavy work
         self.create_function_page_props(functions)
         self.create_module_page_props()
         # add the pages to the page_props dict
-        self.page_props = {**self.function_page_props, **self.module_page_props}
+        self.page_props = {**self.page_props, **self.function_page_props, **self.module_page_props}
         # this adds pages for the intermediate directory structure (tests, tests/berlin)
         self.add_directory_page_props()
         # add other interesting pages
@@ -592,4 +596,4 @@ class TestDocsGenerator:
     def write_pages(self) -> None:
         """Write all pages to the target directory."""
         for page in self.page_props.values():
-            page.write_page(self.jinja2_env)
+            page.write_page(mkdocs_gen_files, self.jinja2_env)

@@ -89,6 +89,17 @@ def pytest_configure(config: pytest.Config):
         "markers",
         "exception_test: Negative tests that include an invalid block or transaction.",
     )
+    config.addinivalue_line(
+        "markers",
+        "eip_checklist(item_id, eip=None): Mark a test as implementing a specific checklist item. "
+        "The first positional parameter is the checklist item ID. "
+        "The optional 'eip' keyword parameter specifies additional EIPs covered by the test.",
+    )
+    config.addinivalue_line(
+        "markers",
+        "derived_test: Mark a test as a derived test (E.g. a BlockchainTest that is derived "
+        "from a StateTest).",
+    )
 
 
 @pytest.fixture

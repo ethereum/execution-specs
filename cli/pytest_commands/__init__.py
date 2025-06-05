@@ -19,6 +19,8 @@ Then, the entry points can be executed via:
 fill --help
 # for example, or
 consume engine
+# or
+checklist --help
 ```
 
 They can also be executed (and debugged) directly in an interactive python
