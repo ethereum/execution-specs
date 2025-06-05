@@ -421,7 +421,9 @@ def check_transaction(
 
         blob_gas_price = calculate_blob_gas_price(block_env.excess_blob_gas)
         if Uint(tx.max_fee_per_blob_gas) < blob_gas_price:
-            raise InsufficientMaxFeePerBlobGasError("insufficient max fee per blob gas")
+            raise InsufficientMaxFeePerBlobGasError(
+                "insufficient max fee per blob gas"
+            )
 
         max_gas_fee += Uint(calculate_total_blob_gas(tx)) * Uint(
             tx.max_fee_per_blob_gas
