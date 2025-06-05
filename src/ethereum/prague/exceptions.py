@@ -35,7 +35,10 @@ class TransactionTypeContractCreationError(InvalidTransaction):
     """
 
     def __init__(self, transaction_type: int):
-        super().__init__(f"transaction type `{transaction_type}` not allowed for contract creation")
+        super().__init__(
+            f"transaction type `{transaction_type}` not allowed for "
+            "contract creation"
+        )
         self.transaction_type = transaction_type
 
 

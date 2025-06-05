@@ -43,11 +43,13 @@ class InvalidSignatureError(InvalidTransaction):
 
 class InsufficientBalanceError(InvalidTransaction):
     """
-    Thrown when a transaction cannot be executed due to insufficient sender funds.
+    Thrown when a transaction cannot be executed due to insufficient sender
+    funds.
     """
 
 
 class NonceMismatchError(InvalidTransaction):
     """
-    Thrown when a transaction's nonce does not match the expected nonce for the sender.
+    Thrown when a transaction's nonce does not match the expected nonce for the
+    sender.
     """
