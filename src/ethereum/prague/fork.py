@@ -22,24 +22,24 @@ from ethereum_types.numeric import U64, U256, Uint
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import (
     EthereumException,
+    InsufficientBalanceError,
     InvalidBlock,
     InvalidSenderError,
-    InsufficientBalanceError,
-    NonceMismatchError
+    NonceMismatchError,
 )
 
 from . import vm
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
 from .exceptions import (
-    TransactionTypeContractCreationError,
     BlobGasLimitExceededError,
+    EmptyAuthorizationListError,
     InsufficientMaxFeePerBlobGasError,
     InsufficientMaxFeePerGasError,
     InvalidBlobVersionedHashError,
     NoBlobDataError,
     PriorityFeeGreaterThanMaxFeeError,
-    EmptyAuthorizationListError
+    TransactionTypeContractCreationError,
 )
 from .fork_types import Account, Address, Authorization, VersionedHash
 from .requests import (
@@ -430,7 +430,9 @@ def check_transaction(
         tx, (FeeMarketTransaction, BlobTransaction, SetCodeTransaction)
     ):
         if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
-            raise PriorityFeeGreaterThanMaxFeeError("priority fee greater than max fee")
+            raise PriorityFeeGreaterThanMaxFeeError(
+                "priority fee greater than max fee"
+            )
         if tx.max_fee_per_gas < block_env.base_fee_per_gas:
             raise InsufficientMaxFeePerGasError("insufficient max fee per gas")
 
@@ -451,11 +453,15 @@ def check_transaction(
             raise NoBlobDataError("no blob data in transaction")
         for blob_versioned_hash in tx.blob_versioned_hashes:
             if blob_versioned_hash[0:1] != VERSIONED_HASH_VERSION_KZG:
-                raise InvalidBlobVersionedHashError("invalid blob versioned hash")
+                raise InvalidBlobVersionedHashError(
+                    "invalid blob versioned hash"
+                )
 
         blob_gas_price = calculate_blob_gas_price(block_env.excess_blob_gas)
         if Uint(tx.max_fee_per_blob_gas) < blob_gas_price:
-            raise InsufficientMaxFeePerBlobGasError("insufficient max fee per blob gas")
+            raise InsufficientMaxFeePerBlobGasError(
+                "insufficient max fee per blob gas"
+            )
 
         max_gas_fee += Uint(calculate_total_blob_gas(tx)) * Uint(
             tx.max_fee_per_blob_gas
@@ -473,7 +479,7 @@ def check_transaction(
             raise EmptyAuthorizationListError("empty authorization list")
 
     if sender_account.nonce != tx.nonce:
-        if sender_account.nonce > tx.nonce:
+        if sender_account.nonce > Uint(tx.nonce):
             raise NonceMismatchError("nonce too low")
         else:
             raise NonceMismatchError("nonce too high")
