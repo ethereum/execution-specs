@@ -446,11 +446,17 @@ BLS12
 ECC
 G1
 FQ
+FQP
 Point2
+Point3D
+3d
 msm
 G2
 FQ2
 coeffs
+coord0
+coord1
+coords
 b2
 FQ12
 
