@@ -11,15 +11,16 @@ Introduction
 
 Implementation of the BLS12 381 pairing pre-compile.
 """
-from ethereum_types.numeric import U256, Uint
-from py_ecc.bls12_381.bls12_381_curve import FQ12, curve_order, multiply
-from py_ecc.bls12_381.bls12_381_pairing import pairing
+
+from ethereum_types.numeric import Uint
+from py_ecc.optimized_bls12_381 import FQ12, curve_order, is_inf
+from py_ecc.optimized_bls12_381 import multiply as bls12_multiply_optimized
+from py_ecc.optimized_bls12_381 import pairing
 
 from ....vm import Evm
 from ....vm.gas import charge_gas
-from ....vm.memory import buffer_read
 from ...exceptions import InvalidParameter
-from . import bytes_to_G1, bytes_to_G2
+from . import bytes_to_g1, bytes_to_g2
 
 
 def bls12_pairing(evm: Evm) -> None:
@@ -51,13 +52,13 @@ def bls12_pairing(evm: Evm) -> None:
         g1_start = Uint(384 * i)
         g2_start = Uint(384 * i + 128)
 
-        g1_point = bytes_to_G1(buffer_read(data, U256(g1_start), U256(128)))
-        if multiply(g1_point, curve_order) is not None:
-            raise InvalidParameter("Sub-group check failed.")
+        g1_point = bytes_to_g1(data[g1_start : g1_start + Uint(128)])
+        if not is_inf(bls12_multiply_optimized(g1_point, curve_order)):
+            raise InvalidParameter("Sub-group check failed for G1 point.")
 
-        g2_point = bytes_to_G2(buffer_read(data, U256(g2_start), U256(256)))
-        if multiply(g2_point, curve_order) is not None:
-            raise InvalidParameter("Sub-group check failed.")
+        g2_point = bytes_to_g2(data[g2_start : g2_start + Uint(256)])
+        if not is_inf(bls12_multiply_optimized(g2_point, curve_order)):
+            raise InvalidParameter("Sub-group check failed for G2 point.")
 
         result *= pairing(g2_point, g1_point)
 

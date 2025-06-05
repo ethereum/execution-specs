@@ -11,11 +11,16 @@ Introduction
 
 Implementation of pre-compiles in G1 (curve over base prime field).
 """
+
 from ethereum_types.numeric import U256, Uint
-from py_ecc.bls12_381.bls12_381_curve import add, multiply
 from py_ecc.bls.hash_to_curve import clear_cofactor_G1, map_to_curve_G1
 from py_ecc.optimized_bls12_381.optimized_curve import FQ as OPTIMIZED_FQ
-from py_ecc.optimized_bls12_381.optimized_curve import normalize
+from py_ecc.optimized_bls12_381.optimized_curve import (
+    add as bls12_add_optimized,
+)
+from py_ecc.optimized_bls12_381.optimized_curve import (
+    multiply as bls12_multiply_optimized,
+)
 
 from ....vm import Evm
 from ....vm.gas import (
@@ -30,10 +35,9 @@ from . import (
     G1_K_DISCOUNT,
     G1_MAX_DISCOUNT,
     MULTIPLIER,
-    G1_to_bytes,
-    bytes_to_FQ,
-    bytes_to_G1,
-    decode_G1_scalar_pair,
+    bytes_to_g1,
+    decode_g1_scalar_pair,
+    g1_to_bytes,
 )
 
 LENGTH_PER_PAIR = 160
@@ -61,12 +65,12 @@ def bls12_g1_add(evm: Evm) -> None:
     charge_gas(evm, Uint(GAS_BLS_G1_ADD))
 
     # OPERATION
-    p1 = bytes_to_G1(buffer_read(data, U256(0), U256(128)))
-    p2 = bytes_to_G1(buffer_read(data, U256(128), U256(128)))
+    p1 = bytes_to_g1(buffer_read(data, U256(0), U256(128)))
+    p2 = bytes_to_g1(buffer_read(data, U256(128), U256(128)))
 
-    result = add(p1, p2)
+    result = bls12_add_optimized(p1, p2)
 
-    evm.output = G1_to_bytes(result)
+    evm.output = g1_to_bytes(result)
 
 
 def bls12_g1_msm(evm: Evm) -> None:
@@ -106,15 +110,15 @@ def bls12_g1_msm(evm: Evm) -> None:
         start_index = i * LENGTH_PER_PAIR
         end_index = start_index + LENGTH_PER_PAIR
 
-        p, m = decode_G1_scalar_pair(data[start_index:end_index])
-        product = multiply(p, m)
+        p, m = decode_g1_scalar_pair(data[start_index:end_index])
+        product = bls12_multiply_optimized(p, m)
 
         if i == 0:
             result = product
         else:
-            result = add(result, product)
+            result = bls12_add_optimized(result, product)
 
-    evm.output = G1_to_bytes(result)
+    evm.output = g1_to_bytes(result)
 
 
 def bls12_map_fp_to_g1(evm: Evm) -> None:
@@ -139,10 +143,9 @@ def bls12_map_fp_to_g1(evm: Evm) -> None:
     charge_gas(evm, Uint(GAS_BLS_G1_MAP))
 
     # OPERATION
-    field_element = bytes_to_FQ(data, True)
-    assert isinstance(field_element, OPTIMIZED_FQ)
+    fp = int.from_bytes(data, "big")
+    if fp >= OPTIMIZED_FQ.field_modulus:
+        raise InvalidParameter("coordinate >= field modulus")
 
-    g1_uncompressed = clear_cofactor_G1(map_to_curve_G1(field_element))
-    g1_normalised = normalize(g1_uncompressed)
-
-    evm.output = G1_to_bytes(g1_normalised)
+    g1_optimized_3d = clear_cofactor_G1(map_to_curve_G1(OPTIMIZED_FQ(fp)))
+    evm.output = g1_to_bytes(g1_optimized_3d)
