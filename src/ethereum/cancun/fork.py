@@ -29,6 +29,7 @@ from ethereum.exceptions import (
 from . import vm
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
+from .exceptions import InsufficientMaxFeePerBlobGasError
 from .fork_types import Account, Address, VersionedHash
 from .state import (
     State,
@@ -420,7 +421,7 @@ def check_transaction(
 
         blob_gas_price = calculate_blob_gas_price(block_env.excess_blob_gas)
         if Uint(tx.max_fee_per_blob_gas) < blob_gas_price:
-            raise InvalidBlock
+            raise InsufficientMaxFeePerBlobGasError("insufficient max fee per blob gas")
 
         max_gas_fee += Uint(calculate_total_blob_gas(tx)) * Uint(
             tx.max_fee_per_blob_gas
