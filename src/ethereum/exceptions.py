@@ -40,10 +40,12 @@ class InvalidSignatureError(InvalidTransaction):
     Thrown when a transaction has an invalid signature.
     """
 
+
 class InsufficientBalanceError(InvalidTransaction):
     """
     Thrown when a transaction cannot be executed due to insufficient sender funds.
     """
+
 
 class NonceMismatchError(InvalidTransaction):
     """
