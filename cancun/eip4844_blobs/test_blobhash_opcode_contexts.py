@@ -100,7 +100,7 @@ class BlobhashContext(Enum):
                 )
                 bytecode = (
                     sum(
-                        Op.MSTORE(offest=0, value=index)
+                        Op.MSTORE(offset=0, value=index)
                         + Op.POP(
                             call_opcode(
                                 address=blobhash_return_address,

@@ -363,7 +363,7 @@ def test_worst_keccak(
             + math.ceil(i / 32) * gsc.G_KECCAK_256_WORD  # KECCAK256 dynamic cost
             + gsc.G_BASE  # POP
         )
-        # From the available gas, we substract the mem expansion costs considering we know the
+        # From the available gas, we subtract the mem expansion costs considering we know the
         # current input size length i.
         available_gas_after_expansion = max(0, available_gas - mem_exp_gas_calculator(new_bytes=i))
         # Calculate how many calls we can do.
@@ -458,7 +458,7 @@ def test_worst_precompile_only_data_input(
             + math.ceil(input_length / 32) * per_word_dynamic_cost  # Precompile dynamic cost
             + gsc.G_BASE  # POP
         )
-        # From the available gas, we substract the mem expansion costs considering we know the
+        # From the available gas, we subtract the mem expansion costs considering we know the
         # current input size length.
         available_gas_after_expansion = max(
             0, available_gas - mem_exp_gas_calculator(new_bytes=input_length)
@@ -652,7 +652,7 @@ def test_worst_modexp(state_test: StateTestFiller, pre: Alloc, fork: Fork):
             [
                 # TODO: the //2 is required due to a limitation of the max contract size limit.
                 # In a further iteration we can insert the inputs as calldata or storage and avoid
-                # having to do PUSHes which has this limtiation. This also applies to G1MSM.
+                # having to do PUSHes which has this limitation. This also applies to G1MSM.
                 (bls12381_spec.Spec.P2 + bls12381_spec.Scalar(bls12381_spec.Spec.Q))
                 * (len(bls12381_spec.Spec.G2MSM_DISCOUNT_TABLE) // 2),
             ],

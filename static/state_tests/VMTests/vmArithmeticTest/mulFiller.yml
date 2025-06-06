@@ -285,6 +285,6 @@ mul:
       result:
         0000000000000000000000000000000000001007:
           storage:
-             # Just a big number, multipled by itself to raise it to the power
+             # Just a big number, multiplied by itself to raise it to the power
              # of three
              0: 0x47D0817E4167B1EB4F9FC722B133EF9D7D9A6FB4C2C1C442D000107A5E419561

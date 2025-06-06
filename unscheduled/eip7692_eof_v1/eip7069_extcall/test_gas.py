@@ -155,7 +155,7 @@ def test_transfer_gas_is_cleared(
 ):
     """
     Test that EXT*CALL call doesn't charge for value transfer, even if the outer call
-    transfered value.
+    transferred value.
 
     NOTE: This is particularly possible for EXTDELEGATECALL, which carries over the value sent
     in the outer call, however, we extend the test to all 3 EXT*CALL opcodes for good measure.

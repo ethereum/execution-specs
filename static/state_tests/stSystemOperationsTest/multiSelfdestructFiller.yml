@@ -58,7 +58,7 @@ multiSelfdestruct:
     #   03 - SUC003 does another suicide to dest2 (so both dest1 and dest2 have 
     #        some balance)
     #   04 - SUC004 tries to make value transfer but fails because initial suicide
-    #          0ed the balance (answering this (check that it is immidiately 
+    #          0ed the balance (answering this (check that it is immediately 
     #          and not by the end of tx))
     #   05 - SUC005 receives more funds and try to transfer it 
     #          (same as SUC004, but this time work because it received funds 

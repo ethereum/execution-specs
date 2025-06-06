@@ -38,7 +38,7 @@
                 "//comment9": "",
                 "//comment10": "    function testKeywords() returns (bool res)",
                 "//comment11": "    {",
-                "//comment12": "        //some simple checks for the if statemnt",
+                "//comment12": "        //some simple checks for the if statement",
                 "//comment13": "        //if, else, while, for, break, continue, return",
                 "//comment14": "        int i = 0;",
                 "//comment15": "        res = false;",

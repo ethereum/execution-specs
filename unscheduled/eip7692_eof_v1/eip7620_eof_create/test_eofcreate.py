@@ -314,7 +314,7 @@ def test_eofcreate_in_initcode(
     state_test: StateTestFiller,
     pre: Alloc,
 ):
-    """Verifies an EOFCREATE occuring within initcode creates that contract."""
+    """Verifies an EOFCREATE occurring within initcode creates that contract."""
     nested_initcode_subcontainer = Container(
         sections=[
             Section.Code(
@@ -368,7 +368,7 @@ def test_eofcreate_in_initcode_reverts(
     state_test: StateTestFiller,
     pre: Alloc,
 ):
-    """Verifies an EOFCREATE occuring in an initcode is rolled back when the initcode reverts."""
+    """Verifies an EOFCREATE occurring in an initcode is rolled back when the initcode reverts."""
     nested_initcode_subcontainer = Container(
         sections=[
             Section.Code(
@@ -422,7 +422,7 @@ def test_return_data_cleared(
     state_test: StateTestFiller,
     pre: Alloc,
 ):
-    """Verifies the return data is not re-used from a extcall but is cleared upon eofcreate."""
+    """Verifies the return data is not reused from a extcall but is cleared upon eofcreate."""
     env = Environment()
     value_return_canary = 0x4158675309
     value_return_canary_size = 5

@@ -37,7 +37,7 @@ gasPriceDiffPlaces:
            // prefix it with a zero so we'll be safe from being considered
            // an invalid program.
            //
-           // If we use this as a contructor the result will be
+           // If we use this as a constructor the result will be
            // the code of the created contract, but we can live
            // with that. We won't call it.
            mstore(0x40, mload(0x00))

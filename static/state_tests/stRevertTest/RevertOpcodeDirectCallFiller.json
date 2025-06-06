@@ -66,7 +66,7 @@
             },
 	    "b94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
                 "balance" : "1",
-				"// code" : "!!! STRANGE:   CALL works, but if called from 094...  it wont work. even if gas is enough. seems to be OOG.",
+				"// code" : "!!! STRANGE:   CALL works, but if called from 094...  it won't work. even if gas is enough. seems to be OOG.",
                 "code" : "{ [[0]] (CALL 50000 0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0 0) [[2]] 14 }",
                 "nonce" : "0",
                 "storage" : {

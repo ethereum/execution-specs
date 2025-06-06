@@ -1186,7 +1186,7 @@ def test_set_code_address_and_authority_warm_state(
 ):
     """
     Test set to code address and authority warm status after a call to
-    authority address, or viceversa.
+    authority address, or vice-versa.
     """
     auth_signer = pre.fund_eoa(auth_account_start_balance)
 
@@ -1275,7 +1275,7 @@ def test_set_code_address_and_authority_warm_state_call_types(
 ):
     """
     Test set to code address and authority warm status after a call to
-    authority address, or viceversa, using all available call opcodes
+    authority address, or vice-versa, using all available call opcodes
     without using `GAS` opcode (unavailable in EOF).
     """
     auth_signer = pre.fund_eoa(auth_account_start_balance)

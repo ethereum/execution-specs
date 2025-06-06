@@ -395,7 +395,7 @@ def test_insufficient_initcode_gas(
     state_test: StateTestFiller,
     pre: Alloc,
 ):
-    """Excercises an EOFCREATE when there is not enough gas for the initcode charge."""
+    """Exercises an EOFCREATE when there is not enough gas for the initcode charge."""
     env = Environment()
 
     initcode_data = b"a" * 0x5000

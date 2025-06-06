@@ -126,7 +126,7 @@ def code_storage(refund_type: RefundType) -> Dict:
 def contract_creating_tx() -> bool:
     """
     Override fixture in order to avoid a circular fixture dependency since
-    none of theses tests are contract creating transactions.
+    none of these tests are contract creating transactions.
     """
     return False
 

@@ -25,10 +25,10 @@ transactionIntinsicBug_Paris:
       storage: {}
 
 # geth was accepting this transaction as the total price was estimated to be 50M
-# but it didn't account for value in the formula. therefor an invalid transaction passed through.
+# but it didn't account for value in the formula. therefore an invalid transaction passed through.
 # because 50M is just the worst case scenario, the transaction passed with ~10M gas by current basefee and ~40M value transfer
-# while at the same time not hitting out of balance, but technicaly invalid intrinsic gas as the worst case scenario would have been
-# 50M + 40M value transfer (that would potentially hited out of balance in anouther block)
+# while at the same time not hitting out of balance, but technically invalid intrinsic gas as the worst case scenario would have been
+# 50M + 40M value transfer (that would potentially hited out of balance in another block)
   transaction:
     data:
     - data: :label declaredKeyWrite :raw 0x00

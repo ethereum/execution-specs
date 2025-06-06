@@ -66,7 +66,7 @@ def test_cross_version_creates_fail_light(
     contract_address = pre.deploy_contract(
         code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
         + Op.SSTORE(slot_create_address, legacy_create_opcode(size=Op.CALLDATASIZE))
-        # Aproximates whether code until here consumed the 63/64th gas given to subcall
+        # Approximates whether code until here consumed the 63/64th gas given to subcall
         + Op.SSTORE(slot_all_subcall_gas_gone, Op.LT(Op.GAS, tx_gas_limit // 64))
         + Op.SSTORE(slot_code_worked, value_code_worked)
         + Op.STOP
@@ -138,7 +138,7 @@ def test_cross_version_creates_fail_hard(
     contract_address = pre.deploy_contract(
         code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
         + Op.SSTORE(slot_create_address, legacy_create_opcode(size=Op.CALLDATASIZE))
-        # Aproximates whether code until here consumed the 63/64th gas given to subcall
+        # Approximates whether code until here consumed the 63/64th gas given to subcall
         + Op.SSTORE(slot_all_subcall_gas_gone, Op.LT(Op.GAS, tx_gas_limit // 64))
         + Op.SSTORE(slot_code_worked, value_code_worked)
         + Op.STOP

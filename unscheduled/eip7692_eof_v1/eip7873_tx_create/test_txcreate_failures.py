@@ -384,7 +384,7 @@ def test_txcreate_insufficient_stipend(
 
 @pytest.mark.with_all_evm_code_types
 def test_insufficient_initcode_gas(state_test: StateTestFiller, pre: Alloc, fork: Fork):
-    """Excercises an TXCREATE when there is not enough gas for the constant charge."""
+    """Exercises an TXCREATE when there is not enough gas for the constant charge."""
     env = Environment()
 
     initcode_container = Container(

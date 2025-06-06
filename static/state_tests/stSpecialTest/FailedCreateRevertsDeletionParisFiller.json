@@ -1,7 +1,7 @@
 {
     "FailedCreateRevertsDeletionParis" : {
         "_info" : {
-            "comment" : "A modification of stRevertTests/RevertInCreateInInit.  That test, for EIP158 only, accidentially tested the case where a contract creation transaction touches an empty account and then fails.  This one tests the same thing not just for EIP158 but any network thereafter."
+            "comment" : "A modification of stRevertTests/RevertInCreateInInit.  That test, for EIP158 only, accidentally tested the case where a contract creation transaction touches an empty account and then fails.  This one tests the same thing not just for EIP158 but any network thereafter."
         },
         "env" : {
             "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",

@@ -292,9 +292,9 @@ def test_txcreate_in_initcode(
     outer_create_reverts: bool,
 ):
     """
-    Verifies an TXCREATE occuring within initcode creates that contract.
+    Verifies an TXCREATE occurring within initcode creates that contract.
 
-    Via the `outer_create_reverts` also verifies a TXCREATE occuring in an initcode is rolled back
+    Via the `outer_create_reverts` also verifies a TXCREATE occurring in an initcode is rolled back
     when the initcode reverts.
     """
     smallest_initcode_subcontainer_hash = smallest_initcode_subcontainer.hash
@@ -385,7 +385,7 @@ def test_return_data_cleared(
     pre: Alloc,
     evm_code_type: EVMCodeType,
 ):
-    """Verifies the return data is not re-used from a extcall but is cleared upon TXCREATE."""
+    """Verifies the return data is not reused from a extcall but is cleared upon TXCREATE."""
     env = Environment()
     value_return_canary = 0x4158675309
     value_return_canary_size = 5

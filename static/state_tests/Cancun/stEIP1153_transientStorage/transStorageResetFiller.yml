@@ -65,7 +65,7 @@ transStorageReset:
             case 0xF4 { callRes := delegatecall(gas(), 0x3f8390d5,    0,0, 0,0) }
 
             // Don't call anything, just set Trans[0] here.
-            // Only meaningfull with delegatecall() or callcode()
+            // Only meaningful with delegatecall() or callcode()
             case 0x00 { tstore_temp(0,0xBAD0BEEF) }
 
 

@@ -1,7 +1,7 @@
 sdiv:
 
   # This test deals with addition, mostly addition that causes an overflow.
-  # It is based on the fact that arithmetic in the evm is modulu 2^256.
+  # It is based on the fact that arithmetic in the evm is modulo 2^256.
 
   env:
     currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
@@ -231,7 +231,7 @@ sdiv:
            ; A negative number sdiv -1 is the absolute value of that number
            (def 'pow2_255 0x8000000000000000000000000000000000000000000000000000000000000000)
            [[0]] (sdiv (- 0 pow2_255) (- 0 1))
-           ; 2^255 = -2^255 in evm (modulu 2^256)
+           ; 2^255 = -2^255 in evm (modulo 2^256)
         }
       nonce: '0'
       storage: {}

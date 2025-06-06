@@ -96,7 +96,7 @@
                 }
             },
             "bbbf5374fce5edbc8e2a8697c15331677e6ebf0b" : {
-                "//comment" : "In Shanghai it is imposible to pay for such a command becaue 0 50000 requres too much gas to pay for pre allocation",
+                "//comment" : "In Shanghai it is impossible to pay for such a command because 0 50000 requires too much gas to pay for pre allocation",
                 "//comment" : "See Create1000ShnghaiFiller",
                 "//comment" : "CREATE price changed in Shanghai",
                 "//comment" : "Due to eip-3860 (https://eips.ethereum.org/EIPS/eip-3860) pay extra 2 gas for each 32 bytes of initcode",

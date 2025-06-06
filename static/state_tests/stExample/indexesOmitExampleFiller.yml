@@ -10,7 +10,7 @@ indexesOmitExample:
     currentTimestamp: 1000
 
   expect:
-    #indexes section can be omited, the default value is set to -1 for all tx vectors
+    #indexes section can be omitted, the default value is set to -1 for all tx vectors
     - indexes:
         data: !!int -1
         # default value for gas vector is set to -1

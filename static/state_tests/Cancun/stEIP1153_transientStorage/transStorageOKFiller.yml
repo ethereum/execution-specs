@@ -267,7 +267,7 @@ transStorageOK:
     # <contract A> -> ca11bacc -> <contract A>
     # This is important because transient storage is tied to the contract.
     # This contract's transient storage should be empty, and the call 
-    # to it should not affect contract A's tranient storage.
+    # to it should not affect contract A's transient storage.
 
     00000000000000000000000000000000ca11bacc:
       balance: 0

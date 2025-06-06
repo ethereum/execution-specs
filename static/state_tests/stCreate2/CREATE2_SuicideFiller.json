@@ -1,7 +1,7 @@
 {
     "CREATE2_Suicide" : {
 	"_info" : {
-	    "comment" : "CREATE2 suicide with/without value, CREATE2 sucide to itself   +  this cases during init of the CREATE2"
+	    "comment" : "CREATE2 suicide with/without value, CREATE2 suicide to itself   +  this cases during init of the CREATE2"
 	},
         "env" : {
             "currentCoinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",

@@ -28,7 +28,7 @@ extCodeHashDeletedAccount2:
         }
       nonce: '0'
       storage: {}
-    # Acount A: already exists in the state
+    # Account A: already exists in the state
     # contains selfdestruct code
     aaaaaaaa00000000000000000000000000000000:
       balance: '1000000000000000000'

@@ -4,7 +4,7 @@
             "comment" : "A test for (add 1 1) opcode result"
         },
         "env" : {
-            "//comment" : "A blockinfo section (obsolite). Do not change. (only coinbase and gasLimit could be changed)",
+            "//comment" : "A blockinfo section (obsolete). Do not change. (only coinbase and gasLimit could be changed)",
             "currentCoinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
             "currentDifficulty" : "0x20000",
             "currentGasLimit" : "0xFF112233445566",
@@ -29,7 +29,7 @@
                     "095e7baea6a6c7c4c2dfeb977efac326af552d87" : {
                         "//comment" : "Better not to check the gas or mining reward affected account's balances.",
                         "//comment" : "A change in gasPrice will affect the test and this post condition.",
-                        "//comment" : "So unless the test doesn't really requrie it, don't check coinbase/miner address balance or sender balance in post section",
+                        "//comment" : "So unless the test doesn't really require it, don't check coinbase/miner address balance or sender balance in post section",
                         "//balance" : "1000000000000100000",
                         "//comment" : "Byte Code example",
                         "code" : "0x600160010160005500",

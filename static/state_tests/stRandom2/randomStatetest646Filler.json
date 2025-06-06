@@ -13,7 +13,7 @@
 	"expect": 
 	[
     	    {
-                "//comment" : "Shanghai fails to pay fo create, the test still must pass on previous nets",
+                "//comment" : "Shanghai fails to pay for create, the test still must pass on previous nets",
                 "network" : [">=Cancun"],
                 "result" : {
                     "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {

@@ -1,7 +1,7 @@
 {
     "callcodeDynamicCode2SelfCall" : {
         "_info" : {
-            "comment" : "callcode happen to a contract that is dynamicly created from within the contract (to itself)"
+            "comment" : "callcode happen to a contract that is dynamically created from within the contract (to itself)"
         },
         "env" : {
             "currentCoinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",

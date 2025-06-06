@@ -66,7 +66,7 @@ def rjump_code_with(
 ) -> Tuple[Bytecode, bool, bool, bool]:
     """
     Unless `rjump_kind` is None generates a code snippet with an RJUMP* instruction.
-    For some kinds `code_so_far_len` must be code length in bytes preceeding the snippet.
+    For some kinds `code_so_far_len` must be code length in bytes preceding the snippet.
     For some kinds `next_code_len` must be code length in bytes of some code which follows.
 
     It is expected that the snippet and the jump target are valid, but the resulting code
@@ -258,7 +258,7 @@ def test_rjumps_callf_retf(
     rjump_spot: RjumpSpot,
 ):
     """
-    Test EOF container validaiton for EIP-4200 vs EIP-4750 interactions.
+    Test EOF container validation for EIP-4200 vs EIP-4750 interactions.
 
     Each test's code consists of `num_sections` code sections, which call into one another
     and then return. Code may include RJUMP* snippets of `rjump_kind` in various `rjump_spots`.
@@ -371,7 +371,7 @@ def test_rjumps_jumpf_nonreturning(
     rjump_spot: RjumpSpot,
 ):
     """
-    Test EOF container validaiton for EIP-4200 vs EIP-6206 interactions on non-returning
+    Test EOF container validation for EIP-4200 vs EIP-6206 interactions on non-returning
     functions.
     """
     # Zeroth section has always 0 inputs and 0 outputs, so is excluded from param

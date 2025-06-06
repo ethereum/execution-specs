@@ -365,7 +365,7 @@
 	    "a000000000000000000000000000000000000000" : {
                 "balance" : "0",
 		"//0 code" : "simple calls",
-		"//1 code" : "call -> callA-> revert | callB -> revert | some code * and OOG scenarious",
+		"//1 code" : "call -> callA-> revert | callB -> revert | some code * and OOG scenarios",
 		"code" : "{ [[10]](CALL 50000 0xb000000000000000000000000000000000000000 0 0 0 0 0) [[11]](CALL 50000 0xc000000000000000000000000000000000000000 0 0 0 0 0) [[12]](CALL 50000 0xd000000000000000000000000000000000000000 0 0 0 0 0) [[4]]12 [[5]]12 }",
                 "nonce" : "",
                 "storage" : {

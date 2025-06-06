@@ -1,7 +1,7 @@
 sub:
 
   # This test deals with addition, mostly addition that causes an overflow.
-  # It is based on the fact that arithmetic in the evm is modulu 2^256.
+  # It is based on the fact that arithmetic in the evm is modulo 2^256.
 
   env:
     currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba

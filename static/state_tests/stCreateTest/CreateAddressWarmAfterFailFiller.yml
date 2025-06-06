@@ -83,13 +83,13 @@ CreateAddressWarmAfterFail:
                 mstore(0, 0x60006000fd000000000000000000000000000000000000000000000000000000)
                 sstore(create_1, create2(0, 0, initcode_size, 0))
               }
-              case 1 {    // Constructor retuns 0x6001 bytes, >max contract size
+              case 1 {    // Constructor returns 0x6001 bytes, >max contract size
                 addrCreated := 0xd4e7ae083132925a4927c1f5816238ba17b82a65
                 initcode_size := datasize("code-too-big")
                 datacopy(0, dataoffset("code-too-big"), initcode_size)
                 sstore(create_1, create(0, 0, initcode_size))
               }
-              case 11 {    // Constructor retuns 0x6001 bytes, >max contract size
+              case 11 {    // Constructor returns 0x6001 bytes, >max contract size
                 addrCreated := 0x014001fDbeDE82315F4B8C2a7D45E980A8a4A12e
                 initcode_size := datasize("code-too-big")
                 datacopy(0, dataoffset("code-too-big"), initcode_size)
