@@ -9,7 +9,7 @@ history of all state transitions that have happened since the genesis of the
 chain.
 """
 from dataclasses import dataclass
-from typing import Tuple, Union
+from typing import Tuple
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32
@@ -59,7 +59,7 @@ class Block:
     """
 
     header: Header
-    transactions: Tuple[Union[Bytes, LegacyTransaction], ...]
+    transactions: Tuple[Bytes | LegacyTransaction, ...]
     ommers: Tuple[Header, ...]
 
 
@@ -88,7 +88,7 @@ class Receipt:
     logs: Tuple[Log, ...]
 
 
-def encode_receipt(tx: Transaction, receipt: Receipt) -> Union[Bytes, Receipt]:
+def encode_receipt(tx: Transaction, receipt: Receipt) -> Bytes | Receipt:
     """
     Encodes a receipt.
     """
@@ -100,7 +100,7 @@ def encode_receipt(tx: Transaction, receipt: Receipt) -> Union[Bytes, Receipt]:
         return receipt
 
 
-def decode_receipt(receipt: Union[Bytes, Receipt]) -> Receipt:
+def decode_receipt(receipt: Bytes | Receipt) -> Receipt:
     """
     Decodes a receipt.
     """
