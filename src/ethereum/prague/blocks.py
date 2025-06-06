@@ -274,8 +274,14 @@ class Block:
 class Log:
     """
     Data record produced during the execution of a transaction. Logs are used
-    by smart contracts to emit events, which can be efficiently searched using
+    by smart contracts to emit events (using the EVM log opcodes ([`LOG0`], [`LOG1`], [`LOG2`], [`LOG3`] and [`LOG4`])), which can be efficiently searched using
     the bloom filter in the block header.
+
+    [`LOG0`]: ref:ethereum.prague.vm.instructions.log.log0
+    [`LOG1`]: ref:ethereum.prague.vm.instructions.log.log1
+    [`LOG2`]: ref:ethereum.prague.vm.instructions.log.log2
+    [`LOG3`]: ref:ethereum.prague.vm.instructions.log.log3
+    [`LOG4`]: ref:ethereum.prague.vm.instructions.log.log4
     """
 
     address: Address

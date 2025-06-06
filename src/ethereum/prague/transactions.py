@@ -514,18 +514,9 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
     Also, the code size of a contract creation transaction must be within
     limits of the protocol.
 
-    #### Parameters
-    - tx: Transaction to validate.
-
-    #### Returns
-    - intrinsic_gas: `ethereum.base_types.Uint`
-    The intrinsic cost of the transaction.
-    - calldata_floor_gas_cost: `ethereum.base_types.Uint`
-    The [EIP-7623] minimum gas cost used by the transaction based on the calldata
-    size.
-
-    #### Raises
-    - InvalidTransaction: If the transaction is not valid.
+    This function takes a transaction as a parameter and returns the intrinsic gas cost
+    and the minimum calldata gas cost for the transaction after validation. It throws an `InvalidTransaction` exception
+    if the transaction is invalid.
 
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
@@ -564,14 +555,9 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     5. Cost for authorizations (if applicable)
 
 
-    #### Parameters
-    - tx : Transaction to compute the intrinsic cost of.
-
-    #### Returns
-    - intrinsic_gas : `ethereum.base_types.Uint`
-    The intrinsic cost of the transaction.
-    - calldata_floor_gas_cost : `ethereum.base_types.Uint`
-    The minimum gas cost used by the transaction based on the calldata size.
+    This function takes a transaction as a parameter and returns the intrinsic
+    gas cost of the transaction and the minimum gas cost used by the
+    transaction based on the calldata size.
     """
     from .vm.eoa_delegation import PER_EMPTY_ACCOUNT_COST
     from .vm.gas import init_code_cost
@@ -636,16 +622,9 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
     signing hash of the transaction. The sender's public key can be obtained
     with these two values and therefore the sender address can be retrieved.
 
-    #### Parameters
-    - chain_id: ID of the executing chain.
-    - tx: Transaction of interest.
-
-    #### Returns
-    - sender: `ethereum.fork_types.Address`
-    The address of the account that signed the transaction.
-
-    #### Raises
-    - InvalidSignatureError: If the signature values (r, s, v) are invalid.
+    This function takes chain_id and a transaction as parameters and returns the
+    address of the sender of the transaction. It raises an `InvalidSignatureError`
+    if the signature values (r, s, v) are invalid.
     """
     r, s = tx.r, tx.s
     if U256(0) >= r or r >= SECP256K1N:
@@ -700,12 +679,8 @@ def signing_hash_pre155(tx: LegacyTransaction) -> Hash32:
     Compute the hash of a transaction used in a legacy (pre [EIP-155])
     signature.
 
-    #### Parameters
-    - tx: Transaction of interest.
-
-    #### Returns
-    - hash : `ethereum.crypto.hash.Hash32`
-    Hash of the transaction.
+    This function takes a transaction as a parameter and returns the
+    signing hash of the transaction.
 
     [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
     """
@@ -727,13 +702,8 @@ def signing_hash_155(tx: LegacyTransaction, chain_id: U64) -> Hash32:
     """
     Compute the hash of a transaction used in a [EIP-155] signature.
 
-    #### Parameters
-    - tx: Transaction of interest.
-    - chain_id: The id of the current chain.
-
-    #### Returns
-    - hash: `ethereum.crypto.hash.Hash32`
-    Hash of the transaction.
+    This function takes a transaction and chain_id as parameters and returns the
+    signing hash of the transaction used in a [EIP-155] signature.
 
     [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
     """
@@ -758,12 +728,8 @@ def signing_hash_2930(tx: AccessListTransaction) -> Hash32:
     """
     Compute the hash of a transaction used in a [`EIP 2930`] signature.
 
-    #### Parameters
-    - tx: Transaction of interest.
-
-    #### Returns
-    - hash: `ethereum.crypto.hash.Hash32`
-    Hash of the transaction.
+    This function takes a transaction as a parameter and returns the
+    signing hash of the transaction used in a [`EIP 2930`] signature.
 
     [`EIP 2930`]: https://eips.ethereum.org/EIPS/eip-2930
     """
@@ -788,12 +754,8 @@ def signing_hash_1559(tx: FeeMarketTransaction) -> Hash32:
     """
     Compute the hash of a transaction used in an [EIP-1559] signature.
 
-    #### Parameters
-    - tx: Transaction of interest.
-
-    #### Returns
-    - hash: `ethereum.crypto.hash.Hash32`
-    Hash of the transaction.
+    This function takes a transaction as a parameter and returns the
+    signing hash of the transaction used in an [EIP-1559] signature.
 
     [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
     """
@@ -819,12 +781,8 @@ def signing_hash_4844(tx: BlobTransaction) -> Hash32:
     """
     Compute the hash of a transaction used in an [EIP-4844] signature.
 
-    #### Parameters
-    - tx: Transaction of interest.
-
-    #### Returns
-    - hash: `ethereum.crypto.hash.Hash32`
-    Hash of the transaction.
+    This function takes a transaction as a parameter and returns the
+    signing hash of the transaction used in an [EIP-4844] signature.
 
     [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
     """
@@ -852,12 +810,8 @@ def signing_hash_7702(tx: SetCodeTransaction) -> Hash32:
     """
     Compute the hash of a transaction used in a [EIP-7702] signature.
 
-    #### Parameters
-    - tx: Transaction of interest.
-
-    #### Returns
-    - hash: `ethereum.crypto.hash.Hash32`
-    Hash of the transaction.
+    This function takes a transaction as a parameter and returns the
+    signing hash of the transaction used in a [EIP-7702] signature.
 
     [EIP-7702]: https://eips.ethereum.org/EIPS/eip-7702
     """
@@ -884,12 +838,10 @@ def get_transaction_hash(tx: Union[Bytes, LegacyTransaction]) -> Hash32:
     """
     Compute the hash of a transaction.
 
-    #### Parameters
-    - tx: Transaction of interest.
-
-    #### Returns
-    - hash: `ethereum.crypto.hash.Hash32`
-    Hash of the transaction.
+    This function takes a transaction as a parameter and returns the
+    hash of the transaction. It can handle both legacy transactions and
+    typed transactions (AccessListTransaction, FeeMarketTransaction, BlobTransaction,
+    SetCodeTransaction).
     """
     assert isinstance(tx, (LegacyTransaction, Bytes))
     if isinstance(tx, LegacyTransaction):
