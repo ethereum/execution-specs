@@ -44,31 +44,52 @@ Additional gas cost for creating a new contract.
 class Transaction:
     """
     Atomic operation performed on the block chain.
-
-    #### Attributes
-    - `nonce`: A scalar value equal to the number of transactions sent by
-    the sender.
-    - `gas_price`: The price of gas for this transaction.
-    - `gas`: The maximum amount of gas that can be used by this transaction.
-    - `to`: The address of the recipient. If empty, the transaction is a
-    contract creation.
-    - `value`: The amount of ether (in wei) to send with this transaction.
-    - `data`: The data payload of the transaction, which can be used to call
-      functions on contracts or to create new contracts.
-    - `v`: The recovery id of the signature.
-    - `r`: The first part of the signature.
-    - `s`: The second part of the signature.
     """
 
     nonce: U256
+    """
+    A scalar value equal to the number of transactions sent by the sender.
+    """
+
     gas_price: Uint
+    """
+    The price of gas for this transaction.
+    """
+
     gas: Uint
+    """
+    The maximum amount of gas that can be used by this transaction.
+    """
+
     to: Union[Bytes0, Address]
+    """
+    The address of the recipient. If empty, the transaction is a contract creation.
+    """
+
     value: U256
+    """
+    The amount of ether (in wei) to send with this transaction.
+    """
+
     data: Bytes
+    """
+    The data payload of the transaction, which can be used to call functions on contracts or to create new contracts.
+    """
+
     v: U256
+    """
+    The recovery id of the signature.
+    """
+
     r: U256
+    """
+    The first part of the signature.
+    """
+
     s: U256
+    """
+    The second part of the signature.
+    """
 
 
 def validate_transaction(tx: Transaction) -> Uint:
@@ -80,7 +101,7 @@ def validate_transaction(tx: Transaction) -> Uint:
     be possible to execute a transaction and it will be declared invalid.
 
     Additionally, the nonce of a transaction must not equal or exceed the
-    limit defined in [`EIP-2681`].
+    limit defined in [EIP-2681].
     In practice, defining the limit as ``2**64-1`` has no impact because
     sending ``2**64-1`` transactions is improbable. It's not strictly
     impossible though, ``2**64-1`` transactions is the entire capacity of the
@@ -96,7 +117,7 @@ def validate_transaction(tx: Transaction) -> Uint:
     #### Raises
     - InvalidTransaction: If the transaction is not valid.
 
-    [`EIP-2681`]: https://eips.ethereum.org/EIPS/eip-2681
+    [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     """
     intrinsic_gas = calculate_intrinsic_cost(tx)
     if intrinsic_gas > tx.gas:
@@ -191,7 +212,7 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
 
 def signing_hash_pre155(tx: Transaction) -> Hash32:
     """
-    Compute the hash of a transaction used in a legacy (pre [`EIP-155`])
+    Compute the hash of a transaction used in a legacy (pre [EIP-155])
     signature.
 
     #### Parameters
@@ -201,7 +222,7 @@ def signing_hash_pre155(tx: Transaction) -> Hash32:
     - hash : `ethereum.crypto.hash.Hash32`
     Hash of the transaction.
 
-    [`EIP-155`]: https://eips.ethereum.org/EIPS/eip-155
+    [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
     """
     return keccak256(
         rlp.encode(
@@ -219,7 +240,7 @@ def signing_hash_pre155(tx: Transaction) -> Hash32:
 
 def signing_hash_155(tx: Transaction, chain_id: U64) -> Hash32:
     """
-    Compute the hash of a transaction used in a [`EIP-155`] signature.
+    Compute the hash of a transaction used in a [EIP-155] signature.
 
     #### Parameters
     - tx: Transaction of interest.
@@ -229,7 +250,7 @@ def signing_hash_155(tx: Transaction, chain_id: U64) -> Hash32:
     - hash: `ethereum.crypto.hash.Hash32`
     Hash of the transaction.
 
-    [`EIP-155`]: https://eips.ethereum.org/EIPS/eip-155
+    [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
     """
     return keccak256(
         rlp.encode(
