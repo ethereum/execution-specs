@@ -20,7 +20,7 @@ from ethereum.trace import GasAndRefund, evm_trace
 from ethereum.utils.numeric import ceil32, taylor_exponential
 
 from ..blocks import Header
-from ..transactions import TX_BASE_COST, BlobTransaction, Transaction
+from ..transactions import BlobTransaction, Transaction
 from . import Evm
 from .exceptions import OutOfGasError
 
@@ -69,6 +69,9 @@ GAS_BLOBHASH_OPCODE = Uint(3)
 GAS_POINT_EVALUATION = Uint(50000)
 
 TARGET_BLOB_GAS_PER_BLOCK = U64(786432)
+BLOB_BASE_COST = Uint(2**14)
+BLOB_SCHEDULE_MAX = U64(9)
+BLOB_SCHEDULE_TARGET = U64(6)
 GAS_PER_BLOB = U64(2**17)
 MIN_BLOB_GASPRICE = Uint(1)
 BLOB_BASE_FEE_UPDATE_FRACTION = Uint(5007716)
@@ -295,24 +298,30 @@ def calculate_excess_blob_gas(parent_header: Header) -> U64:
     # At the fork block, these are defined as zero.
     excess_blob_gas = U64(0)
     blob_gas_used = U64(0)
+    base_fee_per_gas = Uint(0)
 
     if isinstance(parent_header, Header):
         # After the fork block, read them from the parent header.
         excess_blob_gas = parent_header.excess_blob_gas
         blob_gas_used = parent_header.blob_gas_used
+        base_fee_per_gas = parent_header.base_fee_per_gas
 
     parent_blob_gas = excess_blob_gas + blob_gas_used
     if parent_blob_gas < TARGET_BLOB_GAS_PER_BLOCK:
         return U64(0)
-    else:
-        target_blob_gas_price = Uint(
-            TARGET_BLOB_GAS_PER_BLOCK
-        ) * calculate_blob_gas_price(parent_header.excess_blob_gas)
-        base_blob_tx_price = TX_BASE_COST * parent_header.base_fee_per_gas
-        if base_blob_tx_price > target_blob_gas_price:
-            return parent_blob_gas // U64(3)
-        else:
-            return parent_blob_gas - TARGET_BLOB_GAS_PER_BLOCK
+
+    target_blob_gas_price = Uint(GAS_PER_BLOB)
+    target_blob_gas_price *= calculate_blob_gas_price(excess_blob_gas)
+
+    base_blob_tx_price = BLOB_BASE_COST * base_fee_per_gas
+    if base_blob_tx_price > target_blob_gas_price:
+        blob_schedule_delta = BLOB_SCHEDULE_MAX - BLOB_SCHEDULE_TARGET
+        return (
+            excess_blob_gas
+            + blob_gas_used * blob_schedule_delta // BLOB_SCHEDULE_MAX
+        )
+
+    return parent_blob_gas - TARGET_BLOB_GAS_PER_BLOCK
 
 
 def calculate_total_blob_gas(tx: Transaction) -> U64:

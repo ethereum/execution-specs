@@ -102,7 +102,6 @@ class Env:
             self.excess_blob_gas = parse_hex_or_int(
                 data["currentExcessBlobGas"], U64
             )
-            return
 
         if "parentExcessBlobGas" in data:
             self.parent_excess_blob_gas = parse_hex_or_int(
@@ -114,15 +113,51 @@ class Env:
                 data["parentBlobGasUsed"], U64
             )
 
-        excess_blob_gas = (
+        if self.excess_blob_gas is not None:
+            return
+
+        assert self.parent_excess_blob_gas is not None
+        assert self.parent_blob_gas_used is not None
+
+        parent_blob_gas = (
             self.parent_excess_blob_gas + self.parent_blob_gas_used
         )
 
         target_blob_gas_per_block = t8n.fork.TARGET_BLOB_GAS_PER_BLOCK
 
-        self.excess_blob_gas = U64(0)
-        if excess_blob_gas >= target_blob_gas_per_block:
-            self.excess_blob_gas = excess_blob_gas - target_blob_gas_per_block
+        if parent_blob_gas < target_blob_gas_per_block:
+            self.excess_blob_gas = U64(0)
+        else:
+            self.excess_blob_gas = parent_blob_gas - target_blob_gas_per_block
+
+            if t8n.fork.is_after_fork("ethereum.osaka"):
+                # Under certain conditions specified in EIP-7918, the
+                # the excess_blob_gas is calculated differently in osaka
+                assert self.parent_base_fee_per_gas is not None
+
+                GAS_PER_BLOB = t8n.fork.GAS_PER_BLOB
+                BLOB_BASE_COST = t8n.fork.BLOB_BASE_COST
+                BLOB_SCHEDULE_MAX = t8n.fork.BLOB_SCHEDULE_MAX
+                BLOB_SCHEDULE_TARGET = t8n.fork.BLOB_SCHEDULE_TARGET
+
+                target_blob_gas_price = Uint(GAS_PER_BLOB)
+                target_blob_gas_price *= t8n.fork.calculate_blob_gas_price(
+                    self.parent_excess_blob_gas
+                )
+
+                base_blob_tx_price = (
+                    BLOB_BASE_COST * self.parent_base_fee_per_gas
+                )
+                if base_blob_tx_price > target_blob_gas_price:
+                    blob_schedule_delta = (
+                        BLOB_SCHEDULE_MAX - BLOB_SCHEDULE_TARGET
+                    )
+                    self.excess_blob_gas = (
+                        self.parent_excess_blob_gas
+                        + self.parent_blob_gas_used
+                        * blob_schedule_delta
+                        // BLOB_SCHEDULE_MAX
+                    )
 
     def read_base_fee_per_gas(self, data: Any, t8n: "T8N") -> None:
         """
@@ -139,16 +174,27 @@ class Env:
                 self.base_fee_per_gas = parse_hex_or_int(
                     data["currentBaseFee"], Uint
                 )
-            else:
+
+            if "parentGasUsed" in data:
                 self.parent_gas_used = parse_hex_or_int(
                     data["parentGasUsed"], Uint
                 )
+
+            if "parentGasLimit" in data:
                 self.parent_gas_limit = parse_hex_or_int(
                     data["parentGasLimit"], Uint
                 )
+
+            if "parentBaseFee" in data:
                 self.parent_base_fee_per_gas = parse_hex_or_int(
                     data["parentBaseFee"], Uint
                 )
+
+            if self.base_fee_per_gas is None:
+                assert self.parent_gas_limit is not None
+                assert self.parent_gas_used is not None
+                assert self.parent_base_fee_per_gas is not None
+
                 parameters: List[object] = [
                     self.block_gas_limit,
                     self.parent_gas_limit,
