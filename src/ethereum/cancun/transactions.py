@@ -56,37 +56,58 @@ Gas cost for including a storage key in the access list of a transaction.
 class LegacyTransaction:
     """
     Atomic operation performed on the block chain. This represents the original
-    transaction format used before [`EIP-1559`], [`EIP-2930`], and
-    [`EIP-4844`].
+    transaction format used before [EIP-1559], [EIP-2930], and
+    [EIP-4844].
 
-    #### Attributes
-    - `nonce`: A scalar value equal to the number of transactions sent by
-    the sender.
-    - `gas_price`: The price of gas for this transaction.
-    - `gas`: The maximum amount of gas that can be used by this transaction.
-    - `to`: The address of the recipient. If empty, the transaction is a
-    contract creation.
-    - `value`: The amount of ether (in wei) to send with this transaction.
-    - `data`: The data payload of the transaction, which can be used to call
-      functions on contracts or to create new contracts.
-    - `v`: The recovery id of the signature.
-    - `r`: The first part of the signature.
-    - `s`: The second part of the signature.
-
-    [`EIP-1559`]: https://eips.ethereum.org/EIPS/eip-1559
-    [`EIP-2930`]: https://eips.ethereum.org/EIPS/eip-2930
-    [`EIP-4844`]: https://eips.ethereum.org/EIPS/eip-4844
+    [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
+    [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
+    [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
     """
 
     nonce: U256
+    """
+    A scalar value equal to the number of transactions sent by the sender.
+    """
+
     gas_price: Uint
+    """
+    The price of gas for this transaction.
+    """
+
     gas: Uint
+    """
+    The maximum amount of gas that can be used by this transaction.
+    """
+
     to: Union[Bytes0, Address]
+    """
+    The address of the recipient. If empty, the transaction is a contract creation.
+    """
+
     value: U256
+    """
+    The amount of ether (in wei) to send with this transaction.
+    """
+
     data: Bytes
+    """
+    The data payload of the transaction, which can be used to call functions on contracts or to create new contracts.
+    """
+
     v: U256
+    """
+    The recovery id of the signature.
+    """
+
     r: U256
+    """
+    The first part of the signature.
+    """
+
     s: U256
+    """
+    The second part of the signature.
+    """
 
 
 @slotted_freezable
@@ -95,155 +116,242 @@ class Access:
     """
     A mapping from account address to storage slots that are pre-warmed as part
     of a transaction.
-
-    #### Attributes
-    - `account`: The address of the account that is accessed.
-    - `slots`: A tuple of storage slots that are accessed in the account.
     """
 
     account: Address
+    """
+    The address of the account that is accessed.
+    """
+
     slots: Tuple[Bytes32, ...]
+    """
+    A tuple of storage slots that are accessed in the account.
+    """
 
 
 @slotted_freezable
 @dataclass
 class AccessListTransaction:
     """
-    The transaction type added in [`EIP-2930`] to support access lists.
+    The transaction type added in [EIP-2930] to support access lists.
 
     This transaction type extends the legacy transaction with an access list
     and chain ID. The access list specifies which addresses and storage slots
     the transaction will access.
 
-    #### Attributes
-    - `chain_id`: The ID of the chain on which this transaction is executed.
-    - `nonce`: A scalar value equal to the number of transactions sent by
-    the sender.
-    - `gas_price`: The price of gas for this transaction.
-    - `gas`: The maximum amount of gas that can be used by this transaction.
-    - `to`: The address of the recipient. If empty, the transaction is a
-    contract creation.
-    - `value`: The amount of ether (in wei) to send with this transaction.
-    - `data`: The data payload of the transaction, which can be used to call
-      functions on contracts or to create new contracts.
-    - `access_list`: A tuple of `Access` objects that specify which addresses
-      and storage slots are accessed in the transaction.
-    - `y_parity`: The recovery id of the signature.
-    - `r`: The first part of the signature.
-    - `s`: The second part of the signature.
-
-    [`EIP-2930`]: https://eips.ethereum.org/EIPS/eip-2930
+    [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
     """
 
     chain_id: U64
+    """
+    The ID of the chain on which this transaction is executed.
+    """
+
     nonce: U256
+    """
+    A scalar value equal to the number of transactions sent by the sender.
+    """
+
     gas_price: Uint
+    """
+    The price of gas for this transaction.
+    """
+
     gas: Uint
+    """
+    The maximum amount of gas that can be used by this transaction.
+    """
+
     to: Union[Bytes0, Address]
+    """
+    The address of the recipient. If empty, the transaction is a contract creation.
+    """
+
     value: U256
+    """
+    The amount of ether (in wei) to send with this transaction.
+    """
+
     data: Bytes
+    """
+    The data payload of the transaction, which can be used to call functions on contracts or to create new contracts.
+    """
+
     access_list: Tuple[Access, ...]
+    """
+    A tuple of `Access` objects that specify which addresses and storage slots are accessed in the transaction.
+    """
+
     y_parity: U256
+    """
+    The recovery id of the signature.
+    """
+
     r: U256
+    """
+    The first part of the signature.
+    """
+
     s: U256
+    """
+    The second part of the signature.
+    """
 
 
 @slotted_freezable
 @dataclass
 class FeeMarketTransaction:
     """
-    The transaction type added in [`EIP-1559`].
+    The transaction type added in [EIP-1559].
 
     This transaction type introduces a new fee market mechanism with two gas
     price parameters: max_priority_fee_per_gas and max_fee_per_gas.
 
-    #### Attributes
-    - `chain_id`: The ID of the chain on which this transaction is executed.
-    - `nonce`: A scalar value equal to the number of transactions sent by
-    the sender.
-    - `max_priority_fee_per_gas`: The maximum priority fee per gas that the
-    sender is willing to pay.
-    - `max_fee_per_gas`: The maximum fee per gas that the sender is willing
-    to pay, including the base fee and priority fee.
-    - `gas`: The maximum amount of gas that can be used by this transaction.
-    - `to`: The address of the recipient. If empty, the transaction is a
-    contract creation.
-    - `value`: The amount of ether (in wei) to send with this transaction.
-    - `data`: The data payload of the transaction, which can be used to call
-      functions on contracts or to create new contracts.
-    - `access_list`: A tuple of `Access` objects that specify which addresses
-      and storage slots are accessed in the transaction.
-    - `y_parity`: The recovery id of the signature.
-    - `r`: The first part of the signature.
-    - `s`: The second part of the signature.
-
-    [`EIP-1559`]: https://eips.ethereum.org/EIPS/eip-1559
+    [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
     """
 
     chain_id: U64
+    """
+    The ID of the chain on which this transaction is executed.
+    """
+
     nonce: U256
+    """
+    A scalar value equal to the number of transactions sent by the sender.
+    """
+
     max_priority_fee_per_gas: Uint
+    """
+    The maximum priority fee per gas that the sender is willing to pay.
+    """
+
     max_fee_per_gas: Uint
+    """
+    The maximum fee per gas that the sender is willing to pay, including the base fee and priority fee.
+    """
+
     gas: Uint
+    """
+    The maximum amount of gas that can be used by this transaction.
+    """
+
     to: Union[Bytes0, Address]
+    """
+    The address of the recipient. If empty, the transaction is a contract creation.
+    """
+
     value: U256
+    """
+    The amount of ether (in wei) to send with this transaction.
+    """
+
     data: Bytes
+    """
+    The data payload of the transaction, which can be used to call functions on contracts or to create new contracts.
+    """
+
     access_list: Tuple[Access, ...]
+    """
+    A tuple of `Access` objects that specify which addresses and storage slots are accessed in the transaction.
+    """
+
     y_parity: U256
+    """
+    The recovery id of the signature.
+    """
+
     r: U256
+    """
+    The first part of the signature.
+    """
+
     s: U256
+    """
+    The second part of the signature.
+    """
 
 
 @slotted_freezable
 @dataclass
 class BlobTransaction:
     """
-    The transaction type added in [`EIP-4844`].
+    The transaction type added in [EIP-4844].
 
     This transaction type extends the fee market transaction to support
     blob-carrying transactions.
 
-    #### Attributes
-    - `chain_id`: The ID of the chain on which this transaction is executed.
-    - `nonce`: A scalar value equal to the number of transactions sent by
-    the sender.
-    - `max_priority_fee_per_gas`: The maximum priority fee per gas that the
-    sender is willing to pay.
-    - `max_fee_per_gas`: The maximum fee per gas that the sender is willing
-    to pay, including the base fee and priority fee.
-    - `gas`: The maximum amount of gas that can be used by this transaction.
-    - `to`: The address of the recipient. If empty, the transaction is a
-    contract creation.
-    - `value`: The amount of ether (in wei) to send with this transaction.
-    - `data`: The data payload of the transaction, which can be used to call
-      functions on contracts or to create new contracts.
-    - `access_list`: A tuple of `Access` objects that specify which addresses
-      and storage slots are accessed in the transaction.
-    - `max_fee_per_blob_gas`: The maximum fee per blob gas that the sender is
-      willing to pay.
-    - `blob_versioned_hashes`: A tuple of objects that
-      represent the versioned hashes of the blobs included in the transaction.
-    - `y_parity`: The recovery id of the signature.
-    - `r`: The first part of the signature.
-    - `s`: The second part of the signature.
-
-    [`EIP-4844`]: https://eips.ethereum.org/EIPS/eip-4844
+    [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
     """
 
     chain_id: U64
+    """
+    The ID of the chain on which this transaction is executed.
+    """
+
     nonce: U256
+    """
+    A scalar value equal to the number of transactions sent by the sender.
+    """
+
     max_priority_fee_per_gas: Uint
+    """
+    The maximum priority fee per gas that the sender is willing to pay.
+    """
+
     max_fee_per_gas: Uint
+    """
+    The maximum fee per gas that the sender is willing to pay, including the base fee and priority fee.
+    """
+
     gas: Uint
+    """
+    The maximum amount of gas that can be used by this transaction.
+    """
+
     to: Address
+    """
+    The address of the recipient. If empty, the transaction is a contract creation.
+    """
+
     value: U256
+    """
+    The amount of ether (in wei) to send with this transaction.
+    """
+
     data: Bytes
+    """
+    The data payload of the transaction, which can be used to call functions on contracts or to create new contracts.
+    """
+
     access_list: Tuple[Access, ...]
+    """
+    A tuple of `Access` objects that specify which addresses and storage slots are accessed in the transaction.
+    """
+
     max_fee_per_blob_gas: U256
+    """
+    The maximum fee per blob gas that the sender is willing to pay.
+    """
+
     blob_versioned_hashes: Tuple[VersionedHash, ...]
+    """
+    A tuple of objects that represent the versioned hashes of the blobs included in the transaction.
+    """
+
     y_parity: U256
+    """
+    The recovery id of the signature.
+    """
+
     r: U256
+    """
+    The first part of the signature.
+    """
+
     s: U256
+    """
+    The second part of the signature.
+    """
 
 
 Transaction = Union[
@@ -307,7 +415,7 @@ def validate_transaction(tx: Transaction) -> Uint:
     be possible to execute a transaction and it will be declared invalid.
 
     Additionally, the nonce of a transaction must not equal or exceed the
-    limit defined in [`EIP-2681`].
+    limit defined in [EIP-2681].
     In practice, defining the limit as ``2**64-1`` has no impact because
     sending ``2**64-1`` transactions is improbable. It's not strictly
     impossible though, ``2**64-1`` transactions is the entire capacity of the
@@ -326,7 +434,7 @@ def validate_transaction(tx: Transaction) -> Uint:
     #### Raises
     - InvalidTransaction: If the transaction is not valid.
 
-    [`EIP-2681`]: https://eips.ethereum.org/EIPS/eip-2681
+    [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     """
     from .vm.interpreter import MAX_CODE_SIZE
 
@@ -462,7 +570,7 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
 
 def signing_hash_pre155(tx: LegacyTransaction) -> Hash32:
     """
-    Compute the hash of a transaction used in a legacy (pre [`EIP-155`])
+    Compute the hash of a transaction used in a legacy (pre [EIP-155])
     signature.
 
     #### Parameters
@@ -472,7 +580,7 @@ def signing_hash_pre155(tx: LegacyTransaction) -> Hash32:
     - hash : `ethereum.crypto.hash.Hash32`
     Hash of the transaction.
 
-    [`EIP-155`]: https://eips.ethereum.org/EIPS/eip-155
+    [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
     """
     return keccak256(
         rlp.encode(
@@ -490,7 +598,7 @@ def signing_hash_pre155(tx: LegacyTransaction) -> Hash32:
 
 def signing_hash_155(tx: LegacyTransaction, chain_id: U64) -> Hash32:
     """
-    Compute the hash of a transaction used in a [`EIP-155`] signature.
+    Compute the hash of a transaction used in a [EIP-155] signature.
 
     #### Parameters
     - tx: Transaction of interest.
@@ -500,7 +608,7 @@ def signing_hash_155(tx: LegacyTransaction, chain_id: U64) -> Hash32:
     - hash: `ethereum.crypto.hash.Hash32`
     Hash of the transaction.
 
-    [`EIP-155`]: https://eips.ethereum.org/EIPS/eip-155
+    [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
     """
     return keccak256(
         rlp.encode(
@@ -551,7 +659,7 @@ def signing_hash_2930(tx: AccessListTransaction) -> Hash32:
 
 def signing_hash_1559(tx: FeeMarketTransaction) -> Hash32:
     """
-    Compute the hash of a transaction used in an [`EIP-1559`] signature.
+    Compute the hash of a transaction used in an [EIP-1559] signature.
 
     #### Parameters
     - tx: Transaction of interest.
@@ -560,7 +668,7 @@ def signing_hash_1559(tx: FeeMarketTransaction) -> Hash32:
     - hash: `ethereum.crypto.hash.Hash32`
     Hash of the transaction.
 
-    [`EIP-1559`]: https://eips.ethereum.org/EIPS/eip-1559
+    [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
     """
     return keccak256(
         b"\x02"
@@ -582,7 +690,7 @@ def signing_hash_1559(tx: FeeMarketTransaction) -> Hash32:
 
 def signing_hash_4844(tx: BlobTransaction) -> Hash32:
     """
-    Compute the hash of a transaction used in an [`EIP-4844`] signature.
+    Compute the hash of a transaction used in an [EIP-4844] signature.
 
     #### Parameters
     - tx: Transaction of interest.
@@ -591,7 +699,7 @@ def signing_hash_4844(tx: BlobTransaction) -> Hash32:
     - hash: `ethereum.crypto.hash.Hash32`
     Hash of the transaction.
 
-    [`EIP-4844`]: https://eips.ethereum.org/EIPS/eip-4844
+    [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
     """
     return keccak256(
         b"\x03"
