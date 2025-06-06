@@ -334,7 +334,9 @@ def bytes_to_g1(
     if y >= FQ.field_modulus:
         raise InvalidParameter("y >= field modulus")
 
-    z = 0 if (x == 0 and y == 0) else 1
+    z = 1
+    if x == 0 and y == 0:
+        z = 0
     point = FQ(x), FQ(y), FQ(z)
 
     if not is_on_curve(point, b):
@@ -486,7 +488,10 @@ def bytes_to_g2(
     x = bytes_to_fq2(data[:128])
     y = bytes_to_fq2(data[128:])
 
-    z = (0, 0) if x == FQ2((0, 0)) and y == FQ2((0, 0)) else (1, 0)
+    z = (1, 0)
+    if x == FQ2((0, 0)) and y == FQ2((0, 0)):
+        z = (0, 0)
+
     point = x, y, FQ2(z)
 
     # Check if the point is on the curve
