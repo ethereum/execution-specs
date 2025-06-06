@@ -201,9 +201,17 @@ class Header:
 @dataclass
 class Block:
     """
-    A complete block on Ethereum, containing a [`header`], a list of
-    transactions, a list of ommers (uncle blocks), and a list of
-    [`withdrawals`].
+    A complete block on Ethereum, which is composed of a block [`header`],
+    a list of transactions, a list of ommers (deprecated), and a list of
+    validator [`withdrawals`].
+
+    The block [`header`] includes fields relevant to the Proof-of-Stake consensus, with
+    deprecated Proof-of-Work fields such as `difficulty`, `nonce`, and `ommersHash` set to constants.
+    The `beneficiary` field denotes the address receiving priority fees from the block. It also includes a `withdrawalsRoot`
+    committing to the validator withdrawals included in this block.
+
+    Withdrawals represent ETH transfers from validators to their recipients, introduced by the consensus layer.
+    Ommers remain deprecated and empty.
 
     [`header`]: ref:ethereum.shanghai.blocks.Header
     [`withdrawals`]: ref:ethereum.shanghai.blocks.Withdrawal
@@ -211,7 +219,10 @@ class Block:
 
     header: Header
     """
-    The block header.
+    The block header containing metadata and cryptographic commitments. Refer [headers] for
+    more details on the fields included in the header.
+
+    [headers]: ref:ethereum.shanghai.blocks.Header
     """
 
     transactions: Tuple[Union[Bytes, LegacyTransaction], ...]
@@ -235,8 +246,14 @@ class Block:
 class Log:
     """
     Data record produced during the execution of a transaction. Logs are used
-    by smart contracts to emit events, which can be efficiently searched using
+    by smart contracts to emit events (using the EVM log opcodes ([`LOG0`], [`LOG1`], [`LOG2`], [`LOG3`] and [`LOG4`])), which can be efficiently searched using
     the bloom filter in the block header.
+
+    [`LOG0`]: ref:ethereum.shanghai.vm.instructions.log.log0
+    [`LOG1`]: ref:ethereum.shanghai.vm.instructions.log.log1
+    [`LOG2`]: ref:ethereum.shanghai.vm.instructions.log.log2
+    [`LOG3`]: ref:ethereum.shanghai.vm.instructions.log.log3
+    [`LOG4`]: ref:ethereum.shanghai.vm.instructions.log.log4
     """
 
     address: Address

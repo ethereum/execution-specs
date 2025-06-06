@@ -229,9 +229,17 @@ class Header:
 @dataclass
 class Block:
     """
-    A complete block on Ethereum, containing a [`header`], a list of
-    transactions, a list of ommers (uncle blocks), and a list of
-    [`withdrawals`].
+    A complete block on Ethereum, which is composed of a block [`header`],
+    a list of transactions, a list of ommers (deprecated), and a list of
+    validator [`withdrawals`].
+
+    The block [`header`] includes fields relevant to the Proof-of-Stake consensus, with
+    deprecated Proof-of-Work fields such as `difficulty`, `nonce`, and `ommersHash` set to constants.
+    The `beneficiary` field denotes the address receiving priority fees from the block. It also includes a `withdrawalsRoot`
+    committing to the validator withdrawals included in this block.
+
+    Withdrawals represent ETH transfers from validators to their recipients, introduced by the consensus layer.
+    Ommers remain deprecated and empty.
 
     [`header`]: ref:ethereum.prague.blocks.Header
     [`withdrawals`]: ref:ethereum.prague.blocks.Withdrawal
@@ -239,7 +247,10 @@ class Block:
 
     header: Header
     """
-    The block header.
+    The block header containing metadata and cryptographic commitments. Refer [headers] for
+    more details on the fields included in the header.
+
+    [headers]: ref:ethereum.cancun.blocks.Header
     """
 
     transactions: Tuple[Union[Bytes, LegacyTransaction], ...]
