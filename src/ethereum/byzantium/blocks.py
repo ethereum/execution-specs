@@ -155,15 +155,28 @@ class Header:
 @dataclass
 class Block:
     """
-    A complete block on Ethereum, containing a [`header`], a list of
-    transactions, and a list of ommers (uncle blocks).
+    A complete block on Ethereum, which is composed of a block [`header`],
+    a list of transactions, and a list of ommers (also known as uncle blocks).
+
+    The block [`header`] includes PoW-specific fields such as `difficulty`, `nonce`, and `ommersHash`,
+    which relate to the mining process. The `beneficiary` field denotes the address receiving mining
+    and transaction fees.
+
+    The header also contains commitments to the current state (`stateRoot`), the transactions
+    (`transactionsRoot`), and the transaction receipts (`receiptsRoot`). It also incldues a bloom filter which
+    summarizes log data from the transactions.
+
+    Ommers are used to provide rewards for near-valid mined blocks that didn't become part of the canonical chain.
 
     [`header`]: ref:ethereum.byzantium.blocks.Header
     """
 
     header: Header
     """
-    The block header.
+    The block header containing metadata and cryptographic commitments. Refer [headers] for
+    more details on the fields included in the header.
+
+    [headers]: ref:ethereum.byzantium.blocks.Header
     """
 
     transactions: Tuple[Transaction, ...]
@@ -182,8 +195,14 @@ class Block:
 class Log:
     """
     Data record produced during the execution of a transaction. Logs are used
-    by smart contracts to emit events, which can be efficiently searched using
+    by smart contracts to emit events (using the EVM log opcodes ([`LOG0`], [`LOG1`], [`LOG2`], [`LOG3`] and [`LOG4`])), which can be efficiently searched using
     the bloom filter in the block header.
+
+    [`LOG0`]: ref:ethereum.byzantium.vm.instructions.log.log0
+    [`LOG1`]: ref:ethereum.byzantium.vm.instructions.log.log1
+    [`LOG2`]: ref:ethereum.byzantium.vm.instructions.log.log2
+    [`LOG3`]: ref:ethereum.byzantium.vm.instructions.log.log3
+    [`LOG4`]: ref:ethereum.byzantium.vm.instructions.log.log4
     """
 
     address: Address

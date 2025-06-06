@@ -155,15 +155,28 @@ class Header:
 @dataclass
 class Block:
     """
-    A complete block on Ethereum, containing a [`header`], a list of
-    transactions, and a list of ommers (uncle blocks).
+    A complete block on Ethereum, which is composed of a block [`header`],
+    a list of transactions, and a list of ommers (also known as uncle blocks).
 
-    [`header`]: ref:ethereum.muir_glacier.blocks.Header
+    The block [`header`] includes PoW-specific fields such as `difficulty`, `nonce`, and `ommersHash`,
+    which relate to the mining process. The `beneficiary` field denotes the address receiving mining
+    and transaction fees.
+
+    The header also contains commitments to the current state (`stateRoot`), the transactions
+    (`transactionsRoot`), and the transaction receipts (`receiptsRoot`). It also incldues a bloom filter which
+    summarizes log data from the transactions.
+
+    Ommers are used to provide rewards for near-valid mined blocks that didn't become part of the canonical chain.
+
+    [`header`]: ref:ethereum.london.blocks.Header
     """
 
     header: Header
     """
-    The block header.
+    The block header containing metadata and cryptographic commitments. Refer [headers] for
+    more details on the fields included in the header.
+
+    [headers]: ref:ethereum.london.blocks.Header
     """
 
     transactions: Tuple[Transaction, ...]
