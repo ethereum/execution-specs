@@ -14,7 +14,7 @@ Implementation of the BLS12 381 pairing pre-compile.
 
 from ethereum_types.numeric import Uint
 from py_ecc.optimized_bls12_381 import FQ12, curve_order, is_inf
-from py_ecc.optimized_bls12_381 import multiply as bls12_multiply_optimized
+from py_ecc.optimized_bls12_381 import multiply as bls12_multiply
 from py_ecc.optimized_bls12_381 import pairing
 
 from ....vm import Evm
@@ -53,11 +53,11 @@ def bls12_pairing(evm: Evm) -> None:
         g2_start = Uint(384 * i + 128)
 
         g1_point = bytes_to_g1(data[g1_start : g1_start + Uint(128)])
-        if not is_inf(bls12_multiply_optimized(g1_point, curve_order)):
+        if not is_inf(bls12_multiply(g1_point, curve_order)):
             raise InvalidParameter("Sub-group check failed for G1 point.")
 
         g2_point = bytes_to_g2(data[g2_start : g2_start + Uint(256)])
-        if not is_inf(bls12_multiply_optimized(g2_point, curve_order)):
+        if not is_inf(bls12_multiply(g2_point, curve_order)):
             raise InvalidParameter("Sub-group check failed for G2 point.")
 
         result *= pairing(g2_point, g1_point)

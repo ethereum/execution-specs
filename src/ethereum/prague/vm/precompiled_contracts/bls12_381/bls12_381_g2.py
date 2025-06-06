@@ -14,12 +14,10 @@ Implementation of pre-compiles in G2 (curve over base prime field).
 
 from ethereum_types.numeric import U256, Uint
 from py_ecc.bls.hash_to_curve import clear_cofactor_G2, map_to_curve_G2
-from py_ecc.optimized_bls12_381.optimized_curve import FQ2 as OPTIMIZED_FQ2
+from py_ecc.optimized_bls12_381.optimized_curve import FQ2
+from py_ecc.optimized_bls12_381.optimized_curve import add as bls12_add
 from py_ecc.optimized_bls12_381.optimized_curve import (
-    add as bls12_add_optimized,
-)
-from py_ecc.optimized_bls12_381.optimized_curve import (
-    multiply as bls12_multiply_optimized,
+    multiply as bls12_multiply,
 )
 
 from ....vm import Evm
@@ -69,7 +67,7 @@ def bls12_g2_add(evm: Evm) -> None:
     p1 = bytes_to_g2(buffer_read(data, U256(0), U256(256)))
     p2 = bytes_to_g2(buffer_read(data, U256(256), U256(256)))
 
-    result = bls12_add_optimized(p1, p2)
+    result = bls12_add(p1, p2)
 
     evm.output = g2_to_bytes(result)
 
@@ -112,12 +110,12 @@ def bls12_g2_msm(evm: Evm) -> None:
         end_index = start_index + LENGTH_PER_PAIR
 
         p, m = decode_g2_scalar_pair(data[start_index:end_index])
-        product = bls12_multiply_optimized(p, m)
+        product = bls12_multiply(p, m)
 
         if i == 0:
             result = product
         else:
-            result = bls12_add_optimized(result, product)
+            result = bls12_add(result, product)
 
     evm.output = g2_to_bytes(result)
 
@@ -145,9 +143,9 @@ def bls12_map_fp2_to_g2(evm: Evm) -> None:
 
     # OPERATION
     field_element = bytes_to_fq2(data)
-    assert isinstance(field_element, OPTIMIZED_FQ2)
+    assert isinstance(field_element, FQ2)
 
     fp2 = bytes_to_fq2(data)
-    g2_optimized_3d = clear_cofactor_G2(map_to_curve_G2(fp2))
+    g2_3d = clear_cofactor_G2(map_to_curve_G2(fp2))
 
-    evm.output = g2_to_bytes(g2_optimized_3d)
+    evm.output = g2_to_bytes(g2_3d)

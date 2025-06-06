@@ -16,10 +16,10 @@ from typing import Tuple, Union
 
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256, Uint
-from py_ecc.optimized_bls12_381.optimized_curve import FQ as OPTIMIZED_FQ
-from py_ecc.optimized_bls12_381.optimized_curve import FQ2 as OPTIMIZED_FQ2
-from py_ecc.optimized_bls12_381.optimized_curve import FQP as OPTIMIZED_FQP
 from py_ecc.optimized_bls12_381.optimized_curve import (
+    FQ,
+    FQ2,
+    FQP,
     b,
     b2,
     curve_order,
@@ -27,10 +27,10 @@ from py_ecc.optimized_bls12_381.optimized_curve import (
     is_on_curve,
 )
 from py_ecc.optimized_bls12_381.optimized_curve import (
-    multiply as bls12_multiply_optimized,
+    multiply as bls12_multiply,
 )
 from py_ecc.optimized_bls12_381.optimized_curve import normalize
-from py_ecc.typing import Optimized_Point3D
+from py_ecc.typing import Optimized_Point3D as Point3D
 
 from ....vm.memory import buffer_read
 from ...exceptions import InvalidParameter
@@ -304,7 +304,7 @@ MULTIPLIER = Uint(1000)
 
 def bytes_to_g1(
     data: bytes,
-) -> Optimized_Point3D[OPTIMIZED_FQ]:
+) -> Point3D[FQ]:
     """
     Decode 128 bytes to a G1 point. Does not perform sub-group check.
 
@@ -315,7 +315,7 @@ def bytes_to_g1(
 
     Returns
     -------
-    point : Optimized_Point3D[OPTIMIZED_FQ]
+    point : Point3D[FQ]
         The G1 point.
 
     Raises
@@ -329,13 +329,13 @@ def bytes_to_g1(
     x = bytes_to_fq(data[:64])
     y = bytes_to_fq(data[64:])
 
-    if x >= OPTIMIZED_FQ.field_modulus:
+    if x >= FQ.field_modulus:
         raise InvalidParameter("x >= field modulus")
-    if y >= OPTIMIZED_FQ.field_modulus:
+    if y >= FQ.field_modulus:
         raise InvalidParameter("y >= field modulus")
 
     z = 0 if (x == 0 and y == 0) else 1
-    point = OPTIMIZED_FQ(x), OPTIMIZED_FQ(y), OPTIMIZED_FQ(z)
+    point = FQ(x), FQ(y), FQ(z)
 
     if not is_on_curve(point, b):
         raise InvalidParameter("Point is not on curve")
@@ -344,7 +344,7 @@ def bytes_to_g1(
 
 
 def g1_to_bytes(
-    g1_point: Optimized_Point3D[OPTIMIZED_FQ],
+    g1_point: Point3D[FQ],
 ) -> bytes:
     """
     Encode a G1 point to 128 bytes.
@@ -366,7 +366,7 @@ def g1_to_bytes(
 
 def decode_g1_scalar_pair(
     data: bytes,
-) -> Tuple[Optimized_Point3D[OPTIMIZED_FQ], int]:
+) -> Tuple[Point3D[FQ], int]:
     """
     Decode 160 bytes to a G1 point and a scalar.
 
@@ -377,7 +377,7 @@ def decode_g1_scalar_pair(
 
     Returns
     -------
-    point : Tuple[Optimized_Point3D[OPTIMIZED_FQ], int]
+    point : Tuple[Point3D[FQ], int]
         The G1 point and the scalar.
 
     Raises
@@ -389,7 +389,7 @@ def decode_g1_scalar_pair(
         InvalidParameter("Input should be 160 bytes long")
 
     point = bytes_to_g1(data[:128])
-    if not is_inf(bls12_multiply_optimized(point, curve_order)):
+    if not is_inf(bls12_multiply(point, curve_order)):
         raise InvalidParameter("Sub-group check failed.")
 
     m = int.from_bytes(buffer_read(data, U256(128), U256(32)), "big")
@@ -397,9 +397,9 @@ def decode_g1_scalar_pair(
     return point, m
 
 
-def bytes_to_fq(data: Bytes) -> OPTIMIZED_FQ:
+def bytes_to_fq(data: Bytes) -> FQ:
     """
-    Decode 64 bytes to a OPTIMIZED_FQ element.
+    Decode 64 bytes to a FQ element.
 
     Parameters
     ----------
@@ -408,8 +408,8 @@ def bytes_to_fq(data: Bytes) -> OPTIMIZED_FQ:
 
     Returns
     -------
-    fq : OPTIMIZED_FQ
-        The OPTIMIZED_FQ element.
+    fq : FQ
+        The FQ element.
 
     Raises
     ------
@@ -421,15 +421,15 @@ def bytes_to_fq(data: Bytes) -> OPTIMIZED_FQ:
 
     c = int.from_bytes(data[:64], "big")
 
-    if c >= OPTIMIZED_FQ.field_modulus:
+    if c >= FQ.field_modulus:
         raise InvalidParameter("Invalid field element")
 
-    return OPTIMIZED_FQ(c)
+    return FQ(c)
 
 
-def bytes_to_fq2(data: Bytes) -> Union[OPTIMIZED_FQ2, OPTIMIZED_FQ2]:
+def bytes_to_fq2(data: Bytes) -> Union[FQ2, FQ2]:
     """
-    Decode 128 bytes to an OPTIMIZED_FQ2 element.
+    Decode 128 bytes to an FQ2 element.
 
     Parameters
     ----------
@@ -438,8 +438,8 @@ def bytes_to_fq2(data: Bytes) -> Union[OPTIMIZED_FQ2, OPTIMIZED_FQ2]:
 
     Returns
     -------
-    fq2 : Union[OPTIMIZED_FQ2, OPTIMIZED_FQP]
-        The OPTIMIZED_FQ2 element.
+    fq2 : Union[FQ2, FQP]
+        The FQ2 element.
 
     Raises
     ------
@@ -451,17 +451,17 @@ def bytes_to_fq2(data: Bytes) -> Union[OPTIMIZED_FQ2, OPTIMIZED_FQ2]:
     c_0 = int.from_bytes(data[:64], "big")
     c_1 = int.from_bytes(data[64:], "big")
 
-    if c_0 >= OPTIMIZED_FQ.field_modulus:
+    if c_0 >= FQ.field_modulus:
         raise InvalidParameter("Invalid field element")
-    if c_1 >= OPTIMIZED_FQ.field_modulus:
+    if c_1 >= FQ.field_modulus:
         raise InvalidParameter("Invalid field element")
 
-    return OPTIMIZED_FQ2((c_0, c_1))
+    return FQ2((c_0, c_1))
 
 
 def bytes_to_g2(
     data: bytes,
-) -> Optimized_Point3D[OPTIMIZED_FQ2]:
+) -> Point3D[FQ2]:
     """
     Decode 256 bytes to a G2 point. Does not perform sub-group check.
 
@@ -472,7 +472,7 @@ def bytes_to_g2(
 
     Returns
     -------
-    point : Optimized_Point3D[OPTIMIZED_FQ2]
+    point : Point3D[FQ2]
         The G2 point.
 
     Raises
@@ -486,12 +486,8 @@ def bytes_to_g2(
     x = bytes_to_fq2(data[:128])
     y = bytes_to_fq2(data[128:])
 
-    z = (
-        (0, 0)
-        if x == OPTIMIZED_FQ2((0, 0)) and y == OPTIMIZED_FQ2((0, 0))
-        else (1, 0)
-    )
-    point = x, y, OPTIMIZED_FQ2(z)
+    z = (0, 0) if x == FQ2((0, 0)) and y == FQ2((0, 0)) else (1, 0)
+    point = x, y, FQ2(z)
 
     # Check if the point is on the curve
     if not is_on_curve(point, b2):
@@ -500,14 +496,14 @@ def bytes_to_g2(
     return point
 
 
-def FQ2_to_bytes(fq2: Union[OPTIMIZED_FQ2, OPTIMIZED_FQP]) -> bytes:
+def FQ2_to_bytes(fq2: Union[FQ2, FQP]) -> bytes:
     """
-    Encode a OPTIMIZED_FQ2 point to 128 bytes.
+    Encode a FQ2 point to 128 bytes.
 
     Parameters
     ----------
     fq2 :
-        The OPTIMIZED_FQ2 point to encode.
+        The FQ2 point to encode.
 
     Returns
     -------
@@ -524,7 +520,7 @@ def FQ2_to_bytes(fq2: Union[OPTIMIZED_FQ2, OPTIMIZED_FQP]) -> bytes:
 
 
 def g2_to_bytes(
-    g2_point: Optimized_Point3D[OPTIMIZED_FQ2],
+    g2_point: Point3D[FQ2],
 ) -> bytes:
     """
     Encode a G2 point to 256 bytes.
@@ -545,7 +541,7 @@ def g2_to_bytes(
 
 def decode_g2_scalar_pair(
     data: bytes,
-) -> Tuple[Optimized_Point3D[OPTIMIZED_FQ2], int]:
+) -> Tuple[Point3D[FQ2], int]:
     """
     Decode 288 bytes to a G2 point and a scalar.
 
@@ -556,7 +552,7 @@ def decode_g2_scalar_pair(
 
     Returns
     -------
-    point : Tuple[Optimized_Point3D[OPTIMIZED_FQ2], int]
+    point : Tuple[Point3D[FQ2], int]
         The G2 point and the scalar.
 
     Raises
@@ -569,7 +565,7 @@ def decode_g2_scalar_pair(
 
     point = bytes_to_g2(data[:256])
 
-    if not is_inf(bls12_multiply_optimized(point, curve_order)):
+    if not is_inf(bls12_multiply(point, curve_order)):
         raise InvalidParameter("Point failed sub-group check.")
 
     n = int.from_bytes(data[256 : 256 + 32], "big")
