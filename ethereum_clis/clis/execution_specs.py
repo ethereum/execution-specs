@@ -76,7 +76,7 @@ class ExecutionSpecsTransitionTool(TransitionTool):
     def start_server(self):
         """
         Start the t8n-server process, extract the port, and leave it running
-        for future re-use.
+        for future reuse.
         """
         self.server_dir = TemporaryDirectory()
         self.server_file_path = Path(self.server_dir.name) / "t8n.sock"

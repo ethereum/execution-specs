@@ -351,7 +351,7 @@ class Switch(Bytecode):
 
         bytecode = Bytecode()
 
-        # All conditions get pre-pended to this bytecode; if none are met, we reach the default
+        # All conditions get prepended to this bytecode; if none are met, we reach the default
         if evm_code_type == EVMCodeType.LEGACY:
             action_jump_length = sum(len(case.action) + 6 for case in cases) + 3
             bytecode = default_action + Op.JUMP(Op.ADD(Op.PC, action_jump_length))

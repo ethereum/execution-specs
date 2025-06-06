@@ -2,6 +2,8 @@
 
 import pytest
 
+invalid_merge_marker = "Marge"  # codespell:ignore marge
+
 invalid_validity_marker_test_cases = (
     (
         "too_many_valid_from_markers",
@@ -117,13 +119,13 @@ invalid_validity_marker_test_cases = (
     (
         "valid_from_nonexistent_fork",
         (
-            """
+            f"""
             import pytest
-            @pytest.mark.valid_from("Marge")
+            @pytest.mark.valid_from("{invalid_merge_marker}")
             def test_case(state_test):
                 assert 0
             """,
-            "Invalid fork 'Marge'",
+            f"Invalid fork '{invalid_merge_marker}'",
         ),
     ),
     (

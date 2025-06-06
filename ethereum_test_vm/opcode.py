@@ -5062,7 +5062,7 @@ class Opcodes(Opcode, Enum):
     Description
     ----
     Exchanges two stack positions.  Two nybbles, n is high 4 bits + 1, then  m is 4 low bits + 1.
-    Exchanges tne n+1'th item with the n + m + 1 item.
+    Exchanges the n+1'th item with the n + m + 1 item.
 
     Inputs x and y when the opcode is used as `EXCHANGE[x, y]`, are equal to:
     - x = n + 1

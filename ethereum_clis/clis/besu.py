@@ -61,7 +61,7 @@ class BesuTransitionTool(TransitionTool):
     def start_server(self):
         """
         Start the t8n-server process, extract the port, and leave it running
-        for future re-use.
+        for future reuse.
         """
         args = [
             str(self.binary),

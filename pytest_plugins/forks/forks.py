@@ -773,7 +773,7 @@ class ValidUntil(ValidityMarker):
 
 class ValidAt(ValidityMarker):
     """
-    Marker to specify each fork individualy for which the test is valid.
+    Marker to specify each fork individually for which the test is valid.
 
     ```python
     import pytest

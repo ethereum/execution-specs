@@ -800,11 +800,11 @@ class EOFException(ExceptionBase):
     """
     INVALID_CODE_SECTION_INDEX = auto()
     """
-    CALLF Operation referes to a non-existent code section
+    CALLF Operation refers to a non-existent code section
     """
     UNEXPECTED_HEADER_KIND = auto()
     """
-    Header parsing encounterd a section kind it wasn't expecting
+    Header parsing encountered a section kind it wasn't expecting
     """
     CALLF_TO_NON_RETURNING = auto()
     """

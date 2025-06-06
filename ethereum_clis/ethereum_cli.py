@@ -74,7 +74,7 @@ class EthereumCLI:
         Instantiate the appropriate CLI subclass derived from the CLI's `binary_path`.
 
         This method will attempt to detect the CLI version and instantiate the appropriate
-        subclass based on the version output by running hte CLI with the version flag.
+        subclass based on the version output by running the CLI with the version flag.
         """
         assert cls.default_tool is not None, "default CLI implementation was never set"
 
