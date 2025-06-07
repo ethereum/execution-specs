@@ -32,6 +32,12 @@ class Header:
     """
     Header portion of a block on the chain, containing metadata and
     cryptographic commitments to the block's contents.
+
+    [RLP]:
+    https://ethereum.github.io/ethereum-rlp/src/ethereum_rlp/rlp.py.html
+
+    [`calculate_block_difficulty()`]:
+    ref:ethereum.arrow_glacier.fork.calculate_block_difficulty
     """
 
     parent_hash: Hash32
@@ -39,34 +45,38 @@ class Header:
     Hash ([`keccak256`]) of the parent block's header, encoded with [RLP].
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
-    [RLP]: https://ethereum.github.io/ethereum-rlp/src/ethereum_rlp/rlp.py.html#ethereum_rlp.rlp.encode:0
+    # noqa: E501
+    [RLP]: https://ethereum.github.io/ethereum-rlp/src/ethereum_rlp/rlp.py.html
     """
 
     ommers_hash: Hash32
     """
-    Hash ([`keccak256`]) of the ommers (uncle blocks) in this block, encoded with [RLP].
+    Hash ([`keccak256`]) of the ommers (uncle blocks) in this block, encoded
+    with [RLP].
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
-    [RLP]: https://ethereum.github.io/ethereum-rlp/src/ethereum_rlp/rlp.py.html#ethereum_rlp.rlp.encode:0
+    # noqa: E501
+    [RLP]: https://ethereum.github.io/ethereum-rlp/src/ethereum_rlp/rlp.py.html
     """
 
     coinbase: Address
     """
     Address of the miner (or validator) who mined this block.
 
-    The coinbase address receives the block reward and the priority fees (tips) from included transactions.
-    Base fees (introduced in [EIP-1559]) are burned and do not go to the coinbase.
+    The coinbase address receives the block reward and the priority fees (tips)
+    from included transactions. Base fees (introduced in [EIP-1559]) are burned
+    and do not go to the coinbase.
 
     [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
     """
 
     state_root: Root
     """
-    Root hash ([`keccak256`]) of the state trie after executing all transactions in this block.
-    It represents the state of the Ethereum Virtual Machine (EVM) after all
-    transactions in this block have been processed. It is computed using the
-    [`state_root()`] function, which computes the root of the
-    Merkle-Patricia [Trie] representing the Ethereum world state.
+    Root hash ([`keccak256`]) of the state trie after executing all
+    transactions in this block. It represents the state of the Ethereum Virtual
+    Machine(EVM) after all transactions in this block have been processed. It
+    is computed using the [`state_root()`] function, which computes the root
+    of the Merkle-Patricia [Trie] representing the Ethereum world state.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
     [`state_root()`]: ref:ethereum.arrow_glacier.state.state_root
@@ -75,9 +85,10 @@ class Header:
 
     transactions_root: Root
     """
-    Root hash ([`keccak256`]) of the transactions trie, which contains all transactions
-    included in this block in their original order. It is computed using the
-    [`root()`] function over the Merkle-Patricia [trie] of transactions as the parameter.
+    Root hash ([`keccak256`]) of the transactions trie, which contains all
+    transactions included in this block in their original order. It is computed
+    using the [`root()`] function over the Merkle-Patricia [trie] of
+    transactions as the parameter.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
     [`root()`]: ref:ethereum.arrow_glacier.trie.root
@@ -86,9 +97,9 @@ class Header:
 
     receipt_root: Root
     """
-    Root hash ([`keccak256`]) of the receipts trie, which contains all receipts for
-    transactions in this block. It is computed using the
-    [`root()`] function over the Merkle-Patricia [trie] constructed from the receipts.
+    Root hash ([`keccak256`]) of the receipts trie, which contains all receipts
+    for transactions in this block. It is computed using the [`root()`]
+    function over the Merkle-Patricia [trie] constructed from the receipts.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
     [`root()`]: ref:ethereum.arrow_glacier.trie.root
@@ -105,12 +116,13 @@ class Header:
 
     difficulty: Uint
     """
-    Difficulty of the block, used in Proof-of-Work to determine the effort required
-    to mine the block. This value adjusts over time to maintain a relatively
-    constant block time and is computed using the [`calculate_block_difficulty()`]
-    function.
+    Difficulty of the block, used in Proof-of-Work to determine the effort
+    required to mine the block. This value adjusts over time to maintain a
+    relatively constant block time and is computed using the
+    [`calculate_block_difficulty()`] function.
 
-    [`calculate_block_difficulty()`]: ref:ethereum.arrow_glacier.fork.calculate_block_difficulty
+    [`calculate_block_difficulty()`]:
+    ref:ethereum.arrow_glacier.fork_types.calculate_block_difficulty
     """
 
     number: Uint
@@ -121,13 +133,15 @@ class Header:
     gas_limit: Uint
     """
     Maximum gas allowed in this block. Pre [EIP-1559], this was the maximum
-    gas that could be consumed by all transactions in the block. Post [EIP-1559],
-    this is still the maximum gas limit, but the base fee per gas is also
-    considered when calculating the effective gas limit. This can be [adjusted
-    by a factor of 1/1024] from the previous block's gas limit, up until a maximum of 30 million gas.
+    gas that could be consumed by all transactions in the block. Post
+    [EIP-1559], this is still the maximum gas limit, but the base fee per gas
+    is also considered when calculating the effective gas limit. This can be
+    [adjusted by a factor of 1/1024] from the previous block's gas limit, up
+    until a maximum of 30 million gas.
 
     [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
-    [adjusted by a factor of 1/1024]: https://ethereum.org/en/developers/docs/blocks/
+    [adjusted by a factor of 1/1024]:
+    https://ethereum.org/en/developers/docs/blocks/
     """
 
     gas_used: Uint
@@ -148,7 +162,8 @@ class Header:
     mix_digest: Bytes32
     """
     Mix hash used in the mining process, which is a cryptographic commitment
-    to the block's contents. It [validates] that PoW was done on the correct block.
+    to the block's contents. It [validates] that PoW was done on the correct
+    block.
 
     [validates]: ref:ethereum.arrow_glacier.fork.validate_proof_of_work
     """
@@ -179,23 +194,26 @@ class Block:
     A complete block on Ethereum, which is composed of a block [`header`],
     a list of transactions, and a list of ommers (also known as uncle blocks).
 
-    The block [`header`] includes PoW-specific fields such as `difficulty`, `nonce`, and `ommersHash`,
-    which relate to the mining process. The `beneficiary` field denotes the address receiving mining
-    and transaction fees.
+    The block [`header`] includes PoW-specific fields such as `difficulty`,
+    `nonce`, and `ommersHash`, which relate to the mining process. The
+    `beneficiary` field denotes the address receiving mining and transaction
+    fees.
 
-    The header also contains commitments to the current state (`stateRoot`), the transactions
-    (`transactionsRoot`), and the transaction receipts (`receiptsRoot`). It also incldues a bloom filter which
-    summarizes log data from the transactions.
+    The header also contains commitments to the current state (`stateRoot`),
+    the transactions (`transactionsRoot`), and the transaction receipts
+    (`receiptsRoot`). It also incldues a bloom filter which summarizes log
+    data from the transactions.
 
-    Ommers are used to provide rewards for near-valid mined blocks that didn't become part of the canonical chain.
+    Ommers are used to provide rewards for near-valid mined blocks that didn't
+    become part of the canonical chain.
 
     [`header`]: ref:ethereum.arrow_glacier.blocks.Header
     """
 
     header: Header
     """
-    The block header containing metadata and cryptographic commitments. Refer [headers] for
-    more details on the fields included in the header.
+    The block header containing metadata and cryptographic commitments. Refer
+    [headers] for more details on the fields included in the header.
 
     [headers]: ref:ethereum.arrow_glacier.blocks.Header
     """
@@ -220,8 +238,9 @@ class Block:
 class Log:
     """
     Data record produced during the execution of a transaction. Logs are used
-    by smart contracts to emit events (using the EVM log opcodes ([`LOG0`], [`LOG1`], [`LOG2`], [`LOG3`] and [`LOG4`])), which can be efficiently searched using
-    the bloom filter in the block header.
+    by smart contracts to emit events (using the EVM log opcodes ([`LOG0`],
+    [`LOG1`], [`LOG2`], [`LOG3`] and [`LOG4`])), which can be efficiently
+    searched using the bloom filter in the block header.
 
     [`LOG0`]: ref:ethereum.arrow_glacier.vm.instructions.log.log0
     [`LOG1`]: ref:ethereum.arrow_glacier.vm.instructions.log.log1

@@ -39,7 +39,8 @@ class Withdrawal:
 
     index: U64
     """
-    The unique index of the withdrawal, incremented for each withdrawal processed.
+    The unique index of the withdrawal, incremented for each withdrawal
+    processed.
     """
 
     validator_index: U64
@@ -71,16 +72,17 @@ class Header:
     Hash ([`keccak256`]) of the parent block's header, encoded with [RLP].
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
-    [RLP]: https://ethereum.github.io/ethereum-rlp/src/ethereum_rlp/rlp.py.html#ethereum_rlp.rlp.encode:0
+    [RLP]: https://ethereum.github.io/ethereum-rlp/src/ethereum_rlp/rlp.py.html
     """
 
     ommers_hash: Hash32
     """
-    Hash ([`keccak256`]) of the ommers (uncle blocks) in this block, encoded with [RLP]. However, in post
-    merge forks `ommers_hash` is always [`EMPTY_OMMER_HASH`].
+    Hash ([`keccak256`]) of the ommers (uncle blocks) in this block, encoded
+    with [RLP]. However, in post merge forks `ommers_hash` is always
+    [`EMPTY_OMMER_HASH`].
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
-    [RLP]: https://ethereum.github.io/ethereum-rlp/src/ethereum_rlp/rlp.py.html#ethereum_rlp.rlp.encode:0
+    [RLP]: https://ethereum.github.io/ethereum-rlp/src/ethereum_rlp/rlp.py.html
     [`EMPTY_OMMER_HASH`]: ref:ethereum.shanghai.fork.EMPTY_OMMER_HASH
     """
 
@@ -88,15 +90,17 @@ class Header:
     """
     Address of the miner (or validator) who mined this block.
 
-    The coinbase address receives the block reward and the priority fees (tips) from included transactions.
-    Base fees (introduced in [EIP-1559]) are burned and do not go to the coinbase.
+    The coinbase address receives the block reward and the priority fees (tips)
+    from included transactions. Base fees (introduced in [EIP-1559]) are
+    burned and do not go to the coinbase.
 
     [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
     """
 
     state_root: Root
     """
-    Root hash ([`keccak256`]) of the state trie after executing all transactions in this block.
+    Root hash ([`keccak256`]) of the state trie after executing all
+    transactions in this block.
     It represents the state of the Ethereum Virtual Machine (EVM) after all
     transactions in this block have been processed. It is computed using the
     [`state_root()`] function, which computes the root of the
@@ -109,9 +113,10 @@ class Header:
 
     transactions_root: Root
     """
-    Root hash ([`keccak256`]) of the transactions trie, which contains all transactions
-    included in this block in their original order. It is computed using the
-    [`root()`] function over the Merkle-Patricia [trie] of transactions as the parameter.
+    Root hash ([`keccak256`]) of the transactions trie, which contains all
+    transactions included in this block in their original order. It is
+    computed using the [`root()`] function over the Merkle-Patricia [trie] of
+    transactions as the parameter.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
     [`root()`]: ref:ethereum.shanghai.trie.root
@@ -120,9 +125,10 @@ class Header:
 
     receipt_root: Root
     """
-    Root hash ([`keccak256`]) of the receipts trie, which contains all receipts for
-    transactions in this block. It is computed using the
-    [`root()`] function over the Merkle-Patricia [trie] constructed from the receipts.
+    Root hash ([`keccak256`]) of the receipts trie, which contains all
+    receipts for transactions in this block. It is computed using the
+    [`root()`] function over the Merkle-Patricia [trie] constructed from the
+    receipts.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
     [`root()`]: ref:ethereum.shanghai.trie.root
@@ -150,13 +156,15 @@ class Header:
     gas_limit: Uint
     """
     Maximum gas allowed in this block. Pre [EIP-1559], this was the maximum
-    gas that could be consumed by all transactions in the block. Post [EIP-1559],
-    this is still the maximum gas limit, but the base fee per gas is also
-    considered when calculating the effective gas limit. This can be [adjusted
-    by a factor of 1/1024] from the previous block's gas limit, up until a maximum of 30 million gas.
+    gas that could be consumed by all transactions in the block. Post
+    [EIP-1559], this is still the maximum gas limit, but the base fee per gas
+    is also considered when calculating the effective gas limit. This can be
+    [adjusted by a factor of 1/1024] from the previous block's gas limit, up
+    until a maximum of 30 million gas.
 
     [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
-    [adjusted by a factor of 1/1024]: https://ethereum.org/en/developers/docs/blocks/
+    [adjusted by a factor of 1/1024]:
+    https://ethereum.org/en/developers/docs/blocks/
     """
 
     gas_used: Uint
@@ -193,7 +201,8 @@ class Header:
 
     withdrawals_root: Root
     """
-    Root hash of the withdrawals trie, which contains all withdrawals in this block.
+    Root hash of the withdrawals trie, which contains all withdrawals in this
+    block.
     """
 
 
@@ -205,13 +214,15 @@ class Block:
     a list of transactions, a list of ommers (deprecated), and a list of
     validator [`withdrawals`].
 
-    The block [`header`] includes fields relevant to the Proof-of-Stake consensus, with
-    deprecated Proof-of-Work fields such as `difficulty`, `nonce`, and `ommersHash` set to constants.
-    The `beneficiary` field denotes the address receiving priority fees from the block. It also includes a `withdrawalsRoot`
-    committing to the validator withdrawals included in this block.
+    The block [`header`] includes fields relevant to the Proof-of-Stake
+    consensus, with deprecated Proof-of-Work fields such as `difficulty`,
+    `nonce`, and `ommersHash` set to constants.
+    The `beneficiary` field denotes the address receiving priority fees from
+    the block. It also includes a `withdrawalsRoot` committing to the
+    validator withdrawals included in this block.
 
-    Withdrawals represent ETH transfers from validators to their recipients, introduced by the consensus layer.
-    Ommers remain deprecated and empty.
+    Withdrawals represent ETH transfers from validators to their recipients,
+    introduced by the consensus layer. Ommers remain deprecated and empty.
 
     [`header`]: ref:ethereum.shanghai.blocks.Header
     [`withdrawals`]: ref:ethereum.shanghai.blocks.Withdrawal
@@ -219,15 +230,16 @@ class Block:
 
     header: Header
     """
-    The block header containing metadata and cryptographic commitments. Refer [headers] for
-    more details on the fields included in the header.
+    The block header containing metadata and cryptographic commitments. Refer
+    [headers] for more details on the fields included in the header.
 
     [headers]: ref:ethereum.shanghai.blocks.Header
     """
 
     transactions: Tuple[Union[Bytes, LegacyTransaction], ...]
     """
-    A tuple of transactions included in this block, which can be either legacy transactions, access list transactions, or fee market transactions.
+    A tuple of transactions included in this block, which can be either legacy
+    transactions, access list transactions, or fee market transactions.
     """
 
     ommers: Tuple[Header, ...]
@@ -246,8 +258,9 @@ class Block:
 class Log:
     """
     Data record produced during the execution of a transaction. Logs are used
-    by smart contracts to emit events (using the EVM log opcodes ([`LOG0`], [`LOG1`], [`LOG2`], [`LOG3`] and [`LOG4`])), which can be efficiently searched using
-    the bloom filter in the block header.
+    by smart contracts to emit events (using the EVM log opcodes ([`LOG0`],
+    [`LOG1`], [`LOG2`], [`LOG3`] and [`LOG4`])), which can be efficiently
+    searched using the bloom filter in the block header.
 
     [`LOG0`]: ref:ethereum.shanghai.vm.instructions.log.log0
     [`LOG1`]: ref:ethereum.shanghai.vm.instructions.log.log1
