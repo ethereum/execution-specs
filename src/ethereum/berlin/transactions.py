@@ -412,12 +412,8 @@ def signing_hash_2930(tx: AccessListTransaction) -> Hash32:
     """
     Compute the hash of a transaction used in a [`EIP 2930`] signature.
 
-    #### Parameters
-    - tx: Transaction of interest.
-
-    #### Returns
-    - hash: `ethereum.crypto.hash.Hash32`
-    Hash of the transaction.
+    This function takes a transaction as a parameter and returns the
+    signing hash of the transaction used in a [`EIP 2930`] signature.
 
     [`EIP 2930`]: https://eips.ethereum.org/EIPS/eip-2930
     """
@@ -442,12 +438,9 @@ def get_transaction_hash(tx: Union[Bytes, LegacyTransaction]) -> Hash32:
     """
     Compute the hash of a transaction.
 
-    #### Parameters
-    - tx: Transaction of interest.
-
-    #### Returns
-    - hash: `ethereum.crypto.hash.Hash32`
-    Hash of the transaction.
+    This function takes a transaction as a parameter and returns the
+    hash of the transaction. It can handle both legacy transactions and
+    access list transactions.
     """
     assert isinstance(tx, (LegacyTransaction, Bytes))
     if isinstance(tx, LegacyTransaction):
