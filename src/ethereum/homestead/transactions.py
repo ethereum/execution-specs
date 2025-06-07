@@ -63,7 +63,8 @@ class Transaction:
 
     to: Union[Bytes0, Address]
     """
-    The address of the recipient. If empty, the transaction is a contract creation.
+    The address of the recipient. If empty, the transaction is a contract
+    creation.
     """
 
     value: U256
@@ -73,7 +74,8 @@ class Transaction:
 
     data: Bytes
     """
-    The data payload of the transaction, which can be used to call functions on contracts or to create new contracts.
+    The data payload of the transaction, which can be used to call functions
+    on contracts or to create new contracts.
     """
 
     v: U256
@@ -107,9 +109,9 @@ def validate_transaction(tx: Transaction) -> Uint:
     impossible though, ``2**64-1`` transactions is the entire capacity of the
     Ethereum blockchain at 2022 gas limits for a little over 22 years.
 
-    This function takes a transaction as a parameter and returns the intrinsic gas cost
-    of the transaction after validation. It throws an `InvalidTransaction` exception
-    if the transaction is invalid.
+    This function takes a transaction as a parameter and returns the intrinsic
+    gas cost of the transaction after validation. It throws an
+    `InvalidTransaction`exception if the transaction is invalid.
 
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     """
@@ -139,8 +141,8 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     2. Cost for data (zero and non-zero bytes)
     3. Cost for contract creation (if applicable)
 
-    This function takes a transaction as a parameter and returns the intrinsic gas cost
-    of the transaction.
+    This function takes a transaction as a parameter and returns the intrinsic
+    gas cost of the transaction.
     """
     data_cost = Uint(0)
 
@@ -168,9 +170,9 @@ def recover_sender(tx: Transaction) -> Address:
     signing hash of the transaction. The sender's public key can be obtained
     with these two values and therefore the sender address can be retrieved.
 
-    This function takes chain_id and a transaction as parameters and returns the
-    address of the sender of the transaction. It raises an `InvalidSignatureError`
-    if the signature values (r, s, v) are invalid.
+    This function takes chain_id and a transaction as parameters and returns
+    the address of the sender of the transaction. It raises an
+    `InvalidSignatureError` if the signature values (r, s, v) are invalid.
     """
     v, r, s = tx.v, tx.r, tx.s
     if v != 27 and v != 28:
