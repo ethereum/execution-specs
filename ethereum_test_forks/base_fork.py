@@ -339,6 +339,12 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def transaction_gas_limit_cap(cls, block_number: int = 0, timestamp: int = 0) -> int | None:
+        """Return the transaction gas limit cap, or None if no limit is imposed."""
+        pass
+
+    @classmethod
+    @abstractmethod
     def precompiles(cls, block_number: int = 0, timestamp: int = 0) -> List[Address]:
         """Return list pre-compiles supported by the fork."""
         pass

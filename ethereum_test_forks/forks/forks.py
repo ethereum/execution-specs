@@ -355,6 +355,11 @@ class Frontier(BaseFork, solc_name="homestead"):
         return [0]
 
     @classmethod
+    def transaction_gas_limit_cap(cls, block_number: int = 0, timestamp: int = 0) -> int | None:
+        """At Genesis, no transaction gas limit cap is imposed."""
+        return None
+
+    @classmethod
     def precompiles(cls, block_number: int = 0, timestamp: int = 0) -> List[Address]:
         """At Genesis, no pre-compiles are present."""
         return []
@@ -1338,6 +1343,11 @@ class Osaka(Prague, solc_name="cancun"):
     def engine_get_blobs_version(cls, block_number: int = 0, timestamp: int = 0) -> Optional[int]:
         """At Osaka, the engine get blobs version is 2."""
         return 2
+
+    @classmethod
+    def transaction_gas_limit_cap(cls, block_number: int = 0, timestamp: int = 0) -> int | None:
+        """At Osaka, transaction gas limit is capped at 30 million."""
+        return 30_000_000
 
     @classmethod
     def is_deployed(cls) -> bool:

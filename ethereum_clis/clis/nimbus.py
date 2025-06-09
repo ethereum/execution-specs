@@ -85,6 +85,8 @@ class NimbusExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: (
             "invalid tx: one of blobVersionedHash has invalid version"
         ),
+        # TODO: temp solution until mapper for nimbus is fixed
+        TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: ("zero gasUsed but transactions present"),
         # This message is the same as TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED
         TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: "exceeds maximum allowance",
         TransactionException.TYPE_3_TX_ZERO_BLOBS: "blob transaction missing blob hashes",

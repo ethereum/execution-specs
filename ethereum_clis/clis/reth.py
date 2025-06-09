@@ -55,6 +55,9 @@ class RethExceptionMapper(ExceptionMapper):
         TransactionException.GAS_ALLOWANCE_EXCEEDED: (
             r"transaction gas limit \w+ is more than blocks available gas \w+"
         ),
+        TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
+            r"transaction gas limit \(\d+\) is greater than the cap \(\d+\)"
+        ),
         BlockException.SYSTEM_CONTRACT_CALL_FAILED: r"failed to apply .* requests contract call",
         BlockException.INCORRECT_BLOB_GAS_USED: (
             r"blob gas used mismatch|blob gas used \d+ is not a multiple of blob gas per blob"

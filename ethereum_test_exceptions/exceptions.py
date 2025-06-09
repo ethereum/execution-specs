@@ -363,6 +363,10 @@ class TransactionException(ExceptionBase):
     """
     Transaction causes block to go over blob gas limit.
     """
+    GAS_LIMIT_EXCEEDS_MAXIMUM = auto()
+    """
+    Transaction gas limit exceeds the maximum allowed limit of 30 million.
+    """
     TYPE_3_TX_ZERO_BLOBS = auto()
     """
     Transaction is type 3, but has no blobs.

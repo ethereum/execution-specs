@@ -377,6 +377,9 @@ class NethermindExceptionMapper(ExceptionMapper):
             r"BlockBlobGasExceeded: A block cannot have more than \d+ blob gas, blobs count \d+, "
             r"blobs gas used: \d+"
         ),
+        TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
+            r"TxGasLimitCapExceeded: Gas limit \d+ \w+ cap of \d+\.?"
+        ),
         BlockException.INCORRECT_EXCESS_BLOB_GAS: (
             r"HeaderExcessBlobGasMismatch: Excess blob gas in header does not match calculated"
             r"|Overflow in excess blob gas"

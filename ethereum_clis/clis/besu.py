@@ -342,4 +342,7 @@ class BesuExceptionMapper(ExceptionMapper):
             r"expected (\d+), but got (-?\d+)|"
             r"Invalid deposit log length\. Must be \d+ bytes, but is \d+ bytes"
         ),
+        TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
+            r"transaction invalid Transaction gas limit must be at most \d+"
+        ),
     }
