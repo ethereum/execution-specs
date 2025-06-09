@@ -59,6 +59,26 @@ class InsufficientMaxFeePerGasError(InvalidTransaction):
     The maximum fee per gas is insufficient for the transaction.
     """
 
+    transaction_max_fee_per_gas: Final[int]
+    """
+    The maximum fee per gas specified in the transaction.
+    """
+
+    block_base_fee_per_gas: Final[int]
+    """
+    The base fee per gas of the block in which the transaction is included.
+    """
+
+    def __init__(
+        self, transaction_max_fee_per_gas: int, block_base_fee_per_gas: int
+    ):
+        super().__init__(
+            f"Insufficient max fee per gas "
+            f"({transaction_max_fee_per_gas} < {block_base_fee_per_gas})"
+        )
+        self.transaction_max_fee_per_gas = transaction_max_fee_per_gas
+        self.block_base_fee_per_gas = block_base_fee_per_gas
+
 
 class InvalidBlobVersionedHashError(InvalidTransaction):
     """
