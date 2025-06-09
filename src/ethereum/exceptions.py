@@ -53,3 +53,10 @@ class NonceMismatchError(InvalidTransaction):
     Thrown when a transaction's nonce does not match the expected nonce for the
     sender.
     """
+
+
+class GasUsedExceedsLimitError(InvalidTransaction):
+    """
+    Thrown when a transaction's gas usage exceeds the gas available in the
+    block.
+    """
