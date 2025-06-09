@@ -95,11 +95,10 @@ def complexity(base_length: U256, modulus_length: U256) -> Uint:
     """
     max_length = max(Uint(base_length), Uint(modulus_length))
     words = (max_length + Uint(7)) // Uint(8)
-    complexity = words ** Uint(2)
-    if max_length <= Uint(32):
-        return complexity
-    else:
-        return Uint(2) * complexity
+    complexity = Uint(16)
+    if max_length > Uint(32):
+        complexity = Uint(2) * words ** Uint(2)
+    return complexity
 
 
 def iterations(exponent_length: U256, exponent_head: U256) -> Uint:
