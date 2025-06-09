@@ -166,8 +166,8 @@ class EIP:
         return self.covered_items / self.total_items * 100 if self.total_items else 0
 
     @property
-    def completness_emoji(self) -> str:
-        """Return the completness emoji."""
+    def completeness_emoji(self) -> str:
+        """Return the completeness emoji."""
         return "🟢" if self.percentage == 100 else "🟡" if self.percentage > 50 else "🔴"
 
     def mark_not_applicable(self):
@@ -239,7 +239,7 @@ class EIP:
             lines[checklist_item.line_number - 1] = str(checklist_item)
 
         lines[lines.index(PERCENTAGE_LINE)] = (
-            f"| {self.total_items} | {self.covered_items} | {self.completness_emoji} "
+            f"| {self.total_items} | {self.covered_items} | {self.completeness_emoji} "
             f"{self.percentage:.2f}% |"
         )
 
