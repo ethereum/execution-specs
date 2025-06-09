@@ -376,6 +376,8 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
             r, s, tx.y_parity, signing_hash_4844(tx)
         )
     elif isinstance(tx, SetCodeTransaction):
+        if tx.y_parity not in (U256(0), U256(1)):
+            raise InvalidSignatureError("bad y_parity")
         public_key = secp256k1_recover(
             r, s, tx.y_parity, signing_hash_7702(tx)
         )
