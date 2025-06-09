@@ -22,6 +22,7 @@ from ethereum_types.numeric import U64, U256, Uint
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import (
     EthereumException,
+    GasUsedExceedsLimitError,
     InsufficientBalanceError,
     InvalidBlock,
     InvalidSenderError,
@@ -417,7 +418,7 @@ def check_transaction(
     blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used
 
     if tx.gas > gas_available:
-        raise InvalidBlock
+        raise GasUsedExceedsLimitError("gas used exceeds limit")
 
     tx_blob_gas_used = calculate_total_blob_gas(tx)
     if tx_blob_gas_used > blob_gas_available:
@@ -434,7 +435,9 @@ def check_transaction(
                 "priority fee greater than max fee"
             )
         if tx.max_fee_per_gas < block_env.base_fee_per_gas:
-            raise InsufficientMaxFeePerGasError("insufficient max fee per gas")
+            raise InsufficientMaxFeePerGasError(
+                tx.max_fee_per_gas, block_env.base_fee_per_gas
+            )
 
         priority_fee_per_gas = min(
             tx.max_priority_fee_per_gas,
@@ -478,11 +481,11 @@ def check_transaction(
         if not any(tx.authorizations):
             raise EmptyAuthorizationListError("empty authorization list")
 
-    if sender_account.nonce != tx.nonce:
-        if sender_account.nonce > Uint(tx.nonce):
-            raise NonceMismatchError("nonce too low")
-        else:
-            raise NonceMismatchError("nonce too high")
+    if sender_account.nonce > Uint(tx.nonce):
+        raise NonceMismatchError("nonce too low")
+    elif sender_account.nonce < Uint(tx.nonce):
+        raise NonceMismatchError("nonce too high")
+
     if Uint(sender_account.balance) < max_gas_fee + Uint(tx.value):
         raise InsufficientBalanceError("insufficient sender balance")
     if sender_account.code and not is_valid_delegation(sender_account.code):
