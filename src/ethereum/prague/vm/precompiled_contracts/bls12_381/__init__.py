@@ -12,14 +12,13 @@ Introduction
 Precompile for BLS12-381 curve operations.
 """
 
-from typing import Tuple, Union
+from typing import Tuple
 
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256, Uint
 from py_ecc.optimized_bls12_381.optimized_curve import (
     FQ,
     FQ2,
-    FQP,
     b,
     b2,
     curve_order,
@@ -303,7 +302,7 @@ MULTIPLIER = Uint(1000)
 
 
 def bytes_to_g1(
-    data: bytes,
+    data: Bytes,
 ) -> Point3D[FQ]:
     """
     Decode 128 bytes to a G1 point. Does not perform sub-group check.
@@ -347,7 +346,7 @@ def bytes_to_g1(
 
 def g1_to_bytes(
     g1_point: Point3D[FQ],
-) -> bytes:
+) -> Bytes:
     """
     Encode a G1 point to 128 bytes.
 
@@ -367,7 +366,7 @@ def g1_to_bytes(
 
 
 def decode_g1_scalar_pair(
-    data: bytes,
+    data: Bytes,
 ) -> Tuple[Point3D[FQ], int]:
     """
     Decode 160 bytes to a G1 point and a scalar.
@@ -429,7 +428,7 @@ def bytes_to_fq(data: Bytes) -> FQ:
     return FQ(c)
 
 
-def bytes_to_fq2(data: Bytes) -> Union[FQ2, FQ2]:
+def bytes_to_fq2(data: Bytes) -> FQ2:
     """
     Decode 128 bytes to an FQ2 element.
 
@@ -440,7 +439,7 @@ def bytes_to_fq2(data: Bytes) -> Union[FQ2, FQ2]:
 
     Returns
     -------
-    fq2 : Union[FQ2, FQP]
+    fq2 : FQ2
         The FQ2 element.
 
     Raises
@@ -462,7 +461,7 @@ def bytes_to_fq2(data: Bytes) -> Union[FQ2, FQ2]:
 
 
 def bytes_to_g2(
-    data: bytes,
+    data: Bytes,
 ) -> Point3D[FQ2]:
     """
     Decode 256 bytes to a G2 point. Does not perform sub-group check.
@@ -501,7 +500,7 @@ def bytes_to_g2(
     return point
 
 
-def FQ2_to_bytes(fq2: Union[FQ2, FQP]) -> bytes:
+def FQ2_to_bytes(fq2: FQ2) -> Bytes:
     """
     Encode a FQ2 point to 128 bytes.
 
@@ -526,7 +525,7 @@ def FQ2_to_bytes(fq2: Union[FQ2, FQP]) -> bytes:
 
 def g2_to_bytes(
     g2_point: Point3D[FQ2],
-) -> bytes:
+) -> Bytes:
     """
     Encode a G2 point to 256 bytes.
 
@@ -545,7 +544,7 @@ def g2_to_bytes(
 
 
 def decode_g2_scalar_pair(
-    data: bytes,
+    data: Bytes,
 ) -> Tuple[Point3D[FQ2], int]:
     """
     Decode 288 bytes to a G2 point and a scalar.
