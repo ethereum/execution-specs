@@ -7,6 +7,7 @@ import pytest
 from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     Account,
+    Address,
     Alloc,
     Environment,
     StateTestFiller,
@@ -14,11 +15,8 @@ from ethereum_test_tools import (
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
-UPPER_BOUND = 0xFF
-NUM_UNSUPPORTED_PRECOMPILES = 1
 
-
-def precompile_addresses(fork: Fork) -> Iterator[Tuple[str, bool]]:
+def precompile_addresses(fork: Fork) -> Iterator[Tuple[Address, bool]]:
     """
     Yield the addresses of precompiled contracts and their support status for a given fork.
 
@@ -32,14 +30,13 @@ def precompile_addresses(fork: Fork) -> Iterator[Tuple[str, bool]]:
     """
     supported_precompiles = fork.precompiles()
 
-    num_unsupported = NUM_UNSUPPORTED_PRECOMPILES
-    for address in range(1, UPPER_BOUND + 1):
-        if address in supported_precompiles:
-            yield (hex(address), True)
-        elif num_unsupported > 0:
-            # Check unsupported precompiles up to NUM_UNSUPPORTED_PRECOMPILES
-            yield (hex(address), False)
-            num_unsupported -= 1
+    for address in supported_precompiles:
+        address_int = int.from_bytes(address, byteorder="big")
+        yield (address, True)
+        if address_int > 0 and (address_int - 1) not in supported_precompiles:
+            yield (Address(address_int - 1), False)
+        if (address_int + 1) not in supported_precompiles:
+            yield (Address(address_int + 1), False)
 
 
 @pytest.mark.ported_from(
