@@ -33,6 +33,10 @@ from ethereum.exceptions import (
 from . import vm
 from .blocks import Block, Header, Log, Receipt, encode_receipt
 from .bloom import logs_bloom
+from .exceptions import (
+    InsufficientMaxFeePerGasError,
+    PriorityFeeGreaterThanMaxFeeError,
+)
 from .fork_types import Address
 from .state import (
     State,
@@ -454,9 +458,13 @@ def check_transaction(
 
     if isinstance(tx, FeeMarketTransaction):
         if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
-            raise InvalidBlock
+            raise PriorityFeeGreaterThanMaxFeeError(
+                "priority fee greater than max fee"
+            )
         if tx.max_fee_per_gas < block_env.base_fee_per_gas:
-            raise InvalidBlock
+            raise InsufficientMaxFeePerGasError(
+                tx.max_fee_per_gas, block_env.base_fee_per_gas
+            )
 
         priority_fee_per_gas = min(
             tx.max_priority_fee_per_gas,
