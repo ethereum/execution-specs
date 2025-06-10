@@ -389,6 +389,30 @@ def check_transaction(
     ------
     InvalidBlock :
         If the transaction is not includable.
+    GasUsedExceedsLimitError :
+        If the gas used by the transaction exceeds the block's gas limit.
+    BlobGasLimitExceededError :
+        If the blob gas used by the transaction exceeds the block's blob gas
+        limit.
+    PriorityFeeGreaterThanMaxFeeError :
+        If the priority fee is greater than the maximum fee per gas.
+    InsufficientMaxFeePerBlobGasError :
+        If the maximum fee per blob gas is insufficient for the transaction.
+    InsufficientMaxFeePerGasError :
+        If the maximum fee per gas is insufficient for the transaction.
+    InvalidBlobVersionedHashError :
+        If the transaction contains a blob versioned hash with an invalid
+        version.
+    NoBlobDataError :
+        If the transaction is a type 3 but has no blobs.
+    TransactionTypeContractCreationError:
+        If the transaction type is not allowed to create contracts.
+    NonceMismatchError :
+        If the nonce of the transaction is not equal to the sender's nonce.
+    InsufficientBalanceError :
+        If the sender's balance is not enough to pay for the transaction
+    InvalidSenderError :
+        If the transaction is from an address that does not exist anymore.
     """
     gas_available = block_env.block_gas_limit - block_output.block_gas_used
     blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used
