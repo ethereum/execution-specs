@@ -1362,6 +1362,15 @@ class Osaka(Prague, solc_name="cancun"):
         """Return minimum version of solc that supports this fork."""
         return Version.parse("1.0.0")  # set a high version; currently unknown
 
+    @classmethod
+    def precompiles(cls, block_number: int = 0, timestamp: int = 0) -> List[Address]:
+        """
+        At Osaka, pre-compile for p256verify operation is added.
+
+        P256VERIFY = 0x100
+        """
+        return [Address(0x100)] + super(Osaka, cls).precompiles(block_number, timestamp)
+
 
 class EOFv1(Prague, solc_name="cancun"):
     """EOF fork."""
