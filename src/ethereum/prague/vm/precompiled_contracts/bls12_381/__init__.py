@@ -11,27 +11,28 @@ Introduction
 
 Precompile for BLS12-381 curve operations.
 """
-from typing import Tuple, Union
+
+from typing import Tuple
 
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256, Uint
-from py_ecc.bls12_381.bls12_381_curve import (
+from py_ecc.optimized_bls12_381.optimized_curve import (
     FQ,
     FQ2,
     b,
     b2,
     curve_order,
+    is_inf,
     is_on_curve,
-    multiply,
 )
-from py_ecc.optimized_bls12_381.optimized_curve import FQ as OPTIMIZED_FQ
-from py_ecc.optimized_bls12_381.optimized_curve import FQ2 as OPTIMIZED_FQ2
-from py_ecc.typing import Point2D
+from py_ecc.optimized_bls12_381.optimized_curve import (
+    multiply as bls12_multiply,
+)
+from py_ecc.optimized_bls12_381.optimized_curve import normalize
+from py_ecc.typing import Optimized_Point3D as Point3D
 
 from ....vm.memory import buffer_read
 from ...exceptions import InvalidParameter
-
-P = FQ.field_modulus
 
 G1_K_DISCOUNT = [
     1000,
@@ -300,7 +301,9 @@ G2_MAX_DISCOUNT = 524
 MULTIPLIER = Uint(1000)
 
 
-def bytes_to_G1(data: Bytes) -> Point2D:
+def bytes_to_g1(
+    data: Bytes,
+) -> Point3D[FQ]:
     """
     Decode 128 bytes to a G1 point. Does not perform sub-group check.
 
@@ -311,7 +314,7 @@ def bytes_to_G1(data: Bytes) -> Point2D:
 
     Returns
     -------
-    point : Point2D
+    point : Point3D[FQ]
         The G1 point.
 
     Raises
@@ -322,33 +325,34 @@ def bytes_to_G1(data: Bytes) -> Point2D:
     if len(data) != 128:
         raise InvalidParameter("Input should be 128 bytes long")
 
-    x = int.from_bytes(data[:64], "big")
-    y = int.from_bytes(data[64:], "big")
+    x = bytes_to_fq(data[:64])
+    y = bytes_to_fq(data[64:])
 
-    if x >= P:
-        raise InvalidParameter("Invalid field element")
-    if y >= P:
-        raise InvalidParameter("Invalid field element")
+    if x >= FQ.field_modulus:
+        raise InvalidParameter("x >= field modulus")
+    if y >= FQ.field_modulus:
+        raise InvalidParameter("y >= field modulus")
 
+    z = 1
     if x == 0 and y == 0:
-        return None
+        z = 0
+    point = FQ(x), FQ(y), FQ(z)
 
-    point = (FQ(x), FQ(y))
-
-    # Check if the point is on the curve
     if not is_on_curve(point, b):
         raise InvalidParameter("Point is not on curve")
 
     return point
 
 
-def G1_to_bytes(point: Point2D) -> Bytes:
+def g1_to_bytes(
+    g1_point: Point3D[FQ],
+) -> Bytes:
     """
     Encode a G1 point to 128 bytes.
 
     Parameters
     ----------
-    point :
+    g1_point :
         The G1 point to encode.
 
     Returns
@@ -356,18 +360,14 @@ def G1_to_bytes(point: Point2D) -> Bytes:
     data : Bytes
         The encoded data.
     """
-    if point is None:
-        return b"\x00" * 128
-
-    x, y = point
-
-    x_bytes = int(x).to_bytes(64, "big")
-    y_bytes = int(y).to_bytes(64, "big")
-
-    return x_bytes + y_bytes
+    g1_normalized = normalize(g1_point)
+    x, y = g1_normalized
+    return b"".join([int(x).to_bytes(64, "big"), int(y).to_bytes(64, "big")])
 
 
-def decode_G1_scalar_pair(data: Bytes) -> Tuple[Point2D, int]:
+def decode_g1_scalar_pair(
+    data: Bytes,
+) -> Tuple[Point3D[FQ], int]:
     """
     Decode 160 bytes to a G1 point and a scalar.
 
@@ -378,7 +378,7 @@ def decode_G1_scalar_pair(data: Bytes) -> Tuple[Point2D, int]:
 
     Returns
     -------
-    point : Tuple[Point2D, int]
+    point : Tuple[Point3D[FQ], int]
         The G1 point and the scalar.
 
     Raises
@@ -389,18 +389,16 @@ def decode_G1_scalar_pair(data: Bytes) -> Tuple[Point2D, int]:
     if len(data) != 160:
         InvalidParameter("Input should be 160 bytes long")
 
-    p = bytes_to_G1(buffer_read(data, U256(0), U256(128)))
-    if multiply(p, curve_order) is not None:
+    point = bytes_to_g1(data[:128])
+    if not is_inf(bls12_multiply(point, curve_order)):
         raise InvalidParameter("Sub-group check failed.")
 
     m = int.from_bytes(buffer_read(data, U256(128), U256(32)), "big")
 
-    return p, m
+    return point, m
 
 
-def bytes_to_FQ(
-    data: Bytes, optimized: bool = False
-) -> Union[FQ, OPTIMIZED_FQ]:
+def bytes_to_fq(data: Bytes) -> FQ:
     """
     Decode 64 bytes to a FQ element.
 
@@ -408,12 +406,10 @@ def bytes_to_FQ(
     ----------
     data :
         The bytes data to decode.
-    optimized :
-        Whether to use the optimized FQ implementation.
 
     Returns
     -------
-    fq : Union[FQ, OPTIMIZED_FQ]
+    fq : FQ
         The FQ element.
 
     Raises
@@ -426,31 +422,24 @@ def bytes_to_FQ(
 
     c = int.from_bytes(data[:64], "big")
 
-    if c >= P:
+    if c >= FQ.field_modulus:
         raise InvalidParameter("Invalid field element")
 
-    if optimized:
-        return OPTIMIZED_FQ(c)
-    else:
-        return FQ(c)
+    return FQ(c)
 
 
-def bytes_to_FQ2(
-    data: Bytes, optimized: bool = False
-) -> Union[FQ2, OPTIMIZED_FQ2]:
+def bytes_to_fq2(data: Bytes) -> FQ2:
     """
-    Decode 128 bytes to a FQ2 element.
+    Decode 128 bytes to an FQ2 element.
 
     Parameters
     ----------
     data :
         The bytes data to decode.
-    optimized :
-        Whether to use the optimized FQ2 implementation.
 
     Returns
     -------
-    fq2 : Union[FQ2, OPTIMIZED_FQ2]
+    fq2 : FQ2
         The FQ2 element.
 
     Raises
@@ -463,18 +452,17 @@ def bytes_to_FQ2(
     c_0 = int.from_bytes(data[:64], "big")
     c_1 = int.from_bytes(data[64:], "big")
 
-    if c_0 >= P:
+    if c_0 >= FQ.field_modulus:
         raise InvalidParameter("Invalid field element")
-    if c_1 >= P:
+    if c_1 >= FQ.field_modulus:
         raise InvalidParameter("Invalid field element")
 
-    if optimized:
-        return OPTIMIZED_FQ2((c_0, c_1))
-    else:
-        return FQ2((c_0, c_1))
+    return FQ2((c_0, c_1))
 
 
-def bytes_to_G2(data: Bytes) -> Point2D:
+def bytes_to_g2(
+    data: Bytes,
+) -> Point3D[FQ2]:
     """
     Decode 256 bytes to a G2 point. Does not perform sub-group check.
 
@@ -485,7 +473,7 @@ def bytes_to_G2(data: Bytes) -> Point2D:
 
     Returns
     -------
-    point : Point2D
+    point : Point3D[FQ2]
         The G2 point.
 
     Raises
@@ -496,14 +484,14 @@ def bytes_to_G2(data: Bytes) -> Point2D:
     if len(data) != 256:
         raise InvalidParameter("G2 should be 256 bytes long")
 
-    x = bytes_to_FQ2(data[:128])
-    y = bytes_to_FQ2(data[128:])
+    x = bytes_to_fq2(data[:128])
+    y = bytes_to_fq2(data[128:])
 
-    assert isinstance(x, FQ2) and isinstance(y, FQ2)
+    z = (1, 0)
     if x == FQ2((0, 0)) and y == FQ2((0, 0)):
-        return None
+        z = (0, 0)
 
-    point = (x, y)
+    point = x, y, FQ2(z)
 
     # Check if the point is on the curve
     if not is_on_curve(point, b2):
@@ -526,17 +514,24 @@ def FQ2_to_bytes(fq2: FQ2) -> Bytes:
     data : Bytes
         The encoded data.
     """
-    c_0, c_1 = fq2.coeffs
-    return int(c_0).to_bytes(64, "big") + int(c_1).to_bytes(64, "big")
+    coord0, coord1 = fq2.coeffs
+    return b"".join(
+        [
+            int(coord0).to_bytes(64, "big"),
+            int(coord1).to_bytes(64, "big"),
+        ]
+    )
 
 
-def G2_to_bytes(point: Point2D) -> Bytes:
+def g2_to_bytes(
+    g2_point: Point3D[FQ2],
+) -> Bytes:
     """
     Encode a G2 point to 256 bytes.
 
     Parameters
     ----------
-    point :
+    g2_point :
         The G2 point to encode.
 
     Returns
@@ -544,15 +539,13 @@ def G2_to_bytes(point: Point2D) -> Bytes:
     data : Bytes
         The encoded data.
     """
-    if point is None:
-        return b"\x00" * 256
-
-    x, y = point
-
-    return FQ2_to_bytes(x) + FQ2_to_bytes(y)
+    x_coords, y_coords = normalize(g2_point)
+    return b"".join([FQ2_to_bytes(x_coords), FQ2_to_bytes(y_coords)])
 
 
-def decode_G2_scalar_pair(data: Bytes) -> Tuple[Point2D, int]:
+def decode_g2_scalar_pair(
+    data: Bytes,
+) -> Tuple[Point3D[FQ2], int]:
     """
     Decode 288 bytes to a G2 point and a scalar.
 
@@ -563,7 +556,7 @@ def decode_G2_scalar_pair(data: Bytes) -> Tuple[Point2D, int]:
 
     Returns
     -------
-    point : Tuple[Point2D, int]
+    point : Tuple[Point3D[FQ2], int]
         The G2 point and the scalar.
 
     Raises
@@ -574,10 +567,11 @@ def decode_G2_scalar_pair(data: Bytes) -> Tuple[Point2D, int]:
     if len(data) != 288:
         InvalidParameter("Input should be 288 bytes long")
 
-    p = bytes_to_G2(buffer_read(data, U256(0), U256(256)))
-    if multiply(p, curve_order) is not None:
-        raise InvalidParameter("Sub-group check failed.")
+    point = bytes_to_g2(data[:256])
 
-    m = int.from_bytes(buffer_read(data, U256(256), U256(32)), "big")
+    if not is_inf(bls12_multiply(point, curve_order)):
+        raise InvalidParameter("Point failed sub-group check.")
 
-    return p, m
+    n = int.from_bytes(data[256 : 256 + 32], "big")
+
+    return point, n
