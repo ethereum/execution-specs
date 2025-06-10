@@ -350,6 +350,22 @@ def check_transaction(
     ------
     InvalidBlock :
         If the transaction is not includable.
+    GasUsedExceedsLimitError :
+        If the gas used by the transaction exceeds the gas limit of the block.
+    NonceMismatchError :
+        If the nonce of the transaction does not match the expected nonce
+        for the sender.
+    InsufficientBalanceError :
+        If the sender does not have enough balance to pay for the gas fee
+        and the value of the transaction.
+    InvalidSenderError :
+        If the transaction is from an address that does not exist anymore.
+    PriorityFeeGreaterThanMaxFeeError:
+        If the priority fee per gas is greater than the maximum fee per gas
+        in a 1559 transaction.
+    InsufficientMaxFeePerGasError :
+        If the maximum fee per gas is less than the base fee per gas in a
+        1559 transaction.
     """
     gas_available = block_env.block_gas_limit - block_output.block_gas_used
     if tx.gas > gas_available:
