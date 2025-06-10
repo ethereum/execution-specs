@@ -85,3 +85,13 @@ class Spec7883(Spec):
 
     LARGE_BASE_MODULUS_MULTIPLIER = 2
     EXPONENT_BYTE_MULTIPLIER = 16
+
+    @classmethod
+    def calculate_multiplication_complexity(cls, base_length: int, modulus_length: int) -> int:
+        """Calculate the multiplication complexity of the ModExp precompile for EIP-7883."""
+        max_length = max(base_length, modulus_length)
+        words = ceiling_division(max_length, cls.WORD_SIZE)
+        complexity = 16
+        if max_length > cls.MAX_LENGTH_THRESHOLD:
+            complexity = cls.LARGE_BASE_MODULUS_MULTIPLIER * words**2
+        return complexity
