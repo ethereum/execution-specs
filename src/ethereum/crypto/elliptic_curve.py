@@ -17,8 +17,12 @@ from ethereum.exceptions import InvalidSignatureError
 from .hash import Hash32
 
 SECP256K1B = U256(7)
-SECP256K1P = U256(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F)
-SECP256K1N = U256(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141)
+SECP256K1P = U256(
+    0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
+)
+SECP256K1N = U256(
+    0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+)
 
 
 def secp256k1_recover(r: U256, s: U256, v: U256, msg_hash: Hash32) -> Bytes:
@@ -48,7 +52,9 @@ def secp256k1_recover(r: U256, s: U256, v: U256, msg_hash: Hash32) -> Bytes:
     )
 
     if is_square != 1:
-        raise InvalidSignatureError("r is not the x-coordinate of a point on the secp256k1 curve")
+        raise InvalidSignatureError(
+            "r is not the x-coordinate of a point on the secp256k1 curve"
+        )
 
     r_bytes = r.to_be_bytes32()
     s_bytes = s.to_be_bytes32()
@@ -72,13 +78,23 @@ def secp256k1_recover(r: U256, s: U256, v: U256, msg_hash: Hash32) -> Bytes:
     return public_key
 
 
-SECP256R1N = U256(0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551)
-SECP256R1P = U256(0xFFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF)
-SECP256R1A = U256(0xFFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFC)
-SECP256R1B = U256(0x5AC635D8AA3A93E7B3EBBD55769886BC651D06B0CC53B0F63BCE3C3E27D2604B)
+SECP256R1N = U256(
+    0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551
+)
+SECP256R1P = U256(
+    0xFFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF
+)
+SECP256R1A = U256(
+    0xFFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFC
+)
+SECP256R1B = U256(
+    0x5AC635D8AA3A93E7B3EBBD55769886BC651D06B0CC53B0F63BCE3C3E27D2604B
+)
 
 
-def secp256r1_verify(r: U256, s: U256, x: U256, y: U256, msg_hash: Hash32) -> None:
+def secp256r1_verify(
+    r: U256, s: U256, x: U256, y: U256, msg_hash: Hash32
+) -> None:
     """
     Verifies a P-256 signature.
 
@@ -100,7 +116,6 @@ def secp256r1_verify(r: U256, s: U256, x: U256, y: U256, msg_hash: Hash32) -> No
     result : `ethereum.base_types.Bytes`
         return 1 if the signature is valid, empty bytes otherwise
     """
-
     # Convert U256 to regular integers for DerSequence
     r_int = int(r)
     s_int = int(s)
