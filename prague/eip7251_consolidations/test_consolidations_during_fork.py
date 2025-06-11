@@ -83,6 +83,9 @@ BLOCKS_BEFORE_FORK = 2
     ],
 )
 @pytest.mark.parametrize("timestamp", [15_000 - BLOCKS_BEFORE_FORK], ids=[""])
+@pytest.mark.pre_alloc_group(
+    "separate", reason="Deploys consolidation system contract at fork transition"
+)
 def test_consolidation_requests_during_fork(
     blockchain_test: BlockchainTestFiller,
     blocks: List[Block],

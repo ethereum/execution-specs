@@ -85,6 +85,7 @@ def withdrawal_list_with_custom_fee(n: int) -> List[WithdrawalRequest]:  # noqa:
         ),
     ],
 )
+@pytest.mark.pre_alloc_group("separate", reason="Deploys custom withdrawal contract bytecode")
 def test_extra_withdrawals(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -137,6 +138,7 @@ def test_extra_withdrawals(
 @pytest.mark.parametrize(
     "system_contract", [Address(Spec_EIP7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS)]
 )
+@pytest.mark.pre_alloc_group("separate", reason="Deploys custom withdrawal contract bytecode")
 @generate_system_contract_error_test(
     max_gas_limit=Spec_EIP7002.SYSTEM_CALL_GAS_LIMIT,
 )

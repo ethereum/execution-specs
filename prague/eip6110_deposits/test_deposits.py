@@ -911,6 +911,9 @@ pytestmark = pytest.mark.valid_from("Prague")
         ),
     ],
 )
+@pytest.mark.pre_alloc_group(
+    "deposit_requests", reason="Tests standard deposit request functionality using system contract"
+)
 def test_deposit(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -1166,6 +1169,9 @@ def test_deposit(
     ],
 )
 @pytest.mark.exception_test
+@pytest.mark.pre_alloc_group(
+    "deposit_requests", reason="Tests standard deposit request functionality using system contract"
+)
 def test_deposit_negative(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

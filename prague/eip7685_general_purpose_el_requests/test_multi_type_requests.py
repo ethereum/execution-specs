@@ -323,6 +323,9 @@ def get_contract_permutations(n: int = 3) -> Generator[ParameterSet, None, None]
         ),
     ],
 )
+@pytest.mark.pre_alloc_group(
+    "multi_type_requests", reason="Tests combinations of multiple request types"
+)
 def test_valid_multi_type_requests(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -341,6 +344,9 @@ def test_valid_multi_type_requests(
 
 
 @pytest.mark.parametrize("requests", [*get_permutations()])
+@pytest.mark.pre_alloc_group(
+    "multi_type_requests", reason="Tests combinations of multiple request types"
+)
 def test_valid_multi_type_request_from_same_tx(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -619,6 +625,9 @@ def invalid_requests_block_combinations(
     invalid_requests_block_combinations(correct_requests_hash_in_header=False),
 )
 @pytest.mark.exception_test
+@pytest.mark.pre_alloc_group(
+    "multi_type_requests", reason="Tests combinations of multiple request types"
+)
 def test_invalid_multi_type_requests(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -647,6 +656,9 @@ def test_invalid_multi_type_requests(
 @pytest.mark.parametrize("correct_requests_hash_in_header", [True])
 @pytest.mark.blockchain_test_engine_only
 @pytest.mark.exception_test
+@pytest.mark.pre_alloc_group(
+    "multi_type_requests", reason="Tests combinations of multiple request types"
+)
 def test_invalid_multi_type_requests_engine(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

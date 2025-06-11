@@ -41,7 +41,8 @@ def beacon_roots() -> Iterator[bytes]:
             self._counter = count(1)
 
         def __iter__(self) -> "BeaconRoots":
-            return self
+            # Create a fresh iterator with a new counter each time
+            return BeaconRoots()
 
         def __next__(self) -> bytes:
             return keccak256(int.to_bytes(next(self._counter), length=8, byteorder="big"))

@@ -628,6 +628,9 @@ pytestmark = pytest.mark.valid_from("Prague")
         ),
     ],
 )
+@pytest.mark.pre_alloc_group(
+    "withdrawal_requests", reason="Tests standard withdrawal request functionality"
+)
 def test_withdrawal_requests(
     blockchain_test: BlockchainTestFiller,
     blocks: List[Block],
@@ -801,6 +804,9 @@ def test_withdrawal_requests(
     ],
 )
 @pytest.mark.exception_test
+@pytest.mark.pre_alloc_group(
+    "withdrawal_requests", reason="Tests standard withdrawal request functionality"
+)
 def test_withdrawal_requests_negative(
     pre: Alloc,
     fork: Fork,
