@@ -3,6 +3,7 @@
 import inspect
 from enum import IntEnum
 from functools import cache
+from hashlib import sha256
 from itertools import count
 from typing import Iterator, Literal
 
@@ -292,14 +293,26 @@ def contract_address_increments(request: pytest.FixtureRequest) -> int:
     return int(request.config.getoption("test_contract_address_increments"), 0)
 
 
+def sha256_from_string(s: str) -> int:
+    """Return SHA-256 hash of a string."""
+    return int.from_bytes(sha256(s.encode("utf-8")).digest(), "big")
+
+
 @pytest.fixture(scope="function")
 def contract_address_iterator(
+    request: pytest.FixtureRequest,
     contract_start_address: int,
     contract_address_increments: int,
 ) -> Iterator[Address]:
-    """Return iterator over contract addresses."""
+    """Return iterator over contract addresses with dynamic scoping."""
+    if request.config.getoption("generate_shared_pre", default=False) or request.config.getoption(
+        "use_shared_pre", default=False
+    ):
+        # Use a starting address that is derived from the test node
+        contract_start_address = sha256_from_string(request.node.nodeid)
     return iter(
-        Address(contract_start_address + (i * contract_address_increments)) for i in count()
+        Address((contract_start_address + (i * contract_address_increments)) % 2**160)
+        for i in count()
     )
 
 
@@ -310,8 +323,21 @@ def eoa_by_index(i: int) -> EOA:
 
 
 @pytest.fixture(scope="function")
-def eoa_iterator() -> Iterator[EOA]:
-    """Return iterator over EOAs copies."""
+def eoa_iterator(request: pytest.FixtureRequest) -> Iterator[EOA]:
+    """Return iterator over EOAs copies with dynamic scoping."""
+    if request.config.getoption("generate_shared_pre", default=False) or request.config.getoption(
+        "use_shared_pre", default=False
+    ):
+        # Use a starting address that is derived from the test node
+        eoa_start_pk = sha256_from_string(request.node.nodeid)
+        return iter(
+            EOA(
+                key=(eoa_start_pk + i)
+                % 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141,
+                nonce=0,
+            )
+            for i in count()
+        )
     return iter(eoa_by_index(i).copy() for i in count())
 
 

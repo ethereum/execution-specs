@@ -23,13 +23,19 @@ from ethereum_test_fixtures.file import Fixtures
 
 from .hasher import HashableItem
 
+# Files and directories to exclude from index generation
+INDEX_EXCLUDED_FILES = frozenset({"index.json"})
+INDEX_EXCLUDED_PATH_PARTS = frozenset({".meta", "pre_alloc"})
+
 
 def count_json_files_exclude_index(start_path: Path) -> int:
-    """
-    Return the number of json files in the specified directory, excluding
-    index.json files and tests in "blockchain_tests_engine".
-    """
-    json_file_count = sum(1 for file in start_path.rglob("*.json") if file.name != "index.json")
+    """Return the number of fixture json files in the specified directory."""
+    json_file_count = sum(
+        1
+        for file in start_path.rglob("*.json")
+        if file.name not in INDEX_EXCLUDED_FILES
+        and not any(part in INDEX_EXCLUDED_PATH_PARTS for part in file.parts)
+    )
     return json_file_count
 
 
@@ -144,7 +150,9 @@ def generate_fixtures_index(
         fixture_formats = set()
         test_cases: List[TestCaseIndexFile] = []
         for file in input_path.rglob("*.json"):
-            if file.name == "index.json" or ".meta" in file.parts:
+            if file.name in INDEX_EXCLUDED_FILES or any(
+                part in INDEX_EXCLUDED_PATH_PARTS for part in file.parts
+            ):
                 continue
 
             try:
@@ -165,6 +173,7 @@ def generate_fixtures_index(
                         or f"0x{fixture.info.get('generatedTestHash')}",
                         fork=fixture_fork,
                         format=fixture.__class__,
+                        pre_hash=getattr(fixture, "pre_hash", None),
                     )
                 )
                 if fixture_fork:

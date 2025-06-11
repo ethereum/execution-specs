@@ -109,8 +109,15 @@ class Alloc(BaseAlloc):
             return f"Account missing from allocation {self.address}"
 
     @classmethod
-    def merge(cls, alloc_1: "Alloc", alloc_2: "Alloc") -> "Alloc":
+    def merge(
+        cls, alloc_1: "Alloc", alloc_2: "Alloc", allow_key_collision: bool = True
+    ) -> "Alloc":
         """Return merged allocation of two sources."""
+        overlapping_keys = alloc_1.root.keys() & alloc_2.root.keys()
+        if overlapping_keys and not allow_key_collision:
+            raise Exception(
+                f"Overlapping keys detected: {[key.hex() for key in overlapping_keys]}"
+            )
         merged = alloc_1.model_dump()
 
         for address, other_account in alloc_2.root.items():
@@ -164,7 +171,7 @@ class Alloc(BaseAlloc):
         """Return list of addresses of empty accounts."""
         return [address for address, account in self.root.items() if not account]
 
-    def state_root(self) -> bytes:
+    def state_root(self) -> Hash:
         """Return state root of the allocation."""
         state = State()
         for address, account in self.root.items():
@@ -187,7 +194,7 @@ class Alloc(BaseAlloc):
                         key=Bytes32(Hash(key)),
                         value=U256(value),
                     )
-        return state_root(state)
+        return Hash(state_root(state))
 
     def verify_post_alloc(self, got_alloc: "Alloc"):
         """

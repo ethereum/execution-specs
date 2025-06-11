@@ -63,9 +63,11 @@ class PytestRunner:
         """
         for i, execution in enumerate(executions):
             if execution.description and len(executions) > 1:
-                self.console.print(
-                    f"Phase {i + 1}/{len(executions)}: [italic]{execution.description}[/italic]"
+                phase_text = (
+                    f"[bold blue]phase {i + 1}/{len(executions)}: "
+                    f"{execution.description}[/bold blue]"
                 )
+                self.console.rule(phase_text, style="bold blue")
 
             result = self.run_single(execution.config_file, execution.args)
             if result != 0:

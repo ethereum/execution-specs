@@ -7,6 +7,8 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel, Field
 
+from ethereum_test_fixtures.blockchain import BlockchainEngineReorgFixture
+
 
 class FixtureOutput(BaseModel):
     """Represents the output destination for generated test fixtures."""
@@ -26,6 +28,14 @@ class FixtureOutput(BaseModel):
     clean: bool = Field(
         default=False,
         description="Clean (remove) the output directory before filling fixtures.",
+    )
+    generate_shared_pre: bool = Field(
+        default=False,
+        description="Generate shared pre-allocation state (phase 1).",
+    )
+    use_shared_pre: bool = Field(
+        default=False,
+        description="Use existing shared pre-allocation state (phase 2).",
     )
 
     @property
@@ -51,6 +61,12 @@ class FixtureOutput(BaseModel):
         """Return True if the fixture output is configured to be stdout."""
         return self.directory.name == "stdout"
 
+    @property
+    def shared_pre_alloc_folder_path(self) -> Path:
+        """Return the path for shared pre-allocation state file."""
+        reorg_dir = BlockchainEngineReorgFixture.output_base_dir_name()
+        return self.directory / reorg_dir / "pre_alloc"
+
     @staticmethod
     def strip_tarball_suffix(path: Path) -> Path:
         """Strip the '.tar.gz' suffix from the output path."""
@@ -64,6 +80,26 @@ class FixtureOutput(BaseModel):
             return True
 
         return not any(self.directory.iterdir())
+
+    def is_directory_usable_for_phase(self) -> bool:
+        """Check if the output directory is usable for the current phase."""
+        if not self.directory.exists():
+            return True
+
+        if self.generate_shared_pre:
+            # Phase 1: Directory must be completely empty
+            return self.is_directory_empty()
+        elif self.use_shared_pre:
+            # Phase 2: Only shared alloc file must exist, no other files allowed
+            if not self.shared_pre_alloc_folder_path.exists():
+                return False
+            # Check that only the shared prealloc file exists
+            existing_files = {f for f in self.directory.rglob("*") if f.is_file()}
+            allowed_files = set(self.shared_pre_alloc_folder_path.rglob("*.json"))
+            return existing_files == allowed_files
+        else:
+            # Normal filling: Directory must be empty
+            return self.is_directory_empty()
 
     def get_directory_summary(self) -> str:
         """Return a summary of directory contents for error reporting."""
@@ -121,17 +157,36 @@ class FixtureOutput(BaseModel):
         if self.directory.exists() and self.clean:
             shutil.rmtree(self.directory)
 
-        if self.directory.exists() and not self.is_directory_empty():
+        if self.directory.exists() and not self.is_directory_usable_for_phase():
             summary = self.get_directory_summary()
-            raise ValueError(
-                f"Output directory '{self.directory}' is not empty. "
-                f"Contains: {summary}. Use --clean to remove all existing files "
-                "or specify a different output directory."
-            )
+
+            if self.generate_shared_pre:
+                raise ValueError(
+                    f"Output directory '{self.directory}' must be completely empty for "
+                    f"shared allocation generation (phase 1). Contains: {summary}. "
+                    "Use --clean to remove all existing files."
+                )
+            elif self.use_shared_pre:
+                if not self.shared_pre_alloc_folder_path.exists():
+                    raise ValueError(
+                        "Shared pre-allocation file not found at "
+                        f"'{self.shared_pre_alloc_folder_path}'. "
+                        "Run phase 1 with --generate-shared-pre first."
+                    )
+            else:
+                raise ValueError(
+                    f"Output directory '{self.directory}' is not empty. "
+                    f"Contains: {summary}. Use --clean to remove all existing files "
+                    "or specify a different output directory."
+                )
 
         # Create directories
         self.directory.mkdir(parents=True, exist_ok=True)
         self.metadata_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create shared allocation directory for phase 1
+        if self.generate_shared_pre:
+            self.shared_pre_alloc_folder_path.parent.mkdir(parents=True, exist_ok=True)
 
     def create_tarball(self) -> None:
         """Create tarball of the output directory if configured to do so."""
@@ -152,4 +207,6 @@ class FixtureOutput(BaseModel):
             flat_output=config.getoption("flat_output"),
             single_fixture_per_file=config.getoption("single_fixture_per_file"),
             clean=config.getoption("clean"),
+            generate_shared_pre=config.getoption("generate_shared_pre"),
+            use_shared_pre=config.getoption("use_shared_pre"),
         )

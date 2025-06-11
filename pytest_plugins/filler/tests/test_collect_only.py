@@ -51,5 +51,6 @@ def test_collect_only_output(testdir):
         "tests/istanbul/dummy_test_module/test_dummy_collect.py::test_dummy_collect_only_test[fork_Istanbul-blockchain_test_from_state_test]"
         in result.output
     )
-    # fill generates 3 test variants: state_test, blockchain_test, and blockchain_test_engine
+    # fill generates 3 test variants: state_test, blockchain_test_from_state_test,
+    # blockchain_test_engine_from_state_test
     assert "3 tests collected" in result.output

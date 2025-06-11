@@ -1,5 +1,6 @@
 """Block-related types for Ethereum tests."""
 
+import hashlib
 from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, Dict, Generic, List, Sequence
@@ -172,3 +173,26 @@ class Environment(EnvironmentGeneric[ZeroPaddedHexNumber]):
             updated_values["parent_beacon_block_root"] = 0
 
         return self.copy(**updated_values)
+
+    def __hash__(self) -> int:
+        """Hashes the environment object."""
+        hash_dict = self.model_dump(exclude_none=True, by_alias=True)
+
+        sorted_items = sorted(hash_dict.items())
+        hash_string = str(sorted_items)
+
+        digest = hashlib.sha256(hash_string.encode("utf-8")).digest()
+        return int.from_bytes(digest[:8], byteorder="big")
+
+    def __eq__(self, other) -> bool:
+        """Check if two environment objects are equal."""
+        if not isinstance(other, Environment):
+            return False
+
+        self_dict = self.model_dump(exclude_none=True, by_alias=True)
+        self_dict["extra_data"] = self.extra_data.hex()
+
+        other_dict = other.model_dump(exclude_none=True, by_alias=True)
+        other_dict["extra_data"] = other.extra_data.hex()
+
+        return self_dict == other_dict

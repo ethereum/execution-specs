@@ -507,7 +507,13 @@ class TestFillBlockchainValidTxs:
         blockchain_test_fixture: BlockchainFixture,
     ):
         assert blockchain_test_fixture.__class__ == fixture_format
-        assert isinstance(blockchain_test_fixture, BlockchainFixtureCommon)
+        # BlockchainEngineFixture inherits from BlockchainEngineFixtureCommon
+        # (not BlockchainFixtureCommon)
+        from ethereum_test_fixtures.blockchain import BlockchainEngineFixtureCommon
+
+        assert isinstance(
+            blockchain_test_fixture, (BlockchainFixtureCommon, BlockchainEngineFixtureCommon)
+        )
 
         fixture_name = f"000/my_blockchain_test/{fork.name()}"
 
@@ -874,7 +880,11 @@ def test_fill_blockchain_invalid_txs(
         genesis_environment=genesis_environment,
     ).generate(t8n=default_t8n, fork=fork, fixture_format=fixture_format)
     assert generated_fixture.__class__ == fixture_format
-    assert isinstance(generated_fixture, BlockchainFixtureCommon)
+    # BlockchainEngineFixture inherits from BlockchainEngineFixtureCommon
+    # (not BlockchainFixtureCommon)
+    from ethereum_test_fixtures.blockchain import BlockchainEngineFixtureCommon
+
+    assert isinstance(generated_fixture, (BlockchainFixtureCommon, BlockchainEngineFixtureCommon))
 
     fixture_name = f"000/my_blockchain_test/{fork.name()}"
 

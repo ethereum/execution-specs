@@ -47,6 +47,7 @@ class TestCaseBase(BaseModel):
     fixture_hash: HexNumber | None
     fork: Fork | None
     format: FixtureFormat
+    pre_hash: str | None = None
     __test__ = False  # stop pytest from collecting this class as a test
 
 

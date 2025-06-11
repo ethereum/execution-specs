@@ -13,8 +13,6 @@ from ethereum_test_base_types import (
     Bloom,
     Bytes,
     CamelModel,
-    EmptyOmmersRoot,
-    EmptyTrieRoot,
     Hash,
     HeaderNonce,
     HexNumber,
@@ -30,6 +28,7 @@ from ethereum_test_execution import (
 from ethereum_test_fixtures import (
     BaseFixture,
     BlockchainEngineFixture,
+    BlockchainEngineReorgFixture,
     BlockchainFixture,
     FixtureFormat,
     LabeledFixtureFormat,
@@ -309,6 +308,7 @@ class BlockchainTest(BaseTest):
     supported_fixture_formats: ClassVar[Sequence[FixtureFormat | LabeledFixtureFormat]] = [
         BlockchainFixture,
         BlockchainEngineFixture,
+        BlockchainEngineReorgFixture,
     ]
     supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = [
         LabeledExecuteFormat(
@@ -359,32 +359,7 @@ class BlockchainTest(BaseTest):
         if empty_accounts := pre_alloc.empty_accounts():
             raise Exception(f"Empty accounts in pre state: {empty_accounts}")
         state_root = pre_alloc.state_root()
-        genesis = FixtureHeader(
-            parent_hash=0,
-            ommers_hash=EmptyOmmersRoot,
-            fee_recipient=0,
-            state_root=state_root,
-            transactions_trie=EmptyTrieRoot,
-            receipts_root=EmptyTrieRoot,
-            logs_bloom=0,
-            difficulty=0x20000 if env.difficulty is None else env.difficulty,
-            number=0,
-            gas_limit=env.gas_limit,
-            gas_used=0,
-            timestamp=0,
-            extra_data=b"\x00",
-            prev_randao=0,
-            nonce=0,
-            base_fee_per_gas=env.base_fee_per_gas,
-            blob_gas_used=env.blob_gas_used,
-            excess_blob_gas=env.excess_blob_gas,
-            withdrawals_root=(
-                Withdrawal.list_root(env.withdrawals) if env.withdrawals is not None else None
-            ),
-            parent_beacon_block_root=env.parent_beacon_block_root,
-            requests_hash=Requests() if fork.header_requests_required(0, 0) else None,
-            fork=fork,
-        )
+        genesis = FixtureHeader.genesis(fork, env, state_root)
 
         return (
             pre_alloc,
@@ -654,7 +629,8 @@ class BlockchainTest(BaseTest):
         self,
         t8n: TransitionTool,
         fork: Fork,
-    ) -> BlockchainEngineFixture:
+        fixture_format: FixtureFormat = BlockchainEngineFixture,
+    ) -> BlockchainEngineFixture | BlockchainEngineReorgFixture:
         """Create a hive fixture from the blocktest definition."""
         fixture_payloads: List[FixtureEngineNewPayload] = []
 
@@ -730,22 +706,49 @@ class BlockchainTest(BaseTest):
                 error_code=None,
             )
 
-        return BlockchainEngineFixture(
-            fork=fork,
-            genesis=genesis.header,
-            payloads=fixture_payloads,
-            fcu_version=fcu_version,
-            pre=pre,
-            post_state=alloc if not self.exclude_full_post_state_in_output else None,
-            post_state_hash=alloc.state_root() if self.exclude_full_post_state_in_output else None,
-            sync_payload=sync_payload,
-            last_block_hash=head_hash,
-            config=FixtureConfig(
+        # Create base fixture data
+        fixture_data = {
+            "fork": fork,
+            "genesis": genesis.header,
+            "last_block_hash": head_hash,
+            "post_state_hash": alloc.state_root()
+            if self.exclude_full_post_state_in_output
+            else None,
+            "config": FixtureConfig(
                 fork=fork,
                 chain_id=self.chain_id,
                 blob_schedule=FixtureBlobSchedule.from_blob_schedule(fork.blob_schedule()),
             ),
-        )
+        }
+
+        # Add format-specific fields
+        if fixture_format == BlockchainEngineReorgFixture:
+            # For reorg format, exclude pre (will be provided via shared state)
+            # and prepare for state diff optimization
+            fixture_data.update(
+                {
+                    "payloads": fixture_payloads,
+                    "sync_payload": sync_payload,
+                    "post_state": alloc if not self.exclude_full_post_state_in_output else None,
+                    "pre_hash": "",  # Will be set by BaseTestWrapper
+                }
+            )
+            return BlockchainEngineReorgFixture(**fixture_data)
+        else:
+            # Standard engine fixture
+            fixture_data.update(
+                {
+                    "payloads": fixture_payloads,
+                    "sync_payload": sync_payload,
+                    "pre": pre,
+                    "post_state": alloc if not self.exclude_full_post_state_in_output else None,
+                }
+            )
+            return BlockchainEngineFixture(**fixture_data)
+
+    def get_genesis_environment(self, fork: Fork) -> Environment:
+        """Get the genesis environment for shared pre-allocation."""
+        return self.genesis_environment
 
     def generate(
         self,
@@ -756,7 +759,9 @@ class BlockchainTest(BaseTest):
         """Generate the BlockchainTest fixture."""
         t8n.reset_traces()
         if fixture_format == BlockchainEngineFixture:
-            return self.make_hive_fixture(t8n, fork)
+            return self.make_hive_fixture(t8n, fork, fixture_format)
+        elif fixture_format == BlockchainEngineReorgFixture:
+            return self.make_hive_fixture(t8n, fork, fixture_format)
         elif fixture_format == BlockchainFixture:
             return self.make_fixture(t8n, fork)
 
