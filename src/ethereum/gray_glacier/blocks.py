@@ -56,8 +56,8 @@ class Header:
     Address of the miner (or validator) who mined this block.
 
     The coinbase address receives the block reward and the priority fees (tips)
-    from included transactions. Base fees (introduced in [EIP-1559]) are
-    burned and do not go to theoinbase.
+    from included transactions. Base fees (introduced in [EIP-1559]) are burned
+    and do not go to the coinbase.
 
     [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
     """
@@ -65,11 +65,10 @@ class Header:
     state_root: Root
     """
     Root hash ([`keccak256`]) of the state trie after executing all
-    transactions in this block. It represents the state of the Ethereum
-    Virtual Machine (EVM) after all transactions in this block have been
-    processed. It is computed using the [`state_root()`] function, which
-    computes the root of the Merkle-Patricia [Trie] representing the Ethereum
-    world state.
+    transactions in this block. It represents the state of the Ethereum Virtual
+    Machine (EVM) after all transactions in this block have been processed. It
+    is computed using the [`state_root()`] function, which computes the root
+    of the Merkle-Patricia [Trie] representing the Ethereum world state.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
     [`state_root()`]: ref:ethereum.gray_glacier.state.state_root
@@ -79,8 +78,8 @@ class Header:
     transactions_root: Root
     """
     Root hash ([`keccak256`]) of the transactions trie, which contains all
-    transactions included in this block in their original order. It is
-    computed using the [`root()`] function over the Merkle-Patricia [trie] of
+    transactions included in this block in their original order. It is computed
+    using the [`root()`] function over the Merkle-Patricia [trie] of
     transactions as the parameter.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
@@ -90,10 +89,9 @@ class Header:
 
     receipt_root: Root
     """
-    Root hash ([`keccak256`]) of the receipts trie, which contains all
-    receipts for transactions in this block. It is computed using the
-    [`root()`] function over the Merkle-Patricia [trie] constructed from the
-    receipts.
+    Root hash ([`keccak256`]) of the receipts trie, which contains all receipts
+    for transactions in this block. It is computed using the [`root()`]
+    function over the Merkle-Patricia [trie] constructed from the receipts.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
     [`root()`]: ref:ethereum.gray_glacier.trie.root
@@ -173,7 +171,9 @@ class Header:
 
     base_fee_per_gas: Uint
     """
-    Base fee per gas for transactions in this block [EIP-1559].
+    Base fee per gas for transactions in this block, introduced in
+    [EIP-1559]. This is the minimum fee per gas that must be paid for a
+    transaction to be included in this block.
 
     [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
     """
@@ -188,12 +188,12 @@ class Block:
 
     The block [`header`] includes PoW-specific fields such as `difficulty`,
     `nonce`, and `ommersHash`, which relate to the mining process. The
-    `beneficiary` field denotes the address receiving mining and transaction
+    `coinbase` field denotes the address receiving mining and transaction
     fees.
 
     The header also contains commitments to the current state (`stateRoot`),
     the transactions (`transactionsRoot`), and the transaction receipts
-    (`receiptsRoot`). It also incldues a bloom filter which summarizes log
+    (`receiptsRoot`). It also includes a bloom filter which summarizes log
     data from the transactions.
 
     Ommers are used to provide rewards for near-valid mined blocks that didn't
@@ -212,13 +212,16 @@ class Block:
 
     transactions: Tuple[Union[Bytes, LegacyTransaction], ...]
     """
-    A tuple of transactions included in this block, which can be either legacy
-    transactions, access list transactions, or fee market transactions.
+    A tuple of transactions included in this block. Each transaction can be
+    any of a legacy transaction, an access list transaction, or a fee market
+    transaction.
     """
 
     ommers: Tuple[Header, ...]
     """
-    A tuple of ommers (uncle blocks) included in this block.
+    A tuple of ommers (uncle blocks) included in this block. Ommers are
+    blocks that were mined at the same time as this block but were not
+    included in the main chain.
     """
 
 
@@ -228,7 +231,7 @@ class Log:
     """
     Data record produced during the execution of a transaction. Logs are used
     by smart contracts to emit events (using the EVM log opcodes ([`LOG0`],
-    [`LOG1`], [`LOG2`], [`LOG3`] and [`LOG4`])), which can be efficiently
+    [`LOG1`], [`LOG2`], [`LOG3`] and [`LOG4`]), which can be efficiently
     searched using the bloom filter in the block header.
 
     [`LOG0`]: ref:ethereum.gray_glacier.vm.instructions.log.log0
@@ -250,7 +253,7 @@ class Log:
 
     data: Bytes
     """
-    The data payload of the log.
+    The data payload of the log, which can contain any arbitrary data.
     """
 
 
@@ -274,12 +277,15 @@ class Receipt:
 
     bloom: Bloom
     """
-    Bloom filter for logs generated by this transaction.
+    Bloom filter for logs generated by this transaction. This is a 2048-byte
+    bit array that allows for efficient filtering of logs.
     """
 
     logs: Tuple[Log, ...]
     """
-    Tuple of logs generated by this transaction.
+    A tuple of logs generated by this transaction. Each log contains the
+    address of the contract that emitted it, a tuple of topics, and the data
+    payload.
     """
 
 

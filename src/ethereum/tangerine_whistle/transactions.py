@@ -50,36 +50,44 @@ class Transaction:
     """
     A scalar value equal to the number of transactions sent by the sender.
     """
+
     gas_price: Uint
     """
-    The price of gas for this transaction.
+    The price of gas for this transaction, in wei.
     """
+
     gas: Uint
     """
     The maximum amount of gas that can be used by this transaction.
     """
+
     to: Union[Bytes0, Address]
     """
     The address of the recipient. If empty, the transaction is a contract
     creation.
     """
+
     value: U256
     """
     The amount of ether (in wei) to send with this transaction.
     """
+
     data: Bytes
     """
     The data payload of the transaction, which can be used to call functions
     on contracts or to create new contracts.
     """
+
     v: U256
     """
     The recovery id of the signature.
     """
+
     r: U256
     """
     The first part of the signature.
     """
+
     s: U256
     """
     The second part of the signature.
@@ -129,13 +137,12 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     for all operations to be implemented.
 
     The intrinsic cost includes:
-    1. Base cost (TX_BASE_COST)
+    1. Base cost (`TX_BASE_COST`)
     2. Cost for data (zero and non-zero bytes)
     3. Cost for contract creation (if applicable)
 
     This function takes a transaction as a parameter and returns the intrinsic
-    gas cost
-    of the transaction.
+    gas cost of the transaction.
     """
     data_cost = Uint(0)
 
@@ -163,7 +170,7 @@ def recover_sender(tx: Transaction) -> Address:
     signing hash of the transaction. The sender's public key can be obtained
     with these two values and therefore the sender address can be retrieved.
 
-    This function takes chain_id and a transaction as parameters and returns
+    This function takes a transaction as a parameter and returns
     the address of the sender of the transaction. It raises an
     `InvalidSignatureError` if the signature values (r, s, v) are invalid.
     """

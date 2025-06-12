@@ -20,9 +20,8 @@ from .fork_types import Address, VersionedHash
 
 TX_BASE_COST = Uint(21000)
 """
-Base cost of a transaction in gas units.
-
-This is the minimum amount of gas required to execute a transaction.
+Base cost of a transaction in gas units. This is the minimum amount of gas
+required to execute a transaction.
 """
 
 TX_DATA_COST_PER_NON_ZERO = Uint(16)
@@ -71,7 +70,7 @@ class LegacyTransaction:
 
     gas_price: Uint
     """
-    The price of gas for this transaction.
+    The price of gas for this transaction, in wei.
     """
 
     gas: Uint
@@ -381,11 +380,11 @@ Union type representing any valid transaction type.
 
 def encode_transaction(tx: Transaction) -> Union[LegacyTransaction, Bytes]:
     """
-    Encode a transaction into its RLP or typed transaction format. Needed
-    because non-legacy transactions aren't RLP.
+    Encode a transaction into its RLP or typed transaction format.
+    Needed because non-legacy transactions aren't RLP.
 
-    Legacy transactions are returned as-is, while other transaction types are
-    prefixed with their type identifier and RLP encoded.
+    Legacy transactions are returned as-is, while other transaction types
+    are prefixed with their type identifier and RLP encoded.
     """
     if isinstance(tx, LegacyTransaction):
         return tx
@@ -401,11 +400,11 @@ def encode_transaction(tx: Transaction) -> Union[LegacyTransaction, Bytes]:
 
 def decode_transaction(tx: Union[LegacyTransaction, Bytes]) -> Transaction:
     """
-    Decode a transaction from its RLP or typed transaction format. Needed
-    because non-legacy transactions aren't RLP.
+    Decode a transaction from its RLP or typed transaction format.
+    Needed because non-legacy transactions aren't RLP.
 
-    Legacy transactions are returned as-is, while other transaction types are
-    decoded based on their type identifier prefix.
+    Legacy transactions are returned as-is, while other transaction types
+    are decoded based on their type identifier prefix.
     """
     if isinstance(tx, Bytes):
         if tx[0] == 1:
@@ -471,7 +470,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     for all operations to be implemented.
 
     The intrinsic cost includes:
-    1. Base cost (TX_BASE_COST)
+    1. Base cost (`TX_BASE_COST`)
     2. Cost for data (zero and non-zero bytes)
     3. Cost for contract creation (if applicable)
     4. Cost for access list entries (if applicable)
@@ -570,7 +569,7 @@ def signing_hash_pre155(tx: LegacyTransaction) -> Hash32:
     Compute the hash of a transaction used in a legacy (pre [EIP-155])
     signature.
 
-    This function takes a transaction as a parameter and returns the
+    This function takes a legacy transaction as a parameter and returns the
     signing hash of the transaction.
 
     [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
@@ -593,8 +592,8 @@ def signing_hash_155(tx: LegacyTransaction, chain_id: U64) -> Hash32:
     """
     Compute the hash of a transaction used in a [EIP-155] signature.
 
-    This function takes a transaction and chain_id as parameters and returns
-    the signing hash of the transaction used in a [EIP-155] signature.
+    This function takes a legacy transaction and a chain ID as parameters
+    and returns the hash of the transaction used in an [EIP-155] signature.
 
     [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
     """
@@ -617,12 +616,12 @@ def signing_hash_155(tx: LegacyTransaction, chain_id: U64) -> Hash32:
 
 def signing_hash_2930(tx: AccessListTransaction) -> Hash32:
     """
-    Compute the hash of a transaction used in a [`EIP 2930`] signature.
+    Compute the hash of a transaction used in a [EIP-2930] signature.
 
-    This function takes a transaction as a parameter and returns the
-    signing hash of the transaction used in a [`EIP 2930`] signature.
+    This function takes an access list transaction as a parameter
+    and returns the hash of the transaction used in an [EIP-2930] signature.
 
-    [`EIP 2930`]: https://eips.ethereum.org/EIPS/eip-2930
+    [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
     """
     return keccak256(
         b"\x01"
@@ -645,8 +644,8 @@ def signing_hash_1559(tx: FeeMarketTransaction) -> Hash32:
     """
     Compute the hash of a transaction used in an [EIP-1559] signature.
 
-    This function takes a transaction as a parameter and returns the
-    signing hash of the transaction used in an [EIP-1559] signature.
+    This function takes a fee market transaction as a parameter
+    and returns the hash of the transaction used in an [EIP-1559] signature.
 
     [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
     """
@@ -702,7 +701,9 @@ def get_transaction_hash(tx: Union[Bytes, LegacyTransaction]) -> Hash32:
     Compute the hash of a transaction.
 
     This function takes a transaction as a parameter and returns the
-    hash of the transaction.
+    keccak256 hash of the transaction. It can handle both legacy transactions
+    and typed transactions (`AccessListTransaction`, `FeeMarketTransaction`,
+    etc.).
     """
     assert isinstance(tx, (LegacyTransaction, Bytes))
     if isinstance(tx, LegacyTransaction):
