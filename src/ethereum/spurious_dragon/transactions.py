@@ -53,7 +53,7 @@ class Transaction:
 
     gas_price: Uint
     """
-    The price of gas for this transaction.
+    The price of gas for this transaction, in wei.
     """
 
     gas: Uint
@@ -137,7 +137,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     for all operations to be implemented.
 
     The intrinsic cost includes:
-    1. Base cost (TX_BASE_COST)
+    1. Base cost (`TX_BASE_COST`)
     2. Cost for data (zero and non-zero bytes)
     3. Cost for contract creation (if applicable)
 
@@ -223,8 +223,8 @@ def signing_hash_155(tx: Transaction, chain_id: U64) -> Hash32:
     """
     Compute the hash of a transaction used in a [EIP-155] signature.
 
-    This function takes a transaction and chain_id as parameters and returns
-    the signing hash of the transaction used in a [EIP-155] signature.
+    This function takes a transaction and chain ID as parameters and returns
+    the hash of the transaction used in a [EIP-155] signature.
 
     [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
     """
@@ -248,13 +248,6 @@ def signing_hash_155(tx: Transaction, chain_id: U64) -> Hash32:
 def get_transaction_hash(tx: Transaction) -> Hash32:
     """
     Compute the hash of a transaction.
-
-    #### Parameters
-    - tx: Transaction of interest.
-
-    #### Returns
-    - hash: `ethereum.crypto.hash.Hash32`
-    Hash of the transaction.
 
     This function takes a transaction as a parameter and returns the
     hash of the transaction.

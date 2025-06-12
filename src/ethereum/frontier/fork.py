@@ -716,17 +716,15 @@ def calculate_block_difficulty(
     parent_difficulty: Uint,
 ) -> Uint:
     """
-    Computes difficulty of a block using its header and
-    parent header.
+    Computes difficulty of a block using its header and parent header.
 
-    The difficulty of a block is determined by the time the block was
-    created after its parent. If a block's timestamp is more than 13
-    seconds after its parent block then its difficulty is set as the
-    difference between the parent's difficulty and the
-    ``max_adjustment_delta``. Otherwise, if the time between parent and
-    child blocks is too small (under 13 seconds) then, to avoid mass
-    forking, the block's difficulty is set to the sum of the delta and
-    the parent's difficulty.
+    The difficulty of a block is determined by the time the block was created
+    after its parent. If a block's timestamp is more than 13 seconds after its
+    parent block then its difficulty is set as the difference between the
+    parent's difficulty and the ``max_adjustment_delta``. Otherwise, if the
+    time between parent and child blocks is too small (under 13 seconds) then,
+    to avoid mass forking, the block's difficulty is set to the sum of the
+    delta and the parent's difficulty.
 
     Parameters
     ----------

@@ -54,8 +54,8 @@ Gas cost for including a storage key in the access list of a transaction.
 @dataclass
 class LegacyTransaction:
     """
-    Atomic operation performed on the block chain. This represents the
-    original transaction format used before [EIP-2930].
+    Atomic operation performed on the block chain. This represents the original
+    transaction format used before [EIP-2930].
 
     [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
     """
@@ -67,7 +67,7 @@ class LegacyTransaction:
 
     gas_price: Uint
     """
-    The price of gas for this transaction.
+    The price of gas for this transaction, in wei.
     """
 
     gas: Uint
@@ -112,8 +112,8 @@ class LegacyTransaction:
 @dataclass
 class Access:
     """
-    A mapping from account address to storage slots that are pre-warmed as
-    part of a transaction.
+    A mapping from account address to storage slots that are pre-warmed as part
+    of a transaction.
     """
 
     account: Address
@@ -179,8 +179,8 @@ class AccessListTransaction:
 
     access_list: Tuple[Access, ...]
     """
-    A tuple of `Access` objects that specify which addresses and storage
-    slots are accessed in the transaction.
+    A tuple of `Access` objects that specify which addresses and storage slots
+    are accessed in the transaction.
     """
 
     y_parity: U256
@@ -252,8 +252,8 @@ def validate_transaction(tx: Transaction) -> Uint:
     impossible though, ``2**64-1`` transactions is the entire capacity of the
     Ethereum blockchain at 2022 gas limits for a little over 22 years.
 
-    This function takes a transaction as a parameter and returns the
-    intrinsic gas cost of the transaction after validation. It throws an
+    This function takes a transaction as a parameter and returns the intrinsic
+    gas cost of the transaction after validation. It throws an
     `InvalidTransaction` exception if the transaction is invalid.
 
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
@@ -280,13 +280,13 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     for all operations to be implemented.
 
     The intrinsic cost includes:
-    1. Base cost (TX_BASE_COST)
+    1. Base cost (`TX_BASE_COST`)
     2. Cost for data (zero and non-zero bytes)
     3. Cost for contract creation (if applicable)
     4. Cost for access list entries (if applicable)
 
-    This function takes a transaction as a parameter and returns the
-    intrinsic gas cost of the transaction.
+    This function takes a transaction as a parameter and returns the intrinsic
+    gas cost of the transaction.
     """
     data_cost = Uint(0)
 
@@ -386,7 +386,7 @@ def signing_hash_155(tx: Transaction, chain_id: U64) -> Hash32:
     """
     Compute the hash of a transaction used in a [EIP-155] signature.
 
-    This function takes a transaction and chain_id as parameters and returns
+    This function takes a transaction and chain ID as parameters and returns
     the hash of the transaction used in a [EIP-155] signature.
 
     [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
@@ -410,12 +410,12 @@ def signing_hash_155(tx: Transaction, chain_id: U64) -> Hash32:
 
 def signing_hash_2930(tx: AccessListTransaction) -> Hash32:
     """
-    Compute the hash of a transaction used in a [`EIP 2930`] signature.
+    Compute the hash of a transaction used in a [EIP-2930] signature.
 
-    This function takes a transaction as a parameter and returns the
-    signing hash of the transaction used in a [`EIP 2930`] signature.
+    This function takes an access list transaction as a parameter
+    and returns the hash of the transaction used in an [EIP-2930] signature.
 
-    [`EIP 2930`]: https://eips.ethereum.org/EIPS/eip-2930
+    [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
     """
     return keccak256(
         b"\x01"
@@ -439,8 +439,8 @@ def get_transaction_hash(tx: Union[Bytes, LegacyTransaction]) -> Hash32:
     Compute the hash of a transaction.
 
     This function takes a transaction as a parameter and returns the
-    hash of the transaction. It can handle both legacy transactions and
-    access list transactions.
+    keccak256 hash of the transaction. It can handle both legacy transactions
+    and typed transactions (eg. `AccessListTransaction`).
     """
     assert isinstance(tx, (LegacyTransaction, Bytes))
     if isinstance(tx, LegacyTransaction):

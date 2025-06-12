@@ -34,8 +34,7 @@ class Header:
     Hash ([`keccak256`]) of the parent block's header, encoded with [RLP].
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
-    [RLP]:
-    https://ethereum.github.io/ethereum-rlp/src/ethereum_rlp/rlp.py.html
+    [RLP]: https://ethereum.github.io/ethereum-rlp/src/ethereum_rlp/rlp.py.html
     """
 
     ommers_hash: Hash32
@@ -44,8 +43,7 @@ class Header:
     with [RLP].
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
-    [RLP]:
-    https://ethereum.github.io/ethereum-rlp/src/ethereum_rlp/rlp.py.html
+    [RLP]: https://ethereum.github.io/ethereum-rlp/src/ethereum_rlp/rlp.py.html
     """
 
     coinbase: Address
@@ -59,11 +57,10 @@ class Header:
     state_root: Root
     """
     Root hash ([`keccak256`]) of the state trie after executing all
-    transactions in this block. It represents the state of the Ethereum
-    Virtual Machine (EVM) after all transactions in this block have been
-    processed. It is computed using the [`state_root()`] function, which
-    computes the root of the Merkle-Patricia [Trie] representing the Ethereum
-    world state.
+    transactions in this block. It represents the state of the Ethereum Virtual
+    Machine (EVM) after all transactions in this block have been processed. It
+    is computed using the [`state_root()`] function, which computes the root
+    of the Merkle-Patricia [Trie] representing the Ethereum world state.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
     [`state_root()`]: ref:ethereum.berlin.state.state_root
@@ -73,9 +70,9 @@ class Header:
     transactions_root: Root
     """
     Root hash ([`keccak256`]) of the transactions trie, which contains all
-    transactions included in this block in their original order. It is
-    computed using the [`root()`] function over the Merkle-Patricia [trie]
-    of transactions as the parameter.
+    transactions included in this block in their original order. It is computed
+    using the [`root()`] function over the Merkle-Patricia [trie] of
+    transactions as the parameter.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
     [`root()`]: ref:ethereum.berlin.trie.root
@@ -84,10 +81,9 @@ class Header:
 
     receipt_root: Root
     """
-    Root hash ([`keccak256`]) of the receipts trie, which contains all
-    receipts for transactions in this block. It is computed using the
-    [`root()`] function over the Merkle-Patricia [trie] constructed from the
-    receipts.
+    Root hash ([`keccak256`]) of the receipts trie, which contains all receipts
+    for transactions in this block. It is computed using the [`root()`]
+    function over the Merkle-Patricia [trie] constructed from the receipts.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
     [`root()`]: ref:ethereum.berlin.trie.root
@@ -169,12 +165,12 @@ class Block:
 
     The block [`header`] includes PoW-specific fields such as `difficulty`,
     `nonce`, and `ommersHash`, which relate to the mining process. The
-    `beneficiary` field denotes the address receiving mining and transaction
+    `coinbase` field denotes the address receiving mining and transaction
     fees.
 
     The header also contains commitments to the current state (`stateRoot`),
     the transactions (`transactionsRoot`), and the transaction receipts
-    (`receiptsRoot`). It also incldues a bloom filter which summarizes log
+    (`receiptsRoot`). It also includes a bloom filter which summarizes log
     data from the transactions.
 
     Ommers are used to provide rewards for near-valid mined blocks that didn't
@@ -199,7 +195,9 @@ class Block:
 
     ommers: Tuple[Header, ...]
     """
-    A tuple of ommers (uncle blocks) included in this block.
+    A tuple of ommers (uncle blocks) included in this block. Ommers are
+    blocks that were mined at the same time as this block but were not
+    included in the main chain.
     """
 
 
@@ -209,7 +207,7 @@ class Log:
     """
     Data record produced during the execution of a transaction. Logs are used
     by smart contracts to emit events (using the EVM log opcodes ([`LOG0`],
-    [`LOG1`], [`LOG2`], [`LOG3`] and [`LOG4`])), which can be efficiently
+    [`LOG1`], [`LOG2`], [`LOG3`] and [`LOG4`]), which can be efficiently
     searched using the bloom filter in the block header.
 
     [`LOG0`]: ref:ethereum.berlin.vm.instructions.log.log0
@@ -231,7 +229,7 @@ class Log:
 
     data: Bytes
     """
-    The data payload of the log.
+    The data payload of the log, which can contain any arbitrary data.
     """
 
 
@@ -244,16 +242,27 @@ class Receipt:
     """
 
     succeeded: bool
-    """Whether the transaction execution was successful."""
+    """
+    Whether the transaction execution was successful.
+    """
 
     cumulative_gas_used: Uint
-    """Total gas used in the block up to and including this transaction."""
+    """
+    Total gas used in the block up to and including this transaction.
+    """
 
     bloom: Bloom
-    """Bloom filter for logs generated by this transaction."""
+    """
+    Bloom filter for logs generated by this transaction. This is a 2048-byte
+    bit array that allows for efficient filtering of logs.
+    """
 
     logs: Tuple[Log, ...]
-    """Tuple of logs generated by this transaction."""
+    """
+    A tuple of logs generated by this transaction. Each log contains the
+    address of the contract that emitted it, a tuple of topics, and the data
+    payload.
+    """
 
 
 def encode_receipt(tx: Transaction, receipt: Receipt) -> Union[Bytes, Receipt]:
