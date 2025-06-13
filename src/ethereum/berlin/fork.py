@@ -371,8 +371,7 @@ def check_transaction(
     NonceMismatchError :
         If the nonce of the transaction is not equal to the sender's nonce.
     InsufficientBalanceError :
-        If the sender's balance is not enough to pay for the transaction
-        and gas fees.
+        If the sender's balance is not enough to pay for the transaction.
     InvalidSenderError :
         If the transaction is from an address that does not exist anymore.
     """

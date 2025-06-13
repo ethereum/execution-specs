@@ -358,10 +358,9 @@ def check_transaction(
     GasUsedExceedsLimitError :
         If the gas used by the transaction exceeds the block's gas limit.
     NonceMismatchError :
-        If the nonce of the transaction does not match the sender's nonce.
+        If the nonce of the transaction is not equal to the sender's nonce.
     InsufficientBalanceError :
-        If the sender's balance is insufficient to cover the transaction
-        value and gas fee.
+        If the sender's balance is not enough to pay for the transaction.
     InvalidSenderError :
         If the transaction is from an address that does not exist anymore.
     """
