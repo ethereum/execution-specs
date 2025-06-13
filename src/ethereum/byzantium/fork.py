@@ -21,8 +21,11 @@ from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
 from ethereum.exceptions import (
     EthereumException,
+    GasUsedExceedsLimitError,
+    InsufficientBalanceError,
     InvalidBlock,
     InvalidSenderError,
+    NonceMismatchError,
 )
 
 from . import vm
@@ -358,21 +361,29 @@ def check_transaction(
 
     Raises
     ------
-    InvalidBlock :
-        If the transaction is not includable.
+    GasUsedExceedsLimitError :
+        If the gas used by the transaction exceeds the block's gas limit.
+    NonceMismatchError :
+        If the nonce of the transaction is not equal to the sender's nonce.
+    InsufficientBalanceError :
+        If the sender's balance is not enough to pay for the transaction.
+    InvalidSenderError :
+        If the transaction is from an address that does not exist anymore.
     """
     gas_available = block_env.block_gas_limit - block_output.block_gas_used
     if tx.gas > gas_available:
-        raise InvalidBlock
+        raise GasUsedExceedsLimitError("gas used exceeds limit")
     sender_address = recover_sender(block_env.chain_id, tx)
     sender_account = get_account(block_env.state, sender_address)
 
     max_gas_fee = tx.gas * tx.gas_price
 
-    if sender_account.nonce != tx.nonce:
-        raise InvalidBlock
+    if sender_account.nonce > Uint(tx.nonce):
+        raise NonceMismatchError("nonce too low")
+    elif sender_account.nonce < Uint(tx.nonce):
+        raise NonceMismatchError("nonce too high")
     if Uint(sender_account.balance) < max_gas_fee + Uint(tx.value):
-        raise InvalidBlock
+        raise InsufficientBalanceError("insufficient sender balance")
     if sender_account.code:
         raise InvalidSenderError("not EOA")
 
