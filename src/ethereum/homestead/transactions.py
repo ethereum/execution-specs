@@ -53,7 +53,7 @@ class Transaction:
 
     gas_price: Uint
     """
-    The price of gas for this transaction.
+    The price of gas for this transaction, in wei.
     """
 
     gas: Uint
@@ -111,7 +111,7 @@ def validate_transaction(tx: Transaction) -> Uint:
 
     This function takes a transaction as a parameter and returns the intrinsic
     gas cost of the transaction after validation. It throws an
-    `InvalidTransaction`exception if the transaction is invalid.
+    `InvalidTransaction` exception if the transaction is invalid.
 
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     """
@@ -137,7 +137,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     for all operations to be implemented.
 
     The intrinsic cost includes:
-    1. Base cost (TX_BASE_COST)
+    1. Base cost (`TX_BASE_COST`)
     2. Cost for data (zero and non-zero bytes)
     3. Cost for contract creation (if applicable)
 
@@ -170,7 +170,7 @@ def recover_sender(tx: Transaction) -> Address:
     signing hash of the transaction. The sender's public key can be obtained
     with these two values and therefore the sender address can be retrieved.
 
-    This function takes chain_id and a transaction as parameters and returns
+    This function takes a transaction as a parameter and returns
     the address of the sender of the transaction. It raises an
     `InvalidSignatureError` if the signature values (r, s, v) are invalid.
     """
@@ -189,6 +189,10 @@ def recover_sender(tx: Transaction) -> Address:
 def signing_hash(tx: Transaction) -> Hash32:
     """
     Compute the hash of a transaction used in the signature.
+
+    The values that are used to compute the signing hash set the rules for a
+    transaction. For example, signing over the gas sets a limit for the
+    amount of money that is allowed to be pulled out of the sender's account.
 
     This function takes a transaction as a parameter and returns the
     signing hash of the transaction.

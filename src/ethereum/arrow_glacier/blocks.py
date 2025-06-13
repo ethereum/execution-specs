@@ -32,12 +32,6 @@ class Header:
     """
     Header portion of a block on the chain, containing metadata and
     cryptographic commitments to the block's contents.
-
-    [RLP]:
-    https://ethereum.github.io/ethereum-rlp/src/ethereum_rlp/rlp.py.html
-
-    [`calculate_block_difficulty()`]:
-    ref:ethereum.arrow_glacier.fork.calculate_block_difficulty
     """
 
     parent_hash: Hash32
@@ -45,7 +39,6 @@ class Header:
     Hash ([`keccak256`]) of the parent block's header, encoded with [RLP].
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
-    # noqa: E501
     [RLP]: https://ethereum.github.io/ethereum-rlp/src/ethereum_rlp/rlp.py.html
     """
 
@@ -55,7 +48,6 @@ class Header:
     with [RLP].
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
-    # noqa: E501
     [RLP]: https://ethereum.github.io/ethereum-rlp/src/ethereum_rlp/rlp.py.html
     """
 
@@ -74,7 +66,7 @@ class Header:
     """
     Root hash ([`keccak256`]) of the state trie after executing all
     transactions in this block. It represents the state of the Ethereum Virtual
-    Machine(EVM) after all transactions in this block have been processed. It
+    Machine (EVM) after all transactions in this block have been processed. It
     is computed using the [`state_root()`] function, which computes the root
     of the Merkle-Patricia [Trie] representing the Ethereum world state.
 
@@ -196,12 +188,12 @@ class Block:
 
     The block [`header`] includes PoW-specific fields such as `difficulty`,
     `nonce`, and `ommersHash`, which relate to the mining process. The
-    `beneficiary` field denotes the address receiving mining and transaction
+    `coinbase` field denotes the address receiving mining and transaction
     fees.
 
     The header also contains commitments to the current state (`stateRoot`),
     the transactions (`transactionsRoot`), and the transaction receipts
-    (`receiptsRoot`). It also incldues a bloom filter which summarizes log
+    (`receiptsRoot`). It also includes a bloom filter which summarizes log
     data from the transactions.
 
     Ommers are used to provide rewards for near-valid mined blocks that didn't
@@ -221,7 +213,7 @@ class Block:
     transactions: Tuple[Union[Bytes, LegacyTransaction], ...]
     """
     A tuple of transactions included in this block. Each transaction can be
-    either a legacy transaction, an access list transaction, or a fee market
+    any of a legacy transaction, an access list transaction, or a fee market
     transaction.
     """
 
@@ -239,7 +231,7 @@ class Log:
     """
     Data record produced during the execution of a transaction. Logs are used
     by smart contracts to emit events (using the EVM log opcodes ([`LOG0`],
-    [`LOG1`], [`LOG2`], [`LOG3`] and [`LOG4`])), which can be efficiently
+    [`LOG1`], [`LOG2`], [`LOG3`] and [`LOG4`]), which can be efficiently
     searched using the bloom filter in the block header.
 
     [`LOG0`]: ref:ethereum.arrow_glacier.vm.instructions.log.log0

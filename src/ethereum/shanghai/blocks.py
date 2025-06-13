@@ -91,8 +91,8 @@ class Header:
     Address of the miner (or validator) who mined this block.
 
     The coinbase address receives the block reward and the priority fees (tips)
-    from included transactions. Base fees (introduced in [EIP-1559]) are
-    burned and do not go to the coinbase.
+    from included transactions. Base fees (introduced in [EIP-1559]) are burned
+    and do not go to the coinbase.
 
     [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
     """
@@ -100,11 +100,10 @@ class Header:
     state_root: Root
     """
     Root hash ([`keccak256`]) of the state trie after executing all
-    transactions in this block.
-    It represents the state of the Ethereum Virtual Machine (EVM) after all
-    transactions in this block have been processed. It is computed using the
-    [`state_root()`] function, which computes the root of the
-    Merkle-Patricia [Trie] representing the Ethereum world state.
+    transactions in this block. It represents the state of the Ethereum Virtual
+    Machine (EVM) after all transactions in this block have been processed. It
+    is computed using the [`state_root()`] function, which computes the root
+    of the Merkle-Patricia [Trie] representing the Ethereum world state.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
     [`state_root()`]: ref:ethereum.shanghai.state.state_root
@@ -114,8 +113,8 @@ class Header:
     transactions_root: Root
     """
     Root hash ([`keccak256`]) of the transactions trie, which contains all
-    transactions included in this block in their original order. It is
-    computed using the [`root()`] function over the Merkle-Patricia [trie] of
+    transactions included in this block in their original order. It is computed
+    using the [`root()`] function over the Merkle-Patricia [trie] of
     transactions as the parameter.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
@@ -125,10 +124,9 @@ class Header:
 
     receipt_root: Root
     """
-    Root hash ([`keccak256`]) of the receipts trie, which contains all
-    receipts for transactions in this block. It is computed using the
-    [`root()`] function over the Merkle-Patricia [trie] constructed from the
-    receipts.
+    Root hash ([`keccak256`]) of the receipts trie, which contains all receipts
+    for transactions in this block. It is computed using the [`root()`]
+    function over the Merkle-Patricia [trie] constructed from the receipts.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
     [`root()`]: ref:ethereum.shanghai.trie.root
@@ -194,9 +192,11 @@ class Header:
 
     base_fee_per_gas: Uint
     """
-    Base fee per gas for transactions in this block [(EIP-1559)].
+    Base fee per gas for transactions in this block, introduced in
+    [EIP-1559]. This is the minimum fee per gas that must be paid for a
+    transaction to be included in this block.
 
-    [(EIP-1559)]: https://eips.ethereum.org/EIPS/eip-1559
+    [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
     """
 
     withdrawals_root: Root
@@ -212,20 +212,24 @@ class Block:
     """
     A complete block on Ethereum, which is composed of a block [`header`],
     a list of transactions, a list of ommers (deprecated), and a list of
-    validator [`withdrawals`].
+    validator [withdrawals].
 
     The block [`header`] includes fields relevant to the Proof-of-Stake
     consensus, with deprecated Proof-of-Work fields such as `difficulty`,
-    `nonce`, and `ommersHash` set to constants.
-    The `beneficiary` field denotes the address receiving priority fees from
-    the block. It also includes a `withdrawalsRoot` committing to the
-    validator withdrawals included in this block.
+    `nonce`, and `ommersHash` set to constants. The `coinbase` field
+    denotes the address receiving priority fees from the block.
+
+    The header also contains commitments to the current state (`stateRoot`),
+    the transactions (`transactionsRoot`), the transaction receipts
+    (`receiptsRoot`), and `withdrawalsRoot` committing to the validator
+    withdrawals included in this block. It also includes a bloom filter which
+    summarizes log data from the transactions.
 
     Withdrawals represent ETH transfers from validators to their recipients,
     introduced by the consensus layer. Ommers remain deprecated and empty.
 
     [`header`]: ref:ethereum.shanghai.blocks.Header
-    [`withdrawals`]: ref:ethereum.shanghai.blocks.Withdrawal
+    [withdrawals]: ref:ethereum.shanghai.blocks.Withdrawal
     """
 
     header: Header
@@ -238,13 +242,15 @@ class Block:
 
     transactions: Tuple[Union[Bytes, LegacyTransaction], ...]
     """
-    A tuple of transactions included in this block, which can be either legacy
-    transactions, access list transactions, or fee market transactions.
+    A tuple of transactions included in this block. Each transaction can be
+    any of a legacy transaction, an access list transaction, or a fee market
+    transaction.
     """
 
     ommers: Tuple[Header, ...]
     """
-    A tuple of ommers (uncle blocks) included in this block.
+    A tuple of ommers (uncle blocks) included in this block. Always empty in
+    Proof-of-Stake forks.
     """
 
     withdrawals: Tuple[Withdrawal, ...]
@@ -259,7 +265,7 @@ class Log:
     """
     Data record produced during the execution of a transaction. Logs are used
     by smart contracts to emit events (using the EVM log opcodes ([`LOG0`],
-    [`LOG1`], [`LOG2`], [`LOG3`] and [`LOG4`])), which can be efficiently
+    [`LOG1`], [`LOG2`], [`LOG3`] and [`LOG4`]), which can be efficiently
     searched using the bloom filter in the block header.
 
     [`LOG0`]: ref:ethereum.shanghai.vm.instructions.log.log0
@@ -281,7 +287,7 @@ class Log:
 
     data: Bytes
     """
-    The data payload of the log.
+    The data payload of the log, which can contain any arbitrary data.
     """
 
 
@@ -305,12 +311,15 @@ class Receipt:
 
     bloom: Bloom
     """
-    Bloom filter for logs generated by this transaction.
+    Bloom filter for logs generated by this transaction. This is a 2048-byte
+    bit array that allows for efficient filtering of logs.
     """
 
     logs: Tuple[Log, ...]
     """
-    Tuple of logs generated by this transaction.
+    A tuple of logs generated by this transaction. Each log contains the
+    address of the contract that emitted it, a tuple of topics, and the data
+    payload.
     """
 
 
