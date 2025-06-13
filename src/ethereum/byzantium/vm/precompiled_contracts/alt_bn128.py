@@ -13,7 +13,7 @@ Implementation of the ALT_BN128 precompiled contracts.
 """
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256, Uint
-from py_ecc.bn128.bn128_curve import (
+from py_ecc.optimized_bn128.optimized_curve import (
     FQ,
     FQ2,
     FQ12,
@@ -22,11 +22,13 @@ from py_ecc.bn128.bn128_curve import (
     b2,
     curve_order,
     field_modulus,
+    is_inf,
     is_on_curve,
     multiply,
+    normalize,
 )
-from py_ecc.bn128.bn128_pairing import pairing
-from py_ecc.typing import Point2D
+from py_ecc.optimized_bn128.optimized_pairing import pairing
+from py_ecc.typing import Optimized_Point3D as Point3D
 
 from ...vm import Evm
 from ...vm.gas import charge_gas
@@ -34,7 +36,7 @@ from ...vm.memory import buffer_read
 from ..exceptions import InvalidParameter, OutOfGasError
 
 
-def bytes_to_G1(data: Bytes) -> Point2D:
+def bytes_to_g1(data: Bytes) -> Point3D[FQ]:
     """
     Decode 64 bytes to a point on the curve.
 
@@ -45,7 +47,7 @@ def bytes_to_G1(data: Bytes) -> Point2D:
 
     Returns
     -------
-    point : Point2D
+    point : Point3D
         A point on the curve.
 
     Raises
@@ -66,10 +68,11 @@ def bytes_to_G1(data: Bytes) -> Point2D:
     if y >= field_modulus:
         raise InvalidParameter("Invalid field element")
 
+    z = 1
     if x == 0 and y == 0:
-        return None
+        z = 0
 
-    point = (FQ(x), FQ(y))
+    point = (FQ(x), FQ(y), FQ(z))
 
     # Check if the point is on the curve
     if not is_on_curve(point, b):
@@ -78,7 +81,7 @@ def bytes_to_G1(data: Bytes) -> Point2D:
     return point
 
 
-def bytes_to_G2(data: Bytes) -> Point2D:
+def bytes_to_g2(data: Bytes) -> Point3D[FQ2]:
     """
     Decode 128 bytes to a G2 point.
 
@@ -118,10 +121,11 @@ def bytes_to_G2(data: Bytes) -> Point2D:
     x = FQ2((x1, x0))
     y = FQ2((y1, y0))
 
+    z = (1, 0)
     if x == FQ2((0, 0)) and y == FQ2((0, 0)):
-        return None
+        z = (0, 0)
 
-    point = (x, y)
+    point = (x, y, FQ2(z))
 
     # Check if the point is on the curve
     if not is_on_curve(point, b2):
@@ -146,16 +150,13 @@ def alt_bn128_add(evm: Evm) -> None:
 
     # OPERATION
     try:
-        p0 = bytes_to_G1(buffer_read(data, U256(0), U256(64)))
-        p1 = bytes_to_G1(buffer_read(data, U256(64), U256(64)))
+        p0 = bytes_to_g1(buffer_read(data, U256(0), U256(64)))
+        p1 = bytes_to_g1(buffer_read(data, U256(64), U256(64)))
     except InvalidParameter as e:
         raise OutOfGasError from e
 
     p = add(p0, p1)
-    if p is None:
-        x, y = (0, 0)
-    else:
-        x, y = p
+    x, y = normalize(p)
 
     evm.output = Uint(x).to_be_bytes32() + Uint(y).to_be_bytes32()
 
@@ -176,16 +177,13 @@ def alt_bn128_mul(evm: Evm) -> None:
 
     # OPERATION
     try:
-        p0 = bytes_to_G1(buffer_read(data, U256(0), U256(64)))
+        p0 = bytes_to_g1(buffer_read(data, U256(0), U256(64)))
     except InvalidParameter as e:
         raise OutOfGasError from e
     n = int(U256.from_be_bytes(buffer_read(data, U256(64), U256(32))))
 
     p = multiply(p0, n)
-    if p is None:
-        x, y = (0, 0)
-    else:
-        x, y = p
+    x, y = normalize(p)
 
     evm.output = Uint(x).to_be_bytes32() + Uint(y).to_be_bytes32()
 
@@ -210,16 +208,16 @@ def alt_bn128_pairing_check(evm: Evm) -> None:
     result = FQ12.one()
     for i in range(len(data) // 192):
         try:
-            p = bytes_to_G1(buffer_read(data, U256(192 * i), U256(64)))
-            q = bytes_to_G2(buffer_read(data, U256(192 * i + 64), U256(128)))
+            p = bytes_to_g1(buffer_read(data, U256(192 * i), U256(64)))
+            q = bytes_to_g2(buffer_read(data, U256(192 * i + 64), U256(128)))
         except InvalidParameter as e:
             raise OutOfGasError from e
-        if multiply(p, curve_order) is not None:
+        if not is_inf(multiply(p, curve_order)):
             raise OutOfGasError
-        if multiply(q, curve_order) is not None:
+        if not is_inf(multiply(q, curve_order)):
             raise OutOfGasError
-        if p is not None and q is not None:
-            result *= pairing(q, p)
+
+        result *= pairing(q, p)
 
     if result == FQ12.one():
         evm.output = U256(1).to_be_bytes32()
