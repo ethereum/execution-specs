@@ -801,15 +801,13 @@ def test_worst_jumpdests(state_test: StateTestFiller, pre: Alloc, fork: Fork):
     max_code_size = fork.max_code_size()
 
     # Create and deploy a contract with many JUMPDESTs
-    jumpdests_code = sum([Op.JUMPDEST] * max_code_size)
-    jumpdests_address = pre.deploy_contract(code=bytes(jumpdests_code))
-
-    # Call the contract repeatedly until gas runs out.
-    caller_code = While(body=Op.POP(Op.CALL(address=jumpdests_address)))
-    caller_address = pre.deploy_contract(caller_code)
+    code_suffix = Op.JUMP(Op.PUSH0)
+    code_body = Op.JUMPDEST * (max_code_size - len(code_suffix))
+    code = code_body + code_suffix
+    jumpdests_address = pre.deploy_contract(code=code)
 
     tx = Transaction(
-        to=caller_address,
+        to=jumpdests_address,
         gas_limit=env.gas_limit,
         sender=pre.fund_eoa(),
     )
