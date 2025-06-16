@@ -37,6 +37,7 @@ from .common import CallArgs, generate_identity_call_bytecode
         "https://github.com/ethereum/tests/blob/v17.1/src/GeneralStateTestsFiller/stPreCompiledContracts2/CallIdentity_4_gas18Filler.json",
     ],
     pr=["https://github.com/ethereum/execution-spec-tests/pull/1344"],
+    coverage_missed_reason="MPT related coverage lost, not relevant to this test",
 )
 @pytest.mark.valid_from("Byzantium")
 @pytest.mark.parametrize("call_type", [Op.CALL, Op.CALLCODE])
@@ -44,49 +45,64 @@ from .common import CallArgs, generate_identity_call_bytecode
     [
         "call_args",
         "memory_values",
+        "contract_balance",
         "call_succeeds",
     ],
     [
-        pytest.param(CallArgs(gas=0xFF), (0x1,), True, id="identity_0"),
+        pytest.param(CallArgs(gas=0xFF), (0x1,), 0x0, True, id="identity_0"),
         pytest.param(
             CallArgs(args_size=0x0),
             (0x0,),
+            0x0,
             True,
             id="identity_1",
         ),
         pytest.param(
             CallArgs(gas=0x30D40, value=0x1, args_size=0x0),
-            None,
-            False,
+            (0x1,),
+            0x1,
+            True,
             id="identity_1_nonzerovalue",
+        ),
+        pytest.param(
+            CallArgs(gas=0x30D40, value=0x1, args_size=0x0),
+            None,
+            0x0,
+            False,
+            id="identity_1_nonzerovalue_insufficient_balance",
         ),
         pytest.param(
             CallArgs(args_size=0x25),
             (0xF34578907F,),
+            0x0,
             True,
             id="identity_2",
         ),
         pytest.param(
             CallArgs(args_size=0x25),
             (0xF34578907F,),
+            0x0,
             True,
             id="identity_3",
         ),
         pytest.param(
             CallArgs(gas=0x64),
             (0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,),
+            0x0,
             True,
             id="identity_4",
         ),
         pytest.param(
             CallArgs(gas=0x11),
             (0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,),
+            0x0,
             False,
             id="identity_4_insufficient_gas",
         ),
         pytest.param(
             CallArgs(gas=0x12),
             (0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,),
+            0x0,
             True,
             id="identity_4_exact_gas",
         ),
@@ -100,6 +116,7 @@ def test_call_identity_precompile(
     memory_values: Tuple[int, ...],
     call_succeeds: bool,
     tx_gas_limit: int,
+    contract_balance: int,
 ):
     """Test identity precompile RETURNDATA is sized correctly based on the input size."""
     env = Environment()
@@ -116,6 +133,7 @@ def test_call_identity_precompile(
     account = pre.deploy_contract(
         contract_bytecode,
         storage=storage.canary(),
+        balance=contract_balance,
     )
 
     tx = Transaction(
@@ -135,6 +153,7 @@ def test_call_identity_precompile(
         "https://github.com/ethereum/tests/blob/v17.1/src/GeneralStateTestsFiller/stPreCompiledContracts2/CallIdentity_5Filler.json",
     ],
     pr=["https://github.com/ethereum/execution-spec-tests/pull/1344"],
+    coverage_missed_reason="MPT related coverage lost, not relevant to this test",
 )
 @pytest.mark.valid_from("Byzantium")
 @pytest.mark.parametrize("call_type", [Op.CALL, Op.CALLCODE])
