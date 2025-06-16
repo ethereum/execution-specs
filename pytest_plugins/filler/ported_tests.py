@@ -17,6 +17,7 @@ The plugin will:
 2. Extract either the file paths (first positional argument) or PR URLs (pr keyword argument)
 3. Output a deduplicated, sorted list, one per line
 4. Skip test execution (collection only)
+5. Exclude tests with coverage_missed_reason from output
 
 Marker Format:
 --------------
@@ -26,6 +27,7 @@ Marker Format:
         "https://github.com/ethereum/execution-spec-tests/pull/1234",
         "https://github.com/ethereum/execution-spec-tests/pull/5678",
     ],
+    coverage_missed_reason="Optional reason for accepted coverage miss",
 )
 """
 
@@ -73,6 +75,19 @@ def pytest_addoption(parser: pytest.Parser):
         ),
     )
     ported_from_group.addoption(
+        "--skip-coverage-missed-reason",
+        action="store_true",
+        dest="skip_coverage_missed_reason",
+        default=False,
+        help=(
+            "When using --show-ported-from, exclude tests that have "
+            "coverage_missed_reason in their @pytest.mark.ported_from marker. "
+            "These are tests that were intentionally not ported from the original "
+            "static filler files, typically because they are redundant or obsolete. "
+            "This helps filter out accepted coverage gaps when analyzing test coverage."
+        ),
+    )
+    ported_from_group.addoption(
         "--ported-from-output-file",
         action="store",
         dest="ported_from_output_file",
@@ -107,6 +122,7 @@ class PortedFromDisplay:
         self.show_mode = config.getoption("show_ported_from")
         self.links_as_filled = config.getoption("links_as_filled")
         self.ported_from_output_file = config.getoption("ported_from_output_file")
+        self.skip_coverage_missed_reason = config.getoption("skip_coverage_missed_reason")
 
     @pytest.hookimpl(hookwrapper=True, trylast=True)
     def pytest_collection_modifyitems(
@@ -128,6 +144,13 @@ class PortedFromDisplay:
         for item in items:
             ported_from_marker = item.get_closest_marker("ported_from")
             if ported_from_marker:
+                # Skip tests with coverage_missed_reason
+                if (
+                    "coverage_missed_reason" in ported_from_marker.kwargs
+                    and self.skip_coverage_missed_reason
+                ):
+                    continue
+
                 # Extract paths (first positional argument)
                 if ported_from_marker.args:
                     first_arg = ported_from_marker.args[0]
