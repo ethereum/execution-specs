@@ -27,7 +27,7 @@ pytestmark = pytest.mark.valid_at_transition_to("Osaka", subsequent_forks=True)
     ],
 )
 @pytest.mark.parametrize("expected_output,call_succeeds", [pytest.param(b"", True, id="")])
-@pytest.mark.eip_checklist("new_precompile/test/fork_transition/before/invalid_input")
+@pytest.mark.eip_checklist("precompile/test/fork_transition/before/invalid_input")
 def test_precompile_before_fork(
     state_test: StateTestFiller,
     pre: Alloc,
