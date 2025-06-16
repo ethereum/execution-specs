@@ -7,9 +7,11 @@ aim is to avoid disruption to external contributors.
 """
 
 import os
+import re
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 import click
 from pyspelling import __main__ as pyspelling_main  # type: ignore
@@ -186,3 +188,47 @@ def codespell():
         sys.exit(1)
 
     sys.exit(0)
+    sys.exit(pyspelling_main.main())
+
+
+@click.command()
+def validate_changelog():
+    """
+    Validate changelog formatting to ensure bullet points end with proper punctuation.
+
+    Checks that all bullet points (including nested ones) end with either:
+    - A period (.) for regular entries
+    - A colon (:) for section headers that introduce lists
+    """
+    changelog_path = Path("docs/CHANGELOG.md")
+
+    if not changelog_path.exists():
+        click.echo(f"❌ Changelog file not found: {changelog_path}")
+        sys.exit(1)
+
+    try:
+        with open(changelog_path, "r", encoding="utf-8") as f:
+            content = f.read()
+    except Exception as e:
+        click.echo(f"❌ Error reading changelog: {e}.")
+        sys.exit(1)
+
+    # Find bullet points that don't end with period or colon
+    invalid_lines = []
+    for line_num, line in enumerate(content.splitlines(), 1):
+        if re.match(r"^\s*-\s+", line) and re.search(r"[^\.:]$", line.rstrip()):
+            invalid_lines.append((line_num, line.strip()))
+
+    if invalid_lines:
+        click.echo(f"❌ Found bullet points in {changelog_path} without proper punctuation:")
+        click.echo()
+        for line_num, line in invalid_lines:
+            click.echo(f"Line {line_num}: {line}")
+        click.echo()
+        click.echo("💡 All bullet points should end with:")
+        click.echo("  - A period (.) for regular entries.")
+        click.echo("  - A colon (:) for paragraphs that introduce lists.")
+        sys.exit(1)
+    else:
+        click.echo("✅ All bullet points have proper punctuation!")
+        sys.exit(0)
