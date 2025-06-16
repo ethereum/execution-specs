@@ -1,5 +1,6 @@
 """Test the EIP checklist plugin functionality."""
 
+import re
 import textwrap
 
 
@@ -17,21 +18,18 @@ def test_eip_checklist_collection(testdir):
             import pytest
             from ethereum_test_tools import StateTestFiller
 
+            from ethereum_test_checklists import EIPChecklist
+
             REFERENCE_SPEC_GIT_PATH = "N/A"
             REFERENCE_SPEC_VERSION = "N/A"
 
             @pytest.mark.valid_at("Prague")
-            @pytest.mark.eip_checklist(
-                "new_transaction_type/test/intrinsic_validity/gas_limit/exact"
-            )
+            @EIPChecklist.TransactionType.Test.IntrinsicValidity.GasLimit.Exact()
             def test_exact_gas(state_test: StateTestFiller):
                 pass
 
             @pytest.mark.valid_at("Prague")
-            @pytest.mark.eip_checklist(
-                "new_transaction_type/test/signature/invalid/v/2",
-                eip=[7702, 2930]
-            )
+            @EIPChecklist.TransactionType.Test.Signature.Invalid.V.Two(eip=[2930])
             def test_invalid_v(state_test: StateTestFiller):
                 pass
             """
@@ -49,7 +47,7 @@ def test_eip_checklist_collection(testdir):
     )
 
     berlin_tests_dir = tests_dir.mkdir("berlin")
-    eip_2930_tests_dir = berlin_tests_dir.mkdir("eip2930_set_code_tx")
+    eip_2930_tests_dir = berlin_tests_dir.mkdir("eip2930_access_list")
     test_2930_module = eip_2930_tests_dir.join("test_eip2930.py")
     test_2930_module.write(
         textwrap.dedent(
@@ -70,7 +68,7 @@ def test_eip_checklist_collection(testdir):
     test_2930_n_a_file.write(
         textwrap.dedent(
             """
-            new_system_contract = DEBUG NOT APPLICABLE REASON
+            system_contract = DEBUG NOT APPLICABLE REASON
             """
         )
     )
@@ -94,20 +92,19 @@ def test_eip_checklist_collection(testdir):
     # Check that checklists were generated
     checklist_dir = testdir.tmpdir / "checklists"
     assert checklist_dir.exists()
+
     checklist_file = checklist_dir / "eip7702_checklist.md"
     assert checklist_file.exists()
 
     # Verify the checklist contains the expected markers
-    content = checklist_file.read()
-    assert "✅" in content
-    assert "test_exact_gas" in content
-    assert "test_invalid_v" in content
-    assert "DEBUG EXTERNAL COVERAGE REASON" in content
+    content = checklist_file.readlines()
+    assert any(re.search(r"✅.*test_exact_gas", line) for line in content)
+    assert any(re.search(r"✅.*test_invalid_v", line) for line in content)
+    assert any(re.search(r"✅.*DEBUG EXTERNAL COVERAGE REASON", line) for line in content)
 
     checklist_file = checklist_dir / "eip2930_checklist.md"
     assert checklist_file.exists()
-    content = checklist_file.read()
-    assert "✅" in content
-    assert "test_invalid_v" in content
-    assert "N/A" in content
-    assert "DEBUG NOT APPLICABLE REASON" in content
+    content = checklist_file.readlines()
+    assert not any(re.search(r"✅.*test_exact_gas", line) for line in content)
+    assert any(re.search(r"✅.*test_invalid_v", line) for line in content)
+    assert any(re.search(r"N/A.*DEBUG NOT APPLICABLE REASON", line) for line in content)

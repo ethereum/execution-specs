@@ -129,12 +129,30 @@ for i, line in enumerate(TEMPLATE_CONTENT.splitlines()):
     if item := EIPItem.from_checklist_line(line=line, line_number=i + 1):
         TEMPLATE_ITEMS[item.id] = item
 
+
+def template_items() -> Dict[str, EIPItem]:
+    """Return a copy of the template items."""
+    new_items = {}
+    for test_id, item in TEMPLATE_ITEMS.items():
+        new_items[test_id] = EIPItem(
+            id=item.id,
+            line_number=item.line_number,
+            description=item.description,
+            tests=set(),
+        )
+    return new_items
+
+
 ALL_IDS = set(TEMPLATE_ITEMS.keys())
 
 
 def resolve_id(item_id: str) -> Set[str]:
     """Resolve an item ID to a set of checklist IDs."""
-    covered_ids = {checklist_id for checklist_id in ALL_IDS if checklist_id.startswith(item_id)}
+    covered_ids = {
+        checklist_id
+        for checklist_id in ALL_IDS
+        if checklist_id == item_id or checklist_id.startswith(item_id + "/")
+    }
     return covered_ids
 
 
@@ -143,7 +161,7 @@ class EIP:
     """Represents an EIP and its checklist."""
 
     number: int
-    items: Dict[str, EIPItem] = field(default_factory=TEMPLATE_ITEMS.copy)
+    items: Dict[str, EIPItem] = field(default_factory=template_items)
     path: Path | None = None
 
     def add_covered_test(self, checklist_id: str, node_id: str) -> None:
@@ -328,6 +346,7 @@ class EIPChecklistCollector:
                 eips += [self.get_eip(eip) for eip in additional_eips]
 
             for item_id in marker.args:
+                item_id = str(item_id)
                 covered_ids = resolve_id(item_id.strip())
                 if not covered_ids:
                     logger.warning(
