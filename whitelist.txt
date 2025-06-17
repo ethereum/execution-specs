@@ -495,3 +495,6 @@ secp256r1
 sig
 
 CLZ
+EELST8N
+clis
+T8
