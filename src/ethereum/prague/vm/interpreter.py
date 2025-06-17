@@ -125,6 +125,9 @@ def process_message_call(message: Message) -> MessageCallOutput:
         if message.tx_env.authorizations != ():
             refund_counter += set_delegation(message)
 
+        message.code = get_account(
+            block_env.state, message.code_address
+        ).code
         delegated_address = get_delegated_code_address(message.code)
         if delegated_address is not None:
             message.disable_precompiles = True
