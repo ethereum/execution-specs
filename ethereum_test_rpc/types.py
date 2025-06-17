@@ -22,7 +22,7 @@ from ethereum_test_exceptions import (
     UndefinedException,
 )
 from ethereum_test_fixtures.blockchain import FixtureExecutionPayload
-from ethereum_test_types import Transaction, Withdrawal
+from ethereum_test_types import EOA, Transaction, Withdrawal
 
 
 class JSONRPCError(Exception):
@@ -49,8 +49,10 @@ class TransactionByHashResponse(Transaction):
 
     gas_limit: HexNumber = Field(HexNumber(21_000), alias="gas")
     transaction_hash: Hash = Field(..., alias="hash")
-    from_address: Address = Field(..., alias="from")
-    to_address: Address | None = Field(..., alias="to")
+    sender: EOA | None = Field(None, alias="from")
+
+    # The to field can have different names in different clients, so we use AliasChoices.
+    to: Address | None = Field(..., validation_alias=AliasChoices("to_address", "to", "toAddress"))
 
     v: HexNumber = Field(0, validation_alias=AliasChoices("v", "yParity"))  # type: ignore
 
