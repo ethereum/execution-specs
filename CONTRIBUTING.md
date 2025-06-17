@@ -28,10 +28,14 @@ This specification aims to be:
 
 ### Changes across various Forks
 
-Some contributions may require changes across multiple forks organized under `src/ethereum/*`. When making such changes, please ensure -
- - Diffs across the forks are always minimal and consist only of necessary differences. This will help with getting [cleaner diff outputs](https://ethereum.github.io/execution-specs/diffs/index.html).
+Many contributions require changes across multiple forks, organized under `src/ethereum/*`. When making such changes, please ensure that differences between the forks are minimal and consist only of necessary differences. This will help with getting cleaner [diff outputs](https://ethereum.github.io/execution-specs/diffs/index.html).
 
- - It is recommended to submit your PR in two parts. a) apply the changes on a single fork, get feedback b) subsequently, apply the changes across the other forks.
+When creating pull requests affecting multiple forks, we recommended submitting your PR in two steps:
+
+1. Apply the changes on a single fork, open a _draft_ pull request, and get feedback; then
+2. Apply the changes across the other forks, push them, and mark the pull request as ready for review.
+
+This saves you having to apply code review feedback repeatedly for each fork.
  
 ### Development
 
