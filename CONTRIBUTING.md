@@ -26,7 +26,13 @@ This specification aims to be:
 - Avoid using EIP numbers in identifiers.
 - If necessary, there is a custom dictionary `whitelist.txt`. 
 
+### Changes across various Forks
 
+Some contributions may require changes across multiple forks organized under `src/ethereum/*`. When making such changes, please ensure -
+ - Diffs across the forks are always minimal and consist only of necessary differences. This will help with getting [cleaner diff outputs](https://ethereum.github.io/execution-specs/diffs/index.html).
+
+ - It is recommended to submit your PR in two parts. a) apply the changes on a single fork, get feedback b) subsequently, apply the changes across the other forks.
+ 
 ### Development
 
 Running the tests necessary to merge into the repository requires:
