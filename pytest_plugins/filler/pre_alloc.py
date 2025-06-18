@@ -305,9 +305,9 @@ def contract_address_iterator(
     contract_address_increments: int,
 ) -> Iterator[Address]:
     """Return iterator over contract addresses with dynamic scoping."""
-    if request.config.getoption("generate_shared_pre", default=False) or request.config.getoption(
-        "use_shared_pre", default=False
-    ):
+    if request.config.getoption(
+        "generate_pre_alloc_groups", default=False
+    ) or request.config.getoption("use_pre_alloc_groups", default=False):
         # Use a starting address that is derived from the test node
         contract_start_address = sha256_from_string(request.node.nodeid)
     return iter(
@@ -325,9 +325,9 @@ def eoa_by_index(i: int) -> EOA:
 @pytest.fixture(scope="function")
 def eoa_iterator(request: pytest.FixtureRequest) -> Iterator[EOA]:
     """Return iterator over EOAs copies with dynamic scoping."""
-    if request.config.getoption("generate_shared_pre", default=False) or request.config.getoption(
-        "use_shared_pre", default=False
-    ):
+    if request.config.getoption(
+        "generate_pre_alloc_groups", default=False
+    ) or request.config.getoption("use_pre_alloc_groups", default=False):
         # Use a starting address that is derived from the test node
         eoa_start_pk = sha256_from_string(request.node.nodeid)
         return iter(

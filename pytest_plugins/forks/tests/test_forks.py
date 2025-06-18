@@ -45,7 +45,7 @@ def test_no_options_no_validity_marker(pytester):
                 fixture_format_label = fixture_format.format_name.lower()
             if (
                 not fixture_format.supports_fork(fork)
-                or "blockchain_test_engine_reorg" in fixture_format_label
+                or "blockchain_test_engine_x" in fixture_format_label
             ):
                 expected_passed -= 1
                 assert f":test_all_forks[fork_{fork}-{fixture_format_label}]" not in stdout
@@ -91,7 +91,7 @@ def test_from_london_option_no_validity_marker(pytester, fork_map, fork):
                 fixture_format_label = fixture_format.format_name.lower()
             if (
                 not fixture_format.supports_fork(fork)
-                or "blockchain_test_engine_reorg" in fixture_format_label
+                or "blockchain_test_engine_x" in fixture_format_label
             ):
                 expected_passed -= 1
                 assert f":test_all_forks[fork_{fork}-{fixture_format_label}]" not in stdout
@@ -137,7 +137,7 @@ def test_from_london_until_shanghai_option_no_validity_marker(pytester, fork_map
                 fixture_format_label = fixture_format.format_name.lower()
             if (
                 not fixture_format.supports_fork(fork)
-                or "blockchain_test_engine_reorg" in fixture_format_label
+                or "blockchain_test_engine_x" in fixture_format_label
             ):
                 expected_passed -= 1
                 assert f":test_all_forks[fork_{fork}-{fixture_format_label}]" not in stdout
@@ -178,7 +178,7 @@ def test_from_merge_until_merge_option_no_validity_marker(pytester, fork_map):
                 fixture_format = fixture_format.format
             else:
                 fixture_format_label = fixture_format.format_name.lower()
-            if "blockchain_test_engine_reorg" in fixture_format_label:
+            if "blockchain_test_engine_x" in fixture_format_label:
                 expected_passed -= 1
                 assert f":test_all_forks[fork_{fork}-{fixture_format_label}]" not in stdout
                 continue

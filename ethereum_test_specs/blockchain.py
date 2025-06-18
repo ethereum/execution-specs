@@ -28,7 +28,7 @@ from ethereum_test_execution import (
 from ethereum_test_fixtures import (
     BaseFixture,
     BlockchainEngineFixture,
-    BlockchainEngineReorgFixture,
+    BlockchainEngineXFixture,
     BlockchainFixture,
     FixtureFormat,
     LabeledFixtureFormat,
@@ -308,7 +308,7 @@ class BlockchainTest(BaseTest):
     supported_fixture_formats: ClassVar[Sequence[FixtureFormat | LabeledFixtureFormat]] = [
         BlockchainFixture,
         BlockchainEngineFixture,
-        BlockchainEngineReorgFixture,
+        BlockchainEngineXFixture,
     ]
     supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = [
         LabeledExecuteFormat(
@@ -630,7 +630,7 @@ class BlockchainTest(BaseTest):
         t8n: TransitionTool,
         fork: Fork,
         fixture_format: FixtureFormat = BlockchainEngineFixture,
-    ) -> BlockchainEngineFixture | BlockchainEngineReorgFixture:
+    ) -> BlockchainEngineFixture | BlockchainEngineXFixture:
         """Create a hive fixture from the blocktest definition."""
         fixture_payloads: List[FixtureEngineNewPayload] = []
 
@@ -722,8 +722,8 @@ class BlockchainTest(BaseTest):
         }
 
         # Add format-specific fields
-        if fixture_format == BlockchainEngineReorgFixture:
-            # For reorg format, exclude pre (will be provided via shared state)
+        if fixture_format == BlockchainEngineXFixture:
+            # For Engine X format, exclude pre (will be provided via shared state)
             # and prepare for state diff optimization
             fixture_data.update(
                 {
@@ -733,7 +733,7 @@ class BlockchainTest(BaseTest):
                     "pre_hash": "",  # Will be set by BaseTestWrapper
                 }
             )
-            return BlockchainEngineReorgFixture(**fixture_data)
+            return BlockchainEngineXFixture(**fixture_data)
         else:
             # Standard engine fixture
             fixture_data.update(
@@ -747,7 +747,7 @@ class BlockchainTest(BaseTest):
             return BlockchainEngineFixture(**fixture_data)
 
     def get_genesis_environment(self, fork: Fork) -> Environment:
-        """Get the genesis environment for shared pre-allocation."""
+        """Get the genesis environment for pre-allocation groups."""
         return self.genesis_environment
 
     def generate(
@@ -760,7 +760,7 @@ class BlockchainTest(BaseTest):
         t8n.reset_traces()
         if fixture_format == BlockchainEngineFixture:
             return self.make_hive_fixture(t8n, fork, fixture_format)
-        elif fixture_format == BlockchainEngineReorgFixture:
+        elif fixture_format == BlockchainEngineXFixture:
             return self.make_hive_fixture(t8n, fork, fixture_format)
         elif fixture_format == BlockchainFixture:
             return self.make_fixture(t8n, fork)

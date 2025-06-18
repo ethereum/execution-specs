@@ -4,14 +4,14 @@ from .base import BaseFixture, FixtureFormat, LabeledFixtureFormat
 from .blockchain import (
     BlockchainEngineFixture,
     BlockchainEngineFixtureCommon,
-    BlockchainEngineReorgFixture,
+    BlockchainEngineXFixture,
     BlockchainFixture,
     BlockchainFixtureCommon,
 )
 from .collector import FixtureCollector, TestInfo
 from .consume import FixtureConsumer
 from .eof import EOFFixture
-from .shared_alloc import SharedPreState, SharedPreStateGroup
+from .pre_alloc_groups import PreAllocGroup, PreAllocGroups
 from .state import StateFixture
 from .transaction import TransactionFixture
 
@@ -19,7 +19,7 @@ __all__ = [
     "BaseFixture",
     "BlockchainEngineFixture",
     "BlockchainEngineFixtureCommon",
-    "BlockchainEngineReorgFixture",
+    "BlockchainEngineXFixture",
     "BlockchainFixture",
     "BlockchainFixtureCommon",
     "EOFFixture",
@@ -27,8 +27,8 @@ __all__ = [
     "FixtureConsumer",
     "FixtureFormat",
     "LabeledFixtureFormat",
-    "SharedPreState",
-    "SharedPreStateGroup",
+    "PreAllocGroups",
+    "PreAllocGroup",
     "StateFixture",
     "TestInfo",
     "TransactionFixture",

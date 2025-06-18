@@ -1,4 +1,4 @@
-"""Shared pre-allocation models for test fixture generation."""
+"""Pre-allocation group models for test fixture generation."""
 
 from pathlib import Path
 from typing import Any, Dict, List
@@ -13,12 +13,12 @@ from ethereum_test_types import Alloc, Environment
 from .blockchain import FixtureHeader
 
 
-class SharedPreStateGroup(CamelModel):
+class PreAllocGroup(CamelModel):
     """
-    Shared pre-state group for tests with identical Environment and fork values.
+    Pre-allocation group for tests with identical Environment and fork values.
 
     Groups tests by a hash of their fixture Environment and fork to enable
-    shared pre-allocation optimization.
+    pre-allocation group optimization.
     """
 
     model_config = {"populate_by_name": True}  # Allow both field names and aliases
@@ -49,45 +49,43 @@ class SharedPreStateGroup(CamelModel):
         )
 
     def to_file(self, file: Path) -> None:
-        """Save SharedPreStateGroup to a file."""
+        """Save PreAllocGroup to a file."""
         lock_file_path = file.with_suffix(".lock")
         with FileLock(lock_file_path):
             if file.exists():
                 with open(file, "r") as f:
-                    previous_shared_pre_state_group = SharedPreStateGroup.model_validate_json(
-                        f.read()
-                    )
-                    for account in previous_shared_pre_state_group.pre:
+                    previous_pre_alloc_group = PreAllocGroup.model_validate_json(f.read())
+                    for account in previous_pre_alloc_group.pre:
                         if account not in self.pre:
-                            self.pre[account] = previous_shared_pre_state_group.pre[account]
-                    self.pre_account_count += previous_shared_pre_state_group.pre_account_count
-                    self.test_count += previous_shared_pre_state_group.test_count
-                    self.test_ids.extend(previous_shared_pre_state_group.test_ids)
+                            self.pre[account] = previous_pre_alloc_group.pre[account]
+                    self.pre_account_count += previous_pre_alloc_group.pre_account_count
+                    self.test_count += previous_pre_alloc_group.test_count
+                    self.test_ids.extend(previous_pre_alloc_group.test_ids)
 
             with open(file, "w") as f:
                 f.write(self.model_dump_json(by_alias=True, exclude_none=True, indent=2))
 
 
-class SharedPreState(EthereumTestRootModel):
-    """Root model mapping pre-state hashes to test groups."""
+class PreAllocGroups(EthereumTestRootModel):
+    """Root model mapping pre-allocation group hashes to test groups."""
 
-    root: Dict[str, SharedPreStateGroup]
+    root: Dict[str, PreAllocGroup]
 
     def __setitem__(self, key: str, value: Any):
         """Set item in root dict."""
         self.root[key] = value
 
     @classmethod
-    def from_folder(cls, folder: Path) -> "SharedPreState":
-        """Create SharedPreState from a folder of pre-allocation files."""
+    def from_folder(cls, folder: Path) -> "PreAllocGroups":
+        """Create PreAllocGroups from a folder of pre-allocation files."""
         data = {}
         for file in folder.glob("*.json"):
             with open(file) as f:
-                data[file.stem] = SharedPreStateGroup.model_validate_json(f.read())
+                data[file.stem] = PreAllocGroup.model_validate_json(f.read())
         return cls(root=data)
 
     def to_folder(self, folder: Path) -> None:
-        """Save SharedPreState to a folder of pre-allocation files."""
+        """Save PreAllocGroups to a folder of pre-allocation files."""
         for key, value in self.root.items():
             value.to_file(folder / f"{key}.json")
 

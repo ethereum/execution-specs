@@ -36,7 +36,7 @@ def test_pre_alloc_group_separate():
 
     # Create test without marker
     test1 = MockTest(pre=pre, genesis_environment=env)
-    hash1 = test1.compute_shared_pre_alloc_hash(fork)
+    hash1 = test1.compute_pre_alloc_group_hash(fork)
 
     # Create test with "separate" marker
     mock_request = Mock()
@@ -47,14 +47,14 @@ def test_pre_alloc_group_separate():
     mock_request.node.get_closest_marker = Mock(return_value=mock_marker)
 
     test2 = MockTest(pre=pre, genesis_environment=env, request=mock_request)
-    hash2 = test2.compute_shared_pre_alloc_hash(fork)
+    hash2 = test2.compute_pre_alloc_group_hash(fork)
 
     # Hashes should be different due to "separate" marker
     assert hash1 != hash2
 
     # Create another test without marker - should match first test
     test3 = MockTest(pre=pre, genesis_environment=env)
-    hash3 = test3.compute_shared_pre_alloc_hash(fork)
+    hash3 = test3.compute_pre_alloc_group_hash(fork)
 
     assert hash1 == hash3
 
@@ -74,7 +74,7 @@ def test_pre_alloc_group_custom_salt():
     mock_request1.node.get_closest_marker = Mock(return_value=mock_marker1)
 
     test1 = MockTest(pre=pre, genesis_environment=env, request=mock_request1)
-    hash1 = test1.compute_shared_pre_alloc_hash(fork)
+    hash1 = test1.compute_pre_alloc_group_hash(fork)
 
     # Create another test with same custom group "eip1234"
     mock_request2 = Mock()
@@ -85,7 +85,7 @@ def test_pre_alloc_group_custom_salt():
     mock_request2.node.get_closest_marker = Mock(return_value=mock_marker2)
 
     test2 = MockTest(pre=pre, genesis_environment=env, request=mock_request2)
-    hash2 = test2.compute_shared_pre_alloc_hash(fork)
+    hash2 = test2.compute_pre_alloc_group_hash(fork)
 
     # Hashes should be the same - both in "eip1234" group
     assert hash1 == hash2
@@ -99,7 +99,7 @@ def test_pre_alloc_group_custom_salt():
     mock_request3.node.get_closest_marker = Mock(return_value=mock_marker3)
 
     test3 = MockTest(pre=pre, genesis_environment=env, request=mock_request3)
-    hash3 = test3.compute_shared_pre_alloc_hash(fork)
+    hash3 = test3.compute_pre_alloc_group_hash(fork)
 
     # Hash should be different - different custom group
     assert hash1 != hash3
@@ -121,7 +121,7 @@ def test_pre_alloc_group_separate_different_nodeids():
     mock_request1.node.get_closest_marker = Mock(return_value=mock_marker1)
 
     test1 = MockTest(pre=pre, genesis_environment=env, request=mock_request1)
-    hash1 = test1.compute_shared_pre_alloc_hash(fork)
+    hash1 = test1.compute_pre_alloc_group_hash(fork)
 
     # Create test with "separate" and nodeid2
     mock_request2 = Mock()
@@ -132,7 +132,7 @@ def test_pre_alloc_group_separate_different_nodeids():
     mock_request2.node.get_closest_marker = Mock(return_value=mock_marker2)
 
     test2 = MockTest(pre=pre, genesis_environment=env, request=mock_request2)
-    hash2 = test2.compute_shared_pre_alloc_hash(fork)
+    hash2 = test2.compute_pre_alloc_group_hash(fork)
 
     # Hashes should be different due to different nodeids
     assert hash1 != hash2
@@ -151,11 +151,11 @@ def test_no_pre_alloc_group_marker():
     mock_request.node.get_closest_marker = Mock(return_value=None)  # No marker
 
     test1 = MockTest(pre=pre, genesis_environment=env, request=mock_request)
-    hash1 = test1.compute_shared_pre_alloc_hash(fork)
+    hash1 = test1.compute_pre_alloc_group_hash(fork)
 
     # Create test without any request
     test2 = MockTest(pre=pre, genesis_environment=env)
-    hash2 = test2.compute_shared_pre_alloc_hash(fork)
+    hash2 = test2.compute_pre_alloc_group_hash(fork)
 
     # Hashes should be the same - both have no marker
     assert hash1 == hash2
@@ -177,7 +177,7 @@ def test_pre_alloc_group_with_reason():
     mock_request1.node.get_closest_marker = Mock(return_value=mock_marker1)
 
     test1 = MockTest(pre=pre, genesis_environment=env, request=mock_request1)
-    hash1 = test1.compute_shared_pre_alloc_hash(fork)
+    hash1 = test1.compute_pre_alloc_group_hash(fork)
 
     # Create another test with same group but different reason
     mock_request2 = Mock()
@@ -189,7 +189,7 @@ def test_pre_alloc_group_with_reason():
     mock_request2.node.get_closest_marker = Mock(return_value=mock_marker2)
 
     test2 = MockTest(pre=pre, genesis_environment=env, request=mock_request2)
-    hash2 = test2.compute_shared_pre_alloc_hash(fork)
+    hash2 = test2.compute_pre_alloc_group_hash(fork)
 
     # Hashes should be the same - reason doesn't affect grouping
     assert hash1 == hash2

@@ -21,7 +21,7 @@ from ethereum_test_base_types import Alloc, to_json
 from ethereum_test_fixtures import BlockchainFixtureCommon
 from ethereum_test_fixtures.blockchain import FixtureHeader
 from ethereum_test_fixtures.file import Fixtures
-from ethereum_test_fixtures.shared_alloc import SharedPreStateGroup
+from ethereum_test_fixtures.pre_alloc_groups import PreAllocGroup
 from ethereum_test_forks import Fork
 from pytest_plugins.consume.hive_simulators.ruleset import ruleset
 
@@ -111,9 +111,9 @@ def create_genesis_from_fixture(fixture_path: Path) -> Tuple[FixtureHeader, Allo
         alloc = fixture.pre
         chain_id = int(fixture.config.chain_id)
     else:
-        shared_alloc = SharedPreStateGroup.model_validate(fixture_json)
-        genesis = shared_alloc.genesis  # type: ignore
-        alloc = shared_alloc.pre
+        pre_alloc_group = PreAllocGroup.model_validate(fixture_json)
+        genesis = pre_alloc_group.genesis  # type: ignore
+        alloc = pre_alloc_group.pre
 
     return genesis, alloc, chain_id
 

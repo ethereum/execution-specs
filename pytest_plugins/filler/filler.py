@@ -26,12 +26,12 @@ from ethereum_clis.clis.geth import FixtureConsumerTool
 from ethereum_test_base_types import Account, Address, Alloc, ReferenceSpec
 from ethereum_test_fixtures import (
     BaseFixture,
-    BlockchainEngineReorgFixture,
+    BlockchainEngineXFixture,
     FixtureCollector,
     FixtureConsumer,
     LabeledFixtureFormat,
-    SharedPreState,
-    SharedPreStateGroup,
+    PreAllocGroup,
+    PreAllocGroups,
     TestInfo,
 )
 from ethereum_test_forks import Fork, get_transition_fork_predecessor, get_transition_forks
@@ -55,9 +55,9 @@ def calculate_post_state_diff(post_state: Alloc, genesis_state: Alloc) -> Alloc:
     """
     Calculate the state difference between post_state and genesis_state.
 
-    This function enables significant space savings in reorg fixtures by storing
+    This function enables significant space savings in Engine X fixtures by storing
     only the accounts that changed during test execution, rather than the full
-    post-state which may contain thousands of unchanged shared accounts.
+    post-state which may contain thousands of unchanged accounts.
 
     Returns an Alloc containing only the accounts that:
     - Changed between genesis and post state (balance, nonce, storage, code)
@@ -66,7 +66,7 @@ def calculate_post_state_diff(post_state: Alloc, genesis_state: Alloc) -> Alloc:
 
     Args:
         post_state: Final state after test execution
-        genesis_state: Shared genesis pre-allocation state
+        genesis_state: Genesis pre-allocation state
 
     Returns:
         Alloc containing only the state differences for efficient storage
@@ -242,18 +242,18 @@ def pytest_addoption(parser: pytest.Parser):
         ),
     )
     test_group.addoption(
-        "--generate-shared-pre",
+        "--generate-pre-alloc-groups",
         action="store_true",
-        dest="generate_shared_pre",
+        dest="generate_pre_alloc_groups",
         default=False,
-        help="Generate shared pre-allocation state (phase 1 only).",
+        help="Generate pre-allocation groups (phase 1 only).",
     )
     test_group.addoption(
-        "--use-shared-pre",
+        "--use-pre-alloc-groups",
         action="store_true",
-        dest="use_shared_pre",
+        dest="use_pre_alloc_groups",
         default=False,
-        help="Fill tests using an existing shared pre-allocation state (phase 2 only).",
+        help="Fill tests using existing pre-allocation groups (phase 2 only).",
     )
 
     debug_group = parser.getgroup("debug", "Arguments defining debug behavior")
@@ -282,22 +282,24 @@ def pytest_sessionstart(session: pytest.Session):
     """
     Initialize session-level state.
 
-    Either initialize an empty shared pre-state container for phase 1 or
-    load the shared pre-allocation state for phase 2 execution.
+    Either initialize an empty pre-allocation groups container for phase 1 or
+    load the pre-allocation groups for phase 2 execution.
     """
-    # Initialize empty shared pre-state container for phase 1
-    if session.config.getoption("generate_shared_pre"):
-        session.config.shared_pre_state = SharedPreState(root={})  # type: ignore[attr-defined]
+    # Initialize empty pre-allocation groups container for phase 1
+    if session.config.getoption("generate_pre_alloc_groups"):
+        session.config.pre_alloc_groups = PreAllocGroups(root={})  # type: ignore[attr-defined]
 
-    # Load the pre-state for phase 2
-    if session.config.getoption("use_shared_pre"):
-        shared_pre_alloc_folder = session.config.fixture_output.shared_pre_alloc_folder_path  # type: ignore[attr-defined]
-        if shared_pre_alloc_folder.exists():
-            session.config.shared_pre_state = SharedPreState.from_folder(shared_pre_alloc_folder)  # type: ignore[attr-defined]
+    # Load the pre-allocation groups for phase 2
+    if session.config.getoption("use_pre_alloc_groups"):
+        pre_alloc_groups_folder = session.config.fixture_output.pre_alloc_groups_folder_path  # type: ignore[attr-defined]
+        if pre_alloc_groups_folder.exists():
+            session.config.pre_alloc_groups = PreAllocGroups.from_folder(  # type: ignore[attr-defined]
+                pre_alloc_groups_folder
+            )
         else:
             pytest.exit(
-                f"Shared pre-alloc file not found: {shared_pre_alloc_folder}. "
-                "Run phase 1 with --generate-shared-alloc first.",
+                f"Pre-allocation groups folder not found: {pre_alloc_groups_folder}. "
+                "Run phase 1 with --generate-pre-alloc-groups first.",
                 returncode=pytest.ExitCode.USAGE_ERROR,
             )
 
@@ -337,7 +339,7 @@ def pytest_configure(config):
     if (
         not config.getoption("disable_html")
         and config.getoption("htmlpath") is None
-        and not config.getoption("generate_shared_pre")
+        and not config.getoption("generate_pre_alloc_groups")
     ):
         config.option.htmlpath = config.fixture_output.directory / default_html_report_file_path()
 
@@ -413,27 +415,27 @@ def pytest_terminal_summary(
         return
     stats = terminalreporter.stats
     if "passed" in stats and stats["passed"]:
-        # Custom message for Phase 1 (shared pre-allocation generation)
-        if config.getoption("generate_shared_pre"):
+        # Custom message for Phase 1 (pre-allocation group generation)
+        if config.getoption("generate_pre_alloc_groups"):
             # Generate summary stats
-            shared_pre_state: SharedPreState
+            pre_alloc_groups: PreAllocGroups
             if config.pluginmanager.hasplugin("xdist"):
-                # Load shared pre-state from disk
-                shared_pre_state = SharedPreState.from_folder(
-                    config.fixture_output.shared_pre_alloc_folder_path  # type: ignore[attr-defined]
+                # Load pre-allocation groups from disk
+                pre_alloc_groups = PreAllocGroups.from_folder(
+                    config.fixture_output.pre_alloc_groups_folder_path  # type: ignore[attr-defined]
                 )
             else:
-                assert hasattr(config, "shared_pre_state")
-                shared_pre_state = config.shared_pre_state  # type: ignore[attr-defined]
+                assert hasattr(config, "pre_alloc_groups")
+                pre_alloc_groups = config.pre_alloc_groups  # type: ignore[attr-defined]
 
-            total_groups = len(shared_pre_state.root)
+            total_groups = len(pre_alloc_groups.root)
             total_accounts = sum(
-                group.pre_account_count for group in shared_pre_state.root.values()
+                group.pre_account_count for group in pre_alloc_groups.root.values()
             )
 
             terminalreporter.write_sep(
                 "=",
-                f" Phase 1 Complete: Generated {total_groups} shared pre-allocation groups "
+                f" Phase 1 Complete: Generated {total_groups} pre-allocation groups "
                 f"({total_accounts} total accounts) ",
                 bold=True,
                 green=True,
@@ -877,32 +879,34 @@ def base_test_parametrizer(cls: Type[BaseTest]):
                 super(BaseTestWrapper, self).__init__(*args, **kwargs)
                 self._request = request
 
-                # Phase 1: Generate shared pre-state
-                if fixture_format is BlockchainEngineReorgFixture and request.config.getoption(
-                    "generate_shared_pre"
+                # Phase 1: Generate pre-allocation groups
+                if fixture_format is BlockchainEngineXFixture and request.config.getoption(
+                    "generate_pre_alloc_groups"
                 ):
-                    self.update_shared_pre_state(
-                        request.config.shared_pre_state, fork, request.node.nodeid
+                    self.update_pre_alloc_groups(
+                        request.config.pre_alloc_groups, fork, request.node.nodeid
                     )
                     return  # Skip fixture generation in phase 1
 
-                # Phase 2: Use shared pre-state (only for BlockchainEngineReorgFixture)
+                # Phase 2: Use pre-allocation groups (only for BlockchainEngineXFixture)
                 pre_alloc_hash = None
-                if fixture_format is BlockchainEngineReorgFixture and request.config.getoption(
-                    "use_shared_pre"
+                if fixture_format is BlockchainEngineXFixture and request.config.getoption(
+                    "use_pre_alloc_groups"
                 ):
-                    pre_alloc_hash = self.compute_shared_pre_alloc_hash(fork=fork)
-                    if pre_alloc_hash not in request.config.shared_pre_state:
+                    pre_alloc_hash = self.compute_pre_alloc_group_hash(fork=fork)
+                    if pre_alloc_hash not in request.config.pre_alloc_groups:
                         pre_alloc_path = (
-                            request.config.fixture_output.shared_pre_alloc_folder_path
+                            request.config.fixture_output.pre_alloc_groups_folder_path
                             / pre_alloc_hash
                         )
                         raise ValueError(
-                            f"Pre-allocation hash {pre_alloc_hash} not found in shared pre-state. "
-                            f"Please check the shared pre-state file at: {pre_alloc_path}. "
-                            "Make sure phase 1 (--generate-shared-pre) was run before phase 2."
+                            f"Pre-allocation hash {pre_alloc_hash} not found in "
+                            f"pre-allocation groups. "
+                            f"Please check the pre-allocation groups file at: {pre_alloc_path}. "
+                            "Make sure phase 1 (--generate-pre-alloc-groups) was run "
+                            "before phase 2."
                         )
-                    group: SharedPreStateGroup = request.config.shared_pre_state[pre_alloc_hash]
+                    group: PreAllocGroup = request.config.pre_alloc_groups[pre_alloc_hash]
                     self.pre = group.pre
 
                 fixture = self.generate(
@@ -911,17 +915,17 @@ def base_test_parametrizer(cls: Type[BaseTest]):
                     fixture_format=fixture_format,
                 )
 
-                # Post-process for reorg format (add pre_hash and state diff)
+                # Post-process for Engine X format (add pre_hash and state diff)
                 if (
-                    fixture_format is BlockchainEngineReorgFixture
-                    and request.config.getoption("use_shared_pre")
+                    fixture_format is BlockchainEngineXFixture
+                    and request.config.getoption("use_pre_alloc_groups")
                     and pre_alloc_hash is not None
                 ):
                     fixture.pre_hash = pre_alloc_hash
 
                     # Calculate state diff for efficiency
                     if hasattr(fixture, "post_state") and fixture.post_state is not None:
-                        group = request.config.shared_pre_state[pre_alloc_hash]
+                        group = request.config.pre_alloc_groups[pre_alloc_hash]
                         fixture.post_state_diff = calculate_post_state_diff(
                             fixture.post_state, group.pre
                         )
@@ -964,32 +968,34 @@ def pytest_generate_tests(metafunc: pytest.Metafunc):
     """
     for test_type in BaseTest.spec_types.values():
         if test_type.pytest_parameter_name() in metafunc.fixturenames:
-            generate_shared_pre = metafunc.config.getoption("generate_shared_pre", False)
-            use_shared_pre = metafunc.config.getoption("use_shared_pre", False)
+            generate_pre_alloc_groups = metafunc.config.getoption(
+                "generate_pre_alloc_groups", False
+            )
+            use_pre_alloc_groups = metafunc.config.getoption("use_pre_alloc_groups", False)
 
-            if generate_shared_pre or use_shared_pre:
-                # When shared alloc flags are set, only generate BlockchainEngineReorgFixture
+            if generate_pre_alloc_groups or use_pre_alloc_groups:
+                # When pre-allocation group flags are set, only generate BlockchainEngineXFixture
                 supported_formats = [
                     format_item
                     for format_item in test_type.supported_fixture_formats
                     if (
-                        format_item is BlockchainEngineReorgFixture
+                        format_item is BlockchainEngineXFixture
                         or (
                             isinstance(format_item, LabeledFixtureFormat)
-                            and format_item.format is BlockchainEngineReorgFixture
+                            and format_item.format is BlockchainEngineXFixture
                         )
                     )
                 ]
             else:
-                # Filter out BlockchainEngineReorgFixture if shared alloc flags not set
+                # Filter out BlockchainEngineXFixture if pre-allocation group flags not set
                 supported_formats = [
                     format_item
                     for format_item in test_type.supported_fixture_formats
                     if not (
-                        format_item is BlockchainEngineReorgFixture
+                        format_item is BlockchainEngineXFixture
                         or (
                             isinstance(format_item, LabeledFixtureFormat)
-                            and format_item.format is BlockchainEngineReorgFixture
+                            and format_item.format is BlockchainEngineXFixture
                         )
                     )
                 ]
@@ -1067,19 +1073,19 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
     """
     Perform session finish tasks.
 
-    - Save shared pre-allocation state (phase 1)
+    - Save pre-allocation groups (phase 1)
     - Remove any lock files that may have been created.
     - Generate index file for all produced fixtures.
     - Create tarball of the output directory if the output is a tarball.
     """
-    # Save shared pre-state after phase 1
+    # Save pre-allocation groups after phase 1
     fixture_output = session.config.fixture_output  # type: ignore[attr-defined]
-    if session.config.getoption("generate_shared_pre") and hasattr(
-        session.config, "shared_pre_state"
+    if session.config.getoption("generate_pre_alloc_groups") and hasattr(
+        session.config, "pre_alloc_groups"
     ):
-        shared_pre_alloc_folder = fixture_output.shared_pre_alloc_folder_path
-        shared_pre_alloc_folder.mkdir(parents=True, exist_ok=True)
-        session.config.shared_pre_state.to_folder(shared_pre_alloc_folder)
+        pre_alloc_groups_folder = fixture_output.pre_alloc_groups_folder_path
+        pre_alloc_groups_folder.mkdir(parents=True, exist_ok=True)
+        session.config.pre_alloc_groups.to_folder(pre_alloc_groups_folder)
         return
 
     if xdist.is_xdist_worker(session):
@@ -1094,7 +1100,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
 
     # Generate index file for all produced fixtures.
     if session.config.getoption("generate_index") and not session.config.getoption(
-        "generate_shared_pre"
+        "generate_pre_alloc_groups"
     ):
         generate_fixtures_index(
             fixture_output.directory, quiet_mode=True, force_flag=False, disable_infer_format=False

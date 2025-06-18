@@ -17,8 +17,8 @@ from ethereum_test_fixtures import (
     BaseFixture,
     FixtureFormat,
     LabeledFixtureFormat,
-    SharedPreState,
-    SharedPreStateGroup,
+    PreAllocGroup,
+    PreAllocGroups,
 )
 from ethereum_test_forks import Fork
 from ethereum_test_types import Alloc, Environment, Withdrawal
@@ -209,29 +209,29 @@ class BaseTest(BaseModel):
 
     def get_genesis_environment(self, fork: Fork) -> Environment:
         """
-        Get the genesis environment for shared pre-allocation.
+        Get the genesis environment for pre-allocation groups.
 
         Must be implemented by subclasses to provide the appropriate environment.
         """
         raise NotImplementedError(
-            f"{self.__class__.__name__} must implement genesis environment access for shared "
-            "pre-allocation"
+            f"{self.__class__.__name__} must implement genesis environment access for use with "
+            "pre-allocation groups."
         )
 
-    def update_shared_pre_state(
-        self, shared_pre_state: SharedPreState, fork: Fork, test_id: str
-    ) -> SharedPreState:
-        """Create or update the shared pre-state group with the pre from the current spec."""
+    def update_pre_alloc_groups(
+        self, pre_alloc_groups: PreAllocGroups, fork: Fork, test_id: str
+    ) -> PreAllocGroups:
+        """Create or update the pre-allocation group with the pre from the current spec."""
         if not hasattr(self, "pre"):
             raise AttributeError(
-                f"{self.__class__.__name__} does not have a 'pre' field. Shared pre-allocation "
-                "is only supported for test types that define pre-allocation."
+                f"{self.__class__.__name__} does not have a 'pre' field. Pre-allocation groups "
+                "are only supported for test types that define pre-allocation."
             )
-        pre_alloc_hash = self.compute_shared_pre_alloc_hash(fork=fork)
+        pre_alloc_hash = self.compute_pre_alloc_group_hash(fork=fork)
 
-        if pre_alloc_hash in shared_pre_state:
+        if pre_alloc_hash in pre_alloc_groups:
             # Update existing group - just merge pre-allocations
-            group = shared_pre_state[pre_alloc_hash]
+            group = pre_alloc_groups[pre_alloc_hash]
             group.pre = Alloc.merge(
                 group.pre,
                 self.pre,
@@ -241,10 +241,10 @@ class BaseTest(BaseModel):
             group.test_ids.append(str(test_id))
             group.test_count = len(group.test_ids)
             group.pre_account_count = len(group.pre.root)
-            shared_pre_state[pre_alloc_hash] = group
+            pre_alloc_groups[pre_alloc_hash] = group
         else:
             # Create new group - use Environment instead of expensive genesis generation
-            group = SharedPreStateGroup(
+            group = PreAllocGroup(
                 test_count=1,
                 pre_account_count=len(self.pre.root),
                 test_ids=[str(test_id)],
@@ -252,15 +252,15 @@ class BaseTest(BaseModel):
                 environment=self.get_genesis_environment(fork),
                 pre=self.pre,
             )
-            shared_pre_state[pre_alloc_hash] = group
-        return shared_pre_state
+            pre_alloc_groups[pre_alloc_hash] = group
+        return pre_alloc_groups
 
-    def compute_shared_pre_alloc_hash(self, fork: Fork) -> str:
-        """Hash (fork, env) in order to group tests by shared genesis config."""
+    def compute_pre_alloc_group_hash(self, fork: Fork) -> str:
+        """Hash (fork, env) in order to group tests by genesis config."""
         if not hasattr(self, "pre"):
             raise AttributeError(
-                f"{self.__class__.__name__} does not have a 'pre' field. Shared pre-allocation "
-                "is only supported for test types that define pre-allocation."
+                f"{self.__class__.__name__} does not have a 'pre' field. Pre-allocation group "
+                "usage is only supported for test types that define pre-allocs."
             )
         fork_digest = hashlib.sha256(fork.name().encode("utf-8")).digest()
         fork_hash = int.from_bytes(fork_digest[:8], byteorder="big")

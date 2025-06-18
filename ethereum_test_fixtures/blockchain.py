@@ -64,7 +64,7 @@ def post_state_validator(alternate_field: str | None = None, mode: str = "after"
             if mode == "after":
                 # Determine which fields to check
                 if alternate_field:
-                    # For reorg fixtures: check post_state vs post_state_diff
+                    # For engine x fixtures: check post_state vs post_state_diff
                     field1_name, field2_name = "post_state", alternate_field
                 else:
                     # For standard fixtures: check post_state vs post_state_hash
@@ -523,7 +523,7 @@ class BlockchainEngineFixtureCommon(BaseFixture):
     Base blockchain test fixture model for Engine API based execution.
 
     Similar to BlockchainFixtureCommon but excludes the 'pre' field to avoid
-    duplicating large pre-allocations when using shared genesis approaches.
+    duplicating large pre-allocations.
     """
 
     fork: Fork = Field(..., alias="network")
@@ -560,22 +560,19 @@ class BlockchainEngineFixture(BlockchainEngineFixtureCommon):
 
 
 @post_state_validator(alternate_field="post_state_diff")
-class BlockchainEngineReorgFixture(BlockchainEngineFixtureCommon):
+class BlockchainEngineXFixture(BlockchainEngineFixtureCommon):
     """
-    Engine reorg specific test fixture information.
+    Engine X specific test fixture information.
 
-    Uses shared pre-allocations and blockchain reorganization for efficient
+    Uses pre-allocation groups (and a single client instance) for efficient
     test execution without client restarts.
     """
 
-    format_name: ClassVar[str] = "blockchain_test_engine_reorg"
-    description: ClassVar[str] = (
-        "Tests that generate a blockchain test fixture for use with a shared pre-state and engine "
-        "reorg execution."
-    )
+    format_name: ClassVar[str] = "blockchain_test_engine_x"
+    description: ClassVar[str] = "Tests that generate a Blockchain Test Engine X fixture."
 
     pre_hash: str
-    """Hash of the shared pre-allocation group this test belongs to."""
+    """Hash of the pre-allocation group this test belongs to."""
 
     post_state_diff: Alloc | None = None
     """State difference from genesis after test execution (efficiency optimization)."""
