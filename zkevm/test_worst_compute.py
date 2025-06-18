@@ -41,7 +41,6 @@ from tests.prague.eip2537_bls_12_381_precompiles.spec import BytesConcatenation
 REFERENCE_SPEC_GIT_PATH = "TODO"
 REFERENCE_SPEC_VERSION = "TODO"
 
-MAX_STACK_HEIGHT = 1024
 KECCAK_RATE = 136
 
 
@@ -90,7 +89,7 @@ def test_worst_zero_param(
     """Test running a block with as many zero-parameter opcodes as possible."""
     env = Environment()
 
-    opcode_sequence = opcode * MAX_STACK_HEIGHT
+    opcode_sequence = opcode * fork.max_stack_height()
     target_contract_address = pre.deploy_contract(code=opcode_sequence)
 
     calldata = Bytecode()
