@@ -114,7 +114,7 @@ class Header:
     [`calculate_block_difficulty()`] function.
 
     [`calculate_block_difficulty()`]:
-    ref:ethereum.arrow_glacier.fork_types.calculate_block_difficulty
+    ref:ethereum.arrow_glacier.fork.calculate_block_difficulty
     """
 
     number: Uint
