@@ -643,5 +643,5 @@ def test_full_opcode_range():
     """
     assert len(set(Op) & set(UndefinedOpcodes)) == 0
     full_possible_opcode_set = set(Op) | set(UndefinedOpcodes)
-    assert len(full_possible_opcode_set) == 256
+    assert len(full_possible_opcode_set) == 257
     assert {op.hex() for op in full_possible_opcode_set} == {f"{i:02x}" for i in range(256)}

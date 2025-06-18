@@ -1171,6 +1171,34 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#1D](https://www.evm.codes/#1D)
     """
 
+    CLZ = Opcode(0x1E, popped_stack_items=1, pushed_stack_items=1)
+    """
+    CLZ(value) = count_leading_zeros(value)
+    ----
+
+    Description
+    ----
+    Counts leading zeros (bitwise).
+
+    Inputs
+    ----
+    - value: integer to count zeros on
+
+    Outputs
+    ----
+    - zeros: leading zero bits
+
+    Fork
+    ----
+    Osaka
+
+    Gas
+    ----
+    3
+
+    Source: [evm.codes/#1E](https://www.evm.codes/#1E)
+    """
+
     SHA3 = Opcode(0x20, popped_stack_items=2, pushed_stack_items=1, kwargs=["offset", "size"])
     """
     SHA3(offset, size) = hash
