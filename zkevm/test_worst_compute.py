@@ -30,6 +30,7 @@ from ethereum_test_tools import (
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 from ethereum_test_types import TransactionType
 from ethereum_test_vm.opcode import Opcode
+from tests.byzantium.eip198_modexp_precompile.test_modexp import ModExpInput
 from tests.cancun.eip4844_blobs.spec import Spec as BlobsSpec
 from tests.istanbul.eip152_blake2.common import Blake2bInput
 from tests.istanbul.eip152_blake2.spec import Spec as Blake2bSpec
@@ -494,40 +495,109 @@ def test_worst_precompile_only_data_input(
 
 
 @pytest.mark.valid_from("Cancun")
-def test_worst_modexp(state_test: StateTestFiller, pre: Alloc, fork: Fork):
-    """Test running a block with as many MODEXP calls as possible."""
-    env = Environment()
+@pytest.mark.parametrize(
+    ["mod_exp_input"],
+    [
+        pytest.param(
+            ModExpInput(
+                base=8 * "ff",
+                exponent=112 * "ff",
+                modulus=7 * "ff" + "00",
+            ),
+            id="mod_even_8b_exp_896",
+        ),
+        pytest.param(
+            ModExpInput(
+                base=16 * "ff",
+                exponent=40 * "ff",
+                modulus=15 * "ff" + "00",
+            ),
+            id="mod_even_16b_exp_320",
+        ),
+        pytest.param(
+            ModExpInput(
+                base=24 * "ff",
+                exponent=21 * "ff",
+                modulus=23 * "ff" + "00",
+            ),
+            id="mod_even_24b_exp_168",
+        ),
+        pytest.param(
+            ModExpInput(
+                base=32 * "ff",
+                exponent=5 * "ff",
+                modulus=31 * "ff" + "00",
+            ),
+            id="mod_even_32b_exp_40",
+        ),
+        pytest.param(
+            ModExpInput(
+                base=32 * "ff",
+                exponent=12 * "ff",
+                modulus=31 * "ff" + "00",
+            ),
+            id="mod_even_32b_exp_96",
+        ),
+        pytest.param(
+            ModExpInput(
+                base=32 * "ff",
+                exponent=32 * "ff",
+                modulus=31 * "ff" + "00",
+            ),
+            id="mod_even_32b_exp_256",
+        ),
+        pytest.param(
+            ModExpInput(
+                base=32 * "ff",
+                exponent=12 * "ff",
+                modulus=31 * "ff" + "01",
+            ),
+            id="mod_odd_32b_exp_96",
+        ),
+        pytest.param(
+            ModExpInput(
+                base=32 * "ff",
+                exponent=32 * "ff",
+                modulus=31 * "ff" + "01",
+            ),
+            id="mod_odd_32b_exp_256",
+        ),
+        pytest.param(
+            ModExpInput(
+                base=32 * "ff",
+                exponent=8 * "12345670",
+                modulus=31 * "ff" + "01",
+            ),
+            id="mod_odd_32b_exp_cover_windows",
+        ),
+    ],
+)
+def test_worst_modexp(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    mod_exp_input: ModExpInput,
+):
+    """
+    Test running a block with as many calls to the MODEXP (5) precompile as possible.
+    All the calls have the same parametrized input.
+    """
+    # Skip the trailing zeros from the input to make EVM work even harder.
+    calldata = bytes(mod_exp_input).rstrip(b"\x00")
 
-    base_mod_length = 32
-    exp_length = 32
-
-    base = 2 ** (8 * base_mod_length) - 1
-    mod = 2 ** (8 * base_mod_length) - 2  # Prevents base == mod
-    exp = 2 ** (8 * exp_length) - 1
-
-    # MODEXP calldata
-    calldata = (
-        Op.MSTORE(0 * 32, base_mod_length)
-        + Op.MSTORE(1 * 32, exp_length)
-        + Op.MSTORE(2 * 32, base_mod_length)
-        + Op.MSTORE(3 * 32, base)
-        + Op.MSTORE(4 * 32, exp)
-        + Op.MSTORE(5 * 32, mod)
+    code = code_loop_precompile_call(
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),  # Copy the input to the memory.
+        Op.POP(Op.STATICCALL(Op.GAS, 0x5, Op.PUSH0, Op.CALLDATASIZE, Op.PUSH0, Op.PUSH0)),
+        fork,
     )
 
-    # EIP-2565
-    mul_complexity = math.ceil(base_mod_length / 8) ** 2
-    iter_complexity = exp.bit_length() - 1
-    gas_cost = math.floor((mul_complexity * iter_complexity) / 3)
-    attack_block = Op.POP(Op.STATICCALL(gas_cost, 0x5, 0, 32 * 6, 0, 0))
-    code = code_loop_precompile_call(calldata, attack_block, fork)
-
-    code_address = pre.deploy_contract(code=code)
+    env = Environment()
 
     tx = Transaction(
-        to=code_address,
+        to=pre.deploy_contract(code=code),
         gas_limit=env.gas_limit,
         sender=pre.fund_eoa(),
+        input=calldata,
     )
 
     state_test(
