@@ -49,8 +49,8 @@ def test_identity_precompile_returndata(
                 address=Constants.IDENTITY_PRECOMPILE_ADDRESS,
                 args_offset=0,
                 args_size=args_size,
-                output_offset=0x10,
-                output_size=output_size,
+                ret_offset=0x10,
+                ret_size=output_size,
             )
         )
         + Op.SSTORE(storage.store_next(expected_returndatasize), Op.RETURNDATASIZE)

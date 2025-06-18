@@ -44,11 +44,17 @@ def precompile_addresses(fork: Fork) -> Iterator[Tuple[Address, bool]]:
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stPreCompiledContracts/idPrecompsFiller.yml"
     ],
     pr=["https://github.com/ethereum/execution-spec-tests/pull/1120"],
+    coverage_missed_reason=(
+        "Original test saves variables to memory, loads from storage, uses calldataload to get "
+        "the precompile address to call, uses lt and gt to compare the gas differences, "
+        "sends non-zero data and value with the transaction, uses conditional jumps to save "
+        "different values to storage."
+    ),
 )
 @pytest.mark.valid_from("Berlin")
 @pytest.mark.parametrize_by_fork("address,precompile_exists", precompile_addresses)
 def test_precompiles(
-    state_test: StateTestFiller, address: str, precompile_exists: bool, pre: Alloc
+    state_test: StateTestFiller, address: Address, precompile_exists: bool, pre: Alloc
 ):
     """
     Tests the behavior of precompiled contracts in the Ethereum state test.
@@ -69,27 +75,40 @@ def test_precompiles(
     """
     env = Environment()
 
+    # Empty account to serve as reference
+    empty_account = pre.fund_eoa(amount=0)
+
+    # Memory
+    args_offset = 0
+    ret_offset = 32
+    length = 32
+
     account = pre.deploy_contract(
-        Op.MSTORE(0, 0)  # Pre-expand the memory so the gas costs are exactly the same
+        Op.MSTORE(args_offset, 0xFF)  # Pre-expand the memory and setup inputs for pre-compiles
+        + Op.MSTORE(ret_offset, 0xFF)
+        + Op.MSTORE8(args_offset, 0xFF)
+        + Op.MSTORE8(ret_offset, 0xFF)
+        + Op.POP(Op.BALANCE(empty_account))  # Warm the accounts
+        + Op.POP(Op.BALANCE(address))
         + Op.GAS
         + Op.CALL(
+            gas=50_000,
             address=address,
-            value=0,
-            args_offset=0,
-            args_size=32,
-            output_offset=32,
-            output_size=32,
+            args_offset=args_offset,
+            args_size=length,
+            ret_offset=ret_offset,
+            ret_size=length,
         )
         + Op.POP
         + Op.SUB(Op.SWAP1, Op.GAS)
         + Op.GAS
         + Op.CALL(
-            address=pre.fund_eoa(amount=0),
-            value=0,
-            args_offset=0,
-            args_size=32,
-            output_offset=32,
-            output_size=32,
+            gas=50_000,
+            address=empty_account,
+            args_offset=args_offset,
+            args_size=length,
+            ret_offset=ret_offset,
+            ret_size=length,
         )
         + Op.POP
         + Op.SUB(Op.SWAP1, Op.GAS)
@@ -109,6 +128,6 @@ def test_precompiles(
 
     # A high gas cost will result from calling a precompile
     # Expect 0x00 when a precompile exists at the address, 0x01 otherwise
-    post = {account: Account(storage={0: "0x00" if precompile_exists else "0x01"})}
+    post = {account: Account(storage={0: 0 if precompile_exists else 1})}
 
     state_test(env=env, pre=pre, post=post, tx=tx)
