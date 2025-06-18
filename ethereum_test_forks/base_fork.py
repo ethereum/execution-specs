@@ -482,6 +482,12 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def max_stack_height(cls) -> int:
+        """Return the maximum stack height allowed in the EVM stack."""
+        pass
+
+    @classmethod
+    @abstractmethod
     def max_initcode_size(cls) -> int:
         """Return the maximum initcode size allowed to be used in a contract creation."""
         pass

@@ -381,6 +381,11 @@ class Frontier(BaseFork, solc_name="homestead"):
         return 0x6000
 
     @classmethod
+    def max_stack_height(cls) -> int:
+        """At genesis, the maximum stack height is 1024."""
+        return 1024
+
+    @classmethod
     def max_initcode_size(cls) -> int:
         """At genesis, there is no upper bound for initcode size."""
         """However, the default is set to the limit of EIP-3860 (Shanghai)"""
