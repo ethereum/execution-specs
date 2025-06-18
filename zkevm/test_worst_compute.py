@@ -1706,3 +1706,54 @@ def test_worst_calldataload(
         post={},
         tx=tx,
     )
+
+
+@pytest.mark.parametrize(
+    "opcode",
+    [
+        Op.SWAP1,
+        Op.SWAP2,
+        Op.SWAP3,
+        Op.SWAP4,
+        Op.SWAP5,
+        Op.SWAP6,
+        Op.SWAP7,
+        Op.SWAP8,
+        Op.SWAP9,
+        Op.SWAP10,
+        Op.SWAP11,
+        Op.SWAP12,
+        Op.SWAP13,
+        Op.SWAP14,
+        Op.SWAP15,
+        Op.SWAP16,
+    ],
+)
+def test_worst_swap(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    opcode: Opcode,
+):
+    """Test running a block with as many SWAP as possible."""
+    env = Environment()
+    max_code_size = fork.max_code_size()
+
+    code_prefix = Op.JUMPDEST + Op.PUSH0 * opcode.min_stack_height
+    code_suffix = Op.PUSH0 + Op.JUMP
+    opcode_sequence = opcode * (max_code_size - len(code_prefix) - len(code_suffix))
+    code = code_prefix + opcode_sequence + code_suffix
+    assert len(code) <= max_code_size
+
+    tx = Transaction(
+        to=pre.deploy_contract(code=code),
+        gas_limit=env.gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post={},
+        tx=tx,
+    )
