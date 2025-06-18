@@ -27,7 +27,6 @@ from ethereum_test_tools import (
     Transaction,
     add_kzg_version,
 )
-from ethereum_test_tools.code.generators import While
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 from ethereum_test_types import TransactionType
 from ethereum_test_vm.opcode import Opcode
@@ -776,27 +775,15 @@ def code_loop_precompile_call(calldata: Bytecode, attack_block: Bytecode, fork: 
 @pytest.mark.zkevm
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.slow
-def test_worst_jumps(state_test: StateTestFiller, pre: Alloc, fork: Fork):
+def test_worst_jumps(state_test: StateTestFiller, pre: Alloc):
     """Test running a JUMP-intensive contract."""
     env = Environment()
-    max_code_size = fork.max_code_size()
 
-    def jump_seq():
-        return Op.JUMP(Op.ADD(Op.PC, 1)) + Op.JUMPDEST
-
-    bytes_per_seq = len(jump_seq())
-    seqs_per_call = max_code_size // bytes_per_seq
-
-    # Create and deploy the jump-intensive contract
-    jumps_code = sum([jump_seq() for _ in range(seqs_per_call)])
-    jumps_address = pre.deploy_contract(code=bytes(jumps_code))
-
-    # Call the contract repeatedly until gas runs out.
-    caller_code = While(body=Op.POP(Op.CALL(address=jumps_address)))
-    caller_address = pre.deploy_contract(caller_code)
+    jumps_code = Op.JUMPDEST + Op.JUMP(Op.PUSH0)
+    jumps_address = pre.deploy_contract(jumps_code)
 
     tx = Transaction(
-        to=caller_address,
+        to=jumps_address,
         gas_limit=env.gas_limit,
         sender=pre.fund_eoa(),
     )
