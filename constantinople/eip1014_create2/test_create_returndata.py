@@ -21,6 +21,7 @@ REFERENCE_SPEC_VERSION = ref_spec_1014.version
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stCreate2/call_then_create2_successful_then_returndatasizeFiller.json",
     ],
     pr=["https://github.com/ethereum/execution-spec-tests/pull/497"],
+    coverage_missed_reason="coinbase is deleted in original test (tx.gas_price==env.base_fee)",
 )
 @pytest.mark.valid_from("Istanbul")
 @pytest.mark.parametrize("call_return_size", [35, 32, 0])

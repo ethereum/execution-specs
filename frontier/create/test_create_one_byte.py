@@ -25,6 +25,10 @@ from ethereum_test_types import compute_create_address
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stCreateTest/CREATE_FirstByte_loopFiller.yml",
     ],
     pr=["https://github.com/ethereum/execution-spec-tests/pull/1615"],
+    coverage_missed_reason=(
+        "coinbase is deleted in original test (tx.gas_price==env.base_fee), "
+        "opcodes lt, iszero, jump are no longer used"
+    ),
 )
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.with_all_create_opcodes
