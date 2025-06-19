@@ -13,7 +13,29 @@ from ethereum_rlp.exceptions import RLPException
 from ethereum_types.numeric import U64
 
 from ethereum.crypto.hash import keccak256
-from ethereum.exceptions import EthereumException, StateWithEmptyAccount
+from ethereum.exceptions import (
+    GasUsedExceedsLimitError,
+    InsufficientBalanceError,
+    InsufficientTransactionGasError,
+    InvalidBlock,
+    InvalidSenderError,
+    InvalidSignatureError,
+    NonceMismatchError,
+    NonceTooHighError,
+    StateWithEmptyAccount,
+)
+from ethereum.prague.exceptions import (
+    BlobGasLimitExceededError,
+    EmptyAuthorizationListError,
+    InitCodeTooLargeError,
+    InsufficientMaxFeePerBlobGasError,
+    InsufficientMaxFeePerGasError,
+    InvalidBlobVersionedHashError,
+    NoBlobDataError,
+    PriorityFeeGreaterThanMaxFeeError,
+    TransactionTypeContractCreationError,
+    TransactionTypeError,
+)
 from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum_spec_tools.evm_tools.loaders.fixture_loader import Load
 
@@ -82,7 +104,29 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
             # TODO: Once all the specific exception types are thrown,
             #       only `pytest.raises` the correct exception type instead of
             #       all of them.
-            with pytest.raises((EthereumException, RLPException)):
+            with pytest.raises(
+                (
+                    InvalidBlock,
+                    InsufficientTransactionGasError,
+                    NonceTooHighError,
+                    InitCodeTooLargeError,
+                    GasUsedExceedsLimitError,
+                    NonceMismatchError,
+                    InsufficientBalanceError,
+                    InvalidSenderError,
+                    PriorityFeeGreaterThanMaxFeeError,
+                    InsufficientMaxFeePerGasError,
+                    InsufficientMaxFeePerBlobGasError,
+                    BlobGasLimitExceededError,
+                    InvalidBlobVersionedHashError,
+                    NoBlobDataError,
+                    TransactionTypeContractCreationError,
+                    EmptyAuthorizationListError,
+                    InvalidSignatureError,
+                    TransactionTypeError,
+                    RLPException,
+                )
+            ):
                 add_block_to_chain(chain, json_block, load, mock_pow)
             return
         else:
