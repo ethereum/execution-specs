@@ -131,6 +131,7 @@ def fork_block_excess_blob_gas(
     fork: Fork,
     pre_fork_excess_blobs: int,
     pre_fork_blobs_per_block: int,
+    block_base_fee_per_gas: int,
 ) -> int:
     """Calculate the expected excess blob gas for the fork block."""
     if pre_fork_blobs_per_block == 0:
@@ -139,6 +140,7 @@ def fork_block_excess_blob_gas(
     return calc_excess_blob_gas_post_fork(
         parent_excess_blobs=pre_fork_excess_blobs,
         parent_blob_count=pre_fork_blobs_per_block,
+        parent_base_fee_per_gas=block_base_fee_per_gas,
     )
 
 
@@ -382,6 +384,7 @@ def test_fork_transition_excess_blob_gas_at_blob_genesis(
         ),
     ],
 )
+@pytest.mark.parametrize("block_base_fee_per_gas", [7, 16, 23])
 def test_fork_transition_excess_blob_gas_post_blob_genesis(
     blockchain_test: BlockchainTestFiller,
     env: Environment,

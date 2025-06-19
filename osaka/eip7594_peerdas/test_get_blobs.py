@@ -52,6 +52,12 @@ def tx_gas() -> int:
 
 
 @pytest.fixture
+def block_base_fee_per_gas() -> int:
+    """Return default max fee per gas for transactions sent during test."""
+    return 7
+
+
+@pytest.fixture
 def tx_calldata() -> bytes:
     """Calldata in transactions sent during test."""
     return b""
@@ -83,6 +89,7 @@ def excess_blob_gas(
     fork: Fork,
     parent_excess_blobs: int | None,
     parent_blobs: int | None,
+    block_base_fee_per_gas: int,
 ) -> int | None:
     """
     Calculate the excess blob gas of the block under test from the parent block.
@@ -95,6 +102,7 @@ def excess_blob_gas(
     return excess_blob_gas(
         parent_excess_blobs=parent_excess_blobs,
         parent_blob_count=parent_blobs,
+        parent_base_fee_per_gas=block_base_fee_per_gas,
     )
 
 

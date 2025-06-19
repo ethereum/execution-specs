@@ -312,6 +312,7 @@ def expected_excess_blob_gas(
     parent_blobs: Optional[int],
     block_number: int,
     block_timestamp: int,
+    block_base_fee_per_gas: int,
 ) -> Optional[int | Removable]:
     """Calculate blob gas used by the test block."""
     if not fork.header_excess_blob_gas_required(
@@ -322,6 +323,7 @@ def expected_excess_blob_gas(
     return excess_blob_gas(
         parent_excess_blobs=parent_excess_blobs if parent_excess_blobs else 0,
         parent_blob_count=parent_blobs if parent_blobs else 0,
+        parent_base_fee_per_gas=block_base_fee_per_gas,
     )
 
 
@@ -374,6 +376,7 @@ def block(
     "blobs_per_tx",
     SpecHelpers.all_valid_blob_combinations,
 )
+@pytest.mark.parametrize("block_base_fee_per_gas", [7, 100])
 @pytest.mark.valid_from("Cancun")
 def test_valid_blob_tx_combinations(
     blockchain_test: BlockchainTestFiller,
@@ -664,6 +667,7 @@ def test_insufficient_balance_blob_tx(
     [b"", b"\x00", b"\x01"],
     ids=["no_calldata", "single_zero_calldata", "single_one_calldata"],
 )
+@pytest.mark.parametrize("block_base_fee_per_gas", [7, 100])
 @pytest.mark.parametrize("tx_max_fee_per_blob_gas_multiplier", [1, 100, 10000])
 @pytest.mark.valid_from("Cancun")
 def test_sufficient_balance_blob_tx(

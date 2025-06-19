@@ -45,6 +45,7 @@ class Spec:
     # LIMIT_BLOBS_PER_TX = 2**12
     HASH_OPCODE_BYTE = 0x49
     HASH_GAS_COST = 3
+    GAS_PER_BLOB = 2**17
 
     @classmethod
     def kzg_to_versioned_hash(

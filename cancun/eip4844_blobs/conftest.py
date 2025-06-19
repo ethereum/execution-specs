@@ -70,6 +70,7 @@ def excess_blob_gas(
     fork: Fork,
     parent_excess_blobs: int | None,
     parent_blobs: int | None,
+    block_base_fee_per_gas: int,
 ) -> int | None:
     """
     Calculate the excess blob gas of the block under test from the parent block.
@@ -78,10 +79,10 @@ def excess_blob_gas(
     """
     if parent_excess_blobs is None or parent_blobs is None:
         return None
-    excess_blob_gas = fork.excess_blob_gas_calculator()
-    return excess_blob_gas(
+    return fork.excess_blob_gas_calculator()(
         parent_excess_blobs=parent_excess_blobs,
         parent_blob_count=parent_blobs,
+        parent_base_fee_per_gas=block_base_fee_per_gas,
     )
 
 
@@ -90,6 +91,7 @@ def correct_excess_blob_gas(
     fork: Fork,
     parent_excess_blobs: int | None,
     parent_blobs: int | None,
+    block_base_fee_per_gas: int,
 ) -> int:
     """
     Calculate the correct excess blob gas of the block under test from the parent block.
@@ -98,18 +100,19 @@ def correct_excess_blob_gas(
     """
     if parent_excess_blobs is None or parent_blobs is None:
         return 0
-    excess_blob_gas = fork.excess_blob_gas_calculator()
-    return excess_blob_gas(
+    return fork.excess_blob_gas_calculator()(
         parent_excess_blobs=parent_excess_blobs,
         parent_blob_count=parent_blobs,
+        parent_base_fee_per_gas=block_base_fee_per_gas,
     )
 
 
 @pytest.fixture
-def block_fee_per_blob_gas(  # noqa: D103
+def block_fee_per_blob_gas(
     fork: Fork,
     correct_excess_blob_gas: int,
 ) -> int:
+    """Calculate the blob gas price for the current block."""
     get_blob_gas_price = fork.blob_gas_price_calculator()
     return get_blob_gas_price(excess_blob_gas=correct_excess_blob_gas)
 
@@ -251,7 +254,7 @@ def non_zero_blob_gas_used_genesis_block(
     genesis_excess_blob_gas: int,
     parent_excess_blob_gas: int,
     tx_max_fee_per_gas: int,
-    target_blobs_per_block: int,
+    block_base_fee_per_gas: int,
 ) -> Block | None:
     """
     For test cases with a non-zero blobGasUsed field in the
@@ -271,10 +274,17 @@ def non_zero_blob_gas_used_genesis_block(
         return None
 
     excess_blob_gas_calculator = fork.excess_blob_gas_calculator(block_number=1)
-    assert parent_excess_blob_gas == excess_blob_gas_calculator(
+    calculated_excess_blob_gas = excess_blob_gas_calculator(
         parent_excess_blob_gas=genesis_excess_blob_gas,
         parent_blob_count=0,
-    ), "parent excess blob gas is not as expected for extra block"
+        parent_base_fee_per_gas=block_base_fee_per_gas,
+    )
+
+    assert parent_excess_blob_gas == calculated_excess_blob_gas, (
+        f"parent excess blob gas mismatch: expected {parent_excess_blob_gas}, "
+        f"got {calculated_excess_blob_gas} for {parent_blobs} blobs "
+        f"with base_fee_per_gas {block_base_fee_per_gas}"
+    )
 
     sender = pre.fund_eoa(10**27)
 
