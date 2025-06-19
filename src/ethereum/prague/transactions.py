@@ -13,9 +13,13 @@ from ethereum_types.numeric import U64, U256, Uint, ulen
 
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.exceptions import InvalidSignatureError, InvalidTransaction
+from ethereum.exceptions import (
+    InsufficientTransactionGasError,
+    InvalidSignatureError,
+    NonceOverflowError,
+)
 
-from .exceptions import TransactionTypeError
+from .exceptions import InitCodeTooLargeError, TransactionTypeError
 from .fork_types import Address, Authorization, VersionedHash
 
 TX_BASE_COST = Uint(21000)
@@ -534,8 +538,11 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
 
     This function takes a transaction as a parameter and returns the intrinsic
     gas cost and the minimum calldata gas cost for the transaction after
-    validation. It throws an `InvalidTransaction` exception
-    if the transaction is invalid.
+    validation. It throws an `InsufficientTransactionGasError` exception if
+    the transaction does not provide enough gas to cover the intrinsic cost,
+    and a `NonceOverflowError` exception if the nonce is greater than
+    `2**64 - 2`. It also raises an `InitCodeTooLargeError` if the code size of
+    a contract creation transaction exceeds the maximum allowed size.
 
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
@@ -544,11 +551,11 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
 
     intrinsic_gas, calldata_floor_gas_cost = calculate_intrinsic_cost(tx)
     if max(intrinsic_gas, calldata_floor_gas_cost) > tx.gas:
-        raise InvalidTransaction("Insufficient gas")
+        raise InsufficientTransactionGasError("Insufficient gas")
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
-        raise InvalidTransaction("Nonce too high")
+        raise NonceOverflowError("Nonce too high")
     if tx.to == Bytes0(b"") and len(tx.data) > MAX_INIT_CODE_SIZE:
-        raise InvalidTransaction("Code size too large")
+        raise InitCodeTooLargeError("Code size too large")
 
     return intrinsic_gas, calldata_floor_gas_cost
 
