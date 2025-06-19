@@ -107,3 +107,19 @@ class EmptyAuthorizationListError(InvalidTransaction):
     """
     The authorization list in the transaction is empty.
     """
+
+
+class InitCodeTooLargeError(InvalidTransaction):
+    """
+    The init code of the transaction is too large.
+    """
+
+
+class TransactionGasLimitExceededError(InvalidTransaction):
+    """
+    The transaction has specified a gas limit that is greater than the allowed
+    maximum.
+
+    Note that this is _not_ the exception thrown when bytecode execution runs
+    out of gas.
+    """

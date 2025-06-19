@@ -3,7 +3,7 @@ from functools import partial
 import pytest
 from ethereum_rlp import rlp
 
-from ethereum.exceptions import InvalidTransaction
+from ethereum.exceptions import NonceOverflowError
 from ethereum.tangerine_whistle.transactions import (
     Transaction,
     validate_transaction,
@@ -35,7 +35,7 @@ def test_high_nonce(test_file_high_nonce: str) -> None:
 
     tx = rlp.decode_to(Transaction, test["tx_rlp"])
 
-    with pytest.raises(InvalidTransaction):
+    with pytest.raises(NonceOverflowError):
         validate_transaction(tx)
 
 
