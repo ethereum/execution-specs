@@ -543,6 +543,10 @@ class BlockException(ExceptionBase):
     """
     Block withdrawals address is rlp of invalid address != 20 bytes.
     """
+    RLP_BLOCK_LIMIT_EXCEEDED = auto()
+    """
+    Block's rlp encoding is larger than the allowed limit.
+    """
     INVALID_REQUESTS = auto()
     """
     Block's requests are invalid.

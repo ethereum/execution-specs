@@ -290,13 +290,13 @@ def verify_block(
     | TransactionException
     | BlockException
     | None,
-    result: Result,
+    got_exception: ExceptionWithMessage | UndefinedException | None,
     transition_tool_exceptions_reliable: bool,
 ):
     """Verify the block exception against the expected one."""
     info = BlockExceptionInfo(
         block_number=block_number,
         want_exception=want_exception,
-        got_exception=result.block_exception,
+        got_exception=got_exception,
     )
     info.verify(strict_match=transition_tool_exceptions_reliable)

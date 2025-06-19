@@ -80,6 +80,10 @@ class GethExceptionMapper(ExceptionMapper):
         BlockException.INVALID_REQUESTS: "invalid requests hash",
         BlockException.SYSTEM_CONTRACT_CALL_FAILED: "system call failed to execute:",
         BlockException.INVALID_BLOCK_HASH: "blockhash mismatch",
+        BlockException.RLP_BLOCK_LIMIT_EXCEEDED: (
+            # TODO:
+            ""
+        ),
         # TODO EVMONE needs to differentiate when the section is missing in the header or body
         EOFException.MISSING_STOP_OPCODE: "err: no_terminating_instruction",
         EOFException.MISSING_CODE_HEADER: "err: code_section_missing",

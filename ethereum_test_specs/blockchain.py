@@ -7,7 +7,7 @@ from typing import Any, Callable, ClassVar, Dict, Generator, List, Optional, Seq
 import pytest
 from pydantic import ConfigDict, Field, field_validator
 
-from ethereum_clis import TransitionTool
+from ethereum_clis import BlockExceptionWithMessage, Result, TransitionTool
 from ethereum_test_base_types import (
     Address,
     Bloom,
@@ -18,7 +18,13 @@ from ethereum_test_base_types import (
     HexNumber,
     Number,
 )
-from ethereum_test_exceptions import BlockException, EngineAPIError, TransactionException
+from ethereum_test_exceptions import (
+    BlockException,
+    EngineAPIError,
+    ExceptionWithMessage,
+    TransactionException,
+    UndefinedException,
+)
 from ethereum_test_execution import (
     BaseExecute,
     ExecuteFormat,
@@ -183,17 +189,14 @@ class Header(CamelModel):
                 )
 
 
+BLOCK_EXCEPTION_TYPE = (
+    List[TransactionException | BlockException] | TransactionException | BlockException | None
+)
+
+
 class Block(Header):
     """Block type used to describe block properties in test specs."""
 
-    rlp: Bytes | None = None
-    """
-    If set, blockchain test will skip generating the block and will pass this value directly to
-    the Fixture.
-
-    Only meant to be used to simulate blocks with bad formats, and therefore
-    requires the block to produce an exception.
-    """
     header_verify: Header | None = None
     """
     If set, the block header will be verified against the specified values.
@@ -203,9 +206,7 @@ class Block(Header):
     An RLP modifying header which values would be used to override the ones
     returned by the `ethereum_clis.TransitionTool`.
     """
-    exception: (
-        List[TransactionException | BlockException] | TransactionException | BlockException | None
-    ) = None
+    exception: BLOCK_EXCEPTION_TYPE = None
     """
     If set, the block is expected to be rejected by the client.
     """
@@ -288,6 +289,100 @@ class Block(Header):
             new_env_values["timestamp"] = int(Number(env.parent_timestamp) + 12)
 
         return env.copy(**new_env_values)
+
+
+class BuiltBlock(CamelModel):
+    """
+    Model that contains all properties to build a full block or
+    payload.
+    """
+
+    header: FixtureHeader
+    env: Environment
+    alloc: Alloc
+    txs: List[Transaction]
+    ommers: List[FixtureHeader]
+    withdrawals: List[Withdrawal] | None
+    requests: List[Bytes] | None
+    result: Result
+    expected_exception: BLOCK_EXCEPTION_TYPE = None
+    engine_api_error_code: EngineAPIError | None = None
+    fork: Fork
+
+    def get_fixture_block(self) -> FixtureBlock | InvalidFixtureBlock:
+        """Get a FixtureBlockBase from the built block."""
+        fixture_block = FixtureBlockBase(
+            header=self.header,
+            txs=[FixtureTransaction.from_transaction(tx) for tx in self.txs],
+            withdrawals=(
+                [FixtureWithdrawal.from_withdrawal(w) for w in self.withdrawals]
+                if self.withdrawals is not None
+                else None
+            ),
+            fork=self.fork,
+        ).with_rlp(txs=self.txs)
+
+        if self.expected_exception is not None:
+            return InvalidFixtureBlock(
+                rlp=fixture_block.rlp,
+                expect_exception=self.expected_exception,
+                rlp_decoded=(
+                    None
+                    if BlockException.RLP_STRUCTURES_ENCODING in self.expected_exception
+                    else fixture_block.without_rlp()
+                ),
+            )
+
+        return fixture_block
+
+    def get_block_rlp(self) -> Bytes:
+        """Get the RLP of the block."""
+        return self.get_fixture_block().rlp
+
+    def get_fixture_engine_new_payload(self) -> FixtureEngineNewPayload:
+        """Get a FixtureEngineNewPayload from the built block."""
+        return FixtureEngineNewPayload.from_fixture_header(
+            fork=self.fork,
+            header=self.header,
+            transactions=self.txs,
+            withdrawals=self.withdrawals,
+            requests=self.requests,
+            validation_error=self.expected_exception,
+            error_code=self.engine_api_error_code,
+        )
+
+    def verify_transactions(self, transition_tool_exceptions_reliable: bool) -> List[int]:
+        """Verify the transactions."""
+        return verify_transactions(
+            txs=self.txs,
+            result=self.result,
+            transition_tool_exceptions_reliable=transition_tool_exceptions_reliable,
+        )
+
+    def verify_block_exception(self, transition_tool_exceptions_reliable: bool):
+        """Verify the block exception."""
+        got_exception: ExceptionWithMessage | UndefinedException | None = (
+            self.result.block_exception
+        )
+        # Verify exceptions that are not caught by the transition tool.
+        fork_block_rlp_size_limit = self.fork.block_rlp_size_limit(
+            block_number=self.env.number,
+            timestamp=self.env.timestamp,
+        )
+        if fork_block_rlp_size_limit is not None:
+            rlp_size = len(self.get_block_rlp())
+            if rlp_size > fork_block_rlp_size_limit:
+                got_exception = BlockExceptionWithMessage(
+                    exceptions=[BlockException.RLP_BLOCK_LIMIT_EXCEEDED],
+                    message=f"Block RLP size limit exceeded: {rlp_size} > "
+                    f"{fork_block_rlp_size_limit}",
+                )
+        verify_block(
+            block_number=self.env.number,
+            want_exception=self.expected_exception,
+            got_exception=got_exception,
+            transition_tool_exceptions_reliable=transition_tool_exceptions_reliable,
+        )
 
 
 class BlockchainTest(BaseTest):
@@ -376,15 +471,8 @@ class BlockchainTest(BaseTest):
         block: Block,
         previous_env: Environment,
         previous_alloc: Alloc,
-    ) -> Tuple[FixtureHeader, List[Transaction], List[Bytes] | None, Alloc, Environment]:
+    ) -> BuiltBlock:
         """Generate common block data for both make_fixture and make_hive_fixture."""
-        if block.rlp and block.exception is not None:
-            raise Exception(
-                "test correctness: post-state cannot be verified if the "
-                + "block's rlp is supplied and the block is not supposed "
-                + "to produce an exception"
-            )
-
         env = block.set_environment(previous_env)
         env = env.set_fork_requirements(fork)
 
@@ -420,49 +508,6 @@ class BlockchainTest(BaseTest):
             debug_output_path=self.get_next_transition_tool_output_path(),
             slow_request=self.is_tx_gas_heavy_test(),
         )
-
-        try:
-            rejected_txs = verify_transactions(
-                txs=txs,
-                result=transition_tool_output.result,
-                transition_tool_exceptions_reliable=t8n.exception_mapper.reliable,
-            )
-            if (
-                not rejected_txs
-                and block.rlp_modifier is None
-                and block.requests is None
-                and not block.skip_exception_verification
-            ):
-                # Only verify block level exception if:
-                # - No transaction exception was raised, because these are not reported as block
-                #   exceptions.
-                # - No RLP modifier was specified, because the modifier is what normally
-                #   produces the block exception.
-                # - No requests were specified, because modified requests are also what normally
-                #   produces the block exception.
-                verify_block(
-                    block_number=env.number,
-                    want_exception=block.exception,
-                    result=transition_tool_output.result,
-                    transition_tool_exceptions_reliable=t8n.exception_mapper.reliable,
-                )
-            verify_result(transition_tool_output.result, env)
-        except Exception as e:
-            print_traces(t8n.get_traces())
-            pprint(transition_tool_output.result)
-            pprint(previous_alloc)
-            pprint(transition_tool_output.alloc)
-            raise e
-
-        if len(rejected_txs) > 0 and block.exception is None:
-            print_traces(t8n.get_traces())
-            raise Exception(
-                "one or more transactions in `BlockchainTest` are "
-                + "intrinsically invalid, but the block was not expected "
-                + "to be invalid. Please verify whether the transaction "
-                + "was indeed expected to fail and add the proper "
-                + "`block.exception`"
-            )
 
         # One special case of the invalid transactions is the blob gas used, since this value
         # is not included in the transition tool result, but it is included in the block header,
@@ -515,13 +560,59 @@ class BlockchainTest(BaseTest):
             header = block.rlp_modifier.apply(header)
             header.fork = fork  # Deleted during `apply` because `exclude=True`
 
-        return (
-            header,
-            txs,
-            requests_list,
-            transition_tool_output.alloc,
-            env,
+        built_block = BuiltBlock(
+            header=header,
+            alloc=transition_tool_output.alloc,
+            env=env,
+            txs=txs,
+            ommers=[],
+            withdrawals=env.withdrawals,
+            requests=requests_list,
+            result=transition_tool_output.result,
+            expected_exception=block.exception,
+            engine_api_error_code=block.engine_api_error_code,
+            fork=fork,
         )
+
+        try:
+            rejected_txs = built_block.verify_transactions(
+                transition_tool_exceptions_reliable=t8n.exception_mapper.reliable,
+            )
+            if (
+                not rejected_txs
+                and block.rlp_modifier is None
+                and block.requests is None
+                and not block.skip_exception_verification
+            ):
+                # Only verify block level exception if:
+                # - No transaction exception was raised, because these are not reported as block
+                #   exceptions.
+                # - No RLP modifier was specified, because the modifier is what normally
+                #   produces the block exception.
+                # - No requests were specified, because modified requests are also what normally
+                #   produces the block exception.
+                built_block.verify_block_exception(
+                    transition_tool_exceptions_reliable=t8n.exception_mapper.reliable,
+                )
+            verify_result(transition_tool_output.result, env)
+        except Exception as e:
+            print_traces(t8n.get_traces())
+            pprint(transition_tool_output.result)
+            pprint(previous_alloc)
+            pprint(transition_tool_output.alloc)
+            raise e
+
+        if len(rejected_txs) > 0 and block.exception is None:
+            print_traces(t8n.get_traces())
+            raise Exception(
+                "one or more transactions in `BlockchainTest` are "
+                + "intrinsically invalid, but the block was not expected "
+                + "to be invalid. Please verify whether the transaction "
+                + "was indeed expected to fail and add the proper "
+                + "`block.exception`"
+            )
+
+        return built_block
 
     def verify_post_state(self, t8n, t8n_state: Alloc, expected_state: Alloc | None = None):
         """Verify post alloc after all block/s or payload/s are generated."""
@@ -549,58 +640,23 @@ class BlockchainTest(BaseTest):
         head = genesis.header.block_hash
         invalid_blocks = 0
         for block in self.blocks:
-            if block.rlp is None:
-                # This is the most common case, the RLP needs to be constructed
-                # based on the transactions to be included in the block.
-                # Set the environment according to the block to execute.
-                header, txs, _, new_alloc, new_env = self.generate_block_data(
-                    t8n=t8n,
-                    fork=fork,
-                    block=block,
-                    previous_env=env,
-                    previous_alloc=alloc,
-                )
-                fixture_block = FixtureBlockBase(
-                    header=header,
-                    txs=[FixtureTransaction.from_transaction(tx) for tx in txs],
-                    ommers=[],
-                    withdrawals=(
-                        [FixtureWithdrawal.from_withdrawal(w) for w in new_env.withdrawals]
-                        if new_env.withdrawals is not None
-                        else None
-                    ),
-                    fork=fork,
-                ).with_rlp(txs=txs)
-                if block.exception is None:
-                    fixture_blocks.append(fixture_block)
-                    # Update env, alloc and last block hash for the next block.
-                    alloc = new_alloc
-                    env = apply_new_parent(new_env, header)
-                    head = header.block_hash
-                else:
-                    fixture_blocks.append(
-                        InvalidFixtureBlock(
-                            rlp=fixture_block.rlp,
-                            expect_exception=block.exception,
-                            rlp_decoded=(
-                                None
-                                if BlockException.RLP_STRUCTURES_ENCODING in block.exception
-                                else fixture_block.without_rlp()
-                            ),
-                        ),
-                    )
-                    invalid_blocks += 1
+            # This is the most common case, the RLP needs to be constructed
+            # based on the transactions to be included in the block.
+            # Set the environment according to the block to execute.
+            built_block = self.generate_block_data(
+                t8n=t8n,
+                fork=fork,
+                block=block,
+                previous_env=env,
+                previous_alloc=alloc,
+            )
+            fixture_blocks.append(built_block.get_fixture_block())
+            if block.exception is None:
+                # Update env, alloc and last block hash for the next block.
+                alloc = built_block.alloc
+                env = apply_new_parent(built_block.env, built_block.header)
+                head = built_block.header.block_hash
             else:
-                assert block.exception is not None, (
-                    "test correctness: if the block's rlp is hard-coded, "
-                    + "the block is expected to produce an exception"
-                )
-                fixture_blocks.append(
-                    InvalidFixtureBlock(
-                        rlp=block.rlp,
-                        expect_exception=block.exception,
-                    ),
-                )
                 invalid_blocks += 1
 
             if block.expected_post_state:
@@ -640,38 +696,29 @@ class BlockchainTest(BaseTest):
         head_hash = genesis.header.block_hash
         invalid_blocks = 0
         for block in self.blocks:
-            header, txs, requests, new_alloc, new_env = self.generate_block_data(
+            built_block = self.generate_block_data(
                 t8n=t8n,
                 fork=fork,
                 block=block,
                 previous_env=env,
                 previous_alloc=alloc,
             )
-            if block.rlp is None:
-                fixture_payloads.append(
-                    FixtureEngineNewPayload.from_fixture_header(
-                        fork=fork,
-                        header=header,
-                        transactions=txs,
-                        withdrawals=new_env.withdrawals,
-                        requests=requests,
-                        validation_error=block.exception,
-                        error_code=block.engine_api_error_code,
-                    )
-                )
-                if block.exception is None:
-                    alloc = new_alloc
-                    env = apply_new_parent(env, header)
-                    head_hash = header.block_hash
-                else:
-                    invalid_blocks += 1
+            fixture_payloads.append(built_block.get_fixture_engine_new_payload())
+            if block.exception is None:
+                alloc = built_block.alloc
+                env = apply_new_parent(built_block.env, built_block.header)
+                head_hash = built_block.header.block_hash
+            else:
+                invalid_blocks += 1
 
             if block.expected_post_state:
                 self.verify_post_state(
                     t8n, t8n_state=alloc, expected_state=block.expected_post_state
                 )
         self.check_exception_test(exception=invalid_blocks > 0)
-        fcu_version = fork.engine_forkchoice_updated_version(header.number, header.timestamp)
+        fcu_version = fork.engine_forkchoice_updated_version(
+            built_block.header.number, built_block.header.timestamp
+        )
         assert fcu_version is not None, (
             "A hive fixture was requested but no forkchoice update is defined."
             " The framework should never try to execute this test case."
@@ -689,22 +736,14 @@ class BlockchainTest(BaseTest):
             # Most clients require the header to start the sync process, so we create an empty
             # block on top of the last block of the test to send it as new payload and trigger the
             # sync process.
-            sync_header, _, requests, _, _ = self.generate_block_data(
+            sync_built_block = self.generate_block_data(
                 t8n=t8n,
                 fork=fork,
                 block=Block(),
                 previous_env=env,
                 previous_alloc=alloc,
             )
-            sync_payload = FixtureEngineNewPayload.from_fixture_header(
-                fork=fork,
-                header=sync_header,
-                transactions=[],
-                withdrawals=[],
-                requests=requests,
-                validation_error=None,
-                error_code=None,
-            )
+            sync_payload = sync_built_block.get_fixture_engine_new_payload()
 
         # Create base fixture data
         fixture_data = {

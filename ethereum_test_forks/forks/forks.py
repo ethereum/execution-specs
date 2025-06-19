@@ -360,6 +360,11 @@ class Frontier(BaseFork, solc_name="homestead"):
         return None
 
     @classmethod
+    def block_rlp_size_limit(cls, block_number: int = 0, timestamp: int = 0) -> int | None:
+        """At Genesis, no RLP block size limit is imposed."""
+        return None
+
+    @classmethod
     def precompiles(cls, block_number: int = 0, timestamp: int = 0) -> List[Address]:
         """At Genesis, no pre-compiles are present."""
         return []
@@ -1353,6 +1358,13 @@ class Osaka(Prague, solc_name="cancun"):
     def transaction_gas_limit_cap(cls, block_number: int = 0, timestamp: int = 0) -> int | None:
         """At Osaka, transaction gas limit is capped at 30 million."""
         return 30_000_000
+
+    @classmethod
+    def block_rlp_size_limit(cls, block_number: int = 0, timestamp: int = 0) -> int | None:
+        """From Osaka, block RLP size is limited as specified in EIP-7934."""
+        max_block_size = 10_485_760
+        safety_margin = 2_097_152
+        return max_block_size - safety_margin
 
     @classmethod
     def is_deployed(cls) -> bool:

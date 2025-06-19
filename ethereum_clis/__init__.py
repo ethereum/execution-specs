@@ -10,13 +10,19 @@ from .clis.nimbus import NimbusTransitionTool
 from .ethereum_cli import CLINotFoundInPathError, UnknownCLIError
 from .fixture_consumer_tool import FixtureConsumerTool
 from .transition_tool import TransitionTool
-from .types import Result, TransitionToolOutput
+from .types import (
+    BlockExceptionWithMessage,
+    Result,
+    TransactionExceptionWithMessage,
+    TransitionToolOutput,
+)
 
 TransitionTool.set_default_tool(ExecutionSpecsTransitionTool)
 FixtureConsumerTool.set_default_tool(GethFixtureConsumer)
 
 __all__ = (
     "BesuTransitionTool",
+    "BlockExceptionWithMessage",
     "CLINotFoundInPathError",
     "EthereumJSTransitionTool",
     "EvmoneExceptionMapper",
@@ -29,6 +35,7 @@ __all__ = (
     "NethtestFixtureConsumer",
     "NimbusTransitionTool",
     "Result",
+    "TransactionExceptionWithMessage",
     "TransitionTool",
     "TransitionToolOutput",
     "UnknownCLIError",
