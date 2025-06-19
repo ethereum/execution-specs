@@ -96,6 +96,7 @@ class ExcessBlobGasCalculator(Protocol):
         parent_excess_blobs: int | None = None,
         parent_blob_gas_used: int | None = None,
         parent_blob_count: int | None = None,
+        parent_base_fee_per_gas: int,
     ) -> int:
         """Return the excess blob gas given the parent's excess blob gas and blob gas used."""
         pass
