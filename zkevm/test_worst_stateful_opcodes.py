@@ -27,6 +27,8 @@ from ethereum_test_tools import (
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
+from .helpers import code_loop_precompile_call
+
 REFERENCE_SPEC_GIT_PATH = "TODO"
 REFERENCE_SPEC_VERSION = "TODO"
 
@@ -415,16 +417,25 @@ def test_worst_blockhash(
 def test_worst_selfbalance(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ):
     """Test running a block with as many SELFBALANCE opcodes as possible."""
     env = Environment()
+    max_stack_height = fork.max_stack_height()
 
-    execution_code = While(
-        body=Op.POP(Op.SELFBALANCE),
-    )
-    execution_code_address = pre.deploy_contract(code=execution_code)
+    code_sequence = Op.SELFBALANCE * max_stack_height
+    target_address = pre.deploy_contract(code=code_sequence)
+
+    calldata = Bytecode()
+    attack_block = Op.POP(Op.STATICCALL(Op.GAS, target_address, 0, 0, 0, 0))
+
+    code = code_loop_precompile_call(calldata, attack_block, fork)
+    assert len(code) <= fork.max_code_size()
+
+    code_address = pre.deploy_contract(code=code)
+
     tx = Transaction(
-        to=execution_code_address,
+        to=code_address,
         gas_limit=env.gas_limit,
         sender=pre.fund_eoa(),
     )

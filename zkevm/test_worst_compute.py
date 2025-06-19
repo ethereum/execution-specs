@@ -39,6 +39,8 @@ from tests.osaka.eip7951_p256verify_precompiles.spec import FieldElement
 from tests.prague.eip2537_bls_12_381_precompiles import spec as bls12381_spec
 from tests.prague.eip2537_bls_12_381_precompiles.spec import BytesConcatenation
 
+from .helpers import code_loop_precompile_call
+
 REFERENCE_SPEC_GIT_PATH = "TODO"
 REFERENCE_SPEC_VERSION = "TODO"
 
@@ -311,18 +313,20 @@ def test_worst_msize(
     The `mem_size` parameter indicates by how much the memory is expanded.
     """
     env = Environment()
-    max_code_size = fork.max_code_size()
+    max_stack_height = fork.max_stack_height()
 
-    # We use CALLVALUE for the parameter since is 1 gas cheaper than PUSHX.
-    code_prefix = Op.MLOAD(Op.CALLVALUE) + Op.JUMPDEST
-    iter_loop = Op.POP(Op.MSIZE)
-    code_suffix = Op.JUMP(len(code_prefix) - 1)
-    code_iter_len = (max_code_size - len(code_prefix) - len(code_suffix)) // len(iter_loop)
-    code = code_prefix + iter_loop * code_iter_len + code_suffix
-    assert len(code) <= max_code_size
+    code_sequence = Op.MLOAD(Op.CALLVALUE) + Op.POP + Op.MSIZE * max_stack_height
+    target_address = pre.deploy_contract(code=code_sequence)
+
+    calldata = Bytecode()
+    attack_block = Op.POP(Op.STATICCALL(Op.GAS, target_address, 0, 0, 0, 0))
+    code = code_loop_precompile_call(calldata, attack_block, fork)
+    assert len(code) <= fork.max_code_size()
+
+    code_address = pre.deploy_contract(code=code)
 
     tx = Transaction(
-        to=pre.deploy_contract(code=bytes(code)),
+        to=code_address,
         gas_limit=env.gas_limit,
         sender=pre.fund_eoa(),
         value=mem_size,
@@ -821,24 +825,6 @@ def test_worst_precompile_fixed_cost(
         post={},
         tx=tx,
     )
-
-
-def code_loop_precompile_call(calldata: Bytecode, attack_block: Bytecode, fork: Fork):
-    """Create a code loop that calls a precompile with the given calldata."""
-    max_code_size = fork.max_code_size()
-
-    # The attack contract is: CALLDATA_PREP + #JUMPDEST + [attack_block]* + JUMP(#)
-    jumpdest = Op.JUMPDEST
-    jump_back = Op.JUMP(len(calldata))
-    max_iters_loop = (max_code_size - len(calldata) - len(jumpdest) - len(jump_back)) // len(
-        attack_block
-    )
-    code = calldata + jumpdest + sum([attack_block] * max_iters_loop) + jump_back
-    if len(code) > max_code_size:
-        # Must never happen, but keep it as a sanity check.
-        raise ValueError(f"Code size {len(code)} exceeds maximum code size {max_code_size}")
-
-    return code
 
 
 @pytest.mark.zkevm
