@@ -1827,3 +1827,59 @@ def test_worst_swap(
         post={},
         tx=tx,
     )
+
+
+@pytest.mark.parametrize(
+    "opcode",
+    [
+        pytest.param(Op.DUP1),
+        pytest.param(Op.DUP2),
+        pytest.param(Op.DUP3),
+        pytest.param(Op.DUP4),
+        pytest.param(Op.DUP5),
+        pytest.param(Op.DUP6),
+        pytest.param(Op.DUP7),
+        pytest.param(Op.DUP8),
+        pytest.param(Op.DUP9),
+        pytest.param(Op.DUP10),
+        pytest.param(Op.DUP11),
+        pytest.param(Op.DUP12),
+        pytest.param(Op.DUP13),
+        pytest.param(Op.DUP14),
+        pytest.param(Op.DUP15),
+        pytest.param(Op.DUP16),
+    ],
+)
+def test_worst_dup(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    opcode: Op,
+):
+    """Test running a block with as many DUP as possible."""
+    env = Environment()
+    max_stack_height = fork.max_stack_height()
+
+    min_stack_height = opcode.min_stack_height
+    code_prefix = Op.PUSH0 * min_stack_height
+    opcode_sequence = opcode * (max_stack_height - min_stack_height)
+    target_contract_address = pre.deploy_contract(code=code_prefix + opcode_sequence)
+
+    calldata = Bytecode()
+    attack_block = Op.POP(Op.STATICCALL(Op.GAS, target_contract_address, 0, 0, 0, 0))
+
+    code = code_loop_precompile_call(calldata, attack_block, fork)
+    code_address = pre.deploy_contract(code=code)
+
+    tx = Transaction(
+        to=code_address,
+        gas_limit=env.gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post={},
+        tx=tx,
+    )
