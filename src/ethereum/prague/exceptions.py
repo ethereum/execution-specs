@@ -2,11 +2,14 @@
 Exceptions specific to this fork.
 """
 
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
 from ethereum_types.numeric import Uint
 
 from ethereum.exceptions import InvalidTransaction
+
+if TYPE_CHECKING:
+    from .transactions import Transaction
 
 
 class TransactionTypeError(InvalidTransaction):
@@ -28,20 +31,20 @@ class TransactionTypeError(InvalidTransaction):
 
 class TransactionTypeContractCreationError(InvalidTransaction):
     """
-    Transaction type is not allowed for contract creation.
+    Contract creation is not allowed for a transaction type.
     """
 
-    transaction_type: Final[int]
+    transaction: "Transaction"
     """
-    The type byte of the transaction that caused the error.
+    The transaction that caused the error.
     """
 
-    def __init__(self, transaction_type: int):
+    def __init__(self, transaction: "Transaction"):
         super().__init__(
-            f"transaction type `{transaction_type}` not allowed for "
-            "contract creation"
+            f"transaction type `{type(transaction).__name__}` not allowed to "
+            "create contracts"
         )
-        self.transaction_type = transaction_type
+        self.transaction = transaction
 
 
 class BlobGasLimitExceededError(InvalidTransaction):

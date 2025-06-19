@@ -502,7 +502,7 @@ def check_transaction(
 
     if isinstance(tx, (BlobTransaction, SetCodeTransaction)):
         if not isinstance(tx.to, Address):
-            raise TransactionTypeContractCreationError(tx[0])
+            raise TransactionTypeContractCreationError(tx)
 
     if isinstance(tx, SetCodeTransaction):
         if not any(tx.authorizations):
