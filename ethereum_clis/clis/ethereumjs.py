@@ -90,12 +90,12 @@ class EthereumJSExceptionMapper(ExceptionMapper):
             "sender doesn't have enough funds to send tx"
         ),
         TransactionException.NONCE_MISMATCH_TOO_LOW: "the tx doesn't have the correct nonce",
-        TransactionException.INVALID_DEPOSIT_EVENT_LAYOUT: (
-            "Error verifying block while running: error: number exceeds 53 bits"
-        ),
         TransactionException.GAS_ALLOWANCE_EXCEEDED: "tx has a higher gas limit than the block",
         BlockException.INCORRECT_EXCESS_BLOB_GAS: "Invalid 4844 transactions",
         BlockException.INVALID_RECEIPTS_ROOT: "invalid receipttrie",
+        BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: (
+            "Error verifying block while running: error: number exceeds 53 bits"
+        ),
         # TODO EVMONE needs to differentiate when the section is missing in the header or body
         EOFException.MISSING_STOP_OPCODE: "err: no_terminating_instruction",
         EOFException.MISSING_CODE_HEADER: "err: code_section_missing",

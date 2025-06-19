@@ -163,6 +163,7 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         TransactionException.GAS_ALLOWANCE_EXCEEDED: "ion: ",
         BlockException.SYSTEM_CONTRACT_EMPTY: "System contract address",
         BlockException.SYSTEM_CONTRACT_CALL_FAILED: "call failed:",
+        BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: "deposit",
         # TODO EVMONE needs to differentiate when the section is missing in the header or body
         EOFException.MISSING_STOP_OPCODE: "err: no_terminating_instruction",
         EOFException.MISSING_CODE_HEADER: "err: code_section_missing",

@@ -35,7 +35,7 @@ class ErigonExceptionMapper(ExceptionMapper):
         ),
         TransactionException.TYPE_4_TX_CONTRACT_CREATION: "wrong size for To: 0",
         TransactionException.TYPE_4_TX_PRE_FORK: "setCode tx is not supported by signer",
-        TransactionException.INVALID_DEPOSIT_EVENT_LAYOUT: "could not parse requests logs",
+        BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: "could not parse requests logs",
         BlockException.SYSTEM_CONTRACT_EMPTY: "Syscall failure: Empty Code at",
         BlockException.SYSTEM_CONTRACT_CALL_FAILED: "Unprecedented Syscall failure",
         BlockException.INVALID_REQUESTS: "invalid requests root hash in header",

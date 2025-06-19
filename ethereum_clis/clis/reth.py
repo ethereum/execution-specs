@@ -29,7 +29,7 @@ class RethExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_4_TX_PRE_FORK: (
             "eip 7702 transactions present in pre-prague payload"
         ),
-        TransactionException.INVALID_DEPOSIT_EVENT_LAYOUT: (
+        BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: (
             "failed to decode deposit requests from receipts"
         ),
         BlockException.INVALID_REQUESTS: "mismatched block requests hash",

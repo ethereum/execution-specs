@@ -360,7 +360,7 @@ class NethermindExceptionMapper(ExceptionMapper):
         BlockException.INVALID_GAS_USED_ABOVE_LIMIT: (
             "ExceededGasLimit: Gas used exceeds gas limit."
         ),
-        TransactionException.INVALID_DEPOSIT_EVENT_LAYOUT: (
+        BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: (
             "DepositsInvalid: Invalid deposit event layout:"
         ),
     }

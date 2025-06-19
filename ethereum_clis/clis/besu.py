@@ -317,6 +317,11 @@ class BesuExceptionMapper(ExceptionMapper):
         BlockException.SYSTEM_CONTRACT_EMPTY: (
             r"(Invalid system call, no code at address)|" r"(Invalid system call address:)"
         ),
+        BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: (
+            r"Invalid (amount|index|pubKey|signature|withdrawalCred) (offset|size): "
+            r"expected (\d+), but got (-?\d+)|"
+            r"Invalid deposit log length\. Must be \d+ bytes, but is \d+ bytes"
+        ),
         TransactionException.INITCODE_SIZE_EXCEEDED: (
             r"transaction invalid Initcode size of \d+ exceeds maximum size of \d+"
         ),
@@ -336,11 +341,6 @@ class BesuExceptionMapper(ExceptionMapper):
         ),
         TransactionException.NONCE_MISMATCH_TOO_LOW: (
             r"transaction invalid transaction nonce \d+ below sender account nonce \d+"
-        ),
-        TransactionException.INVALID_DEPOSIT_EVENT_LAYOUT: (
-            r"Invalid (amount|index|pubKey|signature|withdrawalCred) (offset|size): "
-            r"expected (\d+), but got (-?\d+)|"
-            r"Invalid deposit log length\. Must be \d+ bytes, but is \d+ bytes"
         ),
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
             r"transaction invalid Transaction gas limit must be at most \d+"

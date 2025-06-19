@@ -73,7 +73,7 @@ class GethExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_4_TX_PRE_FORK: ("transaction type not supported"),
         TransactionException.INITCODE_SIZE_EXCEEDED: "max initcode size exceeded",
         TransactionException.NONCE_MISMATCH_TOO_LOW: "nonce too low",
-        TransactionException.INVALID_DEPOSIT_EVENT_LAYOUT: "unable to parse deposit data",
+        BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: "unable to parse deposit data",
         BlockException.INCORRECT_BLOB_GAS_USED: "blob gas used mismatch",
         BlockException.INCORRECT_EXCESS_BLOB_GAS: "invalid excessBlobGas",
         BlockException.INVALID_VERSIONED_HASHES: "invalid number of versionedHashes",
