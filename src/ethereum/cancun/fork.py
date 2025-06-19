@@ -451,7 +451,7 @@ def check_transaction(
 
     if isinstance(tx, BlobTransaction):
         if not isinstance(tx.to, Address):
-            raise TransactionTypeContractCreationError(tx[0])
+            raise TransactionTypeContractCreationError(tx)
         if len(tx.blob_versioned_hashes) == 0:
             raise NoBlobDataError("no blob data in transaction")
         for blob_versioned_hash in tx.blob_versioned_hashes:
