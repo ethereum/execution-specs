@@ -17,7 +17,7 @@ recommend using the [latest version](https://github.com/ethereum/execution-specs
 
 ### What Contitutes a Serious Issue
 
-- Issues which affect all EL clients (geth, Nethermind, Besu, etc.)
+- Issues which affect any production EL client (geth, Nethermind, Besu, etc.)
 - EELS has inadvertantly leaked secure information into the codebase
 
 ### What Does _Not_ Constitute a Serious Issue
@@ -34,7 +34,7 @@ File a issue in GitHub
 
 **Please do NOT file a public ticket** mentioning the issue.
 
-If the issue affects all EL clients (I.e. there is an issue with the
+If the issue affects any EL client (i.e. there is an issue with the
 specification at the EIP level rather than the implementation level) or
 sensitive information has been leaked into the code base, please visit
 [https://bounty.ethereum.org](https://bounty.ethereum.org) or email
