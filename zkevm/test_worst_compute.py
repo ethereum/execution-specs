@@ -1869,3 +1869,74 @@ def test_worst_dup(
         post={},
         tx=tx,
     )
+
+
+@pytest.mark.parametrize(
+    "opcode",
+    [
+        pytest.param(Op.PUSH0),
+        pytest.param(Op.PUSH1),
+        pytest.param(Op.PUSH2),
+        pytest.param(Op.PUSH3),
+        pytest.param(Op.PUSH4),
+        pytest.param(Op.PUSH5),
+        pytest.param(Op.PUSH6),
+        pytest.param(Op.PUSH7),
+        pytest.param(Op.PUSH8),
+        pytest.param(Op.PUSH9),
+        pytest.param(Op.PUSH10),
+        pytest.param(Op.PUSH11),
+        pytest.param(Op.PUSH12),
+        pytest.param(Op.PUSH13),
+        pytest.param(Op.PUSH14),
+        pytest.param(Op.PUSH15),
+        pytest.param(Op.PUSH16),
+        pytest.param(Op.PUSH17),
+        pytest.param(Op.PUSH18),
+        pytest.param(Op.PUSH19),
+        pytest.param(Op.PUSH20),
+        pytest.param(Op.PUSH21),
+        pytest.param(Op.PUSH22),
+        pytest.param(Op.PUSH23),
+        pytest.param(Op.PUSH24),
+        pytest.param(Op.PUSH25),
+        pytest.param(Op.PUSH26),
+        pytest.param(Op.PUSH27),
+        pytest.param(Op.PUSH28),
+        pytest.param(Op.PUSH29),
+        pytest.param(Op.PUSH30),
+        pytest.param(Op.PUSH31),
+        pytest.param(Op.PUSH32),
+    ],
+)
+def test_worst_push(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    opcode: Op,
+):
+    """Test running a block with as many PUSH as possible."""
+    env = Environment()
+
+    op = opcode[1] if opcode.has_data_portion() else opcode
+    opcode_sequence = op * fork.max_stack_height()
+    target_contract_address = pre.deploy_contract(code=opcode_sequence)
+
+    calldata = Bytecode()
+    attack_block = Op.POP(Op.STATICCALL(Op.GAS, target_contract_address, 0, 0, 0, 0))
+
+    code = code_loop_precompile_call(calldata, attack_block, fork)
+    code_address = pre.deploy_contract(code=code)
+
+    tx = Transaction(
+        to=code_address,
+        gas_limit=env.gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post={},
+        tx=tx,
+    )
