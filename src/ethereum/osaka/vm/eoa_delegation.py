@@ -202,4 +202,6 @@ def set_delegation(message: Message) -> U256:
     if message.code_address is None:
         raise InvalidBlock("Invalid type 4 transaction: no target")
 
+    message.code = get_account(state, message.code_address).code
+
     return refund_counter
