@@ -29,6 +29,7 @@ from . import (
     ECRECOVER_ADDRESS,
     IDENTITY_ADDRESS,
     MODEXP_ADDRESS,
+    P256VERIFY_ADDRESS,
     POINT_EVALUATION_ADDRESS,
     RIPEMD160_ADDRESS,
     SHA256_ADDRESS,
@@ -49,6 +50,7 @@ from .bls12_381.bls12_381_pairing import bls12_pairing
 from .ecrecover import ecrecover
 from .identity import identity
 from .modexp import modexp
+from .p256verify import p256verify
 from .point_evaluation import point_evaluation
 from .ripemd160 import ripemd160
 from .sha256 import sha256
@@ -71,4 +73,5 @@ PRE_COMPILED_CONTRACTS: Dict[Address, Callable] = {
     BLS12_PAIRING_ADDRESS: bls12_pairing,
     BLS12_MAP_FP_TO_G1_ADDRESS: bls12_map_fp_to_g1,
     BLS12_MAP_FP2_TO_G2_ADDRESS: bls12_map_fp2_to_g2,
+    P256VERIFY_ADDRESS: p256verify,
 }

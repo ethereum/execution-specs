@@ -4,6 +4,11 @@ Elliptic Curves
 """
 
 import coincurve
+from Crypto.Util.asn1 import DerSequence
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric.utils import Prehashed
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256
 
@@ -71,3 +76,91 @@ def secp256k1_recover(r: U256, s: U256, v: U256, msg_hash: Hash32) -> Bytes:
 
     public_key = public_key.format(compressed=False)[1:]
     return public_key
+
+
+SECP256R1N = U256(
+    0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551
+)
+SECP256R1P = U256(
+    0xFFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF
+)
+SECP256R1A = U256(
+    0xFFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFC
+)
+SECP256R1B = U256(
+    0x5AC635D8AA3A93E7B3EBBD55769886BC651D06B0CC53B0F63BCE3C3E27D2604B
+)
+
+
+def secp256r1_verify(
+    r: U256, s: U256, x: U256, y: U256, msg_hash: Hash32
+) -> None:
+    """
+    Verifies a P-256 signature.
+    Parameters
+    ----------
+    r :
+        the `r` component of the signature
+    s :
+        the `s` component of the signature
+    x:
+        the `x` coordinate of the public key
+    y:
+        the `y` coordinate of the public key
+    msg_hash :
+        Hash of the message being recovered.
+    Returns
+    -------
+    result : `ethereum.base_types.Bytes`
+        return 1 if the signature is valid, empty bytes otherwise
+    """
+    # Convert U256 to regular integers for DerSequence
+    r_int = int(r)
+    s_int = int(s)
+    x_int = int(x)
+    y_int = int(y)
+
+    sig = DerSequence([r_int, s_int]).encode()
+
+    pubnum = ec.EllipticCurvePublicNumbers(x_int, y_int, ec.SECP256R1())
+    pubkey = pubnum.public_key(default_backend())
+    pubkey.verify(sig, msg_hash, ec.ECDSA(Prehashed(hashes.SHA256())))
+
+    return
+
+
+def is_on_curve_secp256r1(x: U256, y: U256) -> bool:
+    """
+    Checks if a point is on the secp256r1 curve.
+
+    The point (x, y) must satisfy the curve equation:
+    y^2 ≡ x^3 + a*x + b (mod p)
+
+    Parameters
+    ----------
+    x : U256
+        The x-coordinate of the point
+    y : U256
+        The y-coordinate of the point
+
+    Returns
+    -------
+    bool
+        True if the point is on the curve, False otherwise
+    """
+    # Convert U256 to int for calculations
+    x_int = int(x)
+    y_int = int(y)
+    p_int = int(SECP256R1P)
+    a_int = int(SECP256R1A)
+    b_int = int(SECP256R1B)
+
+    # Calculate y^2 mod p
+    y_squared = (y_int * y_int) % p_int
+
+    # Calculate x^3 + ax + b mod p
+    x_cubed = (x_int * x_int * x_int) % p_int
+    ax = (a_int * x_int) % p_int
+    right_side = (x_cubed + ax + b_int) % p_int
+
+    return y_squared == right_side
