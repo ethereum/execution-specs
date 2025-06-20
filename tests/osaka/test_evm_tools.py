@@ -3,7 +3,7 @@ from typing import Dict
 
 import pytest
 
-from tests.helpers import EEST_TESTS_PATH, ETHEREUM_TESTS_PATH
+from tests.helpers import ETHEREUM_TESTS_PATH, OSAKA_TEST_PATH
 from tests.helpers.load_evm_tools_tests import (
     fetch_evm_tools_tests,
     idfn,
@@ -11,7 +11,7 @@ from tests.helpers.load_evm_tools_tests import (
 )
 
 ETHEREUM_STATE_TESTS_DIR = f"{ETHEREUM_TESTS_PATH}/GeneralStateTests/"
-EEST_STATE_TESTS_DIR = f"{EEST_TESTS_PATH}/state_tests/"
+EEST_STATE_TESTS_DIR = f"{OSAKA_TEST_PATH}/fixtures/state_tests/"
 FORK_NAME = "Osaka"
 
 
