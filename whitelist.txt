@@ -476,4 +476,22 @@ blockchain
 listdir
 precompiles
 
+asn1
+backends
+Der
+ECDSA
+Prehashed
+pubnum
+P256VERIFY
+p256verify
+qx
+qy
+SECP256R1
+SECP256R1A
+SECP256R1B
+SECP256R1N
+SECP256R1P
+secp256r1
+sig
+
 CLZ
