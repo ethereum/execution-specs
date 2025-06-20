@@ -4,13 +4,13 @@ Elliptic Curves
 """
 
 import coincurve
-from ethereum_types.bytes import Bytes
-from ethereum_types.numeric import U256
 from Crypto.Util.asn1 import DerSequence
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import Prehashed
+from ethereum_types.bytes import Bytes
+from ethereum_types.numeric import U256
 
 from ethereum.exceptions import InvalidSignatureError
 
@@ -76,7 +76,6 @@ def secp256k1_recover(r: U256, s: U256, v: U256, msg_hash: Hash32) -> Bytes:
 
     public_key = public_key.format(compressed=False)[1:]
     return public_key
-
 
 
 SECP256R1N = U256(
