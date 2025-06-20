@@ -13,9 +13,13 @@ from ethereum_types.numeric import U64, U256, Uint, ulen
 
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.exceptions import InvalidSignatureError, InvalidTransaction
+from ethereum.exceptions import (
+    InsufficientTransactionGasError,
+    InvalidSignatureError,
+    NonceTooHighError,
+)
 
-from .exceptions import TransactionTypeError
+from .exceptions import InitCodeTooLargeError, TransactionTypeError
 from .fork_types import Address, Authorization, VersionedHash
 
 TX_BASE_COST = Uint(21000)
@@ -544,11 +548,11 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
 
     intrinsic_gas, calldata_floor_gas_cost = calculate_intrinsic_cost(tx)
     if max(intrinsic_gas, calldata_floor_gas_cost) > tx.gas:
-        raise InvalidTransaction("Insufficient gas")
+        raise InsufficientTransactionGasError("Insufficient gas")
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
-        raise InvalidTransaction("Nonce too high")
+        raise NonceTooHighError("Nonce too high")
     if tx.to == Bytes0(b"") and len(tx.data) > 2 * MAX_CODE_SIZE:
-        raise InvalidTransaction("Code size too large")
+        raise InitCodeTooLargeError("Code size too large")
 
     return intrinsic_gas, calldata_floor_gas_cost
 
