@@ -3,7 +3,7 @@ from typing import Dict
 
 import pytest
 
-from tests.helpers import EEST_TESTS_PATH, ETHEREUM_TESTS_PATH
+from tests.helpers import ETHEREUM_TESTS_PATH, OSAKA_TEST_PATH
 from tests.helpers.load_state_tests import (
     Load,
     fetch_state_test_files,
@@ -12,7 +12,7 @@ from tests.helpers.load_state_tests import (
 )
 
 ETHEREUM_BLOCKCHAIN_TESTS_DIR = f"{ETHEREUM_TESTS_PATH}/BlockchainTests/"
-EEST_BLOCKCHAIN_TESTS_DIR = f"{EEST_TESTS_PATH}/blockchain_tests/"
+EEST_BLOCKCHAIN_TESTS_DIR = f"{OSAKA_TEST_PATH}/fixtures/blockchain_tests/"
 NETWORK = "Osaka"
 PACKAGE = "osaka"
 
