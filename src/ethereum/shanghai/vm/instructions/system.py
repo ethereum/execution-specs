@@ -71,7 +71,7 @@ def generic_create(
     # This import causes a circular import error
     # if it's not moved inside this method
     from ...vm.interpreter import (
-        MAX_CODE_SIZE,
+        MAX_INIT_CODE_SIZE,
         STACK_DEPTH_LIMIT,
         process_create_message,
     )
@@ -79,7 +79,7 @@ def generic_create(
     call_data = memory_read_bytes(
         evm.memory, memory_start_position, memory_size
     )
-    if len(call_data) > 2 * MAX_CODE_SIZE:
+    if len(call_data) > MAX_INIT_CODE_SIZE:
         raise OutOfGasError
 
     create_message_gas = max_message_call_gas(Uint(evm.gas_left))
