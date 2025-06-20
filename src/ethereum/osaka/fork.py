@@ -572,6 +572,7 @@ def process_system_transaction(
         accessed_addresses=set(),
         accessed_storage_keys=set(),
         disable_precompiles=False,
+        warm_code_addresses=set(),
         parent_evm=None,
     )
 
