@@ -4,17 +4,19 @@ submitted to be executed. If Ethereum is viewed as a state machine,
 transactions are the events that move between states.
 """
 from dataclasses import dataclass
-from typing import Tuple
+import math
+from typing import Tuple, Union, List
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
 from ethereum_types.frozen import slotted_freezable
-from ethereum_types.numeric import U64, U256, Uint, ulen
+from ethereum_types.numeric import U8, U64, U256, Uint, ulen
 
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import InvalidSignatureError, InvalidTransaction
 
+from .sig_algorithms import algorithm_from_type
 from .exceptions import TransactionTypeError
 from .fork_types import Address, Authorization, VersionedHash
 
@@ -55,7 +57,11 @@ TX_ACCESS_LIST_STORAGE_KEY_COST = Uint(1900)
 Gas cost for including a storage key in the access list of a transaction.
 """
 
-TX_MAX_GAS_LIMIT = Uint(30_000_000)
+COST_PER_ADDITIONAL_AUTH_BYTE = Uint(16)
+"""
+Gas cost for having an additional authentication byte over 65
+"""
+
 
 
 @slotted_freezable
@@ -458,6 +464,17 @@ class SetCodeTransaction:
     The second part of the signature.
     """
 
+@slotted_freezable
+@dataclass
+class AlgorithmicTransaction:
+    """
+    The transaction type added in EIP-7932.
+    """
+
+    alg_type: U8
+    signature_info: Bytes
+    parent: Bytes
+    additional_info: Tuple[Tuple[U8, Bytes], ...]
 
 Transaction = (
     LegacyTransaction
@@ -465,6 +482,7 @@ Transaction = (
     | FeeMarketTransaction
     | BlobTransaction
     | SetCodeTransaction
+    | AlgorithmicTransaction
 )
 """
 Union type representing any valid transaction type.
@@ -489,6 +507,9 @@ def encode_transaction(tx: Transaction) -> LegacyTransaction | Bytes:
         return b"\x03" + rlp.encode(tx)
     elif isinstance(tx, SetCodeTransaction):
         return b"\x04" + rlp.encode(tx)
+    
+    elif isinstance(tx, AlgorithmicTransaction):
+        return b"\x07" + rlp.encode(tx)
     else:
         raise Exception(f"Unable to encode transaction of type {type(tx)}")
 
@@ -510,6 +531,9 @@ def decode_transaction(tx: LegacyTransaction | Bytes) -> Transaction:
             return rlp.decode_to(BlobTransaction, tx[1:])
         elif tx[0] == 4:
             return rlp.decode_to(SetCodeTransaction, tx[1:])
+        
+        elif tx[0] == 7:
+            return rlp.decode_to(AlgorithmicTransaction, tx[1:])
         else:
             raise TransactionTypeError(tx[0])
     else:
@@ -539,12 +563,47 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
     validation. It throws an `InvalidTransaction` exception
     if the transaction is invalid.
 
+    This also enforces that any EIP-7932 <https://eips.ethereum.org/EIPS/eip-7932> transaction
+        algorithms are valid.
+
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
     """
     from .vm.interpreter import MAX_INIT_CODE_SIZE
 
     intrinsic_gas, calldata_floor_gas_cost = calculate_intrinsic_cost(tx)
+
+    if isinstance(tx, AlgorithmicTransaction):
+        if tx.alg_type == 0xff and len(tx.additional_info) == 0:
+            raise InvalidTransaction("Redundant wrapping of transaction.")
+        
+        tx: AlgorithmicTransaction
+        
+        if len(tx.signature_info) > algorithm_from_type(tx.alg_type).max_length:
+            raise InvalidTransaction("Overflow of max algorithm data.")
+        
+        additional_signatures = set([])
+        
+        for (type, info) in tx.additional_info:
+            if type == 0xff:
+                raise InvalidTransaction("Cannot use NULL algorithm in `additional_info`")
+
+            if len(info) > algorithm_from_type(type).max_length:
+                raise InvalidTransaction("Overflow of max algorithm data.")
+            
+            additional_signatures.add(keccak256(Bytes(type.to_bytes1() + info)))
+
+        tx = decode_transaction(tx.parent)
+
+        if isinstance(tx, AlgorithmicTransaction):
+            raise InvalidTransaction("Double-wrapped transaction.")
+
+        elif isinstance(tx, SetCodeTransaction):
+            for auth in tx.authorizations:
+                if auth.y_parity == U8(0) and auth.r == U256(0) and auth.s.to_be_bytes32() not in additional_signatures:
+                    raise InvalidTransaction("Mismatch between inner TX and wrapper TX.")
+
+
     if max(intrinsic_gas, calldata_floor_gas_cost) > tx.gas:
         raise InvalidTransaction("Insufficient gas")
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
@@ -553,6 +612,7 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
         raise InvalidTransaction("Code size too large")
     if tx.gas > TX_MAX_GAS_LIMIT:
         raise InvalidTransaction("Gas limit too high")
+    
 
     return intrinsic_gas, calldata_floor_gas_cost
 
@@ -584,6 +644,17 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     """
     from .vm.eoa_delegation import PER_EMPTY_ACCOUNT_COST
     from .vm.gas import init_code_cost
+
+    algorithm_cost = Uint(0)
+    if isinstance(tx, AlgorithmicTransaction):
+        algorithm_cost += Uint(max(len(tx.signature_info) - 65, 0))
+        algorithm_cost += algorithm_from_type(tx.alg_type).gas_penalty
+
+        for (type, info) in tx.additional_info:
+            algorithm_cost += Uint(max(len(info) - 65, 0))
+            algorithm_cost += algorithm_from_type(type).gas_penalty
+
+        tx = decode_transaction(tx.parent)
 
     zero_bytes = 0
     for byte in tx.data:
@@ -623,6 +694,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     if isinstance(tx, SetCodeTransaction):
         auth_cost += Uint(PER_EMPTY_ACCOUNT_COST * len(tx.authorizations))
 
+    
     return (
         Uint(
             TX_BASE_COST
@@ -630,6 +702,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
             + create_cost
             + access_list_cost
             + auth_cost
+            + algorithm_cost
         ),
         calldata_floor_gas_cost,
     )
@@ -648,7 +721,14 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
     This function takes chain_id and a transaction as parameters and returns
     the address of the sender of the transaction. It raises an
     `InvalidSignatureError` if the signature values (r, s, v) are invalid.
+
+    Note: This function is bypassed if the transaction is an EIP-7932 <https://eips.ethereum.org/EIPS/eip-7932>
+    transaction due to its differing verification behaviour.
     """
+
+    if isinstance(tx, AlgorithmicTransaction):
+        return recover_7932_sender(chain_id, tx)
+
     r, s = tx.r, tx.s
     if U256(0) >= r or r >= SECP256K1N:
         raise InvalidSignatureError("bad r")
@@ -697,6 +777,19 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
         )
 
     return Address(keccak256(public_key)[12:32])
+
+
+def recover_7932_sender(chain_id: U64, tx: AlgorithmicTransaction) -> Address:
+    """
+    Extracts the sender address from a transaction.
+    This function should only be called from `recover_sender`.
+    """
+    if tx.alg_type == 0xff:
+        return recover_sender(chain_id, decode_transaction(tx.parent))
+    
+    sig_hash = signing_hash_7932(tx, chain_id)
+    address = algorithm_from_type(tx.alg_type).verify(tx.signature_info, sig_hash)
+    return address
 
 
 def signing_hash_pre155(tx: LegacyTransaction) -> Hash32:
@@ -859,7 +952,39 @@ def signing_hash_7702(tx: SetCodeTransaction) -> Hash32:
     )
 
 
-def get_transaction_hash(tx: Bytes | LegacyTransaction) -> Hash32:
+def signing_hash_7932(tx: AlgorithmicTransaction, chain_id: U64) -> Hash32:
+    """
+    Compute the hash of a transaction used in a EIP-7932 signature.
+
+    Parameters
+    ----------
+    tx :
+        Transaction of interest.
+
+    Returns
+    -------
+    hash : `ethereum.crypto.hash.Hash32`
+        Hash of the transaction.
+    """
+    inner = decode_transaction(tx.parent)
+
+    if isinstance(inner, LegacyTransaction):
+        signing_hash = signing_hash_155(inner, chain_id)
+    elif isinstance(inner, AccessListTransaction):
+        signing_hash = signing_hash_2930(inner)
+    elif isinstance(inner, FeeMarketTransaction):
+        signing_hash = signing_hash_1559(inner)
+    elif isinstance(inner, BlobTransaction):
+        signing_hash = signing_hash_4844(inner)
+    elif isinstance(inner, SetCodeTransaction):
+        signing_hash = signing_hash_7702(inner)
+
+    return signing_hash # type: ignore 
+    # This should be safe, as the program will error if
+    # return is called without any value.
+
+
+def get_transaction_hash(tx: Union[Bytes, LegacyTransaction]) -> Hash32:
     """
     Compute the hash of a transaction.
 
