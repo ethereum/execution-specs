@@ -67,6 +67,7 @@ from .transactions import (
     FeeMarketTransaction,
     LegacyTransaction,
     SetCodeTransaction,
+    AlgorithmicTransaction,
     Transaction,
     decode_transaction,
     encode_transaction,
@@ -606,6 +607,8 @@ def process_system_transaction(
         transient_storage=TransientStorage(),
         blob_versioned_hashes=(),
         authorizations=(),
+        signature_overrides=(),
+        signature_override=Uint(0),
         index_in_block=None,
         tx_hash=None,
         traces=[],
@@ -871,6 +874,19 @@ def process_transaction(
     else:
         blob_gas_fee = Uint(0)
 
+    alg_tx: None | AlgorithmicTransaction = None
+    
+    if isinstance(tx, AlgorithmicTransaction):
+        alg_tx = tx
+        tx = decode_transaction(tx.parent)
+
+    if isinstance(tx, AlgorithmicTransaction):
+        # Note this should NEVER happen again, this
+        # stub is here to:
+        # a. Make the linter happy
+        # b. Stop in case something horrific happened
+        raise Exception("Impossible double-wrapping after check.")
+
     effective_gas_fee = tx.gas * effective_gas_price
 
     gas = tx.gas - intrinsic_gas
@@ -913,6 +929,8 @@ def process_transaction(
         transient_storage=TransientStorage(),
         blob_versioned_hashes=blob_versioned_hashes,
         authorizations=authorizations,
+        signature_overrides=alg_tx.additional_info,
+        signature_override=Uint(0),
         index_in_block=index,
         tx_hash=get_transaction_hash(encode_transaction(tx)),
         traces=[],

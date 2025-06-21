@@ -33,7 +33,7 @@ from . import (
     POINT_EVALUATION_ADDRESS,
     RIPEMD160_ADDRESS,
     SHA256_ADDRESS,
-    SIGRECOVER_ADDRESS
+    SIGRECOVER_ADDRESS,
 )
 from .alt_bn128 import alt_bn128_add, alt_bn128_mul, alt_bn128_pairing_check
 from .blake2f import blake2f
