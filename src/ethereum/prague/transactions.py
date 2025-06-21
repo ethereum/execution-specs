@@ -4,7 +4,7 @@ submitted to be executed. If Ethereum is viewed as a state machine,
 transactions are the events that move between states.
 """
 from dataclasses import dataclass
-from typing import Tuple, Union
+from typing import Tuple
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
@@ -85,7 +85,7 @@ class LegacyTransaction:
     The maximum amount of gas that can be used by this transaction.
     """
 
-    to: Union[Bytes0, Address]
+    to: Bytes0 | Address
     """
     The address of the recipient. If empty, the transaction is a contract
     creation.
@@ -170,7 +170,7 @@ class AccessListTransaction:
     The maximum amount of gas that can be used by this transaction.
     """
 
-    to: Union[Bytes0, Address]
+    to: Bytes0 | Address
     """
     The address of the recipient. If empty, the transaction is a contract
     creation.
@@ -247,7 +247,7 @@ class FeeMarketTransaction:
     The maximum amount of gas that can be used by this transaction.
     """
 
-    to: Union[Bytes0, Address]
+    to: Bytes0 | Address
     """
     The address of the recipient. If empty, the transaction is a contract
     creation.
@@ -457,19 +457,19 @@ class SetCodeTransaction:
     """
 
 
-Transaction = Union[
-    LegacyTransaction,
-    AccessListTransaction,
-    FeeMarketTransaction,
-    BlobTransaction,
-    SetCodeTransaction,
-]
+Transaction = (
+    LegacyTransaction
+    | AccessListTransaction
+    | FeeMarketTransaction
+    | BlobTransaction
+    | SetCodeTransaction
+)
 """
 Union type representing any valid transaction type.
 """
 
 
-def encode_transaction(tx: Transaction) -> Union[LegacyTransaction, Bytes]:
+def encode_transaction(tx: Transaction) -> LegacyTransaction | Bytes:
     """
     Encode a transaction into its RLP or typed transaction format.
     Needed because non-legacy transactions aren't RLP.
@@ -491,7 +491,7 @@ def encode_transaction(tx: Transaction) -> Union[LegacyTransaction, Bytes]:
         raise Exception(f"Unable to encode transaction of type {type(tx)}")
 
 
-def decode_transaction(tx: Union[LegacyTransaction, Bytes]) -> Transaction:
+def decode_transaction(tx: LegacyTransaction | Bytes) -> Transaction:
     """
     Decode a transaction from its RLP or typed transaction format.
     Needed because non-legacy transactions aren't RLP.
@@ -855,7 +855,7 @@ def signing_hash_7702(tx: SetCodeTransaction) -> Hash32:
     )
 
 
-def get_transaction_hash(tx: Union[Bytes, LegacyTransaction]) -> Hash32:
+def get_transaction_hash(tx: Bytes | LegacyTransaction) -> Hash32:
     """
     Compute the hash of a transaction.
 

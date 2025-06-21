@@ -12,7 +12,7 @@ Introduction
 Entry point for the Ethereum specification.
 """
 from dataclasses import dataclass
-from typing import List, Optional, Set, Tuple, Union
+from typing import List, Optional, Set, Tuple
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
@@ -400,7 +400,7 @@ def make_receipt(
     error: Optional[EthereumException],
     cumulative_gas_used: Uint,
     logs: Tuple[Log, ...],
-) -> Union[Bytes, Receipt]:
+) -> Bytes | Receipt:
     """
     Make the receipt for a transaction that was executed.
 
@@ -433,7 +433,7 @@ def make_receipt(
 
 def apply_body(
     block_env: vm.BlockEnvironment,
-    transactions: Tuple[Union[LegacyTransaction, Bytes], ...],
+    transactions: Tuple[LegacyTransaction | Bytes, ...],
     ommers: Tuple[Header, ...],
 ) -> vm.BlockOutput:
     """
