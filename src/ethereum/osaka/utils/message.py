@@ -18,7 +18,7 @@ from ethereum_types.numeric import Uint
 
 from ..fork_types import Address
 from ..state import get_account
-from ..transactions import Transaction
+from ..transactions import AlgorithmicTransaction, Transaction, decode_transaction
 from ..vm import BlockEnvironment, Message, TransactionEnvironment
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from .address import compute_contract_address
@@ -50,6 +50,16 @@ def prepare_message(
     accessed_addresses.add(tx_env.origin)
     accessed_addresses.update(PRE_COMPILED_CONTRACTS.keys())
     accessed_addresses.update(tx_env.access_list_addresses)
+
+    if isinstance(tx, AlgorithmicTransaction):
+        tx = decode_transaction(tx.parent)
+
+    if isinstance(tx, AlgorithmicTransaction):
+        # Note this should NEVER happen again, this
+        # stub is here to:
+        # a. Make the linter happy
+        # b. Stop in case something horrific happened
+        raise Exception("Impossible double-wrapping after check.")
 
     if isinstance(tx.to, Bytes0):
         current_target = compute_contract_address(

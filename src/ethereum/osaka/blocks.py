@@ -20,11 +20,11 @@ from ..crypto.hash import Hash32
 from .fork_types import Address, Bloom, Root
 from .transactions import (
     AccessListTransaction,
+    AlgorithmicTransaction,
     BlobTransaction,
     FeeMarketTransaction,
     LegacyTransaction,
     SetCodeTransaction,
-    AlgorithmicTransaction,
     Transaction,
     decode_transaction,
 )

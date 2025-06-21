@@ -11,17 +11,17 @@ Introduction
 
 Implementation of the `Sigrecover` precompiled contract.
 """
+from ethereum_types.bytes import Bytes20, Bytes32
+from ethereum_types.numeric import U8, U256, Uint
+
+from ...signature_algorithms import algorithm_from_type
 from ...vm import Evm
 from ...vm.gas import GAS_SIGRECOVER, charge_gas
 from ..exceptions import InvalidParameter
 
-from ...sig_algorithms import algorithm_from_type
-
-from ethereum_types.bytes import Bytes20
-from ethereum_types.numeric import U8, U256, Uint
-
 NULL_ADDRESS = Bytes20.fromhex("0x0000000000000000000000000000000000000000")
 COST_PER_ADDITIONAL_AUTH_BYTE = Uint(16)
+
 
 def sigrecover(evm: Evm) -> None:
     """
@@ -35,15 +35,15 @@ def sigrecover(evm: Evm) -> None:
     charge_gas(evm, GAS_SIGRECOVER)
 
     data = evm.message.data
-    
+
     if len(data) < 64:
         raise InvalidParameter
-    
-    hash = data[:32]
-    alg_type = U8(data[32])
-    sig_length = U256(int.from_bytes(data[33:64], "little"))
 
-    if alg_type == U8(0xff):
+    hash = Bytes32(data[:32])
+    alg_type = U8(data[32])
+    signature_length = U256(int.from_bytes(data[33:64], "little"))
+
+    if alg_type == U8(0xFF):
         evm.output = NULL_ADDRESS
         return
 
@@ -53,10 +53,19 @@ def sigrecover(evm: Evm) -> None:
         evm.output = NULL_ADDRESS
         return
 
-    if sig_length > U256(alg.max_length) or sig_length < U256(len(data) - 64):
+    if signature_length > U256(alg.max_length) or signature_length < U256(
+        len(data) - 64
+    ):
         evm.output = NULL_ADDRESS
         return
-    
-    charge_gas(evm, (Uint(max(0, int(sig_length) - 65)) * COST_PER_ADDITIONAL_AUTH_BYTE) + Uint(alg.gas_penalty))
-    
-    evm.output = alg.verify(data[64:64 + int(sig_length)], hash)
+
+    charge_gas(
+        evm,
+        (
+            Uint(max(0, int(signature_length) - 65))
+            * COST_PER_ADDITIONAL_AUTH_BYTE
+        )
+        + Uint(alg.gas_penalty),
+    )
+
+    evm.output = alg.verify(data[64 : 64 + int(signature_length)], hash)

@@ -4,8 +4,7 @@ submitted to be executed. If Ethereum is viewed as a state machine,
 transactions are the events that move between states.
 """
 from dataclasses import dataclass
-import math
-from typing import Tuple, Union, List
+from typing import Tuple, Union
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
@@ -16,9 +15,9 @@ from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import InvalidSignatureError, InvalidTransaction
 
-from .sig_algorithms import algorithm_from_type
 from .exceptions import TransactionTypeError
 from .fork_types import Address, Authorization, VersionedHash
+from .signature_algorithms import algorithm_from_type
 
 TX_BASE_COST = Uint(21000)
 """
@@ -507,7 +506,7 @@ def encode_transaction(tx: Transaction) -> LegacyTransaction | Bytes:
         return b"\x03" + rlp.encode(tx)
     elif isinstance(tx, SetCodeTransaction):
         return b"\x04" + rlp.encode(tx)
-    
+
     elif isinstance(tx, AlgorithmicTransaction):
         return b"\x07" + rlp.encode(tx)
     else:
@@ -531,7 +530,7 @@ def decode_transaction(tx: LegacyTransaction | Bytes) -> Transaction:
             return rlp.decode_to(BlobTransaction, tx[1:])
         elif tx[0] == 4:
             return rlp.decode_to(SetCodeTransaction, tx[1:])
-        
+
         elif tx[0] == 7:
             return rlp.decode_to(AlgorithmicTransaction, tx[1:])
         else:
@@ -574,24 +573,29 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
     intrinsic_gas, calldata_floor_gas_cost = calculate_intrinsic_cost(tx)
 
     if isinstance(tx, AlgorithmicTransaction):
-        if tx.alg_type == 0xff and len(tx.additional_info) == 0:
+        if tx.alg_type == 0xFF and len(tx.additional_info) == 0:
             raise InvalidTransaction("Redundant wrapping of transaction.")
-        
-        tx: AlgorithmicTransaction
-        
-        if len(tx.signature_info) > algorithm_from_type(tx.alg_type).max_length:
-            raise InvalidTransaction("Overflow of max algorithm data.")
-        
-        additional_signatures = set([])
-        
-        for (type, info) in tx.additional_info:
-            if type == 0xff:
-                raise InvalidTransaction("Cannot use NULL algorithm in `additional_info`")
 
-            if len(info) > algorithm_from_type(type).max_length:
+        if (
+            Uint(len(tx.signature_info))
+            > algorithm_from_type(tx.alg_type).max_length
+        ):
+            raise InvalidTransaction("Overflow of max algorithm data.")
+
+        additional_signatures = set([])
+
+        for type, info in tx.additional_info:
+            if type == 0xFF:
+                raise InvalidTransaction(
+                    "Cannot use NULL algorithm in `additional_info`"
+                )
+
+            if Uint(len(info)) > algorithm_from_type(type).max_length:
                 raise InvalidTransaction("Overflow of max algorithm data.")
-            
-            additional_signatures.add(keccak256(Bytes(type.to_bytes1() + info)))
+
+            additional_signatures.add(
+                keccak256(Bytes(type.to_bytes1() + info))
+            )
 
         tx = decode_transaction(tx.parent)
 
@@ -600,9 +604,14 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
 
         elif isinstance(tx, SetCodeTransaction):
             for auth in tx.authorizations:
-                if auth.y_parity == U8(0) and auth.r == U256(0) and auth.s.to_be_bytes32() not in additional_signatures:
-                    raise InvalidTransaction("Mismatch between inner TX and wrapper TX.")
-
+                if (
+                    auth.y_parity == U8(0)
+                    and auth.r == U256(0)
+                    and auth.s.to_be_bytes32() not in additional_signatures
+                ):
+                    raise InvalidTransaction(
+                        "Mismatch between inner TX and wrapper TX."
+                    )
 
     if max(intrinsic_gas, calldata_floor_gas_cost) > tx.gas:
         raise InvalidTransaction("Insufficient gas")
@@ -612,7 +621,6 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
         raise InvalidTransaction("Code size too large")
     if tx.gas > TX_MAX_GAS_LIMIT:
         raise InvalidTransaction("Gas limit too high")
-    
 
     return intrinsic_gas, calldata_floor_gas_cost
 
@@ -646,15 +654,23 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     from .vm.gas import init_code_cost
 
     algorithm_cost = Uint(0)
+
     if isinstance(tx, AlgorithmicTransaction):
         algorithm_cost += Uint(max(len(tx.signature_info) - 65, 0))
-        algorithm_cost += algorithm_from_type(tx.alg_type).gas_penalty
+        algorithm_cost += Uint(algorithm_from_type(tx.alg_type).gas_penalty)
 
-        for (type, info) in tx.additional_info:
+        for type, info in tx.additional_info:
             algorithm_cost += Uint(max(len(info) - 65, 0))
             algorithm_cost += algorithm_from_type(type).gas_penalty
 
         tx = decode_transaction(tx.parent)
+
+    if isinstance(tx, AlgorithmicTransaction):
+        # Note this should NEVER happen again, this
+        # stub is here to:
+        # a. Make the linter happy
+        # b. Stop in case something horrific happened
+        raise Exception("Impossible double-wrapping after check.")
 
     zero_bytes = 0
     for byte in tx.data:
@@ -694,7 +710,6 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     if isinstance(tx, SetCodeTransaction):
         auth_cost += Uint(PER_EMPTY_ACCOUNT_COST * len(tx.authorizations))
 
-    
     return (
         Uint(
             TX_BASE_COST
@@ -725,7 +740,6 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
     Note: This function is bypassed if the transaction is an EIP-7932 <https://eips.ethereum.org/EIPS/eip-7932>
     transaction due to its differing verification behaviour.
     """
-
     if isinstance(tx, AlgorithmicTransaction):
         return recover_7932_sender(chain_id, tx)
 
@@ -784,11 +798,13 @@ def recover_7932_sender(chain_id: U64, tx: AlgorithmicTransaction) -> Address:
     Extracts the sender address from a transaction.
     This function should only be called from `recover_sender`.
     """
-    if tx.alg_type == 0xff:
+    if tx.alg_type == 0xFF:
         return recover_sender(chain_id, decode_transaction(tx.parent))
-    
-    sig_hash = signing_hash_7932(tx, chain_id)
-    address = algorithm_from_type(tx.alg_type).verify(tx.signature_info, sig_hash)
+
+    signature_hash = signing_hash_7932(tx, chain_id)
+    address = algorithm_from_type(tx.alg_type).verify(
+        tx.signature_info, signature_hash
+    )
     return address
 
 
@@ -961,6 +977,9 @@ def signing_hash_7932(tx: AlgorithmicTransaction, chain_id: U64) -> Hash32:
     tx :
         Transaction of interest.
 
+    chain_id :
+        The chain ID to which this transaction was seen on.
+
     Returns
     -------
     hash : `ethereum.crypto.hash.Hash32`
@@ -979,10 +998,7 @@ def signing_hash_7932(tx: AlgorithmicTransaction, chain_id: U64) -> Hash32:
     elif isinstance(inner, SetCodeTransaction):
         signing_hash = signing_hash_7702(inner)
 
-    return signing_hash # type: ignore 
-    # This should be safe, as the program will error if
-    # return is called without any value.
-
+    return signing_hash
 
 def get_transaction_hash(tx: Union[Bytes, LegacyTransaction]) -> Hash32:
     """
