@@ -17,7 +17,7 @@ from typing import List, Optional, Tuple
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
-from ethereum_types.numeric import U64, U256, Uint
+from ethereum_types.numeric import U8, U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import (
@@ -50,6 +50,7 @@ from .requests import (
     compute_requests_hash,
     parse_deposit_requests,
 )
+from .signature_algorithms import algorithm_from_type
 from .state import (
     State,
     TransientStorage,
@@ -63,11 +64,11 @@ from .state import (
 )
 from .transactions import (
     AccessListTransaction,
+    AlgorithmicTransaction,
     BlobTransaction,
     FeeMarketTransaction,
     LegacyTransaction,
     SetCodeTransaction,
-    AlgorithmicTransaction,
     Transaction,
     decode_transaction,
     encode_transaction,
@@ -451,6 +452,15 @@ def check_transaction(
     gas_available = block_env.block_gas_limit - block_output.block_gas_used
     blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used
 
+    alg_tx: None | AlgorithmicTransaction = None
+
+    if isinstance(tx, AlgorithmicTransaction):
+        alg_tx = tx
+        tx = decode_transaction(tx.parent)
+
+    if isinstance(tx, AlgorithmicTransaction):
+        raise InvalidBlock
+
     if tx.gas > gas_available:
         raise GasUsedExceedsLimitError("gas used exceeds limit")
 
@@ -458,7 +468,7 @@ def check_transaction(
     if tx_blob_gas_used > blob_gas_available:
         raise BlobGasLimitExceededError("blob gas limit exceeded")
 
-    sender_address = recover_sender(block_env.chain_id, tx)
+    sender_address = recover_sender(block_env.chain_id, alg_tx or tx)
     sender_account = get_account(block_env.state, sender_address)
 
     if isinstance(
@@ -520,6 +530,40 @@ def check_transaction(
     elif sender_account.nonce < Uint(tx.nonce):
         raise NonceMismatchError("nonce too high")
 
+    if alg_tx is not None:
+        if alg_tx.alg_type == 0xFF and len(alg_tx.additional_info) == 0:
+            raise InvalidBlock
+
+        if (
+            Uint(len(alg_tx.signature_info))
+            > algorithm_from_type(alg_tx.alg_type).max_length
+        ):
+            raise InvalidBlock
+
+        additional_signatures = set([])
+
+        for type, info in alg_tx.additional_info:
+            if type == 0xFF:
+                raise InvalidBlock
+
+            if Uint(len(info)) > algorithm_from_type(type).max_length:
+                raise InvalidBlock
+
+            additional_signatures.add(
+                keccak256(Bytes(type.to_bytes1() + info))
+            )
+
+        if isinstance(tx, SetCodeTransaction):
+            for auth in tx.authorizations:
+                if (
+                    auth.y_parity == U8(0)
+                    and auth.r == U256(0)
+                    and auth.s.to_be_bytes32() not in additional_signatures
+                ):
+                    raise InvalidBlock
+
+    if sender_account.nonce != tx.nonce:
+        raise InvalidBlock
     if Uint(sender_account.balance) < max_gas_fee + Uint(tx.value):
         raise InsufficientBalanceError("insufficient sender balance")
     if sender_account.code and not is_valid_delegation(sender_account.code):
@@ -875,7 +919,7 @@ def process_transaction(
         blob_gas_fee = Uint(0)
 
     alg_tx: None | AlgorithmicTransaction = None
-    
+
     if isinstance(tx, AlgorithmicTransaction):
         alg_tx = tx
         tx = decode_transaction(tx.parent)
@@ -920,6 +964,10 @@ def process_transaction(
     if isinstance(tx, SetCodeTransaction):
         authorizations = tx.authorizations
 
+    signature_overrides: Tuple[Tuple[U8, Bytes], ...] = ()
+    if alg_tx is not None:
+        signature_overrides = alg_tx.additional_info
+
     tx_env = vm.TransactionEnvironment(
         origin=sender,
         gas_price=effective_gas_price,
@@ -929,7 +977,7 @@ def process_transaction(
         transient_storage=TransientStorage(),
         blob_versioned_hashes=blob_versioned_hashes,
         authorizations=authorizations,
-        signature_overrides=alg_tx.additional_info,
+        signature_overrides=signature_overrides,
         signature_override=Uint(0),
         index_in_block=index,
         tx_hash=get_transaction_hash(encode_transaction(tx)),

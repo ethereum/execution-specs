@@ -1000,6 +1000,7 @@ def signing_hash_7932(tx: AlgorithmicTransaction, chain_id: U64) -> Hash32:
 
     return signing_hash
 
+
 def get_transaction_hash(tx: Union[Bytes, LegacyTransaction]) -> Hash32:
     """
     Compute the hash of a transaction.
