@@ -18,7 +18,11 @@ from ethereum_types.numeric import Uint
 
 from ..fork_types import Address
 from ..state import get_account
-from ..transactions import AlgorithmicTransaction, Transaction, decode_transaction
+from ..transactions import (
+    AlgorithmicTransaction,
+    Transaction,
+    decode_transaction,
+)
 from ..vm import BlockEnvironment, Message, TransactionEnvironment
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from .address import compute_contract_address
