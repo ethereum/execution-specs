@@ -19,7 +19,7 @@ from ...vm import Evm
 from ...vm.gas import GAS_SIGRECOVER, charge_gas
 from ..exceptions import InvalidParameter
 
-NULL_ADDRESS = Bytes20.fromhex("0x0000000000000000000000000000000000000000")
+NULL_ADDRESS = Bytes20.fromhex("0000000000000000000000000000000000000000")
 COST_PER_ADDITIONAL_AUTH_BYTE = Uint(16)
 
 
