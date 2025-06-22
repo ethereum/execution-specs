@@ -7,18 +7,14 @@ algorithms provide `gas_penalty: Uint`, `max_length: Uint` and
 [EIP-7932]: https://eips.ethereum.org/EIPS/eip-7932
 """
 
-from dataclasses import dataclass
 from typing import Union
 
 from ethereum_types.bytes import Bytes, Bytes32
-from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U8, Uint
 
 from .fork_types import Address
 
 
-@slotted_freezable
-@dataclass
 class NullAlgorithm:
     """
     The Null algorithm added by EIP-7932
