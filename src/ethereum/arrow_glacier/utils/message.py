@@ -1,13 +1,7 @@
 """
-Hardfork Utility Functions For The Message Data-structure
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# Hardfork Utility Functions For The Message Data-structure
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
+## Introduction
 
 Message specific functions used in this arrow_glacier version of
 specification.
@@ -31,19 +25,14 @@ def prepare_message(
     """
     Execute a transaction against the provided environment.
 
-    Parameters
-    ----------
-    block_env :
-        Environment for the Ethereum Virtual Machine.
-    tx_env :
-        Environment for the transaction.
-    tx :
-        Transaction to be executed.
+    #### Parameters
+    - block_env: Environment for the Ethereum Virtual Machine.
+    - tx_env: Environment for the transaction.
+    - tx: Transaction to be executed.
 
-    Returns
-    -------
-    message: `ethereum.arrow_glacier.vm.Message`
-        Items containing contract creation or message call specific data.
+    #### Returns
+    - message: `ethereum.arrow_glacier.vm.Message`
+    Items containing contract creation or message call specific data.
     """
     accessed_addresses = set()
     accessed_addresses.add(tx_env.origin)

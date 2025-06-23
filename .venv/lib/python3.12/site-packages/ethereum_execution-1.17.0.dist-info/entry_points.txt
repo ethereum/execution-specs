@@ -1,0 +1,17 @@
+[console_scripts]
+ethereum-spec-evm = ethereum_spec_tools.evm_tools:main
+ethereum-spec-lint = ethereum_spec_tools.lint:main
+ethereum-spec-new-fork = ethereum_spec_tools.new_fork:main
+ethereum-spec-patch = ethereum_spec_tools.patch_tool:main
+ethereum-spec-sync = ethereum_spec_tools.sync:main
+
+[docc.plugins]
+ethereum_spec_tools.docc.build = ethereum_spec_tools.docc:EthereumBuilder
+ethereum_spec_tools.docc.discover = ethereum_spec_tools.docc:EthereumDiscover
+ethereum_spec_tools.docc.fix-indexes = ethereum_spec_tools.docc:FixIndexTransform
+ethereum_spec_tools.docc.minimize-diffs = ethereum_spec_tools.docc:MinimizeDiffsTransform
+
+[docc.plugins.html]
+ethereum_spec_tools.docc:AfterNode = ethereum_spec_tools.docc:render_before_after
+ethereum_spec_tools.docc:BeforeNode = ethereum_spec_tools.docc:render_before_after
+ethereum_spec_tools.docc:DiffNode = ethereum_spec_tools.docc:render_diff

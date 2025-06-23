@@ -1,13 +1,8 @@
 """
-EVM Instruction Encoding (Opcodes)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# EVM Instruction Encoding (Opcodes)
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
 
-Introduction
-------------
+## Introduction
 
 Machine readable representations of EVM instructions, and a mapping to their
 implementations.
