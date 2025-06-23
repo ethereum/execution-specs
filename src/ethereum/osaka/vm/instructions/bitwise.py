@@ -243,10 +243,10 @@ def bitwise_sar(evm: Evm) -> None:
 def count_leading_zeros(evm: Evm) -> None:
     """
     Count the number of leading zero bits in a 256-bit word.
-    
+
     Pops one value from the stack and pushes the number of leading zero bits.
     If the input is zero, pushes 256.
-    
+
     Parameters
     ----------
     evm :
@@ -254,15 +254,15 @@ def count_leading_zeros(evm: Evm) -> None:
     """
     # STACK
     x = pop(evm.stack)
-    
+
     # GAS
     charge_gas(evm, GAS_VERY_LOW)
-    
+
     # OPERATION
-    bit_length = x.bit_length()
-    result = U256(256 - bit_length)
-    
+    bit_length = U256(x.bit_length())
+    result = U256(256) - bit_length
+
     push(evm.stack, result)
-    
+
     # PROGRAM COUNTER
     evm.pc += Uint(1)
