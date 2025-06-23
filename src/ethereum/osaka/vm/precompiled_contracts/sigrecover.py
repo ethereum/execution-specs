@@ -53,7 +53,7 @@ def sigrecover(evm: Evm) -> None:
         evm.output = NULL_ADDRESS
         return
 
-    if signature_length > U256(alg.max_length) or signature_length < U256(
+    if signature_length > U256(alg.max_length) or signature_length != U256(
         len(data) - 64
     ):
         evm.output = NULL_ADDRESS
