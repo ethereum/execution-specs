@@ -259,11 +259,8 @@ def count_leading_zeros(evm: Evm) -> None:
     charge_gas(evm, GAS_VERY_LOW)
     
     # OPERATION
-    if x == 0:
-        result = U256(256)
-    else:
-        bit_length = x.bit_length()
-        result = U256(256 - bit_length)
+    bit_length = x.bit_length()
+    result = U256(256 - bit_length)
     
     push(evm.stack, result)
     
