@@ -475,3 +475,5 @@ eoa
 blockchain
 listdir
 precompiles
+
+CLZ
