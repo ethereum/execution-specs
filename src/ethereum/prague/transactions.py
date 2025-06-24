@@ -538,8 +538,11 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
 
     This function takes a transaction as a parameter and returns the intrinsic
     gas cost and the minimum calldata gas cost for the transaction after
-    validation. It throws an `InvalidTransaction` exception
-    if the transaction is invalid.
+    validation. It throws an `InsufficientTransactionGasError` exception if
+    the transaction does not provide enough gas to cover the intrinsic cost,
+    and a `NonceTooHighError` exception if the nonce is higher than 64 bits.
+    It also raises an `InitCodeTooLargeError` if the code size of a contract
+    creation transaction exceeds the maximum allowed size.
 
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
