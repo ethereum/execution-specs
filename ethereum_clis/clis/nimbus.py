@@ -87,17 +87,14 @@ class NimbusExceptionMapper(ExceptionMapper):
             "invalid tx: one of blobVersionedHash has invalid version"
         ),
         # TODO: temp solution until mapper for nimbus is fixed
-        TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: ("zero gasUsed but transactions present"),
+        TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: "zero gasUsed but transactions present",
         # This message is the same as TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED
         TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: "exceeds maximum allowance",
         TransactionException.TYPE_3_TX_ZERO_BLOBS: "blob transaction missing blob hashes",
-        TransactionException.INTRINSIC_GAS_TOO_LOW: "intrinsic gas too low",
+        TransactionException.INTRINSIC_GAS_TOO_LOW: "zero gasUsed but transactions present",
         TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: "intrinsic gas too low",
-        TransactionException.INITCODE_SIZE_EXCEEDED: "max initcode size exceeded",
-        BlockException.RLP_BLOCK_LIMIT_EXCEEDED: (
-            # TODO:
-            ""
-        ),
+        TransactionException.INITCODE_SIZE_EXCEEDED: "zero gasUsed but transactions present",
+        BlockException.RLP_BLOCK_LIMIT_EXCEEDED: "zero gasUsed but transactions present",
         # TODO EVMONE needs to differentiate when the section is missing in the header or body
         EOFException.MISSING_STOP_OPCODE: "err: no_terminating_instruction",
         EOFException.MISSING_CODE_HEADER: "err: code_section_missing",

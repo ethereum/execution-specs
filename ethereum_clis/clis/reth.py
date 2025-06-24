@@ -37,10 +37,7 @@ class RethExceptionMapper(ExceptionMapper):
         BlockException.INVALID_STATE_ROOT: "mismatched block state root",
         BlockException.INVALID_BLOCK_HASH: "block hash mismatch",
         BlockException.INVALID_GAS_USED: "block gas used mismatch",
-        BlockException.RLP_BLOCK_LIMIT_EXCEEDED: (
-            # TODO:
-            ""
-        ),
+        BlockException.RLP_BLOCK_LIMIT_EXCEEDED: "block is too large: ",
     }
     mapping_regex = {
         TransactionException.NONCE_MISMATCH_TOO_LOW: r"nonce \d+ too low, expected \d+",

@@ -40,10 +40,7 @@ class ErigonExceptionMapper(ExceptionMapper):
         BlockException.SYSTEM_CONTRACT_CALL_FAILED: "Unprecedented Syscall failure",
         BlockException.INVALID_REQUESTS: "invalid requests root hash in header",
         BlockException.INVALID_BLOCK_HASH: "invalid block hash",
-        BlockException.RLP_BLOCK_LIMIT_EXCEEDED: (
-            # TODO:
-            ""
-        ),
+        BlockException.RLP_BLOCK_LIMIT_EXCEEDED: "block exceeds max rlp size",
     }
     mapping_regex = {
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (

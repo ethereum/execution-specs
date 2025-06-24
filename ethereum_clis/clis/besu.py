@@ -262,10 +262,6 @@ class BesuExceptionMapper(ExceptionMapper):
             "Payload BlobGasUsed does not match calculated BlobGasUsed"
         ),
         BlockException.INVALID_GAS_USED_ABOVE_LIMIT: "Header validation failed (FULL)",
-        BlockException.RLP_BLOCK_LIMIT_EXCEEDED: (
-            # TODO:
-            ""
-        ),
         # TODO EVMONE needs to differentiate when the section is missing in the header or body
         EOFException.MISSING_STOP_OPCODE: "err: no_terminating_instruction",
         EOFException.MISSING_CODE_HEADER: "err: code_section_missing",
@@ -325,6 +321,9 @@ class BesuExceptionMapper(ExceptionMapper):
             r"Invalid (amount|index|pubKey|signature|withdrawalCred) (offset|size): "
             r"expected (\d+), but got (-?\d+)|"
             r"Invalid deposit log length\. Must be \d+ bytes, but is \d+ bytes"
+        ),
+        BlockException.RLP_BLOCK_LIMIT_EXCEEDED: (
+            r"Block size of \d+ bytes exceeds limit of \d+ bytes"
         ),
         TransactionException.INITCODE_SIZE_EXCEEDED: (
             r"transaction invalid Initcode size of \d+ exceeds maximum size of \d+"
