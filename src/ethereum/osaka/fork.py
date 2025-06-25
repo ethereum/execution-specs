@@ -110,6 +110,9 @@ HISTORY_STORAGE_ADDRESS = hex_to_address(
     "0x0000F90827F1C53a10cb7A02335B175320002935"
 )
 HISTORY_SERVE_WINDOW = 8192
+MAX_BLOCK_SIZE = 10_485_760
+SAFETY_MARGIN = 2_097_152
+MAX_RLP_BLOCK_SIZE = MAX_BLOCK_SIZE - SAFETY_MARGIN
 
 
 @dataclass
@@ -207,6 +210,9 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     block :
         Block to apply to `chain`.
     """
+    if len(rlp.encode(block)) > MAX_RLP_BLOCK_SIZE:
+        raise InvalidBlock("Block rlp size exceeds MAX_RLP_BLOCK_SIZE")
+
     validate_header(chain, block.header)
     if block.ommers != ():
         raise InvalidBlock
