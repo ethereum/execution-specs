@@ -129,14 +129,14 @@ class FixturesSource:
     @classmethod
     def from_release_url(cls, url: str) -> "FixturesSource":
         """Create a fixture source from a supported github repo release URL."""
-        release_page = get_release_page_url(url)
         downloader = FixtureDownloader(url, CACHED_DOWNLOADS_DIRECTORY)
         was_cached, path = downloader.download_and_extract()
+
         return cls(
             input_option=url,
             path=path,
             url=url,
-            release_page=release_page,
+            release_page="",
             is_local=False,
             was_cached=was_cached,
         )
@@ -319,11 +319,10 @@ def pytest_configure(config):  # noqa: D103
             reason += "Fixtures already cached."
         elif not config.fixtures_source.is_local:
             reason += "Fixtures downloaded and cached."
-        reason += (
-            f"\nPath: {config.fixtures_source.path}\n"
-            f"Input: {config.fixtures_source.url or config.fixtures_source.path}\n"
-            f"Release page: {config.fixtures_source.release_page or 'None'}"
-        )
+        reason += f"\nPath: {config.fixtures_source.path}"
+        reason += f"\nInput: {config.fixtures_source.url or config.fixtures_source.path}"
+        if config.fixtures_source.release_page:
+            reason += f"\nRelease page: {config.fixtures_source.release_page}"
         pytest.exit(
             returncode=0,
             reason=reason,
