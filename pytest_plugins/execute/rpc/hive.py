@@ -10,7 +10,6 @@ from random import randint
 from typing import Any, Dict, Generator, List, Mapping, Tuple, cast
 
 import pytest
-from ethereum.crypto.hash import keccak256
 from filelock import FileLock
 from hive.client import Client, ClientType
 from hive.simulation import Simulation
@@ -39,6 +38,7 @@ from ethereum_test_tools import (
     Withdrawal,
 )
 from ethereum_test_types import Requests
+from ethereum_test_types.trie import keccak256
 from pytest_plugins.consume.hive_simulators.ruleset import ruleset
 
 
