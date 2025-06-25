@@ -1295,15 +1295,23 @@ def test_worst_blobhash(
     """Test running a block with as many BLOBHASH instructions as possible."""
     env = Environment()
     max_code_size = fork.max_code_size()
+    max_stack_height = fork.max_stack_height()
 
-    code_prefix = Op.PUSH1(blob_index) + Op.JUMPDEST
-    code_suffix = Op.JUMP(len(code_prefix) - 1)
-    loop_iter = Op.POP(Op.BLOBHASH(Op.DUP1))
-    code_body_len = (max_code_size - len(code_prefix) - len(code_suffix)) // len(loop_iter)
-    code_body = loop_iter * code_body_len
-    code = code_prefix + code_body + code_suffix
+    # Contract that contains a collection of BLOBHASH instructions.
+    opcode_sequence = Op.BLOBHASH(blob_index) * max_stack_height
+    assert len(opcode_sequence) <= max_code_size
+
+    target_contract_address = pre.deploy_contract(code=opcode_sequence)
+
+    # Contract that contains a loop of STATICCALLs to the target contract.
+    calldata = Bytecode()
+    attack_block = Op.POP(Op.STATICCALL(Op.GAS, target_contract_address, 0, 0, 0, 0))
+    code = code_loop_precompile_call(calldata, attack_block, fork)
     assert len(code) <= max_code_size
 
+    code_address = pre.deploy_contract(code=code)
+
+    # Create blob transaction if blobs are present.
     tx_type = TransactionType.LEGACY
     blob_versioned_hashes = None
     max_fee_per_blob_gas = None
@@ -1317,7 +1325,7 @@ def test_worst_blobhash(
 
     tx = Transaction(
         ty=tx_type,
-        to=pre.deploy_contract(code=code),
+        to=code_address,
         gas_limit=env.gas_limit,
         max_fee_per_blob_gas=max_fee_per_blob_gas,
         blob_versioned_hashes=blob_versioned_hashes,
