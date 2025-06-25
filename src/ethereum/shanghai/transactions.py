@@ -344,14 +344,14 @@ def validate_transaction(tx: Transaction) -> Uint:
 
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     """
-    from .vm.interpreter import MAX_CODE_SIZE
+    from .vm.interpreter import MAX_INIT_CODE_SIZE
 
     intrinsic_gas = calculate_intrinsic_cost(tx)
     if intrinsic_gas > tx.gas:
         raise InvalidTransaction("Insufficient gas")
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
         raise InvalidTransaction("Nonce too high")
-    if tx.to == Bytes0(b"") and len(tx.data) > 2 * MAX_CODE_SIZE:
+    if tx.to == Bytes0(b"") and len(tx.data) > MAX_INIT_CODE_SIZE:
         raise InvalidTransaction("Code size too large")
 
     return intrinsic_gas
