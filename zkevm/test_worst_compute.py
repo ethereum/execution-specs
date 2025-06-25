@@ -574,6 +574,231 @@ def test_worst_precompile_only_data_input(
             ),
             id="mod_odd_32b_exp_cover_windows",
         ),
+        # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/Modexp.cs#L38
+        pytest.param(
+            ModExpInput(
+                base=192 * "FF",
+                exponent="03",
+                modulus=6 * ("00" + 31 * "FF"),
+            ),
+            id="mod_min_as_base_heavy",
+        ),
+        # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/Modexp.cs#L40
+        pytest.param(
+            ModExpInput(
+                base=8 * "FF",
+                exponent="07" + 75 * "FF",
+                modulus=7 * "FF",
+            ),
+            id="mod_min_as_exp_heavy",
+        ),
+        # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/Modexp.cs#L42
+        pytest.param(
+            ModExpInput(
+                base=40 * "FF",
+                exponent="01" + 3 * "FF",
+                modulus="00" + 38 * "FF",
+            ),
+            id="mod_min_as_balanced",
+        ),
+        # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/Modexp.cs#L44
+        pytest.param(
+            ModExpInput(
+                base=32 * "FF",
+                exponent=5 * "FF",
+                modulus=("00" + 31 * "FF"),
+            ),
+            id="mod_exp_208_gas_balanced",
+        ),
+        # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/Modexp.cs#L46
+        pytest.param(
+            ModExpInput(
+                base=8 * "FF",
+                exponent=81 * "FF",
+                modulus=7 * "FF",
+            ),
+            id="mod_exp_215_gas_exp_heavy",
+        ),
+        # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/Modexp.cs#L48
+        pytest.param(
+            ModExpInput(
+                base=8 * "FF",
+                exponent=112 * "FF",
+                modulus=7 * "FF",
+            ),
+            id="mod_exp_298_gas_exp_heavy",
+        ),
+        # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/Modexp.cs#L50
+        pytest.param(
+            ModExpInput(
+                base=16 * "FF",
+                exponent=40 * "FF",
+                modulus=15 * "FF",
+            ),
+            id="mod_pawel_2",
+        ),
+        # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/Modexp.cs#L52
+        pytest.param(
+            ModExpInput(
+                base=24 * "FF",
+                exponent=21 * "FF",
+                modulus=23 * "FF",
+            ),
+            id="mod_pawel_3",
+        ),
+        # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/Modexp.cs#L54
+        pytest.param(
+            ModExpInput(
+                base=32 * "FF",
+                exponent=12 * "FF",
+                modulus="00" + 31 * "FF",
+            ),
+            id="mod_pawel_4",
+        ),
+        # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/Modexp.cs#L56
+        pytest.param(
+            ModExpInput(
+                base=280 * "FF",
+                exponent="03",
+                modulus=8 * ("00" + 31 * "FF") + 23 * "FF",
+            ),
+            id="mod_408_gas_base_heavy",
+        ),
+        # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/Modexp.cs#L58
+        pytest.param(
+            ModExpInput(
+                base=16 * "FF",
+                exponent="15" + 37 * "FF",
+                modulus=15 * "FF",
+            ),
+            id="mod_400_gas_exp_heavy",
+        ),
+        # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/Modexp.cs#L60
+        pytest.param(
+            ModExpInput(
+                base=48 * "FF",
+                exponent="07" + 4 * "FF",
+                modulus="00" + 46 * "FF",
+            ),
+            id="mod_408_gas_balanced",
+        ),
+        # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/Modexp.cs#L62
+        pytest.param(
+            ModExpInput(
+                base=344 * "FF",
+                exponent="03",
+                modulus=10 * ("00" + 31 * "FF") + 23 * "FF",
+            ),
+            id="mod_616_gas_base_heavy",
+        ),
+        # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/Modexp.cs#L64
+        pytest.param(
+            ModExpInput(
+                base=16 * "FF",
+                exponent="07" + 56 * "FF",
+                modulus=15 * "FF",
+            ),
+            id="mod_600_gas_exp_heavy",
+        ),
+        # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/Modexp.cs#L66
+        pytest.param(
+            ModExpInput(
+                base=48 * "FF",
+                exponent="07" + 6 * "FF",
+                modulus="00" + 46 * "FF",
+            ),
+            id="mod_600_as_balanced",
+        ),
+        # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/Modexp.cs#L68
+        pytest.param(
+            ModExpInput(
+                base=392 * "FF",
+                exponent="03",
+                modulus=12 * ("00" + 31 * "FF") + 7 * "FF",
+            ),
+            id="mod_800_gas_base_heavy",
+        ),
+        # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/Modexp.cs#L70
+        pytest.param(
+            ModExpInput(
+                base=16 * "FF",
+                exponent="01" + 75 * "FF",
+                modulus=15 * "FF",
+            ),
+            id="mod_800_gas_exp_heavy",
+        ),
+        # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/Modexp.cs#L72
+        pytest.param(
+            ModExpInput(
+                base=56 * "FF",
+                exponent=6 * "FF",
+                modulus="00" + 54 * "FF",
+            ),
+            id="mod_767_gas_balanced",
+        ),
+        # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/Modexp.cs#L74
+        pytest.param(
+            ModExpInput(
+                base=16 * "FF",
+                exponent=80 * "FF",
+                modulus=15 * "FF",
+            ),
+            id="mod_852_gas_exp_heavy",
+        ),
+        # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/Modexp.cs#L76
+        pytest.param(
+            ModExpInput(
+                base=408 * "FF",
+                exponent="03",
+                modulus=12 * ("00" + 31 * "FF") + 23 * "FF",
+            ),
+            id="mod_867_gas_base_heavy",
+        ),
+        # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/Modexp.cs#L78
+        pytest.param(
+            ModExpInput(
+                base=56 * "FF",
+                exponent="2b" + 7 * "FF",
+                modulus="00" + 54 * "FF",
+            ),
+            id="mod_996_gas_balanced",
+        ),
+        # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/Modexp.cs#L80
+        pytest.param(
+            ModExpInput(
+                base=448 * "FF",
+                exponent="03",
+                modulus=14 * ("00" + 31 * "FF"),
+            ),
+            id="mod_1045_gas_base_heavy",
+        ),
+        # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/Modexp.cs#L82
+        pytest.param(
+            ModExpInput(
+                base=32 * "FF",
+                exponent=16 * "FF",
+                modulus="00" + 31 * "FF",
+            ),
+            id="mod_677_gas_base_heavy",
+        ),
+        # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/Modexp.cs#L84
+        pytest.param(
+            ModExpInput(
+                base=24 * "FF",
+                exponent=32 * "FF",
+                modulus=23 * "FF",
+            ),
+            id="mod_765_gas_exp_heavy",
+        ),
+        # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/Modexp.cs#L86
+        pytest.param(
+            ModExpInput(
+                base=32 * "FF",
+                exponent=32 * "FF",
+                modulus="00" + 31 * "FF",
+            ),
+            id="mod_1360_gas_balanced",
+        ),
     ],
 )
 def test_worst_modexp(
