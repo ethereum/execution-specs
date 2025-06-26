@@ -12,10 +12,177 @@ from ethereum_rlp import rlp
 from ethereum_rlp.exceptions import RLPException
 from ethereum_types.numeric import U64
 
+from ethereum.arrow_glacier.exceptions import (
+    InsufficientMaxFeePerGasError as ArrowGlacierInsufficientMaxFeePerGasError,
+)
+from ethereum.arrow_glacier.exceptions import (
+    PriorityFeeGreaterThanMaxFeeError as ArrowGlacierPriorityFeeGreaterThanMaxFeeError,
+)
+from ethereum.arrow_glacier.exceptions import (
+    TransactionTypeError as ArrowGlacierTransactionTypeError,
+)
+from ethereum.berlin.exceptions import (
+    TransactionTypeError as BerlinTransactionTypeError,
+)
+from ethereum.cancun.exceptions import (
+    BlobGasLimitExceededError as CancunBlobGasLimitExceededError,
+)
+from ethereum.cancun.exceptions import (
+    InitCodeTooLargeError as CancunInitCodeTooLargeError,
+)
+from ethereum.cancun.exceptions import (
+    InsufficientMaxFeePerBlobGasError as CancunInsufficientMaxFeePerBlobGasError,
+)
+from ethereum.cancun.exceptions import (
+    InsufficientMaxFeePerGasError as CancunInsufficientMaxFeePerGasError,
+)
+from ethereum.cancun.exceptions import (
+    InvalidBlobVersionedHashError as CancunInvalidBlobVersionedHashError,
+)
+from ethereum.cancun.exceptions import NoBlobDataError as CancunNoBlobDataError
+from ethereum.cancun.exceptions import (
+    PriorityFeeGreaterThanMaxFeeError as CancunPriorityFeeGreaterThanMaxFeeError,
+)
+from ethereum.cancun.exceptions import (
+    TransactionTypeContractCreationError as CancunTransactionTypeContractCreationError,
+)
+from ethereum.cancun.exceptions import (
+    TransactionTypeError as CancunTransactionTypeError,
+)
 from ethereum.crypto.hash import keccak256
-from ethereum.exceptions import EthereumException, StateWithEmptyAccount
+from ethereum.exceptions import (
+    GasUsedExceedsLimitError,
+    InsufficientBalanceError,
+    InsufficientTransactionGasError,
+    InvalidBlock,
+    InvalidSenderError,
+    InvalidSignatureError,
+    NonceMismatchError,
+    NonceTooHighError,
+    StateWithEmptyAccount,
+)
+from ethereum.gray_glacier.exceptions import (
+    InsufficientMaxFeePerGasError as GrayGlacierInsufficientMaxFeePerGasError,
+)
+from ethereum.gray_glacier.exceptions import (
+    PriorityFeeGreaterThanMaxFeeError as GrayGlacierPriorityFeeGreaterThanMaxFeeError,
+)
+from ethereum.gray_glacier.exceptions import (
+    TransactionTypeError as GrayGlacierTransactionTypeError,
+)
+from ethereum.london.exceptions import (
+    InsufficientMaxFeePerGasError as LondonInsufficientMaxFeePerGasError,
+)
+from ethereum.london.exceptions import (
+    PriorityFeeGreaterThanMaxFeeError as LondonPriorityFeeGreaterThanMaxFeeError,
+)
+from ethereum.london.exceptions import (
+    TransactionTypeError as LondonTransactionTypeError,
+)
+from ethereum.paris.exceptions import (
+    InsufficientMaxFeePerGasError as ParisInsufficientMaxFeePerGasError,
+)
+from ethereum.paris.exceptions import (
+    PriorityFeeGreaterThanMaxFeeError as ParisPriorityFeeGreaterThanMaxFeeError,
+)
+from ethereum.paris.exceptions import (
+    TransactionTypeError as ParisTransactionTypeError,
+)
+from ethereum.prague.exceptions import (
+    BlobGasLimitExceededError as PragueBlobGasLimitExceededError,
+)
+from ethereum.prague.exceptions import (
+    EmptyAuthorizationListError as PragueEmptyAuthorizationListError,
+)
+from ethereum.prague.exceptions import (
+    InitCodeTooLargeError as PragueInitCodeTooLargeError,
+)
+from ethereum.prague.exceptions import (
+    InsufficientMaxFeePerBlobGasError as PragueInsufficientMaxFeePerBlobGasError,
+)
+from ethereum.prague.exceptions import (
+    InsufficientMaxFeePerGasError as PragueInsufficientMaxFeePerGasError,
+)
+from ethereum.prague.exceptions import (
+    InvalidBlobVersionedHashError as PragueInvalidBlobVersionedHashError,
+)
+from ethereum.prague.exceptions import NoBlobDataError as PragueNoBlobDataError
+from ethereum.prague.exceptions import (
+    PriorityFeeGreaterThanMaxFeeError as PraguePriorityFeeGreaterThanMaxFeeError,
+)
+from ethereum.prague.exceptions import (
+    TransactionTypeContractCreationError as PragueTransactionTypeContractCreationError,
+)
+from ethereum.prague.exceptions import (
+    TransactionTypeError as PragueTransactionTypeError,
+)
+from ethereum.shanghai.exceptions import (
+    InitCodeTooLargeError as ShanghaiInitCodeTooLargeError,
+)
+from ethereum.shanghai.exceptions import (
+    InsufficientMaxFeePerGasError as ShanghaiInsufficientMaxFeePerGasError,
+)
+from ethereum.shanghai.exceptions import (
+    PriorityFeeGreaterThanMaxFeeError as ShanghaiPriorityFeeGreaterThanMaxFeeError,
+)
+from ethereum.shanghai.exceptions import (
+    TransactionTypeError as ShanghaiTransactionTypeError,
+)
 from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum_spec_tools.evm_tools.loaders.fixture_loader import Load
+
+FORK_SPECIFIC_EXCEPTIONS = {
+    "arrow_glacier": (
+        ArrowGlacierInsufficientMaxFeePerGasError,
+        ArrowGlacierPriorityFeeGreaterThanMaxFeeError,
+        ArrowGlacierTransactionTypeError,
+    ),
+    "berlin": (BerlinTransactionTypeError,),
+    "cancun": (
+        CancunBlobGasLimitExceededError,
+        CancunInitCodeTooLargeError,
+        CancunInsufficientMaxFeePerBlobGasError,
+        CancunInsufficientMaxFeePerGasError,
+        CancunInvalidBlobVersionedHashError,
+        CancunNoBlobDataError,
+        CancunPriorityFeeGreaterThanMaxFeeError,
+        CancunTransactionTypeContractCreationError,
+        CancunTransactionTypeError,
+    ),
+    "gray_glacier": (
+        GrayGlacierInsufficientMaxFeePerGasError,
+        GrayGlacierPriorityFeeGreaterThanMaxFeeError,
+        GrayGlacierTransactionTypeError,
+    ),
+    "london": (
+        LondonInsufficientMaxFeePerGasError,
+        LondonPriorityFeeGreaterThanMaxFeeError,
+        LondonTransactionTypeError,
+    ),
+    "paris": (
+        ParisInsufficientMaxFeePerGasError,
+        ParisPriorityFeeGreaterThanMaxFeeError,
+        ParisTransactionTypeError,
+    ),
+    "prague": (
+        PragueBlobGasLimitExceededError,
+        PragueEmptyAuthorizationListError,
+        PragueInitCodeTooLargeError,
+        PragueInsufficientMaxFeePerBlobGasError,
+        PragueInsufficientMaxFeePerGasError,
+        PragueInvalidBlobVersionedHashError,
+        PragueNoBlobDataError,
+        PraguePriorityFeeGreaterThanMaxFeeError,
+        PragueTransactionTypeContractCreationError,
+        PragueTransactionTypeError,
+    ),
+    "shanghai": (
+        ShanghaiInitCodeTooLargeError,
+        ShanghaiInsufficientMaxFeePerGasError,
+        ShanghaiPriorityFeeGreaterThanMaxFeeError,
+        ShanghaiTransactionTypeError,
+    ),
+}
 
 
 class NoTestsFound(Exception):
@@ -79,10 +246,28 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
                 break
 
         if block_exception:
-            # TODO: Once all the specific exception types are thrown,
-            #       only `pytest.raises` the correct exception type instead of
-            #       all of them.
-            with pytest.raises((EthereumException, RLPException)):
+            # TODO: Once all the specific exception types for Invalid Block
+            #       are thrown, only `pytest.raises` the correct exception
+            # type instead of all of them.
+            fork_name = load.fork.fork_module
+            common_exceptions = (
+                InvalidBlock,
+                InsufficientTransactionGasError,
+                NonceTooHighError,
+                GasUsedExceedsLimitError,
+                NonceMismatchError,
+                InsufficientBalanceError,
+                InvalidSenderError,
+                InvalidSignatureError,
+                RLPException,
+            )
+            fork_specific_exceptions = FORK_SPECIFIC_EXCEPTIONS.get(
+                fork_name,
+                (),
+            )
+            all_exceptions = common_exceptions + fork_specific_exceptions
+
+            with pytest.raises(all_exceptions):
                 add_block_to_chain(chain, json_block, load, mock_pow)
             return
         else:
