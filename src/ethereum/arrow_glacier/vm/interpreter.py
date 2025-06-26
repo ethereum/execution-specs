@@ -1,13 +1,7 @@
 """
-Ethereum Virtual Machine (EVM) Interpreter
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# Ethereum Virtual Machine (EVM) Interpreter
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
+## Introduction
 
 A straightforward interpreter that executes EVM code.
 """
@@ -73,12 +67,12 @@ class MessageCallOutput:
 
     Contains the following:
 
-          1. `gas_left`: remaining gas after execution.
-          2. `refund_counter`: gas to refund after execution.
-          3. `logs`: list of `Log` generated during execution.
-          4. `accounts_to_delete`: Contracts which have self-destructed.
-          5. `touched_accounts`: Accounts that have been touched.
-          6. `error`: The error from the execution if any.
+    1. `gas_left`: remaining gas after execution.
+    2. `refund_counter`: gas to refund after execution.
+    3. `logs`: list of `Log` generated during execution.
+    4. `accounts_to_delete`: Contracts which have self-destructed.
+    5. `touched_accounts`: Accounts that have been touched.
+    6. `error`: The error from the execution if any.
     """
 
     gas_left: Uint
@@ -94,15 +88,12 @@ def process_message_call(message: Message) -> MessageCallOutput:
     If `message.current` is empty then it creates a smart contract
     else it executes a call from the `message.caller` to the `message.target`.
 
-    Parameters
-    ----------
-    message :
-        Transaction specific items.
+    #### Parameters
+    - message: Transaction specific items.
 
-    Returns
-    -------
-    output : `MessageCallOutput`
-        Output of the message call
+    #### Returns
+    - output: `MessageCallOutput`
+    Output of the message call
     """
     block_env = message.block_env
     refund_counter = U256(0)
@@ -152,15 +143,12 @@ def process_create_message(message: Message) -> Evm:
     """
     Executes a call to create a smart contract.
 
-    Parameters
-    ----------
-    message :
-        Transaction specific items.
+    #### Parameters
+    - message: Transaction specific items.
 
-    Returns
-    -------
-    evm: :py:class:`~ethereum.arrow_glacier.vm.Evm`
-        Items containing execution specific objects.
+    #### Returns
+    - evm: :py:class:`~ethereum.arrow_glacier.vm.Evm`
+    Items containing execution specific objects.
     """
     state = message.block_env.state
     # take snapshot of state before processing the message
@@ -209,15 +197,12 @@ def process_message(message: Message) -> Evm:
     """
     Move ether and execute the relevant code.
 
-    Parameters
-    ----------
-    message :
-        Transaction specific items.
+    #### Parameters
+    - message: Transaction specific items.
 
-    Returns
-    -------
-    evm: :py:class:`~ethereum.arrow_glacier.vm.Evm`
-        Items containing execution specific objects
+    #### Returns
+    - evm: :py:class:`~ethereum.arrow_glacier.vm.Evm`
+    Items containing execution specific objects
     """
     state = message.block_env.state
     if message.depth > STACK_DEPTH_LIMIT:
@@ -247,15 +232,12 @@ def execute_code(message: Message) -> Evm:
     """
     Executes bytecode present in the `message`.
 
-    Parameters
-    ----------
-    message :
-        Transaction specific items.
+    #### Parameters
+    - message: Transaction specific items.
 
-    Returns
-    -------
-    evm: `ethereum.vm.EVM`
-        Items containing execution specific objects
+    #### Returns
+    - evm: `ethereum.vm.EVM`
+    Items containing execution specific objects
     """
     code = message.code
     valid_jump_destinations = get_valid_jump_destinations(code)

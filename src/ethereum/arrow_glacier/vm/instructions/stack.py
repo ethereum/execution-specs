@@ -1,13 +1,7 @@
 """
-Ethereum Virtual Machine (EVM) Stack Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# Ethereum Virtual Machine (EVM) Stack Instructions
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
+## Introduction
 
 Implementations of the EVM stack related instructions.
 """
@@ -26,10 +20,8 @@ def pop(evm: Evm) -> None:
     """
     Remove item from stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -49,14 +41,10 @@ def push_n(evm: Evm, num_bytes: int) -> None:
     """
     Pushes a N-byte immediate onto the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    num_bytes :
-        The number of immediate bytes to be read from the code and pushed to
-        the stack.
+    #### Parameters
+    - evm: The current EVM frame.
+    - num_bytes: The number of immediate bytes to be read from the code and
+    pushed to the stack.
 
     """
     # STACK
@@ -79,14 +67,10 @@ def dup_n(evm: Evm, item_number: int) -> None:
     """
     Duplicate the Nth stack item (from top of the stack) to the top of stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    item_number :
-        The stack item number (0-indexed from top of stack) to be duplicated
-        to the top of stack.
+    #### Parameters
+    - evm: The current EVM frame.
+    - item_number: The stack item number (0-indexed from top of stack) to be
+    duplicated to the top of stack.
 
     """
     # STACK
@@ -111,14 +95,10 @@ def swap_n(evm: Evm, item_number: int) -> None:
     If `item_number` is zero, this function does nothing (which should not be
     possible, since there is no `SWAP0` instruction).
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    item_number :
-        The stack item number (0-indexed from top of stack) to be swapped
-        with the top of stack element.
+    #### Parameters
+    - evm: The current EVM frame.
+    - item_number: The stack item number (0-indexed from top of stack) to be
+    swapped with the top of stack element.
 
     """
     # STACK
