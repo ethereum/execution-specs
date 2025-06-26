@@ -197,18 +197,6 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
         state.dirty_accounts.clear()
         state.dirty_storage.clear()
 
-    @add_item(patches)
-    def rollback_db_transaction(state: State) -> None:
-        """
-        Rollback the current database transaction.
-        """
-        if state.tx_restore_points:
-            raise Exception("In a non-db transaction")
-        state.db.rollback_mutable()
-        state.dirty_accounts.clear()
-        state.dirty_storage.clear()
-        state.destroyed_accounts.clear()
-
     def _begin_transaction(state: State) -> None:
         """
         See `state`.

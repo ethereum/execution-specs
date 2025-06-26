@@ -10,15 +10,14 @@ At a high level, the Ethash algorithm is as follows:
 
 1. Create a **seed** value, generated with [`generate_seed`] and based on the
    preceding block numbers.
-1. From the seed, compute a pseudorandom **cache** with [`generate_cache`].
-1. From the cache, generate a **dataset** with [`generate_dataset`]. The
-   dataset grows over time based on [`DATASET_EPOCH_GROWTH_SIZE`].
-1. Miners hash slices of the dataset together, which is where the memory
+2. From the seed, compute a pseudorandom **cache** with [`generate_cache`].
+3. From the cache, generate a **dataset**. The dataset grows over time based on
+[`DATASET_EPOCH_GROWTH_SIZE`].
+4. Miners hash slices of the dataset together, which is where the memory
    hardness is introduced. Verification of the proof-of-work only requires the
    cache to be able to recompute a much smaller subset of the full dataset.
 
 [`DATASET_EPOCH_GROWTH_SIZE`]: ref:ethereum.ethash.DATASET_EPOCH_GROWTH_SIZE
-[`generate_dataset`]: ref:ethereum.ethash.generate_dataset
 [`generate_cache`]: ref:ethereum.ethash.generate_cache
 [`generate_seed`]: ref:ethereum.ethash.generate_seed
 [`epoch`]: ref:ethereum.ethash.epoch
@@ -89,9 +88,8 @@ Length of a hash, in bytes.
 
 MIX_BYTES = Uint(128)
 """
-Width of mix, in bytes. See [`generate_dataset_item`].
+Width of mix, in bytes.
 
-[`generate_dataset_item`]: ref:ethereum.ethash.generate_dataset_item
 """
 
 CACHE_ROUNDS = 3
@@ -105,9 +103,8 @@ Number of times to repeat the [`keccak512`] step while generating the hash. See
 
 DATASET_PARENTS = Uint(256)
 """
-Number of parents of each dataset element. See [`generate_dataset_item`].
+Number of parents of each dataset element.
 
-[`generate_dataset_item`]: ref:ethereum.ethash.generate_dataset_item
 """
 
 HASHIMOTO_ACCESSES = 64
@@ -125,10 +122,9 @@ def epoch(block_number: Uint) -> Uint:
 
     An Ethash epoch is a fixed number of blocks ([`EPOCH_SIZE`]) long, during
     which the dataset remains constant. At the end of each epoch, the dataset
-    is generated anew. See [`generate_dataset`].
+    is generated anew.
 
     [`EPOCH_SIZE`]: ref:ethereum.ethash.EPOCH_SIZE
-    [`generate_dataset`]: ref:ethereum.ethash.generate_dataset
     """
     return block_number // EPOCH_SIZE
 
@@ -165,9 +161,8 @@ def dataset_size(block_number: Uint) -> Uint:
     belongs.
 
     See [`INITIAL_DATASET_SIZE`] and [`DATASET_EPOCH_GROWTH_SIZE`][ds] for the
-    initial size and linear growth rate, respectively. The complete dataset is
-    generated in [`generate_dataset`], while the slices used in verification
-    are generated in [`generate_dataset_item`].
+    initial size and linear growth rate, respectively. Slices of the data used
+    in verification are generated in [`generate_dataset_item`].
 
     The actual dataset size is smaller than simply multiplying
     `DATASET_EPOCH_GROWTH_SIZE` by the epoch number to minimize the risk of
@@ -176,7 +171,6 @@ def dataset_size(block_number: Uint) -> Uint:
 
     [`INITIAL_DATASET_SIZE`]: ref:ethereum.ethash.INITIAL_DATASET_SIZE
     [ds]: ref:ethereum.ethash.DATASET_EPOCH_GROWTH_SIZE
-    [`generate_dataset`]: ref:ethereum.ethash.generate_dataset
     [`generate_dataset_item`]: ref:ethereum.ethash.generate_dataset_item
     """
     size = INITIAL_DATASET_SIZE + (
@@ -208,15 +202,13 @@ def generate_seed(block_number: Uint) -> Hash32:
 
 def generate_cache(block_number: Uint) -> Tuple[Tuple[U32, ...], ...]:
     """
-    Generate the cache for the block identified by `block_number`. See
-    [`generate_dataset`] for how the cache is used.
+    Generate the cache for the block identified by `block_number`.
 
     The cache is generated in two steps: filling the array with a chain of
     [`keccak512`] hashes, then running two rounds of Sergio Demian Lerner's
     [RandMemoHash] on those bytes.
 
     [`keccak512`]: ref:ethereum.crypto.hash.keccak512
-    [`generate_dataset`]: ref:ethereum.ethash.generate_dataset
     [RandMemoHash]: http://www.hashcash.org/papers/memohash.pdf
     """
     seed = generate_seed(block_number)
@@ -292,13 +284,11 @@ def generate_dataset_item(
     """
     Generate a particular dataset item 0-indexed by `index` by hashing
     pseudorandomly-selected entries from `cache` together. See [`fnv`] and
-    [`fnv_hash`] for the digest function, [`generate_cache`] for generating
-    `cache`, and [`generate_dataset`] for the full dataset generation
-    algorithm.
+    [`fnv_hash`] for the digest function, and [`generate_cache`] for generating
+    `cache`.
 
     [`fnv`]: ref:ethereum.ethash.fnv
     [`fnv_hash`]: ref:ethereum.ethash.fnv_hash
-    [`generate_dataset`]: ref:ethereum.ethash.generate_dataset
     [`generate_cache`]: ref:ethereum.ethash.generate_cache
     """
     mix = keccak512(
@@ -318,23 +308,6 @@ def generate_dataset_item(
     mix = Hash64(le_uint32_sequence_to_bytes(mix_integers))
 
     return keccak512(mix)
-
-
-def generate_dataset(block_number: Uint) -> Tuple[Hash64, ...]:
-    """
-    Generate the full dataset for the block identified by `block_number`.
-
-    This function is present only for demonstration purposes. It is not used
-    while validating blocks.
-    """
-    dataset_size_bytes: Uint = dataset_size(block_number)
-    cache: Tuple[Tuple[U32, ...], ...] = generate_cache(block_number)
-
-    # TODO: Parallelize this later on if it adds value
-    return tuple(
-        generate_dataset_item(cache, Uint(index))
-        for index in range(dataset_size_bytes // HASH_BYTES)
-    )
 
 
 def hashimoto(

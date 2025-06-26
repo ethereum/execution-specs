@@ -11,8 +11,8 @@ Introduction
 
 Hexadecimal strings specific utility functions used in this specification.
 """
-from ethereum_types.bytes import Bytes, Bytes8, Bytes20, Bytes32, Bytes256
-from ethereum_types.numeric import U8, U64, U256, Uint
+from ethereum_types.bytes import Bytes, Bytes8, Bytes32, Bytes256
+from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32
 
@@ -89,23 +89,6 @@ def hex_to_bytes8(hex_string: str) -> Bytes8:
     return Bytes8(Bytes.fromhex(remove_hex_prefix(hex_string).rjust(16, "0")))
 
 
-def hex_to_bytes20(hex_string: str) -> Bytes20:
-    """
-    Convert hex string to 20 bytes.
-
-    Parameters
-    ----------
-    hex_string :
-        The hexadecimal string to be converted to 20 bytes.
-
-    Returns
-    -------
-    20_byte_stream : `Bytes20`
-        20-byte stream corresponding to the given hexadecimal string.
-    """
-    return Bytes20(Bytes.fromhex(remove_hex_prefix(hex_string).rjust(20, "0")))
-
-
 def hex_to_bytes32(hex_string: str) -> Bytes32:
     """
     Convert hex string to 32 bytes.
@@ -174,23 +157,6 @@ def hex_to_uint(hex_string: str) -> Uint:
         The unsigned integer obtained from the given hexadecimal string.
     """
     return Uint(int(remove_hex_prefix(hex_string), 16))
-
-
-def hex_to_u8(hex_string: str) -> U8:
-    """
-    Convert hex string to U8.
-
-    Parameters
-    ----------
-    hex_string :
-        The hexadecimal string to be converted to U8.
-
-    Returns
-    -------
-    converted : `U8`
-        The U8 integer obtained from the given hexadecimal string.
-    """
-    return U8(int(remove_hex_prefix(hex_string), 16))
 
 
 def hex_to_u64(hex_string: str) -> U64:

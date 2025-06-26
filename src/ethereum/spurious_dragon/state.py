@@ -365,31 +365,6 @@ def account_has_storage(state: State, address: Address) -> bool:
     return address in state._storage_tries
 
 
-def is_account_empty(state: State, address: Address) -> bool:
-    """
-    Checks if an account has zero nonce, empty code and zero balance.
-
-    Parameters
-    ----------
-    state:
-        The state
-    address:
-        Address of the account that needs to be checked.
-
-    Returns
-    -------
-    is_empty : `bool`
-        True if an account has zero nonce, empty code and zero balance,
-        False otherwise.
-    """
-    account = get_account(state, address)
-    return (
-        account.nonce == Uint(0)
-        and account.code == b""
-        and account.balance == 0
-    )
-
-
 def account_exists_and_is_empty(state: State, address: Address) -> bool:
     """
     Checks if an account exists and has zero nonce, empty code and zero
