@@ -298,7 +298,7 @@ class Env:
         clean_block_hashes: Dict[int, Hash32] = {}
         if "blockHashes" in data:
             for key, value in data["blockHashes"].items():
-                int_key = int(key, 16)
+                int_key = int(key)
                 clean_block_hashes[int_key] = Hash32(hex_to_bytes(value))
 
         # Store a maximum of 256 block hashes.
