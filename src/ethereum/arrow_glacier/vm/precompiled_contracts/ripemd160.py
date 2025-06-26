@@ -1,13 +1,7 @@
 """
-Ethereum Virtual Machine (EVM) RIPEMD160 PRECOMPILED CONTRACT
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# Ethereum Virtual Machine (EVM) RIPEMD160 PRECOMPILED CONTRACT
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
+## Introduction
 
 Implementation of the `RIPEMD160` precompiled contract.
 """
@@ -26,10 +20,8 @@ def ripemd160(evm: Evm) -> None:
     """
     Writes the ripemd160 hash to output.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
     """
     data = evm.message.data
 

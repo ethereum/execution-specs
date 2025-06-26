@@ -1,13 +1,7 @@
 """
-Ethereum Virtual Machine (EVM) IDENTITY PRECOMPILED CONTRACT
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# Ethereum Virtual Machine (EVM) IDENTITY PRECOMPILED CONTRACT
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
+## Introduction
 
 Implementation of the `IDENTITY` precompiled contract.
 """
@@ -23,10 +17,8 @@ def identity(evm: Evm) -> None:
     """
     Writes the message data to output.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
     """
     data = evm.message.data
 

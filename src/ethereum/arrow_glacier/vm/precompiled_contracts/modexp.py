@@ -1,13 +1,7 @@
 """
-Ethereum Virtual Machine (EVM) MODEXP PRECOMPILED CONTRACT
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# Ethereum Virtual Machine (EVM) MODEXP PRECOMPILED CONTRACT
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
+## Introduction
 
 Implementation of the `MODEXP` precompiled contract.
 """
@@ -69,20 +63,13 @@ def complexity(base_length: U256, modulus_length: U256) -> Uint:
     """
     Estimate the complexity of performing a modular exponentiation.
 
-    Parameters
-    ----------
+    #### Parameters
+    - base_length: Length of the array representing the base integer.
+    - modulus_length: Length of the array representing the modulus integer.
 
-    base_length :
-        Length of the array representing the base integer.
-
-    modulus_length :
-        Length of the array representing the modulus integer.
-
-    Returns
-    -------
-
-    complexity : `Uint`
-        Complexity of performing the operation.
+    #### Returns
+    - complexity: `Uint`
+    Complexity of performing the operation.
     """
     max_length = max(Uint(base_length), Uint(modulus_length))
     words = (max_length + Uint(7)) // Uint(8)
@@ -94,21 +81,15 @@ def iterations(exponent_length: U256, exponent_head: U256) -> Uint:
     Calculate the number of iterations required to perform a modular
     exponentiation.
 
-    Parameters
-    ----------
+    #### Parameters
+    - exponent_length: Length of the array representing the exponent integer.
 
-    exponent_length :
-        Length of the array representing the exponent integer.
+    - exponent_head: First 32 bytes of the exponent (with leading zero padding
+    if it is shorter than 32 bytes), as a U256.
 
-    exponent_head :
-        First 32 bytes of the exponent (with leading zero padding if it is
-        shorter than 32 bytes), as a U256.
-
-    Returns
-    -------
-
-    iterations : `Uint`
-        Number of iterations.
+    #### Returns
+    - iterations: `Uint`
+    Number of iterations.
     """
     if exponent_length <= U256(32) and exponent_head == U256(0):
         count = Uint(0)
@@ -140,27 +121,16 @@ def gas_cost(
     """
     Calculate the gas cost of performing a modular exponentiation.
 
-    Parameters
-    ----------
+    #### Parameters
+    - base_length: Length of the array representing the base integer.
+    - modulus_length: Length of the array representing the modulus integer.
+    - exponent_length: Length of the array representing the exponent integer.
+    - exponent_head: First 32 bytes of the exponent (with leading zero padding
+    if it is shorter than 32 bytes), as a U256.
 
-    base_length :
-        Length of the array representing the base integer.
-
-    modulus_length :
-        Length of the array representing the modulus integer.
-
-    exponent_length :
-        Length of the array representing the exponent integer.
-
-    exponent_head :
-        First 32 bytes of the exponent (with leading zero padding if it is
-        shorter than 32 bytes), as a U256.
-
-    Returns
-    -------
-
-    gas_cost : `Uint`
-        Gas required for performing the operation.
+    #### Returns
+    - gas_cost: `Uint`
+    Gas required for performing the operation.
     """
     multiplication_complexity = complexity(base_length, modulus_length)
     iteration_count = iterations(exponent_length, exponent_head)

@@ -1,13 +1,7 @@
 """
-Ethereum Virtual Machine (EVM) Stack
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# Ethereum Virtual Machine (EVM) Stack
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
+## Introduction
 
 Implementation of the stack operators for the EVM.
 """
@@ -23,15 +17,12 @@ def pop(stack: List[U256]) -> U256:
     """
     Pops the top item off of `stack`.
 
-    Parameters
-    ----------
-    stack :
-        EVM stack.
+    #### Parameters
+    - stack: EVM stack.
 
-    Returns
-    -------
-    value : `U256`
-        The top element on the stack.
+    #### Returns
+    - value: `U256`
+    The top element on the stack.
 
     """
     if len(stack) == 0:
@@ -44,13 +35,9 @@ def push(stack: List[U256], value: U256) -> None:
     """
     Pushes `value` onto `stack`.
 
-    Parameters
-    ----------
-    stack :
-        EVM stack.
-
-    value :
-        Item to be pushed onto `stack`.
+    #### Parameters
+    - stack: EVM stack.
+    - value: Item to be pushed onto `stack`.
 
     """
     if len(stack) == 1024:

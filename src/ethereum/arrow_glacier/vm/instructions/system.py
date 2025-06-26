@@ -1,13 +1,7 @@
 """
-Ethereum Virtual Machine (EVM) System Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# Ethereum Virtual Machine (EVM) System Instructions
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
+## Introduction
 
 Implementations of the EVM system related instructions.
 """
@@ -141,10 +135,8 @@ def create(evm: Evm) -> None:
     """
     Creates a new account with associated code.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
     """
     # STACK
     endowment = pop(evm.stack)
@@ -182,10 +174,8 @@ def create2(evm: Evm) -> None:
     It's similar to CREATE opcode except that the address of new account
     depends on the init_code instead of the nonce of sender.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
     """
     # STACK
     endowment = pop(evm.stack)
@@ -223,10 +213,8 @@ def return_(evm: Evm) -> None:
     """
     Halts execution returning output data.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
     """
     # STACK
     memory_start_position = pop(evm.stack)
@@ -322,10 +310,8 @@ def call(evm: Evm) -> None:
     """
     Message-call into an account.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
     """
     # STACK
     gas = Uint(pop(evm.stack))
@@ -401,10 +387,8 @@ def callcode(evm: Evm) -> None:
     """
     Message-call into this account with alternative account’s code.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
     """
     # STACK
     gas = Uint(pop(evm.stack))
@@ -475,10 +459,8 @@ def selfdestruct(evm: Evm) -> None:
     """
     Halt execution and register account for later deletion.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
     """
     # STACK
     beneficiary = to_address(pop(evm.stack))
@@ -539,10 +521,8 @@ def delegatecall(evm: Evm) -> None:
     """
     Message-call into an account.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
     """
     # STACK
     gas = Uint(pop(evm.stack))
@@ -597,10 +577,8 @@ def staticcall(evm: Evm) -> None:
     """
     Message-call into an account.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
     """
     # STACK
     gas = Uint(pop(evm.stack))
@@ -661,10 +639,8 @@ def revert(evm: Evm) -> None:
     """
     Stop execution and revert state changes, without consuming all provided gas
     and also has the ability to return a reason
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
     """
     # STACK
     memory_start_index = pop(evm.stack)

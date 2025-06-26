@@ -1,13 +1,7 @@
 """
-Ethereum Virtual Machine (EVM) Memory Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# Ethereum Virtual Machine (EVM) Memory Instructions
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
+## Introduction
 
 Implementations of the EVM Memory instructions.
 """
@@ -31,10 +25,8 @@ def mstore(evm: Evm) -> None:
     This also expands the memory, if the memory is
     insufficient to store the word.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -62,10 +54,8 @@ def mstore8(evm: Evm) -> None:
     This also expands the memory, if the memory is
     insufficient to store the word.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -92,10 +82,8 @@ def mload(evm: Evm) -> None:
     """
     Load word from memory.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -122,10 +110,8 @@ def msize(evm: Evm) -> None:
     """
     Push the size of active memory in bytes onto the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK

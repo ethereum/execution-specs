@@ -1,13 +1,7 @@
 """
-Ethereum Specification
-^^^^^^^^^^^^^^^^^^^^^^
+# Ethereum Specification
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
+## Introduction
 
 Entry point for the Ethereum specification.
 """
@@ -95,15 +89,12 @@ def apply_fork(old: BlockChain) -> BlockChain:
     is used to handle the irregularity. See the :ref:`DAO Fork <dao-fork>` for
     an example.
 
-    Parameters
-    ----------
-    old :
-        Previous block chain object.
+    #### Parameters
+    - old: Previous block chain object.
 
-    Returns
-    -------
-    new : `BlockChain`
-        Upgraded block chain object for this hard fork.
+    #### Returns
+    - new: `BlockChain`
+    Upgraded block chain object for this hard fork.
     """
     return old
 
@@ -118,15 +109,12 @@ def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
     The ``BLOCKHASH`` opcode needs to access the latest hashes on the chain,
     therefore this function retrieves them.
 
-    Parameters
-    ----------
-    chain :
-        History and current state.
+    #### Parameters
+    - chain: History and current state.
 
-    Returns
-    -------
-    recent_block_hashes : `List[Hash32]`
-        Hashes of the recent 256 blocks in order of increasing block number.
+    #### Returns
+    recent_block_hashes: `List[Hash32]`
+    Hashes of the recent 256 blocks in order of increasing block number.
     """
     recent_blocks = chain.blocks[-255:]
     # TODO: This function has not been tested rigorously
@@ -163,12 +151,9 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     concerned, only those blocks are accessed. Practically, however, clients
     should store more blocks to handle reorgs.
 
-    Parameters
-    ----------
-    chain :
-        History and current state.
-    block :
-        Block to apply to `chain`.
+    #### Parameters
+    - chain: History and current state.
+    - block: Block to apply to `chain`.
     """
     validate_header(chain, block.header)
     validate_ommers(block.ommers, block.header, chain)
@@ -224,20 +209,15 @@ def calculate_base_fee_per_gas(
     """
     Calculates the base fee per gas for the block.
 
-    Parameters
-    ----------
-    block_gas_limit :
-        Gas limit of the block for which the base fee is being calculated.
-    parent_gas_limit :
-        Gas limit of the parent block.
-    parent_gas_used :
-        Gas used in the parent block.
-    parent_base_fee_per_gas :
-        Base fee per gas of the parent block.
+    #### Parameters
+    - block_gas_limit: Gas limit of the block for which the base fee is being
+    calculated.
+    - parent_gas_limit: Gas limit of the parent block.
+    - parent_gas_used: Gas used in the parent block.
+    - parent_base_fee_per_gas: Base fee per gas of the parent block.
 
-    Returns
-    -------
-    base_fee_per_gas : `Uint`
+    #### Returns
+    - base_fee_per_gas: `Uint`
         Base fee per gas for the block.
     """
     parent_gas_target = parent_gas_limit // ELASTICITY_MULTIPLIER
@@ -288,12 +268,9 @@ def validate_header(chain: BlockChain, header: Header) -> None:
     Additionally, the block's number should be directly following the parent
     block's number since it is the next block in the sequence.
 
-    Parameters
-    ----------
-    chain :
-        History and current state.
-    header :
-        Header to check for correctness.
+    #### Parameters
+    - chain: History and current state.
+    - header: Header to check for correctness.
     """
     if header.number < Uint(1):
         raise InvalidBlock
@@ -361,15 +338,12 @@ def generate_header_hash_for_pow(header: Header) -> Hash32:
     because they are being changed by miners in their search for a sufficient
     proof-of-work.
 
-    Parameters
-    ----------
-    header :
-        The header object for which the hash is to be generated.
+    #### Parameters
+    - header: The header object for which the hash is to be generated.
 
-    Returns
-    -------
-    hash : `Hash32`
-        The PoW valid rlp hash of the passed in header.
+    #### Returns
+    - hash: `Hash32`
+    The PoW valid rlp hash of the passed in header.
     """
     header_data_without_pow_artefacts = (
         header.parent_hash,
@@ -401,10 +375,8 @@ def validate_proof_of_work(header: Header) -> None:
     is passed through and it confirms whether or not proof-of-work was done
     on the correct block. The result is the actual hash value of the block.
 
-    Parameters
-    ----------
-    header :
-        Header of interest.
+    #### Parameters
+    - header: Header of interest.
     """
     header_hash = generate_header_hash_for_pow(header)
     # TODO: Memoize this somewhere and read from that data instead of
@@ -429,38 +401,30 @@ def check_transaction(
     """
     Check if the transaction is includable in the block.
 
-    Parameters
-    ----------
-    block_env :
-        The block scoped environment.
-    block_output :
-        The block output for the current block.
-    tx :
-        The transaction.
+    #### Parameters
+    - block_env: The block scoped environment.
+    - block_output: The block output for the current block.
+    - tx: The transaction.
 
-    Returns
-    -------
-    sender_address :
-        The sender of the transaction.
-    effective_gas_price :
-        The price to charge for gas when the transaction is executed.
+    #### Returns
+    - sender_address: The sender of the transaction.
+    - effective_gas_price: The price to charge for gas when the transaction is
+    executed.
 
-    Raises
-    ------
-    InvalidBlock :
-        If the transaction is not includable.
-    GasUsedExceedsLimitError :
-        If the gas used by the transaction exceeds the block's gas limit.
-    NonceMismatchError :
-        If the nonce of the transaction is not equal to the sender's nonce.
-    InsufficientBalanceError :
-        If the sender's balance is not enough to pay for the transaction.
-    InvalidSenderError :
-        If the transaction is from an address that does not exist anymore.
-    PriorityFeeGreaterThanMaxFeeError :
-        If the priority fee is greater than the maximum fee per gas.
-    InsufficientMaxFeePerGasError :
-        If the maximum fee per gas is insufficient for the transaction.
+    #### Raises
+    - InvalidBlock: If the transaction is not includable.
+    - GasUsedExceedsLimitError: If the gas used by the transaction exceeds the
+    block's gas limit.
+    - NonceMismatchError: If the nonce of the transaction is not equal to the
+    sender's nonce.
+    - InsufficientBalanceError: If the sender's balance is not enough to pay
+    for the transaction.
+    - InvalidSenderError: If the transaction is from an address that does not
+    exist anymore.
+    - PriorityFeeGreaterThanMaxFeeError: If the priority fee is greater than
+    the maximum fee per gas.
+    - InsufficientMaxFeePerGasError: If the maximum fee per gas is
+    insufficient for the transaction.
     """
     gas_available = block_env.block_gas_limit - block_output.block_gas_used
     if tx.gas > gas_available:
@@ -511,22 +475,15 @@ def make_receipt(
     """
     Make the receipt for a transaction that was executed.
 
-    Parameters
-    ----------
-    tx :
-        The executed transaction.
-    error :
-        Error in the top level frame of the transaction, if any.
-    cumulative_gas_used :
-        The total gas used so far in the block after the transaction was
-        executed.
-    logs :
-        The logs produced by the transaction.
+    #### Parameters
+    - tx: The executed transaction.
+    - error: Error in the top level frame of the transaction, if any.
+    - cumulative_gas_used: The total gas used so far in the block after the
+    transaction was executed.
+    - logs: The logs produced by the transaction.
 
-    Returns
-    -------
-    receipt :
-        The receipt for the transaction.
+    #### Returns
+    - receipt: The receipt for the transaction.
     """
     receipt = Receipt(
         succeeded=error is None,
@@ -553,20 +510,14 @@ def apply_body(
     and gas used. This function creates and executes the block that is to be
     added to the chain.
 
-    Parameters
-    ----------
-    block_env :
-        The block scoped environment.
-    transactions :
-        Transactions included in the block.
-    ommers :
-        Headers of ancestor blocks which are not direct parents (formerly
-        uncles.)
+    #### Parameters
+    - block_env: The block scoped environment.
+    - transactions: Transactions included in the block.
+    - ommers: Headers of ancestor blocks which are not direct parents (formerly
+    uncles.)
 
-    Returns
-    -------
-    block_output :
-        The block output for the current block.
+    #### Returns
+    - block_output: The block output for the current block.
     """
     block_output = vm.BlockOutput()
 
@@ -593,14 +544,10 @@ def validate_ommers(
     there cannot be duplicate ommers in a block. Many of the other ommer
     constraints are listed in the in-line comments of this function.
 
-    Parameters
-    ----------
-    ommers :
-        List of ommers mentioned in the current block.
-    block_header:
-        The header of current block.
-    chain :
-        History and current state.
+    #### Parameters
+    - ommers: List of ommers mentioned in the current block.
+    - block_header: The header of current block.
+    - chain: History and current state.
     """
     block_hash = keccak256(rlp.encode(block_header))
     if keccak256(rlp.encode(ommers)) != block_header.ommers_hash:
@@ -673,16 +620,12 @@ def pay_rewards(
     calculated based on the number associated with the ommer block that they
     mined.
 
-    Parameters
-    ----------
-    state :
-        Current account state.
-    block_number :
-        Position of the block within the chain.
-    coinbase :
-        Address of account which receives block reward and transaction fees.
-    ommers :
-        List of ommers mentioned in the current block.
+    #### Parameters
+    - state: Current account state.
+    - block_number: Position of the block within the chain.
+    - coinbase: Address of account which receives block reward and transaction
+    fees.
+    - ommers: List of ommers mentioned in the current block.
     """
     ommer_count = U256(len(ommers))
     miner_reward = BLOCK_REWARD + (ommer_count * (BLOCK_REWARD // U256(32)))
@@ -713,16 +656,11 @@ def process_transaction(
     Accounts that are marked for deletion are processed and destroyed after
     execution.
 
-    Parameters
-    ----------
-    block_env :
-        Environment for the Ethereum Virtual Machine.
-    block_output :
-        The block output for the current block.
-    tx :
-        Transaction to execute.
-    index:
-        Index of the transaction in the block.
+    #### Parameters
+    - block_env: Environment for the Ethereum Virtual Machine.
+    - block_output: The block output for the current block.
+    - tx: Transaction to execute.
+    - index: Index of the transaction in the block.
     """
     trie_set(
         block_output.transactions_trie,
@@ -847,18 +785,13 @@ def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
     check fails because the gas limit doesn't allow for a sufficient or
     reasonable amount of gas to be used on a block.
 
-    Parameters
-    ----------
-    gas_limit :
-        Gas limit to validate.
+    #### Parameters
+    - gas_limit: Gas limit to validate.
+    - parent_gas_limit: Gas limit of the parent block.
 
-    parent_gas_limit :
-        Gas limit of the parent block.
-
-    Returns
-    -------
-    check : `bool`
-        True if gas limit constraints are satisfied, False otherwise.
+    #### Returns
+    - check: `bool`
+    True if gas limit constraints are satisfied, False otherwise.
     """
     max_adjustment_delta = parent_gas_limit // GAS_LIMIT_ADJUSTMENT_FACTOR
     if gas_limit >= parent_gas_limit + max_adjustment_delta:
@@ -898,23 +831,16 @@ def calculate_block_difficulty(
     difficulty is set to the maximum value between the calculated
     difficulty and the ``GENESIS_DIFFICULTY``.
 
-    Parameters
-    ----------
-    block_number :
-        Block number of the block.
-    block_timestamp :
-        Timestamp of the block.
-    parent_timestamp :
-        Timestamp of the parent block.
-    parent_difficulty :
-        difficulty of the parent block.
-    parent_has_ommers:
-        does the parent have ommers.
+    #### Parameters
+    - block_number: Block number of the block.
+    - block_timestamp: Timestamp of the block.
+    - parent_timestamp: Timestamp of the parent block.
+    - parent_difficulty: difficulty of the parent block.
+    - parent_has_ommers: does the parent have ommers.
 
-    Returns
-    -------
-    difficulty : `ethereum.base_types.Uint`
-        Computed difficulty for a block.
+    #### Returns
+    - difficulty: `ethereum.base_types.Uint`
+    Computed difficulty for a block.
     """
     offset = (
         int(parent_difficulty)

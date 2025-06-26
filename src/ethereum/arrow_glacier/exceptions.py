@@ -11,9 +11,8 @@ from ethereum.exceptions import InvalidTransaction
 
 class TransactionTypeError(InvalidTransaction):
     """
-    Unknown [EIP-2718] transaction type byte.
-
-    [EIP-2718]: https://eips.ethereum.org/EIPS/eip-2718
+    Unknown [EIP-2718](https://eips.ethereum.org/EIPS/eip-2718) transaction
+    type byte.
     """
 
     transaction_type: Final[int]

@@ -55,10 +55,9 @@ Gas cost for including a storage key in the access list of a transaction.
 class LegacyTransaction:
     """
     Atomic operation performed on the block chain. This represents the original
-    transaction format used before [EIP-1559], and [EIP-2930].
-
-    [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
-    [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
+    transaction format used before
+    [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559), and
+    [EIP-2930](https://eips.ethereum.org/EIPS/eip-2930).
     """
 
     nonce: U256
@@ -132,13 +131,13 @@ class Access:
 @dataclass
 class AccessListTransaction:
     """
-    The transaction type added in [EIP-2930] to support access lists.
+    The transaction type added in
+    [EIP-2930](https://eips.ethereum.org/EIPS/eip-2930) to support access
+    lists.
 
     This transaction type extends the legacy transaction with an access list
     and chain ID. The access list specifies which addresses and storage slots
     the transaction will access.
-
-    [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
     """
 
     chain_id: U64
@@ -204,12 +203,11 @@ class AccessListTransaction:
 @dataclass
 class FeeMarketTransaction:
     """
-    The transaction type added in [EIP-1559].
+    The transaction type added in
+    [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559).
 
     This transaction type introduces a new fee market mechanism with two gas
     price parameters: max_priority_fee_per_gas and max_fee_per_gas.
-
-    [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
     """
 
     chain_id: U64
@@ -331,7 +329,7 @@ def validate_transaction(tx: Transaction) -> Uint:
     be possible to execute a transaction and it will be declared invalid.
 
     Additionally, the nonce of a transaction must not equal or exceed the
-    limit defined in [EIP-2681].
+    limit defined in [EIP-2681](https://eips.ethereum.org/EIPS/eip-2681).
     In practice, defining the limit as ``2**64-1`` has no impact because
     sending ``2**64-1`` transactions is improbable. It's not strictly
     impossible though, ``2**64-1`` transactions is the entire capacity of the
@@ -340,8 +338,6 @@ def validate_transaction(tx: Transaction) -> Uint:
     This function takes a transaction as a parameter and returns the intrinsic
     gas cost of the transaction after validation. It throws an
     `InvalidTransaction` exception if the transaction is invalid.
-
-    [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     """
     intrinsic_gas = calculate_intrinsic_cost(tx)
     if intrinsic_gas > tx.gas:
@@ -451,13 +447,11 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
 
 def signing_hash_pre155(tx: LegacyTransaction) -> Hash32:
     """
-    Compute the hash of a transaction used in a legacy (pre [EIP-155])
-    signature.
+    Compute the hash of a transaction used in a legacy (pre
+    [EIP-155](https://eips.ethereum.org/EIPS/eip-155)) signature.
 
     This function takes a legacy transaction as a parameter and returns the
     signing hash of the transaction.
-
-    [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
     """
     return keccak256(
         rlp.encode(
@@ -475,12 +469,12 @@ def signing_hash_pre155(tx: LegacyTransaction) -> Hash32:
 
 def signing_hash_155(tx: LegacyTransaction, chain_id: U64) -> Hash32:
     """
-    Compute the hash of a transaction used in a [EIP-155] signature.
+    Compute the hash of a transaction used in a
+    [EIP-155](https://eips.ethereum.org/EIPS/eip-155) signature.
 
     This function takes a legacy transaction and a chain ID as parameters
-    and returns the hash of the transaction used in an [EIP-155] signature.
-
-    [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
+    and returns the hash of the transaction used in an
+    [EIP-155](https://eips.ethereum.org/EIPS/eip-155) signature.
     """
     return keccak256(
         rlp.encode(
@@ -501,12 +495,12 @@ def signing_hash_155(tx: LegacyTransaction, chain_id: U64) -> Hash32:
 
 def signing_hash_2930(tx: AccessListTransaction) -> Hash32:
     """
-    Compute the hash of a transaction used in a [EIP-2930] signature.
+    Compute the hash of a transaction used in a
+    [EIP-2930](https://eips.ethereum.org/EIPS/eip-2930) signature.
 
     This function takes an access list transaction as a parameter
-    and returns the hash of the transaction used in an [EIP-2930] signature.
-
-    [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
+    and returns the hash of the transaction used in an
+    [EIP-2930](https://eips.ethereum.org/EIPS/eip-2930) signature.
     """
     return keccak256(
         b"\x01"
@@ -527,12 +521,12 @@ def signing_hash_2930(tx: AccessListTransaction) -> Hash32:
 
 def signing_hash_1559(tx: FeeMarketTransaction) -> Hash32:
     """
-    Compute the hash of a transaction used in an [EIP-1559] signature.
+    Compute the hash of a transaction used in an
+    [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559) signature.
 
     This function takes a fee market transaction as a parameter
-    and returns the hash of the transaction used in an [EIP-1559] signature.
-
-    [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
+    and returns the hash of the transaction used in an
+    [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559) signature.
     """
     return keccak256(
         b"\x02"

@@ -1,13 +1,7 @@
 """
-State Trie
-^^^^^^^^^^
+# State Trie
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
+## Introduction
 
 The state trie is the structure responsible for storing
 `.fork_types.Account` objects.
@@ -136,15 +130,13 @@ def encode_internal_node(node: Optional[InternalNode]) -> Extended:
     This function also accepts `None`, representing the absence of a node,
     which is encoded to `b""`.
 
-    Parameters
-    ----------
-    node : Optional[InternalNode]
-        The node to encode.
+    #### Parameters
+    - node: Optional[InternalNode]
+    The node to encode.
 
-    Returns
-    -------
-    encoded : `rlp.RLP`
-        The node encoded as RLP.
+    #### Returns
+    - encoded: `rlp.RLP`
+    The node encoded as RLP.
     """
     unencoded: Extended
     if node is None:
@@ -204,15 +196,13 @@ def copy_trie(trie: Trie[K, V]) -> Trie[K, V]:
     Create a copy of `trie`. Since only frozen objects may be stored in tries,
     the contents are reused.
 
-    Parameters
-    ----------
-    trie: `Trie`
-        Trie to copy.
+    #### Parameters
+    - trie: `Trie`
+    Trie to copy.
 
-    Returns
-    -------
-    new_trie : `Trie[K, V]`
-        A copy of the trie.
+    #### Returns
+    - new_trie: `Trie[K, V]`
+    A copy of the trie.
     """
     return Trie(trie.secured, trie.default, copy.copy(trie._data))
 
@@ -224,14 +214,13 @@ def trie_set(trie: Trie[K, V], key: K, value: V) -> None:
     This method deletes the key if `value == trie.default`, because the Merkle
     Trie represents the default value by omitting it from the trie.
 
-    Parameters
-    ----------
-    trie: `Trie`
-        Trie to store in.
-    key : `Bytes`
-        Key to lookup.
-    value : `V`
-        Node to insert at `key`.
+    #### Parameters
+    - trie: `Trie`
+    Trie to store in.
+    - key: `Bytes`
+    Key to lookup.
+    - value: `V`
+    Node to insert at `key`.
     """
     if value == trie.default:
         if key in trie._data:
@@ -246,17 +235,13 @@ def trie_get(trie: Trie[K, V], key: K) -> V:
 
     This method returns `trie.default` if the key is missing.
 
-    Parameters
-    ----------
-    trie:
-        Trie to lookup in.
-    key :
-        Key to lookup.
+    #### Parameters
+    - trie: Trie to lookup in.
+    - key: Key to lookup.
 
-    Returns
-    -------
-    node : `V`
-        Node at `key` in the trie.
+    #### Returns
+    - node: `V`
+    Node at `key` in the trie.
     """
     return trie._data.get(key, trie.default)
 
@@ -292,18 +277,14 @@ def nibble_list_to_compact(x: Bytes, is_leaf: bool) -> Bytes:
     is used to distinguish leaf and extension nodes. The other two bits are not
     used.
 
-    Parameters
-    ----------
-    x :
-        Array of nibbles.
-    is_leaf :
-        True if this is part of a leaf node, or false if it is an extension
-        node.
+    #### Parameters
+    - x: Array of nibbles.
+    - is_leaf: True if this is part of a leaf node, or false if it is an
+    extension node.
 
-    Returns
-    -------
-    compressed : `bytearray`
-        Compact byte array.
+    #### Returns
+    - compressed: `bytearray`
+    Compact byte array.
     """
     compact = bytearray()
 
@@ -323,15 +304,13 @@ def bytes_to_nibble_list(bytes_: Bytes) -> Bytes:
     """
     Converts a `Bytes` into to a sequence of nibbles (bytes with value < 16).
 
-    Parameters
-    ----------
-    bytes_:
-        The `Bytes` to convert.
+    #### Parameters
+    - bytes_:
+    The `Bytes` to convert.
 
-    Returns
-    -------
-    nibble_list : `Bytes`
-        The `Bytes` in nibble-list format.
+    #### Returns
+    - nibble_list: `Bytes`
+    The `Bytes` in nibble-list format.
     """
     nibble_list = bytearray(2 * len(bytes_))
     for byte_index, byte in enumerate(bytes_):
@@ -348,18 +327,14 @@ def _prepare_trie(
     Prepares the trie for root calculation. Removes values that are empty,
     hashes the keys (if `secured == True`) and encodes all the nodes.
 
-    Parameters
-    ----------
-    trie :
-        The `Trie` to prepare.
-    get_storage_root :
-        Function to get the storage root of an account. Needed to encode
-        `Account` objects.
+    #### Parameters
+    - trie: The `Trie` to prepare.
+    - get_storage_root : Function to get the storage root of an account.
+    Needed to encode `Account` objects.
 
-    Returns
-    -------
-    out : `Mapping[ethereum.base_types.Bytes, Node]`
-        Object with keys mapped to nibble-byte form.
+    #### Returns
+    - out: `Mapping[ethereum.base_types.Bytes, Node]`
+    Object with keys mapped to nibble-byte form.
     """
     mapped: MutableMapping[Bytes, Bytes] = {}
 
@@ -390,19 +365,15 @@ def root(
     """
     Computes the root of a modified merkle patricia trie (MPT).
 
-    Parameters
-    ----------
-    trie :
-        `Trie` to get the root of.
-    get_storage_root :
-        Function to get the storage root of an account. Needed to encode
-        `Account` objects.
+    #### Parameters
+    - trie: `Trie` to get the root of.
+    - get_storage_root: Function to get the storage root of an account. Needed
+    to encode `Account` objects.
 
 
-    Returns
-    -------
-    root : `.fork_types.Root`
-        MPT root of the underlying key-value pairs.
+    #### Returns
+    - root: `.fork_types.Root`
+    MPT root of the underlying key-value pairs.
     """
     obj = _prepare_trie(trie, get_storage_root)
 
@@ -423,17 +394,13 @@ def patricialize(
     Used to recursively patricialize and merkleize a dictionary. Includes
     memoization of the tree structure and hashes.
 
-    Parameters
-    ----------
-    obj :
-        Underlying trie key-value pairs, with keys in nibble-list format.
-    level :
-        Current trie level.
+    #### Parameters
+    - obj: Underlying trie key-value pairs, with keys in nibble-list format.
+    - level: Current trie level.
 
-    Returns
-    -------
-    node : `ethereum.base_types.Bytes`
-        Root node of `obj`.
+    #### Returns
+    - node: `ethereum.base_types.Bytes`
+    Root node of `obj`.
     """
     if len(obj) == 0:
         return None

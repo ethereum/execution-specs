@@ -1,13 +1,7 @@
 """
-Ethereum Virtual Machine (EVM) Blake2 PRECOMPILED CONTRACT
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# Ethereum Virtual Machine (EVM) Blake2 PRECOMPILED CONTRACT
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
+## Introduction
 
 Implementation of the `Blake2` precompiled contract.
 """
@@ -22,10 +16,8 @@ def blake2f(evm: Evm) -> None:
     """
     Writes the Blake2 hash to output.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
     """
     data = evm.message.data
     if len(data) != 213:

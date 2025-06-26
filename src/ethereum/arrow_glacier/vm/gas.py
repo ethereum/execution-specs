@@ -1,13 +1,7 @@
 """
-Ethereum Virtual Machine (EVM) Gas
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# Ethereum Virtual Machine (EVM) Gas
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
+## Introduction
 
 EVM gas constants and calculators.
 """
@@ -69,10 +63,10 @@ class ExtendMemory:
     """
     Define the parameters for memory extension in opcodes
 
-    `cost`: `ethereum.base_types.Uint`
-        The gas required to perform the extension
-    `expand_by`: `ethereum.base_types.Uint`
-        The size by which the memory will be extended
+    - `cost`: `ethereum.base_types.Uint`
+    The gas required to perform the extension
+    - `expand_by`: `ethereum.base_types.Uint`
+    The size by which the memory will be extended
     """
 
     cost: Uint
@@ -85,10 +79,10 @@ class MessageCallGas:
     Define the gas cost and gas given to the sub-call for
     executing the call opcodes.
 
-    `cost`: `ethereum.base_types.Uint`
+    - `cost`: `ethereum.base_types.Uint`
         The gas required to execute the call opcode, excludes
         memory expansion costs.
-    `sub_call`: `ethereum.base_types.Uint`
+    - `sub_call`: `ethereum.base_types.Uint`
         The portion of gas available to sub-calls that is refundable
         if not consumed.
     """
@@ -101,11 +95,10 @@ def charge_gas(evm: Evm, amount: Uint) -> None:
     """
     Subtracts `amount` from `evm.gas_left`.
 
-    Parameters
-    ----------
-    evm :
+    #### Parameters
+    - evm:
         The current EVM.
-    amount :
+    - amount:
         The amount of gas the current operation requires.
 
     """
@@ -123,15 +116,12 @@ def calculate_memory_gas_cost(size_in_bytes: Uint) -> Uint:
     to the smallest multiple of 32 bytes,
     such that the allocated size is at least as big as the given size.
 
-    Parameters
-    ----------
-    size_in_bytes :
-        The size of the data in bytes.
+    #### Parameters
+    - size_in_bytes: The size of the data in bytes.
 
-    Returns
-    -------
-    total_gas_cost : `ethereum.base_types.Uint`
-        The gas cost for storing data in memory.
+    #### Returns
+    - total_gas_cost: `ethereum.base_types.Uint`
+    The gas cost for storing data in memory.
     """
     size_in_words = ceil32(size_in_bytes) // Uint(32)
     linear_cost = size_in_words * GAS_MEMORY
@@ -149,13 +139,10 @@ def calculate_gas_extend_memory(
     """
     Calculates the gas amount to extend memory
 
-    Parameters
-    ----------
-    memory :
-        Memory contents of the EVM.
-    extensions:
-        List of extensions to be made to the memory.
-        Consists of a tuple of start position and size.
+    #### Parameters
+    - memory: Memory contents of the EVM.
+    - extensions: List of extensions to be made to the memory. Consists of a
+    tuple of start position and size.
 
     Returns
     -------
@@ -194,26 +181,19 @@ def calculate_message_call_gas(
     Calculates the MessageCallGas (cost and gas made available to the sub-call)
     for executing call Opcodes.
 
-    Parameters
-    ----------
-    value:
+    #### Parameters
+    - value:
         The amount of `ETH` that needs to be transferred.
-    gas :
-        The amount of gas provided to the message-call.
-    gas_left :
-        The amount of gas left in the current frame.
-    memory_cost :
-        The amount needed to extend the memory in the current frame.
-    extra_gas :
-        The amount of gas needed for transferring value + creating a new
-        account inside a message call.
-    call_stipend :
-        The amount of stipend provided to a message call to execute code while
-        transferring value(ETH).
+    - gas: The amount of gas provided to the message-call.
+    - gas_left: The amount of gas left in the current frame.
+    - memory_cost: The amount needed to extend the memory in the current frame.
+    - extra_gas: The amount of gas needed for transferring value + creating a
+    new account inside a message call.
+    - call_stipend: The amount of stipend provided to a message call to
+    execute code while transferring value(ETH).
 
-    Returns
-    -------
-    message_call_gas: `MessageCallGas`
+    #### Returns
+    - message_call_gas: `MessageCallGas`
     """
     call_stipend = Uint(0) if value == 0 else call_stipend
     if gas_left < extra_gas + memory_cost:
@@ -228,14 +208,11 @@ def max_message_call_gas(gas: Uint) -> Uint:
     """
     Calculates the maximum gas that is allowed for making a message call
 
-    Parameters
-    ----------
-    gas :
-        The amount of gas provided to the message-call.
+    #### Parameters
+    - gas: The amount of gas provided to the message-call.
 
-    Returns
-    -------
-    max_allowed_message_call_gas: `ethereum.base_types.Uint`
-        The maximum gas allowed for making the message-call.
+    #### Returns
+    - max_allowed_message_call_gas: `ethereum.base_types.Uint`
+    The maximum gas allowed for making the message-call.
     """
     return gas - (gas // Uint(64))

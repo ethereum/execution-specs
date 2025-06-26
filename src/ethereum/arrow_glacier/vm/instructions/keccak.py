@@ -1,13 +1,7 @@
 """
-Ethereum Virtual Machine (EVM) Keccak Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# Ethereum Virtual Machine (EVM) Keccak Instructions
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
+## Introduction
 
 Implementations of the EVM keccak instructions.
 """
@@ -35,10 +29,8 @@ def keccak(evm: Evm) -> None:
     This also expands the memory, in case the memory is insufficient to
     access the data's memory location.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK

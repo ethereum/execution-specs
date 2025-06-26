@@ -1,13 +1,7 @@
 """
-Ethereum Virtual Machine (EVM) Block Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
+# Ethereum Virtual Machine (EVM) Block Instructions
 
 Introduction
-------------
 
 Implementations of the EVM block instructions.
 """
@@ -24,10 +18,8 @@ def block_hash(evm: Evm) -> None:
     Push the hash of one of the 256 most recent complete blocks onto the
     stack. The block number to hash is present at the top of the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -66,10 +58,8 @@ def coinbase(evm: Evm) -> None:
     Here the current block refers to the block in which the currently
     executing transaction/call resides.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -93,10 +83,8 @@ def timestamp(evm: Evm) -> None:
     Here the current block refers to the block in which the currently
     executing transaction/call resides.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -119,10 +107,8 @@ def number(evm: Evm) -> None:
     Here the current block refers to the block in which the currently
     executing transaction/call resides.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -145,10 +131,8 @@ def difficulty(evm: Evm) -> None:
     Here the current block refers to the block in which the currently
     executing transaction/call resides.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -171,10 +155,8 @@ def gas_limit(evm: Evm) -> None:
     Here the current block refers to the block in which the currently
     executing transaction/call resides.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -194,10 +176,8 @@ def chain_id(evm: Evm) -> None:
     """
     Push the chain id onto the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK

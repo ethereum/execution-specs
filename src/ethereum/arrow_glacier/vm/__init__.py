@@ -1,13 +1,7 @@
 """
-Ethereum Virtual Machine (EVM)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# Ethereum Virtual Machine (EVM)
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
+## Introduction
 
 The abstract computer which runs the code stored in an
 `.fork_types.Account`.
@@ -56,17 +50,16 @@ class BlockOutput:
 
     Contains the following:
 
-    block_gas_used : `ethereum.base_types.Uint`
-        Gas used for executing all transactions.
-    transactions_trie : `ethereum.fork_types.Root`
-        Trie of all the transactions in the block.
-    receipts_trie : `ethereum.fork_types.Root`
-        Trie root of all the receipts in the block.
-    receipt_keys :
-        Key of all the receipts in the block.
-    block_logs : `Bloom`
-        Logs bloom of all the logs included in all the transactions of the
-        block.
+    - block_gas_used: `ethereum.base_types.Uint`
+    Gas used for executing all transactions.
+    - transactions_trie: `ethereum.fork_types.Root`
+    Trie of all the transactions in the block.
+    - receipts_trie: `ethereum.fork_types.Root`
+    Trie root of all the receipts in the block.
+    - receipt_keys:
+    Key of all the receipts in the block.
+    - block_logs: `Bloom`
+    Logs bloom of all the logs included in all the transactions of the block.
     """
 
     block_gas_used: Uint = Uint(0)
@@ -147,12 +140,9 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     """
     Incorporate the state of a successful `child_evm` into the parent `evm`.
 
-    Parameters
-    ----------
-    evm :
-        The parent `EVM`.
-    child_evm :
-        The child evm to incorporate.
+    #### Parameters
+    - evm: The parent `EVM`.
+    - child_evm: The child evm to incorporate.
     """
     evm.gas_left += child_evm.gas_left
     evm.logs += child_evm.logs
@@ -171,12 +161,9 @@ def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
     """
     Incorporate the state of an unsuccessful `child_evm` into the parent `evm`.
 
-    Parameters
-    ----------
-    evm :
-        The parent `EVM`.
-    child_evm :
-        The child evm to incorporate.
+    #### Parameters
+    - evm: The parent `EVM`.
+    - child_evm: The child evm to incorporate.
     """
     # In block 2675119, the empty account at 0x3 (the RIPEMD160 precompile) was
     # cleared despite running out of gas. This is an obscure edge case that can

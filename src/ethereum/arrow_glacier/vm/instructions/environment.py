@@ -1,13 +1,7 @@
 """
-Ethereum Virtual Machine (EVM) Environmental Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# Ethereum Virtual Machine (EVM) Environmental Instructions
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
+## Introduction
 
 Implementations of the EVM environment related instructions.
 """
@@ -41,10 +35,8 @@ def address(evm: Evm) -> None:
     """
     Pushes the address of the current executing account to the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -64,10 +56,8 @@ def balance(evm: Evm) -> None:
     """
     Pushes the balance of the given account onto the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -95,10 +85,8 @@ def origin(evm: Evm) -> None:
     Pushes the address of the original transaction sender to the stack.
     The origin address can only be an EOA.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -118,10 +106,8 @@ def caller(evm: Evm) -> None:
     """
     Pushes the address of the caller onto the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -141,10 +127,8 @@ def callvalue(evm: Evm) -> None:
     """
     Push the value (in wei) sent with the call onto the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -165,10 +149,8 @@ def calldataload(evm: Evm) -> None:
     Push a word (32 bytes) of the input data belonging to the current
     environment onto the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -190,10 +172,8 @@ def calldatasize(evm: Evm) -> None:
     """
     Push the size of input data in current environment onto the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -216,10 +196,8 @@ def calldatacopy(evm: Evm) -> None:
     This will also expand the memory, in case that the memory is insufficient
     to store the data.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -248,10 +226,8 @@ def codesize(evm: Evm) -> None:
     """
     Push the size of code running in current environment onto the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -274,10 +250,8 @@ def codecopy(evm: Evm) -> None:
     This will also expand the memory, in case that the memory is insufficient
     to store the data.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -306,10 +280,8 @@ def gasprice(evm: Evm) -> None:
     """
     Push the gas price used in current environment onto the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -329,10 +301,8 @@ def extcodesize(evm: Evm) -> None:
     """
     Push the code size of a given account onto the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -361,10 +331,8 @@ def extcodecopy(evm: Evm) -> None:
     """
     Copy a portion of an account's code to memory.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -403,10 +371,8 @@ def returndatasize(evm: Evm) -> None:
     """
     Pushes the size of the return data buffer onto the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
     """
     # STACK
     pass
@@ -425,10 +391,8 @@ def returndatacopy(evm: Evm) -> None:
     """
     Copies data from the return data buffer code to memory
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
     """
     # STACK
     memory_start_index = pop(evm.stack)
@@ -458,10 +422,8 @@ def returndatacopy(evm: Evm) -> None:
 def extcodehash(evm: Evm) -> None:
     """
     Returns the keccak256 hash of a contract’s bytecode
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
     """
     # STACK
     address = to_address(pop(evm.stack))
@@ -494,10 +456,8 @@ def self_balance(evm: Evm) -> None:
     """
     Pushes the balance of the current address to the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -522,10 +482,8 @@ def base_fee(evm: Evm) -> None:
     """
     Pushes the base fee of the current block on to the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
