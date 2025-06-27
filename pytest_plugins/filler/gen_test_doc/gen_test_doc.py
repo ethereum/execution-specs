@@ -596,4 +596,4 @@ class TestDocsGenerator:
     def write_pages(self) -> None:
         """Write all pages to the target directory."""
         for page in self.page_props.values():
-            page.write_page(mkdocs_gen_files, self.jinja2_env)
+            page.write_page(mkdocs_gen_files, self.jinja2_env)  # type: ignore[arg-type]

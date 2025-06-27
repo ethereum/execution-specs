@@ -906,7 +906,7 @@ def base_test_parametrizer(cls: Type[BaseTest]):
                             "Make sure phase 1 (--generate-pre-alloc-groups) was run "
                             "before phase 2."
                         )
-                    group: PreAllocGroup = request.config.pre_alloc_groups[pre_alloc_hash]
+                    group: PreAllocGroup = request.config.pre_alloc_groups[pre_alloc_hash]  # type: ignore[annotation-unchecked]
                     self.pre = group.pre
 
                 fixture = self.generate(
