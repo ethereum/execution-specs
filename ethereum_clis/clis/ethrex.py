@@ -30,9 +30,10 @@ class EthrexExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: r"(?i)empty authorization list",
         TransactionException.SENDER_NOT_EOA: (
             r"reject transactions from senders with deployed code|"
-            r"Sender account should not have bytecode"
+            r"Sender account shouldn't be a contract"
         ),
-        TransactionException.NONCE_MISMATCH_TOO_LOW: r"nonce \d+ too low, expected \d+",
+        TransactionException.NONCE_MISMATCH_TOO_LOW: r"nonce \d+ too low, expected \d+|"
+        r"Nonce mismatch.*",
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             r"blob gas used \d+ exceeds maximum allowance \d+"
         ),
@@ -47,15 +48,17 @@ class EthrexExceptionMapper(ExceptionMapper):
             r"blob versioned hashes not supported|"
             r"Type 3 transactions are not supported before the Cancun fork"
         ),
+        # A type 4 Transaction without a recipient won't even reach the EVM, we can't decode it.
         TransactionException.TYPE_4_TX_CONTRACT_CREATION: (
-            r"unexpected length|Contract creation in type 4 transaction"
+            r"unexpected length|Contract creation in type 4 transaction|"
+            r"Error decoding field 'to' of type primitive_types::H160: InvalidLength"
         ),
         TransactionException.TYPE_4_TX_PRE_FORK: (
             r"eip 7702 transactions present in pre-prague payload|"
             r"Type 4 transactions are not supported before the Prague fork"
         ),
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
-            r"lack of funds \(\d+\) for max fee \(\d+\)|Insufficient account founds"
+            r"lack of funds \(\d+\) for max fee \(\d+\)|Insufficient account funds"
         ),
         TransactionException.INTRINSIC_GAS_TOO_LOW: (
             r"gas floor exceeds the gas limit|call gas cost exceeds the gas limit|"
@@ -71,7 +74,8 @@ class EthrexExceptionMapper(ExceptionMapper):
         TransactionException.INITCODE_SIZE_EXCEEDED: (
             r"create initcode size limit|Initcode size exceeded"
         ),
-        BlockException.SYSTEM_CONTRACT_CALL_FAILED: (r"failed to apply .* requests contract call"),
+        BlockException.SYSTEM_CONTRACT_CALL_FAILED: (r"System call failed.*"),
+        BlockException.SYSTEM_CONTRACT_EMPTY: (r"System contract:.* has no code after deployment"),
         BlockException.INCORRECT_BLOB_GAS_USED: (r"Blob gas used doesn't match value in header"),
         BlockException.RLP_STRUCTURES_ENCODING: (r"Error decoding field '\D+' of type \w+.*"),
         BlockException.INCORRECT_EXCESS_BLOB_GAS: (r".* Excess blob gas is incorrect"),
