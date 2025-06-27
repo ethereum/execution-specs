@@ -5,6 +5,7 @@ Elliptic Curves
 
 import coincurve
 from Crypto.Util.asn1 import DerSequence
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -97,22 +98,24 @@ def secp256r1_verify(
 ) -> None:
     """
     Verifies a P-256 signature.
+
     Parameters
     ----------
     r :
         the `r` component of the signature
     s :
         the `s` component of the signature
-    x:
+    x :
         the `x` coordinate of the public key
-    y:
+    y :
         the `y` coordinate of the public key
     msg_hash :
         Hash of the message being recovered.
-    Returns
-    -------
-    result : `ethereum.base_types.Bytes`
-        return 1 if the signature is valid, empty bytes otherwise
+
+    Raises
+    ------
+
+    Raises an `InvalidSignatureError` if the signature is not valid.
     """
     # Convert U256 to regular integers for DerSequence
     r_int = int(r)
@@ -124,9 +127,11 @@ def secp256r1_verify(
 
     pubnum = ec.EllipticCurvePublicNumbers(x_int, y_int, ec.SECP256R1())
     pubkey = pubnum.public_key(default_backend())
-    pubkey.verify(sig, msg_hash, ec.ECDSA(Prehashed(hashes.SHA256())))
 
-    return
+    try:
+        pubkey.verify(sig, msg_hash, ec.ECDSA(Prehashed(hashes.SHA256())))
+    except InvalidSignature as e:
+        raise InvalidSignatureError from e
 
 
 def is_on_curve_secp256r1(x: U256, y: U256) -> bool:
