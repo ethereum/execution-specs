@@ -13,14 +13,14 @@ from .processors import ConsumeCommandProcessor, HelpFlagsProcessor, HiveEnviron
 class ConsumeCommand(PytestCommand):
     """Pytest command for consume operations."""
 
-    def __init__(self, command_paths: List[Path], is_hive: bool = False):
+    def __init__(self, command_paths: List[Path], is_hive: bool = False, command_name: str = ""):
         """Initialize consume command with paths and processors."""
         processors: List[ArgumentProcessor] = [HelpFlagsProcessor("consume")]
 
         if is_hive:
             processors.extend(
                 [
-                    HiveEnvironmentProcessor(),
+                    HiveEnvironmentProcessor(command_name=command_name),
                     ConsumeCommandProcessor(is_hive=True),
                 ]
             )
@@ -54,13 +54,15 @@ def get_command_paths(command_name: str, is_hive: bool) -> List[Path]:
     base_path = Path("src/pytest_plugins/consume")
     if command_name == "hive":
         commands = ["rlp", "engine"]
+        command_paths = [
+            base_path / "simulators" / "hive_tests" / f"test_via_{cmd}.py" for cmd in commands
+        ]
+    elif command_name in ["engine", "rlp"]:
+        command_paths = [base_path / "simulators" / "hive_tests" / f"test_via_{command_name}.py"]
+    elif command_name == "direct":
+        command_paths = [base_path / "direct" / "test_via_direct.py"]
     else:
-        commands = [command_name]
-
-    command_paths = [
-        base_path / ("hive_simulators" if is_hive else "") / cmd / f"test_via_{cmd}.py"
-        for cmd in commands
-    ]
+        raise ValueError(f"Unexpected command: {command_name}.")
     return command_paths
 
 
@@ -86,7 +88,7 @@ def consume_command(is_hive: bool = False) -> Callable[[Callable[..., Any]], cli
         @common_pytest_options
         @functools.wraps(func)
         def command(pytest_args: List[str], **kwargs) -> None:
-            consume_cmd = ConsumeCommand(command_paths, is_hive)
+            consume_cmd = ConsumeCommand(command_paths, is_hive, command_name)
             consume_cmd.execute(list(pytest_args))
 
         return command

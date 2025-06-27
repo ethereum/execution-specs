@@ -9,9 +9,9 @@ import logging
 
 from ethereum_test_fixtures import BlockchainFixture
 from ethereum_test_rpc import EthRPC
-from pytest_plugins.consume.hive_simulators.exceptions import GenesisBlockMismatchExceptionError
+from pytest_plugins.consume.simulators.helpers.exceptions import GenesisBlockMismatchExceptionError
 
-from ..timing import TimingData
+from ..helpers.timing import TimingData
 
 logger = logging.getLogger(__name__)
 

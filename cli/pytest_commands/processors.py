@@ -74,6 +74,10 @@ class StdoutFlagsProcessor(ArgumentProcessor):
 class HiveEnvironmentProcessor(ArgumentProcessor):
     """Processes Hive environment variables for consume commands."""
 
+    def __init__(self, command_name: str):
+        """Initialize the processor with command name to determine plugin."""
+        self.command_name = command_name
+
     def process_args(self, args: List[str]) -> List[str]:
         """Convert hive environment variables into pytest flags."""
         modified_args = args[:]
@@ -92,8 +96,12 @@ class HiveEnvironmentProcessor(ArgumentProcessor):
         if os.getenv("HIVE_LOGLEVEL") is not None:
             warnings.warn("HIVE_LOG_LEVEL is not yet supported.", stacklevel=2)
 
-        modified_args.extend(["-p", "pytest_plugins.pytest_hive.pytest_hive"])
-
+        if self.command_name == "engine":
+            modified_args.extend(["-p", "pytest_plugins.consume.simulators.engine.conftest"])
+        elif self.command_name == "rlp":
+            modified_args.extend(["-p", "pytest_plugins.consume.simulators.rlp.conftest"])
+        else:
+            raise ValueError(f"Unknown command name: {self.command_name}")
         return modified_args
 
     def _has_regex_or_sim_limit(self, args: List[str]) -> bool:
