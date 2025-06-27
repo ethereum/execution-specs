@@ -17,6 +17,7 @@ from ethereum.crypto.elliptic_curve import (
     secp256r1_verify,
 )
 from ethereum.crypto.hash import Hash32
+from ethereum.exceptions import InvalidSignatureError
 from ethereum.utils.byte import left_pad_zero_bytes
 
 from ...vm import Evm
@@ -75,11 +76,9 @@ def p256verify(evm: Evm) -> None:
     if public_key_x == U256(0) and public_key_y == U256(0):
         return
 
-    success_return_value = left_pad_zero_bytes(b"\x01", 32)
-
     try:
         secp256r1_verify(r, s, public_key_x, public_key_y, message_hash)
-    except Exception:
+    except InvalidSignatureError:
         return
 
-    evm.output = success_return_value
+    evm.output = left_pad_zero_bytes(b"\x01", 32)
