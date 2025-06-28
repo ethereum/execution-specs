@@ -27,7 +27,7 @@ TEST_FIXTURES: Dict[str, _FixtureSource] = {
         "fixture_path": "tests/fixtures/latest_fork_tests",
     },
     "osaka_tests": {
-        "url": "https://github.com/ethereum/execution-spec-tests/releases/download/fusaka-devnet-2%40v1.1.0/fixtures_fusaka-devnet-2.tar.gz",
+        "url": "https://github.com/ethereum/execution-spec-tests/releases/download/fusaka-devnet-2%40v1.2.0/fixtures_fusaka-devnet-2.tar.gz",
         "fixture_path": "tests/fixtures/osaka_tests",
     },
 }
