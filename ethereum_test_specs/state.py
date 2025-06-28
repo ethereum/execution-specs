@@ -182,15 +182,17 @@ class StateTest(BaseTest):
             raise Exception(f"Empty accounts in pre state: {empty_accounts}")
 
         transition_tool_output = t8n.evaluate(
-            alloc=pre_alloc,
-            txs=[tx],
-            env=env,
-            fork=fork,
-            chain_id=self.chain_id,
-            reward=0,  # Reward on state tests is always zero
-            blob_schedule=fork.blob_schedule(),
+            transition_tool_data=TransitionTool.TransitionToolData(
+                alloc=pre_alloc,
+                txs=[tx],
+                env=env,
+                fork=fork,
+                chain_id=self.chain_id,
+                reward=0,  # Reward on state tests is always zero
+                blob_schedule=fork.blob_schedule(),
+                state_test=True,
+            ),
             debug_output_path=self.get_next_transition_tool_output_path(),
-            state_test=True,
             slow_request=self.is_tx_gas_heavy_test(),
         )
 

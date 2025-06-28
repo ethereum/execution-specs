@@ -136,11 +136,24 @@ class TransitionTool(EthereumCLI):
         alloc: Alloc
         txs: List[Transaction]
         env: Environment
-        fork_name: str
+        fork: Fork
         chain_id: int
         reward: int
         blob_schedule: BlobSchedule | None
-        state_test: bool
+        state_test: bool = False
+
+        @property
+        def fork_name(self) -> str:
+            """Return the fork name."""
+            return self.fork.transition_tool_name(
+                block_number=self.env.number,
+                timestamp=self.env.timestamp,
+            )
+
+        def __post_init__(self):
+            """Modify the reward if the environment number is 0."""
+            if self.env.number == 0:
+                self.reward = -1
 
         def to_input(self) -> TransitionToolInput:
             """Convert the data to a TransactionToolInput object."""
@@ -493,15 +506,8 @@ class TransitionTool(EthereumCLI):
     def evaluate(
         self,
         *,
-        alloc: Alloc,
-        txs: List[Transaction],
-        env: Environment,
-        fork: Fork,
-        chain_id: int,
-        reward: int,
-        blob_schedule: BlobSchedule | None,
+        transition_tool_data: TransitionToolData,
         debug_output_path: str = "",
-        state_test: bool = False,
         slow_request: bool = False,
     ) -> TransitionToolOutput:
         """
@@ -510,36 +516,21 @@ class TransitionTool(EthereumCLI):
         If a client's `t8n` tool varies from the default behavior, this method
         can be overridden.
         """
-        fork_name = fork.transition_tool_name(
-            block_number=env.number,
-            timestamp=env.timestamp,
-        )
-        if env.number == 0:
-            reward = -1
-        t8n_data = self.TransitionToolData(
-            alloc=alloc,
-            txs=txs,
-            env=env,
-            fork_name=fork_name,
-            chain_id=chain_id,
-            reward=reward,
-            blob_schedule=blob_schedule,
-            state_test=state_test,
-        )
-
         if self.t8n_use_server:
             if not self.process:
                 self.start_server()
             return self._evaluate_server(
-                t8n_data=t8n_data,
+                t8n_data=transition_tool_data,
                 debug_output_path=debug_output_path,
                 timeout=SLOW_REQUEST_TIMEOUT if slow_request else NORMAL_SERVER_TIMEOUT,
             )
 
         if self.t8n_use_stream:
-            return self._evaluate_stream(t8n_data=t8n_data, debug_output_path=debug_output_path)
+            return self._evaluate_stream(
+                t8n_data=transition_tool_data, debug_output_path=debug_output_path
+            )
 
         return self._evaluate_filesystem(
-            t8n_data=t8n_data,
+            t8n_data=transition_tool_data,
             debug_output_path=debug_output_path,
         )

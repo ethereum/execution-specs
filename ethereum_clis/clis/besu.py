@@ -7,11 +7,10 @@ import subprocess
 import tempfile
 import textwrap
 from pathlib import Path
-from typing import ClassVar, Dict, List, Optional
+from typing import ClassVar, Dict, Optional
 
 import requests  # type: ignore
 
-from ethereum_test_base_types import BlobSchedule
 from ethereum_test_exceptions import (
     BlockException,
     ExceptionBase,
@@ -19,10 +18,9 @@ from ethereum_test_exceptions import (
     TransactionException,
 )
 from ethereum_test_forks import Fork
-from ethereum_test_types import Alloc, Environment, Transaction
 
 from ..transition_tool import TransitionTool, dump_files_to_directory, model_dump_config
-from ..types import TransitionToolInput, TransitionToolOutput
+from ..types import TransitionToolOutput
 
 
 class BesuTransitionTool(TransitionTool):
@@ -98,36 +96,20 @@ class BesuTransitionTool(TransitionTool):
     def evaluate(
         self,
         *,
-        alloc: Alloc,
-        txs: List[Transaction],
-        env: Environment,
-        fork: Fork,
-        chain_id: int,
-        reward: int,
-        blob_schedule: BlobSchedule | None = None,
+        transition_tool_data: TransitionTool.TransitionToolData,
         debug_output_path: str = "",
-        state_test: bool = False,
         slow_request: bool = False,
     ) -> TransitionToolOutput:
         """Execute `evm t8n` with the specified arguments."""
         if not self.process:
             self.start_server()
 
-        fork_name = fork.transition_tool_name(
-            block_number=env.number,
-            timestamp=env.timestamp,
-        )
-
-        input_json = TransitionToolInput(
-            alloc=alloc,
-            txs=txs,
-            env=env,
-        ).model_dump(mode="json", **model_dump_config)
+        input_json = transition_tool_data.to_input().model_dump(mode="json", **model_dump_config)
 
         state_json = {
-            "fork": fork_name,
-            "chainid": chain_id,
-            "reward": reward,
+            "fork": transition_tool_data.fork_name,
+            "chainid": transition_tool_data.chain_id,
+            "reward": transition_tool_data.reward,
         }
 
         post_data = {"state": state_json, "input": input_json}

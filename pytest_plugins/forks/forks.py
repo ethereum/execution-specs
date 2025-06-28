@@ -524,11 +524,15 @@ def pytest_configure(config: pytest.Config):
         return
 
     evm_bin = config.getoption("evm_bin", None)
-    if evm_bin is not None:
+    if evm_bin is None:
+        assert TransitionTool.default_tool is not None, "No default transition tool found"
+        t8n = TransitionTool.default_tool()
+    elif evm_bin is not None:
         t8n = TransitionTool.from_binary_path(binary_path=evm_bin)
-        config.unsupported_forks = frozenset(  # type: ignore
-            fork for fork in selected_fork_set if not t8n.is_fork_supported(fork)
-        )
+
+    config.unsupported_forks = frozenset(  # type: ignore
+        fork for fork in selected_fork_set if not t8n.is_fork_supported(fork)
+    )
 
 
 @pytest.hookimpl(trylast=True)

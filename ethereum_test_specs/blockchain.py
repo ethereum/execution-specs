@@ -498,13 +498,15 @@ class BlockchainTest(BaseTest):
                 )
 
         transition_tool_output = t8n.evaluate(
-            alloc=previous_alloc,
-            txs=txs,
-            env=env,
-            fork=fork,
-            chain_id=self.chain_id,
-            reward=fork.get_reward(env.number, env.timestamp),
-            blob_schedule=fork.blob_schedule(),
+            transition_tool_data=TransitionTool.TransitionToolData(
+                alloc=previous_alloc,
+                txs=txs,
+                env=env,
+                fork=fork,
+                chain_id=self.chain_id,
+                reward=fork.get_reward(env.number, env.timestamp),
+                blob_schedule=fork.blob_schedule(),
+            ),
             debug_output_path=self.get_next_transition_tool_output_path(),
             slow_request=self.is_tx_gas_heavy_test(),
         )
