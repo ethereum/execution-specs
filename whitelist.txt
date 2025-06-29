@@ -12,6 +12,7 @@ Bytes64
 Bytes8
 Bytes256
 Bytes0
+Bytes1
 calldata
 copyreg
 copytree
@@ -287,6 +288,7 @@ sqrt
 precompiled
 ripemd160
 ecrecover
+sigrecover
 
 getrecursionlimit
 setrecursionlimit
@@ -495,3 +497,5 @@ secp256r1
 sig
 
 CLZ
+
+alg
