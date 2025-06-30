@@ -87,7 +87,7 @@ class Opcode(Bytecode):
     data_portion_length: int
     data_portion_formatter: Optional[Callable[[Any], bytes]]
     stack_properties_modifier: Optional[Callable[[Any], tuple[int, int, int, int]]]
-    kwargs: List[str] | None
+    kwargs: List[str]
     kwargs_defaults: KW_ARGS_DEFAULTS_TYPE
     unchecked_stack: bool = False
 
@@ -137,7 +137,10 @@ class Opcode(Bytecode):
             obj.data_portion_formatter = data_portion_formatter
             obj.stack_properties_modifier = stack_properties_modifier
             obj.unchecked_stack = unchecked_stack
-            obj.kwargs = kwargs
+            if kwargs is None:
+                obj.kwargs = []
+            else:
+                obj.kwargs = kwargs
             obj.kwargs_defaults = kwargs_defaults
             return obj
         raise TypeError("Opcode constructor '__new__' didn't return an instance!")
@@ -254,6 +257,16 @@ class Opcode(Bytecode):
 
         if self.kwargs is not None and len(kwargs) > 0:
             assert len(args) == 0, f"Cannot mix positional and keyword arguments {args} {kwargs}"
+
+            # Validate that all provided kwargs are valid
+            invalid_kwargs = set(kwargs.keys()) - set(self.kwargs)
+            if invalid_kwargs:
+                raise ValueError(
+                    f"Invalid keyword argument(s) {list(invalid_kwargs)} for opcode "
+                    f"{self._name_}. Valid arguments are: {self.kwargs}"
+                    f"Valid arguments are: {self.kwargs}"
+                )
+
             for kw in self.kwargs:
                 args.append(kwargs[kw] if kw in kwargs else self.kwargs_defaults.get(kw, 0))
 

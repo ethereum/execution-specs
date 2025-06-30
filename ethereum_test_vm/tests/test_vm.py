@@ -431,3 +431,38 @@ def test_bytecode_concatenation_with_bytes():
     assert code.max_stack_height == base.max_stack_height
     assert code.min_stack_height == base.min_stack_height
     assert code.terminating == base.terminating
+
+
+def test_opcode_kwargs_validation():
+    """Test that invalid keyword arguments raise ValueError."""
+    # Test valid kwargs work
+    Op.MSTORE(offset=0, value=1)
+    Op.CALL(gas=1, address=2, value=3, args_offset=4, args_size=5, ret_offset=6, ret_size=7)
+
+    # Test invalid kwargs raise ValueError
+    with pytest.raises(
+        ValueError, match=r"Invalid keyword argument\(s\) \['offest'\] for opcode MSTORE"
+    ):
+        Op.MSTORE(offest=0, value=1)  # codespell:ignore offest
+
+    with pytest.raises(
+        ValueError, match=r"Invalid keyword argument\(s\) \['wrong_arg'\] for opcode MSTORE"
+    ):
+        Op.MSTORE(offset=0, value=1, wrong_arg=2)
+
+    with pytest.raises(
+        ValueError, match=r"Invalid keyword argument\(s\) \['addres'\] for opcode CALL"
+    ):
+        Op.CALL(
+            gas=1,
+            addres=2,  # codespell:ignore
+            value=3,
+            args_offset=4,
+            args_size=5,
+            ret_offset=6,
+            ret_size=7,
+        )
+
+    # Test multiple invalid kwargs
+    with pytest.raises(ValueError, match=r"Invalid keyword argument\(s\).*for opcode MSTORE"):
+        Op.MSTORE(offest=0, valu=1, extra=2)  # codespell:ignore offest,valu
