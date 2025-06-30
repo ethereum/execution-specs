@@ -109,14 +109,25 @@ def scenarios_create_combinations(scenario_input: ScenarioGeneratorInput) -> Lis
                 + Op.MSTORE(32, create(balance.create_value, 0, deploy_code_size, *salt))
                 + Op.MSTORE(0, 0)
                 + Op.MSTORE(64, 1122334455)
-                + call(
-                    gas=Op.SUB(Op.GAS, keep_gas),
-                    address=Op.MLOAD(32),
-                    args_offset=64,
-                    args_size=40,
-                    ret_offset=0,
-                    ret_size=32,
-                    value=balance.call_value,
+                + (
+                    call(
+                        gas=Op.SUB(Op.GAS, keep_gas),
+                        address=Op.MLOAD(32),
+                        args_offset=64,
+                        args_size=40,
+                        ret_offset=0,
+                        ret_size=32,
+                        value=balance.call_value,
+                    )
+                    if call not in [Op.DELEGATECALL, Op.STATICCALL]
+                    else call(
+                        gas=Op.SUB(Op.GAS, keep_gas),
+                        address=Op.MLOAD(32),
+                        args_offset=64,
+                        args_size=40,
+                        ret_offset=0,
+                        ret_size=32,
+                    )
                 )
                 + Op.RETURN(0, 32),
             )

@@ -50,7 +50,7 @@ def test_create_one_byte(
     # make a subcontract that deploys code, because deploy 0xef eats ALL gas
     create_contract = pre.deploy_contract(
         code=Op.MSTORE(0, Op.CALLDATALOAD(0))
-        + Op.MSTORE(32, create_opcode(offset=32 - initcode_length, salt=0, size=initcode_length))
+        + Op.MSTORE(32, create_opcode(offset=32 - initcode_length, size=initcode_length))
         + Op.RETURN(32, 32)
     )
     code = pre.deploy_contract(

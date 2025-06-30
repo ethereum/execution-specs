@@ -534,12 +534,9 @@ def test_set_code_to_contract_creator(
     else:
         raise ValueError(f"Unsupported EVM code type: {evm_code_type}")
 
-    salt = 0
-
     deployed_contract_address = compute_create_address(
         address=auth_signer,
         nonce=1,
-        salt=salt,
         initcode=initcode,
         opcode=create_opcode,
     )
@@ -548,7 +545,7 @@ def test_set_code_to_contract_creator(
     if evm_code_type == EVMCodeType.LEGACY:
         creator_code = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE) + Op.SSTORE(
             storage.store_next(deployed_contract_address),
-            create_opcode(value=0, offset=0, size=Op.CALLDATASIZE, salt=salt),
+            create_opcode(value=0, offset=0, size=Op.CALLDATASIZE),
         )
     elif evm_code_type == EVMCodeType.EOF_V1:
         creator_code = Container(
@@ -613,6 +610,9 @@ def test_set_code_to_self_caller(
     evm_code_type: EVMCodeType,
 ):
     """Test the executing a self-call in a set-code transaction."""
+    if "value" not in call_opcode.kwargs and value != 0:
+        pytest.skip(f"Call opcode {call_opcode} does not support value")
+
     storage = Storage()
     auth_signer = pre.fund_eoa(auth_account_start_balance)
 
@@ -623,10 +623,14 @@ def test_set_code_to_self_caller(
     re_entry_call_return_code_slot = storage.store_next(
         call_return_code(opcode=call_opcode, success=not static_call)
     )
+    if "value" in call_opcode.kwargs:
+        call_bytecode = call_opcode(address=auth_signer, value=value)
+    else:
+        call_bytecode = call_opcode(address=auth_signer)
     set_code = Conditional(
         condition=Op.ISZERO(Op.SLOAD(first_entry_slot)),
         if_true=Op.SSTORE(first_entry_slot, 1)
-        + Op.SSTORE(re_entry_call_return_code_slot, call_opcode(address=auth_signer, value=value))
+        + Op.SSTORE(re_entry_call_return_code_slot, call_bytecode)
         + Op.STOP,
         if_false=Op.SSTORE(re_entry_success_slot, 1) + Op.STOP,
         evm_code_type=evm_code_type,
@@ -721,6 +725,9 @@ def test_set_code_call_set_code(
     value: int,
 ):
     """Test the calling a set-code account from another set-code account."""
+    if "value" not in call_opcode.kwargs and value != 0:
+        pytest.skip(f"Call opcode {call_opcode} does not support value")
+
     auth_signer_1 = pre.fund_eoa(auth_account_start_balance)
     storage_1 = Storage()
 
@@ -735,8 +742,13 @@ def test_set_code_call_set_code(
     storage_2 = Storage().set_next_slot(storage_1.peek_slot())
     set_code_2_success = storage_2.store_next(not static_call)
 
+    if "value" in call_opcode.kwargs:
+        call_bytecode = call_opcode(address=auth_signer_2, value=value)
+    else:
+        call_bytecode = call_opcode(address=auth_signer_2)
+
     set_code_1 = (
-        Op.SSTORE(set_code_1_call_result_slot, call_opcode(address=auth_signer_2, value=value))
+        Op.SSTORE(set_code_1_call_result_slot, call_bytecode)
         + Op.SSTORE(set_code_1_success, 1)
         + Op.STOP
     )
@@ -1593,7 +1605,6 @@ def test_set_code_to_account_deployed_in_same_tx(
     signer_call_return_code_slot = 2
     deployed_contract_call_return_code_slot = 3
 
-    salt = 0
     call_opcode = Op.CALL if evm_code_type == EVMCodeType.LEGACY else Op.EXTCALL
 
     if create_opcode == Op.EOFCREATE:
@@ -1603,7 +1614,7 @@ def test_set_code_to_account_deployed_in_same_tx(
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)  # NOOP on EOF
         + Op.SSTORE(
             deployed_contract_address_slot,
-            create_opcode(offset=0, salt=salt, size=Op.CALLDATASIZE),
+            create_opcode(offset=0, size=Op.CALLDATASIZE),
         )
         + Op.SSTORE(signer_call_return_code_slot, call_opcode(address=auth_signer))
         + Op.SSTORE(
@@ -1626,7 +1637,7 @@ def test_set_code_to_account_deployed_in_same_tx(
     deployed_contract_address = compute_create_address(
         address=contract_creator_address,
         nonce=1,
-        salt=salt,
+        salt=0,
         initcode=initcode,
         opcode=create_opcode,
     )
@@ -1710,12 +1721,11 @@ def test_set_code_to_self_destructing_account_deployed_in_same_tx(
     signer_call_return_code_slot = 2
     deployed_contract_call_return_code_slot = 3
 
-    salt = 0
     call_opcode = Op.CALL
 
     contract_creator_code: Bytecode = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE) + Op.SSTORE(
         deployed_contract_address_slot,
-        create_opcode(offset=0, salt=salt, size=Op.CALLDATASIZE),
+        create_opcode(offset=0, size=Op.CALLDATASIZE),
     )
     if call_set_code_first:
         contract_creator_code += Op.SSTORE(
@@ -1737,7 +1747,6 @@ def test_set_code_to_self_destructing_account_deployed_in_same_tx(
     deployed_contract_address = compute_create_address(
         address=contract_creator_address,
         nonce=1,
-        salt=salt,
         initcode=initcode,
         opcode=create_opcode,
     )
@@ -2486,9 +2495,19 @@ def test_set_code_to_log(
     """Test setting the code of an account to a contract that performs the log operation."""
     sender = pre.fund_eoa()
 
+    log_kwargs = {}
+    if "topic_1" not in log_opcode.kwargs:
+        log_kwargs["topic_1"] = 1
+    if "topic_2" not in log_opcode.kwargs:
+        log_kwargs["topic_2"] = 2
+    if "topic_3" in log_opcode.kwargs:
+        log_kwargs["topic_3"] = 3
+    if "topic_4" in log_opcode.kwargs:
+        log_kwargs["topic_4"] = 4
+
     set_to_code = (
         Op.MSTORE(0, 0x1234)
-        + log_opcode(size=32, topic_1=1, topic_2=2, topic_3=3, topic_4=4)
+        + log_opcode(size=32, **log_kwargs)  # type: ignore
         + Op.STOP
     )
     set_to_address = pre.deploy_contract(set_to_code)
@@ -2535,12 +2554,17 @@ def test_set_code_to_precompile(
     """
     auth_signer = pre.fund_eoa(auth_account_start_balance)
 
-    value = 1 if call_opcode in {Op.CALL, Op.CALLCODE, Op.EXTCALL} else 0
+    if "value" in call_opcode.kwargs:
+        call_bytecode = call_opcode(address=auth_signer, gas=0, value=1)
+        value = 1
+    else:
+        call_bytecode = call_opcode(address=auth_signer, gas=0)
+        value = 0
     caller_code_storage = Storage()
     caller_code = (
         Op.SSTORE(
             caller_code_storage.store_next(call_return_code(opcode=call_opcode, success=True)),
-            call_opcode(address=auth_signer, value=value, gas=0),
+            call_bytecode,
         )
         + Op.SSTORE(caller_code_storage.store_next(0), Op.RETURNDATASIZE)
         + Op.STOP
@@ -3402,7 +3426,7 @@ def test_creating_delegation_designation_contract(
         code=Op.MSTORE(0, Op.CALLDATALOAD(0))
         + Op.SSTORE(
             storage.store_next(0, "contract_a_create_result"),
-            create_opcode(value=1, offset=0, size=Op.CALLDATASIZE(), salt=0),
+            create_opcode(value=1, offset=0, size=Op.CALLDATASIZE()),
         )
         + Op.STOP,
     )
@@ -3416,7 +3440,7 @@ def test_creating_delegation_designation_contract(
     )
 
     create_address = compute_create_address(
-        address=contract_a, nonce=1, initcode=create_init, salt=0, opcode=create_opcode
+        address=contract_a, nonce=1, initcode=create_init, opcode=create_opcode
     )
     post = {
         contract_a: Account(balance=100, storage=storage),

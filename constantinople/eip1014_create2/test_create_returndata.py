@@ -49,7 +49,6 @@ def test_create2_return_data(
     slot_begin_memory_after_create = 8
 
     # CREATE2 Initcode
-    create2_salt = 1
     return_data_in_create = 0xFFFAFB
     initcode = Op.MSTORE(0, return_data_in_create) + return_type_in_create(0, 32)
     call_return_data_value = 0x1122334455667788991011121314151617181920212223242526272829303132
@@ -79,7 +78,7 @@ def test_create2_return_data(
         + Op.SSTORE(slot_return_data_hash_before_create, Op.SHA3(0, call_return_size))
         #
         #
-        + create_type(offset=0x100, size=Op.CALLDATASIZE(), salt=create2_salt)
+        + create_type(offset=0x100, size=Op.CALLDATASIZE())
         + Op.SSTORE(slot_returndatasize_after_create, Op.RETURNDATASIZE())
         + Op.RETURNDATACOPY(0x300, 0, Op.RETURNDATASIZE())
         + Op.SSTORE(slot_returndatacopy_after_create, Op.MLOAD(0x300))

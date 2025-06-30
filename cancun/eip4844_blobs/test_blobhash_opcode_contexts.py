@@ -132,7 +132,11 @@ class BlobhashContext(Enum):
                 create_opcode = Op.CREATE if self == BlobhashContext.CREATE else Op.CREATE2
                 create_bytecode = Op.EXTCODECOPY(
                     address=initcode_address, dest_offset=0, offset=0, size=len(initcode)
-                ) + Op.POP(create_opcode(value=0, offset=0, size=len(initcode), salt=0))
+                ) + Op.POP(
+                    create_opcode(value=0, offset=0, size=len(initcode), salt=0)
+                    if create_opcode == Op.CREATE2
+                    else create_opcode(value=0, offset=0, size=len(initcode))
+                )
                 return pre.deploy_contract(create_bytecode)
 
             case _:

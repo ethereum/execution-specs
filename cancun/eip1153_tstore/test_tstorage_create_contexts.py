@@ -155,7 +155,16 @@ class TestTransientStorageInContractCreation:
             + Op.TSTORE(1, 0x0200)
             + Op.TSTORE(2, 0x0300)
             + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-            + Op.SSTORE(4, Op.CALL(address=opcode(size=Op.CALLDATASIZE, salt=create2_salt)))
+            + Op.SSTORE(
+                4,
+                Op.CALL(
+                    address=(
+                        opcode(size=Op.CALLDATASIZE, salt=create2_salt)
+                        if opcode == Op.CREATE2
+                        else opcode(size=Op.CALLDATASIZE)
+                    )
+                ),
+            )
             # Save the state of transient storage following call to storage; the transient
             # storage should not have been overwritten
             + Op.SSTORE(0, Op.TLOAD(0))

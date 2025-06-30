@@ -383,7 +383,11 @@ class TestCreateInitcode:
         return (
             Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
             + Op.GAS
-            + opcode(size=Op.CALLDATASIZE, salt=create2_salt)
+            + (
+                opcode(size=Op.CALLDATASIZE, salt=create2_salt)
+                if opcode == Op.CREATE2
+                else opcode(size=Op.CALLDATASIZE)
+            )
             + Op.GAS
             # stack: [Gas 2, Call Result, Gas 1]
             + Op.SWAP1

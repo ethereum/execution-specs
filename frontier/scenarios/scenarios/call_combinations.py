@@ -93,13 +93,23 @@ class ScenariosCallCombinations:
 
         scenario_contract = pre.deploy_contract(
             code=Op.MSTORE(32, 1122334455)
-            + first_call(
-                gas=Op.SUB(Op.GAS, self.keep_gas),
-                address=operation_contract,
-                args_offset=32,
-                args_size=40,
-                ret_size=32,
-                value=balance.first_call_value,
+            + (
+                first_call(
+                    gas=Op.SUB(Op.GAS, self.keep_gas),
+                    address=operation_contract,
+                    args_offset=32,
+                    args_size=40,
+                    ret_size=32,
+                    value=balance.first_call_value,
+                )
+                if first_call not in [Op.DELEGATECALL, Op.STATICCALL]
+                else first_call(
+                    gas=Op.SUB(Op.GAS, self.keep_gas),
+                    address=operation_contract,
+                    args_offset=32,
+                    args_size=40,
+                    ret_size=32,
+                )
             )
             + Op.RETURN(0, 32),
             balance=balance.scenario_contract_balance,
@@ -230,23 +240,41 @@ class ScenariosCallCombinations:
         )
         sub_contract = pre.deploy_contract(
             code=Op.MSTORE(32, 1122334455)
-            + second_call(
-                gas=Op.SUB(Op.GAS, self.keep_gas),
-                address=operation_contract,
-                args_size=40,
-                args_offset=32,
-                ret_size=32,
-                value=second_call_value,
+            + (
+                second_call(
+                    gas=Op.SUB(Op.GAS, self.keep_gas),
+                    address=operation_contract,
+                    args_size=40,
+                    args_offset=32,
+                    ret_size=32,
+                    value=second_call_value,
+                )
+                if second_call not in [Op.DELEGATECALL, Op.STATICCALL]
+                else second_call(
+                    gas=Op.SUB(Op.GAS, self.keep_gas),
+                    address=operation_contract,
+                    args_size=40,
+                    args_offset=32,
+                    ret_size=32,
+                )
             )
             + Op.RETURN(0, 32),
             balance=balance.sub_contract_balance,
         )
         scenario_contract = pre.deploy_contract(
-            code=first_call(
-                gas=Op.SUB(Op.GAS, self.keep_gas),
-                address=sub_contract,
-                ret_size=32,
-                value=balance.first_call_value,
+            code=(
+                first_call(
+                    gas=Op.SUB(Op.GAS, self.keep_gas),
+                    address=sub_contract,
+                    ret_size=32,
+                    value=balance.first_call_value,
+                )
+                if first_call not in [Op.DELEGATECALL, Op.STATICCALL]
+                else first_call(
+                    gas=Op.SUB(Op.GAS, self.keep_gas),
+                    address=sub_contract,
+                    ret_size=32,
+                )
             )
             + Op.RETURN(0, 32),
             balance=balance.scenario_contract_balance,
