@@ -18,15 +18,14 @@ from ethereum_test_tools import (
     Transaction,
     TransactionException,
 )
+from pytest_plugins.logging import get_logger
 
-from ...cancun.eip4844_blobs.common import INF_POINT
-from ...cancun.eip4844_blobs.spec import Spec as Spec4844
-from ...cancun.eip4844_blobs.spec import SpecHelpers, ref_spec_4844
+from .spec import ref_spec_7594
 
-CELLS_PER_EXT_BLOB = 128
+REFERENCE_SPEC_GIT_PATH = ref_spec_7594.git_path
+REFERENCE_SPEC_VERSION = ref_spec_7594.version
 
-REFERENCE_SPEC_GIT_PATH = ref_spec_4844.git_path
-REFERENCE_SPEC_VERSION = ref_spec_4844.version
+logger = get_logger(__name__)
 
 
 @pytest.fixture
@@ -124,7 +123,7 @@ def blob_gas_price(
 @pytest.fixture
 def txs_versioned_hashes(txs_blobs: List[List[Blob]]) -> List[List[bytes]]:
     """List of blob versioned hashes derived from the blobs."""
-    return [[blob.versioned_hash() for blob in blob_tx] for blob_tx in txs_blobs]
+    return [[blob.versioned_hash for blob in blob_tx] for blob_tx in txs_blobs]
 
 
 @pytest.fixture
@@ -181,7 +180,7 @@ def txs(  # noqa: D103
     txs: List[NetworkWrappedTransaction | Transaction] = []
     for tx_blobs, tx_versioned_hashes in zip(txs_blobs, txs_versioned_hashes, strict=False):
         tx = Transaction(
-            ty=Spec4844.BLOB_TX_TYPE,
+            # type=3,
             sender=pre.fund_eoa(),
             to=destination_account,
             value=tx_value,
@@ -194,8 +193,8 @@ def txs(  # noqa: D103
         )
         network_wrapped_tx = NetworkWrappedTransaction(
             tx=tx,
-            blobs=tx_blobs,
             wrapper_version=tx_wrapper_version,
+            blob_objects=tx_blobs,
         )
         txs.append(network_wrapped_tx)
     return txs
@@ -208,17 +207,14 @@ def generate_full_blob_tests(
     Return a list of tests for invalid blob transactions due to insufficient max fee per blob gas
     parametrized for each different fork.
     """
-    blob_size = Spec4844.FIELD_ELEMENTS_PER_BLOB * SpecHelpers.BYTES_PER_FIELD_ELEMENT
     max_blobs = fork.max_blobs_per_block()
+    logger.debug(f"MAX_BLOBS value for fork {fork}: {max_blobs}")
+
     return [
         pytest.param(
             [  # Txs
                 [  # Blobs per transaction
-                    Blob(
-                        data=bytes(blob_size),
-                        kzg_commitment=INF_POINT,
-                        kzg_cell_proofs=[INF_POINT] * CELLS_PER_EXT_BLOB,
-                    ),
+                    Blob.from_fork(fork),
                 ]
             ],
             id="single_blob_transaction",
@@ -226,12 +222,7 @@ def generate_full_blob_tests(
         pytest.param(
             [  # Txs
                 [  # Blobs per transaction
-                    Blob(
-                        data=bytes(blob_size),
-                        kzg_commitment=INF_POINT,
-                        kzg_cell_proofs=[INF_POINT] * CELLS_PER_EXT_BLOB,
-                    )
-                    for _ in range(max_blobs)
+                    Blob.from_fork(fork, s) for s in range(max_blobs)
                 ]
             ],
             id="max_blobs_transaction",
@@ -239,13 +230,9 @@ def generate_full_blob_tests(
         pytest.param(
             [  # Txs
                 [  # Blobs per transaction
-                    Blob(
-                        data=bytes(blob_size),
-                        kzg_commitment=INF_POINT,
-                        kzg_cell_proofs=[INF_POINT] * CELLS_PER_EXT_BLOB,
-                    )
+                    Blob.from_fork(fork, s),
                 ]
-                for _ in range(max_blobs)
+                for s in range(max_blobs)
             ],
             id="single_blob_max_txs",
         ),
