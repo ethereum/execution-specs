@@ -160,12 +160,12 @@ def test_clz_fork_transition(blockchain_test: BlockchainTestFiller, pre: Alloc):
     """Test CLZ opcode behavior at fork transition."""
     sender = pre.fund_eoa()
     callee_address = pre.deploy_contract(
-        code=Op.SSTORE(Op.NUMBER, Op.CLZ(1 << 100)) + Op.STOP,
-        storage={"0x00": "0xdeadbeef"},
+        code=Op.SSTORE(Op.TIMESTAMP, Op.CLZ(1 << 100)) + Op.STOP,
+        storage={14_999: "0xdeadbeef"},
     )
     caller_address = pre.deploy_contract(
-        code=Op.SSTORE(Op.NUMBER, Op.CALL(gas=0xFFFF, address=callee_address)),
-        storage={"0x00": "0xdeadbeef"},
+        code=Op.SSTORE(Op.TIMESTAMP, Op.CALL(gas=0xFFFF, address=callee_address)),
+        storage={14_999: "0xdeadbeef"},
     )
     blocks = [
         Block(
@@ -208,16 +208,16 @@ def test_clz_fork_transition(blockchain_test: BlockchainTestFiller, pre: Alloc):
         post={
             caller_address: Account(
                 storage={
-                    14_999: 0,
-                    15_000: 1,
-                    15_001: 1,
+                    14_999: 0,  # Call fails as opcode not valid before Osaka
+                    15_000: 1,  # Call succeeds on fork transition block
+                    15_001: 1,  # Call continues to succeed after transition
                 }
             ),
             callee_address: Account(
                 storage={
-                    14_999: 155,
-                    15_000: 155,
-                    15_001: 155,
+                    14_999: "0xdeadbeef",  # CLZ not valid before fork, storage unchanged
+                    15_000: 155,  # CLZ valid on transition block, CLZ(1 << 100) = 155
+                    15_001: 155,  # CLZ continues to be valid after transition
                 }
             ),
         },
