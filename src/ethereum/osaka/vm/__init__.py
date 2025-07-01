@@ -22,11 +22,17 @@ from ethereum_types.numeric import U64, U256, Uint
 from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import EthereumException
 
+from ..bal_builder import BALBuilder
 from ..blocks import Log, Receipt, Withdrawal
 from ..fork_types import Address, Authorization, VersionedHash
 from ..state import State, TransientStorage
 from ..transactions import LegacyTransaction
 from ..trie import Trie
+
+# Forward declaration for type hints
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ..bal_tracker import StateChangeTracker
 
 __all__ = ("Environment", "Evm", "Message")
 
@@ -90,6 +96,7 @@ class BlockOutput:
     )
     blob_gas_used: U64 = U64(0)
     requests: List[Bytes] = field(default_factory=list)
+    bal_builder: BALBuilder = field(default_factory=BALBuilder)
 
 
 @dataclass
@@ -134,6 +141,7 @@ class Message:
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     disable_precompiles: bool
     parent_evm: Optional["Evm"]
+    bal_tracker: Optional["StateChangeTracker"] = None
 
 
 @dataclass

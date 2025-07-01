@@ -554,6 +554,7 @@ def selfdestruct(evm: Evm) -> None:
         originator,
         beneficiary,
         originator_balance,
+        evm.message.bal_tracker
     )
 
     # register account for deletion only if it was created
@@ -561,7 +562,7 @@ def selfdestruct(evm: Evm) -> None:
     if originator in evm.message.block_env.state.created_accounts:
         # If beneficiary is the same as originator, then
         # the ether is burnt.
-        set_account_balance(evm.message.block_env.state, originator, U256(0))
+        set_account_balance(evm.message.block_env.state, originator, U256(0), evm.message.bal_tracker)
         evm.accounts_to_delete.add(originator)
 
     # HALT the execution
