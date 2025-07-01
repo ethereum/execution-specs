@@ -1376,6 +1376,15 @@ class Osaka(Prague, solc_name="cancun"):
         return False
 
     @classmethod
+    def valid_opcodes(
+        cls,
+    ) -> List[Opcodes]:
+        """Return list of Opcodes that are valid to work on this fork."""
+        return [
+            Opcodes.CLZ,
+        ] + super(Prague, cls).valid_opcodes()
+
+    @classmethod
     def solc_min_version(cls) -> Version:
         """Return minimum version of solc that supports this fork."""
         return Version.parse("1.0.0")  # set a high version; currently unknown
