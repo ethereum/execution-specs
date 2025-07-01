@@ -59,6 +59,12 @@ def sload(evm: Evm) -> None:
     value = get_storage(
         evm.message.block_env.state, evm.message.current_target, key
     )
+    
+    # BAL tracking
+    if evm.message.bal_tracker:
+        evm.message.bal_tracker.track_storage_read(
+            evm.message.current_target, key, evm.message.block_env.state
+        )
 
     push(evm.stack, value)
 
@@ -127,6 +133,12 @@ def sstore(evm: Evm) -> None:
     if evm.message.is_static:
         raise WriteInStaticContext
     set_storage(state, evm.message.current_target, key, new_value)
+    
+    # BAL tracking
+    if evm.message.bal_tracker:
+        evm.message.bal_tracker.track_storage_write(
+            evm.message.current_target, key, new_value, state
+        )
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
