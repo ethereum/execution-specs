@@ -37,14 +37,20 @@ from .exceptions import (
     EmptyAuthorizationListError,
     InsufficientMaxFeePerBlobGasError,
     InsufficientMaxFeePerGasError,
+    InvalidAlgorithm,
+    InvalidAlgorithmUsage,
     InvalidBlobVersionedHashError,
     NoBlobDataError,
     PriorityFeeGreaterThanMaxFeeError,
     TransactionTypeContractCreationError,
-    InvalidAlgorithm,
-    InvalidAlgorithmUsage
 )
-from .fork_types import Account, Address, Authorization, SignatureOverride, VersionedHash
+from .fork_types import (
+    Account,
+    Address,
+    Authorization,
+    SignatureOverride,
+    VersionedHash,
+)
 from .requests import (
     CONSOLIDATION_REQUEST_TYPE,
     DEPOSIT_REQUEST_TYPE,
@@ -453,7 +459,7 @@ def check_transaction(
     InvalidAlgorithm | InvalidAlgorithmUsage:
         If the transaction is an algorithmic transaction that contains
         invalid signature data.
-    
+
     """
     gas_available = block_env.block_gas_limit - block_output.block_gas_used
     blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used

@@ -23,7 +23,12 @@ from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import EthereumException
 
 from ..blocks import Log, Receipt, Withdrawal
-from ..fork_types import Address, Authorization, SignatureOverride, VersionedHash
+from ..fork_types import (
+    Address,
+    Authorization,
+    SignatureOverride,
+    VersionedHash,
+)
 from ..state import State, TransientStorage
 from ..transactions import LegacyTransaction
 from ..trie import Trie

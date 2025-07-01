@@ -16,7 +16,12 @@ from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import InvalidSignatureError, InvalidTransaction
 
 from .exceptions import TransactionTypeError
-from .fork_types import Address, Authorization, SignatureOverride, VersionedHash
+from .fork_types import (
+    Address,
+    Authorization,
+    SignatureOverride,
+    VersionedHash,
+)
 from .signature_algorithms import algorithm_from_type
 from .utils.hexadecimal import hex_to_address
 
@@ -465,6 +470,7 @@ class SetCodeTransaction:
     The second part of the signature.
     """
 
+
 @slotted_freezable
 @dataclass
 class AlgorithmicTransaction:
@@ -491,6 +497,7 @@ class AlgorithmicTransaction:
     """
     Other overrides for other transaction-level signatures.
     """
+
 
 Transaction = (
     LegacyTransaction
@@ -579,8 +586,9 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
     validation. It throws an `InvalidTransaction` exception
     if the transaction is invalid.
 
-    This also enforces that any EIP-7932 <https://eips.ethereum.org/EIPS/eip-7932> transaction
-        algorithms are valid.
+    This also enforces that any
+    EIP-7932 <https://eips.ethereum.org/EIPS/eip-7932> transaction
+    algorithms are valid.
 
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
@@ -634,17 +642,13 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
                     raise InvalidTransaction(
                         "Mismatch between inner TX and wrapper TX."
                     )
-                elif (
-                    auth.y_parity == U8(0)
-                    and auth.r == U256(0)
-                ):
-                    actual_overrides+=1
+                elif auth.y_parity == U8(0) and auth.r == U256(0):
+                    actual_overrides += 1
 
         if actual_overrides != expected_overrides:
             raise InvalidTransaction(
                 "Inner TX overrides != outer TX overrides"
             )
-                    
 
     if max(intrinsic_gas, calldata_floor_gas_cost) > tx.gas:
         raise InvalidTransaction("Insufficient gas")
@@ -689,12 +693,17 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     algorithm_cost = Uint(0)
 
     if isinstance(tx, AlgorithmicTransaction):
-        algorithm_cost += Uint(max(len(tx.signature_info) - 65, 0)) * COST_PER_ADDITIONAL_AUTH_BYTE
+        algorithm_cost += (
+            Uint(max(len(tx.signature_info) - 65, 0))
+            * COST_PER_ADDITIONAL_AUTH_BYTE
+        )
         algorithm_cost += Uint(algorithm_from_type(tx.alg_type).gas_penalty)
 
         for override in tx.additional_info:
             (type, info) = (override.alg_type, override.signature_info)
-            algorithm_cost += Uint(max(len(info) - 65, 0)) * COST_PER_ADDITIONAL_AUTH_BYTE
+            algorithm_cost += (
+                Uint(max(len(info) - 65, 0)) * COST_PER_ADDITIONAL_AUTH_BYTE
+            )
             algorithm_cost += algorithm_from_type(type).gas_penalty
 
         tx = decode_transaction(tx.parent)
@@ -771,7 +780,8 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
     the address of the sender of the transaction. It raises an
     `InvalidSignatureError` if the signature values (r, s, v) are invalid.
 
-    Note: This function is bypassed if the transaction is an EIP-7932 <https://eips.ethereum.org/EIPS/eip-7932>
+    Note: This function is bypassed if the transaction is an
+    EIP-7932 <https://eips.ethereum.org/EIPS/eip-7932>
     transaction due to its differing verification behaviour.
     """
     if isinstance(tx, AlgorithmicTransaction):

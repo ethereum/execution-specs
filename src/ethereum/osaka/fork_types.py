@@ -88,4 +88,3 @@ class SignatureOverride:
 
     alg_type: U8
     signature_info: Bytes
-

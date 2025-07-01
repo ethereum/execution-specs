@@ -108,11 +108,13 @@ class EmptyAuthorizationListError(InvalidTransaction):
     The authorization list in the transaction is empty.
     """
 
+
 class InvalidAlgorithm(InvalidTransaction):
     """
     The transaction has incorrectly used the NULL
     algorithm incorrectly or the algorithm does not exist.
     """
+
 
 class InvalidAlgorithmUsage(InvalidTransaction):
     """

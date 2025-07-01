@@ -499,3 +499,4 @@ sig
 CLZ
 
 alg
+Ed25519

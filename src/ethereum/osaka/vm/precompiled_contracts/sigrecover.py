@@ -14,11 +14,11 @@ Implementation of the `Sigrecover` precompiled contract.
 from ethereum_types.bytes import Bytes20, Bytes32
 from ethereum_types.numeric import U8, U256, Uint
 
+from ...exceptions import InvalidAlgorithm
 from ...signature_algorithms import algorithm_from_type
 from ...vm import Evm
 from ...vm.gas import GAS_SIGRECOVER, charge_gas
 from ..exceptions import InvalidParameter
-from ...exceptions import InvalidAlgorithm
 from ..gas import GAS_PER_ADDITIONAL_AUTH_BYTE
 
 NULL_ADDRESS = Bytes20.fromhex("0000000000000000000000000000000000000000")

@@ -88,6 +88,7 @@ GAS_BLS_G2_MAP = Uint(23800)
 
 GAS_PER_ADDITIONAL_AUTH_BYTE = Uint(16)
 
+
 @dataclass
 class ExtendMemory:
     """
