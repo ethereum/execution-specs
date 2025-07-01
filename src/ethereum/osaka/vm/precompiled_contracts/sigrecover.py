@@ -18,9 +18,10 @@ from ...signature_algorithms import algorithm_from_type
 from ...vm import Evm
 from ...vm.gas import GAS_SIGRECOVER, charge_gas
 from ..exceptions import InvalidParameter
+from ...exceptions import InvalidAlgorithm
+from ..gas import GAS_PER_ADDITIONAL_AUTH_BYTE
 
 NULL_ADDRESS = Bytes20.fromhex("0000000000000000000000000000000000000000")
-COST_PER_ADDITIONAL_AUTH_BYTE = Uint(16)
 
 
 def sigrecover(evm: Evm) -> None:
@@ -49,7 +50,7 @@ def sigrecover(evm: Evm) -> None:
 
     try:
         alg = algorithm_from_type(alg_type)
-    except Exception:
+    except InvalidAlgorithm:
         evm.output = NULL_ADDRESS
         return
 
@@ -63,7 +64,7 @@ def sigrecover(evm: Evm) -> None:
         evm,
         (
             Uint(max(0, int(signature_length) - 65))
-            * COST_PER_ADDITIONAL_AUTH_BYTE
+            * GAS_PER_ADDITIONAL_AUTH_BYTE
         )
         + Uint(alg.gas_penalty),
     )

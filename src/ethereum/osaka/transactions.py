@@ -16,8 +16,9 @@ from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import InvalidSignatureError, InvalidTransaction
 
 from .exceptions import TransactionTypeError
-from .fork_types import Address, Authorization, VersionedHash
+from .fork_types import Address, Authorization, SignatureOverride, VersionedHash
 from .signature_algorithms import algorithm_from_type
+from .utils.hexadecimal import hex_to_address
 
 TX_BASE_COST = Uint(21000)
 """
@@ -61,6 +62,7 @@ COST_PER_ADDITIONAL_AUTH_BYTE = Uint(16)
 Gas cost for having an additional authentication byte over 65
 """
 
+NULL_ADDRESS = hex_to_address("0x0000000000000000000000000000000000000000")
 
 
 @slotted_freezable
@@ -471,9 +473,24 @@ class AlgorithmicTransaction:
     """
 
     alg_type: U8
+    """
+    The identifier of which algorithm to use to recover the signer
+    """
+
     signature_info: Bytes
+    """
+    The data to pass the the recovery algorithm
+    """
+
     parent: Bytes
-    additional_info: Tuple[Tuple[U8, Bytes], ...]
+    """
+    The transaction this transaction is wrapping
+    """
+
+    additional_info: Tuple[SignatureOverride, ...]
+    """
+    Other overrides for other transaction-level signatures.
+    """
 
 Transaction = (
     LegacyTransaction
@@ -584,7 +601,9 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
 
         additional_signatures = set([])
 
-        for type, info in tx.additional_info:
+        for override in tx.additional_info:
+            (type, info) = (override.alg_type, override.signature_info)
+
             if type == 0xFF:
                 raise InvalidTransaction(
                     "Cannot use NULL algorithm in `additional_info`"
@@ -596,6 +615,9 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
             additional_signatures.add(
                 keccak256(Bytes(type.to_bytes1() + info))
             )
+
+        actual_overrides = 0
+        expected_overrides = len(tx.additional_info)
 
         tx = decode_transaction(tx.parent)
 
@@ -612,6 +634,17 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
                     raise InvalidTransaction(
                         "Mismatch between inner TX and wrapper TX."
                     )
+                elif (
+                    auth.y_parity == U8(0)
+                    and auth.r == U256(0)
+                ):
+                    actual_overrides+=1
+
+        if actual_overrides != expected_overrides:
+            raise InvalidTransaction(
+                "Inner TX overrides != outer TX overrides"
+            )
+                    
 
     if max(intrinsic_gas, calldata_floor_gas_cost) > tx.gas:
         raise InvalidTransaction("Insufficient gas")
@@ -656,11 +689,12 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     algorithm_cost = Uint(0)
 
     if isinstance(tx, AlgorithmicTransaction):
-        algorithm_cost += Uint(max(len(tx.signature_info) - 65, 0))
+        algorithm_cost += Uint(max(len(tx.signature_info) - 65, 0)) * COST_PER_ADDITIONAL_AUTH_BYTE
         algorithm_cost += Uint(algorithm_from_type(tx.alg_type).gas_penalty)
 
-        for type, info in tx.additional_info:
-            algorithm_cost += Uint(max(len(info) - 65, 0))
+        for override in tx.additional_info:
+            (type, info) = (override.alg_type, override.signature_info)
+            algorithm_cost += Uint(max(len(info) - 65, 0)) * COST_PER_ADDITIONAL_AUTH_BYTE
             algorithm_cost += algorithm_from_type(type).gas_penalty
 
         tx = decode_transaction(tx.parent)
@@ -805,6 +839,8 @@ def recover_7932_sender(chain_id: U64, tx: AlgorithmicTransaction) -> Address:
     address = algorithm_from_type(tx.alg_type).verify(
         tx.signature_info, signature_hash
     )
+    if address == NULL_ADDRESS:
+        raise InvalidSignatureError("Bad EIP-7932 signature")
     return address
 
 

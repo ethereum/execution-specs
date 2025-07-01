@@ -56,14 +56,10 @@ def prepare_message(
     accessed_addresses.update(tx_env.access_list_addresses)
 
     if isinstance(tx, AlgorithmicTransaction):
-        tx = decode_transaction(tx.parent)
-
-    if isinstance(tx, AlgorithmicTransaction):
-        # Note this should NEVER happen again, this
-        # stub is here to:
-        # a. Make the linter happy
-        # b. Stop in case something horrific happened
-        raise Exception("Impossible double-wrapping after check.")
+        unwrapped_tx = decode_transaction(tx.parent)
+        if isinstance(unwrapped_tx, AlgorithmicTransaction):
+            raise Exception("Impossible double-wrapping.")
+        return prepare_message(block_env, tx_env, unwrapped_tx)
 
     if isinstance(tx.to, Bytes0):
         current_target = compute_contract_address(

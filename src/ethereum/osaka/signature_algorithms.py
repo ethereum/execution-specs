@@ -13,7 +13,26 @@ from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U8, Uint
 
 from .fork_types import Address
+from .exceptions import InvalidAlgorithm
 
+class Ed25519Algorithm:
+    """
+    Ed25519 algorithm support added by EIP-7980
+    """
+
+    # TODO: Get the EIP-7980 PR either merged or replaced
+    # and finish this function
+
+    gas_penalty: Uint = Uint(0)
+    max_length: Uint = Uint(0)
+
+    @classmethod
+    def verify(cls, _signature_data: Bytes, _hash: Bytes32) -> Address:
+        """
+        Verify given `sig_data: Bytes` and `hash: Bytes32` and return
+        either the signers address or `0x0`
+        """
+        raise NotImplementedError
 
 class NullAlgorithm:
     """
@@ -35,17 +54,24 @@ class NullAlgorithm:
         )
 
 
-EIP_7932_Algorithm = Union[NullAlgorithm]
+"""
+All possible algorithm types implemented on top of EIP-7932.
+All these algorithms provide:
+- `verify(signature_data: Bytes, hash: Bytes32) -> Address`
+- `gas_penalty: Uint`
+- `max_length: Uint`
+"""
+type EIP_7932_Algorithm = Ed25519Algorithm | NullAlgorithm
 
 
 def algorithm_from_type(type: U8) -> EIP_7932_Algorithm:
     """
     Return the known algorithm class from a type, if
-    no algorithm is known an `Exception` is generated.
+    no algorithm is known an `InvalidAlgorithm` is generated.
     """
     match type:
         case 0xFF:
             return NullAlgorithm()
 
         case _:
-            raise Exception(f"Unknown algorithm type : 0x{type:x}")
+            raise InvalidAlgorithm

@@ -41,8 +41,10 @@ from .exceptions import (
     NoBlobDataError,
     PriorityFeeGreaterThanMaxFeeError,
     TransactionTypeContractCreationError,
+    InvalidAlgorithm,
+    InvalidAlgorithmUsage
 )
-from .fork_types import Account, Address, Authorization, VersionedHash
+from .fork_types import Account, Address, Authorization, SignatureOverride, VersionedHash
 from .requests import (
     CONSOLIDATION_REQUEST_TYPE,
     DEPOSIT_REQUEST_TYPE,
@@ -448,6 +450,10 @@ def check_transaction(
     EmptyAuthorizationListError :
         If the transaction is a SetCodeTransaction and the authorization list
         is empty.
+    InvalidAlgorithm | InvalidAlgorithmUsage:
+        If the transaction is an algorithmic transaction that contains
+        invalid signature data.
+    
     """
     gas_available = block_env.block_gas_limit - block_output.block_gas_used
     blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used
@@ -458,8 +464,8 @@ def check_transaction(
         alg_tx = tx
         tx = decode_transaction(tx.parent)
 
-    if isinstance(tx, AlgorithmicTransaction):
-        raise InvalidBlock
+        if isinstance(tx, AlgorithmicTransaction):
+            raise InvalidBlock
 
     if tx.gas > gas_available:
         raise GasUsedExceedsLimitError("gas used exceeds limit")
@@ -532,22 +538,24 @@ def check_transaction(
 
     if alg_tx is not None:
         if alg_tx.alg_type == 0xFF and len(alg_tx.additional_info) == 0:
-            raise InvalidBlock
+            raise InvalidAlgorithm
 
         if (
             Uint(len(alg_tx.signature_info))
             > algorithm_from_type(alg_tx.alg_type).max_length
         ):
-            raise InvalidBlock
+            raise InvalidAlgorithmUsage
 
         additional_signatures = set([])
 
-        for type, info in alg_tx.additional_info:
+        for override in alg_tx.additional_info:
+            (type, info) = (override.alg_type, override.signature_info)
+
             if type == 0xFF:
-                raise InvalidBlock
+                raise InvalidAlgorithm
 
             if Uint(len(info)) > algorithm_from_type(type).max_length:
-                raise InvalidBlock
+                raise InvalidAlgorithmUsage
 
             additional_signatures.add(
                 keccak256(Bytes(type.to_bytes1() + info))
@@ -964,7 +972,7 @@ def process_transaction(
     if isinstance(tx, SetCodeTransaction):
         authorizations = tx.authorizations
 
-    signature_overrides: Tuple[Tuple[U8, Bytes], ...] = ()
+    signature_overrides: Tuple[SignatureOverride, ...] = ()
     if alg_tx is not None:
         signature_overrides = alg_tx.additional_info
 

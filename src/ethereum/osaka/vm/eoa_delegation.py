@@ -13,12 +13,11 @@ from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import InvalidBlock, InvalidSignatureError
 
-from ..fork_types import Address, Authorization
+from ..fork_types import Address, Authorization, SignatureOverride
 from ..signature_algorithms import algorithm_from_type
 from ..state import account_exists, get_account, increment_nonce, set_code
 from ..utils.hexadecimal import hex_to_address
 from ..vm.gas import GAS_COLD_ACCOUNT_ACCESS, GAS_WARM_ACCESS, code_access_cost
-from ..signature_algorithms import algorithm_from_type
 from . import Evm, Message
 
 SET_CODE_TX_MAGIC = b"\x05"
@@ -114,6 +113,43 @@ def recover_authority(authorization: Authorization) -> Address:
     return Address(keccak256(public_key)[12:32])
 
 
+def recover_eip_7932_authority(
+    authorization: Authorization, message: Message
+) -> Address:
+    """
+    Recover the authority address from the authorization, given that this
+    requires an override via EIP-7932.
+    """
+    signing_hash = keccak256(
+        SET_CODE_TX_MAGIC
+        + rlp.encode(
+            (
+                authorization.chain_id,
+                authorization.address,
+                authorization.nonce,
+            )
+        )
+    )
+
+    if (
+        Uint(len(message.tx_env.signature_overrides))
+        >= message.tx_env.signature_override
+    ):
+        raise InvalidSignatureError
+
+    override: SignatureOverride = message.tx_env.signature_overrides[
+        message.tx_env.signature_override
+    ]
+    message.tx_env.signature_override += Uint(1)
+
+    algorithm = algorithm_from_type(override.alg_type)
+    result = algorithm.verify(override.signature_info, signing_hash)
+
+    if result == NULL_ADDRESS:
+        raise InvalidSignatureError
+    return result
+
+
 def access_delegation(
     evm: Evm, address: Address
 ) -> Tuple[bool, Address, Bytes, Uint]:
@@ -150,43 +186,6 @@ def access_delegation(
         access_gas_cost += code_access_cost(code)
 
     return True, address, code, access_gas_cost
-
-
-def recover_eip_7932_authority(
-    authorization: Authorization, message: Message
-) -> Address:
-    """
-    Recover the authority address from the authorization, given that this
-    requires an override via EIP-7932.
-    """
-    signing_hash = keccak256(
-        SET_CODE_TX_MAGIC
-        + rlp.encode(
-            (
-                authorization.chain_id,
-                authorization.address,
-                authorization.nonce,
-            )
-        )
-    )
-
-    if (
-        Uint(len(message.tx_env.signature_overrides))
-        >= message.tx_env.signature_override
-    ):
-        raise InvalidSignatureError
-
-    message.tx_env.signature_override += Uint(1)
-    (alg_type, signature_info) = message.tx_env.signature_overrides[
-        message.tx_env.signature_override
-    ]
-
-    algorithm = algorithm_from_type(alg_type)
-    result = algorithm.verify(signature_info, signing_hash)
-
-    if result == NULL_ADDRESS:
-        raise InvalidSignatureError
-    return result
 
 
 def set_delegation(message: Message) -> U256:

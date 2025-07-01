@@ -77,3 +77,15 @@ class Authorization:
     y_parity: U8
     r: U256
     s: U256
+
+
+@slotted_freezable
+@dataclass
+class SignatureOverride:
+    """
+    An override for some signature inside an algorithmic transaction.
+    """
+
+    alg_type: U8
+    signature_info: Bytes
+
