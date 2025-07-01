@@ -134,6 +134,7 @@ def access_delegation(
 
     """
     state = evm.message.block_env.state
+
     code = get_account(state, address).code
     if not is_valid_delegation(code):
         return False, address, code, Uint(0)
