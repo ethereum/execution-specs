@@ -16,7 +16,7 @@ from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import (
     InsufficientTransactionGasError,
     InvalidSignatureError,
-    NonceTooHighError,
+    NonceOverflowError,
 )
 
 from .exceptions import InitCodeTooLargeError, TransactionTypeError
@@ -540,9 +540,9 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
     gas cost and the minimum calldata gas cost for the transaction after
     validation. It throws an `InsufficientTransactionGasError` exception if
     the transaction does not provide enough gas to cover the intrinsic cost,
-    and a `NonceTooHighError` exception if the nonce is higher than 64 bits.
-    It also raises an `InitCodeTooLargeError` if the code size of a contract
-    creation transaction exceeds the maximum allowed size.
+    and a `NonceOverflowError` exception if the nonce is greater than
+    `2**64 - 2`. It also raises an `InitCodeTooLargeError` if the code size of
+    a contract creation transaction exceeds the maximum allowed size.
 
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
@@ -553,7 +553,7 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
     if max(intrinsic_gas, calldata_floor_gas_cost) > tx.gas:
         raise InsufficientTransactionGasError("Insufficient gas")
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
-        raise NonceTooHighError("Nonce too high")
+        raise NonceOverflowError("Nonce too high")
     if tx.to == Bytes0(b"") and len(tx.data) > 2 * MAX_CODE_SIZE:
         raise InitCodeTooLargeError("Code size too large")
 

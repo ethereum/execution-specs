@@ -69,7 +69,7 @@ class InsufficientTransactionGasError(InvalidTransaction):
     """
 
 
-class NonceTooHighError(InvalidTransaction):
+class NonceOverflowError(InvalidTransaction):
     """
-    Thrown when a transaction's nonce is higher than 64 bits.
+    Thrown when a transaction's nonce is greater than `2**64 - 2`.
     """

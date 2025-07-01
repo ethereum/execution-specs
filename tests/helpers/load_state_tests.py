@@ -22,7 +22,7 @@ from ethereum.exceptions import (
     InvalidSenderError,
     InvalidSignatureError,
     NonceMismatchError,
-    NonceTooHighError,
+    NonceOverflowError,
     StateWithEmptyAccount,
 )
 from ethereum.utils.hexadecimal import hex_to_bytes
@@ -96,7 +96,7 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
             common_exceptions = (
                 InvalidBlock,
                 InsufficientTransactionGasError,
-                NonceTooHighError,
+                NonceOverflowError,
                 GasUsedExceedsLimitError,
                 NonceMismatchError,
                 InsufficientBalanceError,
@@ -107,8 +107,12 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
             try:
                 exception_module = load.fork._module("exceptions")
                 fork_specific_exceptions = tuple(
-                    obj for _, obj in inspect.getmembers(exception_module, inspect.isclass)
-                    if obj.__module__ == exception_module.__name__ and issubclass(obj, Exception)
+                    obj
+                    for _, obj in inspect.getmembers(
+                        exception_module, inspect.isclass
+                    )
+                    if obj.__module__ == exception_module.__name__
+                    and issubclass(obj, Exception)
                 )
             except ModuleNotFoundError:
                 fork_specific_exceptions = ()
