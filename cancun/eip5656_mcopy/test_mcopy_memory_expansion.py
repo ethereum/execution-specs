@@ -115,11 +115,17 @@ def block_gas_limit() -> int:  # noqa: D103
 
 @pytest.fixture
 def tx_gas_limit(  # noqa: D103
+    fork: Fork,
     call_exact_cost: int,
     block_gas_limit: int,
     successful: bool,
 ) -> int:
-    return min(call_exact_cost - (0 if successful else 1), block_gas_limit)
+    return min(
+        call_exact_cost - (0 if successful else 1),
+        # If the transaction gas limit cap is not set (pre-osaka),
+        # use the block gas limit
+        fork.transaction_gas_limit_cap() or block_gas_limit,
+    )
 
 
 @pytest.fixture
