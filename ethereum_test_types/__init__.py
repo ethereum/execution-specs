@@ -1,6 +1,7 @@
 """Common definitions and types."""
 
 from .account_types import EOA, Alloc
+from .blob_types import Blob
 from .block_types import (
     Environment,
     EnvironmentDefaults,
@@ -23,7 +24,6 @@ from .request_types import (
 )
 from .transaction_types import (
     AuthorizationTuple,
-    Blob,
     NetworkWrappedTransaction,
     Transaction,
     TransactionDefaults,

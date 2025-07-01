@@ -1,8 +1,10 @@
 """Test execution format to get blobs from the execution client."""
 
+from hashlib import sha256
 from typing import ClassVar, Dict, List
 
 from ethereum_test_base_types import Hash
+from ethereum_test_base_types.base_types import Bytes
 from ethereum_test_forks import Fork
 from ethereum_test_rpc import BlobAndProofV1, BlobAndProofV2, EngineRPC, EthRPC
 from ethereum_test_types import NetworkWrappedTransaction, Transaction
@@ -18,18 +20,19 @@ def versioned_hashes_with_blobs_and_proofs(
     proofs.
     """
     versioned_hashes: Dict[Hash, BlobAndProofV1 | BlobAndProofV2] = {}
-    for blob in tx.blobs:
-        versioned_hash = blob.versioned_hash()
-        if blob.kzg_proof is not None:
-            versioned_hashes[versioned_hash] = BlobAndProofV1(blob=blob.data, proof=blob.kzg_proof)
-        elif blob.kzg_cell_proofs is not None:
-            versioned_hashes[versioned_hash] = BlobAndProofV2(
-                blob=blob.data, proofs=blob.kzg_cell_proofs
+    for blob in tx.blob_objects:
+        if isinstance(blob.proof, Bytes):
+            versioned_hashes[blob.versioned_hash] = BlobAndProofV1(
+                blob=blob.data, proof=blob.proof
+            )
+        elif isinstance(blob.proof, list):
+            versioned_hashes[blob.versioned_hash] = BlobAndProofV2(
+                blob=blob.data, proofs=blob.proof
             )
         else:
             raise ValueError(
-                f"Blob with versioned hash {versioned_hash.hex()} requires either kzg_proof "
-                "or kzg_cell_proofs, but both are None"
+                f"Blob with versioned hash {blob.versioned_hash.hex()} requires a proof "
+                "that is not None"
             )
 
     return versioned_hashes
@@ -96,7 +99,31 @@ class BlobTransaction(BaseExecute):
                 if expected_blob.blob != received_blob.blob:
                     raise ValueError("Blob mismatch.")
                 if expected_blob.proofs != received_blob.proofs:
-                    raise ValueError("Proofs mismatch.")
+                    error_message = "Proofs mismatch."
+                    error_message += f"len(expected_blob.proofs) = {len(expected_blob.proofs)}, "
+                    error_message += f"len(received_blob.proofs) = {len(received_blob.proofs)}\n"
+                    if len(expected_blob.proofs) == len(received_blob.proofs):
+                        index = 0
+
+                        for expected_proof, received_proof in zip(
+                            expected_blob.proofs, received_blob.proofs, strict=False
+                        ):
+                            if len(expected_proof) != len(received_proof):
+                                error_message += f"Proof length mismatch. index = {index},"
+                                error_message += f"expected_proof length = {len(expected_proof)}, "
+                                error_message += f"received_proof length = {len(received_proof)}\n"
+                                index += 1
+                                continue
+                            if expected_proof != received_proof:
+                                error_message += f"Proof mismatch. index = {index},"
+                                error_message += (
+                                    f"expected_proof hash = {sha256(expected_proof).hexdigest()}, "
+                                )
+                                error_message += (
+                                    f"received_proof hash = {sha256(received_proof).hexdigest()}\n"
+                                )
+                            index += 1
+                    raise ValueError(error_message)
             else:
                 raise ValueError(f"Unexpected blob type: {type(expected_blob)}")
 

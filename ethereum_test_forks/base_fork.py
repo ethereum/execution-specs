@@ -1,7 +1,20 @@
 """Abstract base class for Ethereum forks."""
 
 from abc import ABC, ABCMeta, abstractmethod
-from typing import Any, ClassVar, List, Mapping, Optional, Protocol, Sized, Tuple, Type
+from typing import (
+    Any,
+    ClassVar,
+    Dict,
+    List,
+    Literal,
+    Mapping,
+    Optional,
+    Protocol,
+    Sized,
+    Tuple,
+    Type,
+    Union,
+)
 
 from semver import Version
 
@@ -154,6 +167,14 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     _transition_tool_name: ClassVar[Optional[str]] = None
     _solc_name: ClassVar[Optional[str]] = None
     _ignore: ClassVar[bool] = False
+
+    # make mypy happy
+    BLOB_CONSTANTS: ClassVar[Dict[str, Union[int, Literal["big"]]]] = {}
+
+    @classmethod
+    def get_blob_constant(cls, name: str) -> int | Literal["big"]:
+        """Return value of requested blob constant."""
+        raise NotImplementedError
 
     def __init_subclass__(
         cls,

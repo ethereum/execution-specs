@@ -4,7 +4,7 @@ from dataclasses import replace
 from hashlib import sha256
 from os.path import realpath
 from pathlib import Path
-from typing import List, Mapping, Optional, Sized, Tuple
+from typing import List, Literal, Mapping, Optional, Sized, Tuple
 
 from semver import Version
 
@@ -908,6 +908,27 @@ class Shanghai(Paris):
 class Cancun(Shanghai):
     """Cancun fork."""
 
+    BLOB_CONSTANTS = {  # every value is an int or a Literal
+        "FIELD_ELEMENTS_PER_BLOB": 4096,
+        "BYTES_PER_FIELD_ELEMENT": 32,
+        "CELL_LENGTH": 2048,
+        "BLS_MODULUS": 0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001,  # EIP-2537: Main subgroup order = q, due to this BLS_MODULUS every blob byte (uint256) must be smaller than 116  # noqa: E501
+        # https://github.com/ethereum/consensus-specs/blob/cc6996c22692d70e41b7a453d925172ee4b719ad/specs/deneb/polynomial-commitments.md?plain=1#L78
+        "BYTES_PER_PROOF": 48,
+        "BYTES_PER_COMMITMENT": 48,
+        "KZG_ENDIANNESS": "big",
+        "AMOUNT_CELL_PROOFS": 0,
+    }
+
+    @classmethod
+    def get_blob_constant(cls, name: str) -> int | Literal["big"]:
+        """Return blob constant if it exists."""
+        retrieved_constant = cls.BLOB_CONSTANTS.get(name)
+        assert retrieved_constant is not None, (
+            f"You tried to retrieve the blob constant {name} but it does not exist!"
+        )
+        return retrieved_constant
+
     @classmethod
     def solc_min_version(cls) -> Version:
         """Return minimum version of solc that supports this fork."""
@@ -1091,6 +1112,16 @@ class Cancun(Shanghai):
 
 class Prague(Cancun):
     """Prague fork."""
+
+    # update some blob constants
+    BLOB_CONSTANTS = {
+        **Cancun.BLOB_CONSTANTS,  # same base constants as cancun
+        "MAX_BLOBS_PER_BLOCK": 9,  # but overwrite or add these
+        "TARGET_BLOBS_PER_BLOCK": 6,
+        "MAX_BLOB_GAS_PER_BLOCK": 1179648,
+        "TARGET_BLOB_GAS_PER_BLOCK": 786432,
+        "BLOB_BASE_FEE_UPDATE_FRACTION": 5007716,
+    }
 
     @classmethod
     def is_deployed(cls) -> bool:
@@ -1342,6 +1373,12 @@ class Prague(Cancun):
 
 class Osaka(Prague, solc_name="cancun"):
     """Osaka fork."""
+
+    # update some blob constants
+    BLOB_CONSTANTS = {
+        **Prague.BLOB_CONSTANTS,  # same base constants as prague
+        "AMOUNT_CELL_PROOFS": 128,
+    }
 
     @classmethod
     def engine_get_payload_version(
