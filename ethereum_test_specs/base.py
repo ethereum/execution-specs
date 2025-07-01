@@ -161,8 +161,8 @@ class BaseTest(BaseModel):
         if self._request is not None and hasattr(self._request, "node"):
             node = self._request.node
             has_slow_marker = node.get_closest_marker("slow") is not None
-            has_zkevm_marker = node.get_closest_marker("zkevm") is not None
-            return has_slow_marker or has_zkevm_marker
+            has_benchmark_marker = node.get_closest_marker("benchmark") is not None
+            return has_slow_marker or has_benchmark_marker
         return False
 
     def is_exception_test(self) -> bool | None:
