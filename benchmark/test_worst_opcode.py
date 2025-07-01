@@ -1,8 +1,8 @@
 """
-abstract: Tests zkEVMs worst-case opcode scenarios.
-    Tests zkEVMs worst-case opcode scenarios.
+abstract: Tests benchmark worst-case opcode scenarios.
+    Tests benchmark worst-case opcode scenarios.
 
-Tests running worst-case opcodes scenarios for zkEVMs.
+Tests running worst-case opcodes scenarios for benchmarking purposes.
 """
 
 import pytest

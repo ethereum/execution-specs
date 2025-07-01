@@ -1,8 +1,8 @@
 """
-abstract: Tests zkEVMs worst-case block scenarios.
-    Tests zkEVMs worst-case block scenarios.
+abstract: Tests that benchmark EVMs in worst-case block scenarios.
+    Tests that benchmark EVMs in worst-case block scenarios.
 
-Tests running worst-case block scenarios for zkEVMs.
+Tests running worst-case block scenarios for EVMs.
 """
 
 import pytest

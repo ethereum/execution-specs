@@ -1,8 +1,8 @@
 """
-abstract: Tests for zkEVMs
-    Tests for zkEVMs.
+abstract: Tests that benchmark EVMs in worst-case opcode scenarios.
+    Tests that benchmark EVMs in worst-case opcode scenarios.
 
-Tests for zkEVMs worst-cases scenarios.
+Tests that benchmark EVMs in worst-case opcode scenarios.
 """
 
 import math

@@ -1,8 +1,8 @@
 """
-abstract: Tests zkEVMs worst-case compute scenarios.
-    Tests zkEVMs worst-case compute scenarios.
+abstract: Tests that benchmark EVMs in worst-case compute scenarios.
+    Tests that benchmark EVMs in worst-case compute scenarios.
 
-Tests running worst-case compute opcodes and precompile scenarios for zkEVMs.
+Tests that benchmark EVMs when running worst-case compute opcodes and precompile scenarios.
 """
 
 import math
@@ -1136,7 +1136,6 @@ def test_worst_precompile_fixed_cost(
     )
 
 
-@pytest.mark.zkevm
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.slow
 def test_worst_jumps(state_test: StateTestFiller, pre: Alloc):
@@ -1160,7 +1159,6 @@ def test_worst_jumps(state_test: StateTestFiller, pre: Alloc):
     )
 
 
-@pytest.mark.zkevm
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.slow
 def test_worst_jumpdests(state_test: StateTestFiller, pre: Alloc, fork: Fork):

@@ -1,8 +1,8 @@
 """
-abstract: Tests zkEVMs worst-case stateful opcodes.
-    Tests zkEVMs worst-case stateful opcodes.
+abstract: Tests that benchmark EVMs for worst-case stateful opcodes.
+    Tests that benchmark EVMs for worst-case stateful opcodes.
 
-Tests running worst-case stateful opcodes for zkEVMs.
+Tests that benchmark EVMs for worst-case stateful opcodes.
 """
 
 import math
