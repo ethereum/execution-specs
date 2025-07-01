@@ -16,7 +16,7 @@ from typing import List, Optional, Tuple
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
-from ethereum_types.numeric import U64, U256, Uint
+from ethereum_types.numeric import U64, U256, Uint, ulen
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import (
@@ -29,6 +29,14 @@ from ethereum.exceptions import (
 )
 
 from . import vm
+from .block_access_lists.builder import build_block_access_list
+from .block_access_lists.rlp_utils import compute_block_access_list_hash
+from .block_access_lists.tracker import (
+    finalize_transaction_changes,
+    handle_in_transaction_selfdestruct,
+    set_block_access_index,
+    track_balance_change,
+)
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
 from .exceptions import (
@@ -53,6 +61,7 @@ from .requests import (
 from .state import (
     State,
     TransientStorage,
+    account_exists_and_is_empty,
     destroy_account,
     get_account,
     increment_nonce,
@@ -244,6 +253,9 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     block_logs_bloom = logs_bloom(block_output.block_logs)
     withdrawals_root = root(block_output.withdrawals_trie)
     requests_hash = compute_requests_hash(block_output.requests)
+    computed_block_access_list_hash = compute_block_access_list_hash(
+        block_output.block_access_list
+    )
 
     if block_output.block_gas_used != block.header.gas_used:
         raise InvalidBlock(
@@ -263,6 +275,8 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         raise InvalidBlock
     if requests_hash != block.header.requests_hash:
         raise InvalidBlock
+    if computed_block_access_list_hash != block.header.block_access_list_hash:
+        raise InvalidBlock("Invalid block access list hash")
 
     chain.blocks.append(block)
     if len(chain.blocks) > 255:
@@ -762,6 +776,10 @@ def apply_body(
     """
     block_output = vm.BlockOutput()
 
+    # Set block access index for pre-execution system contracts
+    # EIP-7928: System contracts use block_access_index 0
+    set_block_access_index(block_env.state.change_tracker, Uint(0))
+
     process_unchecked_system_transaction(
         block_env=block_env,
         target_address=BEACON_ROOTS_ADDRESS,
@@ -777,11 +795,20 @@ def apply_body(
     for i, tx in enumerate(map(decode_transaction, transactions)):
         process_transaction(block_env, block_output, tx, Uint(i))
 
+    # EIP-7928: Post-execution uses block_access_index len(transactions) + 1
+    post_execution_index = ulen(transactions) + Uint(1)
+    set_block_access_index(
+        block_env.state.change_tracker, post_execution_index
+    )
+
     process_withdrawals(block_env, block_output, withdrawals)
 
     process_general_purpose_requests(
         block_env=block_env,
         block_output=block_output,
+    )
+    block_output.block_access_list = build_block_access_list(
+        block_env.state.change_tracker.block_access_list_builder
     )
 
     return block_output
@@ -862,6 +889,10 @@ def process_transaction(
         Index of the transaction in the block.
 
     """
+    # EIP-7928: Transactions use block_access_index 1 to len(transactions)
+    # Transaction at index i gets block_access_index i+1
+    set_block_access_index(block_env.state.change_tracker, index + Uint(1))
+
     trie_set(
         block_output.transactions_trie,
         rlp.encode(index),
@@ -969,14 +1000,30 @@ def process_transaction(
     coinbase_balance_after_mining_fee = get_account(
         block_env.state, block_env.coinbase
     ).balance + U256(transaction_fee)
-    set_account_balance(
-        block_env.state,
-        block_env.coinbase,
-        coinbase_balance_after_mining_fee,
-    )
+    if coinbase_balance_after_mining_fee != 0:
+        set_account_balance(
+            block_env.state,
+            block_env.coinbase,
+            coinbase_balance_after_mining_fee,
+        )
+    elif account_exists_and_is_empty(block_env.state, block_env.coinbase):
+        destroy_account(block_env.state, block_env.coinbase)
 
     for address in tx_output.accounts_to_delete:
+        # EIP-7928: In-transaction self-destruct - convert storage writes to
+        # reads and remove nonce/code changes. Only accounts created in same
+        # tx are in accounts_to_delete per EIP-6780.
+        handle_in_transaction_selfdestruct(
+            block_env.state.change_tracker, address
+        )
         destroy_account(block_env.state, address)
+
+    # EIP-7928: Finalize transaction changes
+    # Remove balance changes where post-tx balance equals pre-tx balance
+    finalize_transaction_changes(
+        block_env.state.change_tracker,
+        block_env.state,
+    )
 
     block_output.block_gas_used += tx_gas_used_after_refund
     block_output.blob_gas_used += tx_blob_gas_used
@@ -1017,6 +1064,16 @@ def process_withdrawals(
         )
 
         modify_state(block_env.state, wd.address, increase_recipient_balance)
+
+        # Track balance change for BAL
+        # (withdrawals are tracked as system contract changes)
+        new_balance = get_account(block_env.state, wd.address).balance
+        track_balance_change(
+            block_env.state.change_tracker, wd.address, U256(new_balance)
+        )
+
+        if account_exists_and_is_empty(block_env.state, wd.address):
+            destroy_account(block_env.state, wd.address)
 
 
 def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
