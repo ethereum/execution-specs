@@ -20,7 +20,7 @@ import sys
 from datetime import datetime, timezone
 from logging import LogRecord
 from pathlib import Path
-from typing import Any, ClassVar, Optional, Union, cast
+from typing import Any, ClassVar, Optional, cast
 
 import pytest
 from _pytest.terminal import TerminalReporter
@@ -43,7 +43,7 @@ class EESTLogger(logging.Logger):
         self,
         msg: object,
         *args: Any,
-        exc_info: Union[BaseException, bool, None] = None,
+        exc_info: BaseException | bool | None = None,
         stack_info: bool = False,
         stacklevel: int = 1,
         extra: Optional[dict[str, Any]] = None,
@@ -63,7 +63,7 @@ class EESTLogger(logging.Logger):
         self,
         msg: object,
         *args: Any,
-        exc_info: Union[BaseException, bool, None] = None,
+        exc_info: BaseException | bool | None = None,
         stack_info: bool = False,
         stacklevel: int = 1,
         extra: Optional[dict[str, Any]] = None,
@@ -156,8 +156,8 @@ class LogLevel:
 
 
 def configure_logging(
-    log_level: Union[int, str] = "INFO",
-    log_file: Optional[Union[str, Path]] = None,
+    log_level: int | str = "INFO",
+    log_file: Optional[str | Path] = None,
     log_to_stdout: bool = True,
     log_format: str = "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     use_color: Optional[bool] = None,

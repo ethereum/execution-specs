@@ -4,10 +4,9 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel, ConfigDict, RootModel
 from pydantic.alias_generators import to_camel
+from typing_extensions import Self
 
 from .mixins import ModelCustomizationsMixin
-
-Model = TypeVar("Model", bound=BaseModel)
 
 RootModelRootType = TypeVar("RootModelRootType")
 
@@ -27,7 +26,7 @@ class EthereumTestRootModel(RootModel[RootModelRootType], ModelCustomizationsMix
 class CopyValidateModel(EthereumTestBaseModel):
     """Model that supports copying with validation."""
 
-    def copy(self: Model, **kwargs) -> Model:
+    def copy(self: Self, **kwargs) -> Self:
         """Create a copy of the model with the updated fields that are validated."""
         return self.__class__(**(self.model_dump(exclude_unset=True) | kwargs))
 

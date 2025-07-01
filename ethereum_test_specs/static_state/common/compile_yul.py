@@ -1,6 +1,54 @@
 """compile yul with arguments."""
 
 import subprocess
+from pathlib import Path
+from typing import LiteralString
+
+
+def safe_solc_command(
+    source_file: Path | str, evm_version: str | None = None, optimize: str | None = None
+) -> list[str]:
+    """Safely construct solc command with validated inputs."""
+    # Validate source file path
+    source_path = Path(source_file)
+    if not source_path.exists():
+        raise FileNotFoundError(f"Source file not found: {source_file}")
+    if source_path.suffix not in (".yul", ".sol"):
+        raise ValueError(f"Invalid file extension for solc: {source_path.suffix}")
+
+    cmd: list[str] = ["solc"]
+
+    # Add EVM version if provided (validate against known versions)
+    if evm_version:
+        valid_versions = {
+            "homestead",
+            "tangerineWhistle",
+            "spuriousDragon",
+            "byzantium",
+            "constantinople",
+            "petersburg",
+            "istanbul",
+            "berlin",
+            "london",
+            "paris",
+            "shanghai",
+            "cancun",
+        }
+        if evm_version not in valid_versions:
+            raise ValueError(f"Invalid EVM version: {evm_version}")
+        cmd.extend(["--evm-version", evm_version])
+
+    # Add compilation flags (using literal strings)
+    strict_assembly: LiteralString = "--strict-assembly"
+    cmd.append(strict_assembly)
+
+    if optimize is None:
+        optimize_flag: LiteralString = "--optimize"
+        yul_opts: LiteralString = "--yul-optimizations=:"
+        cmd.extend([optimize_flag, yul_opts])
+
+    cmd.append(str(source_path))
+    return cmd
 
 
 def compile_yul(source_file: str, evm_version: str | None = None, optimize: str | None = None):
@@ -19,17 +67,7 @@ def compile_yul(source_file: str, evm_version: str | None = None, optimize: str 
     Raises_:
         Exception: If the solc output contains an error message.
     """
-    cmd = ["solc"]
-    if evm_version:
-        cmd.extend(["--evm-version", evm_version])
-
-    # Choose flags based on whether flag is provided
-    if optimize is None:
-        # When flag is not provided, include extra optimization flags
-        cmd.extend(["--strict-assembly", "--optimize", "--yul-optimizations=:", source_file])
-    else:
-        # Otherwise, omit the optimization flags
-        cmd.extend(["--strict-assembly", source_file])
+    cmd = safe_solc_command(source_file, evm_version, optimize)
 
     # Execute the solc command and capture both stdout and stderr
     result = subprocess.run(

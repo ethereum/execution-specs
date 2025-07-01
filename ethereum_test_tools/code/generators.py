@@ -265,7 +265,7 @@ class While(Bytecode):
         return super().__new__(cls, bytecode)
 
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, slots=True)
 class Case:
     """
     Small helper class to represent a single, generic case in a `Switch` cases

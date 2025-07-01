@@ -1,7 +1,7 @@
 """Helper functions."""
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import Any, Dict, List
 
 from ethereum_clis import Result
@@ -15,7 +15,7 @@ from ethereum_test_exceptions import (
 from ethereum_test_types import Transaction, TransactionReceipt
 
 
-class ExecutionContext(Enum):
+class ExecutionContext(StrEnum):
     """The execution context in which a test case can fail."""
 
     BLOCK = "Block"

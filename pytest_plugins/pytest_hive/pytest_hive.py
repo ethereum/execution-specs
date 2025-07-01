@@ -270,7 +270,7 @@ def hive_test(request, test_suite: HiveTestSuite):
                     call_out = stdout
                     # If call output starts with setup output, strip it
                     if call_out.startswith(setup_out):
-                        stdout = call_out[len(setup_out) :]
+                        stdout = call_out.removeprefix(setup_out)
 
                 captured.append(
                     f"# Captured Output from Test {phase.capitalize()}\n\n"

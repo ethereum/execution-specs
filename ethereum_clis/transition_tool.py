@@ -10,7 +10,7 @@ import time
 from abc import abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Type
+from typing import Any, Dict, List, LiteralString, Mapping, Optional, Type
 from urllib.parse import urlencode
 
 from requests import Response
@@ -20,6 +20,7 @@ from requests_unixsocket import Session  # type: ignore
 from ethereum_test_base_types import BlobSchedule
 from ethereum_test_exceptions import ExceptionMapper
 from ethereum_test_forks import Fork
+from ethereum_test_forks.helpers import get_development_forks, get_forks
 from ethereum_test_types import Alloc, Environment, Transaction
 
 from .ethereum_cli import EthereumCLI
@@ -36,6 +37,12 @@ model_dump_config: Mapping = {"by_alias": True, "exclude_none": True}
 
 NORMAL_SERVER_TIMEOUT = 20
 SLOW_REQUEST_TIMEOUT = 180
+
+
+def get_valid_transition_tool_names() -> set[str]:
+    """Get all valid transition tool names from deployed and development forks."""
+    all_available_forks = get_forks() + get_development_forks()
+    return {fork.transition_tool_name() for fork in all_available_forks}
 
 
 class TransitionTool(EthereumCLI):
@@ -437,6 +444,49 @@ class TransitionTool(EthereumCLI):
 
         return output
 
+    def safe_t8n_args(
+        self, fork_name: str, chain_id: int, reward: int, temp_dir=None
+    ) -> List[str]:
+        """Safely construct t8n arguments with validated inputs."""
+        # Validate fork name against actual transition tool names from all available forks
+        valid_forks = get_valid_transition_tool_names()
+        if fork_name not in valid_forks:
+            raise ValueError(f"Invalid fork name: {fork_name}")
+
+        # Validate chain ID (should be positive integer)
+        if not isinstance(chain_id, int) or chain_id <= 0:
+            raise ValueError(f"Invalid chain ID: {chain_id}")
+
+        # Validate reward (should be non-negative integer)
+        if not isinstance(reward, int) or reward < 0:
+            raise ValueError(f"Invalid reward: {reward}")
+
+        # Use literal strings for command flags
+        input_alloc: LiteralString = "--input.alloc=stdin"
+        input_txs: LiteralString = "--input.txs=stdin"
+        input_env: LiteralString = "--input.env=stdin"
+        output_result: LiteralString = "--output.result=stdout"
+        output_alloc: LiteralString = "--output.alloc=stdout"
+        output_body: LiteralString = "--output.body=stdout"
+        trace_flag: LiteralString = "--trace"
+
+        args = [
+            input_alloc,
+            input_txs,
+            input_env,
+            output_result,
+            output_alloc,
+            output_body,
+            f"--state.fork={fork_name}",
+            f"--state.chainid={chain_id}",
+            f"--state.reward={reward}",
+        ]
+
+        if self.trace and temp_dir:
+            args.extend([trace_flag, f"--output.basedir={temp_dir.name}"])
+
+        return args
+
     def construct_args_stream(
         self, t8n_data: TransitionToolData, temp_dir: tempfile.TemporaryDirectory
     ) -> List[str]:
@@ -445,22 +495,10 @@ class TransitionTool(EthereumCLI):
         if self.subcommand:
             command.append(self.subcommand)
 
-        args = command + [
-            "--input.alloc=stdin",
-            "--input.txs=stdin",
-            "--input.env=stdin",
-            "--output.result=stdout",
-            "--output.alloc=stdout",
-            "--output.body=stdout",
-            f"--state.fork={t8n_data.fork_name}",
-            f"--state.chainid={t8n_data.chain_id}",
-            f"--state.reward={t8n_data.reward}",
-        ]
-
-        if self.trace:
-            args.append("--trace")
-            args.append(f"--output.basedir={temp_dir.name}")
-        return args
+        safe_args = self.safe_t8n_args(
+            t8n_data.fork_name, t8n_data.chain_id, t8n_data.reward, temp_dir
+        )
+        return command + safe_args
 
     def dump_debug_stream(
         self,

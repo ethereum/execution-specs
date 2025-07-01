@@ -5,10 +5,11 @@ from abc import abstractmethod
 from functools import reduce
 from os import path
 from pathlib import Path
-from typing import Callable, ClassVar, Dict, Generator, List, Sequence, Type, TypeVar
+from typing import Callable, ClassVar, Dict, Generator, List, Sequence, Type
 
 import pytest
 from pydantic import BaseModel, Field, PrivateAttr
+from typing_extensions import Self
 
 from ethereum_clis import Result, TransitionTool
 from ethereum_test_base_types import to_hex
@@ -46,9 +47,6 @@ def verify_result(result: Result, env: Environment):
     """
     if env.withdrawals is not None:
         assert result.withdrawals_root == to_hex(Withdrawal.list_root(env.withdrawals))
-
-
-T = TypeVar("T", bound="BaseTest")
 
 
 class BaseTest(BaseModel):
@@ -91,11 +89,11 @@ class BaseTest(BaseModel):
 
     @classmethod
     def from_test(
-        cls: Type[T],
+        cls: Type[Self],
         *,
         base_test: "BaseTest",
         **kwargs,
-    ) -> T:
+    ) -> Self:
         """Create a test in a different format from a base test."""
         new_instance = cls(
             tag=base_test.tag,

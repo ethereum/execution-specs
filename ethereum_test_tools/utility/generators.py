@@ -1,7 +1,7 @@
 """Test generator decorators."""
 
 import json
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Dict, Generator, List, Protocol
 
@@ -17,7 +17,7 @@ from ethereum_test_vm import Bytecode
 from ethereum_test_vm import Opcodes as Op
 
 
-class DeploymentTestType(Enum):
+class DeploymentTestType(StrEnum):
     """Represents the type of deployment test."""
 
     DEPLOY_BEFORE_FORK = "deploy_before_fork"
@@ -25,7 +25,7 @@ class DeploymentTestType(Enum):
     DEPLOY_AFTER_FORK = "deploy_after_fork"
 
 
-class SystemContractTestType(Enum):
+class SystemContractTestType(StrEnum):
     """Represents the type of system contract test."""
 
     GAS_LIMIT = "system_contract_reaches_gas_limit"
@@ -42,7 +42,7 @@ class SystemContractTestType(Enum):
         )
 
 
-class ContractAddressHasBalance(Enum):
+class ContractAddressHasBalance(StrEnum):
     """Represents whether the target deployment test has a balance before deployment."""
 
     ZERO_BALANCE = "zero_balance"

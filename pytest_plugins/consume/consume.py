@@ -214,16 +214,16 @@ class SimLimitBehavior:
             return cls(pattern=".*", collectonly=True)
 
         if pattern.startswith("collectonly:id:"):
-            literal_id = pattern[len("collectonly:id:") :]
+            literal_id = pattern.removeprefix("collectonly:id:")
             if not literal_id:
                 raise ValueError("Empty literal ID provided.")
             return cls(pattern=cls._escape_id(literal_id), collectonly=True)
 
         if pattern.startswith("collectonly:"):
-            return cls(pattern=pattern[len("collectonly:") :], collectonly=True)
+            return cls(pattern=pattern.removeprefix("collectonly:"), collectonly=True)
 
         if pattern.startswith("id:"):
-            literal_id = pattern[len("id:") :]
+            literal_id = pattern.removeprefix("id:")
             if not literal_id:
                 raise ValueError("Empty literal ID provided.")
             return cls(pattern=cls._escape_id(literal_id))
@@ -442,4 +442,4 @@ def pytest_collection_modifyitems(items):
         original_name = item.originalname
         remove = f"{original_name}["
         if item.name.startswith(remove):
-            item.name = item.name[len(remove) : -1]
+            item.name = item.name.removeprefix(remove)[:-1]

@@ -18,7 +18,7 @@ from .consume import FixtureConsumer
 from .file import Fixtures
 
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, slots=True)
 class TestInfo:
     """Contains test information from the current node."""
 
@@ -34,9 +34,9 @@ class TestInfo:
     def strip_test_name(cls, name: str) -> str:
         """Remove test prefix from a python test case name."""
         if name.startswith(cls.test_prefix):
-            return name[len(cls.test_prefix) :]
+            return name.removeprefix(cls.test_prefix)
         if name.endswith(cls.filler_suffix):
-            return name[: -len(cls.filler_suffix)]
+            return name.removesuffix(cls.filler_suffix)
         return name
 
     def get_name_and_parameters(self) -> Tuple[str, str]:

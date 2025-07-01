@@ -2,7 +2,7 @@
 
 from enum import Enum
 from hashlib import sha256
-from typing import Annotated, Any, List, Union
+from typing import Annotated, Any, List
 
 from pydantic import AliasChoices, Field, model_validator
 
@@ -97,7 +97,7 @@ class PayloadStatusEnum(str, Enum):
 
 
 class BlockTransactionExceptionWithMessage(
-    ExceptionWithMessage[Union[BlockException, TransactionException]]  # type: ignore
+    ExceptionWithMessage[BlockException | TransactionException]  # type: ignore
 ):
     """Exception returned from the execution client with a message."""
 

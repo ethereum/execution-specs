@@ -21,8 +21,6 @@ from .conversions import (
     to_number,
 )
 
-N = TypeVar("N", bound="Number")
-
 
 class ToStringSchema:
     """
@@ -44,7 +42,7 @@ class ToStringSchema:
 class Number(int, ToStringSchema):
     """Class that helps represent numbers in tests."""
 
-    def __new__(cls, input_number: NumberConvertible | N):
+    def __new__(cls, input_number: NumberConvertible | Self):
         """Create a new Number object."""
         return super(Number, cls).__new__(cls, to_number(input_number))
 
@@ -57,7 +55,7 @@ class Number(int, ToStringSchema):
         return hex(self)
 
     @classmethod
-    def or_none(cls: Type[N], input_number: N | NumberConvertible | None) -> N | None:
+    def or_none(cls: Type[Self], input_number: Self | NumberConvertible | None) -> Self | None:
         """Convert the input to a Number while accepting None."""
         if input_number is None:
             return input_number
@@ -67,7 +65,7 @@ class Number(int, ToStringSchema):
 class Wei(Number):
     """Class that helps represent wei that can be parsed from strings."""
 
-    def __new__(cls, input_number: NumberConvertible | N):
+    def __new__(cls, input_number: NumberConvertible | Self):
         """Create a new Number object."""
         if isinstance(input_number, str):
             words = input_number.split()
@@ -209,9 +207,6 @@ class Bytes(bytes, ToStringSchema):
         )
 
 
-S = TypeVar("S", bound="FixedSizeHexNumber")
-
-
 class FixedSizeHexNumber(int, ToStringSchema):
     """
     A base class that helps represent an integer as a fixed byte-length
@@ -233,7 +228,7 @@ class FixedSizeHexNumber(int, ToStringSchema):
 
         return Sized
 
-    def __new__(cls, input_number: NumberConvertible | N):
+    def __new__(cls, input_number: NumberConvertible | Self):
         """Create a new Number object."""
         i = to_number(input_number)
         if i > cls.max_value:
@@ -276,9 +271,6 @@ class HashInt(FixedSizeHexNumber[32]):  # type: ignore
     pass
 
 
-T = TypeVar("T", bound="FixedSizeBytes")
-
-
 class FixedSizeBytes(Bytes):
     """Class that helps represent bytes of fixed length in tests."""
 
@@ -296,7 +288,7 @@ class FixedSizeBytes(Bytes):
 
     def __new__(
         cls,
-        input_bytes: FixedSizeBytesConvertible | T,
+        input_bytes: FixedSizeBytesConvertible | Self,
         *,
         left_padding: bool = False,
         right_padding: bool = False,
@@ -319,7 +311,9 @@ class FixedSizeBytes(Bytes):
         return super(FixedSizeBytes, self).__hash__()
 
     @classmethod
-    def or_none(cls: Type[T], input_bytes: T | FixedSizeBytesConvertible | None) -> T | None:
+    def or_none(
+        cls: Type[Self], input_bytes: Self | FixedSizeBytesConvertible | None
+    ) -> Self | None:
         """Convert the input to a Fixed Size Bytes while accepting None."""
         if input_bytes is None:
             return input_bytes

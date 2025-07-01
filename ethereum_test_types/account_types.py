@@ -7,6 +7,7 @@ from coincurve.keys import PrivateKey
 from ethereum_types.bytes import Bytes20
 from ethereum_types.numeric import U256, Bytes32, Uint
 from pydantic import PrivateAttr
+from typing_extensions import Self
 
 from ethereum_test_base_types import (
     Account,
@@ -126,9 +127,9 @@ class EOA(Address):
         self.nonce = Number(nonce + 1)
         return nonce
 
-    def copy(self) -> "EOA":
+    def copy(self) -> Self:
         """Return copy of the EOA."""
-        return EOA(Address(self), key=self.key, nonce=self.nonce)
+        return self.__class__(Address(self), key=self.key, nonce=self.nonce)
 
 
 class Alloc(BaseAlloc):
