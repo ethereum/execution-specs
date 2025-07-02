@@ -10,17 +10,17 @@ decoding of all accounts and storage locations accessed during block execution.
 from dataclasses import dataclass
 from typing import List, Tuple
 
-from ethereum_types.bytes import Bytes, Bytes12, Bytes20, Bytes32
+from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.frozen import slotted_freezable
-from ethereum_types.numeric import U16, U64
+from ethereum_types.numeric import U256, Uint
 
 # Type aliases for clarity
 Address = Bytes20
 StorageKey = Bytes32
 StorageValue = Bytes32
-TxIndex = U16
-Balance = Bytes12
-Nonce = U64
+TxIndex = Uint
+Balance = U256
+Nonce = Uint
 
 # Constants chosen to support a 630m block gas limit
 MAX_TXS = 30_000
