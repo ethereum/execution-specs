@@ -1,4 +1,5 @@
 import importlib
+import inspect
 import json
 import os.path
 import re
@@ -13,7 +14,17 @@ from ethereum_rlp.exceptions import RLPException
 from ethereum_types.numeric import U64
 
 from ethereum.crypto.hash import keccak256
-from ethereum.exceptions import EthereumException, StateWithEmptyAccount
+from ethereum.exceptions import (
+    GasUsedExceedsLimitError,
+    InsufficientBalanceError,
+    InsufficientTransactionGasError,
+    InvalidBlock,
+    InvalidSenderError,
+    InvalidSignatureError,
+    NonceMismatchError,
+    NonceOverflowError,
+    StateWithEmptyAccount,
+)
 from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum_spec_tools.evm_tools.loaders.fixture_loader import Load
 
@@ -79,10 +90,36 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
                 break
 
         if block_exception:
-            # TODO: Once all the specific exception types are thrown,
-            #       only `pytest.raises` the correct exception type instead of
-            #       all of them.
-            with pytest.raises((EthereumException, RLPException)):
+            # TODO: Once all the specific exception types for Invalid Block
+            #       are thrown, only `pytest.raises` the correct exception
+            # type instead of all of them.
+            common_exceptions = (
+                InvalidBlock,
+                InsufficientTransactionGasError,
+                NonceOverflowError,
+                GasUsedExceedsLimitError,
+                NonceMismatchError,
+                InsufficientBalanceError,
+                InvalidSenderError,
+                InvalidSignatureError,
+                RLPException,
+            )
+            try:
+                exception_module = load.fork._module("exceptions")
+                fork_specific_exceptions = tuple(
+                    obj
+                    for _, obj in inspect.getmembers(
+                        exception_module, inspect.isclass
+                    )
+                    if obj.__module__ == exception_module.__name__
+                    and issubclass(obj, Exception)
+                )
+            except ModuleNotFoundError:
+                fork_specific_exceptions = ()
+
+            all_exceptions = common_exceptions + fork_specific_exceptions
+
+            with pytest.raises(all_exceptions):
                 add_block_to_chain(chain, json_block, load, mock_pow)
             return
         else:

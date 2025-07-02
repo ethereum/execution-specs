@@ -60,3 +60,16 @@ class GasUsedExceedsLimitError(InvalidTransaction):
     Thrown when a transaction's gas usage exceeds the gas available in the
     block.
     """
+
+
+class InsufficientTransactionGasError(InvalidTransaction):
+    """
+    Thrown when a transaction does not provide enough gas to cover its
+    intrinsic cost.
+    """
+
+
+class NonceOverflowError(InvalidTransaction):
+    """
+    Thrown when a transaction's nonce is greater than `2**64 - 2`.
+    """
