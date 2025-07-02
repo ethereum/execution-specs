@@ -554,7 +554,7 @@ def set_account_balance(
         bal_tracker.track_balance_change(address, amount, state)
 
 
-def increment_nonce(state: State, address: Address) -> None:
+def increment_nonce(state: State, address: Address, bal_tracker: Optional["StateChangeTracker"] = None) -> None:
     """
     Increments the nonce of an account.
 
@@ -565,12 +565,20 @@ def increment_nonce(state: State, address: Address) -> None:
 
     address:
         Address of the account whose nonce needs to be incremented.
+        
+    bal_tracker:
+        Optional BAL tracker for EIP-7928.
     """
 
     def increase_nonce(sender: Account) -> None:
         sender.nonce += Uint(1)
 
     modify_state(state, address, increase_nonce)
+    
+    # Track nonce change for BAL (for ALL accounts, including EOAs)
+    if bal_tracker is not None:
+        account = get_account(state, address)
+        bal_tracker.track_nonce_change(address, account.nonce, state)
 
 
 def set_code(

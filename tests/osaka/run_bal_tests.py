@@ -1,49 +1,46 @@
 #!/usr/bin/env python3
 """
-BAL test runner - executes all BAL tests in proper order.
+BAL test runner - executes all BAL tests using pytest.
 """
 
 import sys
-import pytest
 from pathlib import Path
+
+import pytest
 
 
 def main():
-    """Run all BAL tests."""
+    """Run all BAL tests with pytest."""
     test_dir = Path(__file__).parent
     
-    # Test files in execution order
+    # Essential BAL test files
     test_files = [
-        "test_bal_core.py",
-        "test_bal_ssz.py", 
-        "test_bal_integration.py",
-        "test_block_access_list.py",
+        "test_bal_completeness.py",
+        "test_bal_fixes.py",
     ]
     
-    # Optional mainnet tests
-    optional_files = [
-        "test_eip7928_mainnet_data.py",
-        "test_eip7928_state_integration.py",
-    ]
-    
-    # Check which files exist
-    existing_files = []
+    # Build full paths
+    test_paths = []
     for test_file in test_files:
-        if (test_dir / test_file).exists():
-            existing_files.append(str(test_dir / test_file))
+        test_path = test_dir / test_file
+        if test_path.exists():
+            test_paths.append(str(test_path))
     
-    for test_file in optional_files:
-        if (test_dir / test_file).exists():
-            existing_files.append(str(test_dir / test_file))
-    
-    if not existing_files:
+    if not test_paths:
         print("No BAL test files found")
         return 1
     
-    print(f"Running BAL tests: {[Path(f).name for f in existing_files]}")
+    print(f"Running BAL tests: {[Path(f).name for f in test_paths]}")
     
-    # Run tests with verbose output
-    return pytest.main(["-v"] + existing_files)
+    # Run tests with verbose output and proper pytest args
+    pytest_args = [
+        "-v",  # Verbose output
+        "--tb=short",  # Short traceback format
+        "-x",  # Stop on first failure
+        "--confcutdir=tests/osaka",  # Use local conftest only
+    ] + test_paths
+    
+    return pytest.main(pytest_args)
 
 
 if __name__ == "__main__":
