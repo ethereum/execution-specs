@@ -108,7 +108,7 @@ def generic_create(
         evm.message.block_env.state, contract_address
     ) or account_has_storage(evm.message.block_env.state, contract_address):
         increment_nonce(
-            evm.message.block_env.state, evm.message.current_target
+            evm.message.block_env.state, evm.message.current_target, evm.message.bal_tracker
         )
         push(evm.stack, U256(0))
         return
@@ -133,7 +133,13 @@ def generic_create(
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         disable_precompiles=False,
         parent_evm=evm,
+        bal_tracker=evm.message.bal_tracker,
     )
+    
+    # Track the contract creation target address for BAL
+    if evm.message.bal_tracker:
+        evm.message.bal_tracker.track_address_access(contract_address)
+    
     child_evm = process_create_message(child_message)
 
     if child_evm.error:
@@ -323,7 +329,13 @@ def generic_call(
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         disable_precompiles=disable_precompiles,
         parent_evm=evm,
+        bal_tracker=evm.message.bal_tracker,
     )
+    
+    # Track the call target address for BAL
+    if evm.message.bal_tracker:
+        evm.message.bal_tracker.track_address_access(to)
+    
     child_evm = process_message(child_message)
 
     if child_evm.error:

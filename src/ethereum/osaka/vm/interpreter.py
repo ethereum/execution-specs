@@ -192,7 +192,7 @@ def process_create_message(message: Message) -> Evm:
     # added to SELFDESTRUCT by EIP-6780.
     mark_account_created(state, message.current_target)
 
-    increment_nonce(state, message.current_target)
+    increment_nonce(state, message.current_target, message.bal_tracker)
     evm = process_message(message)
     if not evm.error:
         contract_code = evm.output
