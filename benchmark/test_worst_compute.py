@@ -2255,3 +2255,65 @@ def test_worst_push(
         post={},
         tx=tx,
     )
+
+
+@pytest.mark.parametrize(
+    "opcode",
+    [Op.RETURN, Op.REVERT],
+)
+@pytest.mark.parametrize(
+    "return_size, return_non_zero_data",
+    [
+        pytest.param(0, False, id="empty"),
+        pytest.param(1024, True, id="1KiB of non-zero data"),
+        pytest.param(1024, False, id="1KiB of zero data"),
+        pytest.param(1024 * 1024, True, id="1MiB of non-zero data"),
+        pytest.param(1024 * 1024, False, id="1MiB of zero data"),
+    ],
+)
+def test_worst_return_revert(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    opcode: Op,
+    return_size: int,
+    return_non_zero_data: bool,
+):
+    """Test running a block with as many RETURN or REVERT as possible."""
+    env = Environment()
+    max_code_size = fork.max_code_size()
+
+    # Create the contract that will be called repeatedly.
+    # The bytecode of the contract is:
+    # ```
+    # [CODECOPY(returned_size) -- Conditional if return_non_zero_data]
+    # opcode(returned_size)
+    # <Fill with INVALID opcodes up to the max contract size>
+    # ```
+    # Filling the contract up to the max size is a cheap way of leveraging CODECOPY to return
+    # non-zero bytes if requested. Note that since this is a pre-deploy this cost isn't
+    # relevant for the benchmark.
+    mem_preparation = Op.CODECOPY(size=return_size) if return_non_zero_data else Bytecode()
+    executable_code = mem_preparation + opcode(size=return_size)
+    code = executable_code
+    if return_non_zero_data:
+        code += Op.INVALID * (max_code_size - len(executable_code))
+    target_contract_address = pre.deploy_contract(code=code)
+
+    calldata = Bytecode()
+    attack_block = Op.POP(Op.STATICCALL(address=target_contract_address))
+    code = code_loop_precompile_call(calldata, attack_block, fork)
+    code_address = pre.deploy_contract(code=code)
+
+    tx = Transaction(
+        to=code_address,
+        gas_limit=env.gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post={},
+        tx=tx,
+    )
