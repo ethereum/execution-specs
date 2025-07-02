@@ -896,7 +896,7 @@ def process_transaction(
     effective_gas_fee = tx.gas * effective_gas_price
 
     gas = tx.gas - intrinsic_gas
-    increment_nonce(block_env.state, sender)
+    increment_nonce(block_env.state, sender, bal_tracker)
 
     sender_balance_after_gas_fee = (
         Uint(sender_account.balance) - effective_gas_fee - blob_gas_fee
