@@ -188,7 +188,8 @@ def process_create_message(message: Message) -> Evm:
 
     # In the previously mentioned edge case the preexisting storage is ignored
     # for gas refund purposes. In order to do this we must track created
-    # accounts.
+    # accounts. This tracking is also needed to respect the constraints
+    # added to SELFDESTRUCT by EIP-6780.
     mark_account_created(state, message.current_target)
 
     increment_nonce(state, message.current_target)
