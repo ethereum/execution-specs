@@ -53,7 +53,7 @@ Some clarifications were enabled without protocol releases:
 | [EIP-2681](https://eips.ethereum.org/EIPS/eip-2681) | 0 |
 | [EIP-3607](https://eips.ethereum.org/EIPS/eip-3607) | 0 |
 | [EIP-7523](https://eips.ethereum.org/EIPS/eip-7523) | 15537394 |
-| [EIP-7610](https://github.com/ethereum/EIPs/pull/8161) | 0 |
+| [EIP-7610](https://eips.ethereum.org/EIPS/eip-7610) | 0 |
 
 
 ## Execution Specification (work-in-progress)
