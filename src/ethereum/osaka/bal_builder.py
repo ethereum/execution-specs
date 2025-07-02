@@ -10,7 +10,7 @@ from collections import defaultdict
 from typing import Dict, Set
 
 from ethereum_types.bytes import Bytes
-from ethereum_types.numeric import U16, U64, Uint
+from ethereum_types.numeric import U32, U64, Uint
 
 from .fork_types import Address
 from .ssz_types import (
@@ -60,7 +60,7 @@ class BALBuilder:
         if slot not in self.accounts[address]['storage_changes']:
             self.accounts[address]['storage_changes'][slot] = []
             
-        change = StorageChange(tx_index=U16(tx_index), new_value=new_value)
+        change = StorageChange(tx_index=U32(tx_index), new_value=new_value)
         self.accounts[address]['storage_changes'][slot].append(change)
 
     def add_storage_read(self, address: Address, slot: Bytes) -> None:
@@ -77,7 +77,7 @@ class BALBuilder:
         """Add balance change: address -> balance -> tx_index -> post_balance"""
         self._ensure_account(address)
         
-        change = BalanceChange(tx_index=U16(tx_index), post_balance=post_balance)
+        change = BalanceChange(tx_index=U32(tx_index), post_balance=post_balance)
         self.accounts[address]['balance_changes'].append(change)
 
     def add_nonce_change(
@@ -89,7 +89,7 @@ class BALBuilder:
         """Add nonce change: address -> nonce -> tx_index -> new_nonce"""
         self._ensure_account(address)
         
-        change = NonceChange(tx_index=U16(tx_index), new_nonce=U64(new_nonce))
+        change = NonceChange(tx_index=U32(tx_index), new_nonce=U64(new_nonce))
         self.accounts[address]['nonce_changes'].append(change)
 
     def add_code_change(
@@ -101,7 +101,7 @@ class BALBuilder:
         """Add code change: address -> code -> tx_index -> new_code"""
         self._ensure_account(address)
         
-        change = CodeChange(tx_index=U16(tx_index), new_code=new_code)
+        change = CodeChange(tx_index=U32(tx_index), new_code=new_code)
         self.accounts[address]['code_changes'].append(change)
 
     def add_touched_account(self, address: Address) -> None:
