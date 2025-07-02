@@ -25,12 +25,12 @@ class EthrexExceptionMapper(ExceptionMapper):
     }
     mapping_regex = {
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
-            r"(?i)priority fee is greater than max fee"
+            r"(?i)priority fee.* is greater than max fee.*"
         ),
         TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: r"(?i)empty authorization list",
         TransactionException.SENDER_NOT_EOA: (
             r"reject transactions from senders with deployed code|"
-            r"Sender account shouldn't be a contract"
+            r"Sender account .* shouldn't be a contract"
         ),
         TransactionException.NONCE_MISMATCH_TOO_LOW: r"nonce \d+ too low, expected \d+|"
         r"Nonce mismatch.*",
@@ -69,11 +69,13 @@ class EthrexExceptionMapper(ExceptionMapper):
         ),
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
             r"blob gas price is greater than max fee per blob gas|"
-            r"Insufficient max fee per blob gas"
+            r"Insufficient max fee per blob gas.*"
         ),
         TransactionException.INITCODE_SIZE_EXCEEDED: (
-            r"create initcode size limit|Initcode size exceeded"
+            r"create initcode size limit|Initcode size exceeded.*"
         ),
+        TransactionException.GAS_ALLOWANCE_EXCEEDED: (r"Gas allowance exceeded.*"),
+        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: (r"Blob count exceeded.*"),
         BlockException.SYSTEM_CONTRACT_CALL_FAILED: (r"System call failed.*"),
         BlockException.SYSTEM_CONTRACT_EMPTY: (r"System contract:.* has no code after deployment"),
         BlockException.INCORRECT_BLOB_GAS_USED: (r"Blob gas used doesn't match value in header"),
