@@ -3,7 +3,7 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from pytest_plugins.consume.consume import FixturesSource
+from pytest_plugins.consume.consume import CACHED_DOWNLOADS_DIRECTORY, FixturesSource
 
 
 class TestSimplifiedConsumeBehavior:
@@ -141,7 +141,7 @@ class TestFixturesSourceFromInput:
 
             FixturesSource.from_input(test_url)
 
-            mock_from_release_url.assert_called_once_with(test_url)
+            mock_from_release_url.assert_called_once_with(test_url, CACHED_DOWNLOADS_DIRECTORY)
 
     def test_from_input_handles_release_spec(self):
         """Test that from_input properly handles release specs."""
@@ -152,7 +152,7 @@ class TestFixturesSourceFromInput:
 
             FixturesSource.from_input(test_spec)
 
-            mock_from_release_spec.assert_called_once_with(test_spec)
+            mock_from_release_spec.assert_called_once_with(test_spec, CACHED_DOWNLOADS_DIRECTORY)
 
     def test_from_input_handles_regular_url(self):
         """Test that from_input properly handles regular URLs."""
@@ -163,4 +163,4 @@ class TestFixturesSourceFromInput:
 
             FixturesSource.from_input(test_url)
 
-            mock_from_url.assert_called_once_with(test_url)
+            mock_from_url.assert_called_once_with(test_url, CACHED_DOWNLOADS_DIRECTORY)

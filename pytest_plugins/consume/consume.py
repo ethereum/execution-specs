@@ -6,7 +6,7 @@ import tarfile
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 from urllib.parse import urlparse
 
 import platformdirs
@@ -114,22 +114,28 @@ class FixturesSource:
     was_cached: bool = False
 
     @classmethod
-    def from_input(cls, input_source: str) -> "FixturesSource":
+    def from_input(
+        cls, input_source: str, cache_folder: Optional[Path] = None
+    ) -> "FixturesSource":
         """Determine the fixture source type and return an instance."""
+        if cache_folder is None:
+            cache_folder = CACHED_DOWNLOADS_DIRECTORY
         if input_source == "stdin":
             return cls(input_option=input_source, path=Path(), is_local=False, is_stdin=True)
         if is_release_url(input_source):
-            return cls.from_release_url(input_source)
+            return cls.from_release_url(input_source, cache_folder)
         if is_url(input_source):
-            return cls.from_url(input_source)
+            return cls.from_url(input_source, cache_folder)
         if ReleaseTag.is_release_string(input_source):
-            return cls.from_release_spec(input_source)
+            return cls.from_release_spec(input_source, cache_folder)
         return cls.validate_local_path(Path(input_source))
 
     @classmethod
-    def from_release_url(cls, url: str) -> "FixturesSource":
+    def from_release_url(cls, url: str, cache_folder: Optional[Path] = None) -> "FixturesSource":
         """Create a fixture source from a supported github repo release URL."""
-        downloader = FixtureDownloader(url, CACHED_DOWNLOADS_DIRECTORY)
+        if cache_folder is None:
+            cache_folder = CACHED_DOWNLOADS_DIRECTORY
+        downloader = FixtureDownloader(url, cache_folder)
         was_cached, path = downloader.download_and_extract()
 
         return cls(
@@ -142,9 +148,11 @@ class FixturesSource:
         )
 
     @classmethod
-    def from_url(cls, url: str) -> "FixturesSource":
+    def from_url(cls, url: str, cache_folder: Optional[Path] = None) -> "FixturesSource":
         """Create a fixture source from a direct URL."""
-        downloader = FixtureDownloader(url, CACHED_DOWNLOADS_DIRECTORY)
+        if cache_folder is None:
+            cache_folder = CACHED_DOWNLOADS_DIRECTORY
+        downloader = FixtureDownloader(url, cache_folder)
         was_cached, path = downloader.download_and_extract()
         return cls(
             input_option=url,
@@ -156,11 +164,13 @@ class FixturesSource:
         )
 
     @classmethod
-    def from_release_spec(cls, spec: str) -> "FixturesSource":
+    def from_release_spec(cls, spec: str, cache_folder: Optional[Path] = None) -> "FixturesSource":
         """Create a fixture source from a release spec (e.g., develop@latest)."""
+        if cache_folder is None:
+            cache_folder = CACHED_DOWNLOADS_DIRECTORY
         url = get_release_url(spec)
         release_page = get_release_page_url(url)
-        downloader = FixtureDownloader(url, CACHED_DOWNLOADS_DIRECTORY)
+        downloader = FixtureDownloader(url, cache_folder)
         was_cached, path = downloader.download_and_extract()
         return cls(
             input_option=spec,
@@ -307,7 +317,9 @@ def pytest_configure(config):  # noqa: D103
         # NOTE: Setting `type=FixturesSource.from_input` in pytest_addoption() causes the option to
         # be evaluated twice which breaks the result of `was_cached`; the work-around is to call it
         # manually here.
-        config.fixtures_source = FixturesSource.from_input(config.option.fixtures_source)
+        config.fixtures_source = FixturesSource.from_input(
+            config.option.fixtures_source, Path(config.option.fixture_cache_folder)
+        )
     config.fixture_source_flags = ["--input", config.fixtures_source.input_option]
 
     if "cache" in sys.argv and not config.fixtures_source:
