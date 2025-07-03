@@ -20,8 +20,8 @@ from ethereum_test_tools import (
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 from ethereum_test_types.eof.v1 import Container, Section
 from ethereum_test_vm.bytecode import Bytecode
-from tests.prague.eip7702_set_code_tx.spec import Spec
 
+from ....prague.eip7702_set_code_tx.spec import Spec
 from .. import EOF_FORK_NAME
 from ..eip7620_eof_create.helpers import (
     slot_a,

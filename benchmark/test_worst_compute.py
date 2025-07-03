@@ -30,15 +30,15 @@ from ethereum_test_tools import (
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 from ethereum_test_types import TransactionType
 from ethereum_test_vm.opcode import Opcode
-from tests.byzantium.eip198_modexp_precompile.test_modexp import ModExpInput
-from tests.cancun.eip4844_blobs.spec import Spec as BlobsSpec
-from tests.istanbul.eip152_blake2.common import Blake2bInput
-from tests.istanbul.eip152_blake2.spec import Spec as Blake2bSpec
-from tests.osaka.eip7951_p256verify_precompiles import spec as p256verify_spec
-from tests.osaka.eip7951_p256verify_precompiles.spec import FieldElement
-from tests.prague.eip2537_bls_12_381_precompiles import spec as bls12381_spec
-from tests.prague.eip2537_bls_12_381_precompiles.spec import BytesConcatenation
 
+from ..byzantium.eip198_modexp_precompile.test_modexp import ModExpInput
+from ..cancun.eip4844_blobs.spec import Spec as BlobsSpec
+from ..istanbul.eip152_blake2.common import Blake2bInput
+from ..istanbul.eip152_blake2.spec import Spec as Blake2bSpec
+from ..osaka.eip7951_p256verify_precompiles import spec as p256verify_spec
+from ..osaka.eip7951_p256verify_precompiles.spec import FieldElement
+from ..prague.eip2537_bls_12_381_precompiles import spec as bls12381_spec
+from ..prague.eip2537_bls_12_381_precompiles.spec import BytesConcatenation
 from .helpers import code_loop_precompile_call
 
 REFERENCE_SPEC_GIT_PATH = "TODO"

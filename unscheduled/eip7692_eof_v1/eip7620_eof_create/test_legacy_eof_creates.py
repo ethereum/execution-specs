@@ -15,8 +15,8 @@ from ethereum_test_tools.vm.opcode import Opcodes
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 from ethereum_test_types.eof.v1 import Container
 from ethereum_test_types.helpers import compute_create_address
-from tests.prague.eip7702_set_code_tx.spec import Spec
 
+from ....prague.eip7702_set_code_tx.spec import Spec
 from .. import EOF_FORK_NAME
 from .helpers import (
     slot_all_subcall_gas_gone,

@@ -13,8 +13,8 @@ from ethereum_test_tools import (
 from ethereum_test_tools.code.generators import Initcode as LegacyInitcode
 from ethereum_test_types import TransactionReceipt
 from ethereum_test_types.eof.v1 import Container
-from tests.prague.eip7702_set_code_tx.spec import Spec
 
+from ....prague.eip7702_set_code_tx.spec import Spec
 from .. import EOF_FORK_NAME
 from ..eip7620_eof_create.helpers import (
     smallest_initcode_subcontainer,

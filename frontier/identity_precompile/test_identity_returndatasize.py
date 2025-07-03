@@ -11,7 +11,8 @@ from ethereum_test_tools import (
     Transaction,
 )
 from ethereum_test_tools import Opcodes as Op
-from tests.frontier.identity_precompile.common import Constants
+
+from .common import Constants
 
 
 @pytest.mark.ported_from(
