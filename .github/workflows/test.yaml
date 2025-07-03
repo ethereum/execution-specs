@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master
+      - mainnet
+      - 'forks/**'
   workflow_dispatch:
   pull_request:
 
