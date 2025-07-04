@@ -385,11 +385,9 @@ def call(evm: Evm) -> None:
     ) = access_delegation(evm, code_address)
     access_gas_cost += delegated_access_gas_cost
 
-    create_gas_cost = (
-        Uint(0)
-        if is_account_alive(evm.message.block_env.state, to) or value == 0
-        else GAS_NEW_ACCOUNT
-    )
+    create_gas_cost = GAS_NEW_ACCOUNT
+    if value == 0 or is_account_alive(evm.message.block_env.state, to):
+        create_gas_cost = Uint(0)
     transfer_gas_cost = Uint(0) if value == 0 else GAS_CALL_VALUE
     message_call_gas = calculate_message_call_gas(
         value,
