@@ -1,13 +1,7 @@
 """
-Ethereum Virtual Machine (EVM) Storage Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# Ethereum Virtual Machine (EVM) Storage Instructions
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
+## Introduction
 
 Implementations of the EVM storage related instructions.
 """
@@ -33,10 +27,8 @@ def sload(evm: Evm) -> None:
     Loads to the stack, the value corresponding to a certain key from the
     storage of the current account.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -64,10 +56,8 @@ def sstore(evm: Evm) -> None:
     """
     Stores a value at a certain key in the current context's storage.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK

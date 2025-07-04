@@ -1,13 +1,7 @@
 """
-Ethereum Virtual Machine (EVM) Control Flow Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# Ethereum Virtual Machine (EVM) Control Flow Instructions
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
+## Introduction
 
 Implementations of the EVM control flow instructions.
 """
@@ -24,10 +18,8 @@ def stop(evm: Evm) -> None:
     """
     Stop further execution of EVM code.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
     """
     # STACK
     pass
@@ -47,10 +39,8 @@ def jump(evm: Evm) -> None:
     Alter the program counter to the location specified by the top of the
     stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -73,10 +63,8 @@ def jumpi(evm: Evm) -> None:
     condition is true. If the condition is not true, then the program counter
     would increase only by 1.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -103,10 +91,8 @@ def pc(evm: Evm) -> None:
     Push onto the stack the value of the program counter after reaching the
     current instruction and without increasing it for the next instruction.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -127,10 +113,8 @@ def gas_left(evm: Evm) -> None:
     Push the amount of available gas (including the corresponding reduction
     for the cost of this instruction) onto the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -152,10 +136,8 @@ def jumpdest(evm: Evm) -> None:
     to be used by `JUMP` and `JUMPI` opcodes to verify that their jump is
     valid.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK

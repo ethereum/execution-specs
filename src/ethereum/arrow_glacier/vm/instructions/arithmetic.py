@@ -1,13 +1,7 @@
 """
-Ethereum Virtual Machine (EVM) Arithmetic Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# Ethereum Virtual Machine (EVM) Arithmetic Instructions
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
+## Introduction
 
 Implementations of the EVM Arithmetic instructions.
 """
@@ -34,10 +28,8 @@ def add(evm: Evm) -> None:
     Adds the top two elements of the stack together, and pushes the result back
     on the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -61,10 +53,8 @@ def sub(evm: Evm) -> None:
     Subtracts the top two elements of the stack, and pushes the result back
     on the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -88,10 +78,8 @@ def mul(evm: Evm) -> None:
     Multiply the top two elements of the stack, and pushes the result back
     on the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -115,10 +103,8 @@ def div(evm: Evm) -> None:
     Integer division of the top two elements of the stack. Pushes the result
     back on the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -148,10 +134,8 @@ def sdiv(evm: Evm) -> None:
     Signed integer division of the top two elements of the stack. Pushes the
     result back on the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -181,10 +165,8 @@ def mod(evm: Evm) -> None:
     Modulo remainder of the top two elements of the stack. Pushes the result
     back on the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -211,10 +193,8 @@ def smod(evm: Evm) -> None:
     Signed modulo remainder of the top two elements of the stack. Pushes the
     result back on the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -241,10 +221,8 @@ def addmod(evm: Evm) -> None:
     Modulo addition of the top 2 elements with the 3rd element. Pushes the
     result back on the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -272,10 +250,8 @@ def mulmod(evm: Evm) -> None:
     Modulo multiplication of the top 2 elements with the 3rd element. Pushes
     the result back on the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -303,10 +279,8 @@ def exp(evm: Evm) -> None:
     Exponential operation of the top 2 elements. Pushes the result back on
     the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -336,10 +310,8 @@ def signextend(evm: Evm) -> None:
     Sign extend operation. In other words, extend a signed number which
     fits in N bytes to 32 bytes.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK

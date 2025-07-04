@@ -1,13 +1,7 @@
 """
-Ethereum Virtual Machine (EVM) ECRECOVER PRECOMPILED CONTRACT
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# Ethereum Virtual Machine (EVM) ECRECOVER PRECOMPILED CONTRACT
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
+## Introduction
 
 Implementation of the ECRECOVER precompiled contract.
 """
@@ -28,10 +22,8 @@ def ecrecover(evm: Evm) -> None:
     Decrypts the address using elliptic curve DSA recovery mechanism and writes
     the address to output.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
     """
     data = evm.message.data
 

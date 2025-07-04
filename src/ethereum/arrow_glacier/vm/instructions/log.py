@@ -1,13 +1,7 @@
 """
-Ethereum Virtual Machine (EVM) Logging Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# Ethereum Virtual Machine (EVM) Logging Instructions
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
+## Introduction
 
 Implementations of the EVM logging instructions.
 """
@@ -36,12 +30,9 @@ def log_n(evm: Evm, num_topics: int) -> None:
     This will also expand the memory if the data (required by the log entry)
     corresponding to the memory is not accessible.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-    num_topics :
-        The number of topics to be included in the log entry.
+    #### Parameters
+    - evm: The current EVM frame.
+    - num_topics: The number of topics to be included in the log entry.
 
     """
     # STACK
