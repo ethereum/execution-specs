@@ -14,8 +14,6 @@ from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes32,
     hex_to_hash,
-    hex_to_u8,
-    hex_to_u64,
     hex_to_u256,
     hex_to_uint,
 )
@@ -47,10 +45,6 @@ class TransactionLoad:
     def json_to_nonce(self) -> U256:
         """Get the nonce for the transaction."""
         return hex_to_u256(self.raw.get("nonce"))
-
-    def json_to_gas_price(self) -> Uint:
-        """Get the gas price for the transaction."""
-        return hex_to_uint(self.raw.get("gasPrice"))
 
     def json_to_gas(self) -> Uint:
         """Get the gas limit for the transaction."""
@@ -88,42 +82,13 @@ class TransactionLoad:
             )
         return access_list
 
-    def json_to_authorizations(self) -> Any:
-        """Get the authorization list of the transaction."""
-        authorizations = []
-        for sublist in self.raw["authorizationList"]:
-            authorizations.append(
-                self.fork.Authorization(
-                    chain_id=hex_to_u256(sublist.get("chainId")),
-                    nonce=hex_to_u64(sublist.get("nonce")),
-                    address=self.fork.hex_to_address(sublist.get("address")),
-                    y_parity=hex_to_u8(sublist.get("v")),
-                    r=hex_to_u256(sublist.get("r")),
-                    s=hex_to_u256(sublist.get("s")),
-                )
-            )
-        return authorizations
+    def json_to_gas_price(self) -> Uint:
+        """Get the gas price for the transaction."""
+        return hex_to_uint(self.raw.get("gasPrice"))
 
     def json_to_max_priority_fee_per_gas(self) -> Uint:
         """Get the max priority fee per gas of the transaction."""
         return hex_to_uint(self.raw.get("maxPriorityFeePerGas"))
-
-    def json_to_max_fee_per_gas(self) -> Uint:
-        """Get the max fee per gas of the transaction."""
-        return hex_to_uint(self.raw.get("maxFeePerGas"))
-
-    def json_to_max_fee_per_blob_gas(self) -> U256:
-        """
-        Get the max priority fee per blobgas of the transaction.
-        """
-        return hex_to_u256(self.raw.get("maxFeePerBlobGas"))
-
-    def json_to_blob_versioned_hashes(self) -> List[Bytes32]:
-        """Get the blob versioned hashes of the transaction."""
-        return [
-            hex_to_hash(blob_hash)
-            for blob_hash in self.raw.get("blobVersionedHashes")
-        ]
 
     def json_to_v(self) -> U256:
         """Get the v value of the transaction."""
@@ -144,6 +109,23 @@ class TransactionLoad:
     def json_to_s(self) -> U256:
         """Get the s value of the transaction"""
         return hex_to_u256(self.raw.get("s"))
+
+    def json_to_max_fee_per_gas(self) -> Uint:
+        """Get the max fee per gas of the transaction."""
+        return hex_to_uint(self.raw.get("maxFeePerGas"))
+
+    def json_to_max_fee_per_blob_gas(self) -> U256:
+        """
+        Get the max priority fee per blobgas of the transaction.
+        """
+        return hex_to_u256(self.raw.get("maxFeePerBlobGas"))
+
+    def json_to_blob_versioned_hashes(self) -> List[Bytes32]:
+        """Get the blob versioned hashes of the transaction."""
+        return [
+            hex_to_hash(blob_hash)
+            for blob_hash in self.raw.get("blobVersionedHashes")
+        ]
 
     def get_parameters(self, tx_cls: Any) -> List:
         """
