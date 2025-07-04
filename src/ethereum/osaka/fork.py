@@ -17,7 +17,7 @@ from typing import List, Optional, Tuple
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
-from ethereum_types.numeric import U64, U256, Uint
+from ethereum_types.numeric import U8, U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import (
@@ -37,12 +37,20 @@ from .exceptions import (
     EmptyAuthorizationListError,
     InsufficientMaxFeePerBlobGasError,
     InsufficientMaxFeePerGasError,
+    InvalidAlgorithm,
+    InvalidAlgorithmUsage,
     InvalidBlobVersionedHashError,
     NoBlobDataError,
     PriorityFeeGreaterThanMaxFeeError,
     TransactionTypeContractCreationError,
 )
-from .fork_types import Account, Address, Authorization, VersionedHash
+from .fork_types import (
+    Account,
+    Address,
+    Authorization,
+    SignatureOverride,
+    VersionedHash,
+)
 from .requests import (
     CONSOLIDATION_REQUEST_TYPE,
     DEPOSIT_REQUEST_TYPE,
@@ -50,6 +58,7 @@ from .requests import (
     compute_requests_hash,
     parse_deposit_requests,
 )
+from .signature_algorithms import algorithm_from_type
 from .state import (
     State,
     TransientStorage,
@@ -63,6 +72,7 @@ from .state import (
 )
 from .transactions import (
     AccessListTransaction,
+    AlgorithmicTransaction,
     BlobTransaction,
     FeeMarketTransaction,
     LegacyTransaction,
@@ -446,9 +456,22 @@ def check_transaction(
     EmptyAuthorizationListError :
         If the transaction is a SetCodeTransaction and the authorization list
         is empty.
+    InvalidAlgorithm | InvalidAlgorithmUsage:
+        If the transaction is an algorithmic transaction that contains
+        invalid signature data.
+
     """
     gas_available = block_env.block_gas_limit - block_output.block_gas_used
     blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used
+
+    alg_tx: None | AlgorithmicTransaction = None
+
+    if isinstance(tx, AlgorithmicTransaction):
+        alg_tx = tx
+        tx = decode_transaction(tx.parent)
+
+        if isinstance(tx, AlgorithmicTransaction):
+            raise InvalidBlock
 
     if tx.gas > gas_available:
         raise GasUsedExceedsLimitError("gas used exceeds limit")
@@ -457,7 +480,7 @@ def check_transaction(
     if tx_blob_gas_used > blob_gas_available:
         raise BlobGasLimitExceededError("blob gas limit exceeded")
 
-    sender_address = recover_sender(block_env.chain_id, tx)
+    sender_address = recover_sender(block_env.chain_id, alg_tx or tx)
     sender_account = get_account(block_env.state, sender_address)
 
     if isinstance(
@@ -519,6 +542,42 @@ def check_transaction(
     elif sender_account.nonce < Uint(tx.nonce):
         raise NonceMismatchError("nonce too high")
 
+    if alg_tx is not None:
+        if alg_tx.alg_type == 0xFF and len(alg_tx.additional_info) == 0:
+            raise InvalidAlgorithm
+
+        if (
+            Uint(len(alg_tx.signature_info))
+            > algorithm_from_type(alg_tx.alg_type).max_length
+        ):
+            raise InvalidAlgorithmUsage
+
+        additional_signatures = set([])
+
+        for override in alg_tx.additional_info:
+            (type, info) = (override.alg_type, override.signature_info)
+
+            if type == 0xFF:
+                raise InvalidAlgorithm
+
+            if Uint(len(info)) > algorithm_from_type(type).max_length:
+                raise InvalidAlgorithmUsage
+
+            additional_signatures.add(
+                keccak256(Bytes(type.to_bytes1() + info))
+            )
+
+        if isinstance(tx, SetCodeTransaction):
+            for auth in tx.authorizations:
+                if (
+                    auth.y_parity == U8(0)
+                    and auth.r == U256(0)
+                    and auth.s.to_be_bytes32() not in additional_signatures
+                ):
+                    raise InvalidBlock
+
+    if sender_account.nonce != tx.nonce:
+        raise InvalidBlock
     if Uint(sender_account.balance) < max_gas_fee + Uint(tx.value):
         raise InsufficientBalanceError("insufficient sender balance")
     if sender_account.code and not is_valid_delegation(sender_account.code):
@@ -606,6 +665,8 @@ def process_system_transaction(
         transient_storage=TransientStorage(),
         blob_versioned_hashes=(),
         authorizations=(),
+        signature_overrides=(),
+        signature_override=Uint(0),
         index_in_block=None,
         tx_hash=None,
         traces=[],
@@ -871,6 +932,19 @@ def process_transaction(
     else:
         blob_gas_fee = Uint(0)
 
+    alg_tx: None | AlgorithmicTransaction = None
+
+    if isinstance(tx, AlgorithmicTransaction):
+        alg_tx = tx
+        tx = decode_transaction(tx.parent)
+
+    if isinstance(tx, AlgorithmicTransaction):
+        # Note this should NEVER happen again, this
+        # stub is here to:
+        # a. Make the linter happy
+        # b. Stop in case something horrific happened
+        raise Exception("Impossible double-wrapping after check.")
+
     effective_gas_fee = tx.gas * effective_gas_price
 
     gas = tx.gas - intrinsic_gas
@@ -904,6 +978,10 @@ def process_transaction(
     if isinstance(tx, SetCodeTransaction):
         authorizations = tx.authorizations
 
+    signature_overrides: Tuple[SignatureOverride, ...] = ()
+    if alg_tx is not None:
+        signature_overrides = alg_tx.additional_info
+
     tx_env = vm.TransactionEnvironment(
         origin=sender,
         gas_price=effective_gas_price,
@@ -913,6 +991,8 @@ def process_transaction(
         transient_storage=TransientStorage(),
         blob_versioned_hashes=blob_versioned_hashes,
         authorizations=authorizations,
+        signature_overrides=signature_overrides,
+        signature_override=Uint(0),
         index_in_block=index,
         tx_hash=get_transaction_hash(encode_transaction(tx)),
         traces=[],
