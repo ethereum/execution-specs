@@ -24,6 +24,8 @@ from ethereum_test_tools import (
     compute_create2_address,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
+from ethereum_test_types.helpers import compute_create_address
+from tests.benchmark.helpers import code_loop_precompile_call
 
 REFERENCE_SPEC_GIT_PATH = "TODO"
 REFERENCE_SPEC_VERSION = "TODO"
@@ -305,6 +307,190 @@ def test_worst_initcode_jumpdest_analysis(
     tx = Transaction(
         to=pre.deploy_contract(code=code),
         data=tx_data,
+        gas_limit=env.gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post={},
+        tx=tx,
+    )
+
+
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize(
+    "opcode",
+    [
+        Op.CREATE,
+        Op.CREATE2,
+    ],
+)
+@pytest.mark.parametrize(
+    "max_code_size_ratio, non_zero_data, value",
+    [
+        # To avoid a blowup of combinations, the value dimension is only explored for
+        # the non-zero data case, so isn't affected by code size influence.
+        pytest.param(0, False, 0, id="0 bytes without value"),
+        pytest.param(0, False, 1, id="0 bytes with value"),
+        pytest.param(0.25, True, 0, id="0.25x max code size with non-zero data"),
+        pytest.param(0.25, False, 0, id="0.25x max code size with zero data"),
+        pytest.param(0.50, True, 0, id="0.50x max code size with non-zero data"),
+        pytest.param(0.50, False, 0, id="0.50x max code size with zero data"),
+        pytest.param(0.75, True, 0, id="0.75x max code size with non-zero data"),
+        pytest.param(0.75, False, 0, id="0.75x max code size with zero data"),
+        pytest.param(1.00, True, 0, id="max code size with non-zero data"),
+        pytest.param(1.00, False, 0, id="max code size with zero data"),
+    ],
+)
+def test_worst_create(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    opcode: Op,
+    max_code_size_ratio: float,
+    non_zero_data: bool,
+    value: int,
+):
+    """Test the CREATE and CREATE2 performance with different configurations."""
+    env = Environment()
+    max_code_size = fork.max_code_size()
+
+    code_size = int(max_code_size * max_code_size_ratio)
+
+    # Deploy the initcode template which has following design:
+    # ```
+    # PUSH3(code_size)
+    # [CODECOPY(DUP1) -- Conditional that non_zero_data is True]
+    # RETURN(0, DUP1)
+    # [<pad to code_size>] -- Conditional that non_zero_data is True]
+    # ```
+    code = (
+        Op.PUSH3(code_size)
+        + (Op.CODECOPY(size=Op.DUP1) if non_zero_data else Bytecode())
+        + Op.RETURN(0, Op.DUP1)
+    )
+    if non_zero_data:  # Pad to code_size.
+        code += bytes([i % 256 for i in range(code_size - len(code))])
+
+    initcode_template_contract = pre.deploy_contract(code=code)
+
+    # Create the benchmark contract which has the following design:
+    # ```
+    # PUSH(value)
+    # [EXTCODECOPY(full initcode_template_contract) -- Conditional that non_zero_data is True]`
+    # JUMPDEST (#)
+    # (CREATE|CREATE2)
+    # (CREATE|CREATE2)
+    # ...
+    # JUMP(#)
+    # ```
+    code_prefix = (
+        Op.PUSH3(code_size)
+        + Op.PUSH1(value)
+        + Op.EXTCODECOPY(
+            address=initcode_template_contract,
+            size=Op.DUP2,  # DUP2 refers to the EXTCODESIZE value above.
+        )
+    )
+
+    if opcode == Op.CREATE2:
+        # For CREATE2, we provide an initial salt.
+        code_prefix = code_prefix + Op.PUSH1(42)
+
+    attack_block = (
+        # For CREATE:
+        # - DUP2 refers to the EXTOCODESIZE value  pushed in code_prefix.
+        # - DUP3 refers to PUSH1(value) above.
+        Op.POP(Op.CREATE(value=Op.DUP3, offset=0, size=Op.DUP2))
+        if opcode == Op.CREATE
+        # For CREATE2: we manually push the arguments because we leverage the return value of
+        # previous CREATE2 calls as salt for the next CREATE2 call.
+        #  - DUP4 is targeting the PUSH1(value) from the code_prefix.
+        #  - DUP3 is targeting the EXTCODESIZE value pushed in code_prefix.
+        else Op.DUP3 + Op.PUSH0 + Op.DUP4 + Op.CREATE2
+    )
+    code = code_loop_precompile_call(code_prefix, attack_block, fork)
+
+    tx = Transaction(
+        # Set enough balance in the pre-alloc for `value > 0` configurations.
+        to=pre.deploy_contract(code=code, balance=1_000_000_000 if value > 0 else 0),
+        gas_limit=env.gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post={},
+        tx=tx,
+    )
+
+
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize(
+    "opcode",
+    [
+        Op.CREATE,
+        Op.CREATE2,
+    ],
+)
+def test_worst_creates_collisions(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    opcode: Op,
+):
+    """Test the CREATE and CREATE2 collisions performance."""
+    env = Environment()
+
+    # We deploy a "proxy contract" which is the contract that will be called in a loop
+    # using all the gas in the block. This "proxy contract" is the one executing CREATE2
+    # failing with a collision.
+    # The reason why we need a "proxy contract" is that CREATE(2) failing with a collision will
+    # consume all the available gas. If we try to execute the CREATE(2) directly without being
+    # wrapped **and capped in gas** in a previous CALL, we would run out of gas very fast!
+    #
+    # The proxy contract calls CREATE(2) with empty initcode. The current call frame gas will
+    # be exhausted because of the collision. For this reason the caller will carefully give us
+    # the minimal gas necessary to execute the CREATE(2) and not waste any extra gas in the
+    # CREATE(2)-failure.
+    #
+    # Note that these CREATE(2) calls will fail because in (**) below we pre-alloc contracts
+    # with the same address as the ones that CREATE(2) will try to create.
+    proxy_contract = pre.deploy_contract(
+        code=Op.CREATE2(value=Op.PUSH0, salt=Op.PUSH0, offset=Op.PUSH0, size=Op.PUSH0)
+        if opcode == Op.CREATE2
+        else Op.CREATE(value=Op.PUSH0, offset=Op.PUSH0, size=Op.PUSH0)
+    )
+
+    gas_costs = fork.gas_costs()
+    # The CALL to the proxy contract needs at a minimum gas corresponding to the CREATE(2)
+    # plus extra required PUSH0s for arguments.
+    min_gas_required = gas_costs.G_CREATE + gas_costs.G_BASE * (3 if opcode == Op.CREATE else 4)
+    code_prefix = Op.PUSH20(proxy_contract) + Op.PUSH3(min_gas_required)
+    attack_block = Op.POP(
+        # DUP7 refers to the PUSH3 above.
+        # DUP7 refers to the proxy contract address.
+        Op.CALL(gas=Op.DUP7, address=Op.DUP7)
+    )
+    code = code_loop_precompile_call(code_prefix, attack_block, fork)
+    tx_target = pre.deploy_contract(code=code)
+
+    # (**) We deploy the contract that CREATE(2) will attempt to create so any attempt will fail.
+    if opcode == Op.CREATE2:
+        addr = compute_create2_address(address=proxy_contract, salt=0, initcode=[])
+        pre.deploy_contract(address=addr, code=Op.INVALID)
+    else:
+        # Heuristic to have an upper bound.
+        max_contract_count = 2 * env.gas_limit // gas_costs.G_CREATE
+        for nonce in range(max_contract_count):
+            addr = compute_create_address(address=proxy_contract, nonce=nonce)
+            pre.deploy_contract(address=addr, code=Op.INVALID)
+
+    tx = Transaction(
+        to=tx_target,
         gas_limit=env.gas_limit,
         sender=pre.fund_eoa(),
     )
