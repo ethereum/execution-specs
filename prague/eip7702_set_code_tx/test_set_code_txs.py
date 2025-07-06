@@ -2496,9 +2496,9 @@ def test_set_code_to_log(
     sender = pre.fund_eoa()
 
     log_kwargs = {}
-    if "topic_1" not in log_opcode.kwargs:
+    if "topic_1" in log_opcode.kwargs:
         log_kwargs["topic_1"] = 1
-    if "topic_2" not in log_opcode.kwargs:
+    if "topic_2" in log_opcode.kwargs:
         log_kwargs["topic_2"] = 2
     if "topic_3" in log_opcode.kwargs:
         log_kwargs["topic_3"] = 3
