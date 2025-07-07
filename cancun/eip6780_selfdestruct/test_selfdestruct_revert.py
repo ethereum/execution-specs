@@ -16,7 +16,6 @@ from ethereum_test_tools import (
     StateTestFiller,
     Storage,
     Transaction,
-    YulCompiler,
     compute_create_address,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
@@ -60,9 +59,7 @@ def selfdestruct_on_outer_call() -> int:
 
 @pytest.fixture
 def recursive_revert_contract_code(
-    yul: YulCompiler,
     selfdestruct_on_outer_call: int,
-    selfdestruct_with_transfer_contract_code: Bytecode,
     selfdestruct_with_transfer_contract_address: Address,
 ) -> Bytecode:
     """
@@ -71,59 +68,173 @@ def recursive_revert_contract_code(
         Then, recurse into a new call which transfers value to A,
         call A.selfdestruct, and reverts.
     """
-    optional_outer_call_code_1 = ""
-    optional_outer_call_code_2 = ""
-    optional_outer_call_code = f"""
-        mstore(0, 1)
-        pop(call(gaslimit(), {selfdestruct_with_transfer_contract_address}, 1, 0, 32, 0, 0))"""
-    if selfdestruct_on_outer_call == 1:
-        optional_outer_call_code_1 = optional_outer_call_code
-    elif selfdestruct_on_outer_call == 2:
-        optional_outer_call_code_2 = optional_outer_call_code
-
-    """Contract code which calls selfdestructable contract, and also makes use of revert"""
-    return yul(
-        f"""
-        {{
-            let operation := calldataload(0)
-            let op_outer_call := 0
-            let op_inner_call := 1
-
-            switch operation
-            case 0 /* outer call */ {{
-                // transfer value to contract and make it selfdestruct
-                {optional_outer_call_code_1}
-
-                // transfer value to the selfdestructed contract
-                mstore(0, 0)
-                pop(call(gaslimit(), {selfdestruct_with_transfer_contract_address}, 1, 0, 32, 0, 0))
-
-                // recurse into self
-                mstore(0, op_inner_call)
-                pop(call(gaslimit(), address(), 0, 0, 32, 0, 0))
-
-                // store the selfdestructed contract's balance for verification
-                sstore(1, balance({selfdestruct_with_transfer_contract_address}))
-
-                // transfer value to contract and make it selfdestruct
-                {optional_outer_call_code_2}
-
-                return(0, 0)
-            }}
-            case 1 /* inner call */ {{
-                // trigger previously-selfdestructed contract to self destruct
-                // and then revert
-
-                mstore(0, 1)
-                pop(call(gaslimit(), {selfdestruct_with_transfer_contract_address}, 1, 0, 32, 0, 0))
-                revert(0, 0)
-            }}
-            default {{
-                stop()
-            }}
-        }}
-        """  # noqa: E272, E201, E202, E221, E501
+    # Common prefix for all three cases:
+    #   case 1: selfdestruct_on_outer_call=1
+    #   case 2: selfdestruct_on_outer_call=2
+    #   case 3: selfdestruct_on_outer_call has a different value
+    common_prefix = (
+        Op.PUSH0
+        + Op.CALLDATALOAD
+        + Op.PUSH1(0x1)
+        + Op.PUSH20(selfdestruct_with_transfer_contract_address)
+        + Op.SWAP2
+        + Op.SWAP1
+        + Op.DUP2
+        + Op.PUSH0
+        + Op.EQ
+        + Op.PUSH1(0x3A)
+        + Op.JUMPI
+        + Op.POP
+        + Op.PUSH1(0x1)
+        + Op.EQ
+        + Op.PUSH1(0x29)
+        + Op.JUMPI
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.PUSH0
+        + Op.PUSH1(0x20)
+        + Op.DUP2
+        + Op.PUSH1(0x1)
+        + Op.DUP2
+        + Op.SWAP5
+        + Op.DUP2
+        + Op.DUP4
+        + Op.MSTORE
+        + Op.GASLIMIT
+        + Op.CALL
+        + Op.PUSH0
+        + Op.DUP1
+        + Op.REVERT
+        + Op.JUMPDEST
     )
+
+    if selfdestruct_on_outer_call == 1:
+        suffix = (
+            Op.SWAP1
+            + Op.POP
+            + Op.PUSH1(0x1)
+            + Op.PUSH0
+            + Op.MSTORE
+            + Op.PUSH0
+            + Op.DUP1
+            + Op.PUSH1(0x20)
+            + Op.DUP2
+            + Op.PUSH1(0x1)
+            + Op.DUP7
+            + Op.GASLIMIT
+            + Op.CALL
+            + Op.POP
+            + Op.PUSH0
+            + Op.DUP1
+            + Op.MSTORE
+            + Op.PUSH0
+            + Op.DUP1
+            + Op.PUSH1(0x20)
+            + Op.DUP2
+            + Op.PUSH1(0x1)
+            + Op.DUP7
+            + Op.GASLIMIT
+            + Op.CALL
+            + Op.POP
+            + Op.PUSH0
+            + Op.MSTORE
+            + Op.PUSH0
+            + Op.DUP1
+            + Op.PUSH1(0x20)
+            + Op.DUP2
+            + Op.DUP1
+            + Op.ADDRESS
+            + Op.GASLIMIT
+            + Op.CALL
+            + Op.POP
+            + Op.BALANCE
+            + Op.PUSH1(0x1)
+            + Op.SSTORE
+            + Op.PUSH0
+            + Op.DUP1
+            + Op.RETURN
+        )
+    elif selfdestruct_on_outer_call == 2:
+        suffix = (
+            Op.PUSH0
+            + Op.PUSH1(0x20)
+            + Op.DUP2
+            + Op.PUSH1(0x1)
+            + Op.DUP7
+            + Op.DUP3
+            + Op.SWAP6
+            + Op.DUP4
+            + Op.DUP1
+            + Op.MSTORE
+            + Op.DUP4
+            + Op.DUP1
+            + Op.DUP7
+            + Op.DUP2
+            + Op.DUP7
+            + Op.DUP7
+            + Op.GASLIMIT
+            + Op.CALL
+            + Op.POP
+            + Op.DUP4
+            + Op.MSTORE
+            + Op.DUP3
+            + Op.DUP1
+            + Op.DUP6
+            + Op.DUP2
+            + Op.DUP1
+            + Op.ADDRESS
+            + Op.GASLIMIT
+            + Op.CALL
+            + Op.POP
+            + Op.DUP1
+            + Op.BALANCE
+            + Op.DUP3
+            + Op.SSTORE
+            + Op.DUP2
+            + Op.DUP4
+            + Op.MSTORE
+            + Op.GASLIMIT
+            + Op.CALL
+            + Op.PUSH0
+            + Op.DUP1
+            + Op.RETURN
+        )
+    else:  # selfdestruct_on_outer_call is neither 1 nor 2
+        suffix = (
+            Op.SWAP1
+            + Op.POP
+            + Op.PUSH0
+            + Op.DUP1
+            + Op.MSTORE
+            + Op.PUSH0
+            + Op.DUP1
+            + Op.PUSH1(0x20)
+            + Op.DUP2
+            + Op.PUSH1(0x1)
+            + Op.DUP7
+            + Op.GASLIMIT
+            + Op.CALL
+            + Op.POP
+            + Op.PUSH0
+            + Op.MSTORE
+            + Op.PUSH0
+            + Op.DUP1
+            + Op.PUSH1(0x20)
+            + Op.DUP2
+            + Op.DUP1
+            + Op.ADDRESS
+            + Op.GASLIMIT
+            + Op.CALL
+            + Op.POP
+            + Op.BALANCE
+            + Op.PUSH1(0x1)
+            + Op.SSTORE
+            + Op.PUSH0
+            + Op.DUP1
+            + Op.RETURN
+        )
+
+    return common_prefix + suffix
 
 
 @pytest.fixture
@@ -141,34 +252,42 @@ def selfdestruct_with_transfer_contract_address(
 
 
 @pytest.fixture
-def selfdestruct_with_transfer_contract_code(
-    yul: YulCompiler, selfdestruct_recipient_address: Address
-) -> Bytecode:
+def selfdestruct_with_transfer_contract_code(selfdestruct_recipient_address: Address) -> Bytecode:
     """Contract that can selfdestruct and receive value."""
-    return yul(
-        f"""
-        {{
-            let operation := calldataload(0)
-
-            switch operation
-            case 0 /* no-op used for transferring value to this contract */ {{
-                let times_called := sload(0)
-                times_called := add(times_called, 1)
-                sstore(0, times_called)
-                return(0, 0)
-            }}
-            case 1 /* trigger the contract to selfdestruct */ {{
-                let times_called := sload(1)
-                times_called := add(times_called, 1)
-                sstore(1, times_called)
-                selfdestruct({selfdestruct_recipient_address})
-            }}
-            default /* unsupported operation */ {{
-                stop()
-            }}
-        }}
-        """  # noqa: E272, E201, E202, E221
+    code: Bytecode = (
+        Op.PUSH0
+        + Op.CALLDATALOAD
+        + Op.PUSH20(selfdestruct_recipient_address)
+        + Op.SWAP1
+        + Op.EQ(Op.PUSH0, Op.DUP1)
+        + Op.PUSH1(0x2F)
+        + Op.JUMPI
+        + Op.PUSH1(0x1)
+        + Op.EQ
+        + Op.PUSH1(0x25)
+        + Op.JUMPI
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.PUSH1(0x1)
+        + Op.DUP1
+        + Op.SLOAD
+        + Op.ADD
+        + Op.PUSH1(0x1)
+        + Op.SSTORE
+        + Op.SELFDESTRUCT
+        + Op.JUMPDEST
+        + Op.PUSH1(0x1)
+        + Op.PUSH0
+        + Op.SLOAD
+        + Op.ADD
+        + Op.PUSH0
+        + Op.SSTORE
+        + Op.PUSH0
+        + Op.DUP1
+        + Op.RETURN
     )
+
+    return code
 
 
 @pytest.fixture

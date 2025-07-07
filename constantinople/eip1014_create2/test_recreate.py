@@ -10,7 +10,6 @@ from ethereum_test_tools import (
     BlockchainTestFiller,
     Initcode,
     Transaction,
-    Yul,
     compute_create2_address,
 )
 from ethereum_test_tools import Opcodes as Op
@@ -40,19 +39,15 @@ def test_recreate(
     creator_address = pre.deploy_contract(creator_contract_code)
     sender = pre.fund_eoa()
 
-    deploy_code = Yul(
-        """
-        {
-            switch callvalue()
-            case 0 {
-                selfdestruct(0)
-            }
-            default {
-                sstore(0, callvalue())
-            }
-        }
-        """,
-        fork=fork,
+    deploy_code = (
+        Op.EQ(0, Op.CALLVALUE)
+        + Op.PUSH1(0xC)
+        + Op.JUMPI
+        + Op.SSTORE(0, Op.CALLVALUE)
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.PUSH1(0x0)
+        + Op.SELFDESTRUCT
     )
 
     initcode = Initcode(deploy_code=deploy_code)
