@@ -108,7 +108,7 @@ def test_clz_opcode_scenarios(
 
 
 @pytest.mark.valid_from("Osaka")
-def test_clz_gas(state_test: StateTestFiller, pre: Alloc, fork: Fork):
+def test_clz_gas_cost(state_test: StateTestFiller, pre: Alloc, fork: Fork):
     """Test CLZ opcode gas cost."""
     contract_address = pre.deploy_contract(
         Op.SSTORE(
@@ -128,6 +128,40 @@ def test_clz_gas(state_test: StateTestFiller, pre: Alloc, fork: Fork):
             storage={"0x00": fork.gas_costs().G_VERY_LOW}
         ),
     }
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Osaka")
+@pytest.mark.parametrize("bits", [0, 64, 128, 255])
+@pytest.mark.parametrize("gas_cost_delta", [-2, -1, 0, 1, 2])
+def test_clz_gas_cost_boundary(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    bits: int,
+    gas_cost_delta: int,
+):
+    """Test CLZ opcode gas cost boundary."""
+    code = Op.PUSH32(1 << bits) + Op.CLZ
+
+    contract_address = pre.deploy_contract(code=code)
+
+    call_code = Op.SSTORE(
+        0,
+        Op.CALL(
+            gas=fork.gas_costs().G_VERY_LOW + Spec.CLZ_GAS_COST + gas_cost_delta,
+            address=contract_address,
+        ),
+    )
+    call_address = pre.deploy_contract(
+        code=call_code,
+        storage={"0x00": "0xdeadbeef"},
+    )
+
+    tx = Transaction(to=call_address, sender=pre.fund_eoa(), gas_limit=200_000)
+
+    post = {call_address: Account(storage={"0x00": 0 if gas_cost_delta < 0 else 1})}
+
     state_test(pre=pre, post=post, tx=tx)
 
 
