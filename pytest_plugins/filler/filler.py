@@ -775,6 +775,11 @@ def fixture_collector(
     Return configured fixture collector instance used for all tests
     in one test module.
     """
+    # Dynamically load the 'static_filler' and 'solc' plugins if needed
+    if request.config.getoption("fill_static_tests_enabled"):
+        request.config.pluginmanager.import_plugin("pytest_plugins.filler.static_filler")
+        request.config.pluginmanager.import_plugin("pytest_plugins.solc.solc")
+
     fixture_collector = FixtureCollector(
         output_dir=fixture_output.directory,
         flat_output=fixture_output.flat_output,

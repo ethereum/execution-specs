@@ -13,8 +13,6 @@ def safe_solc_command(
     source_path = Path(source_file)
     if not source_path.exists():
         raise FileNotFoundError(f"Source file not found: {source_file}")
-    if source_path.suffix not in (".yul", ".sol"):
-        raise ValueError(f"Invalid file extension for solc: {source_path.suffix}")
 
     cmd: list[str] = ["solc"]
 

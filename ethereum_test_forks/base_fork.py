@@ -16,8 +16,6 @@ from typing import (
     Union,
 )
 
-from semver import Version
-
 from ethereum_test_base_types import AccessList, Address, BlobSchedule
 from ethereum_test_base_types.conversions import BytesConvertible
 from ethereum_test_vm import EVMCodeType, Opcodes
@@ -574,12 +572,6 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     @abstractmethod
     def solc_name(cls) -> str:
         """Return fork name as it's meant to be passed to the solc compiler."""
-        pass
-
-    @classmethod
-    @abstractmethod
-    def solc_min_version(cls) -> Version:
-        """Return minimum version of solc that supports this fork."""
         pass
 
     @classmethod

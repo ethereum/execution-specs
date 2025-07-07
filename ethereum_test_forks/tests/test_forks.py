@@ -4,7 +4,6 @@ from typing import Dict, cast
 
 import pytest
 from pydantic import BaseModel
-from semver import Version
 
 from ethereum_test_base_types import BlobSchedule
 
@@ -31,10 +30,8 @@ from ..helpers import (
     Fork,
     forks_from,
     forks_from_until,
-    get_closest_fork_with_solc_support,
     get_deployed_forks,
     get_forks,
-    get_forks_with_solc_support,
     transition_fork_from_to,
     transition_fork_to,
 )
@@ -296,18 +293,6 @@ def test_precompiles():  # noqa: D103
 
 def test_tx_types():  # noqa: D103
     Cancun.tx_types() == list(range(4))  # noqa: B015
-
-
-def test_solc_versioning():  # noqa: D103
-    assert len(get_forks_with_solc_support(Version.parse("0.8.20"))) == 13
-    assert len(get_forks_with_solc_support(Version.parse("0.8.24"))) > 13
-
-
-def test_closest_fork_supported_by_solc():  # noqa: D103
-    assert get_closest_fork_with_solc_support(Paris, Version.parse("0.8.20")) == Paris
-    assert get_closest_fork_with_solc_support(Cancun, Version.parse("0.8.20")) == Shanghai
-    assert get_closest_fork_with_solc_support(Cancun, Version.parse("0.8.24")) == Cancun
-    assert get_closest_fork_with_solc_support(Prague, Version.parse("0.8.24")) == Cancun
 
 
 @pytest.mark.parametrize(

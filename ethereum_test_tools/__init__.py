@@ -82,8 +82,6 @@ from .code import (
     Initcode,
     Switch,
     While,
-    Yul,
-    YulCompiler,
 )
 from .utility.generators import (
     DeploymentTestType,
@@ -157,8 +155,6 @@ __all__ = (
     "While",
     "Withdrawal",
     "WithdrawalRequest",
-    "Yul",
-    "YulCompiler",
     "add_kzg_version",
     "call_return_code",
     "ceiling_division",

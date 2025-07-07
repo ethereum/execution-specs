@@ -5,7 +5,6 @@ import pytest
 FILL_TEST_ARGS = (
     "--evm-bin",
     "--traces",
-    "--solc-bin",
     "--filler-path",
     "--output",
     "--forks",

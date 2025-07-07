@@ -6,8 +6,6 @@ from os.path import realpath
 from pathlib import Path
 from typing import List, Literal, Mapping, Optional, Sized, Tuple
 
-from semver import Version
-
 from ethereum_test_base_types import AccessList, Address, BlobSchedule, Bytes, ForkBlobSchedule
 from ethereum_test_base_types.conversions import BytesConvertible
 from ethereum_test_vm import EVMCodeType, Opcodes
@@ -45,11 +43,6 @@ class Frontier(BaseFork, solc_name="homestead"):
         if cls._solc_name is not None:
             return cls._solc_name
         return cls.name().lower()
-
-    @classmethod
-    def solc_min_version(cls) -> Version:
-        """Return minimum version of solc that supports this fork."""
-        return Version.parse("0.8.20")
 
     @classmethod
     def header_base_fee_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
@@ -930,11 +923,6 @@ class Cancun(Shanghai):
         return retrieved_constant
 
     @classmethod
-    def solc_min_version(cls) -> Version:
-        """Return minimum version of solc that supports this fork."""
-        return Version.parse("0.8.24")
-
-    @classmethod
     def header_excess_blob_gas_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """Excess blob gas is required starting from Cancun."""
         return True
@@ -1130,11 +1118,6 @@ class Prague(Cancun):
         development.
         """
         return False
-
-    @classmethod
-    def solc_min_version(cls) -> Version:
-        """Return minimum version of solc that supports this fork."""
-        return Version.parse("1.0.0")  # set a high version; currently unknown
 
     @classmethod
     def precompiles(cls, block_number: int = 0, timestamp: int = 0) -> List[Address]:
@@ -1422,11 +1405,6 @@ class Osaka(Prague, solc_name="cancun"):
         ] + super(Prague, cls).valid_opcodes()
 
     @classmethod
-    def solc_min_version(cls) -> Version:
-        """Return minimum version of solc that supports this fork."""
-        return Version.parse("1.0.0")  # set a high version; currently unknown
-
-    @classmethod
     def precompiles(cls, block_number: int = 0, timestamp: int = 0) -> List[Address]:
         """
         At Osaka, pre-compile for p256verify operation is added.
@@ -1514,8 +1492,3 @@ class EOFv1(Prague, solc_name="cancun"):
         development.
         """
         return False
-
-    @classmethod
-    def solc_min_version(cls) -> Version:
-        """Return minimum version of solc that supports this fork."""
-        return Version.parse("1.0.0")  # set a high version; currently unknown

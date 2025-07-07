@@ -17,8 +17,9 @@ from _pytest.mark import ParameterSet
 from _pytest.python import Module
 
 from ethereum_test_fixtures import BaseFixture, LabeledFixtureFormat
-from ethereum_test_forks import Fork
+from ethereum_test_forks import Fork, get_closest_fork
 from ethereum_test_specs import BaseStaticTest, BaseTest
+from ethereum_test_tools.code.yul import Yul
 
 from ..forks.forks import ValidityMarker, get_intersection_set
 from ..shared.helpers import labeled_format_parameter_set
@@ -107,18 +108,6 @@ def get_all_combinations_from_parametrize_marks(
         test_ids.add(test_id)
 
     return all_argument_names, all_value_combinations
-
-
-def pytest_addoption(parser: pytest.Parser):
-    """Add command-line options to pytest."""
-    static_filler_group = parser.getgroup("static", "Arguments defining static filler behavior")
-    static_filler_group.addoption(
-        "--fill-static-tests",
-        action="store_true",
-        dest="fill_static_tests_enabled",
-        default=None,
-        help=("Enable reading and filling from static test files."),
-    )
 
 
 def pytest_collect_file(file_path: Path, parent) -> pytest.Collector | None:
@@ -334,3 +323,45 @@ class FillerTestItem(pytest.Item):
     def reportinfo(self):
         """Provide information for test reporting."""
         return self.fspath, 0, f"Static file test: {self.name}"
+
+
+@pytest.fixture
+def yul(fork: Fork, request: pytest.FixtureRequest):
+    """
+    Fixture that allows contract code to be defined with Yul code.
+
+    This fixture defines a class that wraps the ::ethereum_test_tools.Yul
+    class so that upon instantiation within the test case, it provides the
+    test case's current fork parameter. The forks is then available for use
+    in solc's arguments for the Yul code compilation.
+
+    Test cases can override the default value by specifying a fixed version
+    with the @pytest.mark.compile_yul_with(FORK) marker.
+    """
+    solc_target_fork: Fork | None
+    marker = request.node.get_closest_marker("compile_yul_with")
+    assert hasattr(request.config, "solc_version"), "solc_version not set in pytest config."
+    if marker:
+        if not marker.args[0]:
+            pytest.fail(
+                f"{request.node.name}: Expected one argument in 'compile_yul_with' marker."
+            )
+        for fork in request.config.all_forks:  # type: ignore
+            if fork.name() == marker.args[0]:
+                solc_target_fork = fork
+                break
+        else:
+            pytest.fail(f"{request.node.name}: Fork {marker.args[0]} not found in forks list.")
+    else:
+        solc_target_fork = get_closest_fork(fork, request.config.solc_version)
+        assert solc_target_fork is not None, "No fork supports provided solc version."
+        if solc_target_fork != fork and request.config.getoption("verbose") >= 1:
+            warnings.warn(
+                f"Compiling Yul for {solc_target_fork.name()}, not {fork.name()}.", stacklevel=2
+            )
+
+    class YulWrapper(Yul):
+        def __new__(cls, *args, **kwargs):
+            return super(YulWrapper, cls).__new__(cls, *args, **kwargs, fork=solc_target_fork)
+
+    return YulWrapper
