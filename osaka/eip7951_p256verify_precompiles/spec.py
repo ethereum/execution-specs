@@ -91,7 +91,7 @@ class Spec:
     P256VERIFY = 0x100
 
     # Gas constants
-    P256VERIFY_GAS = 3450
+    P256VERIFY_GAS = 6900
 
     # Curve Parameters
     P = 0xFFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF  ## Base field modulus
