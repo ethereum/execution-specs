@@ -24,7 +24,7 @@ class Spec(EIP4844Spec):
     Extends EIP-4844 spec with the new reserve price constant and functionality.
     """
 
-    BLOB_BASE_COST = 2**14
+    BLOB_BASE_COST = 2**13
 
     @classmethod
     def get_reserve_price(
