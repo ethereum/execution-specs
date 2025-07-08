@@ -15,14 +15,15 @@ from ethereum_test_tools import (
     Block,
     BlockchainTestFiller,
     Environment,
+    StateTestFiller,
     Transaction,
 )
 
 
 @pytest.fixture
-def iteration_count(eth_transfer_cost: int):
+def iteration_count(intrinsic_cost: int):
     """Calculate the number of iterations based on the gas limit and intrinsic cost."""
-    return Environment().gas_limit // eth_transfer_cost
+    return Environment().gas_limit // intrinsic_cost
 
 
 @pytest.fixture
@@ -32,8 +33,8 @@ def transfer_amount():
 
 
 @pytest.fixture
-def eth_transfer_cost(fork: Fork):
-    """Transaction gas limit."""
+def intrinsic_cost(fork: Fork):
+    """Transaction intrinsic cost."""
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
     return intrinsic_cost()
 
@@ -113,7 +114,7 @@ def test_block_full_of_ether_transfers(
     ether_transfer_case,
     iteration_count: int,
     transfer_amount: int,
-    eth_transfer_cost: int,
+    intrinsic_cost: int,
 ):
     """
     Single test for ether transfer scenarios.
@@ -137,7 +138,7 @@ def test_block_full_of_ether_transfers(
             Transaction(
                 to=receiver,
                 value=transfer_amount,
-                gas_limit=eth_transfer_cost,
+                gas_limit=intrinsic_cost,
                 sender=next(senders),
             )
         )
@@ -155,4 +156,69 @@ def test_block_full_of_ether_transfers(
         post=post_state,
         blocks=[Block(txs=txs)],
         exclude_full_post_state_in_output=True,
+    )
+
+
+@pytest.fixture
+def total_cost_floor_per_token():
+    """Total cost floor per token."""
+    return 10
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize("zero_byte", [True, False])
+def test_block_full_data(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    zero_byte: bool,
+    intrinsic_cost: int,
+    total_cost_floor_per_token: int,
+):
+    """Test a block with empty payload."""
+    attack_gas_limit = Environment().gas_limit
+
+    # Gas cost calculation based on EIP-7683: (https://eips.ethereum.org/EIPS/eip-7683)
+    #
+    #   tx.gasUsed = 21000 + max(
+    #       STANDARD_TOKEN_COST * tokens_in_calldata
+    #       + execution_gas_used
+    #       + isContractCreation * (32000 + INITCODE_WORD_COST * words(calldata)),
+    #       TOTAL_COST_FLOOR_PER_TOKEN * tokens_in_calldata)
+    #
+    # Simplified in this test case:
+    # - No execution gas used (no opcodes are executed)
+    # - Not a contract creation (no initcode)
+    #
+    # Therefore:
+    #   max_token_cost = max(STANDARD_TOKEN_COST, TOTAL_COST_FLOOR_PER_TOKEN)
+    #   tx.gasUsed = 21000 + tokens_in_calldata * max_token_cost
+    #
+    # Since max(STANDARD_TOKEN_COST, TOTAL_COST_FLOOR_PER_TOKEN) = 10:
+    #   tx.gasUsed = 21000 + tokens_in_calldata * 10
+    #
+    # Token accounting:
+    #   tokens_in_calldata = zero_bytes + 4 * non_zero_bytes
+    #
+    # So we calculate how many bytes we can fit into calldata based on available gas.
+
+    gas_available = attack_gas_limit - intrinsic_cost
+
+    # Calculate the token_in_calldata
+    max_tokens_in_calldata = gas_available // total_cost_floor_per_token
+    # Calculate the number of bytes that can be stored in the calldata
+    num_of_bytes = max_tokens_in_calldata if zero_byte else max_tokens_in_calldata // 4
+    byte_data = b"\x00" if zero_byte else b"\xff"
+
+    tx = Transaction(
+        to=pre.fund_eoa(),
+        data=byte_data * num_of_bytes,
+        gas_limit=attack_gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        env=Environment(),
+        pre=pre,
+        post={},
+        tx=tx,
     )
