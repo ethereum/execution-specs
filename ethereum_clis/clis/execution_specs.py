@@ -46,12 +46,14 @@ class ExecutionSpecsTransitionTool(TransitionTool):
     detect_binary_pattern = re.compile(r"^ethereum-spec-evm-resolver\b")
     t8n_use_server: bool = True
     server_dir: Optional[TemporaryDirectory] = None
+    server_url: str | None = None
 
     def __init__(
         self,
         *,
         binary: Optional[Path] = None,
         trace: bool = False,
+        server_url: str | None = None,
     ):
         """Initialize the Ethereum Specs EVM Resolver Transition Tool interface."""
         os.environ.setdefault("NO_PROXY", "*")  # Disable proxy for local connections
@@ -71,6 +73,7 @@ class ExecutionSpecsTransitionTool(TransitionTool):
                 f"Unexpected exception calling ethereum-spec-evm-resolver: {e}."
             ) from e
         self.help_string = result.stdout
+        self.server_url = server_url
 
     def start_server(self):
         """

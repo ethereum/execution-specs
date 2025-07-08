@@ -7,15 +7,6 @@ import pytest
 
 from ethereum_clis import BesuTransitionTool, ExecutionSpecsTransitionTool, TransitionTool
 
-
-def pytest_runtest_setup(item):
-    """Skip tests if running with pytest-xdist in parallel."""
-    marker = item.get_closest_marker(name="run_in_serial")
-    if marker is not None:
-        if os.getenv("PYTEST_XDIST_WORKER_COUNT") not in [None, "1"]:
-            pytest.skip("Skipping test because pytest-xdist is running with more than one worker.")
-
-
 DEFAULT_TRANSITION_TOOL_FOR_UNIT_TESTS = ExecutionSpecsTransitionTool
 
 INSTALLED_TRANSITION_TOOLS = [
@@ -37,7 +28,9 @@ def installed_transition_tool_instances() -> Generator[
     instances: Dict[str, TransitionTool | Exception] = {}
     for transition_tool_class in INSTALLED_TRANSITION_TOOLS:
         try:
-            instances[transition_tool_class.__name__] = transition_tool_class()
+            transition_tool_instance = transition_tool_class()
+            transition_tool_instance.start_server()
+            instances[transition_tool_class.__name__] = transition_tool_instance
         except Exception as e:
             # Record the exception in order to provide context when failing the appropriate test
             instances[transition_tool_class.__name__] = e

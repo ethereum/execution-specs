@@ -30,7 +30,7 @@ def fill_fork_until() -> str:
 
 
 @pytest.fixture
-def run_fill(test_path: Path, fill_fork_from: str, fill_fork_until: str):
+def run_fill(test_path: Path, fill_fork_from: str, fill_fork_until: str, default_t8n):
     """Create a function to run the fill command with various output directory scenarios."""
 
     def _run_fill(output_dir: Path, clean: bool = False, expect_failure: bool = False):
@@ -44,6 +44,7 @@ def run_fill(test_path: Path, fill_fork_from: str, fill_fork_until: str):
             f"--from={fill_fork_from}",
             f"--until={fill_fork_until}",
             f"--output={str(output_dir)}",
+            f"--t8n-server-url={default_t8n.server_url}",
             str(test_path),
         ]
 

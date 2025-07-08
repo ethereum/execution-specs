@@ -62,7 +62,7 @@ class TransitionTool(EthereumCLI):
     cached_version: Optional[str] = None
     t8n_use_stream: bool = False
     t8n_use_server: bool = False
-    server_url: str
+    server_url: str | None = None
     process: Optional[subprocess.Popen] = None
 
     @abstractmethod
@@ -555,7 +555,7 @@ class TransitionTool(EthereumCLI):
         can be overridden.
         """
         if self.t8n_use_server:
-            if not self.process:
+            if not self.server_url:
                 self.start_server()
             return self._evaluate_server(
                 t8n_data=transition_tool_data,

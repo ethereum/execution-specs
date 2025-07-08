@@ -1,13 +1,10 @@
 """Tests for the gentest CLI command."""
 
-from tempfile import TemporaryDirectory
-
 import pytest
 from click.testing import CliRunner
 
 from cli.gentest.cli import generate
 from cli.gentest.test_context_providers import StateTestProvider
-from cli.pytest_commands.fill import fill
 from ethereum_test_base_types import Account
 from ethereum_test_tools import Environment, Storage, Transaction
 
@@ -92,14 +89,18 @@ def transaction_hash(tx_type: int) -> str:  # noqa: D103
 
 
 @pytest.mark.parametrize("tx_type", list(transactions_by_type.keys()))
-def test_tx_type(tmp_path, monkeypatch, tx_type, transaction_hash):
+def test_tx_type(pytester, tmp_path, monkeypatch, tx_type, transaction_hash, default_t8n):
     """Generates a test case for any transaction type."""
     ## Arrange ##
     # This test is run in a CI environment, where connection to a node could be
     # unreliable. Therefore, we mock the RPC request to avoid any network issues.
     # This is done by patching the `get_context` method of the `StateTestProvider`.
     runner = CliRunner()
-    output_file = str(tmp_path / f"gentest_type_{tx_type}.py")
+    tmp_path_tests = tmp_path / "tests"
+    tmp_path_tests.mkdir()
+    tmp_path_output = tmp_path / "output"
+    tmp_path_output.mkdir()
+    generated_py_file = str(tmp_path_tests / f"gentest_type_{tx_type}.py")
 
     tx = transactions_by_type[tx_type]
 
@@ -109,17 +110,21 @@ def test_tx_type(tmp_path, monkeypatch, tx_type, transaction_hash):
     monkeypatch.setattr(StateTestProvider, "get_context", get_mock_context)
 
     ## Generate ##
-    gentest_result = runner.invoke(generate, [transaction_hash, output_file])
+    gentest_result = runner.invoke(generate, [transaction_hash, generated_py_file])
     assert gentest_result.exit_code == 0
 
     ## Fill ##
+    with open(generated_py_file, "r") as f:
+        pytester.makepyfile(f.read())
+    pytester.copy_example(name="pytest.ini")
+
     args = [
-        "-c",
-        "pytest.ini",
-        "--skip-evm-dump",
-        "--output",
-        TemporaryDirectory().name,
-        output_file,
+        "-m",
+        "state_test",
+        "--fork",
+        "Cancun",
+        "--t8n-server-url",
+        default_t8n.server_url,
     ]
-    fill_result = runner.invoke(fill, args)
-    assert fill_result.exit_code == 0, f"Fill command failed:\n{fill_result.output}"
+    result = pytester.runpytest("-v", *args)
+    assert result.ret == pytest.ExitCode.OK, f"Fill command failed:\n{result}"
