@@ -1,5 +1,5 @@
 """
-Requests were introduced in EIP-7685 as a a general purpose framework for
+Requests were introduced in EIP-7685 as a general purpose framework for
 storing contract-triggered requests. It extends the execution header and
 body with a single field each to store the request information.
 This inherently exposes the requests to the consensus layer, which can
