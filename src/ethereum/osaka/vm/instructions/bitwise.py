@@ -15,7 +15,7 @@ Implementations of the EVM bitwise instructions.
 from ethereum_types.numeric import U256, Uint
 
 from .. import Evm
-from ..gas import GAS_VERY_LOW, charge_gas
+from ..gas import GAS_LOW, GAS_VERY_LOW, charge_gas
 from ..stack import pop, push
 
 
@@ -256,7 +256,7 @@ def count_leading_zeros(evm: Evm) -> None:
     x = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_VERY_LOW)
+    charge_gas(evm, GAS_LOW)
 
     # OPERATION
     bit_length = U256(x.bit_length())
