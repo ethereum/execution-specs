@@ -116,7 +116,7 @@ def test_clz_gas_cost(state_test: StateTestFiller, pre: Alloc, fork: Fork):
             CodeGasMeasure(
                 code=Op.CLZ(Op.PUSH1(1)),
                 extra_stack_items=1,
-                overhead_cost=fork.gas_costs().G_VERY_LOW,
+                overhead_cost=fork.gas_costs().G_LOW,
             ),
         ),
         storage={"0x00": "0xdeadbeef"},
