@@ -77,6 +77,15 @@ def test_worst_calldatacopy(
     if size == 0 and non_zero_data:
         pytest.skip("Non-zero data with size 0 is not applicable.")
 
+    # If `non_zero_data` is True, we fill the calldata with deterministic random data.
+    # Note that if `size == 0` and `non_zero_data` is a skipped case.
+    data = Bytes([i % 256 for i in range(size)]) if non_zero_data else Bytes()
+
+    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
+    min_gas = intrinsic_gas_calculator(calldata=data)
+    if min_gas > env.gas_limit:
+        pytest.skip("Minimum gas required for calldata ({min_gas}) is greater than the gas limit")
+
     # We create the contract that will be doing the CALLDATACOPY multiple times.
     #
     # If `non_zero_data` is True, we leverage CALLDATASIZE for the copy length. Otherwise, since we
@@ -104,10 +113,6 @@ def test_worst_calldatacopy(
             address=code_address, args_offset=Op.PUSH0, args_size=arg_size
         )
         tx_target = pre.deploy_contract(code=code)
-
-    # If `non_zero_data` is True, we fill the calldata with deterministic random data.
-    # Note that if `size == 0` and `non_zero_data` is a skipped case.
-    data = Bytes([i % 256 for i in range(size)]) if non_zero_data else Bytes()
 
     tx = Transaction(
         to=tx_target,
