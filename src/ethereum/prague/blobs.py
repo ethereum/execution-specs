@@ -1,6 +1,6 @@
 """
-Gas Pricing Calculations
-^^^^^^^^^^^^^^^^^^^^^^^
+Blob Gas Calculations
+^^^^^^^^^^^^^^^^^^^^^
 
 .. contents:: Table of Contents
     :backlinks: none
@@ -9,7 +9,7 @@ Gas Pricing Calculations
 Introduction
 ------------
 
-Gas pricing calculations for blocks and transactions.
+Blob gas calculations for blocks and transactions.
 """
 
 from ethereum_types.numeric import U64, Uint
@@ -23,6 +23,7 @@ TARGET_BLOB_GAS_PER_BLOCK = U64(786432)
 GAS_PER_BLOB = U64(2**17)
 MIN_BLOB_GASPRICE = Uint(1)
 BLOB_BASE_FEE_UPDATE_FRACTION = Uint(5007716)
+MAX_BLOB_GAS_PER_BLOCK = U64(786432)
 
 
 def calculate_excess_blob_gas(parent_header: Header) -> U64:

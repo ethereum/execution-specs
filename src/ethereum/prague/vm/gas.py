@@ -253,18 +253,20 @@ def max_message_call_gas(gas: Uint) -> Uint:
     return gas - (gas // Uint(64))
 
 
-def init_code_cost(length: Uint) -> Uint:
+def init_code_cost(init_code_length: Uint) -> Uint:
     """
-    Calculate the gas cost for init code.
+    Calculates the gas to be charged for the init code in CREAT*
+    opcodes as well as create transactions.
 
     Parameters
     ----------
-    length :
-        The length of the init code.
+    init_code_length :
+        The length of the init code provided to the opcode
+        or a create transaction
 
     Returns
     -------
-    gas_cost : `ethereum.base_types.Uint`
-        The gas cost for the init code.
+    init_code_gas: `ethereum.base_types.Uint`
+        The gas to be charged for the init code.
     """
-    return length * GAS_INIT_CODE_WORD_COST
+    return GAS_INIT_CODE_WORD_COST * ceil32(init_code_length) // Uint(32)

@@ -22,7 +22,7 @@ from ...fork_types import EMPTY_ACCOUNT
 from ...state import get_account
 from ...utils.address import to_address
 from ...vm.memory import buffer_read, memory_write
-from ...gas_pricing import calculate_blob_gas_price
+from ...blobs import calculate_blob_gas_price
 from .. import Evm
 from ..exceptions import OutOfBoundsRead
 from ..gas import (
@@ -460,7 +460,7 @@ def returndatacopy(evm: Evm) -> None:
 
 def extcodehash(evm: Evm) -> None:
     """
-    Returns the keccak256 hash of a contract's bytecode
+    Returns the keccak256 hash of a contracts bytecode
     Parameters
     ----------
     evm :

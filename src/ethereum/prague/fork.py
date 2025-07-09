@@ -70,7 +70,7 @@ from .vm.gas import (
     calculate_base_fee_per_gas,
 )
 from .vm.interpreter import MessageCallOutput, process_message_call
-from .gas_pricing import (
+from .blobs import (
     calculate_blob_gas_price,
     calculate_data_fee,
     calculate_excess_blob_gas,
