@@ -18,7 +18,11 @@ from ethereum_types.numeric import Uint
 
 from ..fork_types import Address
 from ..state import get_account
-from ..transactions import Transaction
+from ..transactions import (
+    AlgorithmicTransaction,
+    Transaction,
+    decode_transaction,
+)
 from ..vm import BlockEnvironment, Message, TransactionEnvironment
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from .address import compute_contract_address
@@ -50,6 +54,12 @@ def prepare_message(
     accessed_addresses.add(tx_env.origin)
     accessed_addresses.update(PRE_COMPILED_CONTRACTS.keys())
     accessed_addresses.update(tx_env.access_list_addresses)
+
+    if isinstance(tx, AlgorithmicTransaction):
+        unwrapped_tx = decode_transaction(tx.parent)
+        if isinstance(unwrapped_tx, AlgorithmicTransaction):
+            raise Exception("Impossible double-wrapping.")
+        return prepare_message(block_env, tx_env, unwrapped_tx)
 
     if isinstance(tx.to, Bytes0):
         current_target = compute_contract_address(

@@ -23,7 +23,12 @@ from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import EthereumException
 
 from ..blocks import Log, Receipt, Withdrawal
-from ..fork_types import Address, Authorization, VersionedHash
+from ..fork_types import (
+    Address,
+    Authorization,
+    SignatureOverride,
+    VersionedHash,
+)
 from ..state import State, TransientStorage
 from ..transactions import LegacyTransaction
 from ..trie import Trie
@@ -106,6 +111,8 @@ class TransactionEnvironment:
     transient_storage: TransientStorage
     blob_versioned_hashes: Tuple[VersionedHash, ...]
     authorizations: Tuple[Authorization, ...]
+    signature_overrides: Tuple[SignatureOverride, ...]
+    signature_override: Uint
     index_in_block: Optional[Uint]
     tx_hash: Optional[Hash32]
     traces: List[dict]
