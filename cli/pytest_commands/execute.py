@@ -27,10 +27,11 @@ def _create_execute_subcommand(
 
     @execute.command(
         name=command_name,
+        help=help_text,
         context_settings={"ignore_unknown_options": True},
     )
     @common_pytest_options
-    def command(pytest_args: List[str], **kwargs) -> None:
+    def command(pytest_args: List[str], **_kwargs) -> None:
         pytest_command = PytestCommand(
             config_file=config_file,
             argument_processors=[HelpFlagsProcessor(f"execute-{command_name}")],
@@ -45,10 +46,7 @@ def _create_execute_subcommand(
 hive = _create_execute_subcommand(
     "hive",
     "pytest-execute-hive.ini",
-    (
-        "Execute tests using hive in dev-mode as backend, requires hive to be running "
-        "(using command: `./hive --dev`)."
-    ),
+    "Execute tests using hive as a backend (`./hive --dev`).",
 )
 
 remote = _create_execute_subcommand(
@@ -60,5 +58,5 @@ remote = _create_execute_subcommand(
 recover = _create_execute_subcommand(
     "recover",
     "pytest-execute-recover.ini",
-    "Recover funds from a failed test execution using a remote RPC endpoint.",
+    "Recover funds from test executions using a remote RPC endpoint.",
 )
