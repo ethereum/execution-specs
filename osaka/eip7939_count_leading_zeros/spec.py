@@ -18,6 +18,7 @@ ref_spec_7939 = ReferenceSpec("EIPS/eip-7939.md", "c8321494fdfbfda52ad46c3515a7c
 class Spec:
     """Constants and helpers for the CLZ opcode."""
 
+    CLZ = 0x1E
     CLZ_GAS_COST = 5
 
     @classmethod
