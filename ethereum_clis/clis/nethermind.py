@@ -391,9 +391,9 @@ class NethermindExceptionMapper(ExceptionMapper):
             r"Invalid block hash 0x[0-9a-f]+ does not match calculated hash 0x[0-9a-f]+"
         ),
         BlockException.SYSTEM_CONTRACT_EMPTY: (
-            r"(Withdrawals|Consolidations)Empty\: Contract is not deployed\."
+            r"(Withdrawals|Consolidations)Empty: Contract is not deployed\."
         ),
         BlockException.SYSTEM_CONTRACT_CALL_FAILED: (
-            r"(Withdrawals|Consolidations)Failed\: Contract execution failed\."
+            r"(Withdrawals|Consolidations)Failed: Contract execution failed\."
         ),
     }
