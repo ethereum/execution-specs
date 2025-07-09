@@ -14,9 +14,9 @@ Blob gas calculations for blocks and transactions.
 
 from ethereum_types.numeric import U64, Uint
 
+from ..utils.numeric import taylor_exponential
 from .blocks import Header
 from .transactions import BlobTransaction, Transaction
-from .utils.numeric import taylor_exponential
 
 # Blob gas constants
 TARGET_BLOB_GAS_PER_BLOCK = U64(786432)
@@ -116,4 +116,4 @@ def calculate_data_fee(excess_blob_gas: U64, tx: Transaction) -> Uint:
     """
     return Uint(calculate_total_blob_gas(tx)) * calculate_blob_gas_price(
         excess_blob_gas
-    ) 
+    )

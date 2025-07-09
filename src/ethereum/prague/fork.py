@@ -27,6 +27,13 @@ from ethereum.exceptions import (
 )
 
 from . import vm
+from .blobs import (
+    MAX_BLOB_GAS_PER_BLOCK,
+    calculate_blob_gas_price,
+    calculate_data_fee,
+    calculate_excess_blob_gas,
+    calculate_total_blob_gas,
+)
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
 from .fork_types import Account, Address, Authorization, VersionedHash
@@ -66,17 +73,7 @@ from .utils.hexadecimal import hex_to_address
 from .utils.message import prepare_message
 from .vm import Message
 from .vm.eoa_delegation import is_valid_delegation
-from .vm.gas import (
-    calculate_base_fee_per_gas,
-)
 from .vm.interpreter import MessageCallOutput, process_message_call
-from .blobs import (
-    calculate_blob_gas_price,
-    calculate_data_fee,
-    calculate_excess_blob_gas,
-    calculate_total_blob_gas,
-    MAX_BLOB_GAS_PER_BLOCK,
-)
 
 BASE_FEE_MAX_CHANGE_DENOMINATOR = Uint(8)
 ELASTICITY_MULTIPLIER = Uint(2)

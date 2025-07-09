@@ -18,11 +18,11 @@ from ethereum_types.numeric import U256, Uint, ulen
 from ethereum.crypto.hash import keccak256
 from ethereum.utils.numeric import ceil32
 
+from ...blobs import calculate_blob_gas_price
 from ...fork_types import EMPTY_ACCOUNT
 from ...state import get_account
 from ...utils.address import to_address
 from ...vm.memory import buffer_read, memory_write
-from ...blobs import calculate_blob_gas_price
 from .. import Evm
 from ..exceptions import OutOfBoundsRead
 from ..gas import (
