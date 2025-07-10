@@ -28,7 +28,7 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7825.md"
 REFERENCE_SPEC_VERSION = "47cbfed315988c0bd4d10002c110ae402504cd94"
 
-TX_GAS_LIMIT = 30_000_000
+TX_GAS_LIMIT = 2**24  # 16,777,216
 BLOB_COMMITMENT_VERSION_KZG = 1
 
 
@@ -125,8 +125,8 @@ def test_transaction_gas_limit_cap_at_transition(
     """
     Test transaction gas limit cap behavior at the Osaka transition.
 
-    Before timestamp 15000: No gas limit cap (transactions with gas > 30M are valid)
-    At/after timestamp 15000: Gas limit cap of 30M is enforced
+    Before timestamp 15000: No gas limit cap (transactions with gas > 2^24 are valid)
+    At/after timestamp 15000: Gas limit cap of 2^24 is enforced
     """
     sender = pre.fund_eoa()
     contract_address = pre.deploy_contract(
@@ -137,7 +137,7 @@ def test_transaction_gas_limit_cap_at_transition(
     if pre_cap is None:
         pre_cap = TX_GAS_LIMIT
 
-    # Transaction with gas limit above 30M
+    # Transaction with gas limit above the cap before transition
     high_gas_tx = Transaction(
         ty=0,  # Legacy transaction
         to=contract_address,
