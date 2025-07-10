@@ -1378,7 +1378,7 @@ class Osaka(Prague, solc_name="cancun"):
     @classmethod
     def transaction_gas_limit_cap(cls, block_number: int = 0, timestamp: int = 0) -> int | None:
         """At Osaka, transaction gas limit is capped at 30 million."""
-        return 30_000_000
+        return 16_777_216
 
     @classmethod
     def block_rlp_size_limit(cls, block_number: int = 0, timestamp: int = 0) -> int | None:
