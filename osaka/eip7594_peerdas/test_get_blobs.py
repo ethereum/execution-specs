@@ -155,12 +155,6 @@ def tx_error() -> Optional[TransactionException]:
     return None
 
 
-@pytest.fixture
-def tx_wrapper_version() -> int | None:
-    """Return wrapper version used for the transactions sent during test."""
-    return 1
-
-
 @pytest.fixture(autouse=True)
 def txs(  # noqa: D103
     pre: Alloc,
@@ -172,7 +166,7 @@ def txs(  # noqa: D103
     txs_versioned_hashes: List[List[bytes]],
     tx_error: Optional[TransactionException],
     txs_blobs: List[List[Blob]],
-    tx_wrapper_version: int | None,
+    fork: Fork,
 ) -> List[NetworkWrappedTransaction | Transaction]:
     """Prepare the list of transactions that are sent during the test."""
     if len(txs_blobs) != len(txs_versioned_hashes):
@@ -193,8 +187,8 @@ def txs(  # noqa: D103
         )
         network_wrapped_tx = NetworkWrappedTransaction(
             tx=tx,
-            wrapper_version=tx_wrapper_version,
             blob_objects=tx_blobs,
+            wrapper_version=fork.full_blob_tx_wrapper_version(),
         )
         txs.append(network_wrapped_tx)
     return txs

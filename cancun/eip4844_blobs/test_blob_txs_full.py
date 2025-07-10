@@ -157,6 +157,7 @@ def txs(  # noqa: D103
     tx_error: Optional[TransactionException],
     txs_blobs: List[List[Blob]],
     txs_wrapped_blobs: List[bool],
+    fork: Fork,
 ) -> List[Transaction]:
     """Prepare the list of transactions that are sent during the test."""
     if len(txs_blobs) != len(txs_versioned_hashes) or len(txs_blobs) != len(txs_wrapped_blobs):
@@ -182,7 +183,11 @@ def txs(  # noqa: D103
             wrapped_blob_transaction=tx_wrapped_blobs,
         )
         if tx_wrapped_blobs:
-            network_wrapped_tx = NetworkWrappedTransaction(tx=tx, blob_objects=tx_blobs)
+            network_wrapped_tx = NetworkWrappedTransaction(
+                tx=tx,
+                blob_objects=tx_blobs,
+                wrapper_version=fork.full_blob_tx_wrapper_version(),
+            )
             tx.rlp_override = network_wrapped_tx.rlp()
         txs.append(tx)
     return txs
