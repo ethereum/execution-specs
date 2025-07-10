@@ -251,6 +251,13 @@ class Frontier(BaseFork, solc_name="homestead"):
         raise NotImplementedError(f"Max blobs per block is not supported in {cls.name()}")
 
     @classmethod
+    def full_blob_tx_wrapper_version(cls, block_number: int = 0, timestamp: int = 0) -> int | None:
+        """Return the version of the full blob transaction wrapper."""
+        raise NotImplementedError(
+            f"Full blob transaction wrapper version is not supported in {cls.name()}"
+        )
+
+    @classmethod
     def blob_schedule(cls, block_number: int = 0, timestamp: int = 0) -> BlobSchedule | None:
         """At genesis, no blob schedule is used."""
         return None
@@ -1015,6 +1022,11 @@ class Cancun(Shanghai):
         return 6
 
     @classmethod
+    def full_blob_tx_wrapper_version(cls, block_number: int = 0, timestamp: int = 0) -> int | None:
+        """Pre-Osaka forks don't use tx wrapper versions for full blob transactions."""
+        return None
+
+    @classmethod
     def blob_schedule(cls, block_number: int = 0, timestamp: int = 0) -> BlobSchedule | None:
         """
         At Cancun, the fork object runs this routine to get the updated blob
@@ -1374,6 +1386,11 @@ class Osaka(Prague, solc_name="cancun"):
     def engine_get_blobs_version(cls, block_number: int = 0, timestamp: int = 0) -> Optional[int]:
         """At Osaka, the engine get blobs version is 2."""
         return 2
+
+    @classmethod
+    def full_blob_tx_wrapper_version(cls, block_number=0, timestamp=0) -> int | None:
+        """At Osaka, the full blob transaction wrapper version is defined."""
+        return 1
 
     @classmethod
     def transaction_gas_limit_cap(cls, block_number: int = 0, timestamp: int = 0) -> int | None:

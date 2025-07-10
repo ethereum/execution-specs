@@ -331,6 +331,12 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
         pass
 
     @classmethod
+    @abstractmethod
+    def full_blob_tx_wrapper_version(cls, block_number: int = 0, timestamp: int = 0) -> int | None:
+        """Return the version of the full blob transaction wrapper at a given fork."""
+        pass
+
+    @classmethod
     @prefer_transition_to_method
     @abstractmethod
     def blob_schedule(cls, block_number: int = 0, timestamp: int = 0) -> BlobSchedule | None:
