@@ -118,14 +118,24 @@ class _FixturesDownloader:
             repo = git.Repo(path)
 
         print(f"Checking out the correct commit {commit_hash}...")
-        branch = repo.heads["develop"]
         # Try to checkout the relevant commit hash and if that fails
         # fetch the latest changes and checkout the commit hash
+        last_exception = None
         try:
             repo.git.checkout(commit_hash)
-        except GitCommandError:
-            repo.remotes.origin.fetch(branch.name)
-            repo.git.checkout(commit_hash)
+        except GitCommandError as e:
+            last_exception = e
+            for head in repo.heads:
+                repo.remotes.origin.fetch(head.name)
+                try:
+                    repo.git.checkout(commit_hash)
+                    last_exception = None
+                    break
+                except GitCommandError as e:
+                    last_exception = e
+
+            if last_exception:
+                raise last_exception
 
         # Check if the submodule head matches the parent commit
         # If not, update the submodule
