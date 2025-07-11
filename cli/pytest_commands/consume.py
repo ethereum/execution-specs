@@ -42,11 +42,11 @@ def get_static_test_paths(command_name: str, is_hive: bool) -> List[Path]:
     if command_name == "hive":
         commands = ["rlp", "engine"]
         static_test_paths = [
-            base_path / "simulators" / "hive_tests" / f"test_via_{cmd}.py" for cmd in commands
+            base_path / "simulators" / "simulator_logic" / f"test_via_{cmd}.py" for cmd in commands
         ]
     elif command_name in ["engine", "rlp"]:
         static_test_paths = [
-            base_path / "simulators" / "hive_tests" / f"test_via_{command_name}.py"
+            base_path / "simulators" / "simulator_logic" / f"test_via_{command_name}.py"
         ]
     elif command_name == "direct":
         static_test_paths = [base_path / "direct" / "test_via_direct.py"]
