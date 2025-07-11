@@ -585,9 +585,12 @@ class Homestead(Frontier):
         At Homestead, EC-recover, SHA256, RIPEMD160, and Identity pre-compiles
         are introduced.
         """
-        return [Address(i) for i in range(1, 5)] + super(Homestead, cls).precompiles(
-            block_number, timestamp
-        )
+        return [
+            Address(1, label="ECREC"),
+            Address(2, label="SHA256"),
+            Address(3, label="RIPEMD160"),
+            Address(4, label="ID"),
+        ] + super(Homestead, cls).precompiles(block_number, timestamp)
 
     @classmethod
     def call_opcodes(
@@ -639,6 +642,24 @@ class Homestead(Frontier):
         return fn
 
 
+class DAOFork(Homestead, ignore=True):
+    """DAO fork."""
+
+    pass
+
+
+class Tangerine(DAOFork, ignore=True):
+    """Tangerine fork (EIP-150)."""
+
+    pass
+
+
+class SpuriousDragon(Tangerine, ignore=True):
+    """SpuriousDragon fork (EIP-155, EIP-158)."""
+
+    pass
+
+
 class Byzantium(Homestead):
     """Byzantium fork."""
 
@@ -657,9 +678,12 @@ class Byzantium(Homestead):
         multiplication on elliptic curve alt_bn128, and optimal ate pairing check on
         elliptic curve alt_bn128 are introduced.
         """
-        return [Address(i) for i in range(5, 9)] + super(Byzantium, cls).precompiles(
-            block_number, timestamp
-        )
+        return [
+            Address(5, label="MODEXP"),
+            Address(6, label="BN256_ADD"),
+            Address(7, label="BN256_MUL"),
+            Address(8, label="BN256_PAIRING"),
+        ] + super(Byzantium, cls).precompiles(block_number, timestamp)
 
     @classmethod
     def max_code_size(cls) -> int:
@@ -735,7 +759,9 @@ class Istanbul(ConstantinopleFix):
     @classmethod
     def precompiles(cls, block_number: int = 0, timestamp: int = 0) -> List[Address]:
         """At Istanbul, pre-compile for blake2 compression is introduced."""
-        return [Address(9)] + super(Istanbul, cls).precompiles(block_number, timestamp)
+        return [
+            Address(9, label="BLAKE2F"),
+        ] + super(Istanbul, cls).precompiles(block_number, timestamp)
 
     @classmethod
     def valid_opcodes(
@@ -1051,12 +1077,14 @@ class Cancun(Shanghai):
     @classmethod
     def precompiles(cls, block_number: int = 0, timestamp: int = 0) -> List[Address]:
         """At Cancun, pre-compile for kzg point evaluation is introduced."""
-        return [Address(0xA)] + super(Cancun, cls).precompiles(block_number, timestamp)
+        return [
+            Address(10, label="KZG_POINT_EVALUATION"),
+        ] + super(Cancun, cls).precompiles(block_number, timestamp)
 
     @classmethod
     def system_contracts(cls, block_number: int = 0, timestamp: int = 0) -> List[Address]:
         """Cancun introduces the system contract for EIP-4788."""
-        return [Address(0x000F3DF6D732807EF1319FB7B8BB8522D0BEAC02)]
+        return [Address(0x000F3DF6D732807EF1319FB7B8BB8522D0BEAC02, label="BEACON_ROOTS_ADDRESS")]
 
     @classmethod
     def pre_allocation_blockchain(cls) -> Mapping:
@@ -1136,17 +1164,23 @@ class Prague(Cancun):
         """
         At Prague, pre-compile for BLS operations are added.
 
-        G1ADD = 0x0B
-        G1MSM = 0x0C
-        G2ADD = 0x0D
-        G2MSM = 0x0E
-        PAIRING = 0x0F
-        MAP_FP_TO_G1 = 0x10
-        MAP_FP2_TO_G2 = 0x11
+        BLS12_G1ADD = 0x0B
+        BLS12_G1MSM = 0x0C
+        BLS12_G2ADD = 0x0D
+        BLS12_G2MSM = 0x0E
+        BLS12_PAIRING_CHECK = 0x0F
+        BLS12_MAP_FP_TO_G1 = 0x10
+        BLS12_MAP_FP2_TO_G2 = 0x11
         """
-        return [Address(i) for i in range(0xB, 0x11 + 1)] + super(Prague, cls).precompiles(
-            block_number, timestamp
-        )
+        return [
+            Address(11, label="BLS12_G1ADD"),
+            Address(12, label="BLS12_G1MSM"),
+            Address(13, label="BLS12_G2ADD"),
+            Address(14, label="BLS12_G2MSM"),
+            Address(15, label="BLS12_PAIRING_CHECK"),
+            Address(16, label="BLS12_MAP_FP_TO_G1"),
+            Address(17, label="BLS12_MAP_FP2_TO_G2"),
+        ] + super(Prague, cls).precompiles(block_number, timestamp)
 
     @classmethod
     def tx_types(cls, block_number: int = 0, timestamp: int = 0) -> List[int]:
@@ -1171,10 +1205,22 @@ class Prague(Cancun):
     def system_contracts(cls, block_number: int = 0, timestamp: int = 0) -> List[Address]:
         """Prague introduces the system contracts for EIP-6110, EIP-7002, EIP-7251 and EIP-2935."""
         return [
-            Address(0x00000000219AB540356CBB839CBE05303D7705FA),
-            Address(0x00000961EF480EB55E80D19AD83579A64C007002),
-            Address(0x0000BBDDC7CE488642FB579F8B00F3A590007251),
-            Address(0x0000F90827F1C53A10CB7A02335B175320002935),
+            Address(
+                0x00000000219AB540356CBB839CBE05303D7705FA,
+                label="DEPOSIT_CONTRACT_ADDRESS",
+            ),
+            Address(
+                0x00000961EF480EB55E80D19AD83579A64C007002,
+                label="WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS",
+            ),
+            Address(
+                0x0000BBDDC7CE488642FB579F8B00F3A590007251,
+                label="CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS",
+            ),
+            Address(
+                0x0000F90827F1C53A10CB7A02335B175320002935,
+                label="HISTORY_STORAGE_ADDRESS",
+            ),
         ] + super(Prague, cls).system_contracts(block_number, timestamp)
 
     @classmethod
@@ -1428,7 +1474,9 @@ class Osaka(Prague, solc_name="cancun"):
 
         P256VERIFY = 0x100
         """
-        return [Address(0x100)] + super(Osaka, cls).precompiles(block_number, timestamp)
+        return [
+            Address(0x100, label="P256VERIFY"),
+        ] + super(Osaka, cls).precompiles(block_number, timestamp)
 
     @classmethod
     def excess_blob_gas_calculator(

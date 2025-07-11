@@ -116,9 +116,11 @@ def test_tx_type(pytester, tmp_path, monkeypatch, tx_type, transaction_hash, def
     ## Fill ##
     with open(generated_py_file, "r") as f:
         pytester.makepyfile(f.read())
-    pytester.copy_example(name="pytest.ini")
+    pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
 
     args = [
+        "-c",
+        "pytest-fill.ini",
         "-m",
         "state_test",
         "--fork",

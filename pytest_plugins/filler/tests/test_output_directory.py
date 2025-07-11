@@ -4,10 +4,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from click.testing import CliRunner
 from pytest import TempPathFactory
 
-from cli.pytest_commands.fill import fill
+from ethereum_clis import TransitionTool
 from pytest_plugins.filler.fixture_output import FixtureOutput
 
 
@@ -30,32 +29,41 @@ def fill_fork_until() -> str:
 
 
 @pytest.fixture
-def run_fill(test_path: Path, fill_fork_from: str, fill_fork_until: str, default_t8n):
+def run_fill(
+    pytester: pytest.Pytester,
+    test_path: Path,
+    fill_fork_from: str,
+    fill_fork_until: str,
+    default_t8n: TransitionTool,
+):
     """Create a function to run the fill command with various output directory scenarios."""
 
-    def _run_fill(output_dir: Path, clean: bool = False, expect_failure: bool = False):
+    def _run_fill(
+        output_dir: Path, clean: bool = False, expect_failure: bool = False
+    ) -> pytest.RunResult:
         """Run the fill command with the specified output directory and clean flag."""
+        pytester.copy_example(name=str(test_path))
+        pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
         args = [
             "-c",
-            "pytest.ini",
+            "pytest-fill.ini",
             "-m",
             "(not blockchain_test_engine) and (not eip_version_check)",
             f"--from={fill_fork_from}",
             f"--until={fill_fork_until}",
             f"--output={str(output_dir)}",
             f"--t8n-server-url={default_t8n.server_url}",
-            str(test_path),
+            str(test_path.name),
         ]
-
         if clean:
             args.append("--clean")
 
-        result = CliRunner().invoke(fill, args)
+        result = pytester.runpytest(*args)
 
         if expect_failure:
-            assert result.exit_code != 0, "Fill command was expected to fail but succeeded"
+            assert result.ret != 0, "Fill command was expected to fail but succeeded"
         else:
-            assert result.exit_code == 0, f"Fill command failed:\n{result.output}"
+            assert result.ret == 0, f"Fill command failed:\n{result.outlines}"
 
         return result
 
@@ -89,10 +97,16 @@ def test_fill_to_nonempty_directory_fails(tmp_path_factory: TempPathFactory, run
     output_dir = tmp_path_factory.mktemp("nonempty_fixtures")
     (output_dir / "existing_file.txt").write_text("This directory is not empty")
 
-    result = run_fill(output_dir, expect_failure=True)
+    result: pytest.RunResult = run_fill(output_dir, expect_failure=True)
+    outlines = result.errlines
+    assert isinstance(outlines, list)
 
-    assert "is not empty" in str(result.output), "Expected error about non-empty directory"
-    assert "Use --clean" in str(result.output), "Expected suggestion to use --clean flag"
+    assert any("is not empty" in line for line in outlines), (
+        f"Expected error about non-empty directory: {outlines}"
+    )
+    assert any("Use --clean" in line for line in outlines), (
+        f"Expected suggestion to use --clean flag: {outlines}"
+    )
 
 
 def test_fill_to_nonempty_directory_with_clean(tmp_path_factory: TempPathFactory, run_fill):
@@ -117,9 +131,11 @@ def test_fill_to_directory_with_meta_fails(tmp_path_factory: TempPathFactory, ru
     meta_dir.mkdir()
     (meta_dir / "existing_meta_file.txt").write_text("This is metadata")
 
-    result = run_fill(output_dir, expect_failure=True)
+    result: pytest.RunResult = run_fill(output_dir, expect_failure=True)
 
-    assert "is not empty" in str(result.output), "Expected error about non-empty directory"
+    assert any("is not empty" in line for line in result.errlines), (
+        "Expected error about non-empty directory"
+    )
 
 
 def test_fill_to_directory_with_meta_with_clean(tmp_path_factory: TempPathFactory, run_fill):
@@ -145,12 +161,12 @@ def test_fill_stdout_always_works(tmp_path_factory: TempPathFactory, run_fill):
     meta_dir.mkdir()
     (meta_dir / "existing_meta_file.txt").write_text("This is metadata")
 
-    result = run_fill(stdout_path)
+    result: pytest.RunResult = run_fill(stdout_path)
 
-    assert (
-        '"tests/istanbul/eip1344_chainid/test_chainid.py::test_chainid[fork_Cancun-state_test]": {'
-        in result.output
-    ), "Expected JSON output for state test"
+    assert any(
+        "test_chainid.py::test_chainid[fork_Cancun-state_test]" in line for line in result.outlines
+    ), f"Expected JSON output for state test: {result.outlines}"
+    assert not any(stdout_path.glob("*.json")), "Fixture files were created when stdout is used"
 
 
 def test_fill_to_tarball_directory(tmp_path_factory: TempPathFactory, run_fill):

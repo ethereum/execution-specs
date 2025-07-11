@@ -57,7 +57,7 @@ def get_deployed_forks() -> List[Type[BaseFork]]:
     Return list of all the fork classes implemented by `ethereum_test_forks`
     that have been deployed to mainnet, chronologically ordered by deployment.
     """
-    return [fork for fork in get_forks() if fork.is_deployed()]
+    return [fork for fork in get_forks() if fork.is_deployed() and not fork.ignore()]
 
 
 def get_development_forks() -> List[Type[BaseFork]]:

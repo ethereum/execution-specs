@@ -502,3 +502,7 @@ class BlobSchedule(EthereumTestRootModel[Dict[str, ForkBlobSchedule]]):
         if len(self.root) == 0:
             return None
         return list(self.root.values())[-1]
+
+    def __getitem__(self, key: str) -> ForkBlobSchedule:
+        """Return the schedule for a given fork."""
+        return self.root[key]

@@ -71,7 +71,10 @@ def to_fixed_size_bytes(
         return int.to_bytes(input_bytes, length=size, byteorder="big", signed=input_bytes < 0)
     input_bytes = to_bytes(input_bytes)
     if len(input_bytes) > size:
-        raise Exception(f"input is too large for fixed size bytes: {len(input_bytes)} > {size}")
+        raise Exception(
+            f"input is too large for fixed size bytes: {input_bytes.hex()}, "
+            f" {len(input_bytes)} > {size}"
+        )
     if len(input_bytes) < size:
         if left_padding:
             return bytes(input_bytes).rjust(size, b"\x00")

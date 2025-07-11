@@ -548,7 +548,9 @@ def test_fixture_output_based_on_command_line_args(
     test_module = shanghai_tests_dir.join("test_module_shanghai.py")
     test_module.write(test_module_shanghai)
 
-    testdir.copy_example(name="pytest.ini")
+    testdir.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    args.append("-c")
+    args.append("pytest-fill.ini")
     args.append("-v")
     args.append("--no-html")
     args.append("--t8n-server-url")
@@ -685,7 +687,9 @@ def test_fill_variables(
         test_module_environment_variables.format(expected_gas_limit=expected_gas_limit)
     )
 
-    testdir.copy_example(name="pytest.ini")
+    testdir.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    args.append("-c")
+    args.append("pytest-fill.ini")
     args.append("-v")
     args.append("-m")
     args.append("state_test")

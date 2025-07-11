@@ -4,6 +4,8 @@ from typing import List
 
 import pytest
 
+from ethereum_clis import TransitionTool
+
 
 def generate_test(**kwargs: str):
     """Generate a test function with the given fork markers."""
@@ -122,7 +124,13 @@ def test_case(state_test):
         ),
     ],
 )
-def test_fork_markers(pytester, test_function: str, outcomes: dict, pytest_args: List[str]):
+def test_fork_markers(
+    pytester,
+    test_function: str,
+    outcomes: dict,
+    pytest_args: List[str],
+    default_t8n: TransitionTool,
+):
     """
     Test fork markers in an isolated test session, i.e., in
     a `fill` execution.
@@ -131,6 +139,13 @@ def test_fork_markers(pytester, test_function: str, outcomes: dict, pytest_args:
     console output.
     """
     pytester.makepyfile(test_function)
-    pytester.copy_example(name="pytest.ini")
-    result = pytester.runpytest("-v", *pytest_args)
+    pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    result = pytester.runpytest(
+        "-c",
+        "pytest-fill.ini",
+        "-v",
+        *pytest_args,
+        "--t8n-server-url",
+        default_t8n.server_url,
+    )
     result.assert_outcomes(**outcomes)

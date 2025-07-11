@@ -13,6 +13,7 @@ from ethereum_test_base_types import Address, Bytes, Hash, to_json
 from ethereum_test_types import Transaction
 
 from .types import (
+    EthConfigResponse,
     ForkchoiceState,
     ForkchoiceUpdateResponse,
     GetBlobsResponse,
@@ -128,6 +129,23 @@ class EthRPC(BaseRPC):
             url, extra_headers, response_validation_context=response_validation_context
         )
         self.transaction_wait_timeout = transaction_wait_timeout
+
+    def config(self):
+        """`eth_config`: Returns information about a fork configuration of the client."""
+        try:
+            response = self.post_request("config")
+            if response is None:
+                return None
+            return EthConfigResponse.model_validate(
+                response, context=self.response_validation_context
+            )
+        except ValidationError as e:
+            pprint(e.errors())
+            raise e
+
+    def chain_id(self) -> int:
+        """`eth_chainId`: Returns the current chain id."""
+        return int(self.post_request("chainId"), 16)
 
     def get_block_by_number(self, block_number: BlockNumberType = "latest", full_txs: bool = True):
         """`eth_getBlockByNumber`: Returns information about a block by block number."""

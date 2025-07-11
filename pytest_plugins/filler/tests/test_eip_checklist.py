@@ -73,8 +73,10 @@ def test_eip_checklist_collection(testdir):
         )
     )
     # Run pytest with checklist-only mode
-    testdir.copy_example(name="pytest.ini")
+    testdir.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
     result = testdir.runpytest(
+        "-c",
+        "pytest-fill.ini",
         "-p",
         "pytest_plugins.filler.eip_checklist",
         "--collect-only",

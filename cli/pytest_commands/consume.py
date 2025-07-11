@@ -6,64 +6,53 @@ from typing import Any, Callable, List
 
 import click
 
-from .base import ArgumentProcessor, PytestCommand, PytestExecution, common_pytest_options
+from .base import ArgumentProcessor, PytestCommand, common_pytest_options
 from .processors import ConsumeCommandProcessor, HelpFlagsProcessor, HiveEnvironmentProcessor
 
 
-class ConsumeCommand(PytestCommand):
-    """Pytest command for consume operations."""
+def create_consume_command(
+    *,
+    static_test_paths: List[Path],
+    is_hive: bool = False,
+    command_name: str = "",
+) -> PytestCommand:
+    """Initialize consume command with paths and processors."""
+    processors: List[ArgumentProcessor] = [HelpFlagsProcessor("consume")]
 
-    def __init__(self, command_paths: List[Path], is_hive: bool = False, command_name: str = ""):
-        """Initialize consume command with paths and processors."""
-        processors: List[ArgumentProcessor] = [HelpFlagsProcessor("consume")]
-
-        if is_hive:
-            processors.extend(
-                [
-                    HiveEnvironmentProcessor(command_name=command_name),
-                    ConsumeCommandProcessor(is_hive=True),
-                ]
-            )
-        else:
-            processors.append(ConsumeCommandProcessor(is_hive=False))
-
-        super().__init__(
-            config_file="pytest-consume.ini",
-            argument_processors=processors,
+    if is_hive:
+        processors.extend(
+            [
+                HiveEnvironmentProcessor(command_name=command_name),
+                ConsumeCommandProcessor(is_hive=True),
+            ]
         )
-        self.command_paths = command_paths
+    else:
+        processors.append(ConsumeCommandProcessor(is_hive=False))
 
-    def create_executions(self, pytest_args: List[str]) -> List[PytestExecution]:
-        """Create execution with test paths prepended."""
-        processed_args = self.process_arguments(pytest_args)
-
-        # Prepend test paths to arguments
-        test_path_args = [str(p) for p in self.command_paths]
-        final_args = test_path_args + processed_args
-
-        return [
-            PytestExecution(
-                config_file=self.config_file,
-                args=final_args,
-            )
-        ]
+    return PytestCommand(
+        config_file="pytest-consume.ini",
+        argument_processors=processors,
+        static_test_paths=static_test_paths,
+    )
 
 
-def get_command_paths(command_name: str, is_hive: bool) -> List[Path]:
+def get_static_test_paths(command_name: str, is_hive: bool) -> List[Path]:
     """Determine the command paths based on the command name and hive flag."""
-    base_path = Path("src/pytest_plugins/consume")
+    base_path = Path("pytest_plugins/consume")
     if command_name == "hive":
         commands = ["rlp", "engine"]
-        command_paths = [
+        static_test_paths = [
             base_path / "simulators" / "hive_tests" / f"test_via_{cmd}.py" for cmd in commands
         ]
     elif command_name in ["engine", "rlp"]:
-        command_paths = [base_path / "simulators" / "hive_tests" / f"test_via_{command_name}.py"]
+        static_test_paths = [
+            base_path / "simulators" / "hive_tests" / f"test_via_{command_name}.py"
+        ]
     elif command_name == "direct":
-        command_paths = [base_path / "direct" / "test_via_direct.py"]
+        static_test_paths = [base_path / "direct" / "test_via_direct.py"]
     else:
         raise ValueError(f"Unexpected command: {command_name}.")
-    return command_paths
+    return static_test_paths
 
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
@@ -78,7 +67,7 @@ def consume_command(is_hive: bool = False) -> Callable[[Callable[..., Any]], cli
     def decorator(func: Callable[..., Any]) -> click.Command:
         command_name = func.__name__
         command_help = func.__doc__
-        command_paths = get_command_paths(command_name, is_hive)
+        static_test_paths = get_static_test_paths(command_name, is_hive)
 
         @consume.command(
             name=command_name,
@@ -88,7 +77,9 @@ def consume_command(is_hive: bool = False) -> Callable[[Callable[..., Any]], cli
         @common_pytest_options
         @functools.wraps(func)
         def command(pytest_args: List[str], **kwargs) -> None:
-            consume_cmd = ConsumeCommand(command_paths, is_hive, command_name)
+            consume_cmd = create_consume_command(
+                static_test_paths=static_test_paths, is_hive=is_hive, command_name=command_name
+            )
             consume_cmd.execute(list(pytest_args))
 
         return command
@@ -126,5 +117,5 @@ def hive() -> None:
 @common_pytest_options
 def cache(pytest_args: List[str], **kwargs) -> None:
     """Consume command to cache test fixtures."""
-    cache_cmd = ConsumeCommand([], is_hive=False)
+    cache_cmd = create_consume_command(static_test_paths=[], is_hive=False)
     cache_cmd.execute(list(pytest_args))

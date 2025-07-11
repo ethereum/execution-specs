@@ -34,7 +34,7 @@ def pytest_addoption(parser):
         help="Show help options specific to the consume command and exit.",
     )
     help_group.addoption(
-        "--execute-help",
+        "--execute-remote-help",
         action="store_true",
         dest="show_execute_help",
         default=False,
@@ -54,6 +54,13 @@ def pytest_addoption(parser):
         default=False,
         help="Show help options specific to the execute's command recover and exit.",
     )
+    help_group.addoption(
+        "--execute-eth-config-help",
+        action="store_true",
+        dest="show_execute_eth_config_help",
+        default=False,
+        help="Show help options specific to the execute's command eth_config and exit.",
+    )
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -71,7 +78,7 @@ def pytest_configure(config):
     elif config.getoption("show_fill_help"):
         show_specific_help(
             config,
-            "pytest.ini",
+            "pytest-fill.ini",
             [
                 "evm",
                 "solc",
@@ -122,6 +129,14 @@ def pytest_configure(config):
                 "fund recovery",
                 "remote RPC configuration",
                 "remote seed sender",
+            ],
+        )
+    elif config.getoption("show_execute_eth_config_help"):
+        show_specific_help(
+            config,
+            "pytest-execute-eth-config.ini",
+            [
+                "eth_config",
             ],
         )
 

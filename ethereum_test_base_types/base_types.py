@@ -350,6 +350,12 @@ class FixedSizeBytes(Bytes):
         )
 
 
+class ForkHash(FixedSizeBytes[4]):  # type: ignore
+    """Class that helps represent the CRC config hashes and identifiers of a fork."""
+
+    pass
+
+
 class Address(FixedSizeBytes[20]):  # type: ignore
     """Class that helps represent Ethereum addresses in tests."""
 

@@ -1,0 +1,45 @@
+{
+    "EELSMaster": {
+        "git_url": "https://github.com/ethereum/execution-specs.git",
+        "branch": "master",
+        "commit": "1fb3704da97f78654e5987868840c5683679f31e"
+    },
+    "Frontier": {
+        "same_as": "EELSMaster"
+    },
+    "Homestead": {
+        "same_as": "EELSMaster"
+    },
+    "Byzantium": {
+        "same_as": "EELSMaster"
+    },
+    "ConstantinopleFix": {
+        "same_as": "EELSMaster"
+    },
+    "Istanbul": {
+        "same_as": "EELSMaster"
+    },
+    "Berlin": {
+        "same_as": "EELSMaster"
+    },
+    "London": {
+        "same_as": "EELSMaster"
+    },
+    "Merge": {
+        "same_as": "EELSMaster"
+    },
+    "Shanghai": {
+        "same_as": "EELSMaster"
+    },
+    "Cancun": {
+        "same_as": "EELSMaster"
+    },
+    "Prague": {
+        "same_as": "EELSMaster"
+    },
+    "Osaka": {
+        "git_url": "https://github.com/ethereum/execution-specs.git",
+        "branch": "forks/osaka",
+        "commit": "f947ab1744aaf12f652a85e28ac5d155af26dd25"
+    }
+}

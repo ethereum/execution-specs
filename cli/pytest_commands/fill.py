@@ -11,14 +11,15 @@ from .processors import HelpFlagsProcessor, StdoutFlagsProcessor
 class FillCommand(PytestCommand):
     """Pytest command for the fill operation."""
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         """Initialize fill command with processors."""
         super().__init__(
-            config_file="pytest.ini",
+            config_file="pytest-fill.ini",
             argument_processors=[
                 HelpFlagsProcessor("fill"),
                 StdoutFlagsProcessor(),
             ],
+            **kwargs,
         )
 
     def create_executions(self, pytest_args: List[str]) -> List[PytestExecution]:
@@ -40,7 +41,7 @@ class FillCommand(PytestCommand):
             # Normal single-phase execution
             return [
                 PytestExecution(
-                    config_file=self.config_file,
+                    config_file=self.config_path,
                     args=processed_args,
                 )
             ]
@@ -55,12 +56,12 @@ class FillCommand(PytestCommand):
 
         return [
             PytestExecution(
-                config_file=self.config_file,
+                config_file=self.config_path,
                 args=phase1_args,
                 description="generating pre-allocation groups",
             ),
             PytestExecution(
-                config_file=self.config_file,
+                config_file=self.config_path,
                 args=phase2_args,
                 description="filling test fixtures",
             ),
@@ -70,7 +71,7 @@ class FillCommand(PytestCommand):
         """Create single execution using existing pre-allocation groups."""
         return [
             PytestExecution(
-                config_file=self.config_file,
+                config_file=self.config_path,
                 args=args,
             )
         ]
@@ -169,7 +170,7 @@ class PhilCommand(FillCommand):
 
         return [
             PytestExecution(
-                config_file=self.config_file,
+                config_file=self.config_path,
                 args=emoji_args,
             )
         ]
