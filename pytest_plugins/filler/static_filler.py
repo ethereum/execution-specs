@@ -92,7 +92,7 @@ def get_all_combinations_from_parametrize_marks(
         for param_set in combination:
             values.extend(param_set.values)
             marks.extend(param_set.marks)
-        test_id = "-".join([param.id or "" for param in combination])
+        test_id = "-".join([param.id or "" for param in combination])  # type: ignore[misc]
         if test_id in test_ids:
             current_int = 2
             while f"{test_id}-{current_int}" in test_ids:
