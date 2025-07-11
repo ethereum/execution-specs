@@ -302,13 +302,17 @@ G2_MAX_DISCOUNT = 524
 MULTIPLIER = Uint(1000)
 
 
+# Note: Caching as a way to optimize client performance can create a DoS
+# attack vector for worst-case inputs that trigger only cache misses. This
+# should not be relied upon for client performance optimization in
+# production systems.
 @lru_cache(maxsize=128)
 def _bytes_to_g1_cached(
     data: bytes,
     subgroup_check: bool = False,
 ) -> Point3D[FQ]:
     """
-    Internal cached version of bytes_to_g1 that works with hashable ``bytes``.
+    Internal cached version of `bytes_to_g1` that works with hashable `bytes`.
     """
     if len(data) != 128:
         raise InvalidParameter("Input should be 128 bytes long")
@@ -361,6 +365,8 @@ def bytes_to_g1(
         subgroup check fails.
 
     """
+    # This is needed bc when we slice `Bytes` we get a `bytearray`,
+    # which is not hashable
     return _bytes_to_g1_cached(bytes(data), subgroup_check)
 
 
@@ -478,13 +484,17 @@ def bytes_to_fq2(data: Bytes) -> FQ2:
     return FQ2((c_0, c_1))
 
 
+# Note: Caching as a way to optimize client performance can create a DoS
+# attack vector for worst-case inputs that trigger only cache misses. This
+# should not be relied upon for client performance optimization in
+# production systems.
 @lru_cache(maxsize=128)
 def _bytes_to_g2_cached(
     data: bytes,
     subgroup_check: bool = False,
 ) -> Point3D[FQ2]:
     """
-    Internal cached version of bytes_to_g2 that works with hashable ``bytes``.
+    Internal cached version of `bytes_to_g2` that works with hashable `bytes`.
     """
     if len(data) != 256:
         raise InvalidParameter("G2 should be 256 bytes long")
@@ -532,7 +542,9 @@ def bytes_to_g2(
         If a field element is invalid, the point is not on the curve, or the
         subgroup check fails.
     """
-    return _bytes_to_g2_cached(bytes(data), subgroup_check)
+    # This is needed bc when we slice `Bytes` we get a `bytearray`,
+    # which is not hashable
+    return _bytes_to_g2_cached(data, subgroup_check)
 
 
 def FQ2_to_bytes(fq2: FQ2) -> Bytes:

@@ -381,6 +381,7 @@ sublist
 
 x00
 codehash
+hashable
 
 randao
 prevrandao
