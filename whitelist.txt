@@ -42,6 +42,7 @@ keccak
 keccak256
 keccak512
 linter
+lru
 mutable256
 mainnet
 memoize
