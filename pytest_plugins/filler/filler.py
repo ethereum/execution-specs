@@ -20,7 +20,6 @@ from _pytest.terminal import TerminalReporter
 from pytest_metadata.plugin import metadata_key  # type: ignore
 
 from cli.gen_index import generate_fixtures_index
-from config import AppConfig
 from ethereum_clis import TransitionTool
 from ethereum_clis.clis.geth import FixtureConsumerTool
 from ethereum_test_base_types import Account, Address, Alloc, ReferenceSpec
@@ -273,19 +272,11 @@ def pytest_addoption(parser: pytest.Parser):
         "--t8n-dump-dir",
         action="store",
         dest="base_dump_dir",
-        default=AppConfig().DEFAULT_EVM_LOGS_DIR,
+        default=None,
         help=(
             "Path to dump the transition tool debug output. "
-            f"(Default: {AppConfig().DEFAULT_EVM_LOGS_DIR})"
+            "Only creates debug output when explicitly specified."
         ),
-    )
-    debug_group.addoption(
-        "--skip-evm-dump",
-        "--skip-t8n-dump",
-        action="store_true",
-        dest="skip_dump_dir",
-        default=False,
-        help=("Skip dumping the the transition tool debug output."),
     )
 
 
@@ -663,8 +654,6 @@ def evm_fixture_verification(
 @pytest.fixture(scope="session")
 def base_dump_dir(request: pytest.FixtureRequest) -> Path | None:
     """Path to base directory to dump the evm debug output."""
-    if request.config.getoption("skip_dump_dir"):
-        return None
     base_dump_dir_str = request.config.getoption("base_dump_dir")
     if base_dump_dir_str:
         return Path(base_dump_dir_str)

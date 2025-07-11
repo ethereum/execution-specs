@@ -38,7 +38,6 @@ def run_fill(test_path: Path, fill_fork_from: str, fill_fork_until: str, default
         args = [
             "-c",
             "pytest.ini",
-            "--skip-evm-dump",
             "-m",
             "(not blockchain_test_engine) and (not eip_version_check)",
             f"--from={fill_fork_from}",

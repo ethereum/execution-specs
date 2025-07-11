@@ -61,7 +61,6 @@ def fill_tests(
         [
             "-c",
             "pytest.ini",
-            "--skip-evm-dump",
             "-m",
             "not blockchain_test_engine",
             f"--from={fill_fork_from}",
