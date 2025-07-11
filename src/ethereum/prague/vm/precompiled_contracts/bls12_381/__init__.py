@@ -12,6 +12,7 @@ Introduction
 Precompile for BLS12-381 curve operations.
 """
 
+from functools import lru_cache
 from typing import Tuple
 
 from ethereum_types.bytes import Bytes
@@ -301,26 +302,13 @@ G2_MAX_DISCOUNT = 524
 MULTIPLIER = Uint(1000)
 
 
-def bytes_to_g1(
-    data: Bytes,
+@lru_cache(maxsize=128)
+def _bytes_to_g1_cached(
+    data: bytes,
+    subgroup_check: bool = False,
 ) -> Point3D[FQ]:
     """
-    Decode 128 bytes to a G1 point. Does not perform sub-group check.
-
-    Parameters
-    ----------
-    data :
-        The bytes data to decode.
-
-    Returns
-    -------
-    point : Point3D[FQ]
-        The G1 point.
-
-    Raises
-    ------
-    InvalidParameter
-        Either a field element is invalid or the point is not on the curve.
+    Internal cached version of bytes_to_g1 that works with hashable ``bytes``.
     """
     if len(data) != 128:
         raise InvalidParameter("Input should be 128 bytes long")
@@ -339,9 +327,41 @@ def bytes_to_g1(
     point = FQ(x), FQ(y), FQ(z)
 
     if not is_on_curve(point, b):
-        raise InvalidParameter("Point is not on curve")
+        raise InvalidParameter("G1 point is not on curve")
+
+    if subgroup_check and not is_inf(bls12_multiply(point, curve_order)):
+        raise InvalidParameter("Subgroup check failed for G1 point.")
 
     return point
+
+
+def bytes_to_g1(
+    data: Bytes,
+    subgroup_check: bool = False,
+) -> Point3D[FQ]:
+    """
+    Decode 128 bytes to a G1 point with or without subgroup check.
+
+    Parameters
+    ----------
+    data :
+        The bytes data to decode.
+    subgroup_check : bool
+        Whether to perform a subgroup check on the G1 point.
+
+    Returns
+    -------
+    point : Point3D[FQ]
+        The G1 point.
+
+    Raises
+    ------
+    InvalidParameter
+        If a field element is invalid, the point is not on the curve, or the
+        subgroup check fails.
+
+    """
+    return _bytes_to_g1_cached(bytes(data), subgroup_check)
 
 
 def g1_to_bytes(
@@ -362,7 +382,7 @@ def g1_to_bytes(
     """
     g1_normalized = normalize(g1_point)
     x, y = g1_normalized
-    return b"".join([int(x).to_bytes(64, "big"), int(y).to_bytes(64, "big")])
+    return int(x).to_bytes(64, "big") + int(y).to_bytes(64, "big")
 
 
 def decode_g1_scalar_pair(
@@ -384,14 +404,12 @@ def decode_g1_scalar_pair(
     Raises
     ------
     InvalidParameter
-        If the sub-group check failed.
+        If the subgroup check failed.
     """
     if len(data) != 160:
         InvalidParameter("Input should be 160 bytes long")
 
-    point = bytes_to_g1(data[:128])
-    if not is_inf(bls12_multiply(point, curve_order)):
-        raise InvalidParameter("Sub-group check failed.")
+    point = bytes_to_g1(data[:128], subgroup_check=True)
 
     m = int.from_bytes(buffer_read(data, U256(128), U256(32)), "big")
 
@@ -460,26 +478,13 @@ def bytes_to_fq2(data: Bytes) -> FQ2:
     return FQ2((c_0, c_1))
 
 
-def bytes_to_g2(
-    data: Bytes,
+@lru_cache(maxsize=128)
+def _bytes_to_g2_cached(
+    data: bytes,
+    subgroup_check: bool = False,
 ) -> Point3D[FQ2]:
     """
-    Decode 256 bytes to a G2 point. Does not perform sub-group check.
-
-    Parameters
-    ----------
-    data :
-        The bytes data to decode.
-
-    Returns
-    -------
-    point : Point3D[FQ2]
-        The G2 point.
-
-    Raises
-    ------
-    InvalidParameter
-        Either a field element is invalid or the point is not on the curve.
+    Internal cached version of bytes_to_g2 that works with hashable ``bytes``.
     """
     if len(data) != 256:
         raise InvalidParameter("G2 should be 256 bytes long")
@@ -493,11 +498,41 @@ def bytes_to_g2(
 
     point = x, y, FQ2(z)
 
-    # Check if the point is on the curve
     if not is_on_curve(point, b2):
         raise InvalidParameter("Point is not on curve")
 
+    if subgroup_check and not is_inf(bls12_multiply(point, curve_order)):
+        raise InvalidParameter("Subgroup check failed for G2 point.")
+
     return point
+
+
+def bytes_to_g2(
+    data: Bytes,
+    subgroup_check: bool = False,
+) -> Point3D[FQ2]:
+    """
+    Decode 256 bytes to a G2 point with or without subgroup check.
+
+    Parameters
+    ----------
+    data :
+        The bytes data to decode.
+    subgroup_check : bool
+        Whether to perform a subgroup check on the G2 point.
+
+    Returns
+    -------
+    point : Point3D[FQ2]
+        The G2 point.
+
+    Raises
+    ------
+    InvalidParameter
+        If a field element is invalid, the point is not on the curve, or the
+        subgroup check fails.
+    """
+    return _bytes_to_g2_cached(bytes(data), subgroup_check)
 
 
 def FQ2_to_bytes(fq2: FQ2) -> Bytes:
@@ -515,12 +550,7 @@ def FQ2_to_bytes(fq2: FQ2) -> Bytes:
         The encoded data.
     """
     coord0, coord1 = fq2.coeffs
-    return b"".join(
-        [
-            int(coord0).to_bytes(64, "big"),
-            int(coord1).to_bytes(64, "big"),
-        ]
-    )
+    return int(coord0).to_bytes(64, "big") + int(coord1).to_bytes(64, "big")
 
 
 def g2_to_bytes(
@@ -540,7 +570,7 @@ def g2_to_bytes(
         The encoded data.
     """
     x_coords, y_coords = normalize(g2_point)
-    return b"".join([FQ2_to_bytes(x_coords), FQ2_to_bytes(y_coords)])
+    return FQ2_to_bytes(x_coords) + FQ2_to_bytes(y_coords)
 
 
 def decode_g2_scalar_pair(
@@ -562,16 +592,12 @@ def decode_g2_scalar_pair(
     Raises
     ------
     InvalidParameter
-        If the sub-group check failed.
+        If the subgroup check failed.
     """
     if len(data) != 288:
         InvalidParameter("Input should be 288 bytes long")
 
-    point = bytes_to_g2(data[:256])
-
-    if not is_inf(bls12_multiply(point, curve_order)):
-        raise InvalidParameter("Point failed sub-group check.")
-
+    point = bytes_to_g2(data[:256], subgroup_check=True)
     n = int.from_bytes(data[256 : 256 + 32], "big")
 
     return point, n
