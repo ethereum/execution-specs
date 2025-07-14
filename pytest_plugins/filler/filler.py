@@ -10,6 +10,7 @@ import configparser
 import datetime
 import os
 import warnings
+from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Type
 
@@ -188,7 +189,8 @@ def pytest_addoption(parser: pytest.Parser):
             "Directory path to store the generated test fixtures. Must be empty if it exists. "
             "If the specified path ends in '.tar.gz', then the specified tarball is additionally "
             "created (the fixtures are still written to the specified path without the '.tar.gz' "
-            f"suffix). Can be deleted. Default: '{default_output_directory()}'."
+            f"suffix). Tarball output automatically enables --generate-all-formats. "
+            f"Can be deleted. Default: '{default_output_directory()}'."
         ),
     )
     test_group.addoption(
@@ -264,6 +266,17 @@ def pytest_addoption(parser: pytest.Parser):
         dest="use_pre_alloc_groups",
         default=False,
         help="Fill tests using existing pre-allocation groups (phase 2 only).",
+    )
+    test_group.addoption(
+        "--generate-all-formats",
+        action="store_true",
+        dest="generate_all_formats",
+        default=False,
+        help=(
+            "Generate all fixture formats including BlockchainEngineXFixture. "
+            "This enables two-phase execution: Phase 1 generates pre-allocation groups, "
+            "phase 2 generates all supported fixture formats."
+        ),
     )
 
     debug_group = parser.getgroup("debug", "Arguments defining debug behavior")
@@ -986,6 +999,65 @@ for cls in BaseTest.spec_types.values():
     globals()[cls.pytest_parameter_name()] = base_test_parametrizer(cls)
 
 
+class ExecutionPhase(Enum):
+    """Execution phase for fixture generation."""
+
+    NORMAL = "normal"
+    PHASE_1_PREALLOC = "phase_1_prealloc"
+    PHASE_2_ENGINE_X_ONLY = "phase_2_engine_x_only"
+    PHASE_2_ALL_FORMATS = "phase_2_all_formats"
+
+
+def _determine_execution_phase(
+    generate_pre_alloc_groups: bool,
+    use_pre_alloc_groups: bool,
+    generate_all_formats: bool,
+) -> ExecutionPhase:
+    """Determine which execution phase we're in based on the flags."""
+    if generate_all_formats and use_pre_alloc_groups:
+        return ExecutionPhase.PHASE_2_ALL_FORMATS
+    elif use_pre_alloc_groups:
+        return ExecutionPhase.PHASE_2_ENGINE_X_ONLY
+    elif generate_pre_alloc_groups or generate_all_formats:
+        return ExecutionPhase.PHASE_1_PREALLOC
+    else:
+        return ExecutionPhase.NORMAL
+
+
+def _is_blockchain_engine_x_fixture(format_item) -> bool:
+    """Check if a fixture format is BlockchainEngineXFixture."""
+    return format_item is BlockchainEngineXFixture or (
+        isinstance(format_item, LabeledFixtureFormat)
+        and format_item.format is BlockchainEngineXFixture
+    )
+
+
+def _determine_fixture_formats(test_type, execution_phase: ExecutionPhase) -> List:
+    """Determine which fixture formats to generate based on execution phase."""
+    all_formats = test_type.supported_fixture_formats
+
+    if execution_phase == ExecutionPhase.PHASE_2_ALL_FORMATS:
+        # Phase 2 with --generate-all-formats: Generate ALL fixture formats
+        return all_formats
+    elif execution_phase in (
+        ExecutionPhase.PHASE_1_PREALLOC,
+        ExecutionPhase.PHASE_2_ENGINE_X_ONLY,
+    ):
+        # Phase 1 or Phase 2 without --generate-all-formats: only BlockchainEngineXFixture
+        return [
+            format_item
+            for format_item in all_formats
+            if _is_blockchain_engine_x_fixture(format_item)
+        ]
+    else:
+        # Normal execution: Filter out BlockchainEngineXFixture
+        return [
+            format_item
+            for format_item in all_formats
+            if not _is_blockchain_engine_x_fixture(format_item)
+        ]
+
+
 def pytest_generate_tests(metafunc: pytest.Metafunc):
     """
     Pytest hook used to dynamically generate test cases for each fixture format a given
@@ -997,33 +1069,12 @@ def pytest_generate_tests(metafunc: pytest.Metafunc):
                 "generate_pre_alloc_groups", False
             )
             use_pre_alloc_groups = metafunc.config.getoption("use_pre_alloc_groups", False)
+            generate_all_formats = metafunc.config.getoption("generate_all_formats", False)
 
-            if generate_pre_alloc_groups or use_pre_alloc_groups:
-                # When pre-allocation group flags are set, only generate BlockchainEngineXFixture
-                supported_formats = [
-                    format_item
-                    for format_item in test_type.supported_fixture_formats
-                    if (
-                        format_item is BlockchainEngineXFixture
-                        or (
-                            isinstance(format_item, LabeledFixtureFormat)
-                            and format_item.format is BlockchainEngineXFixture
-                        )
-                    )
-                ]
-            else:
-                # Filter out BlockchainEngineXFixture if pre-allocation group flags not set
-                supported_formats = [
-                    format_item
-                    for format_item in test_type.supported_fixture_formats
-                    if not (
-                        format_item is BlockchainEngineXFixture
-                        or (
-                            isinstance(format_item, LabeledFixtureFormat)
-                            and format_item.format is BlockchainEngineXFixture
-                        )
-                    )
-                ]
+            execution_phase = _determine_execution_phase(
+                generate_pre_alloc_groups, use_pre_alloc_groups, generate_all_formats
+            )
+            supported_formats = _determine_fixture_formats(test_type, execution_phase)
 
             parameters = []
             for i, format_with_or_without_label in enumerate(supported_formats):

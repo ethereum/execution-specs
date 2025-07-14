@@ -27,12 +27,13 @@ class FillCommand(PytestCommand):
         Create execution plan that supports two-phase pre-allocation group generation.
 
         Returns single execution for normal filling, or two-phase execution
-        when --generate-pre-alloc-groups is specified.
+        when --generate-pre-alloc-groups or --generate-all-formats is specified.
         """
         processed_args = self.process_arguments(pytest_args)
 
         # Check if we need two-phase execution
-        if "--generate-pre-alloc-groups" in processed_args:
+        if self._should_use_two_phase_execution(processed_args):
+            processed_args = self._ensure_generate_all_formats_for_tarball(processed_args)
             return self._create_two_phase_executions(processed_args)
         elif "--use-pre-alloc-groups" in processed_args:
             # Only phase 2: using existing pre-allocation groups
@@ -110,6 +111,7 @@ class FillCommand(PytestCommand):
             # Pre-allocation group flags (we'll add our own)
             "--generate-pre-alloc-groups",
             "--use-pre-alloc-groups",
+            "--generate-all-formats",
         }
 
         filtered_args = []
@@ -134,7 +136,7 @@ class FillCommand(PytestCommand):
         return filtered_args
 
     def _remove_generate_pre_alloc_groups_flag(self, args: List[str]) -> List[str]:
-        """Remove --generate-pre-alloc-groups flag from argument list."""
+        """Remove --generate-pre-alloc-groups flag but keep --generate-all-formats for phase 2."""
         return [arg for arg in args if arg != "--generate-pre-alloc-groups"]
 
     def _remove_clean_flag(self, args: List[str]) -> List[str]:
@@ -144,6 +146,33 @@ class FillCommand(PytestCommand):
     def _add_use_pre_alloc_groups_flag(self, args: List[str]) -> List[str]:
         """Add --use-pre-alloc-groups flag to argument list."""
         return args + ["--use-pre-alloc-groups"]
+
+    def _should_use_two_phase_execution(self, args: List[str]) -> bool:
+        """Determine if two-phase execution is needed."""
+        return (
+            "--generate-pre-alloc-groups" in args
+            or "--generate-all-formats" in args
+            or self._is_tarball_output(args)
+        )
+
+    def _ensure_generate_all_formats_for_tarball(self, args: List[str]) -> List[str]:
+        """Auto-add --generate-all-formats for tarball output."""
+        if self._is_tarball_output(args) and "--generate-all-formats" not in args:
+            return args + ["--generate-all-formats"]
+        return args
+
+    def _is_tarball_output(self, args: List[str]) -> bool:
+        """Check if output argument specifies a tarball (.tar.gz) path."""
+        from pathlib import Path
+
+        for i, arg in enumerate(args):
+            if arg.startswith("--output="):
+                output_path = Path(arg.split("=", 1)[1])
+                return str(output_path).endswith(".tar.gz")
+            elif arg == "--output" and i + 1 < len(args):
+                output_path = Path(args[i + 1])
+                return str(output_path).endswith(".tar.gz")
+        return False
 
 
 class PhilCommand(FillCommand):
