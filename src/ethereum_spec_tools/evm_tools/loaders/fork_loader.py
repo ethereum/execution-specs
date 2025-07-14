@@ -266,7 +266,7 @@ class ForkLoad:
     def close_state(self) -> Any:
         """close_state function of the fork"""
         return self._module("state").close_state
-    
+
     @property
     def create_ether(self) -> Any:
         """create_ether function of the fork"""

@@ -10,7 +10,7 @@ from functools import partial
 from typing import Any, TextIO
 
 from ethereum_rlp import rlp
-from ethereum_types.numeric import U256, U64, Uint
+from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum import trace
 from ethereum.exceptions import EthereumException, InvalidBlock
@@ -179,14 +179,22 @@ class T8N(Load):
     def pay_block_rewards(self, block_reward: U256, block_env: Any) -> None:
         """Apply the block rewards to the block coinbase."""
         ommer_count = U256(len(self.env.ommers))
-        miner_reward = block_reward + (ommer_count * (block_reward // U256(32)))
-        self.fork.create_ether(block_env.state, block_env.coinbase, miner_reward)
+        miner_reward = block_reward + (
+            ommer_count * (block_reward // U256(32))
+        )
+        self.fork.create_ether(
+            block_env.state, block_env.coinbase, miner_reward
+        )
 
         for ommer in self.env.ommers:
             # Ommer age with respect to the current block.
             ommer_age = U256(block_env.number - ommer.number)
-            ommer_miner_reward = ((U256(8) - ommer_age) * block_reward) // U256(8)
-            self.fork.create_ether(block_env.state, ommer.coinbase, ommer_miner_reward)
+            ommer_miner_reward = (
+                (U256(8) - ommer_age) * block_reward
+            ) // U256(8)
+            self.fork.create_ether(
+                block_env.state, ommer.coinbase, ommer_miner_reward
+            )
 
     def run_state_test(self) -> Any:
         """
@@ -243,7 +251,9 @@ class T8N(Load):
             if self.options.state_reward is None:
                 self.pay_block_rewards(self.fork.BLOCK_REWARD, block_env)
             elif self.options.state_reward != -1:
-                self.pay_block_rewards(U256(self.options.state_reward), block_env)
+                self.pay_block_rewards(
+                    U256(self.options.state_reward), block_env
+                )
 
         if self.fork.is_after_fork("ethereum.shanghai"):
             self.fork.process_withdrawals(
