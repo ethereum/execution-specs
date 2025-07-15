@@ -68,7 +68,7 @@ class Spec:
     def calculate_gas_cost(
         cls, base_length: int, modulus_length: int, exponent_length: int, exponent: bytes
     ) -> int:
-        """Calculate the ModExp gas cost according to EIP-7883 specification."""
+        """Calculate the ModExp gas cost according to EIP-2565 specification."""
         multiplication_complexity = cls.calculate_multiplication_complexity(
             base_length, modulus_length
         )
@@ -78,13 +78,17 @@ class Spec:
 
 @dataclass(frozen=True)
 class Spec7883(Spec):
-    """Constants and helpers for the ModExp gas cost increase EIP."""
+    """
+    Constants and helpers for the ModExp gas cost increase EIP.
+    These override the original Spec class variables for EIP-7883.
+    """
 
     MODEXP_ADDRESS = 0x05
     MIN_GAS = 500
 
     LARGE_BASE_MODULUS_MULTIPLIER = 2
     EXPONENT_BYTE_MULTIPLIER = 16
+    GAS_DIVISOR = 1  # Overrides the original Spec class GAS_DIVISOR
 
     @classmethod
     def calculate_multiplication_complexity(cls, base_length: int, modulus_length: int) -> int:
