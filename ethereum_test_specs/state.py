@@ -90,38 +90,43 @@ class StateTest(BaseTest):
     def _generate_blockchain_genesis_environment(self, *, fork: Fork) -> Environment:
         """Generate the genesis environment for the BlockchainTest formatted test."""
         assert self.env.number >= 1, (
-            "genesis block number cannot be negative, set state test env.number to 1"
+            "genesis block number cannot be negative, set state test env.number to at least 1"
         )
-
-        # Modify values to the proper values for the genesis block
-        # TODO: All of this can be moved to a new method in `Fork`
-        updated_values: Dict[str, Any] = {
-            "withdrawals": None,
-            "parent_beacon_block_root": None,
+        assert self.env.timestamp >= 1, (
+            "genesis timestamp cannot be negative, set state test env.timestamp to at least 1"
+        )
+        # There's only a handful of values that we need to set in the genesis for the
+        # environment values at block 1 to make sense:
+        # - Number: Needs to be N minus 1
+        # - Timestamp: Needs to be zero, because the subsequent block can come at any time.
+        # - Gas Limit: Changes from parent to child, needs to be set in genesis
+        # - Base Fee Per Gas: Block's base fee depends on the parent's value
+        # - Excess Blob Gas: Block's excess blob gas value depends on the parent's value
+        kwargs: Dict[str, Any] = {
             "number": self.env.number - 1,
+            "timestamp": 0,
         }
+
+        if "gas_limit" in self.env.model_fields_set:
+            kwargs["gas_limit"] = self.env.gas_limit
+
+        if self.env.base_fee_per_gas:
+            # Calculate genesis base fee per gas from state test's block#1 env
+            kwargs["base_fee_per_gas"] = HexNumber(
+                int(int(str(self.env.base_fee_per_gas), 0) * 8 / 7)
+            )
+
         if self.env.excess_blob_gas:
             # The excess blob gas environment value means the value of the context (block header)
             # where the transaction is executed. In a blockchain test, we need to indirectly
             # set the excess blob gas by setting the excess blob gas of the genesis block
             # to the expected value plus the TARGET_BLOB_GAS_PER_BLOCK, which is the value
             # that will be subtracted from the excess blob gas when the first block is mined.
-            updated_values["excess_blob_gas"] = self.env.excess_blob_gas + (
+            kwargs["excess_blob_gas"] = self.env.excess_blob_gas + (
                 fork.target_blobs_per_block() * fork.blob_gas_per_blob()
             )
-        if self.env.base_fee_per_gas:
-            # Calculate genesis base fee per gas from state test's block#1 env
-            updated_values["base_fee_per_gas"] = HexNumber(
-                int(int(str(self.env.base_fee_per_gas), 0) * 8 / 7)
-            )
-        if fork.header_prev_randao_required():
-            # Set current random
-            updated_values["difficulty"] = None
-            updated_values["prev_randao"] = (
-                self.env.prev_randao if self.env.prev_randao is not None else self.env.difficulty
-            )
 
-        return self.env.copy(**updated_values)
+        return Environment(**kwargs)
 
     def _generate_blockchain_blocks(self, *, fork: Fork) -> List[Block]:
         """Generate the single block that represents this state test in a BlockchainTest format."""

@@ -1,10 +1,18 @@
 """Test the pre_alloc_group marker functionality."""
 
+import textwrap
+from pathlib import Path
+from typing import List
 from unittest.mock import Mock
 
+import pytest
+
+from ethereum_clis import TransitionTool
 from ethereum_test_forks import Fork, Prague
 from ethereum_test_specs.base import BaseTest
 from ethereum_test_types import Alloc, Environment
+
+from ..filler import default_output_directory
 
 
 class MockTest(BaseTest):
@@ -193,3 +201,152 @@ def test_pre_alloc_group_with_reason():
 
     # Hashes should be the same - reason doesn't affect grouping
     assert hash1 == hash2
+
+
+state_test_diff_envs = textwrap.dedent(
+    """\
+    import pytest
+
+    from ethereum_test_tools import (
+        Account,
+        Alloc,
+        Environment,
+        StateTestFiller,
+        Transaction
+    )
+    from ethereum_test_tools.vm.opcode import Opcodes as Op
+
+
+    @pytest.mark.valid_from("Istanbul")
+    def test_chainid(state_test: StateTestFiller, pre: Alloc):
+        contract_address = pre.deploy_contract(Op.SSTORE(1, Op.CHAINID) + Op.STOP)
+        sender = pre.fund_eoa()
+
+        tx = Transaction(
+            ty=0x0,
+            chain_id=0x01,
+            to=contract_address,
+            gas_limit=100_000,
+            sender=sender,
+        )
+
+        post = {{
+            contract_address: Account(storage={{"0x01": "0x01"}}),
+        }}
+
+        state_test(env={env}, pre=pre, post=post, tx=tx)
+    """
+)
+
+
+@pytest.mark.parametrize(
+    "environment_definitions,expected_different_pre_alloc_groups",
+    [
+        # Environment fields not affecting the pre-alloc groups
+        pytest.param(
+            [
+                "Environment(fee_recipient=pre.fund_eoa(amount=0))",
+                "Environment(fee_recipient=1)",
+                "Environment(fee_recipient=2)",
+            ],
+            1,
+            id="different_fee_recipients",
+        ),
+        pytest.param(
+            [
+                "Environment(prev_randao=1)",
+                "Environment(prev_randao=2)",
+            ],
+            1,
+            id="different_prev_randaos",
+        ),
+        pytest.param(
+            [
+                "Environment(timestamp=1)",
+                "Environment(timestamp=2)",
+            ],
+            1,
+            id="different_timestamps",
+        ),
+        pytest.param(
+            [
+                "Environment(extra_data='0x01')",
+                "Environment(extra_data='0x02')",
+            ],
+            1,
+            id="different_extra_data",
+        ),
+        # Environment fields affecting the pre-alloc groups
+        pytest.param(
+            [
+                "Environment(gas_limit=100_000_000)",
+                "Environment(gas_limit=200_000_000)",
+            ],
+            2,
+            id="different_gas_limits",
+        ),
+        pytest.param(
+            [
+                "Environment(number=10)",
+                "Environment(number=20)",
+            ],
+            2,
+            id="different_block_numbers",
+        ),
+        pytest.param(
+            [
+                "Environment(base_fee_per_gas=10)",
+                "Environment(base_fee_per_gas=20)",
+            ],
+            2,
+            id="different_base_fee",
+        ),
+        pytest.param(
+            [
+                "Environment(excess_blob_gas=10)",
+                "Environment(excess_blob_gas=20)",
+            ],
+            2,
+            id="different_excess_blob_gas",
+        ),
+    ],
+)
+def test_state_tests_pre_alloc_grouping(
+    pytester: pytest.Pytester,
+    default_t8n: TransitionTool,
+    environment_definitions: List[str],
+    expected_different_pre_alloc_groups: int,
+):
+    """Test pre-alloc grouping when filling state tests, and the effect of the `state_test.env`."""
+    tests_dir = Path(pytester.mkdir("tests"))
+    for i, env in enumerate(environment_definitions):
+        test_module = tests_dir / f"test_state_test_{i}.py"
+        test_module.write_text(state_test_diff_envs.format(env=env))
+    pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    args = [
+        "-c",
+        "pytest-fill.ini",
+        "--generate-pre-alloc-groups",
+        "--fork=Cancun",
+        "--t8n-server-url",
+    ]
+    assert default_t8n.server_url is not None
+    args.append(default_t8n.server_url)
+    result = pytester.runpytest(*args)
+    result.assert_outcomes(
+        passed=len(environment_definitions),
+        failed=0,
+        skipped=0,
+        errors=0,
+    )
+
+    output_dir = (
+        Path(default_output_directory()).absolute() / "blockchain_tests_engine_x" / "pre_alloc"
+    )
+    assert output_dir.exists()
+
+    # All different environments should only generate a single genesis pre-alloc
+    assert (
+        len([f for f in output_dir.iterdir() if f.name.endswith(".json")])
+        == expected_different_pre_alloc_groups
+    )
