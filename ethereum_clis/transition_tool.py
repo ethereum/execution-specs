@@ -35,7 +35,9 @@ from .types import (
 
 model_dump_config: Mapping = {"by_alias": True, "exclude_none": True}
 
-NORMAL_SERVER_TIMEOUT = 20
+# TODO: reduce NORMAL_SERVER_TIMEOUT back down to 20 once BLS timeout issue is resolved:
+# https://github.com/ethereum/execution-spec-tests/issues/1894
+NORMAL_SERVER_TIMEOUT = 180
 SLOW_REQUEST_TIMEOUT = 180
 
 

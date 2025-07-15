@@ -2,7 +2,7 @@
     "EELSMaster": {
         "git_url": "https://github.com/ethereum/execution-specs.git",
         "branch": "master",
-        "commit": "1fb3704da97f78654e5987868840c5683679f31e"
+        "commit": "e13d33ab21ef1fdd2f073c96a3346e23eb7727f6"
     },
     "Frontier": {
         "same_as": "EELSMaster"
@@ -38,8 +38,8 @@
         "same_as": "EELSMaster"
     },
     "Osaka": {
-        "git_url": "https://github.com/ethereum/execution-specs.git",
+        "git_url": "https://github.com/spencer-tb/execution-specs.git",
         "branch": "forks/osaka",
-        "commit": "f947ab1744aaf12f652a85e28ac5d155af26dd25"
+        "commit": "07699170182691533023fa5d83086258c3edcfd3"
     }
 }

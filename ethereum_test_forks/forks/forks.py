@@ -1152,14 +1152,6 @@ class Prague(Cancun):
     }
 
     @classmethod
-    def is_deployed(cls) -> bool:
-        """
-        Flag that the fork has not been deployed to mainnet; it is under active
-        development.
-        """
-        return False
-
-    @classmethod
     def precompiles(cls, block_number: int = 0, timestamp: int = 0) -> List[Address]:
         """
         At Prague, pre-compile for BLS operations are added.

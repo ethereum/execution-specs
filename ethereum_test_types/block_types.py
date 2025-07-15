@@ -17,7 +17,6 @@ from ethereum_test_base_types import (
     EmptyOmmersRoot,
     Hash,
     HexNumber,
-    Number,
     NumberBoundTypeVar,
     ZeroPaddedHexNumber,
 )
@@ -109,7 +108,7 @@ class Environment(EnvironmentGeneric[ZeroPaddedHexNumber]):
     parent_excess_blob_gas: ZeroPaddedHexNumber | None = Field(None)
     parent_beacon_block_root: Hash | None = Field(None)
 
-    block_hashes: Dict[Number, Hash] = Field(default_factory=dict)
+    block_hashes: Dict[ZeroPaddedHexNumber, Hash] = Field(default_factory=dict)
     ommers: List[Hash] = Field(default_factory=list)
     withdrawals: List[Withdrawal] | None = Field(None)
     extra_data: Bytes = Field(Bytes(b"\x00"), exclude=True)

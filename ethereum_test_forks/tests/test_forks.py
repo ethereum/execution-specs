@@ -38,9 +38,9 @@ from ..helpers import (
 from ..transition_base_fork import transition_fork
 
 FIRST_DEPLOYED = Frontier
-LAST_DEPLOYED = Cancun
-LAST_DEVELOPMENT = Prague
-DEVELOPMENT_FORKS = [Prague]
+LAST_DEPLOYED = Prague
+LAST_DEVELOPMENT = Osaka
+DEVELOPMENT_FORKS = [Osaka]
 
 
 def test_transition_forks():
