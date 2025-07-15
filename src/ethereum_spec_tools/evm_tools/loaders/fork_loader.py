@@ -58,6 +58,11 @@ class ForkLoad:
         return self._module("fork").HISTORY_STORAGE_ADDRESS
 
     @property
+    def BLOCK_REWARD(self) -> Any:
+        """BLOCK_REWARD of the given fork."""
+        return self._module("fork").BLOCK_REWARD
+
+    @property
     def process_general_purpose_requests(self) -> Any:
         """process_general_purpose_requests function of the given fork."""
         return self._module("fork").process_general_purpose_requests
@@ -261,6 +266,11 @@ class ForkLoad:
     def close_state(self) -> Any:
         """close_state function of the fork"""
         return self._module("state").close_state
+
+    @property
+    def create_ether(self) -> Any:
+        """create_ether function of the fork"""
+        return self._module("state").create_ether
 
     @property
     def root(self) -> Any:

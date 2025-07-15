@@ -10,7 +10,7 @@ from functools import partial
 from typing import Any, TextIO
 
 from ethereum_rlp import rlp
-from ethereum_types.numeric import U64, Uint
+from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum import trace
 from ethereum.exceptions import EthereumException, InvalidBlock
@@ -64,7 +64,7 @@ def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
         "--state.fork", dest="state_fork", type=str, default="Frontier"
     )
     t8n_parser.add_argument(
-        "--state.reward", dest="state_reward", type=int, default=0
+        "--state.reward", dest="state_reward", type=int, default=None
     )
     t8n_parser.add_argument("--trace", action="store_true")
     t8n_parser.add_argument("--trace.memory", action="store_true")
@@ -176,6 +176,26 @@ class T8N(Load):
         state = self.alloc.state
         state._main_trie, state._storage_tries = self.alloc.state_backup
 
+    def pay_block_rewards(self, block_reward: U256, block_env: Any) -> None:
+        """Apply the block rewards to the block coinbase."""
+        ommer_count = U256(len(self.env.ommers))
+        miner_reward = block_reward + (
+            ommer_count * (block_reward // U256(32))
+        )
+        self.fork.create_ether(
+            block_env.state, block_env.coinbase, miner_reward
+        )
+
+        for ommer in self.env.ommers:
+            # Ommer age with respect to the current block.
+            ommer_age = U256(block_env.number - ommer.number)
+            ommer_miner_reward = (
+                (U256(8) - ommer_age) * block_reward
+            ) // U256(8)
+            self.fork.create_ether(
+                block_env.state, ommer.coinbase, ommer_miner_reward
+            )
+
     def run_state_test(self) -> Any:
         """
         Apply a single transaction on pre-state. No system operations
@@ -228,12 +248,12 @@ class T8N(Load):
                 self.logger.warning(f"Transaction {i} failed: {e!r}")
 
         if not self.fork.is_after_fork("ethereum.paris"):
-            self.fork.pay_rewards(
-                block_env.state,
-                block_env.number,
-                block_env.coinbase,
-                self.env.ommers,
-            )
+            if self.options.state_reward is None:
+                self.pay_block_rewards(self.fork.BLOCK_REWARD, block_env)
+            elif self.options.state_reward != -1:
+                self.pay_block_rewards(
+                    U256(self.options.state_reward), block_env
+                )
 
         if self.fork.is_after_fork("ethereum.shanghai"):
             self.fork.process_withdrawals(
