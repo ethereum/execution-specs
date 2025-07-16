@@ -43,6 +43,7 @@ from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
 from ..gas import (
     GAS_CALL_VALUE,
     GAS_COLD_ACCOUNT_ACCESS,
+    GAS_COLD_SLOAD,
     GAS_CREATE,
     GAS_KECCAK256_WORD,
     GAS_NEW_ACCOUNT,
@@ -381,7 +382,7 @@ def call(evm: Evm) -> None:
 
     if to not in evm.warm_code_addresses:
         evm.warm_code_addresses.add(to)
-        access_gas_cost += code_access_cost(
+        access_gas_cost += GAS_COLD_SLOAD + code_access_cost(
             get_account(evm.message.block_env.state, to).code
         )
 
@@ -475,7 +476,7 @@ def callcode(evm: Evm) -> None:
 
     if code_address not in evm.warm_code_addresses:
         evm.warm_code_addresses.add(code_address)
-        access_gas_cost += code_access_cost(
+        access_gas_cost += GAS_COLD_SLOAD + code_access_cost(
             get_account(evm.message.block_env.state, code_address).code
         )
 
@@ -620,7 +621,7 @@ def delegatecall(evm: Evm) -> None:
 
     if code_address not in evm.warm_code_addresses:
         evm.warm_code_addresses.add(code_address)
-        access_gas_cost += code_access_cost(
+        access_gas_cost += GAS_COLD_SLOAD + code_access_cost(
             get_account(evm.message.block_env.state, code_address).code
         )
 
@@ -694,7 +695,7 @@ def staticcall(evm: Evm) -> None:
 
     if to not in evm.warm_code_addresses:
         evm.warm_code_addresses.add(to)
-        access_gas_cost += code_access_cost(
+        access_gas_cost += GAS_COLD_SLOAD + code_access_cost(
             get_account(evm.message.block_env.state, to).code
         )
 
