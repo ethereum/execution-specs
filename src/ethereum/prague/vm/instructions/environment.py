@@ -18,6 +18,7 @@ from ethereum_types.numeric import U256, Uint, ulen
 from ethereum.crypto.hash import keccak256
 from ethereum.utils.numeric import ceil32
 
+from ...blobs import calculate_blob_gas_price
 from ...fork_types import EMPTY_ACCOUNT
 from ...state import get_account
 from ...utils.address import to_address
@@ -33,7 +34,6 @@ from ..gas import (
     GAS_RETURN_DATA_COPY,
     GAS_VERY_LOW,
     GAS_WARM_ACCESS,
-    calculate_blob_gas_price,
     calculate_gas_extend_memory,
     charge_gas,
 )
@@ -460,7 +460,7 @@ def returndatacopy(evm: Evm) -> None:
 
 def extcodehash(evm: Evm) -> None:
     """
-    Returns the keccak256 hash of a contract’s bytecode
+    Returns the keccak256 hash of a contracts bytecode
     Parameters
     ----------
     evm :
