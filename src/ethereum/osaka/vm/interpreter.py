@@ -234,8 +234,13 @@ def process_message(message: Message) -> Evm:
     """
     state = message.block_env.state
     transient_storage = message.tx_env.transient_storage
+
     if message.depth > STACK_DEPTH_LIMIT:
         raise StackDepthLimitError("Stack depth limit reached")
+    elif message.depth == 0:
+        account_code = get_account(message.block_env.state, message.).code
+        if account_code > MAX_CODE_SIZE_WITH_NO_ACCESS_COST:
+            charge_gas(evm, access_gas_cost)
 
     # take snapshot of state before processing the message
     begin_transaction(state, transient_storage)
