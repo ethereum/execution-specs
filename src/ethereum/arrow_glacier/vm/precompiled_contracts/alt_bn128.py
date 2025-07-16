@@ -1,13 +1,7 @@
 """
-Ethereum Virtual Machine (EVM) ALT_BN128 CONTRACTS
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# Ethereum Virtual Machine (EVM) ALT_BN128 CONTRACTS
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
+## Introduction
 
 Implementation of the ALT_BN128 precompiled contracts.
 """
@@ -40,20 +34,16 @@ def bytes_to_g1(data: Bytes) -> Point3D[FQ]:
     """
     Decode 64 bytes to a point on the curve.
 
-    Parameters
-    ----------
-    data :
-        The bytes data to decode.
+    #### Parameters
+    - data: The bytes data to decode.
 
-    Returns
-    -------
-    point : Point3D
-        A point on the curve.
+    #### Returns
+    - point: Point3D
+    A point on the curve.
 
-    Raises
-    ------
-    InvalidParameter
-        Either a field element is invalid or the point is not on the curve.
+    #### Raises
+    - InvalidParameter: Either a field element is invalid or the point is not
+    on the curve.
     """
     if len(data) != 64:
         raise InvalidParameter("Input should be 64 bytes long")
@@ -85,20 +75,16 @@ def bytes_to_g2(data: Bytes) -> Point3D[FQ2]:
     """
     Decode 128 bytes to a G2 point.
 
-    Parameters
-    ----------
-    data :
-        The bytes data to decode.
+    #### Parameters
+    - data: The bytes data to decode.
 
-    Returns
-    -------
-    point : Point2D
-        A point on the curve.
+    #### Returns
+    - point: Point2D
+    A point on the curve.
 
-    Raises
-    ------
-    InvalidParameter
-        Either a field element is invalid or the point is not on the curve.
+    #### Raises
+    - InvalidParameter: Either a field element is invalid or the point is not
+    on the curve.
     """
     if len(data) != 128:
         raise InvalidParameter("G2 should be 128 bytes long")
@@ -138,10 +124,8 @@ def alt_bn128_add(evm: Evm) -> None:
     """
     The ALT_BN128 addition precompiled contract.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
     """
     data = evm.message.data
 
@@ -165,10 +149,8 @@ def alt_bn128_mul(evm: Evm) -> None:
     """
     The ALT_BN128 multiplication precompiled contract.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
     """
     data = evm.message.data
 
@@ -192,10 +174,8 @@ def alt_bn128_pairing_check(evm: Evm) -> None:
     """
     The ALT_BN128 pairing check precompiled contract.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
     """
     data = evm.message.data
 

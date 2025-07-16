@@ -1,13 +1,7 @@
 """
-Ethereum Virtual Machine (EVM) Comparison Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# Ethereum Virtual Machine (EVM) Comparison Instructions
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
+## Introduction
 
 Implementations of the EVM Comparison instructions.
 """
@@ -24,10 +18,8 @@ def less_than(evm: Evm) -> None:
     Checks if the top element is less than the next top element. Pushes the
     result back on the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -50,10 +42,8 @@ def signed_less_than(evm: Evm) -> None:
     """
     Signed less-than comparison.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -77,10 +67,8 @@ def greater_than(evm: Evm) -> None:
     Checks if the top element is greater than the next top element. Pushes
     the result back on the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -103,10 +91,8 @@ def signed_greater_than(evm: Evm) -> None:
     """
     Signed greater-than comparison.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -130,10 +116,8 @@ def equal(evm: Evm) -> None:
     Checks if the top element is equal to the next top element. Pushes
     the result back on the stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
@@ -157,10 +141,8 @@ def is_zero(evm: Evm) -> None:
     Checks if the top element is equal to 0. Pushes the result back on the
     stack.
 
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    #### Parameters
+    - evm: The current EVM frame.
 
     """
     # STACK
