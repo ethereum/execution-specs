@@ -89,3 +89,29 @@ def compute_create2_contract_address(
     padded_address = left_pad_zero_bytes(canonical_address, 20)
 
     return Address(padded_address)
+
+def compute_setdelegate_contract_address(
+    address: Address, salt: Bytes32
+) -> Address:
+    """
+    Computes address of the delegation objects account that needs to be
+    created or updated, which is based on the sender address and salt.
+
+    Parameters
+    ----------
+    address :
+        The address of the account that wants to create the new account.
+    salt :
+        Address generation salt.
+
+    Returns
+    -------
+    address: `ethereum.osaka.fork_types.Address`
+        The computed address of the delegation object.
+    """
+    preimage = b"\xef\x01\x00" + address + salt
+    computed_address = keccak256(preimage)
+    canonical_address = computed_address[-20:]
+    padded_address = left_pad_zero_bytes(canonical_address, 20)
+
+    return Address(padded_address)

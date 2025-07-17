@@ -19,6 +19,7 @@ from ethereum.utils.numeric import ceil32
 
 from ...fork_types import Address
 from ...state import (
+    account_exists,
     account_has_code_or_nonce,
     account_has_storage,
     get_account,
@@ -30,16 +31,24 @@ from ...state import (
 from ...utils.address import (
     compute_contract_address,
     compute_create2_contract_address,
+    compute_setdelegate_contract_address,
     to_address_masked,
 )
-from ...vm.eoa_delegation import access_delegation
+from ...vm.eoa_delegation import (
+    EOA_DELEGATION_MARKER,
+    PER_EMPTY_ACCOUNT_COST,
+    PER_AUTH_BASE_COST,
+    NULL_ADDRESS,
+    access_delegation,
+    is_valid_delegation,
+)
 from .. import (
     Evm,
     Message,
     incorporate_child_on_error,
     incorporate_child_on_success,
 )
-from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
+from ..exceptions import AddressCollision, OutOfGasError, Revert, WriteInStaticContext
 from ..gas import (
     GAS_CALL_VALUE,
     GAS_COLD_ACCOUNT_ACCESS,
@@ -242,6 +251,43 @@ def create2(evm: Evm) -> None:
     # PROGRAM COUNTER
     evm.pc += Uint(1)
 
+def setdelegate(evm: EVM) -> None:
+    # GAS
+    charge_gas(evm, PER_AUTH_BASE_COST)
+
+    # STATIC CHECK
+    if evm.message.is_static:
+        raise WriteInStaticContext
+
+    # STACK
+    target = to_address_masked(pop(evm.stack))
+    salt = pop(evm.stack).to_be_bytes32()
+
+    # OPERATION
+    location = compute_setdelegate_contract_address(
+        evm.message.current_target,
+        salt,
+    )
+
+    evm.accessed_addresses.add(location)
+
+    current_code = get_account(state, location).code
+    if current_code != b"" and not is_valid_delegation(current_code):
+        raise AddressCollision
+
+    if account_exists(state, location):
+        evm.refund_counter += U256(PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST)
+
+    if target == NULL_ADDRESS:
+        code_to_set = b""
+    else:
+        code_to_set = EOA_DELEGATION_MARKER + target
+    set_code(state, location, code_to_set)
+
+    push(evm.stack, location)
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(1)
 
 def return_(evm: Evm) -> None:
     """
