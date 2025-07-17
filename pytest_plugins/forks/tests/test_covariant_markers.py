@@ -265,6 +265,79 @@ import pytest
         pytest.param(
             """
             import pytest
+            from ethereum_test_tools import Transaction
+            @pytest.mark.with_all_typed_transactions
+            @pytest.mark.valid_from("Berlin")
+            @pytest.mark.valid_until("Berlin")
+            @pytest.mark.state_test_only
+            def test_case(state_test, typed_transaction):
+                assert isinstance(typed_transaction, Transaction)
+                assert typed_transaction.ty in [0, 1]  # Berlin supports types 0 and 1
+            """,
+            {"passed": 2, "failed": 0, "skipped": 0, "errors": 0},
+            None,
+            id="with_all_typed_transactions_berlin",
+        ),
+        pytest.param(
+            """
+            import pytest
+            from ethereum_test_tools import Transaction
+            @pytest.mark.with_all_typed_transactions()
+            @pytest.mark.valid_from("London")
+            @pytest.mark.valid_until("London")
+            @pytest.mark.state_test_only
+            def test_case(state_test, typed_transaction, pre):
+                assert isinstance(typed_transaction, Transaction)
+                assert typed_transaction.ty in [0, 1, 2]  # London supports types 0, 1, 2
+            """,
+            {"passed": 3, "failed": 0, "skipped": 0, "errors": 0},
+            None,
+            id="with_all_typed_transactions_london",
+        ),
+        pytest.param(
+            """
+            import pytest
+            from ethereum_test_tools import Transaction
+            from ethereum_test_base_types import AccessList
+
+            # Override the type 3 transaction fixture
+            @pytest.fixture
+            def type_3_default_transaction(pre):
+                sender = pre.fund_eoa()
+
+                return Transaction(
+                    ty=3,
+                    sender=sender,
+                    max_fee_per_gas=10**10,
+                    max_priority_fee_per_gas=10**9,
+                    max_fee_per_blob_gas=10**8,
+                    gas_limit=300_000,
+                    data=b"\\xFF" * 50,
+                    access_list=[
+                        AccessList(address=0x1111, storage_keys=[10, 20]),
+                    ],
+                    blob_versioned_hashes=[
+                        0x0111111111111111111111111111111111111111111111111111111111111111,
+                    ],
+                )
+
+            @pytest.mark.with_all_typed_transactions()
+            @pytest.mark.valid_at("Cancun")
+            @pytest.mark.state_test_only
+            def test_case(state_test, typed_transaction, pre):
+                assert isinstance(typed_transaction, Transaction)
+                if typed_transaction.ty == 3:
+                    # Verify our override worked
+                    assert typed_transaction.data == b"\\xFF" * 50
+                    assert len(typed_transaction.blob_versioned_hashes) == 1
+            """,
+            {"passed": 4, "failed": 0, "skipped": 0, "errors": 0},
+            None,
+            id="with_all_typed_transactions_with_override",
+        ),
+        pytest.param(
+            """
+            import pytest
             @pytest.mark.with_all_tx_types(invalid_parameter="invalid")
             @pytest.mark.valid_from("Paris")
             @pytest.mark.valid_until("Paris")

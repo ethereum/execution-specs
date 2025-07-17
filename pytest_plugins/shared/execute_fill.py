@@ -7,6 +7,7 @@ import pytest
 from ethereum_test_execution import BaseExecute, LabeledExecuteFormat
 from ethereum_test_fixtures import BaseFixture, LabeledFixtureFormat
 from ethereum_test_specs import BaseTest
+from ethereum_test_types import EOA, Alloc
 from pytest_plugins.spec_version_checker.spec_version_checker import EIPSpecTestItem
 
 
@@ -148,6 +149,13 @@ def pytest_runtest_call(item: pytest.Item):
             + "properly generate a test: "
             + ", ".join(SPEC_TYPES_PARAMETERS)
         )
+
+
+# Global `sender` fixture that can be overridden by tests.
+@pytest.fixture
+def sender(pre: Alloc) -> EOA:
+    """Fund an EOA from pre-alloc."""
+    return pre.fund_eoa()
 
 
 def pytest_addoption(parser: pytest.Parser):

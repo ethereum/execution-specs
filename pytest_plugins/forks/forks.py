@@ -257,6 +257,8 @@ class CovariantDecorator(CovariantDescriptor):
         description: Description of the marker.
         fork_attribute_name: Name of the method to call on the fork to get the values.
         marker_parameter_names: Names of the parameters to be parametrized in the test function.
+        indirect: Whether the parameters should be passed through fixtures (indirect
+            parametrization).
 
     """
 
@@ -264,6 +266,7 @@ class CovariantDecorator(CovariantDescriptor):
     description: ClassVar[str]
     fork_attribute_name: ClassVar[str]
     marker_parameter_names: ClassVar[List[str]]
+    indirect: ClassVar[bool]
 
     def __init__(self, metafunc: Metafunc):
         """
@@ -317,6 +320,7 @@ def covariant_decorator(
     description: str,
     fork_attribute_name: str,
     argnames: List[str],
+    indirect: bool = False,
 ) -> Type[CovariantDecorator]:
     """Generate a new covariant decorator subclass."""
     return type(
@@ -327,6 +331,7 @@ def covariant_decorator(
             "description": description,
             "fork_attribute_name": fork_attribute_name,
             "marker_parameter_names": argnames,
+            "indirect": indirect,
         },
     )
 
@@ -345,6 +350,16 @@ fork_covariant_decorators: List[Type[CovariantDecorator]] = [
         " at parameter named tx_type of type int",
         fork_attribute_name="contract_creating_tx_types",
         argnames=["tx_type"],
+    ),
+    covariant_decorator(
+        marker_name="with_all_typed_transactions",
+        description="marks a test to be parametrized with default typed transactions named "
+        "typed_transaction",
+        fork_attribute_name="tx_types",
+        argnames=["typed_transaction"],
+        # indirect means the values from `tx_types` will be passed to the
+        # `typed_transaction` fixture which will then be used in the test
+        indirect=True,
     ),
     covariant_decorator(
         marker_name="with_all_precompiles",
@@ -972,10 +987,15 @@ def add_fork_covariant_parameters(
     metafunc: Metafunc, fork_parametrizers: List[ForkParametrizer]
 ) -> None:
     """Iterate over the fork covariant descriptors and add their values to the test function."""
+    # Process all covariant decorators uniformly
     for covariant_descriptor in fork_covariant_decorators:
-        for fork_parametrizer in fork_parametrizers:
-            covariant_descriptor(metafunc=metafunc).add_values(fork_parametrizer=fork_parametrizer)
+        if list(metafunc.definition.iter_markers(covariant_descriptor.marker_name)):
+            for fork_parametrizer in fork_parametrizers:
+                covariant_descriptor(metafunc=metafunc).add_values(
+                    fork_parametrizer=fork_parametrizer
+                )
 
+    # Handle custom parametrize_by_fork markers
     for marker in metafunc.definition.iter_markers():
         if marker.name == "parametrize_by_fork":
             descriptor = CovariantDescriptor(
@@ -1029,6 +1049,16 @@ def parameters_from_fork_parametrizer_list(
 
 def parametrize_fork(metafunc: Metafunc, fork_parametrizers: List[ForkParametrizer]) -> None:
     """Add the fork parameters to the test function."""
-    metafunc.parametrize(
-        *parameters_from_fork_parametrizer_list(fork_parametrizers), scope="function"
-    )
+    param_names, param_values = parameters_from_fork_parametrizer_list(fork_parametrizers)
+
+    # Collect all parameters that should be indirect from the decorators
+    indirect = []
+    for covariant_descriptor in fork_covariant_decorators:
+        if (
+            list(metafunc.definition.iter_markers(covariant_descriptor.marker_name))
+            and covariant_descriptor.indirect
+        ):
+            # Add all argnames from this decorator to indirect list
+            indirect.extend(covariant_descriptor.marker_parameter_names)
+
+    metafunc.parametrize(param_names, param_values, scope="function", indirect=indirect)
