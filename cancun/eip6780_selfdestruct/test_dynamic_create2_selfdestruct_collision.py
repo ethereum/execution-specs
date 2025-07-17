@@ -17,7 +17,6 @@ from ethereum_test_tools import (
     BlockchainTestFiller,
     Bytecode,
     Conditional,
-    Environment,
     Initcode,
     StateTestFiller,
     Transaction,
@@ -27,17 +26,6 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-6780.md"
 REFERENCE_SPEC_VERSION = "1b6a0e94cc47e859b9866e570391cf37dc55059a"
-
-
-@pytest.fixture
-def env():  # noqa: D103
-    return Environment(
-        fee_recipient="0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
-        difficulty=0x020000,
-        gas_limit=71794957647893862,
-        number=1,
-        timestamp=1000,
-    )
 
 
 @pytest.mark.valid_from("Paris")
@@ -54,7 +42,6 @@ def env():  # noqa: D103
     ],
 )
 def test_dynamic_create2_selfdestruct_collision(
-    env: Environment,
     fork: Fork,
     create2_dest_already_in_state: bool,
     call_create2_contract_in_between: bool,
@@ -222,7 +209,7 @@ def test_dynamic_create2_selfdestruct_collision(
         sender=sender,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("Paris")
@@ -235,7 +222,6 @@ def test_dynamic_create2_selfdestruct_collision(
     (True, False),
 )
 def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
-    env: Environment,
     fork: Fork,
     create2_dest_already_in_state: bool,
     call_create2_contract_at_the_end: bool,
@@ -431,7 +417,6 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
     nonce = count()
 
     blockchain_test(
-        genesis_environment=Environment(),
         pre=pre,
         post=post,
         blocks=[
@@ -666,7 +651,6 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
     nonce = count()
 
     blockchain_test(
-        genesis_environment=Environment(),
         pre=pre,
         post=post,
         blocks=[

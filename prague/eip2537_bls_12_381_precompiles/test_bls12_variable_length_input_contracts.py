@@ -144,8 +144,11 @@ def test_valid_gas_g1msm(
 
     If any of the calls fail, the test will fail.
     """
+    env = Environment()
+    if tx.gas_limit > env.gas_limit:
+        env = Environment(gas_limit=tx.gas_limit)
     state_test(
-        env=Environment(gas_limit=tx.gas_limit),
+        env=env,
         pre=pre,
         tx=tx,
         post=post,

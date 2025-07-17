@@ -18,7 +18,6 @@ from ethereum_test_tools import (
     Block,
     BlockchainTestFiller,
     Bytecode,
-    Environment,
     Hash,
     Initcode,
     StateTestFiller,
@@ -53,14 +52,6 @@ PRE_DEPLOY_CONTRACT_3 = "pre_deploy_contract_3"
 def eip_enabled(fork: Fork) -> bool:
     """Whether the EIP is enabled or not."""
     return fork >= SELFDESTRUCT_DISABLE_FORK
-
-
-@pytest.fixture
-def env() -> Environment:
-    """Environment for all tests."""
-    return Environment(
-        fee_recipient="0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
-    )
 
 
 @pytest.fixture
@@ -196,7 +187,6 @@ def sender(pre: Alloc) -> EOA:
 @pytest.mark.valid_from("Shanghai")
 def test_create_selfdestruct_same_tx(
     state_test: StateTestFiller,
-    env: Environment,
     pre: Alloc,
     sender: EOA,
     selfdestruct_code: Bytecode,
@@ -338,7 +328,7 @@ def test_create_selfdestruct_same_tx(
 
     post[selfdestruct_contract_address] = Account.NONEXISTENT  # type: ignore
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize("create_opcode", [Op.CREATE, Op.CREATE2])
@@ -347,7 +337,6 @@ def test_create_selfdestruct_same_tx(
 @pytest.mark.valid_from("Shanghai")
 def test_self_destructing_initcode(
     state_test: StateTestFiller,
-    env: Environment,
     pre: Alloc,
     sender: EOA,
     selfdestruct_code: Bytecode,
@@ -459,7 +448,7 @@ def test_self_destructing_initcode(
         sendall_recipient_addresses[0]: Account(balance=sendall_amount, storage={0: 1}),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize("tx_value", [0, 100_000])
@@ -467,7 +456,6 @@ def test_self_destructing_initcode(
 @pytest.mark.valid_from("Shanghai")
 def test_self_destructing_initcode_create_tx(
     state_test: StateTestFiller,
-    env: Environment,
     pre: Alloc,
     sender: EOA,
     tx_value: int,
@@ -502,7 +490,7 @@ def test_self_destructing_initcode_create_tx(
         sendall_recipient_addresses[0]: Account(balance=sendall_amount, storage={0: 1}),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize("create_opcode", [Op.CREATE2])  # Can only recreate using CREATE2
@@ -526,7 +514,6 @@ def test_self_destructing_initcode_create_tx(
 @pytest.mark.valid_from("Shanghai")
 def test_recreate_self_destructed_contract_different_txs(
     blockchain_test: BlockchainTestFiller,
-    env: Environment,
     pre: Alloc,
     sender: EOA,
     selfdestruct_code: Bytecode,
@@ -615,7 +602,7 @@ def test_recreate_self_destructed_contract_different_txs(
     if sendall_recipient_addresses[0] != selfdestruct_contract_address:
         post[sendall_recipient_addresses[0]] = Account(balance=sendall_amount, storage={0: 1})
 
-    blockchain_test(genesis_environment=env, pre=pre, post=post, blocks=[Block(txs=txs)])
+    blockchain_test(pre=pre, post=post, blocks=[Block(txs=txs)])
 
 
 @pytest.mark.parametrize(
@@ -674,7 +661,6 @@ def test_recreate_self_destructed_contract_different_txs(
 def test_selfdestruct_pre_existing(
     state_test: StateTestFiller,
     eip_enabled: bool,
-    env: Environment,
     pre: Alloc,
     sender: EOA,
     selfdestruct_code: Bytecode,
@@ -791,7 +777,7 @@ def test_selfdestruct_pre_existing(
     else:
         post[selfdestruct_contract_address] = Account.NONEXISTENT  # type: ignore
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize("selfdestruct_contract_initial_balance", [0, 1])
@@ -800,7 +786,6 @@ def test_selfdestruct_pre_existing(
 def test_selfdestruct_created_same_block_different_tx(
     blockchain_test: BlockchainTestFiller,
     eip_enabled: bool,
-    env: Environment,
     pre: Alloc,
     sender: EOA,
     selfdestruct_contract_initial_balance: int,
@@ -892,7 +877,7 @@ def test_selfdestruct_created_same_block_different_tx(
         ),
     ]
 
-    blockchain_test(genesis_environment=env, pre=pre, post=post, blocks=[Block(txs=txs)])
+    blockchain_test(pre=pre, post=post, blocks=[Block(txs=txs)])
 
 
 @pytest.mark.parametrize("call_times", [1])
@@ -902,7 +887,6 @@ def test_selfdestruct_created_same_block_different_tx(
 @pytest.mark.valid_from("Shanghai")
 def test_calling_from_new_contract_to_pre_existing_contract(
     state_test: StateTestFiller,
-    env: Environment,
     pre: Alloc,
     sender: EOA,
     sendall_recipient_addresses: List[Address],
@@ -1024,7 +1008,7 @@ def test_calling_from_new_contract_to_pre_existing_contract(
         gas_limit=500_000,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize("create_opcode", [Op.CREATE, Op.CREATE2])
@@ -1036,7 +1020,6 @@ def test_calling_from_new_contract_to_pre_existing_contract(
 def test_calling_from_pre_existing_contract_to_new_contract(
     state_test: StateTestFiller,
     eip_enabled: bool,
-    env: Environment,
     pre: Alloc,
     sender: EOA,
     selfdestruct_code: Bytecode,
@@ -1175,7 +1158,7 @@ def test_calling_from_pre_existing_contract_to_new_contract(
     else:
         post[caller_address] = Account.NONEXISTENT  # type: ignore
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize("create_opcode", [Op.CREATE, Op.CREATE2])
@@ -1191,7 +1174,6 @@ def test_calling_from_pre_existing_contract_to_new_contract(
 @pytest.mark.valid_from("Shanghai")
 def test_create_selfdestruct_same_tx_increased_nonce(
     state_test: StateTestFiller,
-    env: Environment,
     pre: Alloc,
     sender: EOA,
     selfdestruct_code: Bytecode,
@@ -1342,4 +1324,4 @@ def test_create_selfdestruct_same_tx_increased_nonce(
 
     post[selfdestruct_contract_address] = Account.NONEXISTENT  # type: ignore
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

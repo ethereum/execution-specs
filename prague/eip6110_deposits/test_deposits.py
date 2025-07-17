@@ -920,8 +920,12 @@ def test_deposit(
     blocks: List[Block],
 ):
     """Test making a deposit to the beacon chain deposit contract."""
+    total_gas_limit = sum(tx.gas_limit for tx in blocks[0].txs)
+    env = Environment()
+    if total_gas_limit > env.gas_limit:
+        env = Environment(gas_limit=total_gas_limit)
     blockchain_test(
-        genesis_environment=Environment(gas_limit=sum(tx.gas_limit for tx in blocks[0].txs)),
+        genesis_environment=env,
         pre=pre,
         post={},
         blocks=blocks,
@@ -1182,7 +1186,6 @@ def test_deposit_negative(
     and/or Engine API payload.
     """
     blockchain_test(
-        genesis_environment=Environment(),
         pre=pre,
         post={},
         blocks=blocks,
