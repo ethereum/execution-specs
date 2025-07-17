@@ -10,6 +10,7 @@ from ethereum_spec_tools.evm_tools.loaders.transaction_loader import (
 )
 from ethereum_spec_tools.evm_tools.t8n.env import Ommer
 from ethereum_spec_tools.evm_tools.t8n.evm_trace import Trace, FinalTrace
+from ethereum_spec_tools.evm_tools.t8n.transition_tool import EELST8N
 from ethereum_spec_tools.lint.lints.glacier_forks_hygiene import (
     GlacierForksHygiene,
 )
@@ -53,6 +54,13 @@ docc.render_before_after
 # src/ethereum_spec_tools/evm_tools/daemon.py
 _EvmToolHandler.do_POST
 _EvmToolHandler.log_request
+
+# src/ethereum_spec_tools/evm_tools/transition_tool.py
+EELST8N
+EELST8N._info_metadata
+EELST8N.version
+EELST8N.is_fork_supported
+EELST8N.evaluate
 
 # src/ethereum_spec_tools/loaders/fixture_loader.py
 Load._network
