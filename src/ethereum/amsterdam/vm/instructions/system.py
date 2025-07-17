@@ -253,7 +253,7 @@ def create2(evm: Evm) -> None:
 
 def setdelegate(evm: EVM) -> None:
     # GAS
-    charge_gas(evm, PER_AUTH_BASE_COST)
+    charge_gas(evm, PER_EMPTY_ACCOUNT_COST)
 
     # STATIC CHECK
     if evm.message.is_static:
