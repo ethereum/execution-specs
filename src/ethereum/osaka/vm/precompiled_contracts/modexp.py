@@ -19,8 +19,6 @@ from ...vm.exceptions import ExceptionalHalt
 from ...vm.gas import charge_gas
 from ..memory import buffer_read
 
-GQUADDIVISOR = Uint(3)
-
 
 def modexp(evm: Evm) -> None:
     """
@@ -177,5 +175,4 @@ def gas_cost(
     multiplication_complexity = complexity(base_length, modulus_length)
     iteration_count = iterations(exponent_length, exponent_head)
     cost = multiplication_complexity * iteration_count
-    cost //= GQUADDIVISOR
     return max(Uint(500), cost)
