@@ -23,28 +23,30 @@ class PreAllocGroup(CamelModel):
 
     model_config = {"populate_by_name": True}  # Allow both field names and aliases
 
-    test_count: int = Field(0, description="Number of tests in this group")
-    pre_account_count: int = Field(0, description="Number of accounts in the pre-allocation")
-    test_ids: List[str] = Field(default_factory=list, alias="testIds")
+    test_ids: List[str] = Field(default_factory=list)
     environment: Environment = Field(..., description="Grouping environment for this test group")
     fork: Fork = Field(..., alias="network")
     pre: Alloc
 
-    def model_post_init(self, __context):
-        """Post-init hook to ensure pre is not None."""
-        super().model_post_init(__context)
+    @computed_field(description="Number of accounts in the pre-allocation")  # type: ignore[prop-decorator]
+    @property
+    def pre_account_count(self) -> int:
+        """Return the amount of accounts the pre-allocation group holds."""
+        return len(self.pre.root)
 
-        self.pre = Alloc.merge(
-            Alloc.model_validate(self.fork.pre_allocation_blockchain()),
-            self.pre,
-        )
+    @computed_field(description="Number of tests in this group")  # type: ignore[prop-decorator]
+    @property
+    def test_count(self) -> int:
+        """Return the amount of tests that use this pre-allocation group."""
+        return len(self.test_ids)
 
-    @computed_field  # type: ignore[misc]
+    @computed_field  # type: ignore[prop-decorator]
+    @property
     def genesis(self) -> FixtureHeader:
         """Get the genesis header for this group."""
         return FixtureHeader.genesis(
             self.fork,
-            self.environment.set_fork_requirements(self.fork),
+            self.environment,
             self.pre.state_root(),
         )
 
@@ -58,8 +60,6 @@ class PreAllocGroup(CamelModel):
                     for account in previous_pre_alloc_group.pre:
                         if account not in self.pre:
                             self.pre[account] = previous_pre_alloc_group.pre[account]
-                    self.pre_account_count += previous_pre_alloc_group.pre_account_count
-                    self.test_count += previous_pre_alloc_group.test_count
                     self.test_ids.extend(previous_pre_alloc_group.test_ids)
 
             with open(file, "w") as f:

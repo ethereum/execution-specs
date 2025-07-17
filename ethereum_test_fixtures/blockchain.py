@@ -119,25 +119,27 @@ class FixtureHeader(CamelModel):
     We combine the `Environment` and `Result` contents to create this model.
     """
 
-    parent_hash: Hash
+    parent_hash: Hash = Hash(0)
     ommers_hash: Hash = Field(Hash(EmptyOmmersRoot), alias="uncleHash")
     fee_recipient: Address = Field(
         ..., alias="coinbase", validation_alias=AliasChoices("coinbase", "miner")
     )
     state_root: Hash
     transactions_trie: Hash = Field(
-        validation_alias=AliasChoices("transactionsTrie", "transactionsRoot")
+        Hash(EmptyTrieRoot), validation_alias=AliasChoices("transactionsTrie", "transactionsRoot")
     )
     receipts_root: Hash = Field(
-        ..., alias="receiptTrie", validation_alias=AliasChoices("receiptTrie", "receiptsRoot")
+        Hash(EmptyTrieRoot),
+        alias="receiptTrie",
+        validation_alias=AliasChoices("receiptTrie", "receiptsRoot"),
     )
     logs_bloom: Bloom = Field(
-        ..., alias="bloom", validation_alias=AliasChoices("bloom", "logsBloom")
+        Bloom(0), alias="bloom", validation_alias=AliasChoices("bloom", "logsBloom")
     )
     difficulty: ZeroPaddedHexNumber = ZeroPaddedHexNumber(0)
     number: ZeroPaddedHexNumber
     gas_limit: ZeroPaddedHexNumber
-    gas_used: ZeroPaddedHexNumber
+    gas_used: ZeroPaddedHexNumber = ZeroPaddedHexNumber(0)
     timestamp: ZeroPaddedHexNumber
     extra_data: Bytes
     prev_randao: Hash = Field(Hash(0), alias="mixHash")
@@ -219,32 +221,16 @@ class FixtureHeader(CamelModel):
     @classmethod
     def genesis(cls, fork: Fork, env: Environment, state_root: Hash) -> "FixtureHeader":
         """Get the genesis header for the given fork."""
-        return FixtureHeader(
-            parent_hash=0,
-            ommers_hash=EmptyOmmersRoot,
-            fee_recipient=0,
-            state_root=state_root,
-            transactions_trie=EmptyTrieRoot,
-            receipts_root=EmptyTrieRoot,
-            logs_bloom=0,
-            difficulty=0x20000 if env.difficulty is None else env.difficulty,
-            number=0,
-            gas_limit=env.gas_limit,
-            gas_used=0,
-            timestamp=0,
-            extra_data=b"\x00",
-            prev_randao=0,
-            nonce=0,
-            base_fee_per_gas=env.base_fee_per_gas,
-            blob_gas_used=env.blob_gas_used,
-            excess_blob_gas=env.excess_blob_gas,
-            withdrawals_root=(
-                Withdrawal.list_root(env.withdrawals) if env.withdrawals is not None else None
-            ),
-            parent_beacon_block_root=env.parent_beacon_block_root,
-            requests_hash=Requests() if fork.header_requests_required(0, 0) else None,
-            fork=fork,
-        )
+        environment_values = env.model_dump(exclude_none=True, exclude={"withdrawals"})
+        if env.withdrawals is not None:
+            environment_values["withdrawals_root"] = Withdrawal.list_root(env.withdrawals)
+        environment_values["extra_data"] = env.extra_data
+        extras = {
+            "state_root": state_root,
+            "requests_hash": Requests() if fork.header_requests_required(0, 0) else None,
+            "fork": fork,
+        }
+        return FixtureHeader(**environment_values, **extras)
 
 
 class FixtureExecutionPayload(CamelModel):

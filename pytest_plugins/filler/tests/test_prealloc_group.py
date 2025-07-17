@@ -2,12 +2,13 @@
 
 import textwrap
 from pathlib import Path
-from typing import List
+from typing import ClassVar, Dict, List
 from unittest.mock import Mock
 
 import pytest
 
 from ethereum_clis import TransitionTool
+from ethereum_test_fixtures import PreAllocGroups
 from ethereum_test_forks import Fork, Prague
 from ethereum_test_specs.base import BaseTest
 from ethereum_test_types import Alloc, Environment
@@ -32,7 +33,7 @@ class MockTest(BaseTest):
 
     def get_genesis_environment(self, fork: Fork) -> Environment:
         """Return the genesis environment."""
-        return self.genesis_environment
+        return self.genesis_environment.set_fork_requirements(fork)
 
 
 def test_pre_alloc_group_separate():
@@ -203,125 +204,216 @@ def test_pre_alloc_group_with_reason():
     assert hash1 == hash2
 
 
-state_test_diff_envs = textwrap.dedent(
-    """\
-    import pytest
+class FormattedTest:
+    """Represents a single formatted test."""
 
-    from ethereum_test_tools import (
-        Account,
-        Alloc,
-        Environment,
-        StateTestFiller,
-        Transaction
-    )
-    from ethereum_test_tools.vm.opcode import Opcodes as Op
+    kwargs: Dict[str, str]
+    template: ClassVar[str]
+
+    def __init__(self, **kwargs):  # noqa: D107
+        self.kwargs = kwargs
+
+    def format(self) -> str:  # noqa: D102
+        return self.template.format(**self.kwargs)
 
 
-    @pytest.mark.valid_from("Istanbul")
-    def test_chainid(state_test: StateTestFiller, pre: Alloc):
-        contract_address = pre.deploy_contract(Op.SSTORE(1, Op.CHAINID) + Op.STOP)
-        sender = pre.fund_eoa()
+class StateTest(FormattedTest):  # noqa: D101
+    template: ClassVar[str] = textwrap.dedent(
+        """\
+        import pytest
 
-        tx = Transaction(
-            ty=0x0,
-            chain_id=0x01,
-            to=contract_address,
-            gas_limit=100_000,
-            sender=sender,
+        from ethereum_test_tools import (
+            Account,
+            Alloc,
+            Environment,
+            StateTestFiller,
+            Transaction
         )
+        from ethereum_test_tools.vm.opcode import Opcodes as Op
 
-        post = {{
-            contract_address: Account(storage={{"0x01": "0x01"}}),
-        }}
+        @pytest.mark.valid_from("Istanbul")
+        def test_chainid(state_test: StateTestFiller, pre: Alloc):
+            contract_address = pre.deploy_contract(Op.SSTORE(1, Op.CHAINID) + Op.STOP)
+            sender = pre.fund_eoa()
 
-        state_test(env={env}, pre=pre, post=post, tx=tx)
-    """
-)
+            tx = Transaction(
+                ty=0x0,
+                chain_id=0x01,
+                to=contract_address,
+                gas_limit=100_000,
+                sender=sender,
+            )
+
+            post = {{
+                contract_address: Account(storage={{"0x01": "0x01"}}),
+            }}
+
+            state_test(env={env}, pre=pre, post=post, tx=tx)
+        """
+    )
+
+
+class BlockchainTest(FormattedTest):  # noqa: D101
+    template: ClassVar[str] = textwrap.dedent(
+        """\
+        import pytest
+
+        from ethereum_test_tools import (
+            Account,
+            Alloc,
+            Block,
+            BlockchainTestFiller,
+            Environment,
+            Transaction
+        )
+        from ethereum_test_tools.vm.opcode import Opcodes as Op
+
+        @pytest.mark.valid_from("Istanbul")
+        def test_chainid_blockchain(blockchain_test: BlockchainTestFiller, pre: Alloc):
+            contract_address = pre.deploy_contract(Op.SSTORE(1, Op.CHAINID) + Op.STOP)
+            sender = pre.fund_eoa()
+
+            tx = Transaction(
+                ty=0x0,
+                chain_id=0x01,
+                to=contract_address,
+                gas_limit=100_000,
+                sender=sender,
+            )
+
+            post = {{
+                contract_address: Account(storage={{"0x01": "0x01"}}),
+            }}
+
+            blockchain_test(
+                genesis_environment={env},
+                pre=pre,
+                post=post,
+                blocks=[Block(txs=[tx])],
+            )
+        """
+    )
 
 
 @pytest.mark.parametrize(
-    "environment_definitions,expected_different_pre_alloc_groups",
+    "test_definitions,expected_different_pre_alloc_groups",
     [
         # Environment fields not affecting the pre-alloc groups
         pytest.param(
             [
-                "Environment(fee_recipient=pre.fund_eoa(amount=0))",
-                "Environment(fee_recipient=1)",
-                "Environment(fee_recipient=2)",
+                BlockchainTest(env="Environment()"),
+                StateTest(env="Environment()"),
+            ],
+            1,
+            id="different_types_default_environment",
+        ),
+        pytest.param(
+            [
+                StateTest(env="Environment(fee_recipient=pre.fund_eoa(amount=0))"),
+                StateTest(env="Environment(fee_recipient=1)"),
+                StateTest(env="Environment(fee_recipient=2)"),
             ],
             1,
             id="different_fee_recipients",
         ),
         pytest.param(
             [
-                "Environment(prev_randao=1)",
-                "Environment(prev_randao=2)",
+                StateTest(env="Environment(fee_recipient=1)"),
+                BlockchainTest(env="Environment(fee_recipient=1)"),
+            ],
+            2,
+            id="different_fee_recipients_different_types",
+        ),
+        pytest.param(
+            [
+                StateTest(env="Environment(prev_randao=1)"),
+                StateTest(env="Environment(prev_randao=2)"),
             ],
             1,
             id="different_prev_randaos",
         ),
         pytest.param(
             [
-                "Environment(timestamp=1)",
-                "Environment(timestamp=2)",
+                StateTest(env="Environment(prev_randao=1)"),
+                BlockchainTest(env="Environment(prev_randao=2)"),
+            ],
+            2,
+            id="different_prev_randaos_different_types",
+        ),
+        pytest.param(
+            [
+                StateTest(env="Environment(timestamp=1)"),
+                StateTest(env="Environment(timestamp=2)"),
             ],
             1,
             id="different_timestamps",
         ),
         pytest.param(
             [
-                "Environment(extra_data='0x01')",
-                "Environment(extra_data='0x02')",
+                StateTest(env="Environment(extra_data='0x01')"),
+                StateTest(env="Environment(extra_data='0x02')"),
             ],
             1,
             id="different_extra_data",
         ),
+        pytest.param(
+            [
+                StateTest(env="Environment(extra_data='0x01')"),
+                BlockchainTest(env="Environment(extra_data='0x02')"),
+            ],
+            2,
+            id="different_extra_data_different_types",
+            marks=pytest.mark.xfail(
+                reason="Extra data is excluded=True in the Environment model, so it does not "
+                "propagate correctly to the genesis header without a lot of code changes.",
+            ),
+        ),
         # Environment fields affecting the pre-alloc groups
         pytest.param(
             [
-                "Environment(gas_limit=100_000_000)",
-                "Environment(gas_limit=200_000_000)",
+                StateTest(env="Environment(gas_limit=100_000_000)"),
+                StateTest(env="Environment(gas_limit=200_000_000)"),
             ],
             2,
             id="different_gas_limits",
         ),
         pytest.param(
             [
-                "Environment(number=10)",
-                "Environment(number=20)",
+                StateTest(env="Environment(number=10)"),
+                StateTest(env="Environment(number=20)"),
             ],
             2,
             id="different_block_numbers",
         ),
         pytest.param(
             [
-                "Environment(base_fee_per_gas=10)",
-                "Environment(base_fee_per_gas=20)",
+                StateTest(env="Environment(base_fee_per_gas=10)"),
+                StateTest(env="Environment(base_fee_per_gas=20)"),
             ],
             2,
             id="different_base_fee",
         ),
         pytest.param(
             [
-                "Environment(excess_blob_gas=10)",
-                "Environment(excess_blob_gas=20)",
+                StateTest(env="Environment(excess_blob_gas=10)"),
+                StateTest(env="Environment(excess_blob_gas=20)"),
             ],
             2,
             id="different_excess_blob_gas",
         ),
     ],
 )
-def test_state_tests_pre_alloc_grouping(
+def test_pre_alloc_grouping_by_test_type(
     pytester: pytest.Pytester,
     default_t8n: TransitionTool,
-    environment_definitions: List[str],
+    test_definitions: List[FormattedTest],
     expected_different_pre_alloc_groups: int,
 ):
     """Test pre-alloc grouping when filling state tests, and the effect of the `state_test.env`."""
     tests_dir = Path(pytester.mkdir("tests"))
-    for i, env in enumerate(environment_definitions):
-        test_module = tests_dir / f"test_state_test_{i}.py"
-        test_module.write_text(state_test_diff_envs.format(env=env))
+    for i, test in enumerate(test_definitions):
+        test_module = tests_dir / f"test_{i}.py"
+        test_module.write_text(test.format())
     pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
     args = [
         "-c",
@@ -334,7 +426,7 @@ def test_state_tests_pre_alloc_grouping(
     args.append(default_t8n.server_url)
     result = pytester.runpytest(*args)
     result.assert_outcomes(
-        passed=len(environment_definitions),
+        passed=len(test_definitions),
         failed=0,
         skipped=0,
         errors=0,
@@ -344,9 +436,70 @@ def test_state_tests_pre_alloc_grouping(
         Path(default_output_directory()).absolute() / "blockchain_tests_engine_x" / "pre_alloc"
     )
     assert output_dir.exists()
-
-    # All different environments should only generate a single genesis pre-alloc
-    assert (
+    groups = PreAllocGroups.from_folder(output_dir)
+    if (
         len([f for f in output_dir.iterdir() if f.name.endswith(".json")])
-        == expected_different_pre_alloc_groups
-    )
+        != expected_different_pre_alloc_groups
+    ):
+        error_message = (
+            f"Expected {expected_different_pre_alloc_groups} different pre-alloc groups, "
+            f"but got {len(groups)}"
+        )
+        for group_hash, group in groups.items():
+            error_message += f"\n{group_hash}: \n"
+            error_message += f"tests: {group.test_ids}\n"
+            error_message += (
+                f"env: {group.environment.model_dump_json(indent=2, exclude_none=True)}\n"
+            )
+        raise AssertionError(error_message)
+
+    for group_hash, group in groups.items():
+        assert group.environment.fee_recipient == group.genesis.fee_recipient, (
+            f"Fee recipient mismatch for group {group_hash}: {group.environment.fee_recipient} != "
+            f"{group.genesis.fee_recipient}"
+        )
+        assert group.environment.prev_randao == group.genesis.prev_randao, (
+            f"Prev randao mismatch for group {group_hash}: {group.environment.prev_randao} != "
+            f"{group.genesis.prev_randao}"
+        )
+        assert group.environment.extra_data == group.genesis.extra_data, (
+            f"Extra data mismatch for group {group_hash}: {group.environment.extra_data} != "
+            f"{group.genesis.extra_data}"
+        )
+        assert group.environment.number == group.genesis.number, (
+            f"Number mismatch for group {group_hash}: {group.environment.number} != "
+            f"{group.genesis.number}"
+        )
+        assert group.environment.timestamp == group.genesis.timestamp, (
+            f"Timestamp mismatch for group {group_hash}: {group.environment.timestamp} != "
+            f"{group.genesis.timestamp}"
+        )
+        assert group.environment.difficulty == group.genesis.difficulty, (
+            f"Difficulty mismatch for group {group_hash}: {group.environment.difficulty} != "
+            f"{group.genesis.difficulty}"
+        )
+        assert group.environment.gas_limit == group.genesis.gas_limit, (
+            f"Gas limit mismatch for group {group_hash}: {group.environment.gas_limit} != "
+            f"{group.genesis.gas_limit}"
+        )
+        assert group.environment.base_fee_per_gas == group.genesis.base_fee_per_gas, (
+            f"Base fee per gas mismatch for group {group_hash}: "
+            f"{group.environment.base_fee_per_gas} != "
+            f"{group.genesis.base_fee_per_gas}"
+        )
+        assert group.environment.excess_blob_gas == group.genesis.excess_blob_gas, (
+            f"Excess blob gas mismatch for group {group_hash}: "
+            f"{group.environment.excess_blob_gas} != "
+            f"{group.genesis.excess_blob_gas}"
+        )
+        assert group.environment.blob_gas_used == group.genesis.blob_gas_used, (
+            f"Blob gas used mismatch for group {group_hash}: {group.environment.blob_gas_used} != "
+            f"{group.genesis.blob_gas_used}"
+        )
+        assert (
+            group.environment.parent_beacon_block_root == group.genesis.parent_beacon_block_root
+        ), (
+            f"Parent beacon block root mismatch for group {group_hash}: "
+            f"{group.environment.parent_beacon_block_root} != "
+            f"{group.genesis.parent_beacon_block_root}"
+        )
