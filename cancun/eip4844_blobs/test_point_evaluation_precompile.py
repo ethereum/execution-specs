@@ -190,12 +190,6 @@ def precompile_caller_address(
 
 
 @pytest.fixture
-def sender(pre: Alloc) -> EOA:
-    """Return sender account."""
-    return pre.fund_eoa()
-
-
-@pytest.fixture
 def tx(
     precompile_caller_address: Address,
     precompile_input: bytes,

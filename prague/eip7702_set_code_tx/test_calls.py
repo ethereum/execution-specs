@@ -6,7 +6,6 @@ from enum import Enum, auto, unique
 import pytest
 
 from ethereum_test_tools import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -51,12 +50,6 @@ class TargetAccountType(Enum):
     def __str__(self) -> str:
         """Return string representation of the enum."""
         return f"{self.name}"
-
-
-@pytest.fixture
-def sender(pre: Alloc) -> EOA:
-    """Sender of the transaction."""
-    return pre.fund_eoa()
 
 
 @pytest.fixture

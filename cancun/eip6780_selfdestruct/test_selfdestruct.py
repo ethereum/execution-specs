@@ -125,12 +125,6 @@ def selfdestruct_code(
     return selfdestruct_code_preset(sendall_recipient_addresses=sendall_recipient_addresses)
 
 
-@pytest.fixture
-def sender(pre: Alloc) -> EOA:
-    """EOA that will be used to send transactions."""
-    return pre.fund_eoa()
-
-
 @pytest.mark.parametrize("create_opcode", [Op.CREATE, Op.CREATE2])
 @pytest.mark.parametrize(
     "call_times,sendall_recipient_addresses",

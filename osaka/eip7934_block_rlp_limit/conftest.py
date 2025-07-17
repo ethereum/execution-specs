@@ -3,7 +3,6 @@
 import pytest
 
 from ethereum_test_tools import (
-    EOA,
     Address,
     Alloc,
 )
@@ -21,12 +20,6 @@ def post() -> Alloc:
 def env() -> Environment:
     """Environment fixture with a specified gas limit."""
     return Environment(gas_limit=100_000_000)
-
-
-@pytest.fixture
-def sender(pre: Alloc) -> EOA:
-    """Funded EOA fixture used for sending transactions."""
-    return pre.fund_eoa()
 
 
 @pytest.fixture

@@ -119,12 +119,6 @@ def call_contract_address(pre: Alloc, call_contract_code: Bytecode) -> Address:
 
 
 @pytest.fixture
-def sender(pre: Alloc) -> EOA:
-    """Sender of the transaction."""
-    return pre.fund_eoa()
-
-
-@pytest.fixture
 def post(call_contract_address: Address, call_contract_post_storage: Storage):
     """Test expected post outcome."""
     return {

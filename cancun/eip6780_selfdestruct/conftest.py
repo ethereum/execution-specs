@@ -2,13 +2,7 @@
 
 import pytest
 
-from ethereum_test_tools import EOA, Address, Alloc, Environment
-
-
-@pytest.fixture
-def sender(pre: Alloc) -> EOA:
-    """EOA that will be used to send transactions."""
-    return pre.fund_eoa()
+from ethereum_test_tools import Address, Alloc, Environment
 
 
 @pytest.fixture

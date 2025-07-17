@@ -48,12 +48,6 @@ def pre_fork_blobs_per_block(fork: Fork) -> int:
 
 
 @pytest.fixture
-def sender(pre: Alloc) -> EOA:
-    """Sender account."""
-    return pre.fund_eoa()
-
-
-@pytest.fixture
 def pre_fork_blocks(
     pre_fork_blobs_per_block: int,
     destination_account: Address,

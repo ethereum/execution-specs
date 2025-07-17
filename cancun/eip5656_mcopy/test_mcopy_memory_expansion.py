@@ -141,11 +141,6 @@ def caller_address(pre: Alloc, callee_bytecode: bytes) -> Address:  # noqa: D103
 
 
 @pytest.fixture
-def sender(pre: Alloc) -> Address:  # noqa: D103
-    return pre.fund_eoa()
-
-
-@pytest.fixture
 def tx(  # noqa: D103
     sender: Address,
     caller_address: Address,

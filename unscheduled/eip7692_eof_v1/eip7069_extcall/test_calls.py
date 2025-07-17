@@ -79,12 +79,6 @@ class TargetAccountType(Enum):
 
 
 @pytest.fixture
-def sender(pre: Alloc) -> EOA:
-    """Sender of the transaction."""
-    return pre.fund_eoa()
-
-
-@pytest.fixture
 def target_address(pre: Alloc, target_account_type: TargetAccountType) -> Address:
     """Target address of the call depending on required type of account."""
     match target_account_type:

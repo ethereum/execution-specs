@@ -25,12 +25,6 @@ from .helpers import DataTestType, find_floor_cost_threshold
 
 
 @pytest.fixture
-def sender(pre: Alloc) -> EOA:
-    """Create the sender account."""
-    return pre.fund_eoa()
-
-
-@pytest.fixture
 def to(
     request: pytest.FixtureRequest,
     pre: Alloc,
