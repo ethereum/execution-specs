@@ -1479,7 +1479,7 @@ class Osaka(Prague, solc_name="cancun"):
         blob_gas_per_blob = cls.blob_gas_per_blob(block_number, timestamp)
         target_blob_gas_per_block = target_blobs_per_block * blob_gas_per_blob
         max_blobs_per_block = cls.max_blobs_per_block(block_number, timestamp)
-        blob_base_cost = 2**14  # EIP-7918 new parameter
+        blob_base_cost = 2**13  # EIP-7918 new parameter
 
         def fn(
             *,
