@@ -27,7 +27,7 @@ transactionCosts:
   pre:
 
     # Do nothing 
-    cccccccccccccccccccccccccccccccccccccccc:
+    <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
       balance: '0x0ba1a9ce0ba1a9ce'
 
       # 00 STOP
@@ -38,7 +38,7 @@ transactionCosts:
 
 
 
-    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+    <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
       # Without an access list the cost of the transaction is 121004
       # Adding that amount lets us count down from a round number
       balance: 100310040
@@ -223,8 +223,8 @@ transactionCosts:
     - '400000'
     gasPrice: 10
     nonce: '0'
-    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
-    to: cccccccccccccccccccccccccccccccccccccccc
+    secretKey: "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>"
+    to: <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>
     value:
     - '100000'
 
@@ -247,7 +247,7 @@ transactionCosts:
     network:
     - "Cancun"
     result:
-      a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
         balance: 100000000
         # Without an access list the cost of the transaction is 121004
         #
@@ -266,7 +266,7 @@ transactionCosts:
     network:
     - ">=Prague"
     result:
-      a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
         balance: 99999940
 
 
@@ -280,7 +280,7 @@ transactionCosts:
     network:
     - ">=Cancun"
     result:
-      a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
         balance: 99976000
 
 
@@ -296,7 +296,7 @@ transactionCosts:
     network:
     - ">=Cancun"
     result:
-      a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
         balance: 99957000
 
 
@@ -316,7 +316,7 @@ transactionCosts:
     network:
     - ">=Cancun"
     result:
-      a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
         balance: 99938000
        
 
@@ -337,7 +337,7 @@ transactionCosts:
     network:
     - ">=Cancun"
     result:
-      a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
         balance: 99914000
        
 
@@ -352,5 +352,5 @@ transactionCosts:
     network:
     - ">=Cancun"
     result:
-      a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
         balance: 99285000

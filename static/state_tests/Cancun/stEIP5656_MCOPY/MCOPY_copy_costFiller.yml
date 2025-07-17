@@ -12,7 +12,7 @@ MCOPY_copy_cost:
   pre:
 
     # Executed code (transaction destination)
-    000000000000000000000000000000000000c0de:
+    <contract:target:0x000000000000000000000000000000000000c0de>:
       balance: 0
       nonce: 1
       code: |
@@ -32,14 +32,14 @@ MCOPY_copy_cost:
       storage: { }
 
     # Transaction sender
-    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+    <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
       balance: 1000000000
       nonce: 0
       code: ''
       storage: { }
 
   transaction:
-    to: 000000000000000000000000000000000000c0de
+    to: <contract:target:0x000000000000000000000000000000000000c0de>
     nonce: 0
     gasLimit:
       # Every test case should pass easily. The amount of gas consumed is reflected in the sender's balance update.
@@ -51,7 +51,7 @@ MCOPY_copy_cost:
     gasPrice: 10
     value:
       - 0
-    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    secretKey: "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>"
     data:
       - >
         :label src0_size0 :raw 0x
@@ -222,7 +222,7 @@ MCOPY_copy_cost:
       network:
         - '>=Cancun'
       result:
-        000000000000000000000000000000000000c0de:
+        <contract:target:0x000000000000000000000000000000000000c0de>:
           storage:
             0: 1
 
@@ -256,7 +256,7 @@ MCOPY_copy_cost:
       network:
         - '>=Cancun'
       result:
-        000000000000000000000000000000000000c0de:
+        <contract:target:0x000000000000000000000000000000000000c0de>:
           storage:
             0: 1
 
@@ -277,6 +277,6 @@ MCOPY_copy_cost:
       network:
         - '>=Cancun'
       result:
-        000000000000000000000000000000000000c0de:
+        <contract:target:0x000000000000000000000000000000000000c0de>:
           storage:
             0: 0

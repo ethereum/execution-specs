@@ -17,7 +17,7 @@ random:
   pre:
 
     # 201503102320PYTHON
-    0000000000000000000000000000000000001000:
+    <contract:0x0000000000000000000000000000000000001000>:
       balance: '0x0ba1a9ce0ba1a9ce'
       code: 0x434342444244454597
       nonce: '0'
@@ -25,7 +25,7 @@ random:
 
 
     # 201503110206PYTHON
-    0000000000000000000000000000000000001001:
+    <contract:0x0000000000000000000000000000000000001001>:
       balance: '0x0ba1a9ce0ba1a9ce'
       code: 0x4045404145454441343987ff3735043055
       nonce: '0'
@@ -33,7 +33,7 @@ random:
 
 
     # 201503110219PYTHON
-    0000000000000000000000000000000000001002:
+    <contract:0x0000000000000000000000000000000000001002>:
       balance: '0x0ba1a9ce0ba1a9ce'
       code: 0x4040459143404144809759886d608f
       nonce: '0'
@@ -41,21 +41,21 @@ random:
 
 
     # 201503110346PYTHON_PUSH24
-    0000000000000000000000000000000000001003:
+    <contract:0x0000000000000000000000000000000000001003>:
       balance: '0x0ba1a9ce0ba1a9ce'
       code: 0x7745414245403745f31387900a8d55
       nonce: '0'
       storage: {}
 
     # 201503111844PYTHON
-    0000000000000000000000000000000000001004:
+    <contract:0x0000000000000000000000000000000000001004>:
       balance: '0x0ba1a9ce0ba1a9ce'
       code: 0x65424555
       nonce: '0'
       storage: {}
 
     # 201503112218PYTHON
-    0000000000000000000000000000000000001005:
+    <contract:0x0000000000000000000000000000000000001005>:
       balance: '0x0ba1a9ce0ba1a9ce'
       code: 0x4041
       nonce: '0'
@@ -63,7 +63,7 @@ random:
 
 
 
-    cccccccccccccccccccccccccccccccccccccccc:
+    <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
       balance: '0x0ba1a9ce0ba1a9ce'
       code: |
         {
@@ -73,7 +73,7 @@ random:
       storage: {}
 
 
-    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+    <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
       balance: 0x10000000000000
       code: '0x'
       nonce: '0'
@@ -95,10 +95,10 @@ random:
     - '80000000'
     gasPrice: '10'
     nonce: '0'
-    to: cccccccccccccccccccccccccccccccccccccccc
+    to: <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>
     value:
     - '1'
-    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    secretKey: "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>"
 
 
   expect:
@@ -109,7 +109,7 @@ random:
       network:
         - '>=Cancun'
       result:
-        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+        <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
           nonce: 1
 
 
@@ -120,7 +120,7 @@ random:
       network:
         - '>=Cancun'
       result:
-        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+        <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
           nonce: 1
 
 
@@ -131,7 +131,7 @@ random:
       network:
         - '>=Cancun'
       result:
-        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+        <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
           nonce: 1
 
 
@@ -142,7 +142,7 @@ random:
       network:
         - '>=Cancun'
       result:
-        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+        <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
           nonce: 1
 
 
@@ -154,7 +154,7 @@ random:
       network:
         - '>=Cancun'
       result:
-        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+        <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
           nonce: 1
 
 
@@ -166,7 +166,7 @@ random:
       network:
         - '>=Cancun'
       result:
-        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+        <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
           nonce: 1
 
 

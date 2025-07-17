@@ -14,7 +14,7 @@ senderBalance:
     currentBaseFee: 11
 
   pre:
-    cccccccccccccccccccccccccccccccccccccccc:
+    <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
       balance: 0
       code: |
         :yul london
@@ -24,7 +24,7 @@ senderBalance:
       nonce: 0
       storage: {}
 
-    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+    <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
       balance: 1000000000000000000
       code: ''
       nonce: 0
@@ -32,10 +32,10 @@ senderBalance:
 
   transaction:
     nonce: 0
-    to: cccccccccccccccccccccccccccccccccccccccc
+    to: <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>
     value:
       - 0
-    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    secretKey: "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>"
     maxFeePerGas: 1000
     maxPriorityFeePerGas: 100
     gasLimit:
@@ -50,6 +50,6 @@ senderBalance:
       network:
         - ">=Cancun"
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0: 999999999993340000

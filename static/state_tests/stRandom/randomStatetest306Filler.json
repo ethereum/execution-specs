@@ -1,7 +1,7 @@
 {
     "randomStatetest306" : {
         "env" : {
-            "currentCoinbase" : "945304eb96065b2a98b57a48a06ae28d285a71b5",
+            "currentCoinbase" : "<contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>",
             "currentDifficulty" : "0x20000",
             "currentGasLimit" : "0x7fffffffffffffff",
             "currentNumber" : "0x01",
@@ -16,17 +16,17 @@
                 },
                 "network" : [">=Cancun"],
                 "result" : {
-                    "095e7baea6a6c7c4c2dfeb977efac326af552d87" : {
+                    "<contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>" : {
                         "nonce" : "0x00",
                         "storage" : {
                         }
                     },
-                    "945304eb96065b2a98b57a48a06ae28d285a71b5" : {
+                    "<contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>" : {
                         "nonce" : "0x00",
                         "storage" : {
                         }
                     },
-                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                    "<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                         "code" : "0x",
                         "nonce" : "0x01",
                         "storage" : {
@@ -36,21 +36,21 @@
             }
         ],
         "pre" : {
-            "095e7baea6a6c7c4c2dfeb977efac326af552d87" : {
+            "<contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>" : {
                 "balance" : "0x00",
-                "code" : ":raw 0x60d36e84517b3285b0867cd4144ff5f688d60b6a07592395d95e37246c06736c78c9fa9e4b5e5db5a4b6ac4ced6dd169cda4fc3c11e9a6f0b4cec2f56019617df7a363788c155473412582d556f06c6d5864cf4be6a2d1318b8e40ba1377454cc8d0510823591dee680d7dddc8c149bfcc24c65c69e66c2b9d3e28f05faf2587c446509405759901ec0946bf3d786827225faf5da81e158cd9b2b4666f71a29fbe89f77c340dcbd7d67aedf852136b6c76affb38beb802e0af269e65c22f52807c677b5e2c7d8c473aff18fe912c7ed21ab60fe5d4916a76c93539332c6ab16b3f81b990f4b34b0228c7f5b1656bdd21d458717330e4be7d7bb91cc95818140eef086cd82d2d6f0d66c92a7ffb27125a625c77a8967268f212339508d6f60d9c93a9e201f2ae883cb9752460ec0dcb4ba3b84a4db899c29f08ef1b0f506b4f3c05601f6001601060116328b0eb5f73095e7baea6a6c7c4c2dfeb977efac326af552d87630a4eb375f17df238e15d7d51240301521f173d628e7a68d01354faaf406ce541f753db89671f6aedcf261f632e6244e8c3799a2de002f15ba4681fd3c609c0f522dfd964f95def9926f812327781b2de33196cc22776e9b26d8a0d65c57bdac987d0b3e0db66c0f1232c7add3365f209cc53592f73502d0c5889b1bbf131f8bb6a6b5e2e067b9ef676768d48b3f5790c3304e046f0a9c8a838a0596583d6258f196dcf982a9de5cec4f871470e7a6c9289615e1e7d140fdc038972916223fb8012e29350295f3919cb28a36411845930d5e91b68510faac5e0677953467cedb653f73818749e8cbaf15a5d64ba7ee5cabc98137167b924a2aac9147f159713d115e0225a84a54d6471dc7a01a7e4e814145305c9d04d2880c5be42fc6c52ced3e983d91a580a4142021b73e99c3180117914b9ad03c580a8dac862be9b599a73ccfcfb230bcffc425c13c265f3b06b8c9f104c10752740765567374c211601a5f51501d18c48081998ff7b7a8bfdf0bec9eb4385b554870a996e0cab662d991d0e5f9357f2f99f98",
+                "code" : ":raw 0x60d36e84517b3285b0867cd4144ff5f688d60b6a07592395d95e37246c06736c78c9fa9e4b5e5db5a4b6ac4ced6dd169cda4fc3c11e9a6f0b4cec2f56019617df7a363788c155473412582d556f06c6d5864cf4be6a2d1318b8e40ba1377454cc8d0510823591dee680d7dddc8c149bfcc24c65c69e66c2b9d3e28f05faf2587c446509405759901ec0946bf3d786827225faf5da81e158cd9b2b4666f71a29fbe89f77c340dcbd7d67aedf852136b6c76affb38beb802e0af269e65c22f52807c677b5e2c7d8c473aff18fe912c7ed21ab60fe5d4916a76c93539332c6ab16b3f81b990f4b34b0228c7f5b1656bdd21d458717330e4be7d7bb91cc95818140eef086cd82d2d6f0d66c92a7ffb27125a625c77a8967268f212339508d6f60d9c93a9e201f2ae883cb9752460ec0dcb4ba3b84a4db899c29f08ef1b0f506b4f3c05601f6001601060116328b0eb5f73<contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>630a4eb375f17df238e15d7d51240301521f173d628e7a68d01354faaf406ce541f753db89671f6aedcf261f632e6244e8c3799a2de002f15ba4681fd3c609c0f522dfd964f95def9926f812327781b2de33196cc22776e9b26d8a0d65c57bdac987d0b3e0db66c0f1232c7add3365f209cc53592f73502d0c5889b1bbf131f8bb6a6b5e2e067b9ef676768d48b3f5790c3304e046f0a9c8a838a0596583d6258f196dcf982a9de5cec4f871470e7a6c9289615e1e7d140fdc038972916223fb8012e29350295f3919cb28a36411845930d5e91b68510faac5e0677953467cedb653f73818749e8cbaf15a5d64ba7ee5cabc98137167b924a2aac9147f159713d115e0225a84a54d6471dc7a01a7e4e814145305c9d04d2880c5be42fc6c52ced3e983d91a580a4142021b73e99c3180117914b9ad03c580a8dac862be9b599a73ccfcfb230bcffc425c13c265f3b06b8c9f104c10752740765567374c211601a5f51501d18c48081998ff7b7a8bfdf0bec9eb4385b554870a996e0cab662d991d0e5f9357f2f99f98",
                 "nonce" : "0x00",
                 "storage" : {
                 }
             },
-            "945304eb96065b2a98b57a48a06ae28d285a71b5" : {
+            "<contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>" : {
                 "balance" : "0x2e",
                 "code" : ":raw 0x6000355415600957005b60203560003555",
                 "nonce" : "0x00",
                 "storage" : {
                 }
             },
-            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+            "<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                 "balance" : "0x0de0b6b3a7640000",
                 "code" : "0x",
                 "nonce" : "0x00",
@@ -67,8 +67,8 @@
             ],
             "gasPrice" : "0x0a",
             "nonce" : "0x00",
-            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
-            "to" : "095e7baea6a6c7c4c2dfeb977efac326af552d87",
+            "secretKey" : "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>",
+            "to" : "<contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>",
             "value" : [
                 "0x5af02372"
             ]

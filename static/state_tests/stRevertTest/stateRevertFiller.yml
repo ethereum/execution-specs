@@ -15,7 +15,7 @@ stateRevert:
   pre:
 
     # This contract is called, changes state, and then the caller reverts.
-    000000000000000000000000000000000000DEAD:
+    <contract:0x000000000000000000000000000000000000dead>:
       balance: '0x0ba1a9ce0ba1a9ce'
       code: |
         {
@@ -27,7 +27,7 @@ stateRevert:
 
 
     # REVERT opcode
-    0000000000000000000000000000000000001000:
+    <contract:0x0000000000000000000000000000000000001000>:
       balance: '0x0ba1a9ce0ba1a9ce'
       code: |
         {
@@ -41,7 +41,7 @@ stateRevert:
 
 
     # Out of gas
-    0000000000000000000000000000000000001001:
+    <contract:0x0000000000000000000000000000000000001001>:
       balance: '0x0ba1a9ce0ba1a9ce'
       code: |
         {
@@ -55,7 +55,7 @@ stateRevert:
 
 
     # Extreme out of gas  (gas cost of an opcode > 2^64)
-    0000000000000000000000000000000000001002:
+    <contract:0x0000000000000000000000000000000000001002>:
       balance: '0x0ba1a9ce0ba1a9ce'
       code: |
         {
@@ -71,14 +71,14 @@ stateRevert:
     # last part from (revert 0 0x10) to whatever is needed
 
     # Invalid opcode
-    0000000000000000000000000000000000001003:
+    <contract:0x0000000000000000000000000000000000001003>:
       balance: '0x0ba1a9ce0ba1a9ce'
       code: :raw 0x610103600155600060006000600061dead6175305a03f450BA
       nonce: '0'
       storage: {}
 
     # Jump to a non jumpdest (pc=0, which is a PUSH2)
-    0000000000000000000000000000000000001004:
+    <contract:0x0000000000000000000000000000000000001004>:
       balance: '0x0ba1a9ce0ba1a9ce'
       code: :raw 0x610104600155600060006000600061dead6175305a03f450600056
       nonce: '0'
@@ -86,7 +86,7 @@ stateRevert:
 
 
     # Stack underflow
-    0000000000000000000000000000000000001005:
+    <contract:0x0000000000000000000000000000000000001005>:
       balance: '0x0ba1a9ce0ba1a9ce'
       code: :raw 0x610105600155600060006000600061dead6175305a03f450010101
       nonce: '0'
@@ -94,7 +94,7 @@ stateRevert:
 
 
     # Stack overflow
-    0000000000000000000000000000000000001006:
+    <contract:0x0000000000000000000000000000000000001006>:
       # The code that does the overflow:
       # n    5B    JUMPDEST
       # n+1  58    PC
@@ -109,7 +109,7 @@ stateRevert:
 
 
 
-    CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC:
+    <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
       balance: '0x0ba1a9ce0ba1a9ce'
       code: |
         {
@@ -120,7 +120,7 @@ stateRevert:
       storage: {}
 
 
-    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+    <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
       balance: 0x100000000000
       code: '0x'
       nonce: '0'
@@ -142,10 +142,10 @@ stateRevert:
     - '80000000'
     gasPrice: '10'
     nonce: '0'
-    to: cccccccccccccccccccccccccccccccccccccccc
+    to: <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>
     value:
     - '1'
-    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    secretKey: "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>"
 
 
   expect:
@@ -163,7 +163,7 @@ stateRevert:
       network:
         - '>=Cancun'
       result:
-        CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0: 0x60A7  # CCCCCCC changes state
             1:   0x00  # The contract that reverted does not

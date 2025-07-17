@@ -12,7 +12,7 @@ lowGasLimit:
 
 
   pre:
-    cccccccccccccccccccccccccccccccccccccccc:
+    <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
       balance: '1000000000000000000'
       code: |
           :yul berlin
@@ -23,7 +23,7 @@ lowGasLimit:
       storage:
         0: 0x60A7
 
-    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+    <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
       balance: '1000000000000000000'
       code: '0x'
       nonce: 1
@@ -42,10 +42,10 @@ lowGasLimit:
     - 25000 # Runs out of gas, so reverted out of
     - 20000 # Fail because it is below the intrinsic cost
     nonce: 1
-    to: cccccccccccccccccccccccccccccccccccccccc
+    to: <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>
     value:
     - 0
-    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    secretKey: "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>"
 
 
   expect:
@@ -70,7 +70,7 @@ lowGasLimit:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
            storage:
              0: 2
 
@@ -83,7 +83,7 @@ lowGasLimit:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
            storage:
              0: 0x60A7
 

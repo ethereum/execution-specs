@@ -16,7 +16,7 @@ underflowTest:
 
 
     # Run the opcode ADD with 1 parameters
-    0000000000000000000000000000000000000101:
+    <contract:0x0000000000000000000000000000000000000101>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -27,7 +27,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode ADD with 2 parameters
-    0000000000000000000000000000000000000102:
+    <contract:0x0000000000000000000000000000000000000102>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -38,7 +38,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode MUL with 1 parameters
-    0000000000000000000000000000000000000201:
+    <contract:0x0000000000000000000000000000000000000201>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -49,7 +49,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode MUL with 2 parameters
-    0000000000000000000000000000000000000202:
+    <contract:0x0000000000000000000000000000000000000202>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -60,7 +60,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SUB with 1 parameters
-    0000000000000000000000000000000000000301:
+    <contract:0x0000000000000000000000000000000000000301>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -71,7 +71,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SUB with 2 parameters
-    0000000000000000000000000000000000000302:
+    <contract:0x0000000000000000000000000000000000000302>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -82,7 +82,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DIV with 1 parameters
-    0000000000000000000000000000000000000401:
+    <contract:0x0000000000000000000000000000000000000401>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -93,7 +93,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DIV with 2 parameters
-    0000000000000000000000000000000000000402:
+    <contract:0x0000000000000000000000000000000000000402>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -104,7 +104,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SDIV with 1 parameters
-    0000000000000000000000000000000000000501:
+    <contract:0x0000000000000000000000000000000000000501>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -115,7 +115,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SDIV with 2 parameters
-    0000000000000000000000000000000000000502:
+    <contract:0x0000000000000000000000000000000000000502>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -126,7 +126,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode MOD with 1 parameters
-    0000000000000000000000000000000000000601:
+    <contract:0x0000000000000000000000000000000000000601>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -137,7 +137,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode MOD with 2 parameters
-    0000000000000000000000000000000000000602:
+    <contract:0x0000000000000000000000000000000000000602>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -148,7 +148,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SMOD with 1 parameters
-    0000000000000000000000000000000000000701:
+    <contract:0x0000000000000000000000000000000000000701>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -159,7 +159,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SMOD with 2 parameters
-    0000000000000000000000000000000000000702:
+    <contract:0x0000000000000000000000000000000000000702>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -170,7 +170,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode ADDMOD with 2 parameters
-    0000000000000000000000000000000000000802:
+    <contract:0x0000000000000000000000000000000000000802>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -181,7 +181,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode ADDMOD with 3 parameters
-    0000000000000000000000000000000000000803:
+    <contract:0x0000000000000000000000000000000000000803>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -192,7 +192,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode MULMOD with 2 parameters
-    0000000000000000000000000000000000000902:
+    <contract:0x0000000000000000000000000000000000000902>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -203,7 +203,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode MULMOD with 3 parameters
-    0000000000000000000000000000000000000903:
+    <contract:0x0000000000000000000000000000000000000903>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -214,7 +214,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode EXP with 1 parameters
-    0000000000000000000000000000000000000a01:
+    <contract:0x0000000000000000000000000000000000000a01>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -225,7 +225,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode EXP with 2 parameters
-    0000000000000000000000000000000000000a02:
+    <contract:0x0000000000000000000000000000000000000a02>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -236,7 +236,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SIGNEXTEND with 1 parameters
-    0000000000000000000000000000000000000b01:
+    <contract:0x0000000000000000000000000000000000000b01>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -247,7 +247,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SIGNEXTEND with 2 parameters
-    0000000000000000000000000000000000000b02:
+    <contract:0x0000000000000000000000000000000000000b02>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -258,7 +258,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode LT with 1 parameters
-    0000000000000000000000000000000000001001:
+    <contract:0x0000000000000000000000000000000000001001>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -269,7 +269,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode LT with 2 parameters
-    0000000000000000000000000000000000001002:
+    <contract:0x0000000000000000000000000000000000001002>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -280,7 +280,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode GT with 1 parameters
-    0000000000000000000000000000000000001101:
+    <contract:0x0000000000000000000000000000000000001101>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -291,7 +291,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode GT with 2 parameters
-    0000000000000000000000000000000000001102:
+    <contract:0x0000000000000000000000000000000000001102>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -302,7 +302,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SLT with 1 parameters
-    0000000000000000000000000000000000001201:
+    <contract:0x0000000000000000000000000000000000001201>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -313,7 +313,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SLT with 2 parameters
-    0000000000000000000000000000000000001202:
+    <contract:0x0000000000000000000000000000000000001202>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -324,7 +324,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SGT with 1 parameters
-    0000000000000000000000000000000000001301:
+    <contract:0x0000000000000000000000000000000000001301>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -335,7 +335,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SGT with 2 parameters
-    0000000000000000000000000000000000001302:
+    <contract:0x0000000000000000000000000000000000001302>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -346,7 +346,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode EQ with 1 parameters
-    0000000000000000000000000000000000001401:
+    <contract:0x0000000000000000000000000000000000001401>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -357,7 +357,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode EQ with 2 parameters
-    0000000000000000000000000000000000001402:
+    <contract:0x0000000000000000000000000000000000001402>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -368,7 +368,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode ISZERO with 0 parameters
-    0000000000000000000000000000000000001500:
+    <contract:0x0000000000000000000000000000000000001500>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -379,7 +379,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode ISZERO with 1 parameters
-    0000000000000000000000000000000000001501:
+    <contract:0x0000000000000000000000000000000000001501>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -390,7 +390,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode AND with 1 parameters
-    0000000000000000000000000000000000001601:
+    <contract:0x0000000000000000000000000000000000001601>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -401,7 +401,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode AND with 2 parameters
-    0000000000000000000000000000000000001602:
+    <contract:0x0000000000000000000000000000000000001602>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -412,7 +412,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode OR with 1 parameters
-    0000000000000000000000000000000000001701:
+    <contract:0x0000000000000000000000000000000000001701>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -423,7 +423,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode OR with 2 parameters
-    0000000000000000000000000000000000001702:
+    <contract:0x0000000000000000000000000000000000001702>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -434,7 +434,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode XOR with 1 parameters
-    0000000000000000000000000000000000001801:
+    <contract:0x0000000000000000000000000000000000001801>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -445,7 +445,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode XOR with 2 parameters
-    0000000000000000000000000000000000001802:
+    <contract:0x0000000000000000000000000000000000001802>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -456,7 +456,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode NOT with 0 parameters
-    0000000000000000000000000000000000001900:
+    <contract:0x0000000000000000000000000000000000001900>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -467,7 +467,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode NOT with 1 parameters
-    0000000000000000000000000000000000001901:
+    <contract:0x0000000000000000000000000000000000001901>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -478,7 +478,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode BYTE with 1 parameters
-    0000000000000000000000000000000000001a01:
+    <contract:0x0000000000000000000000000000000000001a01>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -489,7 +489,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode BYTE with 2 parameters
-    0000000000000000000000000000000000001a02:
+    <contract:0x0000000000000000000000000000000000001a02>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -500,7 +500,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SHL with 1 parameters
-    0000000000000000000000000000000000001b01:
+    <contract:0x0000000000000000000000000000000000001b01>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -511,7 +511,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SHL with 2 parameters
-    0000000000000000000000000000000000001b02:
+    <contract:0x0000000000000000000000000000000000001b02>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -522,7 +522,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SHR with 1 parameters
-    0000000000000000000000000000000000001c01:
+    <contract:0x0000000000000000000000000000000000001c01>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -533,7 +533,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SHR with 2 parameters
-    0000000000000000000000000000000000001c02:
+    <contract:0x0000000000000000000000000000000000001c02>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -544,7 +544,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SAR with 1 parameters
-    0000000000000000000000000000000000001d01:
+    <contract:0x0000000000000000000000000000000000001d01>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -555,7 +555,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SAR with 2 parameters
-    0000000000000000000000000000000000001d02:
+    <contract:0x0000000000000000000000000000000000001d02>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -566,7 +566,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SHA3 with 1 parameters
-    0000000000000000000000000000000000002001:
+    <contract:0x0000000000000000000000000000000000002001>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -577,7 +577,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SHA3 with 2 parameters
-    0000000000000000000000000000000000002002:
+    <contract:0x0000000000000000000000000000000000002002>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -588,7 +588,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode BALANCE with 0 parameters
-    0000000000000000000000000000000000003100:
+    <contract:0x0000000000000000000000000000000000003100>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -599,7 +599,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode BALANCE with 1 parameters
-    0000000000000000000000000000000000003101:
+    <contract:0x0000000000000000000000000000000000003101>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -610,7 +610,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode CALLDATALOAD with 0 parameters
-    0000000000000000000000000000000000003500:
+    <contract:0x0000000000000000000000000000000000003500>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -621,7 +621,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode CALLDATALOAD with 1 parameters
-    0000000000000000000000000000000000003501:
+    <contract:0x0000000000000000000000000000000000003501>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -632,7 +632,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode CALLDATACOPY with 2 parameters
-    0000000000000000000000000000000000003702:
+    <contract:0x0000000000000000000000000000000000003702>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -643,7 +643,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode CALLDATACOPY with 3 parameters
-    0000000000000000000000000000000000003703:
+    <contract:0x0000000000000000000000000000000000003703>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -654,7 +654,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode CODECOPY with 2 parameters
-    0000000000000000000000000000000000003902:
+    <contract:0x0000000000000000000000000000000000003902>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -665,7 +665,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode CODECOPY with 3 parameters
-    0000000000000000000000000000000000003903:
+    <contract:0x0000000000000000000000000000000000003903>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -676,7 +676,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode EXTCODESIZE with 0 parameters
-    0000000000000000000000000000000000003b00:
+    <contract:0x0000000000000000000000000000000000003b00>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -687,7 +687,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode EXTCODESIZE with 1 parameters
-    0000000000000000000000000000000000003b01:
+    <contract:0x0000000000000000000000000000000000003b01>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -698,7 +698,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode EXTCODECOPY with 3 parameters
-    0000000000000000000000000000000000003c03:
+    <contract:0x0000000000000000000000000000000000003c03>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -709,7 +709,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode EXTCODECOPY with 4 parameters
-    0000000000000000000000000000000000003c04:
+    <contract:0x0000000000000000000000000000000000003c04>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -720,7 +720,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode EXTCODEHASH with 0 parameters
-    0000000000000000000000000000000000003f00:
+    <contract:0x0000000000000000000000000000000000003f00>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -731,7 +731,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode EXTCODEHASH with 1 parameters
-    0000000000000000000000000000000000003f01:
+    <contract:0x0000000000000000000000000000000000003f01>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -742,7 +742,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode BLOCKHASH with 0 parameters
-    0000000000000000000000000000000000004000:
+    <contract:0x0000000000000000000000000000000000004000>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -753,7 +753,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode BLOCKHASH with 1 parameters
-    0000000000000000000000000000000000004001:
+    <contract:0x0000000000000000000000000000000000004001>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -764,7 +764,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode POP with 0 parameters
-    0000000000000000000000000000000000005000:
+    <contract:0x0000000000000000000000000000000000005000>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -775,7 +775,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode POP with 1 parameters
-    0000000000000000000000000000000000005001:
+    <contract:0x0000000000000000000000000000000000005001>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -786,7 +786,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode MLOAD with 0 parameters
-    0000000000000000000000000000000000005100:
+    <contract:0x0000000000000000000000000000000000005100>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -797,7 +797,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode MLOAD with 1 parameters
-    0000000000000000000000000000000000005101:
+    <contract:0x0000000000000000000000000000000000005101>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -808,7 +808,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode MSTORE with 1 parameters
-    0000000000000000000000000000000000005201:
+    <contract:0x0000000000000000000000000000000000005201>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -819,7 +819,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode MSTORE with 2 parameters
-    0000000000000000000000000000000000005202:
+    <contract:0x0000000000000000000000000000000000005202>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -830,7 +830,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode MSTORE8 with 1 parameters
-    0000000000000000000000000000000000005301:
+    <contract:0x0000000000000000000000000000000000005301>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -841,7 +841,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode MSTORE8 with 2 parameters
-    0000000000000000000000000000000000005302:
+    <contract:0x0000000000000000000000000000000000005302>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -852,7 +852,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SLOAD with 0 parameters
-    0000000000000000000000000000000000005400:
+    <contract:0x0000000000000000000000000000000000005400>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -863,7 +863,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SLOAD with 1 parameters
-    0000000000000000000000000000000000005401:
+    <contract:0x0000000000000000000000000000000000005401>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -874,7 +874,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode LOG0 with 1 parameters
-    000000000000000000000000000000000000a001:
+    <contract:0x000000000000000000000000000000000000a001>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -885,7 +885,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode LOG0 with 2 parameters
-    000000000000000000000000000000000000a002:
+    <contract:0x000000000000000000000000000000000000a002>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -896,7 +896,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode LOG1 with 2 parameters
-    000000000000000000000000000000000000a102:
+    <contract:0x000000000000000000000000000000000000a102>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -907,7 +907,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode LOG1 with 3 parameters
-    000000000000000000000000000000000000a103:
+    <contract:0x000000000000000000000000000000000000a103>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -918,7 +918,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode LOG2 with 3 parameters
-    000000000000000000000000000000000000a203:
+    <contract:0x000000000000000000000000000000000000a203>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -929,7 +929,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode LOG2 with 4 parameters
-    000000000000000000000000000000000000a204:
+    <contract:0x000000000000000000000000000000000000a204>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -940,7 +940,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode LOG3 with 4 parameters
-    000000000000000000000000000000000000a304:
+    <contract:0x000000000000000000000000000000000000a304>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -951,7 +951,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode LOG3 with 5 parameters
-    000000000000000000000000000000000000a305:
+    <contract:0x000000000000000000000000000000000000a305>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -962,7 +962,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode LOG4 with 5 parameters
-    000000000000000000000000000000000000a405:
+    <contract:0x000000000000000000000000000000000000a405>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -973,7 +973,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode LOG4 with 6 parameters
-    000000000000000000000000000000000000a406:
+    <contract:0x000000000000000000000000000000000000a406>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -984,7 +984,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode CREATE with 2 parameters
-    000000000000000000000000000000000000f002:
+    <contract:0x000000000000000000000000000000000000f002>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -995,7 +995,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode CREATE with 3 parameters
-    000000000000000000000000000000000000f003:
+    <contract:0x000000000000000000000000000000000000f003>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1006,7 +1006,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode CALL with 6 parameters
-    000000000000000000000000000000000000f106:
+    <contract:0x000000000000000000000000000000000000f106>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1017,7 +1017,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode CALL with 7 parameters
-    000000000000000000000000000000000000f107:
+    <contract:0x000000000000000000000000000000000000f107>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1028,7 +1028,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode CALLCODE with 6 parameters
-    000000000000000000000000000000000000f206:
+    <contract:0x000000000000000000000000000000000000f206>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1039,7 +1039,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode CALLCODE with 7 parameters
-    000000000000000000000000000000000000f207:
+    <contract:0x000000000000000000000000000000000000f207>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1050,7 +1050,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode RETURN with 1 parameters
-    000000000000000000000000000000000000f301:
+    <contract:0x000000000000000000000000000000000000f301>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1061,7 +1061,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode RETURN with 2 parameters
-    000000000000000000000000000000000000f302:
+    <contract:0x000000000000000000000000000000000000f302>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1072,7 +1072,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DELEGATECALL with 5 parameters
-    000000000000000000000000000000000000f405:
+    <contract:0x000000000000000000000000000000000000f405>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1083,7 +1083,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DELEGATECALL with 6 parameters
-    000000000000000000000000000000000000f406:
+    <contract:0x000000000000000000000000000000000000f406>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1094,7 +1094,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode CREATE2 with 3 parameters
-    000000000000000000000000000000000000f503:
+    <contract:0x000000000000000000000000000000000000f503>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1105,7 +1105,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode CREATE2 with 4 parameters
-    000000000000000000000000000000000000f504:
+    <contract:0x000000000000000000000000000000000000f504>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1116,7 +1116,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode STATICCALL with 5 parameters
-    000000000000000000000000000000000000fa05:
+    <contract:0x000000000000000000000000000000000000fa05>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1127,7 +1127,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode STATICCALL with 6 parameters
-    000000000000000000000000000000000000fa06:
+    <contract:0x000000000000000000000000000000000000fa06>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1138,7 +1138,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP1 with 0 parameters
-    0000000000000000000000000000000000008000:
+    <contract:0x0000000000000000000000000000000000008000>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1149,7 +1149,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP1 with 1 parameters
-    0000000000000000000000000000000000008001:
+    <contract:0x0000000000000000000000000000000000008001>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1160,7 +1160,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP2 with 1 parameters
-    0000000000000000000000000000000000008101:
+    <contract:0x0000000000000000000000000000000000008101>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1171,7 +1171,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP2 with 2 parameters
-    0000000000000000000000000000000000008102:
+    <contract:0x0000000000000000000000000000000000008102>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1182,7 +1182,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP3 with 2 parameters
-    0000000000000000000000000000000000008202:
+    <contract:0x0000000000000000000000000000000000008202>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1193,7 +1193,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP3 with 3 parameters
-    0000000000000000000000000000000000008203:
+    <contract:0x0000000000000000000000000000000000008203>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1204,7 +1204,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP4 with 3 parameters
-    0000000000000000000000000000000000008303:
+    <contract:0x0000000000000000000000000000000000008303>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1215,7 +1215,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP4 with 4 parameters
-    0000000000000000000000000000000000008304:
+    <contract:0x0000000000000000000000000000000000008304>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1226,7 +1226,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP5 with 4 parameters
-    0000000000000000000000000000000000008404:
+    <contract:0x0000000000000000000000000000000000008404>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1237,7 +1237,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP5 with 5 parameters
-    0000000000000000000000000000000000008405:
+    <contract:0x0000000000000000000000000000000000008405>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1248,7 +1248,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP6 with 5 parameters
-    0000000000000000000000000000000000008505:
+    <contract:0x0000000000000000000000000000000000008505>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1259,7 +1259,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP6 with 6 parameters
-    0000000000000000000000000000000000008506:
+    <contract:0x0000000000000000000000000000000000008506>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1270,7 +1270,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP7 with 6 parameters
-    0000000000000000000000000000000000008606:
+    <contract:0x0000000000000000000000000000000000008606>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1281,7 +1281,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP7 with 7 parameters
-    0000000000000000000000000000000000008607:
+    <contract:0x0000000000000000000000000000000000008607>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1292,7 +1292,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP8 with 7 parameters
-    0000000000000000000000000000000000008707:
+    <contract:0x0000000000000000000000000000000000008707>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1303,7 +1303,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP8 with 8 parameters
-    0000000000000000000000000000000000008708:
+    <contract:0x0000000000000000000000000000000000008708>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1314,7 +1314,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP9 with 8 parameters
-    0000000000000000000000000000000000008808:
+    <contract:0x0000000000000000000000000000000000008808>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1325,7 +1325,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP9 with 9 parameters
-    0000000000000000000000000000000000008809:
+    <contract:0x0000000000000000000000000000000000008809>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1336,7 +1336,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP10 with 9 parameters
-    0000000000000000000000000000000000008909:
+    <contract:0x0000000000000000000000000000000000008909>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1347,7 +1347,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP10 with 10 parameters
-    000000000000000000000000000000000000890a:
+    <contract:0x000000000000000000000000000000000000890a>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1358,7 +1358,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP11 with 10 parameters
-    0000000000000000000000000000000000008a0a:
+    <contract:0x0000000000000000000000000000000000008a0a>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1369,7 +1369,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP11 with 11 parameters
-    0000000000000000000000000000000000008a0b:
+    <contract:0x0000000000000000000000000000000000008a0b>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1380,7 +1380,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP12 with 11 parameters
-    0000000000000000000000000000000000008b0b:
+    <contract:0x0000000000000000000000000000000000008b0b>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1391,7 +1391,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP12 with 12 parameters
-    0000000000000000000000000000000000008b0c:
+    <contract:0x0000000000000000000000000000000000008b0c>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1402,7 +1402,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP13 with 12 parameters
-    0000000000000000000000000000000000008c0c:
+    <contract:0x0000000000000000000000000000000000008c0c>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1413,7 +1413,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP13 with 13 parameters
-    0000000000000000000000000000000000008c0d:
+    <contract:0x0000000000000000000000000000000000008c0d>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1424,7 +1424,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP14 with 13 parameters
-    0000000000000000000000000000000000008d0d:
+    <contract:0x0000000000000000000000000000000000008d0d>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1435,7 +1435,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP14 with 14 parameters
-    0000000000000000000000000000000000008d0e:
+    <contract:0x0000000000000000000000000000000000008d0e>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1446,7 +1446,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP15 with 14 parameters
-    0000000000000000000000000000000000008e0e:
+    <contract:0x0000000000000000000000000000000000008e0e>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1457,7 +1457,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP15 with 15 parameters
-    0000000000000000000000000000000000008e0f:
+    <contract:0x0000000000000000000000000000000000008e0f>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1468,7 +1468,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP16 with 15 parameters
-    0000000000000000000000000000000000008f0f:
+    <contract:0x0000000000000000000000000000000000008f0f>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1479,7 +1479,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode DUP16 with 16 parameters
-    0000000000000000000000000000000000008f10:
+    <contract:0x0000000000000000000000000000000000008f10>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1490,7 +1490,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP1 with 1 parameters
-    0000000000000000000000000000000000009001:
+    <contract:0x0000000000000000000000000000000000009001>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1501,7 +1501,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP1 with 2 parameters
-    0000000000000000000000000000000000009002:
+    <contract:0x0000000000000000000000000000000000009002>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1512,7 +1512,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP2 with 2 parameters
-    0000000000000000000000000000000000009102:
+    <contract:0x0000000000000000000000000000000000009102>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1523,7 +1523,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP2 with 3 parameters
-    0000000000000000000000000000000000009103:
+    <contract:0x0000000000000000000000000000000000009103>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1534,7 +1534,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP3 with 3 parameters
-    0000000000000000000000000000000000009203:
+    <contract:0x0000000000000000000000000000000000009203>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1545,7 +1545,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP3 with 4 parameters
-    0000000000000000000000000000000000009204:
+    <contract:0x0000000000000000000000000000000000009204>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1556,7 +1556,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP4 with 4 parameters
-    0000000000000000000000000000000000009304:
+    <contract:0x0000000000000000000000000000000000009304>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1567,7 +1567,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP4 with 5 parameters
-    0000000000000000000000000000000000009305:
+    <contract:0x0000000000000000000000000000000000009305>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1578,7 +1578,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP5 with 5 parameters
-    0000000000000000000000000000000000009405:
+    <contract:0x0000000000000000000000000000000000009405>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1589,7 +1589,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP5 with 6 parameters
-    0000000000000000000000000000000000009406:
+    <contract:0x0000000000000000000000000000000000009406>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1600,7 +1600,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP6 with 6 parameters
-    0000000000000000000000000000000000009506:
+    <contract:0x0000000000000000000000000000000000009506>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1611,7 +1611,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP6 with 7 parameters
-    0000000000000000000000000000000000009507:
+    <contract:0x0000000000000000000000000000000000009507>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1622,7 +1622,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP7 with 7 parameters
-    0000000000000000000000000000000000009607:
+    <contract:0x0000000000000000000000000000000000009607>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1633,7 +1633,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP7 with 8 parameters
-    0000000000000000000000000000000000009608:
+    <contract:0x0000000000000000000000000000000000009608>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1644,7 +1644,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP8 with 8 parameters
-    0000000000000000000000000000000000009708:
+    <contract:0x0000000000000000000000000000000000009708>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1655,7 +1655,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP8 with 9 parameters
-    0000000000000000000000000000000000009709:
+    <contract:0x0000000000000000000000000000000000009709>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1666,7 +1666,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP9 with 9 parameters
-    0000000000000000000000000000000000009809:
+    <contract:0x0000000000000000000000000000000000009809>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1677,7 +1677,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP9 with 10 parameters
-    000000000000000000000000000000000000980a:
+    <contract:0x000000000000000000000000000000000000980a>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1688,7 +1688,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP10 with 10 parameters
-    000000000000000000000000000000000000990a:
+    <contract:0x000000000000000000000000000000000000990a>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1699,7 +1699,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP10 with 11 parameters
-    000000000000000000000000000000000000990b:
+    <contract:0x000000000000000000000000000000000000990b>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1710,7 +1710,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP11 with 11 parameters
-    0000000000000000000000000000000000009a0b:
+    <contract:0x0000000000000000000000000000000000009a0b>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1721,7 +1721,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP11 with 12 parameters
-    0000000000000000000000000000000000009a0c:
+    <contract:0x0000000000000000000000000000000000009a0c>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1732,7 +1732,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP12 with 12 parameters
-    0000000000000000000000000000000000009b0c:
+    <contract:0x0000000000000000000000000000000000009b0c>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1743,7 +1743,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP12 with 13 parameters
-    0000000000000000000000000000000000009b0d:
+    <contract:0x0000000000000000000000000000000000009b0d>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1754,7 +1754,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP13 with 13 parameters
-    0000000000000000000000000000000000009c0d:
+    <contract:0x0000000000000000000000000000000000009c0d>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1765,7 +1765,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP13 with 14 parameters
-    0000000000000000000000000000000000009c0e:
+    <contract:0x0000000000000000000000000000000000009c0e>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1776,7 +1776,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP14 with 14 parameters
-    0000000000000000000000000000000000009d0e:
+    <contract:0x0000000000000000000000000000000000009d0e>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1787,7 +1787,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP14 with 15 parameters
-    0000000000000000000000000000000000009d0f:
+    <contract:0x0000000000000000000000000000000000009d0f>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1798,7 +1798,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP15 with 15 parameters
-    0000000000000000000000000000000000009e0f:
+    <contract:0x0000000000000000000000000000000000009e0f>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1809,7 +1809,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP15 with 16 parameters
-    0000000000000000000000000000000000009e10:
+    <contract:0x0000000000000000000000000000000000009e10>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1820,7 +1820,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP16 with 16 parameters
-    0000000000000000000000000000000000009f10:
+    <contract:0x0000000000000000000000000000000000009f10>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1831,7 +1831,7 @@ underflowTest:
          0x01: 0x60A7
 
     # Run the opcode SWAP16 with 17 parameters
-    0000000000000000000000000000000000009f11:
+    <contract:0x0000000000000000000000000000000000009f11>:
        balance: 0
        # Kill the goat. If the goat is alive, it means the transaction reverted
        # Then push 0x80 the number of parameters and follow that with the opcode
@@ -1843,7 +1843,7 @@ underflowTest:
 
 
     # Call different contracts depending on the parameter
-    cccccccccccccccccccccccccccccccccccccccc:
+    <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
       code: |
         {
             [[0]] 0x60A7
@@ -1854,7 +1854,7 @@ underflowTest:
       storage: {}
       balance: 0
 
-    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+    <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
       balance: '0x0ba1a9ce0ba1a9ce'
       code: '0x'
       nonce: '0'
@@ -1868,182 +1868,182 @@ underflowTest:
     # For example, 0x0100 is ADD with zero parameters and 0x0101 is ADD with 
     # one parameter
 
-    - :label ADD-1 :abi f(uint) 0x0000000000000000000000000000000000000101
-    - :label ADD-2 :abi f(uint) 0x0000000000000000000000000000000000000102
-    - :label MUL-1 :abi f(uint) 0x0000000000000000000000000000000000000201
-    - :label MUL-2 :abi f(uint) 0x0000000000000000000000000000000000000202
-    - :label SUB-1 :abi f(uint) 0x0000000000000000000000000000000000000301
-    - :label SUB-2 :abi f(uint) 0x0000000000000000000000000000000000000302
-    - :label DIV-1 :abi f(uint) 0x0000000000000000000000000000000000000401
-    - :label DIV-2 :abi f(uint) 0x0000000000000000000000000000000000000402
-    - :label SDIV-1 :abi f(uint) 0x0000000000000000000000000000000000000501
-    - :label SDIV-2 :abi f(uint) 0x0000000000000000000000000000000000000502
-    - :label MOD-1 :abi f(uint) 0x0000000000000000000000000000000000000601
-    - :label MOD-2 :abi f(uint) 0x0000000000000000000000000000000000000602
-    - :label SMOD-1 :abi f(uint) 0x0000000000000000000000000000000000000701
-    - :label SMOD-2 :abi f(uint) 0x0000000000000000000000000000000000000702
-    - :label ADDMOD-2 :abi f(uint) 0x0000000000000000000000000000000000000802
-    - :label ADDMOD-3 :abi f(uint) 0x0000000000000000000000000000000000000803
-    - :label MULMOD-2 :abi f(uint) 0x0000000000000000000000000000000000000902
-    - :label MULMOD-3 :abi f(uint) 0x0000000000000000000000000000000000000903
-    - :label EXP-1 :abi f(uint) 0x0000000000000000000000000000000000000a01
-    - :label EXP-2 :abi f(uint) 0x0000000000000000000000000000000000000a02
-    - :label SIGNEXTEND-1 :abi f(uint) 0x0000000000000000000000000000000000000b01
-    - :label SIGNEXTEND-2 :abi f(uint) 0x0000000000000000000000000000000000000b02
-    - :label LT-1 :abi f(uint) 0x0000000000000000000000000000000000001001
-    - :label LT-2 :abi f(uint) 0x0000000000000000000000000000000000001002
-    - :label GT-1 :abi f(uint) 0x0000000000000000000000000000000000001101
-    - :label GT-2 :abi f(uint) 0x0000000000000000000000000000000000001102
-    - :label SLT-1 :abi f(uint) 0x0000000000000000000000000000000000001201
-    - :label SLT-2 :abi f(uint) 0x0000000000000000000000000000000000001202
-    - :label SGT-1 :abi f(uint) 0x0000000000000000000000000000000000001301
-    - :label SGT-2 :abi f(uint) 0x0000000000000000000000000000000000001302
-    - :label EQ-1 :abi f(uint) 0x0000000000000000000000000000000000001401
-    - :label EQ-2 :abi f(uint) 0x0000000000000000000000000000000000001402
-    - :label ISZERO-0 :abi f(uint) 0x0000000000000000000000000000000000001500
-    - :label ISZERO-1 :abi f(uint) 0x0000000000000000000000000000000000001501
-    - :label AND-1 :abi f(uint) 0x0000000000000000000000000000000000001601
-    - :label AND-2 :abi f(uint) 0x0000000000000000000000000000000000001602
-    - :label OR-1 :abi f(uint) 0x0000000000000000000000000000000000001701
-    - :label OR-2 :abi f(uint) 0x0000000000000000000000000000000000001702
-    - :label XOR-1 :abi f(uint) 0x0000000000000000000000000000000000001801
-    - :label XOR-2 :abi f(uint) 0x0000000000000000000000000000000000001802
-    - :label NOT-0 :abi f(uint) 0x0000000000000000000000000000000000001900
-    - :label NOT-1 :abi f(uint) 0x0000000000000000000000000000000000001901
-    - :label BYTE-1 :abi f(uint) 0x0000000000000000000000000000000000001a01
-    - :label BYTE-2 :abi f(uint) 0x0000000000000000000000000000000000001a02
-    - :label SHL-1 :abi f(uint) 0x0000000000000000000000000000000000001b01
-    - :label SHL-2 :abi f(uint) 0x0000000000000000000000000000000000001b02
-    - :label SHR-1 :abi f(uint) 0x0000000000000000000000000000000000001c01
-    - :label SHR-2 :abi f(uint) 0x0000000000000000000000000000000000001c02
-    - :label SAR-1 :abi f(uint) 0x0000000000000000000000000000000000001d01
-    - :label SAR-2 :abi f(uint) 0x0000000000000000000000000000000000001d02
-    - :label SHA3-1 :abi f(uint) 0x0000000000000000000000000000000000002001
-    - :label SHA3-2 :abi f(uint) 0x0000000000000000000000000000000000002002
-    - :label BALANCE-0 :abi f(uint) 0x0000000000000000000000000000000000003100
-    - :label BALANCE-1 :abi f(uint) 0x0000000000000000000000000000000000003101
-    - :label CALLDATALOAD-0 :abi f(uint) 0x0000000000000000000000000000000000003500
-    - :label CALLDATALOAD-1 :abi f(uint) 0x0000000000000000000000000000000000003501
-    - :label CALLDATACOPY-2 :abi f(uint) 0x0000000000000000000000000000000000003702
-    - :label CALLDATACOPY-3 :abi f(uint) 0x0000000000000000000000000000000000003703
-    - :label CODECOPY-2 :abi f(uint) 0x0000000000000000000000000000000000003902
-    - :label CODECOPY-3 :abi f(uint) 0x0000000000000000000000000000000000003903
-    - :label EXTCODESIZE-0 :abi f(uint) 0x0000000000000000000000000000000000003b00
-    - :label EXTCODESIZE-1 :abi f(uint) 0x0000000000000000000000000000000000003b01
-    - :label EXTCODECOPY-3 :abi f(uint) 0x0000000000000000000000000000000000003c03
-    - :label EXTCODECOPY-4 :abi f(uint) 0x0000000000000000000000000000000000003c04
-    - :label EXTCODEHASH-0 :abi f(uint) 0x0000000000000000000000000000000000003f00
-    - :label EXTCODEHASH-1 :abi f(uint) 0x0000000000000000000000000000000000003f01
-    - :label BLOCKHASH-0 :abi f(uint) 0x0000000000000000000000000000000000004000
-    - :label BLOCKHASH-1 :abi f(uint) 0x0000000000000000000000000000000000004001
-    - :label POP-0 :abi f(uint) 0x0000000000000000000000000000000000005000
-    - :label POP-1 :abi f(uint) 0x0000000000000000000000000000000000005001
-    - :label MLOAD-0 :abi f(uint) 0x0000000000000000000000000000000000005100
-    - :label MLOAD-1 :abi f(uint) 0x0000000000000000000000000000000000005101
-    - :label MSTORE-1 :abi f(uint) 0x0000000000000000000000000000000000005201
-    - :label MSTORE-2 :abi f(uint) 0x0000000000000000000000000000000000005202
-    - :label MSTORE8-1 :abi f(uint) 0x0000000000000000000000000000000000005301
-    - :label MSTORE8-2 :abi f(uint) 0x0000000000000000000000000000000000005302
-    - :label SLOAD-0 :abi f(uint) 0x0000000000000000000000000000000000005400
-    - :label SLOAD-1 :abi f(uint) 0x0000000000000000000000000000000000005401
-    - :label LOG0-1 :abi f(uint) 0x000000000000000000000000000000000000a001
-    - :label LOG0-2 :abi f(uint) 0x000000000000000000000000000000000000a002
-    - :label LOG1-2 :abi f(uint) 0x000000000000000000000000000000000000a102
-    - :label LOG1-3 :abi f(uint) 0x000000000000000000000000000000000000a103
-    - :label LOG2-3 :abi f(uint) 0x000000000000000000000000000000000000a203
-    - :label LOG2-4 :abi f(uint) 0x000000000000000000000000000000000000a204
-    - :label LOG3-4 :abi f(uint) 0x000000000000000000000000000000000000a304
-    - :label LOG3-5 :abi f(uint) 0x000000000000000000000000000000000000a305
-    - :label LOG4-5 :abi f(uint) 0x000000000000000000000000000000000000a405
-    - :label LOG4-6 :abi f(uint) 0x000000000000000000000000000000000000a406
-    - :label CREATE-2 :abi f(uint) 0x000000000000000000000000000000000000f002
-    - :label CREATE-3 :abi f(uint) 0x000000000000000000000000000000000000f003
-    - :label CALL-6 :abi f(uint) 0x000000000000000000000000000000000000f106
-    - :label CALL-7 :abi f(uint) 0x000000000000000000000000000000000000f107
-    - :label CALLCODE-6 :abi f(uint) 0x000000000000000000000000000000000000f206
-    - :label CALLCODE-7 :abi f(uint) 0x000000000000000000000000000000000000f207
-    - :label RETURN-1 :abi f(uint) 0x000000000000000000000000000000000000f301
-    - :label RETURN-2 :abi f(uint) 0x000000000000000000000000000000000000f302
-    - :label DELEGATECALL-5 :abi f(uint) 0x000000000000000000000000000000000000f405
-    - :label DELEGATECALL-6 :abi f(uint) 0x000000000000000000000000000000000000f406
-    - :label CREATE2-3 :abi f(uint) 0x000000000000000000000000000000000000f503
-    - :label CREATE2-4 :abi f(uint) 0x000000000000000000000000000000000000f504
-    - :label STATICCALL-5 :abi f(uint) 0x000000000000000000000000000000000000fa05
-    - :label STATICCALL-6 :abi f(uint) 0x000000000000000000000000000000000000fa06
-    - :label DUP1-0 :abi f(uint) 0x0000000000000000000000000000000000008000
-    - :label DUP1-1 :abi f(uint) 0x0000000000000000000000000000000000008001
-    - :label DUP2-1 :abi f(uint) 0x0000000000000000000000000000000000008101
-    - :label DUP2-2 :abi f(uint) 0x0000000000000000000000000000000000008102
-    - :label DUP3-2 :abi f(uint) 0x0000000000000000000000000000000000008202
-    - :label DUP3-3 :abi f(uint) 0x0000000000000000000000000000000000008203
-    - :label DUP4-3 :abi f(uint) 0x0000000000000000000000000000000000008303
-    - :label DUP4-4 :abi f(uint) 0x0000000000000000000000000000000000008304
-    - :label DUP5-4 :abi f(uint) 0x0000000000000000000000000000000000008404
-    - :label DUP5-5 :abi f(uint) 0x0000000000000000000000000000000000008405
-    - :label DUP6-5 :abi f(uint) 0x0000000000000000000000000000000000008505
-    - :label DUP6-6 :abi f(uint) 0x0000000000000000000000000000000000008506
-    - :label DUP7-6 :abi f(uint) 0x0000000000000000000000000000000000008606
-    - :label DUP7-7 :abi f(uint) 0x0000000000000000000000000000000000008607
-    - :label DUP8-7 :abi f(uint) 0x0000000000000000000000000000000000008707
-    - :label DUP8-8 :abi f(uint) 0x0000000000000000000000000000000000008708
-    - :label DUP9-8 :abi f(uint) 0x0000000000000000000000000000000000008808
-    - :label DUP9-9 :abi f(uint) 0x0000000000000000000000000000000000008809
-    - :label DUP10-9 :abi f(uint) 0x0000000000000000000000000000000000008909
-    - :label DUP10-10 :abi f(uint) 0x000000000000000000000000000000000000890a
-    - :label DUP11-10 :abi f(uint) 0x0000000000000000000000000000000000008a0a
-    - :label DUP11-11 :abi f(uint) 0x0000000000000000000000000000000000008a0b
-    - :label DUP12-11 :abi f(uint) 0x0000000000000000000000000000000000008b0b
-    - :label DUP12-12 :abi f(uint) 0x0000000000000000000000000000000000008b0c
-    - :label DUP13-12 :abi f(uint) 0x0000000000000000000000000000000000008c0c
-    - :label DUP13-13 :abi f(uint) 0x0000000000000000000000000000000000008c0d
-    - :label DUP14-13 :abi f(uint) 0x0000000000000000000000000000000000008d0d
-    - :label DUP14-14 :abi f(uint) 0x0000000000000000000000000000000000008d0e
-    - :label DUP15-14 :abi f(uint) 0x0000000000000000000000000000000000008e0e
-    - :label DUP15-15 :abi f(uint) 0x0000000000000000000000000000000000008e0f
-    - :label DUP16-15 :abi f(uint) 0x0000000000000000000000000000000000008f0f
-    - :label DUP16-16 :abi f(uint) 0x0000000000000000000000000000000000008f10
-    - :label SWAP1-1 :abi f(uint) 0x0000000000000000000000000000000000009001
-    - :label SWAP1-2 :abi f(uint) 0x0000000000000000000000000000000000009002
-    - :label SWAP2-2 :abi f(uint) 0x0000000000000000000000000000000000009102
-    - :label SWAP2-3 :abi f(uint) 0x0000000000000000000000000000000000009103
-    - :label SWAP3-3 :abi f(uint) 0x0000000000000000000000000000000000009203
-    - :label SWAP3-4 :abi f(uint) 0x0000000000000000000000000000000000009204
-    - :label SWAP4-4 :abi f(uint) 0x0000000000000000000000000000000000009304
-    - :label SWAP4-5 :abi f(uint) 0x0000000000000000000000000000000000009305
-    - :label SWAP5-5 :abi f(uint) 0x0000000000000000000000000000000000009405
-    - :label SWAP5-6 :abi f(uint) 0x0000000000000000000000000000000000009406
-    - :label SWAP6-6 :abi f(uint) 0x0000000000000000000000000000000000009506
-    - :label SWAP6-7 :abi f(uint) 0x0000000000000000000000000000000000009507
-    - :label SWAP7-7 :abi f(uint) 0x0000000000000000000000000000000000009607
-    - :label SWAP7-8 :abi f(uint) 0x0000000000000000000000000000000000009608
-    - :label SWAP8-8 :abi f(uint) 0x0000000000000000000000000000000000009708
-    - :label SWAP8-9 :abi f(uint) 0x0000000000000000000000000000000000009709
-    - :label SWAP9-9 :abi f(uint) 0x0000000000000000000000000000000000009809
-    - :label SWAP9-10 :abi f(uint) 0x000000000000000000000000000000000000980a
-    - :label SWAP10-10 :abi f(uint) 0x000000000000000000000000000000000000990a
-    - :label SWAP10-11 :abi f(uint) 0x000000000000000000000000000000000000990b
-    - :label SWAP11-11 :abi f(uint) 0x0000000000000000000000000000000000009a0b
-    - :label SWAP11-12 :abi f(uint) 0x0000000000000000000000000000000000009a0c
-    - :label SWAP12-12 :abi f(uint) 0x0000000000000000000000000000000000009b0c
-    - :label SWAP12-13 :abi f(uint) 0x0000000000000000000000000000000000009b0d
-    - :label SWAP13-13 :abi f(uint) 0x0000000000000000000000000000000000009c0d
-    - :label SWAP13-14 :abi f(uint) 0x0000000000000000000000000000000000009c0e
-    - :label SWAP14-14 :abi f(uint) 0x0000000000000000000000000000000000009d0e
-    - :label SWAP14-15 :abi f(uint) 0x0000000000000000000000000000000000009d0f
-    - :label SWAP15-15 :abi f(uint) 0x0000000000000000000000000000000000009e0f
-    - :label SWAP15-16 :abi f(uint) 0x0000000000000000000000000000000000009e10
-    - :label SWAP16-16 :abi f(uint) 0x0000000000000000000000000000000000009f10
-    - :label SWAP16-17 :abi f(uint) 0x0000000000000000000000000000000000009f11
+    - :label ADD-1 :abi f(uint) <contract:0x0000000000000000000000000000000000000101>
+    - :label ADD-2 :abi f(uint) <contract:0x0000000000000000000000000000000000000102>
+    - :label MUL-1 :abi f(uint) <contract:0x0000000000000000000000000000000000000201>
+    - :label MUL-2 :abi f(uint) <contract:0x0000000000000000000000000000000000000202>
+    - :label SUB-1 :abi f(uint) <contract:0x0000000000000000000000000000000000000301>
+    - :label SUB-2 :abi f(uint) <contract:0x0000000000000000000000000000000000000302>
+    - :label DIV-1 :abi f(uint) <contract:0x0000000000000000000000000000000000000401>
+    - :label DIV-2 :abi f(uint) <contract:0x0000000000000000000000000000000000000402>
+    - :label SDIV-1 :abi f(uint) <contract:0x0000000000000000000000000000000000000501>
+    - :label SDIV-2 :abi f(uint) <contract:0x0000000000000000000000000000000000000502>
+    - :label MOD-1 :abi f(uint) <contract:0x0000000000000000000000000000000000000601>
+    - :label MOD-2 :abi f(uint) <contract:0x0000000000000000000000000000000000000602>
+    - :label SMOD-1 :abi f(uint) <contract:0x0000000000000000000000000000000000000701>
+    - :label SMOD-2 :abi f(uint) <contract:0x0000000000000000000000000000000000000702>
+    - :label ADDMOD-2 :abi f(uint) <contract:0x0000000000000000000000000000000000000802>
+    - :label ADDMOD-3 :abi f(uint) <contract:0x0000000000000000000000000000000000000803>
+    - :label MULMOD-2 :abi f(uint) <contract:0x0000000000000000000000000000000000000902>
+    - :label MULMOD-3 :abi f(uint) <contract:0x0000000000000000000000000000000000000903>
+    - :label EXP-1 :abi f(uint) <contract:0x0000000000000000000000000000000000000a01>
+    - :label EXP-2 :abi f(uint) <contract:0x0000000000000000000000000000000000000a02>
+    - :label SIGNEXTEND-1 :abi f(uint) <contract:0x0000000000000000000000000000000000000b01>
+    - :label SIGNEXTEND-2 :abi f(uint) <contract:0x0000000000000000000000000000000000000b02>
+    - :label LT-1 :abi f(uint) <contract:0x0000000000000000000000000000000000001001>
+    - :label LT-2 :abi f(uint) <contract:0x0000000000000000000000000000000000001002>
+    - :label GT-1 :abi f(uint) <contract:0x0000000000000000000000000000000000001101>
+    - :label GT-2 :abi f(uint) <contract:0x0000000000000000000000000000000000001102>
+    - :label SLT-1 :abi f(uint) <contract:0x0000000000000000000000000000000000001201>
+    - :label SLT-2 :abi f(uint) <contract:0x0000000000000000000000000000000000001202>
+    - :label SGT-1 :abi f(uint) <contract:0x0000000000000000000000000000000000001301>
+    - :label SGT-2 :abi f(uint) <contract:0x0000000000000000000000000000000000001302>
+    - :label EQ-1 :abi f(uint) <contract:0x0000000000000000000000000000000000001401>
+    - :label EQ-2 :abi f(uint) <contract:0x0000000000000000000000000000000000001402>
+    - :label ISZERO-0 :abi f(uint) <contract:0x0000000000000000000000000000000000001500>
+    - :label ISZERO-1 :abi f(uint) <contract:0x0000000000000000000000000000000000001501>
+    - :label AND-1 :abi f(uint) <contract:0x0000000000000000000000000000000000001601>
+    - :label AND-2 :abi f(uint) <contract:0x0000000000000000000000000000000000001602>
+    - :label OR-1 :abi f(uint) <contract:0x0000000000000000000000000000000000001701>
+    - :label OR-2 :abi f(uint) <contract:0x0000000000000000000000000000000000001702>
+    - :label XOR-1 :abi f(uint) <contract:0x0000000000000000000000000000000000001801>
+    - :label XOR-2 :abi f(uint) <contract:0x0000000000000000000000000000000000001802>
+    - :label NOT-0 :abi f(uint) <contract:0x0000000000000000000000000000000000001900>
+    - :label NOT-1 :abi f(uint) <contract:0x0000000000000000000000000000000000001901>
+    - :label BYTE-1 :abi f(uint) <contract:0x0000000000000000000000000000000000001a01>
+    - :label BYTE-2 :abi f(uint) <contract:0x0000000000000000000000000000000000001a02>
+    - :label SHL-1 :abi f(uint) <contract:0x0000000000000000000000000000000000001b01>
+    - :label SHL-2 :abi f(uint) <contract:0x0000000000000000000000000000000000001b02>
+    - :label SHR-1 :abi f(uint) <contract:0x0000000000000000000000000000000000001c01>
+    - :label SHR-2 :abi f(uint) <contract:0x0000000000000000000000000000000000001c02>
+    - :label SAR-1 :abi f(uint) <contract:0x0000000000000000000000000000000000001d01>
+    - :label SAR-2 :abi f(uint) <contract:0x0000000000000000000000000000000000001d02>
+    - :label SHA3-1 :abi f(uint) <contract:0x0000000000000000000000000000000000002001>
+    - :label SHA3-2 :abi f(uint) <contract:0x0000000000000000000000000000000000002002>
+    - :label BALANCE-0 :abi f(uint) <contract:0x0000000000000000000000000000000000003100>
+    - :label BALANCE-1 :abi f(uint) <contract:0x0000000000000000000000000000000000003101>
+    - :label CALLDATALOAD-0 :abi f(uint) <contract:0x0000000000000000000000000000000000003500>
+    - :label CALLDATALOAD-1 :abi f(uint) <contract:0x0000000000000000000000000000000000003501>
+    - :label CALLDATACOPY-2 :abi f(uint) <contract:0x0000000000000000000000000000000000003702>
+    - :label CALLDATACOPY-3 :abi f(uint) <contract:0x0000000000000000000000000000000000003703>
+    - :label CODECOPY-2 :abi f(uint) <contract:0x0000000000000000000000000000000000003902>
+    - :label CODECOPY-3 :abi f(uint) <contract:0x0000000000000000000000000000000000003903>
+    - :label EXTCODESIZE-0 :abi f(uint) <contract:0x0000000000000000000000000000000000003b00>
+    - :label EXTCODESIZE-1 :abi f(uint) <contract:0x0000000000000000000000000000000000003b01>
+    - :label EXTCODECOPY-3 :abi f(uint) <contract:0x0000000000000000000000000000000000003c03>
+    - :label EXTCODECOPY-4 :abi f(uint) <contract:0x0000000000000000000000000000000000003c04>
+    - :label EXTCODEHASH-0 :abi f(uint) <contract:0x0000000000000000000000000000000000003f00>
+    - :label EXTCODEHASH-1 :abi f(uint) <contract:0x0000000000000000000000000000000000003f01>
+    - :label BLOCKHASH-0 :abi f(uint) <contract:0x0000000000000000000000000000000000004000>
+    - :label BLOCKHASH-1 :abi f(uint) <contract:0x0000000000000000000000000000000000004001>
+    - :label POP-0 :abi f(uint) <contract:0x0000000000000000000000000000000000005000>
+    - :label POP-1 :abi f(uint) <contract:0x0000000000000000000000000000000000005001>
+    - :label MLOAD-0 :abi f(uint) <contract:0x0000000000000000000000000000000000005100>
+    - :label MLOAD-1 :abi f(uint) <contract:0x0000000000000000000000000000000000005101>
+    - :label MSTORE-1 :abi f(uint) <contract:0x0000000000000000000000000000000000005201>
+    - :label MSTORE-2 :abi f(uint) <contract:0x0000000000000000000000000000000000005202>
+    - :label MSTORE8-1 :abi f(uint) <contract:0x0000000000000000000000000000000000005301>
+    - :label MSTORE8-2 :abi f(uint) <contract:0x0000000000000000000000000000000000005302>
+    - :label SLOAD-0 :abi f(uint) <contract:0x0000000000000000000000000000000000005400>
+    - :label SLOAD-1 :abi f(uint) <contract:0x0000000000000000000000000000000000005401>
+    - :label LOG0-1 :abi f(uint) <contract:0x000000000000000000000000000000000000a001>
+    - :label LOG0-2 :abi f(uint) <contract:0x000000000000000000000000000000000000a002>
+    - :label LOG1-2 :abi f(uint) <contract:0x000000000000000000000000000000000000a102>
+    - :label LOG1-3 :abi f(uint) <contract:0x000000000000000000000000000000000000a103>
+    - :label LOG2-3 :abi f(uint) <contract:0x000000000000000000000000000000000000a203>
+    - :label LOG2-4 :abi f(uint) <contract:0x000000000000000000000000000000000000a204>
+    - :label LOG3-4 :abi f(uint) <contract:0x000000000000000000000000000000000000a304>
+    - :label LOG3-5 :abi f(uint) <contract:0x000000000000000000000000000000000000a305>
+    - :label LOG4-5 :abi f(uint) <contract:0x000000000000000000000000000000000000a405>
+    - :label LOG4-6 :abi f(uint) <contract:0x000000000000000000000000000000000000a406>
+    - :label CREATE-2 :abi f(uint) <contract:0x000000000000000000000000000000000000f002>
+    - :label CREATE-3 :abi f(uint) <contract:0x000000000000000000000000000000000000f003>
+    - :label CALL-6 :abi f(uint) <contract:0x000000000000000000000000000000000000f106>
+    - :label CALL-7 :abi f(uint) <contract:0x000000000000000000000000000000000000f107>
+    - :label CALLCODE-6 :abi f(uint) <contract:0x000000000000000000000000000000000000f206>
+    - :label CALLCODE-7 :abi f(uint) <contract:0x000000000000000000000000000000000000f207>
+    - :label RETURN-1 :abi f(uint) <contract:0x000000000000000000000000000000000000f301>
+    - :label RETURN-2 :abi f(uint) <contract:0x000000000000000000000000000000000000f302>
+    - :label DELEGATECALL-5 :abi f(uint) <contract:0x000000000000000000000000000000000000f405>
+    - :label DELEGATECALL-6 :abi f(uint) <contract:0x000000000000000000000000000000000000f406>
+    - :label CREATE2-3 :abi f(uint) <contract:0x000000000000000000000000000000000000f503>
+    - :label CREATE2-4 :abi f(uint) <contract:0x000000000000000000000000000000000000f504>
+    - :label STATICCALL-5 :abi f(uint) <contract:0x000000000000000000000000000000000000fa05>
+    - :label STATICCALL-6 :abi f(uint) <contract:0x000000000000000000000000000000000000fa06>
+    - :label DUP1-0 :abi f(uint) <contract:0x0000000000000000000000000000000000008000>
+    - :label DUP1-1 :abi f(uint) <contract:0x0000000000000000000000000000000000008001>
+    - :label DUP2-1 :abi f(uint) <contract:0x0000000000000000000000000000000000008101>
+    - :label DUP2-2 :abi f(uint) <contract:0x0000000000000000000000000000000000008102>
+    - :label DUP3-2 :abi f(uint) <contract:0x0000000000000000000000000000000000008202>
+    - :label DUP3-3 :abi f(uint) <contract:0x0000000000000000000000000000000000008203>
+    - :label DUP4-3 :abi f(uint) <contract:0x0000000000000000000000000000000000008303>
+    - :label DUP4-4 :abi f(uint) <contract:0x0000000000000000000000000000000000008304>
+    - :label DUP5-4 :abi f(uint) <contract:0x0000000000000000000000000000000000008404>
+    - :label DUP5-5 :abi f(uint) <contract:0x0000000000000000000000000000000000008405>
+    - :label DUP6-5 :abi f(uint) <contract:0x0000000000000000000000000000000000008505>
+    - :label DUP6-6 :abi f(uint) <contract:0x0000000000000000000000000000000000008506>
+    - :label DUP7-6 :abi f(uint) <contract:0x0000000000000000000000000000000000008606>
+    - :label DUP7-7 :abi f(uint) <contract:0x0000000000000000000000000000000000008607>
+    - :label DUP8-7 :abi f(uint) <contract:0x0000000000000000000000000000000000008707>
+    - :label DUP8-8 :abi f(uint) <contract:0x0000000000000000000000000000000000008708>
+    - :label DUP9-8 :abi f(uint) <contract:0x0000000000000000000000000000000000008808>
+    - :label DUP9-9 :abi f(uint) <contract:0x0000000000000000000000000000000000008809>
+    - :label DUP10-9 :abi f(uint) <contract:0x0000000000000000000000000000000000008909>
+    - :label DUP10-10 :abi f(uint) <contract:0x000000000000000000000000000000000000890a>
+    - :label DUP11-10 :abi f(uint) <contract:0x0000000000000000000000000000000000008a0a>
+    - :label DUP11-11 :abi f(uint) <contract:0x0000000000000000000000000000000000008a0b>
+    - :label DUP12-11 :abi f(uint) <contract:0x0000000000000000000000000000000000008b0b>
+    - :label DUP12-12 :abi f(uint) <contract:0x0000000000000000000000000000000000008b0c>
+    - :label DUP13-12 :abi f(uint) <contract:0x0000000000000000000000000000000000008c0c>
+    - :label DUP13-13 :abi f(uint) <contract:0x0000000000000000000000000000000000008c0d>
+    - :label DUP14-13 :abi f(uint) <contract:0x0000000000000000000000000000000000008d0d>
+    - :label DUP14-14 :abi f(uint) <contract:0x0000000000000000000000000000000000008d0e>
+    - :label DUP15-14 :abi f(uint) <contract:0x0000000000000000000000000000000000008e0e>
+    - :label DUP15-15 :abi f(uint) <contract:0x0000000000000000000000000000000000008e0f>
+    - :label DUP16-15 :abi f(uint) <contract:0x0000000000000000000000000000000000008f0f>
+    - :label DUP16-16 :abi f(uint) <contract:0x0000000000000000000000000000000000008f10>
+    - :label SWAP1-1 :abi f(uint) <contract:0x0000000000000000000000000000000000009001>
+    - :label SWAP1-2 :abi f(uint) <contract:0x0000000000000000000000000000000000009002>
+    - :label SWAP2-2 :abi f(uint) <contract:0x0000000000000000000000000000000000009102>
+    - :label SWAP2-3 :abi f(uint) <contract:0x0000000000000000000000000000000000009103>
+    - :label SWAP3-3 :abi f(uint) <contract:0x0000000000000000000000000000000000009203>
+    - :label SWAP3-4 :abi f(uint) <contract:0x0000000000000000000000000000000000009204>
+    - :label SWAP4-4 :abi f(uint) <contract:0x0000000000000000000000000000000000009304>
+    - :label SWAP4-5 :abi f(uint) <contract:0x0000000000000000000000000000000000009305>
+    - :label SWAP5-5 :abi f(uint) <contract:0x0000000000000000000000000000000000009405>
+    - :label SWAP5-6 :abi f(uint) <contract:0x0000000000000000000000000000000000009406>
+    - :label SWAP6-6 :abi f(uint) <contract:0x0000000000000000000000000000000000009506>
+    - :label SWAP6-7 :abi f(uint) <contract:0x0000000000000000000000000000000000009507>
+    - :label SWAP7-7 :abi f(uint) <contract:0x0000000000000000000000000000000000009607>
+    - :label SWAP7-8 :abi f(uint) <contract:0x0000000000000000000000000000000000009608>
+    - :label SWAP8-8 :abi f(uint) <contract:0x0000000000000000000000000000000000009708>
+    - :label SWAP8-9 :abi f(uint) <contract:0x0000000000000000000000000000000000009709>
+    - :label SWAP9-9 :abi f(uint) <contract:0x0000000000000000000000000000000000009809>
+    - :label SWAP9-10 :abi f(uint) <contract:0x000000000000000000000000000000000000980a>
+    - :label SWAP10-10 :abi f(uint) <contract:0x000000000000000000000000000000000000990a>
+    - :label SWAP10-11 :abi f(uint) <contract:0x000000000000000000000000000000000000990b>
+    - :label SWAP11-11 :abi f(uint) <contract:0x0000000000000000000000000000000000009a0b>
+    - :label SWAP11-12 :abi f(uint) <contract:0x0000000000000000000000000000000000009a0c>
+    - :label SWAP12-12 :abi f(uint) <contract:0x0000000000000000000000000000000000009b0c>
+    - :label SWAP12-13 :abi f(uint) <contract:0x0000000000000000000000000000000000009b0d>
+    - :label SWAP13-13 :abi f(uint) <contract:0x0000000000000000000000000000000000009c0d>
+    - :label SWAP13-14 :abi f(uint) <contract:0x0000000000000000000000000000000000009c0e>
+    - :label SWAP14-14 :abi f(uint) <contract:0x0000000000000000000000000000000000009d0e>
+    - :label SWAP14-15 :abi f(uint) <contract:0x0000000000000000000000000000000000009d0f>
+    - :label SWAP15-15 :abi f(uint) <contract:0x0000000000000000000000000000000000009e0f>
+    - :label SWAP15-16 :abi f(uint) <contract:0x0000000000000000000000000000000000009e10>
+    - :label SWAP16-16 :abi f(uint) <contract:0x0000000000000000000000000000000000009f10>
+    - :label SWAP16-17 :abi f(uint) <contract:0x0000000000000000000000000000000000009f11>
 
 
     gasLimit:
     - '8000000'
     gasPrice: '10'
     nonce: '0'
-    to: cccccccccccccccccccccccccccccccccccccccc
+    to: <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>
     value:
     - '1'
-    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    secretKey: "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>"
 
 
   expect:
@@ -2054,11 +2054,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000000101:
+        <contract:0x0000000000000000000000000000000000000101>:
           storage:
             0x01: 0x60A7
 
@@ -2067,11 +2067,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000000102:
+        <contract:0x0000000000000000000000000000000000000102>:
           storage:
             0x01: 0x01
 
@@ -2080,11 +2080,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000000201:
+        <contract:0x0000000000000000000000000000000000000201>:
           storage:
             0x01: 0x60A7
 
@@ -2093,11 +2093,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000000202:
+        <contract:0x0000000000000000000000000000000000000202>:
           storage:
             0x01: 0x01
 
@@ -2106,11 +2106,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000000301:
+        <contract:0x0000000000000000000000000000000000000301>:
           storage:
             0x01: 0x60A7
 
@@ -2119,11 +2119,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000000302:
+        <contract:0x0000000000000000000000000000000000000302>:
           storage:
             0x01: 0x01
 
@@ -2132,11 +2132,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000000401:
+        <contract:0x0000000000000000000000000000000000000401>:
           storage:
             0x01: 0x60A7
 
@@ -2145,11 +2145,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000000402:
+        <contract:0x0000000000000000000000000000000000000402>:
           storage:
             0x01: 0x01
 
@@ -2158,11 +2158,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000000501:
+        <contract:0x0000000000000000000000000000000000000501>:
           storage:
             0x01: 0x60A7
 
@@ -2171,11 +2171,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000000502:
+        <contract:0x0000000000000000000000000000000000000502>:
           storage:
             0x01: 0x01
 
@@ -2184,11 +2184,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000000601:
+        <contract:0x0000000000000000000000000000000000000601>:
           storage:
             0x01: 0x60A7
 
@@ -2197,11 +2197,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000000602:
+        <contract:0x0000000000000000000000000000000000000602>:
           storage:
             0x01: 0x01
 
@@ -2210,11 +2210,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000000701:
+        <contract:0x0000000000000000000000000000000000000701>:
           storage:
             0x01: 0x60A7
 
@@ -2223,11 +2223,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000000702:
+        <contract:0x0000000000000000000000000000000000000702>:
           storage:
             0x01: 0x01
 
@@ -2236,11 +2236,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000000802:
+        <contract:0x0000000000000000000000000000000000000802>:
           storage:
             0x01: 0x60A7
 
@@ -2249,11 +2249,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000000803:
+        <contract:0x0000000000000000000000000000000000000803>:
           storage:
             0x01: 0x01
 
@@ -2262,11 +2262,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000000902:
+        <contract:0x0000000000000000000000000000000000000902>:
           storage:
             0x01: 0x60A7
 
@@ -2275,11 +2275,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000000903:
+        <contract:0x0000000000000000000000000000000000000903>:
           storage:
             0x01: 0x01
 
@@ -2288,11 +2288,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000000a01:
+        <contract:0x0000000000000000000000000000000000000a01>:
           storage:
             0x01: 0x60A7
 
@@ -2301,11 +2301,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000000a02:
+        <contract:0x0000000000000000000000000000000000000a02>:
           storage:
             0x01: 0x01
 
@@ -2314,11 +2314,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000000b01:
+        <contract:0x0000000000000000000000000000000000000b01>:
           storage:
             0x01: 0x60A7
 
@@ -2327,11 +2327,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000000b02:
+        <contract:0x0000000000000000000000000000000000000b02>:
           storage:
             0x01: 0x01
 
@@ -2340,11 +2340,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001001:
+        <contract:0x0000000000000000000000000000000000001001>:
           storage:
             0x01: 0x60A7
 
@@ -2353,11 +2353,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001002:
+        <contract:0x0000000000000000000000000000000000001002>:
           storage:
             0x01: 0x01
 
@@ -2366,11 +2366,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001101:
+        <contract:0x0000000000000000000000000000000000001101>:
           storage:
             0x01: 0x60A7
 
@@ -2379,11 +2379,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001102:
+        <contract:0x0000000000000000000000000000000000001102>:
           storage:
             0x01: 0x01
 
@@ -2392,11 +2392,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001201:
+        <contract:0x0000000000000000000000000000000000001201>:
           storage:
             0x01: 0x60A7
 
@@ -2405,11 +2405,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001202:
+        <contract:0x0000000000000000000000000000000000001202>:
           storage:
             0x01: 0x01
 
@@ -2418,11 +2418,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001301:
+        <contract:0x0000000000000000000000000000000000001301>:
           storage:
             0x01: 0x60A7
 
@@ -2431,11 +2431,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001302:
+        <contract:0x0000000000000000000000000000000000001302>:
           storage:
             0x01: 0x01
 
@@ -2444,11 +2444,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001401:
+        <contract:0x0000000000000000000000000000000000001401>:
           storage:
             0x01: 0x60A7
 
@@ -2457,11 +2457,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001402:
+        <contract:0x0000000000000000000000000000000000001402>:
           storage:
             0x01: 0x01
 
@@ -2470,11 +2470,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001500:
+        <contract:0x0000000000000000000000000000000000001500>:
           storage:
             0x01: 0x60A7
 
@@ -2483,11 +2483,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001501:
+        <contract:0x0000000000000000000000000000000000001501>:
           storage:
             0x01: 0x01
 
@@ -2496,11 +2496,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001601:
+        <contract:0x0000000000000000000000000000000000001601>:
           storage:
             0x01: 0x60A7
 
@@ -2509,11 +2509,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001602:
+        <contract:0x0000000000000000000000000000000000001602>:
           storage:
             0x01: 0x01
 
@@ -2522,11 +2522,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001701:
+        <contract:0x0000000000000000000000000000000000001701>:
           storage:
             0x01: 0x60A7
 
@@ -2535,11 +2535,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001702:
+        <contract:0x0000000000000000000000000000000000001702>:
           storage:
             0x01: 0x01
 
@@ -2548,11 +2548,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001801:
+        <contract:0x0000000000000000000000000000000000001801>:
           storage:
             0x01: 0x60A7
 
@@ -2561,11 +2561,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001802:
+        <contract:0x0000000000000000000000000000000000001802>:
           storage:
             0x01: 0x01
 
@@ -2574,11 +2574,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001900:
+        <contract:0x0000000000000000000000000000000000001900>:
           storage:
             0x01: 0x60A7
 
@@ -2587,11 +2587,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001901:
+        <contract:0x0000000000000000000000000000000000001901>:
           storage:
             0x01: 0x01
 
@@ -2600,11 +2600,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001a01:
+        <contract:0x0000000000000000000000000000000000001a01>:
           storage:
             0x01: 0x60A7
 
@@ -2613,11 +2613,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001a02:
+        <contract:0x0000000000000000000000000000000000001a02>:
           storage:
             0x01: 0x01
 
@@ -2626,11 +2626,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001b01:
+        <contract:0x0000000000000000000000000000000000001b01>:
           storage:
             0x01: 0x60A7
 
@@ -2639,11 +2639,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001b02:
+        <contract:0x0000000000000000000000000000000000001b02>:
           storage:
             0x01: 0x01
 
@@ -2652,11 +2652,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001c01:
+        <contract:0x0000000000000000000000000000000000001c01>:
           storage:
             0x01: 0x60A7
 
@@ -2665,11 +2665,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001c02:
+        <contract:0x0000000000000000000000000000000000001c02>:
           storage:
             0x01: 0x01
 
@@ -2678,11 +2678,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001d01:
+        <contract:0x0000000000000000000000000000000000001d01>:
           storage:
             0x01: 0x60A7
 
@@ -2691,11 +2691,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000001d02:
+        <contract:0x0000000000000000000000000000000000001d02>:
           storage:
             0x01: 0x01
 
@@ -2704,11 +2704,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000002001:
+        <contract:0x0000000000000000000000000000000000002001>:
           storage:
             0x01: 0x60A7
 
@@ -2717,11 +2717,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000002002:
+        <contract:0x0000000000000000000000000000000000002002>:
           storage:
             0x01: 0x01
 
@@ -2730,11 +2730,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000003100:
+        <contract:0x0000000000000000000000000000000000003100>:
           storage:
             0x01: 0x60A7
 
@@ -2743,11 +2743,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000003101:
+        <contract:0x0000000000000000000000000000000000003101>:
           storage:
             0x01: 0x01
 
@@ -2756,11 +2756,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000003500:
+        <contract:0x0000000000000000000000000000000000003500>:
           storage:
             0x01: 0x60A7
 
@@ -2769,11 +2769,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000003501:
+        <contract:0x0000000000000000000000000000000000003501>:
           storage:
             0x01: 0x01
 
@@ -2782,11 +2782,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000003702:
+        <contract:0x0000000000000000000000000000000000003702>:
           storage:
             0x01: 0x60A7
 
@@ -2795,11 +2795,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000003703:
+        <contract:0x0000000000000000000000000000000000003703>:
           storage:
             0x01: 0x01
 
@@ -2808,11 +2808,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000003902:
+        <contract:0x0000000000000000000000000000000000003902>:
           storage:
             0x01: 0x60A7
 
@@ -2821,11 +2821,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000003903:
+        <contract:0x0000000000000000000000000000000000003903>:
           storage:
             0x01: 0x01
 
@@ -2834,11 +2834,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000003b00:
+        <contract:0x0000000000000000000000000000000000003b00>:
           storage:
             0x01: 0x60A7
 
@@ -2847,11 +2847,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000003b01:
+        <contract:0x0000000000000000000000000000000000003b01>:
           storage:
             0x01: 0x01
 
@@ -2860,11 +2860,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000003c03:
+        <contract:0x0000000000000000000000000000000000003c03>:
           storage:
             0x01: 0x60A7
 
@@ -2873,11 +2873,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000003c04:
+        <contract:0x0000000000000000000000000000000000003c04>:
           storage:
             0x01: 0x01
 
@@ -2886,11 +2886,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000003f00:
+        <contract:0x0000000000000000000000000000000000003f00>:
           storage:
             0x01: 0x60A7
 
@@ -2899,11 +2899,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000003f01:
+        <contract:0x0000000000000000000000000000000000003f01>:
           storage:
             0x01: 0x01
 
@@ -2912,11 +2912,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000004000:
+        <contract:0x0000000000000000000000000000000000004000>:
           storage:
             0x01: 0x60A7
 
@@ -2925,11 +2925,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000004001:
+        <contract:0x0000000000000000000000000000000000004001>:
           storage:
             0x01: 0x01
 
@@ -2938,11 +2938,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000005000:
+        <contract:0x0000000000000000000000000000000000005000>:
           storage:
             0x01: 0x60A7
 
@@ -2951,11 +2951,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000005001:
+        <contract:0x0000000000000000000000000000000000005001>:
           storage:
             0x01: 0x01
 
@@ -2964,11 +2964,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000005100:
+        <contract:0x0000000000000000000000000000000000005100>:
           storage:
             0x01: 0x60A7
 
@@ -2977,11 +2977,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000005101:
+        <contract:0x0000000000000000000000000000000000005101>:
           storage:
             0x01: 0x01
 
@@ -2990,11 +2990,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000005201:
+        <contract:0x0000000000000000000000000000000000005201>:
           storage:
             0x01: 0x60A7
 
@@ -3003,11 +3003,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000005202:
+        <contract:0x0000000000000000000000000000000000005202>:
           storage:
             0x01: 0x01
 
@@ -3016,11 +3016,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000005301:
+        <contract:0x0000000000000000000000000000000000005301>:
           storage:
             0x01: 0x60A7
 
@@ -3029,11 +3029,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000005302:
+        <contract:0x0000000000000000000000000000000000005302>:
           storage:
             0x01: 0x01
 
@@ -3042,11 +3042,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000005400:
+        <contract:0x0000000000000000000000000000000000005400>:
           storage:
             0x01: 0x60A7
 
@@ -3055,11 +3055,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000005401:
+        <contract:0x0000000000000000000000000000000000005401>:
           storage:
             0x01: 0x01
 
@@ -3068,11 +3068,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000a001:
+        <contract:0x000000000000000000000000000000000000a001>:
           storage:
             0x01: 0x60A7
 
@@ -3081,11 +3081,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000a002:
+        <contract:0x000000000000000000000000000000000000a002>:
           storage:
             0x01: 0x01
 
@@ -3094,11 +3094,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000a102:
+        <contract:0x000000000000000000000000000000000000a102>:
           storage:
             0x01: 0x60A7
 
@@ -3107,11 +3107,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000a103:
+        <contract:0x000000000000000000000000000000000000a103>:
           storage:
             0x01: 0x01
 
@@ -3120,11 +3120,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000a203:
+        <contract:0x000000000000000000000000000000000000a203>:
           storage:
             0x01: 0x60A7
 
@@ -3133,11 +3133,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000a204:
+        <contract:0x000000000000000000000000000000000000a204>:
           storage:
             0x01: 0x01
 
@@ -3146,11 +3146,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000a304:
+        <contract:0x000000000000000000000000000000000000a304>:
           storage:
             0x01: 0x60A7
 
@@ -3159,11 +3159,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000a305:
+        <contract:0x000000000000000000000000000000000000a305>:
           storage:
             0x01: 0x01
 
@@ -3172,11 +3172,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000a405:
+        <contract:0x000000000000000000000000000000000000a405>:
           storage:
             0x01: 0x60A7
 
@@ -3185,11 +3185,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000a406:
+        <contract:0x000000000000000000000000000000000000a406>:
           storage:
             0x01: 0x01
 
@@ -3198,11 +3198,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000f002:
+        <contract:0x000000000000000000000000000000000000f002>:
           storage:
             0x01: 0x60A7
 
@@ -3211,11 +3211,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000f003:
+        <contract:0x000000000000000000000000000000000000f003>:
           storage:
             0x01: 0x01
 
@@ -3224,11 +3224,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000f106:
+        <contract:0x000000000000000000000000000000000000f106>:
           storage:
             0x01: 0x60A7
 
@@ -3237,11 +3237,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000f107:
+        <contract:0x000000000000000000000000000000000000f107>:
           storage:
             0x01: 0x01
 
@@ -3250,11 +3250,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000f206:
+        <contract:0x000000000000000000000000000000000000f206>:
           storage:
             0x01: 0x60A7
 
@@ -3263,11 +3263,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000f207:
+        <contract:0x000000000000000000000000000000000000f207>:
           storage:
             0x01: 0x01
 
@@ -3276,11 +3276,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000f301:
+        <contract:0x000000000000000000000000000000000000f301>:
           storage:
             0x01: 0x60A7
 
@@ -3289,11 +3289,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000f302:
+        <contract:0x000000000000000000000000000000000000f302>:
           storage:
             0x01: 0x01
 
@@ -3302,11 +3302,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000f405:
+        <contract:0x000000000000000000000000000000000000f405>:
           storage:
             0x01: 0x60A7
 
@@ -3315,11 +3315,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000f406:
+        <contract:0x000000000000000000000000000000000000f406>:
           storage:
             0x01: 0x01
 
@@ -3328,11 +3328,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000f503:
+        <contract:0x000000000000000000000000000000000000f503>:
           storage:
             0x01: 0x60A7
 
@@ -3341,11 +3341,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000f504:
+        <contract:0x000000000000000000000000000000000000f504>:
           storage:
             0x01: 0x01
 
@@ -3354,11 +3354,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000fa05:
+        <contract:0x000000000000000000000000000000000000fa05>:
           storage:
             0x01: 0x60A7
 
@@ -3367,11 +3367,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000fa06:
+        <contract:0x000000000000000000000000000000000000fa06>:
           storage:
             0x01: 0x01
 
@@ -3380,11 +3380,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008000:
+        <contract:0x0000000000000000000000000000000000008000>:
           storage:
             0x01: 0x60A7
 
@@ -3393,11 +3393,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008001:
+        <contract:0x0000000000000000000000000000000000008001>:
           storage:
             0x01: 0x01
 
@@ -3406,11 +3406,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008101:
+        <contract:0x0000000000000000000000000000000000008101>:
           storage:
             0x01: 0x60A7
 
@@ -3419,11 +3419,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008102:
+        <contract:0x0000000000000000000000000000000000008102>:
           storage:
             0x01: 0x01
 
@@ -3432,11 +3432,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008202:
+        <contract:0x0000000000000000000000000000000000008202>:
           storage:
             0x01: 0x60A7
 
@@ -3445,11 +3445,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008203:
+        <contract:0x0000000000000000000000000000000000008203>:
           storage:
             0x01: 0x01
 
@@ -3458,11 +3458,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008303:
+        <contract:0x0000000000000000000000000000000000008303>:
           storage:
             0x01: 0x60A7
 
@@ -3471,11 +3471,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008304:
+        <contract:0x0000000000000000000000000000000000008304>:
           storage:
             0x01: 0x01
 
@@ -3484,11 +3484,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008404:
+        <contract:0x0000000000000000000000000000000000008404>:
           storage:
             0x01: 0x60A7
 
@@ -3497,11 +3497,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008405:
+        <contract:0x0000000000000000000000000000000000008405>:
           storage:
             0x01: 0x01
 
@@ -3510,11 +3510,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008505:
+        <contract:0x0000000000000000000000000000000000008505>:
           storage:
             0x01: 0x60A7
 
@@ -3523,11 +3523,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008506:
+        <contract:0x0000000000000000000000000000000000008506>:
           storage:
             0x01: 0x01
 
@@ -3536,11 +3536,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008606:
+        <contract:0x0000000000000000000000000000000000008606>:
           storage:
             0x01: 0x60A7
 
@@ -3549,11 +3549,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008607:
+        <contract:0x0000000000000000000000000000000000008607>:
           storage:
             0x01: 0x01
 
@@ -3562,11 +3562,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008707:
+        <contract:0x0000000000000000000000000000000000008707>:
           storage:
             0x01: 0x60A7
 
@@ -3575,11 +3575,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008708:
+        <contract:0x0000000000000000000000000000000000008708>:
           storage:
             0x01: 0x01
 
@@ -3588,11 +3588,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008808:
+        <contract:0x0000000000000000000000000000000000008808>:
           storage:
             0x01: 0x60A7
 
@@ -3601,11 +3601,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008809:
+        <contract:0x0000000000000000000000000000000000008809>:
           storage:
             0x01: 0x01
 
@@ -3614,11 +3614,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008909:
+        <contract:0x0000000000000000000000000000000000008909>:
           storage:
             0x01: 0x60A7
 
@@ -3627,11 +3627,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000890a:
+        <contract:0x000000000000000000000000000000000000890a>:
           storage:
             0x01: 0x01
 
@@ -3640,11 +3640,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008a0a:
+        <contract:0x0000000000000000000000000000000000008a0a>:
           storage:
             0x01: 0x60A7
 
@@ -3653,11 +3653,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008a0b:
+        <contract:0x0000000000000000000000000000000000008a0b>:
           storage:
             0x01: 0x01
 
@@ -3666,11 +3666,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008b0b:
+        <contract:0x0000000000000000000000000000000000008b0b>:
           storage:
             0x01: 0x60A7
 
@@ -3679,11 +3679,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008b0c:
+        <contract:0x0000000000000000000000000000000000008b0c>:
           storage:
             0x01: 0x01
 
@@ -3692,11 +3692,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008c0c:
+        <contract:0x0000000000000000000000000000000000008c0c>:
           storage:
             0x01: 0x60A7
 
@@ -3705,11 +3705,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008c0d:
+        <contract:0x0000000000000000000000000000000000008c0d>:
           storage:
             0x01: 0x01
 
@@ -3718,11 +3718,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008d0d:
+        <contract:0x0000000000000000000000000000000000008d0d>:
           storage:
             0x01: 0x60A7
 
@@ -3731,11 +3731,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008d0e:
+        <contract:0x0000000000000000000000000000000000008d0e>:
           storage:
             0x01: 0x01
 
@@ -3744,11 +3744,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008e0e:
+        <contract:0x0000000000000000000000000000000000008e0e>:
           storage:
             0x01: 0x60A7
 
@@ -3757,11 +3757,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008e0f:
+        <contract:0x0000000000000000000000000000000000008e0f>:
           storage:
             0x01: 0x01
 
@@ -3770,11 +3770,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008f0f:
+        <contract:0x0000000000000000000000000000000000008f0f>:
           storage:
             0x01: 0x60A7
 
@@ -3783,11 +3783,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000008f10:
+        <contract:0x0000000000000000000000000000000000008f10>:
           storage:
             0x01: 0x01
 
@@ -3796,11 +3796,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009001:
+        <contract:0x0000000000000000000000000000000000009001>:
           storage:
             0x01: 0x60A7
 
@@ -3809,11 +3809,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009002:
+        <contract:0x0000000000000000000000000000000000009002>:
           storage:
             0x01: 0x01
 
@@ -3822,11 +3822,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009102:
+        <contract:0x0000000000000000000000000000000000009102>:
           storage:
             0x01: 0x60A7
 
@@ -3835,11 +3835,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009103:
+        <contract:0x0000000000000000000000000000000000009103>:
           storage:
             0x01: 0x01
 
@@ -3848,11 +3848,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009203:
+        <contract:0x0000000000000000000000000000000000009203>:
           storage:
             0x01: 0x60A7
 
@@ -3861,11 +3861,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009204:
+        <contract:0x0000000000000000000000000000000000009204>:
           storage:
             0x01: 0x01
 
@@ -3874,11 +3874,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009304:
+        <contract:0x0000000000000000000000000000000000009304>:
           storage:
             0x01: 0x60A7
 
@@ -3887,11 +3887,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009305:
+        <contract:0x0000000000000000000000000000000000009305>:
           storage:
             0x01: 0x01
 
@@ -3900,11 +3900,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009405:
+        <contract:0x0000000000000000000000000000000000009405>:
           storage:
             0x01: 0x60A7
 
@@ -3913,11 +3913,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009406:
+        <contract:0x0000000000000000000000000000000000009406>:
           storage:
             0x01: 0x01
 
@@ -3926,11 +3926,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009506:
+        <contract:0x0000000000000000000000000000000000009506>:
           storage:
             0x01: 0x60A7
 
@@ -3939,11 +3939,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009507:
+        <contract:0x0000000000000000000000000000000000009507>:
           storage:
             0x01: 0x01
 
@@ -3952,11 +3952,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009607:
+        <contract:0x0000000000000000000000000000000000009607>:
           storage:
             0x01: 0x60A7
 
@@ -3965,11 +3965,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009608:
+        <contract:0x0000000000000000000000000000000000009608>:
           storage:
             0x01: 0x01
 
@@ -3978,11 +3978,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009708:
+        <contract:0x0000000000000000000000000000000000009708>:
           storage:
             0x01: 0x60A7
 
@@ -3991,11 +3991,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009709:
+        <contract:0x0000000000000000000000000000000000009709>:
           storage:
             0x01: 0x01
 
@@ -4004,11 +4004,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009809:
+        <contract:0x0000000000000000000000000000000000009809>:
           storage:
             0x01: 0x60A7
 
@@ -4017,11 +4017,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000980a:
+        <contract:0x000000000000000000000000000000000000980a>:
           storage:
             0x01: 0x01
 
@@ -4030,11 +4030,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000990a:
+        <contract:0x000000000000000000000000000000000000990a>:
           storage:
             0x01: 0x60A7
 
@@ -4043,11 +4043,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        000000000000000000000000000000000000990b:
+        <contract:0x000000000000000000000000000000000000990b>:
           storage:
             0x01: 0x01
 
@@ -4056,11 +4056,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009a0b:
+        <contract:0x0000000000000000000000000000000000009a0b>:
           storage:
             0x01: 0x60A7
 
@@ -4069,11 +4069,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009a0c:
+        <contract:0x0000000000000000000000000000000000009a0c>:
           storage:
             0x01: 0x01
 
@@ -4082,11 +4082,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009b0c:
+        <contract:0x0000000000000000000000000000000000009b0c>:
           storage:
             0x01: 0x60A7
 
@@ -4095,11 +4095,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009b0d:
+        <contract:0x0000000000000000000000000000000000009b0d>:
           storage:
             0x01: 0x01
 
@@ -4108,11 +4108,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009c0d:
+        <contract:0x0000000000000000000000000000000000009c0d>:
           storage:
             0x01: 0x60A7
 
@@ -4121,11 +4121,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009c0e:
+        <contract:0x0000000000000000000000000000000000009c0e>:
           storage:
             0x01: 0x01
 
@@ -4134,11 +4134,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009d0e:
+        <contract:0x0000000000000000000000000000000000009d0e>:
           storage:
             0x01: 0x60A7
 
@@ -4147,11 +4147,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009d0f:
+        <contract:0x0000000000000000000000000000000000009d0f>:
           storage:
             0x01: 0x01
 
@@ -4160,11 +4160,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009e0f:
+        <contract:0x0000000000000000000000000000000000009e0f>:
           storage:
             0x01: 0x60A7
 
@@ -4173,11 +4173,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009e10:
+        <contract:0x0000000000000000000000000000000000009e10>:
           storage:
             0x01: 0x01
 
@@ -4186,11 +4186,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009f10:
+        <contract:0x0000000000000000000000000000000000009f10>:
           storage:
             0x01: 0x60A7
 
@@ -4199,11 +4199,11 @@ underflowTest:
       network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0x00: 0x60A7
             0x01: 0x60A7
-        0000000000000000000000000000000000009f11:
+        <contract:0x0000000000000000000000000000000000009f11>:
           storage:
             0x01: 0x01
 

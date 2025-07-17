@@ -1,7 +1,7 @@
 {
     "refund_multimpleSuicide" : {
         "env" : {
-            "currentCoinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentCoinbase" : "<eoa:0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba>",
             "currentDifficulty" : "0x20000",
             "currentGasLimit" : "1000000",
             "currentNumber" : "1",
@@ -11,13 +11,13 @@
     	    {
                 "network" : [">=Cancun"],
                 "result" : {
-                    "1000000000000000000000000000000000000001" : {
+                    "<contract:target:0x1000000000000000000000000000000000000001>" : {
                         "balance" : "1000000000000000000"
                     },
-                    "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba" : {
+                    "<eoa:0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba>" : {
                         "balance" : "0"
                     },
-                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                    "<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                         "balance" : "102679610",
                         "nonce" : "1"
                     }
@@ -25,13 +25,13 @@
             }
         ],
          "pre" : {
-            "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba" : {
+            "<eoa:0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba>" : {
                 "balance" : "0",
                 "nonce" : "1",
                 "code" : "",
                 "storage" : {}
             },
-            "1000000000000000000000000000000000000001" : {
+            "<contract:target:0x1000000000000000000000000000000000000001>" : {
                 "balance" : "1000000000000000000",
                 "nonce" : "0",
                 "//comment1" : "contract Killer {",
@@ -55,7 +55,7 @@
                 "storage" : {
                 }
             },
-             "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+             "<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                  "balance" : "103000000",
                  "nonce" : "0",
                  "code" : "",
@@ -71,8 +71,8 @@
             ],
             "gasPrice" : "10",
             "nonce" : "0",
-            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
-            "to" : "1000000000000000000000000000000000000001",
+            "secretKey" : "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>",
+            "to" : "<contract:target:0x1000000000000000000000000000000000000001>",
             "value" : [
                 "0"
             ]

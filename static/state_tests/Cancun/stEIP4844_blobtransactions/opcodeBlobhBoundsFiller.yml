@@ -16,12 +16,12 @@ opcodeBlobhBounds:
     - network:
         - '>=Cancun'
       result:
-        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+        <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>:
           storage:
             0x00: 0x01a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
 
   pre:
-    095e7baea6a6c7c4c2dfeb977efac326af552d87:
+    <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>:
       balance: '1000000000000000000'
       code: |
           {
@@ -42,7 +42,7 @@ opcodeBlobhBounds:
         0x04: 0x01
         0x05: 0x01
 
-    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+    <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
       balance: '1000000000000000000'
       code: '0x'
       nonce: '0'
@@ -53,7 +53,7 @@ opcodeBlobhBounds:
     data:
         - data: :raw 0x00
           accessList:
-          - address: 0x095e7baea6a6c7c4c2dfeb977efac326af552d87
+          - address: <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>
             storageKeys:
             - 0x00
             - 0x01
@@ -63,10 +63,10 @@ opcodeBlobhBounds:
     gasLimit:
     - '4000000'
     nonce: '0'
-    to: '095e7baea6a6c7c4c2dfeb977efac326af552d87'
+    to: '<contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>'
     value:
     - '100000'
-    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    secretKey: "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>"
     maxFeePerBlobGas: '10'
     blobVersionedHashes:
         - "0x01a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"

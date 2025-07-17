@@ -3,7 +3,7 @@
 
 coinbaseT2:
   env:
-    currentCoinbase: 000000000000000000000000000000000000BA5E
+    currentCoinbase: <eoa:0x000000000000000000000000000000000000ba5e>
     currentDifficulty: '0x20000'
     currentGasLimit: '0xFF112233445566'
     currentNumber: '1'
@@ -17,13 +17,13 @@ coinbaseT2:
 
   pre:  
     # Send wei to coinbase and see how much gas that costs.
-    000000000000000000000000000000000000C0DE:
+    <contract:target:0x000000000000000000000000000000000000c0de>:
       balance: '1000000000000000000'
       code: |
        :yul berlin
        { 
          mstore(0, gas())
-         pop(call(gas(), 0xBA5E, 1000000, 0, 0, 0, 0))
+         pop(call(gas(), <eoa:0x000000000000000000000000000000000000ba5e>, 1000000, 0, 0, 0, 0))
          mstore(0x20, gas())
 
          // The 24 is the cost of twi gas(), seven pushes(), a pop(), and an mstore()
@@ -34,7 +34,7 @@ coinbaseT2:
 
 
     # Signer
-    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+    <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
       balance: '1000000000000000000'
       code: 0x
       nonce: 1
@@ -42,7 +42,7 @@ coinbaseT2:
 
 
     # Coinbase
-    000000000000000000000000000000000000BA5E:
+    <eoa:0x000000000000000000000000000000000000ba5e>:
       balance: 0
       code: 0x
       nonce: 1
@@ -55,7 +55,7 @@ coinbaseT2:
     # Type 2 transaction, base in list
     - data: :label T2baseInList :abi f(uint) 0
       accessList:
-      - address: 0x000000000000000000000000000000000000BA5E
+      - address: <eoa:0x000000000000000000000000000000000000ba5e>
         storageKeys: []
 
 
@@ -70,8 +70,8 @@ coinbaseT2:
     maxFeePerGas: 10000
     maxPriorityFeePerGas: 100
     nonce: 1
-    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
-    to: 000000000000000000000000000000000000C0DE
+    secretKey: "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>"
+    to: <contract:target:0x000000000000000000000000000000000000c0de>
     value:
     - 0
 
@@ -91,7 +91,7 @@ coinbaseT2:
     network:
     - ">=Cancun"
     result:
-      000000000000000000000000000000000000C0DE:
+      <contract:target:0x000000000000000000000000000000000000c0de>:
         storage:
           0x00: 6800
 
@@ -106,6 +106,6 @@ coinbaseT2:
     network:
     - ">=Cancun"
     result:
-      000000000000000000000000000000000000C0DE:
+      <contract:target:0x000000000000000000000000000000000000c0de>:
         storage:
           0x00: 6800

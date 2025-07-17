@@ -18,12 +18,12 @@
                 },
                 "network" : [">=Cancun"],
                 "result" : {
-                    "0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6" : {
+                    "<contract:target:0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6>" : {
                         "storage" : {
                             "0x00" : "0x00"
                         }
                     },
-		    "0x1f572e5295c57f15886f9b263e2f6d2d6c7b5ec6" : {
+		    "<contract:0x1f572e5295c57f15886f9b263e2f6d2d6c7b5ec6>" : {
                         "storage" : {
                             "0x01" : "0x00"
                         }
@@ -32,22 +32,22 @@
             }
         ],
         "pre" : {
-            "0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6" : {
+            "<contract:target:0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6>" : {
                 "balance" : "0x0de0b6b3a7640000",
-                "code" : "{ (CALL 1 0x1f572e5295c57f15886f9b263e2f6d2d6c7b5ec6 50000 0 0 0 0) (SSTORE 0 (RETURNDATASIZE)) }",
+                "code" : "{ (CALL 1 <contract:0x1f572e5295c57f15886f9b263e2f6d2d6c7b5ec6> 50000 0 0 0 0) (SSTORE 0 (RETURNDATASIZE)) }",
                 "nonce" : "0x00",
                 "storage" : {
                     "0x00" : "0x01"
                 }
             },
-            "0x1f572e5295c57f15886f9b263e2f6d2d6c7b5ec6" : {
+            "<contract:0x1f572e5295c57f15886f9b263e2f6d2d6c7b5ec6>" : {
                 "balance" : "0",
                 "code" : "{ (CALL 10 1 50000 0 0 0 0) (SSTORE 1 1) }",
                 "nonce" : "0x00",
                 "storage" : {
                 }
             },
-            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+            "<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                 "balance" : "0x6400000000",
                 "code" : "",
                 "nonce" : "0x00",
@@ -64,8 +64,8 @@
             ],
             "gasPrice" : "0x0a",
             "nonce" : "0x00",
-            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
-            "to" : "0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6",
+            "secretKey" : "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>",
+            "to" : "<contract:target:0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6>",
             "value" : [
                 "0x00"
             ]

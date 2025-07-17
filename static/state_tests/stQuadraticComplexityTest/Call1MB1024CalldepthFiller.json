@@ -16,20 +16,20 @@
                 },
                 "network" : [">=Cancun"],
                 "result" : {
-                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                    "<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                         "code" : "0x",
                         "nonce" : "0x01",
                         "storage" : {
                         }
                     },
-                    "aaa50000fce5edbc8e2a8697c15331677e6ebf0b" : {
+                    "<eoa:0xaaa50000fce5edbc8e2a8697c15331677e6ebf0b>" : {
                         "//balance" : "0x0fffffffffffff",
                         "code" : "0x",
                         "nonce" : "0x00",
                         "storage" : {
                         }
                     },
-                    "bbbf5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                    "<contract:target:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                         "nonce" : "0x00",
                         "storage" : {
         			    "0x00" : "0x45",
@@ -46,20 +46,20 @@
                 },
                 "network" : [">=Cancun"],
                 "result" : {
-                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                    "<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                         "code" : "0x",
                         "nonce" : "0x01",
                         "storage" : {
                         }
                     },
-                    "aaa50000fce5edbc8e2a8697c15331677e6ebf0b" : {
+                    "<eoa:0xaaa50000fce5edbc8e2a8697c15331677e6ebf0b>" : {
                         "//balance" : "0x0fffffffffffff",
                         "code" : "0x",
                         "nonce" : "0x00",
                         "storage" : {
                         }
                     },
-                    "bbbf5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                    "<contract:target:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                         "nonce" : "0x00",
                         "storage" : {
                         }
@@ -68,23 +68,23 @@
             }
         ],
         "pre" : {
-            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+            "<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                 "balance" : "0xffffffffffffffffffffffffffffffff",
                 "code" : "",
                 "nonce" : "0",
                 "storage" : {
                 }
             },
-            "aaa50000fce5edbc8e2a8697c15331677e6ebf0b" : {
+            "<eoa:0xaaa50000fce5edbc8e2a8697c15331677e6ebf0b>" : {
                 "balance" : "0xfffffffffffff",
                 "code" : "",
                 "nonce" : "0",
                 "storage" : {
                 }
             },
-            "bbbf5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+            "<contract:target:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                 "balance" : "0xfffffffffffff",
-                "code" : "{ (def 'i 0x80) [[ 0 ]] (+ @@0 1) (if (LT @@0 1024) [[ 1 ]] (CALL (- (GAS) 1005000) 0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 1000000 0 0) [[ 2 ]] 1 )  }",
+                "code" : "{ (def 'i 0x80) [[ 0 ]] (+ @@0 1) (if (LT @@0 1024) [[ 1 ]] (CALL (- (GAS) 1005000) <contract:target:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 1000000 0 0) [[ 2 ]] 1 )  }",
                 "nonce" : "0",
                 "storage" : {
                 }
@@ -99,8 +99,8 @@
             ],
             "gasPrice" : "10",
             "nonce" : "",
-            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
-            "to" : "bbbf5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "secretKey" : "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>",
+            "to" : "<contract:target:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b>",
             "value" : [
                 "10"
             ]

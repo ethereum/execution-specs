@@ -14,23 +14,23 @@ extCodeHashDeletedAccount2:
     currentNumber: "1"
     currentTimestamp: "1000"
   pre:
-    095e7baea6a6c7c4c2dfeb977efac326af552d87:
+    <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>:
       balance: '1000000000000000000'
       code: |
         {
           (MSTORE 0 0x01)
-          (CALL 150000 0xbbbbbbbb00000000000000000000000000000000 0 0 32 0 32)
+          (CALL 150000 <contract:0xbbbbbbbb00000000000000000000000000000000> 0 0 32 0 32)
           
-          (CALL 150000 0xaaaaaaaa00000000000000000000000000000000 0 0 0  0 32)
+          (CALL 150000 <contract:0xaaaaaaaa00000000000000000000000000000000> 0 0 0  0 32)
           
           (MSTORE 32 0x04)
-          (CALL 150000 0xbbbbbbbb00000000000000000000000000000000 0 32 32 0 32)
+          (CALL 150000 <contract:0xbbbbbbbb00000000000000000000000000000000> 0 32 32 0 32)
         }
       nonce: '0'
       storage: {}
     # Account A: already exists in the state
     # contains selfdestruct code
-    aaaaaaaa00000000000000000000000000000000:
+    <contract:0xaaaaaaaa00000000000000000000000000000000>:
       balance: '1000000000000000000'
       code: |
         {
@@ -40,25 +40,25 @@ extCodeHashDeletedAccount2:
       storage: {}
     # Account B
     # Receives storage key as call data
-    bbbbbbbb00000000000000000000000000000000:
+    <contract:0xbbbbbbbb00000000000000000000000000000000>:
       balance: '1000000000000000000'
       code: |
         {
           (CALLDATACOPY 0 0 32)
-          (SSTORE (MLOAD 0) (EXTCODEHASH 0xaaaaaaaa00000000000000000000000000000000))
+          (SSTORE (MLOAD 0) (EXTCODEHASH <contract:0xaaaaaaaa00000000000000000000000000000000>))
 
-          (MSTORE 32 (EXTCODESIZE 0xaaaaaaaa00000000000000000000000000000000))
+          (MSTORE 32 (EXTCODESIZE <contract:0xaaaaaaaa00000000000000000000000000000000>))
           
           (MSTORE 0 (ADD (MLOAD 0) 1))
           (SSTORE (MLOAD 0) (MLOAD 32))
 
           (MSTORE 0 (ADD (MLOAD 0) 1))
-          (EXTCODECOPY 0xaaaaaaaa00000000000000000000000000000000 64 0 (MLOAD 32))
+          (EXTCODECOPY <contract:0xaaaaaaaa00000000000000000000000000000000> 64 0 (MLOAD 32))
           (SSTORE (MLOAD 0) (MLOAD 64))
         }
       nonce: '0'
       storage: {}
-    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+    <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
       balance: '1000000000000000000'
       code: ''
       nonce: '0'
@@ -71,15 +71,15 @@ extCodeHashDeletedAccount2:
       network:
         - '>=Cancun'
       result:
-        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+        <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>:
           balance: '1000000000000000001'
           storage: {}
-        aaaaaaaa00000000000000000000000000000000:
+        <contract:0xaaaaaaaa00000000000000000000000000000000>:
           balance: '0'
           nonce: 0
           code: '0x73deadbeef0000000000000000000000000000000031ff00'
           storage: {}
-        bbbbbbbb00000000000000000000000000000000:
+        <contract:0xbbbbbbbb00000000000000000000000000000000>:
           balance: '1000000000000000000'
           storage: {
             "0x01": '0x94e08c34847a4e52a3e523b70a5d9b2151155bd0bc10f7b7c550bda63229c756',
@@ -96,8 +96,8 @@ extCodeHashDeletedAccount2:
     - '400000'
     gasPrice: '10'
     nonce: '0'
-    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
-    to: 095e7baea6a6c7c4c2dfeb977efac326af552d87
+    secretKey: "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>"
+    to: <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>
     value:
     - '1'
 

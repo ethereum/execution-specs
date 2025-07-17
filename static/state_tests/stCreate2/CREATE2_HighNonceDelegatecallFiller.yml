@@ -10,13 +10,13 @@ CREATE2_HighNonceDelegatecall:
     currentTimestamp: '1000'
 
   pre:
-    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+    <eoa:sender>:
       balance: 1000000000
       code: ''
       nonce: 0
       storage: {}
 
-    000000000000000000000000fffffffffffffffe:
+    <contract:max_nonce_minus_1>:
       balance: 0
       code: |
         :yul berlin
@@ -44,7 +44,7 @@ CREATE2_HighNonceDelegatecall:
         '0xffff': '0xfffffffffffffffe'
       }
 
-    000000000000000000000000ffffffffffffffff:
+    <contract:max_nonce>:
       balance: 0
       code: |
         :yul berlin
@@ -72,7 +72,7 @@ CREATE2_HighNonceDelegatecall:
         '0xffff': '0xffffffffffffffff'
       }
 
-    b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+    <contract:entry>:
       balance: 0
       code: |
         :yul berlin
@@ -125,66 +125,66 @@ CREATE2_HighNonceDelegatecall:
 
     # CREATE + Caller (A) Max Nonce minus 1 Test Cases
     # - Contract A (Nonce=0xfffffffffffffffe) delegate calls CREATE Contract B (Nonce=0xfffffffffffffffe), contract create succeeds
-      - ':label A_MaxNonceMinus1_DelegateCall_B_MaxNonceMinus1_Create :abi f(uint,uint,uint,uint) 0x00 0xfffffffffffffffe 0xfffffffffffffffe 0x0'
+      - ':label A_MaxNonceMinus1_DelegateCall_B_MaxNonceMinus1_Create :abi f(uint,uint,uint,uint) 0x00 0xfffffffffffffffe <contract:max_nonce_minus_1> 0x0'
     # - Contract A (Nonce=0xfffffffffffffffe) delegate calls CREATE Contract B (Nonce=0xffffffffffffffff), contract create succeeds
-      - ':label A_MaxNonceMinus1_DelegateCall_B_MaxNonce_Create :abi f(uint,uint,uint,uint) 0x00 0xfffffffffffffffe 0xffffffffffffffff 0x0'
+      - ':label A_MaxNonceMinus1_DelegateCall_B_MaxNonce_Create :abi f(uint,uint,uint,uint) 0x00 0xfffffffffffffffe <contract:max_nonce> 0x0'
     # - Contract A (Nonce=0xfffffffffffffffe) code calls CREATE Contract B (Nonce=0xfffffffffffffffe), contract create succeeds
-      - ':label A_MaxNonceMinus1_CallCode_B_MaxNonceMinus1_Create :abi f(uint,uint,uint,uint) 0x01 0xfffffffffffffffe 0xfffffffffffffffe 0x0'
+      - ':label A_MaxNonceMinus1_CallCode_B_MaxNonceMinus1_Create :abi f(uint,uint,uint,uint) 0x01 0xfffffffffffffffe <contract:max_nonce_minus_1> 0x0'
     # - Contract A (Nonce=0xfffffffffffffffe) code calls CREATE Contract B (Nonce=0xffffffffffffffff), contract create succeeds
-      - ':label A_MaxNonceMinus1_CallCode_B_MaxNonce_Create :abi f(uint,uint,uint,uint) 0x01 0xfffffffffffffffe 0xffffffffffffffff 0x0'
+      - ':label A_MaxNonceMinus1_CallCode_B_MaxNonce_Create :abi f(uint,uint,uint,uint) 0x01 0xfffffffffffffffe <contract:max_nonce> 0x0'
     # - Contract A (Nonce=0xfffffffffffffffe) calls CREATE Contract B (Nonce=0xfffffffffffffffe), contract create succeeds
-      - ':label A_MaxNonceMinus1_Call_B_MaxNonceMinus1_Create :abi f(uint,uint,uint,uint) 0x02 0xfffffffffffffffe 0xfffffffffffffffe 0x0'
+      - ':label A_MaxNonceMinus1_Call_B_MaxNonceMinus1_Create :abi f(uint,uint,uint,uint) 0x02 0xfffffffffffffffe <contract:max_nonce_minus_1> 0x0'
     # - Contract A (Nonce=0xfffffffffffffffe) calls CREATE Contract B (Nonce=0xffffffffffffffff), contract create fails
-      - ':label A_MaxNonceMinus1_Call_B_MaxNonce_Create :abi f(uint,uint,uint,uint) 0x02 0xfffffffffffffffe 0xffffffffffffffff 0x0'
+      - ':label A_MaxNonceMinus1_Call_B_MaxNonce_Create :abi f(uint,uint,uint,uint) 0x02 0xfffffffffffffffe <contract:max_nonce> 0x0'
 
     # CREATE + Caller (A) Max Nonce Test Cases
     # - Contract A (Nonce=0xffffffffffffffff) delegate calls CREATE Contract B (Nonce=0xfffffffffffffffe), contract create fails
-      - ':label A_MaxNonce_DelegateCall_B_MaxNonceMinus1_Create :abi f(uint,uint,uint,uint) 0x00 0xffffffffffffffff 0xfffffffffffffffe 0x0'
+      - ':label A_MaxNonce_DelegateCall_B_MaxNonceMinus1_Create :abi f(uint,uint,uint,uint) 0x00 0xffffffffffffffff <contract:max_nonce_minus_1> 0x0'
     # - Contract A (Nonce=0xffffffffffffffff) delegate calls CREATE Contract B (Nonce=0xffffffffffffffff), contract create fails
-      - ':label A_MaxNonce_DelegateCall_B_MaxNonce_Create :abi f(uint,uint,uint,uint) 0x00 0xffffffffffffffff 0xffffffffffffffff 0x0'
+      - ':label A_MaxNonce_DelegateCall_B_MaxNonce_Create :abi f(uint,uint,uint,uint) 0x00 0xffffffffffffffff <contract:max_nonce> 0x0'
     # - Contract A (Nonce=0xffffffffffffffff) code calls CREATE Contract B (Nonce=0xfffffffffffffffe), contract create fails
-      - ':label A_MaxNonce_CallCode_B_MaxNonceMinus1_Create :abi f(uint,uint,uint,uint) 0x01 0xffffffffffffffff 0xfffffffffffffffe 0x0'
+      - ':label A_MaxNonce_CallCode_B_MaxNonceMinus1_Create :abi f(uint,uint,uint,uint) 0x01 0xffffffffffffffff <contract:max_nonce_minus_1> 0x0'
     # - Contract A (Nonce=0xffffffffffffffff) code calls CREATE Contract B (Nonce=0xffffffffffffffff), contract create fails
-      - ':label A_MaxNonce_CallCode_B_MaxNonce_Create :abi f(uint,uint,uint,uint) 0x01 0xffffffffffffffff 0xffffffffffffffff 0x0'
+      - ':label A_MaxNonce_CallCode_B_MaxNonce_Create :abi f(uint,uint,uint,uint) 0x01 0xffffffffffffffff <contract:max_nonce> 0x0'
     # - Contract A (Nonce=0xffffffffffffffff) calls CREATE Contract B (Nonce=0xfffffffffffffffe), contract create succeeds
-      - ':label A_MaxNonce_Call_B_MaxNonceMinus1_Create :abi f(uint,uint,uint,uint) 0x02 0xffffffffffffffff 0xfffffffffffffffe 0x0'
+      - ':label A_MaxNonce_Call_B_MaxNonceMinus1_Create :abi f(uint,uint,uint,uint) 0x02 0xffffffffffffffff <contract:max_nonce_minus_1> 0x0'
     # - Contract A (Nonce=0xffffffffffffffff) calls CREATE Contract B (Nonce=0xffffffffffffffff), contract create fails
-      - ':label A_MaxNonce_Call_B_MaxNonce_Create :abi f(uint,uint,uint,uint) 0x02 0xffffffffffffffff 0xffffffffffffffff 0x0'
+      - ':label A_MaxNonce_Call_B_MaxNonce_Create :abi f(uint,uint,uint,uint) 0x02 0xffffffffffffffff <contract:max_nonce> 0x0'
 
     # CREATE2 + Caller (A) Max Nonce minus 1 Test Cases
     # - Contract A (Nonce=0xfffffffffffffffe) delegate calls CREATE2 Contract B (Nonce=0xfffffffffffffffe), contract create succeeds
-      - ':label A_MaxNonceMinus1_DelegateCall_B_MaxNonceMinus1_Create2 :abi f(uint,uint,uint,uint) 0x00 0xfffffffffffffffe 0xfffffffffffffffe 0x1'
+      - ':label A_MaxNonceMinus1_DelegateCall_B_MaxNonceMinus1_Create2 :abi f(uint,uint,uint,uint) 0x00 0xfffffffffffffffe <contract:max_nonce_minus_1> 0x1'
     # - Contract A (Nonce=0xfffffffffffffffe) delegate calls CREATE2 Contract B (Nonce=0xffffffffffffffff), contract create succeeds
-      - ':label A_MaxNonceMinus1_DelegateCall_B_MaxNonce_Create2 :abi f(uint,uint,uint,uint) 0x00 0xfffffffffffffffe 0xffffffffffffffff 0x1'
+      - ':label A_MaxNonceMinus1_DelegateCall_B_MaxNonce_Create2 :abi f(uint,uint,uint,uint) 0x00 0xfffffffffffffffe <contract:max_nonce> 0x1'
     # - Contract A (Nonce=0xfffffffffffffffe) code calls CREATE2 Contract B (Nonce=0xfffffffffffffffe), contract create succeeds
-      - ':label A_MaxNonceMinus1_CallCode_B_MaxNonceMinus1_Create2 :abi f(uint,uint,uint,uint) 0x01 0xfffffffffffffffe 0xfffffffffffffffe 0x1'
+      - ':label A_MaxNonceMinus1_CallCode_B_MaxNonceMinus1_Create2 :abi f(uint,uint,uint,uint) 0x01 0xfffffffffffffffe <contract:max_nonce_minus_1> 0x1'
     # - Contract A (Nonce=0xfffffffffffffffe) code calls CREATE2 Contract B (Nonce=0xffffffffffffffff), contract create succeeds
-      - ':label A_MaxNonceMinus1_CallCode_B_MaxNonce_Create2 :abi f(uint,uint,uint,uint) 0x01 0xfffffffffffffffe 0xffffffffffffffff 0x1'
+      - ':label A_MaxNonceMinus1_CallCode_B_MaxNonce_Create2 :abi f(uint,uint,uint,uint) 0x01 0xfffffffffffffffe <contract:max_nonce> 0x1'
     # - Contract A (Nonce=0xfffffffffffffffe) calls CREATE2 Contract B (Nonce=0xfffffffffffffffe), contract create succeeds
-      - ':label A_MaxNonceMinus1_Call_B_MaxNonceMinus1_Create2 :abi f(uint,uint,uint,uint) 0x02 0xfffffffffffffffe 0xfffffffffffffffe 0x1'
+      - ':label A_MaxNonceMinus1_Call_B_MaxNonceMinus1_Create2 :abi f(uint,uint,uint,uint) 0x02 0xfffffffffffffffe <contract:max_nonce_minus_1> 0x1'
     # - Contract A (Nonce=0xfffffffffffffffe) calls CREATE2 Contract B (Nonce=0xffffffffffffffff), contract create fails
-      - ':label A_MaxNonceMinus1_Call_B_MaxNonce_Create2 :abi f(uint,uint,uint,uint) 0x02 0xfffffffffffffffe 0xffffffffffffffff 0x1'
+      - ':label A_MaxNonceMinus1_Call_B_MaxNonce_Create2 :abi f(uint,uint,uint,uint) 0x02 0xfffffffffffffffe <contract:max_nonce> 0x1'
 
     # CREATE2 + Caller (A) Max Nonce Test Cases
     # - Contract A (Nonce=0xffffffffffffffff) delegate calls CREATE2 Contract B (Nonce=0xfffffffffffffffe), contract create fails
-      - ':label A_MaxNonce_DelegateCall_B_MaxNonceMinus1_Create2 :abi f(uint,uint,uint,uint) 0x00 0xffffffffffffffff 0xfffffffffffffffe 0x1'
+      - ':label A_MaxNonce_DelegateCall_B_MaxNonceMinus1_Create2 :abi f(uint,uint,uint,uint) 0x00 0xffffffffffffffff <contract:max_nonce_minus_1> 0x1'
     # - Contract A (Nonce=0xffffffffffffffff) delegate calls CREATE2 Contract B (Nonce=0xffffffffffffffff), contract create fails
-      - ':label A_MaxNonce_DelegateCall_B_MaxNonce_Create2 :abi f(uint,uint,uint,uint) 0x00 0xffffffffffffffff 0xffffffffffffffff 0x1'
+      - ':label A_MaxNonce_DelegateCall_B_MaxNonce_Create2 :abi f(uint,uint,uint,uint) 0x00 0xffffffffffffffff <contract:max_nonce> 0x1'
     # - Contract A (Nonce=0xffffffffffffffff) code calls CREATE2 Contract B (Nonce=0xfffffffffffffffe), contract create fails
-      - ':label A_MaxNonce_CallCode_B_MaxNonceMinus1_Create2 :abi f(uint,uint,uint,uint) 0x01 0xffffffffffffffff 0xfffffffffffffffe 0x1'
+      - ':label A_MaxNonce_CallCode_B_MaxNonceMinus1_Create2 :abi f(uint,uint,uint,uint) 0x01 0xffffffffffffffff <contract:max_nonce_minus_1> 0x1'
     # - Contract A (Nonce=0xffffffffffffffff) code calls CREATE2 Contract B (Nonce=0xffffffffffffffff), contract create fails
-      - ':label A_MaxNonce_CallCode_B_MaxNonce_Create2 :abi f(uint,uint,uint,uint) 0x01 0xffffffffffffffff 0xffffffffffffffff 0x1'
+      - ':label A_MaxNonce_CallCode_B_MaxNonce_Create2 :abi f(uint,uint,uint,uint) 0x01 0xffffffffffffffff <contract:max_nonce> 0x1'
     # - Contract A (Nonce=0xffffffffffffffff) calls CREATE2 Contract B (Nonce=0xfffffffffffffffe), contract create succeeds
-      - ':label A_MaxNonce_Call_B_MaxNonceMinus1_Create2 :abi f(uint,uint,uint,uint) 0x02 0xffffffffffffffff 0xfffffffffffffffe 0x1'
+      - ':label A_MaxNonce_Call_B_MaxNonceMinus1_Create2 :abi f(uint,uint,uint,uint) 0x02 0xffffffffffffffff <contract:max_nonce_minus_1> 0x1'
     # - Contract A (Nonce=0xffffffffffffffff) calls CREATE2 Contract B (Nonce=0xffffffffffffffff), contract create fails
-      - ':label A_MaxNonce_Call_B_MaxNonce_Create2 :abi f(uint,uint,uint,uint) 0x02 0xffffffffffffffff 0xffffffffffffffff 0x1'
+      - ':label A_MaxNonce_Call_B_MaxNonce_Create2 :abi f(uint,uint,uint,uint) 0x02 0xffffffffffffffff <contract:max_nonce> 0x1'
 
     gasLimit:
       - 70000000
     gasPrice: 10
     nonce: 0
-    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
-    to: 'b94f5374fce5edbc8e2a8697c15331677e6ebf0b'
+    secretKey: <eoa:sender>
+    to: '<contract:entry>'
     value:
     - 0
 
@@ -200,31 +200,31 @@ CREATE2_HighNonceDelegatecall:
       network:
         - '>=Cancun'
       result:
-       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <eoa:sender>:
           nonce: 1
        # Contract A
-       b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <contract:entry>:
           nonce: '0xffffffffffffffff'
           storage:
             '1': '0'
             '2': '0'
             '0xffff': '0xffffffffffffffff'
        # Contract B, Max Nonce - 1
-       000000000000000000000000fffffffffffffffe:
+       <contract:max_nonce_minus_1>:
           nonce: '0xfffffffffffffffe'
           storage:
             '0xffff': '0xfffffffffffffffe'
        # Contract B, Max Nonce
-       000000000000000000000000ffffffffffffffff:
+       <contract:max_nonce>:
           nonce: '0xffffffffffffffff'
           storage:
             '0xffff': '0xffffffffffffffff'
        # Contracts if create from nonce=0xffffffffffffffff succeeded, should never exist
-       04e9a8460199e670ffb592f93a2f74bdcb44b0bd:
+       <create:entry:0xffffffffffffffff>:
           'shouldnotexist': '1'
-       721c813d049dc6ff41dbf256b5fc788e63bc6d70:
+       <create:max_nonce_minus_1:0xffffffffffffffff>:
           'shouldnotexist': '1'
-       65546b5ac39d0d9ba23994d776ff0678a66b1374:
+       <create:max_nonce:0xffffffffffffffff>:
           'shouldnotexist': '1'
 
     - indexes:
@@ -235,37 +235,37 @@ CREATE2_HighNonceDelegatecall:
       network:
         - '>=Cancun'
       result:
-       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <eoa:sender>:
           nonce: 1
        # Contract A
-       b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <contract:entry>:
           nonce: '0xffffffffffffffff'
           storage:
-            '1': '0x049c7fabe0954923499fd0afa1f2fbe44b5da679'
+            '1': '<create:max_nonce_minus_1:0xfffffffffffffffe>'
             '0xffff': '0xffffffffffffffff'
        # Contract B, Max Nonce - 1
-       000000000000000000000000fffffffffffffffe:
+       <contract:max_nonce_minus_1>:
           nonce: '0xffffffffffffffff'
           storage:
-            '2': '0x049c7fabe0954923499fd0afa1f2fbe44b5da679'
+            '2': '<create:max_nonce_minus_1:0xfffffffffffffffe>'
             '0xffff': '0xffffffffffffffff'
        # Contract B, Max Nonce
-       000000000000000000000000ffffffffffffffff:
+       <contract:max_nonce>:
           nonce: '0xffffffffffffffff'
           storage:
             '0xffff': '0xffffffffffffffff'
        # Contract Created, keccak(address=0x000000000000000000000000fffffffffffffffe,
        #                          nonce=0xfffffffffffffffe)
-       049c7fabe0954923499fd0afa1f2fbe44b5da679:
+       <create:max_nonce_minus_1:0xfffffffffffffffe>:
           code: '0x6001600155'
           storage:
             '1': '1'
        # Contracts if create from nonce=0xffffffffffffffff succeeded, should never exist
-       04e9a8460199e670ffb592f93a2f74bdcb44b0bd:
+       <create:entry:0xffffffffffffffff>:
           'shouldnotexist': '1'
-       721c813d049dc6ff41dbf256b5fc788e63bc6d70:
+       <create:max_nonce_minus_1:0xffffffffffffffff>:
           'shouldnotexist': '1'
-       65546b5ac39d0d9ba23994d776ff0678a66b1374:
+       <create:max_nonce:0xffffffffffffffff>:
           'shouldnotexist': '1'
 
     - indexes:
@@ -276,31 +276,31 @@ CREATE2_HighNonceDelegatecall:
       network:
         - '>=Cancun'
       result:
-       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <eoa:sender>:
           nonce: 1
        # Contract A
-       b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <contract:entry>:
           nonce: '0xffffffffffffffff'
           storage:
             '1': '0'
             '0xffff': '0xffffffffffffffff'
        # Contract B, Max Nonce - 1
-       000000000000000000000000fffffffffffffffe:
+       <contract:max_nonce_minus_1>:
           nonce: '0xfffffffffffffffe'
           storage:
             '0xffff': '0xfffffffffffffffe'
        # Contract B, Max Nonce
-       000000000000000000000000ffffffffffffffff:
+       <contract:max_nonce>:
           nonce: '0xffffffffffffffff'
           storage:
             '2': '0'
             '0xffff': '0xffffffffffffffff'
        # Contracts if create from nonce=0xffffffffffffffff succeeded, should never exist
-       04e9a8460199e670ffb592f93a2f74bdcb44b0bd:
+       <create:entry:0xffffffffffffffff>:
           'shouldnotexist': '1'
-       721c813d049dc6ff41dbf256b5fc788e63bc6d70:
+       <create:max_nonce_minus_1:0xffffffffffffffff>:
           'shouldnotexist': '1'
-       65546b5ac39d0d9ba23994d776ff0678a66b1374:
+       <create:max_nonce:0xffffffffffffffff>:
           'shouldnotexist': '1'
 
     - indexes:
@@ -314,37 +314,37 @@ CREATE2_HighNonceDelegatecall:
       network:
         - '>=Cancun'
       result:
-       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <eoa:sender>:
           nonce: 1
        # Contract A
-       b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <contract:entry>:
           nonce: '0xffffffffffffffff'
           storage:
-            '1': '0xd061b08a84ebc70fe797f9bd62f4269ef8274a13'
-            '2': '0xd061b08a84ebc70fe797f9bd62f4269ef8274a13'
+            '1': '<create:entry:0xfffffffffffffffe>'
+            '2': '<create:entry:0xfffffffffffffffe>'
             '0xffff': '0xffffffffffffffff'
        # Contract B, Max Nonce - 1
-       000000000000000000000000fffffffffffffffe:
+       <contract:max_nonce_minus_1>:
           nonce: '0xfffffffffffffffe'
           storage:
             '0xffff': '0xfffffffffffffffe'
        # Contract B, Max Nonce
-       000000000000000000000000ffffffffffffffff:
+       <contract:max_nonce>:
           nonce: '0xffffffffffffffff'
           storage:
             '0xffff': '0xffffffffffffffff'
        # Contract Created, keccak(address=0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b,
        #                          nonce=0xfffffffffffffffe)
-       d061b08a84ebc70fe797f9bd62f4269ef8274a13:
+       <create:entry:0xfffffffffffffffe>:
           code: '0x6001600155'
           storage:
             '1': '1'
        # Contracts if create from nonce=0xffffffffffffffff succeeded, should never exist
-       04e9a8460199e670ffb592f93a2f74bdcb44b0bd:
+       <create:entry:0xffffffffffffffff>:
           'shouldnotexist': '1'
-       721c813d049dc6ff41dbf256b5fc788e63bc6d70:
+       <create:max_nonce_minus_1:0xffffffffffffffff>:
           'shouldnotexist': '1'
-       65546b5ac39d0d9ba23994d776ff0678a66b1374:
+       <create:max_nonce:0xffffffffffffffff>:
           'shouldnotexist': '1'
 
     - indexes:
@@ -355,37 +355,37 @@ CREATE2_HighNonceDelegatecall:
       network:
         - '>=Cancun'
       result:
-       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <eoa:sender>:
           nonce: 1
        # Contract A
-       b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <contract:entry>:
           nonce: '0xfffffffffffffffe'
           storage:
-            '1': '0x049c7fabe0954923499fd0afa1f2fbe44b5da679'
+            '1': '<create:max_nonce_minus_1:0xfffffffffffffffe>'
             '0xffff': '0xfffffffffffffffe'
        # Contract B, Max Nonce - 1
-       000000000000000000000000fffffffffffffffe:
+       <contract:max_nonce_minus_1>:
           nonce: '0xffffffffffffffff'
           storage:
-            '2': '0x049c7fabe0954923499fd0afa1f2fbe44b5da679'
+            '2': '<create:max_nonce_minus_1:0xfffffffffffffffe>'
             '0xffff': '0xffffffffffffffff'
        # Contract B, Max Nonce
-       000000000000000000000000ffffffffffffffff:
+       <contract:max_nonce>:
           nonce: '0xffffffffffffffff'
           storage:
             '0xffff': '0xffffffffffffffff'
        # Contract Created, keccak(address=0x000000000000000000000000fffffffffffffffe,
        #                          nonce=0xfffffffffffffffe)
-       049c7fabe0954923499fd0afa1f2fbe44b5da679:
+       <create:max_nonce_minus_1:0xfffffffffffffffe>:
           code: '0x6001600155'
           storage:
             '1': '1'
        # Contracts if create from nonce=0xffffffffffffffff succeeded, should never exist
-       04e9a8460199e670ffb592f93a2f74bdcb44b0bd:
+       <create:entry:0xffffffffffffffff>:
           'shouldnotexist': '1'
-       721c813d049dc6ff41dbf256b5fc788e63bc6d70:
+       <create:max_nonce_minus_1:0xffffffffffffffff>:
           'shouldnotexist': '1'
-       65546b5ac39d0d9ba23994d776ff0678a66b1374:
+       <create:max_nonce:0xffffffffffffffff>:
           'shouldnotexist': '1'
 
     - indexes:
@@ -396,31 +396,31 @@ CREATE2_HighNonceDelegatecall:
       network:
         - '>=Cancun'
       result:
-       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <eoa:sender>:
           nonce: 1
        # Contract A
-       b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <contract:entry>:
           nonce: '0xfffffffffffffffe'
           storage:
             '1': '0'
             '0xffff': '0xfffffffffffffffe'
        # Contract B, Max Nonce - 1
-       000000000000000000000000fffffffffffffffe:
+       <contract:max_nonce_minus_1>:
           nonce: '0xfffffffffffffffe'
           storage:
             '0xffff': '0xfffffffffffffffe'
        # Contract B, Max Nonce
-       000000000000000000000000ffffffffffffffff:
+       <contract:max_nonce>:
           nonce: '0xffffffffffffffff'
           storage:
             '2': '0'
             '0xffff': '0xffffffffffffffff'
        # Contracts if create from nonce=0xffffffffffffffff succeeded, should never exist
-       04e9a8460199e670ffb592f93a2f74bdcb44b0bd:
+       <create:entry:0xffffffffffffffff>:
           'shouldnotexist': '1'
-       721c813d049dc6ff41dbf256b5fc788e63bc6d70:
+       <create:max_nonce_minus_1:0xffffffffffffffff>:
           'shouldnotexist': '1'
-       65546b5ac39d0d9ba23994d776ff0678a66b1374:
+       <create:max_nonce:0xffffffffffffffff>:
           'shouldnotexist': '1'
 
     - indexes:
@@ -434,31 +434,31 @@ CREATE2_HighNonceDelegatecall:
       network:
         - '>=Cancun'
       result:
-       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <eoa:sender>:
           nonce: 1
        # Contract A
-       b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <contract:entry>:
           nonce: '0xffffffffffffffff'
           storage:
             '1': '0'
             '2': '0'
             '0xffff': '0xffffffffffffffff'
        # Contract B, Max Nonce - 1
-       000000000000000000000000fffffffffffffffe:
+       <contract:max_nonce_minus_1>:
           nonce: '0xfffffffffffffffe'
           storage:
             '0xffff': '0xfffffffffffffffe'
        # Contract B, Max Nonce
-       000000000000000000000000ffffffffffffffff:
+       <contract:max_nonce>:
           nonce: '0xffffffffffffffff'
           storage:
             '0xffff': '0xffffffffffffffff'
        # Contracts if create from nonce=0xffffffffffffffff succeeded, should never exist
-       8d106f81f2b8e303fceab4de325bb36a961aeb4c:
+       <create2:entry:0xffffffffffffffff:0x6005600c60003960056000f36001600155>:
           'shouldnotexist': '1'
-       3f6fa2403e4d0326261150ceda2534e7a636936b:
+       <create2:max_nonce_minus_1:0xffffffffffffffff:0x6005600c60003960056000f36001600155>:
           'shouldnotexist': '1'
-       6a0a5d50d0a1ce10943b64ee28752a1314f45c39:
+       <create2:max_nonce:0xffffffffffffffff:0x6005600c60003960056000f36001600155>:
           'shouldnotexist': '1'
 
     - indexes:
@@ -469,38 +469,38 @@ CREATE2_HighNonceDelegatecall:
       network:
         - '>=Cancun'
       result:
-       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <eoa:sender>:
           nonce: 1
        # Contract A
-       b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <contract:entry>:
           nonce: '0xffffffffffffffff'
           storage:
-            '1': '0x7bce6e037b79fd6b55d5ceb57c4aeaa480736c89'
+            '1': '<create2:max_nonce_minus_1:0xfffffffffffffffe:0x6005600c60003960056000f36001600155>'
             '0xffff': '0xffffffffffffffff'
        # Contract B, Max Nonce - 1
-       000000000000000000000000fffffffffffffffe:
+       <contract:max_nonce_minus_1>:
           nonce: '0xffffffffffffffff'
           storage:
-            '2': '0x7bce6e037b79fd6b55d5ceb57c4aeaa480736c89'
+            '2': '<create2:max_nonce_minus_1:0xfffffffffffffffe:0x6005600c60003960056000f36001600155>'
             '0xffff': '0xffffffffffffffff'
        # Contract B, Max Nonce
-       000000000000000000000000ffffffffffffffff:
+       <contract:max_nonce>:
           nonce: '0xffffffffffffffff'
           storage:
             '0xffff': '0xffffffffffffffff'
        # Contract Created, keccak(address=0x000000000000000000000000fffffffffffffffe,
        #                          salt=0xfffffffffffffffe,
        #                          init code=0x6005600c60003960056000f36001600155)
-       7bce6e037b79fd6b55d5ceb57c4aeaa480736c89:
+       <create2:max_nonce_minus_1:0xfffffffffffffffe:0x6005600c60003960056000f36001600155>:
           code: '0x6001600155'
           storage:
             '1': '1'
        # Contracts if create from nonce=0xffffffffffffffff succeeded, should never exist
-       8d106f81f2b8e303fceab4de325bb36a961aeb4c:
+       <create2:entry:0xffffffffffffffff:0x6005600c60003960056000f36001600155>:
           'shouldnotexist': '1'
-       3f6fa2403e4d0326261150ceda2534e7a636936b:
+       <create2:max_nonce_minus_1:0xffffffffffffffff:0x6005600c60003960056000f36001600155>:
           'shouldnotexist': '1'
-       6a0a5d50d0a1ce10943b64ee28752a1314f45c39:
+       <create2:max_nonce:0xffffffffffffffff:0x6005600c60003960056000f36001600155>:
           'shouldnotexist': '1'
 
     - indexes:
@@ -511,31 +511,31 @@ CREATE2_HighNonceDelegatecall:
       network:
         - '>=Cancun'
       result:
-       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <eoa:sender>:
           nonce: 1
        # Contract A
-       b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <contract:entry>:
           nonce: '0xffffffffffffffff'
           storage:
             '1': '0'
             '0xffff': '0xffffffffffffffff'
        # Contract B, Max Nonce - 1
-       000000000000000000000000fffffffffffffffe:
+       <contract:max_nonce_minus_1>:
           nonce: '0xfffffffffffffffe'
           storage:
             '0xffff': '0xfffffffffffffffe'
        # Contract B, Max Nonce
-       000000000000000000000000ffffffffffffffff:
+       <contract:max_nonce>:
           nonce: '0xffffffffffffffff'
           storage:
             '2': '0'
             '0xffff': '0xffffffffffffffff'
        # Contracts if create from nonce=0xffffffffffffffff succeeded, should never exist
-       8d106f81f2b8e303fceab4de325bb36a961aeb4c:
+       <create2:entry:0xffffffffffffffff:0x6005600c60003960056000f36001600155>:
           'shouldnotexist': '1'
-       3f6fa2403e4d0326261150ceda2534e7a636936b:
+       <create2:max_nonce_minus_1:0xffffffffffffffff:0x6005600c60003960056000f36001600155>:
           'shouldnotexist': '1'
-       6a0a5d50d0a1ce10943b64ee28752a1314f45c39:
+       <create2:max_nonce:0xffffffffffffffff:0x6005600c60003960056000f36001600155>:
           'shouldnotexist': '1'
     
     - indexes:
@@ -549,38 +549,38 @@ CREATE2_HighNonceDelegatecall:
       network:
         - '>=Cancun'
       result:
-       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <eoa:sender>:
           nonce: 1
        # Contract A
-       b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <contract:entry>:
           nonce: '0xffffffffffffffff'
           storage:
-            '1': '0x592f5d061e7bd8f662d037189f96d0aff7ea07c2'
-            '2': '0x592f5d061e7bd8f662d037189f96d0aff7ea07c2'
+            '1': '<create2:entry:0xfffffffffffffffe:0x6005600c60003960056000f36001600155>'
+            '2': '<create2:entry:0xfffffffffffffffe:0x6005600c60003960056000f36001600155>'
             '0xffff': '0xffffffffffffffff'
        # Contract B, Max Nonce - 1
-       000000000000000000000000fffffffffffffffe:
+       <contract:max_nonce_minus_1>:
           nonce: '0xfffffffffffffffe'
           storage:
             '0xffff': '0xfffffffffffffffe'
        # Contract B, Max Nonce
-       000000000000000000000000ffffffffffffffff:
+       <contract:max_nonce>:
           nonce: '0xffffffffffffffff'
           storage:
             '0xffff': '0xffffffffffffffff'
        # Contract Created, keccak(address=0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b,
        #                          salt=0xfffffffffffffffe,
        #                          init code=0x6005600c60003960056000f36001600155)
-       592f5d061e7bd8f662d037189f96d0aff7ea07c2:
+       <create2:entry:0xfffffffffffffffe:0x6005600c60003960056000f36001600155>:
           code: '0x6001600155'
           storage:
             '1': '1'
        # Contracts if create from nonce=0xffffffffffffffff succeeded, should never exist
-       8d106f81f2b8e303fceab4de325bb36a961aeb4c:
+       <create2:entry:0xffffffffffffffff:0x6005600c60003960056000f36001600155>:
           'shouldnotexist': '1'
-       3f6fa2403e4d0326261150ceda2534e7a636936b:
+       <create2:max_nonce_minus_1:0xffffffffffffffff:0x6005600c60003960056000f36001600155>:
           'shouldnotexist': '1'
-       6a0a5d50d0a1ce10943b64ee28752a1314f45c39:
+       <create2:max_nonce:0xffffffffffffffff:0x6005600c60003960056000f36001600155>:
           'shouldnotexist': '1'
 
     - indexes:
@@ -591,38 +591,38 @@ CREATE2_HighNonceDelegatecall:
       network:
         - '>=Cancun'
       result:
-       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <eoa:sender>:
           nonce: 1
        # Contract A
-       b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <contract:entry>:
           nonce: '0xfffffffffffffffe'
           storage:
-            '1': '0x7bce6e037b79fd6b55d5ceb57c4aeaa480736c89'
+            '1': '<create2:max_nonce_minus_1:0xfffffffffffffffe:0x6005600c60003960056000f36001600155>'
             '0xffff': '0xfffffffffffffffe'
        # Contract B, Max Nonce - 1
-       000000000000000000000000fffffffffffffffe:
+       <contract:max_nonce_minus_1>:
           nonce: '0xffffffffffffffff'
           storage:
-            '2': '0x7bce6e037b79fd6b55d5ceb57c4aeaa480736c89'
+            '2': '<create2:max_nonce_minus_1:0xfffffffffffffffe:0x6005600c60003960056000f36001600155>'
             '0xffff': '0xffffffffffffffff'
        # Contract B, Max Nonce
-       000000000000000000000000ffffffffffffffff:
+       <contract:max_nonce>:
           nonce: '0xffffffffffffffff'
           storage:
             '0xffff': '0xffffffffffffffff'
        # Contract Created, keccak(address=0x000000000000000000000000fffffffffffffffe,
        #                          salt=0xfffffffffffffffe,
        #                          init code=0x6005600c60003960056000f36001600155)
-       7bce6e037b79fd6b55d5ceb57c4aeaa480736c89:
+       <create2:max_nonce_minus_1:0xfffffffffffffffe:0x6005600c60003960056000f36001600155>:
           code: '0x6001600155'
           storage:
             '1': '1'
        # Contracts if create from nonce=0xffffffffffffffff succeeded, should never exist
-       8d106f81f2b8e303fceab4de325bb36a961aeb4c:
+       <create2:entry:0xffffffffffffffff:0x6005600c60003960056000f36001600155>:
           'shouldnotexist': '1'
-       3f6fa2403e4d0326261150ceda2534e7a636936b:
+       <create2:max_nonce_minus_1:0xffffffffffffffff:0x6005600c60003960056000f36001600155>:
           'shouldnotexist': '1'
-       6a0a5d50d0a1ce10943b64ee28752a1314f45c39:
+       <create2:max_nonce:0xffffffffffffffff:0x6005600c60003960056000f36001600155>:
           'shouldnotexist': '1'
     
     - indexes:
@@ -633,29 +633,29 @@ CREATE2_HighNonceDelegatecall:
       network:
         - '>=Cancun'
       result:
-       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <eoa:sender>:
           nonce: 1
        # Contract A
-       b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <contract:entry>:
           nonce: '0xfffffffffffffffe'
           storage:
             '1': '0'
             '0xffff': '0xfffffffffffffffe'
        # Contract B, Max Nonce - 1
-       000000000000000000000000fffffffffffffffe:
+       <contract:max_nonce_minus_1>:
           nonce: '0xfffffffffffffffe'
           storage:
             '0xffff': '0xfffffffffffffffe'
        # Contract B, Max Nonce
-       000000000000000000000000ffffffffffffffff:
+       <contract:max_nonce>:
           nonce: '0xffffffffffffffff'
           storage:
             '2': '0'
             '0xffff': '0xffffffffffffffff'
        # Contracts if create from nonce=0xffffffffffffffff succeeded, should never exist
-       8d106f81f2b8e303fceab4de325bb36a961aeb4c:
+       <create2:entry:0xffffffffffffffff:0x6005600c60003960056000f36001600155>:
           'shouldnotexist': '1'
-       3f6fa2403e4d0326261150ceda2534e7a636936b:
+       <create2:max_nonce_minus_1:0xffffffffffffffff:0x6005600c60003960056000f36001600155>:
           'shouldnotexist': '1'
-       6a0a5d50d0a1ce10943b64ee28752a1314f45c39:
+       <create2:max_nonce:0xffffffffffffffff:0x6005600c60003960056000f36001600155>:
           'shouldnotexist': '1'

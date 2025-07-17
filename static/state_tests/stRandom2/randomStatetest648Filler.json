@@ -19,26 +19,26 @@
 		        },
 		        "network" : [">=Cancun"],
 		        "result" : {
-		        	"0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b":{
+		        	"<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>":{
     					"nonce":"1"
     				}
 		        }
    		}
 	],
 	"pre":{
-      "0x00000000000000000000000000000000000000f1": {
+      "<contract:target:0x00000000000000000000000000000000000000f1>": {
         "code": ":raw 0x600060006000600060f15af450600060005060f5fffd",
         "storage": {},
         "balance": "0x0",
         "nonce": "0x0"
       },
-      "0x00000000000000000000000000000000000000f5": {
+      "<contract:0x00000000000000000000000000000000000000f5>": {
         "code": ":raw 0x600050",
         "storage": {},
         "balance": "0x0",
         "nonce": "0x0"
       },
-      "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": {
+      "<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>": {
         "code": "0x",
         "storage": {},
         "balance": "0xffffffff",
@@ -54,8 +54,8 @@
 		],
 		"gasPrice":"0x0a",
 		"nonce":"0x00",
-		"secretKey":"0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
-		"to":"0x00000000000000000000000000000000000000f1",
+		"secretKey":"<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>",
+		"to":"<contract:target:0x00000000000000000000000000000000000000f1>",
 		"value":[
 			"0xdb2206"
 		]

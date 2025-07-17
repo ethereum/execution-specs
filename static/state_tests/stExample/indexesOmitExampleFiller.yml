@@ -3,7 +3,7 @@ indexesOmitExample:
     comment: expect section set -indexes field by default equal to -1
 
   env:
-    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentCoinbase: <eoa:0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba>
     currentDifficulty: 0x20000
     currentGasLimit: 0xFF112233445566
     currentNumber: 1
@@ -18,20 +18,20 @@ indexesOmitExample:
       network:
         - '>=Cancun'
       result:
-        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+        <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>:
           code: '0x600160010160005500'
           storage:
             0x00: 2
 
 
   pre:
-    2adc25665018aa1fe0e6bc666dac8fc2697ff9ba:
+    <eoa:0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba>:
       balance: '0'
       nonce: '1'
       code: ''
       storage: {}
 
-    095e7baea6a6c7c4c2dfeb977efac326af552d87:
+    <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>:
       balance: '1000000000000000000'
       code: |
           {
@@ -41,7 +41,7 @@ indexesOmitExample:
       nonce: '0'
       storage: {}
 
-    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+    <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
       balance: '1000000000000000000'
       code: '0x'
       nonce: '0'
@@ -54,8 +54,8 @@ indexesOmitExample:
     - '400000'
     gasPrice: '10'
     nonce: '0'
-    to: 095e7baea6a6c7c4c2dfeb977efac326af552d87
+    to: <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>
     value:
     - '100000'
-    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    secretKey: "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>"
 

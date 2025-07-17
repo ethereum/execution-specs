@@ -16,7 +16,7 @@
                 },
                 "network" : [">=Cancun"],
                 "result" : {
-                    "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" : {
+                    "<contract:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee>" : {
                         "storage" : {
                             "0x00" : "0xffffffffffffffffffffffffffffffff"
                         }
@@ -25,7 +25,7 @@
             }
         ],
         "pre" : {
-            "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" : {
+            "<contract:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee>" : {
                 "balance" : "1000000000000000000",
                 "//codeDescription": "/* fill memory up */ /* copy call data to memory with offset > call data length */  /* only part of memory should be zeroed out */",
                 "code": "{ (MSTORE 0x00 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (CODECOPY 0x00 0xffff  0x10) (SSTORE 0x00 (MLOAD 0x00)) }",
@@ -33,17 +33,17 @@
                 "storage": {
                 }
             },
-            "095e7baea6a6c7c4c2dfeb977efac326af552d87" : {
+            "<contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>" : {
                 "balance" : "1000000000000000000",
                 "//codeDescription": "{ /*store call data in memory*/ /* make call with the call data*/ ) }",
-                "//code": "{ (asm 0x0123456789abcdef 0x00 mstore) (CALL 0xffff 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee 0x00 0x00 0x0f 0x00 0x00) }",
-                "//code" : ":raw 0x670123456789abcdef60005260006000600f6000600073eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee61fffff1",
-                "code" : ":yul berlin { mstore(0, 0x0123456789abcdef)  pop(call(0xffff, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, 0, 0, 0x0f, 0, 0))  } ",
+                "//code": "{ (asm 0x0123456789abcdef 0x00 mstore) (CALL 0xffff <contract:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee> 0x00 0x00 0x0f 0x00 0x00) }",
+                "//code" : ":raw 0x670123456789abcdef60005260006000600f6000600073<contract:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee>61fffff1",
+                "code" : ":yul berlin { mstore(0, 0x0123456789abcdef)  pop(call(0xffff, <contract:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee>, 0, 0, 0x0f, 0, 0))  } ",
                 "nonce" : "1",
                 "storage" : {
                 }
             },
-            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+            "<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                 "balance" : "1000000000000000000",
                 "code" : "0x",
                 "nonce" : "0",
@@ -60,8 +60,8 @@
             ],
             "gasPrice" : "10",
             "nonce" : "0",
-            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
-            "to" : "095e7baea6a6c7c4c2dfeb977efac326af552d87",
+            "secretKey" : "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>",
+            "to" : "<contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>",
             "value" : [
                 "100000"
             ]

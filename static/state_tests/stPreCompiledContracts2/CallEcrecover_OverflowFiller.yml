@@ -13,7 +13,7 @@ CallEcrecover_Overflow:
   pre:  
 
 
-    cccccccccccccccccccccccccccccccccccccccc:
+    <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
       code: |
         :yul berlin
         {
@@ -30,7 +30,7 @@ CallEcrecover_Overflow:
 
 
 
-    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+    <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
       balance: '1000000000000000000'
       code: 0x
       nonce: '0'
@@ -60,8 +60,8 @@ CallEcrecover_Overflow:
     - 'F000000000'
     gasPrice: '10'
     nonce: '0'
-    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
-    to: cccccccccccccccccccccccccccccccccccccccc
+    secretKey: "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>"
+    to: <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>
 
     value:
     - '100000'
@@ -78,7 +78,7 @@ CallEcrecover_Overflow:
     network: 
     - ">=Cancun"
     result:
-      cccccccccccccccccccccccccccccccccccccccc:
+      <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
         storage:
           0x00: 0x01
           0x01: 0x00
@@ -91,7 +91,7 @@ CallEcrecover_Overflow:
     network: 
     - ">=Cancun"
     result:
-      cccccccccccccccccccccccccccccccccccccccc:
+      <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
         storage:
           0x00: 0x01
           0x01: 0x2182da748249a933bf737586b80212df19b8f829
@@ -104,7 +104,7 @@ CallEcrecover_Overflow:
     network: 
     - ">=Cancun"
     result:
-      cccccccccccccccccccccccccccccccccccccccc:
+      <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
         storage:
           0x00: 0x01
           0x01: 0x1b85ac3c9b09de43659c5d04a2d9c75457d9abf4
@@ -117,7 +117,7 @@ CallEcrecover_Overflow:
     network: 
     - ">=Cancun"
     result:
-      cccccccccccccccccccccccccccccccccccccccc:
+      <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
         storage:
           0x00: 0x01
           0x01: 0xd0277c8a3eccd462a313fc60161bac36b16e8699

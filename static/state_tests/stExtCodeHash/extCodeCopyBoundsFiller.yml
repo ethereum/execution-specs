@@ -10,29 +10,29 @@ extCodeCopyBounds:
   _info:
     comment: "EXTCODECOPY edge case https://github.com/ethereum/tests/issues/438"
   pre:
-    095e7baea6a6c7c4c2dfeb977efac326af552d87:
+    <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>:
       balance: '1000000000000000000'
       code: |
         {
           ;; code position is way too high
-          (EXTCODECOPY 0xe713449c212d891357cc2966816b1d528cfb59e0 1 0x010000000000000000000000000000000000000000 5000)
+          (EXTCODECOPY <contract:0xe713449c212d891357cc2966816b1d528cfb59e0> 1 0x010000000000000000000000000000000000000000 5000)
 
           [[0]] (MLOAD 0)
           [[1]] (MLOAD 32)
           
-          (EXTCODECOPY 0xe713449c212d891357cc2966816b1d528cfb59e0 1 0x010000000000000000000000000000000000000000 12)
+          (EXTCODECOPY <contract:0xe713449c212d891357cc2966816b1d528cfb59e0> 1 0x010000000000000000000000000000000000000000 12)
 
           [[2]] (MLOAD 0)
           [[3]] (MLOAD 32)
 
-          (EXTCODECOPY 0xe713449c212d891357cc2966816b1d528cfb59e0 1 5 12)
+          (EXTCODECOPY <contract:0xe713449c212d891357cc2966816b1d528cfb59e0> 1 5 12)
 
           [[4]] (MLOAD 0)
           [[5]] (MLOAD 32)
         }
       nonce: '0'
       storage: {}
-    e713449c212d891357cc2966816b1d528cfb59e0:
+    <contract:0xe713449c212d891357cc2966816b1d528cfb59e0>:
       balance: '0'
       code: |
         {
@@ -44,7 +44,7 @@ extCodeCopyBounds:
       nonce: '0'
       storage: {
       }
-    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+    <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
       balance: '1000000000000000000'
       code: ''
       nonce: '0'
@@ -57,7 +57,7 @@ extCodeCopyBounds:
       network:
         - '>=Cancun'
       result:
-        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+        <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>:
           balance: '1000000000000000001'
           storage: {
             "0x04": '0x600b606355600a606355000000000000000000000000000000000000000000'
@@ -69,7 +69,7 @@ extCodeCopyBounds:
     - '400000'
     gasPrice: '10'
     nonce: '0'
-    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
-    to: 095e7baea6a6c7c4c2dfeb977efac326af552d87
+    secretKey: "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>"
+    to: <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>
     value:
     - '1'

@@ -17,7 +17,7 @@ refundSSTORE:
     currentBaseFee: 1000
 
   pre:
-    cccccccccccccccccccccccccccccccccccccccc:
+    <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
       balance: '1000000000000000000'
       code: |
           :yul berlin 
@@ -28,7 +28,7 @@ refundSSTORE:
       storage:
         0x00: 0x60A7
 
-    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+    <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
       balance: 1000026010000
       code: '0x'
       nonce: 1
@@ -42,10 +42,10 @@ refundSSTORE:
     gasLimit:
     - 2601000
     nonce: 1
-    to: cccccccccccccccccccccccccccccccccccccccc
+    to: <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>
     value:
     - 0
-    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    secretKey: "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>"
     gasPrice: 1000
     
 
@@ -58,7 +58,7 @@ refundSSTORE:
       network:
         - '>=Cancun'
       result:
-        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+        <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
           # Without a refund, the balance would be 1000000000000
           # The London refund is 4800000 wei, which is 4800 gas 
           balance: 1000004800000

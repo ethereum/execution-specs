@@ -11,13 +11,13 @@
     	    {
                 "network" : [">=Cancun"],
                 "result" : {
-		            "1000000000000000000000000000000000000116" : {
+		            "<contract:0x1000000000000000000000000000000000000116>" : {
 		                "balance" : "0",
 		                "nonce" : "0",
 		                "code" : "0x732000000000000000000000000000000000000115ff00",
 		                "storage" : {}
 		            },
-		            "b94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+		            "<contract:target:0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
 		                "storage" : {
 		                    "0x01" : "0x27fd"
 		                }
@@ -27,22 +27,22 @@
         ],
         "pre" :
         {
-            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+            "<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                 "balance" : "1000000000000",
                 "code" : "",
                 "nonce" : "0",
                 "storage" : {
                 }
             },
-    	    "b94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+    	    "<contract:target:0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                 "balance" : "0",
 		        "nonce" : "0",
 		        "// code" : "check gas spent on suicide to unknown contract on EIP150",
-		        "code" : "{ [0] (GAS) (CALL 60000 0x1000000000000000000000000000000000000116 0 0 0 0 0) [[1]] (SUB @0 (GAS)) }",
+		        "code" : "{ [0] (GAS) (CALL 60000 <contract:0x1000000000000000000000000000000000000116> 0 0 0 0 0) [[1]] (SUB @0 (GAS)) }",
 		        "storage": {
 		        }
             },
-    	    "1000000000000000000000000000000000000116" : {
+    	    "<contract:0x1000000000000000000000000000000000000116>" : {
                 "balance" : "0",
 		        "nonce" : "0",
 		        "// code" : "Suicide to not existing account",
@@ -60,8 +60,8 @@
             ],
             "gasPrice" : "10",
             "nonce" : "0",
-            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
-            "to" : "b94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "secretKey" : "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>",
+            "to" : "<contract:target:0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b>",
             "value" : [
                 "0"
             ]

@@ -13,7 +13,7 @@ gasCostExp:
 
   pre:
 
-    095e7baea6a6c7c4c2dfeb977efac326af552d87:
+    <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>:
       balance: '0x0ba1a9ce0ba1a9ce'
       code: |
         {
@@ -49,7 +49,7 @@ gasCostExp:
       storage:
          0: 60A7
 
-    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+    <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
       balance: '0x0ba1a9ce0ba1a9ce'
       code: '0x'
       nonce: '0'
@@ -79,10 +79,10 @@ gasCostExp:
     - 80000000
     gasPrice: 10
     nonce: 0
-    to: 095e7baea6a6c7c4c2dfeb977efac326af552d87
+    to: <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>
     value:
     - 1
-    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    secretKey: "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>"
 
 
   expect:
@@ -93,7 +93,7 @@ gasCostExp:
       network:
         - '>=Cancun'
       result:
-        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+        <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>:
           storage:
             0x00: 0
 

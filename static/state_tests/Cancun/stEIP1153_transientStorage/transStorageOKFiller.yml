@@ -749,7 +749,7 @@ transStorageOK:
     # Receives ABI calldata
     # Bytes 0x00-0x03 (the function hash) is the address of the contract to call
     # Bytes 0x04-0x23 are the first parameter
-    cccccccccccccccccccccccccccccccccccccccc:
+    <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
       balance: 0
       code: |
         :yul {
@@ -762,7 +762,7 @@ transStorageOK:
       nonce: 1
       storage: {}
 
-    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+    <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
       balance: '0x0ba1a9ce0ba1a9ce'
       code: '0x'
       nonce: 1
@@ -813,10 +813,10 @@ transStorageOK:
     - 80000000
     gasPrice: 10
     nonce: 1
-    to: cccccccccccccccccccccccccccccccccccccccc
+    to: <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>
     value:
     - '0'
-    secretKey: '45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8'
+    secretKey: '<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>'
 
 
 
@@ -827,7 +827,7 @@ transStorageOK:
       network:
         - ">=Cancun"
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0: 0xebd141d5  # Call to sumTo(uint)
             1: 1    # Call was successful
@@ -844,7 +844,7 @@ transStorageOK:
       network:
         - ">=Cancun"
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0: 0x6e3a7204  # Call to callcodeSumTo(uint)
             1: 1    # Call was successful
@@ -862,7 +862,7 @@ transStorageOK:
       network:
         - ">=Cancun"
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0: 0xc1c922f1  # Call to delegateSumTo(uint)
             1: 1    # Call was successful
@@ -879,7 +879,7 @@ transStorageOK:
       network:
         - ">=Cancun"
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0: 0xebd141d5  # Call to sumTo(uint)
             1: 1    # Call was successful
@@ -898,7 +898,7 @@ transStorageOK:
       network:
         - ">=Cancun"
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0: 0x5114e2c8  # Call to callbackSum(uint)
             1: 1    # Call was successful
@@ -924,7 +924,7 @@ transStorageOK:
       network:
         - ">=Cancun"
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0: 0x5114e2c8  # Call to callbackSum(uint)
             1: 1    # Call was successful
@@ -950,7 +950,7 @@ transStorageOK:
       network:
         - ">=Cancun"
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0: 0x264bb86a  # Call to binTree(uint)
             1: 1    # Call was successful
@@ -973,7 +973,7 @@ transStorageOK:
       network:
         - ">=Cancun"
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0: 0x7074a486  # Call to delegateBinTree(uint)
             1: 1    # Call was successful
@@ -996,7 +996,7 @@ transStorageOK:
       network:
         - ">=Cancun"
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0: 0x7f9317bd  # Call to inheritTrans()
             1: 1    # Call was successful
@@ -1020,7 +1020,7 @@ transStorageOK:
       network:
         - ">=Cancun"
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0: 0xc54b5829  # Call to deepCall()
             1: 1    # Call was successful
@@ -1039,7 +1039,7 @@ transStorageOK:
       network:
         - ">=Cancun"
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             0: 0x5d7935df  # Call to staticCall()
             1: 1    # Call was successful

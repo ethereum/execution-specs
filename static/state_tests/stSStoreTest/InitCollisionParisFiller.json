@@ -20,14 +20,14 @@
                 },
                 "network" : [">=Cancun"],
                 "result" : {
-	                "6295ee1b4f6dd65047762f924ecd367c17eabf8f" : {
+	                "<eoa:0x6295ee1b4f6dd65047762f924ecd367c17eabf8f>" : {
                         "balance" : "10",
 		                "nonce" : "0",
 		                "storage" : {
 		                    "0x01" : "0x01"
                         }
 	                },
-	                "0x7b9f5332c245e5c60923427eeb34e5adfba6470e" : {
+	                "<eoa:0x7b9f5332c245e5c60923427eeb34e5adfba6470e>" : {
                         "balance" : "10",
 		                "nonce" : "0",
 		                "storage" : {
@@ -45,14 +45,14 @@
                 },
                 "network" : [">=Cancun"],
                 "result" : {
-	                "6295ee1b4f6dd65047762f924ecd367c17eabf8f" : {
+	                "<eoa:0x6295ee1b4f6dd65047762f924ecd367c17eabf8f>" : {
                         "balance" : "10",
 		                "nonce" : "0",
 		                "storage" : {
 		                    "0x01" : "0x01"
                         }
 	                },
-    	            "0x7b9f5332c245e5c60923427eeb34e5adfba6470e" : {
+    	            "<eoa:0x7b9f5332c245e5c60923427eeb34e5adfba6470e>" : {
                         "balance" : "10",
 		                "nonce" : "0",
 		                "storage" : {
@@ -70,14 +70,14 @@
                 },
                 "network" : [">=Cancun"],
                 "result" : {
-		            "6295ee1b4f6dd65047762f924ecd367c17eabf8f" : {
+		            "<eoa:0x6295ee1b4f6dd65047762f924ecd367c17eabf8f>" : {
                         "balance" : "10",
 			            "nonce" : "0",
 			            "storage" : {
 			                "0x01" : "0x01"
 		                    }
 		            },
-		            "0x7b9f5332c245e5c60923427eeb34e5adfba6470e" : {
+		            "<eoa:0x7b9f5332c245e5c60923427eeb34e5adfba6470e>" : {
                         "balance" : "10",
 			            "nonce" : "0",
 			            "storage" : {
@@ -95,14 +95,14 @@
                 },
                 "network" : [">=Cancun"],
                 "result" : {
-        		    "6295ee1b4f6dd65047762f924ecd367c17eabf8f" : {
+        		    "<eoa:0x6295ee1b4f6dd65047762f924ecd367c17eabf8f>" : {
                         "balance" : "10",
 			            "nonce" : "0",
 			            "storage" : {
 			                "0x01" : "0x01"
 	                    }
         		    },
-		            "0x7b9f5332c245e5c60923427eeb34e5adfba6470e" : {
+		            "<eoa:0x7b9f5332c245e5c60923427eeb34e5adfba6470e>" : {
                         "balance" : "10",
 			            "nonce" : "0",
 			            "storage" : {
@@ -114,14 +114,14 @@
         ],
         "pre" :
         {
-            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+            "<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                 "balance" : "1000000000000",
                 "code" : "",
                 "nonce" : "0",
                 "storage" : {
                 }
             },
-    	    "6295ee1b4f6dd65047762f924ecd367c17eabf8f" : {
+    	    "<eoa:0x6295ee1b4f6dd65047762f924ecd367c17eabf8f>" : {
 	        	"//comment" : "transaction create account",
                 "balance" : "10",
                 "code" : "",
@@ -130,7 +130,7 @@
 	        	    "0x01" : "0x01"
                 }
             },
-	        "0x7b9f5332c245e5c60923427eeb34e5adfba6470e" : {
+	        "<eoa:0x7b9f5332c245e5c60923427eeb34e5adfba6470e>" : {
 	        	"//comment" : "Create2 account",
                 "balance" : "10",
                 "code" : "",
@@ -139,7 +139,7 @@
 	        	    "0x01" : "0x01"
                 }
             },
-	        "dea0000000000000000000000000000000000000" : {
+	        "<contract:0xdea0000000000000000000000000000000000000>" : {
                 "balance" : "",
                 "code" : "{ [[1]] 1 [[1]] 0 [[2]] 1 [[2]] 0 [[3]] 1 [[3]] 0 [[4]] 1 [[4]] 0 [[5]] 1 [[5]] 0 [[6]] 1 [[6]] 0 [[7]] 1 [[7]] 0 [[8]] 1 [[8]] 0 [[9]] 1 [[9]] 0 [[10]] 1 [[10]] 0 [[11]] 1 [[11]] 0 [[12]] 1 [[12]] 0 [[13]] 1 [[13]] 0 [[14]] 1 [[14]] 0 [[15]] 1 [[15]] 0 [[16]] 1 [[16]] 0  [[1]] 1 }",
                 "nonce" : "",
@@ -152,14 +152,14 @@
 		        "{  (SSTORE 1 0) (SSTORE 1 1)   }",
 		        "{  (seq   (CREATE2 0 0 (lll (seq (SSTORE 1 0) (SSTORE 1 1) ) 0) 0) (STOP) ) }",
 		        "{  (seq   (CREATE2 0 0 (lll (seq (SSTORE 1 0) (SSTORE 1 1) ) 0) 0) (REVERT 0 0) (STOP) ) }",
-		        "{  (seq   (CREATE2 0 0 (lll (seq (SSTORE 1 0) (SSTORE 1 1) ) 0) 0) (CALL 200000 0xdea0000000000000000000000000000000000000 0 0 0 0 0) (STOP) ) }"
+		        "{  (seq   (CREATE2 0 0 (lll (seq (SSTORE 1 0) (SSTORE 1 1) ) 0) 0) (CALL 200000 <contract:0xdea0000000000000000000000000000000000000> 0 0 0 0 0) (STOP) ) }"
             ],
             "gasLimit" : [
                 "200000"
             ],
             "gasPrice" : "10",
             "nonce" : "0",
-            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "secretKey" : "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>",
             "to" : "",
             "value" : [
                 "0"

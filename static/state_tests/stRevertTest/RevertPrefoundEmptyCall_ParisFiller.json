@@ -11,7 +11,7 @@
 	    {
                 "network" : [">=Cancun" ],
                 "result" : {
-		            "7db299e0885c85039f56fa504a13dd8ce8a56aa7" : {
+		            "<eoa:0x7db299e0885c85039f56fa504a13dd8ce8a56aa7>" : {
 		                "balance" : "10",
                         "nonce" : "0"
 		            }
@@ -20,23 +20,23 @@
         ],
         "pre" :
         {
-            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+            "<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                 "balance" : "1000000000000",
                 "code" : "",
                 "nonce" : "0",
                 "storage" : {
                 }
             },
-    	    "7db299e0885c85039f56fa504a13dd8ce8a56aa7" : {
+    	    "<eoa:0x7db299e0885c85039f56fa504a13dd8ce8a56aa7>" : {
                 "balance" : "10",
                 "code" : "",
                 "nonce" : "0",
                 "storage" : {
                 }
             },
-	        "a000000000000000000000000000000000000000" : {
+	        "<contract:target:0xa000000000000000000000000000000000000000>" : {
                 "balance" : "1",
-                "code" : "{ [[0]] (CALL 50000 0x7db299e0885c85039f56fa504a13dd8ce8a56aa7 0 0 32 0 32) [[1]]12 }",
+                "code" : "{ [[0]] (CALL 50000 <eoa:0x7db299e0885c85039f56fa504a13dd8ce8a56aa7> 0 0 32 0 32) [[1]]12 }",
                 "nonce" : "",
                 "storage" : {
                 }
@@ -52,8 +52,8 @@
             ],
             "gasPrice" : "10",
             "nonce" : "0",
-            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
-            "to" : "a000000000000000000000000000000000000000",
+            "secretKey" : "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>",
+            "to" : "<contract:target:0xa000000000000000000000000000000000000000>",
             "value" : [
                 "0"
             ]

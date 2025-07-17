@@ -17,12 +17,12 @@
                 },
                 "network" : [ ">=Cancun"],
                 "result" : {
-		            "1000000000000000000000000000000000000118" : {
+		            "<contract:0x1000000000000000000000000000000000000118>" : {
 		                "storage" : {
 		                    "0x01" : "0x0c"
 		                }
 		            },
-		            "b94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+		            "<contract:target:0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
 		                "storage" : {
 		                    "0x02" : "0x60a4"
 		                }
@@ -32,22 +32,22 @@
         ],
         "pre" :
         {
-            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+            "<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                 "balance" : "1000000000000",
                 "code" : "",
                 "nonce" : "0",
                 "storage" : {
                 }
             },
-    	    "b94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+    	    "<contract:target:0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                 "balance" : "0",
 		        "nonce" : "0",
 		        "// code" : "check gas spent on suicide known contract on EIP150",
-		        "code" : "{ [0] (GAS) (CALL 160000 0x1000000000000000000000000000000000000118 0 0 0 0 0) [[2]] (SUB @0 (GAS)) }",
+		        "code" : "{ [0] (GAS) (CALL 160000 <contract:0x1000000000000000000000000000000000000118> 0 0 0 0 0) [[2]] (SUB @0 (GAS)) }",
 		        "storage": {
 		        }
             },
-    	    "1000000000000000000000000000000000000118" : {
+    	    "<contract:0x1000000000000000000000000000000000000118>" : {
                 "balance" : "0",
 		        "nonce" : "0",
 		        "code" : "{ [[1]] 12 }",
@@ -64,8 +64,8 @@
             ],
             "gasPrice" : "10",
             "nonce" : "0",
-            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
-            "to" : "b94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "secretKey" : "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>",
+            "to" : "<contract:target:0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b>",
             "value" : [
                 "0"
             ]

@@ -12,7 +12,7 @@ NoSrcAccountCreate1559:
 
   pre:
     # The empty address is a94f5374fce5edbc8e2a8697c15331677e6ebf0b.
-    bad0000000000000000000000000000000000000:
+    <eoa:0xbad0000000000000000000000000000000000000>:
       balance: 0
       nonce: 0x60A7
       code: 0x
@@ -43,7 +43,7 @@ NoSrcAccountCreate1559:
       - 210000   # Higher than minimum
       - 0        # We have enough ETH for this one
     nonce: 0
-    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    secretKey: "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>"
     to: ""  # Account creation txn
     value:
       - 0

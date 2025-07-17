@@ -21,7 +21,7 @@
           ">=Cancun"
         ],
         "result": {
-          "aaaf5374fce5edbc8e2a8697c15331677e6ebf0b": {
+          "<contract:target:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b>": {
             "storage": {
               "0x00": "0x1122334455667788991011121314151617181920212223242526272829303132",
               "0x01": "0x00",
@@ -33,21 +33,21 @@
       }
     ],
     "pre": {
-      "a94f5374fce5edbc8e2a8697c15331677e6ebf0b": {
+      "<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>": {
         "balance": "0xffffffffffffffffffffffffffffffff",
         "code": "",
         "nonce": "0",
         "storage": {
         }
       },
-      "aaaf5374fce5edbc8e2a8697c15331677e6ebf0b": {
+      "<contract:target:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b>": {
         "balance": "7000",
-        "code": "{ (MSTORE 32 0x1234) (EXTCODECOPY 0xeeef5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 64) [[0]] (MLOAD 0) [[1]] (MLOAD 32) (MSTORE 96 0x5678) (EXTCODECOPY 0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b 64 0 64) [[2]] (MLOAD 64) [[3]] (MLOAD 96)}",
+        "code": "{ (MSTORE 32 0x1234) (EXTCODECOPY <contract:0xeeef5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 64) [[0]] (MLOAD 0) [[1]] (MLOAD 32) (MSTORE 96 0x5678) (EXTCODECOPY <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b> 64 0 64) [[2]] (MLOAD 64) [[3]] (MLOAD 96)}",
         "nonce": "0",
         "storage": {
         }
       },
-      "eeef5374fce5edbc8e2a8697c15331677e6ebf0b": {
+      "<contract:0xeeef5374fce5edbc8e2a8697c15331677e6ebf0b>": {
         "balance": "0",
         "code": ":raw 0x1122334455667788991011121314151617181920212223242526272829303132",
         "nonce": "1",
@@ -64,8 +64,8 @@
       ],
       "gasPrice": "10",
       "nonce": "0",
-      "secretKey": "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
-      "to": "aaaf5374fce5edbc8e2a8697c15331677e6ebf0b",
+      "secretKey": "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>",
+      "to": "<contract:target:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b>",
       "value": [
         "0"
       ]

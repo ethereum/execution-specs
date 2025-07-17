@@ -3,7 +3,7 @@
 coinbaseWarmAccountCallGas:
 
   env:
-    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentCoinbase: <eoa:0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba>
     currentDifficulty: '0x20000'
     currentGasLimit: "100000000"
     currentNumber: "1"
@@ -11,7 +11,7 @@ coinbaseWarmAccountCallGas:
 
 
   pre:
-    cccccccccccccccccccccccccccccccccccccccc:
+    <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
       balance: '0x0ba1a9ce0ba1a9ce'
       code: |
         :yul berlin
@@ -100,12 +100,12 @@ coinbaseWarmAccountCallGas:
         }
       nonce: 1
       storage: {}
-    2adc25665018aa1fe0e6bc666dac8fc2697ff9ba:
+    <eoa:0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba>:
       balance: 0x0ba1a9ce0ba1a9ce
       code: 0x
       nonce: 1
       storage: {}
-    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+    <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
       balance: 0x0ba1a9ce0ba1a9ce
       code: 0x
       nonce: 1
@@ -134,10 +134,10 @@ coinbaseWarmAccountCallGas:
     - 80000
     gasPrice: 10
     nonce: 1
-    to: cccccccccccccccccccccccccccccccccccccccc
+    to: <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>
     value:
     - 0
-    secretKey: '45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8'
+    secretKey: '<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>'
 
 
 
@@ -145,7 +145,7 @@ coinbaseWarmAccountCallGas:
     - network:
         - '>=Cancun'
       result:
-        cccccccccccccccccccccccccccccccccccccccc:
+        <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
           storage:
             # Coinbase access post-Shanghai is warm
             0x0:  100

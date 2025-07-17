@@ -4,7 +4,7 @@
             "comment" : "Return ~1 MB out of bounds of the init code. should throw codesize error after EIP158 and create empty account before EIP158"
         },
 	"env" : {
-		"currentCoinbase":"0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+		"currentCoinbase":"<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>",
 		"currentDifficulty":"0x20000",
 		"currentGasLimit":"0x7f0d477519ac97",
 		"currentNumber":"0x01",
@@ -20,18 +20,18 @@
                 },
                 "network" : [">=Cancun"],
                 "result" : {
-                    "0x1000000000000000000000000000000000000000" : {
+                    "<contract:0x1000000000000000000000000000000000000000>" : {
                             "nonce" : "0xd2",
                             "storage" : {
                             }
                         },
-                        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                             "code" : "",
                             "nonce" : "0x01",
                             "storage" : {
                             }
                         },
-                        "0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "<contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                             "nonce" : "0xf3",
                             "storage" : {
                             }
@@ -40,21 +40,21 @@
             }
 	],
 	"pre" : {
-		"0x1000000000000000000000000000000000000000" : {
+		"<contract:0x1000000000000000000000000000000000000000>" : {
 			"balance":"0x3f91b25c1601534b",
 			"code":":raw 0x79ecfecf2ab84463f738fc85b069590fcff0334fb1a7108861a44465a26237bc83297ff893a1a95c84afbecc79e1ee4acc8fca826df1ab268bdfd9e712ad0d261f5ede0b6545e6a7d462826d39eb0ac5b4c3ef35f0b4e6d9e05f0773fc63be0c082847f6f9f7728764e142fcd95702c36d65c1e55ec0e2128768030e4eb0de74b57969caa2f2493998537ad0ecba9400ebae911dad6f98bd15da63a8614aa455dc593fa70386a260c66270f1d7527b75f1bf8a683b5d1721f7dd57755bd6a9bed9f874e3876cfcac6762ea51",
 			"nonce":"0xd2",
 			"storage" : {}
 		},
-		"0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+		"<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
 			"balance":"0xa015cddab7107b04",
 			"code":"",
 			"nonce":"0x00",
 			"storage" : {}
 		},
-		"0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+		"<contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
 			"balance":"0x262e8de142312a2d",
-			"code":":raw 0x436debc3912504eded08f73b9ff9490d73fc4f820a0890b7e8417fa97940713aeb870e59a790607f6b3d5649e57458ea8692da323253735967657e3fc6e02f6de1c0ff6cc18e051bdd52ad7b1eb441440620426b3485ab683d44ff8d5544eb7f7fb3e1f4c30063640b5a626f341b6271dd59621208476208431973c94f5374fce5edbc8e2a8697c15331677e6ebf0b6338f86b9af4",
+			"code":":raw 0x436debc3912504eded08f73b9ff9490d73fc4f820a0890b7e8417fa97940713aeb870e59a790607f6b3d5649e57458ea8692da323253735967657e3fc6e02f6de1c0ff6cc18e051bdd52ad7b1eb441440620426b3485ab683d44ff8d5544eb7f7fb3e1f4c30063640b5a626f341b6271dd59621208476208431973<contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>6338f86b9af4",
 			"nonce":"0xf3",
 			"storage" : {}
 		}
@@ -68,7 +68,7 @@
 		],
 		"gasPrice":"0x0a",
 		"nonce":"0x00",
-		"secretKey":"0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+		"secretKey":"<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>",
 		"to":"",
 		"value" : [
 			"0xf0ec2ce5"

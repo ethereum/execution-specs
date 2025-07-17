@@ -1,7 +1,7 @@
 {
     "randomStatetest211" : {
         "env" : {
-            "currentCoinbase" : "945304eb96065b2a98b57a48a06ae28d285a71b5",
+            "currentCoinbase" : "<contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>",
             "currentDifficulty" : "0x20000",
             "currentGasLimit" : "0x7fffffffffffffff",
             "currentNumber" : "0x01",
@@ -16,17 +16,17 @@
                 },
                 "network" : [">=Cancun"],
                 "result" : {
-                    "095e7baea6a6c7c4c2dfeb977efac326af552d87" : {
+                    "<contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>" : {
                         "nonce" : "0x00",
                         "storage" : {
                         }
                     },
-                    "945304eb96065b2a98b57a48a06ae28d285a71b5" : {
+                    "<contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>" : {
                         "nonce" : "0x00",
                         "storage" : {
                         }
                     },
-                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                    "<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                         "code" : "0x",
                         "nonce" : "0x01",
                         "storage" : {
@@ -36,21 +36,21 @@
             }
         ],
         "pre" : {
-            "095e7baea6a6c7c4c2dfeb977efac326af552d87" : {
+            "<contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>" : {
                 "balance" : "0x00",
                 "code" : ":raw 0x7e7a980b5b1c50ebb63d8e2211d3a79e841ee5e5946b7969dfb6ca1309c99e8f68d4ee9a50996902ee4e6937e1d07ad872cf04eb2a61fc336025a3648d5818a6457dc24f19f38d3deebb09968c812740339c6df46af95b7b0283acb1944a8ca37fbaaafeac115b9ec5adc16fea5a3a828d3483e495506a790ca75d8238ebbed6477c213d0177c10b33b6cf9362273973809ac39f11dffee928f3fb18e975186fb4a74e56142d4431bfa392dd5f71d32b6c40a2bd0beb6a8b24fc592b25f0680306f11e049124ec396ea3858d3339145af8c1c16747bea056639a7faf446cd9c7bf446ed2de67f1665adc479874053c2c53f0fc53a12af3c1951fdc7a5d20aee8f96874f392a4aa2a84a99c9390ab4bd4c39f521a2b91c2ea90",
                 "nonce" : "0x00",
                 "storage" : {
                 }
             },
-            "945304eb96065b2a98b57a48a06ae28d285a71b5" : {
+            "<contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>" : {
                 "balance" : "0x2e",
                 "code" : ":raw 0x6000355415600957005b60203560003555",
                 "nonce" : "0x00",
                 "storage" : {
                 }
             },
-            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+            "<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                 "balance" : "0x0de0b6b3a7640000",
                 "code" : "0x",
                 "nonce" : "0x00",
@@ -67,8 +67,8 @@
             ],
             "gasPrice" : "0x0a",
             "nonce" : "0x00",
-            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
-            "to" : "095e7baea6a6c7c4c2dfeb977efac326af552d87",
+            "secretKey" : "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>",
+            "to" : "<contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>",
             "value" : [
                 "0x5c537837"
             ]

@@ -20,7 +20,7 @@
     currentBaseFee: 10
 
   pre:
-    A00000000000000000000000000000000000000A:
+    <contract:target:0xa00000000000000000000000000000000000000a>:
       balance: 1000000000000000000
       nonce: 0
       code: |
@@ -78,7 +78,7 @@
           }
         }
       storage: { 0x01: 0xffff }
-    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+    <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
       balance: 1000000000000000000000
       code: "0x"
       nonce: 0
@@ -91,10 +91,10 @@
     gasLimit:
       - "400000"
     nonce: 0
-    to: A00000000000000000000000000000000000000A
+    to: <contract:target:0xa00000000000000000000000000000000000000a>
     value:
       - 0
-    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    secretKey: "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>"
     maxPriorityFeePerGas: 0
     maxFeePerGas: 2000
 
@@ -102,7 +102,7 @@
     - network:
         - ">=Cancun"
       result:
-        A00000000000000000000000000000000000000A:
+        <contract:target:0xa00000000000000000000000000000000000000a>:
           storage:
             0x00: 5
             0x01: 0

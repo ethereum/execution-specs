@@ -70,7 +70,7 @@ precompsEIP2929Cancun:
     #      0x3B - get code size
     #      0x3C - copy code
     #      0x3F - get the code hash
-    cccccccccccccccccccccccccccccccccccccccc:
+    <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
       code: |
         :yul berlin optimise
         {
@@ -86,8 +86,8 @@ precompsEIP2929Cancun:
           // won't confuse the gas measurement
           mstore(0x100, 0xDEADBEEF)
 
-          // Access 0x101157 (so it becomes warm and send it wei)
-          pop(call(0x100000, 0x101157, 1, 0, 0, 0, 0))
+          // Access <contract:0x0000000000000000000000000000000000101157> (so it becomes warm and send it wei)
+          pop(call(0x100000, <contract:0x0000000000000000000000000000000000101157>, 1, 0, 0, 0, 0))
 
           // Switch before measuring, so it won't affect
           // the gas costs
@@ -266,7 +266,7 @@ precompsEIP2929Cancun:
 
 
     # Just a normal contract for comparison
-    000000000000000000000000000000000010c0de:
+    <contract:0x000000000000000000000000000000000010c0de>:
       code: |
         :yul berlin
         {
@@ -278,7 +278,7 @@ precompsEIP2929Cancun:
 
 
     # And a contract that has been previously accessed
-    0000000000000000000000000000000000101157:
+    <contract:0x0000000000000000000000000000000000101157>:
       code: |
         :yul berlin
         {
@@ -290,7 +290,7 @@ precompsEIP2929Cancun:
 
 
 
-    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+    <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
       balance: '1000000000000000000'
       code: 0x
       nonce: '0'
@@ -313,11 +313,11 @@ precompsEIP2929Cancun:
     - :label no  :abi f(uint,uint) 0x100000 0xf100    # 0
 
     # Normal contract account
-    - :label no  :abi f(uint,uint) 0x10c0de 0xf100    # 1
+    - :label no  :abi f(uint,uint) <contract:0x000000000000000000000000000000000010c0de> 0xf100    # 1
 
     # Account that has already been touched
     # (we touch it earlier in 
-    - :label yes :abi f(uint,uint) 0x101157 0xf100    # 2
+    - :label yes :abi f(uint,uint) <contract:0x0000000000000000000000000000000000101157> 0xf100    # 2
 
 
 
@@ -371,8 +371,8 @@ precompsEIP2929Cancun:
     - :label all :abi f(uint,uint) 0x12 0xf101        # 32
     
     - :label all :abi f(uint,uint) 0x100000 0xf101    # 33
-    - :label no  :abi f(uint,uint) 0x10c0de 0xf101    # 34
-    - :label yes :abi f(uint,uint) 0x101157 0xf101    # 35
+    - :label no  :abi f(uint,uint) <contract:0x000000000000000000000000000000000010c0de> 0xf101    # 34
+    - :label yes :abi f(uint,uint) <contract:0x0000000000000000000000000000000000101157> 0xf101    # 35
 
     # If we send data, it behaves normally (except for #8)
     - :label yes :abi f(uint,uint) 0x01 0xf102        # 36
@@ -395,8 +395,8 @@ precompsEIP2929Cancun:
     - :label no  :abi f(uint,uint) 0x12 0xf102        # 50
     
     - :label no  :abi f(uint,uint) 0x100000 0xf102    # 51
-    - :label no  :abi f(uint,uint) 0x10c0de 0xf102    # 52
-    - :label yes :abi f(uint,uint) 0x101157 0xf102    # 53
+    - :label no  :abi f(uint,uint) <contract:0x000000000000000000000000000000000010c0de> 0xf102    # 52
+    - :label yes :abi f(uint,uint) <contract:0x0000000000000000000000000000000000101157> 0xf102    # 53
 
     # If we send wei and data
     - :label new :abi f(uint,uint) 0x01 0xf103        # 54
@@ -419,8 +419,8 @@ precompsEIP2929Cancun:
     - :label all :abi f(uint,uint) 0x12 0xf103        # 68
         
     - :label all :abi f(uint,uint) 0x100000 0xf103    # 69
-    - :label no  :abi f(uint,uint) 0x10c0de 0xf103    # 70
-    - :label yes :abi f(uint,uint) 0x101157 0xf103    # 71
+    - :label no  :abi f(uint,uint) <contract:0x000000000000000000000000000000000010c0de> 0xf103    # 70
+    - :label yes :abi f(uint,uint) <contract:0x0000000000000000000000000000000000101157> 0xf103    # 71
 
 
     # If we receive data, it behaves normally
@@ -444,8 +444,8 @@ precompsEIP2929Cancun:
     - :label no  :abi f(uint,uint) 0x12 0xf104        # 86
     
     - :label no  :abi f(uint,uint) 0x100000 0xf104    # 87
-    - :label no  :abi f(uint,uint) 0x10c0de 0xf104    # 88
-    - :label yes :abi f(uint,uint) 0x101157 0xf104    # 89
+    - :label no  :abi f(uint,uint) <contract:0x000000000000000000000000000000000010c0de> 0xf104    # 88
+    - :label yes :abi f(uint,uint) <contract:0x0000000000000000000000000000000000101157> 0xf104    # 89
 
     # If we send wei and receive data
     - :label new :abi f(uint,uint) 0x01 0xf105        # 90
@@ -468,8 +468,8 @@ precompsEIP2929Cancun:
     - :label all :abi f(uint,uint) 0x12 0xf105        # 104
     
     - :label all :abi f(uint,uint) 0x100000 0xf105    # 105
-    - :label no  :abi f(uint,uint) 0x10c0de 0xf105    # 106
-    - :label yes :abi f(uint,uint) 0x101157 0xf105    # 107
+    - :label no  :abi f(uint,uint) <contract:0x000000000000000000000000000000000010c0de> 0xf105    # 106
+    - :label yes :abi f(uint,uint) <contract:0x0000000000000000000000000000000000101157> 0xf105    # 107
 
     # CALLCODE
     - :label yes :abi f(uint,uint) 0x01 0xf200        # 108
@@ -492,8 +492,8 @@ precompsEIP2929Cancun:
     - :label no  :abi f(uint,uint) 0x12 0xf200        # 122
     
     - :label no  :abi f(uint,uint) 0x100000 0xf200    # 123
-    - :label no  :abi f(uint,uint) 0x10c0de 0xf200    # 124
-    - :label yes :abi f(uint,uint) 0x101157 0xf200    # 125
+    - :label no  :abi f(uint,uint) <contract:0x000000000000000000000000000000000010c0de> 0xf200    # 124
+    - :label yes :abi f(uint,uint) <contract:0x0000000000000000000000000000000000101157> 0xf200    # 125
 
     # With DELEGATECALL the second call doesn't cost more
     - :label yes :abi f(uint,uint) 0x01 0xf201        # 126
@@ -516,8 +516,8 @@ precompsEIP2929Cancun:
     - :label no  :abi f(uint,uint) 0x12 0xf201        # 140
     
     - :label no  :abi f(uint,uint) 0x100000 0xf201    # 141
-    - :label no  :abi f(uint,uint) 0x10c0de 0xf201    # 142
-    - :label yes :abi f(uint,uint) 0x101157 0xf201    # 143
+    - :label no  :abi f(uint,uint) <contract:0x000000000000000000000000000000000010c0de> 0xf201    # 142
+    - :label yes :abi f(uint,uint) <contract:0x0000000000000000000000000000000000101157> 0xf201    # 143
 
     # If we send data, it behaves normally
     - :label yes :abi f(uint,uint) 0x01 0xf202        # 144
@@ -540,8 +540,8 @@ precompsEIP2929Cancun:
     - :label no  :abi f(uint,uint) 0x12 0xf202        # 158
     
     - :label no  :abi f(uint,uint) 0x100000 0xf202    # 159
-    - :label no  :abi f(uint,uint) 0x10c0de 0xf202    # 160
-    - :label yes :abi f(uint,uint) 0x101157 0xf202    # 161
+    - :label no  :abi f(uint,uint) <contract:0x000000000000000000000000000000000010c0de> 0xf202    # 160
+    - :label yes :abi f(uint,uint) <contract:0x0000000000000000000000000000000000101157> 0xf202    # 161
 
     # If we send wei and data
     - :label yes :abi f(uint,uint) 0x01 0xf203        # 162
@@ -564,8 +564,8 @@ precompsEIP2929Cancun:
     - :label no  :abi f(uint,uint) 0x12 0xf203        # 176
     
     - :label no  :abi f(uint,uint) 0x100000 0xf203    # 177
-    - :label no  :abi f(uint,uint) 0x10c0de 0xf203    # 178
-    - :label yes :abi f(uint,uint) 0x101157 0xf203    # 179
+    - :label no  :abi f(uint,uint) <contract:0x000000000000000000000000000000000010c0de> 0xf203    # 178
+    - :label yes :abi f(uint,uint) <contract:0x0000000000000000000000000000000000101157> 0xf203    # 179
 
 
     # If we receive data, it behaves normally
@@ -589,8 +589,8 @@ precompsEIP2929Cancun:
     - :label no  :abi f(uint,uint) 0x12 0xf204        # 194
     
     - :label no  :abi f(uint,uint) 0x100000 0xf204    # 195
-    - :label no  :abi f(uint,uint) 0x10c0de 0xf204    # 196
-    - :label yes :abi f(uint,uint) 0x101157 0xf204    # 197
+    - :label no  :abi f(uint,uint) <contract:0x000000000000000000000000000000000010c0de> 0xf204    # 196
+    - :label yes :abi f(uint,uint) <contract:0x0000000000000000000000000000000000101157> 0xf204    # 197
 
     # If we send wei and receive data
     - :label yes :abi f(uint,uint) 0x01 0xf205        # 198
@@ -613,8 +613,8 @@ precompsEIP2929Cancun:
     - :label no  :abi f(uint,uint) 0x12 0xf205        # 212
     
     - :label no  :abi f(uint,uint) 0x100000 0xf205    # 213
-    - :label no  :abi f(uint,uint) 0x10c0de 0xf205    # 214
-    - :label yes :abi f(uint,uint) 0x101157 0xf205    # 215
+    - :label no  :abi f(uint,uint) <contract:0x000000000000000000000000000000000010c0de> 0xf205    # 214
+    - :label yes :abi f(uint,uint) <contract:0x0000000000000000000000000000000000101157> 0xf205    # 215
 
     # DELEGATECALL
     - :label yes :abi f(uint,uint) 0x01 0xf400        # 216
@@ -637,8 +637,8 @@ precompsEIP2929Cancun:
     - :label no  :abi f(uint,uint) 0x12 0xf400        # 230
     
     - :label no  :abi f(uint,uint) 0x100000 0xf400    # 231
-    - :label no  :abi f(uint,uint) 0x10c0de 0xf400    # 232
-    - :label yes :abi f(uint,uint) 0x101157 0xf400    # 233
+    - :label no  :abi f(uint,uint) <contract:0x000000000000000000000000000000000010c0de> 0xf400    # 232
+    - :label yes :abi f(uint,uint) <contract:0x0000000000000000000000000000000000101157> 0xf400    # 233
 
     # If we send data, it behaves normally
     - :label yes :abi f(uint,uint) 0x01 0xf402        # 234
@@ -661,8 +661,8 @@ precompsEIP2929Cancun:
     - :label no  :abi f(uint,uint) 0x12 0xf402        # 248
     
     - :label no  :abi f(uint,uint) 0x100000 0xf402    # 249
-    - :label no  :abi f(uint,uint) 0x10c0de 0xf402    # 250
-    - :label yes :abi f(uint,uint) 0x101157 0xf402    # 251
+    - :label no  :abi f(uint,uint) <contract:0x000000000000000000000000000000000010c0de> 0xf402    # 250
+    - :label yes :abi f(uint,uint) <contract:0x0000000000000000000000000000000000101157> 0xf402    # 251
 
 
     # If we receive data, it behaves normally
@@ -686,8 +686,8 @@ precompsEIP2929Cancun:
     - :label no  :abi f(uint,uint) 0x12 0xf404        # 266
     
     - :label no  :abi f(uint,uint) 0x100000 0xf404    # 267
-    - :label no  :abi f(uint,uint) 0x10c0de 0xf404    # 268
-    - :label yes :abi f(uint,uint) 0x101157 0xf404    # 269
+    - :label no  :abi f(uint,uint) <contract:0x000000000000000000000000000000000010c0de> 0xf404    # 268
+    - :label yes :abi f(uint,uint) <contract:0x0000000000000000000000000000000000101157> 0xf404    # 269
 
     # STATICCALL
     - :label yes :abi f(uint,uint) 0x01 0xfa00        # 270
@@ -710,8 +710,8 @@ precompsEIP2929Cancun:
     - :label no  :abi f(uint,uint) 0x12 0xfa00        # 284
     
     - :label no  :abi f(uint,uint) 0x100000 0xfa00    # 285
-    - :label no  :abi f(uint,uint) 0x10c0de 0xfa00    # 286
-    - :label yes :abi f(uint,uint) 0x101157 0xfa00    # 287
+    - :label no  :abi f(uint,uint) <contract:0x000000000000000000000000000000000010c0de> 0xfa00    # 286
+    - :label yes :abi f(uint,uint) <contract:0x0000000000000000000000000000000000101157> 0xfa00    # 287
 
     # If we send data, it behaves normally
     - :label yes :abi f(uint,uint) 0x01 0xfa02        # 288
@@ -734,8 +734,8 @@ precompsEIP2929Cancun:
     - :label no  :abi f(uint,uint) 0x12 0xfa02        # 302
     
     - :label no  :abi f(uint,uint) 0x100000 0xfa02    # 303
-    - :label no  :abi f(uint,uint) 0x10c0de 0xfa02    # 304
-    - :label yes :abi f(uint,uint) 0x101157 0xfa02    # 305
+    - :label no  :abi f(uint,uint) <contract:0x000000000000000000000000000000000010c0de> 0xfa02    # 304
+    - :label yes :abi f(uint,uint) <contract:0x0000000000000000000000000000000000101157> 0xfa02    # 305
 
 
     # If we receive data, it behaves normally
@@ -759,8 +759,8 @@ precompsEIP2929Cancun:
     - :label no  :abi f(uint,uint) 0x12 0xfa04        # 320
     
     - :label no  :abi f(uint,uint) 0x100000 0xfa04    # 321
-    - :label no  :abi f(uint,uint) 0x10c0de 0xfa04    # 322
-    - :label yes :abi f(uint,uint) 0x101157 0xfa04    # 323
+    - :label no  :abi f(uint,uint) <contract:0x000000000000000000000000000000000010c0de> 0xfa04    # 322
+    - :label yes :abi f(uint,uint) <contract:0x0000000000000000000000000000000000101157> 0xfa04    # 323
 
 
 
@@ -785,8 +785,8 @@ precompsEIP2929Cancun:
     - :label no  :abi f(uint,uint) 0x12 0x31          # 338
     
     - :label no  :abi f(uint,uint) 0x100000 0x31      # 339
-    - :label no  :abi f(uint,uint) 0x10c0de 0x31      # 340
-    - :label yes :abi f(uint,uint) 0x101157 0x31      # 341
+    - :label no  :abi f(uint,uint) <contract:0x000000000000000000000000000000000010c0de> 0x31      # 340
+    - :label yes :abi f(uint,uint) <contract:0x0000000000000000000000000000000000101157> 0x31      # 341
 
     # Get the account codehash
     - :label yes :abi f(uint,uint) 0x01 0x3f          # 342
@@ -809,8 +809,8 @@ precompsEIP2929Cancun:
     - :label no  :abi f(uint,uint) 0x12 0x3f          # 356
     
     - :label no  :abi f(uint,uint) 0x100000 0x3f      # 357
-    - :label no  :abi f(uint,uint) 0x10c0de 0x3f      # 358
-    - :label yes :abi f(uint,uint) 0x101157 0x3f      # 359
+    - :label no  :abi f(uint,uint) <contract:0x000000000000000000000000000000000010c0de> 0x3f      # 358
+    - :label yes :abi f(uint,uint) <contract:0x0000000000000000000000000000000000101157> 0x3f      # 359
 
     # Copy account code
     - :label yes :abi f(uint,uint) 0x01 0x3c          # 360
@@ -833,8 +833,8 @@ precompsEIP2929Cancun:
     - :label no  :abi f(uint,uint) 0x12 0x3c          # 374
     
     - :label no  :abi f(uint,uint) 0x100000 0x3c      # 375
-    - :label no  :abi f(uint,uint) 0x10c0de 0x3c      # 376
-    - :label yes :abi f(uint,uint) 0x101157 0x3c      # 377
+    - :label no  :abi f(uint,uint) <contract:0x000000000000000000000000000000000010c0de> 0x3c      # 376
+    - :label yes :abi f(uint,uint) <contract:0x0000000000000000000000000000000000101157> 0x3c      # 377
 
     # Get code size
     - :label yes :abi f(uint,uint) 0x01 0x3b          # 378
@@ -857,15 +857,15 @@ precompsEIP2929Cancun:
     - :label no  :abi f(uint,uint) 0x12 0x3b          # 392
     
     - :label no  :abi f(uint,uint) 0x100000 0x3b      # 393
-    - :label no  :abi f(uint,uint) 0x10c0de 0x3b      # 394
-    - :label yes :abi f(uint,uint) 0x101157 0x3b      # 395
+    - :label no  :abi f(uint,uint) <contract:0x000000000000000000000000000000000010c0de> 0x3b      # 394
+    - :label yes :abi f(uint,uint) <contract:0x0000000000000000000000000000000000101157> 0x3b      # 395
 
     gasLimit:
     - '40000000'
     gasPrice: '10'
     nonce: '0'
-    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
-    to: cccccccccccccccccccccccccccccccccccccccc
+    secretKey: "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>"
+    to: <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>
 
     value:
     - '100000'
@@ -880,7 +880,7 @@ precompsEIP2929Cancun:
     network: 
     - ">=Cancun"
     result:
-      cccccccccccccccccccccccccccccccccccccccc:
+      <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
         storage:
           # If this is a precompile (or previously accessed acct.), we
           # expect to always have the same gas cost
@@ -893,7 +893,7 @@ precompsEIP2929Cancun:
     network: 
     - ">=Prague"
     result:
-      cccccccccccccccccccccccccccccccccccccccc:
+      <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
         storage:
           # If this is a precompile (or previously accessed acct.), we
           # expect to always have the same gas cost
@@ -909,7 +909,7 @@ precompsEIP2929Cancun:
     network: 
     - ">=Cancun"
     result:
-      cccccccccccccccccccccccccccccccccccccccc:
+      <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
         storage:
           # If this isn't a precompile, we expect the second call to it to cost
           # less than the first
@@ -921,7 +921,7 @@ precompsEIP2929Cancun:
     network: 
     - "Cancun"
     result:
-      cccccccccccccccccccccccccccccccccccccccc:
+      <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
         storage:
           # If this isn't a precompile, we expect the second call to it to cost
           # less than the first
@@ -936,7 +936,7 @@ precompsEIP2929Cancun:
     network: 
     - ">=Cancun"
     result:
-      cccccccccccccccccccccccccccccccccccccccc:
+      <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
         storage:
           # If we need to create a new trie, that's a different cost
           # than the EIP 2929 one.
@@ -951,7 +951,7 @@ precompsEIP2929Cancun:
     network: 
     - ">=Cancun"
     result:
-      cccccccccccccccccccccccccccccccccccccccc:
+      <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
         storage:
           # If we need to create a new trie, that's a different cost
           # than the EIP 2929 one.
@@ -963,7 +963,7 @@ precompsEIP2929Cancun:
     network: 
     - "Cancun"
     result:
-      cccccccccccccccccccccccccccccccccccccccc:
+      <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>:
         storage:
           # If we need to create a new trie, that's a different cost
           # than the EIP 2929 one.

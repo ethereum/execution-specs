@@ -27,13 +27,13 @@ CallWithNOTZeroValueToPrecompileFromTransaction:
     network:
     - ">=Cancun"
     result:
-      a000000000000000000000000000000000000000:
+      <contract:target:0xa000000000000000000000000000000000000000>:
         balance: '1100'
         storage:
           '0x00': '0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed'
           '0x02': '0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed'
   pre:
-    a000000000000000000000000000000000000000:
+    <contract:target:0xa000000000000000000000000000000000000000>:
       balance: '1000'
       nonce: '0'
       storage:
@@ -46,7 +46,7 @@ CallWithNOTZeroValueToPrecompileFromTransaction:
           [[ 0x01 ]] (STATICCALL (GAS) (CALLDATALOAD 0) 0 0 0 0)
           [[ 0x02 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed
         }
-    ca11001000000000000000000000000000000000:
+    <contract:0xca11001000000000000000000000000000000000>:
       balance: '1000'
       nonce: '0'
       storage: {}
@@ -59,7 +59,7 @@ CallWithNOTZeroValueToPrecompileFromTransaction:
           [ 0x60 ] 0xeeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549
           (CALL (GAS) 1 2 0 128 0x2000 32)
         }
-    ca11002000000000000000000000000000000000:
+    <contract:0xca11002000000000000000000000000000000000>:
       balance: '1000'
       nonce: '0'
       storage: {}
@@ -69,7 +69,7 @@ CallWithNOTZeroValueToPrecompileFromTransaction:
           [ 0x00 ] 0x0000000ccccccccccccccccccccccccccccccccccccccccccccccccccc000000
           (CALL (GAS) 2 2 0 32 0x2000 32)
         }
-    ca11003000000000000000000000000000000000:
+    <contract:0xca11003000000000000000000000000000000000>:
       balance: '1000'
       nonce: '0'
       storage: {}
@@ -79,7 +79,7 @@ CallWithNOTZeroValueToPrecompileFromTransaction:
           [ 0x00 ] 0x0000000ccccccccccccccccccccccccccccccccccccccccccccccccccc000000
           (CALL (GAS) 3 2 0 32 0x2000 32)
         }
-    ca11004000000000000000000000000000000000:
+    <contract:0xca11004000000000000000000000000000000000>:
       balance: '1000'
       nonce: '0'
       storage: {}
@@ -89,7 +89,7 @@ CallWithNOTZeroValueToPrecompileFromTransaction:
           [ 0x00 ] 0x0000000ccccccccccccccccccccccccccccccccccccccccccccccccccc000000
           (CALL (GAS) 4 2 0 32 0x2000 32)
         }
-    ca11005000000000000000000000000000000000:
+    <contract:0xca11005000000000000000000000000000000000>:
       balance: '1000'
       nonce: '0'
       storage: {}
@@ -104,7 +104,7 @@ CallWithNOTZeroValueToPrecompileFromTransaction:
           [ 0xa0 ] 0x2f00000000000000000000000000000000000000000000000000000000000000
           (CALL (GAS) 5 2 0 0xa1 0x2000 32)
         }
-    ca11006000000000000000000000000000000000:
+    <contract:0xca11006000000000000000000000000000000000>:
       balance: '1000'
       nonce: '0'
       storage: {}
@@ -117,7 +117,7 @@ CallWithNOTZeroValueToPrecompileFromTransaction:
           [ 0x60 ] 0x0217327ffc463919bef80cc166d09c6172639d8589799928761bcd9f22c903d4
           (CALL (GAS) 6 2 0 128 0x2000 64)
         }
-    ca11007000000000000000000000000000000000:
+    <contract:0xca11007000000000000000000000000000000000>:
       balance: '1000'
       nonce: '0'
       storage: {}
@@ -129,7 +129,7 @@ CallWithNOTZeroValueToPrecompileFromTransaction:
           [ 0x40 ] 0x0000000000000000000000000000000000000000000000000000000000000003
           (CALL (GAS) 7 2 0 96 0x2000 64)
         }
-    ca11008000000000000000000000000000000000:
+    <contract:0xca11008000000000000000000000000000000000>:
       balance: '1000'
       nonce: '0'
       storage: {}
@@ -151,26 +151,26 @@ CallWithNOTZeroValueToPrecompileFromTransaction:
           [ 0x0160 ] 0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa
           (CALL (GAS) 8 2 0 0x0180 0x2000 32)
         }
-    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+    <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
       balance: '1000000000000000000'
       code: ''
       nonce: '0'
       storage: {}
   transaction:
     data:
-    - ':raw 0x000000000000000000000000ca11001000000000000000000000000000000000'
-    - ':raw 0x000000000000000000000000ca11002000000000000000000000000000000000'
-    - ':raw 0x000000000000000000000000ca11003000000000000000000000000000000000'
-    - ':raw 0x000000000000000000000000ca11004000000000000000000000000000000000'
-    - ':raw 0x000000000000000000000000ca11005000000000000000000000000000000000'
-    - ':raw 0x000000000000000000000000ca11006000000000000000000000000000000000'
-    - ':raw 0x000000000000000000000000ca11007000000000000000000000000000000000'
-    - ':raw 0x000000000000000000000000ca11008000000000000000000000000000000000'
+    - ':raw 0x000000000000000000000000<contract:0xca11001000000000000000000000000000000000>'
+    - ':raw 0x000000000000000000000000<contract:0xca11002000000000000000000000000000000000>'
+    - ':raw 0x000000000000000000000000<contract:0xca11003000000000000000000000000000000000>'
+    - ':raw 0x000000000000000000000000<contract:0xca11004000000000000000000000000000000000>'
+    - ':raw 0x000000000000000000000000<contract:0xca11005000000000000000000000000000000000>'
+    - ':raw 0x000000000000000000000000<contract:0xca11006000000000000000000000000000000000>'
+    - ':raw 0x000000000000000000000000<contract:0xca11007000000000000000000000000000000000>'
+    - ':raw 0x000000000000000000000000<contract:0xca11008000000000000000000000000000000000>'
     gasLimit:
     - '4000000'
     gasPrice: '10'
     nonce: '0'
-    secretKey: '0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8'
-    to: 'a000000000000000000000000000000000000000'
+    secretKey: '<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>'
+    to: '<contract:target:0xa000000000000000000000000000000000000000>'
     value:
     - '100'

@@ -29,20 +29,20 @@ ecrecoverWeirdV:
     comment: Ori Pomerantz qbzzt1@gmail.com
 
   env:
-    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentCoinbase: <eoa:0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba>
     currentDifficulty: 0x20000
     currentGasLimit: 0xFF112233445566
     currentNumber: 1
     currentTimestamp: 1000
 
   pre:
-    2adc25665018aa1fe0e6bc666dac8fc2697ff9ba:
+    <eoa:0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba>:
       balance: 0
       nonce: 1
       code: ''
       storage: {}
 
-    000000000000000000000000000000000000c0de:
+    <contract:target:0x000000000000000000000000000000000000c0de>:
       balance: 0
       code: |
           :yul berlin
@@ -70,7 +70,7 @@ ecrecoverWeirdV:
           2: 0x60A7
 
 
-    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+    <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
       balance: '1000000000000000000'
       code: '0x'
       nonce: 1
@@ -146,10 +146,10 @@ ecrecoverWeirdV:
     - 40000000
     gasPrice: 10
     nonce: 1
-    to: 000000000000000000000000000000000000c0de
+    to: <contract:target:0x000000000000000000000000000000000000c0de>
     value:
     - 0
-    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    secretKey: "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>"
 
 
   expect:
@@ -162,7 +162,7 @@ ecrecoverWeirdV:
       network:
         - '>=Cancun'
       result:
-        000000000000000000000000000000000000c0de:
+        <contract:target:0x000000000000000000000000000000000000c0de>:
           storage:
             0x00: 1
             0x01: 0
@@ -177,7 +177,7 @@ ecrecoverWeirdV:
       network:
         - '>=Cancun'
       result:
-        000000000000000000000000000000000000c0de:
+        <contract:target:0x000000000000000000000000000000000000c0de>:
           storage:
             0x00: 1
             0x01: 0xB957B0Da344F6A17F0081d63be7345A860E5B7A2
