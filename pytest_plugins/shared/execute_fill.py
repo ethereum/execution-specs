@@ -94,6 +94,18 @@ def pytest_configure(config: pytest.Config):
         "derived_test: Mark a test as a derived test (E.g. a BlockchainTest that is derived "
         "from a StateTest).",
     )
+    config.addinivalue_line(
+        "markers",
+        "tagged: Marks a static test as tagged. Tags are used to generate dynamic "
+        "addresses for static tests at fill time. All tagged tests are compatible with "
+        "dynamic address generation.",
+    )
+    config.addinivalue_line(
+        "markers",
+        "untagged: Marks a static test as untagged. Tags are used to generate dynamic "
+        "addresses for static tests at fill time. Untagged tests are incompatible with "
+        "dynamic address generation.",
+    )
 
 
 @pytest.fixture(scope="function")

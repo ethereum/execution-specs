@@ -16,7 +16,7 @@ from _pytest.fixtures import TopRequest
 from _pytest.mark import ParameterSet
 from _pytest.python import Module
 
-from ethereum_test_fixtures import BaseFixture, LabeledFixtureFormat
+from ethereum_test_fixtures import BaseFixture, BlockchainEngineXFixture, LabeledFixtureFormat
 from ethereum_test_forks import Fork, get_closest_fork
 from ethereum_test_specs import BaseStaticTest, BaseTest
 from ethereum_test_tools.code.yul import Yul
@@ -164,6 +164,7 @@ class FillerFile(pytest.File):
                 )
                 for key in loaded_file:
                     filler = BaseStaticTest.model_validate(loaded_file[key])
+
                     func = filler.fill_function()
 
                     function_marks: List[pytest.Mark] = []
@@ -195,7 +196,39 @@ class FillerFile(pytest.File):
                         and (mark.name not in [v.mark.name for v in validity_markers])
                     ]
 
-                    for format_with_or_without_label in fixture_formats:
+                    # Apply fixture format filtering for pre-allocation groups
+                    generate_pre_alloc = self.config.getoption("generate_pre_alloc_groups")
+                    use_pre_alloc = self.config.getoption("use_pre_alloc_groups")
+                    if generate_pre_alloc or use_pre_alloc:
+                        # When pre-allocation group flags are set, only generate
+                        # BlockchainEngineXFixture
+                        filtered_formats = [
+                            format_item
+                            for format_item in fixture_formats
+                            if (
+                                format_item is BlockchainEngineXFixture
+                                or (
+                                    isinstance(format_item, LabeledFixtureFormat)
+                                    and format_item.format is BlockchainEngineXFixture
+                                )
+                            )
+                        ]
+                    else:
+                        # Filter out BlockchainEngineXFixture if pre-allocation group
+                        # flags not set
+                        filtered_formats = [
+                            format_item
+                            for format_item in fixture_formats
+                            if not (
+                                format_item is BlockchainEngineXFixture
+                                or (
+                                    isinstance(format_item, LabeledFixtureFormat)
+                                    and format_item.format is BlockchainEngineXFixture
+                                )
+                            )
+                        ]
+
+                    for format_with_or_without_label in filtered_formats:
                         fixture_format_parameter_set = labeled_format_parameter_set(
                             format_with_or_without_label
                         )
@@ -219,6 +252,8 @@ class FillerFile(pytest.File):
                                 params["fork"] = fork
                             if "pre" in func_parameters:
                                 fixturenames.append("pre")
+                            if "request" in func_parameters:
+                                fixturenames.append("request")
 
                             if parametrize_marks:
                                 parameter_names, parameter_set_list = (
@@ -314,7 +349,10 @@ class FillerTestItem(pytest.Item):
         )
         request = TopRequest(self, _ispytest=True)
         for fixture_name in self.fixturenames:
-            self.params[fixture_name] = request.getfixturevalue(fixture_name)
+            if fixture_name == "request":
+                self.params[fixture_name] = request
+            else:
+                self.params[fixture_name] = request.getfixturevalue(fixture_name)
 
     def runtest(self):
         """Execute the test logic for this specific static test."""

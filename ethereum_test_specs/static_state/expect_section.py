@@ -1,15 +1,39 @@
 """Expect section structure of ethereum/tests fillers."""
 
 from enum import Enum
-from typing import Dict, List, Literal, Union
+from typing import Annotated, Any, Dict, List, Mapping, Union
 
-from pydantic import BaseModel, Field, ValidationInfo, field_validator
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    Field,
+    ValidationInfo,
+    ValidatorFunctionWrapHandler,
+    field_validator,
+    model_validator,
+)
 
-from ethereum_test_base_types import CamelModel
+from ethereum_test_base_types import (
+    Account,
+    Address,
+    CamelModel,
+    EthereumTestRootModel,
+    HexNumber,
+    Storage,
+)
 from ethereum_test_exceptions import TransactionExceptionInstanceOrList
 from ethereum_test_forks import get_forks
+from ethereum_test_types import Alloc
 
-from .common import AddressInFiller, CodeInFiller, ValueInFiller
+from .common import (
+    AddressOrCreateTagInFiller,
+    CodeInFiller,
+    Tag,
+    TagDependentData,
+    TagDict,
+    ValueInFiller,
+    ValueOrCreateTagInFiller,
+)
 
 
 class Indexes(BaseModel):
@@ -19,26 +43,88 @@ class Indexes(BaseModel):
     gas: int | List[Union[int, str]] | List[int] | str = Field(-1)
     value: int | List[Union[int, str]] | List[int] | str = Field(-1)
 
-    class Config:
-        """Model Config."""
 
-        extra = "forbid"
+def validate_any_string_as_none(v: Any) -> Any:
+    """Validate "ANY" as None."""
+    if type(v) is str and v == "ANY":
+        return None
+    return v
 
 
-class AccountInExpectSection(BaseModel):
+class StorageInExpectSection(EthereumTestRootModel, TagDependentData):
+    """Class that represents a storage in expect section filler."""
+
+    root: Dict[
+        ValueOrCreateTagInFiller,
+        Annotated[ValueOrCreateTagInFiller | None, BeforeValidator(validate_any_string_as_none)],
+    ]
+
+    def tag_dependencies(self) -> Mapping[str, Tag]:
+        """Get storage dependencies."""
+        tag_dependencies = {}
+        for key, value in self.root.items():
+            if isinstance(key, Tag):
+                tag_dependencies[key.name] = key
+            if isinstance(value, Tag):
+                tag_dependencies[value.name] = value
+        return tag_dependencies
+
+    def resolve(self, tags: TagDict) -> Storage:
+        """Resolve the account with the given tags."""
+        storage = Storage()
+        for key, value in self.root.items():
+            resolved_key: HexNumber | Address
+            if isinstance(key, Tag):
+                resolved_key = key.resolve(tags)
+            else:
+                resolved_key = key
+            if value is None:
+                storage.set_expect_any(resolved_key)
+            elif isinstance(value, Tag):
+                storage[resolved_key] = value.resolve(tags)
+            else:
+                storage[resolved_key] = value
+        return storage
+
+
+class AccountInExpectSection(BaseModel, TagDependentData):
     """Class that represents an account in expect section filler."""
 
-    balance: ValueInFiller | None = Field(None)
-    code: CodeInFiller | None = Field(None)
-    nonce: ValueInFiller | None = Field(None)
-    storage: Dict[ValueInFiller, ValueInFiller | Literal["ANY"]] | None = Field(None)
-    expected_to_not_exist: str | int | None = Field(None, alias="shouldnotexist")
+    balance: ValueInFiller | None = None
+    code: CodeInFiller | None = None
+    nonce: ValueInFiller | None = None
+    storage: StorageInExpectSection | None = None
 
-    class Config:
-        """Model Config."""
+    @model_validator(mode="wrap")
+    @classmethod
+    def validate_should_not_exist(cls, v: Any, handler: ValidatorFunctionWrapHandler):
+        """Validate the "shouldnotexist" field, which makes this validator return `None`."""
+        if isinstance(v, dict):
+            if "shouldnotexist" in v:
+                return None
+        return handler(v)
 
-        extra = "forbid"
-        arbitrary_types_allowed = True  # For CodeInFiller
+    def tag_dependencies(self) -> Mapping[str, Tag]:
+        """Get tag dependencies."""
+        tag_dependencies: Dict[str, Tag] = {}
+        if self.code is not None:
+            tag_dependencies.update(self.code.tag_dependencies())
+        if self.storage is not None:
+            tag_dependencies.update(self.storage.tag_dependencies())
+        return tag_dependencies
+
+    def resolve(self, tags: TagDict) -> Account:
+        """Resolve the account with the given tags."""
+        account_kwargs: Dict[str, Any] = {}
+        if self.storage is not None:
+            account_kwargs["storage"] = self.storage.resolve(tags)
+        if self.code is not None:
+            account_kwargs["code"] = self.code.compiled(tags)
+        if self.balance is not None:
+            account_kwargs["balance"] = self.balance
+        if self.nonce is not None:
+            account_kwargs["nonce"] = self.nonce
+        return Account(**account_kwargs)
 
 
 class CMP(Enum):
@@ -103,18 +189,53 @@ def parse_networks(fork_with_operand: str) -> List[str]:
     return parsed_forks
 
 
+class ResultInFiller(EthereumTestRootModel, TagDependentData):
+    """
+    Post section in state test filler.
+
+    A value of `None` for an address means that the account should not be in the state trie
+    at the end of the test.
+    """
+
+    root: Dict[AddressOrCreateTagInFiller, AccountInExpectSection | None]
+
+    def tag_dependencies(self) -> Mapping[str, Tag]:
+        """Return all tags used in the result."""
+        tag_dependencies: Dict[str, Tag] = {}
+        for address, account in self.root.items():
+            if isinstance(address, Tag):
+                tag_dependencies[address.name] = address
+
+            if account is None:
+                continue
+
+            tag_dependencies.update(account.tag_dependencies())
+
+        return tag_dependencies
+
+    def resolve(self, tags: TagDict) -> Alloc:
+        """Resolve the post section."""
+        post = Alloc()
+        for address, account in self.root.items():
+            if isinstance(address, Tag):
+                resolved_address = address.resolve(tags)
+            else:
+                resolved_address = Address(address)
+
+            if account is None:
+                continue
+
+            post[resolved_address] = account.resolve(tags)
+        return post
+
+
 class ExpectSectionInStateTestFiller(CamelModel):
     """Expect section in state test filler."""
 
     indexes: Indexes = Field(default_factory=Indexes)
     network: List[str]
-    result: Dict[AddressInFiller, AccountInExpectSection]
+    result: ResultInFiller
     expect_exception: Dict[str, TransactionExceptionInstanceOrList] | None = None
-
-    class Config:
-        """Model Config."""
-
-        extra = "forbid"
 
     @field_validator("network", mode="before")
     @classmethod

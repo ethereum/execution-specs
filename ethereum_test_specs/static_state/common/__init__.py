@@ -1,5 +1,39 @@
 """Ethereum/tests structures."""
 
-from .common import AddressInFiller, CodeInFiller, Hash32InFiller, ValueInFiller
+from .common import (
+    AccessListInFiller,
+    AddressInFiller,
+    AddressOrCreateTagInFiller,
+    AddressOrTagInFiller,
+    AddressTag,
+    CodeInFiller,
+    ContractTag,
+    HashOrTagInFiller,
+    SenderTag,
+    Tag,
+    TagDependentData,
+    TagDict,
+    ValueInFiller,
+    ValueOrCreateTagInFiller,
+    ValueOrTagInFiller,
+    parse_address_or_tag,
+)
 
-__all__ = ["AddressInFiller", "ValueInFiller", "CodeInFiller", "Hash32InFiller"]
+__all__ = [
+    "AccessListInFiller",
+    "AddressInFiller",
+    "AddressOrCreateTagInFiller",
+    "AddressOrTagInFiller",
+    "AddressTag",
+    "CodeInFiller",
+    "ContractTag",
+    "HashOrTagInFiller",
+    "Tag",
+    "TagDict",
+    "TagDependentData",
+    "SenderTag",
+    "ValueInFiller",
+    "ValueOrCreateTagInFiller",
+    "ValueOrTagInFiller",
+    "parse_address_or_tag",
+]
