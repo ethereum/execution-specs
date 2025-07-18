@@ -16,24 +16,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: "1.69.0"
-          override: true
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install Tox and any other packages
-        run: |
-          DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential pkg-config
-          pip install 'tox>=4.11,<5' requests
-      - name: Download Geth and add to $PATH
-        run: |
-          mkdir -p $GITHUB_WORKSPACE/bin
-          $GITHUB_WORKSPACE/scripts/download_geth_linux.py --dir $GITHUB_WORKSPACE/bin
-          echo $GITHUB_WORKSPACE/bin >> $GITHUB_PATH
+      - uses: ./.github/actions/setup-env
       - name: Run static checks
         run: tox -e static
 
@@ -44,24 +31,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: "1.69.0"
-          override: true
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install Tox and any other packages
-        run: |
-          DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential pkg-config
-          pip install 'tox>=4.11,<5' requests
-      - name: Download Geth and add to $PATH
-        run: |
-          mkdir -p $GITHUB_WORKSPACE/bin
-          $GITHUB_WORKSPACE/scripts/download_geth_linux.py --dir $GITHUB_WORKSPACE/bin
-          echo $GITHUB_WORKSPACE/bin >> $GITHUB_PATH
+      - uses: ./.github/actions/setup-env
       - name: Run py3_eest tests
         run: tox -e py3_eest
 
@@ -72,24 +46,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: "1.69.0"
-          override: true
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "pypy3.11"
-      - name: Install Tox and any other packages
-        run: |
-          DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential pkg-config
-          pip install 'tox>=4.11,<5' requests
-      - name: Download Geth and add to $PATH
-        run: |
-          mkdir -p $GITHUB_WORKSPACE/bin
-          $GITHUB_WORKSPACE/scripts/download_geth_linux.py --dir $GITHUB_WORKSPACE/bin
-          echo $GITHUB_WORKSPACE/bin >> $GITHUB_PATH
+      - uses: ./.github/actions/setup-env
       - name: Run pypy3 tests
         run: tox -e pypy3
         env:
@@ -102,24 +63,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: "1.69.0"
-          override: true
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install Tox and any other packages
-        run: |
-          DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential pkg-config
-          pip install 'tox>=4.11,<5' requests
-      - name: Download Geth and add to $PATH
-        run: |
-          mkdir -p $GITHUB_WORKSPACE/bin
-          $GITHUB_WORKSPACE/scripts/download_geth_linux.py --dir $GITHUB_WORKSPACE/bin
-          echo $GITHUB_WORKSPACE/bin >> $GITHUB_PATH
+      - uses: ./.github/actions/setup-env
       - name: Run py3 tests
         run: tox -e py3
       - name: Upload coverage reports to Codecov
@@ -136,23 +84,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: "1.69.0"
-          override: true
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install Tox and any other packages
-        run: |
-          DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential pkg-config
-          pip install 'tox>=4.11,<5' requests
-      - name: Download Geth and add to $PATH
-        run: |
-          mkdir -p $GITHUB_WORKSPACE/bin
-          $GITHUB_WORKSPACE/scripts/download_geth_linux.py --dir $GITHUB_WORKSPACE/bin
-          echo $GITHUB_WORKSPACE/bin >> $GITHUB_PATH
+      - uses: ./.github/actions/setup-env
       - name: Run optimized tests
         run: tox -e optimized
