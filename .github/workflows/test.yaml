@@ -24,7 +24,7 @@ jobs:
       - name: Run static checks
         run: tox -e static
 
-  py3_eest:
+  py3:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
     steps:
@@ -36,8 +36,8 @@ jobs:
         with:
           python-version: "3.11"
       - uses: ./.github/actions/setup-env
-      - name: Run py3_eest tests
-        run: tox -e py3_eest
+      - name: Run py3 tests
+        run: tox -e py3
 
   pypy3:
     runs-on: [self-hosted-ghr, size-xl-x64]
@@ -56,7 +56,7 @@ jobs:
         env:
           PYPY_GC_MAX: "10G"
 
-  py3:
+  json_infra:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
     steps:
@@ -68,8 +68,8 @@ jobs:
         with:
           python-version: "3.11"
       - uses: ./.github/actions/setup-env
-      - name: Run py3 tests
-        run: tox -e py3
+      - name: Run json infra tests
+        run: tox -e json_infra
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
