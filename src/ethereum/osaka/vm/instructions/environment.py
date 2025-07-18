@@ -36,7 +36,6 @@ from ..gas import (
     calculate_blob_gas_price,
     calculate_gas_extend_memory,
     charge_gas,
-    code_access_cost,
 )
 from ..stack import pop, push
 
@@ -389,12 +388,6 @@ def extcodecopy(evm: Evm) -> None:
     else:
         evm.accessed_addresses.add(address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
-
-    if address not in evm.warm_code_addresses:
-        evm.warm_code_addresses.add(address)
-        access_gas_cost += code_access_cost(
-            get_account(evm.message.block_env.state, address).code
-        )
 
     charge_gas(evm, access_gas_cost + copy_gas_cost + extend_memory.cost)
 

@@ -16,7 +16,7 @@ from ethereum.exceptions import InvalidBlock, InvalidSignatureError
 from ..fork_types import Address, Authorization
 from ..state import account_exists, get_account, increment_nonce, set_code
 from ..utils.hexadecimal import hex_to_address
-from ..vm.gas import GAS_COLD_ACCOUNT_ACCESS, GAS_WARM_ACCESS, code_access_cost
+from ..vm.gas import GAS_COLD_ACCOUNT_ACCESS, GAS_WARM_ACCESS
 from . import Evm, Message
 
 SET_CODE_TX_MAGIC = b"\x05"
@@ -136,16 +136,12 @@ def access_delegation(
         return False, address, code, Uint(0)
 
     address = Address(code[EOA_DELEGATION_MARKER_LENGTH:])
-    code = get_account(state, address).code
     if address in evm.accessed_addresses:
         access_gas_cost = GAS_WARM_ACCESS
     else:
         evm.accessed_addresses.add(address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
-
-    if address not in evm.warm_code_addresses:
-        evm.warm_code_addresses.add(address)
-        access_gas_cost += code_access_cost(code)
+    code = get_account(state, address).code
 
     return True, address, code, access_gas_cost
 
