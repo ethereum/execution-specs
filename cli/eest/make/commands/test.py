@@ -13,9 +13,10 @@ from pathlib import Path
 import click
 import jinja2
 
-from cli.input import input_select, input_text
 from config.docs import DocsConfig
 from ethereum_test_forks import get_development_forks, get_forks
+
+from ....input import input_select, input_text
 
 template_loader = jinja2.PackageLoader("cli.eest.make")
 template_env = jinja2.Environment(

@@ -12,7 +12,8 @@ from ethereum_test_fixtures import (
 from ethereum_test_fixtures.consume import TestCaseIndexFile, TestCaseStream
 from ethereum_test_fixtures.file import Fixtures
 from ethereum_test_rpc import EthRPC
-from pytest_plugins.consume.consume import FixturesSource
+
+from ..consume import FixturesSource
 
 
 @pytest.fixture(scope="function")

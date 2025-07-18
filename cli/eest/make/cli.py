@@ -10,9 +10,7 @@ is present, it shows a list of valid subcommands to choose from.
 
 import click
 
-from cli.eest.make.commands import create_default_env
-
-from .commands import test
+from .commands import create_default_env, test
 
 
 @click.group(short_help="Generate project files.")

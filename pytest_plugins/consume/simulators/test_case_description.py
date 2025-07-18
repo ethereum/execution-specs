@@ -11,7 +11,8 @@ from hive.client import ClientType
 
 from ethereum_test_fixtures import BaseFixture
 from ethereum_test_fixtures.consume import TestCaseIndexFile, TestCaseStream
-from pytest_plugins.pytest_hive.hive_info import ClientFile, HiveInfo
+
+from ...pytest_hive.hive_info import ClientFile, HiveInfo
 
 logger = logging.getLogger(__name__)
 

@@ -12,10 +12,10 @@ from hive.testing import HiveTest
 from ethereum_test_base_types import Number, to_json
 from ethereum_test_fixtures import BlockchainFixtureCommon
 from ethereum_test_fixtures.blockchain import FixtureHeader
-from pytest_plugins.consume.simulators.helpers.ruleset import (
+
+from .helpers.ruleset import (
     ruleset,  # TODO: generate dynamically
 )
-
 from .helpers.timing import TimingData
 
 logger = logging.getLogger(__name__)

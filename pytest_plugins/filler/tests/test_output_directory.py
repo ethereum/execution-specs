@@ -7,7 +7,8 @@ import pytest
 from pytest import TempPathFactory
 
 from ethereum_clis import TransitionTool
-from pytest_plugins.filler.fixture_output import FixtureOutput
+
+from ..fixture_output import FixtureOutput
 
 
 @pytest.fixture(scope="module")

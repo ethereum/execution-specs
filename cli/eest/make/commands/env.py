@@ -3,8 +3,9 @@
 import click
 from jinja2 import Environment, PackageLoader
 
-from cli.eest.quotes import get_quote
 from config.env import ENV_PATH, Config
+
+from ...quotes import get_quote
 
 
 @click.command(short_help="Generate the default environment file (env.yaml).", name="env")

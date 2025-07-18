@@ -39,7 +39,8 @@ from ethereum_test_tools import (
 )
 from ethereum_test_types import Requests
 from ethereum_test_types.trie import keccak256
-from pytest_plugins.consume.simulators.helpers.ruleset import ruleset
+
+from ...consume.simulators.helpers.ruleset import ruleset
 
 
 class HashList(RootModel[List[Hash]]):

@@ -12,13 +12,13 @@ from ethereum_test_forks import Fork
 from ethereum_test_rpc import EngineRPC, EthRPC
 from ethereum_test_tools import BaseTest
 from ethereum_test_types import EnvironmentDefaults, TransactionDefaults
-from pytest_plugins.spec_version_checker.spec_version_checker import EIPSpecTestItem
 
 from ..shared.helpers import (
     get_spec_format_for_item,
     is_help_or_collectonly_mode,
     labeled_format_parameter_set,
 )
+from ..spec_version_checker.spec_version_checker import EIPSpecTestItem
 from .pre_alloc import Alloc
 
 

@@ -13,7 +13,7 @@ import pytest
 
 from ethereum_test_tools import Environment
 from ethereum_clis import ExecutionSpecsTransitionTool, TransitionTool
-from pytest_plugins.filler.filler import default_output_directory
+from ..filler import default_output_directory
 
 
 # flake8: noqa

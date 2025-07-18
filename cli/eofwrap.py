@@ -19,7 +19,6 @@ from typing import Any, Dict, no_type_check
 
 import click
 
-from cli.evm_bytes import OpcodeWithOperands, process_evm_bytes
 from ethereum_clis import CLINotFoundInPathError
 from ethereum_clis.clis.evmone import EvmOneTransitionTool
 from ethereum_test_base_types import Bytes, EthereumTestRootModel
@@ -35,6 +34,8 @@ from ethereum_test_types import Transaction
 from ethereum_test_types.block_types import Environment
 from ethereum_test_types.eof.v1 import Container
 from ethereum_test_vm.bytecode import Bytecode
+
+from .evm_bytes import OpcodeWithOperands, process_evm_bytes
 
 
 @click.command()

@@ -3,7 +3,7 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from pytest_plugins.consume.consume import CACHED_DOWNLOADS_DIRECTORY, FixturesSource
+from ..consume import CACHED_DOWNLOADS_DIRECTORY, FixturesSource
 
 
 class TestSimplifiedConsumeBehavior:

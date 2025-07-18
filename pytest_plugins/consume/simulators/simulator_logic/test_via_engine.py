@@ -11,9 +11,9 @@ from ethereum_test_exceptions import UndefinedException
 from ethereum_test_fixtures import BlockchainEngineFixture
 from ethereum_test_rpc import EngineRPC, EthRPC
 from ethereum_test_rpc.types import ForkchoiceState, JSONRPCError, PayloadStatusEnum
-from pytest_plugins.consume.simulators.helpers.exceptions import GenesisBlockMismatchExceptionError
-from pytest_plugins.logging import get_logger
 
+from ....logging import get_logger
+from ..helpers.exceptions import GenesisBlockMismatchExceptionError
 from ..helpers.timing import TimingData
 
 logger = get_logger(__name__)

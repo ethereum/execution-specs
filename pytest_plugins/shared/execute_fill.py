@@ -8,7 +8,8 @@ from ethereum_test_execution import BaseExecute, LabeledExecuteFormat
 from ethereum_test_fixtures import BaseFixture, LabeledFixtureFormat
 from ethereum_test_specs import BaseTest
 from ethereum_test_types import EOA, Alloc
-from pytest_plugins.spec_version_checker.spec_version_checker import EIPSpecTestItem
+
+from ..spec_version_checker.spec_version_checker import EIPSpecTestItem
 
 
 @pytest.hookimpl(tryfirst=True)
