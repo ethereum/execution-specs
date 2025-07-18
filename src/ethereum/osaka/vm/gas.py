@@ -14,7 +14,6 @@ EVM gas constants and calculators.
 from dataclasses import dataclass
 from typing import List, Tuple
 
-from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.trace import GasAndRefund, evm_trace
@@ -280,35 +279,6 @@ def init_code_cost(init_code_length: Uint) -> Uint:
         The gas to be charged for the init code.
     """
     return GAS_INIT_CODE_WORD_COST * ceil32(init_code_length) // Uint(32)
-
-
-def code_access_cost(code: Bytes) -> Uint:
-    """
-    Calculates the gas to be charged for loading contract code.
-
-    Parameters
-    ----------
-    code :
-        The contract code.
-
-    Returns
-    -------
-    code_access_gas: `ethereum.base_types.Uint`
-        The gas to be charged for loading the code.
-    """
-    from .interpreter import MAX_CODE_SIZE_WITH_NO_ACCESS_COST
-
-    excess_contract_size = max(
-        0, len(code) - MAX_CODE_SIZE_WITH_NO_ACCESS_COST
-    )
-    if excess_contract_size == 0:
-        return Uint(0)
-
-    return (
-        GAS_INIT_CODE_WORD_COST
-        * ceil32(Uint(excess_contract_size))
-        // Uint(32)
-    )
 
 
 def calculate_excess_blob_gas(parent_header: Header) -> U64:
