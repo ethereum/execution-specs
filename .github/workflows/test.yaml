@@ -11,7 +11,7 @@ on:
 
 jobs:
   static:
-    runs-on: [self-hosted-ghr, size-xl-x64]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
@@ -20,7 +20,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - uses: ./.github/actions/setup-env
+      - name: Install Tox and any other packages
+        shell: bash
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential pkg-config
+          pip install 'tox>=4.11,<5' requests
       - name: Run static checks
         run: tox -e static
 
