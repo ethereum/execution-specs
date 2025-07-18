@@ -135,6 +135,10 @@ class ScenarioTestProgram:
         """Test program result."""
         pass
 
+    def __str__(self) -> str:
+        """Return the ID (for use as pytest test name)."""
+        return self.id
+
 
 @dataclass
 class ScenarioDebug:

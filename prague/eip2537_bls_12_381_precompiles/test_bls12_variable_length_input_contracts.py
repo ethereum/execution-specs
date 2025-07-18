@@ -16,7 +16,7 @@ from .spec import GAS_CALCULATION_FUNCTION_MAP, PointG1, PointG2, Scalar, Spec, 
 REFERENCE_SPEC_GIT_PATH = ref_spec_2537.git_path
 REFERENCE_SPEC_VERSION = ref_spec_2537.version
 
-pytestmark = pytest.mark.valid_from("Prague")
+pytestmark = [pytest.mark.valid_from("Prague"), pytest.mark.slow]
 
 G1_MSM_K_INPUT_LENGTH = len(PointG1() + Scalar())
 G2_MSM_K_INPUT_LENGTH = len(PointG2() + Scalar())

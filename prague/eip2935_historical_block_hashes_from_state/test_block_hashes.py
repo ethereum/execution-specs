@@ -99,6 +99,7 @@ def generate_block_check_code(
         [1, Spec.BLOCKHASH_OLD_WINDOW + 1],
     ],
 )
+@pytest.mark.slow()
 @pytest.mark.valid_at_transition_to("Prague")
 def test_block_hashes_history_at_transition(
     blockchain_test: BlockchainTestFiller,

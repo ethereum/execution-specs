@@ -104,44 +104,6 @@ def scenarios(fork: Fork, pre: Alloc, test_program: ScenarioTestProgram) -> List
     return scenarios_list
 
 
-program_classes = [
-    ProgramSstoreSload(),
-    ProgramTstoreTload(),
-    ProgramLogs(),
-    ProgramSuicide(),
-    ProgramInvalidOpcode(),
-    ProgramAddress(),
-    ProgramBalance(),
-    ProgramOrigin(),
-    ProgramCaller(),
-    ProgramCallValue(),
-    ProgramCallDataLoad(),
-    ProgramCallDataSize(),
-    ProgramCallDataCopy(),
-    ProgramCodeCopyCodeSize(),
-    ProgramGasPrice(),
-    ProgramExtCodeCopyExtCodeSize(),
-    ProgramReturnDataSize(),
-    ProgramReturnDataCopy(),
-    ProgramExtCodehash(),
-    ProgramBlockhash(),
-    ProgramCoinbase(),
-    ProgramTimestamp(),
-    ProgramNumber(),
-    ProgramDifficultyRandao(),
-    ProgramGasLimit(),
-    ProgramChainid(),
-    ProgramSelfbalance(),
-    ProgramBasefee(),
-    ProgramBlobhash(),
-    ProgramBlobBaseFee(),
-    ProgramTload(),
-    ProgramMcopy(),
-    ProgramPush0(),
-    ProgramAllFrontierOpcodes(),
-]
-
-
 @pytest.mark.ported_from(
     [
         "https://github.com/ethereum/tests/blob/v13.3/src/Templates/DiffPlaces/templateGen.js",
@@ -151,6 +113,7 @@ program_classes = [
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stSelfBalance/diffPlacesFiller.yml",
     ],
     pr=["https://github.com/ethereum/execution-spec-tests/pull/808"],
+    coverage_missed_reason=("Original test pre-sets storage of some of the deployed accounts."),
 )
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.parametrize(
@@ -169,8 +132,42 @@ program_classes = [
 )
 @pytest.mark.parametrize(
     "test_program",
-    program_classes,
-    ids=[cls.id for cls in program_classes],
+    [
+        ProgramSstoreSload(),
+        ProgramTstoreTload(),
+        ProgramLogs(),
+        ProgramSuicide(),
+        pytest.param(ProgramInvalidOpcode(), marks=[pytest.mark.slow()]),
+        ProgramAddress(),
+        ProgramBalance(),
+        ProgramOrigin(),
+        ProgramCaller(),
+        ProgramCallValue(),
+        ProgramCallDataLoad(),
+        ProgramCallDataSize(),
+        ProgramCallDataCopy(),
+        ProgramCodeCopyCodeSize(),
+        ProgramGasPrice(),
+        ProgramExtCodeCopyExtCodeSize(),
+        ProgramReturnDataSize(),
+        ProgramReturnDataCopy(),
+        ProgramExtCodehash(),
+        pytest.param(ProgramBlockhash(), marks=[pytest.mark.slow()]),
+        ProgramCoinbase(),
+        ProgramTimestamp(),
+        ProgramNumber(),
+        ProgramDifficultyRandao(),
+        ProgramGasLimit(),
+        ProgramChainid(),
+        ProgramSelfbalance(),
+        ProgramBasefee(),
+        ProgramBlobhash(),
+        ProgramBlobBaseFee(),
+        ProgramTload(),
+        ProgramMcopy(),
+        ProgramPush0(),
+        ProgramAllFrontierOpcodes(),
+    ],
 )
 def test_scenarios(
     blockchain_test: BlockchainTestFiller,
