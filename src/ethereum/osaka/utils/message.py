@@ -86,6 +86,5 @@ def prepare_message(
         accessed_addresses=accessed_addresses,
         accessed_storage_keys=set(tx_env.access_list_storage_keys),
         disable_precompiles=False,
-        warm_code_addresses=set(),
         parent_evm=None,
     )

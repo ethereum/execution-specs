@@ -133,7 +133,6 @@ def generic_create(
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         disable_precompiles=False,
-        warm_code_addresses=evm.warm_code_addresses.copy(),
         parent_evm=evm,
     )
     child_evm = process_create_message(child_message)
@@ -324,7 +323,6 @@ def generic_call(
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         disable_precompiles=disable_precompiles,
-        warm_code_addresses=evm.warm_code_addresses.copy(),
         parent_evm=evm,
     )
     child_evm = process_message(child_message)
@@ -378,9 +376,6 @@ def call(evm: Evm) -> None:
     else:
         evm.accessed_addresses.add(to)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
-
-    if to not in evm.warm_code_addresses:
-        evm.warm_code_addresses.add(to)
         access_gas_cost += code_access_cost(
             get_account(evm.message.block_env.state, to).code
         )
@@ -472,9 +467,6 @@ def callcode(evm: Evm) -> None:
     else:
         evm.accessed_addresses.add(code_address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
-
-    if code_address not in evm.warm_code_addresses:
-        evm.warm_code_addresses.add(code_address)
         access_gas_cost += code_access_cost(
             get_account(evm.message.block_env.state, code_address).code
         )
@@ -617,9 +609,6 @@ def delegatecall(evm: Evm) -> None:
     else:
         evm.accessed_addresses.add(code_address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
-
-    if code_address not in evm.warm_code_addresses:
-        evm.warm_code_addresses.add(code_address)
         access_gas_cost += code_access_cost(
             get_account(evm.message.block_env.state, code_address).code
         )
@@ -691,9 +680,6 @@ def staticcall(evm: Evm) -> None:
     else:
         evm.accessed_addresses.add(to)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
-
-    if to not in evm.warm_code_addresses:
-        evm.warm_code_addresses.add(to)
         access_gas_cost += code_access_cost(
             get_account(evm.message.block_env.state, to).code
         )

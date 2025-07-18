@@ -142,9 +142,6 @@ def access_delegation(
     else:
         evm.accessed_addresses.add(address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
-
-    if address not in evm.warm_code_addresses:
-        evm.warm_code_addresses.add(address)
         access_gas_cost += code_access_cost(code)
 
     return True, address, code, access_gas_cost
