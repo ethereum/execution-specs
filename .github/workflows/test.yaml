@@ -10,53 +10,149 @@ on:
   pull_request:
 
 jobs:
-  build:
+  static:
     runs-on: [self-hosted-ghr, size-xl-x64]
-    strategy:
-      matrix:
-        py: [ "3.11", "pypy3.11" ]
-
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-            toolchain: "1.69.0"
-            override: true
-
+          toolchain: "1.69.0"
+          override: true
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.py }}
-
+          python-version: "3.11"
       - name: Install Tox and any other packages
         run: |
           DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential pkg-config
           pip install 'tox>=4.11,<5' requests
-
       - name: Download Geth and add to $PATH
         run: |
           mkdir -p $GITHUB_WORKSPACE/bin
           $GITHUB_WORKSPACE/scripts/download_geth_linux.py --dir $GITHUB_WORKSPACE/bin
           echo $GITHUB_WORKSPACE/bin >> $GITHUB_PATH
+      - name: Run static checks
+        run: tox -e static
 
-      - name: Run Tox (CPython)
-        if: "${{ !startsWith(matrix.py, 'pypy') }}"
-        run: tox -e static,py3_eest,optimized,py3
+  py3_eest:
+    runs-on: [self-hosted-ghr, size-xl-x64]
+    needs: static
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: "1.69.0"
+          override: true
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Tox and any other packages
+        run: |
+          DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential pkg-config
+          pip install 'tox>=4.11,<5' requests
+      - name: Download Geth and add to $PATH
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/bin
+          $GITHUB_WORKSPACE/scripts/download_geth_linux.py --dir $GITHUB_WORKSPACE/bin
+          echo $GITHUB_WORKSPACE/bin >> $GITHUB_PATH
+      - name: Run py3_eest tests
+        run: tox -e py3_eest
 
-      - name: Run Tox (PyPy)
-        if: "${{ startsWith(matrix.py, 'pypy') }}"
+  pypy3:
+    runs-on: [self-hosted-ghr, size-xl-x64]
+    needs: static
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: "1.69.0"
+          override: true
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "pypy3.11"
+      - name: Install Tox and any other packages
+        run: |
+          DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential pkg-config
+          pip install 'tox>=4.11,<5' requests
+      - name: Download Geth and add to $PATH
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/bin
+          $GITHUB_WORKSPACE/scripts/download_geth_linux.py --dir $GITHUB_WORKSPACE/bin
+          echo $GITHUB_WORKSPACE/bin >> $GITHUB_PATH
+      - name: Run pypy3 tests
         run: tox -e pypy3
         env:
           PYPY_GC_MAX: "10G"
 
+  py3:
+    runs-on: [self-hosted-ghr, size-xl-x64]
+    needs: static
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: "1.69.0"
+          override: true
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Tox and any other packages
+        run: |
+          DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential pkg-config
+          pip install 'tox>=4.11,<5' requests
+      - name: Download Geth and add to $PATH
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/bin
+          $GITHUB_WORKSPACE/scripts/download_geth_linux.py --dir $GITHUB_WORKSPACE/bin
+          echo $GITHUB_WORKSPACE/bin >> $GITHUB_PATH
+      - name: Run py3 tests
+        run: tox -e py3
       - name: Upload coverage reports to Codecov
-        if: "${{ !startsWith(matrix.py, 'pypy') }}"
         uses: codecov/codecov-action@v5
         with:
           files: .tox/coverage.xml
           flags: unittests
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  optimized:
+    runs-on: [self-hosted-ghr, size-xl-x64]
+    needs: static
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: "1.69.0"
+          override: true
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Tox and any other packages
+        run: |
+          DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential pkg-config
+          pip install 'tox>=4.11,<5' requests
+      - name: Download Geth and add to $PATH
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/bin
+          $GITHUB_WORKSPACE/scripts/download_geth_linux.py --dir $GITHUB_WORKSPACE/bin
+          echo $GITHUB_WORKSPACE/bin >> $GITHUB_PATH
+      - name: Run optimized tests
+        run: tox -e optimized
