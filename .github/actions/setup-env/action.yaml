@@ -1,0 +1,23 @@
+name: Setup Environment
+description: Common setup for Ethereum Spec jobs
+runs:
+  using: "composite"
+  steps:
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: "1.69.0"
+        override: true
+
+    - name: Install Tox and any other packages
+      shell: bash
+      run: |
+        DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential pkg-config
+        pip install 'tox>=4.11,<5' requests
+
+    - name: Download Geth and add to $PATH
+      shell: bash
+      run: |
+        mkdir -p $GITHUB_WORKSPACE/bin
+        $GITHUB_WORKSPACE/scripts/download_geth_linux.py --dir $GITHUB_WORKSPACE/bin
+        echo $GITHUB_WORKSPACE/bin >> $GITHUB_PATH 
