@@ -97,6 +97,12 @@ class NoBlobDataError(InvalidTransaction):
     """
 
 
+class BlobCountExceededError(InvalidTransaction):
+    """
+    The transaction has more blobs than the limit.
+    """
+
+
 class PriorityFeeGreaterThanMaxFeeError(InvalidTransaction):
     """
     The priority fee is greater than the maximum fee per gas.
