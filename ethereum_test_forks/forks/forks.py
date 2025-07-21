@@ -680,9 +680,9 @@ class Byzantium(Homestead):
         """
         return [
             Address(5, label="MODEXP"),
-            Address(6, label="BN256_ADD"),
-            Address(7, label="BN256_MUL"),
-            Address(8, label="BN256_PAIRING"),
+            Address(6, label="BN254_ADD"),
+            Address(7, label="BN254_MUL"),
+            Address(8, label="BN254_PAIRING"),
         ] + super(Byzantium, cls).precompiles(block_number, timestamp)
 
     @classmethod
