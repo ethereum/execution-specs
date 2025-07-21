@@ -182,7 +182,7 @@ def test_worst_bytecode_single_opcode(
 
     attack_call = Bytecode()
     if opcode == Op.EXTCODECOPY:
-        attack_call = Op.EXTCODECOPY(address=Op.SHA3(32 - 20 - 1, 85), dest_offset=85, size=1000)
+        attack_call = Op.EXTCODECOPY(address=Op.SHA3(32 - 20 - 1, 85), dest_offset=96, size=1000)
     else:
         # For the rest of the opcodes, we can use the same generic attack call
         # since all only minimally need the `address` of the target.
