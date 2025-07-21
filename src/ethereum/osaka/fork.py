@@ -33,6 +33,7 @@ from . import vm
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
 from .exceptions import (
+    BlobCountExceededError,
     BlobGasLimitExceededError,
     EmptyAuthorizationListError,
     InsufficientMaxFeePerBlobGasError,
@@ -112,6 +113,7 @@ HISTORY_STORAGE_ADDRESS = hex_to_address(
 MAX_BLOCK_SIZE = 10_485_760
 SAFETY_MARGIN = 2_097_152
 MAX_RLP_BLOCK_SIZE = MAX_BLOCK_SIZE - SAFETY_MARGIN
+BLOB_COUNT_LIMIT = 6
 
 
 @dataclass
@@ -440,6 +442,8 @@ def check_transaction(
         version.
     NoBlobDataError :
         If the transaction is a type 3 but has no blobs.
+    BlobCountExceededError :
+        If the transaction is a type 3 and has nore blobs than the limit.
     TransactionTypeContractCreationError:
         If the transaction type is not allowed to create contracts.
     EmptyAuthorizationListError :
@@ -484,8 +488,13 @@ def check_transaction(
         max_gas_fee = tx.gas * tx.gas_price
 
     if isinstance(tx, BlobTransaction):
-        if len(tx.blob_versioned_hashes) == 0:
+        blob_count = len(tx.blob_versioned_hashes)
+        if blob_count == 0:
             raise NoBlobDataError("no blob data in transaction")
+        if blob_count > BLOB_COUNT_LIMIT:
+            raise BlobCountExceededError(
+                f"Tx has {blob_count} blobs. Max allowed: {BLOB_COUNT_LIMIT}"
+            )
         for blob_versioned_hash in tx.blob_versioned_hashes:
             if blob_versioned_hash[0:1] != VERSIONED_HASH_VERSION_KZG:
                 raise InvalidBlobVersionedHashError(

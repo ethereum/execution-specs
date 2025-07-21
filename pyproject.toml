@@ -26,7 +26,7 @@ dependencies = [
     "ethereum-types>=0.2.4,<0.3",
     "ethereum-rlp>=0.1.4,<0.2",
     "cryptography>=45.0.1,<46",
-    "ethereum-execution-spec-tests @ git+https://github.com/ethereum/execution-spec-tests@6cf5107cee0eae1c2d4dd6a5ef5bc729aea6c379",
+    "ethereum-execution-spec-tests @ git+https://github.com/ethereum/execution-spec-tests@0fdd974b0968e443ef5878430ba5194c43149a4b",
     "ethereum-spec-evm-resolver @ git+https://github.com/petertdavies/ethereum-spec-evm-resolver",
 ]
 
