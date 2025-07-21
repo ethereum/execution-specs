@@ -113,7 +113,7 @@ def generic_create(
         push(evm.stack, U256(0))
         return
 
-    increment_nonce(evm.message.block_env.state, evm.message.current_target)
+    increment_nonce(evm.message.block_env.state, evm.message.current_target, evm.message.bal_tracker)
 
     child_message = Message(
         block_env=evm.message.block_env,

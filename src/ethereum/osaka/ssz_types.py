@@ -19,7 +19,7 @@ Address = Bytes20
 StorageKey = Bytes32
 StorageValue = Bytes32
 TxIndex = Uint
-Balance = U256
+Balance = Bytes  # uint128 - Post-transaction balance in wei (16 bytes, sufficient for total ETH supply)
 Nonce = Uint
 
 # Constants chosen to support a 630m block gas limit
@@ -27,6 +27,7 @@ MAX_TXS = 30_000
 MAX_SLOTS = 300_000
 MAX_ACCOUNTS = 300_000
 MAX_CODE_SIZE = 24_576
+MAX_CODE_CHANGES = 1
 
 
 @slotted_freezable
@@ -69,11 +70,6 @@ class SlotChanges:
     changes: Tuple[StorageChange, ...]
 
 
-@slotted_freezable
-@dataclass
-class SlotRead:
-    """Read-only access to a storage slot (no changes)"""
-    slot: StorageKey
 
 
 @slotted_freezable
@@ -85,7 +81,7 @@ class AccountChanges:
     """
     address: Address
     storage_changes: Tuple[SlotChanges, ...]
-    storage_reads: Tuple[SlotRead, ...]
+    storage_reads: Tuple[StorageKey, ...]
     balance_changes: Tuple[BalanceChange, ...]
     nonce_changes: Tuple[NonceChange, ...]
     code_changes: Tuple[CodeChange, ...]

@@ -575,7 +575,12 @@ def increment_nonce(state: State, address: Address, bal_tracker: Optional["State
 
     modify_state(state, address, increase_nonce)
     
-    # Track nonce change for BAL (for ALL accounts, including EOAs)
+    # Track nonce change for BAL (for ALL accounts and ALL nonce changes)
+    # This includes:
+    # - EOA senders (transaction nonce increments)
+    # - Contracts performing CREATE/CREATE2
+    # - Deployed contracts
+    # - EIP-7702 authorities
     if bal_tracker is not None:
         account = get_account(state, address)
         bal_tracker.track_nonce_change(address, account.nonce, state)

@@ -20,7 +20,6 @@ from .ssz_types import (
     CodeChange,
     NonceChange,
     SlotChanges,
-    SlotRead,
     StorageChange,
 )
 
@@ -124,7 +123,7 @@ class BALBuilder:
             storage_reads = []
             for slot in changes['storage_reads']:
                 if slot not in changes['storage_changes']:
-                    storage_reads.append(SlotRead(slot=slot))
+                    storage_reads.append(slot)
             
             # Sort all changes by tx_index for deterministic encoding
             balance_changes = tuple(sorted(changes['balance_changes'], key=lambda x: x.tx_index))
@@ -133,7 +132,7 @@ class BALBuilder:
             
             # Sort storage changes and reads by slot
             storage_changes.sort(key=lambda x: x.slot)
-            storage_reads.sort(key=lambda x: x.slot)
+            storage_reads.sort()
             
             # Create account changes object
             account_change = AccountChanges(
