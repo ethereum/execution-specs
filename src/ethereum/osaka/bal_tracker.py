@@ -84,8 +84,8 @@ class StateChangeTracker:
         """Track a balance change."""
         self.track_address_access(address)
         
-        # Convert U256 to 12-byte balance (sufficient for total ETH supply)
-        balance_bytes = new_balance.to_be_bytes32()[-12:]  # Take last 12 bytes
+        # Convert U256 to 16-byte balance (uint128 - sufficient for total ETH supply)
+        balance_bytes = new_balance.to_be_bytes32()[-16:]  # Take last 16 bytes for uint128
         self.bal_builder.add_balance_change(address, self.current_tx_index, balance_bytes)
 
     def track_nonce_change(
