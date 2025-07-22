@@ -233,7 +233,7 @@ class BaseTest(BaseModel):
             group.pre = Alloc.merge(
                 group.pre,
                 self.pre,
-                allow_key_collision=True,
+                key_collision_mode=Alloc.KeyCollisionMode.ALLOW_IDENTICAL_ACCOUNTS,
             )
             group.fork = fork
             group.test_ids.append(str(test_id))

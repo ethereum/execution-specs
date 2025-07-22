@@ -1,5 +1,6 @@
 """Pre-allocation group models for test fixture generation."""
 
+import json
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -57,10 +58,26 @@ class PreAllocGroup(CamelModel):
             if file.exists():
                 with open(file, "r") as f:
                     previous_pre_alloc_group = PreAllocGroup.model_validate_json(f.read())
-                    for account in previous_pre_alloc_group.pre:
-                        if account not in self.pre:
-                            self.pre[account] = previous_pre_alloc_group.pre[account]
-                    self.test_ids.extend(previous_pre_alloc_group.test_ids)
+                for account in previous_pre_alloc_group.pre:
+                    existing_account = previous_pre_alloc_group.pre[account]
+                    if account not in self.pre:
+                        self.pre[account] = existing_account
+                    else:
+                        new_account = self.pre[account]
+                        if new_account != existing_account:
+                            # This procedure fails during xdist worker's pytest_sessionfinish
+                            # and is not reported to the master thread.
+                            # We signal here that the groups created contain a collision.
+                            collision_file_path = file.with_suffix(".fail")
+                            collision_exception = Alloc.CollisionError(
+                                address=account,
+                                account_1=existing_account,
+                                account_2=new_account,
+                            )
+                            with open(collision_file_path, "w") as f:
+                                f.write(json.dumps(collision_exception.to_json()))
+                            raise collision_exception
+                self.test_ids.extend(previous_pre_alloc_group.test_ids)
 
             with open(file, "w") as f:
                 f.write(self.model_dump_json(by_alias=True, exclude_none=True, indent=2))
@@ -78,6 +95,10 @@ class PreAllocGroups(EthereumTestRootModel):
     @classmethod
     def from_folder(cls, folder: Path) -> "PreAllocGroups":
         """Create PreAllocGroups from a folder of pre-allocation files."""
+        # First check for collision failures
+        for fail_file in folder.glob("*.fail"):
+            with open(fail_file) as f:
+                raise Alloc.CollisionError.from_json(json.loads(f.read()))
         data = {}
         for file in folder.glob("*.json"):
             with open(file) as f:
