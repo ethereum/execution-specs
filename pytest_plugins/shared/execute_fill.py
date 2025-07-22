@@ -1,5 +1,6 @@
 """Shared pytest fixtures and hooks for EEST generation modes (fill and execute)."""
 
+from enum import StrEnum, unique
 from typing import List
 
 import pytest
@@ -7,9 +8,18 @@ import pytest
 from ethereum_test_execution import BaseExecute, LabeledExecuteFormat
 from ethereum_test_fixtures import BaseFixture, LabeledFixtureFormat
 from ethereum_test_specs import BaseTest
+from ethereum_test_tools import Environment
 from ethereum_test_types import EOA, Alloc
 
 from ..spec_version_checker.spec_version_checker import EIPSpecTestItem
+
+
+@unique
+class OpMode(StrEnum):
+    """Operation mode for the fill and execute."""
+
+    CONSENSUS = "consensus"
+    BENCHMARKING = "benchmarking"
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -59,6 +69,9 @@ def pytest_configure(config: pytest.Config):
                 "markers",
                 (f"{marker}: {description}"),
             )
+
+    if not hasattr(config, "op_mode"):
+        config.op_mode = OpMode.CONSENSUS  # type: ignore[attr-defined]
 
     config.addinivalue_line(
         "markers",
@@ -181,3 +194,8 @@ def pytest_addoption(parser: pytest.Parser):
         default=None,
         help=("Enable reading and filling from static test files."),
     )
+
+
+@pytest.fixture
+def env(request: pytest.FixtureRequest) -> Environment:  # noqa: D103
+    return Environment()
