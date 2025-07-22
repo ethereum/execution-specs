@@ -40,7 +40,10 @@ def run_fill(
     """Create a function to run the fill command with various output directory scenarios."""
 
     def _run_fill(
-        output_dir: Path, clean: bool = False, expect_failure: bool = False
+        output_dir: Path,
+        clean: bool = False,
+        expect_failure: bool = False,
+        disable_capture_output: bool = False,
     ) -> pytest.RunResult:
         """Run the fill command with the specified output directory and clean flag."""
         pytester.copy_example(name=str(test_path))
@@ -58,6 +61,9 @@ def run_fill(
         ]
         if clean:
             args.append("--clean")
+        if disable_capture_output:
+            # Required for tests on stdout
+            args.append("-s")
 
         result = pytester.runpytest(*args)
 
@@ -157,12 +163,13 @@ def test_fill_stdout_always_works(tmp_path_factory: TempPathFactory, run_fill):
     """Test filling to stdout always works regardless of output state."""
     stdout_path = Path("stdout")
     # create a directory called "stdout" - it should not have any effect
-    output_dir = tmp_path_factory.mktemp(stdout_path.name)
+    output_dir = tmp_path_factory.mktemp(stdout_path.name, numbered=False)
+    assert str(output_dir.stem) == "stdout"
     meta_dir = output_dir / ".meta"
     meta_dir.mkdir()
     (meta_dir / "existing_meta_file.txt").write_text("This is metadata")
 
-    result: pytest.RunResult = run_fill(stdout_path)
+    result: pytest.RunResult = run_fill(stdout_path, disable_capture_output=True)
 
     assert any(
         "test_chainid.py::test_chainid[fork_Cancun-state_test]" in line for line in result.outlines
