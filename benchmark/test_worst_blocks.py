@@ -21,9 +21,9 @@ from ethereum_test_tools import (
 
 
 @pytest.fixture
-def iteration_count(intrinsic_cost: int):
+def iteration_count(intrinsic_cost: int, gas_benchmark_value: int):
     """Calculate the number of iterations based on the gas limit and intrinsic cost."""
-    return Environment().gas_limit // intrinsic_cost
+    return gas_benchmark_value // intrinsic_cost
 
 
 @pytest.fixture
@@ -173,10 +173,10 @@ def test_block_full_data(
     zero_byte: bool,
     intrinsic_cost: int,
     total_cost_floor_per_token: int,
+    gas_benchmark_value: int,
+    env: Environment,
 ):
     """Test a block with empty payload."""
-    attack_gas_limit = Environment().gas_limit
-
     # Gas cost calculation based on EIP-7683: (https://eips.ethereum.org/EIPS/eip-7683)
     #
     #   tx.gasUsed = 21000 + max(
@@ -201,7 +201,7 @@ def test_block_full_data(
     #
     # So we calculate how many bytes we can fit into calldata based on available gas.
 
-    gas_available = attack_gas_limit - intrinsic_cost
+    gas_available = gas_benchmark_value - intrinsic_cost
 
     # Calculate the token_in_calldata
     max_tokens_in_calldata = gas_available // total_cost_floor_per_token
@@ -212,12 +212,12 @@ def test_block_full_data(
     tx = Transaction(
         to=pre.fund_eoa(),
         data=byte_data * num_of_bytes,
-        gas_limit=attack_gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=Environment(),
+        env=env,
         pre=pre,
         post={},
         tx=tx,
