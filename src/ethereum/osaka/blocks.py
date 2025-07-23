@@ -243,7 +243,7 @@ class Header:
 
     bal_hash: Hash32
     """
-    Hash of the Block Access List (BAL) containing all accounts and storage
+    Hash of the Block Access List containing all accounts and storage
     locations accessed during block execution. Introduced in [EIP-7928].
 
     [EIP-7928]: https://eips.ethereum.org/EIPS/eip-7928

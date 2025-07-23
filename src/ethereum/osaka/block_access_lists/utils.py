@@ -31,7 +31,7 @@ def compute_bal_hash(bal: BlockAccessList) -> Hash32:
     """
     Compute the hash of a Block Access List.
     
-    The BAL is SSZ-encoded and then hashed with keccak256.
+    The Block Access List is SSZ-encoded and then hashed with keccak256.
     
     Parameters
     ----------
@@ -41,7 +41,7 @@ def compute_bal_hash(bal: BlockAccessList) -> Hash32:
     Returns
     -------
     hash :
-        The keccak256 hash of the SSZ-encoded BAL.
+        The keccak256 hash of the SSZ-encoded Block Access List.
     """
     bal_bytes = ssz_encode_block_access_list(bal)
     return keccak256(bal_bytes)
@@ -247,20 +247,20 @@ def validate_bal_against_execution(
     block_access_list_builder: Optional['BlockAccessListBuilder'] = None
 ) -> bool:
     """
-    Validate that a BAL is structurally correct and optionally matches a builder's state.
+    Validate that a Block Access List is structurally correct and optionally matches a builder's state.
     
     Parameters
     ----------
     bal :
         The Block Access List to validate.
     block_access_list_builder :
-        Optional BAL builder to validate against. If provided, checks that the BAL
-        hash matches what would be built from the builder's current state.
+        Optional Block Access List builder to validate against. If provided, checks that the
+        Block Access List hash matches what would be built from the builder's current state.
         
     Returns
     -------
     valid :
-        True if the BAL is structurally valid and matches the builder (if provided).
+        True if the Block Access List is structurally valid and matches the builder (if provided).
     """
     # 1. Validate structural constraints
     
@@ -326,10 +326,10 @@ def validate_bal_against_execution(
             if len(code_change.new_code) > MAX_CODE_SIZE:
                 return False
     
-    # 4. If BAL builder provided, validate against it by comparing hashes
+    # 4. If Block Access List builder provided, validate against it by comparing hashes
     if block_access_list_builder is not None:
         from .builder import build
-        # Build a BAL from the builder
+        # Build a Block Access List from the builder
         expected_bal = build(block_access_list_builder)
         
         # Compare hashes - much simpler!

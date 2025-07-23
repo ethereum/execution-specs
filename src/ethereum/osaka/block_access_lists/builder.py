@@ -2,7 +2,7 @@
 Block Access List Builder for EIP-7928
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This module implements the BAL builder that tracks all account and storage
+This module implements the Block Access List builder that tracks all account and storage
 accesses during block execution and constructs the final BlockAccessList.
 """
 

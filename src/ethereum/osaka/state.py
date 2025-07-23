@@ -510,9 +510,7 @@ def move_ether(
     modify_state(state, sender_address, reduce_sender_balance)
     modify_state(state, recipient_address, increase_recipient_balance)
     
-    # Track balance changes for BAL
     if change_tracker is not None:
-        # Track new balances after the transfer
         sender_new_balance = get_account(state, sender_address).balance
         recipient_new_balance = get_account(state, recipient_address).balance
         
@@ -549,7 +547,6 @@ def set_account_balance(
 
     modify_state(state, address, set_balance)
     
-    # Track balance change for BAL
     if change_tracker is not None:
         change_tracker.track_balance_change(address, amount, state)
 
@@ -575,7 +572,7 @@ def increment_nonce(state: State, address: Address, change_tracker: Optional["St
 
     modify_state(state, address, increase_nonce)
     
-    # Track nonce change for BAL (for ALL accounts and ALL nonce changes)
+    # Track nonce change for Block Access List (for ALL accounts and ALL nonce changes)
     # This includes:
     # - EOA senders (transaction nonce increments)
     # - Contracts performing CREATE/CREATE2

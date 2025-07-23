@@ -762,7 +762,7 @@ def apply_body(
     """
     block_output = vm.BlockOutput()
     
-    # Initialize BAL state change tracker
+    # Initialize Block Access List state change tracker
     change_tracker = StateChangeTracker(block_output.block_access_list_builder)
 
     process_unchecked_system_transaction(
