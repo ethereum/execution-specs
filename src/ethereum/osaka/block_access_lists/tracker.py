@@ -1,5 +1,5 @@
 """
-BAL State Change Tracker for EIP-7928
+Block Access List State Change Tracker for EIP-7928
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This module tracks state changes during transaction execution to build Block Access Lists.
@@ -27,7 +27,7 @@ from .builder import (
 @dataclass
 class StateChangeTracker:
     """
-    Tracks state changes during transaction execution for BAL construction.
+    Tracks state changes during transaction execution for Block Access List construction.
     """
     block_access_list_builder: BlockAccessListBuilder
     pre_storage_cache: Dict[tuple, U256] = field(default_factory=dict)

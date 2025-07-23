@@ -136,7 +136,6 @@ def generic_create(
         change_tracker=evm.message.change_tracker,
     )
     
-    # Track the contract creation target address for BAL
     if evm.message.change_tracker:
         evm.message.change_tracker.track_address_access(contract_address)
     
@@ -332,7 +331,6 @@ def generic_call(
         change_tracker=evm.message.change_tracker,
     )
     
-    # Track the call target address for BAL
     if evm.message.change_tracker:
         evm.message.change_tracker.track_address_access(to)
     

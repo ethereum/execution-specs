@@ -87,7 +87,6 @@ def balance(evm: Evm) -> None:
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
     balance = get_account(evm.message.block_env.state, address).balance
     
-    # BAL tracking for address access
     if evm.message.change_tracker:
         evm.message.change_tracker.track_address_access(address)
 
@@ -357,7 +356,6 @@ def extcodesize(evm: Evm) -> None:
     # OPERATION
     code = get_account(evm.message.block_env.state, address).code
     
-    # BAL tracking for address access
     if evm.message.change_tracker:
         evm.message.change_tracker.track_address_access(address)
 
@@ -403,7 +401,6 @@ def extcodecopy(evm: Evm) -> None:
     evm.memory += b"\x00" * extend_memory.expand_by
     code = get_account(evm.message.block_env.state, address).code
     
-    # BAL tracking for address access
     if evm.message.change_tracker:
         evm.message.change_tracker.track_address_access(address)
 
@@ -493,7 +490,6 @@ def extcodehash(evm: Evm) -> None:
     # OPERATION
     account = get_account(evm.message.block_env.state, address)
     
-    # BAL tracking for address access
     if evm.message.change_tracker:
         evm.message.change_tracker.track_address_access(address)
 

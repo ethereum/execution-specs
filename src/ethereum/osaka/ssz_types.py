@@ -2,7 +2,7 @@
 SSZ Types for EIP-7928 Block-Level Access Lists
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This module defines the SSZ data structures for Block-Level Access Lists (BALs)
+This module defines the SSZ data structures for Block-Level Access Lists
 as specified in EIP-7928. These structures enable efficient encoding and
 decoding of all accounts and storage locations accessed during block execution.
 """
