@@ -493,7 +493,7 @@ def move_ether(
     sender_address: Address,
     recipient_address: Address,
     amount: U256,
-    change_tracker: Optional["StateChangeTracker"] = None,
+    change_tracker: "StateChangeTracker",
 ) -> None:
     """
     Move funds between accounts.
@@ -522,7 +522,7 @@ def set_account_balance(
     state: State, 
     address: Address, 
     amount: U256,
-    change_tracker: Optional["StateChangeTracker"] = None,
+    change_tracker: "StateChangeTracker",
 ) -> None:
     """
     Sets the balance of an account.
@@ -539,7 +539,7 @@ def set_account_balance(
         The amount that needs to set in balance.
         
     change_tracker:
-        Optional change tracker to record balance changes.
+        Change tracker to record balance changes.
     """
 
     def set_balance(account: Account) -> None:
@@ -551,7 +551,7 @@ def set_account_balance(
         change_tracker.track_balance_change(address, amount, state)
 
 
-def increment_nonce(state: State, address: Address, change_tracker: Optional["StateChangeTracker"] = None) -> None:
+def increment_nonce(state: State, address: Address, change_tracker: "StateChangeTracker") -> None:
     """
     Increments the nonce of an account.
 
@@ -564,7 +564,7 @@ def increment_nonce(state: State, address: Address, change_tracker: Optional["St
         Address of the account whose nonce needs to be incremented.
         
     change_tracker:
-        Optional change tracker for EIP-7928.
+        Change tracker for EIP-7928.
     """
 
     def increase_nonce(sender: Account) -> None:
@@ -578,16 +578,15 @@ def increment_nonce(state: State, address: Address, change_tracker: Optional["St
     # - Contracts performing CREATE/CREATE2
     # - Deployed contracts
     # - EIP-7702 authorities
-    if change_tracker is not None:
-        account = get_account(state, address)
-        change_tracker.track_nonce_change(address, account.nonce, state)
+    account = get_account(state, address)
+    change_tracker.track_nonce_change(address, account.nonce, state)
 
 
 def set_code(
     state: State, 
     address: Address, 
     code: Bytes,
-    change_tracker: Optional["StateChangeTracker"] = None,
+    change_tracker: "StateChangeTracker",
 ) -> None:
     """
     Sets Account code.
@@ -604,7 +603,7 @@ def set_code(
         The bytecode that needs to be set.
     
     change_tracker:
-        Optional change tracker for EIP-7928.
+        Change tracker for EIP-7928.
     """
 
     def write_code(sender: Account) -> None:
@@ -612,9 +611,7 @@ def set_code(
 
     modify_state(state, address, write_code)
     
-    # Track code change for BAL
-    if change_tracker is not None:
-        change_tracker.track_code_change(address, code, state)
+    change_tracker.track_code_change(address, code, state)
 
 
 def get_storage_original(state: State, address: Address, key: Bytes32) -> U256:

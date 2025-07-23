@@ -29,7 +29,6 @@ from ..state import State, TransientStorage
 from ..transactions import LegacyTransaction
 from ..trie import Trie
 
-# Forward declaration for type hints
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ..block_access_lists import StateChangeTracker
