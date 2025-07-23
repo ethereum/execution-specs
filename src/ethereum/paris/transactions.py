@@ -13,7 +13,11 @@ from ethereum_types.numeric import U64, U256, Uint, ulen
 
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.exceptions import InvalidSignatureError, InvalidTransaction
+from ethereum.exceptions import (
+    InsufficientTransactionGasError,
+    InvalidSignatureError,
+    NonceOverflowError,
+)
 
 from .exceptions import TransactionTypeError
 from .fork_types import Address
@@ -337,15 +341,17 @@ def validate_transaction(tx: Transaction) -> Uint:
 
     This function takes a transaction as a parameter and returns the intrinsic
     gas cost of the transaction after validation. It throws an
-    `InvalidTransaction` exception if the transaction is invalid.
+    `InsufficientTransactionGasError` exception if the transaction does not
+    provide enough gas to cover the intrinsic cost, and a `NonceOverflowError`
+    exception if the nonce is greater than `2**64 - 2`.
 
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     """
     intrinsic_gas = calculate_intrinsic_cost(tx)
     if intrinsic_gas > tx.gas:
-        raise InvalidTransaction("Insufficient gas")
+        raise InsufficientTransactionGasError("Insufficient gas")
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
-        raise InvalidTransaction("Nonce too high")
+        raise NonceOverflowError("Nonce too high")
     return intrinsic_gas
 
 
