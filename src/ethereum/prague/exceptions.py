@@ -107,3 +107,9 @@ class EmptyAuthorizationListError(InvalidTransaction):
     """
     The authorization list in the transaction is empty.
     """
+
+
+class InitCodeTooLargeError(InvalidTransaction):
+    """
+    The init code of the transaction is too large.
+    """

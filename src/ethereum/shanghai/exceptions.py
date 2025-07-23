@@ -56,3 +56,9 @@ class PriorityFeeGreaterThanMaxFeeError(InvalidTransaction):
     """
     The priority fee is greater than the maximum fee per gas.
     """
+
+
+class InitCodeTooLargeError(InvalidTransaction):
+    """
+    The init code of the transaction is too large.
+    """
