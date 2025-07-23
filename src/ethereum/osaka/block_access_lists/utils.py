@@ -1,6 +1,6 @@
 """
-BAL Utilities for EIP-7928
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Block Access List Utilities for EIP-7928
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Utilities for working with Block Access Lists, including hashing and validation.
 """
@@ -11,7 +11,7 @@ from ethereum_types.numeric import Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
 
-from .ssz_types import (
+from ..ssz_types import (
     BlockAccessList,
     AccountChanges,
     SlotChanges,
@@ -244,7 +244,7 @@ def ssz_encode_block_access_list(bal: BlockAccessList) -> Bytes:
 
 def validate_bal_against_execution(
     bal: BlockAccessList,
-    bal_builder: Optional['BALBuilder'] = None
+    block_access_list_builder: Optional['BlockAccessListBuilder'] = None
 ) -> bool:
     """
     Validate that a BAL is structurally correct and optionally matches a builder's state.
@@ -253,7 +253,7 @@ def validate_bal_against_execution(
     ----------
     bal :
         The Block Access List to validate.
-    bal_builder :
+    block_access_list_builder :
         Optional BAL builder to validate against. If provided, checks that the BAL
         hash matches what would be built from the builder's current state.
         
@@ -327,9 +327,10 @@ def validate_bal_against_execution(
                 return False
     
     # 4. If BAL builder provided, validate against it by comparing hashes
-    if bal_builder is not None:
+    if block_access_list_builder is not None:
+        from .builder import build
         # Build a BAL from the builder
-        expected_bal = bal_builder.build()
+        expected_bal = build(block_access_list_builder)
         
         # Compare hashes - much simpler!
         if compute_bal_hash(bal) != compute_bal_hash(expected_bal):

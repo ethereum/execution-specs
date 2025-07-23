@@ -61,8 +61,8 @@ def sload(evm: Evm) -> None:
     )
     
     # BAL tracking
-    if evm.message.bal_tracker:
-        evm.message.bal_tracker.track_storage_read(
+    if evm.message.change_tracker:
+        evm.message.change_tracker.track_storage_read(
             evm.message.current_target, key, evm.message.block_env.state
         )
 
@@ -135,8 +135,8 @@ def sstore(evm: Evm) -> None:
     set_storage(state, evm.message.current_target, key, new_value)
     
     # BAL tracking
-    if evm.message.bal_tracker:
-        evm.message.bal_tracker.track_storage_write(
+    if evm.message.change_tracker:
+        evm.message.change_tracker.track_storage_write(
             evm.message.current_target, key, new_value, state
         )
 

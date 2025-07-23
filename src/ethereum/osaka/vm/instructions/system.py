@@ -108,12 +108,12 @@ def generic_create(
         evm.message.block_env.state, contract_address
     ) or account_has_storage(evm.message.block_env.state, contract_address):
         increment_nonce(
-            evm.message.block_env.state, evm.message.current_target, evm.message.bal_tracker
+            evm.message.block_env.state, evm.message.current_target, evm.message.change_tracker
         )
         push(evm.stack, U256(0))
         return
 
-    increment_nonce(evm.message.block_env.state, evm.message.current_target, evm.message.bal_tracker)
+    increment_nonce(evm.message.block_env.state, evm.message.current_target, evm.message.change_tracker)
 
     child_message = Message(
         block_env=evm.message.block_env,
@@ -133,12 +133,12 @@ def generic_create(
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         disable_precompiles=False,
         parent_evm=evm,
-        bal_tracker=evm.message.bal_tracker,
+        change_tracker=evm.message.change_tracker,
     )
     
     # Track the contract creation target address for BAL
-    if evm.message.bal_tracker:
-        evm.message.bal_tracker.track_address_access(contract_address)
+    if evm.message.change_tracker:
+        evm.message.change_tracker.track_address_access(contract_address)
     
     child_evm = process_create_message(child_message)
 
@@ -329,12 +329,12 @@ def generic_call(
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         disable_precompiles=disable_precompiles,
         parent_evm=evm,
-        bal_tracker=evm.message.bal_tracker,
+        change_tracker=evm.message.change_tracker,
     )
     
     # Track the call target address for BAL
-    if evm.message.bal_tracker:
-        evm.message.bal_tracker.track_address_access(to)
+    if evm.message.change_tracker:
+        evm.message.change_tracker.track_address_access(to)
     
     child_evm = process_message(child_message)
 
@@ -566,7 +566,7 @@ def selfdestruct(evm: Evm) -> None:
         originator,
         beneficiary,
         originator_balance,
-        evm.message.bal_tracker
+        evm.message.change_tracker
     )
 
     # register account for deletion only if it was created
@@ -574,7 +574,7 @@ def selfdestruct(evm: Evm) -> None:
     if originator in evm.message.block_env.state.created_accounts:
         # If beneficiary is the same as originator, then
         # the ether is burnt.
-        set_account_balance(evm.message.block_env.state, originator, U256(0), evm.message.bal_tracker)
+        set_account_balance(evm.message.block_env.state, originator, U256(0), evm.message.change_tracker)
         evm.accounts_to_delete.add(originator)
 
     # HALT the execution
