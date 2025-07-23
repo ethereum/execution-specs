@@ -181,7 +181,7 @@ class FixtureHeader(CamelModel):
         # if so, check if the field is required for the given fork.
         annotated_hints = get_type_hints(self, include_extras=True)
 
-        for field in self.model_fields:
+        for field in self.__class__.model_fields:
             if field == "fork":
                 continue
 
@@ -199,7 +199,7 @@ class FixtureHeader(CamelModel):
     def rlp_encode_list(self) -> List:
         """Compute the RLP of the header."""
         header_list = []
-        for field in self.model_fields:
+        for field in self.__class__.model_fields:
             if field == "fork":
                 continue
             value = getattr(self, field)
