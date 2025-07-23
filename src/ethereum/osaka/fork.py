@@ -30,8 +30,7 @@ from ethereum.exceptions import (
 )
 
 from . import vm
-from .bal_tracker import StateChangeTracker
-from .bal_utils import compute_bal_hash
+from .block_access_lists import StateChangeTracker, compute_bal_hash, build
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
 from .exceptions import (
@@ -247,7 +246,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     requests_hash = compute_requests_hash(block_output.requests)
     
     # Build and validate Block Access List
-    computed_bal = block_output.bal_builder.build()
+    computed_bal = build(block_output.block_access_list_builder)
     computed_bal_hash = compute_bal_hash(computed_bal)
 
     if block_output.block_gas_used != block.header.gas_used:
@@ -764,7 +763,7 @@ def apply_body(
     block_output = vm.BlockOutput()
     
     # Initialize BAL state change tracker
-    bal_tracker = StateChangeTracker(block_output.bal_builder)
+    change_tracker = StateChangeTracker(block_output.block_access_list_builder)
 
     process_unchecked_system_transaction(
         block_env=block_env,
@@ -779,10 +778,10 @@ def apply_body(
     )
 
     for i, tx in enumerate(map(decode_transaction, transactions)):
-        bal_tracker.set_transaction_index(i)
-        process_transaction(block_env, block_output, tx, Uint(i), bal_tracker)
+        change_tracker.set_transaction_index(i)
+        process_transaction(block_env, block_output, tx, Uint(i), change_tracker)
 
-    process_withdrawals(block_env, block_output, withdrawals, bal_tracker)
+    process_withdrawals(block_env, block_output, withdrawals, change_tracker)
 
     process_general_purpose_requests(
         block_env=block_env,
@@ -841,7 +840,7 @@ def process_transaction(
     block_output: vm.BlockOutput,
     tx: Transaction,
     index: Uint,
-    bal_tracker: StateChangeTracker,
+    change_tracker: StateChangeTracker,
 ) -> None:
     """
     Execute a transaction against the provided environment.
@@ -895,13 +894,13 @@ def process_transaction(
     effective_gas_fee = tx.gas * effective_gas_price
 
     gas = tx.gas - intrinsic_gas
-    increment_nonce(block_env.state, sender, bal_tracker)
+    increment_nonce(block_env.state, sender, change_tracker)
 
     sender_balance_after_gas_fee = (
         Uint(sender_account.balance) - effective_gas_fee - blob_gas_fee
     )
     set_account_balance(
-        block_env.state, sender, U256(sender_balance_after_gas_fee), bal_tracker
+        block_env.state, sender, U256(sender_balance_after_gas_fee), change_tracker
     )
 
     access_list_addresses = set()
@@ -939,7 +938,7 @@ def process_transaction(
     )
 
     message = prepare_message(block_env, tx_env, tx)
-    message.bal_tracker = bal_tracker
+    message.change_tracker = change_tracker
 
     tx_output = process_message_call(message)
 
@@ -968,7 +967,7 @@ def process_transaction(
     sender_balance_after_refund = get_account(
         block_env.state, sender
     ).balance + U256(gas_refund_amount)
-    set_account_balance(block_env.state, sender, sender_balance_after_refund, bal_tracker)
+    set_account_balance(block_env.state, sender, sender_balance_after_refund, change_tracker)
 
     # transfer miner fees
     coinbase_balance_after_mining_fee = get_account(
@@ -979,7 +978,7 @@ def process_transaction(
             block_env.state,
             block_env.coinbase,
             coinbase_balance_after_mining_fee,
-            bal_tracker
+            change_tracker
         )
     elif account_exists_and_is_empty(block_env.state, block_env.coinbase):
         destroy_account(block_env.state, block_env.coinbase)
@@ -1010,7 +1009,7 @@ def process_withdrawals(
     block_env: vm.BlockEnvironment,
     block_output: vm.BlockOutput,
     withdrawals: Tuple[Withdrawal, ...],
-    bal_tracker: StateChangeTracker,
+    change_tracker: StateChangeTracker,
 ) -> None:
     """
     Increase the balance of the withdrawing account.
@@ -1030,7 +1029,7 @@ def process_withdrawals(
         
         # Track balance change for BAL
         new_balance = get_account(block_env.state, wd.address).balance
-        bal_tracker.track_balance_change(wd.address, U256(new_balance), block_env.state)
+        change_tracker.track_balance_change(wd.address, U256(new_balance), block_env.state)
 
         if account_exists_and_is_empty(block_env.state, wd.address):
             destroy_account(block_env.state, wd.address)
