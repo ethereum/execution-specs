@@ -24,11 +24,11 @@ from py_ecc.optimized_bls12_381.optimized_curve import (
     curve_order,
     is_inf,
     is_on_curve,
+    normalize,
 )
 from py_ecc.optimized_bls12_381.optimized_curve import (
     multiply as bls12_multiply,
 )
-from py_ecc.optimized_bls12_381.optimized_curve import normalize
 from py_ecc.typing import Optimized_Point3D as Point3D
 
 from ....vm.memory import buffer_read
