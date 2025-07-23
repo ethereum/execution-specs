@@ -216,7 +216,7 @@ class T8N(Load):
                 data=block_env.parent_beacon_block_root,
             )
 
-        for i, tx in zip(self.txs.successfully_parsed, self.txs.transactions):
+        for i, tx in zip(self.txs.successfully_parsed, self.txs.transactions, strict=False):
             self.backup_state()
             try:
                 self.fork.process_transaction(
