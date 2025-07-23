@@ -14,7 +14,7 @@ except ImportError:
     from hardfork import Hardfork
 
 
-def get_fork_by_index(forks: List[Hardfork], index: int) -> Optional[Hardfork]:
+def fork_by_index(forks: List[Hardfork], index: int) -> Optional[Hardfork]:
     """
     Get fork by index, where 0 being Frontier and -1 being the most recent.
     """
@@ -130,7 +130,7 @@ def main() -> None:
         sys.exit(1)
     
     if args.fork_number is not None:
-        fork = get_fork_by_index(forks, args.fork_number)
+        fork = fork_by_index(forks, args.fork_number)
         if fork is None:
             print(f"Fork index {args.fork_number} not found", file=sys.stderr)
             sys.exit(1)
