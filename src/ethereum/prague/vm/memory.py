@@ -37,7 +37,7 @@ def memory_write(
 
 def memory_read_bytes(
     memory: bytearray, start_position: U256, size: U256
-) -> bytearray:
+) -> Bytes:
     """
     Read bytes from memory.
 
@@ -55,7 +55,7 @@ def memory_read_bytes(
     data_bytes :
         Data read from memory.
     """
-    return memory[start_position : Uint(start_position) + Uint(size)]
+    return Bytes(memory[start_position : Uint(start_position) + Uint(size)])
 
 
 def buffer_read(buffer: Bytes, start_position: U256, size: U256) -> Bytes:
@@ -76,6 +76,5 @@ def buffer_read(buffer: Bytes, start_position: U256, size: U256) -> Bytes:
     data_bytes :
         Data read from memory.
     """
-    return right_pad_zero_bytes(
-        buffer[start_position : Uint(start_position) + Uint(size)], size
-    )
+    buffer_slice = buffer[start_position : Uint(start_position) + Uint(size)]
+    return right_pad_zero_bytes(bytes(buffer_slice), size)

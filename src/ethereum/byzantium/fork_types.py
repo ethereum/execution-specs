@@ -41,7 +41,7 @@ class Account:
 EMPTY_ACCOUNT = Account(
     nonce=Uint(0),
     balance=U256(0),
-    code=bytearray(),
+    code=b"",
 )
 
 
