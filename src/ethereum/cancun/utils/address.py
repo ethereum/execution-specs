@@ -13,7 +13,7 @@ Address specific functions used in this cancun version of
 specification.
 """
 from ethereum_rlp import rlp
-from ethereum_types.bytes import Bytes32
+from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.crypto.hash import keccak256
@@ -63,7 +63,7 @@ def compute_contract_address(address: Address, nonce: Uint) -> Address:
 
 
 def compute_create2_contract_address(
-    address: Address, salt: Bytes32, call_data: bytearray
+    address: Address, salt: Bytes32, call_data: Bytes
 ) -> Address:
     """
     Computes address of the new account that needs to be created, which is
