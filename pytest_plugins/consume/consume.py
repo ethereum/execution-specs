@@ -446,12 +446,3 @@ def pytest_generate_tests(metafunc):
     if "client_type" in metafunc.fixturenames:
         client_ids = [client.name for client in metafunc.config.hive_execution_clients]
         metafunc.parametrize("client_type", metafunc.config.hive_execution_clients, ids=client_ids)
-
-
-def pytest_collection_modifyitems(items):
-    """Modify collected item names to remove the test runner function from the name."""
-    for item in items:
-        original_name = item.originalname
-        remove = f"{original_name}["
-        if item.name.startswith(remove):
-            item.name = item.name.removeprefix(remove)[:-1]

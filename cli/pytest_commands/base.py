@@ -1,9 +1,7 @@
 """Base classes and utilities for pytest-based CLI commands."""
 
-import os
 import sys
 from abc import ABC, abstractmethod
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from os.path import realpath
 from pathlib import Path
@@ -14,8 +12,8 @@ import pytest
 from rich.console import Console
 
 CURRENT_FOLDER = Path(realpath(__file__)).parent
+PACKAGE_INSTALL_FOLDER = CURRENT_FOLDER.parent.parent
 PYTEST_INI_FOLDER = CURRENT_FOLDER / "pytest_ini_files"
-STATIC_TESTS_WORKING_DIRECTORY = CURRENT_FOLDER.parent.parent
 
 
 @dataclass
@@ -25,7 +23,7 @@ class PytestExecution:
     config_file: Path
     """Path to the pytest configuration file (e.g., 'pytest-fill.ini')."""
 
-    test_path_args: List[str] = field(default_factory=list)
+    command_logic_test_paths: List[str] = field(default_factory=list)
     """List of tests that have to be appended to the start of pytest command arguments."""
 
     args: List[str] = field(default_factory=list)
@@ -44,21 +42,6 @@ class ArgumentProcessor(ABC):
         pass
 
 
-@contextmanager
-def chdir(path: Path | None):
-    """Context manager to change the current working directory and restore it unconditionally."""
-    if path is None:
-        yield
-        return
-
-    prev_cwd = Path.cwd()
-    os.chdir(path)
-    try:
-        yield
-    finally:
-        os.chdir(prev_cwd)
-
-
 @dataclass(kw_only=True)
 class PytestRunner:
     """Handles execution of pytest commands."""
@@ -66,38 +49,28 @@ class PytestRunner:
     console: Console = field(default_factory=lambda: Console(highlight=False))
     """Console to use for output."""
 
-    pytest_working_directory: Path | None = None
-    """
-    Working directory that pytest should use to start and look for tests.
-    If set, the working directory of the process will be changed to this directory
-    before running pytest, and a plugin will be used to change the working directory
-    back to the original directory to run the rest of the pytest plugins
-    (so flags like `--input` in `consume` do work with relative paths).
-    """
-
     def run_single(self, execution: PytestExecution) -> int:
         """Run pytest once with the given configuration and arguments."""
         root_dir_arg = ["--rootdir", "."]
         pytest_args = (
             ["-c", str(execution.config_file)]
             + root_dir_arg
-            + execution.test_path_args
+            + [
+                str(PACKAGE_INSTALL_FOLDER / test_path)
+                for test_path in execution.command_logic_test_paths
+            ]
             + execution.args
         )
-        if self.pytest_working_directory:
+        if execution.command_logic_test_paths:
             pytest_args += [
                 "-p",
-                "pytest_plugins.working_directory",
-                "--working-directory",
-                f"{Path.cwd()}",
+                "pytest_plugins.fix_package_test_path",
             ]
-
         if self._is_verbose(execution.args):
             pytest_cmd = f"pytest {' '.join(pytest_args)}"
             self.console.print(f"Executing: [bold]{pytest_cmd}[/bold]")
 
-        with chdir(self.pytest_working_directory):
-            return pytest.main(pytest_args)
+        return pytest.main(pytest_args)
 
     def _is_verbose(self, args: List[str]) -> bool:
         """Check if verbose output is requested."""
@@ -145,8 +118,8 @@ class PytestCommand:
     plugins: List[str] = field(default_factory=list)
     """Plugins to load for the pytest command."""
 
-    static_test_paths: List[Path] | None = None
-    """Static tests that contain the command logic."""
+    command_logic_test_paths: List[Path] | None = None
+    """Path to test files that contain the command logic."""
 
     pytest_ini_folder: Path = PYTEST_INI_FOLDER
     """Folder where the pytest configuration files are located."""
@@ -159,10 +132,6 @@ class PytestCommand:
     def execute(self, pytest_args: List[str]) -> None:
         """Execute the command with the given pytest arguments."""
         executions = self.create_executions(pytest_args)
-        if self.static_test_paths:
-            self.runner.pytest_working_directory = STATIC_TESTS_WORKING_DIRECTORY
-        else:
-            self.runner.pytest_working_directory = None
         result = self.runner.run_multiple(executions)
         sys.exit(result)
 
@@ -172,8 +141,8 @@ class PytestCommand:
         Return the test-path arguments that have to be appended to all PytestExecution
         instances.
         """
-        if self.static_test_paths:
-            return [str(path) for path in self.static_test_paths]
+        if self.command_logic_test_paths:
+            return [str(path) for path in self.command_logic_test_paths]
         return []
 
     def create_executions(self, pytest_args: List[str]) -> List[PytestExecution]:
@@ -187,7 +156,7 @@ class PytestCommand:
         return [
             PytestExecution(
                 config_file=self.config_path,
-                test_path_args=self.test_args,
+                command_logic_test_paths=self.test_args,
                 args=processed_args,
             )
         ]
