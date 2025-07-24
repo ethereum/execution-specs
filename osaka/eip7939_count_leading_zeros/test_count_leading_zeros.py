@@ -10,14 +10,18 @@ from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     Account,
     Alloc,
+    AuthorizationTuple,
     Block,
     BlockchainTestFiller,
+    Bytecode,
     CodeGasMeasure,
+    Environment,
     StateTestFiller,
     Transaction,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
+from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .spec import Spec, ref_spec_7939
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7939.git_path
@@ -311,6 +315,55 @@ def test_clz_jump_operation(
         post[callee_address] = Account(storage={"0x00": expected_clz})
 
     state_test(pre=pre, post=post, tx=tx)
+
+
+auth_account_start_balance = 0
+
+
+@pytest.mark.valid_from("Osaka")
+def test_clz_from_set_code(
+    state_test: StateTestFiller,
+    pre: Alloc,
+):
+    """Test the address opcode in a set-code transaction."""
+    storage = Storage()
+    auth_signer = pre.fund_eoa(auth_account_start_balance)
+
+    set_code = Bytecode()
+    for bits in [0, 1, 128, 255]:
+        expected_clz = 255 - bits
+        set_code += Op.SSTORE(storage.store_next(expected_clz), Op.CLZ(1 << bits))
+    set_code += Op.STOP
+
+    set_code_to_address = pre.deploy_contract(set_code)
+
+    tx = Transaction(
+        gas_limit=200_000,
+        to=auth_signer,
+        value=0,
+        authorization_list=[
+            AuthorizationTuple(
+                address=set_code_to_address,
+                nonce=0,
+                signer=auth_signer,
+            ),
+        ],
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        env=Environment(),
+        pre=pre,
+        tx=tx,
+        post={
+            set_code_to_address: Account(storage={}),
+            auth_signer: Account(
+                nonce=1,
+                code=Spec7702.delegation_designation(set_code_to_address),
+                storage=storage,
+            ),
+        },
+    )
 
 
 @pytest.mark.valid_from("Osaka")
