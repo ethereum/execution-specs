@@ -26,12 +26,19 @@ def clear_blob_cache(cached_blobs_folder_path: Path):
     """Delete all cached blobs."""
     if not cached_blobs_folder_path.is_dir():
         return
-    for f in cached_blobs_folder_path.glob("*.json"):  # only delete .json files
+
+    json_files = list(cached_blobs_folder_path.glob("*.json"))
+
+    for f in json_files:
+        lock_file_path = f.with_suffix(".lock")
+
         try:
-            f.unlink()  # permanently delete this file
+            # get file lock for what you want to delete
+            with FileLock(lock_file_path):
+                f.unlink()
         except Exception as e:
             print(
-                f"Critical error while trying to delete file {f}:{e}.. "
+                f"Error while trying to delete file {f}:{e}. "
                 "Aborting clearing of blob cache folder."
             )
             return
@@ -186,11 +193,15 @@ class Blob(CamelModel):
         # (blob related constants are needed and only available for normal forks)
         fork = fork.fork_at(timestamp=timestamp)
 
-        # if this blob already exists then load from file
+        # if this blob already exists then load from file. use lock
         blob_location: Path = Blob.get_filepath(fork, seed)
-        if blob_location.exists():
-            logger.debug(f"Blob exists already, reading it from file {blob_location}")
-            return Blob.from_file(Blob.get_filename(fork, seed))
+
+        # use lock to avoid race conditions
+        lock_file_path = blob_location.with_suffix(".lock")
+        with FileLock(lock_file_path):
+            if blob_location.exists():
+                logger.debug(f"Blob exists already, reading it from file {blob_location}")
+                return Blob.from_file(Blob.get_filename(fork, seed))
 
         assert fork.supports_blobs(), f"Provided fork {fork.name()} does not support blobs!"
 
@@ -237,17 +248,14 @@ class Blob(CamelModel):
         # determine path where this blob would be stored if it existed
         blob_file_location = CACHED_BLOBS_DIRECTORY / file_name
 
-        # use lock to avoid race conditions
-        lock_file_path = blob_file_location.with_suffix(".lock")
-        with FileLock(lock_file_path):
-            # check whether blob exists
-            assert blob_file_location.exists(), (
-                f"Tried to load blob from file but {blob_file_location} does not exist"
-            )
+        # check whether blob exists
+        assert blob_file_location.exists(), (
+            f"Tried to load blob from file but {blob_file_location} does not exist"
+        )
 
-            # read blob from file
-            with open(blob_file_location, "r", encoding="utf-8") as f:
-                json_str: str = f.read()
+        # read blob from file
+        with open(blob_file_location, "r", encoding="utf-8") as f:
+            json_str: str = f.read()
 
         # reconstruct and return blob object
         return Blob.model_validate_json(json_str)
