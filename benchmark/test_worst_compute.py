@@ -426,7 +426,6 @@ def test_worst_keccak(
         pytest.param(0x04, 15, 3, 1, id="IDENTITY"),
     ],
 )
-@pytest.mark.slow()
 def test_worst_precompile_only_data_input(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -1077,7 +1076,6 @@ def test_worst_modexp(
         ),
     ],
 )
-@pytest.mark.slow()
 def test_worst_precompile_fixed_cost(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -1137,7 +1135,6 @@ def test_worst_precompile_fixed_cost(
 
 
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.slow
 def test_worst_jumps(state_test: StateTestFiller, pre: Alloc):
     """Test running a JUMP-intensive contract."""
     env = Environment()
@@ -1159,9 +1156,7 @@ def test_worst_jumps(state_test: StateTestFiller, pre: Alloc):
     )
 
 
-@pytest.mark.zkevm
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.slow
 def test_worst_jumpi_fallthrough(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -1199,9 +1194,7 @@ def test_worst_jumpi_fallthrough(
     )
 
 
-@pytest.mark.zkevm
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.slow
 def test_worst_jumpis(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -1227,7 +1220,6 @@ def test_worst_jumpis(
 
 
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.slow
 def test_worst_jumpdests(state_test: StateTestFiller, pre: Alloc, fork: Fork):
     """Test running a JUMPDEST-intensive contract."""
     env = Environment()
@@ -2007,7 +1999,6 @@ def test_empty_block(
 
 
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.slow()
 def test_amortized_bn128_pairings(
     state_test: StateTestFiller,
     pre: Alloc,
