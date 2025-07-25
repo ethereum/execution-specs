@@ -184,7 +184,7 @@ class CovariantDescriptor:
             else argnames
         )
         self.fn = fn
-        self.selector = selector
+        self.selector = selector  # type: ignore[assignment]
         self.marks = marks
 
     def process_value(

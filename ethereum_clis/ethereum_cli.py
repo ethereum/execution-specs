@@ -89,7 +89,7 @@ class EthereumCLI:
         if not binary:
             raise CLINotFoundInPathError(binary=binary)
 
-        binary = Path(binary)
+        binary = Path(binary)  # type: ignore[assignment]
 
         # Group the tools by version flag, so we only have to call the tool once for all the
         # classes that share the same version flag
