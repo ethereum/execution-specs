@@ -210,7 +210,12 @@ def process_create_message(message: Message) -> Evm:
             evm.output = b""
             evm.error = error
         else:
-            set_code(state, message.current_target, contract_code, message.change_tracker)
+            set_code(
+                state,
+                message.current_target,
+                contract_code,
+                message.change_tracker,
+            )
             commit_transaction(state, transient_storage)
     else:
         rollback_transaction(state, transient_storage)
@@ -241,8 +246,11 @@ def process_message(message: Message) -> Evm:
 
     if message.should_transfer_value and message.value != 0:
         move_ether(
-            state, message.caller, message.current_target, message.value,
-            message.change_tracker
+            state,
+            message.caller,
+            message.current_target,
+            message.value,
+            message.change_tracker,
         )
 
     evm = execute_code(message)

@@ -34,6 +34,7 @@ MAX_CODE_CHANGES = 1
 @dataclass
 class StorageChange:
     """Single storage write: tx_index -> new_value"""
+
     tx_index: TxIndex
     new_value: StorageValue
 
@@ -42,6 +43,7 @@ class StorageChange:
 @dataclass
 class BalanceChange:
     """Single balance change: tx_index -> post_balance"""
+
     tx_index: TxIndex
     post_balance: Balance
 
@@ -50,6 +52,7 @@ class BalanceChange:
 @dataclass
 class NonceChange:
     """Single nonce change: tx_index -> new_nonce"""
+
     tx_index: TxIndex
     new_nonce: Nonce
 
@@ -58,6 +61,7 @@ class NonceChange:
 @dataclass
 class CodeChange:
     """Single code change: tx_index -> new_code"""
+
     tx_index: TxIndex
     new_code: Bytes
 
@@ -66,10 +70,9 @@ class CodeChange:
 @dataclass
 class SlotChanges:
     """All changes to a single storage slot"""
+
     slot: StorageKey
     changes: Tuple[StorageChange, ...]
-
-
 
 
 @slotted_freezable
@@ -79,6 +82,7 @@ class AccountChanges:
     All changes for a single account, grouped by field type.
     This eliminates address redundancy across different change types.
     """
+
     address: Address
     storage_changes: Tuple[SlotChanges, ...]
     storage_reads: Tuple[StorageKey, ...]
@@ -94,4 +98,5 @@ class BlockAccessList:
     Block-Level Access List for EIP-7928.
     Contains all addresses accessed during block execution.
     """
+
     account_changes: Tuple[AccountChanges, ...]

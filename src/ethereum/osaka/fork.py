@@ -30,7 +30,7 @@ from ethereum.exceptions import (
 )
 
 from . import vm
-from .block_access_lists import StateChangeTracker, compute_bal_hash, build
+from .block_access_lists import StateChangeTracker, build, compute_bal_hash
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
 from .exceptions import (
@@ -244,7 +244,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     block_logs_bloom = logs_bloom(block_output.block_logs)
     withdrawals_root = root(block_output.withdrawals_trie)
     requests_hash = compute_requests_hash(block_output.requests)
-    
+
     # Build and validate Block Access List
     computed_bal = build(block_output.block_access_list_builder)
     computed_bal_hash = compute_bal_hash(computed_bal)
@@ -762,7 +762,7 @@ def apply_body(
         The block output for the current block.
     """
     block_output = vm.BlockOutput()
-    
+
     # Initialize Block Access List state change tracker
     change_tracker = StateChangeTracker(block_output.block_access_list_builder)
 
@@ -780,7 +780,9 @@ def apply_body(
 
     for i, tx in enumerate(map(decode_transaction, transactions)):
         change_tracker.set_transaction_index(i)
-        process_transaction(block_env, block_output, tx, Uint(i), change_tracker)
+        process_transaction(
+            block_env, block_output, tx, Uint(i), change_tracker
+        )
 
     process_withdrawals(block_env, block_output, withdrawals, change_tracker)
 
@@ -901,7 +903,10 @@ def process_transaction(
         Uint(sender_account.balance) - effective_gas_fee - blob_gas_fee
     )
     set_account_balance(
-        block_env.state, sender, U256(sender_balance_after_gas_fee), change_tracker
+        block_env.state,
+        sender,
+        U256(sender_balance_after_gas_fee),
+        change_tracker,
     )
 
     access_list_addresses = set()
@@ -969,7 +974,9 @@ def process_transaction(
     sender_balance_after_refund = get_account(
         block_env.state, sender
     ).balance + U256(gas_refund_amount)
-    set_account_balance(block_env.state, sender, sender_balance_after_refund, change_tracker)
+    set_account_balance(
+        block_env.state, sender, sender_balance_after_refund, change_tracker
+    )
 
     # transfer miner fees
     coinbase_balance_after_mining_fee = get_account(
@@ -980,7 +987,7 @@ def process_transaction(
             block_env.state,
             block_env.coinbase,
             coinbase_balance_after_mining_fee,
-            change_tracker
+            change_tracker,
         )
     elif account_exists_and_is_empty(block_env.state, block_env.coinbase):
         destroy_account(block_env.state, block_env.coinbase)
@@ -1028,10 +1035,12 @@ def process_withdrawals(
         )
 
         modify_state(block_env.state, wd.address, increase_recipient_balance)
-        
+
         # Track balance change for BAL
         new_balance = get_account(block_env.state, wd.address).balance
-        change_tracker.track_balance_change(wd.address, U256(new_balance), block_env.state)
+        change_tracker.track_balance_change(
+            wd.address, U256(new_balance), block_env.state
+        )
 
         if account_exists_and_is_empty(block_env.state, wd.address):
             destroy_account(block_env.state, wd.address)

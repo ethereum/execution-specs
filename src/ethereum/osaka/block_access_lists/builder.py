@@ -38,32 +38,35 @@ from ..ssz_types import (
 class AccountData:
     """
     Account data stored in the builder during block execution.
-    
+
     This dataclass tracks all changes made to a single account throughout
     the execution of a block, organized by the type of change and the
     transaction index where it occurred.
     """
-    storage_changes: Dict[Bytes, List[StorageChange]] = field(default_factory=dict)
+
+    storage_changes: Dict[Bytes, List[StorageChange]] = field(
+        default_factory=dict
+    )
     """
     Mapping from storage slot to list of changes made to that slot.
     Each change includes the transaction index and new value.
     """
-    
+
     storage_reads: Set[Bytes] = field(default_factory=set)
     """
     Set of storage slots that were read but not modified.
     """
-    
+
     balance_changes: List[BalanceChange] = field(default_factory=list)
     """
     List of balance changes for this account, ordered by transaction index.
     """
-    
+
     nonce_changes: List[NonceChange] = field(default_factory=list)
     """
     List of nonce changes for this account, ordered by transaction index.
     """
-    
+
     code_changes: List[CodeChange] = field(default_factory=list)
     """
     List of code changes (contract deployments) for this account,
@@ -76,14 +79,15 @@ class BlockAccessListBuilder:
     """
     Builder for constructing [`BlockAccessList`] efficiently during transaction
     execution.
-    
+
     The builder accumulates all account and storage accesses during block
     execution and constructs a deterministic access list. Changes are tracked
     by address, field type, and transaction index to enable efficient
     reconstruction of state changes.
-    
+
     [`BlockAccessList`]: ref:ethereum.osaka.ssz_types.BlockAccessList
     """
+
     accounts: Dict[Address, AccountData] = field(default_factory=dict)
     """
     Mapping from account address to its tracked changes during block execution.
@@ -93,18 +97,18 @@ class BlockAccessListBuilder:
 def ensure_account(builder: BlockAccessListBuilder, address: Address) -> None:
     """
     Ensure an account exists in the builder's tracking structure.
-    
+
     Creates an empty [`AccountData`] entry for the given address if it
     doesn't already exist. This function is idempotent and safe to call
     multiple times for the same address.
-    
+
     Parameters
     ----------
     builder :
         The block access list builder instance.
     address :
         The account address to ensure exists.
-    
+
     [`AccountData`]: ref:ethereum.osaka.block_access_lists.builder.AccountData
     """
     if address not in builder.accounts:
@@ -113,18 +117,18 @@ def ensure_account(builder: BlockAccessListBuilder, address: Address) -> None:
 
 def add_storage_write(
     builder: BlockAccessListBuilder,
-    address: Address, 
-    slot: Bytes, 
-    tx_index: U32, 
-    new_value: Bytes
+    address: Address,
+    slot: Bytes,
+    tx_index: U32,
+    new_value: Bytes,
 ) -> None:
     """
     Add a storage write operation to the block access list.
-    
+
     Records a storage slot modification for a given address at a specific
     transaction index. Multiple writes to the same slot are tracked
     separately, maintaining the order and transaction index of each change.
-    
+
     Parameters
     ----------
     builder :
@@ -139,26 +143,24 @@ def add_storage_write(
         The new value being written to the storage slot.
     """
     ensure_account(builder, address)
-    
+
     if slot not in builder.accounts[address].storage_changes:
         builder.accounts[address].storage_changes[slot] = []
-        
+
     change = StorageChange(tx_index=tx_index, new_value=new_value)
     builder.accounts[address].storage_changes[slot].append(change)
 
 
 def add_storage_read(
-    builder: BlockAccessListBuilder,
-    address: Address,
-    slot: Bytes
+    builder: BlockAccessListBuilder, address: Address, slot: Bytes
 ) -> None:
     """
     Add a storage read operation to the block access list.
-    
+
     Records that a storage slot was read during execution. Storage slots
     that are both read and written will only appear in the storage changes
     list, not in the storage reads list, as per [EIP-7928].
-    
+
     Parameters
     ----------
     builder :
@@ -167,7 +169,7 @@ def add_storage_read(
         The account address whose storage is being read.
     slot :
         The storage slot being read.
-    
+
     [EIP-7928]: https://eips.ethereum.org/EIPS/eip-7928
     """
     ensure_account(builder, address)
@@ -176,17 +178,17 @@ def add_storage_read(
 
 def add_balance_change(
     builder: BlockAccessListBuilder,
-    address: Address, 
-    tx_index: U32, 
-    post_balance: Bytes
+    address: Address,
+    tx_index: U32,
+    post_balance: Bytes,
 ) -> None:
     """
     Add a balance change to the block access list.
-    
+
     Records the post-transaction balance for an account after it has been
     modified. This includes changes from transfers, gas fees, block rewards,
     and any other balance-affecting operations.
-    
+
     Parameters
     ----------
     builder :
@@ -199,24 +201,24 @@ def add_balance_change(
         The account balance after the change, encoded as bytes.
     """
     ensure_account(builder, address)
-    
+
     change = BalanceChange(tx_index=tx_index, post_balance=post_balance)
     builder.accounts[address].balance_changes.append(change)
 
 
 def add_nonce_change(
     builder: BlockAccessListBuilder,
-    address: Address, 
-    tx_index: U32, 
-    new_nonce: U64
+    address: Address,
+    tx_index: U32,
+    new_nonce: U64,
 ) -> None:
     """
     Add a nonce change to the block access list.
-    
+
     Records a nonce increment for an account. This occurs when an EOA sends
     a transaction or when a contract performs [`CREATE`] or [`CREATE2`]
     operations.
-    
+
     Parameters
     ----------
     builder :
@@ -227,29 +229,29 @@ def add_nonce_change(
         The index of the transaction causing this change.
     new_nonce :
         The new nonce value after the change.
-    
+
     [`CREATE`]: ref:ethereum.osaka.vm.instructions.system.create
     [`CREATE2`]: ref:ethereum.osaka.vm.instructions.system.create2
     """
     ensure_account(builder, address)
-    
+
     change = NonceChange(tx_index=tx_index, new_nonce=new_nonce)
     builder.accounts[address].nonce_changes.append(change)
 
 
 def add_code_change(
     builder: BlockAccessListBuilder,
-    address: Address, 
-    tx_index: U32, 
-    new_code: Bytes
+    address: Address,
+    tx_index: U32,
+    new_code: Bytes,
 ) -> None:
     """
     Add a code change to the block access list.
-    
+
     Records contract code deployment or modification. This typically occurs
     during contract creation via [`CREATE`], [`CREATE2`], or [`SETCODE`]
     operations.
-    
+
     Parameters
     ----------
     builder :
@@ -260,33 +262,35 @@ def add_code_change(
         The index of the transaction deploying the code.
     new_code :
         The deployed contract bytecode.
-    
+
     [`CREATE`]: ref:ethereum.osaka.vm.instructions.system.create
     [`CREATE2`]: ref:ethereum.osaka.vm.instructions.system.create2
     [`SETCODE`]: ref:ethereum.osaka.vm.instructions.system.setcode
     """
     ensure_account(builder, address)
-    
+
     change = CodeChange(tx_index=tx_index, new_code=new_code)
     builder.accounts[address].code_changes.append(change)
 
 
-def add_touched_account(builder: BlockAccessListBuilder, address: Address) -> None:
+def add_touched_account(
+    builder: BlockAccessListBuilder, address: Address
+) -> None:
     """
     Add an account that was accessed but not modified.
-    
+
     Records that an account was accessed during execution without any state
     changes. This is used for operations like [`EXTCODEHASH`], [`BALANCE`],
     [`EXTCODESIZE`], and [`EXTCODECOPY`] that read account data without
     modifying it.
-    
+
     Parameters
     ----------
     builder :
         The block access list builder instance.
     address :
         The account address that was accessed.
-    
+
     [`EXTCODEHASH`]: ref:ethereum.osaka.vm.instructions.environment.extcodehash
     [`BALANCE`]: ref:ethereum.osaka.vm.instructions.environment.balance
     [`EXTCODESIZE`]: ref:ethereum.osaka.vm.instructions.environment.extcodesize
@@ -298,58 +302,68 @@ def add_touched_account(builder: BlockAccessListBuilder, address: Address) -> No
 def build(builder: BlockAccessListBuilder) -> BlockAccessList:
     """
     Build the final [`BlockAccessList`] from accumulated changes.
-    
+
     Constructs a deterministic block access list by sorting all accumulated
     changes. The resulting list is ordered by:
-    
+
     1. Account addresses (lexicographically)
     2. Within each account:
        - Storage slots (lexicographically)
        - Transaction indices (numerically) for each change type
-    
+
     Parameters
     ----------
     builder :
         The block access list builder containing all tracked changes.
-    
+
     Returns
     -------
     block_access_list :
         The final sorted and encoded block access list.
-    
+
     [`BlockAccessList`]: ref:ethereum.osaka.ssz_types.BlockAccessList
     """
     account_changes_list = []
-    
+
     for address, changes in builder.accounts.items():
         storage_changes = []
         for slot, slot_changes in changes.storage_changes.items():
-            sorted_changes = tuple(sorted(slot_changes, key=lambda x: x.tx_index))
-            storage_changes.append(SlotChanges(slot=slot, changes=sorted_changes))
-        
+            sorted_changes = tuple(
+                sorted(slot_changes, key=lambda x: x.tx_index)
+            )
+            storage_changes.append(
+                SlotChanges(slot=slot, changes=sorted_changes)
+            )
+
         storage_reads = []
         for slot in changes.storage_reads:
             if slot not in changes.storage_changes:
                 storage_reads.append(slot)
-        
-        balance_changes = tuple(sorted(changes.balance_changes, key=lambda x: x.tx_index))
-        nonce_changes = tuple(sorted(changes.nonce_changes, key=lambda x: x.tx_index))
-        code_changes = tuple(sorted(changes.code_changes, key=lambda x: x.tx_index))
-        
+
+        balance_changes = tuple(
+            sorted(changes.balance_changes, key=lambda x: x.tx_index)
+        )
+        nonce_changes = tuple(
+            sorted(changes.nonce_changes, key=lambda x: x.tx_index)
+        )
+        code_changes = tuple(
+            sorted(changes.code_changes, key=lambda x: x.tx_index)
+        )
+
         storage_changes.sort(key=lambda x: x.slot)
         storage_reads.sort()
-        
+
         account_change = AccountChanges(
             address=address,
             storage_changes=tuple(storage_changes),
             storage_reads=tuple(storage_reads),
             balance_changes=balance_changes,
             nonce_changes=nonce_changes,
-            code_changes=code_changes
+            code_changes=code_changes,
         )
-        
+
         account_changes_list.append(account_change)
-    
+
     account_changes_list.sort(key=lambda x: x.address)
-    
+
     return BlockAccessList(account_changes=tuple(account_changes_list))
