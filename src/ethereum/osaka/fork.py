@@ -921,6 +921,7 @@ def process_transaction(
         blob_versioned_hashes=blob_versioned_hashes,
         authorizations=authorizations,
         index_in_block=index,
+        transactions_root=root(block_output.transactions_trie),
         tx_hash=get_transaction_hash(encode_transaction(tx)),
         traces=[],
     )
