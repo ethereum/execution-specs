@@ -3,8 +3,11 @@ abstract: Tests [EIP-152: BLAKE2b compression precompile](https://eips.ethereum.
     Test cases for [EIP-152: BLAKE2b compression precompile](https://eips.ethereum.org/EIPS/eip-152).
 """
 
+from typing import List
+
 import pytest
 
+from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     Account,
     Alloc,
@@ -546,9 +549,22 @@ def test_blake2b_invalid_gas(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
+def max_tx_gas_limit(fork: Fork) -> int:
+    """Maximum gas limit for a transaction (fork agnostic)."""
+    tx_limit = fork.transaction_gas_limit_cap()
+    if tx_limit is not None:
+        return tx_limit
+    return Environment().gas_limit
+
+
+def tx_gas_limits(fork: Fork) -> List[int]:
+    """List of tx gas limits."""
+    return [max_tx_gas_limit(fork), 90_000, 110_000, 200_000]
+
+
 @pytest.mark.valid_from("Istanbul")
 @pytest.mark.parametrize("call_opcode", [Op.CALL, Op.CALLCODE])
-@pytest.mark.parametrize("gas_limit", [Environment().gas_limit, 90_000, 110_000, 200_000])
+@pytest.mark.parametrize_by_fork("gas_limit", tx_gas_limits)
 @pytest.mark.parametrize(
     ["data", "output"],
     [
@@ -658,6 +674,7 @@ def test_blake2b_gas_limit(
 
 @pytest.mark.valid_from("Istanbul")
 @pytest.mark.parametrize("call_opcode", [Op.CALL, Op.CALLCODE])
+@pytest.mark.parametrize_by_fork("gas_limit", lambda fork: [max_tx_gas_limit(fork)])
 @pytest.mark.parametrize(
     ["data", "output"],
     [
@@ -742,13 +759,12 @@ def test_blake2b_large_gas_limit(
     state_test: StateTestFiller,
     pre: Alloc,
     call_opcode: Op,
+    gas_limit: int,
     blake2b_contract_bytecode: Bytecode,
     data: Blake2bInput | str | bytes,
     output: ExpectedOutput,
 ):
     """Test BLAKE2b precompile with large gas limit."""
-    env = Environment()
-
     account = pre.deploy_contract(blake2b_contract_bytecode, storage={0: 0xDEADBEEF})
     sender = pre.fund_eoa()
 
@@ -761,7 +777,7 @@ def test_blake2b_large_gas_limit(
         ty=0x0,
         to=account,
         data=data,
-        gas_limit=env.gas_limit,
+        gas_limit=gas_limit,
         protected=True,
         sender=sender,
         value=0,
@@ -776,4 +792,4 @@ def test_blake2b_large_gas_limit(
             }
         )
     }
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

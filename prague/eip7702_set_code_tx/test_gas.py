@@ -21,7 +21,6 @@ from ethereum_test_tools import (
     Bytecode,
     Bytes,
     CodeGasMeasure,
-    Environment,
     StateTestFiller,
     Storage,
     Transaction,
@@ -693,8 +692,8 @@ def gas_test_parameter_args(
         ]
 
     if include_many:
-        # Fit as many authorizations as possible within the block gas limit.
-        max_gas = Environment().gas_limit - 21_000
+        # Fit as many authorizations as possible within the transaction gas limit.
+        max_gas = 16_777_216 - 21_000
         if execution_gas_allowance:
             # Leave some gas for the execution of the test code.
             max_gas -= 1_000_000

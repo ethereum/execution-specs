@@ -18,7 +18,7 @@ from ethereum_test_tools import (
     Transaction,
     compute_create_address,
 )
-from ethereum_test_tools.vm.opcode import Opcodes as Op
+from ethereum_test_tools import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-6780.md"
 REFERENCE_SPEC_VERSION = "1b6a0e94cc47e859b9866e570391cf37dc55059a"
@@ -414,7 +414,7 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=20_000_000,
+        gas_limit=500_000,
     )
 
     state_test(env=env, pre=pre, post=post, tx=tx)
@@ -507,7 +507,7 @@ def test_selfdestruct_not_created_in_same_tx_with_revert(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=20_000_000,
+        gas_limit=500_000,
     )
 
     state_test(env=env, pre=pre, post=post, tx=tx)

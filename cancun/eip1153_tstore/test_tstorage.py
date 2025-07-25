@@ -262,25 +262,27 @@ class LoopRunUntilOutOfGasCases(PytestParameterEnum):
     }
 
 
+def max_tx_gas_limit(fork):
+    """Return the maximum transaction gas limit for the given fork."""
+    tx_limit = fork.transaction_gas_limit_cap()
+    return [tx_limit if tx_limit is not None else Environment().gas_limit]
+
+
 @LoopRunUntilOutOfGasCases.parametrize()
 @pytest.mark.slow()
+@pytest.mark.parametrize_by_fork("tx_gas_limit", max_tx_gas_limit)
 def test_run_until_out_of_gas(
     state_test: StateTestFiller,
     pre: Alloc,
+    tx_gas_limit: int,
     repeat_bytecode: Bytecode,
     bytecode_repeat_times: int,
 ):
     """Use TSTORE over and over to different keys until we run out of gas."""
-    env = Environment()
-
     bytecode = Op.JUMPDEST + repeat_bytecode * bytecode_repeat_times + Op.JUMP(Op.PUSH0)
     code_address = pre.deploy_contract(code=bytecode)
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=code_address,
-        gas_limit=env.gas_limit,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=code_address, gas_limit=tx_gas_limit)
     post = {
         code_address: Account(code=bytecode, storage={}),
     }
-    state_test(env=env, pre=pre, tx=tx, post=post)
+    state_test(pre=pre, tx=tx, post=post)

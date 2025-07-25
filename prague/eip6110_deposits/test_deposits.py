@@ -314,9 +314,9 @@ pytestmark = pytest.mark.valid_from("Prague")
                             signature=0x03,
                             index=i,
                         )
-                        for i in range(1000)
+                        for i in range(500)
                     ],
-                    tx_gas_limit=60_000_000,
+                    tx_gas_limit=16_777_216,
                 ),
             ],
             id="many_deposits_from_contract",
@@ -486,9 +486,9 @@ pytestmark = pytest.mark.valid_from("Prague")
                             index=i,
                             valid=False,
                         )
-                        for i in range(1000)
+                        for i in range(500)
                     ],
-                    tx_gas_limit=23_738_700,
+                    tx_gas_limit=10_000_000,
                 ),
             ],
             id="many_deposits_from_contract_oog",
@@ -707,8 +707,8 @@ pytestmark = pytest.mark.valid_from("Prague")
                             index=0x0,
                         )
                     ],
-                    call_depth=1024,
-                    tx_gas_limit=2_500_000_000_000,
+                    call_depth=271,
+                    tx_gas_limit=16_777_216,
                 ),
             ],
             id="single_deposit_from_contract_call_depth_high",

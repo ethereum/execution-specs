@@ -671,21 +671,36 @@ def test_set_code_to_self_caller(
 def test_set_code_max_depth_call_stack(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ):
-    """Test re-entry to delegated account until the max call stack depth is reached."""
+    """
+    Test re-entry to delegated account until the max call stack depth possible in a
+    transaction is reached.
+    """
     storage = Storage()
     auth_signer = pre.fund_eoa(auth_account_start_balance)
+    tx_gas_limit_cap = fork.transaction_gas_limit_cap()
+    match tx_gas_limit_cap:
+        case None:
+            gas_limit = 100_000_000_000_000
+            max_depth = 1025
+        case 16_777_216:
+            gas_limit = tx_gas_limit_cap
+            max_depth = 389
+        case _:
+            raise NotImplementedError(f"Unexpected transaction gas limit cap: {tx_gas_limit_cap}")
+
     set_code = Conditional(
         condition=Op.ISZERO(Op.TLOAD(0)),
         if_true=Op.TSTORE(0, 1)
         + Op.CALL(address=auth_signer)
-        + Op.SSTORE(storage.store_next(1025), Op.TLOAD(0)),
+        + Op.SSTORE(storage.store_next(max_depth), Op.TLOAD(0)),
         if_false=Op.TSTORE(0, Op.ADD(1, Op.TLOAD(0))) + Op.CALL(address=auth_signer),
     )
     set_code_to_address = pre.deploy_contract(set_code)
 
     tx = Transaction(
-        gas_limit=100_000_000_000_000,
+        gas_limit=gas_limit,
         to=auth_signer,
         authorization_list=[
             AuthorizationTuple(
@@ -3462,6 +3477,7 @@ def test_creating_delegation_designation_contract(
 )
 def test_many_delegations(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
     signer_balance: int,
 ):
@@ -3476,7 +3492,11 @@ def test_many_delegations(
     the code of the entry contract set to 1.
     """
     env = Environment()
-    max_gas = env.gas_limit
+    tx_gas_limit_cap = fork.transaction_gas_limit_cap()
+    if tx_gas_limit_cap is not None:
+        max_gas = tx_gas_limit_cap
+    else:
+        max_gas = env.gas_limit
     gas_for_delegations = max_gas - 21_000 - 20_000 - (3 * 2)
 
     delegation_count = gas_for_delegations // Spec.PER_EMPTY_ACCOUNT_COST
