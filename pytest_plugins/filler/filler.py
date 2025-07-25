@@ -1102,27 +1102,28 @@ def pytest_collection_modifyitems(
     These can't be handled in this plugins pytest_generate_tests() as the fork
     parametrization occurs in the forks plugin.
     """
-    for item in items[:]:  # use a copy of the list, as we'll be modifying it
+    items_for_removal = []
+    for i, item in enumerate(items):
         params: Dict[str, Any] | None = None
         if isinstance(item, pytest.Function):
             params = item.callspec.params
         elif hasattr(item, "params"):
             params = item.params
         if not params or "fork" not in params or params["fork"] is None:
-            items.remove(item)
+            items_for_removal.append(i)
             continue
         fork: Fork = params["fork"]
         spec_type, fixture_format = get_spec_format_for_item(params)
         if isinstance(fixture_format, NotSetType):
-            items.remove(item)
+            items_for_removal.append(i)
             continue
         assert issubclass(fixture_format, BaseFixture)
         if not fixture_format.supports_fork(fork):
-            items.remove(item)
+            items_for_removal.append(i)
             continue
         markers = list(item.iter_markers())
         if spec_type.discard_fixture_format_by_marks(fixture_format, fork, markers):
-            items.remove(item)
+            items_for_removal.append(i)
             continue
         for marker in markers:
             if marker.name == "fill":
@@ -1143,6 +1144,9 @@ def pytest_collection_modifyitems(
                     f"fork_{fork.name()}",
                     f"fork_{base_fork.name()}",
                 )
+
+    for i in reversed(items_for_removal):
+        items.pop(i)
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
