@@ -141,7 +141,9 @@ class TestFixturesSourceFromInput:
 
             FixturesSource.from_input(test_url)
 
-            mock_from_release_url.assert_called_once_with(test_url, CACHED_DOWNLOADS_DIRECTORY)
+            mock_from_release_url.assert_called_once_with(
+                test_url, CACHED_DOWNLOADS_DIRECTORY, None
+            )
 
     def test_from_input_handles_release_spec(self):
         """Test that from_input properly handles release specs."""
@@ -152,7 +154,9 @@ class TestFixturesSourceFromInput:
 
             FixturesSource.from_input(test_spec)
 
-            mock_from_release_spec.assert_called_once_with(test_spec, CACHED_DOWNLOADS_DIRECTORY)
+            mock_from_release_spec.assert_called_once_with(
+                test_spec, CACHED_DOWNLOADS_DIRECTORY, None
+            )
 
     def test_from_input_handles_regular_url(self):
         """Test that from_input properly handles regular URLs."""
@@ -163,4 +167,18 @@ class TestFixturesSourceFromInput:
 
             FixturesSource.from_input(test_url)
 
-            mock_from_url.assert_called_once_with(test_url, CACHED_DOWNLOADS_DIRECTORY)
+            mock_from_url.assert_called_once_with(test_url, CACHED_DOWNLOADS_DIRECTORY, None)
+
+    def test_from_input_handles_extract_to_parameter(self):
+        """Test that from_input properly passes extract_to parameter."""
+        test_url = "https://github.com/ethereum/execution-spec-tests/releases/download/v3.0.0/fixtures_develop.tar.gz"
+        extract_to_path = Path("/custom/extract/path")
+
+        with patch.object(FixturesSource, "from_release_url") as mock_from_release_url:
+            mock_from_release_url.return_value = MagicMock()
+
+            FixturesSource.from_input(test_url, extract_to=extract_to_path)
+
+            mock_from_release_url.assert_called_once_with(
+                test_url, CACHED_DOWNLOADS_DIRECTORY, extract_to_path
+            )
