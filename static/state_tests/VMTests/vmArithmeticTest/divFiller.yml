@@ -123,7 +123,7 @@ div:
     - :label div_2_0       :abi f(uint) 6
     - :label div_0_add     :abi f(uint) 7
     gasLimit:
-    - '80000000'
+    - '16777216'
     gasPrice: '10'
     nonce: '0'
     to: cccccccccccccccccccccccccccccccccccccccc

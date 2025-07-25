@@ -99,7 +99,7 @@ and:
     - :label and_allones_bignum :abi f(uint) 3
     - :label and_allones_eefee  :abi f(uint) 4
     gasLimit:
-    - '80000000'
+    - '16777216'
     gasPrice: '10'
     nonce: '0'
     to: cccccccccccccccccccccccccccccccccccccccc

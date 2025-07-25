@@ -258,7 +258,7 @@ mulmod:
     - :label one_minus_mm_0_0_0   :abi f(uint) 0x0e
     - :label mm_5_1_0             :abi f(uint) 0x0d
     gasLimit:
-    - '80000000'
+    - '16777216'
     gasPrice: '10'
     nonce: '0'
     to: cccccccccccccccccccccccccccccccccccccccc

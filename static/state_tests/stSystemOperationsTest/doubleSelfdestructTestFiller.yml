@@ -86,7 +86,7 @@ doubleSelfdestructTest:
     - :label caller-self-destruct :raw 0xFA1001c0de   # STATICCALL
 
     gasLimit:
-    - 1000000000
+    - 16777216
     gasPrice: 10
     nonce: 1
     secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8

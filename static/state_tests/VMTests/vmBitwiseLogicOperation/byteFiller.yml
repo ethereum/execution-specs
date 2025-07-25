@@ -199,7 +199,7 @@ byte:
     # A test for all possible byte positions
     - :label byte_all        :abi f(uint) 0x200
     gasLimit:
-    - '80000000'
+    - '16777216'
     gasPrice: '10'
     nonce: '0'
     to: cccccccccccccccccccccccccccccccccccccccc

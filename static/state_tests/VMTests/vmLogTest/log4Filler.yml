@@ -177,7 +177,7 @@ log4:
     - :label maxTopic         :abi f(uint) 8
     - :label pc               :abi f(uint) 9
     gasLimit:
-    - '80000000'
+    - '16777216'
     gasPrice: '10'
     nonce: '0'
     to: cccccccccccccccccccccccccccccccccccccccc

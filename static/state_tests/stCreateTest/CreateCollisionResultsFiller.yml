@@ -144,7 +144,7 @@ CreateCollisionResults:
     - :raw 0x01
     - :raw 0x02
     gasLimit:
-    - 0xf0000000
+    - 0x1000000
 
     gasPrice: '10'
     nonce: '0'

@@ -8,6 +8,8 @@
 21_tstoreCannotBeDosdOOO:
   _info:
     comment: Transient storage cannot be DOS’d.
+    pytest_marks:
+      - skip  # Superseded by tests/benchmark/test_worst_compute.py::test_worst_tload, test_worst_tstore
 
   env:
     currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
@@ -87,7 +89,7 @@
       - data: :abi doCall(uint) 0x186A0
         accessList: []
     gasLimit:
-      - "30000000"
+      - "16777216"
     nonce: 0
     to: <contract:target:0xa00000000000000000000000000000000000000a>
     value:

@@ -180,7 +180,7 @@ CREATE2_HighNonceDelegatecall:
       - ':label A_MaxNonce_Call_B_MaxNonce_Create2 :abi f(uint,uint,uint,uint) 0x02 0xffffffffffffffff <contract:max_nonce> 0x1'
 
     gasLimit:
-      - 70000000
+      - 16777216
     gasPrice: 10
     nonce: 0
     secretKey: <eoa:sender>

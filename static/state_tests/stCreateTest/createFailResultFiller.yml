@@ -292,7 +292,7 @@ createFailResult:
     - :label CREATE--BAD-BOOM :abi f(uint,uint) 0xEE 0x0BAD
 
     gasLimit:
-    - 80000000
+    - 16777216
     gasPrice: 10
     nonce: 1
     to: cccccccccccccccccccccccccccccccccccccccc

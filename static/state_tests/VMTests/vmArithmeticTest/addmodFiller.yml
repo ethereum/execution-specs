@@ -200,7 +200,7 @@ addmod:
     - :label addmod_1_0_0        :abi f(uint) 0x0e
     - :label addmod_0_0_0_min_1  :abi f(uint) 0x0f
     gasLimit:
-    - '80000000'
+    - '16777216'
     gasPrice: '10'
     nonce: '0'
     to: cccccccccccccccccccccccccccccccccccccccc

@@ -70,7 +70,7 @@ eq:
     - :label eq_0_0         :abi f(uint) 1
     - :label eq_neg1_neg1   :abi f(uint) 2
     gasLimit:
-    - '80000000'
+    - '16777216'
     gasPrice: '10'
     nonce: '0'
     to: cccccccccccccccccccccccccccccccccccccccc

@@ -70,7 +70,7 @@ iszero:
     - :label iszero_0       :abi f(uint) 1
     - :label iszero_neg2    :abi f(uint) 2
     gasLimit:
-    - '80000000'
+    - '16777216'
     gasPrice: '10'
     nonce: '0'
     to: cccccccccccccccccccccccccccccccccccccccc

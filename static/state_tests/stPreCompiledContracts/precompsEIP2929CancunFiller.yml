@@ -861,7 +861,7 @@ precompsEIP2929Cancun:
     - :label yes :abi f(uint,uint) <contract:0x0000000000000000000000000000000000101157> 0x3b      # 395
 
     gasLimit:
-    - '40000000'
+    - '16777216'
     gasPrice: '10'
     nonce: '0'
     secretKey: "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>"

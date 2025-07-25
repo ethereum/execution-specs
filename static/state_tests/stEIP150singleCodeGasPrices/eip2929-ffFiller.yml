@@ -110,7 +110,7 @@ eip2929-ff:
     - :label staticcall   :abi f(uint) 0xFA
 
     gasLimit: 
-    - '80000000'
+    - '16777216'
     gasPrice: '10'
     nonce: '0'
     to: cccccccccccccccccccccccccccccccccccccccc

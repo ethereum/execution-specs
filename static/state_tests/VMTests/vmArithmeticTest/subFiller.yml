@@ -97,7 +97,7 @@ sub:
     - :label sub_0_neg1 :abi f(uint) 3
     - :label sub_neg1_0 :abi f(uint) 4
     gasLimit:
-    - '80000000'
+    - '16777216'
     gasPrice: '10'
     nonce: '0'
     to: cccccccccccccccccccccccccccccccccccccccc

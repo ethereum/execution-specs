@@ -173,7 +173,7 @@ exp:
     - :label exp_2_big      :abi f(uint) 9
     - :label exp_2_15       :abi f(uint) 0x0a
     gasLimit:
-    - '80000000'
+    - '16777216'
     gasPrice: '10'
     nonce: '0'
     to: cccccccccccccccccccccccccccccccccccccccc

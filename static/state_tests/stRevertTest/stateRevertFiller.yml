@@ -139,7 +139,7 @@ stateRevert:
     - :label stackUnder :abi f(uint) 5
     - :label stackOver  :abi f(uint) 6
     gasLimit:
-    - '80000000'
+    - '16777216'
     gasPrice: '10'
     nonce: '0'
     to: <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>

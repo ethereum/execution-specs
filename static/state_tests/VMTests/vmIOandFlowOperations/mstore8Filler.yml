@@ -80,7 +80,7 @@ mstore8:
     - :label mstore8_twobytes  :abi f(uint) 1
     - :label mstore8_neg1      :abi f(uint) 2
     gasLimit:
-    - '80000000'
+    - '16777216'
     gasPrice: '10'
     nonce: '0'
     to: cccccccccccccccccccccccccccccccccccccccc

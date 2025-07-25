@@ -107,7 +107,7 @@ smod:
     - :label smod_neg2_3 :abi f(uint) 4
     - :label smod_16_0   :abi f(uint) 5
     gasLimit:
-    - '80000000'
+    - '16777216'
     gasPrice: '10'
     nonce: '0'
     to: cccccccccccccccccccccccccccccccccccccccc

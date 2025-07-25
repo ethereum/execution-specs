@@ -114,7 +114,7 @@ sstoreGas:
     data:
     - 0x
     gasLimit:
-    - 80000000
+    - 16777216
     gasPrice: 10
     nonce: 1
     to: <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>

@@ -184,7 +184,7 @@ eip2929OOG:
     - :label failEIP2929 :abi f(uint,uint) 0x10FA 1750
 
     gasLimit:
-    - '80000000'
+    - '16777216'
     gasPrice: '10'
     nonce: 1
     to: cccccccccccccccccccccccccccccccccccccccc

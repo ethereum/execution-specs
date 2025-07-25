@@ -143,7 +143,7 @@ ecrecoverWeirdV:
     - :label fail :abi f(uint,uint,uint,uint) 0x01 0xdeadbeef0100 0x541c4ce1565a646ddde26e1b483a88a6500ce15bd24622492f05cdd18b97161d 0x1827e364c15cfa61dab02339904b1e542f3939c6e8d6367d352026e71ffd6af5
 
     gasLimit:
-    - 40000000
+    - 16777216
     gasPrice: 10
     nonce: 1
     to: <contract:target:0x000000000000000000000000000000000000c0de>

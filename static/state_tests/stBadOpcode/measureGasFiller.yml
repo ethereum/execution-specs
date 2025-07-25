@@ -214,7 +214,7 @@ measureGas:
     - :label EXTCODE      :abi f(uint) 0x3B
 
     gasLimit:
-    - 80000000
+    - 16777216
     gasPrice: 10
     nonce: 1
     to: cccccccccccccccccccccccccccccccccccccccc

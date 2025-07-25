@@ -114,7 +114,7 @@ xor:
     - :label xor_allones_1110s  :abi f(uint) 4
     - :label xor_allones_eefee  :abi f(uint) 5
     gasLimit:
-    - '80000000'
+    - '16777216'
     gasPrice: '10'
     nonce: '0'
     to: cccccccccccccccccccccccccccccccccccccccc

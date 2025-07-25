@@ -319,7 +319,7 @@ CreateAddressWarmAfterFail:
       - :label create-ok                 :abi fail(uint) 7   # Successfully create the account
       - :label create2-ok                :abi fail(uint) 17  # Successfully create2 the account
     gasLimit:
-      - 400000000
+      - 16777216
     gasPrice: 10
     nonce: 0
     to: "00000000000000000000000000000000000c0deC"

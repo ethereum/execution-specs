@@ -187,7 +187,7 @@ modexpTests:
     - :label 39936_1_55201 :abi f(uint,uint,uint) 39936 1 55201
     - :label 55190_55190_42965 :abi f(uint,uint,uint) 55190 55190 42965
     gasLimit:
-    - 80000000
+    - 16777216
     gasPrice: 10
     nonce: 1
     to: <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>
