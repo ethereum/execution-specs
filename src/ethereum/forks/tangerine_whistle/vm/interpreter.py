@@ -155,13 +155,6 @@ def process_create_message(message: Message) -> Evm:
     # take snapshot of state before processing the message
     begin_transaction(state)
 
-    # If the address where the account is being created has storage, it is
-    # destroyed. This can only happen in the following highly unlikely
-    # circumstances:
-    # * The address created by two `CREATE` calls collide.
-    # * The first `CREATE` left empty code.
-    destroy_storage(state, message.current_target)
-
     evm = process_message(message)
     if not evm.error:
         contract_code = evm.output
