@@ -74,6 +74,8 @@ class BlockOutput:
         Total blob gas used in the block.
     requests : `Bytes`
         Hash of all the requests in the block.
+    is_inclusion_list_satisfied : `bool`
+        Whether the block satisfies the inclusion list constraints.
     """
 
     block_gas_used: Uint = Uint(0)
@@ -90,6 +92,7 @@ class BlockOutput:
     )
     blob_gas_used: U64 = U64(0)
     requests: List[Bytes] = field(default_factory=list)
+    is_inclusion_list_satisfied: bool = True
 
 
 @dataclass
