@@ -189,7 +189,11 @@ def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
     return recent_block_hashes
 
 
-def state_transition(chain: BlockChain, block: Block) -> None:
+def state_transition(
+    chain: BlockChain,
+    block: Block,
+    inclusion_list_transactions: Tuple[LegacyTransaction | Bytes, ...] = (),
+) -> None:
     """
     Attempts to apply a block to an existing block chain.
 
@@ -210,6 +214,8 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         History and current state.
     block :
         Block to apply to `chain`.
+    inclusion_list_transactions :
+        Inclusion list transactions against which the block will be validated.
     """
     if len(rlp.encode(block)) > MAX_RLP_BLOCK_SIZE:
         raise InvalidBlock("Block rlp size exceeds MAX_RLP_BLOCK_SIZE")
@@ -236,6 +242,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         block_env=block_env,
         transactions=block.transactions,
         withdrawals=block.withdrawals,
+        inclusion_list_transactions=inclusion_list_transactions,
     )
     block_state_root = state_root(block_env.state)
     transactions_root = root(block_output.transactions_trie)
@@ -727,6 +734,7 @@ def apply_body(
     block_env: vm.BlockEnvironment,
     transactions: Tuple[LegacyTransaction | Bytes, ...],
     withdrawals: Tuple[Withdrawal, ...],
+    inclusion_list_transactions: Tuple[LegacyTransaction | Bytes, ...],
 ) -> vm.BlockOutput:
     """
     Executes a block.
@@ -746,6 +754,8 @@ def apply_body(
         Transactions included in the block.
     withdrawals :
         Withdrawals to be processed in the current block.
+    inclusion_list_transactions :
+        Inclusion list transactions against which the block will be validated.
 
     Returns
     -------
@@ -768,6 +778,13 @@ def apply_body(
 
     for i, tx in enumerate(map(decode_transaction, transactions)):
         process_transaction(block_env, block_output, tx, Uint(i))
+
+    validate_inclusion_list_transactions(
+        block_env=block_env,
+        block_output=block_output,
+        transactions=transactions,
+        inclusion_list_transactions=inclusion_list_transactions,
+    )
 
     process_withdrawals(block_env, block_output, withdrawals)
 
@@ -1053,3 +1070,61 @@ def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
         return False
 
     return True
+
+
+def validate_inclusion_list_transactions(
+    block_env: vm.BlockEnvironment,
+    block_output: vm.BlockOutput,
+    transactions: Tuple[LegacyTransaction | Bytes, ...],
+    inclusion_list_transactions: Tuple[LegacyTransaction | Bytes, ...],
+) -> None:
+    """
+    Validate whether the block satisfies inclusion list constraints.
+
+    It checks if each inclusion list transaction is present in the block.
+    For those not included, it checks if there was sufficient gas remaining
+    to include the transaction and whether the transaction is valid against
+    the nonce and balance of the sender. If any inclusion list transaction
+    could have been included but was not, the block is marked as not
+    satisfying inclusion list constraints. Any inclusion list transaction
+    that is a blob transaction is ignored.
+
+    Compliance with inclusion list constraints does not affect any other
+    block outputs.
+
+    [EIP-7805]: https://eips.ethereum.org/EIPS/eip-7805
+
+    Parameters
+    ----------
+    block_env :
+        Environment for the Ethereum Virtual Machine.
+    block_output :
+        The block output for the current block.
+    transactions :
+        Transactions included in the block.
+    inclusion_list_transactions :
+        Inclusion list transactions against which the block will be validated.
+    """
+    for inclusion_list_transaction in inclusion_list_transactions:
+        # Skip if an inclusion list transaction is present in the block.
+        if inclusion_list_transaction in transactions:
+            continue
+
+        tx = decode_transaction(inclusion_list_transaction)
+
+        # Ignore blob transactions.
+        if isinstance(tx, BlobTransaction):
+            continue
+
+        try:
+            # Run the tests of intrinsic validity.
+            validate_transaction(tx)
+            check_transaction(block_env, block_output, tx)
+        except EthereumException:
+            # This inclusion list transaction could not be included.
+            continue
+        else:
+            # This inclusion list transaction could have been included.
+            # Mark the block as not satisfying inclusion list constraints.
+            block_output.is_inclusion_list_satisfied = False
+            break
