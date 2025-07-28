@@ -52,7 +52,7 @@ class GethExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_3_TX_PRE_FORK: ("transaction type not supported"),
         TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: "has invalid hash version",
         # This message is the same as TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED
-        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: "exceed maximum allowance",
+        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: "blob transaction has too many blobs",
         TransactionException.TYPE_3_TX_ZERO_BLOBS: "blob transaction missing blob hashes",
         TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: (
             "unexpected blob sidecar in transaction at index"
