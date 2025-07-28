@@ -12,6 +12,7 @@ from typing import (
     Optional,
     Protocol,
     TextIO,
+    TypeAlias,
     Union,
     runtime_checkable,
 )
@@ -86,7 +87,6 @@ class TransactionEnvironment(Protocol):
 
     index_in_block: Optional[Uint]
     tx_hash: Optional[Bytes]
-    traces: List[Union["Trace", "FinalTrace"]]
 
 
 @runtime_checkable
@@ -136,6 +136,12 @@ class EvmWithReturnData(Protocol):
 Evm = Union[EvmWithoutReturnData, EvmWithReturnData]
 
 
+_ActiveTraces: TypeAlias = tuple[
+    TransactionEnvironment, list[Trace | FinalTrace]
+]
+_active_traces: _ActiveTraces | None = None
+
+
 def evm_trace(
     evm: Any,
     event: TraceEvent,
@@ -147,6 +153,8 @@ def evm_trace(
     """
     Create a trace of the event.
     """
+    global _active_traces
+
     # System Transaction do not have a tx_hash or index
     if (
         evm.message.tx_env.index_in_block is None
@@ -156,7 +164,12 @@ def evm_trace(
 
     assert isinstance(evm, (EvmWithoutReturnData, EvmWithReturnData))
 
-    traces = evm.message.tx_env.traces
+    if _active_traces and _active_traces[0] is evm.message.tx_env:
+        traces = _active_traces[1]
+    else:
+        traces = []
+        _active_traces = (evm.message.tx_env, traces)
+
     last_trace = None
     if traces:
         last_trace = traces[-1]
