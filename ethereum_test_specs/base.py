@@ -2,6 +2,7 @@
 
 import hashlib
 from abc import abstractmethod
+from enum import StrEnum, unique
 from functools import reduce
 from os import path
 from pathlib import Path
@@ -49,12 +50,23 @@ def verify_result(result: Result, env: Environment):
         assert result.withdrawals_root == to_hex(Withdrawal.list_root(env.withdrawals))
 
 
+@unique
+class OpMode(StrEnum):
+    """Operation mode for the fill and execute."""
+
+    CONSENSUS = "consensus"
+    BENCHMARKING = "benchmarking"
+
+
 class BaseTest(BaseModel):
     """Represents a base Ethereum test which must return a single test fixture."""
 
     tag: str = ""
 
     _request: pytest.FixtureRequest | None = PrivateAttr(None)
+    _operation_mode: OpMode | None = PrivateAttr(None)
+
+    expected_benchmark_gas_used: int | None = None
 
     spec_types: ClassVar[Dict[str, Type["BaseTest"]]] = {}
 
@@ -98,9 +110,11 @@ class BaseTest(BaseModel):
         new_instance = cls(
             tag=base_test.tag,
             t8n_dump_dir=base_test.t8n_dump_dir,
+            expected_benchmark_gas_used=base_test.expected_benchmark_gas_used,
             **kwargs,
         )
         new_instance._request = base_test._request
+        new_instance._operation_mode = base_test._operation_mode
         return new_instance
 
     @classmethod

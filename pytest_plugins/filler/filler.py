@@ -42,6 +42,7 @@ from ethereum_test_tools.utility.versioning import (
 )
 from ethereum_test_types import EnvironmentDefaults
 
+from ..shared.execute_fill import ALL_FIXTURE_PARAMETERS
 from ..shared.helpers import (
     get_spec_format_for_item,
     is_help_or_collectonly_mode,
@@ -873,6 +874,7 @@ def base_test_parametrizer(cls: Type[BaseTest]):
     Implementation detail: All spec fixtures must be scoped on test function level to avoid
     leakage between tests.
     """
+    cls_fixture_parameters = [p for p in ALL_FIXTURE_PARAMETERS if p in cls.model_fields]
 
     @pytest.fixture(
         scope="function",
@@ -889,6 +891,7 @@ def base_test_parametrizer(cls: Type[BaseTest]):
         fixture_collector: FixtureCollector,
         test_case_description: str,
         fixture_source_url: str,
+        gas_benchmark_value: int,
     ):
         """
         Fixture used to instantiate an auto-fillable BaseTest object from within
@@ -914,8 +917,17 @@ def base_test_parametrizer(cls: Type[BaseTest]):
                 kwargs["t8n_dump_dir"] = dump_dir_parameter_level
                 if "pre" not in kwargs:
                     kwargs["pre"] = pre
+                if "expected_benchmark_gas_used" not in kwargs:
+                    kwargs["expected_benchmark_gas_used"] = gas_benchmark_value
+                kwargs |= {
+                    p: request.getfixturevalue(p)
+                    for p in cls_fixture_parameters
+                    if p not in kwargs
+                }
+
                 super(BaseTestWrapper, self).__init__(*args, **kwargs)
                 self._request = request
+                self._operation_mode = request.config.op_mode
 
                 # Phase 1: Generate pre-allocation groups
                 if fixture_format is BlockchainEngineXFixture and request.config.getoption(

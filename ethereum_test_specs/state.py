@@ -32,7 +32,7 @@ from ethereum_test_fixtures.state import (
 from ethereum_test_forks import Fork
 from ethereum_test_types import Alloc, Environment, Transaction
 
-from .base import BaseTest
+from .base import BaseTest, OpMode
 from .blockchain import Block, BlockchainTest, Header
 from .debugging import print_traces
 from .helpers import verify_transactions
@@ -218,6 +218,18 @@ class StateTest(BaseTest):
             pprint(transition_tool_output.result)
             pprint(transition_tool_output.alloc)
             raise e
+
+        if self._operation_mode == OpMode.BENCHMARKING:
+            expected_benchmark_gas_used = self.expected_benchmark_gas_used
+            gas_used = int(transition_tool_output.result.gas_used)
+            assert expected_benchmark_gas_used is not None, (
+                "expected_benchmark_gas_used is not set"
+            )
+            assert gas_used == expected_benchmark_gas_used, (
+                f"gas_used ({gas_used}) does not match expected_benchmark_gas_used "
+                f"({expected_benchmark_gas_used})"
+                f", difference: {gas_used - expected_benchmark_gas_used}"
+            )
 
         return StateFixture(
             env=FixtureEnvironment(**env.model_dump(exclude_none=True)),

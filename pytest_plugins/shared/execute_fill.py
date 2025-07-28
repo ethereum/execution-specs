@@ -8,7 +8,6 @@ import pytest
 from ethereum_test_execution import BaseExecute, LabeledExecuteFormat
 from ethereum_test_fixtures import BaseFixture, LabeledFixtureFormat
 from ethereum_test_specs import BaseTest
-from ethereum_test_tools import Environment
 from ethereum_test_types import EOA, Alloc
 
 from ..spec_version_checker.spec_version_checker import EIPSpecTestItem
@@ -20,6 +19,19 @@ class OpMode(StrEnum):
 
     CONSENSUS = "consensus"
     BENCHMARKING = "benchmarking"
+
+
+ALL_FIXTURE_PARAMETERS = {
+    "genesis_environment",
+    "env",
+}
+"""
+List of test parameters that have a default fixture value which can be retrieved and used
+for the test instance if it was not explicitly specified when calling from the test
+function.
+
+All parameter names included in this list must define a fixture in one of the plugins.
+"""
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -194,8 +206,3 @@ def pytest_addoption(parser: pytest.Parser):
         default=None,
         help=("Enable reading and filling from static test files."),
     )
-
-
-@pytest.fixture
-def env(request: pytest.FixtureRequest) -> Environment:  # noqa: D103
-    return Environment()
