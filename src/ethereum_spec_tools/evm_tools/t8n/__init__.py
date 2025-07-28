@@ -25,7 +25,7 @@ from ..utils import (
     parse_hex_or_int,
 )
 from .env import Env
-from .evm_trace import evm_trace
+from .evm_trace.eip3155 import evm_trace
 from .t8n_types import Alloc, Result, Txs
 
 

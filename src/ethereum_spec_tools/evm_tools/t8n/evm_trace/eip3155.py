@@ -6,19 +6,7 @@ import json
 import os
 from contextlib import ExitStack
 from dataclasses import asdict, dataclass, is_dataclass
-from typing import (
-    Any,
-    List,
-    Optional,
-    Protocol,
-    TextIO,
-    TypeAlias,
-    Union,
-    runtime_checkable,
-)
-
-from ethereum_types.bytes import Bytes
-from ethereum_types.numeric import U256, Uint
+from typing import Any, List, Optional, TextIO, TypeAlias, Union
 
 from ethereum.exceptions import EthereumException
 from ethereum.trace import (
@@ -33,6 +21,8 @@ from ethereum.trace import (
     TransactionEnd,
     TransactionStart,
 )
+
+from .protocols import Evm, EvmWithReturnData, TransactionEnvironment
 
 EXCLUDE_FROM_OUTPUT = ["gasCostTraced", "errorTraced", "precompile"]
 
@@ -79,63 +69,6 @@ class FinalTrace:
             self.error = type(error).__name__
 
 
-@runtime_checkable
-class TransactionEnvironment(Protocol):
-    """
-    The class implements the tx_env interface for trace.
-    """
-
-    index_in_block: Optional[Uint]
-    tx_hash: Optional[Bytes]
-
-
-@runtime_checkable
-class Message(Protocol):
-    """
-    The class implements the message interface for trace.
-    """
-
-    depth: int
-    tx_env: TransactionEnvironment
-    parent_evm: Optional["Evm"]
-
-
-@runtime_checkable
-class EvmWithoutReturnData(Protocol):
-    """
-    The class implements the EVM interface for pre-byzantium forks trace.
-    """
-
-    pc: Uint
-    stack: List[U256]
-    memory: bytearray
-    code: Bytes
-    gas_left: Uint
-    refund_counter: int
-    running: bool
-    message: Message
-
-
-@runtime_checkable
-class EvmWithReturnData(Protocol):
-    """
-    The class implements the EVM interface for post-byzantium forks trace.
-    """
-
-    pc: Uint
-    stack: List[U256]
-    memory: bytearray
-    code: Bytes
-    gas_left: Uint
-    refund_counter: int
-    running: bool
-    message: Message
-    return_data: Bytes
-
-
-Evm = Union[EvmWithoutReturnData, EvmWithReturnData]
-
-
 _ActiveTraces: TypeAlias = tuple[
     TransactionEnvironment, list[Trace | FinalTrace]
 ]
@@ -162,7 +95,7 @@ def evm_trace(
     ):
         return
 
-    assert isinstance(evm, (EvmWithoutReturnData, EvmWithReturnData))
+    assert isinstance(evm, Evm)
 
     if _active_traces and _active_traces[0] is evm.message.tx_env:
         traces = _active_traces[1]

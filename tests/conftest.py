@@ -60,7 +60,7 @@ def pytest_configure(config: Config) -> None:
 
     if config.getoption("evm_trace"):
         import ethereum.trace
-        from ethereum_spec_tools.evm_tools.t8n.evm_trace import (
+        from ethereum_spec_tools.evm_tools.t8n.evm_trace.eip3155 import (
             evm_trace as new_trace_function,
         )
 
