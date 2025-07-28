@@ -22,7 +22,6 @@ from ethereum_test_tools import (
     Block,
     BlockchainTestFiller,
     Bytecode,
-    Environment,
     StateTestFiller,
     Transaction,
     add_kzg_version,
@@ -88,10 +87,9 @@ def test_worst_zero_param(
     pre: Alloc,
     opcode: Op,
     fork: Fork,
+    gas_benchmark_value: int,
 ):
     """Test running a block with as many zero-parameter opcodes as possible."""
-    env = Environment()
-
     opcode_sequence = opcode * fork.max_stack_height()
     target_contract_address = pre.deploy_contract(code=opcode_sequence)
 
@@ -102,12 +100,11 @@ def test_worst_zero_param(
 
     tx = Transaction(
         to=code_address,
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -121,9 +118,9 @@ def test_worst_calldatasize(
     pre: Alloc,
     fork: Fork,
     calldata_length: int,
+    gas_benchmark_value: int,
 ):
     """Test running a block with as many CALLDATASIZE as possible."""
-    env = Environment()
     max_code_size = fork.max_code_size()
 
     code_prefix = Op.JUMPDEST
@@ -135,13 +132,12 @@ def test_worst_calldatasize(
 
     tx = Transaction(
         to=pre.deploy_contract(code=bytes(code)),
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
         data=b"\x00" * calldata_length,
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -157,6 +153,7 @@ def test_worst_callvalue(
     fork: Fork,
     non_zero_value: bool,
     from_origin: bool,
+    gas_benchmark_value: int,
 ):
     """
     Test running a block with as many CALLVALUE opcodes as possible.
@@ -165,7 +162,6 @@ def test_worst_callvalue(
     The `from_origin` parameter controls whether the call frame is the immediate from the
     transaction or a previous CALL.
     """
-    env = Environment()
     max_code_size = fork.max_code_size()
 
     code_prefix = Op.JUMPDEST
@@ -176,23 +172,24 @@ def test_worst_callvalue(
     assert len(code) <= max_code_size
     code_address = pre.deploy_contract(code=bytes(code))
 
-    tx_to = (
-        code_address
-        if from_origin
-        else pre.deploy_contract(
-            code=Op.CALL(address=code_address, value=1 if non_zero_value else 0), balance=10
+    if from_origin:
+        tx_to = code_address
+    else:
+        entry_code = (
+            Op.JUMPDEST
+            + Op.CALL(address=code_address, value=1 if non_zero_value else 0)
+            + Op.JUMP(Op.PUSH0)
         )
-    )
+        tx_to = pre.deploy_contract(code=entry_code, balance=1_000_000)
 
     tx = Transaction(
         to=tx_to,
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         value=1 if non_zero_value and from_origin else 0,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -223,6 +220,7 @@ def test_worst_returndatasize_nonzero(
     fork: Fork,
     returned_size: int,
     return_data_style: ReturnDataStyle,
+    gas_benchmark_value: int,
 ):
     """
     Test running a block which execute as many RETURNDATASIZE opcodes which return a non-zero
@@ -231,7 +229,6 @@ def test_worst_returndatasize_nonzero(
     The `returned_size` parameter indicates the size of the returned data buffer.
     The `return_data_style` indicates how returned data is produced for the opcode caller.
     """
-    env = Environment()
     max_code_size = fork.max_code_size()
 
     dummy_contract_call = Bytecode()
@@ -258,12 +255,11 @@ def test_worst_returndatasize_nonzero(
 
     tx = Transaction(
         to=pre.deploy_contract(code=bytes(code)),
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -271,9 +267,13 @@ def test_worst_returndatasize_nonzero(
 
 
 @pytest.mark.valid_from("Cancun")
-def test_worst_returndatasize_zero(state_test: StateTestFiller, pre: Alloc, fork: Fork):
+def test_worst_returndatasize_zero(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+):
     """Test running a block with as many RETURNDATASIZE opcodes as possible with a zero buffer."""
-    env = Environment()
     max_code_size = fork.max_code_size()
 
     dummy_contract_call = Bytecode()
@@ -287,12 +287,11 @@ def test_worst_returndatasize_zero(state_test: StateTestFiller, pre: Alloc, fork
 
     tx = Transaction(
         to=pre.deploy_contract(code=bytes(code)),
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -306,13 +305,13 @@ def test_worst_msize(
     pre: Alloc,
     fork: Fork,
     mem_size: int,
+    gas_benchmark_value: int,
 ):
     """
     Test running a block with as many MSIZE opcodes as possible.
 
     The `mem_size` parameter indicates by how much the memory is expanded.
     """
-    env = Environment()
     max_stack_height = fork.max_stack_height()
 
     code_sequence = Op.MLOAD(Op.CALLVALUE) + Op.POP + Op.MSIZE * max_stack_height
@@ -327,13 +326,12 @@ def test_worst_msize(
 
     tx = Transaction(
         to=code_address,
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
         value=mem_size,
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -345,13 +343,12 @@ def test_worst_keccak(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    gas_benchmark_value: int,
 ):
     """Test running a block with as many KECCAK256 permutations as possible."""
-    env = Environment()
-
     # Intrinsic gas cost is paid once.
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    available_gas = env.gas_limit - intrinsic_gas_calculator()
+    available_gas = gas_benchmark_value - intrinsic_gas_calculator()
 
     gsc = fork.gas_costs()
     mem_exp_gas_calculator = fork.memory_expansion_gas_calculator()
@@ -405,12 +402,11 @@ def test_worst_keccak(
 
     tx = Transaction(
         to=code_address,
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -434,13 +430,12 @@ def test_worst_precompile_only_data_input(
     static_cost: int,
     per_word_dynamic_cost: int,
     bytes_per_unit_of_work: int,
+    gas_benchmark_value: int,
 ):
     """Test running a block with as many precompile calls which have a single `data` input."""
-    env = Environment()
-
     # Intrinsic gas cost is paid once.
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    available_gas = env.gas_limit - intrinsic_gas_calculator()
+    available_gas = gas_benchmark_value - intrinsic_gas_calculator()
 
     gsc = fork.gas_costs()
     mem_exp_gas_calculator = fork.memory_expansion_gas_calculator()
@@ -485,12 +480,11 @@ def test_worst_precompile_only_data_input(
 
     tx = Transaction(
         to=code_address,
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -805,6 +799,7 @@ def test_worst_modexp(
     pre: Alloc,
     fork: Fork,
     mod_exp_input: ModExpInput,
+    gas_benchmark_value: int,
 ):
     """
     Test running a block with as many calls to the MODEXP (5) precompile as possible.
@@ -819,17 +814,14 @@ def test_worst_modexp(
         fork,
     )
 
-    env = Environment()
-
     tx = Transaction(
         to=pre.deploy_contract(code=code),
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
         input=calldata,
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -1082,10 +1074,9 @@ def test_worst_precompile_fixed_cost(
     fork: Fork,
     precompile_address: Address,
     parameters: list[str] | list[BytesConcatenation] | list[bytes],
+    gas_benchmark_value: int,
 ):
     """Test running a block filled with a precompile with fixed cost."""
-    env = Environment()
-
     if precompile_address not in fork.precompiles():
         pytest.skip("Precompile not enabled")
 
@@ -1122,12 +1113,11 @@ def test_worst_precompile_fixed_cost(
 
     tx = Transaction(
         to=code_address,
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -1135,21 +1125,23 @@ def test_worst_precompile_fixed_cost(
 
 
 @pytest.mark.valid_from("Cancun")
-def test_worst_jumps(state_test: StateTestFiller, pre: Alloc):
+@pytest.mark.slow
+def test_worst_jumps(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    gas_benchmark_value: int,
+):
     """Test running a JUMP-intensive contract."""
-    env = Environment()
-
     jumps_code = Op.JUMPDEST + Op.JUMP(Op.PUSH0)
     jumps_address = pre.deploy_contract(jumps_code)
 
     tx = Transaction(
         to=jumps_address,
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        genesis_environment=env,
         pre=pre,
         post={},
         tx=tx,
@@ -1161,9 +1153,9 @@ def test_worst_jumpi_fallthrough(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    gas_benchmark_value: int,
 ):
     """Test running a JUMPI-intensive contract with fallthrough."""
-    env = Environment()
     max_code_size = fork.max_code_size()
 
     def jumpi_seq():
@@ -1182,12 +1174,11 @@ def test_worst_jumpi_fallthrough(
 
     tx = Transaction(
         to=jumpis_address,
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -1198,21 +1189,19 @@ def test_worst_jumpi_fallthrough(
 def test_worst_jumpis(
     state_test: StateTestFiller,
     pre: Alloc,
+    gas_benchmark_value: int,
 ):
     """Test running a JUMPI-intensive contract."""
-    env = Environment()
-
     jumpi_code = Op.JUMPDEST + Op.JUMPI(Op.PUSH0, Op.NUMBER)
     jumpi_address = pre.deploy_contract(jumpi_code)
 
     tx = Transaction(
         to=jumpi_address,
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -1220,9 +1209,14 @@ def test_worst_jumpis(
 
 
 @pytest.mark.valid_from("Cancun")
-def test_worst_jumpdests(state_test: StateTestFiller, pre: Alloc, fork: Fork):
+@pytest.mark.slow
+def test_worst_jumpdests(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+):
     """Test running a JUMPDEST-intensive contract."""
-    env = Environment()
     max_code_size = fork.max_code_size()
 
     # Create and deploy a contract with many JUMPDESTs
@@ -1233,12 +1227,11 @@ def test_worst_jumpdests(state_test: StateTestFiller, pre: Alloc, fork: Fork):
 
     tx = Transaction(
         to=jumpdests_address,
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        genesis_environment=env,
         pre=pre,
         post={},
         tx=tx,
@@ -1389,14 +1382,18 @@ DEFAULT_BINOP_ARGS = (
     ids=lambda param: "" if isinstance(param, tuple) else param,
 )
 def test_worst_binop_simple(
-    state_test: StateTestFiller, pre: Alloc, opcode: Op, fork: Fork, opcode_args: tuple[int, int]
+    state_test: StateTestFiller,
+    pre: Alloc,
+    opcode: Op,
+    fork: Fork,
+    opcode_args: tuple[int, int],
+    gas_benchmark_value: int,
 ):
     """
     Test running a block with as many binary instructions (takes two args, produces one value)
     as possible. The execution starts with two initial values on the stack, and the stack is
     balanced by the DUP2 instruction.
     """
-    env = Environment()
     max_code_size = fork.max_code_size()
 
     tx_data = b"".join(arg.to_bytes(32, byteorder="big") for arg in opcode_args)
@@ -1411,12 +1408,11 @@ def test_worst_binop_simple(
     tx = Transaction(
         to=pre.deploy_contract(code=code),
         data=tx_data,
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -1425,12 +1421,17 @@ def test_worst_binop_simple(
 
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize("opcode", [Op.ISZERO, Op.NOT])
-def test_worst_unop(state_test: StateTestFiller, pre: Alloc, opcode: Op, fork: Fork):
+def test_worst_unop(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    opcode: Op,
+    fork: Fork,
+    gas_benchmark_value: int,
+):
     """
     Test running a block with as many unary instructions (takes one arg, produces one value)
     as possible.
     """
-    env = Environment()
     max_code_size = fork.max_code_size()
 
     code_prefix = Op.JUMPDEST + Op.PUSH0  # Start with the arg 0.
@@ -1442,12 +1443,11 @@ def test_worst_unop(state_test: StateTestFiller, pre: Alloc, opcode: Op, fork: F
 
     tx = Transaction(
         to=pre.deploy_contract(code=code),
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -1465,9 +1465,9 @@ def test_worst_tload(
     pre: Alloc,
     key_mut: bool,
     val_mut: bool,
+    gas_benchmark_value: int,
 ):
     """Test running a block with as many TLOAD calls as possible."""
-    env = Environment()
     max_code_size = fork.max_code_size()
 
     start_key = 41
@@ -1498,13 +1498,12 @@ def test_worst_tload(
 
     tx = Transaction(
         to=pre.deploy_contract(code),
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
         value=start_key if not key_mut and val_mut else 0,
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -1520,9 +1519,9 @@ def test_worst_tstore(
     pre: Alloc,
     key_mut: bool,
     dense_val_mut: bool,
+    gas_benchmark_value: int,
 ):
     """Test running a block with as many TSTORE calls as possible."""
-    env = Environment()
     max_code_size = fork.max_code_size()
 
     init_key = 42
@@ -1543,12 +1542,11 @@ def test_worst_tstore(
 
     tx = Transaction(
         to=pre.deploy_contract(code),
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -1562,6 +1560,7 @@ def test_worst_shifts(
     pre: Alloc,
     fork: Fork,
     shift_right: Op,
+    gas_benchmark_value: int,
 ):
     """
     Test running a block with as many shift instructions with non-trivial arguments.
@@ -1624,17 +1623,14 @@ def test_worst_shifts(
     code = code_prefix + code_body + code_suffix
     assert len(code) == max_code_size - 2
 
-    env = Environment()
-
     tx = Transaction(
         to=pre.deploy_contract(code=code),
         data=initial_value.to_bytes(32, byteorder="big"),
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -1657,9 +1653,9 @@ def test_worst_blobhash(
     pre: Alloc,
     blob_index: int,
     blobs_present: bool,
+    gas_benchmark_value: int,
 ):
     """Test running a block with as many BLOBHASH instructions as possible."""
-    env = Environment()
     max_code_size = fork.max_code_size()
     max_stack_height = fork.max_stack_height()
 
@@ -1692,14 +1688,13 @@ def test_worst_blobhash(
     tx = Transaction(
         ty=tx_type,
         to=code_address,
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         max_fee_per_blob_gas=max_fee_per_blob_gas,
         blob_versioned_hashes=blob_versioned_hashes,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -1715,6 +1710,7 @@ def test_worst_mod(
     fork: Fork,
     mod_bits: int,
     op: Op,
+    gas_benchmark_value: int,
 ):
     """
     Test running a block with as many MOD instructions with arguments of the parametrized range.
@@ -1813,18 +1809,15 @@ def test_worst_mod(
     )
     assert (max_code_size - len(code_segment)) < len(code) <= max_code_size
 
-    env = Environment()
-
     input_value = initial_mod if not should_negate else neg(initial_mod)
     tx = Transaction(
         to=pre.deploy_contract(code=code),
         data=input_value.to_bytes(32, byteorder="big"),
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -1844,9 +1837,9 @@ def test_worst_memory_access(
     offset: int,
     offset_initialized: bool,
     big_memory_expansion: bool,
+    gas_benchmark_value: int,
 ):
     """Test running a block with as many memory access instructions as possible."""
-    env = Environment()
     max_code_size = fork.max_code_size()
 
     mem_exp_code = Op.MSTORE8(10 * 1024, 1) if big_memory_expansion else Bytecode()
@@ -1864,12 +1857,11 @@ def test_worst_memory_access(
 
     tx = Transaction(
         to=pre.deploy_contract(code=code),
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -1885,6 +1877,7 @@ def test_worst_modarith(
     fork: Fork,
     mod_bits: int,
     op: Op,
+    gas_benchmark_value: int,
 ):
     """
     Test running a block with as many "op" instructions with arguments of the parametrized range.
@@ -1965,17 +1958,14 @@ def test_worst_modarith(
     code = code_constant_pool + Op.JUMPDEST + code_segment + Op.JUMP(len(code_constant_pool))
     assert (max_code_size - len(code_segment)) < len(code) <= max_code_size
 
-    env = Environment()
-
     tx = Transaction(
         to=pre.deploy_contract(code=code),
         data=initial_mod.to_bytes(32, byteorder="big"),
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -1988,13 +1978,11 @@ def test_empty_block(
     pre: Alloc,
 ):
     """Test running an empty block as a baseline for fixed proving costs."""
-    env = Environment()
-
     blockchain_test(
-        env=env,
         pre=pre,
         post={},
         blocks=[Block(txs=[])],
+        expected_benchmark_gas_used=0,
     )
 
 
@@ -2003,10 +1991,9 @@ def test_amortized_bn128_pairings(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    gas_benchmark_value: int,
 ):
     """Test running a block with as many BN128 pairings as possible."""
-    env = Environment()
-
     base_cost = 45_000
     pairing_cost = 34_000
     size_per_pairing = 192
@@ -2017,7 +2004,7 @@ def test_amortized_bn128_pairings(
 
     # This is a theoretical maximum number of pairings that can be done in a block.
     # It is only used for an upper bound for calculating the optimal number of pairings below.
-    maximum_number_of_pairings = (env.gas_limit - base_cost) // pairing_cost
+    maximum_number_of_pairings = (gas_benchmark_value - base_cost) // pairing_cost
 
     # Discover the optimal number of pairings balancing two dimensions:
     # 1. Amortize the precompile base cost as much as possible.
@@ -2026,7 +2013,7 @@ def test_amortized_bn128_pairings(
     optimal_per_call_num_pairings = 0
     for i in range(1, maximum_number_of_pairings + 1):
         # We'll pass all pairing arguments via calldata.
-        available_gas_after_intrinsic = env.gas_limit - intrinsic_gas_calculator(
+        available_gas_after_intrinsic = gas_benchmark_value - intrinsic_gas_calculator(
             calldata=[0xFF] * size_per_pairing * i  # 0xFF is to indicate non-zero bytes.
         )
         available_gas_after_expansion = max(
@@ -2053,13 +2040,12 @@ def test_amortized_bn128_pairings(
 
     tx = Transaction(
         to=code_address,
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         data=_generate_bn128_pairs(optimal_per_call_num_pairings, 42),
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -2109,9 +2095,9 @@ def test_worst_calldataload(
     pre: Alloc,
     fork: Fork,
     calldata: bytes,
+    gas_benchmark_value: int,
 ):
     """Test running a block with as many CALLDATALOAD as possible."""
-    env = Environment()
     max_code_size = fork.max_code_size()
 
     code_prefix = Op.PUSH0 + Op.JUMPDEST
@@ -2125,12 +2111,11 @@ def test_worst_calldataload(
     tx = Transaction(
         to=pre.deploy_contract(code=code),
         data=calldata,
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -2163,9 +2148,9 @@ def test_worst_swap(
     pre: Alloc,
     fork: Fork,
     opcode: Opcode,
+    gas_benchmark_value: int,
 ):
     """Test running a block with as many SWAP as possible."""
-    env = Environment()
     max_code_size = fork.max_code_size()
 
     code_prefix = Op.JUMPDEST + Op.PUSH0 * opcode.min_stack_height
@@ -2176,12 +2161,11 @@ def test_worst_swap(
 
     tx = Transaction(
         to=pre.deploy_contract(code=code),
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -2214,9 +2198,9 @@ def test_worst_dup(
     pre: Alloc,
     fork: Fork,
     opcode: Op,
+    gas_benchmark_value: int,
 ):
     """Test running a block with as many DUP as possible."""
-    env = Environment()
     max_stack_height = fork.max_stack_height()
 
     min_stack_height = opcode.min_stack_height
@@ -2232,12 +2216,11 @@ def test_worst_dup(
 
     tx = Transaction(
         to=code_address,
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -2287,10 +2270,9 @@ def test_worst_push(
     pre: Alloc,
     fork: Fork,
     opcode: Op,
+    gas_benchmark_value: int,
 ):
     """Test running a block with as many PUSH as possible."""
-    env = Environment()
-
     op = opcode[1] if opcode.has_data_portion() else opcode
     opcode_sequence = op * fork.max_stack_height()
     target_contract_address = pre.deploy_contract(code=opcode_sequence)
@@ -2303,12 +2285,11 @@ def test_worst_push(
 
     tx = Transaction(
         to=code_address,
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -2336,9 +2317,9 @@ def test_worst_return_revert(
     opcode: Op,
     return_size: int,
     return_non_zero_data: bool,
+    gas_benchmark_value: int,
 ):
     """Test running a block with as many RETURN or REVERT as possible."""
-    env = Environment()
     max_code_size = fork.max_code_size()
 
     # Create the contract that will be called repeatedly.
@@ -2365,12 +2346,11 @@ def test_worst_return_revert(
 
     tx = Transaction(
         to=code_address,
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,

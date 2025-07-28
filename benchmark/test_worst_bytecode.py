@@ -52,6 +52,8 @@ def test_worst_bytecode_single_opcode(
     pre: Alloc,
     fork: Fork,
     opcode: Op,
+    env: Environment,
+    gas_benchmark_value: int,
 ):
     """
     Test a block execution where a single opcode execution maxes out the gas limit,
@@ -70,7 +72,7 @@ def test_worst_bytecode_single_opcode(
     # able to pay for the contract deposit. This has to take into account the 200 gas per byte,
     # but also the quadratic memory expansion costs which have to be paid each time the
     # memory is being setup
-    attack_gas_limit = Environment().gas_limit
+    attack_gas_limit = gas_benchmark_value
     max_contract_size = fork.max_code_size()
 
     gas_costs = fork.gas_costs()
@@ -101,7 +103,13 @@ def test_worst_bytecode_single_opcode(
 
     # Set the block gas limit to a relative high value to ensure the code deposit tx
     # fits in the block (there is enough gas available in the block to execute this)
-    env = Environment(gas_limit=code_deposit_gas_minimum * 2 * num_contracts)
+    minimum_gas_limit = code_deposit_gas_minimum * 2 * num_contracts
+    if env.gas_limit < minimum_gas_limit:
+        raise Exception(
+            f"`BENCHMARKING_MAX_GAS` ({env.gas_limit}) is no longer enough to support this test, "
+            f"which requires {minimum_gas_limit} gas for its setup. Update the value or consider "
+            "optimizing gas usage during the setup phase of this test."
+        )
 
     # The initcode will take its address as a starting point to the input to the keccak
     # hash function.
@@ -214,7 +222,6 @@ def test_worst_bytecode_single_opcode(
     )
 
     blockchain_test(
-        genesis_environment=env,
         pre=pre,
         post=post,
         blocks=[
@@ -243,6 +250,7 @@ def test_worst_initcode_jumpdest_analysis(
     pre: Alloc,
     fork: Fork,
     pattern: Bytecode,
+    gas_benchmark_value: int,
 ):
     """
     Test the jumpdest analysis performance of the initcode.
@@ -301,17 +309,14 @@ def test_worst_initcode_jumpdest_analysis(
     code = code_prefix + code_loop_header + code_loop_body + code_loop_footer
     assert (max_code_size - len(code_invoke_create)) < len(code) <= max_code_size
 
-    env = Environment()
-
     tx = Transaction(
         to=pre.deploy_contract(code=code),
         data=tx_data,
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -351,9 +356,9 @@ def test_worst_create(
     max_code_size_ratio: float,
     non_zero_data: bool,
     value: int,
+    gas_benchmark_value: int,
 ):
     """Test the CREATE and CREATE2 performance with different configurations."""
-    env = Environment()
     max_code_size = fork.max_code_size()
 
     code_size = int(max_code_size * max_code_size_ratio)
@@ -415,12 +420,11 @@ def test_worst_create(
     tx = Transaction(
         # Set enough balance in the pre-alloc for `value > 0` configurations.
         to=pre.deploy_contract(code=code, balance=1_000_000_000 if value > 0 else 0),
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
@@ -440,10 +444,9 @@ def test_worst_creates_collisions(
     pre: Alloc,
     fork: Fork,
     opcode: Op,
+    gas_benchmark_value: int,
 ):
     """Test the CREATE and CREATE2 collisions performance."""
-    env = Environment()
-
     # We deploy a "proxy contract" which is the contract that will be called in a loop
     # using all the gas in the block. This "proxy contract" is the one executing CREATE2
     # failing with a collision.
@@ -483,19 +486,18 @@ def test_worst_creates_collisions(
         pre.deploy_contract(address=addr, code=Op.INVALID)
     else:
         # Heuristic to have an upper bound.
-        max_contract_count = 2 * env.gas_limit // gas_costs.G_CREATE
+        max_contract_count = 2 * gas_benchmark_value // gas_costs.G_CREATE
         for nonce in range(max_contract_count):
             addr = compute_create_address(address=proxy_contract, nonce=nonce)
             pre.deploy_contract(address=addr, code=Op.INVALID)
 
     tx = Transaction(
         to=tx_target,
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,

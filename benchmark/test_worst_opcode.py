@@ -11,7 +11,6 @@ from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     Alloc,
     Bytecode,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -52,9 +51,9 @@ def test_worst_log_opcodes(
     size: int,
     fixed_offset: bool,
     non_zero_data: bool,
+    gas_benchmark_value: int,
 ):
     """Test running a block with as many LOG opcodes as possible."""
-    env = Environment()
     max_code_size = fork.max_code_size()
 
     calldata = Bytecode()
@@ -85,12 +84,11 @@ def test_worst_log_opcodes(
 
     tx = Transaction(
         to=code_address,
-        gas_limit=env.gas_limit,
+        gas_limit=gas_benchmark_value,
         sender=pre.fund_eoa(),
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={},
         tx=tx,
