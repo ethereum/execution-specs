@@ -32,8 +32,10 @@ def clz_parameters():
     """Generate all test case parameters."""
     test_cases = []
 
+    # Format 0x000...000: all zeros
+    test_cases.append(("zero", 0, 256))
+
     # Format 0xb000...111: leading zeros followed by ones
-    # Special case: bits=256 gives value=0 (all zeros)
     for bits in range(257):
         value = (2**256 - 1) >> bits
         expected_clz = bits
@@ -43,10 +45,15 @@ def clz_parameters():
         )
         test_cases.append((f"leading_zeros_{bits}", value, expected_clz))
 
-    # Format 0xb010...000: single bit set
-    for bits in range(256):
-        value = 1 << bits
-        expected_clz = 255 - bits
+    # Format 0xb010...000: single bit set (1 << N for N = 1…256)
+    for bits in range(1, 257):
+        if bits == 256:
+            # Special case: 1 << 256 = 0 in 256-bit arithmetic (overflow)
+            value = 0
+            expected_clz = 256
+        else:
+            value = 1 << bits
+            expected_clz = 255 - bits
         assert expected_clz == Spec.calculate_clz(value), (
             f"CLZ calculation mismatch for single_bit_{bits}: "
             f"manual={expected_clz}, spec={Spec.calculate_clz(value)}, value={hex(value)}"
