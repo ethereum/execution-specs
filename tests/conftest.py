@@ -61,11 +61,11 @@ def pytest_configure(config: Config) -> None:
     if config.getoption("evm_trace"):
         import ethereum.trace
         from ethereum_spec_tools.evm_tools.t8n.evm_trace.eip3155 import (
-            evm_trace as new_trace_function,
+            Eip3155Tracer,
         )
 
         # Replace the function in the module
-        ethereum.trace.set_evm_trace(new_trace_function)
+        ethereum.trace.set_evm_trace(Eip3155Tracer())
 
 
 class _FixturesDownloader:
