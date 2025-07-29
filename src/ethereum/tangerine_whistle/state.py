@@ -92,7 +92,7 @@ def commit_transaction(state: State) -> None:
 def rollback_transaction(state: State) -> None:
     """
     Rollback a state transaction, resetting the state to the point when the
-    corresponding `start_transaction()` call was made.
+    corresponding `begin_transaction()` call was made.
 
     Parameters
     ----------

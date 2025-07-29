@@ -92,7 +92,7 @@ class MessageCallOutput:
 
 def process_message_call(message: Message) -> MessageCallOutput:
     """
-    If `message.current` is empty then it creates a smart contract
+    If `message.target` is empty then it creates a smart contract
     else it executes a call from the `message.caller` to the `message.target`.
 
     Parameters
