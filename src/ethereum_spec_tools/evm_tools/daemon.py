@@ -42,56 +42,68 @@ class _EvmToolHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         from . import main
 
-        content_length = int(self.headers["Content-Length"])
-        content_bytes = self.rfile.read(content_length)
-        content = json.loads(content_bytes)
+        try:
+            content_length = int(self.headers["Content-Length"])
+            content_bytes = self.rfile.read(content_length)
+            content = json.loads(content_bytes)
 
-        input_string = json.dumps(content["input"])
-        input = StringIO(input_string)
+            input_string = json.dumps(content["input"])
+            input = StringIO(input_string)
 
-        args = [
-            "t8n",
-            "--input.env=stdin",
-            "--input.alloc=stdin",
-            "--input.txs=stdin",
-            "--output.result=stdout",
-            "--output.body=stdout",
-            "--output.alloc=stdout",
-            f"--state.fork={content['state']['fork']}",
-            f"--state.chainid={content['state']['chainid']}",
-            f"--state.reward={content['state']['reward']}",
-        ]
+            args = [
+                "t8n",
+                "--input.env=stdin",
+                "--input.alloc=stdin",
+                "--input.txs=stdin",
+                "--output.result=stdout",
+                "--output.body=stdout",
+                "--output.alloc=stdout",
+                f"--state.fork={content['state']['fork']}",
+                f"--state.chainid={content['state']['chainid']}",
+                f"--state.reward={content['state']['reward']}",
+            ]
 
-        trace = content.get("trace", False)
-        output_basedir = content.get("output-basedir")
-        if trace:
-            if not output_basedir:
-                raise ValueError(
-                    "`output-basedir` should be provided when `--trace` "
-                    "is enabled."
+            trace = content.get("trace", False)
+            output_basedir = content.get("output-basedir")
+            if trace:
+                if not output_basedir:
+                    raise ValueError(
+                        "`output-basedir` should be provided when `--trace` "
+                        "is enabled."
+                    )
+                # send full trace output if ``trace`` is ``True``
+                args.extend(
+                    [
+                        "--trace",
+                        "--trace.memory",
+                        "--trace.returndata",
+                        f"--output.basedir={output_basedir}",
+                    ]
                 )
-            # send full trace output if ``trace`` is ``True``
-            args.extend(
-                [
-                    "--trace",
-                    "--trace.memory",
-                    "--trace.returndata",
-                    f"--output.basedir={output_basedir}",
-                ]
-            )
 
-        query_string = urlparse(self.path).query
-        if query_string:
-            query = parse_qs(
-                query_string,
-                keep_blank_values=True,
-                strict_parsing=True,
-                errors="strict",
-            )
-            args += query.get("arg", [])
+            count_opcodes = content.get("count-opcodes", False)
+            if count_opcodes:
+                # send opcode counts if ``count-opcodes`` is ``True``
+                args.extend(["--opcodes.count", "stdout"])
+
+            query_string = urlparse(self.path).query
+            if query_string:
+                query = parse_qs(
+                    query_string,
+                    keep_blank_values=True,
+                    strict_parsing=True,
+                    errors="strict",
+                )
+                args += query.get("arg", [])
+        except Exception as e:
+            self.send_response(500)
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            self.wfile.write(str(e).encode("utf-8"))
+            raise
 
         self.send_response(200)
-        self.send_header("Content-type", "application/octet-stream")
+        self.send_header("Content-Type", "application/octet-stream")
         self.end_headers()
 
         # `self.wfile` is missing the `name` attribute so it doesn't strictly
