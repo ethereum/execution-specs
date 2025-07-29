@@ -6,7 +6,7 @@ import argparse
 import fnmatch
 import json
 import os
-from typing import Any, TextIO
+from typing import Any, Final, TextIO, Type, TypeVar
 
 from ethereum_rlp import rlp
 from ethereum_types.numeric import U64, U256, Uint
@@ -24,8 +24,12 @@ from ..utils import (
     parse_hex_or_int,
 )
 from .env import Env
+from .evm_trace.count import CountTracer
 from .evm_trace.eip3155 import Eip3155Tracer
+from .evm_trace.group import GroupTracer
 from .t8n_types import Alloc, Result, Txs
+
+T = TypeVar("T")
 
 
 def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
@@ -72,11 +76,15 @@ def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
     t8n_parser.add_argument("--trace.nostack", action="store_true")
     t8n_parser.add_argument("--trace.returndata", action="store_true")
 
+    t8n_parser.add_argument("--opcode.count", dest="opcode_count", type=str)
+
     t8n_parser.add_argument("--state-test", action="store_true")
 
 
 class T8N(Load):
     """The class that carries out the transition"""
+
+    tracers: Final[GroupTracer | None]
 
     def __init__(
         self, options: Any, out_file: TextIO, in_file: TextIO
@@ -100,11 +108,13 @@ class T8N(Load):
         )
         self.fork = ForkLoad(fork_module)
 
+        tracers = GroupTracer()
+
         if self.options.trace:
             trace_memory = getattr(self.options, "trace.memory", False)
             trace_stack = not getattr(self.options, "trace.nostack", False)
             trace_return_data = getattr(self.options, "trace.returndata")
-            trace.set_evm_trace(
+            tracers.add(
                 Eip3155Tracer(
                     trace_memory=trace_memory,
                     trace_stack=trace_stack,
@@ -112,6 +122,19 @@ class T8N(Load):
                     output_basedir=self.options.output_basedir,
                 )
             )
+
+        if self.options.opcode_count is not None:
+            tracers.add(CountTracer())
+
+        maybe_tracers: GroupTracer | None
+        if tracers.tracers:
+            trace.set_evm_trace(tracers)
+            maybe_tracers = tracers
+        else:
+            maybe_tracers = None
+
+        self.tracers = maybe_tracers
+
         self.logger = get_stream_logger("T8N")
 
         super().__init__(
@@ -126,6 +149,15 @@ class T8N(Load):
         self.result = Result(
             self.env.block_difficulty, self.env.base_fee_per_gas
         )
+
+    def _tracer(self, type_: Type[T]) -> T:
+        group = self.tracers
+        if group is None:
+            raise Exception("no tracer configured")
+        found = next((x for x in group.tracers if isinstance(x, type_)), None)
+        if found is None:
+            raise Exception(f"no tracer of type `{type_}` found")
+        return found
 
     def block_environment(self) -> Any:
         """
@@ -310,7 +342,7 @@ class T8N(Load):
         json_state = self.alloc.to_json()
         json_result = self.result.to_json()
 
-        json_output = {}
+        json_output: dict[str, object] = {}
 
         if self.options.output_body == "stdout":
             txs_rlp = "0x" + rlp.encode(self.txs.all_txs).hex()
@@ -346,6 +378,19 @@ class T8N(Load):
             with open(result_output_path, "w") as f:
                 json.dump(json_result, f, indent=4)
             self.logger.info(f"Wrote result to {result_output_path}")
+
+        if self.options.opcode_count == "stdout":
+            opcode_count_results = self._tracer(CountTracer).results()
+            json_output["opcodeCount"] = opcode_count_results
+        elif self.options.opcode_count is not None:
+            opcode_count_results = self._tracer(CountTracer).results()
+            result_output_path = os.path.join(
+                self.options.output_basedir,
+                self.options.opcode_count,
+            )
+            with open(result_output_path, "w") as f:
+                json.dump(opcode_count_results, f, indent=4)
+            self.logger.info(f"Wrote opcode counts to {result_output_path}")
 
         if json_output:
             json.dump(json_output, self.out_file, indent=4)
