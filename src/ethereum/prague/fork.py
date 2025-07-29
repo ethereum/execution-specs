@@ -819,7 +819,7 @@ def process_transaction(
     Execute a transaction against the provided environment.
 
     This function processes the actions needed to execute a transaction.
-    It decrements the sender's account after calculating the gas fee and
+    It decrements the sender's account balance after calculating the gas fee and
     refunds them the proper amount after execution. Calling contracts,
     deploying code, and incrementing nonces are all examples of actions that
     happen within this function or from a call made within this function.
