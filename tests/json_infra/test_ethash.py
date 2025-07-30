@@ -1,3 +1,4 @@
+import importlib
 import json
 import pkgutil
 from typing import Any, Dict, List, cast
@@ -6,11 +7,6 @@ import pytest
 from ethereum_rlp import rlp
 from ethereum_types.numeric import Uint
 
-from ethereum.berlin.blocks import Header
-from ethereum.berlin.fork import (
-    generate_header_hash_for_pow,
-    validate_proof_of_work,
-)
 from ethereum.crypto.hash import keccak256
 from ethereum.ethash import (
     cache_size,
@@ -25,14 +21,30 @@ from ethereum.utils.hexadecimal import (
     hex_to_bytes32,
 )
 from ethereum.utils.numeric import le_uint32_sequence_to_bytes
-from tests.helpers import TEST_FIXTURES
-from tests.helpers.load_state_tests import Load
+
+from ..json_infra.load_blockchain_tests import Load
+from . import FORKS, TEST_FIXTURES
 
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
 
+POW_FORKS = [
+    "Frontier",
+    "Homestead",
+    "EIP150",
+    "EIP158",
+    "Byzantium",
+    "ConstantinopleFix",
+    "Istanbul",
+    "Berlin",
+]
 
-def test_ethtest_fixtures() -> None:
-    ethereum_tests = load_pow_test_fixtures()
+
+@pytest.mark.parametrize("network", POW_FORKS)
+def test_ethtest_fixtures(network: str) -> None:
+    package = FORKS[network]["package"]
+    fork_module = importlib.import_module(f"ethereum.{package}.fork")
+
+    ethereum_tests = load_pow_test_fixtures(network)
     for test in ethereum_tests:
         header = test["header"]
         assert header.nonce == test["nonce"]
@@ -41,7 +53,7 @@ def test_ethtest_fixtures() -> None:
         assert cache_size(header.number) == test["cache_size"]
         assert dataset_size(header.number) == test["dataset_size"]
 
-        header_hash = generate_header_hash_for_pow(header)
+        header_hash = fork_module.generate_header_hash_for_pow(header)
         assert header_hash == test["header_hash"]
 
         cache = generate_cache(header.number)
@@ -59,7 +71,10 @@ def test_ethtest_fixtures() -> None:
         assert result == test["result"]
 
 
-def load_pow_test_fixtures() -> List[Dict[str, Any]]:
+def load_pow_test_fixtures(network: str) -> List[Dict[str, Any]]:
+    package = FORKS[network]["package"]
+    Header = importlib.import_module(f"ethereum.{package}.blocks").Header
+
     with open(
         f"{ETHEREUM_TESTS_PATH}/PoWTests/ethash_tests.json"
     ) as pow_test_file_handler:
@@ -82,6 +97,7 @@ def load_pow_test_fixtures() -> List[Dict[str, Any]]:
 
 
 @pytest.mark.slow
+@pytest.mark.parametrize("network", POW_FORKS)
 @pytest.mark.parametrize(
     "block_file_name",
     [
@@ -90,15 +106,20 @@ def load_pow_test_fixtures() -> List[Dict[str, Any]]:
         "block_12964999.json",
     ],
 )
-def test_pow_validation_block_headers(block_file_name: str) -> None:
+def test_pow_validation_block_headers(
+    network: str, block_file_name: str
+) -> None:
+    package = cast(str, FORKS[network]["package"])
+    fork_module = importlib.import_module(f"ethereum.{package}.fork")
+
     block_str_data = cast(
         bytes, pkgutil.get_data("ethereum", f"assets/blocks/{block_file_name}")
     ).decode()
     block_json_data = json.loads(block_str_data)
 
-    load = Load("Berlin", "berlin")
-    header: Header = load.json_to_header(block_json_data)
-    validate_proof_of_work(header)
+    load = Load(network, package)
+    header = load.json_to_header(block_json_data)
+    fork_module.validate_proof_of_work(header)
 
 
 # TODO: Once there is a method to download blocks, test the proof-of-work
