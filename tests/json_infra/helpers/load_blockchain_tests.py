@@ -3,7 +3,7 @@ import json
 import os.path
 import re
 from glob import glob
-from typing import Any, Dict, Generator, Tuple
+from typing import Any, Dict, Generator, cast
 from unittest.mock import call, patch
 
 import pytest
@@ -16,6 +16,9 @@ from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import EthereumException, StateWithEmptyAccount
 from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum_spec_tools.evm_tools.loaders.fixture_loader import Load
+
+from .. import FORKS
+from .exceptional_test_patterns import get_exceptional_blockchain_test_patterns
 
 
 class NoTestsFound(Exception):
@@ -152,37 +155,39 @@ def load_json_fixture(test_file: str, network: str) -> Generator:
             yield {
                 "test_file": test_file,
                 "test_key": _key,
+                "network": network,
             }
 
 
-def fetch_state_test_files(
-    test_dir: str,
+def fetch_blockchain_tests(
     network: str,
-    only_in: Tuple[str, ...] = (),
-    slow_list: Tuple[str, ...] = (),
-    big_memory_list: Tuple[str, ...] = (),
-    ignore_list: Tuple[str, ...] = (),
 ) -> Generator[Dict | ParameterSet, None, None]:
+    # Filter FORKS based on fork_option parameter
+    package = cast(str, FORKS[network]["package"])
+    test_dirs = cast(list[str], FORKS[network]["blockchain_test_dirs"])
+
+    (
+        slow_list,
+        ignore_list,
+        big_memory_list,
+    ) = get_exceptional_blockchain_test_patterns(network, package)
     all_slow = [re.compile(x) for x in slow_list]
     all_big_memory = [re.compile(x) for x in big_memory_list]
     all_ignore = [re.compile(x) for x in ignore_list]
 
-    # Get all the files to iterate over
-    # Maybe from the custom file list or entire test_dir
-    files_to_iterate = []
-    if len(only_in):
-        # Get file list from custom list, if one is specified
-        for test_path in only_in:
-            files_to_iterate.append(os.path.join(test_dir, test_path))
-    else:
-        # If there isn't a custom list, iterate over the test_dir
-        all_jsons = glob(os.path.join(test_dir, "**/*.json"), recursive=True)
+    # Get all the files to iterate over from both eest_tests_path and ethereum_tests_path
+    all_jsons = []
+    for test_dir in test_dirs:
+        all_jsons.extend(
+            glob(os.path.join(test_dir, "**/*.json"), recursive=True)
+        )
 
-        for full_path in all_jsons:
-            if not any(x.search(full_path) for x in all_ignore):
-                # If a file or folder is marked for ignore,
-                # it can already be dropped at this stage
-                files_to_iterate.append(full_path)
+    files_to_iterate = []
+    for full_path in all_jsons:
+        if not any(x.search(full_path) for x in all_ignore):
+            # If a file or folder is marked for ignore,
+            # it can already be dropped at this stage
+            files_to_iterate.append(full_path)
 
     # Start yielding individual test cases from the file list
     for _test_file in files_to_iterate:
@@ -197,6 +202,7 @@ def fetch_state_test_files(
                     + _test_case["test_key"]
                     + ")"
                 )
+                _test_case["package"] = package
                 if any(x.search(_identifier) for x in all_ignore):
                     continue
                 elif any(x.search(_identifier) for x in all_slow):

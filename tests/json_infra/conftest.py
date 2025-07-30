@@ -15,7 +15,10 @@ from requests_cache import CachedSession
 from requests_cache.backends.sqlite import SQLiteCache
 from typing_extensions import Self
 
-from tests.helpers import TEST_FIXTURES
+from . import TEST_FIXTURES
+
+# Global variable to store pytest config for access during test collection
+pytest_config = None
 
 try:
     from xdist import get_xdist_worker_id  # type: ignore[import-untyped]
@@ -48,11 +51,21 @@ def pytest_addoption(parser: Parser) -> None:
         help="Create an evm trace",
     )
 
+    parser.addoption(
+        "--fork",
+        dest="fork",
+        type=str,
+        help="Run tests for this fork only (e.g., --fork Osaka)",
+    )
+
 
 def pytest_configure(config: Config) -> None:
     """
     Configure the ethereum module and log levels to output evm trace.
     """
+    global pytest_config
+    pytest_config = config
+
     if config.getoption("optimized"):
         import ethereum_optimized
 

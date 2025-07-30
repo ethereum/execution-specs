@@ -1,7 +1,7 @@
 from typing import Tuple
 
 
-def get_exceptional_patterns(
+def get_exceptional_blockchain_test_patterns(
     network: str, package: str
 ) -> Tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
     """
