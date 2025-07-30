@@ -651,7 +651,7 @@ def test_insufficient_balance_blob_tx(
     "blobs_per_tx",
     lambda fork: [
         pytest.param([1], id="single_blob"),
-        pytest.param([fork.max_blobs_per_block()], id="max_blobs"),
+        pytest.param([fork.max_blobs_per_tx()], id="max_blobs"),
     ],
 )
 @pytest.mark.parametrize(
@@ -699,7 +699,7 @@ def test_sufficient_balance_blob_tx(
     "blobs_per_tx",
     lambda fork: [
         pytest.param([1], id="single_blob"),
-        pytest.param([fork.max_blobs_per_block()], id="max_blobs"),
+        pytest.param([fork.max_blobs_per_tx()], id="max_blobs"),
     ],
 )
 @pytest.mark.parametrize(
@@ -764,7 +764,7 @@ def test_sufficient_balance_blob_tx_pre_fund_tx(
     "blobs_per_tx",
     lambda fork: [
         pytest.param([1], id="single_blob"),
-        pytest.param([fork.max_blobs_per_block()], id="max_blobs"),
+        pytest.param([fork.max_blobs_per_tx()], id="max_blobs"),
     ],
 )
 @pytest.mark.parametrize(
@@ -875,7 +875,7 @@ def generate_invalid_tx_blob_count_tests(
             id="too_few_blobs",
         ),
         pytest.param(
-            [fork.max_blobs_per_block() + 1],
+            [fork.max_blobs_per_tx() + 1],
             [
                 TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED,
                 TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED,

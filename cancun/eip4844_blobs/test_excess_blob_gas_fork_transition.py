@@ -48,15 +48,36 @@ def pre_fork_blobs_per_block(fork: Fork) -> int:
 
 
 @pytest.fixture
+def post_fork_blobs_per_block(fork: Fork) -> int:
+    """Amount of blobs to produce with the post-fork rules."""
+    return fork.target_blobs_per_block(timestamp=FORK_TIMESTAMP) + 1
+
+
+@pytest.fixture
 def pre_fork_blocks(
     pre_fork_blobs_per_block: int,
     destination_account: Address,
     sender: EOA,
+    fork: Fork,
 ) -> List[Block]:
     """Generate blocks to reach the fork."""
-    return [
-        Block(
-            txs=[
+    blocks = []
+    nonce = 0
+
+    for t in range(999, FORK_TIMESTAMP, 1_000):
+        if pre_fork_blobs_per_block == 0:
+            blocks.append(Block(txs=[], timestamp=t))
+            continue
+
+        # Split into multi txs for forks where max per tx < max per block
+        txs = []
+        blob_index = 0
+        remaining_blobs = pre_fork_blobs_per_block
+        max_blobs_per_tx = fork.max_blobs_per_tx(timestamp=0)
+
+        while remaining_blobs > 0:
+            tx_blobs = min(remaining_blobs, max_blobs_per_tx)
+            txs.append(
                 Transaction(
                     ty=Spec.BLOB_TX_TYPE,
                     to=destination_account,
@@ -67,18 +88,19 @@ def pre_fork_blocks(
                     max_fee_per_blob_gas=100,
                     access_list=[],
                     blob_versioned_hashes=add_kzg_version(
-                        [Hash(x) for x in range(pre_fork_blobs_per_block)],
+                        [Hash(blob_index + x) for x in range(tx_blobs)],
                         Spec.BLOB_COMMITMENT_VERSION_KZG,
                     ),
                     sender=sender,
+                    nonce=nonce,
                 )
-            ]
-            if pre_fork_blobs_per_block > 0
-            else [],
-            timestamp=t,
-        )
-        for t in range(999, FORK_TIMESTAMP, 1_000)
-    ]
+            )
+            nonce += 1
+            blob_index += tx_blobs
+            remaining_blobs -= tx_blobs
+
+        blocks.append(Block(txs=txs, timestamp=t))
+    return blocks
 
 
 @pytest.fixture
@@ -93,6 +115,7 @@ def pre_fork_excess_blobs(
     """
     if not fork.supports_blobs(timestamp=0):
         return 0
+
     target_blobs = fork.target_blobs_per_block(timestamp=0)
     if pre_fork_blobs_per_block > target_blobs:
         return (pre_fork_blobs_per_block - target_blobs) * (len(pre_fork_blocks) - 1)
@@ -106,12 +129,6 @@ def post_fork_block_count(fork: Fork) -> int:
         fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP)
         - fork.target_blobs_per_block(timestamp=FORK_TIMESTAMP)
     )
-
-
-@pytest.fixture
-def post_fork_blobs_per_block(fork: Fork) -> int:
-    """Amount of blocks to produce with the post-fork rules."""
-    return fork.target_blobs_per_block(timestamp=FORK_TIMESTAMP) + 1
 
 
 @pytest.fixture
@@ -145,12 +162,34 @@ def post_fork_blocks(
     post_fork_blobs_per_block: int,
     fork_block_excess_blob_gas: int,
     sender: EOA,
+    pre_fork_blocks: List[Block],
+    fork: Fork,
 ):
-    """Generate blocks past the fork."""
+    """Generate blocks after the fork."""
     blocks = []
+    nonce = sum(len(block.txs) for block in pre_fork_blocks)
+
     for i in range(post_fork_block_count):
-        txs = (
-            [
+        if post_fork_blobs_per_block == 0:
+            if i == 0:
+                blocks.append(
+                    Block(
+                        txs=[],
+                        excess_blob_gas=fork_block_excess_blob_gas,
+                    )
+                )
+            else:
+                blocks.append(Block(txs=[]))
+            continue
+
+        # Split into multi txs for forks where max per tx < max per block
+        txs = []
+        blob_index = 0
+        remaining_blobs = post_fork_blobs_per_block
+        max_blobs_per_tx = fork.max_blobs_per_tx(timestamp=FORK_TIMESTAMP)
+        while remaining_blobs > 0:
+            tx_blobs = min(remaining_blobs, max_blobs_per_tx)
+            txs.append(
                 Transaction(
                     ty=Spec.BLOB_TX_TYPE,
                     to=destination_account,
@@ -160,17 +199,18 @@ def post_fork_blocks(
                     max_priority_fee_per_gas=10,
                     max_fee_per_blob_gas=100,
                     blob_versioned_hashes=add_kzg_version(
-                        [Hash(x) for x in range(post_fork_blobs_per_block)],
+                        [Hash(blob_index + x) for x in range(tx_blobs)],
                         Spec.BLOB_COMMITMENT_VERSION_KZG,
                     ),
                     sender=sender,
+                    nonce=nonce,
                 )
-            ]
-            if post_fork_blobs_per_block > 0
-            else []
-        )
+            )
+            nonce += 1
+            blob_index += tx_blobs
+            remaining_blobs -= tx_blobs
+
         if i == 0:
-            # Check the excess blob gas on the first block of the new fork
             blocks.append(
                 Block(
                     txs=txs,
@@ -179,6 +219,7 @@ def post_fork_blocks(
             )
         else:
             blocks.append(Block(txs=txs))
+
     return blocks
 
 
@@ -189,10 +230,26 @@ def post(  # noqa: D103
     post_fork_block_count: int,
     post_fork_blobs_per_block: int,
     destination_account: Address,
+    fork: Fork,
 ) -> Mapping[Address, Account]:
-    pre_fork_value = len(pre_fork_blocks) if pre_fork_blobs_per_block > 0 else 0
-    post_fork_value = post_fork_block_count if post_fork_blobs_per_block > 0 else 0
+    pre_fork_tx_count_per_block = 0
+    if pre_fork_blobs_per_block > 0:
+        max_blobs_per_tx_pre = fork.max_blobs_per_tx(timestamp=0)
+        pre_fork_tx_count_per_block = (
+            pre_fork_blobs_per_block + max_blobs_per_tx_pre - 1
+        ) // max_blobs_per_tx_pre
+
+    post_fork_tx_count_per_block = 0
+    if post_fork_blobs_per_block > 0:
+        max_blobs_per_tx_post = fork.max_blobs_per_tx(timestamp=FORK_TIMESTAMP)
+        post_fork_tx_count_per_block = (
+            post_fork_blobs_per_block + max_blobs_per_tx_post - 1
+        ) // max_blobs_per_tx_post
+
+    pre_fork_value = len(pre_fork_blocks) * pre_fork_tx_count_per_block
+    post_fork_value = post_fork_block_count * post_fork_tx_count_per_block
     total_value = pre_fork_value + post_fork_value
+
     if total_value == 0:
         return {}
     return {
@@ -200,7 +257,7 @@ def post(  # noqa: D103
     }
 
 
-@pytest.mark.valid_at_transition_to("Cancun")
+@pytest.mark.valid_at_transition_to("Cancun", subsequent_forks=False)
 @pytest.mark.parametrize(
     "excess_blob_gas_present,blob_gas_used_present",
     [
@@ -245,7 +302,7 @@ def test_invalid_pre_fork_block_with_blob_fields(
     )
 
 
-@pytest.mark.valid_at_transition_to("Cancun")
+@pytest.mark.valid_at_transition_to("Cancun", subsequent_forks=False)
 @pytest.mark.parametrize(
     "excess_blob_gas_missing,blob_gas_used_missing",
     [
@@ -344,37 +401,37 @@ def test_fork_transition_excess_blob_gas_at_blob_genesis(
             + 2,
             fork.max_blobs_per_block(timestamp=0),
             fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP),
-            id="max_blobs",
+            id="max_blobs_before_and_after",
         ),
         pytest.param(
             10,
             0,
             fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP),
-            id="no_blobs_before",
+            id="no_blobs_before_and_max_blobs_after",
         ),
         pytest.param(
             10,
             fork.max_blobs_per_block(timestamp=0),
             0,
-            id="no_blobs_after",
+            id="max_blobs_before_and_no_blobs_after",
         ),
         pytest.param(
             10,
             fork.target_blobs_per_block(timestamp=0),
             fork.target_blobs_per_block(timestamp=FORK_TIMESTAMP),
-            id="target_blobs",
+            id="target_blobs_before_and_after",
         ),
         pytest.param(
             10,
             1,
             fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP),
-            id="single_blob_to_max_blobs",
+            id="single_blob_before_and_max_blobs_after",
         ),
         pytest.param(
             10,
             fork.max_blobs_per_block(timestamp=0),
             1,
-            id="max_blobs_to_single_blob",
+            id="max_blobs_before_and_single_blob_after",
         ),
     ],
 )

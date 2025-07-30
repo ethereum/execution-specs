@@ -241,11 +241,8 @@ def blocks(
 def generate_full_blob_tests(
     fork: Fork,
 ) -> List:
-    """
-    Return a list of tests for invalid blob transactions due to insufficient max fee per blob gas
-    parametrized for each different fork.
-    """
-    max_blobs = fork.max_blobs_per_block()
+    """Return a list of test cases for full blob transactions."""
+    max_blobs = fork.max_blobs_per_tx()
     return [
         pytest.param(
             [  # Txs

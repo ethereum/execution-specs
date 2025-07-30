@@ -27,6 +27,12 @@ def max_blobs_per_block(fork: Fork) -> int:
 
 
 @pytest.fixture
+def max_blobs_per_tx(fork: Fork) -> int:
+    """Return max number of blobs per transaction."""
+    return fork.max_blobs_per_tx()
+
+
+@pytest.fixture
 def blob_gas_per_blob(fork: Fork) -> int:
     """Return default blob gas cost per blob."""
     return fork.blob_gas_per_blob()
@@ -269,6 +275,10 @@ def non_zero_blob_gas_used_genesis_block(
     genesis value, expecting an appropriate drop to the intermediate block.
     Similarly, we must add parent_blobs to the intermediate block within
     a blob tx such that an equivalent blobGasUsed field is wrote.
+
+    For forks >= Osaka where the MAX_BLOBS_PER_TX is introduced, we
+    split the blobs across multiple transactions to respect the
+    MAX_BLOBS_PER_TX limit.
     """
     if parent_blobs == 0:
         return None
@@ -287,30 +297,41 @@ def non_zero_blob_gas_used_genesis_block(
     )
 
     sender = pre.fund_eoa(10**27)
-
-    # Address that contains no code, nor balance and is not a contract.
     empty_account_destination = pre.fund_eoa(0)
-
     blob_gas_price_calculator = fork.blob_gas_price_calculator(block_number=1)
 
-    return Block(
-        txs=[
-            Transaction(
-                ty=Spec.BLOB_TX_TYPE,
-                sender=sender,
-                to=empty_account_destination,
-                value=1,
-                gas_limit=21_000,
-                max_fee_per_gas=tx_max_fee_per_gas,
-                max_priority_fee_per_gas=0,
-                max_fee_per_blob_gas=blob_gas_price_calculator(
-                    excess_blob_gas=parent_excess_blob_gas
-                ),
-                access_list=[],
-                blob_versioned_hashes=add_kzg_version(
-                    [Hash(x) for x in range(parent_blobs)],
-                    Spec.BLOB_COMMITMENT_VERSION_KZG,
-                ),
-            )
-        ]
+    # Split blobs into chunks when MAX_BLOBS_PER_TX < MAX_BLOBS_PER_BLOCK to respect per-tx limits.
+    # Allows us to keep single txs for forks where per-tx and per-block limits are equal, hitting
+    # coverage for block level blob gas validation when parent_blobs > MAX_BLOBS_PER_BLOCK.
+    max_blobs_per_tx = (
+        fork.max_blobs_per_tx()
+        if fork.max_blobs_per_tx() < fork.max_blobs_per_block()
+        else parent_blobs
     )
+    blob_chunks = [
+        range(i, min(i + max_blobs_per_tx, parent_blobs))
+        for i in range(0, parent_blobs, max_blobs_per_tx)
+    ]
+
+    def create_blob_transaction(blob_range):
+        return Transaction(
+            ty=Spec.BLOB_TX_TYPE,
+            sender=sender,
+            to=empty_account_destination,
+            value=1,
+            gas_limit=21_000,
+            max_fee_per_gas=tx_max_fee_per_gas,
+            max_priority_fee_per_gas=0,
+            max_fee_per_blob_gas=blob_gas_price_calculator(
+                excess_blob_gas=parent_excess_blob_gas,
+            ),
+            access_list=[],
+            blob_versioned_hashes=add_kzg_version(
+                [Hash(x) for x in blob_range],
+                Spec.BLOB_COMMITMENT_VERSION_KZG,
+            ),
+        )
+
+    txs = [create_blob_transaction(chunk) for chunk in blob_chunks]
+
+    return Block(txs=txs)

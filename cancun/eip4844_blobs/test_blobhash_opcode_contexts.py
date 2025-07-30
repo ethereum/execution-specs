@@ -145,11 +145,11 @@ class BlobhashContext(Enum):
 
 @pytest.fixture()
 def simple_blob_hashes(
-    max_blobs_per_block: int,
+    max_blobs_per_tx: int,
 ) -> List[Hash]:
     """Return a simple list of blob versioned hashes ranging from bytes32(1 to 4)."""
     return add_kzg_version(
-        [(1 << x) for x in range(max_blobs_per_block)],
+        [(1 << x) for x in range(max_blobs_per_tx)],
         Spec.BLOB_COMMITMENT_VERSION_KZG,
     )
 
@@ -171,7 +171,7 @@ def simple_blob_hashes(
 def test_blobhash_opcode_contexts(
     pre: Alloc,
     test_case: str,
-    max_blobs_per_block: int,
+    max_blobs_per_tx: int,
     simple_blob_hashes: List[bytes],
     fork: Fork,
     state_test: StateTestFiller,
@@ -192,7 +192,7 @@ def test_blobhash_opcode_contexts(
     match test_case:
         case "on_top_level_call_stack":
             blobhash_sstore_address = BlobhashContext.BLOBHASH_SSTORE.deploy_contract(
-                pre=pre, indexes=range(max_blobs_per_block + 1)
+                pre=pre, indexes=range(max_blobs_per_tx + 1)
             )
             tx_to = blobhash_sstore_address
             post = {
@@ -226,7 +226,7 @@ def test_blobhash_opcode_contexts(
                 case "on_CALLCODE":
                     call_context = BlobhashContext.CALLCODE
             call_address = call_context.deploy_contract(
-                pre=pre, indexes=range(max_blobs_per_block + 1)
+                pre=pre, indexes=range(max_blobs_per_tx + 1)
             )
             tx_to = call_address
             post = {
@@ -251,13 +251,13 @@ def test_blobhash_opcode_contexts(
                     create_context = BlobhashContext.CREATE2
                     opcode = Op.CREATE2
             factory_address = create_context.deploy_contract(
-                pre=pre, indexes=range(max_blobs_per_block + 1)
+                pre=pre, indexes=range(max_blobs_per_tx + 1)
             )
             created_contract_address = compute_create_address(
                 address=factory_address,
                 nonce=1,  # the create contract will have nonce 1 for its first create
                 salt=0,
-                initcode=BlobhashContext.INITCODE.code(indexes=range(max_blobs_per_block + 1)),
+                initcode=BlobhashContext.INITCODE.code(indexes=range(max_blobs_per_tx + 1)),
                 opcode=opcode,
             )
             tx_to = factory_address
