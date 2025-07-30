@@ -18,6 +18,7 @@ from ethereum_test_tools import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
@@ -467,5 +468,76 @@ def test_clz_with_memory_operation(state_test: StateTestFiller, pre: Alloc, bits
         sender=pre.fund_eoa(),
         gas_limit=200_000,
     )
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Osaka")
+def test_clz_initcode_context(state_test: StateTestFiller, pre: Alloc):
+    """Test CLZ opcode behavior when creating a contract."""
+    bits = [0, 1, 64, 128, 255]
+
+    storage = Storage()
+
+    init_code = Bytecode()
+    for bit in bits:
+        init_code += Op.SSTORE(storage.store_next(255 - bit), Op.CLZ(1 << bit))
+
+    sender_address = pre.fund_eoa()
+
+    contract_address = compute_create_address(address=sender_address, nonce=0)
+
+    tx = Transaction(
+        to=None,
+        gas_limit=6_000_000,
+        data=init_code,
+        sender=sender_address,
+    )
+
+    post = {
+        contract_address: Account(storage=storage),
+    }
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Osaka")
+@pytest.mark.parametrize("opcode", [Op.CREATE, Op.CREATE2])
+def test_clz_initcode_create(state_test: StateTestFiller, pre: Alloc, opcode: Op):
+    """Test CLZ opcode behavior when creating a contract."""
+    bits = [0, 1, 64, 128, 255]  # expected values: [255, 254, 191, 127, 0]
+
+    storage = Storage()
+    ext_code = Bytecode()
+
+    for bit in bits:
+        ext_code += Op.SSTORE(storage.store_next(255 - bit), Op.CLZ(1 << bit))
+
+    sender_address = pre.fund_eoa()
+
+    create_contract = (
+        Op.CALLDATACOPY(offset=0, size=len(ext_code))
+        + opcode(offset=0, size=len(ext_code))
+        + Op.STOP
+    )
+
+    factory_contract_address = pre.deploy_contract(code=create_contract)
+
+    created_contract_address = compute_create_address(
+        address=factory_contract_address, nonce=1, initcode=ext_code, opcode=opcode
+    )
+
+    tx = Transaction(
+        to=factory_contract_address,
+        gas_limit=200_000,
+        data=ext_code,
+        sender=sender_address,
+    )
+
+    post = {
+        created_contract_address: Account(
+            storage=storage,
+        ),
+    }
 
     state_test(pre=pre, post=post, tx=tx)
