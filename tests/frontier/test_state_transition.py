@@ -4,6 +4,7 @@ from typing import Dict
 import pytest
 
 from tests.helpers import EEST_TESTS_PATH, ETHEREUM_TESTS_PATH
+from tests.helpers.exceptional_test_patterns import get_exceptional_patterns
 from tests.helpers.load_state_tests import (
     Load,
     fetch_state_test_files,
@@ -18,40 +19,17 @@ EEST_BLOCKCHAIN_TESTS_DIR = f"{EEST_TESTS_PATH}/blockchain_tests/"
 NETWORK = "Frontier"
 PACKAGE = "frontier"
 
-LEGACY_IGNORE_LIST = (
-    # Valid block tests to be ignored
-    "bcForkStressTest/ForkStressTest.json",
-    "bcGasPricerTest/RPC_API_Test.json",
-    "bcMultiChainTest/",
-    "bcTotalDifficultyTest/",
-    "stTimeConsuming/",
-    # Invalid block tests to be ignored
-    "bcForgedTest",
-    "bcMultiChainTest",
-    # TODO: See https://github.com/ethereum/tests/issues/1218
-    "GasLimitHigherThan2p63m1_Frontier",
-)
-
-LEGACY_BIG_MEMORY_TESTS = (
-    "/stQuadraticComplexityTest/",
-    "/stRandom2/",
-    "/stRandom/",
-    "/stSpecialTest/",
-)
-
-SLOW_LIST = (
-    # InvalidBlockTest
-    "bcUncleHeaderValidity/nonceWrong.json",
-    "bcUncleHeaderValidity/wrongMixHash.json",
+slow_tests, ignore_tests, big_memory_tests = get_exceptional_patterns(
+    NETWORK, PACKAGE
 )
 
 # Define Tests
 fetch_tests = partial(
     fetch_state_test_files,
     network=NETWORK,
-    ignore_list=LEGACY_IGNORE_LIST,
-    slow_list=SLOW_LIST,
-    big_memory_list=LEGACY_BIG_MEMORY_TESTS,
+    ignore_list=ignore_tests,
+    slow_list=slow_tests,
+    big_memory_list=big_memory_tests,
 )
 
 FIXTURES_LOADER = Load(NETWORK, PACKAGE)

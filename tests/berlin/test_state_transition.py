@@ -4,6 +4,7 @@ from typing import Dict
 import pytest
 
 from tests.helpers import EEST_TESTS_PATH, ETHEREUM_TESTS_PATH
+from tests.helpers.exceptional_test_patterns import get_exceptional_patterns
 from tests.helpers.load_state_tests import (
     Load,
     fetch_state_test_files,
@@ -18,57 +19,17 @@ EEST_BLOCKCHAIN_TESTS_DIR = f"{EEST_TESTS_PATH}/blockchain_tests/"
 NETWORK = "Berlin"
 PACKAGE = "berlin"
 
-# Every test below takes more than  60s to run and
-# hence they've been marked as slow
-SLOW_TESTS = (
-    # GeneralStateTests
-    "stTimeConsuming/CALLBlake2f_MaxRounds.json",
-    "stTimeConsuming/static_Call50000_sha256.json",
-    "vmPerformance/loopExp.json",
-    "vmPerformance/loopMul.json",
-    "QuadraticComplexitySolidity_CallDataCopy_d0g1v0_Berlin",
-    "CALLBlake2f_d9g0v0_Berlin",
-    "CALLCODEBlake2f_d9g0v0",
-    "stRandom/randomStatetest177.json",
-    "stCreateTest/CreateOOGafterMaxCodesize.json",
-    # ValidBlockTest
-    "bcExploitTest/DelegateCallSpam.json",
-    # InvalidBlockTest
-    "bcUncleHeaderValidity/nonceWrong.json",
-    "bcUncleHeaderValidity/wrongMixHash.json",
-)
-
-# These are tests that are considered to be incorrect,
-# Please provide an explanation when adding entries
-IGNORE_TESTS = (
-    # ValidBlockTest
-    "bcForkStressTest/ForkStressTest.json",
-    "bcGasPricerTest/RPC_API_Test.json",
-    "bcMultiChainTest",
-    "bcTotalDifficultyTest",
-    # InvalidBlockTest
-    "bcForgedTest",
-    "bcMultiChainTest",
-    "GasLimitHigherThan2p63m1_Berlin",
-)
-
-# All tests that recursively create a large number of frames (50000)
-BIG_MEMORY_TESTS = (
-    "50000_",
-    "/stQuadraticComplexityTest/",
-    "/stRandom2/",
-    "/stRandom/",
-    "/stSpecialTest/",
-    "stTimeConsuming/",
+slow_tests, ignore_tests, big_memory_tests = get_exceptional_patterns(
+    NETWORK, PACKAGE
 )
 
 # Define Tests
 fetch_tests = partial(
     fetch_state_test_files,
     network=NETWORK,
-    ignore_list=IGNORE_TESTS,
-    slow_list=SLOW_TESTS,
-    big_memory_list=BIG_MEMORY_TESTS,
+    ignore_list=ignore_tests,
+    slow_list=slow_tests,
+    big_memory_list=big_memory_tests,
 )
 
 FIXTURES_LOADER = Load(NETWORK, PACKAGE)

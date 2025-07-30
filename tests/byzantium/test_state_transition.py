@@ -4,6 +4,7 @@ from typing import Dict
 import pytest
 
 from tests.helpers import EEST_TESTS_PATH, ETHEREUM_TESTS_PATH
+from tests.helpers.exceptional_test_patterns import get_exceptional_patterns
 from tests.helpers.load_state_tests import (
     Load,
     fetch_state_test_files,
@@ -18,51 +19,17 @@ EEST_BLOCKCHAIN_TESTS_DIR = f"{EEST_TESTS_PATH}/blockchain_tests/"
 NETWORK = "Byzantium"
 PACKAGE = "byzantium"
 
-# These are tests that are considered to be incorrect,
-# Please provide an explanation when adding entries
-LEGACY_IGNORE_LIST = (
-    # ValidBlockTests
-    "bcForkStressTest/ForkStressTest.json",
-    "bcGasPricerTest/RPC_API_Test.json",
-    "bcMultiChainTest",
-    "bcTotalDifficultyTest",
-    # InvalidBlockTests
-    "bcForgedTest",
-    "bcMultiChainTest",
-    "GasLimitHigherThan2p63m1_Byzantium",
-)
-
-# All tests that recursively create a large number of frames (50000)
-LEGACY_BIG_MEMORY_TESTS = (
-    # GeneralStateTests
-    "50000_",
-    "/stQuadraticComplexityTest/",
-    "/stRandom2/",
-    "/stRandom/",
-    "/stSpecialTest/",
-    "stTimeConsuming/",
-    # ValidBlockTests
-    "randomStatetest94_",
-)
-
-LEGACY_SLOW_TESTS = (
-    # GeneralStateTests
-    "stRandom/randomStatetest177.json",
-    "stCreateTest/CreateOOGafterMaxCodesize.json",
-    # ValidBlockTest
-    "bcExploitTest/DelegateCallSpam.json",
-    # InvalidBlockTest
-    "bcUncleHeaderValidity/nonceWrong.json",
-    "bcUncleHeaderValidity/wrongMixHash.json",
+slow_tests, ignore_tests, big_memory_tests = get_exceptional_patterns(
+    NETWORK, PACKAGE
 )
 
 # Define Tests
 fetch_tests = partial(
     fetch_state_test_files,
     network=NETWORK,
-    ignore_list=LEGACY_IGNORE_LIST,
-    slow_list=LEGACY_SLOW_TESTS,
-    big_memory_list=LEGACY_BIG_MEMORY_TESTS,
+    ignore_list=ignore_tests,
+    slow_list=slow_tests,
+    big_memory_list=big_memory_tests,
 )
 
 FIXTURES_LOADER = Load(NETWORK, PACKAGE)
