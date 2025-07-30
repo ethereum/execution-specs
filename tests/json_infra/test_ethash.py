@@ -22,8 +22,8 @@ from ethereum.utils.hexadecimal import (
 )
 from ethereum.utils.numeric import le_uint32_sequence_to_bytes
 
-from ..json_infra.load_blockchain_tests import Load
 from . import FORKS, TEST_FIXTURES
+from .helpers.load_blockchain_tests import Load
 
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
 

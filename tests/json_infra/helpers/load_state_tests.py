@@ -3,7 +3,7 @@ import os
 import sys
 from glob import glob
 from io import StringIO
-from typing import Dict, Generator, Optional, Tuple
+from typing import Dict, Generator, cast
 
 import pytest
 
@@ -13,31 +13,41 @@ from ethereum_spec_tools.evm_tools import create_parser
 from ethereum_spec_tools.evm_tools.statetest import read_test_cases
 from ethereum_spec_tools.evm_tools.t8n import T8N
 
+from .. import FORKS
+from .exceptional_test_patterns import get_exceptional_state_test_patterns
+
 parser = create_parser()
 
 
-def fetch_evm_tools_tests(
-    test_dir: str,
-    fork_name: str,
-    slow_tests: Optional[Tuple[str, ...]] = None,
-) -> Generator:
+def fetch_state_tests(network: str) -> Generator:
     """
     Fetches all the general state tests from the given directory
     """
-    if slow_tests is None:
-        slow_tests = tuple()
+    # Filter FORKS based on fork_option parameter
+    package = cast(str, FORKS[network]["package"])
+    test_dirs = cast(list[str], FORKS[network]["state_test_dirs"])
 
-    pattern = os.path.join(test_dir, "**/*.json")
-    for test_file_path in glob(pattern, recursive=True):
+    slow_tests = get_exceptional_state_test_patterns(network, package)
+
+    # Get all the files to iterate over from both eest_tests_path and ethereum_tests_path
+    all_jsons = []
+    for test_dir in test_dirs:
+        all_jsons.extend(
+            glob(os.path.join(test_dir, "**/*.json"), recursive=True)
+        )
+
+    for test_file_path in all_jsons:
         test_cases = read_test_cases(test_file_path)
+
         for test_case in test_cases:
-            if test_case.fork_name != fork_name:
+            if test_case.fork_name != network:
                 continue
 
             test_case_dict = {
                 "test_file": test_case.path,
                 "test_key": test_case.key,
                 "index": test_case.index,
+                "network": network,
             }
 
             if test_case.key in slow_tests:
@@ -58,13 +68,14 @@ def idfn(test_case: Dict) -> str:
         return f"{folder_name} - {test_key} - {index}"
 
 
-def load_evm_tools_test(test_case: Dict[str, str], fork_name: str) -> None:
+def run_state_test(test_case: Dict[str, str]) -> None:
     """
     Runs a single general state test
     """
     test_file = test_case["test_file"]
     test_key = test_case["test_key"]
     index = test_case["index"]
+    network = test_case["network"]
     with open(test_file) as f:
         tests = json.load(f)
 
@@ -77,7 +88,7 @@ def load_evm_tools_test(test_case: Dict[str, str], fork_name: str) -> None:
 
     alloc = tests[test_key]["pre"]
 
-    post = tests[test_key]["post"][fork_name][index]
+    post = tests[test_key]["post"][network][index]
     post_hash = post["hash"]
     d = post["indexes"]["data"]
     g = post["indexes"]["gas"]
@@ -119,7 +130,7 @@ def load_evm_tools_test(test_case: Dict[str, str], fork_name: str) -> None:
         "--input.txs",
         "stdin",
         "--state.fork",
-        f"{fork_name}",
+        f"{network}",
         "--state-test",
     ]
     t8n_options = parser.parse_args(t8n_args)

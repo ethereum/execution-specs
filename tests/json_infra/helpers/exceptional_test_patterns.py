@@ -78,3 +78,27 @@ def get_exceptional_blockchain_test_patterns(
     )
 
     return slow_tests, ignore_tests, big_memory_tests
+
+
+def get_exceptional_state_test_patterns(
+    network: str, package: str
+) -> tuple[str, ...]:
+    slow_tests = (
+        "CALLBlake2f_MaxRounds",
+        "CALLCODEBlake2f",
+        "CALLBlake2f",
+        "loopExp",
+        "loopMul",
+        "GeneralStateTests/stTimeConsuming/CALLBlake2f_MaxRounds.json::CALLBlake2f_MaxRounds-fork_[Cancun-Prague]-d0g0v0",
+        "GeneralStateTests/VMTests/vmPerformance/loopExp.json::loopExp-fork_[Cancun-Prague]-d[0-14]g0v0",
+        "GeneralStateTests/VMTests/vmPerformance/loopMul.json::loopMul-fork_[Cancun-Prague]-d[0-2]g0v0",
+        f"tests/{package}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_{network}-state_test-bls_pairing_non-degeneracy-]",
+        f"tests/{package}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_{network}-state_test-bls_pairing_bilinearity-]",
+        f"tests/{package}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_{network}-state_test-bls_pairing_e(G1,-G2)=e(-G1,G2)-]",
+        f"tests/{package}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_{network}-state_test-bls_pairing_e(aG1,bG2)=e(abG1,G2)-]",
+        f"tests/{package}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_{network}-state_test-bls_pairing_e(aG1,bG2)=e(G1,abG2)-]",
+        f"tests/{package}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_{network}-state_test-inf_pair-]",
+        f"tests/{package}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_{network}-state_test-multi_inf_pair-]",
+    )
+
+    return slow_tests
