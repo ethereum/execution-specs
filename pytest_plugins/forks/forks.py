@@ -464,13 +464,13 @@ def pytest_configure(config: pytest.Config):
             return set()
 
         forks_str = config_str.split(",")
-        forks_str = [s.strip() for s in config_str.split(",")]
+        forks_str = [s.strip().lower() for s in config_str.split(",")]
         # Alias for "Merge"
         forks_str = [("Paris" if s.lower() == "merge" else s) for s in forks_str]
 
         resulting_forks = set()
         for fork in config.all_forks_with_transitions:
-            if fork.name() in forks_str:
+            if fork.name().lower() in forks_str:
                 resulting_forks.add(fork)
 
         if len(resulting_forks) != len(forks_str):

@@ -13,7 +13,7 @@ def fork_map():
     return {fork.name(): fork for fork in get_forks()}
 
 
-def test_no_options_no_validity_marker(pytester):
+def test_no_options_no_validity_marker(pytester: pytest.Pytester):
     """
     Test test parametrization with:
     - no fork command-line options,
@@ -61,7 +61,7 @@ def test_no_options_no_validity_marker(pytester):
 
 
 @pytest.mark.parametrize("fork", ["London", "Paris"])
-def test_from_london_option_no_validity_marker(pytester, fork_map, fork):
+def test_from_london_option_no_validity_marker(pytester: pytest.Pytester, fork_map, fork):
     """
     Test test parametrization with:
     - --from London command-line option,
@@ -105,7 +105,7 @@ def test_from_london_option_no_validity_marker(pytester, fork_map, fork):
     )
 
 
-def test_from_london_until_shanghai_option_no_validity_marker(pytester, fork_map):
+def test_from_london_until_shanghai_option_no_validity_marker(pytester: pytest.Pytester, fork_map):
     """
     Test test parametrization with:
     - --from London command-line option,
@@ -122,7 +122,7 @@ def test_from_london_until_shanghai_option_no_validity_marker(pytester, fork_map
     )
     pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
     result = pytester.runpytest(
-        "-c", "pytest-fill.ini", "-v", "--from", "London", "--until", "Shanghai"
+        "-c", "pytest-fill.ini", "-v", "--from", "London", "--until", "shanghai"
     )
     forks_under_test = forks_from_until(fork_map["London"], fork_map["Shanghai"])
     expected_passed = len(forks_under_test) * len(StateTest.supported_fixture_formats)
@@ -153,11 +153,11 @@ def test_from_london_until_shanghai_option_no_validity_marker(pytester, fork_map
     )
 
 
-def test_from_merge_until_merge_option_no_validity_marker(pytester, fork_map):
+def test_from_paris_until_paris_option_no_validity_marker(pytester: pytest.Pytester, fork_map):
     """
     Test test parametrization with:
-    - --from Merge command-line option,
-    - --until Merge command-line option,
+    - --from Paris command-line option,
+    - --until Paris command-line option,
     - no fork validity marker.
     """
     pytester.makepyfile(
@@ -170,11 +170,13 @@ def test_from_merge_until_merge_option_no_validity_marker(pytester, fork_map):
     )
     pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
     result = pytester.runpytest(
-        "-c", "pytest-fill.ini", "-v", "--from", "Merge", "--until", "Merge"
+        "-c", "pytest-fill.ini", "-v", "--from", "paris", "--until", "paris"
     )
     forks_under_test = forks_from_until(fork_map["Paris"], fork_map["Paris"])
     expected_passed = len(forks_under_test) * len(StateTest.supported_fixture_formats)
-    stdout = "\n".join(result.stdout.lines)
+    stdout: str = "\n".join(result.stdout.lines)
+    assert len(stdout) > 0, "stdout is empty string"
+
     for fork in forks_under_test:
         for fixture_format in StateTest.supported_fixture_formats:
             if isinstance(fixture_format, LabeledFixtureFormat):

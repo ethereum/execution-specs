@@ -110,7 +110,7 @@ def get_fork_option(request, option_name: str) -> Fork | None:
         if option == "Merge":
             option = "Paris"
         for fork in get_forks():
-            if option == fork.name():
+            if option.lower() == fork.name().lower():
                 return fork
     return None
 
