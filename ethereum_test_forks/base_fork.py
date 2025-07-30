@@ -326,6 +326,12 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def max_blobs_per_tx(cls, block_number: int = 0, timestamp: int = 0) -> int:
+        """Return the max blobs per transaction at a given fork."""
+        pass
+
+    @classmethod
+    @abstractmethod
     def max_blobs_per_block(cls, block_number: int = 0, timestamp: int = 0) -> int:
         """Return the max blobs per block at a given fork."""
         pass
