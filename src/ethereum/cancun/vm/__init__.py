@@ -104,7 +104,6 @@ class TransactionEnvironment:
     blob_versioned_hashes: Tuple[VersionedHash, ...]
     index_in_block: Optional[Uint]
     tx_hash: Optional[Hash32]
-    traces: List[dict]
 
 
 @dataclass

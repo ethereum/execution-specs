@@ -172,9 +172,6 @@ All possible types of events that an [`EvmTracer`] is expected to handle.
 def discard_evm_trace(
     evm: object,  # noqa: U100
     event: TraceEvent,  # noqa: U100
-    trace_memory: bool = False,  # noqa: U100
-    trace_stack: bool = True,  # noqa: U100
-    trace_return_data: bool = False,  # noqa: U100
 ) -> None:
     """
     An [`EvmTracer`] that discards all events.
@@ -199,10 +196,6 @@ class EvmTracer(Protocol):
         self,
         evm: object,
         event: TraceEvent,
-        /,
-        trace_memory: bool = False,  # noqa: U100
-        trace_stack: bool = True,  # noqa: U100
-        trace_return_data: bool = False,  # noqa: U100
     ) -> None:
         """
         Call `self` as a function, recording a trace event.
@@ -211,13 +204,6 @@ class EvmTracer(Protocol):
         like [`ethereum.frontier.vm.Evm`][evm].
 
         `event`, a [`TraceEvent`], is the reason why the tracer was triggered.
-
-        `trace_memory` requests a full memory dump in the resulting trace.
-
-        `trace_stack` requests the full stack in the resulting trace.
-
-        `trace_return_data` requests that return data be included in the
-        resulting trace.
 
         See [`discard_evm_trace`] for an example function implementing this
         protocol.
@@ -251,10 +237,6 @@ def set_evm_trace(tracer: EvmTracer) -> EvmTracer:
 def evm_trace(
     evm: object,
     event: TraceEvent,
-    /,
-    trace_memory: bool = False,
-    trace_stack: bool = True,
-    trace_return_data: bool = False,
 ) -> None:
     """
     Emit a trace to the active [`EvmTracer`].
@@ -265,7 +247,4 @@ def evm_trace(
     _evm_trace(
         evm,
         event,
-        trace_memory=trace_memory,
-        trace_stack=trace_stack,
-        trace_return_data=trace_return_data,
     )

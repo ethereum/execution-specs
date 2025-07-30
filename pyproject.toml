@@ -36,6 +36,7 @@ packages = [
     "ethereum_spec_tools",
     "ethereum_spec_tools.evm_tools",
     "ethereum_spec_tools.evm_tools.t8n",
+    "ethereum_spec_tools.evm_tools.t8n.evm_trace",
     "ethereum_spec_tools.evm_tools.b11r",
     "ethereum_spec_tools.evm_tools.statetest",
     "ethereum_spec_tools.evm_tools.loaders",

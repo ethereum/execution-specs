@@ -12,9 +12,6 @@ def test_modify_evm_trace() -> None:
     def tracer1(
         evm: object,  # noqa: U100
         event: ethereum.trace.TraceEvent,
-        trace_memory: bool = False,  # noqa: U100
-        trace_stack: bool = True,  # noqa: U100
-        trace_return_data: bool = False,  # noqa: U100
     ) -> None:
         nonlocal trace1
         trace1 = event
@@ -22,9 +19,6 @@ def test_modify_evm_trace() -> None:
     def tracer2(
         evm: object,  # noqa: U100
         event: ethereum.trace.TraceEvent,
-        trace_memory: bool = False,  # noqa: U100
-        trace_stack: bool = True,  # noqa: U100
-        trace_return_data: bool = False,  # noqa: U100
     ) -> None:
         nonlocal trace2
         trace2 = event

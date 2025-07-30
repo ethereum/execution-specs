@@ -9,7 +9,10 @@ from ethereum_spec_tools.evm_tools.loaders.transaction_loader import (
     TransactionLoad,
 )
 from ethereum_spec_tools.evm_tools.t8n.env import Ommer
-from ethereum_spec_tools.evm_tools.t8n.evm_trace import Trace, FinalTrace
+from ethereum_spec_tools.evm_tools.t8n.evm_trace.eip3155 import (
+    Trace,
+    FinalTrace,
+)
 from ethereum_spec_tools.evm_tools.t8n.transition_tool import EELST8N
 from ethereum_spec_tools.lint.lints.glacier_forks_hygiene import (
     GlacierForksHygiene,
@@ -87,7 +90,7 @@ TransactionLoad.json_to_s
 # src/ethereum_spec_tools/evm_tools/t8n/env.py
 Ommer.delta
 
-# src/ethereum_spec_tools/evm_tools/t8n/evm_trace.py
+# src/ethereum_spec_tools/evm_tools/t8n/evm_trace/eip3155.py
 Trace.gasCost
 Trace.memSize
 Trace.returnData

@@ -637,7 +637,6 @@ def process_transaction(
         gas=gas,
         index_in_block=index,
         tx_hash=get_transaction_hash(tx),
-        traces=[],
     )
 
     message = prepare_message(block_env, tx_env, tx)
