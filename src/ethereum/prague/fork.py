@@ -945,14 +945,11 @@ def process_transaction(
     coinbase_balance_after_mining_fee = get_account(
         block_env.state, block_env.coinbase
     ).balance + U256(transaction_fee)
-    if coinbase_balance_after_mining_fee != 0:
-        set_account_balance(
-            block_env.state,
-            block_env.coinbase,
-            coinbase_balance_after_mining_fee,
-        )
-    elif account_exists_and_is_empty(block_env.state, block_env.coinbase):
-        destroy_account(block_env.state, block_env.coinbase)
+    set_account_balance(
+        block_env.state,
+        block_env.coinbase,
+        coinbase_balance_after_mining_fee,
+    )
 
     for address in tx_output.accounts_to_delete:
         destroy_account(block_env.state, address)
@@ -996,9 +993,6 @@ def process_withdrawals(
         )
 
         modify_state(block_env.state, wd.address, increase_recipient_balance)
-
-        if account_exists_and_is_empty(block_env.state, wd.address):
-            destroy_account(block_env.state, wd.address)
 
 
 def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
