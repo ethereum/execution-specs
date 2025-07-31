@@ -24,6 +24,7 @@ class ErigonExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: (
             "invalid blob versioned hash, must start with VERSIONED_HASH_VERSION_KZG"
         ),
+        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: "blob transaction has too many blobs",
         TransactionException.TYPE_3_TX_ZERO_BLOBS: "a blob stx must contain at least one blob",
         TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: "rlp: expected String or Byte",
         TransactionException.TYPE_3_TX_CONTRACT_CREATION: "wrong size for To: 0",
