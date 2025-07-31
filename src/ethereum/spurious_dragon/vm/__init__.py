@@ -90,7 +90,6 @@ class TransactionEnvironment:
     gas: Uint
     index_in_block: Uint
     tx_hash: Optional[Hash32]
-    traces: List[dict]
 
 
 @dataclass

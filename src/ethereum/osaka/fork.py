@@ -616,7 +616,6 @@ def process_system_transaction(
         authorizations=(),
         index_in_block=None,
         tx_hash=None,
-        traces=[],
     )
 
     system_tx_message = Message(
@@ -922,7 +921,6 @@ def process_transaction(
         authorizations=authorizations,
         index_in_block=index,
         tx_hash=get_transaction_hash(encode_transaction(tx)),
-        traces=[],
     )
 
     message = prepare_message(block_env, tx_env, tx)

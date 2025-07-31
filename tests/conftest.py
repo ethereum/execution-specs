@@ -2,7 +2,7 @@ import os
 import shutil
 import tarfile
 from pathlib import Path
-from typing import Final, Optional, Set
+from typing import Callable, Final, Optional, Set
 
 import git
 import requests_cache
@@ -10,7 +10,7 @@ from _pytest.config import Config
 from _pytest.config.argparsing import Parser
 from filelock import FileLock
 from git.exc import GitCommandError, InvalidGitRepositoryError
-from pytest import Session, StashKey
+from pytest import Session, StashKey, fixture
 from requests_cache import CachedSession
 from requests_cache.backends.sqlite import SQLiteCache
 from typing_extensions import Self
@@ -24,6 +24,14 @@ except ImportError:
     def get_xdist_worker_id(request_or_session: object) -> str:  # noqa: U100
         del request_or_session
         return "master"
+
+
+@fixture()
+def root_relative() -> Callable[[str | Path], Path]:
+    def _(path: str | Path) -> Path:
+        return Path(__file__).parent / path
+
+    return _
 
 
 def pytest_addoption(parser: Parser) -> None:
@@ -60,12 +68,12 @@ def pytest_configure(config: Config) -> None:
 
     if config.getoption("evm_trace"):
         import ethereum.trace
-        from ethereum_spec_tools.evm_tools.t8n.evm_trace import (
-            evm_trace as new_trace_function,
+        from ethereum_spec_tools.evm_tools.t8n.evm_trace.eip3155 import (
+            Eip3155Tracer,
         )
 
         # Replace the function in the module
-        ethereum.trace.set_evm_trace(new_trace_function)
+        ethereum.trace.set_evm_trace(Eip3155Tracer())
 
 
 class _FixturesDownloader:
