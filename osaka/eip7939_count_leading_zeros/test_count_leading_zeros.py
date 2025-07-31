@@ -202,6 +202,64 @@ def test_clz_stack_underflow(state_test: StateTestFiller, pre: Alloc):
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.valid_from("Osaka")
+def test_clz_stack_not_overflow(state_test: StateTestFiller, pre: Alloc, fork: Fork):
+    """Test CLZ opcode never causes stack overflow."""
+    max_stack_items = fork.max_stack_height()
+
+    code = Bytecode()
+    post = {}
+
+    code += Op.PUSH0 * (max_stack_items - 2)
+
+    for i in range(256):
+        code += Op.PUSH1(i) + Op.CLZ(1 << i) + Op.SWAP1 + Op.SSTORE
+
+    code_address = pre.deploy_contract(code=code)
+
+    post[code_address] = Account(storage={i: 255 - i for i in range(256)})
+
+    tx = Transaction(
+        to=code_address,
+        sender=pre.fund_eoa(),
+        gas_limit=6_000_000,
+    )
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Osaka")
+def test_clz_push_operation_same_value(state_test: StateTestFiller, pre: Alloc):
+    """Test CLZ opcode returns the same value via different push operations."""
+    storage = {}
+
+    code = Op.SSTORE(0, Op.CLZ(Op.PUSH0))
+    storage[0x00] = 256
+
+    for bit in range(1, 33):  # PUSH value
+        for push_n in range(bit, 33):  # PUSHn opcode
+            op = getattr(Op, f"PUSH{push_n}")
+            key = 100 * bit + push_n
+            code += Op.SSTORE(key, Op.CLZ(op[1 << bit]))
+            storage[key] = 255 - bit
+
+    code_address = pre.deploy_contract(code=code)
+
+    tx = Transaction(
+        to=code_address,
+        sender=pre.fund_eoa(),
+        gas_limit=12_000_000,
+    )
+
+    post = {
+        code_address: Account(
+            storage=storage,
+        )
+    }
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
 @pytest.mark.valid_at_transition_to("Osaka", subsequent_forks=True)
 def test_clz_fork_transition(blockchain_test: BlockchainTestFiller, pre: Alloc):
     """Test CLZ opcode behavior at fork transition."""
