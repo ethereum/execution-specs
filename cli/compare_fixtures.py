@@ -9,8 +9,9 @@ both of the folders. Used within the coverage workflow.
 import json
 import shutil
 import sys
+from collections import defaultdict
 from pathlib import Path
-from typing import Set
+from typing import List, Set
 
 import click
 
@@ -49,12 +50,19 @@ def find_duplicates(base_hashes: Set[HexNumber], patch_hashes: Set[HexNumber]) -
     return base_hashes & patch_hashes
 
 
-def pop_by_hash(index: IndexFile, fixture_hash: HexNumber) -> TestCaseIndexFile:
-    """Pops a single test case from an index file by its hash."""
-    for i in range(len(index.test_cases)):
-        if index.test_cases[i].fixture_hash == fixture_hash:
-            return index.test_cases.pop(i)
-    raise Exception(f"Hash {fixture_hash} not found in index.")
+def pop_all_by_hash(index: IndexFile, fixture_hash: HexNumber) -> List[TestCaseIndexFile]:
+    """Pops all test cases from an index file by their hash."""
+    test_cases = []
+    remaining_cases = []
+    for test_case in index.test_cases:
+        if test_case.fixture_hash == fixture_hash:
+            test_cases.append(test_case)
+        else:
+            remaining_cases.append(test_case)
+    if not test_cases:
+        raise Exception(f"Hash {fixture_hash} not found in index.")
+    index.test_cases = remaining_cases
+    return test_cases
 
 
 def remove_fixture_from_file(file: Path, test_case_id: str):
@@ -70,19 +78,19 @@ def remove_fixture_from_file(file: Path, test_case_id: str):
         raise KeyError(f"Test case {test_case_id} not found in {file}") from None
 
 
-def remove_fixture(
-    folder: Path,
-    index: IndexFile,
-    fixture_hash: HexNumber,
-    dry_run: bool,
-):
-    """Remove a single fixture from a folder that matches the given hash."""
-    test_case = pop_by_hash(index, fixture_hash)
-    test_case_file = folder / test_case.json_path
-    if dry_run:
-        print(f"Remove {test_case.id} from {test_case_file}")
-    else:
-        remove_fixture_from_file(test_case_file, test_case.id)
+def batch_remove_fixtures_from_files(removals_by_file):
+    """Batch process file removals to minimize I/O."""
+    for file_path, test_case_ids in removals_by_file.items():
+        try:
+            full_file = json.loads(file_path.read_text())
+            for test_case_id in test_case_ids:
+                full_file.pop(test_case_id, None)
+            if len(full_file) > 0:
+                file_path.write_text(json.dumps(full_file, indent=2))
+            else:
+                file_path.unlink()
+        except Exception as e:
+            print(f"Error processing {file_path}: {e}")
 
 
 def rewrite_index(folder: Path, index: IndexFile, dry_run: bool):
@@ -144,10 +152,32 @@ def main(
             click.echo("Patch folder would be empty after fixture removal.")
             sys.exit(0)
 
+        # Collect removals by file for batching
+        base_removals_by_file = defaultdict(list)
+        patch_removals_by_file = defaultdict(list)
+
         for duplicate_hash in duplicate_hashes:
-            # Remove from both folders
-            remove_fixture(base, base_index, duplicate_hash, dry_run)
-            remove_fixture(patch, patch_index, duplicate_hash, dry_run)
+            base_test_cases = pop_all_by_hash(base_index, duplicate_hash)
+            patch_test_cases = pop_all_by_hash(patch_index, duplicate_hash)
+
+            for base_test_case in base_test_cases:
+                base_file = base / base_test_case.json_path
+                if dry_run:
+                    print(f"Remove {base_test_case.id} from {base_file}")
+                else:
+                    base_removals_by_file[base_file].append(base_test_case.id)
+
+            for patch_test_case in patch_test_cases:
+                patch_file = patch / patch_test_case.json_path
+                if dry_run:
+                    print(f"Remove {patch_test_case.id} from {patch_file}")
+                else:
+                    patch_removals_by_file[patch_file].append(patch_test_case.id)
+
+        # Batch process file operations
+        if not dry_run:
+            batch_remove_fixtures_from_files(base_removals_by_file)
+            batch_remove_fixtures_from_files(patch_removals_by_file)
 
         # Rewrite indices if necessary
         rewrite_index(base, base_index, dry_run)
