@@ -541,3 +541,75 @@ def test_clz_initcode_create(state_test: StateTestFiller, pre: Alloc, opcode: Op
     }
 
     state_test(pre=pre, post=post, tx=tx)
+
+
+class CallingContext:
+    """Context for calling operations."""
+
+    callee_context = 1  # CALL
+    caller_context = 2  # DELEGATECALL
+    no_context = 3  # STATICCALL
+
+
+@pytest.mark.valid_from("Osaka")
+@pytest.mark.parametrize(
+    "opcode,context",
+    [
+        pytest.param(Op.CALL, CallingContext.callee_context, id="call"),
+        pytest.param(Op.DELEGATECALL, CallingContext.caller_context, id="delegatecall"),
+        pytest.param(Op.CALLCODE, CallingContext.caller_context, id="callcode"),
+        pytest.param(Op.STATICCALL, CallingContext.no_context, id="staticcall"),
+    ],
+)
+def test_clz_call_operation(
+    state_test: StateTestFiller, pre: Alloc, opcode: Op, context: CallingContext
+):
+    """Test CLZ opcode with call operation."""
+    test_cases = [0, 64, 255]
+
+    # Storage Layout
+    callee_storage = Storage()
+    caller_storage = Storage()
+
+    callee_code = Bytecode()
+
+    for bits in reversed(test_cases):
+        callee_code += Op.CLZ(1 << bits)
+
+    if context != CallingContext.no_context:
+        for bits in test_cases:
+            callee_code += Op.SSTORE(callee_storage.store_next(255 - bits), Op.CLZ(1 << bits))
+
+    for i in range(len(test_cases)):
+        callee_code += Op.PUSH32(i * 0x20) + Op.MSTORE
+
+    callee_code += Op.RETURN(0, len(test_cases) * 0x20)
+
+    callee_address = pre.deploy_contract(code=callee_code)
+
+    caller_code = opcode(
+        gas=0xFFFF, address=callee_address, ret_offset=0, ret_size=len(test_cases) * 0x20
+    )
+
+    for i, bits in enumerate(test_cases):
+        caller_code += Op.SSTORE(caller_storage.store_next(255 - bits), Op.MLOAD(i * 0x20))
+
+    caller_address = pre.deploy_contract(code=caller_code)
+
+    tx = Transaction(
+        to=caller_address,
+        sender=pre.fund_eoa(),
+        gas_limit=200_000,
+    )
+
+    post = {}
+
+    if context == CallingContext.caller_context:
+        post[caller_address] = Account(storage=callee_storage)
+    elif context == CallingContext.callee_context:
+        post[callee_address] = Account(storage=callee_storage)
+        post[caller_address] = Account(storage=caller_storage)
+    elif context == CallingContext.no_context:
+        post[caller_address] = Account(storage=caller_storage)
+
+    state_test(pre=pre, post=post, tx=tx)
