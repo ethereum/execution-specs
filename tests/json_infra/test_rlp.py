@@ -8,7 +8,7 @@ from ethereum_rlp import Extended, rlp
 from ethereum.frontier.fork_types import Bytes, Uint
 from ethereum.utils.hexadecimal import hex_to_bytes
 
-from .json_infra import TEST_FIXTURES
+from . import TEST_FIXTURES
 
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
 
