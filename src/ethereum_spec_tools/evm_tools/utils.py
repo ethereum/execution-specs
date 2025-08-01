@@ -75,7 +75,7 @@ def parse_hex_or_int(value: str, to_type: Callable[[int], W]) -> W:
         return to_type(int(value))
 
 
-class FatalException(Exception):
+class FatalError(Exception):
     """Exception that causes the tool to stop"""
 
     pass

@@ -66,7 +66,7 @@ class FinalTrace:
     """
 
     output: str
-    gasUsed: str
+    gas_used: str
     error: Optional[str] = None
 
     def __init__(

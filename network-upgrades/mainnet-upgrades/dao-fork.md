@@ -156,9 +156,9 @@ At the beginning of block 1920000, all ether throughout all accounts in `L` will
 // Deployed on mainnet at 0xbf4ed7b27f1d666546e30d74d50d173d20bca754
 
 contract DAO {
-    function balanceOf(address addr) returns (uint);
-    function transferFrom(address from, address to, uint balance) returns (bool);
-    uint public totalSupply;
+    function balanceOf(address addr) returns (Uint);
+    function transferFrom(address from, address to, Uint balance) returns (bool);
+    Uint public totalSupply;
 }
 
 contract WithdrawDAO {
@@ -166,7 +166,7 @@ contract WithdrawDAO {
     address public trustee = 0xda4a4626d3e16e094de3225a751aab7128e96526;
 
     function withdraw(){
-        uint balance = mainDAO.balanceOf(msg.sender);
+        Uint balance = mainDAO.balanceOf(msg.sender);
 
         if (!mainDAO.transferFrom(msg.sender, this, balance) || !msg.sender.send(balance))
             throw;
