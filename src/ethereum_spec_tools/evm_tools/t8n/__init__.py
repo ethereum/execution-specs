@@ -15,7 +15,7 @@ from ethereum import trace
 from ethereum.exceptions import EthereumException, InvalidBlock
 from ethereum_clis.types import TransitionToolRequest
 from ethereum_spec_tools.forks import Hardfork
-from ethereum_clis.types import Result as TransitionToolOutput
+from ethereum_clis.types import TransitionToolOutput
 from ethereum_clis.clis.execution_specs import ExecutionSpecsExceptionMapper
 
 from ..loaders.fixture_loader import Load
@@ -93,6 +93,7 @@ class T8N(Load):
             self.forks, self.options, in_file.input.env
         )
         self.fork = ForkLoad(fork_module)
+        self.exception_mapper = ExecutionSpecsExceptionMapper()
 
         if self.options.trace:
             trace_memory = getattr(self.options, "trace.memory", False)
@@ -108,7 +109,6 @@ class T8N(Load):
                 )
             )
         self.logger = get_stream_logger("T8N")
-        self.exception_mapper = ExecutionSpecsExceptionMapper()
 
         super().__init__(
             self.options.state_fork,
