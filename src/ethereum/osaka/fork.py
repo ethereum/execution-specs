@@ -30,7 +30,7 @@ from ethereum.exceptions import (
 )
 
 from . import vm
-from .block_access_lists import StateChangeTracker, compute_bal_hash, build
+from .block_access_lists import StateChangeTracker, compute_bal_hash, build, set_system_transaction_index, track_balance_change
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
 from .exceptions import (
@@ -590,6 +590,7 @@ def process_system_transaction(
     target_address: Address,
     system_contract_code: Bytes,
     data: Bytes,
+    change_tracker: Optional[StateChangeTracker] = None,
 ) -> MessageCallOutput:
     """
     Process a system transaction with the given code.
@@ -645,6 +646,7 @@ def process_system_transaction(
         accessed_storage_keys=set(),
         disable_precompiles=False,
         parent_evm=None,
+        change_tracker=change_tracker,
     )
 
     system_tx_output = process_message_call(system_tx_message)
@@ -656,6 +658,7 @@ def process_checked_system_transaction(
     block_env: vm.BlockEnvironment,
     target_address: Address,
     data: Bytes,
+    change_tracker: Optional[StateChangeTracker] = None,
 ) -> MessageCallOutput:
     """
     Process a system transaction and raise an error if the contract does not
@@ -688,6 +691,7 @@ def process_checked_system_transaction(
         target_address,
         system_contract_code,
         data,
+        change_tracker,
     )
 
     if system_tx_output.error:
@@ -703,6 +707,7 @@ def process_unchecked_system_transaction(
     block_env: vm.BlockEnvironment,
     target_address: Address,
     data: Bytes,
+    change_tracker: Optional[StateChangeTracker] = None,
 ) -> MessageCallOutput:
     """
     Process a system transaction without checking if the contract contains code
@@ -728,6 +733,7 @@ def process_unchecked_system_transaction(
         target_address,
         system_contract_code,
         data,
+        change_tracker,
     )
 
 
@@ -765,16 +771,23 @@ def apply_body(
     # Initialize Block Access List state change tracker
     change_tracker = StateChangeTracker(block_output.block_access_list_builder)
 
+    # Set system transaction index for pre-execution system contracts
+    # Using len(transactions) + 1 as specified
+    system_tx_index = len(transactions) + 1
+    set_system_transaction_index(change_tracker, system_tx_index)
+
     process_unchecked_system_transaction(
         block_env=block_env,
         target_address=BEACON_ROOTS_ADDRESS,
         data=block_env.parent_beacon_block_root,
+        change_tracker=change_tracker,
     )
 
     process_unchecked_system_transaction(
         block_env=block_env,
         target_address=HISTORY_STORAGE_ADDRESS,
         data=block_env.block_hashes[-1],  # The parent hash
+        change_tracker=change_tracker,
     )
 
     for i, tx in enumerate(map(decode_transaction, transactions)):
@@ -783,9 +796,13 @@ def apply_body(
 
     process_withdrawals(block_env, block_output, withdrawals, change_tracker)
 
+    # Set system transaction index for post-execution system contracts
+    set_system_transaction_index(change_tracker, system_tx_index)
+    
     process_general_purpose_requests(
         block_env=block_env,
         block_output=block_output,
+        change_tracker=change_tracker,
     )
 
     return block_output
@@ -794,6 +811,7 @@ def apply_body(
 def process_general_purpose_requests(
     block_env: vm.BlockEnvironment,
     block_output: vm.BlockOutput,
+    change_tracker: StateChangeTracker,
 ) -> None:
     """
     Process all the requests in the block.
@@ -815,6 +833,7 @@ def process_general_purpose_requests(
         block_env=block_env,
         target_address=WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
         data=b"",
+        change_tracker=change_tracker,
     )
 
     if len(system_withdrawal_tx_output.return_data) > 0:
@@ -826,6 +845,7 @@ def process_general_purpose_requests(
         block_env=block_env,
         target_address=CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
         data=b"",
+        change_tracker=change_tracker,
     )
 
     if len(system_consolidation_tx_output.return_data) > 0:
@@ -1027,9 +1047,9 @@ def process_withdrawals(
 
         modify_state(block_env.state, wd.address, increase_recipient_balance)
         
-        # Track balance change for BAL
+        # Track balance change for BAL (withdrawals are tracked as system contract changes)
         new_balance = get_account(block_env.state, wd.address).balance
-        change_tracker.track_balance_change(wd.address, U256(new_balance), block_env.state)
+        track_balance_change(change_tracker, wd.address, U256(new_balance), block_env.state)
 
         if account_exists_and_is_empty(block_env.state, wd.address):
             destroy_account(block_env.state, wd.address)
