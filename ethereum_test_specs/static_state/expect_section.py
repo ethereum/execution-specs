@@ -1,13 +1,13 @@
 """Expect section structure of ethereum/tests fillers."""
 
-from enum import Enum
-from typing import Annotated, Any, Dict, List, Mapping, Union
+import re
+from enum import StrEnum
+from typing import Annotated, Any, Dict, Iterator, List, Mapping, Set, Union
 
 from pydantic import (
     BaseModel,
     BeforeValidator,
     Field,
-    ValidationInfo,
     ValidatorFunctionWrapHandler,
     field_validator,
     model_validator,
@@ -22,7 +22,7 @@ from ethereum_test_base_types import (
     Storage,
 )
 from ethereum_test_exceptions import TransactionExceptionInstanceOrList
-from ethereum_test_forks import get_forks
+from ethereum_test_forks import Fork, get_forks
 from ethereum_test_types import Alloc
 
 from .common import (
@@ -86,6 +86,14 @@ class StorageInExpectSection(EthereumTestRootModel, TagDependentData):
                 storage[resolved_key] = value
         return storage
 
+    def __contains__(self, key: Address) -> bool:
+        """Check if the storage contains a key."""
+        return key in self.root
+
+    def __iter__(self) -> Iterator[ValueOrCreateTagInFiller]:  # type: ignore[override]
+        """Iterate over the storage."""
+        return iter(self.root)
+
 
 class AccountInExpectSection(BaseModel, TagDependentData):
     """Class that represents an account in expect section filler."""
@@ -127,66 +135,116 @@ class AccountInExpectSection(BaseModel, TagDependentData):
         return Account(**account_kwargs)
 
 
-class CMP(Enum):
+class CMP(StrEnum):
     """Comparison action."""
 
-    GT = 1
-    LT = 2
-    LE = 3
-    GE = 4
-    EQ = 5
+    LE = "<="
+    GE = ">="
+    LT = "<"
+    GT = ">"
+    EQ = "="
 
 
-def parse_networks(fork_with_operand: str) -> List[str]:
-    """Parse fork_with_operand `>=Cancun` into [Cancun, Prague, ...]."""
-    parsed_forks: List[str] = []
-    all_forks_by_name = [fork.name() for fork in get_forks()]
+class ForkConstraint(BaseModel):
+    """Single fork with an operand."""
 
-    action: CMP = CMP.EQ
-    fork: str = fork_with_operand
-    if fork_with_operand[:1] == "<":
-        action = CMP.LT
-        fork = fork_with_operand[1:]
-    if fork_with_operand[:1] == ">":
-        action = CMP.GT
-        fork = fork_with_operand[1:]
-    if fork_with_operand[:2] == "<=":
-        action = CMP.LE
-        fork = fork_with_operand[2:]
-    if fork_with_operand[:2] == ">=":
-        action = CMP.GE
-        fork = fork_with_operand[2:]
+    operand: CMP
+    fork: Fork
 
-    if action == CMP.EQ:
-        fork = fork_with_operand
+    @field_validator("fork", mode="before")
+    @classmethod
+    def parse_fork_synonyms(cls, value: Any):
+        """Resolve fork synonyms."""
+        if value == "EIP158":
+            value = "Byzantium"
+        return value
 
-    # translate unsupported fork names
-    if fork == "EIP158":
-        fork = "Byzantium"
+    @model_validator(mode="before")
+    @classmethod
+    def parse_from_string(cls, data: Any) -> Any:
+        """Parse a fork with operand from a string."""
+        if isinstance(data, str):
+            for cmp in CMP:
+                if data.startswith(cmp):
+                    fork = data.removeprefix(cmp)
+                    return {
+                        "operand": cmp,
+                        "fork": fork,
+                    }
+            return {
+                "operand": CMP.EQ,
+                "fork": data,
+            }
+        return data
 
-    if action == CMP.EQ:
-        parsed_forks.append(fork)
-        return parsed_forks
+    def match(self, fork: Fork) -> bool:
+        """Return whether the fork satisfies the operand evaluation."""
+        match self.operand:
+            case CMP.LE:
+                return fork <= self.fork
+            case CMP.GE:
+                return fork >= self.fork
+            case CMP.LT:
+                return fork < self.fork
+            case CMP.GT:
+                return fork > self.fork
+            case CMP.EQ:
+                return fork == self.fork
+            case _:
+                raise ValueError(f"Invalid operand: {self.operand}")
 
-    try:
-        # print(all_forks_by_name)
-        idx = all_forks_by_name.index(fork)
-        # ['Frontier', 'Homestead', 'Byzantium', 'Constantinople', 'ConstantinopleFix',
-        #  'Istanbul', 'MuirGlacier', 'Berlin', 'London', 'ArrowGlacier', 'GrayGlacier',
-        #  'Paris', 'Shanghai', 'Cancun', 'Prague', 'Osaka']
-    except ValueError:
-        raise ValueError(f"Unsupported fork: {fork}") from Exception
 
-    if action == CMP.GE:
-        parsed_forks = all_forks_by_name[idx:]
-    elif action == CMP.GT:
-        parsed_forks = all_forks_by_name[idx + 1 :]
-    elif action == CMP.LE:
-        parsed_forks = all_forks_by_name[: idx + 1]
-    elif action == CMP.LT:
-        parsed_forks = all_forks_by_name[:idx]
+class ForkSet(EthereumTestRootModel):
+    """Set of forks."""
 
-    return parsed_forks
+    root: Set[Fork]
+
+    @model_validator(mode="before")
+    @classmethod
+    def parse_from_list_or_string(cls, value: Any) -> Set[Fork]:
+        """Parse fork_with_operand `>=Cancun` into {Cancun, Prague, ...}."""
+        fork_set: Set[Fork] = set()
+        if not isinstance(value, list):
+            value = [value]
+
+        for fork_with_operand in value:
+            matches = re.findall(r"(<=|<|>=|>|=)([^<>=]+)", fork_with_operand)
+            if matches:
+                all_fork_constraints = [
+                    ForkConstraint.model_validate(f"{op}{fork.strip()}") for op, fork in matches
+                ]
+            else:
+                all_fork_constraints = [ForkConstraint.model_validate(fork_with_operand.strip())]
+
+            for fork in get_forks():
+                for f in all_fork_constraints:
+                    if not f.match(fork):
+                        # If any constraint does not match, skip adding
+                        break
+                else:
+                    # All constraints match, add the fork to the set
+                    fork_set.add(fork)
+
+        return fork_set
+
+    def __hash__(self) -> int:
+        """Return the hash of the fork set."""
+        h = hash(None)
+        for fork in sorted([str(f) for f in self]):
+            h ^= hash(fork)
+        return h
+
+    def __contains__(self, fork: Fork) -> bool:
+        """Check if the fork set contains a fork."""
+        return fork in self.root
+
+    def __iter__(self) -> Iterator[Fork]:  # type: ignore[override]
+        """Iterate over the fork set."""
+        return iter(self.root)
+
+    def __len__(self) -> int:
+        """Return the length of the fork set."""
+        return len(self.root)
 
 
 class ResultInFiller(EthereumTestRootModel, TagDependentData):
@@ -228,44 +286,61 @@ class ResultInFiller(EthereumTestRootModel, TagDependentData):
             post[resolved_address] = account.resolve(tags)
         return post
 
+    def __contains__(self, address: Address) -> bool:
+        """Check if the result contains an address."""
+        return address in self.root
+
+    def __iter__(self) -> Iterator[AddressOrCreateTagInFiller]:  # type: ignore[override]
+        """Iterate over the result."""
+        return iter(self.root)
+
+    def __len__(self) -> int:
+        """Return the length of the result."""
+        return len(self.root)
+
+
+class ExpectException(EthereumTestRootModel):
+    """Expect exception model."""
+
+    root: Dict[ForkSet, TransactionExceptionInstanceOrList]
+
+    def __getitem__(self, fork: Fork) -> TransactionExceptionInstanceOrList:
+        """Get an expectation for a given fork."""
+        for k in self.root:
+            if fork in k:
+                return self.root[k]
+        raise KeyError(f"Fork {fork} not found in expectations.")
+
+    def __contains__(self, fork: Fork) -> bool:
+        """Check if the expect exception contains a fork."""
+        return fork in self.root
+
+    def __iter__(self) -> Iterator[ForkSet]:  # type: ignore[override]
+        """Iterate over the expect exception."""
+        return iter(self.root)
+
+    def __len__(self) -> int:
+        """Return the length of the expect exception."""
+        return len(self.root)
+
 
 class ExpectSectionInStateTestFiller(CamelModel):
     """Expect section in state test filler."""
 
     indexes: Indexes = Field(default_factory=Indexes)
-    network: List[str]
+    network: ForkSet
     result: ResultInFiller
-    expect_exception: Dict[str, TransactionExceptionInstanceOrList] | None = None
+    expect_exception: ExpectException | None = None
 
-    @field_validator("network", mode="before")
-    @classmethod
-    def parse_networks(cls, network: List[str], info: ValidationInfo) -> List[str]:
-        """Parse networks into array of forks."""
-        forks: List[str] = []
-        for net in network:
-            forks.extend(parse_networks(net))
-        return forks
-
-    @field_validator("expect_exception", mode="before")
-    @classmethod
-    def parse_expect_exception(
-        cls, expect_exception: Dict[str, str] | None, info: ValidationInfo
-    ) -> Dict[str, str] | None:
-        """Parse operand networks in exceptions."""
-        if expect_exception is None:
-            return expect_exception
-
-        parsed_expect_exception: Dict[str, str] = {}
-        for fork_with_operand, exception in expect_exception.items():
-            forks: List[str] = parse_networks(fork_with_operand)
-            for fork in forks:
-                if fork in parsed_expect_exception:
-                    raise ValueError(
-                        "Expect exception has redundant fork with multiple exceptions!"
-                    )
-                parsed_expect_exception[fork] = exception
-
-        return parsed_expect_exception
+    def model_post_init(self, __context):
+        """Validate that the expectation is coherent."""
+        if self.expect_exception is None:
+            return
+        all_forks: Set[Fork] = set()
+        for current_fork_set in self.expect_exception:
+            for fork in current_fork_set:
+                assert fork not in all_forks
+                all_forks.add(fork)
 
     def has_index(self, d: int, g: int, v: int) -> bool:
         """Check if there is index set in indexes."""
