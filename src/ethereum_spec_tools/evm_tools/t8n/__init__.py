@@ -4,7 +4,6 @@ Create a transition tool for the given fork.
 
 import argparse
 import fnmatch
-import json
 import os
 from functools import partial
 from typing import Any, TextIO
@@ -14,7 +13,10 @@ from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum import trace
 from ethereum.exceptions import EthereumException, InvalidBlock
+from ethereum_clis.types import TransitionToolRequest
 from ethereum_spec_tools.forks import Hardfork
+from ethereum_clis.types import Result as TransitionToolOutput
+from ethereum_clis.clis.execution_specs import ExecutionSpecsExceptionMapper
 
 from ..loaders.fixture_loader import Load
 from ..loaders.fork_loader import ForkLoad
@@ -80,24 +82,15 @@ class T8N(Load):
     """The class that carries out the transition"""
 
     def __init__(
-        self, options: Any, out_file: TextIO, in_file: TextIO
+        self, options: Any, out_file: TextIO, in_file: TransitionToolRequest
     ) -> None:
         self.out_file = out_file
         self.in_file = in_file
         self.options = options
         self.forks = Hardfork.discover()
 
-        if "stdin" in (
-            options.input_env,
-            options.input_alloc,
-            options.input_txs,
-        ):
-            stdin = json.load(in_file)
-        else:
-            stdin = None
-
         fork_module, self.fork_block = get_module_name(
-            self.forks, self.options, stdin
+            self.forks, self.options, in_file.input.env
         )
         self.fork = ForkLoad(fork_module)
 
@@ -115,6 +108,7 @@ class T8N(Load):
                 )
             )
         self.logger = get_stream_logger("T8N")
+        self.exception_mapper = ExecutionSpecsExceptionMapper()
 
         super().__init__(
             self.options.state_fork,
@@ -122,9 +116,9 @@ class T8N(Load):
         )
 
         self.chain_id = parse_hex_or_int(self.options.state_chainid, U64)
-        self.alloc = Alloc(self, stdin)
-        self.env = Env(self, stdin)
-        self.txs = Txs(self, stdin)
+        self.alloc = Alloc(self, in_file.input.alloc)
+        self.env = Env(self, in_file.input.env)
+        self.txs = Txs(self, in_file.input.txs)
         self.result = Result(
             self.env.block_difficulty, self.env.base_fee_per_gas
         )
@@ -311,45 +305,13 @@ class T8N(Load):
 
         json_state = self.alloc.to_json()
         json_result = self.result.to_json()
-
         json_output = {}
 
-        if self.options.output_body == "stdout":
-            txs_rlp = "0x" + rlp.encode(self.txs.all_txs).hex()
-            json_output["body"] = txs_rlp
-        elif self.options.output_body is not None:
-            txs_rlp_path = os.path.join(
-                self.options.output_basedir,
-                self.options.output_body,
-            )
-            txs_rlp = "0x" + rlp.encode(self.txs.all_txs).hex()
-            with open(txs_rlp_path, "w") as f:
-                json.dump(txs_rlp, f)
-            self.logger.info(f"Wrote transaction rlp to {txs_rlp_path}")
-
-        if self.options.output_alloc == "stdout":
-            json_output["alloc"] = json_state
-        else:
-            alloc_output_path = os.path.join(
-                self.options.output_basedir,
-                self.options.output_alloc,
-            )
-            with open(alloc_output_path, "w") as f:
-                json.dump(json_state, f, indent=4)
-            self.logger.info(f"Wrote alloc to {alloc_output_path}")
-
-        if self.options.output_result == "stdout":
-            json_output["result"] = json_result
-        else:
-            result_output_path = os.path.join(
-                self.options.output_basedir,
-                self.options.output_result,
-            )
-            with open(result_output_path, "w") as f:
-                json.dump(json_result, f, indent=4)
-            self.logger.info(f"Wrote result to {result_output_path}")
-
-        if json_output:
-            json.dump(json_output, self.out_file, indent=4)
-
-        return 0
+        txs_rlp = "0x" + rlp.encode(self.txs.all_txs).hex()
+        json_output["body"] = txs_rlp
+        json_output["alloc"] = json_state
+        json_output["result"] = json_result
+        output: TransitionToolOutput = TransitionToolOutput.model_validate(
+            json_output, context={"exception_mapper": self.exception_mapper}
+        )
+        return output

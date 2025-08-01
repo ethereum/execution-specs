@@ -1,16 +1,16 @@
 """
 Define the types used by the t8n tool.
 """
-import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from ethereum_rlp import Simple, rlp
-from ethereum_types.bytes import Bytes
-from ethereum_types.numeric import U64, U256, Uint
+from ethereum_types.bytes import Bytes, Bytes20, Bytes0
+from ethereum_types.numeric import U8, U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
+from ethereum.utils.hexadecimal import hex_to_u256, hex_to_uint
+from ethereum_test_types import Transaction
 
 from ..loaders.transaction_loader import TransactionLoad, UnsupportedTx
 from ..utils import FatalException, encode_to_hex, secp256k1_sign
@@ -29,23 +29,20 @@ class Alloc:
 
     def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
         """Read the alloc file and return the state."""
-        if t8n.options.input_alloc == "stdin":
-            assert stdin is not None
-            data = stdin["alloc"]
-        else:
-            with open(t8n.options.input_alloc, "r") as f:
-                data = json.load(f)
-
-        # The json_to_state functions expects the values to hex
-        # strings, so we convert them here.
-        for address, account in data.items():
-            for key, value in account.items():
-                if key == "storage" or not value:
-                    continue
-                elif not value.startswith("0x"):
-                    data[address][key] = "0x" + hex(int(value))
-
-        state = t8n.json_to_state(data)
+        # TODO: simplify without having to convert to JSON and then json to
+        # state
+        alloc_json = {
+            addr.hex(): acc.model_dump(mode="json") if acc is not None else None
+            for addr, acc in stdin.root.items()
+        }
+        for acc in alloc_json.values():
+            if acc is not None and "storage" in acc and acc["storage"] is not None:
+                # Ensure all storage values are hex strings with 0x prefix
+                acc["storage"] = {
+                    k: v if (isinstance(v, str) and v.startswith("0x")) else hex(v)
+                    for k, v in acc["storage"].items()
+                }
+        state = t8n.json_to_state(alloc_json)
         if t8n.fork.fork_module == "dao_fork":
             t8n.fork.apply_dao(state)
 
@@ -74,7 +71,10 @@ class Alloc:
                     ]._data.items()
                 }
 
-            data["0x" + address.hex()] = account_data
+            key = address.hex()
+            if not key.startswith("0x"):
+                key = "0x" + key
+            data[key] = account_data
 
         return data
 
@@ -85,7 +85,7 @@ class Txs:
     return a list of transactions.
     """
 
-    def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
+    def __init__(self, t8n: "T8N", stdin: List[Transaction] = None):
         self.t8n = t8n
         self.successfully_parsed: List[int] = []
         self.transactions: List[Tuple[Uint, Any]] = []
@@ -93,29 +93,17 @@ class Txs:
         self.rlp_input = False
         self.all_txs = []
 
-        if t8n.options.input_txs == "stdin":
-            assert stdin is not None
-            data = stdin["txs"]
-        else:
-            with open(t8n.options.input_txs, "r") as f:
-                data = json.load(f)
-
-        if data is None:
+        if stdin is None:
             self.data: Simple = []
-        elif isinstance(data, str):
-            self.rlp_input = True
-            self.data = rlp.decode(hex_to_bytes(data))
         else:
-            self.data = data
+            self.data = stdin
 
         for idx, raw_tx in enumerate(self.data):
             try:
-                if self.rlp_input:
-                    self.transactions.append(self.parse_rlp_tx(raw_tx))
-                    self.successfully_parsed.append(idx)
-                else:
-                    self.transactions.append(self.parse_json_tx(raw_tx))
-                    self.successfully_parsed.append(idx)
+                fork_tx = self.pydantic_to_fork_transaction(raw_tx)
+                self.transactions.append(fork_tx)
+                self.successfully_parsed.append(idx)
+                self.all_txs.append(fork_tx)
             except UnsupportedTx as e:
                 self.t8n.logger.warning(
                     f"Unsupported transaction type {idx}: "
@@ -187,6 +175,9 @@ class Txs:
 
         return transaction
 
+    def pydantic_to_fork_transaction(self, tx_model):
+        return convert_pydantic_tx_to_canonical(tx_model, self.t8n.fork)
+
     def sign_transaction(self, json_tx: Any) -> None:
         """
         Sign a transaction. This function will be invoked if a `secretKey`
@@ -246,6 +237,154 @@ class Txs:
 
         if v_addend == 0:
             json_tx["y_parity"] = json_tx["v"]
+
+
+def convert_pydantic_tx_to_canonical(tx, fork):
+    """
+    Convert a Pydantic Transaction to the canonical transaction class for the given fork.
+    fork: The fork object (e.g., self.fork from ForkLoad)
+    """
+    if isinstance(tx, list):
+        return [convert_pydantic_tx_to_canonical(t, fork) for t in tx]
+
+    def convert_access_list(access_list):
+        if not access_list:
+            return []
+        AccessCls = getattr(fork, "Access", None)
+        if AccessCls is None:
+            from ethereum.arrow_glacier.transactions import Access as AccessCls
+        return [
+            AccessCls(
+                account=entry.address,
+                slots=tuple(entry.storage_keys),
+            )
+            for entry in access_list
+        ]
+
+    def convert_authorizations(auth_list):
+        if not auth_list:
+            return []
+        AuthorizationCls = getattr(fork, "Authorization", None)
+        if AuthorizationCls is None:
+            from ethereum.osaka.fork_types import Authorization as AuthorizationCls
+        result = []
+        for entry in auth_list:
+            d = entry.dict() if hasattr(entry, "dict") else dict(entry)
+            result.append(
+                AuthorizationCls(
+                    chain_id=U256(d.get("chain_id", 0)),
+                    address=d["address"],
+                    nonce=U64(d.get("nonce", 0)),
+                    y_parity=U8(d.get("v", d.get("y_parity", 0))),
+                    r=U256(d["r"]),
+                    s=U256(d["s"]),
+                )
+            )
+        return result
+
+    # determine tx type
+    tx_type = getattr(tx, "ty", 0)
+    if hasattr(fork, "SetCodeTransaction") and tx_type == 4:
+        tx_cls = fork.SetCodeTransaction
+    elif hasattr(fork, "BlobTransaction") and tx_type == 3:
+        tx_cls = fork.BlobTransaction
+    elif hasattr(fork, "FeeMarketTransaction") and tx_type == 2:
+        tx_cls = fork.FeeMarketTransaction
+    elif hasattr(fork, "AccessListTransaction") and tx_type == 1:
+        tx_cls = fork.AccessListTransaction
+    else:
+        tx_cls = getattr(fork, "LegacyTransaction", None)
+        if tx_cls is None:
+            tx_cls = getattr(fork, "Transaction")
+
+    def to_bytes20(val):
+        if val is None:
+            return Bytes0()
+        if isinstance(val, Bytes20):
+            return val
+        if isinstance(val, (bytes, bytearray)) and len(val) == 20:
+            return Bytes20(val)
+        if isinstance(val, (bytes, bytearray)) and len(val) == 0:
+            return Bytes20(b"\x00" * 20)
+        if isinstance(val, (bytes, bytearray)):
+            return Bytes20(val.rjust(20, b"\x00"))
+        return Bytes20(bytes(val).rjust(20, b"\x00"))
+
+    # build the canonical transaction
+    if tx_cls.__name__ == "FeeMarketTransaction":
+        return tx_cls(
+            chain_id=U64(tx.chain_id),
+            nonce=U256(tx.nonce),
+            max_priority_fee_per_gas=Uint(tx.max_priority_fee_per_gas or 0),
+            max_fee_per_gas=Uint(tx.max_fee_per_gas or 0),
+            gas=Uint(tx.gas_limit),
+            to=to_bytes20(tx.to),
+            value=U256(tx.value),
+            data=tx.data,
+            access_list=convert_access_list(tx.access_list),
+            y_parity=U256(tx.v),
+            r=U256(tx.r),
+            s=U256(tx.s),
+        )
+    elif tx_cls.__name__ == "AccessListTransaction":
+        return tx_cls(
+            chain_id=U64(tx.chain_id),
+            nonce=U256(tx.nonce),
+            gas_price=Uint(tx.gas_price or 0),
+            gas=Uint(tx.gas_limit),
+            to=to_bytes20(tx.to),
+            value=U256(tx.value),
+            data=tx.data,
+            access_list=convert_access_list(tx.access_list),
+            y_parity=U256(tx.v),
+            r=U256(tx.r),
+            s=U256(tx.s),
+        )
+    elif tx_cls.__name__ == "BlobTransaction":
+        return tx_cls(
+            chain_id=U64(tx.chain_id),
+            nonce=U256(tx.nonce),
+            max_priority_fee_per_gas=Uint(tx.max_priority_fee_per_gas or 0),
+            max_fee_per_gas=Uint(tx.max_fee_per_gas or 0),
+            gas=Uint(tx.gas_limit),
+            to=to_bytes20(tx.to),
+            value=U256(tx.value),
+            data=tx.data,
+            access_list=convert_access_list(tx.access_list),
+            max_fee_per_blob_gas=Uint(getattr(tx, "max_fee_per_blob_gas", 0)),
+            blob_versioned_hashes=getattr(tx, "blob_versioned_hashes", ()),
+            y_parity=U256(tx.v),
+            r=U256(tx.r),
+            s=U256(tx.s),
+        )
+    elif tx_cls.__name__ == "SetCodeTransaction":
+        return tx_cls(
+            chain_id=U64(tx.chain_id),
+            nonce=U256(tx.nonce),
+            max_priority_fee_per_gas=Uint(tx.max_priority_fee_per_gas or 0),
+            max_fee_per_gas=Uint(tx.max_fee_per_gas or 0),
+            gas=Uint(tx.gas_limit),
+            to=to_bytes20(tx.to),
+            value=U256(tx.value),
+            data=tx.data,
+            access_list=convert_access_list(tx.access_list),
+            authorizations=convert_authorizations(getattr(tx, "authorization_list", ())),
+            y_parity=U256(tx.v),
+            r=U256(tx.r),
+            s=U256(tx.s),
+        )
+    else:
+        return tx_cls(
+            nonce=U256(tx.nonce),
+            gas_price=Uint(tx.gas_price or 0),
+            gas=Uint(tx.gas_limit),
+            to=to_bytes20(tx.to),
+            value=U256(tx.value),
+            data=tx.data,
+            v=U256(tx.v),
+            r=U256(tx.r),
+            s=U256(tx.s),
+        )
 
 
 @dataclass

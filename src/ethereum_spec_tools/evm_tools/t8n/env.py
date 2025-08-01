@@ -10,10 +10,7 @@ from ethereum_types.bytes import Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.utils.byte import left_pad_zero_bytes
-from ethereum.utils.hexadecimal import hex_to_bytes
-
-from ..utils import parse_hex_or_int
+from ethereum_test_types.block_types import Environment
 
 if TYPE_CHECKING:
     from ethereum_spec_tools.evm_tools.t8n import T8N
@@ -55,36 +52,29 @@ class Env:
     excess_blob_gas: Optional[U64]
     requests: Any
 
-    def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
-        if t8n.options.input_env == "stdin":
-            assert stdin is not None
-            data = stdin["env"]
-        else:
-            with open(t8n.options.input_env, "r") as f:
-                data = json.load(f)
+    def __init__(self, t8n: "T8N", stdin: Environment):
+        self.coinbase = stdin.fee_recipient
+        self.block_gas_limit = Uint(stdin.gas_limit)
+        self.block_number = Uint(stdin.number)
+        self.block_timestamp = U256(stdin.timestamp)
 
-        self.coinbase = t8n.fork.hex_to_address(data["currentCoinbase"])
-        self.block_gas_limit = parse_hex_or_int(data["currentGasLimit"], Uint)
-        self.block_number = parse_hex_or_int(data["currentNumber"], Uint)
-        self.block_timestamp = parse_hex_or_int(data["currentTimestamp"], U256)
-
-        self.read_block_difficulty(data, t8n)
-        self.read_base_fee_per_gas(data, t8n)
-        self.read_randao(data, t8n)
-        self.read_block_hashes(data, t8n)
-        self.read_ommers(data, t8n)
-        self.read_withdrawals(data, t8n)
+        self.read_block_difficulty(stdin, t8n)
+        self.read_base_fee_per_gas(stdin, t8n)
+        self.read_randao(stdin, t8n)
+        self.read_block_hashes(stdin, t8n)
+        self.read_ommers(stdin, t8n)
+        self.read_withdrawals(stdin, t8n)
 
         self.parent_beacon_block_root = None
         if t8n.fork.is_after_fork("ethereum.cancun"):
             if not t8n.options.state_test:
-                parent_beacon_block_root_hex = data["parentBeaconBlockRoot"]
+                parent_beacon_block_root_bytes = stdin.parent_beacon_block_root
                 self.parent_beacon_block_root = (
-                    Bytes32(hex_to_bytes(parent_beacon_block_root_hex))
-                    if parent_beacon_block_root_hex is not None
+                    Bytes32(parent_beacon_block_root_bytes)
+                    if parent_beacon_block_root_bytes is not None
                     else None
                 )
-            self.read_excess_blob_gas(data, t8n)
+            self.read_excess_blob_gas(stdin, t8n)
 
     def read_excess_blob_gas(self, data: Any, t8n: "T8N") -> None:
         """
@@ -98,20 +88,14 @@ class Env:
         if not t8n.fork.is_after_fork("ethereum.cancun"):
             return
 
-        if "currentExcessBlobGas" in data:
-            self.excess_blob_gas = parse_hex_or_int(
-                data["currentExcessBlobGas"], U64
-            )
+        if hasattr(data, "excess_blob_gas") and data.excess_blob_gas is not None:
+            self.excess_blob_gas = U64(data.excess_blob_gas)
 
-        if "parentExcessBlobGas" in data:
-            self.parent_excess_blob_gas = parse_hex_or_int(
-                data["parentExcessBlobGas"], U64
-            )
+        if hasattr(data, "parent_excess_blob_gas") and data.parent_excess_blob_gas is not None:
+            self.parent_excess_blob_gas = U64(data.parent_excess_blob_gas)
 
-        if "parentBlobGasUsed" in data:
-            self.parent_blob_gas_used = parse_hex_or_int(
-                data["parentBlobGasUsed"], U64
-            )
+        if hasattr(data, "parent_blob_gas_used") and data.parent_blob_gas_used is not None:
+            self.parent_blob_gas_used = U64(data.parent_blob_gas_used)
 
         if self.excess_blob_gas is not None:
             return
@@ -170,25 +154,17 @@ class Env:
         self.base_fee_per_gas = None
 
         if t8n.fork.is_after_fork("ethereum.london"):
-            if "currentBaseFee" in data:
-                self.base_fee_per_gas = parse_hex_or_int(
-                    data["currentBaseFee"], Uint
-                )
+            if hasattr(data, "base_fee_per_gas") and data.base_fee_per_gas is not None:
+                self.base_fee_per_gas = Uint(data.base_fee_per_gas)
 
-            if "parentGasUsed" in data:
-                self.parent_gas_used = parse_hex_or_int(
-                    data["parentGasUsed"], Uint
-                )
+            if hasattr(data, "parent_gas_used") and data.parent_gas_used is not None:
+                self.parent_gas_used = Uint(data.parent_gas_used)
 
-            if "parentGasLimit" in data:
-                self.parent_gas_limit = parse_hex_or_int(
-                    data["parentGasLimit"], Uint
-                )
+            if hasattr(data, "parent_gas_limit") and data.parent_gas_limit is not None:
+                self.parent_gas_limit = Uint(data.parent_gas_limit)
 
-            if "parentBaseFee" in data:
-                self.parent_base_fee_per_gas = parse_hex_or_int(
-                    data["parentBaseFee"], Uint
-                )
+            if hasattr(data, "parent_base_fee_per_gas") and data.parent_base_fee_per_gas is not None:
+                self.parent_base_fee_per_gas = Uint(data.parent_base_fee_per_gas)
 
             if self.base_fee_per_gas is None:
                 assert self.parent_gas_limit is not None
@@ -212,20 +188,7 @@ class Env:
         """
         self.prev_randao = None
         if t8n.fork.is_after_fork("ethereum.paris"):
-            # tf tool might not always provide an
-            # even number of nibbles in the randao
-            # This could create issues in the
-            # hex_to_bytes function
-            current_random = data["currentRandom"]
-            if current_random.startswith("0x"):
-                current_random = current_random[2:]
-
-            if len(current_random) % 2 == 1:
-                current_random = "0" + current_random
-
-            self.prev_randao = Bytes32(
-                left_pad_zero_bytes(hex_to_bytes(current_random), 32)
-            )
+            self.prev_randao = Bytes32(data.prev_randao.to_bytes(32, "big"))
 
     def read_withdrawals(self, data: Any, t8n: "T8N") -> None:
         """
@@ -233,9 +196,18 @@ class Env:
         """
         self.withdrawals = None
         if t8n.fork.is_after_fork("ethereum.shanghai"):
-            self.withdrawals = tuple(
-                t8n.json_to_withdrawals(wd) for wd in data["withdrawals"]
-            )
+            raw_withdrawals = getattr(data, "withdrawals", None)
+            if raw_withdrawals:
+                def to_canonical_withdrawal(raw):
+                    return t8n.fork.Withdrawal(
+                        index=U64(raw.index),
+                        validator_index=U64(raw.validator_index),
+                        address=raw.address,
+                        amount=U256(raw.amount),
+                    )
+                self.withdrawals = tuple(to_canonical_withdrawal(wd) for wd in raw_withdrawals)
+            else:
+                self.withdrawals = ()
 
     def read_block_difficulty(self, data: Any, t8n: "T8N") -> None:
         """
@@ -249,17 +221,11 @@ class Env:
         self.parent_ommers_hash = None
         if t8n.fork.is_after_fork("ethereum.paris"):
             return
-        elif "currentDifficulty" in data:
-            self.block_difficulty = parse_hex_or_int(
-                data["currentDifficulty"], Uint
-            )
+        elif hasattr(data, "difficulty") and data.difficulty is not None:
+            self.block_difficulty = Uint(data.difficulty)
         else:
-            self.parent_timestamp = parse_hex_or_int(
-                data["parentTimestamp"], U256
-            )
-            self.parent_difficulty = parse_hex_or_int(
-                data["parentDifficulty"], Uint
-            )
+            self.parent_timestamp = U256(data.parent_timestamp)
+            self.parent_difficulty = Uint(data.parent_difficulty)
             args: List[object] = [
                 self.block_number,
                 self.block_timestamp,
@@ -267,10 +233,10 @@ class Env:
                 self.parent_difficulty,
             ]
             if t8n.fork.is_after_fork("ethereum.byzantium"):
-                if "parentUncleHash" in data:
+                if hasattr(data, "parent_ommers_hash") and data.parent_ommers_hash is not None:
                     EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
                     self.parent_ommers_hash = Hash32(
-                        hex_to_bytes(data["parentUncleHash"])
+                        data.parent_ommers_hash
                     )
                     parent_has_ommers = (
                         self.parent_ommers_hash != EMPTY_OMMER_HASH
@@ -289,17 +255,13 @@ class Env:
             t8n.fork.is_after_fork("ethereum.prague")
             and not t8n.options.state_test
         ):
-            self.parent_hash = Hash32(hex_to_bytes(data["parentHash"]))
+            self.parent_hash = Hash32(data.parent_hash)
 
         # Read the block hashes
         block_hashes: List[Any] = []
 
         # The hex key strings provided might not have standard formatting
-        clean_block_hashes: Dict[int, Hash32] = {}
-        if "blockHashes" in data:
-            for key, value in data["blockHashes"].items():
-                int_key = int(key, 16)
-                clean_block_hashes[int_key] = Hash32(hex_to_bytes(value))
+        clean_block_hashes: Dict[int, Hash32] = data.block_hashes
 
         # Store a maximum of 256 block hashes.
         max_blockhash_count = min(Uint(256), self.block_number)
@@ -307,7 +269,7 @@ class Env:
             self.block_number - max_blockhash_count, self.block_number
         ):
             if number in clean_block_hashes.keys():
-                block_hashes.append(clean_block_hashes[number])
+                block_hashes.append(Hash32(clean_block_hashes[number]))
             else:
                 block_hashes.append(None)
 
@@ -319,12 +281,12 @@ class Env:
         needed to obtain the Header.
         """
         ommers = []
-        if "ommers" in data:
-            for ommer in data["ommers"]:
+        if hasattr(data, "ommers") and data.ommers is not None:
+            for ommer in data.ommers:
                 ommers.append(
                     Ommer(
-                        ommer["delta"],
-                        t8n.fork.hex_to_address(ommer["address"]),
+                        ommer.delta,
+                        ommer.address,
                     )
                 )
         self.ommers = ommers

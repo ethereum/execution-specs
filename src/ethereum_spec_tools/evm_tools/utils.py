@@ -82,7 +82,7 @@ class FatalException(Exception):
 
 
 def get_module_name(
-    forks: Sequence[Hardfork], options: Any, stdin: Any
+    forks: Sequence[Hardfork], options: Any, env: Any
 ) -> Tuple[str, int]:
     """
     Get the module name and the fork block for the given state fork.
@@ -97,14 +97,7 @@ def get_module_name(
         pass
 
     if exception_config:
-        if options.input_env == "stdin":
-            assert stdin is not None
-            data = stdin["env"]
-        else:
-            with open(options.input_env, "r") as f:
-                data = json.load(f)
-
-        block_number = parse_hex_or_int(data["currentNumber"], Uint)
+        block_number = parse_hex_or_int(env.number, Uint)
 
         for fork, fork_block in exception_config["fork_blocks"]:
             if block_number >= Uint(fork_block):
