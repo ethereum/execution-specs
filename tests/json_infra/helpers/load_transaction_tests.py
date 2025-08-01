@@ -5,6 +5,13 @@ from typing import Any, Dict
 from ethereum.utils.hexadecimal import hex_to_bytes
 
 
+class NoTestsFound(Exception):
+    """
+    An exception thrown when the test for a particular fork isn't
+    available in the json fixture
+    """
+
+
 def load_test_transaction(
     test_dir: str, test_file: str, network: str
 ) -> Dict[str, Any]:
@@ -16,7 +23,9 @@ def load_test_transaction(
         json_data = json.load(fp)[f"{test_name}"]
 
     tx_rlp = hex_to_bytes(json_data["txbytes"])
-
-    test_result = json_data["result"][network]
+    try:
+        test_result = json_data["result"][network]
+    except KeyError:
+        raise NoTestsFound(f"No tests found for {network} in {test_file}")
 
     return {"tx_rlp": tx_rlp, "test_result": test_result}
