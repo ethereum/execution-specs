@@ -22,7 +22,8 @@ class Nethtest(EthereumCLI):
     """Nethermind `nethtest` binary base class."""
 
     default_binary = Path("nethtest")
-    detect_binary_pattern = re.compile(r"^\d+\.\d+\.\d+-[a-zA-Z0-9]+(\+[a-f0-9]{40})?$")
+    # new pattern allows e.g. '1.2.3', in the past that was denied
+    detect_binary_pattern = re.compile(r"^\d+\.\d+\.\d+(-[a-zA-Z0-9]+)?(\+[a-f0-9]{40})?$")
     version_flag: str = "--version"
     cached_version: Optional[str] = None
 
