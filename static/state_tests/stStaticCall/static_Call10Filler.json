@@ -96,7 +96,7 @@
         		":raw 0x000000000000000000000000<contract:0xcbbf5374fce5edbc8e2a8697c15331677e6ebf0b>"
             ],
             "gasLimit" : [
-                "9214364837600034817"
+                "200000"
             ],
             "gasPrice" : "10",
             "nonce" : "",

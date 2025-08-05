@@ -15,7 +15,7 @@
                     "gas" : -1,
                     "value" : -1
                 },
-                "network" : [">=Cancun"],
+                "network" : [">=Cancun<Osaka"],
                 "result" : {
 	    	    "<contract:target:0x1000000000000000000000000000000000000000>" : {
                 	"balance" : "1"

@@ -1,5 +1,8 @@
 {
     "Call20KbytesContract50_3" : {
+        "_info" : {
+            "comment": "Potentially broken test: gas optimization shows that we can go as low as 212,154 gas limit and it would still have the same traces as with 250 million."
+        },
         "env" : {
             "currentCoinbase" : "b94f5374fce5edbc8e2a8697c15331677e6ebf0b",
             "currentDifficulty" : "0x020000",
@@ -14,7 +17,7 @@
                     "gas" : 1,
                     "value" : -1
                 },
-                "network" : [">=Cancun"],
+                "network" : [">=Cancun<Osaka"],
                 "result" : {
                     "<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                         "code" : "0x",
@@ -43,7 +46,7 @@
                     "gas" : 0,
                     "value" : -1
                 },
-                "network" : [">=Cancun"],
+                "network" : [">=Cancun<Osaka"],
                 "result" : {
                     "<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                         "code" : "0x",

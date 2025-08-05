@@ -52,7 +52,7 @@
                 "0xff55883355001144bbccddffeeaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
             ],
             "gasLimit" : [
-                "1342183320"
+                "100000"
             ],
             "gasPrice" : "10",
             "nonce" : "0",

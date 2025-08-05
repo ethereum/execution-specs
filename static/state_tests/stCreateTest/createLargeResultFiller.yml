@@ -138,7 +138,7 @@ createLargeResult:
         data: 
         - :label CREATE-RETURN
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
         cccccccccccccccccccccccccccccccccccccccc:
           storage:
@@ -154,7 +154,7 @@ createLargeResult:
         data: 
         - :label CREATE2-RETURN
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
         cccccccccccccccccccccccccccccccccccccccc:
           storage:
@@ -170,7 +170,7 @@ createLargeResult:
         data: 
         - :label CREATE-REVERT
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
         cccccccccccccccccccccccccccccccccccccccc:
           storage:
@@ -186,7 +186,7 @@ createLargeResult:
         data: 
         - :label CREATE2-REVERT
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
         cccccccccccccccccccccccccccccccccccccccc:
           storage:
@@ -204,7 +204,7 @@ createLargeResult:
         data: 
         - :label CREATE-RETURN-MAX
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
         cccccccccccccccccccccccccccccccccccccccc:
           storage:
@@ -220,7 +220,7 @@ createLargeResult:
         data: 
         - :label CREATE2-RETURN-MAX
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
         cccccccccccccccccccccccccccccccccccccccc:
           storage:
@@ -236,7 +236,7 @@ createLargeResult:
         data: 
         - :label CREATE-REVERT-MAX
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
         cccccccccccccccccccccccccccccccccccccccc:
           storage:
@@ -252,7 +252,7 @@ createLargeResult:
         data: 
         - :label CREATE2-REVERT-MAX
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
         cccccccccccccccccccccccccccccccccccccccc:
           storage:
@@ -269,7 +269,7 @@ createLargeResult:
         data: 
         - :label CREATE-RETURN-TOOBIG
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
         cccccccccccccccccccccccccccccccccccccccc:
           storage:
@@ -286,7 +286,7 @@ createLargeResult:
         data: 
         - :label CREATE2-RETURN-TOOBIG
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
         cccccccccccccccccccccccccccccccccccccccc:
           storage:
@@ -302,7 +302,7 @@ createLargeResult:
         data: 
         - :label CREATE-REVERT-TOOBIG
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
         cccccccccccccccccccccccccccccccccccccccc:
           storage:
@@ -319,7 +319,7 @@ createLargeResult:
         data: 
         - :label CREATE2-REVERT-TOOBIG
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
         cccccccccccccccccccccccccccccccccccccccc:
           storage:
@@ -336,7 +336,7 @@ createLargeResult:
         data: 
         - :label CREATE-RETURN-HUGE
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
         cccccccccccccccccccccccccccccccccccccccc:
           storage:
@@ -353,7 +353,7 @@ createLargeResult:
         data: 
         - :label CREATE2-RETURN-HUGE
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
         cccccccccccccccccccccccccccccccccccccccc:
           storage:
@@ -371,7 +371,7 @@ createLargeResult:
         data: 
         - :label CREATE-REVERT-HUGE
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
         cccccccccccccccccccccccccccccccccccccccc:
           storage:
@@ -388,7 +388,7 @@ createLargeResult:
         data: 
         - :label CREATE2-REVERT-HUGE
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
         cccccccccccccccccccccccccccccccccccccccc:
           storage:

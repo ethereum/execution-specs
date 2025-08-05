@@ -53,7 +53,7 @@
                 ""
             ],
             "gasLimit" : [
-                "0x7f000ffffffffff0"
+                "0x30d40"
             ],
             "gasPrice" : "10",
             "nonce" : "",

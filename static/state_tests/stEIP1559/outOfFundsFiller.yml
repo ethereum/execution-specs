@@ -33,10 +33,10 @@ outOfFunds:
     data:
         - data: :label declaredKeyWrite :raw 0x00
           accessList: []
-    maxFeePerGas: 10000000000
-    maxPriorityFeePerGas:  10000000000
+    maxFeePerGas: 100000000000
+    maxPriorityFeePerGas:  100000000000
     gasLimit:
-    - 40000000000000
+    - 16777216
     - 40000
     nonce: 1
     to: <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>

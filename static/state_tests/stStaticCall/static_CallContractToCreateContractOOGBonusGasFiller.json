@@ -1,5 +1,8 @@
 {
     "static_CallContractToCreateContractOOGBonusGas" : {
+        "_info" : {
+            "comment": "Gas analysis showed this test's gas can go as low as 101174, and still yield the same traces, which implies the test is broken"
+        },
         "env" : {
             "currentCoinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
             "currentDifficulty" : "0x020000",
@@ -14,7 +17,7 @@
                     "gas" : 0,
                     "value" : -1
                 },
-                "network" : [">=Cancun"],
+                "network" : [">=Cancun<Osaka"],
                 "result" : {
                     "095e7baea6a6c7c4c2dfeb977efac326af552d87" : {
                         "nonce" : "1",
@@ -41,7 +44,7 @@
                     "gas" : 1,
                     "value" : -1
                 },
-                "network" : [">=Cancun"],
+                "network" : [">=Cancun<Osaka"],
                 "result" : {
                     "095e7baea6a6c7c4c2dfeb977efac326af552d87" : {
                         "nonce" : "0",

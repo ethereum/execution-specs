@@ -691,7 +691,7 @@ baseFeeDiffPlaces:
         value: !!int -1
 
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
 
       result:
         cccccccccccccccccccccccccccccccccccccccc:

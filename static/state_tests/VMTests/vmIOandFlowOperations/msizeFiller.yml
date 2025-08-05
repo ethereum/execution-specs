@@ -158,7 +158,7 @@ msize:
         gas:  !!int -1
         value: !!int -1
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
         cccccccccccccccccccccccccccccccccccccccc:
           storage:
@@ -173,7 +173,7 @@ msize:
         gas:  !!int -1
         value: !!int -1
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
         cccccccccccccccccccccccccccccccccccccccc:
           storage:
@@ -187,7 +187,7 @@ msize:
         gas:  !!int -1
         value: !!int -1
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
         cccccccccccccccccccccccccccccccccccccccc:
           storage:
@@ -201,7 +201,7 @@ msize:
         gas:  !!int -1
         value: !!int -1
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
         cccccccccccccccccccccccccccccccccccccccc:
           storage:
@@ -218,7 +218,7 @@ msize:
         gas:  !!int -1
         value: !!int -1
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
         cccccccccccccccccccccccccccccccccccccccc:
           storage:

@@ -64,7 +64,7 @@
                 ":raw 0x7f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f00000000000000000000000000000000000000000000000000000000000000007ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe837f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f000000000000000000000001000000000000000000000000000000000000000009556c6f390a3054d7368a9a"
             ],
             "gasLimit" : [
-                "0x14400294"
+                "0x186a0"
             ],
             "gasPrice" : "10",
             "nonce" : "0",

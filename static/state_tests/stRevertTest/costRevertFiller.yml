@@ -256,7 +256,7 @@ costRevert:
         gas:  !!int -1
         value: !!int -1
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
         CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC:
           storage:
@@ -276,7 +276,7 @@ costRevert:
         gas:  !!int -1
         value: !!int -1
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
         CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC:
           storage:

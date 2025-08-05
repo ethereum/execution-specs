@@ -165,7 +165,7 @@ CreateOOGafterMaxCodesize:
     # - High number of contracts (250): Create 250 contracts at 0xc0dea, 250 contracts at 0xc0deb, don't OOG on 0xc0deb, call 494 out of 500 contracts to self-destruct.
     - :label HighContractCount_DelegateCreate_CallCreate_SelfDestruct :abi f(uint,uint,bool,uint) 0xfa 0xfa 0x00 0x01ee
     gasLimit:
-    - 0x1000000
+    - 0x100000000
     gasPrice: '10'
     nonce: '0'
     to: 00000000000000000000000000000000000c0dea
@@ -181,7 +181,7 @@ CreateOOGafterMaxCodesize:
         gas:  !!int -1
         value: !!int -1
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
 
         00000000000000000000000000000000000c0dea:
@@ -207,7 +207,7 @@ CreateOOGafterMaxCodesize:
         gas:  !!int -1
         value: !!int -1
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
 
         00000000000000000000000000000000000c0dea:
@@ -245,7 +245,7 @@ CreateOOGafterMaxCodesize:
         gas:  !!int -1
         value: !!int -1
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
 
         00000000000000000000000000000000000c0dea:
@@ -312,7 +312,7 @@ CreateOOGafterMaxCodesize:
         gas:  !!int -1
         value: !!int -1
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
 
         00000000000000000000000000000000000c0dea:
@@ -338,7 +338,7 @@ CreateOOGafterMaxCodesize:
         gas:  !!int -1
         value: !!int -1
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
 
         00000000000000000000000000000000000c0dea:
@@ -376,7 +376,7 @@ CreateOOGafterMaxCodesize:
         gas:  !!int -1
         value: !!int -1
       network:
-        - '>=Cancun'
+        - '>=Cancun<Osaka'
       result:
 
         00000000000000000000000000000000000c0dea:

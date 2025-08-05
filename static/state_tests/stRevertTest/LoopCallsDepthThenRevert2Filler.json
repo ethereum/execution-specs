@@ -14,7 +14,7 @@
                     "gas" : -1,
                     "value" : -1
                 },
-                "network" : [">=Cancun"],
+                "network" : [">=Cancun<Osaka"],
                 "result" : {
                         "7db299e0885c85039f56fa504a13dd8ce8a56aa7" : {
                             "balance" : "0x03",

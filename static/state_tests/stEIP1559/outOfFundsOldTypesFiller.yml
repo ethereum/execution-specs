@@ -34,9 +34,9 @@ outOfFundsOldTypes:
         - :raw 0x00
         - data: :raw 0x01
           accessList: []
-    gasPrice: 10000000000
+    gasPrice: 100000000000
     gasLimit:
-    - 40000000000000
+    - 16777216
     - 40000
     nonce: 1
     to: <contract:target:0xcccccccccccccccccccccccccccccccccccccccc>

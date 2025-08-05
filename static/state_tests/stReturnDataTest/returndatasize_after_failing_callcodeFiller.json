@@ -60,7 +60,7 @@
                 ""
             ],
             "gasLimit" : [
-                "0x0a00000000"
+                "0x030d40"
             ],
             "gasPrice" : "0x0a",
             "nonce" : "0x00",

@@ -1,5 +1,8 @@
 {
     "Create1000" : {
+        "_info" : {
+            "comment": "Gas analysis showed this test's gas can go as low as 21053, and still yield the same traces, which implies the test is broken"
+        },
         "env" : {
             "currentCoinbase" : "b94f5374fce5edbc8e2a8697c15331677e6ebf0b",
             "currentDifficulty" : "0x020000",
@@ -14,7 +17,7 @@
                     "gas" : 0,
                     "value" : -1
                 },
-                "network" : [ ">=Cancun"],
+                "network" : [ ">=Cancun<Osaka"],
                 "result" : {
                     "010d8b0816e30ff51ba07678c64b272cdeddb807" : {
                         "shouldnotexist" : "1"
@@ -53,7 +56,7 @@
                     "gas" : 1,
                     "value" : -1
                 },
-                "network" : [ ">=Cancun"],
+                "network" : [ ">=Cancun<Osaka"],
                 "result" : {
                     "010d8b0816e30ff51ba07678c64b272cdeddb807" : {
                         "shouldnotexist" : "1"

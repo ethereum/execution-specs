@@ -10,7 +10,7 @@
         "expect" : [
 	    {
                 "indexes" : { "data" : 0, "gas" : -1, "value" : -1 },
-                "network" : [ ">=Cancun" ],
+                "network" : [ ">=Cancun<Osaka" ],
                 "result" : {
                     "<contract:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                         "storage" : {
@@ -30,7 +30,7 @@
             },
     	    {
                 "indexes" : { "data" : 1, "gas" : -1, "value" : -1 },
-                "network" : [">=Cancun" ],
+                "network" : [">=Cancun<Osaka" ],
                 "result" : {
                     "<contract:0xcbbf5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
                         "storage" : {

@@ -17,7 +17,7 @@
                    "gas" : -1,
                    "value" : -1
                 },
-                "network" : [">=Cancun"],
+                "network" : [">=Cancun<Osaka"],
                 "result" : {
                   "0x436b8f99e8d953cdaf8f9472116add83ccd82a65" : {
         		     "//comment" : "this nonce would have been equal to 2 if create worked",

@@ -17,7 +17,7 @@
                    "gas" : 0,
                    "value" : -1
                 },
-                "network" : [">=Cancun"],
+                "network" : [">=Cancun<Osaka"],
                 "result" : {
                   "0x4b17a07e119e86a0ff1fd21cdc9b4aba196ed3f8" : {
         		     "//comment" : "1024's address",
@@ -31,7 +31,7 @@
                    "gas" : 1,
                    "value" : -1
                 },
-                "network" : [">=Cancun"],
+                "network" : [">=Cancun<Osaka"],
                 "result" : {
                   "0x4b17a07e119e86a0ff1fd21cdc9b4aba196ed3f8" : {
         		     "shouldnotexist" : "1"
@@ -44,7 +44,7 @@
                    "gas" : 2,
                    "value" : -1
                 },
-                "network" : [">=Cancun"],
+                "network" : [">=Cancun<Osaka"],
                 "result" : {
                   "0x471a0e624a2ac11c82cf1ff843127f1c6aa98351" : {
         		     "//comment" : "1023's address",
