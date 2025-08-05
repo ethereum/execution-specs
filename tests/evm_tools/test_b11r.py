@@ -8,7 +8,7 @@ import pytest
 from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum_spec_tools.evm_tools import create_parser
 from ethereum_spec_tools.evm_tools.b11r import B11R
-from ethereum_spec_tools.evm_tools.utils import FatalException
+from ethereum_spec_tools.evm_tools.utils import FatalError
 from tests.helpers import TEST_FIXTURES
 
 B11R_TEST_PATH = TEST_FIXTURES["evm_tools_testdata"]["fixture_path"]
@@ -45,7 +45,7 @@ def b11r_tool_test(test_case: Dict) -> None:
         b11r_tool = B11R(options, sys.stdout, sys.stdin)
         b11r_tool.build_block()
     except Exception as e:
-        raise FatalException(e)
+        raise FatalError(e) from e
 
     # json_result = b11r_tool.result.to_json()
     with open(test_case["expected"], "r") as f:
@@ -67,5 +67,5 @@ def test_b11r(test_case: Dict) -> None:
     elif test_case["success"]:
         b11r_tool_test(test_case)
     else:
-        with pytest.raises(FatalException):
+        with pytest.raises(FatalError):
             b11r_tool_test(test_case)

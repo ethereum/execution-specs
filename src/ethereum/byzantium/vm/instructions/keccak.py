@@ -56,9 +56,9 @@ def keccak(evm: Evm) -> None:
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
     data = memory_read_bytes(evm.memory, memory_start_index, size)
-    hash = keccak256(data)
+    k_hash = keccak256(data)
 
-    push(evm.stack, U256.from_be_bytes(hash))
+    push(evm.stack, U256.from_be_bytes(k_hash))
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)

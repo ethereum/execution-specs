@@ -18,7 +18,7 @@ from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum_spec_tools.evm_tools.loaders.fixture_loader import Load
 
 
-class NoTestsFound(Exception):
+class NoTestsFoundError(Exception):
     """
     An exception thrown when the test for a particular fork isn't
     available in the json fixture
@@ -146,7 +146,7 @@ def load_json_fixture(test_file: str, network: str) -> Generator:
                 found_keys.append(key)
 
         if not any(found_keys):
-            raise NoTestsFound
+            raise NoTestsFoundError
 
         for _key in found_keys:
             yield {
@@ -205,7 +205,7 @@ def fetch_state_test_files(
                     yield pytest.param(_test_case, marks=pytest.mark.bigmem)
                 else:
                     yield _test_case
-        except NoTestsFound:
+        except NoTestsFoundError:
             # file doesn't contain tests for the given fork
             continue
 
