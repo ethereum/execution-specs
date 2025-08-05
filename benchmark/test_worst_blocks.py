@@ -5,15 +5,19 @@ abstract: Tests that benchmark EVMs in worst-case block scenarios.
 Tests running worst-case block scenarios for EVMs.
 """
 
+import random
+
 import pytest
 
 from ethereum_test_forks import Fork
 from ethereum_test_tools import (
+    AccessList,
     Account,
     Address,
     Alloc,
     Block,
     BlockchainTestFiller,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -164,6 +168,12 @@ def total_cost_floor_per_token():
     return 10
 
 
+@pytest.fixture
+def total_cost_standard_per_token():
+    """Total cost floor per token."""
+    return 4
+
+
 @pytest.mark.valid_from("Prague")
 @pytest.mark.parametrize("zero_byte", [True, False])
 def test_block_full_data(
@@ -218,4 +228,97 @@ def test_block_full_data(
         pre=pre,
         post={},
         tx=tx,
+    )
+
+
+@pytest.mark.valid_from("Prague")
+def test_block_full_access_list_and_data(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    intrinsic_cost: int,
+    total_cost_standard_per_token: int,
+    fork: Fork,
+    gas_benchmark_value: int,
+):
+    """Test a block with access lists (60% gas) and calldata (40% gas) using random mixed bytes."""
+    attack_gas_limit = gas_benchmark_value
+    gas_available = attack_gas_limit - intrinsic_cost
+
+    # Split available gas: 60% for access lists, 40% for calldata
+    gas_for_access_list = int(gas_available * 0.6)
+    gas_for_calldata = int(gas_available * 0.4)
+
+    # Access list gas costs from fork's gas_costs
+    gas_costs = fork.gas_costs()
+    gas_per_address = gas_costs.G_ACCESS_LIST_ADDRESS
+    gas_per_storage_key = gas_costs.G_ACCESS_LIST_STORAGE
+
+    # Calculate number of storage keys we can fit
+    gas_after_address = gas_for_access_list - gas_per_address
+    num_storage_keys = gas_after_address // gas_per_storage_key
+
+    # Create access list with 1 address and many storage keys
+    access_address = Address("0x1234567890123456789012345678901234567890")
+    storage_keys = []
+    for i in range(num_storage_keys):
+        # Generate random-looking storage keys
+        storage_keys.append(Hash(i))
+
+    access_list = [
+        AccessList(
+            address=access_address,
+            storage_keys=storage_keys,
+        )
+    ]
+
+    # Calculate calldata with 29% of gas for zero bytes and 71% for non-zero bytes
+    # Token accounting: tokens_in_calldata = zero_bytes + 4 * non_zero_bytes
+    # We want to split the gas budget:
+    # - 29% of gas_for_calldata for zero bytes
+    # - 71% of gas_for_calldata for non-zero bytes
+
+    max_tokens_in_calldata = gas_for_calldata // total_cost_standard_per_token
+
+    # Calculate how many tokens to allocate to each type
+    tokens_for_zero_bytes = int(max_tokens_in_calldata * 0.29)
+    tokens_for_non_zero_bytes = max_tokens_in_calldata - tokens_for_zero_bytes
+
+    # Convert tokens to actual byte counts
+    # Zero bytes: 1 token per byte
+    # Non-zero bytes: 4 tokens per byte
+    num_zero_bytes = tokens_for_zero_bytes  # 1 token = 1 zero byte
+    num_non_zero_bytes = tokens_for_non_zero_bytes // 4  # 4 tokens = 1 non-zero byte
+
+    # Create calldata with mixed bytes
+    calldata = bytearray()
+
+    # Add zero bytes
+    calldata.extend(b"\x00" * num_zero_bytes)
+
+    # Add non-zero bytes (random values from 0x01 to 0xff)
+    rng = random.Random(42)  # For reproducibility
+    for _ in range(num_non_zero_bytes):
+        calldata.append(rng.randint(1, 255))
+
+    # Shuffle the bytes to mix zero and non-zero bytes
+    calldata_list = list(calldata)
+    rng.shuffle(calldata_list)
+    shuffled_calldata = bytes(calldata_list)
+
+    tx = Transaction(
+        to=pre.fund_eoa(amount=0),
+        data=shuffled_calldata,
+        gas_limit=attack_gas_limit,
+        sender=pre.fund_eoa(),
+        access_list=access_list,
+    )
+
+    state_test(
+        pre=pre,
+        post={},
+        tx=tx,
+        expected_benchmark_gas_used=fork.transaction_intrinsic_cost_calculator()(
+            calldata=shuffled_calldata,
+            access_list=access_list,
+        ),
     )
