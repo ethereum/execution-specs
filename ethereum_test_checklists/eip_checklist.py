@@ -1675,3 +1675,77 @@ class EIPChecklist:
                     """Update cross-request tests."""
 
                     pass
+
+    class NewTransactionValidityConstraint(ChecklistItem):
+        """New transaction validity constraint checklist items."""
+
+        class Test(ChecklistItem):
+            """Test vectors for the new validity constraint."""
+
+            class ForkTransition(ChecklistItem):
+                """Tests for the new transaction validity constraint on fork boundary."""
+
+                class AcceptedBeforeFork(ChecklistItem):
+                    """
+                    Verify that a block before the activation fork is accepted even when the new
+                    constraint is not met.
+                    """
+
+                    pass
+
+                class AcceptedAfterFork(ChecklistItem):
+                    """
+                    Verify that a block after the activation fork is accepted when the new
+                    validity constraint is met.
+                    """
+
+                    pass
+
+                class RejectedAfterFork(ChecklistItem):
+                    """
+                    Verify that a block after the activation fork is rejected when the new
+                    validity constraint is not met.
+                    """
+
+                    pass
+
+    class ModifiedTransactionValidityConstraint(ChecklistItem):
+        """Modified transaction validity constraint checklist items."""
+
+        class Test(ChecklistItem):
+            """Test vectors for the modified validity constraint."""
+
+            class ForkTransition(ChecklistItem):
+                """Tests for the modified transaction validity constraint on fork boundary."""
+
+                class AcceptedBeforeFork(ChecklistItem):
+                    """
+                    Verify that a block before the activation fork is accepted when the existing
+                    constraint is met and, ideally, the new constraint is not met.
+                    """
+
+                    pass
+
+                class RejectedBeforeFork(ChecklistItem):
+                    """
+                    Verify that a block before the activation fork is rejected when the existing
+                    constraint is not met and, ideally, the new constraint is met.
+                    """
+
+                    pass
+
+                class AcceptedAfterFork(ChecklistItem):
+                    """
+                    Verify that a block after the activation fork is accepted when the new
+                    validity constraint is met.
+                    """
+
+                    pass
+
+                class RejectedAfterFork(ChecklistItem):
+                    """
+                    Verify that a block after the activation fork is rejected when the new
+                    validity constraint is not met.
+                    """
+
+                    pass
