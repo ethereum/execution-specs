@@ -30,7 +30,13 @@ from .spec import Spec, ref_spec_7934
 REFERENCE_SPEC_GIT_PATH = ref_spec_7934.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7934.version
 
-pytestmark = pytest.mark.valid_from("Osaka")
+pytestmark = [
+    pytest.mark.valid_from("Osaka"),
+    pytest.mark.pre_alloc_group(
+        "block_rlp_limit_tests",
+        reason="Block RLP size tests require exact calculations",
+    ),
+]
 
 
 HEADER_TIMESTAMP = 123456789
@@ -445,8 +451,16 @@ def test_block_rlp_size_at_limit_with_all_typed_transactions(
     block_size_limit: int,
     env: Environment,
     typed_transaction: Transaction,
+    request: pytest.FixtureRequest,
 ) -> None:
     """Test the block RLP size limit with all transaction types."""
+    # TODO: fix this for generate all formats.
+    if typed_transaction.ty == 4 and (
+        request.config.getoption("generate_pre_alloc_groups")
+        or request.config.getoption("use_pre_alloc_groups")
+    ):
+        pytest.skip("EIP-7702 fixture generates different transactions in Phase 1")
+
     transactions, gas_used = exact_size_transactions(
         sender,
         block_size_limit,

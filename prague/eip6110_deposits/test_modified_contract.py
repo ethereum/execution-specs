@@ -56,12 +56,21 @@ DEFAULT_REQUEST_LOG = create_deposit_log_bytes(**DEFAULT_DEPOSIT_REQUEST_LOG_DAT
 @pytest.mark.parametrize(
     "include_deposit_event",
     [
-        pytest.param(True),
-        pytest.param(False),
+        pytest.param(
+            True,
+            marks=pytest.mark.pre_alloc_group(
+                "deposit_extra_logs_with_event",
+                reason="Deposit contract with Transfer log AND deposit event",
+            ),
+        ),
+        pytest.param(
+            False,
+            marks=pytest.mark.pre_alloc_group(
+                "deposit_extra_logs_no_event",
+                reason="Deposit contract with Transfer log but NO deposit event",
+            ),
+        ),
     ],
-)
-@pytest.mark.pre_alloc_group(
-    "separate", reason="Deploys custom deposit contract with different bytecode"
 )
 def test_extra_logs(
     blockchain_test: BlockchainTestFiller,
@@ -145,12 +154,20 @@ def test_extra_logs(
 
 @pytest.mark.parametrize(
     "log_argument,value",
-    [(log_argument, value) for log_argument in EVENT_ARGUMENTS for value in EVENT_ARGUMENT_VALUES],
+    [
+        pytest.param(
+            arg,
+            val,
+            marks=pytest.mark.pre_alloc_group(
+                f"deposit_layout_{arg}_{val}",
+                reason=f"Deposit contract with invalid {arg} set to {val}",
+            ),
+        )
+        for arg in EVENT_ARGUMENTS
+        for val in EVENT_ARGUMENT_VALUES
+    ],
 )
 @pytest.mark.exception_test
-@pytest.mark.pre_alloc_group(
-    "modified_deposit_contract", reason="Deploys custom deposit contract with different bytecode"
-)
 def test_invalid_layout(
     blockchain_test: BlockchainTestFiller, pre: Alloc, log_argument: str, value: str
 ):
@@ -192,14 +209,21 @@ def test_invalid_layout(
 @pytest.mark.parametrize(
     "slice_bytes",
     [
-        pytest.param(True),
-        pytest.param(False),
+        pytest.param(
+            True,
+            marks=pytest.mark.pre_alloc_group(
+                "deposit_log_length_short", reason="Deposit contract with shortened log data"
+            ),
+        ),
+        pytest.param(
+            False,
+            marks=pytest.mark.pre_alloc_group(
+                "deposit_log_length_long", reason="Deposit contract with lengthened log data"
+            ),
+        ),
     ],
 )
 @pytest.mark.exception_test
-@pytest.mark.pre_alloc_group(
-    "modified_deposit_contract", reason="Deploys custom deposit contract with different bytecode"
-)
 def test_invalid_log_length(blockchain_test: BlockchainTestFiller, pre: Alloc, slice_bytes: bool):
     """Test deposit contract emitting logs with invalid log length (one byte more or less)."""
     changed_log = DEFAULT_REQUEST_LOG[:-1] if slice_bytes else DEFAULT_REQUEST_LOG + b"\x00"
