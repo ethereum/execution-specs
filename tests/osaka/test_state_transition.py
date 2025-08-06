@@ -70,6 +70,20 @@ BIG_MEMORY_TESTS = (
     "stStaticCall/",
 )
 
+# angry mutant cases are tests that cannot be run for mutation testing
+ANGRY_MUTANT_CASES = (
+    "Callcode1024OOG",
+    "Call1024OOG",
+    "CallRecursiveBombPreCall",
+    "CallRecursiveBomb1",
+    "ABAcalls2",
+    "CallRecursiveBombLog2",
+    "CallRecursiveBomb0",
+    "ABAcalls1",
+    "CallRecursiveBomb2",
+    "CallRecursiveBombLog"
+)
+
 # Define Tests
 fetch_tests = partial(
     fetch_state_test_files,
@@ -84,20 +98,36 @@ FIXTURES_LOADER = Load(NETWORK, PACKAGE)
 run_tests = partial(run_blockchain_st_test, load=FIXTURES_LOADER)
 
 
+def is_angry_mutant(test_case):
+    return any(case in str(test_case) for case in ANGRY_MUTANT_CASES)
+
+
+# Run tests from ethereum/tests
+ethereum_blockchain_test_cases = [
+    pytest.param(tc, marks=pytest.mark.angry_mutant)
+    if is_angry_mutant(tc)
+    else tc
+    for tc in fetch_tests(ETHEREUM_BLOCKCHAIN_TESTS_DIR)
+]
+
+
 # Run tests from ethereum/tests
 @pytest.mark.parametrize(
     "test_case",
-    fetch_tests(ETHEREUM_BLOCKCHAIN_TESTS_DIR),
+    ethereum_blockchain_test_cases,
     ids=idfn,
 )
 def test_ethereum_tests(test_case: Dict) -> None:
     run_tests(test_case)
 
 
+eest_test_cases = list(fetch_tests(EEST_BLOCKCHAIN_TESTS_DIR))
+
+
 # Run EEST test fixtures
 @pytest.mark.parametrize(
     "test_case",
-    fetch_tests(EEST_BLOCKCHAIN_TESTS_DIR),
+    eest_test_cases,
     ids=idfn,
 )
 def test_eest_tests(test_case: Dict) -> None:
