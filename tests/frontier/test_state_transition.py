@@ -77,7 +77,7 @@ def is_angry_mutant(test_case):
 
 
 # Run tests from ethereum/tests
-ethereum_state_test_cases = [
+ethereum_blockchain_test_cases = [
     pytest.param(tc, marks=pytest.mark.angry_mutant)
     if is_angry_mutant(tc)
     else tc
@@ -87,7 +87,7 @@ ethereum_state_test_cases = [
 
 @pytest.mark.parametrize(
     "test_case",
-    ethereum_state_test_cases,
+    ethereum_blockchain_test_cases,
     ids=idfn,
 )
 def test_ethereum_tests(test_case: Dict) -> None:
