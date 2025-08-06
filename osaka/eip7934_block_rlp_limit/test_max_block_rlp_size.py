@@ -454,13 +454,6 @@ def test_block_rlp_size_at_limit_with_all_typed_transactions(
     request: pytest.FixtureRequest,
 ) -> None:
     """Test the block RLP size limit with all transaction types."""
-    # TODO: fix this for generate all formats.
-    if typed_transaction.ty == 4 and (
-        request.config.getoption("generate_pre_alloc_groups")
-        or request.config.getoption("use_pre_alloc_groups")
-    ):
-        pytest.skip("EIP-7702 fixture generates different transactions in Phase 1")
-
     transactions, gas_used = exact_size_transactions(
         sender,
         block_size_limit,
