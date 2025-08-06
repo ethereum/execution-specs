@@ -188,6 +188,9 @@ class StateStaticTest(BaseStaticTest):
                 test_state_vectors = pytest.mark.fully_tagged(test_state_vectors)
         else:
             test_state_vectors = pytest.mark.untagged(test_state_vectors)
+            test_state_vectors = pytest.mark.pre_alloc_group(
+                "separate", reason="Uses hard-coded addresses"
+            )(test_state_vectors)
 
         return test_state_vectors
 
