@@ -146,7 +146,6 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
             "InsufficientMaxFeePerBlobGasError"
         ),
-        TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: "InsufficientMaxFeePerGasError",
         TransactionException.TYPE_3_TX_PRE_FORK: (
             "module 'ethereum.shanghai.transactions' has no attribute 'BlobTransaction'"
         ),
@@ -178,4 +177,8 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         BlockException.SYSTEM_CONTRACT_CALL_FAILED: "call failed:",
         BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: "deposit",
     }
-    mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {}
+    mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {
+        TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
+            r"InsufficientMaxFeePerGasError|InvalidBlock"  # Temporary solution for issue #1981.
+        ),
+    }
