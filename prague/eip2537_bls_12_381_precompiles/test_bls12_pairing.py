@@ -267,6 +267,31 @@ def test_valid_multi_inf(
             Spec.G1 + G2_POINTS_NOT_IN_SUBGROUP[1],
             id="g1_plus_rand_not_in_subgroup_g2_1",
         ),
+        # Coordinates above modulus p cases.
+        pytest.param(
+            PointG1(Spec.P1.x + Spec.P, Spec.P1.y) + Spec.INF_G2,
+            id="g1_x_above_p_with_inf_g2",
+        ),
+        pytest.param(
+            PointG1(Spec.P1.x, Spec.P1.y + Spec.P) + Spec.INF_G2,
+            id="g1_y_above_p_with_inf_g2",
+        ),
+        pytest.param(
+            Spec.INF_G1 + PointG2((Spec.P2.x[0] + Spec.P, Spec.P2.x[1]), Spec.P2.y),
+            id="inf_g1_with_g2_x_c0_above_p",
+        ),
+        pytest.param(
+            Spec.INF_G1 + PointG2((Spec.P2.x[0], Spec.P2.x[1] + Spec.P), Spec.P2.y),
+            id="inf_g1_with_g2_x_c1_above_p",
+        ),
+        pytest.param(
+            Spec.INF_G1 + PointG2(Spec.P2.x, (Spec.P2.y[0] + Spec.P, Spec.P2.y[1])),
+            id="inf_g1_with_g2_y_c0_above_p",
+        ),
+        pytest.param(
+            Spec.INF_G1 + PointG2(Spec.P2.x, (Spec.P2.y[0], Spec.P2.y[1] + Spec.P)),
+            id="inf_g1_with_g2_y_c1_above_p",
+        ),
     ],
 )
 @pytest.mark.parametrize("expected_output", [Spec.INVALID], ids=[""])

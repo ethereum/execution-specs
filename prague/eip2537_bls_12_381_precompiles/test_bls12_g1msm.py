@@ -9,7 +9,7 @@ from ethereum_test_tools import Alloc, Environment, StateTestFiller, Transaction
 from ethereum_test_tools import Opcodes as Op
 
 from .conftest import G1_POINTS_NOT_IN_SUBGROUP, G1_POINTS_NOT_ON_CURVE
-from .helpers import vectors_from_file
+from .helpers import PointG1, vectors_from_file
 from .spec import Scalar, Spec, ref_spec_2537
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_2537.git_path
@@ -179,6 +179,23 @@ def test_valid(
         pytest.param(
             bytes([0]) * 159,  # Just under minimum valid length
             id="input_too_short_by_1",
+        ),
+        # Coordinates above modulus p cases.
+        pytest.param(
+            PointG1(Spec.P1.x + Spec.P, Spec.P1.y) + Scalar(1),
+            id="x_above_p_pos_0",
+        ),
+        pytest.param(
+            PointG1(Spec.P1.x, Spec.P1.y + Spec.P) + Scalar(1),
+            id="y_above_p_pos_0",
+        ),
+        pytest.param(
+            Spec.G1 + Scalar(1) + PointG1(Spec.P1.x + Spec.P, Spec.P1.y) + Scalar(0),
+            id="x_above_p_pos_1",
+        ),
+        pytest.param(
+            Spec.G1 + Scalar(1) + PointG1(Spec.P1.x, Spec.P1.y + Spec.P) + Scalar(0),
+            id="y_above_p_pos_1",
         ),
     ],
     # Input length tests can be found in ./test_bls12_variable_length_input_contracts.py

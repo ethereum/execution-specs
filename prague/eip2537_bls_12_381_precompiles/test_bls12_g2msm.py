@@ -9,7 +9,7 @@ from ethereum_test_tools import Alloc, Environment, StateTestFiller, Transaction
 from ethereum_test_tools import Opcodes as Op
 
 from .conftest import G2_POINTS_NOT_IN_SUBGROUP, G2_POINTS_NOT_ON_CURVE
-from .helpers import vectors_from_file
+from .helpers import PointG2, vectors_from_file
 from .spec import Scalar, Spec, ref_spec_2537
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_2537.git_path
@@ -177,6 +177,51 @@ def test_valid(
         pytest.param(
             bytes([0]) * 287,  # Just under minimum valid length
             id="input_too_short_by_1",
+        ),
+        # Coordinates above modulus p cases.
+        pytest.param(
+            PointG2((Spec.P2.x[0] + Spec.P, Spec.P2.x[1]), Spec.P2.y) + Scalar(1),
+            id="x_c0_above_p_pos_0",
+        ),
+        pytest.param(
+            PointG2((Spec.P2.x[0], Spec.P2.x[1] + Spec.P), Spec.P2.y) + Scalar(1),
+            id="x_c1_above_p_pos_0",
+        ),
+        pytest.param(
+            PointG2(Spec.P2.x, (Spec.P2.y[0] + Spec.P, Spec.P2.y[1])) + Scalar(1),
+            id="y_c0_above_p_pos_0",
+        ),
+        pytest.param(
+            PointG2(Spec.P2.x, (Spec.P2.y[0], Spec.P2.y[1] + Spec.P)) + Scalar(1),
+            id="y_c1_above_p_pos_0",
+        ),
+        pytest.param(
+            Spec.G2
+            + Scalar(1)
+            + PointG2((Spec.P2.x[0] + Spec.P, Spec.P2.x[1]), Spec.P2.y)
+            + Scalar(0),
+            id="x_c0_above_p_pos_1",
+        ),
+        pytest.param(
+            Spec.G2
+            + Scalar(1)
+            + PointG2((Spec.P2.x[0], Spec.P2.x[1] + Spec.P), Spec.P2.y)
+            + Scalar(0),
+            id="x_c1_above_p_pos_1",
+        ),
+        pytest.param(
+            Spec.G2
+            + Scalar(1)
+            + PointG2(Spec.P2.x, (Spec.P2.y[0] + Spec.P, Spec.P2.y[1]))
+            + Scalar(0),
+            id="y_c0_above_p_pos_1",
+        ),
+        pytest.param(
+            Spec.G2
+            + Scalar(1)
+            + PointG2(Spec.P2.x, (Spec.P2.y[0], Spec.P2.y[1] + Spec.P))
+            + Scalar(0),
+            id="y_c1_above_p_pos_1",
         ),
     ],
     # Input length tests can be found in ./test_bls12_variable_length_input_contracts.py
