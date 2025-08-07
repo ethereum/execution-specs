@@ -290,6 +290,38 @@ def test_valid(
             id="b_y_2_equal_to_p",
         ),
         pytest.param(
+            PointG2((Spec.P2.x[0] + Spec.P, Spec.P2.x[1]), Spec.P2.y) + Spec.G2,
+            id="a_x_1_above_p",
+        ),
+        pytest.param(
+            PointG2((Spec.P2.x[0], Spec.P2.x[1] + Spec.P), Spec.P2.y) + Spec.G2,
+            id="a_x_2_above_p",
+        ),
+        pytest.param(
+            PointG2(Spec.P2.x, (Spec.P2.y[0] + Spec.P, Spec.P2.y[1])) + Spec.G2,
+            id="a_y_1_above_p",
+        ),
+        pytest.param(
+            PointG2(Spec.P2.x, (Spec.P2.y[0], Spec.P2.y[1] + Spec.P)) + Spec.G2,
+            id="a_y_2_above_p",
+        ),
+        pytest.param(
+            Spec.P2 + PointG2((Spec.G2.x[0] + Spec.P, Spec.G2.x[1]), Spec.G2.y),
+            id="b_x_1_above_p",
+        ),
+        pytest.param(
+            Spec.P2 + PointG2((Spec.G2.x[0], Spec.G2.x[1] + Spec.P), Spec.G2.y),
+            id="b_x_2_above_p",
+        ),
+        pytest.param(
+            Spec.P2 + PointG2(Spec.G2.x, (Spec.G2.y[0] + Spec.P, Spec.G2.y[1])),
+            id="b_y_1_above_p",
+        ),
+        pytest.param(
+            Spec.P2 + PointG2(Spec.G2.x, (Spec.G2.y[0], Spec.G2.y[1] + Spec.P)),
+            id="b_y_2_above_p",
+        ),
+        pytest.param(
             b"\x80" + bytes(Spec.INF_G2)[1:] + Spec.INF_G2,
             id="invalid_encoding_a",
         ),

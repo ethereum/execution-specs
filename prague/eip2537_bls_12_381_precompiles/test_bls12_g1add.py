@@ -274,6 +274,22 @@ def test_valid(
             id="b_y_equal_to_p",
         ),
         pytest.param(
+            PointG1(Spec.P1.x + Spec.P, Spec.P1.y) + Spec.G1,
+            id="a_x_above_p",
+        ),
+        pytest.param(
+            PointG1(Spec.P1.x, Spec.P1.y + Spec.P) + Spec.G1,
+            id="a_y_above_p",
+        ),
+        pytest.param(
+            Spec.P1 + PointG1(Spec.G1.x + Spec.P, Spec.G1.y),
+            id="b_x_above_p",
+        ),
+        pytest.param(
+            Spec.P1 + PointG1(Spec.G1.x, Spec.G1.y + Spec.P),
+            id="b_y_above_p",
+        ),
+        pytest.param(
             b"\x80" + bytes(Spec.INF_G1)[1:] + Spec.INF_G1,
             id="invalid_encoding_a",
         ),
