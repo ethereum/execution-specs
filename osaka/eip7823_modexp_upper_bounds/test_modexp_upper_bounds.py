@@ -59,6 +59,30 @@ def precompile_gas(fork: Fork, mod_exp_input: ModExpInput) -> int:
             ),
             id="excess_length_modulus",
         ),
+        pytest.param(
+            ModExpInput(
+                base=b"",
+                exponent=b"\0" * (MAX_LENGTH_BYTES + 1),
+                modulus=b"",
+            ),
+            id="exp_1025_base_0_mod_0",
+        ),
+        pytest.param(
+            ModExpInput(
+                base=b"\0" * (MAX_LENGTH_BYTES + 1),
+                exponent=b"",
+                modulus=b"",
+            ),
+            id="exp_0_base_1025_mod_0",
+        ),
+        pytest.param(
+            ModExpInput(
+                base=b"",
+                exponent=b"",
+                modulus=b"\0" * (MAX_LENGTH_BYTES + 1),
+            ),
+            id="exp_0_base_0_mod_1025",
+        ),
     ],
 )
 def test_modexp_upper_bounds(
