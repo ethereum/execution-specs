@@ -68,7 +68,12 @@ def precompile_gas(fork: Fork, vector: Vector) -> int:
         vector.input.exponent,
     )
     assert calculated_gas == expected_gas, (
-        f"Calculated gas {calculated_gas} != Vector gas {expected_gas}"
+        f"Calculated gas {calculated_gas} != Vector gas {expected_gas}\n"
+        f"Lengths: base: {hex(len(vector.input.base))} ({len(vector.input.base)}), "
+        f"exponent: {hex(len(vector.input.exponent))} ({len(vector.input.exponent)}), "
+        f"modulus: {hex(len(vector.input.modulus))} ({len(vector.input.modulus)})\n"
+        f"Exponent: {vector.input.exponent} "
+        f"({int.from_bytes(vector.input.exponent, byteorder='big')})"
     )
     return calculated_gas
 

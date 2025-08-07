@@ -23,6 +23,7 @@ class ModExpInput(TestParameterGroup):
     exponent: Bytes
     modulus: Bytes
     extra_data: Bytes = Field(default_factory=Bytes)
+    raw_input: Bytes | None = None
 
     @property
     def length_base(self) -> Bytes:
@@ -41,6 +42,8 @@ class ModExpInput(TestParameterGroup):
 
     def __bytes__(self):
         """Generate input for the MODEXP precompile."""
+        if self.raw_input is not None:
+            return self.raw_input
         return (
             self.length_base
             + self.length_exponent
@@ -60,20 +63,28 @@ class ModExpInput(TestParameterGroup):
         """
         if isinstance(input_data, str):
             input_data = Bytes(input_data)
-        base_length = int.from_bytes(input_data[0:32], byteorder="big")
-        exponent_length = int.from_bytes(input_data[32:64], byteorder="big")
-        modulus_length = int.from_bytes(input_data[64:96], byteorder="big")
+        assert not isinstance(input_data, str)
+        padded_input_data = input_data
+        if len(padded_input_data) < 96:
+            padded_input_data = Bytes(padded_input_data.ljust(96, b"\0"))
+        base_length = int.from_bytes(padded_input_data[0:32], byteorder="big")
+        exponent_length = int.from_bytes(padded_input_data[32:64], byteorder="big")
+        modulus_length = int.from_bytes(padded_input_data[64:96], byteorder="big")
+
+        total_required_length = 96 + base_length + exponent_length + modulus_length
+        if len(padded_input_data) < total_required_length:
+            padded_input_data = Bytes(padded_input_data.ljust(total_required_length, b"\0"))
 
         current_index = 96
-        base = input_data[current_index : current_index + base_length]
+        base = padded_input_data[current_index : current_index + base_length]
         current_index += base_length
 
-        exponent = input_data[current_index : current_index + exponent_length]
+        exponent = padded_input_data[current_index : current_index + exponent_length]
         current_index += exponent_length
 
-        modulus = input_data[current_index : current_index + modulus_length]
+        modulus = padded_input_data[current_index : current_index + modulus_length]
 
-        return cls(base=base, exponent=exponent, modulus=modulus)
+        return cls(base=base, exponent=exponent, modulus=modulus, raw_input=input_data)
 
 
 class ModExpOutput(TestParameterGroup):
