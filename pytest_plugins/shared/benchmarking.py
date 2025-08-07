@@ -50,7 +50,7 @@ def gas_benchmark_value(request: pytest.FixtureRequest) -> int:
     return EnvironmentDefaults.gas_limit
 
 
-BENCHMARKING_MAX_GAS = 500_000_000_000
+BENCHMARKING_MAX_GAS = 1_000_000_000_000
 
 
 @pytest.fixture
