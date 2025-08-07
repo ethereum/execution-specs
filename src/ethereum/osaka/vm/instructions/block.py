@@ -253,3 +253,32 @@ def chain_id(evm: Evm) -> None:
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
+
+
+def tx_root(evm: Evm) -> None:
+    """
+    Push the incremental transactions root of this block onto the stack.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    Raises
+    ------
+    :py:class:`~ethereum.osaka.vm.exceptions.StackOverflowError`
+        If `len(stack)` is equal to `1024`.
+    :py:class:`~ethereum.osaka.vm.exceptions.OutOfGasError`
+        If `evm.gas_left` is less than `2`.
+    """
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_BASE)
+
+    # OPERATION
+    push(evm.stack, U256.from_be_bytes(evm.message.tx_env.transactions_root))
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(1)
