@@ -1,6 +1,7 @@
 import os
 import shutil
 import tarfile
+import pytest
 from pathlib import Path
 from typing import Final, Optional, Set
 
@@ -224,3 +225,11 @@ def pytest_sessionfinish(
 
         assert lock_file is not None
         lock_file.release()
+
+
+# This is required explicitly becuase when the source does not have any
+# mutable code, mutmut does not run the forced fail condition.
+@pytest.fixture(autouse=True)
+def mutmut_forced_fail():
+    if os.environ.get("MUTANT_UNDER_TEST") == "fail":
+        pytest.fail("Forced fail for mutmut sanity check")
