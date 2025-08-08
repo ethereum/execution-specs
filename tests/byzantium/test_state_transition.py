@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Dict
+from typing import Any, Dict
 
 import pytest
 
@@ -67,7 +67,7 @@ ANGRY_MUTANT_CASES = (
     "CallRecursiveBomb0",
     "ABAcalls1",
     "CallRecursiveBomb2",
-    "CallRecursiveBombLog"
+    "CallRecursiveBombLog",
 )
 
 # Define Tests
@@ -84,7 +84,7 @@ FIXTURES_LOADER = Load(NETWORK, PACKAGE)
 run_tests = partial(run_blockchain_st_test, load=FIXTURES_LOADER)
 
 
-def is_angry_mutant(test_case):
+def is_angry_mutant(test_case: Any) -> bool:
     return any(case in str(test_case) for case in ANGRY_MUTANT_CASES)
 
 

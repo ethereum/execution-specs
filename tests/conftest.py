@@ -1,11 +1,11 @@
 import os
 import shutil
 import tarfile
-import pytest
 from pathlib import Path
 from typing import Final, Optional, Set
 
 import git
+import pytest
 import requests_cache
 from _pytest.config import Config
 from _pytest.config.argparsing import Parser
@@ -230,6 +230,6 @@ def pytest_sessionfinish(
 # This is required explicitly becuase when the source does not have any
 # mutable code, mutmut does not run the forced fail condition.
 @pytest.fixture(autouse=True)
-def mutmut_forced_fail():
+def mutmut_forced_fail() -> None:
     if os.environ.get("MUTANT_UNDER_TEST") == "fail":
         pytest.fail("Forced fail for mutmut sanity check")

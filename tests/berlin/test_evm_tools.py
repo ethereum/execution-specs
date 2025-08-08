@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Dict
+from typing import Any, Dict
 
 import pytest
 
@@ -36,7 +36,7 @@ ANGRY_MUTANT_CASES = (
     "ABAcalls2",
     "CallRecursiveBomb0",
     "CallRecursiveBomb1",
-    "CallRecursiveBombLog"
+    "CallRecursiveBombLog",
 )
 
 
@@ -52,7 +52,8 @@ run_tests = partial(
     fork_name=FORK_NAME,
 )
 
-def is_angry_mutant(test_case):
+
+def is_angry_mutant(test_case: Any) -> bool:
     return any(case in str(test_case) for case in ANGRY_MUTANT_CASES)
 
 
