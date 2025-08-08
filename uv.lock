@@ -566,6 +566,7 @@ optimized = [
 test = [
     { name = "filelock" },
     { name = "gitpython" },
+    { name = "libcst" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-xdist" },
@@ -573,6 +574,7 @@ test = [
     { name = "requests-cache" },
 ]
 tools = [
+    { name = "libcst" },
     { name = "platformdirs" },
 ]
 
@@ -598,6 +600,8 @@ requires-dist = [
     { name = "gitpython", marker = "extra == 'fill'", specifier = ">=3.1.31,<4" },
     { name = "gitpython", marker = "extra == 'test'", specifier = ">=3.1.0,<3.2" },
     { name = "joblib", marker = "extra == 'fill'", specifier = ">=1.4.2" },
+    { name = "libcst", marker = "extra == 'test'", specifier = ">=1.8,<2" },
+    { name = "libcst", marker = "extra == 'tools'", specifier = ">=1.8,<2" },
     { name = "mypy", marker = "extra == 'lint'", specifier = "==1.17.0" },
     { name = "platformdirs", marker = "extra == 'tools'", specifier = ">=4.2,<5" },
     { name = "py-ecc", specifier = ">=8.0.0b2,<9" },

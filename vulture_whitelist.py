@@ -19,6 +19,9 @@ from ethereum_spec_tools.lint.lints.glacier_forks_hygiene import (
     GlacierForksHygiene,
 )
 from ethereum_spec_tools.lint.lints.import_hygiene import ImportHygiene
+from ethereum_spec_tools.new_fork.codemod.constant import SetConstantCommand
+from ethereum_spec_tools.new_fork.codemod.string import StringReplaceCommand
+from ethereum_spec_tools.new_fork.codemod.comment import CommentReplaceCommand
 from ethereum.trace import EvmTracer
 
 # src/ethereum/utils/hexadecimal.py
@@ -110,5 +113,20 @@ GlacierForksHygiene.visit_AnnAssign
 ImportHygiene
 ImportHygiene.visit_AnnAssign
 
+# src/ethereum_spec_tools/new_fork/codemod/constant.py
+SetConstantCommand
+SetConstantCommand.METADATA_DEPENDENCIES
+SetConstantCommand.add_args
+SetConstantCommand.visit_Assign_targets
+SetConstantCommand.leave_Assign_targets
+SetConstantCommand.leave_Assign
+
+# src/ethereum_spec_tools/new_fork/codemod/string.py
+StringReplaceCommand
+StringReplaceCommand.transform_module_impl
+
+# src/ethereum_spec_tools/new_fork/codemod/comment.py
+CommentReplaceCommand
+CommentReplaceCommand.transform_module_impl
 
 _children  # unused attribute (src/ethereum_spec_tools/docc.py:751)

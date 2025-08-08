@@ -130,6 +130,8 @@ packages = [
     "ethereum_spec_tools.evm_tools.loaders",
     "ethereum_spec_tools.lint",
     "ethereum_spec_tools.lint.lints",
+    "ethereum_spec_tools.new_fork",
+    "ethereum_spec_tools.new_fork.codemod",
     "ethereum",
     "ethereum.forks.frontier",
     "ethereum.forks.frontier.utils",
@@ -255,6 +257,7 @@ test = [
     "filelock>=3.15.1,<4",
     "requests",
     "requests-cache>=1.2.1,<2",
+    "libcst>=1.8,<2",
 ]
 
 fill = [
@@ -294,6 +297,7 @@ lint = [
 ]
 tools = [
     "platformdirs>=4.2,<5",
+    "libcst>=1.8,<2",
 ]
 doc = [
     "docc>=0.3.0,<0.4.0",
@@ -310,7 +314,7 @@ version = { attr = "ethereum.__version__" }
 [project.scripts]
 ethereum-spec-lint = "ethereum_spec_tools.lint:main"
 ethereum-spec-sync = "ethereum_spec_tools.sync:main"
-ethereum-spec-new-fork = "ethereum_spec_tools.new_fork:main"
+ethereum-spec-new-fork = "ethereum_spec_tools.new_fork.cli:main"
 ethereum-spec-patch = "ethereum_spec_tools.patch_tool:main"
 ethereum-spec-evm = "ethereum_spec_tools.evm_tools:main"
 check_eip_versions = "cli.pytest_commands.check_eip_versions:check_eip_versions"
