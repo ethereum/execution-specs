@@ -161,8 +161,15 @@ def test_max_blobs_per_tx_fork_transition(
         else TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED
     )
     pre_fork_block = Block(
-        txs=[tx],
+        txs=[
+            tx
+            if blob_count < fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP - 1)
+            else tx.with_error(expected_exception)
+        ],
         timestamp=FORK_TIMESTAMP - 1,
+        exception=None
+        if blob_count < fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP - 1)
+        else [expected_exception],
     )
     fork_block = Block(
         txs=[tx.with_nonce(1).with_error(expected_exception)],
