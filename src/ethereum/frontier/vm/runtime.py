@@ -19,6 +19,7 @@ from ethereum_types.numeric import Uint, ulen
 from .instructions import Ops
 
 
+# test
 def get_valid_jump_destinations(code: Bytes) -> Set[Uint]:
     """
     Analyze the evm code to obtain the set of valid jump destinations.
