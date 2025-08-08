@@ -96,6 +96,7 @@ class GethEvm(EthereumCLI):
     default_binary = Path("evm")
     detect_binary_pattern = re.compile(r"^evm(.exe)? version\b")
     cached_version: Optional[str] = None
+    trace: bool
 
     def __init__(
         self,
@@ -172,7 +173,9 @@ class GethTransitionTool(GethEvm, TransitionTool):
         if not exception_mapper:
             exception_mapper = GethExceptionMapper()
         GethEvm.__init__(self, binary=binary, trace=trace)
-        TransitionTool.__init__(self, binary=binary, exception_mapper=exception_mapper)
+        TransitionTool.__init__(
+            self, binary=binary, exception_mapper=exception_mapper, trace=trace
+        )
         help_command = [str(self.binary), str(self.subcommand), "--help"]
         result = self._run_command(help_command)
         self.help_string = result.stdout
