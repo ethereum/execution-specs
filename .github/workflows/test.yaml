@@ -80,7 +80,7 @@ jobs:
           files: .tox/coverage.xml
           flags: unittests
           token: ${{ secrets.CODECOV_TOKEN }}
-  
+
   optimized:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
