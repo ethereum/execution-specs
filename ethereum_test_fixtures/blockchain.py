@@ -7,6 +7,7 @@ from typing import (
     ClassVar,
     List,
     Literal,
+    Set,
     Tuple,
     Union,
     cast,
@@ -43,7 +44,7 @@ from ethereum_test_types import (
 from ethereum_test_types.block_types import WithdrawalGeneric
 from ethereum_test_types.transaction_types import TransactionFixtureConverter, TransactionGeneric
 
-from .base import BaseFixture
+from .base import BaseFixture, FixtureFillingPhase
 from .common import FixtureAuthorizationTuple, FixtureBlobSchedule
 
 
@@ -556,6 +557,10 @@ class BlockchainEngineXFixture(BlockchainEngineFixtureCommon):
 
     format_name: ClassVar[str] = "blockchain_test_engine_x"
     description: ClassVar[str] = "Tests that generate a Blockchain Test Engine X fixture."
+    format_phases: ClassVar[Set[FixtureFillingPhase]] = {
+        FixtureFillingPhase.FILL,
+        FixtureFillingPhase.PRE_ALLOC_GENERATION,
+    }
 
     pre_hash: str
     """Hash of the pre-allocation group this test belongs to."""

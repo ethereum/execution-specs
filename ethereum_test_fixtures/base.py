@@ -2,9 +2,11 @@
 
 import hashlib
 import json
+from enum import Enum, auto
 from functools import cached_property
-from typing import Annotated, Any, ClassVar, Dict, Type, Union
+from typing import Annotated, Any, ClassVar, Dict, List, Set, Type, Union
 
+import pytest
 from pydantic import (
     Discriminator,
     Field,
@@ -38,6 +40,13 @@ def fixture_format_discriminator(v: Any) -> str | None:
     return fixture_format
 
 
+class FixtureFillingPhase(Enum):
+    """Execution phase for fixture generation."""
+
+    PRE_ALLOC_GENERATION = auto()
+    FILL = auto()
+
+
 class BaseFixture(CamelModel):
     """Represents a base Ethereum test fixture of any type."""
 
@@ -51,6 +60,7 @@ class BaseFixture(CamelModel):
     format_name: ClassVar[str] = ""
     output_file_extension: ClassVar[str] = ".json"
     description: ClassVar[str] = "Unknown fixture format; it has not been set."
+    format_phases: ClassVar[Set[FixtureFillingPhase]] = {FixtureFillingPhase.FILL}
 
     @classmethod
     def output_base_dir_name(cls) -> str:
@@ -145,6 +155,15 @@ class BaseFixture(CamelModel):
         """
         return True
 
+    @classmethod
+    def discard_fixture_format_by_marks(
+        cls,
+        fork: Fork,
+        markers: List[pytest.Mark],
+    ) -> bool:
+        """Discard a fixture format from filling if the appropriate marker is used."""
+        return False
+
 
 class LabeledFixtureFormat:
     """
@@ -179,8 +198,13 @@ class LabeledFixtureFormat:
 
     @property
     def format_name(self) -> str:
-        """Get the execute format name."""
+        """Get the filling format name."""
         return self.format.format_name
+
+    @property
+    def format_phases(self) -> Set[FixtureFillingPhase]:
+        """Get the filling format phases where it should be included."""
+        return self.format.format_phases
 
     def __eq__(self, other: Any) -> bool:
         """

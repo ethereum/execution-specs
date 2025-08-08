@@ -16,7 +16,7 @@ from _pytest.fixtures import TopRequest
 from _pytest.mark import ParameterSet
 from _pytest.python import Module
 
-from ethereum_test_fixtures import BaseFixture, BlockchainEngineXFixture, LabeledFixtureFormat
+from ethereum_test_fixtures import BaseFixture, LabeledFixtureFormat
 from ethereum_test_forks import Fork, get_closest_fork
 from ethereum_test_specs import BaseStaticTest, BaseTest
 from ethereum_test_tools.code.yul import Yul
@@ -180,9 +180,14 @@ class FillerFile(pytest.File):
                     spec_parameter_name = ""
                     for test_type in BaseTest.spec_types.values():
                         if test_type.pytest_parameter_name() in func_parameters:
-                            assert spec_parameter_name == "", "Multiple spec parameters found"
+                            assert not spec_parameter_name, "Multiple spec parameters found"
                             spec_parameter_name = test_type.pytest_parameter_name()
-                            fixture_formats.extend(test_type.supported_fixture_formats)
+                            session = self.config.filling_session  # type: ignore[attr-defined]
+                            fixture_formats.extend(
+                                fixture_format
+                                for fixture_format in test_type.supported_fixture_formats
+                                if session.should_generate_format(fixture_format)
+                            )
 
                     validity_markers: List[ValidityMarker] = (
                         ValidityMarker.get_all_validity_markers(key, self.config, function_marks)
@@ -196,39 +201,7 @@ class FillerFile(pytest.File):
                         and (mark.name not in [v.mark.name for v in validity_markers])
                     ]
 
-                    # Apply fixture format filtering for pre-allocation groups
-                    generate_pre_alloc = self.config.getoption("generate_pre_alloc_groups")
-                    use_pre_alloc = self.config.getoption("use_pre_alloc_groups")
-                    if generate_pre_alloc or use_pre_alloc:
-                        # When pre-allocation group flags are set, only generate
-                        # BlockchainEngineXFixture
-                        filtered_formats = [
-                            format_item
-                            for format_item in fixture_formats
-                            if (
-                                format_item is BlockchainEngineXFixture
-                                or (
-                                    isinstance(format_item, LabeledFixtureFormat)
-                                    and format_item.format is BlockchainEngineXFixture
-                                )
-                            )
-                        ]
-                    else:
-                        # Filter out BlockchainEngineXFixture if pre-allocation group
-                        # flags not set
-                        filtered_formats = [
-                            format_item
-                            for format_item in fixture_formats
-                            if not (
-                                format_item is BlockchainEngineXFixture
-                                or (
-                                    isinstance(format_item, LabeledFixtureFormat)
-                                    and format_item.format is BlockchainEngineXFixture
-                                )
-                            )
-                        ]
-
-                    for format_with_or_without_label in filtered_formats:
+                    for format_with_or_without_label in fixture_formats:
                         fixture_format_parameter_set = labeled_format_parameter_set(
                             format_with_or_without_label
                         )

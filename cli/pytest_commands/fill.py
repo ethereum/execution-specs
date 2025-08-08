@@ -153,9 +153,6 @@ class FillCommand(PytestCommand):
             "--generate-pre-alloc-groups" in args
             or "--generate-all-formats" in args
             or self._is_tarball_output(args)
-        ) and (
-            "--fill-static-tests"
-            not in args  # TODO: remove this once we have better grouping for static tests
         )
 
     def _ensure_generate_all_formats_for_tarball(self, args: List[str]) -> List[str]:

@@ -437,10 +437,14 @@ class BlockchainTest(BaseTest):
         markers: List[pytest.Mark],
     ) -> bool:
         """Discard a fixture format from filling if the appropriate marker is used."""
-        if "blockchain_test_only" in [m.name for m in markers]:
-            return fixture_format != BlockchainFixture
-        if "blockchain_test_engine_only" in [m.name for m in markers]:
-            return fixture_format != BlockchainEngineFixture
+        marker_names = [m.name for m in markers]
+        if fixture_format != BlockchainFixture and "blockchain_test_only" in marker_names:
+            return True
+        if (
+            fixture_format not in [BlockchainEngineFixture, BlockchainEngineXFixture]
+            and "blockchain_test_engine_only" in marker_names
+        ):
+            return True
         return False
 
     def get_genesis_environment(self, fork: Fork) -> Environment:
