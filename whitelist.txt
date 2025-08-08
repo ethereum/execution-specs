@@ -1,10 +1,12 @@
 AnnAssign
 AsyncFunctionDef
+codemod
 ClassDef
 ImportFrom
 radd
 Hash64
 holiman
+backtrace
 Bytes20
 Bytes4
 Bytes32
@@ -13,6 +15,11 @@ Bytes8
 Bytes256
 Bytes0
 calldata
+copy2
+copystat
+pycache
+dirs
+codemod
 copyreg
 copytree
 coinbase
@@ -42,10 +49,13 @@ isabstract
 keccak
 keccak256
 keccak512
+libcst
 linter
 lru
 mutable256
 mainnet
+matchers
+isfunction
 memoize
 memoization
 merkle
@@ -72,6 +82,7 @@ secp256k1p
 secp256k1b
 statetest
 subclasses
+superset
 iadd
 ispkg
 isub
@@ -164,6 +175,7 @@ number
 difficulty
 gaslimit
 chainid
+chdir
 selfbalance
 basefee
 ommer
