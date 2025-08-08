@@ -1116,6 +1116,7 @@ def pytest_collection_modifyitems(
     """
     items_for_removal = []
     for i, item in enumerate(items):
+        item.name = item.name.strip().replace(" ", "-")
         params: Dict[str, Any] | None = None
         if isinstance(item, pytest.Function):
             params = item.callspec.params
