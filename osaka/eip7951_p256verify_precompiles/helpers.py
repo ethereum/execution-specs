@@ -60,4 +60,10 @@ def vectors_from_file(filename: str) -> List:
         ),
         "rb",
     ) as f:
-        return [v.to_pytest_param() for v in VectorListAdapter.validate_json(f.read()).root]
+        vectors_list = VectorListAdapter.validate_json(f.read())
+        all_inputs = set()
+        for vector in vectors_list.root:
+            if vector.input in all_inputs:
+                raise ValueError(f"Duplicate input: {vector.input.hex()}")
+            all_inputs.add(vector.input)
+        return [v.to_pytest_param() for v in vectors_list.root]
