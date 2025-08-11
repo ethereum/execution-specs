@@ -22,7 +22,7 @@ from ethereum.utils.hexadecimal import (
 from ethereum_spec_tools.evm_tools.utils import parse_hex_or_int
 
 
-class UnsupportedTx(Exception):
+class UnsupportedTxError(Exception):
     """Exception for unsupported transactions"""
 
     def __init__(self, encoded_params: bytes, error_message: str) -> None:
@@ -203,6 +203,6 @@ class TransactionLoad:
         try:
             return tx_cls(*parameters)
         except Exception as e:
-            raise UnsupportedTx(
+            raise UnsupportedTxError(
                 tx_byte_prefix + rlp.encode(parameters), str(e)
             ) from e
