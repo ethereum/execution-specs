@@ -50,11 +50,13 @@ parser.add_argument("--from_test", dest="from_test", type=str)
 parser.add_argument("--to_test", dest="to_test", type=str)
 
 
-def find_replace(dir: str, find: str, replace: str, file_pattern: str) -> None:
+def find_replace(
+    directory: str, find: str, replace: str, file_pattern: str
+) -> None:
     """
     Replace the occurrence of a certain text in files with a new text
     """
-    for path, _, files in os.walk(dir):
+    for path, _, files in os.walk(directory):
         for filename in fnmatch.filter(files, file_pattern):
             file_path = os.path.join(path, filename)
             with open(file_path, "r+b") as f:

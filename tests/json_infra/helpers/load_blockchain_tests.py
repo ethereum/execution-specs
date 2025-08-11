@@ -20,7 +20,7 @@ from .. import FORKS
 from .exceptional_test_patterns import exceptional_blockchain_test_patterns
 
 
-class NoTestsFound(Exception):
+class NoTestsFoundError(Exception):
     """
     An exception thrown when the test for a particular fork isn't
     available in the json fixture
@@ -148,7 +148,7 @@ def load_json_fixture(test_file: str, json_fork: str) -> Generator:
                 found_keys.append(key)
 
         if not any(found_keys):
-            raise NoTestsFound
+            raise NoTestsFoundError
 
         for _key in found_keys:
             yield {
@@ -207,7 +207,7 @@ def fetch_blockchain_tests(
                     yield pytest.param(_test_case, marks=pytest.mark.bigmem)
                 else:
                     yield _test_case
-        except NoTestsFound:
+        except NoTestsFoundError:
             # file doesn't contain tests for the given fork
             continue
 

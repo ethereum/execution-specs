@@ -66,7 +66,7 @@ def pairwise(iterable: Iterable[G]) -> Iterable[Tuple[G, G]]:
     """
     a, b = tee(iterable)
     next(b, None)
-    return zip(a, b)
+    return zip(a, b, strict=False)
 
 
 class EthereumDiscover(Discover):
@@ -617,7 +617,10 @@ class _DoccAdapter(Adapter[Node]):
             rights = list(rhs.children)
             if len(lefts) != len(rights):
                 return False
-            return all(self.deep_equals(a, b) for a, b in zip(lefts, rights))
+            return all(
+                self.deep_equals(a, b)
+                for a, b in zip(lefts, rights, strict=True)
+            )
 
         elif isinstance(lhs, verbatim.Highlight):
             assert isinstance(rhs, verbatim.Highlight)
@@ -1009,13 +1012,14 @@ class _MinimizeDiffsVisitor(Visitor):
 
 
 def render_diff(
-    context: object,  # noqa: U100
+    context: object,
     parent: object,
     diff: object,
 ) -> html.RenderResult:
     """
     Render a DiffNode.
     """
+    del context
     assert isinstance(diff, DiffNode)
     assert isinstance(parent, (html.HTMLTag, html.HTMLRoot))
     parent_: Union[html.HTMLTag, html.HTMLRoot] = parent

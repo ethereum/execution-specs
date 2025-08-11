@@ -13,9 +13,8 @@ Implementation of the BLS12 381 pairing pre-compile.
 """
 
 from ethereum_types.numeric import Uint
-from py_ecc.optimized_bls12_381 import FQ12, curve_order, is_inf
+from py_ecc.optimized_bls12_381 import FQ12, curve_order, is_inf, pairing
 from py_ecc.optimized_bls12_381 import multiply as bls12_multiply
-from py_ecc.optimized_bls12_381 import pairing
 
 from ....vm import Evm
 from ....vm.gas import charge_gas

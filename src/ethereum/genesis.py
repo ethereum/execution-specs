@@ -199,7 +199,7 @@ def add_genesis_block(
 
     [EIP-161]: https://eips.ethereum.org/EIPS/eip-161
     """
-    Address: Type[FixedBytes] = hardfork.Address
+    Address: Type[FixedBytes] = hardfork.Address    # noqa N806
     assert issubclass(Address, FixedBytes)
 
     for hex_address, account in genesis.initial_accounts.items():

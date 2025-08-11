@@ -253,8 +253,8 @@ def execute_code(message: Message) -> Evm:
         while evm.running and evm.pc < ulen(evm.code):
             try:
                 op = Ops(evm.code[evm.pc])
-            except ValueError:
-                raise InvalidOpcode(evm.code[evm.pc])
+            except ValueError as e:
+                raise InvalidOpcode(evm.code[evm.pc]) from e
 
             evm_trace(evm, OpStart(op))
             op_implementation[op](evm)

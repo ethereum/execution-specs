@@ -46,11 +46,12 @@ class EELST8N(TransitionTool):
         *,
         transition_tool_data: TransitionTool.TransitionToolData,
         debug_output_path: str = "",
-        slow_request: bool = False,  # noqa: U100, F841
+        slow_request: bool = False,
     ) -> TransitionToolOutput:
         """
         Evaluate using the EELS T8N entry point.
         """
+        del slow_request
         request_data = transition_tool_data.get_request_data()
         request_data_json = request_data.model_dump(
             mode="json", **model_dump_config

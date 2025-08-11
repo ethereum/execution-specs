@@ -73,7 +73,7 @@ def test_ethtest_fixtures(json_fork: str) -> None:
 
 def load_pow_test_fixtures(json_fork: str) -> List[Dict[str, Any]]:
     eels_fork = FORKS[json_fork]["eels_fork"]
-    Header = importlib.import_module(f"ethereum.{eels_fork}.blocks").Header
+    header = importlib.import_module(f"ethereum.{eels_fork}.blocks").Header
 
     with open(
         f"{ETHEREUM_TESTS_PATH}/PoWTests/ethash_tests.json"
@@ -83,7 +83,7 @@ def load_pow_test_fixtures(json_fork: str) -> List[Dict[str, Any]]:
                 "nonce": hex_to_bytes8(raw_fixture["nonce"]),
                 "mix_digest": hex_to_bytes32(raw_fixture["mixHash"]),
                 "header": rlp.decode_to(
-                    Header, hex_to_bytes(raw_fixture["header"])
+                    header, hex_to_bytes(raw_fixture["header"])
                 ),
                 "seed": hex_to_bytes32(raw_fixture["seed"]),
                 "result": hex_to_bytes32(raw_fixture["result"]),

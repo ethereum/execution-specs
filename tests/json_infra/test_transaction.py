@@ -11,7 +11,10 @@ from ethereum.spurious_dragon.transactions import (
 from ethereum.utils.hexadecimal import hex_to_uint
 
 from . import FORKS, TEST_FIXTURES
-from .helpers.load_transaction_tests import NoTestsFound, load_test_transaction
+from .helpers.load_transaction_tests import (
+    NoTestsFoundError,
+    load_test_transaction,
+)
 
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
 
@@ -33,7 +36,7 @@ def _generate_high_nonce_tests_function(fork_name: str) -> Callable:
             test = load_test_transaction(
                 test_dir, test_file_high_nonce, fork_name
             )
-        except NoTestsFound:
+        except NoTestsFoundError:
             pytest.skip(
                 f"No tests found for {fork_name} in {test_file_high_nonce}"
             )
@@ -58,7 +61,7 @@ def _generate_nonce_tests_function(fork_name: str) -> Callable:
     def test_func(test_file_nonce: str) -> None:
         try:
             test = load_test_transaction(test_dir, test_file_nonce, fork_name)
-        except NoTestsFound:
+        except NoTestsFoundError:
             pytest.skip(f"No tests found for {fork_name} in {test_file_nonce}")
 
         tx = rlp.decode_to(Transaction, test["tx_rlp"])
