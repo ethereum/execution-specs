@@ -9,7 +9,7 @@ Ethereum Types
 Introduction
 ------------
 
-Types re-used throughout the specification, which are specific to Ethereum.
+Types reused throughout the specification, which are specific to Ethereum.
 """
 
 from dataclasses import dataclass

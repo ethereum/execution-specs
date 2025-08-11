@@ -151,7 +151,8 @@ def test_seed() -> None:
         == generate_seed(Uint(2) * EPOCH_SIZE - Uint(1))
         == keccak256(b"\x00" * 32)
     )
-    # NOTE: The below bytes value was obtained by obtaining the seed for the same block number from Geth.
+    # NOTE: The below bytes value was obtained by obtaining the seed for the
+    # same block number from Geth.
     assert (
         generate_seed(Uint(12345678))
         == b"[\x8c\xa5\xaaC\x05\xae\xed<\x87\x1d\xbc\xabQBGj\xfd;\x9cJ\x98\xf6Dq\\z\xaao\x1c\xf7\x03"

@@ -39,15 +39,15 @@ class _EvmToolHandler(BaseHTTPRequestHandler):
         """Don't log requests"""
         pass
 
-    def do_POST(self) -> None:
+    def do_POST(self) -> None:                          # noqa N802
         from . import main
 
         content_length = int(self.headers["Content-Length"])
         content_bytes = self.rfile.read(content_length)
         content = json.loads(content_bytes)
 
-        input_string = json.dumps(content["input"])
-        input = StringIO(input_string)
+        input_string = json.dumps(content["input"])     # noqa A001
+        input = StringIO(input_string)                  # noqa A001
 
         args = [
             "t8n",
