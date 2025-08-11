@@ -4,13 +4,14 @@ import pytest
 
 from .. import TEST_FIXTURES
 from ..helpers.load_vm_tests import VmTestLoader
-from . import forks_to_test
+from . import FORKS
 
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
 TEST_DIR = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/VMTests/vmIOandFlowOperations"
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file, check_gas_left",
     [
@@ -92,7 +93,8 @@ def test_jump(
     )
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file, check_gas_left",
     [
@@ -137,7 +139,8 @@ def test_jumpi(
     )
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -149,7 +152,8 @@ def test_pc(fork: Tuple[str, str], test_file: str) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     ["gas0.json", "gas1.json", "gasOverFlow.json"],
@@ -158,7 +162,8 @@ def test_gas(fork: Tuple[str, str], test_file: str) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -172,12 +177,14 @@ def test_loop(fork: Tuple[str, str], test_file: str) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 def test_when(fork: Tuple[str, str]) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, "when.json")
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [

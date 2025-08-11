@@ -4,7 +4,7 @@ import pytest
 
 from .. import TEST_FIXTURES
 from ..helpers.load_vm_tests import VmTestLoader
-from . import forks_to_test
+from . import FORKS
 
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
 TEST_DIR = (
@@ -13,7 +13,8 @@ TEST_DIR = (
 SPECIAL_TEST_DIR = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/VMTests/vmIOandFlowOperations"
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -41,6 +42,7 @@ def test_sha3_succeeds(fork: Tuple[str, str], test_file: str) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 def test_sha3_fails_out_of_gas_memory_expansion(fork: Tuple[str, str]) -> None:
     VmTestLoader(*fork).run_test(SPECIAL_TEST_DIR, "sha3MemExp.json")

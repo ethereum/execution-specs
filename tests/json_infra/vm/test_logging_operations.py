@@ -4,7 +4,7 @@ import pytest
 
 from .. import TEST_FIXTURES
 from ..helpers.load_vm_tests import VmTestLoader
-from . import forks_to_test
+from . import FORKS
 
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
 TEST_DIR = (
@@ -12,7 +12,8 @@ TEST_DIR = (
 )
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -29,7 +30,8 @@ def test_log0(fork: Tuple[str, str], test_file: str) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -48,7 +50,8 @@ def test_log1(fork: Tuple[str, str], test_file: str) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -67,7 +70,8 @@ def test_log2(fork: Tuple[str, str], test_file: str) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -87,7 +91,8 @@ def test_log3(fork: Tuple[str, str], test_file: str) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [

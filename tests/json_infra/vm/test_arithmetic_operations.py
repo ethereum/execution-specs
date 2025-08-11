@@ -4,13 +4,14 @@ import pytest
 
 from .. import TEST_FIXTURES
 from ..helpers.load_vm_tests import VmTestLoader
-from . import forks_to_test
+from . import FORKS
 
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
 TEST_DIR = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/VMTests/vmArithmeticTest"
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -28,7 +29,8 @@ def test_add(fork: Tuple[str, str], test_file: str) -> None:
     )
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -46,7 +48,8 @@ def test_sub(fork: Tuple[str, str], test_file: str) -> None:
     )
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -67,7 +70,8 @@ def test_mul(fork: Tuple[str, str], test_file: str) -> None:
     )
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -88,7 +92,8 @@ def test_div(fork: Tuple[str, str], test_file: str) -> None:
     )
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -118,7 +123,8 @@ def test_sdiv(fork: Tuple[str, str], test_file: str) -> None:
     )
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -137,7 +143,8 @@ def test_mod(fork: Tuple[str, str], test_file: str) -> None:
     )
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -161,7 +168,8 @@ def test_smod(fork: Tuple[str, str], test_file: str) -> None:
     )
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -185,7 +193,8 @@ def test_addmod(fork: Tuple[str, str], test_file: str) -> None:
     )
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -210,7 +219,8 @@ def test_mulmod(fork: Tuple[str, str], test_file: str) -> None:
     )
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -235,7 +245,8 @@ def test_exp(fork: Tuple[str, str], test_file: str) -> None:
     )
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize("exponent", ([2, 4, 8, 16, 32, 64, 128, 256]))
 def test_exp_power_2(fork: Tuple[str, str], exponent: int) -> None:
     VmTestLoader(*fork).run_test(
@@ -245,7 +256,8 @@ def test_exp_power_2(fork: Tuple[str, str], exponent: int) -> None:
     )
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 def test_exp_power_256(fork: Tuple[str, str]) -> None:
     for i in range(1, 34):
         VmTestLoader(*fork).run_test(
@@ -262,7 +274,8 @@ def test_exp_power_256(fork: Tuple[str, str]) -> None:
         )
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -288,7 +301,8 @@ def test_signextend(fork: Tuple[str, str], test_file: str) -> None:
     )
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 def test_stop(fork: Tuple[str, str]) -> None:
     VmTestLoader(*fork).run_test(
         TEST_DIR,

@@ -11,7 +11,6 @@ from ethereum.spurious_dragon.transactions import (
 from ethereum.utils.hexadecimal import hex_to_uint
 
 from . import FORKS, TEST_FIXTURES
-from .conftest import pytest_config
 from .helpers.load_transaction_tests import NoTestsFound, load_test_transaction
 
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
@@ -20,6 +19,7 @@ test_dir = f"{ETHEREUM_TESTS_PATH}/TransactionTests"
 
 
 def _generate_high_nonce_tests_function(fork_name: str) -> Callable:
+    @pytest.mark.fork(fork_name)
     @pytest.mark.parametrize(
         "test_file_high_nonce",
         [
@@ -74,20 +74,7 @@ def _generate_nonce_tests_function(fork_name: str) -> Callable:
     return test_func
 
 
-# Determine which forks to generate tests for
-if pytest_config and pytest_config.getoption("fork", None):
-    # If --fork option is specified, only generate test for that fork
-    fork_option = pytest_config.getoption("fork")
-    if fork_option in FORKS:
-        forks_to_test = [fork_option]
-    else:
-        # If specified fork is not valid, generate no tests
-        forks_to_test = []
-else:
-    # If no --fork option, generate tests for all forks
-    forks_to_test = list(FORKS.keys())
-
-for fork_name in forks_to_test:
+for fork_name in FORKS.keys():
     locals()[
         f"test_high_nonce_tests_{fork_name.lower()}"
     ] = _generate_high_nonce_tests_function(fork_name)

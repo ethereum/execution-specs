@@ -4,13 +4,14 @@ import pytest
 
 from .. import TEST_FIXTURES
 from ..helpers.load_vm_tests import VmTestLoader
-from . import forks_to_test
+from . import FORKS
 
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
 TEST_DIR = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/VMTests/vmBitwiseLogicOperation"
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -24,7 +25,8 @@ def test_lt(fork: Tuple[str, str], test_file: str) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -38,7 +40,8 @@ def test_gt(fork: Tuple[str, str], test_file: str) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -53,7 +56,8 @@ def test_slt(fork: Tuple[str, str], test_file: str) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -68,7 +72,8 @@ def test_sgt(fork: Tuple[str, str], test_file: str) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -81,7 +86,8 @@ def test_eq(fork: Tuple[str, str], test_file: str) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -94,7 +100,8 @@ def test_iszero(fork: Tuple[str, str], test_file: str) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -110,7 +117,8 @@ def test_and(fork: Tuple[str, str], test_file: str) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -126,7 +134,8 @@ def test_or(fork: Tuple[str, str], test_file: str) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -142,7 +151,8 @@ def test_xor(fork: Tuple[str, str], test_file: str) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -158,7 +168,8 @@ def test_not(fork: Tuple[str, str], test_file: str) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [

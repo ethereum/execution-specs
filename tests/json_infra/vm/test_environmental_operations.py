@@ -4,13 +4,14 @@ import pytest
 
 from .. import TEST_FIXTURES
 from ..helpers.load_vm_tests import VmTestLoader
-from . import forks_to_test
+from . import FORKS
 
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
 TEST_DIR = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/VMTests/vmEnvironmentalInfo"
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -22,22 +23,26 @@ def test_address(fork: Tuple[str, str], test_file: str) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 def test_origin(fork: Tuple[str, str]) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, "origin.json")
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 def test_caller(fork: Tuple[str, str]) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, "caller.json")
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 def test_callvalue(fork: Tuple[str, str]) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, "callvalue.json")
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -53,7 +58,8 @@ def test_calldataload(fork: Tuple[str, str], test_file: str) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -66,7 +72,8 @@ def test_calldatasize(fork: Tuple[str, str], test_file: str) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -90,12 +97,14 @@ def test_calldatacopy(fork: Tuple[str, str], test_file: str) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 def test_codesize(fork: Tuple[str, str]) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, "codesize.json")
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 @pytest.mark.parametrize(
     "test_file",
     [
@@ -108,6 +117,7 @@ def test_codecopy(fork: Tuple[str, str], test_file: str) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
-@pytest.mark.parametrize("fork", forks_to_test)
+@pytest.mark.vm_test
+@pytest.mark.parametrize("fork", FORKS)
 def test_gasprice(fork: Tuple[str, str]) -> None:
     VmTestLoader(*fork).run_test(TEST_DIR, "gasprice.json")

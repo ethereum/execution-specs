@@ -8,6 +8,7 @@ import git
 import requests_cache
 from _pytest.config import Config
 from _pytest.config.argparsing import Parser
+from _pytest.nodes import Item
 from filelock import FileLock
 from git.exc import GitCommandError, InvalidGitRepositoryError
 from pytest import Session, StashKey
@@ -16,9 +17,6 @@ from requests_cache.backends.sqlite import SQLiteCache
 from typing_extensions import Self
 
 from . import TEST_FIXTURES
-
-# Global variable to store pytest config for access during test collection
-pytest_config = None
 
 try:
     from xdist import get_xdist_worker_id  # type: ignore[import-untyped]
@@ -63,9 +61,6 @@ def pytest_configure(config: Config) -> None:
     """
     Configure the ethereum module and log levels to output evm trace.
     """
-    global pytest_config
-    pytest_config = config
-
     if config.getoption("optimized"):
         import ethereum_optimized
 
@@ -79,6 +74,38 @@ def pytest_configure(config: Config) -> None:
 
         # Replace the function in the module
         ethereum.trace.set_evm_trace(Eip3155Tracer())
+
+
+def pytest_collection_modifyitems(config: Config, items: list[Item]) -> None:
+    desired_fork = config.getoption("fork", None)
+    if not desired_fork:
+        return
+
+    selected = []
+    deselected = []
+
+    for item in items:
+        forks_of_test = [m.args[0] for m in item.iter_markers(name="fork")]
+        if forks_of_test and desired_fork not in forks_of_test:
+            deselected.append(item)
+        # Check if the test has a vm test marker
+        elif any(item.iter_markers(name="vm_test")):
+            callspec = getattr(item, "callspec", None)
+            if not callspec or "fork" not in getattr(callspec, "params", {}):
+                # no fork param on this test. We keep the test
+                selected.append(item)
+                continue
+            fork_param = callspec.params["fork"]
+            if fork_param[0] == desired_fork:
+                selected.append(item)
+            else:
+                deselected.append(item)
+        else:
+            selected.append(item)
+
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+        items[:] = selected  # keep only what matches
 
 
 class _FixturesDownloader:
