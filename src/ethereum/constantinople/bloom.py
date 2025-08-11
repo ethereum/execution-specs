@@ -42,14 +42,14 @@ def add_to_bloom(bloom: bytearray, bloom_entry: Bytes) -> None:
     bloom_entry :
         An entry which is to be added to bloom filter.
     """
-    hash = keccak256(bloom_entry)
+    hashed = keccak256(bloom_entry)
 
     for idx in (0, 2, 4):
         # Obtain the least significant 11 bits from the pair of bytes
         # (16 bits), and set this bit in bloom bytearray.
         # The obtained bit is 0-indexed in the bloom filter from the least
         # significant bit to the most significant bit.
-        bit_to_set = Uint.from_be_bytes(hash[idx : idx + 2]) & Uint(0x07FF)
+        bit_to_set = Uint.from_be_bytes(hashed[idx : idx + 2]) & Uint(0x07FF)
         # Below is the index of the bit in the bytearray (where 0-indexed
         # byte is the most significant byte)
         bit_index = 0x07FF - int(bit_to_set)

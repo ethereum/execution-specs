@@ -10,16 +10,18 @@ def test_modify_evm_trace() -> None:
     trace2: Optional[ethereum.trace.TraceEvent] = None
 
     def tracer1(
-        evm: object,  # noqa: U100
+        evm: object,
         event: ethereum.trace.TraceEvent,
     ) -> None:
+        del evm
         nonlocal trace1
         trace1 = event
 
     def tracer2(
-        evm: object,  # noqa: U100
+        evm: object,
         event: ethereum.trace.TraceEvent,
     ) -> None:
+        del evm
         nonlocal trace2
         trace2 = event
 

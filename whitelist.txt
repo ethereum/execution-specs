@@ -66,6 +66,7 @@ U64
 U32
 U8
 ulen
+Uint
 secp256k1
 secp256k1n
 secp256k1p
@@ -501,3 +502,8 @@ CLZ
 EELST8N
 clis
 T8
+
+master
+whitelist
+AccountT
+uint
