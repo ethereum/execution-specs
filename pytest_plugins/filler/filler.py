@@ -1316,6 +1316,25 @@ def pytest_collection_modifyitems(
             continue
 
         markers = list(item.iter_markers())
+
+        # Automatically apply pre_alloc_group marker to slow tests that are not benchmark tests
+        has_slow_marker = any(marker.name == "slow" for marker in markers)
+        has_benchmark_marker = any(marker.name == "benchmark" for marker in markers)
+        has_pre_alloc_group_marker = any(marker.name == "pre_alloc_group" for marker in markers)
+
+        if has_slow_marker and not has_benchmark_marker and not has_pre_alloc_group_marker:
+            # Add pre_alloc_group marker to isolate slow non-benchmark tests
+            pre_alloc_marker = pytest.mark.pre_alloc_group(
+                "separate",
+                reason=(
+                    "Non-benchmark tests marked as slow should be generated "
+                    "with their own pre-alloc-group"
+                ),
+            )
+            item.add_marker(pre_alloc_marker)
+            # Re-collect markers after adding the new one
+            markers = list(item.iter_markers())
+
         # Both the fixture format itself and the spec filling it have a chance to veto the
         # filling of a specific format.
         if fixture_format.discard_fixture_format_by_marks(fork, markers):
