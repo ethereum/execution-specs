@@ -1,9 +1,8 @@
 import importlib
 import json
 import os.path
-import re
 from glob import glob
-from typing import Any, Dict, Generator, cast
+from typing import Any, Dict, Generator
 from unittest.mock import call, patch
 
 import pytest
@@ -18,7 +17,7 @@ from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum_spec_tools.evm_tools.loaders.fixture_loader import Load
 
 from .. import FORKS
-from .exceptional_test_patterns import get_exceptional_blockchain_test_patterns
+from .exceptional_test_patterns import exceptional_blockchain_test_patterns
 
 
 class NoTestsFound(Exception):
@@ -163,17 +162,10 @@ def fetch_blockchain_tests(
     json_fork: str,
 ) -> Generator[Dict | ParameterSet, None, None]:
     # Filter FORKS based on fork_option parameter
-    eels_fork = cast(str, FORKS[json_fork]["eels_fork"])
-    test_dirs = cast(list[str], FORKS[json_fork]["blockchain_test_dirs"])
+    eels_fork = FORKS[json_fork]["eels_fork"]
+    test_dirs = FORKS[json_fork]["blockchain_test_dirs"]
 
-    (
-        slow_list,
-        ignore_list,
-        big_memory_list,
-    ) = get_exceptional_blockchain_test_patterns(json_fork, eels_fork)
-    all_slow = [re.compile(x) for x in slow_list]
-    all_big_memory = [re.compile(x) for x in big_memory_list]
-    all_ignore = [re.compile(x) for x in ignore_list]
+    test_patterns = exceptional_blockchain_test_patterns(json_fork, eels_fork)
 
     # Get all the files to iterate over from both eest_tests_path and ethereum_tests_path
     all_jsons = []
@@ -184,7 +176,7 @@ def fetch_blockchain_tests(
 
     files_to_iterate = []
     for full_path in all_jsons:
-        if not any(x.search(full_path) for x in all_ignore):
+        if not any(x.search(full_path) for x in test_patterns.expected_fail):
             # If a file or folder is marked for ignore,
             # it can already be dropped at this stage
             files_to_iterate.append(full_path)
@@ -203,11 +195,15 @@ def fetch_blockchain_tests(
                     + ")"
                 )
                 _test_case["eels_fork"] = eels_fork
-                if any(x.search(_identifier) for x in all_ignore):
+                if any(
+                    x.search(_identifier) for x in test_patterns.expected_fail
+                ):
                     continue
-                elif any(x.search(_identifier) for x in all_slow):
+                elif any(x.search(_identifier) for x in test_patterns.slow):
                     yield pytest.param(_test_case, marks=pytest.mark.slow)
-                elif any(x.search(_identifier) for x in all_big_memory):
+                elif any(
+                    x.search(_identifier) for x in test_patterns.big_memory
+                ):
                     yield pytest.param(_test_case, marks=pytest.mark.bigmem)
                 else:
                     yield _test_case

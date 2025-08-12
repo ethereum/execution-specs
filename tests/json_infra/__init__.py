@@ -9,7 +9,7 @@ class _FixtureSource(TypedDict):
     commit_hash: NotRequired[str]
 
 
-# Update the links and commit has in order to consume
+# Update the links and commit hash in order to consume
 # newer/other tests
 TEST_FIXTURES: Dict[str, _FixtureSource] = {
     "evm_tools_testdata": {
@@ -82,9 +82,19 @@ EEST_OSAKA_BC_TESTS, EEST_OSAKA_STATE_TESTS = _build_eest_test_paths(
 )
 
 
+ForkConfig = TypedDict(
+    "ForkConfig",
+    {
+        "eels_fork": str,
+        "blockchain_test_dirs": list[str],
+        "state_test_dirs": list[str],
+    },
+)
+
+
 def _create_fork_config(
     eels_fork: str, bc_dirs: list, state_dirs: list
-) -> dict:
+) -> ForkConfig:
     return {
         "eels_fork": eels_fork,
         "blockchain_test_dirs": bc_dirs,
@@ -112,7 +122,7 @@ OSAKA_DIRS = (
     [STATE_ETHEREUM_TESTS, EEST_OSAKA_STATE_TESTS],
 )
 
-FORKS = {
+FORKS: Dict[str, ForkConfig] = {
     **{
         json_fork: _create_fork_config(eels_fork, *PRE_CONSTANTINOPLE_DIRS)
         for json_fork, eels_fork in [

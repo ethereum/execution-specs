@@ -3,7 +3,7 @@ import os
 import sys
 from glob import glob
 from io import StringIO
-from typing import Dict, Generator, cast
+from typing import Dict, Generator
 
 import pytest
 
@@ -14,7 +14,7 @@ from ethereum_spec_tools.evm_tools.statetest import read_test_cases
 from ethereum_spec_tools.evm_tools.t8n import T8N
 
 from .. import FORKS
-from .exceptional_test_patterns import get_exceptional_state_test_patterns
+from .exceptional_test_patterns import exceptional_state_test_patterns
 
 parser = create_parser()
 
@@ -24,10 +24,10 @@ def fetch_state_tests(json_fork: str) -> Generator:
     Fetches all the general state tests from the given directory
     """
     # Filter FORKS based on fork_option parameter
-    eels_fork = cast(str, FORKS[json_fork]["eels_fork"])
-    test_dirs = cast(list[str], FORKS[json_fork]["state_test_dirs"])
+    eels_fork = FORKS[json_fork]["eels_fork"]
+    test_dirs = FORKS[json_fork]["state_test_dirs"]
 
-    slow_tests = get_exceptional_state_test_patterns(json_fork, eels_fork)
+    test_patterns = exceptional_state_test_patterns(json_fork, eels_fork)
 
     # Get all the files to iterate over from both eest_tests_path and ethereum_tests_path
     all_jsons = []
@@ -50,7 +50,7 @@ def fetch_state_tests(json_fork: str) -> Generator:
                 "json_fork": json_fork,
             }
 
-            if test_case.key in slow_tests:
+            if any(x.search(test_case.key) for x in test_patterns.slow):
                 yield pytest.param(test_case_dict, marks=pytest.mark.slow)
             else:
                 yield test_case_dict
