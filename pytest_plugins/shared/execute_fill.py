@@ -132,6 +132,11 @@ def pytest_configure(config: pytest.Config):
         "addresses for static tests at fill time. Untagged tests are incompatible with "
         "dynamic address generation.",
     )
+    config.addinivalue_line(
+        "markers",
+        "verify_sync: Marks a test to be run with `consume sync`, verifying blockchain "
+        "engine tests and having hive clients sync after payload execution.",
+    )
 
 
 @pytest.fixture(scope="function")

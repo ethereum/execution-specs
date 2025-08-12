@@ -48,6 +48,10 @@ def get_command_logic_test_paths(command_name: str, is_hive: bool) -> List[Path]
         command_logic_test_paths = [
             base_path / "simulators" / "simulator_logic" / f"test_via_{command_name}.py"
         ]
+    elif command_name == "sync":
+        command_logic_test_paths = [
+            base_path / "simulators" / "simulator_logic" / "test_via_sync.py"
+        ]
     elif command_name == "direct":
         command_logic_test_paths = [base_path / "direct" / "test_via_direct.py"]
     else:
@@ -104,6 +108,12 @@ def rlp() -> None:
 @consume_command(is_hive=True)
 def engine() -> None:
     """Client consumes via the Engine API."""
+    pass
+
+
+@consume_command(is_hive=True)
+def sync() -> None:
+    """Client consumes via the Engine API with sync testing."""
     pass
 
 

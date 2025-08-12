@@ -16,6 +16,7 @@ from typing import (
 )
 
 import ethereum_rlp as eth_rlp
+import pytest
 from ethereum_types.numeric import Uint
 from pydantic import AliasChoices, Field, PlainSerializer, computed_field, model_validator
 
@@ -543,7 +544,6 @@ class BlockchainEngineFixture(BlockchainEngineFixtureCommon):
     genesis: FixtureHeader = Field(..., alias="genesisBlockHeader")
     post_state: Alloc | None = Field(None)
     payloads: List[FixtureEngineNewPayload] = Field(..., alias="engineNewPayloads")
-    sync_payload: FixtureEngineNewPayload | None = None
 
 
 @post_state_validator(alternate_field="post_state_diff")
@@ -571,5 +571,29 @@ class BlockchainEngineXFixture(BlockchainEngineFixtureCommon):
     payloads: List[FixtureEngineNewPayload] = Field(..., alias="engineNewPayloads")
     """Engine API payloads for blockchain execution."""
 
+
+class BlockchainEngineSyncFixture(BlockchainEngineFixture):
+    """
+    Engine Sync specific test fixture information.
+
+    This fixture format is specifically designed for sync testing where:
+    - The client under test receives all payloads
+    - A sync client attempts to sync from the client under test
+    - Both client types are parametrized from hive client config
+    """
+
+    format_name: ClassVar[str] = "blockchain_test_sync"
+    description: ClassVar[str] = (
+        "Tests that generate a blockchain test fixture for Engine API testing with client sync."
+    )
     sync_payload: FixtureEngineNewPayload | None = None
-    """Optional sync payload for blockchain synchronization."""
+
+    @classmethod
+    def discard_fixture_format_by_marks(
+        cls,
+        fork: Fork,
+        markers: List[pytest.Mark],
+    ) -> bool:
+        """Discard the fixture format based on the provided markers."""
+        marker_names = [m.name for m in markers]
+        return "verify_sync" not in marker_names

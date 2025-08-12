@@ -152,6 +152,10 @@ class EthRPC(BaseRPC):
         block = hex(block_number) if isinstance(block_number, int) else block_number
         return self.post_request("getBlockByNumber", block, full_txs)
 
+    def get_block_by_hash(self, block_hash: Hash, full_txs: bool = True):
+        """`eth_getBlockByHash`: Returns information about a block by hash."""
+        return self.post_request("getBlockByHash", f"{block_hash}", full_txs)
+
     def get_balance(self, address: Address, block_number: BlockNumberType = "latest") -> int:
         """`eth_getBalance`: Returns the balance of the account of given address."""
         block = hex(block_number) if isinstance(block_number, int) else block_number
@@ -378,3 +382,20 @@ class EngineRPC(BaseRPC):
             ),
             context=self.response_validation_context,
         )
+
+
+class NetRPC(BaseRPC):
+    """Represents a net RPC class for network-related RPC calls."""
+
+    def peer_count(self) -> int:
+        """`net_peerCount`: Get the number of peers connected to the client."""
+        response = self.post_request("peerCount")
+        return int(response, 16)  # hex -> int
+
+
+class AdminRPC(BaseRPC):
+    """Represents an admin RPC class for administrative RPC calls."""
+
+    def add_peer(self, enode: str) -> bool:
+        """`admin_addPeer`: Add a peer by enode URL."""
+        return self.post_request("addPeer", enode)

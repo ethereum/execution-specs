@@ -38,8 +38,10 @@ def environment(
 ) -> dict:
     """Define the environment that hive will start the client with."""
     assert fixture.fork in ruleset, f"fork '{fixture.fork}' missing in hive ruleset"
+    chain_id = str(Number(fixture.config.chain_id))
     return {
-        "HIVE_CHAIN_ID": str(Number(fixture.config.chain_id)),
+        "HIVE_CHAIN_ID": chain_id,
+        "HIVE_NETWORK_ID": chain_id,  # Use same value for P2P network compatibility
         "HIVE_FORK_DAO_VOTE": "1",
         "HIVE_NODETYPE": "full",
         "HIVE_CHECK_LIVE_PORT": str(check_live_port),
@@ -71,6 +73,8 @@ def client(
 ) -> Generator[Client, None, None]:
     """Initialize the client with the appropriate files and environment variables."""
     logger.info(f"Starting client ({client_type.name})...")
+    logger.debug(f"Main client Network ID: {environment.get('HIVE_NETWORK_ID', 'NOT SET!')}")
+    logger.debug(f"Main client Chain ID: {environment.get('HIVE_CHAIN_ID', 'NOT SET!')}")
     with total_timing_data.time("Start client"):
         client = hive_test.start_client(
             client_type=client_type, environment=environment, files=client_files

@@ -586,6 +586,7 @@ def pytest_configure(config):
         called before the pytest-html plugin's pytest_configure to ensure that
         it uses the modified `htmlpath` option.
     """
+    # Register custom markers
     # Modify the block gas limit if specified.
     if config.getoption("block_gas_limit"):
         EnvironmentDefaults.gas_limit = config.getoption("block_gas_limit")
@@ -802,6 +803,7 @@ def pytest_runtest_makereport(item, call):
                 "state_test",
                 "blockchain_test",
                 "blockchain_test_engine",
+                "blockchain_test_sync",
             ]:
                 report.user_properties.append(("evm_dump_dir", item.config.evm_dump_dir))
             else:
@@ -1312,6 +1314,7 @@ def pytest_collection_modifyitems(
         if not fixture_format.supports_fork(fork):
             items_for_removal.append(i)
             continue
+
         markers = list(item.iter_markers())
         # Both the fixture format itself and the spec filling it have a chance to veto the
         # filling of a specific format.

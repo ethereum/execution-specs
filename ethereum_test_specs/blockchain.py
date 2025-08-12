@@ -1,7 +1,7 @@
 """Ethereum blockchain test spec definition and filler."""
 
 from pprint import pprint
-from typing import Any, Callable, ClassVar, Dict, Generator, List, Optional, Sequence, Tuple, Type
+from typing import Any, Callable, ClassVar, Dict, Generator, List, Sequence, Tuple, Type
 
 import pytest
 from pydantic import ConfigDict, Field, field_validator
@@ -33,6 +33,7 @@ from ethereum_test_execution import (
 from ethereum_test_fixtures import (
     BaseFixture,
     BlockchainEngineFixture,
+    BlockchainEngineSyncFixture,
     BlockchainEngineXFixture,
     BlockchainFixture,
     FixtureFormat,
@@ -403,7 +404,6 @@ class BlockchainTest(BaseTest):
     post: Alloc
     blocks: List[Block]
     genesis_environment: Environment = Field(default_factory=Environment)
-    verify_sync: bool = False
     chain_id: int = 1
     exclude_full_post_state_in_output: bool = False
     """
@@ -415,6 +415,7 @@ class BlockchainTest(BaseTest):
         BlockchainFixture,
         BlockchainEngineFixture,
         BlockchainEngineXFixture,
+        BlockchainEngineSyncFixture,
     ]
     supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = [
         LabeledExecuteFormat(
@@ -714,7 +715,7 @@ class BlockchainTest(BaseTest):
         t8n: TransitionTool,
         fork: Fork,
         fixture_format: FixtureFormat = BlockchainEngineFixture,
-    ) -> BlockchainEngineFixture | BlockchainEngineXFixture:
+    ) -> BlockchainEngineFixture | BlockchainEngineXFixture | BlockchainEngineSyncFixture:
         """Create a hive fixture from the blocktest definition."""
         fixture_payloads: List[FixtureEngineNewPayload] = []
 
@@ -758,30 +759,11 @@ class BlockchainTest(BaseTest):
 
         self.verify_post_state(t8n, t8n_state=alloc)
 
-        sync_payload: Optional[FixtureEngineNewPayload] = None
-        if self.verify_sync:
-            # Test is marked for syncing verification.
-            assert genesis.header.block_hash != head_hash, (
-                "Invalid payload tests negative test via sync is not supported yet."
-            )
-
-            # Most clients require the header to start the sync process, so we create an empty
-            # block on top of the last block of the test to send it as new payload and trigger the
-            # sync process.
-            sync_built_block = self.generate_block_data(
-                t8n=t8n,
-                fork=fork,
-                block=Block(),
-                previous_env=env,
-                previous_alloc=alloc,
-                last_block=False,
-            )
-            sync_payload = sync_built_block.get_fixture_engine_new_payload()
-
-        # Create base fixture data
+        # Create base fixture data, common to all fixture formats
         fixture_data = {
             "fork": fork,
             "genesis": genesis.header,
+            "payloads": fixture_payloads,
             "last_block_hash": head_hash,
             "post_state_hash": alloc.state_root()
             if self.exclude_full_post_state_in_output
@@ -799,19 +781,39 @@ class BlockchainTest(BaseTest):
             # and prepare for state diff optimization
             fixture_data.update(
                 {
-                    "payloads": fixture_payloads,
-                    "sync_payload": sync_payload,
                     "post_state": alloc if not self.exclude_full_post_state_in_output else None,
                     "pre_hash": "",  # Will be set by BaseTestWrapper
                 }
             )
             return BlockchainEngineXFixture(**fixture_data)
+        elif fixture_format == BlockchainEngineSyncFixture:
+            # Sync fixture format
+            assert genesis.header.block_hash != head_hash, (
+                "Invalid payload tests negative test via sync is not supported yet."
+            )
+            # Most clients require the header to start the sync process, so we create an empty
+            # block on top of the last block of the test to send it as new payload and trigger the
+            # sync process.
+            sync_built_block = self.generate_block_data(
+                t8n=t8n,
+                fork=fork,
+                block=Block(),
+                previous_env=env,
+                previous_alloc=alloc,
+                last_block=False,
+            )
+            fixture_data.update(
+                {
+                    "sync_payload": sync_built_block.get_fixture_engine_new_payload(),
+                    "pre": pre,
+                    "post_state": alloc if not self.exclude_full_post_state_in_output else None,
+                }
+            )
+            return BlockchainEngineSyncFixture(**fixture_data)
         else:
             # Standard engine fixture
             fixture_data.update(
                 {
-                    "payloads": fixture_payloads,
-                    "sync_payload": sync_payload,
                     "pre": pre,
                     "post_state": alloc if not self.exclude_full_post_state_in_output else None,
                 }
@@ -826,7 +828,11 @@ class BlockchainTest(BaseTest):
     ) -> BaseFixture:
         """Generate the BlockchainTest fixture."""
         t8n.reset_traces()
-        if fixture_format in [BlockchainEngineFixture, BlockchainEngineXFixture]:
+        if fixture_format in [
+            BlockchainEngineFixture,
+            BlockchainEngineXFixture,
+            BlockchainEngineSyncFixture,
+        ]:
             return self.make_hive_fixture(t8n, fork, fixture_format)
         elif fixture_format == BlockchainFixture:
             return self.make_fixture(t8n, fork)
