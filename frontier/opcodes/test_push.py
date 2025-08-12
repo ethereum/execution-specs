@@ -8,6 +8,7 @@ import pytest
 from ethereum_test_forks import Fork, Frontier, Homestead
 from ethereum_test_tools import Account, Alloc, Environment, StateTestFiller, Transaction
 from ethereum_test_tools import Opcodes as Op
+from ethereum_test_vm.bytecode import Bytecode
 
 
 def get_input_for_push_opcode(opcode: Op) -> bytes:
@@ -112,7 +113,11 @@ def test_stack_overflow(
      | SSTORE        |              | [0]: excerpt       |
      +---------------------------------------------------+
     """
-    contract_code = push_opcode(excerpt) * stack_height + Op.SSTORE
+    contract_code: Bytecode = Bytecode()
+    for _ in range(stack_height - 2):
+        contract_code += Op.PUSH1(0)  # mostly push 0 to avoid contract size limit exceeded
+    contract_code += push_opcode(excerpt) * 2 + Op.SSTORE
+
     contract = pre.deploy_contract(contract_code)
 
     tx = Transaction(
