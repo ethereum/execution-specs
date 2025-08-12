@@ -436,7 +436,7 @@ def test_pre_alloc_grouping_by_test_type(
         Path(default_output_directory()).absolute() / "blockchain_tests_engine_x" / "pre_alloc"
     )
     assert output_dir.exists()
-    groups = PreAllocGroups.from_folder(output_dir)
+    groups = PreAllocGroups.from_folder(output_dir, lazy_load=False)
     if (
         len([f for f in output_dir.iterdir() if f.name.endswith(".json")])
         != expected_different_pre_alloc_groups

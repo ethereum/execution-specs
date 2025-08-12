@@ -226,7 +226,7 @@ class FillingSession:
         """Load pre-allocation groups from the output folder."""
         pre_alloc_folder = self.fixture_output.pre_alloc_groups_folder_path
         if pre_alloc_folder.exists():
-            self.pre_alloc_groups = PreAllocGroups.from_folder(pre_alloc_folder)
+            self.pre_alloc_groups = PreAllocGroups.from_folder(pre_alloc_folder, lazy_load=True)
         else:
             raise FileNotFoundError(
                 f"Pre-allocation groups folder not found: {pre_alloc_folder}. "
@@ -315,7 +315,7 @@ class FillingSession:
         if self.pre_alloc_groups is None:
             self.pre_alloc_groups = PreAllocGroups(root={})
 
-        for hash_key, group in worker_groups.root.items():
+        for hash_key, group in worker_groups.items():
             if hash_key in self.pre_alloc_groups:
                 # Merge if exists (should not happen in practice)
                 existing = self.pre_alloc_groups[hash_key]
@@ -699,16 +699,15 @@ def pytest_terminal_summary(
             if config.pluginmanager.hasplugin("xdist"):
                 # Load pre-allocation groups from disk
                 pre_alloc_groups = PreAllocGroups.from_folder(
-                    config.fixture_output.pre_alloc_groups_folder_path  # type: ignore[attr-defined]
+                    config.fixture_output.pre_alloc_groups_folder_path,  # type: ignore[attr-defined]
+                    lazy_load=False,
                 )
             else:
                 assert session_instance.pre_alloc_groups is not None
                 pre_alloc_groups = session_instance.pre_alloc_groups
 
             total_groups = len(pre_alloc_groups.root)
-            total_accounts = sum(
-                group.pre_account_count for group in pre_alloc_groups.root.values()
-            )
+            total_accounts = sum(group.pre_account_count for group in pre_alloc_groups.values())
 
             terminalreporter.write_sep(
                 "=",

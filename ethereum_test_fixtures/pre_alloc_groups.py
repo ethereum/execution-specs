@@ -2,10 +2,10 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterator, List, Tuple
 
 from filelock import FileLock
-from pydantic import Field, computed_field
+from pydantic import Field, PrivateAttr, computed_field
 
 from ethereum_test_base_types import CamelModel, EthereumTestRootModel
 from ethereum_test_forks import Fork
@@ -84,35 +84,62 @@ class PreAllocGroup(CamelModel):
 
 
 class PreAllocGroups(EthereumTestRootModel):
-    """Root model mapping pre-allocation group hashes to test groups."""
+    """
+    Root model mapping pre-allocation group hashes to test groups.
 
-    root: Dict[str, PreAllocGroup]
+    If lazy_load is True, the groups are not loaded from the folder until they are accessed.
+
+    Iterating will fail if lazy_load is True.
+    """
+
+    root: Dict[str, PreAllocGroup | None]
+
+    _folder_source: Path | None = PrivateAttr(None)
 
     def __setitem__(self, key: str, value: Any):
         """Set item in root dict."""
+        assert self._folder_source is None, (
+            "Cannot set item in root dict after folder source is set"
+        )
         self.root[key] = value
 
     @classmethod
-    def from_folder(cls, folder: Path) -> "PreAllocGroups":
+    def from_folder(cls, folder: Path, *, lazy_load: bool = False) -> "PreAllocGroups":
         """Create PreAllocGroups from a folder of pre-allocation files."""
         # First check for collision failures
         for fail_file in folder.glob("*.fail"):
             with open(fail_file) as f:
                 raise Alloc.CollisionError.from_json(json.loads(f.read()))
-        data = {}
+
+        data: Dict[str, PreAllocGroup | None] = {}
         for file in folder.glob("*.json"):
-            with open(file) as f:
-                data[file.stem] = PreAllocGroup.model_validate_json(f.read())
-        return cls(root=data)
+            if lazy_load:
+                data[file.stem] = None
+            else:
+                with open(file) as f:
+                    data[file.stem] = PreAllocGroup.model_validate_json(f.read())
+        instance = cls(root=data)
+        if lazy_load:
+            instance._folder_source = folder
+        return instance
 
     def to_folder(self, folder: Path) -> None:
         """Save PreAllocGroups to a folder of pre-allocation files."""
         for key, value in self.root.items():
+            assert value is not None, f"Value for key {key} is None"
             value.to_file(folder / f"{key}.json")
 
     def __getitem__(self, item):
         """Get item from root dict."""
-        return self.root[item]
+        if self._folder_source is None:
+            item = self.root[item]
+            assert item is not None, f"Item {item} is None"
+            return item
+        else:
+            if self.root[item] is None:
+                with open(self._folder_source / f"{item}.json") as f:
+                    self.root[item] = PreAllocGroup.model_validate_json(f.read())
+            return self.root[item]
 
     def __iter__(self):
         """Iterate over root dict."""
@@ -130,10 +157,14 @@ class PreAllocGroups(EthereumTestRootModel):
         """Get keys from root dict."""
         return self.root.keys()
 
-    def values(self):
+    def values(self) -> Iterator[PreAllocGroup]:
         """Get values from root dict."""
-        return self.root.values()
+        for value in self.root.values():
+            assert value is not None, "Value is None"
+            yield value
 
-    def items(self):
+    def items(self) -> Iterator[Tuple[str, PreAllocGroup]]:
         """Get items from root dict."""
-        return self.root.items()
+        for key, value in self.root.items():
+            assert value is not None, f"Value for key {key} is None"
+            yield key, value

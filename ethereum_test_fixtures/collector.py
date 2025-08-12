@@ -113,6 +113,7 @@ class FixtureCollector:
     single_fixture_per_file: bool
     filler_path: Path
     base_dump_dir: Optional[Path] = None
+    flush_interval: int = 1000
 
     # Internal state
     all_fixtures: Dict[Path, Fixtures] = field(default_factory=dict)
@@ -151,6 +152,9 @@ class FixtureCollector:
 
         self.all_fixtures[fixture_path][info.get_id()] = fixture
 
+        if self.flush_interval > 0 and len(self.all_fixtures) >= self.flush_interval:
+            self.dump_fixtures()
+
         return fixture_path
 
     def dump_fixtures(self) -> None:
@@ -167,6 +171,8 @@ class FixtureCollector:
             if len({fixture.__class__ for fixture in fixtures.values()}) != 1:
                 raise TypeError("All fixtures in a single file must have the same format.")
             fixtures.collect_into_file(fixture_path)
+
+        self.all_fixtures.clear()
 
     def verify_fixture_files(self, evm_fixture_verification: FixtureConsumer) -> None:
         """Run `evm [state|block]test` on each fixture."""
