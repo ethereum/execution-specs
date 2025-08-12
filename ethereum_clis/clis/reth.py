@@ -50,6 +50,7 @@ class RethExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             r"blob gas used \d+ exceeds maximum allowance \d+"
         ),
+        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: r"too many blobs, have \d+, max \d+",
         TransactionException.TYPE_3_TX_PRE_FORK: (
             r"blob transactions present in pre-cancun payload|empty blobs"
         ),
