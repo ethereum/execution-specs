@@ -2,17 +2,17 @@ from typing import Tuple
 
 
 def get_exceptional_blockchain_test_patterns(
-    network: str, package: str
+    json_fork: str, eels_fork: str
 ) -> Tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
     """
-    Returns patterns for slow, ignored, and big-memory tests for a given network and package.
+    Returns patterns for slow, ignored, and big-memory tests for a given json_fork and eels_fork.
 
     Parameters
     ----------
-    network : str
-        The network name (e.g., "Frontier", "EIP150").
-    package : str
-        The package name (e.g., "frontier", "tangerine_whistle").
+    json_fork : str
+        The json_fork name (e.g., "Frontier", "EIP150").
+    eels_fork : str
+        The eels_fork name (e.g., "frontier", "tangerine_whistle").
 
     Returns
     -------
@@ -29,8 +29,8 @@ def get_exceptional_blockchain_test_patterns(
         "stTimeConsuming/static_Call50000_sha256.json",
         "vmPerformance/loopExp.json",
         "vmPerformance/loopMul.json",
-        f"QuadraticComplexitySolidity_CallDataCopy_d0g1v0_{network}",
-        f"CALLBlake2f_d9g0v0_{network}",
+        f"QuadraticComplexitySolidity_CallDataCopy_d0g1v0_{json_fork}",
+        f"CALLBlake2f_d9g0v0_{json_fork}",
         "CALLCODEBlake2f_d9g0v0",
         # GeneralStateTests
         "stRandom/randomStatetest177.json",
@@ -40,14 +40,14 @@ def get_exceptional_blockchain_test_patterns(
         # InvalidBlockTest
         "bcUncleHeaderValidity/nonceWrong.json",
         "bcUncleHeaderValidity/wrongMixHash.json",
-        f"tests/{package}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_{network}-blockchain_test-bls_pairing_non-degeneracy-\\]",
-        f"tests/{package}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_{network}-blockchain_test-bls_pairing_bilinearity-\\]",
-        f"tests/{package}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_{network}-blockchain_test-bls_pairing_e\\(G1,-G2\\)=e\\(-G1,G2\\)-\\]",
-        f"tests/{package}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_{network}-blockchain_test-bls_pairing_e\\(aG1,bG2\\)=e\\(abG1,G2\\)-\\]",
-        f"tests/{package}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_{network}-blockchain_test-bls_pairing_e\\(aG1,bG2\\)=e\\(G1,abG2\\)-\\]",
-        f"tests/{package}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_{network}-blockchain_test-inf_pair-\\]",
-        f"tests/{package}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_{network}-blockchain_test-multi_inf_pair-\\]",
-        f"tests/{package}/eip2935_historical_block_hashes_from_state/test_block_hashes\\.py\\:\\:test_block_hashes_history\\[fork_{network}-blockchain_test-full_history_plus_one_check_blockhash_first\\]",
+        f"tests/{eels_fork}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_{json_fork}-blockchain_test-bls_pairing_non-degeneracy-\\]",
+        f"tests/{eels_fork}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_{json_fork}-blockchain_test-bls_pairing_bilinearity-\\]",
+        f"tests/{eels_fork}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_{json_fork}-blockchain_test-bls_pairing_e\\(G1,-G2\\)=e\\(-G1,G2\\)-\\]",
+        f"tests/{eels_fork}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_{json_fork}-blockchain_test-bls_pairing_e\\(aG1,bG2\\)=e\\(abG1,G2\\)-\\]",
+        f"tests/{eels_fork}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_{json_fork}-blockchain_test-bls_pairing_e\\(aG1,bG2\\)=e\\(G1,abG2\\)-\\]",
+        f"tests/{eels_fork}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_{json_fork}-blockchain_test-inf_pair-\\]",
+        f"tests/{eels_fork}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py\\:\\:test_valid\\[fork_{json_fork}-blockchain_test-multi_inf_pair-\\]",
+        f"tests/{eels_fork}/eip2935_historical_block_hashes_from_state/test_block_hashes\\.py\\:\\:test_block_hashes_history\\[fork_{json_fork}-blockchain_test-full_history_plus_one_check_blockhash_first\\]",
     )
 
     # These are tests that are considered to be incorrect,
@@ -61,7 +61,7 @@ def get_exceptional_blockchain_test_patterns(
         # InvalidBlockTest
         "bcForgedTest",
         "bcMultiChainTest",
-        f"GasLimitHigherThan2p63m1_{network}",
+        f"GasLimitHigherThan2p63m1_{json_fork}",
     )
 
     # All tests that recursively create a large number of frames (50000)
@@ -81,7 +81,7 @@ def get_exceptional_blockchain_test_patterns(
 
 
 def get_exceptional_state_test_patterns(
-    network: str, package: str
+    json_fork: str, eels_fork: str
 ) -> tuple[str, ...]:
     slow_tests = (
         "CALLBlake2f_MaxRounds",
@@ -92,13 +92,13 @@ def get_exceptional_state_test_patterns(
         "GeneralStateTests/stTimeConsuming/CALLBlake2f_MaxRounds.json::CALLBlake2f_MaxRounds-fork_[Cancun-Prague]-d0g0v0",
         "GeneralStateTests/VMTests/vmPerformance/loopExp.json::loopExp-fork_[Cancun-Prague]-d[0-14]g0v0",
         "GeneralStateTests/VMTests/vmPerformance/loopMul.json::loopMul-fork_[Cancun-Prague]-d[0-2]g0v0",
-        f"tests/{package}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_{network}-state_test-bls_pairing_non-degeneracy-]",
-        f"tests/{package}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_{network}-state_test-bls_pairing_bilinearity-]",
-        f"tests/{package}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_{network}-state_test-bls_pairing_e(G1,-G2)=e(-G1,G2)-]",
-        f"tests/{package}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_{network}-state_test-bls_pairing_e(aG1,bG2)=e(abG1,G2)-]",
-        f"tests/{package}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_{network}-state_test-bls_pairing_e(aG1,bG2)=e(G1,abG2)-]",
-        f"tests/{package}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_{network}-state_test-inf_pair-]",
-        f"tests/{package}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_{network}-state_test-multi_inf_pair-]",
+        f"tests/{eels_fork}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_{json_fork}-state_test-bls_pairing_non-degeneracy-]",
+        f"tests/{eels_fork}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_{json_fork}-state_test-bls_pairing_bilinearity-]",
+        f"tests/{eels_fork}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_{json_fork}-state_test-bls_pairing_e(G1,-G2)=e(-G1,G2)-]",
+        f"tests/{eels_fork}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_{json_fork}-state_test-bls_pairing_e(aG1,bG2)=e(abG1,G2)-]",
+        f"tests/{eels_fork}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_{json_fork}-state_test-bls_pairing_e(aG1,bG2)=e(G1,abG2)-]",
+        f"tests/{eels_fork}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_{json_fork}-state_test-inf_pair-]",
+        f"tests/{eels_fork}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid[fork_{json_fork}-state_test-multi_inf_pair-]",
     )
 
     return slow_tests

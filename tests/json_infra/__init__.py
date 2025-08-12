@@ -82,9 +82,11 @@ EEST_OSAKA_BC_TESTS, EEST_OSAKA_STATE_TESTS = _build_eest_test_paths(
 )
 
 
-def _create_fork_config(package: str, bc_dirs: list, state_dirs: list) -> dict:
+def _create_fork_config(
+    eels_fork: str, bc_dirs: list, state_dirs: list
+) -> dict:
     return {
-        "package": package,
+        "eels_fork": eels_fork,
         "blockchain_test_dirs": bc_dirs,
         "state_test_dirs": state_dirs,
     }
@@ -112,8 +114,8 @@ OSAKA_DIRS = (
 
 FORKS = {
     **{
-        fork: _create_fork_config(package, *PRE_CONSTANTINOPLE_DIRS)
-        for fork, package in [
+        json_fork: _create_fork_config(eels_fork, *PRE_CONSTANTINOPLE_DIRS)
+        for json_fork, eels_fork in [
             ("Frontier", "frontier"),
             ("Homestead", "homestead"),
             ("EIP150", "tangerine_whistle"),
@@ -123,8 +125,8 @@ FORKS = {
         ]
     },
     **{
-        fork: _create_fork_config(package, *PRE_CANCUN_DIRS)
-        for fork, package in [
+        json_fork: _create_fork_config(eels_fork, *PRE_CANCUN_DIRS)
+        for json_fork, eels_fork in [
             ("Istanbul", "istanbul"),
             ("Berlin", "berlin"),
             ("London", "london"),
@@ -133,8 +135,8 @@ FORKS = {
         ]
     },
     **{
-        fork: _create_fork_config(package, *CURRENT_DIRS)
-        for fork, package in [
+        json_fork: _create_fork_config(eels_fork, *CURRENT_DIRS)
+        for json_fork, eels_fork in [
             ("Cancun", "cancun"),
             ("Prague", "prague"),
         ]

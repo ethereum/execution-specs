@@ -21,7 +21,8 @@ def _generate_test_function(fork_name: str) -> Callable:
     )
     def test_func(blockchain_test_case: Dict) -> None:
         load = Load(
-            blockchain_test_case["network"], blockchain_test_case["package"]
+            blockchain_test_case["json_fork"],
+            blockchain_test_case["eels_fork"],
         )
         run_blockchain_st_test(blockchain_test_case, load=load)
 

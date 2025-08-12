@@ -19,15 +19,15 @@ from .exceptional_test_patterns import get_exceptional_state_test_patterns
 parser = create_parser()
 
 
-def fetch_state_tests(network: str) -> Generator:
+def fetch_state_tests(json_fork: str) -> Generator:
     """
     Fetches all the general state tests from the given directory
     """
     # Filter FORKS based on fork_option parameter
-    package = cast(str, FORKS[network]["package"])
-    test_dirs = cast(list[str], FORKS[network]["state_test_dirs"])
+    eels_fork = cast(str, FORKS[json_fork]["eels_fork"])
+    test_dirs = cast(list[str], FORKS[json_fork]["state_test_dirs"])
 
-    slow_tests = get_exceptional_state_test_patterns(network, package)
+    slow_tests = get_exceptional_state_test_patterns(json_fork, eels_fork)
 
     # Get all the files to iterate over from both eest_tests_path and ethereum_tests_path
     all_jsons = []
@@ -40,14 +40,14 @@ def fetch_state_tests(network: str) -> Generator:
         test_cases = read_test_cases(test_file_path)
 
         for test_case in test_cases:
-            if test_case.fork_name != network:
+            if test_case.fork_name != json_fork:
                 continue
 
             test_case_dict = {
                 "test_file": test_case.path,
                 "test_key": test_case.key,
                 "index": test_case.index,
-                "network": network,
+                "json_fork": json_fork,
             }
 
             if test_case.key in slow_tests:
@@ -75,7 +75,7 @@ def run_state_test(test_case: Dict[str, str]) -> None:
     test_file = test_case["test_file"]
     test_key = test_case["test_key"]
     index = test_case["index"]
-    network = test_case["network"]
+    json_fork = test_case["json_fork"]
     with open(test_file) as f:
         tests = json.load(f)
 
@@ -88,7 +88,7 @@ def run_state_test(test_case: Dict[str, str]) -> None:
 
     alloc = tests[test_key]["pre"]
 
-    post = tests[test_key]["post"][network][index]
+    post = tests[test_key]["post"][json_fork][index]
     post_hash = post["hash"]
     d = post["indexes"]["data"]
     g = post["indexes"]["gas"]
@@ -130,7 +130,7 @@ def run_state_test(test_case: Dict[str, str]) -> None:
         "--input.txs",
         "stdin",
         "--state.fork",
-        f"{network}",
+        f"{json_fork}",
         "--state-test",
     ]
     t8n_options = parser.parse_args(t8n_args)

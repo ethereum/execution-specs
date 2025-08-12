@@ -131,7 +131,7 @@ def add_block_to_chain(
 
 
 # Functions that fetch individual test cases
-def load_json_fixture(test_file: str, network: str) -> Generator:
+def load_json_fixture(test_file: str, json_fork: str) -> Generator:
     # Extract the pure basename of the file without the path to the file.
     # Ex: Extract "world.json" from "path/to/file/world.json"
     # Extract the filename without the extension. Ex: Extract "world" from
@@ -145,7 +145,7 @@ def load_json_fixture(test_file: str, network: str) -> Generator:
             if "network" not in test:
                 continue
 
-            if test["network"] == network:
+            if test["network"] == json_fork:
                 found_keys.append(key)
 
         if not any(found_keys):
@@ -155,22 +155,22 @@ def load_json_fixture(test_file: str, network: str) -> Generator:
             yield {
                 "test_file": test_file,
                 "test_key": _key,
-                "network": network,
+                "json_fork": json_fork,
             }
 
 
 def fetch_blockchain_tests(
-    network: str,
+    json_fork: str,
 ) -> Generator[Dict | ParameterSet, None, None]:
     # Filter FORKS based on fork_option parameter
-    package = cast(str, FORKS[network]["package"])
-    test_dirs = cast(list[str], FORKS[network]["blockchain_test_dirs"])
+    eels_fork = cast(str, FORKS[json_fork]["eels_fork"])
+    test_dirs = cast(list[str], FORKS[json_fork]["blockchain_test_dirs"])
 
     (
         slow_list,
         ignore_list,
         big_memory_list,
-    ) = get_exceptional_blockchain_test_patterns(network, package)
+    ) = get_exceptional_blockchain_test_patterns(json_fork, eels_fork)
     all_slow = [re.compile(x) for x in slow_list]
     all_big_memory = [re.compile(x) for x in big_memory_list]
     all_ignore = [re.compile(x) for x in ignore_list]
@@ -192,7 +192,7 @@ def fetch_blockchain_tests(
     # Start yielding individual test cases from the file list
     for _test_file in files_to_iterate:
         try:
-            for _test_case in load_json_fixture(_test_file, network):
+            for _test_case in load_json_fixture(_test_file, json_fork):
                 # _identifier could identify files, folders through test_file
                 #  individual cases through test_key
                 _identifier = (
@@ -202,7 +202,7 @@ def fetch_blockchain_tests(
                     + _test_case["test_key"]
                     + ")"
                 )
-                _test_case["package"] = package
+                _test_case["eels_fork"] = eels_fork
                 if any(x.search(_identifier) for x in all_ignore):
                     continue
                 elif any(x.search(_identifier) for x in all_slow):
