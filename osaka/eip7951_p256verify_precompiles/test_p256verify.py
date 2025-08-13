@@ -90,6 +90,34 @@ def test_valid(state_test: StateTestFiller, pre: Alloc, post: dict, tx: Transact
             Spec.H0 + Spec.R0 + Spec.S0 + Spec.X0 + Y(Spec.Y0.value + 1),
             id="point_not_on_curve_y",
         ),
+        pytest.param(
+            Spec.H0 + Spec.R0 + Spec.S0 + Spec.Y0 + Spec.X0,
+            id="x_and_y_reversed",
+        ),
+        pytest.param(
+            Spec.H0 + Spec.R0 + Spec.S0 + Spec.X0 + Y(Spec.P + 1),
+            id="y_greater_than_p",
+        ),
+        pytest.param(
+            Spec.H0 + Spec.R0 + Spec.S0 + X(Spec.P + 1) + Spec.Y0,
+            id="x_greater_than_p",
+        ),
+        pytest.param(
+            Spec.H0
+            + R(0x813EF79CCEFA9A56F7BA805F0E478584FE5F0DD5F567BC09B5123CCBC9832365)
+            + S(0x900E75AD233FCC908509DBFF5922647DB37C21F4AFD3203AE8DC4AE7794B0F87)
+            + X(0xB838FF44E5BC177BF21189D0766082FC9D843226887FC9760371100B7EE20A6F)
+            + Y(0xF0C9D75BFBA7B31A6BCA1974496EEB56DE357071955D83C4B1BADAA0B21832E9),
+            id="valid_secp256k1_inputs",
+        ),
+        pytest.param(
+            H(0x235060CAFE19A407880C272BC3E73600E3A12294F56143ED61929C2FF4525ABB)
+            + R(0x182E5CBDF96ACCB859E8EEA1850DE5FF6E430A19D1D9A680ECD5946BBEA8A32B)
+            + S(0x76DDFAE6797FA6777CAAB9FA10E75F52E70A4E6CEB117B3C5B2F445D850BD64C)
+            + X(0x3828736CDFC4C8696008F71999260329AD8B12287846FEDCEDE3BA1205B12729)
+            + Y(0x3E5141734E971A8D55015068D9B3666760F4608A49B11F92E500ACEA647978C7),
+            id="wrong_endianness",
+        ),
     ],
 )
 @pytest.mark.parametrize("expected_output", [Spec.INVALID_RETURN_VALUE], ids=[""])
@@ -98,6 +126,7 @@ def test_valid(state_test: StateTestFiller, pre: Alloc, post: dict, tx: Transact
 @pytest.mark.eip_checklist("precompile/test/inputs/invalid")
 @pytest.mark.eip_checklist("precompile/test/inputs/invalid/crypto")
 @pytest.mark.eip_checklist("precompile/test/inputs/invalid/corrupted")
+@pytest.mark.eip_checklist("precompile/test/input_lengths/zero")
 @pytest.mark.eip_checklist("precompile/test/input_lengths/static/correct")
 @pytest.mark.eip_checklist("precompile/test/input_lengths/static/too_short")
 @pytest.mark.eip_checklist("precompile/test/input_lengths/static/too_long")
@@ -122,6 +151,20 @@ def test_invalid(state_test: StateTestFiller, pre: Alloc, post: dict, tx: Transa
             -1,
             False,
             id="insufficient_gas",
+        ),
+        pytest.param(
+            Spec.H0 + Spec.R0 + Spec.S0 + Spec.X0 + Spec.Y0,
+            Spec.INVALID_RETURN_VALUE,
+            -6900,
+            False,
+            id="zero_gas",
+        ),
+        pytest.param(
+            Spec.H0 + Spec.R0 + Spec.S0 + Spec.X0 + Spec.Y0,
+            Spec.INVALID_RETURN_VALUE,
+            -3450,
+            False,
+            id="3450_gas",
         ),
     ],
 )

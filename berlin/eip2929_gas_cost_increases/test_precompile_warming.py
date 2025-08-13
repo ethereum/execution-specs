@@ -40,15 +40,27 @@ def precompile_addresses_in_predecessor_successor(
             boolean indicating whether the address has existed in the predecessor.
 
     """
+    precompile_range = range(0x01, 0x100)
     predecessor_precompiles = set(get_transition_fork_predecessor(fork).precompiles())
     successor_precompiles = set(get_transition_fork_successor(fork).precompiles())
     all_precompiles = successor_precompiles | predecessor_precompiles
-    highest_precompile = int.from_bytes(max(all_precompiles), byteorder="big")
+
+    precompiles_in_range = {
+        addr
+        for addr in all_precompiles
+        if int.from_bytes(addr, byteorder="big") in precompile_range
+    }
+
+    highest_in_range = max(int.from_bytes(addr, byteorder="big") for addr in precompiles_in_range)
+    highest_overall = max(int.from_bytes(addr, byteorder="big") for addr in all_precompiles)
     extra_range = 32
     extra_precompiles = {
-        Address(i) for i in range(highest_precompile + 1, highest_precompile + extra_range)
+        Address(i) for i in range(highest_in_range + 1, highest_in_range + extra_range)
     }
-    all_precompiles = all_precompiles | extra_precompiles
+    extra_precompiles_outside_range = {Address(highest_overall + 1)}
+
+    all_precompiles = all_precompiles | extra_precompiles | extra_precompiles_outside_range
+
     for address in sorted(all_precompiles):
         yield address, address in successor_precompiles, address in predecessor_precompiles
 
