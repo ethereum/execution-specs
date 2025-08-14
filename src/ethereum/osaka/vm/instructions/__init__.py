@@ -100,6 +100,7 @@ class Ops(enum.Enum):
     BASEFEE = 0x48
     BLOBHASH = 0x49
     BLOBBASEFEE = 0x4A
+    TXROOT = 0x4B
 
     # Control Flow Ops
     STOP = 0x00
@@ -252,6 +253,7 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.PREVRANDAO: block_instructions.prev_randao,
     Ops.GASLIMIT: block_instructions.gas_limit,
     Ops.CHAINID: block_instructions.chain_id,
+    Ops.TXROOT: block_instructions.tx_root,
     Ops.MLOAD: memory_instructions.mload,
     Ops.MSTORE: memory_instructions.mstore,
     Ops.MSTORE8: memory_instructions.mstore8,
