@@ -95,3 +95,84 @@ jobs:
       - uses: ./.github/actions/setup-env
       - name: Run optimized tests
         run: tox -e optimized
+
+  changed-forks:
+    runs-on: ubuntu-latest
+    needs: static
+    outputs:
+      changed-forks: ${{ steps.filter-tests.outputs.forks }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install project for fork detection
+        run: pip install .
+      - name: Find changed valid forks
+        id: set-forks
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          VALID_FORKS=$(python -c "import json; from ethereum_spec_tools.forks import Hardfork; print(json.dumps([f.short_name for f in Hardfork.discover()]))")
+          CHANGED_FORKS=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }} ${{ github.sha }} -- src/ethereum/ | awk -F'/' '{print $3}' | sort -u)
+          readarray -t VALID_FORKS_ARR < <(echo "$VALID_FORKS" | jq -r '.[]')
+          FILTERED=$(for f in $CHANGED_FORKS; do for v in "${VALID_FORKS_ARR[@]}"; do [ "$f" = "$v" ] && echo $f; done; done | jq -R . | jq -s -c .)
+          echo "FILTERED (final forks for matrix): $FILTERED"
+          echo "forks=$FILTERED" >> $GITHUB_OUTPUT
+      - name: Filter out forks without test directories
+        id: filter-tests
+        run: |
+          FILTERED_WITH_TESTS=$(for f in $(echo '${{ steps.set-forks.outputs.forks }}' | jq -r '.[]'); do
+            if [ -d "tests/$f" ]; then
+              echo $f
+            fi
+          done | jq -R . | jq -s -c .)
+          echo "FILTERED_WITH_TESTS: $FILTERED_WITH_TESTS"
+          echo "forks=$FILTERED_WITH_TESTS" >> $GITHUB_OUTPUT
+
+  mutation-test:
+    runs-on: [self-hosted-ghr, size-xl-x64]
+    needs: [static, changed-forks]
+    if: github.event_name == 'pull_request'
+    strategy:
+      matrix:
+        fork: ${{ fromJson(needs.changed-forks.outputs.changed-forks) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install project with test dependencies
+        run: pip install '.[test]'
+      - name: Install mutmut
+        run: pip install git+https://github.com/souradeep-das/mutmut.git@562d5c65ce156f46d2586bcff4b8e0add8b2be39
+      - name: Find changed files for fork
+        id: changed
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          echo "changed_files<<EOF" >> $GITHUB_OUTPUT
+          (git diff --name-only origin/${{ github.event.pull_request.base.ref }} ${{ github.sha }} -- src/ethereum/${{ matrix.fork }}/ || true) >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      - name: Display changed files
+        run: |
+          echo "Changed files:"
+          echo "${{ steps.changed.outputs.changed_files }}"
+      - name: Skip if no changes for this fork
+        if: steps.changed.outputs.changed_files == ''
+        run: echo "No changes for ${{ matrix.fork }}, skipping mutmut."
+      - name: Copy dependencies for mutation testing
+        if: steps.changed.outputs.changed_files != ''
+        run: |
+          mkdir -p mutants/src
+          cp -r src/* mutants/src/
+      - name: Run mutmut
+        if: steps.changed.outputs.changed_files != ''
+        run: |
+          FILES=$(echo "${{ steps.changed.outputs.changed_files }}" | paste -sd, -)
+          mutmut --paths-to-mutate $FILES --tests-dir tests/${{ matrix.fork }}/ --debug run
+      - name: Mutmut results
+        if: steps.changed.outputs.changed_files != ''
+        run: mutmut results
