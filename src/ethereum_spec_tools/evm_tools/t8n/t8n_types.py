@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from ethereum_rlp import Simple, rlp
 from ethereum_types.bytes import Bytes, Bytes20, Bytes0
+from ethereum.exceptions import StateWithEmptyAccount
 from ethereum_types.numeric import U8, U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
@@ -29,20 +30,37 @@ class Alloc:
 
     def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
         """Read the alloc file and return the state."""
-        # TODO: simplify without having to convert to JSON and then json to
-        # state
-        alloc_json = {
-            addr.hex(): acc.model_dump(mode="json") if acc is not None else None
-            for addr, acc in stdin.root.items()
-        }
-        for acc in alloc_json.values():
-            if acc is not None and "storage" in acc and acc["storage"] is not None:
-                # Ensure all storage values are hex strings with 0x prefix
-                acc["storage"] = {
-                    k: v if (isinstance(v, str) and v.startswith("0x")) else hex(v)
-                    for k, v in acc["storage"].items()
-                }
-        state = t8n.json_to_state(alloc_json)
+        state = t8n.fork.State()
+        set_storage = t8n.fork.set_storage
+        EMPTY_ACCOUNT = t8n.fork.EMPTY_ACCOUNT
+
+        for addr_bytes, account in stdin.root.items():
+            canonical_account = t8n.fork.Account(
+                nonce=Uint(account.nonce),
+                balance=U256(account.balance),
+                code=Bytes(account.code),
+            )
+
+            if t8n.fork.proof_of_stake and canonical_account == EMPTY_ACCOUNT:
+                addr_hex = addr_bytes.hex() if isinstance(addr_bytes, bytes) else str(addr_bytes)
+                raise StateWithEmptyAccount(f"Empty account at {addr_hex}.")
+
+            t8n.fork.set_account(state, addr_bytes, canonical_account)
+
+            if account.storage and account.storage.root:
+                for storage_key, storage_value in account.storage.root.items():
+                    if isinstance(storage_key, int):
+                        storage_key_bytes = storage_key.to_bytes(32, byteorder='big')
+                    else:
+                        storage_key_bytes = storage_key
+
+                    set_storage(
+                        state,
+                        addr_bytes,
+                        storage_key_bytes,
+                        U256(storage_value)
+                    )
+
         if t8n.fork.fork_module == "dao_fork":
             t8n.fork.apply_dao(state)
 
