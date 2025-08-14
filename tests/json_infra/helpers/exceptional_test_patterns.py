@@ -38,37 +38,37 @@ def exceptional_blockchain_test_patterns(
 
     slow_tests = (
         # GeneralStateTests
-        "stTimeConsuming/CALLBlake2f_MaxRounds.json",
-        "stTimeConsuming/static_Call50000_sha256.json",
-        "vmPerformance/loopExp.json",
-        "vmPerformance/loopMul.json",
+        "stTimeConsuming/CALLBlake2f_MaxRounds\\.json",
+        "stTimeConsuming/static_Call50000_sha256\\.json",
+        "vmPerformance/loopExp\\.json",
+        "vmPerformance/loopMul\\.json",
         f"QuadraticComplexitySolidity_CallDataCopy_d0g1v0_{jf}",
         f"CALLBlake2f_d9g0v0_{jf}",
         "CALLCODEBlake2f_d9g0v0",
         # GeneralStateTests
-        "stRandom/randomStatetest177.json",
-        "stCreateTest/CreateOOGafterMaxCodesize.json",
+        "stRandom/randomStatetest177\\.json",
+        "stCreateTest/CreateOOGafterMaxCodesize\\.json",
         # ValidBlockTest
-        "bcExploitTest/DelegateCallSpam.json",
+        "bcExploitTest/DelegateCallSpam\\.json",
         # InvalidBlockTest
-        "bcUncleHeaderValidity/nonceWrong.json",
-        "bcUncleHeaderValidity/wrongMixHash.json",
-        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid\\[fork_{jf}-blockchain_test-bls_pairing_non-degeneracy-\\]",
-        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid\\[fork_{jf}-blockchain_test-bls_pairing_bilinearity-\\]",
-        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid\\[fork_{jf}-blockchain_test-bls_pairing_e(G1,-G2)=e(-G1,G2)-\\]",
-        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid\\[fork_{jf}-blockchain_test-bls_pairing_e(aG1,bG2)=e(abG1,G2)-\\]",
-        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid\\[fork_{jf}-blockchain_test-bls_pairing_e(aG1,bG2)=e(G1,abG2)-\\]",
-        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid\\[fork_{jf}-blockchain_test-inf_pair-\\]",
-        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid\\[fork_{jf}-blockchain_test-multi_inf_pair-\\]",
-        f"tests/{ef}/eip2935_historical_block_hashes_from_state/test_block_hashes.py::test_block_hashes_history\\[fork_{jf}-blockchain_test-full_history_plus_one_check_blockhash_first\\]",
+        "bcUncleHeaderValidity/nonceWrong\\.json",
+        "bcUncleHeaderValidity/wrongMixHash\\.json",
+        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py::test_valid\\[fork_{jf}-blockchain_test-bls_pairing_non-degeneracy-\\]",
+        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py::test_valid\\[fork_{jf}-blockchain_test-bls_pairing_bilinearity-\\]",
+        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py::test_valid\\[fork_{jf}-blockchain_test-bls_pairing_e(G1,-G2)=e(-G1,G2)-\\]",
+        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py::test_valid\\[fork_{jf}-blockchain_test-bls_pairing_e(aG1,bG2)=e(abG1,G2)-\\]",
+        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py::test_valid\\[fork_{jf}-blockchain_test-bls_pairing_e(aG1,bG2)=e(G1,abG2)-\\]",
+        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py::test_valid\\[fork_{jf}-blockchain_test-inf_pair-\\]",
+        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py::test_valid\\[fork_{jf}-blockchain_test-multi_inf_pair-\\]",
+        f"tests/{ef}/eip2935_historical_block_hashes_from_state/test_block_hashes\\.py::test_block_hashes_history\\[fork_{jf}-blockchain_test-full_history_plus_one_check_blockhash_first\\]",
     )
 
     # These are tests that are considered to be incorrect,
     # Please provide an explanation when adding entries
     expected_fail = (
         # ValidBlockTest
-        "bcForkStressTest/ForkStressTest.json",
-        "bcGasPricerTest/RPC_API_Test.json",
+        "bcForkStressTest/ForkStressTest\\.json",
+        "bcGasPricerTest/RPC_API_Test\\.json",
         "bcMultiChainTest",
         "bcTotalDifficultyTest",
         # InvalidBlockTest
@@ -108,16 +108,16 @@ def exceptional_state_test_patterns(
         "CALLBlake2f",
         "loopExp",
         "loopMul",
-        "GeneralStateTests/stTimeConsuming/CALLBlake2f_MaxRounds.json::CALLBlake2f_MaxRounds-fork_\\[Cancun-Prague\\]-d0g0v0",
-        "GeneralStateTests/VMTests/vmPerformance/loopExp.json::loopExp-fork_\\[Cancun-Prague\\]-d[0-14]g0v0",
-        "GeneralStateTests/VMTests/vmPerformance/loopMul.json::loopMul-fork_\\[Cancun-Prague\\]-d[0-2]g0v0",
-        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid\\[fork_{jf}-state_test-bls_pairing_non-degeneracy-\\]",
-        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid\\[fork_{jf}-state_test-bls_pairing_bilinearity-\\]",
-        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid\\[fork_{jf}-state_test-bls_pairing_e(G1,-G2)=e(-G1,G2)-\\]",
-        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid\\[fork_{jf}-state_test-bls_pairing_e(aG1,bG2)=e(abG1,G2)-\\]",
-        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid\\[fork_{jf}-state_test-bls_pairing_e(aG1,bG2)=e(G1,abG2)-\\]",
-        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid\\[fork_{jf}-state_test-inf_pair-\\]",
-        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing.py::test_valid\\[fork_{jf}-state_test-multi_inf_pair-\\]",
+        "GeneralStateTests/stTimeConsuming/CALLBlake2f_MaxRounds\\.json::CALLBlake2f_MaxRounds-fork_\\[Cancun-Prague\\]-d0g0v0",
+        "GeneralStateTests/VMTests/vmPerformance/loopExp\\.json::loopExp-fork_\\[Cancun-Prague\\]-d[0-14]g0v0",
+        "GeneralStateTests/VMTests/vmPerformance/loopMul\\.json::loopMul-fork_\\[Cancun-Prague\\]-d[0-2]g0v0",
+        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py::test_valid\\[fork_{jf}-state_test-bls_pairing_non-degeneracy-\\]",
+        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py::test_valid\\[fork_{jf}-state_test-bls_pairing_bilinearity-\\]",
+        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py::test_valid\\[fork_{jf}-state_test-bls_pairing_e(G1,-G2)=e(-G1,G2)-\\]",
+        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py::test_valid\\[fork_{jf}-state_test-bls_pairing_e(aG1,bG2)=e(abG1,G2)-\\]",
+        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py::test_valid\\[fork_{jf}-state_test-bls_pairing_e(aG1,bG2)=e(G1,abG2)-\\]",
+        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py::test_valid\\[fork_{jf}-state_test-inf_pair-\\]",
+        f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py::test_valid\\[fork_{jf}-state_test-multi_inf_pair-\\]",
     )
 
     return TestPatterns(
