@@ -14,10 +14,6 @@ class FixtureOutput(BaseModel):
     """Represents the output destination for generated test fixtures."""
 
     output_path: Path = Field(description="Directory path to store the generated test fixtures")
-    flat_output: bool = Field(
-        default=False,
-        description="Output each test case in the directory without the folder structure",
-    )
     single_fixture_per_file: bool = Field(
         default=False,
         description=(
@@ -221,7 +217,6 @@ class FixtureOutput(BaseModel):
 
         return cls(
             output_path=output_path,
-            flat_output=config.getoption("flat_output"),
             single_fixture_per_file=config.getoption("single_fixture_per_file"),
             clean=config.getoption("clean"),
             generate_pre_alloc_groups=config.getoption("generate_pre_alloc_groups"),

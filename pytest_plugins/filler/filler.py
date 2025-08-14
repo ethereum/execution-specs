@@ -478,13 +478,6 @@ def pytest_addoption(parser: pytest.Parser):
         help="Clean (remove) the output directory before filling fixtures.",
     )
     test_group.addoption(
-        "--flat-output",
-        action="store_true",
-        dest="flat_output",
-        default=False,
-        help="Output each test case in the directory without the folder structure.",
-    )
-    test_group.addoption(
         "--single-fixture-per-file",
         action="store_true",
         dest="single_fixture_per_file",
@@ -1061,7 +1054,6 @@ def fixture_collector(
 
     fixture_collector = FixtureCollector(
         output_dir=fixture_output.directory,
-        flat_output=fixture_output.flat_output,
         fill_static_tests=request.config.getoption("fill_static_tests_enabled"),
         single_fixture_per_file=fixture_output.single_fixture_per_file,
         filler_path=filler_path,

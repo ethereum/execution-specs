@@ -27,7 +27,6 @@ def test_fixture_output_from_config_includes_generate_all_formats():
         def getoption(self, option):
             option_values = {
                 "output": "/tmp/test",
-                "flat_output": False,
                 "single_fixture_per_file": False,
                 "clean": False,
                 "generate_pre_alloc_groups": False,
@@ -51,7 +50,6 @@ def test_tarball_output_auto_enables_generate_all_formats():
         def getoption(self, option):
             option_values = {
                 "output": "/tmp/fixtures.tar.gz",  # Tarball output
-                "flat_output": False,
                 "single_fixture_per_file": False,
                 "clean": False,
                 "generate_pre_alloc_groups": False,
@@ -76,7 +74,6 @@ def test_regular_output_does_not_auto_enable_generate_all_formats():
         def getoption(self, option):
             option_values = {
                 "output": "/tmp/fixtures",  # Regular directory output
-                "flat_output": False,
                 "single_fixture_per_file": False,
                 "clean": False,
                 "generate_pre_alloc_groups": False,
@@ -101,7 +98,6 @@ def test_explicit_generate_all_formats_overrides_tarball_auto_enable():
         def getoption(self, option):
             option_values = {
                 "output": "/tmp/fixtures.tar.gz",  # Tarball output
-                "flat_output": False,
                 "single_fixture_per_file": False,
                 "clean": False,
                 "generate_pre_alloc_groups": False,
