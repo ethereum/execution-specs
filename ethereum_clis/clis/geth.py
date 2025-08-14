@@ -2,6 +2,7 @@
 
 import json
 import re
+import shlex
 import shutil
 import subprocess
 import textwrap
@@ -125,8 +126,19 @@ class GethEvm(EthereumCLI):
         fixture_path: Path,
         debug_output_path: Path,
     ):
-        debug_fixture_path = debug_output_path / "fixtures.json"
-        consume_direct_call = " ".join(command[:-1]) + f" {debug_fixture_path}"
+        # our assumption is that each command element is a string
+        assert all(isinstance(x, str) for x in command), (
+            f"Not all elements of 'command' list are strings: {command}"
+        )
+        assert len(command) > 0
+
+        # replace last value with debug fixture path
+        debug_fixture_path = str(debug_output_path / "fixtures.json")
+        command[-1] = debug_fixture_path
+
+        # ensure that flags with spaces are wrapped in double-quotes
+        consume_direct_call = " ".join(shlex.quote(arg) for arg in command)
+
         consume_direct_script = textwrap.dedent(
             f"""\
             #!/bin/bash

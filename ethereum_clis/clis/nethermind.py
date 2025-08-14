@@ -2,6 +2,7 @@
 
 import json
 import re
+import shlex
 import subprocess
 import textwrap
 from functools import cache
@@ -55,13 +56,21 @@ class Nethtest(EthereumCLI):
         result: subprocess.CompletedProcess,
         debug_output_path: Path,
     ):
-        consume_direct_call = " ".join(command)
+        # our assumption is that each command element is a string
+        assert all(isinstance(x, str) for x in command), (
+            f"Not all elements of 'command' list are strings: {command}"
+        )
+
+        # ensure that flags with spaces are wrapped in double-quotes
+        consume_direct_call = " ".join(shlex.quote(arg) for arg in command)
+
         consume_direct_script = textwrap.dedent(
             f"""\
             #!/bin/bash
             {consume_direct_call}
             """
         )
+
         dump_files_to_directory(
             str(debug_output_path),
             {
