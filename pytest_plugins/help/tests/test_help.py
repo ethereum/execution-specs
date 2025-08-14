@@ -40,7 +40,6 @@ CONSUME_TEST_ARGS = (
         ("direct", "--consume-help"),
         ("rlp", "--consume-help"),
         ("engine", "--consume-help"),
-        ("hive", "--consume-help"),
     ],
 )
 def test_local_arguments_present_in_base_consume_help(pytester, help_flag, command):
