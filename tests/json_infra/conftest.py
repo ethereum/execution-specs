@@ -2,7 +2,7 @@ import os
 import shutil
 import tarfile
 from pathlib import Path
-from typing import Final, Optional, Set
+from typing import Callable, Final, Optional, Set
 
 import git
 import requests_cache
@@ -11,7 +11,7 @@ from _pytest.config.argparsing import Parser
 from _pytest.nodes import Item
 from filelock import FileLock
 from git.exc import GitCommandError, InvalidGitRepositoryError
-from pytest import Session, StashKey
+from pytest import Session, StashKey, fixture
 from requests_cache import CachedSession
 from requests_cache.backends.sqlite import SQLiteCache
 from typing_extensions import Self
@@ -25,6 +25,19 @@ except ImportError:
     def get_xdist_worker_id(request_or_session: object) -> str:  # noqa: U100
         del request_or_session
         return "master"
+
+
+@fixture()
+def root_relative() -> Callable[[str | Path], Path]:
+    """
+    A fixture that provides a function to resolve a path relative to
+    `conftest.py`.
+    """
+
+    def _(path: str | Path) -> Path:
+        return Path(__file__).parent / path
+
+    return _
 
 
 def pytest_addoption(parser: Parser) -> None:
