@@ -1,5 +1,9 @@
 {
     "static_LoopCallsThenRevert" : {
+        "_info" : {
+            "comment": "Requires a separate pre-alloc group due to time required to fill when grouped with other tests.",
+            "pytest_marks": ["pre_alloc_group"]
+        },
         "env" : {
             "currentCoinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
             "currentDifficulty" : "0x020000",
