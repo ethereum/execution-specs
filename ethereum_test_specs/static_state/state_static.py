@@ -179,8 +179,13 @@ class StateStaticTest(BaseStaticTest):
 
         if self.info and self.info.pytest_marks:
             for mark in self.info.pytest_marks:
-                apply_mark = getattr(pytest.mark, mark)
-                test_state_vectors = apply_mark(test_state_vectors)
+                if mark == "pre_alloc_group":
+                    test_state_vectors = pytest.mark.pre_alloc_group(
+                        "separate", reason="Requires separate pre-alloc grouping"
+                    )(test_state_vectors)
+                else:
+                    apply_mark = getattr(pytest.mark, mark)
+                    test_state_vectors = apply_mark(test_state_vectors)
 
         if has_tags:
             test_state_vectors = pytest.mark.tagged(test_state_vectors)
