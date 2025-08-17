@@ -18,15 +18,6 @@ from ethereum_types.numeric import U256, Uint
 from ethereum.utils.numeric import ceil32
 
 from ...fork_types import Address
-from ...state import (
-    account_has_code_or_nonce,
-    account_has_storage,
-    get_account,
-    increment_nonce,
-    is_account_alive,
-    move_ether,
-    set_account_balance,
-)
 from ...utils.address import (
     compute_contract_address,
     compute_create2_contract_address,

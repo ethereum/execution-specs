@@ -35,24 +35,29 @@ class MemoryMerkleOracle:
         self._state = state
 
     def get_account(self, address: Address) -> Account:
-        """Get account information for the given address. Returns EMPTY_ACCOUNT if not exists."""
+        """
+        Get account information for the given address.
+
+        Returns EMPTY_ACCOUNT if not exists.
+        """
         from ethereum.osaka.state import get_account
 
         return get_account(self._state, address)
 
     def get_account_optional(self, address: Address) -> Optional[Account]:
-        """Get account information for the given address. Returns None if not exists."""
+        """
+        Get account information for the given address.
+
+        Returns None if not exists.
+        """
         from ethereum.osaka.state import get_account_optional
 
         return get_account_optional(self._state, address)
 
     def get_storage(self, address: Address, key: Bytes32) -> Bytes32:
         """Get storage value at key for the given address."""
-        from ethereum_types.numeric import U256
-
         from ethereum.osaka.state import get_storage
 
-        # Get storage as U256 and convert to Bytes32
         storage_value = get_storage(self._state, address, key)
         return storage_value.to_be_bytes32()
 
@@ -64,8 +69,6 @@ class MemoryMerkleOracle:
 
     def get_storage_original(self, address, key):
         """Get original storage value (before transaction started)."""
-        from ethereum_types.numeric import U256
-
         from ethereum.osaka.state import get_storage_original
 
         storage_value = get_storage_original(self._state, address, key)
@@ -152,11 +155,11 @@ class MemoryMerkleOracle:
 
         destroy_account(self._state, address)
 
-    def modify_state(self, address, modifier_func):
+    def modify_state(self, address, modifier_function):
         """Modify an account using a modifier function."""
         from ethereum.osaka.state import modify_state
 
-        modify_state(self._state, address, modifier_func)
+        modify_state(self._state, address, modifier_function)
 
     @property
     def state(self):

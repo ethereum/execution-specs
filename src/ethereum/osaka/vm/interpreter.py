@@ -33,12 +33,9 @@ from ethereum.trace import (
 from ..blocks import Log
 from ..fork_types import Address
 from ..state import (
-    account_has_code_or_nonce,
-    account_has_storage,
     begin_transaction,
     commit_transaction,
     destroy_storage,
-    get_account,
     increment_nonce,
     mark_account_created,
     move_ether,

@@ -50,7 +50,8 @@ class MerkleOracle(Protocol):
         This is required for SSTORE gas calculations per EIP-2200.
         The implementation should use state snapshots/checkpoints to
         track pre-transaction values.
-        TODO: The oracle does not have a `begin_transaction` method, so it kind of breaks here.
+        TODO: The oracle does not have a `begin_transaction` method,
+        so it kind of breaks here.
 
         Parameters
         ----------
@@ -182,7 +183,7 @@ class MerkleOracle(Protocol):
         ...
 
     def modify_state(
-        self, address: Address, modifier_func: Callable[[Account], None]
+        self, address: Address, modifier_function: Callable[[Account], None]
     ) -> None:
         """
         Modify an account using a modifier function.
@@ -191,7 +192,7 @@ class MerkleOracle(Protocol):
         ----------
         address : Address
             Address of account to modify
-        modifier_func : Callable[[Account], None]
+        modifier_function : Callable[[Account], None]
             Function that takes an account and modifies it in place
         """
         ...

@@ -17,7 +17,6 @@ from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.numeric import Uint
 
 from ..fork_types import Address
-from ..state import get_account
 from ..transactions import Transaction
 from ..vm import BlockEnvironment, Message, TransactionEnvironment
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
