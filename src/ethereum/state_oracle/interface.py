@@ -16,7 +16,9 @@ class MerkleOracle(Protocol):
     Oracle interface for Merkle Patricia Trie based state.
     """
 
-    def get_account(self, address: Address) -> Account:
+    def get_account(
+        self, address: Address  # noqa: U100
+    ) -> Account:  # noqa: U100
         """
         Get account information for the given address.
 
@@ -25,7 +27,9 @@ class MerkleOracle(Protocol):
         Returns EMPTY_ACCOUNT if the account doesn't exist.
         """
 
-    def get_account_optional(self, address: Address) -> Optional[Account]:
+    def get_account_optional(
+        self, address: Address  # noqa: U100
+    ) -> Optional[Account]:  # noqa: U100
         """
         Get account information for the given address.
 
@@ -36,14 +40,17 @@ class MerkleOracle(Protocol):
         empty accounts.
         """
 
-    def get_storage(self, address: Address, key: Bytes32) -> Bytes32:
+    def get_storage(
+        self, address: Address, key: Bytes32  # noqa: U100
+    ) -> Bytes32:  # noqa: U100
         """Get storage value at `key` for the given `address`."""
 
-    def state_root(self) -> Bytes32:
+    def state_root(self) -> Bytes32:  # noqa: U100
         """Compute and return the current state root."""
 
-    # Extensions needed for complete EVM instruction support
-    def get_storage_original(self, address: Address, key: Bytes32) -> Bytes32:
+    def get_storage_original(
+        self, address: Address, key: Bytes32  # noqa: U100
+    ) -> Bytes32:  # noqa: U100
         """
         Get original storage value before current transaction started.
 
@@ -53,7 +60,7 @@ class MerkleOracle(Protocol):
         The implementation should use state snapshots/checkpoints to
         track pre-transaction values.
         TODO: The oracle does not have a `begin_transaction` method,
-        so it kind of breaks here.
+        TODO: so it kind of breaks here.
 
         Parameters
         ----------
@@ -69,7 +76,7 @@ class MerkleOracle(Protocol):
         """
 
     def set_storage_value(
-        self, address: Address, key: Bytes32, value: Any
+        self, address: Address, key: Bytes32, value: Any  # noqa: U100
     ) -> None:
         """
         Set individual storage value.
@@ -87,47 +94,51 @@ class MerkleOracle(Protocol):
             Storage value (U256 or Bytes32)
         """
 
-    def account_has_code_or_nonce(self, address: Address) -> bool:
+    def account_has_code_or_nonce(
+        self, address: Address  # noqa: U100
+    ) -> bool:  # noqa: U100
         """
         Check if account has non-zero code or nonce.
 
         Used during contract creation to check if address is available.
         """
 
-    def account_has_storage(self, address: Address) -> bool:
+    def account_has_storage(self, address: Address) -> bool:  # noqa: U100
         """
         Check if account has any storage slots.
 
         Used during contract creation to check if address is available.
         """
 
-    def is_account_alive(self, address: Address) -> bool:
+    def is_account_alive(self, address: Address) -> bool:  # noqa: U100
         """
         Check if account is alive (exists and not marked for deletion).
 
         Used in CALL instructions and SELFDESTRUCT.
         """
 
-    def account_exists(self, address: Address) -> bool:
+    def account_exists(self, address: Address) -> bool:  # noqa: U100
         """
         Check if account exists in the state.
         """
 
-    def increment_nonce(self, address: Address) -> None:
+    def increment_nonce(self, address: Address) -> None:  # noqa: U100
         """
         Increment account nonce.
 
         Used during contract creation and transaction processing.
         """
 
-    def set_code(self, address: Address, code: Any) -> None:
+    def set_code(self, address: Address, code: Any) -> None:  # noqa: U100
         """
         Set account code.
 
         Used during contract creation and EOA delegation.
         """
 
-    def set_account_balance(self, address: Address, balance: Any) -> None:
+    def set_account_balance(
+        self, address: Address, balance: Any  # noqa: U100
+    ) -> None:  # noqa: U100
         """
         Set account balance.
 
@@ -135,7 +146,7 @@ class MerkleOracle(Protocol):
         """
 
     def move_ether(
-        self, sender: Bytes20, recipient: Bytes20, amount: Any
+        self, sender: Bytes20, recipient: Bytes20, amount: Any  # noqa: U100
     ) -> None:
         """
         Transfer ether between accounts.
@@ -144,14 +155,14 @@ class MerkleOracle(Protocol):
         Used in CALL instructions and contract transfers.
         """
 
-    def add_created_account(self, address: Address) -> None:
+    def add_created_account(self, address: Address) -> None:  # noqa: U100
         """
         Mark account as created in current transaction.
 
         Used for tracking accounts created during transaction execution.
         """
 
-    def is_created_account(self, address: Address) -> bool:
+    def is_created_account(self, address: Address) -> bool:  # noqa: U100
         """
         Check if account was created in current transaction.
 
@@ -159,14 +170,16 @@ class MerkleOracle(Protocol):
         if account was created in current transaction.
         """
 
-    def account_exists_and_is_empty(self, address: Address) -> bool:
+    def account_exists_and_is_empty(
+        self, address: Address  # noqa: U100
+    ) -> bool:  # noqa: U100
         """
         Check if account exists and is empty.
 
         Used for account cleanup logic.
         """
 
-    def destroy_account(self, address: Address) -> None:
+    def destroy_account(self, address: Address) -> None:  # noqa: U100
         """
         Mark account for destruction.
 
@@ -174,7 +187,9 @@ class MerkleOracle(Protocol):
         """
 
     def modify_state(
-        self, address: Address, modifier_function: Callable[[Account], None]
+        self,
+        address: Address,  # noqa: U100
+        modifier_function: Callable[[Account], None],  # noqa: U100
     ) -> None:
         """
         Modify an account using a modifier function.
