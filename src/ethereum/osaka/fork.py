@@ -51,10 +51,7 @@ from .requests import (
     compute_requests_hash,
     parse_deposit_requests,
 )
-from .state import (
-    State,
-    TransientStorage,
-)
+from .state import State, TransientStorage
 from .transactions import (
     AccessListTransaction,
     BlobTransaction,

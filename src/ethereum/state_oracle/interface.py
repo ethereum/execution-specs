@@ -29,14 +29,14 @@ class MerkleOracle(Protocol):
         Get account information for the given address.
 
         Returns None if the account doesn't exist.
-        Use this when you need to distinguish between non-existent and empty accounts.
+        Use this when you need to distinguish between non-existent and
+        empty accounts.
         """
         ...
 
     def get_storage(self, address: Address, key: Bytes32) -> Bytes32:
         """Get storage value at key for the given address."""
         ...
-
 
     def state_root(self) -> Bytes32:
         """Compute and return the current state root."""
@@ -48,8 +48,8 @@ class MerkleOracle(Protocol):
         Get original storage value before current transaction started.
 
         This is required for SSTORE gas calculations per EIP-2200.
-        The implementation should use state snapshots/checkpoints to track
-        pre-transaction values.
+        The implementation should use state snapshots/checkpoints to
+        track pre-transaction values.
         TODO: The oracle does not have a `begin_transaction` method, so it kind of breaks here.
 
         Parameters

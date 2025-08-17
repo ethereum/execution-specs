@@ -2,21 +2,20 @@
 Memory-based state oracle implementation.
 
 This impl wraps the existing execution-specs `State` object
-to provide the oracle interface. 
-This is mainly done as a first pass to make the diff small. 
+to provide the oracle interface.
+This is mainly done as a first pass to make the diff small.
 """
 
 from typing import Any, Optional
 
 from ethereum_types.bytes import Bytes20, Bytes32
 
-# TODO: This file is current Osaka specific -- we could move state.py into here to mitigate this.
+# TODO: This file is current Osaka specific -- we could move state.py
+# into here to mitigate this.
 
 # Use generic types for compatibility across forks
 Account = Any
 Address = Bytes20
-
-from .interface import MerkleOracle
 
 
 class MemoryMerkleOracle:
@@ -56,7 +55,6 @@ class MemoryMerkleOracle:
         # Get storage as U256 and convert to Bytes32
         storage_value = get_storage(self._state, address, key)
         return storage_value.to_be_bytes32()
-
 
     def state_root(self) -> Bytes32:
         """Compute and return the current state root."""

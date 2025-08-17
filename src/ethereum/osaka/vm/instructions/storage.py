@@ -14,10 +14,7 @@ Implementations of the EVM storage related instructions.
 
 from ethereum_types.numeric import U256, Uint
 
-from ...state import (
-    get_transient_storage,
-    set_transient_storage,
-)
+from ...state import get_transient_storage, set_transient_storage
 from .. import Evm
 from ..exceptions import OutOfGasError, WriteInStaticContext
 from ..gas import (
