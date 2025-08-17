@@ -32,16 +32,7 @@ from ethereum.trace import (
 
 from ..blocks import Log
 from ..fork_types import Address
-from ..state import (
-    begin_transaction,
-    commit_transaction,
-    destroy_storage,
-    increment_nonce,
-    mark_account_created,
-    move_ether,
-    rollback_transaction,
-    set_code,
-)
+from ..state import begin_transaction, commit_transaction, rollback_transaction
 from ..vm import Message
 from ..vm.eoa_delegation import get_delegated_code_address, set_delegation
 from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
@@ -169,7 +160,7 @@ def process_create_message(message: Message) -> Evm:
     evm: :py:class:`~ethereum.osaka.vm.Evm`
         Items containing execution specific objects.
     """
-    state = message.block_env.state
+    state = message.block_env.oracle.state
     transient_storage = message.tx_env.transient_storage
     # take snapshot of state before processing the message
     begin_transaction(state, transient_storage)
@@ -181,15 +172,15 @@ def process_create_message(message: Message) -> Evm:
     #   `CREATE` or `CREATE2` call.
     # * The first `CREATE` happened before Spurious Dragon and left empty
     #   code.
-    destroy_storage(state, message.current_target)
+    message.block_env.oracle.destroy_storage(message.current_target)
 
     # In the previously mentioned edge case the preexisting storage is ignored
     # for gas refund purposes. In order to do this we must track created
     # accounts. This tracking is also needed to respect the constraints
     # added to SELFDESTRUCT by EIP-6780.
-    mark_account_created(state, message.current_target)
+    message.block_env.oracle.add_created_account(message.current_target)
 
-    increment_nonce(state, message.current_target)
+    message.block_env.oracle.increment_nonce(message.current_target)
     evm = process_message(message)
     if not evm.error:
         contract_code = evm.output
@@ -207,7 +198,9 @@ def process_create_message(message: Message) -> Evm:
             evm.output = b""
             evm.error = error
         else:
-            set_code(state, message.current_target, contract_code)
+            message.block_env.oracle.set_code(
+                message.current_target, contract_code
+            )
             commit_transaction(state, transient_storage)
     else:
         rollback_transaction(state, transient_storage)
@@ -228,7 +221,7 @@ def process_message(message: Message) -> Evm:
     evm: :py:class:`~ethereum.osaka.vm.Evm`
         Items containing execution specific objects
     """
-    state = message.block_env.state
+    state = message.block_env.oracle.state
     transient_storage = message.tx_env.transient_storage
     if message.depth > STACK_DEPTH_LIMIT:
         raise StackDepthLimitError("Stack depth limit reached")
@@ -237,8 +230,8 @@ def process_message(message: Message) -> Evm:
     begin_transaction(state, transient_storage)
 
     if message.should_transfer_value and message.value != 0:
-        move_ether(
-            state, message.caller, message.current_target, message.value
+        message.block_env.oracle.move_ether(
+            message.caller, message.current_target, message.value
         )
 
     evm = execute_code(message)

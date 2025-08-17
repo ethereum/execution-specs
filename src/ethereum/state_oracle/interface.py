@@ -5,6 +5,7 @@ Abstract interface for state oracle implementations.
 from typing import Any, Callable, Optional, Protocol
 
 from ethereum_types.bytes import Bytes20, Bytes32
+from ethereum_types.numeric import U256
 
 # Use generic types for compatibility across forks
 Account = Any
@@ -76,7 +77,7 @@ class MerkleOracle(Protocol):
         """
 
     def set_storage_value(
-        self, address: Address, key: Bytes32, value: Any  # noqa: U100
+        self, address: Address, key: Bytes32, value: Bytes32  # noqa: U100
     ) -> None:
         """
         Set individual storage value.
@@ -90,8 +91,8 @@ class MerkleOracle(Protocol):
             Contract address
         key : Bytes32
             Storage slot key
-        value : Any
-            Storage value (U256 or Bytes32)
+        value : Bytes32
+            Storage value as 32-byte value
         """
 
     def account_has_code_or_nonce(
@@ -137,7 +138,7 @@ class MerkleOracle(Protocol):
         """
 
     def set_account_balance(
-        self, address: Address, balance: Any  # noqa: U100
+        self, address: Address, balance: U256  # noqa: U100
     ) -> None:  # noqa: U100
         """
         Set account balance.
@@ -146,7 +147,7 @@ class MerkleOracle(Protocol):
         """
 
     def move_ether(
-        self, sender: Bytes20, recipient: Bytes20, amount: Any  # noqa: U100
+        self, sender: Bytes20, recipient: Bytes20, amount: U256  # noqa: U100
     ) -> None:
         """
         Transfer ether between accounts.
@@ -186,6 +187,11 @@ class MerkleOracle(Protocol):
         Used in SELFDESTRUCT and account cleanup.
         """
 
+    def destroy_storage(self, address: Address) -> None:  # noqa: U100
+        """
+        Completely remove the storage at address.
+        """
+
     def modify_state(
         self,
         address: Address,  # noqa: U100
@@ -201,3 +207,7 @@ class MerkleOracle(Protocol):
         modifier_function : Callable[[Account], None]
             Function that takes an account and modifies it in place
         """
+
+    @property
+    def state(self) -> Any:  # noqa: U100
+        """Access to underlying state for compatibility."""

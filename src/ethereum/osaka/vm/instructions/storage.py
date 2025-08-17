@@ -123,7 +123,9 @@ def sstore(evm: Evm) -> None:
     charge_gas(evm, gas_cost)
     if evm.message.is_static:
         raise WriteInStaticContext
-    oracle.set_storage_value(evm.message.current_target, key, new_value)
+    oracle.set_storage_value(
+        evm.message.current_target, key, new_value.to_be_bytes32()
+    )
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)

@@ -13,7 +13,7 @@ Entry point for the Ethereum specification.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
@@ -179,7 +179,9 @@ def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
     return recent_block_hashes
 
 
-def state_transition(chain: BlockChain, block: Block, oracle=None) -> None:
+def state_transition(
+    chain: BlockChain, block: Block, oracle: Optional[Any] = None
+) -> None:
     """
     Attempts to apply a block to an existing block chain.
 
