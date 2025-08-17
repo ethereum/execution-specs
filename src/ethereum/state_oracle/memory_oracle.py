@@ -6,10 +6,9 @@ to provide the oracle interface.
 This is mainly done as a first pass to make the diff small. 
 """
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional
 
 from ethereum_types.bytes import Bytes20, Bytes32
-from ethereum_types.numeric import Uint
 
 # TODO: This file is current Osaka specific -- we could move state.py into here to mitigate this.
 
@@ -58,30 +57,6 @@ class MemoryMerkleOracle:
         storage_value = get_storage(self._state, address, key)
         return storage_value.to_be_bytes32()
 
-    def write(
-        self,
-        accounts: Dict[Bytes20, Optional[Any]],
-        storage: Dict[Tuple[Bytes20, Bytes32], Bytes32],
-    ) -> None:
-        """Write account and storage changes to state."""
-        from ethereum_types.numeric import U256
-
-        from ethereum.osaka.state import (
-            destroy_account,
-            set_account,
-            set_storage,
-        )
-
-        # Write account changes
-        for address, account in accounts.items():
-            if account is None:
-                destroy_account(self._state, address)
-            else:
-                set_account(self._state, address, account)
-
-        for (address, key), value in storage.items():
-            storage_value = U256.from_be_bytes(value)
-            set_storage(self._state, address, key, storage_value)
 
     def state_root(self) -> Bytes32:
         """Compute and return the current state root."""

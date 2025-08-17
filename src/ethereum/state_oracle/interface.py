@@ -2,7 +2,7 @@
 Abstract interface for state oracle implementations.
 """
 
-from typing import Any, Callable, Dict, Optional, Protocol, Tuple
+from typing import Any, Callable, Optional, Protocol
 
 from ethereum_types.bytes import Bytes20, Bytes32
 
@@ -37,22 +37,6 @@ class MerkleOracle(Protocol):
         """Get storage value at key for the given address."""
         ...
 
-    def write(
-        self,
-        accounts: Dict[Address, Optional[Account]],
-        storage: Dict[Tuple[Address, Bytes32], Bytes32],
-    ) -> None:
-        """
-        Write account and storage changes to state.
-
-        Parameters
-        ----------
-        accounts : Dict[Address, Optional[Account]]
-            Account changes. None values indicate account deletion.
-        storage : Dict[Tuple[Address, Bytes32], Bytes32]
-            Storage changes as (address, key) -> value mapping.
-        """
-        ...
 
     def state_root(self) -> Bytes32:
         """Compute and return the current state root."""
