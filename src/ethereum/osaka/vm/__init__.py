@@ -21,10 +21,11 @@ from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import EthereumException
+from ethereum.state_oracle import MerkleOracle
 
 from ..blocks import Log, Receipt, Withdrawal
 from ..fork_types import Address, Authorization, VersionedHash
-from ..state import State, TransientStorage
+from ..state import TransientStorage
 from ..transactions import LegacyTransaction
 from ..trie import Trie
 
@@ -38,7 +39,7 @@ class BlockEnvironment:
     """
 
     chain_id: U64
-    state: State
+    oracle: MerkleOracle
     block_gas_limit: Uint
     block_hashes: List[Hash32]
     coinbase: Address

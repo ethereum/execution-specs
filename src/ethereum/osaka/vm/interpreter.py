@@ -108,9 +108,9 @@ def process_message_call(message: Message) -> MessageCallOutput:
     block_env = message.block_env
     refund_counter = U256(0)
     if message.target == Bytes0(b""):
-        is_collision = account_has_code_or_nonce(
-            block_env.state, message.current_target
-        ) or account_has_storage(block_env.state, message.current_target)
+        is_collision = block_env.oracle.account_has_code_or_nonce(
+            message.current_target
+        ) or block_env.oracle.account_has_storage(message.current_target)
         if is_collision:
             return MessageCallOutput(
                 Uint(0),
@@ -130,7 +130,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
         if delegated_address is not None:
             message.disable_precompiles = True
             message.accessed_addresses.add(delegated_address)
-            message.code = get_account(block_env.state, delegated_address).code
+            message.code = block_env.oracle.get_account(delegated_address).code
             message.code_address = delegated_address
 
         evm = process_message(message)

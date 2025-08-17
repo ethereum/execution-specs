@@ -54,13 +54,6 @@ from .requests import (
 from .state import (
     State,
     TransientStorage,
-    account_exists_and_is_empty,
-    destroy_account,
-    get_account,
-    increment_nonce,
-    modify_state,
-    set_account_balance,
-    state_root,
 )
 from .transactions import (
     AccessListTransaction,
@@ -189,7 +182,7 @@ def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
     return recent_block_hashes
 
 
-def state_transition(chain: BlockChain, block: Block) -> None:
+def state_transition(chain: BlockChain, block: Block, oracle=None) -> None:
     """
     Attempts to apply a block to an existing block chain.
 
@@ -210,6 +203,8 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         History and current state.
     block :
         Block to apply to `chain`.
+    oracle : MerkleOracle
+        State oracle for accessing blockchain state. Must be provided.
     """
     if len(rlp.encode(block)) > MAX_RLP_BLOCK_SIZE:
         raise InvalidBlock("Block rlp size exceeds MAX_RLP_BLOCK_SIZE")
@@ -218,9 +213,13 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     if block.ommers != ():
         raise InvalidBlock
 
+    # Oracle must be provided
+    if oracle is None:
+        raise ValueError("Oracle parameter is required for state_transition")
+
     block_env = vm.BlockEnvironment(
         chain_id=chain.chain_id,
-        state=chain.state,
+        oracle=oracle,
         block_gas_limit=block.header.gas_limit,
         block_hashes=get_last_256_block_hashes(chain),
         coinbase=block.header.coinbase,
@@ -237,7 +236,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         transactions=block.transactions,
         withdrawals=block.withdrawals,
     )
-    block_state_root = state_root(block_env.state)
+    block_state_root = block_env.oracle.state_root()
     transactions_root = root(block_output.transactions_trie)
     receipt_root = root(block_output.receipts_trie)
     block_logs_bloom = logs_bloom(block_output.block_logs)
@@ -461,7 +460,7 @@ def check_transaction(
         raise BlobGasLimitExceededError("blob gas limit exceeded")
 
     sender_address = recover_sender(block_env.chain_id, tx)
-    sender_account = get_account(block_env.state, sender_address)
+    sender_account = block_env.oracle.get_account(sender_address)
 
     if isinstance(
         tx, (FeeMarketTransaction, BlobTransaction, SetCodeTransaction)
@@ -666,7 +665,7 @@ def process_checked_system_transaction(
     system_tx_output : `MessageCallOutput`
         Output of processing the system transaction.
     """
-    system_contract_code = get_account(block_env.state, target_address).code
+    system_contract_code = block_env.oracle.get_account(target_address).code
 
     if len(system_contract_code) == 0:
         raise InvalidBlock(
@@ -713,7 +712,7 @@ def process_unchecked_system_transaction(
     system_tx_output : `MessageCallOutput`
         Output of processing the system transaction.
     """
-    system_contract_code = get_account(block_env.state, target_address).code
+    system_contract_code = block_env.oracle.get_account(target_address).code
     return process_system_transaction(
         block_env,
         target_address,
@@ -870,7 +869,7 @@ def process_transaction(
         tx=tx,
     )
 
-    sender_account = get_account(block_env.state, sender)
+    sender_account = block_env.oracle.get_account(sender)
 
     if isinstance(tx, BlobTransaction):
         blob_gas_fee = calculate_data_fee(block_env.excess_blob_gas, tx)
@@ -880,13 +879,13 @@ def process_transaction(
     effective_gas_fee = tx.gas * effective_gas_price
 
     gas = tx.gas - intrinsic_gas
-    increment_nonce(block_env.state, sender)
+    block_env.oracle.increment_nonce(sender)
 
     sender_balance_after_gas_fee = (
         Uint(sender_account.balance) - effective_gas_fee - blob_gas_fee
     )
-    set_account_balance(
-        block_env.state, sender, U256(sender_balance_after_gas_fee)
+    block_env.oracle.set_account_balance(
+        sender, U256(sender_balance_after_gas_fee)
     )
 
     access_list_addresses = set()
@@ -949,26 +948,29 @@ def process_transaction(
     transaction_fee = tx_gas_used_after_refund * priority_fee_per_gas
 
     # refund gas
-    sender_balance_after_refund = get_account(
-        block_env.state, sender
-    ).balance + U256(gas_refund_amount)
-    set_account_balance(block_env.state, sender, sender_balance_after_refund)
+    current_sender_balance = block_env.oracle.get_account(sender).balance
+    sender_balance_after_refund = current_sender_balance + U256(
+        gas_refund_amount
+    )
+    block_env.oracle.set_account_balance(sender, sender_balance_after_refund)
 
     # transfer miner fees
-    coinbase_balance_after_mining_fee = get_account(
-        block_env.state, block_env.coinbase
-    ).balance + U256(transaction_fee)
+    current_coinbase_balance = block_env.oracle.get_account(
+        block_env.coinbase
+    ).balance
+    coinbase_balance_after_mining_fee = current_coinbase_balance + U256(
+        transaction_fee
+    )
     if coinbase_balance_after_mining_fee != 0:
-        set_account_balance(
-            block_env.state,
+        block_env.oracle.set_account_balance(
             block_env.coinbase,
             coinbase_balance_after_mining_fee,
         )
-    elif account_exists_and_is_empty(block_env.state, block_env.coinbase):
-        destroy_account(block_env.state, block_env.coinbase)
+    elif block_env.oracle.account_exists_and_is_empty(block_env.coinbase):
+        block_env.oracle.destroy_account(block_env.coinbase)
 
     for address in tx_output.accounts_to_delete:
-        destroy_account(block_env.state, address)
+        block_env.oracle.destroy_account(address)
 
     block_output.block_gas_used += tx_gas_used_after_refund
     block_output.blob_gas_used += tx_blob_gas_used
@@ -1008,10 +1010,10 @@ def process_withdrawals(
             rlp.encode(wd),
         )
 
-        modify_state(block_env.state, wd.address, increase_recipient_balance)
+        block_env.oracle.modify_state(wd.address, increase_recipient_balance)
 
-        if account_exists_and_is_empty(block_env.state, wd.address):
-            destroy_account(block_env.state, wd.address)
+        if block_env.oracle.account_exists_and_is_empty(wd.address):
+            block_env.oracle.destroy_account(wd.address)
 
 
 def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:

@@ -2,7 +2,6 @@
 Set EOA account code.
 """
 
-
 from typing import Optional, Tuple
 
 from ethereum_rlp import rlp
@@ -20,7 +19,7 @@ from ..vm.gas import GAS_COLD_ACCOUNT_ACCESS, GAS_WARM_ACCESS
 from . import Evm, Message
 
 SET_CODE_TX_MAGIC = b"\x05"
-EOA_DELEGATION_MARKER = b"\xEF\x01\x00"
+EOA_DELEGATION_MARKER = b"\xef\x01\x00"
 EOA_DELEGATION_MARKER_LENGTH = len(EOA_DELEGATION_MARKER)
 EOA_DELEGATED_CODE_LENGTH = 23
 PER_EMPTY_ACCOUNT_COST = 25000
@@ -130,8 +129,8 @@ def access_delegation(
     delegation : `Tuple[bool, Address, Bytes, Uint]`
         The delegation address, code, and access gas cost.
     """
-    state = evm.message.block_env.state
-    code = get_account(state, address).code
+    oracle = evm.message.block_env.oracle
+    code = oracle.get_account(address).code
     if not is_valid_delegation(code):
         return False, address, code, Uint(0)
 
@@ -141,7 +140,7 @@ def access_delegation(
     else:
         evm.accessed_addresses.add(address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
-    code = get_account(state, address).code
+    code = oracle.get_account(address).code
 
     return True, address, code, access_gas_cost
 
@@ -162,7 +161,7 @@ def set_delegation(message: Message) -> U256:
     refund_counter: `U256`
         Refund from authority which already exists in state.
     """
-    state = message.block_env.state
+    oracle = message.block_env.oracle
     refund_counter = U256(0)
     for auth in message.tx_env.authorizations:
         if auth.chain_id not in (message.block_env.chain_id, U256(0)):
@@ -178,7 +177,7 @@ def set_delegation(message: Message) -> U256:
 
         message.accessed_addresses.add(authority)
 
-        authority_account = get_account(state, authority)
+        authority_account = oracle.get_account(authority)
         authority_code = authority_account.code
 
         if authority_code and not is_valid_delegation(authority_code):
@@ -188,20 +187,20 @@ def set_delegation(message: Message) -> U256:
         if authority_nonce != auth.nonce:
             continue
 
-        if account_exists(state, authority):
+        if oracle.account_exists(authority):
             refund_counter += U256(PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST)
 
         if auth.address == NULL_ADDRESS:
             code_to_set = b""
         else:
             code_to_set = EOA_DELEGATION_MARKER + auth.address
-        set_code(state, authority, code_to_set)
+        oracle.set_code(authority, code_to_set)
 
-        increment_nonce(state, authority)
+        oracle.increment_nonce(authority)
 
     if message.code_address is None:
         raise InvalidBlock("Invalid type 4 transaction: no target")
 
-    message.code = get_account(state, message.code_address).code
+    message.code = oracle.get_account(message.code_address).code
 
     return refund_counter
