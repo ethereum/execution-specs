@@ -478,7 +478,7 @@ def account_exists_and_is_empty(state: State, address: Address) -> bool:
 
 def is_account_alive(state: State, address: Address) -> bool:
     """
-    Check whether an account is in the state and non-empty.
+    Check whether an account is both in the state and non-empty.
 
     Parameters
     ----------
