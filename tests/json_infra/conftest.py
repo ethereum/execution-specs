@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Final, Optional, Set
 
 import git
+import pytest
 import requests_cache
 from _pytest.config import Config
 from _pytest.config.argparsing import Parser
@@ -215,6 +216,14 @@ fixture_lock = StashKey[Optional[FileLock]]()
 
 
 def pytest_sessionstart(session: Session) -> None:  # noqa: U100
+    # used for mutmut mutation testing
+    all_fixtures_ready = all(
+        os.path.exists(props["fixture_path"])
+        for props in TEST_FIXTURES.values()
+    )
+    if os.environ.get("MUTANT_UNDER_TEST") and all_fixtures_ready:
+        return
+
     if get_xdist_worker_id(session) != "master":
         return
 
@@ -250,8 +259,17 @@ def pytest_sessionfinish(
     if get_xdist_worker_id(session) != "master":
         return
 
-    lock_file = session.stash[fixture_lock]
-    session.stash[fixture_lock] = None
+    if fixture_lock in session.stash:
+        lock_file = session.stash[fixture_lock]
+        session.stash[fixture_lock] = None
 
-    assert lock_file is not None
-    lock_file.release()
+        assert lock_file is not None
+        lock_file.release()
+
+
+# This is required explicitly becuase when the source does not have any
+# mutable code, mutmut does not run the forced fail condition.
+@pytest.fixture(autouse=True)
+def mutmut_forced_fail() -> None:
+    if os.environ.get("MUTANT_UNDER_TEST") == "fail":
+        pytest.fail("Forced fail for mutmut sanity check")
