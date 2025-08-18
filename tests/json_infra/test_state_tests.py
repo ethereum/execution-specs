@@ -17,7 +17,7 @@ ANGRY_MUTANT_CASES = (
     "ABAcalls2",
     "CallRecursiveBomb0",
     "CallRecursiveBomb1",
-    "CallRecursiveBombLog"
+    "CallRecursiveBombLog",
 )
 
 
@@ -25,7 +25,7 @@ def is_angry_mutant(test_case: Any) -> bool:
     return any(case in str(test_case) for case in ANGRY_MUTANT_CASES)
 
 
-def get_marked_state_test_cases(fork_name: str):
+def get_marked_state_test_cases(fork_name: str) -> list:
     """Get state test cases with angry mutant marking for the given fork."""
     return [
         pytest.param(tc, marks=pytest.mark.angry_mutant)
