@@ -101,6 +101,7 @@ jobs:
     needs: static
     outputs:
       changed-forks: ${{ steps.filter-tests.outputs.forks }}
+      fork-mapping: ${{ steps.filter-tests.outputs.fork_mapping }}
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python
@@ -119,16 +120,29 @@ jobs:
           FILTERED=$(for f in $CHANGED_FORKS; do for v in "${VALID_FORKS_ARR[@]}"; do [ "$f" = "$v" ] && echo $f; done; done | jq -R . | jq -s -c .)
           echo "FILTERED (final forks for matrix): $FILTERED"
           echo "forks=$FILTERED" >> $GITHUB_OUTPUT
-      - name: Filter out forks without test directories
+      - name: Filter out forks without tests
         id: filter-tests
         run: |
+          FORK_DATA=$(python -c "
+          import sys
+          sys.path.insert(0, 'tests')
+          from json_infra import FORKS
+          import json
+          eels_to_json = {}
+          for json_fork, config in FORKS.items():
+              eels_to_json[config['eels_fork']] = json_fork
+          print(json.dumps(eels_to_json))
+          ")
+          
+          AVAILABLE_EELS_FORKS=$(echo "$FORK_DATA" | jq -r 'keys[]')
           FILTERED_WITH_TESTS=$(for f in $(echo '${{ steps.set-forks.outputs.forks }}' | jq -r '.[]'); do
-            if [ -d "tests/$f" ]; then
+            if echo "$AVAILABLE_EELS_FORKS" | grep -q "^$f$"; then
               echo $f
             fi
           done | jq -R . | jq -s -c .)
           echo "FILTERED_WITH_TESTS: $FILTERED_WITH_TESTS"
           echo "forks=$FILTERED_WITH_TESTS" >> $GITHUB_OUTPUT
+          echo "fork_mapping=$FORK_DATA" >> $GITHUB_OUTPUT
 
   mutation-test:
     runs-on: [self-hosted-ghr, size-xl-x64]
@@ -148,7 +162,7 @@ jobs:
       - name: Install project with test dependencies
         run: pip install '.[test]'
       - name: Install mutmut
-        run: pip install git+https://github.com/souradeep-das/mutmut.git@562d5c65ce156f46d2586bcff4b8e0add8b2be39
+        run: pip install git+https://github.com/souradeep-das/mutmut.git@cc99e509092ed232600712d9d77fb38be31f74ec
       - name: Find changed files for fork
         id: changed
         run: |
@@ -168,11 +182,18 @@ jobs:
         run: |
           mkdir -p mutants/src
           cp -r src/* mutants/src/
+      - name: Determine JSON fork name
+        if: steps.changed.outputs.changed_files != ''
+        id: json-fork
+        run: |
+          JSON_FORK=$(echo '${{ needs.changed-forks.outputs.fork-mapping }}' | jq -r '."${{ matrix.fork }}"')
+          echo "json_fork=$JSON_FORK" >> $GITHUB_OUTPUT
+          echo "Found JSON fork name: $JSON_FORK for eels fork: ${{ matrix.fork }}"
       - name: Run mutmut
         if: steps.changed.outputs.changed_files != ''
         run: |
           FILES=$(echo "${{ steps.changed.outputs.changed_files }}" | paste -sd, -)
-          mutmut --paths-to-mutate $FILES --tests-dir tests/${{ matrix.fork }}/ --debug run
-      - name: Mutmut results
+          mutmut --paths-to-mutate $FILES --tests-dir tests/json_infra/ --pytest-extra-args '-m "not slow and not angry_mutant" --ignore-glob=tests/json_infra/fixtures/* --fork ${{ steps.json-fork.outputs.json_fork }}' --debug run
+      - name: Show mutmut results
         if: steps.changed.outputs.changed_files != ''
         run: mutmut results
