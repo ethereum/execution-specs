@@ -51,7 +51,7 @@ def sload(evm: Evm) -> None:
         charge_gas(evm, GAS_COLD_SLOAD)
 
     # OPERATION
-    oracle = evm.message.block_env.oracle
+    oracle = evm.message.block_env.get_oracle()
     value_bytes = oracle.get_storage(evm.message.current_target, key)
     value = U256.from_be_bytes(value_bytes)
 
@@ -77,7 +77,7 @@ def sstore(evm: Evm) -> None:
     if evm.gas_left <= GAS_CALL_STIPEND:
         raise OutOfGasError
 
-    oracle = evm.message.block_env.oracle
+    oracle = evm.message.block_env.get_oracle()
     original_value_bytes = oracle.get_storage_original(
         evm.message.current_target, key
     )

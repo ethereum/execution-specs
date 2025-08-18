@@ -96,9 +96,9 @@ def process_message_call(message: Message) -> MessageCallOutput:
     block_env = message.block_env
     refund_counter = U256(0)
     if message.target == Bytes0(b""):
-        is_collision = block_env.oracle.account_has_code_or_nonce(
+        is_collision = block_env.get_oracle().account_has_code_or_nonce(
             message.current_target
-        ) or block_env.oracle.account_has_storage(message.current_target)
+        ) or block_env.get_oracle().account_has_storage(message.current_target)
         if is_collision:
             return MessageCallOutput(
                 Uint(0),
@@ -118,7 +118,9 @@ def process_message_call(message: Message) -> MessageCallOutput:
         if delegated_address is not None:
             message.disable_precompiles = True
             message.accessed_addresses.add(delegated_address)
-            message.code = block_env.oracle.get_account(delegated_address).code
+            message.code = (
+                block_env.get_oracle().get_account(delegated_address).code
+            )
             message.code_address = delegated_address
 
         evm = process_message(message)
@@ -160,7 +162,7 @@ def process_create_message(message: Message) -> Evm:
     evm: :py:class:`~ethereum.osaka.vm.Evm`
         Items containing execution specific objects.
     """
-    state = message.block_env.oracle.state
+    state = message.block_env.get_oracle().state
     transient_storage = message.tx_env.transient_storage
     # take snapshot of state before processing the message
     begin_transaction(state, transient_storage)
@@ -172,15 +174,15 @@ def process_create_message(message: Message) -> Evm:
     #   `CREATE` or `CREATE2` call.
     # * The first `CREATE` happened before Spurious Dragon and left empty
     #   code.
-    message.block_env.oracle.destroy_storage(message.current_target)
+    message.block_env.get_oracle().destroy_storage(message.current_target)
 
     # In the previously mentioned edge case the preexisting storage is ignored
     # for gas refund purposes. In order to do this we must track created
     # accounts. This tracking is also needed to respect the constraints
     # added to SELFDESTRUCT by EIP-6780.
-    message.block_env.oracle.add_created_account(message.current_target)
+    message.block_env.get_oracle().add_created_account(message.current_target)
 
-    message.block_env.oracle.increment_nonce(message.current_target)
+    message.block_env.get_oracle().increment_nonce(message.current_target)
     evm = process_message(message)
     if not evm.error:
         contract_code = evm.output
@@ -198,7 +200,7 @@ def process_create_message(message: Message) -> Evm:
             evm.output = b""
             evm.error = error
         else:
-            message.block_env.oracle.set_code(
+            message.block_env.get_oracle().set_code(
                 message.current_target, contract_code
             )
             commit_transaction(state, transient_storage)
@@ -221,7 +223,7 @@ def process_message(message: Message) -> Evm:
     evm: :py:class:`~ethereum.osaka.vm.Evm`
         Items containing execution specific objects
     """
-    state = message.block_env.oracle.state
+    state = message.block_env.get_oracle().state
     transient_storage = message.tx_env.transient_storage
     if message.depth > STACK_DEPTH_LIMIT:
         raise StackDepthLimitError("Stack depth limit reached")
@@ -230,7 +232,7 @@ def process_message(message: Message) -> Evm:
     begin_transaction(state, transient_storage)
 
     if message.should_transfer_value and message.value != 0:
-        message.block_env.oracle.move_ether(
+        message.block_env.get_oracle().move_ether(
             message.caller, message.current_target, message.value
         )
 

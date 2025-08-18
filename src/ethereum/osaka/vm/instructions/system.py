@@ -82,7 +82,7 @@ def generic_create(
     evm.return_data = b""
 
     sender_address = evm.message.current_target
-    oracle = evm.message.block_env.oracle
+    oracle = evm.message.block_env.get_oracle()
     sender = oracle.get_account(sender_address)
 
     if (
@@ -159,7 +159,7 @@ def create(evm: Evm) -> None:
     charge_gas(evm, GAS_CREATE + extend_memory.cost + init_code_gas)
 
     # OPERATION
-    oracle = evm.message.block_env.oracle
+    oracle = evm.message.block_env.get_oracle()
     evm.memory += b"\x00" * extend_memory.expand_by
     contract_address = compute_contract_address(
         evm.message.current_target,
@@ -374,7 +374,7 @@ def call(evm: Evm) -> None:
     ) = access_delegation(evm, code_address)
     access_gas_cost += delegated_access_gas_cost
 
-    oracle = evm.message.block_env.oracle
+    oracle = evm.message.block_env.get_oracle()
     create_gas_cost = GAS_NEW_ACCOUNT
     if value == 0 or oracle.is_account_alive(to):
         create_gas_cost = Uint(0)
@@ -471,7 +471,7 @@ def callcode(evm: Evm) -> None:
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 
     # OPERATION
-    oracle = evm.message.block_env.oracle
+    oracle = evm.message.block_env.get_oracle()
     evm.memory += b"\x00" * extend_memory.expand_by
     sender_balance = oracle.get_account(evm.message.current_target).balance
     if sender_balance < value:
@@ -518,7 +518,7 @@ def selfdestruct(evm: Evm) -> None:
         evm.accessed_addresses.add(beneficiary)
         gas_cost += GAS_COLD_ACCOUNT_ACCESS
 
-    oracle = evm.message.block_env.oracle
+    oracle = evm.message.block_env.get_oracle()
     current_balance = oracle.get_account(evm.message.current_target).balance
 
     if not oracle.is_account_alive(beneficiary) and current_balance != 0:

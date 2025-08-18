@@ -13,7 +13,7 @@ Entry point for the Ethereum specification.
 """
 
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
@@ -179,9 +179,7 @@ def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
     return recent_block_hashes
 
 
-def state_transition(
-    chain: BlockChain, block: Block, oracle: Optional[Any] = None
-) -> None:
+def state_transition(chain: BlockChain, block: Block) -> None:
     """
     Attempts to apply a block to an existing block chain.
 
@@ -212,13 +210,9 @@ def state_transition(
     if block.ommers != ():
         raise InvalidBlock
 
-    # Oracle must be provided
-    if oracle is None:
-        raise ValueError("Oracle parameter is required for state_transition")
-
     block_env = vm.BlockEnvironment(
         chain_id=chain.chain_id,
-        oracle=oracle,
+        state=chain.state,
         block_gas_limit=block.header.gas_limit,
         block_hashes=get_last_256_block_hashes(chain),
         coinbase=block.header.coinbase,
@@ -235,7 +229,7 @@ def state_transition(
         transactions=block.transactions,
         withdrawals=block.withdrawals,
     )
-    block_state_root = block_env.oracle.state_root()
+    block_state_root = block_env.get_oracle().state_root()
     transactions_root = root(block_output.transactions_trie)
     receipt_root = root(block_output.receipts_trie)
     block_logs_bloom = logs_bloom(block_output.block_logs)
@@ -459,7 +453,7 @@ def check_transaction(
         raise BlobGasLimitExceededError("blob gas limit exceeded")
 
     sender_address = recover_sender(block_env.chain_id, tx)
-    sender_account = block_env.oracle.get_account(sender_address)
+    sender_account = block_env.get_oracle().get_account(sender_address)
 
     if isinstance(
         tx, (FeeMarketTransaction, BlobTransaction, SetCodeTransaction)
@@ -664,7 +658,9 @@ def process_checked_system_transaction(
     system_tx_output : `MessageCallOutput`
         Output of processing the system transaction.
     """
-    system_contract_code = block_env.oracle.get_account(target_address).code
+    system_contract_code = (
+        block_env.get_oracle().get_account(target_address).code
+    )
 
     if len(system_contract_code) == 0:
         raise InvalidBlock(
@@ -711,7 +707,9 @@ def process_unchecked_system_transaction(
     system_tx_output : `MessageCallOutput`
         Output of processing the system transaction.
     """
-    system_contract_code = block_env.oracle.get_account(target_address).code
+    system_contract_code = (
+        block_env.get_oracle().get_account(target_address).code
+    )
     return process_system_transaction(
         block_env,
         target_address,
@@ -868,7 +866,7 @@ def process_transaction(
         tx=tx,
     )
 
-    sender_account = block_env.oracle.get_account(sender)
+    sender_account = block_env.get_oracle().get_account(sender)
 
     if isinstance(tx, BlobTransaction):
         blob_gas_fee = calculate_data_fee(block_env.excess_blob_gas, tx)
@@ -878,12 +876,12 @@ def process_transaction(
     effective_gas_fee = tx.gas * effective_gas_price
 
     gas = tx.gas - intrinsic_gas
-    block_env.oracle.increment_nonce(sender)
+    block_env.get_oracle().increment_nonce(sender)
 
     sender_balance_after_gas_fee = (
         Uint(sender_account.balance) - effective_gas_fee - blob_gas_fee
     )
-    block_env.oracle.set_account_balance(
+    block_env.get_oracle().set_account_balance(
         sender, U256(sender_balance_after_gas_fee)
     )
 
@@ -947,29 +945,33 @@ def process_transaction(
     transaction_fee = tx_gas_used_after_refund * priority_fee_per_gas
 
     # refund gas
-    current_sender_balance = block_env.oracle.get_account(sender).balance
+    current_sender_balance = block_env.get_oracle().get_account(sender).balance
     sender_balance_after_refund = current_sender_balance + U256(
         gas_refund_amount
     )
-    block_env.oracle.set_account_balance(sender, sender_balance_after_refund)
+    block_env.get_oracle().set_account_balance(
+        sender, sender_balance_after_refund
+    )
 
     # transfer miner fees
-    current_coinbase_balance = block_env.oracle.get_account(
-        block_env.coinbase
-    ).balance
+    current_coinbase_balance = (
+        block_env.get_oracle().get_account(block_env.coinbase).balance
+    )
     coinbase_balance_after_mining_fee = current_coinbase_balance + U256(
         transaction_fee
     )
     if coinbase_balance_after_mining_fee != 0:
-        block_env.oracle.set_account_balance(
+        block_env.get_oracle().set_account_balance(
             block_env.coinbase,
             coinbase_balance_after_mining_fee,
         )
-    elif block_env.oracle.account_exists_and_is_empty(block_env.coinbase):
-        block_env.oracle.destroy_account(block_env.coinbase)
+    elif block_env.get_oracle().account_exists_and_is_empty(
+        block_env.coinbase
+    ):
+        block_env.get_oracle().destroy_account(block_env.coinbase)
 
     for address in tx_output.accounts_to_delete:
-        block_env.oracle.destroy_account(address)
+        block_env.get_oracle().destroy_account(address)
 
     block_output.block_gas_used += tx_gas_used_after_refund
     block_output.blob_gas_used += tx_blob_gas_used
@@ -1009,10 +1011,12 @@ def process_withdrawals(
             rlp.encode(wd),
         )
 
-        block_env.oracle.modify_state(wd.address, increase_recipient_balance)
+        block_env.get_oracle().modify_state(
+            wd.address, increase_recipient_balance
+        )
 
-        if block_env.oracle.account_exists_and_is_empty(wd.address):
-            block_env.oracle.destroy_account(wd.address)
+        if block_env.get_oracle().account_exists_and_is_empty(wd.address):
+            block_env.get_oracle().destroy_account(wd.address)
 
 
 def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:

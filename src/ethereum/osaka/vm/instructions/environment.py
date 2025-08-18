@@ -83,7 +83,7 @@ def balance(evm: Evm) -> None:
         charge_gas(evm, GAS_COLD_ACCOUNT_ACCESS)
 
     # OPERATION
-    oracle = evm.message.block_env.oracle
+    oracle = evm.message.block_env.get_oracle()
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
     balance = oracle.get_account(address).balance
 
@@ -351,7 +351,7 @@ def extcodesize(evm: Evm) -> None:
     charge_gas(evm, access_gas_cost)
 
     # OPERATION
-    oracle = evm.message.block_env.oracle
+    oracle = evm.message.block_env.get_oracle()
     code = oracle.get_account(address).code
 
     codesize = U256(len(code))
@@ -394,7 +394,7 @@ def extcodecopy(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-    oracle = evm.message.block_env.oracle
+    oracle = evm.message.block_env.get_oracle()
     code = oracle.get_account(address).code
 
     value = buffer_read(code, code_start_index, size)
@@ -481,7 +481,7 @@ def extcodehash(evm: Evm) -> None:
     charge_gas(evm, access_gas_cost)
 
     # OPERATION
-    oracle = evm.message.block_env.oracle
+    oracle = evm.message.block_env.get_oracle()
     account = oracle.get_account(address)
 
     if account == EMPTY_ACCOUNT:
@@ -513,7 +513,7 @@ def self_balance(evm: Evm) -> None:
     charge_gas(evm, GAS_FAST_STEP)
 
     # OPERATION
-    oracle = evm.message.block_env.oracle
+    oracle = evm.message.block_env.get_oracle()
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
     balance = oracle.get_account(evm.message.current_target).balance
 

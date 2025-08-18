@@ -53,7 +53,7 @@ def prepare_message(
     if isinstance(tx.to, Bytes0):
         current_target = compute_contract_address(
             tx_env.origin,
-            block_env.oracle.get_account(tx_env.origin).nonce - Uint(1),
+            block_env.get_oracle().get_account(tx_env.origin).nonce - Uint(1),
         )
         msg_data = Bytes(b"")
         code = tx.data
@@ -61,7 +61,7 @@ def prepare_message(
     elif isinstance(tx.to, Address):
         current_target = tx.to
         msg_data = tx.data
-        code = block_env.oracle.get_account(tx.to).code
+        code = block_env.get_oracle().get_account(tx.to).code
         code_address = tx.to
     else:
         raise AssertionError("Target must be address or empty bytes")

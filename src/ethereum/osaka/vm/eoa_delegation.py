@@ -128,7 +128,7 @@ def access_delegation(
     delegation : `Tuple[bool, Address, Bytes, Uint]`
         The delegation address, code, and access gas cost.
     """
-    oracle = evm.message.block_env.oracle
+    oracle = evm.message.block_env.get_oracle()
     code = oracle.get_account(address).code
     if not is_valid_delegation(code):
         return False, address, code, Uint(0)
@@ -160,7 +160,7 @@ def set_delegation(message: Message) -> U256:
     refund_counter: `U256`
         Refund from authority which already exists in state.
     """
-    oracle = message.block_env.oracle
+    oracle = message.block_env.get_oracle()
     refund_counter = U256(0)
     for auth in message.tx_env.authorizations:
         if auth.chain_id not in (message.block_env.chain_id, U256(0)):
