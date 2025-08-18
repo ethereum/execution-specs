@@ -38,7 +38,7 @@ class BlockEnvironment:
     """
 
     chain_id: U64
-    # TODO: Remove, this is no longer being used. Kept so all tests don't break for now.
+    # TODO: Remove, no longer used. Kept so tests don't break for now.
     state: State
     block_gas_limit: Uint
     block_hashes: List[Hash32]
