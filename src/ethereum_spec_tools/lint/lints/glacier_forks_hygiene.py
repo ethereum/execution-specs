@@ -95,13 +95,11 @@ class GlacierForksHygiene(Lint):
                 )
                 continue
 
-            current_node = self._parse(all_current[file], _Visitor(), "items")
-            previous_node = self._parse(
-                all_previous[file], _Visitor(), "items"
-            )
+            current_node = self._parse(all_current[file], _Visitor()).items
+            previous_node = self._parse(all_previous[file], _Visitor()).items
 
             diagnostics += self.compare(
-                fork_name, file, current_node, previous_node  # type: ignore
+                fork_name, file, current_node, previous_node
             )
 
         return diagnostics

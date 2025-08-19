@@ -55,7 +55,7 @@ class ImportHygiene(Lint):
             else tuple()
         )
 
-        current_imports = self._parse(source, _Visitor(), "item_imports")
+        current_imports = self._parse(source, _Visitor()).item_imports
 
         for item in current_imports:
             if item is None:
