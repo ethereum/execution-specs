@@ -1,17 +1,18 @@
 """
 Define the types used by the t8n tool.
 """
+import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
-from ethereum_rlp import rlp
+from ethereum_rlp import Simple, rlp
 from ethereum_types.bytes import Bytes, Bytes20, Bytes0
 from ethereum.exceptions import StateWithEmptyAccount
 from ethereum_types.numeric import U8, U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.utils.hexadecimal import hex_to_u256, hex_to_uint
-from ethereum_test_types import Transaction
+from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
+from ethereum_test_types import Transaction, Alloc as PydanticAlloc
 
 from ..loaders.transaction_loader import TransactionLoad, UnsupportedTx
 from ..utils import FatalException, encode_to_hex, secp256k1_sign
@@ -28,8 +29,19 @@ class Alloc:
     state: Any
     state_backup: Any
 
-    def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
+    def __init__(
+        self,
+        t8n: "T8N",
+        stdin: Optional[Union[PydanticAlloc, Dict]] = None,
+    ):
         """Read the alloc file and return the state."""
+
+        if isinstance(stdin, PydanticAlloc):
+            self._init_from_pydantic(t8n, stdin)
+        else:
+            self._init_from_json(t8n, stdin)
+
+    def _init_from_pydantic(self, t8n: "T8N", stdin: PydanticAlloc) -> None:
         state = t8n.fork.State()
         set_storage = t8n.fork.set_storage
         EMPTY_ACCOUNT = t8n.fork.EMPTY_ACCOUNT
@@ -58,10 +70,30 @@ class Alloc:
                         storage_key_bytes,
                         U256(storage_value)
                     )
-
         if t8n.fork.fork_module == "dao_fork":
             t8n.fork.apply_dao(state)
+        self.state = state
 
+    def _init_from_json(self, t8n: "T8N", stdin: Optional[Dict] = None) -> None:
+        if t8n.options.input_alloc == "stdin":
+            assert stdin is not None
+            data = stdin["alloc"]
+        else:
+            with open(t8n.options.input_alloc, "r") as f:
+                data = json.load(f)
+
+        # The json_to_state functions expects the values to hex
+        # strings, so we convert them here.
+        for address, account in data.items():
+            for key, value in account.items():
+                if key == "storage" or not value:
+                    continue
+                elif not value.startswith("0x"):
+                    data[address][key] = "0x" + hex(int(value))
+
+        state = t8n.json_to_state(data)
+        if t8n.fork.fork_module == "dao_fork":
+            t8n.fork.apply_dao(state)
         self.state = state
 
     def to_json(self) -> Any:
@@ -101,7 +133,7 @@ class Txs:
     return a list of transactions.
     """
 
-    def __init__(self, t8n: "T8N", stdin: List[Transaction] = None):
+    def __init__(self, t8n: "T8N", stdin: Optional[Union[List[Transaction], Dict]] = None):
         self.t8n = t8n
         self.successfully_parsed: List[int] = []
         self.transactions: List[Tuple[Uint, Any]] = []
@@ -109,10 +141,13 @@ class Txs:
         self.rlp_input = False
         self.all_txs = []
 
-        if stdin is None:
-            self.data: List[Transaction] = []
+        if isinstance(stdin, list) and all(isinstance(tx, Transaction) for tx in stdin):
+            self._init_from_pydantic(stdin)
         else:
-            self.data = stdin
+            self._init_from_json(t8n, stdin)
+
+    def _init_from_pydantic(self, stdin: List[Transaction]) -> None:
+        self.data = stdin
 
         for idx, raw_tx in enumerate(self.data):
             try:
@@ -123,6 +158,44 @@ class Txs:
                 self.transactions.append(fork_tx)
                 self.successfully_parsed.append(idx)
                 self.all_txs.append(fork_tx)
+            except UnsupportedTx as e:
+                self.t8n.logger.warning(
+                    f"Unsupported transaction type {idx}: "
+                    f"{e.error_message}"
+                )
+                self.rejected_txs[
+                    idx
+                ] = f"Unsupported transaction type: {e.error_message}"
+                self.all_txs.append(e.encoded_params)
+            except Exception as e:
+                msg = f"Failed to parse transaction {idx}: {str(e)}"
+                self.t8n.logger.warning(msg, exc_info=e)
+                self.rejected_txs[idx] = msg
+
+    def _init_from_json(self, t8n: "T8N", stdin: Optional[Dict] = None) -> None:
+        if t8n.options.input_txs == "stdin":
+            assert stdin is not None
+            data = stdin["txs"]
+        else:
+            with open(t8n.options.input_txs, "r") as f:
+                data = json.load(f)
+
+        if data is None:
+            self.data: Simple = []
+        elif isinstance(data, str):
+            self.rlp_input = True
+            self.data = rlp.decode(hex_to_bytes(data))
+        else:
+            self.data = data
+
+        for idx, raw_tx in enumerate(self.data):
+            try:
+                if self.rlp_input:
+                    self.transactions.append(self.parse_rlp_tx(raw_tx))
+                    self.successfully_parsed.append(idx)
+                else:
+                    self.transactions.append(self.parse_json_tx(raw_tx))
+                    self.successfully_parsed.append(idx)
             except UnsupportedTx as e:
                 self.t8n.logger.warning(
                     f"Unsupported transaction type {idx}: "

@@ -4,9 +4,10 @@ Create a transition tool for the given fork.
 
 import argparse
 import fnmatch
+import json
 import os
 from functools import partial
-from typing import Any, TextIO
+from typing import Any, Optional, TextIO, Union
 
 from ethereum_rlp import rlp
 from ethereum_types.numeric import U64, U256, Uint
@@ -23,6 +24,7 @@ from ..loaders.fork_loader import ForkLoad
 from ..utils import (
     FatalException,
     get_module_name,
+    get_module_name_json_input,
     get_stream_logger,
     parse_hex_or_int,
 )
@@ -82,18 +84,72 @@ class T8N(Load):
     """The class that carries out the transition"""
 
     def __init__(
-        self, options: Any, out_file: TextIO, in_file: TransitionToolRequest
+        self,
+        options: Any,
+        in_file: Union[TransitionToolRequest, TextIO],
+        out_file: Optional[TextIO] = None
     ) -> None:
         self.out_file = out_file
         self.in_file = in_file
         self.options = options
         self.forks = Hardfork.discover()
 
+        if isinstance(in_file, TransitionToolRequest):
+            self._init_from_pydantic(options, in_file)
+        else:
+            if out_file is None:
+                raise ValueError("out_file is required for JSON file input")
+            self._init_from_json(options, in_file, out_file)
+
+    def _init_from_pydantic(self, options: Any, in_file: TransitionToolRequest) -> None:
         fork_module, self.fork_block = get_module_name(
-            self.forks, self.options, in_file.input.env
+            self.forks, options, in_file.input.env
         )
         self.fork = ForkLoad(fork_module)
         self.exception_mapper = ExecutionSpecsExceptionMapper()
+
+        if options.trace:
+            trace_memory = getattr(options, "trace.memory", False)
+            trace_stack = not getattr(options, "trace.nostack", False)
+            trace_return_data = getattr(options, "trace.returndata")
+            trace.set_evm_trace(
+                partial(
+                    evm_trace,
+                    trace_memory=trace_memory,
+                    trace_stack=trace_stack,
+                    trace_return_data=trace_return_data,
+                    output_basedir=options.output_basedir,
+                )
+            )
+        self.logger = get_stream_logger("T8N")
+
+        super().__init__(
+            options.state_fork,
+            fork_module,
+        )
+
+        self.chain_id = parse_hex_or_int(options.state_chainid, U64)
+        self.alloc = Alloc(self, in_file.input.alloc)
+        self.env = Env(self, in_file.input.env)
+        self.txs = Txs(self, in_file.input.txs)
+        self.result = Result(
+            self.env.block_difficulty, self.env.base_fee_per_gas
+        )
+
+    def _init_from_json(self, options: Any, in_file: TextIO, out_file: TextIO) -> None:
+        if "stdin" in (
+            options.input_env,
+            options.input_alloc,
+            options.input_txs,
+        ):
+            stdin = json.load(in_file)
+        else:
+            stdin = None
+
+        fork_module, self.fork_block = get_module_name_json_input(
+            self.forks, self.options, stdin
+        )
+        self.fork = ForkLoad(fork_module)
 
         if self.options.trace:
             trace_memory = getattr(self.options, "trace.memory", False)
@@ -116,9 +172,9 @@ class T8N(Load):
         )
 
         self.chain_id = parse_hex_or_int(self.options.state_chainid, U64)
-        self.alloc = Alloc(self, in_file.input.alloc)
-        self.env = Env(self, in_file.input.env)
-        self.txs = Txs(self, in_file.input.txs)
+        self.alloc = Alloc(self, stdin)
+        self.env = Env(self, stdin)
+        self.txs = Txs(self, stdin)
         self.result = Result(
             self.env.block_difficulty, self.env.base_fee_per_gas
         )
@@ -305,13 +361,59 @@ class T8N(Load):
 
         json_state = self.alloc.to_json()
         json_result = self.result.to_json()
+        if isinstance(self.in_file, TransitionToolRequest):
+            json_output = {}
+
+            txs_rlp = "0x" + rlp.encode(self.txs.all_txs).hex()
+            json_output["body"] = txs_rlp
+            json_output["alloc"] = json_state
+            json_output["result"] = json_result
+            output: TransitionToolOutput = TransitionToolOutput.model_validate(
+                json_output, context={"exception_mapper": self.exception_mapper}
+            )
+            return output
+        else:
+            return self._write_json_output(json_state, json_result)
+
+    def _write_json_output(self, json_state: Any, json_result: Any) -> int:
         json_output = {}
 
-        txs_rlp = "0x" + rlp.encode(self.txs.all_txs).hex()
-        json_output["body"] = txs_rlp
-        json_output["alloc"] = json_state
-        json_output["result"] = json_result
-        output: TransitionToolOutput = TransitionToolOutput.model_validate(
-            json_output, context={"exception_mapper": self.exception_mapper}
-        )
-        return output
+        if self.options.output_body == "stdout":
+            txs_rlp = "0x" + rlp.encode(self.txs.all_txs).hex()
+            json_output["body"] = txs_rlp
+        elif self.options.output_body is not None:
+            txs_rlp_path = os.path.join(
+                self.options.output_basedir,
+                self.options.output_body,
+            )
+            txs_rlp = "0x" + rlp.encode(self.txs.all_txs).hex()
+            with open(txs_rlp_path, "w") as f:
+                json.dump(txs_rlp, f)
+            self.logger.info(f"Wrote transaction rlp to {txs_rlp_path}")
+
+        if self.options.output_alloc == "stdout":
+            json_output["alloc"] = json_state
+        else:
+            alloc_output_path = os.path.join(
+                self.options.output_basedir,
+                self.options.output_alloc,
+            )
+            with open(alloc_output_path, "w") as f:
+                json.dump(json_state, f, indent=4)
+            self.logger.info(f"Wrote alloc to {alloc_output_path}")
+
+        if self.options.output_result == "stdout":
+            json_output["result"] = json_result
+        else:
+            result_output_path = os.path.join(
+                self.options.output_basedir,
+                self.options.output_result,
+            )
+            with open(result_output_path, "w") as f:
+                json.dump(json_result, f, indent=4)
+            self.logger.info(f"Wrote result to {result_output_path}")
+
+        if json_output:
+            json.dump(json_output, self.out_file, indent=4)
+
+        return 0
