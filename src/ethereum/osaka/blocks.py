@@ -18,7 +18,7 @@ from ethereum_types.numeric import U64, U256, Uint
 
 from ..crypto.hash import Hash32
 from .fork_types import Address, Bloom, Root
-from .ssz_types import BlockAccessList
+from .rlp_types import BlockAccessList
 from .transactions import (
     AccessListTransaction,
     BlobTransaction,

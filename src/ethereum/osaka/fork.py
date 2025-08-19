@@ -30,7 +30,7 @@ from ethereum.exceptions import (
 )
 
 from . import vm
-from .block_access_lists import StateChangeTracker, compute_bal_hash, build, set_system_transaction_index, track_balance_change
+from .block_access_lists import StateChangeTracker, compute_bal_hash, build, set_transaction_index, track_balance_change
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
 from .exceptions import (
@@ -773,9 +773,8 @@ def apply_body(
     change_tracker = StateChangeTracker(block_output.block_access_list_builder)
 
     # Set system transaction index for pre-execution system contracts
-    # Using len(transactions) + 1 as specified
-    system_tx_index = len(transactions) + 1
-    set_system_transaction_index(change_tracker, system_tx_index)
+    # EIP-7928: System contracts use bal_index 0
+    set_transaction_index(change_tracker, 0)
 
     process_unchecked_system_transaction(
         block_env=block_env,
@@ -791,14 +790,16 @@ def apply_body(
         change_tracker=change_tracker,
     )
 
+    # EIP-7928: Transactions use bal_index 1 to len(transactions)
     for i, tx in enumerate(map(decode_transaction, transactions)):
-        change_tracker.set_transaction_index(i)
+        set_transaction_index(change_tracker, i + 1)
         process_transaction(block_env, block_output, tx, Uint(i), change_tracker)
 
-    process_withdrawals(block_env, block_output, withdrawals, change_tracker)
+    # EIP-7928: Post-execution uses bal_index len(transactions) + 1
+    post_execution_index = len(transactions) + 1
+    set_transaction_index(change_tracker, post_execution_index)
 
-    # Set system transaction index for post-execution system contracts
-    set_system_transaction_index(change_tracker, system_tx_index)
+    process_withdrawals(block_env, block_output, withdrawals, change_tracker)
     
     process_general_purpose_requests(
         block_env=block_env,
