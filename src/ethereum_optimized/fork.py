@@ -9,7 +9,7 @@ Optimized Spec
 Introduction
 ------------
 
-This module contains optimized POW functions can be monkey patched into the
+This module contains optimized POW functions that can be monkey patched into the
 `fork` module of a fork.
 """
 from importlib import import_module
