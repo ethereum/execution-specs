@@ -4,7 +4,7 @@
 Execution layer changes included in the Network Upgrade.
 
 * [EIP-1153: Transient storage opcodes](https://eips.ethereum.org/EIPS/eip-1153)
-* [EIP-4788: Beacon block root in the EVM ](https://eips.ethereum.org/EIPS/eip-4788)
+* [EIP-4788: Beacon block root in the EVM](https://eips.ethereum.org/EIPS/eip-4788)
 * [EIP-4844: Shard Blob Transactions](https://eips.ethereum.org/EIPS/eip-4844)
 * [EIP-5656: MCOPY - Memory copying instruction](https://eips.ethereum.org/EIPS/eip-5656)
 * [EIP-6780: SELFDESTRUCT only in same transaction](https://eips.ethereum.org/EIPS/eip-6780)
