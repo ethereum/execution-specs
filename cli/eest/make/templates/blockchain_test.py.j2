@@ -5,7 +5,15 @@ abstract: Tests [EIP-{{eip_number}} {{eip_name}}](https://eips.ethereum.org/EIPS
 
 import pytest
 
-from ethereum_test_tools import Account, Alloc, Block, BlockchainTestFiller, Transaction
+from ethereum_test_forks import Fork
+from ethereum_test_tools import (
+    Account,
+    Alloc,
+    Block,
+    BlockchainTestFiller,
+    Environment,
+    Transaction,
+)
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "DUMMY/eip-DUMMY.md"
@@ -13,7 +21,9 @@ REFERENCE_SPEC_VERSION = "DUMMY_VERSION"
 
 
 @pytest.mark.valid_from("{{fork}}")
-def {{module_name}}(blockchain_test: BlockchainTestFiller, pre: Alloc):
+def {{module_name}}(
+    blockchain_test: BlockchainTestFiller, pre: Alloc, fork: Fork, env: Environment
+):
     """
     TODO: Enter a one-line test summary here.
 
@@ -40,7 +50,7 @@ def {{module_name}}(blockchain_test: BlockchainTestFiller, pre: Alloc):
 
     tx = Transaction(
         to=contract_address,
-        gas_limit=100000000,
+        gas_limit=fork.transaction_gas_limit_cap() or env.gas_limit,
         data=b"",
         value=0,
         sender=sender,
