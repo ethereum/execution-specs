@@ -42,18 +42,16 @@ class Alloc:
             )
 
             if t8n.fork.proof_of_stake and canonical_account == EMPTY_ACCOUNT:
-                addr_hex = addr_bytes.hex() if isinstance(addr_bytes, bytes) else str(addr_bytes)
-                raise StateWithEmptyAccount(f"Empty account at {addr_hex}.")
-
+                raise StateWithEmptyAccount(
+                    f"Empty account at {addr_bytes.hex()}."
+                )
             t8n.fork.set_account(state, addr_bytes, canonical_account)
 
             if account.storage and account.storage.root:
                 for storage_key, storage_value in account.storage.root.items():
-                    if isinstance(storage_key, int):
-                        storage_key_bytes = storage_key.to_bytes(32, byteorder='big')
-                    else:
-                        storage_key_bytes = storage_key
-
+                    storage_key_bytes = storage_key.to_bytes(
+                        32, byteorder='big'
+                    )
                     set_storage(
                         state,
                         addr_bytes,
@@ -260,17 +258,12 @@ class Txs:
 def convert_pydantic_tx_to_canonical(tx, fork):
     """
     Convert a Pydantic Transaction to the canonical transaction class for the given fork.
-    fork: The fork object (e.g., self.fork from ForkLoad)
     """
-    if isinstance(tx, list):
-        return [convert_pydantic_tx_to_canonical(t, fork) for t in tx]
 
     def convert_access_list(access_list):
         if not access_list:
             return []
         AccessCls = getattr(fork, "Access", None)
-        if AccessCls is None:
-            from ethereum.arrow_glacier.transactions import Access as AccessCls
         return [
             AccessCls(
                 account=entry.address,
@@ -283,11 +276,9 @@ def convert_pydantic_tx_to_canonical(tx, fork):
         if not auth_list:
             return []
         AuthorizationCls = getattr(fork, "Authorization", None)
-        if AuthorizationCls is None:
-            from ethereum.osaka.fork_types import Authorization as AuthorizationCls
         result = []
         for entry in auth_list:
-            d = entry.dict() if hasattr(entry, "dict") else dict(entry)
+            d = entry.model_dump()
             result.append(
                 AuthorizationCls(
                     chain_id=U256(d.get("chain_id", 0)),
@@ -318,15 +309,7 @@ def convert_pydantic_tx_to_canonical(tx, fork):
     def to_bytes20(val):
         if val is None:
             return Bytes0()
-        if isinstance(val, Bytes20):
-            return val
-        if isinstance(val, (bytes, bytearray)) and len(val) == 20:
-            return Bytes20(val)
-        if isinstance(val, (bytes, bytearray)) and len(val) == 0:
-            return Bytes20(b"\x00" * 20)
-        if isinstance(val, (bytes, bytearray)):
-            return Bytes20(val.rjust(20, b"\x00"))
-        return Bytes20(bytes(val).rjust(20, b"\x00"))
+        return Bytes20(val)
 
     # build the canonical transaction
     if tx_cls.__name__ == "FeeMarketTransaction":

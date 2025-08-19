@@ -88,13 +88,13 @@ class Env:
         if not t8n.fork.is_after_fork("ethereum.cancun"):
             return
 
-        if hasattr(data, "excess_blob_gas") and data.excess_blob_gas is not None:
+        if data.excess_blob_gas is not None:
             self.excess_blob_gas = U64(data.excess_blob_gas)
 
-        if hasattr(data, "parent_excess_blob_gas") and data.parent_excess_blob_gas is not None:
+        if data.parent_excess_blob_gas is not None:
             self.parent_excess_blob_gas = U64(data.parent_excess_blob_gas)
 
-        if hasattr(data, "parent_blob_gas_used") and data.parent_blob_gas_used is not None:
+        if data.parent_blob_gas_used is not None:
             self.parent_blob_gas_used = U64(data.parent_blob_gas_used)
 
         if self.excess_blob_gas is not None:
@@ -154,16 +154,16 @@ class Env:
         self.base_fee_per_gas = None
 
         if t8n.fork.is_after_fork("ethereum.london"):
-            if hasattr(data, "base_fee_per_gas") and data.base_fee_per_gas is not None:
+            if data.base_fee_per_gas is not None:
                 self.base_fee_per_gas = Uint(data.base_fee_per_gas)
 
-            if hasattr(data, "parent_gas_used") and data.parent_gas_used is not None:
+            if data.parent_gas_used is not None:
                 self.parent_gas_used = Uint(data.parent_gas_used)
 
-            if hasattr(data, "parent_gas_limit") and data.parent_gas_limit is not None:
+            if data.parent_gas_limit is not None:
                 self.parent_gas_limit = Uint(data.parent_gas_limit)
 
-            if hasattr(data, "parent_base_fee_per_gas") and data.parent_base_fee_per_gas is not None:
+            if data.parent_base_fee_per_gas is not None:
                 self.parent_base_fee_per_gas = Uint(data.parent_base_fee_per_gas)
 
             if self.base_fee_per_gas is None:
@@ -221,7 +221,7 @@ class Env:
         self.parent_ommers_hash = None
         if t8n.fork.is_after_fork("ethereum.paris"):
             return
-        elif hasattr(data, "difficulty") and data.difficulty is not None:
+        elif data.difficulty is not None:
             self.block_difficulty = Uint(data.difficulty)
         else:
             self.parent_timestamp = U256(data.parent_timestamp)
@@ -233,7 +233,7 @@ class Env:
                 self.parent_difficulty,
             ]
             if t8n.fork.is_after_fork("ethereum.byzantium"):
-                if hasattr(data, "parent_ommers_hash") and data.parent_ommers_hash is not None:
+                if data.parent_ommers_hash is not None:
                     EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
                     self.parent_ommers_hash = Hash32(
                         data.parent_ommers_hash
@@ -281,7 +281,7 @@ class Env:
         needed to obtain the Header.
         """
         ommers = []
-        if hasattr(data, "ommers") and data.ommers is not None:
+        if data.ommers is not None:
             for ommer in data.ommers:
                 ommers.append(
                     Ommer(
