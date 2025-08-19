@@ -5,10 +5,12 @@ Import Hygiene Lint
 Ensures that the import statements follow the relevant rules.
 """
 import ast
-from typing import List, Sequence
+import inspect
+from types import ModuleType
+from typing import List, Sequence, Tuple
 
 from ethereum_spec_tools.forks import Hardfork
-from ethereum_spec_tools.lint import Diagnostic, Lint, walk_sources
+from ethereum_spec_tools.lint import Diagnostic, Lint
 
 
 class ImportHygiene(Lint):
@@ -20,6 +22,7 @@ class ImportHygiene(Lint):
      - Deny absolute imports from within the active fork.
      - Deny absolute imports from future forks.
      - Deny absolute imports from active-minus-two and earlier hard forks.
+     - Deny relative imports of non-fork specific things.
      - Allow relative imports from the active hard fork.
      - Allow absolute imports from the active-minus-one hard fork.
      - Allow absolute imports of non-fork specific things.
@@ -31,20 +34,27 @@ class ImportHygiene(Lint):
         """
         Walks the sources for each hardfork and emits Diagnostic messages.
         """
-        all_sources = dict(walk_sources(forks[position]))
+        fork = forks[position]
+        all_modules: List[ModuleType] = [
+            fork.module(x.name.removeprefix(fork.name + "."))
+            for x in fork.walk_packages()
+        ]
+
         diagnostics: List[Diagnostic] = []
-        for name, source in all_sources.items():
-            diagnostics += self.check_import(forks, position, name, source)
+        for mod in all_modules:
+            diagnostics += self.check_import(forks, position, mod)
 
         return diagnostics
 
     def check_import(
-        self, forks: List[Hardfork], position: int, name: str, source: str
+        self, forks: List[Hardfork], position: int, mod: ModuleType
     ) -> List[Diagnostic]:
         """
         Checks a Python source and emits diagnostic
         messages if there are any invalid imports.
         """
+        source = inspect.getsource(mod)
+        name = mod.__name__
         diagnostics: List[Diagnostic] = []
 
         active_fork = forks[position].name
@@ -55,11 +65,32 @@ class ImportHygiene(Lint):
             else tuple()
         )
 
+        relative_name = name.removeprefix(active_fork)
+        assert name != relative_name
+
+        current_depth = relative_name.count(".")
+        if hasattr(mod, "__path__"):
+            # `__init__.py` doesn't add a `.` to the name, so we have to
+            # account for it. Checking for `__path__` is, apparently, how to do
+            # that.
+            current_depth += 1
+
         current_imports = self._parse(source, _Visitor()).item_imports
 
-        for item in current_imports:
+        for level, item in current_imports:
             if item is None:
                 continue
+
+            if level > current_depth:
+                dots = "." * level
+                diagnostic = Diagnostic(
+                    message=(
+                        f"The relative import `{dots}{item}` in `{name}` "
+                        "ascends above the current fork. Please use an "
+                        "absolute import."
+                    )
+                )
+                diagnostics.append(diagnostic)
             elif item.startswith(active_fork):
                 diagnostic = Diagnostic(
                     message=(
@@ -96,7 +127,7 @@ class _Visitor(ast.NodeVisitor):
     assignments.
     """
 
-    item_imports: List[str]
+    item_imports: List[Tuple[(int, str)]]
 
     def __init__(self) -> None:
         self.item_imports = []
@@ -105,10 +136,10 @@ class _Visitor(ast.NodeVisitor):
         """
         Visit an Import.
         """
-        self.item_imports.append(mod.names[0].name)
+        self.item_imports.append((0, mod.names[0].name))
 
     def visit_ImportFrom(self, mod: ast.ImportFrom) -> None:
         """
         Visit an ImportFrom.
         """
-        self.item_imports.append(str(mod.module))
+        self.item_imports.append((mod.level, str(mod.module)))

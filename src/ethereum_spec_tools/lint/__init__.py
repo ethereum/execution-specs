@@ -12,7 +12,6 @@ import pkgutil
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from itertools import zip_longest
-from pathlib import Path
 from typing import Generator, List, Optional, Sequence, Tuple, TypeVar
 
 from ..forks import Hardfork

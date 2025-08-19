@@ -16,7 +16,8 @@ from ethereum_types.bytes import Bytes, Bytes8, Bytes32
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint
 
-from ..crypto.hash import Hash32
+from ethereum.crypto.hash import Hash32
+
 from .fork_types import Address, Bloom, Root
 from .transactions import (
     AccessListTransaction,
