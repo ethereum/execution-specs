@@ -23,10 +23,11 @@ from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U32, U64, Uint
 
 from ..fork_types import Address
-from ..ssz_types import (
+from ..rlp_types import (
     AccountChanges,
     BalanceChange,
     BlockAccessList,
+    BlockAccessIndex,
     CodeChange,
     NonceChange,
     SlotChanges,
@@ -115,7 +116,7 @@ def add_storage_write(
     builder: BlockAccessListBuilder,
     address: Address, 
     slot: Bytes, 
-    tx_index: U32, 
+    block_access_index: BlockAccessIndex, 
     new_value: Bytes
 ) -> None:
     """
@@ -133,8 +134,8 @@ def add_storage_write(
         The account address whose storage is being modified.
     slot :
         The storage slot being written to.
-    tx_index :
-        The index of the transaction making this change.
+    block_access_index :
+        The block access index for this change (0 for pre-execution, 1..n for transactions, n+1 for post-execution).
     new_value :
         The new value being written to the storage slot.
     """
@@ -143,7 +144,7 @@ def add_storage_write(
     if slot not in builder.accounts[address].storage_changes:
         builder.accounts[address].storage_changes[slot] = []
         
-    change = StorageChange(tx_index=tx_index, new_value=new_value)
+    change = StorageChange(block_access_index=block_access_index, new_value=new_value)
     builder.accounts[address].storage_changes[slot].append(change)
 
 
@@ -177,7 +178,7 @@ def add_storage_read(
 def add_balance_change(
     builder: BlockAccessListBuilder,
     address: Address, 
-    tx_index: U32, 
+    block_access_index: BlockAccessIndex, 
     post_balance: Bytes
 ) -> None:
     """
@@ -193,21 +194,21 @@ def add_balance_change(
         The block access list builder instance.
     address :
         The account address whose balance changed.
-    tx_index :
-        The index of the transaction causing this change.
+    block_access_index :
+        The block access index for this change (0 for pre-execution, 1..n for transactions, n+1 for post-execution).
     post_balance :
         The account balance after the change, encoded as bytes.
     """
     ensure_account(builder, address)
     
-    change = BalanceChange(tx_index=tx_index, post_balance=post_balance)
+    change = BalanceChange(block_access_index=block_access_index, post_balance=post_balance)
     builder.accounts[address].balance_changes.append(change)
 
 
 def add_nonce_change(
     builder: BlockAccessListBuilder,
     address: Address, 
-    tx_index: U32, 
+    block_access_index: BlockAccessIndex, 
     new_nonce: U64
 ) -> None:
     """
@@ -223,8 +224,8 @@ def add_nonce_change(
         The block access list builder instance.
     address :
         The account address whose nonce changed.
-    tx_index :
-        The index of the transaction causing this change.
+    block_access_index :
+        The block access index for this change (0 for pre-execution, 1..n for transactions, n+1 for post-execution).
     new_nonce :
         The new nonce value after the change.
     
@@ -233,14 +234,14 @@ def add_nonce_change(
     """
     ensure_account(builder, address)
     
-    change = NonceChange(tx_index=tx_index, new_nonce=new_nonce)
+    change = NonceChange(block_access_index=block_access_index, new_nonce=new_nonce)
     builder.accounts[address].nonce_changes.append(change)
 
 
 def add_code_change(
     builder: BlockAccessListBuilder,
     address: Address, 
-    tx_index: U32, 
+    block_access_index: BlockAccessIndex, 
     new_code: Bytes
 ) -> None:
     """
@@ -256,8 +257,8 @@ def add_code_change(
         The block access list builder instance.
     address :
         The account address receiving new code.
-    tx_index :
-        The index of the transaction deploying the code.
+    block_access_index :
+        The block access index for this change (0 for pre-execution, 1..n for transactions, n+1 for post-execution).
     new_code :
         The deployed contract bytecode.
     
@@ -267,7 +268,7 @@ def add_code_change(
     """
     ensure_account(builder, address)
     
-    change = CodeChange(tx_index=tx_index, new_code=new_code)
+    change = CodeChange(block_access_index=block_access_index, new_code=new_code)
     builder.accounts[address].code_changes.append(change)
 
 
@@ -324,7 +325,7 @@ def build(builder: BlockAccessListBuilder) -> BlockAccessList:
     for address, changes in builder.accounts.items():
         storage_changes = []
         for slot, slot_changes in changes.storage_changes.items():
-            sorted_changes = tuple(sorted(slot_changes, key=lambda x: x.tx_index))
+            sorted_changes = tuple(sorted(slot_changes, key=lambda x: x.block_access_index))
             storage_changes.append(SlotChanges(slot=slot, changes=sorted_changes))
         
         storage_reads = []
@@ -332,9 +333,9 @@ def build(builder: BlockAccessListBuilder) -> BlockAccessList:
             if slot not in changes.storage_changes:
                 storage_reads.append(slot)
         
-        balance_changes = tuple(sorted(changes.balance_changes, key=lambda x: x.tx_index))
-        nonce_changes = tuple(sorted(changes.nonce_changes, key=lambda x: x.tx_index))
-        code_changes = tuple(sorted(changes.code_changes, key=lambda x: x.tx_index))
+        balance_changes = tuple(sorted(changes.balance_changes, key=lambda x: x.block_access_index))
+        nonce_changes = tuple(sorted(changes.nonce_changes, key=lambda x: x.block_access_index))
+        code_changes = tuple(sorted(changes.code_changes, key=lambda x: x.block_access_index))
         
         storage_changes.sort(key=lambda x: x.slot)
         storage_reads.sort()

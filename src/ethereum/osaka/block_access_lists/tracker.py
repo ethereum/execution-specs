@@ -19,7 +19,9 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional
 
 from ethereum_types.bytes import Bytes
-from ethereum_types.numeric import U32, U64, U128, U256, Uint
+from ethereum_types.numeric import U32, U64, U256, Uint
+
+from ..rlp_types import BlockAccessIndex
 
 from ..fork_types import Address, Account
 from ..state import State, get_account, get_storage
@@ -59,27 +61,27 @@ class StateChangeTracker:
     original state before any modifications.
     """
     
-    current_tx_index: int = 0
+    current_block_access_index: int = 0
     """
-    The index of the currently executing transaction within the block.
+    The current block access index (0 for pre-execution, 1..n for transactions, n+1 for post-execution).
     """
 
 
-def set_transaction_index(tracker: StateChangeTracker, tx_index: int) -> None:
+def set_transaction_index(tracker: StateChangeTracker, block_access_index: int) -> None:
     """
-    Set the current transaction index for tracking changes.
+    Set the current block access index for tracking changes.
     
-    Must be called before processing each transaction to ensure changes
-    are associated with the correct transaction index.
+    Must be called before processing each transaction/system contract to ensure changes
+    are associated with the correct block access index.
     
     Parameters
     ----------
     tracker :
         The state change tracker instance.
-    tx_index :
-        The index of the transaction about to be processed.
+    block_access_index :
+        The block access index (0 for pre-execution, 1..n for transactions, n+1 for post-execution).
     """
-    tracker.current_tx_index = tx_index
+    tracker.current_block_access_index = block_access_index
 
 
 def capture_pre_state(
@@ -205,7 +207,7 @@ def track_storage_write(
             tracker.block_access_list_builder,
             address,
             key,
-            U32(tracker.current_tx_index),
+            BlockAccessIndex(tracker.current_block_access_index),
             value_bytes
         )
     else:
@@ -239,11 +241,12 @@ def track_balance_change(
     """
     track_address_access(tracker, address)
     
-    balance_bytes = U128(new_balance).to_be_bytes16()
+    # Store balance as U256 bytes (EIP-7928 specifies post_balance as U256)
+    balance_bytes = new_balance.to_be_bytes32()
     add_balance_change(
         tracker.block_access_list_builder,
         address,
-        U32(tracker.current_tx_index),
+        BlockAccessIndex(tracker.current_block_access_index),
         balance_bytes
     )
 
@@ -279,7 +282,7 @@ def track_nonce_change(
     add_nonce_change(
         tracker.block_access_list_builder,
         address,
-        U32(tracker.current_tx_index),
+        BlockAccessIndex(tracker.current_block_access_index),
         U64(new_nonce)
     )
 
@@ -316,7 +319,7 @@ def track_code_change(
     add_code_change(
         tracker.block_access_list_builder,
         address,
-        U32(tracker.current_tx_index),
+        BlockAccessIndex(tracker.current_block_access_index),
         new_code
     )
 

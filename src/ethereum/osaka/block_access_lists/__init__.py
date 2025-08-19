@@ -22,9 +22,9 @@ from .tracker import (
     track_storage_read,
     track_storage_write,
 )
-from .utils import (
+from .rlp_utils import (
     compute_bal_hash,
-    ssz_encode_block_access_list,
+    rlp_encode_block_access_list,
     validate_bal_against_execution,
 )
 
@@ -40,7 +40,7 @@ __all__ = [
     "build",
     "compute_bal_hash",
     "set_transaction_index",
-    "ssz_encode_block_access_list",
+    "rlp_encode_block_access_list",
     "track_address_access",
     "track_balance_change",
     "track_code_change",
