@@ -21,24 +21,24 @@ EXPECTED_CANCUN = json.loads("""
     "target": 3
     },
     "chainId": "0x88bb0",
+    "forkId": "0xbef71d30",
     "precompiles": {
-    "0x0000000000000000000000000000000000000001": "ECREC",
-    "0x0000000000000000000000000000000000000002": "SHA256",
-    "0x0000000000000000000000000000000000000003": "RIPEMD160",
-    "0x0000000000000000000000000000000000000004": "ID",
-    "0x0000000000000000000000000000000000000005": "MODEXP",
-    "0x0000000000000000000000000000000000000006": "BN254_ADD",
-    "0x0000000000000000000000000000000000000007": "BN254_MUL",
-    "0x0000000000000000000000000000000000000008": "BN254_PAIRING",
-    "0x0000000000000000000000000000000000000009": "BLAKE2F",
-    "0x000000000000000000000000000000000000000a": "KZG_POINT_EVALUATION"
+    "BLAKE2F": "0x0000000000000000000000000000000000000009",
+    "BN254_ADD": "0x0000000000000000000000000000000000000006",
+    "BN254_MUL": "0x0000000000000000000000000000000000000007",
+    "BN254_PAIRING": "0x0000000000000000000000000000000000000008",
+    "ECREC": "0x0000000000000000000000000000000000000001",
+    "ID": "0x0000000000000000000000000000000000000004",
+    "KZG_POINT_EVALUATION": "0x000000000000000000000000000000000000000a",
+    "MODEXP": "0x0000000000000000000000000000000000000005",
+    "RIPEMD160": "0x0000000000000000000000000000000000000003",
+    "SHA256": "0x0000000000000000000000000000000000000002"
     },
     "systemContracts": {
     "BEACON_ROOTS_ADDRESS": "0x000f3df6d732807ef1319fb7b8bb8522d0beac02"
     }
 }
 """)
-EXPECTED_CANCUN_HASH = ForkHash("0x2eedf329")
 EXPECTED_CANCUN_FORK_ID = ForkHash("0xbef71d30")
 EXPECTED_PRAGUE = json.loads("""
 {
@@ -49,24 +49,25 @@ EXPECTED_PRAGUE = json.loads("""
     "target": 6
     },
     "chainId": "0x88bb0",
+    "forkId": "0x0929e24e",
     "precompiles": {
-    "0x0000000000000000000000000000000000000001": "ECREC",
-    "0x0000000000000000000000000000000000000002": "SHA256",
-    "0x0000000000000000000000000000000000000003": "RIPEMD160",
-    "0x0000000000000000000000000000000000000004": "ID",
-    "0x0000000000000000000000000000000000000005": "MODEXP",
-    "0x0000000000000000000000000000000000000006": "BN254_ADD",
-    "0x0000000000000000000000000000000000000007": "BN254_MUL",
-    "0x0000000000000000000000000000000000000008": "BN254_PAIRING",
-    "0x0000000000000000000000000000000000000009": "BLAKE2F",
-    "0x000000000000000000000000000000000000000a": "KZG_POINT_EVALUATION",
-    "0x000000000000000000000000000000000000000b": "BLS12_G1ADD",
-    "0x000000000000000000000000000000000000000c": "BLS12_G1MSM",
-    "0x000000000000000000000000000000000000000d": "BLS12_G2ADD",
-    "0x000000000000000000000000000000000000000e": "BLS12_G2MSM",
-    "0x000000000000000000000000000000000000000f": "BLS12_PAIRING_CHECK",
-    "0x0000000000000000000000000000000000000010": "BLS12_MAP_FP_TO_G1",
-    "0x0000000000000000000000000000000000000011": "BLS12_MAP_FP2_TO_G2"
+    "BLAKE2F": "0x0000000000000000000000000000000000000009",
+    "BLS12_G1ADD": "0x000000000000000000000000000000000000000b",
+    "BLS12_G1MSM": "0x000000000000000000000000000000000000000c",
+    "BLS12_G2ADD": "0x000000000000000000000000000000000000000d",
+    "BLS12_G2MSM": "0x000000000000000000000000000000000000000e",
+    "BLS12_MAP_FP2_TO_G2": "0x0000000000000000000000000000000000000011",
+    "BLS12_MAP_FP_TO_G1": "0x0000000000000000000000000000000000000010",
+    "BLS12_PAIRING_CHECK": "0x000000000000000000000000000000000000000f",
+    "BN254_ADD": "0x0000000000000000000000000000000000000006",
+    "BN254_MUL": "0x0000000000000000000000000000000000000007",
+    "BN254_PAIRING": "0x0000000000000000000000000000000000000008",
+    "ECREC": "0x0000000000000000000000000000000000000001",
+    "ID": "0x0000000000000000000000000000000000000004",
+    "KZG_POINT_EVALUATION": "0x000000000000000000000000000000000000000a",
+    "MODEXP": "0x0000000000000000000000000000000000000005",
+    "RIPEMD160": "0x0000000000000000000000000000000000000003",
+    "SHA256": "0x0000000000000000000000000000000000000002"
     },
     "systemContracts": {
     "BEACON_ROOTS_ADDRESS": "0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
@@ -77,35 +78,35 @@ EXPECTED_PRAGUE = json.loads("""
   }
 }
 """)
-EXPECTED_PRAGUE_HASH = ForkHash("0x0d82a81f")
 EXPECTED_PRAGUE_FORK_ID = ForkHash("0x0929e24e")
 EXPECTED_BPO1 = json.loads("""
 {
-    "activationTime": 1742999833,
+    "activationTime": 1753477608,
     "blobSchedule": {
     "baseFeeUpdateFraction": 5007716,
     "max": 12,
     "target": 9
     },
     "chainId": "0x88bb0",
+    "forkId": "0x5e2e4e84",
     "precompiles": {
-    "0x0000000000000000000000000000000000000001": "ECREC",
-    "0x0000000000000000000000000000000000000002": "SHA256",
-    "0x0000000000000000000000000000000000000003": "RIPEMD160",
-    "0x0000000000000000000000000000000000000004": "ID",
-    "0x0000000000000000000000000000000000000005": "MODEXP",
-    "0x0000000000000000000000000000000000000006": "BN254_ADD",
-    "0x0000000000000000000000000000000000000007": "BN254_MUL",
-    "0x0000000000000000000000000000000000000008": "BN254_PAIRING",
-    "0x0000000000000000000000000000000000000009": "BLAKE2F",
-    "0x000000000000000000000000000000000000000a": "KZG_POINT_EVALUATION",
-    "0x000000000000000000000000000000000000000b": "BLS12_G1ADD",
-    "0x000000000000000000000000000000000000000c": "BLS12_G1MSM",
-    "0x000000000000000000000000000000000000000d": "BLS12_G2ADD",
-    "0x000000000000000000000000000000000000000e": "BLS12_G2MSM",
-    "0x000000000000000000000000000000000000000f": "BLS12_PAIRING_CHECK",
-    "0x0000000000000000000000000000000000000010": "BLS12_MAP_FP_TO_G1",
-    "0x0000000000000000000000000000000000000011": "BLS12_MAP_FP2_TO_G2"
+    "BLAKE2F": "0x0000000000000000000000000000000000000009",
+    "BLS12_G1ADD": "0x000000000000000000000000000000000000000b",
+    "BLS12_G1MSM": "0x000000000000000000000000000000000000000c",
+    "BLS12_G2ADD": "0x000000000000000000000000000000000000000d",
+    "BLS12_G2MSM": "0x000000000000000000000000000000000000000e",
+    "BLS12_MAP_FP2_TO_G2": "0x0000000000000000000000000000000000000011",
+    "BLS12_MAP_FP_TO_G1": "0x0000000000000000000000000000000000000010",
+    "BLS12_PAIRING_CHECK": "0x000000000000000000000000000000000000000f",
+    "BN254_ADD": "0x0000000000000000000000000000000000000006",
+    "BN254_MUL": "0x0000000000000000000000000000000000000007",
+    "BN254_PAIRING": "0x0000000000000000000000000000000000000008",
+    "ECREC": "0x0000000000000000000000000000000000000001",
+    "ID": "0x0000000000000000000000000000000000000004",
+    "KZG_POINT_EVALUATION": "0x000000000000000000000000000000000000000a",
+    "MODEXP": "0x0000000000000000000000000000000000000005",
+    "RIPEMD160": "0x0000000000000000000000000000000000000003",
+    "SHA256": "0x0000000000000000000000000000000000000002"
     },
     "systemContracts": {
     "BEACON_ROOTS_ADDRESS": "0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
@@ -116,35 +117,35 @@ EXPECTED_BPO1 = json.loads("""
   }
 }
 """)
-EXPECTED_BPO1_HASH = ForkHash("0x5bb3d0bd")
-EXPECTED_BPO1_FORK_ID = ForkHash("0xdf11b211")
+EXPECTED_BPO1_FORK_ID = ForkHash("0x5e2e4e84")
 EXPECTED_BPO2 = json.loads("""
 {
-    "activationTime": 1742999834,
+    "activationTime": 1753575912,
     "blobSchedule": {
     "baseFeeUpdateFraction": 5007716,
     "max": 15,
     "target": 12
     },
     "chainId": "0x88bb0",
+    "forkId": "0x9d7b6bfb",
     "precompiles": {
-    "0x0000000000000000000000000000000000000001": "ECREC",
-    "0x0000000000000000000000000000000000000002": "SHA256",
-    "0x0000000000000000000000000000000000000003": "RIPEMD160",
-    "0x0000000000000000000000000000000000000004": "ID",
-    "0x0000000000000000000000000000000000000005": "MODEXP",
-    "0x0000000000000000000000000000000000000006": "BN254_ADD",
-    "0x0000000000000000000000000000000000000007": "BN254_MUL",
-    "0x0000000000000000000000000000000000000008": "BN254_PAIRING",
-    "0x0000000000000000000000000000000000000009": "BLAKE2F",
-    "0x000000000000000000000000000000000000000a": "KZG_POINT_EVALUATION",
-    "0x000000000000000000000000000000000000000b": "BLS12_G1ADD",
-    "0x000000000000000000000000000000000000000c": "BLS12_G1MSM",
-    "0x000000000000000000000000000000000000000d": "BLS12_G2ADD",
-    "0x000000000000000000000000000000000000000e": "BLS12_G2MSM",
-    "0x000000000000000000000000000000000000000f": "BLS12_PAIRING_CHECK",
-    "0x0000000000000000000000000000000000000010": "BLS12_MAP_FP_TO_G1",
-    "0x0000000000000000000000000000000000000011": "BLS12_MAP_FP2_TO_G2"
+    "BLAKE2F": "0x0000000000000000000000000000000000000009",
+    "BLS12_G1ADD": "0x000000000000000000000000000000000000000b",
+    "BLS12_G1MSM": "0x000000000000000000000000000000000000000c",
+    "BLS12_G2ADD": "0x000000000000000000000000000000000000000d",
+    "BLS12_G2MSM": "0x000000000000000000000000000000000000000e",
+    "BLS12_MAP_FP2_TO_G2": "0x0000000000000000000000000000000000000011",
+    "BLS12_MAP_FP_TO_G1": "0x0000000000000000000000000000000000000010",
+    "BLS12_PAIRING_CHECK": "0x000000000000000000000000000000000000000f",
+    "BN254_ADD": "0x0000000000000000000000000000000000000006",
+    "BN254_MUL": "0x0000000000000000000000000000000000000007",
+    "BN254_PAIRING": "0x0000000000000000000000000000000000000008",
+    "ECREC": "0x0000000000000000000000000000000000000001",
+    "ID": "0x0000000000000000000000000000000000000004",
+    "KZG_POINT_EVALUATION": "0x000000000000000000000000000000000000000a",
+    "MODEXP": "0x0000000000000000000000000000000000000005",
+    "RIPEMD160": "0x0000000000000000000000000000000000000003",
+    "SHA256": "0x0000000000000000000000000000000000000002"
     },
     "systemContracts": {
     "BEACON_ROOTS_ADDRESS": "0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
@@ -155,8 +156,124 @@ EXPECTED_BPO2 = json.loads("""
   }
 }
 """)
-EXPECTED_BPO2_HASH = ForkHash("0xd7ec188b")
-EXPECTED_BPO2_FORK_ID = ForkHash("0x0757e44f")
+EXPECTED_BPO2_FORK_ID = ForkHash("0x9d7b6bfb")
+EXPECTED_BPO3 = json.loads("""
+{
+    "activationTime": 1753674216,
+    "blobSchedule": {
+    "baseFeeUpdateFraction": 5007716,
+    "max": 18,
+    "target": 15
+    },
+    "chainId": "0x88bb0",
+    "forkId": "0xbebdd3a1",
+    "precompiles": {
+    "BLAKE2F": "0x0000000000000000000000000000000000000009",
+    "BLS12_G1ADD": "0x000000000000000000000000000000000000000b",
+    "BLS12_G1MSM": "0x000000000000000000000000000000000000000c",
+    "BLS12_G2ADD": "0x000000000000000000000000000000000000000d",
+    "BLS12_G2MSM": "0x000000000000000000000000000000000000000e",
+    "BLS12_MAP_FP2_TO_G2": "0x0000000000000000000000000000000000000011",
+    "BLS12_MAP_FP_TO_G1": "0x0000000000000000000000000000000000000010",
+    "BLS12_PAIRING_CHECK": "0x000000000000000000000000000000000000000f",
+    "BN254_ADD": "0x0000000000000000000000000000000000000006",
+    "BN254_MUL": "0x0000000000000000000000000000000000000007",
+    "BN254_PAIRING": "0x0000000000000000000000000000000000000008",
+    "ECREC": "0x0000000000000000000000000000000000000001",
+    "ID": "0x0000000000000000000000000000000000000004",
+    "KZG_POINT_EVALUATION": "0x000000000000000000000000000000000000000a",
+    "MODEXP": "0x0000000000000000000000000000000000000005",
+    "RIPEMD160": "0x0000000000000000000000000000000000000003",
+    "SHA256": "0x0000000000000000000000000000000000000002"
+    },
+    "systemContracts": {
+    "BEACON_ROOTS_ADDRESS": "0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
+    "CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS": "0x0000bbddc7ce488642fb579f8b00f3a590007251",
+    "DEPOSIT_CONTRACT_ADDRESS": "0x00000000219ab540356cbb839cbe05303d7705fa",
+    "HISTORY_STORAGE_ADDRESS": "0x0000f90827f1c53a10cb7a02335b175320002935",
+    "WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS": "0x00000961ef480eb55e80d19ad83579a64c007002"
+  }
+}
+""")
+EXPECTED_BPO3_FORK_ID = ForkHash("0xbebdd3a1")
+EXPECTED_BPO4 = json.loads("""
+{
+    "activationTime": 1753772520,
+    "blobSchedule": {
+    "baseFeeUpdateFraction": 5007716,
+    "max": 9,
+    "target": 6
+    },
+    "chainId": "0x88bb0",
+    "forkId": "0x190c2054",
+    "precompiles": {
+    "BLAKE2F": "0x0000000000000000000000000000000000000009",
+    "BLS12_G1ADD": "0x000000000000000000000000000000000000000b",
+    "BLS12_G1MSM": "0x000000000000000000000000000000000000000c",
+    "BLS12_G2ADD": "0x000000000000000000000000000000000000000d",
+    "BLS12_G2MSM": "0x000000000000000000000000000000000000000e",
+    "BLS12_MAP_FP2_TO_G2": "0x0000000000000000000000000000000000000011",
+    "BLS12_MAP_FP_TO_G1": "0x0000000000000000000000000000000000000010",
+    "BLS12_PAIRING_CHECK": "0x000000000000000000000000000000000000000f",
+    "BN254_ADD": "0x0000000000000000000000000000000000000006",
+    "BN254_MUL": "0x0000000000000000000000000000000000000007",
+    "BN254_PAIRING": "0x0000000000000000000000000000000000000008",
+    "ECREC": "0x0000000000000000000000000000000000000001",
+    "ID": "0x0000000000000000000000000000000000000004",
+    "KZG_POINT_EVALUATION": "0x000000000000000000000000000000000000000a",
+    "MODEXP": "0x0000000000000000000000000000000000000005",
+    "RIPEMD160": "0x0000000000000000000000000000000000000003",
+    "SHA256": "0x0000000000000000000000000000000000000002"
+    },
+    "systemContracts": {
+    "BEACON_ROOTS_ADDRESS": "0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
+    "CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS": "0x0000bbddc7ce488642fb579f8b00f3a590007251",
+    "DEPOSIT_CONTRACT_ADDRESS": "0x00000000219ab540356cbb839cbe05303d7705fa",
+    "HISTORY_STORAGE_ADDRESS": "0x0000f90827f1c53a10cb7a02335b175320002935",
+    "WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS": "0x00000961ef480eb55e80d19ad83579a64c007002"
+  }
+}
+""")
+EXPECTED_BPO4_FORK_ID = ForkHash("0x190c2054")
+EXPECTED_BPO5 = json.loads("""
+{
+    "activationTime": 1753889256,
+    "blobSchedule": {
+    "baseFeeUpdateFraction": 5007716,
+    "max": 20,
+    "target": 15
+    },
+    "chainId": "0x88bb0",
+    "forkId": "0xd3a4880b",
+    "precompiles": {
+    "BLAKE2F": "0x0000000000000000000000000000000000000009",
+    "BLS12_G1ADD": "0x000000000000000000000000000000000000000b",
+    "BLS12_G1MSM": "0x000000000000000000000000000000000000000c",
+    "BLS12_G2ADD": "0x000000000000000000000000000000000000000d",
+    "BLS12_G2MSM": "0x000000000000000000000000000000000000000e",
+    "BLS12_MAP_FP2_TO_G2": "0x0000000000000000000000000000000000000011",
+    "BLS12_MAP_FP_TO_G1": "0x0000000000000000000000000000000000000010",
+    "BLS12_PAIRING_CHECK": "0x000000000000000000000000000000000000000f",
+    "BN254_ADD": "0x0000000000000000000000000000000000000006",
+    "BN254_MUL": "0x0000000000000000000000000000000000000007",
+    "BN254_PAIRING": "0x0000000000000000000000000000000000000008",
+    "ECREC": "0x0000000000000000000000000000000000000001",
+    "ID": "0x0000000000000000000000000000000000000004",
+    "KZG_POINT_EVALUATION": "0x000000000000000000000000000000000000000a",
+    "MODEXP": "0x0000000000000000000000000000000000000005",
+    "RIPEMD160": "0x0000000000000000000000000000000000000003",
+    "SHA256": "0x0000000000000000000000000000000000000002"
+    },
+    "systemContracts": {
+    "BEACON_ROOTS_ADDRESS": "0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
+    "CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS": "0x0000bbddc7ce488642fb579f8b00f3a590007251",
+    "DEPOSIT_CONTRACT_ADDRESS": "0x00000000219ab540356cbb839cbe05303d7705fa",
+    "HISTORY_STORAGE_ADDRESS": "0x0000f90827f1c53a10cb7a02335b175320002935",
+    "WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS": "0x00000961ef480eb55e80d19ad83579a64c007002"
+  }
+}
+""")
+EXPECTED_BPO5_FORK_ID = ForkHash("0xd3a4880b")
 
 CURRENT_FILE = Path(realpath(__file__))
 CURRENT_FOLDER = CURRENT_FILE.parent
@@ -223,13 +340,25 @@ HoodiWithBPOs:
     0:                  Cancun
     1742999832:         Prague
   bpoForkActivationTimes:
-    1742999833:
+    1753477608:
         target: 9
         max: 12
         base_fee_update_fraction: 5007716
-    1742999834:
+    1753575912:
         target: 12
         max: 15
+        base_fee_update_fraction: 5007716
+    1753674216:
+        target: 15
+        max: 18
+        base_fee_update_fraction: 5007716
+    1753772520:
+        target: 6
+        max: 9
+        base_fee_update_fraction: 5007716
+    1753889256:
+        target: 15
+        max: 20
         base_fee_update_fraction: 5007716
 """
 
@@ -268,24 +397,16 @@ def eth_config(network: NetworkConfig, current_time: int) -> EthConfigResponse:
             0,
             EthConfigResponse(
                 current=EXPECTED_CANCUN,
-                current_hash=EXPECTED_CANCUN_HASH,
-                current_fork_id=EXPECTED_CANCUN_FORK_ID,
                 next=EXPECTED_PRAGUE,
-                next_hash=EXPECTED_PRAGUE_HASH,
-                next_fork_id=EXPECTED_PRAGUE_FORK_ID,
                 last=EXPECTED_PRAGUE,
-                last_hash=EXPECTED_PRAGUE_HASH,
-                last_fork_id=EXPECTED_PRAGUE_FORK_ID,
             ),
             id="Hoodi_cancun",
         ),
         pytest.param(
             "Hoodi",
-            1742999832,
+            1753477608,
             EthConfigResponse(
                 current=EXPECTED_PRAGUE,
-                current_hash=EXPECTED_PRAGUE_HASH,
-                current_fork_id=EXPECTED_PRAGUE_FORK_ID,
             ),
             id="Hoodi_prague",
         ),
@@ -294,42 +415,48 @@ def eth_config(network: NetworkConfig, current_time: int) -> EthConfigResponse:
             1742999832,
             EthConfigResponse(
                 current=EXPECTED_PRAGUE,
-                current_hash=EXPECTED_PRAGUE_HASH,
-                current_fork_id=EXPECTED_PRAGUE_FORK_ID,
                 next=EXPECTED_BPO1,
-                next_hash=EXPECTED_BPO1_HASH,
-                next_fork_id=EXPECTED_BPO1_FORK_ID,
-                last=EXPECTED_BPO2,
-                last_hash=EXPECTED_BPO2_HASH,
-                last_fork_id=EXPECTED_BPO2_FORK_ID,
+                last=EXPECTED_BPO5,
             ),
             id="Hoodi_prague_with_bpos_1",
         ),
         pytest.param(
             "HoodiWithBPOs",
-            1742999833,
+            1753575912,
             EthConfigResponse(
-                current=EXPECTED_BPO1,
-                current_hash=EXPECTED_BPO1_HASH,
-                current_fork_id=EXPECTED_BPO1_FORK_ID,
-                next=EXPECTED_BPO2,
-                next_hash=EXPECTED_BPO2_HASH,
-                next_fork_id=EXPECTED_BPO2_FORK_ID,
-                last=EXPECTED_BPO2,
-                last_hash=EXPECTED_BPO2_HASH,
-                last_fork_id=EXPECTED_BPO2_FORK_ID,
+                current=EXPECTED_BPO2,
+                next=EXPECTED_BPO3,
+                last=EXPECTED_BPO5,
             ),
             id="Hoodi_prague_with_bpos_2",
         ),
         pytest.param(
             "HoodiWithBPOs",
-            1742999834,
+            1753674216,
             EthConfigResponse(
-                current=EXPECTED_BPO2,
-                current_hash=EXPECTED_BPO2_HASH,
-                current_fork_id=EXPECTED_BPO2_FORK_ID,
+                current=EXPECTED_BPO3,
+                next=EXPECTED_BPO4,
+                last=EXPECTED_BPO5,
             ),
             id="Hoodi_prague_with_bpos_3",
+        ),
+        pytest.param(
+            "HoodiWithBPOs",
+            1753772520,
+            EthConfigResponse(
+                current=EXPECTED_BPO4,
+                next=EXPECTED_BPO5,
+                last=EXPECTED_BPO5,
+            ),
+            id="Hoodi_prague_with_bpos_4",
+        ),
+        pytest.param(
+            "HoodiWithBPOs",
+            1753889256,
+            EthConfigResponse(
+                current=EXPECTED_BPO5,
+            ),
+            id="Hoodi_prague_with_bpos_5",
         ),
     ],
     indirect=["network"],
@@ -346,11 +473,8 @@ def test_fork_config_from_fork(
         f"Expected {expected_eth_config.current.model_dump_json()} but got "
         f"{current_config.model_dump_json()}"
     )
-    assert current_config.get_hash() == expected_eth_config.current_hash, (
-        f"Expected {expected_eth_config.current_hash} but got {current_config.get_hash()}"
-    )
-    assert eth_config.current_fork_id == expected_eth_config.current_fork_id, (
-        f"Expected {expected_eth_config.current_fork_id} but got {eth_config.current_fork_id}"
+    assert current_config.fork_id == expected_eth_config.current.fork_id, (
+        f"Expected {expected_eth_config.current.fork_id} but got {current_config.fork_id}"
     )
     if expected_eth_config.next is not None:
         assert next_config is not None, "Expected next to be not None"
@@ -360,11 +484,8 @@ def test_fork_config_from_fork(
             f"Expected {expected_eth_config.next.model_dump_json()} but got "
             f"{next_config.model_dump_json()}"
         )
-        assert next_config.get_hash() == expected_eth_config.next_hash, (
-            f"Expected {expected_eth_config.next_hash} but got {next_config.get_hash()}"
-        )
-        assert eth_config.next_fork_id == expected_eth_config.next_fork_id, (
-            f"Expected {expected_eth_config.next_fork_id} but got {eth_config.next_fork_id}"
+        assert next_config.fork_id == expected_eth_config.next.fork_id, (
+            f"Expected {expected_eth_config.next.fork_id} but got {next_config.fork_id}"
         )
     else:
         assert next_config is None, "Expected next to be None"
@@ -376,11 +497,8 @@ def test_fork_config_from_fork(
             f"Expected {expected_eth_config.last.model_dump_json()} but got "
             f"{eth_config.last.model_dump_json()}"
         )
-        assert eth_config.last_hash == expected_eth_config.last_hash, (
-            f"Expected {expected_eth_config.last_hash} but got {eth_config.last_hash}"
-        )
-        assert eth_config.last_fork_id == expected_eth_config.last_fork_id, (
-            f"Expected {expected_eth_config.last_fork_id} but got {eth_config.last_fork_id}"
+        assert eth_config.last.fork_id == expected_eth_config.last.fork_id, (
+            f"Expected {expected_eth_config.last.fork_id} but got {eth_config.last.fork_id}"
         )
     else:
         assert eth_config.last is None, "Expected last to be None"
@@ -437,12 +555,20 @@ def test_fork_ids(
     expected_last_fork_id: ForkHash | None,
 ):
     """Test various configurations of fork Ids for different timestamps."""
-    assert expected_current_fork_id == eth_config.current_fork_id, (
-        f"Unexpected current fork id: {eth_config.current_fork_id} != {expected_current_fork_id}"
+    assert expected_current_fork_id == eth_config.current.fork_id, (
+        f"Unexpected current fork id: {eth_config.current.fork_id} != {expected_current_fork_id}"
     )
-    assert expected_next_fork_id == eth_config.next_fork_id, (
-        f"Unexpected next fork id: {eth_config.next_fork_id} != {expected_next_fork_id}"
-    )
-    assert expected_last_fork_id == eth_config.last_fork_id, (
-        f"Unexpected last fork id: {eth_config.last_fork_id} != {expected_last_fork_id}"
-    )
+    if expected_next_fork_id is not None:
+        assert eth_config.next is not None, "Expected next to be not None"
+        assert expected_next_fork_id == eth_config.next.fork_id, (
+            f"Unexpected next fork id: {eth_config.next.fork_id} != {expected_next_fork_id}"
+        )
+    else:
+        assert eth_config.next is None, "Expected next to be None"
+    if expected_last_fork_id is not None:
+        assert eth_config.last is not None, "Expected last to be not None"
+        assert expected_last_fork_id == eth_config.last.fork_id, (
+            f"Unexpected last fork id: {eth_config.last.fork_id} != {expected_last_fork_id}"
+        )
+    else:
+        assert eth_config.last is None, "Expected last to be None"

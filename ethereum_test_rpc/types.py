@@ -214,7 +214,8 @@ class ForkConfig(CamelModel):
     activation_time: int
     blob_schedule: ForkConfigBlobSchedule | None = None
     chain_id: HexNumber
-    precompiles: Dict[Address, str]
+    fork_id: ForkHash
+    precompiles: Dict[str, Address]
     system_contracts: Dict[str, Address]
 
     def get_hash(self) -> ForkHash:
@@ -227,11 +228,5 @@ class EthConfigResponse(CamelModel):
     """Response of the `eth_config` RPC endpoint."""
 
     current: ForkConfig
-    current_hash: ForkHash
-    current_fork_id: ForkHash
     next: ForkConfig | None = None
-    next_hash: ForkHash | None = None
-    next_fork_id: ForkHash | None = None
     last: ForkConfig | None = None
-    last_hash: ForkHash | None = None
-    last_fork_id: ForkHash | None = None

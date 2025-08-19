@@ -16,7 +16,11 @@ from ethereum_test_base_types import (
     HexNumber,
 )
 from ethereum_test_forks import Fork
-from ethereum_test_rpc import EthConfigResponse, ForkConfig, ForkConfigBlobSchedule
+from ethereum_test_rpc import (
+    EthConfigResponse,
+    ForkConfig,
+    ForkConfigBlobSchedule,
+)
 
 
 class AddressOverrideDict(EthereumTestRootModel):
@@ -71,15 +75,25 @@ class ForkConfigBuilder(BaseModel):
                 else self.bpo_blob_schedule_override,
             )
 
+    def with_fork_id(self, fork_id: ForkHash) -> Self:
+        """Set the fork_id for this builder."""
+        return self.__class__(
+            fork=self.fork,
+            activation_time=self.activation_time,
+            chain_id=self.chain_id,
+            address_overrides=self.address_overrides,
+            bpo_blob_schedule_override=self.bpo_blob_schedule_override,
+        )
+
     @property
-    def precompiles(self) -> Dict[Address, str]:
+    def precompiles(self) -> Dict[str, Address]:
         """Get the precompiles."""
         precompiles = {}
         for a in self.fork.precompiles():
             label = a.label
             if a in self.address_overrides.root:
                 a = self.address_overrides.root[a]
-            precompiles[a] = f"{label}"
+            precompiles[f"{label}"] = a
         return precompiles
 
     @property
@@ -93,7 +107,7 @@ class ForkConfigBuilder(BaseModel):
             system_contracts[f"{label}"] = a
         return system_contracts
 
-    def get_config(self) -> ForkConfig:
+    def get_config(self, fork_id: ForkHash) -> ForkConfig:
         """
         Get the current and next fork configurations given the current time and the network
         configuration.
@@ -102,6 +116,7 @@ class ForkConfigBuilder(BaseModel):
             activation_time=self.activation_time,
             blob_schedule=self.blob_schedule,
             chain_id=self.chain_id,
+            fork_id=fork_id,
             precompiles=self.precompiles,
             system_contracts=self.system_contracts,
         )
@@ -177,22 +192,22 @@ class NetworkConfig(CamelModel):
                     )
                     last_activation_times.add(activation_time)
 
-        current_config = current_config_builder.get_config()
+        current_config = current_config_builder.get_config(
+            calculate_fork_id(self.genesis_hash, current_activation_times)
+        )
         kwargs = {
             "current": current_config,
-            "currentHash": current_config.get_hash(),
-            "currentForkId": calculate_fork_id(self.genesis_hash, current_activation_times),
         }
         if next_config_builder is not None:
-            next_config = next_config_builder.get_config()
+            next_config = next_config_builder.get_config(
+                calculate_fork_id(self.genesis_hash, next_activation_times)
+            )
             kwargs["next"] = next_config
-            kwargs["nextHash"] = next_config.get_hash()
-            kwargs["nextForkId"] = calculate_fork_id(self.genesis_hash, next_activation_times)
         if last_config_builder is not None:
-            last_config = last_config_builder.get_config()
+            last_config = last_config_builder.get_config(
+                calculate_fork_id(self.genesis_hash, last_activation_times)
+            )
             kwargs["last"] = last_config
-            kwargs["lastHash"] = last_config.get_hash()
-            kwargs["lastForkId"] = calculate_fork_id(self.genesis_hash, last_activation_times)
 
         return EthConfigResponse(**kwargs)
 
