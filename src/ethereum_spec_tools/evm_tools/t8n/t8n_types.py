@@ -4,7 +4,7 @@ Define the types used by the t8n tool.
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
-from ethereum_rlp import Simple, rlp
+from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes20, Bytes0
 from ethereum.exceptions import StateWithEmptyAccount
 from ethereum_types.numeric import U8, U64, U256, Uint
@@ -110,13 +110,16 @@ class Txs:
         self.all_txs = []
 
         if stdin is None:
-            self.data: Simple = []
+            self.data: List[Transaction] = []
         else:
             self.data = stdin
 
         for idx, raw_tx in enumerate(self.data):
             try:
-                fork_tx = self.pydantic_to_fork_transaction(raw_tx)
+                fork_tx = convert_pydantic_tx_to_canonical(
+                    raw_tx,
+                    self.t8n.fork,
+                )
                 self.transactions.append(fork_tx)
                 self.successfully_parsed.append(idx)
                 self.all_txs.append(fork_tx)
@@ -190,9 +193,6 @@ class Txs:
             transaction = tx
 
         return transaction
-
-    def pydantic_to_fork_transaction(self, tx_model):
-        return convert_pydantic_tx_to_canonical(tx_model, self.t8n.fork)
 
     def sign_transaction(self, json_tx: Any) -> None:
         """
@@ -291,29 +291,53 @@ def convert_pydantic_tx_to_canonical(tx, fork):
             )
         return result
 
-    # determine tx type
-    tx_type = getattr(tx, "ty", 0)
-    if hasattr(fork, "SetCodeTransaction") and tx_type == 4:
-        tx_cls = fork.SetCodeTransaction
-    elif hasattr(fork, "BlobTransaction") and tx_type == 3:
-        tx_cls = fork.BlobTransaction
-    elif hasattr(fork, "FeeMarketTransaction") and tx_type == 2:
-        tx_cls = fork.FeeMarketTransaction
-    elif hasattr(fork, "AccessListTransaction") and tx_type == 1:
-        tx_cls = fork.AccessListTransaction
-    else:
-        tx_cls = getattr(fork, "LegacyTransaction", None)
-        if tx_cls is None:
-            tx_cls = getattr(fork, "Transaction")
-
     def to_bytes20(val):
         if val is None:
             return Bytes0()
         return Bytes20(val)
 
-    # build the canonical transaction
-    if tx_cls.__name__ == "FeeMarketTransaction":
-        return tx_cls(
+    tx_type = tx.ty or 0
+
+    # SetCodeTransaction (Type 4)
+    if hasattr(fork, "SetCodeTransaction") and tx_type == 4:
+        return fork.SetCodeTransaction(
+            chain_id=U64(tx.chain_id),
+            nonce=U256(tx.nonce),
+            max_priority_fee_per_gas=Uint(tx.max_priority_fee_per_gas or 0),
+            max_fee_per_gas=Uint(tx.max_fee_per_gas or 0),
+            gas=Uint(tx.gas_limit),
+            to=to_bytes20(tx.to),
+            value=U256(tx.value),
+            data=tx.data,
+            access_list=convert_access_list(tx.access_list),
+            authorizations=convert_authorizations(tx.authorization_list or []),
+            y_parity=U256(tx.v),
+            r=U256(tx.r),
+            s=U256(tx.s),
+        )
+
+    # BlobTransaction (Type 3)
+    elif hasattr(fork, "BlobTransaction") and tx_type == 3:
+        return fork.BlobTransaction(
+            chain_id=U64(tx.chain_id),
+            nonce=U256(tx.nonce),
+            max_priority_fee_per_gas=Uint(tx.max_priority_fee_per_gas or 0),
+            max_fee_per_gas=Uint(tx.max_fee_per_gas or 0),
+            gas=Uint(tx.gas_limit),
+            to=to_bytes20(tx.to),
+            value=U256(tx.value),
+            data=tx.data,
+            access_list=convert_access_list(tx.access_list),
+            max_fee_per_blob_gas=Uint(tx.max_fee_per_blob_gas or 0),
+            blob_versioned_hashes=tx.blob_versioned_hashes or (),
+            y_parity=U256(tx.v),
+            r=U256(tx.r),
+            s=U256(tx.s),
+        )
+
+    # FeeMarketTransaction (Type 2)
+    elif hasattr(fork, "FeeMarketTransaction") and tx_type == 2:
+        return fork.FeeMarketTransaction(
             chain_id=U64(tx.chain_id),
             nonce=U256(tx.nonce),
             max_priority_fee_per_gas=Uint(tx.max_priority_fee_per_gas or 0),
@@ -327,8 +351,10 @@ def convert_pydantic_tx_to_canonical(tx, fork):
             r=U256(tx.r),
             s=U256(tx.s),
         )
-    elif tx_cls.__name__ == "AccessListTransaction":
-        return tx_cls(
+
+    # AccessListTransaction (Type 1)
+    elif hasattr(fork, "AccessListTransaction") and tx_type == 1:
+        return fork.AccessListTransaction(
             chain_id=U64(tx.chain_id),
             nonce=U256(tx.nonce),
             gas_price=Uint(tx.gas_price or 0),
@@ -341,40 +367,13 @@ def convert_pydantic_tx_to_canonical(tx, fork):
             r=U256(tx.r),
             s=U256(tx.s),
         )
-    elif tx_cls.__name__ == "BlobTransaction":
-        return tx_cls(
-            chain_id=U64(tx.chain_id),
-            nonce=U256(tx.nonce),
-            max_priority_fee_per_gas=Uint(tx.max_priority_fee_per_gas or 0),
-            max_fee_per_gas=Uint(tx.max_fee_per_gas or 0),
-            gas=Uint(tx.gas_limit),
-            to=to_bytes20(tx.to),
-            value=U256(tx.value),
-            data=tx.data,
-            access_list=convert_access_list(tx.access_list),
-            max_fee_per_blob_gas=Uint(getattr(tx, "max_fee_per_blob_gas", 0)),
-            blob_versioned_hashes=getattr(tx, "blob_versioned_hashes", ()),
-            y_parity=U256(tx.v),
-            r=U256(tx.r),
-            s=U256(tx.s),
-        )
-    elif tx_cls.__name__ == "SetCodeTransaction":
-        return tx_cls(
-            chain_id=U64(tx.chain_id),
-            nonce=U256(tx.nonce),
-            max_priority_fee_per_gas=Uint(tx.max_priority_fee_per_gas or 0),
-            max_fee_per_gas=Uint(tx.max_fee_per_gas or 0),
-            gas=Uint(tx.gas_limit),
-            to=to_bytes20(tx.to),
-            value=U256(tx.value),
-            data=tx.data,
-            access_list=convert_access_list(tx.access_list),
-            authorizations=convert_authorizations(getattr(tx, "authorization_list", ())),
-            y_parity=U256(tx.v),
-            r=U256(tx.r),
-            s=U256(tx.s),
-        )
+
+    # Legacy Transaction (Type 0)
     else:
+        tx_cls = getattr(fork, "LegacyTransaction", None)
+        if tx_cls is None:
+            tx_cls = getattr(fork, "Transaction")
+
         return tx_cls(
             nonce=U256(tx.nonce),
             gas_price=Uint(tx.gas_price or 0),

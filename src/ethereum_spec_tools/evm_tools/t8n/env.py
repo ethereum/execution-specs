@@ -196,7 +196,7 @@ class Env:
         """
         self.withdrawals = None
         if t8n.fork.is_after_fork("ethereum.shanghai"):
-            raw_withdrawals = getattr(data, "withdrawals", None)
+            raw_withdrawals = data.withdrawals
             if raw_withdrawals:
                 def to_canonical_withdrawal(raw):
                     return t8n.fork.Withdrawal(
