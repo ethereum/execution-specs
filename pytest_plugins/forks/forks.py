@@ -603,14 +603,15 @@ class ValidityMarker(ABC):
 
     marker_name: ClassVar[str]
     mutually_exclusive: ClassVar[bool]
+    flag: ClassVar[bool]
 
     test_name: str
     all_forks: Set[Fork]
     all_forks_by_name: Mapping[str, Fork]
-    mark: Mark
+    mark: Mark | None
 
     def __init_subclass__(
-        cls, *, marker_name: str | None = None, mutually_exclusive=False
+        cls, *, marker_name: str | None = None, mutually_exclusive=False, flag=False
     ) -> None:
         """Register the validity marker subclass."""
         super().__init_subclass__()
@@ -620,6 +621,7 @@ class ValidityMarker(ABC):
             # Use the class name converted to underscore: https://stackoverflow.com/a/1176023
             cls.marker_name = MARKER_NAME_REGEX.sub("_", cls.__name__).lower()
         cls.mutually_exclusive = mutually_exclusive
+        cls.flag = flag
         if cls in ALL_VALIDITY_MARKERS:
             raise ValueError(f"Duplicate validity marker class: {cls}")
         ALL_VALIDITY_MARKERS.append(cls)
@@ -654,18 +656,27 @@ class ValidityMarker(ABC):
 
         If the test function does not contain the marker, return None.
         """
+        all_forks_by_name: Mapping[str, Fork] = config.all_forks_by_name  # type: ignore
+        all_forks: Set[Fork] = config.all_forks  # type: ignore
+
         validity_markers = [mark for mark in markers if mark.name == cls.marker_name]
         if not validity_markers:
+            if cls.flag:
+                # Flags are also added as validity forks since they affect the behavior of tests
+                # that don't include the validity marker.
+                return cls(
+                    test_name=test_name,
+                    all_forks_by_name=all_forks_by_name,
+                    all_forks=all_forks,
+                    mark=None,
+                )
             return None
 
         if len(validity_markers) > 1:
             pytest.fail(f"'{test_name}': Too many '{cls.marker_name}' markers applied to test. ")
         mark = validity_markers[0]
-        if len(mark.args) == 0:
+        if len(mark.args) == 0 and not cls.flag:
             pytest.fail(f"'{test_name}': Missing fork argument with '{cls.marker_name}' marker. ")
-
-        all_forks_by_name: Mapping[str, Fork] = config.all_forks_by_name  # type: ignore
-        all_forks: Set[Fork] = config.all_forks  # type: ignore
 
         return cls(
             test_name=test_name,
@@ -689,16 +700,19 @@ class ValidityMarker(ABC):
                 markers,
             ):
                 validity_markers.append(validity_marker)
-
-        if len(validity_markers) > 1:
+        non_flag_validity_markers = [
+            validity_marker for validity_marker in validity_markers if not validity_marker.flag
+        ]
+        if len(non_flag_validity_markers) > 1:
             mutually_exclusive_markers = [
                 validity_marker
-                for validity_marker in validity_markers
+                for validity_marker in non_flag_validity_markers
                 if validity_marker.mutually_exclusive
             ]
             if mutually_exclusive_markers:
                 names = [
-                    f"'{validity_marker.marker_name}'" for validity_marker in validity_markers
+                    f"'{validity_marker.marker_name}'"
+                    for validity_marker in non_flag_validity_markers
                 ]
                 concatenated_names = " and ".join([", ".join(names[:-1])] + names[-1:])
                 pytest.fail(f"'{test_name}': The markers {concatenated_names} can't be combined. ")
@@ -716,7 +730,11 @@ class ValidityMarker(ABC):
 
     def process(self) -> Set[Fork]:
         """Process the fork arguments."""
-        return self._process_with_marker_args(*self.mark.args, **self.mark.kwargs)
+        mark = self.mark
+        if mark is None:
+            assert self.flag, "Marker is `None` but validity marker is not a flag"
+            return self._process_with_marker_args()
+        return self._process_with_marker_args(*mark.args, **mark.kwargs)
 
     @abstractmethod
     def _process_with_marker_args(self, *args, **kwargs) -> Set[Fork]:
@@ -902,12 +920,47 @@ class ValidAtTransitionTo(ValidityMarker, mutually_exclusive=True):
         return resulting_set
 
 
+class ValidForBPOForks(ValidityMarker, marker_name="valid_for_bpo_forks", flag=True):
+    """
+    Marker to specify that a test is valid for BPO forks.
+
+    ```python
+    import pytest
+
+    from ethereum_test_tools import Alloc, BlockchainTestFiller
+
+    @pytest.mark.valid_for_bpo_forks()
+    def test_something_in_a_bpo_fork(
+        blockchain_test: BlockchainTestFiller,
+        pre: Alloc
+    ):
+        pass
+    ```
+    """
+
+    def _process_with_marker_args(self) -> Set[Fork]:
+        """Process the fork arguments."""
+        resulting_set: Set[Fork] = set()
+        include_bpo_forks = self.mark is not None
+        for fork in self.all_forks:
+            if not fork.bpo_fork() or include_bpo_forks:
+                resulting_set.add(fork)
+                resulting_set |= transition_fork_to(fork)
+        return resulting_set
+
+
 def get_intersection_set(
     test_name: str,
     validity_markers: List[ValidityMarker],
     config: pytest.Config,
 ) -> Set[Fork]:
     """Get the intersection set of forks from the validity markers."""
+    filter_flags = [
+        validity_marker for validity_marker in validity_markers if validity_marker.flag
+    ]
+    validity_markers = [
+        validity_marker for validity_marker in validity_markers if not validity_marker.flag
+    ]
     if not validity_markers:
         # Limit to non-transition forks if no validity markers were applied
         test_fork_set: Set[Fork] = config.all_forks  # type: ignore
@@ -917,6 +970,10 @@ def get_intersection_set(
         for validity_marker in validity_markers:
             # Apply the validity markers to the test function if applicable
             test_fork_set = test_fork_set & validity_marker.process()
+
+    for filter_flag in filter_flags:
+        # Apply the filter to the test function if applicable
+        test_fork_set = test_fork_set & filter_flag.process()
 
     if not test_fork_set:
         pytest.fail(

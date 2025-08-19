@@ -8,6 +8,10 @@ from pydantic import BaseModel
 from ethereum_test_base_types import BlobSchedule
 
 from ..forks.forks import (
+    BPO1,
+    BPO2,
+    BPO3,
+    BPO4,
     Berlin,
     Cancun,
     Frontier,
@@ -21,7 +25,11 @@ from ..forks.forks import (
 )
 from ..forks.transition import (
     BerlinToLondonAt5,
+    BPO1ToBPO2AtTime15k,
+    BPO2ToBPO3AtTime15k,
+    BPO3ToBPO4AtTime15k,
     CancunToPragueAtTime15k,
+    OsakaToBPO1AtTime15k,
     ParisToShanghaiAtTime15k,
     PragueToOsakaAtTime15k,
     ShanghaiToCancunAtTime15k,
@@ -472,3 +480,15 @@ def test_blob_schedules(fork: Fork, expected_schedule: Dict | None):
         assert fork.blob_schedule() is None
     else:
         assert fork.blob_schedule() == BlobSchedule(**expected_schedule)
+
+
+def test_bpo_fork():  # noqa: D103
+    assert Osaka.bpo_fork() is False
+    assert BPO1.bpo_fork() is True
+    assert BPO2.bpo_fork() is True
+    assert BPO3.bpo_fork() is True
+    assert BPO4.bpo_fork() is True
+    assert OsakaToBPO1AtTime15k.bpo_fork() is True
+    assert BPO1ToBPO2AtTime15k.bpo_fork() is True
+    assert BPO2ToBPO3AtTime15k.bpo_fork() is True
+    assert BPO3ToBPO4AtTime15k.bpo_fork() is True

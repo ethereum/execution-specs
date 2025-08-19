@@ -198,7 +198,10 @@ class FillerFile(pytest.File):
                         mark
                         for mark in function_marks
                         if mark.name != "parametrize"
-                        and (mark.name not in [v.mark.name for v in validity_markers])
+                        and (
+                            mark.name
+                            not in [v.mark.name for v in validity_markers if v.mark is not None]
+                        )
                     ]
 
                     for format_with_or_without_label in fixture_formats:

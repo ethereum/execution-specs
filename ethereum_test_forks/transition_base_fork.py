@@ -82,7 +82,7 @@ def transition_fork(to_fork: Type[BaseFork], at_block: int = 0, at_timestamp: in
 
             return classmethod(transition_method)
 
-        for method_name in base_fork_abstract_methods():
+        for method_name in base_fork_abstract_methods() + ["bpo_fork"]:
             setattr(
                 NewTransitionClass,
                 method_name,

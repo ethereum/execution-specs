@@ -548,7 +548,10 @@ class BlockchainTest(BaseTest):
 
         if block.header_verify is not None:
             # Verify the header after transition tool processing.
-            block.header_verify.verify(header)
+            try:
+                block.header_verify.verify(header)
+            except Exception as e:
+                raise Exception(f"Verification of block {int(env.number)} failed") from e
 
         if last_block and self._operation_mode == OpMode.BENCHMARKING:
             expected_benchmark_gas_used = self.expected_benchmark_gas_used

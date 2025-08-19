@@ -20,6 +20,19 @@ def test_case(state_test):
 """
 
 
+def generate_blockchain_test(**kwargs: str):
+    """Generate a test function with the given fork markers."""
+    markers = [f"@pytest.mark.{key}({value})" for key, value in kwargs.items()]
+    marker_lines = "\n".join(markers)
+    return f"""
+import pytest
+{marker_lines}
+@pytest.mark.blockchain_test_only
+def test_case(blockchain_test):
+    pass
+"""
+
+
 @pytest.mark.parametrize(
     "test_function,pytest_args,outcomes",
     [
@@ -121,6 +134,42 @@ def test_case(state_test):
             ["--fork=ShanghaiToCancunAtTime15k"],
             {"passed": 1, "failed": 0, "skipped": 0, "errors": 0},
             id="valid_at_transition_to,--fork=transition_fork_only",
+        ),
+        pytest.param(
+            generate_test(
+                valid_from='"Osaka"',
+                valid_until='"BPO1"',
+            ),
+            ["--until=BPO1"],
+            {"passed": 1, "failed": 0, "skipped": 0, "errors": 0},
+            id="valid_until_bpo_fork_without_bpo_test_marker",
+        ),
+        pytest.param(
+            generate_test(
+                valid_from='"Osaka"',
+                valid_until='"BPO1"',
+                valid_for_bpo_forks="",
+            ),
+            ["--until=BPO1"],
+            {"passed": 2, "failed": 0, "skipped": 0, "errors": 0},
+            id="valid_until_bpo_fork_with_bpo_test_marker",
+        ),
+        pytest.param(
+            generate_test(
+                valid_at_transition_to='"Osaka", subsequent_forks=True, until="BPO1"',
+            ),
+            ["--until=BPO1"],
+            {"passed": 1, "failed": 0, "skipped": 0, "errors": 0},
+            id="valid_at_transition_without_bpo_test_marker",
+        ),
+        pytest.param(
+            generate_test(
+                valid_at_transition_to='"Osaka", subsequent_forks=True, until="BPO1"',
+                valid_for_bpo_forks="",
+            ),
+            ["--until=BPO1"],
+            {"passed": 2, "failed": 0, "skipped": 0, "errors": 0},
+            id="valid_at_transition_with_bpo_test_marker",
         ),
     ],
 )

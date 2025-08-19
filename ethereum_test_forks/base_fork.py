@@ -165,6 +165,7 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     _transition_tool_name: ClassVar[Optional[str]] = None
     _solc_name: ClassVar[Optional[str]] = None
     _ignore: ClassVar[bool] = False
+    _bpo_fork: ClassVar[bool] = False
 
     # make mypy happy
     BLOB_CONSTANTS: ClassVar[Dict[str, Union[int, Literal["big"]]]] = {}
@@ -180,11 +181,13 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
         transition_tool_name: Optional[str] = None,
         solc_name: Optional[str] = None,
         ignore: bool = False,
+        bpo_fork: bool = False,
     ) -> None:
         """Initialize new fork with values that don't carry over to subclass forks."""
         cls._transition_tool_name = transition_tool_name
         cls._solc_name = solc_name
         cls._ignore = ignore
+        cls._bpo_fork = bpo_fork
 
     # Header information abstract methods
     @classmethod
@@ -334,6 +337,18 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     @abstractmethod
     def max_blobs_per_block(cls, block_number: int = 0, timestamp: int = 0) -> int:
         """Return the max blobs per block at a given fork."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def blob_reserve_price_active(cls, block_number: int = 0, timestamp: int = 0) -> bool:
+        """Return whether the fork uses a reserve price mechanism for blobs or not."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def blob_base_cost(cls, block_number: int = 0, timestamp: int = 0) -> int:
+        """Return the base cost of a blob at a given fork."""
         pass
 
     @classmethod
@@ -600,6 +615,12 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     def ignore(cls) -> bool:
         """Return whether the fork should be ignored during test generation."""
         return cls._ignore
+
+    @classmethod
+    @prefer_transition_to_method
+    def bpo_fork(cls) -> bool:
+        """Return whether the fork is a BPO fork."""
+        return cls._bpo_fork
 
     @classmethod
     def parent(cls) -> Type["BaseFork"] | None:
