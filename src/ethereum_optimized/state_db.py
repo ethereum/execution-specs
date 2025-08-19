@@ -9,7 +9,7 @@ Optimized State
 Introduction
 ------------
 
-This module contains functions can be monkey patched into the fork's `state`
+This module contains functions that can be monkey patched into the fork's `state`
 module to use an optimized database backed state.
 """
 import logging
