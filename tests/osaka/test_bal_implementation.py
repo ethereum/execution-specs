@@ -155,24 +155,24 @@ class TestBALCore:
         add_touched_account(builder, address2)
         
         # Build BAL
-        bal = build(builder)
+        block_access_list = build(builder)
         
-        assert isinstance(bal, BlockAccessList)
-        assert len(bal.account_changes) == 2
+        assert isinstance(block_access_list, BlockAccessList)
+        assert len(block_access_list.account_changes) == 2
         
         # Verify sorting by address
-        assert bal.account_changes[0].address == address1
-        assert bal.account_changes[1].address == address2
+        assert block_access_list.account_changes[0].address == address1
+        assert block_access_list.account_changes[1].address == address2
         
         # Verify address1 changes
-        acc1 = bal.account_changes[0]
+        acc1 = block_access_list.account_changes[0]
         assert len(acc1.storage_changes) == 1
         assert len(acc1.storage_reads) == 1
         assert acc1.storage_reads[0] == slot2  # Direct StorageKey
         assert len(acc1.balance_changes) == 1
         
         # Verify address2 is empty
-        acc2 = bal.account_changes[1]
+        acc2 = block_access_list.account_changes[1]
         assert len(acc2.storage_changes) == 0
         assert len(acc2.storage_reads) == 0
         assert len(acc2.balance_changes) == 0
@@ -351,9 +351,9 @@ class TestBALIntegration:
         add_storage_write(builder, beacon_roots_addr, Bytes32(b'\x00' * 32), BlockAccessIndex(0), Bytes32(b'\x01' * 32))
         add_storage_write(builder, history_addr, Bytes32(b'\x00' * 32), BlockAccessIndex(0), Bytes32(b'\x02' * 32))
         
-        bal = build(builder)
+        block_access_list = build(builder)
         
-        for account in bal.account_changes:
+        for account in block_access_list.account_changes:
             if account.address in [beacon_roots_addr, history_addr]:
                 for slot_changes in account.storage_changes:
                     for change in slot_changes.changes:
@@ -369,10 +369,10 @@ class TestBALIntegration:
             # Transactions should use indices 1, 2, 3
             add_balance_change(builder, address, BlockAccessIndex(tx_num), Bytes(b'\x00' * 16))
         
-        bal = build(builder)
+        block_access_list = build(builder)
         
-        assert len(bal.account_changes) == 3
-        for i, account in enumerate(bal.account_changes):
+        assert len(block_access_list.account_changes) == 3
+        for i, account in enumerate(block_access_list.account_changes):
             assert len(account.balance_changes) == 1
             assert account.balance_changes[0].block_access_index == i + 1
     
@@ -387,9 +387,9 @@ class TestBALIntegration:
         
         add_balance_change(builder, withdrawal_addr, BlockAccessIndex(post_exec_index), Bytes(b'\x00' * 16))
         
-        bal = build(builder)
+        block_access_list = build(builder)
         
-        for account in bal.account_changes:
+        for account in block_access_list.account_changes:
             if account.address == withdrawal_addr:
                 assert len(account.balance_changes) == 1
                 assert account.balance_changes[0].block_access_index == post_exec_index
@@ -405,10 +405,10 @@ class TestBALIntegration:
         add_balance_change(builder, address, BlockAccessIndex(2), Bytes(b'\x02' * 16))
         add_balance_change(builder, address, BlockAccessIndex(0), Bytes(b'\x00' * 16))
         
-        bal = build(builder)
+        block_access_list = build(builder)
         
-        assert len(bal.account_changes) == 1
-        account = bal.account_changes[0]
+        assert len(block_access_list.account_changes) == 1
+        account = block_access_list.account_changes[0]
         assert len(account.balance_changes) == 4
         
         # Should be sorted by block_access_index
@@ -422,9 +422,9 @@ class TestRLPEncoding:
     
     def test_rlp_encoding_import(self):
         """Test that RLP encoding utilities can be imported."""
-        from ethereum.osaka.block_access_lists import rlp_encode_block_access_list, compute_bal_hash
+        from ethereum.osaka.block_access_lists import rlp_encode_block_access_list, compute_block_access_list_hash
         assert rlp_encode_block_access_list is not None
-        assert compute_bal_hash is not None
+        assert compute_block_access_list_hash is not None
     
     def test_rlp_encode_simple_bal(self):
         """Test RLP encoding of a simple BAL."""
@@ -435,8 +435,8 @@ class TestRLPEncoding:
         
         add_balance_change(builder, address, BlockAccessIndex(1), Bytes(b'\x00' * 16))
         
-        bal = build(builder)
-        encoded = rlp_encode_block_access_list(bal)
+        block_access_list = build(builder)
+        encoded = rlp_encode_block_access_list(block_access_list)
         
         # Should produce valid RLP bytes
         assert isinstance(encoded, (bytes, Bytes))
@@ -444,21 +444,21 @@ class TestRLPEncoding:
     
     def test_bal_hash_computation(self):
         """Test BAL hash computation using RLP."""
-        from ethereum.osaka.block_access_lists import compute_bal_hash
+        from ethereum.osaka.block_access_lists import compute_block_access_list_hash
         
         builder = BlockAccessListBuilder()
         address = Bytes20(b'\x01' * 20)
         
         add_storage_write(builder, address, Bytes32(b'\x02' * 32), BlockAccessIndex(1), Bytes32(b'\x03' * 32))
         
-        bal = build(builder)
-        hash_val = compute_bal_hash(bal)
+        block_access_list = build(builder)
+        hash_val = compute_block_access_list_hash(block_access_list)
         
         # Should produce a 32-byte hash
         assert len(hash_val) == 32
         
         # Same BAL should produce same hash
-        hash_val2 = compute_bal_hash(bal)
+        hash_val2 = compute_block_access_list_hash(block_access_list)
         assert hash_val == hash_val2
     
     def test_rlp_encode_complex_bal(self):
@@ -481,8 +481,8 @@ class TestRLPEncoding:
         # Post-execution (index 2)
         add_code_change(builder, address, BlockAccessIndex(2), Bytes(b'\x60\x80'))
         
-        bal = build(builder)
-        encoded = rlp_encode_block_access_list(bal)
+        block_access_list = build(builder)
+        encoded = rlp_encode_block_access_list(block_access_list)
         
         # Should produce valid RLP bytes
         assert isinstance(encoded, (bytes, Bytes))
@@ -495,10 +495,10 @@ class TestEdgeCases:
     def test_empty_bal(self):
         """Test building an empty BAL."""
         builder = BlockAccessListBuilder()
-        bal = build(builder)
+        block_access_list = build(builder)
         
-        assert isinstance(bal, BlockAccessList)
-        assert len(bal.account_changes) == 0
+        assert isinstance(block_access_list, BlockAccessList)
+        assert len(block_access_list.account_changes) == 0
     
     def test_multiple_changes_same_slot(self):
         """Test multiple changes to the same storage slot."""
@@ -511,10 +511,10 @@ class TestEdgeCases:
         add_storage_write(builder, address, slot, BlockAccessIndex(1), Bytes32(b'\x01' * 32))
         add_storage_write(builder, address, slot, BlockAccessIndex(2), Bytes32(b'\x02' * 32))
         
-        bal = build(builder)
+        block_access_list = build(builder)
         
-        assert len(bal.account_changes) == 1
-        account = bal.account_changes[0]
+        assert len(block_access_list.account_changes) == 1
+        account = block_access_list.account_changes[0]
         assert len(account.storage_changes) == 1
         
         slot_changes = account.storage_changes[0]
@@ -544,11 +544,11 @@ class TestEdgeCases:
         for addr in addresses:
             add_touched_account(builder, addr)
         
-        bal = build(builder)
+        block_access_list = build(builder)
         
         # Should be sorted lexicographically
         sorted_addresses = sorted(addresses)
-        for i, account in enumerate(bal.account_changes):
+        for i, account in enumerate(block_access_list.account_changes):
             assert account.address == sorted_addresses[i]
 
 

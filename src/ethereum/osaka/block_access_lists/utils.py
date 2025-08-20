@@ -39,7 +39,7 @@ from ..ssz_types import (
 )
 
 
-def compute_bal_hash(bal: BlockAccessList) -> Hash32:
+def compute_block_access_list_hash(block_access_list: BlockAccessList) -> Hash32:
     """
     Compute the hash of a Block Access List.
     
@@ -47,7 +47,7 @@ def compute_bal_hash(bal: BlockAccessList) -> Hash32:
     
     Parameters
     ----------
-    bal :
+    block_access_list :
         The Block Access List to hash.
         
     Returns
@@ -55,8 +55,8 @@ def compute_bal_hash(bal: BlockAccessList) -> Hash32:
     hash :
         The keccak256 hash of the SSZ-encoded Block Access List.
     """
-    bal_bytes = ssz_encode_block_access_list(bal)
-    return keccak256(bal_bytes)
+    block_access_list_bytes = ssz_encode_block_access_list(block_access_list)
+    return keccak256(block_access_list_bytes)
 
 
 def ssz_encode_uint(value: Union[int, Uint], size: int) -> bytes:
@@ -395,7 +395,7 @@ def ssz_encode_account_changes(account: AccountChanges) -> bytes:
     return bytes(result)
 
 
-def ssz_encode_block_access_list(bal: BlockAccessList) -> Bytes:
+def ssz_encode_block_access_list(block_access_list: BlockAccessList) -> Bytes:
     """
     Encode a [`BlockAccessList`] to SSZ bytes.
     
@@ -405,7 +405,7 @@ def ssz_encode_block_access_list(bal: BlockAccessList) -> Bytes:
     
     Parameters
     ----------
-    bal :
+    block_access_list :
         The block access list to encode.
     
     Returns
@@ -417,15 +417,15 @@ def ssz_encode_block_access_list(bal: BlockAccessList) -> Bytes:
     [SSZ specification]: https://github.com/ethereum/consensus-specs/blob/dev/ssz/simple-serialize.md
     """
     encoded = ssz_encode_list(
-        bal.account_changes,
+        block_access_list.account_changes,
         ssz_encode_account_changes,
         MAX_ACCOUNTS
     )
     return Bytes(encoded)
 
 
-def validate_bal_against_execution(
-    bal: BlockAccessList,
+def validate_block_access_list_against_execution(
+    block_access_list: BlockAccessList,
     block_access_list_builder: Optional['BlockAccessListBuilder'] = None
 ) -> bool:
     """
@@ -433,7 +433,7 @@ def validate_bal_against_execution(
     
     Parameters
     ----------
-    bal :
+    block_access_list :
         The Block Access List to validate.
     block_access_list_builder :
         Optional Block Access List builder to validate against. If provided, checks that the
@@ -447,7 +447,7 @@ def validate_bal_against_execution(
     # 1. Validate structural constraints
     
     # Check that storage changes and reads don't overlap for the same slot
-    for account in bal.account_changes:
+    for account in block_access_list.account_changes:
         changed_slots = {sc.slot for sc in account.storage_changes}
         read_slots = {sr.slot for sr in account.storage_reads}
         
@@ -456,13 +456,13 @@ def validate_bal_against_execution(
             return False
     
     # 2. Validate ordering (addresses should be sorted lexicographically)
-    addresses = [account.address for account in bal.account_changes]
+    addresses = [account.address for account in block_access_list.account_changes]
     if addresses != sorted(addresses):
         return False
     
     # 3. Validate all data is within bounds
     max_tx_index = MAX_TRANSACTIONS - 1
-    for account in bal.account_changes:
+    for account in block_access_list.account_changes:
         # Validate storage slots are sorted within each account
         storage_slots = [sc.slot for sc in account.storage_changes]
         if storage_slots != sorted(storage_slots):
@@ -512,10 +512,10 @@ def validate_bal_against_execution(
     if block_access_list_builder is not None:
         from .builder import build
         # Build a Block Access List from the builder
-        expected_bal = build(block_access_list_builder)
+        expected_block_access_list = build(block_access_list_builder)
         
         # Compare hashes - much simpler!
-        if compute_bal_hash(bal) != compute_bal_hash(expected_bal):
+        if compute_block_access_list_hash(block_access_list) != compute_block_access_list_hash(expected_block_access_list):
             return False
     
     return True
