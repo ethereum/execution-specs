@@ -23,9 +23,9 @@ from .tracker import (
     track_storage_write,
 )
 from .rlp_utils import (
-    compute_bal_hash,
+    compute_block_access_list_hash,
     rlp_encode_block_access_list,
-    validate_bal_against_execution,
+    validate_block_access_list_against_execution,
 )
 
 __all__ = [
@@ -38,7 +38,7 @@ __all__ = [
     "add_storage_write",
     "add_touched_account",
     "build",
-    "compute_bal_hash",
+    "compute_block_access_list_hash",
     "set_transaction_index",
     "rlp_encode_block_access_list",
     "track_address_access",
@@ -47,5 +47,5 @@ __all__ = [
     "track_nonce_change",
     "track_storage_read",
     "track_storage_write",
-    "validate_bal_against_execution",
+    "validate_block_access_list_against_execution",
 ]

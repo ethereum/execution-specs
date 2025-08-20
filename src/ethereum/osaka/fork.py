@@ -30,7 +30,7 @@ from ethereum.exceptions import (
 )
 
 from . import vm
-from .block_access_lists import StateChangeTracker, compute_bal_hash, build, set_transaction_index, track_balance_change
+from .block_access_lists import StateChangeTracker, compute_block_access_list_hash, build, set_transaction_index, track_balance_change
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
 from .exceptions import (
@@ -246,8 +246,8 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     requests_hash = compute_requests_hash(block_output.requests)
     
     # Build and validate Block Access List
-    computed_bal = build(block_output.block_access_list_builder)
-    computed_bal_hash = compute_bal_hash(computed_bal)
+    computed_block_access_list = build(block_output.block_access_list_builder)
+    computed_block_access_list_hash = compute_block_access_list_hash(computed_block_access_list)
 
     if block_output.block_gas_used != block.header.gas_used:
         raise InvalidBlock(
@@ -269,7 +269,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         raise InvalidBlock
     if computed_bal_hash != block.header.bal_hash:
         raise InvalidBlock
-    if computed_bal != block.block_access_list:
+    if computed_block_access_list != block.block_access_list:
         raise InvalidBlock
 
     chain.blocks.append(block)
