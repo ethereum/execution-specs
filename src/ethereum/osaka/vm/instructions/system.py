@@ -137,7 +137,8 @@ def generic_create(
     )
     
     if evm.message.change_tracker:
-        evm.message.change_tracker.track_address_access(contract_address)
+        from ...block_access_lists.tracker import track_address_access
+        track_address_access(evm.message.change_tracker, contract_address)
     
     child_evm = process_create_message(child_message)
 
@@ -332,7 +333,8 @@ def generic_call(
     )
     
     if evm.message.change_tracker:
-        evm.message.change_tracker.track_address_access(to)
+        from ...block_access_lists.tracker import track_address_access
+        track_address_access(evm.message.change_tracker, to)
     
     child_evm = process_message(child_message)
 

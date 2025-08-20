@@ -20,7 +20,7 @@ from typing import Optional
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
-from ethereum_types.numeric import Uint
+from ethereum_types.numeric import Uint, U256
 
 from ethereum.crypto.hash import Hash32, keccak256
 
@@ -273,7 +273,7 @@ def rlp_encode_block_access_list(bal: BlockAccessList) -> Bytes:
         storage_reads_list = list(account.storage_reads)
         
         balance_changes_list = [
-            [Uint(bc.block_access_index), Uint(bc.post_balance)]
+            [Uint(bc.block_access_index), U256.from_be_bytes(bc.post_balance)]
             for bc in account.balance_changes
         ]
         

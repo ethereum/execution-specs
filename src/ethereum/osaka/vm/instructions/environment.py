@@ -88,7 +88,8 @@ def balance(evm: Evm) -> None:
     balance = get_account(evm.message.block_env.state, address).balance
     
     if evm.message.change_tracker:
-        evm.message.change_tracker.track_address_access(address)
+        from ...block_access_lists.tracker import track_address_access
+        track_address_access(evm.message.change_tracker, address)
 
     push(evm.stack, balance)
 
@@ -357,7 +358,8 @@ def extcodesize(evm: Evm) -> None:
     code = get_account(evm.message.block_env.state, address).code
     
     if evm.message.change_tracker:
-        evm.message.change_tracker.track_address_access(address)
+        from ...block_access_lists.tracker import track_address_access
+        track_address_access(evm.message.change_tracker, address)
 
     codesize = U256(len(code))
     push(evm.stack, codesize)
@@ -402,7 +404,8 @@ def extcodecopy(evm: Evm) -> None:
     code = get_account(evm.message.block_env.state, address).code
     
     if evm.message.change_tracker:
-        evm.message.change_tracker.track_address_access(address)
+        from ...block_access_lists.tracker import track_address_access
+        track_address_access(evm.message.change_tracker, address)
 
     value = buffer_read(code, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
@@ -491,7 +494,8 @@ def extcodehash(evm: Evm) -> None:
     account = get_account(evm.message.block_env.state, address)
     
     if evm.message.change_tracker:
-        evm.message.change_tracker.track_address_access(address)
+        from ...block_access_lists.tracker import track_address_access
+        track_address_access(evm.message.change_tracker, address)
 
     if account == EMPTY_ACCOUNT:
         codehash = U256(0)

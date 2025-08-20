@@ -511,11 +511,12 @@ def move_ether(
     modify_state(state, recipient_address, increase_recipient_balance)
     
     if change_tracker is not None:
+        from .block_access_lists.tracker import track_balance_change
         sender_new_balance = get_account(state, sender_address).balance
         recipient_new_balance = get_account(state, recipient_address).balance
         
-        change_tracker.track_balance_change(sender_address, U256(sender_new_balance), state)
-        change_tracker.track_balance_change(recipient_address, U256(recipient_new_balance), state)
+        track_balance_change(change_tracker, sender_address, U256(sender_new_balance), state)
+        track_balance_change(change_tracker, recipient_address, U256(recipient_new_balance), state)
 
 
 def set_account_balance(
@@ -548,7 +549,8 @@ def set_account_balance(
     modify_state(state, address, set_balance)
     
     if change_tracker is not None:
-        change_tracker.track_balance_change(address, amount, state)
+        from .block_access_lists.tracker import track_balance_change
+        track_balance_change(change_tracker, address, amount, state)
 
 
 def increment_nonce(state: State, address: Address, change_tracker: "StateChangeTracker") -> None:
@@ -578,8 +580,9 @@ def increment_nonce(state: State, address: Address, change_tracker: "StateChange
     # - Contracts performing CREATE/CREATE2
     # - Deployed contracts
     # - EIP-7702 authorities
+    from .block_access_lists.tracker import track_nonce_change
     account = get_account(state, address)
-    change_tracker.track_nonce_change(address, account.nonce, state)
+    track_nonce_change(change_tracker, address, account.nonce, state)
 
 
 def set_code(
@@ -611,7 +614,8 @@ def set_code(
 
     modify_state(state, address, write_code)
     
-    change_tracker.track_code_change(address, code, state)
+    from .block_access_lists.tracker import track_code_change
+    track_code_change(change_tracker, address, code, state)
 
 
 def get_storage_original(state: State, address: Address, key: Bytes32) -> U256:
