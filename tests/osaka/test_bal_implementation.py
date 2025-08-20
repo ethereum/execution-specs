@@ -292,8 +292,8 @@ class TestBALTracker:
         
         change = builder.accounts[address].balance_changes[0]
         assert change.block_access_index == 2
-        # Balance is stored as 16 bytes (uint128)
-        assert change.post_balance == new_balance.to_be_bytes16()
+        # Balance is stored as 32 bytes (U256) per EIP-7928
+        assert change.post_balance == new_balance.to_be_bytes32()
     
     def test_tracker_nonce_change(self):
         """Test tracking nonce changes."""
