@@ -241,13 +241,11 @@ def track_balance_change(
     """
     track_address_access(tracker, address)
     
-    # Store balance as U256 bytes (EIP-7928 specifies post_balance as U256)
-    balance_bytes = new_balance.to_be_bytes32()
     add_balance_change(
         tracker.block_access_list_builder,
         address,
         BlockAccessIndex(tracker.current_block_access_index),
-        balance_bytes
+        new_balance
     )
 
 

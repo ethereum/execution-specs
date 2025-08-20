@@ -3,7 +3,7 @@ Block Access List RLP Utilities for EIP-7928
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Utilities for working with Block Access Lists using RLP encoding,
-as specified in the updated EIP-7928.
+as specified in EIP-7928.
 
 This module provides:
 
@@ -20,7 +20,7 @@ from typing import Optional
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
-from ethereum_types.numeric import Uint, U256
+from ethereum_types.numeric import Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
 
@@ -103,7 +103,7 @@ def rlp_encode_balance_change(change: BalanceChange) -> bytes:
     """
     return rlp.encode([
         Uint(change.block_access_index),
-        Uint(change.post_balance)
+        change.post_balance
     ])
 
 
@@ -214,7 +214,7 @@ def rlp_encode_account_changes(account: AccountChanges) -> bytes:
     
     # Encode balance_changes: [[block_access_index, post_balance], ...]
     balance_changes_list = [
-        [Uint(bc.block_access_index), Uint(bc.post_balance)]
+        [Uint(bc.block_access_index), bc.post_balance]
         for bc in account.balance_changes
     ]
     
@@ -244,9 +244,8 @@ def rlp_encode_block_access_list(bal: BlockAccessList) -> Bytes:
     """
     Encode a [`BlockAccessList`] to RLP bytes.
     
-    This is the top-level encoding function that produces the final RLP
-    representation of a block's access list, following the updated EIP-7928
-    specification.
+    This function produces the final RLP representation of a block's access list,
+    following the EIP-7928 specification.
     
     Parameters
     ----------
@@ -260,43 +259,8 @@ def rlp_encode_block_access_list(bal: BlockAccessList) -> Bytes:
     
     [`BlockAccessList`]: ref:ethereum.osaka.rlp_types.BlockAccessList
     """
-    # Encode as a list of AccountChanges
-    account_changes_list = []
-    for account in bal.account_changes:
-        # Each account is encoded as:
-        # [address, storage_changes, storage_reads, balance_changes, nonce_changes, code_changes]
-        storage_changes_list = [
-            [slot_changes.slot, [[Uint(c.block_access_index), c.new_value] for c in slot_changes.changes]]
-            for slot_changes in account.storage_changes
-        ]
-        
-        storage_reads_list = list(account.storage_reads)
-        
-        balance_changes_list = [
-            [Uint(bc.block_access_index), U256.from_be_bytes(bc.post_balance)]
-            for bc in account.balance_changes
-        ]
-        
-        nonce_changes_list = [
-            [Uint(nc.block_access_index), Uint(nc.new_nonce)]
-            for nc in account.nonce_changes
-        ]
-        
-        code_changes_list = [
-            [Uint(cc.block_access_index), cc.new_code]
-            for cc in account.code_changes
-        ]
-        
-        account_changes_list.append([
-            account.address,
-            storage_changes_list,
-            storage_reads_list,
-            balance_changes_list,
-            nonce_changes_list,
-            code_changes_list
-        ])
-    
-    encoded = rlp.encode(account_changes_list)
+    # Direct RLP encoding of the dataclass
+    encoded = rlp.encode(bal)
     return Bytes(encoded)
 
 
