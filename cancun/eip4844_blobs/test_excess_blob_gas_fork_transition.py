@@ -24,6 +24,7 @@ from ethereum_test_tools import (
     Transaction,
     add_kzg_version,
 )
+from ethereum_test_tools import Opcodes as Op
 
 from .spec import Spec, SpecHelpers, ref_spec_4844
 
@@ -32,11 +33,25 @@ REFERENCE_SPEC_VERSION = ref_spec_4844.version
 
 # Timestamp of the fork
 FORK_TIMESTAMP = 15_000
+BASE_FEE_MAX_CHANGE_DENOMINATOR = 8
 
 
 @pytest.fixture
-def env() -> Environment:  # noqa: D103
-    return Environment()
+def block_gas_limit(fork: Fork) -> int:  # noqa: D103
+    gas_limit = int(Environment().gas_limit)
+    tx_gas_limit_cap = fork.transaction_gas_limit_cap()
+    if tx_gas_limit_cap is not None:
+        # Below transaction gas limit cap to reach gas limit easily
+        gas_limit = min(gas_limit, tx_gas_limit_cap * 2)
+    return gas_limit
+
+
+@pytest.fixture
+def genesis_environment(block_gas_limit: int, block_base_fee_per_gas: int) -> Environment:  # noqa: D103
+    return Environment(
+        base_fee_per_gas=(block_base_fee_per_gas * BASE_FEE_MAX_CHANGE_DENOMINATOR) // 7,
+        gas_limit=block_gas_limit,
+    )
 
 
 @pytest.fixture
@@ -57,16 +72,33 @@ def post_fork_blobs_per_block(fork: Fork) -> int:
 def pre_fork_blocks(
     pre_fork_blobs_per_block: int,
     destination_account: Address,
+    gas_spender_account: Address,
     sender: EOA,
     fork: Fork,
+    block_base_fee_per_gas: int,
+    block_gas_limit: int,
 ) -> List[Block]:
     """Generate blocks to reach the fork."""
     blocks = []
-    nonce = 0
 
     for t in range(999, FORK_TIMESTAMP, 1_000):
+        remaining_gas = block_gas_limit // 2
         if pre_fork_blobs_per_block == 0:
-            blocks.append(Block(txs=[], timestamp=t))
+            blocks.append(
+                Block(
+                    txs=[
+                        Transaction(
+                            to=gas_spender_account,
+                            value=0,
+                            gas_limit=remaining_gas,
+                            max_fee_per_gas=1_000_000,
+                            max_priority_fee_per_gas=10,
+                            sender=sender,
+                        )
+                    ],
+                    timestamp=t,
+                )
+            )
             continue
 
         # Split into multi txs for forks where max per tx < max per block
@@ -77,12 +109,13 @@ def pre_fork_blocks(
 
         while remaining_blobs > 0:
             tx_blobs = min(remaining_blobs, max_blobs_per_tx)
+            blob_tx_gas_limit = 21_000
             txs.append(
                 Transaction(
                     ty=Spec.BLOB_TX_TYPE,
                     to=destination_account,
                     value=1,
-                    gas_limit=3_000_000,
+                    gas_limit=blob_tx_gas_limit,
                     max_fee_per_gas=1_000_000,
                     max_priority_fee_per_gas=10,
                     max_fee_per_blob_gas=100,
@@ -92,14 +125,25 @@ def pre_fork_blocks(
                         Spec.BLOB_COMMITMENT_VERSION_KZG,
                     ),
                     sender=sender,
-                    nonce=nonce,
                 )
             )
-            nonce += 1
+            remaining_gas -= blob_tx_gas_limit
             blob_index += tx_blobs
             remaining_blobs -= tx_blobs
-
-        blocks.append(Block(txs=txs, timestamp=t))
+        txs.append(
+            Transaction(
+                to=gas_spender_account,
+                value=0,
+                gas_limit=remaining_gas,
+                max_fee_per_gas=1_000_000,
+                max_priority_fee_per_gas=10,
+                sender=sender,
+            )
+        )
+        block = Block(
+            txs=txs, timestamp=t, header_verify=Header(base_fee_per_gas=block_base_fee_per_gas)
+        )
+        blocks.append(block)
     return blocks
 
 
@@ -138,6 +182,12 @@ def destination_account(pre: Alloc) -> Address:  # noqa: D103
 
 
 @pytest.fixture
+def gas_spender_account(pre: Alloc) -> Address:  # noqa: D103
+    # Account that when called consumes the entirety of the transaction's gas
+    return pre.deploy_contract(code=Op.INVALID)
+
+
+@pytest.fixture
 def fork_block_excess_blob_gas(
     fork: Fork,
     pre_fork_excess_blobs: int,
@@ -167,7 +217,6 @@ def post_fork_blocks(
 ):
     """Generate blocks after the fork."""
     blocks = []
-    nonce = sum(len(block.txs) for block in pre_fork_blocks)
 
     for i in range(post_fork_block_count):
         if post_fork_blobs_per_block == 0:
@@ -175,7 +224,9 @@ def post_fork_blocks(
                 blocks.append(
                     Block(
                         txs=[],
-                        excess_blob_gas=fork_block_excess_blob_gas,
+                        header_verify=Header(
+                            excess_blob_gas=fork_block_excess_blob_gas,
+                        ),
                     )
                 )
             else:
@@ -194,7 +245,7 @@ def post_fork_blocks(
                     ty=Spec.BLOB_TX_TYPE,
                     to=destination_account,
                     value=1,
-                    gas_limit=3_000_000,
+                    gas_limit=100_000,
                     max_fee_per_gas=1_000_000,
                     max_priority_fee_per_gas=10,
                     max_fee_per_blob_gas=100,
@@ -203,10 +254,8 @@ def post_fork_blocks(
                         Spec.BLOB_COMMITMENT_VERSION_KZG,
                     ),
                     sender=sender,
-                    nonce=nonce,
                 )
             )
-            nonce += 1
             blob_index += tx_blobs
             remaining_blobs -= tx_blobs
 
@@ -214,7 +263,9 @@ def post_fork_blocks(
             blocks.append(
                 Block(
                     txs=txs,
-                    excess_blob_gas=fork_block_excess_blob_gas,
+                    header_verify=Header(
+                        excess_blob_gas=fork_block_excess_blob_gas,
+                    ),
                 )
             )
         else:
@@ -438,7 +489,7 @@ def test_fork_transition_excess_blob_gas_at_blob_genesis(
 @pytest.mark.parametrize("block_base_fee_per_gas", [7, 16, 23])
 def test_fork_transition_excess_blob_gas_post_blob_genesis(
     blockchain_test: BlockchainTestFiller,
-    env: Environment,
+    genesis_environment: Environment,
     pre: Alloc,
     pre_fork_blocks: List[Block],
     post_fork_blocks: List[Block],
@@ -449,5 +500,5 @@ def test_fork_transition_excess_blob_gas_post_blob_genesis(
         pre=pre,
         post=post,
         blocks=pre_fork_blocks + post_fork_blocks,
-        genesis_environment=env,
+        genesis_environment=genesis_environment,
     )
