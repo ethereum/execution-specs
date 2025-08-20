@@ -52,9 +52,7 @@ class EELST8N(TransitionTool):
         Evaluate using the EELS T8N entry point.
         """
         request_data = transition_tool_data.get_request_data()
-        request_data_json = request_data.model_dump(
-            mode="json", **model_dump_config
-        )
+        request_data_json = request_data.model_dump(mode="json", **model_dump_config)
 
         t8n_args = [
             "t8n",
@@ -120,9 +118,7 @@ class EELST8N(TransitionTool):
             )
 
         if self.trace:
-            self.collect_traces(
-                output.result.receipts, temp_dir, debug_output_path
-            )
+            self.collect_traces(output.result.receipts, temp_dir, debug_output_path)
         temp_dir.cleanup()
 
         return output

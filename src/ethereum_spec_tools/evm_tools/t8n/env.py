@@ -1,6 +1,7 @@
 """
 Define t8n Env class
 """
+
 import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
@@ -99,9 +100,7 @@ class Env:
             return
 
         if "currentExcessBlobGas" in data:
-            self.excess_blob_gas = parse_hex_or_int(
-                data["currentExcessBlobGas"], U64
-            )
+            self.excess_blob_gas = parse_hex_or_int(data["currentExcessBlobGas"], U64)
 
         if "parentExcessBlobGas" in data:
             self.parent_excess_blob_gas = parse_hex_or_int(
@@ -109,9 +108,7 @@ class Env:
             )
 
         if "parentBlobGasUsed" in data:
-            self.parent_blob_gas_used = parse_hex_or_int(
-                data["parentBlobGasUsed"], U64
-            )
+            self.parent_blob_gas_used = parse_hex_or_int(data["parentBlobGasUsed"], U64)
 
         if self.excess_blob_gas is not None:
             return
@@ -119,9 +116,7 @@ class Env:
         assert self.parent_excess_blob_gas is not None
         assert self.parent_blob_gas_used is not None
 
-        parent_blob_gas = (
-            self.parent_excess_blob_gas + self.parent_blob_gas_used
-        )
+        parent_blob_gas = self.parent_excess_blob_gas + self.parent_blob_gas_used
 
         target_blob_gas_per_block = t8n.fork.TARGET_BLOB_GAS_PER_BLOCK
 
@@ -145,13 +140,9 @@ class Env:
                     self.parent_excess_blob_gas
                 )
 
-                base_blob_tx_price = (
-                    BLOB_BASE_COST * self.parent_base_fee_per_gas
-                )
+                base_blob_tx_price = BLOB_BASE_COST * self.parent_base_fee_per_gas
                 if base_blob_tx_price > target_blob_gas_price:
-                    blob_schedule_delta = (
-                        BLOB_SCHEDULE_MAX - BLOB_SCHEDULE_TARGET
-                    )
+                    blob_schedule_delta = BLOB_SCHEDULE_MAX - BLOB_SCHEDULE_TARGET
                     self.excess_blob_gas = (
                         self.parent_excess_blob_gas
                         + self.parent_blob_gas_used
@@ -171,19 +162,13 @@ class Env:
 
         if t8n.fork.is_after_fork("ethereum.london"):
             if "currentBaseFee" in data:
-                self.base_fee_per_gas = parse_hex_or_int(
-                    data["currentBaseFee"], Uint
-                )
+                self.base_fee_per_gas = parse_hex_or_int(data["currentBaseFee"], Uint)
 
             if "parentGasUsed" in data:
-                self.parent_gas_used = parse_hex_or_int(
-                    data["parentGasUsed"], Uint
-                )
+                self.parent_gas_used = parse_hex_or_int(data["parentGasUsed"], Uint)
 
             if "parentGasLimit" in data:
-                self.parent_gas_limit = parse_hex_or_int(
-                    data["parentGasLimit"], Uint
-                )
+                self.parent_gas_limit = parse_hex_or_int(data["parentGasLimit"], Uint)
 
             if "parentBaseFee" in data:
                 self.parent_base_fee_per_gas = parse_hex_or_int(
@@ -202,9 +187,7 @@ class Env:
                     self.parent_base_fee_per_gas,
                 ]
 
-                self.base_fee_per_gas = t8n.fork.calculate_base_fee_per_gas(
-                    *parameters
-                )
+                self.base_fee_per_gas = t8n.fork.calculate_base_fee_per_gas(*parameters)
 
     def read_randao(self, data: Any, t8n: "T8N") -> None:
         """
@@ -250,16 +233,10 @@ class Env:
         if t8n.fork.is_after_fork("ethereum.paris"):
             return
         elif "currentDifficulty" in data:
-            self.block_difficulty = parse_hex_or_int(
-                data["currentDifficulty"], Uint
-            )
+            self.block_difficulty = parse_hex_or_int(data["currentDifficulty"], Uint)
         else:
-            self.parent_timestamp = parse_hex_or_int(
-                data["parentTimestamp"], U256
-            )
-            self.parent_difficulty = parse_hex_or_int(
-                data["parentDifficulty"], Uint
-            )
+            self.parent_timestamp = parse_hex_or_int(data["parentTimestamp"], U256)
+            self.parent_difficulty = parse_hex_or_int(data["parentDifficulty"], Uint)
             args: List[object] = [
                 self.block_number,
                 self.block_timestamp,
@@ -272,9 +249,7 @@ class Env:
                     self.parent_ommers_hash = Hash32(
                         hex_to_bytes(data["parentUncleHash"])
                     )
-                    parent_has_ommers = (
-                        self.parent_ommers_hash != EMPTY_OMMER_HASH
-                    )
+                    parent_has_ommers = self.parent_ommers_hash != EMPTY_OMMER_HASH
                     args.append(parent_has_ommers)
                 else:
                     args.append(False)
@@ -285,10 +260,7 @@ class Env:
         Read the block hashes. Returns a maximum of 256 block hashes.
         """
         self.parent_hash = None
-        if (
-            t8n.fork.is_after_fork("ethereum.prague")
-            and not t8n.options.state_test
-        ):
+        if t8n.fork.is_after_fork("ethereum.prague") and not t8n.options.state_test:
             self.parent_hash = Hash32(hex_to_bytes(data["parentHash"]))
 
         # Read the block hashes
@@ -303,9 +275,7 @@ class Env:
 
         # Store a maximum of 256 block hashes.
         max_blockhash_count = min(Uint(256), self.block_number)
-        for number in range(
-            self.block_number - max_blockhash_count, self.block_number
-        ):
+        for number in range(self.block_number - max_blockhash_count, self.block_number):
             if number in clean_block_hashes.keys():
                 block_hashes.append(clean_block_hashes[number])
             else:

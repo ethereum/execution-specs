@@ -1,6 +1,7 @@
 """
 Define the types used by the t8n tool.
 """
+
 import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
@@ -69,9 +70,7 @@ class Alloc:
             if address in self.state._storage_tries:
                 account_data["storage"] = {
                     "0x" + k.hex(): hex(v)
-                    for k, v in self.state._storage_tries[
-                        address
-                    ]._data.items()
+                    for k, v in self.state._storage_tries[address]._data.items()
                 }
 
             data["0x" + address.hex()] = account_data
@@ -118,12 +117,11 @@ class Txs:
                     self.successfully_parsed.append(idx)
             except UnsupportedTx as e:
                 self.t8n.logger.warning(
-                    f"Unsupported transaction type {idx}: "
-                    f"{e.error_message}"
+                    f"Unsupported transaction type {idx}: {e.error_message}"
                 )
-                self.rejected_txs[
-                    idx
-                ] = f"Unsupported transaction type: {e.error_message}"
+                self.rejected_txs[idx] = (
+                    f"Unsupported transaction type: {e.error_message}"
+                )
                 self.all_txs.append(e.encoded_params)
             except Exception as e:
                 msg = f"Failed to parse transaction {idx}: {str(e)}"
@@ -214,9 +212,7 @@ class Txs:
         if isinstance(tx_decoded, Transaction):
             if t8n.fork.is_after_fork("ethereum.spurious_dragon"):
                 if protected:
-                    signing_hash = t8n.fork.signing_hash_155(
-                        tx_decoded, U64(1)
-                    )
+                    signing_hash = t8n.fork.signing_hash_155(tx_decoded, U64(1))
                     v_addend = U256(37)  # Assuming chain_id = 1
                 else:
                     signing_hash = t8n.fork.signing_hash_pre155(tx_decoded)
@@ -268,6 +264,7 @@ class Result:
     requests_hash: Optional[Hash32] = None
     requests: Optional[List[Bytes]] = None
     block_exception: Optional[str] = None
+    block_access_list: Optional[Bytes] = None
 
     def get_receipts_from_output(
         self,
@@ -312,9 +309,7 @@ class Result:
             self.base_fee = block_env.base_fee_per_gas
 
         if hasattr(block_output, "withdrawals_trie"):
-            self.withdrawals_root = t8n.fork.root(
-                block_output.withdrawals_trie
-            )
+            self.withdrawals_root = t8n.fork.root(block_output.withdrawals_trie)
 
         if hasattr(block_env, "excess_blob_gas"):
             self.excess_blob_gas = block_env.excess_blob_gas
@@ -322,6 +317,15 @@ class Result:
         if hasattr(block_output, "requests"):
             self.requests = block_output.requests
             self.requests_hash = t8n.fork.compute_requests_hash(self.requests)
+
+        if hasattr(block_output, "block_access_list_builder"):
+            from ethereum.osaka.block_access_lists import (
+                build,
+                rlp_encode_block_access_list,
+            )
+
+            bal = build(block_output.block_access_list_builder)
+            self.block_access_list = rlp_encode_block_access_list(bal)
 
     def json_encode_receipts(self) -> Any:
         """
@@ -373,8 +377,7 @@ class Result:
             data["blobGasUsed"] = hex(self.blob_gas_used)
 
         data["rejected"] = [
-            {"index": idx, "error": error}
-            for idx, error in self.rejected.items()
+            {"index": idx, "error": error} for idx, error in self.rejected.items()
         ]
 
         data["receipts"] = self.json_encode_receipts()
@@ -389,5 +392,8 @@ class Result:
 
         if self.block_exception is not None:
             data["blockException"] = self.block_exception
+
+        if self.block_access_list is not None:
+            data["blockAccessList"] = encode_to_hex(self.block_access_list)
 
         return data

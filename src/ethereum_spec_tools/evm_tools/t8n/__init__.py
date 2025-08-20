@@ -9,10 +9,16 @@ import os
 from typing import Any, TextIO
 
 from ethereum_rlp import rlp
+
+from ethereum.osaka.block_access_lists import StateChangeTracker
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum import trace
 from ethereum.exceptions import EthereumException, InvalidBlock
+from ethereum.osaka.block_access_lists import (
+    StateChangeTracker,
+    set_transaction_index,
+)
 from ethereum_spec_tools.forks import Hardfork
 
 from ..loaders.fixture_loader import Load
@@ -78,9 +84,7 @@ def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
 class T8N(Load):
     """The class that carries out the transition"""
 
-    def __init__(
-        self, options: Any, out_file: TextIO, in_file: TextIO
-    ) -> None:
+    def __init__(self, options: Any, out_file: TextIO, in_file: TextIO) -> None:
         self.out_file = out_file
         self.in_file = in_file
         self.options = options
@@ -95,9 +99,7 @@ class T8N(Load):
         else:
             stdin = None
 
-        fork_module, self.fork_block = get_module_name(
-            self.forks, self.options, stdin
-        )
+        fork_module, self.fork_block = get_module_name(self.forks, self.options, stdin)
         self.fork = ForkLoad(fork_module)
 
         if self.options.trace:
@@ -123,9 +125,7 @@ class T8N(Load):
         self.alloc = Alloc(self, stdin)
         self.env = Env(self, stdin)
         self.txs = Txs(self, stdin)
-        self.result = Result(
-            self.env.block_difficulty, self.env.base_fee_per_gas
-        )
+        self.result = Result(self.env.block_difficulty, self.env.base_fee_per_gas)
 
     def block_environment(self) -> Any:
         """
@@ -151,9 +151,7 @@ class T8N(Load):
             kw_arguments["difficulty"] = self.env.block_difficulty
 
         if self.fork.is_after_fork("ethereum.cancun"):
-            kw_arguments[
-                "parent_beacon_block_root"
-            ] = self.env.parent_beacon_block_root
+            kw_arguments["parent_beacon_block_root"] = self.env.parent_beacon_block_root
             kw_arguments["excess_blob_gas"] = self.env.excess_blob_gas
 
         return self.fork.BlockEnvironment(**kw_arguments)
@@ -163,10 +161,7 @@ class T8N(Load):
         state = self.alloc.state
         self.alloc.state_backup = (
             self.fork.copy_trie(state._main_trie),
-            {
-                k: self.fork.copy_trie(t)
-                for (k, t) in state._storage_tries.items()
-            },
+            {k: self.fork.copy_trie(t) for (k, t) in state._storage_tries.items()},
         )
 
     def restore_state(self) -> None:
@@ -177,22 +172,14 @@ class T8N(Load):
     def pay_block_rewards(self, block_reward: U256, block_env: Any) -> None:
         """Apply the block rewards to the block coinbase."""
         ommer_count = U256(len(self.env.ommers))
-        miner_reward = block_reward + (
-            ommer_count * (block_reward // U256(32))
-        )
-        self.fork.create_ether(
-            block_env.state, block_env.coinbase, miner_reward
-        )
+        miner_reward = block_reward + (ommer_count * (block_reward // U256(32)))
+        self.fork.create_ether(block_env.state, block_env.coinbase, miner_reward)
 
         for ommer in self.env.ommers:
             # Ommer age with respect to the current block.
             ommer_age = U256(block_env.number - ommer.number)
-            ommer_miner_reward = (
-                (U256(8) - ommer_age) * block_reward
-            ) // U256(8)
-            self.fork.create_ether(
-                block_env.state, ommer.coinbase, ommer_miner_reward
-            )
+            ommer_miner_reward = ((U256(8) - ommer_age) * block_reward) // U256(8)
+            self.fork.create_ether(block_env.state, ommer.coinbase, ommer_miner_reward)
 
     def run_state_test(self) -> Any:
         """
@@ -234,32 +221,59 @@ class T8N(Load):
                 data=block_env.parent_beacon_block_root,
             )
 
-        for i, tx in zip(self.txs.successfully_parsed, self.txs.transactions):
+        bal_change_tracker = StateChangeTracker(
+            block_output.block_access_list_builder
+        )
+
+        # EIP-7928: Set transaction index for block access lists
+        if self.fork.is_after_fork("ethereum.osaka"):
+            # pre-execution system contracts use index 0
+            set_transaction_index(bal_change_tracker, 0)
+
+        for tx_index, (original_idx, tx) in enumerate(zip(self.txs.successfully_parsed, self.txs.transactions)):
             self.backup_state()
             try:
+                # use 1...n for transaction indices
+                if self.fork.is_after_fork("ethereum.osaka"):
+                    set_transaction_index(bal_change_tracker, tx_index + 1)
+                
                 self.fork.process_transaction(
-                    block_env, block_output, tx, Uint(i)
+                    block_env,
+                    block_output,
+                    tx,
+                    Uint(original_idx),
+                    bal_change_tracker,
                 )
+
             except EthereumException as e:
-                self.txs.rejected_txs[i] = f"Failed transaction: {e!r}"
+                self.txs.rejected_txs[original_idx] = f"Failed transaction: {e!r}"
                 self.restore_state()
-                self.logger.warning(f"Transaction {i} failed: {e!r}")
+                self.logger.warning(f"Transaction {original_idx} failed: {e!r}")
 
         if not self.fork.is_after_fork("ethereum.paris"):
             if self.options.state_reward is None:
                 self.pay_block_rewards(self.fork.BLOCK_REWARD, block_env)
             elif self.options.state_reward != -1:
-                self.pay_block_rewards(
-                    U256(self.options.state_reward), block_env
-                )
+                self.pay_block_rewards(U256(self.options.state_reward), block_env)
 
         if self.fork.is_after_fork("ethereum.shanghai"):
             self.fork.process_withdrawals(
-                block_env, block_output, self.env.withdrawals
+                block_env, block_output, self.env.withdrawals, bal_change_tracker
             )
 
         if self.fork.is_after_fork("ethereum.prague"):
-            self.fork.process_general_purpose_requests(block_env, block_output)
+            self.fork.process_general_purpose_requests(
+                block_env, block_output, bal_change_tracker
+            )
+
+        if self.fork.is_after_fork("ethereum.osaka"):
+            num_transactions = len(
+                [tx for tx in self.txs.successfully_parsed if tx]
+            )
+
+            # post-execution use n + 1
+            post_execution_index = num_transactions + 1
+            set_transaction_index(bal_change_tracker, post_execution_index)
 
     def run_blockchain_test(self) -> None:
         """
@@ -293,9 +307,7 @@ class T8N(Load):
             file_path = os.path.join(self.options.output_basedir, file)
 
             # Check if the file matches the specific names or the pattern
-            if file in files_to_delete or fnmatch.fnmatch(
-                file, pattern_to_delete
-            ):
+            if file in files_to_delete or fnmatch.fnmatch(file, pattern_to_delete):
                 os.remove(file_path)
 
         try:
