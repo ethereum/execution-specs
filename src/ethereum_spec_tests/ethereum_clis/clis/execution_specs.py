@@ -1,17 +1,14 @@
 """
-Ethereum Specs EVM Resolver Transition Tool Interface.
-
-https://github.com/petertdavies/ethereum-spec-evm-resolver
+Ethereum Specs EVM Transition Tool Interface.
 """
+import json
+import tempfile
+from io import StringIO
+from typing import Any, ClassVar, Dict, Optional
 
-import os
-import re
-import subprocess
-import time
-from pathlib import Path
-from tempfile import TemporaryDirectory
-from typing import ClassVar, Dict, List, Optional
-
+from ethereum_clis.file_utils import dump_files_to_directory
+from ethereum_clis.transition_tool import TransitionTool, model_dump_config
+from ethereum_clis.types import TransitionToolOutput
 from ethereum_test_exceptions import (
     BlockException,
     ExceptionBase,
@@ -20,113 +17,120 @@ from ethereum_test_exceptions import (
 )
 from ethereum_test_forks import Fork
 
-from ..transition_tool import TransitionTool
+import ethereum
+from ethereum_spec_tools.evm_tools import create_parser
+from ethereum_spec_tools.evm_tools.t8n import T8N
+from ethereum_spec_tools.evm_tools.utils import get_supported_forks
 
-DAEMON_STARTUP_TIMEOUT_SECONDS = 5
+from ..transition_tool import TransitionTool
 
 
 class ExecutionSpecsTransitionTool(TransitionTool):
-    """
-    Ethereum Specs EVM Resolver `ethereum-spec-evm-resolver` Transition Tool wrapper class.
-
-    `ethereum-spec-evm-resolver` is installed by default for `execution-spec-tests`:
-    ```console
-    uv run fill --evm-bin=ethereum-spec-evm-resolver
-    ```
-
-    To use a specific version of the `ethereum-spec-evm-resolver` tool, update it to the
-    desired version in `pyproject.toml`.
-
-    The `ethereum-spec-evm-resolver` tool essentially wraps around the EELS evm daemon. It can
-    handle requests for different EVM forks, even when those forks are implemented by different
-    versions of EELS hosted in different places.
-    """
-
-    default_binary = Path("ethereum-spec-evm-resolver")
-    detect_binary_pattern = re.compile(r"^ethereum-spec-evm-resolver\b")
-    t8n_use_server: bool = True
-    server_dir: Optional[TemporaryDirectory] = None
-    server_url: str | None = None
+    """Implementation of the EELS T8N for execution-spec-tests."""
 
     def __init__(
         self,
         *,
-        binary: Optional[Path] = None,
         trace: bool = False,
-        server_url: str | None = None,
     ):
-        """Initialize the Ethereum Specs EVM Resolver Transition Tool interface."""
-        os.environ.setdefault("NO_PROXY", "*")  # Disable proxy for local connections
-        super().__init__(
-            exception_mapper=ExecutionSpecsExceptionMapper(), binary=binary, trace=trace
-        )
-        args = [str(self.binary), "--help"]
-        try:
-            result = subprocess.run(args, capture_output=True, text=True)
-        except subprocess.CalledProcessError as e:
-            raise Exception(
-                "ethereum-spec-evm-resolver process unexpectedly returned a non-zero status code: "
-                f"{e}."
-            ) from e
-        except Exception as e:
-            raise Exception(
-                f"Unexpected exception calling ethereum-spec-evm-resolver: {e}."
-            ) from e
-        self.help_string = result.stdout
-        self.server_url = server_url
+        """Initialize the EELS Transition Tool interface."""
+        self.exception_mapper = ExecutionSpecsExceptionMapper()
+        self.trace = trace
+        self._info_metadata: Optional[Dict[str, Any]] = {}
 
-    def start_server(self):
-        """
-        Start the t8n-server process, extract the port, and leave it running
-        for future reuse.
-        """
-        self.server_dir = TemporaryDirectory()
-        self.server_file_path = Path(self.server_dir.name) / "t8n.sock"
-        replaced_str = str(self.server_file_path).replace("/", "%2F")
-        self.server_url = f"http+unix://{replaced_str}/"
-        self.process = subprocess.Popen(
-            args=[
-                str(self.binary),
-                "daemon",
-                "--uds",
-                self.server_file_path,
-            ],
-        )
-        start = time.time()
-        while True:
-            if self.server_file_path.exists():
-                break
-            if time.time() - start > DAEMON_STARTUP_TIMEOUT_SECONDS:
-                raise Exception("Failed starting ethereum-spec-evm subprocess")
-            time.sleep(0)  # yield to other processes
-
-    def shutdown(self):
-        """Stop the t8n-server process if it was started."""
-        if self.process:
-            self.process.terminate()
-        if self.server_dir:
-            self.server_dir.cleanup()
-            self.server_dir = None
+    def version(self) -> str:
+        """Version of the t8n tool."""
+        return ethereum.__version__
 
     def is_fork_supported(self, fork: Fork) -> bool:
-        """
-        Return True if the fork is supported by the tool.
+        """Return True if the fork is supported by the tool."""
+        return fork.transition_tool_name() in get_supported_forks()
 
-        If the fork is a transition fork, we want to check the fork it transitions to.
-
-        `ethereum-spec-evm` appends newlines to forks in the help string.
+    def evaluate(
+        self,
+        *,
+        transition_tool_data: TransitionTool.TransitionToolData,
+        debug_output_path: str = "",
+        slow_request: bool = False,  # noqa: U100, F841
+    ) -> TransitionToolOutput:
         """
-        return (fork.transition_tool_name() + "\n") in self.help_string
-
-    def _generate_post_args(
-        self, t8n_data: TransitionTool.TransitionToolData
-    ) -> Dict[str, List[str] | str]:
+        Evaluate using the EELS T8N entry point.
         """
-        Generate the arguments for the POST request to the t8n-server.
+        request_data = transition_tool_data.get_request_data()
+        request_data_json = request_data.model_dump(
+            mode="json", **model_dump_config
+        )
 
-        EELS T8N expects `--state-test` when running a state test.
-        """
-        return {"arg": "--state-test"} if t8n_data.state_test else {}
+        t8n_args = [
+            "t8n",
+            "--input.alloc=stdin",
+            "--input.env=stdin",
+            "--input.txs=stdin",
+            "--output.result=stdout",
+            "--output.body=stdout",
+            "--output.alloc=stdout",
+            f"--state.fork={request_data_json['state']['fork']}",
+            f"--state.chainid={request_data_json['state']['chainid']}",
+            f"--state.reward={request_data_json['state']['reward']}",
+        ]
+
+        if transition_tool_data.state_test:
+            t8n_args.append("--state-test")
+
+        temp_dir = tempfile.TemporaryDirectory()
+        if self.trace:
+            t8n_args.extend(
+                [
+                    "--trace",
+                    "--trace.memory",
+                    "--trace.returndata",
+                    f"--output.basedir={temp_dir.name}",
+                ]
+            )
+
+        parser = create_parser()
+        t8n_options = parser.parse_args(t8n_args)
+
+        out_stream = StringIO()
+
+        in_stream = StringIO(json.dumps(request_data_json["input"]))
+
+        t8n = T8N(t8n_options, out_stream, in_stream)
+        t8n.run()
+
+        output_dict = json.loads(out_stream.getvalue())
+        output: TransitionToolOutput = TransitionToolOutput.model_validate(
+            output_dict, context={"exception_mapper": self.exception_mapper}
+        )
+
+        if debug_output_path:
+            dump_files_to_directory(
+                debug_output_path,
+                {
+                    "input/alloc.json": request_data.input.alloc,
+                    "input/env.json": request_data.input.env,
+                    "input/txs.json": [
+                        tx.model_dump(mode="json", **model_dump_config)
+                        for tx in request_data.input.txs
+                    ],
+                },
+            )
+
+            dump_files_to_directory(
+                debug_output_path,
+                {
+                    "output/alloc.json": output.alloc,
+                    "output/result.json": output.result,
+                },
+            )
+
+        if self.trace:
+            self.collect_traces(
+                output.result.receipts, temp_dir, debug_output_path
+            )
+        temp_dir.cleanup()
+
+        return output
 
 
 class ExecutionSpecsExceptionMapper(ExceptionMapper):
