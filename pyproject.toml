@@ -26,13 +26,100 @@ dependencies = [
     "ethereum-types>=0.2.4,<0.3",
     "ethereum-rlp>=0.1.4,<0.2",
     "cryptography>=45.0.1,<46",
-    "ethereum-execution-spec-tests @ git+https://github.com/ethereum/execution-spec-tests@5220d21ba64a9a4cbdc7e4025a7f1a032a957c78",
-    "ethereum-spec-evm-resolver @ git+https://github.com/petertdavies/ethereum-spec-evm-resolver",
 ]
 
+[tool.setuptools.package-dir]
+"" = "src"
+cli = "src/ethereum_spec_tests/cli"
+config = "src/ethereum_spec_tests/config"
+ethereum_clis = "src/ethereum_spec_tests/ethereum_clis"
+ethereum_test_base_types = "src/ethereum_spec_tests/ethereum_test_base_types"
+ethereum_test_checklists = "src/ethereum_spec_tests/ethereum_test_checklists"
+ethereum_test_exceptions = "src/ethereum_spec_tests/ethereum_test_exceptions"
+ethereum_test_execution = "src/ethereum_spec_tests/ethereum_test_execution"
+ethereum_test_fixtures = "src/ethereum_spec_tests/ethereum_test_fixtures"
+ethereum_test_forks = "src/ethereum_spec_tests/ethereum_test_forks"
+ethereum_test_rpc = "src/ethereum_spec_tests/ethereum_test_rpc"
+ethereum_test_specs = "src/ethereum_spec_tests/ethereum_test_specs"
+ethereum_test_tools = "src/ethereum_spec_tests/ethereum_test_tools"
+ethereum_test_types = "src/ethereum_spec_tests/ethereum_test_types"
+ethereum_test_vm = "src/ethereum_spec_tests/ethereum_test_vm"
+pytest_plugins = "src/ethereum_spec_tests/pytest_plugins"
+
 [tool.setuptools]
-package-dir = {"" = "src"}
 packages = [
+    "cli",
+    "cli.eest",
+    "cli.eest.commands",
+    "cli.eest.make",
+    "cli.eest.make.commands",
+    "cli.gentest",
+    "cli.gentest.tests",
+    "cli.input",
+    "cli.pytest_commands",
+    "cli.tests",
+    "config",
+    "ethereum_clis",
+    "ethereum_clis.clis",
+    "ethereum_test_base_types",
+    "ethereum_test_base_types.reference_spec",
+    "ethereum_test_base_types.tests",
+    "ethereum_test_checklists",
+    "ethereum_test_checklists.tests",
+    "ethereum_test_exceptions",
+    "ethereum_test_exceptions.exceptions",
+    "ethereum_test_exceptions.tests",
+    "ethereum_test_execution",
+    "ethereum_test_fixtures",
+    "ethereum_test_fixtures.tests",
+    "ethereum_test_forks",
+    "ethereum_test_forks.forks",
+    "ethereum_test_forks.tests",
+    "ethereum_test_rpc",
+    "ethereum_test_rpc.tests",
+    "ethereum_test_specs",
+    "ethereum_test_specs.static_state",
+    "ethereum_test_specs.static_state.common",
+    "ethereum_test_specs.tests",
+    "ethereum_test_tools",
+    "ethereum_test_tools.code",
+    "ethereum_test_tools.tests",
+    "ethereum_test_tools.utility",
+    "ethereum_test_tools.vm",
+    "ethereum_test_types",
+    "ethereum_test_types.eof",
+    "ethereum_test_types.eof.v1",
+    "ethereum_test_types.tests",
+    "ethereum_test_vm",
+    "ethereum_test_vm.tests",
+    "pytest_plugins",
+    "pytest_plugins.consume",
+    "pytest_plugins.consume.direct",
+    "pytest_plugins.consume.hive_engine_test",
+    "pytest_plugins.consume.hive_simulators_reorg",
+    "pytest_plugins.consume.simulators",
+    "pytest_plugins.consume.simulators.engine",
+    "pytest_plugins.consume.simulators.helpers",
+    "pytest_plugins.consume.simulators.rlp",
+    "pytest_plugins.consume.simulators.simulator_logic",
+    "pytest_plugins.consume.simulators.sync",
+    "pytest_plugins.consume.tests",
+    "pytest_plugins.execute",
+    "pytest_plugins.execute.eth_config",
+    "pytest_plugins.execute.eth_config.tests",
+    "pytest_plugins.execute.rpc",
+    "pytest_plugins.filler",
+    "pytest_plugins.filler.gen_test_doc",
+    "pytest_plugins.filler.tests",
+    "pytest_plugins.forks",
+    "pytest_plugins.forks.tests",
+    "pytest_plugins.help",
+    "pytest_plugins.logging",
+    "pytest_plugins.logging.tests",
+    "pytest_plugins.pytest_hive",
+    "pytest_plugins.shared",
+    "pytest_plugins.solc",
+    "pytest_plugins.spec_version_checker",
     "ethereum_spec_tools",
     "ethereum_spec_tools.evm_tools",
     "ethereum_spec_tools.evm_tools.t8n",
@@ -152,6 +239,12 @@ packages = [
     "assets/blocks/block_12964999.json",
 ]
 "ethereum_spec_tools" = ["py.typed"]
+"ethereum_test_forks" = ["forks/contracts/*.bin"]
+"pytest_plugins.execute" = ["eth_config/networks.yml"]
+"pytest_plugins" = ["eels_resolutions.json"]
+"cli.eest.make" = ["templates/*.j2"]
+"cli.pytest_commands" = ["pytest_ini_files/*.ini"]
+"ethereum_test_types" = ["kzg_trusted_setup.txt"]
 
 [project.optional-dependencies]
 test = [
@@ -162,6 +255,32 @@ test = [
     "filelock>=3.15.1,<4",
     "requests",
     "requests-cache>=1.2.1,<2",
+    "click>=8.1.0,<9",
+    "ethereum-hive>=0.1.0a1,<1.0.0",
+    "gitpython>=3.1.31,<4",
+    "PyJWT>=2.3.0,<3",
+    "tenacity>8.2.0,<9",
+    "requests_unixsocket2>=0.4.0",
+    "colorlog>=6.7.0,<7",
+    "pytest-custom-report>=1.0.1,<2",
+    "pytest-html>=4.1.0,<5",
+    "pytest-metadata>=3,<4",
+    "coincurve>=20.0.0,<21",
+    "trie>=3.1.0,<4",
+    "semver>=3.0.1,<4",
+    "pydantic>=2.11.0,<3",
+    "rich>=13.7.0,<14",
+    "ethereum-types>=0.2.1,<0.3",
+    "pyyaml>=6.0.2,<7",
+    "types-pyyaml>=6.0.12.20240917,<7",
+    "pytest-json-report>=1.5.0,<2",
+    "typing-extensions>=4.12.2,<5",
+    "questionary>=2.1.0,<3",
+    "ethereum-rlp>=0.1.3,<0.2",
+    "pytest-regex>=0.2.0,<0.3",
+    "eth-abi>=5.2.0",
+    "joblib>=1.4.2",
+    "ckzg>=2.1.1",
 ]
 
 lint = [
