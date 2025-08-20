@@ -10,6 +10,7 @@ from typing import (
     Mapping,
     Optional,
     Protocol,
+    Set,
     Sized,
     Tuple,
     Type,
@@ -166,6 +167,7 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     _solc_name: ClassVar[Optional[str]] = None
     _ignore: ClassVar[bool] = False
     _bpo_fork: ClassVar[bool] = False
+    _children: ClassVar[Set[Type["BaseFork"]]] = set()
 
     # make mypy happy
     BLOB_CONSTANTS: ClassVar[Dict[str, Union[int, Literal["big"]]]] = {}
@@ -188,6 +190,11 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
         cls._solc_name = solc_name
         cls._ignore = ignore
         cls._bpo_fork = bpo_fork
+        cls._children = set()
+        base_class = cls.__bases__[0]
+        assert issubclass(base_class, BaseFork)
+        if base_class != BaseFork:
+            base_class._children.add(cls)
 
     # Header information abstract methods
     @classmethod
@@ -630,3 +637,8 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
         if base_class == BaseFork:
             return None
         return base_class
+
+    @classmethod
+    def children(cls) -> Set[Type["BaseFork"]]:
+        """Return the children forks."""
+        return set(cls._children)

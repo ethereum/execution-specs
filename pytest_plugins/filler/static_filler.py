@@ -21,7 +21,7 @@ from ethereum_test_forks import Fork, get_closest_fork
 from ethereum_test_specs import BaseStaticTest, BaseTest
 from ethereum_test_tools.code.yul import Yul
 
-from ..forks.forks import ValidityMarker, get_intersection_set
+from ..forks.forks import ValidityMarker
 from ..shared.helpers import labeled_format_parameter_set
 
 
@@ -189,19 +189,24 @@ class FillerFile(pytest.File):
                                 if session.should_generate_format(fixture_format)
                             )
 
-                    validity_markers: List[ValidityMarker] = (
-                        ValidityMarker.get_all_validity_markers(key, self.config, function_marks)
+                    test_fork_set = ValidityMarker.get_test_fork_set_from_markers(
+                        iter(function_marks)
                     )
-                    intersection_set = get_intersection_set(key, validity_markers, self.config)
+                    if not test_fork_set:
+                        pytest.fail(
+                            "The test function's "
+                            f"'{key}' fork validity markers generate "
+                            "an empty fork range. Please check the arguments to its "
+                            f"markers:  @pytest.mark.valid_from and "
+                            f"@pytest.mark.valid_until."
+                        )
+                    intersection_set = test_fork_set & self.config.selected_fork_set  # type: ignore
 
                     extra_function_marks: List[pytest.Mark] = [
                         mark
                         for mark in function_marks
                         if mark.name != "parametrize"
-                        and (
-                            mark.name
-                            not in [v.mark.name for v in validity_markers if v.mark is not None]
-                        )
+                        and not ValidityMarker.is_validity_or_filter_marker(mark.name)
                     ]
 
                     for format_with_or_without_label in fixture_formats:

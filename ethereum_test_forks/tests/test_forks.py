@@ -36,6 +36,9 @@ from ..forks.transition import (
 )
 from ..helpers import (
     Fork,
+    ForkAdapter,
+    ForkOrNoneAdapter,
+    ForkSetAdapter,
     forks_from,
     forks_from_until,
     get_deployed_forks,
@@ -492,3 +495,15 @@ def test_bpo_fork():  # noqa: D103
     assert BPO1ToBPO2AtTime15k.bpo_fork() is True
     assert BPO2ToBPO3AtTime15k.bpo_fork() is True
     assert BPO3ToBPO4AtTime15k.bpo_fork() is True
+
+
+def test_fork_adapters():  # noqa: D103
+    assert Osaka == ForkAdapter.validate_python("Osaka")
+    assert Osaka == ForkOrNoneAdapter.validate_python("Osaka")
+    assert ForkOrNoneAdapter.validate_python(None) is None
+    assert {Osaka, Prague} == ForkSetAdapter.validate_python("Osaka, Prague")
+    assert {Osaka, Prague} == ForkSetAdapter.validate_python("osaka, Prague")
+    assert {Osaka, Prague} == ForkSetAdapter.validate_python({"osaka", "Prague"})
+    assert {Osaka} == ForkSetAdapter.validate_python("Osaka")
+    assert {Osaka} == ForkSetAdapter.validate_python({Osaka})
+    assert set() == ForkSetAdapter.validate_python("")

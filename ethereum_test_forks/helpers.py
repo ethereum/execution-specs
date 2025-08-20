@@ -1,13 +1,15 @@
 """Helper methods to resolve forks during test filling."""
 
 import re
-from typing import Annotated, Any, Callable, List, Optional, Set, Type
+from typing import Annotated, Any, Callable, FrozenSet, List, Optional, Set, Type
 
 from pydantic import (
     BaseModel,
+    BeforeValidator,
     ConfigDict,
     PlainSerializer,
     PlainValidator,
+    TypeAdapter,
     ValidatorFunctionWrapHandler,
     model_validator,
 )
@@ -43,13 +45,20 @@ for fork_name in transition.__dict__:
     if issubclass(fork, TransitionBaseClass) and issubclass(fork, BaseFork):
         transition_forks.append(fork)
 
+ALL_FORKS = frozenset(fork for fork in all_forks if not fork.ignore())
+
+ALL_TRANSITION_FORKS = frozenset(transition_forks)
+ALL_FORKS_WITH_TRANSITIONS = frozenset(
+    fork for fork in ALL_FORKS | ALL_TRANSITION_FORKS if not fork.ignore()
+)
+
 
 def get_forks() -> List[Type[BaseFork]]:
     """
     Return list of all the fork classes implemented by
     `ethereum_test_forks` ordered chronologically by deployment.
     """
-    return all_forks
+    return all_forks[:]
 
 
 def get_deployed_forks() -> List[Type[BaseFork]]:
@@ -86,7 +95,7 @@ def get_closest_fork(fork: Type[BaseFork], solc_version: Version) -> Optional[Ty
 
 def get_transition_forks() -> Set[Type[BaseFork]]:
     """Return all the transition forks."""
-    return set(transition_forks)
+    return set(ALL_TRANSITION_FORKS)
 
 
 def get_transition_fork_predecessor(transition_fork: Type[BaseFork]) -> Type[BaseFork]:
@@ -104,7 +113,9 @@ def get_transition_fork_successor(transition_fork: Type[BaseFork]) -> Type[BaseF
 
 
 def get_from_until_fork_set(
-    forks: Set[Type[BaseFork]], forks_from: Set[Type[BaseFork]], forks_until: Set[Type[BaseFork]]
+    forks: Set[Type[BaseFork]] | FrozenSet[Type[BaseFork]],
+    forks_from: Set[Type[BaseFork]],
+    forks_until: Set[Type[BaseFork]],
 ) -> Set[Type[BaseFork]]:
     """Get fork range from forks_from to forks_until."""
     resulting_set = set()
@@ -116,7 +127,9 @@ def get_from_until_fork_set(
     return resulting_set
 
 
-def get_forks_with_no_parents(forks: Set[Type[BaseFork]]) -> Set[Type[BaseFork]]:
+def get_forks_with_no_parents(
+    forks: Set[Type[BaseFork]] | FrozenSet[Type[BaseFork]],
+) -> Set[Type[BaseFork]]:
     """Get forks with no parents in the inheritance hierarchy."""
     resulting_forks: Set[Type[BaseFork]] = set()
     for fork in forks:
@@ -155,6 +168,30 @@ def get_last_descendants(
             if fork >= fork_from:
                 resulting_forks = resulting_forks | {fork}
     return resulting_forks
+
+
+def get_selected_fork_set(
+    single_fork: Set[Type[BaseFork]],
+    forks_from: Set[Type[BaseFork]],
+    forks_until: Set[Type[BaseFork]],
+) -> Set[Type[BaseFork]]:
+    """
+    Process sets derived from `--fork`, `--until` and `--from` to return an unified fork
+    set.
+    """
+    selected_fork_set = set()
+    if single_fork:
+        selected_fork_set |= single_fork
+    else:
+        if not forks_from:
+            forks_from = get_forks_with_no_parents(ALL_FORKS)
+        if not forks_until:
+            forks_until = get_last_descendants(set(get_deployed_forks()), forks_from)
+        selected_fork_set = get_from_until_fork_set(ALL_FORKS, forks_from, forks_until)
+    for fork in list(selected_fork_set):
+        transition_fork_set = transition_fork_to(fork)
+        selected_fork_set |= transition_fork_set
+    return selected_fork_set
 
 
 def transition_fork_from_to(
@@ -316,7 +353,7 @@ def fork_validator_generator(
     cls_name: str, forks: List[Type[BaseFork]]
 ) -> Callable[[Any], Type[BaseFork]]:
     """Generate a fork validator function."""
-    forks_dict = {fork.name(): fork for fork in forks}
+    forks_dict = {fork.name().lower(): fork for fork in forks}
 
     def fork_validator(obj: Any) -> Type[BaseFork]:
         """Get a fork by name or raise an error."""
@@ -325,11 +362,22 @@ def fork_validator_generator(
         if isinstance(obj, type) and issubclass(obj, BaseFork):
             return obj
         if isinstance(obj, str):
-            if obj in forks_dict:
-                return forks_dict[obj]
+            if obj.lower() in forks_dict:
+                return forks_dict[obj.lower()]
+            else:
+                raise InvalidForkError(f"Invalid fork '{obj}' specified")
         raise InvalidForkError(f"Invalid {cls_name}: {obj} (type: {type(obj)})")
 
     return fork_validator
+
+
+def set_before_validator(value: Any) -> Any:
+    """Convert a comma-separated string to a validation input for a set."""
+    if isinstance(value, str):
+        if value.strip() == "":
+            return set()
+        return {v.strip() for v in value.split(",")}
+    return value
 
 
 # Annotated Pydantic-Friendly Fork Types
@@ -338,8 +386,17 @@ Fork = Annotated[
     PlainSerializer(str),
     PlainValidator(fork_validator_generator("Fork", all_forks + transition_forks)),
 ]
+ForkAdapter: TypeAdapter = TypeAdapter(Fork)
+ForkOrNoneAdapter: TypeAdapter = TypeAdapter(Fork | None)
+ForkSet = Annotated[
+    Set[Fork],
+    BeforeValidator(set_before_validator),
+]
+ForkSetAdapter: TypeAdapter = TypeAdapter(ForkSet)
 TransitionFork = Annotated[
     Type[BaseFork],
     PlainSerializer(str),
     PlainValidator(fork_validator_generator("TransitionFork", transition_forks)),
 ]
+TransitionForkAdapter: TypeAdapter = TypeAdapter(TransitionFork)
+TransitionForkOrNoneAdapter: TypeAdapter = TypeAdapter(TransitionFork | None)

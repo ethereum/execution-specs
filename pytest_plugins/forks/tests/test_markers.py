@@ -20,19 +20,6 @@ def test_case(state_test):
 """
 
 
-def generate_blockchain_test(**kwargs: str):
-    """Generate a test function with the given fork markers."""
-    markers = [f"@pytest.mark.{key}({value})" for key, value in kwargs.items()]
-    marker_lines = "\n".join(markers)
-    return f"""
-import pytest
-{marker_lines}
-@pytest.mark.blockchain_test_only
-def test_case(blockchain_test):
-    pass
-"""
-
-
 @pytest.mark.parametrize(
     "test_function,pytest_args,outcomes",
     [
@@ -170,6 +157,40 @@ def test_case(blockchain_test):
             ["--until=BPO1"],
             {"passed": 2, "failed": 0, "skipped": 0, "errors": 0},
             id="valid_at_transition_with_bpo_test_marker",
+        ),
+        pytest.param(
+            generate_test(
+                valid_at_transition_to='"Cancun"',
+            ),
+            ["--fork=Cancun"],
+            {"passed": 1, "failed": 0, "skipped": 0, "errors": 0},
+            id="valid_at_transition_to_with_exact_fork",
+        ),
+        pytest.param(
+            generate_test(
+                valid_at_transition_to='"Cancun"',
+            ),
+            ["--from=Cancun", "--until=Prague"],
+            {"passed": 1, "failed": 0, "skipped": 0, "errors": 0},
+            id="valid_at_transition_to_from_fork_until_later_fork",
+        ),
+        pytest.param(
+            generate_test(
+                valid_at_transition_to='"BPO1"',
+                valid_for_bpo_forks="",
+            ),
+            ["--fork=Osaka"],
+            {"passed": 0, "failed": 0, "skipped": 0, "errors": 0},
+            id="valid_at_transition_with_bpo_test_marker_fork_parent",
+        ),
+        pytest.param(
+            generate_test(
+                valid_at_transition_to='"BPO1"',
+                valid_for_bpo_forks="",
+            ),
+            ["--from=Osaka", "--until=Osaka"],
+            {"passed": 0, "failed": 0, "skipped": 0, "errors": 0},
+            id="valid_at_transition_with_bpo_test_marker_from_parent",
         ),
     ],
 )
