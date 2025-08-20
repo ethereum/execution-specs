@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Set
 
 from ethereum_types.bytes import Bytes
-from ethereum_types.numeric import U32, U64, Uint
+from ethereum_types.numeric import U32, U64, U256, Uint
 
 from ..fork_types import Address
 from ..rlp_types import (
@@ -179,7 +179,7 @@ def add_balance_change(
     builder: BlockAccessListBuilder,
     address: Address, 
     block_access_index: BlockAccessIndex, 
-    post_balance: Bytes
+    post_balance: U256
 ) -> None:
     """
     Add a balance change to the block access list.
@@ -197,7 +197,7 @@ def add_balance_change(
     block_access_index :
         The block access index for this change (0 for pre-execution, 1..n for transactions, n+1 for post-execution).
     post_balance :
-        The account balance after the change, encoded as bytes.
+        The account balance after the change as U256.
     """
     ensure_account(builder, address)
     
