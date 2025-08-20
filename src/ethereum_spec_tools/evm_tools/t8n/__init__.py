@@ -6,20 +6,24 @@ import argparse
 import fnmatch
 import json
 import os
-from typing import Any, TextIO
+from typing import Any, Optional, TextIO, Union
 
 from ethereum_rlp import rlp
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum import trace
 from ethereum.exceptions import EthereumException, InvalidBlock
+from ethereum_clis.types import TransitionToolRequest
 from ethereum_spec_tools.forks import Hardfork
+from ethereum_clis.types import TransitionToolOutput
+from ethereum_clis.clis.execution_specs import ExecutionSpecsExceptionMapper
 
 from ..loaders.fixture_loader import Load
 from ..loaders.fork_loader import ForkLoad
 from ..utils import (
     FatalException,
     get_module_name,
+    get_module_name_json_input,
     get_stream_logger,
     parse_hex_or_int,
 )
@@ -79,13 +83,58 @@ class T8N(Load):
     """The class that carries out the transition"""
 
     def __init__(
-        self, options: Any, out_file: TextIO, in_file: TextIO
+        self,
+        options: Any,
+        in_file: Union[TransitionToolRequest, TextIO],
+        out_file: Optional[TextIO] = None
     ) -> None:
         self.out_file = out_file
         self.in_file = in_file
         self.options = options
         self.forks = Hardfork.discover()
 
+        if isinstance(in_file, TransitionToolRequest):
+            self._init_from_pydantic(options, in_file)
+        else:
+            if out_file is None:
+                raise ValueError("out_file is required for JSON file input")
+            self._init_from_json(options, in_file, out_file)
+
+    def _init_from_pydantic(self, options: Any, in_file: TransitionToolRequest) -> None:
+        fork_module, self.fork_block = get_module_name(
+            self.forks, options, in_file.input.env
+        )
+        self.fork = ForkLoad(fork_module)
+        self.exception_mapper = ExecutionSpecsExceptionMapper()
+
+        if options.trace:
+            trace_memory = getattr(options, "trace.memory", False)
+            trace_stack = not getattr(options, "trace.nostack", False)
+            trace_return_data = getattr(options, "trace.returndata")
+            trace.set_evm_trace(
+                Eip3155Tracer(
+                    trace_memory=trace_memory,
+                    trace_stack=trace_stack,
+                    trace_return_data=trace_return_data,
+                    output_basedir=options.output_basedir,
+                )
+            )
+        self.logger = get_stream_logger("T8N")
+
+        super().__init__(
+            options.state_fork,
+            fork_module,
+        )
+
+        self.chain_id = parse_hex_or_int(options.state_chainid, U64)
+        self.alloc = Alloc(self, in_file.input.alloc)
+        self.env = Env(self, in_file.input.env)
+        self.txs = Txs(self, in_file.input.txs)
+        self.result = Result(
+            self.env.block_difficulty, self.env.base_fee_per_gas
+        )
+
+    def _init_from_json(self, options: Any, in_file: TextIO, out_file: TextIO) -> None:
         if "stdin" in (
             options.input_env,
             options.input_alloc,
@@ -95,7 +144,7 @@ class T8N(Load):
         else:
             stdin = None
 
-        fork_module, self.fork_block = get_module_name(
+        fork_module, self.fork_block = get_module_name_json_input(
             self.forks, self.options, stdin
         )
         self.fork = ForkLoad(fork_module)
@@ -309,7 +358,21 @@ class T8N(Load):
 
         json_state = self.alloc.to_json()
         json_result = self.result.to_json()
+        if isinstance(self.in_file, TransitionToolRequest):
+            json_output = {}
 
+            txs_rlp = "0x" + rlp.encode(self.txs.all_txs).hex()
+            json_output["body"] = txs_rlp
+            json_output["alloc"] = json_state
+            json_output["result"] = json_result
+            output: TransitionToolOutput = TransitionToolOutput.model_validate(
+                json_output, context={"exception_mapper": self.exception_mapper}
+            )
+            return output
+        else:
+            return self._write_json_output(json_state, json_result)
+
+    def _write_json_output(self, json_state: Any, json_result: Any) -> int:
         json_output = {}
 
         if self.options.output_body == "stdout":

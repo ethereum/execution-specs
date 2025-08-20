@@ -136,7 +136,7 @@ def run_state_test(test_case: Dict[str, str]) -> None:
     t8n_options = parser.parse_args(t8n_args)
 
     try:
-        t8n = T8N(t8n_options, sys.stdout, in_stream)
+        t8n = T8N(t8n_options, in_stream, sys.stdout)
     except StateWithEmptyAccount as e:
         pytest.xfail(str(e))
 

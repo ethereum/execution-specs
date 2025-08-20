@@ -2,7 +2,6 @@
 Implementation of the EELS T8N for execution-spec-tests.
 """
 
-import json
 import tempfile
 from io import StringIO
 from typing import Any, Dict, Optional
@@ -86,17 +85,10 @@ class EELST8N(TransitionTool):
         parser = create_parser()
         t8n_options = parser.parse_args(t8n_args)
 
-        out_stream = StringIO()
+        in_stream = request_data
 
-        in_stream = StringIO(json.dumps(request_data_json["input"]))
-
-        t8n = T8N(t8n_options, out_stream, in_stream)
-        t8n.run()
-
-        output_dict = json.loads(out_stream.getvalue())
-        output: TransitionToolOutput = TransitionToolOutput.model_validate(
-            output_dict, context={"exception_mapper": self.exception_mapper}
-        )
+        t8n = T8N(t8n_options, in_stream)
+        output = t8n.run()
 
         if debug_output_path:
             dump_files_to_directory(

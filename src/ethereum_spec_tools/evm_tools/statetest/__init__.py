@@ -146,7 +146,7 @@ def run_test_case(
     if output_basedir is not None:
         t8n_options.output_basedir = output_basedir
 
-    t8n = T8N(t8n_options, out_stream, in_stream)
+    t8n = T8N(t8n_options, in_stream, out_stream)
     t8n.run_state_test()
     return t8n.result
 

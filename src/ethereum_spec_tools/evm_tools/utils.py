@@ -82,6 +82,43 @@ class FatalException(Exception):
 
 
 def get_module_name(
+    forks: Sequence[Hardfork], options: Any, env: Any
+) -> Tuple[str, int]:
+    """
+    Get the module name and the fork block for the given state fork.
+    """
+    if options.state_fork.casefold() in UNSUPPORTED_FORKS:
+        sys.exit(f"Unsupported state fork: {options.state_fork}")
+    # If the state fork is an exception, use the exception config.
+    exception_config: Optional[Dict[str, Any]] = None
+    try:
+        exception_config = EXCEPTION_MAPS[options.state_fork]
+    except KeyError:
+        pass
+
+    if exception_config:
+        block_number = parse_hex_or_int(env.number, Uint)
+
+        for fork, fork_block in exception_config["fork_blocks"]:
+            if block_number >= Uint(fork_block):
+                current_fork_module = fork
+                current_fork_block = fork_block
+
+        return current_fork_module, current_fork_block
+
+    # If the state fork is not an exception, use the fork name.
+    for fork in forks:
+        fork_module = fork.name.split(".")[-1]
+        key = "".join(x.title() for x in fork_module.split("_"))
+
+        if key == options.state_fork:
+            return fork_module, 0
+
+    # Neither in exception nor a standard fork name.
+    sys.exit(f"Unsupported state fork: {options.state_fork}")
+
+
+def get_module_name_json_input(
     forks: Sequence[Hardfork], options: Any, stdin: Any
 ) -> Tuple[str, int]:
     """

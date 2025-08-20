@@ -105,7 +105,7 @@ def main(
         in_file = sys.stdin
 
     if options.evm_tool == "t8n":
-        t8n_tool = T8N(options, out_file, in_file)
+        t8n_tool = T8N(options, in_file, out_file)
         return t8n_tool.run()
     elif options.evm_tool == "b11r":
         b11r_tool = B11R(options, out_file, in_file)
