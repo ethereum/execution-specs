@@ -26,8 +26,8 @@ dependencies = [
     "ethereum-types>=0.2.4,<0.3",
     "ethereum-rlp>=0.1.4,<0.2",
     "cryptography>=45.0.1,<46",
-    "ethereum-execution-spec-tests @ git+https://github.com/ethereum/execution-spec-tests@5220d21ba64a9a4cbdc7e4025a7f1a032a957c78",
-    "ethereum-spec-evm-resolver @ git+https://github.com/petertdavies/ethereum-spec-evm-resolver",
+    "ethereum-execution-spec-tests @ git+https://github.com/fselmo/execution-spec-tests@feat/eip7928/rebased-main",
+    "ethereum-spec-evm-resolver @ git+https://github.com/spencer-tb/ethereum-spec-evm-resolver@aec6a628b8d0f1c791a8378c5417a089566135ac",
 ]
 
 [tool.setuptools]
@@ -136,6 +136,7 @@ packages = [
     "ethereum.prague.vm.precompiled_contracts.bls12_381",
     "ethereum.osaka",
     "ethereum.osaka.utils",
+    "ethereum.osaka.block_access_lists",
     "ethereum.osaka.vm",
     "ethereum.osaka.vm.instructions",
     "ethereum.osaka.vm.precompiled_contracts",
