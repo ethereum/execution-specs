@@ -26,7 +26,7 @@ dependencies = [
     "ethereum-types>=0.2.4,<0.3",
     "ethereum-rlp>=0.1.4,<0.2",
     "cryptography>=45.0.1,<46",
-    "ethereum-execution-spec-tests @ git+https://github.com/ethereum/execution-spec-tests@0fdd974b0968e443ef5878430ba5194c43149a4b",
+    "ethereum-execution-spec-tests @ git+https://github.com/ethereum/execution-spec-tests@5220d21ba64a9a4cbdc7e4025a7f1a032a957c78",
     "ethereum-spec-evm-resolver @ git+https://github.com/petertdavies/ethereum-spec-evm-resolver",
 ]
 
@@ -36,6 +36,7 @@ packages = [
     "ethereum_spec_tools",
     "ethereum_spec_tools.evm_tools",
     "ethereum_spec_tools.evm_tools.t8n",
+    "ethereum_spec_tools.evm_tools.t8n.evm_trace",
     "ethereum_spec_tools.evm_tools.b11r",
     "ethereum_spec_tools.evm_tools.statetest",
     "ethereum_spec_tools.evm_tools.loaders",
@@ -223,6 +224,9 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "bigmem: marks tests as big memory (deselect with '-m \"not bigmem\"')",
     "evm_tools: marks tests as evm_tools (deselect with '-m \"not evm_tools\"')",
+    "json_blockchain_tests: marks tests as json_blockchain_tests (deselect with '-m \"not json_blockchain_tests\"')",
+    "json_state_tests: marks tests as json_state_tests (deselect with '-m \"not json_state_tests\"')",
+    "vm_test: marks tests as vm_test (deselect with '-m \"not vm_test\"')",
 ]
 
 [tool.coverage.run]

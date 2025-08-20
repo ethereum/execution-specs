@@ -549,7 +549,6 @@ def process_transaction(
         access_list_storage_keys=access_list_storage_keys,
         index_in_block=index,
         tx_hash=get_transaction_hash(encode_transaction(tx)),
-        traces=[],
     )
 
     message = prepare_message(block_env, tx_env, tx)

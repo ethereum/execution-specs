@@ -1,6 +1,7 @@
 from ethereum.cancun.blocks import Withdrawal
 from ethereum.ethash import *
 from ethereum.fork_criteria import Unscheduled
+from ethereum.utils.hexadecimal import hex_to_bytes256
 from ethereum_optimized.state_db import State
 from ethereum_spec_tools.docc import *
 from ethereum_spec_tools.evm_tools.daemon import _EvmToolHandler
@@ -9,13 +10,19 @@ from ethereum_spec_tools.evm_tools.loaders.transaction_loader import (
     TransactionLoad,
 )
 from ethereum_spec_tools.evm_tools.t8n.env import Ommer
-from ethereum_spec_tools.evm_tools.t8n.evm_trace import Trace, FinalTrace
+from ethereum_spec_tools.evm_tools.t8n.evm_trace.eip3155 import (
+    Trace,
+    FinalTrace,
+)
 from ethereum_spec_tools.evm_tools.t8n.transition_tool import EELST8N
 from ethereum_spec_tools.lint.lints.glacier_forks_hygiene import (
     GlacierForksHygiene,
 )
 from ethereum_spec_tools.lint.lints.import_hygiene import ImportHygiene
 from ethereum.trace import EvmTracer
+
+# src/ethereum/utils/hexadecimal.py
+hex_to_bytes256
 
 # src/ethereum/cancun/blocks.py
 Withdrawal.validator_index
@@ -87,7 +94,7 @@ TransactionLoad.json_to_s
 # src/ethereum_spec_tools/evm_tools/t8n/env.py
 Ommer.delta
 
-# src/ethereum_spec_tools/evm_tools/t8n/evm_trace.py
+# src/ethereum_spec_tools/evm_tools/t8n/evm_trace/eip3155.py
 Trace.gasCost
 Trace.memSize
 Trace.returnData

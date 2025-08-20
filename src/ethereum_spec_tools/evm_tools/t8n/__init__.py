@@ -6,7 +6,6 @@ import argparse
 import fnmatch
 import json
 import os
-from functools import partial
 from typing import Any, Optional, TextIO, Union
 
 from ethereum_rlp import rlp
@@ -29,7 +28,7 @@ from ..utils import (
     parse_hex_or_int,
 )
 from .env import Env
-from .evm_trace import evm_trace
+from .evm_trace.eip3155 import Eip3155Tracer
 from .t8n_types import Alloc, Result, Txs
 
 
@@ -113,8 +112,7 @@ class T8N(Load):
             trace_stack = not getattr(options, "trace.nostack", False)
             trace_return_data = getattr(options, "trace.returndata")
             trace.set_evm_trace(
-                partial(
-                    evm_trace,
+                Eip3155Tracer(
                     trace_memory=trace_memory,
                     trace_stack=trace_stack,
                     trace_return_data=trace_return_data,
@@ -156,8 +154,7 @@ class T8N(Load):
             trace_stack = not getattr(self.options, "trace.nostack", False)
             trace_return_data = getattr(self.options, "trace.returndata")
             trace.set_evm_trace(
-                partial(
-                    evm_trace,
+                Eip3155Tracer(
                     trace_memory=trace_memory,
                     trace_stack=trace_stack,
                     trace_return_data=trace_return_data,
