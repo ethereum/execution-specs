@@ -16,6 +16,7 @@ from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.utils.numeric import ceil32
+from ...block_access_lists import track_address_access
 
 from ...fork_types import Address
 from ...state import (

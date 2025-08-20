@@ -12,6 +12,7 @@ Introduction
 Implementations of the EVM storage related instructions.
 """
 from ethereum_types.numeric import Uint
+from ...block_access_lists import track_storage_read, track_storage_write
 
 from ...state import (
     get_storage,
@@ -64,8 +65,8 @@ def sload(evm: Evm) -> None:
         from ...block_access_lists.tracker import track_storage_read
         track_storage_read(
             evm.message.change_tracker,
-            evm.message.current_target, 
-            key, 
+            evm.message.current_target,
+            key,
             evm.message.block_env.state
         )
 
@@ -141,7 +142,10 @@ def sstore(evm: Evm) -> None:
         from ...block_access_lists.tracker import track_storage_write
         track_storage_write(
             evm.message.change_tracker,
-            evm.message.current_target, key, new_value, state
+            evm.message.current_target,
+            key,
+            new_value,
+            state
         )
 
     # PROGRAM COUNTER
