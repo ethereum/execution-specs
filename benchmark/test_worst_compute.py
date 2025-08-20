@@ -1177,6 +1177,12 @@ def test_worst_precompile_only_data_input(
             ),
             id="mod_vul_pawel_3_exp_heavy",
         ),
+        pytest.param(
+            ModExpInput.from_bytes(
+                "000000000000000000000000000000000000000000000000000000000000001700000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000017bffffffffffffffffffffffffffffffffffffffffffffbffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffe"
+            ),
+            id="mod_vul_pawel_3_exp_8",
+        ),
         # Ported from https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCases/ModexpVulnerability.cs#L172
         pytest.param(
             ModExpInput(
