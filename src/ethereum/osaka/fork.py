@@ -267,9 +267,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         raise InvalidBlock
     if requests_hash != block.header.requests_hash:
         raise InvalidBlock
-    if computed_bal_hash != block.header.bal_hash:
-        raise InvalidBlock
-    if computed_block_access_list != block.block_access_list:
+    if computed_block_access_list_hash != block.header.bal_hash:
         raise InvalidBlock
 
     chain.blocks.append(block)

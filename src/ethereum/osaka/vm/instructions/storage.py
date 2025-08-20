@@ -136,8 +136,8 @@ def sstore(evm: Evm) -> None:
     charge_gas(evm, gas_cost)
     if evm.message.is_static:
         raise WriteInStaticContext
-    set_storage(state, evm.message.current_target, key, new_value)
     
+    # Track storage write BEFORE modifying state so we capture the correct pre-value
     if evm.message.change_tracker:
         from ...block_access_lists.tracker import track_storage_write
         track_storage_write(
@@ -147,6 +147,9 @@ def sstore(evm: Evm) -> None:
             new_value,
             state
         )
+    
+    # Now modify the storage
+    set_storage(state, evm.message.current_target, key, new_value)
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)

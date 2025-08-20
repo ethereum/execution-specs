@@ -264,7 +264,8 @@ class Result:
     requests_hash: Optional[Hash32] = None
     requests: Optional[List[Bytes]] = None
     block_exception: Optional[str] = None
-    block_access_list: Optional[Bytes] = None
+    block_access_list: Optional[Any] = None  # BlockAccessList object from ethereum.osaka
+    block_access_list_hash: Optional[Hash32] = None  # Hash of the block access list
 
     def get_receipts_from_output(
         self,
@@ -319,13 +320,78 @@ class Result:
             self.requests_hash = t8n.fork.compute_requests_hash(self.requests)
 
         if hasattr(block_output, "block_access_list_builder"):
-            from ethereum.osaka.block_access_lists import (
-                build,
-                rlp_encode_block_access_list,
-            )
+            from ethereum.osaka.block_access_lists import build, compute_block_access_list_hash
 
             bal = build(block_output.block_access_list_builder)
-            self.block_access_list = rlp_encode_block_access_list(bal)
+            self.block_access_list = bal  # Store the BAL object directly, not RLP
+            self.block_access_list_hash = compute_block_access_list_hash(bal)
+
+    def _bal_to_json(self, bal: Any) -> Any:
+        """
+        Convert BlockAccessList to JSON format matching the Pydantic models.
+        """
+        account_changes = []
+        
+        for account in bal.account_changes:
+            account_data = {
+                "address": "0x" + account.address.hex()
+            }
+            
+            # Add storage changes if present
+            if account.storage_changes:
+                storage_changes = []
+                for slot_change in account.storage_changes:
+                    slot_data = {
+                        "slot": int.from_bytes(slot_change.slot, "big"),
+                        "slotChanges": []
+                    }
+                    for change in slot_change.changes:
+                        slot_data["slotChanges"].append({
+                            "txIndex": int(change.block_access_index),
+                            "postValue": int.from_bytes(change.new_value, "big")
+                        })
+                    storage_changes.append(slot_data)
+                account_data["storageChanges"] = storage_changes
+            
+            # Add storage reads if present
+            if account.storage_reads:
+                account_data["storageReads"] = [
+                    int.from_bytes(slot, "big") for slot in account.storage_reads
+                ]
+            
+            # Add balance changes if present
+            if account.balance_changes:
+                account_data["balanceChanges"] = [
+                    {
+                        "txIndex": int(change.block_access_index),
+                        "postBalance": int(change.post_balance)
+                    }
+                    for change in account.balance_changes
+                ]
+            
+            # Add nonce changes if present
+            if account.nonce_changes:
+                account_data["nonceChanges"] = [
+                    {
+                        "txIndex": int(change.block_access_index),
+                        "postNonce": int(change.new_nonce)
+                    }
+                    for change in account.nonce_changes
+                ]
+            
+            # Add code changes if present
+            if account.code_changes:
+                account_data["codeChanges"] = [
+                    {
+                        "txIndex": int(change.block_access_index),
+                        "newCode": "0x" + change.new_code.hex()
+                    }
+                    for change in account.code_changes
+                ]
+            
+            account_changes.append(account_data)
+        
+        return {"accountChanges": account_changes}
 
     def json_encode_receipts(self) -> Any:
         """
@@ -394,6 +460,10 @@ class Result:
             data["blockException"] = self.block_exception
 
         if self.block_access_list is not None:
-            data["blockAccessList"] = encode_to_hex(self.block_access_list)
+            # Convert BAL to JSON format
+            data["blockAccessList"] = self._bal_to_json(self.block_access_list)
+        
+        if self.block_access_list_hash is not None:
+            data["blockAccessListHash"] = encode_to_hex(self.block_access_list_hash)
 
         return data
