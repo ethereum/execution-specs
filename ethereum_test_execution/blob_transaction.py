@@ -3,11 +3,13 @@
 from hashlib import sha256
 from typing import ClassVar, Dict, List
 
-from ethereum_test_base_types import Hash
+from pytest import FixtureRequest
+
+from ethereum_test_base_types import Address, Hash
 from ethereum_test_base_types.base_types import Bytes
 from ethereum_test_forks import Fork
 from ethereum_test_rpc import BlobAndProofV1, BlobAndProofV2, EngineRPC, EthRPC
-from ethereum_test_types import NetworkWrappedTransaction, Transaction
+from ethereum_test_types import NetworkWrappedTransaction, Transaction, TransactionTestMetadata
 
 from .base import BaseExecute
 
@@ -53,22 +55,33 @@ class BlobTransaction(BaseExecute):
 
     txs: List[NetworkWrappedTransaction | Transaction]
 
-    def execute(self, fork: Fork, eth_rpc: EthRPC, engine_rpc: EngineRPC | None):
+    def execute(
+        self, fork: Fork, eth_rpc: EthRPC, engine_rpc: EngineRPC | None, request: FixtureRequest
+    ):
         """Execute the format."""
         assert engine_rpc is not None, "Engine RPC is required for this format."
         versioned_hashes: Dict[Hash, BlobAndProofV1 | BlobAndProofV2] = {}
         sent_txs: List[Transaction] = []
-        for tx in self.txs:
+        for tx_index, tx in enumerate(self.txs):
             if isinstance(tx, NetworkWrappedTransaction):
                 tx.tx = tx.tx.with_signature_and_sender()
                 sent_txs.append(tx.tx)
                 expected_hash = tx.tx.hash
                 versioned_hashes.update(versioned_hashes_with_blobs_and_proofs(tx))
+                to_address = tx.tx.to
             else:
                 tx = tx.with_signature_and_sender()
                 sent_txs.append(tx)
                 expected_hash = tx.hash
-            received_hash = eth_rpc.send_raw_transaction(tx.rlp())
+                to_address = tx.to
+            label = to_address.label if isinstance(to_address, Address) else None
+            metadata = TransactionTestMetadata(
+                test_id=request.node.nodeid,
+                phase="testing",
+                target=label,
+                tx_index=tx_index,
+            )
+            received_hash = eth_rpc.send_raw_transaction(tx.rlp(), request_id=metadata.to_json())
             assert expected_hash == received_hash, (
                 f"Expected hash {expected_hash} does not match received hash {received_hash}."
             )

@@ -75,17 +75,26 @@ class BaseRPC:
             namespace = namespace.removesuffix("RPC")
         cls.namespace = namespace.lower()
 
-    def post_request(self, method: str, *params: Any, extra_headers: Dict | None = None) -> Any:
+    def post_request(
+        self,
+        method: str,
+        *params: Any,
+        extra_headers: Dict | None = None,
+        request_id: int | str | None = None,
+    ) -> Any:
         """Send JSON-RPC POST request to the client RPC server at port defined in the url."""
         if extra_headers is None:
             extra_headers = {}
         assert self.namespace, "RPC namespace not set"
 
+        next_request_id_counter = next(self.request_id_counter)
+        if request_id is None:
+            request_id = next_request_id_counter
         payload = {
             "jsonrpc": "2.0",
             "method": f"{self.namespace}_{method}",
             "params": params,
-            "id": next(self.request_id_counter),
+            "id": request_id,
         }
         base_header = {
             "Content-Type": "application/json",
@@ -197,10 +206,16 @@ class EthRPC(BaseRPC):
         """`eth_gasPrice`: Returns the number of transactions sent from an address."""
         return int(self.post_request("gasPrice"), 16)
 
-    def send_raw_transaction(self, transaction_rlp: Bytes) -> Hash:
+    def send_raw_transaction(
+        self, transaction_rlp: Bytes, request_id: int | str | None = None
+    ) -> Hash:
         """`eth_sendRawTransaction`: Send a transaction to the client."""
         try:
-            result_hash = Hash(self.post_request("sendRawTransaction", f"{transaction_rlp.hex()}"))
+            result_hash = Hash(
+                self.post_request(
+                    "sendRawTransaction", f"{transaction_rlp.hex()}", request_id=request_id
+                ),
+            )
             assert result_hash is not None
             return result_hash
         except Exception as e:
@@ -210,7 +225,11 @@ class EthRPC(BaseRPC):
         """`eth_sendRawTransaction`: Send a transaction to the client."""
         try:
             result_hash = Hash(
-                self.post_request("sendRawTransaction", f"{transaction.rlp().hex()}")
+                self.post_request(
+                    "sendRawTransaction",
+                    f"{transaction.rlp().hex()}",
+                    request_id=transaction.metadata_string(),
+                )
             )
             assert result_hash == transaction.hash
             assert result_hash is not None
@@ -312,7 +331,13 @@ class EngineRPC(BaseRPC):
     simulators.
     """
 
-    def post_request(self, method: str, *params: Any, extra_headers: Dict | None = None) -> Any:
+    def post_request(
+        self,
+        method: str,
+        *params: Any,
+        extra_headers: Dict | None = None,
+        request_id: int | str | None = None,
+    ) -> Any:
         """Send JSON-RPC POST request to the client RPC server at port defined in the url."""
         if extra_headers is None:
             extra_headers = {}
@@ -324,7 +349,9 @@ class EngineRPC(BaseRPC):
         extra_headers = {
             "Authorization": f"Bearer {jwt_token}",
         } | extra_headers
-        return super().post_request(method, *params, extra_headers=extra_headers)
+        return super().post_request(
+            method, *params, extra_headers=extra_headers, request_id=request_id
+        )
 
     def new_payload(self, *params: Any, version: int) -> PayloadStatus:
         """`engine_newPayloadVX`: Attempts to execute the given payload on an execution client."""

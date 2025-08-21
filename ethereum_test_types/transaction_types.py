@@ -185,6 +185,10 @@ class TransactionGeneric(BaseModel, Generic[NumberBoundTypeVar]):
     s: NumberBoundTypeVar = Field(0)  # type: ignore
     sender: EOA | None = None
 
+    def metadata_string(self) -> str | None:
+        """Return the metadata field as a formatted json string or None."""
+        return None
+
 
 class TransactionValidateToAsEmptyString(CamelModel):
     """Handler to validate the `to` field from an empty string."""
@@ -233,6 +237,23 @@ class TransactionTransitionToolConverter(TransactionValidateToAsEmptyString):
         return default
 
 
+class TransactionTestMetadata(CamelModel):
+    """Represents the metadata for a transaction."""
+
+    test_id: str | None = None
+    phase: str | None = None
+    action: str | None = None  # e.g. deploy / fund / execute
+    target: str | None = None  # account/contract label
+    tx_index: int | None = None  # index within this phase
+
+    def to_json(self) -> str:
+        """
+        Convert the transaction metadata into json string for it to be embedded in the
+        request id.
+        """
+        return self.model_dump_json(exclude_none=True, by_alias=True)
+
+
 class Transaction(
     TransactionGeneric[HexNumber], TransactionTransitionToolConverter, SignableRLPSerializable
 ):
@@ -254,6 +275,8 @@ class Transaction(
     expected_receipt: TransactionReceipt | None = Field(None, exclude=True)
 
     zero: ClassVar[Literal[0]] = 0
+
+    metadata: TransactionTestMetadata | None = Field(None, exclude=True)
 
     model_config = ConfigDict(validate_assignment=True)
 
@@ -611,6 +634,12 @@ class Transaction(
         if self.ty > 0:
             return bytes([self.ty])
         return b""
+
+    def metadata_string(self) -> str | None:
+        """Return the metadata field as a formatted json string or None."""
+        if self.metadata is None:
+            return None
+        return self.metadata.to_json()
 
     @cached_property
     def hash(self) -> Hash:

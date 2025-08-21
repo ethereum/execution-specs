@@ -3,11 +3,12 @@
 from typing import ClassVar, List
 
 import pytest
+from pytest import FixtureRequest
 
-from ethereum_test_base_types import Alloc, Hash
+from ethereum_test_base_types import Address, Alloc, Hash
 from ethereum_test_forks import Fork
 from ethereum_test_rpc import EngineRPC, EthRPC, SendTransactionExceptionError
-from ethereum_test_types import Transaction
+from ethereum_test_types import Transaction, TransactionTestMetadata
 
 from .base import BaseExecute
 
@@ -23,21 +24,36 @@ class TransactionPost(BaseExecute):
         "Simple transaction sending, then post-check after all transactions are included"
     )
 
-    def execute(self, fork: Fork, eth_rpc: EthRPC, engine_rpc: EngineRPC | None):
+    def execute(
+        self, fork: Fork, eth_rpc: EthRPC, engine_rpc: EngineRPC | None, request: FixtureRequest
+    ):
         """Execute the format."""
         assert not any(tx.ty == 3 for block in self.blocks for tx in block), (
             "Transaction type 3 is not supported in execute mode."
         )
         for block in self.blocks:
-            if any(tx.error is not None for tx in block):
-                for transaction in block:
+            signed_txs = []
+            for tx_index, tx in enumerate(block):
+                # Add metadata
+                tx = tx.with_signature_and_sender()
+                to_address = tx.to
+                label = to_address.label if isinstance(to_address, Address) else None
+                tx.metadata = TransactionTestMetadata(
+                    test_id=request.node.nodeid,
+                    phase="testing",
+                    target=label,
+                    tx_index=tx_index,
+                )
+                signed_txs.append(tx)
+            if any(tx.error is not None for tx in signed_txs):
+                for transaction in signed_txs:
                     if transaction.error is None:
-                        eth_rpc.send_wait_transaction(transaction.with_signature_and_sender())
+                        eth_rpc.send_wait_transaction(transaction)
                     else:
                         with pytest.raises(SendTransactionExceptionError):
-                            eth_rpc.send_transaction(transaction.with_signature_and_sender())
+                            eth_rpc.send_transaction(transaction)
             else:
-                eth_rpc.send_wait_transactions([tx.with_signature_and_sender() for tx in block])
+                eth_rpc.send_wait_transactions(signed_txs)
 
         for address, account in self.post.root.items():
             balance = eth_rpc.get_balance(address)

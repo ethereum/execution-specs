@@ -318,7 +318,7 @@ def base_test_parametrizer(cls: Type[BaseTest]):
                 )
 
                 execute = self.execute(fork=fork, execute_format=execute_format)
-                execute.execute(fork=fork, eth_rpc=eth_rpc, engine_rpc=engine_rpc)
+                execute.execute(fork=fork, eth_rpc=eth_rpc, engine_rpc=engine_rpc, request=request)
                 collector.collect(request.node.nodeid, execute)
 
         return BaseTestWrapper

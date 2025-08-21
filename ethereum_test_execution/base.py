@@ -4,6 +4,7 @@ from abc import abstractmethod
 from typing import Annotated, Any, ClassVar, Dict, Type
 
 from pydantic import PlainSerializer, PlainValidator
+from pytest import FixtureRequest
 
 from ethereum_test_base_types import CamelModel
 from ethereum_test_forks import Fork
@@ -32,7 +33,9 @@ class BaseExecute(CamelModel):
             BaseExecute.formats[cls.format_name] = cls
 
     @abstractmethod
-    def execute(self, fork: Fork, eth_rpc: EthRPC, engine_rpc: EngineRPC | None):
+    def execute(
+        self, fork: Fork, eth_rpc: EthRPC, engine_rpc: EngineRPC | None, request: FixtureRequest
+    ):
         """Execute the format."""
         pass
 

@@ -27,6 +27,7 @@ from ethereum_test_tools import (
 )
 from ethereum_test_tools import Alloc as BaseAlloc
 from ethereum_test_tools import Opcodes as Op
+from ethereum_test_types import TransactionTestMetadata
 from ethereum_test_types.eof.v1 import Container
 from ethereum_test_vm import Bytecode, EVMCodeType, Opcodes
 
@@ -98,6 +99,7 @@ class Alloc(BaseAlloc):
     _funded_eoa: List[EOA] = PrivateAttr(default_factory=list)
     _evm_code_type: EVMCodeType | None = PrivateAttr(None)
     _chain_id: int = PrivateAttr()
+    _node_id: str = PrivateAttr("")
 
     def __init__(
         self,
@@ -109,6 +111,7 @@ class Alloc(BaseAlloc):
         chain_id: int,
         eoa_fund_amount_default: int,
         evm_code_type: EVMCodeType | None = None,
+        node_id: str = "",
         **kwargs,
     ):
         """Initialize the pre-alloc with the given parameters."""
@@ -120,6 +123,7 @@ class Alloc(BaseAlloc):
         self._evm_code_type = evm_code_type
         self._chain_id = chain_id
         self._eoa_fund_amount_default = eoa_fund_amount_default
+        self._node_id = node_id
 
     def __setitem__(self, address: Address | FixedSizeBytesConvertible, account: Account | None):
         """Set account associated with an address."""
@@ -202,6 +206,13 @@ class Alloc(BaseAlloc):
             value=balance,
             gas_limit=deploy_gas_limit,
         ).with_signature_and_sender()
+        deploy_tx.metadata = TransactionTestMetadata(
+            test_id=self._node_id,
+            phase="setup",
+            action="deploy_contract",
+            target=label,
+            tx_index=len(self._txs),
+        )
         self._eth_rpc.send_transaction(deploy_tx)
         self._txs.append(deploy_tx)
 
@@ -234,6 +245,7 @@ class Alloc(BaseAlloc):
         """Add a previously unused EOA to the pre-alloc with the balance specified by `amount`."""
         assert nonce is None, "nonce parameter is not supported for execute"
         eoa = next(self._eoa_iterator)
+        eoa.label = label
         # Send a transaction to fund the EOA
         if amount is None:
             amount = self._eoa_fund_amount_default
@@ -260,6 +272,13 @@ class Alloc(BaseAlloc):
                     gas_limit=100_000,
                 ).with_signature_and_sender()
                 eoa.nonce = Number(eoa.nonce + 1)
+                set_storage_tx.metadata = TransactionTestMetadata(
+                    test_id=self._node_id,
+                    phase="setup",
+                    action="eoa_storage_set",
+                    target=label,
+                    tx_index=len(self._txs),
+                )
                 self._eth_rpc.send_transaction(set_storage_tx)
                 self._txs.append(set_storage_tx)
 
@@ -308,6 +327,13 @@ class Alloc(BaseAlloc):
                 ).with_signature_and_sender()
 
         if fund_tx is not None:
+            fund_tx.metadata = TransactionTestMetadata(
+                test_id=self._node_id,
+                phase="setup",
+                action="fund_eoa",
+                target=label,
+                tx_index=len(self._txs),
+            )
             self._eth_rpc.send_transaction(fund_tx)
             self._txs.append(fund_tx)
         super().__setitem__(
@@ -332,6 +358,13 @@ class Alloc(BaseAlloc):
             to=address,
             value=amount,
         ).with_signature_and_sender()
+        fund_tx.metadata = TransactionTestMetadata(
+            test_id=self._node_id,
+            phase="setup",
+            action="fund_address",
+            target=address.label,
+            tx_index=len(self._txs),
+        )
         self._eth_rpc.send_transaction(fund_tx)
         self._txs.append(fund_tx)
         if address in self:
@@ -402,6 +435,7 @@ def pre(
     chain_id: int,
     eoa_fund_amount_default: int,
     default_gas_price: int,
+    request: pytest.FixtureRequest,
 ) -> Generator[Alloc, None, None]:
     """Return default pre allocation for all tests (Empty alloc)."""
     # Record the starting balance of the sender
@@ -416,6 +450,7 @@ def pre(
         evm_code_type=evm_code_type,
         chain_id=chain_id,
         eoa_fund_amount_default=eoa_fund_amount_default,
+        node_id=request.node.nodeid,
     )
 
     # Yield the pre-alloc for usage during the test
@@ -423,22 +458,28 @@ def pre(
 
     # Refund all EOAs (regardless of whether the test passed or failed)
     refund_txs = []
-    for eoa in pre._funded_eoa:
+    for idx, eoa in enumerate(pre._funded_eoa):
         remaining_balance = eth_rpc.get_balance(eoa)
         eoa.nonce = Number(eth_rpc.get_transaction_count(eoa))
         refund_gas_limit = 21_000
         tx_cost = refund_gas_limit * default_gas_price
         if remaining_balance < tx_cost:
             continue
-        refund_txs.append(
-            Transaction(
-                sender=eoa,
-                to=sender_key,
-                gas_limit=21_000,
-                gas_price=default_gas_price,
-                value=remaining_balance - tx_cost,
-            ).with_signature_and_sender()
+        refund_tx = Transaction(
+            sender=eoa,
+            to=sender_key,
+            gas_limit=21_000,
+            gas_price=default_gas_price,
+            value=remaining_balance - tx_cost,
+        ).with_signature_and_sender()
+        refund_tx.metadata = TransactionTestMetadata(
+            test_id=request.node.nodeid,
+            phase="cleanup",
+            action="refund_from_eoa",
+            target=eoa.label,
+            tx_index=idx,
         )
+        refund_txs.append(refund_tx)
     eth_rpc.send_wait_transactions(refund_txs)
 
     # Record the ending balance of the sender
