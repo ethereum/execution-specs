@@ -241,7 +241,6 @@ packages = [
 "ethereum_spec_tools" = ["py.typed"]
 "ethereum_test_forks" = ["forks/contracts/*.bin"]
 "pytest_plugins.execute" = ["eth_config/networks.yml"]
-"pytest_plugins" = ["eels_resolutions.json"]
 "cli.eest.make" = ["templates/*.j2"]
 "cli.pytest_commands" = ["pytest_ini_files/*.ini"]
 "ethereum_test_types" = ["kzg_trusted_setup.txt"]
@@ -255,6 +254,9 @@ test = [
     "filelock>=3.15.1,<4",
     "requests",
     "requests-cache>=1.2.1,<2",
+]
+
+fill = [
     "click>=8.1.0,<9",
     "ethereum-hive>=0.1.0a1,<1.0.0",
     "gitpython>=3.1.31,<4",

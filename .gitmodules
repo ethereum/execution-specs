@@ -1,3 +1,0 @@
-[submodule "eest_tests/execution-spec-tests"]
-	path = eest_tests/execution-spec-tests
-	url = https://github.com/ethereum/execution-spec-tests.git
