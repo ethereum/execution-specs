@@ -405,6 +405,7 @@ paths = [
 excluded_paths = [
     "src/ethereum_optimized",
     "src/ethereum_spec_tools",
+    "src/ethereum_spec_tests",
 ]
 
 [tool.docc.plugins."docc.html.context"]
