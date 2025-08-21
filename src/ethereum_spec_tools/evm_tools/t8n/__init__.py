@@ -12,11 +12,11 @@ from ethereum_rlp import rlp
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum import trace
-from ethereum.exceptions import EthereumException, InvalidBlock
 from ethereum.amsterdam.block_access_lists import (
     StateChangeTracker,
     set_transaction_index,
 )
+from ethereum.exceptions import EthereumException, InvalidBlock
 from ethereum_spec_tools.forks import Hardfork
 
 from ..loaders.fixture_loader import Load

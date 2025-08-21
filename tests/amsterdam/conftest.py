@@ -1,5 +1,5 @@
 """
-Minimal conftest for osaka BAL tests.
+Minimal conftest for amsterdam BAL tests.
 """
 from typing import Any
 

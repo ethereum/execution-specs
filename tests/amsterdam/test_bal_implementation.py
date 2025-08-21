@@ -25,7 +25,14 @@ from ethereum.amsterdam.block_access_lists import (
     add_touched_account,
     build,
 )
-from ethereum.osaka.rlp_types import (
+from ethereum.amsterdam.block_access_lists.tracker import (
+    capture_pre_state,
+    track_balance_change,
+    track_code_change,
+    track_nonce_change,
+    track_storage_write,
+)
+from ethereum.amsterdam.rlp_types import (
     MAX_CODE_CHANGES,
     BlockAccessIndex,
     BlockAccessList,
@@ -188,8 +195,6 @@ class TestBALTracker:
 
     def test_tracker_set_transaction_index(self) -> None:
         """Test setting block access index."""
-        from ethereum.amsterdam.block_access_lists import set_transaction_index
-
         builder = BlockAccessListBuilder()
         tracker = StateChangeTracker(builder)
 
@@ -198,13 +203,11 @@ class TestBALTracker:
         # Pre-storage cache should persist across transactions
         assert tracker.pre_storage_cache == {}
 
-    @patch("ethereum.amsterdam.block_access_lists.tracker.get_storage")
+    @patch("ethereum.amsterdam.state.get_storage")
     def test_tracker_capture_pre_state(
         self, mock_get_storage: MagicMock
     ) -> None:
         """Test capturing pre-state values."""
-        from ethereum.amsterdam.block_access_lists.tracker import capture_pre_state
-
         builder = BlockAccessListBuilder()
         tracker = StateChangeTracker(builder)
 
@@ -231,10 +234,6 @@ class TestBALTracker:
         self, mock_capture: MagicMock
     ) -> None:
         """Test tracking storage write with actual change."""
-        from ethereum.amsterdam.block_access_lists.tracker import (
-            track_storage_write,
-        )
-
         builder = BlockAccessListBuilder()
         tracker = StateChangeTracker(builder)
         tracker.current_block_access_index = 1
@@ -263,10 +262,6 @@ class TestBALTracker:
         self, mock_capture: MagicMock
     ) -> None:
         """Test tracking storage write with no actual change."""
-        from ethereum.amsterdam.block_access_lists.tracker import (
-            track_storage_write,
-        )
-
         builder = BlockAccessListBuilder()
         tracker = StateChangeTracker(builder)
         tracker.current_block_access_index = 1
@@ -287,10 +282,6 @@ class TestBALTracker:
 
     def test_tracker_balance_change(self) -> None:
         """Test tracking balance changes."""
-        from ethereum.amsterdam.block_access_lists.tracker import (
-            track_balance_change,
-        )
-
         builder = BlockAccessListBuilder()
         tracker = StateChangeTracker(builder)
         tracker.current_block_access_index = 2
@@ -310,10 +301,6 @@ class TestBALTracker:
 
     def test_tracker_nonce_change(self) -> None:
         """Test tracking nonce changes."""
-        from ethereum.amsterdam.block_access_lists.tracker import (
-            track_nonce_change,
-        )
-
         builder = BlockAccessListBuilder()
         tracker = StateChangeTracker(builder)
         tracker.current_block_access_index = 3
@@ -332,8 +319,6 @@ class TestBALTracker:
 
     def test_tracker_code_change(self) -> None:
         """Test tracking code changes."""
-        from ethereum.amsterdam.block_access_lists.tracker import track_code_change
-
         builder = BlockAccessListBuilder()
         tracker = StateChangeTracker(builder)
         tracker.current_block_access_index = 1
@@ -457,7 +442,7 @@ class TestBALIntegration:
         # Should be sorted by block_access_index
         for i in range(4):
             assert account.balance_changes[i].block_access_index == i
-            expected = U256(0) if i == 0 else U256(int(bytes([i]) * 4, 16))
+            expected = U256(0) if i == 0 else U256(int.from_bytes(bytes([i]) * 4, 'big'))
             assert account.balance_changes[i].post_balance == expected
 
 

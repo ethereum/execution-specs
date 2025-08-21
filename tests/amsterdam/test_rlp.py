@@ -3,10 +3,9 @@ from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes8, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 
-from ethereum.crypto.hash import keccak256
-from ethereum.osaka.blocks import Block, Header, Log, Receipt, Withdrawal
-from ethereum.osaka.rlp_types import BlockAccessList
-from ethereum.osaka.transactions import (
+from ethereum.amsterdam.blocks import Block, Header, Log, Receipt, Withdrawal
+from ethereum.amsterdam.rlp_types import BlockAccessList
+from ethereum.amsterdam.transactions import (
     Access,
     AccessListTransaction,
     FeeMarketTransaction,
@@ -15,7 +14,8 @@ from ethereum.osaka.transactions import (
     decode_transaction,
     encode_transaction,
 )
-from ethereum.osaka.utils.hexadecimal import hex_to_address
+from ethereum.amsterdam.utils.hexadecimal import hex_to_address
+from ethereum.crypto.hash import keccak256
 from ethereum.utils.hexadecimal import hex_to_bytes256
 
 hash1 = keccak256(b"foo")
