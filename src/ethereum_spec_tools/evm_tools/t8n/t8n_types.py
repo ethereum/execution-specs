@@ -328,47 +328,49 @@ class Txs:
             json_tx["y_parity"] = json_tx["v"]
 
 
+def _convert_access_list(access_list, fork):
+    if not access_list:
+        return []
+    AccessCls = getattr(fork, "Access", None)
+    return [
+        AccessCls(
+            account=entry.address,
+            slots=tuple(entry.storage_keys),
+        )
+        for entry in access_list
+    ]
+
+
+def _convert_authorizations(auth_list, fork):
+    if not auth_list:
+        return []
+    AuthorizationCls = getattr(fork, "Authorization", None)
+    result = []
+    for entry in auth_list:
+        d = entry.model_dump()
+        result.append(
+            AuthorizationCls(
+                chain_id=U256(d.get("chain_id", 0)),
+                address=d["address"],
+                nonce=U64(d.get("nonce", 0)),
+                y_parity=U8(d.get("v", d.get("y_parity", 0))),
+                r=U256(d["r"]),
+                s=U256(d["s"]),
+            )
+        )
+    return result
+
+
+def _to_bytes20(val):
+    if val is None:
+        return Bytes0()
+    return Bytes20(val)
+
+
 def convert_pydantic_tx_to_canonical(tx, fork):
     """
     Convert a Pydantic Transaction to the canonical transaction class for the given fork.
     """
-
-    def convert_access_list(access_list):
-        if not access_list:
-            return []
-        AccessCls = getattr(fork, "Access", None)
-        return [
-            AccessCls(
-                account=entry.address,
-                slots=tuple(entry.storage_keys),
-            )
-            for entry in access_list
-        ]
-
-    def convert_authorizations(auth_list):
-        if not auth_list:
-            return []
-        AuthorizationCls = getattr(fork, "Authorization", None)
-        result = []
-        for entry in auth_list:
-            d = entry.model_dump()
-            result.append(
-                AuthorizationCls(
-                    chain_id=U256(d.get("chain_id", 0)),
-                    address=d["address"],
-                    nonce=U64(d.get("nonce", 0)),
-                    y_parity=U8(d.get("v", d.get("y_parity", 0))),
-                    r=U256(d["r"]),
-                    s=U256(d["s"]),
-                )
-            )
-        return result
-
-    def to_bytes20(val):
-        if val is None:
-            return Bytes0()
-        return Bytes20(val)
-
     tx_type = tx.ty or 0
 
     # SetCodeTransaction (Type 4)
@@ -379,11 +381,14 @@ def convert_pydantic_tx_to_canonical(tx, fork):
             max_priority_fee_per_gas=Uint(tx.max_priority_fee_per_gas or 0),
             max_fee_per_gas=Uint(tx.max_fee_per_gas or 0),
             gas=Uint(tx.gas_limit),
-            to=to_bytes20(tx.to),
+            to=_to_bytes20(tx.to),
             value=U256(tx.value),
             data=tx.data,
-            access_list=convert_access_list(tx.access_list),
-            authorizations=convert_authorizations(tx.authorization_list or []),
+            access_list=_convert_access_list(tx.access_list, fork),
+            authorizations=_convert_authorizations(
+                tx.authorization_list or [],
+                fork,
+            ),
             y_parity=U256(tx.v),
             r=U256(tx.r),
             s=U256(tx.s),
@@ -397,10 +402,10 @@ def convert_pydantic_tx_to_canonical(tx, fork):
             max_priority_fee_per_gas=Uint(tx.max_priority_fee_per_gas or 0),
             max_fee_per_gas=Uint(tx.max_fee_per_gas or 0),
             gas=Uint(tx.gas_limit),
-            to=to_bytes20(tx.to),
+            to=_to_bytes20(tx.to),
             value=U256(tx.value),
             data=tx.data,
-            access_list=convert_access_list(tx.access_list),
+            access_list=_convert_access_list(tx.access_list, fork),
             max_fee_per_blob_gas=Uint(tx.max_fee_per_blob_gas or 0),
             blob_versioned_hashes=tx.blob_versioned_hashes or (),
             y_parity=U256(tx.v),
@@ -416,10 +421,10 @@ def convert_pydantic_tx_to_canonical(tx, fork):
             max_priority_fee_per_gas=Uint(tx.max_priority_fee_per_gas or 0),
             max_fee_per_gas=Uint(tx.max_fee_per_gas or 0),
             gas=Uint(tx.gas_limit),
-            to=to_bytes20(tx.to),
+            to=_to_bytes20(tx.to),
             value=U256(tx.value),
             data=tx.data,
-            access_list=convert_access_list(tx.access_list),
+            access_list=_convert_access_list(tx.access_list, fork),
             y_parity=U256(tx.v),
             r=U256(tx.r),
             s=U256(tx.s),
@@ -432,10 +437,10 @@ def convert_pydantic_tx_to_canonical(tx, fork):
             nonce=U256(tx.nonce),
             gas_price=Uint(tx.gas_price or 0),
             gas=Uint(tx.gas_limit),
-            to=to_bytes20(tx.to),
+            to=_to_bytes20(tx.to),
             value=U256(tx.value),
             data=tx.data,
-            access_list=convert_access_list(tx.access_list),
+            access_list=_convert_access_list(tx.access_list, fork),
             y_parity=U256(tx.v),
             r=U256(tx.r),
             s=U256(tx.s),
@@ -451,7 +456,7 @@ def convert_pydantic_tx_to_canonical(tx, fork):
             nonce=U256(tx.nonce),
             gas_price=Uint(tx.gas_price or 0),
             gas=Uint(tx.gas_limit),
-            to=to_bytes20(tx.to),
+            to=_to_bytes20(tx.to),
             value=U256(tx.value),
             data=tx.data,
             v=U256(tx.v),

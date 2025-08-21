@@ -372,6 +372,15 @@ class Env:
                 left_pad_zero_bytes(hex_to_bytes(current_random), 32)
             )
 
+    def _to_canonical_withdrawal(self, raw, fork):
+        """Convert raw withdrawal to canonical format."""
+        return fork.Withdrawal(
+            index=U64(raw.index),
+            validator_index=U64(raw.validator_index),
+            address=raw.address,
+            amount=U256(raw.amount),
+        )
+
     def read_withdrawals_pydantic(self, data: Any, t8n: "T8N") -> None:
         """
         Read the withdrawals from the data.
@@ -387,7 +396,10 @@ class Env:
                         address=raw.address,
                         amount=U256(raw.amount),
                     )
-                self.withdrawals = tuple(to_canonical_withdrawal(wd) for wd in raw_withdrawals)
+                self.withdrawals = tuple(
+                    self._to_canonical_withdrawal(wd, t8n.fork)
+                    for wd in raw_withdrawals
+                )
             else:
                 self.withdrawals = ()
 
