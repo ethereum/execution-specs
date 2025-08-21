@@ -30,7 +30,13 @@ from ethereum.exceptions import (
 )
 
 from . import vm
-from .block_access_lists import StateChangeTracker, compute_block_access_list_hash, build, set_transaction_index, track_balance_change
+from .block_access_lists import (
+    StateChangeTracker,
+    build,
+    compute_block_access_list_hash,
+    set_transaction_index,
+    track_balance_change,
+)
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
 from .exceptions import (
@@ -244,10 +250,12 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     block_logs_bloom = logs_bloom(block_output.block_logs)
     withdrawals_root = root(block_output.withdrawals_trie)
     requests_hash = compute_requests_hash(block_output.requests)
-    
+
     # Build and validate Block Access List
     computed_block_access_list = build(block_output.block_access_list_builder)
-    computed_block_access_list_hash = compute_block_access_list_hash(computed_block_access_list)
+    computed_block_access_list_hash = compute_block_access_list_hash(
+        computed_block_access_list
+    )
 
     if block_output.block_gas_used != block.header.gas_used:
         raise InvalidBlock(
@@ -607,6 +615,8 @@ def process_system_transaction(
         Code of the contract to call.
     data :
         Data to pass to the contract.
+    change_tracker :
+        The state change tracker instance.
 
     Returns
     -------
@@ -670,6 +680,8 @@ def process_checked_system_transaction(
         Address of the contract to call.
     data :
         Data to pass to the contract.
+    change_tracker :
+        The state change tracker instance.
 
     Returns
     -------
@@ -719,6 +731,8 @@ def process_unchecked_system_transaction(
         Address of the contract to call.
     data :
         Data to pass to the contract.
+    change_tracker :
+        The state change tracker instance.
 
     Returns
     -------
@@ -765,7 +779,7 @@ def apply_body(
         The block output for the current block.
     """
     block_output = vm.BlockOutput()
-    
+
     # Initialize Block Access List state change tracker
     change_tracker = StateChangeTracker(block_output.block_access_list_builder)
 
@@ -790,14 +804,16 @@ def apply_body(
     # EIP-7928: Transactions use bal_index 1 to len(transactions)
     for i, tx in enumerate(map(decode_transaction, transactions)):
         set_transaction_index(change_tracker, i + 1)
-        process_transaction(block_env, block_output, tx, Uint(i), change_tracker)
+        process_transaction(
+            block_env, block_output, tx, Uint(i), change_tracker
+        )
 
     # EIP-7928: Post-execution uses bal_index len(transactions) + 1
     post_execution_index = len(transactions) + 1
     set_transaction_index(change_tracker, post_execution_index)
 
     process_withdrawals(block_env, block_output, withdrawals, change_tracker)
-    
+
     process_general_purpose_requests(
         block_env=block_env,
         block_output=block_output,
@@ -821,6 +837,8 @@ def process_general_purpose_requests(
         The execution environment for the Block.
     block_output :
         The block output for the current block.
+    change_tracker :
+        The state change tracker instance.
     """
     # Requests are to be in ascending order of request type
     deposit_requests = parse_deposit_requests(block_output)
@@ -883,6 +901,8 @@ def process_transaction(
         Transaction to execute.
     index:
         Index of the transaction in the block.
+    change_tracker :
+        The state change tracker instance.
     """
     trie_set(
         block_output.transactions_trie,
@@ -919,7 +939,10 @@ def process_transaction(
         Uint(sender_account.balance) - effective_gas_fee - blob_gas_fee
     )
     set_account_balance(
-        block_env.state, sender, U256(sender_balance_after_gas_fee), change_tracker
+        block_env.state,
+        sender,
+        U256(sender_balance_after_gas_fee),
+        change_tracker,
     )
 
     access_list_addresses = set()
@@ -986,7 +1009,9 @@ def process_transaction(
     sender_balance_after_refund = get_account(
         block_env.state, sender
     ).balance + U256(gas_refund_amount)
-    set_account_balance(block_env.state, sender, sender_balance_after_refund, change_tracker)
+    set_account_balance(
+        block_env.state, sender, sender_balance_after_refund, change_tracker
+    )
 
     # transfer miner fees
     coinbase_balance_after_mining_fee = get_account(
@@ -997,7 +1022,7 @@ def process_transaction(
             block_env.state,
             block_env.coinbase,
             coinbase_balance_after_mining_fee,
-            change_tracker
+            change_tracker,
         )
     elif account_exists_and_is_empty(block_env.state, block_env.coinbase):
         destroy_account(block_env.state, block_env.coinbase)
@@ -1045,10 +1070,11 @@ def process_withdrawals(
         )
 
         modify_state(block_env.state, wd.address, increase_recipient_balance)
-        
-        # Track balance change for BAL (withdrawals are tracked as system contract changes)
+
+        # Track balance change for BAL
+        # (withdrawals are tracked as system contract changes)
         new_balance = get_account(block_env.state, wd.address).balance
-        track_balance_change(change_tracker, wd.address, U256(new_balance), block_env.state)
+        track_balance_change(change_tracker, wd.address, U256(new_balance))
 
         if account_exists_and_is_empty(block_env.state, wd.address):
             destroy_account(block_env.state, wd.address)

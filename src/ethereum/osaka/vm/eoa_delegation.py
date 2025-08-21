@@ -196,7 +196,6 @@ def set_delegation(message: Message) -> U256:
         else:
             code_to_set = EOA_DELEGATION_MARKER + auth.address
         set_code(state, authority, code_to_set, message.change_tracker)
-
         increment_nonce(state, authority, message.change_tracker)
 
     if message.code_address is None:

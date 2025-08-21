@@ -513,3 +513,11 @@ CLZ
 EELST8N
 clis
 T8
+bal
+BAL
+slot1
+slot2
+lexicographically
+uint16
+uint128
+630m

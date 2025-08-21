@@ -14,7 +14,7 @@ The abstract computer which runs the code stored in an
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, List, Optional, Set, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
@@ -29,7 +29,6 @@ from ..state import State, TransientStorage
 from ..transactions import LegacyTransaction
 from ..trie import Trie
 
-from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ..block_access_lists import StateChangeTracker
 
@@ -95,7 +94,9 @@ class BlockOutput:
     )
     blob_gas_used: U64 = U64(0)
     requests: List[Bytes] = field(default_factory=list)
-    block_access_list_builder: BlockAccessListBuilder = field(default_factory=BlockAccessListBuilder)
+    block_access_list_builder: BlockAccessListBuilder = field(
+        default_factory=BlockAccessListBuilder
+    )
 
 
 @dataclass

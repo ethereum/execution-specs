@@ -6,11 +6,12 @@ This module defines the RLP data structures for Block-Level Access Lists
 as specified in EIP-7928. These structures enable efficient encoding and
 decoding of all accounts and storage locations accessed during block execution.
 
-The encoding follows the pattern: address -> field -> block_access_index -> change
+The encoding follows the pattern:
+address -> field -> block_access_index -> change
 """
 
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import Tuple
 
 from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.frozen import slotted_freezable
@@ -40,6 +41,7 @@ class StorageChange:
     Storage change: [block_access_index, new_value]
     RLP encoded as a list
     """
+
     block_access_index: BlockAccessIndex
     new_value: StorageValue
 
@@ -51,6 +53,7 @@ class BalanceChange:
     Balance change: [block_access_index, post_balance]
     RLP encoded as a list
     """
+
     block_access_index: BlockAccessIndex
     post_balance: Balance
 
@@ -62,6 +65,7 @@ class NonceChange:
     Nonce change: [block_access_index, new_nonce]
     RLP encoded as a list
     """
+
     block_access_index: BlockAccessIndex
     new_nonce: Nonce
 
@@ -73,6 +77,7 @@ class CodeChange:
     Code change: [block_access_index, new_code]
     RLP encoded as a list
     """
+
     block_access_index: BlockAccessIndex
     new_code: CodeData
 
@@ -84,6 +89,7 @@ class SlotChanges:
     All changes to a single storage slot: [slot, [changes]]
     RLP encoded as a list
     """
+
     slot: StorageKey
     changes: Tuple[StorageChange, ...]
 
@@ -93,14 +99,26 @@ class SlotChanges:
 class AccountChanges:
     """
     All changes for a single account, grouped by field type.
-    RLP encoded as: [address, storage_changes, storage_reads, balance_changes, nonce_changes, code_changes]
+    RLP encoded as: [address, storage_changes, storage_reads,
+    balance_changes, nonce_changes, code_changes]
     """
+
     address: Address
-    storage_changes: Tuple[SlotChanges, ...]  # slot -> [block_access_index -> new_value]
-    storage_reads: Tuple[StorageKey, ...]  # read-only storage keys
-    balance_changes: Tuple[BalanceChange, ...]  # [block_access_index -> post_balance]
-    nonce_changes: Tuple[NonceChange, ...]  # [block_access_index -> new_nonce]
-    code_changes: Tuple[CodeChange, ...]  # [block_access_index -> new_code]
+
+    # slot -> [block_access_index -> new_value]
+    storage_changes: Tuple[SlotChanges, ...]
+
+    # read-only storage keys
+    storage_reads: Tuple[StorageKey, ...]
+
+    # [block_access_index -> post_balance]
+    balance_changes: Tuple[BalanceChange, ...]
+
+    # [block_access_index -> new_nonce]
+    nonce_changes: Tuple[NonceChange, ...]
+
+    # [block_access_index -> new_code]
+    code_changes: Tuple[CodeChange, ...]
 
 
 @slotted_freezable
@@ -111,4 +129,5 @@ class BlockAccessList:
     Contains all addresses accessed during block execution.
     RLP encoded as a list of AccountChanges
     """
+
     account_changes: Tuple[AccountChanges, ...]

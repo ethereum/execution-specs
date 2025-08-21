@@ -97,9 +97,7 @@ class _EvmToolHandler(BaseHTTPRequestHandler):
         # `self.wfile` is missing the `name` attribute so it doesn't strictly
         # satisfy the bounds for `TextIOWrapper`. Fortunately nothing uses
         # `name` so far, so we can safely ignore the error.
-        with TextIOWrapper(
-            self.wfile, encoding="utf-8"  # type: ignore[type-var]
-        ) as out_wrapper:
+        with TextIOWrapper(self.wfile, encoding="utf-8") as out_wrapper:
             main(args=args, out_file=out_wrapper, in_file=input)
 
 

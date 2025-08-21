@@ -12,6 +12,11 @@ from .builder import (
     add_touched_account,
     build,
 )
+from .rlp_utils import (
+    compute_block_access_list_hash,
+    rlp_encode_block_access_list,
+    validate_block_access_list_against_execution,
+)
 from .tracker import (
     StateChangeTracker,
     set_transaction_index,
@@ -21,11 +26,6 @@ from .tracker import (
     track_nonce_change,
     track_storage_read,
     track_storage_write,
-)
-from .rlp_utils import (
-    compute_block_access_list_hash,
-    rlp_encode_block_access_list,
-    validate_block_access_list_against_execution,
 )
 
 __all__ = [

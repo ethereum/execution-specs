@@ -18,17 +18,14 @@ There is a distinction between an account that does not exist and
 """
 
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import modify
 from ethereum_types.numeric import U256, Uint
 
-from .block_access_lists import (
-    track_balance_change,
-    track_code_change,
-    track_nonce_change,
-)
+if TYPE_CHECKING:
+    from .block_access_lists.tracker import StateChangeTracker
 from .fork_types import EMPTY_ACCOUNT, Account, Address, Root
 from .trie import EMPTY_TRIE_ROOT, Trie, copy_trie, root, trie_get, trie_set
 
@@ -493,7 +490,7 @@ def move_ether(
     sender_address: Address,
     recipient_address: Address,
     amount: U256,
-    change_tracker: "StateChangeTracker",
+    change_tracker: Optional["StateChangeTracker"],
 ) -> None:
     """
     Move funds between accounts.
@@ -509,21 +506,26 @@ def move_ether(
 
     modify_state(state, sender_address, reduce_sender_balance)
     modify_state(state, recipient_address, increase_recipient_balance)
-    
+
     if change_tracker is not None:
         from .block_access_lists.tracker import track_balance_change
+
         sender_new_balance = get_account(state, sender_address).balance
         recipient_new_balance = get_account(state, recipient_address).balance
 
-        track_balance_change(change_tracker, sender_address, U256(sender_new_balance))
-        track_balance_change(change_tracker, recipient_address, U256(recipient_new_balance))
+        track_balance_change(
+            change_tracker, sender_address, U256(sender_new_balance)
+        )
+        track_balance_change(
+            change_tracker, recipient_address, U256(recipient_new_balance)
+        )
 
 
 def set_account_balance(
-    state: State, 
-    address: Address, 
+    state: State,
+    address: Address,
     amount: U256,
-    change_tracker: "StateChangeTracker",
+    change_tracker: Optional["StateChangeTracker"],
 ) -> None:
     """
     Sets the balance of an account.
@@ -538,7 +540,7 @@ def set_account_balance(
 
     amount:
         The amount that needs to set in balance.
-        
+
     change_tracker:
         Change tracker to record balance changes.
     """
@@ -547,13 +549,18 @@ def set_account_balance(
         account.balance = amount
 
     modify_state(state, address, set_balance)
-    
+
     if change_tracker is not None:
         from .block_access_lists.tracker import track_balance_change
+
         track_balance_change(change_tracker, address, amount)
 
 
-def increment_nonce(state: State, address: Address, change_tracker: "StateChangeTracker") -> None:
+def increment_nonce(
+    state: State,
+    address: Address,
+    change_tracker: Optional["StateChangeTracker"],
+) -> None:
     """
     Increments the nonce of an account.
 
@@ -564,7 +571,7 @@ def increment_nonce(state: State, address: Address, change_tracker: "StateChange
 
     address:
         Address of the account whose nonce needs to be incremented.
-        
+
     change_tracker:
         Change tracker for EIP-7928.
     """
@@ -573,23 +580,26 @@ def increment_nonce(state: State, address: Address, change_tracker: "StateChange
         sender.nonce += Uint(1)
 
     modify_state(state, address, increase_nonce)
-    
-    # Track nonce change for Block Access List (for ALL accounts and ALL nonce changes)
+
+    # Track nonce change for Block Access List
+    # (for ALL accounts and ALL nonce changes)
     # This includes:
     # - EOA senders (transaction nonce increments)
     # - Contracts performing CREATE/CREATE2
     # - Deployed contracts
     # - EIP-7702 authorities
-    from .block_access_lists.tracker import track_nonce_change
-    account = get_account(state, address)
-    track_nonce_change(change_tracker, address, account.nonce)
+    if change_tracker is not None:
+        from .block_access_lists.tracker import track_nonce_change
+
+        account = get_account(state, address)
+        track_nonce_change(change_tracker, address, account.nonce)
 
 
 def set_code(
-    state: State, 
-    address: Address, 
+    state: State,
+    address: Address,
     code: Bytes,
-    change_tracker: "StateChangeTracker",
+    change_tracker: Optional["StateChangeTracker"],
 ) -> None:
     """
     Sets Account code.
@@ -604,7 +614,7 @@ def set_code(
 
     code:
         The bytecode that needs to be set.
-    
+
     change_tracker:
         Change tracker for EIP-7928.
     """
@@ -613,9 +623,11 @@ def set_code(
         sender.code = code
 
     modify_state(state, address, write_code)
-    
-    from .block_access_lists.tracker import track_code_change
-    track_code_change(change_tracker, address, code)
+
+    if change_tracker is not None:
+        from .block_access_lists.tracker import track_code_change
+
+        track_code_change(change_tracker, address, code)
 
 
 def get_storage_original(state: State, address: Address, key: Bytes32) -> U256:

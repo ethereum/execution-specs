@@ -26,8 +26,8 @@ from ..fork_types import Address
 from ..rlp_types import (
     AccountChanges,
     BalanceChange,
-    BlockAccessList,
     BlockAccessIndex,
+    BlockAccessList,
     CodeChange,
     NonceChange,
     SlotChanges,
@@ -45,7 +45,9 @@ class AccountData:
     transaction index where it occurred.
     """
 
-    storage_changes: Dict[Bytes32, List[StorageChange]] = field(default_factory=dict)
+    storage_changes: Dict[Bytes32, List[StorageChange]] = field(
+        default_factory=dict
+    )
     """
     Mapping from storage slot to list of changes made to that slot.
     Each change includes the transaction index and new value.
@@ -137,7 +139,8 @@ def add_storage_write(
     slot :
         The storage slot being written to.
     block_access_index :
-        The block access index for this change (0 for pre-execution, 1..n for transactions, n+1 for post-execution).
+        The block access index for this change (0 for pre-execution,
+        1..n for transactions, n+1 for post-execution).
     new_value :
         The new value being written to the storage slot.
     """
@@ -146,7 +149,9 @@ def add_storage_write(
     if slot not in builder.accounts[address].storage_changes:
         builder.accounts[address].storage_changes[slot] = []
 
-    change = StorageChange(block_access_index=block_access_index, new_value=new_value)
+    change = StorageChange(
+        block_access_index=block_access_index, new_value=new_value
+    )
     builder.accounts[address].storage_changes[slot].append(change)
 
 
@@ -195,7 +200,8 @@ def add_balance_change(
     address :
         The account address whose balance changed.
     block_access_index :
-        The block access index for this change (0 for pre-execution, 1..n for transactions, n+1 for post-execution).
+        The block access index for this change (0 for pre-execution,
+        1..n for transactions, n+1 for post-execution).
     post_balance :
         The account balance after the change as U256.
     """
@@ -211,7 +217,8 @@ def add_balance_change(
         if existing.block_access_index == block_access_index:
             # Update the existing balance change with the new balance
             existing_changes[i] = BalanceChange(
-                block_access_index=block_access_index, post_balance=balance_value
+                block_access_index=block_access_index,
+                post_balance=balance_value,
             )
             return
 
@@ -242,7 +249,8 @@ def add_nonce_change(
     address :
         The account address whose nonce changed.
     block_access_index :
-        The block access index for this change (0 for pre-execution, 1..n for transactions, n+1 for post-execution).
+        The block access index for this change (0 for pre-execution,
+        1..n for transactions, n+1 for post-execution).
     new_nonce :
         The new nonce value after the change.
 
@@ -263,7 +271,9 @@ def add_nonce_change(
             return
 
     # No existing change for this tx_index, add a new one
-    change = NonceChange(block_access_index=block_access_index, new_nonce=new_nonce)
+    change = NonceChange(
+        block_access_index=block_access_index, new_nonce=new_nonce
+    )
     builder.accounts[address].nonce_changes.append(change)
 
 
@@ -287,7 +297,8 @@ def add_code_change(
     address :
         The account address receiving new code.
     block_access_index :
-        The block access index for this change (0 for pre-execution, 1..n for transactions, n+1 for post-execution).
+        The block access index for this change (0 for pre-execution,
+        1..n for transactions, n+1 for post-execution).
     new_code :
         The deployed contract bytecode.
 
@@ -297,11 +308,15 @@ def add_code_change(
     """
     ensure_account(builder, address)
 
-    change = CodeChange(block_access_index=block_access_index, new_code=new_code)
+    change = CodeChange(
+        block_access_index=block_access_index, new_code=new_code
+    )
     builder.accounts[address].code_changes.append(change)
 
 
-def add_touched_account(builder: BlockAccessListBuilder, address: Address) -> None:
+def add_touched_account(
+    builder: BlockAccessListBuilder, address: Address
+) -> None:
     """
     Add an account that was accessed but not modified.
 
@@ -357,7 +372,9 @@ def build(builder: BlockAccessListBuilder) -> BlockAccessList:
             sorted_changes = tuple(
                 sorted(slot_changes, key=lambda x: x.block_access_index)
             )
-            storage_changes.append(SlotChanges(slot=slot, changes=sorted_changes))
+            storage_changes.append(
+                SlotChanges(slot=slot, changes=sorted_changes)
+            )
 
         storage_reads = []
         for slot in changes.storage_reads:

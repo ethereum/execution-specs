@@ -16,14 +16,13 @@ See [EIP-7928] for the full specification.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict
 
-from ethereum_types.bytes import Bytes
+from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 
-from ..rlp_types import BlockAccessIndex
-
 from ..fork_types import Address
+from ..rlp_types import BlockAccessIndex
 from .builder import (
     BlockAccessListBuilder,
     add_balance_change,
@@ -49,7 +48,8 @@ class StateChangeTracker:
     block execution. It ensures that only actual changes (not no-op writes)
     are recorded in the access list.
 
-    [`BlockAccessListBuilder`]: ref:ethereum.osaka.block_access_lists.builder.BlockAccessListBuilder
+    [`BlockAccessListBuilder`]:
+    ref:ethereum.osaka.block_access_lists.builder.BlockAccessListBuilder
     """
 
     block_access_list_builder: BlockAccessListBuilder
@@ -66,15 +66,19 @@ class StateChangeTracker:
 
     current_block_access_index: int = 0
     """
-    The current block access index (0 for pre-execution, 1..n for transactions, n+1 for post-execution).
+    The current block access index (0 for pre-execution,
+    1..n for transactions, n+1 for post-execution).
     """
 
 
-def set_transaction_index(tracker: StateChangeTracker, block_access_index: int) -> None:
+def set_transaction_index(
+    tracker: StateChangeTracker, block_access_index: int
+) -> None:
     """
     Set the current block access index for tracking changes.
 
-    Must be called before processing each transaction/system contract to ensure changes
+    Must be called before processing each transaction/system contract
+    to ensure changes
     are associated with the correct block access index.
 
     Parameters
@@ -82,13 +86,14 @@ def set_transaction_index(tracker: StateChangeTracker, block_access_index: int) 
     tracker :
         The state change tracker instance.
     block_access_index :
-        The block access index (0 for pre-execution, 1..n for transactions, n+1 for post-execution).
+        The block access index (0 for pre-execution,
+        1..n for transactions, n+1 for post-execution).
     """
     tracker.current_block_access_index = block_access_index
 
 
 def capture_pre_state(
-    tracker: StateChangeTracker, address: Address, key: Bytes, state: "State"
+    tracker: StateChangeTracker, address: Address, key: Bytes32, state: "State"
 ) -> U256:
     """
     Capture and cache the pre-state value for a storage location.
@@ -122,7 +127,9 @@ def capture_pre_state(
     return tracker.pre_storage_cache[cache_key]
 
 
-def track_address_access(tracker: StateChangeTracker, address: Address) -> None:
+def track_address_access(
+    tracker: StateChangeTracker, address: Address
+) -> None:
     """
     Track that an address was accessed.
 
@@ -140,7 +147,7 @@ def track_address_access(tracker: StateChangeTracker, address: Address) -> None:
 
 
 def track_storage_read(
-    tracker: StateChangeTracker, address: Address, key: Bytes, state: "State"
+    tracker: StateChangeTracker, address: Address, key: Bytes32, state: "State"
 ) -> None:
     """
     Track a storage read operation.
@@ -170,7 +177,7 @@ def track_storage_read(
 def track_storage_write(
     tracker: StateChangeTracker,
     address: Address,
-    key: Bytes,
+    key: Bytes32,
     new_value: U256,
     state: "State",
 ) -> None:
@@ -311,7 +318,9 @@ def track_code_change(
     )
 
 
-def finalize_transaction_changes(tracker: StateChangeTracker, state: "State") -> None:
+def finalize_transaction_changes(
+    tracker: StateChangeTracker, state: "State"  # noqa: U100
+) -> None:
     """
     Finalize changes for the current transaction.
 

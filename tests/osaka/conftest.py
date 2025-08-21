@@ -1,11 +1,12 @@
 """
 Minimal conftest for osaka BAL tests.
 """
+from typing import Any
 
-import pytest
 
-
-def pytest_configure(config):
+def pytest_configure(config: Any) -> None:
     """Configure custom markers."""
     config.addinivalue_line("markers", "bal: mark test as BAL-related")
-    config.addinivalue_line("markers", "integration: mark test as integration test")
+    config.addinivalue_line(
+        "markers", "integration: mark test as integration test"
+    )
