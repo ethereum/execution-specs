@@ -214,6 +214,9 @@ class T8N(Load):
                     block_output=block_output,
                     tx=tx,
                     index=Uint(0),
+                    change_tracker=StateChangeTracker(
+                        block_output.block_access_list_builder
+                    ),
                 )
             except EthereumException as e:
                 self.txs.rejected_txs[0] = f"Failed transaction: {e!r}"
