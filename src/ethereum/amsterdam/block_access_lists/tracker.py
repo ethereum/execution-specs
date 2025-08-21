@@ -49,7 +49,7 @@ class StateChangeTracker:
     are recorded in the access list.
 
     [`BlockAccessListBuilder`]:
-    ref:ethereum.osaka.block_access_lists.builder.BlockAccessListBuilder
+    ref:ethereum.amsterdam.block_access_lists.builder.BlockAccessListBuilder
     """
 
     block_access_list_builder: BlockAccessListBuilder
@@ -71,9 +71,7 @@ class StateChangeTracker:
     """
 
 
-def set_transaction_index(
-    tracker: StateChangeTracker, block_access_index: int
-) -> None:
+def set_transaction_index(tracker: StateChangeTracker, block_access_index: int) -> None:
     """
     Set the current block access index for tracking changes.
 
@@ -127,9 +125,7 @@ def capture_pre_state(
     return tracker.pre_storage_cache[cache_key]
 
 
-def track_address_access(
-    tracker: StateChangeTracker, address: Address
-) -> None:
+def track_address_access(tracker: StateChangeTracker, address: Address) -> None:
     """
     Track that an address was accessed.
 
@@ -274,8 +270,8 @@ def track_nonce_change(
     state :
         The current execution state.
 
-    [`CREATE`]: ref:ethereum.osaka.vm.instructions.system.create
-    [`CREATE2`]: ref:ethereum.osaka.vm.instructions.system.create2
+    [`CREATE`]: ref:ethereum.amsterdam.vm.instructions.system.create
+    [`CREATE2`]: ref:ethereum.amsterdam.vm.instructions.system.create2
     """
     track_address_access(tracker, address)
     add_nonce_change(
@@ -305,9 +301,9 @@ def track_code_change(
     new_code :
         The deployed contract bytecode.
 
-    [`CREATE`]: ref:ethereum.osaka.vm.instructions.system.create
-    [`CREATE2`]: ref:ethereum.osaka.vm.instructions.system.create2
-    [`SETCODE`]: ref:ethereum.osaka.vm.instructions.system.setcode
+    [`CREATE`]: ref:ethereum.amsterdam.vm.instructions.system.create
+    [`CREATE2`]: ref:ethereum.amsterdam.vm.instructions.system.create2
+    [`SETCODE`]: ref:ethereum.amsterdam.vm.instructions.system.setcode
     """
     track_address_access(tracker, address)
     add_code_change(

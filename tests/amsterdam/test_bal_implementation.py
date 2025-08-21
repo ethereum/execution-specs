@@ -14,7 +14,7 @@ import pytest
 from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 
-from ethereum.osaka.block_access_lists import (
+from ethereum.amsterdam.block_access_lists import (
     BlockAccessListBuilder,
     StateChangeTracker,
     add_balance_change,
@@ -188,7 +188,7 @@ class TestBALTracker:
 
     def test_tracker_set_transaction_index(self) -> None:
         """Test setting block access index."""
-        from ethereum.osaka.block_access_lists import set_transaction_index
+        from ethereum.amsterdam.block_access_lists import set_transaction_index
 
         builder = BlockAccessListBuilder()
         tracker = StateChangeTracker(builder)
@@ -198,12 +198,12 @@ class TestBALTracker:
         # Pre-storage cache should persist across transactions
         assert tracker.pre_storage_cache == {}
 
-    @patch("ethereum.osaka.block_access_lists.tracker.get_storage")
+    @patch("ethereum.amsterdam.block_access_lists.tracker.get_storage")
     def test_tracker_capture_pre_state(
         self, mock_get_storage: MagicMock
     ) -> None:
         """Test capturing pre-state values."""
-        from ethereum.osaka.block_access_lists.tracker import capture_pre_state
+        from ethereum.amsterdam.block_access_lists.tracker import capture_pre_state
 
         builder = BlockAccessListBuilder()
         tracker = StateChangeTracker(builder)
@@ -226,12 +226,12 @@ class TestBALTracker:
         assert value2 == expected_value
         mock_get_storage.assert_not_called()
 
-    @patch("ethereum.osaka.block_access_lists.tracker.capture_pre_state")
+    @patch("ethereum.amsterdam.block_access_lists.tracker.capture_pre_state")
     def test_tracker_storage_write_actual_change(
         self, mock_capture: MagicMock
     ) -> None:
         """Test tracking storage write with actual change."""
-        from ethereum.osaka.block_access_lists.tracker import (
+        from ethereum.amsterdam.block_access_lists.tracker import (
             track_storage_write,
         )
 
@@ -258,12 +258,12 @@ class TestBALTracker:
         assert change.block_access_index == 1
         assert change.new_value == new_value.to_be_bytes32()
 
-    @patch("ethereum.osaka.block_access_lists.tracker.capture_pre_state")
+    @patch("ethereum.amsterdam.block_access_lists.tracker.capture_pre_state")
     def test_tracker_storage_write_no_change(
         self, mock_capture: MagicMock
     ) -> None:
         """Test tracking storage write with no actual change."""
-        from ethereum.osaka.block_access_lists.tracker import (
+        from ethereum.amsterdam.block_access_lists.tracker import (
             track_storage_write,
         )
 
@@ -287,7 +287,7 @@ class TestBALTracker:
 
     def test_tracker_balance_change(self) -> None:
         """Test tracking balance changes."""
-        from ethereum.osaka.block_access_lists.tracker import (
+        from ethereum.amsterdam.block_access_lists.tracker import (
             track_balance_change,
         )
 
@@ -310,7 +310,7 @@ class TestBALTracker:
 
     def test_tracker_nonce_change(self) -> None:
         """Test tracking nonce changes."""
-        from ethereum.osaka.block_access_lists.tracker import (
+        from ethereum.amsterdam.block_access_lists.tracker import (
             track_nonce_change,
         )
 
@@ -332,7 +332,7 @@ class TestBALTracker:
 
     def test_tracker_code_change(self) -> None:
         """Test tracking code changes."""
-        from ethereum.osaka.block_access_lists.tracker import track_code_change
+        from ethereum.amsterdam.block_access_lists.tracker import track_code_change
 
         builder = BlockAccessListBuilder()
         tracker = StateChangeTracker(builder)
@@ -466,7 +466,7 @@ class TestRLPEncoding:
 
     def test_rlp_encoding_import(self) -> None:
         """Test that RLP encoding utilities can be imported."""
-        from ethereum.osaka.block_access_lists import (
+        from ethereum.amsterdam.block_access_lists import (
             compute_block_access_list_hash,
             rlp_encode_block_access_list,
         )
@@ -476,7 +476,7 @@ class TestRLPEncoding:
 
     def test_rlp_encode_simple_bal(self) -> None:
         """Test RLP encoding of a simple BAL."""
-        from ethereum.osaka.block_access_lists import (
+        from ethereum.amsterdam.block_access_lists import (
             rlp_encode_block_access_list,
         )
 
@@ -494,7 +494,7 @@ class TestRLPEncoding:
 
     def test_bal_hash_computation(self) -> None:
         """Test BAL hash computation using RLP."""
-        from ethereum.osaka.block_access_lists import (
+        from ethereum.amsterdam.block_access_lists import (
             compute_block_access_list_hash,
         )
 
@@ -521,7 +521,7 @@ class TestRLPEncoding:
 
     def test_rlp_encode_complex_bal(self) -> None:
         """Test RLP encoding of a complex BAL with multiple change types."""
-        from ethereum.osaka.block_access_lists import (
+        from ethereum.amsterdam.block_access_lists import (
             rlp_encode_block_access_list,
         )
 

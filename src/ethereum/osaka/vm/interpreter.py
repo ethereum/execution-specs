@@ -192,7 +192,7 @@ def process_create_message(message: Message) -> Evm:
     # added to SELFDESTRUCT by EIP-6780.
     mark_account_created(state, message.current_target)
 
-    increment_nonce(state, message.current_target, message.change_tracker)
+    increment_nonce(state, message.current_target)
     evm = process_message(message)
     if not evm.error:
         contract_code = evm.output
@@ -210,12 +210,7 @@ def process_create_message(message: Message) -> Evm:
             evm.output = b""
             evm.error = error
         else:
-            set_code(
-                state,
-                message.current_target,
-                contract_code,
-                message.change_tracker,
-            )
+            set_code(state, message.current_target, contract_code)
             commit_transaction(state, transient_storage)
     else:
         rollback_transaction(state, transient_storage)
@@ -246,11 +241,7 @@ def process_message(message: Message) -> Evm:
 
     if message.should_transfer_value and message.value != 0:
         move_ether(
-            state,
-            message.caller,
-            message.current_target,
-            message.value,
-            message.change_tracker,
+            state, message.caller, message.current_target, message.value
         )
 
     evm = execute_code(message)

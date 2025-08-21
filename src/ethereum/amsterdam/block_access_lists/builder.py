@@ -13,7 +13,7 @@ The builder follows a two-phase approach:
 2. **Build Phase**: After block execution, the accumulated data is sorted
    and encoded into the final deterministic format.
 
-[`BlockAccessList`]: ref:ethereum.osaka.ssz_types.BlockAccessList
+[`BlockAccessList`]: ref:ethereum.amsterdam.ssz_types.BlockAccessList
 """
 
 from dataclasses import dataclass, field
@@ -45,9 +45,7 @@ class AccountData:
     transaction index where it occurred.
     """
 
-    storage_changes: Dict[Bytes32, List[StorageChange]] = field(
-        default_factory=dict
-    )
+    storage_changes: Dict[Bytes32, List[StorageChange]] = field(default_factory=dict)
     """
     Mapping from storage slot to list of changes made to that slot.
     Each change includes the transaction index and new value.
@@ -86,7 +84,7 @@ class BlockAccessListBuilder:
     by address, field type, and transaction index to enable efficient
     reconstruction of state changes.
 
-    [`BlockAccessList`]: ref:ethereum.osaka.ssz_types.BlockAccessList
+    [`BlockAccessList`]: ref:ethereum.amsterdam.ssz_types.BlockAccessList
     """
 
     accounts: Dict[Address, AccountData] = field(default_factory=dict)
@@ -110,7 +108,7 @@ def ensure_account(builder: BlockAccessListBuilder, address: Address) -> None:
     address :
         The account address to ensure exists.
 
-    [`AccountData`]: ref:ethereum.osaka.block_access_lists.builder.AccountData
+    [`AccountData`]: ref:ethereum.amsterdam.block_access_lists.builder.AccountData
     """
     if address not in builder.accounts:
         builder.accounts[address] = AccountData()
@@ -149,9 +147,7 @@ def add_storage_write(
     if slot not in builder.accounts[address].storage_changes:
         builder.accounts[address].storage_changes[slot] = []
 
-    change = StorageChange(
-        block_access_index=block_access_index, new_value=new_value
-    )
+    change = StorageChange(block_access_index=block_access_index, new_value=new_value)
     builder.accounts[address].storage_changes[slot].append(change)
 
 
@@ -254,8 +250,8 @@ def add_nonce_change(
     new_nonce :
         The new nonce value after the change.
 
-    [`CREATE`]: ref:ethereum.osaka.vm.instructions.system.create
-    [`CREATE2`]: ref:ethereum.osaka.vm.instructions.system.create2
+    [`CREATE`]: ref:ethereum.amsterdam.vm.instructions.system.create
+    [`CREATE2`]: ref:ethereum.amsterdam.vm.instructions.system.create2
     """
     ensure_account(builder, address)
 
@@ -271,9 +267,7 @@ def add_nonce_change(
             return
 
     # No existing change for this tx_index, add a new one
-    change = NonceChange(
-        block_access_index=block_access_index, new_nonce=new_nonce
-    )
+    change = NonceChange(block_access_index=block_access_index, new_nonce=new_nonce)
     builder.accounts[address].nonce_changes.append(change)
 
 
@@ -302,21 +296,17 @@ def add_code_change(
     new_code :
         The deployed contract bytecode.
 
-    [`CREATE`]: ref:ethereum.osaka.vm.instructions.system.create
-    [`CREATE2`]: ref:ethereum.osaka.vm.instructions.system.create2
-    [`SETCODE`]: ref:ethereum.osaka.vm.instructions.system.setcode
+    [`CREATE`]: ref:ethereum.amsterdam.vm.instructions.system.create
+    [`CREATE2`]: ref:ethereum.amsterdam.vm.instructions.system.create2
+    [`SETCODE`]: ref:ethereum.amsterdam.vm.instructions.system.setcode
     """
     ensure_account(builder, address)
 
-    change = CodeChange(
-        block_access_index=block_access_index, new_code=new_code
-    )
+    change = CodeChange(block_access_index=block_access_index, new_code=new_code)
     builder.accounts[address].code_changes.append(change)
 
 
-def add_touched_account(
-    builder: BlockAccessListBuilder, address: Address
-) -> None:
+def add_touched_account(builder: BlockAccessListBuilder, address: Address) -> None:
     """
     Add an account that was accessed but not modified.
 
@@ -332,10 +322,10 @@ def add_touched_account(
     address :
         The account address that was accessed.
 
-    [`EXTCODEHASH`]: ref:ethereum.osaka.vm.instructions.environment.extcodehash
-    [`BALANCE`]: ref:ethereum.osaka.vm.instructions.environment.balance
-    [`EXTCODESIZE`]: ref:ethereum.osaka.vm.instructions.environment.extcodesize
-    [`EXTCODECOPY`]: ref:ethereum.osaka.vm.instructions.environment.extcodecopy
+    [`EXTCODEHASH`]: ref:ethereum.amsterdam.vm.instructions.environment.extcodehash
+    [`BALANCE`]: ref:ethereum.amsterdam.vm.instructions.environment.balance
+    [`EXTCODESIZE`]: ref:ethereum.amsterdam.vm.instructions.environment.extcodesize
+    [`EXTCODECOPY`]: ref:ethereum.amsterdam.vm.instructions.environment.extcodecopy
     """
     ensure_account(builder, address)
 
@@ -362,7 +352,7 @@ def build(builder: BlockAccessListBuilder) -> BlockAccessList:
     block_access_list :
         The final sorted and encoded block access list.
 
-    [`BlockAccessList`]: ref:ethereum.osaka.ssz_types.BlockAccessList
+    [`BlockAccessList`]: ref:ethereum.amsterdam.ssz_types.BlockAccessList
     """
     account_changes_list = []
 
@@ -372,9 +362,7 @@ def build(builder: BlockAccessListBuilder) -> BlockAccessList:
             sorted_changes = tuple(
                 sorted(slot_changes, key=lambda x: x.block_access_index)
             )
-            storage_changes.append(
-                SlotChanges(slot=slot, changes=sorted_changes)
-            )
+            storage_changes.append(SlotChanges(slot=slot, changes=sorted_changes))
 
         storage_reads = []
         for slot in changes.storage_reads:

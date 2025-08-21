@@ -78,7 +78,7 @@ def rlp_encode_storage_change(change: StorageChange) -> bytes:
     encoded :
         The RLP-encoded storage change.
 
-    [`StorageChange`]: ref:ethereum.osaka.rlp_types.StorageChange
+    [`StorageChange`]: ref:ethereum.amsterdam.rlp_types.StorageChange
     """
     return rlp.encode([Uint(change.block_access_index), change.new_value])
 
@@ -99,11 +99,9 @@ def rlp_encode_balance_change(change: BalanceChange) -> bytes:
     encoded :
         The RLP-encoded balance change.
 
-    [`BalanceChange`]: ref:ethereum.osaka.rlp_types.BalanceChange
+    [`BalanceChange`]: ref:ethereum.amsterdam.rlp_types.BalanceChange
     """
-    return rlp.encode(
-        [Uint(change.block_access_index), Uint(change.post_balance)]
-    )
+    return rlp.encode([Uint(change.block_access_index), Uint(change.post_balance)])
 
 
 def rlp_encode_nonce_change(change: NonceChange) -> bytes:
@@ -122,11 +120,9 @@ def rlp_encode_nonce_change(change: NonceChange) -> bytes:
     encoded :
         The RLP-encoded nonce change.
 
-    [`NonceChange`]: ref:ethereum.osaka.rlp_types.NonceChange
+    [`NonceChange`]: ref:ethereum.amsterdam.rlp_types.NonceChange
     """
-    return rlp.encode(
-        [Uint(change.block_access_index), Uint(change.new_nonce)]
-    )
+    return rlp.encode([Uint(change.block_access_index), Uint(change.new_nonce)])
 
 
 def rlp_encode_code_change(change: CodeChange) -> bytes:
@@ -145,7 +141,7 @@ def rlp_encode_code_change(change: CodeChange) -> bytes:
     encoded :
         The RLP-encoded code change.
 
-    [`CodeChange`]: ref:ethereum.osaka.rlp_types.CodeChange
+    [`CodeChange`]: ref:ethereum.amsterdam.rlp_types.CodeChange
     """
     return rlp.encode([Uint(change.block_access_index), change.new_code])
 
@@ -166,7 +162,7 @@ def rlp_encode_slot_changes(slot_changes: SlotChanges) -> bytes:
     encoded :
         The RLP-encoded slot changes.
 
-    [`SlotChanges`]: ref:ethereum.osaka.rlp_types.SlotChanges
+    [`SlotChanges`]: ref:ethereum.amsterdam.rlp_types.SlotChanges
     """
     # Encode each change as [block_access_index, new_value]
     changes_list = [
@@ -194,17 +190,14 @@ def rlp_encode_account_changes(account: AccountChanges) -> bytes:
     encoded :
         The RLP-encoded account changes.
 
-    [`AccountChanges`]: ref:ethereum.osaka.rlp_types.AccountChanges
+    [`AccountChanges`]: ref:ethereum.amsterdam.rlp_types.AccountChanges
     """
     # Encode storage_changes:
     # [[slot, [[block_access_index, new_value], ...]], ...]
     storage_changes_list = [
         [
             slot_changes.slot,
-            [
-                [Uint(c.block_access_index), c.new_value]
-                for c in slot_changes.changes
-            ],
+            [[Uint(c.block_access_index), c.new_value] for c in slot_changes.changes],
         ]
         for slot_changes in account.storage_changes
     ]
@@ -214,8 +207,7 @@ def rlp_encode_account_changes(account: AccountChanges) -> bytes:
 
     # Encode balance_changes: [[block_access_index, post_balance], ...]
     balance_changes_list = [
-        [Uint(bc.block_access_index), bc.post_balance]
-        for bc in account.balance_changes
+        [Uint(bc.block_access_index), bc.post_balance] for bc in account.balance_changes
     ]
 
     # Encode nonce_changes: [[block_access_index, new_nonce], ...]
@@ -226,8 +218,7 @@ def rlp_encode_account_changes(account: AccountChanges) -> bytes:
 
     # Encode code_changes: [[block_access_index, new_code], ...]
     code_changes_list = [
-        [Uint(cc.block_access_index), cc.new_code]
-        for cc in account.code_changes
+        [Uint(cc.block_access_index), cc.new_code] for cc in account.code_changes
     ]
 
     return rlp.encode(
@@ -260,7 +251,7 @@ def rlp_encode_block_access_list(block_access_list: BlockAccessList) -> Bytes:
     encoded :
         The complete RLP-encoded block access list.
 
-    [`BlockAccessList`]: ref:ethereum.osaka.rlp_types.BlockAccessList
+    [`BlockAccessList`]: ref:ethereum.amsterdam.rlp_types.BlockAccessList
     """
     # Encode as a list of AccountChanges directly (not wrapped)
     account_changes_list = []
@@ -292,8 +283,7 @@ def rlp_encode_block_access_list(block_access_list: BlockAccessList) -> Bytes:
         ]
 
         code_changes_list = [
-            [Uint(cc.block_access_index), cc.new_code]
-            for cc in account.code_changes
+            [Uint(cc.block_access_index), cc.new_code] for cc in account.code_changes
         ]
 
         account_changes_list.append(
@@ -347,9 +337,7 @@ def validate_block_access_list_against_execution(
             return False
 
     # 2. Validate ordering (addresses should be sorted lexicographically)
-    addresses = [
-        account.address for account in block_access_list.account_changes
-    ]
+    addresses = [account.address for account in block_access_list.account_changes]
     if addresses != sorted(addresses):
         return False
 
@@ -375,9 +363,7 @@ def validate_block_access_list_against_execution(
                     return False
 
         # Check balance changes are sorted by block_access_index
-        balance_indices = [
-            bc.block_access_index for bc in account.balance_changes
-        ]
+        balance_indices = [bc.block_access_index for bc in account.balance_changes]
         if balance_indices != sorted(balance_indices):
             return False
 

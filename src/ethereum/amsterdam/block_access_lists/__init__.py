@@ -1,5 +1,5 @@
 """
-Block Access Lists (EIP-7928) implementation for Ethereum Osaka fork.
+Block Access Lists (EIP-7928) implementation for Ethereum Amsterdam fork.
 """
 
 from .builder import (

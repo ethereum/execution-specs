@@ -330,7 +330,7 @@ class Result:
             self.requests_hash = t8n.fork.compute_requests_hash(self.requests)
 
         if hasattr(block_output, "block_access_list_builder"):
-            from ethereum.osaka.block_access_lists import (
+            from ethereum.amsterdam.block_access_lists import (
                 build,
                 compute_block_access_list_hash,
             )

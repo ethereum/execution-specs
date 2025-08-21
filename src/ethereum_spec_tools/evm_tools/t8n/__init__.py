@@ -13,7 +13,7 @@ from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum import trace
 from ethereum.exceptions import EthereumException, InvalidBlock
-from ethereum.osaka.block_access_lists import (
+from ethereum.amsterdam.block_access_lists import (
     StateChangeTracker,
     set_transaction_index,
 )
@@ -243,7 +243,7 @@ class T8N(Load):
         )
 
         # EIP-7928: Set transaction index for block access lists
-        if self.fork.is_after_fork("ethereum.osaka"):
+        if self.fork.is_after_fork("ethereum.amsterdam"):
             # pre-execution system contracts use index 0
             set_transaction_index(bal_change_tracker, 0)
 
@@ -251,7 +251,7 @@ class T8N(Load):
             self.backup_state()
             try:
                 # use 1...n for transaction indices
-                if self.fork.is_after_fork("ethereum.osaka"):
+                if self.fork.is_after_fork("ethereum.amsterdam"):
                     set_transaction_index(bal_change_tracker, tx_index + 1)
                 
                 self.fork.process_transaction(
@@ -285,7 +285,7 @@ class T8N(Load):
                 block_env, block_output, bal_change_tracker
             )
 
-        if self.fork.is_after_fork("ethereum.osaka"):
+        if self.fork.is_after_fork("ethereum.amsterdam"):
             num_transactions = len(
                 [tx for tx in self.txs.successfully_parsed if tx]
             )
