@@ -239,9 +239,8 @@ def generate_cache(block_number: Uint) -> Tuple[Tuple[U32, ...], ...]:
             second_cache_item = cache[
                 U32.from_le_bytes(cache[index][0:4]) % U32(cache_size_words)
             ]
-            result = Bytes(
-                [a ^ b for a, b in zip(first_cache_item, second_cache_item)]
-            )
+            items = zip(first_cache_item, second_cache_item, strict=True)
+            result = Bytes([a ^ b for a, b in items])
             cache[index] = keccak512(result)
 
     return tuple(

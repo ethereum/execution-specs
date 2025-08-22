@@ -3,7 +3,7 @@ Error types common across all Ethereum forks.
 """
 
 
-class EthereumException(Exception):
+class EthereumException(Exception):     # noqa N818
     """
     Base class for all exceptions _expected_ to be thrown during normal
     operation.

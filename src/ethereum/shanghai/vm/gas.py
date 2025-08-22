@@ -140,8 +140,8 @@ def calculate_memory_gas_cost(size_in_bytes: Uint) -> Uint:
     total_gas_cost = linear_cost + quadratic_cost
     try:
         return total_gas_cost
-    except ValueError:
-        raise OutOfGasError
+    except ValueError as e:
+        raise OutOfGasError from e
 
 
 def calculate_gas_extend_memory(
@@ -244,7 +244,7 @@ def max_message_call_gas(gas: Uint) -> Uint:
 
 def init_code_cost(init_code_length: Uint) -> Uint:
     """
-    Calculates the gas to be charged for the init code in CREAT*
+    Calculates the gas to be charged for the init code in CREATE*
     opcodes as well as create transactions.
 
     Parameters

@@ -163,19 +163,12 @@ test = [
     "requests",
     "requests-cache>=1.2.1,<2",
 ]
-
 lint = [
-    "isort==5.13.2",
+    "codespell==2.4.1",
     "mypy==1.17.0",
-    "black==23.12.0",
-    "flake8==6.1.0",
-    "flake8-bugbear==23.12.2",
-    "flake8-docstrings==1.7.0",
-    "flake8-spellcheck==0.28.0",
-    "flake8-unused-arguments==0.0.13",
+    "ruff==0.11.8",
     "vulture==2.14.0",
 ]
-
 tools = [
     "platformdirs>=4.2,<5",
 ]
@@ -187,7 +180,6 @@ optimized = [
     "rust-pyspec-glue>=0.0.9,<0.1.0",
     "ethash>=1.1.0,<2",
 ]
-
 
 [tool.setuptools.dynamic]
 version = { attr = "ethereum.__version__" }
@@ -211,14 +203,6 @@ ethereum-spec-fill = "cli.pytest_commands.fill:fill"
 "ethereum_spec_tools.docc:BeforeNode" = "ethereum_spec_tools.docc:render_before_after"
 "ethereum_spec_tools.docc:AfterNode" = "ethereum_spec_tools.docc:render_before_after"
 
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-line_length = 79
-
-[tool.black]
-line-length = 79
-
 [tool.pytest.ini_options]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
@@ -241,7 +225,6 @@ context = [
     "docc.search.context",
     "docc.html.context",
 ]
-
 discovery = [
     "docc.search.discover",
     "docc.html.discover",
@@ -250,7 +233,6 @@ discovery = [
     "docc.listing.discover",
     "docc.files.discover",
 ]
-
 build = [
     "docc.search.build",
     "ethereum_spec_tools.docc.build",
@@ -258,7 +240,6 @@ build = [
     "docc.listing.build",
     "docc.resources.build",
 ]
-
 transform = [
     "docc.python.transform",
     "docc.verbatim.transform",
@@ -280,7 +261,6 @@ excluded_references = [
 paths = [
     "src",
 ]
-
 excluded_paths = [
     "src/ethereum_optimized",
     "src/ethereum_spec_tools",
@@ -299,3 +279,121 @@ files = [
 [tool.docc.output]
 path = "docs"
 extension = ".html"
+
+[tool.vulture]
+exclude = ["tests/fixtures/", "eest_tests/"]
+ignore_names = ["pytest_*"]
+
+[tool.ruff]
+extend-exclude = [
+    ".cache/",
+    ".git/",
+    ".pytest_cache/",
+    ".ruff_cache/",
+    ".tox/",
+    ".venv/",
+    ".vscode/",
+    "tests/fixtures/*",
+    "tests/json_infra/fixtures/*",
+    "eest_tests/*",
+    "vulture_whitelist.py",
+]
+line-length = 79
+
+[tool.ruff.lint]
+select = [
+    "E", # pycodestyle errors
+    "F", # Pyflakes
+    "B", # flake8-bugbear
+    "W", # pycodestyle warnings
+    "I", # isort
+    "A", # flake8-builtins
+    "N", # pep8-naming
+    "ARG", # flake8-unused-arguments
+]
+fixable = [
+    "E", # pycodestyle errors
+    "F", # Pyflakes
+    "B", # flake8-bugbear
+    "W", # pycodestyle warnings
+    "I", # isort
+    "D", # pydocstyle
+]
+ignore = [
+# Common to STEEL
+    "D205",     # Missing blank line after summary
+    "D203",     # 1 blank line required before class docstring
+    "D212",     # Multi-line docstring summary should start at the first line
+    "D415",     # First line should end with a ".", "?", or "!"
+
+# Specific to EELS
+    "D107",     # Missing docstring in __init__
+    "D200",     # One-line docstring should fit on one line with quotes
+    "D205",     # 1 blank line required between summary and description
+    "D400",     # First line should end with a period
+    "D401",     # First line should be in imperative mood ("Do", not "Does")
+    "D410",     # Missing blank line after last section (Args, Returns, Raises)
+    "D411",     # Missing blank line before last section
+    "D412",     # No blank lines between sections
+    "D413",     # Missing blank line after last section (same as 410)
+    "D414",     # Section should end with a period
+    "D416",     # Section names should be in the correct order
+    "E203",     # Whitespace before ':'
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "D100",         # Missing docstring in public module
+    "D101",         # Missing docstring in public class
+    "D103",         # Missing docstring in public function
+    "D104",         # Missing docstring in public package
+    "E501",         # Line too long
+]
+"src/ethereum_spec_tools/evm_tools/loaders/fork_loader.py" = [
+    "N802"          # Property names do not need to be lowercase
+]
+"src/ethereum_spec_tools/lint/*" = [
+    "N802"          # Special linting code absolved of function naming reqs
+]
+"src/ethereum/crypto/*" = [
+    "N806",         # Special crypto code absolved of variable naming reqs
+    "N802"          # Special crypto code absolved of function naming reqs
+]
+"src/ethereum_spec_tools/evm_tools/t8n/evm_trace/eip3155.py" = [
+    "N815"          # The traces must use camel case in JSON property names
+]
+"src/ethereum_spec_tools/evm_tools/t8n/evm_trace.py" = [
+    "N815"          # The traces must use camel case in JSON property names
+]
+
+[tool.ruff.lint.mccabe]
+# Set the maximum allowed cyclomatic complexity. C901 default is 10.
+max-complexity = 7
+
+[tool.codespell]
+builtin = "clear,code,usage"    # Built-in dictionaries to use
+skip = [                        # Don't check these files/folders
+    ".git/*",
+    ".tox/*",
+    ".venv/*",
+    "build/*",
+    "dist/*",
+    "*.pyc",
+    "ethereum_execution.egg-info/*",
+    "*.coverage*",
+    "__pycache__",
+    ".ruff_cache",
+    "fixtures.*",
+    "tests/fixtures",
+    "tests/json_infra/fixtures",
+    "eest_tests",
+    "src/ethereum_spec_tools/evm_tools/t8n" # Temporary while being re-written
+]
+count = true                    # Display counts of errors
+check-hidden = false            # Don't check hidden files (starting with .)
+
+[tool.uv]
+required-version = ">=0.7.0"
+
+[tool.uv.sources]
+"ethereum-spec-evm-resolver" = { git = "https://github.com/spencer-tb/ethereum-spec-evm-resolver", rev = "aec6a628b8d0f1c791a8378c5417a089566135ac" }

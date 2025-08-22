@@ -170,14 +170,16 @@ All possible types of events that an [`EvmTracer`] is expected to handle.
 
 
 def discard_evm_trace(
-    evm: object,  # noqa: U100
-    event: TraceEvent,  # noqa: U100
+    evm: object,
+    event: TraceEvent,
 ) -> None:
     """
     An [`EvmTracer`] that discards all events.
 
     [`EvmTracer`]: ref:ethereum.trace.EvmTracer
     """
+
+    raise NotImplementedError
 
 
 class EvmTracer(Protocol):
@@ -212,6 +214,7 @@ class EvmTracer(Protocol):
         [evm]: ref:ethereum.frontier.vm.Evm
         [`TraceEvent`]: ref:ethereum.trace.TraceEvent
         """
+        del evm, event
 
 
 _evm_trace: EvmTracer = discard_evm_trace

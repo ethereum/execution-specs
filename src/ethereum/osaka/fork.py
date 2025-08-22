@@ -443,7 +443,7 @@ def check_transaction(
     NoBlobDataError :
         If the transaction is a type 3 but has no blobs.
     BlobCountExceededError :
-        If the transaction is a type 3 and has nore blobs than the limit.
+        If the transaction is a type 3 and has more blobs than the limit.
     TransactionTypeContractCreationError:
         If the transaction type is not allowed to create contracts.
     EmptyAuthorizationListError :
