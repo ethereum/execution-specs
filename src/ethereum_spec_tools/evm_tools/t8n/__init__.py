@@ -12,6 +12,10 @@ from ethereum_rlp import rlp
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum import trace
+from ethereum.amsterdam.block_access_lists import (
+    StateChangeTracker,
+    set_transaction_index,
+)
 from ethereum.exceptions import EthereumException, InvalidBlock
 from ethereum_spec_tools.forks import Hardfork
 
@@ -210,6 +214,9 @@ class T8N(Load):
                     block_output=block_output,
                     tx=tx,
                     index=Uint(0),
+                    change_tracker=StateChangeTracker(
+                        block_output.block_access_list_builder
+                    ),
                 )
             except EthereumException as e:
                 self.txs.rejected_txs[0] = f"Failed transaction: {e!r}"
@@ -234,16 +241,34 @@ class T8N(Load):
                 data=block_env.parent_beacon_block_root,
             )
 
-        for i, tx in zip(self.txs.successfully_parsed, self.txs.transactions):
+        bal_change_tracker = StateChangeTracker(
+            block_output.block_access_list_builder
+        )
+
+        # EIP-7928: Set transaction index for block access lists
+        if self.fork.is_after_fork("ethereum.amsterdam"):
+            # pre-execution system contracts use index 0
+            set_transaction_index(bal_change_tracker, 0)
+
+        for tx_index, (original_idx, tx) in enumerate(zip(self.txs.successfully_parsed, self.txs.transactions)):
             self.backup_state()
             try:
+                # use 1...n for transaction indices
+                if self.fork.is_after_fork("ethereum.amsterdam"):
+                    set_transaction_index(bal_change_tracker, tx_index + 1)
+                
                 self.fork.process_transaction(
-                    block_env, block_output, tx, Uint(i)
+                    block_env,
+                    block_output,
+                    tx,
+                    Uint(original_idx),
+                    bal_change_tracker,
                 )
+
             except EthereumException as e:
-                self.txs.rejected_txs[i] = f"Failed transaction: {e!r}"
+                self.txs.rejected_txs[original_idx] = f"Failed transaction: {e!r}"
                 self.restore_state()
-                self.logger.warning(f"Transaction {i} failed: {e!r}")
+                self.logger.warning(f"Transaction {original_idx} failed: {e!r}")
 
         if not self.fork.is_after_fork("ethereum.paris"):
             if self.options.state_reward is None:
@@ -255,11 +280,22 @@ class T8N(Load):
 
         if self.fork.is_after_fork("ethereum.shanghai"):
             self.fork.process_withdrawals(
-                block_env, block_output, self.env.withdrawals
+                block_env, block_output, self.env.withdrawals, bal_change_tracker
             )
 
         if self.fork.is_after_fork("ethereum.prague"):
-            self.fork.process_general_purpose_requests(block_env, block_output)
+            self.fork.process_general_purpose_requests(
+                block_env, block_output, bal_change_tracker
+            )
+
+        if self.fork.is_after_fork("ethereum.amsterdam"):
+            num_transactions = len(
+                [tx for tx in self.txs.successfully_parsed if tx]
+            )
+
+            # post-execution use n + 1
+            post_execution_index = num_transactions + 1
+            set_transaction_index(bal_change_tracker, post_execution_index)
 
     def run_blockchain_test(self) -> None:
         """
