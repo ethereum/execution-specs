@@ -84,7 +84,7 @@ class _EvmToolHandler(BaseHTTPRequestHandler):
             count_opcodes = content.get("count-opcodes", False)
             if count_opcodes:
                 # send opcode counts if ``count-opcodes`` is ``True``
-                args.extend(["--opcodes.count", "stdout"])
+                args.extend(["--opcode.count", "stdout"])
 
             query_string = urlparse(self.path).query
             if query_string:
