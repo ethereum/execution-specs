@@ -411,7 +411,8 @@ class Result:
 
             account_changes.append(account_data)
 
-        return {"accountChanges": account_changes}
+        # Return the list directly per EIP-7928 - BAL IS the list
+        return account_changes
 
     def json_encode_receipts(self) -> Any:
         """
