@@ -27,6 +27,11 @@ from ethereum_types.numeric import U256, Uint
 from .fork_types import EMPTY_ACCOUNT, Account, Address, Root
 from .trie import EMPTY_TRIE_ROOT, Trie, copy_trie, root, trie_get, trie_set
 
+# Forward declaration for type hints
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .block_access_lists import StateChangeTracker
+
 
 @dataclass
 class State:
@@ -488,6 +493,7 @@ def move_ether(
     sender_address: Address,
     recipient_address: Address,
     amount: U256,
+    change_tracker: "StateChangeTracker",
 ) -> None:
     """
     Move funds between accounts.
@@ -503,9 +509,22 @@ def move_ether(
 
     modify_state(state, sender_address, reduce_sender_balance)
     modify_state(state, recipient_address, increase_recipient_balance)
+    
+    if change_tracker is not None:
+        from .block_access_lists.tracker import track_balance_change
+        sender_new_balance = get_account(state, sender_address).balance
+        recipient_new_balance = get_account(state, recipient_address).balance
+        
+        track_balance_change(change_tracker, sender_address, U256(sender_new_balance), state)
+        track_balance_change(change_tracker, recipient_address, U256(recipient_new_balance), state)
 
 
-def set_account_balance(state: State, address: Address, amount: U256) -> None:
+def set_account_balance(
+    state: State, 
+    address: Address, 
+    amount: U256,
+    change_tracker: "StateChangeTracker",
+) -> None:
     """
     Sets the balance of an account.
 
@@ -519,15 +538,22 @@ def set_account_balance(state: State, address: Address, amount: U256) -> None:
 
     amount:
         The amount that needs to set in balance.
+        
+    change_tracker:
+        Change tracker to record balance changes.
     """
 
     def set_balance(account: Account) -> None:
         account.balance = amount
 
     modify_state(state, address, set_balance)
+    
+    if change_tracker is not None:
+        from .block_access_lists.tracker import track_balance_change
+        track_balance_change(change_tracker, address, amount, state)
 
 
-def increment_nonce(state: State, address: Address) -> None:
+def increment_nonce(state: State, address: Address, change_tracker: "StateChangeTracker") -> None:
     """
     Increments the nonce of an account.
 
@@ -538,15 +564,33 @@ def increment_nonce(state: State, address: Address) -> None:
 
     address:
         Address of the account whose nonce needs to be incremented.
+        
+    change_tracker:
+        Change tracker for EIP-7928.
     """
 
     def increase_nonce(sender: Account) -> None:
         sender.nonce += Uint(1)
 
     modify_state(state, address, increase_nonce)
+    
+    # Track nonce change for Block Access List (for ALL accounts and ALL nonce changes)
+    # This includes:
+    # - EOA senders (transaction nonce increments)
+    # - Contracts performing CREATE/CREATE2
+    # - Deployed contracts
+    # - EIP-7702 authorities
+    from .block_access_lists.tracker import track_nonce_change
+    account = get_account(state, address)
+    track_nonce_change(change_tracker, address, account.nonce, state)
 
 
-def set_code(state: State, address: Address, code: Bytes) -> None:
+def set_code(
+    state: State, 
+    address: Address, 
+    code: Bytes,
+    change_tracker: "StateChangeTracker",
+) -> None:
     """
     Sets Account code.
 
@@ -560,12 +604,18 @@ def set_code(state: State, address: Address, code: Bytes) -> None:
 
     code:
         The bytecode that needs to be set.
+    
+    change_tracker:
+        Change tracker for EIP-7928.
     """
 
     def write_code(sender: Account) -> None:
         sender.code = code
 
     modify_state(state, address, write_code)
+    
+    from .block_access_lists.tracker import track_code_change
+    track_code_change(change_tracker, address, code, state)
 
 
 def get_storage_original(state: State, address: Address, key: Bytes32) -> U256:
