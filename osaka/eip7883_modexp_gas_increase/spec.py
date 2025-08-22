@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass
 
+from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput
+
 
 @dataclass(frozen=True)
 class ReferenceSpec:
@@ -32,10 +34,22 @@ class Spec:
     LARGE_BASE_MODULUS_MULTIPLIER = 1
     MAX_LENGTH_THRESHOLD = 32
     EXPONENT_BYTE_MULTIPLIER = 8
+    MAX_LENGTH_BYTES = 1024
 
     WORD_SIZE = 8
     EXPONENT_THRESHOLD = 32
     GAS_DIVISOR = 3
+
+    # Arbitrary Test Constants
+    modexp_input = ModExpInput(
+        base="e8e77626586f73b955364c7b4bbf0bb7f7685ebd40e852b164633a4acbd3244c0001020304050607",
+        exponent="01ffffff",
+        modulus="f01681d2220bfea4bb888a5543db8c0916274ddb1ea93b144c042c01d8164c950001020304050607",
+    )
+    modexp_expected = bytes.fromhex(
+        "1abce71dc2205cce4eb6934397a88136f94641342e283cbcd30e929e85605c6718ed67f475192ffd"
+    )
+    modexp_error = bytes()
 
     @classmethod
     def calculate_multiplication_complexity(cls, base_length: int, modulus_length: int) -> int:
