@@ -1665,3 +1665,12 @@ class EOFv1(Prague, solc_name="cancun"):
         development.
         """
         return False
+
+
+class Amsterdam(Osaka):
+    """Amsterdam fork."""
+
+    @classmethod
+    def is_deployed(cls) -> bool:
+        """Return True if this fork is deployed."""
+        return False
