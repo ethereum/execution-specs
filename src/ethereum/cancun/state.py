@@ -32,6 +32,8 @@ from .trie import EMPTY_TRIE_ROOT, Trie, copy_trie, root, trie_get, trie_set
 class State:
     """
     Contains all information that is preserved between transactions.
+    
+    Now includes optional state tracking
     """
 
     _main_trie: Trie[Address, Optional[Account]] = field(
@@ -47,6 +49,8 @@ class State:
         ]
     ] = field(default_factory=list)
     created_accounts: Set[Address] = field(default_factory=set)
+    
+    _state_tracker = field(default=None)
 
 
 @dataclass
@@ -71,6 +75,8 @@ def close_state(state: State) -> None:
     del state._storage_tries
     del state._snapshots
     del state.created_accounts
+    if state._state_tracker is not None:
+        del state._state_tracker
 
 
 def begin_transaction(
@@ -186,6 +192,11 @@ def get_account_optional(state: State, address: Address) -> Optional[Account]:
         Account at address.
     """
     account = trie_get(state._main_trie, address)
+    
+    if state._state_tracker is not None and state._state_tracker.track_reads:
+        from .state_tracking import log_state_access, ACCOUNT_READ
+        log_state_access(state, ACCOUNT_READ, address, value_before=account)
+    
     return account
 
 
@@ -205,7 +216,23 @@ def set_account(
     account : `Account`
         Account to set at address.
     """
+    # Get old account for tracking
+    old_account = None
+    if state._state_tracker is not None and state._state_tracker.track_writes:
+        old_account = trie_get(state._main_trie, address)
+    
     trie_set(state._main_trie, address, account)
+    
+    # Log write access if tracking enabled
+    if state._state_tracker is not None and state._state_tracker.track_writes:
+        from .state_tracking import log_state_access, ACCOUNT_WRITE
+        log_state_access(
+            state, 
+            ACCOUNT_WRITE, 
+            address, 
+            value_before=old_account,
+            value_after=account
+        )
 
 
 def destroy_account(state: State, address: Address) -> None:
@@ -284,12 +311,24 @@ def get_storage(state: State, address: Address, key: Bytes32) -> U256:
     """
     trie = state._storage_tries.get(address)
     if trie is None:
-        return U256(0)
-
-    value = trie_get(trie, key)
-
-    assert isinstance(value, U256)
-    return value
+        result = U256(0)
+    else:
+        value = trie_get(trie, key)
+        assert isinstance(value, U256)
+        result = value
+    
+    # Log read access if tracking enabled
+    if state._state_tracker is not None and state._state_tracker.track_reads:
+        from .state_tracking import log_state_access, STORAGE_READ
+        log_state_access(
+            state, 
+            STORAGE_READ, 
+            address, 
+            key=key,
+            value_before=result
+        )
+    
+    return result
 
 
 def set_storage(
@@ -312,6 +351,15 @@ def set_storage(
     """
     assert trie_get(state._main_trie, address) is not None
 
+    # Get old value for tracking
+    old_value = None
+    if state._state_tracker is not None and state._state_tracker.track_writes:
+        trie = state._storage_tries.get(address)
+        if trie is None:
+            old_value = U256(0)
+        else:
+            old_value = trie_get(trie, key)
+
     trie = state._storage_tries.get(address)
     if trie is None:
         trie = Trie(secured=True, default=U256(0))
@@ -319,6 +367,18 @@ def set_storage(
     trie_set(trie, key, value)
     if trie._data == {}:
         del state._storage_tries[address]
+    
+    # Log write access if tracking enabled
+    if state._state_tracker is not None and state._state_tracker.track_writes:
+        from .state_tracking import log_state_access, STORAGE_WRITE
+        log_state_access(
+            state, 
+            STORAGE_WRITE, 
+            address, 
+            key=key,
+            value_before=old_value,
+            value_after=value
+        )
 
 
 def storage_root(state: State, address: Address) -> Root:
