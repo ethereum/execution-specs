@@ -10,13 +10,13 @@ from ethereum_test_tools import Account, Alloc, Environment, StateTestFiller, Tr
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput, ModExpOutput
-from ..eip7825_transaction_gas_limit_cap.test_tx_gas_limit import TX_GAS_LIMIT
 from ..eip7883_modexp_gas_increase.spec import Spec, Spec7883
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7823.md"
 REFERENCE_SPEC_VERSION = "c8321494fdfbfda52ad46c3515a7ca5dc86b857c"
 
 MAX_LENGTH_BYTES = 1024
+TX_GAS_LIMIT = 2**24
 
 
 @pytest.fixture
