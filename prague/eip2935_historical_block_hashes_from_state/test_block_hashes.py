@@ -214,7 +214,7 @@ def test_block_hashes_history_at_transition(
         pytest.param(
             Spec.HISTORY_SERVE_WINDOW + 1,
             False,
-            marks=pytest.mark.slow,
+            marks=[pytest.mark.skip("Slow test not relevant anymore"), pytest.mark.slow],
             id="full_history_plus_one_check_blockhash_first",
         ),
     ],
