@@ -11,15 +11,10 @@ Introduction
 
 Implementations of the EVM storage related instructions.
 """
-from ethereum_types.numeric import Uint
 
-from ...state import (
-    get_storage,
-    get_storage_original,
-    get_transient_storage,
-    set_storage,
-    set_transient_storage,
-)
+from ethereum_types.numeric import U256, Uint
+
+from ...state import get_transient_storage, set_transient_storage
 from .. import Evm
 from ..exceptions import OutOfGasError, WriteInStaticContext
 from ..gas import (
@@ -56,9 +51,9 @@ def sload(evm: Evm) -> None:
         charge_gas(evm, GAS_COLD_SLOAD)
 
     # OPERATION
-    value = get_storage(
-        evm.message.block_env.state, evm.message.current_target, key
-    )
+    oracle = evm.message.block_env.get_oracle()
+    value_bytes = oracle.get_storage(evm.message.current_target, key)
+    value = U256.from_be_bytes(value_bytes)
 
     push(evm.stack, value)
 
@@ -82,11 +77,13 @@ def sstore(evm: Evm) -> None:
     if evm.gas_left <= GAS_CALL_STIPEND:
         raise OutOfGasError
 
-    state = evm.message.block_env.state
-    original_value = get_storage_original(
-        state, evm.message.current_target, key
+    oracle = evm.message.block_env.get_oracle()
+    original_value_bytes = oracle.get_storage_original(
+        evm.message.current_target, key
     )
-    current_value = get_storage(state, evm.message.current_target, key)
+    original_value = U256.from_be_bytes(original_value_bytes)
+    current_value_bytes = oracle.get_storage(evm.message.current_target, key)
+    current_value = U256.from_be_bytes(current_value_bytes)
 
     gas_cost = Uint(0)
 
@@ -126,7 +123,9 @@ def sstore(evm: Evm) -> None:
     charge_gas(evm, gas_cost)
     if evm.message.is_static:
         raise WriteInStaticContext
-    set_storage(state, evm.message.current_target, key, new_value)
+    oracle.set_storage_value(
+        evm.message.current_target, key, new_value.to_be_bytes32()
+    )
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)

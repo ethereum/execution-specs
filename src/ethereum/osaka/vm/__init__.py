@@ -14,7 +14,7 @@ The abstract computer which runs the code stored in an
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Set, Tuple
+from typing import Any, List, Optional, Set, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
@@ -38,6 +38,7 @@ class BlockEnvironment:
     """
 
     chain_id: U64
+    # TODO: Remove, no longer used. Kept so tests don't break for now.
     state: State
     block_gas_limit: Uint
     block_hashes: List[Hash32]
@@ -48,6 +49,16 @@ class BlockEnvironment:
     prev_randao: Bytes32
     excess_blob_gas: U64
     parent_beacon_block_root: Hash32
+
+    def get_oracle(self) -> Any:
+        """
+        Get the state oracle.
+
+        Returns the global oracle (raises error if not set).
+        """
+        from ethereum.state_oracle import get_state_oracle
+
+        return get_state_oracle()
 
 
 @dataclass

@@ -164,11 +164,21 @@ class T8N(Load):
         Create the environment for the transaction. The keyword
         arguments are adjusted according to the fork.
         """
+        # Set up global oracle for Osaka fork
+        if self.fork.is_after_fork("ethereum.osaka"):
+            from ethereum.state_oracle import (
+                MemoryMerkleOracle,
+                set_state_oracle,
+            )
+
+            set_state_oracle(MemoryMerkleOracle(self.alloc.state))
+
         kw_arguments = {
             "block_hashes": self.env.block_hashes,
             "coinbase": self.env.coinbase,
             "number": self.env.block_number,
             "time": self.env.block_timestamp,
+            # TODO: Remove this, since its not being used.
             "state": self.alloc.state,
             "block_gas_limit": self.env.block_gas_limit,
             "chain_id": self.chain_id,
