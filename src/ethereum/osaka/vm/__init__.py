@@ -107,6 +107,7 @@ class TransactionEnvironment:
     blob_versioned_hashes: Tuple[VersionedHash, ...]
     authorizations: Tuple[Authorization, ...]
     index_in_block: Optional[Uint]
+    transactions_root: Hash32
     tx_hash: Optional[Hash32]
 
 

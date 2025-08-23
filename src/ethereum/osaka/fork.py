@@ -851,11 +851,6 @@ def process_transaction(
     index:
         Index of the transaction in the block.
     """
-    trie_set(
-        block_output.transactions_trie,
-        rlp.encode(index),
-        encode_transaction(tx),
-    )
 
     intrinsic_gas, calldata_floor_gas_cost = validate_transaction(tx)
 
@@ -920,6 +915,7 @@ def process_transaction(
         blob_versioned_hashes=blob_versioned_hashes,
         authorizations=authorizations,
         index_in_block=index,
+        transactions_root=root(block_output.transactions_trie),
         tx_hash=get_transaction_hash(encode_transaction(tx)),
     )
 
@@ -984,6 +980,12 @@ def process_transaction(
         block_output.receipts_trie,
         receipt_key,
         receipt,
+    )
+
+    trie_set(
+        block_output.transactions_trie,
+        rlp.encode(index),
+        encode_transaction(tx),
     )
 
     block_output.block_logs += tx_output.logs
