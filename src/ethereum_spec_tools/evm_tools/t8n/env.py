@@ -12,6 +12,7 @@ from ethereum_types.numeric import U64, U256, Uint
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.utils.byte import left_pad_zero_bytes
 from ethereum.utils.hexadecimal import hex_to_bytes
+from ethereum_spec_tools.evm_tools.t8n.t8n_types import Txs
 
 from ..utils import parse_hex_or_int
 
@@ -54,6 +55,7 @@ class Env:
     parent_blob_gas_used: Optional[U64]
     excess_blob_gas: Optional[U64]
     requests: Any
+    inclusion_list_transactions: Any
 
     def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
         if t8n.options.input_env == "stdin":
@@ -74,6 +76,7 @@ class Env:
         self.read_block_hashes(data, t8n)
         self.read_ommers(data, t8n)
         self.read_withdrawals(data, t8n)
+        self.read_inclusion_list_transactions(data, t8n)
 
         self.parent_beacon_block_root = None
         if t8n.fork.is_after_fork("ethereum.cancun"):
@@ -328,3 +331,19 @@ class Env:
                     )
                 )
         self.ommers = ommers
+
+    def read_inclusion_list_transactions(self, data: Any, t8n: "T8N") -> None:
+        """
+        Read the inclusion lists.
+        """
+        self.inclusion_list_transactions = None
+
+        if not t8n.fork.is_after_fork("ethereum.osaka"):
+            return
+
+        inclusion_list_transactions = []
+        if "inclusionLists" in data:
+            inclusion_list_transactions = Txs(
+                t8n, data["inclusionLists"]
+            ).all_txs
+        self.inclusion_list_transactions = inclusion_list_transactions

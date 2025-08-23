@@ -285,6 +285,14 @@ class T8N(Load):
                     U256(self.options.state_reward), block_env
                 )
 
+        if self.fork.is_after_fork("ethereum.osaka"):
+            self.fork.validate_inclusion_list_transactions(
+                block_env,
+                block_output,
+                self.txs.transactions,
+                self.env.inclusion_list_transactions,
+            )
+
         if self.fork.is_after_fork("ethereum.shanghai"):
             self.fork.process_withdrawals(
                 block_env, block_output, self.env.withdrawals
