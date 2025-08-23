@@ -50,11 +50,11 @@ class PatchHygiene(Lint):
             # Entire file is new, so nothing to compare!
             return []
 
-        current_nodes = self._parse(current_source, _Visitor(), "items")
+        current_nodes = self._parse(current_source, _Visitor()).items
         previous_nodes = {
             item: idx
             for (idx, item) in enumerate(
-                self._parse(previous_source, _Visitor(), "items")
+                self._parse(previous_source, _Visitor()).items
             )
         }
 
