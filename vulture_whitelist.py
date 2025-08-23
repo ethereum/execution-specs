@@ -112,3 +112,7 @@ ImportHygiene.visit_AnnAssign
 
 
 _children  # unused attribute (src/ethereum_spec_tools/docc.py:751)
+
+# tests/conftest.py
+# used for mutation testing
+mutmut_forced_fail
