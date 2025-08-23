@@ -125,7 +125,7 @@ def rollback_transaction(
 ) -> None:
     """
     Rollback a state transaction, resetting the state to the point when the
-    corresponding `start_transaction()` call was made.
+    corresponding `begin_transaction()` call was made.
 
     Parameters
     ----------
@@ -454,7 +454,7 @@ def account_exists_and_is_empty(state: State, address: Address) -> bool:
 
 def is_account_alive(state: State, address: Address) -> bool:
     """
-    Check whether is an account is both in the state and non empty.
+    Check whether an account is both in the state and non-empty.
 
     Parameters
     ----------
