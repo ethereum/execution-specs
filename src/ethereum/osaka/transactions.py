@@ -63,6 +63,22 @@ TX_ACCESS_LIST_STORAGE_KEY_COST = Uint(1900)
 Gas cost for including a storage key in the access list of a transaction.
 """
 
+TX_ACCESS_LIST_NONZERO_BYTE_COST = Uint(40)
+"""
+Gas cost per non-zero byte in access list addresses and storage keys as per
+[EIP-7981].
+
+[EIP-7981]: https://eips.ethereum.org/EIPS/eip-7981
+"""
+
+TX_ACCESS_LIST_ZERO_BYTE_COST = Uint(10)
+"""
+Gas cost per zero byte in access list addresses and storage keys as per
+[EIP-7981].
+
+[EIP-7981]: https://eips.ethereum.org/EIPS/eip-7981
+"""
+
 TX_MAX_GAS_LIMIT = Uint(16_777_216)
 
 
@@ -568,6 +584,40 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
     return intrinsic_gas, calldata_floor_gas_cost
 
 
+def count_access_list_bytes(access_list: Tuple[Access, ...]) -> Tuple[int, int]:
+    """
+    Count zero and non-zero bytes in access list addresses and storage keys.
+    
+    This function implements the byte counting mechanism from [EIP-7981], which
+    counts the actual zero and non-zero bytes in the raw address (20 bytes) and
+    storage key (32 bytes) data within the access list.
+    
+    Returns a tuple of (zero_bytes, nonzero_bytes).
+    
+    [EIP-7981]: https://eips.ethereum.org/EIPS/eip-7981
+    """
+    zero_bytes = 0
+    nonzero_bytes = 0
+    
+    for access in access_list:
+        # Count bytes in address (20 bytes)
+        for byte in access.account:
+            if byte == 0:
+                zero_bytes += 1
+            else:
+                nonzero_bytes += 1
+        
+        # Count bytes in storage keys (32 bytes each)
+        for slot in access.slots:
+            for byte in slot:
+                if byte == 0:
+                    zero_bytes += 1
+                else:
+                    nonzero_bytes += 1
+    
+    return zero_bytes, nonzero_bytes
+
+
 def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     """
     Calculates the gas that is charged before execution is started.
@@ -586,7 +636,10 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     2. Cost for data (zero and non-zero bytes)
     3. Cost for contract creation (if applicable)
     4. Cost for access list entries (if applicable)
-    5. Cost for authorizations (if applicable)
+    5. Cost for access list data bytes per [EIP-7981] (if applicable)
+    6. Cost for authorizations (if applicable)
+    
+    [EIP-7981]: https://eips.ethereum.org/EIPS/eip-7981
 
 
     This function takes a transaction as a parameter and returns the intrinsic
@@ -615,6 +668,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
         create_cost = Uint(0)
 
     access_list_cost = Uint(0)
+    access_list_data_cost = Uint(0)
     if isinstance(
         tx,
         (
@@ -624,11 +678,19 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
             SetCodeTransaction,
         ),
     ):
+        # Standard EIP-2930 access list functionality costs
         for access in tx.access_list:
             access_list_cost += TX_ACCESS_LIST_ADDRESS_COST
             access_list_cost += (
                 ulen(access.slots) * TX_ACCESS_LIST_STORAGE_KEY_COST
             )
+        
+        # EIP-7981: Additional data cost for access list bytes
+        zero_bytes, nonzero_bytes = count_access_list_bytes(tx.access_list)
+        access_list_data_cost = (
+            Uint(zero_bytes) * TX_ACCESS_LIST_ZERO_BYTE_COST +
+            Uint(nonzero_bytes) * TX_ACCESS_LIST_NONZERO_BYTE_COST
+        )
 
     auth_cost = Uint(0)
     if isinstance(tx, SetCodeTransaction):
@@ -640,6 +702,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
             + data_cost
             + create_cost
             + access_list_cost
+            + access_list_data_cost
             + auth_cost
         ),
         calldata_floor_gas_cost,
