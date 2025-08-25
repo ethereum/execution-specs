@@ -1,0 +1,76 @@
+# CREATE2 with max allowed deployed code size
+create2CodeSizeLimit:
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x020000'
+    currentGasLimit: '20000000'
+    currentBaseFee: '10'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+
+  pre:
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 200000000
+      code: ''
+      nonce: 0
+      storage: {}
+    b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      code: |
+        :yul berlin 
+        {
+          mstore(0, calldataload(0)) 
+          sstore(0, create2(0, 0, calldatasize(), 0))
+          sstore(1, 1)
+        }
+      nonce: 0
+      storage: {}
+
+  transaction:
+    data: 
+      - ':label valid :yul berlin { return(0, 0x6000) }'
+      - ':label invalid :yul berlin { return(0, 0x6001) }'
+    gasLimit:
+      - 15000000
+    gasPrice: 10
+    nonce: 0
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 'b94f5374fce5edbc8e2a8697c15331677e6ebf0b'
+    value:
+    - 0
+
+  expect:
+    - indexes:
+       data: ':label valid'
+       gas: !!int -1
+       value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+       b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+              '0': '81c305016ab9ca56033a07cc37e7a30fc3e079ac'
+              '1': 1
+       81c305016ab9ca56033a07cc37e7a30fc3e079ac:
+          balance: 0
+          nonce: 1
+          storage: {}
+
+    - indexes:
+       data: ':label invalid'
+       gas: !!int -1
+       value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+       b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+              '0': '0'
+              '1': 1
+       81c305016ab9ca56033a07cc37e7a30fc3e079ac:
+          shouldnotexist: 1
+

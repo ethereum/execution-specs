@@ -1,0 +1,7 @@
+"""EOF V1 Constants used throughout all tests."""
+
+LEGACY_CALL_FAILURE = 0
+LEGACY_CALL_SUCCESS = 1
+EXTCALL_SUCCESS = 0
+EXTCALL_REVERT = 1
+EXTCALL_FAILURE = 2

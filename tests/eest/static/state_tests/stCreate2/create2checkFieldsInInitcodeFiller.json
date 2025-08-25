@@ -1,0 +1,272 @@
+{
+    "create2checkFieldsInInitcode" : {
+	"_info" : {
+	    "comment" : "Check opcode values in create2 init code. Create2 called with different call types. CREATE2 inside CRETE2 inside CALL, CALLCODE, DELEGATECALL, STATICCALL << test values of  SENDER,address and so on."
+	},
+        "env" : {
+            "currentCoinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x20000",
+            "currentGasLimit" : "1000000",
+            "currentNumber" : "1",
+            "currentTimestamp" : "1000"
+        },
+        "expect" : [
+            {
+                "indexes" : {
+                    "data" : [0,4],
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "0xdaf9f53e732f21fe517e624b6dfe92dc8d0e51e0" : {
+                        "balance" : "0",
+						"nonce" : "1",
+						"storage" : {
+							"0x00" : "0xdaf9f53e732f21fe517e624b6dfe92dc8d0e51e0",
+							"0x01" : "0",
+							"0x02" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+							"0x03" : "0xf000000000000000000000000000000000000000",
+							"0x04" : "0",
+							"0x05" : "0",
+							"0x06" : "0x23",
+							"0x07" : "10"
+						}
+                    },
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "1"
+                    }
+                }
+            },
+		    {
+                "indexes" : {
+                    "data" : 1,
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "0xdfad1c567f12d848fabb8d9d8872c42e7aa81e95" : {
+                        "balance" : "0",
+						"nonce" : "1",
+						"storage" : {
+							"0x00" : "0xdfad1c567f12d848fabb8d9d8872c42e7aa81e95",
+							"0x01" : "0",
+							"0x02" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+							"0x03" : "0x2000000000000000000000000000000000000000",
+							"0x04" : "0",
+							"0x05" : "0",
+							"0x06" : "0x23",
+							"0x07" : "10"
+						}
+                    },
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "1"
+                    }
+                }
+            },
+		    {
+                "indexes" : {
+                    "data" : 2,
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "0x3ff16480055c6ccc070257c61fa902448f4ae111" : {
+                        "balance" : "0",
+						"nonce" : "1",
+						"storage" : {
+							"0x00" : "0x3ff16480055c6ccc070257c61fa902448f4ae111",
+							"0x01" : "0",
+							"0x02" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+							"0x03" : "0x3000000000000000000000000000000000000000",
+							"0x04" : "0",
+							"0x05" : "0",
+							"0x06" : "0x23",
+							"0x07" : "10"
+						}
+                    },
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "1"
+                    }
+                }
+            },
+		    {
+                "indexes" : {
+                    "data" : [3, 7],
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "1"
+                    }
+                }
+            },
+		    {
+                "indexes" : {
+                    "data" : 5,
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "0x7ce21e3c16d63738cbbb697c919555c910504278" : {
+                        "balance" : "0",
+						"nonce" : "1",
+						"storage" : {
+							"0x00" : "0x7ce21e3c16d63738cbbb697c919555c910504278",
+							"0x01" : "0",
+							"0x02" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+							"0x03" : "0x9d25fbabdeb081b9ecd0645b9b6aba8c7eb3821d",
+							"0x04" : "0",
+							"0x05" : "0",
+							"0x06" : "0x23",
+							"0x07" : "10"
+						}
+                    },
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "1"
+                    }
+                }
+            },
+		    {
+                "indexes" : {
+                    "data" : 6,
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "0xbb1b88ea45d33397f45583ca612adea3eb267318" : {
+                        "balance" : "0",
+						"nonce" : "1",
+						"storage" : {
+							"0x00" : "0xbb1b88ea45d33397f45583ca612adea3eb267318",
+							"0x01" : "0",
+							"0x02" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+							"0x03" : "0x45dde7fbf9f1cf09e18c4e584ba93c82e83c8898",
+							"0x04" : "0",
+							"0x05" : "0",
+							"0x06" : "0x23",
+							"0x07" : "10"
+						}
+                    },
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "1"
+                    }
+                }
+            }
+        ],
+        "pre" : {
+            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "100000000000000000000",
+                "code" : "",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+            "b94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x00",
+                "code" : "{ (CALL (GAS) (CALLDATALOAD 0) 0 0 0 0 0) }",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+            "1000000000000000000000000000000000000000" : {
+                "balance" : "0x00",
+                "code" : "{ (CALL (GAS) 0xf000000000000000000000000000000000000000 0 0 0 0 0) }",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+            "1100000000000000000000000000000000000000" : {
+                "balance" : "0x00",
+                "code" : "{ (CREATE2 0 0 (lll (seq (CALL (GAS) 0xf000000000000000000000000000000000000000 0 0 0 0 0) (STOP) ) 0) 0) (STOP) }",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+            "2000000000000000000000000000000000000000" : {
+                "balance" : "0x00",
+                "code" : "{ (CALLCODE (GAS) 0xf000000000000000000000000000000000000000 0 0 0 0 0) }",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+            "2200000000000000000000000000000000000000" : {
+                "balance" : "0x00",
+                "code" : "{ (CREATE2 0 0 (lll (seq (CALLCODE (GAS) 0xf000000000000000000000000000000000000000 0 0 0 0 0) (STOP) ) 0) 0)  (STOP) }",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+            "3000000000000000000000000000000000000000" : {
+                "balance" : "0x00",
+                "code" : "{ (DELEGATECALL (GAS) 0xf000000000000000000000000000000000000000 0 0 0 0) (STOP) }",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+            "3300000000000000000000000000000000000000" : {
+                "balance" : "0x00",
+                "code" : "{ (CREATE2 0 0 (lll (seq (DELEGATECALL (GAS) 0xf000000000000000000000000000000000000000 0 0 0 0) (STOP) ) 0) 0) (STOP) }",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+            "4000000000000000000000000000000000000000" : {
+                "balance" : "0x00",
+                "code" : "{ (STATICCALL (GAS) 0xf200000000000000000000000000000000000000 0 0 0 256) [[10]] (MLOAD 0) }",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+            "4400000000000000000000000000000000000000" : {
+                "balance" : "0x00",
+                "code" : "{ (CREATE2 0 0 (lll (seq (STATICCALL (GAS) 0xf200000000000000000000000000000000000000 0 0 0 256) [[10]] (MLOAD 0)  (STOP) ) 0) 0 ) }",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+            "f000000000000000000000000000000000000000" : {
+                "balance" : "0x00",
+                "code" : "{ (CREATE2 0 0 (lll (seq   [[0]] (ADDRESS) [[1]] (BALANCE (ADDRESS)) [[2]] (ORIGIN) [[3]] (CALLER) [[4]] (CALLVALUE) [[5]] (CALLDATASIZE) [[6]] (CODESIZE) [[7]] (GASPRICE) (STOP)   ) 0) 0) (STOP) }",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+            "f200000000000000000000000000000000000000" : {
+                "balance" : "0x00",
+                "code" : "{ (CREATE2 0 0 (lll (seq   [0] (ADDRESS) [32] (BALANCE (ADDRESS)) [64] (ORIGIN) [96] (CALLER) [128] (CALLVALUE) [160] (CALLDATASIZE) [192] (CODESIZE) [224] (GASPRICE) (RETURN 0 256)  (STOP)   ) 0) 0)  }",
+                "nonce" : "0",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                ":raw 0x0000000000000000000000001000000000000000000000000000000000000000",
+                ":raw 0x0000000000000000000000002000000000000000000000000000000000000000",
+                ":raw 0x0000000000000000000000003000000000000000000000000000000000000000",
+                ":raw 0x0000000000000000000000004000000000000000000000000000000000000000",
+        		":raw 0x0000000000000000000000001100000000000000000000000000000000000000",
+        		":raw 0x0000000000000000000000002200000000000000000000000000000000000000",
+        		":raw 0x0000000000000000000000003300000000000000000000000000000000000000",
+        		":raw 0x0000000000000000000000004400000000000000000000000000000000000000"
+            ],
+            "gasLimit" : [
+                "600000"
+            ],
+            "gasPrice" : "10",
+            "nonce" : "0",
+            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "b94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "value" : [
+                "0"
+            ]
+        }
+    }
+}
