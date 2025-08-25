@@ -7,7 +7,7 @@ unshipped EIPs, even withdrawn and non-viable proposals.
 | EIP                                                                    | Opcode | Name               | Description                                                                  |
 |------------------------------------------------------------------------|--------|--------------------|------------------------------------------------------------------------------|
 | [101](https://eips.ethereum.org/EIPS/eip-101)                          | 0x5C   | tx.gas             | primordial account-abstraction support                                       |
-| [141](https://eips.ethereum.org/EIPS/eip-141)                          | 0xFE   | INVALID/ ABORT     | Designated invalid opcode. <br />(Adopted in practice, Not formally adopted) |
+| [141](https://eips.ethereum.org/EIPS/eip-141)                          | 0xFE   | INVALID/ABORT      | Designated invalid opcode. <br />(Adopted in practice, Not formally adopted) |
 | [615](https://eips.ethereum.org/EIPS/eip-615)                          | 0xB0   | JUMPTO             | static jump                                                                  |
 | [615](https://eips.ethereum.org/EIPS/eip-615)                          | 0xB1   | JUMPIF             | static conditional jump                                                      |
 | [615](https://eips.ethereum.org/EIPS/eip-615)                          | 0xB2   | JUMPV              | static jump table                                                            |
@@ -51,8 +51,8 @@ unshipped EIPs, even withdrawn and non-viable proposals.
 | [3508](https://eips.ethereum.org/EIPS/eip-3508)                        | 0x49   | ORIGINDATACOPY     | Bulk load transaction calldata                                               |
 | [3520](https://eips.ethereum.org/EIPS/eip-3520)                        | 0x4A   | ENTRYPOINT         | To address of transaction                                                    |
 | [4200](https://eips.ethereum.org/EIPS/eip-4200)                        | 0xE0   | RJUMP              | relative jump                                                                |
-| [4200](https://eips.ethereum.org/EIPS/eip-4200)                        | 0xE1   | RJUMI              | relative conditional jump                                                    |
-| [4200](https://eips.ethereum.org/EIPS/eip-4200)                        | 0xE2   | RJUMV              | relative jump table                                                          |
+| [4200](https://eips.ethereum.org/EIPS/eip-4200)                        | 0xE1   | RJUMPI             | relative conditional jump                                                    |
+| [4200](https://eips.ethereum.org/EIPS/eip-4200)                        | 0xE2   | RJUMPV             | relative jump table                                                          |
 | [4520](https://eips.ethereum.org/EIPS/eip-4520)                        | 0xEB   | -                  | Reserve for multi-byte opcodes                                               |
 | [4520](https://eips.ethereum.org/EIPS/eip-4520)                        | 0xEC   | -                  | Reserve for multi-byte opcodes                                               |
 | [4750](https://eips.ethereum.org/EIPS/eip-4750)                        | 0xE3   | CALLF              | EOF Subroutine Call                                                          |
