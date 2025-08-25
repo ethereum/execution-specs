@@ -1,0 +1,984 @@
+storageCosts:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: '0xFF112233445566'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+
+  pre:
+    # Declared vs. undeclared write (SSTORE)    zero -> value
+    # WRITE_DECLARED
+    # WRITE_ADDR_IN_LIST
+    # WRITE_ADDR_NOT_IN_LIST
+    # WRITE_NO_LIST
+    0000000000000000000000000000000000001000:
+      balance: '1000000000000000000'
+      code: |
+       {
+        ; Write to @@0, and see how much gas that cost. It should
+        ; cost more when it is not declared storage
+          [0]   (gas)
+         [[0]]  0x02
+          [0]   (- @0 (gas) 17)
+         [[1]] @0
+
+        ; The 17 is the cost of the extra opcodes:
+        ; PUSH1 0x00, MSTORE
+        ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
+        ; GAS
+
+        ; If the storage cell is declared the cost in @@1 should be 20003
+        ; If the storage cell is not declared the cost    should be 22103
+       }
+      nonce: '0'
+      storage: {}
+
+
+
+    # Declared vs. undeclared read (SLOAD)
+    # READ_DECLARED
+    # READ_ADDR_IN_LIST
+    # READ_ADDR_NOT_IN_LIST
+    # READ_NO_LIST
+    0000000000000000000000000000000000001001:
+      balance: '1000000000000000000'
+      code: |
+       {
+        ; Read @@0, and see how much gas that cost. It should
+        ; cost more when it is not declared storage
+          [0]   (gas)
+          @@0
+          [0]   (- @0 (gas) 19)
+         [[1]] @0
+
+        ; If the storage cell is declared the cost in @@1 should be  100
+        ; If the storage cell is not declared the cost    should be 2100
+       }
+      nonce: '0'
+      storage: {}
+
+
+
+    # Declared vs. undeclared delete     value -> zero
+    # DEL_DECLARED
+    # DEL_ADDR_IN_LIST
+    # DEL_ADDR_NOT_IN_LIST
+    # DEL_NO_LIST
+    0000000000000000000000000000000000001002:
+      balance: '1000000000000000000'
+      storage:
+        0x00: 0x60A7
+      code: |
+       {
+        ; Write to @@0, and see how much gas that cost. It should
+        ; cost more when it is not declared storage
+          [0]   (gas)
+         [[0]]  0x00
+          [0]   (- @0 (gas) 17)
+         [[1]] @0
+
+        ; The 17 is the cost of the extra opcodes:
+        ; PUSH1 0x00, MSTORE
+        ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
+        ; GAS
+
+        ; If the storage cell is declared the cost in @@1 should be 2903
+        ; If the storage cell is not declared the cost    should be 5003
+        ;
+        ; The refund for freeing memory happens at the end of the transaction,
+        ; so we don't see it
+       }
+      nonce: '0'
+
+
+
+
+    # Declared vs. undeclared update     value -> different value
+    # UPDATE_DECLARED
+    # UPDATE_ADDR_IN_LIST
+    # UPDATE_ADDR_NOT_IN_LIST
+    # UPDATE_NO_LIST
+    0000000000000000000000000000000000001003:
+      balance: '1000000000000000000'
+      storage:
+        0x00: 0x60A7
+      code: |
+       {
+        ; Write to @@0, and see how much gas that cost. It should
+        ; cost more when it is not declared storage
+          [0]   (gas)
+         [[0]]  0xBEEF
+          [0]   (- @0 (gas) 17)
+         [[1]] @0
+
+        ; The 17 is the cost of the extra opcodes:
+        ; PUSH1 0x00, MSTORE
+        ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
+        ; GAS
+
+        ; If the storage cell is declared the cost in @@1 should be  103
+        ; If the storage cell is not declared the cost    should be 2203
+       }
+      nonce: '0'
+
+
+
+
+    # Declared vs. undeclared NOP     value -> same value
+    # NOP_DECLARED
+    # NOP_ADDR_IN_LIST
+    # NOP_ADDR_NOT_IN_LIST
+    # NOP_NO_LIST
+    0000000000000000000000000000000000001004:
+      balance: '1000000000000000000'
+      storage:
+        0x00: 0x60A7
+      code: |
+       {
+        ; Write to @@0, and see how much gas that cost. It should
+        ; cost more when it is not declared storage
+          [0]   (gas)
+         [[0]]  0x60A7
+          [0]   (- @0 (gas) 17)
+         [[1]] @0
+
+        ; The 17 is the cost of the extra opcodes:
+        ; PUSH1 0x00, MSTORE
+        ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
+        ; GAS
+
+        ; This costs 103, regadless of whether it is declared or not
+       }
+      nonce: '0'
+
+
+
+    # Declared vs. undeclared NOP0            zero -> zero
+    # NOP0_DECLARED
+    # NOP0_ADDR_IN_LIST
+    # NOP0_ADDR_NOT_IN_LIST
+    # NOP0_NO_LIST
+    0000000000000000000000000000000000001005:
+      balance: '1000000000000000000'
+      storage:
+        0x00: 0x00
+      code: |
+       {
+        ; Write to @@0, and see how much gas that cost. It should
+        ; cost more when it is not declared storage
+          [0]   (gas)
+         [[0]]  0x00
+          [0]   (- @0 (gas) 17)
+         [[1]] @0
+
+        ; The 17 is the cost of the extra opcodes:
+        ; PUSH1 0x00, MSTORE
+        ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
+        ; GAS
+
+        ; This costs 103, regadless of whether it is declared or not
+       }
+      nonce: '0'
+
+
+
+
+
+
+    # Declared vs. undeclared write (SSTORE), after writing to the storage
+    # STORE_THEN_WRITE_DECLARED
+    # STORE_THEN_WRITE_UNDECLARED
+    0000000000000000000000000000000000001010:
+      balance: '1000000000000000000'
+      code: |
+       {
+
+         [[0]] 0x60A7
+
+        ; Write to @@0, and see how much gas that cost. It should
+        ; cost more when it is not declared storage
+          [0]   (gas)
+         [[0]]  0x02
+          [0]   (- @0 (gas) 17)
+         [[1]] @0
+
+        ; The 17 is the cost of the extra opcodes:
+        ; PUSH1 0x00, MSTORE
+        ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
+        ; GAS
+
+        ; Since this is second access, it will cost 103
+        ; regardless of whether it was declared or not
+
+       }
+      nonce: '0'
+      storage: {}
+
+
+
+    # Declared vs. undeclared read (SLOAD), after writing to the storage
+    # STORE_THEN_READ_DECLARED
+    # STORE_THEN_READ_UNDECLARED
+    0000000000000000000000000000000000001011:
+      balance: '1000000000000000000'
+      code: |
+       {
+         [[0]] 0x60A7
+
+        ; Read @@0, and see how much gas that cost. It should
+        ; cost more when it is not declared storage
+          [0]   (gas)
+          @@0
+          [0]   (- @0 (gas) 19)
+         [[1]] @0
+
+        ; Since this is second access, it will cost 100
+        ; regardless of whether it was declared or not
+       }
+      nonce: '0'
+      storage: {}
+
+
+    # Declared vs. undeclared write (SSTORE), after reading the storage
+    # LOAD_THEN_WRITE_DECLARED
+    # LOAD_THEN_WRITE_UNDECLARED
+    0000000000000000000000000000000000001020:
+      balance: '1000000000000000000'
+      code: |
+       {
+         [0x20] @@0
+
+        ; Write to @@0, and see how much gas that cost. It should
+        ; cost more when it is not declared storage
+          [0]   (gas)
+         [[0]]  0x02
+          [0]   (- @0 (gas) 17)
+         [[1]] @0
+
+        ; The 17 is the cost of the extra opcodes:
+        ; PUSH1 0x00, MSTORE
+        ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
+        ; GAS
+
+        ; Since this is second access, it will cost 20k
+        ; regardless of whether it was declared or not
+
+       }
+      nonce: '0'
+      storage: {}
+
+
+
+    # Declared vs. undeclared read (SLOAD), after already reading it
+    # LOAD_THEN_READ_DECLARED
+    # LOAD_THEN_READ_UNDECLARED
+    0000000000000000000000000000000000001021:
+      balance: '1000000000000000000'
+      code: |
+       {
+         [0x20] @@0
+
+        ; Read @@0, and see how much gas that cost.
+          [0]   (gas)
+          @@0
+          [0]   (- @0 (gas) 19)
+         [[1]] @0
+
+        ; Since this is second access, it will cost 97
+        ; regardless of whether it was declared or not
+       }
+      nonce: '0'
+      storage: {}
+
+
+
+
+    # Call different contracts depending on the parameter
+    #
+    # Also check the cost of accessing our own storage
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        { ; TO_ADDR_VALID   TO_ADDR_INVALID_ADDR    TO_ADDR_INVALID_CELL
+          ; Call a different contract
+          (call (gas) (+ 0x1000 $4) 0 0 0 0 0)
+
+          ; Read @@0, and see how much gas that cost.
+            [0]   (gas)
+            @@0x60A7
+            [0]   (- @0 (gas) 19)
+           [[1]] @0
+
+
+          ; Write to @@0, and see how much gas that cost. It should
+          ; cost more when it is not declared storage
+            [0]   (gas)
+           [[0]]  0x02
+            [0]   (- @0 (gas) 17)
+           [[2]] @0
+
+          ; The 17 is the cost of the extra opcodes:
+          ; PUSH1 0x00, MSTORE
+          ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
+          ; GAS
+
+
+        }
+      nonce: '0'
+      storage:
+        0x60A7: 0xDEAD
+
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: 0x
+      nonce: '0'
+      storage: {}
+
+
+  transaction:
+    data:
+    # There is just one way to validly declare that a key will be used
+    # WRITE_DECLARED
+    - data: :label declaredKeyWrite :abi f(uint) 0
+      accessList:
+      - address: 0x0000000000000000000000000000000000001000
+        storageKeys:
+        - 0x00
+
+    # READ_DECLARED
+    - data: :label declaredKeyRead :abi f(uint) 1
+      accessList:
+      - address: 0x0000000000000000000000000000000000001001
+        storageKeys:
+        - 0x00
+
+    # DEL_DECLARED
+    - data: :label declaredKeyDel :abi f(uint) 2
+      accessList:
+      - address: 0x0000000000000000000000000000000000001002
+        storageKeys:
+        - 0x00
+
+    # UPDATE_DECLARED
+    - data: :label declaredKeyUpdate :abi f(uint) 3
+      accessList:
+      - address: 0x0000000000000000000000000000000000001003
+        storageKeys:
+        - 0x00
+
+    # NOP_DECLARED
+    - data: :label declaredKeyNOP :abi f(uint) 4
+      accessList:
+      - address: 0x0000000000000000000000000000000000001004
+        storageKeys:
+        - 0x00
+
+    # NOP0_DECLARED
+    - data: :label declaredKeyNOP0 :abi f(uint) 5
+      accessList:
+      - address: 0x0000000000000000000000000000000000001005
+        storageKeys:
+        - 0x00
+
+
+
+    # But there are multiple ways to get it wrong:
+    # Wrong storageKey
+    # WRITE_ADDR_IN_LIST
+    - data: :label undeclaredKeyWrite :abi f(uint) 0
+      accessList:
+      - address: 0x0000000000000000000000000000000000001000
+        storageKeys:
+        - 0x10
+
+    # READ_ADDR_IN_LIST
+    - data: :label undeclaredKeyRead :abi f(uint) 1
+      accessList:
+      - address: 0x0000000000000000000000000000000000001001
+        storageKeys:
+        - 0x10
+
+    # DEL_ADDR_IN_LIST
+    - data: :label undeclaredKeyDel :abi f(uint) 2
+      accessList:
+      - address: 0x0000000000000000000000000000000000001002
+        storageKeys:
+        - 0x10
+
+    # UPDATE_ADDR_IN_LIST
+    - data: :label undeclaredKeyUpdate :abi f(uint) 3
+      accessList:
+      - address: 0x0000000000000000000000000000000000001003
+        storageKeys:
+        - 0x10
+
+    # NOP_ADDR_IN_LIST
+    - data: :label undeclaredKeyNOP :abi f(uint) 4
+      accessList:
+      - address: 0x0000000000000000000000000000000000001004
+        storageKeys:
+        - 0x10
+
+    # NOP0_ADDR_IN_LIST
+    - data: :label undeclaredKeyNOP0 :abi f(uint) 5
+      accessList:
+      - address: 0x0000000000000000000000000000000000001005
+        storageKeys:
+        - 0x10
+
+
+    # Wrong address
+    # WRITE_ADDR_NOT_IN_LIST
+    - data: :label undeclaredKeyWrite :abi f(uint) 0
+      accessList:
+      - address: 0xF000000000000000000000000000000000000100
+        storageKeys:
+        - 0x00
+
+    # READ_ADDR_NOT_IN_LIST
+    - data: :label undeclaredKeyRead :abi f(uint) 1
+      accessList:
+      - address: 0xF000000000000000000000000000000000000101
+        storageKeys:
+        - 0x00
+
+    # DEL_ADDR_NOT_IN_LIST
+    - data: :label undeclaredKeyDel :abi f(uint) 2
+      accessList:
+      - address: 0xF000000000000000000000000000000000000101
+        storageKeys:
+        - 0x00
+
+    # UPDATE_ADDR_NOT_IN_LIST
+    - data: :label undeclaredKeyUpdate :abi f(uint) 3
+      accessList:
+      - address: 0xF000000000000000000000000000000000000101
+        storageKeys:
+        - 0x00
+
+    # NOP_ADDR_NOT_IN_LIST
+    - data: :label undeclaredKeyNOP :abi f(uint) 4
+      accessList:
+      - address: 0xF000000000000000000000000000000000000101
+        storageKeys:
+        - 0x00
+
+    # NOP0_ADDR_NOT_IN_LIST
+    - data: :label undeclaredKeyNOP0 :abi f(uint) 5
+      accessList:
+      - address: 0xF000000000000000000000000000000000000101
+        storageKeys:
+        - 0x00
+
+    # No access list at all
+    # WRITE_NO_LIST
+    - :label undeclaredKeyWrite  :abi f(uint) 0
+
+    # READ_NO_LIST
+    - :label undeclaredKeyRead   :abi f(uint) 1
+
+    # DEL_NO_LIST
+    - :label undeclaredKeyDel    :abi f(uint) 2
+
+    # UPDATE_NO_LIST
+    - :label undeclaredKeyUpdate :abi f(uint) 3
+
+    # NOP_NO_LIST
+    - :label undeclaredKeyNOP    :abi f(uint) 4
+
+    # NOP0_NO_LIST
+    - :label undeclaredKeyNOP0   :abi f(uint) 5
+
+
+    # If we had already accessed the storage (and paid the penalty
+    # in case it was undeclared), it doesn't matter how we accessed it then
+    # or how we access it now. The cost is the same regardless of whether
+    # we declared the key in the storage list or not
+    # STORE_THEN_WRITE_DECLARED
+    - data: :label declaredKeyWrite_postSSTORE :abi f(uint) 0x10
+      accessList:
+      - address: 0x0000000000000000000000000000000000001010
+        storageKeys:
+        - 0x00
+
+    # STORE_THEN_WRITE_UNDECLARED
+    - data: :label undeclaredKeyWrite_postSSTORE :abi f(uint) 0x10
+      accessList:
+      - address: 0x0000000000000000000000000000000000001010
+        storageKeys:
+        - 0x10
+
+    # STORE_THEN_LOAD_DECLARED
+    - data: :label declaredKeyRead_postSSTORE :abi f(uint) 0x11
+      accessList:
+      - address: 0x0000000000000000000000000000000000001011
+        storageKeys:
+        - 0x00
+
+    # STORE_THEN_LOAD_UNDECLARED
+    - data: :label undeclaredKeyRead_postSSTORE :abi f(uint) 0x11
+      accessList:
+      - address: 0x0000000000000000000000000000000000001011
+        storageKeys:
+        - 0x10
+
+    # LOAD_THEN_WRITE_DECLARED
+    - data: :label declaredKeyWrite_postSLOAD :abi f(uint) 0x20
+      accessList:
+      - address: 0x0000000000000000000000000000000000001020
+        storageKeys:
+        - 0x00
+
+    # LOAD_THEN_WRITE_UNDECLARED
+    - data: :label undeclaredKeyWrite_postSLOAD :abi f(uint) 0x20
+      accessList:
+      - address: 0x0000000000000000000000000000000000001020
+        storageKeys:
+        - 0x10
+
+    # LOAD_THEN_READ_DECLARED
+    - data: :label declaredKeyRead_postSLOAD :abi f(uint) 0x21
+      accessList:
+      - address: 0x0000000000000000000000000000000000001021
+        storageKeys:
+        - 0x00
+
+    # LOAD_THEN_READ_UNDECLARED
+    - data: :label undeclaredKeyRead_postSLOAD :abi f(uint) 0x21
+      accessList:
+      - address: 0x0000000000000000000000000000000000001021
+        storageKeys:
+        - 0x10
+
+
+    # TO_ADDR_VALID
+    - data: :label declaredTo :abi f(uint) 0xFFF  # Doesn't matter which contract we call
+      accessList:
+      - address: 0xcccccccccccccccccccccccccccccccccccccccc
+        storageKeys:
+        - 0x0000
+        - 0x0001
+        - 0x0002
+        - 0x60A7
+
+    # TO_ADDR_INVALID_ADDR
+    - data: :label undeclaredTo :abi f(uint) 0xFFF  # Doesn't matter which contract we call
+      accessList:
+      - address: 0xcccccccccccccccccccccccccccccccccc000000
+        storageKeys:
+        - 0x0000
+        - 0x0001
+        - 0x0002
+        - 0x60A7
+
+
+    # TO_ADDR_INVALID_CELL
+    - data: :label undeclaredTo :abi f(uint) 0xFFF  # Doesn't matter which contract we call
+      accessList:
+      - address: 0xcccccccccccccccccccccccccccccccccccccccc
+        storageKeys:
+        - 0xF000
+        - 0xF001
+        - 0xF002
+        - 0xF0A7
+
+
+
+
+
+
+
+
+    # Do a complex access list, see that it is still processed
+    # correctly
+    # There is just one way to validly declare that a key will
+    # be used
+    # LARGE
+    - data: :label declaredKeyWrite :abi f(uint) 0
+      accessList:
+      - address: 0x00000000000000000000000000000000000060A7
+        storageKeys:
+        - 0xFFFFFad
+        - 0x00ad
+        - 0x123214342ad
+        - 0xdeadbeef
+      - address: 0x0000000000000000000000000000000000001000
+        storageKeys:
+        - 0xFFFFF
+        - 0x00
+        - 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+        - 0x123214342
+        - 0xdeadbeef
+      - address: 0x0000000000000000000000000010000000000100
+        storageKeys:
+        - 0xFFFFFbc
+        - 0x00bc
+        - 0x123214342bc
+        - 0xdeadbeefbc
+      - address: 0xffffffffffffffffffffffffffffffffffffffff
+        storageKeys:
+        - 0xFFFFFbc
+        - 0x00bc
+        - 0x123214342bc
+        - 0xdeadbeefbc
+        - 0xdeadbeef12345678deadbeef12345678deadbeef12345678deadbeef12345678
+        - 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+
+
+    gasLimit:
+    - '400000'
+    gasPrice: '10'
+    nonce: '0'
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: cccccccccccccccccccccccccccccccccccccccc
+
+    value:
+    - '100000'
+
+
+
+
+
+
+  expect:
+
+  # Write to a previously unused storage cell, which is declared in the access list
+  # WRITE_DECLARED
+  # LARGE
+  - indexes:
+      data: :label declaredKeyWrite
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Cancun"
+    result:
+      0000000000000000000000000000000000001000:
+        storage:
+          0x00: 0x02
+          0x01: 0x4e23
+
+  # Write to a previously unused storage cell, which is not declared in the access list
+  # WRITE_ADDR_IN_LIST
+  # WRITE_ADDR_NOT_IN_LIST
+  # WRITE_NO_LIST
+  - indexes:
+      data: :label undeclaredKeyWrite
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Cancun"
+    result:
+      0000000000000000000000000000000000001000:
+        storage:
+          0x00: 0x02
+          0x01: 0x5657
+
+
+
+  # Write to a previously used storage cell, which is declared in the access list
+  # UPDATE_DECLARED
+  - indexes:
+      data: :label declaredKeyUpdate
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Cancun"
+    result:
+      0000000000000000000000000000000000001003:
+        storage:
+          0x00: 0xBEEF
+          0x01: 0x0b57
+
+  # Write to a previously used storage cell, which is not declared in the access list
+  # UPDATE_ADDR_IN_LIST
+  # UPDATE_ADDR_NOT_IN_LIST
+  # UPDATE_NO_LIST
+  - indexes:
+      data: :label undeclaredKeyUpdate
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Cancun"
+    result:
+      0000000000000000000000000000000000001003:
+        storage:
+          0x00: 0xBEEF
+          0x01: 0x138b
+
+
+  # Write to a previously used storage cell, but the same value it currently has
+  # This cell is declared in the access list
+  #
+  # NOP_DECLARED
+  - indexes:
+      data: :label declaredKeyNOP
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Cancun"
+    result:
+      0000000000000000000000000000000000001004:
+        storage:
+          0x00: 0x60A7
+          0x01: 0x0067
+
+
+  # Write to a previously used storage cell, but the same value it currently has
+  # This cell is not declared in the access list
+  # NOP_ADDR_IN_LIST
+  # NOP_ADDR_NOT_IN_LIST
+  # NOP_NO_LIST
+  - indexes:
+      data: :label undeclaredKeyNOP
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Cancun"
+    result:
+      0000000000000000000000000000000000001004:
+        storage:
+          0x00: 0x60A7
+          0x01: 0x089b
+
+
+  # Write zero to a previously unused storage cell.
+  # This cell is declared in the access list
+  # NOP0_DECLARED
+  - indexes:
+      data: :label declaredKeyNOP0
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Cancun"
+    result:
+      0000000000000000000000000000000000001005:
+        storage:
+          0x01: 0x0067
+
+
+  # Write zero to a previously unused storage cell.
+  # This cell is not declared in the access list
+  # NOP0_ADDR_IN_LIST
+  # NOP0_ADDR_NOT_IN_LIST
+  # NOP0_NO_LIST
+  - indexes:
+      data: :label undeclaredKeyNOP0
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Cancun"
+    result:
+      0000000000000000000000000000000000001005:
+        storage:
+          0x01: 0x089b
+
+
+
+
+  # Write zero to a previously used storage cell, freeing it
+  # This cell is declared in the access list
+  #
+  # Note that we don't see the refund for freeing storage, that happens at the
+  # end of the transaction
+  # DEL_DECLARED
+  - indexes:
+      data: :label declaredKeyDel
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Cancun"
+    result:
+      0000000000000000000000000000000000001002:
+        storage:
+          0x00: 0x00
+          0x01: 0x0b57
+
+
+
+  # Write zero to a previously used storage cell, freeing it
+  # This cell is not declared in the access list
+  #
+  # Note that we don't see the refund for freeing storage, that happens at the
+  # end of the transaction
+  # DEL_ADDR_IN_LIST
+  # DEL_ADDR_NOT_IN_LIST
+  # DEL_NO_LIST
+  - indexes:
+      data: :label undeclaredKeyDel
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Cancun"
+    result:
+      0000000000000000000000000000000000001002:
+        storage:
+          0x00: 0x00
+          0x01: 0x138b
+
+
+
+  # Read a storage cell that has been declared in the access list
+  # READ_DECLARED
+  - indexes:
+      data: :label declaredKeyRead
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Cancun"
+    result:
+      0000000000000000000000000000000000001001:
+        storage:
+          0x01: 0x0064
+
+
+
+  # Read a storage cell that has not been declared in the access list
+  # READ_ADDR_IN_LIST
+  # READ_ADDR_NOT_IN_LIST
+  # READ_NO_LIST
+  - indexes:
+      data: :label undeclaredKeyRead
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Cancun"
+    result:
+      0000000000000000000000000000000000001001:
+        storage:
+          0x01: 0x0834
+
+
+
+  # Do an SSTORE, and then check the cost of a second SSTORE for the same cell
+  # The cost of the second access is the same whether it was declared in the access
+  # list or not.
+  # STORE_THEN_WRITE_DECLARED
+  # STORE_THEN_WRITE_UNDECLARED
+  - indexes:
+      data:
+      - :label declaredKeyWrite_postSSTORE
+      - :label undeclaredKeyWrite_postSSTORE
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Cancun"
+    result:
+      0000000000000000000000000000000000001010:
+        storage:
+          0x00: 0x02
+          0x01: 0x0067
+
+
+
+
+  # Do an SSTORE, and then check the cost of an SLOAD for the same cell
+  # The cost of the second access is the same whether it was declared in the access
+  # list or not.
+  # STORE_THEN_READ_DECLARED
+  # STORE_THEN_READ_UNDECLARED
+  - indexes:
+      data:
+      - :label declaredKeyRead_postSSTORE
+      - :label undeclaredKeyRead_postSSTORE
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Cancun"
+    result:
+      0000000000000000000000000000000000001011:
+        storage:
+          0x00: 0x60A7
+          0x01: 0x0064
+
+
+
+  # Do an SLOAD, and then check the cost of an SSTORE for the same cell
+  # The cost of the second access is the same whether it was declared in the access
+  # list or not.
+  # LOAD_THEN_WRITE_DECLARED
+  # LOAD_THEN_WRITE_UNDECLARED
+  - indexes:
+      data:
+      - :label declaredKeyWrite_postSLOAD
+      - :label undeclaredKeyWrite_postSLOAD
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Cancun"
+    result:
+      0000000000000000000000000000000000001020:
+        storage:
+          0x00: 0x02
+          0x01: 0x4e20
+
+
+
+  # Do an SLOAD, and then check the cost of a second SLOAD for the same cell
+  # The cost of the second access is the same whether it was declared in the access
+  # list or not.
+  # LOAD_THEN_READ_DECLARED
+  # LOAD_THEN_READ_UNDECLARED
+  - indexes:
+      data:
+      - :label declaredKeyRead_postSLOAD
+      - :label undeclaredKeyRead_postSLOAD
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Cancun"
+    result:
+      0000000000000000000000000000000000001021:
+        storage:
+          0x01: 0x0061
+
+
+
+
+  # See what happens if we access storage in the to address
+  #
+  # TO_ADDR_VALID
+  - indexes:
+      data:
+      - :label declaredTo
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Cancun"
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x0000: 0x0002
+          0x0001: 0x0064
+          0x0002: 0x4e20
+          0x60A7: 0xDEAD
+
+
+
+
+  # See what happens if we access storage in the to address
+  #
+  # TO_ADDR_INVALID_ADDR
+  # TO_ADDR_INVALID_CELL
+  - indexes:
+      data:
+      - :label undeclaredTo
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Cancun"
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x0000: 0x0002
+          0x0001: 0x0834
+          0x0002: 0x5654
+          0x60A7: 0xDEAD

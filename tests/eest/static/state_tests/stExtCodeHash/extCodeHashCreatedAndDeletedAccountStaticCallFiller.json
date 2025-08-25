@@ -1,0 +1,72 @@
+{
+  "extCodeHashCreatedAndDeletedAccountStaticCall": {
+    "_info": {
+      "comment": "EXTCODEHASH/EXTCODESIZE of an account created then deleted via STATICCALL in same transaction"
+    },
+    "env": {
+      "currentCoinbase": "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+      "currentDifficulty": "0x20000",
+      "currentGasLimit": "1000000",
+      "currentNumber": "1",
+      "currentTimestamp": "1000"
+    },
+    "expect": [
+      {
+        "indexes": {
+          "data": -1,
+          "gas": -1,
+          "value": -1
+        },
+        "network": [
+          ">=Cancun"
+        ],
+        "result": {
+          "deadbeef00000000000000000000000000000000": {
+            "storage": {
+              "0x00": "0x73c5f15b1290fd9e66722596c2fa1e1c9341f7acb185530dce0bf0e0fec7dfc6",
+              "0x01": "0x04",
+              "0x02": "0x73c5f15b1290fd9e66722596c2fa1e1c9341f7acb185530dce0bf0e0fec7dfc6",
+              "0x03": "0x04"
+            }
+          },
+          "0x123f4c415171383dcf6f3ac6c3b70fe321e11b5e": {
+            "code": "0x6000ff00",
+            "storage": {
+            }
+          }
+        }
+      }
+    ],
+    "pre": {
+      "a94f5374fce5edbc8e2a8697c15331677e6ebf0b": {
+        "balance": "1000000000000000000",
+        "code": "",
+        "nonce": "0",
+        "storage": {
+        }
+      },
+      "deadbeef00000000000000000000000000000000": {
+        "balance": "1000000000000000000",
+        "code": "{ (MSTORE 0 (CREATE2 0 128 (lll { (RETURN 0 (lll { (SELFDESTRUCT 0x0) } 0)) } 128) 0x10)) [[0]] (EXTCODEHASH (MLOAD 0)) [[1]] (EXTCODESIZE (MLOAD 0)) (STATICCALL 0x10000 (MLOAD 0) 0 0 0 0) [[2]] (EXTCODEHASH (MLOAD 0)) [[3]] (EXTCODESIZE (MLOAD 0)) (STOP) }",
+        "nonce": "0",
+        "storage": {
+        }
+      }
+    },
+    "transaction": {
+      "data": [
+        ""
+      ],
+      "gasLimit": [
+        "400000"
+      ],
+      "gasPrice": "10",
+      "nonce": "0",
+      "secretKey": "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+      "to": "deadbeef00000000000000000000000000000000",
+      "value": [
+        "1"
+      ]
+    }
+  }
+}
