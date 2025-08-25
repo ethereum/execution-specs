@@ -1,0 +1,60 @@
+{
+    "EELSMaster": {
+        "git_url": "https://github.com/marioevz/execution-specs.git",
+        "branch": "forks/bpo1",
+        "commit": "3387e5f4aedfe99becfdc39b444d6371e25e0924"
+    },
+    "Frontier": {
+        "same_as": "EELSMaster"
+    },
+    "Homestead": {
+        "same_as": "EELSMaster"
+    },
+    "Byzantium": {
+        "same_as": "EELSMaster"
+    },
+    "ConstantinopleFix": {
+        "same_as": "EELSMaster"
+    },
+    "Istanbul": {
+        "same_as": "EELSMaster"
+    },
+    "Berlin": {
+        "same_as": "EELSMaster"
+    },
+    "London": {
+        "same_as": "EELSMaster"
+    },
+    "Merge": {
+        "same_as": "EELSMaster"
+    },
+    "Shanghai": {
+        "same_as": "EELSMaster"
+    },
+    "Cancun": {
+        "same_as": "EELSMaster"
+    },
+    "Prague": {
+        "same_as": "EELSMaster"
+    },
+    "Osaka": {
+        "same_as": "EELSMaster"
+    },
+    "BPO1": {
+        "same_as": "EELSMaster"
+    },
+    "BPO2": {
+        "same_as": "EELSMaster"
+    },
+    "BPO3": {
+        "same_as": "EELSMaster"
+    },
+    "BPO4": {
+        "same_as": "EELSMaster"
+    },
+    "Amsterdam": {
+        "git_url": "https://github.com/fselmo/execution-specs.git",
+        "branch": "feat/amsterdam-fork-and-block-access-lists",
+        "commit": "59ff2946ca30879079b2ef2b601ae09106ca08f7"
+    }
+}
