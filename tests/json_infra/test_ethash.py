@@ -42,7 +42,7 @@ POW_FORKS = [
 @pytest.mark.parametrize("json_fork", POW_FORKS)
 def test_ethtest_fixtures(json_fork: str) -> None:
     eels_fork = FORKS[json_fork]["eels_fork"]
-    fork_module = importlib.import_module(f"ethereum.{eels_fork}.fork")
+    fork_module = importlib.import_module(f"ethereum.forks.{eels_fork}.fork")
 
     ethereum_tests = load_pow_test_fixtures(json_fork)
     for test in ethereum_tests:
@@ -73,7 +73,9 @@ def test_ethtest_fixtures(json_fork: str) -> None:
 
 def load_pow_test_fixtures(json_fork: str) -> List[Dict[str, Any]]:
     eels_fork = FORKS[json_fork]["eels_fork"]
-    header = importlib.import_module(f"ethereum.{eels_fork}.blocks").Header
+    header = importlib.import_module(
+        f"ethereum.forks.{eels_fork}.blocks"
+    ).Header
 
     with open(
         f"{ETHEREUM_TESTS_PATH}/PoWTests/ethash_tests.json"
@@ -110,7 +112,7 @@ def test_pow_validation_block_headers(
     json_fork: str, block_file_name: str
 ) -> None:
     eels_fork = FORKS[json_fork]["eels_fork"]
-    fork_module = importlib.import_module(f"ethereum.{eels_fork}.fork")
+    fork_module = importlib.import_module(f"ethereum.forks.{eels_fork}.fork")
 
     block_str_data = cast(
         bytes, pkgutil.get_data("ethereum", f"assets/blocks/{block_file_name}")

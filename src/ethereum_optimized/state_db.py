@@ -12,6 +12,7 @@ Introduction
 This module contains functions that can be monkey patched into the fork's
 `state` module to use an optimized database backed state.
 """
+
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
@@ -36,7 +37,7 @@ from .utils import add_item
 
 Address = Bytes20
 Root = Hash32
-Account_ = Any      # noqa N806
+Account_ = Any  # noqa N806
 
 
 class UnmodifiedType:
@@ -57,9 +58,11 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
     """
     patches: Dict[str, Any] = {}
 
-    types_mod = cast(Any, import_module("ethereum." + fork + ".fork_types"))
-    state_mod = cast(Any, import_module("ethereum." + fork + ".state"))
-    Account = types_mod.Account         # noqa N806
+    types_mod = cast(
+        Any, import_module("ethereum.forks." + fork + ".fork_types")
+    )
+    state_mod = cast(Any, import_module("ethereum.forks." + fork + ".state"))
+    Account = types_mod.Account  # noqa N806
 
     has_transient_storage = hasattr(state_mod, "TransientStorage")
 

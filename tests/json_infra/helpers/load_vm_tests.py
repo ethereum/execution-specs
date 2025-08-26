@@ -57,7 +57,7 @@ class VmTestLoader:
         self.process_message_call = self.interpreter.process_message_call
 
     def _module(self, name: str) -> Any:
-        return import_module(f"ethereum.{self.fork_name}.{name}")
+        return import_module(f"ethereum.forks.{self.fork_name}.{name}")
 
     def run_test(
         self, test_dir: str, test_file: str, check_gas_left: bool = True

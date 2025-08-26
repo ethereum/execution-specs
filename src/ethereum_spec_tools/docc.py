@@ -81,7 +81,8 @@ class EthereumDiscover(Discover):
     def __init__(self, config: PluginSettings) -> None:
         self.settings = config
         base = config.resolve_path(PurePath("src") / "ethereum")
-        self.forks = Hardfork.discover(base=base)
+        forks = base / "forks"
+        self.forks = Hardfork.discover([str(forks)])
 
     def discover(self, known: FrozenSet[T]) -> Iterator[Source]:
         """

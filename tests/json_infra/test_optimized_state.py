@@ -4,9 +4,9 @@ from typing import Any, cast
 import pytest
 from ethereum_types.numeric import U256
 
-import ethereum.frontier.state as state
-from ethereum.frontier.fork_types import EMPTY_ACCOUNT
-from ethereum.tangerine_whistle.utils.hexadecimal import hex_to_address
+import ethereum.forks.frontier.state as state
+from ethereum.forks.frontier.fork_types import EMPTY_ACCOUNT
+from ethereum.forks.tangerine_whistle.utils.hexadecimal import hex_to_address
 
 try:
     import ethereum_optimized.state_db as state_db

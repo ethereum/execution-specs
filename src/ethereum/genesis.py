@@ -8,7 +8,7 @@ The genesis configuration for a chain is specified with a
 [`GenesisConfiguration`], and genesis blocks are created with
 [`add_genesis_block`].
 
-[`parent_hash`]: ref:ethereum.frontier.blocks.Header.parent_hash
+[`parent_hash`]: ref:ethereum.forks.frontier.blocks.Header.parent_hash
 [`GenesisConfiguration`]: ref:ethereum.genesis.GenesisConfiguration
 [`add_genesis_block`]: ref:ethereum.genesis.add_genesis_block
 """
@@ -52,35 +52,35 @@ class GenesisConfiguration:
     """
     See [`difficulty`] (and subsequent forks.)
 
-    [`difficulty`]: ref:ethereum.frontier.blocks.Header.difficulty
+    [`difficulty`]: ref:ethereum.forks.frontier.blocks.Header.difficulty
     """
 
     extra_data: Bytes
     """
     See [`extra_data`] (and subsequent forks.)
 
-    [`extra_data`]: ref:ethereum.frontier.blocks.Header.extra_data
+    [`extra_data`]: ref:ethereum.forks.frontier.blocks.Header.extra_data
     """
 
     gas_limit: Uint
     """
     See [`gas_limit`] (and subsequent forks.)
 
-    [`gas_limit`]: ref:ethereum.frontier.blocks.Header.gas_limit
+    [`gas_limit`]: ref:ethereum.forks.frontier.blocks.Header.gas_limit
     """
 
     nonce: Bytes8
     """
     See [`nonce`] (and subsequent forks.)
 
-    [`nonce`]: ref:ethereum.frontier.blocks.Header.nonce
+    [`nonce`]: ref:ethereum.forks.frontier.blocks.Header.nonce
     """
 
     timestamp: U256
     """
     See [`timestamp`] (and subsequent forks.)
 
-    [`timestamp`]: ref:ethereum.frontier.blocks.Header.timestamp
+    [`timestamp`]: ref:ethereum.forks.frontier.blocks.Header.timestamp
     """
 
     initial_accounts: Dict[str, Dict]

@@ -27,8 +27,8 @@ def test_modify_evm_trace() -> None:
 
     ethereum.trace.set_evm_trace(tracer1)
 
-    from ethereum.prague.vm import Evm, Message
-    from ethereum.prague.vm.gas import charge_gas
+    from ethereum.forks.prague.vm import Evm, Message
+    from ethereum.forks.prague.vm.gas import charge_gas
 
     evm = Evm(
         pc=Uint(1),

@@ -4,7 +4,7 @@ import pytest
 from ethereum_rlp import rlp
 
 from ethereum.exceptions import NonceOverflowError
-from ethereum.spurious_dragon.transactions import (
+from ethereum.forks.spurious_dragon.transactions import (
     Transaction,
     validate_transaction,
 )

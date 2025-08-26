@@ -53,10 +53,10 @@ class TransactionEnd:
     The exception, if any, that caused the transaction to fail.
 
     See [`ethereum.exceptions`] as well as fork-specific modules like
-    [`ethereum.frontier.vm.exceptions`][vm] for details.
+    [`ethereum.forks.frontier.vm.exceptions`][vm] for details.
 
     [`ethereum.exceptions`]: ref:ethereum.exceptions
-    [vm]: ref:ethereum.frontier.vm.exceptions
+    [vm]: ref:ethereum.forks.frontier.vm.exceptions
     """
 
 
@@ -90,9 +90,9 @@ class OpStart:
     Opcode that is about to be executed.
 
     Will be an instance of a fork-specific type like, for example,
-    [`ethereum.frontier.vm.instructions.Ops`][ops].
+    [`ethereum.forks.frontier.vm.instructions.Ops`][ops].
 
-    [ops]: ref:ethereum.frontier.vm.instructions.Ops
+    [ops]: ref:ethereum.forks.frontier.vm.instructions.Ops
     """
 
 
@@ -114,11 +114,11 @@ class OpException:
     Exception that was raised.
 
     See [`ethereum.exceptions`] as well as fork-specific modules like
-    [`ethereum.frontier.vm.exceptions`][vm] for examples of exceptions that
-    might be raised.
+    [`ethereum.forks.frontier.vm.exceptions`][vm] for examples of exceptions
+    that might be raised.
 
     [`ethereum.exceptions`]: ref:ethereum.exceptions
-    [vm]: ref:ethereum.frontier.vm.exceptions
+    [vm]: ref:ethereum.forks.frontier.vm.exceptions
     """
 
 
@@ -133,9 +133,9 @@ class EvmStop:
     Last opcode executed.
 
     Will be an instance of a fork-specific type like, for example,
-    [`ethereum.frontier.vm.instructions.Ops`][ops].
+    [`ethereum.forks.frontier.vm.instructions.Ops`][ops].
 
-    [ops]: ref:ethereum.frontier.vm.instructions.Ops
+    [ops]: ref:ethereum.forks.frontier.vm.instructions.Ops
     """
 
 
@@ -203,7 +203,7 @@ class EvmTracer(Protocol):
         Call `self` as a function, recording a trace event.
 
         `evm` is the live state of the EVM, and will be a fork-specific type
-        like [`ethereum.frontier.vm.Evm`][evm].
+        like [`ethereum.forks.frontier.vm.Evm`][evm].
 
         `event`, a [`TraceEvent`], is the reason why the tracer was triggered.
 
@@ -211,7 +211,7 @@ class EvmTracer(Protocol):
         protocol.
 
         [`discard_evm_trace`]: ref:ethereum.trace.discard_evm_trace
-        [evm]: ref:ethereum.frontier.vm.Evm
+        [evm]: ref:ethereum.forks.frontier.vm.Evm
         [`TraceEvent`]: ref:ethereum.trace.TraceEvent
         """
         raise NotImplementedError

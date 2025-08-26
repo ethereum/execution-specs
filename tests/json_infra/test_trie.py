@@ -28,7 +28,7 @@ def test_trie_secure_hex(fork: str) -> None:
     tests = load_tests("hex_encoded_securetrie_test.json")
 
     eels_fork = FORKS[fork]["eels_fork"]
-    trie_module = importlib.import_module(f"ethereum.{eels_fork}.trie")
+    trie_module = importlib.import_module(f"ethereum.forks.{eels_fork}.trie")
 
     for name, test in tests.items():
         st = trie_module.Trie(secured=True, default=b"")
@@ -44,7 +44,7 @@ def test_trie_secure(fork: str) -> None:
     tests = load_tests("trietest_secureTrie.json")
 
     eels_fork = FORKS[fork]["eels_fork"]
-    trie_module = importlib.import_module(f"ethereum.{eels_fork}.trie")
+    trie_module = importlib.import_module(f"ethereum.forks.{eels_fork}.trie")
 
     for name, test in tests.items():
         st = trie_module.Trie(secured=True, default=b"")
@@ -60,7 +60,7 @@ def test_trie_secure_any_order(fork: str) -> None:
     tests = load_tests("trieanyorder_secureTrie.json")
 
     eels_fork = FORKS[fork]["eels_fork"]
-    trie_module = importlib.import_module(f"ethereum.{eels_fork}.trie")
+    trie_module = importlib.import_module(f"ethereum.forks.{eels_fork}.trie")
 
     for name, test in tests.items():
         st = trie_module.Trie(secured=True, default=b"")
@@ -76,7 +76,7 @@ def test_trie(fork: str) -> None:
     tests = load_tests("trietest.json")
 
     eels_fork = FORKS[fork]["eels_fork"]
-    trie_module = importlib.import_module(f"ethereum.{eels_fork}.trie")
+    trie_module = importlib.import_module(f"ethereum.forks.{eels_fork}.trie")
 
     for name, test in tests.items():
         st = trie_module.Trie(secured=False, default=b"")
@@ -92,7 +92,7 @@ def test_trie_any_order(fork: str) -> None:
     tests = load_tests("trieanyorder.json")
 
     eels_fork = FORKS[fork]["eels_fork"]
-    trie_module = importlib.import_module(f"ethereum.{eels_fork}.trie")
+    trie_module = importlib.import_module(f"ethereum.forks.{eels_fork}.trie")
 
     for name, test in tests.items():
         st = trie_module.Trie(secured=False, default=b"")

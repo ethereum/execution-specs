@@ -12,6 +12,7 @@ Introduction
 This module contains optimized POW functions that can be monkey patched into
 the `fork` module of a fork.
 """
+
 from importlib import import_module
 from typing import Any, Dict, cast
 
@@ -41,7 +42,7 @@ def get_optimized_pow_patches(_fork_name: str) -> Dict[str, Any]:
     """
     patches: Dict[str, Any] = {}
 
-    mod = cast(Any, import_module("ethereum." + _fork_name + ".fork"))
+    mod = cast(Any, import_module("ethereum.forks." + _fork_name + ".fork"))
 
     if not hasattr(mod, "validate_proof_of_work"):
         raise Exception(

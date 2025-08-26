@@ -10,7 +10,7 @@ import importlib.abc
 import importlib.util
 import pkgutil
 from enum import Enum, auto
-from pathlib import PurePath
+from importlib.machinery import ModuleSpec
 from pkgutil import ModuleInfo
 from types import ModuleType
 from typing import (
@@ -62,27 +62,27 @@ class Hardfork:
     mod: ModuleType
 
     @classmethod
-    def discover(cls: Type[H], base: Optional[PurePath] = None) -> List[H]:
+    def discover(
+        cls: Type[H], submodule_search_locations: None | list[str] = None
+    ) -> List[H]:
         """
         Find packages which contain Ethereum hardfork specifications.
         """
-        if base is None:
-            ethereum = importlib.import_module("ethereum")
+        if submodule_search_locations is None:
+            ethereum_forks = importlib.import_module("ethereum.forks")
         else:
-            spec = importlib.util.spec_from_file_location(
-                "ethereum", base / "__init__.py", submodule_search_locations=[]
-            )
-            if spec is None:
-                raise ValueError("unable to find module from file")
-            ethereum = importlib.util.module_from_spec(spec)
-            if spec.loader and hasattr(spec.loader, "exec_module"):
-                spec.loader.exec_module(ethereum)
+            spec = ModuleSpec("ethereum.forks", loader=None, is_package=True)
+            spec.submodule_search_locations = submodule_search_locations
 
-        path = getattr(ethereum, "__path__", None)
+            ethereum_forks = importlib.util.module_from_spec(spec)
+            if spec.loader and hasattr(spec.loader, "exec_module"):
+                spec.loader.exec_module(ethereum_forks)
+
+        path = getattr(ethereum_forks, "__path__", None)
         if path is None:
             raise ValueError("module `ethereum` has no path information")
 
-        modules = pkgutil.iter_modules(path, ethereum.__name__ + ".")
+        modules = pkgutil.iter_modules(path, ethereum_forks.__name__ + ".")
         modules = (module for module in modules if module.ispkg)
         forks: List[H] = []
 

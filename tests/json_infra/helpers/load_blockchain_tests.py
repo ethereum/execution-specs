@@ -115,7 +115,7 @@ def add_block_to_chain(
         load.fork.state_transition(chain, block)
     else:
         fork_module = importlib.import_module(
-            f"ethereum.{load.fork.fork_module}.fork"
+            f"ethereum.forks.{load.fork.fork_module}.fork"
         )
         with patch.object(
             fork_module,

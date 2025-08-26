@@ -27,13 +27,15 @@ class ForkLoad:
 
     def _module(self, name: str) -> Any:
         """Imports a module from the fork"""
-        return importlib.import_module(f"ethereum.{self._fork_module}.{name}")
+        return importlib.import_module(
+            f"ethereum.forks.{self._fork_module}.{name}"
+        )
 
     @property
     def proof_of_stake(self) -> bool:
         """Whether the fork is proof of stake"""
         for fork in self._forks:
-            if fork.name == "ethereum." + self._fork_module:
+            if fork.name == "ethereum.forks." + self._fork_module:
                 return fork.consensus.is_pos()
         raise Exception(f"fork {self._fork_module} not discovered")
 
@@ -43,7 +45,7 @@ class ForkLoad:
         for fork in self._forks:
             if fork.name == target_fork_name:
                 return_value = True
-            if fork.name == "ethereum." + self._fork_module:
+            if fork.name == "ethereum.forks." + self._fork_module:
                 break
         return return_value
 

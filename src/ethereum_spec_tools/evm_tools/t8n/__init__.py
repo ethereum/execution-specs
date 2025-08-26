@@ -174,15 +174,15 @@ class T8N(Load):
             "chain_id": self.chain_id,
         }
 
-        if self.fork.is_after_fork("ethereum.london"):
+        if self.fork.is_after_fork("ethereum.forks.london"):
             kw_arguments["base_fee_per_gas"] = self.env.base_fee_per_gas
 
-        if self.fork.is_after_fork("ethereum.paris"):
+        if self.fork.is_after_fork("ethereum.forks.paris"):
             kw_arguments["prev_randao"] = self.env.prev_randao
         else:
             kw_arguments["difficulty"] = self.env.block_difficulty
 
-        if self.fork.is_after_fork("ethereum.cancun"):
+        if self.fork.is_after_fork("ethereum.forks.cancun"):
             kw_arguments[
                 "parent_beacon_block_root"
             ] = self.env.parent_beacon_block_root
@@ -252,14 +252,14 @@ class T8N(Load):
         self.result.rejected = self.txs.rejected_txs
 
     def _run_blockchain_test(self, block_env: Any, block_output: Any) -> None:
-        if self.fork.is_after_fork("ethereum.prague"):
+        if self.fork.is_after_fork("ethereum.forks.prague"):
             self.fork.process_unchecked_system_transaction(
                 block_env=block_env,
                 target_address=self.fork.HISTORY_STORAGE_ADDRESS,
                 data=block_env.block_hashes[-1],  # The parent hash
             )
 
-        if self.fork.is_after_fork("ethereum.cancun"):
+        if self.fork.is_after_fork("ethereum.forks.cancun"):
             self.fork.process_unchecked_system_transaction(
                 block_env=block_env,
                 target_address=self.fork.BEACON_ROOTS_ADDRESS,
@@ -279,7 +279,7 @@ class T8N(Load):
                 self.restore_state()
                 self.logger.warning(f"Transaction {i} failed: {e!r}")
 
-        if not self.fork.is_after_fork("ethereum.paris"):
+        if not self.fork.is_after_fork("ethereum.forks.paris"):
             if self.options.state_reward is None:
                 self.pay_block_rewards(self.fork.BLOCK_REWARD, block_env)
             elif self.options.state_reward != -1:
@@ -287,12 +287,12 @@ class T8N(Load):
                     U256(self.options.state_reward), block_env
                 )
 
-        if self.fork.is_after_fork("ethereum.shanghai"):
+        if self.fork.is_after_fork("ethereum.forks.shanghai"):
             self.fork.process_withdrawals(
                 block_env, block_output, self.env.withdrawals
             )
 
-        if self.fork.is_after_fork("ethereum.prague"):
+        if self.fork.is_after_fork("ethereum.forks.prague"):
             self.fork.process_general_purpose_requests(block_env, block_output)
 
     def run_blockchain_test(self) -> None:
