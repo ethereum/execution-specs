@@ -56,9 +56,9 @@ class StateChangeTracker:
     
     pre_storage_cache: Dict[tuple, U256] = field(default_factory=dict)
     """
-    Cache of pre-state storage values, keyed by (address, slot) tuples.
-    This cache persists across transactions within a block to track the
-    original state before any modifications.
+    Cache of pre-transaction storage values, keyed by (address, slot) tuples.
+    This cache is cleared at the start of each transaction to track values
+    from the beginning of the current transaction.
     """
     
     current_block_access_index: int = 0
@@ -82,6 +82,9 @@ def set_transaction_index(tracker: StateChangeTracker, block_access_index: int) 
         The block access index (0 for pre-execution, 1..n for transactions, n+1 for post-execution).
     """
     tracker.current_block_access_index = block_access_index
+    # Clear the pre-storage cache for each new transaction to ensure
+    # no-op writes are detected relative to the transaction start
+    tracker.pre_storage_cache.clear()
 
 
 def capture_pre_state(
@@ -91,11 +94,11 @@ def capture_pre_state(
     state: State
 ) -> U256:
     """
-    Capture and cache the pre-state value for a storage location.
+    Capture and cache the pre-transaction value for a storage location.
     
-    Retrieves the storage value from before any transactions in the current
-    block modified it. The value is cached to avoid repeated lookups and
-    to maintain consistency across multiple accesses.
+    Retrieves the storage value from the beginning of the current transaction.
+    The value is cached within the transaction to avoid repeated lookups and
+    to maintain consistency across multiple accesses within the same transaction.
     
     Parameters
     ----------
@@ -111,7 +114,7 @@ def capture_pre_state(
     Returns
     -------
     value :
-        The original storage value before any block modifications.
+        The storage value at the beginning of the current transaction.
     """
     cache_key = (address, key)
     if cache_key not in tracker.pre_storage_cache:
