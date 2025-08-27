@@ -54,7 +54,6 @@ from .requests import (
 from .state import (
     State,
     TransientStorage,
-    account_exists_and_is_empty,
     destroy_account,
     get_account,
     increment_nonce,
@@ -832,8 +831,8 @@ def process_transaction(
     Execute a transaction against the provided environment.
 
     This function processes the actions needed to execute a transaction.
-    It decrements the sender's account after calculating the gas fee and
-    refunds them the proper amount after execution. Calling contracts,
+    It decrements the sender's account balance after calculating the gas fee
+    and refunds them the proper amount after execution. Calling contracts,
     deploying code, and incrementing nonces are all examples of actions that
     happen within this function or from a call made within this function.
 
@@ -958,14 +957,11 @@ def process_transaction(
     coinbase_balance_after_mining_fee = get_account(
         block_env.state, block_env.coinbase
     ).balance + U256(transaction_fee)
-    if coinbase_balance_after_mining_fee != 0:
-        set_account_balance(
-            block_env.state,
-            block_env.coinbase,
-            coinbase_balance_after_mining_fee,
-        )
-    elif account_exists_and_is_empty(block_env.state, block_env.coinbase):
-        destroy_account(block_env.state, block_env.coinbase)
+    set_account_balance(
+        block_env.state,
+        block_env.coinbase,
+        coinbase_balance_after_mining_fee,
+    )
 
     for address in tx_output.accounts_to_delete:
         destroy_account(block_env.state, address)
@@ -1009,9 +1005,6 @@ def process_withdrawals(
         )
 
         modify_state(block_env.state, wd.address, increase_recipient_balance)
-
-        if account_exists_and_is_empty(block_env.state, wd.address):
-            destroy_account(block_env.state, wd.address)
 
 
 def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:

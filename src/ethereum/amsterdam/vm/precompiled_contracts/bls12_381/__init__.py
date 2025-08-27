@@ -25,11 +25,11 @@ from py_ecc.optimized_bls12_381.optimized_curve import (
     curve_order,
     is_inf,
     is_on_curve,
+    normalize,
 )
 from py_ecc.optimized_bls12_381.optimized_curve import (
     multiply as bls12_multiply,
 )
-from py_ecc.optimized_bls12_381.optimized_curve import normalize
 from py_ecc.typing import Optimized_Point3D as Point3D
 
 from ....vm.memory import buffer_read
@@ -547,7 +547,7 @@ def bytes_to_g2(
     return _bytes_to_g2_cached(data, subgroup_check)
 
 
-def FQ2_to_bytes(fq2: FQ2) -> Bytes:
+def fq2_to_bytes(fq2: FQ2) -> Bytes:
     """
     Encode a FQ2 point to 128 bytes.
 
@@ -582,7 +582,7 @@ def g2_to_bytes(
         The encoded data.
     """
     x_coords, y_coords = normalize(g2_point)
-    return FQ2_to_bytes(x_coords) + FQ2_to_bytes(y_coords)
+    return fq2_to_bytes(x_coords) + fq2_to_bytes(y_coords)
 
 
 def decode_g2_scalar_pair(

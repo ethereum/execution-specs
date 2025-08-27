@@ -47,20 +47,31 @@ from .transactions import LegacyTransaction
 #
 #   keccak256(RLP(b''))
 #       ==
-#   56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421 # noqa: E501,SC10
+#   56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421 # noqa: E501
 #
 # also:
 #
 #   keccak256(RLP(()))
 #       ==
-#   1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347 # noqa: E501,SC10
+#   1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347 # noqa: E501
 #
 # which is the sha3Uncles hash in block header with no uncles
 EMPTY_TRIE_ROOT = Root(
-    hex_to_bytes("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
+    hex_to_bytes(
+        "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+    )
 )
 
-Node = Account | Bytes | LegacyTransaction | Receipt | Uint | U256 | Withdrawal | None
+Node = (
+    Account
+    | Bytes
+    | LegacyTransaction
+    | Receipt
+    | Uint
+    | U256
+    | Withdrawal
+    | None
+)
 K = TypeVar("K", bound=Bytes)
 V = TypeVar(
     "V",
@@ -412,7 +423,9 @@ def root(
         return Root(root_node)
 
 
-def patricialize(obj: Mapping[Bytes, Bytes], level: Uint) -> Optional[InternalNode]:
+def patricialize(
+    obj: Mapping[Bytes, Bytes], level: Uint
+) -> Optional[InternalNode]:
     """
     Structural composition function.
 
@@ -446,7 +459,9 @@ def patricialize(obj: Mapping[Bytes, Bytes], level: Uint) -> Optional[InternalNo
     substring = arbitrary_key[level:]
     prefix_length = len(substring)
     for key in obj:
-        prefix_length = min(prefix_length, common_prefix_length(substring, key[level:]))
+        prefix_length = min(
+            prefix_length, common_prefix_length(substring, key[level:])
+        )
 
         # finished searching, found another key at the current level
         if prefix_length == 0:
@@ -457,7 +472,9 @@ def patricialize(obj: Mapping[Bytes, Bytes], level: Uint) -> Optional[InternalNo
         prefix = arbitrary_key[int(level) : int(level) + prefix_length]
         return ExtensionNode(
             prefix,
-            encode_internal_node(patricialize(obj, level + Uint(prefix_length))),
+            encode_internal_node(
+                patricialize(obj, level + Uint(prefix_length))
+            ),
         )
 
     branches: List[MutableMapping[Bytes, Bytes]] = []

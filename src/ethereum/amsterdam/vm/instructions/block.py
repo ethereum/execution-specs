@@ -45,17 +45,20 @@ def block_hash(evm: Evm) -> None:
     # OPERATION
     max_block_number = block_number + Uint(256)
     current_block_number = evm.message.block_env.number
-    if current_block_number <= block_number or current_block_number > max_block_number:
+    if (
+        current_block_number <= block_number
+        or current_block_number > max_block_number
+    ):
         # Default hash to 0, if the block of interest is not yet on the chain
         # (including the block which has the current executing transaction),
         # or if the block's age is more than 256.
-        hash = b"\x00"
+        current_block_hash = b"\x00"
     else:
-        hash = evm.message.block_env.block_hashes[
+        current_block_hash = evm.message.block_env.block_hashes[
             -(current_block_number - block_number)
         ]
 
-    push(evm.stack, U256.from_be_bytes(hash))
+    push(evm.stack, U256.from_be_bytes(current_block_hash))
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
