@@ -513,9 +513,7 @@ source = { editable = "." }
 dependencies = [
     { name = "coincurve" },
     { name = "cryptography" },
-    { name = "ethereum-execution-spec-tests" },
     { name = "ethereum-rlp" },
-    { name = "ethereum-spec-evm-resolver" },
     { name = "ethereum-types" },
     { name = "py-ecc" },
     { name = "pycryptodome" },
@@ -526,6 +524,34 @@ dependencies = [
 doc = [
     { name = "docc" },
     { name = "fladrif" },
+]
+fill = [
+    { name = "ckzg" },
+    { name = "click" },
+    { name = "coincurve" },
+    { name = "colorlog" },
+    { name = "eth-abi" },
+    { name = "ethereum-hive" },
+    { name = "ethereum-rlp" },
+    { name = "ethereum-types" },
+    { name = "gitpython" },
+    { name = "joblib" },
+    { name = "pydantic" },
+    { name = "pyjwt" },
+    { name = "pytest-custom-report" },
+    { name = "pytest-html" },
+    { name = "pytest-json-report" },
+    { name = "pytest-metadata" },
+    { name = "pytest-regex" },
+    { name = "pyyaml" },
+    { name = "questionary" },
+    { name = "requests-unixsocket2" },
+    { name = "rich" },
+    { name = "semver" },
+    { name = "tenacity" },
+    { name = "trie" },
+    { name = "types-pyyaml" },
+    { name = "typing-extensions" },
 ]
 lint = [
     { name = "codespell" },
@@ -552,70 +578,57 @@ tools = [
 
 [package.metadata]
 requires-dist = [
+    { name = "ckzg", marker = "extra == 'fill'", specifier = ">=2.1.1" },
+    { name = "click", marker = "extra == 'fill'", specifier = ">=8.1.0,<9" },
     { name = "codespell", marker = "extra == 'lint'", specifier = "==2.4.1" },
     { name = "coincurve", specifier = ">=20,<21" },
+    { name = "coincurve", marker = "extra == 'fill'", specifier = ">=20.0.0,<21" },
+    { name = "colorlog", marker = "extra == 'fill'", specifier = ">=6.7.0,<7" },
     { name = "cryptography", specifier = ">=45.0.1,<46" },
     { name = "docc", marker = "extra == 'doc'", specifier = ">=0.3.0,<0.4.0" },
+    { name = "eth-abi", marker = "extra == 'fill'", specifier = ">=5.2.0" },
     { name = "ethash", marker = "extra == 'optimized'", specifier = ">=1.1.0,<2" },
-    { name = "ethereum-execution-spec-tests", git = "https://github.com/ethereum/execution-spec-tests?rev=5220d21ba64a9a4cbdc7e4025a7f1a032a957c78" },
+    { name = "ethereum-hive", marker = "extra == 'fill'", specifier = ">=0.1.0a1,<1.0.0" },
     { name = "ethereum-rlp", specifier = ">=0.1.4,<0.2" },
-    { name = "ethereum-spec-evm-resolver", git = "https://github.com/spencer-tb/ethereum-spec-evm-resolver?rev=aec6a628b8d0f1c791a8378c5417a089566135ac" },
+    { name = "ethereum-rlp", marker = "extra == 'fill'", specifier = ">=0.1.3,<0.2" },
     { name = "ethereum-types", specifier = ">=0.2.4,<0.3" },
+    { name = "ethereum-types", marker = "extra == 'fill'", specifier = ">=0.2.1,<0.3" },
     { name = "filelock", marker = "extra == 'test'", specifier = ">=3.15.1,<4" },
     { name = "fladrif", marker = "extra == 'doc'", specifier = ">=0.2.0,<0.3.0" },
+    { name = "gitpython", marker = "extra == 'fill'", specifier = ">=3.1.31,<4" },
     { name = "gitpython", marker = "extra == 'test'", specifier = ">=3.1.0,<3.2" },
+    { name = "joblib", marker = "extra == 'fill'", specifier = ">=1.4.2" },
     { name = "mypy", marker = "extra == 'lint'", specifier = "==1.17.0" },
     { name = "platformdirs", marker = "extra == 'tools'", specifier = ">=4.2,<5" },
     { name = "py-ecc", specifier = ">=8.0.0b2,<9" },
     { name = "pycryptodome", specifier = ">=3.22,<4" },
+    { name = "pydantic", marker = "extra == 'fill'", specifier = ">=2.11.0,<3" },
+    { name = "pyjwt", marker = "extra == 'fill'", specifier = ">=2.3.0,<3" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8,<9" },
     { name = "pytest-cov", marker = "extra == 'test'", specifier = ">=4.1.0,<5" },
+    { name = "pytest-custom-report", marker = "extra == 'fill'", specifier = ">=1.0.1,<2" },
+    { name = "pytest-html", marker = "extra == 'fill'", specifier = ">=4.1.0,<5" },
+    { name = "pytest-json-report", marker = "extra == 'fill'", specifier = ">=1.5.0,<2" },
+    { name = "pytest-metadata", marker = "extra == 'fill'", specifier = ">=3,<4" },
+    { name = "pytest-regex", marker = "extra == 'fill'", specifier = ">=0.2.0,<0.3" },
     { name = "pytest-xdist", marker = "extra == 'test'", specifier = ">=3.3.1,<4" },
+    { name = "pyyaml", marker = "extra == 'fill'", specifier = ">=6.0.2,<7" },
+    { name = "questionary", marker = "extra == 'fill'", specifier = ">=2.1.0,<3" },
     { name = "requests", marker = "extra == 'test'" },
     { name = "requests-cache", marker = "extra == 'test'", specifier = ">=1.2.1,<2" },
+    { name = "requests-unixsocket2", marker = "extra == 'fill'", specifier = ">=0.4.0" },
+    { name = "rich", marker = "extra == 'fill'", specifier = ">=13.7.0,<14" },
     { name = "ruff", marker = "extra == 'lint'", specifier = "==0.11.8" },
     { name = "rust-pyspec-glue", marker = "extra == 'optimized'", specifier = ">=0.0.9,<0.1.0" },
+    { name = "semver", marker = "extra == 'fill'", specifier = ">=3.0.1,<4" },
+    { name = "tenacity", marker = "extra == 'fill'", specifier = ">8.2.0,<9" },
+    { name = "trie", marker = "extra == 'fill'", specifier = ">=3.1.0,<4" },
+    { name = "types-pyyaml", marker = "extra == 'fill'", specifier = ">=6.0.12.20240917,<7" },
     { name = "typing-extensions", specifier = ">=4.4" },
+    { name = "typing-extensions", marker = "extra == 'fill'", specifier = ">=4.12.2,<5" },
     { name = "vulture", marker = "extra == 'lint'", specifier = "==2.14.0" },
 ]
-provides-extras = ["test", "lint", "tools", "doc", "optimized"]
-
-[[package]]
-name = "ethereum-execution-spec-tests"
-version = "1.0.0"
-source = { git = "https://github.com/ethereum/execution-spec-tests?rev=5220d21ba64a9a4cbdc7e4025a7f1a032a957c78#5220d21ba64a9a4cbdc7e4025a7f1a032a957c78" }
-dependencies = [
-    { name = "ckzg" },
-    { name = "click" },
-    { name = "coincurve" },
-    { name = "colorlog" },
-    { name = "eth-abi" },
-    { name = "ethereum-hive" },
-    { name = "ethereum-rlp" },
-    { name = "ethereum-spec-evm-resolver" },
-    { name = "ethereum-types" },
-    { name = "filelock" },
-    { name = "gitpython" },
-    { name = "joblib" },
-    { name = "pydantic" },
-    { name = "pyjwt" },
-    { name = "pytest" },
-    { name = "pytest-custom-report" },
-    { name = "pytest-html" },
-    { name = "pytest-json-report" },
-    { name = "pytest-metadata" },
-    { name = "pytest-regex" },
-    { name = "pytest-xdist" },
-    { name = "pyyaml" },
-    { name = "questionary" },
-    { name = "requests" },
-    { name = "requests-unixsocket2" },
-    { name = "rich" },
-    { name = "semver" },
-    { name = "trie" },
-    { name = "types-pyyaml" },
-    { name = "typing-extensions" },
-]
+provides-extras = ["test", "fill", "lint", "tools", "doc", "optimized"]
 
 [[package]]
 name = "ethereum-hive"
@@ -640,24 +653,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/fc/af/91de6fc397f4b4e201c64b5bf0a7838e2d990bc2aa1451a118b01ab99c8e/ethereum_rlp-0.1.4.tar.gz", hash = "sha256:979f2161cfde39ecf6aecca765735124ca4cf57d2a43a74f353fa08f0d52557e", size = 13618, upload-time = "2025-06-24T17:16:29.576Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3c/67/cef084060dfb2ec912a245fca5c7e282a282bd0d7cb741eaeabc4764500d/ethereum_rlp-0.1.4-py3-none-any.whl", hash = "sha256:a1612e382081bf08d7b0a6b08a89f8718dba3ca19536eec893795afa214f4f41", size = 9868, upload-time = "2025-06-24T17:16:28.18Z" },
-]
-
-[[package]]
-name = "ethereum-spec-evm-resolver"
-version = "0.0.5"
-source = { git = "https://github.com/spencer-tb/ethereum-spec-evm-resolver?rev=aec6a628b8d0f1c791a8378c5417a089566135ac#aec6a628b8d0f1c791a8378c5417a089566135ac" }
-dependencies = [
-    { name = "coincurve" },
-    { name = "cryptography" },
-    { name = "filelock" },
-    { name = "gitpython" },
-    { name = "platformdirs" },
-    { name = "py-ecc" },
-    { name = "pycryptodome" },
-    { name = "pydantic" },
-    { name = "requests-unixsocket2" },
-    { name = "typing-extensions" },
-    { name = "urllib3" },
 ]
 
 [[package]]
@@ -1541,6 +1536,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e8/c4/ba2f8066cceb6f23394729afe52f3bf7adec04bf9ed2c820b39e19299111/sortedcontainers-2.4.0.tar.gz", hash = "sha256:25caa5a06cc30b6b83d11423433f65d1f9d76c4c6a0c90e3379eaa43b9bfdb88", size = 30594, upload-time = "2021-05-16T22:03:42.897Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/32/46/9cb0e58b2deb7f82b84065f37f3bffeb12413f947f9388e4cac22c4621ce/sortedcontainers-2.4.0-py2.py3-none-any.whl", hash = "sha256:a163dcaede0f1c021485e957a39245190e74249897e2ae4b2aa38595db237ee0", size = 29575, upload-time = "2021-05-16T22:03:41.177Z" },
+]
+
+[[package]]
+name = "tenacity"
+version = "8.5.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a3/4d/6a19536c50b849338fcbe9290d562b52cbdcf30d8963d3588a68a4107df1/tenacity-8.5.0.tar.gz", hash = "sha256:8bc6c0c8a09b31e6cad13c47afbed1a567518250a9a171418582ed8d9c20ca78", size = 47309, upload-time = "2024-07-05T07:25:31.836Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d2/3f/8ba87d9e287b9d385a02a7114ddcef61b26f86411e121c9003eb509a1773/tenacity-8.5.0-py3-none-any.whl", hash = "sha256:b594c2a5945830c267ce6b79a166228323ed52718f30302c1359836112346687", size = 28165, upload-time = "2024-07-05T07:25:29.591Z" },
 ]
 
 [[package]]

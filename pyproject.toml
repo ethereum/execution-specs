@@ -517,6 +517,3 @@ check-hidden = false            # Don't check hidden files (starting with .)
 
 [tool.uv]
 required-version = ">=0.7.0"
-
-[tool.uv.sources]
-"ethereum-spec-evm-resolver" = { git = "https://github.com/spencer-tb/ethereum-spec-evm-resolver", rev = "aec6a628b8d0f1c791a8378c5417a089566135ac" }
