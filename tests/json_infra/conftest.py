@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Final, Optional, Set
 
 import git
+import portalocker
 import pytest
 import requests_cache
 from _pytest.config import Config
@@ -215,27 +216,8 @@ class _FixturesDownloader:
 fixture_lock = StashKey[Optional[FileLock]]()
 
 
-def pytest_sessionstart(session: Session) -> None:  # noqa: U100
-    # used for mutmut mutation testing
-    all_fixtures_ready = all(
-        os.path.exists(props["fixture_path"])
-        for props in TEST_FIXTURES.values()
-    )
-    if os.environ.get("MUTANT_UNDER_TEST") and all_fixtures_ready:
-        return
-
-    if get_xdist_worker_id(session) != "master":
-        return
-
-    lock_path = session.config.rootpath.joinpath("tests/fixtures/.lock")
-    stash = session.stash
-    lock_file = FileLock(str(lock_path), timeout=0)
-    lock_file.acquire()
-
-    assert fixture_lock not in stash
-    stash[fixture_lock] = lock_file
-
-    with _FixturesDownloader(session.config.rootpath) as downloader:
+def download_fixtures(root: Path) -> None:
+    with _FixturesDownloader(root) as downloader:
         for _, props in TEST_FIXTURES.items():
             fixture_path = props["fixture_path"]
 
@@ -250,6 +232,43 @@ def pytest_sessionstart(session: Session) -> None:  # noqa: U100
                     props["url"],
                     fixture_path,
                 )
+
+
+def pytest_sessionstart(session: Session) -> None:  # noqa: U100
+    lock_path = session.config.rootpath.joinpath("tests/fixtures/.lock")
+
+    # use portalocker for mutmut runs
+    if os.environ.get("MUTANT_UNDER_TEST"):
+        while True:
+            with portalocker.Lock(lock_path, flags=portalocker.LOCK_SH):
+                all_fixtures_ready = all(
+                    os.path.exists(props["fixture_path"])
+                    for props in TEST_FIXTURES.values()
+                )
+                if all_fixtures_ready:
+                    return
+
+            with portalocker.Lock(lock_path, flags=portalocker.LOCK_EX):
+                all_fixtures_ready = all(
+                    os.path.exists(props["fixture_path"])
+                    for props in TEST_FIXTURES.values()
+                )
+                if all_fixtures_ready:
+                    continue
+
+                download_fixtures(session.config.rootpath)
+
+    if get_xdist_worker_id(session) != "master":
+        return
+
+    stash = session.stash
+    lock_file = FileLock(str(lock_path), timeout=0)
+    lock_file.acquire()
+
+    assert fixture_lock not in stash
+    stash[fixture_lock] = lock_file
+
+    download_fixtures(session.config.rootpath)
 
 
 def pytest_sessionfinish(
