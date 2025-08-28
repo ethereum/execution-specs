@@ -59,7 +59,7 @@ TEST_DIR = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/VMTests/vmIOandFlo
         ("JDfromStorageDynamicJump1.json", True),
         ("JDfromStorageDynamicJumpInsidePushWithJumpDest.json", True),
         ("JDfromStorageDynamicJumpInsidePushWithoutJumpDest.json", True),
-        ("DyanmicJump0_outOfBoundary.json", True),
+        ("DynamicJump0_outOfBoundary.json", True),
         ("DynamicJump0_AfterJumpdest.json", True),
         ("DynamicJump0_AfterJumpdest3.json", True),
         ("DynamicJump0_withoutJumpdest.json", True),

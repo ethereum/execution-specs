@@ -19,7 +19,7 @@ TEST_FIXTURES: Dict[str, _FixtureSource] = {
     },
     "ethereum_tests": {
         "url": "https://github.com/ethereum/tests.git",
-        "commit_hash": "3129f16519013b265fa309208f49406b2ef57b13",
+        "commit_hash": "c67e485ff8b5be9abc8ad15345ec21aa22e290d9",
         "fixture_path": "tests/json_infra/fixtures/ethereum_tests",
     },
     "latest_fork_tests": {
@@ -27,7 +27,7 @@ TEST_FIXTURES: Dict[str, _FixtureSource] = {
         "fixture_path": "tests/json_infra/fixtures/latest_fork_tests",
     },
     "osaka_tests": {
-        "url": "https://github.com/ethereum/execution-spec-tests/releases/download/fusaka-devnet-3%40v1.0.0/fixtures_fusaka-devnet-3.tar.gz",
+        "url": "https://github.com/ethereum/execution-spec-tests/releases/download/fusaka-devnet-5%40v1.1.0/fixtures_fusaka-devnet-5.tar.gz",
         "fixture_path": "tests/json_infra/fixtures/osaka_tests",
     },
 }
