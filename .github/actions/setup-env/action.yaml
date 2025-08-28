@@ -4,10 +4,10 @@ runs:
   using: "composite"
   steps:
     - name: Install Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: "1.69.0"
-        override: true
+      shell: bash
+      run: |
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential rustup
+        rustup update --no-self-update 1.89.0 && rustup default 1.89.0
 
     - name: Install Tox and any other packages
       shell: bash
@@ -20,4 +20,4 @@ runs:
       run: |
         mkdir -p $GITHUB_WORKSPACE/bin
         $GITHUB_WORKSPACE/scripts/download_geth_linux.py --dir $GITHUB_WORKSPACE/bin
-        echo $GITHUB_WORKSPACE/bin >> $GITHUB_PATH 
+        echo $GITHUB_WORKSPACE/bin >> $GITHUB_PATH
