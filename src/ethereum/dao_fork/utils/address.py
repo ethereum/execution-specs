@@ -27,7 +27,7 @@ def to_address_masked(data: Uint | U256) -> Address:
     Parameters
     ----------
     data :
-        The string to be converted to bytes.
+        The numeric value to be converted to address.
 
     Returns
     -------
