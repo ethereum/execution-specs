@@ -26,8 +26,14 @@ TEST_FIXTURES: Dict[str, _FixtureSource] = {
         "url": "https://github.com/ethereum/execution-spec-tests/releases/download/v4.5.0/fixtures_stable.tar.gz",
         "fixture_path": "tests/fixtures/latest_fork_tests",
     },
+    "osaka_tests": {
+        "url": "https://github.com/ethereum/execution-spec-tests/releases/download/fusaka-devnet-3%40v1.0.0/fixtures_fusaka-devnet-3.tar.gz",
+        "fixture_path": "tests/fixtures/osaka_tests",
+    },
 }
 
 
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
 EEST_TESTS_PATH = TEST_FIXTURES["latest_fork_tests"]["fixture_path"]
+
+OSAKA_TEST_PATH = TEST_FIXTURES["osaka_tests"]["fixture_path"]

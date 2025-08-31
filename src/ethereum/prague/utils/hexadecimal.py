@@ -16,7 +16,7 @@ from ethereum_types.bytes import Bytes
 
 from ethereum.utils.hexadecimal import remove_hex_prefix
 
-from ..fork_types import Address, Bloom, Root
+from ..fork_types import Address, Root
 
 
 def hex_to_root(hex_string: str) -> Root:
@@ -34,23 +34,6 @@ def hex_to_root(hex_string: str) -> Root:
         Trie root obtained from the given hexadecimal string.
     """
     return Root(Bytes.fromhex(remove_hex_prefix(hex_string)))
-
-
-def hex_to_bloom(hex_string: str) -> Bloom:
-    """
-    Convert hex string to bloom.
-
-    Parameters
-    ----------
-    hex_string :
-        The hexadecimal string to be converted to bloom.
-
-    Returns
-    -------
-    bloom : `Bloom`
-        Bloom obtained from the given hexadecimal string.
-    """
-    return Bloom(Bytes.fromhex(remove_hex_prefix(hex_string)))
 
 
 def hex_to_address(hex_string: str) -> Address:

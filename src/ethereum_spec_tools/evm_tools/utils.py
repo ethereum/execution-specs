@@ -81,17 +81,6 @@ class FatalException(Exception):
     pass
 
 
-def ensure_success(f: Callable, *args: Any) -> Any:
-    """
-    Ensure that the function call succeeds.
-    Raise a FatalException if it fails.
-    """
-    try:
-        return f(*args)
-    except Exception as e:
-        raise FatalException(e)
-
-
 def get_module_name(
     forks: Sequence[Hardfork], options: Any, stdin: Any
 ) -> Tuple[str, int]:

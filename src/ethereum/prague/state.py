@@ -246,7 +246,8 @@ def mark_account_created(state: State, address: Address) -> None:
     """
     Mark an account as having been created in the current transaction.
     This information is used by `get_storage_original()` to handle an obscure
-    edgecase.
+    edgecase, and to respect the constraints added to SELFDESTRUCT by
+    EIP-6780.
 
     The marker is not removed even if the account creation reverts. Since the
     account cannot have had code prior to its creation and can't call
@@ -422,31 +423,6 @@ def account_has_storage(state: State, address: Address) -> bool:
         True if the account has storage, False otherwise.
     """
     return address in state._storage_tries
-
-
-def is_account_empty(state: State, address: Address) -> bool:
-    """
-    Checks if an account has zero nonce, empty code and zero balance.
-
-    Parameters
-    ----------
-    state:
-        The state
-    address:
-        Address of the account that needs to be checked.
-
-    Returns
-    -------
-    is_empty : `bool`
-        True if an account has zero nonce, empty code and zero balance,
-        False otherwise.
-    """
-    account = get_account(state, address)
-    return (
-        account.nonce == Uint(0)
-        and account.code == b""
-        and account.balance == 0
-    )
 
 
 def account_exists_and_is_empty(state: State, address: Address) -> bool:

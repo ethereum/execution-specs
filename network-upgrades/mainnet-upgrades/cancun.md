@@ -11,7 +11,7 @@ Execution layer changes included in the Network Upgrade.
 * [EIP-7516: BLOBBASEFEE opcode](https://eips.ethereum.org/EIPS/eip-7516)
 
 
-### Implementation Progresss
+### Implementation Progress
 
 Implementation status of Included EIPs across participating clients.
 

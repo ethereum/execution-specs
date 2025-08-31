@@ -6,7 +6,7 @@ from hashlib import sha256
 from typing import Tuple
 
 from eth_typing.bls import BLSPubkey, BLSSignature
-from ethereum_types.bytes import Bytes32, Bytes48, Bytes96
+from ethereum_types.bytes import Bytes32, Bytes48
 from ethereum_types.numeric import U256
 from py_ecc.bls import G2ProofOfPossession
 from py_ecc.bls.g2_primitives import pubkey_to_G1, signature_to_G2
@@ -53,12 +53,6 @@ class VersionedHash(Bytes32):
     pass
 
 
-class G2Point(Bytes96):
-    """A point in G2."""
-
-    pass
-
-
 VERSIONED_HASH_VERSION_KZG = hex_to_bytes("0x01")
 BYTES_PER_COMMITMENT = 48
 BYTES_PER_PROOF = 48
@@ -67,7 +61,6 @@ G1_POINT_AT_INFINITY = b"\xc0" + b"\x00" * 47
 BLS_MODULUS = BLSFieldElement(
     52435875175126190479447740508185965837690552500527637822603658699938581184513  # noqa: E501
 )
-KZG_SETUP_G2_LENGTH = 65
 KZG_SETUP_G2_MONOMIAL_1 = "0xb5bfd7dd8cdeb128843bc287230af38926187075cbfbefa81009a2ce615ac53d2914e5870cb452d2afaaab24f3499f72185cbfee53492714734429b7b38608e23926c911cceceac9a36851477ba4c60b087041de621000edc98edada20c1def2"  # noqa: E501
 
 

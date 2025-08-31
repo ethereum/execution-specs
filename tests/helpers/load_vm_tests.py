@@ -199,8 +199,6 @@ class VmTestLoader:
                     U256.from_be_bytes(hex_to_bytes32(v)),
                 )
 
-            self.set_account(state, addr, account)
-
         return state
 
     def json_to_addrs(self, raw: Any) -> List[Any]:
