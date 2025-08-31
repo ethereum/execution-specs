@@ -425,33 +425,6 @@ def account_has_storage(state: State, address: Address) -> bool:
     return address in state._storage_tries
 
 
-def account_exists_and_is_empty(state: State, address: Address) -> bool:
-    """
-    Checks if an account exists and has zero nonce, empty code and zero
-    balance.
-
-    Parameters
-    ----------
-    state:
-        The state
-    address:
-        Address of the account that needs to be checked.
-
-    Returns
-    -------
-    exists_and_is_empty : `bool`
-        True if an account exists and has zero nonce, empty code and zero
-        balance, False otherwise.
-    """
-    account = get_account_optional(state, address)
-    return (
-        account is not None
-        and account.nonce == Uint(0)
-        and account.code == b""
-        and account.balance == 0
-    )
-
-
 def is_account_alive(state: State, address: Address) -> bool:
     """
     Check whether is an account is both in the state and non empty.
@@ -476,10 +449,20 @@ def modify_state(
     state: State, address: Address, f: Callable[[Account], None]
 ) -> None:
     """
-    Modify an `Account` in the `State`.
+    Modify an `Account` in the `State`. If, after modification, the account
+    exists and has zero nonce, empty code, and zero balance, it is destroyed.
     """
     set_account(state, address, modify(get_account(state, address), f))
-    if account_exists_and_is_empty(state, address):
+
+    account = get_account_optional(state, address)
+    account_exists_and_is_empty = (
+        account is not None
+        and account.nonce == Uint(0)
+        and account.code == b""
+        and account.balance == 0
+    )
+
+    if account_exists_and_is_empty:
         destroy_account(state, address)
 
 
