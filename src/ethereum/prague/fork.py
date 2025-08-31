@@ -53,7 +53,6 @@ from .requests import (
 from .state import (
     State,
     TransientStorage,
-    account_exists_and_is_empty,
     destroy_account,
     get_account,
     increment_nonce,
