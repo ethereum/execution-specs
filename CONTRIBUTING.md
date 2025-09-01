@@ -41,50 +41,110 @@ This saves you having to apply code review feedback repeatedly for each fork.
 
 Running the tests necessary to merge into the repository requires:
 
- * Python 3.11.x, and
- * [PyPy](https://www.pypy.org/) [7.3.19](https://downloads.python.org/pypy/) or later.
+ * Python 3.11.x,
+ * [PyPy](https://www.pypy.org/) [7.3.19](https://downloads.python.org/pypy/) or later
+ * [`uv`](https://docs.astral.sh/uv/) package manager
  * `geth` installed and present in `$PATH`
 
 
+`uv` can be installed via curl (recommended; can self-update):
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+or pip (requires Python, can't self-update):
+
+```bash
+pip install uv
+```
+
 `execution-specs` depends on a submodule that contains common tests that are run across all clients, so we need to clone the repo with the --recursive flag. Example:
 ```bash
-$ git clone --recursive https://github.com/ethereum/execution-specs.git
+git clone --recursive https://github.com/ethereum/execution-specs.git
+cd execution-specs
 ```
 
 Or, if you've already cloned the repository, you can fetch the submodules with:
 
 ```bash
-$ git submodule update --init --recursive
+git submodule update --init --recursive
+```
+
+Set up your development environment:
+
+```bash
+uv python install 3.11
+uv python pin 3.11
+uv sync --all-extras
 ```
 
 The tests can be run with:
 ```bash
-$ tox
+uvx --with=tox-uv tox
 ```
 
-The development tools can also be run outside of `tox`, and can automatically reformat the code:
+The development tools can also be run directly with `uv`, which handles the virtual environment automatically:
 
 ```bash
-$ pip install -e ".[doc,lint,test,fill]" # Installs ethereum, and development tools.
-$ isort src                         # Organizes imports.
-$ black src                         # Formats code.
-$ flake8                            # Reports style/spelling/documentation errors.
-$ mypy src                          # Verifies type annotations.
-$ pytest -n 4                       # Runs tests parallelly.
-$ pytest -m "not slow"              # Runs tests which execute quickly.
+uv run ruff check src --fix          # Check and fix linting issues, format code, organize imports
+uv run ruff format src               # Format code (similar to black)
+uv run codespell -I whitelist.txt src # Check spelling
+uv run mypy src --namespace-packages # Verify type annotations
+uv run pytest -n 4                  # Run tests in parallel
+uv run pytest -m "not slow"         # Run tests which execute quickly
 ```
 
-It is recommended to use a [virtual environment](https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment) to keep your system Python installation clean.
 
+The repository includes several tox environments for different testing scenarios:
+
+- `static` - Linting, type checking, spell checking, and documentation build.
+- `json_infra` - Tests for the JSON infrastructure.
+- `py3` - Run execution spec tests using CPython.
+- `pypy3` - Run execution spec tests using PyPy.
+
+You can run specific tox environments individually, e,g:
+
+```bash
+uvx --with=tox-uv tox -e static        # Run linting and type checking.
+```
+
+Or run all environments in parallel:
+
+```bash
+uvx --with=tox-uv tox run-parallel
+```
+
+The specification tests can also be ran directly:
+
+```bash
+uv run ethereum-spec-fill tests/eest --clean --until Osaka
+```
 
 A trace of the EVM execution for any test case can be obtained by providing the `--evm-trace` argument to pytest.
 Note: Make sure to run the EVM trace on a small number of tests at a time. The log might otherwise get very big.
 Below is an example.
 
 ```bash
-pytest tests/frontier/test_state_transition.py -k 'test_general_state_tests_new' --evm-trace
+uv run pytest tests/frontier/test_state_transition.py -k 'test_general_state_tests_new' --evm-trace
 ```
 
+## Code Standards
+
+The codebase follows specific formatting and linting standards enforced by `ruff`, which replaces `black`, `isort`, and `flake8`:
+
+- **Line Length**: 79 characters maximum.
+- **Formatting**: Enforced by `ruff format` (similar to `black`).
+- **Import Sorting**: Handled by `ruff check` (similar to `isort`).
+- **Linting**: Code quality checks via `ruff check`.
+- **Type Checking**: Enforced by `mypy` for type annotations.
+- **Spell Checking**: Documentation and comments checked by `codespell`
+
+All these standards are automatically checked in CI via the `static` tox environment. You can run the checks locally:
+
+```bash
+uvx --with=tox-uv tox -e static
+```
 
 ## CLI Utilities `ethereum_spec_tools`
 
@@ -103,7 +163,7 @@ The command takes 4 arguments, 2 of which are optional
 As an example, if one wants to create baseline code for the `Spurious Dragon` fork from the `Tangerine Whistle` one
 
 ```bash
-ethereum-spec-new-fork --from_fork="Tangerine Whistle" --to_fork="Spurious Dragon" --from_test=EIP150 --to_test=EIP158
+uv run ethereum-spec-new-fork --from_fork="Tangerine Whistle" --to_fork="Spurious Dragon" --from_test=EIP150 --to_test=EIP158
 ```
 
 The following will have to however, be updated manually
@@ -122,7 +182,7 @@ very slow, one can also leverage the optimized module. This contains alternative
 in EELS that have been optimized for speed rather than clarity/readability.
 
 
-The tool can be called using the `ethereum-spec-sync` command which takes the following arguments
+The tool can be called using the `uv run ethereum-spec-sync` command which takes the following arguments
  * rpc-url: Endpoint providing the Ethereum RPC API. Defaults to `http://localhost:8545/`
  * unoptimized: Don't use the optimized state/ethash (this can be extremely slow)
  * persist: Store the state in a db in this file
@@ -151,7 +211,7 @@ The tool takes the following command line arguments
 As an example, if one wants to apply changes made in `Frontier` fork to `Homestead` and `Tangerine Whistle`
 
 ```bash
-python src/ethereum_spec_tools/patch_tool.py frontier homestead tangerine_whistle
+uv run ethereum-spec-patch frontier homestead tangerine_whistle
 ```
 
 ### Lint Tool
@@ -163,4 +223,4 @@ The tool currently performs the following checks
 - The order of the identifiers between each hardfork is consistent.
 - Import statements follow the relevant import rules in modules.
 
-The command to run the tool is `ethereum-spec-lint`
+The command to run the tool is `uv run ethereum-spec-lint`
