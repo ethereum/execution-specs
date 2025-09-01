@@ -15,7 +15,7 @@ recommend using the [latest version](https://github.com/ethereum/execution-specs
 
 ## Reporting Issues
 
-### What Contitutes a Serious Issue
+### What Constitutes a Serious Issue
 
 - Issues which affect any production EL client (geth, Nethermind, Besu, etc.)
 - EELS has inadvertently leaked secure information into the codebase
