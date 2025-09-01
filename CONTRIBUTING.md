@@ -59,21 +59,11 @@ or pip (requires Python, can't self-update):
 pip install uv
 ```
 
-`execution-specs` depends on a submodule that contains common tests that are run across all clients, so we need to clone the repo with the --recursive flag. Example:
+Clone the repository and set up your development environment:
+
 ```bash
-git clone --recursive https://github.com/ethereum/execution-specs.git
+git clone https://github.com/ethereum/execution-specs.git
 cd execution-specs
-```
-
-Or, if you've already cloned the repository, you can fetch the submodules with:
-
-```bash
-git submodule update --init --recursive
-```
-
-Set up your development environment:
-
-```bash
 uv python install 3.11
 uv python pin 3.11
 uv sync --all-extras
