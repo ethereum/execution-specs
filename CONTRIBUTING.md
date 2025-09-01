@@ -136,6 +136,23 @@ All these standards are automatically checked in CI via the `static` tox environ
 uvx --with=tox-uv tox -e static
 ```
 
+## Integration with execution-spec-tests
+
+**Note: This integration is a work in progress (WIP).**
+
+The execution-specs repository has integrated code from the [ethereum/execution-spec-tests](https://github.com/ethereum/execution-spec-tests) repository using git subtrees. This integration includes:
+
+- **`src/ethereum_spec_tests/`** - The test framework, CLI tools, and utilities from execution-spec-tests,
+- **`tests/eest/`** - The actual EVM test cases from execution-spec-tests.
+
+### Important: Read-Only Subtree Directories
+
+The subtree directories (`src/ethereum_spec_tests/` and `tests/eest/`) should be treated as **read-only** in this repository. Any changes to code in these directories should be made via pull requests to the upstream [ethereum/execution-spec-tests](https://github.com/ethereum/execution-spec-tests) repository, not directly in execution-specs.
+
+If you need to modify test framework code or test cases, please:
+1. Fork and submit PRs to [ethereum/execution-spec-tests](https://github.com/ethereum/execution-spec-tests).
+2. Once merged upstream, the subtrees in execution-specs will be updated accordingly.
+
 ## CLI Utilities `ethereum_spec_tools`
 
 The EELS repository has various CLI utilities that can help in the development process.
