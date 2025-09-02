@@ -4,13 +4,11 @@ Help is always welcome and there are plenty of options to contribute to the Ethe
 
 In particular, we appreciate support in the following areas:
 
-- Reporting issues
+- Reporting issues.
 - Fixing and responding to [issues](https://github.com/ethereum/execution-specs/issues), especially those tagged as [E-easy](https://github.com/ethereum/execution-specs/labels/E-easy) which are meant as introductory issues for external contributors.
 - Improving the documentation.
 
-
 For details about EELS usage and building, please refer the [README](https://github.com/ethereum/execution-specs/blob/master/README.md#usage)
-
 
 ## Contribution Guidelines
 
@@ -24,7 +22,7 @@ This specification aims to be:
 
 - Attempt to use descriptive English words (or _very common_ abbreviations) in documentation and identifiers.
 - Avoid using EIP numbers in identifiers.
-- If necessary, there is a custom dictionary `whitelist.txt`. 
+- If necessary, there is a custom dictionary `whitelist.txt`.
 
 ### Changes across various Forks
 
@@ -36,16 +34,15 @@ When creating pull requests affecting multiple forks, we recommended submitting 
 2. Apply the changes across the other forks, push them, and mark the pull request as ready for review.
 
 This saves you having to apply code review feedback repeatedly for each fork.
- 
+
 ### Development
 
 Running the tests necessary to merge into the repository requires:
 
- * Python 3.11.x,
- * [PyPy](https://www.pypy.org/) [7.3.19](https://downloads.python.org/pypy/) or later
- * [`uv`](https://docs.astral.sh/uv/) package manager
- * `geth` installed and present in `$PATH`
-
+- Python 3.11.x,
+- [PyPy](https://www.pypy.org/) [7.3.19](https://downloads.python.org/pypy/) or later
+- [`uv`](https://docs.astral.sh/uv/) package manager
+- `geth` installed and present in `$PATH`
 
 `uv` can be installed via curl (recommended; can self-update):
 
@@ -69,49 +66,52 @@ uv python pin 3.11
 uv sync --all-extras
 ```
 
-The tests can be run with:
+All tests, as executed in CI, can be run with (very slow):
+
 ```bash
 uvx --with=tox-uv tox
 ```
 
-The development tools can also be run directly with `uv`, which handles the virtual environment automatically:
-
-```bash
-uv run ruff check src --fix          # Check and fix linting issues, format code, organize imports
-uv run ruff format src               # Format code (similar to black)
-uv run codespell -I whitelist.txt src # Check spelling
-uv run mypy src --namespace-packages # Verify type annotations
-uv run pytest -n 4                  # Run tests in parallel
-uv run pytest -m "not slow"         # Run tests which execute quickly
-```
-
-
 The repository includes several tox environments for different testing scenarios:
 
 - `static` - Linting, type checking, spell checking, and documentation build.
-- `json_infra` - Tests for the JSON infrastructure.
-- `py3` - Run execution spec tests using CPython.
-- `pypy3` - Run execution spec tests using PyPy.
+- `json_infra` - Run specific execution spec test releases.
+- `py3` - Run the local version of execution spec tests using CPython.
+- `pypy3` - Run the local version of execution spec tests using PyPy.
 
-You can run specific tox environments individually, e,g:
-
-```bash
-uvx --with=tox-uv tox -e static        # Run linting and type checking.
-```
-
-Or run all environments in parallel:
+It is recommended to run the `static` checks locally before pushing changes to a pull request:
 
 ```bash
-uvx --with=tox-uv tox run-parallel
+tox -e static        # Run linting and type checking.
 ```
 
-The specification tests can also be ran directly:
+All environments in parallel (very slow, even in parallel):
 
 ```bash
-uv run ethereum-spec-fill tests/eest --clean --until Osaka
+tox run-parallel
 ```
 
-A trace of the EVM execution for any test case can be obtained by providing the `--evm-trace` argument to pytest.
+#### Development Tools
+
+The development tools can also be run directly with `uv`, which handles the virtual environment automatically:
+
+```bash
+uv run codespell -I whitelist.txt {tox_root}/src --skip '{tox_root}/src/ethereum_spec_tests'  # Spellcheck source
+uv run ruff check src --exclude src/ethereum_spec_tests  # Linting
+uv run mypy src --exclude "src/ethereum_spec_tests/*" --namespace-packages  # Static type checking
+```
+
+#### EEST / Spec-Tests
+
+A subset of the spec-tests (specified via a substring match to `-k`) can be run directly via:
+
+```bash
+uv run ethereum-spec-fill tests/eest --clean --fork Osaka -k eip7939
+```
+
+#### Spec Unit Tests
+
+A trace of the EVM execution for any unit test case can be obtained by providing the `--evm-trace` argument to pytest.
 Note: Make sure to run the EVM trace on a small number of tests at a time. The log might otherwise get very big.
 Below is an example.
 
@@ -121,20 +121,16 @@ uv run pytest tests/frontier/test_state_transition.py -k 'test_general_state_tes
 
 ## Code Standards
 
-The codebase follows specific formatting and linting standards enforced by `ruff`, which replaces `black`, `isort`, and `flake8`:
+The codebase follows specific formatting and linting standards enforced by `ruff` (which combines similar functionality to that of `black`, `isort`, and `flake8`):
 
 - **Line Length**: 79 characters maximum.
 - **Formatting**: Enforced by `ruff format` (similar to `black`).
 - **Import Sorting**: Handled by `ruff check` (similar to `isort`).
 - **Linting**: Code quality checks via `ruff check`.
 - **Type Checking**: Enforced by `mypy` for type annotations.
-- **Spell Checking**: Documentation and comments checked by `codespell`
+- **Spell Checking**: Documentation and comments checked by `codespell`.
 
-All these standards are automatically checked in CI via the `static` tox environment. You can run the checks locally:
-
-```bash
-uvx --with=tox-uv tox -e static
-```
+All these standards are automatically checked in CI via the `static` tox environment (see above).
 
 ## Integration with execution-spec-tests
 
@@ -150,6 +146,7 @@ The execution-specs repository has integrated code from the [ethereum/execution-
 The subtree directories (`src/ethereum_spec_tests/` and `tests/eest/`) should be treated as **read-only** in this repository. Any changes to code in these directories should be made via pull requests to the upstream [ethereum/execution-spec-tests](https://github.com/ethereum/execution-spec-tests) repository, not directly in execution-specs.
 
 If you need to modify test framework code or test cases, please:
+
 1. Fork and submit PRs to [ethereum/execution-spec-tests](https://github.com/ethereum/execution-spec-tests).
 2. Once merged upstream, the subtrees in execution-specs will be updated accordingly.
 
@@ -158,14 +155,15 @@ If you need to modify test framework code or test cases, please:
 The EELS repository has various CLI utilities that can help in the development process.
 
 ### New Fork Tool
------------------
+
 This tool can be used to create the base code for a new fork by using the existing code from a given fork.
 
 The command takes 4 arguments, 2 of which are optional
- * from_fork: The fork name from which the code is to be duplicated. Eg. - "Tangerine Whistle"
- * to_fork: The fork name of the new fork Eg - "Spurious Dragon"
- * from_test (Optional): Name of the from fork within the test fixtures in case it is different from fork name. Eg. - "EIP150"
- * to_test (Optional): Name of the to fork within the test fixtures in case it is different from fork name Eg - "EIP158"
+
+- from_fork: The fork name from which the code is to be duplicated. Eg. - "Tangerine Whistle"
+- to_fork: The fork name of the new fork Eg - "Spurious Dragon"
+- from_test (Optional): Name of the from fork within the test fixtures in case it is different from fork name. Eg. - "EIP150"
+- to_test (Optional): Name of the to fork within the test fixtures in case it is different from fork name Eg - "EIP158"
 
 As an example, if one wants to create baseline code for the `Spurious Dragon` fork from the `Tangerine Whistle` one
 
@@ -174,46 +172,45 @@ uv run ethereum-spec-new-fork --from_fork="Tangerine Whistle" --to_fork="Spuriou
 ```
 
 The following will have to however, be updated manually
+
  1. The fork number and `MAINNET_FORK_BLOCK` in `__init__.py`. If you are proposing a new EIP, please set `MAINNET_FORK_BLOCK` to `None`.
  2. Any absolute package imports from other forks eg. in `trie.py`
  3. Package names under `setup.cfg`
  4. Add the new fork to the `monkey_patch()` function in `src/ethereum_optimized/__init__.py`
  5. Adjust the underline in `fork/__init__.py`
 
-
 ### Sync Tool
--------------
+
 The sync tool allows one to use an RPC provider to fetch and validate blocks against EELS.
 The state can also be stored in a local DB after validation. Since syncing directly with the specs can be
 very slow, one can also leverage the optimized module. This contains alternative implementations of routines
 in EELS that have been optimized for speed rather than clarity/readability.
 
-
 The tool can be called using the `uv run ethereum-spec-sync` command which takes the following arguments
- * rpc-url: Endpoint providing the Ethereum RPC API. Defaults to `http://localhost:8545/`
- * unoptimized: Don't use the optimized state/ethash (this can be extremely slow)
- * persist: Store the state in a db in this file
- * geth: Use geth specific RPC endpoints while fetching blocks
- * reset: Delete the db and start from scratch
- * gas-per-commit: Commit to db each time this much gas is consumed. Defaults to 1_000_000_000
- * initial-state: Start from the state in this db, rather than genesis
- * stop-at: After syncing this block, exit successfully
+
+- rpc-url: Endpoint providing the Ethereum RPC API. Defaults to `http://localhost:8545/`
+- unoptimized: Don't use the optimized state/ethash (this can be extremely slow)
+- persist: Store the state in a db in this file
+- geth: Use geth specific RPC endpoints while fetching blocks
+- reset: Delete the db and start from scratch
+- gas-per-commit: Commit to db each time this much gas is consumed. Defaults to 1_000_000_000
+- initial-state: Start from the state in this db, rather than genesis
+- stop-at: After syncing this block, exit successfully
 
 - The following options are not supported WITH `--unoptimized` -> `--persist`, `--initial-state`, `--reset`
 - The following options are not supported WITHOUT `--persist` -> `--initial_state`, `--reset`
 
-
 ### Patch Tool
---------------
+
 This tool can be used to apply the unstaged changes in `SOURCE_FORK` to each of the `TARGET_FORKS`. If some
 of the change didn't apply, '.rej' files listing the unapplied changes will be left in the `TARGET_FORK`.
 
-
 The tool takes the following command line arguments
- * The fork name where the changes have been made. Eg:- `frontier` (only a single fork name)
- * The fork names where the changes have to be applied. Eg:- `homestead` (multiple values can be provided separated by space)
- * optimized: Patch the optimized code instead
- * tests: Patch the tests instead
+
+- The fork name where the changes have been made. Eg:- `frontier` (only a single fork name)
+- The fork names where the changes have to be applied. Eg:- `homestead` (multiple values can be provided separated by space)
+- optimized: Patch the optimized code instead
+- tests: Patch the tests instead
 
 As an example, if one wants to apply changes made in `Frontier` fork to `Homestead` and `Tangerine Whistle`
 
@@ -222,11 +219,12 @@ uv run ethereum-spec-patch frontier homestead tangerine_whistle
 ```
 
 ### Lint Tool
--------------
+
 This tool checks for style and formatting issues specific to EELS and emits diagnostics
 when issues are found
 
 The tool currently performs the following checks
+
 - The order of the identifiers between each hardfork is consistent.
 - Import statements follow the relevant import rules in modules.
 
