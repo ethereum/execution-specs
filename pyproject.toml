@@ -283,6 +283,7 @@ fill = [
     "eth-abi>=5.2.0",
     "joblib>=1.4.2",
     "ckzg>=2.1.1",
+    "platformdirs>=4.2,<5",
 ]
 
 lint = [
@@ -313,6 +314,7 @@ ethereum-spec-new-fork = "ethereum_spec_tools.new_fork:main"
 ethereum-spec-patch = "ethereum_spec_tools.patch_tool:main"
 ethereum-spec-evm = "ethereum_spec_tools.evm_tools:main"
 ethereum-spec-fill = "cli.pytest_commands.fill:fill"
+ethereum-spec-consume = "cli.pytest_commands.consume:consume"
 
 [project.entry-points."docc.plugins"]
 "ethereum_spec_tools.docc.discover" = "ethereum_spec_tools.docc:EthereumDiscover"
@@ -517,3 +519,6 @@ check-hidden = false            # Don't check hidden files (starting with .)
 
 [tool.uv]
 required-version = ">=0.7.0"
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
