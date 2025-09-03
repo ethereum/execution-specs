@@ -1,0 +1,6 @@
+line-length = 99
+
+[lint]
+select = ["E", "F", "B", "W", "I", "A", "N", "D", "C"]
+fixable = ["I", "B", "E", "F", "W", "D", "C"]
+ignore = ["D205", "D203", "D212", "D415", "C901", "A005", "C420"]

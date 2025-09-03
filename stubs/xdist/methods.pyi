@@ -1,0 +1,3 @@
+import pytest
+
+def is_xdist_worker(session: pytest.Session) -> bool: ...

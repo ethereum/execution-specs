@@ -287,6 +287,7 @@ fill = [
     "eth-abi>=5.2.0",
     "joblib>=1.4.2",
     "ckzg>=2.1.1",
+    "platformdirs>=4.2,<5",
 ]
 
 lint = [
@@ -508,3 +509,6 @@ check-hidden = false            # Don't check hidden files (starting with .)
 
 [tool.uv]
 required-version = ">=0.7.0"
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
