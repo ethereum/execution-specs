@@ -69,7 +69,7 @@ uv sync --all-extras
 All tests, as executed in CI, can be run with (very slow):
 
 ```bash
-uvx --with=tox-uv tox
+uvx tox
 ```
 
 The repository includes several tox environments for different testing scenarios:
@@ -82,13 +82,13 @@ The repository includes several tox environments for different testing scenarios
 It is recommended to run the `static` checks locally before pushing changes to a pull request:
 
 ```bash
-tox -e static        # Run linting and type checking.
+uvx tox -e static        # Run linting and type checking.
 ```
 
 All environments in parallel (very slow, even in parallel):
 
 ```bash
-tox run-parallel
+uvx tox run-parallel
 ```
 
 #### Development Tools
