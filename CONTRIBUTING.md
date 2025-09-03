@@ -74,7 +74,7 @@ uvx --with=tox-uv tox
 
 The repository includes several tox environments for different testing scenarios:
 
-- `static` - Linting, type checking, spell checking, and documentation build.
+- `static` - Linting, type checking and spell checking.
 - `json_infra` - Run specific execution spec test releases.
 - `py3` - Run the local version of execution spec tests using CPython.
 - `pypy3` - Run the local version of execution spec tests using PyPy.
