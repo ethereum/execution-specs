@@ -357,11 +357,15 @@ def validate_header(chain: BlockChain, header: Header) -> None:
 
     if header.gas_used > header.gas_limit:
         raise InvalidBlock
-    
+
     if not check_gas_limit(header.gas_limit, parent_header):
         raise InvalidBlock
 
-    expected_base_fee_per_gas = calculate_base_fee_per_gas(parent_header)
+    expected_base_fee_per_gas = calculate_base_fee_per_gas(
+        parent_header.gas_limit,
+        parent_header.gas_used,
+        parent_header.base_fee_per_gas,
+    )
     if expected_base_fee_per_gas != header.base_fee_per_gas:
         raise InvalidBlock
     if header.timestamp <= parent_header.timestamp:
@@ -1040,7 +1044,7 @@ def check_gas_limit(gas_limit: Uint, parent: Header) -> bool:
 
     # If this is a fork block, use half of parent's gas limit (EIP-7782)
     if not FORK_CRITERIA.check(parent.number, parent.timestamp):
-        parent_gas_limit /= 2
+        parent_gas_limit //= Uint(2)
 
     max_adjustment_delta = parent_gas_limit // GAS_LIMIT_ADJUSTMENT_FACTOR
     if gas_limit >= parent_gas_limit + max_adjustment_delta:
