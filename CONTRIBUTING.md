@@ -42,7 +42,7 @@ Running the tests necessary to merge into the repository requires:
 - [`uv`](https://docs.astral.sh/uv/) package manager,
 - Python 3.11.x,
 - [PyPy](https://www.pypy.org/) [7.3.19](https://downloads.python.org/pypy/) or later (typically only required by execution-specs maintainers),
-- `geth` installed and present in `$PATH`
+- `geth` installed and present in `$PATH` (only required by users who would like to sync and verify mainnet blocks using EELS; not required for typical specification or test development).
 
 #### Installing `uv`
 
