@@ -29,7 +29,7 @@ from ethereum.exceptions import (
     NonceMismatchError,
 )
 
-from . import vm
+from . import FORK_CRITERIA, vm
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
 from .exceptions import (
@@ -81,6 +81,7 @@ from .utils.message import prepare_message
 from .vm import Message
 from .vm.eoa_delegation import is_valid_delegation
 from .vm.gas import (
+    MAX_BLOB_GAS_PER_BLOCK,
     calculate_blob_gas_price,
     calculate_data_fee,
     calculate_excess_blob_gas,
@@ -88,17 +89,16 @@ from .vm.gas import (
 )
 from .vm.interpreter import MessageCallOutput, process_message_call
 
-BASE_FEE_MAX_CHANGE_DENOMINATOR = Uint(8)
+BASE_FEE_MAX_CHANGE_DENOMINATOR = Uint(16) # Doubled for EIP-7782 (was 8)
 ELASTICITY_MULTIPLIER = Uint(2)
-GAS_LIMIT_ADJUSTMENT_FACTOR = Uint(1024)
-GAS_LIMIT_MINIMUM = Uint(5000)
+GAS_LIMIT_ADJUSTMENT_FACTOR = Uint(2048) # Doubled for EIP-7782 (was 1024)
+GAS_LIMIT_MINIMUM = Uint(2500) # Halved for EIP-7782 (was 5000)
 EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
 SYSTEM_ADDRESS = hex_to_address("0xfffffffffffffffffffffffffffffffffffffffe")
 BEACON_ROOTS_ADDRESS = hex_to_address(
     "0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"
 )
 SYSTEM_TRANSACTION_GAS = Uint(30000000)
-MAX_BLOB_GAS_PER_BLOCK = U64(1179648)
 VERSIONED_HASH_VERSION_KZG = b"\x01"
 
 WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS = hex_to_address(
@@ -110,11 +110,10 @@ CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS = hex_to_address(
 HISTORY_STORAGE_ADDRESS = hex_to_address(
     "0x0000F90827F1C53a10cb7A02335B175320002935"
 )
-MAX_BLOCK_SIZE = 10_485_760
-SAFETY_MARGIN = 2_097_152
+MAX_BLOCK_SIZE = 5_242_880 # Halved for EIP-7782 (was 10_485_760)
+SAFETY_MARGIN = 1_048_576 # Halved for EIP-7782 (was 2_097_152)
 MAX_RLP_BLOCK_SIZE = MAX_BLOCK_SIZE - SAFETY_MARGIN
-BLOB_COUNT_LIMIT = 6
-
+BLOB_COUNT_LIMIT = 3 # Halved for EIP-7782 (was 6)
 
 @dataclass
 class BlockChain:
@@ -271,7 +270,6 @@ def state_transition(chain: BlockChain, block: Block) -> None:
 
 
 def calculate_base_fee_per_gas(
-    block_gas_limit: Uint,
     parent_gas_limit: Uint,
     parent_gas_used: Uint,
     parent_base_fee_per_gas: Uint,
@@ -296,8 +294,6 @@ def calculate_base_fee_per_gas(
         Base fee per gas for the block.
     """
     parent_gas_target = parent_gas_limit // ELASTICITY_MULTIPLIER
-    if not check_gas_limit(block_gas_limit, parent_gas_limit):
-        raise InvalidBlock
 
     if parent_gas_used == parent_gas_target:
         expected_base_fee_per_gas = parent_base_fee_per_gas
@@ -361,13 +357,11 @@ def validate_header(chain: BlockChain, header: Header) -> None:
 
     if header.gas_used > header.gas_limit:
         raise InvalidBlock
+    
+    if not check_gas_limit(header.gas_limit, parent_header):
+        raise InvalidBlock
 
-    expected_base_fee_per_gas = calculate_base_fee_per_gas(
-        header.gas_limit,
-        parent_header.gas_limit,
-        parent_header.gas_used,
-        parent_header.base_fee_per_gas,
-    )
+    expected_base_fee_per_gas = calculate_base_fee_per_gas(parent_header)
     if expected_base_fee_per_gas != header.base_fee_per_gas:
         raise InvalidBlock
     if header.timestamp <= parent_header.timestamp:
@@ -1014,7 +1008,7 @@ def process_withdrawals(
             destroy_account(block_env.state, wd.address)
 
 
-def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
+def check_gas_limit(gas_limit: Uint, parent: Header) -> bool:
     """
     Validates the gas limit for a block.
 
@@ -1034,14 +1028,20 @@ def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
     gas_limit :
         Gas limit to validate.
 
-    parent_gas_limit :
-        Gas limit of the parent block.
+    parent :
+        The parent block of the current block.
 
     Returns
     -------
     check : `bool`
         True if gas limit constraints are satisfied, False otherwise.
     """
+    parent_gas_limit = parent.gas_limit
+
+    # If this is a fork block, use half of parent's gas limit (EIP-7782)
+    if not FORK_CRITERIA.check(parent.number, parent.timestamp):
+        parent_gas_limit /= 2
+
     max_adjustment_delta = parent_gas_limit // GAS_LIMIT_ADJUSTMENT_FACTOR
     if gas_limit >= parent_gas_limit + max_adjustment_delta:
         return False
