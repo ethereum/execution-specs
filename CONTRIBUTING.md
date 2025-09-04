@@ -39,22 +39,41 @@ This saves you having to apply code review feedback repeatedly for each fork.
 
 Running the tests necessary to merge into the repository requires:
 
+- [`uv`](https://docs.astral.sh/uv/) package manager,
 - Python 3.11.x,
-- [PyPy](https://www.pypy.org/) [7.3.19](https://downloads.python.org/pypy/) or later
-- [`uv`](https://docs.astral.sh/uv/) package manager
+- [PyPy](https://www.pypy.org/) [7.3.19](https://downloads.python.org/pypy/) or later (typically only required by execution-specs maintainers),
 - `geth` installed and present in `$PATH`
 
-`uv` can be installed via curl (recommended; can self-update):
+#### Installing `uv`
+
+`uv` can be installed via `curl`, some package managers or `pip`. It is recommended to use `curl` or a package manager to enable easier updates (`curl`-installs can run `uv self update`) and install and manage Python installations. See `uv`'s [installation docs](https://docs.astral.sh/uv/getting-started/installation/) for package manager support and other information.
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-or pip (requires Python, can't self-update):
+#### Installing Python and PyPy with `uv`
+
+`uv` can be used to install the required version of Python, if not already available:
 
 ```bash
-pip install uv
+uv python install 3.11
+uv python pin 3.11
 ```
+
+For [PyPy](ttps://www.pypy.org/) (this is typically only required by execution-specs maintainers):
+
+```bash
+uv python install pypy-3.11.13-linux-x86_64-gnu
+```
+
+or pick the most recent PyPy 3.11 version from this list:
+
+```bash
+uv python list
+```
+
+#### Development Setup
 
 Clone the repository and set up your development environment:
 
@@ -64,12 +83,6 @@ cd execution-specs
 uv python install 3.11
 uv python pin 3.11
 uv sync --all-extras
-```
-
-All tests, as executed in CI, can be run with (very slow):
-
-```bash
-uvx tox
 ```
 
 The repository includes several tox environments for different testing scenarios:
@@ -85,7 +98,13 @@ It is recommended to run the `static` checks locally before pushing changes to a
 uvx tox -e static        # Run linting and type checking.
 ```
 
-All environments in parallel (very slow, even in parallel):
+All environments can be executed using (very slow, not recommended, even in parallel):
+
+```bash
+uvx tox
+```
+
+Environments can be executed in parallel with (still very slow):
 
 ```bash
 uvx tox run-parallel
