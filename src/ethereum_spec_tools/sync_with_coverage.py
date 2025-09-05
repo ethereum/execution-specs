@@ -96,12 +96,12 @@ def main():
         if result.returncode == 0:
             print("\n✅ Slipcover completed successfully")
         elif result.returncode == 130:  # Ctrl+C
-            print("\n⚠️  Slipcover interrupted by user (Ctrl+C)")
+            print("\n⚠️ Slipcover interrupted by user (Ctrl+C)")
         else:
             print(f"\n❌ Slipcover exited with code {result.returncode}")
 
     except KeyboardInterrupt:
-        print("\n⚠️  Process interrupted by user")
+        print("\n⚠️ Process interrupted by user")
 
     # Check output files
     print("\nStep 3: Checking output files")
