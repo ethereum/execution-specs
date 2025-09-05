@@ -302,6 +302,9 @@ optimized = [
     "rust-pyspec-glue>=0.0.9,<0.1.0",
     "ethash>=1.1.0,<2",
 ]
+coverage = [
+    "slipcover",
+]
 
 [tool.setuptools.dynamic]
 version = { attr = "ethereum.__version__" }
