@@ -239,25 +239,31 @@ def pytest_sessionstart(session: Session) -> None:  # noqa: U100
 
     # use portalocker for mutmut runs
     if os.environ.get("MUTANT_UNDER_TEST"):
-        shared_lock = portalocker.Lock(lock_path, flags=portalocker.LOCK_SH)
-        shared_lock.acquire()
-        session.stash['mutmut_shared_lock'] = shared_lock
+        while True:
+            shared_lock = portalocker.Lock(lock_path, flags=portalocker.LOCK_SH)
+            shared_lock.acquire()
+            session.stash['mutmut_shared_lock'] = shared_lock
 
-        all_fixtures_ready = all(
-            os.path.exists(props["fixture_path"])
-            for props in TEST_FIXTURES.values()
-        )
-        if not all_fixtures_ready:
-            shared_lock.release()
-            with portalocker.Lock(lock_path, flags=portalocker.LOCK_EX):
+            try:
                 all_fixtures_ready = all(
                     os.path.exists(props["fixture_path"])
                     for props in TEST_FIXTURES.values()
                 )
-                if not all_fixtures_ready:
-                    download_fixtures(session.config.rootpath)
-            shared_lock.acquire()
-            session.stash['mutmut_shared_lock'] = shared_lock
+                if all_fixtures_ready:
+                    break
+
+                shared_lock.release()
+                with portalocker.Lock(lock_path, flags=portalocker.LOCK_EX):
+                    all_fixtures_ready = all(
+                        os.path.exists(props["fixture_path"])
+                        for props in TEST_FIXTURES.values()
+                    )
+                    if not all_fixtures_ready:
+                        download_fixtures(session.config.rootpath)
+            except Exception:
+                shared_lock.release()
+                session.stash['mutmut_shared_lock'] = None
+                raise
         return
 
     if get_xdist_worker_id(session) != "master":
