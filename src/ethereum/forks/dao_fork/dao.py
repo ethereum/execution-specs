@@ -1,16 +1,6 @@
 """
-Dao Fork
-^^^^^^^^
-
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
-
 The Dao Fork was an irregular state change that moved all Ether from a large
-collection of accounts (The Dao and all its children) to a recovery contract.
+collection of accounts (The DAO and all its children) to a recovery contract.
 
 The recovery contract was previously created using normal contract deployment.
 """
@@ -139,18 +129,228 @@ DAO_ACCOUNTS = [
         "0x807640a13483f8ac783c557fcdf27be11ea4ac7a",
     ]
 ]
+"""
+The list of accounts from which ether is transferred. See [`apply_dao`].
+
+At mainnet block 1,880,000 the following accounts were encoded into this list:
+
+- The DAO (`0xbb9bc244d798123fde783fcc1c72d3bb8c189413`),
+- its `extraBalance` (`0x807640a13483f8ac783c557fcdf27be11ea4ac7a`),
+- all children of the DAO creator
+  (`0x4a574510c7014e4ae985403536074abe582adfc8`), and
+- the `extraBalance` of each child.
+
+[`apply_dao`]: ref:ethereum.forks.dao_fork.dao.apply_dao
+"""
 
 DAO_RECOVERY = hex_to_address("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")
+"""
+At the beginning of block 1,920,000, all ether throughout all accounts in
+[`DAO_ACCOUNTS`] is transferred to the contract deployed at this address.
+
+The contract was created from the following Solidity code (compiler version
+[`v0.3.5-2016-07-01-48238c9`][solc]) and deployed on mainnet in block
+1,883,496:
+
+```solidity
+contract DAO {
+    function balanceOf(address addr) returns (uint);
+    function transferFrom(address from, address to, uint balance)
+        returns (bool);
+    uint public totalSupply;
+}
+
+contract WithdrawDAO {
+    DAO constant public mainDAO =
+        DAO(0xbb9bc244d798123fde783fcc1c72d3bb8c189413);
+    address public trustee = 0xda4a4626d3e16e094de3225a751aab7128e96526;
+
+    function withdraw(){
+        uint balance = mainDAO.balanceOf(msg.sender);
+
+        if (!mainDAO.transferFrom(msg.sender, this, balance) ||
+                !msg.sender.send(balance))
+            throw;
+    }
+
+    function trusteeWithdraw() {
+        trustee.send(
+            (this.balance + mainDAO.balanceOf(this)) - mainDAO.totalSupply()
+        );
+    }
+}
+```
+
+#### Deployment Code
+
+```
+60 60 60 40 52 73 da 4a 46 26 d3 e1 6e 09 4d e3
+22 5a 75 1a ab 71 28 e9 65 26 60 00 60 00 61 01
+00 0a 81 54 81 73 ff ff ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff ff ff 02 19 16 90 83 02
+17 90 55 50 61 04 62 80 61 00 51 60 00 39 60 00
+f3 60 60 60 40 52 60 00 35 7c 01 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 90 04 80 63 2e 6e 50 4a 14
+61 00 5a 57 80 63 3c cf d6 0b 14 61 00 69 57 80
+63 ee dc f5 0a 14 61 00 78 57 80 63 fd f9 7c b2
+14 61 00 b1 57 61 00 58 56 5b 00 5b 61 00 67 60
+04 80 50 50 61 00 ea 56 5b 00 5b 61 00 76 60 04
+80 50 50 61 02 77 56 5b 00 5b 61 00 85 60 04 80
+50 50 61 04 24 56 5b 60 40 51 80 82 73 ff ff ff
+ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+ff 16 81 52 60 20 01 91 50 50 60 40 51 80 91 03
+90 f3 5b 61 00 be 60 04 80 50 50 61 04 3c 56 5b
+60 40 51 80 82 73 ff ff ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff ff ff 16 81 52 60 20 01
+91 50 50 60 40 51 80 91 03 90 f3 5b 60 00 60 00
+90 54 90 61 01 00 0a 90 04 73 ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff ff ff ff ff ff ff 16 73
+ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+ff ff ff ff 16 60 00 73 bb 9b c2 44 d7 98 12 3f
+de 78 3f cc 1c 72 d3 bb 8c 18 94 13 73 ff ff ff
+ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+ff 16 63 18 16 0d dd 60 40 51 81 7c 01 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 02 81 52 60 04 01 80
+90 50 60 20 60 40 51 80 83 03 81 60 00 87 61 61
+da 5a 03 f1 15 61 00 02 57 50 50 50 60 40 51 80
+51 90 60 20 01 50 73 bb 9b c2 44 d7 98 12 3f de
+78 3f cc 1c 72 d3 bb 8c 18 94 13 73 ff ff ff ff
+ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+16 63 70 a0 82 31 30 60 40 51 82 7c 01 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 02 81 52 60 04 01 80
+82 73 ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff 16 81 52 60 20 01 91 50 50 60
+20 60 40 51 80 83 03 81 60 00 87 61 61 da 5a 03
+f1 15 61 00 02 57 50 50 50 60 40 51 80 51 90 60
+20 01 50 30 73 ff ff ff ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff ff 16 31 01 03 60 40 51
+80 90 50 60 00 60 40 51 80 83 03 81 85 88 88 f1
+93 50 50 50 50 50 5b 56 5b 60 00 73 bb 9b c2 44
+d7 98 12 3f de 78 3f cc 1c 72 d3 bb 8c 18 94 13
+73 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+ff ff ff ff ff 16 63 70 a0 82 31 33 60 40 51 82
+7c 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 02 81
+52 60 04 01 80 82 73 ff ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff ff ff ff 16 81 52 60 20
+01 91 50 50 60 20 60 40 51 80 83 03 81 60 00 87
+61 61 da 5a 03 f1 15 61 00 02 57 50 50 50 60 40
+51 80 51 90 60 20 01 50 90 50 73 bb 9b c2 44 d7
+98 12 3f de 78 3f cc 1c 72 d3 bb 8c 18 94 13 73
+ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+ff ff ff ff 16 63 23 b8 72 dd 33 30 84 60 40 51
+84 7c 01 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02
+81 52 60 04 01 80 84 73 ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff ff ff ff ff 16 81 52 60
+20 01 83 73 ff ff ff ff ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff 16 81 52 60 20 01 82 81
+52 60 20 01 93 50 50 50 50 60 20 60 40 51 80 83
+03 81 60 00 87 61 61 da 5a 03 f1 15 61 00 02 57
+50 50 50 60 40 51 80 51 90 60 20 01 50 15 80 61
+04 16 57 50 33 73 ff ff ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff ff ff 16 60 00 82 60 40
+51 80 90 50 60 00 60 40 51 80 83 03 81 85 88 88
+f1 93 50 50 50 50 15 5b 15 61 04 20 57 61 00 02
+56 5b 5b 50 56 5b 73 bb 9b c2 44 d7 98 12 3f de
+78 3f cc 1c 72 d3 bb 8c 18 94 13 81 56 5b 60 00
+60 00 90 54 90 61 01 00 0a 90 04 73 ff ff ff ff
+ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+16 81 56
+```
+
+#### Runtime Code
+
+```
+60 60 60 40 52 60 00 35 7c 01 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 90 04 80 63 2e 6e 50 4a 14 61
+00 5a 57 80 63 3c cf d6 0b 14 61 00 69 57 80 63
+ee dc f5 0a 14 61 00 78 57 80 63 fd f9 7c b2 14
+61 00 b1 57 61 00 58 56 5b 00 5b 61 00 67 60 04
+80 50 50 61 00 ea 56 5b 00 5b 61 00 76 60 04 80
+50 50 61 02 77 56 5b 00 5b 61 00 85 60 04 80 50
+50 61 04 24 56 5b 60 40 51 80 82 73 ff ff ff ff
+ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+16 81 52 60 20 01 91 50 50 60 40 51 80 91 03 90
+f3 5b 61 00 be 60 04 80 50 50 61 04 3c 56 5b 60
+40 51 80 82 73 ff ff ff ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff ff 16 81 52 60 20 01 91
+50 50 60 40 51 80 91 03 90 f3 5b 60 00 60 00 90
+54 90 61 01 00 0a 90 04 73 ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff ff ff ff ff ff 16 73 ff
+ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+ff ff ff 16 60 00 73 bb 9b c2 44 d7 98 12 3f de
+78 3f cc 1c 72 d3 bb 8c 18 94 13 73 ff ff ff ff
+ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+16 63 18 16 0d dd 60 40 51 81 7c 01 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 02 81 52 60 04 01 80 90
+50 60 20 60 40 51 80 83 03 81 60 00 87 61 61 da
+5a 03 f1 15 61 00 02 57 50 50 50 60 40 51 80 51
+90 60 20 01 50 73 bb 9b c2 44 d7 98 12 3f de 78
+3f cc 1c 72 d3 bb 8c 18 94 13 73 ff ff ff ff ff
+ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 16
+63 70 a0 82 31 30 60 40 51 82 7c 01 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 02 81 52 60 04 01 80 82
+73 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+ff ff ff ff ff 16 81 52 60 20 01 91 50 50 60 20
+60 40 51 80 83 03 81 60 00 87 61 61 da 5a 03 f1
+15 61 00 02 57 50 50 50 60 40 51 80 51 90 60 20
+01 50 30 73 ff ff ff ff ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff 16 31 01 03 60 40 51 80
+90 50 60 00 60 40 51 80 83 03 81 85 88 88 f1 93
+50 50 50 50 50 5b 56 5b 60 00 73 bb 9b c2 44 d7
+98 12 3f de 78 3f cc 1c 72 d3 bb 8c 18 94 13 73
+ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+ff ff ff ff 16 63 70 a0 82 31 33 60 40 51 82 7c
+01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 02 81 52
+60 04 01 80 82 73 ff ff ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff ff ff 16 81 52 60 20 01
+91 50 50 60 20 60 40 51 80 83 03 81 60 00 87 61
+61 da 5a 03 f1 15 61 00 02 57 50 50 50 60 40 51
+80 51 90 60 20 01 50 90 50 73 bb 9b c2 44 d7 98
+12 3f de 78 3f cc 1c 72 d3 bb 8c 18 94 13 73 ff
+ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+ff ff ff 16 63 23 b8 72 dd 33 30 84 60 40 51 84
+7c 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 02 81
+52 60 04 01 80 84 73 ff ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff ff ff ff 16 81 52 60 20
+01 83 73 ff ff ff ff ff ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff 16 81 52 60 20 01 82 81 52
+60 20 01 93 50 50 50 50 60 20 60 40 51 80 83 03
+81 60 00 87 61 61 da 5a 03 f1 15 61 00 02 57 50
+50 50 60 40 51 80 51 90 60 20 01 50 15 80 61 04
+16 57 50 33 73 ff ff ff ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff ff 16 60 00 82 60 40 51
+80 90 50 60 00 60 40 51 80 83 03 81 85 88 88 f1
+93 50 50 50 50 15 5b 15 61 04 20 57 61 00 02 56
+5b 5b 50 56 5b 73 bb 9b c2 44 d7 98 12 3f de 78
+3f cc 1c 72 d3 bb 8c 18 94 13 81 56 5b 60 00 60
+00 90 54 90 61 01 00 0a 90 04 73 ff ff ff ff ff
+ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 16
+81 56
+```
+
+[`DAO_ACCOUNTS`]: ref:ethereum.forks.dao_fork.dao.DAO_ACCOUNTS
+[solc]: https://github.com/argotorg/solidity/releases/tag/v0.3.5
+"""
 
 
 def apply_dao(state: State) -> None:
     """
     Apply the dao fork to the state.
 
-    Parameters
-    ----------
-    state :
-        State before applying the DAO Fork.
+    Moves all ether from [`DAO_ACCOUNTS`] to [`DAO_RECOVERY`].
+
+    [`DAO_ACCOUNTS`]: ref:ethereum.forks.dao_fork.dao.DAO_ACCOUNTS
+    [`DAO_RECOVERY`]: ref:ethereum.forks.dao_fork.dao.DAO_RECOVERY
     """
     for address in DAO_ACCOUNTS:
         balance = get_account(state, address).balance
