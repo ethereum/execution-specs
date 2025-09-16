@@ -32,6 +32,7 @@ in this fork.
 [a]: https://github.com/ethereum/aleth/releases/tag/v1.8.0
 [t]: https://github.com/ethereum/trinity/releases/tag/v0.1.0-alpha.34
 """
+
 from ethereum.fork_criteria import ByBlockNumber
 
 FORK_CRITERIA = ByBlockNumber(9200000)

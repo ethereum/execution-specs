@@ -8,6 +8,7 @@ Introduction
 ------------
 Implementation of the P256VERIFY precompiled contract.
 """
+
 from ethereum_types.numeric import U256
 
 from ethereum.crypto.elliptic_curve import (

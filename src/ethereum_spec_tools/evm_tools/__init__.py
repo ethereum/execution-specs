@@ -29,9 +29,7 @@ You can use this to run the following tools:
 
 
 The following forks are supported:
-""" + "\n".join(
-    get_supported_forks()
-)
+""" + "\n".join(get_supported_forks())
 
 
 def create_parser() -> argparse.ArgumentParser:

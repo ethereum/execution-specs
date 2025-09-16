@@ -12,6 +12,7 @@ The genesis configuration for a chain is specified with a
 [`GenesisConfiguration`]: ref:ethereum.genesis.GenesisConfiguration
 [`add_genesis_block`]: ref:ethereum.genesis.add_genesis_block
 """
+
 import json
 import pkgutil
 from dataclasses import dataclass
@@ -199,7 +200,7 @@ def add_genesis_block(
 
     [EIP-161]: https://eips.ethereum.org/EIPS/eip-161
     """
-    Address: Type[FixedBytes] = hardfork.Address    # noqa N806
+    Address: Type[FixedBytes] = hardfork.Address  # noqa N806
     assert issubclass(Address, FixedBytes)
 
     for hex_address, account in genesis.initial_accounts.items():

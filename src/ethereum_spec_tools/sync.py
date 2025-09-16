@@ -452,7 +452,7 @@ class BlockDownloader(ForkTracking):
                     ommers_needed[reply_id] = len(res["uncles"])
 
             ommers = self.fetch_ommers(ommers_needed)
-            for id in block_jsons:                      # noqa A001
+            for id in block_jsons:  # noqa A001
                 self.advance_block(hex_to_u256(block_jsons[id]["timestamp"]))
                 blocks[id] = self.make_block(
                     block_jsons[id], ommers.get(id, ())
@@ -517,9 +517,9 @@ class BlockDownloader(ForkTracking):
                         reply["error"]["message"],
                     )
                 else:
-                    ommers[reply_id // twenty][
-                        reply_id % twenty
-                    ] = self.make_header(reply["result"])
+                    ommers[reply_id // twenty][reply_id % twenty] = (
+                        self.make_header(reply["result"])
+                    )
 
             self.log.info(
                 "ommers [%d, %d] fetched",

@@ -26,7 +26,7 @@ in this fork.
 [js]: https://github.com/ethereumjs/ethereumjs-monorepo/releases/tag/%40ethereumjs%2Fvm%405.6.0
 [Geth 1.10.12]: https://github.com/ethereum/go-ethereum/releases/tag/v1.10.12
 [nm]: https://github.com/NethermindEth/nethermind/releases/tag/1.11.7
-""" # noqa: E501
+"""  # noqa: E501
 
 from ethereum.fork_criteria import ByBlockNumber
 

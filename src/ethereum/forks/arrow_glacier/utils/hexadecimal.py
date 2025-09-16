@@ -12,6 +12,7 @@ Introduction
 Hexadecimal utility functions used in this specification, specific to
 Arrow Glacier types.
 """
+
 from ethereum_types.bytes import Bytes
 
 from ethereum.utils.hexadecimal import remove_hex_prefix

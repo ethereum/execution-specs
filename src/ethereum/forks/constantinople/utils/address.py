@@ -12,6 +12,7 @@ Introduction
 Address specific functions used in this constantinople version of
 specification.
 """
+
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U256, Uint

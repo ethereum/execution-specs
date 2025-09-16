@@ -11,6 +11,7 @@ Introduction
 
 Mapping of precompiled contracts their implementations.
 """
+
 from typing import Callable, Dict
 
 from ...fork_types import Address

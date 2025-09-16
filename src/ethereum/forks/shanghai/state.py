@@ -16,6 +16,7 @@ It consists of a main account trie and storage tries for each contract.
 There is a distinction between an account that does not exist and
 `EMPTY_ACCOUNT`.
 """
+
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Set, Tuple
 

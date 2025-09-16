@@ -3,6 +3,7 @@ Transactions are atomic units of work created externally to Ethereum and
 submitted to be executed. If Ethereum is viewed as a state machine,
 transactions are the events that move between states.
 """
+
 from dataclasses import dataclass
 from typing import Tuple
 

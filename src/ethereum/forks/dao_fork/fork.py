@@ -13,6 +13,7 @@ Introduction
 
 Entry point for the Ethereum specification.
 """
+
 from dataclasses import dataclass
 from typing import List, Set, Tuple
 

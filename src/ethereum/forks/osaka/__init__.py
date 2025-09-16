@@ -48,7 +48,7 @@ secp256r1 curve.
 [EIP-7892]: https://eips.ethereum.org/EIPS/eip-7892
 [EIP-7642]: https://eips.ethereum.org/EIPS/eip-7642
 [EIP-7910]: https://eips.ethereum.org/EIPS/eip-7910
-""" # noqa: E501
+"""  # noqa: E501
 
 from ethereum.fork_criteria import Unscheduled
 

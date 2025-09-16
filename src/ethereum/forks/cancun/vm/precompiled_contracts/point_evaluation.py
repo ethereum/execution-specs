@@ -11,6 +11,7 @@ Introduction
 
 Implementation of the POINT EVALUATION precompiled contract.
 """
+
 from ethereum_types.bytes import Bytes, Bytes32, Bytes48
 from ethereum_types.numeric import U256
 

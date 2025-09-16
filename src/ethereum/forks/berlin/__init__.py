@@ -36,7 +36,7 @@ with the first new transaction type—optional access lists.
 [Geth 1.10.1]: https://github.com/ethereum/go-ethereum/releases/tag/v1.10.1
 [n]: https://github.com/NethermindEth/nethermind/releases/tag/1.10.58
 [oe]: https://github.com/openethereum/openethereum/releases/tag/v3.2.0
-""" # noqa: E501
+"""  # noqa: E501
 
 from ethereum.fork_criteria import ByBlockNumber
 

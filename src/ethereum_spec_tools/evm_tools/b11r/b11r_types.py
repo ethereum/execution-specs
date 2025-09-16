@@ -1,6 +1,7 @@
 """
 Define the types used by the b11r tool.
 """
+
 import json
 from typing import Any, List, Optional, Tuple
 

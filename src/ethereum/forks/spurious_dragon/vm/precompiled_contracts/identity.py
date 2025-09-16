@@ -11,6 +11,7 @@ Introduction
 
 Implementation of the `IDENTITY` precompiled contract.
 """
+
 from ethereum_types.numeric import Uint
 
 from ethereum.utils.numeric import ceil32

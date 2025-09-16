@@ -2,6 +2,7 @@
 The Blake2 Implementation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 """
+
 import struct
 from dataclasses import dataclass
 from typing import Final, List, Tuple

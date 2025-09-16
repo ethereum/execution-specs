@@ -78,9 +78,9 @@ def _generate_nonce_tests_function(fork_name: str) -> Callable:
 
 
 for fork_name in FORKS.keys():
-    locals()[
-        f"test_high_nonce_tests_{fork_name.lower()}"
-    ] = _generate_high_nonce_tests_function(fork_name)
-    locals()[
-        f"test_nonce_tests_{fork_name.lower()}"
-    ] = _generate_nonce_tests_function(fork_name)
+    locals()[f"test_high_nonce_tests_{fork_name.lower()}"] = (
+        _generate_high_nonce_tests_function(fork_name)
+    )
+    locals()[f"test_nonce_tests_{fork_name.lower()}"] = (
+        _generate_nonce_tests_function(fork_name)
+    )

@@ -16,6 +16,7 @@ and execute transactions.
 This package contains a reference implementation, written as simply as
 possible, to aid in defining the behavior of Ethereum clients.
 """
+
 import sys
 
 __version__ = "2.18.0rc2"

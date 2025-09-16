@@ -11,6 +11,7 @@ Introduction
 
 Hexadecimal strings specific utility functions used in this specification.
 """
+
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32, Bytes256
 from ethereum_types.numeric import U8, U64, U256, Uint
 

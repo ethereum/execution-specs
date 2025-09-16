@@ -1,6 +1,7 @@
 """
 EVM trace implementation that fans out to many concrete trace implementations.
 """
+
 from typing import Final
 
 from typing_extensions import override

@@ -1,6 +1,7 @@
 """
 EVM trace implementation that counts how many times each opcode is executed.
 """
+
 from collections import defaultdict
 
 from ethereum.trace import EvmTracer, OpStart, TraceEvent

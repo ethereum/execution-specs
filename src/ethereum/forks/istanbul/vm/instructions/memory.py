@@ -11,6 +11,7 @@ Introduction
 
 Implementations of the EVM Memory instructions.
 """
+
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256, Uint
 

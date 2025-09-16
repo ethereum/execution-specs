@@ -11,6 +11,7 @@ Introduction
 
 Implementation of the ALT_BN128 precompiled contracts.
 """
+
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256, Uint
 from py_ecc.optimized_bn128.optimized_curve import (

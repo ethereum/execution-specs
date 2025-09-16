@@ -153,9 +153,9 @@ class VmTestLoader:
         # creating a dummy caller state.
         if caller_hex_address not in json_data["pre"]:
             value = json_data["exec"]["value"]
-            json_data["pre"][
-                caller_hex_address
-            ] = self.get_dummy_account_state(value)
+            json_data["pre"][caller_hex_address] = (
+                self.get_dummy_account_state(value)
+            )
 
         current_state = self.json_to_state(json_data["pre"])
 

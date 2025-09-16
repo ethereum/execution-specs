@@ -32,7 +32,7 @@ marks the integration of the [consensus layer] with the execution layer
 [e]: https://github.com/ledgerwatch/erigon/releases/tag/v2022.09.01
 [Geth 1.10.23]: https://github.com/ethereum/go-ethereum/releases/tag/v1.10.23
 [nm]: https://github.com/NethermindEth/nethermind/releases/tag/1.14.1
-""" # noqa: E501
+"""  # noqa: E501
 
 from ethereum.fork_criteria import ByBlockNumber
 

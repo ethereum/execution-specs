@@ -183,9 +183,9 @@ class T8N(Load):
             kw_arguments["difficulty"] = self.env.block_difficulty
 
         if self.fork.is_after_fork("ethereum.forks.cancun"):
-            kw_arguments[
-                "parent_beacon_block_root"
-            ] = self.env.parent_beacon_block_root
+            kw_arguments["parent_beacon_block_root"] = (
+                self.env.parent_beacon_block_root
+            )
             kw_arguments["excess_blob_gas"] = self.env.excess_blob_gas
 
         return self.fork.BlockEnvironment(**kw_arguments)
@@ -267,7 +267,9 @@ class T8N(Load):
             )
 
         for i, tx in zip(
-            self.txs.successfully_parsed, self.txs.transactions, strict=True,
+            self.txs.successfully_parsed,
+            self.txs.transactions,
+            strict=True,
         ):
             self.backup_state()
             try:

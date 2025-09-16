@@ -11,6 +11,7 @@ Introduction
 
 Implementation of the `Blake2` precompiled contract.
 """
+
 from ethereum.crypto.blake2 import Blake2b
 
 from ...vm import Evm

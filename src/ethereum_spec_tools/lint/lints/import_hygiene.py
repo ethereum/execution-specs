@@ -4,6 +4,7 @@ Import Hygiene Lint
 
 Ensures that the import statements follow the relevant rules.
 """
+
 import ast
 import inspect
 from types import ModuleType

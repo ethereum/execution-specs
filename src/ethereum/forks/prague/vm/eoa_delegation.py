@@ -2,7 +2,6 @@
 Set EOA account code.
 """
 
-
 from typing import Optional, Tuple
 
 from ethereum_rlp import rlp
@@ -20,7 +19,7 @@ from ..vm.gas import GAS_COLD_ACCOUNT_ACCESS, GAS_WARM_ACCESS
 from . import Evm, Message
 
 SET_CODE_TX_MAGIC = b"\x05"
-EOA_DELEGATION_MARKER = b"\xEF\x01\x00"
+EOA_DELEGATION_MARKER = b"\xef\x01\x00"
 EOA_DELEGATION_MARKER_LENGTH = len(EOA_DELEGATION_MARKER)
 EOA_DELEGATED_CODE_LENGTH = 23
 PER_EMPTY_ACCOUNT_COST = 25000

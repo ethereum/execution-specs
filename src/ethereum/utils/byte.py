@@ -11,6 +11,7 @@ Introduction
 
 Byte specific utility functions used in this specification.
 """
+
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import FixedUnsigned, Uint
 

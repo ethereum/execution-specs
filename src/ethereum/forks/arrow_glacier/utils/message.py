@@ -12,6 +12,7 @@ Introduction
 Message specific functions used in this arrow_glacier version of
 specification.
 """
+
 from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.numeric import Uint
 

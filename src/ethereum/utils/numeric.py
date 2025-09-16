@@ -11,6 +11,7 @@ Introduction
 
 Numeric operations specific utility functions used in this specification.
 """
+
 from typing import Sequence, SupportsInt, Tuple
 
 from ethereum_types.numeric import U32, Uint

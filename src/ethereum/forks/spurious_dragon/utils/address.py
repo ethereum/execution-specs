@@ -12,6 +12,7 @@ Introduction
 Address specific functions used in this spurious dragon version of
 specification.
 """
+
 from ethereum_rlp import rlp
 from ethereum_types.numeric import U256, Uint
 

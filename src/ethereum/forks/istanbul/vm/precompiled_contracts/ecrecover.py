@@ -11,6 +11,7 @@ Introduction
 
 Implementation of the ECRECOVER precompiled contract.
 """
+
 from ethereum_types.numeric import U256
 
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover

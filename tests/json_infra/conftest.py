@@ -256,9 +256,7 @@ def pytest_sessionstart(session: Session) -> None:
                 )
 
 
-def pytest_sessionfinish(
-    session: Session, exitstatus: int
-) -> None:
+def pytest_sessionfinish(session: Session, exitstatus: int) -> None:
     del exitstatus
     if get_xdist_worker_id(session) != "master":
         return

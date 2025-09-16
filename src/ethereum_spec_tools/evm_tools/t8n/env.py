@@ -1,6 +1,7 @@
 """
 Define t8n Env class
 """
+
 import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
@@ -135,10 +136,10 @@ class Env:
                 # the excess_blob_gas is calculated differently in osaka
                 assert self.parent_base_fee_per_gas is not None
 
-                GAS_PER_BLOB = t8n.fork.GAS_PER_BLOB                # noqa N806
-                BLOB_BASE_COST = t8n.fork.BLOB_BASE_COST            # noqa N806
-                BLOB_SCHEDULE_MAX = t8n.fork.BLOB_SCHEDULE_MAX      # noqa N806
-                BLOB_SCHEDULE_TARGET = t8n.fork.BLOB_SCHEDULE_TARGET# noqa N806
+                GAS_PER_BLOB = t8n.fork.GAS_PER_BLOB  # noqa N806
+                BLOB_BASE_COST = t8n.fork.BLOB_BASE_COST  # noqa N806
+                BLOB_SCHEDULE_MAX = t8n.fork.BLOB_SCHEDULE_MAX  # noqa N806
+                BLOB_SCHEDULE_TARGET = t8n.fork.BLOB_SCHEDULE_TARGET  # noqa N806
 
                 target_blob_gas_price = Uint(GAS_PER_BLOB)
                 target_blob_gas_price *= t8n.fork.calculate_blob_gas_price(
@@ -268,7 +269,7 @@ class Env:
             ]
             if t8n.fork.is_after_fork("ethereum.forks.byzantium"):
                 if "parentUncleHash" in data:
-                    EMPTY_OMMER_HASH = keccak256(rlp.encode([]))    # noqa N806
+                    EMPTY_OMMER_HASH = keccak256(rlp.encode([]))  # noqa N806
                     self.parent_ommers_hash = Hash32(
                         hex_to_bytes(data["parentUncleHash"])
                     )

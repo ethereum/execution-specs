@@ -11,6 +11,7 @@ Introduction
 
 Implementation of the `MODEXP` precompiled contract.
 """
+
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256, Uint
 

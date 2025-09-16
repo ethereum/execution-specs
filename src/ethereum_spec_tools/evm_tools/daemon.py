@@ -39,7 +39,7 @@ class _EvmToolHandler(BaseHTTPRequestHandler):
         """Don't log requests"""
         pass
 
-    def do_POST(self) -> None:                          # noqa N802
+    def do_POST(self) -> None:  # noqa N802
         from . import main
 
         try:
@@ -48,7 +48,7 @@ class _EvmToolHandler(BaseHTTPRequestHandler):
             content = json.loads(content_bytes)
 
             input_string = json.dumps(content["input"])
-            input = StringIO(input_string)              # noqa A001
+            input = StringIO(input_string)  # noqa A001
 
             args = [
                 "t8n",
@@ -110,7 +110,8 @@ class _EvmToolHandler(BaseHTTPRequestHandler):
         # satisfy the bounds for `TextIOWrapper`. Fortunately nothing uses
         # `name` so far, so we can safely ignore the error.
         with TextIOWrapper(
-            self.wfile, encoding="utf-8"  # type: ignore[type-var]
+            self.wfile,
+            encoding="utf-8",  # type: ignore[type-var]
         ) as out_wrapper:
             main(args=args, out_file=out_wrapper, in_file=input)
 

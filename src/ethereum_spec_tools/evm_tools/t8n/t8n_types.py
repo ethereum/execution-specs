@@ -1,6 +1,7 @@
 """
 Define the types used by the t8n tool.
 """
+
 import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
@@ -118,12 +119,11 @@ class Txs:
                     self.successfully_parsed.append(idx)
             except UnsupportedTxError as e:
                 self.t8n.logger.warning(
-                    f"Unsupported transaction type {idx}: "
-                    f"{e.error_message}"
+                    f"Unsupported transaction type {idx}: {e.error_message}"
                 )
-                self.rejected_txs[
-                    idx
-                ] = f"Unsupported transaction type: {e.error_message}"
+                self.rejected_txs[idx] = (
+                    f"Unsupported transaction type: {e.error_message}"
+                )
                 self.all_txs.append(e.encoded_params)
             except Exception as e:
                 msg = f"Failed to parse transaction {idx}: {str(e)}"
@@ -206,9 +206,9 @@ class Txs:
 
         secret_key = hex_to_uint(json_tx["secretKey"][2:])
         if t8n.fork.is_after_fork("ethereum.forks.berlin"):
-            Transaction = t8n.fork.LegacyTransaction    # noqa N806
+            Transaction = t8n.fork.LegacyTransaction  # noqa N806
         else:
-            Transaction = t8n.fork.Transaction          # noqa N806
+            Transaction = t8n.fork.Transaction  # noqa N806
 
         v_addend: U256
         if isinstance(tx_decoded, Transaction):

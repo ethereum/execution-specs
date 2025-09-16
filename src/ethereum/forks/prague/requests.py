@@ -129,8 +129,7 @@ def extract_deposit_data(data: Bytes) -> Bytes:
         raise InvalidBlock("Invalid signature size in deposit log")
 
     signature = data[
-        signature_offset
-        + Uint(32) : signature_offset
+        signature_offset + Uint(32) : signature_offset
         + Uint(32)
         + SIGNATURE_SIZE
     ]

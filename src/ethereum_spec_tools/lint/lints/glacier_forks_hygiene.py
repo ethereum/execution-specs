@@ -3,6 +3,7 @@ Glacier Fork Hygiene Lint
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 Ensures that the glacier forks have changes only in BOMB_DELAY_BLOCKS.
 """
+
 import ast
 import sys
 from typing import Dict, List, Sequence

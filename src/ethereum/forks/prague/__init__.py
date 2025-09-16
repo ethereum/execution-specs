@@ -47,7 +47,7 @@ contract][b].
 [EIP-2537]: https://eips.ethereum.org/EIPS/eip-2537
 [EIP-2935]: https://eips.ethereum.org/EIPS/eip-2935
 [EIP-7549]: https://eips.ethereum.org/EIPS/eip-7549
-""" # noqa: E501
+"""  # noqa: E501
 
 from ethereum.fork_criteria import ByTimestamp
 

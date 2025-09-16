@@ -40,7 +40,7 @@ bytecode, and deprecates the self-destruct EVM instruction.
 [n]: https://github.com/NethermindEth/nethermind/releases/tag/1.17.3
 [e]: https://github.com/ledgerwatch/erigon/releases/tag/v2.41.0
 [js]: https://github.com/ethereumjs/ethereumjs-monorepo/releases/tag/%40ethereumjs%2Fvm%406.4.0
-""" # noqa: E501
+"""  # noqa: E501
 
 from ethereum.fork_criteria import ByTimestamp
 

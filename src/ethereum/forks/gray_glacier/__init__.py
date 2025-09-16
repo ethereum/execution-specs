@@ -27,7 +27,7 @@ in this fork.
 [e]: https://github.com/ledgerwatch/erigon/releases/tag/v2022.06.03
 [js]: https://github.com/ethereumjs/ethereumjs-monorepo/releases/tag/@ethereumjs/vm@5.9.3
 [n]: https://github.com/NethermindEth/nethermind/releases/tag/1.13.3
-""" # noqa: E501
+"""  # noqa: E501
 
 from ethereum.fork_criteria import ByBlockNumber
 

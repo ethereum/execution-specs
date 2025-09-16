@@ -42,7 +42,7 @@ same transaction, and adds an instruction to read the blob base fee.
 [Geth 1.13.13]: https://github.com/ethereum/go-ethereum/releases/tag/v1.13.13
 [n]: https://github.com/NethermindEth/nethermind/releases/tag/1.25.4
 [r]: https://github.com/paradigmxyz/reth/releases/tag/v0.1.0-alpha.19
-""" # noqa: E501
+"""  # noqa: E501
 
 from ethereum.fork_criteria import ByTimestamp
 

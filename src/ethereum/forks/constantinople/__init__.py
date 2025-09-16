@@ -44,7 +44,7 @@ awkward situation and presents only a single fork without EIP-1283.
 [n]: https://github.com/NethermindEth/nethermind/releases/tag/v0.9.4
 [pan]: https://github.com/PegaSysEng/pantheon/releases/tag/0.9.1
 [t]: https://github.com/ethereum/trinity/releases/tag/v0.1.0-alpha.23
-""" # noqa: E501
+"""  # noqa: E501
 
 from ethereum.fork_criteria import ByBlockNumber
 

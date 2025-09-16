@@ -8,6 +8,7 @@ Together, these blocks form a cryptographically secure journal recording the
 history of all state transitions that have happened since the genesis of the
 chain.
 """
+
 from dataclasses import dataclass
 from typing import Tuple
 

@@ -11,6 +11,7 @@ Introduction
 
 Implementations of the EVM logging instructions.
 """
+
 from functools import partial
 
 from ethereum_types.numeric import Uint

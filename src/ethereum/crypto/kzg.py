@@ -2,6 +2,7 @@
 The KZG Implementation
 ^^^^^^^^^^^^^^^^^^^^^^
 """
+
 from hashlib import sha256
 from typing import Tuple
 

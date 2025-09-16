@@ -11,6 +11,7 @@ Introduction
 
 EVM memory operations.
 """
+
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256, Uint
 
