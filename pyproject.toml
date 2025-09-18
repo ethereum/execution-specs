@@ -427,19 +427,6 @@ exclude = ["tests/fixtures/", "eest_tests/"]
 ignore_names = ["pytest_*"]
 
 [tool.ruff]
-extend-exclude = [
-    ".cache/",
-    ".git/",
-    ".pytest_cache/",
-    ".ruff_cache/",
-    ".tox/",
-    ".venv/",
-    ".vscode/",
-    "tests/fixtures/*",
-    "tests/json_infra/fixtures/*",
-    "eest_tests/*",
-    "vulture_whitelist.py",
-]
 line-length = 79
 
 [tool.ruff.lint]
