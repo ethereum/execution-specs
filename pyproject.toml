@@ -460,7 +460,6 @@ ignore = [
     "D107",     # Missing docstring in __init__
     "D400",     # First line should end with a period
     "D401",     # First line should be in imperative mood ("Do", not "Does")
-    "D416",     # Section names should be in the correct order
     "E203",     # Whitespace before ':'
 ]
 
