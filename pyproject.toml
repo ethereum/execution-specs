@@ -438,6 +438,7 @@ select = [
     "I", # isort
     "A", # flake8-builtins
     "N", # pep8-naming
+    "D", # pydocstyle
     "ARG", # flake8-unused-arguments
 ]
 fixable = [

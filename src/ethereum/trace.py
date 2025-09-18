@@ -178,7 +178,6 @@ def discard_evm_trace(
 
     [`EvmTracer`]: ref:ethereum.trace.EvmTracer
     """
-
     del evm, event
 
 
