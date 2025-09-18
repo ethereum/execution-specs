@@ -30,6 +30,7 @@ class NoTestsFoundError(Exception):
 
 
 def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
+    """Run a blockchain state test from JSON test case data."""
     test_file = test_case["test_file"]
     test_key = test_case["test_key"]
 
@@ -104,6 +105,7 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
 def add_block_to_chain(
     chain: Any, json_block: Any, load: Load, mock_pow: bool
 ) -> None:
+    """Add a block from JSON data to the blockchain chain."""
     (
         block,
         block_header_hash,
@@ -133,6 +135,7 @@ def add_block_to_chain(
 
 # Functions that fetch individual test cases
 def load_json_fixture(test_file: str, json_fork: str) -> Generator:
+    """Load test cases from a JSON fixture file for the specified fork."""
     # Extract the pure basename of the file without the path to the file.
     # Ex: Extract "world.json" from "path/to/file/world.json"
     # Extract the filename without the extension. Ex: Extract "world" from
@@ -163,6 +166,7 @@ def load_json_fixture(test_file: str, json_fork: str) -> Generator:
 def fetch_blockchain_tests(
     json_fork: str,
 ) -> Generator[Dict | ParameterSet, None, None]:
+    """Fetch all blockchain test cases for the specified JSON fork."""
     # Filter FORKS based on fork_option parameter
     eels_fork = FORKS[json_fork]["eels_fork"]
     test_dirs = FORKS[json_fork]["blockchain_test_dirs"]
@@ -216,6 +220,7 @@ def fetch_blockchain_tests(
 
 # Test case Identifier
 def idfn(test_case: Dict) -> str:
+    """Generate test case identifier from test case dictionary."""
     if isinstance(test_case, dict):
         folder_name = test_case["test_file"].split("/")[-2]
         # Assign Folder name and test_key to identify tests in output

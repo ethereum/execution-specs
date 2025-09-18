@@ -24,6 +24,7 @@ TEST_DIR = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/VMTests/vmBitwiseL
     ],
 )
 def test_lt(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests LT operations using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
@@ -39,6 +40,7 @@ def test_lt(fork: Tuple[str, str], test_file: str) -> None:
     ],
 )
 def test_gt(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests GT operations using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
@@ -55,6 +57,7 @@ def test_gt(fork: Tuple[str, str], test_file: str) -> None:
     ],
 )
 def test_slt(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests SLT operations using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
@@ -71,6 +74,7 @@ def test_slt(fork: Tuple[str, str], test_file: str) -> None:
     ],
 )
 def test_sgt(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests SGT operations using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
@@ -85,6 +89,7 @@ def test_sgt(fork: Tuple[str, str], test_file: str) -> None:
     ],
 )
 def test_eq(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests EQ operations using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
@@ -99,6 +104,7 @@ def test_eq(fork: Tuple[str, str], test_file: str) -> None:
     ],
 )
 def test_iszero(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests ISZERO operations using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
@@ -116,6 +122,7 @@ def test_iszero(fork: Tuple[str, str], test_file: str) -> None:
     ],
 )
 def test_and(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests AND operations using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
@@ -133,6 +140,7 @@ def test_and(fork: Tuple[str, str], test_file: str) -> None:
     ],
 )
 def test_or(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests OR operations using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
@@ -150,6 +158,7 @@ def test_or(fork: Tuple[str, str], test_file: str) -> None:
     ],
 )
 def test_xor(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests XOR operations using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
@@ -167,6 +176,7 @@ def test_xor(fork: Tuple[str, str], test_file: str) -> None:
     ],
 )
 def test_not(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests NOT operations using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
@@ -191,4 +201,5 @@ def test_not(fork: Tuple[str, str], test_file: str) -> None:
     ],
 )
 def test_byte(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests BYTE operations using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)

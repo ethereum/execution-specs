@@ -29,6 +29,7 @@ TEST_DIR = (
     ],
 )
 def test_log0(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests LOG0 operations using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
@@ -49,6 +50,7 @@ def test_log0(fork: Tuple[str, str], test_file: str) -> None:
     ],
 )
 def test_log1(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests LOG1 operations using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
@@ -69,6 +71,7 @@ def test_log1(fork: Tuple[str, str], test_file: str) -> None:
     ],
 )
 def test_log2(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests LOG2 operations using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
@@ -90,6 +93,7 @@ def test_log2(fork: Tuple[str, str], test_file: str) -> None:
     ],
 )
 def test_log3(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests LOG3 operations using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
@@ -111,4 +115,5 @@ def test_log3(fork: Tuple[str, str], test_file: str) -> None:
     ],
 )
 def test_log4(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests LOG4 operations using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)

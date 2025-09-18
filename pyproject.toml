@@ -464,7 +464,6 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = [
-    "D103",         # Missing docstring in public function
     "D104",         # Missing docstring in public package
     "E501",         # Line too long
 ]

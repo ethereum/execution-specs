@@ -11,6 +11,7 @@ from ethereum_spec_tools.lint.lints.patch_hygiene import (
 
 
 def test_visitor_assignment_simple() -> None:
+    """Tests that the visitor correctly identifies simple variable assignments."""
     src = """
     variable0 = 67
     variable1 = 68
@@ -23,6 +24,7 @@ def test_visitor_assignment_simple() -> None:
 
 
 def test_visitor_assignment_tuple() -> None:
+    """Tests that the visitor correctly identifies tuple variable assignments."""
     src = """
     (variable0, variable1) = (67, 68)
     """
@@ -34,6 +36,7 @@ def test_visitor_assignment_tuple() -> None:
 
 
 def test_visitor_class() -> None:
+    """Tests that the visitor correctly identifies class definitions and their members."""
     src = """
     class Foo:
         some_field: int
@@ -55,6 +58,7 @@ def test_visitor_class() -> None:
 
 
 def test_visitor_class_nested() -> None:
+    """Tests that the visitor correctly identifies nested class definitions."""
     src = """
     class Foo:
         class Bar:
@@ -72,6 +76,7 @@ def test_visitor_class_nested() -> None:
 
 
 def test_patch_hygiene_compare_new_module() -> None:
+    """Tests that patch hygiene allows creating new modules without issues."""
     old = None
     new = ""
 
@@ -81,6 +86,7 @@ def test_patch_hygiene_compare_new_module() -> None:
 
 
 def test_patch_hygiene_compare_both_empty() -> None:
+    """Tests that patch hygiene handles empty modules correctly."""
     old = ""
     new = ""
 
@@ -90,6 +96,7 @@ def test_patch_hygiene_compare_both_empty() -> None:
 
 
 def test_patch_hygiene_compare_add_new_assign() -> None:
+    """Tests that patch hygiene allows adding new assignments."""
     old = ""
     new = "SOME_CONSTANT = 3"
 
@@ -99,6 +106,7 @@ def test_patch_hygiene_compare_add_new_assign() -> None:
 
 
 def test_patch_hygiene_compare_remove_assign() -> None:
+    """Tests that patch hygiene allows removing assignments."""
     old = "SOME_CONSTANT = 3"
     new = ""
 
@@ -108,6 +116,7 @@ def test_patch_hygiene_compare_remove_assign() -> None:
 
 
 def test_patch_hygiene_compare_reorder_assign() -> None:
+    """Tests that patch hygiene detects when assignments are reordered."""
     old = """
     FIRST_CONSTANT = 3
     SECOND_CONSTANT = 3
@@ -131,6 +140,7 @@ def test_patch_hygiene_compare_reorder_assign() -> None:
 
 
 def test_patch_hygiene_compare_add_between_assign() -> None:
+    """Tests that patch hygiene allows adding assignments between existing ones."""
     old = """
     FIRST_CONSTANT = 3
     SECOND_CONSTANT = 3
@@ -148,6 +158,7 @@ def test_patch_hygiene_compare_add_between_assign() -> None:
 
 
 def test_patch_hygiene_compare_reorder_between_assign() -> None:
+    """Tests that patch hygiene detects reordering when new assignments are added between existing ones."""
     old = """
     FIRST_CONSTANT = 3
     SECOND_CONSTANT = 3

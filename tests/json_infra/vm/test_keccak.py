@@ -41,10 +41,12 @@ SPECIAL_TEST_DIR = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/VMTests/vm
     ],
 )
 def test_sha3_succeeds(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests successful SHA3 operations using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
 @pytest.mark.vm_test
 @pytest.mark.parametrize("fork", FORKS)
 def test_sha3_fails_out_of_gas_memory_expansion(fork: Tuple[str, str]) -> None:
+    """Tests SHA3 operations that fail due to out of gas on memory expansion."""
     VmTestLoader(*fork).run_test(SPECIAL_TEST_DIR, "sha3MemExp.json")

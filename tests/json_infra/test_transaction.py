@@ -24,6 +24,8 @@ test_dir = f"{ETHEREUM_TESTS_PATH}/TransactionTests"
 
 
 def _generate_high_nonce_tests_function(fork_name: str) -> Callable:
+    """Generates test functions for high nonce transaction validation for a specific fork."""
+
     @pytest.mark.fork(fork_name)
     @pytest.mark.parametrize(
         "test_file_high_nonce",
@@ -53,6 +55,8 @@ def _generate_high_nonce_tests_function(fork_name: str) -> Callable:
 
 
 def _generate_nonce_tests_function(fork_name: str) -> Callable:
+    """Generates test functions for nonce transaction validation for a specific fork."""
+
     @pytest.mark.parametrize(
         "test_file_nonce",
         [

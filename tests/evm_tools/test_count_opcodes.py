@@ -18,6 +18,7 @@ parser = create_parser()
 
 @pytest.mark.evm_tools
 def test_count_opcodes(root_relative: Callable[[str | Path], Path]) -> None:
+    """Test counting opcodes in a transaction execution using the T8N tool."""
     base_path = root_relative(
         "fixtures/evm_tools_testdata/t8n/fixtures/testdata/2"
     )

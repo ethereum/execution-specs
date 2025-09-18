@@ -23,6 +23,7 @@ TEST_DIR = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/VMTests/vmIOandFlo
     ],
 )
 def test_mstore(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests MSTORE operations using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
@@ -38,6 +39,7 @@ def test_mstore(fork: Tuple[str, str], test_file: str) -> None:
     ],
 )
 def test_mstore8(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests MSTORE8 operations using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
@@ -53,6 +55,7 @@ def test_mstore8(fork: Tuple[str, str], test_file: str) -> None:
     ],
 )
 def test_mload(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests MLOAD operations using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
@@ -65,6 +68,7 @@ def test_mload(fork: Tuple[str, str], test_file: str) -> None:
     ],
 )
 def test_mstore_mload(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests combined MSTORE and MLOAD operations using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
@@ -80,4 +84,5 @@ def test_mstore_mload(fork: Tuple[str, str], test_file: str) -> None:
     ],
 )
 def test_msize(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests MSIZE operations using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)

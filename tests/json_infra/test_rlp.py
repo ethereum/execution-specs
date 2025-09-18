@@ -21,6 +21,7 @@ ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
 
 
 def convert_to_rlp_native(obj: str | int | Sequence[str | int]) -> Extended:
+    """Converts test data objects to RLP-compatible native types."""
     if isinstance(obj, str):
         return bytes(obj, "utf-8")
     elif isinstance(obj, int):
@@ -33,6 +34,7 @@ def convert_to_rlp_native(obj: str | int | Sequence[str | int]) -> Extended:
 def ethtest_fixtures_as_pytest_fixtures(
     *test_files: str,
 ) -> List[Tuple[Extended, Bytes]]:
+    """Loads ethereum test fixtures and converts them to pytest fixtures."""
     base_path = f"{ETHEREUM_TESTS_PATH}/RLPTests/"
 
     test_data = dict()
@@ -64,6 +66,7 @@ def ethtest_fixtures_as_pytest_fixtures(
 def test_ethtest_fixtures_for_rlp_encoding(
     raw_data: Extended, expected_encoded_data: Bytes
 ) -> None:
+    """Tests RLP encoding against ethereum test fixtures."""
     assert rlp.encode(raw_data) == expected_encoded_data
 
 
@@ -74,6 +77,7 @@ def test_ethtest_fixtures_for_rlp_encoding(
 def test_ethtest_fixtures_for_successfully_rlp_decoding(
     _raw_data: Extended, encoded_data: Bytes
 ) -> None:
+    """Tests successful RLP decoding and re-encoding consistency."""
     decoded_data = rlp.decode(encoded_data)
     assert rlp.encode(decoded_data) == encoded_data
 
@@ -85,5 +89,6 @@ def test_ethtest_fixtures_for_successfully_rlp_decoding(
 def test_ethtest_fixtures_for_fails_in_rlp_decoding(
     _raw_data: Bytes, encoded_data: Bytes
 ) -> None:
+    """Tests that invalid RLP data properly raises decoding errors."""
     with pytest.raises(rlp.DecodingError):
         rlp.decode(encoded_data)

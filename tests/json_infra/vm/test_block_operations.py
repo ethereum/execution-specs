@@ -17,28 +17,33 @@ TEST_DIR = (
 @pytest.mark.vm_test
 @pytest.mark.parametrize("fork", FORKS)
 def test_coinbase(fork: Tuple[str, str]) -> None:
+    """Tests COINBASE operation using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, "coinbase.json")
 
 
 @pytest.mark.vm_test
 @pytest.mark.parametrize("fork", FORKS)
 def test_timestamp(fork: Tuple[str, str]) -> None:
+    """Tests TIMESTAMP operation using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, "timestamp.json")
 
 
 @pytest.mark.vm_test
 @pytest.mark.parametrize("fork", FORKS)
 def test_number(fork: Tuple[str, str]) -> None:
+    """Tests NUMBER operation using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, "number.json")
 
 
 @pytest.mark.vm_test
 @pytest.mark.parametrize("fork", FORKS)
 def test_difficulty(fork: Tuple[str, str]) -> None:
+    """Tests DIFFICULTY operation using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, "difficulty.json")
 
 
 @pytest.mark.vm_test
 @pytest.mark.parametrize("fork", FORKS)
 def test_gas_limit(fork: Tuple[str, str]) -> None:
+    """Tests GASLIMIT operation using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, "gaslimit.json")

@@ -40,10 +40,12 @@ from ethereum.utils.numeric import is_prime
     ],
 )
 def test_epoch(block_number: Uint, expected_epoch: Uint) -> None:
+    """Tests that epoch calculation returns the expected epoch for given block numbers."""
     assert epoch(block_number) == expected_epoch
 
 
 def test_epoch_start_and_end_blocks_have_same_epoch() -> None:
+    """Tests that epoch start and end blocks have the same epoch number."""
     for _ in range(100):
         block_number = Uint(randint(10**9, 2 * (10**9)))
         epoch_start_block_number = (block_number // EPOCH_SIZE) * EPOCH_SIZE
@@ -59,6 +61,7 @@ def test_epoch_start_and_end_blocks_have_same_epoch() -> None:
 
 
 def test_cache_size_1st_epoch() -> None:
+    """Tests that cache size calculation works correctly for the first epoch."""
     assert (
         cache_size(Uint(0))
         == cache_size(Uint(0) + EPOCH_SIZE - Uint(1))
@@ -68,6 +71,7 @@ def test_cache_size_1st_epoch() -> None:
 
 
 def test_cache_size_2048_epochs() -> None:
+    """Tests cache size calculation against known values for first 2048 epochs."""
     cache_size_2048_epochs = json.loads(
         cast(
             bytes,
@@ -86,6 +90,7 @@ def test_cache_size_2048_epochs() -> None:
 
 
 def test_epoch_start_and_end_blocks_have_same_cache_size() -> None:
+    """Tests that epoch start and end blocks have the same cache size."""
     for _ in range(100):
         block_number = Uint(randint(10**9, 2 * (10**9)))
         epoch_start_block_number = (block_number // EPOCH_SIZE) * EPOCH_SIZE
@@ -101,6 +106,7 @@ def test_epoch_start_and_end_blocks_have_same_cache_size() -> None:
 
 
 def test_dataset_size_1st_epoch() -> None:
+    """Tests that dataset size calculation works correctly for the first epoch."""
     assert (
         dataset_size(Uint(0))
         == dataset_size(Uint(0) + EPOCH_SIZE - Uint(1))
@@ -110,6 +116,7 @@ def test_dataset_size_1st_epoch() -> None:
 
 
 def test_dataset_size_2048_epochs() -> None:
+    """Tests dataset size calculation against known values for first 2048 epochs."""
     dataset_size_2048_epochs = json.loads(
         cast(
             bytes,
@@ -128,6 +135,7 @@ def test_dataset_size_2048_epochs() -> None:
 
 
 def test_epoch_start_and_end_blocks_have_same_dataset_size() -> None:
+    """Tests that epoch start and end blocks have the same dataset size."""
     for _ in range(100):
         block_number = Uint(randint(10**9, 2 * (10**9)))
         epoch_start_block_number = (block_number // EPOCH_SIZE) * EPOCH_SIZE
@@ -143,6 +151,7 @@ def test_epoch_start_and_end_blocks_have_same_dataset_size() -> None:
 
 
 def test_seed() -> None:
+    """Tests that seed generation produces expected values for known block numbers."""
     assert (
         generate_seed(Uint(0))
         == generate_seed(Uint(0) + EPOCH_SIZE - Uint(1))
@@ -162,6 +171,7 @@ def test_seed() -> None:
 
 
 def test_epoch_start_and_end_blocks_have_same_seed() -> None:
+    """Tests that epoch start and end blocks have the same seed value."""
     for _ in range(100):
         block_number = Uint(randint(10000, 20000))
         epoch_start_block_number = (block_number // EPOCH_SIZE) * EPOCH_SIZE
@@ -222,6 +232,7 @@ def test_pow_random_blocks(
     expected_mix_digest: str,
     expected_result: str,
 ) -> None:
+    """Tests proof-of-work calculation on random block data."""
     mix_digest, result = hashimoto_light(
         hex_to_bytes32(header_hash),
         hex_to_bytes8(nonce),
@@ -243,10 +254,12 @@ def test_pow_random_blocks(
 def generate_dag_via_geth(
     geth_path: str, block_number: Uint, dag_dump_dir: str
 ) -> None:
+    """Generates DAG dataset using geth for comparison testing."""
     subprocess.call([geth_path, "makedag", str(block_number), dag_dump_dir])
 
 
 def fetch_dag_data(dag_dump_dir: str, epoch_seed: bytes) -> Tuple[bytes, ...]:
+    """Fetches DAG dataset items from geth-generated DAG files."""
     dag_file_path = f"{dag_dump_dir}/full-R23-{epoch_seed.hex()[:16]}"
     with open(dag_file_path, "rb") as fp:
         dag_dataset = fp.read()
@@ -277,6 +290,7 @@ running the tests again.
 
 @pytest.mark.slow
 def test_dataset_generation_random_epoch(tmpdir: str) -> None:
+    """Tests dataset generation against geth DAG for random epochs."""
     """
     Generate a random epoch and obtain the DAG for that epoch from geth.
     Then ensure the following 2 test scenarios:

@@ -22,24 +22,28 @@ TEST_DIR = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/VMTests/vmEnvironm
     ],
 )
 def test_address(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests ADDRESS opcode using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
 @pytest.mark.vm_test
 @pytest.mark.parametrize("fork", FORKS)
 def test_origin(fork: Tuple[str, str]) -> None:
+    """Tests ORIGIN opcode using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, "origin.json")
 
 
 @pytest.mark.vm_test
 @pytest.mark.parametrize("fork", FORKS)
 def test_caller(fork: Tuple[str, str]) -> None:
+    """Tests CALLER opcode using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, "caller.json")
 
 
 @pytest.mark.vm_test
 @pytest.mark.parametrize("fork", FORKS)
 def test_callvalue(fork: Tuple[str, str]) -> None:
+    """Tests CALLVALUE opcode using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, "callvalue.json")
 
 
@@ -57,6 +61,7 @@ def test_callvalue(fork: Tuple[str, str]) -> None:
     ],
 )
 def test_calldataload(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests CALLDATALOAD opcode using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
@@ -71,6 +76,7 @@ def test_calldataload(fork: Tuple[str, str], test_file: str) -> None:
     ],
 )
 def test_calldatasize(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests CALLDATASIZE opcode using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
@@ -96,12 +102,14 @@ def test_calldatasize(fork: Tuple[str, str], test_file: str) -> None:
     ],
 )
 def test_calldatacopy(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests CALLDATACOPY opcode using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
 @pytest.mark.vm_test
 @pytest.mark.parametrize("fork", FORKS)
 def test_codesize(fork: Tuple[str, str]) -> None:
+    """Tests CODESIZE opcode using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, "codesize.json")
 
 
@@ -116,10 +124,12 @@ def test_codesize(fork: Tuple[str, str]) -> None:
     ],
 )
 def test_codecopy(fork: Tuple[str, str], test_file: str) -> None:
+    """Tests CODECOPY opcode using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, test_file)
 
 
 @pytest.mark.vm_test
 @pytest.mark.parametrize("fork", FORKS)
 def test_gasprice(fork: Tuple[str, str]) -> None:
+    """Tests GASPRICE opcode using VM test fixtures."""
     VmTestLoader(*fork).run_test(TEST_DIR, "gasprice.json")

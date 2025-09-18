@@ -28,6 +28,7 @@ MAINNET_GENESIS_CONFIGURATION = get_genesis_configuration("mainnet.json")
 
 
 def test_frontier_block_hash() -> None:
+    """Tests that the frontier genesis block hash matches the expected mainnet hash."""
     description: GenesisFork[
         Address, Account, State, Trie, Bloom, Header, Block
     ] = GenesisFork(
@@ -53,11 +54,13 @@ def test_frontier_block_hash() -> None:
 
 
 def fork_name(fork: Hardfork) -> str:
+    """Returns the short name of a hardfork for test identification."""
     return fork.short_name
 
 
 @pytest.mark.parametrize("fork", Hardfork.discover(), ids=fork_name)
 def test_genesis(fork: Hardfork) -> None:
+    """Tests genesis block creation for all hardforks."""
     description: GenesisFork = GenesisFork(
         Address=fork.module("fork_types").Address,
         Account=fork.module("fork_types").Account,
