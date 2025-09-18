@@ -712,6 +712,7 @@ def revert(evm: Evm) -> None:
     """
     Stop execution and revert state changes, without consuming all provided gas
     and also has the ability to return a reason
+
     Parameters
     ----------
     evm :

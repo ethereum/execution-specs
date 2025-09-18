@@ -586,6 +586,7 @@ def get_transient_storage(
     """
     Get a value at a storage key on an account from transient storage.
     Returns `U256(0)` if the storage key has not been set previously.
+
     Parameters
     ----------
     transient_storage: `TransientStorage`
@@ -619,6 +620,7 @@ def set_transient_storage(
     """
     Set a value at a storage key on an account. Setting to `U256(0)` deletes
     the key.
+
     Parameters
     ----------
     transient_storage: `TransientStorage`

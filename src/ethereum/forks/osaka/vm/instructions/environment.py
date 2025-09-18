@@ -461,6 +461,7 @@ def returndatacopy(evm: Evm) -> None:
 def extcodehash(evm: Evm) -> None:
     """
     Returns the keccak256 hash of a contract’s bytecode
+
     Parameters
     ----------
     evm :

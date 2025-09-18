@@ -601,6 +601,7 @@ def destroy_touched_empty_accounts(
 ) -> None:
     """
     Destroy all touched accounts that are empty.
+
     Parameters
     ----------
     state: `State`

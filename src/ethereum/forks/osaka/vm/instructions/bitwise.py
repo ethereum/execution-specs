@@ -158,6 +158,7 @@ def bitwise_shl(evm: Evm) -> None:
     """
     Logical shift left (SHL) operation of the top 2 elements of the stack.
     Pushes the result back on the stack.
+
     Parameters
     ----------
     evm :
@@ -186,6 +187,7 @@ def bitwise_shr(evm: Evm) -> None:
     """
     Logical shift right (SHR) operation of the top 2 elements of the stack.
     Pushes the result back on the stack.
+
     Parameters
     ----------
     evm :
@@ -214,6 +216,7 @@ def bitwise_sar(evm: Evm) -> None:
     """
     Arithmetic shift right (SAR) operation of the top 2 elements of the stack.
     Pushes the result back on the stack.
+
     Parameters
     ----------
     evm :
