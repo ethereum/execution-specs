@@ -451,15 +451,13 @@ fixable = [
 ]
 ignore = [
 # Common to STEEL
-    "D205",     # Missing blank line after summary
-    "D203",     # 1 blank line required before class docstring
-    "D212",     # Multi-line docstring summary should start at the first line
-    "D415",     # First line should end with a ".", "?", or "!"
-
-# Specific to EELS
     "D107",     # Missing docstring in __init__
+    "D203",     # 1 blank line required before class docstring
+    "D205",     # Missing blank line after summary
+    "D212",     # Multi-line docstring summary should start at the first line
     "D400",     # First line should end with a period
     "D401",     # First line should be in imperative mood ("Do", not "Does")
+    "D415",     # First line should end with a ".", "?", or "!"
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -479,10 +477,6 @@ ignore = [
 "src/ethereum_spec_tools/evm_tools/t8n/evm_trace.py" = [
     "N815"          # The traces must use camel case in JSON property names
 ]
-
-[tool.ruff.lint.mccabe]
-# Set the maximum allowed cyclomatic complexity. C901 default is 10.
-max-complexity = 7
 
 [tool.codespell]
 builtin = "clear,code,usage"    # Built-in dictionaries to use
