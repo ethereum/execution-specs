@@ -72,7 +72,6 @@ def complexity(base_length: U256, modulus_length: U256) -> Uint:
 
     Parameters
     ----------
-
     base_length :
         Length of the array representing the base integer.
 
@@ -81,7 +80,6 @@ def complexity(base_length: U256, modulus_length: U256) -> Uint:
 
     Returns
     -------
-
     complexity : `Uint`
         Complexity of performing the operation.
     """
@@ -97,7 +95,6 @@ def iterations(exponent_length: U256, exponent_head: U256) -> Uint:
 
     Parameters
     ----------
-
     exponent_length :
         Length of the array representing the exponent integer.
 
@@ -107,7 +104,6 @@ def iterations(exponent_length: U256, exponent_head: U256) -> Uint:
 
     Returns
     -------
-
     iterations : `Uint`
         Number of iterations.
     """
@@ -143,7 +139,6 @@ def gas_cost(
 
     Parameters
     ----------
-
     base_length :
         Length of the array representing the base integer.
 
@@ -159,7 +154,6 @@ def gas_cost(
 
     Returns
     -------
-
     gas_cost : `Uint`
         Gas required for performing the operation.
     """

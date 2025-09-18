@@ -114,7 +114,6 @@ def secp256r1_verify(
 
     Raises
     ------
-
     Raises an `InvalidSignatureError` if the signature is not valid.
     """
     # Convert U256 to regular integers for DerSequence
