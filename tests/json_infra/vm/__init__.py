@@ -1,3 +1,8 @@
+"""
+VM tests forks configuration.
+These tests are only run for legacy forks up to Constantinople.
+"""
+
 FORKS = [
     ("ConstantinopleFix", "constantinople"),
     ("Byzantium", "byzantium"),

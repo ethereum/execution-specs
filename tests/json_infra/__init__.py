@@ -1,3 +1,5 @@
+"""Tests related to json infrastructure."""
+
 from typing import Dict, Optional, TypedDict
 
 from typing_extensions import NotRequired

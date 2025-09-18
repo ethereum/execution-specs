@@ -464,7 +464,6 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = [
-    "D104",         # Missing docstring in public package
     "E501",         # Line too long
 ]
 "src/ethereum_spec_tools/evm_tools/loaders/fork_loader.py" = [
