@@ -1,3 +1,5 @@
+"""Tests for genesis block creation."""
+
 import pytest
 from ethereum_rlp import rlp
 from ethereum_types.numeric import U64

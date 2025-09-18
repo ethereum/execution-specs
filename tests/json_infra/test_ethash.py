@@ -1,3 +1,5 @@
+"""Fork specific tests for the Ethash proof-of-work algorithm."""
+
 import importlib
 import json
 import pkgutil

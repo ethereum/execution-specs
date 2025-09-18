@@ -1,3 +1,5 @@
+"""Tests for the stack related opcodes."""
+
 from typing import Tuple
 
 import pytest

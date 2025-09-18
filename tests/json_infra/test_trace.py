@@ -1,3 +1,5 @@
+"""Test evm tracing functionality."""
+
 from typing import Optional, cast
 
 from ethereum_types.numeric import Uint

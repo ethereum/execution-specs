@@ -1,3 +1,5 @@
+"""Tests for environmental opcodes"""
+
 from typing import Tuple
 
 import pytest

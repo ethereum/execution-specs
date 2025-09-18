@@ -1,3 +1,5 @@
+"""Tests for arithmetic operations in the EVM."""
+
 from typing import Tuple
 
 import pytest

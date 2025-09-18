@@ -1,3 +1,5 @@
+"""Helpers to load and run blockchain tests from JSON files"""
+
 import importlib
 import json
 import os.path

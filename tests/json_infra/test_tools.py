@@ -1,3 +1,5 @@
+"""Tests for linting tools."""
+
 import ast
 from textwrap import dedent
 

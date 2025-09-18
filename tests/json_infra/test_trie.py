@@ -1,3 +1,5 @@
+"""Run the trie tests from json fixtures."""
+
 import importlib
 import json
 from typing import Any, Optional

@@ -1,3 +1,8 @@
+"""
+Test counting opcodes in a transaction execution
+using the T8N tool.
+"""
+
 import json
 from io import StringIO
 from pathlib import Path

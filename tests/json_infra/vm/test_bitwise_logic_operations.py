@@ -1,3 +1,5 @@
+"""Tests for bitwise and logic operations."""
+
 from typing import Tuple
 
 import pytest

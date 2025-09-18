@@ -1,3 +1,5 @@
+"""Tests for EVM control flow operations."""
+
 from typing import Tuple
 
 import pytest

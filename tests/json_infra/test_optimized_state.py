@@ -1,3 +1,5 @@
+"""Tests for the optimized state implementation."""
+
 import sys
 from typing import Any, cast
 
@@ -12,6 +14,8 @@ try:
     import ethereum_optimized.state_db as state_db
 
     class OptimizedState:
+        """Placeholder for the optimized state class."""
+
         pass
 
     optimized_state = cast(Any, OptimizedState())

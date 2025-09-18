@@ -1,3 +1,5 @@
+"""Pytest configuration for the json infra tests."""
+
 import os
 import shutil
 import tarfile

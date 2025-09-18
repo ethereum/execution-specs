@@ -1,3 +1,5 @@
+"""Run the blockchain tests from json fixtures."""
+
 from typing import Callable, Dict
 
 import pytest

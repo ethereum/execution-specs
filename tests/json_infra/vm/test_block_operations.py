@@ -1,3 +1,5 @@
+"""Tests for block operations"""
+
 from typing import Tuple
 
 import pytest

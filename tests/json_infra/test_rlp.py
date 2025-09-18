@@ -1,3 +1,5 @@
+"""Tests for RLP encoding and decoding using ethereum/tests fixtures."""
+
 import json
 import os
 from typing import List, Sequence, Tuple

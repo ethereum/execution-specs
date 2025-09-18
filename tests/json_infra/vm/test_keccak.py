@@ -1,3 +1,5 @@
+"""Tests for the Keccak EVM opcode."""
+
 from typing import Tuple
 
 import pytest

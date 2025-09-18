@@ -1,3 +1,5 @@
+"""Define exceptional test patterns for slow, expected fail, and big memory tests."""
+
 import re
 from dataclasses import dataclass
 from typing import Pattern, Tuple

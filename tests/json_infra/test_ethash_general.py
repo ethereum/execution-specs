@@ -1,3 +1,5 @@
+"""General ethash tests."""
+
 import json
 import pkgutil
 import shutil

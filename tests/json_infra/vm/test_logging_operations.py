@@ -1,3 +1,5 @@
+"""Tests for the LOG* series of operations."""
+
 from typing import Tuple
 
 import pytest
