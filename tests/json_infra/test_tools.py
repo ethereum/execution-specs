@@ -11,7 +11,10 @@ from ethereum_spec_tools.lint.lints.patch_hygiene import (
 
 
 def test_visitor_assignment_simple() -> None:
-    """Tests that the visitor correctly identifies simple variable assignments."""
+    """
+    Tests that the visitor correctly identifies simple variable
+    assignments.
+    """
     src = """
     variable0 = 67
     variable1 = 68
@@ -24,7 +27,10 @@ def test_visitor_assignment_simple() -> None:
 
 
 def test_visitor_assignment_tuple() -> None:
-    """Tests that the visitor correctly identifies tuple variable assignments."""
+    """
+    Tests that the visitor correctly identifies tuple variable
+    assignments.
+    """
     src = """
     (variable0, variable1) = (67, 68)
     """
@@ -36,7 +42,10 @@ def test_visitor_assignment_tuple() -> None:
 
 
 def test_visitor_class() -> None:
-    """Tests that the visitor correctly identifies class definitions and their members."""
+    """
+    Tests that the visitor correctly identifies class definitions and
+    their members.
+    """
     src = """
     class Foo:
         some_field: int
@@ -140,7 +149,10 @@ def test_patch_hygiene_compare_reorder_assign() -> None:
 
 
 def test_patch_hygiene_compare_add_between_assign() -> None:
-    """Tests that patch hygiene allows adding assignments between existing ones."""
+    """
+    Tests that patch hygiene allows adding assignments between
+    existing ones.
+    """
     old = """
     FIRST_CONSTANT = 3
     SECOND_CONSTANT = 3
@@ -158,7 +170,10 @@ def test_patch_hygiene_compare_add_between_assign() -> None:
 
 
 def test_patch_hygiene_compare_reorder_between_assign() -> None:
-    """Tests that patch hygiene detects reordering when new assignments are added between existing ones."""
+    """
+    Tests that patch hygiene detects reordering when new assignments are
+    added between existing ones.
+    """
     old = """
     FIRST_CONSTANT = 3
     SECOND_CONSTANT = 3

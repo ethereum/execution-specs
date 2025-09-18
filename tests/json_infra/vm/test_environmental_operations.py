@@ -9,7 +9,10 @@ from ..helpers.load_vm_tests import VmTestLoader
 from . import FORKS
 
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
-TEST_DIR = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/VMTests/vmEnvironmentalInfo"
+TEST_DIR = (
+    f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/VMTests/"
+    "vmEnvironmentalInfo"
+)
 
 
 @pytest.mark.vm_test

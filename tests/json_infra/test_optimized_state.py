@@ -38,7 +38,10 @@ STORAGE_FOO = U256(101).to_be_bytes32()
     reason="missing dependency (use `pip install 'ethereum[optimized]'`)",
 )
 def test_storage_key() -> None:
-    """Tests that optimized state storage operations match the normal implementation."""
+    """
+    Tests that optimized state storage operations match the normal
+    implementation.
+    """
 
     def actions(impl: Any) -> Any:
         obj = impl.State()

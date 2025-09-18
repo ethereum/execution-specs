@@ -173,7 +173,8 @@ def fetch_blockchain_tests(
 
     test_patterns = exceptional_blockchain_test_patterns(json_fork, eels_fork)
 
-    # Get all the files to iterate over from both eest_tests_path and ethereum_tests_path
+    # Get all the files to iterate over from both eest_tests_path
+    # and ethereum_tests_path
     all_jsons = []
     for test_dir in test_dirs:
         all_jsons.extend(
