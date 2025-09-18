@@ -112,9 +112,7 @@ HISTORY_STORAGE_ADDRESS = hex_to_address(
 
 @dataclass
 class BlockChain:
-    """
-    History and current state of the block chain.
-    """
+    """History and current state of the block chain."""
 
     blocks: List[Block]
     state: State
@@ -975,9 +973,7 @@ def process_withdrawals(
     block_output: vm.BlockOutput,
     withdrawals: Tuple[Withdrawal, ...],
 ) -> None:
-    """
-    Increase the balance of the withdrawing account.
-    """
+    """Increase the balance of the withdrawing account."""
 
     def increase_recipient_balance(recipient: Account) -> None:
         recipient.balance += wd.amount * U256(10**9)

@@ -1,6 +1,4 @@
-"""
-Loader for code from the relevant fork.
-"""
+"""Loader for code from the relevant fork."""
 
 import importlib
 from typing import Any
@@ -9,9 +7,7 @@ from ethereum_spec_tools.forks import Hardfork
 
 
 class ForkLoad:
-    """
-    Load the functions and classes from the relevant fork.
-    """
+    """Load the functions and classes from the relevant fork."""
 
     _fork_module: str
     _forks: Any

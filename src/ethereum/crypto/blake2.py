@@ -53,9 +53,7 @@ class Blake2:
 
     @property
     def max_word(self) -> Uint:
-        """
-        Largest value for a given Blake2 flavor.
-        """
+        """Largest value for a given Blake2 flavor."""
         return Uint(2) ** self.w
 
     @property
@@ -127,9 +125,7 @@ class Blake2:
 
     @property
     def sigma_len(self) -> int:
-        """
-        Length of the sigma parameter.
-        """
+        """Length of the sigma parameter."""
         return len(self.sigma)
 
     def get_blake2_parameters(self, data: bytes) -> Tuple:

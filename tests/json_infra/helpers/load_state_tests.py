@@ -20,9 +20,7 @@ parser = create_parser()
 
 
 def fetch_state_tests(json_fork: str) -> Generator:
-    """
-    Fetches all the general state tests from the given directory
-    """
+    """Fetches all the general state tests from the given directory"""
     # Filter FORKS based on fork_option parameter
     eels_fork = FORKS[json_fork]["eels_fork"]
     test_dirs = FORKS[json_fork]["state_test_dirs"]
@@ -57,9 +55,7 @@ def fetch_state_tests(json_fork: str) -> Generator:
 
 
 def idfn(test_case: Dict) -> str:
-    """
-    Identify the test case
-    """
+    """Identify the test case"""
     if isinstance(test_case, dict):
         folder_name = test_case["test_file"].split("/")[-2]
         test_key = test_case["test_key"]
@@ -69,9 +65,7 @@ def idfn(test_case: Dict) -> str:
 
 
 def run_state_test(test_case: Dict[str, str]) -> None:
-    """
-    Runs a single general state test
-    """
+    """Runs a single general state test"""
     test_file = test_case["test_file"]
     test_key = test_case["test_key"]
     index = test_case["index"]

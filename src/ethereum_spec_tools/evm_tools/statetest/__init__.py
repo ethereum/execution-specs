@@ -1,6 +1,4 @@
-"""
-Execute state tests.
-"""
+"""Execute state tests."""
 
 import argparse
 import json
@@ -78,9 +76,7 @@ def run_test_case(
     t8n_extra: Optional[List[str]] = None,
     output_basedir: Optional[str | TextIO] = None,
 ) -> Result:
-    """
-    Runs a single general state test
-    """
+    """Runs a single general state test"""
     from .. import create_parser
 
     env = deepcopy(test_case.env)
@@ -152,9 +148,7 @@ def run_test_case(
 
 
 def state_test_arguments(subparsers: argparse._SubParsersAction) -> None:
-    """
-    Adds the arguments for the statetest tool subparser.
-    """
+    """Adds the arguments for the statetest tool subparser."""
     statetest_parser = subparsers.add_parser(
         "statetest",
         help="Runs state tests from a file or from the standard input.",
@@ -183,9 +177,7 @@ class _PrefixFormatter(logging.Formatter):
 
 
 class StateTest:
-    """
-    Run one or more state tests.
-    """
+    """Run one or more state tests."""
 
     def __init__(
         self, options: Any, out_file: TextIO, in_file: TextIO
@@ -202,9 +194,7 @@ class StateTest:
         self.return_data: bool = options.return_data
 
     def run(self) -> int:
-        """
-        Execute the tests.
-        """
+        """Execute the tests."""
         logger = logging.getLogger("T8N")
         logger.setLevel(level=logging.INFO)
         stream_handler = logging.StreamHandler()
@@ -218,9 +208,7 @@ class StateTest:
             return self.run_one(self.file)
 
     def run_one(self, path: str) -> int:
-        """
-        Execute state tests from a single file.
-        """
+        """Execute state tests from a single file."""
         results = []
         for test_case in read_test_cases(path):
             if test_case.fork_name.casefold() not in self.supported_forks:

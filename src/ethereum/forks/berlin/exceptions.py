@@ -1,6 +1,4 @@
-"""
-Exceptions specific to this fork.
-"""
+"""Exceptions specific to this fork."""
 
 from typing import Final
 

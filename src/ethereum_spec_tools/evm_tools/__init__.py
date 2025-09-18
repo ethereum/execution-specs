@@ -1,6 +1,4 @@
-"""
-Defines EVM tools for use in the Ethereum specification.
-"""
+"""Defines EVM tools for use in the Ethereum specification."""
 
 import argparse
 import subprocess
@@ -33,9 +31,7 @@ The following forks are supported:
 
 
 def create_parser() -> argparse.ArgumentParser:
-    """
-    Create a command-line argument parser for the evm tool.
-    """
+    """Create a command-line argument parser for the evm tool."""
     new_parser = argparse.ArgumentParser(
         description=DESCRIPTION,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -64,9 +60,7 @@ def create_parser() -> argparse.ArgumentParser:
 
 
 def get_git_commit_hash() -> str:
-    """
-    Run the 'git rev-parse HEAD' command to get the commit hash
-    """
+    """Run the 'git rev-parse HEAD' command to get the commit hash"""
     try:
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],

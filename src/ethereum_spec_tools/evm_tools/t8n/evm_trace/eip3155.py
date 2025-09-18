@@ -1,6 +1,4 @@
-"""
-The module implements the raw EVM tracer for t8n.
-"""
+"""The module implements the raw EVM tracer for t8n."""
 
 import json
 import os
@@ -30,9 +28,7 @@ EXCLUDE_FROM_OUTPUT = ["gasCostTraced", "errorTraced", "precompile"]
 
 @dataclass
 class Trace:
-    """
-    The class implements the raw EVM trace.
-    """
+    """The class implements the raw EVM trace."""
 
     pc: int
     op: Optional[Union[str, int]]
@@ -53,9 +49,7 @@ class Trace:
 
 @dataclass
 class FinalTrace:
-    """
-    The class implements final trace for a tx.
-    """
+    """The class implements final trace for a tx."""
 
     output: str
     gasUsed: str
@@ -71,9 +65,7 @@ class FinalTrace:
 
 
 class Eip3155Tracer(EvmTracer):
-    """
-    EVM trace implementation compatible with EIP-3155.
-    """
+    """EVM trace implementation compatible with EIP-3155."""
 
     transaction_environment: TransactionEnvironment | None
     active_traces: list[Trace | FinalTrace]
@@ -98,9 +90,7 @@ class Eip3155Tracer(EvmTracer):
         self.output_basedir = output_basedir
 
     def __call__(self, evm: Any, event: TraceEvent) -> None:
-        """
-        Create a trace of the event.
-        """
+        """Create a trace of the event."""
         # System Transaction do not have a tx_hash or index
         if (
             evm.message.tx_env.index_in_block is None
@@ -297,9 +287,7 @@ class _TraceJsonEncoder(json.JSONEncoder):
 def output_op_trace(
     trace: Union[Trace, FinalTrace], json_file: TextIO
 ) -> None:
-    """
-    Output a single trace to a json file.
-    """
+    """Output a single trace to a json file."""
     json.dump(trace, json_file, separators=(",", ":"), cls=_TraceJsonEncoder)
     json_file.write("\n")
 
@@ -310,9 +298,7 @@ def output_traces(
     tx_hash: bytes,
     output_basedir: str | TextIO,
 ) -> None:
-    """
-    Output the traces to a json file.
-    """
+    """Output the traces to a json file."""
     with ExitStack() as stack:
         json_file: TextIO
 

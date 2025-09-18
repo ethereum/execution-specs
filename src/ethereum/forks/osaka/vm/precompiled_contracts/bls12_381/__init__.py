@@ -312,7 +312,8 @@ def _bytes_to_g1_cached(
     subgroup_check: bool = False,
 ) -> Point3D[FQ]:
     """
-    Internal cached version of `bytes_to_g1` that works with hashable `bytes`.
+    Internal cached version of `bytes_to_g1` that works with
+    hashable `bytes`.
     """
     if len(data) != 128:
         raise InvalidParameter("Input should be 128 bytes long")
@@ -494,7 +495,8 @@ def _bytes_to_g2_cached(
     subgroup_check: bool = False,
 ) -> Point3D[FQ2]:
     """
-    Internal cached version of `bytes_to_g2` that works with hashable `bytes`.
+    Internal cached version of `bytes_to_g2` that works with
+    hashable `bytes`.
     """
     if len(data) != 256:
         raise InvalidParameter("G2 should be 256 bytes long")

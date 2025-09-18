@@ -1,3 +1,1 @@
-"""
-Utility functions unique to this particular fork.
-"""
+"""Utility functions unique to this particular fork."""

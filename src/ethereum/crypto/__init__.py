@@ -1,3 +1,1 @@
-"""
-Cryptographic primitives used in Ethereum.
-"""
+"""Cryptographic primitives used in Ethereum."""

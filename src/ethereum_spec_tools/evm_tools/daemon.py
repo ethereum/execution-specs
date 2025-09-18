@@ -1,6 +1,4 @@
-"""
-Run ethereum-spec-evm as a daemon.
-"""
+"""Run ethereum-spec-evm as a daemon."""
 
 import argparse
 import json
@@ -18,9 +16,7 @@ from typing_extensions import override
 
 
 def daemon_arguments(subparsers: argparse._SubParsersAction) -> None:
-    """
-    Adds the arguments for the daemon tool subparser.
-    """
+    """Adds the arguments for the daemon tool subparser."""
     parser = subparsers.add_parser("daemon", help="Spawn t8n as a daemon")
     parser.add_argument("--uds", help="Unix domain socket path")
     parser.add_argument(
@@ -154,9 +150,7 @@ class _UnixSocketHttpServer(socketserver.UnixStreamServer):
 
 
 class Daemon:
-    """
-    Converts HTTP requests into ethereum-spec-evm calls.
-    """
+    """Converts HTTP requests into ethereum-spec-evm calls."""
 
     def __init__(self, options: argparse.Namespace) -> None:
         if options.uds is None:
@@ -196,7 +190,5 @@ class Daemon:
         return 0
 
     def run(self) -> int:
-        """
-        Execute the tool.
-        """
+        """Execute the tool."""
         return self._run()

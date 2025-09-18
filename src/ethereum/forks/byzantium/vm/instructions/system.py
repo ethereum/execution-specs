@@ -195,9 +195,7 @@ def generic_call(
     memory_output_start_position: U256,
     memory_output_size: U256,
 ) -> None:
-    """
-    Perform the core logic of the `CALL*` family of opcodes.
-    """
+    """Perform the core logic of the `CALL*` family of opcodes."""
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
 
     evm.return_data = b""

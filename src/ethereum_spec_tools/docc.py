@@ -13,9 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""
-Plugins for docc specific to the Ethereum execution specification.
-"""
+"""Plugins for docc specific to the Ethereum execution specification."""
 
 import dataclasses
 import logging
@@ -61,9 +59,7 @@ G = TypeVar("G")
 
 
 def pairwise(iterable: Iterable[G]) -> Iterable[Tuple[G, G]]:
-    """
-    ABCDEFG --> AB BC CD DE EF FG
-    """
+    """ABCDEFG --> AB BC CD DE EF FG"""
     a, b = tee(iterable)
     next(b, None)
     return zip(a, b, strict=False)
@@ -85,9 +81,7 @@ class EthereumDiscover(Discover):
         self.forks = Hardfork.discover([str(forks)])
 
     def discover(self, known: FrozenSet[T]) -> Iterator[Source]:
-        """
-        Find sources.
-        """
+        """Find sources."""
         forks = {f.path: f for f in self.forks if f.path is not None}
 
         by_fork: Dict[Hardfork, Dict[PurePath, Source]] = defaultdict(dict)
@@ -156,9 +150,7 @@ S = TypeVar("S", bound=Source)
 
 
 class DiffSource(Generic[S], Source, Listable):
-    """
-    A source that represents the difference between two other sources.
-    """
+    """A source that represents the difference between two other sources."""
 
     before_name: str
     before: Optional[S]
@@ -185,30 +177,28 @@ class DiffSource(Generic[S], Source, Listable):
 
     @property
     def show_in_listing(self) -> bool:
-        """
-        True if this source should appear in directory listings.
-        """
+        """True if this source should appear in directory listings."""
         return True
 
     @property
     def relative_path(self) -> Optional[PurePath]:
         """
-        Path to the Source (if one exists) relative to the project root.
+        Path to the Source (if one exists) relative to the
+        project root.
         """
         return None
 
     @property
     def output_path(self) -> PurePath:
         """
-        Where to write the output from this Source relative to the output path.
+        Where to write the output from this Source relative to the
+        output path.
         """
         return self._output_path
 
 
 class AfterNode(Node):
-    """
-    Represents content that was added in a diff.
-    """
+    """Represents content that was added in a diff."""
 
     child: Node
 
@@ -217,29 +207,21 @@ class AfterNode(Node):
 
     @property
     def children(self) -> Tuple[Node]:
-        """
-        Child nodes belonging to this node.
-        """
+        """Child nodes belonging to this node."""
         return (self.child,)
 
     def replace_child(self, old: Node, new: Node) -> None:
-        """
-        Replace the old node with the given new node.
-        """
+        """Replace the old node with the given new node."""
         if self.child == old:
             self.child = new
 
     def __repr__(self) -> str:
-        """
-        String representation of this node.
-        """
+        """String representation of this node."""
         return "<after>"
 
 
 class BeforeNode(Node):
-    """
-    Represents content that was removed in a diff.
-    """
+    """Represents content that was removed in a diff."""
 
     child: Node
 
@@ -248,29 +230,21 @@ class BeforeNode(Node):
 
     @property
     def children(self) -> Tuple[Node]:
-        """
-        Child nodes belonging to this node.
-        """
+        """Child nodes belonging to this node."""
         return (self.child,)
 
     def replace_child(self, old: Node, new: Node) -> None:
-        """
-        Replace the old node with the given new node.
-        """
+        """Replace the old node with the given new node."""
         if self.child == old:
             self.child = new
 
     def __repr__(self) -> str:
-        """
-        String representation of this node.
-        """
+        """String representation of this node."""
         return "<before>"
 
 
 class DiffNode(Node):
-    """
-    Marks a difference (or patch) with a deletion and an insertion.
-    """
+    """Marks a difference (or patch) with a deletion and an insertion."""
 
     before_name: str
     before: Node
@@ -289,24 +263,18 @@ class DiffNode(Node):
 
     @property
     def children(self) -> Tuple[Node, Node]:
-        """
-        Child nodes belonging to this node.
-        """
+        """Child nodes belonging to this node."""
         return (self.before, self.after)
 
     def replace_child(self, old: Node, new: Node) -> None:
-        """
-        Replace the old node with the given new node.
-        """
+        """Replace the old node with the given new node."""
         if self.before == old:
             self.before = new
         if self.after == old:
             self.after = new
 
     def __repr__(self) -> str:
-        """
-        String representation of this object.
-        """
+        """String representation of this object."""
         return (
             f"{self.__class__.__name__}(..., "
             f"before_name={self.before_name!r}, "
@@ -316,7 +284,8 @@ class DiffNode(Node):
 
 class EthereumBuilder(PythonBuilder):
     """
-    A `PythonBuilder` that additionally builds `Document`s from `DiffSource`s.
+    A `PythonBuilder` that additionally builds `Document`s from
+    `DiffSource`s.
     """
 
     def build(
@@ -325,7 +294,8 @@ class EthereumBuilder(PythonBuilder):
         processed: Dict[Source, Document],
     ) -> None:
         """
-        Consume unprocessed Sources and insert their Documents into processed.
+        Consume unprocessed Sources and insert their Documents
+        into processed.
         """
         # Build normal Python documents.
         super().build(unprocessed, processed)
@@ -378,9 +348,7 @@ class FixIndexTransform(Transform):
         pass
 
     def transform(self, context: Context) -> None:
-        """
-        Apply the transformation to the given document.
-        """
+        """Apply the transformation to the given document."""
         context[Document].root.visit(_FixIndexVisitor())
 
 
@@ -942,17 +910,13 @@ class _DoccApply(Apply[Node]):
 
 
 class MinimizeDiffsTransform(Transform):
-    """
-    Move `DiffNode` nodes as far down the tree as reasonably possible.
-    """
+    """Move `DiffNode` nodes as far down the tree as reasonably possible."""
 
     def __init__(self, settings: PluginSettings) -> None:
         pass
 
     def transform(self, context: Context) -> None:
-        """
-        Apply the transformation to the given document.
-        """
+        """Apply the transformation to the given document."""
         visitor = _MinimizeDiffsVisitor()
         context[Document].root.visit(visitor)
         assert visitor.root is not None
@@ -1017,9 +981,7 @@ def render_diff(
     parent: object,
     diff: object,
 ) -> html.RenderResult:
-    """
-    Render a DiffNode.
-    """
+    """Render a DiffNode."""
     del context
     assert isinstance(diff, DiffNode)
     assert isinstance(parent, (html.HTMLTag, html.HTMLRoot))
@@ -1039,9 +1001,7 @@ def render_before_after(
     parent: object,
     node_: object,
 ) -> html.RenderResult:
-    """
-    Render a BeforeNode or an AfterNode.
-    """
+    """Render a BeforeNode or an AfterNode."""
     assert isinstance(node_, (BeforeNode, AfterNode))
     assert isinstance(parent, (html.HTMLTag, html.HTMLRoot))
     assert isinstance(context, Context)

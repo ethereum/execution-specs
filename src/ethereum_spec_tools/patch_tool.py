@@ -1,6 +1,4 @@
-"""
-Simple patching tool
-"""
+"""Simple patching tool"""
 
 import argparse
 import subprocess
@@ -26,9 +24,7 @@ parser.add_argument(
 
 
 def main() -> None:
-    """
-    Patch the changes from one fork into the others.
-    """
+    """Patch the changes from one fork into the others."""
     options = parser.parse_args()
 
     if not options.prefix:

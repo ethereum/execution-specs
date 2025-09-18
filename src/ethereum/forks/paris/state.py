@@ -30,9 +30,7 @@ from .trie import EMPTY_TRIE_ROOT, Trie, copy_trie, root, trie_get, trie_set
 
 @dataclass
 class State:
-    """
-    Contains all information that is preserved between transactions.
-    """
+    """Contains all information that is preserved between transactions."""
 
     _main_trie: Trie[Address, Optional[Account]] = field(
         default_factory=lambda: Trie(secured=True, default=None)
@@ -439,9 +437,7 @@ def move_ether(
     recipient_address: Address,
     amount: U256,
 ) -> None:
-    """
-    Move funds between accounts.
-    """
+    """Move funds between accounts."""
 
     def reduce_sender_balance(sender: Account) -> None:
         if sender.balance < amount:

@@ -31,9 +31,7 @@ Bloom = Bytes256
 @slotted_freezable
 @dataclass
 class Account:
-    """
-    State associated with an address.
-    """
+    """State associated with an address."""
 
     nonce: Uint
     balance: U256
@@ -67,9 +65,7 @@ def encode_account(raw_account_data: Account, storage_root: Bytes) -> Bytes:
 @slotted_freezable
 @dataclass
 class Authorization:
-    """
-    The authorization for a set code transaction.
-    """
+    """The authorization for a set code transaction."""
 
     chain_id: U256
     address: Address

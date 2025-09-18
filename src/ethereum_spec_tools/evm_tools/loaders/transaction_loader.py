@@ -32,9 +32,7 @@ class UnsupportedTxError(Exception):
 
 
 class TransactionLoad:
-    """
-    Class for loading transaction data from json file
-    """
+    """Class for loading transaction data from json file"""
 
     def __init__(self, raw: Any, fork: Any) -> None:
         self.raw = raw
@@ -113,9 +111,7 @@ class TransactionLoad:
         return hex_to_uint(self.raw.get("maxFeePerGas"))
 
     def json_to_max_fee_per_blob_gas(self) -> U256:
-        """
-        Get the max priority fee per blobgas of the transaction.
-        """
+        """Get the max priority fee per blobgas of the transaction."""
         return hex_to_u256(self.raw.get("maxFeePerBlobGas"))
 
     def json_to_blob_versioned_hashes(self) -> List[Bytes32]:
@@ -146,9 +142,7 @@ class TransactionLoad:
         return hex_to_u256(self.raw.get("s"))
 
     def get_parameters(self, tx_cls: Any) -> List:
-        """
-        Extract all the transaction parameters from the json file
-        """
+        """Extract all the transaction parameters from the json file"""
         parameters = []
         for field in fields(tx_cls):
             parameters.append(getattr(self, f"json_to_{field.name}")())

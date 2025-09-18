@@ -70,9 +70,7 @@ class ForkCriteria(ABC):
     _internal: Tuple[int, int]
 
     def __eq__(self, other: object) -> bool:
-        """
-        Equality for fork criteria.
-        """
+        """Equality for fork criteria."""
         if isinstance(other, ForkCriteria):
             return self._internal == other._internal
         return NotImplemented
@@ -95,7 +93,8 @@ class ForkCriteria(ABC):
 
     def __hash__(self) -> int:
         """
-        Compute a hash for this instance, so it can be stored in dictionaries.
+        Compute a hash for this instance, so it can be stored
+        in dictionaries.
         """
         return hash(self._internal)
 
@@ -111,16 +110,12 @@ class ForkCriteria(ABC):
 
     @abstractmethod
     def __repr__(self) -> str:
-        """
-        String representation of this object.
-        """
+        """String representation of this object."""
         raise NotImplementedError()
 
 
 class ByBlockNumber(ForkCriteria):
-    """
-    Forks that occur when a specific block number has been reached.
-    """
+    """Forks that occur when a specific block number has been reached."""
 
     block_number: Uint
     """
@@ -144,16 +139,12 @@ class ByBlockNumber(ForkCriteria):
         return block_number >= self.block_number
 
     def __repr__(self) -> str:
-        """
-        String representation of this object.
-        """
+        """String representation of this object."""
         return f"ByBlockNumber({self.block_number})"
 
 
 class ByTimestamp(ForkCriteria):
-    """
-    Forks that occur when a specific timestamp has been reached.
-    """
+    """Forks that occur when a specific timestamp has been reached."""
 
     timestamp: U256
     """
@@ -177,29 +168,21 @@ class ByTimestamp(ForkCriteria):
         return timestamp >= self.timestamp
 
     def __repr__(self) -> str:
-        """
-        String representation of this object.
-        """
+        """String representation of this object."""
         return f"ByTimestamp({self.timestamp})"
 
 
 class Unscheduled(ForkCriteria):
-    """
-    Forks that have not been scheduled.
-    """
+    """Forks that have not been scheduled."""
 
     def __init__(self) -> None:
         self._internal = (ForkCriteria.UNSCHEDULED, 0)
 
     @override
     def check(self, block_number: Uint, timestamp: U256) -> Literal[False]:
-        """
-        Unscheduled forks never occur; always returns `False`.
-        """
+        """Unscheduled forks never occur; always returns `False`."""
         return False
 
     def __repr__(self) -> str:
-        """
-        String representation of this object.
-        """
+        """String representation of this object."""
         return "Unscheduled()"

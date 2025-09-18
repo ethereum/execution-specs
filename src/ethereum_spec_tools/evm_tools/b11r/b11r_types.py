@@ -1,6 +1,4 @@
-"""
-Define the types used by the b11r tool.
-"""
+"""Define the types used by the b11r tool."""
 
 import json
 from typing import Any, List, Optional, Tuple
@@ -21,9 +19,7 @@ DEFAULT_COINBASE = "0x0000000000000000000000000000000000000000"
 
 
 class Body:
-    """
-    A class representing a block body.
-    """
+    """A class representing a block body."""
 
     transactions: rlp.Extended
     ommers: rlp.Extended
@@ -89,9 +85,7 @@ class Body:
 
 
 class Header:
-    """
-    A class representing a block header.
-    """
+    """A class representing a block header."""
 
     parent_hash: Hash32
     ommers_hash: Hash32

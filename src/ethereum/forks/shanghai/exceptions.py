@@ -1,6 +1,4 @@
-"""
-Exceptions specific to this fork.
-"""
+"""Exceptions specific to this fork."""
 
 from typing import Final
 
@@ -27,9 +25,7 @@ class TransactionTypeError(InvalidTransaction):
 
 
 class InsufficientMaxFeePerGasError(InvalidTransaction):
-    """
-    The maximum fee per gas is insufficient for the transaction.
-    """
+    """The maximum fee per gas is insufficient for the transaction."""
 
     transaction_max_fee_per_gas: Final[Uint]
     """
@@ -53,12 +49,8 @@ class InsufficientMaxFeePerGasError(InvalidTransaction):
 
 
 class PriorityFeeGreaterThanMaxFeeError(InvalidTransaction):
-    """
-    The priority fee is greater than the maximum fee per gas.
-    """
+    """The priority fee is greater than the maximum fee per gas."""
 
 
 class InitCodeTooLargeError(InvalidTransaction):
-    """
-    The init code of the transaction is too large.
-    """
+    """The init code of the transaction is too large."""

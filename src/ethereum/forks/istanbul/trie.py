@@ -189,9 +189,7 @@ def encode_node(node: Node, storage_root: Optional[Bytes] = None) -> Bytes:
 
 @dataclass
 class Trie(Generic[K, V]):
-    """
-    The Merkle Trie.
-    """
+    """The Merkle Trie."""
 
     secured: bool
     default: V
@@ -261,9 +259,7 @@ def trie_get(trie: Trie[K, V], key: K) -> V:
 
 
 def common_prefix_length(a: Sequence, b: Sequence) -> int:
-    """
-    Find the longest common prefix of two sequences.
-    """
+    """Find the longest common prefix of two sequences."""
     for i in range(len(a)):
         if i >= len(b) or a[i] != b[i]:
             return i
