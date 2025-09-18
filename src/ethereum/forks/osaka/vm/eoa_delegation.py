@@ -39,6 +39,7 @@ def is_valid_delegation(code: bytes) -> bool:
     valid : `bool`
         True if the code is a valid delegation designation,
         False otherwise.
+
     """
     if (
         len(code) == EOA_DELEGATED_CODE_LENGTH
@@ -61,6 +62,7 @@ def get_delegated_code_address(code: bytes) -> Optional[Address]:
     -------
     address : `Optional[Address]`
         The address of the delegated code.
+
     """
     if is_valid_delegation(code):
         return Address(code[EOA_DELEGATION_MARKER_LENGTH:])
@@ -85,6 +87,7 @@ def recover_authority(authorization: Authorization) -> Address:
     -------
     authority : `Address`
         The recovered authority address.
+
     """
     y_parity, r, s = authorization.y_parity, authorization.r, authorization.s
     if y_parity not in (0, 1):
@@ -126,6 +129,7 @@ def access_delegation(
     -------
     delegation : `Tuple[bool, Address, Bytes, Uint]`
         The delegation address, code, and access gas cost.
+
     """
     state = evm.message.block_env.state
     code = get_account(state, address).code
@@ -158,6 +162,7 @@ def set_delegation(message: Message) -> U256:
     -------
     refund_counter: `U256`
         Refund from authority which already exists in state.
+
     """
     state = message.block_env.state
     refund_counter = U256(0)

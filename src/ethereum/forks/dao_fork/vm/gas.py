@@ -132,6 +132,7 @@ def calculate_memory_gas_cost(size_in_bytes: Uint) -> Uint:
     -------
     total_gas_cost : `ethereum.base_types.Uint`
         The gas cost for storing data in memory.
+
     """
     size_in_words = ceil32(size_in_bytes) // Uint(32)
     linear_cost = size_in_words * GAS_MEMORY
@@ -160,6 +161,7 @@ def calculate_gas_extend_memory(
     Returns
     -------
     extend_memory: `ExtendMemory`
+
     """
     size_to_extend = Uint(0)
     to_be_paid = Uint(0)
@@ -202,6 +204,7 @@ def calculate_message_call_gas(
     Returns
     -------
     message_call_gas: `MessageCallGas`
+
     """
     create_gas_cost = Uint(0) if account_exists(state, to) else GAS_NEW_ACCOUNT
     transfer_gas_cost = Uint(0) if value == 0 else GAS_CALL_VALUE

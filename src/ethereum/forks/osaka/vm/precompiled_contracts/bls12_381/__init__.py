@@ -386,6 +386,7 @@ def g1_to_bytes(
     -------
     data : Bytes
         The encoded data.
+
     """
     g1_normalized = normalize(g1_point)
     x, y = g1_normalized
@@ -412,6 +413,7 @@ def decode_g1_scalar_pair(
     ------
     InvalidParameter
         If the subgroup check failed.
+
     """
     if len(data) != 160:
         InvalidParameter("Input should be 160 bytes long")
@@ -441,6 +443,7 @@ def bytes_to_fq(data: Bytes) -> FQ:
     ------
     InvalidParameter
         If the field element is invalid.
+
     """
     if len(data) != 64:
         raise InvalidParameter("FQ should be 64 bytes long")
@@ -471,6 +474,7 @@ def bytes_to_fq2(data: Bytes) -> FQ2:
     ------
     InvalidParameter
         If the field element is invalid.
+
     """
     if len(data) != 128:
         raise InvalidParameter("FQ2 input should be 128 bytes long")
@@ -543,6 +547,7 @@ def bytes_to_g2(
     InvalidParameter
         If a field element is invalid, the point is not on the curve, or the
         subgroup check fails.
+
     """
     # This is needed bc when we slice `Bytes` we get a `bytearray`,
     # which is not hashable
@@ -562,6 +567,7 @@ def fq2_to_bytes(fq2: FQ2) -> Bytes:
     -------
     data : Bytes
         The encoded data.
+
     """
     coord0, coord1 = fq2.coeffs
     return int(coord0).to_bytes(64, "big") + int(coord1).to_bytes(64, "big")
@@ -582,6 +588,7 @@ def g2_to_bytes(
     -------
     data : Bytes
         The encoded data.
+
     """
     x_coords, y_coords = normalize(g2_point)
     return fq2_to_bytes(x_coords) + fq2_to_bytes(y_coords)
@@ -607,6 +614,7 @@ def decode_g2_scalar_pair(
     ------
     InvalidParameter
         If the subgroup check failed.
+
     """
     if len(data) != 288:
         InvalidParameter("Input should be 288 bytes long")

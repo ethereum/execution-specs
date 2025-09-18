@@ -34,6 +34,7 @@ def to_address_masked(data: Uint | U256) -> Address:
     -------
     address : `Address`
         The obtained address.
+
     """
     return Address(data.to_be_bytes32()[-20:])
 
@@ -54,6 +55,7 @@ def compute_contract_address(address: Address, nonce: Uint) -> Address:
     -------
     address: `ethereum.forks.frontier.fork_types.Address`
         The computed address of the new account.
+
     """
     computed_address = keccak256(rlp.encode([address, nonce]))
     canonical_address = computed_address[-20:]

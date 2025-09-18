@@ -99,6 +99,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
     -------
     output : `MessageCallOutput`
         Output of the message call
+
     """
     block_env = message.block_env
     refund_counter = U256(0)
@@ -150,6 +151,7 @@ def process_create_message(message: Message) -> Evm:
     -------
     evm: :py:class:`~ethereum.forks.paris.vm.Evm`
         Items containing execution specific objects.
+
     """
     state = message.block_env.state
     # take snapshot of state before processing the message
@@ -207,6 +209,7 @@ def process_message(message: Message) -> Evm:
     -------
     evm: :py:class:`~ethereum.forks.paris.vm.Evm`
         Items containing execution specific objects
+
     """
     state = message.block_env.state
     if message.depth > STACK_DEPTH_LIMIT:
@@ -243,6 +246,7 @@ def execute_code(message: Message) -> Evm:
     -------
     evm: `ethereum.vm.EVM`
         Items containing execution specific objects
+
     """
     code = message.code
     valid_jump_destinations = get_valid_jump_destinations(code)

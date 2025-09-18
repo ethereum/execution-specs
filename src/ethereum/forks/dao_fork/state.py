@@ -67,6 +67,7 @@ def begin_transaction(state: State) -> None:
     ----------
     state : State
         The state.
+
     """
     state._snapshots.append(
         (
@@ -84,6 +85,7 @@ def commit_transaction(state: State) -> None:
     ----------
     state : State
         The state.
+
     """
     state._snapshots.pop()
 
@@ -97,6 +99,7 @@ def rollback_transaction(state: State) -> None:
     ----------
     state : State
         The state.
+
     """
     state._main_trie, state._storage_tries = state._snapshots.pop()
 
@@ -120,6 +123,7 @@ def get_account(state: State, address: Address) -> Account:
     -------
     account : `Account`
         Account at address.
+
     """
     account = get_account_optional(state, address)
     if isinstance(account, Account):
@@ -144,6 +148,7 @@ def get_account_optional(state: State, address: Address) -> Optional[Account]:
     -------
     account : `Account`
         Account at address.
+
     """
     account = trie_get(state._main_trie, address)
     return account
@@ -164,6 +169,7 @@ def set_account(
         Address to set.
     account : `Account`
         Account to set at address.
+
     """
     trie_set(state._main_trie, address, account)
 
@@ -182,6 +188,7 @@ def destroy_account(state: State, address: Address) -> None:
         The state
     address : `Address`
         Address of account to destroy.
+
     """
     destroy_storage(state, address)
     set_account(state, address, None)
@@ -197,6 +204,7 @@ def destroy_storage(state: State, address: Address) -> None:
         The state
     address : `Address`
         Address of account whose storage is to be deleted.
+
     """
     if address in state._storage_tries:
         del state._storage_tries[address]
@@ -220,6 +228,7 @@ def get_storage(state: State, address: Address, key: Bytes32) -> U256:
     -------
     value : `U256`
         Value at the key.
+
     """
     trie = state._storage_tries.get(address)
     if trie is None:
@@ -248,6 +257,7 @@ def set_storage(
         Key to set.
     value : `U256`
         Value to set at the key.
+
     """
     assert trie_get(state._main_trie, address) is not None
 
@@ -275,6 +285,7 @@ def storage_root(state: State, address: Address) -> Root:
     -------
     root : `Root`
         Storage root of the account.
+
     """
     assert not state._snapshots
     if address in state._storage_tries:
@@ -296,6 +307,7 @@ def state_root(state: State) -> Root:
     -------
     root : `Root`
         The state root.
+
     """
     assert not state._snapshots
 
@@ -320,6 +332,7 @@ def account_exists(state: State, address: Address) -> bool:
     -------
     account_exists : `bool`
         True if account exists in the state trie, False otherwise
+
     """
     return get_account_optional(state, address) is not None
 
@@ -340,6 +353,7 @@ def account_has_code_or_nonce(state: State, address: Address) -> bool:
     has_code_or_nonce : `bool`
         True if the account has non zero nonce or non empty code,
         False otherwise.
+
     """
     account = get_account(state, address)
     return account.nonce != Uint(0) or account.code != b""
@@ -360,6 +374,7 @@ def account_has_storage(state: State, address: Address) -> bool:
     -------
     has_storage : `bool`
         True if the account has storage, False otherwise.
+
     """
     return address in state._storage_tries
 
@@ -405,6 +420,7 @@ def set_account_balance(state: State, address: Address, amount: U256) -> None:
 
     amount:
         The amount that needs to set in balance.
+
     """
 
     def set_balance(account: Account) -> None:
@@ -424,6 +440,7 @@ def touch_account(state: State, address: Address) -> None:
 
     address:
         The address of the account that need to initialised.
+
     """
     if not account_exists(state, address):
         set_account(state, address, EMPTY_ACCOUNT)
@@ -440,6 +457,7 @@ def increment_nonce(state: State, address: Address) -> None:
 
     address:
         Address of the account whose nonce needs to be incremented.
+
     """
 
     def increase_nonce(sender: Account) -> None:
@@ -462,6 +480,7 @@ def set_code(state: State, address: Address, code: Bytes) -> None:
 
     code:
         The bytecode that needs to be set.
+
     """
 
     def write_code(sender: Account) -> None:
@@ -482,6 +501,7 @@ def create_ether(state: State, address: Address, amount: U256) -> None:
         Address of the account to which ether is added.
     amount:
         The amount of ether to be added to the account of interest.
+
     """
 
     def increase_balance(account: Account) -> None:

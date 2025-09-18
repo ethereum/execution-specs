@@ -28,6 +28,7 @@ def stop(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     pass

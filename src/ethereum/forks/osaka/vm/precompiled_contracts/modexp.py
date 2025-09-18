@@ -89,6 +89,7 @@ def complexity(base_length: U256, modulus_length: U256) -> Uint:
     -------
     complexity : `Uint`
         Complexity of performing the operation.
+
     """
     max_length = max(Uint(base_length), Uint(modulus_length))
     words = (max_length + Uint(7)) // Uint(8)
@@ -116,6 +117,7 @@ def iterations(exponent_length: U256, exponent_head: U256) -> Uint:
     -------
     iterations : `Uint`
         Number of iterations.
+
     """
     if exponent_length <= U256(32) and exponent_head == U256(0):
         count = Uint(0)
@@ -166,6 +168,7 @@ def gas_cost(
     -------
     gas_cost : `Uint`
         Gas required for performing the operation.
+
     """
     multiplication_complexity = complexity(base_length, modulus_length)
     iteration_count = iterations(exponent_length, exponent_head)

@@ -144,6 +144,7 @@ def encode_internal_node(node: Optional[InternalNode]) -> Extended:
     -------
     encoded : `rlp.Extended`
         The node encoded as RLP.
+
     """
     unencoded: Extended
     if node is None:
@@ -210,6 +211,7 @@ def copy_trie(trie: Trie[K, V]) -> Trie[K, V]:
     -------
     new_trie : `Trie[K, V]`
         A copy of the trie.
+
     """
     return Trie(trie.secured, trie.default, copy.copy(trie._data))
 
@@ -229,6 +231,7 @@ def trie_set(trie: Trie[K, V], key: K, value: V) -> None:
         Key to lookup.
     value : `V`
         Node to insert at `key`.
+
     """
     if value == trie.default:
         if key in trie._data:
@@ -254,6 +257,7 @@ def trie_get(trie: Trie[K, V], key: K) -> V:
     -------
     node : `V`
         Node at `key` in the trie.
+
     """
     return trie._data.get(key, trie.default)
 
@@ -299,6 +303,7 @@ def nibble_list_to_compact(x: Bytes, is_leaf: bool) -> Bytes:
     -------
     compressed : `bytearray`
         Compact byte array.
+
     """
     compact = bytearray()
 
@@ -327,6 +332,7 @@ def bytes_to_nibble_list(bytes_: Bytes) -> Bytes:
     -------
     nibble_list : `Bytes`
         The `Bytes` in nibble-list format.
+
     """
     nibble_list = bytearray(2 * len(bytes_))
     for byte_index, byte in enumerate(bytes_):
@@ -355,6 +361,7 @@ def _prepare_trie(
     -------
     out : `Mapping[ethereum.base_types.Bytes, Node]`
         Object with keys mapped to nibble-byte form.
+
     """
     mapped: MutableMapping[Bytes, Bytes] = {}
 
@@ -398,6 +405,7 @@ def root(
     -------
     root : `.fork_types.Root`
         MPT root of the underlying key-value pairs.
+
     """
     obj = _prepare_trie(trie, get_storage_root)
 
@@ -429,6 +437,7 @@ def patricialize(
     -------
     node : `ethereum.base_types.Bytes`
         Root node of `obj`.
+
     """
     if len(obj) == 0:
         return None

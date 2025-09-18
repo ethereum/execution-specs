@@ -33,6 +33,7 @@ def ecrecover(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     data = evm.message.data
 

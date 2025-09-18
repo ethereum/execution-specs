@@ -43,6 +43,7 @@ def prepare_message(
     -------
     message: `ethereum.forks.homestead.vm.Message`
         Items containing contract creation or message call specific data.
+
     """
     if isinstance(tx.to, Bytes0):
         current_target = compute_contract_address(

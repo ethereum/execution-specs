@@ -163,6 +163,7 @@ def bitwise_shl(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     shift = Uint(pop(evm.stack))
@@ -192,6 +193,7 @@ def bitwise_shr(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     shift = pop(evm.stack)
@@ -221,6 +223,7 @@ def bitwise_sar(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     shift = int(pop(evm.stack))

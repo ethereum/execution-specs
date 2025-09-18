@@ -55,6 +55,7 @@ def bytes_to_g1(data: Bytes) -> Point3D[FQ]:
     ------
     InvalidParameter
         Either a field element is invalid or the point is not on the curve.
+
     """
     if len(data) != 64:
         raise InvalidParameter("Input should be 64 bytes long")
@@ -100,6 +101,7 @@ def bytes_to_g2(data: Bytes) -> Point3D[FQ2]:
     ------
     InvalidParameter
         Either a field element is invalid or the point is not on the curve.
+
     """
     if len(data) != 128:
         raise InvalidParameter("G2 should be 128 bytes long")
@@ -143,6 +145,7 @@ def alt_bn128_add(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     data = evm.message.data
 
@@ -170,6 +173,7 @@ def alt_bn128_mul(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     data = evm.message.data
 
@@ -197,6 +201,7 @@ def alt_bn128_pairing_check(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     data = evm.message.data
 

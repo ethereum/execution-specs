@@ -45,6 +45,7 @@ def prepare_message(
     -------
     message: `ethereum.forks.arrow_glacier.vm.Message`
         Items containing contract creation or message call specific data.
+
     """
     accessed_addresses = set()
     accessed_addresses.add(tx_env.origin)

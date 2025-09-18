@@ -32,6 +32,7 @@ def exceptional_blockchain_test_patterns(
     -------
     TestPatterns :
         Patterns that are relevant to the current fork.
+
     """
     jf = re.escape(json_fork)
     ef = re.escape(eels_fork)

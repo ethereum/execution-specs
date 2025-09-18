@@ -142,6 +142,7 @@ def tload(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     key = pop(evm.stack).to_be_bytes32()
@@ -167,6 +168,7 @@ def tstore(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     key = pop(evm.stack).to_be_bytes32()

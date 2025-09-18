@@ -56,6 +56,7 @@ def extract_deposit_data(data: Bytes) -> Bytes:
     ------
     InvalidBlock :
         If the deposit contract did not produce a valid log.
+
     """
     if ulen(data) != DEPOSIT_EVENT_LENGTH:
         raise InvalidBlock("Invalid deposit event data length")
@@ -179,6 +180,7 @@ def compute_requests_hash(requests: List[Bytes]) -> Bytes:
     -------
     requests_hash : Bytes
         The hash of the requests.
+
     """
     m = sha256()
     for request in requests:

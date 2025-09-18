@@ -387,6 +387,7 @@ def returndatasize(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     pass
@@ -409,6 +410,7 @@ def returndatacopy(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     memory_start_index = pop(evm.stack)

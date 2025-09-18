@@ -142,6 +142,7 @@ def create(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     endowment = pop(evm.stack)
@@ -183,6 +184,7 @@ def create2(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     endowment = pop(evm.stack)
@@ -224,6 +226,7 @@ def return_(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     memory_start_position = pop(evm.stack)
@@ -321,6 +324,7 @@ def call(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     gas = Uint(pop(evm.stack))
@@ -398,6 +402,7 @@ def callcode(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     gas = Uint(pop(evm.stack))
@@ -472,6 +477,7 @@ def selfdestruct(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     beneficiary = to_address_masked(pop(evm.stack))
@@ -532,6 +538,7 @@ def delegatecall(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     gas = Uint(pop(evm.stack))
@@ -590,6 +597,7 @@ def staticcall(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     gas = Uint(pop(evm.stack))
@@ -655,6 +663,7 @@ def revert(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     memory_start_index = pop(evm.stack)

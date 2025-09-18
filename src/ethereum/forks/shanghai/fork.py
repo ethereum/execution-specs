@@ -95,6 +95,7 @@ def apply_fork(old: BlockChain) -> BlockChain:
     -------
     new : `BlockChain`
         Upgraded block chain object for this hard fork.
+
     """
     return old
 
@@ -118,6 +119,7 @@ def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
     -------
     recent_block_hashes : `List[Hash32]`
         Hashes of the recent 256 blocks in order of increasing block number.
+
     """
     recent_blocks = chain.blocks[-255:]
     # TODO: This function has not been tested rigorously
@@ -160,6 +162,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         History and current state.
     block :
         Block to apply to `chain`.
+
     """
     validate_header(chain, block.header)
     if block.ommers != ():
@@ -234,6 +237,7 @@ def calculate_base_fee_per_gas(
     -------
     base_fee_per_gas : `Uint`
         Base fee per gas for the block.
+
     """
     parent_gas_target = parent_gas_limit // ELASTICITY_MULTIPLIER
     if not check_gas_limit(block_gas_limit, parent_gas_limit):
@@ -289,6 +293,7 @@ def validate_header(chain: BlockChain, header: Header) -> None:
         History and current state.
     header :
         Header to check for correctness.
+
     """
     if header.number < Uint(1):
         raise InvalidBlock
@@ -364,6 +369,7 @@ def check_transaction(
         If the priority fee is greater than the maximum fee per gas.
     InsufficientMaxFeePerGasError :
         If the maximum fee per gas is insufficient for the transaction.
+
     """
     gas_available = block_env.block_gas_limit - block_output.block_gas_used
     if tx.gas > gas_available:
@@ -430,6 +436,7 @@ def make_receipt(
     -------
     receipt :
         The receipt for the transaction.
+
     """
     receipt = Receipt(
         succeeded=error is None,
@@ -471,6 +478,7 @@ def apply_body(
     -------
     block_output :
         The block output for the current block.
+
     """
     block_output = vm.BlockOutput()
 
@@ -510,6 +518,7 @@ def process_transaction(
         Transaction to execute.
     index:
         Index of the transaction in the block.
+
     """
     trie_set(
         block_output.transactions_trie,
@@ -661,6 +670,7 @@ def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
     -------
     check : `bool`
         True if gas limit constraints are satisfied, False otherwise.
+
     """
     max_adjustment_delta = parent_gas_limit // GAS_LIMIT_ADJUSTMENT_FACTOR
     if gas_limit >= parent_gas_limit + max_adjustment_delta:

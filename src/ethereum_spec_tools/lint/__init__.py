@@ -94,6 +94,7 @@ class Lint(metaclass=ABCMeta):
             All known hardforks.
         position :
             The particular hardfork to lint.
+
         """
 
     def _parse(self, source: str, visitor: V) -> V:

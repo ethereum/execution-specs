@@ -32,6 +32,7 @@ def memory_write(
         Starting pointer to the memory.
     value :
         Data to write to memory.
+
     """
     memory[start_position : int(start_position) + len(value)] = value
 
@@ -55,6 +56,7 @@ def memory_read_bytes(
     -------
     data_bytes :
         Data read from memory.
+
     """
     return Bytes(memory[start_position : Uint(start_position) + Uint(size)])
 
@@ -76,6 +78,7 @@ def buffer_read(buffer: Bytes, start_position: U256, size: U256) -> Bytes:
     -------
     data_bytes :
         Data read from memory.
+
     """
     buffer_slice = buffer[start_position : Uint(start_position) + Uint(size)]
     return right_pad_zero_bytes(bytes(buffer_slice), size)

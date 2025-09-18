@@ -407,6 +407,7 @@ def returndatasize(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     pass
@@ -429,6 +430,7 @@ def returndatacopy(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     memory_start_index = pop(evm.stack)
@@ -463,6 +465,7 @@ def extcodehash(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     address = to_address_masked(pop(evm.stack))

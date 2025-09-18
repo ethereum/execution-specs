@@ -33,6 +33,7 @@ def left_pad_zero_bytes(
     -------
     left_padded_value: `ethereum.base_types.Bytes`
         left padded byte string of given `size`.
+
     """
     return value.rjust(int(size), b"\x00")
 
@@ -54,5 +55,6 @@ def right_pad_zero_bytes(
     -------
     right_padded_value: `ethereum.base_types.Bytes`
         right padded byte string of given `size`.
+
     """
     return value.ljust(int(size), b"\x00")

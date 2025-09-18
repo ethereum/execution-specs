@@ -32,6 +32,7 @@ def keccak256(buffer: Bytes | bytearray) -> Hash32:
     -------
     hash : `ethereum.base_types.Hash32`
         Output of the hash function.
+
     """
     k = keccak.new(digest_bits=256)
     return Hash32(k.update(buffer).digest())
@@ -50,6 +51,7 @@ def keccak512(buffer: Bytes | bytearray) -> Hash64:
     -------
     hash : `ethereum.base_types.Hash32`
         Output of the hash function.
+
     """
     k = keccak.new(digest_bits=512)
     return Hash64(k.update(buffer).digest())

@@ -90,6 +90,7 @@ def apply_fork(old: BlockChain) -> BlockChain:
     -------
     new : `BlockChain`
         Upgraded block chain object for this hard fork.
+
     """
     return old
 
@@ -113,6 +114,7 @@ def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
     -------
     recent_block_hashes : `List[Hash32]`
         Hashes of the recent 256 blocks in order of increasing block number.
+
     """
     recent_blocks = chain.blocks[-255:]
     # TODO: This function has not been tested rigorously
@@ -155,6 +157,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         History and current state.
     block :
         Block to apply to `chain`.
+
     """
     validate_header(chain, block.header)
     validate_ommers(block.ommers, block.header, chain)
@@ -217,6 +220,7 @@ def validate_header(chain: BlockChain, header: Header) -> None:
         History and current state.
     header :
         Header to check for correctness.
+
     """
     if header.number < Uint(1):
         raise InvalidBlock
@@ -286,6 +290,7 @@ def generate_header_hash_for_pow(header: Header) -> Hash32:
     -------
     hash : `Hash32`
         The PoW valid rlp hash of the passed in header.
+
     """
     header_data_without_pow_artefacts = (
         header.parent_hash,
@@ -320,6 +325,7 @@ def validate_proof_of_work(header: Header) -> None:
     ----------
     header :
         Header of interest.
+
     """
     header_hash = generate_header_hash_for_pow(header)
     # TODO: Memoize this somewhere and read from that data instead of
@@ -368,6 +374,7 @@ def check_transaction(
         If the sender's balance is not enough to pay for the transaction.
     InvalidSenderError :
         If the transaction is from an address that does not exist anymore.
+
     """
     gas_available = block_env.block_gas_limit - block_output.block_gas_used
     if tx.gas > gas_available:
@@ -413,6 +420,7 @@ def make_receipt(
     -------
     receipt :
         The receipt for the transaction.
+
     """
     receipt = Receipt(
         succeeded=error is None,
@@ -453,6 +461,7 @@ def apply_body(
     -------
     block_output :
         The block output for the current block.
+
     """
     block_output = vm.BlockOutput()
 
@@ -487,6 +496,7 @@ def validate_ommers(
         The header of current block.
     chain :
         History and current state.
+
     """
     block_hash = keccak256(rlp.encode(block_header))
     if keccak256(rlp.encode(ommers)) != block_header.ommers_hash:
@@ -569,6 +579,7 @@ def pay_rewards(
         Address of account which receives block reward and transaction fees.
     ommers :
         List of ommers mentioned in the current block.
+
     """
     ommer_count = U256(len(ommers))
     miner_reward = BLOCK_REWARD + (ommer_count * (BLOCK_REWARD // U256(32)))
@@ -609,6 +620,7 @@ def process_transaction(
         Transaction to execute.
     index:
         Index of the transaction in the block.
+
     """
     trie_set(block_output.transactions_trie, rlp.encode(Uint(index)), tx)
     intrinsic_gas = validate_transaction(tx)
@@ -721,6 +733,7 @@ def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
     -------
     check : `bool`
         True if gas limit constraints are satisfied, False otherwise.
+
     """
     max_adjustment_delta = parent_gas_limit // GAS_LIMIT_ADJUSTMENT_FACTOR
     if gas_limit >= parent_gas_limit + max_adjustment_delta:
@@ -777,6 +790,7 @@ def calculate_block_difficulty(
     -------
     difficulty : `ethereum.base_types.Uint`
         Computed difficulty for a block.
+
     """
     offset = (
         int(parent_difficulty)

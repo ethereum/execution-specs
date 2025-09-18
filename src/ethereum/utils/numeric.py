@@ -31,6 +31,7 @@ def get_sign(value: int) -> int:
     sign : `int`
         The sign of the number (-1 or 0 or 1).
         The return value is based on math signum function.
+
     """
     if value < 0:
         return -1
@@ -55,6 +56,7 @@ def ceil32(value: Uint) -> Uint:
         The same value if it's a perfect multiple of 32
         else it returns the smallest multiple of 32
         that is greater than `value`.
+
     """
     ceiling = Uint(32)
     remainder = value % ceiling
@@ -77,6 +79,7 @@ def is_prime(number: SupportsInt) -> bool:
     -------
     is_number_prime : `bool`
         Boolean indicating if `number` is prime or not.
+
     """
     number = int(number)
     if number <= 1:
@@ -108,6 +111,7 @@ def le_bytes_to_uint32_sequence(data: bytes) -> Tuple[U32, ...]:
     uint32_sequence : `Tuple[U32, ...]`
         Sequence of U32 numbers obtained from the little endian byte
         stream.
+
     """
     sequence = []
     for i in range(0, len(data), 4):
@@ -140,6 +144,7 @@ def le_uint32_sequence_to_bytes(sequence: Sequence[U32]) -> bytes:
     -------
     result : `bytes`
         The byte stream obtained from the little endian U32 stream.
+
     """
     result_bytes = b""
     for item in sequence:
@@ -164,6 +169,7 @@ def le_uint32_sequence_to_uint(sequence: Sequence[U32]) -> Uint:
     value : `Uint`
         The Uint number obtained from the conversion of the little endian
         U32 stream.
+
     """
     sequence_as_bytes = le_uint32_sequence_to_bytes(sequence)
     return Uint.from_le_bytes(sequence_as_bytes)

@@ -33,6 +33,7 @@ def hex_to_root(hex_string: str) -> Root:
     -------
     root : `Root`
         Trie root obtained from the given hexadecimal string.
+
     """
     return Root(Bytes.fromhex(remove_hex_prefix(hex_string)))
 
@@ -50,5 +51,6 @@ def hex_to_address(hex_string: str) -> Address:
     -------
     address : `Address`
         The address obtained from the given hexadecimal string.
+
     """
     return Address(Bytes.fromhex(remove_hex_prefix(hex_string).rjust(40, "0")))

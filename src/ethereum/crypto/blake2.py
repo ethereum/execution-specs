@@ -22,6 +22,7 @@ def spit_le_to_uint(data: bytes, start: int, num_words: int) -> List[Uint]:
         Position to start the extraction
     num_words:
         The number of words to be extracted
+
     """
     words = []
     for i in range(num_words):
@@ -137,6 +138,7 @@ class Blake2:
         ----------
         data :
             The bytes data that has been passed in the message.
+
         """
         rounds = Uint.from_be_bytes(data[:4])
         h = spit_le_to_uint(data, 4, 8)
@@ -161,6 +163,7 @@ class Blake2:
             Indexes within v of the words to be mixed.
         x, y :
             The two input words for the mixing.
+
         """
         v[a] = (v[a] + v[b] + x) % self.max_word
         v[d] = ((v[d] ^ v[a]) >> self.R1) ^ (
@@ -209,6 +212,7 @@ class Blake2:
             Offset counters. 2 unsigned 64-bit little-endian words
         f:
             The final block indicator flag. An 8-bit word
+
         """
         # Initialize local work vector v[0..15]
         v = [Uint(0)] * 16

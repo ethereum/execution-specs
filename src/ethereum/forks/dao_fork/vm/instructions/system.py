@@ -51,6 +51,7 @@ def create(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # This import causes a circular import error
     # if it's not moved inside this method
@@ -144,6 +145,7 @@ def return_(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     memory_start_position = pop(evm.stack)
@@ -233,6 +235,7 @@ def call(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     gas = Uint(pop(evm.stack))
@@ -294,6 +297,7 @@ def callcode(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     gas = Uint(pop(evm.stack))
@@ -354,6 +358,7 @@ def selfdestruct(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     beneficiary = to_address_masked(pop(evm.stack))
@@ -411,6 +416,7 @@ def delegatecall(evm: Evm) -> None:
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     gas = Uint(pop(evm.stack))
