@@ -594,6 +594,7 @@ def get_transient_storage(
         Address of the account.
     key : `Bytes`
         Key to lookup.
+
     Returns
     -------
     value : `U256`

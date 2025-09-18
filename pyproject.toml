@@ -460,7 +460,6 @@ ignore = [
     "D107",     # Missing docstring in __init__
     "D400",     # First line should end with a period
     "D401",     # First line should be in imperative mood ("Do", not "Does")
-    "D410",     # Missing blank line after last section (Args, Returns, Raises)
     "D411",     # Missing blank line before last section
     "D412",     # No blank lines between sections
     "D413",     # Missing blank line after last section (same as 410)
