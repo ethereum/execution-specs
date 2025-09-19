@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) Keccak Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) Keccak Instructions.
 
 .. contents:: Table of Contents
     :backlinks: none

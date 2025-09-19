@@ -76,7 +76,7 @@ def run_test_case(
     t8n_extra: Optional[List[str]] = None,
     output_basedir: Optional[str | TextIO] = None,
 ) -> Result:
-    """Runs a single general state test"""
+    """Runs a single general state test."""
     from .. import create_parser
 
     env = deepcopy(test_case.env)

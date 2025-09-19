@@ -1,6 +1,5 @@
 """
-Utility Functions For Byte Strings
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Utility Functions For Byte Strings.
 
 .. contents:: Table of Contents
     :backlinks: none

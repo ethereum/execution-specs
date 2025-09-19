@@ -1,4 +1,4 @@
-"""Tool to create a new fork using the latest fork"""
+"""Tool to create a new fork using the latest fork."""
 
 import argparse
 import fnmatch
@@ -51,7 +51,7 @@ parser.add_argument("--to_test", dest="to_test", type=str)
 def find_replace(
     directory: str, find: str, replace: str, file_pattern: str
 ) -> None:
-    """Replace the occurrence of a certain text in files with a new text"""
+    """Replace the occurrence of a certain text in files with a new text."""
     for path, _, files in os.walk(directory):
         for filename in fnmatch.filter(files, file_pattern):
             file_path = os.path.join(path, filename)
@@ -105,7 +105,7 @@ class ForkCreator:
         return (name, package, path, test_path)
 
     def duplicate_fork(self) -> None:
-        """Copy the relevant files/folders from the old fork"""
+        """Copy the relevant files/folders from the old fork."""
         copytree(self.from_path, self.to_path)
         copytree(self.from_test_path, self.to_test_path)
 
@@ -115,7 +115,7 @@ class ForkCreator:
         The following however, will have to be updated manually
             1. The fork number and MAINNET_FORK_BLOCK in __init__.py
             2. Any absolute package imports from other forks eg. in trie.py
-            3. Package Names under setup.cfg
+            3. Package Names under setup.cfg.
         """
         # Update Source Code
         find_replace(self.to_path, self.from_fork, self.to_fork, "*.py")
@@ -141,7 +141,7 @@ class ForkCreator:
 
 
 def main() -> None:
-    """Create the new fork"""
+    """Create the new fork."""
     options = parser.parse_args()
     from_fork = options.from_fork
     to_fork = options.to_fork

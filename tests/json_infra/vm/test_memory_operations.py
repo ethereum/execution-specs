@@ -1,4 +1,4 @@
-"""Tests for memory operations in the EVM"""
+"""Tests for memory operations in the EVM."""
 
 from typing import Tuple
 

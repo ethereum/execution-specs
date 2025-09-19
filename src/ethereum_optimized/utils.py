@@ -1,6 +1,5 @@
 """
-Optimized Implementation Utilities
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Optimized Implementation Utilities.
 
 .. contents:: Table of Contents
     :backlinks: none

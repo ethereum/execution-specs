@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) Stack
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) Stack.
 
 .. contents:: Table of Contents
     :backlinks: none

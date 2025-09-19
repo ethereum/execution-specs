@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) Logging Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) Logging Instructions.
 
 .. contents:: Table of Contents
     :backlinks: none

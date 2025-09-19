@@ -1,6 +1,5 @@
 """
-Ethereum Specification
-^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Specification.
 
 .. contents:: Table of Contents
     :backlinks: none

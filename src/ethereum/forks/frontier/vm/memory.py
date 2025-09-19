@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) Memory
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) Memory.
 
 .. contents:: Table of Contents
     :backlinks: none

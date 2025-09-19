@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) Exceptions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) Exceptions.
 
 .. contents:: Table of Contents
     :backlinks: none
@@ -56,7 +55,7 @@ class InvalidOpcode(ExceptionalHalt):
 class InvalidJumpDestError(ExceptionalHalt):
     """
     Occurs when the destination of a jump operation doesn't meet any of the
-    following criteria:
+    following criteria.
 
       * The jump destination is less than the length of the code.
       * The jump destination should have the `JUMPDEST` opcode (0x5B).
@@ -66,7 +65,7 @@ class InvalidJumpDestError(ExceptionalHalt):
 
 
 class StackDepthLimitError(ExceptionalHalt):
-    """Raised when the message depth is greater than `1024`"""
+    """Raised when the message depth is greater than `1024`."""
 
     pass
 

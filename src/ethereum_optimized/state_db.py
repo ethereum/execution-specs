@@ -1,6 +1,5 @@
 """
-Optimized State
-^^^^^^^^^^^^^^^
+Optimized State.
 
 .. contents:: Table of Contents
     :backlinks: none
@@ -106,16 +105,16 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
             return state_root(self) == state_root(other)
 
         def __enter__(self) -> "State":
-            """Support with statements"""
+            """Support with statements."""
             return self
 
         def __exit__(self, *args: Any) -> None:
-            """Support with statements"""
+            """Support with statements."""
             close_state(self)
 
     @add_item(patches)
     def close_state(state: State) -> None:
-        """Close a state, releasing all resources it holds"""
+        """Close a state, releasing all resources it holds."""
         state.db.close()
         state.db = None
         del state.dirty_accounts
@@ -126,12 +125,12 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
 
     @add_item(patches)
     def get_metadata(state: State, key: Bytes) -> Optional[Bytes]:
-        """Get a piece of metadata"""
+        """Get a piece of metadata."""
         return state.db.get_metadata(key)
 
     @add_item(patches)
     def set_metadata(state: State, key: Bytes, value: Bytes) -> None:
-        """Set a piece of metadata"""
+        """Set a piece of metadata."""
         return state.db.set_metadata(key, value)
 
     @add_item(patches)
@@ -211,7 +210,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
             state: State,
             transient_storage: Optional[Any] = None,
         ) -> None:
-            """See `state`"""
+            """See `state`."""
             _begin_transaction(state)
             if transient_storage is not None:
                 transient_storage._snapshots.append(
@@ -225,7 +224,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
 
         @add_item(patches)
         def begin_transaction(state: State) -> None:
-            """See `state`"""
+            """See `state`."""
             _begin_transaction(state)
 
     def _commit_transaction(state: State) -> None:
@@ -289,7 +288,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
             state: State,
             transient_storage: Optional[Any] = None,
         ) -> None:
-            """See `state`"""
+            """See `state`."""
             _rollback_transaction(state)
 
             if transient_storage and transient_storage._snapshots:
@@ -383,7 +382,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
 
     @add_item(patches)
     def account_has_storage(state: State, address: Address) -> bool:
-        """See `state`"""
+        """See `state`."""
         if address in state.dirty_storage:
             for v in state.dirty_storage[address].values():
                 if v != U256(0):

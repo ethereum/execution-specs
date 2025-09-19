@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) Environmental Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) Environmental Instructions.
 
 .. contents:: Table of Contents
     :backlinks: none
@@ -404,7 +403,7 @@ def returndatasize(evm: Evm) -> None:
 
 def returndatacopy(evm: Evm) -> None:
     """
-    Copies data from the return data buffer code to memory
+    Copies data from the return data buffer code to memory.
 
     Parameters
     ----------

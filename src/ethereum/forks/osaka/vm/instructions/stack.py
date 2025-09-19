@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) Stack Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) Stack Instructions.
 
 .. contents:: Table of Contents
     :backlinks: none

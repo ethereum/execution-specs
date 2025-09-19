@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) Environmental Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) Environmental Instructions.
 
 .. contents:: Table of Contents
     :backlinks: none

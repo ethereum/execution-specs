@@ -1,4 +1,4 @@
-"""Tests for environmental opcodes"""
+"""Tests for environmental opcodes."""
 
 from typing import Tuple
 

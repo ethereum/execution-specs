@@ -1,6 +1,5 @@
 """
-Ethereum Types
-^^^^^^^^^^^^^^
+Ethereum Types.
 
 .. contents:: Table of Contents
     :backlinks: none

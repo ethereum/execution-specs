@@ -78,7 +78,7 @@ def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
 
 
 class T8N(Load):
-    """The class that carries out the transition"""
+    """The class that carries out the transition."""
 
     tracers: Final[GroupTracer | None]
 
@@ -307,7 +307,7 @@ class T8N(Load):
         self.result.rejected = self.txs.rejected_txs
 
     def run(self) -> int:
-        """Run the transition and provide the relevant outputs"""
+        """Run the transition and provide the relevant outputs."""
         # Clear files that may have been created in a previous
         # run of the t8n tool.
         # Define the specific files and pattern to delete

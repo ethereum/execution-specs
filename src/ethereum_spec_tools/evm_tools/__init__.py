@@ -60,7 +60,7 @@ def create_parser() -> argparse.ArgumentParser:
 
 
 def get_git_commit_hash() -> str:
-    """Run the 'git rev-parse HEAD' command to get the commit hash"""
+    """Run the 'git rev-parse HEAD' command to get the commit hash."""
     try:
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],

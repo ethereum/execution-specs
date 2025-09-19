@@ -49,7 +49,7 @@ class Alloc:
         self.state = state
 
     def to_json(self) -> Any:
-        """Encode the state to JSON"""
+        """Encode the state to JSON."""
         data = {}
         for address, account in self.state._main_trie._data.items():
             account_data: Dict[str, Any] = {}
@@ -244,7 +244,7 @@ class Txs:
 
 @dataclass
 class Result:
-    """Type that represents the result of a transition execution"""
+    """Type that represents the result of a transition execution."""
 
     difficulty: Any
     base_fee: Any
@@ -333,7 +333,7 @@ class Result:
         return receipts_json
 
     def to_json(self) -> Any:
-        """Encode the result to JSON"""
+        """Encode the result to JSON."""
         data = {}
 
         data["stateRoot"] = "0x" + self.state_root.hex()

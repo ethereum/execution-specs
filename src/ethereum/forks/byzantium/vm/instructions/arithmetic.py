@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) Arithmetic Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) Arithmetic Instructions.
 
 .. contents:: Table of Contents
     :backlinks: none

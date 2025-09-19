@@ -1,6 +1,5 @@
 """
-Cryptographic Hash Functions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Cryptographic Hash Functions.
 
 .. contents:: Table of Contents
     :backlinks: none

@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) Storage Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) Storage Instructions.
 
 .. contents:: Table of Contents
     :backlinks: none

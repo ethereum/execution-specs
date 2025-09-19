@@ -10,7 +10,7 @@ from ethereum.utils.hexadecimal import hex_to_bytes
 class NoTestsFoundError(Exception):
     """
     An exception thrown when the test for a particular fork isn't
-    available in the json fixture
+    available in the json fixture.
     """
 
 

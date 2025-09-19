@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) Comparison Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) Comparison Instructions.
 
 .. contents:: Table of Contents
     :backlinks: none

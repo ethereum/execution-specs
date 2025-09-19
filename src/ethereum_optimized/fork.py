@@ -1,6 +1,5 @@
 """
-Optimized Spec
-^^^^^^^^^^^^^^
+Optimized Spec.
 
 .. contents:: Table of Contents
     :backlinks: none

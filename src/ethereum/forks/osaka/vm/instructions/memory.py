@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) Memory Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) Memory Instructions.
 
 .. contents:: Table of Contents
     :backlinks: none

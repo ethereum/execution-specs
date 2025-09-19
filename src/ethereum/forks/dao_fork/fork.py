@@ -1,8 +1,7 @@
 """
-.. _dao-fork:
+Ethereum Specification.
 
-Ethereum Specification
-^^^^^^^^^^^^^^^^^^^^^^
+.. _dao-fork:
 
 .. contents:: Table of Contents
     :backlinks: none

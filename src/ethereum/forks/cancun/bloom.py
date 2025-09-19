@@ -1,6 +1,5 @@
 """
-Ethereum Logs Bloom
-^^^^^^^^^^^^^^^^^^^
+Ethereum Logs Bloom.
 
 .. contents:: Table of Contents
     :backlinks: none

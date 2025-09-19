@@ -1,6 +1,5 @@
 """
-Utility Functions For Hexadecimal Strings
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Utility Functions For Hexadecimal Strings.
 
 .. contents:: Table of Contents
     :backlinks: none

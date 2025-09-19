@@ -1,5 +1,5 @@
 """
-### Introduction
+Introduction to Ethereum.
 
 Seeing as internet connections have been vastly expanding across the
 world, spreading information has become as cheap as ever. Bitcoin, for

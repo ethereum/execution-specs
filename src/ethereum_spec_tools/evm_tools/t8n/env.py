@@ -1,4 +1,4 @@
-"""Define t8n Env class"""
+"""Define t8n Env class."""
 
 import json
 from dataclasses import dataclass

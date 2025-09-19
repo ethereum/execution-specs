@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) Blake2 PRECOMPILED CONTRACT
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) Blake2 PRECOMPILED CONTRACT.
 
 .. contents:: Table of Contents
     :backlinks: none

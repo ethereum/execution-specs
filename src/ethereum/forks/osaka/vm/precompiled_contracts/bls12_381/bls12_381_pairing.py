@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) BLS12 381 PAIRING PRE-COMPILE
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) BLS12 381 PAIRING PRE-COMPILE.
 
 .. contents:: Table of Contents
     :backlinks: none

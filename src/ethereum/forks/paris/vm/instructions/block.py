@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) Block Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) Block Instructions.
 
 .. contents:: Table of Contents
     :backlinks: none

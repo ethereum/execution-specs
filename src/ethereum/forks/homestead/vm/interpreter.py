@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) Interpreter
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) Interpreter.
 
 .. contents:: Table of Contents
     :backlinks: none
@@ -62,7 +61,7 @@ STACK_DEPTH_LIMIT = Uint(1024)
 @dataclass
 class MessageCallOutput:
     """
-    Output of a particular message call
+    Output of a particular message call.
 
     Contains the following:
 

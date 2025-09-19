@@ -1,4 +1,4 @@
-"""Utilities for the EVM tools"""
+"""Utilities for the EVM tools."""
 
 import json
 import logging
@@ -63,7 +63,7 @@ UNSUPPORTED_FORKS = ("constantinople",)
 
 
 def parse_hex_or_int(value: str, to_type: Callable[[int], W]) -> W:
-    """Read a Uint type from a hex string or int"""
+    """Read a Uint type from a hex string or int."""
     # find the function based on the type
     # if the value is a hex string, convert it
     if isinstance(value, str) and value.startswith("0x"):
@@ -74,7 +74,7 @@ def parse_hex_or_int(value: str, to_type: Callable[[int], W]) -> W:
 
 
 class FatalError(Exception):
-    """Exception that causes the tool to stop"""
+    """Exception that causes the tool to stop."""
 
     pass
 

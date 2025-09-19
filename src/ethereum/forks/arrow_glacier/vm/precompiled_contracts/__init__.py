@@ -1,6 +1,5 @@
 """
-Precompiled Contract Addresses
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Precompiled Contract Addresses.
 
 .. contents:: Table of Contents
     :backlinks: none

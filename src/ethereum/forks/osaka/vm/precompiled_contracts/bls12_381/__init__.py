@@ -1,6 +1,5 @@
 """
-BLS12 381 Precompile
-^^^^^^^^^^^^^^^^^^^^
+BLS12 381 Precompile.
 
 .. contents:: Table of Contents
     :backlinks: none

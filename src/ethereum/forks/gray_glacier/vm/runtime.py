@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) Runtime Operations
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) Runtime Operations.
 
 .. contents:: Table of Contents
     :backlinks: none

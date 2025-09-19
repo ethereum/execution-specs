@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) System Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) System Instructions.
 
 .. contents:: Table of Contents
     :backlinks: none

@@ -1,6 +1,5 @@
 """
-State
-^^^^^
+State.
 
 .. contents:: Table of Contents
     :backlinks: none
@@ -346,7 +345,7 @@ def state_root(state: State) -> Root:
 
 def account_exists(state: State, address: Address) -> bool:
     """
-    Checks if an account exists in the state trie
+    Checks if an account exists in the state trie.
 
     Parameters
     ----------
@@ -366,7 +365,7 @@ def account_exists(state: State, address: Address) -> bool:
 
 def account_has_code_or_nonce(state: State, address: Address) -> bool:
     """
-    Checks if an account has non zero nonce or non empty code
+    Checks if an account has non zero nonce or non empty code.
 
     Parameters
     ----------

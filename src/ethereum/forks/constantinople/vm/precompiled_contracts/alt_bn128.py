@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) ALT_BN128 CONTRACTS
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) ALT_BN128 CONTRACTS.
 
 .. contents:: Table of Contents
     :backlinks: none

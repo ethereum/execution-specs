@@ -1,6 +1,5 @@
 """
-Lints
-^^^^^
+Lints.
 
 Checks specific to the Ethereum specification source code.
 """

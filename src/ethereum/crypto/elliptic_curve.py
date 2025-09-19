@@ -1,7 +1,4 @@
-"""
-Elliptic Curves
-^^^^^^^^^^^^^^^
-"""
+"""Elliptic Curves."""
 
 import coincurve
 from Crypto.Util.asn1 import DerSequence

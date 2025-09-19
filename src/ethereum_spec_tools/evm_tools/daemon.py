@@ -32,7 +32,7 @@ class _EvmToolHandler(BaseHTTPRequestHandler):
     def log_request(
         self, code: int | str = "-", size: int | str = "-"
     ) -> None:
-        """Don't log requests"""
+        """Don't log requests."""
         pass
 
     def do_POST(self) -> None:  # noqa N802

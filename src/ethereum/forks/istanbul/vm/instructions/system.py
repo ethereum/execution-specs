@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) System Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) System Instructions.
 
 .. contents:: Table of Contents
     :backlinks: none
@@ -641,7 +640,7 @@ def staticcall(evm: Evm) -> None:
 def revert(evm: Evm) -> None:
     """
     Stop execution and revert state changes, without consuming all provided gas
-    and also has the ability to return a reason
+    and also has the ability to return a reason.
 
     Parameters
     ----------

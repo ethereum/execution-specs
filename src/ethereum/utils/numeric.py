@@ -1,6 +1,5 @@
 """
-Utility Functions For Numeric Operations
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Utility Functions For Numeric Operations.
 
 .. contents:: Table of Contents
     :backlinks: none

@@ -59,7 +59,7 @@ G = TypeVar("G")
 
 
 def pairwise(iterable: Iterable[G]) -> Iterable[Tuple[G, G]]:
-    """ABCDEFG --> AB BC CD DE EF FG"""
+    """ABCDEFG --> AB BC CD DE EF FG."""
     a, b = tee(iterable)
     next(b, None)
     return zip(a, b, strict=False)

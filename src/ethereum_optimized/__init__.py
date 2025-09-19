@@ -1,6 +1,5 @@
 """
-Optimized Implementations
-^^^^^^^^^^^^^^^^^^^^^^^^^
+Optimized Implementations.
 
 .. contents:: Table of Contents
     :backlinks: none

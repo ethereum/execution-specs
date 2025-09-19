@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) ECRECOVER PRECOMPILED CONTRACT
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) ECRECOVER PRECOMPILED CONTRACT.
 
 .. contents:: Table of Contents
     :backlinks: none

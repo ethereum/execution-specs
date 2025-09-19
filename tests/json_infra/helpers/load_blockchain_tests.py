@@ -1,4 +1,4 @@
-"""Helpers to load and run blockchain tests from JSON files"""
+"""Helpers to load and run blockchain tests from JSON files."""
 
 import importlib
 import json
@@ -25,7 +25,7 @@ from .exceptional_test_patterns import exceptional_blockchain_test_patterns
 class NoTestsFoundError(Exception):
     """
     An exception thrown when the test for a particular fork isn't
-    available in the json fixture
+    available in the json fixture.
     """
 
 

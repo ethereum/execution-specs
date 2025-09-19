@@ -1,4 +1,4 @@
-"""Tests for block operations"""
+"""Tests for block operations."""
 
 from typing import Tuple
 

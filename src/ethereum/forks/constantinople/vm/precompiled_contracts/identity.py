@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) IDENTITY PRECOMPILED CONTRACT
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) IDENTITY PRECOMPILED CONTRACT.
 
 .. contents:: Table of Contents
     :backlinks: none

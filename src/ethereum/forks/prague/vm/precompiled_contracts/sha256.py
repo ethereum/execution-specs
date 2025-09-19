@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) SHA256 PRECOMPILED CONTRACT
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) SHA256 PRECOMPILED CONTRACT.
 
 .. contents:: Table of Contents
     :backlinks: none

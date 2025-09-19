@@ -27,26 +27,26 @@ from .transaction_loader import TransactionLoad
 
 
 class BaseLoad(ABC):
-    """Base class for loading JSON fixtures"""
+    """Base class for loading JSON fixtures."""
 
     @abstractmethod
     def json_to_header(self, json_data: Any) -> Any:
-        """Converts json header data to a header object"""
+        """Converts json header data to a header object."""
         raise NotImplementedError()
 
     @abstractmethod
     def json_to_state(self, json_data: Any) -> Any:
-        """Converts json state data to a state object"""
+        """Converts json state data to a state object."""
         raise NotImplementedError()
 
     @abstractmethod
     def json_to_block(self, json_data: Any) -> Any:
-        """Converts json block data to a list of blocks"""
+        """Converts json block data to a list of blocks."""
         raise NotImplementedError()
 
 
 class Load(BaseLoad):
-    """Class for loading json fixtures"""
+    """Class for loading json fixtures."""
 
     _network: str
     _fork_module: str
@@ -58,7 +58,7 @@ class Load(BaseLoad):
         self.fork = ForkLoad(fork_module)
 
     def json_to_state(self, raw: Any) -> Any:
-        """Converts json state data to a state object"""
+        """Converts json state data to a state object."""
         state = self.fork.State()
         set_storage = self.fork.set_storage
         EMPTY_ACCOUNT = self.fork.EMPTY_ACCOUNT  # noqa N806
@@ -85,7 +85,7 @@ class Load(BaseLoad):
         return state
 
     def json_to_withdrawals(self, raw: Any) -> Any:
-        """Converts json withdrawal data to a withdrawal object"""
+        """Converts json withdrawal data to a withdrawal object."""
         parameters = [
             hex_to_u64(raw.get("index")),
             hex_to_u64(raw.get("validatorIndex")),
@@ -99,7 +99,7 @@ class Load(BaseLoad):
         self,
         json_block: Any,
     ) -> Tuple[Any, Hash32, bytes]:
-        """Converts json block data to a block object"""
+        """Converts json block data to a block object."""
         if "rlp" in json_block:
             # Always decode from rlp
             block_rlp = hex_to_bytes(json_block["rlp"])
@@ -138,7 +138,7 @@ class Load(BaseLoad):
         return block, block_header_hash, block_rlp
 
     def json_to_header(self, raw: Any) -> Any:
-        """Converts json header data to a header object"""
+        """Converts json header data to a header object."""
         parameters = [
             hex_to_hash(raw.get("parentHash")),
             hex_to_hash(raw.get("uncleHash") or raw.get("sha3Uncles")),

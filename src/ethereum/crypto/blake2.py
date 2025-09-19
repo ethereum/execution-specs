@@ -1,7 +1,4 @@
-"""
-The Blake2 Implementation
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-"""
+"""The Blake2 Implementation."""
 
 import struct
 from dataclasses import dataclass
@@ -61,7 +58,7 @@ class Blake2:
     def w_R1(self) -> Uint:
         """
         (w - R1) value for a given Blake2 flavor.
-        Used in the function G
+        Used in the function G.
         """
         return self.w - self.R1
 
@@ -69,7 +66,7 @@ class Blake2:
     def w_R2(self) -> Uint:
         """
         (w - R2) value for a given Blake2 flavor.
-        Used in the function G
+        Used in the function G.
         """
         return self.w - self.R2
 
@@ -77,7 +74,7 @@ class Blake2:
     def w_R3(self) -> Uint:
         """
         (w - R3) value for a given Blake2 flavor.
-        Used in the function G
+        Used in the function G.
         """
         return self.w - self.R3
 
@@ -85,7 +82,7 @@ class Blake2:
     def w_R4(self) -> Uint:
         """
         (w - R4) value for a given Blake2 flavor.
-        Used in the function G
+        Used in the function G.
         """
         return self.w - self.R4
 
@@ -152,8 +149,7 @@ class Blake2:
         self, v: List, a: Uint, b: Uint, c: Uint, d: Uint, x: Uint, y: Uint
     ) -> List:
         """
-        The mixing function used in Blake2
-        https://datatracker.ietf.org/doc/html/rfc7693#section-3.1
+        The mixing function used in Blake2.
 
         Parameters
         ----------
@@ -197,8 +193,7 @@ class Blake2:
         f: bool,
     ) -> bytes:
         """
-        'F Compression' from section 3.2 of RFC 7693:
-        https://tools.ietf.org/html/rfc7693#section-3.2
+        'F Compression' from section 3.2 of RFC 7693.
 
         Parameters
         ----------

@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM).
 
 .. contents:: Table of Contents
     :backlinks: none

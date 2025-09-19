@@ -1,10 +1,11 @@
 """
-Ethereum Virtual Machine (EVM) P256VERIFY PRECOMPILED CONTRACT
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) P256VERIFY PRECOMPILED CONTRACT.
+
 .. contents:: Table of Contents
     :backlinks: none
     :local:
-Introduction
+
+Introduction.
 ------------
 Implementation of the P256VERIFY precompiled contract.
 """

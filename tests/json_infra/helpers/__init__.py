@@ -1,1 +1,1 @@
-"""Helpers to load tests from JSON files"""
+"""Helpers to load tests from JSON files."""

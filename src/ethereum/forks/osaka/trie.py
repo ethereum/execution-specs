@@ -1,6 +1,5 @@
 """
-State Trie
-^^^^^^^^^^
+State Trie.
 
 .. contents:: Table of Contents
     :backlinks: none
@@ -89,7 +88,7 @@ V = TypeVar(
 @slotted_freezable
 @dataclass
 class LeafNode:
-    """Leaf node in the Merkle Trie"""
+    """Leaf node in the Merkle Trie."""
 
     rest_of_key: Bytes
     value: Extended
@@ -98,7 +97,7 @@ class LeafNode:
 @slotted_freezable
 @dataclass
 class ExtensionNode:
-    """Extension node in the Merkle Trie"""
+    """Extension node in the Merkle Trie."""
 
     key_segment: Bytes
     subnode: Extended
@@ -127,7 +126,7 @@ BranchSubnodes = Tuple[
 @slotted_freezable
 @dataclass
 class BranchNode:
-    """Branch node in the Merkle Trie"""
+    """Branch node in the Merkle Trie."""
 
     subnodes: BranchSubnodes
     value: Extended

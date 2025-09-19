@@ -1,6 +1,5 @@
 """
-Ethereum Sync
-^^^^^^^^^^^^^
+Ethereum Sync.
 
 Using an RPC provider, fetch each block and validate it with the specification.
 """

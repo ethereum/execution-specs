@@ -192,16 +192,16 @@ class _Visitor(ast.NodeVisitor):
 
     @override
     def visit_Import(self, import_: ast.Import) -> None:
-        """Visit an Import"""
+        """Visit an Import."""
         del import_
 
     @override
     def visit_ImportFrom(self, import_from: ast.ImportFrom) -> None:
-        """Visit an Import From"""
+        """Visit an Import From."""
         del import_from
 
     def visit_Expr(self, expr: ast.Expr) -> None:
-        """Visit an Expression"""
+        """Visit an Expression."""
         # This is a way to identify comments in the current specs code
         # ignore comments
         if isinstance(expr.value, ast.Constant) and isinstance(

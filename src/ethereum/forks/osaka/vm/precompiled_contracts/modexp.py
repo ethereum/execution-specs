@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) MODEXP PRECOMPILED CONTRACT
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) MODEXP PRECOMPILED CONTRACT.
 
 .. contents:: Table of Contents
     :backlinks: none

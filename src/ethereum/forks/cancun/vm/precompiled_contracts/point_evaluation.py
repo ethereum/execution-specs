@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) POINT EVALUATION PRECOMPILED CONTRACT
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) POINT EVALUATION PRECOMPILED CONTRACT.
 
 .. contents:: Table of Contents
     :backlinks: none

@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) Interpreter
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) Interpreter.
 
 .. contents:: Table of Contents
     :backlinks: none
@@ -66,7 +65,7 @@ MAX_CODE_SIZE = 0x6000
 @dataclass
 class MessageCallOutput:
     """
-    Output of a particular message call
+    Output of a particular message call.
 
     Contains the following:
 

@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) Gas
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) Gas.
 
 .. contents:: Table of Contents
     :backlinks: none
@@ -78,7 +77,7 @@ BLOB_BASE_FEE_UPDATE_FRACTION = Uint(3338477)
 @dataclass
 class ExtendMemory:
     """
-    Define the parameters for memory extension in opcodes
+    Define the parameters for memory extension in opcodes.
 
     `cost`: `ethereum.base_types.Uint`
         The gas required to perform the extension
@@ -159,7 +158,7 @@ def calculate_gas_extend_memory(
     memory: bytearray, extensions: List[Tuple[U256, U256]]
 ) -> ExtendMemory:
     """
-    Calculates the gas amount to extend memory
+    Calculates the gas amount to extend memory.
 
     Parameters
     ----------
@@ -240,7 +239,7 @@ def calculate_message_call_gas(
 
 def max_message_call_gas(gas: Uint) -> Uint:
     """
-    Calculates the maximum gas that is allowed for making a message call
+    Calculates the maximum gas that is allowed for making a message call.
 
     Parameters
     ----------

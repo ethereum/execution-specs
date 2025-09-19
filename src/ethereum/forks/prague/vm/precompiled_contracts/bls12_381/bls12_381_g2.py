@@ -1,6 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) BLS12 381 G2 CONTRACTS
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) BLS12 381 G2 CONTRACTS.
 
 .. contents:: Table of Contents
     :backlinks: none

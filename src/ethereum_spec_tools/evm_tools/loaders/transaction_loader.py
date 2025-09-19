@@ -23,7 +23,7 @@ from ethereum_spec_tools.evm_tools.utils import parse_hex_or_int
 
 
 class UnsupportedTxError(Exception):
-    """Exception for unsupported transactions"""
+    """Exception for unsupported transactions."""
 
     def __init__(self, encoded_params: bytes, error_message: str) -> None:
         super().__init__(error_message)
@@ -32,7 +32,7 @@ class UnsupportedTxError(Exception):
 
 
 class TransactionLoad:
-    """Class for loading transaction data from json file"""
+    """Class for loading transaction data from json file."""
 
     def __init__(self, raw: Any, fork: Any) -> None:
         self.raw = raw
@@ -134,15 +134,15 @@ class TransactionLoad:
         return self.json_to_v()
 
     def json_to_r(self) -> U256:
-        """Get the r value of the transaction"""
+        """Get the r value of the transaction."""
         return hex_to_u256(self.raw.get("r"))
 
     def json_to_s(self) -> U256:
-        """Get the s value of the transaction"""
+        """Get the s value of the transaction."""
         return hex_to_u256(self.raw.get("s"))
 
     def get_parameters(self, tx_cls: Any) -> List:
-        """Extract all the transaction parameters from the json file"""
+        """Extract all the transaction parameters from the json file."""
         parameters = []
         for field in fields(tx_cls):
             parameters.append(getattr(self, f"json_to_{field.name}")())
@@ -156,7 +156,7 @@ class TransactionLoad:
             return self.fork.Transaction
 
     def read(self) -> Any:
-        """Convert json transaction data to a transaction object"""
+        """Convert json transaction data to a transaction object."""
         if "type" in self.raw:
             tx_type = parse_hex_or_int(self.raw.get("type"), Uint)
             if tx_type == Uint(4):
