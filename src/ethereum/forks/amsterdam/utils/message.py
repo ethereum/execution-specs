@@ -43,7 +43,7 @@ def prepare_message(
 
     Returns
     -------
-    message: `ethereum.amsterdam.vm.Message`
+    message: `ethereum.forks.amsterdam.vm.Message`
         Items containing contract creation or message call specific data.
     """
     accessed_addresses = set()

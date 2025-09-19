@@ -36,7 +36,7 @@ from ethereum_types.numeric import U256, Uint
 from typing_extensions import assert_type
 
 from ethereum.crypto.hash import keccak256
-from ethereum.osaka import trie as previous_trie
+from ethereum.forks.osaka import trie as previous_trie
 from ethereum.utils.hexadecimal import hex_to_bytes
 
 from .blocks import Receipt, Withdrawal

@@ -169,7 +169,7 @@ def process_create_message(message: Message) -> Evm:
 
     Returns
     -------
-    evm: :py:class:`~ethereum.amsterdam.vm.Evm`
+    evm: :py:class:`~ethereum.forks.amsterdam.vm.Evm`
         Items containing execution specific objects.
     """
     state = message.block_env.state
@@ -228,7 +228,7 @@ def process_message(message: Message) -> Evm:
 
     Returns
     -------
-    evm: :py:class:`~ethereum.amsterdam.vm.Evm`
+    evm: :py:class:`~ethereum.forks.amsterdam.vm.Evm`
         Items containing execution specific objects
     """
     state = message.block_env.state

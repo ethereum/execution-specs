@@ -80,7 +80,7 @@ def compute_create2_contract_address(
 
     Returns
     -------
-    address: `ethereum.amsterdam.fork_types.Address`
+    address: `ethereum.forks.amsterdam.fork_types.Address`
         The computed address of the new account.
     """
     preimage = b"\xff" + address + salt + keccak256(call_data)

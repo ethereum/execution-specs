@@ -226,6 +226,12 @@ packages = [
     "ethereum.forks.osaka.vm.instructions",
     "ethereum.forks.osaka.vm.precompiled_contracts",
     "ethereum.forks.osaka.vm.precompiled_contracts.bls12_381",
+    "ethereum.forks.amsterdam",
+    "ethereum.forks.amsterdam.utils",
+    "ethereum.forks.amsterdam.vm",
+    "ethereum.forks.amsterdam.vm.instructions",
+    "ethereum.forks.amsterdam.vm.precompiled_contracts",
+    "ethereum.forks.amsterdam.vm.precompiled_contracts.bls12_381",
 ]
 
 [tool.setuptools.package-data]
