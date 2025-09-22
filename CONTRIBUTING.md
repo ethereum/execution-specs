@@ -48,8 +48,7 @@ Running the tests necessary to merge into the repository requires:
 
 `execution-specs` depends on a submodule that contains common tests that are run across all clients, so we need to clone the repo with the --recursive flag. Example:
 ```bash
-$ git clone --recursive https://github.com/ethereum/execution-specs.git
-```
+$ git clone --recursive [https://github.com/ethereum/execution-specs.git](https://github.com/ethereum/execution-specs.git)
 
 Or, if you've already cloned the repository, you can fetch the submodules with:
 
