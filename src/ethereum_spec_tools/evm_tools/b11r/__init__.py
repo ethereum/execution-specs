@@ -1,4 +1,6 @@
-"""Create a block builder tool for the given fork."""
+"""
+Create a block builder tool for the given fork.
+"""
 
 import argparse
 import json
@@ -14,7 +16,9 @@ from .b11r_types import Body, Header
 
 
 def b11r_arguments(subparsers: argparse._SubParsersAction) -> None:
-    """Adds the arguments for the b11r tool subparser."""
+    """
+    Adds the arguments for the b11r tool subparser.
+    """
     b11r_parser = subparsers.add_parser("b11r", help="This is the b11r tool.")
 
     b11r_parser.add_argument(
@@ -58,12 +62,16 @@ def b11r_arguments(subparsers: argparse._SubParsersAction) -> None:
 
 
 class B11R:
-    """Creates the b11r tool."""
+    """
+    Creates the b11r tool.
+    """
 
     def __init__(
         self, options: argparse.Namespace, out_file: TextIO, in_file: TextIO
     ) -> None:
-        """Initializes the b11r tool."""
+        """
+        Initializes the b11r tool.
+        """
         self.options = options
         self.out_file = out_file
         self.in_file = in_file
@@ -85,7 +93,9 @@ class B11R:
         self.logger = get_stream_logger("B11R")
 
     def build_block(self) -> None:
-        """Builds the block."""
+        """
+        Builds the block.
+        """
         self.logger.info("Building the block...")
 
         header_to_list = [
@@ -105,7 +115,9 @@ class B11R:
         self.block_hash = keccak256(rlp.encode(header_to_list))
 
     def run(self) -> int:
-        """Runs the b11r tool."""
+        """
+        Runs the b11r tool.
+        """
         self.build_block()
 
         if not self.block_rlp or not self.block_hash:

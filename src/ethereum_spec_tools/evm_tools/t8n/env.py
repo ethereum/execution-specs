@@ -1,4 +1,6 @@
-"""Define t8n Env class."""
+"""
+Define t8n Env class.
+"""
 
 import json
 from dataclasses import dataclass
@@ -27,7 +29,9 @@ class Ommer:
 
 
 class Env:
-    """The environment for the transition tool."""
+    """
+    The environment for the transition tool.
+    """
 
     coinbase: Any
     block_gas_limit: Uint
@@ -204,7 +208,9 @@ class Env:
                 )
 
     def read_randao(self, data: Any, t8n: "T8N") -> None:
-        """Read the randao from the data."""
+        """
+        Read the randao from the data.
+        """
         self.prev_randao = None
         if t8n.fork.is_after_fork("ethereum.forks.paris"):
             # tf tool might not always provide an
@@ -223,7 +229,9 @@ class Env:
             )
 
     def read_withdrawals(self, data: Any, t8n: "T8N") -> None:
-        """Read the withdrawals from the data."""
+        """
+        Read the withdrawals from the data.
+        """
         self.withdrawals = None
         if t8n.fork.is_after_fork("ethereum.forks.shanghai"):
             self.withdrawals = tuple(
@@ -274,7 +282,9 @@ class Env:
             self.block_difficulty = t8n.fork.calculate_block_difficulty(*args)
 
     def read_block_hashes(self, data: Any, t8n: "T8N") -> None:
-        """Read the block hashes. Returns a maximum of 256 block hashes."""
+        """
+        Read the block hashes. Returns a maximum of 256 block hashes.
+        """
         self.parent_hash = None
         if (
             t8n.fork.is_after_fork("ethereum.forks.prague")

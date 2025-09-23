@@ -22,13 +22,17 @@ class ExceptionalHalt(EthereumException):
 
 
 class StackUnderflowError(ExceptionalHalt):
-    """Occurs when a pop is executed on an empty stack."""
+    """
+    Occurs when a pop is executed on an empty stack.
+    """
 
     pass
 
 
 class StackOverflowError(ExceptionalHalt):
-    """Occurs when a push is executed on a stack at max capacity."""
+    """
+    Occurs when a push is executed on a stack at max capacity.
+    """
 
     pass
 
@@ -43,7 +47,9 @@ class OutOfGasError(ExceptionalHalt):
 
 
 class InvalidOpcode(ExceptionalHalt):
-    """Raised when an invalid opcode is encountered."""
+    """
+    Raised when an invalid opcode is encountered.
+    """
 
     code: int
 
@@ -65,12 +71,16 @@ class InvalidJumpDestError(ExceptionalHalt):
 
 
 class StackDepthLimitError(ExceptionalHalt):
-    """Raised when the message depth is greater than `1024`."""
+    """
+    Raised when the message depth is greater than `1024`.
+    """
 
     pass
 
 
 class AddressCollision(ExceptionalHalt):
-    """Raised when the new contract address has a collision."""
+    """
+    Raised when the new contract address has a collision.
+    """
 
     pass

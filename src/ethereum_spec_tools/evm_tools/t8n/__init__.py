@@ -1,4 +1,6 @@
-"""Create a transition tool for the given fork."""
+"""
+Create a transition tool for the given fork.
+"""
 
 import argparse
 import fnmatch
@@ -31,7 +33,9 @@ T = TypeVar("T")
 
 
 def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
-    """Adds the arguments for the t8n tool subparser."""
+    """
+    Adds the arguments for the t8n tool subparser.
+    """
     t8n_parser = subparsers.add_parser("t8n", help="This is the t8n tool.")
 
     t8n_parser.add_argument(
@@ -294,7 +298,9 @@ class T8N(Load):
             self.fork.process_general_purpose_requests(block_env, block_output)
 
     def run_blockchain_test(self) -> None:
-        """Apply a block on the pre-state. Also includes system operations."""
+        """
+        Apply a block on the pre-state. Also includes system operations.
+        """
         block_env = self.block_environment()
         block_output = self.fork.BlockOutput()
 

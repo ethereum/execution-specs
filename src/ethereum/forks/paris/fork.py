@@ -68,7 +68,9 @@ EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
 
 @dataclass
 class BlockChain:
-    """History and current state of the block chain."""
+    """
+    History and current state of the block chain.
+    """
 
     blocks: List[Block]
     state: State

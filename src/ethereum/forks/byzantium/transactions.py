@@ -46,7 +46,9 @@ Additional gas cost for creating a new contract.
 @slotted_freezable
 @dataclass
 class Transaction:
-    """Atomic operation performed on the block chain."""
+    """
+    Atomic operation performed on the block chain.
+    """
 
     nonce: U256
     """

@@ -65,7 +65,9 @@ def monkey_patch_optimized_spec(fork_name: str) -> None:
 
 
 def monkey_patch(state_path: Optional[str]) -> None:
-    """Apply all monkey patches to the specification."""
+    """
+    Apply all monkey patches to the specification.
+    """
     forks = Hardfork.discover()
 
     for fork in forks:

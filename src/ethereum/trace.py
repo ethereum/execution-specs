@@ -27,12 +27,16 @@ from ethereum.exceptions import EthereumException
 
 @dataclass
 class TransactionStart:
-    """Trace event that is triggered at the start of a transaction."""
+    """
+    Trace event that is triggered at the start of a transaction.
+    """
 
 
 @dataclass
 class TransactionEnd:
-    """Trace event that is triggered at the end of a transaction."""
+    """
+    Trace event that is triggered at the end of a transaction.
+    """
 
     gas_used: int
     """
@@ -58,7 +62,9 @@ class TransactionEnd:
 
 @dataclass
 class PrecompileStart:
-    """Trace event that is triggered before executing a precompile."""
+    """
+    Trace event that is triggered before executing a precompile.
+    """
 
     address: Bytes
     """
@@ -68,12 +74,16 @@ class PrecompileStart:
 
 @dataclass
 class PrecompileEnd:
-    """Trace event that is triggered after executing a precompile."""
+    """
+    Trace event that is triggered after executing a precompile.
+    """
 
 
 @dataclass
 class OpStart:
-    """Trace event that is triggered before executing an opcode."""
+    """
+    Trace event that is triggered before executing an opcode.
+    """
 
     op: enum.Enum
     """
@@ -88,12 +98,16 @@ class OpStart:
 
 @dataclass
 class OpEnd:
-    """Trace event that is triggered after executing an opcode."""
+    """
+    Trace event that is triggered after executing an opcode.
+    """
 
 
 @dataclass
 class OpException:
-    """Trace event that is triggered when an opcode raises an exception."""
+    """
+    Trace event that is triggered when an opcode raises an exception.
+    """
 
     error: Exception
     """
@@ -110,7 +124,9 @@ class OpException:
 
 @dataclass
 class EvmStop:
-    """Trace event that is triggered when the EVM stops."""
+    """
+    Trace event that is triggered when the EVM stops.
+    """
 
     op: enum.Enum
     """
@@ -125,7 +141,9 @@ class EvmStop:
 
 @dataclass
 class GasAndRefund:
-    """Trace event that is triggered when gas is deducted."""
+    """
+    Trace event that is triggered when gas is deducted.
+    """
 
     gas_cost: int
     """

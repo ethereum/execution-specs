@@ -1,4 +1,6 @@
-"""Utilities for the EVM tools."""
+"""
+Utilities for the EVM tools.
+"""
 
 import json
 import logging
@@ -82,7 +84,9 @@ class FatalError(Exception):
 def get_module_name(
     forks: Sequence[Hardfork], options: Any, stdin: Any
 ) -> Tuple[str, int]:
-    """Get the module name and the fork block for the given state fork."""
+    """
+    Get the module name and the fork block for the given state fork.
+    """
     if options.state_fork.casefold() in UNSUPPORTED_FORKS:
         sys.exit(f"Unsupported state fork: {options.state_fork}")
     # If the state fork is an exception, use the exception config.
@@ -122,7 +126,9 @@ def get_module_name(
 
 
 def get_supported_forks() -> List[str]:
-    """Get the supported forks."""
+    """
+    Get the supported forks.
+    """
     supported_forks = [
         fork.title_case_name.replace(" ", "") for fork in Hardfork.discover()
     ]
@@ -141,7 +147,9 @@ def get_supported_forks() -> List[str]:
 
 
 def get_stream_logger(name: str) -> Any:
-    """Get a logger that writes to stdout."""
+    """
+    Get a logger that writes to stdout.
+    """
     logger = logging.getLogger(name)
     if not logger.handlers:
         logger.setLevel(level=logging.INFO)
@@ -154,7 +162,9 @@ def get_stream_logger(name: str) -> Any:
 
 
 def secp256k1_sign(msg_hash: Hash32, secret_key: int) -> Tuple[U256, ...]:
-    """Returns the signature of a message hash given the secret key."""
+    """
+    Returns the signature of a message hash given the secret key.
+    """
     private_key = coincurve.PrivateKey.from_int(secret_key)
     signature = private_key.sign_recoverable(msg_hash, hasher=None)
 
@@ -166,7 +176,9 @@ def secp256k1_sign(msg_hash: Hash32, secret_key: int) -> Tuple[U256, ...]:
 
 
 def encode_to_hex(data: Union[bytes, int]) -> str:
-    """Encode the data to a hex string."""
+    """
+    Encode the data to a hex string.
+    """
     if isinstance(data, int):
         return hex(data)
     elif isinstance(data, bytes):

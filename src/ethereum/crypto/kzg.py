@@ -65,7 +65,9 @@ KZG_SETUP_G2_MONOMIAL_1 = "0xb5bfd7dd8cdeb128843bc287230af38926187075cbfbefa8100
 def kzg_commitment_to_versioned_hash(
     kzg_commitment: KZGCommitment,
 ) -> VersionedHash:
-    """Convert a KZG commitment to a versioned hash."""
+    """
+    Convert a KZG commitment to a versioned hash.
+    """
     return VersionedHash(
         VERSIONED_HASH_VERSION_KZG
         + Bytes32(sha256(kzg_commitment).digest())[1:]
@@ -84,7 +86,9 @@ def validate_kzg_g1(b: Bytes48) -> None:
 
 
 def bytes_to_kzg_commitment(b: Bytes48) -> KZGCommitment:
-    """Convert untrusted bytes into a trusted and validated KZGCommitment."""
+    """
+    Convert untrusted bytes into a trusted and validated KZGCommitment.
+    """
     validate_kzg_g1(b)
     return KZGCommitment(b)
 
@@ -101,13 +105,17 @@ def bytes_to_bls_field(b: Bytes32) -> BLSFieldElement:
 
 
 def bytes_to_kzg_proof(b: Bytes48) -> KZGProof:
-    """Convert untrusted bytes into a trusted and validated KZGProof."""
+    """
+    Convert untrusted bytes into a trusted and validated KZGProof.
+    """
     validate_kzg_g1(b)
     return KZGProof(b)
 
 
 def pairing_check(values: Tuple[Tuple[FQ, FQ2], Tuple[FQ, FQ2]]) -> bool:
-    """Check if the pairings are valid."""
+    """
+    Check if the pairings are valid.
+    """
     p_q_1, p_q_2 = values
     final_exponentiation = final_exponentiate(
         pairing(p_q_1[1], p_q_1[0], final_exponentiate=False)

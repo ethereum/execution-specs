@@ -66,7 +66,9 @@ def generic_create(
     memory_start_position: U256,
     memory_size: U256,
 ) -> None:
-    """Core logic used by the `CREATE*` family of opcodes."""
+    """
+    Core logic used by the `CREATE*` family of opcodes.
+    """
     # This import causes a circular import error
     # if it's not moved inside this method
     from ...vm.interpreter import (
@@ -289,7 +291,9 @@ def generic_call(
     code: Bytes,
     disable_precompiles: bool,
 ) -> None:
-    """Perform the core logic of the `CALL*` family of opcodes."""
+    """
+    Perform the core logic of the `CALL*` family of opcodes.
+    """
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
 
     evm.return_data = b""

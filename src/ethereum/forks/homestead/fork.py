@@ -60,7 +60,9 @@ MAX_OMMER_DEPTH = Uint(6)
 
 @dataclass
 class BlockChain:
-    """History and current state of the block chain."""
+    """
+    History and current state of the block chain.
+    """
 
     blocks: List[Block]
     state: State

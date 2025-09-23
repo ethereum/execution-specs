@@ -29,7 +29,9 @@ from .trie import EMPTY_TRIE_ROOT, Trie, copy_trie, root, trie_get, trie_set
 
 @dataclass
 class State:
-    """Contains all information that is preserved between transactions."""
+    """
+    Contains all information that is preserved between transactions.
+    """
 
     _main_trie: Trie[Address, Optional[Account]] = field(
         default_factory=lambda: Trie(secured=True, default=None)
@@ -381,7 +383,9 @@ def account_has_storage(state: State, address: Address) -> bool:
 def modify_state(
     state: State, address: Address, f: Callable[[Account], None]
 ) -> None:
-    """Modify an `Account` in the `State`."""
+    """
+    Modify an `Account` in the `State`.
+    """
     set_account(state, address, modify(get_account(state, address), f))
 
 
@@ -391,7 +395,9 @@ def move_ether(
     recipient_address: Address,
     amount: U256,
 ) -> None:
-    """Move funds between accounts."""
+    """
+    Move funds between accounts.
+    """
 
     def reduce_sender_balance(sender: Account) -> None:
         if sender.balance < amount:

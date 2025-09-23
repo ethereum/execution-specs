@@ -36,15 +36,16 @@ EXCEPTIONAL_DIFFS = [
 
 
 def add_diagnostic(diagnostics: List[Diagnostic], message: str) -> None:
-    """Adds a new diagnostic message."""
+    """
+    Adds a new diagnostic message.
+    """
     diagnostic = Diagnostic(message=message)
     diagnostics.append(diagnostic)
 
 
 class GlacierForksHygiene(Lint):
     """
-    Ensures that the glacier forks have changes only in
-    BOMB_DELAY_BLOCKS.
+    Ensures that the glacier forks have changes only in BOMB_DELAY_BLOCKS.
     """
 
     def __init__(self) -> None:
@@ -58,8 +59,7 @@ class GlacierForksHygiene(Lint):
         self, forks: List[Hardfork], position: int
     ) -> Sequence[Diagnostic]:
         """
-        Walks the sources for each hardfork and emits Diagnostic
-        messages.
+        Walks the sources for each hardfork and emits Diagnostic messages.
         """
         fork_name = forks[position].short_name
         if position == 0:
@@ -182,26 +182,36 @@ class _Visitor(ast.NodeVisitor):
 
     @property
     def items(self) -> Dict:
-        """Sequence of all identifiers found while visiting the source."""
+        """
+        Sequence of all identifiers found while visiting the source.
+        """
         return self._items
 
     def visit_Module(self, module: ast.Module) -> None:
-        """Visit a python module."""
+        """
+        Visit a python module.
+        """
         for item in module.__dict__["body"]:
             self.visit(item)
 
     @override
     def visit_Import(self, import_: ast.Import) -> None:
-        """Visit an Import."""
+        """
+        Visit an Import.
+        """
         del import_
 
     @override
     def visit_ImportFrom(self, import_from: ast.ImportFrom) -> None:
-        """Visit an Import From."""
+        """
+        Visit an Import From.
+        """
         del import_from
 
     def visit_Expr(self, expr: ast.Expr) -> None:
-        """Visit an Expression."""
+        """
+        Visit an Expression.
+        """
         # This is a way to identify comments in the current specs code
         # ignore comments
         if isinstance(expr.value, ast.Constant) and isinstance(
@@ -212,19 +222,27 @@ class _Visitor(ast.NodeVisitor):
         print(f"The expression {type(expr)} has been ignored.")
 
     def visit_AsyncFunctionDef(self, function: ast.AsyncFunctionDef) -> None:
-        """Visit an asynchronous function."""
+        """
+        Visit an asynchronous function.
+        """
         self._insert(function.name, function)
 
     def visit_FunctionDef(self, function: ast.FunctionDef) -> None:
-        """Visit a function."""
+        """
+        Visit a function.
+        """
         self._insert(function.name, function)
 
     def visit_ClassDef(self, klass: ast.ClassDef) -> None:
-        """Visit a class."""
+        """
+        Visit a class.
+        """
         self._insert(klass.name, klass)
 
     def visit_Assign(self, assign: ast.Assign) -> None:
-        """Visit an assignment."""
+        """
+        Visit an assignment.
+        """
         if isinstance(assign.targets[0], ast.Name):
             self._insert(assign.targets[0].id, assign)
         else:
@@ -234,7 +252,9 @@ class _Visitor(ast.NodeVisitor):
             )
 
     def visit_AnnAssign(self, assign: ast.AnnAssign) -> None:
-        """Visit an annotated assignment."""
+        """
+        Visit an annotated assignment.
+        """
         if isinstance(assign.target, ast.Name):
             self._insert(assign.target.id, assign)
         else:
@@ -244,7 +264,9 @@ class _Visitor(ast.NodeVisitor):
             )
 
     def visit_If(self, node: ast.If) -> None:
-        """Visit an if statement."""
+        """
+        Visit an if statement.
+        """
         for child in node.body:
             self.visit(child)
         for child in node.orelse:

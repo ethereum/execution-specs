@@ -1,6 +1,5 @@
 """
-EVM trace implementation that fans out to many concrete trace
-implementations.
+EVM trace implementation that fans out to many concrete trace implementations.
 """
 
 from typing import Final
@@ -22,7 +21,9 @@ class GroupTracer(EvmTracer):
         self.tracers = set()
 
     def add(self, tracer: EvmTracer) -> None:
-        """Insert a new tracer."""
+        """
+        Insert a new tracer.
+        """
         self.tracers.add(tracer)
 
     @override
@@ -31,6 +32,8 @@ class GroupTracer(EvmTracer):
         evm: object,
         event: TraceEvent,
     ) -> None:
-        """Record a trace event."""
+        """
+        Record a trace event.
+        """
         for tracer in self.tracers:
             tracer(evm, event)

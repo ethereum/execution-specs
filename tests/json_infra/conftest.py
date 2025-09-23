@@ -44,7 +44,9 @@ def root_relative() -> Callable[[str | Path], Path]:
 
 
 def pytest_addoption(parser: Parser) -> None:
-    """Accept --evm-trace option in pytest."""
+    """
+    Accept --evm-trace option in pytest.
+    """
     parser.addoption(
         "--optimized",
         dest="optimized",
@@ -72,7 +74,9 @@ def pytest_addoption(parser: Parser) -> None:
 
 
 def pytest_configure(config: Config) -> None:
-    """Configure the ethereum module and log levels to output evm trace."""
+    """
+    Configure the ethereum module and log levels to output evm trace.
+    """
     if config.getoption("optimized"):
         import ethereum_optimized
 

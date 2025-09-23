@@ -33,8 +33,7 @@ __all__ = ("Environment", "Evm", "Message")
 @dataclass
 class BlockEnvironment:
     """
-    Items external to the virtual machine itself, provided by
-    the environment.
+    Items external to the virtual machine itself, provided by the environment.
     """
 
     chain_id: U64
@@ -80,7 +79,9 @@ class BlockOutput:
 
 @dataclass
 class TransactionEnvironment:
-    """Items that are used by contract creation or message call."""
+    """
+    Items that are used by contract creation or message call.
+    """
 
     origin: Address
     gas_price: Uint
@@ -91,7 +92,9 @@ class TransactionEnvironment:
 
 @dataclass
 class Message:
-    """Items that are used by contract creation or message call."""
+    """
+    Items that are used by contract creation or message call.
+    """
 
     block_env: BlockEnvironment
     tx_env: TransactionEnvironment

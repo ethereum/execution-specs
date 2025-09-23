@@ -1,4 +1,6 @@
-"""Define the types used by the t8n tool."""
+"""
+Define the types used by the t8n tool.
+"""
 
 import json
 from dataclasses import dataclass
@@ -19,7 +21,9 @@ if TYPE_CHECKING:
 
 
 class Alloc:
-    """The alloc (state) type for the t8n tool."""
+    """
+    The alloc (state) type for the t8n tool.
+    """
 
     state: Any
     state_backup: Any
@@ -127,7 +131,9 @@ class Txs:
                 self.rejected_txs[idx] = msg
 
     def parse_rlp_tx(self, raw_tx: Any) -> Any:
-        """Read transactions from RLP."""
+        """
+        Read transactions from RLP.
+        """
         t8n = self.t8n
 
         tx_rlp = rlp.encode(raw_tx)
@@ -268,7 +274,9 @@ class Result:
         t8n: Any,
         block_output: Any,
     ) -> List[Any]:
-        """Get receipts from the transaction and receipts tries."""
+        """
+        Get receipts from the transaction and receipts tries.
+        """
         receipts: List[Any] = []
         for key in block_output.receipt_keys:
             tx = t8n.fork.trie_get(block_output.transactions_trie, key)
@@ -289,7 +297,9 @@ class Result:
         return receipts
 
     def update(self, t8n: "T8N", block_env: Any, block_output: Any) -> None:
-        """Update the result after processing the inputs."""
+        """
+        Update the result after processing the inputs.
+        """
         self.gas_used = block_output.block_gas_used
         self.tx_root = t8n.fork.root(block_output.transactions_trie)
         self.receipt_root = t8n.fork.root(block_output.receipts_trie)
@@ -314,7 +324,9 @@ class Result:
             self.requests_hash = t8n.fork.compute_requests_hash(self.requests)
 
     def json_encode_receipts(self) -> Any:
-        """Encode receipts to JSON."""
+        """
+        Encode receipts to JSON.
+        """
         receipts_json = []
         for tx_hash, receipt in self.receipts:
             receipt_dict = {"transactionHash": "0x" + tx_hash.hex()}

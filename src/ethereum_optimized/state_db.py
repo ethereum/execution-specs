@@ -40,7 +40,9 @@ Account_ = Any  # noqa N806
 
 
 class UnmodifiedType:
-    """Sentinel type to represent a value that hasn't been modified."""
+    """
+    Sentinel type to represent a value that hasn't been modified.
+    """
 
     pass
 
@@ -99,7 +101,9 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
             self.db.begin_mutable()
 
         def __eq__(self, other: object) -> bool:
-            """Test for equality by comparing state roots."""
+            """
+            Test for equality by comparing state roots.
+            """
             if not isinstance(other, State):
                 return NotImplemented
             return state_root(self) == state_root(other)
@@ -148,7 +152,9 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
 
     @add_item(patches)
     def commit_db_transaction(state: State) -> None:
-        """Commit the current database transaction."""
+        """
+        Commit the current database transaction.
+        """
         if state.tx_restore_points:
             raise Exception("In a non-db transaction")
         flush(state)
@@ -156,7 +162,9 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
 
     @add_item(patches)
     def state_root(state: State) -> Root:
-        """See `state`."""
+        """
+        See `state`.
+        """
         if state.tx_restore_points:
             raise Exception("In a non-db transaction")
         flush(state)
@@ -164,7 +172,9 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
 
     @add_item(patches)
     def storage_root(state: State, address: Address) -> Root:
-        """See `state`."""
+        """
+        See `state`.
+        """
         if state.tx_restore_points:
             raise Exception("In a non-db transaction")
         flush(state)
@@ -172,7 +182,9 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
 
     @add_item(patches)
     def flush(state: State) -> None:
-        """Send everything in the internal caches to the Rust layer."""
+        """
+        Send everything in the internal caches to the Rust layer.
+        """
         if state.tx_restore_points:
             raise Exception("In a non-db transaction")
         for address, count in state.destroyed_accounts.items():
@@ -189,7 +201,9 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
 
     @add_item(patches)
     def rollback_db_transaction(state: State) -> None:
-        """Rollback the current database transaction."""
+        """
+        Rollback the current database transaction.
+        """
         if state.tx_restore_points:
             raise Exception("In a non-db transaction")
         state.db.rollback_mutable()
@@ -198,7 +212,9 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
         state.destroyed_accounts.clear()
 
     def _begin_transaction(state: State) -> None:
-        """See `state`."""
+        """
+        See `state`.
+        """
         if not state.tx_restore_points:
             flush(state)
         state.tx_restore_points.append(len(state.journal))
@@ -210,7 +226,9 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
             state: State,
             transient_storage: Optional[Any] = None,
         ) -> None:
-            """See `state`."""
+            """
+            See `state`.
+            """
             _begin_transaction(state)
             if transient_storage is not None:
                 transient_storage._snapshots.append(
@@ -224,11 +242,15 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
 
         @add_item(patches)
         def begin_transaction(state: State) -> None:
-            """See `state`."""
+            """
+            See `state`.
+            """
             _begin_transaction(state)
 
     def _commit_transaction(state: State) -> None:
-        """See `state`."""
+        """
+        See `state`.
+        """
         state.tx_restore_points.pop()
         if not state.tx_restore_points:
             state.journal.clear()
@@ -241,7 +263,9 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
         def commit_transaction(
             state: State, transient_storage: Optional[Any] = None
         ) -> None:
-            """See `state`."""
+            """
+            See `state`.
+            """
             _commit_transaction(state)
 
             if transient_storage and transient_storage._snapshots:
@@ -251,11 +275,15 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
 
         @add_item(patches)
         def commit_transaction(state: State) -> None:
-            """See `state`."""
+            """
+            See `state`.
+            """
             _commit_transaction(state)
 
     def _rollback_transaction(state: State) -> None:
-        """See `state`."""
+        """
+        See `state`.
+        """
         restore_point = state.tx_restore_points.pop()
         while len(state.journal) > restore_point:
             item = state.journal.pop()
@@ -288,7 +316,9 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
             state: State,
             transient_storage: Optional[Any] = None,
         ) -> None:
-            """See `state`."""
+            """
+            See `state`.
+            """
             _rollback_transaction(state)
 
             if transient_storage and transient_storage._snapshots:
@@ -298,12 +328,16 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
 
         @add_item(patches)
         def rollback_transaction(state: State) -> None:
-            """See `state`."""
+            """
+            See `state`.
+            """
             _rollback_transaction(state)
 
     @add_item(patches)
     def get_storage(state: State, address: Address, key: Bytes32) -> U256:
-        """See `state`."""
+        """
+        See `state`.
+        """
         if (
             address in state.dirty_storage
             and key in state.dirty_storage[address]
@@ -319,7 +353,9 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
     def get_storage_original(
         state: State, address: Address, key: Bytes32
     ) -> U256:
-        """See `state`."""
+        """
+        See `state`.
+        """
         if address in state.created_accounts:
             return U256(0)
         else:
@@ -329,7 +365,9 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
     def set_storage(
         state: State, address: Address, key: Bytes32, value: U256
     ) -> None:
-        """See `state`."""
+        """
+        See `state`.
+        """
         if address not in state.dirty_accounts:
             state.dirty_accounts[address] = get_account_optional(
                 state, address
@@ -348,7 +386,9 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
     def get_account_optional(
         state: State, address: Address
     ) -> Optional[Account_]:
-        """See `state`."""
+        """
+        See `state`.
+        """
         if address in state.dirty_accounts:
             return state.dirty_accounts[address]
         account = state.db.get_account_optional(address)
@@ -361,7 +401,9 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
     def set_account(
         state: State, address: Address, account: Optional[Account_]
     ) -> None:
-        """See `state`."""
+        """
+        See `state`.
+        """
         if address not in state.dirty_accounts:
             state.journal.append((address, Unmodified))
         if address in state.dirty_accounts:
@@ -370,19 +412,25 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
 
     @add_item(patches)
     def destroy_storage(state: State, address: Address) -> None:
-        """See `state`."""
+        """
+        See `state`.
+        """
         state.journal.append((address, state.dirty_storage.pop(address, {})))
         state.destroyed_accounts[address] += Uint(1)
         set_account(state, address, get_account_optional(state, address))
 
     @add_item(patches)
     def mark_account_created(state: State, address: Address) -> None:
-        """See `state`."""
+        """
+        See `state`.
+        """
         state.created_accounts.add(address)
 
     @add_item(patches)
     def account_has_storage(state: State, address: Address) -> bool:
-        """See `state`."""
+        """
+        See `state`.
+        """
         if address in state.dirty_storage:
             for v in state.dirty_storage[address].values():
                 if v != U256(0):

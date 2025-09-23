@@ -32,8 +32,7 @@ class ImportHygiene(Lint):
         self, forks: List[Hardfork], position: int
     ) -> Sequence[Diagnostic]:
         """
-        Walks the sources for each hardfork and emits Diagnostic
-        messages.
+        Walks the sources for each hardfork and emits Diagnostic messages.
         """
         fork = forks[position]
         all_modules: List[ModuleType] = [
@@ -134,9 +133,13 @@ class _Visitor(ast.NodeVisitor):
         self.item_imports = []
 
     def visit_Import(self, mod: ast.Import) -> None:
-        """Visit an Import."""
+        """
+        Visit an Import.
+        """
         self.item_imports.append((0, mod.names[0].name))
 
     def visit_ImportFrom(self, mod: ast.ImportFrom) -> None:
-        """Visit an ImportFrom."""
+        """
+        Visit an ImportFrom.
+        """
         self.item_imports.append((mod.level, str(mod.module)))

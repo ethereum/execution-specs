@@ -1,4 +1,6 @@
-"""Tool to create a new fork using the latest fork."""
+"""
+Tool to create a new fork using the latest fork.
+"""
 
 import argparse
 import fnmatch
@@ -51,7 +53,9 @@ parser.add_argument("--to_test", dest="to_test", type=str)
 def find_replace(
     directory: str, find: str, replace: str, file_pattern: str
 ) -> None:
-    """Replace the occurrence of a certain text in files with a new text."""
+    """
+    Replace the occurrence of a certain text in files with a new text.
+    """
     for path, _, files in os.walk(directory):
         for filename in fnmatch.filter(files, file_pattern):
             file_path = os.path.join(path, filename)
@@ -65,7 +69,9 @@ def find_replace(
 
 
 class ForkCreator:
-    """Object to create base code for a new fork from the previous fork."""
+    """
+    Object to create base code for a new fork from the previous fork.
+    """
 
     def __init__(
         self,
@@ -97,7 +103,9 @@ class ForkCreator:
         self.to_test_names = to_test_names
 
     def get_fork_paths(self, fork: str) -> Tuple[str, ...]:
-        """Get the relevant paths for all folders in a particular fork."""
+        """
+        Get the relevant paths for all folders in a particular fork.
+        """
         name = fork
         package = name.replace(" ", "_").lower()
         path = os.path.join(self.package_folder, package)
@@ -105,7 +113,9 @@ class ForkCreator:
         return (name, package, path, test_path)
 
     def duplicate_fork(self) -> None:
-        """Copy the relevant files/folders from the old fork."""
+        """
+        Copy the relevant files/folders from the old fork.
+        """
         copytree(self.from_path, self.to_path)
         copytree(self.from_test_path, self.to_test_path)
 
@@ -141,7 +151,9 @@ class ForkCreator:
 
 
 def main() -> None:
-    """Create the new fork."""
+    """
+    Create the new fork.
+    """
     options = parser.parse_args()
     from_fork = options.from_fork
     to_fork = options.to_fork

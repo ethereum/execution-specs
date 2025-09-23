@@ -1,4 +1,6 @@
-"""Error types common across all Ethereum forks."""
+"""
+Error types common across all Ethereum forks.
+"""
 
 
 class EthereumException(Exception):  # noqa N818
@@ -9,15 +11,21 @@ class EthereumException(Exception):  # noqa N818
 
 
 class InvalidBlock(EthereumException):
-    """Thrown when a block being processed is found to be invalid."""
+    """
+    Thrown when a block being processed is found to be invalid.
+    """
 
 
 class StateWithEmptyAccount(EthereumException):
-    """Thrown when the state has empty account."""
+    """
+    Thrown when the state has empty account.
+    """
 
 
 class InvalidTransaction(EthereumException):
-    """Thrown when a transaction being processed is found to be invalid."""
+    """
+    Thrown when a transaction being processed is found to be invalid.
+    """
 
 
 class InvalidSenderError(InvalidTransaction):
@@ -28,7 +36,9 @@ class InvalidSenderError(InvalidTransaction):
 
 
 class InvalidSignatureError(InvalidTransaction):
-    """Thrown when a transaction has an invalid signature."""
+    """
+    Thrown when a transaction has an invalid signature.
+    """
 
 
 class InsufficientBalanceError(InvalidTransaction):
@@ -60,4 +70,6 @@ class InsufficientTransactionGasError(InvalidTransaction):
 
 
 class NonceOverflowError(InvalidTransaction):
-    """Thrown when a transaction's nonce is greater than `2**64 - 2`."""
+    """
+    Thrown when a transaction's nonce is greater than `2**64 - 2`.
+    """

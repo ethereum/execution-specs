@@ -17,7 +17,9 @@ from ..forks import Hardfork
 
 
 def compare_ast(old: ast.AST, new: ast.AST) -> bool:
-    """Check if two nodes are the equal."""
+    """
+    Check if two nodes are the equal.
+    """
     if type(old) is not type(new):
         return False
 
@@ -55,8 +57,7 @@ def compare_ast(old: ast.AST, new: ast.AST) -> bool:
 
 def walk_sources(fork: Hardfork) -> Generator[Tuple[str, str], None, None]:
     """
-    Import the modules specifying a hardfork, and retrieve their
-    source code.
+    Import the modules specifying a hardfork, and retrieve their source code.
     """
     for mod_info in fork.walk_packages():
         mod = importlib.import_module(mod_info.name)
@@ -69,7 +70,9 @@ def walk_sources(fork: Hardfork) -> Generator[Tuple[str, str], None, None]:
 
 @dataclass
 class Diagnostic:
-    """A diagnostic message generated while checking the specifications."""
+    """
+    A diagnostic message generated while checking the specifications.
+    """
 
     message: str
 
@@ -78,7 +81,9 @@ V = TypeVar("V", bound=ast.NodeVisitor)
 
 
 class Lint(metaclass=ABCMeta):
-    """A single check which may be performed against the specifications."""
+    """
+    A single check which may be performed against the specifications.
+    """
 
     @abstractmethod
     def lint(
@@ -97,20 +102,26 @@ class Lint(metaclass=ABCMeta):
         """
 
     def _parse(self, source: str, visitor: V) -> V:
-        """Walks the source string."""
+        """
+        Walks the source string.
+        """
         parsed = ast.parse(source)
         visitor.visit(parsed)
         return visitor
 
 
 class Linter:
-    """Checks the specification for style guideline violations."""
+    """
+    Checks the specification for style guideline violations.
+    """
 
     lints: Sequence[Lint]
 
     @staticmethod
     def discover_lints() -> Sequence[Lint]:
-        """Discover subclasses of Lint."""
+        """
+        Discover subclasses of Lint.
+        """
         from . import lints
 
         path = getattr(lints, "__path__", None)
@@ -147,7 +158,9 @@ class Linter:
         self.lints = lints
 
     def run(self) -> int:
-        """Runs all enabled lints."""
+        """
+        Runs all enabled lints.
+        """
         count = 0
         hardforks = Hardfork.discover()
 

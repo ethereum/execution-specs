@@ -30,7 +30,9 @@ Bloom = Bytes256
 @slotted_freezable
 @dataclass
 class Account:
-    """State associated with an address."""
+    """
+    State associated with an address.
+    """
 
     nonce: Uint
     balance: U256

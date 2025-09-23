@@ -1,11 +1,15 @@
-"""Utility functions used in this specification."""
+"""
+Utility functions used in this specification.
+"""
 
 from dataclasses import fields
 from typing import Any
 
 
 def has_field(class_: Any, name: str) -> bool:
-    """Returns `True` if `class_` has a field with the given `name`."""
+    """
+    Returns `True` if `class_` has a field with the given `name`.
+    """
     try:
         all_fields = fields(class_)
     except TypeError:

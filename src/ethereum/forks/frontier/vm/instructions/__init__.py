@@ -30,7 +30,9 @@ from . import system as system_instructions
 
 
 class Ops(enum.Enum):
-    """Enum for EVM Opcodes."""
+    """
+    Enum for EVM Opcodes.
+    """
 
     # Arithmetic Ops
     ADD = 0x01

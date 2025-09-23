@@ -36,7 +36,9 @@ T = TypeVar("T")
 
 
 class RpcError(Exception):
-    """Error message and code returned by the RPC provider."""
+    """
+    Error message and code returned by the RPC provider.
+    """
 
     def __init__(self, code: int, message: str) -> None:
         super().__init__(message)
@@ -44,7 +46,9 @@ class RpcError(Exception):
 
 
 class ForkTracking:
-    """Enables subclasses to track the current fork."""
+    """
+    Enables subclasses to track the current fork.
+    """
 
     forks: List[Hardfork]
     block_number: Uint
@@ -58,19 +62,25 @@ class ForkTracking:
 
     @property
     def active_fork(self) -> Hardfork:
-        """Currently executing hard fork."""
+        """
+        Currently executing hard fork.
+        """
         return self.forks[self.active_fork_index]
 
     @property
     def next_fork(self) -> Optional[Hardfork]:
-        """Hard fork that follows the currently executing hard fork."""
+        """
+        Hard fork that follows the currently executing hard fork.
+        """
         try:
             return self.forks[self.active_fork_index + 1]
         except IndexError:
             return None
 
     def module(self, name: str) -> Any:
-        """Return a module from the current hard fork."""
+        """
+        Return a module from the current hard fork.
+        """
         return self.active_fork.module(name)
 
     def set_block(self, block_number: Uint, block_timestamp: U256) -> None:
@@ -129,7 +139,9 @@ class BlockDownloader(ForkTracking):
         Thread(target=self.download, name="download", daemon=True).start()
 
     def take_block(self) -> Optional[Any]:
-        """Pop a block of the download queue."""
+        """
+        Pop a block of the download queue.
+        """
         # Use a loop+timeout so that KeyboardInterrupt is still raised.
         while True:
             try:
@@ -138,7 +150,9 @@ class BlockDownloader(ForkTracking):
                 pass
 
     def download(self) -> None:
-        """Fetch chunks of blocks from the RPC provider."""
+        """
+        Fetch chunks of blocks from the RPC provider.
+        """
         running = True
 
         while running:
@@ -172,8 +186,7 @@ class BlockDownloader(ForkTracking):
         count: Uint,
     ) -> List[Union[Any, RpcError]]:
         """
-        Fetch the block specified by the given number from the
-        RPC provider.
+        Fetch the block specified by the given number from the RPC provider.
         """
         if self.geth:
             return self.fetch_blocks_debug(first, count)
@@ -284,7 +297,9 @@ class BlockDownloader(ForkTracking):
             return blocks
 
     def load_transaction(self, t: Any) -> Any:
-        """Turn a json transaction into a `Transaction`."""
+        """
+        Turn a json transaction into a `Transaction`.
+        """
         access_list = []
         for sublist in t.get("accessList", []):
             access_list.append(
@@ -447,7 +462,9 @@ class BlockDownloader(ForkTracking):
             return [v for (_, v) in sorted(blocks.items())]
 
     def fetch_ommers(self, ommers_needed: Dict[Uint, int]) -> Dict[Uint, Any]:
-        """Fetch the ommers for a given block from the RPC provider."""
+        """
+        Fetch the ommers for a given block from the RPC provider.
+        """
         calls = []
 
         for block_number, num_ommers in ommers_needed.items():
@@ -515,7 +532,9 @@ class BlockDownloader(ForkTracking):
             }
 
     def make_header(self, json: Any) -> Any:
-        """Create a Header object from JSON describing it."""
+        """
+        Create a Header object from JSON describing it.
+        """
         fields = [
             hex_to_bytes32(json["parentHash"]),
             hex_to_bytes32(json["sha3Uncles"]),
@@ -540,7 +559,9 @@ class BlockDownloader(ForkTracking):
         return self.module("blocks").Header(*fields)
 
     def make_block(self, json: Any, ommers: Any) -> Any:
-        """Create a block from JSON describing it."""
+        """
+        Create a block from JSON describing it.
+        """
         header = self.make_header(json)
         transactions = []
         for t in json["transactions"]:
@@ -580,7 +601,9 @@ class Sync(ForkTracking):
 
     @staticmethod
     def parse_arguments() -> argparse.Namespace:
-        """Parse command line arguments."""
+        """
+        Parse command line arguments.
+        """
         parser = argparse.ArgumentParser()
 
         parser.add_argument(
@@ -808,7 +831,9 @@ class Sync(ForkTracking):
             )
 
     def persist(self) -> None:
-        """Save the block list, state and chain id to file."""
+        """
+        Save the block list, state and chain id to file.
+        """
         if self.options.persist is None:
             return
 
@@ -834,7 +859,9 @@ class Sync(ForkTracking):
         )
 
     def fetch_chain_id(self, state: Any) -> U64:
-        """Fetch the persisted chain id from the database."""
+        """
+        Fetch the persisted chain id from the database.
+        """
         state_mod = self.module("state")
         chain_id = state_mod.get_metadata(state, b"chain_id")
 
@@ -844,7 +871,9 @@ class Sync(ForkTracking):
         return chain_id
 
     def process_blocks(self) -> None:
-        """Validate blocks that have been fetched."""
+        """
+        Validate blocks that have been fetched.
+        """
         time_of_last_commit = time.monotonic()
         gas_since_last_commit = 0
         last_committed_block: Optional[int] = None
@@ -941,7 +970,9 @@ class Sync(ForkTracking):
                 persist()
 
     def process_block(self, block: Any) -> None:
-        """Process a single block."""
+        """
+        Process a single block.
+        """
         if (
             self.advance_block(block.header.timestamp)
             or self.block_number == 1
@@ -972,7 +1003,9 @@ class Sync(ForkTracking):
 
 
 def main() -> None:
-    """Using an RPC provider, fetch each block and validate it."""
+    """
+    Using an RPC provider, fetch each block and validate it.
+    """
     logging.basicConfig(level=logging.INFO)
 
     sync = Sync()

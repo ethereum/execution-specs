@@ -30,17 +30,23 @@ if TYPE_CHECKING:
 
 
 class ConsensusType(Enum):
-    """How a fork chooses its canonical chain."""
+    """
+    How a fork chooses its canonical chain.
+    """
 
     PROOF_OF_WORK = auto()
     PROOF_OF_STAKE = auto()
 
     def is_pow(self) -> bool:
-        """Returns True if self == PROOF_OF_WORK."""
+        """
+        Returns True if self == PROOF_OF_WORK.
+        """
         return self == ConsensusType.PROOF_OF_WORK
 
     def is_pos(self) -> bool:
-        """Returns True if self == PROOF_OF_STAKE."""
+        """
+        Returns True if self == PROOF_OF_STAKE.
+        """
         return self == ConsensusType.PROOF_OF_STAKE
 
 
@@ -48,7 +54,9 @@ H = TypeVar("H", bound="Hardfork")
 
 
 class Hardfork:
-    """Metadata associated with an Ethereum hardfork."""
+    """
+    Metadata associated with an Ethereum hardfork.
+    """
 
     mod: ModuleType
 
@@ -56,7 +64,9 @@ class Hardfork:
     def discover(
         cls: Type[H], submodule_search_locations: None | list[str] = None
     ) -> List[H]:
-        """Find packages which contain Ethereum hardfork specifications."""
+        """
+        Find packages which contain Ethereum hardfork specifications.
+        """
         if submodule_search_locations is None:
             ethereum_forks = importlib.import_module("ethereum.forks")
         else:
@@ -162,7 +172,9 @@ class Hardfork:
 
     @property
     def consensus(self) -> ConsensusType:
-        """How this fork chooses its canonical chain."""
+        """
+        How this fork chooses its canonical chain.
+        """
         if hasattr(self.module("fork"), "validate_proof_of_work"):
             return ConsensusType.PROOF_OF_WORK
         else:
@@ -170,7 +182,9 @@ class Hardfork:
 
     @property
     def criteria(self) -> "ForkCriteria":
-        """Criteria to trigger this hardfork."""
+        """
+        Criteria to trigger this hardfork.
+        """
         from ethereum.fork_criteria import ForkCriteria
 
         criteria = self.mod.FORK_CRITERIA
@@ -179,7 +193,9 @@ class Hardfork:
 
     @property
     def block(self) -> Uint:
-        """Block number of the first block in this hard fork."""
+        """
+        Block number of the first block in this hard fork.
+        """
         from ethereum.fork_criteria import ByBlockNumber
 
         if isinstance(self.criteria, ByBlockNumber):
@@ -189,7 +205,9 @@ class Hardfork:
 
     @property
     def timestamp(self) -> U256:
-        """Block number of the first block in this hard fork."""
+        """
+        Block number of the first block in this hard fork.
+        """
         from ethereum.fork_criteria import ByTimestamp
 
         if isinstance(self.criteria, ByTimestamp):
@@ -198,12 +216,16 @@ class Hardfork:
             raise AttributeError
 
     def has_activated(self, block_number: Uint, timestamp: U256) -> bool:
-        """Check whether this fork has activated."""
+        """
+        Check whether this fork has activated.
+        """
         return self.criteria.check(block_number, timestamp)
 
     @property
     def path(self) -> Optional[str]:
-        """Path to the module containing this hard fork."""
+        """
+        Path to the module containing this hard fork.
+        """
         got = getattr(self.mod, "__path__", None)
         if got is None or isinstance(got, str):
             return got
@@ -216,21 +238,29 @@ class Hardfork:
 
     @property
     def short_name(self) -> str:
-        """Short name (without the `ethereum.` prefix) of the hard fork."""
+        """
+        Short name (without the `ethereum.` prefix) of the hard fork.
+        """
         return self.mod.__name__.split(".")[-1]
 
     @property
     def name(self) -> str:
-        """Name of the hard fork."""
+        """
+        Name of the hard fork.
+        """
         return self.mod.__name__
 
     @property
     def title_case_name(self) -> str:
-        """Name of the hard fork."""
+        """
+        Name of the hard fork.
+        """
         return self.short_name.replace("_", " ").title()
 
     def __repr__(self) -> str:
-        """Return repr(self)."""
+        """
+        Return repr(self).
+        """
         return (
             self.__class__.__name__
             + "("
@@ -241,7 +271,9 @@ class Hardfork:
         )
 
     def import_module(self) -> ModuleType:
-        """Return the module containing this specification."""
+        """
+        Return the module containing this specification.
+        """
         return self.mod
 
     def module(self, name: str) -> Any:
@@ -252,7 +284,9 @@ class Hardfork:
         return importlib.import_module(self.mod.__name__ + "." + name)
 
     def iter_modules(self) -> Iterator[ModuleInfo]:
-        """Iterate through the (sub-)modules describing this hardfork."""
+        """
+        Iterate through the (sub-)modules describing this hardfork.
+        """
         if self.path is None:
             raise ValueError(f"cannot walk {self.name}, path is None")
 
@@ -260,8 +294,7 @@ class Hardfork:
 
     def walk_packages(self) -> Iterator[ModuleInfo]:
         """
-        Iterate recursively through the (sub-)modules describing this
-        hardfork.
+        Iterate recursively through the (sub-)modules describing this hardfork.
         """
         if self.path is None:
             raise ValueError(f"cannot walk {self.name}, path is None")

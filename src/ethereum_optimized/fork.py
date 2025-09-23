@@ -52,7 +52,9 @@ def get_optimized_pow_patches(_fork_name: str) -> Dict[str, Any]:
 
     @add_item(patches)
     def validate_proof_of_work(header: Header_) -> None:
-        """See `validate_proof_of_work`."""
+        """
+        See `validate_proof_of_work`.
+        """
         epoch_number = epoch(header.number)
         header_hash = generate_header_hash_for_pow(header)
 

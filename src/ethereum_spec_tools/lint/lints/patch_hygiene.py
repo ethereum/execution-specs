@@ -13,16 +13,14 @@ from ethereum_spec_tools.lint import Diagnostic, Lint, walk_sources
 
 class PatchHygiene(Lint):
     """
-    Ensures that the order of identifiers between each hardfork is
-    consistent.
+    Ensures that the order of identifiers between each hardfork is consistent.
     """
 
     def lint(
         self, forks: List[Hardfork], position: int
     ) -> Sequence[Diagnostic]:
         """
-        Walks the sources for each hardfork and emits Diagnostic
-        messages.
+        Walks the sources for each hardfork and emits Diagnostic messages.
         """
         if position == 0:
             # Nothing to compare against!
@@ -105,21 +103,29 @@ class _Visitor(ast.NodeVisitor):
 
     @property
     def items(self) -> Sequence[str]:
-        """Sequence of all identifiers found while visiting the source."""
+        """
+        Sequence of all identifiers found while visiting the source.
+        """
         return list(self._items.keys())
 
     def visit_AsyncFunctionDef(self, function: ast.AsyncFunctionDef) -> None:
-        """Visit an asynchronous function."""
+        """
+        Visit an asynchronous function.
+        """
         self._insert(function.name)
         # Explicitly don't visit the children of functions.
 
     def visit_FunctionDef(self, function: ast.FunctionDef) -> None:
-        """Visit a function."""
+        """
+        Visit a function.
+        """
         self._insert(function.name)
         # Explicitly don't visit the children of functions.
 
     def visit_ClassDef(self, klass: ast.ClassDef) -> None:
-        """Visit a class."""
+        """
+        Visit a class.
+        """
         self._insert(klass.name)
         self.path.append(klass.name)
         self.generic_visit(klass)
@@ -127,7 +133,9 @@ class _Visitor(ast.NodeVisitor):
         assert klass.name == got
 
     def visit_Assign(self, assign: ast.Assign) -> None:
-        """Visit an assignment."""
+        """
+        Visit an assignment.
+        """
         self.in_assign += 1
         for target in assign.targets:
             self.visit(target)
@@ -135,7 +143,9 @@ class _Visitor(ast.NodeVisitor):
         self.visit(assign.value)
 
     def visit_AnnAssign(self, assign: ast.AnnAssign) -> None:
-        """Visit an annotated assignment."""
+        """
+        Visit an annotated assignment.
+        """
         self.in_assign += 1
         self.visit(assign.target)
         self.in_assign -= 1
@@ -144,6 +154,8 @@ class _Visitor(ast.NodeVisitor):
             self.visit(assign.value)
 
     def visit_Name(self, identifier: ast.Name) -> None:
-        """Visit an identifier."""
+        """
+        Visit an identifier.
+        """
         if self.in_assign > 0:
             self._insert(identifier.id)

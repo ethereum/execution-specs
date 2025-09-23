@@ -41,7 +41,9 @@ Gas cost per zero byte in the transaction data.
 @slotted_freezable
 @dataclass
 class Transaction:
-    """Atomic operation performed on the block chain."""
+    """
+    Atomic operation performed on the block chain.
+    """
 
     nonce: U256
     """

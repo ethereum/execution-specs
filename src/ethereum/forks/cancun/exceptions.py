@@ -1,4 +1,6 @@
-"""Exceptions specific to this fork."""
+"""
+Exceptions specific to this fork.
+"""
 
 from typing import TYPE_CHECKING, Final
 
@@ -28,7 +30,9 @@ class TransactionTypeError(InvalidTransaction):
 
 
 class TransactionTypeContractCreationError(InvalidTransaction):
-    """Contract creation is not allowed for a transaction type."""
+    """
+    Contract creation is not allowed for a transaction type.
+    """
 
     transaction: "Transaction"
     """
@@ -44,15 +48,21 @@ class TransactionTypeContractCreationError(InvalidTransaction):
 
 
 class BlobGasLimitExceededError(InvalidTransaction):
-    """The blob gas limit for the transaction exceeds the maximum allowed."""
+    """
+    The blob gas limit for the transaction exceeds the maximum allowed.
+    """
 
 
 class InsufficientMaxFeePerBlobGasError(InvalidTransaction):
-    """The maximum fee per blob gas is insufficient for the transaction."""
+    """
+    The maximum fee per blob gas is insufficient for the transaction.
+    """
 
 
 class InsufficientMaxFeePerGasError(InvalidTransaction):
-    """The maximum fee per gas is insufficient for the transaction."""
+    """
+    The maximum fee per gas is insufficient for the transaction.
+    """
 
     transaction_max_fee_per_gas: Final[Uint]
     """
@@ -76,16 +86,24 @@ class InsufficientMaxFeePerGasError(InvalidTransaction):
 
 
 class InvalidBlobVersionedHashError(InvalidTransaction):
-    """The versioned hash of the blob is invalid."""
+    """
+    The versioned hash of the blob is invalid.
+    """
 
 
 class NoBlobDataError(InvalidTransaction):
-    """The transaction does not contain any blob data."""
+    """
+    The transaction does not contain any blob data.
+    """
 
 
 class PriorityFeeGreaterThanMaxFeeError(InvalidTransaction):
-    """The priority fee is greater than the maximum fee per gas."""
+    """
+    The priority fee is greater than the maximum fee per gas.
+    """
 
 
 class InitCodeTooLargeError(InvalidTransaction):
-    """The init code of the transaction is too large."""
+    """
+    The init code of the transaction is too large.
+    """

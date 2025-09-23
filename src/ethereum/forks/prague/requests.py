@@ -149,7 +149,9 @@ def extract_deposit_data(data: Bytes) -> Bytes:
 
 
 def parse_deposit_requests(block_output: BlockOutput) -> Bytes:
-    """Parse deposit requests from the block output."""
+    """
+    Parse deposit requests from the block output.
+    """
     deposit_requests: Bytes = b""
     for key in block_output.receipt_keys:
         receipt = trie_get(block_output.receipts_trie, key)

@@ -1,4 +1,6 @@
-"""Set EOA account code."""
+"""
+Set EOA account code.
+"""
 
 from typing import Optional, Tuple
 
