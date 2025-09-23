@@ -155,6 +155,10 @@ class Blake2:
         """
         The mixing function used in Blake2.
 
+        See [RFC 7693] for more details.
+
+        [RFC 7693]: https://datatracker.ietf.org/doc/html/rfc7693#section-3.1
+
         Parameters
         ----------
         v :
