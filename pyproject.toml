@@ -439,6 +439,7 @@ select = [
     "A", # flake8-builtins
     "N", # pep8-naming
     "D", # pydocstyle
+    "C4", # flake8-comprehensions
     "ARG", # flake8-unused-arguments
 ]
 fixable = [
@@ -451,6 +452,8 @@ fixable = [
 ]
 ignore = [
 # Common to STEEL
+    "C401",     # Unnecessary generator set
+    "C408",     # Unnecessary collection call
     "D107",     # Missing docstring in __init__
     "D200",     # One-line docstring should fit on one line with quotes
     "D203",     # 1 blank line required before class docstring
