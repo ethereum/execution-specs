@@ -59,7 +59,7 @@ Some clarifications were enabled without protocol releases:
 
 ## Execution Specification (work-in-progress)
 
-The execution specification is a python implementation of Ethereum that prioritizes readability and simplicity. It will accompanied by both narrative and API level documentation of the various components written in markdown and rendered using docc...
+The execution specification is a python implementation of Ethereum that prioritizes readability and simplicity. It will be accompanied by both narrative and API level documentation of the various components written in markdown and rendered using docc...
 
  * [Rendered specification](https://ethereum.github.io/execution-specs/)
 

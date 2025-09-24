@@ -3,7 +3,7 @@
 ## Overview
 
 While the Ethereum Execution Layer Specification (EELS) is not intended to be a
-production ready client, the software is intended to fully capable of applying
+production ready client, the software is intended to be fully capable of applying
 state transitions for local testing and acts as a point of reference for the
 other Execution Layer (EL) clients. Therefore, a bug in this spec _could_ imply
 a bug in the production clients, though this is not necessarily the case.
@@ -28,7 +28,7 @@ recommend using the [latest version](https://github.com/ethereum/execution-specs
 
 #### Normal Issues
 
-File a issue in GitHub
+File an issue in GitHub
 
 #### Serious Issues
 
