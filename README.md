@@ -6,7 +6,7 @@
 
 ## Description
 
-This repository contains the specifications related to the Ethereum execution client, specifically the [pyspec](/src/ethereum/frontier/fork.py) and specifications for [network upgrades](/network-upgrades). The [JSON-RPC API specification](https://github.com/ethereum/execution-apis) can be found in a separate repository.
+This repository contains the specifications related to the Ethereum execution client, specifically the [pyspec](/src/ethereum/__init__.py) and specifications for [network upgrades](/src/ethereum/__init__.py). The [JSON-RPC API specification](https://github.com/ethereum/execution-apis) can be found in a separate repository.
 
 ### Ethereum Protocol Releases
 
