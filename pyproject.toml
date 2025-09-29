@@ -289,7 +289,7 @@ fill = [
 lint = [
     "codespell==2.4.1",
     "mypy==1.17.0",
-    "ruff==0.11.8",
+    "ruff==0.13.2",
     "vulture==2.14.0",
 ]
 tools = [
