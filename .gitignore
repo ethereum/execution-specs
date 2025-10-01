@@ -60,3 +60,4 @@ tests/fixtures
 tests/t8n_testdata
 
 fixtures
+logs/

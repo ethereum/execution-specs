@@ -51,8 +51,12 @@ from docc.source import Source
 from docc.transform import Transform
 from fladrif.apply import Apply
 from fladrif.treediff import Adapter, Operation, TreeMatcher
-from mistletoe import block_token as blocks  # type: ignore
-from mistletoe import span_token as spans
+from mistletoe import (  # type: ignore[import-untyped]  # Third-party library without types
+    block_token as blocks,
+)
+from mistletoe import (
+    span_token as spans,
+)
 from typing_extensions import assert_never, override
 
 from .forks import Hardfork

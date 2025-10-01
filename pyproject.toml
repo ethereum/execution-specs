@@ -441,6 +441,7 @@ select = [
     "D", # pydocstyle
     "C4", # flake8-comprehensions
     "ARG", # flake8-unused-arguments
+    "PGH003", # blanket-type-ignore
 ]
 fixable = [
     "E", # pycodestyle errors

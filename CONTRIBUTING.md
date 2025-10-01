@@ -26,6 +26,8 @@ This specification aims to be:
 - Avoid using EIP numbers in identifiers.
 - If necessary, there is a custom dictionary `whitelist.txt`. 
 
+See [docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md) for rules not covered by Black (naming, ensure/assert, and typing ignore policy). 
+
 ### Changes across various Forks
 
 Many contributions require changes across multiple forks, organized under `src/ethereum/*`. When making such changes, please ensure that differences between the forks are minimal and consist only of necessary differences. This will help with getting cleaner [diff outputs](https://ethereum.github.io/execution-specs/diffs/index.html).
