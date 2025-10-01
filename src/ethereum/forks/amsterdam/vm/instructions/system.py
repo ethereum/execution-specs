@@ -29,18 +29,19 @@ from ...state import (
     set_account_balance,
 )
 from ...utils.address import (
+    compute_contract_address,
+    compute_create2_contract_address,
+    compute_setdelegate_contract_address,
+    to_address_masked,
+)
+from ...vm.eoa_delegation import (
     EOA_DELEGATION_MARKER,
     PER_EMPTY_ACCOUNT_COST,
     PER_AUTH_BASE_COST,
     NULL_ADDRESS,
     access_delegation,
     is_valid_delegation,
-    compute_contract_address,
-    compute_create2_contract_address,
-    compute_setdelegate_contract_address,
-    to_address_masked,
 )
-from ...vm.eoa_delegation import access_delegation
 from .. import (
     Evm,
     Message,
