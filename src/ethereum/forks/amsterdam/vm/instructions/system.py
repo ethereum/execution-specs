@@ -35,6 +35,10 @@ from ...utils.address import (
     NULL_ADDRESS,
     access_delegation,
     is_valid_delegation,
+    compute_contract_address,
+    compute_create2_contract_address,
+    compute_setdelegate_contract_address,
+    to_address_masked,
 )
 from ...vm.eoa_delegation import access_delegation
 from .. import (
