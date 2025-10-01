@@ -77,7 +77,7 @@ class Env:
         self.read_withdrawals(data, t8n)
 
         self.parent_beacon_block_root = None
-        if t8n.fork.is_after_fork("ethereum.forks.cancun"):
+        if t8n.fork.is_after_fork("cancun"):
             if not t8n.options.state_test:
                 parent_beacon_block_root_hex = data["parentBeaconBlockRoot"]
                 self.parent_beacon_block_root = (
@@ -96,7 +96,7 @@ class Env:
         self.parent_excess_blob_gas = U64(0)
         self.excess_blob_gas = None
 
-        if not t8n.fork.is_after_fork("ethereum.forks.cancun"):
+        if not t8n.fork.is_after_fork("cancun"):
             return
 
         if "currentExcessBlobGas" in data:
@@ -131,7 +131,7 @@ class Env:
         else:
             self.excess_blob_gas = parent_blob_gas - target_blob_gas_per_block
 
-            if t8n.fork.is_after_fork("ethereum.forks.osaka"):
+            if t8n.fork.is_after_fork("osaka"):
                 # Under certain conditions specified in EIP-7918, the
                 # the excess_blob_gas is calculated differently in osaka
                 assert self.parent_base_fee_per_gas is not None
@@ -170,7 +170,7 @@ class Env:
         self.parent_base_fee_per_gas = None
         self.base_fee_per_gas = None
 
-        if t8n.fork.is_after_fork("ethereum.forks.london"):
+        if t8n.fork.is_after_fork("london"):
             if "currentBaseFee" in data:
                 self.base_fee_per_gas = parse_hex_or_int(
                     data["currentBaseFee"], Uint
@@ -212,7 +212,7 @@ class Env:
         Read the randao from the data.
         """
         self.prev_randao = None
-        if t8n.fork.is_after_fork("ethereum.forks.paris"):
+        if t8n.fork.is_after_fork("paris"):
             # tf tool might not always provide an
             # even number of nibbles in the randao
             # This could create issues in the
@@ -233,7 +233,7 @@ class Env:
         Read the withdrawals from the data.
         """
         self.withdrawals = None
-        if t8n.fork.is_after_fork("ethereum.forks.shanghai"):
+        if t8n.fork.is_after_fork("shanghai"):
             self.withdrawals = tuple(
                 t8n.json_to_withdrawals(wd) for wd in data["withdrawals"]
             )
@@ -248,7 +248,7 @@ class Env:
         self.parent_timestamp = None
         self.parent_difficulty = None
         self.parent_ommers_hash = None
-        if t8n.fork.is_after_fork("ethereum.forks.paris"):
+        if t8n.fork.is_after_fork("paris"):
             return
         elif "currentDifficulty" in data:
             self.block_difficulty = parse_hex_or_int(
@@ -267,7 +267,7 @@ class Env:
                 self.parent_timestamp,
                 self.parent_difficulty,
             ]
-            if t8n.fork.is_after_fork("ethereum.forks.byzantium"):
+            if t8n.fork.is_after_fork("byzantium"):
                 if "parentUncleHash" in data:
                     EMPTY_OMMER_HASH = keccak256(rlp.encode([]))  # noqa N806
                     self.parent_ommers_hash = Hash32(
@@ -286,10 +286,7 @@ class Env:
         Read the block hashes. Returns a maximum of 256 block hashes.
         """
         self.parent_hash = None
-        if (
-            t8n.fork.is_after_fork("ethereum.forks.prague")
-            and not t8n.options.state_test
-        ):
+        if t8n.fork.is_after_fork("prague") and not t8n.options.state_test:
             self.parent_hash = Hash32(hex_to_bytes(data["parentHash"]))
 
         # Read the block hashes

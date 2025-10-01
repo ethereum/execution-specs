@@ -137,7 +137,7 @@ class Txs:
         t8n = self.t8n
 
         tx_rlp = rlp.encode(raw_tx)
-        if t8n.fork.is_after_fork("ethereum.forks.berlin"):
+        if t8n.fork.is_after_fork("berlin"):
             if isinstance(raw_tx, Bytes):
                 transaction = t8n.fork.decode_transaction(raw_tx)
                 self.all_txs.append(raw_tx)
@@ -180,7 +180,7 @@ class Txs:
         tx = TransactionLoad(raw_tx, t8n.fork).read()
         self.all_txs.append(tx)
 
-        if t8n.fork.is_after_fork("ethereum.forks.berlin"):
+        if t8n.fork.is_after_fork("berlin"):
             transaction = t8n.fork.decode_transaction(tx)
         else:
             transaction = tx
@@ -205,14 +205,14 @@ class Txs:
             tx_decoded = tx
 
         secret_key = hex_to_uint(json_tx["secretKey"][2:])
-        if t8n.fork.is_after_fork("ethereum.forks.berlin"):
+        if t8n.fork.is_after_fork("berlin"):
             Transaction = t8n.fork.LegacyTransaction  # noqa N806
         else:
             Transaction = t8n.fork.Transaction  # noqa N806
 
         v_addend: U256
         if isinstance(tx_decoded, Transaction):
-            if t8n.fork.is_after_fork("ethereum.forks.spurious_dragon"):
+            if t8n.fork.is_after_fork("spurious_dragon"):
                 if protected:
                     signing_hash = t8n.fork.signing_hash_155(
                         tx_decoded, U64(1)

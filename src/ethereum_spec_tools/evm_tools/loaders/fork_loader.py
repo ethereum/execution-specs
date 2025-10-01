@@ -14,7 +14,7 @@ class ForkLoad:
     """
 
     _fork_module: str
-    _forks: Any
+    _forks: list[Hardfork]
 
     def __init__(self, fork_module: str):
         self._fork_module = fork_module
@@ -40,12 +40,17 @@ class ForkLoad:
         raise Exception(f"fork {self._fork_module} not discovered")
 
     def is_after_fork(self, target_fork_name: str) -> bool:
-        """Check if the fork is after the target fork."""
+        """
+        Check if the fork is after the target fork.
+
+        Accepts short fork names (e.g. "cancun") instead of full module paths.
+        """
         return_value = False
         for fork in self._forks:
-            if fork.name == target_fork_name:
+            short_name = fork.short_name
+            if short_name == target_fork_name:
                 return_value = True
-            if fork.name == "ethereum.forks." + self._fork_module:
+            if short_name == self._fork_module:
                 break
         return return_value
 
