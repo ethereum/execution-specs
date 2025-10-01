@@ -107,7 +107,7 @@ def compute_setdelegate_contract_address(
 
     Returns
     -------
-    address: `ethereum.osaka.fork_types.Address`
+    address: `ethereum.forks.amsterdam.fork_types.Address`
         The computed address of the delegation object.
     """
     preimage = b"\xef\x01\x00" + address + salt
