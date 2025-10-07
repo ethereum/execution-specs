@@ -8,6 +8,7 @@ In particular, we appreciate support in the following areas:
 - Fixing and responding to [issues](https://github.com/ethereum/execution-specs/issues), especially those tagged as [E-easy](https://github.com/ethereum/execution-specs/labels/E-easy) which are meant as introductory issues for external contributors.
 - Improving the documentation.
 
+:warning: Generally, we do not assign issues to external contributors. If you want to work on an issue, you are very welcome to go ahead and make a pull request. We would, hoever, be happy to answer questions you may have before you start implementing.
 
 For details about EELS usage and building, please refer the [README](https://github.com/ethereum/execution-specs/blob/master/README.md#usage)
 
@@ -36,7 +37,7 @@ When creating pull requests affecting multiple forks, we recommended submitting 
 2. Apply the changes across the other forks, push them, and mark the pull request as ready for review.
 
 This saves you having to apply code review feedback repeatedly for each fork.
- 
+
 ### Development
 
 Running the tests necessary to merge into the repository requires:
