@@ -59,6 +59,9 @@ jobs:
         with:
           python-version: "pypy3.11"
       - uses: ./.github/actions/setup-env
+      - name: Enable Zswap
+        run: |
+          echo 1 > /sys/module/zswap/parameters/enabled
       - name: Run pypy3 tests
         run: tox -e pypy3
         env:
