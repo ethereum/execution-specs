@@ -11,7 +11,7 @@ from typing import Callable
 import pytest
 
 from ethereum_spec_tools.evm_tools import create_parser
-from ethereum_spec_tools.evm_tools.t8n import T8N
+from ethereum_spec_tools.evm_tools.t8n import T8N, ForkCache
 
 parser = create_parser()
 
@@ -40,8 +40,11 @@ def test_count_opcodes(root_relative: Callable[[str | Path], Path]) -> None:
     in_file = StringIO()
     out_file = StringIO()
 
-    t8n_tool = T8N(options, out_file=out_file, in_file=in_file)
-    exit_code = t8n_tool.run()
+    with ForkCache() as fork_cache:
+        t8n_tool = T8N(
+            options, out_file=out_file, in_file=in_file, cache=fork_cache
+        )
+        exit_code = t8n_tool.run()
     assert 0 == exit_code
 
     results = json.loads(out_file.getvalue())

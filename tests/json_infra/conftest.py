@@ -22,10 +22,12 @@ from pytest import Collector, Config, Session, fixture
 from requests_cache import CachedSession
 from requests_cache.backends.sqlite import SQLiteCache
 
+from ethereum_spec_tools.evm_tools.t8n import ForkCache
+
 from . import FORKS, TEST_FIXTURES
 from .helpers import FixturesFile, FixtureTestItem
 from .helpers.select_tests import extract_affected_forks
-from .stash_keys import desired_forks_key, fixture_lock
+from .stash_keys import desired_forks_key, fixture_lock, fork_cache_key
 
 try:
     from xdist import get_xdist_worker_id
@@ -313,6 +315,10 @@ class _FixturesDownloader:
 
 def pytest_sessionstart(session: Session) -> None:
     """Initialize test fixtures and file locking at session start."""
+    fork_cache = ForkCache()
+    fork_cache.__enter__()
+    session.stash[fork_cache_key] = fork_cache
+
     if get_xdist_worker_id(session) != "master":
         return
 
@@ -355,6 +361,10 @@ def pytest_sessionstart(session: Session) -> None:
 def pytest_sessionfinish(session: Session, exitstatus: int) -> None:
     """Clean up file locks at session finish."""
     del exitstatus
+
+    session.stash[fork_cache_key].__exit__()
+    del session.stash[fork_cache_key]
+
     if get_xdist_worker_id(session) != "master":
         return
 

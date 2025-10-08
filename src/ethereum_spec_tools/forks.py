@@ -8,9 +8,14 @@ import importlib
 import importlib.abc
 import importlib.util
 import pkgutil
+import random
+import sys
+from contextlib import AbstractContextManager
 from enum import Enum, auto
-from importlib.machinery import ModuleSpec
+from importlib.machinery import ModuleSpec, PathFinder
+from pathlib import Path
 from pkgutil import ModuleInfo
+from tempfile import TemporaryDirectory
 from types import ModuleType
 from typing import (
     TYPE_CHECKING,
@@ -21,12 +26,20 @@ from typing import (
     Optional,
     Type,
     TypeVar,
+    Union,
+    cast,
 )
 
-from ethereum_types.numeric import U256, Uint
+from ethereum_types.numeric import U64, U256, Uint
+from typing_extensions import override
 
 if TYPE_CHECKING:
-    from ethereum.fork_criteria import ForkCriteria
+    from ethereum.fork_criteria import (
+        ByBlockNumber,
+        ByTimestamp,
+        ForkCriteria,
+        Unscheduled,
+    )
 
 
 class ConsensusType(Enum):
@@ -86,6 +99,14 @@ class Hardfork:
         forks: List[H] = []
 
         for pkg in modules:
+            try:
+                mod = sys.modules[pkg.name]
+                if hasattr(mod, "FORK_CRITERIA"):
+                    forks.append(cls(mod))
+                continue
+            except KeyError:
+                pass
+
             # Use find_spec() to find the module specification.
             if isinstance(pkg.module_finder, importlib.abc.MetaPathFinder):
                 found = pkg.module_finder.find_spec(pkg.name, None)
@@ -103,6 +124,8 @@ class Hardfork:
 
             # Load the module from the spec.
             mod = importlib.util.module_from_spec(found)
+
+            sys.modules[pkg.name] = mod
 
             # Execute the module in its namespace.
             if found.loader:
@@ -166,6 +189,88 @@ class Hardfork:
             )
 
         return cls.load(config)
+
+    @staticmethod
+    def clone(
+        template: H | str,
+        fork_criteria: Union[
+            "ByBlockNumber", "ByTimestamp", "Unscheduled", None
+        ] = None,
+        target_blob_gas_per_block: U64 | None = None,
+        gas_per_blob: U64 | None = None,
+        min_blob_gasprice: Uint | None = None,
+        blob_base_fee_update_fraction: Uint | None = None,
+        max_blob_gas_per_block: U64 | None = None,
+        blob_schedule_target: U64 | None = None,
+        blob_schedule_max: U64 | None = None,
+    ) -> "TemporaryHardfork":
+        """
+        Create a temporary clone of an existing fork, optionally tweaking its
+        parameters.
+        """
+        from .new_fork.builder import ForkBuilder
+
+        maybe_directory: TemporaryDirectory | None = TemporaryDirectory()
+
+        try:
+            assert maybe_directory is not None
+            directory: TemporaryDirectory = maybe_directory
+
+            if isinstance(template, str):
+                template_name = template
+            else:
+                template_name = template.short_name
+
+            clone_name = (
+                f"{template_name}_clone{random.randrange(1_000_000_000)}"
+            )
+
+            builder = ForkBuilder(template_name, clone_name)
+
+            builder.output = Path(directory.name)
+
+            if fork_criteria is not None:
+                builder.fork_criteria = fork_criteria
+
+            if target_blob_gas_per_block is not None:
+                builder.modify_target_blob_gas_per_block(
+                    target_blob_gas_per_block
+                )
+
+            if gas_per_blob is not None:
+                builder.modify_gas_per_blob(gas_per_blob)
+
+            if min_blob_gasprice is not None:
+                builder.modify_min_blob_gasprice(min_blob_gasprice)
+
+            if blob_base_fee_update_fraction is not None:
+                builder.modify_blob_base_fee_update_fraction(
+                    blob_base_fee_update_fraction
+                )
+
+            if max_blob_gas_per_block is not None:
+                builder.modify_max_blob_gas_per_block(max_blob_gas_per_block)
+
+            if blob_schedule_target is not None:
+                builder.modify_blob_schedule_target(blob_schedule_target)
+
+            if blob_schedule_max is not None:
+                builder.modify_blob_schedule_max(blob_schedule_max)
+
+            builder.build()
+
+            clone_forks = Hardfork.discover([directory.name])
+            if len(clone_forks) != 1:
+                raise Exception("len(clone_forks) != 1")
+            if clone_forks[0].short_name != clone_name:
+                raise Exception("found incorrect fork")
+
+            value = TemporaryHardfork(clone_forks[0].mod, directory)
+            maybe_directory = None
+            return value
+        finally:
+            if maybe_directory is not None:
+                maybe_directory.cleanup()
 
     def __init__(self, mod: ModuleType) -> None:
         self.mod = mod
@@ -281,22 +386,85 @@ class Hardfork:
         Import if necessary, and return the given module belonging to this hard
         fork.
         """
-        return importlib.import_module(self.mod.__name__ + "." + name)
+        # Handle the "already imported" case early.
+        full_name = self.mod.__name__ + "." + name
+        try:
+            return sys.modules[full_name]
+        except KeyError:
+            pass
+
+        # Import each package (including parents), returning the last one.
+        fragments = name.split(".")
+        mod = self.mod
+
+        for fragment in fragments:
+            name = mod.__name__ + "." + fragment
+            try:
+                mod = sys.modules[name]
+                continue
+            except KeyError:
+                pass
+
+            if mod.__spec__ is None:
+                raise ImportError(f"{mod.__name__} is not a package")
+            if mod.__spec__.submodule_search_locations is None:
+                raise ImportError(f"{mod.__name__} is not a package")
+
+            spec = PathFinder.find_spec(
+                name,
+                path=mod.__spec__.submodule_search_locations,
+                target=mod,
+            )
+            if spec is None or spec.loader is None:
+                raise ModuleNotFoundError(name)
+
+            mod = importlib.util.module_from_spec(spec)
+            sys.modules[name] = mod
+            if spec.loader and hasattr(spec.loader, "exec_module"):
+                spec.loader.exec_module(mod)
+
+        assert mod.__name__ == full_name
+        return mod
 
     def iter_modules(self) -> Iterator[ModuleInfo]:
         """
         Iterate through the (sub-)modules describing this hardfork.
         """
-        if self.path is None:
+        if self.mod.__path__ is None:
             raise ValueError(f"cannot walk {self.name}, path is None")
 
-        return pkgutil.iter_modules(self.path, self.name + ".")
+        return pkgutil.iter_modules(self.mod.__path__, self.name + ".")
 
     def walk_packages(self) -> Iterator[ModuleInfo]:
         """
         Iterate recursively through the (sub-)modules describing this hardfork.
         """
-        if self.path is None:
+        if self.mod.__path__ is None:
             raise ValueError(f"cannot walk {self.name}, path is None")
 
-        return pkgutil.walk_packages([self.path], self.name + ".")
+        return pkgutil.walk_packages(self.mod.__path__, self.name + ".")
+
+
+class TemporaryHardfork(Hardfork, AbstractContextManager):
+    """
+    Short-lived `Hardfork` located in a temporary directory.
+    """
+
+    directory: TemporaryDirectory | None
+
+    def __init__(self, mod: ModuleType, directory: TemporaryDirectory) -> None:
+        super().__init__(mod)
+        self.directory = directory
+
+    @override
+    def __exit__(self, *args: object, **kwargs: object) -> None:
+        del args
+        del kwargs
+
+        assert self.directory is not None
+        self.directory.cleanup()
+        self.directory = None
+
+        # Intentionally break ourselves. Once the directory is gone, imports
+        # won't work.
+        self.mod = cast(ModuleType, None)

@@ -3,7 +3,7 @@
 import json
 import sys
 from io import StringIO
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Final, Iterable, List
 
 import pytest
 from _pytest.config import Config
@@ -14,10 +14,10 @@ from ethereum.exceptions import StateWithEmptyAccount
 from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum_spec_tools.evm_tools import create_parser
 from ethereum_spec_tools.evm_tools.statetest import read_test_case
-from ethereum_spec_tools.evm_tools.t8n import T8N
+from ethereum_spec_tools.evm_tools.t8n import T8N, ForkCache
 
 from .. import FORKS
-from ..stash_keys import desired_forks_key
+from ..stash_keys import desired_forks_key, fork_cache_key
 from .exceptional_test_patterns import (
     exceptional_state_test_patterns,
 )
@@ -31,6 +31,7 @@ class StateTest(FixtureTestItem):
 
     index: int
     fork_name: str
+    fork_cache: Final[ForkCache]
 
     def __init__(
         self,
@@ -47,6 +48,7 @@ class StateTest(FixtureTestItem):
         self.add_marker("evm_tools")
         self.add_marker("json_state_tests")
         eels_fork = FORKS[fork_name].short_name
+        self.fork_cache = self.session.stash[fork_cache_key]
 
         # Mark tests with exceptional markers
         test_patterns = exceptional_state_test_patterns(fork_name, eels_fork)
@@ -140,18 +142,19 @@ class StateTest(FixtureTestItem):
         ]
         t8n_options = parser.parse_args(t8n_args)
 
-        try:
-            t8n = T8N(t8n_options, sys.stdout, in_stream)
-        except StateWithEmptyAccount as e:
-            pytest.xfail(str(e))
+        with ForkCache() as fork_cache:
+            try:
+                t8n = T8N(t8n_options, sys.stdout, in_stream, fork_cache)
+            except StateWithEmptyAccount as e:
+                pytest.xfail(str(e))
 
-        t8n.run_state_test()
+            t8n.run_state_test()
 
-        if "expectException" in post:
-            assert 0 in t8n.txs.rejected_txs
-            return
+            if "expectException" in post:
+                assert 0 in t8n.txs.rejected_txs
+                return
 
-        assert hex_to_bytes(post_hash) == t8n.result.state_root
+            assert hex_to_bytes(post_hash) == t8n.result.state_root
 
 
 class StateTestFixture(Fixture, Collector):

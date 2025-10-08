@@ -13,7 +13,7 @@ from typing import Any, Dict, Generator, Iterable, List, Optional, TextIO
 
 from ethereum.utils.hexadecimal import hex_to_bytes
 
-from ..t8n import T8N
+from ..t8n import T8N, ForkCache
 from ..t8n.t8n_types import Result
 from ..utils import get_supported_forks
 
@@ -84,6 +84,7 @@ def read_test_cases(test_file_path: str) -> Iterable[TestCase]:
 
 def run_test_case(
     test_case: TestCase,
+    fork_cache: ForkCache,
     t8n_extra: Optional[List[str]] = None,
     output_basedir: Optional[str | TextIO] = None,
 ) -> Result:
@@ -155,7 +156,7 @@ def run_test_case(
     if output_basedir is not None:
         t8n_options.output_basedir = output_basedir
 
-    t8n = T8N(t8n_options, out_stream, in_stream)
+    t8n = T8N(t8n_options, out_stream, in_stream, fork_cache)
     t8n.run_state_test()
     return t8n.result
 
@@ -221,12 +222,13 @@ class StateTest:
         stream_handler.setFormatter(formatter)
         logger.addHandler(stream_handler)
 
-        if self.file is None:
-            return self.run_many()
-        else:
-            return self.run_one(self.file)
+        with ForkCache() as fork_cache:
+            if self.file is None:
+                return self.run_many(fork_cache)
+            else:
+                return self.run_one(self.file, fork_cache)
 
-    def run_one(self, path: str) -> int:
+    def run_one(self, path: str, fork_cache: ForkCache) -> int:
         """
         Execute state tests from a single file.
         """
@@ -255,6 +257,7 @@ class StateTest:
 
             result = run_test_case(
                 test_case,
+                fork_cache,
                 t8n_extra=t8n_extra,
                 output_basedir=sys.stderr,
             )
@@ -288,13 +291,13 @@ class StateTest:
         self.out_file.write("\n")
         return 0
 
-    def run_many(self) -> int:
+    def run_many(self, fork_cache: ForkCache) -> int:
         """
         Execute state tests from a line-delimited list of files provided from
         `self.in_file`.
         """
         for line in self.in_file:
-            result = self.run_one(line[:-1])
+            result = self.run_one(line[:-1], fork_cache)
             if result != 0:
                 return result
         return 0

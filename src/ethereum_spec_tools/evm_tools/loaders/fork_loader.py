@@ -2,8 +2,8 @@
 Loader for code from the relevant fork.
 """
 
-import importlib
-from typing import Any
+from inspect import signature
+from typing import Any, Final
 
 from ethereum_spec_tools.forks import Hardfork
 
@@ -13,51 +13,31 @@ class ForkLoad:
     Load the functions and classes from the relevant fork.
     """
 
-    _fork_module: str
+    hardfork: Final[Hardfork]
     _forks: list[Hardfork]
 
-    def __init__(self, fork_module: str):
-        self._fork_module = fork_module
+    def __init__(self, hardfork: Hardfork):
+        self.hardfork = hardfork
         self._forks = Hardfork.discover()
-
-    @property
-    def fork_module(self) -> str:
-        """Module that contains the fork code."""
-        return self._fork_module
 
     def _module(self, name: str) -> Any:
         """Imports a module from the fork."""
-        return importlib.import_module(
-            f"ethereum.forks.{self._fork_module}.{name}"
-        )
+        return self.hardfork.module(name)
 
     @property
     def proof_of_stake(self) -> bool:
         """Whether the fork is proof of stake."""
-        for fork in self._forks:
-            if fork.name == "ethereum.forks." + self._fork_module:
-                return fork.consensus.is_pos()
-        raise Exception(f"fork {self._fork_module} not discovered")
-
-    def is_after_fork(self, target_fork_name: str) -> bool:
-        """
-        Check if the fork is after the target fork.
-
-        Accepts short fork names (e.g. "cancun") instead of full module paths.
-        """
-        return_value = False
-        for fork in self._forks:
-            short_name = fork.short_name
-            if short_name == target_fork_name:
-                return_value = True
-            if short_name == self._fork_module:
-                break
-        return return_value
+        return self.hardfork.consensus.is_pos()
 
     @property
     def BEACON_ROOTS_ADDRESS(self) -> Any:
         """BEACON_ROOTS_ADDRESS of the given fork."""
         return self._module("fork").BEACON_ROOTS_ADDRESS
+
+    @property
+    def has_beacon_roots_address(self) -> bool:
+        """Check if the fork has a `BEACON_ROOTS_ADDRESS` constant."""
+        return hasattr(self._module("fork"), "BEACON_ROOTS_ADDRESS")
 
     @property
     def HISTORY_STORAGE_ADDRESS(self) -> Any:
@@ -90,9 +70,20 @@ class ForkLoad:
         return self._module("fork").calculate_block_difficulty
 
     @property
+    def calculate_block_difficulty_arity(self) -> int:
+        """Number of parameters required by `calculate_block_difficulty`."""
+        inspected = signature(self._module("fork").calculate_block_difficulty)
+        return len(inspected.parameters)
+
+    @property
     def calculate_base_fee_per_gas(self) -> Any:
         """calculate_base_fee_per_gas function of the given fork."""
         return self._module("fork").calculate_base_fee_per_gas
+
+    @property
+    def has_calculate_base_fee_per_gas(self) -> bool:
+        """Check if the fork has a `calculate_base_fee_per_gas` function."""
+        return hasattr(self._module("fork"), "calculate_base_fee_per_gas")
 
     @property
     def logs_bloom(self) -> Any:
@@ -123,6 +114,11 @@ class ForkLoad:
     def signing_hash_155(self) -> Any:
         """signing_hash_155 function of the fork."""
         return self._module("transactions").signing_hash_155
+
+    @property
+    def has_signing_hash_155(self) -> bool:
+        """Check if the fork has a `signing_hash_155` function."""
+        return hasattr(self._module("transactions"), "signing_hash_155")
 
     @property
     def signing_hash_2930(self) -> Any:
@@ -170,6 +166,15 @@ class ForkLoad:
         return self._module("requests").compute_requests_hash
 
     @property
+    def has_compute_requests_hash(self) -> bool:
+        """Check if the fork has a `has_requests_hash` function."""
+        try:
+            module = self._module("requests")
+        except ModuleNotFoundError:
+            return False
+        return hasattr(module, "compute_requests_hash")
+
+    @property
     def Bloom(self) -> Any:
         """Bloom class of the fork."""
         return self._module("fork_types").Bloom
@@ -198,6 +203,14 @@ class ForkLoad:
     def LegacyTransaction(self) -> Any:
         """Legacytransaction class of the fork."""
         return self._module("transactions").LegacyTransaction
+
+    @property
+    def has_legacy_transaction(self) -> bool:
+        """
+        Return `True` if the fork has a `LegacyTransaction` class, or `False`
+        otherwise.
+        """
+        return hasattr(self._module("transactions"), "LegacyTransaction")
 
     @property
     def Access(self) -> Any:
@@ -230,9 +243,19 @@ class ForkLoad:
         return self._module("blocks").Withdrawal
 
     @property
+    def has_withdrawal(self) -> bool:
+        """Check if the fork has a `Withdrawal` class."""
+        return hasattr(self._module("blocks"), "Withdrawal")
+
+    @property
     def decode_transaction(self) -> Any:
         """decode_transaction function of the fork."""
         return self._module("transactions").decode_transaction
+
+    @property
+    def has_decode_transaction(self) -> bool:
+        """Check if this fork has a `decode_transaction`."""
+        return hasattr(self._module("transactions"), "decode_transaction")
 
     @property
     def State(self) -> Any:
