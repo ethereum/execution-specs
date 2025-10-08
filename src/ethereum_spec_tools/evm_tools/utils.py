@@ -4,6 +4,7 @@ Utilities for the EVM tools.
 
 import json
 import logging
+import re
 import sys
 from typing import (
     Any,
@@ -26,6 +27,18 @@ from ethereum_spec_tools.forks import Hardfork
 W = TypeVar("W", Uint, U64, U256)
 
 EXCEPTION_MAPS = {
+    "BPO1": {
+        "fork_blocks": [("osaka", 0)],
+    },
+    "BPO2": {
+        "fork_blocks": [("osaka", 0)],
+    },
+    "BPO3": {
+        "fork_blocks": [("osaka", 0)],
+    },
+    "BPO4": {
+        "fork_blocks": [("osaka", 0)],
+    },
     "FrontierToHomesteadAt5": {
         "fork_blocks": [("frontier", 0), ("homestead", 5)],
     },
@@ -81,9 +94,9 @@ class FatalError(Exception):
     pass
 
 
-def get_module_name(
+def find_fork(
     forks: Sequence[Hardfork], options: Any, stdin: Any
-) -> Tuple[str, int]:
+) -> Tuple[Hardfork, int | None]:
     """
     Get the module name and the fork block for the given state fork.
     """
@@ -95,6 +108,13 @@ def get_module_name(
         exception_config = EXCEPTION_MAPS[options.state_fork]
     except KeyError:
         pass
+
+    current_fork_block: None | int = None
+    current_fork_module = re.sub(
+        r"(?<!^)(?=[A-Z])",
+        "_",
+        options.state_fork,
+    ).lower()  # CamelCase to snake_case
 
     if exception_config:
         if options.input_env == "stdin":
@@ -111,15 +131,9 @@ def get_module_name(
                 current_fork_module = fork
                 current_fork_block = fork_block
 
-        return current_fork_module, current_fork_block
-
-    # If the state fork is not an exception, use the fork name.
     for fork in forks:
-        fork_module = fork.name.split(".")[-1]
-        key = "".join(x.title() for x in fork_module.split("_"))
-
-        if key == options.state_fork:
-            return fork_module, 0
+        if current_fork_module == fork.short_name:
+            return fork, current_fork_block
 
     # Neither in exception nor a standard fork name.
     sys.exit(f"Unsupported state fork: {options.state_fork}")

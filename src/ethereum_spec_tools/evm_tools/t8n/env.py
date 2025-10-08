@@ -37,7 +37,6 @@ class Env:
     block_gas_limit: Uint
     block_number: Uint
     block_timestamp: U256
-    parent_hash: Any
     withdrawals: Any
     block_difficulty: Optional[Uint]
     prev_randao: Optional[Bytes32]
@@ -72,12 +71,12 @@ class Env:
         self.read_block_difficulty(data, t8n)
         self.read_base_fee_per_gas(data, t8n)
         self.read_randao(data, t8n)
-        self.read_block_hashes(data, t8n)
+        self.read_block_hashes(data)
         self.read_ommers(data, t8n)
         self.read_withdrawals(data, t8n)
 
         self.parent_beacon_block_root = None
-        if t8n.fork.is_after_fork("cancun"):
+        if t8n.fork.has_beacon_roots_address:
             if not t8n.options.state_test:
                 parent_beacon_block_root_hex = data["parentBeaconBlockRoot"]
                 self.parent_beacon_block_root = (
@@ -96,7 +95,7 @@ class Env:
         self.parent_excess_blob_gas = U64(0)
         self.excess_blob_gas = None
 
-        if not t8n.fork.is_after_fork("cancun"):
+        if not t8n.fork.has_beacon_roots_address:
             return
 
         if "parentExcessBlobGas" in data:
@@ -143,7 +142,7 @@ class Env:
             "excess_blob_gas": self.parent_excess_blob_gas,
         }
 
-        if t8n.fork.is_after_fork("prague"):
+        if t8n.fork.has_compute_requests_hash:
             arguments["requests_hash"] = Hash32(b"\0" * 32)
 
         parent_header = t8n.fork.Header(**arguments)
@@ -162,7 +161,7 @@ class Env:
         self.parent_base_fee_per_gas = None
         self.base_fee_per_gas = None
 
-        if t8n.fork.is_after_fork("london"):
+        if t8n.fork.has_calculate_base_fee_per_gas:
             if "currentBaseFee" in data:
                 self.base_fee_per_gas = parse_hex_or_int(
                     data["currentBaseFee"], Uint
@@ -204,7 +203,7 @@ class Env:
         Read the randao from the data.
         """
         self.prev_randao = None
-        if t8n.fork.is_after_fork("paris"):
+        if t8n.fork.proof_of_stake:
             # tf tool might not always provide an
             # even number of nibbles in the randao
             # This could create issues in the
@@ -225,7 +224,7 @@ class Env:
         Read the withdrawals from the data.
         """
         self.withdrawals = None
-        if t8n.fork.is_after_fork("shanghai"):
+        if t8n.fork.has_withdrawal:
             self.withdrawals = tuple(
                 t8n.json_to_withdrawals(wd) for wd in data["withdrawals"]
             )
@@ -240,7 +239,7 @@ class Env:
         self.parent_timestamp = None
         self.parent_difficulty = None
         self.parent_ommers_hash = None
-        if t8n.fork.is_after_fork("paris"):
+        if t8n.fork.proof_of_stake:
             return
         elif "currentDifficulty" in data:
             self.block_difficulty = parse_hex_or_int(
@@ -259,7 +258,7 @@ class Env:
                 self.parent_timestamp,
                 self.parent_difficulty,
             ]
-            if t8n.fork.is_after_fork("byzantium"):
+            if t8n.fork.calculate_block_difficulty_arity > 4:
                 if "parentUncleHash" in data:
                     EMPTY_OMMER_HASH = keccak256(rlp.encode([]))  # noqa N806
                     self.parent_ommers_hash = Hash32(
@@ -273,14 +272,10 @@ class Env:
                     args.append(False)
             self.block_difficulty = t8n.fork.calculate_block_difficulty(*args)
 
-    def read_block_hashes(self, data: Any, t8n: "T8N") -> None:
+    def read_block_hashes(self, data: Any) -> None:
         """
         Read the block hashes. Returns a maximum of 256 block hashes.
         """
-        self.parent_hash = None
-        if t8n.fork.is_after_fork("prague") and not t8n.options.state_test:
-            self.parent_hash = Hash32(hex_to_bytes(data["parentHash"]))
-
         # Read the block hashes
         block_hashes: List[Any] = []
 

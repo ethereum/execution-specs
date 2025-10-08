@@ -5,6 +5,7 @@ into a new fork.
 
 import json
 import sys
+import warnings
 from abc import ABC, abstractmethod
 from contextlib import ExitStack, chdir
 from dataclasses import dataclass, field
@@ -13,7 +14,7 @@ from shutil import copytree, rmtree
 from tempfile import TemporaryDirectory
 from typing import Final, NamedTuple
 
-from ethereum_types.numeric import U256, Uint
+from ethereum_types.numeric import U64, U256, Uint
 from libcst.tool import main as libcst_tool
 from typing_extensions import override
 
@@ -55,6 +56,7 @@ class RenameFork(CodemodArgs):
         commands = [
             [
                 "codemod",
+                "-j1",
                 "rename.RenameCommand",
                 "--no-format",
                 "--old_name",
@@ -68,20 +70,33 @@ class RenameFork(CodemodArgs):
         forks = Hardfork.discover()
         before_fork = None
         for fork in forks:
-            if fork.criteria > fork_builder.fork_criteria:
+            if fork.criteria >= fork_builder.fork_criteria:
                 break
             before_fork = fork
 
         if before_fork is None:
-            assert fork_builder.before_template_fork is None
+            if fork_builder.before_template_fork is not None:
+                warnings.warn(
+                    "creating genesis fork from a non-genesis fork "
+                    + f"(`{fork_builder.template_fork.short_name}`)",
+                    stacklevel=2,
+                )
             return commands
 
-        assert fork_builder.before_template_fork is not None
+        if fork_builder.before_template_fork is None:
+            warnings.warn(
+                "creating non-genesis fork from a genesis fork "
+                + f"(`{fork_builder.template_fork.short_name}`)",
+                stacklevel=2,
+            )
+            return commands
 
         commands.append(
             [
                 "codemod",
+                "-j1",
                 "rename.RenameCommand",
+                "--no-format",
                 "--old_name",
                 fork_builder.before_template_fork.name,
                 "--new_name",
@@ -129,6 +144,7 @@ class ReplaceValue(CodemodArgs, ABC):
 
         command = [
             "codemod",
+            "-j1",
             "constant.SetConstantCommand",
             "--no-format",
             "--qualified-name",
@@ -214,12 +230,14 @@ class ReplaceForkName(CodemodArgs):
         commands = [
             [
                 "codemod",
+                "-j1",
                 "--no-format",
                 "string_replace.StringReplaceCommand",
             ]
             + common,
             [
                 "codemod",
+                "-j1",
                 "--no-format",
                 "comment.CommentReplaceCommand",
             ]
@@ -248,6 +266,7 @@ class ClearDocstring(CodemodArgs):
         return [
             [
                 "codemod",
+                "-j1",
                 "remove_docstring.RemoveDocstringCommand",
                 "--no-format",
                 str(init_path),
@@ -455,3 +474,72 @@ class ForkBuilder:
             self._copy(package)
             self._modify(working_directory)
             self._commit(package)
+
+    def modify_target_blob_gas_per_block(
+        self, target_blob_gas_per_block: U64
+    ) -> None:
+        """Append a `CodemodArgs` that sets `TARGET_BLOB_GAS_PER_BLOCK`."""
+        self.modifiers.append(
+            SetConstant(
+                "vm.gas.TARGET_BLOB_GAS_PER_BLOCK",
+                repr(target_blob_gas_per_block),
+            )
+        )
+
+    def modify_gas_per_blob(self, gas_per_blob: U64) -> None:
+        """Append a `CodemodArgs` that sets `GAS_PER_BLOB`."""
+        self.modifiers.append(
+            SetConstant(
+                "vm.gas.GAS_PER_BLOB",
+                repr(gas_per_blob),
+            )
+        )
+
+    def modify_min_blob_gasprice(self, min_blob_gasprice: Uint) -> None:
+        """Append a `CodemodArgs` that sets `MIN_BLOB_GASPRICE`."""
+        self.modifiers.append(
+            SetConstant(
+                "vm.gas.MIN_BLOB_GASPRICE",
+                repr(min_blob_gasprice),
+            )
+        )
+
+    def modify_blob_base_fee_update_fraction(
+        self, blob_base_fee_update_fraction: Uint
+    ) -> None:
+        """Append a `CodemodArgs` that sets `BLOB_BASE_FEE_UPDATE_FRACTION`."""
+        self.modifiers.append(
+            SetConstant(
+                "vm.gas.BLOB_BASE_FEE_UPDATE_FRACTION",
+                repr(blob_base_fee_update_fraction),
+            )
+        )
+
+    def modify_max_blob_gas_per_block(
+        self, max_blob_gas_per_block: U64
+    ) -> None:
+        """Append a `CodemodArgs` that sets `MAX_BLOB_GAS_PER_BLOCK`."""
+        self.modifiers.append(
+            SetConstant(
+                "fork.MAX_BLOB_GAS_PER_BLOCK",
+                repr(max_blob_gas_per_block),
+            )
+        )
+
+    def modify_blob_schedule_target(self, blob_schedule_target: U64) -> None:
+        """Append a `CodemodArgs` that sets `BLOB_SCHEDULE_TARGET`."""
+        self.modifiers.append(
+            SetConstant(
+                "vm.gas.BLOB_SCHEDULE_TARGET",
+                repr(blob_schedule_target),
+            )
+        )
+
+    def modify_blob_schedule_max(self, blob_schedule_max: U64) -> None:
+        """Append a `CodemodArgs` that sets `BLOB_SCHEDULE_MAX`."""
+        self.modifiers.append(
+            SetConstant(
+                "vm.gas.BLOB_SCHEDULE_MAX",
+                repr(blob_schedule_max),
+            )
+        )

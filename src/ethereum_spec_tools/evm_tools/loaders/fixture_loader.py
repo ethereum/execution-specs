@@ -21,6 +21,7 @@ from ethereum.utils.hexadecimal import (
     hex_to_u256,
     hex_to_uint,
 )
+from ethereum_spec_tools.forks import Hardfork
 
 from .fork_loader import ForkLoad
 from .transaction_loader import TransactionLoad
@@ -52,10 +53,18 @@ class Load(BaseLoad):
     _fork_module: str
     fork: ForkLoad
 
-    def __init__(self, network: str, fork_module: str):
+    def __init__(self, network: str, fork_module: str | Hardfork):
         self._network = network
-        self._fork_module = fork_module
-        self.fork = ForkLoad(fork_module)
+        if isinstance(fork_module, Hardfork):
+            self.fork = ForkLoad(fork_module)
+            self._fork_module = fork_module.short_name
+        else:
+            self._fork_module = fork_module
+            for fork in Hardfork.discover():
+                if fork.short_name == fork_module:
+                    self.fork = ForkLoad(fork)
+                    return
+            raise Exception(f"fork `{fork_module}` not found")
 
     def json_to_state(self, raw: Any) -> Any:
         """Converts json state data to a state object."""
