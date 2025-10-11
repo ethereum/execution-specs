@@ -26,7 +26,7 @@ def left_pad_zero_bytes(
     value :
         The byte string that needs to be padded.
     size :
-        The number of bytes that need that need to be padded.
+        The number of bytes that need to be padded.
 
     Returns
     -------
@@ -48,7 +48,7 @@ def right_pad_zero_bytes(
     value :
         The byte string that needs to be padded.
     size :
-        The number of bytes that need that need to be padded.
+        The number of bytes that need to be padded.
 
     Returns
     -------
