@@ -32,6 +32,29 @@ jobs:
       - name: Run static checks
         run: tox -e static
 
+  lint-commits:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install gitlint
+        run: pip install gitlint>=0.20.0
+      - name: Lint commits
+        run: |
+          BASE_REF="${{ github.base_ref || github.repository.default_branch }}"
+          BASE_SHA=$(git merge-base HEAD "origin/$BASE_REF")
+          echo "Linting commits from $BASE_SHA to HEAD (base ref: $BASE_REF)"
+          echo "Commits in range:"
+          git log --oneline "$BASE_SHA"..HEAD || echo "No new commits"
+          gitlint --contrib CT1 --commits "$BASE_SHA"..HEAD --ignore body-is-missing
+          echo "Conventional Commits linting PASSED!"
+
   py3:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
