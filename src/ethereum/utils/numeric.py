@@ -42,7 +42,7 @@ def get_sign(value: int) -> int:
 
 def ceil32(value: Uint) -> Uint:
     """
-    Converts a unsigned integer to the next closest multiple of 32.
+    Converts an unsigned integer to the next closest multiple of 32.
 
     Parameters
     ----------
