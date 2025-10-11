@@ -84,7 +84,9 @@ Note: Make sure to run the EVM trace on a small number of tests at a time. The l
 Below is an example.
 
 ```bash
-uv run pytest tests/frontier/test_state_transition.py -k 'test_general_state_tests_new' --evm-trace
+uv run --extra test \
+    pytest 'tests/json_infra/test_state_tests.py::test_state_tests_frontier[stAttackTest - ContractCreationSpam - 0]' \
+        --evm_trace
 ```
 
 
