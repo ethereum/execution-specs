@@ -502,6 +502,7 @@ skip = [                        # Don't check these files/folders
     "tests/fixtures",
     "tests/json_infra/fixtures",
     "eest_tests",
+    "tests/eest/static", # Ignore `ethereum/tests` GeneralStateTests
     "src/ethereum_spec_tools/evm_tools/t8n" # Temporary while being re-written
 ]
 count = true                    # Display counts of errors
