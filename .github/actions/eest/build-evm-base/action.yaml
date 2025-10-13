@@ -50,13 +50,13 @@ runs:
       run: echo "Skipping build for EELS"
     - name: Build the EVM using Geth action
       if: steps.config-evm-reader.outputs.impl == 'geth'
-      uses: ./.github/actions/build-evm-client/geth
+      uses: ./.github/actions/eest/build-evm-client/geth
       with:
         repo: ${{ steps.config-evm-reader.outputs.repo }}
         ref: ${{ steps.config-evm-reader.outputs.ref }}
     - name: Build the EVM using EVMONE action
       if: steps.config-evm-reader.outputs.impl == 'evmone'
-      uses: ./.github/actions/build-evm-client/evmone
+      uses: ./.github/actions/eest/build-evm-client/evmone
       with:
         repo: ${{ steps.config-evm-reader.outputs.repo }}
         ref: ${{ steps.config-evm-reader.outputs.ref }}
@@ -64,13 +64,13 @@ runs:
         targets: ${{ join(fromJSON(steps.config-evm-reader.outputs.targets), ' ') }}
     - name: Build the EVM using Besu action
       if: steps.config-evm-reader.outputs.impl == 'besu'
-      uses: ./.github/actions/build-evm-client/besu
+      uses: ./.github/actions/eest/build-evm-client/besu
       with:
         repo: ${{ steps.config-evm-reader.outputs.repo }}
         ref: ${{ steps.config-evm-reader.outputs.ref }}
     - name: Build the EVM using EthJS action
       if: steps.config-evm-reader.outputs.impl == 'ethjs'
-      uses: ./.github/actions/build-evm-client/ethjs
+      uses: ./.github/actions/eest/build-evm-client/ethjs
       with:
         repo: ${{ steps.config-evm-reader.outputs.repo }}
         ref: ${{ steps.config-evm-reader.outputs.ref }}
