@@ -1,0 +1,46 @@
+name: 'Build evmone EVM'
+description: 'Builds the evmone EVM binary'
+inputs:
+  repo:
+    description: 'Source repository to use to build the EVM binary'
+    required: true
+    default: 'ethereum/evmone'
+  ref:
+    description: 'Reference to branch, commit, or tag to use to build the EVM binary'
+    required: true
+    default: 'master'
+  targets:
+    description: 'Which targets to build from evmone repo'
+    required: false
+    default: 'all'
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout evmone
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        repository: ${{ inputs.repo }}
+        ref: ${{ inputs.ref }}
+        path: evmone
+        submodules: true
+    - name: Setup cmake
+      uses: jwlawson/actions-setup-cmake@802fa1a2c4e212495c05bf94dba2704a92a472be
+      with:
+        cmake-version: '3.x'
+    - name: "Install GMP Linux"
+      if: runner.os == 'Linux'
+      shell: bash
+      run: sudo apt-get -q update && sudo apt-get -qy install libgmp-dev
+    - name: Install GMP macOS
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        brew update && brew install gmp
+    - name: Build evmone binary
+      shell: bash
+      run: |
+        mkdir -p $GITHUB_WORKSPACE/bin
+        cd $GITHUB_WORKSPACE/evmone
+        cmake -S . -B build -DEVMONE_TESTING=ON -DEVMONE_PRECOMPILES_SILKPRE=1
+        cmake --build build --parallel --target ${{ inputs.targets }}
+        echo $GITHUB_WORKSPACE/evmone/build/bin/ >> $GITHUB_PATH

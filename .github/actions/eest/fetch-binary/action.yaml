@@ -1,0 +1,31 @@
+name: "Fetch and Install Binary"
+description: "Downloads a binary from a GitHub release, verifies its checksum, and installs it to PATH. Only works for Linux."
+inputs:
+  version:
+    description: "Release version (e.g., v0.8.24)"
+    required: true
+  repo_owner:
+    description: "GitHub repository owner"
+    required: true
+  repo_name:
+    description: "GitHub repository name"
+    required: true
+  remote_name:
+    description: "Binary filename in the release"
+    required: true
+  binary_name:
+    description: "Name to install the binary as"
+    required: true
+  expected_sha256:
+    description: "Expected SHA256 checksum"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Download binary
+      shell: bash
+      run: |
+        curl -sSL "https://github.com/${{ inputs.repo_owner }}/${{ inputs.repo_name }}/releases/download/${{ inputs.version }}/${{ inputs.remote_name }}" -o ./${{ inputs.binary_name }}
+        echo "${{ inputs.expected_sha256 }}  ${{ inputs.binary_name }}" | sha256sum -c -
+        sudo mv ./${{ inputs.binary_name }} /usr/local/bin/${{ inputs.binary_name }}
+        sudo chmod +x /usr/local/bin/${{ inputs.binary_name }}

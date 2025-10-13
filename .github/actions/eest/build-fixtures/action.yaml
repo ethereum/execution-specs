@@ -1,0 +1,59 @@
+name: Build and Package Fixture Release
+inputs:
+  release_name:
+    description: "Name of the fixture release"
+    required: true
+  uv_version:
+    description: "Version of UV to install"
+    required: true
+  python_version:
+    description: "Version of Python to install"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Install uv ${{ inputs.uv_version }} and python ${{ inputs.python_version }}
+      uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+      with:
+        enable-cache: false
+        version: ${{ inputs.uv_version }}
+        python-version: ${{ inputs.python_version }}
+    - name: Install EEST
+      shell: bash
+      run: uv sync --no-progress
+    - name: Extract fixture release properties from config
+      id: properties
+      shell: bash
+      run: |
+        echo "release_name=${{ inputs.release_name }}"
+        uv run -q .github/scripts/get_release_props.py ${{ inputs.release_name }} >> "$GITHUB_OUTPUT"
+    - uses: ./.github/actions/build-evm-base
+      id: evm-builder
+      with:
+        type: ${{ steps.properties.outputs.evm-type }}
+    - name: Generate fixtures using fill
+      shell: bash
+      run: |
+        uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} --output=fixtures_${{ inputs.release_name }}.tar.gz --build-name ${{ inputs.release_name }}
+    - name: Wrap ethereum/tests fixtures with eofwrap tool
+      shell: bash
+      if: ${{ steps.properties.outputs.eofwrap }}
+      run: |
+        curl -L ${tests_url}${tests_version}.tar.gz | tar -xz
+        ls -l
+        uv run eofwrap tests-${tests_version}/BlockchainTests/GeneralStateTests/ fixtures/${output_path}
+        rm -rf fixtures_${{ inputs.release_name }}
+        mkdir -p ./fixtures/.meta
+        mv fixtures/${output_path}/metrics.json ./fixtures/.meta/eofwrap_metrics.json
+        gunzip fixtures_${{ inputs.release_name }}.tar.gz
+        tar rf fixtures_${{ inputs.release_name }}.tar fixtures
+        gzip fixtures_${{ inputs.release_name }}.tar
+        rm -rf fixtures
+      env:
+        tests_url: https://github.com/ethereum/tests/archive/refs/tags/v
+        tests_version: 14.1
+        output_path: blockchain_tests/unscheduled/eofwrap
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: fixtures_${{ inputs.release_name }}
+        path: fixtures_${{ inputs.release_name }}.tar.gz

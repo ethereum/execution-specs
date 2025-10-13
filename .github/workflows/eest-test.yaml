@@ -10,7 +10,7 @@ on:
       - 'src/ethereum_spec_tests/**'
       - 'tests/eest/**'
       - '.github/workflows/eest_tests.yaml'
-      - '.github/actions/**'
+      - '.github/actions/eest/**'
       - '.github/configs/**'
       - 'tox.ini'
       - 'pyproject.toml'
@@ -21,7 +21,7 @@ on:
       - 'src/ethereum_spec_tests/**'
       - 'tests/eest/**'
       - '.github/workflows/eest_tests.yaml'
-      - '.github/actions/**'
+      - '.github/actions/eest/**'
       - '.github/configs/**'
       - 'tox.ini'
       - 'pyproject.toml'
@@ -153,11 +153,11 @@ jobs:
                   version: ${{ vars.UV_VERSION }}
                   python-version: ${{ matrix.python }}
             - name: Build EVMONE EVM
-              uses: ./.github/actions/build-evm-client/evmone
+              uses: ./.github/actions/eest/build-evm-client/evmone
               with:
                   targets: "evmone-t8n"
             - name: Build GETH EVM
-              uses: ./.github/actions/build-evm-client/geth
+              uses: ./.github/actions/eest/build-evm-client/geth
             - name: Run tox - run framework unit tests with pytest
               run: uvx --with=tox-uv tox -e eest-pytest
 
@@ -209,7 +209,7 @@ jobs:
                   version: ${{ vars.UV_VERSION }}
                   python-version: ${{ matrix.python }}
             - name: Build EVMONE EVM
-              uses: ./.github/actions/build-evm-client/evmone
+              uses: ./.github/actions/eest/build-evm-client/evmone
               with:
                   targets: "evmone-t8n"
             - name: Run tox - fill tests for deployed forks
