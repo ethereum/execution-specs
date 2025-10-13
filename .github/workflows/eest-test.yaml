@@ -9,7 +9,7 @@ on:
     paths:
       - 'src/ethereum_spec_tests/**'
       - 'tests/eest/**'
-      - '.github/workflows/eest_tests.yaml'
+      - '.github/workflows/eest-tests.yaml'
       - '.github/actions/eest/**'
       - '.github/configs/**'
       - 'tox.ini'
@@ -20,7 +20,7 @@ on:
     paths:
       - 'src/ethereum_spec_tests/**'
       - 'tests/eest/**'
-      - '.github/workflows/eest_tests.yaml'
+      - '.github/workflows/eest-tests.yaml'
       - '.github/actions/eest/**'
       - '.github/configs/**'
       - 'tox.ini'

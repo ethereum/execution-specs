@@ -27,7 +27,7 @@ runs:
       run: |
         echo "release_name=${{ inputs.release_name }}"
         uv run -q .github/scripts/get_release_props.py ${{ inputs.release_name }} >> "$GITHUB_OUTPUT"
-    - uses: ./.github/actions/build-evm-base
+    - uses: ./.github/actions/eest/build-evm-base
       id: evm-builder
       with:
         type: ${{ steps.properties.outputs.evm-type }}

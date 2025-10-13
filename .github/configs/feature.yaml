@@ -1,22 +1,22 @@
 # Unless filling for special features, all features should fill for previous forks (starting from Frontier) too
 stable:
   evm-type: stable
-  fill-params: --until=Prague --fill-static-tests --ignore=tests/static/state_tests/stQuadraticComplexityTest
+  fill-params: --until=Prague --fill-static-tests --ignore=tests/eest/static/state_tests/stQuadraticComplexityTest
 
 develop:
   evm-type: develop 
-  fill-params: --until=BPO4 --fill-static-tests --ignore=tests/static/state_tests/stQuadraticComplexityTest
+  fill-params: --until=BPO4 --fill-static-tests --ignore=tests/eest/static/state_tests/stQuadraticComplexityTest
 
 benchmark:
-  evm-type: benchmark # Evmone only fully supports up to Prague
-  fill-params: --fork=Prague --gas-benchmark-values 1,10,30,45,60,100,150 -m "benchmark and not state_test" ./tests/benchmark
+  evm-type: benchmark
+  fill-params: --fork=Prague --gas-benchmark-values 1,10,30,45,60,100,150 -m "benchmark and not state_test" ./tests/eest/benchmark
 
 benchmark_develop:
   evm-type: develop
-  fill-params: --fork=Osaka --gas-benchmark-values 1,10,30,45,60,100,150 -m "benchmark and not state_test" ./tests/benchmark
+  fill-params: --fork=Osaka --gas-benchmark-values 1,10,30,45,60,100,150 -m "benchmark and not state_test" ./tests/eest/benchmark
   feature_only: true
 
 bal:
   evm-type: develop
-  fill-params: --fork=Amsterdam ./tests/amsterdam/eip7928_block_level_access_lists
+  fill-params: --fork=Amsterdam ./tests/eest/amsterdam/eip7928_block_level_access_lists
   feature_only: true
