@@ -1,0 +1,209 @@
+name: Evmone Coverage Report
+
+on:
+  pull_request:
+    paths:
+      - "tests/**" # This triggers the workflow for any changes in the tests folder
+      - "!tests/osaka/**" # exclude changes in 'tests/osaka'
+      - "!tests/unscheduled/**" # exclude changes in 'tests/unscheduled'
+
+jobs:
+  evmone-coverage-diff:
+    runs-on: ubuntu-latest
+    
+    env:
+      BLOCK_GAS_LIMIT: "45000000"
+      FILL_UNTIL: "Cancun"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Debug GitHub context
+        run: |
+          echo "Git reference: ${{ github.ref }}"
+          echo "Git head ref: ${{ github.head_ref }}"
+          echo "Git base ref: ${{ github.base_ref }}"
+          echo "Node Version: $(node -v)"
+          echo "NPM Version: $(npm -v)"
+
+      - name: Get all changed python files in tests/ and changes to coverted-ethereum-tests.txt
+        id: changed-tests
+        uses: tj-actions/changed-files@48d8f15b2aaa3d255ca5af3eba4870f807ce6b3c
+        with:
+          # TODO: non-test modules such as __init__.py or spec.py could effect coverage - in this case we should
+          # fill all applicable tests (i.e., all the test_*.py files in or under the changed module's directory)
+          include_all_old_new_renamed_files: true
+          output_renamed_files_as_deleted_and_added: true
+          files_yaml: |
+            tests:
+              - tests/**/test_*.py
+              - '!tests/prague/**'
+              - '!tests/unscheduled/**'
+
+      - name: Exit workflow if there are no changed python files
+        if: steps.changed-tests.outputs.tests_any_changed != 'true'
+        run: |
+          echo "No python files were changed in ./tests/ - no action necessary"
+          exit 0
+
+      - name: Report changed python test modules
+        if: steps.changed-tests.outputs.tests_any_changed == 'true'
+        run: |
+          echo "${{ toJson(steps.changed-tests.outputs) }}"
+          echo "Changed python test modules: ${{ steps.changed-tests.outputs.tests_all_modified_files }}"
+
+      - name: Debug GitHub context
+        run: |
+          echo "Git reference: ${{ github.ref }}"
+          echo "Git head ref: ${{ github.head_ref }}"
+          echo "Git base ref: ${{ github.base_ref }}"
+
+      - name: Log in to Docker Hub
+        if: ${{  steps.changed-tests.outputs.tests_any_changed == 'true' && github.event.pull_request.head.repo.full_name == github.repository }}
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772
+        with:
+          username: marioeth
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Install deps
+        if: steps.changed-tests.outputs.tests_any_changed == 'true'
+        run: |
+          echo $(pwd)
+          echo ${{ github.workspace }}
+
+      - name: Install uv ${{ vars.UV_VERSION }} and python ${{ vars.DEFAULT_PYTHON_VERSION }}
+        if: steps.changed-tests.outputs.tests_any_changed == 'true'
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+        with:
+          enable-cache: false
+          version: ${{ vars.UV_VERSION }}
+          python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
+
+      - name: Install EEST
+        if: steps.changed-tests.outputs.tests_any_changed == 'true'
+        run: |
+          uv sync --no-progress
+          uv run python --version
+
+      # Required to fill .py tests
+      - name: Build EVMONE EVM
+        uses: ./.github/actions/build-evm-client/evmone
+        if: steps.changed-tests.outputs.tests_any_changed == 'true'
+        id: evm-builder2
+        with:
+          targets: "evmone-t8n"
+
+      - name: Checkout ethereum/tests
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        if: steps.changed-tests.outputs.tests_any_changed == 'true'
+        with:
+          repository: ethereum/tests
+          path: testpath
+          sparse-checkout: |
+            BlockchainTests
+            EOFTests
+
+      - name: Checkout ethereum/legacytests
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        if: steps.changed-tests.outputs.tests_any_changed == 'true'
+        with:
+          repository: ethereum/legacytests
+          path: legacytestpath
+          sparse-checkout: |
+            Cancun/GeneralStateTests
+            Cancun/BlockchainTests
+
+      # This command diffs the file and filters in new lines
+      - name: Parse ported_from markers from introduced .py tests
+        id: ported-from
+        if: steps.changed-tests.outputs.tests_any_changed == 'true'
+        env:
+          CHANGED_TEST_FILES: ${{ steps.changed-tests.outputs.tests_all_changed_files }}
+        run: |
+          ./.github/scripts/parse_ported_tests.sh "$CHANGED_TEST_FILES" "${{ github.workspace }}" || true
+
+      # This command checks and fills python test sources introduced by a PR
+      - name: Parse and fill introduced test sources
+        if: steps.changed-tests.outputs.tests_any_changed == 'true'
+        env:
+          CHANGED_TEST_FILES: ${{ steps.changed-tests.outputs.tests_all_changed_files }}
+        run: |
+          ./.github/scripts/fill_introduced_tests.sh "$CHANGED_TEST_FILES" "${{ github.workspace }}/evmtest_coverage/coverage/PATCH_TESTS" "${{ env.BLOCK_GAS_LIMIT }}" "${{ env.FILL_UNTIL }}"
+
+      - name: Parse and fill introduced test sources from before the PR
+        if: ${{ (steps.changed-tests.outputs.tests_modified_files_count != '0' || steps.changed-tests.outputs.tests_deleted_files_count != '0') && steps.ported-from.outputs.any_ported == 'false' }}
+        id: pre-patch-fill
+        env:
+          MODIFIED_TEST_FILES: ${{ steps.changed-tests.outputs.tests_modified_files }}
+          DELETED_TEST_FILES: ${{ steps.changed-tests.outputs.tests_deleted_files }}
+        run: |
+          ./.github/scripts/fill_prepatched_tests.sh "$MODIFIED_TEST_FILES $DELETED_TEST_FILES" "${{ github.workspace }}/evmtest_coverage/coverage/BASE_TESTS" "${{ github.workspace }}/evmtest_coverage/coverage/PATCH_TESTS" "${{ env.BLOCK_GAS_LIMIT }}" "${{ env.FILL_UNTIL }}"
+
+      - name: Print Unique Test IDs that will be covered
+        if: ${{ steps.pre-patch-fill.outputs.any_modified_fixtures == 'true' || steps.ported-from.outputs.any_ported == 'true' }}
+        run: |
+          echo "=== Original BASE (main) test IDs ==="
+          if [ -f "${{ github.workspace }}/evmtest_coverage/coverage/BASE_TESTS/.meta/index.json" ]; then
+            uv run python -c "import json; data=json.load(open('${{ github.workspace }}/evmtest_coverage/coverage/BASE_TESTS/.meta/index.json')); [print(tc['id']) for tc in data['test_cases']]"
+          else
+            echo "No BASE_TESTS/.meta/index.json found"
+          fi
+          echo "=== Ported PATCH test IDs ==="
+          if [ -f "${{ github.workspace }}/evmtest_coverage/coverage/PATCH_TESTS/.meta/index.json" ]; then
+            uv run python -c "import json; data=json.load(open('${{ github.workspace }}/evmtest_coverage/coverage/PATCH_TESTS/.meta/index.json')); [print(tc['id']) for tc in data['test_cases']]"
+          else
+            echo "No PATCH_TESTS/.meta/index.json found"
+          fi
+          echo "=== SUMMARY ==="
+          if [ -f "${{ github.workspace }}/evmtest_coverage/coverage/BASE_TESTS/.meta/index.json" ] && [ -f "${{ github.workspace }}/evmtest_coverage/coverage/PATCH_TESTS/.meta/index.json" ]; then
+            uv run python -c "import json; base=json.load(open('${{ github.workspace }}/evmtest_coverage/coverage/BASE_TESTS/.meta/index.json')); patch=json.load(open('${{ github.workspace }}/evmtest_coverage/coverage/PATCH_TESTS/.meta/index.json')); print(f'BASE: {len(base[\"test_cases\"])} tests, PATCH: {len(patch[\"test_cases\"])} tests, Difference: {len(patch[\"test_cases\"]) - len(base[\"test_cases\"])}')"
+          else
+            echo "No BASE_TESTS/.meta/index.json or PATCH_TESTS/.meta/index.json found"
+          fi
+
+      - name: Run coverage of the BASE tests
+        uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185
+        if: ${{ steps.pre-patch-fill.outputs.any_modified_fixtures == 'true' || steps.ported-from.outputs.any_ported == 'true' }}
+        with:
+          image: marioeth/evmone-coverage-script:v0.0.1
+          options: -v ${{ github.workspace }}/evmtest_coverage/coverage:/tests
+          run: /entrypoint.sh --mode=cover --testpath=/tests/BASE_TESTS --outputname=BASE
+
+      - name: Run coverage of the PATCH tests
+        uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185
+        if: ${{ steps.pre-patch-fill.outputs.any_modified_fixtures == 'true' || steps.ported-from.outputs.any_ported == 'true' }}
+        with:
+          image: marioeth/evmone-coverage-script:v0.0.1
+          options: -v ${{ github.workspace }}/evmtest_coverage/coverage:/tests
+          run: /entrypoint.sh --mode=cover --testpath=/tests/PATCH_TESTS --outputname=PATCH
+
+      - name: Run coverage DIFF of the PATCH tests compared to BASE tests
+        uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185
+        if: ${{ steps.pre-patch-fill.outputs.any_modified_fixtures == 'true' || steps.ported-from.outputs.any_ported == 'true' }}
+        with:
+          image: marioeth/evmone-coverage-script:v0.0.1
+          options: -v ${{ github.workspace }}/evmtest_coverage/coverage:/tests
+          run: /entrypoint.sh --mode=diff --basefile=coverage_BASE.lcov --patchfile=coverage_PATCH.lcov
+
+      - name: Chmod coverage results
+        if: ${{ steps.pre-patch-fill.outputs.any_modified_fixtures == 'true' || steps.ported-from.outputs.any_ported == 'true' }}
+        run: |
+          user=$(whoami)
+          sudo chown -R $user:$user ${{ github.workspace }}/evmtest_coverage/coverage
+
+      - name: Upload coverage results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ steps.pre-patch-fill.outputs.any_modified_fixtures == 'true' || steps.ported-from.outputs.any_ported == 'true' }}
+        with:
+          name: coverage-diff-native-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ github.workspace }}/evmtest_coverage/coverage
+          compression-level: 6 # Default compression level for optimal balance
+
+      - name: Verify coverage results
+        uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185
+        if: ${{ steps.pre-patch-fill.outputs.any_modified_fixtures == 'true' || steps.ported-from.outputs.any_ported == 'true' }}
+        with:
+          image: marioeth/evmone-coverage-script:v0.0.1
+          options: -v ${{ github.workspace }}/evmtest_coverage/coverage:/tests
+          run: /check.sh
