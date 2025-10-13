@@ -1,4 +1,4 @@
-name: Evmone Coverage Report
+name: Evmone EEST Tests Coverage Report
 
 on:
   pull_request:
