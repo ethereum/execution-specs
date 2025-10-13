@@ -1,0 +1,214 @@
+name: Spec Tests & Framework
+
+on:
+  push:
+    branches:
+      - master
+      - mainnet
+      - 'forks/**'
+    paths:
+      - 'src/ethereum_spec_tests/**'
+      - 'tests/eest/**'
+      - '.github/workflows/eest_tests.yaml'
+      - '.github/actions/**'
+      - '.github/configs/**'
+      - 'tox.ini'
+      - 'pyproject.toml'
+      - 'ruff.eest.toml'
+      - 'mypy.eest.ini'
+  pull_request:
+    paths:
+      - 'src/ethereum_spec_tests/**'
+      - 'tests/eest/**'
+      - '.github/workflows/eest_tests.yaml'
+      - '.github/actions/**'
+      - '.github/configs/**'
+      - 'tox.ini'
+      - 'pyproject.toml'
+      - 'ruff.eest.toml'
+      - 'mypy.eest.ini'
+  workflow_dispatch:
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+    cancel-in-progress: true
+
+jobs:
+    lint:
+        name: Lint python sources with ruff
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout ethereum/execution-specs
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+            - name: Install uv ${{ vars.UV_VERSION }} and python ${{ vars.DEFAULT_PYTHON_VERSION }}
+              uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+              with:
+                  enable-cache: true
+                  cache-dependency-glob: "uv.lock"
+                  version: ${{ vars.UV_VERSION }}
+                  python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
+            - name: Run ruff linter via tox
+              run: uvx --with=tox-uv tox -e eest-lint
+
+    typecheck:
+        name: Typecheck python sources with mypy
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout ethereum/execution-specs
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+            - name: Install uv ${{ vars.UV_VERSION }} and python ${{ vars.DEFAULT_PYTHON_VERSION }}
+              uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+              with:
+                  enable-cache: true
+                  cache-dependency-glob: "uv.lock"
+                  version: ${{ vars.UV_VERSION }}
+                  python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
+            - name: Run mypy typechecker via tox
+              run: uvx --with=tox-uv tox -e eest-typecheck
+
+    spellcheck:
+        name: Spellcheck sources with codespell
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout ethereum/execution-specs
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+            - name: Install uv ${{ vars.UV_VERSION }} and python ${{ vars.DEFAULT_PYTHON_VERSION }}
+              uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+              with:
+                  enable-cache: true
+                  cache-dependency-glob: "uv.lock"
+                  version: ${{ vars.UV_VERSION }}
+                  python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
+            - name: Run spellcheck with codespell via tox
+              run: uvx --with=tox-uv tox -e eest-spellcheck
+              env:
+                  GITHUB_STEP_SUMMARY: ${{ env.GITHUB_STEP_SUMMARY }}
+
+    changelog:
+        name: Validate changelog entries
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout ethereum/execution-specs
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+            - name: Install uv ${{ vars.UV_VERSION }} and python ${{ vars.DEFAULT_PYTHON_VERSION }}
+              uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+              with:
+                  enable-cache: true
+                  cache-dependency-glob: "uv.lock"
+                  version: ${{ vars.UV_VERSION }}
+                  python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
+            - name: Run changelog validation via tox
+              run: uvx --with=tox-uv tox -e eest-changelog
+
+    markdownlint:
+        name: Lint markdown files with markdownlint
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout ethereum/execution-specs
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+            - uses: DavidAnson/markdownlint-cli2-action@05f32210e84442804257b2a6f20b273450ec8265
+              with:
+                  globs: |
+                      README.md
+                      docs/**/*.md
+
+    mkdocs:
+        name: Build html documentation with mkdocs
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout ethereum/execution-specs
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+            - name: Install uv ${{ vars.UV_VERSION }} and python ${{ vars.DEFAULT_PYTHON_VERSION }}
+              uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+              with:
+                  enable-cache: true
+                  cache-dependency-glob: "uv.lock"
+                  version: ${{ vars.UV_VERSION }}
+                  python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
+            - name: Build html documentation with mkdocs via tox
+              run: uvx --with=tox-uv tox -e eest-mkdocs
+
+    pytest_framework:
+        name: Run unit tests, ${{ matrix.os }}, ${{ matrix.python }}
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                include:
+                    - os: macos-15
+                      python: "3.11"
+                    - os: macos-15
+                      python: "pypy3.11"
+                    - os: ubuntu-latest
+                      python: "3.12"
+        steps:
+            - name: Checkout ethereum/execution-specs
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+            - name: Install uv ${{ vars.UV_VERSION }} and python ${{ matrix.python }}
+              uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+              with:
+                  enable-cache: true
+                  cache-dependency-glob: "uv.lock"
+                  version: ${{ vars.UV_VERSION }}
+                  python-version: ${{ matrix.python }}
+            - name: Build EVMONE EVM
+              uses: ./.github/actions/build-evm-client/evmone
+              with:
+                  targets: "evmone-t8n"
+            - name: Build GETH EVM
+              uses: ./.github/actions/build-evm-client/geth
+            - name: Run tox - run framework unit tests with pytest
+              run: uvx --with=tox-uv tox -e eest-pytest
+
+    tests_deployed:
+        name: Fill tests, deployed, ${{ matrix.name }}, ${{ matrix.python }}
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                include:
+                    - os: [self-hosted-ghr, size-chungus-x64]
+                      name: self-hosted-ghr-chungus-x64
+                      python: "3.11"
+                    - os: macos-15
+                      name: macos-15
+                      python: "3.12"
+        steps:
+            - name: Checkout ethereum/execution-specs
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+            - name: Install uv ${{ vars.UV_VERSION }} and python ${{ matrix.python }}
+              uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+              with:
+                  enable-cache: true
+                  cache-dependency-glob: "uv.lock"
+                  version: ${{ vars.UV_VERSION }}
+                  python-version: ${{ matrix.python }}
+            - name: Run tox - fill tests for deployed forks
+              run: uvx --with=tox-uv tox -e eest-tests-deployed
+
+    tests_deployed_benchmark:
+        name: Fill benchmark test cases, deployed, ${{ matrix.os }}, ${{ matrix.python }}
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                include:
+                    - os: ubuntu-latest
+                      python: "3.11"
+                    - os: macos-15
+                      python: "3.12"
+                    - os: ubuntu-latest
+                      python: "pypy3.11"
+        steps:
+            - name: Checkout ethereum/execution-specs
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+            - name: Install uv ${{ vars.UV_VERSION }} and python ${{ matrix.python }}
+              uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+              with:
+                  enable-cache: true
+                  cache-dependency-glob: "uv.lock"
+                  version: ${{ vars.UV_VERSION }}
+                  python-version: ${{ matrix.python }}
+            - name: Build EVMONE EVM
+              uses: ./.github/actions/build-evm-client/evmone
+              with:
+                  targets: "evmone-t8n"
+            - name: Run tox - fill tests for deployed forks
+              run: uvx --with=tox-uv tox -e eest-tests-deployed-benchmark

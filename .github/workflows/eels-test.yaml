@@ -3,7 +3,6 @@ name: Python Specification
 on:
   push:
     branches:
-      - master
       - mainnet
       - 'forks/**'
   workflow_dispatch:
