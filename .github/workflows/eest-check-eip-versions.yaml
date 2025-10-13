@@ -1,0 +1,61 @@
+name: Check EIP Versions
+
+on:
+  repository_dispatch:
+  workflow_dispatch:
+  schedule:
+    - cron: "00 12 * * 1" # Run weekly on Mondays at 12:00 UTC
+
+jobs:
+  check_eip_versions:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write # required for peter-evans/create-issue-from-file
+      contents: read # needed for API access to GitHub
+    steps:
+      - name: Checkout ethereum/execution-spec-tests
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Install uv ${{ vars.UV_VERSION }} and python ${{ matrix.python }}
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          version: ${{ vars.UV_VERSION }}
+          python-version: ${{ matrix.python }}
+
+      - name: Run EIP Version Checker
+        id: check-eip
+        continue-on-error: true
+        env:
+          # GitHub token provides API access for EIP version checking
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p ./reports
+          uv run check_eip_versions 2>&1 | tee ./reports/eip_check_output.txt
+          # Save the exit code but don't fail the workflow
+          exit_code=${PIPESTATUS[0]}
+          echo "exit_code=$exit_code" >> $GITHUB_OUTPUT
+          # Always return success to GitHub Actions
+          exit 0
+
+      - name: Generate report file
+        if: steps.check-eip.outputs.exit_code != 0
+        run: |
+          uv run python .github/scripts/generate_eip_report.py ./reports/eip_check_output.txt ./reports/outdated_eips.md
+
+      - name: Create Issue From File
+        if: steps.check-eip.outputs.exit_code != 0
+        uses: peter-evans/create-issue-from-file@e8ef132d6df98ed982188e460ebb3b5d4ef3a9cd
+        with:
+          title: "chore(tests): eip spec references outdated"
+          content-filepath: ./reports/outdated_eips.md
+          labels: report, automated issue, scope:tests, type:chore
+
+      - name: Upload test report as artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: eip-check-report
+          path: ./reports/
+          retention-days: 30
