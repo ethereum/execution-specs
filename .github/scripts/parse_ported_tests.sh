@@ -14,7 +14,7 @@ echo "Changed or new test files: $CHANGED_TEST_FILES"
 
 FILTERED_FILES=""
 for file in $CHANGED_TEST_FILES; do
-    if git diff origin/main -- "$file" | grep -q "^+.*@pytest.mark.ported_from"; then
+    if git diff origin/mainnet -- "$file" | grep -q "^+.*@pytest.mark.ported_from"; then
         FILTERED_FILES="$FILTERED_FILES $file"
     fi
 done

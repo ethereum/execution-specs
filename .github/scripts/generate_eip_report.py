@@ -45,7 +45,7 @@ REPORT_TEMPLATE = Template(
 
     ## Workflow Information
 
-    For more details, see the [workflow run](https://github.com/ethereum/execution-spec-tests/actions/runs/$run_id).
+    For more details, see the [workflow run](https://github.com/ethereum/execution-specs/actions/runs/$run_id).
 """)  # noqa: E501
 )
 

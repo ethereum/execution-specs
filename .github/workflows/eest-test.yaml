@@ -3,7 +3,6 @@ name: Spec Tests & Framework
 on:
   push:
     branches:
-      - master
       - mainnet
       - 'forks/**'
     paths:

@@ -17,7 +17,7 @@ echo "--------------------"
 echo "converted-ethereum-tests.txt seem untouched, try to fill pre-patched version of .py files:"
 
 PATCH_COMMIT=$(git rev-parse HEAD)
-git checkout main
+git checkout mainnet
 BASE_COMMIT=$(git rev-parse HEAD)
 echo "Checkout head $BASE_COMMIT"
 
