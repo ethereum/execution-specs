@@ -3,9 +3,9 @@ name: Evmone Coverage Report
 on:
   pull_request:
     paths:
-      - "tests/**" # This triggers the workflow for any changes in the tests folder
-      - "!tests/osaka/**" # exclude changes in 'tests/osaka'
-      - "!tests/unscheduled/**" # exclude changes in 'tests/unscheduled'
+      - "tests/eest/**"
+      - "!tests/eest/osaka/**"
+      - "!tests/eest/unscheduled/**"
 
 jobs:
   evmone-coverage-diff:
@@ -36,15 +36,15 @@ jobs:
           include_all_old_new_renamed_files: true
           output_renamed_files_as_deleted_and_added: true
           files_yaml: |
-            tests:
-              - tests/**/test_*.py
-              - '!tests/prague/**'
-              - '!tests/unscheduled/**'
+              tests:
+                - tests/eest/**/test_*.py
+                - '!tests/eest/prague/**'
+                - '!tests/eest/unscheduled/**'
 
       - name: Exit workflow if there are no changed python files
         if: steps.changed-tests.outputs.tests_any_changed != 'true'
         run: |
-          echo "No python files were changed in ./tests/ - no action necessary"
+          echo "No python files were changed in ./tests/eest/ - no action necessary"
           exit 0
 
       - name: Report changed python test modules
@@ -88,7 +88,7 @@ jobs:
 
       # Required to fill .py tests
       - name: Build EVMONE EVM
-        uses: ./.github/actions/build-evm-client/evmone
+        uses: ./.github/actions/eest/build-evm-client/evmone
         if: steps.changed-tests.outputs.tests_any_changed == 'true'
         id: evm-builder2
         with:
