@@ -155,7 +155,7 @@ class TransactionLoad:
         return parameters
 
     def get_legacy_transaction(self) -> Any:
-        """Return the approprtiate class for legacy transactions."""
+        """Return the appropriate class for legacy transactions."""
         if hasattr(self.fork, "LegacyTransaction"):
             return self.fork.LegacyTransaction
         else:
