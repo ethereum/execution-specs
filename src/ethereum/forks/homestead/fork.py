@@ -740,25 +740,62 @@ def calculate_block_difficulty(
     parent_timestamp: U256,
     parent_difficulty: Uint,
 ) -> Uint:
-    """Homestead difficulty: same behavior, fewer int() casts."""
-    # Convert once to signed ints for the parts that need negatives.
-    pd_int = int(parent_difficulty)
-    dt_int = int(block_timestamp) - int(parent_timestamp)
+    """
+    Computes difficulty of a block using its header and parent header.
 
-    # Base adjustment and signed offset (can be negative).
-    base = pd_int // 2048
-    offset = base * max(1 - (dt_int // 10), -99)
+    The difficulty is determined by the time the block was created after its
+    parent. The ``offset`` is calculated using the parent block's difficulty,
+    ``parent_difficulty``, and the timestamp between blocks. This offset is
+    then added to the parent difficulty and is stored as the ``difficulty``
+    variable. If the time between the block and its parent is too short, the
+    offset will result in a positive number thus making the sum of
+    ``parent_difficulty`` and ``offset`` to be a greater value in order to
+    avoid mass forking. But, if the time is long enough, then the offset
+    results in a negative value making the block less difficult than
+    its parent.
 
-    # Apply offset.
-    diff_int = pd_int + offset
+    The base standard for a block's difficulty is the predefined value
+    set for the genesis block since it has no parent. So, a block
+    can't be less difficult than the genesis block, therefore each block's
+    difficulty is set to the maximum value between the calculated
+    difficulty and the ``MINIMUM_DIFFICULTY``.
 
-    # Difficulty bomb.
+    Parameters
+    ----------
+    block_number :
+        Block number of the block.
+    block_timestamp :
+        Timestamp of the block.
+    parent_timestamp :
+        Timestamp of the parent block.
+    parent_difficulty :
+        difficulty of the parent block.
+
+    Returns
+    -------
+    difficulty : `ethereum.base_types.Uint`
+        Computed difficulty for a block.
+
+    """
+    # Precompute helpers to avoid repeated int() conversions while
+    # keeping behavior.
+
+    parent_difficulty_int = int(parent_difficulty)
+    time_delta = int(block_timestamp) - int(parent_timestamp)
+
+    offset = (parent_difficulty_int // 2048) * max(1 - (time_delta // 10), -99)
+    difficulty = parent_difficulty_int + offset
+
+    # Historical Note: The difficulty bomb was not present in Ethereum at the
+    # start of Frontier, but was added shortly after launch. However since the
+    # bomb has no effect prior to block 200000 we pretend it existed from
+    # genesis.
+    # See https://github.com/ethereum/go-ethereum/pull/1588
     num_bomb_periods = (int(block_number) // 100000) - 2
     if num_bomb_periods >= 0:
-        diff_int += 1 << num_bomb_periods
+        difficulty += 2**num_bomb_periods
 
-    # Clamp to minimum and return typed.
-    min_diff = int(MINIMUM_DIFFICULTY)
-    if diff_int < min_diff:
-        diff_int = min_diff
-    return Uint(diff_int)
+    # Some clients raise the difficulty to `MINIMUM_DIFFICULTY` prior to adding
+    # the bomb. This bug does not matter because the difficulty is always much
+    # greater than `MINIMUM_DIFFICULTY` on Mainnet.
+    return Uint(max(difficulty, int(MINIMUM_DIFFICULTY)))

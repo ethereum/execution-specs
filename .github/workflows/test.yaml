@@ -62,7 +62,8 @@ jobs:
       - name: Run pypy3 tests
         run: tox -e pypy3
         env:
-          PYPY_GC_MAX: "10G"
+          PYPY_GC_MAX: "2G"
+          PYPY_GC_MIN: "1G"
 
   json_infra:
     runs-on: [self-hosted-ghr, size-xl-x64]

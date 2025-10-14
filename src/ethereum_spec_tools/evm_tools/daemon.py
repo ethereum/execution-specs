@@ -164,7 +164,7 @@ class Daemon:
                 from platformdirs import user_runtime_dir
             except ImportError as e:
                 raise Exception(
-                    "Missing plaformdirs dependency (try installing "
+                    "Missing platformdirs dependency (try installing "
                     "ethereum[tools] extra)"
                 ) from e
             runtime_dir = user_runtime_dir(

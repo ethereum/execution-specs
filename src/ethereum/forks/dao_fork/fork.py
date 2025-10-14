@@ -776,7 +776,7 @@ def calculate_block_difficulty(
     set for the genesis block since it has no parent. So, a block
     can't be less difficult than the genesis block, therefore each block's
     difficulty is set to the maximum value between the calculated
-    difficulty and the ``GENESIS_DIFFICULTY``.
+    difficulty and the ``MINIMUM_DIFFICULTY``.
 
     Parameters
     ----------
@@ -795,12 +795,15 @@ def calculate_block_difficulty(
         Computed difficulty for a block.
 
     """
-    offset = (
-        int(parent_difficulty)
-        // 2048
-        * max(1 - int(block_timestamp - parent_timestamp) // 10, -99)
-    )
-    difficulty = int(parent_difficulty) + offset
+    # Precompute helpers to avoid repeated int() conversions while
+    # keeping behavior.
+
+    parent_difficulty_int = int(parent_difficulty)
+    time_delta = int(block_timestamp) - int(parent_timestamp)
+
+    offset = (parent_difficulty_int // 2048) * max(1 - (time_delta // 10), -99)
+    difficulty = parent_difficulty_int + offset
+
     # Historical Note: The difficulty bomb was not present in Ethereum at the
     # start of Frontier, but was added shortly after launch. However since the
     # bomb has no effect prior to block 200000 we pretend it existed from
