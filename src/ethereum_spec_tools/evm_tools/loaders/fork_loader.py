@@ -345,6 +345,11 @@ class ForkLoad:
         return self._module("vm.gas").BLOB_SCHEDULE_TARGET
 
     @property
+    def calculate_excess_blob_gas(self) -> Any:
+        """calculate_excess_blob_gas of the fork."""
+        return self._module("vm.gas").calculate_excess_blob_gas
+
+    @property
     def calculate_blob_gas_price(self) -> Any:
         """calculate_blob_gas_price of the fork."""
         return self._module("vm.gas").calculate_blob_gas_price
