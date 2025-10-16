@@ -1,0 +1,40 @@
+name: 'Build Besu EVM'
+description: 'Builds the Besu EVM binary'
+inputs:
+  repo:
+    description: 'Source repository to use to build the EVM binary'
+    required: true
+    default: 'hyperledger/besu'
+  ref:
+    description: 'Reference to branch, commit, or tag to use to build the EVM binary'
+    required: true
+    default: 'main'
+  java:
+    description: 'Java version to use to build Besu'
+    required: false
+    default: '21'
+  java-distro:
+    description: 'Java distribution to use to build Besu'
+    required: false
+    default: 'temurin'
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout Besu
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        repository: ${{ inputs.repo }}
+        ref: ${{ inputs.ref }}
+        path: besu
+    - name: Setup Java
+      uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12
+      with:
+        java-version: ${{ inputs.java }}
+        distribution: ${{ inputs.java-distro }}
+        cache: 'gradle'
+    - name: Build evm cmd
+      shell: bash
+      run: |
+        cd $GITHUB_WORKSPACE/besu
+        ./gradlew installDist
+        echo $GITHUB_WORKSPACE/besu/build/install/besu/bin/ >> $GITHUB_PATH

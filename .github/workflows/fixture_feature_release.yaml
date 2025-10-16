@@ -1,0 +1,95 @@
+name: Create Fixture Feature Release
+
+on:
+  push:
+    tags:
+      - "tests-*@v*"
+  workflow_dispatch:
+
+jobs:
+  feature-names:
+    runs-on: ubuntu-latest
+    outputs:
+      names: ${{ steps.feature-name.outputs.names }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: false
+      
+      - name: Get feature names
+        id: feature-name
+        shell: bash
+        run: |
+          FEATURE_PREFIX="${GITHUB_REF_NAME//@*/}"
+          FEATURE_NAME="${FEATURE_PREFIX#tests-}"
+          names=$(grep -Po "^${FEATURE_NAME}[^:]*" .github/configs/feature.yaml | jq  --raw-input .  | jq -c --slurp .)
+          echo names=${names}
+          echo names=${names} >> "$GITHUB_OUTPUT"
+  
+  build:
+    needs: feature-names
+    runs-on: [self-hosted-ghr, size-gigachungus-x64]
+    timeout-minutes: 1440
+    strategy:
+      matrix:
+        feature: ${{ fromJSON(needs.feature-names.outputs.names) }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: true
+      
+      - name: Fetch lllc
+        uses: ./.github/actions/fetch-binary
+        with:
+          version: v1.0.0
+          repo_owner: felix314159
+          repo_name: lllc-custom
+          remote_name: lllc
+          binary_name: lllc
+          expected_sha256: 865a0d5379acb3b5471337b5dcf686a2dd71587c6b65b9da6c963de627e0b300
+      
+      - name: Fetch Solidity
+        uses: ./.github/actions/fetch-binary
+        with:
+          version: v0.8.24
+          repo_owner: ethereum
+          repo_name: solidity
+          remote_name: solc-static-linux
+          binary_name: solc
+          expected_sha256: fb03a29a517452b9f12bcf459ef37d0a543765bb3bbc911e70a87d6a37c30d5f
+      
+      - uses: ./.github/actions/build-fixtures
+        with:
+          release_name: ${{ matrix.feature }}
+          uv_version: ${{ vars.UV_VERSION }}
+          python_version: ${{ vars.DEFAULT_PYTHON_VERSION }}
+  
+  release:
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/tests-')
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: false
+
+      - name: Download all artifacts
+        run: |
+          gh run download ${{ github.run_id }} --dir ./artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        
+      - name: Draft Pre-release to EEST Repository
+        run: |
+          # Strip "tests-" prefix from tag for EEST
+          TAG_NAME="${{ github.ref_name }}"
+          RELEASE_TAG="${TAG_NAME#tests-}"
+
+          gh release create "$RELEASE_TAG" \
+            --repo ethereum/execution-spec-tests \
+            --draft \
+            --prerelease \
+            --generate-notes \
+            ./artifacts/**/*
+        env:
+          GH_TOKEN: ${{ secrets.EEST_RELEASE_TOKEN }}
