@@ -67,6 +67,7 @@ $ tox
 The development tools can also be run outside of `tox`, and can automatically reformat the code:
 
 ```bash
+$ uv run --extra lint ruff check                # Detects code issues and produces a report to STDOUT
 $ uv run --extra lint ruff check --fix          # Fixes minor code issues (like unsorted imports).
 $ uv run --extra lint ruff format               # Formats code.
 $ uv run --extra lint mypy src packages tests   # Verifies type annotations.
