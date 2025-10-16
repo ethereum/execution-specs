@@ -67,13 +67,9 @@ $ tox
 The development tools can also be run outside of `tox`, and can automatically reformat the code:
 
 ```bash
-$ pip install -e ".[doc,lint,test,fill]" # Installs ethereum, and development tools.
-$ isort src                         # Organizes imports.
-$ black src                         # Formats code.
-$ flake8                            # Reports style/spelling/documentation errors.
-$ mypy src                          # Verifies type annotations.
-$ pytest -n 4                       # Runs tests parallelly.
-$ pytest -m "not slow"              # Runs tests which execute quickly.
+$ uv run --extra lint ruff check --fix          # Fixes minor code issues (like unsorted imports).
+$ uv run --extra lint ruff format               # Formats code.
+$ uv run --extra lint mypy src packages tests   # Verifies type annotations.
 ```
 
 It is recommended to use a [virtual environment](https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment) to keep your system Python installation clean.
