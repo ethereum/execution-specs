@@ -377,7 +377,7 @@ warn_unused_configs = true
 warn_redundant_casts = true
 ignore_missing_imports = false
 mypy_path = ["src", "packages/tests/src"]
-files = ["src", "tests", "packages/tests/src"]
+files = ["src", "tests", "packages"]
 exclude = [
     "^\\.cache/",
     "^\\.git/",
