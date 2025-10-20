@@ -34,6 +34,7 @@ class FillCommand(PytestCommand):
         specified.
         """
         processed_args = self.process_arguments(pytest_args)
+        processed_args = self._add_default_ignores(processed_args)
 
         # Check if we need two-phase execution
         if self._should_use_two_phase_execution(processed_args):
@@ -83,6 +84,22 @@ class FillCommand(PytestCommand):
                 args=args,
             )
         ]
+
+    def _add_default_ignores(self, args: List[str]) -> List[str]:
+        """Add default ignore paths for directories not used by fill command."""
+        # Directories to ignore by default
+        default_ignores = [
+            "tests/evm_tools",
+            "tests/json_infra",
+            "tests/fixtures",
+        ]
+
+        # Add ignore flags for each directory
+        ignore_args = []
+        for ignore_path in default_ignores:
+            ignore_args.extend(["--ignore", ignore_path])
+
+        return args + ignore_args
 
     def _create_phase1_args(self, args: List[str]) -> List[str]:
         """Create arguments for phase 1 (pre-allocation group generation)."""
