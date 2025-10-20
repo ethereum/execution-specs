@@ -34,6 +34,7 @@ jobs:
 
   lint-commits:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'push' || github.ref_name != github.event.repository.default_branch }}
     steps:
       - uses: actions/checkout@v4
         with:
