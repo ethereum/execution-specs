@@ -128,38 +128,6 @@ ethereum_test_forks = ["forks/contracts/*.bin"]
 [tool.ruff]
 line-length = 99
 
-[tool.ruff.lint]
-select = [
-    "E",   # pycodestyle errors
-    "F",   # Pyflakes
-    "B",   # flake8-bugbear
-    "W",   # pycodestyle warnings
-    "I",   # isort
-    "A",   # flake8-builtins
-    "N",   # pep8-naming
-    "D",   # pydocstyle
-    "C4",  # flake8-comprehensions
-    "ARG", # flake8-unused-arguments
-]
-fixable = [
-    "E", # pycodestyle errors
-    "F", # Pyflakes
-    "B", # flake8-bugbear
-    "W", # pycodestyle warnings
-    "I", # isort
-    "D", # pydocstyle
-]
-ignore = [
-    "C401", # Unnecessary generator set
-    "C408", # Unnecessary collection call
-    "D107", # Missing docstring in __init__
-    "D200", # One-line docstring should fit on one line with quotes
-    "D203", # 1 blank line required before class docstring
-    "D205", # Missing blank line after summary
-    "D212", # Multi-line docstring summary should start at the first line
-    "D401", # First line should be in imperative mood ("Do", not "Does")
-]
-
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["ARG001"] # TODO: ethereum/execution-spec-tests#2188
 
