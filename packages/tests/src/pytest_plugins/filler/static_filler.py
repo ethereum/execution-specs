@@ -323,7 +323,7 @@ class FillerTestItem(pytest.Item):
             if type(marker) is pytest.Mark:
                 self.own_markers.append(marker)
             else:
-                self.add_marker(marker)  # type: ignore
+                self.add_marker(marker)
 
     def setup(self) -> None:
         """Resolve and apply fixtures before test execution."""

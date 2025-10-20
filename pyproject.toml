@@ -172,6 +172,7 @@ lint = [
     "mypy==1.17.0",
     "ruff==0.13.2",
     "vulture==2.14.0",
+    "types-requests>=2.31,<2.33",
 ]
 tools = [
     "platformdirs>=4.2,<5",
@@ -364,6 +365,32 @@ skip = [                        # Don't check these files/folders
 ]
 count = true                    # Display counts of errors
 check-hidden = false            # Don't check hidden files (starting with .)
+
+[tool.mypy]
+namespace_packages = true
+strict_optional = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+strict_bytes = true
+warn_unused_ignores = true
+warn_unused_configs = true
+warn_redundant_casts = true
+ignore_missing_imports = false
+mypy_path = ["src", "packages/tests/src"]
+files = ["src", "tests", "packages/tests/src"]
+exclude = [
+    "^\\.cache/",
+    "^\\.git/",
+    "^\\.pytest_cache/",
+    "^\\.ruff_cache/",
+    "^\\.tox/",
+    "^\\.venv/",
+    "^\\.vscode/",
+    "^fixtures/",
+    "^logs/",
+    "^site/",
+]
+plugins = ["pydantic.mypy"]
 
 [tool.uv]
 required-version = ">=0.7.0"

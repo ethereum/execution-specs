@@ -174,7 +174,7 @@ class TransactionGeneric(BaseModel, Generic[NumberBoundTypeVar]):
     ty: NumberBoundTypeVar = Field(0, alias="type")  # type: ignore
     chain_id: NumberBoundTypeVar = Field(
         default_factory=lambda: ChainConfigDefaults.chain_id, validate_default=True
-    )  # type: ignore
+    )
     nonce: NumberBoundTypeVar = Field(0)  # type: ignore
     gas_price: NumberBoundTypeVar | None = None
     max_priority_fee_per_gas: NumberBoundTypeVar | None = None

@@ -631,6 +631,7 @@ lint = [
     { name = "codespell" },
     { name = "mypy" },
     { name = "ruff" },
+    { name = "types-requests" },
     { name = "vulture" },
 ]
 optimized = [
@@ -680,6 +681,7 @@ requires-dist = [
     { name = "requests-cache", marker = "extra == 'test'", specifier = ">=1.2.1,<2" },
     { name = "ruff", marker = "extra == 'lint'", specifier = "==0.13.2" },
     { name = "rust-pyspec-glue", marker = "extra == 'optimized'", specifier = ">=0.0.9,<0.1.0" },
+    { name = "types-requests", marker = "extra == 'lint'", specifier = ">=2.31,<2.33" },
     { name = "typing-extensions", specifier = ">=4.4" },
     { name = "vulture", marker = "extra == 'lint'", specifier = "==2.14.0" },
 ]

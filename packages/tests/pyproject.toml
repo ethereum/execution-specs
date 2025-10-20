@@ -117,9 +117,6 @@ modify_static_test_gas_limits = "cli.modify_static_test_gas_limits:main"
 where = ["src"]
 exclude = ["*tests*"]
 
-[tool.pyright]
-exclude = ["tests/static/**"]
-
 [tool.setuptools.package-data]
 ethereum_test_forks = ["forks/contracts/*.bin"]
 "pytest_plugins.execute" = ["eth_config/networks.yml"]
@@ -161,32 +158,10 @@ ignore = [
     "D205", # Missing blank line after summary
     "D212", # Multi-line docstring summary should start at the first line
     "D401", # First line should be in imperative mood ("Do", not "Does")
-    # TODO: ethereum/execution-spec-tests#2176
-    "ARG002", # unused-method-argument
-    "ARG003", # unused-class-method-argument
-    "ARG005", # unused-lambda-argument
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["ARG001"] # TODO: ethereum/execution-spec-tests#2188
-
-[tool.mypy]
-disable_error_code = ["import-untyped"]
-mypy_path = ["src", "$MYPY_CONFIG_FILE_DIR/stubs"]
-files = ["src", "tests"]
-exclude = [
-    '^\.cache/',
-    '^\.git/',
-    '^\.pytest_cache/',
-    '^\.ruff_cache/',
-    '^\.tox/',
-    '^\.venv/',
-    '^\.vscode/',
-    '^fixtures/',
-    '^logs/',
-    '^site/',
-]
-plugins = ["pydantic.mypy"]
 
 [tool.codespell]
 skip = ".venv,__pycache__,.git,build,dist,*.pyc,*.lock"

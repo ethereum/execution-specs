@@ -21,7 +21,7 @@ from typing_extensions import Self
 from . import TEST_FIXTURES
 
 try:
-    from xdist import get_xdist_worker_id  # type: ignore[import-untyped]
+    from xdist import get_xdist_worker_id
 except ImportError:
 
     def get_xdist_worker_id(request_or_session: object) -> str:

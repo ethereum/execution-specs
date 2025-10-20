@@ -16,7 +16,7 @@ from urllib.parse import urlencode
 from requests import Response
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import ReadTimeout
-from requests_unixsocket import Session  # type: ignore
+from requests_unixsocket import Session
 
 from ethereum_test_base_types import BlobSchedule
 from ethereum_test_base_types.composite_types import ForkBlobSchedule

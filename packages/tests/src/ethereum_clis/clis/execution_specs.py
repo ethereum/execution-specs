@@ -5,6 +5,7 @@ Ethereum Specs EVM Transition Tool Interface.
 import json
 import tempfile
 from io import StringIO
+from pathlib import Path
 from typing import Any, ClassVar, Dict, Optional
 
 import ethereum
@@ -30,9 +31,11 @@ class ExecutionSpecsTransitionTool(TransitionTool):
     def __init__(
         self,
         *,
+        binary: Optional[Path] = None,
         trace: bool = False,
     ):
         """Initialize the EELS Transition Tool interface."""
+        del binary  # EELS doesn't use an external binary
         self.exception_mapper = ExecutionSpecsExceptionMapper()
         self.trace = trace
         self._info_metadata: Optional[Dict[str, Any]] = {}
