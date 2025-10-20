@@ -625,6 +625,7 @@ dependencies = [
 doc = [
     { name = "docc" },
     { name = "fladrif" },
+    { name = "mistletoe" },
 ]
 lint = [
     { name = "codespell" },
@@ -667,6 +668,7 @@ requires-dist = [
     { name = "gitpython", marker = "extra == 'test'", specifier = ">=3.1.0,<3.2" },
     { name = "libcst", marker = "extra == 'test'", specifier = ">=1.8,<2" },
     { name = "libcst", marker = "extra == 'tools'", specifier = ">=1.8,<2" },
+    { name = "mistletoe", marker = "extra == 'doc'", specifier = ">=1.5.0,<2" },
     { name = "mypy", marker = "extra == 'lint'", specifier = "==1.17.0" },
     { name = "platformdirs", marker = "extra == 'tools'", specifier = ">=4.2,<5" },
     { name = "py-ecc", specifier = ">=8.0.0b2,<9" },
@@ -1258,11 +1260,11 @@ wheels = [
 
 [[package]]
 name = "mistletoe"
-version = "1.4.0"
+version = "1.5.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/11/96/ea46a376a7c4cd56955ecdfff0ea68de43996a4e6d1aee4599729453bd11/mistletoe-1.4.0.tar.gz", hash = "sha256:1630f906e5e4bbe66fdeb4d29d277e2ea515d642bb18a9b49b136361a9818c9d", size = 107203, upload-time = "2024-07-14T10:17:35.212Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/71/99/a42e378cc63df214c80e1487237964b6ffc23a847085c13ebf71f623e9aa/mistletoe-1.5.0.tar.gz", hash = "sha256:68b73be68bf8075ec882e035176d5c379d0d7f3401392c6f39c2cc9cd3264d44", size = 111620, upload-time = "2025-10-18T16:37:09.523Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2a/0f/b5e545f0c7962be90366af3418989b12cf441d9da1e5d89d88f2f3e5cf8f/mistletoe-1.4.0-py3-none-any.whl", hash = "sha256:44a477803861de1237ba22e375c6b617690a31d2902b47279d1f8f7ed498a794", size = 51304, upload-time = "2024-07-14T10:17:33.243Z" },
+    { url = "https://files.pythonhosted.org/packages/3f/c2/bd0fc48dc323035cd65d21c45a3bb5c7b054001bf4ea75e461beb7656e07/mistletoe-1.5.0-py3-none-any.whl", hash = "sha256:d4e77b991b998c5efe3c4eab4e1b472263b5349688acd50d79bd9a6c317a9df1", size = 55262, upload-time = "2025-10-18T16:37:08.376Z" },
 ]
 
 [[package]]

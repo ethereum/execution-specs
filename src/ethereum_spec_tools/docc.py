@@ -37,6 +37,7 @@ from typing import (
     Type,
     TypeVar,
     Union,
+    cast,
 )
 
 from docc.context import Context
@@ -51,7 +52,7 @@ from docc.source import Source
 from docc.transform import Transform
 from fladrif.apply import Apply
 from fladrif.treediff import Adapter, Operation, TreeMatcher
-from mistletoe import block_token as blocks  # type: ignore
+from mistletoe import block_token as blocks
 from mistletoe import span_token as spans
 from typing_extensions import assert_never, override
 
@@ -465,45 +466,71 @@ class _DoccAdapter(Adapter[Node]):
             ):
                 return True
             case spans.RawText | spans.HTMLSpan:
+                assert isinstance(lhs, (spans.RawText, spans.HTMLSpan))
+                assert isinstance(rhs, (spans.RawText, spans.HTMLSpan))
                 return lhs.content == rhs.content
             case spans.Image:
+                assert isinstance(lhs, spans.Image)
+                assert isinstance(rhs, spans.Image)
                 return (
                     lhs.src == rhs.src
                     and lhs.title == rhs.title
                     and lhs.label == rhs.label
                 )
             case spans.Link:
+                assert isinstance(lhs, spans.Link)
+                assert isinstance(rhs, spans.Link)
                 return (
                     lhs.target == rhs.target
                     and lhs.title == rhs.title
                     and lhs.label == rhs.label
                 )
             case blocks.Heading | blocks.SetextHeading:
+                assert isinstance(lhs, (blocks.Heading, blocks.SetextHeading))
+                assert isinstance(rhs, (blocks.Heading, blocks.SetextHeading))
                 return lhs.level == rhs.level
             case blocks.CodeFence:
+                assert isinstance(lhs, blocks.CodeFence)
+                assert isinstance(rhs, blocks.CodeFence)
                 return (
                     lhs.language == rhs.language
                     and lhs.info_string == rhs.info_string
                 )
             case blocks.BlockCode:
+                assert isinstance(lhs, blocks.BlockCode)
+                assert isinstance(rhs, blocks.BlockCode)
                 return lhs.language == rhs.language
             case blocks.List:
+                assert isinstance(lhs, blocks.List)
+                assert isinstance(rhs, blocks.List)
                 return lhs.loose == rhs.loose and lhs.start == rhs.start
             case blocks.ListItem:
+                assert isinstance(lhs, blocks.ListItem)
+                assert isinstance(rhs, blocks.ListItem)
                 return (
                     lhs.loose == rhs.loose
                     and lhs.leader == rhs.leader
                     and lhs.prepend == rhs.prepend
                 )
             case blocks.Table:
+                assert isinstance(lhs, blocks.Table)
+                assert isinstance(rhs, blocks.Table)
                 return lhs.column_align == rhs.column_align
             case blocks.TableRow:
+                assert isinstance(lhs, blocks.TableRow)
+                assert isinstance(rhs, blocks.TableRow)
                 return lhs.row_align == rhs.row_align
             case blocks.TableCell:
+                assert isinstance(lhs, blocks.TableCell)
+                assert isinstance(rhs, blocks.TableCell)
                 return lhs.align == rhs.align
             case spans.LineBreak:
+                assert isinstance(lhs, spans.LineBreak)
+                assert isinstance(rhs, spans.LineBreak)
                 return lhs.soft == rhs.soft
             case blocks.Document:
+                assert isinstance(lhs, blocks.Document)
+                assert isinstance(rhs, blocks.Document)
                 if lhs.footnotes or rhs.footnotes:
                     logging.warning("markdown footnotes not implemented")
                 return True
@@ -531,30 +558,59 @@ class _DoccAdapter(Adapter[Node]):
             ):
                 result = ()
             case spans.RawText | spans.HTMLSpan:
+                # Typing error possibly related to python/mypy#17549
+                token = cast(Union[spans.RawText, spans.HTMLSpan], token)
                 result = (token.content,)
             case spans.Link:
+                # Typing error possibly related to python/mypy#17549
+                token = cast(spans.Link, token)
                 result = (token.target, token.title, token.label)
             case spans.Image:
+                # Typing error possibly related to python/mypy#17549
+                token = cast(spans.Image, token)
                 result = (token.src, token.title, token.label)
             case blocks.Heading | blocks.SetextHeading:
+                # Typing error possibly related to python/mypy#17549
+                token = cast(
+                    Union[blocks.Heading, blocks.SetextHeading],
+                    token,
+                )
                 result = (token.level,)
             case blocks.CodeFence:
+                # Typing error possibly related to python/mypy#17549
+                token = cast(blocks.CodeFence, token)
                 result = (token.language, token.info_string)
             case blocks.BlockCode:
+                # Typing error possibly related to python/mypy#17549
+                token = cast(blocks.BlockCode, token)
                 result = (token.language,)
             case blocks.List:
+                # Typing error possibly related to python/mypy#17549
+                token = cast(blocks.List, token)
                 result = (token.loose, token.start)
             case blocks.ListItem:
+                # Typing error possibly related to python/mypy#17549
+                token = cast(blocks.ListItem, token)
                 result = (token.loose, token.leader, token.prepend)
             case blocks.Table:
+                # Typing error possibly related to python/mypy#17549
+                token = cast(blocks.Table, token)
                 result = (token.column_align,)
             case blocks.TableRow:
+                # Typing error possibly related to python/mypy#17549
+                token = cast(blocks.TableRow, token)
                 result = (token.row_align,)
             case blocks.TableCell:
+                # Typing error possibly related to python/mypy#17549
+                token = cast(blocks.TableCell, token)
                 result = (token.align,)
             case spans.LineBreak:
+                # Typing error possibly related to python/mypy#17549
+                token = cast(spans.LineBreak, token)
                 result = (token.soft,)
             case blocks.Document:
+                # Typing error possibly related to python/mypy#17549
+                token = cast(blocks.Document, token)
                 if token.footnotes:
                     logging.warning("markdown footnotes not implemented")
                 result = ()
