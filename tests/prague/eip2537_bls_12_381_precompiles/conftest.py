@@ -4,7 +4,15 @@ from typing import SupportsBytes
 
 import pytest
 from ethereum_test_forks import Fork
-from ethereum_test_tools import EOA, Address, Alloc, Bytecode, Storage, Transaction, keccak256
+from ethereum_test_tools import (
+    EOA,
+    Address,
+    Alloc,
+    Bytecode,
+    Storage,
+    Transaction,
+    keccak256,
+)
 from ethereum_test_tools import Opcodes as Op
 
 from .helpers import BLSPointGenerator

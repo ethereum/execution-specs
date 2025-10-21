@@ -7,7 +7,12 @@ Tests the BLS12 precompiles behavior before fork activation from
 """
 
 import pytest
-from ethereum_test_tools import Alloc, Environment, StateTestFiller, Transaction
+from ethereum_test_tools import (
+    Alloc,
+    Environment,
+    StateTestFiller,
+    Transaction,
+)
 
 from .spec import FP, FP2, Scalar, Spec, ref_spec_2537
 

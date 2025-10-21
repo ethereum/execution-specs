@@ -1,13 +1,23 @@
 """EOF JUMPF tests covering stack and code validation rules."""
 
 import pytest
-from ethereum_test_tools import Account, EOFException, EOFStateTestFiller, EOFTestFiller
+from ethereum_test_tools import (
+    Account,
+    EOFException,
+    EOFStateTestFiller,
+    EOFTestFiller,
+)
 from ethereum_test_types.eof.v1 import Container, Section
 from ethereum_test_vm import Bytecode
 from ethereum_test_vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME
-from .helpers import JumpDirection, slot_code_worked, slot_conditional_result, value_code_worked
+from .helpers import (
+    JumpDirection,
+    slot_code_worked,
+    slot_conditional_result,
+    value_code_worked,
+)
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4200.md"
 REFERENCE_SPEC_VERSION = "17d4a8d12d2b5e0f2985c866376c16c8c6df7cba"

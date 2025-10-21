@@ -5,7 +5,14 @@ from functools import cached_property
 from hashlib import sha256 as sha256_hashlib
 from typing import Callable, ClassVar, List
 
-from ethereum_test_tools import EOA, Address, Alloc, Bytecode, Hash, Transaction
+from ethereum_test_tools import (
+    EOA,
+    Address,
+    Alloc,
+    Bytecode,
+    Hash,
+    Transaction,
+)
 from ethereum_test_tools import DepositRequest as DepositRequestBase
 from ethereum_test_tools import Opcodes as Op
 

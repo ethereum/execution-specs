@@ -4,7 +4,14 @@ from typing import Dict
 
 import pytest
 from ethereum_test_forks import Fork, Osaka
-from ethereum_test_tools import Account, Address, Alloc, Storage, Transaction, keccak256
+from ethereum_test_tools import (
+    Account,
+    Address,
+    Alloc,
+    Storage,
+    Transaction,
+    keccak256,
+)
 from ethereum_test_types import Environment
 from ethereum_test_vm import Opcodes as Op
 

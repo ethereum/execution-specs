@@ -11,11 +11,18 @@ from ethereum_test_tools import (
     compute_eofcreate_address,
 )
 from ethereum_test_types.eof.v1 import Container, Section
-from ethereum_test_types.eof.v1.constants import MAX_BYTECODE_SIZE, MAX_INITCODE_SIZE
+from ethereum_test_types.eof.v1.constants import (
+    MAX_BYTECODE_SIZE,
+    MAX_INITCODE_SIZE,
+)
 from ethereum_test_vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME
-from ..eip7069_extcall.spec import EXTCALL_FAILURE, EXTCALL_REVERT, LEGACY_CALL_FAILURE
+from ..eip7069_extcall.spec import (
+    EXTCALL_FAILURE,
+    EXTCALL_REVERT,
+    LEGACY_CALL_FAILURE,
+)
 from .helpers import (
     aborting_container,
     slot_call_or_create,

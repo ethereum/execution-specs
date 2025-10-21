@@ -28,7 +28,11 @@ from ethereum_test_tools import (
 )
 from ethereum_test_vm import Opcodes as Op
 
-from .helpers import INITCODE_RESULTING_DEPLOYED_CODE, get_create_id, get_initcode_name
+from .helpers import (
+    INITCODE_RESULTING_DEPLOYED_CODE,
+    get_create_id,
+    get_initcode_name,
+)
 from .spec import Spec, ref_spec_3860
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_3860.git_path

@@ -7,7 +7,13 @@ from typing import Annotated, Any, List, Optional
 import pytest
 from joblib import Memory
 from py_ecc.bls12_381 import FQ, FQ2, add, field_modulus, multiply
-from pydantic import BaseModel, BeforeValidator, ConfigDict, RootModel, TypeAdapter
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    RootModel,
+    TypeAdapter,
+)
 from pydantic.alias_generators import to_pascal
 
 from .spec import FP, FP2, PointG1, PointG2, Spec

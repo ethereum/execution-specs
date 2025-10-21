@@ -2,7 +2,13 @@
 
 import pytest
 from ethereum_test_base_types import Storage
-from ethereum_test_tools import Account, Alloc, Environment, StateTestFiller, Transaction
+from ethereum_test_tools import (
+    Account,
+    Alloc,
+    Environment,
+    StateTestFiller,
+    Transaction,
+)
 from ethereum_test_types.eof.v1 import Container, Section
 from ethereum_test_vm import Opcodes as Op
 

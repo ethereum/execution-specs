@@ -6,7 +6,11 @@ from ethereum_test_forks import Fork
 from ethereum_test_tools import Alloc, Bytecode
 from ethereum_test_vm import Opcodes as Op
 
-from ..common import ProgramResult, ScenarioTestProgram, make_invalid_opcode_contract
+from ..common import (
+    ProgramResult,
+    ScenarioTestProgram,
+    make_invalid_opcode_contract,
+)
 
 
 class ProgramInvalidOpcode(ScenarioTestProgram):

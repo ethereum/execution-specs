@@ -4,7 +4,13 @@ import os
 from typing import Annotated, Any, List
 
 import pytest
-from pydantic import BaseModel, BeforeValidator, ConfigDict, RootModel, TypeAdapter
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    RootModel,
+    TypeAdapter,
+)
 from pydantic.alias_generators import to_pascal
 
 

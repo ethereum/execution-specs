@@ -6,7 +6,14 @@ https://eips.ethereum.org/EIPS/eip-1153.
 from typing import Dict, Union
 
 import pytest
-from ethereum_test_tools import Account, Address, Alloc, Environment, StateTestFiller, Transaction
+from ethereum_test_tools import (
+    Account,
+    Address,
+    Alloc,
+    Environment,
+    StateTestFiller,
+    Transaction,
+)
 from ethereum_test_vm import Opcodes as Op
 
 from .spec import Spec, ref_spec_1153

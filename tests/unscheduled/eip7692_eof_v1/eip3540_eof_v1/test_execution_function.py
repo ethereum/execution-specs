@@ -3,9 +3,18 @@
 from typing import List
 
 import pytest
-from ethereum_test_tools import Account, Alloc, Environment, StateTestFiller, Transaction
+from ethereum_test_tools import (
+    Account,
+    Alloc,
+    Environment,
+    StateTestFiller,
+    Transaction,
+)
 from ethereum_test_types.eof.v1 import Container, Section
-from ethereum_test_types.eof.v1.constants import MAX_CODE_SECTIONS, MAX_RETURN_STACK_HEIGHT
+from ethereum_test_types.eof.v1.constants import (
+    MAX_CODE_SECTIONS,
+    MAX_RETURN_STACK_HEIGHT,
+)
 from ethereum_test_vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME

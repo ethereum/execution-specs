@@ -11,11 +11,25 @@ from typing import Callable, List, SupportsBytes
 
 import pytest
 from ethereum_test_forks import Fork
-from ethereum_test_tools import Alloc, Bytecode, Environment, StateTestFiller, Storage, Transaction
+from ethereum_test_tools import (
+    Alloc,
+    Bytecode,
+    Environment,
+    StateTestFiller,
+    Storage,
+    Transaction,
+)
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools.utility.pytest import ParameterSet
 
-from .spec import GAS_CALCULATION_FUNCTION_MAP, PointG1, PointG2, Scalar, Spec, ref_spec_2537
+from .spec import (
+    GAS_CALCULATION_FUNCTION_MAP,
+    PointG1,
+    PointG2,
+    Scalar,
+    Spec,
+    ref_spec_2537,
+)
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_2537.git_path
 REFERENCE_SPEC_VERSION = ref_spec_2537.version

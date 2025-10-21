@@ -30,7 +30,11 @@ from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools.utility.pytest import ParameterSet
 from ethereum_test_types import EOA
 
-from ..eip6110_deposits.helpers import DepositContract, DepositRequest, DepositTransaction
+from ..eip6110_deposits.helpers import (
+    DepositContract,
+    DepositRequest,
+    DepositTransaction,
+)
 from ..eip6110_deposits.spec import Spec as Spec_EIP6110
 from ..eip7002_el_triggerable_withdrawals.helpers import (
     WithdrawalRequest,

@@ -66,7 +66,9 @@ from .programs.static_violation import (
 )
 from .scenarios.call_combinations import ScenariosCallCombinations
 from .scenarios.create_combinations import scenarios_create_combinations
-from .scenarios.double_call_combinations import scenarios_double_call_combinations
+from .scenarios.double_call_combinations import (
+    scenarios_double_call_combinations,
+)
 from .scenarios.revert_combinations import scenarios_revert_combinations
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
