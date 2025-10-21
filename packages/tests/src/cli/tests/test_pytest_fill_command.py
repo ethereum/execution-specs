@@ -63,7 +63,7 @@ class TestHtmlReportFlags:
             "test_dup and state_test-DUP16",
             "--fork",
             "Frontier",
-            f"--t8n-server-url={default_t8n.server_url}",
+            "../../tests/eest/frontier",  # TODO: Should not be necessary.
         ]
 
     @pytest.fixture()

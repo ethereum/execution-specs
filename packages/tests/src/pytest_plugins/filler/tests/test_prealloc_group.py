@@ -7,7 +7,6 @@ from unittest.mock import Mock
 
 import pytest
 
-from ethereum_clis import TransitionTool
 from ethereum_test_fixtures import BaseFixture, PreAllocGroups
 from ethereum_test_forks import Fork, Prague
 from ethereum_test_specs.base import BaseTest
@@ -419,7 +418,6 @@ class BlockchainTest(FormattedTest):  # noqa: D101
 )
 def test_pre_alloc_grouping_by_test_type(
     pytester: pytest.Pytester,
-    default_t8n: TransitionTool,
     test_definitions: List[FormattedTest],
     expected_different_pre_alloc_groups: int,
 ) -> None:
@@ -439,10 +437,7 @@ def test_pre_alloc_grouping_by_test_type(
         "pytest-fill.ini",
         "--generate-pre-alloc-groups",
         "--fork=Cancun",
-        "--t8n-server-url",
     ]
-    assert default_t8n.server_url is not None
-    args.append(default_t8n.server_url)
     result = pytester.runpytest(*args)
     result.assert_outcomes(
         passed=len(test_definitions),

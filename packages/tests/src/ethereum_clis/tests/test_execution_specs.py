@@ -3,6 +3,7 @@
 import json
 import os
 import sysconfig
+from os.path import realpath
 from pathlib import Path
 from shutil import which
 from typing import Dict, List, Type
@@ -15,7 +16,8 @@ from ethereum_test_base_types import to_json
 from ethereum_test_forks import Berlin
 from ethereum_test_types import Alloc, Environment, Transaction
 
-FIXTURES_ROOT = Path(os.path.join("src", "ethereum_clis", "tests", "fixtures"))
+CURRENT_FOLDER = Path(realpath(__file__)).parent
+FIXTURES_ROOT = CURRENT_FOLDER / "fixtures"
 DEFAULT_EVM_T8N_BINARY_NAME = "ethereum-spec-evm-resolver"
 
 
@@ -92,9 +94,8 @@ def test_calc_state_root(
 
 
 @pytest.mark.parametrize("evm_tool", [ExecutionSpecsTransitionTool])
-@pytest.mark.parametrize(
-    "binary_arg", ["no_binary_arg", "path_type", "str_type"]
-)
+@pytest.mark.parametrize("binary_arg", ["no_binary_arg", "path_type", "str_type"])
+@pytest.mark.skip(reason="ExecutionSpecsTransitionTool through binary path is not supported")
 def test_evm_tool_binary_arg(
     evm_tool: Type[ExecutionSpecsTransitionTool], binary_arg: str
 ) -> None:

@@ -1,7 +1,8 @@
 """Test suite for `ethereum_test_specs` fixture generation."""
 
 import json
-import os
+from os.path import realpath
+from pathlib import Path
 from typing import Any, List, Mapping
 
 import pytest
@@ -40,6 +41,9 @@ from ..blockchain import Block, BlockchainTest, Header
 from ..state import StateTest
 from .helpers import remove_info_metadata
 
+CURRENT_FOLDER = Path(realpath(__file__)).parent
+FIXTURES_FOLDER = CURRENT_FOLDER / "fixtures"
+
 
 @pytest.fixture()
 def fixture_hash(fork: Fork) -> bytes:
@@ -62,7 +66,7 @@ def test_check_helper_fixtures() -> None:
     runner = CliRunner()
     args = [
         "--input",
-        "src/ethereum_test_specs/tests/fixtures",
+        str(FIXTURES_FOLDER),
         "--quiet",
         "--stop-on-error",
     ]
@@ -195,20 +199,9 @@ def test_fill_state_test(
     }
 
     format_name = fixture_format.format_name
-    expected_json_file = (
-        f"chainid_{fork.name().lower()}_{format_name}_tx_type_{tx_type}.json"
-    )
-    with open(
-        os.path.join(
-            "src",
-            "ethereum_test_specs",
-            "tests",
-            "fixtures",
-            expected_json_file,
-        )
-    ) as f:
-        expected = json.load(f)
-        remove_info_metadata(expected)
+    expected_json_file = f"chainid_{fork.name().lower()}_{format_name}_tx_type_{tx_type}.json"
+    expected = json.loads((FIXTURES_FOLDER / expected_json_file).read_text())
+    remove_info_metadata(expected)
 
     remove_info_metadata(fixture)
     assert fixture == expected
@@ -553,17 +546,8 @@ class TestFillBlockchainValidTxs:
             ),
         }
 
-        with open(
-            os.path.join(
-                "src",
-                "ethereum_test_specs",
-                "tests",
-                "fixtures",
-                expected_json_file,
-            )
-        ) as f:
-            expected = json.load(f)
-            remove_info_metadata(expected)
+        expected = json.loads((FIXTURES_FOLDER / expected_json_file).read_text())
+        remove_info_metadata(expected)
 
         remove_info_metadata(fixture)
         assert fixture_name in fixture
@@ -939,17 +923,8 @@ def test_fill_blockchain_invalid_txs(
         fixture_name: generated_fixture.json_dict_with_info(hash_only=True),
     }
 
-    with open(
-        os.path.join(
-            "src",
-            "ethereum_test_specs",
-            "tests",
-            "fixtures",
-            expected_json_file,
-        )
-    ) as f:
-        expected = json.load(f)
-        remove_info_metadata(expected)
+    expected = json.loads((FIXTURES_FOLDER / expected_json_file).read_text())
+    remove_info_metadata(expected)
 
     remove_info_metadata(fixture)
     assert fixture_name in fixture

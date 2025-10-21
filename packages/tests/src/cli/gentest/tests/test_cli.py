@@ -117,7 +117,6 @@ def test_tx_type(
     monkeypatch: Any,
     tx_type: int,
     transaction_hash: str,
-    default_t8n: Any,
 ) -> None:
     """Generates a test case for any transaction type."""
     # This test is run in a CI environment, where connection to a
@@ -159,8 +158,6 @@ def test_tx_type(
         "state_test",
         "--fork",
         "Cancun",
-        "--t8n-server-url",
-        default_t8n.server_url,
     ]
     result = pytester.runpytest("-v", *args)
     assert result.ret == pytest.ExitCode.OK, f"Fill command failed:\n{result}"

@@ -64,6 +64,7 @@ class ExecutionSpecsTransitionTool(TransitionTool):
             mode="json", **model_dump_config
         )
 
+        temp_dir = tempfile.TemporaryDirectory()
         t8n_args = [
             "t8n",
             "--input.alloc=stdin",
@@ -72,6 +73,7 @@ class ExecutionSpecsTransitionTool(TransitionTool):
             "--output.result=stdout",
             "--output.body=stdout",
             "--output.alloc=stdout",
+            f"--output.basedir={temp_dir.name}",
             f"--state.fork={request_data_json['state']['fork']}",
             f"--state.chainid={request_data_json['state']['chainid']}",
             f"--state.reward={request_data_json['state']['reward']}",
@@ -80,14 +82,12 @@ class ExecutionSpecsTransitionTool(TransitionTool):
         if transition_tool_data.state_test:
             t8n_args.append("--state-test")
 
-        temp_dir = tempfile.TemporaryDirectory()
         if self.trace:
             t8n_args.extend(
                 [
                     "--trace",
                     "--trace.memory",
                     "--trace.returndata",
-                    f"--output.basedir={temp_dir.name}",
                 ]
             )
 
@@ -134,6 +134,11 @@ class ExecutionSpecsTransitionTool(TransitionTool):
         temp_dir.cleanup()
 
         return output
+
+    @classmethod
+    def is_installed(cls, binary_path: Optional[Path] = None) -> bool:
+        """ExecutionSpecs is always installed."""
+        return True
 
 
 class ExecutionSpecsExceptionMapper(ExceptionMapper):

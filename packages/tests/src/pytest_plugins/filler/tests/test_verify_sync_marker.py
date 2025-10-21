@@ -3,8 +3,6 @@
 import textwrap
 from typing import Any
 
-from ethereum_clis import TransitionTool
-
 test_module_with_verify_sync = textwrap.dedent(
     """\
     import pytest
@@ -65,10 +63,7 @@ test_module_with_verify_sync = textwrap.dedent(
 )
 
 
-def test_verify_sync_marker(
-    pytester: Any,
-    default_t8n: TransitionTool,
-) -> None:
+def test_verify_sync_marker(pytester: Any) -> None:
     """
     Test blockchain sync fixture generation with verify_sync marker.
 
@@ -121,8 +116,6 @@ def test_verify_sync_marker(
         "pytest-fill.ini",
         "-v",
         "--no-html",
-        "--t8n-server-url",
-        default_t8n.server_url,
         "tests/cancun/verify_sync_test_module/",
     ]
 

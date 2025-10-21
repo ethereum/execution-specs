@@ -37,11 +37,14 @@ def test_default_tool() -> None:
             "evmone-t8n 0.11.0-dev+commit.93997506",
             EvmOneTransitionTool,
         ),
-        (
-            None,
-            "evm",
-            "evm version 1.12.1-unstable-c7b099b2-20230627",
+        pytest.param(
+            Path("ethereum-spec-evm"),
+            "ethereum-spec-evm",
+            "ethereum-spec-evm",
             ExecutionSpecsTransitionTool,
+            marks=pytest.mark.skip(
+                reason="ExecutionSpecsTransitionTool through binary path is not supported"
+            ),
         ),
         (
             Path("t8n"),

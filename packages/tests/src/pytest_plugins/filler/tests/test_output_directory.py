@@ -7,8 +7,6 @@ from unittest.mock import patch
 import pytest
 from pytest import TempPathFactory
 
-from ethereum_clis import TransitionTool
-
 from ..fixture_output import FixtureOutput
 
 MINIMAL_TEST_FILE_NAME = "test_example.py"
@@ -50,7 +48,6 @@ def run_fill(
     minimal_test_path: Path,
     fill_fork_from: str,
     fill_fork_until: str,
-    default_t8n: TransitionTool,
 ) -> Callable[..., pytest.RunResult]:
     """
     Create a function to run the fill command with various output directory
@@ -78,7 +75,6 @@ def run_fill(
             f"--from={fill_fork_from}",
             f"--until={fill_fork_until}",
             f"--output={str(output_dir)}",
-            f"--t8n-server-url={default_t8n.server_url}",
             str(minimal_test_path),
         ]
         if clean:

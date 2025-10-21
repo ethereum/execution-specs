@@ -9,8 +9,6 @@ import pytest
 from filelock import FileLock
 from pytest import Pytester, TempPathFactory
 
-from ethereum_clis import TransitionTool
-
 MINIMAL_TEST_FILE_NAME = "test_example.py"
 MINIMAL_TEST_CONTENTS = """
 from ethereum_test_tools import Transaction
@@ -70,7 +68,6 @@ def fill_tests(
     fill_fork_from: str,
     fill_fork_until: str,
     minimal_test_path: Path,
-    default_t8n: TransitionTool,
 ) -> None:
     """
     Run fill to generate test fixtures for use with testing consume.
@@ -96,7 +93,6 @@ def fill_tests(
                 f"--from={fill_fork_from}",
                 f"--until={fill_fork_until}",
                 f"--output={str(fixtures_dir)}",
-                f"--t8n-server-url={default_t8n.server_url}",
                 str(minimal_test_path),
             ]
             fill_result = pytester.runpytest(*args)

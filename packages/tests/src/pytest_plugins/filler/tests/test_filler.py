@@ -439,7 +439,6 @@ def test_fixture_output_based_on_command_line_args(
     args: list[str],
     expected_fixture_files: list[Path],
     expected_fixture_counts: list[int],
-    default_t8n: TransitionTool,
 ) -> None:
     """
     Test:
@@ -478,9 +477,6 @@ def test_fixture_output_based_on_command_line_args(
     args.append("pytest-fill.ini")
     args.append("-v")
     args.append("--no-html")
-    args.append("--t8n-server-url")
-    assert default_t8n.server_url is not None
-    args.append(default_t8n.server_url)
 
     result = testdir.runpytest(*args)
     result.assert_outcomes(
@@ -542,9 +538,7 @@ def test_fixture_output_based_on_command_line_args(
     )
     config = configparser.ConfigParser()
     ini_file_text = ini_file.read_text()
-    ini_file_text = ini_file_text.replace(
-        default_t8n.server_url, "t8n_server_path"
-    )
+    # ini_file_text = ini_file_text.replace(default_t8n.server_url, "t8n_server_path")
     config.read_string(ini_file_text)
 
     if "--skip-index" not in args:
@@ -612,7 +606,6 @@ def test_fill_variables(
     expected_fixture_files: list[Path],
     expected_fixture_counts: list[int],
     expected_gas_limit: int,
-    default_t8n: TransitionTool,
 ) -> None:
     """
     Test filling tests that depend on variables such as the max block gas limit.
@@ -636,9 +629,6 @@ def test_fill_variables(
     args.append("-m")
     args.append("state_test")
     args.append("--no-html")
-    args.append("--t8n-server-url")
-    assert default_t8n.server_url is not None
-    args.append(default_t8n.server_url)
     result = testdir.runpytest(*args)
     result.assert_outcomes(
         passed=1,
@@ -699,9 +689,7 @@ def test_fill_variables(
     )
     config = configparser.ConfigParser()
     ini_file_text = ini_file.read_text()
-    ini_file_text = ini_file_text.replace(
-        default_t8n.server_url, "t8n_server_path"
-    )
+    # ini_file_text = ini_file_text.replace(default_t8n.server_url, "t8n_server_path")
     config.read_string(ini_file_text)
 
     if "--skip-index" not in args:

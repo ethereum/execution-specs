@@ -1,7 +1,8 @@
 """Test suite for the transaction spec test generation."""
 
 import json
-import os
+from os.path import realpath
+from pathlib import Path
 
 import pytest
 
@@ -11,6 +12,9 @@ from ethereum_test_types import Transaction
 
 from ..transaction import TransactionTest
 from .helpers import remove_info_metadata
+
+CURRENT_FOLDER = Path(realpath(__file__)).parent
+FIXTURES_FOLDER = CURRENT_FOLDER / "fixtures"
 
 
 @pytest.mark.parametrize(
@@ -37,17 +41,9 @@ def test_transaction_test_filling(
     }
 
     expected_json_file = f"tx_{name}_{fork.name().lower()}.json"
-    with open(
-        os.path.join(
-            "src",
-            "ethereum_test_specs",
-            "tests",
-            "fixtures",
-            expected_json_file,
-        )
-    ) as f:
-        expected = json.load(f)
-        remove_info_metadata(expected)
+
+    expected = json.loads((FIXTURES_FOLDER / expected_json_file).read_text())
+    remove_info_metadata(expected)
 
     remove_info_metadata(fixture)
     assert fixture == expected
