@@ -1,7 +1,6 @@
 """Tests for RETURNCODE instruction validation."""
 
 import pytest
-
 from ethereum_test_base_types import Account
 from ethereum_test_specs import StateTestFiller
 from ethereum_test_tools import Alloc, EOFException, EOFTestFiller

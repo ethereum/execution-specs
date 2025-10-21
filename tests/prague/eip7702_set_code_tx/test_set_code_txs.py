@@ -11,7 +11,6 @@ from itertools import count
 from typing import List
 
 import pytest
-
 from ethereum_test_base_types import HexNumber
 from ethereum_test_checklists import EIPChecklist
 from ethereum_test_forks import Fork

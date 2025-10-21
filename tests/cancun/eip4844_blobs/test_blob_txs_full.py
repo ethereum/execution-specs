@@ -3,7 +3,6 @@
 from typing import List, Optional
 
 import pytest
-
 from ethereum_test_base_types.base_types import Hash
 from ethereum_test_forks import Fork
 from ethereum_test_tools import (

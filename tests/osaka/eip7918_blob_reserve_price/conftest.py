@@ -5,7 +5,6 @@ Mostly a copy of `tests/cancun/eip4844_blobs/conftest.py`.
 """
 
 import pytest
-
 from ethereum_test_forks import Fork
 from ethereum_test_tools import Environment
 

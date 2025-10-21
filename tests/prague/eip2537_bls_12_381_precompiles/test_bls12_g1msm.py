@@ -6,7 +6,6 @@ Test the BLS12_G1MSM precompile introduced in
 """
 
 import pytest
-
 from ethereum_test_tools import Alloc, Environment, StateTestFiller, Transaction
 from ethereum_test_tools import Opcodes as Op
 

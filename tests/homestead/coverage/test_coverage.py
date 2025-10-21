@@ -4,7 +4,6 @@ into EEST tests.
 """
 
 import pytest
-
 from ethereum_test_forks import Cancun, Fork
 from ethereum_test_tools import Alloc, Environment, StateTestFiller, Transaction
 from ethereum_test_vm import Opcodes as Op

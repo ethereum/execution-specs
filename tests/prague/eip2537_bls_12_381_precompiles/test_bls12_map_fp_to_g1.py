@@ -6,7 +6,6 @@ Tests the BLS12_MAP_FP_TO_G1 precompile implementation from
 """
 
 import pytest
-
 from ethereum_test_tools import Alloc, Environment, StateTestFiller, Transaction
 from ethereum_test_tools import Opcodes as Op
 

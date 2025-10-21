@@ -7,7 +7,6 @@ import itertools
 from typing import Any, Dict, Generator, List, Tuple
 
 import pytest
-
 from ethereum_test_tools import EOFException, EOFTestFiller, Opcode, UndefinedOpcodes
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_types.eof.constants import MAX_RUNTIME_STACK_HEIGHT

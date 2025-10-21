@@ -1,7 +1,6 @@
 """Test good and bad EOFCREATE cases."""
 
 import pytest
-
 from ethereum_test_base_types import Account, Storage
 from ethereum_test_tools import Alloc, Environment, StateTestFiller, compute_eofcreate_address
 from ethereum_test_types import Transaction

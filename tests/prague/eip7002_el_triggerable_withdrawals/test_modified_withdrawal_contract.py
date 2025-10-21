@@ -5,7 +5,6 @@ Tests [EIP-7002: Execution layer triggerable withdrawals](https://eips.ethereum.
 from typing import List
 
 import pytest
-
 from ethereum_test_tools import (
     Account,
     Address,

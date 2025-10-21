@@ -9,7 +9,6 @@ from enum import unique
 from typing import Dict
 
 import pytest
-
 from ethereum_test_tools import (
     Account,
     Alloc,

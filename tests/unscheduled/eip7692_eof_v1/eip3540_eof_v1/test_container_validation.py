@@ -3,7 +3,6 @@
 import itertools
 
 import pytest
-
 from ethereum_test_tools import EOFException, EOFTestFiller
 from ethereum_test_types.eof.v1 import (
     AutoSection,

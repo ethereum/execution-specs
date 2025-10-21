@@ -6,7 +6,6 @@ from enum import Enum, Flag, auto
 from typing import Dict, List
 
 import pytest
-
 from ethereum_test_forks import Fork, Prague
 from ethereum_test_tools import (
     Address,

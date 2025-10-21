@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any, Generator
 
 import pytest
-
 from ethereum_test_forks import Fork, Prague
 from ethereum_test_tools import (
     Address,

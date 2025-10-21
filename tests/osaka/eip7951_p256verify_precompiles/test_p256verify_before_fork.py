@@ -9,7 +9,6 @@ active.
 """
 
 import pytest
-
 from ethereum_test_checklists import EIPChecklist
 from ethereum_test_tools import Alloc, Block, BlockchainTestFiller, Transaction
 

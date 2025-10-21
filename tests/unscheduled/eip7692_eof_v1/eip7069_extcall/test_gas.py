@@ -5,7 +5,6 @@ Gas consumption tests for EXT*CALL instructions
 """
 
 import pytest
-
 from ethereum_test_base_types import Address
 from ethereum_test_forks import Fork
 from ethereum_test_tools import Alloc, Environment, StateTestFiller

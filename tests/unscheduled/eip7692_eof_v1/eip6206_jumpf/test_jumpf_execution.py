@@ -1,7 +1,6 @@
 """EOF JUMPF tests covering simple cases."""
 
 import pytest
-
 from ethereum_test_base_types import Storage
 from ethereum_test_specs import StateTestFiller
 from ethereum_test_tools import Account, Environment, EOFException, EOFStateTestFiller, Transaction

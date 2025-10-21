@@ -1,7 +1,6 @@
 """Test good TXCREATE cases."""
 
 import pytest
-
 from ethereum_test_base_types import Storage
 from ethereum_test_base_types.base_types import Address
 from ethereum_test_tools import (

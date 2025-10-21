@@ -1,7 +1,6 @@
 """Test execution of EOF code in the context of the operand stack height."""
 
 import pytest
-
 from ethereum_test_exceptions import EOFException
 from ethereum_test_tools import Account, EOFStateTestFiller
 from ethereum_test_types.eof.constants import MAX_RUNTIME_STACK_HEIGHT

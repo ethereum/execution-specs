@@ -7,7 +7,6 @@ Tests for [EIP-7516: BLOBBASEFEE opcode](https://eips.ethereum.org/EIPS/eip-7516
 from itertools import count
 
 import pytest
-
 from ethereum_test_tools import (
     Account,
     Address,

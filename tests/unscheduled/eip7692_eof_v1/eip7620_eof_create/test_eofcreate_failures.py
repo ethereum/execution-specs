@@ -1,7 +1,6 @@
 """Test good and bad EOFCREATE cases."""
 
 import pytest
-
 from ethereum_test_base_types.base_types import Address
 from ethereum_test_tools import (
     Account,

@@ -4,7 +4,6 @@ only has a non-zero storage slot set.
 """
 
 import pytest
-
 from ethereum_test_tools import (
     Account,
     Alloc,

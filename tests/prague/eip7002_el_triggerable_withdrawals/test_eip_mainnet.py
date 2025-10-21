@@ -5,7 +5,6 @@ abstract: Crafted tests for mainnet of [EIP-7002: Execution layer triggerable wi
 from typing import List
 
 import pytest
-
 from ethereum_test_tools import (
     Alloc,
     Block,

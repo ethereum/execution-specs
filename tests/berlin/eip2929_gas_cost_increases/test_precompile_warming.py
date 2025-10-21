@@ -9,7 +9,6 @@ Tests precompile warming behavior across fork transitions from
 from typing import Iterator, Tuple
 
 import pytest
-
 from ethereum_test_checklists import EIPChecklist
 from ethereum_test_forks import (
     Fork,

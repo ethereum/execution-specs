@@ -6,7 +6,6 @@ from functools import lru_cache
 from typing import List, Tuple
 
 import pytest
-
 from ethereum_test_base_types import Address, HexNumber, ZeroPaddedHexNumber
 from ethereum_test_checklists import EIPChecklist
 from ethereum_test_fixtures.blockchain import (

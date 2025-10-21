@@ -1,7 +1,6 @@
 """abstract: EIP-2: Homestead Identity Precompile Test Cases."""
 
 import pytest
-
 from ethereum_test_tools import (
     Account,
     Alloc,

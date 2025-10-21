@@ -1,7 +1,6 @@
 """EOF validation tests for non-returning code sections."""
 
 import pytest
-
 from ethereum_test_tools import EOFException, EOFTestFiller
 from ethereum_test_types.eof.v1 import NON_RETURNING_SECTION, Container, ContainerKind, Section
 from ethereum_test_vm import Bytecode

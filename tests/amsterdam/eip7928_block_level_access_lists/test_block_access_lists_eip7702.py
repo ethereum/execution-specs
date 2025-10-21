@@ -1,7 +1,6 @@
 """Tests for the effects of EIP-7702 transactions on EIP-7928."""
 
 import pytest
-
 from ethereum_test_tools import (
     Account,
     Alloc,

@@ -7,7 +7,6 @@ Precompile for BLS12-381 curve operations]
 """
 
 import pytest
-
 from ethereum_test_tools import Alloc, Environment, StateTestFiller, Transaction
 from ethereum_test_tools import Opcodes as Op
 

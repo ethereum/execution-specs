@@ -3,7 +3,6 @@ Tests [EIP-7939: Count leading zeros (CLZ)](https://eips.ethereum.org/EIPS/eip-7
 """
 
 import pytest
-
 from ethereum_test_base_types import Storage
 from ethereum_test_checklists import EIPChecklist
 from ethereum_test_forks import Fork

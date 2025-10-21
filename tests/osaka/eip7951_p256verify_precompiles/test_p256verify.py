@@ -3,7 +3,6 @@ Tests for [EIP-7951: Precompile for secp256r1 Curve Support](https://eips.ethere
 """
 
 import pytest
-
 from ethereum_test_checklists import EIPChecklist
 from ethereum_test_tools import (
     Address,

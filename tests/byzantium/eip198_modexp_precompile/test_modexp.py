@@ -6,7 +6,6 @@ from the EIP are labelled with `EIP-198-caseX` in the test id.
 """
 
 import pytest
-
 from ethereum_test_tools import (
     Account,
     Alloc,

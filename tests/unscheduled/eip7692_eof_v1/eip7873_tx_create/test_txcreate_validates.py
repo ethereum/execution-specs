@@ -4,7 +4,6 @@ from enum import Enum, auto, unique
 from typing import Tuple
 
 import pytest
-
 from ethereum_test_base_types import Bytes
 from ethereum_test_base_types.base_types import Address, Hash
 from ethereum_test_base_types.composite_types import AccessList

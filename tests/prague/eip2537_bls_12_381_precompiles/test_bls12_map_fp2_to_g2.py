@@ -6,7 +6,6 @@ Test the BLS12_MAP_FP2_TO_G2 precompile introduced in
 """
 
 import pytest
-
 from ethereum_test_tools import Alloc, Environment, StateTestFiller, Transaction
 from ethereum_test_tools import Opcodes as Op
 

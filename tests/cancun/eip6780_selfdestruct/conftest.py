@@ -1,7 +1,6 @@
 """Pytest (plugin) definitions local to EIP-6780 tests."""
 
 import pytest
-
 from ethereum_test_tools import Address, Alloc, Environment
 
 

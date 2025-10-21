@@ -5,7 +5,6 @@ A state test for [EIP-7702 SetCodeTX](https://eips.ethereum.org/EIPS/eip-7702).
 from enum import Enum, IntEnum
 
 import pytest
-
 from ethereum_test_forks import Fork, GasCosts
 from ethereum_test_tools import (
     AccessList,

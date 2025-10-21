@@ -5,7 +5,6 @@ These tests verify that clients properly reject blocks with corrupted BALs.
 """
 
 import pytest
-
 from ethereum_test_exceptions import BlockException
 from ethereum_test_tools import (
     Account,

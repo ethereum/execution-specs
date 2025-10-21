@@ -5,7 +5,6 @@ Tests [EIP-152: BLAKE2b compression precompile](https://eips.ethereum.org/EIPS/e
 from typing import List
 
 import pytest
-
 from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     Account,

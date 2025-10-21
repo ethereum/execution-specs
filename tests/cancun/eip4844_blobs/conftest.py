@@ -3,7 +3,6 @@
 from typing import Iterable
 
 import pytest
-
 from ethereum_test_forks import Fork
 from ethereum_test_tools import Alloc, Block, Environment, Hash, Transaction, add_kzg_version
 

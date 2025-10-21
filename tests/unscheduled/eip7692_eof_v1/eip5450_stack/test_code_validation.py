@@ -8,7 +8,6 @@ from enum import Enum, auto, unique
 from typing import Generator, Tuple, Union
 
 import pytest
-
 from ethereum_test_exceptions.exceptions import EOFException
 from ethereum_test_tools import Account, EOFStateTestFiller, EOFTestFiller
 from ethereum_test_types.eof.v1 import Container, Section

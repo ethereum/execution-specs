@@ -4,7 +4,6 @@ import itertools
 from typing import Callable
 
 import pytest
-
 from ethereum_test_tools import (
     Account,
     Alloc,

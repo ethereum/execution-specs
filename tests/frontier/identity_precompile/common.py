@@ -3,13 +3,12 @@
 from dataclasses import dataclass
 from typing import Tuple
 
-from pydantic import BaseModel
-
 from ethereum_test_base_types.composite_types import Storage
 from ethereum_test_tools import (
     Bytecode,
 )
 from ethereum_test_tools import Opcodes as Op
+from pydantic import BaseModel
 
 
 @dataclass(frozen=True)

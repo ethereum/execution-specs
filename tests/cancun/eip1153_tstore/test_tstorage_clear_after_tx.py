@@ -3,7 +3,6 @@
 from typing import Optional
 
 import pytest
-
 from ethereum_test_tools import (
     Account,
     Alloc,

@@ -8,7 +8,6 @@ Tests the validator deposit functionality implementation from
 from typing import List
 
 import pytest
-
 from ethereum_test_tools import (
     Alloc,
     Block,

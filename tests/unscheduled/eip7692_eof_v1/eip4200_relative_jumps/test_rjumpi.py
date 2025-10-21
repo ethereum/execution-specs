@@ -1,7 +1,6 @@
 """EOF JUMPF tests covering stack and code validation rules."""
 
 import pytest
-
 from ethereum_test_tools import (
     Account,
     Alloc,

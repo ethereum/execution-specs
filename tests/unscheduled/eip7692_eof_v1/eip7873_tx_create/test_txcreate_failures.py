@@ -1,7 +1,6 @@
 """Test bad TXCREATE cases."""
 
 import pytest
-
 from ethereum_test_base_types import Bytes
 from ethereum_test_base_types.base_types import Address, Hash
 from ethereum_test_forks import Fork

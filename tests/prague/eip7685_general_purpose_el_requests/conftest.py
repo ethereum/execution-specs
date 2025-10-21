@@ -3,7 +3,6 @@
 from typing import List, SupportsBytes
 
 import pytest
-
 from ethereum_test_tools import (
     Alloc,
     Block,

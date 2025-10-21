@@ -5,7 +5,6 @@ Tests that benchmark EVMs in the worst-case memory opcodes.
 from enum import auto
 
 import pytest
-
 from ethereum_test_base_types.base_types import Bytes
 from ethereum_test_benchmark.benchmark_code_generator import JumpLoopGenerator
 from ethereum_test_forks import Fork

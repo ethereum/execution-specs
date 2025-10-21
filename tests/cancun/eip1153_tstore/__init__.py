@@ -7,7 +7,6 @@ from pprint import pprint
 from typing import Any, List
 
 import pytest
-
 from ethereum_test_tools import Opcodes as Op
 
 

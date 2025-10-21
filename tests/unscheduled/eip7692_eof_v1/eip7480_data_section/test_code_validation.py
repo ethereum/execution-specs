@@ -1,7 +1,6 @@
 """EOF V1 Code Validation tests."""
 
 import pytest
-
 from ethereum_test_tools import EOFException, EOFTestFiller
 from ethereum_test_types.eof.v1 import Container, Section
 from ethereum_test_types.eof.v1.constants import MAX_INITCODE_SIZE

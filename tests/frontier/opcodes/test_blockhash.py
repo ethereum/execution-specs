@@ -1,7 +1,6 @@
 """Tests for BLOCKHASH opcode."""
 
 import pytest
-
 from ethereum_test_tools import (
     Account,
     Alloc,

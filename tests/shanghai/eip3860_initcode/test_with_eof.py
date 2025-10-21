@@ -5,7 +5,6 @@ Test CREATE / CREATE2 and EOF interaction for EIP-3860 initcode limits.
 import itertools
 
 import pytest
-
 from ethereum_test_tools import (
     Account,
     Alloc,

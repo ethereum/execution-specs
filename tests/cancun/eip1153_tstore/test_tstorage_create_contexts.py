@@ -5,7 +5,6 @@ Test transient storage in contract creation contexts.
 from enum import unique
 
 import pytest
-
 from ethereum_test_tools import (
     Account,
     Address,

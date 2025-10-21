@@ -1,7 +1,6 @@
 """EOF Classes example use."""
 
 import pytest
-
 from ethereum_test_tools import Bytecode, EOFException, EOFTestFiller
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_types.eof.v1 import AutoSection, Container, Section

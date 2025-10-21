@@ -4,7 +4,6 @@ cost](https://eips.ethereum.org/EIPS/eip-7918).
 """
 
 import pytest
-
 from ethereum_test_tools import (
     Alloc,
     Block,

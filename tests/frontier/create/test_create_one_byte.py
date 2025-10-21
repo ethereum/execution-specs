@@ -4,7 +4,6 @@ byte values, records in storage the values that failed to deploy.
 """
 
 import pytest
-
 from ethereum_test_forks import Byzantium, Fork, London
 from ethereum_test_tools import (
     Account,

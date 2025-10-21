@@ -1,7 +1,6 @@
 """Fixtures for the EIP-7934 RLP block size limit tests."""
 
 import pytest
-
 from ethereum_test_tools import (
     Address,
     Alloc,

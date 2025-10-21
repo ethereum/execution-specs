@@ -4,7 +4,6 @@ import itertools
 from enum import Enum, auto, unique
 
 import pytest
-
 from ethereum_test_base_types import Address, HashInt
 from ethereum_test_tools import (
     EOA,

@@ -7,7 +7,6 @@ import random
 from typing import Generator, Tuple
 
 import pytest
-
 from ethereum_test_base_types import Account
 from ethereum_test_forks import Fork
 from ethereum_test_tools import (

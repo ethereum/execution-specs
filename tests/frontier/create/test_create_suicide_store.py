@@ -6,7 +6,6 @@ operations after being called for self destruct in a call.
 from enum import IntEnum
 
 import pytest
-
 from ethereum_test_forks import Byzantium, Fork
 from ethereum_test_tools import (
     Account,

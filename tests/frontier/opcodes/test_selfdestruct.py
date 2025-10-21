@@ -1,7 +1,6 @@
 """Test the SELFDESTRUCT opcode."""
 
 import pytest
-
 from ethereum_test_tools import Account, Alloc, Block, BlockchainTestFiller, Initcode, Transaction
 from ethereum_test_tools import Opcodes as Op
 

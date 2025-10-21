@@ -3,7 +3,6 @@
 from typing import SupportsBytes
 
 import pytest
-
 from ethereum_test_forks import Cancun, Fork
 from ethereum_test_tools import (
     EOA,

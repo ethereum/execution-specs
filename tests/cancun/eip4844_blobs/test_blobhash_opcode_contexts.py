@@ -6,7 +6,6 @@ from enum import Enum
 from typing import Iterable, List
 
 import pytest
-
 from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     Account,

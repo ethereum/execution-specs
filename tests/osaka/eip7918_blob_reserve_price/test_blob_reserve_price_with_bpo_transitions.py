@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import Iterator, List
 
 import pytest
-
 from ethereum_test_forks import BPO2ToBPO3AtTime15k, Fork
 from ethereum_test_tools import (
     EOA,

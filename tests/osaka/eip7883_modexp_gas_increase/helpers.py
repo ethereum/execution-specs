@@ -4,10 +4,9 @@ import os
 from typing import Annotated, Any, List
 
 import pytest
+from ethereum_test_tools import Bytes
 from pydantic import BaseModel, ConfigDict, Field, PlainValidator, RootModel, TypeAdapter
 from pydantic.alias_generators import to_pascal
-
-from ethereum_test_tools import Bytes
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput
 

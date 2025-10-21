@@ -8,7 +8,6 @@ from itertools import cycle
 from typing import Dict, List
 
 import pytest
-
 from ethereum_test_forks import Cancun, Fork
 from ethereum_test_tools import (
     EOA,

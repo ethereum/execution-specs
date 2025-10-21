@@ -1,7 +1,6 @@
 """EOF Subcontainer tests covering simple cases."""
 
 import pytest
-
 from ethereum_test_tools import Account, EOFException, EOFStateTestFiller, EOFTestFiller
 from ethereum_test_types.eof.v1 import Container, ContainerKind, Section
 from ethereum_test_types.eof.v1.constants import MAX_BYTECODE_SIZE, MAX_INITCODE_SIZE

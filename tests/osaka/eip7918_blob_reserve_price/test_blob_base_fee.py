@@ -8,7 +8,6 @@ Test the blob base fee reserve price mechanism for
 from typing import Dict, List
 
 import pytest
-
 from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     Account,

@@ -3,7 +3,6 @@
 from typing import Callable, Dict
 
 import pytest
-
 from ethereum_test_base_types import AccessList, Address, Hash
 from ethereum_test_forks import Fork
 from ethereum_test_specs.blockchain import Header

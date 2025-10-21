@@ -6,7 +6,6 @@ import math
 from enum import auto
 
 import pytest
-
 from ethereum_test_benchmark.benchmark_code_generator import ExtCallGenerator, JumpLoopGenerator
 from ethereum_test_forks import Fork
 from ethereum_test_specs import StateTestFiller

@@ -8,7 +8,6 @@ from itertools import cycle, islice
 from typing import Mapping
 
 import pytest
-
 from ethereum_test_tools import (
     Account,
     Address,

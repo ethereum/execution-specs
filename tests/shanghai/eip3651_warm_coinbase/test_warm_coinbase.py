@@ -6,7 +6,6 @@ Tests ported from:
 """
 
 import pytest
-
 from ethereum_test_forks import Fork, Shanghai
 from ethereum_test_tools import (
     Account,

@@ -6,7 +6,6 @@ https://github.com/ethereum/execution-spec-tests/issues/381.
 from typing import Dict, Union
 
 import pytest
-
 from ethereum_test_forks import Cancun, Fork
 from ethereum_test_tools import (
     Account,

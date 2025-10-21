@@ -1,7 +1,6 @@
 """EOF Container construction test."""
 
 import pytest
-
 from ethereum_test_exceptions.exceptions import EOFExceptionInstanceOrList
 from ethereum_test_tools import EOFException, EOFTestFiller, extend_with_defaults
 from ethereum_test_tools import Opcodes as Op

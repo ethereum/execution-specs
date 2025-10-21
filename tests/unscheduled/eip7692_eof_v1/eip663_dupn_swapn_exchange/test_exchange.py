@@ -3,7 +3,6 @@ Tests [EIP-663: SWAPN, DUPN and EXCHANGE instructions](https://eips.ethereum.org
 """
 
 import pytest
-
 from ethereum_test_tools import (
     Account,
     Alloc,

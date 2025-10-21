@@ -6,7 +6,6 @@ opcode is supported by the fork and fails otherwise.
 from typing import List
 
 import pytest
-
 from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     Account,
