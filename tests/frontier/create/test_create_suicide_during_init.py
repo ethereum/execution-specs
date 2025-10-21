@@ -35,7 +35,7 @@ class Operation(Enum):
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stCreateTest/CREATE_ContractSuicideDuringInitFiller.json",
     ],
     pr=["https://github.com/ethereum/execution-spec-tests/pull/1871"],
-    coverage_missed_reason="Tip to coinbase, original test contains empty account.",
+    coverage_missed_reason="Tip to coinbase, og test contains empty account.",
 )
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.with_all_create_opcodes

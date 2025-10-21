@@ -248,12 +248,9 @@ def test_txcreate_deploy_sizes(
 
     assert initcode_size == (
         len(initcode_subcontainer) - len(runtime_container)
-    ), (
-        "initcode_size is wrong, expected initcode_size is %d, calculated is %d"
-        % (
-            initcode_size,
-            len(initcode_subcontainer) - len(runtime_container),
-        )
+    ), "initcode_size is wrong, expected initcode_size %d, calculated %d" % (
+        initcode_size,
+        len(initcode_subcontainer) - len(runtime_container),
     )
     initcode_hash = initcode_subcontainer.hash
 

@@ -60,9 +60,10 @@ class SelfDestructCases(PytestParameterEnum):
 
     TLOAD_AFTER_SELFDESTRUCT_PRE_EXISTING_CONTRACT = {
         "description": (
-            "Use TSTORE to store a transient value and self-destruct in a contract that was"
-            "deployed in a transaction prior to the one currently executing."
-            "Then re-enter the contract and attempt to TLOAD the transient value.",
+            "Use TSTORE to store a transient value and self-destruct in a "
+            "contract that was deployed in a transaction prior to the one "
+            "currently executing. Then re-enter the contract and attempt to "
+            "TLOAD the transient value.",
         ),
         "pre_existing_contract": True,
         "caller_bytecode": Op.SSTORE(0, Op.CALLDATALOAD(0))
@@ -89,9 +90,10 @@ class SelfDestructCases(PytestParameterEnum):
 
     TLOAD_AFTER_SELFDESTRUCT_NEW_CONTRACT = {
         "description": (
-            "Use TSTORE to store a transient value and self-destruct in a contract that was"
-            "deployed in the current transaction."
-            "Then re-enter the contract and attempt to TLOAD the transient value.",
+            "Use TSTORE to store a transient value and self-destruct in a "
+            "contract that was deployed in the current transaction."
+            "Then re-enter the contract and attempt to TLOAD the transient"
+            "value.",
         ),
         "pre_existing_contract": False,
         "caller_bytecode": Op.SSTORE(0, CREATE_CODE)
@@ -118,8 +120,9 @@ class SelfDestructCases(PytestParameterEnum):
 
     TLOAD_AFTER_INNER_SELFDESTRUCT_PRE_EXISTING_CONTRACT = {
         "description": (
-            "Use TSTORE to store a transient value and then call for re-entry and self-destruct,"
-            "and use TLOAD upon return from the inner self-destructing call.",
+            "Use TSTORE to store a transient value and then call for re-entry "
+            "and self-destruct, and use TLOAD upon return from the inner "
+            "self-destructing call.",
         ),
         "pre_existing_contract": True,
         "caller_bytecode": Op.SSTORE(0, Op.CALLDATALOAD(0))
@@ -145,9 +148,9 @@ class SelfDestructCases(PytestParameterEnum):
 
     TLOAD_AFTER_INNER_SELFDESTRUCT_NEW_CONTRACT = {
         "description": (
-            "In a newly created contract, use TSTORE to store a transient value and then call "
-            "for re-entry and self-destruct, and use TLOAD upon return from the inner "
-            "self-destructing call.",
+            "In a newly created contract, use TSTORE to store a transient "
+            "value and then call for re-entry and self-destruct, and use "
+            "TLOAD upon return from the inner self-destructing call.",
         ),
         "pre_existing_contract": False,
         "caller_bytecode": (
@@ -182,8 +185,8 @@ class SelfDestructCases(PytestParameterEnum):
 
     TSTORE_AFTER_SELFDESTRUCT_PRE_EXISTING_CONTRACT = {
         "description": (
-            "Use self-destruct in a pre-existing contract and then use TSTORE upon a re-entry."
-            "Lastly use TLOAD on another re-entry",
+            "Use self-destruct in a pre-existing contract and then use TSTORE "
+            "upon a re-entry. Lastly use TLOAD on another re-entry",
         ),
         "pre_existing_contract": True,
         "caller_bytecode": Op.SSTORE(0, Op.CALLDATALOAD(0))
@@ -211,8 +214,8 @@ class SelfDestructCases(PytestParameterEnum):
 
     TSTORE_AFTER_SELFDESTRUCT_NEW_CONTRACT = {
         "description": (
-            "Use self-destruct in a newly created contract and then use TSTORE upon a re-entry."
-            "Lastly use TLOAD on another re-entry",
+            "Use self-destruct in a newly created contract and then use "
+            "TSTORE upon a re-entry. Lastly use TLOAD on another re-entry",
         ),
         "pre_existing_contract": False,
         "caller_bytecode": Op.SSTORE(0, CREATE_CODE)

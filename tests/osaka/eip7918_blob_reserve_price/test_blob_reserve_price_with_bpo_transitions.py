@@ -440,12 +440,13 @@ def get_fork_scenarios(fork: Fork) -> Iterator[ParameterSet]:
             parent_excess_blobs * source_blob_schedule.blob_gas_per_blob
         )
 
-        source_execution_threshold = source_blob_schedule.execution_base_fee_threshold_from_excess_blob_gas(
+        source_method = source_blob_schedule.execution_base_fee_threshold_from_excess_blob_gas  # noqa: E501
+        transition_method = transition_blob_schedule.execution_base_fee_threshold_from_excess_blob_gas  # noqa: E501
+        source_execution_threshold = source_method(parent_excess_blob_gas)
+        transition_execution_threshold = transition_method(
             parent_excess_blob_gas
         )
-        transition_execution_threshold = transition_blob_schedule.execution_base_fee_threshold_from_excess_blob_gas(
-            parent_excess_blob_gas
-        )
+
         if (
             source_execution_threshold != transition_execution_threshold
             and transition_execution_threshold is not None

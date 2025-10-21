@@ -37,7 +37,8 @@ def precompile_gas(vector_gas_value: int | None) -> int:
     """Gas cost for the precompile."""
     if vector_gas_value is not None:
         assert vector_gas_value == Spec.P256VERIFY_GAS, (
-            f"Calculated gas {vector_gas_value} != Vector gas {Spec.P256VERIFY_GAS}"
+            f"Calculated gas {vector_gas_value} "
+            f"!= Vector gas {Spec.P256VERIFY_GAS}"
         )
     return Spec.P256VERIFY_GAS
 

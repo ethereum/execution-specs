@@ -52,7 +52,8 @@ pytestmark = [
             ),
         ],
     ),
-    pytest.mark.pre_alloc_modify,  # We need to modify the pre-alloc to include the collision
+    # We need to modify the pre-alloc to include the collision
+    pytest.mark.pre_alloc_modify,
 ]
 
 

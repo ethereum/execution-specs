@@ -74,7 +74,8 @@ def env(fork: Fork, tx: Transaction) -> Environment:
     tx_gas_limit_cap = fork.transaction_gas_limit_cap()
     if tx_gas_limit_cap is not None:
         assert tx.gas_limit <= tx_gas_limit_cap, (
-            f"tx exceeds gas limit cap: {int(tx.gas_limit)} > {tx_gas_limit_cap}"
+            "tx exceeds gas limit cap: "
+            f"{int(tx.gas_limit)} > {tx_gas_limit_cap}"
         )
     if tx.gas_limit > env.gas_limit:
         env = Environment(gas_limit=tx.gas_limit)
@@ -274,7 +275,8 @@ def get_split_discount_table_by_fork(
             return [
                 pytest.param(
                     *split,
-                    id=f"discount_table_{idx + 1}_of_{len(g1_msm_discount_table_splits)}",
+                    id=f"discount_table_{idx + 1}_of_"
+                    f"{len(g1_msm_discount_table_splits)}",
                 )
                 for idx, split in enumerate(g1_msm_discount_table_splits)
             ]

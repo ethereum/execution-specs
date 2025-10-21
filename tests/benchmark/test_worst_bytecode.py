@@ -106,9 +106,10 @@ def test_worst_bytecode_single_opcode(
     minimum_gas_limit = code_deposit_gas_minimum * 2 * num_contracts
     if env.gas_limit < minimum_gas_limit:
         raise Exception(
-            f"`BENCHMARKING_MAX_GAS` ({env.gas_limit}) is no longer enough to support this test, "
-            f"which requires {minimum_gas_limit} gas for its setup. Update the value or consider "
-            "optimizing gas usage during the setup phase of this test."
+            f"`BENCHMARKING_MAX_GAS` ({env.gas_limit}) is no longer enough to"
+            f" support this test, which requires {minimum_gas_limit} gas for "
+            "its setup. Update the value or consider optimizing gas usage "
+            "during the setup phase of this test."
         )
 
     # The initcode will take its address as a starting point to the input to
@@ -225,7 +226,8 @@ def test_worst_bytecode_single_opcode(
         # TODO: A workaround could be to split the opcode code into multiple
         # contracts and call them in sequence.
         raise ValueError(
-            f"Code size {len(attack_code)} exceeds maximum code size {max_contract_size}"
+            f"Code size {len(attack_code)} exceeds maximum "
+            f"code size {max_contract_size}"
         )
     opcode_address = pre.deploy_contract(code=attack_code)
     opcode_tx = Transaction(

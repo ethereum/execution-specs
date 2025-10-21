@@ -355,7 +355,9 @@ def test_returndatacopy_oob(
                 slot_eof_target_returndata: value_exceptional_abort_canary,
                 slot_eof_target_returndatasize: value_exceptional_abort_canary,
                 slot_legacy_target_call_status: value_exceptional_abort_canary,
-                slot_legacy_target_returndatasize: value_exceptional_abort_canary,
+                slot_legacy_target_returndatasize: (
+                    value_exceptional_abort_canary
+                ),
             },
         )
     )

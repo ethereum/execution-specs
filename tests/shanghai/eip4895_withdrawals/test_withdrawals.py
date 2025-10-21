@@ -86,9 +86,9 @@ class TestUseValueInTx:
         )
 
     @pytest.fixture
-    def blocks(
+    def blocks(  # noqa: D102
         self, tx: Transaction, withdrawal: Withdrawal, test_case: str
-    ) -> List[Block]:  # noqa: D102
+    ) -> List[Block]:
         if test_case == "tx_in_withdrawals_block":
             return [
                 Block(

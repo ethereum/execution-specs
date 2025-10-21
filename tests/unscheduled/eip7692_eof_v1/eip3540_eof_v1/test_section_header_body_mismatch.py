@@ -76,9 +76,12 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
                 {
                     "skip_header_listing": False,
                     "skip_body_listing": False,
-                    "expected_code": "ef000101000802000200030003ff000400008"
+                    "expected_code": "ef000101000802"
+                    "000200030003ff000400008"
                     "00001000000003050003050000bad60A7",
-                    "expected_exception": EOFException.UNREACHABLE_CODE_SECTIONS,
+                    "expected_exception": (
+                        EOFException.UNREACHABLE_CODE_SECTIONS
+                    ),
                 },
                 id="layout_ok_code_bad",
             ),
@@ -87,7 +90,8 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
                     "skip_header_listing": True,
                     "skip_body_listing": True,
                     "skip_types_body_listing": True,
-                    "expected_code": "ef00010100080200010003ff000400008000013050000bad60a7",
+                    "expected_code": "ef000101000802"
+                    "00010003ff000400008000013050000bad60a7",
                     "expected_exception": [
                         EOFException.INVALID_TYPE_SECTION_SIZE,
                         EOFException.INVALID_SECTION_BODIES_SIZE,
@@ -101,7 +105,8 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
                     "skip_body_listing": True,
                     "skip_types_body_listing": True,
                     "skip_types_header_listing": True,
-                    "expected_code": "ef00010100040200010003ff000400008000013050000bad60a7",
+                    "expected_code": "ef000101000402"
+                    "00010003ff000400008000013050000bad60a7",
                     "expected_exception": None,
                 },
                 id="drop_everything",

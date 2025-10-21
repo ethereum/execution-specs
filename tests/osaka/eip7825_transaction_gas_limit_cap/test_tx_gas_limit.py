@@ -362,7 +362,8 @@ def test_tx_gas_limit_cap_full_calldata(
         )
     else:
         assert correct_intrinsic_cost <= tx_gas_limit_cap, (
-            "Correct intrinsic cost should be less than or equal to the tx gas limit cap"
+            "Correct intrinsic cost should be less than or "
+            "equal to the tx gas limit cap"
         )
 
     tx_gas_limit = (
@@ -510,7 +511,8 @@ def test_tx_gas_limit_cap_access_list_with_diff_keys(
         )
     else:
         assert correct_intrinsic_cost <= tx_gas_limit_cap, (
-            "Correct intrinsic cost should be less than or equal to the tx gas limit cap"
+            "Correct intrinsic cost should be less than or "
+            "equal to the tx gas limit cap"
         )
 
     tx_gas_limit = (
@@ -589,7 +591,8 @@ def test_tx_gas_limit_cap_access_list_with_diff_addr(
         )
     else:
         assert correct_intrinsic_cost <= tx_gas_limit_cap, (
-            "Correct intrinsic cost should be less than or equal to the tx gas limit cap"
+            "Correct intrinsic cost should be less than or "
+            "equal to the tx gas limit cap"
         )
 
     tx_gas_limit = (
@@ -690,7 +693,8 @@ def test_tx_gas_limit_cap_authorized_tx(
         )
     else:
         assert correct_intrinsic_cost <= tx_gas_limit_cap, (
-            "Correct intrinsic cost should be less than or equal to the tx gas limit cap"
+            "Correct intrinsic cost should be less than or "
+            "equal to the tx gas limit cap"
         )
 
     tx_gas_limit = (

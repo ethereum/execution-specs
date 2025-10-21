@@ -1959,7 +1959,7 @@ def test_set_code_multiple_first_valid_authorization_tuples_same_signer(
 
 
 @pytest.mark.xdist_group(name="bigmem")
-def test_set_code_multiple_valid_authorization_tuples_same_signer_increasing_nonce(
+def test_set_code_multiple_valid_authorization_tuples_same_signer_increasing_nonce(  # noqa: E501
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
@@ -2011,7 +2011,7 @@ def test_set_code_multiple_valid_authorization_tuples_same_signer_increasing_non
 
 
 @pytest.mark.xdist_group(name="bigmem")
-def test_set_code_multiple_valid_authorization_tuples_same_signer_increasing_nonce_self_sponsored(
+def test_set_code_multiple_valid_authorization_tuples_same_signer_increasing_nonce_self_sponsored(  # noqa: E501
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
@@ -2063,7 +2063,7 @@ def test_set_code_multiple_valid_authorization_tuples_same_signer_increasing_non
     )
 
 
-def test_set_code_multiple_valid_authorization_tuples_first_invalid_same_signer(
+def test_set_code_multiple_valid_authorization_tuples_first_invalid_same_signer(  # noqa: E501
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:

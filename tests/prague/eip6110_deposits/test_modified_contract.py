@@ -66,8 +66,8 @@ DEFAULT_DEPOSIT_REQUEST_LOG_DATA_DICT = {
     "index_data": bytes(DEFAULT_DEPOSIT_REQUEST.index),
 }
 DEFAULT_REQUEST_LOG = create_deposit_log_bytes(
-    **DEFAULT_DEPOSIT_REQUEST_LOG_DATA_DICT
-)  # type: ignore
+    **DEFAULT_DEPOSIT_REQUEST_LOG_DATA_DICT  # type: ignore
+)
 
 
 @pytest.mark.parametrize(
@@ -84,7 +84,7 @@ DEFAULT_REQUEST_LOG = create_deposit_log_bytes(
             False,
             marks=pytest.mark.pre_alloc_group(
                 "deposit_extra_logs_no_event",
-                reason="Deposit contract with Transfer log but NO deposit event",
+                reason="Deposit contract with Transfer log NO deposit event",
             ),
         ),
     ],

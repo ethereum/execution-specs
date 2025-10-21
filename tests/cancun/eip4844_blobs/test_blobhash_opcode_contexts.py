@@ -289,7 +289,8 @@ def test_blobhash_opcode_contexts(
             )
             created_contract_address = compute_create_address(
                 address=factory_address,
-                nonce=1,  # the create contract will have nonce 1 for its first create
+                # the create contract will have nonce 1 for its first create
+                nonce=1,
                 salt=0,
                 initcode=BlobhashContext.INITCODE.code(
                     indexes=range(max_blobs_per_tx + 1)

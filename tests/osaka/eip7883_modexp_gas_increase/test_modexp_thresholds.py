@@ -658,7 +658,7 @@ def create_modexp_variable_gas_test_cases() -> Generator:
     │ IC9 │  S   │  =  │  B   │  N/A  │   N/A   │ Zero modulus handling                         │
     │ IC10│  S   │  =  │  B   │ False │  4080   │ Power-of-2 boundary with high bit             │
     └─────┴──────┴─────┴──────┴───────┴─────────┴───────────────────────────────────────────────┘
-    """  # noqa: W505
+    """  # noqa: W505, E501
     for (
         base,
         exponent,
@@ -726,5 +726,5 @@ def test_modexp_variable_gas_cost_exceed_tx_gas_cap(
     ├─────┼──────┼─────┼──────┼───────┼─────────┼───────────────────────────────────────────────┤
     │ Z16 │  L   │  <  │  C   │ False │520060928│ Zero base, zero exp, large modulus (gas cap)  |
     └─────┴──────┴─────┴──────┴───────┴─────────┴───────────────────────────────────────────────┘
-    """  # noqa: W505
+    """  # noqa: W505, E501
     state_test(pre=pre, tx=tx, post=post)

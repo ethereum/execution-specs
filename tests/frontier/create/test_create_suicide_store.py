@@ -34,9 +34,10 @@ class Operation(IntEnum):
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stCreateTest/CREATE_AcreateB_BSuicide_BStoreFiller.json",
     ],
     pr=["https://github.com/ethereum/execution-spec-tests/pull/1867"],
-    coverage_missed_reason="Converting solidity code result in following opcode not being used:"
-    "PUSH29, DUP4, DUP8, SWAP2, ISZERO, AND, MUL, DIV, CALLVALUE, EXTCODESIZE."
-    "Changed 0x11 address to new address (no check for precompile).",
+    coverage_missed_reason="Converting solidity code result in following "
+    "opcode not being used: PUSH29, DUP4, DUP8, SWAP2, ISZERO, AND, MUL, DIV, "
+    "CALLVALUE, EXTCODESIZE. Changed 0x11 address to new address (no check "
+    "for precompile).",
 )
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.with_all_create_opcodes

@@ -35,7 +35,9 @@ def gather_yaml_data(directory: Path) -> list[dict[str, str]]:  # noqa: D103
 
 def main() -> None:  # noqa: D103
     parser = argparse.ArgumentParser(
-        description="Concatenate the data from multiple data.yaml files into one JSON file."
+        description=(
+            "Concatenate the data from multiple data.yaml files into one JSON."
+        )
     )
     parser.add_argument(
         "-i",

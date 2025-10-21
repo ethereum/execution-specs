@@ -217,7 +217,8 @@ def generate_valid_blob_tests(
     )
     logger.debug(f"MAX_BLOBS_PER_TX value for fork {fork}: {max_blobs_per_tx}")
     logger.debug(
-        f"TARGET_BLOBS_PER_BLOCK value for fork {fork}: {target_blobs_per_block}"
+        f"TARGET_BLOBS_PER_BLOCK value for fork {fork}: "
+        f"{target_blobs_per_block}"
     )
 
     # Calculate ascending pattern that fits within target_blobs_per_block

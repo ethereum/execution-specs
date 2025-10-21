@@ -139,7 +139,7 @@ def authority_iterator(
             match current_authority_type:
                 case AddressType.EMPTY_ACCOUNT:
                     assert not self_sponsored, (
-                        "Self-sponsored empty-account authority is not supported"
+                        "Self-sponsored empty-account authority not supported"
                     )
                     yield AuthorityWithProperties(
                         authority=pre.fund_eoa(0),
@@ -539,7 +539,9 @@ def gas_test_parameter_args(
         pytest.param(
             {
                 "signer_type": SignerType.SINGLE_SIGNER,
-                "authorization_invalidity_type": AuthorizationInvalidityType.INVALID_NONCE,
+                "authorization_invalidity_type": (
+                    AuthorizationInvalidityType.INVALID_NONCE
+                ),
                 "authorizations_count": 1,
             },
             id="single_invalid_nonce_authorization_single_signer",
@@ -547,7 +549,9 @@ def gas_test_parameter_args(
         pytest.param(
             {
                 "signer_type": SignerType.SINGLE_SIGNER,
-                "authorization_invalidity_type": AuthorizationInvalidityType.INVALID_CHAIN_ID,
+                "authorization_invalidity_type": (
+                    AuthorizationInvalidityType.INVALID_CHAIN_ID
+                ),
                 "authorizations_count": 1,
             },
             id="single_invalid_authorization_invalid_chain_id_single_signer",
@@ -557,7 +561,9 @@ def gas_test_parameter_args(
                 "authority_type": AddressType.EOA_WITH_SET_CODE,
                 "signer_type": SignerType.MULTIPLE_SIGNERS,
                 "re_authorize": True,
-                "authorization_invalidity_type": AuthorizationInvalidityType.INVALID_NONCE,
+                "authorization_invalidity_type": (
+                    AuthorizationInvalidityType.INVALID_NONCE
+                ),
                 "authorizations_count": multiple_authorizations_count,
                 "invalid_authorization_index": 0,
             },
@@ -568,7 +574,9 @@ def gas_test_parameter_args(
                 "authority_type": AddressType.EOA_WITH_SET_CODE,
                 "signer_type": SignerType.MULTIPLE_SIGNERS,
                 "re_authorize": True,
-                "authorization_invalidity_type": AuthorizationInvalidityType.INVALID_NONCE,
+                "authorization_invalidity_type": (
+                    AuthorizationInvalidityType.INVALID_NONCE
+                ),
                 "authorizations_count": multiple_authorizations_count,
                 "invalid_authorization_index": multiple_authorizations_count
                 - 1,
@@ -578,7 +586,9 @@ def gas_test_parameter_args(
         pytest.param(
             {
                 "signer_type": SignerType.SINGLE_SIGNER,
-                "authorization_invalidity_type": AuthorizationInvalidityType.INVALID_NONCE,
+                "authorization_invalidity_type": (
+                    AuthorizationInvalidityType.INVALID_NONCE
+                ),
                 "authorizations_count": multiple_authorizations_count,
             },
             id="multiple_invalid_nonce_authorizations_single_signer",
@@ -586,7 +596,9 @@ def gas_test_parameter_args(
         pytest.param(
             {
                 "signer_type": SignerType.MULTIPLE_SIGNERS,
-                "authorization_invalidity_type": AuthorizationInvalidityType.INVALID_NONCE,
+                "authorization_invalidity_type": (
+                    AuthorizationInvalidityType.INVALID_NONCE
+                ),
                 "authorizations_count": multiple_authorizations_count,
             },
             id="multiple_invalid_nonce_authorizations_multiple_signers",
@@ -595,7 +607,9 @@ def gas_test_parameter_args(
             {
                 "signer_type": SignerType.MULTIPLE_SIGNERS,
                 "authority_type": AddressType.EOA,
-                "authorization_invalidity_type": AuthorizationInvalidityType.INVALID_NONCE,
+                "authorization_invalidity_type": (
+                    AuthorizationInvalidityType.INVALID_NONCE
+                ),
                 "self_sponsored": True,
                 "authorizations_count": multiple_authorizations_count,
             },
@@ -604,7 +618,9 @@ def gas_test_parameter_args(
         pytest.param(
             {
                 "signer_type": SignerType.SINGLE_SIGNER,
-                "authorization_invalidity_type": AuthorizationInvalidityType.INVALID_CHAIN_ID,
+                "authorization_invalidity_type": (
+                    AuthorizationInvalidityType.INVALID_CHAIN_ID
+                ),
                 "authorizations_count": multiple_authorizations_count,
             },
             id="multiple_invalid_chain_id_authorizations_single_signer",
@@ -619,7 +635,9 @@ def gas_test_parameter_args(
         pytest.param(
             {
                 "signer_type": SignerType.SINGLE_SIGNER,
-                "authorization_invalidity_type": AuthorizationInvalidityType.REPEATED_NONCE,
+                "authorization_invalidity_type": (
+                    AuthorizationInvalidityType.REPEATED_NONCE
+                ),
                 "authorizations_count": multiple_authorizations_count,
             },
             id="first_valid_then_single_repeated_nonce_authorization",
@@ -627,7 +645,9 @@ def gas_test_parameter_args(
         pytest.param(
             {
                 "signer_type": SignerType.MULTIPLE_SIGNERS,
-                "authorization_invalidity_type": AuthorizationInvalidityType.REPEATED_NONCE,
+                "authorization_invalidity_type": (
+                    AuthorizationInvalidityType.REPEATED_NONCE
+                ),
                 "authorizations_count": multiple_authorizations_count * 2,
             },
             id="first_valid_then_single_repeated_nonce_authorizations_multiple_signers",
@@ -658,7 +678,9 @@ def gas_test_parameter_args(
         ),
         pytest.param(
             {
-                "access_list_case": AccessListType.CONTAINS_AUTHORITY_AND_SET_CODE_ADDRESS,
+                "access_list_case": (
+                    AccessListType.CONTAINS_AUTHORITY_AND_SET_CODE_ADDRESS
+                ),
             },
             id="single_valid_authorization_with_authority_and_set_code_address_in_access_list",
         ),
@@ -798,7 +820,9 @@ def gas_test_parameter_args(
             pytest.param(
                 {
                     "signer_type": SignerType.SINGLE_SIGNER,
-                    "authorization_invalidity_type": AuthorizationInvalidityType.REPEATED_NONCE,
+                    "authorization_invalidity_type": (
+                        AuthorizationInvalidityType.REPEATED_NONCE
+                    ),
                     "authorizations_count": many_authorizations_count,
                 },
                 id="first_valid_then_many_duplicate_authorizations",

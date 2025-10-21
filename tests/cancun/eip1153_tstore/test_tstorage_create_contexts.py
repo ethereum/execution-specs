@@ -36,7 +36,8 @@ class InitcodeTestCases(PytestParameterEnum):
 
     ONLY_CONSTRUCTOR_CODE = {
         "description": (
-            "Test TLOAD and TSTORE behavior in contract constructor without deployed code"
+            "Test TLOAD and TSTORE behavior in contract constructor without"
+            " deployed code"
         ),
         "constructor_code": (
             # test creator's transient storage inaccessible from constructor
@@ -51,7 +52,8 @@ class InitcodeTestCases(PytestParameterEnum):
         "expected_storage": {0: 0x0000, 1: 0x0001},
     }
     IN_CONSTRUCTOR_AND_DEPLOYED_CODE = {
-        "description": "Test TLOAD and TSTORE behavior in contract constructor and deployed code",
+        "description": "Test TLOAD and TSTORE behavior in contract "
+        "constructor and deployed code",
         "constructor_code": (
             # test creator's transient storage inaccessible from constructor
             # code
@@ -69,7 +71,8 @@ class InitcodeTestCases(PytestParameterEnum):
     }
     ACROSS_CONSTRUCTOR_AND_DEPLOYED_CODE_V0 = {
         "description": (
-            "Test TSTORE behavior across contract constructor and deploy code. "
+            "Test TSTORE behavior across contract constructor "
+            "and deploy code. "
         ),
         "constructor_code": (
             # constructor code should be able to store its own transient
@@ -91,7 +94,8 @@ class InitcodeTestCases(PytestParameterEnum):
     }
     ACROSS_CONSTRUCTOR_AND_DEPLOYED_CODE_V1 = {
         "description": (
-            "Test TSTORE and TLOAD behavior across contract constructor and deploy code",
+            "Test TSTORE and TLOAD behavior across contract constructor "
+            "and deploy code",
         ),
         "constructor_code": (
             # test creator's transient storage inaccessible from constructor
@@ -122,7 +126,8 @@ class InitcodeTestCases(PytestParameterEnum):
     }
     NO_CONSTRUCTOR_CODE = {
         "description": (
-            "Test TLOAD and TSTORE behavior in contract deployed code with no constructor code"
+            "Test TLOAD and TSTORE behavior in contract deployed code with "
+            "no constructor code"
         ),
         "constructor_code": Bytecode(),
         "deploy_code": (

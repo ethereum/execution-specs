@@ -46,10 +46,11 @@ def precompile_addresses(fork: Fork) -> Iterator[Tuple[Address, bool]]:
     ],
     pr=["https://github.com/ethereum/execution-spec-tests/pull/1120"],
     coverage_missed_reason=(
-        "Original test saves variables to memory, loads from storage, uses calldataload to get "
-        "the precompile address to call, uses lt and gt to compare the gas differences, "
-        "sends non-zero data and value with the transaction, uses conditional jumps to save "
-        "different values to storage."
+        "Original test saves variables to memory, loads from storage, uses "
+        "calldataload to get the precompile address to call, uses lt and gt "
+        "to compare the gas differences, sends non-zero data and value with "
+        "the transaction, uses conditional jumps to save different values to "
+        "storage."
     ),
 )
 @pytest.mark.valid_from("Berlin")

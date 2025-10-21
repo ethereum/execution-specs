@@ -228,8 +228,8 @@ def test_warm_coinbase_gas_usage(
         code=code_gas_measure,
     )
 
-    if fork >= Shanghai:
-        expected_gas = GAS_REQUIRED_CALL_WARM_ACCOUNT  # Warm account access cost after EIP-3651
+    if fork >= Shanghai:  # Warm account access cost after EIP-3651
+        expected_gas = GAS_REQUIRED_CALL_WARM_ACCOUNT
     else:
         expected_gas = 2600  # Cold account access cost before EIP-3651
 

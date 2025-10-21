@@ -34,9 +34,10 @@ pytestmark = pytest.mark.ported_from(
         "https://github.com/ethereum/execution-spec-tests/pull/1067",
     ],
     coverage_missed_reason=(
-        "No longer used opcodes, SUB, GT, ISZERO, AND, CODESIZE, JUMP, some PUSH opcodes."
-        "Original test calls Blake2b in ConstantinopleFix (activation test), "
-        "which results in empty account code being triggered."
+        "No longer used opcodes, SUB, GT, ISZERO, AND, CODESIZE, JUMP, some "
+        "PUSH opcodes. Original test calls Blake2b in ConstantinopleFix "
+        "(activation test), which results in empty account code being "
+        "triggered."
     ),
 )
 

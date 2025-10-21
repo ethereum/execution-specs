@@ -1239,7 +1239,8 @@ def test_worst_precompile_fixed_cost(
     else:
         raise TypeError(
             "parameters must be a list of strings (hex) "
-            "or a list of byte-like objects (bytes, BytesConcatenation or FieldElement)."
+            "or a list of byte-like objects (bytes, BytesConcatenation or "
+            "FieldElement)."
         )
 
     padding_length = (32 - (len(concatenated_bytes) % 32)) % 32

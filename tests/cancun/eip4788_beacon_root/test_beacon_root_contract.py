@@ -782,8 +782,9 @@ def test_no_beacon_root_contract_at_transition(
 @pytest.mark.pre_alloc_group(
     "beacon_root_deploy_contract",
     reason=(
-        "This test is parametrized with a hard-coded address (the beacon root contract deployer "
-        "address); they can't be in the same pre alloc group."
+        "This test is parametrized with a hard-coded address (the beacon root "
+        "contract deployer address); they can't be in the same pre alloc "
+        "group."
     ),
 )
 def test_beacon_root_contract_deploy(

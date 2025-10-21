@@ -64,7 +64,7 @@ pytestmark = [
             None,
             id="g1_g2_and_inverse",
         ),
-        pytest.param(  # e(P,Q) · e(P,−Q) · e(−P,Q) · e(−P,−Q) == 1 (full sign cancellation)
+        pytest.param(  # e(P,Q) · e(P,−Q) · e(−P,Q) · e(−P,−Q) == 1
             Spec.G1
             + Spec.G2
             + Spec.G1

@@ -80,7 +80,8 @@ def test_worst_calldatacopy(
     min_gas = intrinsic_gas_calculator(calldata=data)
     if min_gas > gas_benchmark_value:
         pytest.skip(
-            "Minimum gas required for calldata ({min_gas}) is greater than the gas limit"
+            "Minimum gas required for calldata ({min_gas}) is greater "
+            "than the gas limit"
         )
 
     # We create the contract that will be doing the CALLDATACOPY multiple

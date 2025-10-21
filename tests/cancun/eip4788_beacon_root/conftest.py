@@ -55,9 +55,9 @@ def beacon_roots() -> Iterator[bytes]:
 
 
 @pytest.fixture
-def beacon_root(
+def beacon_root(  # noqa: D103
     request: pytest.FixtureRequest, beacon_roots: Iterator[bytes]
-) -> bytes:  # noqa: D103
+) -> bytes:
     return (
         Hash(request.param)
         if hasattr(request, "param")
@@ -144,7 +144,8 @@ def contract_call_code(
             0x01,
             Op.MLOAD(return_start),
         )
-        + Op.SSTORE(  # Save the length of the return value of the contract call
+        # Save the length of the return value of the contract call
+        + Op.SSTORE(
             0x02,
             Op.RETURNDATASIZE,
         )

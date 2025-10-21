@@ -139,9 +139,9 @@ def caller_tx(sender: EOA, caller_address: Address) -> Transaction:
 
 
 @pytest.fixture
-def post(
+def post(  # noqa: D103
     caller_address: Address, is_sufficient_gas: bool
-) -> Dict[Address, Account]:  # noqa: D103
+) -> Dict[Address, Account]:
     return {
         caller_address: Account(
             storage={0x00: 0x01 if is_sufficient_gas else 0x00}

@@ -311,7 +311,8 @@ def _exact_size_transactions_impl(
             )
         else:
             raise ValueError(
-                "Either specific_transaction_to_include or emit_logs_contract must be provided."
+                "Either specific_transaction_to_include or "
+                "emit_logs_contract must be provided."
             )
 
         transactions.append(last_tx)
@@ -410,7 +411,8 @@ def _exact_size_transactions_impl(
                             best_diff = adjusted_diff
                 else:
                     raise RuntimeError(
-                        "Failed to find a transaction that matches the target size."
+                        "Failed to find a transaction that matches "
+                        "the target size."
                     )
         else:
             transactions.append(empty_tx)
@@ -472,8 +474,9 @@ def test_block_at_rlp_size_limit_boundary(
     )
     block_rlp_size = get_block_rlp_size(transactions, gas_used=gas_used)
     assert block_rlp_size == block_size_limit, (
-        f"Block RLP size {block_rlp_size} does not exactly match limit {block_size_limit}, "
-        f"difference: {block_rlp_size - block_size_limit} bytes"
+        f"Block RLP size {block_rlp_size} does not exactly match "
+        f"limit {block_size_limit}, difference: "
+        f"{block_rlp_size - block_size_limit} bytes"
     )
 
     block = Block(
@@ -524,8 +527,9 @@ def test_block_rlp_size_at_limit_with_all_typed_transactions(
     )
     block_rlp_size = get_block_rlp_size(transactions, gas_used=gas_used)
     assert block_rlp_size == block_size_limit, (
-        f"Block RLP size {block_rlp_size} does not exactly match limit {block_size_limit}, "
-        f"difference: {block_rlp_size - block_size_limit} bytes"
+        f"Block RLP size {block_rlp_size} does not exactly match limit "
+        f"{block_size_limit}, difference: {block_rlp_size - block_size_limit} "
+        "bytes"
     )
 
     block = Block(txs=transactions)
@@ -567,8 +571,9 @@ def test_block_at_rlp_limit_with_logs(
 
     block_rlp_size = get_block_rlp_size(transactions, gas_used=gas_used)
     assert block_rlp_size == block_size_limit, (
-        f"Block RLP size {block_rlp_size} does not exactly match limit {block_size_limit}, "
-        f"difference: {block_rlp_size - block_size_limit} bytes"
+        f"Block RLP size {block_rlp_size} does not exactly match limit "
+        f"{block_size_limit}, difference: {block_rlp_size - block_size_limit} "
+        "bytes"
     )
 
     block = Block(txs=transactions)
@@ -627,8 +632,9 @@ def test_block_at_rlp_limit_with_withdrawals(
         transactions, gas_used=gas_used, withdrawals=withdrawals
     )
     assert block_rlp_size == block_size_limit, (
-        f"Block RLP size {block_rlp_size} does not exactly match limit {block_size_limit}, "
-        f"difference: {block_rlp_size - block_size_limit} bytes"
+        f"Block RLP size {block_rlp_size} does not exactly match limit "
+        f"{block_size_limit}, difference: {block_rlp_size - block_size_limit} "
+        "bytes"
     )
 
     block = Block(

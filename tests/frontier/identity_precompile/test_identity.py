@@ -36,7 +36,7 @@ from .common import CallArgs, generate_identity_call_bytecode
         "https://github.com/ethereum/tests/blob/v17.1/src/GeneralStateTestsFiller/stPreCompiledContracts2/CallIdentity_4_gas18Filler.json",
     ],
     pr=["https://github.com/ethereum/execution-spec-tests/pull/1344"],
-    coverage_missed_reason="MPT related coverage lost, not relevant to this test",
+    coverage_missed_reason="MPT related coverage lost, not relevant to test",
 )
 @pytest.mark.valid_from("Byzantium")
 @pytest.mark.parametrize("call_type", [Op.CALL, Op.CALLCODE])
@@ -161,7 +161,7 @@ def test_call_identity_precompile(
         "https://github.com/ethereum/tests/blob/v17.1/src/GeneralStateTestsFiller/stPreCompiledContracts2/CallIdentity_5Filler.json",
     ],
     pr=["https://github.com/ethereum/execution-spec-tests/pull/1344"],
-    coverage_missed_reason="MPT related coverage lost, not relevant to this test",
+    coverage_missed_reason="MPT related coverage lost, not relevant to test",
 )
 @pytest.mark.valid_from("Byzantium")
 @pytest.mark.parametrize("call_type", [Op.CALL, Op.CALLCODE])

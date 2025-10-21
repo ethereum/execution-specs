@@ -27,7 +27,7 @@ REFERENCE_SPEC_VERSION = ref_spec_7251.version
 
 @pytest.mark.pre_alloc_group(
     "separate",
-    reason="Deploys consolidation system contract at hardcoded predeploy address",
+    reason="Deploys consolidation system contract at hardcoded address",
 )
 @generate_system_contract_deploy_test(
     fork=Prague,

@@ -214,28 +214,32 @@ class GasMeasureTestCases(PytestParameterEnum):
     """Test cases for gas measurement."""
 
     TLOAD = {
-        "description": "Test that tload() of an empty slot consumes the expected gas.",
+        "description": "Test that tload() of an empty slot consumes "
+        "the expected gas.",
         "bytecode": Op.TLOAD(10),
         "overhead_cost": 3,  # 1 x PUSH1
         "extra_stack_items": 1,
         "expected_gas": Spec.TLOAD_GAS_COST,
     }
     TSTORE_TLOAD = {
-        "description": "Test that tload() of a used slot consumes the expected gas.",
+        "description": "Test that tload() of a used slot consumes "
+        "the expected gas.",
         "bytecode": Op.TSTORE(10, 10) + Op.TLOAD(10),
         "overhead_cost": 3 * 3,  # 3 x PUSH1
         "extra_stack_items": 1,
         "expected_gas": Spec.TSTORE_GAS_COST + Spec.TLOAD_GAS_COST,
     }
     TSTORE_COLD = {
-        "description": "Test that tstore() of a previously unused slot consumes the expected gas.",
+        "description": "Test that tstore() of a previously unused "
+        "slot consumes the expected gas.",
         "bytecode": Op.TSTORE(10, 10),
         "overhead_cost": 2 * 3,  # 2 x PUSH1
         "extra_stack_items": 0,
         "expected_gas": Spec.TSTORE_GAS_COST,
     }
     TSTORE_WARM = {
-        "description": "Test that tstore() of a previously used slot consumes the expected gas.",
+        "description": "Test that tstore() of a previously used slot "
+        "consumes the expected gas.",
         "bytecode": Op.TSTORE(10, 10) + Op.TSTORE(10, 11),
         "overhead_cost": 4 * 3,  # 4 x PUSH1
         "extra_stack_items": 0,
@@ -284,7 +288,8 @@ class LoopRunUntilOutOfGasCases(PytestParameterEnum):
         "bytecode_repeat_times": 1000,
     }
     TSTORE_WIDE_ADDRESS_SPACE = {
-        "description": "Run tstore in loop until out of gas, using a wide address space",
+        "description": "Run tstore in loop until out of gas, using a "
+        "wide address space",
         "repeat_bytecode": Op.TSTORE(Op.ADD(Op.SHL(Op.PC, 1), Op.GAS), Op.GAS),
         "bytecode_repeat_times": 32,
     }

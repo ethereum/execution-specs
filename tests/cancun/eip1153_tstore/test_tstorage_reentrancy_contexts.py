@@ -40,9 +40,9 @@ class DynamicReentrancyTestCases(EnumMeta):
     (these opcodes should share the same behavior).
     """
 
-    def __new__(
+    def __new__(  # noqa: D102
         cls, name: str, bases: tuple[type, ...], classdict: Any
-    ) -> Any:  # noqa: D102
+    ) -> Any:
         for opcode in [Op.REVERT, Op.INVALID]:
             if opcode == Op.REVERT:
                 opcode_call = Op.REVERT(0, 0)

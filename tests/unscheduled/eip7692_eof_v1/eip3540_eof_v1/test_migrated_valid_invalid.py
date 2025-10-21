@@ -212,7 +212,8 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
                     Section.Data("aabb"),
                 ],
                 extra="ccdd",
-                expected_bytecode="ef0001 010004 0200010001 ff0002 00 00800000 fe aabbccdd",
+                expected_bytecode="ef0001 010004 "
+                "0200010001 ff0002 00 00800000 fe aabbccdd",
             ),
             EOFException.INVALID_SECTION_BODIES_SIZE,
             id="EOF1I3540_0035_trailing_bytes_after_data_section",
@@ -247,7 +248,8 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
             # Multiple code and data sections
             Container(
                 raw_bytes=bytes.fromhex(
-                    "ef000101000802000200010001ff0002ff0002000000000000000000fefeaabbaabb"
+                    "ef000101000802"
+                    "000200010001ff0002ff0002000000000000000000fefeaabbaabb"
                 )
             ),
             [

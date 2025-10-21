@@ -191,8 +191,9 @@ def execution_gas_used(
     execution_gas = prefix_code_gas
 
     assert execution_gas_cost(execution_gas) < tx_floor_data_cost, (
-        "tx_floor_data_cost is too low, there might have been a gas cost change that caused this "
-        "test to fail. Try increasing the intrinsic_gas_data_floor_minimum_delta fixture."
+        "tx_floor_data_cost is too low, there might have been a gas cost "
+        "change that caused this test to fail. Try increasing the "
+        "intrinsic_gas_data_floor_minimum_delta fixture."
     )
 
     # Dumb for-loop to find the execution gas cost that will result in the

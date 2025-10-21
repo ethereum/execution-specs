@@ -223,14 +223,19 @@ def precompile_gas(
         calculated_gas = spec.calculate_gas_cost(modexp_input)
         if gas_old is not None and gas_new is not None:
             expected_gas = gas_old if fork < Osaka else gas_new
-            assert calculated_gas == expected_gas, (
-                f"Calculated gas {calculated_gas} != Vector gas {expected_gas}\n"
-                f"Lengths: base: {hex(len(modexp_input.base))} ({len(modexp_input.base)}), "
-                f"exponent: {hex(len(modexp_input.exponent))} ({len(modexp_input.exponent)}), "
-                f"modulus: {hex(len(modexp_input.modulus))} ({len(modexp_input.modulus)})\n"
-                f"Exponent: {modexp_input.exponent} "
-                f"({int.from_bytes(modexp_input.exponent, byteorder='big')})"
+            base_len = len(modexp_input.base)
+            exp_len = len(modexp_input.exponent)
+            mod_len = len(modexp_input.modulus)
+            exp_int = int.from_bytes(modexp_input.exponent, byteorder="big")
+            error_msg = (
+                f"Calculated gas {calculated_gas} != "
+                f"Vector gas {expected_gas}\n"
+                f"Lengths: base: {hex(base_len)} ({base_len}), "
+                f"exponent: {hex(exp_len)} ({exp_len}), "
+                f"modulus: {hex(mod_len)} ({mod_len})\n"
+                f"Exponent: {modexp_input.exponent} ({exp_int})"
             )
+            assert calculated_gas == expected_gas, error_msg
         return calculated_gas
     except Exception:
         # Used for `test_modexp_invalid_inputs` we expect the call to not

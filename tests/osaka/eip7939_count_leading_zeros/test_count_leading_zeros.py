@@ -41,7 +41,8 @@ def clz_parameters() -> list:
         expected_clz = bits
         assert expected_clz == Spec.calculate_clz(value), (
             f"CLZ calculation mismatch for leading_zeros_{bits}: "
-            f"manual={expected_clz}, spec={Spec.calculate_clz(value)}, value={hex(value)}"
+            f"manual={expected_clz}, spec={Spec.calculate_clz(value)}, "
+            f"value={hex(value)}"
         )
         test_cases.append((f"leading_zeros_{bits}", value, expected_clz))
 
@@ -56,7 +57,8 @@ def clz_parameters() -> list:
             expected_clz = 255 - bits
         assert expected_clz == Spec.calculate_clz(value), (
             f"CLZ calculation mismatch for single_bit_{bits}: "
-            f"manual={expected_clz}, spec={Spec.calculate_clz(value)}, value={hex(value)}"
+            f"manual={expected_clz}, spec={Spec.calculate_clz(value)}, "
+            f"value={hex(value)}"
         )
         test_cases.append((f"single_bit_{bits}", value, expected_clz))
 
