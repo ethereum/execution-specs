@@ -11,7 +11,7 @@ N/A.
 
 - [ ] All: Ran fast `tox` checks to avoid unnecessary CI fails, see also [Code Standards](https://eest.ethereum.org/main/getting_started/code_standards/) and [Enabling Pre-commit Checks](https://eest.ethereum.org/main/dev/precommit/):
     ```console
-    uvx --with=tox-uv tox -e lint,typecheck,spellcheck,markdownlint
+    uvx --with=tox-uv tox -e static
     ```
 - [ ] All: PR title adheres to the [repo standard](https://eest.ethereum.org/main/getting_started/contributing/?h=contri#commit-messages-issue-and-pr-titles) - it will be used as the squash commit message and should start `type(scope):`.
 - [ ] All: Considered adding an entry to [CHANGELOG.md](/ethereum/execution-spec-tests/blob/main/docs/CHANGELOG.md).
