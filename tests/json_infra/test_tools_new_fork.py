@@ -67,4 +67,7 @@ def test_end_to_end() -> None:
             assert "MAX_BLOB_GAS_PER_BLOCK = U64(99)" in f.read()
 
         with (fork_dir / "trie.py").open("r") as f:
-            assert "from ethereum.forks.paris import trie as previous_trie" in f.read()
+            assert (
+                "from ethereum.forks.paris import trie as previous_trie"
+                in f.read()
+            )

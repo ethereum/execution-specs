@@ -155,7 +155,9 @@ class _FixturesDownloader:
             # Track the cache keys we've hit this session so we don't delete
             # them.
             all_responses = [response] + response.history
-            current_keys = set(self.cache.create_key(request=r.request) for r in all_responses)
+            current_keys = set(
+                self.cache.create_key(request=r.request) for r in all_responses
+            )
             self.keep_cache_keys.update(current_keys)
 
             with tarfile.open(fileobj=response.raw, mode="r:gz") as tar:
@@ -214,7 +216,9 @@ class _FixturesDownloader:
         assert not self.keep_cache_keys
         return self
 
-    def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
+    def __exit__(
+        self, exc_type: object, exc_value: object, traceback: object
+    ) -> None:
         del exc_type, exc_value, traceback
         cached = self.cache.filter(expired=True, invalid=True)
         to_delete = set(x.cache_key for x in cached) - self.keep_cache_keys
@@ -247,7 +251,9 @@ def pytest_sessionstart(session: Session) -> None:
             os.makedirs(os.path.dirname(fixture_path), exist_ok=True)
 
             if "commit_hash" in props:
-                downloader.fetch_git(props["url"], fixture_path, props["commit_hash"])
+                downloader.fetch_git(
+                    props["url"], fixture_path, props["commit_hash"]
+                )
             else:
                 downloader.fetch_http(
                     props["url"],

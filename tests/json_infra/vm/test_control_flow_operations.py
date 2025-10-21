@@ -9,7 +9,10 @@ from ..helpers.load_vm_tests import VmTestLoader
 from . import FORKS
 
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
-TEST_DIR = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/VMTests/vmIOandFlowOperations"
+TEST_DIR = (
+    f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/VMTests/"
+    "vmIOandFlowOperations"
+)
 
 
 @pytest.mark.vm_test
@@ -87,9 +90,13 @@ TEST_DIR = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/VMTests/vmIOandFlo
         ("stack_loop.json", True),
     ],
 )
-def test_jump(fork: Tuple[str, str], test_file: str, check_gas_left: bool) -> None:
+def test_jump(
+    fork: Tuple[str, str], test_file: str, check_gas_left: bool
+) -> None:
     """Tests JUMP operations using VM test fixtures."""
-    VmTestLoader(*fork).run_test(TEST_DIR, test_file, check_gas_left=check_gas_left)
+    VmTestLoader(*fork).run_test(
+        TEST_DIR, test_file, check_gas_left=check_gas_left
+    )
 
 
 @pytest.mark.vm_test
@@ -130,9 +137,13 @@ def test_jump(fork: Tuple[str, str], test_file: str, check_gas_left: bool) -> No
         ("BlockNumberDynamicJumpiOutsideBoundary.json", True),
     ],
 )
-def test_jumpi(fork: Tuple[str, str], test_file: str, check_gas_left: bool) -> None:
+def test_jumpi(
+    fork: Tuple[str, str], test_file: str, check_gas_left: bool
+) -> None:
     """Tests JUMPI operations using VM test fixtures."""
-    VmTestLoader(*fork).run_test(TEST_DIR, test_file, check_gas_left=check_gas_left)
+    VmTestLoader(*fork).run_test(
+        TEST_DIR, test_file, check_gas_left=check_gas_left
+    )
 
 
 @pytest.mark.vm_test

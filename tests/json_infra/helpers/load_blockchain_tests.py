@@ -72,7 +72,9 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
         chain_id=U64(json_data["genesisBlockHeader"].get("chainId", 1)),
     )
 
-    mock_pow = json_data["sealEngine"] == "NoProof" and not load.fork.proof_of_stake
+    mock_pow = (
+        json_data["sealEngine"] == "NoProof" and not load.fork.proof_of_stake
+    )
 
     for json_block in json_data["blocks"]:
         block_exception = None
@@ -100,7 +102,9 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
     load.fork.close_state(expected_post_state)
 
 
-def add_block_to_chain(chain: Any, json_block: Any, load: Load, mock_pow: bool) -> None:
+def add_block_to_chain(
+    chain: Any, json_block: Any, load: Load, mock_pow: bool
+) -> None:
     """Add a block from JSON data to the blockchain chain."""
     (
         block,
@@ -114,7 +118,9 @@ def add_block_to_chain(chain: Any, json_block: Any, load: Load, mock_pow: bool) 
     if not mock_pow:
         load.fork.state_transition(chain, block)
     else:
-        fork_module = importlib.import_module(f"ethereum.forks.{load.fork.fork_module}.fork")
+        fork_module = importlib.import_module(
+            f"ethereum.forks.{load.fork.fork_module}.fork"
+        )
         with patch.object(
             fork_module,
             "validate_proof_of_work",
@@ -171,7 +177,9 @@ def fetch_blockchain_tests(
     # and ethereum_tests_path
     all_jsons = []
     for test_dir in test_dirs:
-        all_jsons.extend(glob(os.path.join(test_dir, "**/*.json"), recursive=True))
+        all_jsons.extend(
+            glob(os.path.join(test_dir, "**/*.json"), recursive=True)
+        )
 
     files_to_iterate = []
     for full_path in all_jsons:
@@ -186,13 +194,23 @@ def fetch_blockchain_tests(
             for _test_case in load_json_fixture(_test_file, json_fork):
                 # _identifier could identify files, folders through test_file
                 #  individual cases through test_key
-                _identifier = "(" + _test_case["test_file"] + "|" + _test_case["test_key"] + ")"
+                _identifier = (
+                    "("
+                    + _test_case["test_file"]
+                    + "|"
+                    + _test_case["test_key"]
+                    + ")"
+                )
                 _test_case["eels_fork"] = eels_fork
-                if any(x.search(_identifier) for x in test_patterns.expected_fail):
+                if any(
+                    x.search(_identifier) for x in test_patterns.expected_fail
+                ):
                     continue
                 elif any(x.search(_identifier) for x in test_patterns.slow):
                     yield pytest.param(_test_case, marks=pytest.mark.slow)
-                elif any(x.search(_identifier) for x in test_patterns.big_memory):
+                elif any(
+                    x.search(_identifier) for x in test_patterns.big_memory
+                ):
                     yield pytest.param(_test_case, marks=pytest.mark.bigmem)
                 else:
                     yield _test_case

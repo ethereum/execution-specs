@@ -61,7 +61,9 @@ class VmTestLoader:
     def _module(self, name: str) -> Any:
         return import_module(f"ethereum.forks.{self.fork_name}.{name}")
 
-    def run_test(self, test_dir: str, test_file: str, check_gas_left: bool = True) -> None:
+    def run_test(
+        self, test_dir: str, test_file: str, check_gas_left: bool = True
+    ) -> None:
         """
         Execute a test case and check its post state.
         """
@@ -81,7 +83,10 @@ class VmTestLoader:
         if test_data["has_post_state"]:
             if check_gas_left:
                 assert output.gas_left == test_data["expected_gas_left"]
-            assert keccak256(rlp.encode(output.logs)) == test_data["expected_logs_hash"]
+            assert (
+                keccak256(rlp.encode(output.logs))
+                == test_data["expected_logs_hash"]
+            )
             # We are checking only the storage here and not the whole state,
             # as the balances in the testcases don't change even though
             # some value is transferred along with code invocation.
@@ -133,8 +138,12 @@ class VmTestLoader:
             "tx": tx,
             "expected_gas_left": hex_to_u256(json_data.get("gas", "0x64")),
             "expected_logs_hash": hex_to_bytes(json_data.get("logs", "0x00")),
-            "expected_post_state": self.json_to_state(json_data.get("post", {})),
-            "post_state_addresses": self.json_to_addrs(json_data.get("post", {})),
+            "expected_post_state": self.json_to_state(
+                json_data.get("post", {})
+            ),
+            "post_state_addresses": self.json_to_addrs(
+                json_data.get("post", {})
+            ),
             "has_post_state": bool(json_data.get("post", {})),
         }
 
@@ -147,7 +156,9 @@ class VmTestLoader:
         # Hence creating a dummy caller state.
         if caller_hex_address not in json_data["pre"]:
             value = json_data["exec"]["value"]
-            json_data["pre"][caller_hex_address] = self.get_dummy_account_state(value)
+            json_data["pre"][caller_hex_address] = (
+                self.get_dummy_account_state(value)
+            )
 
         current_state = self.json_to_state(json_data["pre"])
 

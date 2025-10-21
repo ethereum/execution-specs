@@ -55,10 +55,14 @@ def test_epoch_start_and_end_blocks_have_same_epoch() -> None:
     for _ in range(100):
         block_number = Uint(randint(10**9, 2 * (10**9)))
         epoch_start_block_number = (block_number // EPOCH_SIZE) * EPOCH_SIZE
-        epoch_end_block_number = epoch_start_block_number + EPOCH_SIZE - Uint(1)
+        epoch_end_block_number = (
+            epoch_start_block_number + EPOCH_SIZE - Uint(1)
+        )
 
         assert (
-            epoch(block_number) == epoch(epoch_start_block_number) == epoch(epoch_end_block_number)
+            epoch(block_number)
+            == epoch(epoch_start_block_number)
+            == epoch(epoch_end_block_number)
         )
 
 
@@ -67,7 +71,11 @@ def test_cache_size_1st_epoch() -> None:
     Tests that cache size calculation works correctly for the
     first epoch.
     """
-    assert cache_size(Uint(0)) == cache_size(Uint(0) + EPOCH_SIZE - Uint(1)) == 16776896
+    assert (
+        cache_size(Uint(0))
+        == cache_size(Uint(0) + EPOCH_SIZE - Uint(1))
+        == 16776896
+    )
     assert is_prime(cache_size(Uint(0)) // HASH_BYTES)
 
 
@@ -79,13 +87,18 @@ def test_cache_size_2048_epochs() -> None:
     cache_size_2048_epochs = json.loads(
         cast(
             bytes,
-            pkgutil.get_data("ethereum", "assets/cache_sizes_2048_epochs.json"),
+            pkgutil.get_data(
+                "ethereum", "assets/cache_sizes_2048_epochs.json"
+            ),
         ).decode()
     )
     assert len(cache_size_2048_epochs) == 2048
 
     for epoch_number in range(2048):
-        assert cache_size(Uint(epoch_number) * EPOCH_SIZE) == cache_size_2048_epochs[epoch_number]
+        assert (
+            cache_size(Uint(epoch_number) * EPOCH_SIZE)
+            == cache_size_2048_epochs[epoch_number]
+        )
 
 
 def test_epoch_start_and_end_blocks_have_same_cache_size() -> None:
@@ -93,7 +106,9 @@ def test_epoch_start_and_end_blocks_have_same_cache_size() -> None:
     for _ in range(100):
         block_number = Uint(randint(10**9, 2 * (10**9)))
         epoch_start_block_number = (block_number // EPOCH_SIZE) * EPOCH_SIZE
-        epoch_end_block_number = epoch_start_block_number + EPOCH_SIZE - Uint(1)
+        epoch_end_block_number = (
+            epoch_start_block_number + EPOCH_SIZE - Uint(1)
+        )
 
         assert (
             cache_size(block_number)
@@ -108,7 +123,9 @@ def test_dataset_size_1st_epoch() -> None:
     first epoch.
     """
     assert (
-        dataset_size(Uint(0)) == dataset_size(Uint(0) + EPOCH_SIZE - Uint(1)) == Uint(1073739904)
+        dataset_size(Uint(0))
+        == dataset_size(Uint(0) + EPOCH_SIZE - Uint(1))
+        == Uint(1073739904)
     )
     assert is_prime(dataset_size(Uint(0)) // MIX_BYTES)
 
@@ -121,14 +138,17 @@ def test_dataset_size_2048_epochs() -> None:
     dataset_size_2048_epochs = json.loads(
         cast(
             bytes,
-            pkgutil.get_data("ethereum", "assets/dataset_sizes_2048_epochs.json"),
+            pkgutil.get_data(
+                "ethereum", "assets/dataset_sizes_2048_epochs.json"
+            ),
         ).decode()
     )
     assert len(dataset_size_2048_epochs) == 2048
 
     for epoch_number in range(2048):
         assert (
-            dataset_size(Uint(epoch_number) * EPOCH_SIZE) == dataset_size_2048_epochs[epoch_number]
+            dataset_size(Uint(epoch_number) * EPOCH_SIZE)
+            == dataset_size_2048_epochs[epoch_number]
         )
 
 
@@ -137,7 +157,9 @@ def test_epoch_start_and_end_blocks_have_same_dataset_size() -> None:
     for _ in range(100):
         block_number = Uint(randint(10**9, 2 * (10**9)))
         epoch_start_block_number = (block_number // EPOCH_SIZE) * EPOCH_SIZE
-        epoch_end_block_number = epoch_start_block_number + EPOCH_SIZE - Uint(1)
+        epoch_end_block_number = (
+            epoch_start_block_number + EPOCH_SIZE - Uint(1)
+        )
 
         assert (
             dataset_size(block_number)
@@ -151,7 +173,11 @@ def test_seed() -> None:
     Tests that seed generation produces expected values for known
     block numbers.
     """
-    assert generate_seed(Uint(0)) == generate_seed(Uint(0) + EPOCH_SIZE - Uint(1)) == b"\x00" * 32
+    assert (
+        generate_seed(Uint(0))
+        == generate_seed(Uint(0) + EPOCH_SIZE - Uint(1))
+        == b"\x00" * 32
+    )
     assert (
         generate_seed(Uint(EPOCH_SIZE))
         == generate_seed(Uint(2) * EPOCH_SIZE - Uint(1))
@@ -160,7 +186,8 @@ def test_seed() -> None:
     # NOTE: The below bytes value was obtained by obtaining the seed for the
     # same block number from Geth.
     assert generate_seed(Uint(12345678)) == (
-        b"[\x8c\xa5\xaaC\x05\xae\xed<\x87\x1d\xbc\xabQBGj\xfd;\x9cJ\x98\xf6Dq\\z\xaao\x1c\xf7\x03"
+        b"[\x8c\xa5\xaaC\x05\xae\xed<\x87\x1d\xbc\xabQBGj\xfd;\x9cJ\x98\xf6Dq\\z"
+        b"\xaao\x1c\xf7\x03"
     )
 
 
@@ -169,7 +196,9 @@ def test_epoch_start_and_end_blocks_have_same_seed() -> None:
     for _ in range(100):
         block_number = Uint(randint(10000, 20000))
         epoch_start_block_number = (block_number // EPOCH_SIZE) * EPOCH_SIZE
-        epoch_end_block_number = epoch_start_block_number + EPOCH_SIZE - Uint(1)
+        epoch_end_block_number = (
+            epoch_start_block_number + EPOCH_SIZE - Uint(1)
+        )
 
         assert (
             generate_seed(epoch_start_block_number)
@@ -180,7 +209,8 @@ def test_epoch_start_and_end_blocks_have_same_seed() -> None:
 
 @pytest.mark.slow
 @pytest.mark.parametrize(
-    "block_number, block_difficulty, header_hash, nonce, expected_mix_digest, expected_result",
+    "block_number, block_difficulty, header_hash, nonce, expected_mix_digest, "
+    "expected_result",
     [
         [
             Uint(1),
@@ -243,7 +273,9 @@ def test_pow_random_blocks(
 #
 
 
-def generate_dag_via_geth(geth_path: str, block_number: Uint, dag_dump_dir: str) -> None:
+def generate_dag_via_geth(
+    geth_path: str, block_number: Uint, dag_dump_dir: str
+) -> None:
     """Generates DAG dataset using geth for comparison testing."""
     subprocess.call([geth_path, "makedag", str(block_number), dag_dump_dir])
 

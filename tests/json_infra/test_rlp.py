@@ -44,7 +44,9 @@ def ethtest_fixtures_as_pytest_fixtures(
 
     pytest_fixtures = []
     for test_details in test_data.values():
-        if isinstance(test_details["in"], str) and test_details["in"].startswith("#"):
+        if isinstance(test_details["in"], str) and test_details[
+            "in"
+        ].startswith("#"):
             test_details["in"] = int(test_details["in"][1:])
 
         pytest_fixtures.append(
@@ -84,7 +86,9 @@ def test_ethtest_fixtures_for_successfully_rlp_decoding(
     "_raw_data, encoded_data",
     ethtest_fixtures_as_pytest_fixtures("invalidRLPTest.json"),
 )
-def test_ethtest_fixtures_for_fails_in_rlp_decoding(_raw_data: Bytes, encoded_data: Bytes) -> None:
+def test_ethtest_fixtures_for_fails_in_rlp_decoding(
+    _raw_data: Bytes, encoded_data: Bytes
+) -> None:
     """Tests that invalid RLP data properly raises decoding errors."""
     with pytest.raises(rlp.DecodingError):
         rlp.decode(encoded_data)

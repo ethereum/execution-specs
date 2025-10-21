@@ -9,8 +9,14 @@ from ..helpers.load_vm_tests import VmTestLoader
 from . import FORKS
 
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
-PUSH_TEST_DIR = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/VMTests/vmPushDupSwapTest"
-POP_TEST_DIR = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/VMTests/vmIOandFlowOperations"
+PUSH_TEST_DIR = (
+    f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/VMTests/"
+    "vmPushDupSwapTest"
+)
+POP_TEST_DIR = (
+    f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/VMTests/"
+    "vmIOandFlowOperations"
+)
 
 DUP_TEST_DIR = SWAP_TEST_DIR = PUSH_TEST_DIR
 
@@ -25,12 +31,16 @@ DUP_TEST_DIR = SWAP_TEST_DIR = PUSH_TEST_DIR
         ("push32AndSuicide.json", False),
     ],
 )
-def test_push_successfully(fork: Tuple[str, str], test_file: str, check_gas_left: bool) -> None:
+def test_push_successfully(
+    fork: Tuple[str, str], test_file: str, check_gas_left: bool
+) -> None:
     """
     Tests successful PUSH operations using VM test
     fixtures.
     """
-    VmTestLoader(*fork).run_test(PUSH_TEST_DIR, test_file, check_gas_left=check_gas_left)
+    VmTestLoader(*fork).run_test(
+        PUSH_TEST_DIR, test_file, check_gas_left=check_gas_left
+    )
 
 
 @pytest.mark.vm_test

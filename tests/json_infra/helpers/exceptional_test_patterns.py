@@ -20,7 +20,9 @@ class TestPatterns:
     big_memory: Tuple[Pattern[str], ...]
 
 
-def exceptional_blockchain_test_patterns(json_fork: str, eels_fork: str) -> TestPatterns:
+def exceptional_blockchain_test_patterns(
+    json_fork: str, eels_fork: str
+) -> TestPatterns:
     """
     Returns patterns for slow, ignored, and big-memory tests
     for a given json_fork and eels_fork.
@@ -102,7 +104,9 @@ def exceptional_blockchain_test_patterns(json_fork: str, eels_fork: str) -> Test
     )
 
 
-def exceptional_state_test_patterns(json_fork: str, eels_fork: str) -> TestPatterns:
+def exceptional_state_test_patterns(
+    json_fork: str, eels_fork: str
+) -> TestPatterns:
     """
     Returns patterns for slow, ignored, and big-memory state tests for a
     given json_fork and eels_fork.
