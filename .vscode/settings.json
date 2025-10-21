@@ -1,0 +1,35 @@
+{
+    // Settings that users SHOULD adhere to when developing with the EEST repo.
+    "cSpell.customDictionaries": {
+        "project-words": {
+            "name": "project-words",
+            "path": "${workspaceRoot}/whitelist.txt",
+            "description": "Words used in this project",
+            "addWords": true
+        },
+        "custom": true,
+        "internal-terms": false
+    },
+    "[json]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[python]": {
+        "editor.rulers": [79],
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit",
+            "source.fixAll.ruff": "explicit",
+        },
+    },
+    "python.analysis.autoFormatStrings": true,
+    "ruff.enable": true,
+    "ruff.lineLength": 79,
+    "extensions.ignoreRecommendations": false,
+    "search.exclude": {
+        "tests/static": true
+    },
+    "files.watcherExclude": {
+        "tests/static": true
+    }
+}

@@ -1,0 +1,23 @@
+{
+    // List of extensions that MUST be used for users of the repo.
+    "recommendations": [
+        "ms-python.python",
+        "ms-python.mypy-type-checker",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+        "esbenp.prettier-vscode",
+        "njpwerner.autodocstring",
+        "streetsidesoftware.code-spell-checker",
+        "tamasfe.even-better-toml",
+        "bierner.markdown-mermaid",
+        "bpruitt-goddard.mermaid-markdown-syntax-highlighting",
+        "DavidAnson.vscode-markdownlint",
+        "soulcode.vscode-unwanted-extensions"
+    ],
+    // List of extensions that MUST NOT be used for users of the repo.
+    "unwantedRecommendations": [
+        "ms-python.black-formatter",
+        "ms-python.flake8",
+        "ms-python.isort"
+    ]
+}
