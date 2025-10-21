@@ -169,7 +169,9 @@ CALL_SUCCEED_CONTRACTS: List[Container] = [
         name="max_recursive_callf_memory",
         sections=[
             Section.Code(
-                code=(Op.PUSH1(1) + Op.PUSH0 + Op.MSTORE + Op.CALLF[1] + Op.STOP),
+                code=(
+                    Op.PUSH1(1) + Op.PUSH0 + Op.MSTORE + Op.CALLF[1] + Op.STOP
+                ),
             ),
             Section.Code(
                 code=(
@@ -306,7 +308,9 @@ List of all EOF V1 Containers used during execution tests.
 """
 
 
-@pytest.mark.parametrize("container", CALL_SUCCEED_CONTRACTS, ids=lambda x: x.name)
+@pytest.mark.parametrize(
+    "container", CALL_SUCCEED_CONTRACTS, ids=lambda x: x.name
+)
 def test_eof_functions_contract_call_succeed(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -317,7 +321,10 @@ def test_eof_functions_contract_call_succeed(
 
     sender = pre.fund_eoa()
     container_address = pre.deploy_contract(container)
-    caller_contract = Op.SSTORE(0, Op.CALL(Op.GAS, container_address, 0, 0, 0, 0, 0)) + Op.STOP()
+    caller_contract = (
+        Op.SSTORE(0, Op.CALL(Op.GAS, container_address, 0, 0, 0, 0, 0))
+        + Op.STOP()
+    )
     caller_address = pre.deploy_contract(caller_contract)
 
     tx = Transaction(
@@ -339,7 +346,9 @@ def test_eof_functions_contract_call_succeed(
     )
 
 
-@pytest.mark.parametrize("container", CALL_FAIL_CONTRACTS, ids=lambda x: x.name)
+@pytest.mark.parametrize(
+    "container", CALL_FAIL_CONTRACTS, ids=lambda x: x.name
+)
 def test_eof_functions_contract_call_fail(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -350,7 +359,10 @@ def test_eof_functions_contract_call_fail(
 
     sender = pre.fund_eoa()
     container_address = pre.deploy_contract(container)
-    caller_contract = Op.SSTORE(Op.CALL(Op.GAS, container_address, 0, 0, 0, 0, 0), 1) + Op.STOP()
+    caller_contract = (
+        Op.SSTORE(Op.CALL(Op.GAS, container_address, 0, 0, 0, 0, 0), 1)
+        + Op.STOP()
+    )
     caller_address = pre.deploy_contract(caller_contract)
 
     tx = Transaction(
@@ -384,7 +396,9 @@ def test_eof_functions_contract_call_within_deep_nested(
     """
     env = Environment()
 
-    nested_callee_address = pre.deploy_contract(code=Op.SSTORE(0, 1) + Op.STOP())
+    nested_callee_address = pre.deploy_contract(
+        code=Op.SSTORE(0, 1) + Op.STOP()
+    )
     contract_call_within_deep_nested_callf = Container(
         name="contract_call_within_deep_nested_callf",
         sections=[
@@ -415,7 +429,9 @@ def test_eof_functions_contract_call_within_deep_nested(
             )
         ],
     )
-    callee_address = pre.deploy_contract(contract_call_within_deep_nested_callf)
+    callee_address = pre.deploy_contract(
+        contract_call_within_deep_nested_callf
+    )
     sender = pre.fund_eoa()
 
     tx = Transaction(
@@ -427,7 +443,9 @@ def test_eof_functions_contract_call_within_deep_nested(
         sender=sender,
     )
     post = {
-        callee_address: Account(storage=dict.fromkeys(range(MAX_CODE_SECTIONS), 1)),
+        callee_address: Account(
+            storage=dict.fromkeys(range(MAX_CODE_SECTIONS), 1)
+        ),
         nested_callee_address: Account(
             storage={
                 0: 1,

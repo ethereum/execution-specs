@@ -152,7 +152,11 @@ def test_rjumpi_condition_zero(
         data=calldata,
         sender=sender,
     )
-    post = {contract_address: Account(storage={slot_code_worked: value_code_worked})}
+    post = {
+        contract_address: Account(
+            storage={slot_code_worked: value_code_worked}
+        )
+    }
     state_test(env=env, tx=tx, pre=pre, post=post)
 
 
@@ -262,7 +266,9 @@ def test_rjumpi_max_backward(
                     )
                 ],
             ),
-            container_post=Account(storage={slot_code_worked: value_code_worked}),
+            container_post=Account(
+                storage={slot_code_worked: value_code_worked}
+            ),
         ),
     )
 
@@ -284,7 +290,11 @@ def test_rjumpi_max_backward(
             name="forwards_rjumpi_1",
             sections=[
                 Section.Code(
-                    code=Op.PUSH0 + Op.PUSH1[0] + Op.RJUMPI[1] + Op.NOT + Op.STOP,
+                    code=Op.PUSH0
+                    + Op.PUSH1[0]
+                    + Op.RJUMPI[1]
+                    + Op.NOT
+                    + Op.STOP,
                     max_stack_increase=2,
                 ),
             ],
@@ -310,7 +320,11 @@ def test_rjumpi_max_backward(
             name="forwards_rjumpi_11",
             sections=[
                 Section.Code(
-                    code=Op.PUSH0 + Op.PUSH1[0] + Op.RJUMPI[3] + Op.RJUMP[0] + Op.STOP,
+                    code=Op.PUSH0
+                    + Op.PUSH1[0]
+                    + Op.RJUMPI[3]
+                    + Op.RJUMP[0]
+                    + Op.STOP,
                     max_stack_increase=2,
                 ),
             ],
@@ -320,7 +334,12 @@ def test_rjumpi_max_backward(
             name="forwards_rjumpi_12",
             sections=[
                 Section.Code(
-                    code=Op.PUSH0 + Op.PUSH1[0] + Op.RJUMPI[4] + Op.PUSH0 + Op.RJUMP[0] + Op.STOP,
+                    code=Op.PUSH0
+                    + Op.PUSH1[0]
+                    + Op.RJUMPI[4]
+                    + Op.PUSH0
+                    + Op.RJUMP[0]
+                    + Op.STOP,
                     max_stack_increase=2,
                 ),
             ],
@@ -346,7 +365,11 @@ def test_rjumpi_max_backward(
             name="forwards_rjumpi_3",
             sections=[
                 Section.Code(
-                    code=Op.PUSH0 + Op.PUSH1[0] + Op.RJUMPI[1] + Op.PUSH0 + Op.STOP,
+                    code=Op.PUSH0
+                    + Op.PUSH1[0]
+                    + Op.RJUMPI[1]
+                    + Op.PUSH0
+                    + Op.STOP,
                     max_stack_increase=2,
                 ),
             ],
@@ -757,7 +780,11 @@ def test_rjumpi_valid_forward(
             name="backwards_rjumpi_1",
             sections=[
                 Section.Code(
-                    code=Op.PUSH0 + Op.POP + Op.PUSH1[0] + Op.RJUMPI[-7] + Op.STOP,
+                    code=Op.PUSH0
+                    + Op.POP
+                    + Op.PUSH1[0]
+                    + Op.RJUMPI[-7]
+                    + Op.STOP,
                     max_stack_increase=1,
                 ),
             ],
@@ -783,7 +810,12 @@ def test_rjumpi_valid_forward(
             name="backwards_rjumpi_4",
             sections=[
                 Section.Code(
-                    code=Op.PUSH0 + Op.PUSH1[1] + Op.ADD + Op.DUP1 + Op.RJUMPI[-7] + Op.STOP,
+                    code=Op.PUSH0
+                    + Op.PUSH1[1]
+                    + Op.ADD
+                    + Op.DUP1
+                    + Op.RJUMPI[-7]
+                    + Op.STOP,
                     max_stack_increase=2,
                 ),
             ],
@@ -793,7 +825,11 @@ def test_rjumpi_valid_forward(
             name="backwards_rjumpi_7",
             sections=[
                 Section.Code(
-                    code=Op.PUSH0 + Op.POP + Op.PUSH1[0] + Op.RJUMPI[-7] + Op.RJUMP[-10],
+                    code=Op.PUSH0
+                    + Op.POP
+                    + Op.PUSH1[0]
+                    + Op.RJUMPI[-7]
+                    + Op.RJUMP[-10],
                     max_stack_increase=1,
                 ),
             ],
@@ -917,7 +953,11 @@ def test_rjumpi_max_bytecode_size(
     exceed the maximum bytecode size.
     """
     noop_count = MAX_BYTECODE_SIZE - 24
-    code = Op.RJUMPI[len(Op.NOOP) * noop_count](Op.ORIGIN) + (Op.NOOP * noop_count) + Op.STOP
+    code = (
+        Op.RJUMPI[len(Op.NOOP) * noop_count](Op.ORIGIN)
+        + (Op.NOOP * noop_count)
+        + Op.STOP
+    )
     container = Container.Code(code=code)
     assert len(container) == MAX_BYTECODE_SIZE
     eof_test(container=container)
@@ -1086,13 +1126,17 @@ def test_rjumpi_into_self(
     # Create variadic stack height by the parametrized spread.
     stack_spread_code = Bytecode()
     if stack_height_spread >= 0:
-        stack_spread_code = Op.RJUMPI[stack_height_spread](0) + Op.PUSH0 * stack_height_spread
+        stack_spread_code = (
+            Op.RJUMPI[stack_height_spread](0) + Op.PUSH0 * stack_height_spread
+        )
 
     eof_test(
         container=Container(
             sections=[
                 Section.Code(
-                    code=stack_spread_code + Op.RJUMPI[-len(Op.RJUMPI[0])](0) + Op.STOP,
+                    code=stack_spread_code
+                    + Op.RJUMPI[-len(Op.RJUMPI[0])](0)
+                    + Op.STOP,
                 )
             ],
         ),
@@ -1113,7 +1157,13 @@ def test_rjumpi_into_stack_height_diff(
                 Section.Code(
                     code=Op.PUSH1(0)
                     + Op.PUSH1(0)
-                    + Op.RJUMPI[-(len(Op.RJUMPI[0]) + len(Op.PUSH1(0)) + len(Op.PUSH1(0)))]
+                    + Op.RJUMPI[
+                        -(
+                            len(Op.RJUMPI[0])
+                            + len(Op.PUSH1(0))
+                            + len(Op.PUSH1(0))
+                        )
+                    ]
                     + Op.STOP,
                 ),
             ],
@@ -1133,7 +1183,11 @@ def test_rjumpi_into_stack_underflow(
         container=Container(
             sections=[
                 Section.Code(
-                    code=Op.ORIGIN + Op.RJUMPI[len(Op.STOP)] + Op.STOP + Op.POP + Op.STOP
+                    code=Op.ORIGIN
+                    + Op.RJUMPI[len(Op.STOP)]
+                    + Op.STOP
+                    + Op.POP
+                    + Op.STOP
                 ),
             ],
         ),
@@ -1151,7 +1205,9 @@ def test_rjumpi_skips_stack_underflow(
     eof_test(
         container=Container(
             sections=[
-                Section.Code(code=Op.ORIGIN + Op.RJUMPI[len(Op.POP)] + Op.POP + Op.STOP),
+                Section.Code(
+                    code=Op.ORIGIN + Op.RJUMPI[len(Op.POP)] + Op.POP + Op.STOP
+                ),
             ],
         ),
         expect_exception=EOFException.STACK_UNDERFLOW,
@@ -1201,7 +1257,9 @@ def test_rjumpi_into_rjumpi(
     )
 
 
-@pytest.mark.parametrize("jump", [JumpDirection.FORWARD, JumpDirection.BACKWARD])
+@pytest.mark.parametrize(
+    "jump", [JumpDirection.FORWARD, JumpDirection.BACKWARD]
+)
 def test_rjumpi_into_push_1(
     eof_test: EOFTestFiller,
     jump: JumpDirection,
@@ -1261,7 +1319,9 @@ def test_rjumpi_into_push_1(
         Op.PUSH32,
     ],
 )
-@pytest.mark.parametrize("jump", [JumpDirection.FORWARD, JumpDirection.BACKWARD])
+@pytest.mark.parametrize(
+    "jump", [JumpDirection.FORWARD, JumpDirection.BACKWARD]
+)
 @pytest.mark.parametrize(
     "data_portion_end",
     [True, False],
@@ -1309,7 +1369,9 @@ def test_rjumpi_into_rjumpv(
     EOF1I4200_0025 (Invalid) EOF code containing RJUMPI with target RJUMPV
     immediate.
     """
-    invalid_destination = 4 + (2 * target_rjumpv_table_size) if data_portion_end else 4
+    invalid_destination = (
+        4 + (2 * target_rjumpv_table_size) if data_portion_end else 4
+    )
     target_jump_table = [0 for _ in range(target_rjumpv_table_size)]
     eof_test(
         container=Container(
@@ -1346,7 +1408,10 @@ def test_rjumpi_into_callf(
         container=Container(
             sections=[
                 Section.Code(
-                    code=Op.PUSH1(1) + Op.RJUMPI[invalid_destination] + Op.CALLF[1] + Op.STOP,
+                    code=Op.PUSH1(1)
+                    + Op.RJUMPI[invalid_destination]
+                    + Op.CALLF[1]
+                    + Op.STOP,
                 ),
                 Section.Code(
                     code=Op.SSTORE(1, 1) + Op.RETF,
@@ -1433,7 +1498,10 @@ def test_rjumpi_into_eofcreate(
         container=Container(
             sections=[
                 Section.Code(
-                    code=Op.PUSH0 * 5 + Op.RJUMPI[1] + Op.EOFCREATE[0] + Op.STOP,
+                    code=Op.PUSH0 * 5
+                    + Op.RJUMPI[1]
+                    + Op.EOFCREATE[0]
+                    + Op.STOP,
                 ),
                 Section.Container(
                     container=Container(
@@ -1467,7 +1535,9 @@ def test_rjumpi_into_returncode(
                     container=Container(
                         sections=[
                             Section.Code(
-                                code=Op.PUSH0 * 3 + Op.RJUMPI[1] + Op.RETURNCODE[0],
+                                code=Op.PUSH0 * 3
+                                + Op.RJUMPI[1]
+                                + Op.RETURNCODE[0],
                             ),
                             Section.Container(
                                 container=Container.Code(code=Op.STOP),
@@ -1508,7 +1578,9 @@ def test_rjumpi_stack_validation(
     Spec now allows this: 4.b in
     https://github.com/ipsilon/eof/blob/main/spec/eof.md#stack-validation.
     """
-    container = Container.Code(code=Op.RJUMPI[1](1) + Op.ADDRESS + Op.NOOP + Op.STOP)
+    container = Container.Code(
+        code=Op.RJUMPI[1](1) + Op.ADDRESS + Op.NOOP + Op.STOP
+    )
     eof_test(
         container=container,
         expect_exception=None,
@@ -1528,7 +1600,11 @@ def test_rjumpi_at_the_end(
         container=Container(
             sections=[
                 Section.Code(
-                    code=Op.PUSH0 + Op.PUSH0 + Op.RJUMPI[1] + Op.STOP + Op.RJUMPI[-4],
+                    code=Op.PUSH0
+                    + Op.PUSH0
+                    + Op.RJUMPI[1]
+                    + Op.STOP
+                    + Op.RJUMPI[-4],
                 )
             ],
         ),
@@ -1654,7 +1730,9 @@ def test_double_rjumpi_stack_height_mismatch(
                     + Op.PUSH0  # (1, 1)
                     + Op.RJUMPI[3]  # (2, 2) to LAST
                     + Op.RJUMPI[0]  # (1, 1) to LAST
-                    + Op.RJUMP[-11],  # LAST: (0, 1) to BEGIN; stack height mismatch
+                    + Op.RJUMP[
+                        -11
+                    ],  # LAST: (0, 1) to BEGIN; stack height mismatch
                     max_stack_increase=2,
                 ),
             ],
@@ -1883,4 +1961,7 @@ def test_rjumpi_backward_invalid_max_stack_height(
     Validate a code section containing at least one backward RJUMPI invalid
     because of the incorrect max stack height.
     """
-    eof_test(container=container, expect_exception=EOFException.STACK_HEIGHT_MISMATCH)
+    eof_test(
+        container=container,
+        expect_exception=EOFException.STACK_HEIGHT_MISMATCH,
+    )

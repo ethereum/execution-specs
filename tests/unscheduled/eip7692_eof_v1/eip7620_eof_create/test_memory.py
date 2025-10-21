@@ -112,7 +112,9 @@ def test_eofcreate_memory(
         ),
         storage=initial_storage,
     )
-    destination_contract_address = compute_eofcreate_address(calling_contract_address, 0)
+    destination_contract_address = compute_eofcreate_address(
+        calling_contract_address, 0
+    )
 
     post = {
         calling_contract_address: Account(
@@ -123,12 +125,16 @@ def test_eofcreate_memory(
             if success
             else initial_storage,
         ),
-        destination_contract_address: Account(code=smallest_runtime_subcontainer)
+        destination_contract_address: Account(
+            code=smallest_runtime_subcontainer
+        )
         if success
         else Account.NONEXISTENT,
     }
 
-    tx = Transaction(sender=sender, to=calling_contract_address, gas_limit=2_000_000_000)
+    tx = Transaction(
+        sender=sender, to=calling_contract_address, gas_limit=2_000_000_000
+    )
 
     state_test(
         env=env,

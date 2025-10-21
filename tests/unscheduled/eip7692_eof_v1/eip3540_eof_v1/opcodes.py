@@ -234,10 +234,14 @@ VALID_TERMINATING_OPCODES = [
     Op.JUMPF,
 ]
 
-INVALID_TERMINATING_OPCODES = [op for op in V1_EOF_OPCODES if op not in VALID_TERMINATING_OPCODES]
+INVALID_TERMINATING_OPCODES = [
+    op for op in V1_EOF_OPCODES if op not in VALID_TERMINATING_OPCODES
+]
 
 INVALID_OPCODES = [
     bytes([i])
     for i in range(256)
-    if i not in [x.int() for x in V1_EOF_OPCODES] + [x.int() for x in V1_EOF_DEPRECATED_OPCODES]
+    if i
+    not in [x.int() for x in V1_EOF_OPCODES]
+    + [x.int() for x in V1_EOF_DEPRECATED_OPCODES]
 ]

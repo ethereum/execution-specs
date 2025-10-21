@@ -38,7 +38,9 @@ class CasePosition(Enum):
 
 
 def get_expected_code_exception(
-    section_kind: SectionKind, section_test: SectionTest, test_position: CasePosition
+    section_kind: SectionKind,
+    section_test: SectionTest,
+    test_position: CasePosition,
 ) -> tuple[str, EOFExceptionInstanceOrList | None]:
     """
     Verification vectors with code and exception based on test combinations.
@@ -47,7 +49,10 @@ def get_expected_code_exception(
         case (SectionKind.TYPE, SectionTest.MISSING, CasePosition.HEADER):
             return (
                 "ef00010200010003ff00010000800001305000ef",
-                [EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
+                [
+                    EOFException.MISSING_TYPE_HEADER,
+                    EOFException.UNEXPECTED_HEADER_KIND,
+                ],
             )
         case (SectionKind.TYPE, SectionTest.MISSING, CasePosition.BODY):
             return (
@@ -57,15 +62,25 @@ def get_expected_code_exception(
                     EOFException.INVALID_FIRST_SECTION_TYPE,
                 ],
             )
-        case (SectionKind.TYPE, SectionTest.MISSING, CasePosition.BODY_AND_HEADER):
+        case (
+            SectionKind.TYPE,
+            SectionTest.MISSING,
+            CasePosition.BODY_AND_HEADER,
+        ):
             return (
                 "ef00010200010003ff000100305000ef",
-                [EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
+                [
+                    EOFException.MISSING_TYPE_HEADER,
+                    EOFException.UNEXPECTED_HEADER_KIND,
+                ],
             )
         case (SectionKind.TYPE, SectionTest.WRONG_ORDER, CasePosition.HEADER):
             return (
                 "ef00010200010003010004ff00010000800001305000ef",
-                [EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
+                [
+                    EOFException.MISSING_TYPE_HEADER,
+                    EOFException.UNEXPECTED_HEADER_KIND,
+                ],
             )
         case (SectionKind.TYPE, SectionTest.WRONG_ORDER, CasePosition.BODY):
             return (
@@ -74,80 +89,135 @@ def get_expected_code_exception(
                 # body incorrect
                 EOFException.INVALID_FIRST_SECTION_TYPE,
             )
-        case (SectionKind.TYPE, SectionTest.WRONG_ORDER, CasePosition.BODY_AND_HEADER):
+        case (
+            SectionKind.TYPE,
+            SectionTest.WRONG_ORDER,
+            CasePosition.BODY_AND_HEADER,
+        ):
             return (
                 "ef00010200010003010004ff00010030500000800001ef",
-                [EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
+                [
+                    EOFException.MISSING_TYPE_HEADER,
+                    EOFException.UNEXPECTED_HEADER_KIND,
+                ],
             )
         case (SectionKind.CODE, SectionTest.MISSING, CasePosition.HEADER):
             return (
                 "ef0001010004ff00010000800001305000ef",
-                [EOFException.MISSING_CODE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
+                [
+                    EOFException.MISSING_CODE_HEADER,
+                    EOFException.UNEXPECTED_HEADER_KIND,
+                ],
             )
         case (SectionKind.CODE, SectionTest.MISSING, CasePosition.BODY):
             return (
                 "ef00010100040200010003ff00010000800001ef",
                 # TODO should be an exception of empty code bytes, because it
                 # can understand that last byte is data section byte
-                [EOFException.INVALID_SECTION_BODIES_SIZE, EOFException.UNEXPECTED_HEADER_KIND],
+                [
+                    EOFException.INVALID_SECTION_BODIES_SIZE,
+                    EOFException.UNEXPECTED_HEADER_KIND,
+                ],
             )
-        case (SectionKind.CODE, SectionTest.MISSING, CasePosition.BODY_AND_HEADER):
+        case (
+            SectionKind.CODE,
+            SectionTest.MISSING,
+            CasePosition.BODY_AND_HEADER,
+        ):
             return (
                 "ef0001010004ff00010000800001ef",
-                [EOFException.MISSING_CODE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
+                [
+                    EOFException.MISSING_CODE_HEADER,
+                    EOFException.UNEXPECTED_HEADER_KIND,
+                ],
             )
         case (SectionKind.CODE, SectionTest.WRONG_ORDER, CasePosition.HEADER):
             return (
                 "ef0001010004ff000102000100030000800001305000ef",
-                [EOFException.MISSING_CODE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
+                [
+                    EOFException.MISSING_CODE_HEADER,
+                    EOFException.UNEXPECTED_HEADER_KIND,
+                ],
             )
         case (SectionKind.CODE, SectionTest.WRONG_ORDER, CasePosition.BODY):
             return (
                 "ef00010100040200010003ff00010000800001ef305000",
                 EOFException.UNDEFINED_INSTRUCTION,
             )
-        case (SectionKind.CODE, SectionTest.WRONG_ORDER, CasePosition.BODY_AND_HEADER):
+        case (
+            SectionKind.CODE,
+            SectionTest.WRONG_ORDER,
+            CasePosition.BODY_AND_HEADER,
+        ):
             return (
                 "ef0001010004ff000102000100030000800001ef305000",
-                [EOFException.MISSING_CODE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
+                [
+                    EOFException.MISSING_CODE_HEADER,
+                    EOFException.UNEXPECTED_HEADER_KIND,
+                ],
             )
         case (SectionKind.DATA, SectionTest.MISSING, CasePosition.HEADER):
             return (
                 "ef000101000402000100030000800001305000ef",
-                [EOFException.MISSING_DATA_SECTION, EOFException.UNEXPECTED_HEADER_KIND],
+                [
+                    EOFException.MISSING_DATA_SECTION,
+                    EOFException.UNEXPECTED_HEADER_KIND,
+                ],
             )
         case (SectionKind.DATA, SectionTest.MISSING, CasePosition.BODY):
             return (
                 "ef00010100040200010003ff00010000800001305000",
                 EOFException.TOPLEVEL_CONTAINER_TRUNCATED,
             )
-        case (SectionKind.DATA, SectionTest.MISSING, CasePosition.BODY_AND_HEADER):
+        case (
+            SectionKind.DATA,
+            SectionTest.MISSING,
+            CasePosition.BODY_AND_HEADER,
+        ):
             return (
                 "ef000101000402000100030000800001305000",
-                [EOFException.MISSING_DATA_SECTION, EOFException.UNEXPECTED_HEADER_KIND],
+                [
+                    EOFException.MISSING_DATA_SECTION,
+                    EOFException.UNEXPECTED_HEADER_KIND,
+                ],
             )
         case (SectionKind.DATA, SectionTest.WRONG_ORDER, CasePosition.HEADER):
             return (
                 "ef0001ff000101000402000100030000800001305000ef",
-                [EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
+                [
+                    EOFException.MISSING_TYPE_HEADER,
+                    EOFException.UNEXPECTED_HEADER_KIND,
+                ],
             )
         case (SectionKind.DATA, SectionTest.WRONG_ORDER, CasePosition.BODY):
             return (
                 "ef00010100040200010003ff000100ef00800001305000",
                 EOFException.INVALID_FIRST_SECTION_TYPE,
             )
-        case (SectionKind.DATA, SectionTest.WRONG_ORDER, CasePosition.BODY_AND_HEADER):
+        case (
+            SectionKind.DATA,
+            SectionTest.WRONG_ORDER,
+            CasePosition.BODY_AND_HEADER,
+        ):
             return (
                 "ef0001ff0001010004020001000300ef00800001305000",
-                [EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
+                [
+                    EOFException.MISSING_TYPE_HEADER,
+                    EOFException.UNEXPECTED_HEADER_KIND,
+                ],
             )
     return "", None
 
 
-@pytest.mark.parametrize("section_kind", [SectionKind.TYPE, SectionKind.CODE, SectionKind.DATA])
-@pytest.mark.parametrize("section_test", [SectionTest.MISSING, SectionTest.WRONG_ORDER])
 @pytest.mark.parametrize(
-    "test_position", [CasePosition.BODY, CasePosition.HEADER, CasePosition.BODY_AND_HEADER]
+    "section_kind", [SectionKind.TYPE, SectionKind.CODE, SectionKind.DATA]
+)
+@pytest.mark.parametrize(
+    "section_test", [SectionTest.MISSING, SectionTest.WRONG_ORDER]
+)
+@pytest.mark.parametrize(
+    "test_position",
+    [CasePosition.BODY, CasePosition.HEADER, CasePosition.BODY_AND_HEADER],
 )
 def test_section_order(
     eof_test: EOFTestFiller,
@@ -164,7 +234,10 @@ def test_section_order(
             else (
                 True
                 if section_test == SectionTest.MISSING
-                and (test_position == position or test_position == CasePosition.BODY_AND_HEADER)
+                and (
+                    test_position == position
+                    or test_position == CasePosition.BODY_AND_HEADER
+                )
                 else False
             )
         )
@@ -182,20 +255,32 @@ def test_section_order(
 
     section_code = Section.Code(
         code=Op.ADDRESS + Op.POP + Op.STOP,
-        skip_header_listing=calculate_skip_flag(SectionKind.CODE, CasePosition.HEADER),
-        skip_body_listing=calculate_skip_flag(SectionKind.CODE, CasePosition.BODY),
+        skip_header_listing=calculate_skip_flag(
+            SectionKind.CODE, CasePosition.HEADER
+        ),
+        skip_body_listing=calculate_skip_flag(
+            SectionKind.CODE, CasePosition.BODY
+        ),
     )
     section_type = Section(
         kind=SectionKind.TYPE,
         data=bytes.fromhex("00800001"),
         custom_size=4,
-        skip_header_listing=calculate_skip_flag(SectionKind.TYPE, CasePosition.HEADER),
-        skip_body_listing=calculate_skip_flag(SectionKind.TYPE, CasePosition.BODY),
+        skip_header_listing=calculate_skip_flag(
+            SectionKind.TYPE, CasePosition.HEADER
+        ),
+        skip_body_listing=calculate_skip_flag(
+            SectionKind.TYPE, CasePosition.BODY
+        ),
     )
     section_data = Section.Data(
         "ef",
-        skip_header_listing=calculate_skip_flag(SectionKind.DATA, CasePosition.HEADER),
-        skip_body_listing=calculate_skip_flag(SectionKind.DATA, CasePosition.BODY),
+        skip_header_listing=calculate_skip_flag(
+            SectionKind.DATA, CasePosition.HEADER
+        ),
+        skip_body_listing=calculate_skip_flag(
+            SectionKind.DATA, CasePosition.BODY
+        ),
     )
 
     expected_code, expected_exception = get_expected_code_exception(
@@ -229,7 +314,8 @@ def test_section_order(
 
 @pytest.mark.parametrize("container_position", range(4))
 @pytest.mark.parametrize(
-    "test_position", [CasePosition.BODY, CasePosition.HEADER, CasePosition.BODY_AND_HEADER]
+    "test_position",
+    [CasePosition.BODY, CasePosition.HEADER, CasePosition.BODY_AND_HEADER],
 )
 def test_container_section_order(
     eof_test: EOFTestFiller,
@@ -251,7 +337,9 @@ def test_container_section_order(
         + Op.RJUMP[0]
         + Op.STOP()
     )
-    section_type = Section(kind=SectionKind.TYPE, data=bytes.fromhex("00800004"))
+    section_type = Section(
+        kind=SectionKind.TYPE, data=bytes.fromhex("00800004")
+    )
     section_data = Section.Data("ef")
     section_container = Section.Container(Container.Code(Op.INVALID))
 
@@ -264,7 +352,9 @@ def test_container_section_order(
             AutoSection.ONLY_BODY
             if test_position == CasePosition.HEADER
             else (
-                AutoSection.ONLY_HEADER if test_position == CasePosition.BODY else AutoSection.NONE
+                AutoSection.ONLY_HEADER
+                if test_position == CasePosition.BODY
+                else AutoSection.NONE
             )
         ),
     )

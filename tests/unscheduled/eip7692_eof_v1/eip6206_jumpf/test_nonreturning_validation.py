@@ -24,7 +24,9 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
     [
         pytest.param(Op.STOP, id="STOP"),
         pytest.param(Op.INVALID, id="INVALID"),
-        pytest.param(Op.ADDRESS + Op.POP + Op.INVALID, id="ADDRESS_POP_INVALID"),
+        pytest.param(
+            Op.ADDRESS + Op.POP + Op.INVALID, id="ADDRESS_POP_INVALID"
+        ),
         pytest.param(Op.RETURN(0, 0), id="RETURN"),
         pytest.param(Op.RETF, id="RETF"),
         pytest.param(Op.PUSH0 + Op.RETF, id="PUSH0_RETF"),
@@ -34,7 +36,9 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
     "outputs",
     [0, 1, 0x7F, 0x81, 0xFF],
 )
-def test_first_section_returning(eof_test: EOFTestFiller, code: Bytecode, outputs: int) -> None:
+def test_first_section_returning(
+    eof_test: EOFTestFiller, code: Bytecode, outputs: int
+) -> None:
     """
     Test EOF validation failing because the first section is not non-returning.
     """
@@ -91,18 +95,36 @@ def test_first_section_with_inputs(
     "code_section",
     [
         pytest.param(Section.Code(Op.STOP, code_outputs=0), id="stop0"),
-        pytest.param(Section.Code(Op.PUSH0 + Op.STOP, code_outputs=1), id="stop1"),
+        pytest.param(
+            Section.Code(Op.PUSH0 + Op.STOP, code_outputs=1), id="stop1"
+        ),
         pytest.param(Section.Code(Op.INVALID, code_outputs=0), id="invalid0"),
-        pytest.param(Section.Code(Op.PUSH0 + Op.INVALID, code_outputs=1), id="invalid1"),
-        pytest.param(Section.Code(Op.RETURN(0, 0), code_outputs=0), id="return0"),
-        pytest.param(Section.Code(Op.PUSH0 + Op.RETURN(0, 0), code_outputs=1), id="return1"),
-        pytest.param(Section.Code(Op.REVERT(0, 0), code_outputs=0), id="revert0"),
-        pytest.param(Section.Code(Op.PUSH0 + Op.REVERT(0, 0), code_outputs=1), id="revert1"),
+        pytest.param(
+            Section.Code(Op.PUSH0 + Op.INVALID, code_outputs=1), id="invalid1"
+        ),
+        pytest.param(
+            Section.Code(Op.RETURN(0, 0), code_outputs=0), id="return0"
+        ),
+        pytest.param(
+            Section.Code(Op.PUSH0 + Op.RETURN(0, 0), code_outputs=1),
+            id="return1",
+        ),
+        pytest.param(
+            Section.Code(Op.REVERT(0, 0), code_outputs=0), id="revert0"
+        ),
+        pytest.param(
+            Section.Code(Op.PUSH0 + Op.REVERT(0, 0), code_outputs=1),
+            id="revert1",
+        ),
         pytest.param(Section.Code(Op.RJUMP[-3], code_outputs=0), id="rjump0"),
-        pytest.param(Section.Code(Op.PUSH0 + Op.RJUMP[-3], code_outputs=1), id="rjump1"),
+        pytest.param(
+            Section.Code(Op.PUSH0 + Op.RJUMP[-3], code_outputs=1), id="rjump1"
+        ),
     ],
 )
-def test_returning_section_not_returning(eof_test: EOFTestFiller, code_section: Section) -> None:
+def test_returning_section_not_returning(
+    eof_test: EOFTestFiller, code_section: Section
+) -> None:
     """
     Test EOF validation failing due to returning section with no RETF or
     JUMPF-to-returning.
@@ -110,7 +132,10 @@ def test_returning_section_not_returning(eof_test: EOFTestFiller, code_section: 
     eof_test(
         container=Container(
             sections=[
-                Section.Code(Op.CALLF[1] + Op.STOP, max_stack_height=code_section.code_outputs),
+                Section.Code(
+                    Op.CALLF[1] + Op.STOP,
+                    max_stack_height=code_section.code_outputs,
+                ),
                 code_section,
             ],
             validity_error=EOFException.INVALID_NON_RETURNING_FLAG,
@@ -121,14 +146,19 @@ def test_returning_section_not_returning(eof_test: EOFTestFiller, code_section: 
 @pytest.mark.parametrize(
     "code_section",
     [
-        pytest.param(Section.Code(Op.RETURNCODE[0](0, 0), code_outputs=0), id="returncode0"),
+        pytest.param(
+            Section.Code(Op.RETURNCODE[0](0, 0), code_outputs=0),
+            id="returncode0",
+        ),
         pytest.param(
             Section.Code(Op.PUSH0 + Op.RETURNCODE[0](0, 0), code_outputs=1),
             id="returncode1",
         ),
     ],
 )
-def test_returning_section_returncode(eof_test: EOFTestFiller, code_section: Section) -> None:
+def test_returning_section_returncode(
+    eof_test: EOFTestFiller, code_section: Section
+) -> None:
     """
     Test EOF validation failing because a returning section has no RETF or
     JUMPF-to-returning - RETURNCODE version.
@@ -136,7 +166,10 @@ def test_returning_section_returncode(eof_test: EOFTestFiller, code_section: Sec
     eof_test(
         container=Container(
             sections=[
-                Section.Code(Op.CALLF[1] + Op.INVALID, max_stack_height=code_section.code_outputs),
+                Section.Code(
+                    Op.CALLF[1] + Op.INVALID,
+                    max_stack_height=code_section.code_outputs,
+                ),
                 code_section,
             ]
             + [Section.Container(Container.Code(Op.INVALID))],
@@ -159,17 +192,24 @@ code_prefix = pytest.mark.parametrize(
 
 @first
 @code_prefix
-def test_retf_in_nonreturning(eof_test: EOFTestFiller, first: bool, code_prefix: Bytecode) -> None:
+def test_retf_in_nonreturning(
+    eof_test: EOFTestFiller, first: bool, code_prefix: Bytecode
+) -> None:
     """
     Test EOF validation failing due to non-returning section with the RETF
     instruction.
     """
-    sections = [Section.Code(code_prefix + Op.RETF, code_outputs=NON_RETURNING_SECTION)]
-    if not first:  # Prefix sections with additional valid JUMPF to invalid section
+    sections = [
+        Section.Code(code_prefix + Op.RETF, code_outputs=NON_RETURNING_SECTION)
+    ]
+    if (
+        not first
+    ):  # Prefix sections with additional valid JUMPF to invalid section
         sections = [Section.Code(Op.JUMPF[1])] + sections
     eof_test(
         container=Container(
-            sections=sections, validity_error=EOFException.INVALID_NON_RETURNING_FLAG
+            sections=sections,
+            validity_error=EOFException.INVALID_NON_RETURNING_FLAG,
         )
     )
 
@@ -189,7 +229,9 @@ def test_jumpf_in_nonreturning(
     )
     target_section = Section.Code(Op.RETF, code_outputs=0)
     sections = [invalid_section, target_section]
-    if not first:  # Prefix sections with additional valid JUMPF to invalid section
+    if (
+        not first
+    ):  # Prefix sections with additional valid JUMPF to invalid section
         sections = [Section.Code(Op.JUMPF[1])] + sections
 
     eof_test(
@@ -263,6 +305,11 @@ def test_jumpf_in_nonreturning(
     ],
     ids=lambda x: x.name,
 )
-def test_callf_to_nonreturning(eof_test: EOFTestFiller, container: Container) -> None:
+def test_callf_to_nonreturning(
+    eof_test: EOFTestFiller, container: Container
+) -> None:
     """Test EOF validation failing due to CALLF to non-returning section."""
-    eof_test(container=container, expect_exception=EOFException.CALLF_TO_NON_RETURNING)
+    eof_test(
+        container=container,
+        expect_exception=EOFException.CALLF_TO_NON_RETURNING,
+    )

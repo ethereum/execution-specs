@@ -72,7 +72,10 @@ def make_factory(initcode: Container) -> Container:
             id="aborting_runtime",
         ),
         pytest.param(
-            reverting_container, smallest_initcode_subcontainer_gas, None, id="reverting_initcode"
+            reverting_container,
+            smallest_initcode_subcontainer_gas,
+            None,
+            id="reverting_initcode",
         ),
         pytest.param(
             expensively_reverting_container,
@@ -128,7 +131,9 @@ def test_eofcreate_gas(
 
     subject_address = pre.fund_eoa(0)
 
-    salt_addresses = [compute_eofcreate_address(subject_address, i) for i in range(4)]
+    salt_addresses = [
+        compute_eofcreate_address(subject_address, i) for i in range(4)
+    ]
 
     if not new_account:
         for a in salt_addresses:
@@ -138,7 +143,9 @@ def test_eofcreate_gas(
     # need a counter to pick a distinct salt on each `EOFCREATE` and avoid
     # running into address conflicts.
     code_increment_counter = (
-        Op.TLOAD(slot_counter) + Op.DUP1 + Op.TSTORE(slot_counter, Op.PUSH1(1) + Op.ADD)
+        Op.TLOAD(slot_counter)
+        + Op.DUP1
+        + Op.TSTORE(slot_counter, Op.PUSH1(1) + Op.ADD)
     )
     cost_memory_bytes = fork.memory_expansion_gas_calculator()
     gas_test(

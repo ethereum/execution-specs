@@ -26,9 +26,9 @@ def current_python_script_directory(*args: str) -> str:
 class Vector(BaseModel):
     """A vector for the ModExp gas cost increase tests."""
 
-    modexp_input: Annotated[ModExpInput, PlainValidator(ModExpInput.from_bytes)] = Field(
-        ..., alias="Input"
-    )
+    modexp_input: Annotated[
+        ModExpInput, PlainValidator(ModExpInput.from_bytes)
+    ] = Field(..., alias="Input")
     modexp_expected: Bytes = Field(..., alias="Expected")
     name: str = Field(..., alias="Name")
     gas_old: int | None = Field(default=None, alias="GasOld")
@@ -42,7 +42,11 @@ class Vector(BaseModel):
         pytest test.
         """
         return pytest.param(
-            self.modexp_input, self.modexp_expected, self.gas_old, self.gas_new, id=self.name
+            self.modexp_input,
+            self.modexp_expected,
+            self.gas_old,
+            self.gas_new,
+            id=self.name,
         )
 
 
@@ -64,4 +68,7 @@ def vectors_from_file(filename: str) -> List:
         ),
         "rb",
     ) as f:
-        return [v.to_pytest_param() for v in VectorListAdapter.validate_json(f.read()).root]
+        return [
+            v.to_pytest_param()
+            for v in VectorListAdapter.validate_json(f.read()).root
+        ]

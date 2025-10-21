@@ -61,7 +61,9 @@ def destination_account_balance() -> int:
 
 @pytest.fixture
 def destination_account(
-    pre: Alloc, destination_account_code: Bytecode | None, destination_account_balance: int
+    pre: Alloc,
+    destination_account_code: Bytecode | None,
+    destination_account_balance: int,
 ) -> Address:
     """Destination account for the blob transactions."""
     if destination_account_code is not None:
@@ -80,7 +82,9 @@ def tx_gas(
 ) -> int:
     """Gas allocated to transactions sent during test."""
     tx_intrinsic_cost_calculator = fork.transaction_intrinsic_cost_calculator()
-    return tx_intrinsic_cost_calculator(calldata=tx_calldata, access_list=tx_access_list)
+    return tx_intrinsic_cost_calculator(
+        calldata=tx_calldata, access_list=tx_access_list
+    )
 
 
 @pytest.fixture
@@ -152,10 +156,14 @@ def total_account_transactions_fee(  # noqa: D103
     for tx_blob_count in [len(x) for x in blob_hashes_per_tx]:
         blob_cost = blob_gas_price * blob_gas_per_blob * tx_blob_count
         block_producer_fee = (
-            tx_max_fee_per_gas - block_base_fee_per_gas if tx_max_priority_fee_per_gas else 0
+            tx_max_fee_per_gas - block_base_fee_per_gas
+            if tx_max_priority_fee_per_gas
+            else 0
         )
         total_cost += (
-            (tx_gas * (block_base_fee_per_gas + block_producer_fee)) + tx_value + blob_cost
+            (tx_gas * (block_base_fee_per_gas + block_producer_fee))
+            + tx_value
+            + blob_cost
         )
     return total_cost
 
@@ -302,7 +310,12 @@ def expected_blob_gas_used(
         block_number=block_number,
         timestamp=block_timestamp,
     )
-    return sum([Spec.get_total_blob_gas(tx=tx, blob_gas_per_blob=blob_gas_per_blob) for tx in txs])
+    return sum(
+        [
+            Spec.get_total_blob_gas(tx=tx, blob_gas_per_blob=blob_gas_per_blob)
+            for tx in txs
+        ]
+    )
 
 
 @pytest.fixture
@@ -412,9 +425,11 @@ def generate_invalid_tx_max_fee_per_blob_gas_tests(
     max fee per blob gas parametrized for each different fork.
     """
     min_base_fee_per_blob_gas = fork.min_base_fee_per_blob_gas()
-    minimum_excess_blobs_for_first_increment = SpecHelpers.get_min_excess_blobs_for_blob_gas_price(
-        fork=fork,
-        blob_gas_price=min_base_fee_per_blob_gas + 1,
+    minimum_excess_blobs_for_first_increment = (
+        SpecHelpers.get_min_excess_blobs_for_blob_gas_price(
+            fork=fork,
+            blob_gas_price=min_base_fee_per_blob_gas + 1,
+        )
     )
     next_base_fee_per_blob_gas = fork.blob_gas_price_calculator()(
         excess_blob_gas=minimum_excess_blobs_for_first_increment,
@@ -624,8 +639,12 @@ def test_invalid_block_blob_count(
     ids=["no_calldata", "single_zero_calldata", "single_one_calldata"],
 )
 @pytest.mark.parametrize("tx_max_fee_per_blob_gas_multiplier", [1, 100, 10000])
-@pytest.mark.parametrize("account_balance_modifier", [-1], ids=["exact_balance_minus_1"])
-@pytest.mark.parametrize("tx_error", [TransactionException.INSUFFICIENT_ACCOUNT_FUNDS], ids=[""])
+@pytest.mark.parametrize(
+    "account_balance_modifier", [-1], ids=["exact_balance_minus_1"]
+)
+@pytest.mark.parametrize(
+    "tx_error", [TransactionException.INSUFFICIENT_ACCOUNT_FUNDS], ids=[""]
+)
 @pytest.mark.exception_test
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.slow()
@@ -748,7 +767,9 @@ def test_sufficient_balance_blob_tx_pre_fund_tx(
     - Transactions with max fee per blob gas lower or higher than the priority
         fee
     """
-    pre_funding_sender = pre.fund_eoa(amount=(21_000 * 100) + total_account_minimum_balance)
+    pre_funding_sender = pre.fund_eoa(
+        amount=(21_000 * 100) + total_account_minimum_balance
+    )
     txs = [
         Transaction(
             sender=pre_funding_sender,
@@ -801,7 +822,9 @@ def test_sufficient_balance_blob_tx_pre_fund_tx(
     "destination_account_code",
     [
         Op.SSTORE(0, Op.BALANCE(Op.ORIGIN))
-        + Op.CALL(Op.GAS, Op.ORIGIN, Op.SUB(Op.SELFBALANCE, Op.CALLVALUE), 0, 0, 0, 0)
+        + Op.CALL(
+            Op.GAS, Op.ORIGIN, Op.SUB(Op.SELFBALANCE, Op.CALLVALUE), 0, 0, 0, 0
+        )
         + Op.SSTORE(1, Op.BALANCE(Op.ORIGIN))
     ],
     ids=[""],
@@ -852,8 +875,12 @@ def test_blob_gas_subtraction_tx(
     "blobs_per_tx",
     SpecHelpers.all_valid_blob_combinations,
 )
-@pytest.mark.parametrize("account_balance_modifier", [-1], ids=["exact_balance_minus_1"])
-@pytest.mark.parametrize("tx_error", [TransactionException.INSUFFICIENT_ACCOUNT_FUNDS], ids=[""])
+@pytest.mark.parametrize(
+    "account_balance_modifier", [-1], ids=["exact_balance_minus_1"]
+)
+@pytest.mark.parametrize(
+    "tx_error", [TransactionException.INSUFFICIENT_ACCOUNT_FUNDS], ids=[""]
+)
 @pytest.mark.exception_test
 @pytest.mark.valid_from("Cancun")
 def test_insufficient_balance_blob_tx_combinations(
@@ -937,8 +964,14 @@ def test_invalid_tx_blob_count(
     [
         [[Hash(1)]],
         [[Hash(x) for x in range(2)]],
-        [add_kzg_version([Hash(1)], Spec.BLOB_COMMITMENT_VERSION_KZG) + [Hash(2)]],
-        [[Hash(1)] + add_kzg_version([Hash(2)], Spec.BLOB_COMMITMENT_VERSION_KZG)],
+        [
+            add_kzg_version([Hash(1)], Spec.BLOB_COMMITMENT_VERSION_KZG)
+            + [Hash(2)]
+        ],
+        [
+            [Hash(1)]
+            + add_kzg_version([Hash(2)], Spec.BLOB_COMMITMENT_VERSION_KZG)
+        ],
     ],
     ids=[
         "single_blob",
@@ -948,7 +981,9 @@ def test_invalid_tx_blob_count(
     ],
 )
 @pytest.mark.parametrize(
-    "tx_error", [TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH], ids=[""]
+    "tx_error",
+    [TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH],
+    ids=[""],
 )
 @pytest.mark.exception_test
 @pytest.mark.valid_from("Cancun")
@@ -991,7 +1026,8 @@ def test_invalid_blob_hash_versioning_single_tx(
         ],
         [
             add_kzg_version([Hash(1)], Spec.BLOB_COMMITMENT_VERSION_KZG),
-            [Hash(2)] + add_kzg_version([Hash(3)], Spec.BLOB_COMMITMENT_VERSION_KZG),
+            [Hash(2)]
+            + add_kzg_version([Hash(3)], Spec.BLOB_COMMITMENT_VERSION_KZG),
         ],
         [
             add_kzg_version([Hash(1)], Spec.BLOB_COMMITMENT_VERSION_KZG),
@@ -1007,7 +1043,9 @@ def test_invalid_blob_hash_versioning_single_tx(
     ],
 )
 @pytest.mark.parametrize(
-    "tx_error", [TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH], ids=[""]
+    "tx_error",
+    [TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH],
+    ids=[""],
 )
 @pytest.mark.exception_test
 @pytest.mark.valid_from("Cancun")
@@ -1051,7 +1089,10 @@ def test_invalid_blob_tx_contract_creation(
     (contract creating).
     """
     assert len(txs) == 1
-    assert txs[0].blob_versioned_hashes is not None and len(txs[0].blob_versioned_hashes) == 1
+    assert (
+        txs[0].blob_versioned_hashes is not None
+        and len(txs[0].blob_versioned_hashes) == 1
+    )
     # Replace the transaction with a contract creating one, only in the RLP
     # version
     contract_creating_tx = txs[0].copy(to=None).with_signature_and_sender()
@@ -1131,7 +1172,10 @@ def opcode(
         return (
             Op.SSTORE(0, Op.GASPRICE),
             {
-                0: min(tx_max_priority_fee_per_gas, tx_max_fee_per_gas - block_base_fee_per_gas)
+                0: min(
+                    tx_max_priority_fee_per_gas,
+                    tx_max_fee_per_gas - block_base_fee_per_gas,
+                )
                 + block_base_fee_per_gas
             },
         )
@@ -1390,15 +1434,24 @@ def test_blob_tx_attribute_gasprice_opcode(
             [0],
             None,
             1,
-            [TransactionException.TYPE_3_TX_PRE_FORK, TransactionException.TYPE_3_TX_ZERO_BLOBS],
-            [TransactionException.TYPE_3_TX_PRE_FORK, TransactionException.TYPE_3_TX_ZERO_BLOBS],
+            [
+                TransactionException.TYPE_3_TX_PRE_FORK,
+                TransactionException.TYPE_3_TX_ZERO_BLOBS,
+            ],
+            [
+                TransactionException.TYPE_3_TX_PRE_FORK,
+                TransactionException.TYPE_3_TX_ZERO_BLOBS,
+            ],
         ),
         (
             [1],
             None,
             1,
             TransactionException.TYPE_3_TX_PRE_FORK,
-            [TransactionException.TYPE_3_TX_PRE_FORK, BlockException.INVALID_VERSIONED_HASHES],
+            [
+                TransactionException.TYPE_3_TX_PRE_FORK,
+                BlockException.INVALID_VERSIONED_HASHES,
+            ],
         ),
     ],
     ids=["no_blob_tx", "one_blob_tx"],

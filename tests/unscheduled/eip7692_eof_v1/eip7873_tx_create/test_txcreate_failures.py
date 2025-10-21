@@ -60,7 +60,9 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
         pytest.param(b"\x08\xc3\x79\xa0", id="Error(string)"),
     ],
 )
-def test_initcode_revert(state_test: StateTestFiller, pre: Alloc, revert: bytes) -> None:
+def test_initcode_revert(
+    state_test: StateTestFiller, pre: Alloc, revert: bytes
+) -> None:
     """Verifies proper handling of REVERT in initcode."""
     env = Environment()
     revert_size = len(revert)
@@ -69,7 +71,8 @@ def test_initcode_revert(state_test: StateTestFiller, pre: Alloc, revert: bytes)
         name="Initcode Subcontainer that reverts",
         sections=[
             Section.Code(
-                code=Op.MSTORE(0, Op.PUSH32(revert)) + Op.REVERT(32 - revert_size, revert_size),
+                code=Op.MSTORE(0, Op.PUSH32(revert))
+                + Op.REVERT(32 - revert_size, revert_size),
             ),
         ],
     )
@@ -77,9 +80,13 @@ def test_initcode_revert(state_test: StateTestFiller, pre: Alloc, revert: bytes)
 
     sender = pre.fund_eoa()
     contract_address = pre.deploy_contract(
-        code=Op.SSTORE(slot_create_address, Op.TXCREATE(tx_initcode_hash=initcode_hash))
+        code=Op.SSTORE(
+            slot_create_address, Op.TXCREATE(tx_initcode_hash=initcode_hash)
+        )
         + Op.SSTORE(slot_returndata_size, Op.RETURNDATASIZE)
-        + Op.RETURNDATACOPY(Op.SUB(32, Op.RETURNDATASIZE), 0, Op.RETURNDATASIZE)
+        + Op.RETURNDATACOPY(
+            Op.SUB(32, Op.RETURNDATASIZE), 0, Op.RETURNDATASIZE
+        )
         + Op.SSTORE(slot_returndata, Op.MLOAD(0))
         + Op.SSTORE(slot_code_worked, value_code_worked)
         + Op.STOP
@@ -118,14 +125,19 @@ def test_initcode_revert(state_test: StateTestFiller, pre: Alloc, revert: bytes)
 )
 @pytest.mark.parametrize("tx_initcode_count", [1, 255, 256])
 def test_txcreate_invalid_hash(
-    state_test: StateTestFiller, pre: Alloc, tx_initcode_count: int, initcode_hash: Hash
+    state_test: StateTestFiller,
+    pre: Alloc,
+    tx_initcode_count: int,
+    initcode_hash: Hash,
 ) -> None:
     """Verifies proper handling of REVERT in initcode."""
     env = Environment()
 
     sender = pre.fund_eoa()
     contract_address = pre.deploy_contract(
-        code=Op.SSTORE(slot_create_address, Op.TXCREATE(tx_initcode_hash=initcode_hash))
+        code=Op.SSTORE(
+            slot_create_address, Op.TXCREATE(tx_initcode_hash=initcode_hash)
+        )
         + Op.SSTORE(slot_code_worked, value_code_worked)
         + Op.STOP
     )
@@ -155,7 +167,9 @@ def test_initcode_aborts(state_test: StateTestFiller, pre: Alloc) -> None:
     sender = pre.fund_eoa()
     initcode_hash = aborting_container.hash
     contract_address = pre.deploy_contract(
-        code=Op.SSTORE(slot_create_address, Op.TXCREATE(tx_initcode_hash=initcode_hash))
+        code=Op.SSTORE(
+            slot_create_address, Op.TXCREATE(tx_initcode_hash=initcode_hash)
+        )
         + Op.SSTORE(slot_code_worked, value_code_worked)
         + Op.STOP,
     )
@@ -193,7 +207,9 @@ initcode_size = 32
         pytest.param(0x4000, id="large"),
         pytest.param(MAX_BYTECODE_SIZE, id="max"),
         pytest.param(MAX_BYTECODE_SIZE + 1, id="overmax"),
-        pytest.param(MAX_INITCODE_SIZE - initcode_size - 1, id="below_initcodemax"),
+        pytest.param(
+            MAX_INITCODE_SIZE - initcode_size - 1, id="below_initcodemax"
+        ),
         pytest.param(MAX_INITCODE_SIZE - initcode_size, id="initcodemax"),
     ],
 )
@@ -212,7 +228,8 @@ def test_txcreate_deploy_sizes(
     runtime_container = Container(
         sections=[
             Section.Code(
-                code=Op.JUMPDEST * (target_deploy_size - len(smallest_runtime_subcontainer))
+                code=Op.JUMPDEST
+                * (target_deploy_size - len(smallest_runtime_subcontainer))
                 + Op.STOP,
             ),
         ]
@@ -229,7 +246,9 @@ def test_txcreate_deploy_sizes(
     )
     assert initcode_size == len(initcode_subcontainer) - len(runtime_container)
 
-    assert initcode_size == (len(initcode_subcontainer) - len(runtime_container)), (
+    assert initcode_size == (
+        len(initcode_subcontainer) - len(runtime_container)
+    ), (
         "initcode_size is wrong, expected initcode_size is %d, calculated is %d"
         % (
             initcode_size,
@@ -240,7 +259,9 @@ def test_txcreate_deploy_sizes(
 
     sender = pre.fund_eoa()
     contract_address = pre.deploy_contract(
-        code=Op.SSTORE(slot_create_address, Op.TXCREATE(tx_initcode_hash=initcode_hash))
+        code=Op.SSTORE(
+            slot_create_address, Op.TXCREATE(tx_initcode_hash=initcode_hash)
+        )
         + Op.SSTORE(slot_code_worked, value_code_worked)
         + Op.STOP
     )
@@ -251,7 +272,9 @@ def test_txcreate_deploy_sizes(
     post = {
         contract_address: Account(
             storage={
-                slot_create_address: compute_eofcreate_address(contract_address, 0)
+                slot_create_address: compute_eofcreate_address(
+                    contract_address, 0
+                )
                 if success
                 else TXCREATE_FAILURE,
                 slot_code_worked: value_code_worked,
@@ -275,15 +298,23 @@ def test_txcreate_deploy_sizes(
 @pytest.mark.parametrize(
     "auxdata_size",
     [
-        pytest.param(MAX_BYTECODE_SIZE - len(smallest_runtime_subcontainer), id="maxcode"),
-        pytest.param(MAX_BYTECODE_SIZE - len(smallest_runtime_subcontainer) + 1, id="overmaxcode"),
+        pytest.param(
+            MAX_BYTECODE_SIZE - len(smallest_runtime_subcontainer),
+            id="maxcode",
+        ),
+        pytest.param(
+            MAX_BYTECODE_SIZE - len(smallest_runtime_subcontainer) + 1,
+            id="overmaxcode",
+        ),
         pytest.param(0x10000 - 60, id="almost64k"),
         pytest.param(0x10000 - 1, id="64k-1"),
         pytest.param(0x10000, id="64k"),
         pytest.param(0x10000 + 1, id="over64k"),
     ],
 )
-def test_auxdata_size_failures(state_test: StateTestFiller, pre: Alloc, auxdata_size: int) -> None:
+def test_auxdata_size_failures(
+    state_test: StateTestFiller, pre: Alloc, auxdata_size: int
+) -> None:
     """
     Exercises a number of auxdata size violations, and one maxcode success.
     """
@@ -294,7 +325,8 @@ def test_auxdata_size_failures(state_test: StateTestFiller, pre: Alloc, auxdata_
         name="Initcode Subcontainer",
         sections=[
             Section.Code(
-                code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE) + Op.RETURNCODE[0](0, Op.CALLDATASIZE),
+                code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+                + Op.RETURNCODE[0](0, Op.CALLDATASIZE),
             ),
             Section.Container(container=smallest_runtime_subcontainer),
         ],
@@ -306,7 +338,9 @@ def test_auxdata_size_failures(state_test: StateTestFiller, pre: Alloc, auxdata_
         code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
         + Op.SSTORE(
             slot_create_address,
-            Op.TXCREATE(tx_initcode_hash=initcode_hash, input_size=Op.CALLDATASIZE),
+            Op.TXCREATE(
+                tx_initcode_hash=initcode_hash, input_size=Op.CALLDATASIZE
+            ),
         )
         + Op.SSTORE(slot_code_worked, value_code_worked)
         + Op.STOP,
@@ -322,7 +356,9 @@ def test_auxdata_size_failures(state_test: StateTestFiller, pre: Alloc, auxdata_
     post = {
         contract_address: Account(
             storage={
-                slot_create_address: compute_eofcreate_address(contract_address, 0)
+                slot_create_address: compute_eofcreate_address(
+                    contract_address, 0
+                )
                 if deployed_container_size <= MAX_BYTECODE_SIZE
                 else 0,
                 slot_code_worked: value_code_worked,
@@ -367,7 +403,8 @@ def test_txcreate_insufficient_stipend(
 
     contract_address = pre.deploy_contract(
         code=Op.SSTORE(
-            slot_create_address, Op.TXCREATE(tx_initcode_hash=initcode_hash, value=value)
+            slot_create_address,
+            Op.TXCREATE(tx_initcode_hash=initcode_hash, value=value),
         )
         + Op.SSTORE(slot_code_worked, value_code_worked)
         + Op.STOP,
@@ -396,7 +433,9 @@ def test_txcreate_insufficient_stipend(
 
 
 @pytest.mark.with_all_evm_code_types
-def test_insufficient_initcode_gas(state_test: StateTestFiller, pre: Alloc, fork: Fork) -> None:
+def test_insufficient_initcode_gas(
+    state_test: StateTestFiller, pre: Alloc, fork: Fork
+) -> None:
     """
     Exercises an TXCREATE when there is not enough gas for the constant charge.
     """
@@ -414,7 +453,9 @@ def test_insufficient_initcode_gas(state_test: StateTestFiller, pre: Alloc, fork
 
     sender = pre.fund_eoa()
     contract_address = pre.deploy_contract(
-        code=Op.SSTORE(slot_create_address, Op.TXCREATE(tx_initcode_hash=initcode_hash))
+        code=Op.SSTORE(
+            slot_create_address, Op.TXCREATE(tx_initcode_hash=initcode_hash)
+        )
         + Op.SSTORE(slot_code_should_fail, value_code_worked)
         + Op.STOP,
         storage={
@@ -426,7 +467,11 @@ def test_insufficient_initcode_gas(state_test: StateTestFiller, pre: Alloc, fork
     # FIXME: should not use that calculator!!!
     # FIXME: the -1000 is a wild guess - revisit this
     gas_limit = (
-        32_000 - 1_000 + fork.transaction_intrinsic_cost_calculator()(calldata=initcode_container)
+        32_000
+        - 1_000
+        + fork.transaction_intrinsic_cost_calculator()(
+            calldata=initcode_container
+        )
     )
     # out_of_gas is triggered, so canary won't set value
     # also validate target created contract fails
@@ -467,7 +512,9 @@ def test_insufficient_gas_memory_expansion(
     contract_address = pre.deploy_contract(
         code=Op.SSTORE(
             slot_create_address,
-            Op.TXCREATE(tx_initcode_hash=initcode_hash, input_size=auxdata_size),
+            Op.TXCREATE(
+                tx_initcode_hash=initcode_hash, input_size=auxdata_size
+            ),
         )
         + Op.SSTORE(slot_code_should_fail, slot_code_worked)
         + Op.STOP,
@@ -482,7 +529,9 @@ def test_insufficient_gas_memory_expansion(
         32_000
         + 3 * auxdata_size_words
         + auxdata_size_words * auxdata_size_words // 512
-        + fork.transaction_intrinsic_cost_calculator()(calldata=smallest_initcode_subcontainer)
+        + fork.transaction_intrinsic_cost_calculator()(
+            calldata=smallest_initcode_subcontainer
+        )
     )
     # out_of_gas is triggered, so canary won't set value
     # also validate target created contract fails
@@ -546,7 +595,9 @@ def test_insufficient_returncode_auxdata_gas(
         + 2600  # SSTORE
         + 3 * auxdata_size_words
         + auxdata_size_words * auxdata_size_words // 512
-        + fork.transaction_intrinsic_cost_calculator()(calldata=initcode_container)
+        + fork.transaction_intrinsic_cost_calculator()(
+            calldata=initcode_container
+        )
     )
     # out_of_gas is triggered in the initcode context, so canary will set value
     # also validate target created contract fails
@@ -595,7 +646,8 @@ def test_static_flag_txcreate(
     initcode_hash = initcode.hash
     sender = pre.fund_eoa()
     contract_address = pre.deploy_contract(
-        code=Op.TXCREATE(tx_initcode_hash=initcode_hash, value=endowment) + Op.STOP,
+        code=Op.TXCREATE(tx_initcode_hash=initcode_hash, value=endowment)
+        + Op.STOP,
     )
     calling_code = (
         Op.SSTORE(slot_call_result, opcode(address=contract_address))
@@ -606,7 +658,9 @@ def test_static_flag_txcreate(
         calling_code,
         # Need to override the global value from the `with_all_evm_code_types`
         # marker.
-        evm_code_type=EVMCodeType.EOF_V1 if opcode == Op.EXTSTATICCALL else EVMCodeType.LEGACY,
+        evm_code_type=EVMCodeType.EOF_V1
+        if opcode == Op.EXTSTATICCALL
+        else EVMCodeType.LEGACY,
     )
 
     post = {
@@ -672,7 +726,9 @@ def test_eof_txcreate_msg_depth(
     # - 96 - output - magic value: create or call
     returndatacopy_block = Op.RETURNDATACOPY(32, 0, 96) + Op.REVERT(32, 96)
     deep_most_result_block = (
-        Op.MSTORE(32, Op.ADD(Op.CALLDATALOAD(0), 1)) + Op.MSTORE(64, Op.NOOP) + Op.REVERT(32, 96)
+        Op.MSTORE(32, Op.ADD(Op.CALLDATALOAD(0), 1))
+        + Op.MSTORE(64, Op.NOOP)
+        + Op.REVERT(32, 96)
     )
     rjump_offset = len(returndatacopy_block)
     initcode = Container.Code(
@@ -697,7 +753,11 @@ def test_eof_txcreate_msg_depth(
     callee_code = (
         Op.MSTORE(0, Op.ADD(Op.CALLDATALOAD(0), 1))
         + Op.MSTORE(96, magic_value_create)
-        + Op.TXCREATE(tx_initcode_hash=initcode_hash, salt=Op.CALLDATALOAD(0), input_size=32)
+        + Op.TXCREATE(
+            tx_initcode_hash=initcode_hash,
+            salt=Op.CALLDATALOAD(0),
+            input_size=32,
+        )
         + Op.RETURNDATASIZE
         + Op.ISZERO
         + jump_code
@@ -725,14 +785,18 @@ def test_eof_txcreate_msg_depth(
     # 1024 to happen on TXCREATE, instead of CALL.
     passthrough_address = pre.deploy_contract(
         Container.Code(
-            Op.MSTORE(0, 1) + Op.EXTCALL(address=calling_contract_address, args_size=32) + Op.STOP
+            Op.MSTORE(0, 1)
+            + Op.EXTCALL(address=calling_contract_address, args_size=32)
+            + Op.STOP
         )
     )
 
     tx = Transaction(
         sender=sender,
         initcodes=[initcode],
-        to=calling_contract_address if who_fails == magic_value_call else passthrough_address,
+        to=calling_contract_address
+        if who_fails == magic_value_call
+        else passthrough_address,
         gas_limit=gas_limit,
         data="",
     )
@@ -740,7 +804,9 @@ def test_eof_txcreate_msg_depth(
     calling_storage = {
         slot_max_depth: 1024,
         slot_code_worked: value_code_worked,
-        slot_call_result: EXTCALL_REVERT if who_fails == magic_value_call else TXCREATE_FAILURE,
+        slot_call_result: EXTCALL_REVERT
+        if who_fails == magic_value_call
+        else TXCREATE_FAILURE,
         slot_call_or_create: who_fails,
     }
 
@@ -767,7 +833,9 @@ def test_reentrant_txcreate(
     """
     env = Environment()
     # Calls into the factory contract with 1 as input.
-    reenter_code = Op.MSTORE(0, 1) + Op.EXTCALL(address=Op.CALLDATALOAD(32), args_size=32)
+    reenter_code = Op.MSTORE(0, 1) + Op.EXTCALL(
+        address=Op.CALLDATALOAD(32), args_size=32
+    )
     # Initcode: if given 0 as 1st word of input will call into the factory
     #           again. 2nd word of input is the address of the factory.
     initcontainer = Container(
@@ -816,7 +884,9 @@ def test_reentrant_txcreate(
             }
         ),
         compute_eofcreate_address(contract_address, 0): Account(
-            nonce=1, code=smallest_runtime_subcontainer, storage={slot_counter: 1}
+            nonce=1,
+            code=smallest_runtime_subcontainer,
+            storage={slot_counter: 1},
         ),
     }
     tx = Transaction(
@@ -870,7 +940,9 @@ def test_invalid_container_deployment(
         ],
     )
     tx_gas_limit = 100_000
-    fork_intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
+    fork_intrinsic_gas_calculator = (
+        fork.transaction_intrinsic_cost_calculator()
+    )
     fork_gas_costs = fork.gas_costs()
 
     # Modify defaults based on invalidity reason
@@ -934,7 +1006,9 @@ def test_invalid_container_deployment(
             + factory_gas_cost
             + (initcode_gas_cost - 1) * 64 // 63
         )
-    elif reason == "out_of_gas_when_returning_contract_due_to_memory_expansion":
+    elif (
+        reason == "out_of_gas_when_returning_contract_due_to_memory_expansion"
+    ):
         factory_gas_cost = (
             7 * fork_gas_costs.G_VERY_LOW
             + fork_gas_costs.G_STORAGE_SET
@@ -954,7 +1028,9 @@ def test_invalid_container_deployment(
         )
         initcontainer = Container(
             sections=[
-                Section.Code(code=Op.RETURNCODE[0](0xFFFFFFFFFFFFFFFFFFFFFFFFFFF, 0x1)),
+                Section.Code(
+                    code=Op.RETURNCODE[0](0xFFFFFFFFFFFFFFFFFFFFFFFFFFF, 0x1)
+                ),
                 Section.Container(deployed_container),
             ],
         )
@@ -977,13 +1053,17 @@ def test_invalid_container_deployment(
         initcodes=[initcontainer],
     )
 
-    destination_contract_address = compute_eofcreate_address(contract_address, 0)
+    destination_contract_address = compute_eofcreate_address(
+        contract_address, 0
+    )
 
     post = (
         {
             destination_contract_address: Account.NONEXISTENT,
             contract_address: Account(
-                nonce=1 if reason in ["invalid_initcode", "invalid_deploy_container"] else 2,
+                nonce=1
+                if reason in ["invalid_initcode", "invalid_deploy_container"]
+                else 2,
                 storage={
                     slot_code_worked: value_code_worked,
                 },
@@ -991,7 +1071,9 @@ def test_invalid_container_deployment(
         }
         if reason != "valid"
         else {
-            destination_contract_address: Account(nonce=1, code=deployed_container),
+            destination_contract_address: Account(
+                nonce=1, code=deployed_container
+            ),
             contract_address: Account(
                 nonce=2,
                 storage={

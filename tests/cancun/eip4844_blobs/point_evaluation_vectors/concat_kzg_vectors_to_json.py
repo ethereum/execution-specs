@@ -45,7 +45,11 @@ def main() -> None:  # noqa: D103
         help="Input directory containing the YAML files.",
     )
     parser.add_argument(
-        "-o", "--output", type=Path, required=True, help="Path to the output JSON file."
+        "-o",
+        "--output",
+        type=Path,
+        required=True,
+        help="Path to the output JSON file.",
     )
 
     args = parser.parse_args()

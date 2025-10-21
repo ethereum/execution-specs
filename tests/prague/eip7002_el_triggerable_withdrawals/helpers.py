@@ -51,7 +51,9 @@ class WithdrawalRequest(WithdrawalRequestBase):
             self.validator_pubkey + self.amount.to_bytes(8, byteorder="big")
         )
 
-    def with_source_address(self, source_address: Address) -> "WithdrawalRequest":
+    def with_source_address(
+        self, source_address: Address
+    ) -> "WithdrawalRequest":
         """
         Return a new instance of the withdrawal request with the source address
         set.
@@ -78,7 +80,9 @@ class WithdrawalRequestInteractionBase:
         """Return the pre-state of the account."""
         raise NotImplementedError
 
-    def valid_requests(self, current_minimum_fee: int) -> List[WithdrawalRequest]:
+    def valid_requests(
+        self, current_minimum_fee: int
+    ) -> List[WithdrawalRequest]:
         """
         Return the list of withdrawal requests that should be valid in the
         block.
@@ -95,7 +99,9 @@ class WithdrawalRequestTransaction(WithdrawalRequestInteractionBase):
 
     def transactions(self) -> List[Transaction]:
         """Return a transaction for the withdrawal request."""
-        assert self.sender_account is not None, "Sender account not initialized"
+        assert self.sender_account is not None, (
+            "Sender account not initialized"
+        )
         return [
             Transaction(
                 gas_limit=request.gas_limit,
@@ -112,9 +118,13 @@ class WithdrawalRequestTransaction(WithdrawalRequestInteractionBase):
         """Return the pre-state of the account."""
         self.sender_account = pre.fund_eoa(self.sender_balance)
 
-    def valid_requests(self, current_minimum_fee: int) -> List[WithdrawalRequest]:
+    def valid_requests(
+        self, current_minimum_fee: int
+    ) -> List[WithdrawalRequest]:
         """Return the list of withdrawal requests that are valid."""
-        assert self.sender_account is not None, "Sender account not initialized"
+        assert self.sender_account is not None, (
+            "Sender account not initialized"
+        )
         return [
             request.with_source_address(self.sender_account)
             for request in self.requests
@@ -153,8 +163,12 @@ class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
         code = Bytecode()
         current_offset = 0
         for r in self.requests:
-            value_arg = [r.value] if self.call_type in (Op.CALL, Op.CALLCODE) else []
-            code += Op.CALLDATACOPY(0, current_offset, len(r.calldata)) + Op.POP(
+            value_arg = (
+                [r.value] if self.call_type in (Op.CALL, Op.CALLCODE) else []
+            )
+            code += Op.CALLDATACOPY(
+                0, current_offset, len(r.calldata)
+            ) + Op.POP(
                 self.call_type(
                     Op.GAS if r.gas_limit == -1 else r.gas_limit,
                     r.interaction_contract_address,
@@ -206,9 +220,13 @@ class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
                     )
                 )
 
-    def valid_requests(self, current_minimum_fee: int) -> List[WithdrawalRequest]:
+    def valid_requests(
+        self, current_minimum_fee: int
+    ) -> List[WithdrawalRequest]:
         """Return the list of withdrawal requests that are valid."""
-        assert self.contract_address is not None, "Contract address not initialized"
+        assert self.contract_address is not None, (
+            "Contract address not initialized"
+        )
         return [
             r.with_source_address(self.contract_address)
             for r in self.requests
@@ -229,7 +247,9 @@ def get_n_fee_increments(n: int) -> List[int]:
     return excess_withdrawal_requests_counts
 
 
-def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
+def get_n_fee_increment_blocks(
+    n: int,
+) -> List[List[WithdrawalRequestContract]]:
     """
     Return N blocks that should be included in the test such that each
     subsequent block has an increasing fee for the withdrawal requests.
@@ -259,7 +279,10 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                             amount=0,
                             fee=fee,
                         )
-                        for i in range(withdrawal_index, withdrawal_index + withdrawals_required)
+                        for i in range(
+                            withdrawal_index,
+                            withdrawal_index + withdrawals_required,
+                        )
                     ],
                 )
             ],

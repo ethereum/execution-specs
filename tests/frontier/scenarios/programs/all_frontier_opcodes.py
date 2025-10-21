@@ -31,7 +31,10 @@ def make_all_opcode_program() -> Bytecode:
         # Test opcode 02 - MUL
         + Conditional(
             condition=Op.EQ(
-                Op.MUL(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, 2),
+                Op.MUL(
+                    0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
+                    2,
+                ),
                 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE,
             ),
             if_true=Op.JUMPDEST,
@@ -131,7 +134,10 @@ def make_all_opcode_program() -> Bytecode:
             condition=Op.AND(
                 Op.EQ(Op.EXP(10, 2), 100),
                 Op.EQ(
-                    Op.EXP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD, 2),
+                    Op.EXP(
+                        0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD,
+                        2,
+                    ),
                     9,
                 ),
             ),
@@ -161,7 +167,10 @@ def make_all_opcode_program() -> Bytecode:
                     1,
                 ),
                 Op.EQ(
-                    Op.LT(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, 0),
+                    Op.LT(
+                        0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
+                        0,
+                    ),
                     0,
                 ),
             ),
@@ -176,7 +185,10 @@ def make_all_opcode_program() -> Bytecode:
                     0,
                 ),
                 Op.EQ(
-                    Op.GT(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, 0),
+                    Op.GT(
+                        0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
+                        0,
+                    ),
                     1,
                 ),
             ),
@@ -187,11 +199,17 @@ def make_all_opcode_program() -> Bytecode:
         + Conditional(
             condition=Op.AND(
                 Op.EQ(
-                    Op.SLT(9, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF),
+                    Op.SLT(
+                        9,
+                        0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
+                    ),
                     0,
                 ),
                 Op.EQ(
-                    Op.SLT(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, 0),
+                    Op.SLT(
+                        0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
+                        0,
+                    ),
                     1,
                 ),
             ),
@@ -206,7 +224,10 @@ def make_all_opcode_program() -> Bytecode:
                     0,
                 ),
                 Op.EQ(
-                    Op.SGT(0, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF),
+                    Op.SGT(
+                        0,
+                        0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
+                    ),
                     1,
                 ),
             ),
@@ -246,7 +267,8 @@ def make_all_opcode_program() -> Bytecode:
         + Conditional(
             condition=Op.AND(
                 Op.EQ(
-                    Op.NOT(0), 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+                    Op.NOT(0),
+                    0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
                 ),
                 Op.EQ(
                     Op.NOT(0xFFFFFFFFFFFF),
@@ -373,19 +395,28 @@ def make_all_opcode_program() -> Bytecode:
         + Op.ADD
         + Op.PUSH28(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
         + Op.ADD
-        + Op.PUSH29(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+        + Op.PUSH29(
+            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+        )
         + Op.ADD
-        + Op.PUSH30(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+        + Op.PUSH30(
+            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+        )
         + Op.ADD
-        + Op.PUSH31(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+        + Op.PUSH31(
+            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+        )
         + Op.ADD
-        + Op.PUSH32(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+        + Op.PUSH32(
+            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+        )
         + Op.ADD
         + Op.PUSH1(0)
         + Op.MSTORE
         + Conditional(
             condition=Op.EQ(
-                Op.MLOAD(0), 0x1010101010101010101010101010101010101010101010101010101010100E0
+                Op.MLOAD(0),
+                0x1010101010101010101010101010101010101010101010101010101010100E0,
             ),
             if_true=Op.JUMPDEST,
             if_false=Op.MSTORE(0, 60) + Op.RETURN(0, 32),

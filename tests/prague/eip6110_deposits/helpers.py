@@ -96,7 +96,9 @@ class DepositRequest(DepositRequestBase):
     the total value is negative, an exception will be raised.
     """
 
-    interaction_contract_address: ClassVar[Address] = Address(Spec.DEPOSIT_CONTRACT_ADDRESS)
+    interaction_contract_address: ClassVar[Address] = Address(
+        Spec.DEPOSIT_CONTRACT_ADDRESS
+    )
 
     @cached_property
     def value(self) -> int:
@@ -114,9 +116,12 @@ class DepositRequest(DepositRequestBase):
         """Return the deposit data root of the deposit."""
         pubkey_root = sha256(self.pubkey, b"\x00" * 16)
         signature_root = sha256(
-            sha256(self.signature[:64]), sha256(self.signature[64:], b"\x00" * 32)
+            sha256(self.signature[:64]),
+            sha256(self.signature[64:], b"\x00" * 32),
         )
-        pubkey_withdrawal_root = sha256(pubkey_root, self.withdrawal_credentials)
+        pubkey_withdrawal_root = sha256(
+            pubkey_root, self.withdrawal_credentials
+        )
         amount_bytes = (self.amount).to_bytes(32, byteorder="little")
         amount_signature_root = sha256(amount_bytes, signature_root)
         return Hash(sha256(pubkey_withdrawal_root, amount_signature_root))
@@ -137,7 +142,11 @@ class DepositRequest(DepositRequestBase):
         offset_length = 32
         pubkey_offset = offset_length * 3 + len(self.deposit_data_root)
         withdrawal_offset = pubkey_offset + offset_length + len(self.pubkey)
-        signature_offset = withdrawal_offset + offset_length + len(self.withdrawal_credentials)
+        signature_offset = (
+            withdrawal_offset
+            + offset_length
+            + len(self.withdrawal_credentials)
+        )
         return self.calldata_modifier(
             b"\x22\x89\x51\x18"
             + pubkey_offset.to_bytes(offset_length, byteorder="big")
@@ -146,7 +155,9 @@ class DepositRequest(DepositRequestBase):
             + self.deposit_data_root
             + len(self.pubkey).to_bytes(offset_length, byteorder="big")
             + self.pubkey
-            + len(self.withdrawal_credentials).to_bytes(offset_length, byteorder="big")
+            + len(self.withdrawal_credentials).to_bytes(
+                offset_length, byteorder="big"
+            )
             + self.withdrawal_credentials
             + len(self.signature).to_bytes(offset_length, byteorder="big")
             + self.signature
@@ -184,11 +195,17 @@ class DepositRequest(DepositRequestBase):
             self.withdrawal_credentials
         )  # [288:320]
         offset += 32 + len(self.withdrawal_credentials)
-        data[offset : offset + 8] = (self.amount).to_bytes(8, byteorder="little")  # [352:360]
+        data[offset : offset + 8] = (self.amount).to_bytes(
+            8, byteorder="little"
+        )  # [352:360]
         offset += 56 + 8
-        data[offset : offset + len(self.signature)] = self.signature  # [416:512]
+        data[offset : offset + len(self.signature)] = (
+            self.signature
+        )  # [416:512]
         offset += 32 + len(self.signature)
-        data[offset : offset + 8] = (self.index).to_bytes(8, byteorder="little")  # [544:552]
+        data[offset : offset + 8] = (self.index).to_bytes(
+            8, byteorder="little"
+        )  # [544:552]
         return bytes(data)
 
     def with_source_address(self, source_address: Address) -> "DepositRequest":
@@ -233,7 +250,9 @@ class DepositTransaction(DepositInteractionBase):
 
     def transactions(self) -> List[Transaction]:
         """Return a transaction for the deposit request."""
-        assert self.sender_account is not None, "Sender account not initialized"
+        assert self.sender_account is not None, (
+            "Sender account not initialized"
+        )
         return [
             Transaction(
                 gas_limit=request.gas_limit,
@@ -296,8 +315,12 @@ class DepositContract(DepositInteractionBase):
         code = Bytecode()
         current_offset = 0
         for r in self.requests:
-            value_arg = [r.value] if self.call_type in (Op.CALL, Op.CALLCODE) else []
-            code += Op.CALLDATACOPY(0, current_offset, len(r.calldata)) + Op.POP(
+            value_arg = (
+                [r.value] if self.call_type in (Op.CALL, Op.CALLCODE) else []
+            )
+            code += Op.CALLDATACOPY(
+                0, current_offset, len(r.calldata)
+            ) + Op.POP(
                 self.call_type(
                     Op.GAS if r.gas_limit == -1 else r.gas_limit,
                     r.interaction_contract_address,
@@ -328,7 +351,9 @@ class DepositContract(DepositInteractionBase):
         """Return the pre-state of the account."""
         required_balance = self.sender_balance
         if self.tx_value > 0:
-            required_balance = max(required_balance, self.tx_value + self.tx_gas_limit * 7)
+            required_balance = max(
+                required_balance, self.tx_value + self.tx_gas_limit * 7
+            )
         self.sender_account = pre.fund_eoa(required_balance)
         self.contract_address = pre.deploy_contract(
             code=self.contract_code, balance=self.contract_balance
@@ -356,4 +381,8 @@ class DepositContract(DepositInteractionBase):
         Return the list of deposit requests that should be included in the
         block.
         """
-        return [d for d in self.requests if d.valid and d.value >= current_minimum_fee]
+        return [
+            d
+            for d in self.requests
+            if d.valid and d.value >= current_minimum_fee
+        ]

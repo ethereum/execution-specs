@@ -97,7 +97,9 @@ def block_base_fee_per_gas(
         else:
             excess_blob_gas = parent_excess_blobs * fork.blob_gas_per_blob()
             blob_gas_price_calculator = fork.blob_gas_price_calculator()
-            blob_base_fee = blob_gas_price_calculator(excess_blob_gas=excess_blob_gas)
+            blob_base_fee = blob_gas_price_calculator(
+                excess_blob_gas=excess_blob_gas
+            )
         boundary_base_fee = 8 * blob_base_fee
         return boundary_base_fee + block_base_fee_per_gas_delta
     return 7

@@ -37,7 +37,9 @@ REFERENCE_SPEC_VERSION = ref_spec_7702.version
 
 
 @pytest.mark.valid_from("Prague")
-def test_pointer_contract_pointer_loop(state_test: StateTestFiller, pre: Alloc) -> None:
+def test_pointer_contract_pointer_loop(
+    state_test: StateTestFiller, pre: Alloc
+) -> None:
     """
     Tx -> call -> pointer A -> contract A -> pointer B -> contract loop C.
 
@@ -137,7 +139,9 @@ def test_pointer_to_pointer(state_test: StateTestFiller, pre: Alloc) -> None:
 
 
 @pytest.mark.valid_from("Prague")
-def test_pointer_normal(blockchain_test: BlockchainTestFiller, pre: Alloc) -> None:
+def test_pointer_normal(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
     """
     Tx -> call -> pointer A -> contract.
 
@@ -153,7 +157,8 @@ def test_pointer_normal(blockchain_test: BlockchainTestFiller, pre: Alloc) -> No
 
     slot_worked = storage.store_next(3, "contract_a_worked")
     contract_a = pre.deploy_contract(
-        code=Op.SSTORE(slot_worked, Op.ADD(1, Op.SLOAD(slot_worked))) + Op.STOP,
+        code=Op.SSTORE(slot_worked, Op.ADD(1, Op.SLOAD(slot_worked)))
+        + Op.STOP,
     )
 
     tx = Transaction(
@@ -199,7 +204,9 @@ def test_pointer_normal(blockchain_test: BlockchainTestFiller, pre: Alloc) -> No
 
 
 @pytest.mark.valid_from("Prague")
-def test_pointer_measurements(blockchain_test: BlockchainTestFiller, pre: Alloc) -> None:
+def test_pointer_measurements(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
     """
     Check extcode* operations on pointer before and after pointer is set.
 
@@ -218,11 +225,20 @@ def test_pointer_measurements(blockchain_test: BlockchainTestFiller, pre: Alloc)
     # to pointer address
     pointer_code = pre.deploy_contract(
         balance=200,
-        code=Op.SSTORE(storage_pointer_code.store_next(pointer, "address"), Op.ADDRESS())
-        + Op.SSTORE(storage_pointer_code.store_next(3, "callvalue"), Op.CALLVALUE())
+        code=Op.SSTORE(
+            storage_pointer_code.store_next(pointer, "address"), Op.ADDRESS()
+        )
+        + Op.SSTORE(
+            storage_pointer_code.store_next(3, "callvalue"), Op.CALLVALUE()
+        )
         + Op.CALL(gas=1000, address=0, value=3)
-        + Op.SSTORE(storage_pointer_code.store_next(100, "selfbalance"), Op.SELFBALANCE())
-        + Op.SSTORE(storage_pointer_code.store_next(sender, "origin"), Op.ORIGIN())
+        + Op.SSTORE(
+            storage_pointer_code.store_next(100, "selfbalance"),
+            Op.SELFBALANCE(),
+        )
+        + Op.SSTORE(
+            storage_pointer_code.store_next(sender, "origin"), Op.ORIGIN()
+        )
         + Op.SSTORE(
             storage_pointer_code.store_next(
                 "0x1122334400000000000000000000000000000000000000000000000000000000",
@@ -230,7 +246,10 @@ def test_pointer_measurements(blockchain_test: BlockchainTestFiller, pre: Alloc)
             ),
             Op.CALLDATALOAD(0),
         )
-        + Op.SSTORE(storage_pointer_code.store_next(4, "calldatasize"), Op.CALLDATASIZE())
+        + Op.SSTORE(
+            storage_pointer_code.store_next(4, "calldatasize"),
+            Op.CALLDATASIZE(),
+        )
         + Op.CALLDATACOPY(0, 0, 32)
         + Op.SSTORE(
             storage_pointer_code.store_next(
@@ -240,11 +259,14 @@ def test_pointer_measurements(blockchain_test: BlockchainTestFiller, pre: Alloc)
             Op.MLOAD(0),
         )
         + Op.MSTORE(0, 0)
-        + Op.SSTORE(storage_pointer_code.store_next(83, "codesize"), Op.CODESIZE())
+        + Op.SSTORE(
+            storage_pointer_code.store_next(83, "codesize"), Op.CODESIZE()
+        )
         + Op.CODECOPY(0, 0, 32)
         + Op.SSTORE(
             storage_pointer_code.store_next(
-                "0x30600055346001556000600060006000600360006103e8f14760025532600355", "codecopy"
+                "0x30600055346001556000600060006000600360006103e8f14760025532600355",
+                "codecopy",
             ),
             Op.MLOAD(0),
         )
@@ -258,20 +280,29 @@ def test_pointer_measurements(blockchain_test: BlockchainTestFiller, pre: Alloc)
             storage_normal.store_next(Bytes().keccak256(), "extcodehash"),
             Op.EXTCODEHASH(pointer),
         )
-        + Op.SSTORE(storage_normal.store_next(0, "extcodesize"), Op.EXTCODESIZE(pointer))
+        + Op.SSTORE(
+            storage_normal.store_next(0, "extcodesize"),
+            Op.EXTCODESIZE(pointer),
+        )
         + Op.SSTORE(storage_normal.store_next(0, "extcodecopy"), Op.MLOAD(0))
-        + Op.SSTORE(storage_normal.store_next(100, "balance"), Op.BALANCE(pointer))
+        + Op.SSTORE(
+            storage_normal.store_next(100, "balance"), Op.BALANCE(pointer)
+        )
         + Op.STOP,
     )
     delegation_designation = Spec.delegation_designation(pointer_code)
     contract_measurements_pointer = pre.deploy_contract(
         code=Op.EXTCODECOPY(pointer, 0, 0, 32)
         + Op.SSTORE(
-            storage_pointer.store_next(delegation_designation.keccak256(), "extcodehash"),
+            storage_pointer.store_next(
+                delegation_designation.keccak256(), "extcodehash"
+            ),
             Op.EXTCODEHASH(pointer),
         )
         + Op.SSTORE(
-            storage_pointer.store_next(len(delegation_designation), "extcodesize"),
+            storage_pointer.store_next(
+                len(delegation_designation), "extcodesize"
+            ),
             Op.EXTCODESIZE(pointer),
         )
         + Op.SSTORE(
@@ -280,7 +311,9 @@ def test_pointer_measurements(blockchain_test: BlockchainTestFiller, pre: Alloc)
             ),
             Op.MLOAD(0),
         )
-        + Op.SSTORE(storage_pointer.store_next(100, "balance"), Op.BALANCE(pointer))
+        + Op.SSTORE(
+            storage_pointer.store_next(100, "balance"), Op.BALANCE(pointer)
+        )
         + Op.STOP,
     )
 
@@ -404,7 +437,9 @@ def test_call_to_precompile_in_pointer_context(
 
 @pytest.mark.with_all_precompiles
 @pytest.mark.valid_from("Prague")
-def test_pointer_to_precompile(state_test: StateTestFiller, pre: Alloc, precompile: int) -> None:
+def test_pointer_to_precompile(
+    state_test: StateTestFiller, pre: Alloc, precompile: int
+) -> None:
     """
     Tx -> call -> pointer A -> precompile contract.
 
@@ -424,12 +459,16 @@ def test_pointer_to_precompile(state_test: StateTestFiller, pre: Alloc, precompi
     pointer_a = pre.fund_eoa()
 
     contract_test_normal = pre.deploy_contract(
-        code=Op.MSTORE(0, Op.CALL(gas=0, address=precompile, args_size=Op.CALLDATASIZE()))
+        code=Op.MSTORE(
+            0, Op.CALL(gas=0, address=precompile, args_size=Op.CALLDATASIZE())
+        )
         + Op.RETURN(0, 32)
     )
 
     contract_test_pointer = pre.deploy_contract(
-        code=Op.MSTORE(0, Op.CALL(gas=0, address=pointer_a, args_size=Op.CALLDATASIZE()))
+        code=Op.MSTORE(
+            0, Op.CALL(gas=0, address=pointer_a, args_size=Op.CALLDATASIZE())
+        )
         + Op.RETURN(0, 32)
     )
 
@@ -442,7 +481,9 @@ def test_pointer_to_precompile(state_test: StateTestFiller, pre: Alloc, precompi
             ret_size=32,
         )
         # direct call to a precompile with 0 gas always return 0
-        + Op.SSTORE(storage.store_next(0, "direct_call_result"), Op.MLOAD(1000))
+        + Op.SSTORE(
+            storage.store_next(0, "direct_call_result"), Op.MLOAD(1000)
+        )
         + Op.CALL(
             gas=1_000_000,
             address=contract_test_pointer,
@@ -452,7 +493,9 @@ def test_pointer_to_precompile(state_test: StateTestFiller, pre: Alloc, precompi
         )
         # pointer call to a precompile with 0 gas always return 1 as if calling
         # empty address
-        + Op.SSTORE(storage.store_next(1, "pointer_call_result"), Op.MLOAD(1000))
+        + Op.SSTORE(
+            storage.store_next(1, "pointer_call_result"), Op.MLOAD(1000)
+        )
     )
 
     tx = Transaction(
@@ -554,7 +597,8 @@ def test_gas_diff_pointer_vs_direct_call(
             # access account price
             # If storage and account is declared in access list then discount
             gas_costs.G_WARM_ACCOUNT_ACCESS + gas_costs.G_WARM_SLOAD
-            if access_list_rule in [AccessListCall.IN_NORMAL_TX_ONLY, AccessListCall.IN_BOTH_TX]
+            if access_list_rule
+            in [AccessListCall.IN_NORMAL_TX_ONLY, AccessListCall.IN_BOTH_TX]
             else gas_costs.G_COLD_ACCOUNT_ACCESS + gas_costs.G_COLD_SLOAD
         )
         + opcodes_price
@@ -583,9 +627,15 @@ def test_gas_diff_pointer_vs_direct_call(
             gas_costs.G_WARM_ACCOUNT_ACCESS
             if (
                 pointer_definition
-                in [PointerDefinition.IN_BOTH_TX, PointerDefinition.IN_POINTER_TX_ONLY]
+                in [
+                    PointerDefinition.IN_BOTH_TX,
+                    PointerDefinition.IN_POINTER_TX_ONLY,
+                ]
                 or access_list_rule
-                in [AccessListCall.IN_BOTH_TX, AccessListCall.IN_POINTER_TX_ONLY]
+                in [
+                    AccessListCall.IN_BOTH_TX,
+                    AccessListCall.IN_POINTER_TX_ONLY,
+                ]
                 and access_list_to == AccessListTo.POINTER_ADDRESS
             )
             else gas_costs.G_COLD_ACCOUNT_ACCESS
@@ -594,7 +644,11 @@ def test_gas_diff_pointer_vs_direct_call(
         + (
             gas_costs.G_WARM_SLOAD
             if (
-                access_list_rule in [AccessListCall.IN_BOTH_TX, AccessListCall.IN_POINTER_TX_ONLY]
+                access_list_rule
+                in [
+                    AccessListCall.IN_BOTH_TX,
+                    AccessListCall.IN_POINTER_TX_ONLY,
+                ]
                 and access_list_to == AccessListTo.POINTER_ADDRESS
             )
             else gas_costs.G_COLD_SLOAD
@@ -603,7 +657,11 @@ def test_gas_diff_pointer_vs_direct_call(
         + (
             gas_costs.G_WARM_ACCOUNT_ACCESS
             if (
-                access_list_rule in [AccessListCall.IN_BOTH_TX, AccessListCall.IN_POINTER_TX_ONLY]
+                access_list_rule
+                in [
+                    AccessListCall.IN_BOTH_TX,
+                    AccessListCall.IN_POINTER_TX_ONLY,
+                ]
                 and access_list_to == AccessListTo.CONTRACT_ADDRESS
             )
             else gas_costs.G_COLD_ACCOUNT_ACCESS
@@ -611,7 +669,9 @@ def test_gas_diff_pointer_vs_direct_call(
         + opcodes_price
     )
 
-    contract = pre.deploy_contract(code=Op.SSTORE(call_worked, Op.ADD(Op.SLOAD(call_worked), 1)))
+    contract = pre.deploy_contract(
+        code=Op.SSTORE(call_worked, Op.ADD(Op.SLOAD(call_worked), 1))
+    )
 
     # Op.CALLDATASIZE() does not work with kwargs
     storage_normal: Storage = Storage()
@@ -705,7 +765,9 @@ def test_gas_diff_pointer_vs_direct_call(
             [
                 AccessList(
                     address=(
-                        pointer_a if access_list_to == AccessListTo.POINTER_ADDRESS else contract
+                        pointer_a
+                        if access_list_to == AccessListTo.POINTER_ADDRESS
+                        else contract
                     ),
                     storage_keys=[call_worked],
                 )
@@ -765,14 +827,18 @@ def test_pointer_call_followed_by_direct_call(
         + opcodes_price
     )
 
-    contract = pre.deploy_contract(code=Op.SSTORE(call_worked, Op.ADD(Op.SLOAD(call_worked), 1)))
+    contract = pre.deploy_contract(
+        code=Op.SSTORE(call_worked, Op.ADD(Op.SLOAD(call_worked), 1))
+    )
 
     storage_test_gas: Storage = Storage()
     contract_test_gas = pre.deploy_contract(
         code=Op.GAS()
         + Op.POP(Op.CALL(gas=100_000, address=pointer_a))
         + Op.SSTORE(
-            storage_test_gas.store_next(pointer_call_gas, "pointer_call_price"),
+            storage_test_gas.store_next(
+                pointer_call_gas, "pointer_call_price"
+            ),
             Op.SUB(Op.SWAP1(), Op.GAS()),
         )
         + Op.GAS()
@@ -830,7 +896,11 @@ def test_pointer_to_static(state_test: StateTestFiller, pre: Alloc) -> None:
         code=Op.SSTORE(
             storage.store_next(0, "static_call"),
             Op.STATICCALL(
-                gas=1_000_000, address=contract_b, args_size=32, ret_offset=1000, ret_size=32
+                gas=1_000_000,
+                address=contract_b,
+                args_size=32,
+                ret_offset=1000,
+                ret_size=32,
             ),
         )
         + Op.SSTORE(storage.store_next(1, "call_worked"), 1)
@@ -851,7 +921,10 @@ def test_pointer_to_static(state_test: StateTestFiller, pre: Alloc) -> None:
         ],
     )
 
-    post = {pointer_a: Account(storage=storage), contract_b: Account(storage={0: 0})}
+    post = {
+        pointer_a: Account(storage=storage),
+        contract_b: Account(storage={0: 0}),
+    }
     state_test(
         env=env,
         pre=pre,
@@ -877,7 +950,11 @@ def test_static_to_pointer(state_test: StateTestFiller, pre: Alloc) -> None:
         code=Op.SSTORE(
             storage.store_next(0, "static_call"),
             Op.STATICCALL(
-                gas=1_000_000, address=pointer_a, args_size=32, ret_offset=1000, ret_size=32
+                gas=1_000_000,
+                address=pointer_a,
+                args_size=32,
+                ret_offset=1000,
+                ret_size=32,
             ),
         )
         + Op.SSTORE(storage.store_next(1, "call_worked"), 1)
@@ -898,7 +975,10 @@ def test_static_to_pointer(state_test: StateTestFiller, pre: Alloc) -> None:
         ],
     )
 
-    post = {contract_a: Account(storage=storage), pointer_a: Account(storage={0: 0})}
+    post = {
+        contract_a: Account(storage=storage),
+        pointer_a: Account(storage={0: 0}),
+    }
     state_test(
         env=env,
         pre=pre,
@@ -923,7 +1003,8 @@ def test_pointer_to_eof(state_test: StateTestFiller, pre: Alloc) -> None:
         code=Container(
             sections=[
                 Section.Code(
-                    code=Op.SSTORE(storage.store_next(5, "eof_call_result"), 5) + Op.STOP,
+                    code=Op.SSTORE(storage.store_next(5, "eof_call_result"), 5)
+                    + Op.STOP,
                 )
             ]
         )
@@ -954,7 +1035,9 @@ def test_pointer_to_eof(state_test: StateTestFiller, pre: Alloc) -> None:
 
 
 @pytest.mark.valid_from("Prague")
-def test_pointer_to_static_reentry(state_test: StateTestFiller, pre: Alloc) -> None:
+def test_pointer_to_static_reentry(
+    state_test: StateTestFiller, pre: Alloc
+) -> None:
     """
     Tx call -> pointer A -> static -> code -> pointer A -> static violation
     Verify that static context is active when called under pointer.
@@ -967,9 +1050,16 @@ def test_pointer_to_static_reentry(state_test: StateTestFiller, pre: Alloc) -> N
     contract_b = pre.deploy_contract(
         code=Op.MSTORE(0, Op.ADD(1, Op.CALLDATALOAD(0)))
         + Conditional(
-            condition=Op.EQ(Op.MLOAD(0), 2), if_true=Op.SSTORE(5, 5), if_false=Op.JUMPDEST()
+            condition=Op.EQ(Op.MLOAD(0), 2),
+            if_true=Op.SSTORE(5, 5),
+            if_false=Op.JUMPDEST(),
         )
-        + Op.CALL(gas=100_000, address=pointer_a, args_offset=0, args_size=Op.CALLDATASIZE())
+        + Op.CALL(
+            gas=100_000,
+            address=pointer_a,
+            args_offset=0,
+            args_size=Op.CALLDATASIZE(),
+        )
     )
     contract_a = pre.deploy_contract(
         code=Op.MSTORE(0, Op.CALLDATALOAD(0))
@@ -1077,7 +1167,9 @@ def test_contract_storage_to_pointer_with_storage(
         # Verify tstorage in contract after interacting with pointer, it must
         # be 0
         + Op.MSTORE(0, 1)
-        + Op.CALL(address=contract_b, gas=500_000, args_offset=0, args_size=32),
+        + Op.CALL(
+            address=contract_b, gas=500_000, args_offset=0, args_size=32
+        ),
         storage={
             storage_a.store_next(
                 # caller storage is modified when calling pointer with delegate
@@ -1157,7 +1249,9 @@ def test_pointer_reentry(state_test: StateTestFiller, pre: Alloc) -> None:
     proxy = pre.deploy_contract(
         code=Op.MSTORE(arg_contract, Op.CALLDATALOAD(arg_contract))
         + Op.MSTORE(arg_action, Op.CALLDATALOAD(arg_action))
-        + Op.CALL(gas=400_000, address=pointer_b, args_offset=0, args_size=32 * 2)
+        + Op.CALL(
+            gas=400_000, address=pointer_b, args_offset=0, args_size=32 * 2
+        )
     )
     contract_b = pre.deploy_contract(
         balance=100,
@@ -1169,23 +1263,44 @@ def test_pointer_reentry(state_test: StateTestFiller, pre: Alloc) -> None:
         + Switch(
             cases=[
                 Case(
-                    condition=Op.EQ(Op.MLOAD(arg_action), ReentryAction.CALL_PROXY),
+                    condition=Op.EQ(
+                        Op.MLOAD(arg_action), ReentryAction.CALL_PROXY
+                    ),
                     action=Op.MSTORE(arg_action, ReentryAction.MEASURE_VALUES)
-                    + Op.CALL(gas=500_000, address=proxy, args_offset=0, args_size=32 * 2)
+                    + Op.CALL(
+                        gas=500_000,
+                        address=proxy,
+                        args_offset=0,
+                        args_size=32 * 2,
+                    )
                     + Op.STOP(),
                 ),
                 Case(
                     # This code is executed under pointer -> proxy -> pointer
                     # context
-                    condition=Op.EQ(Op.MLOAD(arg_action), ReentryAction.MEASURE_VALUES),
-                    action=Op.SSTORE(storage_pointer_b.store_next(sender, "origin"), Op.ORIGIN())
-                    + Op.SSTORE(storage_pointer_b.store_next(pointer_b, "address"), Op.ADDRESS())
-                    + Op.SSTORE(
-                        storage_pointer_b.store_next(1000, "selfbalance"), Op.SELFBALANCE()
+                    condition=Op.EQ(
+                        Op.MLOAD(arg_action), ReentryAction.MEASURE_VALUES
+                    ),
+                    action=Op.SSTORE(
+                        storage_pointer_b.store_next(sender, "origin"),
+                        Op.ORIGIN(),
                     )
-                    + Op.SSTORE(storage_pointer_b.store_next(proxy, "caller"), Op.CALLER())
+                    + Op.SSTORE(
+                        storage_pointer_b.store_next(pointer_b, "address"),
+                        Op.ADDRESS(),
+                    )
+                    + Op.SSTORE(
+                        storage_pointer_b.store_next(1000, "selfbalance"),
+                        Op.SELFBALANCE(),
+                    )
+                    + Op.SSTORE(
+                        storage_pointer_b.store_next(proxy, "caller"),
+                        Op.CALLER(),
+                    )
                     # now call contract which is pointer dest directly
-                    + Op.MSTORE(arg_action, ReentryAction.MEASURE_VALUES_CONTRACT)
+                    + Op.MSTORE(
+                        arg_action, ReentryAction.MEASURE_VALUES_CONTRACT
+                    )
                     + Op.CALL(
                         gas=500_000,
                         address=Op.MLOAD(arg_contract),
@@ -1198,11 +1313,21 @@ def test_pointer_reentry(state_test: StateTestFiller, pre: Alloc) -> None:
                     # pointer -> proxy -> pointer -> contract
                     # so pointer calling the code of it's dest
                     # after reentry to itself
-                    condition=Op.EQ(Op.MLOAD(arg_action), ReentryAction.MEASURE_VALUES_CONTRACT),
-                    action=Op.SSTORE(storage_b.store_next(sender, "origin"), Op.ORIGIN())
+                    condition=Op.EQ(
+                        Op.MLOAD(arg_action),
+                        ReentryAction.MEASURE_VALUES_CONTRACT,
+                    ),
+                    action=Op.SSTORE(
+                        storage_b.store_next(sender, "origin"), Op.ORIGIN()
+                    )
                     + Op.SSTORE(slot_reentry_address, Op.ADDRESS())
-                    + Op.SSTORE(storage_b.store_next(100, "selfbalance"), Op.SELFBALANCE())
-                    + Op.SSTORE(storage_b.store_next(pointer_b, "caller"), Op.CALLER()),
+                    + Op.SSTORE(
+                        storage_b.store_next(100, "selfbalance"),
+                        Op.SELFBALANCE(),
+                    )
+                    + Op.SSTORE(
+                        storage_b.store_next(pointer_b, "caller"), Op.CALLER()
+                    ),
                 ),
             ],
             default_action=None,
@@ -1249,7 +1374,9 @@ def test_eoa_init_as_pointer(state_test: StateTestFiller, pre: Alloc) -> None:
     """
     env = Environment()
     storage = Storage()
-    contract = pre.deploy_contract(code=Op.SSTORE(storage.store_next(1, "code_worked"), 1))
+    contract = pre.deploy_contract(
+        code=Op.SSTORE(storage.store_next(1, "code_worked"), 1)
+    )
     sender = pre.fund_eoa(delegation=contract)
 
     tx = Transaction(
@@ -1310,7 +1437,9 @@ def test_call_pointer_to_created_from_create_after_oog_call_again(
         + Op.CALL(address=pointer)
     )
     contract_create = compute_create_address(address=contract, nonce=1)
-    storage_contract[slot_create_res] = contract_create if call_return == Op.RETURN else 0
+    storage_contract[slot_create_res] = (
+        contract_create if call_return == Op.RETURN else 0
+    )
 
     slot_pointer_calls = storage_pointer.store_next(
         1 + 1 if call_return == Op.RETURN else 0, "pointer_calls"
@@ -1325,7 +1454,8 @@ def test_call_pointer_to_created_from_create_after_oog_call_again(
         gas_limit=800_000,
         data=Op.SSTORE(storage_create.store_next(1, "create_init_code"), 1)
         + Op.SSTORE(
-            storage_create.store_next(1, "call_pointer_from_init"), Op.CALL(address=pointer)
+            storage_create.store_next(1, "call_pointer_from_init"),
+            Op.CALL(address=pointer),
         )
         + Op.MSTORE(0, deploy_code.hex())
         + Op.RETURN(32 - len(deploy_code), len(deploy_code)),
@@ -1340,7 +1470,9 @@ def test_call_pointer_to_created_from_create_after_oog_call_again(
         ],
     )
     post = {
-        contract_create: Account(storage=storage_create) if call_return == Op.RETURN else None,
+        contract_create: Account(storage=storage_create)
+        if call_return == Op.RETURN
+        else None,
         contract: Account(storage=storage_contract),
         pointer: Account(storage=storage_pointer),
     }
@@ -1380,8 +1512,12 @@ valid_combinations = [
 
 
 @pytest.mark.valid_from("Prague")
-@pytest.mark.parametrize("first_revert, second_revert, final_revert", valid_combinations)
-@pytest.mark.parametrize("call_order", [CallOrder.CONTRACT_POINTER, CallOrder.POINTER_CONTRACT])
+@pytest.mark.parametrize(
+    "first_revert, second_revert, final_revert", valid_combinations
+)
+@pytest.mark.parametrize(
+    "call_order", [CallOrder.CONTRACT_POINTER, CallOrder.POINTER_CONTRACT]
+)
 def test_pointer_reverts(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -1429,11 +1565,17 @@ def test_pointer_reverts(
     contract_main = pre.deploy_contract(
         code=Op.MSTORE(0, 1 if first_revert else 0)
         + Op.CALL(
-            address=pointer if call_order == CallOrder.POINTER_CONTRACT else contract, args_size=32
+            address=pointer
+            if call_order == CallOrder.POINTER_CONTRACT
+            else contract,
+            args_size=32,
         )
         + Op.MSTORE(0, 1 if second_revert else 0)
         + Op.CALL(
-            address=pointer if call_order == CallOrder.CONTRACT_POINTER else contract, args_size=32
+            address=pointer
+            if call_order == CallOrder.CONTRACT_POINTER
+            else contract,
+            args_size=32,
         )
         + Conditional(
             condition=Op.EQ(1, int(final_revert)),
@@ -1455,7 +1597,10 @@ def test_pointer_reverts(
             )
         ],
     )
-    post = {pointer: Account(storage=pointer_storage), contract: Account(storage=contract_storage)}
+    post = {
+        pointer: Account(storage=pointer_storage),
+        contract: Account(storage=contract_storage),
+    }
     state_test(
         env=Environment(),
         pre=pre,
@@ -1475,10 +1620,12 @@ class DelegationTo(Enum):
 @pytest.mark.xdist_group(name="bigmem")
 @pytest.mark.valid_from("Prague")
 @pytest.mark.parametrize(
-    "first_delegation", [DelegationTo.CONTRACT_A, DelegationTo.CONTRACT_B, DelegationTo.RESET]
+    "first_delegation",
+    [DelegationTo.CONTRACT_A, DelegationTo.CONTRACT_B, DelegationTo.RESET],
 )
 @pytest.mark.parametrize(
-    "second_delegation", [DelegationTo.CONTRACT_A, DelegationTo.CONTRACT_B, DelegationTo.RESET]
+    "second_delegation",
+    [DelegationTo.CONTRACT_A, DelegationTo.CONTRACT_B, DelegationTo.RESET],
 )
 def test_double_auth(
     state_test: StateTestFiller,
@@ -1495,7 +1642,8 @@ def test_double_auth(
     contract_a = pre.deploy_contract(
         code=Op.SSTORE(
             storage.store_next(
-                1 if second_delegation == DelegationTo.CONTRACT_A else 0, "code_a_worked"
+                1 if second_delegation == DelegationTo.CONTRACT_A else 0,
+                "code_a_worked",
             ),
             1,
         )
@@ -1503,7 +1651,8 @@ def test_double_auth(
     contract_b = pre.deploy_contract(
         code=Op.SSTORE(
             storage.store_next(
-                2 if second_delegation == DelegationTo.CONTRACT_B else 0, "code_b_worked"
+                2 if second_delegation == DelegationTo.CONTRACT_B else 0,
+                "code_b_worked",
             ),
             2,
         )
@@ -1675,7 +1824,9 @@ def test_pointer_resets_an_empty_code_account_with_storage(
         + Op.CALL(address=another_pointer)  # run suicide from pointer that is
         # not sender
     )
-    newly_created_address = compute_create_address(address=contract_create, nonce=1)
+    newly_created_address = compute_create_address(
+        address=contract_create, nonce=1
+    )
 
     tx_create_suicide_from_pointer = Transaction(
         to=contract_create,
@@ -1701,9 +1852,12 @@ def test_pointer_resets_an_empty_code_account_with_storage(
     )
 
     post = {
-        pointer: Account(nonce=2, balance=0, storage=pointer_storage, code=bytes()),
+        pointer: Account(
+            nonce=2, balance=0, storage=pointer_storage, code=bytes()
+        ),
         sender: Account(
-            storage=sender_storage, code=Spec.delegation_designation(newly_created_address)
+            storage=sender_storage,
+            code=Spec.delegation_designation(newly_created_address),
         ),
         newly_created_address: Account.NONEXISTENT,
         contract_create: Account(storage={1: newly_created_address}),

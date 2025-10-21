@@ -105,18 +105,25 @@ pytestmark = [
         ),
         pytest.param(
             add_points_g1(Spec.G1, Spec.G1) + add_points_g1(Spec.P1, Spec.P1),
-            add_points_g1(add_points_g1(Spec.G1, Spec.G1), add_points_g1(Spec.P1, Spec.P1)),
+            add_points_g1(
+                add_points_g1(Spec.G1, Spec.G1),
+                add_points_g1(Spec.P1, Spec.P1),
+            ),
             None,
             id="double_generator_plus_double_point",
         ),
         pytest.param(
             add_points_g1(Spec.G1, Spec.G1) + add_points_g1(Spec.G1, Spec.G1),
-            add_points_g1(add_points_g1(Spec.G1, Spec.G1), add_points_g1(Spec.G1, Spec.G1)),
+            add_points_g1(
+                add_points_g1(Spec.G1, Spec.G1),
+                add_points_g1(Spec.G1, Spec.G1),
+            ),
             None,
             id="double_generator_plus_double_generator",
         ),
         pytest.param(  # (x,y) + (x,-y) = INF
-            PointG1(Spec.P1.x, Spec.P1.y) + PointG1(Spec.P1.x, Spec.P - Spec.P1.y),
+            PointG1(Spec.P1.x, Spec.P1.y)
+            + PointG1(Spec.P1.x, Spec.P - Spec.P1.y),
             Spec.INF_G1,
             None,
             id="point_plus_reflected_point",
@@ -200,7 +207,9 @@ pytestmark = [
         ),
         pytest.param(
             G1_POINTS_NOT_IN_SUBGROUP[4] + G1_POINTS_NOT_IN_SUBGROUP[0],
-            add_points_g1(G1_POINTS_NOT_IN_SUBGROUP[4], G1_POINTS_NOT_IN_SUBGROUP[0]),
+            add_points_g1(
+                G1_POINTS_NOT_IN_SUBGROUP[4], G1_POINTS_NOT_IN_SUBGROUP[0]
+            ),
             None,
             id="rand_not_in_subgroup_4_plus_0",
         ),

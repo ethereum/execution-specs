@@ -43,7 +43,9 @@ class ScenarioEnvironment:
 
     code_address: Address  # Op.ADDRESS, address scope for program
     code_caller: Address  # Op.CALLER, caller of the program
-    selfbalance: int  # Op.SELFBALANCE, balance of the environment of the program
+    selfbalance: (
+        int  # Op.SELFBALANCE, balance of the environment of the program
+    )
     call_value: int  # Op.CALLVALUE of call that is done to the program
     call_dataload_0: int  # Op.CALLDATALOAD(0) expected result
     call_datasize: int  # Op.CALLDATASIZE expected result
@@ -254,7 +256,9 @@ def make_invalid_opcode_contract(pre: Alloc, fork: Fork) -> Address:
         + sum(
             [
                 Op.JUMPDEST
-                + Bytecode(bytes([opcode]), popped_stack_items=0, pushed_stack_items=0)
+                + Bytecode(
+                    bytes([opcode]), popped_stack_items=0, pushed_stack_items=0
+                )
                 + Op.RETURN(0, 0)
                 for opcode in range(0x00, 0xFF)
             ],

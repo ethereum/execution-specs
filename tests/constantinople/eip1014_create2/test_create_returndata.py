@@ -59,11 +59,15 @@ def test_create2_return_data(
 
     # CREATE2 Initcode
     return_data_in_create = 0xFFFAFB
-    initcode = Op.MSTORE(0, return_data_in_create) + return_type_in_create(0, 32)
-    call_return_data_value = 0x1122334455667788991011121314151617181920212223242526272829303132
-    expected_call_return_data = int.to_bytes(call_return_data_value, 32, byteorder="big").ljust(
-        call_return_size, b"\0"
-    )[0:call_return_size]
+    initcode = Op.MSTORE(0, return_data_in_create) + return_type_in_create(
+        0, 32
+    )
+    call_return_data_value = (
+        0x1122334455667788991011121314151617181920212223242526272829303132
+    )
+    expected_call_return_data = int.to_bytes(
+        call_return_data_value, 32, byteorder="big"
+    ).ljust(call_return_size, b"\0")[0:call_return_size]
     expected_returndatacopy = expected_call_return_data[0:32]
     empty_data = b""
 
@@ -84,14 +88,19 @@ def test_create2_return_data(
         + Op.RETURNDATACOPY(0x200, 0, call_return_size)
         + Op.SSTORE(slot_returndatacopy_before_create, Op.MLOAD(0x200))
         + Op.SSTORE(slot_returndatacopy_before_create_2, Op.MLOAD(0x220))
-        + Op.SSTORE(slot_return_data_hash_before_create, Op.SHA3(0, call_return_size))
+        + Op.SSTORE(
+            slot_return_data_hash_before_create, Op.SHA3(0, call_return_size)
+        )
         #
         #
         + create_type(offset=0x100, size=Op.CALLDATASIZE())
         + Op.SSTORE(slot_returndatasize_after_create, Op.RETURNDATASIZE())
         + Op.RETURNDATACOPY(0x300, 0, Op.RETURNDATASIZE())
         + Op.SSTORE(slot_returndatacopy_after_create, Op.MLOAD(0x300))
-        + Op.SSTORE(slot_return_data_hash_after_create, Op.SHA3(0x300, Op.RETURNDATASIZE()))
+        + Op.SSTORE(
+            slot_return_data_hash_after_create,
+            Op.SHA3(0x300, Op.RETURNDATASIZE()),
+        )
         + Op.SSTORE(slot_begin_memory_after_create, Op.MLOAD(0))
         + Op.SSTORE(slot_code_worked, 1)
         + Op.STOP(),
@@ -116,7 +125,9 @@ def test_create2_return_data(
                 # the actual bytes returned by returndatacopy opcode after
                 # create
                 slot_returndatacopy_after_create: (
-                    return_data_in_create if return_type_in_create == Op.REVERT else 0
+                    return_data_in_create
+                    if return_type_in_create == Op.REVERT
+                    else 0
                 ),
                 slot_returndatasize_before_create: call_return_size,
                 #
@@ -125,11 +136,17 @@ def test_create2_return_data(
                     0x20 if return_type_in_create == Op.REVERT else 0
                 ),
                 #
-                slot_return_data_hash_before_create: keccak256(expected_call_return_data),
+                slot_return_data_hash_before_create: keccak256(
+                    expected_call_return_data
+                ),
                 slot_return_data_hash_after_create: (
                     keccak256(empty_data)
                     if return_type_in_create == Op.RETURN
-                    else keccak256(int.to_bytes(return_data_in_create, 32, byteorder="big"))
+                    else keccak256(
+                        int.to_bytes(
+                            return_data_in_create, 32, byteorder="big"
+                        )
+                    )
                 ),
                 #
                 # check that create 2 didn't mess up with initial memory space

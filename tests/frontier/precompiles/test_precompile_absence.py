@@ -56,7 +56,9 @@ def test_precompile_absence(
 
     call_code += Op.STOP
 
-    entry_point_address = pre.deploy_contract(call_code, storage=storage.canary())
+    entry_point_address = pre.deploy_contract(
+        call_code, storage=storage.canary()
+    )
 
     tx = Transaction(
         to=entry_point_address,

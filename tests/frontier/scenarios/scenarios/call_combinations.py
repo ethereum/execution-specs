@@ -73,10 +73,14 @@ class ScenariosCallCombinations:
         for first_call in self.first_call_opcodes:
             for second_call in self.second_call_opcodes:
                 if second_call == Op.NOOP:
-                    scenarios_list.append(self._generate_one_call_scenario(first_call))
+                    scenarios_list.append(
+                        self._generate_one_call_scenario(first_call)
+                    )
                 else:
                     scenarios_list.append(
-                        self._generate_two_call_scenario(first_call, second_call)
+                        self._generate_two_call_scenario(
+                            first_call, second_call
+                        )
                     )
         return scenarios_list
 
@@ -89,7 +93,8 @@ class ScenariosCallCombinations:
         pre: Alloc = scenario_input.pre
         balance = self.balance
         operation_contract = pre.deploy_contract(
-            code=scenario_input.operation_code, balance=balance.program_selfbalance
+            code=scenario_input.operation_code,
+            balance=balance.program_selfbalance,
         )
 
         scenario_contract = pre.deploy_contract(
@@ -134,12 +139,15 @@ class ScenariosCallCombinations:
                 # Define address on which behalf program is executed
                 code_address=(
                     scenario_contract
-                    if first_call == Op.CALLCODE or first_call == Op.DELEGATECALL
+                    if first_call == Op.CALLCODE
+                    or first_call == Op.DELEGATECALL
                     else operation_contract
                 ),
                 # Define code_caller for Op.CALLER
                 code_caller=(
-                    root_contract if first_call == Op.DELEGATECALL else scenario_contract
+                    root_contract
+                    if first_call == Op.DELEGATECALL
+                    else scenario_contract
                 ),
                 # Define balance for Op.BALANCE
                 selfbalance=(
@@ -148,7 +156,8 @@ class ScenariosCallCombinations:
                     else (
                         balance.program_selfbalance
                         if first_call == Op.STATICCALL
-                        else balance.first_call_value + balance.program_selfbalance
+                        else balance.first_call_value
+                        + balance.program_selfbalance
                     )
                 ),
                 call_value=(
@@ -162,7 +171,9 @@ class ScenariosCallCombinations:
             ),
         )
 
-    def _generate_two_call_scenario(self, first_call: Opcode, second_call: Opcode) -> Scenario:
+    def _generate_two_call_scenario(
+        self, first_call: Opcode, second_call: Opcode
+    ) -> Scenario:
         """
         Generate scenario for two types of calls combination root_contract
         -(CALL)-> scenario_contract -(first_call)-> sub_contract sub_contract
@@ -202,15 +213,28 @@ class ScenariosCallCombinations:
             if second_call in [Op.STATICCALL]:
                 selfbalance = balance.program_selfbalance
                 return selfbalance
-            if first_call == Op.STATICCALL and second_call in [Op.DELEGATECALL, Op.CALLCODE]:
-                selfbalance = balance.sub_contract_balance
-            if first_call in [Op.CALLCODE, Op.DELEGATECALL] and second_call in [
+            if first_call == Op.STATICCALL and second_call in [
                 Op.DELEGATECALL,
                 Op.CALLCODE,
             ]:
-                selfbalance = balance.scenario_contract_balance + balance.root_call_value
-            if first_call == Op.CALL and second_call in [Op.DELEGATECALL, Op.CALLCODE]:
-                selfbalance = balance.sub_contract_balance + balance.first_call_value
+                selfbalance = balance.sub_contract_balance
+            if first_call in [
+                Op.CALLCODE,
+                Op.DELEGATECALL,
+            ] and second_call in [
+                Op.DELEGATECALL,
+                Op.CALLCODE,
+            ]:
+                selfbalance = (
+                    balance.scenario_contract_balance + balance.root_call_value
+                )
+            if first_call == Op.CALL and second_call in [
+                Op.DELEGATECALL,
+                Op.CALLCODE,
+            ]:
+                selfbalance = (
+                    balance.sub_contract_balance + balance.first_call_value
+                )
             if first_call == Op.STATICCALL and second_call == Op.STATICCALL:
                 selfbalance = balance.program_selfbalance
             return selfbalance
@@ -237,10 +261,13 @@ class ScenariosCallCombinations:
         scenario_input = self.scenario_input
         pre: Alloc = scenario_input.pre
         balance = self.balance
-        second_call_value = balance.second_call_value if first_call != Op.STATICCALL else 0
+        second_call_value = (
+            balance.second_call_value if first_call != Op.STATICCALL else 0
+        )
 
         operation_contract = pre.deploy_contract(
-            code=scenario_input.operation_code, balance=balance.program_selfbalance
+            code=scenario_input.operation_code,
+            balance=balance.program_selfbalance,
         )
         sub_contract = pre.deploy_contract(
             code=Op.MSTORE(32, 1122334455)
@@ -317,7 +344,10 @@ class ScenariosCallCombinations:
                 call_dataload_0=1122334455,
                 call_datasize=40,
                 has_static=(
-                    True if first_call == Op.STATICCALL or second_call == Op.STATICCALL else False
+                    True
+                    if first_call == Op.STATICCALL
+                    or second_call == Op.STATICCALL
+                    else False
                 ),
             ),
         )

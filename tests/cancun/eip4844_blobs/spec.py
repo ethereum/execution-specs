@@ -17,7 +17,9 @@ class ReferenceSpec:
     version: str
 
 
-ref_spec_4844 = ReferenceSpec("EIPS/eip-4844.md", "de2e4a46ad93fc04e6fe3174dc6e90a3307bdb5f")
+ref_spec_4844 = ReferenceSpec(
+    "EIPS/eip-4844.md", "de2e4a46ad93fc04e6fe3174dc6e90a3307bdb5f"
+)
 
 
 # Constants
@@ -33,7 +35,9 @@ class Spec:
 
     BLOB_TX_TYPE = 0x03
     FIELD_ELEMENTS_PER_BLOB = 4096
-    BLS_MODULUS = 0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001
+    BLS_MODULUS = (
+        0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001
+    )
     BLOB_COMMITMENT_VERSION_KZG = 1
     POINT_EVALUATION_PRECOMPILE_ADDRESS = 10
     POINT_EVALUATION_PRECOMPILE_GAS = 50_000
@@ -59,11 +63,17 @@ class Spec:
         if isinstance(kzg_commitment, int):
             kzg_commitment = kzg_commitment.to_bytes(48, "big")
         if isinstance(blob_commitment_version_kzg, int):
-            blob_commitment_version_kzg = blob_commitment_version_kzg.to_bytes(1, "big")
-        return blob_commitment_version_kzg + sha256(kzg_commitment).digest()[1:]
+            blob_commitment_version_kzg = blob_commitment_version_kzg.to_bytes(
+                1, "big"
+            )
+        return (
+            blob_commitment_version_kzg + sha256(kzg_commitment).digest()[1:]
+        )
 
     @classmethod
-    def get_total_blob_gas(cls, *, tx: Transaction, blob_gas_per_blob: int) -> int:
+    def get_total_blob_gas(
+        cls, *, tx: Transaction, blob_gas_per_blob: int
+    ) -> int:
         """Calculate the total blob gas for a transaction."""
         if tx.blob_versioned_hashes is None:
             return 0
@@ -96,7 +106,9 @@ class SpecHelpers:
         gas_per_blob = fork.blob_gas_per_blob()
         while current_blob_gas_price < blob_gas_price:
             current_excess_blob_gas += gas_per_blob
-            current_blob_gas_price = get_blob_gas_price(excess_blob_gas=current_excess_blob_gas)
+            current_blob_gas_price = get_blob_gas_price(
+                excess_blob_gas=current_excess_blob_gas
+            )
         return current_excess_blob_gas
 
     @classmethod
@@ -139,7 +151,8 @@ class SpecHelpers:
                 range(1, min(blob_count + 1, max_blobs_per_tx) + 1), i
             )  # We iterate through all possible combinations
             # And we only keep the ones that match the expected blob count
-            if sum(seq) == blob_count and all(tx_blobs <= max_blobs_per_tx for tx_blobs in seq)
+            if sum(seq) == blob_count
+            and all(tx_blobs <= max_blobs_per_tx for tx_blobs in seq)
             # Validate each tx
         ]
 
@@ -147,7 +160,9 @@ class SpecHelpers:
         # not already in the list. E.g. (4, 1) is added from (1, 4) but not (1,
         # 1, 1, 1, 1) because its reversed version is identical.
         combinations += [
-            tuple(reversed(x)) for x in combinations if tuple(reversed(x)) not in combinations
+            tuple(reversed(x))
+            for x in combinations
+            if tuple(reversed(x)) not in combinations
         ]
         return combinations
 

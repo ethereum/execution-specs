@@ -164,7 +164,8 @@ def test_max_blobs_per_tx_fork_transition(
     pre_fork_block = Block(
         txs=[
             tx
-            if blob_count < fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP - 1)
+            if blob_count
+            < fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP - 1)
             else tx.with_error(expected_exception)
         ],
         timestamp=FORK_TIMESTAMP - 1,

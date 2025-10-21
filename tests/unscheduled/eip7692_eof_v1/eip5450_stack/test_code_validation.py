@@ -122,7 +122,10 @@ def rjump_code_with(
         jumps_over_next = True
     elif rjump_kind == RjumpKind.RJUMPV_OVER_PUSH_AND_TO_START:
         rjumpv_two_destinations_len = len(Op.RJUMPV[[0, 0]](0))
-        body = Op.RJUMPV[[1, -code_so_far_len - rjumpv_two_destinations_len]](0) + Op.PUSH0
+        body = (
+            Op.RJUMPV[[1, -code_so_far_len - rjumpv_two_destinations_len]](0)
+            + Op.PUSH0
+        )
         is_backwards = True
         pushes = True
     elif rjump_kind == RjumpKind.RJUMPI_OVER_RETF:
@@ -196,8 +199,8 @@ def section_code_with(
     rjump_falls_off_code = False
 
     if rjump_spot == RjumpSpot.BEGINNING:
-        rjump, is_backwards, rjump_snippet_pops, rjump_snippet_pushes = rjump_code_with(
-            rjump_kind, 0, body
+        rjump, is_backwards, rjump_snippet_pops, rjump_snippet_pushes = (
+            rjump_code_with(rjump_kind, 0, body)
         )
         if rjump_kind == RjumpKind.RJUMPI_OVER_RETF:
             if inputs > outputs:
@@ -209,8 +212,8 @@ def section_code_with(
     code += body
 
     if rjump_spot == RjumpSpot.BEFORE_TERMINATION:
-        rjump, is_backwards, rjump_snippet_pops, rjump_snippet_pushes = rjump_code_with(
-            rjump_kind, len(code), next_code=termination
+        rjump, is_backwards, rjump_snippet_pops, rjump_snippet_pushes = (
+            rjump_code_with(rjump_kind, len(code), next_code=termination)
         )
         code += rjump
 
@@ -247,8 +250,16 @@ possible_inputs_outputs = range(2)
 @pytest.mark.parametrize(
     ["inputs", "outputs"],
     itertools.product(
-        list(itertools.product(*([possible_inputs_outputs] * (num_sections - 1)))),
-        list(itertools.product(*([possible_inputs_outputs] * (num_sections - 1)))),
+        list(
+            itertools.product(
+                *([possible_inputs_outputs] * (num_sections - 1))
+            )
+        ),
+        list(
+            itertools.product(
+                *([possible_inputs_outputs] * (num_sections - 1))
+            )
+        ),
     ),
 )
 @pytest.mark.parametrize(
@@ -298,14 +309,18 @@ def test_rjumps_callf_retf(
             call.popped_stack_items = inputs[section_idx + 1]
             call.pushed_stack_items = outputs[section_idx + 1]
             call.min_stack_height = call.popped_stack_items
-            call.max_stack_height = max(call.popped_stack_items, call.pushed_stack_items)
+            call.max_stack_height = max(
+                call.popped_stack_items, call.pushed_stack_items
+            )
             termination = Op.STOP
         elif section_idx < num_sections - 1:
             call = Op.CALLF[section_idx + 1]
             call.popped_stack_items = inputs[section_idx + 1]
             call.pushed_stack_items = outputs[section_idx + 1]
             call.min_stack_height = call.popped_stack_items
-            call.max_stack_height = max(call.popped_stack_items, call.pushed_stack_items)
+            call.max_stack_height = max(
+                call.popped_stack_items, call.pushed_stack_items
+            )
             termination = Op.RETF
         else:
             call = None
@@ -360,11 +375,15 @@ def test_rjumps_callf_retf(
     if container_has_section_0_retf:
         possible_exceptions.append(EOFException.INVALID_NON_RETURNING_FLAG)
 
-    eof_test(container=Container(sections=sections), expect_exception=possible_exceptions or None)
+    eof_test(
+        container=Container(sections=sections),
+        expect_exception=possible_exceptions or None,
+    )
 
 
 @pytest.mark.parametrize(
-    "inputs", itertools.product(*([possible_inputs_outputs] * (num_sections - 1)))
+    "inputs",
+    itertools.product(*([possible_inputs_outputs] * (num_sections - 1))),
 )
 @pytest.mark.parametrize(
     "rjump_kind",
@@ -404,7 +423,9 @@ def test_rjumps_jumpf_nonreturning(
             call.popped_stack_items = inputs[section_idx + 1]
             call.pushed_stack_items = 0
             call.min_stack_height = call.popped_stack_items
-            call.max_stack_height = max(call.popped_stack_items, call.pushed_stack_items)
+            call.max_stack_height = max(
+                call.popped_stack_items, call.pushed_stack_items
+            )
             termination = Bytecode()
         else:
             call = None
@@ -454,12 +475,19 @@ def test_rjumps_jumpf_nonreturning(
     if container_has_non_returning_retf:
         possible_exceptions.append(EOFException.INVALID_NON_RETURNING_FLAG)
 
-    eof_test(container=Container(sections=sections), expect_exception=possible_exceptions or None)
+    eof_test(
+        container=Container(sections=sections),
+        expect_exception=possible_exceptions or None,
+    )
 
 
-def gen_stack_underflow_params() -> Generator[tuple[Union[Op, Opcode], int], None, None]:
+def gen_stack_underflow_params() -> Generator[
+    tuple[Union[Op, Opcode], int], None, None
+]:
     """Generate parameters for stack underflow tests."""
-    opcodes = sorted(op for op in valid_eof_opcodes if op.min_stack_height > 0) + [
+    opcodes = sorted(
+        op for op in valid_eof_opcodes if op.min_stack_height > 0
+    ) + [
         # Opcodes that have variable min_stack_height
         Op.SWAPN[0x00],
         Op.SWAPN[0xFF],
@@ -488,9 +516,14 @@ def test_all_opcodes_stack_underflow(
     if spread >= 0:
         # Check if the op increases the stack height (e.g. DUP instructions).
         # We need to leave space for this increase not to cause stack overflow.
-        max_stack_increase = max(op.pushed_stack_items - op.popped_stack_items, 0)
+        max_stack_increase = max(
+            op.pushed_stack_items - op.popped_stack_items, 0
+        )
         # Cap the spread if it would exceed the maximum stack height.
-        spread = min(spread, MAX_STACK_INCREASE_LIMIT - (stack_height + max_stack_increase))
+        spread = min(
+            spread,
+            MAX_STACK_INCREASE_LIMIT - (stack_height + max_stack_increase),
+        )
         # Create a range stack height of 0-spread.
         code += Op.RJUMPI[spread](Op.CALLVALUE) + Op.PUSH0 * spread
 
@@ -555,7 +588,12 @@ def test_all_opcodes_stack_underflow(
             name="underflow_variable_stack_0",
             sections=[
                 Section.Code(
-                    code=Op.PUSH0 + Op.RJUMPI[2](0) + Op.PUSH0 + Op.PUSH0 + Op.LOG2 + Op.STOP,
+                    code=Op.PUSH0
+                    + Op.RJUMPI[2](0)
+                    + Op.PUSH0
+                    + Op.PUSH0
+                    + Op.LOG2
+                    + Op.STOP,
                     max_stack_height=3,
                 ),
             ],
@@ -564,7 +602,12 @@ def test_all_opcodes_stack_underflow(
             name="underflow_variable_stack_1",
             sections=[
                 Section.Code(
-                    code=Op.PUSH0 + Op.RJUMPI[2](0) + Op.PUSH0 + Op.PUSH0 + Op.ADD + Op.STOP,
+                    code=Op.PUSH0
+                    + Op.RJUMPI[2](0)
+                    + Op.PUSH0
+                    + Op.PUSH0
+                    + Op.ADD
+                    + Op.STOP,
                     max_stack_height=3,
                 ),
             ],
@@ -573,7 +616,11 @@ def test_all_opcodes_stack_underflow(
             name="underflow_variable_stack_2",
             sections=[
                 Section.Code(
-                    code=Op.PUSH0 * 2 + Op.RJUMPI[1](0) + Op.POP + Op.ADD + Op.STOP,
+                    code=Op.PUSH0 * 2
+                    + Op.RJUMPI[1](0)
+                    + Op.POP
+                    + Op.ADD
+                    + Op.STOP,
                     max_stack_height=3,
                 ),
             ],
@@ -595,18 +642,25 @@ def test_all_opcodes_stack_underflow(
     ],
     ids=lambda x: x.name,
 )
-def test_stack_underflow_examples(eof_test: EOFTestFiller, container: Container) -> None:
+def test_stack_underflow_examples(
+    eof_test: EOFTestFiller, container: Container
+) -> None:
     """
     Test EOF validation failing due to stack underflow at basic instructions.
     """
-    eof_test(container=container, expect_exception=EOFException.STACK_UNDERFLOW)
+    eof_test(
+        container=container, expect_exception=EOFException.STACK_UNDERFLOW
+    )
 
 
 @pytest.mark.parametrize("initial_stack", [0, 1, 2])
 @pytest.mark.parametrize("calldata_1", [0, 1])
 @pytest.mark.parametrize("calldata_2", [0, 1])
 def test_valid_non_constant_stack_examples(
-    eof_state_test: EOFStateTestFiller, initial_stack: int, calldata_1: int, calldata_2: int
+    eof_state_test: EOFStateTestFiller,
+    initial_stack: int,
+    calldata_1: int,
+    calldata_2: int,
 ) -> None:
     """Test valid containers with non constant stack items."""
     # Stores the number of added items to the stack in storage slot 0
@@ -614,7 +668,9 @@ def test_valid_non_constant_stack_examples(
     # calldata_1 == 0:
     #   calldata_2 == 0: number of items: 3
     #   calldata_2 == 1: number of items: 4
-    expected_storage = {0: 2} if calldata_1 == 1 else ({0: 3} if calldata_2 == 0 else {0: 4})
+    expected_storage = (
+        {0: 2} if calldata_1 == 1 else ({0: 3} if calldata_2 == 0 else {0: 4})
+    )
     data = calldata_1.to_bytes(32, "big") + calldata_2.to_bytes(32, "big")
     container = Container(
         sections=[
@@ -647,15 +703,21 @@ def test_valid_non_constant_stack_examples(
     )
 
 
-@pytest.mark.parametrize("num_rjumpi", [MAX_STACK_INCREASE_LIMIT, MAX_STACK_INCREASE_LIMIT + 1])
-def test_stack_range_maximally_broad(eof_test: EOFTestFiller, num_rjumpi: int) -> None:
+@pytest.mark.parametrize(
+    "num_rjumpi", [MAX_STACK_INCREASE_LIMIT, MAX_STACK_INCREASE_LIMIT + 1]
+)
+def test_stack_range_maximally_broad(
+    eof_test: EOFTestFiller, num_rjumpi: int
+) -> None:
     """Test stack range 0-1023 at final instruction."""
     code = Op.STOP()
     for i in range(0, num_rjumpi):
         offset = i * 5 + 1
         code = Op.PUSH0 + Op.RJUMPI[offset] + Op.PUSH0 + code
 
-    container = Container.Code(code=code, max_stack_increase=MAX_STACK_INCREASE_LIMIT)
+    container = Container.Code(
+        code=code, max_stack_increase=MAX_STACK_INCREASE_LIMIT
+    )
 
     eof_test(
         container=container,

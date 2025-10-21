@@ -100,7 +100,9 @@ def genesis_base_fee_per_gas(
     """Genesis base fee per gas."""
     # Base fee always drops from genesis to block 1 because the genesis block
     # never uses any tx gas.
-    return (parent_base_fee_per_gas * fork.base_fee_max_change_denominator()) // 7
+    return (
+        parent_base_fee_per_gas * fork.base_fee_max_change_denominator()
+    ) // 7
 
 
 @pytest.fixture
@@ -199,7 +201,9 @@ def get_blob_transactions(
             max_priority_fee_per_gas=0,
             max_fee_per_blob_gas=tx_max_fee_per_blob_gas,
             access_list=[],
-            blob_versioned_hashes=blob_hashes_per_tx(blob_count % blob_cap_per_transaction),
+            blob_versioned_hashes=blob_hashes_per_tx(
+                blob_count % blob_cap_per_transaction
+            ),
         )
         txs.append(tx)
     return txs
@@ -366,7 +370,9 @@ class BlobSchedule:
     @property
     def base_fee_update_fraction(self) -> int:
         """Return the base fee update fraction."""
-        return self.fork.blob_base_fee_update_fraction(timestamp=self.timestamp)
+        return self.fork.blob_base_fee_update_fraction(
+            timestamp=self.timestamp
+        )
 
     @property
     def blob_gas_per_blob(self) -> int:
@@ -390,7 +396,9 @@ class BlobSchedule:
         Calculate the excess blob gas for the current block based on the gas
         used in the parent block.
         """
-        excess_blob_gas_calculator = self.fork.excess_blob_gas_calculator(timestamp=self.timestamp)
+        excess_blob_gas_calculator = self.fork.excess_blob_gas_calculator(
+            timestamp=self.timestamp
+        )
         return excess_blob_gas_calculator(
             parent_excess_blob_gas=parent_header.excess_blob_gas,
             parent_blob_count=parent_header.blob_gas_used,
@@ -407,8 +415,12 @@ class BlobSchedule:
         if self.blob_base_cost is None:
             return None
         target_blob_gas_price = self.blob_gas_per_blob
-        blob_gas_price_calculator = self.fork.blob_gas_price_calculator(timestamp=self.timestamp)
-        target_blob_gas_price *= blob_gas_price_calculator(excess_blob_gas=excess_blob_gas)
+        blob_gas_price_calculator = self.fork.blob_gas_price_calculator(
+            timestamp=self.timestamp
+        )
+        target_blob_gas_price *= blob_gas_price_calculator(
+            excess_blob_gas=excess_blob_gas
+        )
         base_blob_tx_price = target_blob_gas_price
         return (base_blob_tx_price // self.blob_base_cost) + 1
 
@@ -424,17 +436,15 @@ def get_fork_scenarios(fork: Fork) -> Iterator[ParameterSet]:
     excess_blobs_combinations = [0, 1, 10, 100]
 
     for parent_excess_blobs in excess_blobs_combinations:
-        parent_excess_blob_gas = parent_excess_blobs * source_blob_schedule.blob_gas_per_blob
-
-        source_execution_threshold = (
-            source_blob_schedule.execution_base_fee_threshold_from_excess_blob_gas(
-                parent_excess_blob_gas
-            )
+        parent_excess_blob_gas = (
+            parent_excess_blobs * source_blob_schedule.blob_gas_per_blob
         )
-        transition_execution_threshold = (
-            transition_blob_schedule.execution_base_fee_threshold_from_excess_blob_gas(
-                parent_excess_blob_gas
-            )
+
+        source_execution_threshold = source_blob_schedule.execution_base_fee_threshold_from_excess_blob_gas(
+            parent_excess_blob_gas
+        )
+        transition_execution_threshold = transition_blob_schedule.execution_base_fee_threshold_from_excess_blob_gas(
+            parent_excess_blob_gas
         )
         if (
             source_execution_threshold != transition_execution_threshold
@@ -444,7 +454,11 @@ def get_fork_scenarios(fork: Fork) -> Iterator[ParameterSet]:
             # transition one given the excess blob gas. We can verify that the
             # BPO is activated correctly by using the a setup block with
             # transition_execution_threshold to trigger the reserve.
-            for source_blob_count in [0, source_blob_schedule.target, source_blob_schedule.max]:
+            for source_blob_count in [
+                0,
+                source_blob_schedule.target,
+                source_blob_schedule.max,
+            ]:
                 # Scenario 1: Parent base fee per gas is below the threshold at
                 # the parent of the transition block, so even though the base
                 # fee increases on the transition block to reach the value
@@ -457,11 +471,15 @@ def get_fork_scenarios(fork: Fork) -> Iterator[ParameterSet]:
                     blob_gas_used=source_blob_count,
                     base_fee_per_gas=parent_base_fee,
                 )
-                target_excess_blob_gas = transition_blob_schedule.calculate_excess_blob_gas(
-                    parent_header
+                target_excess_blob_gas = (
+                    transition_blob_schedule.calculate_excess_blob_gas(
+                        parent_header
+                    )
                 )
-                source_excess_blob_gas = source_blob_schedule.calculate_excess_blob_gas(
-                    parent_header
+                source_excess_blob_gas = (
+                    source_blob_schedule.calculate_excess_blob_gas(
+                        parent_header
+                    )
                 )
                 if source_excess_blob_gas != target_excess_blob_gas:
                     yield pytest.param(
@@ -488,11 +506,15 @@ def get_fork_scenarios(fork: Fork) -> Iterator[ParameterSet]:
                     blob_gas_used=source_blob_count,
                     base_fee_per_gas=parent_base_fee,
                 )
-                target_excess_blob_gas = transition_blob_schedule.calculate_excess_blob_gas(
-                    parent_header
+                target_excess_blob_gas = (
+                    transition_blob_schedule.calculate_excess_blob_gas(
+                        parent_header
+                    )
                 )
-                source_excess_blob_gas = source_blob_schedule.calculate_excess_blob_gas(
-                    parent_header
+                source_excess_blob_gas = (
+                    source_blob_schedule.calculate_excess_blob_gas(
+                        parent_header
+                    )
                 )
                 if source_excess_blob_gas != target_excess_blob_gas:
                     yield pytest.param(

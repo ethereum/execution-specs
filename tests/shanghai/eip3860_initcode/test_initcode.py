@@ -121,8 +121,12 @@ SINGLE_BYTE_INITCODE.execution_gas = 0
     [
         INITCODE_ZEROS_MAX_LIMIT,
         INITCODE_ONES_MAX_LIMIT,
-        pytest.param(INITCODE_ZEROS_OVER_LIMIT, marks=pytest.mark.exception_test),
-        pytest.param(INITCODE_ONES_OVER_LIMIT, marks=pytest.mark.exception_test),
+        pytest.param(
+            INITCODE_ZEROS_OVER_LIMIT, marks=pytest.mark.exception_test
+        ),
+        pytest.param(
+            INITCODE_ONES_OVER_LIMIT, marks=pytest.mark.exception_test
+        ),
     ],
     ids=get_initcode_name,
 )
@@ -182,7 +186,11 @@ def valid_gas_test_case(initcode: Initcode, gas_test_case: str) -> bool:
         pytest.param(
             i,
             g,
-            marks=([pytest.mark.exception_test] if g == "too_little_intrinsic_gas" else []),
+            marks=(
+                [pytest.mark.exception_test]
+                if g == "too_little_intrinsic_gas"
+                else []
+            ),
         )
         for i in [
             INITCODE_ZEROS_MAX_LIMIT,
@@ -202,7 +210,9 @@ def valid_gas_test_case(initcode: Initcode, gas_test_case: str) -> bool:
         ]
         if valid_gas_test_case(i, g)
     ],
-    ids=lambda x: f"{get_initcode_name(x[0])}-{x[1]}" if isinstance(x, tuple) else x,
+    ids=lambda x: f"{get_initcode_name(x[0])}-{x[1]}"
+    if isinstance(x, tuple)
+    else x,
 )
 class TestContractCreationGasUsage:
     """
@@ -231,7 +241,10 @@ class TestContractCreationGasUsage:
         Upon EIP-7623 activation, we need to use an access list to raise the
         intrinsic gas cost to be above the floor data cost.
         """
-        return [AccessList(address=Address(i), storage_keys=[]) for i in range(1, 478)]
+        return [
+            AccessList(address=Address(i), storage_keys=[])
+            for i in range(1, 478)
+        ]
 
     @pytest.fixture
     def exact_intrinsic_gas(
@@ -240,7 +253,9 @@ class TestContractCreationGasUsage:
         """
         Calculate the intrinsic tx gas cost.
         """
-        tx_intrinsic_gas_cost_calculator = fork.transaction_intrinsic_cost_calculator()
+        tx_intrinsic_gas_cost_calculator = (
+            fork.transaction_intrinsic_cost_calculator()
+        )
         assert tx_intrinsic_gas_cost_calculator(
             calldata=initcode,
             contract_creation=True,
@@ -258,11 +273,17 @@ class TestContractCreationGasUsage:
         )
 
     @pytest.fixture
-    def exact_execution_gas(self, exact_intrinsic_gas: int, initcode: Initcode) -> int:
+    def exact_execution_gas(
+        self, exact_intrinsic_gas: int, initcode: Initcode
+    ) -> int:
         """
         Calculate total execution gas cost.
         """
-        return exact_intrinsic_gas + initcode.deployment_gas + initcode.execution_gas
+        return (
+            exact_intrinsic_gas
+            + initcode.deployment_gas
+            + initcode.execution_gas
+        )
 
     @pytest.fixture
     def tx_error(self, gas_test_case: str) -> TransactionException | None:
@@ -334,12 +355,19 @@ class TestContractCreationGasUsage:
             address=sender,
             nonce=0,
         )
-        if gas_test_case == "exact_intrinsic_gas" and exact_intrinsic_gas == exact_execution_gas:
+        if (
+            gas_test_case == "exact_intrinsic_gas"
+            and exact_intrinsic_gas == exact_execution_gas
+        ):
             # Special scenario where the execution of the initcode and
             # gas cost to deploy are zero
-            return Alloc({create_contract_address: Account(code=initcode.deploy_code)})
+            return Alloc(
+                {create_contract_address: Account(code=initcode.deploy_code)}
+            )
         elif gas_test_case == "exact_execution_gas":
-            return Alloc({create_contract_address: Account(code=initcode.deploy_code)})
+            return Alloc(
+                {create_contract_address: Account(code=initcode.deploy_code)}
+            )
         return Alloc({create_contract_address: Account.NONEXISTENT})
 
     @pytest.mark.slow()
@@ -421,7 +449,9 @@ class TestCreateInitcode:
         )
 
     @pytest.fixture
-    def creator_contract_address(self, pre: Alloc, creator_code: Bytecode) -> Address:
+    def creator_contract_address(
+        self, pre: Alloc, creator_code: Bytecode
+    ) -> Address:
         """Return address of creator contract."""
         return pre.deploy_contract(creator_code)
 
@@ -450,16 +480,23 @@ class TestCreateInitcode:
         Generate code for the caller contract that calls the creator contract.
         """
         return Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE) + Op.SSTORE(
-            Op.CALL(5000000, creator_contract_address, 0, 0, Op.CALLDATASIZE, 0, 0), 1
+            Op.CALL(
+                5000000, creator_contract_address, 0, 0, Op.CALLDATASIZE, 0, 0
+            ),
+            1,
         )
 
     @pytest.fixture
-    def caller_contract_address(self, pre: Alloc, caller_code: Bytecode) -> Address:
+    def caller_contract_address(
+        self, pre: Alloc, caller_code: Bytecode
+    ) -> Address:
         """Return address of the caller contract."""
         return pre.deploy_contract(caller_code)
 
     @pytest.fixture
-    def tx(self, caller_contract_address: Address, initcode: Initcode, sender: EOA) -> Transaction:
+    def tx(
+        self, caller_contract_address: Address, initcode: Initcode, sender: EOA
+    ) -> Transaction:
         """Generate transaction that executes the caller contract."""
         return Transaction(
             nonce=0,
@@ -496,13 +533,17 @@ class TestCreateInitcode:
         return ceiling_division(len(initcode), 32) * gas_costs.G_INITCODE_WORD
 
     @pytest.fixture
-    def create2_word_cost(self, opcode: Op, fork: Fork, initcode: Initcode) -> int:
+    def create2_word_cost(
+        self, opcode: Op, fork: Fork, initcode: Initcode
+    ) -> int:
         """Calculate gas cost charged for the initcode length."""
         if opcode == Op.CREATE:
             return 0
 
         gas_costs = fork.gas_costs()
-        return ceiling_division(len(initcode), 32) * gas_costs.G_KECCAK_256_WORD
+        return (
+            ceiling_division(len(initcode), 32) * gas_costs.G_KECCAK_256_WORD
+        )
 
     @pytest.mark.xdist_group(name="bigmem")
     @pytest.mark.slow()

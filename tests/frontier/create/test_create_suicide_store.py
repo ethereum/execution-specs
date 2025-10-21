@@ -128,7 +128,10 @@ def test_create_suicide_store(
     )
 
     expected_create_address = compute_create_address(
-        address=create_contract, nonce=1, initcode=suicide_initcode, opcode=create_opcode
+        address=create_contract,
+        nonce=1,
+        initcode=suicide_initcode,
+        opcode=create_opcode,
     )
     expect_post[slot_create_result] = expected_create_address
     expect_post[slot_after_suicide_sstore_return] = (

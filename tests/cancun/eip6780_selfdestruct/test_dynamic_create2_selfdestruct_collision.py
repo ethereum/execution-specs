@@ -29,7 +29,12 @@ REFERENCE_SPEC_VERSION = "1b6a0e94cc47e859b9866e570391cf37dc55059a"
 @pytest.mark.valid_from("Paris")
 @pytest.mark.parametrize(
     "create2_dest_already_in_state",
-    (pytest.param(True, marks=pytest.mark.execute(pytest.mark.skip("Modifies pre"))), False),
+    (
+        pytest.param(
+            True, marks=pytest.mark.execute(pytest.mark.skip("Modifies pre"))
+        ),
+        False,
+    ),
 )
 @pytest.mark.parametrize(
     "call_create2_contract_in_between,call_create2_contract_at_the_end",
@@ -71,7 +76,9 @@ def test_dynamic_create2_selfdestruct_collision(
     https://lf-hyperledger.atlassian.net/wiki/spaces/BESU/pages/
     22156575/2024-01-06+Mainnet+Halting+Event
     """
-    assert call_create2_contract_in_between or call_create2_contract_at_the_end, "invalid test"
+    assert (
+        call_create2_contract_in_between or call_create2_contract_at_the_end
+    ), "invalid test"
 
     # Storage locations
     create2_constructor_worked = 1
@@ -112,9 +119,15 @@ def test_dynamic_create2_selfdestruct_collision(
     )
 
     # Created addresses - now we can compute create2_address
-    create2_address = compute_create2_address(address_code, create2_salt, initcode)
-    call_address_in_between = create2_address if call_create2_contract_in_between else address_zero
-    call_address_in_the_end = create2_address if call_create2_contract_at_the_end else address_zero
+    create2_address = compute_create2_address(
+        address_code, create2_salt, initcode
+    )
+    call_address_in_between = (
+        create2_address if call_create2_contract_in_between else address_zero
+    )
+    call_address_in_the_end = (
+        create2_address if call_create2_contract_at_the_end else address_zero
+    )
 
     # Values
     pre_existing_create2_balance = 1
@@ -128,7 +141,15 @@ def test_dynamic_create2_selfdestruct_collision(
         code=Op.JUMPDEST()
         # Make a subcall that do CREATE2 and returns its the result
         + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
-        + Op.CALL(100000, address_code, first_create2_value, 0, Op.CALLDATASIZE(), 0, 32)
+        + Op.CALL(
+            100000,
+            address_code,
+            first_create2_value,
+            0,
+            Op.CALLDATASIZE(),
+            0,
+            32,
+        )
         + Op.SSTORE(
             first_create2_result,
             Op.MLOAD(0),
@@ -136,17 +157,29 @@ def test_dynamic_create2_selfdestruct_collision(
         # In case the create2 didn't work, flush account balance
         + Op.CALL(100000, address_code, 0, 0, 0, 0, 0)
         # Call to the created account to trigger selfdestruct
-        + Op.CALL(100000, call_address_in_between, first_call_value, 0, 0, 0, 0)
+        + Op.CALL(
+            100000, call_address_in_between, first_call_value, 0, 0, 0, 0
+        )
         # Make a subcall that do CREATE2 collision and returns its address as
         # the result
         + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
-        + Op.CALL(100000, address_code, second_create2_value, 0, Op.CALLDATASIZE(), 0, 32)
+        + Op.CALL(
+            100000,
+            address_code,
+            second_create2_value,
+            0,
+            Op.CALLDATASIZE(),
+            0,
+            32,
+        )
         + Op.SSTORE(
             second_create2_result,
             Op.MLOAD(0),
         )
         # Call to the created account to trigger selfdestruct
-        + Op.CALL(100000, call_address_in_the_end, second_call_value, 0, 0, 0, 0)
+        + Op.CALL(
+            100000, call_address_in_the_end, second_call_value, 0, 0, 0, 0
+        )
         + Op.SSTORE(code_worked, 1),
         balance=100000000,
         storage={first_create2_result: 0xFF, second_create2_result: 0xFF},
@@ -169,14 +202,21 @@ def test_dynamic_create2_selfdestruct_collision(
 
     # Create2 address only exists if it was pre-existing and after cancun
     post[create2_address] = (
-        Account(balance=0, nonce=1, code=deploy_code, storage={create2_constructor_worked: 0x00})
+        Account(
+            balance=0,
+            nonce=1,
+            code=deploy_code,
+            storage={create2_constructor_worked: 0x00},
+        )
         if create2_dest_already_in_state and fork >= Cancun
         else Account.NONEXISTENT
     )
 
     # Create2 initcode is only executed if the contract did not already exist
     post[address_create2_storage] = Account(
-        storage={create2_constructor_worked: int(not create2_dest_already_in_state)}
+        storage={
+            create2_constructor_worked: int(not create2_dest_already_in_state)
+        }
     )
 
     # Entry code that makes the calls to the create2 contract creator
@@ -184,7 +224,9 @@ def test_dynamic_create2_selfdestruct_collision(
         storage={
             code_worked: 0x01,
             # First create2 only works if the contract was not preexisting
-            first_create2_result: 0x00 if create2_dest_already_in_state else create2_address,
+            first_create2_result: 0x00
+            if create2_dest_already_in_state
+            else create2_address,
             # Second create2 must never work
             second_create2_result: 0x00,
         }
@@ -193,7 +235,9 @@ def test_dynamic_create2_selfdestruct_collision(
     # Calculate the destination account expected balance for the
     # selfdestruct/sendall calls
     sendall_destination_balance = (
-        pre_existing_create2_balance if create2_dest_already_in_state else first_create2_value
+        pre_existing_create2_balance
+        if create2_dest_already_in_state
+        else first_create2_value
     )
 
     if call_create2_contract_in_between:
@@ -217,7 +261,12 @@ def test_dynamic_create2_selfdestruct_collision(
 @pytest.mark.valid_from("Paris")
 @pytest.mark.parametrize(
     "create2_dest_already_in_state",
-    (pytest.param(True, marks=pytest.mark.execute(pytest.mark.skip("Modifies pre"))), False),
+    (
+        pytest.param(
+            True, marks=pytest.mark.execute(pytest.mark.skip("Modifies pre"))
+        ),
+        False,
+    ),
 )
 @pytest.mark.parametrize(
     "call_create2_contract_at_the_end",
@@ -297,8 +346,12 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
     )
 
     # Created addresses
-    create2_address = compute_create2_address(address_code, create2_salt, initcode)
-    call_address_in_the_end = create2_address if call_create2_contract_at_the_end else address_zero
+    create2_address = compute_create2_address(
+        address_code, create2_salt, initcode
+    )
+    call_address_in_the_end = (
+        create2_address if call_create2_contract_at_the_end else address_zero
+    )
 
     # Values
     pre_existing_create2_balance = 1
@@ -312,7 +365,15 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
         code=Op.JUMPDEST()
         # Make a subcall that do CREATE2 and returns its the result
         + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
-        + Op.CALL(100000, address_code, first_create2_value, 0, Op.CALLDATASIZE(), 0, 32)
+        + Op.CALL(
+            100000,
+            address_code,
+            first_create2_value,
+            0,
+            Op.CALLDATASIZE(),
+            0,
+            32,
+        )
         + Op.SSTORE(
             first_create2_result,
             Op.MLOAD(0),
@@ -332,13 +393,23 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
         # Make a subcall that do CREATE2 collision and returns its address as
         # the result
         + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
-        + Op.CALL(100000, address_code, second_create2_value, 0, Op.CALLDATASIZE(), 0, 32)
+        + Op.CALL(
+            100000,
+            address_code,
+            second_create2_value,
+            0,
+            Op.CALLDATASIZE(),
+            0,
+            32,
+        )
         + Op.SSTORE(
             second_create2_result,
             Op.MLOAD(0),
         )
         # Call to the created account to trigger selfdestruct
-        + Op.CALL(200000, call_address_in_the_end, second_call_value, 0, 0, 0, 0)
+        + Op.CALL(
+            200000, call_address_in_the_end, second_call_value, 0, 0, 0, 0
+        )
         + Op.SSTORE(code_worked, 1),
         balance=100000000,
         storage={second_create2_result: 0xFF},
@@ -361,7 +432,12 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
 
     # Create2 address only exists if it was pre-existing and after cancun
     post[create2_address] = (
-        Account(balance=0, nonce=1, code=deploy_code, storage={create2_constructor_worked: 0x00})
+        Account(
+            balance=0,
+            nonce=1,
+            code=deploy_code,
+            storage={create2_constructor_worked: 0x00},
+        )
         if create2_dest_already_in_state and fork >= Cancun
         else (
             Account.NONEXISTENT
@@ -375,7 +451,9 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
     # deletes the account
     post[address_create2_storage] = Account(
         storage={
-            create2_constructor_worked: int(fork < Cancun or not create2_dest_already_in_state)
+            create2_constructor_worked: int(
+                fork < Cancun or not create2_dest_already_in_state
+            )
         }
     )
 
@@ -384,7 +462,9 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
         storage={
             code_worked: 0x01,
             # First create2 only works if the contract was not preexisting
-            first_create2_result: 0x00 if create2_dest_already_in_state else create2_address,
+            first_create2_result: 0x00
+            if create2_dest_already_in_state
+            else create2_address,
         }
     )
     post[address_to_second] = Account(
@@ -540,7 +620,9 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
     )
 
     # Created addresses
-    create2_address = compute_create2_address(address_code, create2_salt, initcode)
+    create2_address = compute_create2_address(
+        address_code, create2_salt, initcode
+    )
 
     # Values
     first_create2_value = 3
@@ -556,7 +638,15 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
         Op.JUMPDEST()
         # Make a subcall that do CREATE2 and returns its the result
         + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
-        + Op.CALL(100000, address_code, first_create2_value, 0, Op.CALLDATASIZE(), 0, 32)
+        + Op.CALL(
+            100000,
+            address_code,
+            first_create2_value,
+            0,
+            Op.CALLDATASIZE(),
+            0,
+            32,
+        )
         + Op.SSTORE(
             first_create2_result,
             Op.MLOAD(0),
@@ -579,7 +669,15 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
             # Make a subcall that do CREATE2 collision and returns its address
             # as the result
             Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
-            + Op.CALL(100000, address_code, second_create2_value, 0, Op.CALLDATASIZE(), 0, 32)
+            + Op.CALL(
+                100000,
+                address_code,
+                second_create2_value,
+                0,
+                Op.CALLDATASIZE(),
+                0,
+                32,
+            )
             + Op.SSTORE(
                 second_create2_result,
                 Op.MLOAD(0),
@@ -591,7 +689,15 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
             # Make a subcall that do CREATE2 collision and returns its address
             # as the result
             Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
-            + Op.CALL(100000, address_code, second_create2_value, 0, Op.CALLDATASIZE(), 0, 32)
+            + Op.CALL(
+                100000,
+                address_code,
+                second_create2_value,
+                0,
+                Op.CALLDATASIZE(),
+                0,
+                32,
+            )
             + Op.SSTORE(
                 second_create2_result,
                 Op.MLOAD(0),
@@ -599,7 +705,9 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
         )
 
     # Second tx code always calls the create2 contract at the end
-    second_tx_code += Op.CALL(100000, create2_address, second_call_value, 0, 0, 0, 0)
+    second_tx_code += Op.CALL(
+        100000, create2_address, second_call_value, 0, 0, 0, 0
+    )
 
     first_tx_code += Op.SSTORE(part_1_worked, 1)
     second_tx_code += Op.SSTORE(part_2_worked, 1)
@@ -623,14 +731,23 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
     post: Dict[Address, Union[Account, object]] = {}
 
     # Create2 address only exists if it was pre-existing and after cancun
-    account_will_exist_with_code = not selfdestruct_on_first_tx and fork >= Cancun
+    account_will_exist_with_code = (
+        not selfdestruct_on_first_tx and fork >= Cancun
+    )
     # If the contract is self-destructed and we also attempt to recreate it on
     # the first tx, the second call on the second tx will only place balance in
     # the account
-    account_will_exist_with_balance = selfdestruct_on_first_tx and recreate_on_first_tx
+    account_will_exist_with_balance = (
+        selfdestruct_on_first_tx and recreate_on_first_tx
+    )
 
     post[create2_address] = (
-        Account(balance=0, nonce=1, code=deploy_code, storage={create2_constructor_worked: 0x01})
+        Account(
+            balance=0,
+            nonce=1,
+            code=deploy_code,
+            storage={create2_constructor_worked: 0x01},
+        )
         if account_will_exist_with_code
         else (
             Account(balance=second_call_value, nonce=0)
@@ -640,7 +757,9 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
     )
 
     # Create2 initcode saves storage unconditionally
-    post[address_create2_storage] = Account(storage={create2_constructor_worked: 0x01})
+    post[address_create2_storage] = Account(
+        storage={create2_constructor_worked: 0x01}
+    )
 
     # Entry code that makes the calls to the create2 contract creator
     post[address_to] = Account(
@@ -652,7 +771,9 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
             # Second create2 only works if we successfully self-destructed on
             # the first tx
             second_create2_result: (
-                create2_address if selfdestruct_on_first_tx and not recreate_on_first_tx else 0x00
+                create2_address
+                if selfdestruct_on_first_tx and not recreate_on_first_tx
+                else 0x00
             ),
         }
     )

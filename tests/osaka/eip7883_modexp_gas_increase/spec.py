@@ -13,7 +13,9 @@ class ReferenceSpec:
     version: str
 
 
-ref_spec_7883 = ReferenceSpec("EIPS/eip-7883.md", "13aa65810336d4f243d4563a828d5afe36035d23")
+ref_spec_7883 = ReferenceSpec(
+    "EIPS/eip-7883.md", "13aa65810336d4f243d4563a828d5afe36035d23"
+)
 
 
 def ceiling_division(a: int, b: int) -> int:
@@ -52,7 +54,9 @@ class Spec:
     modexp_error = bytes()
 
     @classmethod
-    def calculate_multiplication_complexity(cls, base_length: int, modulus_length: int) -> int:
+    def calculate_multiplication_complexity(
+        cls, base_length: int, modulus_length: int
+    ) -> int:
         """Calculate the multiplication complexity of the ModExp precompile."""
         max_length = max(base_length, modulus_length)
         words = ceiling_division(max_length, cls.WORD_SIZE)
@@ -72,11 +76,15 @@ class Spec:
         if exponent_length <= cls.EXPONENT_THRESHOLD and exponent_head == 0:
             iteration_count = 0
         elif exponent_length <= cls.EXPONENT_THRESHOLD:
-            iteration_count = exponent_head.bit_length() - 1 if exponent_head > 0 else 0
+            iteration_count = (
+                exponent_head.bit_length() - 1 if exponent_head > 0 else 0
+            )
         else:
             # For large exponents: length_part + bits from first 32 bytes
             length_part = cls.EXPONENT_BYTE_MULTIPLIER * (exponent_length - 32)
-            bits_part = exponent_head.bit_length() - 1 if exponent_head > 0 else 0
+            bits_part = (
+                exponent_head.bit_length() - 1 if exponent_head > 0 else 0
+            )
             iteration_count = length_part + bits_part
         return max(iteration_count, 1)
 
@@ -92,7 +100,10 @@ class Spec:
             base_length, modulus_length
         )
         iteration_count = cls.calculate_iteration_count(modexp_input)
-        return max(cls.MIN_GAS, (multiplication_complexity * iteration_count // cls.GAS_DIVISOR))
+        return max(
+            cls.MIN_GAS,
+            (multiplication_complexity * iteration_count // cls.GAS_DIVISOR),
+        )
 
 
 @dataclass(frozen=True)
@@ -110,7 +121,9 @@ class Spec7883(Spec):
     GAS_DIVISOR = 1  # Overrides the original Spec class GAS_DIVISOR
 
     @classmethod
-    def calculate_multiplication_complexity(cls, base_length: int, modulus_length: int) -> int:
+    def calculate_multiplication_complexity(
+        cls, base_length: int, modulus_length: int
+    ) -> int:
         """
         Calculate the multiplication complexity of the ModExp precompile for
         EIP-7883.

@@ -85,8 +85,12 @@ def state_env() -> Environment:
         pytest.param(
             Op.EXTCALL,
             Op.PUSH1(1),
-            COLD_ACCOUNT_ACCESS_GAS + ACCOUNT_CREATION_GAS + CALL_WITH_VALUE_GAS,
-            WARM_ACCOUNT_ACCESS_GAS + ACCOUNT_CREATION_GAS + CALL_WITH_VALUE_GAS,
+            COLD_ACCOUNT_ACCESS_GAS
+            + ACCOUNT_CREATION_GAS
+            + CALL_WITH_VALUE_GAS,
+            WARM_ACCOUNT_ACCESS_GAS
+            + ACCOUNT_CREATION_GAS
+            + CALL_WITH_VALUE_GAS,
             True,
             id="EXTCALL_with_value_new_acc",
         ),
@@ -129,7 +133,9 @@ def test_ext_calls_gas(
     expansions.
     """
     address_target = (
-        pre.fund_eoa(0) if new_account else pre.deploy_contract(Container.Code(Op.STOP))
+        pre.fund_eoa(0)
+        if new_account
+        else pre.deploy_contract(Container.Code(Op.STOP))
     )
     cost_memory_bytes = fork.memory_expansion_gas_calculator()
     gas_test(
@@ -147,7 +153,9 @@ def test_ext_calls_gas(
     )
 
 
-@pytest.mark.parametrize("opcode", [Op.EXTCALL, Op.EXTDELEGATECALL, Op.EXTSTATICCALL])
+@pytest.mark.parametrize(
+    "opcode", [Op.EXTCALL, Op.EXTDELEGATECALL, Op.EXTSTATICCALL]
+)
 @pytest.mark.parametrize("value", [0, 1])
 def test_transfer_gas_is_cleared(
     state_test: StateTestFiller,
@@ -176,7 +184,9 @@ def test_transfer_gas_is_cleared(
         state_test,
         state_env,
         pre,
-        setup_code=Op.PUSH1(value) + Op.PUSH0 * 2 + Op.PUSH20(extdelegatecall_contract_address),
+        setup_code=Op.PUSH1(value)
+        + Op.PUSH0 * 2
+        + Op.PUSH20(extdelegatecall_contract_address),
         subject_code=Op.EXTCALL,
         subject_balance=5 * value,
         tear_down_code=Op.STOP,
@@ -192,7 +202,9 @@ def test_transfer_gas_is_cleared(
     )
 
 
-@pytest.mark.parametrize("opcode", [Op.EXTCALL, Op.EXTDELEGATECALL, Op.EXTSTATICCALL])
+@pytest.mark.parametrize(
+    "opcode", [Op.EXTCALL, Op.EXTDELEGATECALL, Op.EXTSTATICCALL]
+)
 def test_late_account_create(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -218,7 +230,9 @@ def test_late_account_create(
         subject_code=Op.EXTCALL,
         subject_balance=5,
         tear_down_code=Op.STOP,
-        cold_gas=WARM_ACCOUNT_ACCESS_GAS + CALL_WITH_VALUE_GAS + ACCOUNT_CREATION_GAS,
+        cold_gas=WARM_ACCOUNT_ACCESS_GAS
+        + CALL_WITH_VALUE_GAS
+        + ACCOUNT_CREATION_GAS,
         warm_gas=WARM_ACCOUNT_ACCESS_GAS + CALL_WITH_VALUE_GAS,
         out_of_gas_testing=False,
     )

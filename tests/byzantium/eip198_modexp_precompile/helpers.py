@@ -36,7 +36,9 @@ class ModExpInput(TestParameterGroup):
     def length_base(self) -> Bytes:
         """Return the length of the base."""
         length = (
-            self.declared_base_length if self.declared_base_length is not None else len(self.base)
+            self.declared_base_length
+            if self.declared_base_length is not None
+            else len(self.base)
         )
         return Bytes(length.to_bytes(32, "big"))
 
@@ -88,23 +90,37 @@ class ModExpInput(TestParameterGroup):
         if len(padded_input_data) < 96:
             padded_input_data = Bytes(padded_input_data.ljust(96, b"\0"))
         base_length = int.from_bytes(padded_input_data[0:32], byteorder="big")
-        exponent_length = int.from_bytes(padded_input_data[32:64], byteorder="big")
-        modulus_length = int.from_bytes(padded_input_data[64:96], byteorder="big")
+        exponent_length = int.from_bytes(
+            padded_input_data[32:64], byteorder="big"
+        )
+        modulus_length = int.from_bytes(
+            padded_input_data[64:96], byteorder="big"
+        )
 
-        total_required_length = 96 + base_length + exponent_length + modulus_length
+        total_required_length = (
+            96 + base_length + exponent_length + modulus_length
+        )
         if len(padded_input_data) < total_required_length:
-            padded_input_data = Bytes(padded_input_data.ljust(total_required_length, b"\0"))
+            padded_input_data = Bytes(
+                padded_input_data.ljust(total_required_length, b"\0")
+            )
 
         current_index = 96
         base = padded_input_data[current_index : current_index + base_length]
         current_index += base_length
 
-        exponent = padded_input_data[current_index : current_index + exponent_length]
+        exponent = padded_input_data[
+            current_index : current_index + exponent_length
+        ]
         current_index += exponent_length
 
-        modulus = padded_input_data[current_index : current_index + modulus_length]
+        modulus = padded_input_data[
+            current_index : current_index + modulus_length
+        ]
 
-        return cls(base=base, exponent=exponent, modulus=modulus, raw_input=input_data)
+        return cls(
+            base=base, exponent=exponent, modulus=modulus, raw_input=input_data
+        )
 
     def get_declared_lengths(self) -> Tuple[int, int, int]:
         """Extract declared lengths from the raw input bytes."""

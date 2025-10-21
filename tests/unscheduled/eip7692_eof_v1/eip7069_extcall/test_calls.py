@@ -77,7 +77,9 @@ class TargetAccountType(Enum):
 
 
 @pytest.fixture
-def target_address(pre: Alloc, target_account_type: TargetAccountType) -> Address:
+def target_address(
+    pre: Alloc, target_account_type: TargetAccountType
+) -> Address:
     """Target address of the call depending on required type of account."""
     match target_account_type:
         case TargetAccountType.EMPTY:
@@ -193,15 +195,21 @@ def test_legacy_calls_eof_mstore(
     destination_contract_code = Container(
         sections=[
             Section.Code(
-                code=Op.MSTORE8(0, int.from_bytes(value_returndata_magic, "big"))
+                code=Op.MSTORE8(
+                    0, int.from_bytes(value_returndata_magic, "big")
+                )
                 + Op.RETURN(0, len(value_returndata_magic)),
             )
         ]
     )
-    destination_contract_address = pre.deploy_contract(destination_contract_code)
+    destination_contract_address = pre.deploy_contract(
+        destination_contract_code
+    )
 
     caller_contract = (
-        Op.SSTORE(slot_call_result, opcode(address=destination_contract_address))
+        Op.SSTORE(
+            slot_call_result, opcode(address=destination_contract_address)
+        )
         + Op.SSTORE(slot_returndatasize, Op.RETURNDATASIZE)
         + Op.RETURNDATACOPY(31, 0, 1)
         + Op.SSTORE(slot_returndata, Op.MLOAD(0))
@@ -256,7 +264,10 @@ def test_eof_calls_eof_sstore(
     caller_contract = Container(
         sections=[
             Section.Code(
-                code=Op.SSTORE(slot_call_result, opcode(address=destination_contract_address))
+                code=Op.SSTORE(
+                    slot_call_result,
+                    opcode(address=destination_contract_address),
+                )
                 + Op.SSTORE(slot_code_worked, value_code_worked)
                 + Op.STOP,
             )
@@ -317,17 +328,24 @@ def test_eof_calls_eof_mstore(
     destination_contract_code = Container(
         sections=[
             Section.Code(
-                code=Op.MSTORE8(0, int.from_bytes(value_returndata_magic, "big"))
+                code=Op.MSTORE8(
+                    0, int.from_bytes(value_returndata_magic, "big")
+                )
                 + Op.RETURN(0, 32),
             )
         ]
     )
-    destination_contract_address = pre.deploy_contract(destination_contract_code)
+    destination_contract_address = pre.deploy_contract(
+        destination_contract_code
+    )
 
     caller_contract = Container(
         sections=[
             Section.Code(
-                code=Op.SSTORE(slot_call_result, opcode(address=destination_contract_address))
+                code=Op.SSTORE(
+                    slot_call_result,
+                    opcode(address=destination_contract_address),
+                )
                 + Op.SSTORE(slot_returndatasize, Op.RETURNDATASIZE)
                 + Op.SSTORE(slot_returndata, Op.RETURNDATALOAD(0))
                 + Op.SSTORE(slot_code_worked, value_code_worked)
@@ -347,7 +365,8 @@ def test_eof_calls_eof_mstore(
         slot_code_worked: value_code_worked,
         slot_call_result: EXTCALL_SUCCESS,
         slot_returndatasize: 0x20,
-        slot_returndata: value_returndata_magic + b"\0" * (0x20 - len(value_returndata_magic)),
+        slot_returndata: value_returndata_magic
+        + b"\0" * (0x20 - len(value_returndata_magic)),
     }
 
     post = {
@@ -375,17 +394,51 @@ p256verify = Address(0x100)
 @pytest.mark.parametrize(
     ["opcode", "precompile", "expected_result"],
     [
-        pytest.param(Op.EXTCALL, identity, EXTCALL_SUCCESS, id="extcall_success"),
-        pytest.param(Op.EXTDELEGATECALL, identity, EXTCALL_REVERT, id="extdelegatecall_blocked1"),
-        pytest.param(Op.EXTSTATICCALL, identity, EXTCALL_SUCCESS, id="extstaticcall_success"),
-        pytest.param(Op.EXTCALL, blake2f, EXTCALL_FAILURE, id="extcall_failure"),
-        pytest.param(Op.EXTDELEGATECALL, blake2f, EXTCALL_REVERT, id="extdelegatecall_blocked2"),
-        pytest.param(Op.EXTSTATICCALL, blake2f, EXTCALL_FAILURE, id="extstaticcall_failure"),
-        pytest.param(Op.EXTCALL, p256verify, EXTCALL_SUCCESS, id="extcall_p256verify"),
         pytest.param(
-            Op.EXTDELEGATECALL, p256verify, EXTCALL_REVERT, id="extdelegatecall_p256verify"
+            Op.EXTCALL, identity, EXTCALL_SUCCESS, id="extcall_success"
         ),
-        pytest.param(Op.EXTSTATICCALL, p256verify, EXTCALL_SUCCESS, id="extstaticcall_p256verify"),
+        pytest.param(
+            Op.EXTDELEGATECALL,
+            identity,
+            EXTCALL_REVERT,
+            id="extdelegatecall_blocked1",
+        ),
+        pytest.param(
+            Op.EXTSTATICCALL,
+            identity,
+            EXTCALL_SUCCESS,
+            id="extstaticcall_success",
+        ),
+        pytest.param(
+            Op.EXTCALL, blake2f, EXTCALL_FAILURE, id="extcall_failure"
+        ),
+        pytest.param(
+            Op.EXTDELEGATECALL,
+            blake2f,
+            EXTCALL_REVERT,
+            id="extdelegatecall_blocked2",
+        ),
+        pytest.param(
+            Op.EXTSTATICCALL,
+            blake2f,
+            EXTCALL_FAILURE,
+            id="extstaticcall_failure",
+        ),
+        pytest.param(
+            Op.EXTCALL, p256verify, EXTCALL_SUCCESS, id="extcall_p256verify"
+        ),
+        pytest.param(
+            Op.EXTDELEGATECALL,
+            p256verify,
+            EXTCALL_REVERT,
+            id="extdelegatecall_p256verify",
+        ),
+        pytest.param(
+            Op.EXTSTATICCALL,
+            p256verify,
+            EXTCALL_SUCCESS,
+            id="extstaticcall_p256verify",
+        ),
     ],
 )
 def test_eof_calls_precompile(
@@ -401,7 +454,10 @@ def test_eof_calls_precompile(
 
     caller_contract = Container.Code(
         Op.MSTORE(0, value_returndata_magic)
-        + Op.SSTORE(slot_call_result, opcode(address=precompile, args_offset=0, args_size=32))
+        + Op.SSTORE(
+            slot_call_result,
+            opcode(address=precompile, args_offset=0, args_size=32),
+        )
         + Op.SSTORE(slot_returndatasize, Op.RETURNDATASIZE)
         + Op.SSTORE(slot_returndata, Op.RETURNDATALOAD(0))
         + Op.SSTORE(slot_code_worked, value_code_worked)
@@ -415,7 +471,9 @@ def test_eof_calls_precompile(
         gas_limit=5000000,
     )
 
-    success_identity = expected_result == EXTCALL_SUCCESS and precompile == identity
+    success_identity = (
+        expected_result == EXTCALL_SUCCESS and precompile == identity
+    )
 
     calling_storage = {
         slot_code_worked: value_code_worked,
@@ -453,12 +511,17 @@ def test_eof_calls_legacy_sstore(
     """Test EOF contracts calling Legacy contracts that use SSTORE."""
     env = Environment()
     destination_contract_code = Op.SSTORE(slot_caller, Op.CALLER()) + Op.STOP
-    destination_contract_address = pre.deploy_contract(destination_contract_code)
+    destination_contract_address = pre.deploy_contract(
+        destination_contract_code
+    )
 
     caller_contract = Container(
         sections=[
             Section.Code(
-                code=Op.SSTORE(slot_call_result, opcode(address=destination_contract_address))
+                code=Op.SSTORE(
+                    slot_call_result,
+                    opcode(address=destination_contract_address),
+                )
                 + Op.SSTORE(slot_code_worked, value_code_worked)
                 + Op.STOP,
             )
@@ -518,12 +581,17 @@ def test_eof_calls_legacy_mstore(
     destination_contract_code = Op.MSTORE8(
         0, int.from_bytes(value_returndata_magic, "big")
     ) + Op.RETURN(0, 32)
-    destination_contract_address = pre.deploy_contract(destination_contract_code)
+    destination_contract_address = pre.deploy_contract(
+        destination_contract_code
+    )
 
     caller_contract = Container(
         sections=[
             Section.Code(
-                code=Op.SSTORE(slot_call_result, opcode(address=destination_contract_address))
+                code=Op.SSTORE(
+                    slot_call_result,
+                    opcode(address=destination_contract_address),
+                )
                 + Op.SSTORE(slot_returndatasize, Op.RETURNDATASIZE)
                 + Op.SSTORE(slot_returndata, Op.RETURNDATALOAD(0))
                 + Op.SSTORE(slot_code_worked, value_code_worked)
@@ -543,7 +611,8 @@ def test_eof_calls_legacy_mstore(
         slot_code_worked: value_code_worked,
         slot_call_result: EXTCALL_SUCCESS,
         slot_returndatasize: 0x20,
-        slot_returndata: value_returndata_magic + b"\0" * (0x20 - len(value_returndata_magic)),
+        slot_returndata: value_returndata_magic
+        + b"\0" * (0x20 - len(value_returndata_magic)),
     }
 
     if opcode == Op.EXTDELEGATECALL:
@@ -579,10 +648,22 @@ def test_eof_calls_legacy_mstore(
         pytest.param(Op.REVERT(0, 0), EXTCALL_REVERT, id="legacy_revert"),
         pytest.param(Op.INVALID, EXTCALL_FAILURE, id="legacy_invalid"),
         pytest.param(Op.SHA3(0, 2**255), EXTCALL_FAILURE, id="legacy_oog"),
-        pytest.param(Op.RETURNDATACOPY(0, 1, 2), EXTCALL_FAILURE, id="legacy_oob_returndata"),
-        pytest.param(Container.Code(Op.REVERT(0, 0)), EXTCALL_REVERT, id="eof_revert"),
-        pytest.param(Container.Code(Op.INVALID), EXTCALL_FAILURE, id="eof_invalid"),
-        pytest.param(Container.Code(Op.SHA3(0, 2**255) + Op.STOP), EXTCALL_FAILURE, id="eof_oog"),
+        pytest.param(
+            Op.RETURNDATACOPY(0, 1, 2),
+            EXTCALL_FAILURE,
+            id="legacy_oob_returndata",
+        ),
+        pytest.param(
+            Container.Code(Op.REVERT(0, 0)), EXTCALL_REVERT, id="eof_revert"
+        ),
+        pytest.param(
+            Container.Code(Op.INVALID), EXTCALL_FAILURE, id="eof_invalid"
+        ),
+        pytest.param(
+            Container.Code(Op.SHA3(0, 2**255) + Op.STOP),
+            EXTCALL_FAILURE,
+            id="eof_oog",
+        ),
     ],
 )
 def test_callee_fails(
@@ -600,7 +681,9 @@ def test_callee_fails(
 
     caller_contract = Container.Code(
         Op.SSTORE(slot_code_worked, value_code_worked)
-        + Op.SSTORE(slot_call_result, opcode(address=destination_contract_address))
+        + Op.SSTORE(
+            slot_call_result, opcode(address=destination_contract_address)
+        )
         + Op.STOP,
     )
     calling_contract_address = pre.deploy_contract(caller_contract)
@@ -614,7 +697,8 @@ def test_callee_fails(
     calling_storage = {
         slot_code_worked: value_code_worked,
         slot_call_result: EXTCALL_REVERT
-        if opcode == Op.EXTDELEGATECALL and not isinstance(destination_code, Container)
+        if opcode == Op.EXTDELEGATECALL
+        and not isinstance(destination_code, Container)
         else expected_result,
     }
 
@@ -634,20 +718,51 @@ def test_callee_fails(
 @pytest.mark.parametrize(
     ["opcode", "destination_code", "expected_result"],
     [
-        pytest.param(Op.EXTCALL, Op.ADDRESS, "destination", id="extcall_address"),
-        pytest.param(Op.EXTDELEGATECALL, Op.ADDRESS, "caller", id="extdelegatecall_address"),
-        pytest.param(Op.EXTSTATICCALL, Op.ADDRESS, "destination", id="extstaticcall_address"),
+        pytest.param(
+            Op.EXTCALL, Op.ADDRESS, "destination", id="extcall_address"
+        ),
+        pytest.param(
+            Op.EXTDELEGATECALL,
+            Op.ADDRESS,
+            "caller",
+            id="extdelegatecall_address",
+        ),
+        pytest.param(
+            Op.EXTSTATICCALL,
+            Op.ADDRESS,
+            "destination",
+            id="extstaticcall_address",
+        ),
         pytest.param(Op.EXTCALL, Op.CALLER, "caller", id="extcall_caller"),
-        pytest.param(Op.EXTDELEGATECALL, Op.CALLER, "sender", id="extdelegatecall_caller"),
-        pytest.param(Op.EXTSTATICCALL, Op.CALLER, "caller", id="extstaticcall_caller"),
+        pytest.param(
+            Op.EXTDELEGATECALL,
+            Op.CALLER,
+            "sender",
+            id="extdelegatecall_caller",
+        ),
+        pytest.param(
+            Op.EXTSTATICCALL, Op.CALLER, "caller", id="extstaticcall_caller"
+        ),
         pytest.param(Op.EXTCALL, Op.CALLVALUE, 0, id="extcall_call_value"),
         pytest.param(
-            Op.EXTDELEGATECALL, Op.CALLVALUE, "tx_value", id="extdelegatecall_call_value"
+            Op.EXTDELEGATECALL,
+            Op.CALLVALUE,
+            "tx_value",
+            id="extdelegatecall_call_value",
         ),
-        pytest.param(Op.EXTSTATICCALL, Op.CALLVALUE, 0, id="extstaticcall_call_value"),
+        pytest.param(
+            Op.EXTSTATICCALL, Op.CALLVALUE, 0, id="extstaticcall_call_value"
+        ),
         pytest.param(Op.EXTCALL, Op.ORIGIN, "sender", id="extcall_origin"),
-        pytest.param(Op.EXTDELEGATECALL, Op.ORIGIN, "sender", id="extdelegatecall_origin"),
-        pytest.param(Op.EXTSTATICCALL, Op.ORIGIN, "sender", id="extstaticcall_origin"),
+        pytest.param(
+            Op.EXTDELEGATECALL,
+            Op.ORIGIN,
+            "sender",
+            id="extdelegatecall_origin",
+        ),
+        pytest.param(
+            Op.EXTSTATICCALL, Op.ORIGIN, "sender", id="extstaticcall_origin"
+        ),
     ],
 )
 @pytest.mark.with_all_evm_code_types
@@ -700,7 +815,10 @@ def test_callee_context(
     calling_storage = {
         slot_code_worked: value_code_worked,
         slot_returndata: 0
-        if (opcode == Op.EXTDELEGATECALL and evm_code_type == EVMCodeType.LEGACY)
+        if (
+            opcode == Op.EXTDELEGATECALL
+            and evm_code_type == EVMCodeType.LEGACY
+        )
         else expected_bytes,
     }
 
@@ -737,7 +855,9 @@ def test_eof_calls_eof_then_fails(
     destination_contract_address = pre.deploy_contract(contract_eof_sstore)
 
     caller_contract = Container.Code(
-        Op.SSTORE(slot_call_result, opcode(address=destination_contract_address))
+        Op.SSTORE(
+            slot_call_result, opcode(address=destination_contract_address)
+        )
         + Op.SSTORE(slot_code_worked, value_code_worked)
         + fail_opcode(offset=0, size=0),
     )
@@ -786,7 +906,8 @@ def test_eof_calls_clear_return_buffer(
     """Test EOF contracts calling clears returndata buffer."""
     env = Environment()
     filling_contract_code = Container.Code(
-        Op.MSTORE8(0, int.from_bytes(value_returndata_magic, "big")) + Op.RETURN(0, 32),
+        Op.MSTORE8(0, int.from_bytes(value_returndata_magic, "big"))
+        + Op.RETURN(0, 32),
     )
     filling_callee_address = pre.deploy_contract(filling_contract_code)
 
@@ -849,7 +970,9 @@ def test_eof_calls_static_flag_with_value(
 
     noop_callee_address = pre.deploy_contract(Container.Code(Op.STOP))
 
-    failing_contract_code = opcode(address=noop_callee_address, value=1) + Op.STOP
+    failing_contract_code = (
+        opcode(address=noop_callee_address, value=1) + Op.STOP
+    )
     failing_contract_address = pre.deploy_contract(
         Container.Code(
             failing_contract_code,
@@ -860,7 +983,10 @@ def test_eof_calls_static_flag_with_value(
 
     calling_contract_address = pre.deploy_contract(
         Container.Code(
-            Op.SSTORE(slot_call_result, Op.EXTSTATICCALL(address=failing_contract_address))
+            Op.SSTORE(
+                slot_call_result,
+                Op.EXTSTATICCALL(address=failing_contract_address),
+            )
             + Op.SSTORE(slot_code_worked, value_code_worked)
             + Op.STOP
         )
@@ -900,7 +1026,12 @@ min_callee_gas = 5000
         [Op.EXTSTATICCALL, 0, 0],
         [Op.EXTDELEGATECALL, 0, 0],
     ],
-    ids=["extcall_without_value", "extcall_with_value", "extstaticcall", "extdelegatecall"],
+    ids=[
+        "extcall_without_value",
+        "extcall_with_value",
+        "extstaticcall",
+        "extdelegatecall",
+    ],
 )
 @pytest.mark.parametrize(
     ["extra_gas_limit", "reverts"],
@@ -942,7 +1073,10 @@ def test_eof_calls_min_callee_gas(
     calling_contract_address = pre.deploy_contract(
         Container.Code(
             Op.SSTORE(slot_code_worked, value_code_worked)
-            + Op.EQ(opcode(address=noop_callee_address, value=value), EXTCALL_REVERT)
+            + Op.EQ(
+                opcode(address=noop_callee_address, value=value),
+                EXTCALL_REVERT,
+            )
             # If the return code isn't 1, it means gas was enough to cover the
             # allowances.
             + Op.RJUMPI[len(revert_block)]
@@ -990,7 +1124,8 @@ def test_eof_calls_min_callee_gas(
 
 
 @pytest.mark.parametrize(
-    "balance", [0, 1, 2, pytest.param(2**256 - 1, marks=pytest.mark.pre_alloc_modify)]
+    "balance",
+    [0, 1, 2, pytest.param(2**256 - 1, marks=pytest.mark.pre_alloc_modify)],
 )
 @pytest.mark.parametrize("value", [0, 1, 2, 2**256 - 1])
 def test_eof_calls_with_value(
@@ -1010,7 +1145,10 @@ def test_eof_calls_with_value(
 
     calling_contract_address = pre.deploy_contract(
         Container.Code(
-            Op.SSTORE(slot_call_result, Op.EXTCALL(address=noop_callee_address, value=value))
+            Op.SSTORE(
+                slot_call_result,
+                Op.EXTCALL(address=noop_callee_address, value=value),
+            )
             + Op.SSTORE(slot_code_worked, value_code_worked)
             + Op.STOP
         ),
@@ -1024,7 +1162,9 @@ def test_eof_calls_with_value(
 
     calling_storage = {
         slot_code_worked: value_code_worked,
-        slot_call_result: EXTCALL_REVERT if balance < value else EXTCALL_SUCCESS,
+        slot_call_result: EXTCALL_REVERT
+        if balance < value
+        else EXTCALL_SUCCESS,
     }
 
     post = {
@@ -1087,7 +1227,9 @@ def test_eof_calls_msg_depth(
     # - 64 - output - call result
     returndatacopy_block = Op.RETURNDATACOPY(32, 0, 64) + Op.RETURN(32, 64)
     deep_most_result_block = (
-        Op.MSTORE(32, Op.ADD(Op.CALLDATALOAD(0), 1)) + Op.MSTORE(64, Op.NOOP) + Op.RETURN(32, 64)
+        Op.MSTORE(32, Op.ADD(Op.CALLDATALOAD(0), 1))
+        + Op.MSTORE(64, Op.NOOP)
+        + Op.RETURN(32, 64)
     )
     rjump_offset = len(returndatacopy_block)
 
@@ -1190,7 +1332,9 @@ def test_extdelegate_call_targets(
             gas_limit=4_000_000,
             initcodes=[caller_contract],
         )
-        calling_contract_address = compute_eofcreate_address(factory_address, 0)
+        calling_contract_address = compute_eofcreate_address(
+            factory_address, 0
+        )
     else:
         # Normal call from existing contract
         caller_contract = Container.Code(

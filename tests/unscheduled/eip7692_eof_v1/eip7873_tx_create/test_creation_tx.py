@@ -26,7 +26,9 @@ REFERENCE_SPEC_VERSION = "23d96ceff8f0690432ab91089ae257f08f32340f"
 pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 
 
-@pytest.mark.with_all_contract_creating_tx_types(selector=lambda tx_type: tx_type != 6)
+@pytest.mark.with_all_contract_creating_tx_types(
+    selector=lambda tx_type: tx_type != 6
+)
 @pytest.mark.parametrize(
     "deploy_code",
     [
@@ -76,7 +78,9 @@ def test_legacy_create_tx_legacy_initcode_eof_bytecode(
     )
 
 
-@pytest.mark.with_all_contract_creating_tx_types(selector=lambda tx_type: tx_type != 6)
+@pytest.mark.with_all_contract_creating_tx_types(
+    selector=lambda tx_type: tx_type != 6
+)
 @pytest.mark.parametrize(
     "initcode",
     [
@@ -117,7 +121,10 @@ def test_legacy_create_tx_prefix_initcode(
 
     destination_contract_address = tx.created_contract
 
-    post = {destination_contract_address: Account.NONEXISTENT, sender: Account(nonce=1)}
+    post = {
+        destination_contract_address: Account.NONEXISTENT,
+        sender: Account(nonce=1),
+    }
 
     state_test(
         env=env,

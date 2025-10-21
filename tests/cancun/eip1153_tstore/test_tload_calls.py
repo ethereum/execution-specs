@@ -27,7 +27,9 @@ REFERENCE_SPEC_VERSION = "1eb863b534a5a3e19e9c196ab2a7f3db4bb9da17"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize("call_type", [Op.CALL, Op.CALLCODE, Op.DELEGATECALL])
-def test_tload_calls(state_test: StateTestFiller, pre: Alloc, call_type: Op) -> None:
+def test_tload_calls(
+    state_test: StateTestFiller, pre: Alloc, call_type: Op
+) -> None:
     """
     Ported .json vectors.
 
@@ -78,18 +80,26 @@ def test_tload_calls(state_test: StateTestFiller, pre: Alloc, call_type: Op) -> 
             storage={
                 # other calls don't change context, there for tload updated in
                 # this account
-                slot_a_tload_after_subcall_result: 10 if call_type == Op.CALL else 20,
+                slot_a_tload_after_subcall_result: 10
+                if call_type == Op.CALL
+                else 20,
                 slot_a_subcall_result: 1,
                 # since context unchanged the subcall works as if continued
                 # execution
                 slot_b_subcall_tload_result: 0 if call_type == Op.CALL else 10,
-                slot_b_subcall_updated_tload_result: 0 if call_type == Op.CALL else 20,
+                slot_b_subcall_updated_tload_result: 0
+                if call_type == Op.CALL
+                else 20,
             }
         ),
         address_call: Account(
             storage={
-                slot_b_subcall_tload_result: 0 if call_type == Op.CALL else 0xFF,
-                slot_b_subcall_updated_tload_result: 20 if call_type == Op.CALL else 0xFF,
+                slot_b_subcall_tload_result: 0
+                if call_type == Op.CALL
+                else 0xFF,
+                slot_b_subcall_updated_tload_result: 20
+                if call_type == Op.CALL
+                else 0xFF,
             }
         ),
     }

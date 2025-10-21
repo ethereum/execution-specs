@@ -66,9 +66,13 @@ def test_create_suicide_during_transaction_create(
     contract_after_suicide = pre.deploy_contract(code=Op.SSTORE(1, 1))
 
     contract_initcode = Initcode(
-        initcode_prefix=Op.CALL(address=contract_success, gas=Op.SUB(Op.GAS, 100_000))
+        initcode_prefix=Op.CALL(
+            address=contract_success, gas=Op.SUB(Op.GAS, 100_000)
+        )
         + Op.SELFDESTRUCT(
-            Op.ADDRESS if operation == Operation.SUICIDE_TO_ITSELF else self_destruct_destination
+            Op.ADDRESS
+            if operation == Operation.SUICIDE_TO_ITSELF
+            else self_destruct_destination
         )
         + Op.CALL(address=contract_after_suicide, gas=Op.SUB(Op.GAS, 100_000)),
         deploy_code=Op.SSTORE(0, 1),
@@ -97,7 +101,9 @@ def test_create_suicide_during_transaction_create(
             balance=0 if operation == Operation.SUICIDE_TO_ITSELF else tx_value
         ),
         contract_deploy: Account(storage={0: 0}),
-        contract_after_suicide: Account(storage={1: 0}),  # suicide eats all gas
+        contract_after_suicide: Account(
+            storage={1: 0}
+        ),  # suicide eats all gas
         expected_create_address: Account.NONEXISTENT,
     }
     state_test(env=Environment(), pre=pre, post=post, tx=tx)

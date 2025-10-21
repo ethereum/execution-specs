@@ -46,13 +46,18 @@ def block_gas_limit(fork: Fork) -> int:  # noqa: D103
 
 
 @pytest.fixture
-def genesis_environment(block_gas_limit: int, block_base_fee_per_gas: int) -> Environment:
+def genesis_environment(
+    block_gas_limit: int, block_base_fee_per_gas: int
+) -> Environment:
     """
     Genesis environment that enables existing transition tests to be used of
     BPO forks. Compatible with all fork transitions.
     """
     return Environment(
-        base_fee_per_gas=(block_base_fee_per_gas * BASE_FEE_MAX_CHANGE_DENOMINATOR) // 7,
+        base_fee_per_gas=(
+            block_base_fee_per_gas * BASE_FEE_MAX_CHANGE_DENOMINATOR
+        )
+        // 7,
         gas_limit=block_gas_limit,
     )
 
@@ -144,7 +149,9 @@ def pre_fork_blocks(
             )
         )
         block = Block(
-            txs=txs, timestamp=t, header_verify=Header(base_fee_per_gas=block_base_fee_per_gas)
+            txs=txs,
+            timestamp=t,
+            header_verify=Header(base_fee_per_gas=block_base_fee_per_gas),
         )
         blocks.append(block)
     return blocks
@@ -165,14 +172,18 @@ def pre_fork_excess_blobs(
 
     target_blobs = fork.target_blobs_per_block(timestamp=0)
     if pre_fork_blobs_per_block > target_blobs:
-        return (pre_fork_blobs_per_block - target_blobs) * (len(pre_fork_blocks) - 1)
+        return (pre_fork_blobs_per_block - target_blobs) * (
+            len(pre_fork_blocks) - 1
+        )
     return 0
 
 
 @pytest.fixture
 def post_fork_block_count(fork: Fork) -> int:
     """Amount of blocks to produce with the post-fork rules."""
-    return SpecHelpers.get_min_excess_blobs_for_blob_gas_price(fork=fork, blob_gas_price=2) // (
+    return SpecHelpers.get_min_excess_blobs_for_blob_gas_price(
+        fork=fork, blob_gas_price=2
+    ) // (
         fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP)
         - fork.target_blobs_per_block(timestamp=FORK_TIMESTAMP)
     )
@@ -200,7 +211,9 @@ def fork_block_excess_blob_gas(
     """Calculate the expected excess blob gas for the fork block."""
     if pre_fork_blobs_per_block == 0:
         return 0
-    calc_excess_blob_gas_post_fork = fork.excess_blob_gas_calculator(timestamp=FORK_TIMESTAMP)
+    calc_excess_blob_gas_post_fork = fork.excess_blob_gas_calculator(
+        timestamp=FORK_TIMESTAMP
+    )
     return calc_excess_blob_gas_post_fork(
         parent_excess_blobs=pre_fork_excess_blobs,
         parent_blob_count=pre_fork_blobs_per_block,
@@ -409,7 +422,9 @@ def test_invalid_post_fork_block_without_blob_fields(
     "post_fork_block_count,post_fork_blobs_per_block",
     lambda fork: [
         pytest.param(
-            SpecHelpers.get_min_excess_blobs_for_blob_gas_price(fork=fork, blob_gas_price=2)
+            SpecHelpers.get_min_excess_blobs_for_blob_gas_price(
+                fork=fork, blob_gas_price=2
+            )
             // (
                 fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP)
                 - fork.target_blobs_per_block(timestamp=FORK_TIMESTAMP)
@@ -419,7 +434,11 @@ def test_invalid_post_fork_block_without_blob_fields(
             id="max_blobs",
         ),
         pytest.param(10, 0, id="no_blobs"),
-        pytest.param(10, fork.target_blobs_per_block(timestamp=FORK_TIMESTAMP), id="target_blobs"),
+        pytest.param(
+            10,
+            fork.target_blobs_per_block(timestamp=FORK_TIMESTAMP),
+            id="target_blobs",
+        ),
     ],
 )
 def test_fork_transition_excess_blob_gas_at_blob_genesis(
@@ -449,7 +468,9 @@ def test_fork_transition_excess_blob_gas_at_blob_genesis(
     "post_fork_block_count,pre_fork_blobs_per_block,post_fork_blobs_per_block",
     lambda fork: [
         pytest.param(
-            SpecHelpers.get_min_excess_blobs_for_blob_gas_price(fork=fork, blob_gas_price=2)
+            SpecHelpers.get_min_excess_blobs_for_blob_gas_price(
+                fork=fork, blob_gas_price=2
+            )
             // (
                 fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP)
                 - fork.target_blobs_per_block(timestamp=FORK_TIMESTAMP)

@@ -57,7 +57,12 @@ pytestmark = pytest.mark.valid_from("Shanghai")
         ),
         # Jump to a JUMPDEST next to a PUSH0, must succeed.
         pytest.param(
-            Op.PUSH1(4) + Op.JUMP + Op.PUSH0 + Op.JUMPDEST + Op.SSTORE(Op.PUSH0, 1) + Op.STOP,
+            Op.PUSH1(4)
+            + Op.JUMP
+            + Op.PUSH0
+            + Op.JUMPDEST
+            + Op.SSTORE(Op.PUSH0, 1)
+            + Op.STOP,
             Account(storage={0x00: 0x01}),
             id="before_jumpdest",
         ),
@@ -105,7 +110,9 @@ class TestPush0CallContext:
         """
         Deploys a PUSH0 contract callee to the pre alloc returning its address.
         """
-        push0_contract = pre.deploy_contract(Op.MSTORE8(Op.PUSH0, 0xFF) + Op.RETURN(Op.PUSH0, 1))
+        push0_contract = pre.deploy_contract(
+            Op.MSTORE8(Op.PUSH0, 0xFF) + Op.RETURN(Op.PUSH0, 1)
+        )
         return push0_contract
 
     @pytest.fixture
@@ -118,7 +125,9 @@ class TestPush0CallContext:
         This fixture returns its address.
         """
         call_code = (
-            Op.SSTORE(0, call_opcode(gas=100_000, address=push0_contract_callee))
+            Op.SSTORE(
+                0, call_opcode(gas=100_000, address=push0_contract_callee)
+            )
             + Op.SSTORE(0, 1)
             + Op.RETURNDATACOPY(0x1F, 0, 1)
             + Op.SSTORE(1, Op.MLOAD(0))
@@ -146,6 +155,8 @@ class TestPush0CallContext:
         push0_contract_caller: Address,
     ) -> None:
         """Test PUSH0 during various call contexts."""
-        tx = Transaction(to=push0_contract_caller, gas_limit=100_000, sender=sender)
+        tx = Transaction(
+            to=push0_contract_caller, gas_limit=100_000, sender=sender
+        )
         post[push0_contract_caller] = Account(storage={0x00: 0x01, 0x01: 0xFF})
         state_test(env=env, pre=pre, post=post, tx=tx)

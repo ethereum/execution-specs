@@ -76,7 +76,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.fixture
-def scenarios(fork: Fork, pre: Alloc, test_program: ScenarioTestProgram) -> List[Scenario]:
+def scenarios(
+    fork: Fork, pre: Alloc, test_program: ScenarioTestProgram
+) -> List[Scenario]:
     """
     Define fixture vectors of all possible scenarios, given the current pre
     state input.
@@ -101,7 +103,9 @@ def scenarios(fork: Fork, pre: Alloc, test_program: ScenarioTestProgram) -> List
     for combination in revert_combinations:
         scenarios_list.append(combination)
 
-    double_call_combinations = scenarios_double_call_combinations(scenario_input)
+    double_call_combinations = scenarios_double_call_combinations(
+        scenario_input
+    )
     for combination in double_call_combinations:
         scenarios_list.append(combination)
 
@@ -117,7 +121,9 @@ def scenarios(fork: Fork, pre: Alloc, test_program: ScenarioTestProgram) -> List
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stSelfBalance/diffPlacesFiller.yml",
     ],
     pr=["https://github.com/ethereum/execution-spec-tests/pull/808"],
-    coverage_missed_reason=("Original test pre-sets storage of some of the deployed accounts."),
+    coverage_missed_reason=(
+        "Original test pre-sets storage of some of the deployed accounts."
+    ),
 )
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.parametrize(
@@ -211,9 +217,15 @@ def test_scenarios(
         tests = tests + 1
 
         post_storage = Storage()
-        result_slot = post_storage.store_next(1, hint=f"runner result {scenario.name}")
+        result_slot = post_storage.store_next(
+            1, hint=f"runner result {scenario.name}"
+        )
 
-        tx_max_gas = 7_000_000 if test_program.id == ProgramInvalidOpcode().id else 1_000_000
+        tx_max_gas = (
+            7_000_000
+            if test_program.id == ProgramInvalidOpcode().id
+            else 1_000_000
+        )
         if scenario.category == "double_call_combinations":
             tx_max_gas *= 2
 
@@ -229,20 +241,26 @@ def test_scenarios(
             coinbase=tx_env.fee_recipient,
         )
 
-        def make_result(scenario: Scenario, exec_env: ExecutionEnvironment, post: Storage) -> int:
+        def make_result(
+            scenario: Scenario, exec_env: ExecutionEnvironment, post: Storage
+        ) -> int:
             """Make Scenario post result."""
             if scenario.halts:
                 return post.store_next(0, hint=scenario.name)
             else:
                 return post.store_next(
-                    test_program.result().translate_result(scenario.env, exec_env),
+                    test_program.result().translate_result(
+                        scenario.env, exec_env
+                    ),
                     hint=scenario.name,
                 )
 
         runner_contract = pre.deploy_contract(
             code=Op.MSTORE(0, 0)
             + Op.CALL(tx_max_gas, scenario.code, 0, 0, 0, 0, 32)
-            + Op.SSTORE(make_result(scenario, exec_env, post_storage), Op.MLOAD(0))
+            + Op.SSTORE(
+                make_result(scenario, exec_env, post_storage), Op.MLOAD(0)
+            )
             + Op.SSTORE(result_slot, 1),
             storage={
                 result_slot: 0xFFFF,

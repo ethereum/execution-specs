@@ -51,7 +51,9 @@ def caller_code(
     callee_address: Address,
 ) -> Bytecode:
     """Bytecode used to call the bytecode containing the BLOBBASEFEE opcode."""
-    return Op.SSTORE(Op.SELFBALANCE, Op.CALL(gas=call_gas, address=callee_address))
+    return Op.SSTORE(
+        Op.SELFBALANCE, Op.CALL(gas=call_gas, address=callee_address)
+    )
 
 
 @pytest.fixture
@@ -64,7 +66,9 @@ def caller_pre_storage() -> Storage:
 
 
 @pytest.fixture
-def caller_address(pre: Alloc, caller_code: Bytecode, caller_pre_storage: Storage) -> Address:
+def caller_address(
+    pre: Alloc, caller_code: Bytecode, caller_pre_storage: Storage
+) -> Address:
     """
     Address of the account containing the bytecode that calls the test
     contract.
@@ -193,7 +197,12 @@ timestamps = [7_500, 14_999, 15_000]
 
 @pytest.mark.parametrize(
     "caller_pre_storage",
-    [{block_number: 0xFF for block_number, _ in enumerate(timestamps, start=1)}],
+    [
+        {
+            block_number: 0xFF
+            for block_number, _ in enumerate(timestamps, start=1)
+        }
+    ],
     ids=[""],
 )
 @pytest.mark.valid_at_transition_to("Cancun")

@@ -114,7 +114,9 @@ def caller_bytecode(
 
     # First save msize
     bytecode += Op.SSTORE(100_000, Op.MSIZE())
-    caller_storage[100_000] = ceiling_division(len(initial_memory), 0x20) * 0x20
+    caller_storage[100_000] = (
+        ceiling_division(len(initial_memory), 0x20) * 0x20
+    )
 
     # Store all memory in the initial range to verify the MCOPY in the subcall
     # did not affect this level's memory

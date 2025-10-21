@@ -30,7 +30,10 @@ def call_contract_post_storage() -> Storage:
 
 @pytest.fixture
 def call_succeeds(
-    total_gas_used: int, fork: Fork, env: Environment, modexp_input: ModExpInput
+    total_gas_used: int,
+    fork: Fork,
+    env: Environment,
+    modexp_input: ModExpInput,
 ) -> bool:
     """
     By default, depending on the expected output, we can deduce if the call is
@@ -110,18 +113,30 @@ def gas_measure_contract(
 
     code = (
         Op.CALLDATACOPY(dest_offset=0, offset=0, size=Op.CALLDATASIZE)
-        + Op.SSTORE(call_contract_post_storage.store_next(call_succeeds), call_result_measurement)
         + Op.SSTORE(
-            call_contract_post_storage.store_next(len(modexp_expected) if call_succeeds else 0),
+            call_contract_post_storage.store_next(call_succeeds),
+            call_result_measurement,
+        )
+        + Op.SSTORE(
+            call_contract_post_storage.store_next(
+                len(modexp_expected) if call_succeeds else 0
+            ),
             Op.RETURNDATASIZE(),
         )
     )
 
     if call_succeeds:
-        code += Op.SSTORE(call_contract_post_storage.store_next(precompile_gas), gas_calculation)
-        code += Op.RETURNDATACOPY(dest_offset=0, offset=0, size=Op.RETURNDATASIZE())
         code += Op.SSTORE(
-            call_contract_post_storage.store_next(keccak256(bytes(modexp_expected))),
+            call_contract_post_storage.store_next(precompile_gas),
+            gas_calculation,
+        )
+        code += Op.RETURNDATACOPY(
+            dest_offset=0, offset=0, size=Op.RETURNDATASIZE()
+        )
+        code += Op.SSTORE(
+            call_contract_post_storage.store_next(
+                keccak256(bytes(modexp_expected))
+            ),
             Op.SHA3(0, Op.RETURNDATASIZE()),
         )
     return pre.deploy_contract(code)
@@ -161,12 +176,17 @@ def tx(
 
 @pytest.fixture
 def total_gas_used(
-    fork: Fork, modexp_expected: bytes, modexp_input: ModExpInput, precompile_gas: int
+    fork: Fork,
+    modexp_expected: bytes,
+    modexp_input: ModExpInput,
+    precompile_gas: int,
 ) -> int:
     """
     Transaction gas limit used for the test (Can be overridden in the test).
     """
-    intrinsic_gas_cost_calculator = fork.transaction_intrinsic_cost_calculator()
+    intrinsic_gas_cost_calculator = (
+        fork.transaction_intrinsic_cost_calculator()
+    )
     memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
     extra_gas = 500_000
 

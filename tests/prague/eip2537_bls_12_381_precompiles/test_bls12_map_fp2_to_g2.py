@@ -23,7 +23,9 @@ REFERENCE_SPEC_VERSION = ref_spec_2537.version
 
 pytestmark = [
     pytest.mark.valid_from("Prague"),
-    pytest.mark.parametrize("precompile_address", [Spec.MAP_FP2_TO_G2], ids=[""]),
+    pytest.mark.parametrize(
+        "precompile_address", [Spec.MAP_FP2_TO_G2], ids=[""]
+    ),
 ]
 
 G2_POINT_ZERO_FP = PointG2(
@@ -146,9 +148,13 @@ def test_isogeny_kernel_values(
         pytest.param(FP2((0, Spec.P + 1)), id="fp2_above_modulus_c1"),
         pytest.param(FP2((2**384, 0)), id="fp2_large_power_of_2_c0"),
         pytest.param(FP2((0, 2**384)), id="fp2_large_power_of_2_c1"),
-        pytest.param(bytes(FP2((0, 0))) + bytes([0x00]), id="fp2_with_extra_byte"),
+        pytest.param(
+            bytes(FP2((0, 0))) + bytes([0x00]), id="fp2_with_extra_byte"
+        ),
         pytest.param(bytes(FP2((0, 0)))[:95], id="fp2_one_byte_short"),
-        pytest.param(bytes([0xFF]) + bytes(FP2((0, 0)))[1:], id="fp2_invalid_first_byte"),
+        pytest.param(
+            bytes([0xFF]) + bytes(FP2((0, 0)))[1:], id="fp2_invalid_first_byte"
+        ),
         pytest.param(Spec.INF_G2, id="g2_inf_input"),
         pytest.param(
             FP2(((Spec.P - 1) | Spec.MAX_FP_BIT_SET, Spec.P - 1)),

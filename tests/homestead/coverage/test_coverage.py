@@ -34,8 +34,14 @@ def test_coverage(
     """
     missed_coverage = pre.deploy_contract(
         balance=0,
-        code=Op.SHL(0x0000000000000000000000000000000000000000000000000000000000000001, 0x00)
-        + Op.SHR(0x0000000000000000000000000000000000000000000000000000000000000001, 0x00)
+        code=Op.SHL(
+            0x0000000000000000000000000000000000000000000000000000000000000001,
+            0x00,
+        )
+        + Op.SHR(
+            0x0000000000000000000000000000000000000000000000000000000000000001,
+            0x00,
+        )
         + Op.PUSH1(0x0A)
         + Op.PUSH1(0x0B)
         + Op.PUSH1(0x0C)
@@ -48,7 +54,9 @@ def test_coverage(
         + Op.PUSH2(0x0102)
         + Op.PUSH3(0x010203)
         + Op.PUSH4(0x01020304)
-        + Op.PUSH32(0x0101010101010101010101010101010101010101010101010101010101010101)
+        + Op.PUSH32(
+            0x0101010101010101010101010101010101010101010101010101010101010101
+        )
         + Op.MSTORE8(0x00, 0x01)
         + Op.ADD(0x02, 0x03)
         + Op.POP(0x01)
@@ -58,7 +66,8 @@ def test_coverage(
     )
     address_to = pre.deploy_contract(
         balance=1_000_000_000_000_000_000,
-        code=Op.MSTORE(0, Op.CALL(Op.GAS, missed_coverage, 0, 0, 0, 0, 0)) + Op.RETURN(0, 32),
+        code=Op.MSTORE(0, Op.CALL(Op.GAS, missed_coverage, 0, 0, 0, 0, 0))
+        + Op.RETURN(0, 32),
     )
 
     if fork >= Cancun:

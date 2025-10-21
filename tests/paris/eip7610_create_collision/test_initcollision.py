@@ -47,7 +47,9 @@ pytestmark = [
                 id="correct-initcode",
             ),
             pytest.param(Op.REVERT(0, 0), id="revert-initcode"),
-            pytest.param(Op.MSTORE(0xFFFFFFFFFFFFFFFFFFFFFFFFFFF, 1), id="oog-initcode"),
+            pytest.param(
+                Op.MSTORE(0xFFFFFFFFFFFFFFFFFFFFFFFFFFF, 1), id="oog-initcode"
+            ),
         ],
     ),
     pytest.mark.pre_alloc_modify,  # We need to modify the pre-alloc to include the collision

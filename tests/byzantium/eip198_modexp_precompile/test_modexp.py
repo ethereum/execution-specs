@@ -269,7 +269,9 @@ REFERENCE_SPEC_VERSION = "5c8f066acb210c704ef80c1033a941aa5374aac5"
             id="max-base-length-overflow-out-of-gas",
         ),
         pytest.param(
-            Bytes("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa0"),
+            Bytes(
+                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa0"
+            ),
             ModExpOutput(
                 call_success=False,
                 returned_data="0000000000000000000000000000000000000000000000000000000000000000",

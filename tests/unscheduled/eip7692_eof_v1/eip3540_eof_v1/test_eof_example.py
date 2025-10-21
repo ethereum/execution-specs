@@ -39,7 +39,10 @@ def test_eof_example(eof_test: EOFTestFiller) -> None:
             ),
             Section.Code(
                 # Call section 3 with two inputs (address twice), return
-                code=Op.CALLF[3](Op.DUP1, Op.ADDRESS) + Op.POP + Op.POP + Op.RETF,
+                code=Op.CALLF[3](Op.DUP1, Op.ADDRESS)
+                + Op.POP
+                + Op.POP
+                + Op.RETF,
                 code_outputs=1,
                 max_stack_increase=3,
             ),
@@ -87,7 +90,8 @@ def test_eof_example_custom_fields(eof_test: EOFTestFiller) -> None:
             # TYPES section is constructed automatically based on CODE
             # CODE section
             Section.Code(
-                code=Op.PUSH1(2) + Op.STOP,  # this is the actual bytecode to be deployed in the
+                code=Op.PUSH1(2)
+                + Op.STOP,  # this is the actual bytecode to be deployed in the
                 # body
                 max_stack_height=1,  # define code header (in body) stack size
             ),
@@ -131,7 +135,10 @@ def test_eof_example_custom_fields(eof_test: EOFTestFiller) -> None:
 )
 @pytest.mark.parametrize(
     "code_section_code, exception",
-    [(Op.PUSH1(10) + Op.STOP, None), (Op.PUSH1(14), EOFException.MISSING_STOP_OPCODE)],
+    [
+        (Op.PUSH1(10) + Op.STOP, None),
+        (Op.PUSH1(14), EOFException.MISSING_STOP_OPCODE),
+    ],
 )
 def test_eof_example_parameters(
     eof_test: EOFTestFiller,

@@ -22,9 +22,13 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 
 @pytest.mark.parametrize("index", [0, 1, 31, 32, 33, 63, 64])
 @pytest.mark.parametrize("suffix_len", [0, 1, 31, 32, 24000])
-def test_dataloadn(eof_state_test: EOFStateTestFiller, index: int, suffix_len: int) -> None:
+def test_dataloadn(
+    eof_state_test: EOFStateTestFiller, index: int, suffix_len: int
+) -> None:
     """Basic tests for DATALOADN execution."""
-    sentinel = 0x8000000000000000000000000000000000000000000000000000000000000001
+    sentinel = (
+        0x8000000000000000000000000000000000000000000000000000000000000001
+    )
     eof_state_test(
         container=Container(
             sections=[
@@ -32,7 +36,9 @@ def test_dataloadn(eof_state_test: EOFStateTestFiller, index: int, suffix_len: i
                     Op.SSTORE(0, Op.DATALOADN[index]) + Op.STOP,
                 ),
                 Section.Data(
-                    index * b"\xbe" + sentinel.to_bytes(32, byteorder="big") + suffix_len * b"\xaf"
+                    index * b"\xbe"
+                    + sentinel.to_bytes(32, byteorder="big")
+                    + suffix_len * b"\xaf"
                 ),
             ],
         ),
@@ -40,15 +46,24 @@ def test_dataloadn(eof_state_test: EOFStateTestFiller, index: int, suffix_len: i
     )
 
 
-def create_data_test(offset: int, datasize: int) -> tuple[Container, dict[int, int]]:
+def create_data_test(
+    offset: int, datasize: int
+) -> tuple[Container, dict[int, int]]:
     """
     Generate data load operators test cases based on load offset and data
     section size.
     """
-    data = b"".join(i.to_bytes(length=2, byteorder="big") for i in range(1, datasize // 2 + 1))
+    data = b"".join(
+        i.to_bytes(length=2, byteorder="big")
+        for i in range(1, datasize // 2 + 1)
+    )
     assert len(data) == datasize
     overhang = min(32, offset + 32 - datasize)
-    answer = data[offset : offset + 32] if overhang <= 0 else data[offset:] + b"\x00" * overhang
+    answer = (
+        data[offset : offset + 32]
+        if overhang <= 0
+        else data[offset:] + b"\x00" * overhang
+    )
     dataloadn_op = Op.DATALOADN[offset] if overhang <= 0 else Op.PUSH32[answer]
 
     return (
@@ -65,7 +80,9 @@ def create_data_test(offset: int, datasize: int) -> tuple[Container, dict[int, i
                     ),
                 ),
                 Section.Code(
-                    code=(Op.DATALOAD(offset) + Op.PUSH1(1) + Op.SSTORE + Op.RETF),
+                    code=(
+                        Op.DATALOAD(offset) + Op.PUSH1(1) + Op.SSTORE + Op.RETF
+                    ),
                     code_inputs=0,
                     code_outputs=0,
                 ),
@@ -80,7 +97,11 @@ def create_data_test(offset: int, datasize: int) -> tuple[Container, dict[int, i
                     code_outputs=0,
                 ),
                 Section.Code(
-                    code=(Op.DATACOPY(0, offset, 32) + Op.SSTORE(4, Op.MLOAD(0)) + Op.RETF),
+                    code=(
+                        Op.DATACOPY(0, offset, 32)
+                        + Op.SSTORE(4, Op.MLOAD(0))
+                        + Op.RETF
+                    ),
                     code_inputs=0,
                     code_outputs=0,
                 ),
@@ -132,7 +153,8 @@ def test_data_section_succeed(
     (container, expected_storage) = create_data_test(offset, datasize)
     callee_contract = pre.deploy_contract(code=container)
     entry_point = pre.deploy_contract(
-        code=Op.SSTORE(0, Op.DELEGATECALL(Op.GAS, callee_contract, 0, 0, 0, 0)) + Op.STOP()
+        code=Op.SSTORE(0, Op.DELEGATECALL(Op.GAS, callee_contract, 0, 0, 0, 0))
+        + Op.STOP()
     )
     sender = pre.fund_eoa()
 

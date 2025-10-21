@@ -11,7 +11,9 @@ class ReferenceSpec:
     version: str
 
 
-ref_spec_1153 = ReferenceSpec("EIPS/eip-1153.md", "1eb863b534a5a3e19e9c196ab2a7f3db4bb9da17")
+ref_spec_1153 = ReferenceSpec(
+    "EIPS/eip-1153.md", "1eb863b534a5a3e19e9c196ab2a7f3db4bb9da17"
+)
 
 
 @dataclass(frozen=True)

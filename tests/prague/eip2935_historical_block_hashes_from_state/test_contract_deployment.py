@@ -26,7 +26,8 @@ REFERENCE_SPEC_VERSION = ref_spec_2935.version
 
 
 @pytest.mark.pre_alloc_group(
-    "separate", reason="Deploys history storage system contract at hardcoded predeploy address"
+    "separate",
+    reason="Deploys history storage system contract at hardcoded predeploy address",
 )
 @generate_system_contract_deploy_test(
     fork=Prague,

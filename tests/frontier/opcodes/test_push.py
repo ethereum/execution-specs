@@ -44,7 +44,9 @@ def get_input_for_push_opcode(opcode: Op) -> bytes:
     ids=lambda op: str(op),
 )
 @pytest.mark.valid_from("Frontier")
-def test_push(state_test: StateTestFiller, fork: Fork, pre: Alloc, push_opcode: Op) -> None:
+def test_push(
+    state_test: StateTestFiller, fork: Fork, pre: Alloc, push_opcode: Op
+) -> None:
     """
     The set of `PUSH*` opcodes pushes data onto the stack.
 
@@ -78,7 +80,9 @@ def test_push(state_test: StateTestFiller, fork: Fork, pre: Alloc, push_opcode: 
     )
 
     post = {}
-    post[contract] = Account(storage={0: int.from_bytes(excerpt, byteorder="big")})
+    post[contract] = Account(
+        storage={0: int.from_bytes(excerpt, byteorder="big")}
+    )
 
     state_test(env=env, pre=pre, post=post, tx=tx)
 
@@ -98,7 +102,11 @@ def test_push(state_test: StateTestFiller, fork: Fork, pre: Alloc, push_opcode: 
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.slow()
 def test_stack_overflow(
-    state_test: StateTestFiller, fork: Fork, pre: Alloc, push_opcode: Op, stack_height: int
+    state_test: StateTestFiller,
+    fork: Fork,
+    pre: Alloc,
+    push_opcode: Op,
+    stack_height: int,
 ) -> None:
     """
     A test the stack overflows when the stack limit of 1024 is exceeded.

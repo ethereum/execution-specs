@@ -70,9 +70,14 @@ def test_bal_7702_delegation_create(
 
     account_expectations = {
         alice: BalAccountExpectation(
-            nonce_changes=[BalNonceChange(tx_index=1, post_nonce=2 if self_funded else 1)],
+            nonce_changes=[
+                BalNonceChange(tx_index=1, post_nonce=2 if self_funded else 1)
+            ],
             code_changes=[
-                BalCodeChange(tx_index=1, new_code=Spec7702.delegation_designation(oracle))
+                BalCodeChange(
+                    tx_index=1,
+                    new_code=Spec7702.delegation_designation(oracle),
+                )
             ],
         ),
         bob: BalAccountExpectation(
@@ -97,7 +102,8 @@ def test_bal_7702_delegation_create(
 
     post = {
         alice: Account(
-            nonce=2 if self_funded else 1, code=Spec7702.delegation_designation(oracle)
+            nonce=2 if self_funded else 1,
+            code=Spec7702.delegation_designation(oracle),
         ),
         # Bob receives 10 wei
         bob: Account(balance=10),
@@ -180,8 +186,14 @@ def test_bal_7702_delegation_update(
                 BalNonceChange(tx_index=2, post_nonce=4 if self_funded else 2),
             ],
             code_changes=[
-                BalCodeChange(tx_index=1, new_code=Spec7702.delegation_designation(oracle1)),
-                BalCodeChange(tx_index=2, new_code=Spec7702.delegation_designation(oracle2)),
+                BalCodeChange(
+                    tx_index=1,
+                    new_code=Spec7702.delegation_designation(oracle1),
+                ),
+                BalCodeChange(
+                    tx_index=2,
+                    new_code=Spec7702.delegation_designation(oracle2),
+                ),
             ],
         ),
         bob: BalAccountExpectation(
@@ -215,7 +227,8 @@ def test_bal_7702_delegation_update(
     post = {
         # Finally Alice's account should be delegated to oracle2
         alice: Account(
-            nonce=4 if self_funded else 2, code=Spec7702.delegation_designation(oracle2)
+            nonce=4 if self_funded else 2,
+            code=Spec7702.delegation_designation(oracle2),
         ),
         # Bob receives 20 wei in total
         bob: Account(balance=20),
@@ -298,7 +311,10 @@ def test_bal_7702_delegation_clear(
                 BalNonceChange(tx_index=2, post_nonce=4 if self_funded else 2),
             ],
             code_changes=[
-                BalCodeChange(tx_index=1, new_code=Spec7702.delegation_designation(oracle)),
+                BalCodeChange(
+                    tx_index=1,
+                    new_code=Spec7702.delegation_designation(oracle),
+                ),
                 BalCodeChange(tx_index=2, new_code=""),
             ],
         ),
@@ -357,10 +373,14 @@ def test_bal_7702_delegated_storage_access(
     EIP-7702 account.
     """
     # Oracle contract that reads from slot 0x01 and writes to slot 0x02
-    oracle = pre.deploy_contract(code=Op.SLOAD(0x01) + Op.PUSH1(0x42) + Op.PUSH1(0x02) + Op.SSTORE)
+    oracle = pre.deploy_contract(
+        code=Op.SLOAD(0x01) + Op.PUSH1(0x42) + Op.PUSH1(0x02) + Op.SSTORE
+    )
     bob = pre.fund_eoa()
 
-    alice = pre.deploy_contract(nonce=0x1, code=Spec7702.delegation_designation(oracle), balance=0)
+    alice = pre.deploy_contract(
+        nonce=0x1, code=Spec7702.delegation_designation(oracle), balance=0
+    )
 
     tx = Transaction(
         sender=bob,
@@ -375,11 +395,15 @@ def test_bal_7702_delegated_storage_access(
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 alice: BalAccountExpectation(
-                    balance_changes=[BalBalanceChange(tx_index=1, post_balance=10)],
+                    balance_changes=[
+                        BalBalanceChange(tx_index=1, post_balance=10)
+                    ],
                     storage_changes=[
                         BalStorageSlot(
                             slot=0x02,
-                            slot_changes=[BalStorageChange(tx_index=1, post_value=0x42)],
+                            slot_changes=[
+                                BalStorageChange(tx_index=1, post_value=0x42)
+                            ],
                         )
                     ],
                     storage_reads=[0x01],
@@ -440,7 +464,9 @@ def test_bal_7702_invalid_nonce_authorization(
             account_expectations={
                 # Ensuring silent fail
                 bob: BalAccountExpectation(
-                    balance_changes=[BalBalanceChange(tx_index=1, post_balance=10)]
+                    balance_changes=[
+                        BalBalanceChange(tx_index=1, post_balance=10)
+                    ]
                 ),
                 relayer: BalAccountExpectation(
                     nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
@@ -501,7 +527,9 @@ def test_bal_7702_invalid_chain_id_authorization(
                 alice: None,
                 # Ensuring silent fail
                 bob: BalAccountExpectation(
-                    balance_changes=[BalBalanceChange(tx_index=1, post_balance=10)]
+                    balance_changes=[
+                        BalBalanceChange(tx_index=1, post_balance=10)
+                    ]
                 ),
                 relayer: BalAccountExpectation(
                     nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],

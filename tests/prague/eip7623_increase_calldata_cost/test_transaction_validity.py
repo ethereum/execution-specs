@@ -36,7 +36,9 @@ pytestmark += [
             # gas than it should.
             pytest.param(1, id="extra_gas"),
             pytest.param(0, id="exact_gas"),
-            pytest.param(-1, id="insufficient_gas", marks=pytest.mark.exception_test),
+            pytest.param(
+                -1, id="insufficient_gas", marks=pytest.mark.exception_test
+            ),
         ],
     ),
     pytest.mark.parametrize(
@@ -116,20 +118,34 @@ def test_transaction_validity_type_0(
             id="single_access_list_single_storage_key",
         ),
         pytest.param(
-            [AccessList(address=Address(1), storage_keys=[Hash(k) for k in range(10)])],
+            [
+                AccessList(
+                    address=Address(1),
+                    storage_keys=[Hash(k) for k in range(10)],
+                )
+            ],
             id="single_access_list_multiple_storage_keys",
         ),
         pytest.param(
-            [AccessList(address=Address(a), storage_keys=[]) for a in range(10)],
+            [
+                AccessList(address=Address(a), storage_keys=[])
+                for a in range(10)
+            ],
             id="multiple_access_lists_no_storage_keys",
         ),
         pytest.param(
-            [AccessList(address=Address(a), storage_keys=[Hash(0)]) for a in range(10)],
+            [
+                AccessList(address=Address(a), storage_keys=[Hash(0)])
+                for a in range(10)
+            ],
             id="multiple_access_lists_single_storage_key",
         ),
         pytest.param(
             [
-                AccessList(address=Address(a), storage_keys=[Hash(k) for k in range(10)])
+                AccessList(
+                    address=Address(a),
+                    storage_keys=[Hash(k) for k in range(10)],
+                )
                 for a in range(10)
             ],
             id="multiple_access_lists_multiple_storage_keys",
@@ -172,20 +188,34 @@ def test_transaction_validity_type_1_type_2(
             id="single_access_list_single_storage_key",
         ),
         pytest.param(
-            [AccessList(address=Address(1), storage_keys=[Hash(k) for k in range(10)])],
+            [
+                AccessList(
+                    address=Address(1),
+                    storage_keys=[Hash(k) for k in range(10)],
+                )
+            ],
             id="single_access_list_multiple_storage_keys",
         ),
         pytest.param(
-            [AccessList(address=Address(a), storage_keys=[]) for a in range(10)],
+            [
+                AccessList(address=Address(a), storage_keys=[])
+                for a in range(10)
+            ],
             id="multiple_access_lists_no_storage_keys",
         ),
         pytest.param(
-            [AccessList(address=Address(a), storage_keys=[Hash(0)]) for a in range(10)],
+            [
+                AccessList(address=Address(a), storage_keys=[Hash(0)])
+                for a in range(10)
+            ],
             id="multiple_access_lists_single_storage_key",
         ),
         pytest.param(
             [
-                AccessList(address=Address(a), storage_keys=[Hash(k) for k in range(10)])
+                AccessList(
+                    address=Address(a),
+                    storage_keys=[Hash(k) for k in range(10)],
+                )
                 for a in range(10)
             ],
             id="multiple_access_lists_multiple_storage_keys",
@@ -250,20 +280,34 @@ def test_transaction_validity_type_3(
             id="single_access_list_single_storage_key",
         ),
         pytest.param(
-            [AccessList(address=Address(1), storage_keys=[Hash(k) for k in range(10)])],
+            [
+                AccessList(
+                    address=Address(1),
+                    storage_keys=[Hash(k) for k in range(10)],
+                )
+            ],
             id="single_access_list_multiple_storage_keys",
         ),
         pytest.param(
-            [AccessList(address=Address(a), storage_keys=[]) for a in range(10)],
+            [
+                AccessList(address=Address(a), storage_keys=[])
+                for a in range(10)
+            ],
             id="multiple_access_lists_no_storage_keys",
         ),
         pytest.param(
-            [AccessList(address=Address(a), storage_keys=[Hash(0)]) for a in range(10)],
+            [
+                AccessList(address=Address(a), storage_keys=[Hash(0)])
+                for a in range(10)
+            ],
             id="multiple_access_lists_single_storage_key",
         ),
         pytest.param(
             [
-                AccessList(address=Address(a), storage_keys=[Hash(k) for k in range(10)])
+                AccessList(
+                    address=Address(a),
+                    storage_keys=[Hash(k) for k in range(10)],
+                )
                 for a in range(10)
             ],
             id="multiple_access_lists_multiple_storage_keys",

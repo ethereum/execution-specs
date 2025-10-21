@@ -23,7 +23,9 @@ class AddressBalance:
     scenario_contract_balance = 200
 
 
-def scenarios_create_combinations(scenario_input: ScenarioGeneratorInput) -> List[Scenario]:
+def scenarios_create_combinations(
+    scenario_input: ScenarioGeneratorInput,
+) -> List[Scenario]:
     """Generate Scenarios for create combinations."""
 
     def _compute_selfbalance() -> int:
@@ -33,7 +35,9 @@ def scenarios_create_combinations(scenario_input: ScenarioGeneratorInput) -> Lis
         """
         if call in [Op.DELEGATECALL, Op.CALLCODE]:
             return (
-                balance.scenario_contract_balance + balance.root_call_value - balance.create_value
+                balance.scenario_contract_balance
+                + balance.root_call_value
+                - balance.create_value
             )
         if call == Op.CALL:
             return balance.create_value + balance.call_value
@@ -52,14 +56,20 @@ def scenarios_create_combinations(scenario_input: ScenarioGeneratorInput) -> Lis
     # run code in create constructor
     for create in create_types:
         salt = [0] if create == Op.CREATE2 else []
-        operation_contract = scenario_input.pre.deploy_contract(code=scenario_input.operation_code)
+        operation_contract = scenario_input.pre.deploy_contract(
+            code=scenario_input.operation_code
+        )
 
         # the code result in init code will be actually code of a deployed
         # contract
         scenario_contract = scenario_input.pre.deploy_contract(
             balance=3,
-            code=Op.EXTCODECOPY(operation_contract, 0, 0, Op.EXTCODESIZE(operation_contract))
-            + Op.MSTORE(0, create(3, 0, Op.EXTCODESIZE(operation_contract), *salt))
+            code=Op.EXTCODECOPY(
+                operation_contract, 0, 0, Op.EXTCODESIZE(operation_contract)
+            )
+            + Op.MSTORE(
+                0, create(3, 0, Op.EXTCODESIZE(operation_contract), *salt)
+            )
             + Op.EXTCODECOPY(Op.MLOAD(0), 0, 0, 32)
             + Op.RETURN(0, 32),
         )
@@ -91,7 +101,9 @@ def scenarios_create_combinations(scenario_input: ScenarioGeneratorInput) -> Lis
 
     # create a contract with test code and call it
     deploy_code = Bytecode(
-        Op.EXTCODECOPY(operation_contract, 0, 0, Op.EXTCODESIZE(operation_contract))
+        Op.EXTCODECOPY(
+            operation_contract, 0, 0, Op.EXTCODESIZE(operation_contract)
+        )
         + Op.RETURN(0, Op.EXTCODESIZE(operation_contract))
     )
     deploy_code_size: int = int(len(deploy_code.hex()) / 2)
@@ -109,7 +121,10 @@ def scenarios_create_combinations(scenario_input: ScenarioGeneratorInput) -> Lis
             scenario_contract = pre.deploy_contract(
                 balance=balance.scenario_contract_balance,
                 code=Om.MSTORE(deploy_code, 0)
-                + Op.MSTORE(32, create(balance.create_value, 0, deploy_code_size, *salt))
+                + Op.MSTORE(
+                    32,
+                    create(balance.create_value, 0, deploy_code_size, *salt),
+                )
                 + Op.MSTORE(0, 0)
                 + Op.MSTORE(64, 1122334455)
                 + (
@@ -160,7 +175,9 @@ def scenarios_create_combinations(scenario_input: ScenarioGeneratorInput) -> Lis
                     if call in [Op.CALLCODE, Op.DELEGATECALL]
                     else created_address
                 ),
-                code_caller=root_contract if call == Op.DELEGATECALL else scenario_contract,
+                code_caller=root_contract
+                if call == Op.DELEGATECALL
+                else scenario_contract,
                 selfbalance=_compute_selfbalance(),
                 call_value=(
                     0

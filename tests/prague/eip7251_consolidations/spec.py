@@ -13,7 +13,9 @@ class ReferenceSpec:
     version: str
 
 
-ref_spec_7251 = ReferenceSpec("EIPS/eip-7251.md", "f29c0eda1e7495c071ef5b25fbd850dc3ef6bfdf")
+ref_spec_7251 = ReferenceSpec(
+    "EIPS/eip-7251.md", "f29c0eda1e7495c071ef5b25fbd850dc3ef6bfdf"
+)
 
 
 # Constants
@@ -24,8 +26,12 @@ class Spec:
     https://eips.ethereum.org/EIPS/eip-7251#execution-layer.
     """
 
-    CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS = 0x0000BBDDC7CE488642FB579F8B00F3A590007251
-    CONSOLIDATION_REQUEST_PREDEPLOY_SENDER = Address(0x13D1913D623E6A9D8811736359E50FD31FE54FCA)
+    CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS = (
+        0x0000BBDDC7CE488642FB579F8B00F3A590007251
+    )
+    CONSOLIDATION_REQUEST_PREDEPLOY_SENDER = Address(
+        0x13D1913D623E6A9D8811736359E50FD31FE54FCA
+    )
     SYSTEM_ADDRESS = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
 
     SYSTEM_CALL_GAS_LIMIT = 30_000_000
@@ -38,12 +44,8 @@ class Spec:
     CONSOLIDATION_REQUEST_QUEUE_TAIL_STORAGE_SLOT = (
         3  # Pointer to the tail of the consolidation request message queue
     )
-    CONSOLIDATION_REQUEST_QUEUE_STORAGE_OFFSET = (
-        4  # The start memory slot of the in-state consolidation request message queue
-    )
-    MAX_CONSOLIDATION_REQUESTS_PER_BLOCK = (
-        2  # Maximum number of consolidation requests that can be de-queued into a block
-    )
+    CONSOLIDATION_REQUEST_QUEUE_STORAGE_OFFSET = 4  # The start memory slot of the in-state consolidation request message queue
+    MAX_CONSOLIDATION_REQUESTS_PER_BLOCK = 2  # Maximum number of consolidation requests that can be de-queued into a block
     TARGET_CONSOLIDATION_REQUESTS_PER_BLOCK = 1
     MIN_CONSOLIDATION_REQUEST_FEE = 1
     CONSOLIDATION_REQUEST_FEE_UPDATE_FRACTION = 17
@@ -57,7 +59,9 @@ class Spec:
         numerator_accumulator = factor * denominator
         while numerator_accumulator > 0:
             output += numerator_accumulator
-            numerator_accumulator = (numerator_accumulator * numerator) // (denominator * i)
+            numerator_accumulator = (numerator_accumulator * numerator) // (
+                denominator * i
+            )
             i += 1
         return output // denominator
 
@@ -71,8 +75,17 @@ class Spec:
         )
 
     @staticmethod
-    def get_excess_consolidation_requests(previous_excess: int, count: int) -> int:
+    def get_excess_consolidation_requests(
+        previous_excess: int, count: int
+    ) -> int:
         """Calculate the new excess consolidation requests."""
-        if previous_excess + count > Spec.TARGET_CONSOLIDATION_REQUESTS_PER_BLOCK:
-            return previous_excess + count - Spec.TARGET_CONSOLIDATION_REQUESTS_PER_BLOCK
+        if (
+            previous_excess + count
+            > Spec.TARGET_CONSOLIDATION_REQUESTS_PER_BLOCK
+        ):
+            return (
+                previous_excess
+                + count
+                - Spec.TARGET_CONSOLIDATION_REQUESTS_PER_BLOCK
+            )
         return 0

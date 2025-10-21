@@ -56,7 +56,9 @@ def test_jumpf_forward(
             name="forward",
             sections=[
                 Section.Code(
-                    code=Op.CALLF[1] + Op.SSTORE(slot_code_worked, value_code_worked) + Op.STOP,
+                    code=Op.CALLF[1]
+                    + Op.SSTORE(slot_code_worked, value_code_worked)
+                    + Op.STOP,
                 ),
                 Section.Code(
                     code=Op.JUMPF[2],
@@ -72,7 +74,9 @@ def test_jumpf_forward(
             name="backward",
             sections=[
                 Section.Code(
-                    code=Op.CALLF[2] + Op.SSTORE(slot_code_worked, value_code_worked) + Op.STOP,
+                    code=Op.CALLF[2]
+                    + Op.SSTORE(slot_code_worked, value_code_worked)
+                    + Op.STOP,
                 ),
                 Section.Code(
                     code=Op.RETF,
@@ -97,7 +101,9 @@ def test_jumpf_forward(
                     max_stack_height=0,
                 ),
                 Section.Code(
-                    Op.PUSH2[value_code_worked] + Op.PUSH2[slot_code_worked] + Op.RETF,
+                    Op.PUSH2[value_code_worked]
+                    + Op.PUSH2[slot_code_worked]
+                    + Op.RETF,
                     code_outputs=2,
                     max_stack_height=2,
                 ),
@@ -125,7 +131,9 @@ def test_jumpf_forward(
     ],
     ids=lambda container: container.name,
 )
-def test_jumpf_to_retf(eof_state_test: EOFStateTestFiller, container: Container) -> None:
+def test_jumpf_to_retf(
+    eof_state_test: EOFStateTestFiller, container: Container
+) -> None:
     """Tests JUMPF to a returning section with RETF."""
     eof_state_test(
         container=container,
@@ -199,7 +207,9 @@ def test_jumpf_to_self(
             name="1_to_0_to_1",
             sections=[
                 Section.Code(
-                    Op.ISZERO(Op.SLOAD(slot_code_worked)) + Op.CALLF[1] + Op.STOP,
+                    Op.ISZERO(Op.SLOAD(slot_code_worked))
+                    + Op.CALLF[1]
+                    + Op.STOP,
                 ),
                 Section.Code(
                     Op.RJUMPI[1]
@@ -261,7 +271,9 @@ def test_jumpf_to_self(
     ],
     ids=lambda container: container.name,
 )
-def test_jumpf_and_retf(eof_state_test: EOFStateTestFiller, container: Container) -> None:
+def test_jumpf_and_retf(
+    eof_state_test: EOFStateTestFiller, container: Container
+) -> None:
     """Tests JUMPF and RETF in the same section."""
     eof_state_test(
         container=container,
@@ -587,7 +599,8 @@ def test_jumpf_with_inputs_stack_overflow(
             name="self",
             sections=[
                 Section.Code(
-                    Op.SSTORE(slot_code_worked, value_code_worked) + Op.JUMPF[0],
+                    Op.SSTORE(slot_code_worked, value_code_worked)
+                    + Op.JUMPF[0],
                 ),
             ],
         ),
@@ -595,7 +608,8 @@ def test_jumpf_with_inputs_stack_overflow(
             name="1_to_0",
             sections=[
                 Section.Code(
-                    Op.SSTORE(slot_code_worked, value_code_worked) + Op.JUMPF[1],
+                    Op.SSTORE(slot_code_worked, value_code_worked)
+                    + Op.JUMPF[1],
                 ),
                 Section.Code(
                     Op.JUMPF[0],
@@ -606,7 +620,8 @@ def test_jumpf_with_inputs_stack_overflow(
             name="2_to_1",
             sections=[
                 Section.Code(
-                    Op.SSTORE(slot_code_worked, value_code_worked) + Op.JUMPF[1],
+                    Op.SSTORE(slot_code_worked, value_code_worked)
+                    + Op.JUMPF[1],
                 ),
                 Section.Code(
                     Op.JUMPF[2],
@@ -620,7 +635,9 @@ def test_jumpf_with_inputs_stack_overflow(
             name="2_to_1_returning",
             sections=[
                 Section.Code(
-                    Op.SSTORE(slot_code_worked, value_code_worked) + Op.CALLF[1] + Op.STOP,
+                    Op.SSTORE(slot_code_worked, value_code_worked)
+                    + Op.CALLF[1]
+                    + Op.STOP,
                 ),
                 Section.Code(
                     Op.JUMPF[2],
@@ -648,7 +665,9 @@ def test_jumpf_with_inputs_stack_overflow(
     ],
     ids=lambda container: container.name,
 )
-def test_jumpf_infinite_loop(eof_state_test: EOFStateTestFiller, container: Container) -> None:
+def test_jumpf_infinite_loop(
+    eof_state_test: EOFStateTestFiller, container: Container
+) -> None:
     """Tests JUMPF causing an infinite loop."""
     eof_state_test(
         container=container,
@@ -667,7 +686,10 @@ def test_jumpf_memory_context(
         code=Container(
             sections=[
                 Section.Code(
-                    Op.SSTORE(storage.store_next(value_code_worked), value_code_worked)
+                    Op.SSTORE(
+                        storage.store_next(value_code_worked),
+                        value_code_worked,
+                    )
                     + Op.MSTORE(0, 1)
                     + Op.JUMPF[1],
                 ),
@@ -703,7 +725,10 @@ def test_callf_jumpf_retf_memory_context(
         code=Container(
             sections=[
                 Section.Code(
-                    Op.SSTORE(storage.store_next(value_code_worked), value_code_worked)
+                    Op.SSTORE(
+                        storage.store_next(value_code_worked),
+                        value_code_worked,
+                    )
                     + Op.MSTORE(0, 1)
                     + Op.CALLF[1]
                     + Op.SSTORE(storage.store_next(96), Op.MSIZE())

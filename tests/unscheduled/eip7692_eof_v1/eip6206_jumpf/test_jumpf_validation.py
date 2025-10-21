@@ -67,7 +67,10 @@ def test_returning_jumpf(
     container: Container,
 ) -> None:
     """Test cases for JUMPF instruction validation in a returning sections."""
-    eof_test(container=container, expect_exception=EOFException.INVALID_NON_RETURNING_FLAG)
+    eof_test(
+        container=container,
+        expect_exception=EOFException.INVALID_NON_RETURNING_FLAG,
+    )
 
 
 @pytest.mark.parametrize(
@@ -113,7 +116,10 @@ def test_invalid_code_section_index(
     """
     Test cases for JUMPF instructions with invalid target code section index.
     """
-    eof_test(container=container, expect_exception=EOFException.INVALID_CODE_SECTION_INDEX)
+    eof_test(
+        container=container,
+        expect_exception=EOFException.INVALID_CODE_SECTION_INDEX,
+    )
 
 
 def test_returning_section_aborts_jumpf(
@@ -127,7 +133,11 @@ def test_returning_section_aborts_jumpf(
         sections=[
             Section.Code(code=Op.CALLF[1] + Op.STOP, max_stack_height=1),
             Section.Code(
-                code=Op.PUSH0 * 2 + Op.RJUMPI[4] + Op.POP + Op.JUMPF[2] + Op.RETF,
+                code=Op.PUSH0 * 2
+                + Op.RJUMPI[4]
+                + Op.POP
+                + Op.JUMPF[2]
+                + Op.RETF,
                 code_outputs=1,
             ),
             Section.Code(
@@ -141,7 +151,9 @@ def test_returning_section_aborts_jumpf(
 
 
 @pytest.mark.parametrize("stack_height", [512, 513, 1023])
-def test_jumpf_self_stack_overflow(eof_test: EOFTestFiller, stack_height: int) -> None:
+def test_jumpf_self_stack_overflow(
+    eof_test: EOFTestFiller, stack_height: int
+) -> None:
     """
     Test JUMPF instruction jumping to itself causing validation time stack
     overflow.
@@ -157,7 +169,9 @@ def test_jumpf_self_stack_overflow(eof_test: EOFTestFiller, stack_height: int) -
     stack_overflow = stack_height > MAX_RUNTIME_STACK_HEIGHT // 2
     eof_test(
         container=container,
-        expect_exception=EOFException.STACK_OVERFLOW if stack_overflow else None,
+        expect_exception=EOFException.STACK_OVERFLOW
+        if stack_overflow
+        else None,
     )
 
 
@@ -182,10 +196,14 @@ def test_jumpf_other_stack_overflow(
             ),
         ],
     )
-    stack_overflow = stack_height + stack_height_other > MAX_RUNTIME_STACK_HEIGHT
+    stack_overflow = (
+        stack_height + stack_height_other > MAX_RUNTIME_STACK_HEIGHT
+    )
     eof_test(
         container=container,
-        expect_exception=EOFException.STACK_OVERFLOW if stack_overflow else None,
+        expect_exception=EOFException.STACK_OVERFLOW
+        if stack_overflow
+        else None,
     )
 
 
@@ -198,19 +216,28 @@ def test_jumpf_to_non_returning(
     container = Container(
         sections=[
             Section.Code(
-                code=Op.PUSH0 * stack_height + Op.JUMPF[1], max_stack_height=stack_height
+                code=Op.PUSH0 * stack_height + Op.JUMPF[1],
+                max_stack_height=stack_height,
             ),
-            Section.Code(code=Op.STOP, code_inputs=code_inputs, max_stack_height=code_inputs),
+            Section.Code(
+                code=Op.STOP,
+                code_inputs=code_inputs,
+                max_stack_height=code_inputs,
+            ),
         ],
     )
     eof_test(
         container=container,
-        expect_exception=EOFException.STACK_UNDERFLOW if stack_height < code_inputs else None,
+        expect_exception=EOFException.STACK_UNDERFLOW
+        if stack_height < code_inputs
+        else None,
     )
 
 
 @pytest.mark.parametrize("code_inputs", [0, 1, 3, 5])
-def test_jumpf_to_non_returning_variable_stack(eof_test: EOFTestFiller, code_inputs: int) -> None:
+def test_jumpf_to_non_returning_variable_stack(
+    eof_test: EOFTestFiller, code_inputs: int
+) -> None:
     """
     Test JUMPF jumping to a non-returning function with stack depending on
     RJUMPI.
@@ -221,12 +248,18 @@ def test_jumpf_to_non_returning_variable_stack(eof_test: EOFTestFiller, code_inp
                 code=Op.PUSH0 + Op.RJUMPI[2](0) + Op.PUSH0 * 2 + Op.JUMPF[1],
                 max_stack_height=3,
             ),
-            Section.Code(code=Op.INVALID, code_inputs=code_inputs, max_stack_height=code_inputs),
+            Section.Code(
+                code=Op.INVALID,
+                code_inputs=code_inputs,
+                max_stack_height=code_inputs,
+            ),
         ],
     )
     eof_test(
         container=container,
-        expect_exception=EOFException.STACK_UNDERFLOW if code_inputs >= 3 else None,
+        expect_exception=EOFException.STACK_UNDERFLOW
+        if code_inputs >= 3
+        else None,
     )
 
 
@@ -234,16 +267,24 @@ def test_jumpf_to_non_returning_variable_stack(eof_test: EOFTestFiller, code_inp
 @pytest.mark.parametrize("code_outputs", [1, 2])
 @pytest.mark.parametrize("stack_height", [0, 1, 2, 3, 4, 5])
 def test_jumpf_to_returning(
-    eof_test: EOFTestFiller, code_inputs: int, code_outputs: int, stack_height: int
+    eof_test: EOFTestFiller,
+    code_inputs: int,
+    code_outputs: int,
+    stack_height: int,
 ) -> None:
     """Test JUMPF jumping to a returning function."""
     exceptions = []
-    if code_inputs > stack_height or (stack_height - code_inputs + code_outputs) < 2:
+    if (
+        code_inputs > stack_height
+        or (stack_height - code_inputs + code_outputs) < 2
+    ):
         exceptions.append(EOFException.STACK_UNDERFLOW)
     if stack_height - code_inputs + code_outputs > 2:
         exceptions.append(EOFException.STACK_HIGHER_THAN_OUTPUTS)
 
-    third_cs_stack_height = code_inputs if code_inputs > code_outputs else code_outputs
+    third_cs_stack_height = (
+        code_inputs if code_inputs > code_outputs else code_outputs
+    )
     third_cs = None
     if code_outputs < code_inputs:
         third_cs = Op.POP * (code_inputs - code_outputs) + Op.RETF
@@ -253,7 +294,9 @@ def test_jumpf_to_returning(
     container = Container(
         sections=[
             Section.Code(code=Op.CALLF[1] + Op.STOP, max_stack_height=2),
-            Section.Code(code=Op.PUSH0 * stack_height + Op.JUMPF[2], code_outputs=2),
+            Section.Code(
+                code=Op.PUSH0 * stack_height + Op.JUMPF[2], code_outputs=2
+            ),
             Section.Code(
                 code=third_cs,
                 code_inputs=code_inputs,
@@ -300,7 +343,9 @@ def test_jumpf_to_returning_variable_stack_1(
                 code=Op.PUSH0 * stack_increase + Op.RETF,
                 code_inputs=code_inputs,
                 code_outputs=code_outputs,
-                max_stack_height=code_inputs if code_inputs > code_outputs else code_outputs,
+                max_stack_height=code_inputs
+                if code_inputs > code_outputs
+                else code_outputs,
             ),
         ],
     )
@@ -342,7 +387,9 @@ def test_jumpf_to_returning_variable_stack_2(
                 code=Op.POP * stack_decrease + Op.RETF,
                 code_inputs=code_inputs,
                 code_outputs=code_outputs,
-                max_stack_height=code_inputs if code_inputs > code_outputs else code_outputs,
+                max_stack_height=code_inputs
+                if code_inputs > code_outputs
+                else code_outputs,
             ),
         ],
     )
@@ -362,7 +409,11 @@ def test_jumpf_to_returning_variable_stack_3(eof_test: EOFTestFiller) -> None:
         sections=[
             Section.Code(code=Op.CALLF[1] + Op.STOP, max_stack_height=2),
             Section.Code(
-                code=Op.PUSH0 + Op.PUSH1[0] + Op.RJUMPI[2] + Op.PUSH0 * 2 + Op.JUMPF[2],
+                code=Op.PUSH0
+                + Op.PUSH1[0]
+                + Op.RJUMPI[2]
+                + Op.PUSH0 * 2
+                + Op.JUMPF[2],
                 code_outputs=2,
                 max_stack_height=3,
             ),
@@ -424,7 +475,11 @@ def test_jumpf_to_returning_variable_stack_3(eof_test: EOFTestFiller) -> None:
                     max_stack_height=3,
                 ),
                 Section.Code(
-                    code=Op.PUSH0 + Op.RJUMPI[2](0) + Op.PUSH0 + Op.PUSH0 + Op.JUMPF[2],
+                    code=Op.PUSH0
+                    + Op.RJUMPI[2](0)
+                    + Op.PUSH0
+                    + Op.PUSH0
+                    + Op.JUMPF[2],
                     code_outputs=3,
                     max_stack_height=3,
                 ),
@@ -440,7 +495,11 @@ def test_jumpf_to_returning_variable_stack_3(eof_test: EOFTestFiller) -> None:
             name="underflow_variable_stack_6",
             sections=[
                 Section.Code(
-                    code=Op.PUSH0 + Op.RJUMPI[2](0) + Op.PUSH0 + Op.PUSH0 + Op.JUMPF[1],
+                    code=Op.PUSH0
+                    + Op.RJUMPI[2](0)
+                    + Op.PUSH0
+                    + Op.PUSH0
+                    + Op.JUMPF[1],
                     max_stack_height=3,
                 ),
                 Section.Code(
@@ -454,7 +513,11 @@ def test_jumpf_to_returning_variable_stack_3(eof_test: EOFTestFiller) -> None:
             name="underflow_variable_stack_7",
             sections=[
                 Section.Code(
-                    code=Op.PUSH0 + Op.RJUMPI[2](0) + Op.PUSH0 + Op.PUSH0 + Op.JUMPF[1],
+                    code=Op.PUSH0
+                    + Op.RJUMPI[2](0)
+                    + Op.PUSH0
+                    + Op.PUSH0
+                    + Op.JUMPF[1],
                     max_stack_height=3,
                 ),
                 Section.Code(
@@ -481,6 +544,10 @@ def test_jumpf_to_returning_variable_stack_3(eof_test: EOFTestFiller) -> None:
     ],
     ids=lambda x: x.name,
 )
-def test_jumpf_stack_underflow_examples(eof_test: EOFTestFiller, container: Container) -> None:
+def test_jumpf_stack_underflow_examples(
+    eof_test: EOFTestFiller, container: Container
+) -> None:
     """Test JUMPF instruction causing validation time stack underflow."""
-    eof_test(container=container, expect_exception=EOFException.STACK_UNDERFLOW)
+    eof_test(
+        container=container, expect_exception=EOFException.STACK_UNDERFLOW
+    )

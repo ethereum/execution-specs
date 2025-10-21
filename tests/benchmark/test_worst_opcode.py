@@ -31,7 +31,11 @@ from ethereum_test_vm import Opcodes as Op
     ],
 )
 @pytest.mark.parametrize(
-    "zeros_topic", [pytest.param(True, id="zeros_topic"), pytest.param(False, id="non_zero_topic")]
+    "zeros_topic",
+    [
+        pytest.param(True, id="zeros_topic"),
+        pytest.param(False, id="non_zero_topic"),
+    ],
 )
 @pytest.mark.parametrize("fixed_offset", [True, False])
 def test_worst_log_opcodes(
@@ -65,5 +69,7 @@ def test_worst_log_opcodes(
     attack_block = Op.DUP1 * topic_count + size_op + offset + opcode
 
     benchmark_test(
-        code_generator=JumpLoopGenerator(setup=setup, attack_block=attack_block),
+        code_generator=JumpLoopGenerator(
+            setup=setup, attack_block=attack_block
+        ),
     )

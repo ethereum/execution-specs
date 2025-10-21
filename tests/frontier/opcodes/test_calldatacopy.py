@@ -29,10 +29,14 @@ from ethereum_test_vm import Opcodes as Op
             ),
             b"\x00",
             Account(
-                storage={0x00: 0x3456000000000000000000000000000000000000000000000000000000000000}
+                storage={
+                    0x00: 0x3456000000000000000000000000000000000000000000000000000000000000
+                }
             ),
             Account(
-                storage={0x00: 0x3456000000000000000000000000000000000000000000000000000000000000}
+                storage={
+                    0x00: 0x3456000000000000000000000000000000000000000000000000000000000000
+                }
             ),
         ),
         (
@@ -43,10 +47,14 @@ from ethereum_test_vm import Opcodes as Op
             ),
             b"\x01",
             Account(
-                storage={0x00: 0x3400000000000000000000000000000000000000000000000000000000000000},
+                storage={
+                    0x00: 0x3400000000000000000000000000000000000000000000000000000000000000
+                },
             ),
             Account(
-                storage={0x00: 0x3400000000000000000000000000000000000000000000000000000000000000},
+                storage={
+                    0x00: 0x3400000000000000000000000000000000000000000000000000000000000000
+                },
             ),
         ),
         (
@@ -106,7 +114,12 @@ from ethereum_test_vm import Opcodes as Op
             Account(storage={0x00: 0x00}),
         ),
         (
-            (Op.SSTORE(key=0x1, value=0x1) + Op.PUSH1[0x1] + Op.PUSH1[0x2] + Op.CALLDATACOPY),
+            (
+                Op.SSTORE(key=0x1, value=0x1)
+                + Op.PUSH1[0x1]
+                + Op.PUSH1[0x2]
+                + Op.CALLDATACOPY
+            ),
             b"\x10",
             Account(storage={0x01: 0x00}),
             None,

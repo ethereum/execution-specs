@@ -42,9 +42,13 @@ class CallDestType(Enum):
     pr=["https://github.com/ethereum/execution-spec-tests/pull/440"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.parametrize("call_type", [Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL])
+@pytest.mark.parametrize(
+    "call_type", [Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL]
+)
 @pytest.mark.parametrize("call_return", [Op.RETURN, Op.REVERT, Om.OOG])
-@pytest.mark.parametrize("call_dest_type", [CallDestType.REENTRANCY, CallDestType.EXTERNAL_CALL])
+@pytest.mark.parametrize(
+    "call_dest_type", [CallDestType.REENTRANCY, CallDestType.EXTERNAL_CALL]
+)
 def test_tstore_reentrancy(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -155,7 +159,10 @@ def test_tstore_reentrancy(
         },
     )
 
-    on_failing_calls = call_type == Op.STATICCALL or call_return in [Op.REVERT, Om.OOG]
+    on_failing_calls = call_type == Op.STATICCALL or call_return in [
+        Op.REVERT,
+        Om.OOG,
+    ]
     on_successful_delegate_or_callcode = call_type in [
         Op.DELEGATECALL,
         Op.CALLCODE,
@@ -205,7 +212,9 @@ def test_tstore_reentrancy(
                         if on_successful_delegate_or_callcode
                         else tload_value_set_before_call
                     ),
-                    slot_tload_1_after_call: 12 if on_successful_delegate_or_callcode else 0,
+                    slot_tload_1_after_call: 12
+                    if on_successful_delegate_or_callcode
+                    else 0,
                     slot_tstore_overwrite: 50,
                     # tstore in static call not allowed, reentrancy means
                     # external call here

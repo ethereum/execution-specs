@@ -155,8 +155,12 @@ def txs(  # noqa: D103
     fork: Fork,
 ) -> List[Transaction]:
     """Prepare the list of transactions that are sent during the test."""
-    if len(txs_blobs) != len(txs_versioned_hashes) or len(txs_blobs) != len(txs_wrapped_blobs):
-        raise ValueError("txs_blobs and txs_versioned_hashes should have the same length")
+    if len(txs_blobs) != len(txs_versioned_hashes) or len(txs_blobs) != len(
+        txs_wrapped_blobs
+    ):
+        raise ValueError(
+            "txs_blobs and txs_versioned_hashes should have the same length"
+        )
     txs: List[Transaction] = []
     sender = pre.fund_eoa()
     for tx_blobs, tx_versioned_hashes, tx_wrapped_blobs in zip(
@@ -228,7 +232,9 @@ def blocks(
         )
     return [
         Block(
-            txs=txs, exception=block_error, rlp_modifier=Header(blob_gas_used=header_blob_gas_used)
+            txs=txs,
+            exception=block_error,
+            rlp_modifier=Header(blob_gas_used=header_blob_gas_used),
         )
     ]
 

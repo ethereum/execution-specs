@@ -43,7 +43,8 @@ def test_tstore_clear_after_deployment_tx(
     code: Optional[Container | Initcode] = None
     if evm_code_type == EVMCodeType.EOF_V1:
         code = Container.Init(
-            deploy_container=Container.Code(deploy_code + Op.STOP), initcode_prefix=init_code
+            deploy_container=Container.Code(deploy_code + Op.STOP),
+            initcode_prefix=init_code,
         )
     else:
         code = Initcode(deploy_code=deploy_code, initcode_prefix=init_code)
@@ -59,7 +60,9 @@ def test_tstore_clear_after_deployment_tx(
 
     address = deployment_tx.created_contract
 
-    invoke_contract_tx = Transaction(gas_limit=100000, to=address, sender=sender)
+    invoke_contract_tx = Transaction(
+        gas_limit=100000, to=address, sender=sender
+    )
 
     txs = [deployment_tx, invoke_contract_tx]
 
@@ -67,7 +70,9 @@ def test_tstore_clear_after_deployment_tx(
         address: Account(storage={0x01: 0x00}),
     }
 
-    blockchain_test(genesis_environment=env, pre=pre, post=post, blocks=[Block(txs=txs)])
+    blockchain_test(
+        genesis_environment=env, pre=pre, post=post, blocks=[Block(txs=txs)]
+    )
 
 
 @pytest.mark.valid_from("Cancun")
@@ -94,7 +99,9 @@ def test_tstore_clear_after_tx(
         sender=sender,
     )
 
-    re_poke_tstore_tx = Transaction(gas_limit=100000, to=account, sender=sender)
+    re_poke_tstore_tx = Transaction(
+        gas_limit=100000, to=account, sender=sender
+    )
 
     txs = [poke_tstore_tx, re_poke_tstore_tx]
 
@@ -102,4 +109,6 @@ def test_tstore_clear_after_tx(
         account: Account(storage={0x01: 0x00}),
     }
 
-    blockchain_test(genesis_environment=env, pre=pre, post=post, blocks=[Block(txs=txs)])
+    blockchain_test(
+        genesis_environment=env, pre=pre, post=post, blocks=[Block(txs=txs)]
+    )

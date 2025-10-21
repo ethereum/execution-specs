@@ -12,7 +12,9 @@ class ReferenceSpec:
 
 
 # EIP-7825 reference specification
-ref_spec_7825 = ReferenceSpec("EIPS/eip-7825.md", "1ed95cbac750539c2aac67c8cbbcc2d77974231c")
+ref_spec_7825 = ReferenceSpec(
+    "EIPS/eip-7825.md", "1ed95cbac750539c2aac67c8cbbcc2d77974231c"
+)
 
 
 @dataclass(frozen=True)

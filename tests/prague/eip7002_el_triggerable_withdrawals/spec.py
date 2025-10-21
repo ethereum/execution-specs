@@ -17,7 +17,9 @@ class ReferenceSpec:
     version: str
 
 
-ref_spec_7002 = ReferenceSpec("EIPS/eip-7002.md", "695ac757472b9bbbdcbc88a020ba15c1ac782869")
+ref_spec_7002 = ReferenceSpec(
+    "EIPS/eip-7002.md", "695ac757472b9bbbdcbc88a020ba15c1ac782869"
+)
 
 
 # Constants
@@ -31,8 +33,12 @@ class Spec:
     out.
     """
 
-    WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS = 0x00000961EF480EB55E80D19AD83579A64C007002
-    WITHDRAWAL_REQUEST_PREDEPLOY_SENDER = Address(0x8646861A7CF453DDD086874D622B0696DE5B9674)
+    WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS = (
+        0x00000961EF480EB55E80D19AD83579A64C007002
+    )
+    WITHDRAWAL_REQUEST_PREDEPLOY_SENDER = Address(
+        0x8646861A7CF453DDD086874D622B0696DE5B9674
+    )
     SYSTEM_ADDRESS = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
 
     SYSTEM_CALL_GAS_LIMIT = 30_000_000
@@ -45,12 +51,8 @@ class Spec:
     WITHDRAWAL_REQUEST_QUEUE_TAIL_STORAGE_SLOT = (
         3  # Pointer to the tail of the withdrawal request message queue
     )
-    WITHDRAWAL_REQUEST_QUEUE_STORAGE_OFFSET = (
-        4  # The start memory slot of the in-state withdrawal request message queue
-    )
-    MAX_WITHDRAWAL_REQUESTS_PER_BLOCK = (
-        16  # Maximum number of withdrawal requests that can be de-queued into a block
-    )
+    WITHDRAWAL_REQUEST_QUEUE_STORAGE_OFFSET = 4  # The start memory slot of the in-state withdrawal request message queue
+    MAX_WITHDRAWAL_REQUESTS_PER_BLOCK = 16  # Maximum number of withdrawal requests that can be de-queued into a block
     TARGET_WITHDRAWAL_REQUESTS_PER_BLOCK = 2
     MIN_WITHDRAWAL_REQUEST_FEE = 1
     WITHDRAWAL_REQUEST_FEE_UPDATE_FRACTION = 17
@@ -66,7 +68,9 @@ class Spec:
         numerator_accumulator = factor * denominator
         while numerator_accumulator > 0:
             output += numerator_accumulator
-            numerator_accumulator = (numerator_accumulator * numerator) // (denominator * i)
+            numerator_accumulator = (numerator_accumulator * numerator) // (
+                denominator * i
+            )
             i += 1
         return output // denominator
 
@@ -80,8 +84,14 @@ class Spec:
         )
 
     @staticmethod
-    def get_excess_withdrawal_requests(previous_excess: int, count: int) -> int:
+    def get_excess_withdrawal_requests(
+        previous_excess: int, count: int
+    ) -> int:
         """Calculate the new excess withdrawal requests."""
         if previous_excess + count > Spec.TARGET_WITHDRAWAL_REQUESTS_PER_BLOCK:
-            return previous_excess + count - Spec.TARGET_WITHDRAWAL_REQUESTS_PER_BLOCK
+            return (
+                previous_excess
+                + count
+                - Spec.TARGET_WITHDRAWAL_REQUESTS_PER_BLOCK
+            )
         return 0

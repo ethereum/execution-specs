@@ -62,7 +62,9 @@ def callee_bytecode(dest: int, src: int, length: int) -> Bytecode:
 @pytest.fixture
 def tx_access_list() -> List[AccessList]:
     """Access list for the transaction."""
-    return [AccessList(address=Address(i), storage_keys=[]) for i in range(1, 10)]
+    return [
+        AccessList(address=Address(i), storage_keys=[]) for i in range(1, 10)
+    ]
 
 
 @pytest.fixture
@@ -81,7 +83,9 @@ def call_exact_cost(
     # intrinsic gas cost to be above the floor data cost.
     cost_memory_bytes = fork.memory_expansion_gas_calculator()
     gas_costs = fork.gas_costs()
-    tx_intrinsic_gas_cost_calculator = fork.transaction_intrinsic_cost_calculator()
+    tx_intrinsic_gas_cost_calculator = (
+        fork.transaction_intrinsic_cost_calculator()
+    )
 
     mcopy_cost = 3
     mcopy_cost += 3 * ((length + 31) // 32)
@@ -99,7 +103,9 @@ def call_exact_cost(
 
     sstore_cost = 22100
     return (
-        tx_intrinsic_gas_cost_calculator(calldata=initial_memory, access_list=tx_access_list)
+        tx_intrinsic_gas_cost_calculator(
+            calldata=initial_memory, access_list=tx_access_list
+        )
         + mcopy_cost
         + calldatacopy_cost
         + pushes_cost

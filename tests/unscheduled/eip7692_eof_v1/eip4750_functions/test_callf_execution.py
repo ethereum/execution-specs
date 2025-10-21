@@ -30,9 +30,17 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 
 @pytest.mark.parametrize(
     "n,result",
-    ((0, 1), (1, 1), (5, 120), (57, math.factorial(57)), (58, math.factorial(58) % 2**256)),
+    (
+        (0, 1),
+        (1, 1),
+        (5, 120),
+        (57, math.factorial(57)),
+        (58, math.factorial(58) % 2**256),
+    ),
 )
-def test_callf_factorial(eof_state_test: EOFStateTestFiller, n: int, result: int) -> None:
+def test_callf_factorial(
+    eof_state_test: EOFStateTestFiller, n: int, result: int
+) -> None:
     """Test factorial implementation with recursive CALLF instructions."""
     eof_state_test(
         container=Container(
@@ -71,7 +79,9 @@ def test_callf_factorial(eof_state_test: EOFStateTestFiller, n: int, result: int
     "n,result",
     ((0, 1), (1, 1), (13, 233), (27, 196418)),
 )
-def test_callf_fibonacci(eof_state_test: EOFStateTestFiller, n: int, result: int) -> None:
+def test_callf_fibonacci(
+    eof_state_test: EOFStateTestFiller, n: int, result: int
+) -> None:
     """
     Test fibonacci sequence implementation with recursive CALLF instructions.
     """
@@ -150,7 +160,9 @@ def test_callf_fibonacci(eof_state_test: EOFStateTestFiller, n: int, result: int
             ]
             + [
                 Section.Code(
-                    Op.PUSH2[value_code_worked] + Op.PUSH1[slot_code_worked] + Op.RETF,
+                    Op.PUSH2[value_code_worked]
+                    + Op.PUSH1[slot_code_worked]
+                    + Op.RETF,
                     code_outputs=2,
                 ),
             ],
@@ -187,7 +199,9 @@ def test_callf_fibonacci(eof_state_test: EOFStateTestFiller, n: int, result: int
     ),
     ids=lambda x: x.name,
 )
-def test_callf(eof_state_test: EOFStateTestFiller, container: Container) -> None:
+def test_callf(
+    eof_state_test: EOFStateTestFiller, container: Container
+) -> None:
     """Test basic usage of CALLF and RETF instructions."""
     eof_state_test(
         container=container,
@@ -516,10 +530,14 @@ def test_callf_sneaky_stack_overflow(
         ),
         storage={
             slot_code_worked: (
-                value_canary_should_not_change if failure else value_canary_to_be_overwritten
+                value_canary_should_not_change
+                if failure
+                else value_canary_to_be_overwritten
             ),
             slot_stack_canary: (
-                value_canary_should_not_change if failure else value_canary_to_be_overwritten
+                value_canary_should_not_change
+                if failure
+                else value_canary_to_be_overwritten
             ),
         },
     )
@@ -528,10 +546,14 @@ def test_callf_sneaky_stack_overflow(
         contract_address: Account(
             storage={
                 slot_code_worked: (
-                    value_canary_should_not_change if failure else value_code_worked
+                    value_canary_should_not_change
+                    if failure
+                    else value_code_worked
                 ),
                 slot_stack_canary: (
-                    value_canary_should_not_change if failure else value_canary_written
+                    value_canary_should_not_change
+                    if failure
+                    else value_canary_written
                 ),
             }
         )
@@ -608,7 +630,9 @@ def test_callf_max_stack(
         ),
         storage={
             slot_code_worked: (
-                value_canary_should_not_change if failure else value_canary_to_be_overwritten
+                value_canary_should_not_change
+                if failure
+                else value_canary_to_be_overwritten
             ),
         },
     )
@@ -617,7 +641,9 @@ def test_callf_max_stack(
         contract_address: Account(
             storage={
                 slot_code_worked: (
-                    value_canary_should_not_change if failure else value_code_worked
+                    value_canary_should_not_change
+                    if failure
+                    else value_code_worked
                 ),
             }
         )
@@ -642,7 +668,10 @@ def test_callf_retf_memory_context(
         code=Container(
             sections=[
                 Section.Code(
-                    Op.SSTORE(storage.store_next(value_code_worked), value_code_worked)
+                    Op.SSTORE(
+                        storage.store_next(value_code_worked),
+                        value_code_worked,
+                    )
                     + Op.MSTORE(0, 1)
                     + Op.CALLF[1]
                     + Op.SSTORE(storage.store_next(64), Op.MSIZE())

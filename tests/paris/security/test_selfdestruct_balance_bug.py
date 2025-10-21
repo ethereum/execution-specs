@@ -28,7 +28,9 @@ from ethereum_test_vm import Opcodes as Op
 
 
 @pytest.mark.valid_from("Constantinople")
-def test_tx_selfdestruct_balance_bug(blockchain_test: BlockchainTestFiller, pre: Alloc) -> None:
+def test_tx_selfdestruct_balance_bug(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
     """
     Test that the vulnerability is not present by checking the balance of the
     `0xaa` contract after executing specific transactions.
@@ -81,7 +83,9 @@ def test_tx_selfdestruct_balance_bug(blockchain_test: BlockchainTestFiller, pre:
                 size=Op.CALLDATASIZE,
             ),
         )
-        + Op.SSTORE(0xCA1101, Op.CALL(gas=100000, address=Op.MLOAD(0), value=0))
+        + Op.SSTORE(
+            0xCA1101, Op.CALL(gas=100000, address=Op.MLOAD(0), value=0)
+        )
         + Op.CALL(gas=100000, address=Op.MLOAD(0), value=1)
     )
 

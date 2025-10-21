@@ -105,19 +105,27 @@ pytestmark = [
         ),
         pytest.param(
             add_points_g2(Spec.G2, Spec.G2) + add_points_g2(Spec.P2, Spec.P2),
-            add_points_g2(add_points_g2(Spec.G2, Spec.G2), add_points_g2(Spec.P2, Spec.P2)),
+            add_points_g2(
+                add_points_g2(Spec.G2, Spec.G2),
+                add_points_g2(Spec.P2, Spec.P2),
+            ),
             None,
             id="double_generator_plus_double_point",
         ),
         pytest.param(
             add_points_g2(Spec.G2, Spec.G2) + add_points_g2(Spec.G2, Spec.G2),
-            add_points_g2(add_points_g2(Spec.G2, Spec.G2), add_points_g2(Spec.G2, Spec.G2)),
+            add_points_g2(
+                add_points_g2(Spec.G2, Spec.G2),
+                add_points_g2(Spec.G2, Spec.G2),
+            ),
             None,
             id="double_generator_plus_double_generator",
         ),
         pytest.param(  # (x,y) + (x,-y) = INF
             PointG2(Spec.P2.x, Spec.P2.y)
-            + PointG2(Spec.P2.x, (-Spec.P2.y[0] % Spec.P, -Spec.P2.y[1] % Spec.P)),
+            + PointG2(
+                Spec.P2.x, (-Spec.P2.y[0] % Spec.P, -Spec.P2.y[1] % Spec.P)
+            ),
             Spec.INF_G2,
             None,
             id="point_plus_reflected_point",
@@ -132,7 +140,9 @@ pytestmark = [
         ),
         pytest.param(
             Spec.P2_NOT_IN_SUBGROUP + Spec.P2_NOT_IN_SUBGROUP_TIMES_2,
-            add_points_g2(Spec.P2_NOT_IN_SUBGROUP, Spec.P2_NOT_IN_SUBGROUP_TIMES_2),
+            add_points_g2(
+                Spec.P2_NOT_IN_SUBGROUP, Spec.P2_NOT_IN_SUBGROUP_TIMES_2
+            ),
             None,
             id="non_sub_plus_doubled_non_sub",
         ),
@@ -200,7 +210,9 @@ pytestmark = [
         ),
         pytest.param(
             G2_POINTS_NOT_IN_SUBGROUP[4] + G2_POINTS_NOT_IN_SUBGROUP[0],
-            add_points_g2(G2_POINTS_NOT_IN_SUBGROUP[4], G2_POINTS_NOT_IN_SUBGROUP[0]),
+            add_points_g2(
+                G2_POINTS_NOT_IN_SUBGROUP[4], G2_POINTS_NOT_IN_SUBGROUP[0]
+            ),
             None,
             id="rand_not_in_subgroup_4_plus_0",
         ),
@@ -298,35 +310,43 @@ def test_valid(
             id="b_y_2_equal_to_p",
         ),
         pytest.param(
-            PointG2((Spec.P2.x[0] + Spec.P, Spec.P2.x[1]), Spec.P2.y) + Spec.G2,
+            PointG2((Spec.P2.x[0] + Spec.P, Spec.P2.x[1]), Spec.P2.y)
+            + Spec.G2,
             id="a_x_1_above_p",
         ),
         pytest.param(
-            PointG2((Spec.P2.x[0], Spec.P2.x[1] + Spec.P), Spec.P2.y) + Spec.G2,
+            PointG2((Spec.P2.x[0], Spec.P2.x[1] + Spec.P), Spec.P2.y)
+            + Spec.G2,
             id="a_x_2_above_p",
         ),
         pytest.param(
-            PointG2(Spec.P2.x, (Spec.P2.y[0] + Spec.P, Spec.P2.y[1])) + Spec.G2,
+            PointG2(Spec.P2.x, (Spec.P2.y[0] + Spec.P, Spec.P2.y[1]))
+            + Spec.G2,
             id="a_y_1_above_p",
         ),
         pytest.param(
-            PointG2(Spec.P2.x, (Spec.P2.y[0], Spec.P2.y[1] + Spec.P)) + Spec.G2,
+            PointG2(Spec.P2.x, (Spec.P2.y[0], Spec.P2.y[1] + Spec.P))
+            + Spec.G2,
             id="a_y_2_above_p",
         ),
         pytest.param(
-            Spec.P2 + PointG2((Spec.G2.x[0] + Spec.P, Spec.G2.x[1]), Spec.G2.y),
+            Spec.P2
+            + PointG2((Spec.G2.x[0] + Spec.P, Spec.G2.x[1]), Spec.G2.y),
             id="b_x_1_above_p",
         ),
         pytest.param(
-            Spec.P2 + PointG2((Spec.G2.x[0], Spec.G2.x[1] + Spec.P), Spec.G2.y),
+            Spec.P2
+            + PointG2((Spec.G2.x[0], Spec.G2.x[1] + Spec.P), Spec.G2.y),
             id="b_x_2_above_p",
         ),
         pytest.param(
-            Spec.P2 + PointG2(Spec.G2.x, (Spec.G2.y[0] + Spec.P, Spec.G2.y[1])),
+            Spec.P2
+            + PointG2(Spec.G2.x, (Spec.G2.y[0] + Spec.P, Spec.G2.y[1])),
             id="b_y_1_above_p",
         ),
         pytest.param(
-            Spec.P2 + PointG2(Spec.G2.x, (Spec.G2.y[0], Spec.G2.y[1] + Spec.P)),
+            Spec.P2
+            + PointG2(Spec.G2.x, (Spec.G2.y[0], Spec.G2.y[1] + Spec.P)),
             id="b_y_2_above_p",
         ),
         pytest.param(
@@ -374,19 +394,31 @@ def test_valid(
             id="mixed_g1_g2_points",
         ),
         pytest.param(
-            PointG2((Spec.P2.x[0] | Spec.MAX_FP_BIT_SET, Spec.P2.x[1]), Spec.P2.y) + Spec.P2,
+            PointG2(
+                (Spec.P2.x[0] | Spec.MAX_FP_BIT_SET, Spec.P2.x[1]), Spec.P2.y
+            )
+            + Spec.P2,
             id="non_zero_byte_16_boundary_violation_x1",
         ),
         pytest.param(
-            PointG2((Spec.P2.x[0], Spec.P2.x[1] | Spec.MAX_FP_BIT_SET), Spec.P2.y) + Spec.P2,
+            PointG2(
+                (Spec.P2.x[0], Spec.P2.x[1] | Spec.MAX_FP_BIT_SET), Spec.P2.y
+            )
+            + Spec.P2,
             id="non_zero_byte_16_boundary_violation_x2",
         ),
         pytest.param(
-            PointG2(Spec.P2.x, (Spec.P2.y[0] | Spec.MAX_FP_BIT_SET, Spec.P2.y[1])) + Spec.P2,
+            PointG2(
+                Spec.P2.x, (Spec.P2.y[0] | Spec.MAX_FP_BIT_SET, Spec.P2.y[1])
+            )
+            + Spec.P2,
             id="non_zero_byte_16_boundary_violation_y1",
         ),
         pytest.param(
-            PointG2(Spec.P2.x, (Spec.P2.y[0], Spec.P2.y[1] | Spec.MAX_FP_BIT_SET)) + Spec.P2,
+            PointG2(
+                Spec.P2.x, (Spec.P2.y[0], Spec.P2.y[1] | Spec.MAX_FP_BIT_SET)
+            )
+            + Spec.P2,
             id="non_zero_byte_16_boundary_violation_y2",
         ),
         # Not on the curve cases using random generated points.

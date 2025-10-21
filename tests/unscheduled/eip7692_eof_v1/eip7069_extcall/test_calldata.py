@@ -55,7 +55,8 @@ def right_pad_32(v: bytes) -> bytes:
         b"",
         b"1234567890abcdef",
         b"1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ=-",
-        b"1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ=-" * 4,
+        b"1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ=-"
+        * 4,
     ],
     ids=lambda x: "size_%d" % len(x),
 )
@@ -143,7 +144,8 @@ def test_extcalls_inputdata(
         b"",
         b"1234567890abcdef",
         b"1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ=-",
-        b"1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ=-" * 4,
+        b"1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ=-"
+        * 4,
     ],
     ids=lambda x: "size_%d" % len(x),
 )
@@ -227,7 +229,8 @@ def test_extdelegatecall_inputdata(
         b"",
         b"1234567890abcdef",
         b"1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ=-",
-        b"1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ=-" * 4,
+        b"1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ=-"
+        * 4,
     ],
     ids=lambda x: "size_%d" % len(x),
 )
@@ -254,7 +257,8 @@ def test_extstaticcall_inputdata(
         Container(
             sections=[
                 Section.Code(
-                    code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE) + Op.RETURN(0, Op.CALLDATASIZE)
+                    code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+                    + Op.RETURN(0, Op.CALLDATASIZE)
                 ),
             ]
         ),
@@ -334,7 +338,10 @@ def test_calldata_remains_after_subcall(
         Container(
             sections=[
                 Section.Code(
-                    code=Op.SSTORE(slot_delegate_code_worked, value_code_worked) + Op.STOP
+                    code=Op.SSTORE(
+                        slot_delegate_code_worked, value_code_worked
+                    )
+                    + Op.STOP
                 )
             ]
         ),
@@ -373,8 +380,12 @@ def test_calldata_remains_after_subcall(
             sections=[
                 Section.Code(
                     code=Op.MSTORE(0, value_calldata_1)
-                    + Op.SSTORE(slot_calldata_1, value_exceptional_abort_canary)
-                    + Op.SSTORE(slot_code_worked, value_exceptional_abort_canary)
+                    + Op.SSTORE(
+                        slot_calldata_1, value_exceptional_abort_canary
+                    )
+                    + Op.SSTORE(
+                        slot_code_worked, value_exceptional_abort_canary
+                    )
                     + Op.SSTORE(
                         slot_call_status,
                         Op.EXTCALL(address_called, 0, size_calldata, 0),
@@ -465,7 +476,9 @@ def test_calldata_remains_after_subcall(
     )
 
 
-@pytest.mark.parametrize("operation", [Op.EXTCALL, Op.EXTSTATICCALL, Op.EXTDELEGATECALL])
+@pytest.mark.parametrize(
+    "operation", [Op.EXTCALL, Op.EXTSTATICCALL, Op.EXTDELEGATECALL]
+)
 @pytest.mark.parametrize(
     "offset_field",
     [
@@ -528,7 +541,9 @@ def test_extcalls_input_offset(
     address_returner = pre.deploy_contract(
         Container(
             sections=[
-                Section.Code(code=Op.MSTORE(0, value_code_worked) + Op.RETURN(0, 32)),
+                Section.Code(
+                    code=Op.MSTORE(0, value_code_worked) + Op.RETURN(0, 32)
+                ),
             ]
         ),
     )
@@ -537,13 +552,21 @@ def test_extcalls_input_offset(
             sections=[
                 Section.Code(
                     code=(
-                        operation(address=address_returner, args_offset=test_arg, args_size=32)
+                        operation(
+                            address=address_returner,
+                            args_offset=test_arg,
+                            args_size=32,
+                        )
                         if offset_field
                         else operation(
-                            address=address_returner, args_offset=32, args_size=test_arg
+                            address=address_returner,
+                            args_offset=32,
+                            args_size=test_arg,
                         )
                     )
-                    + Op.SSTORE(slot_eof_target_returndata, Op.RETURNDATALOAD(0))
+                    + Op.SSTORE(
+                        slot_eof_target_returndata, Op.RETURNDATALOAD(0)
+                    )
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.STOP
                 )
@@ -561,7 +584,9 @@ def test_extcalls_input_offset(
                 slot_eof_target_returndata: value_code_worked
                 if success
                 else value_exceptional_abort_canary,
-                slot_code_worked: value_code_worked if success else value_exceptional_abort_canary,
+                slot_code_worked: value_code_worked
+                if success
+                else value_exceptional_abort_canary,
             }
         ),
     }

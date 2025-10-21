@@ -53,9 +53,14 @@ def precompile_addresses(fork: Fork) -> Iterator[Tuple[Address, bool]]:
     ),
 )
 @pytest.mark.valid_from("Berlin")
-@pytest.mark.parametrize_by_fork("address,precompile_exists", precompile_addresses)
+@pytest.mark.parametrize_by_fork(
+    "address,precompile_exists", precompile_addresses
+)
 def test_precompiles(
-    state_test: StateTestFiller, address: Address, precompile_exists: bool, pre: Alloc
+    state_test: StateTestFiller,
+    address: Address,
+    precompile_exists: bool,
+    pre: Alloc,
 ) -> None:
     """
     Tests the behavior of precompiled contracts in the Ethereum state test.
@@ -87,7 +92,9 @@ def test_precompiles(
     length = 32
 
     account = pre.deploy_contract(
-        Op.MSTORE(args_offset, 0xFF)  # Pre-expand the memory and setup inputs for pre-compiles
+        Op.MSTORE(
+            args_offset, 0xFF
+        )  # Pre-expand the memory and setup inputs for pre-compiles
         + Op.MSTORE(ret_offset, 0xFF)
         + Op.MSTORE8(args_offset, 0xFF)
         + Op.MSTORE8(ret_offset, 0xFF)

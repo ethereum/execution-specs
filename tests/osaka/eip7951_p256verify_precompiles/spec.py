@@ -14,7 +14,9 @@ class ReferenceSpec:
     version: str
 
 
-ref_spec_7951 = ReferenceSpec("EIPS/eip-7951.md", "06aadd458ee04ede80498db55927b052eb5bef38")
+ref_spec_7951 = ReferenceSpec(
+    "EIPS/eip-7951.md", "06aadd458ee04ede80498db55927b052eb5bef38"
+)
 
 
 class BytesConcatenation(SupportsBytes, Sized):

@@ -42,17 +42,24 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 
 @pytest.mark.with_all_evm_code_types
 @pytest.mark.parametrize("tx_initcode_count", [1, 255, 256])
-def test_simple_txcreate(state_test: StateTestFiller, pre: Alloc, tx_initcode_count: int) -> None:
+def test_simple_txcreate(
+    state_test: StateTestFiller, pre: Alloc, tx_initcode_count: int
+) -> None:
     """Verifies a simple TXCREATE case."""
     env = Environment()
     sender = pre.fund_eoa()
     initcode_hash = smallest_initcode_subcontainer.hash
     contract_address = pre.deploy_contract(
-        code=Op.SSTORE(0, Op.TXCREATE(tx_initcode_hash=initcode_hash)) + Op.STOP,
+        code=Op.SSTORE(0, Op.TXCREATE(tx_initcode_hash=initcode_hash))
+        + Op.STOP,
         storage={0: 0xB17D},  # a canary to be overwritten
     )
     # Storage in 0 should have the address,
-    post = {contract_address: Account(storage={0: compute_eofcreate_address(contract_address, 0)})}
+    post = {
+        contract_address: Account(
+            storage={0: compute_eofcreate_address(contract_address, 0)}
+        )
+    }
     tx = Transaction(
         to=contract_address,
         gas_limit=10_000_000,
@@ -83,7 +90,9 @@ def test_txcreate_then_dataload(
         code=Container(
             sections=[
                 Section.Code(
-                    code=Op.SSTORE(0, Op.TXCREATE(tx_initcode_hash=initcode_hash))
+                    code=Op.SSTORE(
+                        0, Op.TXCREATE(tx_initcode_hash=initcode_hash)
+                    )
                     + Op.SSTORE(slot_data_load, Op.DATALOAD(0))
                     + Op.STOP,
                 ),
@@ -140,7 +149,9 @@ def test_txcreate_then_call(
     sender = pre.fund_eoa()
     opcode = Op.EXTCALL if evm_code_type == EVMCodeType.EOF_V1 else Op.CALL
     contract_address = pre.deploy_contract(
-        code=Op.SSTORE(slot_create_address, Op.TXCREATE(tx_initcode_hash=initcode_hash))
+        code=Op.SSTORE(
+            slot_create_address, Op.TXCREATE(tx_initcode_hash=initcode_hash)
+        )
         + opcode(address=Op.SLOAD(slot_create_address))
         + Op.SSTORE(slot_code_worked, value_code_worked)
         + Op.STOP,
@@ -152,9 +163,14 @@ def test_txcreate_then_call(
     #
     post = {
         contract_address: Account(
-            storage={slot_create_address: callable_address, slot_code_worked: value_code_worked}
+            storage={
+                slot_create_address: callable_address,
+                slot_code_worked: value_code_worked,
+            }
         ),
-        callable_address: Account(storage={slot_code_worked: value_code_worked}),
+        callable_address: Account(
+            storage={slot_code_worked: value_code_worked}
+        ),
     }
 
     tx = Transaction(
@@ -188,13 +204,18 @@ def test_auxdata_variations(
     auxdata_size = len(auxdata_bytes)
     pre_deploy_header_data_size = 18
     pre_deploy_data = b"AABBCC"
-    deploy_success = len(auxdata_bytes) + len(pre_deploy_data) >= pre_deploy_header_data_size
+    deploy_success = (
+        len(auxdata_bytes) + len(pre_deploy_data)
+        >= pre_deploy_header_data_size
+    )
 
     runtime_subcontainer = Container(
         name="Runtime Subcontainer with truncated data",
         sections=[
             Section.Code(code=Op.STOP),
-            Section.Data(data=pre_deploy_data, custom_size=pre_deploy_header_data_size),
+            Section.Data(
+                data=pre_deploy_data, custom_size=pre_deploy_header_data_size
+            ),
         ],
     )
 
@@ -212,7 +233,10 @@ def test_auxdata_variations(
 
     sender = pre.fund_eoa()
     contract_address = pre.deploy_contract(
-        code=Op.SSTORE(slot_create_address, Op.TXCREATE(tx_initcode_hash=initcode_hash)) + Op.STOP,
+        code=Op.SSTORE(
+            slot_create_address, Op.TXCREATE(tx_initcode_hash=initcode_hash)
+        )
+        + Op.STOP,
         storage={slot_create_address: value_canary_to_be_overwritten},
     )
 
@@ -220,7 +244,9 @@ def test_auxdata_variations(
     post = {
         contract_address: Account(
             storage={
-                slot_create_address: compute_eofcreate_address(contract_address, 0)
+                slot_create_address: compute_eofcreate_address(
+                    contract_address, 0
+                )
                 if deploy_success
                 else b"\0"
             }
@@ -262,7 +288,9 @@ def test_calldata(state_test: StateTestFiller, pre: Alloc) -> None:
         code=Op.MSTORE(0, Op.PUSH32(calldata))
         + Op.SSTORE(
             slot_create_address,
-            Op.TXCREATE(tx_initcode_hash=initcode_hash, input_size=calldata_size),
+            Op.TXCREATE(
+                tx_initcode_hash=initcode_hash, input_size=calldata_size
+            ),
         )
         + Op.STOP,
     )
@@ -279,8 +307,12 @@ def test_calldata(state_test: StateTestFiller, pre: Alloc) -> None:
     # created contract storage in 0 should have the calldata
     created_address = compute_eofcreate_address(contract_address, 0)
     post = {
-        contract_address: Account(storage={slot_create_address: created_address}),
-        created_address: Account(code=deployed_contract, storage={slot_calldata: calldata}),
+        contract_address: Account(
+            storage={slot_create_address: created_address}
+        ),
+        created_address: Account(
+            code=deployed_contract, storage={slot_calldata: calldata}
+        ),
     }
 
     tx = Transaction(
@@ -369,23 +401,33 @@ def test_txcreate_in_initcode(
     post = {
         contract_address: Account(
             storage={
-                slot_create_address: outer_address if not outer_create_reverts else 0,
+                slot_create_address: outer_address
+                if not outer_create_reverts
+                else 0,
                 slot_code_worked: value_code_worked,
             }
         ),
         outer_address: Account(
-            storage={slot_create_address: inner_address, slot_code_worked: value_code_worked}
+            storage={
+                slot_create_address: inner_address,
+                slot_code_worked: value_code_worked,
+            }
         )
         if not outer_create_reverts
         else Account.NONEXISTENT,
-        inner_address: Account() if not outer_create_reverts else Account.NONEXISTENT,
+        inner_address: Account()
+        if not outer_create_reverts
+        else Account.NONEXISTENT,
     }
 
     tx = Transaction(
         to=contract_address,
         gas_limit=10_000_000,
         sender=sender,
-        initcodes=[nested_initcode_subcontainer, smallest_initcode_subcontainer],
+        initcodes=[
+            nested_initcode_subcontainer,
+            smallest_initcode_subcontainer,
+        ],
     )
 
     state_test(env=env, pre=pre, post=post, tx=tx)
@@ -422,7 +464,9 @@ def test_return_data_cleared(
     contract_address = pre.deploy_contract(
         code=Op.SSTORE(slot_call_result, opcode(address=callable_address))
         + Op.SSTORE(slot_returndata_size, Op.RETURNDATASIZE)
-        + Op.SSTORE(slot_create_address, Op.TXCREATE(tx_initcode_hash=initcode_hash))
+        + Op.SSTORE(
+            slot_create_address, Op.TXCREATE(tx_initcode_hash=initcode_hash)
+        )
         + Op.SSTORE(slot_returndata_size_2, Op.RETURNDATASIZE)
         + Op.SSTORE(slot_code_worked, value_code_worked)
         + Op.STOP,
@@ -470,9 +514,16 @@ def test_address_collision(
     sender = pre.fund_eoa()
     initcode_hash = smallest_initcode_subcontainer.hash
     contract_address = pre.deploy_contract(
-        code=Op.SSTORE(slot_create_address, Op.TXCREATE(tx_initcode_hash=initcode_hash))
-        + Op.SSTORE(slot_create_address_2, Op.TXCREATE(tx_initcode_hash=initcode_hash))
-        + Op.SSTORE(slot_create_address_3, Op.TXCREATE(tx_initcode_hash=initcode_hash, salt=1))
+        code=Op.SSTORE(
+            slot_create_address, Op.TXCREATE(tx_initcode_hash=initcode_hash)
+        )
+        + Op.SSTORE(
+            slot_create_address_2, Op.TXCREATE(tx_initcode_hash=initcode_hash)
+        )
+        + Op.SSTORE(
+            slot_create_address_3,
+            Op.TXCREATE(tx_initcode_hash=initcode_hash, salt=1),
+        )
         + Op.SSTORE(slot_code_worked, value_code_worked)
         + Op.STOP,
     )
@@ -520,7 +571,8 @@ def test_txcreate_revert_eof_returndata(
         name="Initcode Subcontainer reverting with its calldata",
         sections=[
             Section.Code(
-                code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE) + Op.REVERT(0, Op.CALLDATASIZE),
+                code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+                + Op.REVERT(0, Op.CALLDATASIZE),
             ),
         ],
     )
@@ -531,7 +583,9 @@ def test_txcreate_revert_eof_returndata(
         code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
         + Op.SSTORE(
             slot_create_address,
-            Op.TXCREATE(tx_initcode_hash=initcode_hash, input_size=Op.CALLDATASIZE),
+            Op.TXCREATE(
+                tx_initcode_hash=initcode_hash, input_size=Op.CALLDATASIZE
+            ),
         )
         + Op.SSTORE(slot_returndata_size, Op.RETURNDATASIZE)
         + Op.STOP,
@@ -588,7 +642,10 @@ def test_txcreate_context(
 
     initcode = Container(
         sections=[
-            Section.Code(Op.SSTORE(slot_call_result, destination_code) + Op.RETURNCODE[0](0, 0)),
+            Section.Code(
+                Op.SSTORE(slot_call_result, destination_code)
+                + Op.RETURNCODE[0](0, 0)
+            ),
             Section.Container(smallest_runtime_subcontainer),
         ]
     )
@@ -600,7 +657,9 @@ def test_txcreate_context(
         + Op.STOP
     )
 
-    destination_contract_address = compute_eofcreate_address(factory_address, 0)
+    destination_contract_address = compute_eofcreate_address(
+        factory_address, 0
+    )
 
     tx = Transaction(
         sender=sender,
@@ -636,7 +695,9 @@ def test_txcreate_context(
     }
 
     post = {
-        factory_address: Account(storage=calling_storage, balance=value - txcreate_value),
+        factory_address: Account(
+            storage=calling_storage, balance=value - txcreate_value
+        ),
         destination_contract_address: Account(
             storage=destination_contract_storage, balance=txcreate_value
         ),
@@ -665,7 +726,10 @@ def test_txcreate_memory_context(
     initcontainer = Container(
         sections=[
             Section.Code(
-                Op.SSTORE(destination_storage.store_next(value_code_worked), value_code_worked)
+                Op.SSTORE(
+                    destination_storage.store_next(value_code_worked),
+                    value_code_worked,
+                )
                 + Op.SSTORE(destination_storage.store_next(0), Op.MSIZE())
                 + Op.SSTORE(destination_storage.store_next(0), Op.MLOAD(0))
                 + Op.MSTORE(0, 2)
@@ -677,7 +741,9 @@ def test_txcreate_memory_context(
     )
     initcode_hash = initcontainer.hash
     contract_address = pre.deploy_contract(
-        code=Op.SSTORE(contract_storage.store_next(value_code_worked), value_code_worked)
+        code=Op.SSTORE(
+            contract_storage.store_next(value_code_worked), value_code_worked
+        )
         + Op.MSTORE(0, 1)
         + Op.TXCREATE(tx_initcode_hash=initcode_hash)
         + Op.SSTORE(contract_storage.store_next(32), Op.MSIZE())
@@ -685,7 +751,9 @@ def test_txcreate_memory_context(
         + Op.SSTORE(contract_storage.store_next(0), Op.MLOAD(32))
         + Op.STOP,
     )
-    destination_contract_address = compute_eofcreate_address(contract_address, 0)
+    destination_contract_address = compute_eofcreate_address(
+        contract_address, 0
+    )
     post = {
         contract_address: Account(storage=contract_storage),
         destination_contract_address: Account(storage=destination_storage),
@@ -725,7 +793,8 @@ def test_short_data_subcontainer(
     )
     initcode_hash = initcontainer.hash
     contract_address = pre.deploy_contract(
-        code=Op.SSTORE(0, Op.TXCREATE(tx_initcode_hash=initcode_hash)) + Op.STOP,
+        code=Op.SSTORE(0, Op.TXCREATE(tx_initcode_hash=initcode_hash))
+        + Op.STOP,
         storage={0: 0xB17D},  # a canary to be overwritten
     )
     # Storage in 0 should have the address,
@@ -733,7 +802,9 @@ def test_short_data_subcontainer(
     destination_code = deploy_container.copy()
     destination_code.sections[1] = Section.Data(data="0011220000000000")
     post = {
-        contract_address: Account(storage={0: compute_eofcreate_address(contract_address, 0)}),
+        contract_address: Account(
+            storage={0: compute_eofcreate_address(contract_address, 0)}
+        ),
         destination_address: Account(code=destination_code),
     }
     tx = Transaction(

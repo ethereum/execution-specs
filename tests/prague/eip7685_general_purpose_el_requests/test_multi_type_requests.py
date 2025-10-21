@@ -123,7 +123,9 @@ def get_permutations(n: int = 3) -> Generator[ParameterSet, None, None]:
         ),
     ]
     for perm in permutations(requests, n):
-        yield pytest.param([p[1] for p in perm], id="+".join([p[0] for p in perm]))
+        yield pytest.param(
+            [p[1] for p in perm], id="+".join([p[0] for p in perm])
+        )
 
 
 def get_eoa_permutations(n: int = 3) -> Generator[ParameterSet, None, None]:
@@ -143,10 +145,14 @@ def get_eoa_permutations(n: int = 3) -> Generator[ParameterSet, None, None]:
         ),
     ]
     for perm in permutations(requests, n):
-        yield pytest.param([p[1] for p in perm], id="+".join([p[0] for p in perm]))
+        yield pytest.param(
+            [p[1] for p in perm], id="+".join([p[0] for p in perm])
+        )
 
 
-def get_contract_permutations(n: int = 3) -> Generator[ParameterSet, None, None]:
+def get_contract_permutations(
+    n: int = 3,
+) -> Generator[ParameterSet, None, None]:
     """Return possible permutations of the requests from a contract."""
     requests: list = [
         (
@@ -163,7 +169,9 @@ def get_contract_permutations(n: int = 3) -> Generator[ParameterSet, None, None]
         ),
     ]
     for perm in permutations(requests, n):
-        yield pytest.param([p[1] for p in perm], id="+".join([p[0] for p in perm]))
+        yield pytest.param(
+            [p[1] for p in perm], id="+".join([p[0] for p in perm])
+        )
 
 
 @pytest.mark.parametrize(
@@ -329,7 +337,8 @@ def get_contract_permutations(n: int = 3) -> Generator[ParameterSet, None, None]
     ],
 )
 @pytest.mark.pre_alloc_group(
-    "multi_type_requests", reason="Tests combinations of multiple request types"
+    "multi_type_requests",
+    reason="Tests combinations of multiple request types",
 )
 def test_valid_multi_type_requests(
     blockchain_test: BlockchainTestFiller,
@@ -350,7 +359,8 @@ def test_valid_multi_type_requests(
 
 @pytest.mark.parametrize("requests", [*get_permutations()])
 @pytest.mark.pre_alloc_group(
-    "multi_type_requests", reason="Tests combinations of multiple request types"
+    "multi_type_requests",
+    reason="Tests combinations of multiple request types",
 )
 def test_valid_multi_type_request_from_same_tx(
     blockchain_test: BlockchainTestFiller,
@@ -375,7 +385,9 @@ def test_valid_multi_type_request_from_same_tx(
         current_calldata: bytes = request.calldata
         calldata += current_calldata
 
-        contract_code += Op.CALLDATACOPY(0, calldata_start, len(current_calldata))
+        contract_code += Op.CALLDATACOPY(
+            0, calldata_start, len(current_calldata)
+        )
 
         call_contract_address: int = 0
         value: int = 0
@@ -383,10 +395,14 @@ def test_valid_multi_type_request_from_same_tx(
             call_contract_address = Spec_EIP6110.DEPOSIT_CONTRACT_ADDRESS
             value = request.value
         elif isinstance(request, WithdrawalRequest):
-            call_contract_address = Spec_EIP7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS
+            call_contract_address = (
+                Spec_EIP7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS
+            )
             value = withdrawal_request_fee
         elif isinstance(request, ConsolidationRequest):
-            call_contract_address = Spec_EIP7251.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS
+            call_contract_address = (
+                Spec_EIP7251.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS
+            )
             value = consolidation_request_fee
 
         total_value += value
@@ -429,7 +445,9 @@ def test_valid_multi_type_request_from_same_tx(
                     requests_hash=Requests(
                         *[
                             request.with_source_address(contract_address)
-                            for request in sorted(requests, key=lambda r: r.type)
+                            for request in sorted(
+                                requests, key=lambda r: r.type
+                            )
                         ],
                     )
                 ),
@@ -453,7 +471,9 @@ def invalid_requests_block_combinations(
     """
 
     def func(fork: Fork) -> List[ParameterSet]:
-        assert fork.max_request_type() == 2, "Test update is needed for new request types"
+        assert fork.max_request_type() == 2, (
+            "Test update is needed for new request types"
+        )
 
         all_request_types: Dict[
             str,
@@ -470,15 +490,21 @@ def invalid_requests_block_combinations(
             ),
             "withdrawal": (
                 single_withdrawal_from_eoa(0),  # eoa_request
-                single_withdrawal(0).with_source_address(TestAddress),  # block_request
+                single_withdrawal(0).with_source_address(
+                    TestAddress
+                ),  # block_request
             ),
             "consolidation": (
                 single_consolidation_from_eoa(0),  # eoa_request
-                single_consolidation(0).with_source_address(TestAddress),  # block_request
+                single_consolidation(0).with_source_address(
+                    TestAddress
+                ),  # block_request
             ),
         }
 
-        expected_exceptions: List[BlockException] = [BlockException.INVALID_REQUESTS]
+        expected_exceptions: List[BlockException] = [
+            BlockException.INVALID_REQUESTS
+        ]
         if correct_requests_hash_in_header:
             # The client also might reject the block with an invalid-block-hash
             # error because it might convert the requests in the new payload
@@ -512,12 +538,17 @@ def invalid_requests_block_combinations(
         ]
 
         # - Missing request or request type byte tests
-        for request_type, (eoa_request, block_request) in all_request_types.items():
+        for request_type, (
+            eoa_request,
+            block_request,
+        ) in all_request_types.items():
             combinations.extend(
                 [
                     pytest.param(
                         [eoa_request],
-                        [block_request],  # The request type byte missing because we need to
+                        [
+                            block_request
+                        ],  # The request type byte missing because we need to
                         # use `Requests`
                         expected_exceptions,
                         id=f"single_{request_type}_missing_type_byte",
@@ -536,13 +567,16 @@ def invalid_requests_block_combinations(
             *[r[1] for r in all_request_types.values()]
         ).requests_list  # Requests automatically adds the type byte
         correct_order_transactions: List[
-            DepositTransaction | WithdrawalRequestTransaction | ConsolidationRequestTransaction
+            DepositTransaction
+            | WithdrawalRequestTransaction
+            | ConsolidationRequestTransaction
         ] = [r[0] for r in all_request_types.values()]
 
         # Send first element to the end
         combinations.append(
             pytest.param(
-                correct_order_transactions[1:] + [correct_order_transactions[0]],
+                correct_order_transactions[1:]
+                + [correct_order_transactions[0]],
                 correct_order[1:] + [correct_order[0]],
                 expected_exceptions,
                 id="incorrect_order_first_request_at_end",
@@ -564,7 +598,8 @@ def invalid_requests_block_combinations(
         # Bring last element to the beginning
         combinations.append(
             pytest.param(
-                [correct_order_transactions[-1]] + correct_order_transactions[:-1],
+                [correct_order_transactions[-1]]
+                + correct_order_transactions[:-1],
                 [correct_order[-1]] + correct_order[:-1],
                 expected_exceptions,
                 id="incorrect_order_last_request_at_beginning",
@@ -572,7 +607,10 @@ def invalid_requests_block_combinations(
         )
 
         # - Duplicate request tests
-        for request_type, (eoa_request, block_request) in all_request_types.items():
+        for request_type, (
+            eoa_request,
+            block_request,
+        ) in all_request_types.items():
             combinations.append(
                 pytest.param(
                     [eoa_request],
@@ -635,7 +673,8 @@ def invalid_requests_block_combinations(
 )
 @pytest.mark.exception_test
 @pytest.mark.pre_alloc_group(
-    "multi_type_requests", reason="Tests combinations of multiple request types"
+    "multi_type_requests",
+    reason="Tests combinations of multiple request types",
 )
 def test_invalid_multi_type_requests(
     blockchain_test: BlockchainTestFiller,
@@ -667,7 +706,8 @@ def test_invalid_multi_type_requests(
 @pytest.mark.blockchain_test_engine_only
 @pytest.mark.exception_test
 @pytest.mark.pre_alloc_group(
-    "multi_type_requests", reason="Tests combinations of multiple request types"
+    "multi_type_requests",
+    reason="Tests combinations of multiple request types",
 )
 def test_invalid_multi_type_requests_engine(
     blockchain_test: BlockchainTestFiller,

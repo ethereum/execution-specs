@@ -46,7 +46,9 @@ class ConsolidationRequest(ConsolidationRequestBase):
         """
         return self.calldata_modifier(self.source_pubkey + self.target_pubkey)
 
-    def with_source_address(self, source_address: Address) -> "ConsolidationRequest":
+    def with_source_address(
+        self, source_address: Address
+    ) -> "ConsolidationRequest":
         """
         Return a new instance of the consolidation request with the source
         address set.
@@ -75,7 +77,9 @@ class ConsolidationRequestInteractionBase:
         """Return the pre-state of the account."""
         raise NotImplementedError
 
-    def valid_requests(self, current_minimum_fee: int) -> List[ConsolidationRequest]:
+    def valid_requests(
+        self, current_minimum_fee: int
+    ) -> List[ConsolidationRequest]:
         """
         Return the list of consolidation requests that should be valid in the
         block.
@@ -92,7 +96,9 @@ class ConsolidationRequestTransaction(ConsolidationRequestInteractionBase):
 
     def transactions(self) -> List[Transaction]:
         """Return a transaction for the consolidation request."""
-        assert self.sender_account is not None, "Sender account not initialized"
+        assert self.sender_account is not None, (
+            "Sender account not initialized"
+        )
         return [
             Transaction(
                 gas_limit=request.gas_limit,
@@ -109,9 +115,13 @@ class ConsolidationRequestTransaction(ConsolidationRequestInteractionBase):
         """Return the pre-state of the account."""
         self.sender_account = pre.fund_eoa(self.sender_balance)
 
-    def valid_requests(self, current_minimum_fee: int) -> List[ConsolidationRequest]:
+    def valid_requests(
+        self, current_minimum_fee: int
+    ) -> List[ConsolidationRequest]:
         """Return the list of consolidation requests that are valid."""
-        assert self.sender_account is not None, "Sender account not initialized"
+        assert self.sender_account is not None, (
+            "Sender account not initialized"
+        )
         return [
             request.with_source_address(self.sender_account)
             for request in self.requests
@@ -150,8 +160,12 @@ class ConsolidationRequestContract(ConsolidationRequestInteractionBase):
         code = Bytecode()
         current_offset = 0
         for r in self.requests:
-            value_arg = [r.value] if self.call_type in (Op.CALL, Op.CALLCODE) else []
-            code += Op.CALLDATACOPY(0, current_offset, len(r.calldata)) + Op.POP(
+            value_arg = (
+                [r.value] if self.call_type in (Op.CALL, Op.CALLCODE) else []
+            )
+            code += Op.CALLDATACOPY(
+                0, current_offset, len(r.calldata)
+            ) + Op.POP(
                 self.call_type(
                     Op.GAS if r.gas_limit == -1 else r.gas_limit,
                     r.interaction_contract_address,
@@ -203,9 +217,13 @@ class ConsolidationRequestContract(ConsolidationRequestInteractionBase):
                     )
                 )
 
-    def valid_requests(self, current_minimum_fee: int) -> List[ConsolidationRequest]:
+    def valid_requests(
+        self, current_minimum_fee: int
+    ) -> List[ConsolidationRequest]:
         """Return the list of consolidation requests that are valid."""
-        assert self.contract_address is not None, "Contract address not initialized"
+        assert self.contract_address is not None, (
+            "Contract address not initialized"
+        )
         return [
             r.with_source_address(self.contract_address)
             for r in self.requests
@@ -226,7 +244,9 @@ def get_n_fee_increments(n: int) -> List[int]:
     return excess_consolidation_requests_counts
 
 
-def get_n_fee_increment_blocks(n: int) -> List[List[ConsolidationRequestContract]]:
+def get_n_fee_increment_blocks(
+    n: int,
+) -> List[List[ConsolidationRequestContract]]:
     """
     Return N blocks that should be included in the test such that each
     subsequent block has an increasing fee for the consolidation requests.
@@ -258,7 +278,8 @@ def get_n_fee_increment_blocks(n: int) -> List[List[ConsolidationRequestContract
                             fee=fee,
                         )
                         for i in range(
-                            consolidation_index, consolidation_index + consolidations_required
+                            consolidation_index,
+                            consolidation_index + consolidations_required,
                         )
                     ],
                 )

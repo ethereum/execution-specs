@@ -134,7 +134,9 @@ def test_bal_sstore_and_oog(
                     storage_changes=[
                         BalStorageSlot(
                             slot=0x01,
-                            slot_changes=[BalStorageChange(tx_index=1, post_value=0x42)],
+                            slot_changes=[
+                                BalStorageChange(tx_index=1, post_value=0x42)
+                            ],
                         ),
                     ]
                     if expect_storage_write
@@ -150,7 +152,9 @@ def test_bal_sstore_and_oog(
         blocks=[block],
         post={
             alice: Account(nonce=1),
-            storage_contract: Account(storage={0x01: 0x42} if expect_storage_write else {}),
+            storage_contract: Account(
+                storage={0x01: 0x42} if expect_storage_write else {}
+            ),
         },
     )
 
@@ -223,7 +227,9 @@ def test_bal_sload_and_oog(
 
 
 @pytest.mark.parametrize(
-    "fails_at_balance", [True, False], ids=["oog_at_balance", "successful_balance"]
+    "fails_at_balance",
+    [True, False],
+    ids=["oog_at_balance", "successful_balance"],
 )
 def test_bal_balance_and_oog(
     pre: Alloc,
@@ -271,7 +277,11 @@ def test_bal_balance_and_oog(
             account_expectations={
                 balance_checker: BalAccountExpectation.empty(),
                 # Bob should only appear in BAL if BALANCE succeeded
-                **({bob: None} if fails_at_balance else {bob: BalAccountExpectation.empty()}),
+                **(
+                    {bob: None}
+                    if fails_at_balance
+                    else {bob: BalAccountExpectation.empty()}
+                ),
             }
         ),
     )
@@ -288,7 +298,9 @@ def test_bal_balance_and_oog(
 
 
 @pytest.mark.parametrize(
-    "fails_at_extcodesize", [True, False], ids=["oog_at_extcodesize", "successful_extcodesize"]
+    "fails_at_extcodesize",
+    [True, False],
+    ids=["oog_at_extcodesize", "successful_extcodesize"],
 )
 def test_bal_extcodesize_and_oog(
     pre: Alloc,
@@ -360,7 +372,9 @@ def test_bal_extcodesize_and_oog(
     )
 
 
-@pytest.mark.parametrize("fails_at_call", [True, False], ids=["oog_at_call", "successful_call"])
+@pytest.mark.parametrize(
+    "fails_at_call", [True, False], ids=["oog_at_call", "successful_call"]
+)
 def test_bal_call_and_oog(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
@@ -413,7 +427,11 @@ def test_bal_call_and_oog(
             account_expectations={
                 call_contract: BalAccountExpectation.empty(),
                 # Bob should only appear if CALL succeeded
-                **({bob: None} if fails_at_call else {bob: BalAccountExpectation.empty()}),
+                **(
+                    {bob: None}
+                    if fails_at_call
+                    else {bob: BalAccountExpectation.empty()}
+                ),
             }
         ),
     )
@@ -429,7 +447,9 @@ def test_bal_call_and_oog(
 
 
 @pytest.mark.parametrize(
-    "fails_at_delegatecall", [True, False], ids=["oog_at_delegatecall", "successful_delegatecall"]
+    "fails_at_delegatecall",
+    [True, False],
+    ids=["oog_at_delegatecall", "successful_delegatecall"],
 )
 def test_bal_delegatecall_and_oog(
     pre: Alloc,
@@ -459,7 +479,9 @@ def test_bal_delegatecall_and_oog(
         + Op.STOP
     )
 
-    delegatecall_contract = pre.deploy_contract(code=delegatecall_contract_code)
+    delegatecall_contract = pre.deploy_contract(
+        code=delegatecall_contract_code
+    )
 
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     intrinsic_gas_cost = intrinsic_gas_calculator()
@@ -508,7 +530,9 @@ def test_bal_delegatecall_and_oog(
 
 
 @pytest.mark.parametrize(
-    "fails_at_extcodecopy", [True, False], ids=["oog_at_extcodecopy", "successful_extcodecopy"]
+    "fails_at_extcodecopy",
+    [True, False],
+    ids=["oog_at_extcodecopy", "successful_extcodecopy"],
 )
 def test_bal_extcodecopy_and_oog(
     pre: Alloc,
@@ -523,7 +547,9 @@ def test_bal_extcodecopy_and_oog(
     gas_costs = fork.gas_costs()
 
     # Create target contract with some code
-    target_contract = pre.deploy_contract(code=Bytecode(Op.PUSH1(0x42) + Op.STOP))
+    target_contract = pre.deploy_contract(
+        code=Bytecode(Op.PUSH1(0x42) + Op.STOP)
+    )
 
     # Create contract that attempts to copy code from target
     extcodecopy_contract_code = Bytecode(
@@ -545,7 +571,9 @@ def test_bal_extcodecopy_and_oog(
     # - EXTCODECOPY cold = G_COLD_ACCOUNT_ACCESS + (G_COPY * words)
     #   where words = ceil32(size) // 32 = ceil32(0) // 32 = 0
     push_cost = gas_costs.G_VERY_LOW * 4
-    extcodecopy_cold_cost = gas_costs.G_COLD_ACCOUNT_ACCESS  # + (G_COPY * 0) = 0
+    extcodecopy_cold_cost = (
+        gas_costs.G_COLD_ACCOUNT_ACCESS
+    )  # + (G_COPY * 0) = 0
     tx_gas_limit = intrinsic_gas_cost + push_cost + extcodecopy_cold_cost
 
     if fails_at_extcodecopy:

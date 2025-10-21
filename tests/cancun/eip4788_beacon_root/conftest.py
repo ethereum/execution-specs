@@ -47,14 +47,22 @@ def beacon_roots() -> Iterator[bytes]:
             return BeaconRoots()
 
         def __next__(self) -> bytes:
-            return keccak256(int.to_bytes(next(self._counter), length=8, byteorder="big"))
+            return keccak256(
+                int.to_bytes(next(self._counter), length=8, byteorder="big")
+            )
 
     return BeaconRoots()
 
 
 @pytest.fixture
-def beacon_root(request: pytest.FixtureRequest, beacon_roots: Iterator[bytes]) -> bytes:  # noqa: D103
-    return Hash(request.param) if hasattr(request, "param") else next(beacon_roots)
+def beacon_root(
+    request: pytest.FixtureRequest, beacon_roots: Iterator[bytes]
+) -> bytes:  # noqa: D103
+    return (
+        Hash(request.param)
+        if hasattr(request, "param")
+        else next(beacon_roots)
+    )
 
 
 @pytest.fixture
@@ -92,9 +100,16 @@ def caller_address(pre: Alloc, contract_call_code: Bytecode) -> Address:  # noqa
 
 
 @pytest.fixture
-def contract_call_code(call_type: Op, call_value: int, call_gas: int) -> Bytecode:
+def contract_call_code(
+    call_type: Op, call_value: int, call_gas: int
+) -> Bytecode:
     """Code to call the beacon root contract."""
-    args_start, args_length, return_start, return_length = 0x20, Op.CALLDATASIZE, 0x00, 0x20
+    args_start, args_length, return_start, return_length = (
+        0x20,
+        Op.CALLDATASIZE,
+        0x00,
+        0x20,
+    )
     contract_call_code = Op.CALLDATACOPY(args_start, 0x00, args_length)
     if call_type == Op.CALL or call_type == Op.CALLCODE:
         contract_call_code += Op.SSTORE(
@@ -229,7 +244,11 @@ def tx(
     call_beacon_root_contract: bool,
 ) -> Transaction:
     """Prepare transaction to call the beacon root contract caller account."""
-    to = Spec.BEACON_ROOTS_ADDRESS if call_beacon_root_contract else tx_to_address
+    to = (
+        Spec.BEACON_ROOTS_ADDRESS
+        if call_beacon_root_contract
+        else tx_to_address
+    )
     kwargs: Dict = {
         "ty": tx_type,
         "sender": pre.fund_eoa(),
@@ -243,7 +262,9 @@ def tx(
 
     if tx_type == 3:
         kwargs["max_fee_per_blob_gas"] = fork.min_base_fee_per_blob_gas()
-        kwargs["blob_versioned_hashes"] = add_kzg_version([0], BLOB_COMMITMENT_VERSION_KZG)
+        kwargs["blob_versioned_hashes"] = add_kzg_version(
+            [0], BLOB_COMMITMENT_VERSION_KZG
+        )
 
     if tx_type == 4:
         signer = pre.fund_eoa(amount=0)
@@ -256,7 +277,9 @@ def tx(
         ]
 
     if tx_type > 4:
-        raise Exception(f"Unexpected transaction type: '{tx_type}'. Test requires update.")
+        raise Exception(
+            f"Unexpected transaction type: '{tx_type}'. Test requires update."
+        )
 
     return Transaction(**kwargs)
 

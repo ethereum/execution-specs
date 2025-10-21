@@ -26,9 +26,20 @@ REFERENCE_SPEC_VERSION = "N/A"
 def prepare_stack(opcode: Opcode) -> Bytecode:
     """Prepare valid stack for opcode."""
     if opcode == Op.CREATE:
-        return Op.MSTORE(0, 0x6001600155) + Op.PUSH1(5) + Op.PUSH1(27) + Op.PUSH1(5)
+        return (
+            Op.MSTORE(0, 0x6001600155)
+            + Op.PUSH1(5)
+            + Op.PUSH1(27)
+            + Op.PUSH1(5)
+        )
     if opcode == Op.CREATE2:
-        return Op.MSTORE(0, 0x6001600155) + Op.PUSH1(1) + Op.PUSH1(5) + Op.PUSH1(27) + Op.PUSH1(5)
+        return (
+            Op.MSTORE(0, 0x6001600155)
+            + Op.PUSH1(1)
+            + Op.PUSH1(5)
+            + Op.PUSH1(27)
+            + Op.PUSH1(5)
+        )
     if opcode == Op.JUMPI:
         return Op.PUSH1(1) + Op.PUSH1(5)
     if opcode == Op.JUMP:
@@ -53,7 +64,9 @@ def prepare_suffix(opcode: Opcode) -> Bytecode:
     pr=["https://github.com/ethereum/execution-spec-tests/pull/748"],
 )
 @pytest.mark.valid_from("Frontier")
-def test_all_opcodes(state_test: StateTestFiller, pre: Alloc, fork: Fork) -> None:
+def test_all_opcodes(
+    state_test: StateTestFiller, pre: Alloc, fork: Fork
+) -> None:
     """
     Test each possible opcode on the fork with a single contract that calls
     each opcode in succession. Check that each subcall passes if the opcode is

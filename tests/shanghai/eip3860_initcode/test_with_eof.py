@@ -46,9 +46,13 @@ value_code_worked = 0x2015
     "init_code",
     [
         pytest.param(Bytecode(), id="empty_initcode"),
-        pytest.param(Initcode(initcode_length=MAX_INITCODE_SIZE), id="max_initcode"),
+        pytest.param(
+            Initcode(initcode_length=MAX_INITCODE_SIZE), id="max_initcode"
+        ),
         pytest.param(Initcode(deploy_code=Bytecode()), id="empty_code"),
-        pytest.param(Initcode(deploy_code=Op.STOP * MAX_BYTECODE_SIZE), id="max_code"),
+        pytest.param(
+            Initcode(deploy_code=Op.STOP * MAX_BYTECODE_SIZE), id="max_code"
+        ),
     ],
 )
 def test_legacy_create_edge_code_size(
@@ -70,7 +74,9 @@ def test_legacy_create_edge_code_size(
     salt_param = [0] if opcode == Op.CREATE2 else []
     factory_code = (
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-        + Op.SSTORE(slot_create_address, opcode(0, 0, Op.CALLDATASIZE, *salt_param))
+        + Op.SSTORE(
+            slot_create_address, opcode(0, 0, Op.CALLDATASIZE, *salt_param)
+        )
         + Op.SSTORE(slot_code_worked, value_code_worked)
     )
 
@@ -82,7 +88,10 @@ def test_legacy_create_edge_code_size(
 
     post = {
         contract_address: Account(
-            storage={slot_create_address: new_address, slot_code_worked: value_code_worked}
+            storage={
+                slot_create_address: new_address,
+                slot_code_worked: value_code_worked,
+            }
         )
     }
     tx = Transaction(

@@ -25,7 +25,9 @@ REFERENCE_SPEC_VERSION = REFERENCE_SPEC_VERSION
 pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 
 
-def test_exchange_all_valid_immediates(eof_state_test: EOFStateTestFiller) -> None:
+def test_exchange_all_valid_immediates(
+    eof_state_test: EOFStateTestFiller,
+) -> None:
     """Test case for all valid EXCHANGE immediates."""
     n = 256
     s = 34
@@ -51,7 +53,9 @@ def test_exchange_all_valid_immediates(eof_state_test: EOFStateTestFiller) -> No
         values_rotated[a] = values_rotated[b]
         values_rotated[b] = temp
 
-    post = Account(storage=dict(zip(range(0, s), reversed(values_rotated), strict=False)))
+    post = Account(
+        storage=dict(zip(range(0, s), reversed(values_rotated), strict=False))
+    )
 
     eof_state_test(
         tx_sender_funding_amount=1_000_000_000,
@@ -100,7 +104,10 @@ def test_exchange_stack_underflow(
 
 @pytest.mark.parametrize(
     "m_arg,n_arg,extra_stack",
-    [pytest.param(0, 0, 3, id="m0_n0_extra3"), pytest.param(2, 3, 7, id="m2_n3_extra7")],
+    [
+        pytest.param(0, 0, 3, id="m0_n0_extra3"),
+        pytest.param(2, 3, 7, id="m2_n3_extra7"),
+    ],
 )
 def test_exchange_simple(
     m_arg: int,
@@ -118,7 +125,10 @@ def test_exchange_simple(
                 Section.Code(
                     code=sum(Op.PUSH2[v] for v in range(stack_height, 0, -1))
                     + Op.EXCHANGE[m_arg << 4 | n_arg]
-                    + sum((Op.PUSH1(v) + Op.SSTORE) for v in range(1, stack_height + 1))
+                    + sum(
+                        (Op.PUSH1(v) + Op.SSTORE)
+                        for v in range(1, stack_height + 1)
+                    )
                     + Op.STOP,
                     max_stack_height=stack_height + 1,
                 )

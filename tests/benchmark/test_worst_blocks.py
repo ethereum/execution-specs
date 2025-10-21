@@ -110,13 +110,21 @@ def ether_transfer_case(
 
 @pytest.mark.parametrize(
     "case_id",
-    ["a_to_a", "a_to_b", "diff_acc_to_b", "a_to_diff_acc", "diff_acc_to_diff_acc"],
+    [
+        "a_to_a",
+        "a_to_b",
+        "diff_acc_to_b",
+        "a_to_diff_acc",
+        "diff_acc_to_diff_acc",
+    ],
 )
 def test_block_full_of_ether_transfers(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     case_id: str,
-    ether_transfer_case: Tuple[Generator[Address, None, None], Generator[Address, None, None]],
+    ether_transfer_case: Tuple[
+        Generator[Address, None, None], Generator[Address, None, None]
+    ],
     iteration_count: int,
     transfer_amount: int,
     intrinsic_cost: int,
@@ -152,7 +160,10 @@ def test_block_full_of_ether_transfers(
     post_state = (
         {}
         if case_id == "a_to_a"
-        else {receiver: Account(balance=balance) for receiver, balance in balances.items()}
+        else {
+            receiver: Account(balance=balance)
+            for receiver, balance in balances.items()
+        }
     )
 
     benchmark_test(
@@ -207,7 +218,9 @@ def calldata_generator(
     # So we calculate how many bytes we can fit into calldata based on
     # available gas.
     max_tokens_in_calldata = gas_amount // total_cost_floor_per_token
-    num_of_bytes = max_tokens_in_calldata if zero_byte else max_tokens_in_calldata // 4
+    num_of_bytes = (
+        max_tokens_in_calldata if zero_byte else max_tokens_in_calldata // 4
+    )
     byte_data = b"\x00" if zero_byte else b"\xff"
     return byte_data * num_of_bytes
 
@@ -238,7 +251,9 @@ def test_block_full_data(
             total_cost_floor_per_token,
         )
 
-        total_gas_used += fork.transaction_intrinsic_cost_calculator()(calldata=data)
+        total_gas_used += fork.transaction_intrinsic_cost_calculator()(
+            calldata=data
+        )
         gas_remaining -= gas_available + intrinsic_cost
 
         txs.append(
@@ -313,17 +328,23 @@ def test_block_full_access_list_and_data(
         # - 29% of gas_for_calldata for zero bytes
         # - 71% of gas_for_calldata for non-zero bytes
 
-        max_tokens_in_calldata = gas_for_calldata // total_cost_standard_per_token
+        max_tokens_in_calldata = (
+            gas_for_calldata // total_cost_standard_per_token
+        )
 
         # Calculate how many tokens to allocate to each type
         tokens_for_zero_bytes = int(max_tokens_in_calldata * 0.29)
-        tokens_for_non_zero_bytes = max_tokens_in_calldata - tokens_for_zero_bytes
+        tokens_for_non_zero_bytes = (
+            max_tokens_in_calldata - tokens_for_zero_bytes
+        )
 
         # Convert tokens to actual byte counts
         # Zero bytes: 1 token per byte
         # Non-zero bytes: 4 tokens per byte
         num_zero_bytes = tokens_for_zero_bytes  # 1 token = 1 zero byte
-        num_non_zero_bytes = tokens_for_non_zero_bytes // 4  # 4 tokens = 1 non-zero byte
+        num_non_zero_bytes = (
+            tokens_for_non_zero_bytes // 4
+        )  # 4 tokens = 1 non-zero byte
 
         # Create calldata with mixed bytes
         calldata = bytearray()
@@ -377,10 +398,14 @@ def test_worst_case_auth_block(
     """Test an auth block."""
     gas_costs = fork.gas_costs()
 
-    iteration_count = (gas_benchmark_value - intrinsic_cost) // gas_costs.G_AUTHORIZATION
+    iteration_count = (
+        gas_benchmark_value - intrinsic_cost
+    ) // gas_costs.G_AUTHORIZATION
 
     code = Op.STOP * fork.max_code_size()
-    auth_target = Address(0) if zero_delegation else pre.deploy_contract(code=code)
+    auth_target = (
+        Address(0) if zero_delegation else pre.deploy_contract(code=code)
+    )
 
     auth_tuples = []
     for _ in range(iteration_count):
@@ -389,7 +414,9 @@ def test_worst_case_auth_block(
             if empty_authority
             else pre.fund_eoa(amount=0, delegation=auth_target)
         )
-        auth_tuple = AuthorizationTuple(address=auth_target, nonce=signer.nonce, signer=signer)
+        auth_tuple = AuthorizationTuple(
+            address=auth_target, nonce=signer.nonce, signer=signer
+        )
         auth_tuples.append(auth_tuple)
 
     tx = Transaction(
@@ -407,7 +434,10 @@ def test_worst_case_auth_block(
     if not empty_authority:
         refund = min(
             gas_used // 5,
-            (gas_costs.G_AUTHORIZATION - gas_costs.R_AUTHORIZATION_EXISTING_AUTHORITY)
+            (
+                gas_costs.G_AUTHORIZATION
+                - gas_costs.R_AUTHORIZATION_EXISTING_AUTHORITY
+            )
             * iteration_count,
         )
 

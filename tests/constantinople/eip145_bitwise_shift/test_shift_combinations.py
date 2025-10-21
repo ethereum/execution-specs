@@ -67,7 +67,10 @@ def test_combinations(
     address_to = pre.deploy_contract(
         code=sum(
             Op.SSTORE(
-                result.store_next(operation(shift=a, value=b), f"{str(opcode).lower()}({a}, {b})"),
+                result.store_next(
+                    operation(shift=a, value=b),
+                    f"{str(opcode).lower()}({a}, {b})",
+                ),
                 opcode(a, b),
             )
             for a, b in combinations

@@ -99,7 +99,9 @@ def block(
     blob_gas_per_blob: int,
 ) -> Block:
     """Single block fixture."""
-    blob_count = len(tx.blob_versioned_hashes) if tx.blob_versioned_hashes else 0
+    blob_count = (
+        len(tx.blob_versioned_hashes) if tx.blob_versioned_hashes else 0
+    )
     excess_blob_gas_calculator = fork.excess_blob_gas_calculator()
     expected_excess_blob_gas = excess_blob_gas_calculator(
         parent_excess_blobs=parent_excess_blobs,
@@ -161,9 +163,16 @@ def test_reserve_price_various_base_fee_scenarios(
     "parent_excess_blobs",
     # Keep max assuming this will be greater than 20 in the future, to test a
     # blob fee of > 1 :)
-    lambda fork: [0, 3, fork.target_blobs_per_block(), fork.max_blobs_per_block()],
+    lambda fork: [
+        0,
+        3,
+        fork.target_blobs_per_block(),
+        fork.max_blobs_per_block(),
+    ],
 )
-@pytest.mark.parametrize("block_base_fee_per_gas_delta", [-2, -1, 0, 1, 10, 100])
+@pytest.mark.parametrize(
+    "block_base_fee_per_gas_delta", [-2, -1, 0, 1, 10, 100]
+)
 def test_reserve_price_boundary(
     blockchain_test: BlockchainTestFiller,
     env: Environment,

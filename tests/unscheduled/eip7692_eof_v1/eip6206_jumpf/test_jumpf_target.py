@@ -63,7 +63,11 @@ def test_jumpf_target_rules(
     # `delta` is how many stack items the target output is from the input
     # height, and tracks the number of pushes or (if negative) pops the target
     # needs to do to match output commitments
-    delta = 0 if target_non_returning or source_non_returning else target_outputs - source_height
+    delta = (
+        0
+        if target_non_returning or source_non_returning
+        else target_outputs - source_height
+    )
     target_section = Section.Code(
         code=((Op.PUSH0 * delta) if delta >= 0 else (Op.POP * -delta))
         + Op.CALLF[3]
@@ -103,7 +107,9 @@ def test_jumpf_target_rules(
             # both as non-returning handled above
             container.validity_error = EOFException.INVALID_NON_RETURNING_FLAG
     elif source_outputs < target_outputs:
-        container.validity_error = EOFException.JUMPF_DESTINATION_INCOMPATIBLE_OUTPUTS
+        container.validity_error = (
+            EOFException.JUMPF_DESTINATION_INCOMPATIBLE_OUTPUTS
+        )
 
     eof_state_test(
         container=container,

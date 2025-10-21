@@ -31,7 +31,8 @@ def test_max_size(
     code = Container(
         sections=[
             Section.Code(
-                code=Op.JUMPDEST * (MAX_INITCODE_SIZE - len(VALID_CONTAINER) + over_limit)
+                code=Op.JUMPDEST
+                * (MAX_INITCODE_SIZE - len(VALID_CONTAINER) + over_limit)
                 + Op.STOP
             )
         ]
@@ -39,7 +40,9 @@ def test_max_size(
     assert len(code) == MAX_INITCODE_SIZE + over_limit
     eof_test(
         container=code,
-        expect_exception=None if over_limit == 0 else EOFException.CONTAINER_SIZE_ABOVE_LIMIT,
+        expect_exception=None
+        if over_limit == 0
+        else EOFException.CONTAINER_SIZE_ABOVE_LIMIT,
     )
 
 
@@ -67,7 +70,11 @@ def test_above_max_size_raw(
     "code",
     [
         pytest.param(
-            Container(sections=[Section.Code(code=Op.STOP, custom_size=MAX_INITCODE_SIZE)]),
+            Container(
+                sections=[
+                    Section.Code(code=Op.STOP, custom_size=MAX_INITCODE_SIZE)
+                ]
+            ),
             id="1st_code_section",
         ),
         pytest.param(
@@ -83,7 +90,9 @@ def test_above_max_size_raw(
             Container(
                 sections=[
                     Section.Code(code=Op.STOP),
-                    Section.Container(container=Op.STOP, custom_size=MAX_INITCODE_SIZE),
+                    Section.Container(
+                        container=Op.STOP, custom_size=MAX_INITCODE_SIZE
+                    ),
                 ]
             ),
             id="1st_container_section",
@@ -93,7 +102,9 @@ def test_above_max_size_raw(
                 sections=[
                     Section.Code(code=Op.STOP),
                     Section.Container(container=Op.STOP),
-                    Section.Container(container=Op.STOP, custom_size=MAX_INITCODE_SIZE),
+                    Section.Container(
+                        container=Op.STOP, custom_size=MAX_INITCODE_SIZE
+                    ),
                 ]
             ),
             id="2nd_container_section",

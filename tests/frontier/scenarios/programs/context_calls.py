@@ -51,7 +51,9 @@ class ProgramBalance(ScenarioTestProgram):
     def make_test_code(self, pre: Alloc, fork: Fork) -> Bytecode:
         """Test code."""
         del fork
-        external_address = pre.deploy_contract(code=Op.ADD(1, 1), balance=self.external_balance)
+        external_address = pre.deploy_contract(
+            code=Op.ADD(1, 1), balance=self.external_balance
+        )
         return Op.MSTORE(0, Op.BALANCE(external_address)) + Op.RETURN(0, 32)
 
     @cached_property
@@ -178,7 +180,11 @@ class ProgramCodeCopyCodeSize(ScenarioTestProgram):
     def make_test_code(self, pre: Alloc, fork: Fork) -> Bytecode:
         """Test code."""
         del pre, fork
-        return Op.MSTORE(0, Op.CODESIZE) + Op.CODECOPY(0, 0, 30) + Op.RETURN(0, 32)
+        return (
+            Op.MSTORE(0, Op.CODESIZE)
+            + Op.CODECOPY(0, 0, 30)
+            + Op.RETURN(0, 32)
+        )
 
     @cached_property
     def id(self) -> str:
@@ -226,7 +232,9 @@ class ProgramExtCodeCopyExtCodeSize(ScenarioTestProgram):
         """Test code."""
         del fork
 
-        external_address = pre.deploy_contract(code=Op.ADD(1, 1), balance=self.external_balance)
+        external_address = pre.deploy_contract(
+            code=Op.ADD(1, 1), balance=self.external_balance
+        )
         return (
             Op.MSTORE(0, Op.EXTCODESIZE(external_address))
             + Op.EXTCODECOPY(external_address, 0, 0, 30)
@@ -275,7 +283,9 @@ class ProgramReturnDataCopy(ScenarioTestProgram):
         """Test code."""
         del pre, fork
         return (
-            Op.CALL(100000, 2, 0, 0, 10, 32, 20) + Op.RETURNDATACOPY(0, 0, 32) + Op.RETURN(0, 32)
+            Op.CALL(100000, 2, 0, 0, 10, 32, 20)
+            + Op.RETURNDATACOPY(0, 0, 32)
+            + Op.RETURN(0, 32)
         )
 
     @cached_property
@@ -299,7 +309,9 @@ class ProgramExtCodehash(ScenarioTestProgram):
         del fork
 
         external_address = pre.deploy_contract(code=Op.ADD(1, 1), balance=123)
-        return Op.MSTORE(0, Op.EXTCODEHASH(external_address)) + Op.RETURN(0, 32)
+        return Op.MSTORE(0, Op.EXTCODEHASH(external_address)) + Op.RETURN(
+            0, 32
+        )
 
     @cached_property
     def id(self) -> str:
@@ -485,7 +497,9 @@ class ProgramSelfbalance(ScenarioTestProgram):
 
     def result(self) -> ProgramResult:
         """Test result."""
-        return ProgramResult(result=ScenarioExpectOpcode.SELFBALANCE, from_fork=Istanbul)
+        return ProgramResult(
+            result=ScenarioExpectOpcode.SELFBALANCE, from_fork=Istanbul
+        )
 
 
 class ProgramBasefee(ScenarioTestProgram):
@@ -582,7 +596,10 @@ class ProgramMcopy(ScenarioTestProgram):
         del pre, fork
         return (
             Op.MSTORE(0, 0)
-            + Op.MSTORE(32, 0x000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F)
+            + Op.MSTORE(
+                32,
+                0x000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F,
+            )
             + Op.MCOPY(0, 32, 32)
             + Op.RETURN(0, 32)
         )

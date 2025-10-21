@@ -98,7 +98,12 @@ def call_contract_code(
 ) -> Bytecode:
     """Code of the test contract."""
     expected_output = bytes(expected_output)
-    assert call_opcode in [Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL]
+    assert call_opcode in [
+        Op.CALL,
+        Op.CALLCODE,
+        Op.DELEGATECALL,
+        Op.STATICCALL,
+    ]
     value = [0] if call_opcode in [Op.CALL, Op.CALLCODE] else []
 
     code = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE()) + Op.SSTORE(
@@ -113,7 +118,8 @@ def call_contract_code(
             0,
         )
         + Op.SSTORE(
-            call_contract_post_storage.store_next(len(expected_output)), Op.RETURNDATASIZE()
+            call_contract_post_storage.store_next(len(expected_output)),
+            Op.RETURNDATASIZE(),
         ),
     )
     if call_succeeds:
@@ -132,7 +138,9 @@ def call_contract_address(pre: Alloc, call_contract_code: Bytecode) -> Address:
 
 
 @pytest.fixture
-def post(call_contract_address: Address, call_contract_post_storage: Storage) -> dict:
+def post(
+    call_contract_address: Address, call_contract_post_storage: Storage
+) -> dict:
     """Test expected post outcome."""
     return {
         call_contract_address: {
@@ -146,7 +154,9 @@ def tx_gas_limit(fork: Fork, input_data: bytes, precompile_gas: int) -> int:
     """
     Transaction gas limit used for the test (Can be overridden in the test).
     """
-    intrinsic_gas_cost_calculator = fork.transaction_intrinsic_cost_calculator()
+    intrinsic_gas_cost_calculator = (
+        fork.transaction_intrinsic_cost_calculator()
+    )
     memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
     extra_gas = 100_000
     return (
@@ -166,5 +176,8 @@ def tx(
 ) -> Transaction:
     """Transaction for the test."""
     return Transaction(
-        gas_limit=tx_gas_limit, data=input_data, to=call_contract_address, sender=sender
+        gas_limit=tx_gas_limit,
+        data=input_data,
+        to=call_contract_address,
+        sender=sender,
     )

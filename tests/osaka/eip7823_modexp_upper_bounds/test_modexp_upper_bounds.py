@@ -331,7 +331,9 @@ def test_modexp_upper_bounds_fork_transition(
                 )
             ],
         )
-        for ts, contract, sender in zip(timestamps, contracts, senders, strict=False)
+        for ts, contract, sender in zip(
+            timestamps, contracts, senders, strict=False
+        )
     ]
 
     post = {
@@ -343,7 +345,9 @@ def test_modexp_upper_bounds_fork_transition(
                 else keccak256(Spec.modexp_error),
             }
         )
-        for contract, ts, expected in zip(contracts, timestamps, expected_results, strict=False)
+        for contract, ts, expected in zip(
+            contracts, timestamps, expected_results, strict=False
+        )
     }
 
     blockchain_test(

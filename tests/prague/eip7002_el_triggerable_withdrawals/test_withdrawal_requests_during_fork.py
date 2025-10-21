@@ -102,18 +102,26 @@ def test_withdrawal_requests_during_fork(
         storage={},
     )
 
-    with open(Path(realpath(__file__)).parent / "contract_deploy_tx.json", mode="r") as f:
-        deploy_tx = Transaction.model_validate_json(f.read()).with_signature_and_sender()
+    with open(
+        Path(realpath(__file__)).parent / "contract_deploy_tx.json", mode="r"
+    ) as f:
+        deploy_tx = Transaction.model_validate_json(
+            f.read()
+        ).with_signature_and_sender()
 
     deployer_address = deploy_tx.sender
     assert deployer_address is not None
-    assert Address(deployer_address) == Spec.WITHDRAWAL_REQUEST_PREDEPLOY_SENDER
+    assert (
+        Address(deployer_address) == Spec.WITHDRAWAL_REQUEST_PREDEPLOY_SENDER
+    )
 
     tx_gas_price = deploy_tx.gas_price
     assert tx_gas_price is not None
     deployer_required_balance = deploy_tx.gas_limit * tx_gas_price
 
-    pre.fund_address(Spec.WITHDRAWAL_REQUEST_PREDEPLOY_SENDER, deployer_required_balance)
+    pre.fund_address(
+        Spec.WITHDRAWAL_REQUEST_PREDEPLOY_SENDER, deployer_required_balance
+    )
 
     # Append the deployment transaction to the first block
     blocks[0].txs.append(deploy_tx)

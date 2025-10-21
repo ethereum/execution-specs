@@ -86,21 +86,27 @@ from .common import CallArgs, generate_identity_call_bytecode
         ),
         pytest.param(
             CallArgs(gas=0x64),
-            (0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,),
+            (
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
+            ),
             0x0,
             True,
             id="identity_4",
         ),
         pytest.param(
             CallArgs(gas=0x11),
-            (0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,),
+            (
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
+            ),
             0x0,
             False,
             id="identity_4_insufficient_gas",
         ),
         pytest.param(
             CallArgs(gas=0x12),
-            (0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,),
+            (
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
+            ),
             0x0,
             True,
             id="identity_4_exact_gas",
@@ -168,7 +174,9 @@ def test_call_identity_precompile(
     [
         pytest.param(
             CallArgs(gas=0x258, args_size=0xF4240),
-            (0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,),
+            (
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
+            ),
             False,
             id="identity_5",
         ),

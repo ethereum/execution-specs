@@ -49,7 +49,10 @@ def test_create_one_byte(
     # make a subcontract that deploys code, because deploy 0xef eats ALL gas
     create_contract = pre.deploy_contract(
         code=Op.MSTORE(0, Op.CALLDATALOAD(0))
-        + Op.MSTORE(32, create_opcode(offset=32 - initcode_length, size=initcode_length))
+        + Op.MSTORE(
+            32,
+            create_opcode(offset=32 - initcode_length, size=initcode_length),
+        )
         + Op.RETURN(32, 32)
     )
     code = pre.deploy_contract(
@@ -105,6 +108,8 @@ def test_create_one_byte(
     for opcode, _ in initcode.items():
         ef_exception = opcode == 239 and fork >= London
         if not ef_exception:
-            post[created_accounts[opcode]] = Account(code=bytes.fromhex(f"{opcode:02x}"))
+            post[created_accounts[opcode]] = Account(
+                code=bytes.fromhex(f"{opcode:02x}")
+            )
 
     state_test(env=Environment(), pre=pre, post=post, tx=tx)

@@ -212,7 +212,10 @@ def success(
     """Prepare expected success or failure for each test."""
     if call_opcode == Op.EXTDELEGATECALL:
         return False
-    if result == Result.OUT_OF_GAS and call_opcode in [Op.EXTCALL, Op.EXTSTATICCALL]:
+    if result == Result.OUT_OF_GAS and call_opcode in [
+        Op.EXTCALL,
+        Op.EXTSTATICCALL,
+    ]:
         return True
 
     return result == Result.SUCCESS
@@ -267,7 +270,14 @@ def post(
 @pytest.mark.parametrize(
     "z,y,kzg_commitment,kzg_proof,versioned_hash",
     [
-        pytest.param(Spec.BLS_MODULUS - 1, 0, INF_POINT, INF_POINT, None, id="in_bounds_z"),
+        pytest.param(
+            Spec.BLS_MODULUS - 1,
+            0,
+            INF_POINT,
+            INF_POINT,
+            None,
+            id="in_bounds_z",
+        ),
         pytest.param(
             # Example valid input from a Mainnet transaction
             # https://etherscan.io/tx/0xcb3dc8f3b14f1cda0c16a619a112102a8ec70dce1b3f1b28272227cf8d5fbb0e
@@ -315,9 +325,27 @@ def test_valid_inputs(
         (bytes(), bytes(), bytes(), bytes(), bytes()),
         (0, 0, 0, 0, 0),
         (0, 0, 0, 0, None),
-        (Z, 0, INF_POINT, INF_POINT, Spec.kzg_to_versioned_hash(0xC0 << 376, 0x00)),
-        (Z, 0, INF_POINT, INF_POINT, Spec.kzg_to_versioned_hash(0xC0 << 376, 0x02)),
-        (Z, 0, INF_POINT, INF_POINT, Spec.kzg_to_versioned_hash(0xC0 << 376, 0xFF)),
+        (
+            Z,
+            0,
+            INF_POINT,
+            INF_POINT,
+            Spec.kzg_to_versioned_hash(0xC0 << 376, 0x00),
+        ),
+        (
+            Z,
+            0,
+            INF_POINT,
+            INF_POINT,
+            Spec.kzg_to_versioned_hash(0xC0 << 376, 0x02),
+        ),
+        (
+            Z,
+            0,
+            INF_POINT,
+            INF_POINT,
+            Spec.kzg_to_versioned_hash(0xC0 << 376, 0xFF),
+        ),
     ],
     ids=[
         "out_of_bounds_z",
@@ -372,7 +400,9 @@ def kzg_point_evaluation_vector_from_dict(data: dict) -> Any:
     else:
         result = Result.FAILURE
     input_value = data["input"]
-    if "commitment" not in input_value or not isinstance(input_value["commitment"], str):
+    if "commitment" not in input_value or not isinstance(
+        input_value["commitment"], str
+    ):
         raise ValueError("Missing 'commitment' key in data['input']")
     commitment = bytes.fromhex(input_value["commitment"][2:])
     if "proof" not in input_value or not isinstance(input_value["proof"], str):
@@ -433,9 +463,13 @@ def all_external_vectors() -> List:
     test_cases = []
 
     for test_file in get_point_evaluation_test_files_in_directory(
-        os.path.join(current_python_script_directory(), "point_evaluation_vectors")
+        os.path.join(
+            current_python_script_directory(), "point_evaluation_vectors"
+        )
     ):
-        file_loaded_tests = load_kzg_point_evaluation_test_vectors_from_file(test_file)
+        file_loaded_tests = load_kzg_point_evaluation_test_vectors_from_file(
+            test_file
+        )
         assert len(file_loaded_tests) > 0
         test_cases += file_loaded_tests
 
@@ -546,10 +580,14 @@ def test_tx_entry_point(
 
     # Starting from EIP-7623, we need to use an access list to raise the
     # intrinsic gas cost to be above the floor data cost.
-    access_list = [AccessList(address=Address(i), storage_keys=[]) for i in range(1, 10)]
+    access_list = [
+        AccessList(address=Address(i), storage_keys=[]) for i in range(1, 10)
+    ]
 
     # Gas is appended the intrinsic gas cost of the transaction
-    tx_intrinsic_gas_cost_calculator = fork.transaction_intrinsic_cost_calculator()
+    tx_intrinsic_gas_cost_calculator = (
+        fork.transaction_intrinsic_cost_calculator()
+    )
     intrinsic_gas_cost = tx_intrinsic_gas_cost_calculator(
         calldata=precompile_input, access_list=access_list
     )
@@ -650,7 +688,9 @@ PRE_FORK_BLOCK_RANGE = range(999, FORK_TIMESTAMP, 1_000)
     ids=["correct_proof"],
 )
 @pytest.mark.parametrize("precompile_caller_storage", [{}], ids=[""])
-@pytest.mark.parametrize("precompile_caller_balance", [len(PRE_FORK_BLOCK_RANGE)], ids=[""])
+@pytest.mark.parametrize(
+    "precompile_caller_balance", [len(PRE_FORK_BLOCK_RANGE)], ids=[""]
+)
 @pytest.mark.parametrize(
     "precompile_caller_code",
     [

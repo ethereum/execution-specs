@@ -37,52 +37,101 @@ class SectionSize(IntEnum):
     "section_kind, section_size, exception",
     [
         pytest.param(SectionKind.DATA, SectionSize.NORMAL, None),
-        pytest.param(SectionKind.DATA, SectionSize.ZERO, EOFException.INVALID_SECTION_BODIES_SIZE),
         pytest.param(
-            SectionKind.DATA, SectionSize.UNDERSIZE, EOFException.INVALID_SECTION_BODIES_SIZE
+            SectionKind.DATA,
+            SectionSize.ZERO,
+            EOFException.INVALID_SECTION_BODIES_SIZE,
         ),
         pytest.param(
-            SectionKind.DATA, SectionSize.OVERSIZE, EOFException.TOPLEVEL_CONTAINER_TRUNCATED
+            SectionKind.DATA,
+            SectionSize.UNDERSIZE,
+            EOFException.INVALID_SECTION_BODIES_SIZE,
         ),
         pytest.param(
-            SectionKind.DATA, SectionSize.HUGE, EOFException.TOPLEVEL_CONTAINER_TRUNCATED
-        ),
-        pytest.param(SectionKind.DATA, SectionSize.MAX, EOFException.TOPLEVEL_CONTAINER_TRUNCATED),
-        pytest.param(
-            SectionKind.CODE, SectionSize.NORMAL, None, marks=pytest.mark.skip(reason="duplicate")
-        ),
-        pytest.param(SectionKind.CODE, SectionSize.ZERO, EOFException.ZERO_SECTION_SIZE),
-        pytest.param(
-            SectionKind.CODE, SectionSize.UNDERSIZE, EOFException.INVALID_SECTION_BODIES_SIZE
+            SectionKind.DATA,
+            SectionSize.OVERSIZE,
+            EOFException.TOPLEVEL_CONTAINER_TRUNCATED,
         ),
         pytest.param(
-            SectionKind.CODE, SectionSize.OVERSIZE, EOFException.INVALID_SECTION_BODIES_SIZE
+            SectionKind.DATA,
+            SectionSize.HUGE,
+            EOFException.TOPLEVEL_CONTAINER_TRUNCATED,
         ),
-        pytest.param(SectionKind.CODE, SectionSize.HUGE, EOFException.INVALID_SECTION_BODIES_SIZE),
-        pytest.param(SectionKind.CODE, SectionSize.MAX, EOFException.INVALID_SECTION_BODIES_SIZE),
         pytest.param(
-            SectionKind.TYPE, SectionSize.NORMAL, None, marks=pytest.mark.skip(reason="duplicate")
+            SectionKind.DATA,
+            SectionSize.MAX,
+            EOFException.TOPLEVEL_CONTAINER_TRUNCATED,
+        ),
+        pytest.param(
+            SectionKind.CODE,
+            SectionSize.NORMAL,
+            None,
+            marks=pytest.mark.skip(reason="duplicate"),
+        ),
+        pytest.param(
+            SectionKind.CODE, SectionSize.ZERO, EOFException.ZERO_SECTION_SIZE
+        ),
+        pytest.param(
+            SectionKind.CODE,
+            SectionSize.UNDERSIZE,
+            EOFException.INVALID_SECTION_BODIES_SIZE,
+        ),
+        pytest.param(
+            SectionKind.CODE,
+            SectionSize.OVERSIZE,
+            EOFException.INVALID_SECTION_BODIES_SIZE,
+        ),
+        pytest.param(
+            SectionKind.CODE,
+            SectionSize.HUGE,
+            EOFException.INVALID_SECTION_BODIES_SIZE,
+        ),
+        pytest.param(
+            SectionKind.CODE,
+            SectionSize.MAX,
+            EOFException.INVALID_SECTION_BODIES_SIZE,
+        ),
+        pytest.param(
+            SectionKind.TYPE,
+            SectionSize.NORMAL,
+            None,
+            marks=pytest.mark.skip(reason="duplicate"),
         ),
         pytest.param(
             SectionKind.TYPE,
             SectionSize.ZERO,
-            [EOFException.ZERO_SECTION_SIZE, EOFException.INVALID_SECTION_BODIES_SIZE],
+            [
+                EOFException.ZERO_SECTION_SIZE,
+                EOFException.INVALID_SECTION_BODIES_SIZE,
+            ],
             id="type_size_zero",
         ),
         pytest.param(
             SectionKind.TYPE,
             SectionSize.UNDERSIZE,
-            [EOFException.INVALID_SECTION_BODIES_SIZE, EOFException.INVALID_TYPE_SECTION_SIZE],
+            [
+                EOFException.INVALID_SECTION_BODIES_SIZE,
+                EOFException.INVALID_TYPE_SECTION_SIZE,
+            ],
             id="type_size_undersize",
         ),
         pytest.param(
-            SectionKind.TYPE, SectionSize.OVERSIZE, EOFException.INVALID_SECTION_BODIES_SIZE
+            SectionKind.TYPE,
+            SectionSize.OVERSIZE,
+            EOFException.INVALID_SECTION_BODIES_SIZE,
         ),
-        pytest.param(SectionKind.TYPE, SectionSize.HUGE, EOFException.INVALID_SECTION_BODIES_SIZE),
+        pytest.param(
+            SectionKind.TYPE,
+            SectionSize.HUGE,
+            EOFException.INVALID_SECTION_BODIES_SIZE,
+        ),
         pytest.param(
             SectionKind.TYPE,
             SectionSize.MAX,
-            [EOFException.INVALID_SECTION_BODIES_SIZE, EOFException.INVALID_TYPE_SECTION_SIZE],
+            [
+                EOFException.INVALID_SECTION_BODIES_SIZE,
+                EOFException.INVALID_TYPE_SECTION_SIZE,
+            ],
             id="type_size_max",
         ),
         pytest.param(
@@ -91,15 +140,25 @@ class SectionSize(IntEnum):
             None,
             marks=pytest.mark.skip(reason="duplicate"),
         ),
-        pytest.param(SectionKind.CONTAINER, SectionSize.ZERO, EOFException.ZERO_SECTION_SIZE),
         pytest.param(
-            SectionKind.CONTAINER, SectionSize.UNDERSIZE, EOFException.INVALID_SECTION_BODIES_SIZE
+            SectionKind.CONTAINER,
+            SectionSize.ZERO,
+            EOFException.ZERO_SECTION_SIZE,
         ),
         pytest.param(
-            SectionKind.CONTAINER, SectionSize.OVERSIZE, EOFException.INVALID_SECTION_BODIES_SIZE
+            SectionKind.CONTAINER,
+            SectionSize.UNDERSIZE,
+            EOFException.INVALID_SECTION_BODIES_SIZE,
         ),
         pytest.param(
-            SectionKind.CONTAINER, SectionSize.HUGE, EOFException.INVALID_SECTION_BODIES_SIZE
+            SectionKind.CONTAINER,
+            SectionSize.OVERSIZE,
+            EOFException.INVALID_SECTION_BODIES_SIZE,
+        ),
+        pytest.param(
+            SectionKind.CONTAINER,
+            SectionSize.HUGE,
+            EOFException.INVALID_SECTION_BODIES_SIZE,
         ),
         pytest.param(
             SectionKind.CONTAINER,
@@ -136,24 +195,37 @@ def test_section_size(
     if section_size != SectionSize.NORMAL and section_kind == SectionKind.CODE:
         eof_code.sections.append(
             Section.Code(
-                code=Op.ADDRESS + Op.POP + Op.EOFCREATE[0](0, 0, 0, 0) + Op.STOP,
+                code=Op.ADDRESS
+                + Op.POP
+                + Op.EOFCREATE[0](0, 0, 0, 0)
+                + Op.STOP,
                 custom_size=section_size,
             )
         )
     else:
         eof_code.sections.append(
             Section.Code(
-                code=Op.ADDRESS + Op.POP + Op.EOFCREATE[0](0, 0, 0, 0) + Op.STOP,
+                code=Op.ADDRESS
+                + Op.POP
+                + Op.EOFCREATE[0](0, 0, 0, 0)
+                + Op.STOP,
             )
         )
 
-    if section_size != SectionSize.NORMAL and section_kind == SectionKind.CONTAINER:
+    if (
+        section_size != SectionSize.NORMAL
+        and section_kind == SectionKind.CONTAINER
+    ):
         eof_code.sections.append(
             Section.Container(
                 container=Container(
                     sections=[
                         Section.Code(Op.RETURNCODE[0](0, 0)),
-                        Section.Container(container=Container(sections=[Section.Code(Op.STOP)])),
+                        Section.Container(
+                            container=Container(
+                                sections=[Section.Code(Op.STOP)]
+                            )
+                        ),
                     ]
                 ),
                 custom_size=section_size,
@@ -165,14 +237,20 @@ def test_section_size(
                 container=Container(
                     sections=[
                         Section.Code(Op.RETURNCODE[0](0, 0)),
-                        Section.Container(container=Container(sections=[Section.Code(Op.STOP)])),
+                        Section.Container(
+                            container=Container(
+                                sections=[Section.Code(Op.STOP)]
+                            )
+                        ),
                     ]
                 ),
             )
         )
 
     if section_size != SectionSize.NORMAL and section_kind == SectionKind.DATA:
-        eof_code.sections.append(Section.Data("0x00daaa", custom_size=section_size))
+        eof_code.sections.append(
+            Section.Data("0x00daaa", custom_size=section_size)
+        )
     else:
         eof_code.sections.append(Section.Data("0x00aaaa"))
     eof_test(
@@ -187,9 +265,21 @@ def test_section_size(
         # The original container is not valid by itself because its 2-byte code
         # section starts with the terminating instruction: INVALID.
         pytest.param(0, EOFException.UNREACHABLE_INSTRUCTIONS),
-        pytest.param(1, EOFException.INVALID_SECTION_BODIES_SIZE, id="EOF1_truncated_section_2"),
-        pytest.param(3, EOFException.INVALID_SECTION_BODIES_SIZE, id="EOF1_truncated_section_1"),
-        pytest.param(6, EOFException.INVALID_SECTION_BODIES_SIZE, id="EOF1_truncated_section_0"),
+        pytest.param(
+            1,
+            EOFException.INVALID_SECTION_BODIES_SIZE,
+            id="EOF1_truncated_section_2",
+        ),
+        pytest.param(
+            3,
+            EOFException.INVALID_SECTION_BODIES_SIZE,
+            id="EOF1_truncated_section_1",
+        ),
+        pytest.param(
+            6,
+            EOFException.INVALID_SECTION_BODIES_SIZE,
+            id="EOF1_truncated_section_0",
+        ),
     ],
 )
 def test_truncated_container_without_data(
@@ -205,7 +295,9 @@ def test_truncated_container_without_data(
     container = Container(sections=[Section.Code(Op.INVALID + Op.INVALID)])
     bytecode = bytes(container)
     eof_test(
-        container=Container(raw_bytes=bytecode[: len(bytecode) - truncation_len]),
+        container=Container(
+            raw_bytes=bytecode[: len(bytecode) - truncation_len]
+        ),
         expect_exception=exception,
     )
 
@@ -214,8 +306,16 @@ def test_truncated_container_without_data(
     "truncation_len, exception",
     [
         pytest.param(0, None),
-        pytest.param(1, EOFException.TOPLEVEL_CONTAINER_TRUNCATED, id="EOF1_truncated_section_4"),
-        pytest.param(2, EOFException.TOPLEVEL_CONTAINER_TRUNCATED, id="EOF1_truncated_section_3"),
+        pytest.param(
+            1,
+            EOFException.TOPLEVEL_CONTAINER_TRUNCATED,
+            id="EOF1_truncated_section_4",
+        ),
+        pytest.param(
+            2,
+            EOFException.TOPLEVEL_CONTAINER_TRUNCATED,
+            id="EOF1_truncated_section_3",
+        ),
     ],
 )
 def test_truncated_container_with_data(
@@ -232,7 +332,9 @@ def test_truncated_container_with_data(
     container = Container(
         sections=[
             Section.Code(Op.INVALID),
-            Section.Data(data[0 : (len(data) - truncation_len)], custom_size=2),
+            Section.Data(
+                data[0 : (len(data) - truncation_len)], custom_size=2
+            ),
         ]
     )
     eof_test(

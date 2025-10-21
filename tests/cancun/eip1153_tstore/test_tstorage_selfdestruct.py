@@ -32,7 +32,9 @@ REFERENCE_SPEC_VERSION = ref_spec_1153.version
 
 pytestmark = [pytest.mark.valid_from("Cancun")]
 
-CREATE_CODE = Op.CALLDATACOPY(size=Op.CALLDATASIZE) + Op.CREATE(size=Op.CALLDATASIZE)
+CREATE_CODE = Op.CALLDATACOPY(size=Op.CALLDATASIZE) + Op.CREATE(
+    size=Op.CALLDATASIZE
+)
 
 
 def call_option(option_number: int) -> Bytecode:
@@ -69,8 +71,13 @@ class SelfDestructCases(PytestParameterEnum):
         + Op.SSTORE(3, Op.MLOAD(0)),
         "callee_bytecode": Switch(
             cases=[
-                CalldataCase(value=1, action=Op.TSTORE(0xFF, 0x100) + Op.SELFDESTRUCT(0)),
-                CalldataCase(value=2, action=Op.MSTORE(0, Op.TLOAD(0xFF)) + Op.RETURN(0, 32)),
+                CalldataCase(
+                    value=1, action=Op.TSTORE(0xFF, 0x100) + Op.SELFDESTRUCT(0)
+                ),
+                CalldataCase(
+                    value=2,
+                    action=Op.MSTORE(0, Op.TLOAD(0xFF)) + Op.RETURN(0, 32),
+                ),
             ],
         ),
         "expected_storage": {
@@ -93,8 +100,13 @@ class SelfDestructCases(PytestParameterEnum):
         + Op.SSTORE(3, Op.MLOAD(0)),
         "callee_bytecode": Switch(
             cases=[
-                CalldataCase(value=1, action=Op.TSTORE(0xFF, 0x100) + Op.SELFDESTRUCT(0)),
-                CalldataCase(value=2, action=Op.MSTORE(0, Op.TLOAD(0xFF)) + Op.RETURN(0, 32)),
+                CalldataCase(
+                    value=1, action=Op.TSTORE(0xFF, 0x100) + Op.SELFDESTRUCT(0)
+                ),
+                CalldataCase(
+                    value=2,
+                    action=Op.MSTORE(0, Op.TLOAD(0xFF)) + Op.RETURN(0, 32),
+                ),
             ],
         ),
         "expected_storage": {
@@ -139,7 +151,9 @@ class SelfDestructCases(PytestParameterEnum):
         ),
         "pre_existing_contract": False,
         "caller_bytecode": (
-            Op.SSTORE(0, CREATE_CODE) + Op.SSTORE(1, call_option(1)) + Op.SSTORE(2, Op.MLOAD(0))
+            Op.SSTORE(0, CREATE_CODE)
+            + Op.SSTORE(1, call_option(1))
+            + Op.SSTORE(2, Op.MLOAD(0))
         ),
         "callee_bytecode": Switch(
             cases=[
@@ -181,7 +195,10 @@ class SelfDestructCases(PytestParameterEnum):
             cases=[
                 CalldataCase(value=1, action=Op.SELFDESTRUCT(0)),
                 CalldataCase(value=2, action=Op.TSTORE(0xFF, 0x100)),
-                CalldataCase(value=3, action=Op.MSTORE(0, Op.TLOAD(0xFF)) + Op.RETURN(0, 32)),
+                CalldataCase(
+                    value=3,
+                    action=Op.MSTORE(0, Op.TLOAD(0xFF)) + Op.RETURN(0, 32),
+                ),
             ],
         ),
         "expected_storage": {
@@ -207,7 +224,10 @@ class SelfDestructCases(PytestParameterEnum):
             cases=[
                 CalldataCase(value=1, action=Op.SELFDESTRUCT(0)),
                 CalldataCase(value=2, action=Op.TSTORE(0xFF, 0x100)),
-                CalldataCase(value=3, action=Op.MSTORE(0, Op.TLOAD(0xFF)) + Op.RETURN(0, 32)),
+                CalldataCase(
+                    value=3,
+                    action=Op.MSTORE(0, Op.TLOAD(0xFF)) + Op.RETURN(0, 32),
+                ),
             ],
         ),
         "expected_storage": {
@@ -241,7 +261,9 @@ def test_reentrant_selfdestructing_call(
         callee_address = pre.deploy_contract(code=callee_bytecode)
         data = Hash(callee_address, left_padding=True)
     else:
-        callee_address = compute_create_address(address=caller_address, nonce=1)
+        callee_address = compute_create_address(
+            address=caller_address, nonce=1
+        )
         data = Initcode(deploy_code=callee_bytecode)
 
     tx = Transaction(

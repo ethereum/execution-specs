@@ -46,7 +46,10 @@ def test_identity_precompile_returndata(
     account = pre.deploy_contract(
         Op.MSTORE(0, 0)
         + Op.GAS
-        + Op.MSTORE(0, 0x112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00)
+        + Op.MSTORE(
+            0,
+            0x112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00,
+        )
         + Op.POP(
             Op.CALL(
                 address=Constants.IDENTITY_PRECOMPILE_ADDRESS,
@@ -56,7 +59,9 @@ def test_identity_precompile_returndata(
                 ret_size=output_size,
             )
         )
-        + Op.SSTORE(storage.store_next(expected_returndatasize), Op.RETURNDATASIZE)
+        + Op.SSTORE(
+            storage.store_next(expected_returndatasize), Op.RETURNDATASIZE
+        )
         + Op.STOP,
         storage=storage.canary(),
     )

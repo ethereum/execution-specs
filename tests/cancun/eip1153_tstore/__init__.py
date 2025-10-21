@@ -62,7 +62,9 @@ class PytestParameterEnum(Enum):
             pytest_id = value["pytest_id"]
         else:
             pytest_id = self.name.lower()
-        return pytest.param(*[value[name] for name in names], id=pytest_id, **marks)
+        return pytest.param(
+            *[value[name] for name in names], id=pytest_id, **marks
+        )
 
     @classmethod
     def special_keywords(cls) -> List[str]:
@@ -75,7 +77,13 @@ class PytestParameterEnum(Enum):
         """
         Return the names of all the parameters included in the enum value dict.
         """
-        return sorted([k for k in self._value_.keys() if k not in self.special_keywords()])
+        return sorted(
+            [
+                k
+                for k in self._value_.keys()
+                if k not in self.special_keywords()
+            ]
+        )
 
     @property
     def description(self) -> str:
@@ -98,7 +106,9 @@ class PytestParameterEnum(Enum):
                 )
         assert names is not None, "Enum must have at least one test case."
 
-        return pytest.mark.parametrize(names, [test_case.param(names) for test_case in cls])
+        return pytest.mark.parametrize(
+            names, [test_case.param(names) for test_case in cls]
+        )
 
 
 @unique

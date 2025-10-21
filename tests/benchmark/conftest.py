@@ -23,7 +23,9 @@ def pytest_generate_tests(metafunc: Any) -> None:
     if is_in_benchmark_dir:
         # Add benchmark marker if no valid_from marker exists
         existing_markers = list(metafunc.definition.iter_markers())
-        has_valid_from = any(marker.name == "valid_from" for marker in existing_markers)
+        has_valid_from = any(
+            marker.name == "valid_from" for marker in existing_markers
+        )
 
         if not has_valid_from:
             benchmark_marker = pytest.mark.valid_from(DEFAULT_BENCHMARK_FORK)
@@ -48,10 +50,14 @@ def pytest_collection_modifyitems(config: Any, items: Any) -> None:
 
     marker_expr = config.getoption("-m", default="")
     run_benchmarks = (
-        marker_expr and "benchmark" in marker_expr and "not benchmark" not in marker_expr
+        marker_expr
+        and "benchmark" in marker_expr
+        and "not benchmark" not in marker_expr
     )
     run_stateful_tests = (
-        marker_expr and "stateful" in marker_expr and "not stateful" not in marker_expr
+        marker_expr
+        and "stateful" in marker_expr
+        and "not stateful" not in marker_expr
     )
 
     items_for_removal = []
@@ -63,13 +69,19 @@ def pytest_collection_modifyitems(config: Any, items: Any) -> None:
         ) or item.get_closest_marker("benchmark")
 
         if is_benchmark_test:
-            if is_in_benchmark_dir and not item.get_closest_marker("benchmark"):
+            if is_in_benchmark_dir and not item.get_closest_marker(
+                "benchmark"
+            ):
                 item.add_marker(benchmark_marker)
             if not run_benchmarks:
                 items_for_removal.append(i)
         elif run_benchmarks:
             items_for_removal.append(i)
-        elif is_in_benchmark_dir and has_stateful_marker and not run_stateful_tests:
+        elif (
+            is_in_benchmark_dir
+            and has_stateful_marker
+            and not run_stateful_tests
+        ):
             items_for_removal.append(i)
 
     for i in reversed(items_for_removal):

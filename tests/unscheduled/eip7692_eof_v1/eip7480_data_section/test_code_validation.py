@@ -60,7 +60,9 @@ def container_name(c: Container) -> str:
                     Section.Data(data="1122334455667788" * 3 * 1024),
                 ],
             ),
-            marks=pytest.mark.eof_test_only(reason="initcode exceeds max size"),
+            marks=pytest.mark.eof_test_only(
+                reason="initcode exceeds max size"
+            ),
         ),
         pytest.param(
             Container(
@@ -69,11 +71,17 @@ def container_name(c: Container) -> str:
                     Section.Code(code=Op.STOP),
                     # Hits the 49152 bytes limit for the entire container
                     Section.Data(
-                        data=b"\x00" * (MAX_INITCODE_SIZE - len(smallest_runtime_subcontainer))
+                        data=b"\x00"
+                        * (
+                            MAX_INITCODE_SIZE
+                            - len(smallest_runtime_subcontainer)
+                        )
                     ),
                 ],
             ),
-            marks=pytest.mark.eof_test_only(reason="initcode exceeds max size"),
+            marks=pytest.mark.eof_test_only(
+                reason="initcode exceeds max size"
+            ),
         ),
         Container(
             name="DATALOADN_zero",
@@ -216,12 +224,16 @@ def test_valid_containers_with_data_section(
                     Section.Code(code=Op.STOP),
                     # Over the 49152 bytes limit for the entire container
                     Section.Data(
-                        data=(b"12345678" * 6 * 1024)[len(smallest_runtime_subcontainer) - 1 :]
+                        data=(b"12345678" * 6 * 1024)[
+                            len(smallest_runtime_subcontainer) - 1 :
+                        ]
                     ),
                 ],
                 validity_error=EOFException.CONTAINER_SIZE_ABOVE_LIMIT,
             ),
-            marks=pytest.mark.eof_test_only(reason="initcode exceeds max size"),
+            marks=pytest.mark.eof_test_only(
+                reason="initcode exceeds max size"
+            ),
         ),
     ],
     ids=container_name,
@@ -231,7 +243,9 @@ def test_invalid_containers_with_data_section(
     container: Container,
 ) -> None:
     """Test EOF validation of invalid containers with data sections."""
-    assert container.validity_error is not None, "Invalid container without validity error"
+    assert container.validity_error is not None, (
+        "Invalid container without validity error"
+    )
     eof_test(
         container=container,
         expect_exception=container.validity_error,
@@ -280,4 +294,7 @@ def test_dataloadn_truncated_immediate(
     container: Container,
 ) -> None:
     """Test cases for DATALOADN instructions with truncated immediate bytes."""
-    eof_test(container=container, expect_exception=EOFException.TRUNCATED_INSTRUCTION)
+    eof_test(
+        container=container,
+        expect_exception=EOFException.TRUNCATED_INSTRUCTION,
+    )

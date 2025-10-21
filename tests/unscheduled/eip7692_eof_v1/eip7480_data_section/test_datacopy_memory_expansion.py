@@ -26,7 +26,9 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 
 
 @pytest.fixture
-def callee_bytecode(dest: int, src: int, length: int, data_section: bytes) -> Container:
+def callee_bytecode(
+    dest: int, src: int, length: int, data_section: bytes
+) -> Container:
     """Callee performs a single datacopy operation and then returns."""
     bytecode = Bytecode()
 
@@ -41,7 +43,9 @@ def callee_bytecode(dest: int, src: int, length: int, data_section: bytes) -> Co
 
     bytecode += Op.RETURN
 
-    return Container(sections=[Section.Code(code=bytecode), Section.Data(data=data_section)])
+    return Container(
+        sections=[Section.Code(code=bytecode), Section.Data(data=data_section)]
+    )
 
 
 @pytest.fixture
@@ -94,7 +98,16 @@ def bytecode_storage(
 
     # Perform the subcall and store a one in the result location
     bytecode += Op.SSTORE(
-        Op.CALL(subcall_gas, memory_expansion_address, 0, 0, Op.CALLDATASIZE(), 0, 0), 1
+        Op.CALL(
+            subcall_gas,
+            memory_expansion_address,
+            0,
+            0,
+            Op.CALLDATASIZE(),
+            0,
+            0,
+        ),
+        1,
     )
     storage[int(successful)] = 1
 
@@ -163,7 +176,8 @@ def tx(  # noqa: D103
 
 @pytest.fixture
 def post(  # noqa: D103
-    caller_address: Address, bytecode_storage: Tuple[bytes, Storage.StorageDictType]
+    caller_address: Address,
+    bytecode_storage: Tuple[bytes, Storage.StorageDictType],
 ) -> Mapping:
     return {
         caller_address: Account(storage=bytecode_storage[1]),
@@ -217,7 +231,12 @@ def post(  # noqa: D103
         bytes(range(0x00, 0x20)),
         bytes(range(0x00, 0x100)),
     ],
-    ids=["empty_data_section", "byte_data_section", "word_data_section", "large_data_section"],
+    ids=[
+        "empty_data_section",
+        "byte_data_section",
+        "word_data_section",
+        "large_data_section",
+    ],
 )
 def test_datacopy_memory_expansion(
     state_test: StateTestFiller,
@@ -241,11 +260,22 @@ def test_datacopy_memory_expansion(
 @pytest.mark.parametrize(
     "dest,src,length",
     [
-        pytest.param(2**256 - 1, 0x00, 0x01, id="max_dest_single_byte_expansion"),
-        pytest.param(2**256 - 2, 0x00, 0x01, id="max_dest_minus_one_single_byte_expansion"),
-        pytest.param(2**255 - 1, 0x00, 0x01, id="half_max_dest_single_byte_expansion"),
+        pytest.param(
+            2**256 - 1, 0x00, 0x01, id="max_dest_single_byte_expansion"
+        ),
+        pytest.param(
+            2**256 - 2,
+            0x00,
+            0x01,
+            id="max_dest_minus_one_single_byte_expansion",
+        ),
+        pytest.param(
+            2**255 - 1, 0x00, 0x01, id="half_max_dest_single_byte_expansion"
+        ),
         pytest.param(0x00, 0x00, 2**256 - 1, id="max_length_expansion"),
-        pytest.param(0x00, 0x00, 2**256 - 2, id="max_length_minus_one_expansion"),
+        pytest.param(
+            0x00, 0x00, 2**256 - 2, id="max_length_minus_one_expansion"
+        ),
         pytest.param(0x00, 0x00, 2**255 - 1, id="half_max_length_expansion"),
         pytest.param(0x1FFFF20, 0x00, 0x01, id="32-bit-mem-cost_offset"),
         pytest.param(0x2D412E0, 0x00, 0x01, id="33-bit-mem-cost_offset"),
@@ -282,7 +312,12 @@ def test_datacopy_memory_expansion(
         bytes(range(0x00, 0x20)),
         bytes(range(0x00, 0x100)),
     ],
-    ids=["empty_data_section", "byte_data_section", "word_data_section", "large_data_section"],
+    ids=[
+        "empty_data_section",
+        "byte_data_section",
+        "word_data_section",
+        "large_data_section",
+    ],
 )
 def test_datacopy_huge_memory_expansion(
     state_test: StateTestFiller,

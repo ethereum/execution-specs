@@ -116,7 +116,9 @@ class TestGasConsumptionBelowDataFloor:
         Return a contract that consumes almost all the gas before reaching the
         floor data cost.
         """
-        intrinsic_gas_cost_calculator = fork.transaction_intrinsic_cost_calculator()
+        intrinsic_gas_cost_calculator = (
+            fork.transaction_intrinsic_cost_calculator()
+        )
         execution_gas = tx_floor_data_cost - intrinsic_gas_cost_calculator(
             calldata=tx_data,
             contract_creation=False,
@@ -126,7 +128,9 @@ class TestGasConsumptionBelowDataFloor:
         )
         assert execution_gas > 0
 
-        return pre.deploy_contract((Op.JUMPDEST * (execution_gas - 1)) + Op.STOP)
+        return pre.deploy_contract(
+            (Op.JUMPDEST * (execution_gas - 1)) + Op.STOP
+        )
 
     @pytest.mark.parametrize(
         "ty,protected,authorization_list",

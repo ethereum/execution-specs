@@ -81,10 +81,19 @@ def test_worst_address_state_cold(
 
     if not absent_accounts:
         factory_code = Op.PUSH4(num_target_accounts) + While(
-            body=Op.POP(Op.CALL(address=Op.ADD(addr_offset, Op.DUP6), value=10)),
-            condition=Op.PUSH1(1) + Op.SWAP1 + Op.SUB + Op.DUP1 + Op.ISZERO + Op.ISZERO,
+            body=Op.POP(
+                Op.CALL(address=Op.ADD(addr_offset, Op.DUP6), value=10)
+            ),
+            condition=Op.PUSH1(1)
+            + Op.SWAP1
+            + Op.SUB
+            + Op.DUP1
+            + Op.ISZERO
+            + Op.ISZERO,
         )
-        factory_address = pre.deploy_contract(code=factory_code, balance=10**18)
+        factory_address = pre.deploy_contract(
+            code=factory_code, balance=10**18
+        )
 
         setup_tx = Transaction(
             to=factory_address,
@@ -100,7 +109,12 @@ def test_worst_address_state_cold(
     # Execution
     op_code = Op.PUSH4(num_target_accounts) + While(
         body=Op.POP(opcode(Op.ADD(addr_offset, Op.DUP1))),
-        condition=Op.PUSH1(1) + Op.SWAP1 + Op.SUB + Op.DUP1 + Op.ISZERO + Op.ISZERO,
+        condition=Op.PUSH1(1)
+        + Op.SWAP1
+        + Op.SUB
+        + Op.DUP1
+        + Op.ISZERO
+        + Op.ISZERO,
     )
     op_address = pre.deploy_contract(code=op_code)
     op_tx = Transaction(
@@ -158,7 +172,9 @@ def test_worst_address_state_warm(
     attack_block = Op.POP(opcode(address=Op.MLOAD(0)))
     benchmark_test(
         post=post,
-        code_generator=JumpLoopGenerator(setup=setup, attack_block=attack_block),
+        code_generator=JumpLoopGenerator(
+            setup=setup, attack_block=attack_block
+        ),
     )
 
 
@@ -289,7 +305,10 @@ def test_worst_storage_access_cold(
         )
 
     num_target_slots = (
-        gas_benchmark_value - intrinsic_gas_cost_calc() - prefix_cost - suffix_cost
+        gas_benchmark_value
+        - intrinsic_gas_cost_calc()
+        - prefix_cost
+        - suffix_cost
     ) // loop_cost
     if tx_result == TransactionResult.OUT_OF_GAS:
         # Add an extra slot to make it run out-of-gas
@@ -297,7 +316,8 @@ def test_worst_storage_access_cold(
 
     code_prefix = Op.PUSH4(num_target_slots) + Op.JUMPDEST
     code_loop = execution_code_body + Op.JUMPI(
-        len(code_prefix) - 1, Op.PUSH1(1) + Op.SWAP1 + Op.SUB + Op.DUP1 + Op.ISZERO + Op.ISZERO
+        len(code_prefix) - 1,
+        Op.PUSH1(1) + Op.SWAP1 + Op.SUB + Op.DUP1 + Op.ISZERO + Op.ISZERO,
     )
     execution_code = code_prefix + code_loop
 
@@ -309,7 +329,10 @@ def test_worst_storage_access_cold(
     execution_code_address = pre.deploy_contract(code=execution_code)
 
     total_gas_used = (
-        num_target_slots * loop_cost + intrinsic_gas_cost_calc() + prefix_cost + suffix_cost
+        num_target_slots * loop_cost
+        + intrinsic_gas_cost_calc()
+        + prefix_cost
+        + suffix_cost
     )
 
     # Contract creation
@@ -317,7 +340,12 @@ def test_worst_storage_access_cold(
     if not absent_slots:
         slots_init = Op.PUSH4(num_target_slots) + While(
             body=Op.SSTORE(Op.DUP1, Op.DUP1),
-            condition=Op.PUSH1(1) + Op.SWAP1 + Op.SUB + Op.DUP1 + Op.ISZERO + Op.ISZERO,
+            condition=Op.PUSH1(1)
+            + Op.SWAP1
+            + Op.SUB
+            + Op.DUP1
+            + Op.ISZERO
+            + Op.ISZERO,
         )
 
     # To create the contract, we apply the slots_init code to initialize the
@@ -355,7 +383,9 @@ def test_worst_storage_access_cold(
     benchmark_test(
         blocks=blocks,
         expected_benchmark_gas_used=(
-            total_gas_used if tx_result != TransactionResult.OUT_OF_GAS else gas_benchmark_value
+            total_gas_used
+            if tx_result != TransactionResult.OUT_OF_GAS
+            else gas_benchmark_value
         ),
     )
 
@@ -520,7 +550,9 @@ def test_worst_selfdestruct_existing(
     fee_recipient = pre.fund_eoa(amount=1)
 
     # Template code that will be used to deploy a large number of contracts.
-    selfdestructable_contract_addr = pre.deploy_contract(code=Op.SELFDESTRUCT(Op.COINBASE))
+    selfdestructable_contract_addr = pre.deploy_contract(
+        code=Op.SELFDESTRUCT(Op.COINBASE)
+    )
     initcode = Op.EXTCODECOPY(
         address=selfdestructable_contract_addr,
         dest_offset=0,
@@ -543,9 +575,13 @@ def test_worst_selfdestruct_existing(
         + 63  # ~Gluing opcodes
     )
     final_storage_gas = (
-        gas_costs.G_STORAGE_RESET + gas_costs.G_COLD_SLOAD + (gas_costs.G_VERY_LOW * 2)
+        gas_costs.G_STORAGE_RESET
+        + gas_costs.G_COLD_SLOAD
+        + (gas_costs.G_VERY_LOW * 2)
     )
-    memory_expansion_cost = fork().memory_expansion_gas_calculator()(new_bytes=96)
+    memory_expansion_cost = fork().memory_expansion_gas_calculator()(
+        new_bytes=96
+    )
     base_costs = (
         intrinsic_gas_cost_calc()
         + (gas_costs.G_VERY_LOW * 12)  # 8 PUSHs + 4 MSTOREs
@@ -580,11 +616,18 @@ def test_worst_selfdestruct_existing(
 
     required_balance = num_contracts if value_bearing else 0  # 1 wei per
     # contract
-    factory_address = pre.deploy_contract(code=factory_code, balance=required_balance)
+    factory_address = pre.deploy_contract(
+        code=factory_code, balance=required_balance
+    )
 
     factory_caller_code = Op.CALLDATALOAD(0) + While(
         body=Op.POP(Op.CALL(address=factory_address)),
-        condition=Op.PUSH1(1) + Op.SWAP1 + Op.SUB + Op.DUP1 + Op.ISZERO + Op.ISZERO,
+        condition=Op.PUSH1(1)
+        + Op.SWAP1
+        + Op.SUB
+        + Op.DUP1
+        + Op.ISZERO
+        + Op.ISZERO,
     )
     factory_caller_address = pre.deploy_contract(code=factory_caller_code)
 
@@ -664,7 +707,9 @@ def test_worst_selfdestruct_created(
 
     # SELFDESTRUCT(COINBASE) contract deployment
     initcode = (
-        Op.MSTORE8(0, Op.COINBASE.int()) + Op.MSTORE8(1, Op.SELFDESTRUCT.int()) + Op.RETURN(0, 2)
+        Op.MSTORE8(0, Op.COINBASE.int())
+        + Op.MSTORE8(1, Op.SELFDESTRUCT.int())
+        + Op.RETURN(0, 2)
     )
     gas_costs = fork.gas_costs()
     memory_expansion_calc = fork().memory_expansion_gas_calculator()
@@ -696,8 +741,16 @@ def test_worst_selfdestruct_created(
     )
     loop_cost = create_costs + call_costs + extra_costs
 
-    prefix_cost = gas_costs.G_VERY_LOW * 3 + gas_costs.G_BASE + memory_expansion_calc(new_bytes=32)
-    suffix_cost = gas_costs.G_COLD_SLOAD + gas_costs.G_STORAGE_RESET + (gas_costs.G_VERY_LOW * 2)
+    prefix_cost = (
+        gas_costs.G_VERY_LOW * 3
+        + gas_costs.G_BASE
+        + memory_expansion_calc(new_bytes=32)
+    )
+    suffix_cost = (
+        gas_costs.G_COLD_SLOAD
+        + gas_costs.G_STORAGE_RESET
+        + (gas_costs.G_VERY_LOW * 2)
+    )
 
     base_costs = prefix_cost + suffix_cost + intrinsic_gas_cost_calc()
 
@@ -783,8 +836,16 @@ def test_worst_selfdestruct_initcode(
     )
     loop_cost = create_costs + extra_costs
 
-    prefix_cost = gas_costs.G_VERY_LOW * 3 + gas_costs.G_BASE + memory_expansion_calc(new_bytes=32)
-    suffix_cost = gas_costs.G_COLD_SLOAD + gas_costs.G_STORAGE_RESET + (gas_costs.G_VERY_LOW * 2)
+    prefix_cost = (
+        gas_costs.G_VERY_LOW * 3
+        + gas_costs.G_BASE
+        + memory_expansion_calc(new_bytes=32)
+    )
+    suffix_cost = (
+        gas_costs.G_COLD_SLOAD
+        + gas_costs.G_STORAGE_RESET
+        + (gas_costs.G_VERY_LOW * 2)
+    )
 
     base_costs = prefix_cost + suffix_cost + intrinsic_gas_cost_calc()
 

@@ -79,7 +79,9 @@ class BlobhashScenario:
     """A utility class for generating blobhash calls."""
 
     @staticmethod
-    def create_blob_hashes_list(length: int, max_blobs_per_tx: int) -> List[List[Hash]]:
+    def create_blob_hashes_list(
+        length: int, max_blobs_per_tx: int
+    ) -> List[List[Hash]]:
         """
         Create list of MAX_BLOBS_PER_TX blob hashes using `random_blob_hashes`.
 
@@ -95,7 +97,8 @@ class BlobhashScenario:
             for i in range(max_blobs_per_tx * length)
         ]
         return [
-            b_hashes[i : i + max_blobs_per_tx] for i in range(0, len(b_hashes), max_blobs_per_tx)
+            b_hashes[i : i + max_blobs_per_tx]
+            for i in range(0, len(b_hashes), max_blobs_per_tx)
         ]
 
     @staticmethod
@@ -112,16 +115,27 @@ class BlobhashScenario:
         return Op.SSTORE(index, Op.BLOBHASH(index))
 
     @classmethod
-    def generate_blobhash_bytecode(cls, scenario_name: str, max_blobs_per_tx: int) -> Bytecode:
+    def generate_blobhash_bytecode(
+        cls, scenario_name: str, max_blobs_per_tx: int
+    ) -> Bytecode:
         """Return BLOBHASH bytecode for the given scenario."""
         scenarios = {
             "single_valid": sum(
-                (cls.blobhash_sstore(i, max_blobs_per_tx) for i in range(max_blobs_per_tx)),
+                (
+                    cls.blobhash_sstore(i, max_blobs_per_tx)
+                    for i in range(max_blobs_per_tx)
+                ),
                 Bytecode(),
             ),
             "repeated_valid": sum(
                 (
-                    sum((cls.blobhash_sstore(i, max_blobs_per_tx) for _ in range(10)), Bytecode())
+                    sum(
+                        (
+                            cls.blobhash_sstore(i, max_blobs_per_tx)
+                            for _ in range(10)
+                        ),
+                        Bytecode(),
+                    )
                     for i in range(max_blobs_per_tx)
                 ),
                 Bytecode(),
@@ -189,8 +203,12 @@ def test_blobhash_gas_cost(
         "to": address,
         "data": Hash(0),
         "gas_limit": 500_000,
-        "max_fee_per_blob_gas": (fork.min_base_fee_per_blob_gas() * 10) if tx_type == 3 else None,
-        "blob_versioned_hashes": random_blob_hashes[0 : fork.max_blobs_per_tx()]
+        "max_fee_per_blob_gas": (fork.min_base_fee_per_blob_gas() * 10)
+        if tx_type == 3
+        else None,
+        "blob_versioned_hashes": random_blob_hashes[
+            0 : fork.max_blobs_per_tx()
+        ]
         if tx_type == 3
         else None,
     }
@@ -261,14 +279,19 @@ def test_blobhash_scenarios(
                         data=Hash(0),
                         gas_limit=500_000,
                         access_list=[],
-                        max_fee_per_blob_gas=(fork.min_base_fee_per_blob_gas() * 10),
+                        max_fee_per_blob_gas=(
+                            fork.min_base_fee_per_blob_gas() * 10
+                        ),
                         blob_versioned_hashes=b_hashes_list[i],
                     )
                 ]
             )
         )
         post[address] = Account(
-            storage={index: b_hashes_list[i][index] for index in range(max_blobs_per_tx)}
+            storage={
+                index: b_hashes_list[i][index]
+                for index in range(max_blobs_per_tx)
+            }
         )
     blockchain_test(
         pre=pre,
@@ -321,7 +344,9 @@ def test_blobhash_invalid_blob_index(
                         gas_limit=500_000,
                         data=Hash(0),
                         access_list=[],
-                        max_fee_per_blob_gas=(fork.min_base_fee_per_blob_gas() * 10),
+                        max_fee_per_blob_gas=(
+                            fork.min_base_fee_per_blob_gas() * 10
+                        ),
                         blob_versioned_hashes=blobs,
                     )
                 ]
@@ -329,7 +354,9 @@ def test_blobhash_invalid_blob_index(
         )
         post[address] = Account(
             storage={
-                index: (0 if index < 0 or index >= blob_per_block else blobs[index])
+                index: (
+                    0 if index < 0 or index >= blob_per_block else blobs[index]
+                )
                 for index in range(
                     -total_blocks,
                     blob_per_block + (total_blocks - (i % max_blobs_per_tx)),
@@ -370,8 +397,12 @@ def test_blobhash_multiple_txs_in_block(
             data=Hash(0),
             gas_limit=500_000,
             access_list=[] if tx_type >= 1 else None,
-            max_fee_per_blob_gas=(fork.min_base_fee_per_blob_gas() * 10) if tx_type >= 3 else None,
-            blob_versioned_hashes=random_blob_hashes[0:max_blobs_per_tx] if tx_type >= 3 else None,
+            max_fee_per_blob_gas=(fork.min_base_fee_per_blob_gas() * 10)
+            if tx_type >= 3
+            else None,
+            blob_versioned_hashes=random_blob_hashes[0:max_blobs_per_tx]
+            if tx_type >= 3
+            else None,
         )
 
     blocks = [

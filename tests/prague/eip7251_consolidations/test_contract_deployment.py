@@ -26,12 +26,15 @@ REFERENCE_SPEC_VERSION = ref_spec_7251.version
 
 
 @pytest.mark.pre_alloc_group(
-    "separate", reason="Deploys consolidation system contract at hardcoded predeploy address"
+    "separate",
+    reason="Deploys consolidation system contract at hardcoded predeploy address",
 )
 @generate_system_contract_deploy_test(
     fork=Prague,
     tx_json_path=Path(realpath(__file__)).parent / "contract_deploy_tx.json",
-    expected_deploy_address=Address(Spec.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS),
+    expected_deploy_address=Address(
+        Spec.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS
+    ),
     fail_on_empty_code=True,
 )
 def test_system_contract_deployment(
@@ -50,7 +53,9 @@ def test_system_contract_deployment(
     )
     pre.fund_address(sender, consolidation_request.value)
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    test_transaction_gas = intrinsic_gas_calculator(calldata=consolidation_request.calldata)
+    test_transaction_gas = intrinsic_gas_calculator(
+        calldata=consolidation_request.calldata
+    )
 
     test_transaction = Transaction(
         data=consolidation_request.calldata,

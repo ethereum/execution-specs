@@ -88,10 +88,15 @@ def test_all_opcodes_in_container(
     Test all opcodes inside valid container 257 because 0x5B is duplicated.
     """
     data_portion = 1 if opcode == Op.CALLF else 0
-    opcode_with_data_portion = opcode[data_portion] if opcode.has_data_portion() else opcode
+    opcode_with_data_portion = (
+        opcode[data_portion] if opcode.has_data_portion() else opcode
+    )
 
     # opcode_with_data_portion has the correct minimum stack height
-    bytecode = Op.PUSH0 * opcode_with_data_portion.min_stack_height + opcode_with_data_portion
+    bytecode = (
+        Op.PUSH0 * opcode_with_data_portion.min_stack_height
+        + opcode_with_data_portion
+    )
 
     if opcode not in (halting_opcodes | section_terminating_opcodes):
         bytecode += Op.STOP
@@ -126,7 +131,9 @@ def test_all_opcodes_in_container(
     eof_test(
         container=eof_code,
         expect_exception=(
-            None if opcode in valid_eof_opcodes else EOFException.UNDEFINED_INSTRUCTION
+            None
+            if opcode in valid_eof_opcodes
+            else EOFException.UNDEFINED_INSTRUCTION
         ),
     )
 
@@ -254,7 +261,9 @@ def test_all_unreachable_terminating_opcodes_after_stop(
                 Section.Container(
                     container=Container(
                         sections=[
-                            Section.Code(code=Op.STOP + Op.RETURNCODE[0](0, 0)),
+                            Section.Code(
+                                code=Op.STOP + Op.RETURNCODE[0](0, 0)
+                            ),
                             Section.Container(Container.Code(code=Op.STOP)),
                         ]
                     )
@@ -303,7 +312,9 @@ def test_all_unreachable_terminating_opcodes_before_stop(
                 Section.Container(
                     container=Container(
                         sections=[
-                            Section.Code(code=Op.RETURNCODE[0](0, 0) + Op.STOP),
+                            Section.Code(
+                                code=Op.RETURNCODE[0](0, 0) + Op.STOP
+                            ),
                             Section.Container(Container.Code(code=Op.STOP)),
                         ]
                     )
@@ -311,7 +322,9 @@ def test_all_unreachable_terminating_opcodes_before_stop(
             ]
         case Op.RETURN | Op.REVERT | Op.INVALID:
             sections = [
-                Section.Code(code=Op.PUSH1(0) + Op.PUSH1(0) + opcode + Op.STOP),
+                Section.Code(
+                    code=Op.PUSH1(0) + Op.PUSH1(0) + opcode + Op.STOP
+                ),
             ]
         case _:
             raise NotImplementedError(f"Opcode {opcode} is not implemented")
@@ -328,7 +341,11 @@ def test_all_unreachable_terminating_opcodes_before_stop(
 
 @pytest.mark.parametrize(
     "opcode",
-    sorted(op for op in valid_eof_opcodes if op.pushed_stack_items > op.popped_stack_items)
+    sorted(
+        op
+        for op in valid_eof_opcodes
+        if op.pushed_stack_items > op.popped_stack_items
+    )
     + [
         Op.DUPN[0xFF],
     ],
@@ -343,7 +360,10 @@ def test_all_unreachable_terminating_opcodes_before_stop(
     # 2. Max stack height above limit, where we don't modify the
     #    `max_stack_height` field of the code section, so the actual
     #    code doesn't have to be verified for the stack overflow.
-    [EOFException.INVALID_MAX_STACK_INCREASE, EOFException.MAX_STACK_INCREASE_ABOVE_LIMIT],
+    [
+        EOFException.INVALID_MAX_STACK_INCREASE,
+        EOFException.MAX_STACK_INCREASE_ABOVE_LIMIT,
+    ],
 )
 def test_all_opcodes_stack_overflow(
     eof_test: EOFTestFiller,
@@ -410,7 +430,9 @@ def valid_opcode_combinations(
 
 @pytest.mark.parametrize(
     "compute_max_stack_height, truncate_all, opcode",
-    valid_opcode_combinations([False, True], [False, True], sorted(data_portion_opcodes)),
+    valid_opcode_combinations(
+        [False, True], [False, True], sorted(data_portion_opcodes)
+    ),
 )
 def test_truncated_data_portion_opcodes(
     eof_test: EOFTestFiller,
@@ -426,13 +448,19 @@ def test_truncated_data_portion_opcodes(
 
     # Compose instruction bytes with empty imm bytes (truncate_all) or 1 byte
     # shorter imm bytes.
-    opcode_bytes = opcode_with_data_portion[0:1] if truncate_all else opcode_with_data_portion[:-1]
+    opcode_bytes = (
+        opcode_with_data_portion[0:1]
+        if truncate_all
+        else opcode_with_data_portion[:-1]
+    )
 
     if opcode.min_stack_height > 0:
         opcode_bytes = bytes(Op.PUSH0 * opcode.min_stack_height) + opcode_bytes
 
     max_stack_height = (
-        max(opcode.min_stack_height, opcode.pushed_stack_items) if compute_max_stack_height else 0
+        max(opcode.min_stack_height, opcode.pushed_stack_items)
+        if compute_max_stack_height
+        else 0
     )
 
     eof_code = Container(

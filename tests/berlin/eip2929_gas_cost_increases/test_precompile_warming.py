@@ -47,8 +47,12 @@ def precompile_addresses_in_predecessor_successor(
 
     """
     precompile_range = range(0x01, 0x100)
-    predecessor_precompiles = set(get_transition_fork_predecessor(fork).precompiles())
-    successor_precompiles = set(get_transition_fork_successor(fork).precompiles())
+    predecessor_precompiles = set(
+        get_transition_fork_predecessor(fork).precompiles()
+    )
+    successor_precompiles = set(
+        get_transition_fork_successor(fork).precompiles()
+    )
     all_precompiles = successor_precompiles | predecessor_precompiles
 
     precompiles_in_range = {
@@ -57,18 +61,29 @@ def precompile_addresses_in_predecessor_successor(
         if int.from_bytes(addr, byteorder="big") in precompile_range
     }
 
-    highest_in_range = max(int.from_bytes(addr, byteorder="big") for addr in precompiles_in_range)
-    highest_overall = max(int.from_bytes(addr, byteorder="big") for addr in all_precompiles)
+    highest_in_range = max(
+        int.from_bytes(addr, byteorder="big") for addr in precompiles_in_range
+    )
+    highest_overall = max(
+        int.from_bytes(addr, byteorder="big") for addr in all_precompiles
+    )
     extra_range = 32
     extra_precompiles = {
-        Address(i) for i in range(highest_in_range + 1, highest_in_range + extra_range)
+        Address(i)
+        for i in range(highest_in_range + 1, highest_in_range + extra_range)
     }
     extra_precompiles_outside_range = {Address(highest_overall + 1)}
 
-    all_precompiles = all_precompiles | extra_precompiles | extra_precompiles_outside_range
+    all_precompiles = (
+        all_precompiles | extra_precompiles | extra_precompiles_outside_range
+    )
 
     for address in sorted(all_precompiles):
-        yield address, address in successor_precompiles, address in predecessor_precompiles
+        yield (
+            address,
+            address in successor_precompiles,
+            address in predecessor_precompiles,
+        )
 
 
 @pytest.mark.valid_at_transition_to("Paris", subsequent_forks=True)
@@ -155,7 +170,9 @@ def test_precompile_warming(
         else:
             return cold_access_cost + extra_cost
 
-    expected_gas_before = get_expected_gas(precompile_in_predecessor, predecessor)
+    expected_gas_before = get_expected_gas(
+        precompile_in_predecessor, predecessor
+    )
     expected_gas_after = get_expected_gas(precompile_in_successor, successor)
 
     post = {

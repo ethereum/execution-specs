@@ -40,7 +40,9 @@ ONE_GWEI = 10**9
             id="tx_in_withdrawals_block",
             marks=pytest.mark.exception_test,
         ),
-        pytest.param("tx_after_withdrawals_block", id="tx_after_withdrawals_block"),
+        pytest.param(
+            "tx_after_withdrawals_block", id="tx_after_withdrawals_block"
+        ),
     ],
 )
 class TestUseValueInTx:
@@ -84,11 +86,17 @@ class TestUseValueInTx:
         )
 
     @pytest.fixture
-    def blocks(self, tx: Transaction, withdrawal: Withdrawal, test_case: str) -> List[Block]:  # noqa: D102
+    def blocks(
+        self, tx: Transaction, withdrawal: Withdrawal, test_case: str
+    ) -> List[Block]:  # noqa: D102
         if test_case == "tx_in_withdrawals_block":
             return [
                 Block(
-                    txs=[tx.with_error(TransactionException.INSUFFICIENT_ACCOUNT_FUNDS)],
+                    txs=[
+                        tx.with_error(
+                            TransactionException.INSUFFICIENT_ACCOUNT_FUNDS
+                        )
+                    ],
                     withdrawals=[
                         withdrawal,
                     ],
@@ -184,7 +192,9 @@ def test_use_value_in_contract(
     blockchain_test(pre=pre, post=post, blocks=blocks)
 
 
-def test_balance_within_block(blockchain_test: BlockchainTestFiller, pre: Alloc) -> None:
+def test_balance_within_block(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
     """
     Test withdrawal balance increase within the same block in a contract call.
     """
@@ -251,7 +261,9 @@ class TestMultipleWithdrawalsSameAddress:
 
     @pytest.fixture
     def addresses(self, fork: Fork) -> List[Address]:  # noqa: D102
-        addresses = [Address(p) for p in fork.precompiles(block_number=0, timestamp=0)]
+        addresses = [
+            Address(p) for p in fork.precompiles(block_number=0, timestamp=0)
+        ]
         return addresses + [Address(2**160 - 1)]
 
     @pytest.fixture
@@ -459,7 +471,9 @@ def test_no_evm_execution(
 ) -> None:
     """Test withdrawals don't trigger EVM execution."""
     sender = pre.fund_eoa()
-    contracts = [pre.deploy_contract(Op.SSTORE(Op.NUMBER, 1)) for _ in range(4)]
+    contracts = [
+        pre.deploy_contract(Op.SSTORE(Op.NUMBER, 1)) for _ in range(4)
+    ]
     blocks = [
         Block(
             txs=[
@@ -534,7 +548,9 @@ class ZeroAmountTestCases(Enum):  # noqa: D101
     TWO_ZERO = "two_withdrawals_no_value"
     THREE_ONE_WITH_VALUE = "three_withdrawals_one_with_value"
     FOUR_ONE_WITH_MAX = "four_withdrawals_one_with_value_one_with_max"
-    FOUR_ONE_WITH_MAX_REVERSED = "four_withdrawals_one_with_value_one_with_max_reversed_order"
+    FOUR_ONE_WITH_MAX_REVERSED = (
+        "four_withdrawals_one_with_value_one_with_max_reversed_order"
+    )
 
 
 @pytest.mark.parametrize(

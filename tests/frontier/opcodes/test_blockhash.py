@@ -13,7 +13,9 @@ from ethereum_test_tools import Opcodes as Op
 
 
 @pytest.mark.valid_from("Frontier")
-def test_genesis_hash_available(blockchain_test: BlockchainTestFiller, pre: Alloc) -> None:
+def test_genesis_hash_available(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
     """
     Verify BLOCKHASH returns genesis and block 1 hashes.
 
@@ -31,9 +33,9 @@ def test_genesis_hash_available(blockchain_test: BlockchainTestFiller, pre: Allo
 
     # Store ISZERO(BLOCKHASH(0)) and ISZERO(BLOCKHASH(1))
     # Both should be 0 (false) if hashes exist
-    code = Op.SSTORE(storage.store_next(0), Op.ISZERO(Op.BLOCKHASH(0))) + Op.SSTORE(
-        storage.store_next(0), Op.ISZERO(Op.BLOCKHASH(1))
-    )
+    code = Op.SSTORE(
+        storage.store_next(0), Op.ISZERO(Op.BLOCKHASH(0))
+    ) + Op.SSTORE(storage.store_next(0), Op.ISZERO(Op.BLOCKHASH(1)))
 
     contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()

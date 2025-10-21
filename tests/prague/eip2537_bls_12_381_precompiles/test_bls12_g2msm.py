@@ -40,7 +40,12 @@ pytestmark = [
             id="g2_plus_inf",
         ),
         pytest.param(
-            Spec.G2 + Scalar(0) + Spec.P2 + Scalar(0) + Spec.INF_G2 + Scalar(0),
+            Spec.G2
+            + Scalar(0)
+            + Spec.P2
+            + Scalar(0)
+            + Spec.INF_G2
+            + Scalar(0),
             Spec.INF_G2,
             None,
             id="all_zero_scalars",
@@ -58,7 +63,12 @@ pytestmark = [
             id="scalars_sum_to_q",
         ),
         pytest.param(
-            Spec.G2 + Scalar(1) + Spec.G2 + Scalar(0) + Spec.INF_G2 + Scalar(5),
+            Spec.G2
+            + Scalar(1)
+            + Spec.G2
+            + Scalar(0)
+            + Spec.INF_G2
+            + Scalar(5),
             Spec.G2,
             None,
             id="combined_basic_cases",
@@ -189,19 +199,23 @@ def test_valid(
         ),
         # Coordinates above modulus p cases.
         pytest.param(
-            PointG2((Spec.P2.x[0] + Spec.P, Spec.P2.x[1]), Spec.P2.y) + Scalar(1),
+            PointG2((Spec.P2.x[0] + Spec.P, Spec.P2.x[1]), Spec.P2.y)
+            + Scalar(1),
             id="x_c0_above_p_pos_0",
         ),
         pytest.param(
-            PointG2((Spec.P2.x[0], Spec.P2.x[1] + Spec.P), Spec.P2.y) + Scalar(1),
+            PointG2((Spec.P2.x[0], Spec.P2.x[1] + Spec.P), Spec.P2.y)
+            + Scalar(1),
             id="x_c1_above_p_pos_0",
         ),
         pytest.param(
-            PointG2(Spec.P2.x, (Spec.P2.y[0] + Spec.P, Spec.P2.y[1])) + Scalar(1),
+            PointG2(Spec.P2.x, (Spec.P2.y[0] + Spec.P, Spec.P2.y[1]))
+            + Scalar(1),
             id="y_c0_above_p_pos_0",
         ),
         pytest.param(
-            PointG2(Spec.P2.x, (Spec.P2.y[0], Spec.P2.y[1] + Spec.P)) + Scalar(1),
+            PointG2(Spec.P2.x, (Spec.P2.y[0], Spec.P2.y[1] + Spec.P))
+            + Scalar(1),
             id="y_c1_above_p_pos_0",
         ),
         pytest.param(

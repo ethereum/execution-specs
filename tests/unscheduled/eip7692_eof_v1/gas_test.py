@@ -54,13 +54,17 @@ def gas_test(
     calls, and in particular, any effects on the gas usage of `subject_code`.
     """
     if cold_gas <= 0:
-        raise ValueError(f"Target gas allocations (cold_gas) must be > 0, got {cold_gas}")
+        raise ValueError(
+            f"Target gas allocations (cold_gas) must be > 0, got {cold_gas}"
+        )
     if warm_gas is None:
         warm_gas = cold_gas
 
     sender = pre.fund_eoa()
 
-    address_baseline = pre.deploy_contract(Container.Code(setup_code + tear_down_code))
+    address_baseline = pre.deploy_contract(
+        Container.Code(setup_code + tear_down_code)
+    )
     code_subject = setup_code + subject_code + tear_down_code
     address_subject = pre.deploy_contract(
         Container.Code(code_subject)
@@ -80,7 +84,12 @@ def gas_test(
     address_legacy_harness = pre.deploy_contract(
         code=(
             # warm subject and baseline without executing
-            (Op.BALANCE(address_subject) + Op.POP + Op.BALANCE(address_baseline) + Op.POP)
+            (
+                Op.BALANCE(address_subject)
+                + Op.POP
+                + Op.BALANCE(address_baseline)
+                + Op.POP
+            )
             # run any "prelude" code that may have universal side effects
             + prelude_code
             # Baseline gas run
@@ -111,9 +120,21 @@ def gas_test(
                 + Op.SUB
             )
             # Store warm gas: DUP3 is the gas of the baseline gas run
-            + (Op.DUP3 + Op.SWAP1 + Op.SUB + Op.PUSH2(slot_warm_gas) + Op.SSTORE)
+            + (
+                Op.DUP3
+                + Op.SWAP1
+                + Op.SUB
+                + Op.PUSH2(slot_warm_gas)
+                + Op.SSTORE
+            )
             # store cold gas: DUP2 is the gas of the baseline gas run
-            + (Op.DUP2 + Op.SWAP1 + Op.SUB + Op.PUSH2(slot_cold_gas) + Op.SSTORE)
+            + (
+                Op.DUP2
+                + Op.SWAP1
+                + Op.SUB
+                + Op.PUSH2(slot_cold_gas)
+                + Op.SSTORE
+            )
             + (
                 (
                     # do an oog gas run, unless skipped with
@@ -128,7 +149,10 @@ def gas_test(
                     Op.SSTORE(
                         slot_oog_call_result,
                         Op.CALL(
-                            gas=Op.ADD(warm_gas - gas_single_gas_run - oog_difference, Op.DUP7),
+                            gas=Op.ADD(
+                                warm_gas - gas_single_gas_run - oog_difference,
+                                Op.DUP7,
+                            ),
                             address=address_subject,
                         ),
                     )
@@ -161,9 +185,15 @@ def gas_test(
     }
 
     if out_of_gas_testing:
-        post[address_legacy_harness].storage[slot_oog_call_result] = LEGACY_CALL_FAILURE
-        post[address_legacy_harness].storage[slot_sanity_call_result] = LEGACY_CALL_SUCCESS
+        post[address_legacy_harness].storage[slot_oog_call_result] = (
+            LEGACY_CALL_FAILURE
+        )
+        post[address_legacy_harness].storage[slot_sanity_call_result] = (
+            LEGACY_CALL_SUCCESS
+        )
 
-    tx = Transaction(to=address_legacy_harness, gas_limit=env.gas_limit, sender=sender)
+    tx = Transaction(
+        to=address_legacy_harness, gas_limit=env.gas_limit, sender=sender
+    )
 
     state_test(env=env, pre=pre, tx=tx, post=post)

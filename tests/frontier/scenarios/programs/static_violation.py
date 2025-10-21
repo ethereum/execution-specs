@@ -58,7 +58,10 @@ class ProgramLogs(ScenarioTestProgram):
         """Test code."""
         del pre, fork
         return (
-            Op.MSTORE(0, 0x1122334455667788991011121314151617181920212223242526272829303132)
+            Op.MSTORE(
+                0,
+                0x1122334455667788991011121314151617181920212223242526272829303132,
+            )
             + Op.LOG0(0, 1)
             + Op.LOG1(1, 1, 0x1000)
             + Op.LOG2(2, 1, 0x2000, 0x2001)

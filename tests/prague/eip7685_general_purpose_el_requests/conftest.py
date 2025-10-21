@@ -60,12 +60,16 @@ def engine_api_error_code(
     """Engine API error code if any."""
     if block_body_override_requests is None:
         return None
-    block_body_override_requests_bytes = [bytes(r) for r in block_body_override_requests]
+    block_body_override_requests_bytes = [
+        bytes(r) for r in block_body_override_requests
+    ]
     if any(len(r) <= 1 for r in block_body_override_requests_bytes):
         return EngineAPIError.InvalidParams
 
     def is_monotonically_increasing(requests: List[bytes]) -> bool:
-        return all(x[0] < y[0] for x, y in zip(requests, requests[1:], strict=False))
+        return all(
+            x[0] < y[0] for x, y in zip(requests, requests[1:], strict=False)
+        )
 
     if not is_monotonically_increasing(block_body_override_requests_bytes):
         return EngineAPIError.InvalidParams
@@ -87,7 +91,9 @@ def blocks(
     engine_api_error_code: EngineAPIError | None,
 ) -> List[Block]:
     """List of blocks that comprise the test."""
-    valid_requests_list: List[DepositRequest | WithdrawalRequest | ConsolidationRequest] = []
+    valid_requests_list: List[
+        DepositRequest | WithdrawalRequest | ConsolidationRequest
+    ] = []
     # Single block therefore base fee
     withdrawal_request_fee = 1
     consolidation_request_fee = 1

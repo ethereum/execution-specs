@@ -13,7 +13,9 @@ class ReferenceSpec:
     version: str
 
 
-ref_spec_2537 = ReferenceSpec("EIPS/eip-2537.md", "c561ec1426fe5ec470eade499a0bd4174f270583")
+ref_spec_2537 = ReferenceSpec(
+    "EIPS/eip-2537.md", "c561ec1426fe5ec470eade499a0bd4174f270583"
+)
 
 
 class BytesConcatenation(SupportsBytes, Sized):
@@ -52,7 +54,9 @@ class PointG1(BytesConcatenation):
 
     def __bytes__(self) -> bytes:
         """Convert point to bytes."""
-        return self.x.to_bytes(64, byteorder="big") + self.y.to_bytes(64, byteorder="big")
+        return self.x.to_bytes(64, byteorder="big") + self.y.to_bytes(
+            64, byteorder="big"
+        )
 
     def __neg__(self) -> "PointG1":
         """Negates the point."""
@@ -67,7 +71,9 @@ class FP2(BytesConcatenation):
 
     def __bytes__(self) -> bytes:
         """Convert field element to bytes."""
-        return self.x[0].to_bytes(64, byteorder="big") + self.x[1].to_bytes(64, byteorder="big")
+        return self.x[0].to_bytes(64, byteorder="big") + self.x[1].to_bytes(
+            64, byteorder="big"
+        )
 
 
 @dataclass(frozen=True)
@@ -261,7 +267,12 @@ def msm_gas_func_gen(
         if k == 0:
             return 0
 
-        gas_cost = k * multiplication_cost * msm_discount(group, k) // Spec.MSM_MULTIPLIER
+        gas_cost = (
+            k
+            * multiplication_cost
+            * msm_discount(group, k)
+            // Spec.MSM_MULTIPLIER
+        )
 
         return gas_cost
 
@@ -276,9 +287,13 @@ def pairing_gas(input_length: int) -> int:
 
 GAS_CALCULATION_FUNCTION_MAP = {
     Spec.G1ADD: lambda _: Spec.G1ADD_GAS,
-    Spec.G1MSM: msm_gas_func_gen(BLS12Group.G1, len(PointG1() + Scalar()), Spec.G1MUL_GAS),
+    Spec.G1MSM: msm_gas_func_gen(
+        BLS12Group.G1, len(PointG1() + Scalar()), Spec.G1MUL_GAS
+    ),
     Spec.G2ADD: lambda _: Spec.G2ADD_GAS,
-    Spec.G2MSM: msm_gas_func_gen(BLS12Group.G2, len(PointG2() + Scalar()), Spec.G2MUL_GAS),
+    Spec.G2MSM: msm_gas_func_gen(
+        BLS12Group.G2, len(PointG2() + Scalar()), Spec.G2MUL_GAS
+    ),
     Spec.PAIRING: pairing_gas,
     Spec.MAP_FP_TO_G1: lambda _: Spec.MAP_FP_TO_G1_GAS,
     Spec.MAP_FP2_TO_G2: lambda _: Spec.MAP_FP2_TO_G2_GAS,

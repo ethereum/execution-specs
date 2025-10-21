@@ -56,17 +56,30 @@ def generate_block_check_code(
     )
     populated_history_storage_contract = (
         check_block_number >= fork_block_number - 1
-        and current_block_number - check_block_number <= Spec.HISTORY_SERVE_WINDOW
+        and current_block_number - check_block_number
+        <= Spec.HISTORY_SERVE_WINDOW
         and check_block_number < current_block_number
     )
 
     blockhash_key = storage.store_next(not populated_blockhash)
     contract_key = storage.store_next(not populated_history_storage_contract)
 
-    check_blockhash = Op.SSTORE(blockhash_key, Op.ISZERO(Op.BLOCKHASH(check_block_number)))
+    check_blockhash = Op.SSTORE(
+        blockhash_key, Op.ISZERO(Op.BLOCKHASH(check_block_number))
+    )
     check_contract = (
         Op.MSTORE(0, check_block_number)
-        + Op.POP(Op.CALL(Op.GAS, Spec.HISTORY_STORAGE_ADDRESS, 0, 0, 32, contract_ret_offset, 32))
+        + Op.POP(
+            Op.CALL(
+                Op.GAS,
+                Spec.HISTORY_STORAGE_ADDRESS,
+                0,
+                0,
+                32,
+                contract_ret_offset,
+                32,
+            )
+        )
         + Op.SSTORE(contract_key, Op.ISZERO(Op.MLOAD(contract_ret_offset)))
     )
 
@@ -79,7 +92,10 @@ def generate_block_check_code(
         # Both values must be equal
         store_equal_key = storage.store_next(True)
         code += Op.SSTORE(
-            store_equal_key, Op.EQ(Op.MLOAD(contract_ret_offset), Op.BLOCKHASH(check_block_number))
+            store_equal_key,
+            Op.EQ(
+                Op.MLOAD(contract_ret_offset), Op.BLOCKHASH(check_block_number)
+            ),
         )
 
     # Reset the contract return value
@@ -136,7 +152,9 @@ def test_block_hashes_history_at_transition(
 
             # Check the last block before blockhash the window
             code += generate_block_check_code(
-                check_block_number=current_block_number - Spec.BLOCKHASH_OLD_WINDOW - 1,
+                check_block_number=current_block_number
+                - Spec.BLOCKHASH_OLD_WINDOW
+                - 1,
                 current_block_number=current_block_number,
                 fork_block_number=fork_block_number,
                 storage=storage,
@@ -216,7 +234,10 @@ def test_block_hashes_history_at_transition(
         pytest.param(
             Spec.HISTORY_SERVE_WINDOW + 1,
             False,
-            marks=[pytest.mark.skip("Slow test not relevant anymore"), pytest.mark.slow],
+            marks=[
+                pytest.mark.skip("Slow test not relevant anymore"),
+                pytest.mark.slow,
+            ],
             id="full_history_plus_one_check_blockhash_first",
         ),
     ],
@@ -255,7 +276,9 @@ def test_block_hashes_history(
 
     # Check the first block outside of the window if any
     code += generate_block_check_code(
-        check_block_number=current_block_number - Spec.HISTORY_SERVE_WINDOW - 1,
+        check_block_number=current_block_number
+        - Spec.HISTORY_SERVE_WINDOW
+        - 1,
         current_block_number=current_block_number,
         fork_block_number=fork_block_number,
         storage=storage,
@@ -273,7 +296,9 @@ def test_block_hashes_history(
 
     # Check the first block outside the BLOCKHASH window
     code += generate_block_check_code(
-        check_block_number=current_block_number - Spec.BLOCKHASH_OLD_WINDOW - 1,
+        check_block_number=current_block_number
+        - Spec.BLOCKHASH_OLD_WINDOW
+        - 1,
         current_block_number=current_block_number,
         fork_block_number=fork_block_number,
         storage=storage,
@@ -419,7 +444,9 @@ def test_invalid_history_contract_calls(
         + Op.SSTORE(returned_block_hash_slot, Op.MLOAD(return_offset))
         + Op.SSTORE(block_hash_opcode_slot, Op.BLOCKHASH(block_number))
     )
-    check_contract_address = pre.deploy_contract(code, storage=storage.canary())
+    check_contract_address = pre.deploy_contract(
+        code, storage=storage.canary()
+    )
 
     txs = [
         Transaction(
@@ -456,7 +483,9 @@ def test_invalid_history_contract_calls_input_size(
     """Test calling the history contract with invalid input sizes."""
     storage = Storage()
 
-    return_code_slot = storage.store_next(not reverts, "history storage call result")
+    return_code_slot = storage.store_next(
+        not reverts, "history storage call result"
+    )
     returned_block_hash_slot = storage.store_next(0)
 
     return_offset = 64
@@ -478,7 +507,9 @@ def test_invalid_history_contract_calls_input_size(
         )
         + Op.SSTORE(returned_block_hash_slot, Op.MLOAD(return_offset))
     )
-    check_contract_address = pre.deploy_contract(code, storage=storage.canary())
+    check_contract_address = pre.deploy_contract(
+        code, storage=storage.canary()
+    )
 
     txs = [
         Transaction(

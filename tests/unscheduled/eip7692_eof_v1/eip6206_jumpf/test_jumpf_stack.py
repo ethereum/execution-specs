@@ -80,7 +80,9 @@ def test_jumpf_stack_non_returning_rules(
     [0, 2, 4],
     ids=lambda x: "ti-%d" % x,
 )
-@pytest.mark.parametrize("stack_diff", [-1, 0, 1], ids=["less-stack", "same-stack", "more-stack"])
+@pytest.mark.parametrize(
+    "stack_diff", [-1, 0, 1], ids=["less-stack", "same-stack", "more-stack"]
+)
 def test_jumpf_stack_returning_rules(
     eof_state_test: EOFStateTestFiller,
     source_outputs: int,
@@ -105,16 +107,23 @@ def test_jumpf_stack_returning_rules(
         % (source_outputs, target_outputs, target_inputs, stack_diff),
         sections=[
             Section.Code(
-                code=Op.CALLF[1] + Op.SSTORE(slot_code_worked, value_code_worked) + Op.STOP,
+                code=Op.CALLF[1]
+                + Op.SSTORE(slot_code_worked, value_code_worked)
+                + Op.STOP,
                 max_stack_height=2 + source_outputs,
             ),
             Section.Code(
-                code=Op.PUSH0 * max(0, target_inputs + stack_diff) + Op.JUMPF[2],
+                code=Op.PUSH0 * max(0, target_inputs + stack_diff)
+                + Op.JUMPF[2],
                 code_outputs=source_outputs,
                 max_stack_height=target_inputs,
             ),
             Section.Code(
-                code=(Op.POP * -target_delta if target_delta < 0 else Op.PUSH0 * target_delta)
+                code=(
+                    Op.POP * -target_delta
+                    if target_delta < 0
+                    else Op.PUSH0 * target_delta
+                )
                 + Op.RETF,
                 code_inputs=target_inputs,
                 code_outputs=target_outputs,
@@ -141,10 +150,18 @@ def test_jumpf_stack_returning_rules(
         pytest.param(1, 0, 1, EOFException.STACK_UNDERFLOW, id="less_stack"),
         pytest.param(2, 1, 2, None, id="same_stack"),
         pytest.param(
-            3, 2, 3, EOFException.JUMPF_DESTINATION_INCOMPATIBLE_OUTPUTS, id="more_stack"
+            3,
+            2,
+            3,
+            EOFException.JUMPF_DESTINATION_INCOMPATIBLE_OUTPUTS,
+            id="more_stack",
         ),
         pytest.param(
-            2, 2, 1, EOFException.JUMPF_DESTINATION_INCOMPATIBLE_OUTPUTS, id="less_output"
+            2,
+            2,
+            1,
+            EOFException.JUMPF_DESTINATION_INCOMPATIBLE_OUTPUTS,
+            id="less_output",
         ),
         pytest.param(1, 1, 1, None, id="same_output"),
         pytest.param(0, 0, 1, None, id="more_output"),
@@ -159,7 +176,9 @@ def test_jumpf_incompatible_outputs(
 ) -> None:
     """Tests JUMPF into a section with incorrect number of outputs."""
     current_section_outputs = 1
-    if (current_section_outputs + target_inputs - target_outputs) != stack_height:
+    if (
+        current_section_outputs + target_inputs - target_outputs
+    ) != stack_height:
         assert expected_exception is not None
     eof_test(
         container=Container(
@@ -185,15 +204,29 @@ def test_jumpf_incompatible_outputs(
     ["target_inputs", "target_outputs", "stack_height", "expected_exception"],
     [
         pytest.param(1, 0, 1, EOFException.STACK_UNDERFLOW, id="less_stack"),
-        pytest.param(2, 1, 2, EOFException.STACK_HIGHER_THAN_OUTPUTS, id="same_stack"),
         pytest.param(
-            3, 2, 3, EOFException.JUMPF_DESTINATION_INCOMPATIBLE_OUTPUTS, id="more_stack"
+            2, 1, 2, EOFException.STACK_HIGHER_THAN_OUTPUTS, id="same_stack"
         ),
         pytest.param(
-            2, 2, 1, EOFException.JUMPF_DESTINATION_INCOMPATIBLE_OUTPUTS, id="less_output"
+            3,
+            2,
+            3,
+            EOFException.JUMPF_DESTINATION_INCOMPATIBLE_OUTPUTS,
+            id="more_stack",
         ),
-        pytest.param(1, 1, 1, EOFException.STACK_HIGHER_THAN_OUTPUTS, id="same_output"),
-        pytest.param(0, 0, 1, EOFException.STACK_HIGHER_THAN_OUTPUTS, id="more_output"),
+        pytest.param(
+            2,
+            2,
+            1,
+            EOFException.JUMPF_DESTINATION_INCOMPATIBLE_OUTPUTS,
+            id="less_output",
+        ),
+        pytest.param(
+            1, 1, 1, EOFException.STACK_HIGHER_THAN_OUTPUTS, id="same_output"
+        ),
+        pytest.param(
+            0, 0, 1, EOFException.STACK_HIGHER_THAN_OUTPUTS, id="more_output"
+        ),
     ],
 )
 def test_jumpf_diff_max_stack_height(
@@ -235,10 +268,18 @@ def test_jumpf_diff_max_stack_height(
         pytest.param(1, 0, 1, EOFException.STACK_UNDERFLOW, id="less_stack"),
         pytest.param(2, 1, 2, EOFException.STACK_UNDERFLOW, id="same_stack"),
         pytest.param(
-            3, 2, 3, EOFException.JUMPF_DESTINATION_INCOMPATIBLE_OUTPUTS, id="more_stack"
+            3,
+            2,
+            3,
+            EOFException.JUMPF_DESTINATION_INCOMPATIBLE_OUTPUTS,
+            id="more_stack",
         ),
         pytest.param(
-            2, 2, 1, EOFException.JUMPF_DESTINATION_INCOMPATIBLE_OUTPUTS, id="less_output"
+            2,
+            2,
+            1,
+            EOFException.JUMPF_DESTINATION_INCOMPATIBLE_OUTPUTS,
+            id="less_output",
         ),
         pytest.param(1, 1, 1, EOFException.STACK_UNDERFLOW, id="same_output"),
         pytest.param(0, 0, 1, EOFException.STACK_UNDERFLOW, id="more_output"),
@@ -303,7 +344,10 @@ def test_jumpf_variadic_stack_overflow(
     container = Container(
         sections=[
             Section.Code(
-                code=Op.PUSH0 + Op.RJUMPI[2](0) + Op.PUSH0 * (stack_height - 1) + Op.JUMPF[1],
+                code=Op.PUSH0
+                + Op.RJUMPI[2](0)
+                + Op.PUSH0 * (stack_height - 1)
+                + Op.JUMPF[1],
                 max_stack_height=stack_height,
             ),
             Section.Code(
@@ -355,7 +399,10 @@ def test_jumpf_with_inputs_stack_overflow_variable_stack(
     container = Container(
         sections=[
             Section.Code(
-                code=Op.PUSH0 + Op.RJUMPI[2](0) + Op.PUSH0 * (stack_height - 1) + Op.JUMPF[1],
+                code=Op.PUSH0
+                + Op.RJUMPI[2](0)
+                + Op.PUSH0 * (stack_height - 1)
+                + Op.JUMPF[1],
                 max_stack_height=stack_height,
             ),
             Section.Code(

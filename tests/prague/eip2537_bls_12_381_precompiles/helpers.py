@@ -80,7 +80,10 @@ def vectors_from_file(filename: str) -> List:
         ),
         "rb",
     ) as f:
-        return [v.to_pytest_param() for v in VectorListAdapter.validate_json(f.read()).root]
+        return [
+            v.to_pytest_param()
+            for v in VectorListAdapter.validate_json(f.read()).root
+        ]
 
 
 def add_points_g1(point_a: PointG1, point_b: PointG1) -> PointG1:
@@ -270,7 +273,9 @@ class BLSPointGenerator:
 
     @classmethod
     @memory.cache
-    def find_g1_point_by_x(cls, x_value: int, in_subgroup: bool, on_curve: bool = True) -> PointG1:
+    def find_g1_point_by_x(
+        cls, x_value: int, in_subgroup: bool, on_curve: bool = True
+    ) -> PointG1:
         """
         Find a G1 point with x-coordinate at or near the given value, with the
         specified subgroup membership and curve membership.
@@ -306,16 +311,24 @@ class BLSPointGenerator:
                     # multiplication
                     if not on_curve and in_subgroup:
                         try:
-                            subgroup_point = cls.multiply_by_cofactor(raw_point, is_g2=False)
-                            point1 = PointG1(subgroup_point[0], subgroup_point[1])
+                            subgroup_point = cls.multiply_by_cofactor(
+                                raw_point, is_g2=False
+                            )
+                            point1 = PointG1(
+                                subgroup_point[0], subgroup_point[1]
+                            )
                         except ValueError:
                             continue  # Skip if fails
                     else:
                         point1 = PointG1(int(x), int(y))
                     if not on_curve and in_subgroup:
                         try:
-                            subgroup_point2 = cls.multiply_by_cofactor(raw_point2, is_g2=False)
-                            point2 = PointG1(subgroup_point2[0], subgroup_point2[1])
+                            subgroup_point2 = cls.multiply_by_cofactor(
+                                raw_point2, is_g2=False
+                            )
+                            point2 = PointG1(
+                                subgroup_point2[0], subgroup_point2[1]
+                            )
                         except ValueError:
                             continue  # Skip if fails
                     else:
@@ -328,9 +341,15 @@ class BLSPointGenerator:
                     point2_in_subgroup = cls.check_in_g1_subgroup(point2)
 
                     # Return required point if found based on properties
-                    if on_curve == point1_on_curve and in_subgroup == point1_in_subgroup:
+                    if (
+                        on_curve == point1_on_curve
+                        and in_subgroup == point1_in_subgroup
+                    ):
                         return point1
-                    if on_curve == point2_on_curve and in_subgroup == point2_in_subgroup:
+                    if (
+                        on_curve == point2_on_curve
+                        and in_subgroup == point2_in_subgroup
+                    ):
                         return point2
 
                 except Exception:
@@ -391,8 +410,12 @@ class BLSPointGenerator:
                     # multiplication
                     if not on_curve and in_subgroup:
                         try:
-                            subgroup_point = cls.multiply_by_cofactor(raw_point, is_g2=True)
-                            point1 = PointG2(subgroup_point[0], subgroup_point[1])
+                            subgroup_point = cls.multiply_by_cofactor(
+                                raw_point, is_g2=True
+                            )
+                            point1 = PointG2(
+                                subgroup_point[0], subgroup_point[1]
+                            )
                         except ValueError:
                             continue  # Skip if fails
                     else:
@@ -402,14 +425,21 @@ class BLSPointGenerator:
                         )
                     if not on_curve and in_subgroup:
                         try:
-                            subgroup_point2 = cls.multiply_by_cofactor(raw_point2, is_g2=True)
-                            point2 = PointG2(subgroup_point2[0], subgroup_point2[1])
+                            subgroup_point2 = cls.multiply_by_cofactor(
+                                raw_point2, is_g2=True
+                            )
+                            point2 = PointG2(
+                                subgroup_point2[0], subgroup_point2[1]
+                            )
                         except ValueError:
                             continue  # Skip if fails
                     else:
                         point2 = PointG2(
                             (int(x.coeffs[0]), int(x.coeffs[1])),
-                            (Spec.P - int(y.coeffs[0]), Spec.P - int(y.coeffs[1])),
+                            (
+                                Spec.P - int(y.coeffs[0]),
+                                Spec.P - int(y.coeffs[1]),
+                            ),
                         )
 
                     # Verify points have the required properties
@@ -419,9 +449,15 @@ class BLSPointGenerator:
                     point2_in_subgroup = cls.check_in_g2_subgroup(point2)
 
                     # Return required point if found based on properties
-                    if on_curve == point1_on_curve and in_subgroup == point1_in_subgroup:
+                    if (
+                        on_curve == point1_on_curve
+                        and in_subgroup == point1_in_subgroup
+                    ):
                         return point1
-                    if on_curve == point2_on_curve and in_subgroup == point2_in_subgroup:
+                    if (
+                        on_curve == point2_on_curve
+                        and in_subgroup == point2_in_subgroup
+                    ):
                         return point2
 
                 except Exception:
@@ -450,7 +486,9 @@ class BLSPointGenerator:
         G1 point that is NOT in the r-order subgroup with x-coordinate by/on
         the given value.
         """
-        return cls.find_g1_point_by_x(x_value, in_subgroup=False, on_curve=True)
+        return cls.find_g1_point_by_x(
+            x_value, in_subgroup=False, on_curve=True
+        )
 
     @classmethod
     def generate_g1_point_not_on_curve_by_x(cls, x_value: int) -> PointG1:
@@ -458,10 +496,14 @@ class BLSPointGenerator:
         G1 point that is NOT on the curve with x-coordinate by/on the given
         value.
         """
-        return cls.find_g1_point_by_x(x_value, in_subgroup=False, on_curve=False)
+        return cls.find_g1_point_by_x(
+            x_value, in_subgroup=False, on_curve=False
+        )
 
     @classmethod
-    def generate_g1_point_on_isomorphic_curve_by_x(cls, x_value: int) -> PointG1:
+    def generate_g1_point_on_isomorphic_curve_by_x(
+        cls, x_value: int
+    ) -> PointG1:
         """
         G1 point that is on an isomorphic curve (not standard curve) but in the
         r-order subgroup with x-coordinate by/on the given value.
@@ -469,7 +511,9 @@ class BLSPointGenerator:
         Uses cofactor multiplication to ensure the point is in the correct
         subgroup.
         """
-        return cls.find_g1_point_by_x(x_value, in_subgroup=True, on_curve=False)
+        return cls.find_g1_point_by_x(
+            x_value, in_subgroup=True, on_curve=False
+        )
 
     # G1 random points required to be generated with a seed
     @classmethod
@@ -497,7 +541,9 @@ class BLSPointGenerator:
         return cls.generate_g1_point_not_on_curve_by_x(x_value)
 
     @classmethod
-    def generate_random_g1_point_on_isomorphic_curve(cls, seed: int) -> PointG1:
+    def generate_random_g1_point_on_isomorphic_curve(
+        cls, seed: int
+    ) -> PointG1:
         """
         Generate a random G1 point that is on an isomorphic curve (not standard
         curve) but in the r-order subgroup.
@@ -506,7 +552,9 @@ class BLSPointGenerator:
         subgroup.
         """
         seed_bytes = seed.to_bytes(32, "big")
-        hash_output = hashlib.sha384(seed_bytes + b"on_isomorphic_curve").digest()
+        hash_output = hashlib.sha384(
+            seed_bytes + b"on_isomorphic_curve"
+        ).digest()
         x_value = int.from_bytes(hash_output, "big") % Spec.P
         return cls.generate_g1_point_on_isomorphic_curve_by_x(x_value)
 
@@ -525,7 +573,9 @@ class BLSPointGenerator:
         G2 point that is NOT in the r-order subgroup with x-coordinate by/on
         the given value.
         """
-        return cls.find_g2_point_by_x(x_value, in_subgroup=False, on_curve=True)
+        return cls.find_g2_point_by_x(
+            x_value, in_subgroup=False, on_curve=True
+        )
 
     @classmethod
     def generate_g2_point_not_on_curve_by_x(cls, x_value: tuple) -> PointG2:
@@ -533,10 +583,14 @@ class BLSPointGenerator:
         G2 point that is NOT on the curve with x-coordinate by/on the given
         value.
         """
-        return cls.find_g2_point_by_x(x_value, in_subgroup=False, on_curve=False)
+        return cls.find_g2_point_by_x(
+            x_value, in_subgroup=False, on_curve=False
+        )
 
     @classmethod
-    def generate_g2_point_on_isomorphic_curve_by_x(cls, x_value: tuple) -> PointG2:
+    def generate_g2_point_on_isomorphic_curve_by_x(
+        cls, x_value: tuple
+    ) -> PointG2:
         """
         G2 point that is on an isomorphic curve (not standard curve) but in the
         r-order subgroup with x-coordinate near the given value.
@@ -544,7 +598,9 @@ class BLSPointGenerator:
         Uses cofactor multiplication to ensure the point is in the correct
         subgroup.
         """
-        return cls.find_g2_point_by_x(x_value, in_subgroup=True, on_curve=False)
+        return cls.find_g2_point_by_x(
+            x_value, in_subgroup=True, on_curve=False
+        )
 
     # G2 random points required to be generated with a seed
     @classmethod
@@ -562,7 +618,9 @@ class BLSPointGenerator:
     def generate_random_g2_point_not_in_subgroup(cls, seed: int) -> PointG2:
         """Generate a random G2 point that is NOT in the r-order subgroup."""
         seed_bytes = seed.to_bytes(32, "big")
-        hash_output = hashlib.sha384(seed_bytes + b"g2_not_in_subgroup").digest()
+        hash_output = hashlib.sha384(
+            seed_bytes + b"g2_not_in_subgroup"
+        ).digest()
         hash_len = len(hash_output)
         half_len = hash_len // 2
         x0 = int.from_bytes(hash_output[:half_len], "big") % Spec.P
@@ -581,14 +639,18 @@ class BLSPointGenerator:
         return cls.generate_g2_point_not_on_curve_by_x((x0, x1))
 
     @classmethod
-    def generate_random_g2_point_on_isomorphic_curve(cls, seed: int) -> PointG2:
+    def generate_random_g2_point_on_isomorphic_curve(
+        cls, seed: int
+    ) -> PointG2:
         """
         Generate a random G2 point that is on an isomorphic curve (not standard
         curve) but in the r-order subgroup. Uses cofactor multiplication to
         ensure the point is in the correct subgroup.
         """
         seed_bytes = seed.to_bytes(32, "big")
-        hash_output = hashlib.sha384(seed_bytes + b"g2_on_isomorphic_curve").digest()
+        hash_output = hashlib.sha384(
+            seed_bytes + b"g2_on_isomorphic_curve"
+        ).digest()
         hash_len = len(hash_output)
         half_len = hash_len // 2
         x0 = int.from_bytes(hash_output[:half_len], "big") % Spec.P

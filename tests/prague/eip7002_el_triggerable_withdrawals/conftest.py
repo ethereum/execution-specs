@@ -51,7 +51,9 @@ def included_requests(
         per_block_included_requests.append(
             pending_requests[: Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK]
         )
-        carry_over_requests = pending_requests[Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK :]
+        carry_over_requests = pending_requests[
+            Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK :
+        ]
 
         # Update the excess withdrawal requests
         excess_withdrawal_requests = Spec.get_excess_withdrawal_requests(
@@ -63,7 +65,9 @@ def included_requests(
         per_block_included_requests.append(
             carry_over_requests[: Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK]
         )
-        carry_over_requests = carry_over_requests[Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK :]
+        carry_over_requests = carry_over_requests[
+            Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK :
+        ]
 
     return per_block_included_requests
 

@@ -40,7 +40,9 @@ class DynamicReentrancyTestCases(EnumMeta):
     (these opcodes should share the same behavior).
     """
 
-    def __new__(cls, name: str, bases: tuple[type, ...], classdict: Any) -> Any:  # noqa: D102
+    def __new__(
+        cls, name: str, bases: tuple[type, ...], classdict: Any
+    ) -> Any:  # noqa: D102
         for opcode in [Op.REVERT, Op.INVALID]:
             if opcode == Op.REVERT:
                 opcode_call = Op.REVERT(0, 0)
@@ -131,7 +133,9 @@ class DynamicReentrancyTestCases(EnumMeta):
             else:
                 raise ValueError(f"Unknown opcode: {opcode}.")
 
-            classdict[f"{opcode._name_}_UNDOES_TSTORAGE_AFTER_SUCCESSFUL_CALL"] = {
+            classdict[
+                f"{opcode._name_}_UNDOES_TSTORAGE_AFTER_SUCCESSFUL_CALL"
+            ] = {
                 "description": (
                     f"{opcode._name_} undoes transient storage writes from "
                     "inner calls that successfully returned. "
@@ -171,7 +175,10 @@ class DynamicReentrancyTestCases(EnumMeta):
                             value=2,
                             action=(
                                 Op.MSTORE(0, 3)
-                                + Op.MSTORE(0, Op.CALL(address=Op.ADDRESS, args_size=32))
+                                + Op.MSTORE(
+                                    0,
+                                    Op.CALL(address=Op.ADDRESS, args_size=32),
+                                )
                                 + opcode_call
                             ),
                         ),
@@ -183,14 +190,21 @@ class DynamicReentrancyTestCases(EnumMeta):
                         ),
                     ],
                 ),
-                "expected_storage": {0: 0x00, 1: second_call_return_value, 2: 0x100, 3: 0x100},
+                "expected_storage": {
+                    0: 0x00,
+                    1: second_call_return_value,
+                    2: 0x100,
+                    3: 0x100,
+                },
             }
 
         return super().__new__(cls, name, bases, classdict)
 
 
 @unique
-class ReentrancyTestCases(PytestParameterEnum, metaclass=DynamicReentrancyTestCases):
+class ReentrancyTestCases(
+    PytestParameterEnum, metaclass=DynamicReentrancyTestCases
+):
     """Transient storage test cases for different reentrancy call contexts."""
 
     TSTORE_IN_REENTRANT_CALL = {
@@ -206,7 +220,11 @@ class ReentrancyTestCases(PytestParameterEnum, metaclass=DynamicReentrancyTestCa
         "bytecode": Conditional(
             condition=SETUP_CONDITION,
             # setup
-            if_true=(Op.TSTORE(0, 0x100) + REENTRANT_CALL + Op.SSTORE(2, Op.TLOAD(0))),
+            if_true=(
+                Op.TSTORE(0, 0x100)
+                + REENTRANT_CALL
+                + Op.SSTORE(2, Op.TLOAD(0))
+            ),
             # reenter
             if_false=Op.SSTORE(1, Op.TLOAD(0)),
         ),
@@ -296,7 +314,10 @@ class ReentrancyTestCases(PytestParameterEnum, metaclass=DynamicReentrancyTestCa
                         Op.TSTORE(0xFE, 0x101)
                         + Op.MSTORE(0, 3)
                         + Op.SSTORE(
-                            1, Op.STATICCALL(address=Op.ADDRESS, args_size=32, ret_size=32)
+                            1,
+                            Op.STATICCALL(
+                                address=Op.ADDRESS, args_size=32, ret_size=32
+                            ),
                         )
                         + Op.SSTORE(3, Op.MLOAD(0))
                     ),
@@ -315,7 +336,10 @@ class ReentrancyTestCases(PytestParameterEnum, metaclass=DynamicReentrancyTestCa
 
 @ReentrancyTestCases.parametrize()
 def test_reentrant_call(
-    state_test: StateTestFiller, pre: Alloc, bytecode: Bytecode, expected_storage: Dict
+    state_test: StateTestFiller,
+    pre: Alloc,
+    bytecode: Bytecode,
+    expected_storage: Dict,
 ) -> None:
     """Test transient storage in different reentrancy contexts."""
     env = Environment()

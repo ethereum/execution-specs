@@ -108,7 +108,9 @@ def caller_code(caller_gas_limit: int, callee_address: Address) -> Bytecode:
       PUSH1 0x00
       SSTORE.
     """
-    return Op.SSTORE(0, Op.CALL(caller_gas_limit, callee_address, 0, 0, 0, 0, 0))
+    return Op.SSTORE(
+        0, Op.CALL(caller_gas_limit, callee_address, 0, 0, 0, 0, 0)
+    )
 
 
 @pytest.fixture
@@ -137,9 +139,13 @@ def caller_tx(sender: EOA, caller_address: Address) -> Transaction:
 
 
 @pytest.fixture
-def post(caller_address: Address, is_sufficient_gas: bool) -> Dict[Address, Account]:  # noqa: D103
+def post(
+    caller_address: Address, is_sufficient_gas: bool
+) -> Dict[Address, Account]:  # noqa: D103
     return {
-        caller_address: Account(storage={0x00: 0x01 if is_sufficient_gas else 0x00}),
+        caller_address: Account(
+            storage={0x00: 0x01 if is_sufficient_gas else 0x00}
+        ),
     }
 
 

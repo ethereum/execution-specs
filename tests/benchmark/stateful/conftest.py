@@ -18,10 +18,13 @@ def pytest_generate_tests(metafunc: Any) -> None:
 
     if state_dir in test_file_path.parents:
         has_valid_from = any(
-            marker.name == "valid_from" for marker in metafunc.definition.iter_markers()
+            marker.name == "valid_from"
+            for marker in metafunc.definition.iter_markers()
         )
         if not has_valid_from:
-            metafunc.definition.add_marker(pytest.mark.valid_from(DEFAULT_BENCHMARK_FORK))
+            metafunc.definition.add_marker(
+                pytest.mark.valid_from(DEFAULT_BENCHMARK_FORK)
+            )
 
 
 def pytest_collection_modifyitems(config: Any, items: Any) -> None:
@@ -48,7 +51,9 @@ def pytest_collection_modifyitems(config: Any, items: Any) -> None:
         has_stateful_marker = item.get_closest_marker("stateful")
 
         run_stateful = (
-            marker_expr and ("stateful" in marker_expr) and ("not stateful" not in marker_expr)
+            marker_expr
+            and ("stateful" in marker_expr)
+            and ("not stateful" not in marker_expr)
         )
 
         # When not running stateful tests, remove all stateful tests
@@ -63,5 +68,7 @@ def _add_stateful_markers_for_docs(items: Any, state_dir: Any) -> None:
     """Add stateful markers for documentation generation."""
     for item in items:
         item_path = Path(item.fspath)
-        if state_dir in item_path.parents and not item.get_closest_marker("stateful"):
+        if state_dir in item_path.parents and not item.get_closest_marker(
+            "stateful"
+        ):
             item.add_marker(pytest.mark.stateful)

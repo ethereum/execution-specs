@@ -21,7 +21,9 @@ REFERENCE_SPEC_VERSION = "1b6a0e94cc47e859b9866e570391cf37dc55059a"
 
 
 @pytest.fixture
-def selfdestruct_contract_bytecode(selfdestruct_recipient_address: Address) -> Bytecode:
+def selfdestruct_contract_bytecode(
+    selfdestruct_recipient_address: Address,
+) -> Bytecode:
     """Contract code that performs a SELFDESTRUCT operation."""
     return Op.SELFDESTRUCT(selfdestruct_recipient_address)
 
@@ -33,11 +35,14 @@ def selfdestruct_contract_init_balance() -> int:  # noqa: D103
 
 @pytest.fixture
 def selfdestruct_contract_address(
-    pre: Alloc, selfdestruct_contract_bytecode: Bytecode, selfdestruct_contract_init_balance: int
+    pre: Alloc,
+    selfdestruct_contract_bytecode: Bytecode,
+    selfdestruct_contract_init_balance: int,
 ) -> Address:
     """Address of the selfdestruct contract."""
     return pre.deploy_contract(
-        code=selfdestruct_contract_bytecode, balance=selfdestruct_contract_init_balance
+        code=selfdestruct_contract_bytecode,
+        balance=selfdestruct_contract_init_balance,
     )
 
 
@@ -118,12 +123,18 @@ def revert_contract_address(
     revert_contract_init_balance: int,
 ) -> Address:
     """Address of the revert contract."""
-    return pre.deploy_contract(revert_contract_bytecode, balance=revert_contract_init_balance)
+    return pre.deploy_contract(
+        revert_contract_bytecode, balance=revert_contract_init_balance
+    )
 
 
 @pytest.mark.valid_from("Paris")
-@pytest.mark.parametrize("first_suicide", [Op.CALL, Op.CALLCODE, Op.DELEGATECALL])
-@pytest.mark.parametrize("second_suicide", [Op.CALL, Op.CALLCODE, Op.DELEGATECALL])
+@pytest.mark.parametrize(
+    "first_suicide", [Op.CALL, Op.CALLCODE, Op.DELEGATECALL]
+)
+@pytest.mark.parametrize(
+    "second_suicide", [Op.CALL, Op.CALLCODE, Op.DELEGATECALL]
+)
 def test_reentrancy_selfdestruct_revert(
     pre: Alloc,
     env: Environment,
@@ -154,7 +165,9 @@ def test_reentrancy_selfdestruct_revert(
     """
     post = {
         # Second caller unchanged as call gets reverted
-        revert_contract_address: Account(balance=revert_contract_init_balance, storage={}),
+        revert_contract_address: Account(
+            balance=revert_contract_init_balance, storage={}
+        ),
     }
 
     if first_suicide in [Op.CALLCODE, Op.DELEGATECALL]:

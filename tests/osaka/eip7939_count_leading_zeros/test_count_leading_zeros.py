@@ -82,7 +82,10 @@ def clz_parameters() -> list:
 @pytest.mark.parametrize(
     "test_id,value,expected_clz",
     clz_parameters(),
-    ids=[f"{test_data[0]}-expected_clz_{test_data[2]}" for test_data in clz_parameters()],
+    ids=[
+        f"{test_data[0]}-expected_clz_{test_data[2]}"
+        for test_data in clz_parameters()
+    ],
 )
 def test_clz_opcode_scenarios(
     state_test: StateTestFiller,
@@ -121,7 +124,9 @@ def test_clz_opcode_scenarios(
 
 
 @pytest.mark.valid_from("Osaka")
-def test_clz_gas_cost(state_test: StateTestFiller, pre: Alloc, fork: Fork) -> None:
+def test_clz_gas_cost(
+    state_test: StateTestFiller, pre: Alloc, fork: Fork
+) -> None:
     """Test CLZ opcode gas cost."""
     contract_address = pre.deploy_contract(
         Op.SSTORE(
@@ -165,7 +170,9 @@ def test_clz_gas_cost_boundary(
     call_code = Op.SSTORE(
         0,
         Op.CALL(
-            gas=fork.gas_costs().G_VERY_LOW + Spec.CLZ_GAS_COST + gas_cost_delta,
+            gas=fork.gas_costs().G_VERY_LOW
+            + Spec.CLZ_GAS_COST
+            + gas_cost_delta,
             address=contract_address,
         ),
     )
@@ -176,7 +183,9 @@ def test_clz_gas_cost_boundary(
 
     tx = Transaction(to=call_address, sender=pre.fund_eoa(), gas_limit=200_000)
 
-    post = {call_address: Account(storage={"0x00": 0 if gas_cost_delta < 0 else 1})}
+    post = {
+        call_address: Account(storage={"0x00": 0 if gas_cost_delta < 0 else 1})
+    }
 
     state_test(pre=pre, post=post, tx=tx)
 
@@ -212,7 +221,9 @@ def test_clz_stack_underflow(state_test: StateTestFiller, pre: Alloc) -> None:
 @EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Odd()
 @EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Even()
 @pytest.mark.valid_from("Osaka")
-def test_clz_stack_not_overflow(state_test: StateTestFiller, pre: Alloc, fork: Fork) -> None:
+def test_clz_stack_not_overflow(
+    state_test: StateTestFiller, pre: Alloc, fork: Fork
+) -> None:
     """Test CLZ opcode never causes stack overflow."""
     max_stack_items = fork.max_stack_height()
 
@@ -238,7 +249,9 @@ def test_clz_stack_not_overflow(state_test: StateTestFiller, pre: Alloc, fork: F
 
 
 @pytest.mark.valid_from("Osaka")
-def test_clz_push_operation_same_value(state_test: StateTestFiller, pre: Alloc) -> None:
+def test_clz_push_operation_same_value(
+    state_test: StateTestFiller, pre: Alloc
+) -> None:
     """Test CLZ opcode returns the same value via different push operations."""
     storage = {}
 
@@ -272,7 +285,9 @@ def test_clz_push_operation_same_value(state_test: StateTestFiller, pre: Alloc) 
 @EIPChecklist.Opcode.Test.ForkTransition.Invalid()
 @EIPChecklist.Opcode.Test.ForkTransition.At()
 @pytest.mark.valid_at_transition_to("Osaka", subsequent_forks=True)
-def test_clz_fork_transition(blockchain_test: BlockchainTestFiller, pre: Alloc) -> None:
+def test_clz_fork_transition(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
     """Test CLZ opcode behavior at fork transition."""
     sender = pre.fund_eoa()
     callee_address = pre.deploy_contract(
@@ -280,7 +295,9 @@ def test_clz_fork_transition(blockchain_test: BlockchainTestFiller, pre: Alloc) 
         storage={14_999: "0xdeadbeef"},
     )
     caller_address = pre.deploy_contract(
-        code=Op.SSTORE(Op.TIMESTAMP, Op.CALL(gas=0xFFFF, address=callee_address)),
+        code=Op.SSTORE(
+            Op.TIMESTAMP, Op.CALL(gas=0xFFFF, address=callee_address)
+        ),
         storage={14_999: "0xdeadbeef"},
     )
     blocks = [
@@ -388,7 +405,9 @@ def test_clz_jump_operation(
     expected_clz = 255 - bits
 
     post = {
-        caller_address: Account(storage={"0x00": 1 if valid_jump or not jumpi_condition else 0}),
+        caller_address: Account(
+            storage={"0x00": 1 if valid_jump or not jumpi_condition else 0}
+        ),
     }
 
     if valid_jump or not jumpi_condition:
@@ -413,7 +432,9 @@ def test_clz_from_set_code(
     set_code = Bytecode()
     for bits in [0, 1, 128, 255]:
         expected_clz = 255 - bits
-        set_code += Op.SSTORE(storage.store_next(expected_clz), Op.CLZ(1 << bits))
+        set_code += Op.SSTORE(
+            storage.store_next(expected_clz), Op.CLZ(1 << bits)
+        )
     set_code += Op.STOP
 
     set_code_to_address = pre.deploy_contract(set_code)
@@ -466,12 +487,17 @@ def test_clz_code_copy_operation(
     clz_contract_address = pre.deploy_contract(
         code=(
             Op.CLZ(1 << bits)  # Calculate CLZ of the value
-            + Op.SSTORE(storage.store_next(expected_value), Op.CLZ(1 << bits))  # Store CLZ result
+            + Op.SSTORE(
+                storage.store_next(expected_value), Op.CLZ(1 << bits)
+            )  # Store CLZ result
             + (  # Load CLZ byte from code with CODECOPY or EXTCODECOPY
                 Op.CODECOPY(dest_offset=0, offset=clz_code_offset, size=1)
                 if opcode == Op.CODECOPY
                 else Op.EXTCODECOPY(
-                    address=target_address, dest_offset=0, offset=clz_code_offset, size=1
+                    address=target_address,
+                    dest_offset=0,
+                    offset=clz_code_offset,
+                    size=1,
                 )
             )
             # Store loaded CLZ byte
@@ -525,21 +551,30 @@ def test_clz_with_memory_operation(
     clz_contract_address = pre.deploy_contract(
         code=(
             target_code
-            + Op.SSTORE(storage.store_next(expected_value), Op.CLZ(1 << bits))  # Store CLZ result
+            + Op.SSTORE(
+                storage.store_next(expected_value), Op.CLZ(1 << bits)
+            )  # Store CLZ result
             + (
                 Op.CODECOPY(dest_offset=0, offset=offset, size=0x20)
                 if opcode == Op.CODECOPY
                 else Op.EXTCODECOPY(
-                    address=target_address, dest_offset=0, offset=offset, size=0x20
+                    address=target_address,
+                    dest_offset=0,
+                    offset=offset,
+                    size=0x20,
                 )
             )
-            + Op.SSTORE(storage.store_next(expected_value), Op.CLZ(Op.MLOAD(0)))
+            + Op.SSTORE(
+                storage.store_next(expected_value), Op.CLZ(Op.MLOAD(0))
+            )
         ),
         storage={"0x00": "0xdeadbeef"},
     )
 
     post = {
-        clz_contract_address: Account(storage={"0x00": expected_value, "0x01": expected_value}),
+        clz_contract_address: Account(
+            storage={"0x00": expected_value, "0x01": expected_value}
+        ),
     }
 
     tx = Transaction(
@@ -584,7 +619,9 @@ def test_clz_initcode_context(state_test: StateTestFiller, pre: Alloc) -> None:
 @EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior.Opcode()
 @pytest.mark.valid_from("Osaka")
 @pytest.mark.parametrize("opcode", [Op.CREATE, Op.CREATE2])
-def test_clz_initcode_create(state_test: StateTestFiller, pre: Alloc, opcode: Op) -> None:
+def test_clz_initcode_create(
+    state_test: StateTestFiller, pre: Alloc, opcode: Op
+) -> None:
     """Test CLZ opcode behavior when creating a contract."""
     bits = [0, 1, 64, 128, 255]  # expected values: [255, 254, 191, 127, 0]
 
@@ -605,7 +642,10 @@ def test_clz_initcode_create(state_test: StateTestFiller, pre: Alloc, opcode: Op
     factory_contract_address = pre.deploy_contract(code=create_contract)
 
     created_contract_address = compute_create_address(
-        address=factory_contract_address, nonce=1, initcode=ext_code, opcode=opcode
+        address=factory_contract_address,
+        nonce=1,
+        initcode=ext_code,
+        opcode=opcode,
     )
 
     tx = Transaction(
@@ -641,13 +681,22 @@ class CallingContext:
     "opcode,context",
     [
         pytest.param(Op.CALL, CallingContext.callee_context, id="call"),
-        pytest.param(Op.DELEGATECALL, CallingContext.caller_context, id="delegatecall"),
-        pytest.param(Op.CALLCODE, CallingContext.caller_context, id="callcode"),
-        pytest.param(Op.STATICCALL, CallingContext.no_context, id="staticcall"),
+        pytest.param(
+            Op.DELEGATECALL, CallingContext.caller_context, id="delegatecall"
+        ),
+        pytest.param(
+            Op.CALLCODE, CallingContext.caller_context, id="callcode"
+        ),
+        pytest.param(
+            Op.STATICCALL, CallingContext.no_context, id="staticcall"
+        ),
     ],
 )
 def test_clz_call_operation(
-    state_test: StateTestFiller, pre: Alloc, opcode: Op, context: CallingContext
+    state_test: StateTestFiller,
+    pre: Alloc,
+    opcode: Op,
+    context: CallingContext,
 ) -> None:
     """Test CLZ opcode with call operation."""
     test_cases = [0, 64, 255]
@@ -663,7 +712,9 @@ def test_clz_call_operation(
 
     if context != CallingContext.no_context:
         for bits in test_cases:
-            callee_code += Op.SSTORE(callee_storage.store_next(255 - bits), Op.CLZ(1 << bits))
+            callee_code += Op.SSTORE(
+                callee_storage.store_next(255 - bits), Op.CLZ(1 << bits)
+            )
 
     for i in range(len(test_cases)):
         callee_code += Op.PUSH32(i * 0x20) + Op.MSTORE
@@ -673,11 +724,16 @@ def test_clz_call_operation(
     callee_address = pre.deploy_contract(code=callee_code)
 
     caller_code = opcode(
-        gas=0xFFFF, address=callee_address, ret_offset=0, ret_size=len(test_cases) * 0x20
+        gas=0xFFFF,
+        address=callee_address,
+        ret_offset=0,
+        ret_size=len(test_cases) * 0x20,
     )
 
     for i, bits in enumerate(test_cases):
-        caller_code += Op.SSTORE(caller_storage.store_next(255 - bits), Op.MLOAD(i * 0x20))
+        caller_code += Op.SSTORE(
+            caller_storage.store_next(255 - bits), Op.MLOAD(i * 0x20)
+        )
 
     caller_address = pre.deploy_contract(code=caller_code)
 

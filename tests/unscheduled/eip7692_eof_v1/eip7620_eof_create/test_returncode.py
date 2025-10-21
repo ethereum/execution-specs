@@ -37,7 +37,11 @@ def test_returncode_valid_index_0(
                 Section.Code(
                     code=Op.RETURNCODE[0](0, 0),
                 ),
-                Section.Container(container=Container(sections=[Section.Code(code=Op.INVALID)])),
+                Section.Container(
+                    container=Container(
+                        sections=[Section.Code(code=Op.INVALID)]
+                    )
+                ),
             ],
         ),
     )
@@ -52,11 +56,21 @@ def test_returncode_valid_index_1(
         container=Container(
             sections=[
                 Section.Code(
-                    code=Op.RJUMPI[6](0) + Op.RETURNCODE[0](0, 0) + Op.RETURNCODE[1](0, 0),
+                    code=Op.RJUMPI[6](0)
+                    + Op.RETURNCODE[0](0, 0)
+                    + Op.RETURNCODE[1](0, 0),
                     max_stack_height=2,
                 ),
-                Section.Container(container=Container(sections=[Section.Code(code=Op.INVALID)])),
-                Section.Container(container=Container(sections=[Section.Code(code=Op.INVALID)])),
+                Section.Container(
+                    container=Container(
+                        sections=[Section.Code(code=Op.INVALID)]
+                    )
+                ),
+                Section.Container(
+                    container=Container(
+                        sections=[Section.Code(code=Op.INVALID)]
+                    )
+                ),
             ],
         ),
     )
@@ -71,12 +85,21 @@ def test_returncode_valid_index_255(
         container=Container(
             sections=[
                 Section.Code(
-                    sum((Op.RJUMPI[6](0) + Op.RETURNCODE[i](0, 0)) for i in range(256))
+                    sum(
+                        (Op.RJUMPI[6](0) + Op.RETURNCODE[i](0, 0))
+                        for i in range(256)
+                    )
                     + Op.REVERT(0, 0),
                     max_stack_height=2,
                 )
             ]
-            + [Section.Container(container=Container(sections=[Section.Code(code=Op.INVALID)]))]
+            + [
+                Section.Container(
+                    container=Container(
+                        sections=[Section.Code(code=Op.INVALID)]
+                    )
+                )
+            ]
             * 256
         ),
     )
@@ -127,7 +150,11 @@ def test_returncode_invalid_index_1(
                 Section.Code(
                     code=Op.RETURNCODE[1](0, 0),
                 ),
-                Section.Container(container=Container(sections=[Section.Code(code=Op.INVALID)])),
+                Section.Container(
+                    container=Container(
+                        sections=[Section.Code(code=Op.INVALID)]
+                    )
+                ),
             ],
         ),
         expect_exception=EOFException.INVALID_CONTAINER_SECTION_INDEX,
@@ -145,7 +172,11 @@ def test_returncode_invalid_index_255(
                 Section.Code(
                     code=Op.RETURNCODE[255](0, 0),
                 ),
-                Section.Container(container=Container(sections=[Section.Code(code=Op.INVALID)])),
+                Section.Container(
+                    container=Container(
+                        sections=[Section.Code(code=Op.INVALID)]
+                    )
+                ),
             ],
         ),
         expect_exception=EOFException.INVALID_CONTAINER_SECTION_INDEX,
@@ -163,7 +194,11 @@ def test_returncode_terminating(
                 Section.Code(
                     code=Op.RETURNCODE[0](0, 0) + Op.REVERT(0, 0),
                 ),
-                Section.Container(container=Container(sections=[Section.Code(code=Op.INVALID)])),
+                Section.Container(
+                    container=Container(
+                        sections=[Section.Code(code=Op.INVALID)]
+                    )
+                ),
             ],
         ),
         expect_exception=EOFException.UNREACHABLE_INSTRUCTIONS,
@@ -242,7 +277,10 @@ def test_returncode_memory_expansion(
         code=Container(
             sections=[
                 Section.Code(
-                    code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0)) + Op.STOP,
+                    code=Op.SSTORE(
+                        slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0)
+                    )
+                    + Op.STOP,
                 ),
                 Section.Container(container=mem_size_initcode_container),
             ],
@@ -255,7 +293,9 @@ def test_returncode_memory_expansion(
     post = {
         contract_address: Account(
             storage={
-                slot_create_address: compute_eofcreate_address(contract_address, 0)
+                slot_create_address: compute_eofcreate_address(
+                    contract_address, 0
+                )
                 if success and eof_size_acceptable
                 else 0,
             }

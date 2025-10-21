@@ -80,10 +80,15 @@ def test_address_space_extension(
     ase_address = len(target_address) > 20
     stripped_address = Address(target_address[-20:], left_padding=True)
     if ase_address and target_address[0] == b"00":
-        raise ValueError("Test instrumentation requires target addresses trim leading zeros")
+        raise ValueError(
+            "Test instrumentation requires target addresses trim leading zeros"
+        )
 
     ase_ready_opcode = (
-        False if target_opcode in [Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL] else True
+        False
+        if target_opcode
+        in [Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL]
+        else True
     )
 
     sender = pre.fund_eoa()
@@ -159,23 +164,33 @@ def test_address_space_extension(
     match target_account_type:
         case "empty" | "EOA":
             if ase_address and ase_ready_opcode:
-                caller_storage[slot_target_call_status] = value_exceptional_abort_canary
-                caller_storage[slot_target_returndata] = value_exceptional_abort_canary
+                caller_storage[slot_target_call_status] = (
+                    value_exceptional_abort_canary
+                )
+                caller_storage[slot_target_returndata] = (
+                    value_exceptional_abort_canary
+                )
             elif target_opcode == Op.EXTDELEGATECALL:
                 caller_storage[slot_target_call_status] = EXTCALL_REVERT
                 caller_storage[slot_target_returndata] = 0
             else:
                 caller_storage[slot_target_call_status] = (
-                    EXTCALL_SUCCESS if ase_ready_opcode else LEGACY_CALL_SUCCESS
+                    EXTCALL_SUCCESS
+                    if ase_ready_opcode
+                    else LEGACY_CALL_SUCCESS
                 )
         case "LegacyContract" | "EOFContract":
             match target_opcode:
                 case Op.CALL | Op.STATICCALL:
-                    caller_storage[slot_target_call_status] = LEGACY_CALL_SUCCESS
+                    caller_storage[slot_target_call_status] = (
+                        LEGACY_CALL_SUCCESS
+                    )
                     # CALL and STATICCALL call will call the stripped address
                     caller_storage[slot_target_returndata] = stripped_address
                 case Op.CALLCODE | Op.DELEGATECALL:
-                    caller_storage[slot_target_call_status] = LEGACY_CALL_SUCCESS
+                    caller_storage[slot_target_call_status] = (
+                        LEGACY_CALL_SUCCESS
+                    )
                     # CALLCODE and DELEGATECALL call will call the stripped
                     # address but will change the sender to self
                     caller_storage[slot_target_returndata] = address_caller
@@ -183,20 +198,36 @@ def test_address_space_extension(
                     # EXTCALL and EXTSTATICCALL will fault if calling an ASE
                     # address
                     if ase_address:
-                        caller_storage[slot_target_call_status] = value_exceptional_abort_canary
-                        caller_storage[slot_target_returndata] = value_exceptional_abort_canary
+                        caller_storage[slot_target_call_status] = (
+                            value_exceptional_abort_canary
+                        )
+                        caller_storage[slot_target_returndata] = (
+                            value_exceptional_abort_canary
+                        )
                     else:
-                        caller_storage[slot_target_call_status] = EXTCALL_SUCCESS
-                        caller_storage[slot_target_returndata] = stripped_address
+                        caller_storage[slot_target_call_status] = (
+                            EXTCALL_SUCCESS
+                        )
+                        caller_storage[slot_target_returndata] = (
+                            stripped_address
+                        )
                 case Op.EXTDELEGATECALL:
                     if ase_address:
-                        caller_storage[slot_target_call_status] = value_exceptional_abort_canary
-                        caller_storage[slot_target_returndata] = value_exceptional_abort_canary
+                        caller_storage[slot_target_call_status] = (
+                            value_exceptional_abort_canary
+                        )
+                        caller_storage[slot_target_returndata] = (
+                            value_exceptional_abort_canary
+                        )
                     elif target_account_type == "LegacyContract":
-                        caller_storage[slot_target_call_status] = EXTCALL_REVERT
+                        caller_storage[slot_target_call_status] = (
+                            EXTCALL_REVERT
+                        )
                         caller_storage[slot_target_returndata] = 0
                     else:
-                        caller_storage[slot_target_call_status] = EXTCALL_SUCCESS
+                        caller_storage[slot_target_call_status] = (
+                            EXTCALL_SUCCESS
+                        )
                         # EXTDELEGATECALL call will call the stripped address
                         # but will change the sender to self
                         caller_storage[slot_target_returndata] = address_caller

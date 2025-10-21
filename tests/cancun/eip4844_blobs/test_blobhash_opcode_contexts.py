@@ -54,15 +54,24 @@ class BlobhashContext(Enum):
         match self:
             case BlobhashContext.BLOBHASH_SSTORE:
                 return (
-                    sum(Op.SSTORE(index, Op.BLOBHASH(index=index)) for index in indexes) + Op.STOP
+                    sum(
+                        Op.SSTORE(index, Op.BLOBHASH(index=index))
+                        for index in indexes
+                    )
+                    + Op.STOP
                 )
             case BlobhashContext.BLOBHASH_RETURN:
                 return Op.MSTORE(
-                    offset=0, value=Op.BLOBHASH(index=Op.CALLDATALOAD(offset=0))
+                    offset=0,
+                    value=Op.BLOBHASH(index=Op.CALLDATALOAD(offset=0)),
                 ) + Op.RETURN(offset=0, size=32)
             case BlobhashContext.INITCODE:
                 return (
-                    sum(Op.SSTORE(index, Op.BLOBHASH(index=index)) for index in indexes) + Op.STOP
+                    sum(
+                        Op.SSTORE(index, Op.BLOBHASH(index=index))
+                        for index in indexes
+                    )
+                    + Op.STOP
                 )
             case _:
                 raise ValueError(f"Invalid context: {self}")
@@ -82,16 +91,29 @@ class BlobhashContext(Enum):
 
         """
         match self:
-            case BlobhashContext.BLOBHASH_SSTORE | BlobhashContext.BLOBHASH_RETURN:
+            case (
+                BlobhashContext.BLOBHASH_SSTORE
+                | BlobhashContext.BLOBHASH_RETURN
+            ):
                 return pre.deploy_contract(self.code(indexes=indexes))
-            case BlobhashContext.CALL | BlobhashContext.CALLCODE | BlobhashContext.STATICCALL:
-                blobhash_return_address = BlobhashContext.BLOBHASH_RETURN.deploy_contract(
-                    pre=pre, indexes=indexes
+            case (
+                BlobhashContext.CALL
+                | BlobhashContext.CALLCODE
+                | BlobhashContext.STATICCALL
+            ):
+                blobhash_return_address = (
+                    BlobhashContext.BLOBHASH_RETURN.deploy_contract(
+                        pre=pre, indexes=indexes
+                    )
                 )
                 call_opcode = (
                     Op.CALL
                     if self == BlobhashContext.CALL
-                    else (Op.CALLCODE if self == BlobhashContext.CALLCODE else Op.STATICCALL)
+                    else (
+                        Op.CALLCODE
+                        if self == BlobhashContext.CALLCODE
+                        else Op.STATICCALL
+                    )
                 )
                 bytecode = (
                     sum(
@@ -117,18 +139,27 @@ class BlobhashContext(Enum):
                 )
                 bytecode = Op.POP(
                     Op.DELEGATECALL(
-                        address=blobhash_sstore_address, args_offset=0, args_size=Op.CALLDATASIZE()
+                        address=blobhash_sstore_address,
+                        args_offset=0,
+                        args_size=Op.CALLDATASIZE(),
                     )
                 )
                 return pre.deploy_contract(bytecode)
             case BlobhashContext.CREATE | BlobhashContext.CREATE2:
                 initcode = BlobhashContext.INITCODE.code(indexes=indexes)
                 initcode_address = pre.deploy_contract(initcode)
-                create_opcode = Op.CREATE if self == BlobhashContext.CREATE else Op.CREATE2
+                create_opcode = (
+                    Op.CREATE if self == BlobhashContext.CREATE else Op.CREATE2
+                )
                 create_bytecode = Op.EXTCODECOPY(
-                    address=initcode_address, dest_offset=0, offset=0, size=len(initcode)
+                    address=initcode_address,
+                    dest_offset=0,
+                    offset=0,
+                    size=len(initcode),
                 ) + Op.POP(
-                    create_opcode(value=0, offset=0, size=len(initcode), salt=0)
+                    create_opcode(
+                        value=0, offset=0, size=len(initcode), salt=0
+                    )
                     if create_opcode == Op.CREATE2
                     else create_opcode(value=0, offset=0, size=len(initcode))
                 )
@@ -190,8 +221,10 @@ def test_blobhash_opcode_contexts(
 
     match test_case:
         case "on_top_level_call_stack":
-            blobhash_sstore_address = BlobhashContext.BLOBHASH_SSTORE.deploy_contract(
-                pre=pre, indexes=range(max_blobs_per_tx + 1)
+            blobhash_sstore_address = (
+                BlobhashContext.BLOBHASH_SSTORE.deploy_contract(
+                    pre=pre, indexes=range(max_blobs_per_tx + 1)
+                )
             )
             tx_to = blobhash_sstore_address
             post = {
@@ -206,8 +239,10 @@ def test_blobhash_opcode_contexts(
                 ),
             }
         case "on_max_value":
-            blobhash_sstore_address = BlobhashContext.BLOBHASH_SSTORE.deploy_contract(
-                pre=pre, indexes=[2**256 - 1]
+            blobhash_sstore_address = (
+                BlobhashContext.BLOBHASH_SSTORE.deploy_contract(
+                    pre=pre, indexes=[2**256 - 1]
+                )
             )
             tx_to = blobhash_sstore_address
             post = {
@@ -256,14 +291,20 @@ def test_blobhash_opcode_contexts(
                 address=factory_address,
                 nonce=1,  # the create contract will have nonce 1 for its first create
                 salt=0,
-                initcode=BlobhashContext.INITCODE.code(indexes=range(max_blobs_per_tx + 1)),
+                initcode=BlobhashContext.INITCODE.code(
+                    indexes=range(max_blobs_per_tx + 1)
+                ),
                 opcode=opcode,
             )
             tx_to = factory_address
             post = {
                 created_contract_address: Account(
                     storage=dict(
-                        zip(range(len(simple_blob_hashes)), simple_blob_hashes, strict=False)
+                        zip(
+                            range(len(simple_blob_hashes)),
+                            simple_blob_hashes,
+                            strict=False,
+                        )
                     )
                 ),
             }
@@ -302,7 +343,9 @@ def test_blobhash_opcode_contexts_tx_types(
     - `BLOBHASH` opcode on `CREATE` and `CREATE2`.
     - `BLOBHASH` opcode on transaction types 0, 1 and 2.
     """
-    blobhash_sstore_address = BlobhashContext.BLOBHASH_SSTORE.deploy_contract(pre=pre, indexes=[0])
+    blobhash_sstore_address = BlobhashContext.BLOBHASH_SSTORE.deploy_contract(
+        pre=pre, indexes=[0]
+    )
     tx_kwargs = {
         "ty": tx_type,
         "to": blobhash_sstore_address,

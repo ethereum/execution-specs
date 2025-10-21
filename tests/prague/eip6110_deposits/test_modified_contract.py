@@ -28,10 +28,18 @@ pytestmark = [
 REFERENCE_SPEC_GIT_PATH = ref_spec_6110.git_path
 REFERENCE_SPEC_VERSION = ref_spec_6110.version
 
-EVENT_ARGUMENTS_NAMES = ["pubkey", "withdrawal_credentials", "amount", "signature", "index"]
+EVENT_ARGUMENTS_NAMES = [
+    "pubkey",
+    "withdrawal_credentials",
+    "amount",
+    "signature",
+    "index",
+]
 EVENT_ARGUMENTS_LAYOUT_TYPE = ["size", "offset"]
 EVENT_ARGUMENTS = [
-    f"{name}_{layout}" for name in EVENT_ARGUMENTS_NAMES for layout in EVENT_ARGUMENTS_LAYOUT_TYPE
+    f"{name}_{layout}"
+    for name in EVENT_ARGUMENTS_NAMES
+    for layout in EVENT_ARGUMENTS_LAYOUT_TYPE
 ]
 EVENT_ARGUMENT_VALUES = ["zero", "max_uint256"]
 
@@ -45,15 +53,21 @@ DEFAULT_DEPOSIT_REQUEST = DepositRequest(
 )
 DEFAULT_DEPOSIT_REQUEST_LOG_DATA_DICT = {
     "pubkey_data": bytes(DEFAULT_DEPOSIT_REQUEST.pubkey),
-    "withdrawal_credentials_data": bytes(DEFAULT_DEPOSIT_REQUEST.withdrawal_credentials),
+    "withdrawal_credentials_data": bytes(
+        DEFAULT_DEPOSIT_REQUEST.withdrawal_credentials
+    ),
     # Note: after converting to bytes, it is converted to little-endian by
     # `[::-1]` (This happens on-chain also, but this is done by the solidity
     # contract)
-    "amount_data": bytes.fromhex("0" + DEFAULT_DEPOSIT_REQUEST.amount.hex()[2:])[::-1],
+    "amount_data": bytes.fromhex(
+        "0" + DEFAULT_DEPOSIT_REQUEST.amount.hex()[2:]
+    )[::-1],
     "signature_data": bytes(DEFAULT_DEPOSIT_REQUEST.signature),
     "index_data": bytes(DEFAULT_DEPOSIT_REQUEST.index),
 }
-DEFAULT_REQUEST_LOG = create_deposit_log_bytes(**DEFAULT_DEPOSIT_REQUEST_LOG_DATA_DICT)  # type: ignore
+DEFAULT_REQUEST_LOG = create_deposit_log_bytes(
+    **DEFAULT_DEPOSIT_REQUEST_LOG_DATA_DICT
+)  # type: ignore
 
 
 @pytest.mark.parametrize(
@@ -179,7 +193,10 @@ def test_extra_logs(
 )
 @pytest.mark.exception_test
 def test_invalid_layout(
-    blockchain_test: BlockchainTestFiller, pre: Alloc, log_argument: str, value: str
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    log_argument: str,
+    value: str,
 ) -> None:
     """
     Test deposit contract emitting logs with invalid layouts (sizes/offsets).
@@ -229,13 +246,15 @@ def test_invalid_layout(
         pytest.param(
             True,
             marks=pytest.mark.pre_alloc_group(
-                "deposit_log_length_short", reason="Deposit contract with shortened log data"
+                "deposit_log_length_short",
+                reason="Deposit contract with shortened log data",
             ),
         ),
         pytest.param(
             False,
             marks=pytest.mark.pre_alloc_group(
-                "deposit_log_length_long", reason="Deposit contract with lengthened log data"
+                "deposit_log_length_long",
+                reason="Deposit contract with lengthened log data",
             ),
         ),
     ],
@@ -248,7 +267,11 @@ def test_invalid_log_length(
     Test deposit contract emitting logs with invalid log length (one byte more
     or less).
     """
-    changed_log = DEFAULT_REQUEST_LOG[:-1] if slice_bytes else DEFAULT_REQUEST_LOG + b"\x00"
+    changed_log = (
+        DEFAULT_REQUEST_LOG[:-1]
+        if slice_bytes
+        else DEFAULT_REQUEST_LOG + b"\x00"
+    )
 
     bytecode = Om.MSTORE(changed_log) + Op.LOG1(
         0,

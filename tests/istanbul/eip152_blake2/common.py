@@ -40,18 +40,26 @@ class Blake2bInput(TestParameterGroup):
 
     def create_blake2b_tx_data(self) -> bytes:
         """Generate input for the BLAKE2b precompile."""
-        _rounds = self.rounds.to_bytes(length=self.rounds_length, byteorder="big")
+        _rounds = self.rounds.to_bytes(
+            length=self.rounds_length, byteorder="big"
+        )
         _t_0 = (
             self.t_0
             if isinstance(self.t_0, bytes)
-            else self.t_0.to_bytes(length=Spec.BLAKE2_PRECOMPILE_T_0_LENGTH, byteorder="little")
+            else self.t_0.to_bytes(
+                length=Spec.BLAKE2_PRECOMPILE_T_0_LENGTH, byteorder="little"
+            )
         )
         _t_1 = (
             self.t_1
             if isinstance(self.t_1, bytes)
-            else self.t_1.to_bytes(length=Spec.BLAKE2_PRECOMPILE_T_1_LENGTH, byteorder="little")
+            else self.t_1.to_bytes(
+                length=Spec.BLAKE2_PRECOMPILE_T_1_LENGTH, byteorder="little"
+            )
         )
-        _f = int(self.f).to_bytes(length=Spec.BLAKE2_PRECOMPILE_F_LENGTH, byteorder="big")
+        _f = int(self.f).to_bytes(
+            length=Spec.BLAKE2_PRECOMPILE_F_LENGTH, byteorder="big"
+        )
 
         return _rounds + self.h + self.m + _t_0 + _t_1 + _f
 

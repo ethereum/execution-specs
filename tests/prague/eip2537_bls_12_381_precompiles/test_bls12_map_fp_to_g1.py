@@ -23,7 +23,9 @@ REFERENCE_SPEC_VERSION = ref_spec_2537.version
 
 pytestmark = [
     pytest.mark.valid_from("Prague"),
-    pytest.mark.parametrize("precompile_address", [Spec.MAP_FP_TO_G1], ids=[""]),
+    pytest.mark.parametrize(
+        "precompile_address", [Spec.MAP_FP_TO_G1], ids=[""]
+    ),
 ]
 
 G1_POINT_ZERO_FP = PointG1(
@@ -125,10 +127,13 @@ def test_isogeny_kernel_values(
         pytest.param(FP(2**384), id="fp_large_power_of_2"),
         pytest.param(bytes(FP(0)) + bytes([0x00]), id="fp_with_extra_byte"),
         pytest.param(bytes(FP(0))[:47], id="fp_one_byte_short"),
-        pytest.param(bytes([0xFF]) + bytes(FP(0))[1:], id="fp_invalid_first_byte"),
+        pytest.param(
+            bytes([0xFF]) + bytes(FP(0))[1:], id="fp_invalid_first_byte"
+        ),
         pytest.param(Spec.INF_G1, id="g1_inf_input"),
         pytest.param(
-            FP((Spec.P - 1) | Spec.MAX_FP_BIT_SET), id="non_zero_byte_16_boundary_violation"
+            FP((Spec.P - 1) | Spec.MAX_FP_BIT_SET),
+            id="non_zero_byte_16_boundary_violation",
         ),
     ],
 )

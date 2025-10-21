@@ -30,7 +30,9 @@ value_canary_should_not_change = 0x2019
 value_canary_to_be_overwritten = 0x2009
 value_long_value = b"abcdefghijklmnopqrstuvwxyz123456"
 
-smallest_runtime_subcontainer = Container.Code(code=Op.STOP, name="Runtime Subcontainer")
+smallest_runtime_subcontainer = Container.Code(
+    code=Op.STOP, name="Runtime Subcontainer"
+)
 
 smallest_initcode_subcontainer = Container(
     name="Initcode Subcontainer",
@@ -42,12 +44,16 @@ smallest_initcode_subcontainer = Container(
 smallest_initcode_subcontainer_gas = 2 * 3
 
 aborting_container = Container.Code(Op.INVALID, name="Aborting Container")
-reverting_container = Container.Code(Op.REVERT(0, 0), name="Reverting Container")
+reverting_container = Container.Code(
+    Op.REVERT(0, 0), name="Reverting Container"
+)
 expensively_reverting_container = Container.Code(
     Op.SHA3(0, 32) + Op.REVERT(0, 0), name="Expensively Reverting Container"
 )
 expensively_reverting_container_gas = 2 * 3 + 30 + 3 + 6 + 2 * 3
-big_runtime_subcontainer = Container.Code(Op.NOOP * 10000 + Op.STOP, name="Big Subcontainer")
+big_runtime_subcontainer = Container.Code(
+    Op.NOOP * 10000 + Op.STOP, name="Big Subcontainer"
+)
 
 bigger_initcode_subcontainer_gas = 3 + 4 + 2 * 3
 bigger_initcode_subcontainer = Container(

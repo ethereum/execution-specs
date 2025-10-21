@@ -43,7 +43,9 @@ def test_dupn_all_valid_immediates(eof_state_test: EOFStateTestFiller) -> None:
         ],
     )
 
-    post = Account(storage=dict(zip(range(0, n), reversed(values), strict=False)))
+    post = Account(
+        storage=dict(zip(range(0, n), reversed(values), strict=False))
+    )
 
     eof_state_test(
         tx_sender_funding_amount=1_000_000_000,
@@ -89,9 +91,21 @@ def test_dupn_stack_underflow(
     "dupn_operand,max_stack_height,expect_exception",
     [
         [0, MAX_STACK_INCREASE_LIMIT, EOFException.INVALID_MAX_STACK_INCREASE],
-        [0, MAX_STACK_INCREASE_LIMIT + 1, EOFException.MAX_STACK_INCREASE_ABOVE_LIMIT],
-        [2**8 - 1, MAX_STACK_INCREASE_LIMIT, EOFException.INVALID_MAX_STACK_INCREASE],
-        [2**8 - 1, MAX_STACK_INCREASE_LIMIT + 1, EOFException.MAX_STACK_INCREASE_ABOVE_LIMIT],
+        [
+            0,
+            MAX_STACK_INCREASE_LIMIT + 1,
+            EOFException.MAX_STACK_INCREASE_ABOVE_LIMIT,
+        ],
+        [
+            2**8 - 1,
+            MAX_STACK_INCREASE_LIMIT,
+            EOFException.INVALID_MAX_STACK_INCREASE,
+        ],
+        [
+            2**8 - 1,
+            MAX_STACK_INCREASE_LIMIT + 1,
+            EOFException.MAX_STACK_INCREASE_ABOVE_LIMIT,
+        ],
     ],
 )
 def test_dupn_stack_overflow(
@@ -104,7 +118,9 @@ def test_dupn_stack_overflow(
     eof_code = Container(
         sections=[
             Section.Code(
-                code=sum(Op.PUSH2[v] for v in range(0, MAX_STACK_INCREASE_LIMIT))
+                code=sum(
+                    Op.PUSH2[v] for v in range(0, MAX_STACK_INCREASE_LIMIT)
+                )
                 + Op.DUPN[dupn_operand]
                 + Op.STOP,
                 max_stack_height=max_stack_height,
@@ -118,7 +134,8 @@ def test_dupn_stack_overflow(
 
 
 @pytest.mark.parametrize(
-    "dupn_arg,stack_height", [pytest.param(5, 9, id="5_of_9"), pytest.param(12, 30, id="12_of_30")]
+    "dupn_arg,stack_height",
+    [pytest.param(5, 9, id="5_of_9"), pytest.param(12, 30, id="12_of_30")],
 )
 def test_dupn_simple(
     stack_height: int,
@@ -134,7 +151,10 @@ def test_dupn_simple(
                 Section.Code(
                     code=sum(Op.PUSH2[v] for v in range(stack_height, 0, -1))
                     + Op.DUPN[dupn_arg]
-                    + sum((Op.PUSH1(v) + Op.SSTORE) for v in range(0, stack_height + 1))
+                    + sum(
+                        (Op.PUSH1(v) + Op.SSTORE)
+                        for v in range(0, stack_height + 1)
+                    )
                     + Op.STOP,
                     max_stack_height=stack_height + 2,
                 )

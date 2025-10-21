@@ -28,19 +28,25 @@ value_create_failed = 0
 eof_opcode_blocks = [
     pytest.param(Op.PUSH0 + Op.DUPN[0], id="DUPN"),
     pytest.param(Op.PUSH0 + Op.PUSH0 + Op.SWAPN[0], id="SWAPN"),
-    pytest.param(Op.PUSH0 + Op.PUSH0 + Op.PUSH0 + Op.EXCHANGE[2, 3], id="EXCHANGE"),
+    pytest.param(
+        Op.PUSH0 + Op.PUSH0 + Op.PUSH0 + Op.EXCHANGE[2, 3], id="EXCHANGE"
+    ),
     pytest.param(Op.RJUMP[0], id="RJUMP"),
     pytest.param(Op.PUSH0 + Op.RJUMPI[0], id="RJUMPI"),
     pytest.param(Op.PUSH0 + Op.RJUMPV[0, 0], id="RJUMPI"),
     pytest.param(Op.CALLF[1], id="CALLF"),
     pytest.param(Op.RETF, id="RETF"),
     pytest.param(Op.JUMPF[0], id="JUMPF"),
-    pytest.param(Op.PUSH0 + Op.PUSH0 + Op.PUSH0 + Op.PUSH1(2) + Op.EXTCALL, id="EXTCALL"),
     pytest.param(
-        Op.PUSH0 + Op.PUSH0 + Op.PUSH0 + Op.PUSH1(2) + Op.EXTDELEGATECALL, id="EXTDELEGATECALL"
+        Op.PUSH0 + Op.PUSH0 + Op.PUSH0 + Op.PUSH1(2) + Op.EXTCALL, id="EXTCALL"
     ),
     pytest.param(
-        Op.PUSH0 + Op.PUSH0 + Op.PUSH0 + Op.PUSH1(2) + Op.EXTSTATICCALL, id="EXTSTATICCALL"
+        Op.PUSH0 + Op.PUSH0 + Op.PUSH0 + Op.PUSH1(2) + Op.EXTDELEGATECALL,
+        id="EXTDELEGATECALL",
+    ),
+    pytest.param(
+        Op.PUSH0 + Op.PUSH0 + Op.PUSH0 + Op.PUSH1(2) + Op.EXTSTATICCALL,
+        id="EXTSTATICCALL",
     ),
     pytest.param(Op.DATALOAD(0), id="DATALOAD"),
     pytest.param(Op.DATALOADN[0], id="DATALOADN"),
@@ -57,7 +63,9 @@ eof_opcode_blocks = [
     "code",
     eof_opcode_blocks,
 )
-def test_opcodes_in_legacy(state_test: StateTestFiller, pre: Alloc, code: Opcodes) -> None:
+def test_opcodes_in_legacy(
+    state_test: StateTestFiller, pre: Alloc, code: Opcodes
+) -> None:
     """Test all EOF only opcodes in legacy contracts and expects failure."""
     env = Environment()
 
@@ -69,7 +77,9 @@ def test_opcodes_in_legacy(state_test: StateTestFiller, pre: Alloc, code: Opcode
     post = {
         # assert the canary is not over-written. If it was written then the EOF
         # opcode was valid
-        address_test_contract: Account(storage={slot_code_executed: value_non_execution_canary}),
+        address_test_contract: Account(
+            storage={slot_code_executed: value_non_execution_canary}
+        ),
     }
 
     sender = pre.fund_eoa()
@@ -95,7 +105,9 @@ def test_opcodes_in_legacy(state_test: StateTestFiller, pre: Alloc, code: Opcode
     "code",
     eof_opcode_blocks,
 )
-def test_opcodes_in_create_tx(state_test: StateTestFiller, pre: Alloc, code: Opcodes) -> None:
+def test_opcodes_in_create_tx(
+    state_test: StateTestFiller, pre: Alloc, code: Opcodes
+) -> None:
     """Test all EOF only opcodes in create tx and expects failure."""
     env = Environment()
 
@@ -146,7 +158,9 @@ def test_opcodes_in_create_operation(
     init_code = Initcode(initcode_prefix=code, deploy_code=Op.RETURN(0, 0))
     factory_code = (
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-        + Op.SSTORE(slot_create_address, legacy_create_opcode(size=Op.CALLDATASIZE))
+        + Op.SSTORE(
+            slot_create_address, legacy_create_opcode(size=Op.CALLDATASIZE)
+        )
         + Op.SSTORE(slot_code_worked, value_code_worked)
     )
 
@@ -155,7 +169,10 @@ def test_opcodes_in_create_operation(
 
     post = {
         contract_address: Account(
-            storage={slot_create_address: value_create_failed, slot_code_worked: value_code_worked}
+            storage={
+                slot_create_address: value_create_failed,
+                slot_code_worked: value_code_worked,
+            }
         )
     }
     tx = Transaction(
@@ -212,7 +229,9 @@ def test_opcodes_in_eof_calling_legacy(
     post = {
         # assert the canary is not over-written. If it was written then the EOF
         # opcode was valid
-        address_test_contract: Account(storage={slot_code_executed: value_non_execution_canary}),
+        address_test_contract: Account(
+            storage={slot_code_executed: value_non_execution_canary}
+        ),
         address_entry_contract: Account(
             storage={
                 slot_code_executed: value_non_execution_canary,

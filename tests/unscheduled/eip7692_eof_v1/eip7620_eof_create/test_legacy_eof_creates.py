@@ -45,7 +45,9 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
     [
         Bytes("0xEF00"),
         Bytes("0xEF0001"),
-        pytest.param(smallest_initcode_subcontainer, id="deploy_eof_initcontainer"),
+        pytest.param(
+            smallest_initcode_subcontainer, id="deploy_eof_initcontainer"
+        ),
         pytest.param(smallest_runtime_subcontainer, id="deploy_eof_container"),
     ],
 )
@@ -67,10 +69,14 @@ def test_cross_version_creates_fail_light(
 
     contract_address = pre.deploy_contract(
         code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-        + Op.SSTORE(slot_create_address, legacy_create_opcode(size=Op.CALLDATASIZE))
+        + Op.SSTORE(
+            slot_create_address, legacy_create_opcode(size=Op.CALLDATASIZE)
+        )
         # Approximates whether code until here consumed the 63/64th gas given
         # to subcall
-        + Op.SSTORE(slot_all_subcall_gas_gone, Op.LT(Op.GAS, tx_gas_limit // 64))
+        + Op.SSTORE(
+            slot_all_subcall_gas_gone, Op.LT(Op.GAS, tx_gas_limit // 64)
+        )
         + Op.SSTORE(slot_code_worked, value_code_worked)
         + Op.STOP
     )
@@ -85,9 +91,14 @@ def test_cross_version_creates_fail_light(
             nonce=1,
         ),
         # Double check no accounts were created
-        compute_create_address(address=contract_address, nonce=1): Account.NONEXISTENT,
         compute_create_address(
-            address=contract_address, initcode=initcode, salt=0, opcode=Op.CREATE2
+            address=contract_address, nonce=1
+        ): Account.NONEXISTENT,
+        compute_create_address(
+            address=contract_address,
+            initcode=initcode,
+            salt=0,
+            opcode=Op.CREATE2,
         ): Account.NONEXISTENT,
     }
     tx = Transaction(
@@ -140,10 +151,14 @@ def test_cross_version_creates_fail_hard(
 
     contract_address = pre.deploy_contract(
         code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-        + Op.SSTORE(slot_create_address, legacy_create_opcode(size=Op.CALLDATASIZE))
+        + Op.SSTORE(
+            slot_create_address, legacy_create_opcode(size=Op.CALLDATASIZE)
+        )
         # Approximates whether code until here consumed the 63/64th gas given
         # to subcall
-        + Op.SSTORE(slot_all_subcall_gas_gone, Op.LT(Op.GAS, tx_gas_limit // 64))
+        + Op.SSTORE(
+            slot_all_subcall_gas_gone, Op.LT(Op.GAS, tx_gas_limit // 64)
+        )
         + Op.SSTORE(slot_code_worked, value_code_worked)
         + Op.STOP
     )
@@ -158,9 +173,14 @@ def test_cross_version_creates_fail_hard(
             nonce=2,
         ),
         # Double check no accounts were created
-        compute_create_address(address=contract_address, nonce=1): Account.NONEXISTENT,
         compute_create_address(
-            address=contract_address, initcode=initcode, salt=0, opcode=Op.CREATE2
+            address=contract_address, nonce=1
+        ): Account.NONEXISTENT,
+        compute_create_address(
+            address=contract_address,
+            initcode=initcode,
+            salt=0,
+            opcode=Op.CREATE2,
         ): Account.NONEXISTENT,
     }
     tx = Transaction(
@@ -192,7 +212,9 @@ def test_cross_version_creates_fail_hard(
         Bytes("0xEF00"),
         Bytes("0xEF0001"),
         Bytes("0xEF01"),
-        pytest.param(smallest_initcode_subcontainer, id="deploy_eof_initcontainer"),
+        pytest.param(
+            smallest_initcode_subcontainer, id="deploy_eof_initcontainer"
+        ),
         pytest.param(smallest_runtime_subcontainer, id="deploy_eof_container"),
     ],
 )
@@ -212,7 +234,10 @@ def test_legacy_initcode_eof_contract_fails(
     salt_param = [0] if legacy_create_opcode == Op.CREATE2 else []
     factory_code = (
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-        + Op.SSTORE(slot_create_address, legacy_create_opcode(0, 0, Op.CALLDATASIZE, *salt_param))
+        + Op.SSTORE(
+            slot_create_address,
+            legacy_create_opcode(0, 0, Op.CALLDATASIZE, *salt_param),
+        )
         + Op.SSTORE(slot_code_worked, value_code_worked)
     )
 
@@ -223,7 +248,10 @@ def test_legacy_initcode_eof_contract_fails(
     # and 1 in 1 to show execution continued and did not halt
     post = {
         contract_address: Account(
-            storage={slot_create_address: EOFCREATE_FAILURE, slot_code_worked: value_code_worked}
+            storage={
+                slot_create_address: EOFCREATE_FAILURE,
+                slot_code_worked: value_code_worked,
+            }
         )
     }
     tx = Transaction(

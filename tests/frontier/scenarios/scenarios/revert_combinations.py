@@ -9,7 +9,9 @@ from ethereum_test_vm import Opcodes as Op
 from ..common import Scenario, ScenarioEnvironment, ScenarioGeneratorInput
 
 
-def scenarios_revert_combinations(scenario_input: ScenarioGeneratorInput) -> List[Scenario]:
+def scenarios_revert_combinations(
+    scenario_input: ScenarioGeneratorInput,
+) -> List[Scenario]:
     """Generate Scenarios for revert combinations."""
     scenarios_list: List[Scenario] = []
     keep_gas = 100000
@@ -18,9 +20,15 @@ def scenarios_revert_combinations(scenario_input: ScenarioGeneratorInput) -> Lis
     if Op.REVERT in scenario_input.fork.valid_opcodes():
         revert_types.append(Op.REVERT)
     for revert in revert_types:
-        operation_contract = scenario_input.pre.deploy_contract(code=scenario_input.operation_code)
+        operation_contract = scenario_input.pre.deploy_contract(
+            code=scenario_input.operation_code
+        )
         scenario_contract = scenario_input.pre.deploy_contract(
-            code=Op.CALLCODE(gas=Op.SUB(Op.GAS, keep_gas), address=operation_contract, ret_size=32)
+            code=Op.CALLCODE(
+                gas=Op.SUB(Op.GAS, keep_gas),
+                address=operation_contract,
+                ret_size=32,
+            )
             + revert(0, 32, unchecked=True)
             + Op.RETURN(0, 32)
         )

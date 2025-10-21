@@ -14,7 +14,9 @@ from .spec import Spec
 @pytest.fixture
 def update_pre(
     pre: Alloc,
-    blocks_consolidation_requests: List[List[ConsolidationRequestInteractionBase]],
+    blocks_consolidation_requests: List[
+        List[ConsolidationRequestInteractionBase]
+    ],
 ) -> None:
     """
     Init state of the accounts. Every deposit transaction defines their own
@@ -28,7 +30,9 @@ def update_pre(
 @pytest.fixture
 def included_requests(
     update_pre: None,  # Fixture is used for its side effects
-    blocks_consolidation_requests: List[List[ConsolidationRequestInteractionBase]],
+    blocks_consolidation_requests: List[
+        List[ConsolidationRequestInteractionBase]
+    ],
 ) -> List[List[ConsolidationRequest]]:
     """
     Return the list of consolidation requests that should be included in each
@@ -52,7 +56,9 @@ def included_requests(
         per_block_included_requests.append(
             pending_requests[: Spec.MAX_CONSOLIDATION_REQUESTS_PER_BLOCK]
         )
-        carry_over_requests = pending_requests[Spec.MAX_CONSOLIDATION_REQUESTS_PER_BLOCK :]
+        carry_over_requests = pending_requests[
+            Spec.MAX_CONSOLIDATION_REQUESTS_PER_BLOCK :
+        ]
 
         # Update the excess consolidation requests
         excess_consolidation_requests = Spec.get_excess_consolidation_requests(
@@ -65,7 +71,9 @@ def included_requests(
         per_block_included_requests.append(
             carry_over_requests[: Spec.MAX_CONSOLIDATION_REQUESTS_PER_BLOCK]
         )
-        carry_over_requests = carry_over_requests[Spec.MAX_CONSOLIDATION_REQUESTS_PER_BLOCK :]
+        carry_over_requests = carry_over_requests[
+            Spec.MAX_CONSOLIDATION_REQUESTS_PER_BLOCK :
+        ]
 
     return per_block_included_requests
 
@@ -80,7 +88,9 @@ def timestamp() -> int:
 def blocks(
     fork: Fork,
     update_pre: None,  # Fixture is used for its side effects
-    blocks_consolidation_requests: List[List[ConsolidationRequestInteractionBase]],
+    blocks_consolidation_requests: List[
+        List[ConsolidationRequestInteractionBase]
+    ],
     included_requests: List[List[ConsolidationRequest]],
     timestamp: int,
 ) -> List[Block]:
@@ -97,7 +107,9 @@ def blocks(
             block_number=len(blocks) + 1,
             timestamp=timestamp,
         ):
-            header_verify = Header(requests_hash=Requests(*block_included_requests))
+            header_verify = Header(
+                requests_hash=Requests(*block_included_requests)
+            )
         else:
             assert not block_included_requests
         blocks.append(

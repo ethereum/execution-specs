@@ -26,7 +26,8 @@ REFERENCE_SPEC_VERSION = ref_spec_7002.version
 
 
 @pytest.mark.pre_alloc_group(
-    "separate", reason="Deploys withdrawal system contract at hardcoded predeploy address"
+    "separate",
+    reason="Deploys withdrawal system contract at hardcoded predeploy address",
 )
 @generate_system_contract_deploy_test(
     fork=Prague,
@@ -50,7 +51,9 @@ def test_system_contract_deployment(
     )
     pre.fund_address(sender, withdrawal_request.value)
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    test_transaction_gas = intrinsic_gas_calculator(calldata=withdrawal_request.calldata)
+    test_transaction_gas = intrinsic_gas_calculator(
+        calldata=withdrawal_request.calldata
+    )
 
     test_transaction = Transaction(
         data=withdrawal_request.calldata,

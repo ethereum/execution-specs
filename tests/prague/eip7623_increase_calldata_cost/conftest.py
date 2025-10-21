@@ -86,7 +86,10 @@ def authorization_list(
     if request.param is None:
         return None
     return [
-        AuthorizationTuple(signer=pre.fund_eoa(1 if authorization_refund else 0), address=address)
+        AuthorizationTuple(
+            signer=pre.fund_eoa(1 if authorization_refund else 0),
+            address=address,
+        )
         for address in request.param
     ]
 
@@ -176,7 +179,9 @@ def tx_data(
     def tokens_to_data(tokens: int) -> Bytes:
         return Bytes(b"\x01" * (tokens // 4) + b"\x00" * (tokens % 4))
 
-    fork_intrinsic_cost_calculator = fork.transaction_intrinsic_cost_calculator()
+    fork_intrinsic_cost_calculator = (
+        fork.transaction_intrinsic_cost_calculator()
+    )
 
     def transaction_intrinsic_cost_calculator(tokens: int) -> int:
         return (
@@ -190,17 +195,24 @@ def tx_data(
             + intrinsic_gas_data_floor_minimum_delta
         )
 
-    fork_data_floor_cost_calculator = fork.transaction_data_floor_cost_calculator()
+    fork_data_floor_cost_calculator = (
+        fork.transaction_data_floor_cost_calculator()
+    )
 
     def transaction_data_floor_cost_calculator(tokens: int) -> int:
         return fork_data_floor_cost_calculator(data=tokens_to_data(tokens))
 
     # Start with zero data and check the difference in the gas calculator
     # between the intrinsic gas cost and the floor gas cost.
-    if transaction_data_floor_cost_calculator(0) >= transaction_intrinsic_cost_calculator(0):
+    if transaction_data_floor_cost_calculator(
+        0
+    ) >= transaction_intrinsic_cost_calculator(0):
         # Special case which is a transaction with no extra intrinsic gas costs
         # other than the data cost, any data will trigger the floor gas cost.
-        if data_test_type == DataTestType.FLOOR_GAS_COST_LESS_THAN_OR_EQUAL_TO_INTRINSIC_GAS:
+        if (
+            data_test_type
+            == DataTestType.FLOOR_GAS_COST_LESS_THAN_OR_EQUAL_TO_INTRINSIC_GAS
+        ):
             return Bytes(b"")
         else:
             return Bytes(b"\0")
@@ -210,7 +222,10 @@ def tx_data(
         intrinsic_gas_cost_calculator=transaction_intrinsic_cost_calculator,
     )
 
-    if data_test_type == DataTestType.FLOOR_GAS_COST_GREATER_THAN_INTRINSIC_GAS:
+    if (
+        data_test_type
+        == DataTestType.FLOOR_GAS_COST_GREATER_THAN_INTRINSIC_GAS
+    ):
         return tokens_to_data(tokens + 1)
     return tokens_to_data(tokens)
 
@@ -246,7 +261,9 @@ def tx_intrinsic_gas_cost_before_execution(
 
     This value never includes the floor data gas cost.
     """
-    intrinsic_gas_cost_calculator = fork.transaction_intrinsic_cost_calculator()
+    intrinsic_gas_cost_calculator = (
+        fork.transaction_intrinsic_cost_calculator()
+    )
     return intrinsic_gas_cost_calculator(
         calldata=tx_data,
         contract_creation=contract_creating_tx,
@@ -273,7 +290,9 @@ def tx_intrinsic_gas_cost_including_floor_data_cost(
     In other words, this is the value that is required for the transaction to
     be valid.
     """
-    intrinsic_gas_cost_calculator = fork.transaction_intrinsic_cost_calculator()
+    intrinsic_gas_cost_calculator = (
+        fork.transaction_intrinsic_cost_calculator()
+    )
     return intrinsic_gas_cost_calculator(
         calldata=tx_data,
         contract_creation=contract_creating_tx,
@@ -288,7 +307,9 @@ def tx_floor_data_cost(
     tx_data: Bytes,
 ) -> int:
     """Floor data cost for the given transaction data."""
-    fork_data_floor_cost_calculator = fork.transaction_data_floor_cost_calculator()
+    fork_data_floor_cost_calculator = (
+        fork.transaction_data_floor_cost_calculator()
+    )
     return fork_data_floor_cost_calculator(data=tx_data)
 
 
@@ -307,10 +328,15 @@ def tx_gas_limit(
 
 
 @pytest.fixture
-def tx_error(tx_gas_delta: int, data_test_type: DataTestType) -> TransactionException | None:
+def tx_error(
+    tx_gas_delta: int, data_test_type: DataTestType
+) -> TransactionException | None:
     """Transaction error, only expected if the gas delta is negative."""
     if tx_gas_delta < 0:
-        if data_test_type == DataTestType.FLOOR_GAS_COST_GREATER_THAN_INTRINSIC_GAS:
+        if (
+            data_test_type
+            == DataTestType.FLOOR_GAS_COST_GREATER_THAN_INTRINSIC_GAS
+        ):
             return TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST
         else:
             return TransactionException.INTRINSIC_GAS_TOO_LOW

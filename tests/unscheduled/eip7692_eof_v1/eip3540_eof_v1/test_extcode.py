@@ -34,8 +34,15 @@ def test_legacy_calls_eof_sstore(
 
     storage_test = Storage()
     test_contract_code = (
-        Op.SSTORE(storage_test.store_next(4), Op.EXTCODESIZE(address_legacy_contract))
-        + Op.EXTCODECOPY(address_legacy_contract, 0, 0, Op.EXTCODESIZE(address_legacy_contract))
+        Op.SSTORE(
+            storage_test.store_next(4), Op.EXTCODESIZE(address_legacy_contract)
+        )
+        + Op.EXTCODECOPY(
+            address_legacy_contract,
+            0,
+            0,
+            Op.EXTCODESIZE(address_legacy_contract),
+        )
         + Op.SSTORE(
             storage_test.store_next(bytes(legacy_code).ljust(32, b"\0")),
             Op.MLOAD(0),
@@ -44,11 +51,17 @@ def test_legacy_calls_eof_sstore(
             storage_test.store_next(legacy_code.keccak256()),
             Op.EXTCODEHASH(address_legacy_contract),
         )
-        + Op.SSTORE(storage_test.store_next(2), Op.EXTCODESIZE(address_eof_contract))
+        + Op.SSTORE(
+            storage_test.store_next(2), Op.EXTCODESIZE(address_eof_contract)
+        )
         + Op.EXTCODECOPY(address_eof_contract, 0x20, 0, 6)
-        + Op.SSTORE(storage_test.store_next(b"\xef".ljust(32, b"\0")), Op.MLOAD(0x20))
+        + Op.SSTORE(
+            storage_test.store_next(b"\xef".ljust(32, b"\0")), Op.MLOAD(0x20)
+        )
         + Op.MSTORE(0x40, b"\xcc" * 32)  # clobber memory slot
-        + Op.EXTCODECOPY(address_eof_contract, 0x40, len(eof_code) - 4, 8)  # out-of-bounds "read"
+        + Op.EXTCODECOPY(
+            address_eof_contract, 0x40, len(eof_code) - 4, 8
+        )  # out-of-bounds "read"
         + Op.SSTORE(storage_test.store_next(b"\xcc" * 24), Op.MLOAD(0x40))
         + Op.SSTORE(
             storage_test.store_next(keccak256(b"\xef\x00")),

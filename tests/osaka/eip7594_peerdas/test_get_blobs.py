@@ -173,9 +173,13 @@ def txs(  # noqa: D103
 ) -> List[NetworkWrappedTransaction | Transaction]:
     """Prepare the list of transactions that are sent during the test."""
     if len(txs_blobs) != len(txs_versioned_hashes):
-        raise ValueError("txs_blobs and txs_versioned_hashes should have the same length")
+        raise ValueError(
+            "txs_blobs and txs_versioned_hashes should have the same length"
+        )
     txs: List[NetworkWrappedTransaction | Transaction] = []
-    for tx_blobs, tx_versioned_hashes in zip(txs_blobs, txs_versioned_hashes, strict=False):
+    for tx_blobs, tx_versioned_hashes in zip(
+        txs_blobs, txs_versioned_hashes, strict=False
+    ):
         tx = Transaction(
             # type=3,
             sender=pre.fund_eoa(),
@@ -208,9 +212,13 @@ def generate_valid_blob_tests(
     max_blobs_per_tx = fork.max_blobs_per_tx()
     target_blobs_per_block = fork.target_blobs_per_block()
 
-    logger.debug(f"MAX_BLOBS_PER_BLOCK value for fork {fork}: {max_blobs_per_block}")
+    logger.debug(
+        f"MAX_BLOBS_PER_BLOCK value for fork {fork}: {max_blobs_per_block}"
+    )
     logger.debug(f"MAX_BLOBS_PER_TX value for fork {fork}: {max_blobs_per_tx}")
-    logger.debug(f"TARGET_BLOBS_PER_BLOCK value for fork {fork}: {target_blobs_per_block}")
+    logger.debug(
+        f"TARGET_BLOBS_PER_BLOCK value for fork {fork}: {target_blobs_per_block}"
+    )
 
     # Calculate ascending pattern that fits within target_blobs_per_block
     ascending_txs = []
@@ -219,7 +227,9 @@ def generate_valid_blob_tests(
 
     for tx_size in range(1, max_blobs_per_tx + 1):
         if total_blobs + tx_size <= target_blobs_per_block:
-            ascending_txs.append([Blob.from_fork(fork, blob_offset + j) for j in range(tx_size)])
+            ascending_txs.append(
+                [Blob.from_fork(fork, blob_offset + j) for j in range(tx_size)]
+            )
             total_blobs += tx_size
             blob_offset += tx_size
         else:
@@ -263,7 +273,10 @@ def generate_valid_blob_tests(
         # Two transactions with equal blob distribution
         pytest.param(
             [
-                [Blob.from_fork(fork, s) for s in range(target_blobs_per_block // 2)],
+                [
+                    Blob.from_fork(fork, s)
+                    for s in range(target_blobs_per_block // 2)
+                ],
                 [
                     Blob.from_fork(fork, s + target_blobs_per_block // 2)
                     for s in range(target_blobs_per_block // 2)
@@ -274,7 +287,10 @@ def generate_valid_blob_tests(
         # Three transactions with equal blob distribution
         pytest.param(
             [
-                [Blob.from_fork(fork, s) for s in range(target_blobs_per_block // 3)],
+                [
+                    Blob.from_fork(fork, s)
+                    for s in range(target_blobs_per_block // 3)
+                ],
                 [
                     Blob.from_fork(fork, s + target_blobs_per_block // 3)
                     for s in range(target_blobs_per_block // 3)
@@ -342,5 +358,9 @@ def test_get_blobs_nonexisting(
     Test that ensures clients respond with 'null' when at least one requested
     blob is not available.
     """
-    nonexisting_blob_hashes = [Hash(sha256(str(i).encode()).digest()) for i in range(5)]
-    blobs_test(pre=pre, txs=txs, nonexisting_blob_hashes=nonexisting_blob_hashes)
+    nonexisting_blob_hashes = [
+        Hash(sha256(str(i).encode()).digest()) for i in range(5)
+    ]
+    blobs_test(
+        pre=pre, txs=txs, nonexisting_blob_hashes=nonexisting_blob_hashes
+    )

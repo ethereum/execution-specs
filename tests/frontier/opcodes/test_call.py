@@ -64,7 +64,9 @@ def test_call_large_offset_mstore(
 
     memory_expansion_gas_calc = fork.memory_expansion_gas_calculator()
     # mstore cost: base cost + expansion cost
-    mstore_cost = gsc.G_MEMORY + memory_expansion_gas_calc(new_bytes=mem_offset + 1)
+    mstore_cost = gsc.G_MEMORY + memory_expansion_gas_calc(
+        new_bytes=mem_offset + 1
+    )
     state_test(
         env=Environment(),
         pre=pre,
@@ -123,7 +125,9 @@ def test_call_memory_expands_on_early_revert(
     )
 
     # Contract without enough balance to send value transfer
-    contract = pre.deploy_contract(code=call_measure + mstore_measure, balance=0)
+    contract = pre.deploy_contract(
+        code=call_measure + mstore_measure, balance=0
+    )
 
     tx = Transaction(
         gas_limit=500_000,

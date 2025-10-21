@@ -352,7 +352,11 @@ def test_contract_creation_transaction(
 
     contract_address = compute_create_address(address=sender, nonce=0)
     contract_bytecode = (
-        Op.CODECOPY(0, Op.SUB(Op.CODESIZE, len(bytes(modexp_input))), len(bytes(modexp_input)))
+        Op.CODECOPY(
+            0,
+            Op.SUB(Op.CODESIZE, len(bytes(modexp_input))),
+            len(bytes(modexp_input)),
+        )
         + Op.CALL(
             gas=1_000_000,
             address=Spec.MODEXP_ADDRESS,
@@ -364,9 +368,13 @@ def test_contract_creation_transaction(
         )
         + Op.SSTORE(storage.store_next(True), Op.DUP1())
         + Op.SSTORE(
-            storage.store_next(keccak256(bytes(modexp_expected))), Op.SHA3(0, Op.RETURNDATASIZE())
+            storage.store_next(keccak256(bytes(modexp_expected))),
+            Op.SHA3(0, Op.RETURNDATASIZE()),
         )
-        + Op.SSTORE(storage.store_next(len(bytes(modexp_expected))), Op.RETURNDATASIZE())
+        + Op.SSTORE(
+            storage.store_next(len(bytes(modexp_expected))),
+            Op.RETURNDATASIZE(),
+        )
         + Op.STOP
     )
 
@@ -415,7 +423,11 @@ def test_contract_initcode(
     storage = Storage()
 
     call_modexp_bytecode = (
-        Op.CODECOPY(0, Op.SUB(Op.CODESIZE, len(bytes(modexp_input))), len(bytes(modexp_input)))
+        Op.CODECOPY(
+            0,
+            Op.SUB(Op.CODESIZE, len(bytes(modexp_input))),
+            len(bytes(modexp_input)),
+        )
         + Op.CALL(
             gas=200_000,
             address=Spec.MODEXP_ADDRESS,
@@ -427,13 +439,19 @@ def test_contract_initcode(
         )
         + Op.SSTORE(storage.store_next(True), Op.DUP1())
         + Op.SSTORE(
-            storage.store_next(keccak256(bytes(modexp_expected))), Op.SHA3(0, Op.RETURNDATASIZE())
+            storage.store_next(keccak256(bytes(modexp_expected))),
+            Op.SHA3(0, Op.RETURNDATASIZE()),
         )
-        + Op.SSTORE(storage.store_next(len(bytes(modexp_expected))), Op.RETURNDATASIZE())
+        + Op.SSTORE(
+            storage.store_next(len(bytes(modexp_expected))),
+            Op.RETURNDATASIZE(),
+        )
         + Op.STOP
     )
     full_initcode = call_modexp_bytecode + bytes(modexp_input)
-    total_bytecode_length = len(call_modexp_bytecode) + len(bytes(modexp_input))
+    total_bytecode_length = len(call_modexp_bytecode) + len(
+        bytes(modexp_input)
+    )
 
     create_contract = (
         Op.CALLDATACOPY(offset=0, size=total_bytecode_length)
@@ -443,7 +461,10 @@ def test_contract_initcode(
 
     factory_contract_address = pre.deploy_contract(code=create_contract)
     contract_address = compute_create_address(
-        address=factory_contract_address, nonce=1, initcode=full_initcode, opcode=opcode
+        address=factory_contract_address,
+        nonce=1,
+        initcode=full_initcode,
+        opcode=opcode,
     )
 
     tx = Transaction(
@@ -538,7 +559,14 @@ def create_modexp_variable_gas_test_cases() -> Generator:
         # IC6: Native library even byte optimization
         ("01" * 31 + "00", "01", "01" * 31 + "00", "00" * 32, 500, "IC6"),
         # IC7: Vector optimization 128-bit boundary
-        ("00" * 15 + "01" * 17, "01", "00" * 15 + "01" * 17, "00" * 32, 500, "IC7"),
+        (
+            "00" * 15 + "01" * 17,
+            "01",
+            "00" * 15 + "01" * 17,
+            "00" * 32,
+            500,
+            "IC7",
+        ),
         # IC9: Zero modulus with large inputs
         ("FF" * 32, "FF" * 32, "", "", None, "IC9"),  # N/A case
         # IC10: Power-of-2 boundary with high bit
@@ -631,7 +659,14 @@ def create_modexp_variable_gas_test_cases() -> Generator:
     │ IC10│  S   │  =  │  B   │ False │  4080   │ Power-of-2 boundary with high bit             │
     └─────┴──────┴─────┴──────┴───────┴─────────┴───────────────────────────────────────────────┘
     """  # noqa: W505
-    for base, exponent, modulus, expected_result, gas_usage, test_id in test_cases:
+    for (
+        base,
+        exponent,
+        modulus,
+        expected_result,
+        gas_usage,
+        test_id,
+    ) in test_cases:
         yield pytest.param(
             ModExpInput(base=base, exponent=exponent, modulus=modulus),
             bytes.fromhex(expected_result),
@@ -658,7 +693,9 @@ def test_modexp_variable_gas_cost(
 ) -> None:
     """Test ModExp variable gas cost."""
     if fork >= Osaka:  # Check that gas used defined in table is accurate
-        assert (gas_usage is None) or (precompile_gas >= gas_usage), "inconsistent gas usage"
+        assert (gas_usage is None) or (precompile_gas >= gas_usage), (
+            "inconsistent gas usage"
+        )
     state_test(pre=pre, tx=tx, post=post)
 
 
@@ -666,7 +703,9 @@ def test_modexp_variable_gas_cost(
     "modexp_input,modexp_expected,expected_tx_cap_fail",
     [
         pytest.param(
-            ModExpInput(base="00" * 32, exponent="00" * 1024, modulus="01" * 1024),
+            ModExpInput(
+                base="00" * 32, exponent="00" * 1024, modulus="01" * 1024
+            ),
             bytes.fromhex("00" * 1023 + "01"),
             True,
             id="Z16-gas-cap-test",

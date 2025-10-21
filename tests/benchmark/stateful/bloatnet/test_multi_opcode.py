@@ -79,7 +79,8 @@ def test_bloatnet_balance_extcodesize(
     # Cost per contract access with CREATE2 address generation
     cost_per_contract = (
         gas_costs.G_KECCAK_256  # SHA3 static cost for address generation (30)
-        + gas_costs.G_KECCAK_256_WORD * 3  # SHA3 dynamic cost (85 bytes = 3 words * 6)
+        + gas_costs.G_KECCAK_256_WORD
+        * 3  # SHA3 dynamic cost (85 bytes = 3 words * 6)
         + gas_costs.G_COLD_ACCOUNT_ACCESS  # Cold access (2600)
         + gas_costs.G_BASE  # POP first result (2)
         + gas_costs.G_WARM_ACCOUNT_ACCESS  # Warm access (100)
@@ -93,7 +94,9 @@ def test_bloatnet_balance_extcodesize(
     )
 
     # Calculate how many contracts to access based on available gas
-    available_gas = gas_benchmark_value - intrinsic_gas - 1000  # Reserve for cleanup
+    available_gas = (
+        gas_benchmark_value - intrinsic_gas - 1000
+    )  # Reserve for cleanup
     contracts_needed = int(available_gas // cost_per_contract)
 
     # Deploy factory using stub contract - NO HARDCODED VALUES
@@ -117,7 +120,9 @@ def test_bloatnet_balance_extcodesize(
     balance_op = Op.POP(Op.BALANCE)
     extcodesize_op = Op.POP(Op.EXTCODESIZE)
     benchmark_ops = (
-        (balance_op + extcodesize_op) if balance_first else (extcodesize_op + balance_op)
+        (balance_op + extcodesize_op)
+        if balance_first
+        else (extcodesize_op + balance_op)
     )
 
     # Build attack contract that reads config from factory and performs attack
@@ -142,7 +147,9 @@ def test_bloatnet_balance_extcodesize(
         + Op.MLOAD(128)  # Load init_code_hash
         # Setup memory for CREATE2 address generation
         # Memory layout at 0: 0xFF + factory_addr(20) + salt(32) + hash(32)
-        + Op.MSTORE(0, factory_address)  # Store factory address at memory position 0
+        + Op.MSTORE(
+            0, factory_address
+        )  # Store factory address at memory position 0
         + Op.MSTORE8(11, 0xFF)  # Store 0xFF prefix at position (32 - 20 - 1)
         + Op.MSTORE(32, 0)  # Store salt at position 32
         # Stack now has: [num_contracts, init_code_hash]
@@ -158,10 +165,18 @@ def test_bloatnet_balance_extcodesize(
                 + Op.DUP1  # Duplicate for second operation
                 + benchmark_ops  # Execute operations in specified order
                 # Increment salt for next iteration
-                + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1))  # Increment and store salt
+                + Op.MSTORE(
+                    32, Op.ADD(Op.MLOAD(32), 1)
+                )  # Increment and store salt
             ),
             # Continue while we haven't reached the limit
-            condition=Op.DUP1 + Op.PUSH1(1) + Op.SWAP1 + Op.SUB + Op.DUP1 + Op.ISZERO + Op.ISZERO,
+            condition=Op.DUP1
+            + Op.PUSH1(1)
+            + Op.SWAP1
+            + Op.SUB
+            + Op.DUP1
+            + Op.ISZERO
+            + Op.ISZERO,
         )
         + Op.POP  # Clean up counter
     )
@@ -220,7 +235,8 @@ def test_bloatnet_balance_extcodecopy(
     # Cost per contract with EXTCODECOPY and CREATE2 address generation
     cost_per_contract = (
         gas_costs.G_KECCAK_256  # SHA3 static cost for address generation (30)
-        + gas_costs.G_KECCAK_256_WORD * 3  # SHA3 dynamic cost (85 bytes = 3 words * 6)
+        + gas_costs.G_KECCAK_256_WORD
+        * 3  # SHA3 dynamic cost (85 bytes = 3 words * 6)
         + gas_costs.G_COLD_ACCOUNT_ACCESS  # Cold access (2600)
         + gas_costs.G_BASE  # POP first result (2)
         + gas_costs.G_WARM_ACCOUNT_ACCESS  # Warm access base (100)
@@ -266,7 +282,9 @@ def test_bloatnet_balance_extcodecopy(
         + Op.POP  # clean up address
     )
     benchmark_ops = (
-        (balance_op + extcodecopy_op) if balance_first else (extcodecopy_op + balance_op)
+        (balance_op + extcodecopy_op)
+        if balance_first
+        else (extcodecopy_op + balance_op)
     )
 
     # Build attack contract that reads config from factory and performs attack
@@ -291,7 +309,9 @@ def test_bloatnet_balance_extcodecopy(
         + Op.MLOAD(128)  # Load init_code_hash
         # Setup memory for CREATE2 address generation
         # Memory layout at 0: 0xFF + factory_addr(20) + salt(32) + hash(32)
-        + Op.MSTORE(0, factory_address)  # Store factory address at memory position 0
+        + Op.MSTORE(
+            0, factory_address
+        )  # Store factory address at memory position 0
         + Op.MSTORE8(11, 0xFF)  # Store 0xFF prefix at position (32 - 20 - 1)
         + Op.MSTORE(32, 0)  # Store salt at position 32
         # Stack now has: [num_contracts, init_code_hash]
@@ -307,10 +327,18 @@ def test_bloatnet_balance_extcodecopy(
                 + Op.DUP1  # Duplicate for later operations
                 + benchmark_ops  # Execute operations in specified order
                 # Increment salt for next iteration
-                + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1))  # Increment and store salt
+                + Op.MSTORE(
+                    32, Op.ADD(Op.MLOAD(32), 1)
+                )  # Increment and store salt
             ),
             # Continue while counter > 0
-            condition=Op.DUP1 + Op.PUSH1(1) + Op.SWAP1 + Op.SUB + Op.DUP1 + Op.ISZERO + Op.ISZERO,
+            condition=Op.DUP1
+            + Op.PUSH1(1)
+            + Op.SWAP1
+            + Op.SUB
+            + Op.DUP1
+            + Op.ISZERO
+            + Op.ISZERO,
         )
         + Op.POP  # Clean up counter
     )
@@ -368,7 +396,8 @@ def test_bloatnet_balance_extcodehash(
     # Cost per contract access with CREATE2 address generation
     cost_per_contract = (
         gas_costs.G_KECCAK_256  # SHA3 static cost for address generation (30)
-        + gas_costs.G_KECCAK_256_WORD * 3  # SHA3 dynamic cost (85 bytes = 3 words * 6)
+        + gas_costs.G_KECCAK_256_WORD
+        * 3  # SHA3 dynamic cost (85 bytes = 3 words * 6)
         + gas_costs.G_COLD_ACCOUNT_ACCESS  # Cold access (2600)
         + gas_costs.G_BASE  # POP first result (2)
         + gas_costs.G_WARM_ACCOUNT_ACCESS  # Warm access (100)
@@ -382,7 +411,9 @@ def test_bloatnet_balance_extcodehash(
     )
 
     # Calculate how many contracts to access based on available gas
-    available_gas = gas_benchmark_value - intrinsic_gas - 1000  # Reserve for cleanup
+    available_gas = (
+        gas_benchmark_value - intrinsic_gas - 1000
+    )  # Reserve for cleanup
     contracts_needed = int(available_gas // cost_per_contract)
 
     # Deploy factory using stub contract
@@ -402,7 +433,9 @@ def test_bloatnet_balance_extcodehash(
     balance_op = Op.POP(Op.BALANCE)
     extcodehash_op = Op.POP(Op.EXTCODEHASH)
     benchmark_ops = (
-        (balance_op + extcodehash_op) if balance_first else (extcodehash_op + balance_op)
+        (balance_op + extcodehash_op)
+        if balance_first
+        else (extcodehash_op + balance_op)
     )
 
     # Build attack contract that reads config from factory and performs attack
@@ -439,7 +472,13 @@ def test_bloatnet_balance_extcodehash(
                 # Increment salt
                 + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1))
             ),
-            condition=Op.DUP1 + Op.PUSH1(1) + Op.SWAP1 + Op.SUB + Op.DUP1 + Op.ISZERO + Op.ISZERO,
+            condition=Op.DUP1
+            + Op.PUSH1(1)
+            + Op.SWAP1
+            + Op.SUB
+            + Op.DUP1
+            + Op.ISZERO
+            + Op.ISZERO,
         )
         + Op.POP  # Clean up counter
     )

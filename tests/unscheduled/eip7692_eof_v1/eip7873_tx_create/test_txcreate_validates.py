@@ -67,7 +67,9 @@ class ValidatedCode(Enum):
             case ValidatedCode.EOFV2:
                 return Bytes("0xEF0002")
             case ValidatedCode.DELEGATION:
-                return Bytes(Spec.DELEGATION_DESIGNATION + Bytes("".join(20 * ["ab"])))
+                return Bytes(
+                    Spec.DELEGATION_DESIGNATION + Bytes("".join(20 * ["ab"]))
+                )
             case ValidatedCode.SUBCONTAINER_INVALID:
                 return Container(
                     sections=[
@@ -117,7 +119,10 @@ class Factory(Enum):
             raise Exception(f"Test needs to be updated for {evm_code_type}")
         # Snippet which invokes the TXCREATE itself
         txcreate_code = Op.TXCREATE(
-            tx_initcode_hash=initcode_hash, salt=salt, value=value, input_size=input_size
+            tx_initcode_hash=initcode_hash,
+            salt=salt,
+            value=value,
+            input_size=input_size,
         )
         # Snippet which returns the TXCREATE result to caller
         callee_txcreate_code = Op.MSTORE(0, txcreate_code) + Op.RETURN(0, 32)
@@ -126,7 +131,9 @@ class Factory(Enum):
         returndataload_code = (
             Op.RETURNDATALOAD
             if evm_code_type == EVMCodeType.EOF_V1
-            else Op.RETURNDATACOPY(0, 0, Op.RETURNDATASIZE) + Op.MLOAD(0) + Op.MSTORE(0, 0)
+            else Op.RETURNDATACOPY(0, 0, Op.RETURNDATASIZE)
+            + Op.MLOAD(0)
+            + Op.MSTORE(0, 0)
         )
         match self:
             case Factory.DIRECT:
@@ -134,21 +141,33 @@ class Factory(Enum):
             case Factory.WITH_CALL:
                 callee_address = pre.deploy_contract(callee_txcreate_code)
                 if evm_code_type == EVMCodeType.EOF_V1:
-                    return Op.EXTCALL(address=callee_address) + returndataload_code, callee_address
+                    return Op.EXTCALL(
+                        address=callee_address
+                    ) + returndataload_code, callee_address
                 else:
-                    return Op.CALL(address=callee_address) + returndataload_code, callee_address
+                    return Op.CALL(
+                        address=callee_address
+                    ) + returndataload_code, callee_address
             case Factory.WITH_DELEGATECALL:
                 callee_address = pre.deploy_contract(callee_txcreate_code)
                 if evm_code_type == EVMCodeType.EOF_V1:
-                    return Op.EXTDELEGATECALL(address=callee_address) + returndataload_code, None
+                    return Op.EXTDELEGATECALL(
+                        address=callee_address
+                    ) + returndataload_code, None
                 else:
-                    return Op.DELEGATECALL(address=callee_address) + returndataload_code, None
+                    return Op.DELEGATECALL(
+                        address=callee_address
+                    ) + returndataload_code, None
             case Factory.WITH_STATICCALL:
                 callee_address = pre.deploy_contract(callee_txcreate_code)
                 if evm_code_type == EVMCodeType.EOF_V1:
-                    return Op.EXTSTATICCALL(address=callee_address) + returndataload_code, None
+                    return Op.EXTSTATICCALL(
+                        address=callee_address
+                    ) + returndataload_code, None
                 else:
-                    return Op.STATICCALL(address=callee_address) + returndataload_code, None
+                    return Op.STATICCALL(
+                        address=callee_address
+                    ) + returndataload_code, None
 
     def __str__(self) -> str:
         """Return string representation of the enum."""
@@ -157,7 +176,9 @@ class Factory(Enum):
 
 @pytest.mark.with_all_evm_code_types
 # Subset chosen to limit number of test cases
-@pytest.mark.parametrize("code_a", [ValidatedCode.EOFV1_INITCODE, ValidatedCode.LEGACY])
+@pytest.mark.parametrize(
+    "code_a", [ValidatedCode.EOFV1_INITCODE, ValidatedCode.LEGACY]
+)
 @pytest.mark.parametrize("code_b", ValidatedCode)
 # Subset chosen to limit number of test cases
 @pytest.mark.parametrize("factory_a", [Factory.DIRECT, Factory.WITH_CALL])
@@ -182,10 +203,20 @@ def test_txcreate_validates(
     """
     env = Environment()
     snippet_a, factory_address_a = factory_a.creation_snippet(
-        Bytes(code_a.bytecode()).keccak256(), pre, 0, evm_code_type, value, input_size
+        Bytes(code_a.bytecode()).keccak256(),
+        pre,
+        0,
+        evm_code_type,
+        value,
+        input_size,
     )
     snippet_b, factory_address_b = factory_b.creation_snippet(
-        Bytes(code_b.bytecode()).keccak256(), pre, 1, evm_code_type, value, input_size
+        Bytes(code_b.bytecode()).keccak256(),
+        pre,
+        1,
+        evm_code_type,
+        value,
+        input_size,
     )
 
     sender = pre.fund_eoa()
@@ -198,18 +229,26 @@ def test_txcreate_validates(
         )
     )
 
-    create_address_a = factory_address_a if factory_address_a else contract_address
-    create_address_b = factory_address_b if factory_address_b else contract_address
+    create_address_a = (
+        factory_address_a if factory_address_a else contract_address
+    )
+    create_address_b = (
+        factory_address_b if factory_address_b else contract_address
+    )
     destination_address_a = compute_eofcreate_address(create_address_a, 0)
     destination_address_b = compute_eofcreate_address(create_address_b, 1)
     post = {
         contract_address: Account(
             storage={
                 slot_a: destination_address_a
-                if code_a.valid() and value == 0 and factory_a != Factory.WITH_STATICCALL
+                if code_a.valid()
+                and value == 0
+                and factory_a != Factory.WITH_STATICCALL
                 else TXCREATE_FAILURE,
                 slot_b: destination_address_b
-                if code_b.valid() and value == 0 and factory_b != Factory.WITH_STATICCALL
+                if code_b.valid()
+                and value == 0
+                and factory_b != Factory.WITH_STATICCALL
                 else TXCREATE_FAILURE,
                 slot_code_worked: value_code_worked,
             }
@@ -217,7 +256,9 @@ def test_txcreate_validates(
     }
 
     if access_list_a:
-        access_list = [AccessList(address=destination_address_a, storage_keys=[Hash(0x0)])]
+        access_list = [
+            AccessList(address=destination_address_a, storage_keys=[Hash(0x0)])
+        ]
     else:
         access_list = []
 

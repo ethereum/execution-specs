@@ -82,7 +82,9 @@ def consolidation_list_with_custom_fee(n: int) -> List[ConsolidationRequest]:  #
         ),
     ],
 )
-@pytest.mark.pre_alloc_group("separate", reason="Deploys custom consolidation contract bytecode")
+@pytest.mark.pre_alloc_group(
+    "separate", reason="Deploys custom consolidation contract bytecode"
+)
 def test_extra_consolidations(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -97,7 +99,9 @@ def test_extra_consolidations(
 
     for consolidation_request in requests_list:
         # update memory_offset with the correct value
-        consolidation_request_bytes_amount: int = len(bytes(consolidation_request))
+        consolidation_request_bytes_amount: int = len(
+            bytes(consolidation_request)
+        )
         assert consolidation_request_bytes_amount == 116, (
             "Expected consolidation request to be of size 116 but got size "
             f"{consolidation_request_bytes_amount}"
@@ -117,7 +121,9 @@ def test_extra_consolidations(
 
     # given a list of consolidation requests construct a consolidation request
     # transaction
-    consolidation_request_transaction = ConsolidationRequestTransaction(requests=requests_list)
+    consolidation_request_transaction = ConsolidationRequestTransaction(
+        requests=requests_list
+    )
     # prepare consolidation senders
     consolidation_request_transaction.update_pre(pre=pre)
     # get transaction list
@@ -136,9 +142,12 @@ def test_extra_consolidations(
 
 
 @pytest.mark.parametrize(
-    "system_contract", [Address(Spec_EIP7251.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS)]
+    "system_contract",
+    [Address(Spec_EIP7251.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS)],
 )
-@pytest.mark.pre_alloc_group("separate", reason="Deploys custom consolidation contract bytecode")
+@pytest.mark.pre_alloc_group(
+    "separate", reason="Deploys custom consolidation contract bytecode"
+)
 @generate_system_contract_error_test(  # type: ignore[arg-type]
     max_gas_limit=Spec_EIP7251.SYSTEM_CALL_GAS_LIMIT,
 )

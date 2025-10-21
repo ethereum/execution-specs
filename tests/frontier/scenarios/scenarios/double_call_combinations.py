@@ -9,7 +9,9 @@ from ethereum_test_tools import Opcodes as Op
 from ..common import Scenario, ScenarioEnvironment, ScenarioGeneratorInput
 
 
-def scenarios_double_call_combinations(scenario_input: ScenarioGeneratorInput) -> List[Scenario]:
+def scenarios_double_call_combinations(
+    scenario_input: ScenarioGeneratorInput,
+) -> List[Scenario]:
     """
     Generate Scenarios for double call combinations.
     First call the operation normally.
@@ -19,21 +21,38 @@ def scenarios_double_call_combinations(scenario_input: ScenarioGeneratorInput) -
     """
     scenarios_list: List[Scenario] = []
     keep_gas = 300000
-    revert_types: List[Bytecode] = [Op.STOP(), Om.OOG(), Op.RETURN(offset=0, size=32)]
+    revert_types: List[Bytecode] = [
+        Op.STOP(),
+        Om.OOG(),
+        Op.RETURN(offset=0, size=32),
+    ]
     if Op.REVERT in scenario_input.fork.valid_opcodes():
         revert_types.append(Op.REVERT(offset=0, size=32))
     for revert in revert_types:
-        operation_contract = scenario_input.pre.deploy_contract(code=scenario_input.operation_code)
+        operation_contract = scenario_input.pre.deploy_contract(
+            code=scenario_input.operation_code
+        )
         subcall_contract = scenario_input.pre.deploy_contract(
-            code=Op.MSTORE(0, 0x1122334455667788991011121314151617181920212223242526272829303132)
+            code=Op.MSTORE(
+                0,
+                0x1122334455667788991011121314151617181920212223242526272829303132,
+            )
             + revert
         )
         scenario_contract = scenario_input.pre.deploy_contract(
-            code=Op.CALL(gas=Op.SUB(Op.GAS, keep_gas), address=operation_contract, ret_size=32)
+            code=Op.CALL(
+                gas=Op.SUB(Op.GAS, keep_gas),
+                address=operation_contract,
+                ret_size=32,
+            )
             + Op.MSTORE(100, Op.MLOAD(0))
             + Op.MSTORE(0, 0)
             + Op.CALL(gas=50_000, address=subcall_contract)
-            + Op.CALL(gas=Op.SUB(Op.GAS, keep_gas), address=operation_contract, ret_size=32)
+            + Op.CALL(
+                gas=Op.SUB(Op.GAS, keep_gas),
+                address=operation_contract,
+                ret_size=32,
+            )
             + Op.MSTORE(200, Op.MLOAD(0))
             + Conditional(
                 condition=Op.EQ(Op.MLOAD(100), Op.MLOAD(200)),

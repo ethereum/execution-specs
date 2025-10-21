@@ -47,12 +47,18 @@ def test_execution_at_max_stack_height(
                 ),
             ),
             Section.Code(
-                sum(Op.PUSH2(x) for x in range(code_inputs, MAX_RUNTIME_STACK_HEIGHT))
+                sum(
+                    Op.PUSH2(x)
+                    for x in range(code_inputs, MAX_RUNTIME_STACK_HEIGHT)
+                )
                 + Op.SSTORE
-                + Op.POP * (MAX_RUNTIME_STACK_HEIGHT - Op.SSTORE.popped_stack_items)
+                + Op.POP
+                * (MAX_RUNTIME_STACK_HEIGHT - Op.SSTORE.popped_stack_items)
                 + (Op.RETF if call_op == Op.CALLF else Op.STOP),
                 code_inputs=code_inputs,
-                code_outputs=0 if call_op == Op.CALLF else NON_RETURNING_SECTION,
+                code_outputs=0
+                if call_op == Op.CALLF
+                else NON_RETURNING_SECTION,
                 max_stack_increase=max_stack_increase,
             ),
         ],
@@ -68,6 +74,8 @@ def test_execution_at_max_stack_height(
         container=container,
         expect_exception=exception,
         container_post=Account(
-            storage={MAX_RUNTIME_STACK_HEIGHT - 1: MAX_RUNTIME_STACK_HEIGHT - 2}
+            storage={
+                MAX_RUNTIME_STACK_HEIGHT - 1: MAX_RUNTIME_STACK_HEIGHT - 2
+            }
         ),
     )

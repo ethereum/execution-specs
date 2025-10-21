@@ -54,7 +54,9 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
         pytest.param(b"\x08\xc3\x79\xa0", id="Error(string)"),
     ],
 )
-def test_initcode_revert(state_test: StateTestFiller, pre: Alloc, revert: bytes) -> None:
+def test_initcode_revert(
+    state_test: StateTestFiller, pre: Alloc, revert: bytes
+) -> None:
     """Verifies proper handling of REVERT in initcode."""
     env = Environment()
     revert_size = len(revert)
@@ -63,7 +65,8 @@ def test_initcode_revert(state_test: StateTestFiller, pre: Alloc, revert: bytes)
         name="Initcode Subcontainer that reverts",
         sections=[
             Section.Code(
-                code=Op.MSTORE(0, Op.PUSH32(revert)) + Op.REVERT(32 - revert_size, revert_size),
+                code=Op.MSTORE(0, Op.PUSH32(revert))
+                + Op.REVERT(32 - revert_size, revert_size),
             ),
         ],
     )
@@ -72,9 +75,13 @@ def test_initcode_revert(state_test: StateTestFiller, pre: Alloc, revert: bytes)
         name="factory contract",
         sections=[
             Section.Code(
-                code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0))
+                code=Op.SSTORE(
+                    slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0)
+                )
                 + Op.SSTORE(slot_returndata_size, Op.RETURNDATASIZE)
-                + Op.RETURNDATACOPY(Op.SUB(32, Op.RETURNDATASIZE), 0, Op.RETURNDATASIZE)
+                + Op.RETURNDATACOPY(
+                    Op.SUB(32, Op.RETURNDATASIZE), 0, Op.RETURNDATASIZE
+                )
                 + Op.SSTORE(slot_returndata, Op.MLOAD(0))
                 + Op.SSTORE(slot_code_worked, value_code_worked)
                 + Op.STOP,
@@ -118,7 +125,9 @@ def test_initcode_aborts(
         code=Container(
             sections=[
                 Section.Code(
-                    code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0))
+                    code=Op.SSTORE(
+                        slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0)
+                    )
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.STOP,
                 ),
@@ -187,7 +196,8 @@ def test_eofcreate_deploy_sizes(
     runtime_container = Container(
         sections=[
             Section.Code(
-                code=Op.JUMPDEST * (target_deploy_size - len(smallest_runtime_subcontainer))
+                code=Op.JUMPDEST
+                * (target_deploy_size - len(smallest_runtime_subcontainer))
                 + Op.STOP,
             ),
         ]
@@ -206,7 +216,9 @@ def test_eofcreate_deploy_sizes(
     factory_container = Container(
         sections=[
             Section.Code(
-                code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0))
+                code=Op.SSTORE(
+                    slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0)
+                )
                 + Op.SSTORE(slot_code_worked, value_code_worked)
                 + Op.STOP,
             ),
@@ -231,7 +243,9 @@ def test_eofcreate_deploy_sizes(
     post = {
         contract_address: Account(
             storage={
-                slot_create_address: compute_eofcreate_address(contract_address, 0)
+                slot_create_address: compute_eofcreate_address(
+                    contract_address, 0
+                )
                 if success
                 else EOFCREATE_FAILURE,
                 slot_code_worked: value_code_worked,
@@ -259,7 +273,9 @@ def test_eofcreate_deploy_sizes(
         pytest.param(MAX_BYTECODE_SIZE, id="max"),
         pytest.param(MAX_BYTECODE_SIZE + 1, id="overmax"),
         pytest.param(MAX_INITCODE_SIZE - factory_size, id="initcodemax"),
-        pytest.param(MAX_INITCODE_SIZE - factory_size + 1, id="initcodeovermax"),
+        pytest.param(
+            MAX_INITCODE_SIZE - factory_size + 1, id="initcodeovermax"
+        ),
         pytest.param(0xFFFF - factory_size, id="64k-1"),
     ],
 )
@@ -278,15 +294,23 @@ def test_eofcreate_deploy_sizes_tx(
 @pytest.mark.parametrize(
     "auxdata_size",
     [
-        pytest.param(MAX_BYTECODE_SIZE - len(smallest_runtime_subcontainer), id="maxcode"),
-        pytest.param(MAX_BYTECODE_SIZE - len(smallest_runtime_subcontainer) + 1, id="overmaxcode"),
+        pytest.param(
+            MAX_BYTECODE_SIZE - len(smallest_runtime_subcontainer),
+            id="maxcode",
+        ),
+        pytest.param(
+            MAX_BYTECODE_SIZE - len(smallest_runtime_subcontainer) + 1,
+            id="overmaxcode",
+        ),
         pytest.param(0x10000 - 60, id="almost64k"),
         pytest.param(0x10000 - 1, id="64k-1"),
         pytest.param(0x10000, id="64k"),
         pytest.param(0x10000 + 1, id="over64k"),
     ],
 )
-def test_auxdata_size_failures(state_test: StateTestFiller, pre: Alloc, auxdata_size: int) -> None:
+def test_auxdata_size_failures(
+    state_test: StateTestFiller, pre: Alloc, auxdata_size: int
+) -> None:
     """
     Exercises a number of auxdata size violations, and one maxcode success.
     """
@@ -297,7 +321,8 @@ def test_auxdata_size_failures(state_test: StateTestFiller, pre: Alloc, auxdata_
         name="Initcode Subcontainer",
         sections=[
             Section.Code(
-                code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE) + Op.RETURNCODE[0](0, Op.CALLDATASIZE),
+                code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+                + Op.RETURNCODE[0](0, Op.CALLDATASIZE),
             ),
             Section.Container(container=smallest_runtime_subcontainer),
         ],
@@ -309,7 +334,10 @@ def test_auxdata_size_failures(state_test: StateTestFiller, pre: Alloc, auxdata_
             sections=[
                 Section.Code(
                     code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-                    + Op.SSTORE(slot_create_address, Op.EOFCREATE[0](input_size=Op.CALLDATASIZE))
+                    + Op.SSTORE(
+                        slot_create_address,
+                        Op.EOFCREATE[0](input_size=Op.CALLDATASIZE),
+                    )
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.STOP,
                 ),
@@ -329,7 +357,9 @@ def test_auxdata_size_failures(state_test: StateTestFiller, pre: Alloc, auxdata_
     post = {
         contract_address: Account(
             storage={
-                slot_create_address: compute_eofcreate_address(contract_address, 0)
+                slot_create_address: compute_eofcreate_address(
+                    contract_address, 0
+                )
                 if success
                 else 0,
                 slot_code_worked: value_code_worked,
@@ -372,7 +402,9 @@ def test_eofcreate_insufficient_stipend(
     initcode_container = Container(
         sections=[
             Section.Code(
-                code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](value=value))
+                code=Op.SSTORE(
+                    slot_create_address, Op.EOFCREATE[0](value=value)
+                )
                 + Op.SSTORE(slot_code_worked, value_code_worked)
                 + Op.STOP,
             ),
@@ -434,7 +466,9 @@ def test_insufficient_initcode_gas(
         code=Container(
             sections=[
                 Section.Code(
-                    code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0))
+                    code=Op.SSTORE(
+                        slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0)
+                    )
                     + Op.SSTORE(slot_code_should_fail, value_code_worked)
                     + Op.STOP,
                 ),
@@ -484,7 +518,10 @@ def test_insufficient_gas_memory_expansion(
     initcode_container = Container(
         sections=[
             Section.Code(
-                code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](input_size=auxdata_size))
+                code=Op.SSTORE(
+                    slot_create_address,
+                    Op.EOFCREATE[0](input_size=auxdata_size),
+                )
                 + Op.SSTORE(slot_code_should_fail, slot_code_worked)
                 + Op.STOP,
             ),
@@ -557,7 +594,9 @@ def test_insufficient_returncode_auxdata_gas(
         code=Container(
             sections=[
                 Section.Code(
-                    code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0))
+                    code=Op.SSTORE(
+                        slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0)
+                    )
                     + Op.SSTORE(slot_code_should_fail, value_code_worked)
                     + Op.STOP,
                 ),
@@ -641,7 +680,9 @@ def test_static_flag_eofcreate(
         + Op.STOP
     )
     calling_address = pre.deploy_contract(
-        Container.Code(calling_code) if opcode == Op.EXTSTATICCALL else calling_code
+        Container.Code(calling_code)
+        if opcode == Op.EXTSTATICCALL
+        else calling_code
     )
 
     post = {
@@ -715,7 +756,9 @@ def test_eof_eofcreate_msg_depth(
     # - 96 - output - magic value: create or call
     returndatacopy_block = Op.RETURNDATACOPY(32, 0, 96) + Op.REVERT(32, 96)
     deep_most_result_block = (
-        Op.MSTORE(32, Op.ADD(Op.CALLDATALOAD(0), 1)) + Op.MSTORE(64, Op.NOOP) + Op.REVERT(32, 96)
+        Op.MSTORE(32, Op.ADD(Op.CALLDATALOAD(0), 1))
+        + Op.MSTORE(64, Op.NOOP)
+        + Op.REVERT(32, 96)
     )
     rjump_offset = len(returndatacopy_block)
 
@@ -765,13 +808,17 @@ def test_eof_eofcreate_msg_depth(
     # 1024 to happen on EOFCREATE, instead of CALL.
     passthrough_address = pre.deploy_contract(
         Container.Code(
-            Op.MSTORE(0, 1) + Op.EXTCALL(address=calling_contract_address, args_size=32) + Op.STOP
+            Op.MSTORE(0, 1)
+            + Op.EXTCALL(address=calling_contract_address, args_size=32)
+            + Op.STOP
         )
     )
 
     tx = Transaction(
         sender=sender,
-        to=calling_contract_address if who_fails == magic_value_call else passthrough_address,
+        to=calling_contract_address
+        if who_fails == magic_value_call
+        else passthrough_address,
         gas_limit=gas_limit,
         data="",
     )
@@ -779,7 +826,9 @@ def test_eof_eofcreate_msg_depth(
     calling_storage = {
         slot_max_depth: 1024,
         slot_code_worked: value_code_worked,
-        slot_call_result: EXTCALL_REVERT if who_fails == magic_value_call else EOFCREATE_FAILURE,
+        slot_call_result: EXTCALL_REVERT
+        if who_fails == magic_value_call
+        else EOFCREATE_FAILURE,
         slot_call_or_create: who_fails,
     }
 
@@ -805,7 +854,9 @@ def test_reentrant_eofcreate(
     """
     env = Environment()
     # Calls into the factory contract with 1 as input.
-    reenter_code = Op.MSTORE(0, 1) + Op.EXTCALL(address=Op.CALLDATALOAD(32), args_size=32)
+    reenter_code = Op.MSTORE(0, 1) + Op.EXTCALL(
+        address=Op.CALLDATALOAD(32), args_size=32
+    )
     # Initcode: if given 0 as 1st word of input will call into the factory
     # again. 2nd word of input is the address of the factory.
     initcontainer = Container(
@@ -833,7 +884,9 @@ def test_reentrant_eofcreate(
                     + Op.MSTORE(32, Op.ADDRESS)
                     # 1st word - copied from input (reenter flag)
                     # 2nd word - `this.address`
-                    + Op.SSTORE(Op.CALLDATALOAD(0), Op.EOFCREATE[0](input_size=64))
+                    + Op.SSTORE(
+                        Op.CALLDATALOAD(0), Op.EOFCREATE[0](input_size=64)
+                    )
                     + Op.STOP,
                 ),
                 Section.Container(initcontainer),
@@ -861,7 +914,9 @@ def test_reentrant_eofcreate(
             }
         ),
         compute_eofcreate_address(contract_address, 0): Account(
-            nonce=1, code=smallest_runtime_subcontainer, storage={slot_counter: 1}
+            nonce=1,
+            code=smallest_runtime_subcontainer,
+            storage={slot_counter: 1},
         ),
     }
     tx = Transaction(

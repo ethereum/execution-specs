@@ -100,7 +100,9 @@ def test_bal_balance_changes(
     alice_initial_balance = alice_account.balance
 
     # Account for both the value sent and gas cost (gas_price * gas_used)
-    alice_final_balance = alice_initial_balance - 100 - (intrinsic_gas_cost * 1_000_000_000)
+    alice_final_balance = (
+        alice_initial_balance - 100 - (intrinsic_gas_cost * 1_000_000_000)
+    )
 
     block = Block(
         txs=[tx],
@@ -109,11 +111,15 @@ def test_bal_balance_changes(
                 alice: BalAccountExpectation(
                     nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
                     balance_changes=[
-                        BalBalanceChange(tx_index=1, post_balance=alice_final_balance)
+                        BalBalanceChange(
+                            tx_index=1, post_balance=alice_final_balance
+                        )
                     ],
                 ),
                 bob: BalAccountExpectation(
-                    balance_changes=[BalBalanceChange(tx_index=1, post_balance=100)],
+                    balance_changes=[
+                        BalBalanceChange(tx_index=1, post_balance=100)
+                    ],
                 ),
             }
         ),
@@ -157,7 +163,9 @@ def test_bal_code_changes(
         + Op.MSTORE  # Store at memory position 0
         # CREATE parameters: value, offset, size
         + Op.PUSH1(len(init_code_bytes))  # size of init code
-        + Op.PUSH1(32 - len(init_code_bytes))  # offset in memory (account for padding)
+        + Op.PUSH1(
+            32 - len(init_code_bytes)
+        )  # offset in memory (account for padding)
         + Op.PUSH1(0x00)  # value = 0 (no ETH sent)
         + Op.CREATE  # Deploy the contract
         + Op.STOP
@@ -172,7 +180,9 @@ def test_bal_code_changes(
         gas_limit=500000,
     )
 
-    created_contract = compute_create_address(address=factory_contract, nonce=1)
+    created_contract = compute_create_address(
+        address=factory_contract, nonce=1
+    )
 
     block = Block(
         txs=[tx],
@@ -185,7 +195,9 @@ def test_bal_code_changes(
                     nonce_changes=[BalNonceChange(tx_index=1, post_nonce=2)],
                 ),
                 created_contract: BalAccountExpectation(
-                    code_changes=[BalCodeChange(tx_index=1, new_code=runtime_code_bytes)],
+                    code_changes=[
+                        BalCodeChange(tx_index=1, new_code=runtime_code_bytes)
+                    ],
                 ),
             }
         ),
@@ -205,8 +217,12 @@ def test_bal_code_changes(
     )
 
 
-@pytest.mark.parametrize("self_destruct_in_same_tx", [True, False], ids=["same_tx", "new_tx"])
-@pytest.mark.parametrize("pre_funded", [True, False], ids=["pre_funded", "not_pre_funded"])
+@pytest.mark.parametrize(
+    "self_destruct_in_same_tx", [True, False], ids=["same_tx", "new_tx"]
+)
+@pytest.mark.parametrize(
+    "pre_funded", [True, False], ids=["pre_funded", "not_pre_funded"]
+)
 def test_bal_self_destruct(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
@@ -253,11 +269,15 @@ def test_bal_self_destruct(
         kaboom_same_tx = compute_create_address(address=factory, nonce=1)
 
     # Determine which account will be self-destructed
-    self_destructed_account = kaboom_same_tx if self_destruct_in_same_tx else kaboom
+    self_destructed_account = (
+        kaboom_same_tx if self_destruct_in_same_tx else kaboom
+    )
 
     if pre_funded:
         expected_recipient_balance += pre_fund_amount
-        pre.fund_address(address=self_destructed_account, amount=pre_fund_amount)
+        pre.fund_address(
+            address=self_destructed_account, amount=pre_fund_amount
+        )
 
     tx = Transaction(
         sender=alice,
@@ -276,20 +296,29 @@ def test_bal_self_destruct(
                 ),
                 bob: BalAccountExpectation(
                     balance_changes=[
-                        BalBalanceChange(tx_index=1, post_balance=expected_recipient_balance)
+                        BalBalanceChange(
+                            tx_index=1, post_balance=expected_recipient_balance
+                        )
                     ]
                 ),
                 self_destructed_account: BalAccountExpectation(
-                    balance_changes=[BalBalanceChange(tx_index=1, post_balance=0)]
+                    balance_changes=[
+                        BalBalanceChange(tx_index=1, post_balance=0)
+                    ]
                     if pre_funded
                     else [],
                     # Accessed slots for same-tx are recorded as reads (0x02)
-                    storage_reads=[0x01, 0x02] if self_destruct_in_same_tx else [0x01],
+                    storage_reads=[0x01, 0x02]
+                    if self_destruct_in_same_tx
+                    else [0x01],
                     # Storage changes are recorded for non-same-tx
                     # self-destructs
                     storage_changes=[
                         BalStorageSlot(
-                            slot=0x02, slot_changes=[BalStorageChange(tx_index=1, post_value=0x42)]
+                            slot=0x02,
+                            slot_changes=[
+                                BalStorageChange(tx_index=1, post_value=0x42)
+                            ],
                         )
                     ]
                     if not self_destruct_in_same_tx
@@ -318,7 +347,9 @@ def test_bal_self_destruct(
                 ),
                 kaboom_same_tx: Account.NONEXISTENT,  # type: ignore
                 # The pre-existing contract remains unaffected
-                kaboom: Account(balance=0, code=selfdestruct_code, storage={0x01: 0x123}),
+                kaboom: Account(
+                    balance=0, code=selfdestruct_code, storage={0x01: 0x123}
+                ),
             }
         )
     else:
@@ -328,7 +359,9 @@ def test_bal_self_destruct(
                 # From EIP 6780: `SELFDESTRUCT` does not delete any data
                 # (including storage keys, code, or the account itself).
                 kaboom: Account(
-                    balance=0, code=selfdestruct_code, storage={0x01: 0x123, 0x2: 0x42}
+                    balance=0,
+                    code=selfdestruct_code,
+                    storage={0x01: 0x123, 0x2: 0x42},
                 ),
             }
         )
@@ -343,19 +376,34 @@ def test_bal_self_destruct(
 @pytest.mark.parametrize(
     "account_access_opcode",
     [
-        pytest.param(lambda target_addr: Op.BALANCE(target_addr), id="balance"),
-        pytest.param(lambda target_addr: Op.EXTCODESIZE(target_addr), id="extcodesize"),
-        pytest.param(lambda target_addr: Op.EXTCODECOPY(target_addr, 0, 0, 32), id="extcodecopy"),
-        pytest.param(lambda target_addr: Op.EXTCODEHASH(target_addr), id="extcodehash"),
-        pytest.param(lambda target_addr: Op.CALL(0, target_addr, 0, 0, 0, 0, 0), id="call"),
         pytest.param(
-            lambda target_addr: Op.CALLCODE(0, target_addr, 0, 0, 0, 0, 0), id="callcode"
+            lambda target_addr: Op.BALANCE(target_addr), id="balance"
         ),
         pytest.param(
-            lambda target_addr: Op.DELEGATECALL(0, target_addr, 0, 0, 0, 0), id="delegatecall"
+            lambda target_addr: Op.EXTCODESIZE(target_addr), id="extcodesize"
         ),
         pytest.param(
-            lambda target_addr: Op.STATICCALL(0, target_addr, 0, 0, 0, 0), id="staticcall"
+            lambda target_addr: Op.EXTCODECOPY(target_addr, 0, 0, 32),
+            id="extcodecopy",
+        ),
+        pytest.param(
+            lambda target_addr: Op.EXTCODEHASH(target_addr), id="extcodehash"
+        ),
+        pytest.param(
+            lambda target_addr: Op.CALL(0, target_addr, 0, 0, 0, 0, 0),
+            id="call",
+        ),
+        pytest.param(
+            lambda target_addr: Op.CALLCODE(0, target_addr, 0, 0, 0, 0, 0),
+            id="callcode",
+        ),
+        pytest.param(
+            lambda target_addr: Op.DELEGATECALL(0, target_addr, 0, 0, 0, 0),
+            id="delegatecall",
+        ),
+        pytest.param(
+            lambda target_addr: Op.STATICCALL(0, target_addr, 0, 0, 0, 0),
+            id="staticcall",
         ),
     ],
 )
@@ -373,7 +421,9 @@ def test_bal_account_access_target(
         code=account_access_opcode(target_contract),
     )
 
-    tx = Transaction(sender=alice, to=oracle_contract, gas_limit=5_000_000, gas_price=0xA)
+    tx = Transaction(
+        sender=alice, to=oracle_contract, gas_limit=5_000_000, gas_price=0xA
+    )
 
     block = Block(
         txs=[tx],
@@ -406,7 +456,9 @@ def test_bal_call_with_value_transfer(
     oracle_code = Op.CALL(0, bob, 100, 0, 0, 0, 0)
     oracle_contract = pre.deploy_contract(code=oracle_code, balance=200)
 
-    tx = Transaction(sender=alice, to=oracle_contract, gas_limit=1_000_000, gas_price=0xA)
+    tx = Transaction(
+        sender=alice, to=oracle_contract, gas_limit=1_000_000, gas_price=0xA
+    )
 
     block = Block(
         txs=[tx],
@@ -416,10 +468,14 @@ def test_bal_call_with_value_transfer(
                     nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
                 ),
                 oracle_contract: BalAccountExpectation(
-                    balance_changes=[BalBalanceChange(tx_index=1, post_balance=100)],
+                    balance_changes=[
+                        BalBalanceChange(tx_index=1, post_balance=100)
+                    ],
                 ),
                 bob: BalAccountExpectation(
-                    balance_changes=[BalBalanceChange(tx_index=1, post_balance=100)],
+                    balance_changes=[
+                        BalBalanceChange(tx_index=1, post_balance=100)
+                    ],
                 ),
             }
         ),
@@ -447,7 +503,9 @@ def test_bal_callcode_with_value_transfer(
     oracle_code = Op.CALLCODE(50_000, target_contract, 100, 0, 0, 0, 0)
     oracle_contract = pre.deploy_contract(code=oracle_code, balance=200)
 
-    tx = Transaction(sender=alice, to=oracle_contract, gas_limit=1_000_000, gas_price=0xA)
+    tx = Transaction(
+        sender=alice, to=oracle_contract, gas_limit=1_000_000, gas_price=0xA
+    )
 
     block = Block(
         txs=[tx],
@@ -457,10 +515,14 @@ def test_bal_callcode_with_value_transfer(
                     nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
                 ),
                 oracle_contract: BalAccountExpectation(
-                    balance_changes=[BalBalanceChange(tx_index=1, post_balance=100)],
+                    balance_changes=[
+                        BalBalanceChange(tx_index=1, post_balance=100)
+                    ],
                 ),
                 bob: BalAccountExpectation(
-                    balance_changes=[BalBalanceChange(tx_index=1, post_balance=100)],
+                    balance_changes=[
+                        BalBalanceChange(tx_index=1, post_balance=100)
+                    ],
                 ),
                 target_contract: BalAccountExpectation.empty(),
             }
@@ -474,10 +536,14 @@ def test_bal_callcode_with_value_transfer(
     "delegated_opcode",
     [
         pytest.param(
-            lambda target_addr: Op.DELEGATECALL(50000, target_addr, 0, 0, 0, 0), id="delegatecall"
+            lambda target_addr: Op.DELEGATECALL(
+                50000, target_addr, 0, 0, 0, 0
+            ),
+            id="delegatecall",
         ),
         pytest.param(
-            lambda target_addr: Op.CALLCODE(50000, target_addr, 0, 0, 0, 0, 0), id="callcode"
+            lambda target_addr: Op.CALLCODE(50000, target_addr, 0, 0, 0, 0, 0),
+            id="callcode",
         ),
     ],
 )
@@ -518,7 +584,9 @@ def test_bal_delegated_storage_writes(
                     storage_changes=[
                         BalStorageSlot(
                             slot=0x01,
-                            slot_changes=[BalStorageChange(tx_index=1, post_value=0x42)],
+                            slot_changes=[
+                                BalStorageChange(tx_index=1, post_value=0x42)
+                            ],
                         )
                     ],
                 ),
@@ -534,10 +602,14 @@ def test_bal_delegated_storage_writes(
     "delegated_opcode",
     [
         pytest.param(
-            lambda target_addr: Op.DELEGATECALL(50000, target_addr, 0, 0, 0, 0), id="delegatecall"
+            lambda target_addr: Op.DELEGATECALL(
+                50000, target_addr, 0, 0, 0, 0
+            ),
+            id="delegatecall",
         ),
         pytest.param(
-            lambda target_addr: Op.CALLCODE(50000, target_addr, 0, 0, 0, 0, 0), id="callcode"
+            lambda target_addr: Op.CALLCODE(50000, target_addr, 0, 0, 0, 0, 0),
+            id="callcode",
         ),
     ],
 )
@@ -559,7 +631,9 @@ def test_bal_delegated_storage_reads(
     # Oracle contract with storage slot 0x01 = 0x42,
     # uses delegated opcode to execute TargetContract's code
     oracle_code = delegated_opcode(target_contract)
-    oracle_contract = pre.deploy_contract(code=oracle_code, storage={0x01: 0x42})
+    oracle_contract = pre.deploy_contract(
+        code=oracle_code, storage={0x01: 0x42}
+    )
 
     tx = Transaction(
         sender=alice,
@@ -637,14 +711,22 @@ def test_bal_block_rewards(
                 alice: BalAccountExpectation(
                     nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
                     balance_changes=[
-                        BalBalanceChange(tx_index=1, post_balance=alice_final_balance)
+                        BalBalanceChange(
+                            tx_index=1, post_balance=alice_final_balance
+                        )
                     ],
                 ),
                 bob: BalAccountExpectation(
-                    balance_changes=[BalBalanceChange(tx_index=1, post_balance=100)],
+                    balance_changes=[
+                        BalBalanceChange(tx_index=1, post_balance=100)
+                    ],
                 ),
                 charlie: BalAccountExpectation(
-                    balance_changes=[BalBalanceChange(tx_index=1, post_balance=tip_to_charlie)],
+                    balance_changes=[
+                        BalBalanceChange(
+                            tx_index=1, post_balance=tip_to_charlie
+                        )
+                    ],
                 ),
             }
         ),
@@ -674,7 +756,13 @@ def test_bal_2930_account_listed_but_untouched(
 
     gas_limit = 1_000_000
 
-    tx = Transaction(ty=1, sender=alice, to=bob, gas_limit=gas_limit, access_list=[access_list])
+    tx = Transaction(
+        ty=1,
+        sender=alice,
+        to=bob,
+        gas_limit=gas_limit,
+        access_list=[access_list],
+    )
 
     block = Block(
         txs=[tx],
@@ -726,7 +814,11 @@ def test_bal_2930_slot_listed_but_untouched(
     )  # intrinsic + buffer
 
     tx = Transaction(
-        ty=1, sender=alice, to=pure_calculator, gas_limit=gas_limit, access_list=[access_list]
+        ty=1,
+        sender=alice,
+        to=pure_calculator,
+        gas_limit=gas_limit,
+        access_list=[access_list],
     )
 
     block = Block(
@@ -760,7 +852,9 @@ def test_bal_2930_slot_listed_and_unlisted_writes(
     Ensure BAL includes storage writes regardless of access list presence.
     """
     alice = pre.fund_eoa()
-    storage_writer = pre.deploy_contract(code=Op.SSTORE(0x01, 0x42) + Op.SSTORE(0x02, 0x43))
+    storage_writer = pre.deploy_contract(
+        code=Op.SSTORE(0x01, 0x42) + Op.SSTORE(0x02, 0x43)
+    )
 
     # Access list only includes slot 0x01, but contract writes to both
     # 0x01 and 0x02
@@ -780,7 +874,11 @@ def test_bal_2930_slot_listed_and_unlisted_writes(
     )  # intrinsic + buffer for storage writes
 
     tx = Transaction(
-        ty=1, sender=alice, to=storage_writer, gas_limit=gas_limit, access_list=[access_list]
+        ty=1,
+        sender=alice,
+        to=storage_writer,
+        gas_limit=gas_limit,
+        access_list=[access_list],
     )
 
     block = Block(
@@ -794,11 +892,15 @@ def test_bal_2930_slot_listed_and_unlisted_writes(
                     storage_changes=[
                         BalStorageSlot(
                             slot=0x01,
-                            slot_changes=[BalStorageChange(tx_index=1, post_value=0x42)],
+                            slot_changes=[
+                                BalStorageChange(tx_index=1, post_value=0x42)
+                            ],
                         ),
                         BalStorageSlot(
                             slot=0x02,
-                            slot_changes=[BalStorageChange(tx_index=1, post_value=0x43)],
+                            slot_changes=[
+                                BalStorageChange(tx_index=1, post_value=0x43)
+                            ],
                         ),
                     ],
                 ),
@@ -846,7 +948,11 @@ def test_bal_2930_slot_listed_and_unlisted_reads(
     )  # intrinsic + buffer for storage reads
 
     tx = Transaction(
-        ty=1, sender=alice, to=storage_reader, gas_limit=gas_limit, access_list=[access_list]
+        ty=1,
+        sender=alice,
+        to=storage_reader,
+        gas_limit=gas_limit,
+        access_list=[access_list],
     )
 
     block = Block(
@@ -886,7 +992,11 @@ def test_bal_self_transfer(
     intrinsic_gas_cost = intrinsic_gas_calculator()
 
     tx = Transaction(
-        sender=alice, to=alice, gas_limit=intrinsic_gas_cost, value=100, gas_price=0xA
+        sender=alice,
+        to=alice,
+        gas_limit=intrinsic_gas_cost,
+        value=100,
+        gas_price=0xA,
     )
 
     block = Block(
@@ -923,7 +1033,13 @@ def test_bal_zero_value_transfer(
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     intrinsic_gas_cost = intrinsic_gas_calculator()
 
-    tx = Transaction(sender=alice, to=bob, gas_limit=intrinsic_gas_cost, value=0, gas_price=0xA)
+    tx = Transaction(
+        sender=alice,
+        to=bob,
+        gas_limit=intrinsic_gas_cost,
+        value=0,
+        gas_price=0xA,
+    )
 
     block = Block(
         txs=[tx],
@@ -952,7 +1068,9 @@ def test_bal_zero_value_transfer(
     "initial_balance,transfer_amount,transfer_mechanism",
     [
         pytest.param(0, 0, "call", id="zero_balance_zero_transfer_call"),
-        pytest.param(0, 0, "selfdestruct", id="zero_balance_zero_transfer_selfdestruct"),
+        pytest.param(
+            0, 0, "selfdestruct", id="zero_balance_zero_transfer_selfdestruct"
+        ),
         pytest.param(1, 1, "call", id="nonzero_balance_net_zero"),
         pytest.param(100, 50, "call", id="larger_balance_net_zero"),
     ],
@@ -1014,12 +1132,17 @@ def test_bal_net_zero_balance_transfer(
                     # receives transfer_amount and sends transfer_amount away
                     # (net-zero change)
                     balance_changes=[],
-                    storage_reads=[0x00] if expected_balance_in_slot == 0 else [],
+                    storage_reads=[0x00]
+                    if expected_balance_in_slot == 0
+                    else [],
                     storage_changes=[
                         BalStorageSlot(
                             slot=0x00,
                             slot_changes=[
-                                BalStorageChange(tx_index=1, post_value=expected_balance_in_slot)
+                                BalStorageChange(
+                                    tx_index=1,
+                                    post_value=expected_balance_in_slot,
+                                )
                             ],
                         )
                     ]
@@ -1028,7 +1151,11 @@ def test_bal_net_zero_balance_transfer(
                 ),
                 # recipient receives transfer_amount
                 recipient: BalAccountExpectation(
-                    balance_changes=[BalBalanceChange(tx_index=1, post_balance=transfer_amount)]
+                    balance_changes=[
+                        BalBalanceChange(
+                            tx_index=1, post_balance=transfer_amount
+                        )
+                    ]
                     if transfer_amount > 0
                     else [],
                 ),
@@ -1042,7 +1169,9 @@ def test_bal_net_zero_balance_transfer(
         post={
             net_zero_bal_contract: Account(
                 balance=initial_balance,
-                storage={0x00: expected_balance_in_slot} if expected_balance_in_slot > 0 else {},
+                storage={0x00: expected_balance_in_slot}
+                if expected_balance_in_slot > 0
+                else {},
             ),
             recipient: Account(balance=transfer_amount)
             if transfer_amount > 0
@@ -1063,7 +1192,9 @@ def test_bal_pure_contract_call(
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     gas_limit = intrinsic_gas_calculator() + 5_000  # Buffer
 
-    tx = Transaction(sender=alice, to=pure_contract, gas_limit=gas_limit, gas_price=0xA)
+    tx = Transaction(
+        sender=alice, to=pure_contract, gas_limit=gas_limit, gas_price=0xA
+    )
 
     block = Block(
         txs=[tx],
@@ -1088,7 +1219,9 @@ def test_bal_noop_storage_write(
 ) -> None:
     """Test that BAL correctly handles no-op storage write."""
     alice = pre.fund_eoa()
-    storage_contract = pre.deploy_contract(code=Op.SSTORE(0x01, 0x42), storage={0x01: 0x42})
+    storage_contract = pre.deploy_contract(
+        code=Op.SSTORE(0x01, 0x42), storage={0x01: 0x42}
+    )
 
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     gas_limit = (
@@ -1100,7 +1233,9 @@ def test_bal_noop_storage_write(
         + fork.gas_costs().G_BASE * 10  # Buffer for push
     )
 
-    tx = Transaction(sender=alice, to=storage_contract, gas_limit=gas_limit, gas_price=0xA)
+    tx = Transaction(
+        sender=alice, to=storage_contract, gas_limit=gas_limit, gas_price=0xA
+    )
 
     block = Block(
         txs=[tx],
@@ -1137,7 +1272,9 @@ def test_bal_aborted_storage_access(
         storage={0x01: 0x10},  # Pre-existing value in slot 0x01
     )
 
-    tx = Transaction(sender=alice, to=storage_contract, gas_limit=5_000_000, gas_price=0xA)
+    tx = Transaction(
+        sender=alice, to=storage_contract, gas_limit=5_000_000, gas_price=0xA
+    )
 
     block = Block(
         txs=[tx],
@@ -1164,19 +1301,34 @@ def test_bal_aborted_storage_access(
 @pytest.mark.parametrize(
     "account_access_opcode",
     [
-        pytest.param(lambda target_addr: Op.BALANCE(target_addr), id="balance"),
-        pytest.param(lambda target_addr: Op.EXTCODESIZE(target_addr), id="extcodesize"),
-        pytest.param(lambda target_addr: Op.EXTCODECOPY(target_addr, 0, 0, 32), id="extcodecopy"),
-        pytest.param(lambda target_addr: Op.EXTCODEHASH(target_addr), id="extcodehash"),
-        pytest.param(lambda target_addr: Op.CALL(0, target_addr, 50, 0, 0, 0, 0), id="call"),
         pytest.param(
-            lambda target_addr: Op.CALLCODE(0, target_addr, 50, 0, 0, 0, 0), id="callcode"
+            lambda target_addr: Op.BALANCE(target_addr), id="balance"
         ),
         pytest.param(
-            lambda target_addr: Op.DELEGATECALL(0, target_addr, 0, 0, 0, 0), id="delegatecall"
+            lambda target_addr: Op.EXTCODESIZE(target_addr), id="extcodesize"
         ),
         pytest.param(
-            lambda target_addr: Op.STATICCALL(0, target_addr, 0, 0, 0, 0), id="staticcall"
+            lambda target_addr: Op.EXTCODECOPY(target_addr, 0, 0, 32),
+            id="extcodecopy",
+        ),
+        pytest.param(
+            lambda target_addr: Op.EXTCODEHASH(target_addr), id="extcodehash"
+        ),
+        pytest.param(
+            lambda target_addr: Op.CALL(0, target_addr, 50, 0, 0, 0, 0),
+            id="call",
+        ),
+        pytest.param(
+            lambda target_addr: Op.CALLCODE(0, target_addr, 50, 0, 0, 0, 0),
+            id="callcode",
+        ),
+        pytest.param(
+            lambda target_addr: Op.DELEGATECALL(0, target_addr, 0, 0, 0, 0),
+            id="delegatecall",
+        ),
+        pytest.param(
+            lambda target_addr: Op.STATICCALL(0, target_addr, 0, 0, 0, 0),
+            id="staticcall",
         ),
     ],
 )
@@ -1202,7 +1354,9 @@ def test_bal_aborted_account_access(
         code=account_access_opcode(target_contract) + abort_opcode,
     )
 
-    tx = Transaction(sender=alice, to=abort_contract, gas_limit=5_000_000, gas_price=0xA)
+    tx = Transaction(
+        sender=alice, to=abort_contract, gas_limit=5_000_000, gas_price=0xA
+    )
 
     block = Block(
         txs=[tx],
@@ -1242,7 +1396,9 @@ def test_bal_fully_unmutated_account(
         storage={0x01: 0x42},  # Pre-existing value
     )
 
-    tx = Transaction(sender=alice, to=oracle, gas_limit=1_000_000, value=0, gas_price=0xA)
+    tx = Transaction(
+        sender=alice, to=oracle, gas_limit=1_000_000, value=0, gas_price=0xA
+    )
 
     block = Block(
         txs=[tx],

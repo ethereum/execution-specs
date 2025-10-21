@@ -137,7 +137,9 @@ def precompile_caller_code(
 
 
 @pytest.fixture
-def precompile_caller_address(pre: Alloc, precompile_caller_code: Bytecode) -> Address:
+def precompile_caller_address(
+    pre: Alloc, precompile_caller_code: Bytecode
+) -> Address:
     """Address of the precompile caller account."""
     return pre.deploy_contract(precompile_caller_code)
 

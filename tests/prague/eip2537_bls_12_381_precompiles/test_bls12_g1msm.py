@@ -40,7 +40,12 @@ pytestmark = [
             id="g1_plus_inf",
         ),
         pytest.param(
-            Spec.G1 + Scalar(0) + Spec.P1 + Scalar(0) + Spec.INF_G1 + Scalar(0),
+            Spec.G1
+            + Scalar(0)
+            + Spec.P1
+            + Scalar(0)
+            + Spec.INF_G1
+            + Scalar(0),
             Spec.INF_G1,
             None,
             id="all_zero_scalars",
@@ -58,7 +63,12 @@ pytestmark = [
             id="scalars_sum_to_q",
         ),
         pytest.param(
-            Spec.G1 + Scalar(1) + Spec.G1 + Scalar(0) + Spec.INF_G1 + Scalar(5),
+            Spec.G1
+            + Scalar(1)
+            + Spec.G1
+            + Scalar(0)
+            + Spec.INF_G1
+            + Scalar(5),
             Spec.G1,
             None,
             id="combined_basic_cases",
@@ -125,7 +135,10 @@ def test_valid(
             id="not_in_subgroup_1_pos_1",
         ),
         pytest.param(
-            Spec.G1 + Scalar(1) + Spec.P1_NOT_IN_SUBGROUP_TIMES_2 + Scalar(Spec.Q),
+            Spec.G1
+            + Scalar(1)
+            + Spec.P1_NOT_IN_SUBGROUP_TIMES_2
+            + Scalar(Spec.Q),
             id="not_in_subgroup_2_pos_1",
         ),
         pytest.param(
@@ -199,11 +212,17 @@ def test_valid(
             id="y_above_p_pos_0",
         ),
         pytest.param(
-            Spec.G1 + Scalar(1) + PointG1(Spec.P1.x + Spec.P, Spec.P1.y) + Scalar(0),
+            Spec.G1
+            + Scalar(1)
+            + PointG1(Spec.P1.x + Spec.P, Spec.P1.y)
+            + Scalar(0),
             id="x_above_p_pos_1",
         ),
         pytest.param(
-            Spec.G1 + Scalar(1) + PointG1(Spec.P1.x, Spec.P1.y + Spec.P) + Scalar(0),
+            Spec.G1
+            + Scalar(1)
+            + PointG1(Spec.P1.x, Spec.P1.y + Spec.P)
+            + Scalar(0),
             id="y_above_p_pos_1",
         ),
     ],

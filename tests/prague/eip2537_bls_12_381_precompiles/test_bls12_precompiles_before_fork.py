@@ -62,7 +62,9 @@ pytestmark = pytest.mark.valid_at_transition_to("Prague")
         ),
     ],
 )
-@pytest.mark.parametrize("expected_output,call_succeeds", [pytest.param(b"", True, id="")])
+@pytest.mark.parametrize(
+    "expected_output,call_succeeds", [pytest.param(b"", True, id="")]
+)
 def test_precompile_before_fork(
     state_test: StateTestFiller,
     pre: Alloc,

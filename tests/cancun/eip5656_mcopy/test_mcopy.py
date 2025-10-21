@@ -33,7 +33,9 @@ def initial_memory() -> bytes:
 
 
 @pytest.fixture
-def final_memory(*, dest: int, src: int, length: int, initial_memory: bytes) -> bytes:
+def final_memory(
+    *, dest: int, src: int, length: int, initial_memory: bytes
+) -> bytes:
     """Memory after the MCOPY operation."""
     return mcopy(dest=dest, src=src, length=length, memory=initial_memory)
 
@@ -76,7 +78,9 @@ def code_bytecode(
 
     # Then save the hash of the entire memory
     bytecode += Op.SSTORE(
-        code_storage.store_next(keccak256(final_memory.ljust(final_byte_length, b"\x00"))),
+        code_storage.store_next(
+            keccak256(final_memory.ljust(final_byte_length, b"\x00"))
+        ),
         Op.SHA3(0, Op.MSIZE),
     )
 
@@ -93,7 +97,9 @@ def code_bytecode(
         last_word = ceiling_division(len(final_memory), 0x20) - 1
         bytecode += Op.SSTORE(
             code_storage.store_next(
-                final_memory[last_word * 0x20 : (last_word + 1) * 0x20].ljust(32, b"\x00")
+                final_memory[last_word * 0x20 : (last_word + 1) * 0x20].ljust(
+                    32, b"\x00"
+                )
             ),
             Op.MLOAD(last_word * 0x20),
         )

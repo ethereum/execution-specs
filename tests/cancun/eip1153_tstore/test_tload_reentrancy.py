@@ -38,9 +38,13 @@ class CallDestType(Enum):
     pr=["https://github.com/ethereum/execution-spec-tests/pull/440"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.parametrize("call_type", [Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL])
+@pytest.mark.parametrize(
+    "call_type", [Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL]
+)
 @pytest.mark.parametrize("call_return", [Op.RETURN, Op.REVERT, Om.OOG])
-@pytest.mark.parametrize("call_dest_type", [CallDestType.REENTRANCY, CallDestType.EXTERNAL_CALL])
+@pytest.mark.parametrize(
+    "call_dest_type", [CallDestType.REENTRANCY, CallDestType.EXTERNAL_CALL]
+)
 def test_tload_reentrancy(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -120,10 +124,14 @@ def test_tload_reentrancy(
                 storage={
                     slot_code_worked: 1,
                     # if call OOG, we fail to obtain the result
-                    slot_tload_in_subcall_result: 0xFF if call_return == Om.OOG else tload_value,
+                    slot_tload_in_subcall_result: 0xFF
+                    if call_return == Om.OOG
+                    else tload_value,
                     slot_tload_after_subcall_result: tload_value,
                     slot_subcall_worked: (
-                        0 if call_return == Op.REVERT or call_return == Om.OOG else 1
+                        0
+                        if call_return == Op.REVERT or call_return == Om.OOG
+                        else 1
                     ),
                 }
             )
@@ -140,14 +148,17 @@ def test_tload_reentrancy(
                         # context so tload works
                         else (
                             tload_value
-                            if call_type == Op.DELEGATECALL or call_type == Op.CALLCODE
+                            if call_type == Op.DELEGATECALL
+                            or call_type == Op.CALLCODE
                             else empty_value
                         )
                     ),
                     # no subcall errors can change the tload result
                     slot_tload_after_subcall_result: 44,
                     slot_subcall_worked: (
-                        0 if call_return == Op.REVERT or call_return == Om.OOG else 1
+                        0
+                        if call_return == Op.REVERT or call_return == Om.OOG
+                        else 1
                     ),
                 }
             )

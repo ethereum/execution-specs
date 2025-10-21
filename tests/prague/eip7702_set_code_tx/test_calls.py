@@ -52,7 +52,9 @@ class TargetAccountType(Enum):
 
 
 @pytest.fixture
-def target_address(pre: Alloc, target_account_type: TargetAccountType) -> Address:
+def target_address(
+    pre: Alloc, target_account_type: TargetAccountType
+) -> Address:
     """Target address of the call depending on required type of account."""
     match target_account_type:
         case TargetAccountType.EMPTY:
@@ -124,7 +126,10 @@ def test_delegate_call_targets(
         slot_code_worked: value_code_worked,
         slot_call_result: LEGACY_CALL_FAILURE
         if target_account_type
-        in [TargetAccountType.LEGACY_CONTRACT_INVALID, TargetAccountType.LEGACY_CONTRACT_REVERT]
+        in [
+            TargetAccountType.LEGACY_CONTRACT_INVALID,
+            TargetAccountType.LEGACY_CONTRACT_REVERT,
+        ]
         else LEGACY_CALL_SUCCESS,
     }
 
