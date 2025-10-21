@@ -37,8 +37,8 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     if "sync_client_type" in metafunc.fixturenames:
         client_ids = [
             f"sync_{client.name}"
-            for client in metafunc.config.hive_execution_clients
-        ]  # type: ignore[attr-defined]
+            for client in metafunc.config.hive_execution_clients  # type: ignore[attr-defined]
+        ]
         metafunc.parametrize(
             "sync_client_type",
             metafunc.config.hive_execution_clients,  # type: ignore[attr-defined]

@@ -182,9 +182,9 @@ def test_case_description(
     else:
         # this prefix was included in the fixture description field for
         # fixtures <= v4.3.0
-        test_docstring = fixture.info["description"].replace(
+        test_docstring = fixture.info["description"].replace(  # type: ignore
             "Test function documentation:\n", ""
-        )  # type: ignore
+        )
 
     description = textwrap.dedent(f"""
         <b>Test Details</b>

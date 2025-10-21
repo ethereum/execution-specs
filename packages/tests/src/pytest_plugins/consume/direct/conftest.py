@@ -81,11 +81,11 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
 
 
 def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
-    config.supported_fixture_formats = [
+    config.supported_fixture_formats = [  # type: ignore[attr-defined]
         StateFixture,
         BlockchainFixture,
         EOFFixture,
-    ]  # type: ignore[attr-defined]
+    ]
     fixture_consumers = []
     for fixture_consumer_bin_path in config.getoption("fixture_consumer_bin"):
         fixture_consumers.append(

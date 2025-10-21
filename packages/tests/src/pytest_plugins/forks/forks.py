@@ -582,8 +582,8 @@ def pytest_configure(config: pytest.Config) -> None:
             if not t8n.is_fork_supported(fork)
         )
         logger.debug(
-            f"List of unsupported forks: {list(config.unsupported_forks)}"
-        )  # type: ignore
+            f"List of unsupported forks: {list(config.unsupported_forks)}"  # type: ignore
+        )
 
 
 @pytest.hookimpl(trylast=True)

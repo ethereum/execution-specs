@@ -517,9 +517,9 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
                     format_with_or_without_label.requires_engine_rpc
                     and not engine_rpc_supported
                 ):
-                    param.marks.append(
+                    param.marks.append(  # type: ignore
                         pytest.mark.skip(reason="Engine RPC is not supported")
-                    )  # type: ignore
+                    )
                 parameter_set.append(param)
             metafunc.parametrize(
                 [test_type.pytest_parameter_name()],

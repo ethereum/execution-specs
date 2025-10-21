@@ -200,9 +200,9 @@ def test_eip_checklist_pytest_param_usage() -> None:
     param_multiple_marks = pytest.param(
         "test_value",
         marks=[
-            EIPChecklist.Opcode.Test.StackComplexOperations(),
+            EIPChecklist.Opcode.Test.StackComplexOperations(),  # type: ignore[list-item]
             pytest.mark.slow,
-        ],  # type: ignore[list-item]
+        ],
         id="complex_test",
     )
 

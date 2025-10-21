@@ -237,9 +237,9 @@ class EofWrapper:
                             fixture.post_state
                             and fixture.post_state.root[address]
                         ):
-                            fixture.post_state.root[address].code = Bytes(
+                            fixture.post_state.root[address].code = Bytes(  # type: ignore
                                 wrapped
-                            )  # type: ignore
+                            )
                     else:
                         self.metrics[self.ACCOUNTS_INVALID_EOF] = (
                             cast(int, self.metrics[self.ACCOUNTS_INVALID_EOF])

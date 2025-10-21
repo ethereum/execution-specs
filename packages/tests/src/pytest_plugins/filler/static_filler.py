@@ -235,8 +235,8 @@ class FillerFile(pytest.File):
                             f"@pytest.mark.valid_until."
                         )
                     intersection_set = (
-                        test_fork_set & self.config.selected_fork_set
-                    )  # type: ignore
+                        test_fork_set & self.config.selected_fork_set  # type: ignore
+                    )
 
                     extra_function_marks: List[pytest.Mark] = [
                         mark

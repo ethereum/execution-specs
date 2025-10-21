@@ -639,8 +639,8 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
             metafunc.config.hive_execution_clients,  # type: ignore[attr-defined]
             ids=[
                 client.name
-                for client in metafunc.config.hive_execution_clients
-            ],  # type: ignore[attr-defined]
+                for client in metafunc.config.hive_execution_clients  # type: ignore[attr-defined]
+            ],
         )
 
 
