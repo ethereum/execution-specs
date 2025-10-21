@@ -61,9 +61,7 @@ def test_ethtest_fixtures(json_fork: str) -> None:
 
         cache = generate_cache(header.number)
         cache_hash = keccak256(
-            b"".join(
-                le_uint32_sequence_to_bytes(cache_item) for cache_item in cache
-            )
+            b"".join(le_uint32_sequence_to_bytes(cache_item) for cache_item in cache)
         )
         assert cache_hash == test["cache_hash"]
 
@@ -80,20 +78,14 @@ def load_pow_test_fixtures(json_fork: str) -> List[Dict[str, Any]]:
     from JSON files.
     """
     eels_fork = FORKS[json_fork]["eels_fork"]
-    header = importlib.import_module(
-        f"ethereum.forks.{eels_fork}.blocks"
-    ).Header
+    header = importlib.import_module(f"ethereum.forks.{eels_fork}.blocks").Header
 
-    with open(
-        f"{ETHEREUM_TESTS_PATH}/PoWTests/ethash_tests.json"
-    ) as pow_test_file_handler:
+    with open(f"{ETHEREUM_TESTS_PATH}/PoWTests/ethash_tests.json") as pow_test_file_handler:
         return [
             {
                 "nonce": hex_to_bytes8(raw_fixture["nonce"]),
                 "mix_digest": hex_to_bytes32(raw_fixture["mixHash"]),
-                "header": rlp.decode_to(
-                    header, hex_to_bytes(raw_fixture["header"])
-                ),
+                "header": rlp.decode_to(header, hex_to_bytes(raw_fixture["header"])),
                 "seed": hex_to_bytes32(raw_fixture["seed"]),
                 "result": hex_to_bytes32(raw_fixture["result"]),
                 "cache_size": Uint(raw_fixture["cache_size"]),
@@ -115,9 +107,7 @@ def load_pow_test_fixtures(json_fork: str) -> List[Dict[str, Any]]:
         "block_12964999.json",
     ],
 )
-def test_pow_validation_block_headers(
-    json_fork: str, block_file_name: str
-) -> None:
+def test_pow_validation_block_headers(json_fork: str, block_file_name: str) -> None:
     """
     Tests proof-of-work validation on real block headers for
     specific forks.

@@ -35,9 +35,7 @@ def fetch_state_tests(json_fork: str) -> Generator:
     # and ethereum_tests_path
     all_jsons = []
     for test_dir in test_dirs:
-        all_jsons.extend(
-            glob(os.path.join(test_dir, "**/*.json"), recursive=True)
-        )
+        all_jsons.extend(glob(os.path.join(test_dir, "**/*.json"), recursive=True))
 
     for test_file_path in all_jsons:
         test_cases = read_test_cases(test_file_path)

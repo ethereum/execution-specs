@@ -9,10 +9,7 @@ from ..helpers.load_vm_tests import VmTestLoader
 from . import FORKS
 
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
-TEST_DIR = (
-    f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/VMTests/"
-    "vmIOandFlowOperations"
-)
+TEST_DIR = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/VMTests/vmIOandFlowOperations"
 
 
 @pytest.mark.vm_test
@@ -27,10 +24,6 @@ TEST_DIR = (
         ("kv1.json", True),
     ],
 )
-def test_sstore_and_sload(
-    fork: Tuple[str, str], test_file: str, check_gas_left: bool
-) -> None:
+def test_sstore_and_sload(fork: Tuple[str, str], test_file: str, check_gas_left: bool) -> None:
     """Tests SSTORE and SLOAD operations using VM test fixtures."""
-    VmTestLoader(*fork).run_test(
-        TEST_DIR, test_file, check_gas_left=check_gas_left
-    )
+    VmTestLoader(*fork).run_test(TEST_DIR, test_file, check_gas_left=check_gas_left)

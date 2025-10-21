@@ -32,9 +32,7 @@ def test_frontier_block_hash() -> None:
     Tests that the frontier genesis block hash matches the expected
     mainnet hash.
     """
-    description: GenesisFork[
-        Address, Account, State, Trie, Bloom, Header, Block
-    ] = GenesisFork(
+    description: GenesisFork[Address, Account, State, Trie, Bloom, Header, Block] = GenesisFork(
         Address=Address,
         Account=Account,
         Trie=Trie,

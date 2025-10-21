@@ -20,9 +20,7 @@ try:
 
     optimized_state = cast(Any, OptimizedState())
 
-    for name, value in state_db.get_optimized_state_patches(
-        "frontier"
-    ).items():
+    for name, value in state_db.get_optimized_state_patches("frontier").items():
         setattr(optimized_state, name, value)
 
 except ImportError:
@@ -55,9 +53,7 @@ def test_storage_key() -> None:
     assert state.get_storage(
         state_normal, ADDRESS_FOO, STORAGE_FOO
     ) == optimized_state.get_storage(state_optimized, ADDRESS_FOO, STORAGE_FOO)
-    assert state.state_root(state_normal) == optimized_state.state_root(
-        state_optimized
-    )
+    assert state.state_root(state_normal) == optimized_state.state_root(state_optimized)
 
 
 @pytest.mark.skipif(
@@ -83,6 +79,4 @@ def test_resurrection() -> None:
     assert state.get_storage(
         state_normal, ADDRESS_FOO, STORAGE_FOO
     ) == optimized_state.get_storage(state_optimized, ADDRESS_FOO, STORAGE_FOO)
-    assert state.state_root(state_normal) == optimized_state.state_root(
-        state_optimized
-    )
+    assert state.state_root(state_normal) == optimized_state.state_root(state_optimized)

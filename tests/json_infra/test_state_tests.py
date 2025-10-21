@@ -27,6 +27,4 @@ def _generate_test_function(fork_name: str) -> Callable:
 
 
 for fork_name in FORKS.keys():
-    locals()[f"test_state_tests_{fork_name.lower()}"] = (
-        _generate_test_function(fork_name)
-    )
+    locals()[f"test_state_tests_{fork_name.lower()}"] = _generate_test_function(fork_name)

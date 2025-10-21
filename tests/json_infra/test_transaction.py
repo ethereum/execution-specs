@@ -40,13 +40,9 @@ def _generate_high_nonce_tests_function(fork_name: str) -> Callable:
     )
     def test_func(test_file_high_nonce: str) -> None:
         try:
-            test = load_test_transaction(
-                test_dir, test_file_high_nonce, fork_name
-            )
+            test = load_test_transaction(test_dir, test_file_high_nonce, fork_name)
         except NoTestsFoundError:
-            pytest.skip(
-                f"No tests found for {fork_name} in {test_file_high_nonce}"
-            )
+            pytest.skip(f"No tests found for {fork_name} in {test_file_high_nonce}")
 
         tx = rlp.decode_to(Transaction, test["tx_rlp"])
 
@@ -78,9 +74,7 @@ def _generate_nonce_tests_function(fork_name: str) -> Callable:
 
         tx = rlp.decode_to(Transaction, test["tx_rlp"])
 
-        result_intrinsic_gas_cost = hex_to_uint(
-            test["test_result"]["intrinsicGas"]
-        )
+        result_intrinsic_gas_cost = hex_to_uint(test["test_result"]["intrinsicGas"])
 
         intrinsic_gas = validate_transaction(tx)
         assert intrinsic_gas == result_intrinsic_gas_cost
@@ -90,9 +84,7 @@ def _generate_nonce_tests_function(fork_name: str) -> Callable:
 
 
 for fork_name in FORKS.keys():
-    locals()[f"test_high_nonce_tests_{fork_name.lower()}"] = (
-        _generate_high_nonce_tests_function(fork_name)
+    locals()[f"test_high_nonce_tests_{fork_name.lower()}"] = _generate_high_nonce_tests_function(
+        fork_name
     )
-    locals()[f"test_nonce_tests_{fork_name.lower()}"] = (
-        _generate_nonce_tests_function(fork_name)
-    )
+    locals()[f"test_nonce_tests_{fork_name.lower()}"] = _generate_nonce_tests_function(fork_name)

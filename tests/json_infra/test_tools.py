@@ -141,8 +141,7 @@ def test_patch_hygiene_compare_reorder_assign() -> None:
     assert diagnostics == [
         Diagnostic(
             message=(
-                "the item `FIRST_CONSTANT` in `reorder_assign` has changed "
-                "relative positions"
+                "the item `FIRST_CONSTANT` in `reorder_assign` has changed relative positions"
             )
         )
     ]
@@ -186,9 +185,7 @@ def test_patch_hygiene_compare_reorder_between_assign() -> None:
     """
 
     lint = PatchHygiene()
-    diagnostics = lint.compare(
-        "reorder_between_assign", dedent(new), dedent(old)
-    )
+    diagnostics = lint.compare("reorder_between_assign", dedent(new), dedent(old))
     assert diagnostics == [
         Diagnostic(
             message=(

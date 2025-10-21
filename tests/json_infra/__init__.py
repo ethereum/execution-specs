@@ -35,14 +35,10 @@ def _get_fixture_path(key: str) -> str:
     return TEST_FIXTURES[key]["fixture_path"]
 
 
-def _build_ethereum_test_paths(
-    base_path: str, legacy_fork: Optional[str] = None
-) -> tuple:
+def _build_ethereum_test_paths(base_path: str, legacy_fork: Optional[str] = None) -> tuple:
     if legacy_fork:
         bc_path = f"{base_path}/LegacyTests/{legacy_fork}/BlockchainTests/"
-        state_path = (
-            f"{base_path}/LegacyTests/{legacy_fork}/GeneralStateTests/"
-        )
+        state_path = f"{base_path}/LegacyTests/{legacy_fork}/GeneralStateTests/"
     else:
         bc_path = f"{base_path}/BlockchainTests/"
         state_path = f"{base_path}/GeneralStateTests/"
@@ -68,9 +64,7 @@ EEST_TESTS_BASE = _get_fixture_path("latest_fork_tests")
     PRE_CANCUN_BC_ETHEREUM_TESTS,
     PRE_CANCUN_STATE_ETHEREUM_TESTS,
 ) = _build_ethereum_test_paths(ETHEREUM_TESTS_BASE, "Cancun")
-BC_ETHEREUM_TESTS, STATE_ETHEREUM_TESTS = _build_ethereum_test_paths(
-    ETHEREUM_TESTS_BASE
-)
+BC_ETHEREUM_TESTS, STATE_ETHEREUM_TESTS = _build_ethereum_test_paths(ETHEREUM_TESTS_BASE)
 
 # EEST test paths
 EEST_BC_TESTS, EEST_STATE_TESTS = _build_eest_test_paths(EEST_TESTS_BASE)
@@ -85,9 +79,7 @@ ForkConfig = TypedDict(
 )
 
 
-def _create_fork_config(
-    eels_fork: str, bc_dirs: list, state_dirs: list
-) -> ForkConfig:
+def _create_fork_config(eels_fork: str, bc_dirs: list, state_dirs: list) -> ForkConfig:
     return {
         "eels_fork": eels_fork,
         "blockchain_test_dirs": bc_dirs,
