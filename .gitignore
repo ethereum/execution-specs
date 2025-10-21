@@ -1,15 +1,25 @@
 .DS_Store
-__pycache__
+
 .AppleDouble
 .LSOverride
 
-__pycache__/
 *.py[cod]
 *$py.class
-.mypy_cache/
+
+# AI
+.claude/
 
 # C extensions
 *.so
+
+# Cache
+cached_downloads/
+.cache
+.mypy_cache/
+.ruff_cache/
+__pycache__/
+.pytest_cache/
+pytest-cache-files-*/
 
 # Distribution / packaging
 .Python
@@ -31,10 +41,15 @@ share/python-wheels/
 MANIFEST
 
 # Python virtual environment
+.venv/
 venv/
 
 # pycharm
 .idea/
+
+# Temp
+*.tmp
+*.temp
 
 # VS Code
 .vscode
@@ -61,3 +76,6 @@ tests/fixtures
 tests/t8n_testdata
 
 fixtures
+
+logs/
+*.log
