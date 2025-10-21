@@ -1,0 +1,103 @@
+name: 'Build evmone EVM'
+description: 'Builds the evmone EVM binary'
+inputs:
+  repo:
+    description: 'Source repository to use to build the EVM binary'
+    required: true
+    default: 'ethereum/evmone'
+  ref:
+    description: 'Reference to branch, commit, or tag to use to build the EVM binary'
+    required: true
+    default: 'master'
+  targets:
+    description: 'Which targets to build from evmone repo'
+    required: false
+    default: 'all'
+  cache_ttl_days:
+    description: 'Number of days to reuse a cached build before refreshing'
+    required: false
+    default: '3'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Compute cache bucket (time window)
+      id: bucket
+      shell: bash
+      run: |
+        # Round "today" down to the start of the current N-day bucket in UTC.
+        N=${{ inputs.cache_ttl_days }}
+        SECS=$(( $(date -u +%s) ))
+        DAY=$(( SECS / 86400 ))
+        BUCKET_START_DAY=$(( (DAY / N) * N ))
+        echo "CACHE_BUCKET=$(date -u -d @$(( BUCKET_START_DAY * 86400 )) +%Y-%m-%d)" >> $GITHUB_ENV
+      
+    - name: Prepare cache target dir
+      shell: bash
+      run: mkdir -p "$GITHUB_WORKSPACE/evmone/build"
+
+    # Restore previously built binaries if cache hit
+    - name: Restore build cache
+      id: cache-restore
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          ${{ github.workspace }}/evmone/build
+        key: >
+          evmone-build-${{ runner.os }}-${{ runner.arch }}-
+          targets=${{ inputs.targets }}-
+          ref=${{ inputs.ref }}-
+          bucket=${{ env.CACHE_BUCKET }}
+    
+    # Checkout and build evmone if cache miss
+    - name: Checkout evmone
+      if: steps.cache-restore.outputs.cache-hit != 'true'
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        repository: ${{ inputs.repo }}
+        ref: ${{ inputs.ref }}
+        path: evmone
+        submodules: true
+
+    - name: Setup cmake
+      if: steps.cache-restore.outputs.cache-hit != 'true'
+      uses: jwlawson/actions-setup-cmake@802fa1a2c4e212495c05bf94dba2704a92a472be
+      with:
+        cmake-version: '3.x'
+
+    - name: Install GMP Linux
+      if: runner.os == 'Linux' && steps.cache-restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: sudo apt-get -q update && sudo apt-get -qy install libgmp-dev
+
+    - name: Install GMP macOS
+      if: runner.os == 'macOS' && steps.cache-restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        brew update && brew install gmp
+
+    - name: Build evmone binary (skips when cache hit)
+      if: steps.cache-restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        mkdir -p "$GITHUB_WORKSPACE/bin"
+        cd "$GITHUB_WORKSPACE/evmone"
+        cmake -S . -B build -DEVMONE_TESTING=ON -DEVMONE_PRECOMPILES_SILKPRE=1
+        cmake --build build --parallel --target ${{ inputs.targets }}
+
+    - name: Add evmone bin to PATH
+      shell: bash
+      run: echo "$GITHUB_WORKSPACE/evmone/build/bin" >> "$GITHUB_PATH"
+
+    # Save cache only when we actually built
+    - name: Save build cache
+      if: steps.cache-restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          ${{ github.workspace }}/evmone/build
+        key: >
+          evmone-build-${{ runner.os }}-${{ runner.arch }}-
+          targets=${{ inputs.targets }}-
+          ref=${{ inputs.ref }}-
+          bucket=${{ env.CACHE_BUCKET }}
