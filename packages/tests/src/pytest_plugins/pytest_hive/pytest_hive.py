@@ -87,7 +87,9 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
-    pytest_hive_group = parser.getgroup("pytest_hive", "Arguments related to pytest hive")
+    pytest_hive_group = parser.getgroup(
+        "pytest_hive", "Arguments related to pytest hive"
+    )
     pytest_hive_group.addoption(
         "--hive-simulator",
         action="store",
@@ -115,7 +117,9 @@ def get_hive_info(simulator: Simulation) -> HiveInfo | None:
 
 
 @pytest.hookimpl(trylast=True)
-def pytest_report_header(config: pytest.Config, start_path: Path) -> List[str] | None:
+def pytest_report_header(
+    config: pytest.Config, start_path: Path
+) -> List[str] | None:
     """Add lines to pytest's console output header."""
     del start_path
 
@@ -255,7 +259,9 @@ def hive_test(
     down.
     """
     try:
-        test_case_description = request.getfixturevalue("test_case_description")
+        test_case_description = request.getfixturevalue(
+            "test_case_description"
+        )
     except pytest.FixtureLookupError:
         pytest.exit(
             "Error: The 'test_case_description' fixture has not been defined by the simulator "
@@ -297,14 +303,25 @@ def hive_test(
 
         captured_output = "\n".join(captured)
 
-        if hasattr(request.node, "result_call") and request.node.result_call.passed:
+        if (
+            hasattr(request.node, "result_call")
+            and request.node.result_call.passed
+        ):
             test_passed = True
             test_result_details = "Test passed.\n\n" + captured_output
-        elif hasattr(request.node, "result_call") and not request.node.result_call.passed:
+        elif (
+            hasattr(request.node, "result_call")
+            and not request.node.result_call.passed
+        ):
             test_passed = False
             test_result_details = "Test failed.\n\n" + captured_output
-            test_result_details = request.node.result_call.longreprtext + "\n" + captured_output
-        elif hasattr(request.node, "result_setup") and not request.node.result_setup.passed:
+            test_result_details = (
+                request.node.result_call.longreprtext + "\n" + captured_output
+            )
+        elif (
+            hasattr(request.node, "result_setup")
+            and not request.node.result_setup.passed
+        ):
             test_passed = False
             test_result_details = (
                 "Test setup failed.\n\n"
@@ -312,7 +329,10 @@ def hive_test(
                 + "\n"
                 + captured_output
             )
-        elif hasattr(request.node, "result_teardown") and not request.node.result_teardown.passed:
+        elif (
+            hasattr(request.node, "result_teardown")
+            and not request.node.result_teardown.passed
+        ):
             test_passed = False
             test_result_details = (
                 "Test teardown failed.\n\n"
@@ -327,11 +347,25 @@ def hive_test(
                 + captured_output
             )
 
-        test.end(result=HiveTestResult(test_pass=test_passed, details=test_result_details))
-        logger.verbose(f"Finished processing logs for test: {request.node.nodeid}")
+        test.end(
+            result=HiveTestResult(
+                test_pass=test_passed, details=test_result_details
+            )
+        )
+        logger.verbose(
+            f"Finished processing logs for test: {request.node.nodeid}"
+        )
 
     except Exception as e:
-        logger.verbose(f"Error processing logs for test {request.node.nodeid}: {str(e)}")
+        logger.verbose(
+            f"Error processing logs for test {request.node.nodeid}: {str(e)}"
+        )
         test_passed = False
-        test_result_details = f"Exception whilst processing test result: {str(e)}"
-        test.end(result=HiveTestResult(test_pass=test_passed, details=test_result_details))
+        test_result_details = (
+            f"Exception whilst processing test result: {str(e)}"
+        )
+        test.end(
+            result=HiveTestResult(
+                test_pass=test_passed, details=test_result_details
+            )
+        )

@@ -1,11 +1,28 @@
 """Base composite types for Ethereum test cases."""
 
 from dataclasses import dataclass
-from typing import Any, ClassVar, Dict, ItemsView, Iterator, List, SupportsBytes, Type, TypeAlias
+from typing import (
+    Any,
+    ClassVar,
+    Dict,
+    ItemsView,
+    Iterator,
+    List,
+    SupportsBytes,
+    Type,
+    TypeAlias,
+)
 
 from pydantic import Field, PrivateAttr, TypeAdapter
 
-from .base_types import Address, Bytes, Hash, HashInt, HexNumber, ZeroPaddedHexNumber
+from .base_types import (
+    Address,
+    Bytes,
+    Hash,
+    HashInt,
+    HexNumber,
+    ZeroPaddedHexNumber,
+)
 from .conversions import BytesConvertible, NumberConvertible
 from .pydantic import CamelModel, EthereumTestRootModel
 from .serialization import RLPSerializable
@@ -16,7 +33,9 @@ StorageKeyValueTypeAdapter = TypeAdapter(StorageKeyValueType)
 StorageRootType = Dict[NumberConvertible, NumberConvertible]
 
 
-class Storage(EthereumTestRootModel[Dict[StorageKeyValueType, StorageKeyValueType]]):
+class Storage(
+    EthereumTestRootModel[Dict[StorageKeyValueType, StorageKeyValueType]]
+):
     """
     Definition of contract storage in the `pre` or `post` state of a test.
 
@@ -26,11 +45,17 @@ class Storage(EthereumTestRootModel[Dict[StorageKeyValueType, StorageKeyValueTyp
     """
 
     # internal storage is maintained as a dict with HashInt keys and values.
-    root: Dict[StorageKeyValueType, StorageKeyValueType] = Field(default_factory=dict)
+    root: Dict[StorageKeyValueType, StorageKeyValueType] = Field(
+        default_factory=dict
+    )
 
     _current_slot: int = PrivateAttr(0)
-    _hint_map: Dict[StorageKeyValueType, str] = PrivateAttr(default_factory=dict)
-    _any_map: Dict[StorageKeyValueType, bool] = PrivateAttr(default_factory=dict)
+    _hint_map: Dict[StorageKeyValueType, str] = PrivateAttr(
+        default_factory=dict
+    )
+    _any_map: Dict[StorageKeyValueType, bool] = PrivateAttr(
+        default_factory=dict
+    )
 
     StorageDictType: ClassVar[TypeAlias] = Dict[
         str | int | bytes | SupportsBytes, str | int | bytes | SupportsBytes
@@ -103,7 +128,13 @@ class Storage(EthereumTestRootModel[Dict[StorageKeyValueType, StorageKeyValueTyp
         hint: str
 
         def __init__(
-            self, address: Address, key: int, want: int, got: int, hint: str = "", *args: Any
+            self,
+            address: Address,
+            key: int,
+            want: int,
+            got: int,
+            hint: str = "",
+            *args: Any,
         ) -> None:
             """
             Initialize the exception with the address, key, wanted and got
@@ -128,7 +159,9 @@ class Storage(EthereumTestRootModel[Dict[StorageKeyValueType, StorageKeyValueTyp
                 + f" got {HexNumber(self.got)} (dec:{int(self.got)})"
             )
 
-    def __contains__(self, key: StorageKeyValueTypeConvertible | StorageKeyValueType) -> bool:
+    def __contains__(
+        self, key: StorageKeyValueTypeConvertible | StorageKeyValueType
+    ) -> bool:
         """Check for an item in the storage."""
         return StorageKeyValueTypeAdapter.validate_python(key) in self.root
 
@@ -148,7 +181,9 @@ class Storage(EthereumTestRootModel[Dict[StorageKeyValueType, StorageKeyValueTyp
             StorageKeyValueTypeAdapter.validate_python(value)
         )
 
-    def __delitem__(self, key: StorageKeyValueTypeConvertible | StorageKeyValueType) -> None:
+    def __delitem__(
+        self, key: StorageKeyValueTypeConvertible | StorageKeyValueType
+    ) -> None:
         """Delete an item from the storage."""
         del self.root[StorageKeyValueTypeAdapter.validate_python(key)]
 
@@ -189,14 +224,18 @@ class Storage(EthereumTestRootModel[Dict[StorageKeyValueType, StorageKeyValueTyp
         """Return the items of the storage."""
         return self.root.items()
 
-    def set_expect_any(self, key: StorageKeyValueTypeConvertible | StorageKeyValueType) -> None:
+    def set_expect_any(
+        self, key: StorageKeyValueTypeConvertible | StorageKeyValueType
+    ) -> None:
         """
         Mark key to be able to have any expected value when comparing storages.
         """
         self._any_map[StorageKeyValueTypeAdapter.validate_python(key)] = True
 
     def store_next(
-        self, value: StorageKeyValueTypeConvertible | StorageKeyValueType | bool, hint: str = ""
+        self,
+        value: StorageKeyValueTypeConvertible | StorageKeyValueType | bool,
+        hint: str = "",
     ) -> StorageKeyValueType:
         """
         Store a value in the storage and returns the key where the value is
@@ -295,7 +334,9 @@ class Storage(EthereumTestRootModel[Dict[StorageKeyValueType, StorageKeyValueTyp
         storage expects zero values, to guarantee that the test overwrites the
         storage.
         """
-        return Storage({key: HashInt(0xBA5E) for key in self.keys() if self[key] == 0})
+        return Storage(
+            {key: HashInt(0xBA5E) for key in self.keys() if self[key] == 0}
+        )
 
 
 class Account(CamelModel):
@@ -331,7 +372,11 @@ class Account(CamelModel):
         got: int | None
 
         def __init__(
-            self, address: Address, want: int | None, got: int | None, *args: Any
+            self,
+            address: Address,
+            want: int | None,
+            got: int | None,
+            *args: Any,
         ) -> None:
             """
             Initialize the exception with the address, wanted and got values.
@@ -363,7 +408,11 @@ class Account(CamelModel):
         got: int | None
 
         def __init__(
-            self, address: Address, want: int | None, got: int | None, *args: Any
+            self,
+            address: Address,
+            want: int | None,
+            got: int | None,
+            *args: Any,
         ) -> None:
             """
             Initialize the exception with the address, wanted and got values.
@@ -395,7 +444,11 @@ class Account(CamelModel):
         got: bytes | None
 
         def __init__(
-            self, address: Address, want: bytes | None, got: bytes | None, *args: Any
+            self,
+            address: Address,
+            want: bytes | None,
+            got: bytes | None,
+            *args: Any,
         ) -> None:
             """
             Initialize the exception with the address, wanted and got values.
@@ -416,7 +469,9 @@ class Account(CamelModel):
                 f"got {self.got.hex() if self.got else self.got}"
             )
 
-    def check_alloc(self: "Account", address: Address, account: "Account") -> None:
+    def check_alloc(
+        self: "Account", address: Address, account: "Account"
+    ) -> None:
         """
         Check the returned alloc against an expected account in post state.
         Raises exception on failure.
@@ -459,7 +514,9 @@ class Account(CamelModel):
 
     @classmethod
     def merge(
-        cls: Type, account_1: "Dict | Account | None", account_2: "Dict | Account | None"
+        cls: Type,
+        account_1: "Dict | Account | None",
+        account_2: "Dict | Account | None",
     ) -> "Account":
         """Create a merged account from two sources."""
 
@@ -470,7 +527,9 @@ class Account(CamelModel):
                 return account
             elif isinstance(account, cls):
                 return account.model_dump(exclude_unset=True)
-            raise TypeError(f"Unexpected type for account merge: {type(account)}")
+            raise TypeError(
+                f"Unexpected type for account merge: {type(account)}"
+            )
 
         kwargs = to_kwargs_dict(account_1)
         kwargs.update(to_kwargs_dict(account_2))
@@ -481,7 +540,9 @@ class Account(CamelModel):
 class Alloc(EthereumTestRootModel[Dict[Address, Account | None]]):
     """Allocation of accounts in the state, pre and post test execution."""
 
-    root: Dict[Address, Account | None] = Field(default_factory=dict, validate_default=True)
+    root: Dict[Address, Account | None] = Field(
+        default_factory=dict, validate_default=True
+    )
 
 
 class AccessList(CamelModel, RLPSerializable):
@@ -504,7 +565,9 @@ class ForkBlobSchedule(CamelModel):
 class BlobSchedule(EthereumTestRootModel[Dict[str, ForkBlobSchedule]]):
     """Blob schedule configuration dictionary."""
 
-    root: Dict[str, ForkBlobSchedule] = Field(default_factory=dict, validate_default=True)
+    root: Dict[str, ForkBlobSchedule] = Field(
+        default_factory=dict, validate_default=True
+    )
 
     def append(self, *, fork: str, schedule: Any) -> None:
         """Append a new fork schedule."""

@@ -4,7 +4,12 @@ from typing import Any, Dict, List, Mapping, Set, Tuple
 
 from pydantic import BaseModel, ConfigDict
 
-from ethereum_test_base_types import Bytes, EthereumTestRootModel, HexNumber, Storage
+from ethereum_test_base_types import (
+    Bytes,
+    EthereumTestRootModel,
+    HexNumber,
+    Storage,
+)
 from ethereum_test_types import Alloc
 
 from .common import (
@@ -40,7 +45,9 @@ class StorageInPre(EthereumTestRootModel):
         resolved_storage: Dict[ValueInFiller, ValueInFiller] = {}
         for key, value in self.root.items():
             if isinstance(value, Tag):
-                resolved_storage[key] = HexNumber(int.from_bytes(value.resolve(tags), "big"))
+                resolved_storage[key] = HexNumber(
+                    int.from_bytes(value.resolve(tags), "big")
+                )
             else:
                 resolved_storage[key] = value
         return resolved_storage
@@ -203,13 +210,21 @@ class PreInFiller(EthereumTestRootModel):
 
                     if deployed_account is not None:
                         if "code" in account_properties:
-                            deployed_account.code = Bytes(account_properties["code"])
+                            deployed_account.code = Bytes(
+                                account_properties["code"]
+                            )
                         if "balance" in account_properties:
-                            deployed_account.balance = account_properties["balance"]
+                            deployed_account.balance = account_properties[
+                                "balance"
+                            ]
                         if "nonce" in account_properties:
-                            deployed_account.nonce = account_properties["nonce"]
+                            deployed_account.nonce = account_properties[
+                                "nonce"
+                            ]
                         if "storage" in account_properties:
-                            deployed_account.storage = Storage(root=account_properties["storage"])
+                            deployed_account.storage = Storage(
+                                root=account_properties["storage"]
+                            )
 
                 elif isinstance(tag, SenderTag):
                     eoa_account = pre[resolved_accounts[tag_name]]
@@ -220,9 +235,13 @@ class PreInFiller(EthereumTestRootModel):
                         if "nonce" in account_properties:
                             eoa_account.nonce = account_properties["nonce"]
                         if "code" in account_properties:
-                            eoa_account.code = Bytes(account_properties["code"])
+                            eoa_account.code = Bytes(
+                                account_properties["code"]
+                            )
                         if "storage" in account_properties:
-                            eoa_account.storage = Storage(root=account_properties["storage"])
+                            eoa_account.storage = Storage(
+                                root=account_properties["storage"]
+                            )
 
         # Step 6: Now process non-tagged accounts (including code compilation)
         for address, account in non_tagged_to_process:
@@ -237,13 +256,17 @@ class PreInFiller(EthereumTestRootModel):
                 if "nonce" in account_properties:
                     existing_account.nonce = account_properties["nonce"]
                 if "storage" in account_properties:
-                    existing_account.storage = Storage(root=account_properties["storage"])
+                    existing_account.storage = Storage(
+                        root=account_properties["storage"]
+                    )
 
         # Step 7: Handle any extra dependencies not in pre
         for extra_dependency in all_dependencies:
             if extra_dependency not in resolved_accounts:
                 if all_dependencies[extra_dependency].type != "eoa":
-                    raise ValueError(f"Contract dependency {extra_dependency} not found in pre")
+                    raise ValueError(
+                        f"Contract dependency {extra_dependency} not found in pre"
+                    )
 
                 # Create new EOA - this will have a dynamically generated key
                 # and address

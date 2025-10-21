@@ -28,7 +28,9 @@ def dump_files_to_directory(output_path: str, files: Dict[str, Any]) -> None:
             os.makedirs(os.path.join(output_path, rel_path), exist_ok=True)
         file_path = os.path.join(output_path, file_rel_path)
         with open(file_path, "w") as f:
-            if isinstance(file_contents, BaseModel) or isinstance(file_contents, RootModel):
+            if isinstance(file_contents, BaseModel) or isinstance(
+                file_contents, RootModel
+            ):
                 f.write(
                     file_contents.model_dump_json(
                         indent=4,

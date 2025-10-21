@@ -34,7 +34,11 @@ class EthereumJSTransitionTool(TransitionTool):
         trace: bool = False,
     ):
         """Initialize the EthereumJS Transition tool interface."""
-        super().__init__(exception_mapper=EthereumJSExceptionMapper(), binary=binary, trace=trace)
+        super().__init__(
+            exception_mapper=EthereumJSExceptionMapper(),
+            binary=binary,
+            trace=trace,
+        )
 
     def is_fork_supported(self, fork: Fork) -> bool:
         """

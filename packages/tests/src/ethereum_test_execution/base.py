@@ -103,5 +103,7 @@ class LabeledExecuteFormat:
 ExecuteFormat = Annotated[
     Type[BaseExecute],
     PlainSerializer(lambda f: f.format_name),
-    PlainValidator(lambda f: BaseExecute.formats[f] if f in BaseExecute.formats else f),
+    PlainValidator(
+        lambda f: BaseExecute.formats[f] if f in BaseExecute.formats else f
+    ),
 ]

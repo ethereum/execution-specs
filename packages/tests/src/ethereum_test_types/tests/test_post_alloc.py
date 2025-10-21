@@ -29,7 +29,9 @@ def alloc(request: pytest.FixtureRequest) -> Alloc:
     [
         # Account should not exist but contained in alloc
         (
-            {"0x0000000000000000000000000000000000000000": Account.NONEXISTENT},
+            {
+                "0x0000000000000000000000000000000000000000": Account.NONEXISTENT
+            },
             {
                 "0x0000000000000000000000000000000000000000": {
                     "nonce": "1",
@@ -42,19 +44,25 @@ def alloc(request: pytest.FixtureRequest) -> Alloc:
         ),
         # Account should not exist but contained in alloc
         (
-            {"0x0000000000000000000000000000000000000000": Account.NONEXISTENT},
+            {
+                "0x0000000000000000000000000000000000000000": Account.NONEXISTENT
+            },
             {"0x0000000000000000000000000000000000000000": {"nonce": "1"}},
             Alloc.UnexpectedAccountError,
         ),
         # Account should not exist but contained in alloc
         (
-            {"0x0000000000000000000000000000000000000001": Account.NONEXISTENT},
+            {
+                "0x0000000000000000000000000000000000000001": Account.NONEXISTENT
+            },
             {"0x0000000000000000000000000000000000000001": {"balance": "1"}},
             Alloc.UnexpectedAccountError,
         ),
         # Account should not exist but contained in alloc
         (
-            {"0x000000000000000000000000000000000000000a": Account.NONEXISTENT},
+            {
+                "0x000000000000000000000000000000000000000a": Account.NONEXISTENT
+            },
             {"0x000000000000000000000000000000000000000A": {"code": "0x00"}},
             Alloc.UnexpectedAccountError,
         ),

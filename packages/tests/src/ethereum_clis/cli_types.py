@@ -35,7 +35,9 @@ from pytest_plugins.custom_logging import get_logger
 logger = get_logger(__name__)
 
 
-class TransactionExceptionWithMessage(ExceptionWithMessage[TransactionException]):
+class TransactionExceptionWithMessage(
+    ExceptionWithMessage[TransactionException]
+):
     """Transaction exception with message."""
 
     pass
@@ -52,7 +54,8 @@ class RejectedTransaction(CamelModel):
 
     index: HexNumber
     error: Annotated[
-        TransactionExceptionWithMessage | UndefinedException, ExceptionMapperValidator
+        TransactionExceptionWithMessage | UndefinedException,
+        ExceptionMapperValidator,
     ]
 
 
@@ -73,9 +76,13 @@ class TraceLine(CamelModel):
     def are_equivalent(self, other: Self) -> bool:
         """Return True if the only difference is the gas counter."""
         self_dict = self.model_dump(mode="python", exclude={"gas", "gas_cost"})
-        other_dict = other.model_dump(mode="python", exclude={"gas", "gas_cost"})
+        other_dict = other.model_dump(
+            mode="python", exclude={"gas", "gas_cost"}
+        )
         if self_dict != other_dict:
-            logger.debug(f"Trace lines are not equivalent: {self_dict} != {other_dict}.")
+            logger.debug(
+                f"Trace lines are not equivalent: {self_dict} != {other_dict}."
+            )
             return False
         return True
 
@@ -94,7 +101,9 @@ class TransactionTraces(CamelModel):
         trace_dict: Dict[str, Any] = {}
         if "gasUsed" in trace_lines[-1] and "output" in trace_lines[-1]:
             trace_dict |= json.loads(trace_lines.pop())
-        trace_dict["traces"] = [TraceLine.model_validate_json(line) for line in trace_lines]
+        trace_dict["traces"] = [
+            TraceLine.model_validate_json(line) for line in trace_lines
+        ]
         return cls.model_validate(trace_dict)
 
     @staticmethod
@@ -106,11 +115,16 @@ class TransactionTraces(CamelModel):
         for i in range(1, len(traces)):
             trace = traces[i]
             previous_trace = traces[i - 1]
-            if previous_trace.op_name == "GAS" and trace.depth == previous_trace.depth:
+            if (
+                previous_trace.op_name == "GAS"
+                and trace.depth == previous_trace.depth
+            ):
                 # Remove the result of calling `Op.GAS` from the stack.
                 trace.stack[-1] = None
 
-    def are_equivalent(self, other: Self, enable_post_processing: bool) -> bool:
+    def are_equivalent(
+        self, other: Self, enable_post_processing: bool
+    ) -> bool:
         """Return True if the only difference is the gas counter."""
         if len(self.traces) != len(other.traces):
             logger.debug(
@@ -118,15 +132,21 @@ class TransactionTraces(CamelModel):
             )
             return False
         if self.output != other.output:
-            logger.debug(f"Traces have different outputs: {self.output} != {other.output}.")
+            logger.debug(
+                f"Traces have different outputs: {self.output} != {other.output}."
+            )
             return False
         if self.gas_used != other.gas_used and not enable_post_processing:
-            logger.debug(f"Traces have different gas used: {self.gas_used} != {other.gas_used}.")
+            logger.debug(
+                f"Traces have different gas used: {self.gas_used} != {other.gas_used}."
+            )
             return False
         own_traces = self.traces.copy()
         other_traces = other.traces.copy()
         if enable_post_processing:
-            logger.debug("Removing gas from traces (enable_post_processing=True).")
+            logger.debug(
+                "Removing gas from traces (enable_post_processing=True)."
+            )
             TransactionTraces.remove_gas(own_traces)
             TransactionTraces.remove_gas(other_traces)
         for i in range(len(self.traces)):
@@ -154,14 +174,18 @@ class Traces(EthereumTestRootModel):
         """Append the transaction traces to the current list."""
         self.root.append(item)
 
-    def are_equivalent(self, other: Self | None, enable_post_processing: bool) -> bool:
+    def are_equivalent(
+        self, other: Self | None, enable_post_processing: bool
+    ) -> bool:
         """Return True if the only difference is the gas counter."""
         if other is None:
             return False
         if len(self.root) != len(other.root):
             return False
         for i in range(len(self.root)):
-            if not self.root[i].are_equivalent(other.root[i], enable_post_processing):
+            if not self.root[i].are_equivalent(
+                other.root[i], enable_post_processing
+            ):
                 logger.debug(f"Trace file {i} is not equivalent.")
                 return False
             else:
@@ -216,7 +240,9 @@ class OpcodeCount(EthereumTestRootModel):
 
     def __add__(self, other: Self) -> Self:
         """Add two instances of opcode count dictionaries."""
-        assert isinstance(other, OpcodeCount), f"Incompatible type {type(other)}"
+        assert isinstance(other, OpcodeCount), (
+            f"Incompatible type {type(other)}"
+        )
         new_dict = self.model_dump() | other.model_dump()
         for match_key in self.root.keys() & other.root.keys():
             new_dict[match_key] = self.root[match_key] + other.root[match_key]
@@ -240,14 +266,17 @@ class Result(CamelModel):
     gas_used: HexNumber
     base_fee_per_gas: HexNumber | None = Field(None, alias="currentBaseFee")
     withdrawals_root: Hash | None = None
-    excess_blob_gas: HexNumber | None = Field(None, alias="currentExcessBlobGas")
+    excess_blob_gas: HexNumber | None = Field(
+        None, alias="currentExcessBlobGas"
+    )
     blob_gas_used: HexNumber | None = None
     requests_hash: Hash | None = None
     requests: List[Bytes] | None = None
     block_access_list: BlockAccessList | None = None
     block_access_list_hash: Hash | None = None
     block_exception: Annotated[
-        BlockExceptionWithMessage | UndefinedException | None, ExceptionMapperValidator
+        BlockExceptionWithMessage | UndefinedException | None,
+        ExceptionMapperValidator,
     ] = None
     traces: Traces | None = None
     opcode_count: OpcodeCount | None = None

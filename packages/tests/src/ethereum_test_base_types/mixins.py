@@ -41,7 +41,9 @@ class ModelCustomizationsMixin:
                 f"{self.__class__.__name__} does not have 'model_dump' method."
                 "Are you sure you are using a Pydantic model?"
             )
-        return self.model_dump(mode=mode, by_alias=by_alias, exclude_none=exclude_none)
+        return self.model_dump(
+            mode=mode, by_alias=by_alias, exclude_none=exclude_none
+        )
 
     def __repr_args__(self) -> Any:
         """

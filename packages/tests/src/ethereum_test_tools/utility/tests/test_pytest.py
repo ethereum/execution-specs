@@ -141,7 +141,8 @@ def test_extend_with_defaults(
 
 def test_extend_with_defaults_raises_for_unknown_default() -> None:  # noqa: D103
     with pytest.raises(
-        UnknownParameterInCasesError, match="only contain parameters present in defaults"
+        UnknownParameterInCasesError,
+        match="only contain parameters present in defaults",
     ):
         extend_with_defaults({"a": 0, "b": 1}, [pytest.param({"c": 2})])
 
@@ -161,7 +162,11 @@ def test_extend_with_defaults_raises_for_unknown_default() -> None:  # noqa: D10
         ),
     ],
 )
-def test_extend_with_defaults_raises_value_error(defaults: dict, cases: list) -> None:  # noqa: D103
-    expected_message = "each case must contain exactly one value; a dict of parameter values"
+def test_extend_with_defaults_raises_value_error(
+    defaults: dict, cases: list
+) -> None:  # noqa: D103
+    expected_message = (
+        "each case must contain exactly one value; a dict of parameter values"
+    )
     with pytest.raises(ValueError, match=expected_message):
         extend_with_defaults(defaults, cases)

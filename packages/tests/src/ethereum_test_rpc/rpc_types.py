@@ -36,7 +36,9 @@ class JSONRPCError(Exception):
     message: str
     data: str | None
 
-    def __init__(self, code: int | str, message: str, data: str | None = None) -> None:
+    def __init__(
+        self, code: int | str, message: str, data: str | None = None
+    ) -> None:
         """Initialize the JSONRPCError."""
         self.code = int(code)
         self.message = message
@@ -62,7 +64,9 @@ class TransactionByHashResponse(Transaction):
 
     # The to field can have different names in different clients, so we use
     # AliasChoices.
-    to: Address | None = Field(..., validation_alias=AliasChoices("to_address", "to", "toAddress"))
+    to: Address | None = Field(
+        ..., validation_alias=AliasChoices("to_address", "to", "toAddress")
+    )
 
     v: HexNumber = Field(0, validation_alias=AliasChoices("v", "yParity"))  # type: ignore
 
@@ -121,7 +125,8 @@ class PayloadStatus(CamelModel):
     latest_valid_hash: Hash | None
     validation_error: (
         Annotated[
-            BlockTransactionExceptionWithMessage | UndefinedException, ExceptionMapperValidator
+            BlockTransactionExceptionWithMessage | UndefinedException,
+            ExceptionMapperValidator,
         ]
         | None
     )
@@ -151,12 +156,16 @@ class BlobsBundle(CamelModel):
     proofs: List[Bytes]
     blobs: List[Bytes]
 
-    def blob_versioned_hashes(self, versioned_hash_version: int = 1) -> List[Hash]:
+    def blob_versioned_hashes(
+        self, versioned_hash_version: int = 1
+    ) -> List[Hash]:
         """Return versioned hashes of the blobs."""
         versioned_hashes: List[Hash] = []
         for commitment in self.commitments:
             commitment_hash = sha256(commitment).digest()
-            versioned_hash = Hash(bytes([versioned_hash_version]) + commitment_hash[1:])
+            versioned_hash = Hash(
+                bytes([versioned_hash_version]) + commitment_hash[1:]
+            )
             versioned_hashes.append(versioned_hash)
         return versioned_hashes
 
@@ -183,7 +192,9 @@ class GetPayloadResponse(CamelModel):
     execution_requests: List[Bytes] | None = None
 
 
-class GetBlobsResponse(EthereumTestRootModel[List[BlobAndProofV1 | BlobAndProofV2 | None]]):
+class GetBlobsResponse(
+    EthereumTestRootModel[List[BlobAndProofV1 | BlobAndProofV2 | None]]
+):
     """Represents the response of a get blobs request."""
 
     root: List[BlobAndProofV1 | BlobAndProofV2 | None]
@@ -192,7 +203,9 @@ class GetBlobsResponse(EthereumTestRootModel[List[BlobAndProofV1 | BlobAndProofV
         """Return the number of blobs in the response."""
         return len(self.root)
 
-    def __getitem__(self, index: int) -> BlobAndProofV1 | BlobAndProofV2 | None:
+    def __getitem__(
+        self, index: int
+    ) -> BlobAndProofV1 | BlobAndProofV2 | None:
         """Return the blob at the given index."""
         return self.root[index]
 
@@ -205,7 +218,9 @@ class ForkConfigBlobSchedule(CamelModel):
     base_fee_update_fraction: int
 
     @classmethod
-    def from_fork_blob_schedule(cls, fork_blob_schedule: ForkBlobSchedule) -> Self:
+    def from_fork_blob_schedule(
+        cls, fork_blob_schedule: ForkBlobSchedule
+    ) -> Self:
         """Create a ForkConfigBlobSchedule from a ForkBlobSchedule."""
         return cls(
             target_blobs_per_block=fork_blob_schedule.target_blobs_per_block,
@@ -227,7 +242,11 @@ class ForkConfig(CamelModel):
     def get_hash(self) -> ForkHash:
         """Return the hash of the fork config."""
         obj = self.model_dump(mode="json", by_alias=True, exclude_none=True)
-        return ForkHash(crc32(json.dumps(obj, sort_keys=True, separators=(",", ":")).encode()))
+        return ForkHash(
+            crc32(
+                json.dumps(obj, sort_keys=True, separators=(",", ":")).encode()
+            )
+        )
 
 
 class EthConfigResponse(CamelModel):

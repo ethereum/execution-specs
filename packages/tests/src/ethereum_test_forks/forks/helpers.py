@@ -16,6 +16,8 @@ def fake_exponential(factor: int, numerator: int, denominator: int) -> int:
     numerator_accumulator = factor * denominator
     while numerator_accumulator > 0:
         output += numerator_accumulator
-        numerator_accumulator = (numerator_accumulator * numerator) // (denominator * i)
+        numerator_accumulator = (numerator_accumulator * numerator) // (
+            denominator * i
+        )
         i += 1
     return output // denominator

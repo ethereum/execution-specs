@@ -12,7 +12,9 @@ from rich.console import Console
 class FileWatcher:
     """Simple file watcher that re-runs the fill command on changes."""
 
-    def __init__(self, console: Console | None = None, verbose: bool = False) -> None:
+    def __init__(
+        self, console: Console | None = None, verbose: bool = False
+    ) -> None:
         """Initialize the file watcher."""
         self.console = console or Console(highlight=False)
         self.verbose = verbose
@@ -44,17 +46,23 @@ class FileWatcher:
 
         def run_fill() -> None:
             """Run fill command without --watch / --watcherfall flag."""
-            clean_args = [arg for arg in args if arg not in ["--watch", "--watcherfall"]]
+            clean_args = [
+                arg for arg in args if arg not in ["--watch", "--watcherfall"]
+            ]
             cmd = ["uv", "run", "fill"] + clean_args
             result = subprocess.run(cmd)
 
             if result.returncode == 0:
                 self.console.print("[green]✓ Fill completed[/green]")
             else:
-                self.console.print(f"[red]✗ Fill failed (exit {result.returncode})[/red]")
+                self.console.print(
+                    f"[red]✗ Fill failed (exit {result.returncode})[/red]"
+                )
 
         # Setup
-        mode_desc = "watcherfall mode (verbose)" if self.verbose else "watch mode"
+        mode_desc = (
+            "watcherfall mode (verbose)" if self.verbose else "watch mode"
+        )
         self.console.print(f"[blue]Starting {mode_desc}...[/blue]")
         file_mtimes = get_file_mtimes()
 
@@ -77,10 +85,14 @@ class FileWatcher:
                 if current_mtimes != file_mtimes:
                     if not self.verbose:
                         os.system("clear" if os.name != "nt" else "cls")
-                    self.console.print("[yellow]File changes detected, re-running...[/yellow]\n")
+                    self.console.print(
+                        "[yellow]File changes detected, re-running...[/yellow]\n"
+                    )
                     run_fill()
                     file_mtimes = current_mtimes
-                    self.console.print("\n[blue]Watching for changes...[/blue]")
+                    self.console.print(
+                        "\n[blue]Watching for changes...[/blue]"
+                    )
 
         except KeyboardInterrupt:
             self.console.print("\n[yellow]Watch mode stopped.[/yellow]")

@@ -7,7 +7,13 @@ from pathlib import Path
 from typing import Generator
 
 import click
-from rich.progress import BarColumn, Progress, TaskProgressColumn, TextColumn, TimeElapsedColumn
+from rich.progress import (
+    BarColumn,
+    Progress,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
 
 from ethereum_test_base_types import to_json
 from ethereum_test_fixtures.file import Fixtures
@@ -19,7 +25,9 @@ def count_json_files_exclude_index(start_path: Path) -> int:
     Return the number of json files in the specified directory, excluding
     index.json files.
     """
-    json_file_count = sum(1 for file in start_path.rglob("*.json") if file.name != "index.json")
+    json_file_count = sum(
+        1 for file in start_path.rglob("*.json") if file.name != "index.json"
+    )
     return json_file_count
 
 
@@ -37,7 +45,9 @@ def check_json(json_file_path: Path) -> None:
         b. If present, compare info["hash"] with the calculated hash from
            step 2.
     """
-    fixtures: Fixtures = Fixtures.model_validate_json(json_file_path.read_text())
+    fixtures: Fixtures = Fixtures.model_validate_json(
+        json_file_path.read_text()
+    )
     fixtures_json = to_json(fixtures)
     fixtures_deserialized: Fixtures = Fixtures.model_validate(fixtures_json)
     for fixture_name, fixture in fixtures.items():
@@ -50,7 +60,9 @@ def check_json(json_file_path: Path) -> None:
             )
         if "hash" in fixture.info and fixture.info["hash"] != original_hash:
             info_hash = fixture.info["hash"]
-            info_hash_str = str(info_hash) if not isinstance(info_hash, str) else info_hash
+            info_hash_str = (
+                str(info_hash) if not isinstance(info_hash, str) else info_hash
+            )
             raise HashMismatchExceptionError(
                 original_hash,
                 info_hash_str,
@@ -90,7 +102,9 @@ def check_json(json_file_path: Path) -> None:
     expose_value=True,
     help="Stop and raise any exceptions encountered while checking fixtures.",
 )
-def check_fixtures(input_str: str, quiet_mode: bool, stop_on_error: bool) -> bool:
+def check_fixtures(
+    input_str: str, quiet_mode: bool, stop_on_error: bool
+) -> bool:
     """
     Perform checks on fixtures in the specified directory.
     """
@@ -111,39 +125,56 @@ def check_fixtures(input_str: str, quiet_mode: bool, stop_on_error: bool) -> boo
 
     with Progress(
         TextColumn(
-            f"[bold cyan]{{task.fields[filename]:<{filename_display_width}}}[/]", justify="left"
+            f"[bold cyan]{{task.fields[filename]:<{filename_display_width}}}[/]",
+            justify="left",
         ),
-        BarColumn(bar_width=None, complete_style="green3", finished_style="bold green3"),
+        BarColumn(
+            bar_width=None,
+            complete_style="green3",
+            finished_style="bold green3",
+        ),
         TaskProgressColumn(),
         TimeElapsedColumn(),
         expand=True,
         disable=quiet_mode,
     ) as progress:  # type: Progress
-        task_id = progress.add_task("Checking fixtures", total=file_count, filename="...")
+        task_id = progress.add_task(
+            "Checking fixtures", total=file_count, filename="..."
+        )
         for json_file_path in get_input_files():
             if json_file_path.name == "index.json":
                 continue
 
             display_filename = json_file_path.name
             if len(display_filename) > filename_display_width:
-                display_filename = display_filename[: filename_display_width - 3] + "..."
+                display_filename = (
+                    display_filename[: filename_display_width - 3] + "..."
+                )
             else:
-                display_filename = display_filename.ljust(filename_display_width)
+                display_filename = display_filename.ljust(
+                    filename_display_width
+                )
 
             try:
-                progress.update(task_id, advance=1, filename=f"Checking {display_filename}")
+                progress.update(
+                    task_id, advance=1, filename=f"Checking {display_filename}"
+                )
                 check_json(json_file_path)
             except Exception as e:
                 success = False
                 if stop_on_error:
                     raise e
                 else:
-                    progress.console.print(f"\nError checking {json_file_path}:")
+                    progress.console.print(
+                        f"\nError checking {json_file_path}:"
+                    )
                     progress.console.print(f"  {e}")
 
         reward_string = "🦄" if success else "🐢"
         progress.update(
-            task_id, completed=file_count, filename=f"Completed checking all files {reward_string}"
+            task_id,
+            completed=file_count,
+            filename=f"Completed checking all files {reward_string}",
         )
 
     return success

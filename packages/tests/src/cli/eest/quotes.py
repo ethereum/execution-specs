@@ -36,7 +36,9 @@ def box_quote(quote: str) -> str:
     wrapped_quote = wrap_quote(quote)
 
     # Calculate the width of the box
-    box_width = max(len(line) for line in wrapped_quote.split("\n")) + 2  # +2 for side borders
+    box_width = (
+        max(len(line) for line in wrapped_quote.split("\n")) + 2
+    )  # +2 for side borders
 
     # Create top and bottom border
     top_bottom_border = "+" + "-" * (box_width) + "+"

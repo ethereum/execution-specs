@@ -25,13 +25,22 @@ transactions_by_type = {
         ),
         "pre_state": {
             "0x5a0b54d5dc17e0aadc383d2db43b0a0d3e029c4c": Account(
-                nonce=6038603, balance=23760714652307793035, code=b"", storage=Storage(root={})
+                nonce=6038603,
+                balance=23760714652307793035,
+                code=b"",
+                storage=Storage(root={}),
             ),
             "0x8a4a4d396a06cba2a7a4a73245991de40cdec289": Account(
-                nonce=2, balance=816540000000000000, code=b"", storage=Storage(root={})
+                nonce=2,
+                balance=816540000000000000,
+                code=b"",
+                storage=Storage(root={}),
             ),
             "0xc6d96786477f82491bfead8f00b8294688f77abc": Account(
-                nonce=25, balance=29020266497911578313, code=b"", storage=Storage(root={})
+                nonce=25,
+                balance=29020266497911578313,
+                code=b"",
+                storage=Storage(root={}),
             ),
         },
         "transaction": Transaction(
@@ -60,13 +69,22 @@ transactions_by_type = {
         ),
         "pre_state": {
             "0x24d6c74d811cfde65995ed26fd08af445f8aab06": Account(
-                nonce=1011, balance=139840767390685635650, code=b"", storage=Storage(root={})
+                nonce=1011,
+                balance=139840767390685635650,
+                code=b"",
+                storage=Storage(root={}),
             ),
             "0xd5fbda4c79f38920159fe5f22df9655fde292d47": Account(
-                nonce=553563, balance=162510989019530720334, code=b"", storage=Storage(root={})
+                nonce=553563,
+                balance=162510989019530720334,
+                code=b"",
+                storage=Storage(root={}),
             ),
             "0xe2e29f9a85cfecb9cdaa83a81c7aa2792f24d93f": Account(
-                nonce=104, balance=553317651330968100, code=b"", storage=Storage(root={})
+                nonce=104,
+                balance=553317651330968100,
+                code=b"",
+                storage=Storage(root={}),
             ),
         },
         "transaction": Transaction(
@@ -122,13 +140,17 @@ def test_tx_type(
     monkeypatch.setattr(StateTestProvider, "get_context", get_mock_context)
 
     ## Generate ##
-    gentest_result = runner.invoke(generate, [transaction_hash, generated_py_file])
+    gentest_result = runner.invoke(
+        generate, [transaction_hash, generated_py_file]
+    )
     assert gentest_result.exit_code == 0
 
     ## Fill ##
     with open(generated_py_file, "r") as f:
         pytester.makepyfile(f.read())
-    pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    pytester.copy_example(
+        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
 
     args = [
         "-c",

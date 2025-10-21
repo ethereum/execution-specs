@@ -78,7 +78,9 @@ class Initcode(Bytecode):
 
         # PUSH1: initcode_length=11 + len(initcode_prefix_bytes) (constant)
         no_prefix_length = 0x0B
-        assert no_prefix_length + len(initcode_prefix) <= 0xFF, "initcode prefix too long"
+        assert no_prefix_length + len(initcode_prefix) <= 0xFF, (
+            "initcode prefix too long"
+        )
         initcode += Op.PUSH1(no_prefix_length + len(initcode_prefix))
         execution_gas += 3
 
@@ -108,7 +110,8 @@ class Initcode(Bytecode):
             )
 
             padding_bytes = bytes(
-                [padding_byte] * (initcode_length - len(initcode_plus_deploy_code))
+                [padding_byte]
+                * (initcode_length - len(initcode_plus_deploy_code))
             )
 
         initcode_bytes = initcode_plus_deploy_code + padding_bytes
@@ -123,7 +126,9 @@ class Initcode(Bytecode):
         instance._name_ = name
         instance.deploy_code = deploy_code
         instance.execution_gas = execution_gas
-        instance.deployment_gas = GAS_PER_DEPLOYED_CODE_BYTE * len(bytes(instance.deploy_code))
+        instance.deployment_gas = GAS_PER_DEPLOYED_CODE_BYTE * len(
+            bytes(instance.deploy_code)
+        )
 
         return instance
 
@@ -258,7 +263,8 @@ class While(Bytecode):
             bytecode += body
             if condition is not None:
                 bytecode += Op.JUMPI(
-                    Op.SUB(Op.PC, Op.PUSH4[len(body) + len(condition) + 6]), condition
+                    Op.SUB(Op.PC, Op.PUSH4[len(body) + len(condition) + 6]),
+                    condition,
                 )
             else:
                 bytecode += Op.JUMP(Op.SUB(Op.PC, Op.PUSH4[len(body) + 6]))
@@ -281,7 +287,11 @@ class Case:
     @property
     def is_terminating(self) -> bool:
         """Returns whether the case is terminating."""
-        return self.terminating if self.terminating is not None else self.action.terminating
+        return (
+            self.terminating
+            if self.terminating is not None
+            else self.action.terminating
+        )
 
 
 class CalldataCase(Case):
@@ -296,7 +306,9 @@ class CalldataCase(Case):
     optionally `position`) and may not be set directly.
     """
 
-    def __init__(self, value: int | str | Bytecode, position: int = 0, **kwargs: Any) -> None:
+    def __init__(
+        self, value: int | str | Bytecode, position: int = 0, **kwargs: Any
+    ) -> None:
         """Generate the condition base on `value` and `position`."""
         condition = Op.EQ(Op.CALLDATALOAD(position), value)
         super().__init__(condition=condition, **kwargs)
@@ -359,14 +371,19 @@ class Switch(Bytecode):
         # All conditions get prepended to this bytecode; if none are met, we
         # reach the default
         if evm_code_type == EVMCodeType.LEGACY:
-            action_jump_length = sum(len(case.action) + 6 for case in cases) + 3
-            bytecode = default_action + Op.JUMP(Op.ADD(Op.PC, action_jump_length))
+            action_jump_length = (
+                sum(len(case.action) + 6 for case in cases) + 3
+            )
+            bytecode = default_action + Op.JUMP(
+                Op.ADD(Op.PC, action_jump_length)
+            )
             # The length required to jump over the default action and its JUMP
             # bytecode
             condition_jump_length = len(bytecode) + 3
         elif evm_code_type == EVMCodeType.EOF_V1:
             action_jump_length = sum(
-                len(case.action) + (len(Op.RJUMP[0]) if not case.is_terminating else 0)
+                len(case.action)
+                + (len(Op.RJUMP[0]) if not case.is_terminating else 0)
                 for case in cases
                 # On not terminating cases, we need to add 3 bytes for the
                 # RJUMP
@@ -397,8 +414,14 @@ class Switch(Bytecode):
             action = case.action
             if evm_code_type == EVMCodeType.LEGACY:
                 action_jump_length -= len(action) + 6
-                action = Op.JUMPDEST + action + Op.JUMP(Op.ADD(Op.PC, action_jump_length))
-                condition = Op.JUMPI(Op.ADD(Op.PC, condition_jump_length), case.condition)
+                action = (
+                    Op.JUMPDEST
+                    + action
+                    + Op.JUMP(Op.ADD(Op.PC, action_jump_length))
+                )
+                condition = Op.JUMPI(
+                    Op.ADD(Op.PC, condition_jump_length), case.condition
+                )
             elif evm_code_type == EVMCodeType.EOF_V1:
                 action_jump_length -= len(action) + (
                     len(Op.RJUMP[0]) if not case.is_terminating else 0

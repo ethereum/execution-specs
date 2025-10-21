@@ -69,14 +69,20 @@ class MemoryVariable(Bytecode):
 
     def add(self, value: int | Bytecode) -> Bytecode:
         """In-place add the given value to the one currently in memory."""
-        return Op.MSTORE(offset=self.offset, value=Op.ADD(Op.MLOAD(offset=self.offset), value))
+        return Op.MSTORE(
+            offset=self.offset,
+            value=Op.ADD(Op.MLOAD(offset=self.offset), value),
+        )
 
     def sub(self, value: int | Bytecode) -> Bytecode:
         """
         In-place subtract the given value from the one currently
         in memory.
         """
-        return Op.MSTORE(offset=self.offset, value=Op.SUB(Op.MLOAD(offset=self.offset), value))
+        return Op.MSTORE(
+            offset=self.offset,
+            value=Op.SUB(Op.MLOAD(offset=self.offset), value),
+        )
 
     def store_value(self, key: int | Bytecode) -> Bytecode:
         """Op.SSTORE the value that is currently in memory."""
@@ -87,7 +93,9 @@ class MemoryVariable(Bytecode):
         return Op.RETURN(offset=self.offset, size=32)
 
 
-def call_return_code(opcode: Op, success: bool, *, revert: bool = False) -> int:
+def call_return_code(
+    opcode: Op, success: bool, *, revert: bool = False
+) -> int:
     """Return return code for a CALL operation."""
     if opcode in [Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL]:
         return int(success)

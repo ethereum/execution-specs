@@ -16,7 +16,14 @@ from typing import Dict, List
 
 from pydantic import BaseModel, Field
 
-from ethereum_test_base_types import AccessList, Address, Bytes, CamelModel, Hash, HexNumber
+from ethereum_test_base_types import (
+    AccessList,
+    Address,
+    Bytes,
+    CamelModel,
+    Hash,
+    HexNumber,
+)
 from ethereum_test_forks import Fork
 from ethereum_test_types import Environment
 
@@ -82,13 +89,19 @@ class FuzzerTransactionInput(BaseModel):
     gas: HexNumber  # Will be mapped to gas_limit in converter
     gas_price: HexNumber | None = Field(None, alias="gasPrice")
     max_fee_per_gas: HexNumber | None = Field(None, alias="maxFeePerGas")
-    max_priority_fee_per_gas: HexNumber | None = Field(None, alias="maxPriorityFeePerGas")
+    max_priority_fee_per_gas: HexNumber | None = Field(
+        None, alias="maxPriorityFeePerGas"
+    )
     nonce: HexNumber
     data: Bytes = Bytes(b"")  # Will be mapped to data/input in converter
     value: HexNumber = HexNumber(0)
     access_list: List[AccessList] | None = Field(None, alias="accessList")
-    blob_versioned_hashes: List[Hash] | None = Field(None, alias="blobVersionedHashes")
-    max_fee_per_blob_gas: HexNumber | None = Field(None, alias="maxFeePerBlobGas")
+    blob_versioned_hashes: List[Hash] | None = Field(
+        None, alias="blobVersionedHashes"
+    )
+    max_fee_per_blob_gas: HexNumber | None = Field(
+        None, alias="maxFeePerBlobGas"
+    )
     authorization_list: List[FuzzerAuthorizationInput] | None = Field(
         None, alias="authorizationList"
     )

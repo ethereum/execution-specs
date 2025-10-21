@@ -103,7 +103,12 @@ def calculate_size_distribution(
     # Process from bottom to top
     for i in range(len(test_distribution) - 1, -1, -1):
         label, tests_in_bin, _, group_count = test_distribution[i]
-        test_distribution[i] = (label, tests_in_bin, cumulative_remaining_tests, cumulative_groups)
+        test_distribution[i] = (
+            label,
+            tests_in_bin,
+            cumulative_remaining_tests,
+            cumulative_groups,
+        )
         cumulative_remaining_tests += tests_in_bin
         cumulative_groups += group_count
 
@@ -117,16 +122,22 @@ def analyze_pre_alloc_folder(folder: Path) -> Dict:
     # Basic stats
     total_groups = len(pre_alloc_groups)
     total_tests = sum(group.test_count for group in pre_alloc_groups.values())
-    total_accounts = sum(group.pre_account_count for group in pre_alloc_groups.values())
+    total_accounts = sum(
+        group.pre_account_count for group in pre_alloc_groups.values()
+    )
 
     # Group by fork
-    fork_stats: Dict[str, Dict] = defaultdict(lambda: {"groups": 0, "tests": 0})
+    fork_stats: Dict[str, Dict] = defaultdict(
+        lambda: {"groups": 0, "tests": 0}
+    )
     for group in pre_alloc_groups.values():
         fork_stats[group.fork.name()]["groups"] += 1
         fork_stats[group.fork.name()]["tests"] += group.test_count
 
     # Group by test module
-    module_stats: Dict[str, Dict] = defaultdict(lambda: {"groups": set(), "tests": 0})
+    module_stats: Dict[str, Dict] = defaultdict(
+        lambda: {"groups": set(), "tests": 0}
+    )
     for hash_key, group in pre_alloc_groups.items():
         # Count tests per module in this group
         module_test_count: defaultdict = defaultdict(int)
@@ -165,7 +176,9 @@ def analyze_pre_alloc_folder(folder: Path) -> Dict:
         groups: int = 0
         forks: Set[str] = Field(default_factory=set)
 
-    split_test_functions: Dict[str, SplitTestFunction] = defaultdict(lambda: SplitTestFunction())
+    split_test_functions: Dict[str, SplitTestFunction] = defaultdict(
+        lambda: SplitTestFunction()
+    )
 
     # Process all size-1 groups directly from pre_state
     for _hash_key, group_data in pre_alloc_groups.items():
@@ -222,7 +235,9 @@ def display_stats(stats: Dict, console: Console, verbose: int = 0) -> None:
 
     # Per-group details table (only with -v or -vv)
     if verbose >= 1:
-        console.print("\n[bold yellow]Tests and Accounts per Group[/bold yellow]")
+        console.print(
+            "\n[bold yellow]Tests and Accounts per Group[/bold yellow]"
+        )
         group_table = Table(show_header=True, header_style="bold magenta")
         group_table.add_column("Group Hash", style="dim")
         group_table.add_column("Fork", style="cyan")
@@ -230,7 +245,9 @@ def display_stats(stats: Dict, console: Console, verbose: int = 0) -> None:
         group_table.add_column("Accounts", justify="right")
 
         # Sort by test count (descending)
-        sorted_groups = sorted(stats["group_details"], key=lambda x: -x["tests"])
+        sorted_groups = sorted(
+            stats["group_details"], key=lambda x: -x["tests"]
+        )
 
         # Show all groups if -vv, otherwise top 20
         groups_to_show = sorted_groups if verbose >= 2 else sorted_groups[:20]
@@ -265,7 +282,11 @@ def display_stats(stats: Dict, console: Console, verbose: int = 0) -> None:
     sorted_forks = sorted(stats["fork_stats"].items())
 
     for fork, fork_data in sorted_forks:
-        avg_tests = fork_data["tests"] / fork_data["groups"] if fork_data["groups"] > 0 else 0
+        avg_tests = (
+            fork_data["tests"] / fork_data["groups"]
+            if fork_data["groups"] > 0
+            else 0
+        )
         fork_table.add_row(
             fork,
             str(fork_data["groups"]),
@@ -282,10 +303,16 @@ def display_stats(stats: Dict, console: Console, verbose: int = 0) -> None:
     dist_table.add_column("Number of Groups", justify="right")
     dist_table.add_column("Percentage", justify="right")
 
-    total_groups_in_dist = sum(count for _, count in stats.get("group_distribution", []))
+    total_groups_in_dist = sum(
+        count for _, count in stats.get("group_distribution", [])
+    )
 
     for size_range, count in stats.get("group_distribution", []):
-        percentage = (count / total_groups_in_dist * 100) if total_groups_in_dist > 0 else 0
+        percentage = (
+            (count / total_groups_in_dist * 100)
+            if total_groups_in_dist > 0
+            else 0
+        )
         dist_table.add_row(
             size_range,
             str(count),
@@ -320,25 +347,38 @@ def display_stats(stats: Dict, console: Console, verbose: int = 0) -> None:
     ]
 
     # Create a mapping for easy lookup
-    test_dist_map = {item[0]: item for item in stats.get("test_distribution", [])}
+    test_dist_map = {
+        item[0]: item for item in stats.get("test_distribution", [])
+    }
 
     # Display in the defined order
     test_dist_sorted = [
-        test_dist_map[bin_range] for bin_range in bin_order if bin_range in test_dist_map
+        test_dist_map[bin_range]
+        for bin_range in bin_order
+        if bin_range in test_dist_map
     ]
 
     # Need to recalculate cumulative groups from top for display
     cumulative_groups_display = 0
-    for _i, (size_range, tests_in_range, cumulative_remaining_tests, _) in enumerate(
-        test_dist_sorted
-    ):
+    for _i, (
+        size_range,
+        tests_in_range,
+        cumulative_remaining_tests,
+        _,
+    ) in enumerate(test_dist_sorted):
         coverage_percentage = (
-            (cumulative_remaining_tests / total_tests * 100) if total_tests > 0 else 0
+            (cumulative_remaining_tests / total_tests * 100)
+            if total_tests > 0
+            else 0
         )
 
         # Find how many groups in this bin
         groups_in_bin = next(
-            (count for label, count in stats.get("group_distribution", []) if label == size_range),
+            (
+                count
+                for label, count in stats.get("group_distribution", [])
+                if label == size_range
+            ),
             0,
         )
         cumulative_groups_display += groups_in_bin
@@ -356,7 +396,9 @@ def display_stats(stats: Dict, console: Console, verbose: int = 0) -> None:
 
     # Module statistics table (only with -v or -vv)
     if verbose >= 1:
-        console.print("\n[bold yellow]Groups and Tests per Test Module[/bold yellow]")
+        console.print(
+            "\n[bold yellow]Groups and Tests per Test Module[/bold yellow]"
+        )
         module_table = Table(show_header=True, header_style="bold magenta")
         module_table.add_column("Test Module", style="dim")
         module_table.add_column("Groups", justify="right")
@@ -371,7 +413,9 @@ def display_stats(stats: Dict, console: Console, verbose: int = 0) -> None:
         )
 
         # Show all modules if -vv, otherwise top 15
-        modules_to_show = sorted_modules if verbose >= 2 else sorted_modules[:15]
+        modules_to_show = (
+            sorted_modules if verbose >= 2 else sorted_modules[:15]
+        )
 
         for module, module_data in modules_to_show:
             # Shorten module path for display
@@ -381,7 +425,9 @@ def display_stats(stats: Dict, console: Console, verbose: int = 0) -> None:
                 module_display = module
 
             avg_tests = (
-                module_data["tests"] / module_data["groups"] if module_data["groups"] > 0 else 0
+                module_data["tests"] / module_data["groups"]
+                if module_data["groups"] > 0
+                else 0
             )
             module_table.add_row(
                 module_display,
@@ -402,7 +448,9 @@ def display_stats(stats: Dict, console: Console, verbose: int = 0) -> None:
 
     # Split test functions analysis (only show if there are any)
     if stats.get("split_functions"):
-        console.print("\n[bold yellow]Test Functions Split Across Multiple Groups[/bold yellow]")
+        console.print(
+            "\n[bold yellow]Test Functions Split Across Multiple Groups[/bold yellow]"
+        )
         console.print(
             "[dim]These test functions create multiple size-1 groups (due to different "
             "forks/parameters), preventing pre-allocation group optimization:[/dim]",
@@ -417,7 +465,9 @@ def display_stats(stats: Dict, console: Console, verbose: int = 0) -> None:
 
         # Sort by groups per fork (descending) to show worst offenders first
         sorted_split = sorted(
-            stats["split_functions"].items(), key=lambda x: x[1]["groups_per_fork"], reverse=True
+            stats["split_functions"].items(),
+            key=lambda x: x[1]["groups_per_fork"],
+            reverse=True,
         )
 
         for test_function, data in sorted_split:
@@ -495,7 +545,9 @@ def main(pre_alloc_folder: Path, verbose: int) -> None:
         stats = analyze_pre_alloc_folder(pre_alloc_folder)
         display_stats(stats, console, verbose=verbose)
     except FileNotFoundError:
-        console.print(f"[red]Error: Folder not found: {pre_alloc_folder}[/red]")
+        console.print(
+            f"[red]Error: Folder not found: {pre_alloc_folder}[/red]"
+        )
         raise click.Abort() from None
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")

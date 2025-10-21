@@ -17,7 +17,9 @@ class EthereumTestBaseModel(BaseModel, ModelCustomizationsMixin):
     pass
 
 
-class EthereumTestRootModel(RootModel[RootModelRootType], ModelCustomizationsMixin):
+class EthereumTestRootModel(
+    RootModel[RootModelRootType], ModelCustomizationsMixin
+):
     """Base model for all models for Ethereum tests."""
 
     root: Any

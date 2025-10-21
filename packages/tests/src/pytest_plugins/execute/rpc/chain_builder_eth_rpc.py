@@ -115,7 +115,9 @@ class PendingTxHashes:
         assert self.lock is None, "Lock already acquired"
         self.lock = FileLock(self.pending_hashes_lock, timeout=-1)
         self.lock.acquire()
-        assert self.pending_tx_hashes is None, "Pending transaction hashes already loaded"
+        assert self.pending_tx_hashes is None, (
+            "Pending transaction hashes already loaded"
+        )
         if self.pending_hashes_file.exists():
             with open(self.pending_hashes_file, "r") as f:
                 self.pending_tx_hashes = HashList.model_validate_json(f.read())
@@ -123,10 +125,14 @@ class PendingTxHashes:
             self.pending_tx_hashes = HashList([])
         return self
 
-    def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
+    def __exit__(
+        self, exc_type: object, exc_value: object, traceback: object
+    ) -> None:
         """Flush the pending hashes to the file and release the lock."""
         assert self.lock is not None, "Lock not acquired"
-        assert self.pending_tx_hashes is not None, "Pending transaction hashes not loaded"
+        assert self.pending_tx_hashes is not None, (
+            "Pending transaction hashes not loaded"
+        )
         with open(self.pending_hashes_file, "w") as f:
             f.write(self.pending_tx_hashes.model_dump_json())
         self.lock.release()
@@ -136,7 +142,9 @@ class PendingTxHashes:
     def append(self, tx_hash: Hash) -> None:
         """Add a transaction hash to the pending list."""
         assert self.lock is not None, "Lock not acquired"
-        assert self.pending_tx_hashes is not None, "Pending transaction hashes not loaded"
+        assert self.pending_tx_hashes is not None, (
+            "Pending transaction hashes not loaded"
+        )
         self.pending_tx_hashes.append(tx_hash)
 
     def clear(self) -> None:
@@ -148,25 +156,33 @@ class PendingTxHashes:
     def remove(self, tx_hash: Hash) -> None:
         """Remove a transaction hash from the pending list."""
         assert self.lock is not None, "Lock not acquired"
-        assert self.pending_tx_hashes is not None, "Pending transaction hashes not loaded"
+        assert self.pending_tx_hashes is not None, (
+            "Pending transaction hashes not loaded"
+        )
         self.pending_tx_hashes.remove(tx_hash)
 
     def __contains__(self, tx_hash: Hash) -> bool:
         """Check if a transaction hash is in the pending list."""
         assert self.lock is not None, "Lock not acquired"
-        assert self.pending_tx_hashes is not None, "Pending transaction hashes not loaded"
+        assert self.pending_tx_hashes is not None, (
+            "Pending transaction hashes not loaded"
+        )
         return tx_hash in self.pending_tx_hashes
 
     def __len__(self) -> int:
         """Get the number of pending transaction hashes."""
         assert self.lock is not None, "Lock not acquired"
-        assert self.pending_tx_hashes is not None, "Pending transaction hashes not loaded"
+        assert self.pending_tx_hashes is not None, (
+            "Pending transaction hashes not loaded"
+        )
         return len(self.pending_tx_hashes)
 
     def __iter__(self) -> Iterator[Hash]:
         """Iterate over the pending transaction hashes."""
         assert self.lock is not None, "Lock not acquired"
-        assert self.pending_tx_hashes is not None, "Pending transaction hashes not loaded"
+        assert self.pending_tx_hashes is not None, (
+            "Pending transaction hashes not loaded"
+        )
         return iter(self.pending_tx_hashes)
 
 
@@ -214,7 +230,9 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
 
         with FileLock(base_lock_file):
             if base_error_file.exists():
-                raise Exception("Error occurred during initial forkchoice_updated")
+                raise Exception(
+                    "Error occurred during initial forkchoice_updated"
+                )
             if not base_file.exists():
                 base_error_file.touch()  # Assume error
                 # Get the head block hash
@@ -224,7 +242,9 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
                 forkchoice_state = ForkchoiceState(
                     head_block_hash=head_block["hash"],
                 )
-                forkchoice_version = self.fork.engine_forkchoice_updated_version()
+                forkchoice_version = (
+                    self.fork.engine_forkchoice_updated_version()
+                )
                 assert forkchoice_version is not None, (
                     "Fork does not support engine forkchoice_updated"
                 )
@@ -234,7 +254,10 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
                         None,
                         version=forkchoice_version,
                     )
-                    if response.payload_status.status == PayloadStatusEnum.VALID:
+                    if (
+                        response.payload_status.status
+                        == PayloadStatusEnum.VALID
+                    ):
                         break
                     time.sleep(0.5)
                 else:
@@ -252,13 +275,19 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
             head_block_hash=head_block["hash"],
         )
         parent_beacon_block_root = (
-            Hash(0) if self.fork.header_beacon_root_required(block_number=0, timestamp=0) else None
+            Hash(0)
+            if self.fork.header_beacon_root_required(
+                block_number=0, timestamp=0
+            )
+            else None
         )
         payload_attributes = PayloadAttributes(
             timestamp=HexNumber(head_block["timestamp"]) + 1,
             prev_randao=Hash(0),
             suggested_fee_recipient=Address(0),
-            withdrawals=[] if self.fork.header_withdrawals_required() else None,
+            withdrawals=[]
+            if self.fork.header_withdrawals_required()
+            else None,
             parent_beacon_block_root=parent_beacon_block_root,
             target_blobs_per_block=(
                 self.fork.target_blobs_per_block(block_number=0, timestamp=0)
@@ -275,7 +304,9 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
                 else None
             ),
         )
-        forkchoice_updated_version = self.fork.engine_forkchoice_updated_version()
+        forkchoice_updated_version = (
+            self.fork.engine_forkchoice_updated_version()
+        )
         assert forkchoice_updated_version is not None, (
             "Fork does not support engine forkchoice_updated"
         )
@@ -284,28 +315,40 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
             payload_attributes,
             version=forkchoice_updated_version,
         )
-        assert response.payload_status.status == PayloadStatusEnum.VALID, "Payload was invalid"
-        assert response.payload_id is not None, "payload_id was not returned by the client"
+        assert response.payload_status.status == PayloadStatusEnum.VALID, (
+            "Payload was invalid"
+        )
+        assert response.payload_id is not None, (
+            "payload_id was not returned by the client"
+        )
         time.sleep(self.get_payload_wait_time)
         get_payload_version = self.fork.engine_get_payload_version()
-        assert get_payload_version is not None, "Fork does not support engine get_payload"
+        assert get_payload_version is not None, (
+            "Fork does not support engine get_payload"
+        )
         new_payload = self.engine_rpc.get_payload(
             response.payload_id,
             version=get_payload_version,
         )
         new_payload_args: List[Any] = [new_payload.execution_payload]
         if new_payload.blobs_bundle is not None:
-            new_payload_args.append(new_payload.blobs_bundle.blob_versioned_hashes())
+            new_payload_args.append(
+                new_payload.blobs_bundle.blob_versioned_hashes()
+            )
         if parent_beacon_block_root is not None:
             new_payload_args.append(parent_beacon_block_root)
         if new_payload.execution_requests is not None:
             new_payload_args.append(new_payload.execution_requests)
         new_payload_version = self.fork.engine_new_payload_version()
-        assert new_payload_version is not None, "Fork does not support engine new_payload"
+        assert new_payload_version is not None, (
+            "Fork does not support engine new_payload"
+        )
         new_payload_response = self.engine_rpc.new_payload(
             *new_payload_args, version=new_payload_version
         )
-        assert new_payload_response.status == PayloadStatusEnum.VALID, "Payload was invalid"
+        assert new_payload_response.status == PayloadStatusEnum.VALID, (
+            "Payload was invalid"
+        )
 
         new_forkchoice_state = ForkchoiceState(
             head_block_hash=new_payload.execution_payload.block_hash,
@@ -315,7 +358,9 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
             None,
             version=forkchoice_updated_version,
         )
-        assert response.payload_status.status == PayloadStatusEnum.VALID, "Payload was invalid"
+        assert response.payload_status.status == PayloadStatusEnum.VALID, (
+            "Payload was invalid"
+        )
         for tx in new_payload.execution_payload.transactions:
             tx_hash = Hash(keccak256(tx))
             if tx_hash in self.pending_tx_hashes:
@@ -330,7 +375,9 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
                 self.generate_block()
         return returned_hash
 
-    def wait_for_transaction(self, transaction: Transaction) -> TransactionByHashResponse:
+    def wait_for_transaction(
+        self, transaction: Transaction
+    ) -> TransactionByHashResponse:
         """
         Wait for a specific transaction to be included in a block.
 
@@ -398,11 +445,16 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
             time.sleep(0.1)
 
         missing_txs_strings = [
-            f"{tx.hash} ({tx.model_dump_json()})" for tx in transactions if tx.hash in tx_hashes
+            f"{tx.hash} ({tx.model_dump_json()})"
+            for tx in transactions
+            if tx.hash in tx_hashes
         ]
 
         pending_tx_responses_string = "\n".join(
-            [f"{tx_hash}: {tx.model_dump_json()}" for tx_hash, tx in pending_responses.items()]
+            [
+                f"{tx_hash}: {tx.model_dump_json()}"
+                for tx_hash, tx in pending_responses.items()
+            ]
         )
         raise Exception(
             f"Transactions {', '.join(missing_txs_strings)} were not included in a block "
@@ -428,7 +480,9 @@ class PendingTransactionHandler:
     i: int = 0
 
     def __init__(
-        self, chain_builder_eth_rpc: ChainBuilderEthRPC, block_generation_interval: int = 10
+        self,
+        chain_builder_eth_rpc: ChainBuilderEthRPC,
+        block_generation_interval: int = 10,
     ):
         """Initialize the pending transaction handler."""
         self.chain_builder_eth_rpc = chain_builder_eth_rpc
@@ -461,5 +515,7 @@ class PendingTransactionHandler:
                     # If no new transactions have been added to the pending
                     # list, generate a block to avoid potential deadlock.
                     self.chain_builder_eth_rpc.generate_block()
-            self.last_pending_tx_hashes_count = len(self.chain_builder_eth_rpc.pending_tx_hashes)
+            self.last_pending_tx_hashes_count = len(
+                self.chain_builder_eth_rpc.pending_tx_hashes
+            )
             self.i += 1

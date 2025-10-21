@@ -15,9 +15,14 @@ class TestSimplifiedConsumeBehavior:
         """
         test_url = "https://github.com/ethereum/execution-spec-tests/releases/download/v3.0.0/fixtures_develop.tar.gz"
 
-        with patch("pytest_plugins.consume.consume.FixtureDownloader") as mock_downloader:
+        with patch(
+            "pytest_plugins.consume.consume.FixtureDownloader"
+        ) as mock_downloader:
             mock_instance = MagicMock()
-            mock_instance.download_and_extract.return_value = (False, Path("/tmp/test"))
+            mock_instance.download_and_extract.return_value = (
+                False,
+                Path("/tmp/test"),
+            )
             mock_downloader.return_value = mock_instance
 
             source = FixturesSource.from_release_url(test_url)
@@ -33,15 +38,22 @@ class TestSimplifiedConsumeBehavior:
         """
         test_spec = "stable@latest"
 
-        with patch("pytest_plugins.consume.consume.get_release_url") as mock_get_url:
+        with patch(
+            "pytest_plugins.consume.consume.get_release_url"
+        ) as mock_get_url:
             mock_get_url.return_value = "https://github.com/ethereum/execution-spec-tests/releases/download/v3.0.0/fixtures_stable.tar.gz"
-            with patch("pytest_plugins.consume.consume.get_release_page_url") as mock_get_page:
-                mock_get_page.return_value = (
-                    "https://github.com/ethereum/execution-spec-tests/releases/tag/v3.0.0"
-                )
-                with patch("pytest_plugins.consume.consume.FixtureDownloader") as mock_downloader:
+            with patch(
+                "pytest_plugins.consume.consume.get_release_page_url"
+            ) as mock_get_page:
+                mock_get_page.return_value = "https://github.com/ethereum/execution-spec-tests/releases/tag/v3.0.0"
+                with patch(
+                    "pytest_plugins.consume.consume.FixtureDownloader"
+                ) as mock_downloader:
                     mock_instance = MagicMock()
-                    mock_instance.download_and_extract.return_value = (False, Path("/tmp/test"))
+                    mock_instance.download_and_extract.return_value = (
+                        False,
+                        Path("/tmp/test"),
+                    )
                     mock_downloader.return_value = mock_instance
 
                     source = FixturesSource.from_release_spec(test_spec)
@@ -60,9 +72,14 @@ class TestSimplifiedConsumeBehavior:
         """Test that regular URLs (non-GitHub) don't have release page."""
         test_url = "http://example.com/fixtures.tar.gz"
 
-        with patch("pytest_plugins.consume.consume.FixtureDownloader") as mock_downloader:
+        with patch(
+            "pytest_plugins.consume.consume.FixtureDownloader"
+        ) as mock_downloader:
             mock_instance = MagicMock()
-            mock_instance.download_and_extract.return_value = (False, Path("/tmp/test"))
+            mock_instance.download_and_extract.return_value = (
+                False,
+                Path("/tmp/test"),
+            )
             mock_downloader.return_value = mock_instance
 
             source = FixturesSource.from_url(test_url)
@@ -71,7 +88,9 @@ class TestSimplifiedConsumeBehavior:
             assert source.release_page == ""
             assert source.url == test_url
 
-    def test_output_formatting_without_release_page_for_direct_urls(self) -> None:
+    def test_output_formatting_without_release_page_for_direct_urls(
+        self,
+    ) -> None:
         """
         Test output formatting when release page is empty for direct URLs.
         """
@@ -116,9 +135,7 @@ class TestSimplifiedConsumeBehavior:
         config.fixtures_source.is_local = False
         config.fixtures_source.path = Path("/tmp/test")
         config.fixtures_source.url = "https://github.com/ethereum/execution-spec-tests/releases/download/v3.0.0/fixtures_stable.tar.gz"
-        config.fixtures_source.release_page = (
-            "https://github.com/ethereum/execution-spec-tests/releases/tag/v3.0.0"
-        )
+        config.fixtures_source.release_page = "https://github.com/ethereum/execution-spec-tests/releases/tag/v3.0.0"
 
         # Simulate the output generation logic from pytest_configure
         reason = ""
@@ -144,7 +161,9 @@ class TestFixturesSourceFromInput:
         """Test that from_input properly handles release URLs."""
         test_url = "https://github.com/ethereum/execution-spec-tests/releases/download/v3.0.0/fixtures_develop.tar.gz"
 
-        with patch.object(FixturesSource, "from_release_url") as mock_from_release_url:
+        with patch.object(
+            FixturesSource, "from_release_url"
+        ) as mock_from_release_url:
             mock_from_release_url.return_value = MagicMock()
 
             FixturesSource.from_input(test_url)
@@ -157,7 +176,9 @@ class TestFixturesSourceFromInput:
         """Test that from_input properly handles release specs."""
         test_spec = "stable@latest"
 
-        with patch.object(FixturesSource, "from_release_spec") as mock_from_release_spec:
+        with patch.object(
+            FixturesSource, "from_release_spec"
+        ) as mock_from_release_spec:
             mock_from_release_spec.return_value = MagicMock()
 
             FixturesSource.from_input(test_spec)
@@ -175,14 +196,18 @@ class TestFixturesSourceFromInput:
 
             FixturesSource.from_input(test_url)
 
-            mock_from_url.assert_called_once_with(test_url, CACHED_DOWNLOADS_DIRECTORY, None)
+            mock_from_url.assert_called_once_with(
+                test_url, CACHED_DOWNLOADS_DIRECTORY, None
+            )
 
     def test_from_input_handles_extract_to_parameter(self) -> None:
         """Test that from_input properly passes extract_to parameter."""
         test_url = "https://github.com/ethereum/execution-spec-tests/releases/download/v3.0.0/fixtures_develop.tar.gz"
         extract_to_path = Path("/custom/extract/path")
 
-        with patch.object(FixturesSource, "from_release_url") as mock_from_release_url:
+        with patch.object(
+            FixturesSource, "from_release_url"
+        ) as mock_from_release_url:
             mock_from_release_url.return_value = MagicMock()
 
             FixturesSource.from_input(test_url, extract_to=extract_to_path)

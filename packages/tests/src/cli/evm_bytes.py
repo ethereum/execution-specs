@@ -48,10 +48,14 @@ class OpcodeWithOperands:
         if self.opcode.data_portion_length == 0:
             return f"{opcode_name}"
         elif self.opcode == Op.RJUMPV:
-            operands = ", ".join(str(ZeroPaddedHexNumber(operand)) for operand in self.operands)
+            operands = ", ".join(
+                str(ZeroPaddedHexNumber(operand)) for operand in self.operands
+            )
             return f"{opcode_name} {operands}"
         else:
-            operands = ", ".join(str(ZeroPaddedHexNumber(operand)) for operand in self.operands)
+            operands = ", ".join(
+                str(ZeroPaddedHexNumber(operand)) for operand in self.operands
+            )
             return f"{opcode_name} {operands}"
 
     @property
@@ -65,7 +69,11 @@ class OpcodeWithOperands:
         # opcode.opcode[*opcode.operands] crashes `black` formatter and doesn't
         # work.
         if self.opcode:
-            return self.opcode.__getitem__(*self.operands) if self.operands else self.opcode
+            return (
+                self.opcode.__getitem__(*self.operands)
+                if self.operands
+                else self.opcode
+            )
         else:
             return Bytecode()
 
@@ -93,7 +101,9 @@ def process_evm_bytes(evm_bytes: bytes) -> List[OpcodeWithOperands]:  # noqa: D1
                     opcode=opcode,
                     operands=[
                         int.from_bytes(
-                            evm_bytes_array[: opcode.data_portion_length], "big", signed=signed
+                            evm_bytes_array[: opcode.data_portion_length],
+                            "big",
+                            signed=signed,
                         )
                     ],
                 )
@@ -106,16 +116,22 @@ def process_evm_bytes(evm_bytes: bytes) -> List[OpcodeWithOperands]:  # noqa: D1
                 max_index = evm_bytes_array.pop(0)
                 operands: List[int] = []
                 for _ in range(max_index + 1):
-                    operands.append(int.from_bytes(evm_bytes_array[:2], "big", signed=True))
+                    operands.append(
+                        int.from_bytes(evm_bytes_array[:2], "big", signed=True)
+                    )
                     evm_bytes_array = evm_bytes_array[2:]
-                opcodes.append(OpcodeWithOperands(opcode=opcode, operands=operands))
+                opcodes.append(
+                    OpcodeWithOperands(opcode=opcode, operands=operands)
+                )
         else:
             opcodes.append(OpcodeWithOperands(opcode=opcode))
 
     return opcodes
 
 
-def format_opcodes(opcodes: List[OpcodeWithOperands], assembly: bool = False) -> str:  # noqa: D103
+def format_opcodes(
+    opcodes: List[OpcodeWithOperands], assembly: bool = False
+) -> str:  # noqa: D103
     if assembly:
         opcodes_with_empty_lines: List[OpcodeWithOperands] = []
         for i, op_with_operands in enumerate(opcodes):
@@ -124,15 +140,26 @@ def format_opcodes(opcodes: List[OpcodeWithOperands], assembly: bool = False) ->
                 and len(opcodes_with_empty_lines) > 0
                 and opcodes_with_empty_lines[-1].opcode is not None
             ):
-                opcodes_with_empty_lines.append(OpcodeWithOperands(opcode=None))
+                opcodes_with_empty_lines.append(
+                    OpcodeWithOperands(opcode=None)
+                )
             opcodes_with_empty_lines.append(op_with_operands)
-            if op_with_operands.opcode in OPCODES_WITH_EMPTY_LINES_AFTER and i < len(opcodes) - 1:
-                opcodes_with_empty_lines.append(OpcodeWithOperands(opcode=None))
-        return "\n".join(op.format(assembly) for op in opcodes_with_empty_lines)
+            if (
+                op_with_operands.opcode in OPCODES_WITH_EMPTY_LINES_AFTER
+                and i < len(opcodes) - 1
+            ):
+                opcodes_with_empty_lines.append(
+                    OpcodeWithOperands(opcode=None)
+                )
+        return "\n".join(
+            op.format(assembly) for op in opcodes_with_empty_lines
+        )
     return " + ".join(op.format(assembly) for op in opcodes)
 
 
-def process_evm_bytes_string(evm_bytes_hex_string: str, assembly: bool = False) -> str:
+def process_evm_bytes_string(
+    evm_bytes_hex_string: str, assembly: bool = False
+) -> str:
     """Process the given EVM bytes hex string."""
     if evm_bytes_hex_string.startswith("0x"):
         evm_bytes_hex_string = evm_bytes_hex_string[2:]
@@ -165,7 +192,9 @@ def evm_bytes() -> None:
     pass
 
 
-@evm_bytes.command(short_help="Convert a hex string to Python Opcodes or assembly.")
+@evm_bytes.command(
+    short_help="Convert a hex string to Python Opcodes or assembly."
+)
 @assembly_option
 @click.argument("hex_string")
 def hex_string(hex_string: str, assembly: bool) -> None:
@@ -202,7 +231,9 @@ def hex_string(hex_string: str, assembly: bool) -> None:
     click.echo(processed_output)
 
 
-@evm_bytes.command(short_help="Convert a binary file to Python Opcodes or assembly.")
+@evm_bytes.command(
+    short_help="Convert a binary file to Python Opcodes or assembly."
+)
 @assembly_option
 @click.argument("binary_file", type=click.File("rb"))
 def binary_file(binary_file: Any, assembly: bool) -> None:
@@ -230,5 +261,7 @@ def binary_file(binary_file: Any, assembly: bool) -> None:
         ...
 
     """  # noqa: D301
-    processed_output = format_opcodes(process_evm_bytes(binary_file.read()), assembly=assembly)
+    processed_output = format_opcodes(
+        process_evm_bytes(binary_file.read()), assembly=assembly
+    )
     click.echo(processed_output)

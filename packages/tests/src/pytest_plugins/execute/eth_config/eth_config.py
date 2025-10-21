@@ -20,15 +20,31 @@ CURRENT_FOLDER = CURRENT_FILE.parent
 DEFAULT_NETWORK_CONFIGS_FILE = CURRENT_FOLDER / "networks.yml"
 DEFAULT_NETWORKS = NetworkConfigFile.from_yaml(DEFAULT_NETWORK_CONFIGS_FILE)
 
-EXECUTION_CLIENTS = ["besu", "erigon", "geth", "nethermind", "nimbusel", "reth"]
-CONSENSUS_CLIENTS = ["grandine", "lighthouse", "lodestar", "nimbus", "prysm", "teku"]
+EXECUTION_CLIENTS = [
+    "besu",
+    "erigon",
+    "geth",
+    "nethermind",
+    "nimbusel",
+    "reth",
+]
+CONSENSUS_CLIENTS = [
+    "grandine",
+    "lighthouse",
+    "lodestar",
+    "nimbus",
+    "prysm",
+    "teku",
+]
 
 logger = get_logger(__name__)
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Add command-line options to pytest."""
-    eth_config_group = parser.getgroup("execute", "Arguments defining eth_config test behavior.")
+    eth_config_group = parser.getgroup(
+        "execute", "Arguments defining eth_config test behavior."
+    )
     eth_config_group.addoption(
         "--network",
         action="store",
@@ -134,7 +150,9 @@ def pytest_configure(config: pytest.Config) -> None:
         if network_configs_path is None:
             network_configs_path = DEFAULT_NETWORK_CONFIGS_FILE
         if not network_configs_path.exists():
-            pytest.exit(f'Specified networks file "{network_configs_path}" does not exist.')
+            pytest.exit(
+                f'Specified networks file "{network_configs_path}" does not exist.'
+            )
         try:
             network_configs = NetworkConfigFile.from_yaml(network_configs_path)
         except Exception as e:
@@ -160,7 +178,9 @@ def pytest_configure(config: pytest.Config) -> None:
             logger.info("Toggling majority test on")
             config.option.majority_clients = clients  # List[str]
     else:
-        logger.info("Majority test mode is disabled because no --clients value was passed.")
+        logger.info(
+            "Majority test mode is disabled because no --clients value was passed."
+        )
 
     if config.getoption("collectonly", default=False):
         return
@@ -168,17 +188,27 @@ def pytest_configure(config: pytest.Config) -> None:
     # Test out the RPC endpoint to be able to fail fast if it's not working
     eth_rpc = EthRPC(rpc_endpoint)
     try:
-        logger.debug("Will now perform a connection check (request chain_id)..")
+        logger.debug(
+            "Will now perform a connection check (request chain_id).."
+        )
         chain_id = eth_rpc.chain_id()
-        logger.debug(f"Connection check ok (successfully got chain id {chain_id})")
+        logger.debug(
+            f"Connection check ok (successfully got chain id {chain_id})"
+        )
     except Exception as e:
         pytest.exit(f"Could not connect to RPC endpoint {rpc_endpoint}: {e}")
     try:
-        logger.debug("Will now briefly check whether eth_config is supported by target rpc..")
+        logger.debug(
+            "Will now briefly check whether eth_config is supported by target rpc.."
+        )
         eth_rpc.config()
-        logger.debug("Connection check ok (successfully got eth_config response)")
+        logger.debug(
+            "Connection check ok (successfully got eth_config response)"
+        )
     except Exception as e:
-        pytest.exit(f"RPC endpoint {rpc_endpoint} does not support `eth_config`: {e}")
+        pytest.exit(
+            f"RPC endpoint {rpc_endpoint} does not support `eth_config`: {e}"
+        )
 
 
 @pytest.fixture(autouse=True, scope="session")

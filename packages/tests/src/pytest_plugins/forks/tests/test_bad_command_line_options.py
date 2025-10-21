@@ -55,7 +55,9 @@ invalid_cli_option_test_cases = (
     [test_case for _, test_case in invalid_cli_option_test_cases],
     ids=[test_id for test_id, _ in invalid_cli_option_test_cases],
 )
-def test_bad_options(pytester: pytest.Pytester, options: tuple, error_string: str) -> None:
+def test_bad_options(
+    pytester: pytest.Pytester, options: tuple, error_string: str
+) -> None:
     """
     Test that a test with an invalid command-line options:
     - Creates an outcome with exactly one error.
@@ -70,7 +72,9 @@ def test_bad_options(pytester: pytest.Pytester, options: tuple, error_string: st
             assert 0
         """
     )
-    pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    pytester.copy_example(
+        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
     result = pytester.runpytest("-c", "pytest-fill.ini", "-v", *options)
     assert result.ret == pytest.ExitCode.USAGE_ERROR
     assert error_string in "\n".join(result.stderr.lines)

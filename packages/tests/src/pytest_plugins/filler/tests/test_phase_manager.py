@@ -40,7 +40,9 @@ class TestPhaseManager:
             previous_phases={FixtureFillingPhase.PRE_ALLOC_GENERATION},
         )
         assert phase_manager.current_phase == FixtureFillingPhase.FILL
-        assert phase_manager.previous_phases == {FixtureFillingPhase.PRE_ALLOC_GENERATION}
+        assert phase_manager.previous_phases == {
+            FixtureFillingPhase.PRE_ALLOC_GENERATION
+        }
 
     def test_from_config_normal_fill(self) -> None:
         """Test normal single-phase filling (no flags set)."""
@@ -62,7 +64,10 @@ class TestPhaseManager:
             config  # type: ignore[arg-type]
         )
 
-        assert phase_manager.current_phase == FixtureFillingPhase.PRE_ALLOC_GENERATION
+        assert (
+            phase_manager.current_phase
+            == FixtureFillingPhase.PRE_ALLOC_GENERATION
+        )
         assert phase_manager.previous_phases == set()
         assert phase_manager.is_pre_alloc_generation
         assert not phase_manager.is_single_phase_fill
@@ -76,7 +81,9 @@ class TestPhaseManager:
         )
 
         assert phase_manager.current_phase == FixtureFillingPhase.FILL
-        assert phase_manager.previous_phases == {FixtureFillingPhase.PRE_ALLOC_GENERATION}
+        assert phase_manager.previous_phases == {
+            FixtureFillingPhase.PRE_ALLOC_GENERATION
+        }
         assert phase_manager.is_fill_after_pre_alloc
         assert not phase_manager.is_pre_alloc_generation
         assert not phase_manager.is_single_phase_fill
@@ -88,7 +95,10 @@ class TestPhaseManager:
             config  # type: ignore[arg-type]
         )
 
-        assert phase_manager.current_phase == FixtureFillingPhase.PRE_ALLOC_GENERATION
+        assert (
+            phase_manager.current_phase
+            == FixtureFillingPhase.PRE_ALLOC_GENERATION
+        )
         assert phase_manager.previous_phases == set()
         assert phase_manager.is_pre_alloc_generation
         assert not phase_manager.is_single_phase_fill
@@ -96,25 +106,34 @@ class TestPhaseManager:
 
     def test_from_config_generate_all_and_pre_alloc(self) -> None:
         """Test both generate_all_formats and generate_pre_alloc_groups set."""
-        config = MockConfig(generate_pre_alloc_groups=True, generate_all_formats=True)
+        config = MockConfig(
+            generate_pre_alloc_groups=True, generate_all_formats=True
+        )
         phase_manager = PhaseManager.from_config(
             config  # type: ignore[arg-type]
         )
 
-        assert phase_manager.current_phase == FixtureFillingPhase.PRE_ALLOC_GENERATION
+        assert (
+            phase_manager.current_phase
+            == FixtureFillingPhase.PRE_ALLOC_GENERATION
+        )
         assert phase_manager.previous_phases == set()
         assert phase_manager.is_pre_alloc_generation
 
     def test_from_config_use_pre_alloc_with_generate_all(self) -> None:
         """Test phase 2 with generate_all_formats (passed by CLI)."""
-        config = MockConfig(use_pre_alloc_groups=True, generate_all_formats=True)
+        config = MockConfig(
+            use_pre_alloc_groups=True, generate_all_formats=True
+        )
         phase_manager = PhaseManager.from_config(
             config  # type: ignore[arg-type]
         )
 
         # use_pre_alloc_groups takes precedence
         assert phase_manager.current_phase == FixtureFillingPhase.FILL
-        assert phase_manager.previous_phases == {FixtureFillingPhase.PRE_ALLOC_GENERATION}
+        assert phase_manager.previous_phases == {
+            FixtureFillingPhase.PRE_ALLOC_GENERATION
+        }
         assert phase_manager.is_fill_after_pre_alloc
 
     def test_all_flag_combinations(self) -> None:
@@ -128,20 +147,44 @@ class TestPhaseManager:
             # Normal fill
             (False, False, False, FixtureFillingPhase.FILL, False),
             # Generate all triggers phase 1
-            (False, False, True, FixtureFillingPhase.PRE_ALLOC_GENERATION, False),
+            (
+                False,
+                False,
+                True,
+                FixtureFillingPhase.PRE_ALLOC_GENERATION,
+                False,
+            ),
             (False, True, False, FixtureFillingPhase.FILL, True),  # Phase 2
             # Phase 2 with generate all
             (False, True, True, FixtureFillingPhase.FILL, True),
-            (True, False, False, FixtureFillingPhase.PRE_ALLOC_GENERATION, False),  # Phase 1
+            (
+                True,
+                False,
+                False,
+                FixtureFillingPhase.PRE_ALLOC_GENERATION,
+                False,
+            ),  # Phase 1
             # Phase 1 with generate all
-            (True, False, True, FixtureFillingPhase.PRE_ALLOC_GENERATION, False),
+            (
+                True,
+                False,
+                True,
+                FixtureFillingPhase.PRE_ALLOC_GENERATION,
+                False,
+            ),
             # Invalid but use_pre_alloc wins
             (True, True, False, FixtureFillingPhase.FILL, True),
             # Invalid but use_pre_alloc wins
             (True, True, True, FixtureFillingPhase.FILL, True),
         ]
 
-        for gen_pre, use_pre, gen_all, expected_phase, has_previous in test_cases:
+        for (
+            gen_pre,
+            use_pre,
+            gen_all,
+            expected_phase,
+            has_previous,
+        ) in test_cases:
             config = MockConfig(
                 generate_pre_alloc_groups=gen_pre,
                 use_pre_alloc_groups=use_pre,
@@ -157,7 +200,10 @@ class TestPhaseManager:
             )
 
             if has_previous:
-                assert FixtureFillingPhase.PRE_ALLOC_GENERATION in phase_manager.previous_phases
+                assert (
+                    FixtureFillingPhase.PRE_ALLOC_GENERATION
+                    in phase_manager.previous_phases
+                )
             else:
                 assert phase_manager.previous_phases == set()
 

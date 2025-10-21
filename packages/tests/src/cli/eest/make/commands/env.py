@@ -51,5 +51,10 @@ def create_default_env() -> None:
 
     with ENV_PATH.open("w") as file:
         file.write(env_yaml)
-        click.echo(click.style(f"🎉 Success! Environment file created at: {ENV_PATH}", fg="green"))
+        click.echo(
+            click.style(
+                f"🎉 Success! Environment file created at: {ENV_PATH}",
+                fg="green",
+            )
+        )
         click.echo(get_quote())

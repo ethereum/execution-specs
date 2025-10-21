@@ -94,7 +94,9 @@ def test_nested_phase_contexts() -> None:
         pytest.param(10, 10, id="many"),
     ],
 )
-def test_multiple_transactions_phase_tagging(num_setup_txs: int, num_exec_txs: int) -> None:
+def test_multiple_transactions_phase_tagging(
+    num_setup_txs: int, num_exec_txs: int
+) -> None:
     """Test that multiple transactions are correctly tagged by phase."""
     setup_txs = []
     exec_txs = []
@@ -102,7 +104,9 @@ def test_multiple_transactions_phase_tagging(num_setup_txs: int, num_exec_txs: i
     # Create setup transactions
     with TestPhaseManager.setup():
         for i in range(num_setup_txs):
-            tx = Transaction(to=Address(0x1000 + i), value=i * 10, gas_limit=21000)
+            tx = Transaction(
+                to=Address(0x1000 + i), value=i * 10, gas_limit=21000
+            )
             setup_txs.append(tx)
 
     # Create execution transactions

@@ -27,7 +27,9 @@ class UnexpectedExecutionSuccessError(Exception):
     Exception used when the transaction expected to fail succeeded instead.
     """
 
-    def __init__(self, execution_context: ExecutionContext, **kwargs: Any) -> None:
+    def __init__(
+        self, execution_context: ExecutionContext, **kwargs: Any
+    ) -> None:
         """Initialize the unexpected success exception."""
         message = (
             f"\nUnexpected success for {execution_context.value} ({kwargs}):"
@@ -274,7 +276,8 @@ def verify_transactions(
     txs, or successful txs with unexpected receipt values.
     """
     rejected_txs: Dict[int, ExceptionWithMessage | UndefinedException] = {
-        rejected_tx.index: rejected_tx.error for rejected_tx in result.rejected_transactions
+        rejected_tx.index: rejected_tx.error
+        for rejected_tx in result.rejected_transactions
     }
 
     receipt_index = 0
@@ -287,7 +290,9 @@ def verify_transactions(
         )
         info.verify(strict_match=transition_tool_exceptions_reliable)
         if error_message is None:
-            verify_transaction_receipt(i, tx.expected_receipt, result.receipts[receipt_index])
+            verify_transaction_receipt(
+                i, tx.expected_receipt, result.receipts[receipt_index]
+            )
             receipt_index += 1
 
     return list(rejected_txs.keys())

@@ -209,7 +209,9 @@ def test_fork_markers(
     console output.
     """
     pytester.makepyfile(test_function)
-    pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    pytester.copy_example(
+        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
     assert default_t8n.server_url is not None
     result = pytester.runpytest(
         "-c",

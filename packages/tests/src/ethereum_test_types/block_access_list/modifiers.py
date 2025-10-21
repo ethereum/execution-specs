@@ -43,7 +43,9 @@ def _remove_field_from_accounts(
         if len(found_addresses) != len_addresses:
             # sanity check that we found all addresses specified
             missing = set(addresses) - found_addresses
-            raise ValueError(f"Some specified addresses were not found in the BAL: {missing}")
+            raise ValueError(
+                f"Some specified addresses were not found in the BAL: {missing}"
+            )
 
         return BlockAccessList(root=new_root)
 
@@ -80,17 +82,27 @@ def _modify_field_value(
                         # nested structure (storage)
                         for storage_slot in changes:
                             if storage_slot.slot == slot:
-                                for j, change in enumerate(storage_slot.slot_changes):
+                                for j, change in enumerate(
+                                    storage_slot.slot_changes
+                                ):
                                     if change.tx_index == tx_index:
-                                        kwargs = {"tx_index": tx_index, value_field: new_value}
-                                        storage_slot.slot_changes[j] = change_class(**kwargs)
+                                        kwargs = {
+                                            "tx_index": tx_index,
+                                            value_field: new_value,
+                                        }
+                                        storage_slot.slot_changes[j] = (
+                                            change_class(**kwargs)
+                                        )
                                         break
                                 break
                     else:
                         # flat structure (nonce, balance, code)
                         for i, change in enumerate(changes):
                             if change.tx_index == tx_index:
-                                kwargs = {"tx_index": tx_index, value_field: new_value}
+                                kwargs = {
+                                    "tx_index": tx_index,
+                                    value_field: new_value,
+                                }
                                 changes[i] = change_class(**kwargs)
                                 break
 
@@ -100,14 +112,18 @@ def _modify_field_value(
 
         if not found_address:
             # sanity check that we actually found the address
-            raise ValueError(f"Address {address} not found in BAL to modify {field_name}")
+            raise ValueError(
+                f"Address {address} not found in BAL to modify {field_name}"
+            )
 
         return BlockAccessList(root=new_root)
 
     return transform
 
 
-def remove_accounts(*addresses: Address) -> Callable[[BlockAccessList], BlockAccessList]:
+def remove_accounts(
+    *addresses: Address,
+) -> Callable[[BlockAccessList], BlockAccessList]:
     """Remove entire account entries from the BAL."""
 
     def transform(bal: BlockAccessList) -> BlockAccessList:
@@ -120,27 +136,37 @@ def remove_accounts(*addresses: Address) -> Callable[[BlockAccessList], BlockAcc
     return transform
 
 
-def remove_nonces(*addresses: Address) -> Callable[[BlockAccessList], BlockAccessList]:
+def remove_nonces(
+    *addresses: Address,
+) -> Callable[[BlockAccessList], BlockAccessList]:
     """Remove nonce changes from specified accounts."""
     return _remove_field_from_accounts(addresses, "nonce_changes")
 
 
-def remove_balances(*addresses: Address) -> Callable[[BlockAccessList], BlockAccessList]:
+def remove_balances(
+    *addresses: Address,
+) -> Callable[[BlockAccessList], BlockAccessList]:
     """Remove balance changes from specified accounts."""
     return _remove_field_from_accounts(addresses, "balance_changes")
 
 
-def remove_storage(*addresses: Address) -> Callable[[BlockAccessList], BlockAccessList]:
+def remove_storage(
+    *addresses: Address,
+) -> Callable[[BlockAccessList], BlockAccessList]:
     """Remove storage changes from specified accounts."""
     return _remove_field_from_accounts(addresses, "storage_changes")
 
 
-def remove_storage_reads(*addresses: Address) -> Callable[[BlockAccessList], BlockAccessList]:
+def remove_storage_reads(
+    *addresses: Address,
+) -> Callable[[BlockAccessList], BlockAccessList]:
     """Remove storage reads from specified accounts."""
     return _remove_field_from_accounts(addresses, "storage_reads")
 
 
-def remove_code(*addresses: Address) -> Callable[[BlockAccessList], BlockAccessList]:
+def remove_code(
+    *addresses: Address,
+) -> Callable[[BlockAccessList], BlockAccessList]:
     """Remove code changes from specified accounts."""
     return _remove_field_from_accounts(addresses, "code_changes")
 
@@ -161,7 +187,12 @@ def modify_balance(
     Set an incorrect balance value for a specific account and transaction.
     """
     return _modify_field_value(
-        address, tx_index, "balance_changes", BalBalanceChange, balance, "post_balance"
+        address,
+        tx_index,
+        "balance_changes",
+        BalBalanceChange,
+        balance,
+        "post_balance",
     )
 
 
@@ -188,10 +219,14 @@ def modify_code(
     address: Address, tx_index: int, code: bytes
 ) -> Callable[[BlockAccessList], BlockAccessList]:
     """Set an incorrect code value for a specific account and transaction."""
-    return _modify_field_value(address, tx_index, "code_changes", BalCodeChange, code, "post_code")
+    return _modify_field_value(
+        address, tx_index, "code_changes", BalCodeChange, code, "post_code"
+    )
 
 
-def swap_tx_indices(tx1: int, tx2: int) -> Callable[[BlockAccessList], BlockAccessList]:
+def swap_tx_indices(
+    tx1: int, tx2: int
+) -> Callable[[BlockAccessList], BlockAccessList]:
     """Swap transaction indices throughout the BAL, modifying tx ordering."""
     nonce_indices = {tx1: False, tx2: False}
     balance_indices = nonce_indices.copy()
@@ -268,7 +303,9 @@ def append_account(
     return transform
 
 
-def duplicate_account(address: Address) -> Callable[[BlockAccessList], BlockAccessList]:
+def duplicate_account(
+    address: Address,
+) -> Callable[[BlockAccessList], BlockAccessList]:
     """Duplicate an account entry in the BAL."""
     address_present = False
 
@@ -284,7 +321,9 @@ def duplicate_account(address: Address) -> Callable[[BlockAccessList], BlockAcce
 
         if not address_present:
             # sanity check that we actually duplicate
-            raise ValueError(f"Address {address} not found in BAL to duplicate")
+            raise ValueError(
+                f"Address {address} not found in BAL to duplicate"
+            )
 
         return BlockAccessList(root=new_root)
 
@@ -310,7 +349,9 @@ def sort_accounts_by_address() -> Callable[[BlockAccessList], BlockAccessList]:
     return transform
 
 
-def reorder_accounts(indices: List[int]) -> Callable[[BlockAccessList], BlockAccessList]:
+def reorder_accounts(
+    indices: List[int],
+) -> Callable[[BlockAccessList], BlockAccessList]:
     """Reorder accounts according to the provided index list."""
 
     def transform(bal: BlockAccessList) -> BlockAccessList:
@@ -332,7 +373,9 @@ def clear_all() -> Callable[[BlockAccessList], BlockAccessList]:
     return transform
 
 
-def keep_only(*addresses: Address) -> Callable[[BlockAccessList], BlockAccessList]:
+def keep_only(
+    *addresses: Address,
+) -> Callable[[BlockAccessList], BlockAccessList]:
     """Keep only the specified accounts, removing all others."""
     len_addresses = len(addresses)
 
@@ -344,7 +387,9 @@ def keep_only(*addresses: Address) -> Callable[[BlockAccessList], BlockAccessLis
 
         if len(new_root) != len_addresses:
             # sanity check that we found all specified addresses
-            raise ValueError("Some specified addresses were not found in the BAL")
+            raise ValueError(
+                "Some specified addresses were not found in the BAL"
+            )
 
         return BlockAccessList(root=new_root)
 

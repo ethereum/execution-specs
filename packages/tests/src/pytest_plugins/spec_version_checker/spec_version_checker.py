@@ -25,7 +25,8 @@ GITHUB_TOKEN_HELP = textwrap.dedent(
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Add Github token option to pytest command line options."""
     group = parser.getgroup(
-        "spec_version_checker", "Arguments defining the EIP spec version checker"
+        "spec_version_checker",
+        "Arguments defining the EIP spec version checker",
     )
     group.addoption(
         "--github-token",
@@ -52,7 +53,9 @@ def pytest_configure(config: pytest.Config) -> None:
         "eip_version_check: a test that tests the reference spec defined in an EIP test module.",
     )
 
-    github_token = config.getoption("github_token") or os.environ.get("GITHUB_TOKEN")
+    github_token = config.getoption("github_token") or os.environ.get(
+        "GITHUB_TOKEN"
+    )
 
     if not github_token:
         pytest.exit(
@@ -98,9 +101,13 @@ def get_ref_spec_from_module(
                 module_dict, github_token=github_token
             )
         except Exception as e:
-            raise Exception(f"Error in spec_version_checker: {e} (this test is generated).") from e
+            raise Exception(
+                f"Error in spec_version_checker: {e} (this test is generated)."
+            ) from e
     else:
-        raise Exception("Test doesn't define REFERENCE_SPEC_GIT_PATH and REFERENCE_SPEC_VERSION")
+        raise Exception(
+            "Test doesn't define REFERENCE_SPEC_GIT_PATH and REFERENCE_SPEC_VERSION"
+        )
     return spec_obj
 
 
@@ -112,7 +119,9 @@ def is_test_for_an_eip(input_string: str) -> bool:
     return False
 
 
-def test_eip_spec_version(module: ModuleType, github_token: Optional[str] = None) -> None:
+def test_eip_spec_version(
+    module: ModuleType, github_token: Optional[str] = None
+) -> None:
     """
     Test that the ReferenceSpec object as defined in the test module is not
     outdated when compared to the remote hash from ethereum/EIPs.
@@ -200,16 +209,24 @@ class EIPSpecTestItem(Item):
         return "spec_version_checker", 0, f"{self.name}"
 
 
-def pytest_collection_modifyitems(config: pytest.Config, items: List[Item]) -> None:
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: List[Item]
+) -> None:
     """
     Insert a new test EIPSpecTestItem for every test module with 'eip' in its
     path.
     """
-    github_token = config.github_token if hasattr(config, "github_token") else None
+    github_token = (
+        config.github_token if hasattr(config, "github_token") else None
+    )
 
-    modules: Set[Module] = {item.parent for item in items if isinstance(item.parent, Module)}
+    modules: Set[Module] = {
+        item.parent for item in items if isinstance(item.parent, Module)
+    }
     new_test_eip_spec_version_items = [
-        EIPSpecTestItem.from_parent(parent=module, module=module.obj, github_token=github_token)
+        EIPSpecTestItem.from_parent(
+            parent=module, module=module.obj, github_token=github_token
+        )
         for module in sorted(modules, key=lambda module: module.path)
         if is_test_for_an_eip(str(module.path))
     ]

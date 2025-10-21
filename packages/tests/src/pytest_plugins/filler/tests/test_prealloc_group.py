@@ -23,7 +23,10 @@ class MockTest(BaseTest):
     genesis_environment: Environment
 
     def __init__(
-        self, pre: Alloc, genesis_environment: Environment, request: Mock | None = None
+        self,
+        pre: Alloc,
+        genesis_environment: Environment,
+        request: Mock | None = None,
     ) -> None:
         """Initialize mock test."""
         super().__init__(  # type: ignore
@@ -93,7 +96,9 @@ def test_pre_alloc_group_custom_salt() -> None:
     # Create another test with same custom group "eip1234"
     mock_request2 = Mock()
     mock_request2.node = Mock()
-    mock_request2.node.nodeid = "test_module.py::test_function2"  # Different nodeid
+    mock_request2.node.nodeid = (
+        "test_module.py::test_function2"  # Different nodeid
+    )
     mock_marker2 = Mock()
     mock_marker2.args = ("eip1234",)  # Same group
     mock_request2.node.get_closest_marker = Mock(return_value=mock_marker2)
@@ -187,7 +192,9 @@ def test_pre_alloc_group_with_reason() -> None:
     mock_request1.node.nodeid = "test_module.py::test_function1"
     mock_marker1 = Mock()
     mock_marker1.args = ("hardcoded_addresses",)
-    mock_marker1.kwargs = {"reason": "Uses legacy hardcoded addresses for backwards compatibility"}
+    mock_marker1.kwargs = {
+        "reason": "Uses legacy hardcoded addresses for backwards compatibility"
+    }
     mock_request1.node.get_closest_marker = Mock(return_value=mock_marker1)
 
     test1 = MockTest(pre=pre, genesis_environment=env, request=mock_request1)
@@ -314,7 +321,9 @@ class BlockchainTest(FormattedTest):  # noqa: D101
         ),
         pytest.param(
             [
-                StateTest(env="Environment(fee_recipient=pre.fund_eoa(amount=0))"),
+                StateTest(
+                    env="Environment(fee_recipient=pre.fund_eoa(amount=0))"
+                ),
                 StateTest(env="Environment(fee_recipient=1)"),
                 StateTest(env="Environment(fee_recipient=2)"),
             ],
@@ -422,7 +431,9 @@ def test_pre_alloc_grouping_by_test_type(
     for i, test in enumerate(test_definitions):
         test_module = tests_dir / f"test_{i}.py"
         test_module.write_text(test.format())
-    pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    pytester.copy_example(
+        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
     args = [
         "-c",
         "pytest-fill.ini",
@@ -441,7 +452,9 @@ def test_pre_alloc_grouping_by_test_type(
     )
 
     output_dir = (
-        Path(default_output_directory()).absolute() / "blockchain_tests_engine_x" / "pre_alloc"
+        Path(default_output_directory()).absolute()
+        / "blockchain_tests_engine_x"
+        / "pre_alloc"
     )
     assert output_dir.exists()
     groups = PreAllocGroups.from_folder(output_dir, lazy_load=False)
@@ -456,13 +469,13 @@ def test_pre_alloc_grouping_by_test_type(
         for group_hash, group in groups.items():
             error_message += f"\n{group_hash}: \n"
             error_message += f"tests: {group.test_ids}\n"
-            error_message += (
-                f"env: {group.environment.model_dump_json(indent=2, exclude_none=True)}\n"
-            )
+            error_message += f"env: {group.environment.model_dump_json(indent=2, exclude_none=True)}\n"
         raise AssertionError(error_message)
 
     for group_hash, group in groups.items():
-        assert group.environment.fee_recipient == group.genesis.fee_recipient, (
+        assert (
+            group.environment.fee_recipient == group.genesis.fee_recipient
+        ), (
             f"Fee recipient mismatch for group {group_hash}: {group.environment.fee_recipient} != "
             f"{group.genesis.fee_recipient}"
         )
@@ -490,22 +503,30 @@ def test_pre_alloc_grouping_by_test_type(
             f"Gas limit mismatch for group {group_hash}: {group.environment.gas_limit} != "
             f"{group.genesis.gas_limit}"
         )
-        assert group.environment.base_fee_per_gas == group.genesis.base_fee_per_gas, (
+        assert (
+            group.environment.base_fee_per_gas
+            == group.genesis.base_fee_per_gas
+        ), (
             f"Base fee per gas mismatch for group {group_hash}: "
             f"{group.environment.base_fee_per_gas} != "
             f"{group.genesis.base_fee_per_gas}"
         )
-        assert group.environment.excess_blob_gas == group.genesis.excess_blob_gas, (
+        assert (
+            group.environment.excess_blob_gas == group.genesis.excess_blob_gas
+        ), (
             f"Excess blob gas mismatch for group {group_hash}: "
             f"{group.environment.excess_blob_gas} != "
             f"{group.genesis.excess_blob_gas}"
         )
-        assert group.environment.blob_gas_used == group.genesis.blob_gas_used, (
+        assert (
+            group.environment.blob_gas_used == group.genesis.blob_gas_used
+        ), (
             f"Blob gas used mismatch for group {group_hash}: {group.environment.blob_gas_used} != "
             f"{group.genesis.blob_gas_used}"
         )
         assert (
-            group.environment.parent_beacon_block_root == group.genesis.parent_beacon_block_root
+            group.environment.parent_beacon_block_root
+            == group.genesis.parent_beacon_block_root
         ), (
             f"Parent beacon block root mismatch for group {group_hash}: "
             f"{group.environment.parent_beacon_block_root} != "

@@ -19,13 +19,17 @@ from ..filler import default_output_directory
 # flake8: noqa
 def get_all_files_in_directory(base_dir: str) -> list[Path]:  # noqa: D103
     base_path = Path(base_dir)
-    return [f.relative_to(os.getcwd()) for f in base_path.rglob("*") if f.is_file()]
+    return [
+        f.relative_to(os.getcwd()) for f in base_path.rglob("*") if f.is_file()
+    ]
 
 
 def count_keys_in_fixture(file_path: Path) -> int:  # noqa: D103
     with open(file_path, "r") as f:
         data = json.load(f)
-        if not isinstance(data, dict):  # Ensure the loaded data is a dictionary
+        if not isinstance(
+            data, dict
+        ):  # Ensure the loaded data is a dictionary
             raise ValueError(
                 f"Expected a dictionary in {file_path}, but got {type(data).__name__}."
             )
@@ -84,22 +88,38 @@ total_test_count = test_count_paris + test_count_shanghai
         pytest.param(
             [],
             [
-                Path("fixtures/blockchain_tests/paris/module_paris/paris_one.json"),
-                Path("fixtures/blockchain_tests_engine/paris/module_paris/paris_one.json"),
+                Path(
+                    "fixtures/blockchain_tests/paris/module_paris/paris_one.json"
+                ),
+                Path(
+                    "fixtures/blockchain_tests_engine/paris/module_paris/paris_one.json"
+                ),
                 Path("fixtures/state_tests/paris/module_paris/paris_one.json"),
-                Path("fixtures/blockchain_tests/paris/module_paris/paris_two.json"),
-                Path("fixtures/blockchain_tests_engine/paris/module_paris/paris_two.json"),
+                Path(
+                    "fixtures/blockchain_tests/paris/module_paris/paris_two.json"
+                ),
+                Path(
+                    "fixtures/blockchain_tests_engine/paris/module_paris/paris_two.json"
+                ),
                 Path("fixtures/state_tests/paris/module_paris/paris_two.json"),
-                Path("fixtures/blockchain_tests/shanghai/module_shanghai/shanghai_one.json"),
+                Path(
+                    "fixtures/blockchain_tests/shanghai/module_shanghai/shanghai_one.json"
+                ),
                 Path(
                     "fixtures/blockchain_tests_engine/shanghai/module_shanghai/shanghai_one.json"
                 ),
-                Path("fixtures/state_tests/shanghai/module_shanghai/shanghai_one.json"),
-                Path("fixtures/blockchain_tests/shanghai/module_shanghai/shanghai_two.json"),
+                Path(
+                    "fixtures/state_tests/shanghai/module_shanghai/shanghai_one.json"
+                ),
+                Path(
+                    "fixtures/blockchain_tests/shanghai/module_shanghai/shanghai_two.json"
+                ),
                 Path(
                     "fixtures/blockchain_tests_engine/shanghai/module_shanghai/shanghai_two.json"
                 ),
-                Path("fixtures/state_tests/shanghai/module_shanghai/shanghai_two.json"),
+                Path(
+                    "fixtures/state_tests/shanghai/module_shanghai/shanghai_two.json"
+                ),
             ],
             [2, 2, 2, 2, 2, 2, 2, 2, 2, 6, 6, 6],
             id="default-args",
@@ -107,22 +127,38 @@ total_test_count = test_count_paris + test_count_shanghai
         pytest.param(
             ["--skip-index"],
             [
-                Path("fixtures/blockchain_tests/paris/module_paris/paris_one.json"),
-                Path("fixtures/blockchain_tests_engine/paris/module_paris/paris_one.json"),
+                Path(
+                    "fixtures/blockchain_tests/paris/module_paris/paris_one.json"
+                ),
+                Path(
+                    "fixtures/blockchain_tests_engine/paris/module_paris/paris_one.json"
+                ),
                 Path("fixtures/state_tests/paris/module_paris/paris_one.json"),
-                Path("fixtures/blockchain_tests/paris/module_paris/paris_two.json"),
-                Path("fixtures/blockchain_tests_engine/paris/module_paris/paris_two.json"),
+                Path(
+                    "fixtures/blockchain_tests/paris/module_paris/paris_two.json"
+                ),
+                Path(
+                    "fixtures/blockchain_tests_engine/paris/module_paris/paris_two.json"
+                ),
                 Path("fixtures/state_tests/paris/module_paris/paris_two.json"),
-                Path("fixtures/blockchain_tests/shanghai/module_shanghai/shanghai_one.json"),
+                Path(
+                    "fixtures/blockchain_tests/shanghai/module_shanghai/shanghai_one.json"
+                ),
                 Path(
                     "fixtures/blockchain_tests_engine/shanghai/module_shanghai/shanghai_one.json"
                 ),
-                Path("fixtures/state_tests/shanghai/module_shanghai/shanghai_one.json"),
-                Path("fixtures/blockchain_tests/shanghai/module_shanghai/shanghai_two.json"),
+                Path(
+                    "fixtures/state_tests/shanghai/module_shanghai/shanghai_one.json"
+                ),
+                Path(
+                    "fixtures/blockchain_tests/shanghai/module_shanghai/shanghai_two.json"
+                ),
                 Path(
                     "fixtures/blockchain_tests_engine/shanghai/module_shanghai/shanghai_two.json"
                 ),
-                Path("fixtures/state_tests/shanghai/module_shanghai/shanghai_two.json"),
+                Path(
+                    "fixtures/state_tests/shanghai/module_shanghai/shanghai_two.json"
+                ),
             ],
             [2, 2, 2, 2, 2, 2, 2, 2, 2, 6, 6, 6],
             id="skip-index",
@@ -130,22 +166,38 @@ total_test_count = test_count_paris + test_count_shanghai
         pytest.param(
             ["--build-name", "test_build"],
             [
-                Path("fixtures/blockchain_tests/paris/module_paris/paris_one.json"),
-                Path("fixtures/blockchain_tests_engine/paris/module_paris/paris_one.json"),
+                Path(
+                    "fixtures/blockchain_tests/paris/module_paris/paris_one.json"
+                ),
+                Path(
+                    "fixtures/blockchain_tests_engine/paris/module_paris/paris_one.json"
+                ),
                 Path("fixtures/state_tests/paris/module_paris/paris_one.json"),
-                Path("fixtures/blockchain_tests/paris/module_paris/paris_two.json"),
-                Path("fixtures/blockchain_tests_engine/paris/module_paris/paris_two.json"),
+                Path(
+                    "fixtures/blockchain_tests/paris/module_paris/paris_two.json"
+                ),
+                Path(
+                    "fixtures/blockchain_tests_engine/paris/module_paris/paris_two.json"
+                ),
                 Path("fixtures/state_tests/paris/module_paris/paris_two.json"),
-                Path("fixtures/blockchain_tests/shanghai/module_shanghai/shanghai_one.json"),
+                Path(
+                    "fixtures/blockchain_tests/shanghai/module_shanghai/shanghai_one.json"
+                ),
                 Path(
                     "fixtures/blockchain_tests_engine/shanghai/module_shanghai/shanghai_one.json"
                 ),
-                Path("fixtures/state_tests/shanghai/module_shanghai/shanghai_one.json"),
-                Path("fixtures/blockchain_tests/shanghai/module_shanghai/shanghai_two.json"),
+                Path(
+                    "fixtures/state_tests/shanghai/module_shanghai/shanghai_one.json"
+                ),
+                Path(
+                    "fixtures/blockchain_tests/shanghai/module_shanghai/shanghai_two.json"
+                ),
                 Path(
                     "fixtures/blockchain_tests_engine/shanghai/module_shanghai/shanghai_two.json"
                 ),
-                Path("fixtures/state_tests/shanghai/module_shanghai/shanghai_two.json"),
+                Path(
+                    "fixtures/state_tests/shanghai/module_shanghai/shanghai_two.json"
+                ),
             ],
             [2, 2, 2, 2, 2, 2, 2, 2, 2, 6, 6, 6],
             id="build-name-in-fixtures-ini-file",
@@ -419,7 +471,9 @@ def test_fixture_output_based_on_command_line_args(
     test_module = shanghai_tests_dir.join("test_module_shanghai.py")
     test_module.write(test_module_shanghai)
 
-    testdir.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    testdir.copy_example(
+        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
     args.append("-c")
     args.append("pytest-fill.ini")
     args.append("-v")
@@ -466,8 +520,14 @@ def test_fixture_output_based_on_command_line_args(
     expected_additional_files = {expected_ini_file, expected_index_file}
     if resolver_file:
         expected_additional_files.add(str(expected_resolver_file))
-    all_fixtures = [file for file in all_files if file.name not in expected_additional_files]
-    for fixture_file, fixture_count in zip(expected_fixture_files, expected_fixture_counts):
+    all_fixtures = [
+        file
+        for file in all_files
+        if file.name not in expected_additional_files
+    ]
+    for fixture_file, fixture_count in zip(
+        expected_fixture_files, expected_fixture_counts
+    ):
         assert fixture_file.exists(), f"{fixture_file} does not exist"
         assert fixture_count == count_keys_in_fixture(fixture_file), (
             f"Fixture count mismatch for {fixture_file}"
@@ -477,14 +537,20 @@ def test_fixture_output_based_on_command_line_args(
         f"Unexpected files in directory: {set(all_fixtures) - set(expected_fixture_files)}"
     )
 
-    assert ini_file is not None, f"No {expected_ini_file} file was found in {meta_dir}"
+    assert ini_file is not None, (
+        f"No {expected_ini_file} file was found in {meta_dir}"
+    )
     config = configparser.ConfigParser()
     ini_file_text = ini_file.read_text()
-    ini_file_text = ini_file_text.replace(default_t8n.server_url, "t8n_server_path")
+    ini_file_text = ini_file_text.replace(
+        default_t8n.server_url, "t8n_server_path"
+    )
     config.read_string(ini_file_text)
 
     if "--skip-index" not in args:
-        assert index_file is not None, f"No {expected_index_file} file was found in {meta_dir}"
+        assert index_file is not None, (
+            f"No {expected_index_file} file was found in {meta_dir}"
+        )
 
     properties = {key: value for key, value in config.items("fixtures")}
     assert "timestamp" in properties
@@ -556,10 +622,14 @@ def test_fill_variables(
     cancun_tests_dir = tests_dir.mkdir("cancun")
     test_module = cancun_tests_dir.join("test_module_environment_variables.py")
     test_module.write(
-        test_module_environment_variables.format(expected_gas_limit=expected_gas_limit)
+        test_module_environment_variables.format(
+            expected_gas_limit=expected_gas_limit
+        )
     )
 
-    testdir.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    testdir.copy_example(
+        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
     args.append("-c")
     args.append("pytest-fill.ini")
     args.append("-v")
@@ -607,8 +677,14 @@ def test_fill_variables(
     expected_additional_files = {expected_ini_file, expected_index_file}
     if resolver_file:
         expected_additional_files.add(str(expected_resolver_file))
-    all_fixtures = [file for file in all_files if file.name not in expected_additional_files]
-    for fixture_file, fixture_count in zip(expected_fixture_files, expected_fixture_counts):
+    all_fixtures = [
+        file
+        for file in all_files
+        if file.name not in expected_additional_files
+    ]
+    for fixture_file, fixture_count in zip(
+        expected_fixture_files, expected_fixture_counts
+    ):
         assert fixture_file.exists(), f"{fixture_file} does not exist"
         assert fixture_count == count_keys_in_fixture(fixture_file), (
             f"Fixture count mismatch for {fixture_file}"
@@ -618,14 +694,20 @@ def test_fill_variables(
         f"Unexpected files in directory: {set(all_fixtures) - set(expected_fixture_files)}"
     )
 
-    assert ini_file is not None, f"No {expected_ini_file} file was found in {meta_dir}"
+    assert ini_file is not None, (
+        f"No {expected_ini_file} file was found in {meta_dir}"
+    )
     config = configparser.ConfigParser()
     ini_file_text = ini_file.read_text()
-    ini_file_text = ini_file_text.replace(default_t8n.server_url, "t8n_server_path")
+    ini_file_text = ini_file_text.replace(
+        default_t8n.server_url, "t8n_server_path"
+    )
     config.read_string(ini_file_text)
 
     if "--skip-index" not in args:
-        assert index_file is not None, f"No {expected_index_file} file was found in {meta_dir}"
+        assert index_file is not None, (
+            f"No {expected_index_file} file was found in {meta_dir}"
+        )
 
     properties = {key: value for key, value in config.items("fixtures")}
     assert "timestamp" in properties

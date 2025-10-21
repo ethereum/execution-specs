@@ -1,6 +1,10 @@
 """Ethrex execution client transition tool."""
 
-from ethereum_test_exceptions import BlockException, ExceptionMapper, TransactionException
+from ethereum_test_exceptions import (
+    BlockException,
+    ExceptionMapper,
+    TransactionException,
+)
 
 
 class EthrexExceptionMapper(ExceptionMapper):
@@ -10,7 +14,9 @@ class EthrexExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             "Exceeded MAX_BLOB_GAS_PER_BLOCK"
         ),
-        BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: ("Invalid deposit request layout"),
+        BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: (
+            "Invalid deposit request layout"
+        ),
         BlockException.INVALID_REQUESTS: (
             "Requests hash does not match the one in the header after executing"
         ),
@@ -83,12 +89,26 @@ class EthrexExceptionMapper(ExceptionMapper):
             r"create initcode size limit|Initcode size exceeded.*"
         ),
         TransactionException.NONCE_IS_MAX: (r"Nonce is max"),
-        TransactionException.GAS_ALLOWANCE_EXCEEDED: (r"Gas allowance exceeded.*"),
-        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: (r"Blob count exceeded.*"),
+        TransactionException.GAS_ALLOWANCE_EXCEEDED: (
+            r"Gas allowance exceeded.*"
+        ),
+        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: (
+            r"Blob count exceeded.*"
+        ),
         BlockException.SYSTEM_CONTRACT_CALL_FAILED: (r"System call failed.*"),
-        BlockException.SYSTEM_CONTRACT_EMPTY: (r"System contract:.* has no code after deployment"),
-        BlockException.INCORRECT_BLOB_GAS_USED: (r"Blob gas used doesn't match value in header"),
-        BlockException.RLP_STRUCTURES_ENCODING: (r"Error decoding field '\D+' of type \w+.*"),
-        BlockException.INCORRECT_EXCESS_BLOB_GAS: (r".* Excess blob gas is incorrect"),
-        BlockException.INVALID_BLOCK_HASH: (r"Invalid block hash. Expected \w+, got \w+"),
+        BlockException.SYSTEM_CONTRACT_EMPTY: (
+            r"System contract:.* has no code after deployment"
+        ),
+        BlockException.INCORRECT_BLOB_GAS_USED: (
+            r"Blob gas used doesn't match value in header"
+        ),
+        BlockException.RLP_STRUCTURES_ENCODING: (
+            r"Error decoding field '\D+' of type \w+.*"
+        ),
+        BlockException.INCORRECT_EXCESS_BLOB_GAS: (
+            r".* Excess blob gas is incorrect"
+        ),
+        BlockException.INVALID_BLOCK_HASH: (
+            r"Invalid block hash. Expected \w+, got \w+"
+        ),
     }

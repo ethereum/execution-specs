@@ -14,7 +14,9 @@ from .chain_builder_eth_rpc import ChainBuilderEthRPC
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Add command-line options to pytest."""
-    remote_rpc_group = parser.getgroup("remote_rpc", "Arguments defining remote RPC configuration")
+    remote_rpc_group = parser.getgroup(
+        "remote_rpc", "Arguments defining remote RPC configuration"
+    )
     remote_rpc_group.addoption(
         "--rpc-endpoint",
         required=True,
@@ -51,7 +53,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "use for the test. Can be a JSON formatted string or a path to a YAML or JSON file.",
     )
 
-    engine_rpc_group = parser.getgroup("engine_rpc", "Arguments defining engine RPC configuration")
+    engine_rpc_group = parser.getgroup(
+        "engine_rpc", "Arguments defining engine RPC configuration"
+    )
     engine_rpc_group.addoption(
         "--engine-endpoint",
         required=False,
@@ -85,7 +89,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 def pytest_configure(config: pytest.Config) -> None:
     """Check if a chain ID configuration is provided."""
-    if config.getoption("rpc_chain_id") is None and config.getoption("chain_id") is None:
+    if (
+        config.getoption("rpc_chain_id") is None
+        and config.getoption("chain_id") is None
+    ):
         pytest.exit("No chain ID configuration found. Please use --chain-id.")
     # Verify the chain ID configuration is consistent with the remote RPC
     # endpoint

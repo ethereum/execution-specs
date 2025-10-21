@@ -1,7 +1,19 @@
 """List of all transition fork definitions."""
 
 from ..transition_base_fork import transition_fork
-from .forks import BPO1, BPO2, BPO3, BPO4, Berlin, Cancun, London, Osaka, Paris, Prague, Shanghai
+from .forks import (
+    BPO1,
+    BPO2,
+    BPO3,
+    BPO4,
+    Berlin,
+    Cancun,
+    London,
+    Osaka,
+    Paris,
+    Prague,
+    Shanghai,
+)
 
 
 # Transition Forks

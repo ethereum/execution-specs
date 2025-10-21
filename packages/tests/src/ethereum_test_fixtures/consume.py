@@ -106,7 +106,9 @@ class TestCases(RootModel):
         """Retrieve a test case by its index."""
         return self.root[position]
 
-    def __setitem__(self, position: int, value: TestCaseIndexFile | TestCaseStream) -> None:
+    def __setitem__(
+        self, position: int, value: TestCaseIndexFile | TestCaseStream
+    ) -> None:
         """Set a test case at a particular index."""
         self.root[position] = value  # type: ignore
 
@@ -118,7 +120,9 @@ class TestCases(RootModel):
         """Append a test case to the root list."""
         self.root.append(item)  # type: ignore
 
-    def insert(self, position: int, value: TestCaseIndexFile | TestCaseStream) -> None:
+    def insert(
+        self, position: int, value: TestCaseIndexFile | TestCaseStream
+    ) -> None:
         """Insert a test case at a given position."""
         self.root.insert(position, value)  # type: ignore
 
@@ -161,5 +165,7 @@ class TestCases(RootModel):
     @classmethod
     def from_index_file(cls, index_file: Path) -> "TestCases":
         """Create a TestCases object from an index file."""
-        index: IndexFile = IndexFile.model_validate_json(index_file.read_text())
+        index: IndexFile = IndexFile.model_validate_json(
+            index_file.read_text()
+        )
         return cls(root=index.test_cases)

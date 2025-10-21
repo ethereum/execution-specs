@@ -43,7 +43,11 @@ class HashableItem:
         return hashlib.sha256(all_hash_bytes).digest()
 
     def print(
-        self, *, name: str, level: int = 0, print_type: Optional[HashableItemType] = None
+        self,
+        *,
+        name: str,
+        level: int = 0,
+        print_type: Optional[HashableItemType] = None,
     ) -> None:
         """Print the hash of the item and sub-items."""
         next_level = level
@@ -60,7 +64,9 @@ class HashableItem:
                 item.print(name=key, level=next_level, print_type=print_type)
 
     @classmethod
-    def from_json_file(cls, *, file_path: Path, parents: List[str]) -> "HashableItem":
+    def from_json_file(
+        cls, *, file_path: Path, parents: List[str]
+    ) -> "HashableItem":
         """Create a hashable item from a JSON file."""
         items = {}
         with file_path.open("r") as f:
@@ -69,15 +75,23 @@ class HashableItem:
             if not isinstance(item, dict):
                 raise TypeError(f"Expected dict, got {type(item)} for {key}")
             if "_info" not in item:
-                raise KeyError(f"Expected '_info' in {key}, json file: {file_path.name}")
+                raise KeyError(
+                    f"Expected '_info' in {key}, json file: {file_path.name}"
+                )
 
             # EEST uses 'hash'; ethereum/tests use 'generatedTestHash'
-            hash_value = item["_info"].get("hash") or item["_info"].get("generatedTestHash")
+            hash_value = item["_info"].get("hash") or item["_info"].get(
+                "generatedTestHash"
+            )
             if hash_value is None:
-                raise KeyError(f"Expected 'hash' or 'generatedTestHash' in {key}")
+                raise KeyError(
+                    f"Expected 'hash' or 'generatedTestHash' in {key}"
+                )
 
             if not isinstance(hash_value, str):
-                raise TypeError(f"Expected hash to be a string in {key}, got {type(hash_value)}")
+                raise TypeError(
+                    f"Expected hash to be a string in {key}, got {type(hash_value)}"
+                )
 
             item_hash_bytes = bytes.fromhex(hash_value[2:])
             items[key] = cls(
@@ -104,18 +118,25 @@ class HashableItem:
                 )
                 items[file_path.name] = item
             elif file_path.is_dir():
-                item = cls.from_folder(folder_path=file_path, parents=parents + [folder_path.name])
+                item = cls.from_folder(
+                    folder_path=file_path, parents=parents + [folder_path.name]
+                )
                 items[file_path.name] = item
         return cls(type=HashableItemType.FOLDER, items=items, parents=parents)
 
 
 @click.command()
 @click.argument(
-    "folder_path_str", type=click.Path(exists=True, file_okay=False, dir_okay=True, readable=True)
+    "folder_path_str",
+    type=click.Path(
+        exists=True, file_okay=False, dir_okay=True, readable=True
+    ),
 )
 @click.option("--files", "-f", is_flag=True, help="Print hash of files")
 @click.option("--tests", "-t", is_flag=True, help="Print hash of tests")
-@click.option("--root", "-r", is_flag=True, help="Only print hash of root folder")
+@click.option(
+    "--root", "-r", is_flag=True, help="Only print hash of root folder"
+)
 def main(folder_path_str: str, files: bool, tests: bool, root: bool) -> None:
     """Hash folders of JSON fixtures and print their hashes."""
     folder_path: Path = Path(folder_path_str)

@@ -16,7 +16,11 @@ from ethereum_test_exceptions import (
     ExceptionMapper,
     TransactionException,
 )
-from ethereum_test_fixtures import BlockchainFixture, FixtureFormat, StateFixture
+from ethereum_test_fixtures import (
+    BlockchainFixture,
+    FixtureFormat,
+    StateFixture,
+)
 from ethereum_test_forks import Fork
 
 from ..ethereum_cli import EthereumCLI
@@ -50,7 +54,9 @@ class GethExceptionMapper(ExceptionMapper):
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
             "max priority fee per gas higher than max fee per gas"
         ),
-        TransactionException.TYPE_3_TX_PRE_FORK: ("transaction type not supported"),
+        TransactionException.TYPE_3_TX_PRE_FORK: (
+            "transaction type not supported"
+        ),
         TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: "has invalid hash version",
         # This message is the same as TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED
         TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: "blob transaction has too many blobs",
@@ -68,7 +74,9 @@ class GethExceptionMapper(ExceptionMapper):
             "input string too short for common.Address, decoding into (types.SetCodeTx).To"
         ),
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: "transaction gas limit too high",
-        TransactionException.TYPE_4_TX_PRE_FORK: ("transaction type not supported"),
+        TransactionException.TYPE_4_TX_PRE_FORK: (
+            "transaction type not supported"
+        ),
         TransactionException.INITCODE_SIZE_EXCEEDED: "max initcode size exceeded",
         TransactionException.NONCE_MISMATCH_TOO_LOW: "nonce too low",
         TransactionException.NONCE_MISMATCH_TOO_HIGH: "nonce too high",
@@ -132,7 +140,10 @@ class GethEvm(EthereumCLI):
     def _run_command(self, command: List[str]) -> subprocess.CompletedProcess:
         try:
             return subprocess.run(
-                command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
             )
         except subprocess.CalledProcessError as e:
             raise Exception("Command failed with non-zero status.") from e
@@ -262,7 +273,9 @@ class GethFixtureConsumer(
         result = self._run_command(command)
 
         if debug_output_path:
-            self._consume_debug_dump(command, result, fixture_path, debug_output_path)
+            self._consume_debug_dump(
+                command, result, fixture_path, debug_output_path
+            )
 
         if result.returncode != 0:
             raise Exception(
@@ -271,7 +284,9 @@ class GethFixtureConsumer(
 
         result_json = json.loads(result.stdout)
         if not isinstance(result_json, list):
-            raise Exception(f"Unexpected result from evm blocktest: {result_json}")
+            raise Exception(
+                f"Unexpected result from evm blocktest: {result_json}"
+            )
 
         if any(not test_result["pass"] for test_result in result_json):
             exception_text = "Blockchain test failed: \n" + "\n".join(
@@ -312,7 +327,9 @@ class GethFixtureConsumer(
         result = self._run_command(command)
 
         if debug_output_path:
-            self._consume_debug_dump(command, result, fixture_path, debug_output_path)
+            self._consume_debug_dump(
+                command, result, fixture_path, debug_output_path
+            )
 
         if result.returncode != 0:
             raise Exception(
@@ -321,7 +338,9 @@ class GethFixtureConsumer(
 
         result_json = json.loads(result.stdout)
         if not isinstance(result_json, list):
-            raise Exception(f"Unexpected result from evm statetest: {result_json}")
+            raise Exception(
+                f"Unexpected result from evm statetest: {result_json}"
+            )
         return result_json
 
     def consume_state_test(
@@ -342,11 +361,19 @@ class GethFixtureConsumer(
         )
         if fixture_name:
             test_result = [
-                test_result for test_result in file_results if test_result["name"] == fixture_name
+                test_result
+                for test_result in file_results
+                if test_result["name"] == fixture_name
             ]
-            assert len(test_result) < 2, f"Multiple test results for {fixture_name}"
-            assert len(test_result) == 1, f"Test result for {fixture_name} missing"
-            assert test_result[0]["pass"], f"State test failed: {test_result[0]['error']}"
+            assert len(test_result) < 2, (
+                f"Multiple test results for {fixture_name}"
+            )
+            assert len(test_result) == 1, (
+                f"Test result for {fixture_name} missing"
+            )
+            assert test_result[0]["pass"], (
+                f"State test failed: {test_result[0]['error']}"
+            )
         else:
             if any(not test_result["pass"] for test_result in file_results):
                 exception_text = "State test failed: \n" + "\n".join(

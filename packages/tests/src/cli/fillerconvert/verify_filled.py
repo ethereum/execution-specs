@@ -47,9 +47,14 @@ def verify_refilled(refilled: Path, original: Path) -> int:
 
     # Each original test has only 1 test with many posts for each fork and many
     # txs
-    original_test_name, test_original = list(original_test_wrapper.root.items())[0]
+    original_test_name, test_original = list(
+        original_test_wrapper.root.items()
+    )[0]
 
-    for refilled_test_name, refilled_test in refilled_test_wrapper.root.items():
+    for (
+        refilled_test_name,
+        refilled_test,
+    ) in refilled_test_wrapper.root.items():
         # Each refilled test has only 1 post for 1 fork and 1 transaction
         refilled_fork, refilled_result = list(refilled_test.post.items())[0]
         pattern = r"v=(\d+)-g=(\d+)-d=(\d+)"
@@ -61,7 +66,11 @@ def verify_refilled(refilled: Path, original: Path) -> int:
             found = False
             original_result = test_original.post[refilled_fork]
             for res in original_result:
-                if res.indexes.data == d and res.indexes.gas == g and res.indexes.value == v:
+                if (
+                    res.indexes.data == d
+                    and res.indexes.gas == g
+                    and res.indexes.value == v
+                ):
                     print(f"check: {refilled_fork}, d:{d}, g:{g}, v:{v}")
                     if res.hash != refilled_result[0].hash:
                         raise Exception(
@@ -82,6 +91,8 @@ def verify_refilled(refilled: Path, original: Path) -> int:
                     f"original_name: {original}\n"
                 )
         else:
-            raise Exception("Could not regex match d.g.v indexes from refilled test name!")
+            raise Exception(
+                "Could not regex match d.g.v indexes from refilled test name!"
+            )
 
     return verified_vectors

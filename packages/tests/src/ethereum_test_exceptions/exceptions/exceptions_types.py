@@ -14,7 +14,9 @@ Pydantic Annotated Types
 """
 
 ExceptionInstanceOrList = Annotated[
-    List[TransactionException | BlockException] | TransactionException | BlockException,
+    List[TransactionException | BlockException]
+    | TransactionException
+    | BlockException,
     BeforeValidator(from_pipe_str),
     PlainSerializer(to_pipe_str),
 ]

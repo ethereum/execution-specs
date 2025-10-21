@@ -26,7 +26,11 @@ from ethereum_test_base_types.conversions import to_hex
 from ethereum_test_fixtures.blockchain import FixtureBlock, InvalidFixtureBlock
 from ethereum_test_fixtures.file import Fixtures
 from ethereum_test_forks.forks.forks import EOFv1
-from ethereum_test_specs.blockchain import Block, BlockchainFixture, BlockchainTest
+from ethereum_test_specs.blockchain import (
+    Block,
+    BlockchainFixture,
+    BlockchainTest,
+)
 from ethereum_test_specs.debugging import print_traces
 from ethereum_test_specs.eof import EOFParse
 from ethereum_test_tools import Opcodes as Op
@@ -39,7 +43,9 @@ from .evm_bytes import OpcodeWithOperands, process_evm_bytes
 
 
 @click.command()
-@click.argument("input_path", type=click.Path(exists=True, dir_okay=True, file_okay=True))
+@click.argument(
+    "input_path", type=click.Path(exists=True, dir_okay=True, file_okay=True)
+)
 @click.argument("output_dir", type=click.Path(dir_okay=True, file_okay=False))
 @click.option("--traces", is_flag=True, type=bool)
 def eof_wrap(input_path: str, output_dir: str, traces: bool) -> None:
@@ -52,7 +58,9 @@ def eof_wrap(input_path: str, output_dir: str, traces: bool) -> None:
     try:
         EvmOneTransitionTool()
     except CLINotFoundInPathError:
-        print(f"Error: {EvmOneTransitionTool.default_binary} must be in the PATH.")
+        print(
+            f"Error: {EvmOneTransitionTool.default_binary} must be in the PATH."
+        )
         sys.exit(1)
     except Exception as e:
         raise Exception(f"Unexpected exception: {e}") from e
@@ -176,7 +184,9 @@ class EofWrapper:
         """
         for skip in self.file_skip_list:
             if skip in in_path:
-                self.metrics[self.FILES_SKIPPED] = cast(int, self.metrics[self.FILES_SKIPPED]) + 1
+                self.metrics[self.FILES_SKIPPED] = (
+                    cast(int, self.metrics[self.FILES_SKIPPED]) + 1
+                )
                 return
 
         fixtures: BlockchainFixtures = BlockchainFixtures.model_validate_json(
@@ -191,14 +201,19 @@ class EofWrapper:
 
             if fixture.pre:
                 for address, account in fixture.pre.root.items():
-                    if account is None or account.code is None or len(account.code) == 0:
+                    if (
+                        account is None
+                        or account.code is None
+                        or len(account.code) == 0
+                    ):
                         continue
 
                     try:
                         wrapped = wrap_code(account.code)
                     except ValueError as e:
                         self.metrics[self.ACCOUNTS_INVALID_EOF] = (
-                            cast(int, self.metrics[self.ACCOUNTS_INVALID_EOF]) + 1
+                            cast(int, self.metrics[self.ACCOUNTS_INVALID_EOF])
+                            + 1
                         )
                         _inc_counter(
                             cast(
@@ -218,11 +233,17 @@ class EofWrapper:
                         fixture_eof_codes.append(to_hex(account.code))
 
                         # wrap the same account in post state the same way
-                        if fixture.post_state and fixture.post_state.root[address]:
-                            fixture.post_state.root[address].code = Bytes(wrapped)  # type: ignore
+                        if (
+                            fixture.post_state
+                            and fixture.post_state.root[address]
+                        ):
+                            fixture.post_state.root[address].code = Bytes(
+                                wrapped
+                            )  # type: ignore
                     else:
                         self.metrics[self.ACCOUNTS_INVALID_EOF] = (
-                            cast(int, self.metrics[self.ACCOUNTS_INVALID_EOF]) + 1
+                            cast(int, self.metrics[self.ACCOUNTS_INVALID_EOF])
+                            + 1
                         )
             if not wrapped_at_least_one_account:
                 self.metrics[self.FIXTURES_CANT_WRAP] = (
@@ -237,7 +258,9 @@ class EofWrapper:
                     cast(int, self.metrics[self.FIXTURES_GENERATED]) + 1
                 )
                 self.unique_eof.update(fixture_eof_codes)
-                self.metrics[self.UNIQUE_ACCOUNTS_WRAPPED] = len(self.unique_eof)
+                self.metrics[self.UNIQUE_ACCOUNTS_WRAPPED] = len(
+                    self.unique_eof
+                )
             except Exception as e:
                 _inc_counter(
                     cast(
@@ -254,15 +277,21 @@ class EofWrapper:
                     int, self.metrics[self.ACCOUNTS_CANT_GENERATE]
                 ) + len(fixture_eof_codes)
 
-                print(f"Exception {e} occurred during generation of {in_path}: {fixture_id}")
+                print(
+                    f"Exception {e} occurred during generation of {in_path}: {fixture_id}"
+                )
 
         if len(out_fixtures) == 0:
-            self.metrics[self.FILES_SKIPPED] = cast(int, self.metrics[self.FILES_SKIPPED]) + 1
+            self.metrics[self.FILES_SKIPPED] = (
+                cast(int, self.metrics[self.FILES_SKIPPED]) + 1
+            )
             return
 
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
         out_fixtures.collect_into_file(Path(out_path))
-        self.metrics[self.FILES_GENERATED] = cast(int, self.metrics[self.FILES_GENERATED]) + 1
+        self.metrics[self.FILES_GENERATED] = (
+            cast(int, self.metrics[self.FILES_GENERATED]) + 1
+        )
 
     def _short_exception_msg(self, e: Exception) -> str:
         """Shorten exception message for display."""
@@ -272,7 +301,9 @@ class EofWrapper:
             short = short[:threshold] + "..."
         return short
 
-    def _wrap_fixture(self, fixture: BlockchainFixture, traces: bool) -> BlockchainFixture:
+    def _wrap_fixture(
+        self, fixture: BlockchainFixture, traces: bool
+    ) -> BlockchainFixture:
         env = Environment(
             difficulty=fixture.genesis.difficulty,
             gas_limit=fixture.genesis.gas_limit,
@@ -347,7 +378,9 @@ class EofWrapper:
             print_traces(t8n.get_traces())
         return result
 
-    def _validate_eof(self, container: Container, metrics: bool = True) -> bool:
+    def _validate_eof(
+        self, container: Container, metrics: bool = True
+    ) -> bool:
         eof_parse = EOFParse()
 
         result = eof_parse.run(input_value=to_hex(container))
@@ -381,7 +414,11 @@ def wrap_code(account_code: Bytes) -> Container:
     if not opcodes[-1].terminating:
         opcodes.append(OpcodeWithOperands(opcode=Op.STOP))
 
-    while len(opcodes) > 1 and opcodes[-2].terminating and opcodes[-1].terminating:
+    while (
+        len(opcodes) > 1
+        and opcodes[-2].terminating
+        and opcodes[-1].terminating
+    ):
         opcodes.pop()
 
     bytecode = Bytecode()

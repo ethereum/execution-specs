@@ -53,7 +53,8 @@ class BlobsTest(BaseTest):
 
         if execute_format == BlobTransaction:
             return BlobTransaction(
-                txs=self.txs, nonexisting_blob_hashes=self.nonexisting_blob_hashes
+                txs=self.txs,
+                nonexisting_blob_hashes=self.nonexisting_blob_hashes,
             )
         raise Exception(f"Unsupported execute format: {execute_format}")
 

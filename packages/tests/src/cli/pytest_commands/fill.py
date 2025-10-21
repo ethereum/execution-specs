@@ -5,7 +5,11 @@ from typing import Any, List
 import click
 
 from .base import PytestCommand, PytestExecution, common_pytest_options
-from .processors import HelpFlagsProcessor, StdoutFlagsProcessor, WatchFlagsProcessor
+from .processors import (
+    HelpFlagsProcessor,
+    StdoutFlagsProcessor,
+    WatchFlagsProcessor,
+)
 from .watcher import FileWatcher
 
 
@@ -24,7 +28,9 @@ class FillCommand(PytestCommand):
             **kwargs,
         )
 
-    def create_executions(self, pytest_args: List[str]) -> List[PytestExecution]:
+    def create_executions(
+        self, pytest_args: List[str]
+    ) -> List[PytestExecution]:
         """
         Create execution plan that supports two-phase pre-allocation group
         generation.
@@ -38,11 +44,15 @@ class FillCommand(PytestCommand):
 
         # Check if we need two-phase execution
         if self._should_use_two_phase_execution(processed_args):
-            processed_args = self._ensure_generate_all_formats_for_tarball(processed_args)
+            processed_args = self._ensure_generate_all_formats_for_tarball(
+                processed_args
+            )
             return self._create_two_phase_executions(processed_args)
         elif "--use-pre-alloc-groups" in processed_args:
             # Only phase 2: using existing pre-allocation groups
-            return self._create_single_phase_with_pre_alloc_groups(processed_args)
+            return self._create_single_phase_with_pre_alloc_groups(
+                processed_args
+            )
         else:
             # Normal single-phase execution
             return [
@@ -52,7 +62,9 @@ class FillCommand(PytestCommand):
                 )
             ]
 
-    def _create_two_phase_executions(self, args: List[str]) -> List[PytestExecution]:
+    def _create_two_phase_executions(
+        self, args: List[str]
+    ) -> List[PytestExecution]:
         """
         Create two-phase execution: pre-allocation group generation + fixture
         filling.
@@ -76,7 +88,9 @@ class FillCommand(PytestCommand):
             ),
         ]
 
-    def _create_single_phase_with_pre_alloc_groups(self, args: List[str]) -> List[PytestExecution]:
+    def _create_single_phase_with_pre_alloc_groups(
+        self, args: List[str]
+    ) -> List[PytestExecution]:
         """Create single execution using existing pre-allocation groups."""
         return [
             PytestExecution(
@@ -161,7 +175,9 @@ class FillCommand(PytestCommand):
 
         return filtered_args
 
-    def _remove_generate_pre_alloc_groups_flag(self, args: List[str]) -> List[str]:
+    def _remove_generate_pre_alloc_groups_flag(
+        self, args: List[str]
+    ) -> List[str]:
         """
         Remove --generate-pre-alloc-groups flag but keep --generate-all-formats
         for phase 2.
@@ -184,9 +200,14 @@ class FillCommand(PytestCommand):
             or self._is_tarball_output(args)
         )
 
-    def _ensure_generate_all_formats_for_tarball(self, args: List[str]) -> List[str]:
+    def _ensure_generate_all_formats_for_tarball(
+        self, args: List[str]
+    ) -> List[str]:
         """Auto-add --generate-all-formats for tarball output."""
-        if self._is_tarball_output(args) and "--generate-all-formats" not in args:
+        if (
+            self._is_tarball_output(args)
+            and "--generate-all-formats" not in args
+        ):
             return args + ["--generate-all-formats"]
         return args
 
@@ -231,7 +252,9 @@ class FillCommand(PytestCommand):
 class PhilCommand(FillCommand):
     """Friendly fill command with emoji reporting."""
 
-    def create_executions(self, pytest_args: List[str]) -> List[PytestExecution]:
+    def create_executions(
+        self, pytest_args: List[str]
+    ) -> List[PytestExecution]:
         """Create execution with emoji report options."""
         processed_args = self.process_arguments(pytest_args)
 

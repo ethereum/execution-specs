@@ -111,7 +111,9 @@ def test_verify_sync_marker(
     test_module = verify_sync_test_dir / "test_verify_sync_marker.py"
     test_module.write_text(test_module_with_verify_sync)
 
-    pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    pytester.copy_example(
+        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
 
     # Add the test directory to the arguments
     args = [

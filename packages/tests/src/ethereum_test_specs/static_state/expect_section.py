@@ -56,7 +56,10 @@ class StorageInExpectSection(EthereumTestRootModel, TagDependentData):
 
     root: Dict[
         ValueOrCreateTagInFiller,
-        Annotated[ValueOrCreateTagInFiller | None, BeforeValidator(validate_any_string_as_none)],
+        Annotated[
+            ValueOrCreateTagInFiller | None,
+            BeforeValidator(validate_any_string_as_none),
+        ],
     ]
 
     def tag_dependencies(self) -> Mapping[str, Tag]:
@@ -216,10 +219,13 @@ class ForkSet(EthereumTestRootModel):
             matches = re.findall(r"(<=|<|>=|>|=)([^<>=]+)", fork_with_operand)
             if matches:
                 all_fork_constraints = [
-                    ForkConstraint.model_validate(f"{op}{fork.strip()}") for op, fork in matches
+                    ForkConstraint.model_validate(f"{op}{fork.strip()}")
+                    for op, fork in matches
                 ]
             else:
-                all_fork_constraints = [ForkConstraint.model_validate(fork_with_operand.strip())]
+                all_fork_constraints = [
+                    ForkConstraint.model_validate(fork_with_operand.strip())
+                ]
 
             for fork in get_forks():
                 for f in all_fork_constraints:
@@ -355,19 +361,31 @@ class ExpectSectionInStateTestFiller(CamelModel):
 
         # Check if data index match
         if isinstance(self.indexes.data, int):
-            d_match = True if self.indexes.data == -1 or self.indexes.data == d else False
+            d_match = (
+                True
+                if self.indexes.data == -1 or self.indexes.data == d
+                else False
+            )
         elif isinstance(self.indexes.data, list):
             d_match = True if self.indexes.data.count(d) else False
 
         # Check if gas index match
         if isinstance(self.indexes.gas, int):
-            g_match = True if self.indexes.gas == -1 or self.indexes.gas == g else False
+            g_match = (
+                True
+                if self.indexes.gas == -1 or self.indexes.gas == g
+                else False
+            )
         elif isinstance(self.indexes.gas, list):
             g_match = True if self.indexes.gas.count(g) else False
 
         # Check if value index match
         if isinstance(self.indexes.value, int):
-            v_match = True if self.indexes.value == -1 or self.indexes.value == v else False
+            v_match = (
+                True
+                if self.indexes.value == -1 or self.indexes.value == v
+                else False
+            )
         elif isinstance(self.indexes.value, list):
             v_match = True if self.indexes.value.count(v) else False
 

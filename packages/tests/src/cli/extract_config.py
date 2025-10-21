@@ -30,8 +30,14 @@ from pytest_plugins.consume.simulators.helpers.ruleset import ruleset
 
 def get_docker_containers() -> set[str]:
     """Get the current list of Docker container IDs."""
-    result = subprocess.run(["docker", "ps", "-q"], capture_output=True, text=True, check=True)
-    return set(result.stdout.strip().split("\n")) if result.stdout.strip() else set()
+    result = subprocess.run(
+        ["docker", "ps", "-q"], capture_output=True, text=True, check=True
+    )
+    return (
+        set(result.stdout.strip().split("\n"))
+        if result.stdout.strip()
+        else set()
+    )
 
 
 def extract_client_files(
@@ -58,13 +64,28 @@ def extract_client_files(
         try:
             # Use docker exec to read the file from the container
             # First check if file exists
-            check_cmd = ["docker", "exec", container_id, "test", "-f", container_path]
+            check_cmd = [
+                "docker",
+                "exec",
+                container_id,
+                "test",
+                "-f",
+                container_path,
+            ]
             check_result = subprocess.run(check_cmd, capture_output=True)
 
             if check_result.returncode == 0:
                 # File exists, now read it
-                read_cmd = ["docker", "exec", container_id, "cat", container_path]
-                result = subprocess.run(read_cmd, capture_output=True, text=True)
+                read_cmd = [
+                    "docker",
+                    "exec",
+                    container_id,
+                    "cat",
+                    container_path,
+                ]
+                result = subprocess.run(
+                    read_cmd, capture_output=True, text=True
+                )
 
                 if result.returncode == 0 and result.stdout:
                     output_folder = output_dir / fixture_name / client_name
@@ -77,11 +98,18 @@ def extract_client_files(
                         output = json.dumps(json.loads(output), indent=4)
                     output_path.write_text(output)
                     extracted_files[container_path] = output_path
-                    click.echo(f"✓ Extracted {container_path} to {output_path}")
+                    click.echo(
+                        f"✓ Extracted {container_path} to {output_path}"
+                    )
                 else:
-                    click.echo(f"✗ Failed to read {container_path}: {result.stderr}", err=True)
+                    click.echo(
+                        f"✗ Failed to read {container_path}: {result.stderr}",
+                        err=True,
+                    )
             else:
-                click.echo(f"- File {container_path} does not exist in container")
+                click.echo(
+                    f"- File {container_path} does not exist in container"
+                )
 
         except Exception as e:
             click.echo(f"✗ Error extracting {container_path}: {e}", err=True)
@@ -89,7 +117,9 @@ def extract_client_files(
     return extracted_files
 
 
-def create_genesis_from_fixture(fixture_path: Path) -> Tuple[FixtureHeader, Alloc, int]:
+def create_genesis_from_fixture(
+    fixture_path: Path,
+) -> Tuple[FixtureHeader, Alloc, int]:
     """Create a client genesis state from a fixture file."""
     genesis: FixtureHeader
     alloc: Alloc
@@ -106,7 +136,9 @@ def create_genesis_from_fixture(fixture_path: Path) -> Tuple[FixtureHeader, Allo
         base_fixture = fixtures[fixture_id]
 
         if not isinstance(base_fixture, BlockchainFixtureCommon):
-            raise ValueError(f"Fixture {fixture_id} is not a blockchain fixture")
+            raise ValueError(
+                f"Fixture {fixture_id} is not a blockchain fixture"
+            )
 
         genesis = base_fixture.genesis
         alloc = base_fixture.pre
@@ -183,7 +215,9 @@ def extract_config(
     /genesis.json from the Docker container.
     """
     if not fixture:
-        raise click.UsageError("No fixture provided, use --fixture to specify a fixture")
+        raise click.UsageError(
+            "No fixture provided, use --fixture to specify a fixture"
+        )
 
     if fixture.is_dir():
         fixture_files = list(fixture.glob("*.json"))
@@ -228,7 +262,9 @@ def extract_config(
 
         genesis_json = to_json(genesis)
         alloc_json = to_json(alloc)
-        genesis_json["alloc"] = {k.replace("0x", ""): v for k, v in alloc_json.items()}
+        genesis_json["alloc"] = {
+            k.replace("0x", ""): v for k, v in alloc_json.items()
+        }
 
         genesis_json_str = json.dumps(genesis_json)
         genesis_bytes = genesis_json_str.encode("utf-8")
@@ -260,26 +296,42 @@ def extract_config(
 
                 if len(new_containers) != 1:
                     click.echo(
-                        f"Expected exactly 1 new container, found {len(new_containers)}", err=True
+                        f"Expected exactly 1 new container, found {len(new_containers)}",
+                        err=True,
                     )
                     sys.exit(1)
 
                 container_id = new_containers.pop()
-                click.echo(f"Client started successfully (Container ID: {container_id})")
+                click.echo(
+                    f"Client started successfully (Container ID: {container_id})"
+                )
 
                 # Optionally list files in container
                 if list_files:
                     click.echo("\nListing files in container root:")
-                    list_cmd = ["docker", "exec", container_id, "ls", "-la", "/"]
-                    result = subprocess.run(list_cmd, capture_output=True, text=True)
+                    list_cmd = [
+                        "docker",
+                        "exec",
+                        container_id,
+                        "ls",
+                        "-la",
+                        "/",
+                    ]
+                    result = subprocess.run(
+                        list_cmd, capture_output=True, text=True
+                    )
                     if result.returncode == 0:
                         click.echo(result.stdout)
                     else:
-                        click.echo(f"Failed to list files: {result.stderr}", err=True)
+                        click.echo(
+                            f"Failed to list files: {result.stderr}", err=True
+                        )
 
                 # Extract files
                 click.echo("\nExtracting configuration files...")
-                extract_client_files(container_id, output, fixture_path.stem, client_type.name)
+                extract_client_files(
+                    container_id, output, fixture_path.stem, client_type.name
+                )
 
             except Exception as e:
                 click.echo(f"Error: {e}", err=True)

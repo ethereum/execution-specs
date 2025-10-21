@@ -12,7 +12,9 @@ SOLC_EXPECTED_MIN_VERSION: Version = Version.parse("0.8.24")
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Add command-line options to pytest."""
-    solc_group = parser.getgroup("solc", "Arguments defining the solc executable")
+    solc_group = parser.getgroup(
+        "solc", "Arguments defining the solc executable"
+    )
     solc_group.addoption(
         "--solc-bin",
         action="store",
@@ -60,7 +62,10 @@ def pytest_configure(config: pytest.Config) -> None:
             returncode=pytest.ExitCode.USAGE_ERROR,
         )
     except subprocess.TimeoutExpired:
-        pytest.exit("Timeout while getting solc version.", returncode=pytest.ExitCode.USAGE_ERROR)
+        pytest.exit(
+            "Timeout while getting solc version.",
+            returncode=pytest.ExitCode.USAGE_ERROR,
+        )
     except Exception as e:
         pytest.exit(
             f"Unexpected error while getting solc version: {e}",
@@ -104,7 +109,9 @@ def pytest_configure(config: pytest.Config) -> None:
         config.stash[metadata_key]["Tools"]["solc"] = str(solc_version_semver)
 
     # Check minimum version requirement
-    solc_version_semver = Version.parse(str(solc_version_semver).split()[0].split("-")[0])
+    solc_version_semver = Version.parse(
+        str(solc_version_semver).split()[0].split("-")[0]
+    )
     if solc_version_semver < SOLC_EXPECTED_MIN_VERSION:
         pytest.exit(
             f"Unsupported solc version: {solc_version_semver}. Minimum required version is "
@@ -127,7 +134,9 @@ def solc_bin(request: pytest.FixtureRequest) -> str | None:
 
 
 @pytest.hookimpl(trylast=True)
-def pytest_report_header(config: pytest.Config, start_path: object) -> list[str] | None:
+def pytest_report_header(
+    config: pytest.Config, start_path: object
+) -> list[str] | None:
     """Add lines to pytest's console output header."""
     del start_path
 

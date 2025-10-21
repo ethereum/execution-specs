@@ -35,7 +35,9 @@ class CollectOnlyCLI(EthereumCLI):
 
 
 class CollectOnlyFixtureConsumer(
-    FixtureConsumerTool, CollectOnlyCLI, fixture_formats=list(BaseFixture.formats.values())
+    FixtureConsumerTool,
+    CollectOnlyCLI,
+    fixture_formats=list(BaseFixture.formats.values()),
 ):
     """A dummy fixture consumer for use with `--collect-only`."""
 
@@ -45,7 +47,8 @@ class CollectOnlyFixtureConsumer(
 
 def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
     consume_group = parser.getgroup(
-        "consume_direct", "Arguments related to consuming fixtures via a client"
+        "consume_direct",
+        "Arguments related to consuming fixtures via a client",
     )
 
     consume_group.addoption(
@@ -78,7 +81,11 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
 
 
 def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
-    config.supported_fixture_formats = [StateFixture, BlockchainFixture, EOFFixture]  # type: ignore[attr-defined]
+    config.supported_fixture_formats = [
+        StateFixture,
+        BlockchainFixture,
+        EOFFixture,
+    ]  # type: ignore[attr-defined]
     fixture_consumers = []
     for fixture_consumer_bin_path in config.getoption("fixture_consumer_bin"):
         fixture_consumers.append(
@@ -122,7 +129,8 @@ def test_dump_dir(
 
 @pytest.fixture
 def fixture_path(
-    test_case: TestCaseIndexFile | TestCaseStream, fixtures_source: FixturesSource
+    test_case: TestCaseIndexFile | TestCaseStream,
+    fixtures_source: FixturesSource,
 ) -> Generator[Path, None, None]:
     """
     Path to the current JSON fixture file.
@@ -133,7 +141,9 @@ def fixture_path(
     if fixtures_source.is_stdin:
         assert isinstance(test_case, TestCaseStream)
         temp_dir = tempfile.TemporaryDirectory()
-        fixture_path = Path(temp_dir.name) / f"{test_case.id.replace('/', '_')}.json"
+        fixture_path = (
+            Path(temp_dir.name) / f"{test_case.id.replace('/', '_')}.json"
+        )
         fixtures = Fixtures({test_case.id: test_case.fixture})
         with open(fixture_path, "w") as f:
             json.dump(to_json(fixtures), f, indent=4)
@@ -155,7 +165,9 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     metafunc.parametrize(
         "fixture_consumer",
         (
-            pytest.param(fixture_consumer, id=str(fixture_consumer.__class__.__name__))
+            pytest.param(
+                fixture_consumer, id=str(fixture_consumer.__class__.__name__)
+            )
             for fixture_consumer in metafunc.config.fixture_consumers  # type: ignore[attr-defined]
         ),
     )

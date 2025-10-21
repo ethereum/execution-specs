@@ -11,7 +11,9 @@ import pytest
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Add command-line options to pytest for specific help commands."""
-    help_group = parser.getgroup("help_options", "Help options for different commands")
+    help_group = parser.getgroup(
+        "help_options", "Help options for different commands"
+    )
     help_group.addoption(
         "--check-eip-versions-help",
         action="store_true",
@@ -144,7 +146,9 @@ def pytest_configure(config: pytest.Config) -> None:
         )
 
 
-def show_specific_help(config: pytest.Config, expected_ini: str, substrings: list[str]) -> None:
+def show_specific_help(
+    config: pytest.Config, expected_ini: str, substrings: list[str]
+) -> None:
     """
     Print help options filtered by specific substrings from the given
     configuration.
@@ -159,7 +163,9 @@ def show_specific_help(config: pytest.Config, expected_ini: str, substrings: lis
     for group in config._parser.optparser._action_groups:
         title: str | None = group.title
         if title and any(substring in title for substring in substrings):
-            new_group = test_parser.add_argument_group(group.title, group.description)
+            new_group = test_parser.add_argument_group(
+                group.title, group.description
+            )
             for action in group._group_actions:
                 kwargs = {
                     "default": action.default,

@@ -44,8 +44,12 @@ def get_argument_names_and_values_from_parametrize_mark(
     if mark.name != "parametrize":
         raise Exception("Mark is not a parametrize mark")
     kwargs_dict = dict(mark.kwargs)
-    ids: Callable | List[str] | None = kwargs_dict.pop("ids") if "ids" in kwargs_dict else None
-    marks: List[pytest.Mark] = kwargs_dict.pop("marks") if "marks" in kwargs_dict else []
+    ids: Callable | List[str] | None = (
+        kwargs_dict.pop("ids") if "ids" in kwargs_dict else None
+    )
+    marks: List[pytest.Mark] = (
+        kwargs_dict.pop("marks") if "marks" in kwargs_dict else []
+    )
     if kwargs_dict:
         raise Exception("Mark has kwargs which is not supported")
     args = mark.args
@@ -58,9 +62,13 @@ def get_argument_names_and_values_from_parametrize_mark(
     for arg_index, arg_value in enumerate(args[1]):
         if not isinstance(arg_value, ParameterSet):
             original_arg_value = arg_value
-            if not isinstance(arg_value, tuple) and not isinstance(arg_value, list):
+            if not isinstance(arg_value, tuple) and not isinstance(
+                arg_value, list
+            ):
                 arg_value = (arg_value,)
-            test_id: str = get_test_id_from_arg_names_and_values(arg_names, arg_value)
+            test_id: str = get_test_id_from_arg_names_and_values(
+                arg_names, arg_value
+            )
             if ids:
                 if callable(ids):
                     test_id = ids(original_arg_value)
@@ -80,7 +88,9 @@ def get_all_combinations_from_parametrize_marks(
     list_of_values: List[List[ParameterSet]] = []
     all_argument_names = []
     for mark in parametrize_marks:
-        arg_names, arg_values = get_argument_names_and_values_from_parametrize_mark(mark)
+        arg_names, arg_values = (
+            get_argument_names_and_values_from_parametrize_mark(mark)
+        )
         list_of_values.append(arg_values)
         all_argument_names.extend(arg_names)
     all_value_combinations: List[ParameterSet] = []
@@ -110,12 +120,16 @@ def get_all_combinations_from_parametrize_marks(
     return all_argument_names, all_value_combinations
 
 
-def pytest_collect_file(file_path: Path, parent: Module) -> pytest.Collector | None:
+def pytest_collect_file(
+    file_path: Path, parent: Module
+) -> pytest.Collector | None:
     """
     Pytest hook that collects test cases from static files and fills them into
     test fixtures.
     """
-    fill_static_tests_enabled = parent.config.getoption("fill_static_tests_enabled")
+    fill_static_tests_enabled = parent.config.getoption(
+        "fill_static_tests_enabled"
+    )
     if not fill_static_tests_enabled:
         return None
     if not BaseStaticTest.formats:
@@ -144,7 +158,9 @@ class NoIntResolver(yaml.SafeLoader):
 for ch in list(NoIntResolver.yaml_implicit_resolvers):
     resolvers = NoIntResolver.yaml_implicit_resolvers[ch]
     NoIntResolver.yaml_implicit_resolvers[ch] = [
-        (tag, regexp) for tag, regexp in resolvers if tag != "tag:yaml.org,2002:int"
+        (tag, regexp)
+        for tag, regexp in resolvers
+        if tag != "tag:yaml.org,2002:int"
     ]
 
 
@@ -174,26 +190,41 @@ class FillerFile(pytest.File):
                     if hasattr(func, "pytestmark"):
                         function_marks = func.pytestmark[:]
                     parametrize_marks: List[pytest.Mark] = [
-                        mark for mark in function_marks if mark.name == "parametrize"
+                        mark
+                        for mark in function_marks
+                        if mark.name == "parametrize"
                     ]
 
                     func_parameters = inspect.signature(func).parameters
 
-                    fixture_formats: List[Type[BaseFixture] | LabeledFixtureFormat] = []
+                    fixture_formats: List[
+                        Type[BaseFixture] | LabeledFixtureFormat
+                    ] = []
                     spec_parameter_name = ""
                     for test_type in BaseTest.spec_types.values():
-                        if test_type.pytest_parameter_name() in func_parameters:
-                            assert not spec_parameter_name, "Multiple spec parameters found"
-                            spec_parameter_name = test_type.pytest_parameter_name()
+                        if (
+                            test_type.pytest_parameter_name()
+                            in func_parameters
+                        ):
+                            assert not spec_parameter_name, (
+                                "Multiple spec parameters found"
+                            )
+                            spec_parameter_name = (
+                                test_type.pytest_parameter_name()
+                            )
                             session = self.config.filling_session  # type: ignore[attr-defined]
                             fixture_formats.extend(
                                 fixture_format
                                 for fixture_format in test_type.supported_fixture_formats
-                                if session.should_generate_format(fixture_format)
+                                if session.should_generate_format(
+                                    fixture_format
+                                )
                             )
 
-                    test_fork_set = ValidityMarker.get_test_fork_set_from_markers(
-                        iter(function_marks)
+                    test_fork_set = (
+                        ValidityMarker.get_test_fork_set_from_markers(
+                            iter(function_marks)
+                        )
                     )
                     if not test_fork_set:
                         pytest.fail(
@@ -203,26 +234,37 @@ class FillerFile(pytest.File):
                             f"markers:  @pytest.mark.valid_from and "
                             f"@pytest.mark.valid_until."
                         )
-                    intersection_set = test_fork_set & self.config.selected_fork_set  # type: ignore
+                    intersection_set = (
+                        test_fork_set & self.config.selected_fork_set
+                    )  # type: ignore
 
                     extra_function_marks: List[pytest.Mark] = [
                         mark
                         for mark in function_marks
                         if mark.name != "parametrize"
-                        and not ValidityMarker.is_validity_or_filter_marker(mark.name)
+                        and not ValidityMarker.is_validity_or_filter_marker(
+                            mark.name
+                        )
                     ]
 
                     for format_with_or_without_label in fixture_formats:
-                        fixture_format_parameter_set = labeled_format_parameter_set(
-                            format_with_or_without_label
+                        fixture_format_parameter_set = (
+                            labeled_format_parameter_set(
+                                format_with_or_without_label
+                            )
                         )
                         fixture_format = (
                             format_with_or_without_label.format
-                            if isinstance(format_with_or_without_label, LabeledFixtureFormat)
+                            if isinstance(
+                                format_with_or_without_label,
+                                LabeledFixtureFormat,
+                            )
                             else format_with_or_without_label
                         )
                         for fork in sorted(intersection_set):
-                            params: Dict[str, Any] = {spec_parameter_name: fixture_format}
+                            params: Dict[str, Any] = {
+                                spec_parameter_name: fixture_format
+                            }
                             fixturenames = [
                                 spec_parameter_name,
                             ]
@@ -241,7 +283,9 @@ class FillerFile(pytest.File):
 
                             if parametrize_marks:
                                 parameter_names, parameter_set_list = (
-                                    get_all_combinations_from_parametrize_marks(parametrize_marks)
+                                    get_all_combinations_from_parametrize_marks(
+                                        parametrize_marks
+                                    )
                                 )
                                 for parameter_set in parameter_set_list:
                                     # Copy and extend the params with the
@@ -256,7 +300,11 @@ class FillerFile(pytest.File):
                                         + extra_function_marks
                                     )
                                     case_params = params.copy() | dict(
-                                        zip(parameter_names, parameter_set.values, strict=True)
+                                        zip(
+                                            parameter_names,
+                                            parameter_set.values,
+                                            strict=True,
+                                        )
                                     )
 
                                     yield FillerTestItem.from_parent(
@@ -284,7 +332,10 @@ class FillerFile(pytest.File):
                                 )
             except Exception as e:
                 pytest.fail(f"Error loading file {self.path} as a test: {e}")
-                warnings.warn(f"Error loading file {self.path} as a test: {e}", stacklevel=1)
+                warnings.warn(
+                    f"Error loading file {self.path} as a test: {e}",
+                    stacklevel=1,
+                )
                 return
 
 
@@ -340,7 +391,9 @@ class FillerTestItem(pytest.Item):
             if fixture_name == "request":
                 self.params[fixture_name] = request
             else:
-                self.params[fixture_name] = request.getfixturevalue(fixture_name)
+                self.params[fixture_name] = request.getfixturevalue(
+                    fixture_name
+                )
 
     def runtest(self) -> None:
         """Execute the test logic for this specific static test."""
@@ -366,7 +419,9 @@ def yul(fork: Fork, request: pytest.FixtureRequest) -> Type[Yul]:
     """
     solc_target_fork: Fork | None
     marker = request.node.get_closest_marker("compile_yul_with")
-    assert hasattr(request.config, "solc_version"), "solc_version not set in pytest config."
+    assert hasattr(request.config, "solc_version"), (
+        "solc_version not set in pytest config."
+    )
     if marker:
         if not marker.args[0]:
             pytest.fail(
@@ -377,13 +432,21 @@ def yul(fork: Fork, request: pytest.FixtureRequest) -> Type[Yul]:
                 solc_target_fork = fork
                 break
         else:
-            pytest.fail(f"{request.node.name}: Fork {marker.args[0]} not found in forks list.")
+            pytest.fail(
+                f"{request.node.name}: Fork {marker.args[0]} not found in forks list."
+            )
     else:
         solc_target_fork = get_closest_fork(fork)
-        assert solc_target_fork is not None, "No fork supports provided solc version."
-        if solc_target_fork != fork and request.config.getoption("verbose") >= 1:
+        assert solc_target_fork is not None, (
+            "No fork supports provided solc version."
+        )
+        if (
+            solc_target_fork != fork
+            and request.config.getoption("verbose") >= 1
+        ):
             warnings.warn(
-                f"Compiling Yul for {solc_target_fork.name()}, not {fork.name()}.", stacklevel=2
+                f"Compiling Yul for {solc_target_fork.name()}, not {fork.name()}.",
+                stacklevel=2,
             )
 
     class YulWrapper(Yul):

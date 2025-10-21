@@ -6,7 +6,11 @@ from typing import Any, ClassVar, Dict, Generic, List
 
 from pydantic import BaseModel, BeforeValidator, ValidationInfo
 
-from .exceptions import ExceptionBase, ExceptionBoundTypeVar, UndefinedException
+from .exceptions import (
+    ExceptionBase,
+    ExceptionBoundTypeVar,
+    UndefinedException,
+)
 
 
 class ExceptionMapper(ABC):
@@ -44,11 +48,16 @@ class ExceptionMapper(ABC):
         """Initialize the exception mapper."""
         # Ensure that the subclass has properly defined mapping_substring
         # before accessing it
-        assert self.mapping_substring is not None, "mapping_substring must be defined in subclass"
-        assert self.mapping_regex is not None, "mapping_regex must be defined in subclass"
+        assert self.mapping_substring is not None, (
+            "mapping_substring must be defined in subclass"
+        )
+        assert self.mapping_regex is not None, (
+            "mapping_regex must be defined in subclass"
+        )
         self.mapper_name = self.__class__.__name__
         self._mapping_compiled_regex = {
-            exception: re.compile(message) for exception, message in self.mapping_regex.items()
+            exception: re.compile(message)
+            for exception, message in self.mapping_regex.items()
         }
 
     def message_to_exception(
@@ -64,7 +73,9 @@ class ExceptionMapper(ABC):
                 exceptions.append(exception)
         if exceptions:
             return exceptions
-        return UndefinedException(exception_string, mapper_name=self.mapper_name)
+        return UndefinedException(
+            exception_string, mapper_name=self.mapper_name
+        )
 
 
 class ExceptionWithMessage(BaseModel, Generic[ExceptionBoundTypeVar]):
@@ -84,10 +95,14 @@ class ExceptionWithMessage(BaseModel, Generic[ExceptionBoundTypeVar]):
 
     def __str__(self) -> str:
         """Return the string representation of the exception message."""
-        return f"[{' | '.join(str(e) for e in self.exceptions)}] {self.message}"
+        return (
+            f"[{' | '.join(str(e) for e in self.exceptions)}] {self.message}"
+        )
 
 
-def mapper_validator(v: str, info: ValidationInfo) -> Dict[str, Any] | UndefinedException | None:
+def mapper_validator(
+    v: str, info: ValidationInfo
+) -> Dict[str, Any] | UndefinedException | None:
     """
     Use the exception mapper that must be included in the context to map the
     exception from the external tool.
@@ -95,10 +110,14 @@ def mapper_validator(v: str, info: ValidationInfo) -> Dict[str, Any] | Undefined
     if v is None:
         return v
     if not isinstance(info.context, dict):
-        return UndefinedException(v, mapper_name="UndefinedExceptionMapper: No context")
+        return UndefinedException(
+            v, mapper_name="UndefinedExceptionMapper: No context"
+        )
     exception_mapper = info.context.get("exception_mapper")
     if exception_mapper is None:
-        return UndefinedException(v, mapper_name="UndefinedExceptionMapper: No mapper")
+        return UndefinedException(
+            v, mapper_name="UndefinedExceptionMapper: No mapper"
+        )
     assert isinstance(exception_mapper, ExceptionMapper), (
         f"Invalid mapper provided {exception_mapper}"
     )

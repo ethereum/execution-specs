@@ -75,10 +75,14 @@ def markdownlint(args: tuple[str, ...]) -> None:
     if not markdownlint:
         # Note: There's an additional step in test.yaml to run markdownlint-
         # cli2 in GitHub Actions
-        click.echo("********* Install 'markdownlint-cli2' to enable markdown linting *********")
+        click.echo(
+            "********* Install 'markdownlint-cli2' to enable markdown linting *********"
+        )
         sys.exit(0)
 
-    args_list: list[str] = list(args) if len(args) > 0 else ["./docs/**/*.md", "./README.md"]
+    args_list: list[str] = (
+        list(args) if len(args) > 0 else ["./docs/**/*.md", "./README.md"]
+    )
 
     command = ["node", markdownlint] + args_list
     sys.exit(subprocess.run(command).returncode)
@@ -169,7 +173,9 @@ def codespell() -> None:
             "[yellow]Please review the errors above. For single-suggestion fixes, you can "
             "automatically apply them with:[/yellow]"
         )
-        console.print(f"[cyan]uv run codespell {paths_str} --write-changes[/cyan]\n")
+        console.print(
+            f"[cyan]uv run codespell {paths_str} --write-changes[/cyan]\n"
+        )
 
         # Write to GitHub Actions summary
         write_github_summary(
@@ -220,11 +226,15 @@ def validate_changelog() -> None:
     # Find bullet points that don't end with period or colon
     invalid_lines = []
     for line_num, line in enumerate(content.splitlines(), 1):
-        if re.match(r"^\s*-\s+", line) and re.search(r"[^\.:]$", line.rstrip()):
+        if re.match(r"^\s*-\s+", line) and re.search(
+            r"[^\.:]$", line.rstrip()
+        ):
             invalid_lines.append((line_num, line.strip()))
 
     if invalid_lines:
-        click.echo(f"❌ Found bullet points in {changelog_path} without proper punctuation:")
+        click.echo(
+            f"❌ Found bullet points in {changelog_path} without proper punctuation:"
+        )
         click.echo()
         for line_num, line in invalid_lines:
             click.echo(f"Line {line_num}: {line}")

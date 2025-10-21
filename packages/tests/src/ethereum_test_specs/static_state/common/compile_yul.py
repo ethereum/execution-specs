@@ -6,7 +6,9 @@ from typing import LiteralString
 
 
 def safe_solc_command(
-    source_file: Path | str, evm_version: str | None = None, optimize: str | None = None
+    source_file: Path | str,
+    evm_version: str | None = None,
+    optimize: str | None = None,
 ) -> list[str]:
     """Safely construct solc command with validated inputs."""
     # Validate source file path
@@ -50,7 +52,9 @@ def safe_solc_command(
 
 
 def compile_yul(
-    source_file: str, evm_version: str | None = None, optimize: str | None = None
+    source_file: str,
+    evm_version: str | None = None,
+    optimize: str | None = None,
 ) -> str:
     """
     Compiles a Yul source file using solc and returns the binary
@@ -73,7 +77,11 @@ def compile_yul(
 
     # Execute the solc command and capture both stdout and stderr
     result = subprocess.run(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=False
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
     )
     out = result.stdout
 

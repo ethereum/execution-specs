@@ -14,7 +14,11 @@ import click
     is_flag=True,
     help="Remove the virtual environment and .tox directory as well.",
 )
-@click.option("--dry-run", is_flag=True, help="Simulate the cleanup without removing files.")
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Simulate the cleanup without removing files.",
+)
 @click.option("-v", "--verbose", is_flag=True, help="Show verbose output.")
 def clean(all_files: bool, dry_run: bool, verbose: bool) -> None:
     """

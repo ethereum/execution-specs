@@ -26,7 +26,9 @@ class PreAllocGroup(CamelModel):
     model_config = {"populate_by_name": True}
 
     test_ids: List[str] = Field(default_factory=list)
-    environment: Environment = Field(..., description="Grouping environment for this test group")
+    environment: Environment = Field(
+        ..., description="Grouping environment for this test group"
+    )
     fork: Fork = Field(..., alias="network")
     pre: Alloc
 
@@ -58,7 +60,9 @@ class PreAllocGroup(CamelModel):
         with FileLock(lock_file_path):
             if file.exists():
                 with open(file, "r") as f:
-                    previous_pre_alloc_group = PreAllocGroup.model_validate_json(f.read())
+                    previous_pre_alloc_group = (
+                        PreAllocGroup.model_validate_json(f.read())
+                    )
                 for account in previous_pre_alloc_group.pre:
                     existing_account = previous_pre_alloc_group.pre[account]
                     if account not in self.pre:
@@ -77,12 +81,18 @@ class PreAllocGroup(CamelModel):
                                 account_2=new_account,
                             )
                             with open(collision_file_path, "w") as f:
-                                f.write(json.dumps(collision_exception.to_json()))
+                                f.write(
+                                    json.dumps(collision_exception.to_json())
+                                )
                             raise collision_exception
                 self.test_ids.extend(previous_pre_alloc_group.test_ids)
 
             with open(file, "w") as f:
-                f.write(self.model_dump_json(by_alias=True, exclude_none=True, indent=2))
+                f.write(
+                    self.model_dump_json(
+                        by_alias=True, exclude_none=True, indent=2
+                    )
+                )
 
 
 class PreAllocGroups(EthereumTestRootModel):
@@ -107,7 +117,9 @@ class PreAllocGroups(EthereumTestRootModel):
         self.root[key] = value
 
     @classmethod
-    def from_folder(cls, folder: Path, *, lazy_load: bool = False) -> "PreAllocGroups":
+    def from_folder(
+        cls, folder: Path, *, lazy_load: bool = False
+    ) -> "PreAllocGroups":
         """Create PreAllocGroups from a folder of pre-allocation files."""
         # First check for collision failures
         for fail_file in folder.glob("*.fail"):
@@ -120,7 +132,9 @@ class PreAllocGroups(EthereumTestRootModel):
                 data[file.stem] = None
             else:
                 with open(file) as f:
-                    data[file.stem] = PreAllocGroup.model_validate_json(f.read())
+                    data[file.stem] = PreAllocGroup.model_validate_json(
+                        f.read()
+                    )
         instance = cls(root=data)
         if lazy_load:
             instance._folder_source = folder
@@ -141,7 +155,9 @@ class PreAllocGroups(EthereumTestRootModel):
         else:
             if self.root[item] is None:
                 with open(self._folder_source / f"{item}.json") as f:
-                    self.root[item] = PreAllocGroup.model_validate_json(f.read())
+                    self.root[item] = PreAllocGroup.model_validate_json(
+                        f.read()
+                    )
             result = self.root[item]
             assert result is not None
             return result

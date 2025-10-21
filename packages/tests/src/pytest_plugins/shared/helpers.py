@@ -18,8 +18,12 @@ def is_help_or_collectonly_mode(config: pytest.Config) -> bool:
         or config.getoption("show_ported_from", default=False)
         or config.getoption("links_as_filled", default=False)
         or config.getoption("help", default=False)
-        or config.pluginmanager.has_plugin("pytest_plugins.filler.eip_checklist")
-        or config.pluginmanager.has_plugin("pytest_plugins.filler.gen_test_doc.gen_test_doc")
+        or config.pluginmanager.has_plugin(
+            "pytest_plugins.filler.eip_checklist"
+        )
+        or config.pluginmanager.has_plugin(
+            "pytest_plugins.filler.gen_test_doc.gen_test_doc"
+        )
     )
 
 
@@ -36,9 +40,9 @@ def labeled_format_parameter_set(
     The label will be used in the test id and also will be added as a marker to
     the generated test case when filling/executing the test.
     """
-    if isinstance(format_with_or_without_label, LabeledExecuteFormat) or isinstance(
-        format_with_or_without_label, LabeledFixtureFormat
-    ):
+    if isinstance(
+        format_with_or_without_label, LabeledExecuteFormat
+    ) or isinstance(format_with_or_without_label, LabeledFixtureFormat):
         return pytest.param(
             format_with_or_without_label.format,
             id=format_with_or_without_label.label,

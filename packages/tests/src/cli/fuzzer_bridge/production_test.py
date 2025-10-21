@@ -39,10 +39,15 @@ class FuzzerBridge:
     """Production-ready fuzzer bridge with validation and verification."""
 
     def __init__(
-        self, t8n_path: Optional[str] = None, verbose: bool = False, keep_fixtures: bool = False
+        self,
+        t8n_path: Optional[str] = None,
+        verbose: bool = False,
+        keep_fixtures: bool = False,
     ):
         """Initialize bridge with optional transition tool path."""
-        self.t8n = GethTransitionTool(binary=Path(t8n_path) if t8n_path else None)
+        self.t8n = GethTransitionTool(
+            binary=Path(t8n_path) if t8n_path else None
+        )
         self.verbose = verbose
         self.keep_fixtures = keep_fixtures
         self.stats: Dict[str, Any] = {
@@ -62,7 +67,13 @@ class FuzzerBridge:
             errors.append(f"Unsupported version {version}, expected 2.0")
 
         # Check required fields
-        required_fields = ["accounts", "transactions", "env", "fork", "chainId"]
+        required_fields = [
+            "accounts",
+            "transactions",
+            "env",
+            "fork",
+            "chainId",
+        ]
         for field in required_fields:
             if field not in data:
                 errors.append(f"Missing required field: {field}")
@@ -85,11 +96,15 @@ class FuzzerBridge:
                     if not self._validate_key_address(
                         data["accounts"][sender]["privateKey"], sender
                     ):
-                        errors.append(f"Private key doesn't match address {sender}")
+                        errors.append(
+                            f"Private key doesn't match address {sender}"
+                        )
 
         return errors
 
-    def _validate_key_address(self, private_key: str, expected_address: str) -> bool:
+    def _validate_key_address(
+        self, private_key: str, expected_address: str
+    ) -> bool:
         """Validate that private key generates expected address."""
         try:
             from ethereum_test_types import EOA
@@ -178,7 +193,12 @@ class FuzzerBridge:
         # Get fork
         from ethereum_test_forks import Cancun, Osaka, Prague, Shanghai
 
-        fork_map = {"Osaka": Osaka, "Prague": Prague, "Shanghai": Shanghai, "Cancun": Cancun}
+        fork_map = {
+            "Osaka": Osaka,
+            "Prague": Prague,
+            "Shanghai": Shanghai,
+            "Cancun": Cancun,
+        }
         fork = fork_map.get(test_params["fork"], Prague)
 
         # Create test
@@ -206,14 +226,19 @@ class FuzzerBridge:
     ) -> Dict[str, Any]:
         """Verify fixture with go-ethereum evm tool."""
         # Write fixture to temp file
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        ) as f:
             json.dump({test_name: fixture}, f, indent=2)
             fixture_path = f.name
 
         try:
             # Run geth blocktest
             result = subprocess.run(
-                [geth_path, "blocktest", fixture_path], capture_output=True, text=True, timeout=30
+                [geth_path, "blocktest", fixture_path],
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
 
             # Parse output
@@ -222,7 +247,11 @@ class FuzzerBridge:
             # Check if test passed
             if result.returncode == 0 and '"pass": true' in output:
                 self.stats["tests_passed"] += 1
-                return {"pass": True, "output": output, "fixture_path": fixture_path}
+                return {
+                    "pass": True,
+                    "output": output,
+                    "fixture_path": fixture_path,
+                }
             else:
                 self.stats["tests_failed"] += 1
                 # Extract error message
@@ -243,10 +272,18 @@ class FuzzerBridge:
 
         except subprocess.TimeoutExpired:
             self.stats["tests_failed"] += 1
-            return {"pass": False, "error": "Timeout", "fixture_path": fixture_path}
+            return {
+                "pass": False,
+                "error": "Timeout",
+                "fixture_path": fixture_path,
+            }
         except Exception as e:
             self.stats["tests_failed"] += 1
-            return {"pass": False, "error": str(e), "fixture_path": fixture_path}
+            return {
+                "pass": False,
+                "error": str(e),
+                "fixture_path": fixture_path,
+            }
         finally:
             # Optionally clean up
             # Note: args is not defined here - should be passed as parameter
@@ -293,7 +330,9 @@ class FuzzerBridge:
             return False
 
         # Extract test info
-        genesis_hash = fixture.get("genesisBlockHeader", {}).get("hash", "unknown")
+        genesis_hash = fixture.get("genesisBlockHeader", {}).get(
+            "hash", "unknown"
+        )
         pre_count = len(fixture.get("pre", {}))
         print(f"   Genesis hash: {genesis_hash[:16]}...")
         print(f"   Pre-state accounts: {pre_count}")
@@ -333,14 +372,20 @@ def main() -> int:
         required=True,
         help="Path to fuzzer output JSON file",
     )
-    parser.add_argument("--geth-path", required=True, help="Path to go-ethereum evm binary")
-    parser.add_argument("--t8n-path", help="Path to transition tool binary (optional)")
+    parser.add_argument(
+        "--geth-path", required=True, help="Path to go-ethereum evm binary"
+    )
+    parser.add_argument(
+        "--t8n-path", help="Path to transition tool binary (optional)"
+    )
     parser.add_argument(
         "--keep-fixtures",
         action="store_true",
         help="Keep generated fixture files for debugging",
     )
-    parser.add_argument("--verbose", action="store_true", help="Verbose output")
+    parser.add_argument(
+        "--verbose", action="store_true", help="Verbose output"
+    )
 
     args = parser.parse_args()
 

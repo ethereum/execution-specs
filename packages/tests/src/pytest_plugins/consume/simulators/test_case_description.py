@@ -39,12 +39,22 @@ def hive_clients_yaml_generator_command(
     """
     try:
         if not client_file:
-            raise ValueError("No client information available - try updating hive")
-        client_config = [c for c in client_file.root if c.client in client_type.name]
+            raise ValueError(
+                "No client information available - try updating hive"
+            )
+        client_config = [
+            c for c in client_file.root if c.client in client_type.name
+        ]
         if not client_config:
-            raise ValueError(f"Client '{client_type.name}' not found in client file")
+            raise ValueError(
+                f"Client '{client_type.name}' not found in client file"
+            )
         try:
-            yaml_content = ClientFile(root=[client_config[0]]).yaml().replace(" ", "&nbsp;")
+            yaml_content = (
+                ClientFile(root=[client_config[0]])
+                .yaml()
+                .replace(" ", "&nbsp;")
+            )
             return f'echo "\\\n{yaml_content}" > {hive_clients_yaml_target_filename}'
         except Exception as e:
             raise ValueError(f"Failed to generate YAML: {str(e)}") from e
@@ -56,7 +66,9 @@ def hive_clients_yaml_generator_command(
         )
 
         issue_title = f"Client {client_type.name} configuration issue"
-        issue_body = f"Error: {error_message}\nHive version: {hive_info.commit}\n"
+        issue_body = (
+            f"Error: {error_message}\nHive version: {hive_info.commit}\n"
+        )
         issue_url = f"https://github.com/ethereum/execution-spec-tests/issues/new?title={urllib.parse.quote(issue_title)}&body={urllib.parse.quote(issue_body)}"
 
         return (
@@ -101,7 +113,9 @@ def filtered_hive_options(hive_info: HiveInfo) -> List[str]:
 
 
 @pytest.fixture(scope="function")
-def hive_client_config_file_parameter(hive_clients_yaml_target_filename: str) -> str:
+def hive_client_config_file_parameter(
+    hive_clients_yaml_target_filename: str,
+) -> str:
     """Return the hive client config file parameter."""
     return f"--client-file {hive_clients_yaml_target_filename}"
 
@@ -160,12 +174,17 @@ def test_case_description(
     """Create the description of the current blockchain fixture test case."""
     test_url = fixture.info.get("url", "")
 
-    if "description" not in fixture.info or fixture.info["description"] is None:
+    if (
+        "description" not in fixture.info
+        or fixture.info["description"] is None
+    ):
         test_docstring = "No documentation available."
     else:
         # this prefix was included in the fixture description field for
         # fixtures <= v4.3.0
-        test_docstring = fixture.info["description"].replace("Test function documentation:\n", "")  # type: ignore
+        test_docstring = fixture.info["description"].replace(
+            "Test function documentation:\n", ""
+        )  # type: ignore
 
     description = textwrap.dedent(f"""
         <b>Test Details</b>

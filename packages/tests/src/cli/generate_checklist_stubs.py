@@ -17,7 +17,9 @@ def has_nested_classes(obj: type) -> bool:
     return False
 
 
-def generate_class_stub(obj: type, class_name: str, indent: int = 0) -> list[str]:
+def generate_class_stub(
+    obj: type, class_name: str, indent: int = 0
+) -> list[str]:
     """Generate stub for a class and its nested classes."""
     lines = []
     spaces = "    " * indent
@@ -38,7 +40,9 @@ def generate_class_stub(obj: type, class_name: str, indent: int = 0) -> list[str
                 leaf_classes.append(attr_name)
 
     # Determine if this class itself should be callable
-    is_callable = class_name != "EIPChecklist"  # All classes except the root are callable
+    is_callable = (
+        class_name != "EIPChecklist"
+    )  # All classes except the root are callable
 
     # Generate class declaration
     if is_callable:
@@ -145,7 +149,9 @@ class _CallableChecklistItem:
         if output:
             stub_path = Path(output)
         else:
-            stub_path = src_path / "ethereum_test_checklists" / "eip_checklist.pyi"
+            stub_path = (
+                src_path / "ethereum_test_checklists" / "eip_checklist.pyi"
+            )
 
         # Write to the stub file
         stub_path.parent.mkdir(parents=True, exist_ok=True)
@@ -157,7 +163,9 @@ class _CallableChecklistItem:
         # Count classes for verification
         class_count = stub_content.count("class ")
         callable_count = stub_content.count(": _CallableChecklistItem")
-        click.echo(f"🏗️  Classes: {class_count}, Callable items: {callable_count}")
+        click.echo(
+            f"🏗️  Classes: {class_count}, Callable items: {callable_count}"
+        )
 
         click.echo(
             "\n💡 This stub file helps mypy understand that EIPChecklist classes are callable."
@@ -169,7 +177,9 @@ class _CallableChecklistItem:
 
     except ImportError as e:
         click.echo(f"❌ Error importing EIPChecklist: {e}", err=True)
-        click.echo("💡 Make sure you're running this from the project root", err=True)
+        click.echo(
+            "💡 Make sure you're running this from the project root", err=True
+        )
         sys.exit(1)
     except Exception as e:
         click.echo(f"❌ Error generating stubs: {e}", err=True)

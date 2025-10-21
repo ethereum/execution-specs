@@ -92,7 +92,8 @@ class AddressStubs(EthereumTestRootModel[Dict[str, Address]]):
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Add command-line options to pytest."""
     pre_alloc_group = parser.getgroup(
-        "pre_alloc", "Arguments defining pre-allocation behavior during test execution"
+        "pre_alloc",
+        "Arguments defining pre-allocation behavior during test execution",
     )
     pre_alloc_group.addoption(
         "--eoa-start",
@@ -173,7 +174,9 @@ class Alloc(BaseAlloc):
     _sender: EOA = PrivateAttr()
     _eth_rpc: EthRPC = PrivateAttr()
     _txs: List[Transaction] = PrivateAttr(default_factory=list)
-    _deployed_contracts: List[Tuple[Address, Bytes]] = PrivateAttr(default_factory=list)
+    _deployed_contracts: List[Tuple[Address, Bytes]] = PrivateAttr(
+        default_factory=list
+    )
     _funded_eoa: List[EOA] = PrivateAttr(default_factory=list)
     _evm_code_type: EVMCodeType | None = PrivateAttr(None)
     _chain_id: int = PrivateAttr()
@@ -213,7 +216,9 @@ class Alloc(BaseAlloc):
         Prefer 'pending' to account for in-flight transactions.
         """
         try:
-            rpc_nonce = self._eth_rpc.get_transaction_count(self._sender, block_number="pending")
+            rpc_nonce = self._eth_rpc.get_transaction_count(
+                self._sender, block_number="pending"
+            )
         except TypeError:
             # If EthRPC.get_transaction_count has no 'block' kwarg
             rpc_nonce = self._eth_rpc.get_transaction_count(self._sender)
@@ -225,7 +230,9 @@ class Alloc(BaseAlloc):
         account: Account | None,
     ) -> None:
         """Set account associated with an address."""
-        raise ValueError("Tests are not allowed to set pre-alloc items in execute mode")
+        raise ValueError(
+            "Tests are not allowed to set pre-alloc items in execute mode"
+        )
 
     def code_pre_processor(
         self,
@@ -265,11 +272,15 @@ class Alloc(BaseAlloc):
 
         if stub is not None and self._address_stubs is not None:
             if stub not in self._address_stubs:
-                raise ValueError(f"Stub name {stub} not found in address stubs")
+                raise ValueError(
+                    f"Stub name {stub} not found in address stubs"
+                )
             contract_address = self._address_stubs[stub]
             code = self._eth_rpc.get_code(contract_address)
             if code == b"":
-                raise ValueError(f"Stub {stub} at {contract_address} has no code")
+                raise ValueError(
+                    f"Stub {stub} at {contract_address} has no code"
+                )
             balance = self._eth_rpc.get_balance(contract_address)
             nonce = self._eth_rpc.get_transaction_count(contract_address)
             super().__setitem__(
@@ -288,7 +299,9 @@ class Alloc(BaseAlloc):
         deploy_gas_limit = 21_000 + 32_000
 
         if len(storage.root) > 0:
-            initcode_prefix += sum(Op.SSTORE(key, value) for key, value in storage.root.items())
+            initcode_prefix += sum(
+                Op.SSTORE(key, value) for key, value in storage.root.items()
+            )
             deploy_gas_limit += len(storage.root) * 22_600
 
         assert isinstance(code, Bytecode) or isinstance(code, Container), (
@@ -296,7 +309,9 @@ class Alloc(BaseAlloc):
         )
         code = self.code_pre_processor(code, evm_code_type=evm_code_type)
 
-        assert len(code) <= MAX_BYTECODE_SIZE, f"code too large: {len(code)} > {MAX_BYTECODE_SIZE}"
+        assert len(code) <= MAX_BYTECODE_SIZE, (
+            f"code too large: {len(code)} > {MAX_BYTECODE_SIZE}"
+        )
 
         deploy_gas_limit += len(bytes(code)) * 200
 
@@ -304,17 +319,27 @@ class Alloc(BaseAlloc):
 
         if evm_code_type == EVMCodeType.EOF_V1:
             assert isinstance(code, Container)
-            initcode = Container.Init(deploy_container=code, initcode_prefix=initcode_prefix)
+            initcode = Container.Init(
+                deploy_container=code, initcode_prefix=initcode_prefix
+            )
         else:
-            initcode = Initcode(deploy_code=code, initcode_prefix=initcode_prefix)
-            memory_expansion_gas_calculator = self._fork.memory_expansion_gas_calculator()
-            deploy_gas_limit += memory_expansion_gas_calculator(new_bytes=len(bytes(initcode)))
+            initcode = Initcode(
+                deploy_code=code, initcode_prefix=initcode_prefix
+            )
+            memory_expansion_gas_calculator = (
+                self._fork.memory_expansion_gas_calculator()
+            )
+            deploy_gas_limit += memory_expansion_gas_calculator(
+                new_bytes=len(bytes(initcode))
+            )
 
         assert len(initcode) <= MAX_INITCODE_SIZE, (
             f"initcode too large {len(initcode)} > {MAX_INITCODE_SIZE}"
         )
 
-        calldata_gas_calculator = self._fork.calldata_gas_calculator(block_number=0, timestamp=0)
+        calldata_gas_calculator = self._fork.calldata_gas_calculator(
+            block_number=0, timestamp=0
+        )
         deploy_gas_limit += calldata_gas_calculator(data=initcode)
 
         # Limit the gas limit
@@ -343,7 +368,9 @@ class Alloc(BaseAlloc):
         contract_address = deploy_tx.created_contract
         self._deployed_contracts.append((contract_address, Bytes(code)))
 
-        assert Number(nonce) >= 1, "impossible to deploy contract with nonce lower than one"
+        assert Number(nonce) >= 1, (
+            "impossible to deploy contract with nonce lower than one"
+        )
 
         super().__setitem__(
             contract_address,
@@ -382,7 +409,11 @@ class Alloc(BaseAlloc):
             if storage is not None:
                 sstore_address = self.deploy_contract(
                     code=(
-                        sum(Op.SSTORE(key, value) for key, value in storage.root.items()) + Op.STOP
+                        sum(
+                            Op.SSTORE(key, value)
+                            for key, value in storage.root.items()
+                        )
+                        + Op.STOP
                     )
                 )
 
@@ -415,7 +446,10 @@ class Alloc(BaseAlloc):
             self._refresh_sender_nonce()
 
             if delegation is not None:
-                if not isinstance(delegation, Address) and delegation == "Self":
+                if (
+                    not isinstance(delegation, Address)
+                    and delegation == "Self"
+                ):
                     delegation = eoa
                 # TODO: This tx has side-effects on the EOA state because of
                 # the delegation
@@ -482,7 +516,9 @@ class Alloc(BaseAlloc):
         self._funded_eoa.append(eoa)
         return eoa
 
-    def fund_address(self, address: Address, amount: NumberConvertible) -> None:
+    def fund_address(
+        self, address: Address, amount: NumberConvertible
+    ) -> None:
         """
         Fund an address with a given amount.
 
@@ -509,7 +545,9 @@ class Alloc(BaseAlloc):
             account = self[address]
             if account is not None:
                 current_balance = account.balance or 0
-                account.balance = ZeroPaddedHexNumber(current_balance + Number(amount))
+                account.balance = ZeroPaddedHexNumber(
+                    current_balance + Number(amount)
+                )
                 return
 
         super().__setitem__(address, Account(balance=amount))
@@ -554,7 +592,9 @@ def evm_code_type(request: pytest.FixtureRequest) -> EVMCodeType:
     """Return default EVM code type for all tests (LEGACY)."""
     parameter_evm_code_type = request.config.getoption("evm_code_type")
     if parameter_evm_code_type is not None:
-        assert type(parameter_evm_code_type) is EVMCodeType, "Invalid EVM code type"
+        assert type(parameter_evm_code_type) is EVMCodeType, (
+            "Invalid EVM code type"
+        )
         return parameter_evm_code_type
     return EVMCodeType.LEGACY
 

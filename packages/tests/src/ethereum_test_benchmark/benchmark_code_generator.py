@@ -23,7 +23,10 @@ class JumpLoopGenerator(BenchmarkCodeGenerator):
         # attack + attack + ... + attack +
         # cleanup + JUMP(setup_length)
         code = self.generate_repeated_code(
-            repeated_code=self.attack_block, setup=self.setup, cleanup=self.cleanup, fork=fork
+            repeated_code=self.attack_block,
+            setup=self.setup,
+            cleanup=self.cleanup,
+            fork=fork,
         )
         self._contract_address = pre.deploy_contract(code=code)
         return self._contract_address
@@ -53,7 +56,9 @@ class ExtCallGenerator(BenchmarkCodeGenerator):
         max_iterations = fork.max_code_size() // len(self.attack_block)
 
         if stack_delta > 0:
-            max_iterations = min(fork.max_stack_height() // stack_delta, max_iterations)
+            max_iterations = min(
+                fork.max_stack_height() // stack_delta, max_iterations
+            )
 
         # Deploy target contract that contains the actual attack block
         self._target_contract_address = pre.deploy_contract(
@@ -68,7 +73,9 @@ class ExtCallGenerator(BenchmarkCodeGenerator):
         #
         # setup + JUMPDEST + attack + attack + ... + attack +
         # JUMP(setup_length)
-        code_sequence = Op.POP(Op.STATICCALL(Op.GAS, self._target_contract_address, 0, 0, 0, 0))
+        code_sequence = Op.POP(
+            Op.STATICCALL(Op.GAS, self._target_contract_address, 0, 0, 0, 0)
+        )
 
         caller_code = self.generate_repeated_code(
             repeated_code=code_sequence, cleanup=self.cleanup, fork=fork

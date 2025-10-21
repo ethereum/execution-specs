@@ -52,16 +52,27 @@ def load_fixtures_from_file(
         return None
 
 
-def extract_opcode_counts_from_fixtures(fixtures: Fixtures) -> Dict[str, OpcodeCount]:
+def extract_opcode_counts_from_fixtures(
+    fixtures: Fixtures,
+) -> Dict[str, OpcodeCount]:
     """Extract opcode_count from info field for each fixture."""
     opcode_counts = {}
     for fixture_name, fixture in fixtures.items():
-        if hasattr(fixture, "info") and fixture.info and "opcode_count" in fixture.info:
+        if (
+            hasattr(fixture, "info")
+            and fixture.info
+            and "opcode_count" in fixture.info
+        ):
             try:
-                opcode_count = OpcodeCount.model_validate(fixture.info["opcode_count"])
+                opcode_count = OpcodeCount.model_validate(
+                    fixture.info["opcode_count"]
+                )
                 opcode_counts[fixture_name] = opcode_count
             except Exception as e:
-                print(f"Error parsing opcode_count for {fixture_name}: {e}", file=sys.stderr)
+                print(
+                    f"Error parsing opcode_count for {fixture_name}: {e}",
+                    file=sys.stderr,
+                )
     return opcode_counts
 
 
@@ -84,7 +95,9 @@ def load_all_opcode_counts(
     return all_opcode_counts
 
 
-def compare_opcode_counts(count1: OpcodeCount, count2: OpcodeCount) -> Dict[str, int]:
+def compare_opcode_counts(
+    count1: OpcodeCount, count2: OpcodeCount
+) -> Dict[str, int]:
     """Compare two opcode counts and return the differences."""
     differences = {}
 
@@ -102,8 +115,12 @@ def compare_opcode_counts(count1: OpcodeCount, count2: OpcodeCount) -> Dict[str,
 
 
 @click.command()
-@click.argument("base", type=click.Path(exists=True, file_okay=False, path_type=Path))
-@click.argument("patch", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.argument(
+    "base", type=click.Path(exists=True, file_okay=False, path_type=Path)
+)
+@click.argument(
+    "patch", type=click.Path(exists=True, file_okay=False, path_type=Path)
+)
 @click.option(
     "--show-common",
     is_flag=True,
@@ -183,9 +200,13 @@ def main(
             common_with_same_counts += 1
 
     if not differences_found:
-        print("\nNo differences found in opcode counts between common fixtures!")
+        print(
+            "\nNo differences found in opcode counts between common fixtures!"
+        )
     elif show_common:
-        print(f"\n{common_with_same_counts} fixtures have identical opcode counts")
+        print(
+            f"\n{common_with_same_counts} fixtures have identical opcode counts"
+        )
 
 
 if __name__ == "__main__":

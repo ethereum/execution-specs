@@ -50,7 +50,8 @@ class BalAccountExpectation(CamelModel):
         default_factory=list, description="List of expected read storage slots"
     )
     absent_values: Optional[BalAccountAbsentValues] = Field(
-        default=None, description="Explicit absent value expectations using BalAccountAbsentValues"
+        default=None,
+        description="Explicit absent value expectations using BalAccountAbsentValues",
     )
 
     _EMPTY: ClassVar[Optional["BalAccountExpectation"]] = None
@@ -121,10 +122,13 @@ class BlockAccessListExpectation(CamelModel):
     model_config = CamelModel.model_config | {"extra": "forbid"}
 
     account_expectations: Dict[Address, BalAccountExpectation | None] = Field(
-        default_factory=dict, description="Expected account changes or exclusions to verify"
+        default_factory=dict,
+        description="Expected account changes or exclusions to verify",
     )
 
-    _modifier: Callable[["BlockAccessList"], "BlockAccessList"] | None = PrivateAttr(default=None)
+    _modifier: Callable[["BlockAccessList"], "BlockAccessList"] | None = (
+        PrivateAttr(default=None)
+    )
 
     def modify(
         self, *modifiers: Callable[["BlockAccessList"], "BlockAccessList"]
@@ -153,7 +157,9 @@ class BlockAccessListExpectation(CamelModel):
         new_instance._modifier = compose(*modifiers)
         return new_instance
 
-    def modify_if_invalid_test(self, t8n_bal: "BlockAccessList") -> "BlockAccessList":
+    def modify_if_invalid_test(
+        self, t8n_bal: "BlockAccessList"
+    ) -> "BlockAccessList":
         """
         Apply the modifier to the given BAL if this is an invalid test case.
 
@@ -212,7 +218,9 @@ class BlockAccessListExpectation(CamelModel):
 
                 if expectation is BalAccountExpectation.empty():
                     # explicit check for "no changes" validation w/ .empty()
-                    if actual_accounts_by_addr.get(address) != BalAccountChange(address=address):
+                    if actual_accounts_by_addr.get(
+                        address
+                    ) != BalAccountChange(address=address):
                         raise BlockAccessListValidationError(
                             f"No account changes expected for {address} but found "
                             f"changes: {actual_accounts_by_addr[address]}"
@@ -220,9 +228,13 @@ class BlockAccessListExpectation(CamelModel):
 
                 actual_account = actual_accounts_by_addr[address]
                 try:
-                    self._compare_account_expectations(expectation, actual_account)
+                    self._compare_account_expectations(
+                        expectation, actual_account
+                    )
                 except AssertionError as e:
-                    raise BlockAccessListValidationError(f"Account {address}: {str(e)}") from e
+                    raise BlockAccessListValidationError(
+                        f"Account {address}: {str(e)}"
+                    ) from e
 
     @staticmethod
     def _validate_bal_ordering(bal: "BlockAccessList") -> None:
@@ -266,7 +278,13 @@ class BlockAccessListExpectation(CamelModel):
                     )
 
                 if len(tx_indices) != len(set(tx_indices)):
-                    duplicates = sorted({idx for idx in tx_indices if tx_indices.count(idx) > 1})
+                    duplicates = sorted(
+                        {
+                            idx
+                            for idx in tx_indices
+                            if tx_indices.count(idx) > 1
+                        }
+                    )
                     raise BlockAccessListValidationError(
                         f"Duplicate transaction indices in {field_name} of account "
                         f"{account.address}. Duplicates: {duplicates}"
@@ -274,7 +292,10 @@ class BlockAccessListExpectation(CamelModel):
 
             # Check storage slot ordering
             for i in range(1, len(account.storage_changes)):
-                if account.storage_changes[i - 1].slot >= account.storage_changes[i].slot:
+                if (
+                    account.storage_changes[i - 1].slot
+                    >= account.storage_changes[i].slot
+                ):
                     raise BlockAccessListValidationError(
                         f"Storage slots not in ascending order in account "
                         f"{account.address}: {account.storage_changes[i - 1].slot} >= "
@@ -298,7 +319,13 @@ class BlockAccessListExpectation(CamelModel):
                     )
 
                 if len(tx_indices) != len(set(tx_indices)):
-                    duplicates = sorted({idx for idx in tx_indices if tx_indices.count(idx) > 1})
+                    duplicates = sorted(
+                        {
+                            idx
+                            for idx in tx_indices
+                            if tx_indices.count(idx) > 1
+                        }
+                    )
                     raise BlockAccessListValidationError(
                         f"Duplicate transaction indices in storage slot "
                         f"{storage_slot.slot} of account {account.address}. "
@@ -337,9 +364,17 @@ class BlockAccessListExpectation(CamelModel):
         # Validate expected changes using subsequence validation
         field_pairs: List[tuple[str, Any, Any]] = [
             ("nonce_changes", expected.nonce_changes, actual.nonce_changes),
-            ("balance_changes", expected.balance_changes, actual.balance_changes),
+            (
+                "balance_changes",
+                expected.balance_changes,
+                actual.balance_changes,
+            ),
             ("code_changes", expected.code_changes, actual.code_changes),
-            ("storage_changes", expected.storage_changes, actual.storage_changes),
+            (
+                "storage_changes",
+                expected.storage_changes,
+                actual.storage_changes,
+            ),
             ("storage_reads", expected.storage_reads, actual.storage_reads),
         ]
 
@@ -380,7 +415,9 @@ class BlockAccessListExpectation(CamelModel):
                     while actual_idx < len(actual_list):
                         if actual_list[actual_idx].slot == expected_slot.slot:
                             # Found matching slot, now validate slot_changes
-                            actual_slot_changes = actual_list[actual_idx].slot_changes
+                            actual_slot_changes = actual_list[
+                                actual_idx
+                            ].slot_changes
                             expected_slot_changes = expected_slot.slot_changes
 
                             if not expected_slot_changes:
@@ -392,10 +429,15 @@ class BlockAccessListExpectation(CamelModel):
                                 slot_actual_idx = 0
                                 for expected_change in expected_slot_changes:
                                     slot_found = False
-                                    while slot_actual_idx < len(actual_slot_changes):
-                                        actual_change = actual_slot_changes[slot_actual_idx]
+                                    while slot_actual_idx < len(
+                                        actual_slot_changes
+                                    ):
+                                        actual_change = actual_slot_changes[
+                                            slot_actual_idx
+                                        ]
                                         if (
-                                            actual_change.tx_index == expected_change.tx_index
+                                            actual_change.tx_index
+                                            == expected_change.tx_index
                                             and actual_change.post_value
                                             == expected_change.post_value
                                         ):
@@ -428,16 +470,29 @@ class BlockAccessListExpectation(CamelModel):
                 # Handle nonce_changes, balance_changes, code_changes
                 # Create tuples for comparison (ordering already validated)
                 if field_name == "nonce_changes":
-                    expected_tuples = [(c.tx_index, c.post_nonce) for c in expected_list]
-                    actual_tuples = [(c.tx_index, c.post_nonce) for c in actual_list]
+                    expected_tuples = [
+                        (c.tx_index, c.post_nonce) for c in expected_list
+                    ]
+                    actual_tuples = [
+                        (c.tx_index, c.post_nonce) for c in actual_list
+                    ]
                     item_type = "nonce"
                 elif field_name == "balance_changes":
-                    expected_tuples = [(c.tx_index, int(c.post_balance)) for c in expected_list]
-                    actual_tuples = [(c.tx_index, int(c.post_balance)) for c in actual_list]
+                    expected_tuples = [
+                        (c.tx_index, int(c.post_balance))
+                        for c in expected_list
+                    ]
+                    actual_tuples = [
+                        (c.tx_index, int(c.post_balance)) for c in actual_list
+                    ]
                     item_type = "balance"
                 elif field_name == "code_changes":
-                    expected_tuples = [(c.tx_index, bytes(c.new_code)) for c in expected_list]
-                    actual_tuples = [(c.tx_index, bytes(c.new_code)) for c in actual_list]
+                    expected_tuples = [
+                        (c.tx_index, bytes(c.new_code)) for c in expected_list
+                    ]
+                    actual_tuples = [
+                        (c.tx_index, bytes(c.new_code)) for c in actual_list
+                    ]
                     item_type = "code"
                 else:
                     # sanity check

@@ -8,7 +8,16 @@ from enum import StrEnum, unique
 from functools import reduce
 from os import path
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Dict, Generator, List, Sequence, Type
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    Generator,
+    List,
+    Sequence,
+    Type,
+)
 
 import pytest
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
@@ -17,7 +26,11 @@ from typing_extensions import Self
 from ethereum_clis import Result, TransitionTool
 from ethereum_clis.cli_types import OpcodeCount
 from ethereum_test_base_types import to_hex
-from ethereum_test_execution import BaseExecute, ExecuteFormat, LabeledExecuteFormat
+from ethereum_test_execution import (
+    BaseExecute,
+    ExecuteFormat,
+    LabeledExecuteFormat,
+)
 from ethereum_test_fixtures import (
     BaseFixture,
     FixtureFormat,
@@ -33,7 +46,10 @@ class HashMismatchExceptionError(Exception):
     """Exception raised when the expected and actual hashes don't match."""
 
     def __init__(
-        self, expected_hash: str, actual_hash: str, message: str = "Hashes do not match"
+        self,
+        expected_hash: str,
+        actual_hash: str,
+        message: str = "Hashes do not match",
     ) -> None:
         """Initialize the exception with the expected and actual hashes."""
         self.expected_hash = expected_hash
@@ -52,7 +68,9 @@ def verify_result(result: Result, env: Environment) -> None:
     exception on unexpected values.
     """
     if env.withdrawals is not None:
-        assert result.withdrawals_root == to_hex(Withdrawal.list_root(env.withdrawals))
+        assert result.withdrawals_root == to_hex(
+            Withdrawal.list_root(env.withdrawals)
+        )
 
 
 @unique
@@ -89,7 +107,9 @@ class BaseTest(BaseModel):
     t8n_dump_dir: Path | None = Field(None, exclude=True)
     t8n_call_counter: int = Field(0, exclude=True)
 
-    supported_fixture_formats: ClassVar[Sequence[FixtureFormat | LabeledFixtureFormat]] = []
+    supported_fixture_formats: ClassVar[
+        Sequence[FixtureFormat | LabeledFixtureFormat]
+    ] = []
     supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = []
 
     supported_markers: ClassVar[Dict[str, str]] = {}
@@ -183,7 +203,9 @@ class BaseTest(BaseModel):
         """
         if cls == BaseTest:
             return ""
-        return reduce(lambda x, y: x + ("_" if y.isupper() else "") + y, cls.__name__).lower()
+        return reduce(
+            lambda x, y: x + ("_" if y.isupper() else "") + y, cls.__name__
+        ).lower()
 
     def get_next_transition_tool_output_path(self) -> str:
         """Return path to the next transition tool output file."""
@@ -201,7 +223,9 @@ class BaseTest(BaseModel):
         if self._request is not None and hasattr(self._request, "node"):
             node = self._request.node
             has_slow_marker = node.get_closest_marker("slow") is not None
-            has_benchmark_marker = node.get_closest_marker("benchmark") is not None
+            has_benchmark_marker = (
+                node.get_closest_marker("benchmark") is not None
+            )
             return has_slow_marker or has_benchmark_marker
         return False
 
@@ -214,7 +238,10 @@ class BaseTest(BaseModel):
         negative or not. This is the case when the test is not run in pytest.
         """
         if self._request is not None and hasattr(self._request, "node"):
-            return self._request.node.get_closest_marker("exception_test") is not None
+            return (
+                self._request.node.get_closest_marker("exception_test")
+                is not None
+            )
         return None
 
     def node_id(self) -> str:
@@ -314,7 +341,9 @@ class BaseTest(BaseModel):
 
         # Check if test has pre_alloc_group marker
         if self._request is not None and hasattr(self._request, "node"):
-            pre_alloc_group_marker = self._request.node.get_closest_marker("pre_alloc_group")
+            pre_alloc_group_marker = self._request.node.get_closest_marker(
+                "pre_alloc_group"
+            )
             if pre_alloc_group_marker:
                 # Get the group name/salt from marker args
                 if pre_alloc_group_marker.args:
@@ -323,7 +352,9 @@ class BaseTest(BaseModel):
                         # Use nodeid for unique group per test
                         group_salt = self._request.node.nodeid
                     # Add custom salt to hash
-                    salt_hash = hashlib.sha256(group_salt.encode("utf-8")).digest()
+                    salt_hash = hashlib.sha256(
+                        group_salt.encode("utf-8")
+                    ).digest()
                     salt_int = int.from_bytes(salt_hash[:8], byteorder="big")
                     combined_hash = combined_hash ^ salt_int
 

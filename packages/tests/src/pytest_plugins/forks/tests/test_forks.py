@@ -3,7 +3,13 @@
 import pytest
 
 from ethereum_test_fixtures import LabeledFixtureFormat
-from ethereum_test_forks import ArrowGlacier, Fork, forks_from_until, get_deployed_forks, get_forks
+from ethereum_test_forks import (
+    ArrowGlacier,
+    Fork,
+    forks_from_until,
+    get_deployed_forks,
+    get_forks,
+)
 from ethereum_test_tools import StateTest
 
 
@@ -27,13 +33,16 @@ def test_no_options_no_validity_marker(pytester: pytest.Pytester) -> None:
             pass
         """
     )
-    pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    pytester.copy_example(
+        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
     result = pytester.runpytest("-c", "pytest-fill.ini", "-v")
     all_forks = get_deployed_forks()
     forks_under_test = forks_from_until(all_forks[0], all_forks[-1])
     expected_skipped = 2  # eels doesn't support Constantinople
     expected_passed = (
-        len(forks_under_test) * len(StateTest.supported_fixture_formats) - expected_skipped
+        len(forks_under_test) * len(StateTest.supported_fixture_formats)
+        - expected_skipped
     )
     stdout = "\n".join(result.stdout.lines)
     for test_fork in forks_under_test:
@@ -48,9 +57,15 @@ def test_no_options_no_validity_marker(pytester: pytest.Pytester) -> None:
                 or "blockchain_test_engine_x" in fixture_format_label
             ):
                 expected_passed -= 1
-                assert f":test_all_forks[fork_{test_fork}-{fixture_format_label}]" not in stdout
+                assert (
+                    f":test_all_forks[fork_{test_fork}-{fixture_format_label}]"
+                    not in stdout
+                )
                 continue
-            assert f":test_all_forks[fork_{test_fork}-{fixture_format_label}]" in stdout
+            assert (
+                f":test_all_forks[fork_{test_fork}-{fixture_format_label}]"
+                in stdout
+            )
 
     result.assert_outcomes(
         passed=expected_passed,
@@ -78,11 +93,15 @@ def test_from_london_option_no_validity_marker(
             pass
         """
     )
-    pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    pytester.copy_example(
+        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
     result = pytester.runpytest("-c", "pytest-fill.ini", "-v", "--from", fork)
     all_forks = get_deployed_forks()
     forks_under_test = forks_from_until(fork_map[fork], all_forks[-1])
-    expected_passed = len(forks_under_test) * len(StateTest.supported_fixture_formats)
+    expected_passed = len(forks_under_test) * len(
+        StateTest.supported_fixture_formats
+    )
     stdout = "\n".join(result.stdout.lines)
     for test_fork in forks_under_test:
         for fixture_format in StateTest.supported_fixture_formats:
@@ -96,9 +115,15 @@ def test_from_london_option_no_validity_marker(
                 or "blockchain_test_engine_x" in fixture_format_label
             ):
                 expected_passed -= 1
-                assert f":test_all_forks[fork_{test_fork}-{fixture_format_label}]" not in stdout
+                assert (
+                    f":test_all_forks[fork_{test_fork}-{fixture_format_label}]"
+                    not in stdout
+                )
                 continue
-            assert f":test_all_forks[fork_{test_fork}-{fixture_format_label}]" in stdout
+            assert (
+                f":test_all_forks[fork_{test_fork}-{fixture_format_label}]"
+                in stdout
+            )
     result.assert_outcomes(
         passed=expected_passed,
         failed=0,
@@ -124,12 +149,24 @@ def test_from_london_until_shanghai_option_no_validity_marker(
             pass
         """
     )
-    pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
-    result = pytester.runpytest(
-        "-c", "pytest-fill.ini", "-v", "--from", "London", "--until", "shanghai"
+    pytester.copy_example(
+        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
-    forks_under_test = forks_from_until(fork_map["London"], fork_map["Shanghai"])
-    expected_passed = len(forks_under_test) * len(StateTest.supported_fixture_formats)
+    result = pytester.runpytest(
+        "-c",
+        "pytest-fill.ini",
+        "-v",
+        "--from",
+        "London",
+        "--until",
+        "shanghai",
+    )
+    forks_under_test = forks_from_until(
+        fork_map["London"], fork_map["Shanghai"]
+    )
+    expected_passed = len(forks_under_test) * len(
+        StateTest.supported_fixture_formats
+    )
     stdout = "\n".join(result.stdout.lines)
     if ArrowGlacier in forks_under_test:
         forks_under_test.remove(ArrowGlacier)
@@ -146,9 +183,15 @@ def test_from_london_until_shanghai_option_no_validity_marker(
                 or "blockchain_test_engine_x" in fixture_format_label
             ):
                 expected_passed -= 1
-                assert f":test_all_forks[fork_{test_fork}-{fixture_format_label}]" not in stdout
+                assert (
+                    f":test_all_forks[fork_{test_fork}-{fixture_format_label}]"
+                    not in stdout
+                )
                 continue
-            assert f":test_all_forks[fork_{test_fork}-{fixture_format_label}]" in stdout
+            assert (
+                f":test_all_forks[fork_{test_fork}-{fixture_format_label}]"
+                in stdout
+            )
     result.assert_outcomes(
         passed=expected_passed,
         failed=0,
@@ -174,12 +217,16 @@ def test_from_paris_until_paris_option_no_validity_marker(
             pass
         """
     )
-    pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    pytester.copy_example(
+        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
     result = pytester.runpytest(
         "-c", "pytest-fill.ini", "-v", "--from", "paris", "--until", "paris"
     )
     forks_under_test = forks_from_until(fork_map["Paris"], fork_map["Paris"])
-    expected_passed = len(forks_under_test) * len(StateTest.supported_fixture_formats)
+    expected_passed = len(forks_under_test) * len(
+        StateTest.supported_fixture_formats
+    )
     stdout: str = "\n".join(result.stdout.lines)
     assert len(stdout) > 0, "stdout is empty string"
 
@@ -192,9 +239,15 @@ def test_from_paris_until_paris_option_no_validity_marker(
                 fixture_format_label = fixture_format.format_name.lower()
             if "blockchain_test_engine_x" in fixture_format_label:
                 expected_passed -= 1
-                assert f":test_all_forks[fork_{test_fork}-{fixture_format_label}]" not in stdout
+                assert (
+                    f":test_all_forks[fork_{test_fork}-{fixture_format_label}]"
+                    not in stdout
+                )
                 continue
-            assert f":test_all_forks[fork_{test_fork}-{fixture_format_label}]" in stdout
+            assert (
+                f":test_all_forks[fork_{test_fork}-{fixture_format_label}]"
+                in stdout
+            )
     result.assert_outcomes(
         passed=expected_passed,
         failed=0,

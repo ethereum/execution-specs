@@ -6,7 +6,9 @@ from typing import Union
 from git import InvalidGitRepositoryError, Repo
 
 
-def get_current_commit_hash_or_tag(repo_path: str = ".", shorten_hash: bool = False) -> str:
+def get_current_commit_hash_or_tag(
+    repo_path: str = ".", shorten_hash: bool = False
+) -> str:
     """
     Get the latest commit tag or commit hash from the repository.
 
@@ -24,14 +26,20 @@ def get_current_commit_hash_or_tag(repo_path: str = ".", shorten_hash: bool = Fa
             if tag.commit == current_commit:
                 return tag.name
         # No tag found, return commit hash
-        return current_commit.hexsha[:8] if shorten_hash else current_commit.hexsha
+        return (
+            current_commit.hexsha[:8]
+            if shorten_hash
+            else current_commit.hexsha
+        )
     except InvalidGitRepositoryError:
         # Handle the case where the repository is not a valid Git repository
         return "Not a git repository; this should only be seen in framework tests."
 
 
 def generate_github_url(
-    file_path: str, branch_or_commit_or_tag: str = "main", line_number: Union[str, int] = ""
+    file_path: str,
+    branch_or_commit_or_tag: str = "main",
+    line_number: Union[str, int] = "",
 ) -> str:
     """Generate a permalink to a source file in Github."""
     base_url = "https://github.com"
@@ -39,8 +47,14 @@ def generate_github_url(
     repository = "execution-spec-tests"
     if line_number:
         line_number = f"#L{line_number}"
-    release_tag_regex = r"^v[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(a[0-9]+|b[0-9]+|rc[0-9]+)?$"
-    tree_or_blob = "tree" if re.match(release_tag_regex, branch_or_commit_or_tag) else "blob"
+    release_tag_regex = (
+        r"^v[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(a[0-9]+|b[0-9]+|rc[0-9]+)?$"
+    )
+    tree_or_blob = (
+        "tree"
+        if re.match(release_tag_regex, branch_or_commit_or_tag)
+        else "blob"
+    )
     return (
         f"{base_url}/{username}/{repository}/{tree_or_blob}/"
         f"{branch_or_commit_or_tag}/{file_path}{line_number}"

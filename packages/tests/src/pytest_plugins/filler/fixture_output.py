@@ -13,7 +13,9 @@ from ethereum_test_fixtures.blockchain import BlockchainEngineXFixture
 class FixtureOutput(BaseModel):
     """Represents the output destination for generated test fixtures."""
 
-    output_path: Path = Field(description="Directory path to store the generated test fixtures")
+    output_path: Path = Field(
+        description="Directory path to store the generated test fixtures"
+    )
     single_fixture_per_file: bool = Field(
         default=False,
         description=(
@@ -102,8 +104,12 @@ class FixtureOutput(BaseModel):
             if not self.pre_alloc_groups_folder_path.exists():
                 return False
             # Check that only the pre-allocation group files exist
-            existing_files = {f for f in self.directory.rglob("*") if f.is_file()}
-            allowed_files = set(self.pre_alloc_groups_folder_path.rglob("*.json"))
+            existing_files = {
+                f for f in self.directory.rglob("*") if f.is_file()
+            }
+            allowed_files = set(
+                self.pre_alloc_groups_folder_path.rglob("*.json")
+            )
             return existing_files == allowed_files
         else:
             # Normal filling: Directory must be empty
@@ -128,7 +134,11 @@ class FixtureOutput(BaseModel):
                 f"{len(dirs)} directories"
                 + (
                     f" ({', '.join(dirs[:max_dirs])}"
-                    + (f"... and {len(dirs) - max_dirs} more" if len(dirs) > max_dirs else "")
+                    + (
+                        f"... and {len(dirs) - max_dirs} more"
+                        if len(dirs) > max_dirs
+                        else ""
+                    )
                     + ")"
                     if dirs
                     else ""
@@ -139,7 +149,11 @@ class FixtureOutput(BaseModel):
                 f"{len(files)} files"
                 + (
                     f" ({', '.join(files[:3])}"
-                    + (f"... and {len(files) - 3} more" if len(files) > 3 else "")
+                    + (
+                        f"... and {len(files) - 3} more"
+                        if len(files) > 3
+                        else ""
+                    )
                     + ")"
                     if files
                     else ""
@@ -166,7 +180,10 @@ class FixtureOutput(BaseModel):
         if self.directory.exists() and self.clean:
             shutil.rmtree(self.directory)
 
-        if self.directory.exists() and not self.is_directory_usable_for_phase():
+        if (
+            self.directory.exists()
+            and not self.is_directory_usable_for_phase()
+        ):
             summary = self.get_directory_summary()
 
             if self.generate_pre_alloc_groups:
@@ -195,7 +212,9 @@ class FixtureOutput(BaseModel):
 
         # Create pre-allocation groups directory for phase 1
         if self.generate_pre_alloc_groups:
-            self.pre_alloc_groups_folder_path.parent.mkdir(parents=True, exist_ok=True)
+            self.pre_alloc_groups_folder_path.parent.mkdir(
+                parents=True, exist_ok=True
+            )
 
     def create_tarball(self) -> None:
         """Create tarball of the output directory if configured to do so."""
@@ -205,7 +224,9 @@ class FixtureOutput(BaseModel):
         with tarfile.open(self.output_path, "w:gz") as tar:
             for file in self.directory.rglob("*"):
                 if file.suffix in {".json", ".ini"}:
-                    arcname = Path("fixtures") / file.relative_to(self.directory)
+                    arcname = Path("fixtures") / file.relative_to(
+                        self.directory
+                    )
                     tar.add(file, arcname=arcname)
 
     @classmethod
@@ -216,14 +237,21 @@ class FixtureOutput(BaseModel):
 
         # Auto-enable --generate-all-formats for tarball output
         # Use same logic as is_tarball property
-        if output_path.suffix == ".gz" and output_path.with_suffix("").suffix == ".tar":
+        if (
+            output_path.suffix == ".gz"
+            and output_path.with_suffix("").suffix == ".tar"
+        ):
             should_generate_all_formats = True
 
         return cls(
             output_path=output_path,
-            single_fixture_per_file=config.getoption("single_fixture_per_file"),
+            single_fixture_per_file=config.getoption(
+                "single_fixture_per_file"
+            ),
             clean=config.getoption("clean"),
-            generate_pre_alloc_groups=config.getoption("generate_pre_alloc_groups"),
+            generate_pre_alloc_groups=config.getoption(
+                "generate_pre_alloc_groups"
+            ),
             use_pre_alloc_groups=config.getoption("use_pre_alloc_groups"),
             should_generate_all_formats=should_generate_all_formats,
         )

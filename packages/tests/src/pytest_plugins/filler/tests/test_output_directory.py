@@ -67,7 +67,9 @@ def run_fill(
         Run the fill command with the specified output directory and clean
         flag.
         """
-        pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+        pytester.copy_example(
+            name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+        )
         args = [
             "-c",
             "pytest-fill.ini",
@@ -88,7 +90,9 @@ def run_fill(
         result = pytester.runpytest(*args)
 
         if expect_failure:
-            assert result.ret != 0, "Fill command was expected to fail but succeeded"
+            assert result.ret != 0, (
+                "Fill command was expected to fail but succeeded"
+            )
         else:
             assert result.ret == 0, f"Fill command failed:\n{result.outlines}"
 
@@ -97,25 +101,37 @@ def run_fill(
     return _run_fill
 
 
-def test_fill_to_empty_directory(tmp_path_factory: TempPathFactory, run_fill: Any) -> None:
+def test_fill_to_empty_directory(
+    tmp_path_factory: TempPathFactory, run_fill: Any
+) -> None:
     """Test filling to a new, empty directory."""
     output_dir = tmp_path_factory.mktemp("empty_fixtures")
 
     run_fill(output_dir)
 
-    assert any(output_dir.glob("state_tests/**/*.json")), "No fixture files were created"
-    assert (output_dir / ".meta").exists(), "Metadata directory was not created"
+    assert any(output_dir.glob("state_tests/**/*.json")), (
+        "No fixture files were created"
+    )
+    assert (output_dir / ".meta").exists(), (
+        "Metadata directory was not created"
+    )
 
 
-def test_fill_to_nonexistent_directory(tmp_path_factory: TempPathFactory, run_fill: Any) -> None:
+def test_fill_to_nonexistent_directory(
+    tmp_path_factory: TempPathFactory, run_fill: Any
+) -> None:
     """Test filling to a nonexistent directory."""
     base_dir = tmp_path_factory.mktemp("base")
     output_dir = base_dir / "nonexistent_fixtures"
 
     run_fill(output_dir)
 
-    assert any(output_dir.glob("state_tests/**/*.json")), "No fixture files were created"
-    assert (output_dir / ".meta").exists(), "Metadata directory was not created"
+    assert any(output_dir.glob("state_tests/**/*.json")), (
+        "No fixture files were created"
+    )
+    assert (output_dir / ".meta").exists(), (
+        "Metadata directory was not created"
+    )
 
 
 def test_fill_to_nonempty_directory_fails(
@@ -124,7 +140,9 @@ def test_fill_to_nonempty_directory_fails(
     """Test filling to a non-empty directory fails without --clean."""
     # Create a directory with a file
     output_dir = tmp_path_factory.mktemp("nonempty_fixtures")
-    (output_dir / "existing_file.txt").write_text("This directory is not empty")
+    (output_dir / "existing_file.txt").write_text(
+        "This directory is not empty"
+    )
 
     result: pytest.RunResult = run_fill(output_dir, expect_failure=True)
     outlines = result.errlines
@@ -144,14 +162,20 @@ def test_fill_to_nonempty_directory_with_clean(
     """Test filling to a non-empty directory succeeds with --clean."""
     # Create a directory with a file
     output_dir = tmp_path_factory.mktemp("nonempty_fixtures_clean")
-    (output_dir / "existing_file.txt").write_text("This directory will be cleaned")
+    (output_dir / "existing_file.txt").write_text(
+        "This directory will be cleaned"
+    )
 
     run_fill(output_dir, clean=True)
 
     # Verify the existing file was removed
-    assert not (output_dir / "existing_file.txt").exists(), "Existing file was not removed"
+    assert not (output_dir / "existing_file.txt").exists(), (
+        "Existing file was not removed"
+    )
 
-    assert any(output_dir.glob("state_tests/**/*.json")), "No fixture files were created"
+    assert any(output_dir.glob("state_tests/**/*.json")), (
+        "No fixture files were created"
+    )
 
 
 def test_fill_to_directory_with_meta_fails(
@@ -185,11 +209,17 @@ def test_fill_to_directory_with_meta_with_clean(
 
     run_fill(output_dir, clean=True)
 
-    assert any(output_dir.glob("state_tests/**/*.json")), "No fixture files were created"
-    assert not (meta_dir / "existing_meta_file.txt").exists(), "Existing meta file was not removed"
+    assert any(output_dir.glob("state_tests/**/*.json")), (
+        "No fixture files were created"
+    )
+    assert not (meta_dir / "existing_meta_file.txt").exists(), (
+        "Existing meta file was not removed"
+    )
 
 
-def test_fill_stdout_always_works(tmp_path_factory: TempPathFactory, run_fill: Any) -> None:
+def test_fill_stdout_always_works(
+    tmp_path_factory: TempPathFactory, run_fill: Any
+) -> None:
     """Test filling to stdout always works regardless of output state."""
     stdout_path = Path("stdout")
     # create a directory called "stdout" - it should not have any effect
@@ -199,16 +229,22 @@ def test_fill_stdout_always_works(tmp_path_factory: TempPathFactory, run_fill: A
     meta_dir.mkdir()
     (meta_dir / "existing_meta_file.txt").write_text("This is metadata")
 
-    result: pytest.RunResult = run_fill(stdout_path, disable_capture_output=True)
+    result: pytest.RunResult = run_fill(
+        stdout_path, disable_capture_output=True
+    )
 
     assert any(
         "test_example.py::test_function[fork_Cancun-state_test]" in line
         for line in result.outlines
     ), f"Expected JSON output for state test: {result.outlines}"
-    assert not any(stdout_path.glob("*.json")), "Fixture files were created when stdout is used"
+    assert not any(stdout_path.glob("*.json")), (
+        "Fixture files were created when stdout is used"
+    )
 
 
-def test_fill_to_tarball_directory(tmp_path_factory: TempPathFactory, run_fill: Any) -> None:
+def test_fill_to_tarball_directory(
+    tmp_path_factory: TempPathFactory, run_fill: Any
+) -> None:
     """Test filling to a tarball output."""
     output_dir = tmp_path_factory.mktemp("tarball_fixtures")
     tarball_path = output_dir / "fixtures.tar.gz"
@@ -219,7 +255,9 @@ def test_fill_to_tarball_directory(tmp_path_factory: TempPathFactory, run_fill: 
     extracted_dir = output_dir / "fixtures"
     assert extracted_dir.exists(), "Extracted directory doesn't exist"
 
-    assert any(extracted_dir.glob("state_tests/**/*.json")), "No fixture files were created"
+    assert any(extracted_dir.glob("state_tests/**/*.json")), (
+        "No fixture files were created"
+    )
 
 
 # New tests for the is_master functionality
@@ -282,7 +320,9 @@ def test_create_directories_checks_empty_when_master() -> None:
 
     # Mock directory operations
     with (
-        patch.object(FixtureOutput, "is_directory_empty", return_value=False) as mock_is_empty,
+        patch.object(
+            FixtureOutput, "is_directory_empty", return_value=False
+        ) as mock_is_empty,
         patch.object(
             FixtureOutput, "get_directory_summary", return_value="not empty"
         ) as mock_summary,

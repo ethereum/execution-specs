@@ -10,7 +10,9 @@ from .execute_fill import OpMode
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Add command line options for gas benchmark values."""
-    evm_group = parser.getgroup("evm", "Arguments defining evm executable behavior")
+    evm_group = parser.getgroup(
+        "evm", "Arguments defining evm executable behavior"
+    )
     evm_group.addoption(
         "--gas-benchmark-values",
         action="store",
@@ -33,12 +35,19 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     if "gas_benchmark_value" in metafunc.fixturenames:
         gas_benchmark_values = metafunc.config.getoption("gas_benchmark_value")
         if gas_benchmark_values:
-            gas_values = [int(x.strip()) for x in gas_benchmark_values.split(",")]
+            gas_values = [
+                int(x.strip()) for x in gas_benchmark_values.split(",")
+            ]
             gas_parameters = [
-                pytest.param(gas_value * 1_000_000, id=f"benchmark-gas-value_{gas_value}M")
+                pytest.param(
+                    gas_value * 1_000_000,
+                    id=f"benchmark-gas-value_{gas_value}M",
+                )
                 for gas_value in gas_values
             ]
-            metafunc.parametrize("gas_benchmark_value", gas_parameters, scope="function")
+            metafunc.parametrize(
+                "gas_benchmark_value", gas_parameters, scope="function"
+            )
 
 
 @pytest.fixture(scope="function")

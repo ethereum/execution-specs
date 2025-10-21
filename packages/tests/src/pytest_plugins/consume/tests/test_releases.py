@@ -19,7 +19,9 @@ CURRENT_FOLDER = CURRENT_FILE.parent
 @pytest.fixture(scope="session")
 def release_information() -> List[ReleaseInformation]:
     """Return the release information from a file."""
-    return parse_release_information_from_file(CURRENT_FOLDER / "release_information.json")
+    return parse_release_information_from_file(
+        CURRENT_FOLDER / "release_information.json"
+    )
 
 
 @pytest.mark.parametrize(
@@ -56,4 +58,6 @@ def test_release_parsing(
     assert (
         "https://github.com/ethereum/execution-spec-tests/releases/download/"
         + expected_release_download_url
-    ) == get_release_url_from_release_information(release_name, release_information)
+    ) == get_release_url_from_release_information(
+        release_name, release_information
+    )

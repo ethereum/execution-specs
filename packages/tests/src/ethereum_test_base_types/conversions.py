@@ -4,7 +4,9 @@ from re import sub
 from typing import Any, List, Optional, SupportsBytes, TypeAlias
 
 BytesConvertible: TypeAlias = str | bytes | SupportsBytes | List[int]
-FixedSizeBytesConvertible: TypeAlias = str | bytes | SupportsBytes | List[int] | int
+FixedSizeBytesConvertible: TypeAlias = (
+    str | bytes | SupportsBytes | List[int] | int
+)
 NumberConvertible: TypeAlias = str | bytes | SupportsBytes | int
 
 
@@ -72,7 +74,9 @@ def to_fixed_size_bytes(
 
     """
     if isinstance(input_bytes, int):
-        return int.to_bytes(input_bytes, length=size, byteorder="big", signed=input_bytes < 0)
+        return int.to_bytes(
+            input_bytes, length=size, byteorder="big", signed=input_bytes < 0
+        )
     input_bytes = to_bytes(input_bytes)
     if len(input_bytes) > size:
         raise Exception(
@@ -102,6 +106,8 @@ def to_number(input_number: NumberConvertible) -> int:
         return input_number
     if isinstance(input_number, str):
         return int(input_number, 0)
-    if isinstance(input_number, bytes) or isinstance(input_number, SupportsBytes):
+    if isinstance(input_number, bytes) or isinstance(
+        input_number, SupportsBytes
+    ):
         return int.from_bytes(input_number, byteorder="big")
     raise Exception("invalid type for `number`")

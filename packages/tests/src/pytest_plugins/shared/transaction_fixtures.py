@@ -9,7 +9,13 @@ import pytest
 from ethereum_test_base_types import AccessList
 from ethereum_test_forks import Fork
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_types import EOA, Alloc, AuthorizationTuple, Transaction, add_kzg_version
+from ethereum_test_types import (
+    EOA,
+    Alloc,
+    AuthorizationTuple,
+    Transaction,
+    add_kzg_version,
+)
 
 
 @pytest.fixture
@@ -124,7 +130,9 @@ def type_4_default_transaction(sender: EOA, pre: Alloc) -> Transaction:
 
 
 @pytest.fixture
-def typed_transaction(request: pytest.FixtureRequest, fork: Fork) -> Transaction:
+def typed_transaction(
+    request: pytest.FixtureRequest, fork: Fork
+) -> Transaction:
     """
     Fixture that provides a Transaction object based on the parametrized tx
     type.

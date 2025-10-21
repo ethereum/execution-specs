@@ -85,7 +85,9 @@ def fill_tests(
     with FileLock(fixtures_dir.with_suffix(".lock")):
         meta_folder = fixtures_dir / ".meta"
         if not meta_folder.exists():
-            pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+            pytester.copy_example(
+                name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+            )
             args = [
                 "-c",
                 "pytest-fill.ini",
@@ -98,11 +100,15 @@ def fill_tests(
                 str(minimal_test_path),
             ]
             fill_result = pytester.runpytest(*args)
-            assert fill_result.ret == 0, f"Fill command failed:\n{str(fill_result.stdout)}"
+            assert fill_result.ret == 0, (
+                f"Fill command failed:\n{str(fill_result.stdout)}"
+            )
 
 
 @pytest.fixture(autouse=True, scope="function")
-def test_fixtures(pytester: Pytester, fixtures_dir: Path, fill_tests: None) -> List[Path]:
+def test_fixtures(
+    pytester: Pytester, fixtures_dir: Path, fill_tests: None
+) -> List[Path]:
     """
     Copy test fixtures from the regular temp path to the pytester temporary
     dir.
@@ -127,7 +133,9 @@ def test_fixtures(pytester: Pytester, fixtures_dir: Path, fill_tests: None) -> L
 @pytest.fixture(autouse=True)
 def copy_consume_test_paths(pytester: Pytester) -> None:
     """Specify and copy the consume test paths to the testdir."""
-    local_test_paths = [Path("src/pytest_plugins/consume/direct/test_via_direct.py")]
+    local_test_paths = [
+        Path("src/pytest_plugins/consume/direct/test_via_direct.py")
+    ]
     for test_path in local_test_paths:
         target_dir = Path(pytester.path) / test_path.parent
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -192,7 +200,9 @@ def test_consume_simlimit_collectonly(
     expected_filter_pattern: re.Pattern,
 ) -> None:
     """Test consume's --sim.limit argument in collect-only mode."""
-    pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-consume.ini")
+    pytester.copy_example(
+        name="src/cli/pytest_commands/pytest_ini_files/pytest-consume.ini"
+    )
     consume_test_path = "src/pytest_plugins/consume/direct/test_via_direct.py"
     args = [
         "-c",
@@ -205,11 +215,17 @@ def test_consume_simlimit_collectonly(
     result = pytester.runpytest(*args)
     assert result.ret == 0
     stdout_lines = str(result.stdout).splitlines()
-    test_id_pattern = r"^(?:\s*)([^:\s]+\.py::[^:\s]+(?:::[^:\s]+)?)(?:\[[^\]]*\])?(?:\s*)$"
+    test_id_pattern = (
+        r"^(?:\s*)([^:\s]+\.py::[^:\s]+(?:::[^:\s]+)?)(?:\[[^\]]*\])?(?:\s*)$"
+    )
     collected_test_ids = [
-        line for line in stdout_lines if line.strip() and re.match(test_id_pattern, line)
+        line
+        for line in stdout_lines
+        if line.strip() and re.match(test_id_pattern, line)
     ]
     expected_collected_test_ids = [
-        line for line in consume_test_case_ids if expected_filter_pattern.search(line)
+        line
+        for line in consume_test_case_ids
+        if expected_filter_pattern.search(line)
     ]
     assert set(collected_test_ids) == set(expected_collected_test_ids)

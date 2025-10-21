@@ -25,11 +25,17 @@ def create_test_alloc(
 ) -> Alloc:
     """Create a test Alloc instance with default iterators."""
     contract_iter = iter(
-        Address(CONTRACT_START_ADDRESS_DEFAULT + (i * CONTRACT_ADDRESS_INCREMENTS_DEFAULT))
+        Address(
+            CONTRACT_START_ADDRESS_DEFAULT
+            + (i * CONTRACT_ADDRESS_INCREMENTS_DEFAULT)
+        )
         for i in count()
     )
     eoa_iter = iter(
-        EOA(key=TestPrivateKey + i if i != 1 else TestPrivateKey2, nonce=0).copy() for i in count()
+        EOA(
+            key=TestPrivateKey + i if i != 1 else TestPrivateKey2, nonce=0
+        ).copy()
+        for i in count()
     )
 
     return Alloc(
@@ -144,7 +150,9 @@ def test_alloc_empty_account() -> None:
     # Note: empty_account() only returns address, doesn't add to pre
 
 
-@pytest.mark.parametrize("evm_code_type", [EVMCodeType.LEGACY, EVMCodeType.EOF_V1])
+@pytest.mark.parametrize(
+    "evm_code_type", [EVMCodeType.LEGACY, EVMCodeType.EOF_V1]
+)
 def test_alloc_deploy_contract_code_types(evm_code_type: EVMCodeType) -> None:
     """Test `Alloc.deploy_contract` with different EVM code types."""
     pre = create_test_alloc(evm_code_type=evm_code_type)
@@ -164,7 +172,9 @@ def test_alloc_deploy_contract_code_types(evm_code_type: EVMCodeType) -> None:
         assert account.code.startswith(b"\xef\x00\x01")
 
 
-@pytest.mark.parametrize("alloc_mode", [AllocMode.STRICT, AllocMode.PERMISSIVE])
+@pytest.mark.parametrize(
+    "alloc_mode", [AllocMode.STRICT, AllocMode.PERMISSIVE]
+)
 def test_alloc_modes(alloc_mode: AllocMode) -> None:
     """Test different allocation modes."""
     pre = create_test_alloc(alloc_mode=alloc_mode)
@@ -240,7 +250,8 @@ def test_alloc_multiple_contracts_sequential_addresses() -> None:
     # Check addresses are sequential
     for i, contract in enumerate(contracts):
         expected_addr = Address(
-            CONTRACT_START_ADDRESS_DEFAULT + (i * CONTRACT_ADDRESS_INCREMENTS_DEFAULT)
+            CONTRACT_START_ADDRESS_DEFAULT
+            + (i * CONTRACT_ADDRESS_INCREMENTS_DEFAULT)
         )
         assert contract == expected_addr
         assert contract in pre

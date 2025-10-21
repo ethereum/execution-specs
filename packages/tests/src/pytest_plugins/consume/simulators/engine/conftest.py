@@ -30,7 +30,9 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 @pytest.fixture(scope="function")
-def engine_rpc(client: Client, client_exception_mapper: ExceptionMapper | None) -> EngineRPC:
+def engine_rpc(
+    client: Client, client_exception_mapper: ExceptionMapper | None
+) -> EngineRPC:
     """Initialize engine RPC client for the execution client under test."""
     if client_exception_mapper:
         return EngineRPC(
@@ -55,7 +57,9 @@ def test_suite_description() -> str:
 
 
 @pytest.fixture(scope="function")
-def client_files(buffered_genesis: io.BufferedReader) -> Mapping[str, io.BufferedReader]:
+def client_files(
+    buffered_genesis: io.BufferedReader,
+) -> Mapping[str, io.BufferedReader]:
     """Define the files that hive will start the client with."""
     files = {}
     files["/genesis.json"] = buffered_genesis

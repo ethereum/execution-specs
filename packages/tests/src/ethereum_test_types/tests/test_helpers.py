@@ -20,7 +20,10 @@ def test_address() -> None:
         Address("0x0000000000000000000000000000000000000010")
         == "0x0000000000000000000000000000000000000010"
     )
-    assert Address(2 ** (20 * 8) - 1) == "0xffffffffffffffffffffffffffffffffffffffff"
+    assert (
+        Address(2 ** (20 * 8) - 1)
+        == "0xffffffffffffffffffffffffffffffffffffffff"
+    )
     assert Address(0) == Address(0)
     assert Address(0) != Address(1)
 
@@ -74,7 +77,10 @@ def test_compute_create_address(
     - https://etherscan.io/address/0x06012c8cf97bead5deae237070f9587f8e7a266d.
 
     """
-    assert compute_create_address(address=address, nonce=nonce) == expected_contract_address
+    assert (
+        compute_create_address(address=address, nonce=nonce)
+        == expected_contract_address
+    )
 
 
 @pytest.mark.parametrize(

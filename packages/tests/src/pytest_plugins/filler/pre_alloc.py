@@ -40,7 +40,8 @@ CONTRACT_ADDRESS_INCREMENTS_DEFAULT = 0x100
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Add command-line options to pytest."""
     pre_alloc_group = parser.getgroup(
-        "pre_alloc", "Arguments defining pre-allocation behavior during test filling."
+        "pre_alloc",
+        "Arguments defining pre-allocation behavior during test filling.",
     )
 
     pre_alloc_group.addoption(
@@ -48,7 +49,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action="store_true",
         dest="strict_alloc",
         default=False,
-        help=("[DEBUG ONLY] Disallows deploying a contract in a predefined address."),
+        help=(
+            "[DEBUG ONLY] Disallows deploying a contract in a predefined address."
+        ),
     )
     pre_alloc_group.addoption(
         "--ca-start",
@@ -163,17 +166,25 @@ class Alloc(BaseAlloc):
         if storage is None:
             storage = {}
         if address is not None:
-            assert self._alloc_mode == AllocMode.PERMISSIVE, "address parameter is not supported"
-            assert address not in self, f"address {address} already in allocation"
+            assert self._alloc_mode == AllocMode.PERMISSIVE, (
+                "address parameter is not supported"
+            )
+            assert address not in self, (
+                f"address {address} already in allocation"
+            )
             contract_address = address
         else:
             contract_address = next(self._contract_address_iterator)
 
         if self._alloc_mode == AllocMode.STRICT:
-            assert Number(nonce) >= 1, "impossible to deploy contract with nonce lower than one"
+            assert Number(nonce) >= 1, (
+                "impossible to deploy contract with nonce lower than one"
+            )
 
         code = self.code_pre_processor(code, evm_code_type=evm_code_type)
-        code_bytes = bytes(code) if not isinstance(code, (bytes, str)) else code
+        code_bytes = (
+            bytes(code) if not isinstance(code, (bytes, str)) else code
+        )
         max_code_size = self._fork.max_code_size()
         assert len(code_bytes) <= max_code_size, (
             f"code too large: {len(code_bytes)} > {max_code_size}"
@@ -194,7 +205,9 @@ class Alloc(BaseAlloc):
             if frame is not None:
                 caller_frame = frame.f_back
                 if caller_frame is not None:
-                    code_context = inspect.getframeinfo(caller_frame).code_context
+                    code_context = inspect.getframeinfo(
+                        caller_frame
+                    ).code_context
                     if code_context is not None:
                         line = code_context[0].strip()
                         if "=" in line:
@@ -240,7 +253,10 @@ class Alloc(BaseAlloc):
             else:
                 # Type-4 transaction is sent to the EOA to set the storage, so
                 # the nonce must be 1
-                if not isinstance(delegation, Address) and delegation == "Self":
+                if (
+                    not isinstance(delegation, Address)
+                    and delegation == "Self"
+                ):
                     delegation = eoa
                 # If delegation is None but storage is not, realistically the
                 # nonce should be 2 because the account must have delegated to
@@ -261,7 +277,9 @@ class Alloc(BaseAlloc):
             super().__setitem__(eoa, account)
         return eoa
 
-    def fund_address(self, address: Address, amount: NumberConvertible) -> None:
+    def fund_address(
+        self, address: Address, amount: NumberConvertible
+    ) -> None:
         """
         Fund an address with a given amount.
 
@@ -272,7 +290,9 @@ class Alloc(BaseAlloc):
             account = self[address]
             if account is not None:
                 current_balance = account.balance or 0
-                account.balance = ZeroPaddedHexNumber(current_balance + Number(amount))
+                account.balance = ZeroPaddedHexNumber(
+                    current_balance + Number(amount)
+                )
                 return
         super().__setitem__(address, Account(balance=amount))
 
@@ -343,7 +363,9 @@ ALL_FIXTURE_FORMAT_NAMES.sort(key=len, reverse=True)
 
 
 @pytest.fixture(scope="function")
-def node_id_for_entropy(request: pytest.FixtureRequest, fork: Fork | None) -> str:
+def node_id_for_entropy(
+    request: pytest.FixtureRequest, fork: Fork | None
+) -> str:
     """
     Return the node id with the fixture format name and fork name stripped.
 
@@ -366,9 +388,9 @@ def node_id_for_entropy(request: pytest.FixtureRequest, fork: Fork | None) -> st
             parts = request.node.nodeid.split("::")
             test_file_path = parts[0]
             test_name = "::".join(parts[1:])
-            stripped_test_name = test_name.replace(fixture_format_name, "").replace(
-                fork.name(), ""
-            )
+            stripped_test_name = test_name.replace(
+                fixture_format_name, ""
+            ).replace(fork.name(), "")
             return f"{test_file_path}::{stripped_test_name}"
     raise Exception(f"Fixture format name not found in test {node_id}")
 
@@ -390,7 +412,10 @@ def contract_address_iterator(
         # Use a starting address that is derived from the test node
         contract_start_address = sha256_from_string(node_id_for_entropy)
     return iter(
-        Address((contract_start_address + (i * contract_address_increments)) % 2**160)
+        Address(
+            (contract_start_address + (i * contract_address_increments))
+            % 2**160
+        )
         for i in count()
     )
 
@@ -431,7 +456,9 @@ def evm_code_type(request: pytest.FixtureRequest) -> EVMCodeType:
     """Return default EVM code type for all tests (LEGACY)."""
     parameter_evm_code_type = request.config.getoption("evm_code_type")
     if parameter_evm_code_type is not None:
-        assert type(parameter_evm_code_type) is EVMCodeType, "Invalid EVM code type"
+        assert type(parameter_evm_code_type) is EVMCodeType, (
+            "Invalid EVM code type"
+        )
         return parameter_evm_code_type
     return EVMCodeType.LEGACY
 

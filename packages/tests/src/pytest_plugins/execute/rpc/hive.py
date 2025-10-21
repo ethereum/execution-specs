@@ -34,7 +34,8 @@ from .chain_builder_eth_rpc import ChainBuilderEthRPC
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Add command-line options to pytest."""
     hive_rpc_group = parser.getgroup(
-        "hive_rpc", "Arguments defining the hive RPC client properties for the test."
+        "hive_rpc",
+        "Arguments defining the hive RPC client properties for the test.",
     )
     hive_rpc_group.addoption(
         "--sender-key-initial-balance",
@@ -89,9 +90,15 @@ def base_pre(
     worker_count: int,
 ) -> Alloc:
     """Pre-allocation for the client's genesis."""
-    sender_key_initial_balance = request.config.getoption("sender_key_initial_balance")
+    sender_key_initial_balance = request.config.getoption(
+        "sender_key_initial_balance"
+    )
     return Alloc(
-        {seed_sender: Account(balance=(worker_count * sender_key_initial_balance) + 10**18)}
+        {
+            seed_sender: Account(
+                balance=(worker_count * sender_key_initial_balance) + 10**18
+            )
+        }
     )
 
 
@@ -105,9 +112,10 @@ def base_pre_genesis(
     assert env.withdrawals is None or len(env.withdrawals) == 0, (
         "withdrawals must be empty at genesis"
     )
-    assert env.parent_beacon_block_root is None or env.parent_beacon_block_root == Hash(0), (
-        "parent_beacon_block_root must be empty at genesis"
-    )
+    assert (
+        env.parent_beacon_block_root is None
+        or env.parent_beacon_block_root == Hash(0)
+    ), "parent_beacon_block_root must be empty at genesis"
 
     pre_alloc = Alloc.merge(
         Alloc.model_validate(session_fork.pre_allocation_blockchain()),
@@ -138,11 +146,15 @@ def base_pre_genesis(
         blob_gas_used=env.blob_gas_used,
         excess_blob_gas=env.excess_blob_gas,
         withdrawals_root=(
-            Withdrawal.list_root(env.withdrawals) if env.withdrawals is not None else None
+            Withdrawal.list_root(env.withdrawals)
+            if env.withdrawals is not None
+            else None
         ),
         parent_beacon_block_root=env.parent_beacon_block_root,
         requests_hash=Requests()
-        if session_fork.header_requests_required(block_number=block_number, timestamp=timestamp)
+        if session_fork.header_requests_required(
+            block_number=block_number, timestamp=timestamp
+        )
         else None,
     )
 
@@ -155,7 +167,9 @@ def client_genesis(base_pre_genesis: Tuple[Alloc, FixtureHeader]) -> dict:
     Convert the fixture's genesis block header and pre-state to a client
     genesis state.
     """
-    genesis = to_json(base_pre_genesis[1])  # NOTE: to_json() excludes None values
+    genesis = to_json(
+        base_pre_genesis[1]
+    )  # NOTE: to_json() excludes None values
     alloc = to_json(base_pre_genesis[0])
     # NOTE: nethermind requires account keys without '0x' prefix
     genesis["alloc"] = {k.replace("0x", ""): v for k, v in alloc.items()}
@@ -193,7 +207,9 @@ def environment(session_fork: Fork, chain_config: ChainConfig) -> dict:
     Define the environment that hive will start the client with using the fork
     rules specific for the simulator.
     """
-    assert session_fork in ruleset, f"fork '{session_fork}' missing in hive ruleset"
+    assert session_fork in ruleset, (
+        f"fork '{session_fork}' missing in hive ruleset"
+    )
     return {
         "HIVE_CHAIN_ID": str(chain_config.chain_id),
         "HIVE_FORK_DAO_VOTE": "1",
@@ -216,7 +232,9 @@ def test_suite_description() -> str:
 
 @pytest.fixture(autouse=True, scope="session")
 def base_hive_test(
-    request: pytest.FixtureRequest, test_suite: HiveTestSuite, session_temp_folder: Path
+    request: pytest.FixtureRequest,
+    test_suite: HiveTestSuite,
+    session_temp_folder: Path,
 ) -> Generator[HiveTest, None, None]:
     """
     Test (base) used to deploy the main client to be used throughout all tests.
@@ -266,7 +284,11 @@ def base_hive_test(
         with open(users_file, "w") as f:
             json.dump(users, f)
         if users == 0:
-            test.end(result=HiveTestResult(test_pass=test_pass, details=test_details))
+            test.end(
+                result=HiveTestResult(
+                    test_pass=test_pass, details=test_details
+                )
+            )
             base_file.unlink()
             users_file.unlink()
 
@@ -301,7 +323,9 @@ def client(
             else:
                 base_error_file.touch()  # Assume error
                 client = base_hive_test.start_client(
-                    client_type=client_type, environment=environment, files=client_files
+                    client_type=client_type,
+                    environment=environment,
+                    files=client_files,
                 )
                 if client is not None:
                     base_error_file.unlink()  # Success

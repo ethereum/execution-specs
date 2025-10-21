@@ -34,7 +34,11 @@ class NimbusTransitionTool(TransitionTool):
         trace: bool = False,
     ):
         """Initialize the Nimbus Transition tool interface."""
-        super().__init__(exception_mapper=NimbusExceptionMapper(), binary=binary, trace=trace)
+        super().__init__(
+            exception_mapper=NimbusExceptionMapper(),
+            binary=binary,
+            trace=trace,
+        )
         args = [str(self.binary), "--help"]
         try:
             result = subprocess.run(args, capture_output=True, text=True)
@@ -43,13 +47,17 @@ class NimbusTransitionTool(TransitionTool):
                 f"evm process unexpectedly returned a non-zero status code: {e}."
             ) from e
         except Exception as e:
-            raise Exception(f"Unexpected exception calling evm tool: {e}.") from e
+            raise Exception(
+                f"Unexpected exception calling evm tool: {e}."
+            ) from e
         self.help_string = result.stdout
 
     def version(self) -> str:
         """Get `evm` binary version."""
         if self.cached_version is None:
-            self.cached_version = re.sub(r"\x1b\[0m", "", super().version()).strip()
+            self.cached_version = re.sub(
+                r"\x1b\[0m", "", super().version()
+            ).strip()
 
         return self.cached_version
 

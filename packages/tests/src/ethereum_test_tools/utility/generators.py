@@ -38,7 +38,9 @@ class SystemContractTestType(StrEnum):
         return pytest.param(
             self,
             id=self.value,
-            marks=pytest.mark.exception_test if self != SystemContractTestType.GAS_LIMIT else [],
+            marks=pytest.mark.exception_test
+            if self != SystemContractTestType.GAS_LIMIT
+            else [],
         )
 
 
@@ -170,7 +172,9 @@ def generate_system_contract_deploy_test(
                 pytest.param(DeploymentTestType.DEPLOY_ON_FORK_BLOCK),
                 pytest.param(
                     DeploymentTestType.DEPLOY_AFTER_FORK,
-                    marks=[pytest.mark.exception_test] if fail_on_empty_code else [],
+                    marks=[pytest.mark.exception_test]
+                    if fail_on_empty_code
+                    else [],
                 ),
             ],
             ids=lambda x: x.name.lower(),
@@ -233,7 +237,11 @@ def generate_system_contract_deploy_test(
                             timestamp=15_002,
                         ),
                     )
-            balance = 1 if has_balance == ContractAddressHasBalance.NONZERO_BALANCE else 0
+            balance = (
+                1
+                if has_balance == ContractAddressHasBalance.NONZERO_BALANCE
+                else 0
+            )
             pre[expected_deploy_address] = Account(
                 code=b"",  # Remove the code that is automatically allocated on
                 # the fork
@@ -244,12 +252,16 @@ def generate_system_contract_deploy_test(
                 balance=deployer_required_balance,
             )
 
-            expected_deploy_address_int = int.from_bytes(expected_deploy_address, "big")
+            expected_deploy_address_int = int.from_bytes(
+                expected_deploy_address, "big"
+            )
 
             post = Alloc()
             fork_pre_allocation = fork.pre_allocation_blockchain()
             assert expected_deploy_address_int in fork_pre_allocation
-            expected_code = fork_pre_allocation[expected_deploy_address_int]["code"]
+            expected_code = fork_pre_allocation[expected_deploy_address_int][
+                "code"
+            ]
             # Note: balance check is omitted; it may be modified by the
             # underlying, decorated test
             account_kwargs = {
@@ -258,7 +270,10 @@ def generate_system_contract_deploy_test(
             }
             if expected_system_contract_storage:
                 account_kwargs["storage"] = expected_system_contract_storage
-            if test_type != DeploymentTestType.DEPLOY_AFTER_FORK or not fail_on_empty_code:
+            if (
+                test_type != DeploymentTestType.DEPLOY_AFTER_FORK
+                or not fail_on_empty_code
+            ):
                 post[expected_deploy_address] = Account(**account_kwargs)
                 post[deployer_address] = Account(
                     nonce=1,
@@ -266,9 +281,14 @@ def generate_system_contract_deploy_test(
 
             # Extra blocks (if any) returned by the decorated function to add
             # after the contract is deployed.
-            if test_type != DeploymentTestType.DEPLOY_AFTER_FORK or not fail_on_empty_code:
+            if (
+                test_type != DeploymentTestType.DEPLOY_AFTER_FORK
+                or not fail_on_empty_code
+            ):
                 # Only fill more blocks if the deploy block does not fail.
-                blocks += list(func(fork=fork, pre=pre, post=post, test_type=test_type))
+                blocks += list(
+                    func(fork=fork, pre=pre, post=post, test_type=test_type)
+                )
 
             blockchain_test(
                 pre=pre,
@@ -302,7 +322,9 @@ def generate_system_contract_error_test(
     """
 
     def decorator(func: SystemContractDeployTestFunction) -> Callable:
-        @pytest.mark.parametrize("test_type", [v.param() for v in SystemContractTestType])
+        @pytest.mark.parametrize(
+            "test_type", [v.param() for v in SystemContractTestType]
+        )
         @pytest.mark.execute(pytest.mark.skip(reason="modifies pre-alloc"))
         def wrapper(
             blockchain_test: BlockchainTestFiller,
@@ -326,10 +348,13 @@ def generate_system_contract_error_test(
                 # code will only work once, so if the system contract is re-
                 # executed in a subsequent block, it will consume less gas.
                 gas_used_per_storage = (
-                    gas_costs.G_STORAGE_SET + gas_costs.G_COLD_SLOAD + (gas_costs.G_VERY_LOW * 2)
+                    gas_costs.G_STORAGE_SET
+                    + gas_costs.G_COLD_SLOAD
+                    + (gas_costs.G_VERY_LOW * 2)
                 )
                 modified_system_contract_code += sum(
-                    Op.SSTORE(i, 1) for i in range(max_gas_limit // gas_used_per_storage)
+                    Op.SSTORE(i, 1)
+                    for i in range(max_gas_limit // gas_used_per_storage)
                 )
                 # If the gas limit is not divisible by the gas used per
                 # storage, we need to add some NO-OP (JUMPDEST) to the code
@@ -339,7 +364,8 @@ def generate_system_contract_error_test(
                     "Generator `generate_system_contract_error_test` needs to be updated."
                 )
                 modified_system_contract_code += sum(
-                    Op.JUMPDEST for _ in range(max_gas_limit % gas_used_per_storage)
+                    Op.JUMPDEST
+                    for _ in range(max_gas_limit % gas_used_per_storage)
                 )
 
                 if test_type == SystemContractTestType.OUT_OF_GAS_ERROR:

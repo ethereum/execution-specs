@@ -14,7 +14,11 @@ from ethereum_test_execution import BaseExecute
 from ethereum_test_forks import Fork
 from ethereum_test_rpc import EngineRPC, EthRPC
 from ethereum_test_tools import BaseTest
-from ethereum_test_types import ChainConfigDefaults, EnvironmentDefaults, TransactionDefaults
+from ethereum_test_types import (
+    ChainConfigDefaults,
+    EnvironmentDefaults,
+    TransactionDefaults,
+)
 
 from ..shared.execute_fill import ALL_FIXTURE_PARAMETERS
 from ..shared.helpers import (
@@ -75,14 +79,18 @@ def default_html_report_file_path() -> str:
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Add command-line options to pytest."""
-    execute_group = parser.getgroup("execute", "Arguments defining test execution behavior")
+    execute_group = parser.getgroup(
+        "execute", "Arguments defining test execution behavior"
+    )
     execute_group.addoption(
         "--default-gas-price",
         action="store",
         dest="default_gas_price",
         type=int,
         default=10**9,
-        help=("Default gas price used for transactions, unless overridden by the test."),
+        help=(
+            "Default gas price used for transactions, unless overridden by the test."
+        ),
     )
     execute_group.addoption(
         "--default-max-fee-per-gas",
@@ -90,7 +98,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="default_max_fee_per_gas",
         type=int,
         default=10**9,
-        help=("Default max fee per gas used for transactions, unless overridden by the test."),
+        help=(
+            "Default max fee per gas used for transactions, unless overridden by the test."
+        ),
     )
     execute_group.addoption(
         "--default-max-priority-fee-per-gas",
@@ -121,7 +131,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="transactions_per_block",
         type=int,
         default=None,
-        help=("Number of transactions to send before producing the next block."),
+        help=(
+            "Number of transactions to send before producing the next block."
+        ),
     )
     execute_group.addoption(
         "--get-payload-wait-time",
@@ -129,7 +141,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="get_payload_wait_time",
         type=float,
         default=0.3,
-        help=("Time to wait after sending a forkchoice_updated before getting the payload."),
+        help=(
+            "Time to wait after sending a forkchoice_updated before getting the payload."
+        ),
     )
     execute_group.addoption(
         "--chain-id",
@@ -141,7 +155,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="ID of the chain where the tests will be executed.",
     )
 
-    report_group = parser.getgroup("tests", "Arguments defining html report behavior")
+    report_group = parser.getgroup(
+        "tests", "Arguments defining html report behavior"
+    )
     report_group.addoption(
         "--no-html",
         action="store_true",
@@ -173,17 +189,24 @@ def pytest_configure(config: pytest.Config) -> None:
     print_migration_warning()
     # Modify the block gas limit if specified.
     if config.getoption("transaction_gas_limit"):
-        EnvironmentDefaults.gas_limit = config.getoption("transaction_gas_limit")
+        EnvironmentDefaults.gas_limit = config.getoption(
+            "transaction_gas_limit"
+        )
     if is_help_or_collectonly_mode(config):
         return
 
     config.engine_rpc_supported = False  # type: ignore[attr-defined]
-    if config.getoption("disable_html") and config.getoption("htmlpath") is None:
+    if (
+        config.getoption("disable_html")
+        and config.getoption("htmlpath") is None
+    ):
         # generate an html report by default, unless explicitly disabled
         config.option.htmlpath = Path(default_html_report_file_path())
 
     command_line_args = "execute " + " ".join(config.invocation_params.args)
-    config.stash[metadata_key]["Command-line args"] = f"<code>{command_line_args}</code>"
+    config.stash[metadata_key]["Command-line args"] = (
+        f"<code>{command_line_args}</code>"
+    )
 
     # Configuration for the forks pytest plugin
     config.skip_transition_forks = True  # type: ignore[attr-defined]
@@ -213,10 +236,16 @@ def pytest_metadata(metadata: dict[str, Any]) -> None:
 
 def pytest_html_results_table_header(cells: list[str]) -> None:
     """Customize the table headers of the HTML report table."""
-    cells.insert(3, '<th class="sortable" data-column-type="sender">Sender</th>')
-    cells.insert(4, '<th class="sortable" data-column-type="fundedAccounts">Funded Accounts</th>')
     cells.insert(
-        5, '<th class="sortable" data-column-type="fundedAccounts">Deployed Contracts</th>'
+        3, '<th class="sortable" data-column-type="sender">Sender</th>'
+    )
+    cells.insert(
+        4,
+        '<th class="sortable" data-column-type="fundedAccounts">Funded Accounts</th>',
+    )
+    cells.insert(
+        5,
+        '<th class="sortable" data-column-type="fundedAccounts">Deployed Contracts</th>',
     )
     del cells[-1]  # Remove the "Links" column
 
@@ -225,13 +254,19 @@ def pytest_html_results_table_row(report: Any, cells: list[str]) -> None:
     """Customize the table rows of the HTML report table."""
     if hasattr(report, "user_properties"):
         user_props = dict(report.user_properties)
-        if "sender_address" in user_props and user_props["sender_address"] is not None:
+        if (
+            "sender_address" in user_props
+            and user_props["sender_address"] is not None
+        ):
             sender_address = user_props["sender_address"]
             cells.insert(3, f"<td>{sender_address}</td>")
         else:
             cells.insert(3, "<td>Not available</td>")
 
-        if "funded_accounts" in user_props and user_props["funded_accounts"] is not None:
+        if (
+            "funded_accounts" in user_props
+            and user_props["funded_accounts"] is not None
+        ):
             funded_accounts = user_props["funded_accounts"]
             cells.insert(4, f"<td>{funded_accounts}</td>")
         else:
@@ -256,7 +291,9 @@ def pytest_runtest_makereport(
     if call.when == "call":
         for property_name in ["sender_address", "funded_accounts"]:
             if hasattr(item.config, property_name):
-                report.user_properties.append((property_name, getattr(item.config, property_name)))
+                report.user_properties.append(
+                    (property_name, getattr(item.config, property_name))
+                )
 
 
 def pytest_html_report_title(report: Any) -> None:
@@ -271,7 +308,9 @@ def transactions_per_block(
     """
     Return the number of transactions to send before producing the next block.
     """
-    if transactions_per_block := request.config.getoption("transactions_per_block"):
+    if transactions_per_block := request.config.getoption(
+        "transactions_per_block"
+    ):
         return transactions_per_block
 
     # Get the number of workers for the test
@@ -316,7 +355,9 @@ def modify_transaction_defaults(
     """
     TransactionDefaults.gas_price = default_gas_price
     TransactionDefaults.max_fee_per_gas = default_max_fee_per_gas
-    TransactionDefaults.max_priority_fee_per_gas = default_max_priority_fee_per_gas
+    TransactionDefaults.max_priority_fee_per_gas = (
+        default_max_priority_fee_per_gas
+    )
 
 
 @dataclass(kw_only=True)
@@ -356,7 +397,9 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
     Implementation detail: All spec fixtures must be scoped on test function
     level to avoid leakage between tests.
     """
-    cls_fixture_parameters = [p for p in ALL_FIXTURE_PARAMETERS if p in cls.model_fields]
+    cls_fixture_parameters = [
+        p for p in ALL_FIXTURE_PARAMETERS if p in cls.model_fields
+    ]
 
     @pytest.fixture(
         scope="function",
@@ -386,7 +429,9 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         assert issubclass(execute_format, BaseExecute)
 
         if execute_format.requires_engine_rpc:
-            assert engine_rpc is not None, "Engine RPC is required for this format."
+            assert engine_rpc is not None, (
+                "Engine RPC is required for this format."
+            )
 
         class BaseTestWrapper(cls):  # type: ignore
             def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -394,11 +439,13 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 if "pre" not in kwargs:
                     kwargs["pre"] = pre
                 elif kwargs["pre"] != pre:
-                    raise ValueError("The pre-alloc object was modified by the test.")
+                    raise ValueError(
+                        "The pre-alloc object was modified by the test."
+                    )
                 # Set default for expected_benchmark_gas_used
                 if "expected_benchmark_gas_used" not in kwargs:
-                    kwargs["expected_benchmark_gas_used"] = request.getfixturevalue(
-                        "gas_benchmark_value"
+                    kwargs["expected_benchmark_gas_used"] = (
+                        request.getfixturevalue("gas_benchmark_value")
                     )
                 kwargs |= {
                     p: request.getfixturevalue(p)
@@ -413,7 +460,10 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
 
                 # wait for pre-requisite transactions to be included in blocks
                 pre.wait_for_transactions()
-                for deployed_contract, expected_code in pre._deployed_contracts:
+                for (
+                    deployed_contract,
+                    expected_code,
+                ) in pre._deployed_contracts:
                     actual_code = eth_rpc.get_code(deployed_contract)
                     if actual_code != expected_code:
                         raise Exception(
@@ -426,8 +476,15 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     [str(eoa) for eoa in pre._funded_eoa]
                 )
 
-                execute = self.execute(fork=fork, execute_format=execute_format)
-                execute.execute(fork=fork, eth_rpc=eth_rpc, engine_rpc=engine_rpc, request=request)
+                execute = self.execute(
+                    fork=fork, execute_format=execute_format
+                )
+                execute.execute(
+                    fork=fork,
+                    eth_rpc=eth_rpc,
+                    engine_rpc=engine_rpc,
+                    request=request,
+                )
                 collector.collect(request.node.nodeid, execute)
 
         return BaseTestWrapper
@@ -450,10 +507,19 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     for test_type in BaseTest.spec_types.values():
         if test_type.pytest_parameter_name() in metafunc.fixturenames:
             parameter_set = []
-            for format_with_or_without_label in test_type.supported_execute_formats:
-                param = labeled_format_parameter_set(format_with_or_without_label)
-                if format_with_or_without_label.requires_engine_rpc and not engine_rpc_supported:
-                    param.marks.append(pytest.mark.skip(reason="Engine RPC is not supported"))  # type: ignore
+            for (
+                format_with_or_without_label
+            ) in test_type.supported_execute_formats:
+                param = labeled_format_parameter_set(
+                    format_with_or_without_label
+                )
+                if (
+                    format_with_or_without_label.requires_engine_rpc
+                    and not engine_rpc_supported
+                ):
+                    param.marks.append(
+                        pytest.mark.skip(reason="Engine RPC is not supported")
+                    )  # type: ignore
                 parameter_set.append(param)
             metafunc.parametrize(
                 [test_type.pytest_parameter_name()],
@@ -482,7 +548,9 @@ def pytest_collection_modifyitems(
         spec_type, execute_format = get_spec_format_for_item(params)
         assert issubclass(execute_format, BaseExecute)
         markers = list(item.iter_markers())
-        if spec_type.discard_execute_format_by_marks(execute_format, fork, markers):
+        if spec_type.discard_execute_format_by_marks(
+            execute_format, fork, markers
+        ):
             items_for_removal.append(i)
             continue
         for marker in markers:
@@ -493,7 +561,11 @@ def pytest_collection_modifyitems(
                 items_for_removal.append(i)
                 continue
             elif marker.name == "pre_alloc_modify":
-                item.add_marker(pytest.mark.skip(reason="Pre-alloc modification not supported"))
+                item.add_marker(
+                    pytest.mark.skip(
+                        reason="Pre-alloc modification not supported"
+                    )
+                )
 
         if "yul" in item.fixturenames:  # type: ignore
             item.add_marker(pytest.mark.yul_test)

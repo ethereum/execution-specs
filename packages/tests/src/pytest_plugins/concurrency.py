@@ -46,7 +46,9 @@ def session_temp_folder(
 
     folder_users_file_name = "folder_users"
     folder_users_file = session_temp_folder / folder_users_file_name
-    folder_users_lock_file = session_temp_folder / f"{folder_users_file_name}.lock"
+    folder_users_lock_file = (
+        session_temp_folder / f"{folder_users_file_name}.lock"
+    )
 
     with FileLock(folder_users_lock_file):
         if folder_users_file.exists():

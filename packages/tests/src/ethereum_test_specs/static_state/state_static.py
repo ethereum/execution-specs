@@ -63,7 +63,9 @@ class StateStaticTest(BaseStaticTest):
                 return list(range(start, end + 1))
 
         def parse_indexes(
-            indexes: Union[int, str, list[Union[int, str]], list[str], list[int]],
+            indexes: Union[
+                int, str, list[Union[int, str]], list[str], list[int]
+            ],
             do_hint: bool = False,
         ) -> List[int] | int:
             """
@@ -93,9 +95,15 @@ class StateStaticTest(BaseStaticTest):
             return result
 
         for expect_section in self.expect:
-            expect_section.indexes.data = parse_indexes(expect_section.indexes.data)
-            expect_section.indexes.gas = parse_indexes(expect_section.indexes.gas)
-            expect_section.indexes.value = parse_indexes(expect_section.indexes.value)
+            expect_section.indexes.data = parse_indexes(
+                expect_section.indexes.data
+            )
+            expect_section.indexes.gas = parse_indexes(
+                expect_section.indexes.gas
+            )
+            expect_section.indexes.value = parse_indexes(
+                expect_section.indexes.value
+            )
 
         return self
 
@@ -126,12 +134,17 @@ class StateStaticTest(BaseStaticTest):
                 for v in range(len(self.transaction.value)):
                     exception_test = False
                     for expect in self.expect:
-                        if expect.has_index(d.index, g, v) and expect.expect_exception is not None:
+                        if (
+                            expect.has_index(d.index, g, v)
+                            and expect.expect_exception is not None
+                        ):
                             exception_test = True
                     # TODO: This does not take into account exceptions that
                     # only happen on specific forks, but this requires a
                     # covariant parametrize
-                    marks = [pytest.mark.exception_test] if exception_test else []
+                    marks = (
+                        [pytest.mark.exception_test] if exception_test else []
+                    )
                     id_label = ""
                     if len(self.transaction.data) > 1 or d.label is not None:
                         if d.label is not None:
@@ -142,7 +155,9 @@ class StateStaticTest(BaseStaticTest):
                         id_label += f"-g{g}"
                     if len(self.transaction.value) > 1:
                         id_label += f"-v{v}"
-                    d_g_v_parameters.append(pytest.param(d.index, g, v, marks=marks, id=id_label))
+                    d_g_v_parameters.append(
+                        pytest.param(d.index, g, v, marks=marks, id=id_label)
+                    )
 
         @pytest.mark.valid_at(*self.get_valid_at_forks())
         @pytest.mark.parametrize("d,g,v", d_g_v_parameters)
@@ -157,9 +172,16 @@ class StateStaticTest(BaseStaticTest):
             for expect in self.expect:
                 if expect.has_index(d, g, v):
                     if fork in expect.network:
-                        tx_tag_dependencies = self.transaction.tag_dependencies()
-                        result_tag_dependencies = expect.result.tag_dependencies()
-                        all_dependencies = {**tx_tag_dependencies, **result_tag_dependencies}
+                        tx_tag_dependencies = (
+                            self.transaction.tag_dependencies()
+                        )
+                        result_tag_dependencies = (
+                            expect.result.tag_dependencies()
+                        )
+                        all_dependencies = {
+                            **tx_tag_dependencies,
+                            **result_tag_dependencies,
+                        }
                         tags = self.pre.setup(pre, all_dependencies)
                         env = self.env.get_environment(tags)
                         exception = (
@@ -167,7 +189,9 @@ class StateStaticTest(BaseStaticTest):
                             if expect.expect_exception is None
                             else expect.expect_exception[fork]
                         )
-                        tx = self.transaction.get_transaction(tags, d, g, v, exception)
+                        tx = self.transaction.get_transaction(
+                            tags, d, g, v, exception
+                        )
                         post = expect.result.resolve(tags)
                         state_test(
                             env=env,
@@ -176,13 +200,16 @@ class StateStaticTest(BaseStaticTest):
                             tx=tx,
                         )
                         return
-            pytest.fail(f"Expectation not found for d={d}, g={g}, v={v}, fork={fork}")
+            pytest.fail(
+                f"Expectation not found for d={d}, g={g}, v={v}, fork={fork}"
+            )
 
         if self.info and self.info.pytest_marks:
             for mark in self.info.pytest_marks:
                 if mark == "pre_alloc_group":
                     test_state_vectors = pytest.mark.pre_alloc_group(
-                        "separate", reason="Requires separate pre-alloc grouping"
+                        "separate",
+                        reason="Requires separate pre-alloc grouping",
                     )(test_state_vectors)
                 else:
                     apply_mark = getattr(pytest.mark, mark)
@@ -191,14 +218,18 @@ class StateStaticTest(BaseStaticTest):
         if has_tags:
             test_state_vectors = pytest.mark.tagged(test_state_vectors)
             if fully_tagged:
-                test_state_vectors = pytest.mark.fully_tagged(test_state_vectors)
+                test_state_vectors = pytest.mark.fully_tagged(
+                    test_state_vectors
+                )
         else:
             test_state_vectors = pytest.mark.untagged(test_state_vectors)
             test_state_vectors = pytest.mark.pre_alloc_group(
                 "separate", reason="Uses hard-coded addresses"
             )(test_state_vectors)
         if not fully_tagged:
-            test_state_vectors = pytest.mark.pre_alloc_modify(test_state_vectors)
+            test_state_vectors = pytest.mark.pre_alloc_modify(
+                test_state_vectors
+            )
 
         return test_state_vectors
 

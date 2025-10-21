@@ -35,7 +35,10 @@ def pytest_configure(config: pytest.Config) -> None:
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     """Parametrize sync_client_type separately from client_type."""
     if "sync_client_type" in metafunc.fixturenames:
-        client_ids = [f"sync_{client.name}" for client in metafunc.config.hive_execution_clients]  # type: ignore[attr-defined]
+        client_ids = [
+            f"sync_{client.name}"
+            for client in metafunc.config.hive_execution_clients
+        ]  # type: ignore[attr-defined]
         metafunc.parametrize(
             "sync_client_type",
             metafunc.config.hive_execution_clients,  # type: ignore[attr-defined]
@@ -62,8 +65,12 @@ def pytest_collection_modifyitems(
             and "sync_client_type" in item.callspec.params
         ):
             # Get the client names and remove fork suffix if present
-            client_name = item.callspec.params["client_type"].name.replace("-", "_")
-            sync_client_name = item.callspec.params["sync_client_type"].name.replace("-", "_")
+            client_name = item.callspec.params["client_type"].name.replace(
+                "-", "_"
+            )
+            sync_client_name = item.callspec.params[
+                "sync_client_type"
+            ].name.replace("-", "_")
 
             # Format: ``-{client}_sync_{sync_client}``
             new_suffix = f"-{client_name}::sync_{sync_client_name}"
@@ -96,7 +103,9 @@ def pytest_collection_modifyitems(
 
 
 @pytest.fixture(scope="function")
-def engine_rpc(client: Client, client_exception_mapper: ExceptionMapper | None) -> EngineRPC:
+def engine_rpc(
+    client: Client, client_exception_mapper: ExceptionMapper | None
+) -> EngineRPC:
     """Initialize engine RPC client for the execution client under test."""
     if client_exception_mapper:
         return EngineRPC(
@@ -150,7 +159,9 @@ def sync_buffered_genesis(sync_genesis: Dict) -> io.BufferedReader:
 
 
 @pytest.fixture(scope="function")
-def sync_client_files(sync_buffered_genesis: io.BufferedReader) -> Mapping[str, io.BufferedReader]:
+def sync_client_files(
+    sync_buffered_genesis: io.BufferedReader,
+) -> Mapping[str, io.BufferedReader]:
     """Define the files that hive will start the sync client with."""
     files = {}
     files["/genesis.json"] = sync_buffered_genesis
@@ -198,16 +209,25 @@ def sync_client(
     sync_environment["HIVE_BOOTNODE"] = client_enode_url
 
     # Ensure both network and chain IDs are properly set
-    if "HIVE_NETWORK_ID" not in sync_environment and "HIVE_CHAIN_ID" in sync_environment:
+    if (
+        "HIVE_NETWORK_ID" not in sync_environment
+        and "HIVE_CHAIN_ID" in sync_environment
+    ):
         # Some clients need explicit HIVE_NETWORK_ID
         sync_environment["HIVE_NETWORK_ID"] = sync_environment["HIVE_CHAIN_ID"]
 
     logger.info(f"Starting sync client ({sync_client_type.name})")
-    logger.info(f"  Network ID: {sync_environment.get('HIVE_NETWORK_ID', 'NOT SET!')}")
-    logger.info(f"  Chain ID: {sync_environment.get('HIVE_CHAIN_ID', 'NOT SET!')}")
+    logger.info(
+        f"  Network ID: {sync_environment.get('HIVE_NETWORK_ID', 'NOT SET!')}"
+    )
+    logger.info(
+        f"  Chain ID: {sync_environment.get('HIVE_CHAIN_ID', 'NOT SET!')}"
+    )
 
     # Debug: log all HIVE_ variables
-    hive_vars = {k: v for k, v in sync_environment.items() if k.startswith("HIVE_")}
+    hive_vars = {
+        k: v for k, v in sync_environment.items() if k.startswith("HIVE_")
+    }
     logger.debug(f"All HIVE_ environment variables: {hive_vars}")
 
     # Use the separately parametrized sync client type
@@ -223,7 +243,9 @@ def sync_client(
     )
     assert sync_client is not None, error_message
 
-    logger.info(f"Sync client ({sync_client_type.name}) started with IP: {sync_client.ip}")
+    logger.info(
+        f"Sync client ({sync_client_type.name}) started with IP: {sync_client.ip}"
+    )
 
     yield sync_client
 
@@ -233,7 +255,8 @@ def sync_client(
 
 @pytest.fixture(scope="function")
 def sync_client_exception_mapper(
-    sync_client_type: ClientType, client_exception_mapper_cache: Dict[str, ExceptionMapper | None]
+    sync_client_type: ClientType,
+    client_exception_mapper_cache: Dict[str, ExceptionMapper | None],
 ) -> ExceptionMapper | None:
     """Return the exception mapper for the sync client type, with caching."""
     if sync_client_type.name not in client_exception_mapper_cache:
@@ -241,7 +264,9 @@ def sync_client_exception_mapper(
 
         for client in EXCEPTION_MAPPERS:
             if client in sync_client_type.name:
-                client_exception_mapper_cache[sync_client_type.name] = EXCEPTION_MAPPERS[client]
+                client_exception_mapper_cache[sync_client_type.name] = (
+                    EXCEPTION_MAPPERS[client]
+                )
                 break
         else:
             client_exception_mapper_cache[sync_client_type.name] = None
@@ -291,11 +316,15 @@ def test_suite_name() -> str:
 @pytest.fixture(scope="module")
 def test_suite_description() -> str:
     """The description of the hive test suite used in this simulator."""
-    return "Execute blockchain sync tests against clients using the Engine API."
+    return (
+        "Execute blockchain sync tests against clients using the Engine API."
+    )
 
 
 @pytest.fixture(scope="function")
-def client_files(buffered_genesis: io.BufferedReader) -> Mapping[str, io.BufferedReader]:
+def client_files(
+    buffered_genesis: io.BufferedReader,
+) -> Mapping[str, io.BufferedReader]:
     """Define the files that hive will start the client with."""
     files = {}
     files["/genesis.json"] = buffered_genesis

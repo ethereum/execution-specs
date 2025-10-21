@@ -59,7 +59,15 @@ class EESTLogger(logging.Logger):
         if stacklevel is None:
             stacklevel = 1
         if self.isEnabledFor(VERBOSE_LEVEL):
-            self._log(VERBOSE_LEVEL, msg, args, exc_info, extra, stack_info, stacklevel)
+            self._log(
+                VERBOSE_LEVEL,
+                msg,
+                args,
+                exc_info,
+                extra,
+                stack_info,
+                stacklevel,
+            )
 
     def fail(
         self,
@@ -79,7 +87,9 @@ class EESTLogger(logging.Logger):
         if stacklevel is None:
             stacklevel = 1
         if self.isEnabledFor(FAIL_LEVEL):
-            self._log(FAIL_LEVEL, msg, args, exc_info, extra, stack_info, stacklevel)
+            self._log(
+                FAIL_LEVEL, msg, args, exc_info, extra, stack_info, stacklevel
+            )
 
 
 # Register the custom logger class
@@ -134,7 +144,9 @@ class ColorFormatter(UTCFormatter):
         record_copy = logging.makeLogRecord(record.__dict__)
         if not self.running_in_docker:
             color = self.COLORS.get(record_copy.levelno, self.RESET)
-            record_copy.levelname = f"{color}{record_copy.levelname}{self.RESET}"
+            record_copy.levelname = (
+                f"{color}{record_copy.levelname}{self.RESET}"
+            )
         return super().format(record_copy)
 
 
@@ -158,7 +170,9 @@ class LogLevel:
             return logging._nameToLevel[level_name]
 
         valid = ", ".join(logging._nameToLevel.keys())
-        raise ValueError(f"Invalid log level '{value}'. Expected one of: {valid} or a number.")
+        raise ValueError(
+            f"Invalid log level '{value}'. Expected one of: {valid} or a number."
+        )
 
 
 # =========================================================================
@@ -277,7 +291,9 @@ def pytest_configure_node(node: Any) -> None:
     potential_subcommand = None
     if len(sys.argv) > 1:
         potential_subcommand = sys.argv[1]
-    node.workerinput["log_stem"] = get_log_stem(sys.argv[0], potential_subcommand)
+    node.workerinput["log_stem"] = get_log_stem(
+        sys.argv[0], potential_subcommand
+    )
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -295,9 +311,9 @@ def pytest_configure(config: pytest.Config) -> None:
     potential_subcommand = None
     if len(sys.argv) > 1:
         potential_subcommand = sys.argv[1]
-    log_stem = getattr(config, "workerinput", {}).get("log_stem") or get_log_stem(
-        sys.argv[0], potential_subcommand
-    )
+    log_stem = getattr(config, "workerinput", {}).get(
+        "log_stem"
+    ) or get_log_stem(sys.argv[0], potential_subcommand)
 
     worker_id = os.getenv("PYTEST_XDIST_WORKER", "main")
     log_filename = f"{log_stem}-{worker_id}.log"
@@ -331,7 +347,9 @@ def pytest_terminal_summary(terminalreporter: TerminalReporter) -> None:
     if terminalreporter.config.option.collectonly:
         return
     if eest_log_file_path := terminalreporter.config.option.eest_log_file_path:
-        terminalreporter.write_sep("-", f"Log file: {eest_log_file_path.resolve()}", yellow=True)
+        terminalreporter.write_sep(
+            "-", f"Log file: {eest_log_file_path.resolve()}", yellow=True
+        )
 
 
 def log_only_to_file(level: int, msg: str, *args: Any) -> None:
@@ -356,7 +374,9 @@ def log_only_to_file(level: int, msg: str, *args: Any) -> None:
     handler.handle(record)
 
 
-def pytest_runtest_logstart(nodeid: str, location: tuple[str, int, str]) -> None:
+def pytest_runtest_logstart(
+    nodeid: str, location: tuple[str, int, str]
+) -> None:
     """Log test start to file."""
     del location
 
@@ -394,10 +414,14 @@ def pytest_runtest_logreport(report: pytest.TestReport) -> None:
         status = "PASSED"
         emoji = "✅"
 
-    log_only_to_file(log_level, f"{emoji} - {status} in {duration:.2f}s: {nodeid}")
+    log_only_to_file(
+        log_level, f"{emoji} - {status} in {duration:.2f}s: {nodeid}"
+    )
 
 
-def pytest_runtest_logfinish(nodeid: str, location: tuple[str, int, str]) -> None:
+def pytest_runtest_logfinish(
+    nodeid: str, location: tuple[str, int, str]
+) -> None:
     """Log end of test to file."""
     del location
 

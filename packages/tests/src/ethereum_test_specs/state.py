@@ -1,14 +1,28 @@
 """Ethereum state test spec definition and filler."""
 
 from pprint import pprint
-from typing import Any, Callable, ClassVar, Dict, Generator, List, Optional, Sequence, Type
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    Generator,
+    List,
+    Optional,
+    Sequence,
+    Type,
+)
 
 import pytest
 from pydantic import Field
 
 from ethereum_clis import TransitionTool, TransitionToolOutput
 from ethereum_test_base_types import HexNumber
-from ethereum_test_exceptions import BlockException, EngineAPIError, TransactionException
+from ethereum_test_exceptions import (
+    BlockException,
+    EngineAPIError,
+    TransactionException,
+)
 from ethereum_test_execution import (
     BaseExecute,
     ExecuteFormat,
@@ -55,7 +69,10 @@ class StateTest(BaseTest):
     post: Alloc
     tx: Transaction
     block_exception: (
-        List[TransactionException | BlockException] | TransactionException | BlockException | None
+        List[TransactionException | BlockException]
+        | TransactionException
+        | BlockException
+        | None
     ) = None
     engine_api_error_code: Optional[EngineAPIError] = None
     blockchain_test_header_verify: Optional[Header] = None
@@ -63,7 +80,9 @@ class StateTest(BaseTest):
     expected_block_access_list: Optional[BlockAccessListExpectation] = None
     chain_id: int = 1
 
-    supported_fixture_formats: ClassVar[Sequence[FixtureFormat | LabeledFixtureFormat]] = [
+    supported_fixture_formats: ClassVar[
+        Sequence[FixtureFormat | LabeledFixtureFormat]
+    ] = [
         StateFixture,
     ] + [
         LabeledFixtureFormat(
@@ -75,8 +94,14 @@ class StateTest(BaseTest):
         # Exclude sync fixtures from state tests - they don't make sense for
         # state tests
         if not (
-            (hasattr(fixture_format, "__name__") and "Sync" in fixture_format.__name__)
-            or (hasattr(fixture_format, "format") and "Sync" in fixture_format.format.__name__)
+            (
+                hasattr(fixture_format, "__name__")
+                and "Sync" in fixture_format.__name__
+            )
+            or (
+                hasattr(fixture_format, "format")
+                and "Sync" in fixture_format.format.__name__
+            )
         )
     ]
     supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = [
@@ -104,8 +129,12 @@ class StateTest(BaseTest):
     ) -> bool:
         """Verify a new lower gas limit yields the same transaction outcome."""
         base_traces = base_tool_output.result.traces
-        assert base_traces is not None, "Traces not collected for gas optimization"
-        new_tx = self.tx.copy(gas_limit=current_gas_limit).with_signature_and_sender()
+        assert base_traces is not None, (
+            "Traces not collected for gas optimization"
+        )
+        new_tx = self.tx.copy(
+            gas_limit=current_gas_limit
+        ).with_signature_and_sender()
         modified_tool_output = t8n.evaluate(
             transition_tool_data=TransitionTool.TransitionToolData(
                 alloc=pre_alloc,
@@ -121,17 +150,23 @@ class StateTest(BaseTest):
             slow_request=self.is_tx_gas_heavy_test(),
         )
         modified_traces = modified_tool_output.result.traces
-        assert modified_traces is not None, "Traces not collected for gas optimization"
+        assert modified_traces is not None, (
+            "Traces not collected for gas optimization"
+        )
         if not base_traces.are_equivalent(
             modified_tool_output.result.traces,
             enable_post_processing,
         ):
-            logger.debug(f"Traces are not equivalent (gas_limit={current_gas_limit})")
+            logger.debug(
+                f"Traces are not equivalent (gas_limit={current_gas_limit})"
+            )
             return False
         try:
             self.post.verify_post_alloc(modified_tool_output.alloc)
         except Exception as e:
-            logger.debug(f"Post alloc is not equivalent (gas_limit={current_gas_limit})")
+            logger.debug(
+                f"Post alloc is not equivalent (gas_limit={current_gas_limit})"
+            )
             logger.debug(e)
             return False
         try:
@@ -141,32 +176,51 @@ class StateTest(BaseTest):
                 transition_tool_exceptions_reliable=t8n.exception_mapper.reliable,
             )
         except Exception as e:
-            logger.debug(f"Transactions are not equivalent (gas_limit={current_gas_limit})")
+            logger.debug(
+                f"Transactions are not equivalent (gas_limit={current_gas_limit})"
+            )
             logger.debug(e)
             return False
-        if len(base_tool_output.alloc.root) != len(modified_tool_output.alloc.root):
-            logger.debug(f"Post alloc is not equivalent (gas_limit={current_gas_limit})")
+        if len(base_tool_output.alloc.root) != len(
+            modified_tool_output.alloc.root
+        ):
+            logger.debug(
+                f"Post alloc is not equivalent (gas_limit={current_gas_limit})"
+            )
             return False
-        if modified_tool_output.alloc.root.keys() != modified_tool_output.alloc.root.keys():
-            logger.debug(f"Post alloc is not equivalent (gas_limit={current_gas_limit})")
+        if (
+            modified_tool_output.alloc.root.keys()
+            != modified_tool_output.alloc.root.keys()
+        ):
+            logger.debug(
+                f"Post alloc is not equivalent (gas_limit={current_gas_limit})"
+            )
             return False
         for k in base_tool_output.alloc.root.keys():
             if k not in modified_tool_output.alloc:
-                logger.debug(f"Post alloc is not equivalent (gas_limit={current_gas_limit})")
+                logger.debug(
+                    f"Post alloc is not equivalent (gas_limit={current_gas_limit})"
+                )
                 return False
             base_account = base_tool_output.alloc[k]
             modified_account = modified_tool_output.alloc[k]
             if (modified_account is None) != (base_account is None):
-                logger.debug(f"Post alloc is not equivalent (gas_limit={current_gas_limit})")
+                logger.debug(
+                    f"Post alloc is not equivalent (gas_limit={current_gas_limit})"
+                )
                 return False
             if (
                 modified_account is not None
                 and base_account is not None
                 and base_account.nonce != modified_account.nonce
             ):
-                logger.debug(f"Post alloc is not equivalent (gas_limit={current_gas_limit})")
+                logger.debug(
+                    f"Post alloc is not equivalent (gas_limit={current_gas_limit})"
+                )
                 return False
-        logger.debug(f"Gas limit is equivalent (gas_limit={current_gas_limit})")
+        logger.debug(
+            f"Gas limit is equivalent (gas_limit={current_gas_limit})"
+        )
         return True
 
     @classmethod
@@ -186,7 +240,9 @@ class StateTest(BaseTest):
             return fixture_format != StateFixture
         return False
 
-    def _generate_blockchain_genesis_environment(self, *, fork: Fork) -> Environment:
+    def _generate_blockchain_genesis_environment(
+        self, *, fork: Fork
+    ) -> Environment:
         """
         Generate the genesis environment for the BlockchainTest formatted test.
         """
@@ -265,7 +321,9 @@ class StateTest(BaseTest):
         """Generate a BlockchainTest fixture from this StateTest fixture."""
         return BlockchainTest.from_test(
             base_test=self,
-            genesis_environment=self._generate_blockchain_genesis_environment(fork=fork),
+            genesis_environment=self._generate_blockchain_genesis_environment(
+                fork=fork
+            ),
             pre=self.pre,
             post=self.post,
             blocks=self._generate_blockchain_blocks(fork=fork),
@@ -280,7 +338,9 @@ class StateTest(BaseTest):
         # We can't generate a state test fixture that names a transition fork,
         # so we get the fork at the block number and timestamp of the state
         # test
-        fork = fork.fork_at(block_number=self.env.number, timestamp=self.env.timestamp)
+        fork = fork.fork_at(
+            block_number=self.env.number, timestamp=self.env.timestamp
+        )
 
         env = self.env.set_fork_requirements(fork)
         tx = self.tx.with_signature_and_sender(keep_secret_key=True)
@@ -328,10 +388,14 @@ class StateTest(BaseTest):
             self._operation_mode == OpMode.OPTIMIZE_GAS
             or self._operation_mode == OpMode.OPTIMIZE_GAS_POST_PROCESSING
         ):
-            enable_post_processing = self._operation_mode == OpMode.OPTIMIZE_GAS_POST_PROCESSING
+            enable_post_processing = (
+                self._operation_mode == OpMode.OPTIMIZE_GAS_POST_PROCESSING
+            )
             base_tool_output = transition_tool_output
 
-            assert base_tool_output.result.traces is not None, "Traces not found."
+            assert base_tool_output.result.traces is not None, (
+                "Traces not found."
+            )
 
             # First try reducing the gas limit only by one, if the validation
             # fails, it means that the traces change even with the slightest
@@ -348,7 +412,9 @@ class StateTest(BaseTest):
                 minimum_gas_limit = 0
                 maximum_gas_limit = int(self.tx.gas_limit)
                 while minimum_gas_limit < maximum_gas_limit:
-                    current_gas_limit = (maximum_gas_limit + minimum_gas_limit) // 2
+                    current_gas_limit = (
+                        maximum_gas_limit + minimum_gas_limit
+                    ) // 2
                     if self.verify_modified_gas_limit(
                         t8n=t8n,
                         base_tool_output=base_tool_output,
@@ -363,7 +429,8 @@ class StateTest(BaseTest):
                         minimum_gas_limit = current_gas_limit + 1
                         if (
                             self._gas_optimization_max_gas_limit is not None
-                            and minimum_gas_limit > self._gas_optimization_max_gas_limit
+                            and minimum_gas_limit
+                            > self._gas_optimization_max_gas_limit
                         ):
                             raise Exception(
                                 "Requires more than the minimum "
@@ -412,14 +479,18 @@ class StateTest(BaseTest):
             },
             transaction=FixtureTransaction.from_transaction(tx),
             config=FixtureConfig(
-                blob_schedule=FixtureBlobSchedule.from_blob_schedule(fork.blob_schedule()),
+                blob_schedule=FixtureBlobSchedule.from_blob_schedule(
+                    fork.blob_schedule()
+                ),
                 chain_id=self.chain_id,
             ),
         )
 
     def get_genesis_environment(self, fork: Fork) -> Environment:
         """Get the genesis environment for pre-allocation groups."""
-        return self.generate_blockchain_test(fork=fork).get_genesis_environment(fork=fork)
+        return self.generate_blockchain_test(
+            fork=fork
+        ).get_genesis_environment(fork=fork)
 
     def generate(
         self,

@@ -27,13 +27,28 @@ from ..eofwrap import wrap_code
         [Op.INVALID + Op.STOP, Container.Code(Op.INVALID)],
         [Op.ADDRESS, Container.Code(Op.ADDRESS + Op.STOP)],
         [Op.ADDRESS + Op.STOP, Container.Code(Op.ADDRESS + Op.STOP)],
-        [Op.ADDRESS + Op.RETURN(0, 0), Container.Code(Op.ADDRESS + Op.RETURN(0, 0))],
-        [Op.ADDRESS + Op.REVERT(0, 0), Container.Code(Op.ADDRESS + Op.REVERT(0, 0))],
+        [
+            Op.ADDRESS + Op.RETURN(0, 0),
+            Container.Code(Op.ADDRESS + Op.RETURN(0, 0)),
+        ],
+        [
+            Op.ADDRESS + Op.REVERT(0, 0),
+            Container.Code(Op.ADDRESS + Op.REVERT(0, 0)),
+        ],
         [Op.ADDRESS + Op.INVALID, Container.Code(Op.ADDRESS + Op.INVALID)],
         [Op.ADDRESS + Op.STOP + Op.STOP, Container.Code(Op.ADDRESS + Op.STOP)],
-        [Op.ADDRESS + Op.RETURN(0, 0) + Op.STOP, Container.Code(Op.ADDRESS + Op.RETURN(0, 0))],
-        [Op.ADDRESS + Op.REVERT(0, 0) + Op.STOP, Container.Code(Op.ADDRESS + Op.REVERT(0, 0))],
-        [Op.ADDRESS + Op.INVALID + Op.STOP, Container.Code(Op.ADDRESS + Op.INVALID)],
+        [
+            Op.ADDRESS + Op.RETURN(0, 0) + Op.STOP,
+            Container.Code(Op.ADDRESS + Op.RETURN(0, 0)),
+        ],
+        [
+            Op.ADDRESS + Op.REVERT(0, 0) + Op.STOP,
+            Container.Code(Op.ADDRESS + Op.REVERT(0, 0)),
+        ],
+        [
+            Op.ADDRESS + Op.INVALID + Op.STOP,
+            Container.Code(Op.ADDRESS + Op.INVALID),
+        ],
         [Op.GAS + Op.STOP, Container.Code(Op.GAS + Op.STOP)],
         [Op.GAS + Op.RETURN(0, 0), Container.Code(Op.GAS + Op.RETURN(0, 0))],
         [Op.GAS + Op.REVERT(0, 0), Container.Code(Op.GAS + Op.REVERT(0, 0))],

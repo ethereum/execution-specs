@@ -113,7 +113,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 def pytest_configure(config: pytest.Config) -> None:
     """Register the plugin if the CLI option is provided."""
     if config.getoption("show_ported_from"):
-        config.pluginmanager.register(PortedFromDisplay(config), "ported-from-display")
+        config.pluginmanager.register(
+            PortedFromDisplay(config), "ported-from-display"
+        )
 
 
 class PortedFromDisplay:
@@ -124,8 +126,12 @@ class PortedFromDisplay:
         self.config = config
         self.show_mode = config.getoption("show_ported_from")
         self.links_as_filled = config.getoption("links_as_filled")
-        self.ported_from_output_file = config.getoption("ported_from_output_file")
-        self.skip_coverage_missed_reason = config.getoption("skip_coverage_missed_reason")
+        self.ported_from_output_file = config.getoption(
+            "ported_from_output_file"
+        )
+        self.skip_coverage_missed_reason = config.getoption(
+            "skip_coverage_missed_reason"
+        )
 
     @pytest.hookimpl(hookwrapper=True, trylast=True)
     def pytest_collection_modifyitems(
@@ -207,5 +213,9 @@ class PortedFromDisplay:
         del exitstatus
         if config.getoption("verbose") < 0:
             return
-        mode_desc = "PR URLs" if self.show_mode == "prs" else "static filler paths"
-        terminalreporter.write_sep("=", f"ported_from {mode_desc} displayed", bold=True)
+        mode_desc = (
+            "PR URLs" if self.show_mode == "prs" else "static filler paths"
+        )
+        terminalreporter.write_sep(
+            "=", f"ported_from {mode_desc} displayed", bold=True
+        )

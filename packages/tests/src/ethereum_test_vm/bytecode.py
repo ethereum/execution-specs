@@ -87,14 +87,18 @@ class Bytecode:
             else:
                 obj.min_stack_height = min_stack_height
             if max_stack_height is None:
-                obj.max_stack_height = max(obj.popped_stack_items, obj.pushed_stack_items)
+                obj.max_stack_height = max(
+                    obj.popped_stack_items, obj.pushed_stack_items
+                )
             else:
                 obj.max_stack_height = max_stack_height
             obj.terminating = terminating
             obj._name_ = name
             return obj
 
-        raise TypeError("Bytecode constructor '__new__' didn't return an instance!")
+        raise TypeError(
+            "Bytecode constructor '__new__' didn't return an instance!"
+        )
 
     def __bytes__(self) -> bytes:
         """Return the opcode byte representation."""
@@ -127,7 +131,9 @@ class Bytecode:
             )
         if isinstance(other, SupportsBytes) or isinstance(other, bytes):
             return bytes(self) == bytes(other)
-        raise NotImplementedError(f"Unsupported type for comparison: {type(other)}")
+        raise NotImplementedError(
+            f"Unsupported type for comparison: {type(other)}"
+        )
 
     def __hash__(self) -> int:
         """Return the hash of the bytecode representation."""
@@ -155,7 +161,9 @@ class Bytecode:
             c._name_ = ""
             return c
 
-        assert isinstance(other, Bytecode), "Can only concatenate Bytecode instances"
+        assert isinstance(other, Bytecode), (
+            "Can only concatenate Bytecode instances"
+        )
         # Figure out the stack height after executing the two opcodes.
         a_pop, a_push = self.popped_stack_items, self.pushed_stack_items
         a_min, a_max = self.min_stack_height, self.max_stack_height
@@ -196,7 +204,9 @@ class Bytecode:
         # C starts from c_min, then reaches max either in the spot where A
         # reached a_max or in the spot where B reached b_max, after A had
         # completed.
-        c_max = max(c_min + a_max - a_min, c_min - a_pop + a_push + b_max - b_min)
+        c_max = max(
+            c_min + a_max - a_min, c_min - a_pop + a_push + b_max - b_min
+        )
 
         return Bytecode(
             bytes(self) + bytes(other),
@@ -214,7 +224,9 @@ class Bytecode:
         if other is None or (isinstance(other, int) and other == 0):
             # Edge case for sum() function
             return self
-        assert isinstance(other, Bytecode), "Can only concatenate Bytecode instances"
+        assert isinstance(other, Bytecode), (
+            "Can only concatenate Bytecode instances"
+        )
         return other.__add__(self)
 
     def __mul__(self, other: int) -> "Bytecode":

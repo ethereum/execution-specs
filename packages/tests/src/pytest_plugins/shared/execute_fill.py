@@ -49,9 +49,14 @@ def pytest_configure(config: pytest.Config) -> None:
         for fixture_format in BaseFixture.formats.values():
             config.addinivalue_line(
                 "markers",
-                (f"{fixture_format.format_name.lower()}: {fixture_format.description}"),
+                (
+                    f"{fixture_format.format_name.lower()}: {fixture_format.description}"
+                ),
             )
-        for label, labeled_fixture_format in LabeledFixtureFormat.registered_labels.items():
+        for (
+            label,
+            labeled_fixture_format,
+        ) in LabeledFixtureFormat.registered_labels.items():
             config.addinivalue_line(
                 "markers",
                 (f"{label}: {labeled_fixture_format.description}"),
@@ -60,9 +65,14 @@ def pytest_configure(config: pytest.Config) -> None:
         for execute_format in BaseExecute.formats.values():
             config.addinivalue_line(
                 "markers",
-                (f"{execute_format.format_name.lower()}: {execute_format.description}"),
+                (
+                    f"{execute_format.format_name.lower()}: {execute_format.description}"
+                ),
             )
-        for label, labeled_execute_format in LabeledExecuteFormat.registered_labels.items():
+        for (
+            label,
+            labeled_execute_format,
+        ) in LabeledExecuteFormat.registered_labels.items():
             config.addinivalue_line(
                 "markers",
                 (f"{label}: {labeled_execute_format.description}"),
@@ -169,22 +179,28 @@ def test_case_description(request: pytest.FixtureRequest) -> str:
     Fixture to extract and combine docstrings from the test class and the test
     function.
     """
-    description_unavailable = (
-        "No description available - add a docstring to the python test class or function."
-    )
+    description_unavailable = "No description available - add a docstring to the python test class or function."
     test_class_doc = ""
     test_function_doc = ""
     if hasattr(request.node, "cls"):
-        test_class_doc = f"Test class documentation:\n{request.cls.__doc__}" if request.cls else ""
+        test_class_doc = (
+            f"Test class documentation:\n{request.cls.__doc__}"
+            if request.cls
+            else ""
+        )
     if hasattr(request.node, "function"):
-        test_function_doc = f"{request.function.__doc__}" if request.function.__doc__ else ""
+        test_function_doc = (
+            f"{request.function.__doc__}" if request.function.__doc__ else ""
+        )
     if not test_class_doc and not test_function_doc:
         return description_unavailable
     combined_docstring = f"{test_class_doc}\n\n{test_function_doc}".strip()
     return combined_docstring
 
 
-def pytest_make_parametrize_id(config: pytest.Config, val: str, argname: str) -> str:
+def pytest_make_parametrize_id(
+    config: pytest.Config, val: str, argname: str
+) -> str:
     """
     Pytest hook called when generating test ids. We use this to generate more
     readable test ids for the generated tests.
@@ -208,7 +224,10 @@ def pytest_runtest_call(item: pytest.Item) -> None:
     if not isinstance(item, pytest.Function):
         return
 
-    if "state_test" in item.fixturenames and "blockchain_test" in item.fixturenames:
+    if (
+        "state_test" in item.fixturenames
+        and "blockchain_test" in item.fixturenames
+    ):
         raise InvalidFillerError(
             "A filler should only implement either a state test or a blockchain test; not both."
         )
@@ -237,7 +256,9 @@ def chain_config() -> ChainConfig:
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Add command-line options to pytest."""
-    static_filler_group = parser.getgroup("static", "Arguments defining static filler behavior")
+    static_filler_group = parser.getgroup(
+        "static", "Arguments defining static filler behavior"
+    )
     static_filler_group.addoption(
         "--fill-static-tests",
         action="store_true",

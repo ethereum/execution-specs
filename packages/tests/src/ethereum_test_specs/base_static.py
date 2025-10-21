@@ -142,7 +142,12 @@ class BaseStaticTest(BaseModel):
             if isinstance(v, dict):
                 v = BaseStaticTest.remove_comments(v)
             elif isinstance(v, list):
-                v = [BaseStaticTest.remove_comments(i) if isinstance(i, dict) else i for i in v]
+                v = [
+                    BaseStaticTest.remove_comments(i)
+                    if isinstance(i, dict)
+                    else i
+                    for i in v
+                ]
             result[k] = v
         return result
 

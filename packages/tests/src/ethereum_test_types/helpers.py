@@ -6,7 +6,10 @@ import ethereum_rlp as eth_rlp
 from pydantic import BaseModel, ConfigDict
 
 from ethereum_test_base_types.base_types import Address, Bytes, Hash
-from ethereum_test_base_types.conversions import BytesConvertible, FixedSizeBytesConvertible
+from ethereum_test_base_types.conversions import (
+    BytesConvertible,
+    FixedSizeBytesConvertible,
+)
 from ethereum_test_vm import Opcodes as Op
 
 from .account_types import EOA
@@ -45,7 +48,9 @@ def compute_create_address(
             address = Address(address)
         if nonce is None:
             nonce = 0
-        hash_bytes = Bytes(eth_rlp.encode([address, int_to_bytes(nonce)])).keccak256()
+        hash_bytes = Bytes(
+            eth_rlp.encode([address, int_to_bytes(nonce)])
+        ).keccak256()
         return Address(hash_bytes[-20:])
     if opcode == Op.CREATE2:
         return compute_create2_address(address, salt, initcode)
@@ -53,7 +58,9 @@ def compute_create_address(
 
 
 def compute_create2_address(
-    address: FixedSizeBytesConvertible, salt: FixedSizeBytesConvertible, initcode: BytesConvertible
+    address: FixedSizeBytesConvertible,
+    salt: FixedSizeBytesConvertible,
+    initcode: BytesConvertible,
 ) -> Address:
     """
     Compute address of the resulting contract created using the `CREATE2`
@@ -72,7 +79,9 @@ def compute_eofcreate_address(
     Compute address of the resulting contract created using the `EOFCREATE`
     opcode.
     """
-    hash_bytes = Bytes(b"\xff" + b"\x00" * 12 + Address(address) + Hash(salt)).keccak256()
+    hash_bytes = Bytes(
+        b"\xff" + b"\x00" * 12 + Address(address) + Hash(salt)
+    ).keccak256()
     return Address(hash_bytes[-20:])
 
 
@@ -92,7 +101,9 @@ def add_kzg_version(
                 b_hash = bytes(b_hash)
             kzg_versioned_hashes.append(Hash(kzg_version_hex + b_hash[1:]))
         else:
-            raise TypeError("Blob hash must be either an integer, string or bytes")
+            raise TypeError(
+                "Blob hash must be either an integer, string or bytes"
+            )
     return kzg_versioned_hashes
 
 
@@ -117,7 +128,9 @@ class TestParameterGroup(BaseModel):
             f"{field}_{value}"
             # Include the field only if it is not optional or not set to its
             # default value
-            for field, value in self.model_dump(exclude_defaults=True, exclude_unset=True).items()
+            for field, value in self.model_dump(
+                exclude_defaults=True, exclude_unset=True
+            ).items()
         ]
 
         return f"{class_name}_{'-'.join(field_strings)}"

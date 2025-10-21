@@ -346,19 +346,25 @@ def test_account_check_alloc(
         ),
         pytest.param(
             Alloc({0x2: {"nonce": 1}}),  # type: ignore
-            Alloc({"0x0000000000000000000000000000000000000002": {"nonce": 2}}),  # type: ignore
+            Alloc(
+                {"0x0000000000000000000000000000000000000002": {"nonce": 2}}
+            ),  # type: ignore
             Alloc({0x2: Account(nonce=2)}),  # type: ignore
             id="overwrite_account",
         ),
         pytest.param(
             Alloc({0x2: {"balance": 1}}),  # type: ignore
-            Alloc({"0x0000000000000000000000000000000000000002": {"nonce": 1}}),  # type: ignore
+            Alloc(
+                {"0x0000000000000000000000000000000000000002": {"nonce": 1}}
+            ),  # type: ignore
             Alloc({0x2: Account(balance=1, nonce=1)}),  # type: ignore
             id="mix_account",
         ),
     ],
 )
-def test_alloc_append(alloc_1: Alloc, alloc_2: Alloc, expected_alloc: Alloc) -> None:
+def test_alloc_append(
+    alloc_1: Alloc, alloc_2: Alloc, expected_alloc: Alloc
+) -> None:
     """Test `ethereum_test.types.alloc` merging."""
     assert Alloc.merge(alloc_1, alloc_2) == expected_alloc
 
@@ -393,7 +399,9 @@ def test_alloc_append(alloc_1: Alloc, alloc_2: Alloc, expected_alloc: Alloc) -> 
     ],
 )
 def test_account_merge(
-    account_1: Account | None, account_2: Account | None, expected_account: Account
+    account_1: Account | None,
+    account_2: Account | None,
+    expected_account: Account,
 ) -> None:
     """Test `ethereum_test.types.account` merging."""
     assert Account.merge(account_1, account_2) == expected_account
@@ -461,7 +469,9 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             Environment(),
             {
                 "currentCoinbase": "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
-                "currentGasLimit": str(ZeroPaddedHexNumber(Environment().gas_limit)),
+                "currentGasLimit": str(
+                    ZeroPaddedHexNumber(Environment().gas_limit)
+                ),
                 "currentNumber": "0x01",
                 "currentTimestamp": "0x03e8",
                 "blockHashes": {},
@@ -485,7 +495,11 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 parent_gas_used=0xB,
                 parent_gas_limit=0xC,
                 parent_ommers_hash=0xD,
-                withdrawals=[Withdrawal(index=0, validator_index=1, address=0x1234, amount=2)],
+                withdrawals=[
+                    Withdrawal(
+                        index=0, validator_index=1, address=0x1234, amount=2
+                    )
+                ],
                 parent_blob_gas_used=0xE,
                 parent_excess_blob_gas=0xF,
                 blob_gas_used=0x10,
@@ -494,7 +508,9 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             ),
             {
                 "currentCoinbase": "0x0000000000000000000000000000000000001234",
-                "currentGasLimit": str(ZeroPaddedHexNumber(Environment().gas_limit)),
+                "currentGasLimit": str(
+                    ZeroPaddedHexNumber(Environment().gas_limit)
+                ),
                 "currentNumber": "0x01",
                 "currentTimestamp": "0x03e8",
                 "currentDifficulty": "0x05",
@@ -643,18 +659,26 @@ class TestPydanticModelConversion:
     """Test that Pydantic models are converted to and from JSON correctly."""
 
     def test_json_serialization(
-        self, can_be_deserialized: bool, model_instance: Any, json: str | Dict[str, Any]
+        self,
+        can_be_deserialized: bool,
+        model_instance: Any,
+        json: str | Dict[str, Any],
     ) -> None:
         """Test that to_json returns the expected JSON for the given object."""
         del can_be_deserialized
         assert to_json(model_instance) == json
 
     def test_json_deserialization(
-        self, can_be_deserialized: bool, model_instance: Any, json: str | Dict[str, Any]
+        self,
+        can_be_deserialized: bool,
+        model_instance: Any,
+        json: str | Dict[str, Any],
     ) -> None:
         """Test that to_json returns the expected JSON for the given object."""
         if not can_be_deserialized:
-            pytest.skip(reason="The model instance in this case can not be deserialized")
+            pytest.skip(
+                reason="The model instance in this case can not be deserialized"
+            )
         model_type = type(model_instance)
         assert model_type(**json) == model_instance
 
@@ -689,7 +713,9 @@ class TestPydanticModelConversion:
     ],
 )
 def test_transaction_post_init_invalid_arg_combinations(  # noqa: D103
-    invalid_tx_args: Any, expected_exception: Any, expected_exception_substring: str
+    invalid_tx_args: Any,
+    expected_exception: Any,
+    expected_exception_substring: str,
 ) -> None:
     """
     Test that Transaction.__post_init__ raises the expected exceptions for
@@ -768,7 +794,9 @@ def test_transaction_post_init_invalid_arg_combinations(  # noqa: D103
         ),
     ],
 )
-def test_transaction_post_init_defaults(tx_args: Any, expected_attributes_and_values: Any) -> None:
+def test_transaction_post_init_defaults(
+    tx_args: Any, expected_attributes_and_values: Any
+) -> None:
     """
     Test that Transaction.__post_init__ sets the expected default values for
     missing fields.
@@ -784,7 +812,9 @@ def test_transaction_post_init_defaults(tx_args: Any, expected_attributes_and_va
     [
         pytest.param(
             [],
-            bytes.fromhex("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"),
+            bytes.fromhex(
+                "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+            ),
             id="empty-withdrawals",
         ),
         pytest.param(
@@ -796,7 +826,9 @@ def test_transaction_post_init_defaults(tx_args: Any, expected_attributes_and_va
                     amount=2,
                 )
             ],
-            bytes.fromhex("dc3ead883fc17ea3802cd0f8e362566b07b223f82e52f94c76cf420444b8ff81"),
+            bytes.fromhex(
+                "dc3ead883fc17ea3802cd0f8e362566b07b223f82e52f94c76cf420444b8ff81"
+            ),
             id="single-withdrawal",
         ),
         pytest.param(
@@ -814,7 +846,9 @@ def test_transaction_post_init_defaults(tx_args: Any, expected_attributes_and_va
                     amount=0,
                 ),
             ],
-            bytes.fromhex("069ab71e5d228db9b916880f02670c85682c46641bb9c95df84acc5075669e01"),
+            bytes.fromhex(
+                "069ab71e5d228db9b916880f02670c85682c46641bb9c95df84acc5075669e01"
+            ),
             id="multiple-withdrawals",
         ),
         pytest.param(
@@ -832,12 +866,16 @@ def test_transaction_post_init_defaults(tx_args: Any, expected_attributes_and_va
                     amount=0,
                 ),
             ],
-            bytes.fromhex("daacd8fe889693f7d20436d9c0c044b5e92cc17b57e379997273fc67fd2eb7b8"),
+            bytes.fromhex(
+                "daacd8fe889693f7d20436d9c0c044b5e92cc17b57e379997273fc67fd2eb7b8"
+            ),
             id="multiple-withdrawals",
         ),
     ],
 )
-def test_withdrawals_root(withdrawals: List[Withdrawal], expected_root: bytes) -> None:
+def test_withdrawals_root(
+    withdrawals: List[Withdrawal], expected_root: bytes
+) -> None:
     """Test that withdrawals_root returns the expected hash."""
     assert Withdrawal.list_root(withdrawals) == expected_root
 

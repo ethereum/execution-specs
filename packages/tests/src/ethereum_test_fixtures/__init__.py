@@ -1,6 +1,11 @@
 """Ethereum test fixture format definitions."""
 
-from .base import BaseFixture, FixtureFillingPhase, FixtureFormat, LabeledFixtureFormat
+from .base import (
+    BaseFixture,
+    FixtureFillingPhase,
+    FixtureFormat,
+    LabeledFixtureFormat,
+)
 from .blockchain import (
     BlockchainEngineFixture,
     BlockchainEngineFixtureCommon,

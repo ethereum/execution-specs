@@ -9,7 +9,15 @@ to @ThreeHrSleep for integrating it in the docstrings.
 """
 
 from enum import Enum
-from typing import Any, Callable, Iterable, List, Mapping, Optional, SupportsBytes
+from typing import (
+    Any,
+    Callable,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    SupportsBytes,
+)
 
 from ethereum_test_base_types import to_bytes
 
@@ -93,7 +101,9 @@ class Opcode(Bytecode):
 
     data_portion_length: int
     data_portion_formatter: Optional[Callable[[Any], bytes]]
-    stack_properties_modifier: Optional[Callable[[Any], tuple[int, int, int, int]]]
+    stack_properties_modifier: Optional[
+        Callable[[Any], tuple[int, int, int, int]]
+    ]
     kwargs: List[str]
     kwargs_defaults: KW_ARGS_DEFAULTS_TYPE
     unchecked_stack: bool = False
@@ -121,15 +131,20 @@ class Opcode(Bytecode):
             # Required because Enum class calls the base class
             # with the instantiated object as parameter.
             return opcode_or_byte
-        elif isinstance(opcode_or_byte, int) or isinstance(opcode_or_byte, bytes):
+        elif isinstance(opcode_or_byte, int) or isinstance(
+            opcode_or_byte, bytes
+        ):
             obj_bytes = (
-                bytes([opcode_or_byte]) if isinstance(opcode_or_byte, int) else opcode_or_byte
+                bytes([opcode_or_byte])
+                if isinstance(opcode_or_byte, int)
+                else opcode_or_byte
             )
             if min_stack_height is None:
                 min_stack_height = popped_stack_items
             if max_stack_height is None:
                 max_stack_height = max(
-                    min_stack_height - popped_stack_items + pushed_stack_items, min_stack_height
+                    min_stack_height - popped_stack_items + pushed_stack_items,
+                    min_stack_height,
                 )
             obj = super().__new__(
                 cls,
@@ -150,28 +165,47 @@ class Opcode(Bytecode):
                 obj.kwargs = kwargs
             obj.kwargs_defaults = kwargs_defaults
             return obj
-        raise TypeError("Opcode constructor '__new__' didn't return an instance!")
+        raise TypeError(
+            "Opcode constructor '__new__' didn't return an instance!"
+        )
 
-    def __getitem__(self, *args: "int | bytes | str | Iterable[int]") -> "Opcode":
+    def __getitem__(
+        self, *args: "int | bytes | str | Iterable[int]"
+    ) -> "Opcode":
         """
         Initialize a new instance of the opcode with the data portion set,
         and also clear the data portion variables to avoid reusing them.
         """
-        if self.data_portion_formatter is None and self.data_portion_length == 0:
-            raise ValueError("Opcode does not have a data portion or has already been set")
+        if (
+            self.data_portion_formatter is None
+            and self.data_portion_length == 0
+        ):
+            raise ValueError(
+                "Opcode does not have a data portion or has already been set"
+            )
         data_portion = bytes()
 
         if self.data_portion_formatter is not None:
-            if len(args) == 1 and isinstance(args[0], Iterable) and not isinstance(args[0], bytes):
+            if (
+                len(args) == 1
+                and isinstance(args[0], Iterable)
+                and not isinstance(args[0], bytes)
+            ):
                 data_portion = self.data_portion_formatter(*args[0])
             else:
                 data_portion = self.data_portion_formatter(*args)
         elif self.data_portion_length > 0:
             # For opcodes with a data portion, the first argument is the
             # data and the rest of the arguments form the stack.
-            assert len(args) == 1, "Opcode with data portion requires exactly one argument"
+            assert len(args) == 1, (
+                "Opcode with data portion requires exactly one argument"
+            )
             data = args[0]
-            if isinstance(data, bytes) or isinstance(data, SupportsBytes) or isinstance(data, str):
+            if (
+                isinstance(data, bytes)
+                or isinstance(data, SupportsBytes)
+                or isinstance(data, str)
+            ):
                 if isinstance(data, str):
                     if data.startswith("0x"):
                         data = data[2:]
@@ -188,7 +222,9 @@ class Opcode(Bytecode):
                     signed=signed,
                 )
             else:
-                raise TypeError("Opcode data portion must be either an int or bytes/hex string")
+                raise TypeError(
+                    "Opcode data portion must be either an int or bytes/hex string"
+                )
         popped_stack_items = self.popped_stack_items
         pushed_stack_items = self.pushed_stack_items
         min_stack_height = self.min_stack_height
@@ -257,18 +293,24 @@ class Opcode(Bytecode):
 
         Hex-strings will be automatically converted to bytes.
         """
-        args: List["int | bytes | str | Opcode | Bytecode | Iterable[int]"] = list(args_t)
+        args: List["int | bytes | str | Opcode | Bytecode | Iterable[int]"] = (
+            list(args_t)
+        )
 
         if self.has_data_portion():
             if len(args) == 0:
-                raise ValueError("Opcode with data portion requires at least one argument")
+                raise ValueError(
+                    "Opcode with data portion requires at least one argument"
+                )
             assert type(self) is Opcode
             get_item_arg = args.pop()
             assert not isinstance(get_item_arg, Bytecode)
             return self[get_item_arg](*args)
 
         if self.kwargs is not None and len(kwargs) > 0:
-            assert len(args) == 0, f"Cannot mix positional and keyword arguments {args} {kwargs}"
+            assert len(args) == 0, (
+                f"Cannot mix positional and keyword arguments {args} {kwargs}"
+            )
 
             # Validate that all provided kwargs are valid
             invalid_kwargs = set(kwargs.keys()) - set(self.kwargs)
@@ -280,10 +322,16 @@ class Opcode(Bytecode):
                 )
 
             for kw in self.kwargs:
-                args.append(kwargs[kw] if kw in kwargs else self.kwargs_defaults.get(kw, 0))
+                args.append(
+                    kwargs[kw]
+                    if kw in kwargs
+                    else self.kwargs_defaults.get(kw, 0)
+                )
 
         # The rest of the arguments form the stack.
-        if len(args) != self.popped_stack_items and not (unchecked or self.unchecked_stack):
+        if len(args) != self.popped_stack_items and not (
+            unchecked or self.unchecked_stack
+        ):
             raise ValueError(
                 f"Opcode {self._name_} requires {self.popped_stack_items} stack elements, but "
                 f"{len(args)} were provided. Use 'unchecked=True' parameter to ignore this check."
@@ -308,7 +356,10 @@ class Opcode(Bytecode):
 
     def has_data_portion(self) -> bool:
         """Return whether the opcode has a data portion."""
-        return self.data_portion_length > 0 or self.data_portion_formatter is not None
+        return (
+            self.data_portion_length > 0
+            or self.data_portion_formatter is not None
+        )
 
 
 OpcodeCallArg = int | bytes | str | Bytecode | Iterable[int]
@@ -368,9 +419,15 @@ def _rjumpv_encoder(*args: int | bytes | Iterable[int]) -> bytes:
         elif isinstance(args[0], Iterable):
             int_args = list(args[0])
             return b"".join(
-                [(len(int_args) - 1).to_bytes(RJUMPV_MAX_INDEX_BYTE_LENGTH, "big")]
+                [
+                    (len(int_args) - 1).to_bytes(
+                        RJUMPV_MAX_INDEX_BYTE_LENGTH, "big"
+                    )
+                ]
                 + [
-                    i.to_bytes(RJUMPV_BRANCH_OFFSET_BYTE_LENGTH, "big", signed=True)
+                    i.to_bytes(
+                        RJUMPV_BRANCH_OFFSET_BYTE_LENGTH, "big", signed=True
+                    )
                     for i in int_args
                 ]
             )
@@ -385,7 +442,9 @@ def _rjumpv_encoder(*args: int | bytes | Iterable[int]) -> bytes:
 
 
 def _exchange_encoder(*args: int) -> bytes:
-    assert 1 <= len(args) <= 2, f"Exchange opcode requires one or two arguments, got {len(args)}"
+    assert 1 <= len(args) <= 2, (
+        f"Exchange opcode requires one or two arguments, got {len(args)}"
+    )
     if len(args) == 1:
         return int.to_bytes(args[0], 1, "big")
     # n = imm >> 4 + 1
@@ -419,7 +478,9 @@ def _dupn_stack_properties_modifier(data: bytes) -> tuple[int, int, int, int]:
     return 0, 1, min_stack_height, min_stack_height + 1
 
 
-def _exchange_stack_properties_modifier(data: bytes) -> tuple[int, int, int, int]:
+def _exchange_stack_properties_modifier(
+    data: bytes,
+) -> tuple[int, int, int, int]:
     imm = int.from_bytes(data, "big")
     n = (imm >> 4) + 1
     m = (imm & 0x0F) + 1
@@ -1229,7 +1290,12 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#1E](https://www.evm.codes/#1E)
     """
 
-    SHA3 = Opcode(0x20, popped_stack_items=2, pushed_stack_items=1, kwargs=["offset", "size"])
+    SHA3 = Opcode(
+        0x20,
+        popped_stack_items=2,
+        pushed_stack_items=1,
+        kwargs=["offset", "size"],
+    )
     """
     SHA3(offset, size) = hash
     ----
@@ -1288,7 +1354,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#30](https://www.evm.codes/#30)
     """
 
-    BALANCE = Opcode(0x31, popped_stack_items=1, pushed_stack_items=1, kwargs=["address"])
+    BALANCE = Opcode(
+        0x31, popped_stack_items=1, pushed_stack_items=1, kwargs=["address"]
+    )
     """
     BALANCE(address) = balance
     ----
@@ -1406,7 +1474,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#34](https://www.evm.codes/#34)
     """
 
-    CALLDATALOAD = Opcode(0x35, popped_stack_items=1, pushed_stack_items=1, kwargs=["offset"])
+    CALLDATALOAD = Opcode(
+        0x35, popped_stack_items=1, pushed_stack_items=1, kwargs=["offset"]
+    )
     """
     CALLDATALOAD(offset) = data[offset]
     ----
@@ -1464,7 +1534,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#36](https://www.evm.codes/#36)
     """
 
-    CALLDATACOPY = Opcode(0x37, popped_stack_items=3, kwargs=["dest_offset", "offset", "size"])
+    CALLDATACOPY = Opcode(
+        0x37, popped_stack_items=3, kwargs=["dest_offset", "offset", "size"]
+    )
     """
     CALLDATACOPY(dest_offset, offset, size)
     ----
@@ -1524,7 +1596,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#38](https://www.evm.codes/#38)
     """
 
-    CODECOPY = Opcode(0x39, popped_stack_items=3, kwargs=["dest_offset", "offset", "size"])
+    CODECOPY = Opcode(
+        0x39, popped_stack_items=3, kwargs=["dest_offset", "offset", "size"]
+    )
     """
     CODECOPY(dest_offset, offset, size)
     ----
@@ -1576,7 +1650,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#3A](https://www.evm.codes/#3A)
     """
 
-    EXTCODESIZE = Opcode(0x3B, popped_stack_items=1, pushed_stack_items=1, kwargs=["address"])
+    EXTCODESIZE = Opcode(
+        0x3B, popped_stack_items=1, pushed_stack_items=1, kwargs=["address"]
+    )
     """
     EXTCODESIZE(address) = size
     ----
@@ -1606,7 +1682,9 @@ class Opcodes(Opcode, Enum):
     """
 
     EXTCODECOPY = Opcode(
-        0x3C, popped_stack_items=4, kwargs=["address", "dest_offset", "offset", "size"]
+        0x3C,
+        popped_stack_items=4,
+        kwargs=["address", "dest_offset", "offset", "size"],
     )
     """
     EXTCODECOPY(address, dest_offset, offset, size)
@@ -1665,7 +1743,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#3D](https://www.evm.codes/#3D)
     """
 
-    RETURNDATACOPY = Opcode(0x3E, popped_stack_items=3, kwargs=["dest_offset", "offset", "size"])
+    RETURNDATACOPY = Opcode(
+        0x3E, popped_stack_items=3, kwargs=["dest_offset", "offset", "size"]
+    )
     """
     RETURNDATACOPY(dest_offset, offset, size)
     ----
@@ -1694,7 +1774,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#3E](https://www.evm.codes/#3E)
     """
 
-    EXTCODEHASH = Opcode(0x3F, popped_stack_items=1, pushed_stack_items=1, kwargs=["address"])
+    EXTCODEHASH = Opcode(
+        0x3F, popped_stack_items=1, pushed_stack_items=1, kwargs=["address"]
+    )
     """
     EXTCODEHASH(address) = hash
     ----
@@ -1725,7 +1807,12 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#3F](https://www.evm.codes/#3F)
     """
 
-    BLOCKHASH = Opcode(0x40, popped_stack_items=1, pushed_stack_items=1, kwargs=["block_number"])
+    BLOCKHASH = Opcode(
+        0x40,
+        popped_stack_items=1,
+        pushed_stack_items=1,
+        kwargs=["block_number"],
+    )
     """
     BLOCKHASH(block_number) = hash
     ----
@@ -1976,7 +2063,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#48](https://www.evm.codes/#48)
     """
 
-    BLOBHASH = Opcode(0x49, popped_stack_items=1, pushed_stack_items=1, kwargs=["index"])
+    BLOBHASH = Opcode(
+        0x49, popped_stack_items=1, pushed_stack_items=1, kwargs=["index"]
+    )
     """
     BLOBHASH(index) = versionedHash
     ----
@@ -2063,7 +2152,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#50](https://www.evm.codes/#50)
     """
 
-    MLOAD = Opcode(0x51, popped_stack_items=1, pushed_stack_items=1, kwargs=["offset"])
+    MLOAD = Opcode(
+        0x51, popped_stack_items=1, pushed_stack_items=1, kwargs=["offset"]
+    )
     """
     MLOAD(offset) = value
     ----
@@ -2150,7 +2241,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#53](https://www.evm.codes/#53)
     """
 
-    SLOAD = Opcode(0x54, popped_stack_items=1, pushed_stack_items=1, kwargs=["key"])
+    SLOAD = Opcode(
+        0x54, popped_stack_items=1, pushed_stack_items=1, kwargs=["key"]
+    )
     """
     SLOAD(key) = value
     ----
@@ -2423,7 +2516,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#5B](https://www.evm.codes/#5B)
     """
 
-    TLOAD = Opcode(0x5C, popped_stack_items=1, pushed_stack_items=1, kwargs=["key"])
+    TLOAD = Opcode(
+        0x5C, popped_stack_items=1, pushed_stack_items=1, kwargs=["key"]
+    )
     """
     TLOAD(key) = value
     ----
@@ -2478,7 +2573,9 @@ class Opcodes(Opcode, Enum):
     eip-1153)
     """
 
-    MCOPY = Opcode(0x5E, popped_stack_items=3, kwargs=["dest_offset", "offset", "size"])
+    MCOPY = Opcode(
+        0x5E, popped_stack_items=3, kwargs=["dest_offset", "offset", "size"]
+    )
     """
     MCOPY(dest_offset, offset, size)
     ----
@@ -4633,7 +4730,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#A0](https://www.evm.codes/#A0)
     """
 
-    LOG1 = Opcode(0xA1, popped_stack_items=3, kwargs=["offset", "size", "topic_1"])
+    LOG1 = Opcode(
+        0xA1, popped_stack_items=3, kwargs=["offset", "size", "topic_1"]
+    )
     """
     LOG1(offset, size, topic_1)
     ----
@@ -4664,7 +4763,11 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#A1](https://www.evm.codes/#A1)
     """
 
-    LOG2 = Opcode(0xA2, popped_stack_items=4, kwargs=["offset", "size", "topic_1", "topic_2"])
+    LOG2 = Opcode(
+        0xA2,
+        popped_stack_items=4,
+        kwargs=["offset", "size", "topic_1", "topic_2"],
+    )
     """
     LOG2(offset, size, topic_1, topic_2)
     ----
@@ -4697,7 +4800,9 @@ class Opcodes(Opcode, Enum):
     """
 
     LOG3 = Opcode(
-        0xA3, popped_stack_items=5, kwargs=["offset", "size", "topic_1", "topic_2", "topic_3"]
+        0xA3,
+        popped_stack_items=5,
+        kwargs=["offset", "size", "topic_1", "topic_2", "topic_3"],
     )
     """
     LOG3(offset, size, topic_1, topic_2, topic_3)
@@ -4796,7 +4901,9 @@ class Opcodes(Opcode, Enum):
     eip-4200)
     """
 
-    DATALOAD = Opcode(0xD0, popped_stack_items=1, pushed_stack_items=1, kwargs=["offset"])
+    DATALOAD = Opcode(
+        0xD0, popped_stack_items=1, pushed_stack_items=1, kwargs=["offset"]
+    )
     """
     !!! Note: This opcode is under development
 
@@ -4892,7 +4999,9 @@ class Opcodes(Opcode, Enum):
     eip-7480)
     """
 
-    DATACOPY = Opcode(0xD3, popped_stack_items=3, kwargs=["dest_offset", "offset", "size"])
+    DATACOPY = Opcode(
+        0xD3, popped_stack_items=3, kwargs=["dest_offset", "offset", "size"]
+    )
     """
     !!! Note: This opcode is under development
 
@@ -5060,7 +5169,9 @@ class Opcodes(Opcode, Enum):
     3
     """
 
-    JUMPF = Opcode(0xE5, data_portion_length=2, terminating=True, unchecked_stack=True)
+    JUMPF = Opcode(
+        0xE5, data_portion_length=2, terminating=True, unchecked_stack=True
+    )
     """
     !!! Note: This opcode is under development
 
@@ -5132,7 +5243,9 @@ class Opcodes(Opcode, Enum):
     """
 
     SWAPN = Opcode(
-        0xE7, data_portion_length=1, stack_properties_modifier=_swapn_stack_properties_modifier
+        0xE7,
+        data_portion_length=1,
+        stack_properties_modifier=_swapn_stack_properties_modifier,
     )
     """
     !!! Note: This opcode is under development
@@ -5240,7 +5353,13 @@ class Opcodes(Opcode, Enum):
         0xED,
         popped_stack_items=5,
         pushed_stack_items=1,
-        kwargs=["tx_initcode_hash", "salt", "input_offset", "input_size", "value"],
+        kwargs=[
+            "tx_initcode_hash",
+            "salt",
+            "input_offset",
+            "input_size",
+            "value",
+        ],
     )
     """
     !!! Note: This opcode is under development
@@ -5296,7 +5415,10 @@ class Opcodes(Opcode, Enum):
     """
 
     CREATE = Opcode(
-        0xF0, popped_stack_items=3, pushed_stack_items=1, kwargs=["value", "offset", "size"]
+        0xF0,
+        popped_stack_items=3,
+        pushed_stack_items=1,
+        kwargs=["value", "offset", "size"],
     )
     """
     CREATE(value, offset, size) = address
@@ -5341,7 +5463,15 @@ class Opcodes(Opcode, Enum):
         0xF1,
         popped_stack_items=7,
         pushed_stack_items=1,
-        kwargs=["gas", "address", "value", "args_offset", "args_size", "ret_offset", "ret_size"],
+        kwargs=[
+            "gas",
+            "address",
+            "value",
+            "args_offset",
+            "args_size",
+            "ret_offset",
+            "ret_size",
+        ],
         kwargs_defaults={"gas": GAS},
     )
     """
@@ -5390,7 +5520,15 @@ class Opcodes(Opcode, Enum):
         0xF2,
         popped_stack_items=7,
         pushed_stack_items=1,
-        kwargs=["gas", "address", "value", "args_offset", "args_size", "ret_offset", "ret_size"],
+        kwargs=[
+            "gas",
+            "address",
+            "value",
+            "args_offset",
+            "args_size",
+            "ret_offset",
+            "ret_size",
+        ],
         kwargs_defaults={"gas": GAS},
     )
     """
@@ -5435,7 +5573,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#F2](https://www.evm.codes/#F2)
     """
 
-    RETURN = Opcode(0xF3, popped_stack_items=2, kwargs=["offset", "size"], terminating=True)
+    RETURN = Opcode(
+        0xF3, popped_stack_items=2, kwargs=["offset", "size"], terminating=True
+    )
     """
     RETURN(offset, size)
     ----
@@ -5470,7 +5610,14 @@ class Opcodes(Opcode, Enum):
         0xF4,
         popped_stack_items=6,
         pushed_stack_items=1,
-        kwargs=["gas", "address", "args_offset", "args_size", "ret_offset", "ret_size"],
+        kwargs=[
+            "gas",
+            "address",
+            "args_offset",
+            "args_size",
+            "ret_offset",
+            "ret_size",
+        ],
         kwargs_defaults={"gas": GAS},
     )
     """
@@ -5652,7 +5799,14 @@ class Opcodes(Opcode, Enum):
         0xFA,
         popped_stack_items=6,
         pushed_stack_items=1,
-        kwargs=["gas", "address", "args_offset", "args_size", "ret_offset", "ret_size"],
+        kwargs=[
+            "gas",
+            "address",
+            "args_offset",
+            "args_size",
+            "ret_offset",
+            "ret_size",
+        ],
         kwargs_defaults={"gas": GAS},
     )
     """
@@ -5735,7 +5889,9 @@ class Opcodes(Opcode, Enum):
     Source: [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)
     """
 
-    RETURNDATALOAD = Opcode(0xF7, popped_stack_items=1, pushed_stack_items=1, kwargs=["offset"])
+    RETURNDATALOAD = Opcode(
+        0xF7, popped_stack_items=1, pushed_stack_items=1, kwargs=["offset"]
+    )
     """
     RETURNDATALOAD(offset)
     ----
@@ -5758,7 +5914,9 @@ class Opcodes(Opcode, Enum):
     3
     """
 
-    REVERT = Opcode(0xFD, popped_stack_items=2, kwargs=["offset", "size"], terminating=True)
+    REVERT = Opcode(
+        0xFD, popped_stack_items=2, kwargs=["offset", "size"], terminating=True
+    )
     """
     REVERT(offset, size)
     ----
@@ -5874,7 +6032,9 @@ _push_opcodes_byte_list: List[Opcode] = [
 ]
 
 
-def _mstore_operation(data: OpcodeCallArg = b"", offset: OpcodeCallArg = 0) -> Bytecode:
+def _mstore_operation(
+    data: OpcodeCallArg = b"", offset: OpcodeCallArg = 0
+) -> Bytecode:
     """
     Generate the bytecode that stores an arbitrary
     amount of data in memory.

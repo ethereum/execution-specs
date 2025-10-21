@@ -7,7 +7,13 @@ import pytest
 from semver import Version
 
 from ethereum_clis import TransitionTool
-from ethereum_test_base_types import Account, Address, Hash, TestAddress, TestPrivateKey
+from ethereum_test_base_types import (
+    Account,
+    Address,
+    Hash,
+    TestAddress,
+    TestPrivateKey,
+)
 from ethereum_test_fixtures import BlockchainFixture
 from ethereum_test_forks import (
     Cancun,
@@ -32,7 +38,9 @@ def fork(request: pytest.FixtureRequest) -> Fork:
 
 
 @pytest.fixture()
-def expected_bytes(request: pytest.FixtureRequest, solc_version: Version, fork: Fork) -> bytes:
+def expected_bytes(
+    request: pytest.FixtureRequest, solc_version: Version, fork: Fork
+) -> bytes:
     """Return the expected bytes for the test."""
     expected_bytes = request.param
     if isinstance(expected_bytes, Template):
@@ -40,7 +48,9 @@ def expected_bytes(request: pytest.FixtureRequest, solc_version: Version, fork: 
             solc_padding = ""
         else:
             solc_padding = "00"
-        return bytes.fromhex(expected_bytes.substitute(solc_padding=solc_padding))
+        return bytes.fromhex(
+            expected_bytes.substitute(solc_padding=solc_padding)
+        )
     if isinstance(expected_bytes, bytes):
         if fork >= Shanghai:
             expected_bytes = b"\x5f" + expected_bytes[2:]
@@ -49,7 +59,9 @@ def expected_bytes(request: pytest.FixtureRequest, solc_version: Version, fork: 
         else:
             return expected_bytes + b"\x00"
 
-    raise Exception("Unsupported expected_bytes type: {}".format(type(expected_bytes)))
+    raise Exception(
+        "Unsupported expected_bytes type: {}".format(type(expected_bytes))
+    )
 
 
 @pytest.mark.parametrize(
@@ -180,7 +192,9 @@ def test_initcode(initcode: Initcode, bytecode: bytes) -> None:  # noqa: D103
                 if_true=Op.MSTORE(0, Op.SLOAD(0)) + Op.RETURN(0, 32),
                 if_false=Op.SSTORE(0, 69),
             ),
-            bytes.fromhex("600035600d5801576045600055600f5801565b60005460005260206000f35b"),
+            bytes.fromhex(
+                "600035600d5801576045600055600f5801565b60005460005260206000f35b"
+            ),
         ),
     ],
 )
@@ -198,8 +212,14 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes) -> None:
             Hash(1),
             Switch(
                 cases=[
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1)),
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 2), action=Op.SSTORE(0, 2)),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 1),
+                        action=Op.SSTORE(0, 1),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 2),
+                        action=Op.SSTORE(0, 2),
+                    ),
                 ],
                 default_action=None,
             ),
@@ -222,8 +242,14 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes) -> None:
             Hash(0),
             Switch(
                 cases=[
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1)),
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 2), action=Op.SSTORE(0, 2)),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 1),
+                        action=Op.SSTORE(0, 1),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 2),
+                        action=Op.SSTORE(0, 2),
+                    ),
                 ],
                 default_action=None,
             ),
@@ -242,7 +268,12 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes) -> None:
         pytest.param(
             Hash(1),
             Switch(
-                cases=[Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1))],
+                cases=[
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 1),
+                        action=Op.SSTORE(0, 1),
+                    )
+                ],
                 default_action=Op.SSTORE(0, 3),
             ),
             {0: 1},
@@ -251,7 +282,12 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes) -> None:
         pytest.param(
             Hash(0),
             Switch(
-                cases=[Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1))],
+                cases=[
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 1),
+                        action=Op.SSTORE(0, 1),
+                    )
+                ],
                 default_action=Op.SSTORE(0, 3),
             ),
             {0: 3},
@@ -261,8 +297,14 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes) -> None:
             Hash(0),
             Switch(
                 cases=[
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1)),
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 2), action=Op.SSTORE(0, 2)),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 1),
+                        action=Op.SSTORE(0, 1),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 2),
+                        action=Op.SSTORE(0, 2),
+                    ),
                 ],
                 default_action=Op.SSTORE(0, 3),
             ),
@@ -273,8 +315,14 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes) -> None:
             Hash(1),
             Switch(
                 cases=[
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1)),
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 2), action=Op.SSTORE(0, 2)),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 1),
+                        action=Op.SSTORE(0, 1),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 2),
+                        action=Op.SSTORE(0, 2),
+                    ),
                 ],
                 default_action=Op.SSTORE(0, 3),
             ),
@@ -285,8 +333,14 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes) -> None:
             Hash(2),
             Switch(
                 cases=[
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1)),
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 2), action=Op.SSTORE(0, 2)),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 1),
+                        action=Op.SSTORE(0, 1),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 2),
+                        action=Op.SSTORE(0, 2),
+                    ),
                 ],
                 default_action=Op.SSTORE(0, 3),
             ),
@@ -297,11 +351,26 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes) -> None:
             Hash(1),
             Switch(
                 cases=[
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1)),
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 2), action=Op.SSTORE(0, 2)),
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 3), action=Op.SSTORE(0, 3)),
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 4), action=Op.SSTORE(0, 4)),
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 5), action=Op.SSTORE(0, 5)),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 1),
+                        action=Op.SSTORE(0, 1),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 2),
+                        action=Op.SSTORE(0, 2),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 3),
+                        action=Op.SSTORE(0, 3),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 4),
+                        action=Op.SSTORE(0, 4),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 5),
+                        action=Op.SSTORE(0, 5),
+                    ),
                 ],
                 default_action=Op.SSTORE(0, 6),
             ),
@@ -327,11 +396,26 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes) -> None:
             Hash(3),
             Switch(
                 cases=[
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1)),
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 2), action=Op.SSTORE(0, 2)),
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 3), action=Op.SSTORE(0, 3)),
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 4), action=Op.SSTORE(0, 4)),
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 5), action=Op.SSTORE(0, 5)),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 1),
+                        action=Op.SSTORE(0, 1),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 2),
+                        action=Op.SSTORE(0, 2),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 3),
+                        action=Op.SSTORE(0, 3),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 4),
+                        action=Op.SSTORE(0, 4),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 5),
+                        action=Op.SSTORE(0, 5),
+                    ),
                 ],
                 default_action=Op.SSTORE(0, 6),
             ),
@@ -357,11 +441,26 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes) -> None:
             Hash(5),
             Switch(
                 cases=[
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1)),
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 2), action=Op.SSTORE(0, 2)),
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 3), action=Op.SSTORE(0, 3)),
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 4), action=Op.SSTORE(0, 4)),
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 5), action=Op.SSTORE(0, 5)),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 1),
+                        action=Op.SSTORE(0, 1),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 2),
+                        action=Op.SSTORE(0, 2),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 3),
+                        action=Op.SSTORE(0, 3),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 4),
+                        action=Op.SSTORE(0, 4),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 5),
+                        action=Op.SSTORE(0, 5),
+                    ),
                 ],
                 default_action=Op.SSTORE(0, 6),
             ),
@@ -372,11 +471,26 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes) -> None:
             Hash(3),
             Switch(
                 cases=[
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1)),
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 2), action=Op.SSTORE(0, 2)),
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 3), action=Op.SSTORE(0, 3)),
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 3), action=Op.SSTORE(0, 4)),
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 3), action=Op.SSTORE(0, 5)),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 1),
+                        action=Op.SSTORE(0, 1),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 2),
+                        action=Op.SSTORE(0, 2),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 3),
+                        action=Op.SSTORE(0, 3),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 3),
+                        action=Op.SSTORE(0, 4),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 3),
+                        action=Op.SSTORE(0, 5),
+                    ),
                 ],
                 default_action=Op.SSTORE(0, 6),
             ),
@@ -387,11 +501,26 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes) -> None:
             Hash(9),
             Switch(
                 cases=[
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1)),
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 2), action=Op.SSTORE(0, 2)),
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 3), action=Op.SSTORE(0, 3)),
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 4), action=Op.SSTORE(0, 4)),
-                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 5), action=Op.SSTORE(0, 5)),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 1),
+                        action=Op.SSTORE(0, 1),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 2),
+                        action=Op.SSTORE(0, 2),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 3),
+                        action=Op.SSTORE(0, 3),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 4),
+                        action=Op.SSTORE(0, 4),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 5),
+                        action=Op.SSTORE(0, 5),
+                    ),
                 ],
                 default_action=Op.SSTORE(0, 6),
             ),
@@ -421,9 +550,14 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes) -> None:
                     Case(condition=Op.EQ(1, 2), action=Op.SSTORE(0, 1)),
                     Case(
                         condition=Op.EQ(1, 2),
-                        action=Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.SSTORE(2, 1),
+                        action=Op.SSTORE(0, 1)
+                        + Op.SSTORE(1, 1)
+                        + Op.SSTORE(2, 1),
                     ),
-                    Case(condition=Op.EQ(1, 1), action=Op.SSTORE(0, 2) + Op.SSTORE(1, 2)),
+                    Case(
+                        condition=Op.EQ(1, 1),
+                        action=Op.SSTORE(0, 2) + Op.SSTORE(1, 2),
+                    ),
                     Case(condition=Op.EQ(1, 2), action=Op.SSTORE(0, 1)),
                 ],
                 default_action=None,
@@ -445,7 +579,9 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes) -> None:
                     ),
                     Case(
                         condition=Op.EQ(1, 2),
-                        action=Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.SSTORE(2, 1),
+                        action=Op.SSTORE(0, 1)
+                        + Op.SSTORE(1, 1)
+                        + Op.SSTORE(2, 1),
                     ),
                     Case(
                         condition=Op.EQ(1, 1),
@@ -476,7 +612,9 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes) -> None:
                     ),
                     Case(
                         condition=Op.EQ(1, 2),
-                        action=Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.SSTORE(2, 1),
+                        action=Op.SSTORE(0, 1)
+                        + Op.SSTORE(1, 1)
+                        + Op.SSTORE(2, 1),
                     ),
                     Case(
                         condition=Op.EQ(1, 1),
@@ -496,7 +634,12 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes) -> None:
         pytest.param(
             Hash(1),
             Switch(
-                cases=[Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1))],
+                cases=[
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 1),
+                        action=Op.SSTORE(0, 1),
+                    )
+                ],
                 default_action=Op.PUSH32(2**256 - 1) * 8,
             ),
             {0: 1},
@@ -505,7 +648,12 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes) -> None:
         pytest.param(
             Hash(1),
             Switch(
-                cases=[Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1))],
+                cases=[
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 1),
+                        action=Op.SSTORE(0, 1),
+                    )
+                ],
                 default_action=Op.PUSH32(2**256 - 1) * 2048,
             ),
             {0: 1},
@@ -514,7 +662,10 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes) -> None:
     ],
 )
 def test_switch(
-    tx_data: bytes, switch_bytecode: bytes, expected_storage: Mapping, default_t8n: TransitionTool
+    tx_data: bytes,
+    switch_bytecode: bytes,
+    expected_storage: Mapping,
+    default_t8n: TransitionTool,
 ) -> None:
     """
     Test that the switch opcode macro gets executed as using the t8n tool.
@@ -526,8 +677,16 @@ def test_switch(
             TestAddress: Account(balance=10_000_000),
         }
     )
-    tx = Transaction(to=code_address, data=tx_data, gas_limit=1_000_000, secret_key=TestPrivateKey)
-    post = {TestAddress: Account(nonce=1), code_address: Account(storage=expected_storage)}
+    tx = Transaction(
+        to=code_address,
+        data=tx_data,
+        gas_limit=1_000_000,
+        secret_key=TestPrivateKey,
+    )
+    post = {
+        TestAddress: Account(nonce=1),
+        code_address: Account(storage=expected_storage),
+    }
     state_test = StateTest(
         env=Environment(),
         pre=pre,
@@ -549,4 +708,6 @@ def test_full_opcode_range() -> None:
     assert len(set(Op) & set(UndefinedOpcodes)) == 0
     full_possible_opcode_set = set(Op) | set(UndefinedOpcodes)
     assert len(full_possible_opcode_set) == 257
-    assert {op.hex() for op in full_possible_opcode_set} == {f"{i:02x}" for i in range(256)}
+    assert {op.hex() for op in full_possible_opcode_set} == {
+        f"{i:02x}" for i in range(256)
+    }

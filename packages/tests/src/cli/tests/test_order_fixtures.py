@@ -11,7 +11,9 @@ from click.testing import CliRunner
 from ..order_fixtures import order_fixtures, process_directory
 
 
-def create_temp_json_file(directory: Path, name: str, content: dict[str, Any]) -> Path:
+def create_temp_json_file(
+    directory: Path, name: str, content: dict[str, Any]
+) -> Path:
     """Create a temporary JSON file with specified content."""
     file_path = directory / name
     with file_path.open("w") as f:
@@ -50,7 +52,8 @@ def test_cli_invocation(input_output_dirs: tuple[Path, Path]) -> None:
     create_temp_json_file(input_dir, "test.json", {"c": 2, "b": [4, 3, 5]})
 
     result = runner.invoke(
-        order_fixtures, ["--input", str(input_dir), "--output", str(output_dir)]
+        order_fixtures,
+        ["--input", str(input_dir), "--output", str(output_dir)],
     )
 
     assert result.exit_code == 0
@@ -66,7 +69,9 @@ def test_input_is_file_instead_of_directory() -> None:
         temp_file = Path(temp_dir) / "temp_file.txt"
         temp_file.touch()
 
-        result = runner.invoke(order_fixtures, ["--input", str(temp_file), "--output", temp_dir])
+        result = runner.invoke(
+            order_fixtures, ["--input", str(temp_file), "--output", temp_dir]
+        )
 
         assert result.exit_code != 0
         assert "Error: Invalid value for '--input'" in result.output
@@ -79,7 +84,8 @@ def test_input_directory_does_not_exist() -> None:
         non_existent_dir = Path(temp_dir) / "nonexistent"
 
         result = runner.invoke(
-            order_fixtures, ["--input", str(non_existent_dir), "--output", temp_dir]
+            order_fixtures,
+            ["--input", str(non_existent_dir), "--output", temp_dir],
         )
 
         assert result.exit_code != 0

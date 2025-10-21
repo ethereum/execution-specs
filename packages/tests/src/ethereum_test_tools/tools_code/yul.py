@@ -40,7 +40,9 @@ class Solc:
             )
         self.binary = Path(binary)
 
-    def run(self, *args: str, input_value: str | None = None) -> CompletedProcess:
+    def run(
+        self, *args: str, input_value: str | None = None
+    ) -> CompletedProcess:
         """Run solc with the given arguments."""
         return run(
             [self.binary, *args],
@@ -87,7 +89,9 @@ class Yul(Bytecode):
         if result.returncode:
             stderr_lines = result.stderr.splitlines()
             stderr_message = "\n".join(line.strip() for line in stderr_lines)
-            raise Exception(f"failed to compile yul source:\n{stderr_message[7:]}")
+            raise Exception(
+                f"failed to compile yul source:\n{stderr_message[7:]}"
+            )
 
         lines = result.stdout.splitlines()
 

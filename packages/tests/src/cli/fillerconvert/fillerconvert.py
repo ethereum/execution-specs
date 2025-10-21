@@ -12,19 +12,27 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Filler parser.")
 
     parser.add_argument(
-        "mode", type=str, help="The type of filler we are trying to parse: blockchain/state."
+        "mode",
+        type=str,
+        help="The type of filler we are trying to parse: blockchain/state.",
     )
-    parser.add_argument("folder_path", type=Path, help="The path to the JSON/YML filler directory")
-    parser.add_argument("legacy_path", type=Path, help="The path to the legacy tests directory")
+    parser.add_argument(
+        "folder_path",
+        type=Path,
+        help="The path to the JSON/YML filler directory",
+    )
+    parser.add_argument(
+        "legacy_path", type=Path, help="The path to the legacy tests directory"
+    )
 
     args = parser.parse_args()
     args.folder_path = Path(str(args.folder_path).split("=")[-1])
     args.mode = str(args.mode).split("=")[-1]
 
     print("Scanning: " + str(args.folder_path))
-    files = glob(str(args.folder_path / "**" / "*.json"), recursive=True) + glob(
-        str(args.folder_path / "**" / "*.yml"), recursive=True
-    )
+    files = glob(
+        str(args.folder_path / "**" / "*.json"), recursive=True
+    ) + glob(str(args.folder_path / "**" / "*.yml"), recursive=True)
 
     if args.mode == "blockchain":
         raise NotImplementedError("Blockchain filler not implemented yet.")
@@ -35,8 +43,12 @@ def main() -> None:
             print("Verify: " + file)
             refilled_file = file
             relative_file = file.removeprefix(str(args.folder_path))[1:]
-            original_file = args.legacy_path / "GeneralStateTests" / relative_file
-            verified_vectors += verify_refilled(Path(refilled_file), original_file)
+            original_file = (
+                args.legacy_path / "GeneralStateTests" / relative_file
+            )
+            verified_vectors += verify_refilled(
+                Path(refilled_file), original_file
+            )
         print(f"Total vectors verified: {verified_vectors}")
 
         # Solidity skipped tests

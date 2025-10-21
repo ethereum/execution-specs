@@ -22,7 +22,9 @@ class AppConfig(BaseModel):
         release_url = releases.get_release_url(spec)
         return release_url.split("/v")[-1].split("/")[0]
 
-    DEFAULT_LOGS_DIR: Path = Path(__file__).resolve().parent.parent.parent / "logs"
+    DEFAULT_LOGS_DIR: Path = (
+        Path(__file__).resolve().parent.parent.parent / "logs"
+    )
     """The default directory where log files are stored."""
 
     ROOT_DIR: Path = Path(__file__).resolve().parents[2]

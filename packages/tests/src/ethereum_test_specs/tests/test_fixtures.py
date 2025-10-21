@@ -19,8 +19,21 @@ from ethereum_test_fixtures import (
     FixtureFormat,
     StateFixture,
 )
-from ethereum_test_forks import Berlin, Cancun, Fork, Istanbul, London, Paris, Shanghai
-from ethereum_test_types import Alloc, Environment, Transaction, TransactionType
+from ethereum_test_forks import (
+    Berlin,
+    Cancun,
+    Fork,
+    Istanbul,
+    London,
+    Paris,
+    Shanghai,
+)
+from ethereum_test_types import (
+    Alloc,
+    Environment,
+    Transaction,
+    TransactionType,
+)
 from ethereum_test_vm import Opcodes as Op
 
 from ..blockchain import Block, BlockchainTest, Header
@@ -67,7 +80,9 @@ def test_check_helper_fixtures() -> None:
         Cancun,
     ],
 )
-def test_make_genesis(fork: Fork, fixture_hash: bytes, default_t8n: TransitionTool) -> None:  # noqa: D103
+def test_make_genesis(
+    fork: Fork, fixture_hash: bytes, default_t8n: TransitionTool
+) -> None:  # noqa: D103
     env = Environment(gas_limit=100_000_000_000_000_000)
 
     pre = Alloc(
@@ -126,8 +141,12 @@ def test_fill_state_test(
     )
 
     pre = {
-        0x1000000000000000000000000000000000000000: Account(code="0x4660015500"),
-        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(balance=1000000000000000000000),
+        0x1000000000000000000000000000000000000000: Account(
+            code="0x4660015500"
+        ),
+        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(
+            balance=1000000000000000000000
+        ),
     }
 
     if tx_type == TransactionType.LEGACY:
@@ -176,7 +195,9 @@ def test_fill_state_test(
     }
 
     format_name = fixture_format.format_name
-    expected_json_file = f"chainid_{fork.name().lower()}_{format_name}_tx_type_{tx_type}.json"
+    expected_json_file = (
+        f"chainid_{fork.name().lower()}_{format_name}_tx_type_{tx_type}.json"
+    )
     with open(
         os.path.join(
             "src",
@@ -210,12 +231,16 @@ class TestFillBlockchainValidTxs:
             return "blockchain_london_valid_filled.json"
         elif fork == Shanghai and check_hive:
             return "blockchain_shanghai_valid_filled_engine.json"
-        raise ValueError(f"Unexpected fork/check_hive combination: {fork}/{check_hive}")
+        raise ValueError(
+            f"Unexpected fork/check_hive combination: {fork}/{check_hive}"
+        )
 
     @pytest.fixture
     def pre(self, fork: Fork) -> Mapping[Any, Any]:  # noqa: D102
         pre = {
-            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(balance=0x1000000000000000000),
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(
+                balance=0x1000000000000000000
+            ),
             "0xd02d72E067e77158444ef2020Ff2d325f929B363": Account(
                 balance=0x1000000000000000000, nonce=1
             ),
@@ -224,7 +249,10 @@ class TestFillBlockchainValidTxs:
                 nonce=1,
                 code=(
                     Op.SSTORE(Op.NUMBER(), Op.BASEFEE())
-                    + Op.SSTORE(Op.ADD(Op.NUMBER(), 0x1000), Op.SUB(Op.GASPRICE(), Op.BASEFEE()))
+                    + Op.SSTORE(
+                        Op.ADD(Op.NUMBER(), 0x1000),
+                        Op.SUB(Op.GASPRICE(), Op.BASEFEE()),
+                    )
                     + Op.SSTORE(Op.ADD(Op.NUMBER(), 0x2000), Op.SELFBALANCE())
                     + Op.STOP()
                 ),
@@ -508,16 +536,21 @@ class TestFillBlockchainValidTxs:
         assert blockchain_test_fixture.__class__ == fixture_format
         # BlockchainEngineFixture inherits from BlockchainEngineFixtureCommon
         # (not BlockchainFixtureCommon)
-        from ethereum_test_fixtures.blockchain import BlockchainEngineFixtureCommon
+        from ethereum_test_fixtures.blockchain import (
+            BlockchainEngineFixtureCommon,
+        )
 
         assert isinstance(
-            blockchain_test_fixture, (BlockchainFixtureCommon, BlockchainEngineFixtureCommon)
+            blockchain_test_fixture,
+            (BlockchainFixtureCommon, BlockchainEngineFixtureCommon),
         )
 
         fixture_name = f"000/my_blockchain_test/{fork.name()}"
 
         fixture = {
-            fixture_name: blockchain_test_fixture.json_dict_with_info(hash_only=True),
+            fixture_name: blockchain_test_fixture.json_dict_with_info(
+                hash_only=True
+            ),
         }
 
         with open(
@@ -538,7 +571,9 @@ class TestFillBlockchainValidTxs:
         assert fixture[fixture_name] == expected[fixture_name]
 
     @pytest.mark.parametrize("fork", [London], indirect=True)
-    def test_fixture_header_join(self, blockchain_test_fixture: BlockchainFixture) -> None:
+    def test_fixture_header_join(
+        self, blockchain_test_fixture: BlockchainFixture
+    ) -> None:
         """Test `FixtureHeader.join()`."""
         block = blockchain_test_fixture.blocks[0]
         new_difficulty = block.header.difficulty - 1  # type: ignore
@@ -555,7 +590,9 @@ class TestFillBlockchainValidTxs:
         updated_block_header = header_new_fields.apply(block.header)  # type: ignore
         assert updated_block_header.difficulty == new_difficulty
         assert updated_block_header.state_root == new_state_root
-        assert updated_block_header.transactions_trie == Hash(new_transactions_root)
+        assert updated_block_header.transactions_trie == Hash(
+            new_transactions_root
+        )
         assert updated_block_header.block_hash != block.header.block_hash  # type: ignore
         assert isinstance(updated_block_header.transactions_trie, Hash)
 
@@ -568,11 +605,16 @@ class TestFillBlockchainValidTxs:
     ],
 )
 def test_fill_blockchain_invalid_txs(
-    fork: Fork, check_hive: bool, expected_json_file: str, default_t8n: TransitionTool
+    fork: Fork,
+    check_hive: bool,
+    expected_json_file: str,
+    default_t8n: TransitionTool,
 ) -> None:
     """Test `ethereum_test.filler.fill_fixtures` with `BlockchainTest`."""
     pre = {
-        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(balance=0x1000000000000000000),
+        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(
+            balance=0x1000000000000000000
+        ),
         "0xd02d72E067e77158444ef2020Ff2d325f929B363": Account(
             balance=0x1000000000000000000, nonce=1
         ),
@@ -581,7 +623,10 @@ def test_fill_blockchain_invalid_txs(
             nonce=1,
             code=(
                 Op.SSTORE(Op.NUMBER(), Op.BASEFEE())
-                + Op.SSTORE(Op.ADD(Op.NUMBER(), 0x1000), Op.SUB(Op.GASPRICE(), Op.BASEFEE()))
+                + Op.SSTORE(
+                    Op.ADD(Op.NUMBER(), 0x1000),
+                    Op.SUB(Op.GASPRICE(), Op.BASEFEE()),
+                )
                 + Op.SSTORE(Op.ADD(Op.NUMBER(), 0x2000), Op.SELFBALANCE())
                 + Op.STOP()
             ),
@@ -869,7 +914,9 @@ def test_fill_blockchain_invalid_txs(
         fee_recipient="0x0000000000000000000000000000000000000000",
     )
 
-    fixture_format: FixtureFormat = BlockchainEngineFixture if check_hive else BlockchainFixture
+    fixture_format: FixtureFormat = (
+        BlockchainEngineFixture if check_hive else BlockchainFixture
+    )
     generated_fixture = BlockchainTest(
         pre=pre,
         post=post,
@@ -881,7 +928,10 @@ def test_fill_blockchain_invalid_txs(
     # (not BlockchainFixtureCommon)
     from ethereum_test_fixtures.blockchain import BlockchainEngineFixtureCommon
 
-    assert isinstance(generated_fixture, (BlockchainFixtureCommon, BlockchainEngineFixtureCommon))
+    assert isinstance(
+        generated_fixture,
+        (BlockchainFixtureCommon, BlockchainEngineFixtureCommon),
+    )
 
     fixture_name = f"000/my_blockchain_test/{fork.name()}"
 

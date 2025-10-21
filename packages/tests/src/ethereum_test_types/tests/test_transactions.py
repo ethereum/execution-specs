@@ -132,7 +132,9 @@ from ..transaction_types import Transaction
                 nonce=0,
                 gas_price=1000000000,
                 to=None,
-                access_list=[AccessList(address=0x123, storage_keys=[0x456, 0x789])],
+                access_list=[
+                    AccessList(address=0x123, storage_keys=[0x456, 0x789])
+                ],
             ),
             (
                 0,
@@ -150,7 +152,9 @@ from ..transaction_types import Transaction
             Transaction(
                 ty=2,
                 nonce=0,
-                access_list=[AccessList(address=0x123, storage_keys=[0x456, 0x789])],
+                access_list=[
+                    AccessList(address=0x123, storage_keys=[0x456, 0x789])
+                ],
                 max_fee_per_gas=10,
                 max_priority_fee_per_gas=5,
             ),
@@ -171,7 +175,9 @@ from ..transaction_types import Transaction
                 ty=2,
                 nonce=0,
                 to=None,
-                access_list=[AccessList(address=0x123, storage_keys=[0x456, 0x789])],
+                access_list=[
+                    AccessList(address=0x123, storage_keys=[0x456, 0x789])
+                ],
                 max_fee_per_gas=10,
                 max_priority_fee_per_gas=5,
             ),
@@ -191,7 +197,9 @@ from ..transaction_types import Transaction
             Transaction(
                 ty=3,
                 nonce=0,
-                access_list=[AccessList(address=0x123, storage_keys=[0x456, 0x789])],
+                access_list=[
+                    AccessList(address=0x123, storage_keys=[0x456, 0x789])
+                ],
                 max_fee_per_gas=10,
                 max_priority_fee_per_gas=5,
                 max_fee_per_blob_gas=100,
@@ -213,7 +221,9 @@ from ..transaction_types import Transaction
             Transaction(
                 ty=3,
                 nonce=0,
-                access_list=[AccessList(address=0x123, storage_keys=[0x456, 0x789])],
+                access_list=[
+                    AccessList(address=0x123, storage_keys=[0x456, 0x789])
+                ],
                 max_fee_per_gas=10,
                 max_priority_fee_per_gas=5,
                 max_fee_per_blob_gas=100,

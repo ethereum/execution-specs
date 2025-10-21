@@ -48,7 +48,9 @@ def current_time() -> int:
 
 
 @pytest.fixture(scope="function")
-def expected_eth_config(network: NetworkConfig, current_time: int) -> EthConfigResponse:
+def expected_eth_config(
+    network: NetworkConfig, current_time: int
+) -> EthConfigResponse:
     """
     Calculate the current fork value to verify against the client's response.
     """
@@ -60,7 +62,9 @@ def test_eth_config_current(
     expected_eth_config: EthConfigResponse,
 ) -> None:
     """Validate `current` field of the `eth_config` RPC endpoint."""
-    assert eth_config_response is not None, "Client did not return a valid `eth_config` response."
+    assert eth_config_response is not None, (
+        "Client did not return a valid `eth_config` response."
+    )
     assert eth_config_response.current is not None, (
         "Client did not return a valid `current` fork config."
     )
@@ -77,14 +81,19 @@ def test_eth_config_current_fork_id(
     expected_eth_config: EthConfigResponse,
 ) -> None:
     """Validate `forkId` field within the `current` configuration object."""
-    assert eth_config_response is not None, "Client did not return a valid `eth_config` response."
+    assert eth_config_response is not None, (
+        "Client did not return a valid `eth_config` response."
+    )
     assert eth_config_response.current is not None, (
         "Client did not return a valid `current` fork config."
     )
     assert eth_config_response.current.fork_id is not None, (
         "Client did not return a valid `forkId` in the current fork config."
     )
-    assert eth_config_response.current.fork_id == expected_eth_config.current.fork_id, (
+    assert (
+        eth_config_response.current.fork_id
+        == expected_eth_config.current.fork_id
+    ), (
         "Client's `current.forkId` does not match expected value: "
         f"{eth_config_response.current.fork_id} != "
         f"{expected_eth_config.current.fork_id}"
@@ -96,7 +105,9 @@ def test_eth_config_next(
     expected_eth_config: EthConfigResponse,
 ) -> None:
     """Validate `next` field of the `eth_config` RPC endpoint."""
-    assert eth_config_response is not None, "Client did not return a valid `eth_config` response."
+    assert eth_config_response is not None, (
+        "Client did not return a valid `eth_config` response."
+    )
     expected_next = expected_eth_config.next
     if expected_next is None:
         assert eth_config_response.next is None, (
@@ -118,7 +129,9 @@ def test_eth_config_next_fork_id(
     expected_eth_config: EthConfigResponse,
 ) -> None:
     """Validate `forkId` field within the `next` configuration object."""
-    assert eth_config_response is not None, "Client did not return a valid `eth_config` response."
+    assert eth_config_response is not None, (
+        "Client did not return a valid `eth_config` response."
+    )
     expected_next = expected_eth_config.next
     if expected_next is None:
         assert eth_config_response.next is None, (
@@ -135,7 +148,9 @@ def test_eth_config_next_fork_id(
             )
         else:
             received_fork_id = eth_config_response.next.fork_id
-            assert received_fork_id is not None, "Client did not return a valid `next.forkId`."
+            assert received_fork_id is not None, (
+                "Client did not return a valid `next.forkId`."
+            )
             assert received_fork_id == expected_next_fork_id, (
                 "Client's `next.forkId` does not match expected value: "
                 f"{received_fork_id} != "
@@ -149,7 +164,9 @@ def test_eth_config_last(
 ) -> None:
     """Validate `last` field of the `eth_config` RPC endpoint."""
     expected_last = expected_eth_config.last
-    assert eth_config_response is not None, "Client did not return a valid `eth_config` response."
+    assert eth_config_response is not None, (
+        "Client did not return a valid `eth_config` response."
+    )
     if expected_last is None:
         assert eth_config_response.last is None, (
             "Client returned a `last` fork config but expected None."
@@ -170,7 +187,9 @@ def test_eth_config_last_fork_id(
     expected_eth_config: EthConfigResponse,
 ) -> None:
     """Validate `forkId` field within the `last` configuration object."""
-    assert eth_config_response is not None, "Client did not return a valid `eth_config` response."
+    assert eth_config_response is not None, (
+        "Client did not return a valid `eth_config` response."
+    )
     expected_last = expected_eth_config.last
     if expected_last is None:
         assert eth_config_response.last is None, (
@@ -187,7 +206,9 @@ def test_eth_config_last_fork_id(
             )
         else:
             received_fork_id = eth_config_response.last.fork_id
-            assert received_fork_id is not None, "Client did not return a valid `last.forkId`."
+            assert received_fork_id is not None, (
+                "Client did not return a valid `last.forkId`."
+            )
             assert received_fork_id == expected_last_fork_id, (
                 "Client's `last.forkId` does not match expected value: "
                 f"{received_fork_id} != "
@@ -211,7 +232,9 @@ def test_eth_config_majority(
             try:
                 response = eth_rpc_target.config(timeout=5)
                 if response is None:
-                    logger.warning(f"Got 'None' as eth_config response from {eth_rpc_target}")
+                    logger.warning(
+                        f"Got 'None' as eth_config response from {eth_rpc_target}"
+                    )
                     continue
             except Exception as e:
                 logger.warning(
@@ -219,7 +242,9 @@ def test_eth_config_majority(
                 )
                 continue
 
-            response_str = json.dumps(response.model_dump(mode="json"), sort_keys=True)
+            response_str = json.dumps(
+                response.model_dump(mode="json"), sort_keys=True
+            )
             responses[exec_client] = response_str
             client_to_url_used_dict[exec_client] = (
                 eth_rpc_target.url
@@ -259,7 +284,10 @@ def test_eth_config_majority(
             + "\n\t".join(f"{k}: {v}" for k, v in client_to_hash_dict.items())
             + "\n\n"
             "Here is an overview of which URLs were contacted:\n\t"
-            + "\n\t".join(f"{k}: @{v.split('@')[1]}" for k, v in client_to_url_used_dict.items())
+            + "\n\t".join(
+                f"{k}: @{v.split('@')[1]}"
+                for k, v in client_to_url_used_dict.items()
+            )
             + "\n\n"
             # log which cl+el combinations were used without leaking full url
             "Here is a dump of all client responses:\n"
@@ -267,4 +295,6 @@ def test_eth_config_majority(
         )
     assert expected_hash != ""
 
-    logger.info("All clients returned the same eth_config response. Test has been passed!")
+    logger.info(
+        "All clients returned the same eth_config response. Test has been passed!"
+    )

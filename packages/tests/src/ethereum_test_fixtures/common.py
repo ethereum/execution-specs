@@ -23,10 +23,14 @@ class FixtureForkBlobSchedule(CamelModel):
     base_fee_update_fraction: ZeroPaddedHexNumber = Field(...)
 
 
-class FixtureBlobSchedule(EthereumTestRootModel[Dict[str, FixtureForkBlobSchedule]]):
+class FixtureBlobSchedule(
+    EthereumTestRootModel[Dict[str, FixtureForkBlobSchedule]]
+):
     """Blob schedule configuration dictionary."""
 
-    root: Dict[str, FixtureForkBlobSchedule] = Field(default_factory=dict, validate_default=True)
+    root: Dict[str, FixtureForkBlobSchedule] = Field(
+        default_factory=dict, validate_default=True
+    )
 
     @classmethod
     def from_blob_schedule(
@@ -45,7 +49,9 @@ class FixtureAuthorizationTuple(
 ):
     """Authorization tuple for fixture transactions."""
 
-    v: ZeroPaddedHexNumber = Field(validation_alias=AliasChoices("v", "yParity"))
+    v: ZeroPaddedHexNumber = Field(
+        validation_alias=AliasChoices("v", "yParity")
+    )
     r: ZeroPaddedHexNumber
     s: ZeroPaddedHexNumber
 

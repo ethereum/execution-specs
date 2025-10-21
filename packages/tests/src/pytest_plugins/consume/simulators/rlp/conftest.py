@@ -53,7 +53,9 @@ def buffered_blocks_rlp(blocks_rlp: List[bytes]) -> list[io.BufferedReader]:
     block_rlp_files: list[io.BufferedReader] = []
     for _, block_rlp in enumerate(blocks_rlp):
         block_rlp_stream = io.BytesIO(block_rlp)
-        block_rlp_files.append(io.BufferedReader(cast(io.RawIOBase, block_rlp_stream)))
+        block_rlp_files.append(
+            io.BufferedReader(cast(io.RawIOBase, block_rlp_stream))
+        )
     return block_rlp_files
 
 
@@ -69,6 +71,9 @@ def client_files(
     - Keys are the target file paths in the client's docker container, and,
     - Values are in-memory buffered file objects.
     """
-    files = {f"/blocks/{i + 1:04d}.rlp": rlp for i, rlp in enumerate(buffered_blocks_rlp)}
+    files = {
+        f"/blocks/{i + 1:04d}.rlp": rlp
+        for i, rlp in enumerate(buffered_blocks_rlp)
+    }
     files["/genesis.json"] = buffered_genesis
     return files

@@ -41,7 +41,11 @@ class ChecklistItemMeta(type):
         cls._override_name = override_name
 
         # Set the path for this class
-        item_name = override_name if override_name is not None else camel_to_snake(name)
+        item_name = (
+            override_name
+            if override_name is not None
+            else camel_to_snake(name)
+        )
 
         if parent_path:
             # Convert class name to snake_case and append to parent path
@@ -168,7 +172,9 @@ class EIPChecklist:
 
                     pass
 
-                class ThirtyThreeBytes(ChecklistItem, override_name="33_bytes"):
+                class ThirtyThreeBytes(
+                    ChecklistItem, override_name="33_bytes"
+                ):
                     """33 bytes expansion."""
 
                     pass
@@ -185,7 +191,9 @@ class EIPChecklist:
 
                     pass
 
-                class TwoThirtyTwoBytes(ChecklistItem, override_name="2_32_bytes"):
+                class TwoThirtyTwoBytes(
+                    ChecklistItem, override_name="2_32_bytes"
+                ):
                     """2**32 bytes expansion."""
 
                     pass
@@ -197,7 +205,9 @@ class EIPChecklist:
 
                     pass
 
-                class TwoSixtyFourBytes(ChecklistItem, override_name="2_64_bytes"):
+                class TwoSixtyFourBytes(
+                    ChecklistItem, override_name="2_64_bytes"
+                ):
                     """2**64 bytes expansion."""
 
                     pass
@@ -240,7 +250,9 @@ class EIPChecklist:
 
                         pass
 
-                class DataPortionVariables(ChecklistItem, override_name="data_portion_variables"):
+                class DataPortionVariables(
+                    ChecklistItem, override_name="data_portion_variables"
+                ):
                     """
                     If the opcode contains variables in its data portion, for
                     each variable `n` of the opcode that accesses the nth stack
@@ -1059,7 +1071,9 @@ class EIPChecklist:
 
                     pass
 
-                class RaisesException(ChecklistItem, override_name="exception"):
+                class RaisesException(
+                    ChecklistItem, override_name="exception"
+                ):
                     """Modified to cause exception."""
 
                     pass

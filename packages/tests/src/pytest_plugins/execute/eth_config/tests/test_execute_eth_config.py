@@ -424,7 +424,9 @@ def network_configs() -> NetworkConfigFile:
 
 
 @pytest.fixture
-def network(request: pytest.FixtureRequest, network_configs: NetworkConfigFile) -> NetworkConfig:
+def network(
+    request: pytest.FixtureRequest, network_configs: NetworkConfigFile
+) -> NetworkConfig:
     """Get the network that is under test."""
     network_name = request.param
     assert network_name in network_configs.root, (

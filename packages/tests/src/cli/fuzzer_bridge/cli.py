@@ -8,7 +8,13 @@ from pathlib import Path
 from typing import Any, Dict, Generator, Optional, Tuple
 
 import click
-from rich.progress import BarColumn, Progress, TaskProgressColumn, TextColumn, TimeElapsedColumn
+from rich.progress import (
+    BarColumn,
+    Progress,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
 
 from ethereum_clis import GethTransitionTool, TransitionTool
 
@@ -60,7 +66,9 @@ def process_single_file(
     if random_blocks:
         from .blocktest_builder import choose_random_num_blocks
 
-        actual_num_blocks = choose_random_num_blocks(len(fuzzer_data.get("transactions", [])))
+        actual_num_blocks = choose_random_num_blocks(
+            len(fuzzer_data.get("transactions", []))
+        )
     else:
         actual_num_blocks = num_blocks
 
@@ -98,12 +106,16 @@ def process_single_file_worker(
     block_strategy: str = "distribute",
     block_time: int = 12,
     random_blocks: bool = False,
-) -> Tuple[Optional[Tuple[Path, Dict[str, Any]]], Optional[Tuple[Path, Exception]]]:
+) -> Tuple[
+    Optional[Tuple[Path, Dict[str, Any]]], Optional[Tuple[Path, Exception]]
+]:
     """Process a single file in a worker process."""
     json_file_path, output_file = file_info
 
     # Create transition tool and builder for this worker
-    t8n = GethTransitionTool(binary=evm_bin) if evm_bin else GethTransitionTool()
+    t8n = (
+        GethTransitionTool(binary=evm_bin) if evm_bin else GethTransitionTool()
+    )
     builder = BlocktestBuilder(t8n)
 
     try:
@@ -118,7 +130,9 @@ def process_single_file_worker(
         if random_blocks:
             from .blocktest_builder import choose_random_num_blocks
 
-            actual_num_blocks = choose_random_num_blocks(len(fuzzer_data.get("transactions", [])))
+            actual_num_blocks = choose_random_num_blocks(
+                len(fuzzer_data.get("transactions", []))
+            )
         else:
             actual_num_blocks = num_blocks
 
@@ -159,7 +173,9 @@ def process_file_batch(
 ) -> Tuple[list[Tuple[Path, Dict[str, Any]]], list[Tuple[Path, Exception]]]:
     """Process a batch of files in a worker process."""
     # Create transition tool per worker
-    t8n = GethTransitionTool(binary=evm_bin) if evm_bin else GethTransitionTool()
+    t8n = (
+        GethTransitionTool(binary=evm_bin) if evm_bin else GethTransitionTool()
+    )
     builder = BlocktestBuilder(t8n)
 
     results = []
@@ -250,7 +266,11 @@ def process_directory_parallel(
 
     with Progress(
         TextColumn("[bold cyan]{task.fields[filename]}", justify="left"),
-        BarColumn(bar_width=None, complete_style="green3", finished_style="bold green3"),
+        BarColumn(
+            bar_width=None,
+            complete_style="green3",
+            finished_style="bold green3",
+        ),
         TaskProgressColumn(),
         TextColumn("[dim]({task.fields[workers]} workers)[/dim]"),
         TimeElapsedColumn(),
@@ -258,7 +278,10 @@ def process_directory_parallel(
         disable=quiet,
     ) as progress:
         task_id = progress.add_task(
-            "Processing", total=file_count, filename="Starting...", workers=num_workers
+            "Processing",
+            total=file_count,
+            filename="Starting...",
+            workers=num_workers,
         )
 
         # Process files individually in parallel (better progress tracking)
@@ -308,12 +331,19 @@ def process_directory_parallel(
                             )
 
                     # Update progress bar
-                    progress.update(task_id, advance=1, filename=display_name, workers=num_workers)
+                    progress.update(
+                        task_id,
+                        advance=1,
+                        filename=display_name,
+                        workers=num_workers,
+                    )
 
                 except Exception as e:
                     error_count += 1
                     if not quiet:
-                        progress.console.print(f"[red]Worker error for {file_path}: {e}[/red]")
+                        progress.console.print(
+                            f"[red]Worker error for {file_path}: {e}[/red]"
+                        )
                     progress.update(task_id, advance=1, filename=display_name)
 
         # Write merged file if requested
@@ -325,7 +355,9 @@ def process_directory_parallel(
                 else:
                     json.dump(all_fixtures, f)
             if not quiet:
-                progress.console.print(f"[green]Merged fixtures written to: {merged_file}[/green]")
+                progress.console.print(
+                    f"[green]Merged fixtures written to: {merged_file}[/green]"
+                )
 
         # Final status
         if not quiet:
@@ -359,13 +391,19 @@ def process_directory(
 
     with Progress(
         TextColumn("[bold cyan]{task.fields[filename]}", justify="left"),
-        BarColumn(bar_width=None, complete_style="green3", finished_style="bold green3"),
+        BarColumn(
+            bar_width=None,
+            complete_style="green3",
+            finished_style="bold green3",
+        ),
         TaskProgressColumn(),
         TimeElapsedColumn(),
         expand=True,
         disable=quiet,
     ) as progress:
-        task_id = progress.add_task("Processing", total=file_count, filename="...")
+        task_id = progress.add_task(
+            "Processing", total=file_count, filename="..."
+        )
 
         for json_file_path in get_input_files(input_dir):
             # Preserve directory structure
@@ -422,7 +460,9 @@ def process_directory(
             except Exception as e:
                 error_count += 1
                 if not quiet:
-                    progress.console.print(f"[red]Error processing {json_file_path}: {e}[/red]")
+                    progress.console.print(
+                        f"[red]Error processing {json_file_path}: {e}[/red]"
+                    )
 
         # Write merged file if requested
         if merge and all_fixtures:
@@ -433,7 +473,9 @@ def process_directory(
                 else:
                     json.dump(all_fixtures, f)
             if not quiet:
-                progress.console.print(f"[green]Merged fixtures written to: {merged_file}[/green]")
+                progress.console.print(
+                    f"[green]Merged fixtures written to: {merged_file}[/green]"
+                )
 
         # Final status
         if not quiet:
@@ -475,7 +517,11 @@ def batch_mode(
     builder = BlocktestBuilder(t8n)
 
     # Write ready signal to stderr for debugging
-    print("Batch mode initialized. Ready to process files.", file=sys.stderr, flush=True)
+    print(
+        "Batch mode initialized. Ready to process files.",
+        file=sys.stderr,
+        flush=True,
+    )
 
     while True:
         try:
@@ -555,7 +601,10 @@ def batch_mode(
                 # Log full traceback to stderr for debugging
                 traceback.print_exc(file=sys.stderr)
             except Exception as e:
-                print(f"ERROR: conversion failed for {input_path}: {e}", flush=True)
+                print(
+                    f"ERROR: conversion failed for {input_path}: {e}",
+                    flush=True,
+                )
                 # Log full traceback to stderr for debugging
                 traceback.print_exc(file=sys.stderr)
 
@@ -570,7 +619,9 @@ def batch_mode(
 @click.command()
 @click.argument(
     "input_path",
-    type=click.Path(exists=True, dir_okay=True, file_okay=True, path_type=Path),
+    type=click.Path(
+        exists=True, dir_okay=True, file_okay=True, path_type=Path
+    ),
     required=False,
 )
 @click.argument(

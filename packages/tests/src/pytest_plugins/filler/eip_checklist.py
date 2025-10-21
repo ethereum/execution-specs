@@ -48,7 +48,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 TITLE_LINE = "# EIP Execution Layer Testing Checklist Template"
-PERCENTAGE_LINE = "| TOTAL_CHECKLIST_ITEMS | COVERED_CHECKLIST_ITEMS | PERCENTAGE |"
+PERCENTAGE_LINE = (
+    "| TOTAL_CHECKLIST_ITEMS | COVERED_CHECKLIST_ITEMS | PERCENTAGE |"
+)
 TEMPLATE_PATH = (
     Path(__file__).parents[3]
     / "docs"
@@ -64,7 +66,9 @@ WARNINGS_LINE = "<!-- WARNINGS LINE -->"
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
-    config.pluginmanager.register(EIPChecklistCollector(), "eip-checklist-collector")
+    config.pluginmanager.register(
+        EIPChecklistCollector(), "eip-checklist-collector"
+    )
 
 
 @dataclass(kw_only=True)
@@ -79,7 +83,9 @@ class EIPItem:
     external_coverage_reason: str = ""
 
     @classmethod
-    def from_checklist_line(cls, *, line: str, line_number: int) -> "EIPItem | None":
+    def from_checklist_line(
+        cls, *, line: str, line_number: int
+    ) -> "EIPItem | None":
         """Create an EIP item from a checklist line."""
         match = re.match(r"\|\s*`([^`]+)`\s*\|\s*([^|]+)\s*\|", line)
         if not match:
@@ -183,7 +189,9 @@ class ChecklistWarning:
         return ["", f"### {self.title}", ""] + self.details + [""]
 
     @classmethod
-    def from_items(cls, all_items: Dict[str, EIPItem]) -> "ChecklistWarning | None":
+    def from_items(
+        cls, all_items: Dict[str, EIPItem]
+    ) -> "ChecklistWarning | None":
         """Generate a checklist warning from a list of items."""
         raise NotImplementedError(f"from_items not implemented for {cls}")
 
@@ -194,12 +202,16 @@ class ConflictingChecklistItemsWarning(ChecklistWarning):
     title: ClassVar[str] = "Conflicting Checklist Items"
 
     @classmethod
-    def from_items(cls, all_items: Dict[str, EIPItem]) -> ChecklistWarning | None:
+    def from_items(
+        cls, all_items: Dict[str, EIPItem]
+    ) -> ChecklistWarning | None:
         """
         Generate a conflicting checklist items warning from a list of items.
         """
         conflicting_items = [
-            item for item in all_items.values() if item.not_applicable and item.covered
+            item
+            for item in all_items.values()
+            if item.not_applicable and item.covered
         ]
         if not conflicting_items:
             return None
@@ -234,23 +246,43 @@ class EIP:
     @property
     def covered_items(self) -> int:
         """Return the number of covered items."""
-        return sum(1 for item in self.items.values() if item.covered and not item.not_applicable)
-        return sum(1 for item in self.items.values() if item.covered and not item.not_applicable)
+        return sum(
+            1
+            for item in self.items.values()
+            if item.covered and not item.not_applicable
+        )
+        return sum(
+            1
+            for item in self.items.values()
+            if item.covered and not item.not_applicable
+        )
 
     @property
     def total_items(self) -> int:
         """Return the number of total items."""
-        return sum(1 for item in self.items.values() if not item.not_applicable)
+        return sum(
+            1 for item in self.items.values() if not item.not_applicable
+        )
 
     @property
     def percentage(self) -> float:
         """Return the percentage of covered items."""
-        return self.covered_items / self.total_items * 100 if self.total_items else 0
+        return (
+            self.covered_items / self.total_items * 100
+            if self.total_items
+            else 0
+        )
 
     @property
     def completeness_emoji(self) -> str:
         """Return the completeness emoji."""
-        return "🟢" if self.percentage == 100 else "🟡" if self.percentage > 50 else "🔴"
+        return (
+            "🟢"
+            if self.percentage == 100
+            else "🟡"
+            if self.percentage > 50
+            else "🔴"
+        )
 
     @property
     def warnings(self) -> List[ChecklistWarning]:
@@ -368,14 +400,18 @@ class EIPChecklistCollector:
         """Initialize the EIP checklist collector."""
         self.eips: Dict[int, EIP] = {}
 
-    def extract_eip_from_path(self, test_path: Path) -> Tuple[int | None, Path | None]:
+    def extract_eip_from_path(
+        self, test_path: Path
+    ) -> Tuple[int | None, Path | None]:
         """Extract EIP number from test file path."""
         # Look for patterns like eip1234_ or eip1234/ in the path
         for part_idx, part in enumerate(test_path.parts):
             match = re.match(r"eip(\d+)", part)
             if match:
                 eip = int(match.group(1))
-                eip_path = test_path.parents[len(test_path.parents) - part_idx - 2]
+                eip_path = test_path.parents[
+                    len(test_path.parents) - part_idx - 2
+                ]
                 return eip, eip_path
         return None, None
 
@@ -389,7 +425,9 @@ class EIPChecklistCollector:
                 if eip not in self.eips:
                     self.eips[eip] = EIP(
                         number=eip,
-                        path=test_path.parents[len(test_path.parents) - part_idx - 2],
+                        path=test_path.parents[
+                            len(test_path.parents) - part_idx - 2
+                        ],
                     )
                 else:
                     if self.eips[eip].path is None:
@@ -405,7 +443,9 @@ class EIPChecklistCollector:
             self.eips[eip] = EIP(number=eip, path=None)
         return self.eips[eip]
 
-    def collect_from_item(self, item: pytest.Item, primary_eip: EIP | None) -> None:
+    def collect_from_item(
+        self, item: pytest.Item, primary_eip: EIP | None
+    ) -> None:
         """Collect checklist markers from a test item."""
         for marker in item.iter_markers("eip_checklist"):
             if not marker.args:
@@ -452,13 +492,17 @@ class EIPChecklistCollector:
         """Collect checklist markers during test collection."""
         for item in items:
             eip = self.get_eip_from_item(item)
-            if item.get_closest_marker("derived_test") or item.get_closest_marker("skip"):
+            if item.get_closest_marker(
+                "derived_test"
+            ) or item.get_closest_marker("skip"):
                 continue
             self.collect_from_item(item, eip)
 
         # Check which mode we are in
         checklist_doc_gen = config.getoption("checklist_doc_gen", False)
-        checklist_output = config.getoption("checklist_output", Path("checklists"))
+        checklist_output = config.getoption(
+            "checklist_output", Path("checklists")
+        )
         checklist_eips = config.getoption("checklist_eips", [])
 
         checklist_props = {}
@@ -482,8 +526,12 @@ class EIPChecklistCollector:
                     lines=eip.generate_filled_checklist_lines(),
                 )
             else:
-                checklist_path = eip.generate_filled_checklist(checklist_output)
-                print(f"\nGenerated EIP-{eip.number} checklist: {checklist_path}")
+                checklist_path = eip.generate_filled_checklist(
+                    checklist_output
+                )
+                print(
+                    f"\nGenerated EIP-{eip.number} checklist: {checklist_path}"
+                )
 
         if checklist_doc_gen:
             config.checklist_props = checklist_props  # type: ignore

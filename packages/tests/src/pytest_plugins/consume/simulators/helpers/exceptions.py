@@ -21,7 +21,12 @@ class GenesisBlockMismatchExceptionError(Exception):
     blockhash.
     """
 
-    def __init__(self, *, expected_header: FixtureHeader, got_genesis_block: Dict[str, str]):
+    def __init__(
+        self,
+        *,
+        expected_header: FixtureHeader,
+        got_genesis_block: Dict[str, str],
+    ):
         """
         Initialize the exception with the expected and received genesis block
         headers.
@@ -46,20 +51,24 @@ class GenesisBlockMismatchExceptionError(Exception):
                 "\nIs the fork configuration correct?"
             )
         else:
-            message += (
-                "There were no differences in the expected and received genesis block headers."
-            )
+            message += "There were no differences in the expected and received genesis block headers."
         super().__init__(message)
 
     @staticmethod
-    def compare_models(expected: FixtureHeader, got: FixtureHeader) -> Tuple[Dict, List]:
+    def compare_models(
+        expected: FixtureHeader, got: FixtureHeader
+    ) -> Tuple[Dict, List]:
         """
         Compare two FixtureHeader model instances and return their differences.
         """
         differences = {}
         unexpected_fields = []
-        for (exp_name, exp_value), (got_name, got_value) in zip(expected, got, strict=False):
-            if "rlp" in exp_name or "fork" in exp_name:  # ignore rlp as not verbose enough
+        for (exp_name, exp_value), (got_name, got_value) in zip(
+            expected, got, strict=False
+        ):
+            if (
+                "rlp" in exp_name or "fork" in exp_name
+            ):  # ignore rlp as not verbose enough
                 continue
             if exp_value != got_value:
                 differences[exp_name] = {

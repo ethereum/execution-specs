@@ -11,7 +11,11 @@ from typing import Dict, List, Set
 import click
 import yaml
 
-from ethereum_test_base_types import EthereumTestRootModel, HexNumber, ZeroPaddedHexNumber
+from ethereum_test_base_types import (
+    EthereumTestRootModel,
+    HexNumber,
+    ZeroPaddedHexNumber,
+)
 from ethereum_test_specs import StateStaticTest
 from pytest_plugins.filler.static_filler import NoIntResolver
 
@@ -65,7 +69,9 @@ def _check_fixtures(
 
         # Parse the test file based on its format (YAML or JSON)
         if test_file.suffix == ".yml" or test_file.suffix == ".yaml":
-            loaded_yaml = yaml.load(test_file.read_text(), Loader=NoIntResolver)
+            loaded_yaml = yaml.load(
+                test_file.read_text(), Loader=NoIntResolver
+            )
             try:
                 parsed_test_file = StaticTestFile.model_validate(loaded_yaml)
             except Exception as e:
@@ -73,10 +79,14 @@ def _check_fixtures(
                     f"Unable to parse file {test_file}: {json.dumps(loaded_yaml, indent=2)}"
                 ) from e
         else:
-            parsed_test_file = StaticTestFile.model_validate_json(test_file_contents)
+            parsed_test_file = StaticTestFile.model_validate_json(
+                test_file_contents
+            )
 
         # Validate that the file contains exactly one test
-        assert len(parsed_test_file.root) == 1, f"File {test_file} contains more than one test."
+        assert len(parsed_test_file.root) == 1, (
+            f"File {test_file} contains more than one test."
+        )
         _, parsed_test = parsed_test_file.root.popitem()
 
         # Skip files with multiple gas limit values
@@ -121,11 +131,15 @@ def _check_fixtures(
         # Check if the new gas limit exceeds the maximum allowed
         if max_gas_limit is not None and new_gas_limit > max_gas_limit:
             if dry_run or verbose:
-                print(f"New gas limit ({new_gas_limit}) exceeds max ({max_gas_limit})")
+                print(
+                    f"New gas limit ({new_gas_limit}) exceeds max ({max_gas_limit})"
+                )
             continue
 
         if dry_run or verbose:
-            print(f"Test file {test_file} requires modification ({new_gas_limit})")
+            print(
+                f"Test file {test_file} requires modification ({new_gas_limit})"
+            )
 
         # Find the appropriate pattern to replace the current gas limit
         potential_types = [int, HexNumber, ZeroPaddedHexNumber]
@@ -135,11 +149,15 @@ def _check_fixtures(
         attempted_patterns = []
 
         for current_type in potential_types:
-            potential_substitute_pattern = rf"\b{current_type(current_gas_limit)}\b"
+            potential_substitute_pattern = (
+                rf"\b{current_type(current_gas_limit)}\b"
+            )
             potential_substitute_string = f"{current_type(new_gas_limit)}"
             if (
                 re.search(
-                    potential_substitute_pattern, test_file_contents, flags=re.RegexFlag.MULTILINE
+                    potential_substitute_pattern,
+                    test_file_contents,
+                    flags=re.RegexFlag.MULTILINE,
                 )
                 is not None
             ):
@@ -156,9 +174,13 @@ def _check_fixtures(
         assert substitute_string is not None
 
         # Perform the replacement in the test file content
-        new_test_file_contents = re.sub(substitute_pattern, substitute_string, test_file_contents)
+        new_test_file_contents = re.sub(
+            substitute_pattern, substitute_string, test_file_contents
+        )
 
-        assert test_file_contents != new_test_file_contents, "Could not modify test file"
+        assert test_file_contents != new_test_file_contents, (
+            "Could not modify test file"
+        )
 
         # Skip writing changes if this is a dry run
         if dry_run:
@@ -184,7 +206,9 @@ MAX_GAS_LIMIT = 16_777_216
     "--input",
     "-i",
     "input_str",
-    type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True),
+    type=click.Path(
+        exists=True, file_okay=True, dir_okay=False, readable=True
+    ),
     required=True,
     help="The input json file or directory containing json listing the new gas limits for the "
     "static test files files.",
@@ -214,7 +238,9 @@ MAX_GAS_LIMIT = 16_777_216
     expose_value=True,
     help="Print extra information.",
 )
-def main(input_str: str, max_gas_limit: int | None, dry_run: bool, verbose: bool) -> None:
+def main(
+    input_str: str, max_gas_limit: int | None, dry_run: bool, verbose: bool
+) -> None:
     """
     Perform checks on fixtures in the specified directory.
     """

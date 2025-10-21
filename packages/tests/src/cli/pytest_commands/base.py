@@ -149,7 +149,9 @@ class PytestCommand:
             return [str(path) for path in self.command_logic_test_paths]
         return []
 
-    def create_executions(self, pytest_args: List[str]) -> List[PytestExecution]:
+    def create_executions(
+        self, pytest_args: List[str]
+    ) -> List[PytestExecution]:
         """
         Create the list of pytest executions for this command.
 
@@ -203,4 +205,6 @@ def common_pytest_options(func: Callable[..., Any]) -> Callable[..., Any]:
         help="Show pytest's help message.",
     )(func)
 
-    return click.argument("pytest_args", nargs=-1, type=click.UNPROCESSED)(func)
+    return click.argument("pytest_args", nargs=-1, type=click.UNPROCESSED)(
+        func
+    )

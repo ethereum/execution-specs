@@ -145,7 +145,11 @@ def test_tarball_output_with_explicit_generate_all_formats() -> None:
     command = FillCommand()
 
     with patch.object(command, "process_arguments", side_effect=lambda x: x):
-        pytest_args = ["--output=fixtures.tar.gz", "--generate-all-formats", "tests/somedir/"]
+        pytest_args = [
+            "--output=fixtures.tar.gz",
+            "--generate-all-formats",
+            "tests/somedir/",
+        ]
         executions = command.create_executions(pytest_args)
 
     # Should trigger two-phase execution

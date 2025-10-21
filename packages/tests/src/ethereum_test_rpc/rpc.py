@@ -49,7 +49,10 @@ class SendTransactionExceptionError(Exception):
     tx_rlp: Bytes | None = None
 
     def __init__(
-        self, *args: Any, tx: Transaction | None = None, tx_rlp: Bytes | None = None
+        self,
+        *args: Any,
+        tx: Transaction | None = None,
+        tx_rlp: Bytes | None = None,
     ) -> None:
         """
         Initialize SendTransactionExceptionError class with the given
@@ -101,7 +104,9 @@ class BaseRPC:
         cls.namespace = namespace
 
     @retry(
-        retry=retry_if_exception_type((requests.ConnectionError, ConnectionRefusedError)),
+        retry=retry_if_exception_type(
+            (requests.ConnectionError, ConnectionRefusedError)
+        ),
         stop=stop_after_attempt(5),
         wait=wait_exponential(multiplier=0.5, min=0.5, max=4.0),
         before_sleep=before_sleep_log(logger, logging.WARNING),
@@ -126,7 +131,9 @@ class BaseRPC:
           application-level issues rather than transient network problems
         """
         logger.debug(f"Making HTTP request to {url}, timeout={timeout}")
-        return requests.post(url, json=json_payload, headers=headers, timeout=timeout)
+        return requests.post(
+            url, json=json_payload, headers=headers, timeout=timeout
+        )
 
     def post_request(
         self,
@@ -175,7 +182,9 @@ class BaseRPC:
         if "error" in response_json:
             raise JSONRPCError(**response_json["error"])
 
-        assert "result" in response_json, "RPC response didn't contain a result field"
+        assert "result" in response_json, (
+            "RPC response didn't contain a result field"
+        )
         result = response_json["result"]
         return result
 
@@ -214,7 +223,10 @@ class EthRPC(BaseRPC):
             try:
                 self.poll_interval = float(env_val)
             except ValueError:
-                logger.warning("Invalid EEST_POLL_INTERVAL=%r; falling back to 1.0s", env_val)
+                logger.warning(
+                    "Invalid EEST_POLL_INTERVAL=%r; falling back to 1.0s",
+                    env_val,
+                )
                 self.poll_interval = 1.0
         else:
             self.poll_interval = 1.0
@@ -236,7 +248,9 @@ class EthRPC(BaseRPC):
             pprint(e.errors())
             raise e
         except Exception as e:
-            logger.debug(f"exception occurred when sending JSON-RPC request: {e}")
+            logger.debug(
+                f"exception occurred when sending JSON-RPC request: {e}"
+            )
             raise e
 
     def chain_id(self) -> int:
@@ -251,29 +265,47 @@ class EthRPC(BaseRPC):
         `eth_getBlockByNumber`: Returns information about a block by block
         number.
         """
-        block = hex(block_number) if isinstance(block_number, int) else block_number
+        block = (
+            hex(block_number)
+            if isinstance(block_number, int)
+            else block_number
+        )
         params = [block, full_txs]
         response = self.post_request(method="getBlockByNumber", params=params)
         return response
 
-    def get_block_by_hash(self, block_hash: Hash, full_txs: bool = True) -> Any | None:
+    def get_block_by_hash(
+        self, block_hash: Hash, full_txs: bool = True
+    ) -> Any | None:
         """`eth_getBlockByHash`: Returns information about a block by hash."""
         params = [f"{block_hash}", full_txs]
         response = self.post_request(method="getBlockByHash", params=params)
         return response
 
-    def get_balance(self, address: Address, block_number: BlockNumberType = "latest") -> int:
+    def get_balance(
+        self, address: Address, block_number: BlockNumberType = "latest"
+    ) -> int:
         """
         `eth_getBalance`: Returns the balance of the account of given address.
         """
-        block = hex(block_number) if isinstance(block_number, int) else block_number
+        block = (
+            hex(block_number)
+            if isinstance(block_number, int)
+            else block_number
+        )
         params = [f"{address}", block]
         response = self.post_request(method="getBalance", params=params)
         return int(response, 16)
 
-    def get_code(self, address: Address, block_number: BlockNumberType = "latest") -> Bytes:
+    def get_code(
+        self, address: Address, block_number: BlockNumberType = "latest"
+    ) -> Bytes:
         """`eth_getCode`: Returns code at a given address."""
-        block = hex(block_number) if isinstance(block_number, int) else block_number
+        block = (
+            hex(block_number)
+            if isinstance(block_number, int)
+            else block_number
+        )
         params = [f"{address}", block]
         response = self.post_request(method="getCode", params=params)
         return Bytes(response)
@@ -285,12 +317,20 @@ class EthRPC(BaseRPC):
         `eth_getTransactionCount`: Returns the number of transactions sent from
         an address.
         """
-        block = hex(block_number) if isinstance(block_number, int) else block_number
+        block = (
+            hex(block_number)
+            if isinstance(block_number, int)
+            else block_number
+        )
         params = [f"{address}", block]
-        response = self.post_request(method="getTransactionCount", params=params)
+        response = self.post_request(
+            method="getTransactionCount", params=params
+        )
         return int(response, 16)
 
-    def get_transaction_by_hash(self, transaction_hash: Hash) -> TransactionByHashResponse | None:
+    def get_transaction_by_hash(
+        self, transaction_hash: Hash
+    ) -> TransactionByHashResponse | None:
         """`eth_getTransactionByHash`: Returns transaction details."""
         try:
             response = self.post_request(
@@ -305,7 +345,9 @@ class EthRPC(BaseRPC):
             pprint(e.errors())
             raise e
 
-    def get_transaction_receipt(self, transaction_hash: Hash) -> dict[str, Any] | None:
+    def get_transaction_receipt(
+        self, transaction_hash: Hash
+    ) -> dict[str, Any] | None:
         """
         `eth_getTransactionReceipt`: Returns transaction receipt.
 
@@ -318,13 +360,20 @@ class EthRPC(BaseRPC):
         return response
 
     def get_storage_at(
-        self, address: Address, position: Hash, block_number: BlockNumberType = "latest"
+        self,
+        address: Address,
+        position: Hash,
+        block_number: BlockNumberType = "latest",
     ) -> Hash:
         """
         `eth_getStorageAt`: Returns the value from a storage position at a
         given address.
         """
-        block = hex(block_number) if isinstance(block_number, int) else block_number
+        block = (
+            hex(block_number)
+            if isinstance(block_number, int)
+            else block_number
+        )
         params = [f"{address}", f"{position}", block]
         response = self.post_request(method="getStorageAt", params=params)
         return Hash(response)
@@ -351,7 +400,9 @@ class EthRPC(BaseRPC):
             assert result_hash is not None
             return result_hash
         except Exception as e:
-            raise SendTransactionExceptionError(str(e), tx_rlp=transaction_rlp) from e
+            raise SendTransactionExceptionError(
+                str(e), tx_rlp=transaction_rlp
+            ) from e
 
     def send_transaction(self, transaction: Transaction) -> Hash:
         """`eth_sendRawTransaction`: Send a transaction to the client."""
@@ -377,7 +428,10 @@ class EthRPC(BaseRPC):
         return [self.send_transaction(tx) for tx in transactions]
 
     def storage_at_keys(
-        self, account: Address, keys: List[Hash], block_number: BlockNumberType = "latest"
+        self,
+        account: Address,
+        keys: List[Hash],
+        block_number: BlockNumberType = "latest",
     ) -> Dict[Hash, Hash]:
         """
         Retrieve the storage values for the specified keys at a given address
@@ -389,7 +443,9 @@ class EthRPC(BaseRPC):
             results[key] = storage_value
         return results
 
-    def wait_for_transaction(self, transaction: Transaction) -> TransactionByHashResponse:
+    def wait_for_transaction(
+        self, transaction: Transaction
+    ) -> TransactionByHashResponse:
         """
         Use `eth_getTransactionByHash` to wait until a transaction is included
         in a block.
@@ -434,7 +490,9 @@ class EthRPC(BaseRPC):
                 break
             time.sleep(self.poll_interval)
         missing_txs_strings = [
-            f"{tx.hash} ({tx.model_dump_json()})" for tx in transactions if tx.hash in tx_hashes
+            f"{tx.hash} ({tx.model_dump_json()})"
+            for tx in transactions
+            if tx.hash in tx_hashes
         ]
         raise Exception(
             f"Transactions {', '.join(missing_txs_strings)} not included in a block "
@@ -446,7 +504,9 @@ class EthRPC(BaseRPC):
         self.send_transaction(transaction)
         return self.wait_for_transaction(transaction)
 
-    def send_wait_transactions(self, transactions: List[Transaction]) -> List[Any]:
+    def send_wait_transactions(
+        self, transactions: List[Transaction]
+    ) -> List[Any]:
         """
         Send list of transactions and waits until all of them are included in a
         block.

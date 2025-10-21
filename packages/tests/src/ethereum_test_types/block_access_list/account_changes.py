@@ -28,7 +28,9 @@ class BalNonceChange(CamelModel, RLPSerializable):
         HexNumber(1),
         description="Transaction index where the change occurred",
     )
-    post_nonce: HexNumber = Field(..., description="Nonce value after the transaction")
+    post_nonce: HexNumber = Field(
+        ..., description="Nonce value after the transaction"
+    )
 
     rlp_fields: ClassVar[List[str]] = ["tx_index", "post_nonce"]
 
@@ -42,7 +44,9 @@ class BalBalanceChange(CamelModel, RLPSerializable):
         HexNumber(1),
         description="Transaction index where the change occurred",
     )
-    post_balance: HexNumber = Field(..., description="Balance after the transaction")
+    post_balance: HexNumber = Field(
+        ..., description="Balance after the transaction"
+    )
 
     rlp_fields: ClassVar[List[str]] = ["tx_index", "post_balance"]
 
@@ -70,7 +74,9 @@ class BalStorageChange(CamelModel, RLPSerializable):
         HexNumber(1),
         description="Transaction index where the change occurred",
     )
-    post_value: StorageKey = Field(..., description="Value after the transaction")
+    post_value: StorageKey = Field(
+        ..., description="Value after the transaction"
+    )
 
     rlp_fields: ClassVar[List[str]] = ["tx_index", "post_value"]
 
@@ -107,7 +113,8 @@ class BalAccountChange(CamelModel, RLPSerializable):
         default_factory=list, description="List of storage changes"
     )
     storage_reads: List[StorageKey] = Field(
-        default_factory=list, description="List of storage slots that were read"
+        default_factory=list,
+        description="List of storage slots that were read",
     )
 
     rlp_fields: ClassVar[List[str]] = [

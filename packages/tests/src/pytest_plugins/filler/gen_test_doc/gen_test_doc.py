@@ -106,7 +106,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
 def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
     if config.getoption("gen_docs"):
         config.option.disable_html = True
-        config.pluginmanager.register(TestDocsGenerator(config), "test-case-doc-generator")
+        config.pluginmanager.register(
+            TestDocsGenerator(config), "test-case-doc-generator"
+        )
 
 
 def get_test_function_id(item: Item) -> str:
@@ -220,14 +222,17 @@ def get_docstring_one_liner(item: pytest.Item) -> str:
 def get_test_function_test_type(item: pytest.Item) -> str:
     """Get the test type for the test function based on its fixtures."""
     test_types: List[str] = [
-        spec_type.pytest_parameter_name() for spec_type in BaseTest.spec_types.values()
+        spec_type.pytest_parameter_name()
+        for spec_type in BaseTest.spec_types.values()
     ]
     item = cast(pytest.Function, item)  # help mypy infer type
     fixture_names = item.fixturenames
     for test_type in test_types:
         if test_type in fixture_names:
             return test_type
-    logger.warning(f"Could not determine the test function type for {item.nodeid}")
+    logger.warning(
+        f"Could not determine the test function type for {item.nodeid}"
+    )
     return f"unknown ([📖🐛]({create_github_issue_url('docs(bug): unknown test function type')}))"
 
 
@@ -238,7 +243,9 @@ class TestDocsGenerator:
         """Initialize the plugin with the given pytest config."""
         self.config = config
         self.target_fork: str = config.getoption("gen_docs_target_fork")
-        self.deployed_forks = [fork.name() for fork in get_forks() if fork.is_deployed()]
+        self.deployed_forks = [
+            fork.name() for fork in get_forks() if fork.is_deployed()
+        ]
         self._setup_logger()
         self.jinja2_env = Environment(
             loader=FileSystemLoader("docs/templates"),
@@ -275,7 +282,11 @@ class TestDocsGenerator:
         self.create_function_page_props(functions)
         self.create_module_page_props()
         # add the pages to the page_props dict
-        self.page_props = {**self.page_props, **self.function_page_props, **self.module_page_props}
+        self.page_props = {
+            **self.page_props,
+            **self.function_page_props,
+            **self.module_page_props,
+        }
         # this adds pages for the intermediate directory structure (tests,
         # tests/berlin)
         self.add_directory_page_props()
@@ -300,7 +311,9 @@ class TestDocsGenerator:
     ) -> None:
         """Add a summary line for the docs."""
         del exitstatus, config
-        terminalreporter.write_sep("=", f"{len(self.page_props)} doc pages generated", bold=True)
+        terminalreporter.write_sep(
+            "=", f"{len(self.page_props)} doc pages generated", bold=True
+        )
 
     def _setup_logger(self) -> None:
         """
@@ -340,8 +353,12 @@ class TestDocsGenerator:
         if ci and github_ref_name:
             return f"/execution-spec-tests/{github_ref_name}/"
         if ci and not github_ref_name:
-            raise Exception("Failed to determine target doc version (no GITHUB_REF_NAME env?).")
-        if ("--strict" in sys.argv or "deploy" in sys.argv) and not doc_version:
+            raise Exception(
+                "Failed to determine target doc version (no GITHUB_REF_NAME env?)."
+            )
+        if (
+            "--strict" in sys.argv or "deploy" in sys.argv
+        ) and not doc_version:
             # assume we're trying to deploy manually via mike (locally)
             raise Exception(
                 "Failed to determine target doc version during strict build (set "
@@ -361,7 +378,9 @@ class TestDocsGenerator:
 
         self.jinja2_env.globals.update(global_page_props)
 
-    def create_function_page_props(self, test_functions: Dict["str", List[Item]]) -> None:
+    def create_function_page_props(
+        self, test_functions: Dict["str", List[Item]]
+    ) -> None:
         """
         Traverse all test items and create a lookup of doc pages & required
         props.
@@ -369,10 +388,13 @@ class TestDocsGenerator:
         To do: Needs refactor.
         """
         skip_params = ["fork"] + [
-            spec_type.pytest_parameter_name() for spec_type in BaseTest.spec_types.values()
+            spec_type.pytest_parameter_name()
+            for spec_type in BaseTest.spec_types.values()
         ]
         for function_id, function_items in test_functions.items():
-            assert all(isinstance(item, pytest.Function) for item in function_items)
+            assert all(
+                isinstance(item, pytest.Function) for item in function_items
+            )
             # help mypy infer type
             items = cast(List[pytest.Function], function_items)
 
@@ -383,14 +405,19 @@ class TestDocsGenerator:
                     param_set = item.callspec.params
                     # Don't show skipped parameters as columns in the test case
                     # table
-                    keys = [key for key in param_set.keys() if key not in skip_params]
+                    keys = [
+                        key
+                        for key in param_set.keys()
+                        if key not in skip_params
+                    ]
                     values = [param_set[key] for key in keys]
                     # TODO: This formatting of bytes objects should be moved
                     # elsewhere
                     values = [
                         (
                             " ".join(
-                                f"<code>{chunk}</code>" for chunk in textwrap.wrap(value.hex(), 32)
+                                f"<code>{chunk}</code>"
+                                for chunk in textwrap.wrap(value.hex(), 32)
                             )
                             if isinstance(value, bytes)
                             else str(value)
@@ -404,14 +431,18 @@ class TestDocsGenerator:
                     test_cases.append(
                         TestCase(
                             full_id=item.nodeid,
-                            abbreviated_id=item.nodeid.split("[")[-1].rstrip("]"),
+                            abbreviated_id=item.nodeid.split("[")[-1].rstrip(
+                                "]"
+                            ),
                             fork=fork,
                             fixture_type=fixture_type,
                             params=dict(zip(keys, values, strict=False)),
                         )
                     )
 
-            module_relative_path = Path(items[0].module.__file__).relative_to(Path.cwd())
+            module_relative_path = Path(items[0].module.__file__).relative_to(
+                Path.cwd()
+            )
             source_url = generate_github_url(
                 str(module_relative_path),
                 branch_or_commit_or_tag=self.ref,
@@ -426,7 +457,9 @@ class TestDocsGenerator:
                 valid_from_fork = valid_from_marker.args[0].split(",")[-1]
 
             target_or_valid_fork = (
-                self.target_fork if valid_from_fork in self.deployed_forks else valid_from_fork
+                self.target_fork
+                if valid_from_fork in self.deployed_forks
+                else valid_from_fork
             )
             test_type = get_test_function_test_type(items[0])
 
@@ -434,7 +467,8 @@ class TestDocsGenerator:
                 [
                     case
                     for case in test_cases
-                    if case.fork == target_or_valid_fork and case.fixture_type == test_type
+                    if case.fork == target_or_valid_fork
+                    and case.fixture_type == test_type
                 ]
             )
 
@@ -450,7 +484,9 @@ class TestDocsGenerator:
                 package_name=get_test_function_import_path(items[0]),
                 test_case_count=test_case_count,
                 cases=test_cases,
-                fixture_formats=sorted({case.fixture_type for case in test_cases}),
+                fixture_formats=sorted(
+                    {case.fixture_type for case in test_cases}
+                ),
                 test_type=test_type,
                 docstring_one_liner=get_docstring_one_liner(items[0]),
                 html_static_page_target=f"./{get_test_function_name(items[0])}.html",
@@ -464,26 +500,30 @@ class TestDocsGenerator:
         for _function_id, function_page in self.function_page_props.items():
             if str(function_page.path) not in self.module_page_props:
                 module_path = function_page.path
-                self.module_page_props[str(function_page.path)] = ModulePageProps(
-                    title=sanitize_string_title(function_page.path.stem),
-                    source_code_url=function_page.source_code_url,
-                    target_or_valid_fork=function_page.target_or_valid_fork,
-                    path=module_path,
-                    pytest_node_id=str(module_path),
-                    package_name=get_import_path(module_path),
-                    is_benchmark=function_page.is_benchmark,
-                    is_stateful=function_page.is_stateful,
-                    test_functions=[
-                        TestFunction(
-                            name=function_page.title,
-                            test_type=function_page.test_type,
-                            test_case_count=function_page.test_case_count,
-                            docstring_one_liner=function_page.docstring_one_liner,
-                        )
-                    ],
+                self.module_page_props[str(function_page.path)] = (
+                    ModulePageProps(
+                        title=sanitize_string_title(function_page.path.stem),
+                        source_code_url=function_page.source_code_url,
+                        target_or_valid_fork=function_page.target_or_valid_fork,
+                        path=module_path,
+                        pytest_node_id=str(module_path),
+                        package_name=get_import_path(module_path),
+                        is_benchmark=function_page.is_benchmark,
+                        is_stateful=function_page.is_stateful,
+                        test_functions=[
+                            TestFunction(
+                                name=function_page.title,
+                                test_type=function_page.test_type,
+                                test_case_count=function_page.test_case_count,
+                                docstring_one_liner=function_page.docstring_one_liner,
+                            )
+                        ],
+                    )
                 )
             else:
-                existing_module_page = self.module_page_props[str(function_page.path)]
+                existing_module_page = self.module_page_props[
+                    str(function_page.path)
+                ]
                 if function_page.is_benchmark:
                     existing_module_page.is_benchmark = True
                 if function_page.is_stateful:
@@ -508,7 +548,8 @@ class TestDocsGenerator:
         for module_page in self.module_page_props.values():
             module_path_parts = module_page.path.parent.parts
             sub_paths.update(
-                Path(*module_path_parts[: i + 1]) for i in range(len(module_path_parts))
+                Path(*module_path_parts[: i + 1])
+                for i in range(len(module_path_parts))
             )
         for directory in sub_paths:
             directory_fork_name = (
@@ -524,12 +565,14 @@ class TestDocsGenerator:
             is_benchmark = any(
                 module_page.is_benchmark
                 for module_page in self.module_page_props.values()
-                if directory in module_page.path.parents or module_page.path.parent == directory
+                if directory in module_page.path.parents
+                or module_page.path.parent == directory
             )
             is_stateful = any(
                 module_page.is_stateful
                 for module_page in self.module_page_props.values()
-                if directory in module_page.path.parents or module_page.path.parent == directory
+                if directory in module_page.path.parents
+                or module_page.path.parent == directory
             )
 
             self.page_props[str(directory)] = DirectoryPageProps(
@@ -549,7 +592,9 @@ class TestDocsGenerator:
                 is_stateful=is_stateful,
             )
 
-    def find_files_within_collection_scope(self, file_pattern: str) -> List[Path]:
+    def find_files_within_collection_scope(
+        self, file_pattern: str
+    ) -> List[Path]:
         """
         Find all files that match the scope of the collected test modules.
 
@@ -560,7 +605,9 @@ class TestDocsGenerator:
         files = []
         for module_page in self.module_page_props.values():
             # all files found in and under the modules' directory
-            files += glob.glob(f"{module_page.path.parent}/**/{file_pattern}", recursive=True)
+            files += glob.glob(
+                f"{module_page.path.parent}/**/{file_pattern}", recursive=True
+            )
             for parent in module_page.path.parent.parents:
                 if parent == self.source_dir:
                     break
@@ -609,7 +656,10 @@ class TestDocsGenerator:
         Add the generated 'Test Case Reference' entries to the mkdocs
         navigation menu.
         """
-        fork_order = {fork.name().lower(): i for i, fork in enumerate(reversed(get_forks()))}
+        fork_order = {
+            fork.name().lower(): i
+            for i, fork in enumerate(reversed(get_forks()))
+        }
 
         def sort_by_fork_deployment_and_path(x: PageProps) -> Tuple[Any, ...]:
             """
@@ -654,8 +704,12 @@ class TestDocsGenerator:
                 return (2, fork_order[fork], length, 2, x.path)
 
         nav = mkdocs_gen_files.Nav()
-        for page in sorted(self.page_props.values(), key=sort_by_fork_deployment_and_path):
-            nav[page.nav_entry(self.top_level_nav_entry)] = str(page.target_output_file)
+        for page in sorted(
+            self.page_props.values(), key=sort_by_fork_deployment_and_path
+        ):
+            nav[page.nav_entry(self.top_level_nav_entry)] = str(
+                page.target_output_file
+            )
         with mkdocs_gen_files.open("navigation.md", "a") as nav_file:
             nav_file.writelines(nav.build_literate_nav())
 

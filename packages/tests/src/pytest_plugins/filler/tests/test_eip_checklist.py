@@ -65,7 +65,9 @@ def test_eip_checklist_collection(testdir: Any) -> None:
             """
         )
     )
-    test_2930_n_a_file = eip_2930_tests_dir.join("eip_checklist_not_applicable.txt")
+    test_2930_n_a_file = eip_2930_tests_dir.join(
+        "eip_checklist_not_applicable.txt"
+    )
     test_2930_n_a_file.write(
         textwrap.dedent(
             """
@@ -74,7 +76,9 @@ def test_eip_checklist_collection(testdir: Any) -> None:
         )
     )
     # Run pytest with checklist-only mode
-    testdir.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    testdir.copy_example(
+        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
     result = testdir.runpytest(
         "-c",
         "pytest-fill.ini",
@@ -103,11 +107,17 @@ def test_eip_checklist_collection(testdir: Any) -> None:
     content = checklist_file.readlines()
     assert any(re.search(r"✅.*test_exact_gas", line) for line in content)
     assert any(re.search(r"✅.*test_invalid_v", line) for line in content)
-    assert any(re.search(r"✅.*DEBUG EXTERNAL COVERAGE REASON", line) for line in content)
+    assert any(
+        re.search(r"✅.*DEBUG EXTERNAL COVERAGE REASON", line)
+        for line in content
+    )
 
     checklist_file = checklist_dir / "eip2930_checklist.md"
     assert checklist_file.exists()
     content = checklist_file.readlines()
     assert not any(re.search(r"✅.*test_exact_gas", line) for line in content)
     assert any(re.search(r"✅.*test_invalid_v", line) for line in content)
-    assert any(re.search(r"N/A.*DEBUG NOT APPLICABLE REASON", line) for line in content)
+    assert any(
+        re.search(r"N/A.*DEBUG NOT APPLICABLE REASON", line)
+        for line in content
+    )

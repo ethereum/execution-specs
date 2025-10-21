@@ -14,11 +14,15 @@ class UnknownParameterInCasesError(Exception):
 
     def __init__(self) -> None:
         """Initialize the exception."""
-        super().__init__("each case must only contain parameters present in defaults")
+        super().__init__(
+            "each case must only contain parameters present in defaults"
+        )
 
 
 def extend_with_defaults(
-    defaults: Dict[str, Any], cases: List[ParameterSet], **parametrize_kwargs: Any
+    defaults: Dict[str, Any],
+    cases: List[ParameterSet],
+    **parametrize_kwargs: Any,
 ) -> Dict[str, Any]:
     """
     Extend test cases with default parameter values.
@@ -134,6 +138,12 @@ def extend_with_defaults(
         # Overwrite values in defaults if the parameter is present in the test
         # case values
         merged_params = {**defaults, **case.values[0]}
-        cases[i] = pytest.param(*merged_params.values(), id=case.id, marks=case.marks)
+        cases[i] = pytest.param(
+            *merged_params.values(), id=case.id, marks=case.marks
+        )
 
-    return {"argnames": list(defaults), "argvalues": cases, **parametrize_kwargs}
+    return {
+        "argnames": list(defaults),
+        "argvalues": cases,
+        **parametrize_kwargs,
+    }

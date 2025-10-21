@@ -30,7 +30,9 @@ def generate(transaction_hash: str, output_file: TextIO) -> None:
     """
     provider = StateTestProvider(transaction_hash=Hash(transaction_hash))
 
-    source = get_test_source(provider=provider, template_path="blockchain_test/transaction.py.j2")
+    source = get_test_source(
+        provider=provider, template_path="blockchain_test/transaction.py.j2"
+    )
     output_file.write(source)
 
     print("Finished", file=stderr)

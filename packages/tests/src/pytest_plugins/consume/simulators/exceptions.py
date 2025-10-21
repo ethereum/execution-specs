@@ -38,13 +38,16 @@ def client_exception_mapper_cache() -> Dict[str, ExceptionMapper | None]:
 
 @pytest.fixture(scope="function")
 def client_exception_mapper(
-    client_type: ClientType, client_exception_mapper_cache: Dict[str, ExceptionMapper | None]
+    client_type: ClientType,
+    client_exception_mapper_cache: Dict[str, ExceptionMapper | None],
 ) -> ExceptionMapper | None:
     """Return the exception mapper for the client type, with caching."""
     if client_type.name not in client_exception_mapper_cache:
         for client in EXCEPTION_MAPPERS:
             if client in client_type.name:
-                client_exception_mapper_cache[client_type.name] = EXCEPTION_MAPPERS[client]
+                client_exception_mapper_cache[client_type.name] = (
+                    EXCEPTION_MAPPERS[client]
+                )
                 break
         else:
             client_exception_mapper_cache[client_type.name] = None
@@ -53,12 +56,16 @@ def client_exception_mapper(
 
 
 @pytest.fixture(scope="session")
-def disable_strict_exception_matching(request: pytest.FixtureRequest) -> List[str]:
+def disable_strict_exception_matching(
+    request: pytest.FixtureRequest,
+) -> List[str]:
     """
     Return the list of clients or forks that should NOT use strict exception
     matching.
     """
-    config_string = request.config.getoption("disable_strict_exception_matching")
+    config_string = request.config.getoption(
+        "disable_strict_exception_matching"
+    )
     return config_string.split(",") if config_string else []
 
 
@@ -69,7 +76,8 @@ def client_strict_exception_matching(
 ) -> bool:
     """Return True if the client type should use strict exception matching."""
     return not any(
-        client.lower() in client_type.name.lower() for client in disable_strict_exception_matching
+        client.lower() in client_type.name.lower()
+        for client in disable_strict_exception_matching
     )
 
 
@@ -82,7 +90,8 @@ def fork_strict_exception_matching(
     # NOTE: `in` makes it easier for transition forks ("Prague" in
     # "CancunToPragueAtTime15k")
     return not any(
-        s.lower() in str(fixture.fork).lower() for s in disable_strict_exception_matching
+        s.lower() in str(fixture.fork).lower()
+        for s in disable_strict_exception_matching
     )
 
 

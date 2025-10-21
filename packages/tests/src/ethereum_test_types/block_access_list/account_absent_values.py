@@ -173,13 +173,15 @@ class BalAccountAbsentValues(CamelModel):
         self._validate_forbidden_changes(
             account.nonce_changes,
             self.nonce_changes,
-            lambda a, f: a.tx_index == f.tx_index and a.post_nonce == f.post_nonce,
+            lambda a, f: a.tx_index == f.tx_index
+            and a.post_nonce == f.post_nonce,
             lambda a: f"Unexpected nonce change found at tx {a.tx_index}",
         )
         self._validate_forbidden_changes(
             account.balance_changes,
             self.balance_changes,
-            lambda a, f: a.tx_index == f.tx_index and a.post_balance == f.post_balance,
+            lambda a, f: a.tx_index == f.tx_index
+            and a.post_balance == f.post_balance,
             lambda a: f"Unexpected balance change found at tx {a.tx_index}",
         )
         self._validate_forbidden_changes(
@@ -196,7 +198,10 @@ class BalAccountAbsentValues(CamelModel):
                     self._validate_forbidden_changes(
                         actual_storage_slot.slot_changes,
                         forbidden_storage_slot.slot_changes,
-                        lambda a, f: (a.tx_index == f.tx_index and a.post_value == f.post_value),
+                        lambda a, f: (
+                            a.tx_index == f.tx_index
+                            and a.post_value == f.post_value
+                        ),
                         lambda a, slot=slot_id: (
                             f"Unexpected storage change found at slot {slot} in tx {a.tx_index}"
                         ),

@@ -600,7 +600,9 @@ test_cases: List[Tuple[str, Container, str]] = [
         "Custom Types Section overrides code",
         Container(
             sections=[
-                Section(kind=SectionKind.TYPE, data="0x00700002", custom_size=8),
+                Section(
+                    kind=SectionKind.TYPE, data="0x00700002", custom_size=8
+                ),
                 Section(
                     kind=SectionKind.CODE,
                     code_inputs=0,
@@ -807,7 +809,10 @@ test_cases: List[Tuple[str, Container, str]] = [
     ),
     (
         "Container.Init initcode prefix",
-        Container.Init(deploy_container=Container.Code(b"\0"), initcode_prefix=Op.SSTORE(0, 0)),
+        Container.Init(
+            deploy_container=Container.Code(b"\0"),
+            initcode_prefix=Op.SSTORE(0, 0),
+        ),
         """
       # EOF deployed code
       ef0001  # Magic followed by version
@@ -849,7 +854,9 @@ test_cases: List[Tuple[str, Container, str]] = [
 def test_eof_v1_assemble(container: Container, hex_value: str) -> None:
     """Test `ethereum_test.types.code`."""
     expected_string = remove_comments_from_string(hex_value)
-    expected_bytes = bytes.fromhex(expected_string.replace(" ", "").replace("\n", ""))
+    expected_bytes = bytes.fromhex(
+        expected_string.replace(" ", "").replace("\n", "")
+    )
     assert bytes(container) == expected_bytes, f"""
     Container: {bytes(container).hex()}
     Expected : {expected_bytes.hex()}

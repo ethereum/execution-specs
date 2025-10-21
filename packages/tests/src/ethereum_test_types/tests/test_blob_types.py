@@ -96,7 +96,9 @@ def test_blob_creation_and_writing_and_reading(
     # read from file
     #       determine what filename would be
     cell_proof_amount = str(fork.get_blob_constant("AMOUNT_CELL_PROOFS"))
-    file_name = "blob_" + str(seed) + "_cell_proofs_" + cell_proof_amount + ".json"
+    file_name = (
+        "blob_" + str(seed) + "_cell_proofs_" + cell_proof_amount + ".json"
+    )
     #       read
     restored = Blob.from_file(file_name)
 
@@ -139,7 +141,12 @@ def test_blob_proof_corruption(
 
 @pytest.mark.parametrize("timestamp", [14999, 15000])
 @pytest.mark.parametrize(
-    "fork", [ShanghaiToCancunAtTime15k, CancunToPragueAtTime15k, PragueToOsakaAtTime15k]
+    "fork",
+    [
+        ShanghaiToCancunAtTime15k,
+        CancunToPragueAtTime15k,
+        PragueToOsakaAtTime15k,
+    ],
 )
 def test_transition_fork_blobs(
     fork: Any,

@@ -13,7 +13,9 @@ from .common import AddressOrTagInFiller, Tag, TagDict, ValueInFiller
 class EnvironmentInStateTestFiller(BaseModel):
     """Class that represents an environment filler."""
 
-    current_coinbase: AddressOrTagInFiller = Field(..., alias="currentCoinbase")
+    current_coinbase: AddressOrTagInFiller = Field(
+        ..., alias="currentCoinbase"
+    )
     current_gas_limit: ValueInFiller = Field(..., alias="currentGasLimit")
     current_number: ValueInFiller = Field(..., alias="currentNumber")
     current_timestamp: ValueInFiller = Field(..., alias="currentTimestamp")
@@ -21,10 +23,16 @@ class EnvironmentInStateTestFiller(BaseModel):
     current_difficulty: ValueInFiller | None = Field(
         ValueInFiller("0x020000"), alias="currentDifficulty"
     )
-    current_random: ValueInFiller | None = Field(ValueInFiller("0x020000"), alias="currentRandom")
-    current_base_fee: ValueInFiller | None = Field(ValueInFiller("0x0a"), alias="currentBaseFee")
+    current_random: ValueInFiller | None = Field(
+        ValueInFiller("0x020000"), alias="currentRandom"
+    )
+    current_base_fee: ValueInFiller | None = Field(
+        ValueInFiller("0x0a"), alias="currentBaseFee"
+    )
 
-    current_excess_blob_gas: ValueInFiller | None = Field(None, alias="currentExcessBlobGas")
+    current_excess_blob_gas: ValueInFiller | None = Field(
+        None, alias="currentExcessBlobGas"
+    )
 
     model_config = ConfigDict(extra="forbid")
 
@@ -33,7 +41,9 @@ class EnvironmentInStateTestFiller(BaseModel):
         """Validate all fields are set."""
         if self.current_difficulty is None:
             if self.current_random is None:
-                raise ValueError("If `currentDifficulty` is not set, `currentRandom` must be set!")
+                raise ValueError(
+                    "If `currentDifficulty` is not set, `currentRandom` must be set!"
+                )
         return self
 
     def get_environment(self, tags: TagDict) -> Environment:

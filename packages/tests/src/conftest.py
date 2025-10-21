@@ -5,7 +5,11 @@ from typing import Dict, Generator
 
 import pytest
 
-from ethereum_clis import BesuTransitionTool, ExecutionSpecsTransitionTool, TransitionTool
+from ethereum_clis import (
+    BesuTransitionTool,
+    ExecutionSpecsTransitionTool,
+    TransitionTool,
+)
 
 DEFAULT_TRANSITION_TOOL_FOR_UNIT_TESTS = ExecutionSpecsTransitionTool
 
@@ -31,7 +35,9 @@ def installed_transition_tool_instances() -> Generator[
         try:
             transition_tool_instance = transition_tool_class()
             transition_tool_instance.start_server()
-            instances[transition_tool_class.__name__] = transition_tool_instance
+            instances[transition_tool_class.__name__] = (
+                transition_tool_instance
+            )
         except Exception as e:
             # Record the exception in order to provide context when failing the
             # appropriate test
@@ -44,7 +50,10 @@ def installed_transition_tool_instances() -> Generator[
 
 @pytest.fixture(
     params=INSTALLED_TRANSITION_TOOLS,
-    ids=[transition_tool_class.__name__ for transition_tool_class in INSTALLED_TRANSITION_TOOLS],
+    ids=[
+        transition_tool_class.__name__
+        for transition_tool_class in INSTALLED_TRANSITION_TOOLS
+    ],
 )
 def installed_t8n(
     request: pytest.FixtureRequest,
@@ -58,10 +67,12 @@ def installed_t8n(
     """
     transition_tool_class = request.param
     assert issubclass(transition_tool_class, TransitionTool)
-    assert transition_tool_class.__name__ in installed_transition_tool_instances, (
-        f"{transition_tool_class.__name__} not instantiated"
-    )
-    instance_or_error = installed_transition_tool_instances[transition_tool_class.__name__]
+    assert (
+        transition_tool_class.__name__ in installed_transition_tool_instances
+    ), f"{transition_tool_class.__name__} not instantiated"
+    instance_or_error = installed_transition_tool_instances[
+        transition_tool_class.__name__
+    ]
     if isinstance(instance_or_error, Exception):
         raise Exception(
             f"Failed to instantiate {transition_tool_class.__name__}"
@@ -78,7 +89,9 @@ def default_t8n(
         DEFAULT_TRANSITION_TOOL_FOR_UNIT_TESTS.__name__
     )
     if instance is None:
-        raise Exception(f"Failed to instantiate {DEFAULT_TRANSITION_TOOL_FOR_UNIT_TESTS.__name__}")
+        raise Exception(
+            f"Failed to instantiate {DEFAULT_TRANSITION_TOOL_FOR_UNIT_TESTS.__name__}"
+        )
     if isinstance(instance, Exception):
         raise Exception(
             f"Failed to instantiate {DEFAULT_TRANSITION_TOOL_FOR_UNIT_TESTS.__name__}"

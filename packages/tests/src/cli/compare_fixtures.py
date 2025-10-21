@@ -45,12 +45,16 @@ def get_fixture_hashes(index: IndexFile) -> Set[HexNumber]:
     return hash_set
 
 
-def find_duplicates(base_hashes: Set[HexNumber], patch_hashes: Set[HexNumber]) -> Set[HexNumber]:
+def find_duplicates(
+    base_hashes: Set[HexNumber], patch_hashes: Set[HexNumber]
+) -> Set[HexNumber]:
     """Find fixture hashes that exist in both base and patch."""
     return base_hashes & patch_hashes
 
 
-def pop_all_by_hash(index: IndexFile, fixture_hash: HexNumber) -> List[TestCaseIndexFile]:
+def pop_all_by_hash(
+    index: IndexFile, fixture_hash: HexNumber
+) -> List[TestCaseIndexFile]:
     """Pops all test cases from an index file by their hash."""
     test_cases = []
     remaining_cases = []
@@ -75,10 +79,14 @@ def remove_fixture_from_file(file: Path, test_case_id: str) -> None:
     except FileNotFoundError:
         raise FileNotFoundError(f"Fixture file not found: {file}") from None
     except KeyError:
-        raise KeyError(f"Test case {test_case_id} not found in {file}") from None
+        raise KeyError(
+            f"Test case {test_case_id} not found in {file}"
+        ) from None
 
 
-def batch_remove_fixtures_from_files(removals_by_file: dict[Path, list[str]]) -> None:
+def batch_remove_fixtures_from_files(
+    removals_by_file: dict[Path, list[str]],
+) -> None:
     """Batch process file removals to minimize I/O."""
     for file_path, test_case_ids in removals_by_file.items():
         try:
@@ -113,10 +121,16 @@ def rewrite_index(folder: Path, index: IndexFile, dry_run: bool) -> None:
 
 
 @click.command()
-@click.argument("base", type=click.Path(exists=True, file_okay=False, path_type=Path))
-@click.argument("patch", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.argument(
+    "base", type=click.Path(exists=True, file_okay=False, path_type=Path)
+)
+@click.argument(
+    "patch", type=click.Path(exists=True, file_okay=False, path_type=Path)
+)
 @click.option(
-    "--dry-run", is_flag=True, help="Show what would be removed without actually removing"
+    "--dry-run",
+    is_flag=True,
+    help="Show what would be removed without actually removing",
 )
 @click.option(
     "--abort-on-empty-patch",
@@ -173,7 +187,9 @@ def main(
                 if dry_run:
                     print(f"Remove {patch_test_case.id} from {patch_file}")
                 else:
-                    patch_removals_by_file[patch_file].append(patch_test_case.id)
+                    patch_removals_by_file[patch_file].append(
+                        patch_test_case.id
+                    )
 
         # Batch process file operations
         if not dry_run:

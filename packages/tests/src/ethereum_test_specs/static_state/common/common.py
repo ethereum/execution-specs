@@ -7,11 +7,23 @@ from typing import Any, Dict, List, Mapping, Tuple, Union
 
 from eth_abi import encode
 from eth_utils import function_signature_to_4byte_selector
-from pydantic import BaseModel, BeforeValidator, Field, PrivateAttr, model_validator
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    Field,
+    PrivateAttr,
+    model_validator,
+)
 from pydantic_core import core_schema
 from typing_extensions import Annotated
 
-from ethereum_test_base_types import AccessList, Address, CamelModel, Hash, HexNumber
+from ethereum_test_base_types import (
+    AccessList,
+    Address,
+    CamelModel,
+    Hash,
+    HexNumber,
+)
 
 from .compile_yul import compile_yul
 from .tags import (
@@ -83,12 +95,16 @@ class CodeInFiller(BaseModel, TagDependentData):
             if stripped_code.startswith(label_marker):
                 # Calculate the position in the original string
                 label_index = code.find(label_marker)
-                space_index = code.find(" ", label_index + len(label_marker) + 1)
+                space_index = code.find(
+                    " ", label_index + len(label_marker) + 1
+                )
                 if space_index == -1:
                     label = code[label_index + len(label_marker) + 1 :]
                     source = ""  # No source after label
                 else:
-                    label = code[label_index + len(label_marker) + 1 : space_index]
+                    label = code[
+                        label_index + len(label_marker) + 1 : space_index
+                    ]
                     source = code[space_index + 1 :].strip()
 
             return {"label": label, "source": source}
@@ -113,7 +129,9 @@ class CodeInFiller(BaseModel, TagDependentData):
             return bytes.fromhex(hex_str)
 
         if not isinstance(raw_code, str):
-            raise ValueError(f"code is of type {type(raw_code)} but expected a string: {raw_code}")
+            raise ValueError(
+                f"code is of type {type(raw_code)} but expected a string: {raw_code}"
+            )
         if len(raw_code) == 0:
             return b""
 
@@ -129,9 +147,15 @@ class CodeInFiller(BaseModel, TagDependentData):
                 # Use the original string if available, otherwise construct a
                 # pattern
                 if hasattr(tag, "original_string") and tag.original_string:
-                    raw_code = raw_code.replace(tag.original_string, substitution_address)
+                    raw_code = raw_code.replace(
+                        tag.original_string, substitution_address
+                    )
                 else:
-                    raw_code = re.sub(f"<\\w+:{tag.name}(:0x.+)?>", substitution_address, raw_code)
+                    raw_code = re.sub(
+                        f"<\\w+:{tag.name}(:0x.+)?>",
+                        substitution_address,
+                        raw_code,
+                    )
             return raw_code
 
         raw_marker = ":raw 0x"
@@ -173,7 +197,9 @@ class CodeInFiller(BaseModel, TagDependentData):
                         else:
                             options.append(arg)
 
-                with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".yul") as tmp:
+                with tempfile.NamedTemporaryFile(
+                    mode="w+", delete=False, suffix=".yul"
+                ) as tmp:
                     tmp.write(native_yul_options + raw_code[source_start:])
                     tmp_path = tmp.name
                 compiled_code = compile_yul(
@@ -202,7 +228,8 @@ class CodeInFiller(BaseModel, TagDependentData):
                                 # treat positive values as True
                                 else int(t.lower(), 0) > 0
                                 if parameter_types[t_index] == "bool"
-                                else False and ValueError("unhandled parameter_types")
+                                else False
+                                and ValueError("unhandled parameter_types")
                                 for t_index, t in enumerate(tokens[1:])
                             ]
                         ],
@@ -216,12 +243,16 @@ class CodeInFiller(BaseModel, TagDependentData):
                 or raw_code.lstrip().startswith("(asm")
                 or raw_code.lstrip().startswith(":raw 0x")
             ):
-                with tempfile.NamedTemporaryFile(mode="w+", delete=False) as tmp:
+                with tempfile.NamedTemporaryFile(
+                    mode="w+", delete=False
+                ) as tmp:
                     tmp.write(raw_code)
                     tmp_path = tmp.name
 
                 # - using lllc
-                result = subprocess.run(["lllc", tmp_path], capture_output=True, text=True)
+                result = subprocess.run(
+                    ["lllc", tmp_path], capture_output=True, text=True
+                )
 
                 # - using docker: If the running machine does not have lllc
                 # installed, we can use docker to run lllc, but we need to
@@ -346,7 +377,9 @@ def parse_address_or_tag_for_access_list(value: Any) -> Union[Address, str]:
         return Address(value, left_padding=True)
 
 
-AddressInFiller = Annotated[Address, BeforeValidator(lambda a: Address(a, left_padding=True))]
+AddressInFiller = Annotated[
+    Address, BeforeValidator(lambda a: Address(a, left_padding=True))
+]
 AddressOrTagInFiller = ContractTag | SenderTag | Address
 AddressOrCreateTagInFiller = ContractTag | SenderTag | CreateTag | Address
 ValueInFiller = Annotated[HexNumber, BeforeValidator(parse_hex_number)]
@@ -378,5 +411,7 @@ class AccessListInFiller(CamelModel, TagDependentData):
             kwargs["address"] = self.address.resolve(tags)
         else:
             kwargs["address"] = self.address
-        kwargs["storageKeys"] = [Hash(key, left_padding=True) for key in self.storage_keys]
+        kwargs["storageKeys"] = [
+            Hash(key, left_padding=True) for key in self.storage_keys
+        ]
         return AccessList(**kwargs)

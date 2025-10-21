@@ -11,8 +11,17 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import pytest
 
-from ethereum_test_exceptions import BlockException, ExceptionMapper, TransactionException
-from ethereum_test_fixtures import BlockchainFixture, EOFFixture, FixtureFormat, StateFixture
+from ethereum_test_exceptions import (
+    BlockException,
+    ExceptionMapper,
+    TransactionException,
+)
+from ethereum_test_fixtures import (
+    BlockchainFixture,
+    EOFFixture,
+    FixtureFormat,
+    StateFixture,
+)
 
 from ..ethereum_cli import EthereumCLI
 from ..file_utils import dump_files_to_directory
@@ -24,7 +33,9 @@ class Nethtest(EthereumCLI):
 
     default_binary = Path("nethtest")
     # new pattern allows e.g. '1.2.3', in the past that was denied
-    detect_binary_pattern = re.compile(r"^\d+\.\d+\.\d+(-[a-zA-Z0-9]+)?(\+[a-f0-9]{40})?$")
+    detect_binary_pattern = re.compile(
+        r"^\d+\.\d+\.\d+(-[a-zA-Z0-9]+)?(\+[a-f0-9]{40})?$"
+    )
     version_flag: str = "--version"
     cached_version: Optional[str] = None
 
@@ -43,7 +54,10 @@ class Nethtest(EthereumCLI):
     def _run_command(self, command: List[str]) -> subprocess.CompletedProcess:
         try:
             return subprocess.run(
-                command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
             )
         except subprocess.CalledProcessError as e:
             raise Exception("Command failed with non-zero status.") from e
@@ -120,7 +134,11 @@ class NethtestFixtureConsumer(
         assert fixture_name, "Fixture name must be provided for nethtest."
         command = [str(self.binary)]
         if fixture_format is BlockchainFixture:
-            command += ["--blockTest", "--filter", f"{re.escape(fixture_name)}"]
+            command += [
+                "--blockTest",
+                "--filter",
+                f"{re.escape(fixture_name)}",
+            ]
         elif fixture_format is StateFixture:
             # TODO: consider using `--filter` here to readily access traces
             # from the output
@@ -152,7 +170,9 @@ class NethtestFixtureConsumer(
         `consume_state_test` can simply select the result that was requested.
         """
         del fixture_path
-        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        result = subprocess.run(
+            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
 
         if debug_output_path:
             self._consume_debug_dump(command, result, debug_output_path)
@@ -170,7 +190,9 @@ class NethtestFixtureConsumer(
             ) from e
 
         if not isinstance(result_json, list):
-            raise Exception(f"Unexpected result from evm statetest: {result_json}")
+            raise Exception(
+                f"Unexpected result from evm statetest: {result_json}"
+            )
         return result_json, result.stderr
 
     def consume_state_test(
@@ -196,7 +218,8 @@ class NethtestFixtureConsumer(
             # TODO: this check is too fragile; extend for ethereum/tests?
             nethtest_suffix = "_d0g0v0_"
             assert all(
-                test_result["name"].endswith(nethtest_suffix) for test_result in file_results
+                test_result["name"].endswith(nethtest_suffix)
+                for test_result in file_results
             ), (
                 "consume direct with nethtest doesn't support the multi-data statetest format "
                 "used in ethereum/tests (yet)"
@@ -207,8 +230,12 @@ class NethtestFixtureConsumer(
                 if test_result["name"].removesuffix(nethtest_suffix)
                 == f"{fixture_name.split('/')[-1]}"
             ]
-            assert len(test_result) < 2, f"Multiple test results for {fixture_name}"
-            assert len(test_result) == 1, f"Test result for {fixture_name} missing"
+            assert len(test_result) < 2, (
+                f"Multiple test results for {fixture_name}"
+            )
+            assert len(test_result) == 1, (
+                f"Test result for {fixture_name} missing"
+            )
             assert test_result[0]["pass"], (
                 f"State test '{fixture_name}' failed, available stderr:\n {stderr}"
             )
@@ -231,7 +258,9 @@ class NethtestFixtureConsumer(
         """Execute the the fixture at `fixture_path` via `nethtest`."""
         del fixture_path
         del fixture_name
-        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        result = subprocess.run(
+            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
 
         if debug_output_path:
             self._consume_debug_dump(command, result, debug_output_path)
@@ -253,7 +282,9 @@ class NethtestFixtureConsumer(
     ) -> Tuple[Dict[Any, Any], str, str]:
         """Consume an entire EOF fixture file."""
         del fixture_path
-        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        result = subprocess.run(
+            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
 
         pattern = re.compile(r"^(test_.+?)\s+(PASS|FAIL)$", re.MULTILINE)
         test_results = {
@@ -281,14 +312,18 @@ class NethtestFixtureConsumer(
     ) -> None:
         """Execute the the EOF fixture at `fixture_path` via `nethtest`."""
         if not self.has_eof_support():
-            pytest.skip("This version of nethtest does not support the `--eofTest` flag.")
+            pytest.skip(
+                "This version of nethtest does not support the `--eofTest` flag."
+            )
         file_results, stdout, stderr = self.consume_eof_test_file(
             fixture_path=fixture_path,
             command=command,
             debug_output_path=debug_output_path,
         )
         assert fixture_name, "fixture_name is required for EOF tests"
-        modified_fixture_name = fixture_name.split("::")[-1].replace("\\x", "/x")
+        modified_fixture_name = fixture_name.split("::")[-1].replace(
+            "\\x", "/x"
+        )
         assert modified_fixture_name in file_results, (
             f"Test result for {fixture_name} missing, available stdout:\n{stdout}.\n"
             f"Parsed test results: {file_results}"

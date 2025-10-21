@@ -20,9 +20,21 @@ from ..opcodes import Opcodes as Op
         pytest.param(Op.PUSH1(-1), b"\x60\xff", id="PUSH1(-1)"),
         pytest.param(Op.PUSH1[-1], b"\x60\xff", id="PUSH1[-1]"),
         pytest.param(Op.PUSH1(-2), b"\x60\xfe", id="PUSH1(-2)"),
-        pytest.param(Op.PUSH20(0x01), b"\x73" + b"\x00" * 19 + b"\x01", id="PUSH20(0x01)"),
-        pytest.param(Op.PUSH20[0x01], b"\x73" + b"\x00" * 19 + b"\x01", id="PUSH20[0x01]"),
-        pytest.param(Op.PUSH32(0xFF), b"\x7f" + b"\x00" * 31 + b"\xff", id="PUSH32(0xFF)"),
+        pytest.param(
+            Op.PUSH20(0x01),
+            b"\x73" + b"\x00" * 19 + b"\x01",
+            id="PUSH20(0x01)",
+        ),
+        pytest.param(
+            Op.PUSH20[0x01],
+            b"\x73" + b"\x00" * 19 + b"\x01",
+            id="PUSH20[0x01]",
+        ),
+        pytest.param(
+            Op.PUSH32(0xFF),
+            b"\x7f" + b"\x00" * 31 + b"\xff",
+            id="PUSH32(0xFF)",
+        ),
         pytest.param(Op.PUSH32(-1), b"\x7f" + b"\xff" * 32, id="PUSH32(-1)"),
         pytest.param(
             sum(Op.PUSH1(i) for i in range(0x2)),
@@ -81,7 +93,9 @@ from ..opcodes import Opcodes as Op
             b"\x60\x20\x60\x00\x60\x00\x60\x00\x60\x00\x61\x12\x34\x5a\xf1",
             id="CALL(GAS, Address(0x1234), 0, 0, 0, 0, 32)",
         ),
-        pytest.param(Op.ADD(1, 2), bytes([0x60, 0x02, 0x60, 0x01, 0x01]), id="ADD(1, 2)"),
+        pytest.param(
+            Op.ADD(1, 2), bytes([0x60, 0x02, 0x60, 0x01, 0x01]), id="ADD(1, 2)"
+        ),
         pytest.param(
             Op.ADD(Op.ADD(1, 2), 3),
             bytes([0x60, 0x03, 0x60, 0x02, 0x60, 0x01, 0x01, 0x01]),
@@ -209,9 +223,13 @@ from ..opcodes import Opcodes as Op
             id="STOP * 2",
         ),
         pytest.param(
-            Op.RJUMPV[0, 3, 6, 9], bytes.fromhex("e2030000000300060009"), id="RJUMPV[0, 3, 6, 9]"
+            Op.RJUMPV[0, 3, 6, 9],
+            bytes.fromhex("e2030000000300060009"),
+            id="RJUMPV[0, 3, 6, 9]",
         ),
-        pytest.param(Op.RJUMPV[2, 0], bytes.fromhex("e20100020000"), id="RJUMPV[2, 0]"),
+        pytest.param(
+            Op.RJUMPV[2, 0], bytes.fromhex("e20100020000"), id="RJUMPV[2, 0]"
+        ),
         pytest.param(
             Op.RJUMPV[b"\x02\x00\x02\xff\xff"],
             bytes.fromhex("e2020002ffff"),
@@ -295,7 +313,10 @@ from ..opcodes import Opcodes as Op
         ),
         pytest.param(
             Om.MSTORE(bytes(range(64))),
-            bytes(Op.MSTORE(0, bytes(range(32))) + Op.MSTORE(32, bytes(range(32, 64)))),
+            bytes(
+                Op.MSTORE(0, bytes(range(32)))
+                + Op.MSTORE(32, bytes(range(32, 64)))
+            ),
             id="Om.MSTORE(bytes(range(64)))",
         ),
         pytest.param(
@@ -359,9 +380,13 @@ def test_macros() -> None:
         pytest.param(Op.PUSH1 * 3, 0, 3, 3, 0, id="PUSH1 * 3"),
         pytest.param(Op.POP + Op.POP, 2, 0, 2, 2, id="POP + POP"),
         pytest.param(Op.POP * 3, 3, 0, 3, 3, id="POP * 3"),
-        pytest.param((Op.POP * 3) + Op.PUSH1, 3, 1, 3, 3, id="(POP * 3) + PUSH1"),
+        pytest.param(
+            (Op.POP * 3) + Op.PUSH1, 3, 1, 3, 3, id="(POP * 3) + PUSH1"
+        ),
         pytest.param(Op.SWAP2 + Op.POP * 3, 3, 0, 3, 3, id="SWAP2 + POP * 3"),
-        pytest.param(Op.SWAP2 + Op.PUSH1 * 3, 0, 3, 6, 3, id="SWAP2 + PUSH1 * 3"),
+        pytest.param(
+            Op.SWAP2 + Op.PUSH1 * 3, 0, 3, 6, 3, id="SWAP2 + PUSH1 * 3"
+        ),
         pytest.param(Op.SWAP1 + Op.SWAP2, 0, 0, 3, 3, id="SWAP1 + SWAP2"),
         pytest.param(
             Op.POP * 2 + Op.PUSH1 + Op.POP * 2 + Op.PUSH1 * 3,
@@ -371,24 +396,61 @@ def test_macros() -> None:
             3,
             id="POP * 2 + PUSH1 + POP * 2 + PUSH1 * 3",
         ),
-        pytest.param(Op.CALL(1, 2, 3, 4, 5, 6, 7), 0, 1, 7, 0, id="CALL(1, 2, 3, 4, 5, 6, 7)"),
         pytest.param(
-            Op.POP(Op.CALL(1, 2, 3, 4, 5, 6, 7)), 0, 0, 7, 0, id="POP(CALL(1, 2, 3, 4, 5, 6, 7))"
+            Op.CALL(1, 2, 3, 4, 5, 6, 7),
+            0,
+            1,
+            7,
+            0,
+            id="CALL(1, 2, 3, 4, 5, 6, 7)",
         ),
         pytest.param(
-            Op.PUSH0 * 2 + Op.PUSH0 + Op.ADD + Op.PUSH0 + Op.POP * 2, 0, 1, 3, 0, id="parens1"
+            Op.POP(Op.CALL(1, 2, 3, 4, 5, 6, 7)),
+            0,
+            0,
+            7,
+            0,
+            id="POP(CALL(1, 2, 3, 4, 5, 6, 7))",
         ),
         pytest.param(
-            Op.PUSH0 * 2 + (Op.PUSH0 + Op.ADD + Op.PUSH0 + Op.POP * 2), 0, 1, 3, 0, id="parens2"
+            Op.PUSH0 * 2 + Op.PUSH0 + Op.ADD + Op.PUSH0 + Op.POP * 2,
+            0,
+            1,
+            3,
+            0,
+            id="parens1",
         ),
         pytest.param(
-            Op.PUSH0 * 2 + Op.PUSH0 + (Op.ADD + Op.PUSH0 + Op.POP * 2), 0, 1, 3, 0, id="parens3"
+            Op.PUSH0 * 2 + (Op.PUSH0 + Op.ADD + Op.PUSH0 + Op.POP * 2),
+            0,
+            1,
+            3,
+            0,
+            id="parens2",
         ),
         pytest.param(
-            Op.PUSH0 * 2 + Op.PUSH0 + (Op.ADD + Op.PUSH0) + Op.POP * 2, 0, 1, 3, 0, id="parens4"
+            Op.PUSH0 * 2 + Op.PUSH0 + (Op.ADD + Op.PUSH0 + Op.POP * 2),
+            0,
+            1,
+            3,
+            0,
+            id="parens3",
         ),
         pytest.param(
-            Op.PUSH0 * 2 + (Op.PUSH0 + Op.ADD + Op.PUSH0) + Op.POP * 2, 0, 1, 3, 0, id="parens5"
+            Op.PUSH0 * 2 + Op.PUSH0 + (Op.ADD + Op.PUSH0) + Op.POP * 2,
+            0,
+            1,
+            3,
+            0,
+            id="parens4",
+        ),
+        pytest.param(
+            Op.PUSH0 * 2 + (Op.PUSH0 + Op.ADD + Op.PUSH0) + Op.POP * 2,
+            0,
+            1,
+            3,
+            0,
+            id="parens5",
         ),
     ],
 )
@@ -400,10 +462,18 @@ def test_bytecode_properties(
     expected_min_stack_height: int,
 ) -> None:
     """Test that the properties of the bytecode are as expected."""
-    assert bytecode.popped_stack_items == expected_popped_items, "Popped stack items mismatch"
-    assert bytecode.pushed_stack_items == expected_pushed_items, "Pushed stack items mismatch"
-    assert bytecode.max_stack_height == expected_max_stack_height, "Max stack height mismatch"
-    assert bytecode.min_stack_height == expected_min_stack_height, "Min stack height mismatch"
+    assert bytecode.popped_stack_items == expected_popped_items, (
+        "Popped stack items mismatch"
+    )
+    assert bytecode.pushed_stack_items == expected_pushed_items, (
+        "Pushed stack items mismatch"
+    )
+    assert bytecode.max_stack_height == expected_max_stack_height, (
+        "Max stack height mismatch"
+    )
+    assert bytecode.min_stack_height == expected_min_stack_height, (
+        "Min stack height mismatch"
+    )
 
 
 def test_opcode_comparison() -> None:
@@ -437,21 +507,32 @@ def test_opcode_kwargs_validation() -> None:
     """Test that invalid keyword arguments raise ValueError."""
     # Test valid kwargs work
     Op.MSTORE(offset=0, value=1)
-    Op.CALL(gas=1, address=2, value=3, args_offset=4, args_size=5, ret_offset=6, ret_size=7)
+    Op.CALL(
+        gas=1,
+        address=2,
+        value=3,
+        args_offset=4,
+        args_size=5,
+        ret_offset=6,
+        ret_size=7,
+    )
 
     # Test invalid kwargs raise ValueError
     with pytest.raises(
-        ValueError, match=r"Invalid keyword argument\(s\) \['offest'\] for opcode MSTORE"
+        ValueError,
+        match=r"Invalid keyword argument\(s\) \['offest'\] for opcode MSTORE",
     ):
         Op.MSTORE(offest=0, value=1)  # codespell:ignore offest
 
     with pytest.raises(
-        ValueError, match=r"Invalid keyword argument\(s\) \['wrong_arg'\] for opcode MSTORE"
+        ValueError,
+        match=r"Invalid keyword argument\(s\) \['wrong_arg'\] for opcode MSTORE",
     ):
         Op.MSTORE(offset=0, value=1, wrong_arg=2)
 
     with pytest.raises(
-        ValueError, match=r"Invalid keyword argument\(s\) \['addres'\] for opcode CALL"
+        ValueError,
+        match=r"Invalid keyword argument\(s\) \['addres'\] for opcode CALL",
     ):
         Op.CALL(
             gas=1,
@@ -464,5 +545,7 @@ def test_opcode_kwargs_validation() -> None:
         )
 
     # Test multiple invalid kwargs
-    with pytest.raises(ValueError, match=r"Invalid keyword argument\(s\).*for opcode MSTORE"):
+    with pytest.raises(
+        ValueError, match=r"Invalid keyword argument\(s\).*for opcode MSTORE"
+    ):
         Op.MSTORE(offest=0, valu=1, extra=2)  # codespell:ignore offest,valu

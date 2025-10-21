@@ -20,7 +20,11 @@ from ethereum_test_exceptions import (
 from ethereum_test_forks import Fork
 
 from ..cli_types import TransitionToolOutput
-from ..transition_tool import TransitionTool, dump_files_to_directory, model_dump_config
+from ..transition_tool import (
+    TransitionTool,
+    dump_files_to_directory,
+    model_dump_config,
+)
 
 
 class BesuTransitionTool(TransitionTool):
@@ -44,7 +48,9 @@ class BesuTransitionTool(TransitionTool):
         trace: bool = False,
     ):
         """Initialize the BesuTransitionTool class."""
-        super().__init__(exception_mapper=BesuExceptionMapper(), binary=binary, trace=trace)
+        super().__init__(
+            exception_mapper=BesuExceptionMapper(), binary=binary, trace=trace
+        )
         args = [str(self.binary), "t8n", "--help"]
         try:
             result = subprocess.run(args, capture_output=True, text=True)
@@ -53,9 +59,13 @@ class BesuTransitionTool(TransitionTool):
                 f"evm process unexpectedly returned a non-zero status code: {e}."
             ) from e
         except Exception as e:
-            raise Exception(f"Unexpected exception calling evm tool: {e}.") from e
+            raise Exception(
+                f"Unexpected exception calling evm tool: {e}."
+            ) from e
         self.help_string = result.stdout
-        self.besu_trace_dir = tempfile.TemporaryDirectory() if self.trace else None
+        self.besu_trace_dir = (
+            tempfile.TemporaryDirectory() if self.trace else None
+        )
 
     def start_server(self) -> None:
         """
@@ -87,7 +97,9 @@ class BesuTransitionTool(TransitionTool):
             if not line or "Failed to start transition server" in line:
                 raise Exception("Failed starting Besu subprocess\n" + line)
             if "Transition server listening on" in line:
-                match = re.search("Transition server listening on (\\d+)", line)
+                match = re.search(
+                    "Transition server listening on (\\d+)", line
+                )
                 if match:
                     port = match.group(1)
                     self.server_url = f"http://localhost:{port}/"
@@ -113,7 +125,9 @@ class BesuTransitionTool(TransitionTool):
         if not self.process:
             self.start_server()
 
-        input_json = transition_tool_data.to_input().model_dump(mode="json", **model_dump_config)
+        input_json = transition_tool_data.to_input().model_dump(
+            mode="json", **model_dump_config
+        )
 
         state_json = {
             "fork": transition_tool_data.fork_name,
@@ -127,7 +141,8 @@ class BesuTransitionTool(TransitionTool):
             post_data_string = json.dumps(post_data, indent=4)
             additional_indent = " " * 16  # for pretty indentation in t8n.sh
             indented_post_data_string = "{\n" + "\n".join(
-                additional_indent + line for line in post_data_string[1:].splitlines()
+                additional_indent + line
+                for line in post_data_string[1:].splitlines()
             )
             t8n_script = textwrap.dedent(
                 f"""\
@@ -152,7 +167,8 @@ class BesuTransitionTool(TransitionTool):
         response = requests.post(self.server_url, json=post_data, timeout=5)
         response.raise_for_status()  # exception visible in pytest failure output
         output: TransitionToolOutput = TransitionToolOutput.model_validate(
-            response.json(), context={"exception_mapper": self.exception_mapper}
+            response.json(),
+            context={"exception_mapper": self.exception_mapper},
         )
 
         if debug_output_path:
@@ -175,7 +191,9 @@ class BesuTransitionTool(TransitionTool):
             dump_files_to_directory(
                 debug_output_path,
                 {
-                    "output/alloc.json": output.alloc.model_dump(mode="json", **model_dump_config),
+                    "output/alloc.json": output.alloc.model_dump(
+                        mode="json", **model_dump_config
+                    ),
                     "output/result.json": output.result.model_dump(
                         mode="json", **model_dump_config
                     ),
@@ -184,10 +202,14 @@ class BesuTransitionTool(TransitionTool):
             )
 
         if self.trace and self.besu_trace_dir:
-            self.collect_traces(output.result.receipts, self.besu_trace_dir, debug_output_path)
+            self.collect_traces(
+                output.result.receipts, self.besu_trace_dir, debug_output_path
+            )
             for i, r in enumerate(output.result.receipts):
                 trace_file_name = f"trace-{i}-{r.transaction_hash}.jsonl"
-                os.remove(os.path.join(self.besu_trace_dir.name, trace_file_name))
+                os.remove(
+                    os.path.join(self.besu_trace_dir.name, trace_file_name)
+                )
 
         return output
 
@@ -263,7 +285,8 @@ class BesuExceptionMapper(ExceptionMapper):
             r"System call halted|System call did not execute to completion"
         ),
         BlockException.SYSTEM_CONTRACT_EMPTY: (
-            r"(Invalid system call, no code at address)|" r"(Invalid system call address:)"
+            r"(Invalid system call, no code at address)|"
+            r"(Invalid system call address:)"
         ),
         BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: (
             r"Invalid (amount|index|pubKey|signature|withdrawalCred) (offset|size): "

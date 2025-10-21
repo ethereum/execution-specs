@@ -61,12 +61,16 @@ class TestEESTLogger:
         handler = logging.StreamHandler(self.log_output)
         handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
         self.logger.addHandler(handler)
-        self.logger.setLevel(logging.DEBUG)  # Set to lowest possible level for testing
+        self.logger.setLevel(
+            logging.DEBUG
+        )  # Set to lowest possible level for testing
 
     def test_verbose_method(self) -> None:
         """Test the verbose() method logs at the expected level."""
         self.logger.verbose("This is a verbose message")
-        assert "VERBOSE: This is a verbose message" in self.log_output.getvalue()
+        assert (
+            "VERBOSE: This is a verbose message" in self.log_output.getvalue()
+        )
 
     def test_fail_method(self) -> None:
         """Test the fail() method logs at the expected level."""
@@ -99,7 +103,9 @@ class TestFormatters:
         )
 
         formatted = formatter.format(record)
-        assert re.match(r"2021-01-01 00:00:00\.\d{3}\+00:00: Test message", formatted)
+        assert re.match(
+            r"2021-01-01 00:00:00\.\d{3}\+00:00: Test message", formatted
+        )
 
     def test_color_formatter(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that ColorFormatter adds color codes to the log level."""
@@ -137,7 +143,10 @@ class TestStandaloneConfiguration:
 
             # Should log to stdout by default
             root_logger = logging.getLogger()
-            assert any(isinstance(h, logging.StreamHandler) for h in root_logger.handlers)
+            assert any(
+                isinstance(h, logging.StreamHandler)
+                for h in root_logger.handlers
+            )
 
             # Should set INFO level by default
             assert root_logger.level == logging.INFO
@@ -197,7 +206,9 @@ class TestPytestIntegration:
 
     def test_pytest_configure(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that pytest_configure sets up logging correctly."""
-        from pytest_plugins.custom_logging.plugin_logging import pytest_configure
+        from pytest_plugins.custom_logging.plugin_logging import (
+            pytest_configure,
+        )
 
         # Create logs directory if it doesn't exist
         log_dir = Path("logs")
@@ -236,7 +247,9 @@ class TestPytestIntegration:
 
             # Check that a file handler was added to the root logger
             file_handlers = [
-                h for h in logging.getLogger().handlers if isinstance(h, logging.FileHandler)
+                h
+                for h in logging.getLogger().handlers
+                if isinstance(h, logging.FileHandler)
             ]
             assert len(file_handlers) > 0
 

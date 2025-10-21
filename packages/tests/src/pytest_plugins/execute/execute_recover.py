@@ -27,7 +27,9 @@ def test_recover_funds(
     refund_gas_limit = 21_000
     tx_cost = refund_gas_limit * gas_price
     if remaining_balance < tx_cost:
-        pytest.skip(f"Balance {remaining_balance} is less than the transaction cost {tx_cost}")
+        pytest.skip(
+            f"Balance {remaining_balance} is less than the transaction cost {tx_cost}"
+        )
 
     refund_tx = Transaction(
         sender=eoa,

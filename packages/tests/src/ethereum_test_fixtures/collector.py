@@ -52,7 +52,9 @@ class TestInfo:
         test_name, parameters = self.name.split("[")
         return test_name, re.sub(r"[\[\-]", "_", parameters).replace("]", "")
 
-    def get_single_test_name(self, mode: Literal["module", "test"] = "module") -> str:
+    def get_single_test_name(
+        self, mode: Literal["module", "test"] = "module"
+    ) -> str:
         """Convert test name to a single test name."""
         if mode == "module":
             # Use the module name as the test name
@@ -67,14 +69,20 @@ class TestInfo:
         self,
         base_dump_dir: Optional[Path],
         filler_path: Path,
-        level: Literal["test_module", "test_function", "test_parameter"] = "test_parameter",
+        level: Literal[
+            "test_module", "test_function", "test_parameter"
+        ] = "test_parameter",
     ) -> Optional[Path]:
         """Path to dump the debug output as defined by the level to dump at."""
         if not base_dump_dir:
             return None
-        test_module_relative_dir = self.get_module_relative_output_dir(filler_path)
+        test_module_relative_dir = self.get_module_relative_output_dir(
+            filler_path
+        )
         if level == "test_module":
-            return Path(base_dump_dir) / Path(str(test_module_relative_dir).replace(os.sep, "__"))
+            return Path(base_dump_dir) / Path(
+                str(test_module_relative_dir).replace(os.sep, "__")
+            )
         test_name, test_parameter_string = self.get_name_and_parameters()
         flat_path = f"{str(test_module_relative_dir).replace(os.sep, '__')}__{test_name}"
         if level == "test_function":
@@ -100,7 +108,9 @@ class TestInfo:
         basename_relative = basename.relative_to(
             os.path.commonpath([filler_path.absolute(), basename])
         )
-        module_path = basename_relative.parent / self.strip_test_name(basename_relative.stem)
+        module_path = basename_relative.parent / self.strip_test_name(
+            basename_relative.stem
+        )
         return module_path
 
 
@@ -121,7 +131,9 @@ class FixtureCollector:
 
     def get_fixture_basename(self, info: TestInfo) -> Path:
         """Return basename of the fixture file for a given test case."""
-        module_relative_output_dir = info.get_module_relative_output_dir(self.filler_path)
+        module_relative_output_dir = info.get_module_relative_output_dir(
+            self.filler_path
+        )
 
         # Each legacy test filler has only 1 test per file if it's a !state
         # test! So no need to create directory Add11/add11.json it can be plain
@@ -130,8 +142,12 @@ class FixtureCollector:
             return module_relative_output_dir.parent / info.original_name
 
         if self.single_fixture_per_file:
-            return module_relative_output_dir / info.get_single_test_name(mode="test")
-        return module_relative_output_dir / info.get_single_test_name(mode="module")
+            return module_relative_output_dir / info.get_single_test_name(
+                mode="test"
+            )
+        return module_relative_output_dir / info.get_single_test_name(
+            mode="module"
+        )
 
     def add_fixture(self, info: TestInfo, fixture: BaseFixture) -> Path:
         """Add fixture to the list of fixtures of a given test case."""
@@ -149,7 +165,10 @@ class FixtureCollector:
 
         self.all_fixtures[fixture_path][info.get_id()] = fixture
 
-        if self.flush_interval > 0 and len(self.all_fixtures) >= self.flush_interval:
+        if (
+            self.flush_interval > 0
+            and len(self.all_fixtures) >= self.flush_interval
+        ):
             self.dump_fixtures()
 
         return fixture_path
@@ -158,7 +177,9 @@ class FixtureCollector:
         """Dump all collected fixtures to their respective files."""
         if self.output_dir.name == "stdout":
             combined_fixtures = {
-                k: to_json(v) for fixture in self.all_fixtures.values() for k, v in fixture.items()
+                k: to_json(v)
+                for fixture in self.all_fixtures.values()
+                for k, v in fixture.items()
             }
             json.dump(combined_fixtures, sys.stdout, indent=4)
             return
@@ -166,18 +187,24 @@ class FixtureCollector:
         for fixture_path, fixtures in self.all_fixtures.items():
             os.makedirs(fixture_path.parent, exist_ok=True)
             if len({fixture.__class__ for fixture in fixtures.values()}) != 1:
-                raise TypeError("All fixtures in a single file must have the same format.")
+                raise TypeError(
+                    "All fixtures in a single file must have the same format."
+                )
             fixtures.collect_into_file(fixture_path)
 
         self.all_fixtures.clear()
 
-    def verify_fixture_files(self, evm_fixture_verification: FixtureConsumer) -> None:
+    def verify_fixture_files(
+        self, evm_fixture_verification: FixtureConsumer
+    ) -> None:
         """Run `evm [state|block]test` on each fixture."""
         for fixture_path, name_fixture_dict in self.all_fixtures.items():
             for _fixture_name, fixture in name_fixture_dict.items():
                 if evm_fixture_verification.can_consume(fixture.__class__):
                     info = self.json_path_to_test_item[fixture_path]
-                    consume_direct_dump_dir = self._get_consume_direct_dump_dir(info)
+                    consume_direct_dump_dir = (
+                        self._get_consume_direct_dump_dir(info)
+                    )
                     evm_fixture_verification.consume_fixture(
                         fixture.__class__,
                         fixture_path,

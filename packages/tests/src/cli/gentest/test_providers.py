@@ -42,7 +42,9 @@ class BlockchainTestProvider(BaseModel):
         pad = "        "
         for field, value in self.block.dict().items():
             env_str += (
-                f'{pad}{field}="{value}",\n' if field == "coinbase" else f"{pad}{field}={value},\n"
+                f'{pad}{field}="{value}",\n'
+                if field == "coinbase"
+                else f"{pad}{field}={value},\n"
             )
 
         return env_str

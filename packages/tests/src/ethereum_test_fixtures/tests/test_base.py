@@ -14,7 +14,9 @@ def test_json_dict() -> None:
         txbytes="0x1234",
         result={"Paris": FixtureResult(intrinsic_gas=0)},
     )
-    assert "_info" not in fixture.json_dict, "json_dict should exclude the 'info' field"
+    assert "_info" not in fixture.json_dict, (
+        "json_dict should exclude the 'info' field"
+    )
 
 
 @pytest.mark.parametrize(

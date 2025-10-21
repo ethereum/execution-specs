@@ -14,10 +14,15 @@ import requests
 from pydantic import BaseModel, Field, RootModel
 
 CACHED_RELEASE_INFORMATION_FILE = (
-    Path(platformdirs.user_cache_dir("ethereum-execution-spec-tests")) / "release_information.json"
+    Path(platformdirs.user_cache_dir("ethereum-execution-spec-tests"))
+    / "release_information.json"
 )
 
-SUPPORTED_REPOS = ["ethereum/execution-spec-tests", "ethereum/tests", "ethereum/legacytests"]
+SUPPORTED_REPOS = [
+    "ethereum/execution-spec-tests",
+    "ethereum/tests",
+    "ethereum/legacytests",
+]
 
 
 class NoSuchReleaseError(Exception):
@@ -105,7 +110,9 @@ class Assets(RootModel[List[Asset]]):
 
     def __contains__(self, release_descriptor: ReleaseTag) -> bool:
         """Check if the assets contain the release descriptor."""
-        return any(release_descriptor.asset_name == asset.name for asset in self.root)
+        return any(
+            release_descriptor.asset_name == asset.name for asset in self.root
+        )
 
 
 class ReleaseInformation(BaseModel):
@@ -164,12 +171,16 @@ def is_release_url(input_str: str) -> bool:
     return re.match(regex_pattern, input_str) is not None
 
 
-def parse_release_information(release_information: List) -> List[ReleaseInformation]:
+def parse_release_information(
+    release_information: List,
+) -> List[ReleaseInformation]:
     """Parse the release information from the Github API."""
     return Releases.model_validate(release_information).root
 
 
-def download_release_information(destination_file: Path | None) -> List[ReleaseInformation]:
+def download_release_information(
+    destination_file: Path | None,
+) -> List[ReleaseInformation]:
     """
     Download all releases from the GitHub API, handling pagination properly.
 
@@ -179,7 +190,9 @@ def download_release_information(destination_file: Path | None) -> List[ReleaseI
     """
     all_releases = []
     for repo in SUPPORTED_REPOS:
-        current_url: str | None = f"https://api.github.com/repos/{repo}/releases"
+        current_url: str | None = (
+            f"https://api.github.com/repos/{repo}/releases"
+        )
         max_pages = 2
         while current_url and max_pages > 0:
             max_pages -= 1
@@ -188,7 +201,9 @@ def download_release_information(destination_file: Path | None) -> List[ReleaseI
             all_releases.extend(response.json())
             current_url = None
             if "link" in response.headers:
-                for link in requests.utils.parse_header_links(response.headers["link"]):
+                for link in requests.utils.parse_header_links(
+                    response.headers["link"]
+                ):
                     if link["rel"] == "next":
                         current_url = link["url"]
                         break
@@ -242,7 +257,9 @@ def get_release_page_url(release_string: str) -> str:
             for asset in release.assets.root:
                 if asset.url == release_string:
                     return release.url  # The HTML page for this release
-        raise NoSuchReleaseError(f"No release found for asset URL: {release_string}")
+        raise NoSuchReleaseError(
+            f"No release found for asset URL: {release_string}"
+        )
 
     # Case 2: Otherwise, treat it as a release descriptor (e.g.,
     # "eip7692@latest")
@@ -266,8 +283,12 @@ def get_release_information() -> List[ReleaseInformation]:
     """
     if CACHED_RELEASE_INFORMATION_FILE.exists():
         last_modified = CACHED_RELEASE_INFORMATION_FILE.stat().st_mtime
-        if (datetime.now().timestamp() - last_modified) < 4 * 60 * 60 or is_docker_or_ci():
-            return parse_release_information_from_file(CACHED_RELEASE_INFORMATION_FILE)
+        if (
+            datetime.now().timestamp() - last_modified
+        ) < 4 * 60 * 60 or is_docker_or_ci():
+            return parse_release_information_from_file(
+                CACHED_RELEASE_INFORMATION_FILE
+            )
         CACHED_RELEASE_INFORMATION_FILE.unlink()
     if not CACHED_RELEASE_INFORMATION_FILE.exists():
         return download_release_information(CACHED_RELEASE_INFORMATION_FILE)
@@ -277,4 +298,6 @@ def get_release_information() -> List[ReleaseInformation]:
 def get_release_url(release_string: str) -> str:
     """Get the URL for a specific release."""
     release_information = get_release_information()
-    return get_release_url_from_release_information(release_string, release_information)
+    return get_release_url_from_release_information(
+        release_string, release_information
+    )

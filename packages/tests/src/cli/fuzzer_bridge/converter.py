@@ -30,7 +30,9 @@ from .models import (
 )
 
 
-def fuzzer_account_to_eest_account(fuzzer_account: FuzzerAccountInput) -> Account:
+def fuzzer_account_to_eest_account(
+    fuzzer_account: FuzzerAccountInput,
+) -> Account:
     """
     Convert fuzzer account DTO to EEST Account domain model.
 
@@ -98,7 +100,10 @@ def fuzzer_transaction_to_eest_transaction(
     # Build authorization list if present
     auth_list = None
     if fuzzer_tx.authorization_list:
-        auth_list = [fuzzer_authorization_to_eest(auth) for auth in fuzzer_tx.authorization_list]
+        auth_list = [
+            fuzzer_authorization_to_eest(auth)
+            for auth in fuzzer_tx.authorization_list
+        ]
 
     # Create Transaction with sender set BEFORE model_post_init runs
     # This prevents Transaction.model_post_init from injecting TestAddress
@@ -119,7 +124,9 @@ def fuzzer_transaction_to_eest_transaction(
     )
 
 
-def create_sender_eoa_map(accounts: Dict[Address, FuzzerAccountInput]) -> Dict[Address, EOA]:
+def create_sender_eoa_map(
+    accounts: Dict[Address, FuzzerAccountInput],
+) -> Dict[Address, EOA]:
     """
     Create map of addresses to EOA objects from accounts with private keys.
 
@@ -221,7 +228,9 @@ def blockchain_test_from_fuzzer(
         number=0,
         timestamp=HexNumber(int(env.timestamp) - 12),
         prev_randao=env.prev_randao or Hash(0),
-        base_fee_per_gas=env.base_fee_per_gas if env.base_fee_per_gas else None,
+        base_fee_per_gas=env.base_fee_per_gas
+        if env.base_fee_per_gas
+        else None,
         excess_blob_gas=env.excess_blob_gas if env.excess_blob_gas else None,
         blob_gas_used=env.blob_gas_used if env.blob_gas_used else None,
     ).set_fork_requirements(fork)
@@ -301,7 +310,9 @@ def _distribute_transactions_to_blocks(
                 txs=block_txs,
                 timestamp=base_timestamp + (i * block_time),
                 fee_recipient=base_env.fee_recipient,
-                parent_beacon_block_root=parent_beacon_block_root if i == 0 else None,
+                parent_beacon_block_root=parent_beacon_block_root
+                if i == 0
+                else None,
             )
         )
 

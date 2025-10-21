@@ -19,7 +19,11 @@ from .eof import (
 )
 from .state import StateTest, StateTestFiller, StateTestSpec
 from .static_state.state_static import StateStaticTest
-from .transaction import TransactionTest, TransactionTestFiller, TransactionTestSpec
+from .transaction import (
+    TransactionTest,
+    TransactionTestFiller,
+    TransactionTestSpec,
+)
 
 __all__ = (
     "BaseStaticTest",

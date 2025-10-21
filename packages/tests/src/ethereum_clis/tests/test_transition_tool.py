@@ -77,7 +77,10 @@ def test_from_binary(
     monkeypatch.setattr(shutil, "which", mock_which)
     monkeypatch.setattr(subprocess, "run", mock_run)
 
-    assert isinstance(TransitionTool.from_binary_path(binary_path=binary_path), expected_class)
+    assert isinstance(
+        TransitionTool.from_binary_path(binary_path=binary_path),
+        expected_class,
+    )
 
 
 def test_unknown_binary_path() -> None:
@@ -86,4 +89,6 @@ def test_unknown_binary_path() -> None:
     binary paths.
     """
     with pytest.raises(CLINotFoundInPathError):
-        TransitionTool.from_binary_path(binary_path=Path("unknown_binary_path"))
+        TransitionTool.from_binary_path(
+            binary_path=Path("unknown_binary_path")
+        )

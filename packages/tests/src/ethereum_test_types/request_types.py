@@ -106,10 +106,16 @@ class ConsolidationRequest(RequestBase, CamelModel):
 
     def __bytes__(self) -> bytes:
         """Return consolidation's attributes as bytes."""
-        return bytes(self.source_address) + bytes(self.source_pubkey) + bytes(self.target_pubkey)
+        return (
+            bytes(self.source_address)
+            + bytes(self.source_pubkey)
+            + bytes(self.target_pubkey)
+        )
 
 
-def requests_list_to_bytes(requests_list: List[RequestBase] | Bytes | SupportsBytes) -> Bytes:
+def requests_list_to_bytes(
+    requests_list: List[RequestBase] | Bytes | SupportsBytes,
+) -> Bytes:
     """Convert list of requests to bytes."""
     if not isinstance(requests_list, list):
         return Bytes(requests_list)
@@ -128,10 +134,14 @@ class Requests:
     ) -> None:
         """Initialize requests object."""
         if requests_lists is not None:
-            assert len(requests) == 0, "requests must be empty if list is provided"
+            assert len(requests) == 0, (
+                "requests must be empty if list is provided"
+            )
             self.requests_list = []
             for requests_list in requests_lists:
-                self.requests_list.append(requests_list_to_bytes(requests_list))
+                self.requests_list.append(
+                    requests_list_to_bytes(requests_list)
+                )
             return
         else:
             lists: Dict[int, List[RequestBase]] = defaultdict(list)
@@ -139,7 +149,10 @@ class Requests:
                 lists[r.type].append(r)
 
             self.requests_list = [
-                Bytes(bytes([request_type]) + requests_list_to_bytes(lists[request_type]))
+                Bytes(
+                    bytes([request_type])
+                    + requests_list_to_bytes(lists[request_type])
+                )
                 for request_type in sorted(lists.keys())
             ]
 

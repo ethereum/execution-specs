@@ -12,8 +12,12 @@ from ..exceptions import (
 )
 
 GenericExceptionListAdapter: TypeAdapter = TypeAdapter(ExceptionInstanceOrList)
-TransactionExceptionListAdapter: TypeAdapter = TypeAdapter(TransactionExceptionInstanceOrList)
-BlockExceptionListAdapter: TypeAdapter = TypeAdapter(BlockExceptionInstanceOrList)
+TransactionExceptionListAdapter: TypeAdapter = TypeAdapter(
+    TransactionExceptionInstanceOrList
+)
+BlockExceptionListAdapter: TypeAdapter = TypeAdapter(
+    BlockExceptionInstanceOrList
+)
 
 
 @pytest.mark.parametrize(
@@ -27,8 +31,14 @@ BlockExceptionListAdapter: TypeAdapter = TypeAdapter(BlockExceptionInstanceOrLis
             TransactionException.INITCODE_SIZE_EXCEEDED,
             "TransactionException.INITCODE_SIZE_EXCEEDED",
         ),
-        (BlockException.INCORRECT_BLOB_GAS_USED, "BlockException.INCORRECT_BLOB_GAS_USED"),
-        (BlockException.INCORRECT_BLOCK_FORMAT, "BlockException.INCORRECT_BLOCK_FORMAT"),
+        (
+            BlockException.INCORRECT_BLOB_GAS_USED,
+            "BlockException.INCORRECT_BLOB_GAS_USED",
+        ),
+        (
+            BlockException.INCORRECT_BLOCK_FORMAT,
+            "BlockException.INCORRECT_BLOCK_FORMAT",
+        ),
     ],
 )
 def test_exceptions_string_conversion(
@@ -92,6 +102,11 @@ def test_exceptions_string_conversion(
         ),
     ],
 )
-def test_exceptions_or(type_adapter: TypeAdapter, exception: list, expected: str) -> None:
+def test_exceptions_or(
+    type_adapter: TypeAdapter, exception: list, expected: str
+) -> None:
     """Test that the exceptions can be combined using the | operator."""
-    assert type_adapter.dump_python(type_adapter.validate_python(exception)) == expected
+    assert (
+        type_adapter.dump_python(type_adapter.validate_python(exception))
+        == expected
+    )

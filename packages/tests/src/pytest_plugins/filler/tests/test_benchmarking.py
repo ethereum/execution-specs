@@ -53,29 +53,40 @@ def setup_test_directory_structure(
     test_module = dummy_dir / test_filename
     test_module.write_text(test_content)
 
-    pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    pytester.copy_example(
+        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
 
     return test_module
 
 
 def test_gas_benchmark_option_added(pytester: pytest.Pytester) -> None:
     """Test that the --gas-benchmark-values option is properly added."""
-    pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    pytester.copy_example(
+        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
 
     # Command: pytest -p pytest_plugins.filler.benchmarking --help
     result = pytester.runpytest("-c", "pytest-fill.ini", "--help")
 
     assert result.ret == 0
     assert any("--gas-benchmark-values" in line for line in result.outlines)
-    assert any("Specify gas benchmark values for tests" in line for line in result.outlines)
+    assert any(
+        "Specify gas benchmark values for tests" in line
+        for line in result.outlines
+    )
 
 
-def test_benchmarking_mode_configured_with_option(pytester: pytest.Pytester) -> None:
+def test_benchmarking_mode_configured_with_option(
+    pytester: pytest.Pytester,
+) -> None:
     """
     Test that fill_mode is set to BENCHMARKING when --gas-benchmark-values is
     used.
     """
-    setup_test_directory_structure(pytester, test_module_dummy, "test_dummy_benchmark.py")
+    setup_test_directory_structure(
+        pytester, test_module_dummy, "test_dummy_benchmark.py"
+    )
 
     # Test with gas benchmark values
     result = pytester.runpytest(
@@ -98,12 +109,16 @@ def test_benchmarking_mode_configured_with_option(pytester: pytest.Pytester) -> 
     assert any("benchmark-gas-value_30M" in line for line in result.outlines)
 
 
-def test_benchmarking_mode_not_configured_without_option(pytester: pytest.Pytester) -> None:
+def test_benchmarking_mode_not_configured_without_option(
+    pytester: pytest.Pytester,
+) -> None:
     """
     Test that fill_mode is not set to BENCHMARKING when --gas-benchmark-values
     is not used.
     """
-    setup_test_directory_structure(pytester, test_module_dummy, "test_dummy_benchmark.py")
+    setup_test_directory_structure(
+        pytester, test_module_dummy, "test_dummy_benchmark.py"
+    )
 
     # Test without gas benchmark values
     result = pytester.runpytest(
@@ -119,6 +134,12 @@ def test_benchmarking_mode_not_configured_without_option(pytester: pytest.Pytest
     assert result.ret == 0
     # Should generate normal test variants (3) without parametrization
     assert any("3 tests collected" in line for line in result.outlines)
-    assert not any("benchmark-gas-value_10M" in line for line in result.outlines)
-    assert not any("benchmark-gas-value_20M" in line for line in result.outlines)
-    assert not any("benchmark-gas-value_30M" in line for line in result.outlines)
+    assert not any(
+        "benchmark-gas-value_10M" in line for line in result.outlines
+    )
+    assert not any(
+        "benchmark-gas-value_20M" in line for line in result.outlines
+    )
+    assert not any(
+        "benchmark-gas-value_30M" in line for line in result.outlines
+    )

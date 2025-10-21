@@ -15,7 +15,10 @@ from ethereum_test_base_types import (
     TestPrivateKey,
     TestPrivateKey2,
 )
-from ethereum_test_base_types.reference_spec import ReferenceSpec, ReferenceSpecTypes
+from ethereum_test_base_types.reference_spec import (
+    ReferenceSpec,
+    ReferenceSpecTypes,
+)
 from ethereum_test_benchmark import (
     BenchmarkCodeGenerator,
     ExtCallGenerator,

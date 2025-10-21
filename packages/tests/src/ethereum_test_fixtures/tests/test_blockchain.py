@@ -18,7 +18,11 @@ from ethereum_test_base_types import (
     ZeroPaddedHexNumber,
     to_json,
 )
-from ethereum_test_exceptions import BlockException, EngineAPIError, TransactionException
+from ethereum_test_exceptions import (
+    BlockException,
+    EngineAPIError,
+    TransactionException,
+)
 from ethereum_test_forks import Prague
 from ethereum_test_types import (
     EOA,
@@ -70,7 +74,9 @@ fixture_header_ones = FixtureHeader(
     [
         pytest.param(
             True,
-            FixtureTransaction.from_transaction(Transaction().with_signature_and_sender()),
+            FixtureTransaction.from_transaction(
+                Transaction().with_signature_and_sender()
+            ),
             {
                 "type": "0x00",
                 "chainId": "0x01",
@@ -89,7 +95,9 @@ fixture_header_ones = FixtureHeader(
         ),
         pytest.param(
             True,
-            FixtureTransaction.from_transaction(Transaction(to=None).with_signature_and_sender()),
+            FixtureTransaction.from_transaction(
+                Transaction(to=None).with_signature_and_sender()
+            ),
             {
                 "type": "0x00",
                 "chainId": "0x01",
@@ -108,7 +116,9 @@ fixture_header_ones = FixtureHeader(
         ),
         pytest.param(
             True,
-            FixtureTransaction.from_transaction(Transaction(ty=1).with_signature_and_sender()),
+            FixtureTransaction.from_transaction(
+                Transaction(ty=1).with_signature_and_sender()
+            ),
             {
                 "type": "0x01",
                 "chainId": "0x01",
@@ -129,7 +139,9 @@ fixture_header_ones = FixtureHeader(
         pytest.param(
             True,
             FixtureTransaction.from_transaction(
-                Transaction(ty=2, max_fee_per_gas=7).with_signature_and_sender()
+                Transaction(
+                    ty=2, max_fee_per_gas=7
+                ).with_signature_and_sender()
             ),
             {
                 "type": "0x02",
@@ -385,7 +397,9 @@ fixture_header_ones = FixtureHeader(
                     excess_blob_gas=18,
                 ),
                 transactions=[
-                    FixtureTransaction.from_transaction(Transaction().with_signature_and_sender())
+                    FixtureTransaction.from_transaction(
+                        Transaction().with_signature_and_sender()
+                    )
                 ],
             ),
             {
@@ -600,7 +614,11 @@ fixture_header_ones = FixtureHeader(
                         blob_versioned_hashes=[0, 1],
                     ).with_signature_and_sender(),
                 ],
-                withdrawals=[Withdrawal(index=0, validator_index=1, address=0x1234, amount=2)],
+                withdrawals=[
+                    Withdrawal(
+                        index=0, validator_index=1, address=0x1234, amount=2
+                    )
+                ],
             ),
             {
                 "parentHash": Hash(0).hex(),
@@ -638,7 +656,14 @@ fixture_header_ones = FixtureHeader(
                     .hex()
                 ],
                 "withdrawals": [
-                    to_json(Withdrawal(index=0, validator_index=1, address=0x1234, amount=2))
+                    to_json(
+                        Withdrawal(
+                            index=0,
+                            validator_index=1,
+                            address=0x1234,
+                            amount=2,
+                        )
+                    )
                 ],
             },
             id="fixture_execution_payload_1",
@@ -686,7 +711,11 @@ fixture_header_ones = FixtureHeader(
                         blob_versioned_hashes=[0, 1],
                     ).with_signature_and_sender(),
                 ],
-                withdrawals=[Withdrawal(index=0, validator_index=1, address=0x1234, amount=2)],
+                withdrawals=[
+                    Withdrawal(
+                        index=0, validator_index=1, address=0x1234, amount=2
+                    )
+                ],
                 requests=Requests(
                     DepositRequest(
                         pubkey=BLSPublicKey(0),
@@ -842,7 +871,11 @@ fixture_header_ones = FixtureHeader(
                         blob_versioned_hashes=[0, 1],
                     ).with_signature_and_sender(),
                 ],
-                withdrawals=[Withdrawal(index=0, validator_index=1, address=0x1234, amount=2)],
+                withdrawals=[
+                    Withdrawal(
+                        index=0, validator_index=1, address=0x1234, amount=2
+                    )
+                ],
                 requests=Requests(
                     DepositRequest(
                         pubkey=BLSPublicKey(0),
@@ -958,18 +991,26 @@ class TestPydanticModelConversion:
     """Test that Pydantic models are converted to and from JSON correctly."""
 
     def test_json_serialization(
-        self, can_be_deserialized: bool, model_instance: Any, json_repr: str | Dict[str, Any]
+        self,
+        can_be_deserialized: bool,
+        model_instance: Any,
+        json_repr: str | Dict[str, Any],
     ) -> None:
         """Test that to_json returns the expected JSON for the given object."""
         del can_be_deserialized
         assert to_json(model_instance) == json_repr
 
     def test_json_deserialization(
-        self, can_be_deserialized: bool, model_instance: Any, json_repr: str | Dict[str, Any]
+        self,
+        can_be_deserialized: bool,
+        model_instance: Any,
+        json_repr: str | Dict[str, Any],
     ) -> None:
         """Test that to_json returns the expected JSON for the given object."""
         if not can_be_deserialized:
-            pytest.skip(reason="The model instance in this case can not be deserialized")
+            pytest.skip(
+                reason="The model instance in this case can not be deserialized"
+            )
         model_type = type(model_instance)
         assert model_type(**json_repr) == model_instance
 
@@ -1022,7 +1063,14 @@ EngineNewPayloadParametersAdapter = TypeAdapter(EngineNewPayloadParameters)  # t
                             blob_versioned_hashes=[0, 1],
                         ).with_signature_and_sender(),
                     ],
-                    withdrawals=[Withdrawal(index=0, validator_index=1, address=0x1234, amount=2)],
+                    withdrawals=[
+                        Withdrawal(
+                            index=0,
+                            validator_index=1,
+                            address=0x1234,
+                            amount=2,
+                        )
+                    ],
                 ),
             ),
             [
@@ -1063,7 +1111,14 @@ EngineNewPayloadParametersAdapter = TypeAdapter(EngineNewPayloadParameters)  # t
                         .hex()
                     ],
                     "withdrawals": [
-                        to_json(Withdrawal(index=0, validator_index=1, address=0x1234, amount=2))
+                        to_json(
+                            Withdrawal(
+                                index=0,
+                                validator_index=1,
+                                address=0x1234,
+                                amount=2,
+                            )
+                        )
                     ],
                 }
             ],
@@ -1111,7 +1166,14 @@ EngineNewPayloadParametersAdapter = TypeAdapter(EngineNewPayloadParameters)  # t
                             blob_versioned_hashes=[0, 1],
                         ).with_signature_and_sender(),
                     ],
-                    withdrawals=[Withdrawal(index=0, validator_index=1, address=0x1234, amount=2)],
+                    withdrawals=[
+                        Withdrawal(
+                            index=0,
+                            validator_index=1,
+                            address=0x1234,
+                            amount=2,
+                        )
+                    ],
                 ),
                 [Hash(1), Hash(2)],
                 Hash(3),
@@ -1154,7 +1216,14 @@ EngineNewPayloadParametersAdapter = TypeAdapter(EngineNewPayloadParameters)  # t
                         .hex()
                     ],
                     "withdrawals": [
-                        to_json(Withdrawal(index=0, validator_index=1, address=0x1234, amount=2))
+                        to_json(
+                            Withdrawal(
+                                index=0,
+                                validator_index=1,
+                                address=0x1234,
+                                amount=2,
+                            )
+                        )
                     ],
                 },
                 [Hash(1).hex(), Hash(2).hex()],
@@ -1204,7 +1273,14 @@ EngineNewPayloadParametersAdapter = TypeAdapter(EngineNewPayloadParameters)  # t
                             blob_versioned_hashes=[0, 1],
                         ).with_signature_and_sender(),
                     ],
-                    withdrawals=[Withdrawal(index=0, validator_index=1, address=0x1234, amount=2)],
+                    withdrawals=[
+                        Withdrawal(
+                            index=0,
+                            validator_index=1,
+                            address=0x1234,
+                            amount=2,
+                        )
+                    ],
                 ),
                 [Hash(1), Hash(2)],
                 Hash(3),
@@ -1266,7 +1342,14 @@ EngineNewPayloadParametersAdapter = TypeAdapter(EngineNewPayloadParameters)  # t
                         .hex()
                     ],
                     "withdrawals": [
-                        to_json(Withdrawal(index=0, validator_index=1, address=0x1234, amount=2))
+                        to_json(
+                            Withdrawal(
+                                index=0,
+                                validator_index=1,
+                                address=0x1234,
+                                amount=2,
+                            )
+                        )
                     ],
                 },
                 [Hash(1).hex(), Hash(2).hex()],
@@ -1329,5 +1412,7 @@ class TestPydanticAdaptersConversion:
     ) -> None:
         """Test that to_json returns the expected JSON for the given object."""
         if not can_be_deserialized:
-            pytest.skip(reason="The model instance in this case can not be deserialized")
+            pytest.skip(
+                reason="The model instance in this case can not be deserialized"
+            )
         assert adapter.validate_python(json_repr) == type_instance

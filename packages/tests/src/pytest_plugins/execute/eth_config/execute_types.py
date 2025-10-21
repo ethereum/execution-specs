@@ -86,7 +86,9 @@ class ForkConfigBuilder(BaseModel):
         )
 
 
-def calculate_fork_id(genesis_hash: Hash, activation_times: Set[int]) -> ForkHash:
+def calculate_fork_id(
+    genesis_hash: Hash, activation_times: Set[int]
+) -> ForkHash:
     """
     Calculate the fork Id given the genesis hash and each fork activation
     times.
@@ -117,7 +119,9 @@ class ForkActivationTimes(EthereumTestRootModel[Dict[Fork, int]]):
         active_forks = []
         for activation_time in sorted(forks_by_activation_time.keys()):
             if activation_time <= current_time:
-                active_forks.extend(sorted(forks_by_activation_time[activation_time]))
+                active_forks.extend(
+                    sorted(forks_by_activation_time[activation_time])
+                )
         return active_forks
 
     def next_forks(self, current_time: int) -> List[Fork]:
@@ -126,7 +130,9 @@ class ForkActivationTimes(EthereumTestRootModel[Dict[Fork, int]]):
         next_forks = []
         for activation_time in sorted(forks_by_activation_time.keys()):
             if activation_time > current_time:
-                next_forks.extend(sorted(forks_by_activation_time[activation_time]))
+                next_forks.extend(
+                    sorted(forks_by_activation_time[activation_time])
+                )
         return next_forks
 
     def active_fork(self, current_time: int) -> Fork:
@@ -158,8 +164,12 @@ class NetworkConfig(CamelModel):
     chain_id: HexNumber
     genesis_hash: Hash
     fork_activation_times: ForkActivationTimes
-    blob_schedule: Dict[Fork, ForkConfigBlobSchedule] = Field(default_factory=dict)
-    address_overrides: AddressOverrideDict = Field(default_factory=lambda: AddressOverrideDict({}))
+    blob_schedule: Dict[Fork, ForkConfigBlobSchedule] = Field(
+        default_factory=dict
+    )
+    address_overrides: AddressOverrideDict = Field(
+        default_factory=lambda: AddressOverrideDict({})
+    )
 
     def get_eth_config(self, current_time: int) -> EthConfigResponse:
         """Get the current and next forks based on the given time."""
@@ -168,7 +178,9 @@ class NetworkConfig(CamelModel):
             "address_overrides": self.address_overrides,
         }
 
-        activation_times = set(self.fork_activation_times.forks_by_activation_time().keys())
+        activation_times = set(
+            self.fork_activation_times.forks_by_activation_time().keys()
+        )
 
         current_activation_times = {
             activation_time
@@ -203,7 +215,8 @@ class NetworkConfig(CamelModel):
             kwargs["next"] = next_config_builder.get_config(
                 calculate_fork_id(
                     self.genesis_hash,
-                    current_activation_times | {sorted(next_activation_times)[0]},
+                    current_activation_times
+                    | {sorted(next_activation_times)[0]},
                 )
             )
 
@@ -244,7 +257,9 @@ class GenesisConfig(CamelModel):
     chain_id: int
     terminal_total_difficulty: int
     terminal_total_difficulty_passed: bool
-    deposit_contract_address: Address = Address(0x00000000219AB540356CBB839CBE05303D7705FA)
+    deposit_contract_address: Address = Address(
+        0x00000000219AB540356CBB839CBE05303D7705FA
+    )
     fork_activation_times: ForkActivationTimes
     blob_schedule: Dict[Fork, ForkConfigBlobSchedule]
 
@@ -260,16 +275,25 @@ class GenesisConfig(CamelModel):
     @property
     def address_overrides(self) -> AddressOverrideDict:
         """Get the address overrides."""
-        if self.deposit_contract_address == Address(0x00000000219AB540356CBB839CBE05303D7705FA):
+        if self.deposit_contract_address == Address(
+            0x00000000219AB540356CBB839CBE05303D7705FA
+        ):
             return AddressOverrideDict({})
         return AddressOverrideDict(
-            {Address(0x00000000219AB540356CBB839CBE05303D7705FA): self.deposit_contract_address}
+            {
+                Address(
+                    0x00000000219AB540356CBB839CBE05303D7705FA
+                ): self.deposit_contract_address
+            }
         )
 
     def fork(self) -> Fork:
         """Return the latest fork active at genesis."""
         current_fork: Fork = Frontier
-        for fork, activation_block_time in self.fork_activation_times.root.items():
+        for (
+            fork,
+            activation_block_time,
+        ) in self.fork_activation_times.root.items():
             if activation_block_time == 0 and fork > current_fork:
                 current_fork = fork
         return current_fork
@@ -335,10 +359,14 @@ class Genesis(CamelModel):
     @cached_property
     def hash(self) -> Hash:
         """Calculate the genesis hash."""
-        dumped_genesis = self.model_dump(mode="json", exclude={"config", "alloc"})
+        dumped_genesis = self.model_dump(
+            mode="json", exclude={"config", "alloc"}
+        )
         genesis_fork = self.config.fork()
         env = Environment(**dumped_genesis).set_fork_requirements(genesis_fork)
-        genesis_header = FixtureHeader.genesis(genesis_fork, env, self.alloc.state_root())
+        genesis_header = FixtureHeader.genesis(
+            genesis_fork, env, self.alloc.state_root()
+        )
         genesis_header.extra_data = self.extra_data
         genesis_header.nonce = self.nonce
         return genesis_header.block_hash

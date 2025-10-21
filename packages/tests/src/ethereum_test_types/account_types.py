@@ -3,7 +3,17 @@
 import json
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Dict, ItemsView, Iterator, List, Literal, Optional, Self, Tuple
+from typing import (
+    Any,
+    Dict,
+    ItemsView,
+    Iterator,
+    List,
+    Literal,
+    Optional,
+    Self,
+    Tuple,
+)
 
 from coincurve.keys import PrivateKey
 from ethereum_types.bytes import Bytes20
@@ -26,7 +36,14 @@ from ethereum_test_base_types.conversions import (
 )
 from ethereum_test_vm import EVMCodeType
 
-from .trie import EMPTY_TRIE_ROOT, FrontierAccount, Trie, root, trie_get, trie_set
+from .trie import (
+    EMPTY_TRIE_ROOT,
+    FrontierAccount,
+    Trie,
+    root,
+    trie_get,
+    trie_set,
+)
 from .utils import keccak256
 
 FrontierAddress = Bytes20
@@ -39,7 +56,9 @@ class State:
     _main_trie: Trie[Bytes20, Optional[FrontierAccount]] = field(
         default_factory=lambda: Trie(secured=True, default=None)
     )
-    _storage_tries: Dict[Bytes20, Trie[Bytes32, U256]] = field(default_factory=dict)
+    _storage_tries: Dict[Bytes20, Trie[Bytes32, U256]] = field(
+        default_factory=dict
+    )
     _snapshots: List[
         Tuple[
             Trie[Bytes20, Optional[FrontierAccount]],
@@ -48,7 +67,9 @@ class State:
     ] = field(default_factory=list)
 
 
-def set_account(state: State, address: Bytes20, account: Optional[FrontierAccount]) -> None:
+def set_account(
+    state: State, address: Bytes20, account: Optional[FrontierAccount]
+) -> None:
     """
     Set the `Account` object at an address. Setting to `None` deletes the
     account (but not its storage, see `destroy_account()`).
@@ -56,7 +77,9 @@ def set_account(state: State, address: Bytes20, account: Optional[FrontierAccoun
     trie_set(state._main_trie, address, account)
 
 
-def set_storage(state: State, address: Bytes20, key: Bytes32, value: U256) -> None:
+def set_storage(
+    state: State, address: Bytes20, key: Bytes32, value: U256
+) -> None:
     """
     Set a value at a storage key on an account. Setting to `U256(0)` deletes
     the key.
@@ -113,10 +136,14 @@ class EOA(Address):
         """Init the EOA."""
         if address is None:
             if key is None:
-                raise ValueError("impossible to initialize EOA without address")
+                raise ValueError(
+                    "impossible to initialize EOA without address"
+                )
             private_key = PrivateKey(Hash(key))
             public_key = private_key.public_key
-            address = Address(keccak256(public_key.format(compressed=False)[1:])[32 - 20 :])
+            address = Address(
+                keccak256(public_key.format(compressed=False)[1:])[32 - 20 :]
+            )
         elif isinstance(address, EOA):
             return address
         instance = super(EOA, cls).__new__(cls, address)
@@ -222,7 +249,10 @@ class Alloc(BaseAlloc):
                 raise Exception(
                     f"Overlapping keys detected: {[key.hex() for key in overlapping_keys]}"
                 )
-            elif key_collision_mode == cls.KeyCollisionMode.ALLOW_IDENTICAL_ACCOUNTS:
+            elif (
+                key_collision_mode
+                == cls.KeyCollisionMode.ALLOW_IDENTICAL_ACCOUNTS
+            ):
                 # The overlapping keys must point to the exact same account
                 for key in overlapping_keys:
                     account_1 = alloc_1[key]
@@ -236,7 +266,9 @@ class Alloc(BaseAlloc):
         merged = alloc_1.model_dump()
 
         for address, other_account in alloc_2.root.items():
-            merged_account = Account.merge(merged.get(address, None), other_account)
+            merged_account = Account.merge(
+                merged.get(address, None), other_account
+            )
             if merged_account:
                 merged[address] = merged_account
             elif address in merged:
@@ -252,21 +284,27 @@ class Alloc(BaseAlloc):
         """Return iterator over the allocation items."""
         return self.root.items()
 
-    def __getitem__(self, address: Address | FixedSizeBytesConvertible) -> Account | None:
+    def __getitem__(
+        self, address: Address | FixedSizeBytesConvertible
+    ) -> Account | None:
         """Return account associated with an address."""
         if not isinstance(address, Address):
             address = Address(address)
         return self.root[address]
 
     def __setitem__(
-        self, address: Address | FixedSizeBytesConvertible, account: Account | None
+        self,
+        address: Address | FixedSizeBytesConvertible,
+        account: Account | None,
     ) -> None:
         """Set account associated with an address."""
         if not isinstance(address, Address):
             address = Address(address)
         self.root[address] = account
 
-    def __delitem__(self, address: Address | FixedSizeBytesConvertible) -> None:
+    def __delitem__(
+        self, address: Address | FixedSizeBytesConvertible
+    ) -> None:
         """Delete account associated with an address."""
         if not isinstance(address, Address):
             address = Address(address)
@@ -278,7 +316,9 @@ class Alloc(BaseAlloc):
             return False
         return self.root == other.root
 
-    def __contains__(self, address: Address | FixedSizeBytesConvertible) -> bool:
+    def __contains__(
+        self, address: Address | FixedSizeBytesConvertible
+    ) -> bool:
         """Check if an account is in the allocation."""
         if not isinstance(address, Address):
             address = Address(address)
@@ -286,7 +326,9 @@ class Alloc(BaseAlloc):
 
     def empty_accounts(self) -> List[Address]:
         """Return list of addresses of empty accounts."""
-        return [address for address, account in self.root.items() if not account]
+        return [
+            address for address, account in self.root.items() if not account
+        ]
 
     def state_root(self) -> Hash:
         """Return state root of the allocation."""
@@ -298,8 +340,14 @@ class Alloc(BaseAlloc):
                 state=state,
                 address=FrontierAddress(address),
                 account=FrontierAccount(
-                    nonce=Uint(account.nonce) if account.nonce is not None else Uint(0),
-                    balance=(U256(account.balance) if account.balance is not None else U256(0)),
+                    nonce=Uint(account.nonce)
+                    if account.nonce is not None
+                    else Uint(0),
+                    balance=(
+                        U256(account.balance)
+                        if account.balance is not None
+                        else U256(0)
+                    ),
                     code=account.code if account.code is not None else b"",
                 ),
             )
@@ -318,11 +366,16 @@ class Alloc(BaseAlloc):
         Verify that the allocation matches the expected post in the test.
         Raises exception on unexpected values.
         """
-        assert isinstance(got_alloc, Alloc), f"got_alloc is not an Alloc: {got_alloc}"
+        assert isinstance(got_alloc, Alloc), (
+            f"got_alloc is not an Alloc: {got_alloc}"
+        )
         for address, account in self.root.items():
             if account is None:
                 # Account must not exist
-                if address in got_alloc.root and got_alloc.root[address] is not None:
+                if (
+                    address in got_alloc.root
+                    and got_alloc.root[address] is not None
+                ):
                     raise Alloc.UnexpectedAccountError(
                         address=address, account=got_alloc.root[address]
                     )
@@ -348,7 +401,9 @@ class Alloc(BaseAlloc):
         stub: str | None = None,
     ) -> Address:
         """Deploy a contract to the allocation."""
-        raise NotImplementedError("deploy_contract is not implemented in the base class")
+        raise NotImplementedError(
+            "deploy_contract is not implemented in the base class"
+        )
 
     def fund_eoa(
         self,
@@ -362,16 +417,22 @@ class Alloc(BaseAlloc):
         Add a previously unused EOA to the pre-alloc with the balance specified
         by `amount`.
         """
-        raise NotImplementedError("fund_eoa is not implemented in the base class")
+        raise NotImplementedError(
+            "fund_eoa is not implemented in the base class"
+        )
 
-    def fund_address(self, address: Address, amount: NumberConvertible) -> None:
+    def fund_address(
+        self, address: Address, amount: NumberConvertible
+    ) -> None:
         """
         Fund an address with a given amount.
 
         If the address is already present in the pre-alloc the amount will be
         added to its existing balance.
         """
-        raise NotImplementedError("fund_address is not implemented in the base class")
+        raise NotImplementedError(
+            "fund_address is not implemented in the base class"
+        )
 
     def empty_account(self) -> Address:
         """
@@ -380,4 +441,6 @@ class Alloc(BaseAlloc):
         This ensures the account has zero balance, zero nonce, no code, and no
         storage. The account is not a precompile or a system contract.
         """
-        raise NotImplementedError("empty_account is not implemented in the base class")
+        raise NotImplementedError(
+            "empty_account is not implemented in the base class"
+        )

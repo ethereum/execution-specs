@@ -58,9 +58,15 @@ class TestFuzzerOutputParsing:
         assert len(fuzzer_output.accounts) > 0
         assert fuzzer_output.parent_beacon_block_root is not None  # EIP-4788
 
-    def test_parse_account_with_private_key(self, fuzzer_data: Dict[str, Any]) -> None:
+    def test_parse_account_with_private_key(
+        self, fuzzer_data: Dict[str, Any]
+    ) -> None:
         """Test parsing account with private key."""
-        account_data = next(acc for acc in fuzzer_data["accounts"].values() if "privateKey" in acc)
+        account_data = next(
+            acc
+            for acc in fuzzer_data["accounts"].values()
+            if "privateKey" in acc
+        )
 
         account = FuzzerAccountInput(**account_data)
 
@@ -68,10 +74,16 @@ class TestFuzzerOutputParsing:
         assert isinstance(account.balance, HexNumber)
         assert isinstance(account.nonce, HexNumber)
 
-    def test_parse_account_without_private_key(self, fuzzer_data: Dict[str, Any]) -> None:
+    def test_parse_account_without_private_key(
+        self, fuzzer_data: Dict[str, Any]
+    ) -> None:
         """Test parsing contract account (no private key)."""
         account_data = next(
-            (acc for acc in fuzzer_data["accounts"].values() if "privateKey" not in acc),
+            (
+                acc
+                for acc in fuzzer_data["accounts"].values()
+                if "privateKey" not in acc
+            ),
             None,
         )
 
@@ -79,7 +91,9 @@ class TestFuzzerOutputParsing:
             account = FuzzerAccountInput(**account_data)
             assert account.private_key is None
 
-    def test_parse_transaction_with_authorization_list(self, fuzzer_data: Dict[str, Any]) -> None:
+    def test_parse_transaction_with_authorization_list(
+        self, fuzzer_data: Dict[str, Any]
+    ) -> None:
         """Test parsing EIP-7702 transaction with authorization list."""
         tx_data = next(
             (
@@ -95,7 +109,9 @@ class TestFuzzerOutputParsing:
 
             assert tx.authorization_list is not None
             assert len(tx.authorization_list) > 0
-            assert isinstance(tx.authorization_list[0], FuzzerAuthorizationInput)
+            assert isinstance(
+                tx.authorization_list[0], FuzzerAuthorizationInput
+            )
 
             # Verify authorization fields
             auth = tx.authorization_list[0]
@@ -103,7 +119,9 @@ class TestFuzzerOutputParsing:
             assert isinstance(auth.address, Address)
             assert isinstance(auth.nonce, HexNumber)
 
-    def test_parse_authorization_tuple(self, fuzzer_data: Dict[str, Any]) -> None:
+    def test_parse_authorization_tuple(
+        self, fuzzer_data: Dict[str, Any]
+    ) -> None:
         """Test parsing individual authorization tuple."""
         tx_with_auth = next(
             (
@@ -143,7 +161,9 @@ class TestDTOConversion:
         data = load_fuzzer_vector("fuzzer_test_0.json")
         return FuzzerOutput(**data)
 
-    def test_fuzzer_account_to_eest_account(self, fuzzer_output: FuzzerOutput) -> None:
+    def test_fuzzer_account_to_eest_account(
+        self, fuzzer_output: FuzzerOutput
+    ) -> None:
         """Test account DTO to EEST Account conversion."""
         fuzzer_account = next(iter(fuzzer_output.accounts.values()))
 
@@ -154,10 +174,13 @@ class TestDTOConversion:
         assert eest_account.nonce == fuzzer_account.nonce
         assert eest_account.code == fuzzer_account.code
 
-    def test_fuzzer_authorization_to_eest(self, fuzzer_output: FuzzerOutput) -> None:
+    def test_fuzzer_authorization_to_eest(
+        self, fuzzer_output: FuzzerOutput
+    ) -> None:
         """Test authorization DTO to EEST AuthorizationTuple conversion."""
         tx_with_auth = next(
-            (tx for tx in fuzzer_output.transactions if tx.authorization_list), None
+            (tx for tx in fuzzer_output.transactions if tx.authorization_list),
+            None,
         )
 
         if tx_with_auth and tx_with_auth.authorization_list:
@@ -181,7 +204,9 @@ class TestDTOConversion:
             # Verify private key matches address
             assert Address(eoa) == addr
 
-    def test_sender_eoa_map_validates_address(self, fuzzer_output: FuzzerOutput) -> None:
+    def test_sender_eoa_map_validates_address(
+        self, fuzzer_output: FuzzerOutput
+    ) -> None:
         """Test that EOA map validates private key matches address."""
         # This test verifies the assertion in create_sender_eoa_map
         sender_map = create_sender_eoa_map(fuzzer_output.accounts)
@@ -189,7 +214,9 @@ class TestDTOConversion:
         # All created EOAs should pass validation
         assert all(Address(eoa) == addr for addr, eoa in sender_map.items())
 
-    def test_fuzzer_transaction_to_eest_transaction(self, fuzzer_output: FuzzerOutput) -> None:
+    def test_fuzzer_transaction_to_eest_transaction(
+        self, fuzzer_output: FuzzerOutput
+    ) -> None:
         """Test transaction DTO to EEST Transaction conversion."""
         fuzzer_tx = fuzzer_output.transactions[0]
         sender_map = create_sender_eoa_map(fuzzer_output.accounts)
@@ -203,7 +230,9 @@ class TestDTOConversion:
         assert eest_tx.gas_limit == fuzzer_tx.gas  # Key mapping!
         assert eest_tx.data == fuzzer_tx.data
 
-    def test_transaction_gas_field_mapping(self, fuzzer_output: FuzzerOutput) -> None:
+    def test_transaction_gas_field_mapping(
+        self, fuzzer_output: FuzzerOutput
+    ) -> None:
         """Test critical field mapping: gas → gas_limit."""
         fuzzer_tx = fuzzer_output.transactions[0]
         sender_map = create_sender_eoa_map(fuzzer_output.accounts)
@@ -214,21 +243,31 @@ class TestDTOConversion:
         # Fuzzer uses 'gas' (JSON-RPC), EEST uses 'gas_limit'
         assert eest_tx.gas_limit == fuzzer_tx.gas
 
-    def test_transaction_authorization_list_conversion(self, fuzzer_output: FuzzerOutput) -> None:
+    def test_transaction_authorization_list_conversion(
+        self, fuzzer_output: FuzzerOutput
+    ) -> None:
         """Test authorization list conversion in transaction."""
         tx_with_auth = next(
-            (tx for tx in fuzzer_output.transactions if tx.authorization_list), None
+            (tx for tx in fuzzer_output.transactions if tx.authorization_list),
+            None,
         )
 
         if tx_with_auth and tx_with_auth.authorization_list:
             sender_map = create_sender_eoa_map(fuzzer_output.accounts)
             sender_eoa = sender_map[tx_with_auth.from_]
 
-            eest_tx = fuzzer_transaction_to_eest_transaction(tx_with_auth, sender_eoa)
+            eest_tx = fuzzer_transaction_to_eest_transaction(
+                tx_with_auth, sender_eoa
+            )
 
             assert eest_tx.authorization_list is not None
-            assert len(eest_tx.authorization_list) == len(tx_with_auth.authorization_list)
-            assert all(isinstance(auth, AuthorizationTuple) for auth in eest_tx.authorization_list)
+            assert len(eest_tx.authorization_list) == len(
+                tx_with_auth.authorization_list
+            )
+            assert all(
+                isinstance(auth, AuthorizationTuple)
+                for auth in eest_tx.authorization_list
+            )
 
 
 class TestBlockchainTestGeneration:
@@ -240,7 +279,9 @@ class TestBlockchainTestGeneration:
         data = load_fuzzer_vector("fuzzer_test_0.json")
         return FuzzerOutput(**data)
 
-    def test_blockchain_test_from_fuzzer_single_block(self, fuzzer_output: FuzzerOutput) -> None:
+    def test_blockchain_test_from_fuzzer_single_block(
+        self, fuzzer_output: FuzzerOutput
+    ) -> None:
         """Test single-block blockchain test generation."""
         blockchain_test = blockchain_test_from_fuzzer(
             fuzzer_output,
@@ -253,7 +294,9 @@ class TestBlockchainTestGeneration:
         assert len(blockchain_test.blocks[0].txs) == 17
         assert blockchain_test.genesis_environment is not None
 
-    def test_blockchain_test_multi_block_distribute(self, fuzzer_output: FuzzerOutput) -> None:
+    def test_blockchain_test_multi_block_distribute(
+        self, fuzzer_output: FuzzerOutput
+    ) -> None:
         """Test multi-block generation with distribute strategy."""
         blockchain_test = blockchain_test_from_fuzzer(
             fuzzer_output,
@@ -271,7 +314,9 @@ class TestBlockchainTestGeneration:
         # Verify transactions maintain nonce order
         assert len(blockchain_test.blocks[0].txs) > 0
 
-    def test_blockchain_test_multi_block_first_block(self, fuzzer_output: FuzzerOutput) -> None:
+    def test_blockchain_test_multi_block_first_block(
+        self, fuzzer_output: FuzzerOutput
+    ) -> None:
         """Test multi-block generation with first-block strategy."""
         blockchain_test = blockchain_test_from_fuzzer(
             fuzzer_output,
@@ -285,7 +330,9 @@ class TestBlockchainTestGeneration:
         assert len(blockchain_test.blocks[1].txs) == 0
         assert len(blockchain_test.blocks[2].txs) == 0
 
-    def test_blockchain_test_pre_state(self, fuzzer_output: FuzzerOutput) -> None:
+    def test_blockchain_test_pre_state(
+        self, fuzzer_output: FuzzerOutput
+    ) -> None:
         """Test pre-state (Alloc) generation."""
         blockchain_test = blockchain_test_from_fuzzer(
             fuzzer_output,
@@ -297,7 +344,9 @@ class TestBlockchainTestGeneration:
         for addr in fuzzer_output.accounts:
             assert addr in blockchain_test.pre
 
-    def test_blockchain_test_genesis_environment(self, fuzzer_output: FuzzerOutput) -> None:
+    def test_blockchain_test_genesis_environment(
+        self, fuzzer_output: FuzzerOutput
+    ) -> None:
         """Test genesis environment derivation."""
         blockchain_test = blockchain_test_from_fuzzer(
             fuzzer_output,
@@ -308,9 +357,13 @@ class TestBlockchainTestGeneration:
 
         assert genesis_env.number == 0
         # Genesis timestamp should be 12 seconds before block 1
-        assert int(genesis_env.timestamp) == int(fuzzer_output.env.timestamp) - 12
+        assert (
+            int(genesis_env.timestamp) == int(fuzzer_output.env.timestamp) - 12
+        )
 
-    def test_blockchain_test_block_timestamps(self, fuzzer_output: FuzzerOutput) -> None:
+    def test_blockchain_test_block_timestamps(
+        self, fuzzer_output: FuzzerOutput
+    ) -> None:
         """Test block timestamp incrementing."""
         blockchain_test = blockchain_test_from_fuzzer(
             fuzzer_output,
@@ -352,7 +405,9 @@ class TestEIPFeatures:
         data = load_fuzzer_vector("fuzzer_test_0.json")
         return FuzzerOutput(**data)
 
-    def test_eip7702_authorization_lists(self, fuzzer_output: FuzzerOutput) -> None:
+    def test_eip7702_authorization_lists(
+        self, fuzzer_output: FuzzerOutput
+    ) -> None:
         """Test EIP-7702 authorization list handling."""
         blockchain_test = blockchain_test_from_fuzzer(
             fuzzer_output,
@@ -361,16 +416,24 @@ class TestEIPFeatures:
 
         # Find transactions with authorization lists
         txs_with_auth = [
-            tx for block in blockchain_test.blocks for tx in block.txs if tx.authorization_list
+            tx
+            for block in blockchain_test.blocks
+            for tx in block.txs
+            if tx.authorization_list
         ]
 
         assert len(txs_with_auth) > 0
 
         for tx in txs_with_auth:
             if tx.authorization_list:
-                assert all(isinstance(auth, AuthorizationTuple) for auth in tx.authorization_list)
+                assert all(
+                    isinstance(auth, AuthorizationTuple)
+                    for auth in tx.authorization_list
+                )
 
-    def test_eip4788_parent_beacon_block_root(self, fuzzer_output: FuzzerOutput) -> None:
+    def test_eip4788_parent_beacon_block_root(
+        self, fuzzer_output: FuzzerOutput
+    ) -> None:
         """Test EIP-4788 parent beacon block root handling."""
         blockchain_test = blockchain_test_from_fuzzer(
             fuzzer_output,
@@ -383,7 +446,9 @@ class TestEIPFeatures:
             == fuzzer_output.parent_beacon_block_root
         )
 
-    def test_sender_is_eoa_not_test_address(self, fuzzer_output: FuzzerOutput) -> None:
+    def test_sender_is_eoa_not_test_address(
+        self, fuzzer_output: FuzzerOutput
+    ) -> None:
         """Test that transaction senders are EOAs, not TestAddress."""
         blockchain_test = blockchain_test_from_fuzzer(
             fuzzer_output,

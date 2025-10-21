@@ -5,7 +5,12 @@ from typing import Dict
 import pytest
 
 from ethereum_clis import ExecutionSpecsTransitionTool, TransitionTool
-from ethereum_test_base_types import Account, Address, TestAddress, TestPrivateKey
+from ethereum_test_base_types import (
+    Account,
+    Address,
+    TestAddress,
+    TestPrivateKey,
+)
 from ethereum_test_forks import (
     ArrowGlacier,
     Berlin,
@@ -65,7 +70,9 @@ def test_t8n_support(fork: Fork, installed_t8n: TransitionTool) -> None:
     """Stress test that sends all possible t8n interactions."""
     if fork in [MuirGlacier, ArrowGlacier, GrayGlacier]:
         return
-    if isinstance(installed_t8n, ExecutionSpecsTransitionTool) and fork in [Constantinople]:
+    if isinstance(installed_t8n, ExecutionSpecsTransitionTool) and fork in [
+        Constantinople
+    ]:
         return
     env = Environment()
     sender = TestAddress
@@ -79,21 +86,35 @@ def test_t8n_support(fork: Fork, installed_t8n: TransitionTool) -> None:
             TestAddress: Account(balance=10_000_000),
             code_account_1: Account(
                 code=Op.SSTORE(
-                    storage_1.store_next(1, "blockhash_0_is_set"), Op.GT(Op.BLOCKHASH(0), 0)
+                    storage_1.store_next(1, "blockhash_0_is_set"),
+                    Op.GT(Op.BLOCKHASH(0), 0),
                 )
-                + Op.SSTORE(storage_1.store_next(0, "blockhash_1"), Op.BLOCKHASH(1))
                 + Op.SSTORE(
-                    storage_1.store_next(1 if fork < Paris else 0, "difficulty_1_is_near_20000"),
-                    Op.AND(Op.GT(Op.PREVRANDAO(), 0x19990), Op.LT(Op.PREVRANDAO(), 0x20100)),
+                    storage_1.store_next(0, "blockhash_1"), Op.BLOCKHASH(1)
+                )
+                + Op.SSTORE(
+                    storage_1.store_next(
+                        1 if fork < Paris else 0, "difficulty_1_is_near_20000"
+                    ),
+                    Op.AND(
+                        Op.GT(Op.PREVRANDAO(), 0x19990),
+                        Op.LT(Op.PREVRANDAO(), 0x20100),
+                    ),
                 )
             ),
             code_account_2: Account(
                 code=Op.SSTORE(
-                    storage_2.store_next(1, "blockhash_1_is_set"), Op.GT(Op.BLOCKHASH(1), 0)
+                    storage_2.store_next(1, "blockhash_1_is_set"),
+                    Op.GT(Op.BLOCKHASH(1), 0),
                 )
                 + Op.SSTORE(
-                    storage_2.store_next(1 if fork < Paris else 0, "difficulty_2_is_near_20000"),
-                    Op.AND(Op.GT(Op.PREVRANDAO(), 0x19990), Op.LT(Op.PREVRANDAO(), 0x20100)),
+                    storage_2.store_next(
+                        1 if fork < Paris else 0, "difficulty_2_is_near_20000"
+                    ),
+                    Op.AND(
+                        Op.GT(Op.PREVRANDAO(), 0x19990),
+                        Op.LT(Op.PREVRANDAO(), 0x20100),
+                    ),
                 )
             ),
         }
@@ -163,7 +184,9 @@ def test_t8n_support(fork: Fork, installed_t8n: TransitionTool) -> None:
             max_priority_fee_per_gas=5,
             max_fee_per_gas=10,
             max_fee_per_blob_gas=30,
-            blob_versioned_hashes=add_kzg_version([1], BLOB_COMMITMENT_VERSION_KZG),
+            blob_versioned_hashes=add_kzg_version(
+                [1], BLOB_COMMITMENT_VERSION_KZG
+            ),
             access_list=[
                 AccessList(
                     address=0x1234,
@@ -191,7 +214,10 @@ def test_t8n_support(fork: Fork, installed_t8n: TransitionTool) -> None:
             ],
             authorization_list=[
                 AuthorizationTuple(
-                    address=code_account_2, nonce=2, signer=sender, secret_key=TestPrivateKey
+                    address=code_account_2,
+                    nonce=2,
+                    signer=sender,
+                    secret_key=TestPrivateKey,
                 ),
             ],
         )

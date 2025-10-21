@@ -6,7 +6,13 @@ from os.path import realpath
 from pathlib import Path
 from typing import List, Literal, Mapping, Optional, Sized, Tuple
 
-from ethereum_test_base_types import AccessList, Address, BlobSchedule, Bytes, ForkBlobSchedule
+from ethereum_test_base_types import (
+    AccessList,
+    Address,
+    BlobSchedule,
+    Bytes,
+    ForkBlobSchedule,
+)
 from ethereum_test_base_types.conversions import BytesConvertible
 from ethereum_test_vm import EVMCodeType, Opcodes
 
@@ -33,7 +39,9 @@ class Frontier(BaseFork, solc_name="homestead"):
     """Frontier fork."""
 
     @classmethod
-    def transition_tool_name(cls, *, block_number: int = 0, timestamp: int = 0) -> str:
+    def transition_tool_name(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> str:
         """
         Return fork name as it's meant to be passed to the transition tool for
         execution.
@@ -51,43 +59,57 @@ class Frontier(BaseFork, solc_name="homestead"):
         return cls.name().lower()
 
     @classmethod
-    def header_base_fee_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_base_fee_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """At genesis, header must not contain base fee."""
         del block_number, timestamp
         return False
 
     @classmethod
-    def header_prev_randao_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_prev_randao_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """At genesis, header must not contain Prev Randao value."""
         del block_number, timestamp
         return False
 
     @classmethod
-    def header_zero_difficulty_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_zero_difficulty_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """At genesis, header must not have difficulty zero."""
         del block_number, timestamp
         return False
 
     @classmethod
-    def header_withdrawals_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_withdrawals_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """At genesis, header must not contain withdrawals."""
         del block_number, timestamp
         return False
 
     @classmethod
-    def header_excess_blob_gas_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_excess_blob_gas_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """At genesis, header must not contain excess blob gas."""
         del block_number, timestamp
         return False
 
     @classmethod
-    def header_blob_gas_used_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_blob_gas_used_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """At genesis, header must not contain blob gas used."""
         del block_number, timestamp
         return False
 
     @classmethod
-    def gas_costs(cls, *, block_number: int = 0, timestamp: int = 0) -> GasCosts:
+    def gas_costs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> GasCosts:
         """
         Return dataclass with the defined gas costs constants for genesis.
         """
@@ -143,7 +165,9 @@ class Frontier(BaseFork, solc_name="homestead"):
         Return callable that calculates the gas cost of memory expansion for
         the fork.
         """
-        gas_costs = cls.gas_costs(block_number=block_number, timestamp=timestamp)
+        gas_costs = cls.gas_costs(
+            block_number=block_number, timestamp=timestamp
+        )
 
         def fn(*, new_bytes: int, previous_bytes: int = 0) -> int:
             if new_bytes <= previous_bytes:
@@ -166,7 +190,9 @@ class Frontier(BaseFork, solc_name="homestead"):
         Return callable that calculates the transaction gas cost for its
         calldata depending on its contents.
         """
-        gas_costs = cls.gas_costs(block_number=block_number, timestamp=timestamp)
+        gas_costs = cls.gas_costs(
+            block_number=block_number, timestamp=timestamp
+        )
 
         def fn(*, data: BytesConvertible, floor: bool = False) -> int:
             del floor
@@ -188,7 +214,9 @@ class Frontier(BaseFork, solc_name="homestead"):
         """
         Return a callable that calculates the base fee per gas at a given fork.
         """
-        raise NotImplementedError(f"Base fee per gas calculator is not supported in {cls.name()}")
+        raise NotImplementedError(
+            f"Base fee per gas calculator is not supported in {cls.name()}"
+        )
 
     @classmethod
     def base_fee_change_calculator(
@@ -198,10 +226,14 @@ class Frontier(BaseFork, solc_name="homestead"):
         Return a callable that calculates the gas that needs to be used to
         change the base fee.
         """
-        raise NotImplementedError(f"Base fee change calculator is not supported in {cls.name()}")
+        raise NotImplementedError(
+            f"Base fee change calculator is not supported in {cls.name()}"
+        )
 
     @classmethod
-    def base_fee_max_change_denominator(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def base_fee_max_change_denominator(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the base fee max change denominator at a given fork."""
         del block_number, timestamp
         raise NotImplementedError(
@@ -209,7 +241,9 @@ class Frontier(BaseFork, solc_name="homestead"):
         )
 
     @classmethod
-    def base_fee_elasticity_multiplier(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def base_fee_elasticity_multiplier(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the base fee elasticity multiplier at a given fork."""
         del block_number, timestamp
         raise NotImplementedError(
@@ -237,7 +271,9 @@ class Frontier(BaseFork, solc_name="homestead"):
         Return callable that calculates the intrinsic gas cost of a transaction
         for the fork.
         """
-        gas_costs = cls.gas_costs(block_number=block_number, timestamp=timestamp)
+        gas_costs = cls.gas_costs(
+            block_number=block_number, timestamp=timestamp
+        )
         calldata_gas_calculator = cls.calldata_gas_calculator(
             block_number=block_number, timestamp=timestamp
         )
@@ -252,7 +288,9 @@ class Frontier(BaseFork, solc_name="homestead"):
         ) -> int:
             del return_cost_deducted_prior_execution
 
-            assert access_list is None, f"Access list is not supported in {cls.name()}"
+            assert access_list is None, (
+                f"Access list is not supported in {cls.name()}"
+            )
             assert authorization_list_or_count is None, (
                 f"Authorizations are not supported in {cls.name()}"
             )
@@ -275,7 +313,9 @@ class Frontier(BaseFork, solc_name="homestead"):
         """
         Return a callable that calculates the blob gas price at a given fork.
         """
-        raise NotImplementedError(f"Blob gas price calculator is not supported in {cls.name()}")
+        raise NotImplementedError(
+            f"Blob gas price calculator is not supported in {cls.name()}"
+        )
 
     @classmethod
     def excess_blob_gas_calculator(
@@ -285,16 +325,24 @@ class Frontier(BaseFork, solc_name="homestead"):
         Return a callable that calculates the excess blob gas for a block at a
         given fork.
         """
-        raise NotImplementedError(f"Excess blob gas calculator is not supported in {cls.name()}")
+        raise NotImplementedError(
+            f"Excess blob gas calculator is not supported in {cls.name()}"
+        )
 
     @classmethod
-    def min_base_fee_per_blob_gas(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def min_base_fee_per_blob_gas(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the amount of blob gas used per blob at a given fork."""
         del block_number, timestamp
-        raise NotImplementedError(f"Base fee per blob gas is not supported in {cls.name()}")
+        raise NotImplementedError(
+            f"Base fee per blob gas is not supported in {cls.name()}"
+        )
 
     @classmethod
-    def blob_base_fee_update_fraction(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def blob_base_fee_update_fraction(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the blob base fee update fraction at a given fork."""
         del block_number, timestamp
         raise NotImplementedError(
@@ -302,43 +350,63 @@ class Frontier(BaseFork, solc_name="homestead"):
         )
 
     @classmethod
-    def blob_gas_per_blob(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def blob_gas_per_blob(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the amount of blob gas used per blob at a given fork."""
         del block_number, timestamp
         return 0
 
     @classmethod
-    def supports_blobs(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def supports_blobs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """Blobs are not supported at Frontier."""
         del block_number, timestamp
         return False
 
     @classmethod
-    def target_blobs_per_block(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def target_blobs_per_block(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the target number of blobs per block at a given fork."""
         del block_number, timestamp
-        raise NotImplementedError(f"Target blobs per block is not supported in {cls.name()}")
+        raise NotImplementedError(
+            f"Target blobs per block is not supported in {cls.name()}"
+        )
 
     @classmethod
-    def max_blobs_per_block(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_blobs_per_block(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the max number of blobs per block at a given fork."""
         del block_number, timestamp
-        raise NotImplementedError(f"Max blobs per block is not supported in {cls.name()}")
+        raise NotImplementedError(
+            f"Max blobs per block is not supported in {cls.name()}"
+        )
 
     @classmethod
-    def blob_reserve_price_active(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def blob_reserve_price_active(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """
         Return whether the fork uses a reserve price mechanism for blobs or
         not.
         """
         del block_number, timestamp
-        raise NotImplementedError(f"Blob reserve price is not supported in {cls.name()}")
+        raise NotImplementedError(
+            f"Blob reserve price is not supported in {cls.name()}"
+        )
 
     @classmethod
-    def blob_base_cost(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def blob_base_cost(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the base cost of a blob at a given fork."""
         del block_number, timestamp
-        raise NotImplementedError(f"Blob base cost is not supported in {cls.name()}")
+        raise NotImplementedError(
+            f"Blob base cost is not supported in {cls.name()}"
+        )
 
     @classmethod
     def full_blob_tx_wrapper_version(
@@ -350,25 +418,35 @@ class Frontier(BaseFork, solc_name="homestead"):
         )
 
     @classmethod
-    def max_blobs_per_tx(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_blobs_per_tx(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the max number of blobs per tx at a given fork."""
         del block_number, timestamp
-        raise NotImplementedError(f"Max blobs per tx is not supported in {cls.name()}")
+        raise NotImplementedError(
+            f"Max blobs per tx is not supported in {cls.name()}"
+        )
 
     @classmethod
-    def blob_schedule(cls, *, block_number: int = 0, timestamp: int = 0) -> BlobSchedule | None:
+    def blob_schedule(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> BlobSchedule | None:
         """At genesis, no blob schedule is used."""
         del block_number, timestamp
         return None
 
     @classmethod
-    def header_requests_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_requests_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """At genesis, header must not contain beacon chain requests."""
         del block_number, timestamp
         return False
 
     @classmethod
-    def header_bal_hash_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_bal_hash_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """At genesis, header must not contain block access list hash."""
         del block_number, timestamp
         return False
@@ -382,25 +460,33 @@ class Frontier(BaseFork, solc_name="homestead"):
         return None
 
     @classmethod
-    def header_beacon_root_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_beacon_root_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """At genesis, header must not contain parent beacon block root."""
         del block_number, timestamp
         return False
 
     @classmethod
-    def engine_new_payload_blob_hashes(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def engine_new_payload_blob_hashes(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """At genesis, payloads do not have blob hashes."""
         del block_number, timestamp
         return False
 
     @classmethod
-    def engine_new_payload_beacon_root(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def engine_new_payload_beacon_root(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """At genesis, payloads do not have a parent beacon block root."""
         del block_number, timestamp
         return False
 
     @classmethod
-    def engine_new_payload_requests(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def engine_new_payload_requests(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """At genesis, payloads do not have requests."""
         del block_number, timestamp
         return False
@@ -452,14 +538,18 @@ class Frontier(BaseFork, solc_name="homestead"):
         """
         At genesis, forkchoice updates cannot be sent through the engine API.
         """
-        return cls.engine_new_payload_version(block_number=block_number, timestamp=timestamp)
+        return cls.engine_new_payload_version(
+            block_number=block_number, timestamp=timestamp
+        )
 
     @classmethod
     def engine_get_payload_version(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> Optional[int]:
         """At genesis, payloads cannot be retrieved through the engine API."""
-        return cls.engine_new_payload_version(block_number=block_number, timestamp=timestamp)
+        return cls.engine_new_payload_version(
+            block_number=block_number, timestamp=timestamp
+        )
 
     @classmethod
     def engine_get_blobs_version(
@@ -479,49 +569,65 @@ class Frontier(BaseFork, solc_name="homestead"):
         return 5_000_000_000_000_000_000
 
     @classmethod
-    def tx_types(cls, *, block_number: int = 0, timestamp: int = 0) -> List[int]:
+    def tx_types(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[int]:
         """At Genesis, only legacy transactions are allowed."""
         del block_number, timestamp
         return [0]
 
     @classmethod
-    def contract_creating_tx_types(cls, *, block_number: int = 0, timestamp: int = 0) -> List[int]:
+    def contract_creating_tx_types(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[int]:
         """At Genesis, only legacy transactions are allowed."""
         del block_number, timestamp
         return [0]
 
     @classmethod
-    def transaction_gas_limit_cap(cls, *, block_number: int = 0, timestamp: int = 0) -> int | None:
+    def transaction_gas_limit_cap(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int | None:
         """At Genesis, no transaction gas limit cap is imposed."""
         del block_number, timestamp
         return None
 
     @classmethod
-    def block_rlp_size_limit(cls, *, block_number: int = 0, timestamp: int = 0) -> int | None:
+    def block_rlp_size_limit(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int | None:
         """At Genesis, no RLP block size limit is imposed."""
         del block_number, timestamp
         return None
 
     @classmethod
-    def precompiles(cls, *, block_number: int = 0, timestamp: int = 0) -> List[Address]:
+    def precompiles(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Address]:
         """At Genesis, no pre-compiles are present."""
         del block_number, timestamp
         return []
 
     @classmethod
-    def system_contracts(cls, *, block_number: int = 0, timestamp: int = 0) -> List[Address]:
+    def system_contracts(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Address]:
         """At Genesis, no system-contracts are present."""
         del block_number, timestamp
         return []
 
     @classmethod
-    def evm_code_types(cls, *, block_number: int = 0, timestamp: int = 0) -> List[EVMCodeType]:
+    def evm_code_types(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[EVMCodeType]:
         """At Genesis, only legacy EVM code is supported."""
         del block_number, timestamp
         return [EVMCodeType.LEGACY]
 
     @classmethod
-    def max_code_size(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_code_size(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """
         At genesis, there is no upper bound for code size (bounded by block gas
         limit).
@@ -532,13 +638,17 @@ class Frontier(BaseFork, solc_name="homestead"):
         return 0x6000
 
     @classmethod
-    def max_stack_height(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_stack_height(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """At genesis, the maximum stack height is 1024."""
         del block_number, timestamp
         return 1024
 
     @classmethod
-    def max_initcode_size(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_initcode_size(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """At genesis, there is no upper bound for initcode size."""
         del block_number, timestamp
         """However, the default is set to the limit of EIP-3860 (Shanghai)"""
@@ -556,7 +666,9 @@ class Frontier(BaseFork, solc_name="homestead"):
         ]
 
     @classmethod
-    def valid_opcodes(cls, *, block_number: int = 0, timestamp: int = 0) -> List[Opcodes]:
+    def valid_opcodes(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Opcodes]:
         """Return list of Opcodes that are valid to work on this fork."""
         del block_number, timestamp
         return [
@@ -702,19 +814,25 @@ class Frontier(BaseFork, solc_name="homestead"):
         ]
 
     @classmethod
-    def max_refund_quotient(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_refund_quotient(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the max refund quotient at Genesis."""
         del block_number, timestamp
         return 2
 
     @classmethod
-    def max_request_type(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_request_type(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """At genesis, no request type is supported, signaled by -1."""
         del block_number, timestamp
         return -1
 
     @classmethod
-    def pre_allocation(cls, *, block_number: int = 0, timestamp: int = 0) -> Mapping:
+    def pre_allocation(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Mapping:
         """
         Return whether the fork expects pre-allocation of accounts.
 
@@ -724,7 +842,9 @@ class Frontier(BaseFork, solc_name="homestead"):
         return {}
 
     @classmethod
-    def pre_allocation_blockchain(cls, *, block_number: int = 0, timestamp: int = 0) -> Mapping:
+    def pre_allocation_blockchain(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Mapping:
         """
         Return whether the fork expects pre-allocation of accounts.
 
@@ -738,7 +858,9 @@ class Homestead(Frontier):
     """Homestead fork."""
 
     @classmethod
-    def precompiles(cls, *, block_number: int = 0, timestamp: int = 0) -> List[Address]:
+    def precompiles(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Address]:
         """
         At Homestead, EC-recover, SHA256, RIPEMD160, and Identity pre-compiles
         are introduced.
@@ -748,19 +870,23 @@ class Homestead(Frontier):
             Address(2, label="SHA256"),
             Address(3, label="RIPEMD160"),
             Address(4, label="ID"),
-        ] + super(Homestead, cls).precompiles(block_number=block_number, timestamp=timestamp)
+        ] + super(Homestead, cls).precompiles(
+            block_number=block_number, timestamp=timestamp
+        )
 
     @classmethod
     def call_opcodes(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> List[Tuple[Opcodes, EVMCodeType]]:
         """At Homestead, DELEGATECALL opcode was introduced."""
-        return [(Opcodes.DELEGATECALL, EVMCodeType.LEGACY)] + super(Homestead, cls).call_opcodes(
-            block_number=block_number, timestamp=timestamp
-        )
+        return [(Opcodes.DELEGATECALL, EVMCodeType.LEGACY)] + super(
+            Homestead, cls
+        ).call_opcodes(block_number=block_number, timestamp=timestamp)
 
     @classmethod
-    def valid_opcodes(cls, *, block_number: int = 0, timestamp: int = 0) -> List[Opcodes]:
+    def valid_opcodes(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Opcodes]:
         """Return the list of Opcodes that are valid to work on this fork."""
         del block_number, timestamp
         return [Opcodes.DELEGATECALL] + super(Homestead, cls).valid_opcodes()
@@ -776,7 +902,9 @@ class Homestead(Frontier):
         super_fn = super(Homestead, cls).transaction_intrinsic_cost_calculator(
             block_number=block_number, timestamp=timestamp
         )
-        gas_costs = cls.gas_costs(block_number=block_number, timestamp=timestamp)
+        gas_costs = cls.gas_costs(
+            block_number=block_number, timestamp=timestamp
+        )
 
         def fn(
             *,
@@ -832,7 +960,9 @@ class Byzantium(Homestead):
         return 3_000_000_000_000_000_000
 
     @classmethod
-    def precompiles(cls, *, block_number: int = 0, timestamp: int = 0) -> List[Address]:
+    def precompiles(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Address]:
         """
         At Byzantium, pre-compiles for bigint modular exponentiation, addition
         and scalar multiplication on elliptic curve alt_bn128, and optimal ate
@@ -843,10 +973,14 @@ class Byzantium(Homestead):
             Address(6, label="BN254_ADD"),
             Address(7, label="BN254_MUL"),
             Address(8, label="BN254_PAIRING"),
-        ] + super(Byzantium, cls).precompiles(block_number=block_number, timestamp=timestamp)
+        ] + super(Byzantium, cls).precompiles(
+            block_number=block_number, timestamp=timestamp
+        )
 
     @classmethod
-    def max_code_size(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_code_size(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         # NOTE: Move this to Spurious Dragon once this fork is introduced. See
         # EIP-170.
         """
@@ -861,12 +995,14 @@ class Byzantium(Homestead):
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> List[Tuple[Opcodes, EVMCodeType]]:
         """At Byzantium, STATICCALL opcode was introduced."""
-        return [(Opcodes.STATICCALL, EVMCodeType.LEGACY)] + super(Byzantium, cls).call_opcodes(
-            block_number=block_number, timestamp=timestamp
-        )
+        return [(Opcodes.STATICCALL, EVMCodeType.LEGACY)] + super(
+            Byzantium, cls
+        ).call_opcodes(block_number=block_number, timestamp=timestamp)
 
     @classmethod
-    def valid_opcodes(cls, *, block_number: int = 0, timestamp: int = 0) -> List[Opcodes]:
+    def valid_opcodes(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Opcodes]:
         """Return list of Opcodes that are valid to work on this fork."""
         del block_number, timestamp
         return [
@@ -894,12 +1030,14 @@ class Constantinople(Byzantium):
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> List[Tuple[Opcodes, EVMCodeType]]:
         """At Constantinople, `CREATE2` opcode is added."""
-        return [(Opcodes.CREATE2, EVMCodeType.LEGACY)] + super(Constantinople, cls).create_opcodes(
-            block_number=block_number, timestamp=timestamp
-        )
+        return [(Opcodes.CREATE2, EVMCodeType.LEGACY)] + super(
+            Constantinople, cls
+        ).create_opcodes(block_number=block_number, timestamp=timestamp)
 
     @classmethod
-    def valid_opcodes(cls, *, block_number: int = 0, timestamp: int = 0) -> List[Opcodes]:
+    def valid_opcodes(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Opcodes]:
         """Return list of Opcodes that are valid to work on this fork."""
         del block_number, timestamp
         return [
@@ -921,26 +1059,38 @@ class Istanbul(ConstantinopleFix):
     """Istanbul fork."""
 
     @classmethod
-    def precompiles(cls, *, block_number: int = 0, timestamp: int = 0) -> List[Address]:
+    def precompiles(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Address]:
         """At Istanbul, pre-compile for blake2 compression is introduced."""
         return [
             Address(9, label="BLAKE2F"),
-        ] + super(Istanbul, cls).precompiles(block_number=block_number, timestamp=timestamp)
+        ] + super(Istanbul, cls).precompiles(
+            block_number=block_number, timestamp=timestamp
+        )
 
     @classmethod
-    def valid_opcodes(cls, *, block_number: int = 0, timestamp: int = 0) -> List[Opcodes]:
+    def valid_opcodes(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Opcodes]:
         """Return list of Opcodes that are valid to work on this fork."""
         del block_number, timestamp
-        return [Opcodes.CHAINID, Opcodes.SELFBALANCE] + super(Istanbul, cls).valid_opcodes()
+        return [Opcodes.CHAINID, Opcodes.SELFBALANCE] + super(
+            Istanbul, cls
+        ).valid_opcodes()
 
     @classmethod
-    def gas_costs(cls, *, block_number: int = 0, timestamp: int = 0) -> GasCosts:
+    def gas_costs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> GasCosts:
         """
         On Istanbul, the non-zero transaction data byte cost is reduced to 16
         due to EIP-2028.
         """
         return replace(
-            super(Istanbul, cls).gas_costs(block_number=block_number, timestamp=timestamp),
+            super(Istanbul, cls).gas_costs(
+                block_number=block_number, timestamp=timestamp
+            ),
             G_TX_DATA_NON_ZERO=16,  # https://eips.ethereum.org/EIPS/eip-2028
         )
 
@@ -956,12 +1106,18 @@ class Berlin(Istanbul):
     """Berlin fork."""
 
     @classmethod
-    def tx_types(cls, *, block_number: int = 0, timestamp: int = 0) -> List[int]:
+    def tx_types(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[int]:
         """At Berlin, access list transactions are introduced."""
-        return [1] + super(Berlin, cls).tx_types(block_number=block_number, timestamp=timestamp)
+        return [1] + super(Berlin, cls).tx_types(
+            block_number=block_number, timestamp=timestamp
+        )
 
     @classmethod
-    def contract_creating_tx_types(cls, *, block_number: int = 0, timestamp: int = 0) -> List[int]:
+    def contract_creating_tx_types(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[int]:
         """At Berlin, access list transactions are introduced."""
         return [1] + super(Berlin, cls).contract_creating_tx_types(
             block_number=block_number, timestamp=timestamp
@@ -978,7 +1134,9 @@ class Berlin(Istanbul):
         super_fn = super(Berlin, cls).transaction_intrinsic_cost_calculator(
             block_number=block_number, timestamp=timestamp
         )
-        gas_costs = cls.gas_costs(block_number=block_number, timestamp=timestamp)
+        gas_costs = cls.gas_costs(
+            block_number=block_number, timestamp=timestamp
+        )
 
         def fn(
             *,
@@ -1009,43 +1167,59 @@ class London(Berlin):
     """London fork."""
 
     @classmethod
-    def header_base_fee_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_base_fee_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """Header must contain the Base Fee starting from London."""
         del block_number, timestamp
         return True
 
     @classmethod
-    def tx_types(cls, *, block_number: int = 0, timestamp: int = 0) -> List[int]:
+    def tx_types(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[int]:
         """At London, dynamic fee transactions are introduced."""
-        return [2] + super(London, cls).tx_types(block_number=block_number, timestamp=timestamp)
+        return [2] + super(London, cls).tx_types(
+            block_number=block_number, timestamp=timestamp
+        )
 
     @classmethod
-    def contract_creating_tx_types(cls, *, block_number: int = 0, timestamp: int = 0) -> List[int]:
+    def contract_creating_tx_types(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[int]:
         """At London, dynamic fee transactions are introduced."""
         return [2] + super(London, cls).contract_creating_tx_types(
             block_number=block_number, timestamp=timestamp
         )
 
     @classmethod
-    def valid_opcodes(cls, *, block_number: int = 0, timestamp: int = 0) -> List[Opcodes]:
+    def valid_opcodes(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Opcodes]:
         """Return list of Opcodes that are valid to work on this fork."""
         del block_number, timestamp
         return [Opcodes.BASEFEE] + super(London, cls).valid_opcodes()
 
     @classmethod
-    def max_refund_quotient(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_refund_quotient(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the max refund quotient at London."""
         del block_number, timestamp
         return 5
 
     @classmethod
-    def base_fee_max_change_denominator(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def base_fee_max_change_denominator(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the base fee max change denominator at London."""
         del block_number, timestamp
         return 8
 
     @classmethod
-    def base_fee_elasticity_multiplier(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def base_fee_elasticity_multiplier(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the base fee elasticity multiplier at London."""
         del block_number, timestamp
         return 2
@@ -1088,7 +1262,10 @@ class London(Berlin):
         )
 
         def fn(
-            *, parent_base_fee_per_gas: int, parent_gas_used: int, parent_gas_limit: int
+            *,
+            parent_base_fee_per_gas: int,
+            parent_gas_used: int,
+            parent_gas_limit: int,
         ) -> int:
             parent_gas_target = parent_gas_limit // elasticity_multiplier
             if parent_gas_used == parent_gas_target:
@@ -1145,14 +1322,22 @@ class London(Berlin):
                 return parent_gas_target
             elif required_base_fee_per_gas > parent_base_fee_per_gas:
                 # Base fee needs to go up, so we need to use more than target
-                base_fee_per_gas_delta = required_base_fee_per_gas - parent_base_fee_per_gas
+                base_fee_per_gas_delta = (
+                    required_base_fee_per_gas - parent_base_fee_per_gas
+                )
                 parent_gas_used = (
-                    (base_fee_per_gas_delta * base_fee_max_change_denominator * parent_gas_target)
+                    (
+                        base_fee_per_gas_delta
+                        * base_fee_max_change_denominator
+                        * parent_gas_target
+                    )
                     // parent_base_fee_per_gas
                 ) + parent_gas_target
             elif required_base_fee_per_gas < parent_base_fee_per_gas:
                 # Base fee needs to go down, so we need to use less than target
-                base_fee_per_gas_delta = parent_base_fee_per_gas - required_base_fee_per_gas
+                base_fee_per_gas_delta = (
+                    parent_base_fee_per_gas - required_base_fee_per_gas
+                )
 
                 parent_gas_used = (
                     parent_gas_target
@@ -1201,13 +1386,17 @@ class Paris(
     """Paris (Merge) fork."""
 
     @classmethod
-    def header_prev_randao_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_prev_randao_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """Prev Randao is required starting from Paris."""
         del block_number, timestamp
         return True
 
     @classmethod
-    def header_zero_difficulty_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_zero_difficulty_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """Zero difficulty is required starting from Paris."""
         del block_number, timestamp
         return True
@@ -1231,7 +1420,9 @@ class Shanghai(Paris):
     """Shanghai fork."""
 
     @classmethod
-    def header_withdrawals_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_withdrawals_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """Withdrawals are required starting from Shanghai."""
         del block_number, timestamp
         return True
@@ -1245,13 +1436,17 @@ class Shanghai(Paris):
         return 2
 
     @classmethod
-    def max_initcode_size(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_initcode_size(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """From Shanghai, the initcode size is now limited. See EIP-3860."""
         del block_number, timestamp
         return 0xC000
 
     @classmethod
-    def valid_opcodes(cls, *, block_number: int = 0, timestamp: int = 0) -> List[Opcodes]:
+    def valid_opcodes(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Opcodes]:
         """Return list of Opcodes that are valid to work on this fork."""
         del block_number, timestamp
         return [Opcodes.PUSH0] + super(Shanghai, cls).valid_opcodes()
@@ -1286,19 +1481,25 @@ class Cancun(Shanghai):
         return retrieved_constant
 
     @classmethod
-    def header_excess_blob_gas_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_excess_blob_gas_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """Excess blob gas is required starting from Cancun."""
         del block_number, timestamp
         return True
 
     @classmethod
-    def header_blob_gas_used_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_blob_gas_used_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """Blob gas used is required starting from Cancun."""
         del block_number, timestamp
         return True
 
     @classmethod
-    def header_beacon_root_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_beacon_root_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """Parent beacon block root is required starting from Cancun."""
         del block_number, timestamp
         return True
@@ -1335,7 +1536,9 @@ class Cancun(Shanghai):
         target_blobs_per_block = cls.target_blobs_per_block(
             block_number=block_number, timestamp=timestamp
         )
-        blob_gas_per_blob = cls.blob_gas_per_blob(block_number=block_number, timestamp=timestamp)
+        blob_gas_per_blob = cls.blob_gas_per_blob(
+            block_number=block_number, timestamp=timestamp
+        )
         target_blob_gas_per_block = target_blobs_per_block * blob_gas_per_blob
 
         def fn(
@@ -1350,44 +1553,67 @@ class Cancun(Shanghai):
             del parent_base_fee_per_gas
 
             if parent_excess_blob_gas is None:
-                assert parent_excess_blobs is not None, "Parent excess blobs are required"
-                parent_excess_blob_gas = parent_excess_blobs * blob_gas_per_blob
+                assert parent_excess_blobs is not None, (
+                    "Parent excess blobs are required"
+                )
+                parent_excess_blob_gas = (
+                    parent_excess_blobs * blob_gas_per_blob
+                )
             if parent_blob_gas_used is None:
-                assert parent_blob_count is not None, "Parent blob count is required"
+                assert parent_blob_count is not None, (
+                    "Parent blob count is required"
+                )
                 parent_blob_gas_used = parent_blob_count * blob_gas_per_blob
-            if parent_excess_blob_gas + parent_blob_gas_used < target_blob_gas_per_block:
+            if (
+                parent_excess_blob_gas + parent_blob_gas_used
+                < target_blob_gas_per_block
+            ):
                 return 0
             else:
-                return parent_excess_blob_gas + parent_blob_gas_used - target_blob_gas_per_block
+                return (
+                    parent_excess_blob_gas
+                    + parent_blob_gas_used
+                    - target_blob_gas_per_block
+                )
 
         return fn
 
     @classmethod
-    def min_base_fee_per_blob_gas(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def min_base_fee_per_blob_gas(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the minimum base fee per blob gas for Cancun."""
         del block_number, timestamp
         return 1
 
     @classmethod
-    def blob_base_fee_update_fraction(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def blob_base_fee_update_fraction(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the blob base fee update fraction for Cancun."""
         del block_number, timestamp
         return 3338477
 
     @classmethod
-    def blob_gas_per_blob(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def blob_gas_per_blob(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Blobs are enabled starting from Cancun."""
         del block_number, timestamp
         return 2**17
 
     @classmethod
-    def supports_blobs(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def supports_blobs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """At Cancun, blobs support is enabled."""
         del block_number, timestamp
         return True
 
     @classmethod
-    def target_blobs_per_block(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def target_blobs_per_block(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """
         Blobs are enabled starting from Cancun, with a static target of 3 blobs
         per block.
@@ -1396,7 +1622,9 @@ class Cancun(Shanghai):
         return 3
 
     @classmethod
-    def max_blobs_per_block(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_blobs_per_block(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """
         Blobs are enabled starting from Cancun, with a static max of 6 blobs
         per block.
@@ -1405,7 +1633,9 @@ class Cancun(Shanghai):
         return 6
 
     @classmethod
-    def blob_reserve_price_active(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def blob_reserve_price_active(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """Blob reserve price is not supported in Cancun."""
         del block_number, timestamp
         return False
@@ -1422,15 +1652,21 @@ class Cancun(Shanghai):
         return None
 
     @classmethod
-    def max_blobs_per_tx(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_blobs_per_tx(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """
         Blobs are enabled starting from Cancun, with a static max equal to the
         max per block.
         """
-        return cls.max_blobs_per_block(block_number=block_number, timestamp=timestamp)
+        return cls.max_blobs_per_block(
+            block_number=block_number, timestamp=timestamp
+        )
 
     @classmethod
-    def blob_schedule(cls, *, block_number: int = 0, timestamp: int = 0) -> BlobSchedule | None:
+    def blob_schedule(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> BlobSchedule | None:
         """
         At Cancun, the fork object runs this routine to get the updated blob
         schedule.
@@ -1438,7 +1674,9 @@ class Cancun(Shanghai):
         parent_fork = cls.parent()
         assert parent_fork is not None, "Parent fork must be defined"
         blob_schedule = (
-            parent_fork.blob_schedule(block_number=block_number, timestamp=timestamp)
+            parent_fork.blob_schedule(
+                block_number=block_number, timestamp=timestamp
+            )
             or BlobSchedule()
         )
         current_blob_schedule = ForkBlobSchedule(
@@ -1456,25 +1694,42 @@ class Cancun(Shanghai):
         return blob_schedule
 
     @classmethod
-    def tx_types(cls, *, block_number: int = 0, timestamp: int = 0) -> List[int]:
+    def tx_types(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[int]:
         """At Cancun, blob type transactions are introduced."""
-        return [3] + super(Cancun, cls).tx_types(block_number=block_number, timestamp=timestamp)
+        return [3] + super(Cancun, cls).tx_types(
+            block_number=block_number, timestamp=timestamp
+        )
 
     @classmethod
-    def precompiles(cls, *, block_number: int = 0, timestamp: int = 0) -> List[Address]:
+    def precompiles(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Address]:
         """At Cancun, pre-compile for kzg point evaluation is introduced."""
         return [
             Address(10, label="KZG_POINT_EVALUATION"),
-        ] + super(Cancun, cls).precompiles(block_number=block_number, timestamp=timestamp)
+        ] + super(Cancun, cls).precompiles(
+            block_number=block_number, timestamp=timestamp
+        )
 
     @classmethod
-    def system_contracts(cls, *, block_number: int = 0, timestamp: int = 0) -> List[Address]:
+    def system_contracts(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Address]:
         """Cancun introduces the system contract for EIP-4788."""
         del block_number, timestamp
-        return [Address(0x000F3DF6D732807EF1319FB7B8BB8522D0BEAC02, label="BEACON_ROOTS_ADDRESS")]
+        return [
+            Address(
+                0x000F3DF6D732807EF1319FB7B8BB8522D0BEAC02,
+                label="BEACON_ROOTS_ADDRESS",
+            )
+        ]
 
     @classmethod
-    def pre_allocation_blockchain(cls, *, block_number: int = 0, timestamp: int = 0) -> Mapping:
+    def pre_allocation_blockchain(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Mapping:
         """
         Cancun requires pre-allocation of the beacon root contract for EIP-4788
         on blockchain type tests.
@@ -1507,19 +1762,25 @@ class Cancun(Shanghai):
         return 1
 
     @classmethod
-    def engine_new_payload_blob_hashes(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def engine_new_payload_blob_hashes(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """From Cancun, payloads must have blob hashes."""
         del block_number, timestamp
         return True
 
     @classmethod
-    def engine_new_payload_beacon_root(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def engine_new_payload_beacon_root(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """From Cancun, payloads must have a parent beacon block root."""
         del block_number, timestamp
         return True
 
     @classmethod
-    def valid_opcodes(cls, *, block_number: int = 0, timestamp: int = 0) -> List[Opcodes]:
+    def valid_opcodes(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Opcodes]:
         """Return list of Opcodes that are valid to work on this fork."""
         del block_number, timestamp
         return [
@@ -1545,7 +1806,9 @@ class Prague(Cancun):
     }
 
     @classmethod
-    def precompiles(cls, *, block_number: int = 0, timestamp: int = 0) -> List[Address]:
+    def precompiles(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Address]:
         """
         At Prague, pre-compile for BLS operations are added.
 
@@ -1565,21 +1828,31 @@ class Prague(Cancun):
             Address(15, label="BLS12_PAIRING_CHECK"),
             Address(16, label="BLS12_MAP_FP_TO_G1"),
             Address(17, label="BLS12_MAP_FP2_TO_G2"),
-        ] + super(Prague, cls).precompiles(block_number=block_number, timestamp=timestamp)
+        ] + super(Prague, cls).precompiles(
+            block_number=block_number, timestamp=timestamp
+        )
 
     @classmethod
-    def tx_types(cls, *, block_number: int = 0, timestamp: int = 0) -> List[int]:
+    def tx_types(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[int]:
         """At Prague, set-code type transactions are introduced."""
-        return [4] + super(Prague, cls).tx_types(block_number=block_number, timestamp=timestamp)
+        return [4] + super(Prague, cls).tx_types(
+            block_number=block_number, timestamp=timestamp
+        )
 
     @classmethod
-    def gas_costs(cls, *, block_number: int = 0, timestamp: int = 0) -> GasCosts:
+    def gas_costs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> GasCosts:
         """
         On Prague, the standard token cost and the floor token costs are
         introduced due to EIP-7623.
         """
         return replace(
-            super(Prague, cls).gas_costs(block_number=block_number, timestamp=timestamp),
+            super(Prague, cls).gas_costs(
+                block_number=block_number, timestamp=timestamp
+            ),
             G_TX_DATA_STANDARD_TOKEN_COST=4,  # https://eips.ethereum.org/EIPS/eip-7623
             G_TX_DATA_FLOOR_TOKEN_COST=10,
             G_AUTHORIZATION=25_000,
@@ -1587,7 +1860,9 @@ class Prague(Cancun):
         )
 
     @classmethod
-    def system_contracts(cls, *, block_number: int = 0, timestamp: int = 0) -> List[Address]:
+    def system_contracts(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Address]:
         """
         Prague introduces the system contracts for EIP-6110, EIP-7002, EIP-7251
         and EIP-2935.
@@ -1609,10 +1884,14 @@ class Prague(Cancun):
                 0x0000F90827F1C53A10CB7A02335B175320002935,
                 label="HISTORY_STORAGE_ADDRESS",
             ),
-        ] + super(Prague, cls).system_contracts(block_number=block_number, timestamp=timestamp)
+        ] + super(Prague, cls).system_contracts(
+            block_number=block_number, timestamp=timestamp
+        )
 
     @classmethod
-    def max_request_type(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_request_type(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """
         At Prague, three request types are introduced, hence the max request
         type is 2.
@@ -1628,7 +1907,9 @@ class Prague(Cancun):
         Return a callable that calculates the transaction gas cost for its
         calldata depending on its contents.
         """
-        gas_costs = cls.gas_costs(block_number=block_number, timestamp=timestamp)
+        gas_costs = cls.gas_costs(
+            block_number=block_number, timestamp=timestamp
+        )
 
         def fn(*, data: BytesConvertible, floor: bool = False) -> int:
             tokens = 0
@@ -1654,10 +1935,15 @@ class Prague(Cancun):
         calldata_gas_calculator = cls.calldata_gas_calculator(
             block_number=block_number, timestamp=timestamp
         )
-        gas_costs = cls.gas_costs(block_number=block_number, timestamp=timestamp)
+        gas_costs = cls.gas_costs(
+            block_number=block_number, timestamp=timestamp
+        )
 
         def fn(*, data: BytesConvertible) -> int:
-            return calldata_gas_calculator(data=data, floor=True) + gas_costs.G_TRANSACTION
+            return (
+                calldata_gas_calculator(data=data, floor=True)
+                + gas_costs.G_TRANSACTION
+            )
 
         return fn
 
@@ -1672,9 +1958,13 @@ class Prague(Cancun):
         super_fn = super(Prague, cls).transaction_intrinsic_cost_calculator(
             block_number=block_number, timestamp=timestamp
         )
-        gas_costs = cls.gas_costs(block_number=block_number, timestamp=timestamp)
-        transaction_data_floor_cost_calculator = cls.transaction_data_floor_cost_calculator(
+        gas_costs = cls.gas_costs(
             block_number=block_number, timestamp=timestamp
+        )
+        transaction_data_floor_cost_calculator = (
+            cls.transaction_data_floor_cost_calculator(
+                block_number=block_number, timestamp=timestamp
+            )
         )
 
         def fn(
@@ -1693,37 +1983,51 @@ class Prague(Cancun):
             )
             if authorization_list_or_count is not None:
                 if isinstance(authorization_list_or_count, Sized):
-                    authorization_list_or_count = len(authorization_list_or_count)
-                intrinsic_cost += authorization_list_or_count * gas_costs.G_AUTHORIZATION
+                    authorization_list_or_count = len(
+                        authorization_list_or_count
+                    )
+                intrinsic_cost += (
+                    authorization_list_or_count * gas_costs.G_AUTHORIZATION
+                )
 
             if return_cost_deducted_prior_execution:
                 return intrinsic_cost
 
-            transaction_floor_data_cost = transaction_data_floor_cost_calculator(data=calldata)
+            transaction_floor_data_cost = (
+                transaction_data_floor_cost_calculator(data=calldata)
+            )
             return max(intrinsic_cost, transaction_floor_data_cost)
 
         return fn
 
     @classmethod
-    def blob_base_fee_update_fraction(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def blob_base_fee_update_fraction(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the blob base fee update fraction for Prague."""
         del block_number, timestamp
         return 5007716
 
     @classmethod
-    def target_blobs_per_block(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def target_blobs_per_block(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Blobs in Prague, have a static target of 6 blobs per block."""
         del block_number, timestamp
         return 6
 
     @classmethod
-    def max_blobs_per_block(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_blobs_per_block(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Blobs in Prague, have a static max of 9 blobs per block."""
         del block_number, timestamp
         return 9
 
     @classmethod
-    def pre_allocation_blockchain(cls, *, block_number: int = 0, timestamp: int = 0) -> Mapping:
+    def pre_allocation_blockchain(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Mapping:
         """
         Prague requires pre-allocation of the beacon chain deposit contract for
         EIP-6110, the exits contract for EIP-7002, and the history storage
@@ -1736,11 +2040,16 @@ class Prague(Cancun):
         deposit_contract_tree_depth = 32
         storage = {}
         next_hash = sha256(b"\x00" * 64).digest()
-        for i in range(deposit_contract_tree_depth + 2, deposit_contract_tree_depth * 2 + 1):
+        for i in range(
+            deposit_contract_tree_depth + 2,
+            deposit_contract_tree_depth * 2 + 1,
+        ):
             storage[i] = next_hash
             next_hash = sha256(next_hash + next_hash).digest()
 
-        with open(CURRENT_FOLDER / "contracts" / "deposit_contract.bin", mode="rb") as f:
+        with open(
+            CURRENT_FOLDER / "contracts" / "deposit_contract.bin", mode="rb"
+        ) as f:
             new_allocation.update(
                 {
                     0x00000000219AB540356CBB839CBE05303D7705FA: {
@@ -1752,7 +2061,9 @@ class Prague(Cancun):
             )
 
         # EIP-7002: Add the withdrawal request contract
-        with open(CURRENT_FOLDER / "contracts" / "withdrawal_request.bin", mode="rb") as f:
+        with open(
+            CURRENT_FOLDER / "contracts" / "withdrawal_request.bin", mode="rb"
+        ) as f:
             new_allocation.update(
                 {
                     0x00000961EF480EB55E80D19AD83579A64C007002: {
@@ -1763,7 +2074,10 @@ class Prague(Cancun):
             )
 
         # EIP-7251: Add the consolidation request contract
-        with open(CURRENT_FOLDER / "contracts" / "consolidation_request.bin", mode="rb") as f:
+        with open(
+            CURRENT_FOLDER / "contracts" / "consolidation_request.bin",
+            mode="rb",
+        ) as f:
             new_allocation.update(
                 {
                     0x0000BBDDC7CE488642FB579F8B00F3A590007251: {
@@ -1774,7 +2088,9 @@ class Prague(Cancun):
             )
 
         # EIP-2935: Add the history storage contract
-        with open(CURRENT_FOLDER / "contracts" / "history_contract.bin", mode="rb") as f:
+        with open(
+            CURRENT_FOLDER / "contracts" / "history_contract.bin", mode="rb"
+        ) as f:
             new_allocation.update(
                 {
                     0x0000F90827F1C53A10CB7A02335B175320002935: {
@@ -1787,7 +2103,9 @@ class Prague(Cancun):
         return new_allocation | super(Prague, cls).pre_allocation_blockchain()  # type: ignore
 
     @classmethod
-    def header_requests_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_requests_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """
         Prague requires that the execution layer header contains the beacon
         chain requests hash.
@@ -1796,7 +2114,9 @@ class Prague(Cancun):
         return True
 
     @classmethod
-    def engine_new_payload_requests(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def engine_new_payload_requests(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """
         From Prague, new payloads include the requests hash as a parameter.
         """
@@ -1856,13 +2176,17 @@ class Osaka(Prague, solc_name="cancun"):
         return 1
 
     @classmethod
-    def transaction_gas_limit_cap(cls, *, block_number: int = 0, timestamp: int = 0) -> int | None:
+    def transaction_gas_limit_cap(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int | None:
         """At Osaka, transaction gas limit is capped at 16 million (2**24)."""
         del block_number, timestamp
         return 16_777_216
 
     @classmethod
-    def block_rlp_size_limit(cls, *, block_number: int = 0, timestamp: int = 0) -> int | None:
+    def block_rlp_size_limit(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int | None:
         """From Osaka, block RLP size is limited as specified in EIP-7934."""
         del block_number, timestamp
 
@@ -1879,7 +2203,9 @@ class Osaka(Prague, solc_name="cancun"):
         return False
 
     @classmethod
-    def valid_opcodes(cls, *, block_number: int = 0, timestamp: int = 0) -> List[Opcodes]:
+    def valid_opcodes(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Opcodes]:
         """Return list of Opcodes that are valid to work on this fork."""
         del block_number, timestamp
         return [
@@ -1887,7 +2213,9 @@ class Osaka(Prague, solc_name="cancun"):
         ] + super(Prague, cls).valid_opcodes()
 
     @classmethod
-    def precompiles(cls, *, block_number: int = 0, timestamp: int = 0) -> List[Address]:
+    def precompiles(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Address]:
         """
         At Osaka, pre-compile for p256verify operation is added.
 
@@ -1895,7 +2223,9 @@ class Osaka(Prague, solc_name="cancun"):
         """
         return [
             Address(0x100, label="P256VERIFY"),
-        ] + super(Osaka, cls).precompiles(block_number=block_number, timestamp=timestamp)
+        ] + super(Osaka, cls).precompiles(
+            block_number=block_number, timestamp=timestamp
+        )
 
     @classmethod
     def excess_blob_gas_calculator(
@@ -1907,7 +2237,9 @@ class Osaka(Prague, solc_name="cancun"):
         target_blobs_per_block = cls.target_blobs_per_block(
             block_number=block_number, timestamp=timestamp
         )
-        blob_gas_per_blob = cls.blob_gas_per_blob(block_number=block_number, timestamp=timestamp)
+        blob_gas_per_blob = cls.blob_gas_per_blob(
+            block_number=block_number, timestamp=timestamp
+        )
         target_blob_gas_per_block = target_blobs_per_block * blob_gas_per_blob
         max_blobs_per_block = cls.max_blobs_per_block(
             block_number=block_number, timestamp=timestamp
@@ -1923,12 +2255,21 @@ class Osaka(Prague, solc_name="cancun"):
             parent_base_fee_per_gas: int,  # EIP-7918 additional parameter
         ) -> int:
             if parent_excess_blob_gas is None:
-                assert parent_excess_blobs is not None, "Parent excess blobs are required"
-                parent_excess_blob_gas = parent_excess_blobs * blob_gas_per_blob
+                assert parent_excess_blobs is not None, (
+                    "Parent excess blobs are required"
+                )
+                parent_excess_blob_gas = (
+                    parent_excess_blobs * blob_gas_per_blob
+                )
             if parent_blob_gas_used is None:
-                assert parent_blob_count is not None, "Parent blob count is required"
+                assert parent_blob_count is not None, (
+                    "Parent blob count is required"
+                )
                 parent_blob_gas_used = parent_blob_count * blob_gas_per_blob
-            if parent_excess_blob_gas + parent_blob_gas_used < target_blob_gas_per_block:
+            if (
+                parent_excess_blob_gas + parent_blob_gas_used
+                < target_blob_gas_per_block
+            ):
                 return 0
 
             # EIP-7918: Apply reserve price when execution costs dominate blob
@@ -1949,12 +2290,18 @@ class Osaka(Prague, solc_name="cancun"):
                 return parent_excess_blob_gas + blob_excess_adjustment
 
             # Original EIP-4844 calculation
-            return parent_excess_blob_gas + parent_blob_gas_used - target_blob_gas_per_block
+            return (
+                parent_excess_blob_gas
+                + parent_blob_gas_used
+                - target_blob_gas_per_block
+            )
 
         return fn
 
     @classmethod
-    def max_blobs_per_tx(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_blobs_per_tx(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """
         Blobs in Osaka, have a static max of 6 blobs per tx. Differs from the
         max per block.
@@ -1963,13 +2310,17 @@ class Osaka(Prague, solc_name="cancun"):
         return 6
 
     @classmethod
-    def blob_reserve_price_active(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def blob_reserve_price_active(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """Blob reserve price is supported in Osaka."""
         del block_number, timestamp
         return True
 
     @classmethod
-    def blob_base_cost(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def blob_base_cost(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the base cost of a blob at a given fork."""
         del block_number, timestamp
         return 2**13  # EIP-7918 new parameter
@@ -1979,19 +2330,25 @@ class BPO1(Osaka, bpo_fork=True):
     """Mainnet BPO1 fork - Blob Parameter Only fork 1."""
 
     @classmethod
-    def blob_base_fee_update_fraction(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def blob_base_fee_update_fraction(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the blob base fee update fraction for BPO1."""
         del block_number, timestamp
         return 8346193
 
     @classmethod
-    def target_blobs_per_block(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def target_blobs_per_block(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Blobs in BPO1 have a target of 10 blobs per block."""
         del block_number, timestamp
         return 10
 
     @classmethod
-    def max_blobs_per_block(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_blobs_per_block(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Blobs in BPO1 have a max of 15 blobs per block."""
         del block_number, timestamp
         return 15
@@ -2001,19 +2358,25 @@ class BPO2(BPO1, bpo_fork=True):
     """Mainnet BPO2 fork - Blob Parameter Only fork 2."""
 
     @classmethod
-    def blob_base_fee_update_fraction(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def blob_base_fee_update_fraction(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the blob base fee update fraction for BPO2."""
         del block_number, timestamp
         return 11684671
 
     @classmethod
-    def target_blobs_per_block(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def target_blobs_per_block(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Blobs in BPO2 have a target of 14 blobs per block."""
         del block_number, timestamp
         return 14
 
     @classmethod
-    def max_blobs_per_block(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_blobs_per_block(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Blobs in BPO2 have a max of 21 blobs per block."""
         del block_number, timestamp
         return 21
@@ -2026,19 +2389,25 @@ class BPO3(BPO2, bpo_fork=True):
     """
 
     @classmethod
-    def blob_base_fee_update_fraction(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def blob_base_fee_update_fraction(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the blob base fee update fraction for BPO3."""
         del block_number, timestamp
         return 20609697
 
     @classmethod
-    def target_blobs_per_block(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def target_blobs_per_block(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Blobs in BPO3 have a target of 21 blobs per block."""
         del block_number, timestamp
         return 21
 
     @classmethod
-    def max_blobs_per_block(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_blobs_per_block(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Blobs in BPO3 have a max of 32 blobs per block."""
         del block_number, timestamp
         return 32
@@ -2051,19 +2420,25 @@ class BPO4(BPO3, bpo_fork=True):
     """
 
     @classmethod
-    def blob_base_fee_update_fraction(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def blob_base_fee_update_fraction(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the blob base fee update fraction for BPO4."""
         del block_number, timestamp
         return 13739630
 
     @classmethod
-    def target_blobs_per_block(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def target_blobs_per_block(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Blobs in BPO4 have a target of 14 blobs per block."""
         del block_number, timestamp
         return 14
 
     @classmethod
-    def max_blobs_per_block(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_blobs_per_block(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Blobs in BPO4 have a max of 21 blobs per block."""
         del block_number, timestamp
         return 21
@@ -2082,7 +2457,9 @@ class Amsterdam(Osaka):
     """Amsterdam fork."""
 
     @classmethod
-    def header_bal_hash_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_bal_hash_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """
         From Amsterdam, header must contain block access list hash (EIP-7928).
         """
@@ -2118,7 +2495,9 @@ class EOFv1(Prague, solc_name="cancun"):
     """EOF fork."""
 
     @classmethod
-    def evm_code_types(cls, *, block_number: int = 0, timestamp: int = 0) -> List[EVMCodeType]:
+    def evm_code_types(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[EVMCodeType]:
         """EOF V1 is supported starting from Osaka."""
         return super(EOFv1, cls).evm_code_types(
             block_number=block_number,
@@ -2134,7 +2513,9 @@ class EOFv1(Prague, solc_name="cancun"):
             (Opcodes.EXTCALL, EVMCodeType.EOF_V1),
             (Opcodes.EXTSTATICCALL, EVMCodeType.EOF_V1),
             (Opcodes.EXTDELEGATECALL, EVMCodeType.EOF_V1),
-        ] + super(EOFv1, cls).call_opcodes(block_number=block_number, timestamp=timestamp)
+        ] + super(EOFv1, cls).call_opcodes(
+            block_number=block_number, timestamp=timestamp
+        )
 
     @classmethod
     def is_deployed(cls) -> bool:

@@ -18,12 +18,16 @@ FILL_TEST_ARGS = (
 
 
 @pytest.mark.parametrize("help_flag", ["--fill-help"])
-def test_local_arguments_present_in_fill_help(pytester: Any, help_flag: str) -> None:
+def test_local_arguments_present_in_fill_help(
+    pytester: Any, help_flag: str
+) -> None:
     """
     Test that locally defined command-line flags appear in the help if our
     custom help flag is used.
     """
-    pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    pytester.copy_example(
+        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
     result = pytester.runpytest("-c", "pytest-fill.ini", help_flag)
     for test_arg in FILL_TEST_ARGS:
         assert test_arg in "\n".join(result.stdout.lines)
@@ -51,7 +55,9 @@ def test_local_arguments_present_in_base_consume_help(
     Test that locally defined command-line flags appear in the help for consume
     subcommands.
     """
-    pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-consume.ini")
+    pytester.copy_example(
+        name="src/cli/pytest_commands/pytest_ini_files/pytest-consume.ini"
+    )
     result = pytester.runpytest("-c", "pytest-consume.ini", command, help_flag)
     for test_arg in CONSUME_TEST_ARGS:
         assert test_arg in "\n".join(result.stdout.lines)

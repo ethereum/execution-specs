@@ -13,7 +13,9 @@ from .base import ArgumentProcessor
 class HelpFlagsProcessor(ArgumentProcessor):
     """Processes help-related flags to provide cleaner help output."""
 
-    def __init__(self, command_type: str, required_args: List[str] | None = None):
+    def __init__(
+        self, command_type: str, required_args: List[str] | None = None
+    ):
         """
         Initialize the help processor.
 
@@ -57,7 +59,9 @@ class StdoutFlagsProcessor(ArgumentProcessor):
 
         # Check for incompatible xdist plugin
         if any(arg == "-n" or arg.startswith("-n=") for arg in args):
-            sys.exit("error: xdist-plugin not supported with --output=stdout (remove -n args).")
+            sys.exit(
+                "error: xdist-plugin not supported with --output=stdout (remove -n args)."
+            )
 
         # Add flags to suppress pytest output when writing to stdout
         return args + ["-qq", "-s", "--no-html"]
@@ -69,7 +73,10 @@ class StdoutFlagsProcessor(ArgumentProcessor):
 
         if "--output" in args:
             output_index = args.index("--output")
-            if output_index + 1 < len(args) and args[output_index + 1] == "stdout":
+            if (
+                output_index + 1 < len(args)
+                and args[output_index + 1] == "stdout"
+            ):
                 return True
 
         return False
@@ -91,21 +98,33 @@ class HiveEnvironmentProcessor(ArgumentProcessor):
             modified_args.extend(["--sim.limit", hive_test_pattern])
 
         hive_parallelism = os.getenv("HIVE_PARALLELISM")
-        if hive_parallelism not in [None, "", "1"] and not self._has_parallelism_flag(args):
+        if hive_parallelism not in [
+            None,
+            "",
+            "1",
+        ] and not self._has_parallelism_flag(args):
             modified_args.extend(["-n", str(hive_parallelism)])
 
         if os.getenv("HIVE_RANDOM_SEED") is not None:
-            warnings.warn("HIVE_RANDOM_SEED is not yet supported.", stacklevel=2)
+            warnings.warn(
+                "HIVE_RANDOM_SEED is not yet supported.", stacklevel=2
+            )
 
         if os.getenv("HIVE_LOGLEVEL") is not None:
             warnings.warn("HIVE_LOG_LEVEL is not yet supported.", stacklevel=2)
 
         if self.command_name == "engine":
-            modified_args.extend(["-p", "pytest_plugins.consume.simulators.engine.conftest"])
+            modified_args.extend(
+                ["-p", "pytest_plugins.consume.simulators.engine.conftest"]
+            )
         elif self.command_name == "sync":
-            modified_args.extend(["-p", "pytest_plugins.consume.simulators.sync.conftest"])
+            modified_args.extend(
+                ["-p", "pytest_plugins.consume.simulators.sync.conftest"]
+            )
         elif self.command_name == "rlp":
-            modified_args.extend(["-p", "pytest_plugins.consume.simulators.rlp.conftest"])
+            modified_args.extend(
+                ["-p", "pytest_plugins.consume.simulators.rlp.conftest"]
+            )
         else:
             raise ValueError(f"Unknown command name: {self.command_name}")
         return modified_args

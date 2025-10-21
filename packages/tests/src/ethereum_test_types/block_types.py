@@ -65,7 +65,10 @@ class WithdrawalGeneric(CamelModel, Generic[NumberBoundTypeVar]):
         """Return withdrawals root of a list of withdrawals."""
         t = HexaryTrie(db={})
         for i, w in enumerate(withdrawals):
-            t.set(eth_rlp.encode(Uint(i)), eth_rlp.encode(w.to_serializable_list()))
+            t.set(
+                eth_rlp.encode(Uint(i)),
+                eth_rlp.encode(w.to_serializable_list()),
+            )
         return t.root_hash
 
 
@@ -83,18 +86,27 @@ class EnvironmentGeneric(CamelModel, Generic[NumberBoundTypeVar]):
         alias="currentCoinbase",
     )
     gas_limit: NumberBoundTypeVar = Field(
-        default_factory=lambda: EnvironmentDefaults.gas_limit, alias="currentGasLimit"
+        default_factory=lambda: EnvironmentDefaults.gas_limit,
+        alias="currentGasLimit",
     )  # type: ignore
     number: NumberBoundTypeVar = Field(1, alias="currentNumber")  # type: ignore
     timestamp: NumberBoundTypeVar = Field(1_000, alias="currentTimestamp")  # type: ignore
     prev_randao: NumberBoundTypeVar | None = Field(None, alias="currentRandom")
-    difficulty: NumberBoundTypeVar | None = Field(None, alias="currentDifficulty")
-    base_fee_per_gas: NumberBoundTypeVar | None = Field(None, alias="currentBaseFee")
-    excess_blob_gas: NumberBoundTypeVar | None = Field(None, alias="currentExcessBlobGas")
+    difficulty: NumberBoundTypeVar | None = Field(
+        None, alias="currentDifficulty"
+    )
+    base_fee_per_gas: NumberBoundTypeVar | None = Field(
+        None, alias="currentBaseFee"
+    )
+    excess_blob_gas: NumberBoundTypeVar | None = Field(
+        None, alias="currentExcessBlobGas"
+    )
 
     parent_difficulty: NumberBoundTypeVar | None = Field(None)
     parent_timestamp: NumberBoundTypeVar | None = Field(None)
-    parent_base_fee_per_gas: NumberBoundTypeVar | None = Field(None, alias="parentBaseFee")
+    parent_base_fee_per_gas: NumberBoundTypeVar | None = Field(
+        None, alias="parentBaseFee"
+    )
     parent_gas_used: NumberBoundTypeVar | None = Field(None)
     parent_gas_limit: NumberBoundTypeVar | None = Field(None)
 
@@ -105,8 +117,12 @@ class Environment(EnvironmentGeneric[ZeroPaddedHexNumber]):
     executed.
     """
 
-    blob_gas_used: ZeroPaddedHexNumber | None = Field(None, alias="currentBlobGasUsed")
-    parent_ommers_hash: Hash = Field(Hash(EmptyOmmersRoot), alias="parentUncleHash")
+    blob_gas_used: ZeroPaddedHexNumber | None = Field(
+        None, alias="currentBlobGasUsed"
+    )
+    parent_ommers_hash: Hash = Field(
+        Hash(EmptyOmmersRoot), alias="parentUncleHash"
+    )
     parent_blob_gas_used: ZeroPaddedHexNumber | None = Field(None)
     parent_excess_blob_gas: ZeroPaddedHexNumber | None = Field(None)
     parent_beacon_block_root: Hash | None = Field(None)
@@ -141,45 +157,59 @@ class Environment(EnvironmentGeneric[ZeroPaddedHexNumber]):
         updated_values: Dict[str, Any] = {}
 
         if (
-            fork.header_prev_randao_required(block_number=number, timestamp=timestamp)
+            fork.header_prev_randao_required(
+                block_number=number, timestamp=timestamp
+            )
             and self.prev_randao is None
         ):
             updated_values["prev_randao"] = 0
 
         if (
-            fork.header_withdrawals_required(block_number=number, timestamp=timestamp)
+            fork.header_withdrawals_required(
+                block_number=number, timestamp=timestamp
+            )
             and self.withdrawals is None
         ):
             updated_values["withdrawals"] = []
 
         if (
-            fork.header_base_fee_required(block_number=number, timestamp=timestamp)
+            fork.header_base_fee_required(
+                block_number=number, timestamp=timestamp
+            )
             and self.base_fee_per_gas is None
             and self.parent_base_fee_per_gas is None
         ):
             updated_values["base_fee_per_gas"] = DEFAULT_BASE_FEE
 
-        if fork.header_zero_difficulty_required(block_number=number, timestamp=timestamp):
+        if fork.header_zero_difficulty_required(
+            block_number=number, timestamp=timestamp
+        ):
             updated_values["difficulty"] = 0
         elif self.difficulty is None and self.parent_difficulty is None:
             updated_values["difficulty"] = 0x20000
 
         if (
-            fork.header_excess_blob_gas_required(block_number=number, timestamp=timestamp)
+            fork.header_excess_blob_gas_required(
+                block_number=number, timestamp=timestamp
+            )
             and self.excess_blob_gas is None
             and self.parent_excess_blob_gas is None
         ):
             updated_values["excess_blob_gas"] = 0
 
         if (
-            fork.header_blob_gas_used_required(block_number=number, timestamp=timestamp)
+            fork.header_blob_gas_used_required(
+                block_number=number, timestamp=timestamp
+            )
             and self.blob_gas_used is None
             and self.parent_blob_gas_used is None
         ):
             updated_values["blob_gas_used"] = 0
 
         if (
-            fork.header_beacon_root_required(block_number=number, timestamp=timestamp)
+            fork.header_beacon_root_required(
+                block_number=number, timestamp=timestamp
+            )
             and self.parent_beacon_block_root is None
         ):
             updated_values["parent_beacon_block_root"] = 0

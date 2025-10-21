@@ -20,5 +20,6 @@ class ChainConfig(CamelModel):
     """Chain configuration."""
 
     chain_id: int = Field(
-        default_factory=lambda: ChainConfigDefaults.chain_id, validate_default=True
+        default_factory=lambda: ChainConfigDefaults.chain_id,
+        validate_default=True,
     )

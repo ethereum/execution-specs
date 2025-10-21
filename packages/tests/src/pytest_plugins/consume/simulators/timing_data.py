@@ -24,7 +24,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 @pytest.fixture(scope="function", autouse=True)
-def total_timing_data(request: pytest.FixtureRequest) -> Generator[TimingData, None, None]:
+def total_timing_data(
+    request: pytest.FixtureRequest,
+) -> Generator[TimingData, None, None]:
     """Record timing data for various stages of executing test case."""
     with TimingData("Total (seconds)") as total_timing_data:
         yield total_timing_data

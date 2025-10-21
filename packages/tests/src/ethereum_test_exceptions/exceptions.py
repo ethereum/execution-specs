@@ -44,7 +44,9 @@ class ExceptionBase(Enum):
 
         if cls == ExceptionBase:
             # Exception base automatically resolves the class
-            assert class_name in _exception_classes, f"No such exception class: {class_name}"
+            assert class_name in _exception_classes, (
+                f"No such exception class: {class_name}"
+            )
             exception_class = _exception_classes[class_name]
         else:
             # Otherwise, use the class that the method is called on
@@ -94,7 +96,9 @@ class UndefinedException(str):
 
     mapper_name: str | None
 
-    def __new__(cls, value: str, *, mapper_name: str | None = None) -> "UndefinedException":
+    def __new__(
+        cls, value: str, *, mapper_name: str | None = None
+    ) -> "UndefinedException":
         """Create a new UndefinedException instance."""
         if isinstance(value, UndefinedException):
             return value
@@ -596,7 +600,9 @@ class EOFException(ExceptionBase):
 """Pydantic Annotated Types"""
 
 ExceptionInstanceOrList = Annotated[
-    List[TransactionException | BlockException] | TransactionException | BlockException,
+    List[TransactionException | BlockException]
+    | TransactionException
+    | BlockException,
     BeforeValidator(from_pipe_str),
     PlainSerializer(to_pipe_str),
 ]

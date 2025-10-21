@@ -16,7 +16,11 @@ def to_json(
     """Convert a model to its json data representation."""
     if isinstance(input_model, list):
         return [to_json(item) for item in input_model]
-    elif isinstance(input_model, (EthereumTestBaseModel, EthereumTestRootModel)):
-        return input_model.model_dump(mode="json", by_alias=True, exclude_none=True)
+    elif isinstance(
+        input_model, (EthereumTestBaseModel, EthereumTestRootModel)
+    ):
+        return input_model.model_dump(
+            mode="json", by_alias=True, exclude_none=True
+        )
     else:
         return str(input_model)

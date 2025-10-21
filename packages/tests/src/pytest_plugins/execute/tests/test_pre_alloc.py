@@ -19,7 +19,13 @@ from ..pre_alloc import AddressStubs
         ),
         pytest.param(
             '{"some_address": "0x0000000000000000000000000000000000000001"}',
-            AddressStubs({"some_address": Address("0x0000000000000000000000000000000000000001")}),
+            AddressStubs(
+                {
+                    "some_address": Address(
+                        "0x0000000000000000000000000000000000000001"
+                    )
+                }
+            ),
             id="address_stubs_string_with_some_address",
         ),
     ],

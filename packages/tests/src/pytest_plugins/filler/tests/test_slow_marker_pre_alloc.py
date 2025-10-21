@@ -6,7 +6,9 @@ from typing import Any
 from ethereum_clis import TransitionTool
 
 
-def test_slow_marker_gets_pre_alloc_group(pytester: Any, default_t8n: TransitionTool) -> None:
+def test_slow_marker_gets_pre_alloc_group(
+    pytester: Any, default_t8n: TransitionTool
+) -> None:
     """
     Test that slow tests without benchmark marker get pre_alloc_group
     automatically.
@@ -34,7 +36,9 @@ def test_slow_marker_gets_pre_alloc_group(pytester: Any, default_t8n: Transition
     test_file.write_text(test_module)
 
     # Copy the pytest configuration
-    pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    pytester.copy_example(
+        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
 
     # Run pytest with our plugin and check collection
     args = [
@@ -52,7 +56,9 @@ def test_slow_marker_gets_pre_alloc_group(pytester: Any, default_t8n: Transition
     result.stdout.fnmatch_lines(["*test_slow_without_benchmark*"])
 
 
-def test_slow_with_benchmark_no_pre_alloc(pytester: Any, default_t8n: TransitionTool) -> None:
+def test_slow_with_benchmark_no_pre_alloc(
+    pytester: Any, default_t8n: TransitionTool
+) -> None:
     """
     Test that slow tests WITH benchmark marker do NOT get pre_alloc_group.
     """
@@ -79,7 +85,9 @@ def test_slow_with_benchmark_no_pre_alloc(pytester: Any, default_t8n: Transition
     test_file = benchmark_dir / "test_slow_benchmark.py"
     test_file.write_text(test_module)
 
-    pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    pytester.copy_example(
+        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
 
     # Run with collection only to verify test is collected
     args = [
@@ -126,7 +134,9 @@ def test_slow_with_existing_pre_alloc_unchanged(
     test_file = cancun_dir / "test_existing_pre_alloc.py"
     test_file.write_text(test_module)
 
-    pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    pytester.copy_example(
+        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
 
     # Run with collection only to verify test is collected
     args = [
@@ -144,7 +154,9 @@ def test_slow_with_existing_pre_alloc_unchanged(
     result.stdout.fnmatch_lines(["*test_slow_with_existing_pre_alloc*"])
 
 
-def test_non_slow_no_pre_alloc(pytester: Any, default_t8n: TransitionTool) -> None:
+def test_non_slow_no_pre_alloc(
+    pytester: Any, default_t8n: TransitionTool
+) -> None:
     """Test that tests without slow marker do not get pre_alloc_group."""
     test_module = textwrap.dedent(
         """\
@@ -167,7 +179,9 @@ def test_non_slow_no_pre_alloc(pytester: Any, default_t8n: TransitionTool) -> No
     test_file = cancun_dir / "test_normal.py"
     test_file.write_text(test_module)
 
-    pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    pytester.copy_example(
+        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
 
     # Run with collection only to verify test is collected
     args = [
@@ -185,7 +199,9 @@ def test_non_slow_no_pre_alloc(pytester: Any, default_t8n: TransitionTool) -> No
     result.stdout.fnmatch_lines(["*test_normal_speed*"])
 
 
-def test_integration_with_fill(pytester: Any, default_t8n: TransitionTool) -> None:
+def test_integration_with_fill(
+    pytester: Any, default_t8n: TransitionTool
+) -> None:
     """
     Integration test using actual fill command to verify marker application.
     """
@@ -220,7 +236,9 @@ def test_integration_with_fill(pytester: Any, default_t8n: TransitionTool) -> No
     test_module_file.write_text(test_module)
 
     # Copy pytest configuration
-    pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    pytester.copy_example(
+        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
 
     # Run fill command
     args = [

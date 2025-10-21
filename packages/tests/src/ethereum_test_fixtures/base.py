@@ -36,7 +36,9 @@ def fixture_format_discriminator(v: Any) -> str | None:
     fixture_format = info_dict.get("fixture-format")
     if not fixture_format:
         fixture_format = info_dict.get("fixture_format")
-    assert fixture_format is not None, f"Fixture format not found in info field: {info_dict}"
+    assert fixture_format is not None, (
+        f"Fixture format not found in info field: {info_dict}"
+    )
     return fixture_format
 
 
@@ -54,13 +56,17 @@ class BaseFixture(CamelModel):
     formats: ClassVar[Dict[str, Type["BaseFixture"]]] = {}
     formats_type_adapter: ClassVar[TypeAdapter]
 
-    info: Dict[str, Dict[str, Any] | str] = Field(default_factory=dict, alias="_info")
+    info: Dict[str, Dict[str, Any] | str] = Field(
+        default_factory=dict, alias="_info"
+    )
 
     # Fixture format properties
     format_name: ClassVar[str] = ""
     output_file_extension: ClassVar[str] = ".json"
     description: ClassVar[str] = "Unknown fixture format; it has not been set."
-    format_phases: ClassVar[Set[FixtureFillingPhase]] = {FixtureFillingPhase.FILL}
+    format_phases: ClassVar[Set[FixtureFillingPhase]] = {
+        FixtureFillingPhase.FILL
+    }
 
     @classmethod
     def output_base_dir_name(cls) -> str:
@@ -99,7 +105,9 @@ class BaseFixture(CamelModel):
 
     @model_validator(mode="wrap")
     @classmethod
-    def _parse_into_subclass(cls, v: Any, handler: ValidatorFunctionWrapHandler) -> "BaseFixture":
+    def _parse_into_subclass(
+        cls, v: Any, handler: ValidatorFunctionWrapHandler
+    ) -> "BaseFixture":
         """Parse the fixture into the correct subclass."""
         if cls is BaseFixture:
             return BaseFixture.formats_type_adapter.validate_python(v)
@@ -108,12 +116,16 @@ class BaseFixture(CamelModel):
     @cached_property
     def json_dict(self) -> Dict[str, Any]:
         """Returns the JSON representation of the fixture."""
-        return self.model_dump(mode="json", by_alias=True, exclude_none=True, exclude={"info"})
+        return self.model_dump(
+            mode="json", by_alias=True, exclude_none=True, exclude={"info"}
+        )
 
     @cached_property
     def hash(self) -> str:
         """Returns the hash of the fixture."""
-        json_str = json.dumps(self.json_dict, sort_keys=True, separators=(",", ":"))
+        json_str = json.dumps(
+            self.json_dict, sort_keys=True, separators=(",", ":")
+        )
         h = hashlib.sha256(json_str.encode("utf-8")).hexdigest()
         return f"0x{h}"
 
@@ -232,5 +244,7 @@ class LabeledFixtureFormat:
 FixtureFormat = Annotated[
     Type[BaseFixture],
     PlainSerializer(lambda f: f.format_name),
-    PlainValidator(lambda f: BaseFixture.formats[f] if f in BaseFixture.formats else f),
+    PlainValidator(
+        lambda f: BaseFixture.formats[f] if f in BaseFixture.formats else f
+    ),
 ]

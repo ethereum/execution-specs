@@ -7,7 +7,11 @@ from typing import Any, Callable, List
 import click
 
 from .base import ArgumentProcessor, PytestCommand, common_pytest_options
-from .processors import ConsumeCommandProcessor, HelpFlagsProcessor, HiveEnvironmentProcessor
+from .processors import (
+    ConsumeCommandProcessor,
+    HelpFlagsProcessor,
+    HiveEnvironmentProcessor,
+)
 
 
 def create_consume_command(
@@ -41,14 +45,19 @@ def get_command_logic_test_paths(command_name: str) -> List[Path]:
     base_path = Path("pytest_plugins/consume")
     if command_name in ["engine", "rlp"]:
         command_logic_test_paths = [
-            base_path / "simulators" / "simulator_logic" / f"test_via_{command_name}.py"
+            base_path
+            / "simulators"
+            / "simulator_logic"
+            / f"test_via_{command_name}.py"
         ]
     elif command_name == "sync":
         command_logic_test_paths = [
             base_path / "simulators" / "simulator_logic" / "test_via_sync.py"
         ]
     elif command_name == "direct":
-        command_logic_test_paths = [base_path / "direct" / "test_via_direct.py"]
+        command_logic_test_paths = [
+            base_path / "direct" / "test_via_direct.py"
+        ]
     else:
         raise ValueError(f"Unexpected command: {command_name}.")
     return command_logic_test_paths
@@ -124,5 +133,7 @@ def cache(pytest_args: List[str], **kwargs: Any) -> None:
     """Consume command to cache test fixtures."""
     del kwargs
 
-    cache_cmd = create_consume_command(command_logic_test_paths=[], is_hive=False)
+    cache_cmd = create_consume_command(
+        command_logic_test_paths=[], is_hive=False
+    )
     cache_cmd.execute(list(pytest_args))

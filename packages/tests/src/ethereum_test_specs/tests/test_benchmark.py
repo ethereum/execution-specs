@@ -22,7 +22,9 @@ from ethereum_test_types import Alloc, Environment, Transaction
         (150, 10),  # 150M / 16M = 10 transactions (9x16M + 6M)
     ],
 )
-def test_split_transaction(gas_benchmark_value_millions: int, expected_splits: int) -> None:
+def test_split_transaction(
+    gas_benchmark_value_millions: int, expected_splits: int
+) -> None:
     """
     Test that transaction splitting works
     correctly for Osaka fork gas cap.
@@ -41,7 +43,9 @@ def test_split_transaction(gas_benchmark_value_millions: int, expected_splits: i
 
     # Test the split_transaction method
     assert benchmark_test.tx is not None, "Transaction should not be None"
-    split_txs = benchmark_test.split_transaction(benchmark_test.tx, gas_limit_cap)
+    split_txs = benchmark_test.split_transaction(
+        benchmark_test.tx, gas_limit_cap
+    )
 
     # Verify the number of transactions
     assert len(split_txs) == expected_splits, (
@@ -73,7 +77,9 @@ def test_split_transaction(gas_benchmark_value_millions: int, expected_splits: i
 
     # Last transaction should have the remainder
     if expected_splits > 1:
-        expected_last_gas = gas_benchmark_value - (gas_limit_cap * (expected_splits - 1))
+        expected_last_gas = gas_benchmark_value - (
+            gas_limit_cap * (expected_splits - 1)
+        )
         assert split_txs[-1].gas_limit == expected_last_gas, (
             f"Last transaction should have {expected_last_gas} gas, got {split_txs[-1].gas_limit}"
         )
@@ -86,18 +92,27 @@ def test_split_transaction(gas_benchmark_value_millions: int, expected_splits: i
         (50_000_000, 100_000_000),  # Cap higher than benchmark value
     ],
 )
-def test_split_transaction_edge_cases(gas_benchmark_value: int, gas_limit_cap: int | None) -> None:
+def test_split_transaction_edge_cases(
+    gas_benchmark_value: int, gas_limit_cap: int | None
+) -> None:
     """Test edge cases for transaction splitting."""
     benchmark_test = BenchmarkTest(
         pre=Alloc(),
         post=Alloc(),
-        tx=Transaction(sender=HexNumber(0), to=HexNumber(0), nonce=0, gas_limit=1_000_000_000),
+        tx=Transaction(
+            sender=HexNumber(0),
+            to=HexNumber(0),
+            nonce=0,
+            gas_limit=1_000_000_000,
+        ),
         env=Environment(),
         gas_benchmark_value=gas_benchmark_value,
     )
 
     assert benchmark_test.tx is not None, "Transaction should not be None"
-    split_txs = benchmark_test.split_transaction(benchmark_test.tx, gas_limit_cap)
+    split_txs = benchmark_test.split_transaction(
+        benchmark_test.tx, gas_limit_cap
+    )
 
     # Should return single transaction in both cases
     assert len(split_txs) == 1, f"Expected 1 transaction, got {len(split_txs)}"
@@ -109,4 +124,6 @@ def test_split_transaction_edge_cases(gas_benchmark_value: int, gas_limit_cap: i
         # When cap > benchmark, gas_limit should be
         # min of tx.gas_limit and benchmark
         assert benchmark_test.tx is not None, "Transaction should not be None"
-        assert split_txs[0].gas_limit == min(benchmark_test.tx.gas_limit, gas_benchmark_value)
+        assert split_txs[0].gas_limit == min(
+            benchmark_test.tx.gas_limit, gas_benchmark_value
+        )

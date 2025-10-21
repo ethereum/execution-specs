@@ -10,7 +10,16 @@ import time
 from abc import abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, LiteralString, Mapping, Optional, Type
+from typing import (
+    Any,
+    ClassVar,
+    Dict,
+    List,
+    LiteralString,
+    Mapping,
+    Optional,
+    Type,
+)
 from urllib.parse import urlencode
 
 from requests import Response
@@ -246,16 +255,20 @@ class TransitionTool(EthereumCLI):
         os.mkdir(os.path.join(temp_dir.name, "input"))
         os.mkdir(os.path.join(temp_dir.name, "output"))
 
-        input_contents = t8n_data.to_input().model_dump(mode="json", **model_dump_config)
+        input_contents = t8n_data.to_input().model_dump(
+            mode="json", **model_dump_config
+        )
 
         input_paths = {
-            k: os.path.join(temp_dir.name, "input", f"{k}.json") for k in input_contents.keys()
+            k: os.path.join(temp_dir.name, "input", f"{k}.json")
+            for k in input_contents.keys()
         }
         for key, file_path in input_paths.items():
             write_json_file(input_contents[key], file_path)
 
         output_paths = {
-            output: os.path.join("output", f"{output}.json") for output in ["alloc", "result"]
+            output: os.path.join("output", f"{output}.json")
+            for output in ["alloc", "result"]
         }
         output_paths["body"] = os.path.join("output", "txs.rlp")
 
@@ -317,7 +330,8 @@ class TransitionTool(EthereumCLI):
             t8n_call = " ".join(args)
             for file_path in input_paths.values():  # update input paths
                 t8n_call = t8n_call.replace(
-                    os.path.dirname(file_path), os.path.join(debug_output_path, "input")
+                    os.path.dirname(file_path),
+                    os.path.join(debug_output_path, "input"),
                 )
             # use a new output path for basedir and outputs
             t8n_call = t8n_call.replace(
@@ -357,12 +371,15 @@ class TransitionTool(EthereumCLI):
             with open(file_path, "r+") as file:
                 output_contents[key] = json.load(file)
         output = TransitionToolOutput.model_validate(
-            output_contents, context={"exception_mapper": self.exception_mapper}
+            output_contents,
+            context={"exception_mapper": self.exception_mapper},
         )
         if self.supports_opcode_count:
             opcode_count_file_path = Path(temp_dir.name) / "opcodes.json"
             if opcode_count_file_path.exists():
-                opcode_count = OpcodeCount.model_validate_json(opcode_count_file_path.read_text())
+                opcode_count = OpcodeCount.model_validate_json(
+                    opcode_count_file_path.read_text()
+                )
                 output.result.opcode_count = opcode_count
 
                 if debug_output_path:
@@ -423,7 +440,9 @@ class TransitionTool(EthereumCLI):
             )
         return response
 
-    def _generate_post_args(self, t8n_data: TransitionToolData) -> Dict[str, List[str] | str]:
+    def _generate_post_args(
+        self, t8n_data: TransitionToolData
+    ) -> Dict[str, List[str] | str]:
         """Generate the arguments for the POST request to the t8n-server."""
         del t8n_data
         return {}
@@ -439,7 +458,9 @@ class TransitionTool(EthereumCLI):
         Execute the transition tool sending inputs and outputs via a server.
         """
         request_data = t8n_data.get_request_data()
-        request_data_json = request_data.model_dump(mode="json", **model_dump_config)
+        request_data_json = request_data.model_dump(
+            mode="json", **model_dump_config
+        )
 
         temp_dir = tempfile.TemporaryDirectory()
         request_data_json["trace"] = self.trace
@@ -466,7 +487,9 @@ class TransitionTool(EthereumCLI):
             )
 
         response = self._server_post(
-            data=request_data_json, url_args=self._generate_post_args(t8n_data), timeout=timeout
+            data=request_data_json,
+            url_args=self._generate_post_args(t8n_data),
+            timeout=timeout,
         )
         response_json = response.json()
 
@@ -523,13 +546,18 @@ class TransitionTool(EthereumCLI):
             stderr=subprocess.PIPE,
         )
 
-        self.dump_debug_stream(debug_output_path, temp_dir, stdin, args, result)
+        self.dump_debug_stream(
+            debug_output_path, temp_dir, stdin, args, result
+        )
 
         if result.returncode != 0:
             raise Exception("failed to evaluate: " + result.stderr.decode())
 
-        output: TransitionToolOutput = TransitionToolOutput.model_validate_json(
-            result.stdout, context={"exception_mapper": self.exception_mapper}
+        output: TransitionToolOutput = (
+            TransitionToolOutput.model_validate_json(
+                result.stdout,
+                context={"exception_mapper": self.exception_mapper},
+            )
         )
 
         if debug_output_path:
@@ -599,7 +627,9 @@ class TransitionTool(EthereumCLI):
         return args
 
     def construct_args_stream(
-        self, t8n_data: TransitionToolData, temp_dir: tempfile.TemporaryDirectory
+        self,
+        t8n_data: TransitionToolData,
+        temp_dir: tempfile.TemporaryDirectory,
     ) -> List[str]:
         """Construct arguments for t8n interaction via streams."""
         command: list[str] = [str(self.binary)]
@@ -647,7 +677,8 @@ class TransitionTool(EthereumCLI):
                 "input/alloc.json": stdin.alloc,
                 "input/env.json": stdin.env,
                 "input/txs.json": [
-                    tx.model_dump(mode="json", **model_dump_config) for tx in stdin.txs
+                    tx.model_dump(mode="json", **model_dump_config)
+                    for tx in stdin.txs
                 ],
                 "returncode.txt": result.returncode,
                 "stdin.txt": stdin,
@@ -676,12 +707,15 @@ class TransitionTool(EthereumCLI):
             return self._evaluate_server(
                 t8n_data=transition_tool_data,
                 debug_output_path=debug_output_path,
-                timeout=SLOW_REQUEST_TIMEOUT if slow_request else NORMAL_SERVER_TIMEOUT,
+                timeout=SLOW_REQUEST_TIMEOUT
+                if slow_request
+                else NORMAL_SERVER_TIMEOUT,
             )
 
         if self.t8n_use_stream:
             return self._evaluate_stream(
-                t8n_data=transition_tool_data, debug_output_path=debug_output_path
+                t8n_data=transition_tool_data,
+                debug_output_path=debug_output_path,
             )
 
         return self._evaluate_filesystem(

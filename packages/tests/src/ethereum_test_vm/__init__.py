@@ -3,7 +3,14 @@
 from .bytecode import Bytecode
 from .evm_types import EVMCodeType
 from .helpers import MemoryVariable, call_return_code
-from .opcodes import Macro, Macros, Opcode, OpcodeCallArg, Opcodes, UndefinedOpcodes
+from .opcodes import (
+    Macro,
+    Macros,
+    Opcode,
+    OpcodeCallArg,
+    Opcodes,
+    UndefinedOpcodes,
+)
 
 __all__ = (
     "Bytecode",

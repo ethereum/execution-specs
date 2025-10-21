@@ -68,7 +68,9 @@ class ContainerKind(Enum):
         )
 
     @staticmethod
-    def from_str(value: "str | ContainerKind | None") -> "ContainerKind | None":
+    def from_str(
+        value: "str | ContainerKind | None",
+    ) -> "ContainerKind | None":
         """Return ContainerKind enum value from a string."""
         if value is None:
             return None
@@ -166,9 +168,15 @@ class Section(CopyValidateModel):
     @cached_property
     def header(self) -> bytes:
         """Get formatted header for this section according to its contents."""
-        size = self.custom_size if "custom_size" in self.model_fields_set else len(self.data)
+        size = (
+            self.custom_size
+            if "custom_size" in self.model_fields_set
+            else len(self.data)
+        )
         if self.kind == SectionKind.CODE:
-            raise Exception("Need container-wide view of code sections to generate header")
+            raise Exception(
+                "Need container-wide view of code sections to generate header"
+            )
         return self.kind.to_bytes(
             HEADER_SECTION_KIND_BYTE_LENGTH, byteorder="big"
         ) + size.to_bytes(HEADER_SECTION_SIZE_BYTE_LENGTH, byteorder="big")
@@ -207,9 +215,15 @@ class Section(CopyValidateModel):
             max_stack_increase = 0
         assert max_stack_increase >= 0, "incorrect max stack height value"
         return (
-            code_inputs.to_bytes(length=TYPES_INPUTS_BYTE_LENGTH, byteorder="big")
-            + code_outputs.to_bytes(length=TYPES_OUTPUTS_BYTE_LENGTH, byteorder="big")
-            + max_stack_increase.to_bytes(length=TYPES_STACK_BYTE_LENGTH, byteorder="big")
+            code_inputs.to_bytes(
+                length=TYPES_INPUTS_BYTE_LENGTH, byteorder="big"
+            )
+            + code_outputs.to_bytes(
+                length=TYPES_OUTPUTS_BYTE_LENGTH, byteorder="big"
+            )
+            + max_stack_increase.to_bytes(
+                length=TYPES_STACK_BYTE_LENGTH, byteorder="big"
+            )
         )
 
     def with_max_stack_height(self, max_stack_height: int) -> "Section":
@@ -252,13 +266,19 @@ class Section(CopyValidateModel):
             if not cs.skip_header_listing:
                 header_registered_sections += 1
 
-        h += header_registered_sections.to_bytes(HEADER_SECTION_COUNT_BYTE_LENGTH, "big")
+        h += header_registered_sections.to_bytes(
+            HEADER_SECTION_COUNT_BYTE_LENGTH, "big"
+        )
         for cs in sections:
             # If section is marked to skip the header calculation, don't make
             # header for it
             if cs.skip_header_listing:
                 continue
-            size = cs.custom_size if "custom_size" in cs.model_fields_set else len(cs.data)
+            size = (
+                cs.custom_size
+                if "custom_size" in cs.model_fields_set
+                else len(cs.data)
+            )
             body_size_length = (
                 HEADER_SECTION_SIZE_BYTE_LENGTH
                 if cs.kind != SectionKind.CONTAINER
@@ -282,7 +302,9 @@ class Section(CopyValidateModel):
             and isinstance(code, Bytecode)
         ):
             # If not specified, take the max_stack_increase from the Bytecode.
-            kwargs["max_stack_increase"] = code.max_stack_height - kwargs.get("code_inputs", 0)
+            kwargs["max_stack_increase"] = code.max_stack_height - kwargs.get(
+                "code_inputs", 0
+            )
         return cls(kind=SectionKind.CODE, data=code, **kwargs)
 
     @classmethod
@@ -369,30 +391,43 @@ class Container(CopyValidateModel):
         sections = self.sections
 
         # Add type section if needed
-        if self.auto_type_section.any() and count_sections(sections, SectionKind.TYPE) == 0:
+        if (
+            self.auto_type_section.any()
+            and count_sections(sections, SectionKind.TYPE) == 0
+        ):
             # Calculate skipping flags
             types_header_size = 0
             type_section_data = b""
             for s in sections:
                 types_header_size += (
-                    len(s.type_definition) if not s.skip_types_header_listing else 0
+                    len(s.type_definition)
+                    if not s.skip_types_header_listing
+                    else 0
                 )
-                type_section_data += s.type_definition if not s.skip_types_body_listing else b""
+                type_section_data += (
+                    s.type_definition if not s.skip_types_body_listing else b""
+                )
 
             sections = [
                 Section(
-                    kind=SectionKind.TYPE, data=type_section_data, custom_size=types_header_size
+                    kind=SectionKind.TYPE,
+                    data=type_section_data,
+                    custom_size=types_header_size,
                 )
             ] + sections
 
         # Add data section if needed
-        if self.auto_data_section and count_sections(sections, SectionKind.DATA) == 0:
+        if (
+            self.auto_data_section
+            and count_sections(sections, SectionKind.DATA) == 0
+        ):
             sections = sections + [Section(kind=SectionKind.DATA, data="0x")]
 
         header_sections = [
             s
             for s in sections
-            if s.kind != SectionKind.TYPE or self.auto_type_section != AutoSection.ONLY_BODY
+            if s.kind != SectionKind.TYPE
+            or self.auto_type_section != AutoSection.ONLY_BODY
         ]
         if self.auto_sort_sections.header():
             header_sections.sort(key=lambda x: x.kind)
@@ -410,7 +445,9 @@ class Container(CopyValidateModel):
                     concurrent_sections[-1].append(s)
                 else:
                     concurrent_sections.append([s])
-            c += b"".join(Section.list_header(cs) for cs in concurrent_sections)
+            c += b"".join(
+                Section.list_header(cs) for cs in concurrent_sections
+            )
 
         # Add header terminator
         c += self.header_terminator
@@ -422,7 +459,10 @@ class Container(CopyValidateModel):
 
         # Add section bodies
         for s in body_sections:
-            if s.kind == SectionKind.TYPE and self.auto_type_section == AutoSection.ONLY_HEADER:
+            if (
+                s.kind == SectionKind.TYPE
+                and self.auto_type_section == AutoSection.ONLY_HEADER
+            ):
                 continue
             if s.data and not s.skip_body_listing:
                 c += s.data
@@ -437,7 +477,9 @@ class Container(CopyValidateModel):
         return c
 
     @classmethod
-    def Code(cls, code: Optional[BytesConvertible] = None, **kwargs: Any) -> "Container":  # noqa: N802
+    def Code(
+        cls, code: Optional[BytesConvertible] = None, **kwargs: Any
+    ) -> "Container":  # noqa: N802
         """Create simple container with a single code section."""
         if code is None:
             code = Bytecode()

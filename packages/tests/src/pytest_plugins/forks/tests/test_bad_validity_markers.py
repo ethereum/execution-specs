@@ -225,7 +225,9 @@ def test_invalid_validity_markers(
     test session.
     """
     pytester.makepyfile(test_function)
-    pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    pytester.copy_example(
+        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
     result = pytester.runpytest("-c", "pytest-fill.ini")
     result.assert_outcomes(
         passed=0,

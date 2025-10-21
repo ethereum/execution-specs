@@ -37,16 +37,22 @@ class RPCRequest:
         self.rpc = EthRPC(node_config.node_url, extra_headers=headers)
         self.debug_rpc = DebugRPC(node_config.node_url, extra_headers=headers)
 
-    def eth_get_transaction_by_hash(self, transaction_hash: Hash) -> TransactionByHashResponse:
+    def eth_get_transaction_by_hash(
+        self, transaction_hash: Hash
+    ) -> TransactionByHashResponse:
         """Get transaction data."""
         res = self.rpc.get_transaction_by_hash(transaction_hash)
         assert res is not None, "Transaction not found"
         block_number = res.block_number
-        assert block_number is not None, "Transaction does not seem to be included in any block"
+        assert block_number is not None, (
+            "Transaction does not seem to be included in any block"
+        )
 
         return res
 
-    def eth_get_block_by_number(self, block_number: BlockNumberType) -> Environment:
+    def eth_get_block_by_number(
+        self, block_number: BlockNumberType
+    ) -> Environment:
         """Get block by number."""
         res = self.rpc.get_block_by_number(block_number)
         assert res is not None, "Block not found"

@@ -64,20 +64,31 @@ class TransactionDefaults:
     max_priority_fee_per_gas: int = 0
 
 
-class AuthorizationTupleGeneric(CamelModel, Generic[NumberBoundTypeVar], SignableRLPSerializable):
+class AuthorizationTupleGeneric(
+    CamelModel, Generic[NumberBoundTypeVar], SignableRLPSerializable
+):
     """Authorization tuple for transactions."""
 
     chain_id: NumberBoundTypeVar = Field(0)  # type: ignore
     address: Address
     nonce: NumberBoundTypeVar = Field(0)  # type: ignore
 
-    v: NumberBoundTypeVar = Field(default=0, validation_alias=AliasChoices("v", "yParity"))  # type: ignore
+    v: NumberBoundTypeVar = Field(
+        default=0, validation_alias=AliasChoices("v", "yParity")
+    )  # type: ignore
     r: NumberBoundTypeVar = Field(0)  # type: ignore
     s: NumberBoundTypeVar = Field(0)  # type: ignore
 
     magic: ClassVar[int] = 0x05
 
-    rlp_fields: ClassVar[List[str]] = ["chain_id", "address", "nonce", "v", "r", "s"]
+    rlp_fields: ClassVar[List[str]] = [
+        "chain_id",
+        "address",
+        "nonce",
+        "v",
+        "r",
+        "s",
+    ]
     rlp_signing_fields: ClassVar[List[str]] = ["chain_id", "address", "nonce"]
 
     def get_rlp_signing_prefix(self) -> bytes:
@@ -139,8 +150,12 @@ class AuthorizationTuple(AuthorizationTupleGeneric[HexNumber]):
             )
             self.v, self.r, self.s = (
                 HexNumber(signature_bytes[64]),
-                HexNumber(int.from_bytes(signature_bytes[0:32], byteorder="big")),
-                HexNumber(int.from_bytes(signature_bytes[32:64], byteorder="big")),
+                HexNumber(
+                    int.from_bytes(signature_bytes[0:32], byteorder="big")
+                ),
+                HexNumber(
+                    int.from_bytes(signature_bytes[32:64], byteorder="big")
+                ),
             )
             self.model_fields_set.add("v")
             self.model_fields_set.add("r")
@@ -158,7 +173,11 @@ class AuthorizationTuple(AuthorizationTupleGeneric[HexNumber]):
                     signature_bytes, rlp_signing_bytes.keccak256(), hasher=None
                 )
                 self.signer = EOA(
-                    address=Address(keccak256(public_key.format(compressed=False)[1:])[32 - 20 :])
+                    address=Address(
+                        keccak256(public_key.format(compressed=False)[1:])[
+                            32 - 20 :
+                        ]
+                    )
                 )
             except Exception:
                 # Signer remains `None` in this case
@@ -173,7 +192,8 @@ class TransactionGeneric(BaseModel, Generic[NumberBoundTypeVar]):
 
     ty: NumberBoundTypeVar = Field(0, alias="type")  # type: ignore
     chain_id: NumberBoundTypeVar = Field(
-        default_factory=lambda: ChainConfigDefaults.chain_id, validate_default=True
+        default_factory=lambda: ChainConfigDefaults.chain_id,
+        validate_default=True,
     )
     nonce: NumberBoundTypeVar = Field(0)  # type: ignore
     gas_price: NumberBoundTypeVar | None = None
@@ -271,7 +291,9 @@ class TransactionTestMetadata(CamelModel):
 
 
 class Transaction(
-    TransactionGeneric[HexNumber], TransactionTransitionToolConverter, SignableRLPSerializable
+    TransactionGeneric[HexNumber],
+    TransactionTransitionToolConverter,
+    SignableRLPSerializable,
 ):
     """Generic object that can represent all Ethereum transaction types."""
 
@@ -284,7 +306,9 @@ class Transaction(
     initcodes: List[Bytes] | None = None
 
     secret_key: Hash | None = None
-    error: List[TransactionException] | TransactionException | None = Field(None, exclude=True)
+    error: List[TransactionException] | TransactionException | None = Field(
+        None, exclude=True
+    )
 
     protected: bool = Field(True, exclude=True)
 
@@ -304,7 +328,9 @@ class Transaction(
 
         def __str__(self) -> str:
             """Print exception string."""
-            return "only one type of fee payment field can be used in a single tx"
+            return (
+                "only one type of fee payment field can be used in a single tx"
+            )
 
     class InvalidSignaturePrivateKeyError(Exception):
         """
@@ -333,9 +359,15 @@ class Transaction(
                 self.ty = HexNumber(6)
             elif self.authorization_list is not None:
                 self.ty = HexNumber(4)
-            elif self.max_fee_per_blob_gas is not None or self.blob_versioned_hashes is not None:
+            elif (
+                self.max_fee_per_blob_gas is not None
+                or self.blob_versioned_hashes is not None
+            ):
                 self.ty = HexNumber(3)
-            elif self.max_fee_per_gas is not None or self.max_priority_fee_per_gas is not None:
+            elif (
+                self.max_fee_per_gas is not None
+                or self.max_priority_fee_per_gas is not None
+            ):
                 self.ty = HexNumber(2)
             elif self.access_list is not None:
                 self.ty = HexNumber(1)
@@ -350,7 +382,9 @@ class Transaction(
                 self.secret_key = self.sender.key
             else:
                 self.secret_key = Hash(TestPrivateKey)
-                self.sender = EOA(address=TestAddress, key=self.secret_key, nonce=0)
+                self.sender = EOA(
+                    address=TestAddress, key=self.secret_key, nonce=0
+                )
 
         # Set default values for fields that are required for certain tx types
         if self.ty <= 1 and self.gas_price is None:
@@ -361,23 +395,35 @@ class Transaction(
             assert self.access_list is None, "access_list must be None"
 
         if self.ty >= 2 and self.max_fee_per_gas is None:
-            self.max_fee_per_gas = HexNumber(TransactionDefaults.max_fee_per_gas)
+            self.max_fee_per_gas = HexNumber(
+                TransactionDefaults.max_fee_per_gas
+            )
         if self.ty >= 2 and self.max_priority_fee_per_gas is None:
-            self.max_priority_fee_per_gas = HexNumber(TransactionDefaults.max_priority_fee_per_gas)
+            self.max_priority_fee_per_gas = HexNumber(
+                TransactionDefaults.max_priority_fee_per_gas
+            )
         if self.ty < 2:
             assert self.max_fee_per_gas is None, "max_fee_per_gas must be None"
-            assert self.max_priority_fee_per_gas is None, "max_priority_fee_per_gas must be None"
+            assert self.max_priority_fee_per_gas is None, (
+                "max_priority_fee_per_gas must be None"
+            )
 
         if self.ty == 3 and self.max_fee_per_blob_gas is None:
             self.max_fee_per_blob_gas = HexNumber(1)
         if self.ty != 3:
-            assert self.blob_versioned_hashes is None, "blob_versioned_hashes must be None"
-            assert self.max_fee_per_blob_gas is None, "max_fee_per_blob_gas must be None"
+            assert self.blob_versioned_hashes is None, (
+                "blob_versioned_hashes must be None"
+            )
+            assert self.max_fee_per_blob_gas is None, (
+                "max_fee_per_blob_gas must be None"
+            )
 
         if self.ty == 4 and self.authorization_list is None:
             self.authorization_list = []
         if self.ty != 4:
-            assert self.authorization_list is None, "authorization_list must be None"
+            assert self.authorization_list is None, (
+                "authorization_list must be None"
+            )
 
         if self.ty == 6 and self.initcodes is None:
             self.initcodes = []
@@ -469,13 +515,19 @@ class Transaction(
                     signature_bytes, rlp_signing_bytes.keccak256(), hasher=None
                 )
                 self.sender = EOA(
-                    address=Address(keccak256(public_key.format(compressed=False)[1:])[32 - 20 :])
+                    address=Address(
+                        keccak256(public_key.format(compressed=False)[1:])[
+                            32 - 20 :
+                        ]
+                    )
                 )
             except Exception:
                 # Signer remains `None` in this case
                 pass
 
-    def with_signature_and_sender(self, *, keep_secret_key: bool = False) -> "Transaction":
+    def with_signature_and_sender(
+        self, *, keep_secret_key: bool = False
+    ) -> "Transaction":
         """Return signed version of the transaction using the private key."""
         updated_values: Dict[str, Any] = {}
 
@@ -489,7 +541,9 @@ class Transaction(
                 return self
 
             public_key = PublicKey.from_signature_and_message(
-                self.signature_bytes, self.rlp_signing_bytes().keccak256(), hasher=None
+                self.signature_bytes,
+                self.rlp_signing_bytes().keccak256(),
+                hasher=None,
             )
             updated_values["sender"] = Address(
                 keccak256(public_key.format(compressed=False)[1:])[32 - 20 :]
@@ -612,12 +666,21 @@ class Transaction(
                 "access_list",
             ]
         elif self.ty == 0:
-            field_list = ["nonce", "gas_price", "gas_limit", "to", "value", "data"]
+            field_list = [
+                "nonce",
+                "gas_price",
+                "gas_limit",
+                "to",
+                "value",
+                "data",
+            ]
             if self.protected:
                 # EIP-155: https://eips.ethereum.org/EIPS/eip-155
                 field_list.extend(["chain_id", "zero", "zero"])
         else:
-            raise NotImplementedError(f"signing for transaction type {self.ty} not implemented")
+            raise NotImplementedError(
+                f"signing for transaction type {self.ty} not implemented"
+            )
 
         for field in field_list:
             if field != "to":
@@ -682,7 +745,9 @@ class Transaction(
         return Hash(t.root_hash)
 
     @staticmethod
-    def list_blob_versioned_hashes(input_txs: List["Transaction"]) -> List[Hash]:
+    def list_blob_versioned_hashes(
+        input_txs: List["Transaction"],
+    ) -> List[Hash]:
         """
         Get list of ordered blob versioned hashes from a list of transactions.
         """
@@ -700,7 +765,9 @@ class Transaction(
             raise ValueError("transaction is not a contract creation")
         if self.sender is None:
             raise ValueError("sender address is None")
-        hash_bytes = Bytes(eth_rlp.encode([self.sender, int_to_bytes(self.nonce)])).keccak256()
+        hash_bytes = Bytes(
+            eth_rlp.encode([self.sender, int_to_bytes(self.nonce)])
+        ).keccak256()
         return Address(hash_bytes[-20:])
 
 

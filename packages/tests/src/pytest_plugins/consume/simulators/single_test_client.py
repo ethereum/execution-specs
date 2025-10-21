@@ -42,7 +42,9 @@ def environment(
     check_live_port: Literal[8545, 8551],
 ) -> dict:
     """Define the environment that hive will start the client with."""
-    assert fixture.fork in ruleset, f"fork '{fixture.fork}' missing in hive ruleset"
+    assert fixture.fork in ruleset, (
+        f"fork '{fixture.fork}' missing in hive ruleset"
+    )
     chain_id = str(Number(fixture.config.chain_id))
     return {
         "HIVE_CHAIN_ID": chain_id,
@@ -83,11 +85,17 @@ def client(
     Initialize the client with the appropriate files and environment variables.
     """
     logger.info(f"Starting client ({client_type.name})...")
-    logger.debug(f"Main client Network ID: {environment.get('HIVE_NETWORK_ID', 'NOT SET!')}")
-    logger.debug(f"Main client Chain ID: {environment.get('HIVE_CHAIN_ID', 'NOT SET!')}")
+    logger.debug(
+        f"Main client Network ID: {environment.get('HIVE_NETWORK_ID', 'NOT SET!')}"
+    )
+    logger.debug(
+        f"Main client Chain ID: {environment.get('HIVE_CHAIN_ID', 'NOT SET!')}"
+    )
     with total_timing_data.time("Start client"):
         client = hive_test.start_client(
-            client_type=client_type, environment=environment, files=client_files
+            client_type=client_type,
+            environment=environment,
+            files=client_files,
         )
     error_message = (
         f"Unable to connect to the client container ({client_type.name}) via Hive during test "

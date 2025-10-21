@@ -30,7 +30,9 @@ class TransactionTest(BaseTest):
     tx: Transaction
     pre: Alloc | None = None
 
-    supported_fixture_formats: ClassVar[Sequence[FixtureFormat | LabeledFixtureFormat]] = [
+    supported_fixture_formats: ClassVar[
+        Sequence[FixtureFormat | LabeledFixtureFormat]
+    ] = [
         TransactionFixture,
     ]
     supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = [
@@ -54,7 +56,9 @@ class TransactionTest(BaseTest):
                 sender=None,
             )
         else:
-            intrinsic_gas_cost_calculator = fork.transaction_intrinsic_cost_calculator()
+            intrinsic_gas_cost_calculator = (
+                fork.transaction_intrinsic_cost_calculator()
+            )
             intrinsic_gas = intrinsic_gas_cost_calculator(
                 calldata=self.tx.data,
                 contract_creation=self.tx.to is None,

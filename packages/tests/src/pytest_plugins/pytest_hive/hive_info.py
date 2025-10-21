@@ -50,6 +50,8 @@ class HiveInfo(CamelModel):
     """Hive instance information."""
 
     command: List[str]
-    client_file: ClientFile = Field(default_factory=lambda: ClientFile(root=[]))
+    client_file: ClientFile = Field(
+        default_factory=lambda: ClientFile(root=[])
+    )
     commit: str
     date: str

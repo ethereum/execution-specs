@@ -78,7 +78,9 @@ class EthereumCLI:
         cls.default_tool = tool_subclass
 
     @classmethod
-    def from_binary_path(cls, *, binary_path: Optional[Path] = None, **kwargs: Any) -> Any:
+    def from_binary_path(
+        cls, *, binary_path: Optional[Path] = None, **kwargs: Any
+    ) -> Any:
         """
         Instantiate the appropriate CLI subclass derived from the
         CLI's `binary_path`.
@@ -87,7 +89,9 @@ class EthereumCLI:
         the appropriate subclass based on the version output by running
         the CLI with the version flag.
         """
-        assert cls.default_tool is not None, "default CLI implementation was never set"
+        assert cls.default_tool is not None, (
+            "default CLI implementation was never set"
+        )
 
         # ensure provided t8n binary can be found and used
         if binary_path is None:
@@ -114,11 +118,15 @@ class EthereumCLI:
             logger.debug(f"Output of 'which {binary_path}': {binary}")
 
             if binary is None:
-                logger.error(f"Resolved t8n binary path does not exist: {resolved_path}")
+                logger.error(
+                    f"Resolved t8n binary path does not exist: {resolved_path}"
+                )
                 raise CLINotFoundInPathError(binary=resolved_path)
 
             assert binary is not None
-            logger.debug(f"Successfully located the path of the t8n binary: {binary}")
+            logger.debug(
+                f"Successfully located the path of the t8n binary: {binary}"
+            )
             binary = Path(binary)
 
         # Group the tools by version flag, so we only have to call the tool
@@ -144,7 +152,9 @@ class EthereumCLI:
                 )
 
                 if result.returncode != 0:
-                    logger.debug(f"Subprocess returncode is not 0!It is: {result.returncode}")
+                    logger.debug(
+                        f"Subprocess returncode is not 0!It is: {result.returncode}"
+                    )
                     # don't raise exception, you are supposed to keep trying
                     # different version flags
                     continue
@@ -159,13 +169,17 @@ class EthereumCLI:
                 binary_output = ""
                 if result.stdout:
                     binary_output = result.stdout.decode().strip()
-                    logger.debug(f"Stripped subprocess stdout: {binary_output}")
+                    logger.debug(
+                        f"Stripped subprocess stdout: {binary_output}"
+                    )
 
                 for subclass in subclasses:
                     logger.debug(f"Trying subclass {subclass}")
                     try:
                         if subclass.detect_binary(binary_output):
-                            subclass_check_result = subclass(binary=binary, **kwargs)
+                            subclass_check_result = subclass(
+                                binary=binary, **kwargs
+                            )
                             return subclass_check_result
                     except Exception as e:
                         print(e)
@@ -236,7 +250,9 @@ class EthereumCLI:
             )
 
             if result.returncode != 0:
-                raise Exception("failed to evaluate: " + result.stderr.decode())
+                raise Exception(
+                    "failed to evaluate: " + result.stderr.decode()
+                )
 
             self.cached_version = result.stdout.decode().strip()
 

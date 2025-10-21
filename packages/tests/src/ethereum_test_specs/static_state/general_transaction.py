@@ -2,9 +2,20 @@
 
 from typing import Any, Dict, Generator, List, Mapping
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
-from ethereum_test_base_types import Address, CamelModel, EthereumTestRootModel, Hash
+from ethereum_test_base_types import (
+    Address,
+    CamelModel,
+    EthereumTestRootModel,
+    Hash,
+)
 from ethereum_test_exceptions import TransactionExceptionInstanceOrList
 from ethereum_test_types import Transaction
 
@@ -37,7 +48,8 @@ class DataWithAccessList(CamelModel, TagDependentData):
         for entry in access_list:
             if "storageKeys" in entry:
                 entry["storageKeys"] = [
-                    Hash(key, left_padding=True) for key in entry["storageKeys"]
+                    Hash(key, left_padding=True)
+                    for key in entry["storageKeys"]
                 ]
         return access_list
 
@@ -55,7 +67,9 @@ class DataWithAccessList(CamelModel, TagDependentData):
     @classmethod
     def wrap_data_only(cls, data: Any, handler: Any) -> "DataWithAccessList":
         """Wrap data only if it is not a dictionary."""
-        if not isinstance(data, dict) and not isinstance(data, DataWithAccessList):
+        if not isinstance(data, dict) and not isinstance(
+            data, DataWithAccessList
+        ):
             data = {"data": data}
         return handler(data)
 
@@ -86,7 +100,9 @@ class LabeledDataList(EthereumTestRootModel):
             for item in self.root:
                 if item.data.label == label_or_index:
                     return item
-        raise KeyError(f"Label/index {label_or_index} not found in data indexes")
+        raise KeyError(
+            f"Label/index {label_or_index} not found in data indexes"
+        )
 
     def __contains__(self, label_or_index: int | str) -> bool:
         """
@@ -125,10 +141,16 @@ class GeneralTransactionInFiller(BaseModel, TagDependentData):
     secret_key: HashOrTagInFiller = Field(..., alias="secretKey")
 
     max_fee_per_gas: ValueInFiller | None = Field(None, alias="maxFeePerGas")
-    max_priority_fee_per_gas: ValueInFiller | None = Field(None, alias="maxPriorityFeePerGas")
+    max_priority_fee_per_gas: ValueInFiller | None = Field(
+        None, alias="maxPriorityFeePerGas"
+    )
 
-    max_fee_per_blob_gas: ValueInFiller | None = Field(None, alias="maxFeePerBlobGas")
-    blob_versioned_hashes: List[Hash] | None = Field(None, alias="blobVersionedHashes")
+    max_fee_per_blob_gas: ValueInFiller | None = Field(
+        None, alias="maxFeePerBlobGas"
+    )
+    blob_versioned_hashes: List[Hash] | None = Field(
+        None, alias="blobVersionedHashes"
+    )
 
     model_config = ConfigDict(extra="forbid")
 
@@ -156,7 +178,10 @@ class GeneralTransactionInFiller(BaseModel, TagDependentData):
     def check_fields(self) -> "GeneralTransactionInFiller":
         """Validate all fields are set."""
         if self.gas_price is None:
-            if self.max_fee_per_gas is None or self.max_priority_fee_per_gas is None:
+            if (
+                self.max_fee_per_gas is None
+                or self.max_priority_fee_per_gas is None
+            ):
                 raise ValueError(
                     "If `gasPrice` is not set,"
                     " `maxFeePerGas` and `maxPriorityFeePerGas` must be set!"
@@ -183,7 +208,9 @@ class GeneralTransactionInFiller(BaseModel, TagDependentData):
 
         kwargs["data"] = data_box.data.compiled(tags)
         if data_box.access_list is not None:
-            kwargs["access_list"] = [entry.resolve(tags) for entry in data_box.access_list]
+            kwargs["access_list"] = [
+                entry.resolve(tags) for entry in data_box.access_list
+            ]
 
         kwargs["gas_limit"] = self.gas_limit[g]
 

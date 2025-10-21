@@ -12,7 +12,8 @@ from ..reference_spec.reference_spec import NoLatestKnownVersionError
 # the content field from
 # https://api.github.com/repos/ethereum/EIPs/contents/EIPS/eip-100.md
 # as of 2023-08-29
-response_content = "LS0tCmVpcDogMTAwCnRpdGxlOiBDaGFuZ2UgZGlmZmljdWx0eSBhZGp1c3Rt\
+response_content = (
+    "LS0tCmVpcDogMTAwCnRpdGxlOiBDaGFuZ2UgZGlmZmljdWx0eSBhZGp1c3Rt\
 ZW50IHRvIHRhcmdldCBtZWFuIGJsb2NrIHRpbWUgaW5jbHVkaW5nIHVuY2xl\
 cwphdXRob3I6IFZpdGFsaWsgQnV0ZXJpbiAoQHZidXRlcmluKQp0eXBlOiBT\
 dGFuZGFyZHMgVHJhY2sKY2F0ZWdvcnk6IENvcmUKc3RhdHVzOiBGaW5hbApj\
@@ -59,6 +60,7 @@ LiBFSVAgMTAwIGlzc3VlIGFuZCBkaXNjdXNzaW9uOiBodHRwczovL2dpdGh1\
 Yi5jb20vZXRoZXJldW0vRUlQcy9pc3N1ZXMvMTAwCjIuIGh0dHBzOi8vYml0\
 c2xvZy53b3JkcHJlc3MuY29tLzIwMTYvMDQvMjgvdW5jbGUtbWluaW5nLWFu\
 LWV0aGVyZXVtLWNvbnNlbnN1cy1wcm90b2NvbC1mbGF3Lwo="
+)
 
 
 def test_git_reference_spec(monkeypatch: pytest.MonkeyPatch) -> None:

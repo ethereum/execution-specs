@@ -51,7 +51,9 @@ def count_json_files_exclude_index(start_path: Path) -> int:
     "--input",
     "-i",
     "input_dir",
-    type=click.Path(exists=True, file_okay=False, dir_okay=True, readable=True),
+    type=click.Path(
+        exists=True, file_okay=False, dir_okay=True, readable=True
+    ),
     required=True,
     help="The input directory",
 )
@@ -73,7 +75,9 @@ def count_json_files_exclude_index(start_path: Path) -> int:
     expose_value=True,
     help="Force re-generation of the index file, even if it already exists.",
 )
-def generate_fixtures_index_cli(input_dir: str, quiet_mode: bool, force_flag: bool) -> None:
+def generate_fixtures_index_cli(
+    input_dir: str, quiet_mode: bool, force_flag: bool
+) -> None:
     """
     CLI wrapper to an index of all the fixtures in the specified directory.
     """
@@ -99,7 +103,9 @@ def generate_fixtures_index(
         total_files = count_json_files_exclude_index(input_path)
 
     output_file = Path(f"{input_path}/.meta/index.json")
-    output_file.parent.mkdir(parents=True, exist_ok=True)  # no meta dir in <=v3.0.0
+    output_file.parent.mkdir(
+        parents=True, exist_ok=True
+    )  # no meta dir in <=v3.0.0
     try:
         root_hash = HashableItem.from_folder(folder_path=input_path).hash()
     except (KeyError, TypeError):
@@ -110,13 +116,19 @@ def generate_fixtures_index(
         try:
             with open(output_file, "r") as f:
                 index_data = IndexFile(**json.load(f))
-            if index_data.root_hash and index_data.root_hash == HexNumber(root_hash):
+            if index_data.root_hash and index_data.root_hash == HexNumber(
+                root_hash
+            ):
                 if not quiet_mode:
-                    rich.print(f"Index file [bold cyan]{output_file}[/] is up-to-date.")
+                    rich.print(
+                        f"Index file [bold cyan]{output_file}[/] is up-to-date."
+                    )
                 return
         except Exception as e:
             rich.print(f"Ignoring exception {e}")
-            rich.print(f"...generating a new index file [bold cyan]{output_file}[/]")
+            rich.print(
+                f"...generating a new index file [bold cyan]{output_file}[/]"
+            )
 
     filename_display_width = 25
     with Progress(
@@ -135,7 +147,9 @@ def generate_fixtures_index(
         expand=False,
         disable=quiet_mode,
     ) as progress:  # type: Progress
-        task_id = progress.add_task("[cyan]Processing files...", total=total_files, filename="...")
+        task_id = progress.add_task(
+            "[cyan]Processing files...", total=total_files, filename="..."
+        )
         forks = set()
         fixture_formats = set()
         test_cases: List[TestCaseIndexFile] = []
@@ -146,12 +160,16 @@ def generate_fixtures_index(
                 continue
 
             try:
-                fixtures: Fixtures = Fixtures.model_validate_json(file.read_text())
+                fixtures: Fixtures = Fixtures.model_validate_json(
+                    file.read_text()
+                )
             except Exception as e:
                 rich.print(f"[red]Error loading fixtures from {file}[/red]")
                 raise e
 
-            relative_file_path = Path(file).absolute().relative_to(Path(input_path).absolute())
+            relative_file_path = (
+                Path(file).absolute().relative_to(Path(input_path).absolute())
+            )
             for fixture_name, fixture in fixtures.items():
                 fixture_fork = fixture.get_fork()
                 test_cases.append(
@@ -172,9 +190,13 @@ def generate_fixtures_index(
 
             display_filename = file.name
             if len(display_filename) > filename_display_width:
-                display_filename = display_filename[: filename_display_width - 3] + "..."
+                display_filename = (
+                    display_filename[: filename_display_width - 3] + "..."
+                )
             else:
-                display_filename = display_filename.ljust(filename_display_width)
+                display_filename = display_filename.ljust(
+                    filename_display_width
+                )
 
             progress.update(task_id, advance=1, filename=display_filename)
 

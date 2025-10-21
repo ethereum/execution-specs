@@ -49,7 +49,11 @@ class EvmOneTransitionTool(TransitionTool):
         trace: bool = False,
     ):
         """Initialize the Evmone Transition tool interface."""
-        super().__init__(exception_mapper=EvmoneExceptionMapper(), binary=binary, trace=trace)
+        super().__init__(
+            exception_mapper=EvmoneExceptionMapper(),
+            binary=binary,
+            trace=trace,
+        )
 
     def is_fork_supported(self, fork: Fork) -> bool:
         """
@@ -79,7 +83,10 @@ class EvmoneFixtureConsumerCommon:
     def _run_command(self, command: List[str]) -> subprocess.CompletedProcess:
         try:
             return subprocess.run(
-                command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
             )
         except subprocess.CalledProcessError as e:
             raise Exception("Command failed with non-zero status.") from e
@@ -151,7 +158,9 @@ class EvmoneFixtureConsumerCommon:
             # `evmone` uses `gtest` and generates JSON output to a file,
             # c.f. https://google.github.io/googletest/advanced.html#generating-a-json-report
             # see there for the JSON schema.
-            global_options += ["--gtest_output=json:{}".format(tempfile_json.name)]
+            global_options += [
+                "--gtest_output=json:{}".format(tempfile_json.name)
+            ]
             command = [str(self.binary)] + global_options + [str(fixture_path)]
             result = self._run_command(command)
 
@@ -168,7 +177,9 @@ class EvmoneFixtureConsumerCommon:
                 ) from e
 
             if debug_output_path:
-                self._consume_debug_dump(command, result, fixture_path, debug_output_path)
+                self._consume_debug_dump(
+                    command, result, fixture_path, debug_output_path
+                )
 
             return output_data
 
@@ -194,16 +205,28 @@ class EvmoneFixtureConsumerCommon:
             fixture_path=fixture_path,
             debug_output_path=debug_output_path,
         )
-        assert len(file_results["testsuites"]) < 2, f"Multiple testsuites for {fixture_name}"
-        assert len(file_results["testsuites"]) == 1, f"testsuite for {fixture_name} missing"
+        assert len(file_results["testsuites"]) < 2, (
+            f"Multiple testsuites for {fixture_name}"
+        )
+        assert len(file_results["testsuites"]) == 1, (
+            f"testsuite for {fixture_name} missing"
+        )
         test_suite = file_results["testsuites"][0]["testsuite"]
 
-        assert fixture_name is not None, "fixture_name must be provided for evmone tests"
+        assert fixture_name is not None, (
+            "fixture_name must be provided for evmone tests"
+        )
         test_results = [
-            test_result for test_result in test_suite if test_result["name"] == fixture_name
+            test_result
+            for test_result in test_suite
+            if test_result["name"] == fixture_name
         ]
-        assert len(test_results) < 2, f"Multiple test results for {fixture_name}"
-        assert len(test_results) == 1, f"Test result for {fixture_name} missing"
+        assert len(test_results) < 2, (
+            f"Multiple test results for {fixture_name}"
+        )
+        assert len(test_results) == 1, (
+            f"Test result for {fixture_name} missing"
+        )
         assert "failures" not in test_results[0], (
             f"Test failed: {test_results[0]['failures'][0]['failure']}"
         )

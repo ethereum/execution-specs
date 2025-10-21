@@ -3,7 +3,16 @@
 import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Callable, ClassVar, Dict, Generator, List, Sequence, Type
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    Generator,
+    List,
+    Sequence,
+    Type,
+)
 
 import pytest
 from pydantic import ConfigDict, Field
@@ -49,7 +58,9 @@ class BenchmarkCodeGenerator(ABC):
         """Deploy any contracts needed for the benchmark."""
         ...
 
-    def generate_transaction(self, *, pre: Alloc, gas_benchmark_value: int) -> Transaction:
+    def generate_transaction(
+        self, *, pre: Alloc, gas_benchmark_value: int
+    ) -> Transaction:
         """Generate transaction that executes the looping contract."""
         assert self._contract_address is not None
         if "gas_limit" not in self.tx_kwargs:
@@ -79,7 +90,12 @@ class BenchmarkCodeGenerator(ABC):
             setup = Bytecode()
         if cleanup is None:
             cleanup = Bytecode()
-        overhead = len(setup) + len(Op.JUMPDEST) + len(cleanup) + len(Op.JUMP(len(setup)))
+        overhead = (
+            len(setup)
+            + len(Op.JUMPDEST)
+            + len(cleanup)
+            + len(Op.JUMP(len(setup)))
+        )
         available_space = max_code_size - overhead
         max_iterations = available_space // len(repeated_code)
 
@@ -110,14 +126,21 @@ class BenchmarkTest(BaseTest):
     setup_blocks: List[Block] = Field(default_factory=list)
     blocks: List[Block] | None = None
     block_exception: (
-        List[TransactionException | BlockException] | TransactionException | BlockException | None
+        List[TransactionException | BlockException]
+        | TransactionException
+        | BlockException
+        | None
     ) = None
     env: Environment = Field(default_factory=Environment)
     expected_benchmark_gas_used: int | None = None
-    gas_benchmark_value: int = Field(default_factory=lambda: int(Environment().gas_limit))
+    gas_benchmark_value: int = Field(
+        default_factory=lambda: int(Environment().gas_limit)
+    )
     code_generator: BenchmarkCodeGenerator | None = None
 
-    supported_fixture_formats: ClassVar[Sequence[FixtureFormat | LabeledFixtureFormat]] = [
+    supported_fixture_formats: ClassVar[
+        Sequence[FixtureFormat | LabeledFixtureFormat]
+    ] = [
         BlockchainFixture,
         BlockchainEngineFixture,
         BlockchainEngineXFixture,
@@ -142,7 +165,9 @@ class BenchmarkTest(BaseTest):
         provided and the default was not used.
         """
         super().model_post_init(__context)
-        assert "pre" in self.model_fields_set, "pre allocation was not provided"
+        assert "pre" in self.model_fields_set, (
+            "pre allocation was not provided"
+        )
 
     @classmethod
     def pytest_parameter_name(cls) -> str:
@@ -176,7 +201,9 @@ class BenchmarkTest(BaseTest):
         del fork
         return self.env
 
-    def split_transaction(self, tx: Transaction, gas_limit_cap: int | None) -> List[Transaction]:
+    def split_transaction(
+        self, tx: Transaction, gas_limit_cap: int | None
+    ) -> List[Transaction]:
         """
         Split a transaction that exceeds the gas
         limit cap into multiple transactions.
@@ -195,7 +222,9 @@ class BenchmarkTest(BaseTest):
         split_transactions = []
         for i in range(num_splits):
             split_tx = tx.model_copy()
-            split_tx.gas_limit = HexNumber(remaining_gas if i == num_splits - 1 else gas_limit_cap)
+            split_tx.gas_limit = HexNumber(
+                remaining_gas if i == num_splits - 1 else gas_limit_cap
+            )
             remaining_gas -= gas_limit_cap
             split_tx.nonce = HexNumber(tx.nonce + i)
             split_transactions.append(split_tx)
@@ -208,7 +237,9 @@ class BenchmarkTest(BaseTest):
             raise Exception("Code generator is not set")
 
         self.code_generator.deploy_contracts(pre=self.pre, fork=fork)
-        gas_limit = fork.transaction_gas_limit_cap() or self.gas_benchmark_value
+        gas_limit = (
+            fork.transaction_gas_limit_cap() or self.gas_benchmark_value
+        )
         benchmark_tx = self.code_generator.generate_transaction(
             pre=self.pre, gas_benchmark_value=gas_limit
         )
@@ -245,7 +276,9 @@ class BenchmarkTest(BaseTest):
             blocks += self.blocks
 
         elif self.tx is not None:
-            gas_limit = fork.transaction_gas_limit_cap() or self.gas_benchmark_value
+            gas_limit = (
+                fork.transaction_gas_limit_cap() or self.gas_benchmark_value
+            )
 
             transactions = self.split_transaction(self.tx, gas_limit)
 
@@ -271,7 +304,9 @@ class BenchmarkTest(BaseTest):
         fixture_format: FixtureFormat,
     ) -> BaseFixture:
         """Generate the blockchain test fixture."""
-        self.check_exception_test(exception=self.tx.error is not None if self.tx else False)
+        self.check_exception_test(
+            exception=self.tx.error is not None if self.tx else False
+        )
         if fixture_format in BlockchainTest.supported_fixture_formats:
             return self.generate_blockchain_test(fork=fork).generate(
                 t8n=t8n, fork=fork, fixture_format=fixture_format

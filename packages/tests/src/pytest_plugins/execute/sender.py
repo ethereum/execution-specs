@@ -35,7 +35,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="sender_funding_transactions_gas_price",
         type=Wei,
         default=None,
-        help=("Gas price set for the funding transactions of each worker's sender key."),
+        help=(
+            "Gas price set for the funding transactions of each worker's sender key."
+        ),
     )
 
     sender_group.addoption(
@@ -44,7 +46,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="sender_fund_refund_gas_limit",
         type=Wei,
         default=21_000,
-        help=("Gas limit set for the funding transactions of each worker's sender key."),
+        help=(
+            "Gas limit set for the funding transactions of each worker's sender key."
+        ),
     )
 
 
@@ -53,7 +57,9 @@ def sender_funding_transactions_gas_price(
     request: pytest.FixtureRequest, default_gas_price: int
 ) -> int:
     """Get the gas price for the funding transactions."""
-    gas_price: int | None = request.config.option.sender_funding_transactions_gas_price
+    gas_price: int | None = (
+        request.config.option.sender_funding_transactions_gas_price
+    )
     if gas_price is None:
         gas_price = default_gas_price
     assert gas_price > 0, "Gas price must be greater than 0"
@@ -108,12 +114,17 @@ def sender_key_initial_balance(
         else:
             if seed_account_sweep_amount is None:
                 seed_account_sweep_amount = eth_rpc.get_balance(seed_sender)
-            seed_sender_balance_per_worker = seed_account_sweep_amount // worker_count
-            assert seed_sender_balance_per_worker > 100, "Seed sender balance too low"
+            seed_sender_balance_per_worker = (
+                seed_account_sweep_amount // worker_count
+            )
+            assert seed_sender_balance_per_worker > 100, (
+                "Seed sender balance too low"
+            )
             # Subtract the cost of the transaction that is going to be sent to
             # the seed sender
             sender_key_initial_balance = seed_sender_balance_per_worker - (
-                sender_fund_refund_gas_limit * sender_funding_transactions_gas_price
+                sender_fund_refund_gas_limit
+                * sender_funding_transactions_gas_price
             )
 
             with base_file.open("w") as f:

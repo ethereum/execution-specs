@@ -46,7 +46,13 @@ import pytest
             def test_case(state_test, tx_type):
                 assert tx_type != 1
             """,
-            {"passed": 2, "xpassed": 0, "failed": 0, "skipped": 1, "errors": 0},
+            {
+                "passed": 2,
+                "xpassed": 0,
+                "failed": 0,
+                "skipped": 1,
+                "errors": 0,
+            },
             None,
             id="with_all_tx_types_with_marks_lambda",
         ),
@@ -60,7 +66,13 @@ import pytest
             def test_case(state_test, tx_type):
                 assert False
             """,
-            {"passed": 0, "xpassed": 0, "failed": 0, "skipped": 3, "errors": 0},
+            {
+                "passed": 0,
+                "xpassed": 0,
+                "failed": 0,
+                "skipped": 3,
+                "errors": 0,
+            },
             None,
             id="with_all_tx_types_with_marks_lambda",
         ),
@@ -74,7 +86,13 @@ import pytest
             def test_case(state_test, tx_type):
                 assert False
             """,
-            {"passed": 0, "xpassed": 0, "failed": 0, "skipped": 3, "errors": 0},
+            {
+                "passed": 0,
+                "xpassed": 0,
+                "failed": 0,
+                "skipped": 3,
+                "errors": 0,
+            },
             None,
             id="with_all_tx_types_with_marks_lambda",
         ),
@@ -98,7 +116,13 @@ import pytest
                 if tx_type == 1:
                     assert "slow" in mark_names
             """,
-            {"passed": 2, "xpassed": 1, "failed": 0, "skipped": 0, "errors": 0},
+            {
+                "passed": 2,
+                "xpassed": 1,
+                "failed": 0,
+                "skipped": 0,
+                "errors": 0,
+            },
             None,
             id="with_all_tx_types_with_marks_lambda_multiple_marks",
         ),
@@ -471,7 +495,10 @@ import pytest
     ],
 )
 def test_fork_covariant_markers(
-    pytester: pytest.Pytester, test_function: str, outcomes: dict, error_string: str | None
+    pytester: pytest.Pytester,
+    test_function: str,
+    outcomes: dict,
+    error_string: str | None,
 ) -> None:
     """
     Test fork covariant markers in an isolated test session, i.e., in
@@ -481,7 +508,9 @@ def test_fork_covariant_markers(
     console output.
     """
     pytester.makepyfile(test_function)
-    pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    pytester.copy_example(
+        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
     result = pytester.runpytest("-c", "pytest-fill.ini")
     result.assert_outcomes(**outcomes)
     if outcomes["errors"]:

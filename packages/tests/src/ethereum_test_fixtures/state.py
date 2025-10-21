@@ -54,12 +54,15 @@ class FixtureTransaction(TransactionFixtureConverter):
     def from_transaction(cls, tx: Transaction) -> "FixtureTransaction":
         """Return FixtureTransaction from a Transaction."""
         model_as_dict = tx.model_dump(
-            exclude={"gas_limit", "value", "data", "access_list"}, exclude_none=True
+            exclude={"gas_limit", "value", "data", "access_list"},
+            exclude_none=True,
         )
         model_as_dict["gas_limit"] = [tx.gas_limit]
         model_as_dict["value"] = [tx.value]
         model_as_dict["data"] = [tx.data]
-        model_as_dict["access_lists"] = [tx.access_list] if tx.access_list is not None else None
+        model_as_dict["access_lists"] = (
+            [tx.access_list] if tx.access_list is not None else None
+        )
         return cls(**model_as_dict)
 
 
@@ -79,7 +82,9 @@ class FixtureForkPost(CamelModel):
     state_root: Hash = Field(..., alias="hash")
     logs_hash: Hash = Field(..., alias="logs")
     tx_bytes: Bytes = Field(..., alias="txbytes")
-    indexes: FixtureForkPostIndexes = Field(default_factory=FixtureForkPostIndexes)
+    indexes: FixtureForkPostIndexes = Field(
+        default_factory=FixtureForkPostIndexes
+    )
     state: Alloc
     expect_exception: TransactionExceptionInstanceOrList | None = None
 
@@ -88,7 +93,9 @@ class FixtureConfig(CamelModel):
     """Chain configuration for a fixture."""
 
     blob_schedule: FixtureBlobSchedule | None = None
-    chain_id: ZeroPaddedHexNumber = Field(ZeroPaddedHexNumber(1), alias="chainid")
+    chain_id: ZeroPaddedHexNumber = Field(
+        ZeroPaddedHexNumber(1), alias="chainid"
+    )
 
 
 class StateFixture(BaseFixture):

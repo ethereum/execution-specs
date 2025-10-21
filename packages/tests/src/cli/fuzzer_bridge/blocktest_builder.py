@@ -69,9 +69,13 @@ class BlocktestBuilder:
             fixture_format=BlockchainFixture,
         )
 
-        return fixture.model_dump(exclude_none=True, by_alias=True, mode="json")
+        return fixture.model_dump(
+            exclude_none=True, by_alias=True, mode="json"
+        )
 
-    def build_and_save(self, fuzzer_output: Dict[str, Any], output_path: Path) -> Path:
+    def build_and_save(
+        self, fuzzer_output: Dict[str, Any], output_path: Path
+    ) -> Path:
         """Build blocktest and save to file."""
         blocktest = self.build_blocktest(fuzzer_output)
         fixtures = {"fuzzer_generated_test": blocktest}

@@ -135,7 +135,9 @@ class TestHtmlReportFlags:
         fill_args: list[str],
     ) -> None:
         """Tests pytest html report generation with only the `--html` flag."""
-        non_default_html_path = temp_dir / "non_default_output_dir" / "report.html"
+        non_default_html_path = (
+            temp_dir / "non_default_output_dir" / "report.html"
+        )
         fill_args += ["--html", str(non_default_html_path)]
         result = runner.invoke(fill, fill_args)
         assert result.exit_code == pytest.ExitCode.OK
@@ -157,7 +159,9 @@ class TestHtmlReportFlags:
         result = runner.invoke(fill, fill_args)
         assert result.exit_code == pytest.ExitCode.OK
         assert non_default_html_path.exists()
-        assert (output_dir / "state_tests").exists(), "No fixtures in output directory"
+        assert (output_dir / "state_tests").exists(), (
+            "No fixtures in output directory"
+        )
 
     def test_fill_html_and_output_options(
         self,
@@ -170,9 +174,13 @@ class TestHtmlReportFlags:
         flags.
         """
         output_dir = temp_dir / "non_default_output_dir_fixtures"
-        html_path = temp_dir / "non_default_output_dir_html" / "non_default.html"
+        html_path = (
+            temp_dir / "non_default_output_dir_html" / "non_default.html"
+        )
         fill_args += ["--output", str(output_dir), "--html", str(html_path)]
         result = runner.invoke(fill, fill_args)
         assert result.exit_code == pytest.ExitCode.OK
         assert html_path.exists()
-        assert (output_dir / "state_tests").exists(), "No fixtures in output directory"
+        assert (output_dir / "state_tests").exists(), (
+            "No fixtures in output directory"
+        )

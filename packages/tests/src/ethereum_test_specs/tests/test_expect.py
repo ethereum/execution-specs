@@ -5,12 +5,27 @@ from typing import Any, Mapping, Type
 import pytest
 
 from ethereum_clis import TransitionTool
-from ethereum_test_base_types import Account, Address, Storage, TestAddress, TestPrivateKey
+from ethereum_test_base_types import (
+    Account,
+    Address,
+    Storage,
+    TestAddress,
+    TestPrivateKey,
+)
 from ethereum_test_exceptions import TransactionException
-from ethereum_test_fixtures import BlockchainFixture, FixtureFormat, StateFixture
+from ethereum_test_fixtures import (
+    BlockchainFixture,
+    FixtureFormat,
+    StateFixture,
+)
 from ethereum_test_forks import Fork, get_deployed_forks
 from ethereum_test_tools import Block
-from ethereum_test_types import Alloc, Environment, Transaction, TransactionReceipt
+from ethereum_test_types import (
+    Alloc,
+    Environment,
+    Transaction,
+    TransactionReceipt,
+)
 
 from ..blockchain import BlockchainEngineFixture, BlockchainTest
 from ..helpers import (
@@ -72,47 +87,77 @@ def state_test(  # noqa: D103
         (  # mismatch_1: 1:1 vs 1:2
             {ADDRESS_UNDER_TEST: Account(storage={"0x01": "0x01"}, nonce=1)},
             {ADDRESS_UNDER_TEST: Account(storage={"0x01": "0x02"})},
-            Storage.KeyValueMismatchError(address=ADDRESS_UNDER_TEST, key=1, want=2, got=1),
+            Storage.KeyValueMismatchError(
+                address=ADDRESS_UNDER_TEST, key=1, want=2, got=1
+            ),
         ),
         (  # mismatch_2: 1:1 vs 2:1
             {ADDRESS_UNDER_TEST: Account(storage={"0x01": "0x01"}, nonce=1)},
             {ADDRESS_UNDER_TEST: Account(storage={"0x02": "0x01"})},
-            Storage.KeyValueMismatchError(address=ADDRESS_UNDER_TEST, key=1, want=0, got=1),
+            Storage.KeyValueMismatchError(
+                address=ADDRESS_UNDER_TEST, key=1, want=0, got=1
+            ),
         ),
         (  # mismatch_2_a: 1:1 vs 0:0
             {ADDRESS_UNDER_TEST: Account(storage={"0x01": "0x01"}, nonce=1)},
             {ADDRESS_UNDER_TEST: Account(storage={"0x00": "0x00"})},
-            Storage.KeyValueMismatchError(address=ADDRESS_UNDER_TEST, key=1, want=0, got=1),
+            Storage.KeyValueMismatchError(
+                address=ADDRESS_UNDER_TEST, key=1, want=0, got=1
+            ),
         ),
         (  # mismatch_2_b: 1:1 vs empty
             {ADDRESS_UNDER_TEST: Account(storage={"0x01": "0x01"}, nonce=1)},
             {ADDRESS_UNDER_TEST: Account(storage={})},
-            Storage.KeyValueMismatchError(address=ADDRESS_UNDER_TEST, key=1, want=0, got=1),
+            Storage.KeyValueMismatchError(
+                address=ADDRESS_UNDER_TEST, key=1, want=0, got=1
+            ),
         ),
         (  # mismatch_3: 0:0 vs 1:2
             {ADDRESS_UNDER_TEST: Account(storage={"0x00": "0x00"}, nonce=1)},
             {ADDRESS_UNDER_TEST: Account(storage={"0x01": "0x02"})},
-            Storage.KeyValueMismatchError(address=ADDRESS_UNDER_TEST, key=1, want=2, got=0),
+            Storage.KeyValueMismatchError(
+                address=ADDRESS_UNDER_TEST, key=1, want=2, got=0
+            ),
         ),
         (  # mismatch_3_a: empty vs 1:2
             {ADDRESS_UNDER_TEST: Account(storage={}, nonce=1)},
             {ADDRESS_UNDER_TEST: Account(storage={"0x01": "0x02"})},
-            Storage.KeyValueMismatchError(address=ADDRESS_UNDER_TEST, key=1, want=2, got=0),
+            Storage.KeyValueMismatchError(
+                address=ADDRESS_UNDER_TEST, key=1, want=2, got=0
+            ),
         ),
         (  # mismatch_4: 0:3, 1:2 vs 1:2
-            {ADDRESS_UNDER_TEST: Account(storage={"0x00": "0x03", "0x01": "0x02"}, nonce=1)},
+            {
+                ADDRESS_UNDER_TEST: Account(
+                    storage={"0x00": "0x03", "0x01": "0x02"}, nonce=1
+                )
+            },
             {ADDRESS_UNDER_TEST: Account(storage={"0x01": "0x02"})},
-            Storage.KeyValueMismatchError(address=ADDRESS_UNDER_TEST, key=0, want=0, got=3),
+            Storage.KeyValueMismatchError(
+                address=ADDRESS_UNDER_TEST, key=0, want=0, got=3
+            ),
         ),
         (  # mismatch_5: 1:2, 2:3 vs 1:2
-            {ADDRESS_UNDER_TEST: Account(storage={"0x01": "0x02", "0x02": "0x03"}, nonce=1)},
+            {
+                ADDRESS_UNDER_TEST: Account(
+                    storage={"0x01": "0x02", "0x02": "0x03"}, nonce=1
+                )
+            },
             {ADDRESS_UNDER_TEST: Account(storage={"0x01": "0x02"})},
-            Storage.KeyValueMismatchError(address=ADDRESS_UNDER_TEST, key=2, want=0, got=3),
+            Storage.KeyValueMismatchError(
+                address=ADDRESS_UNDER_TEST, key=2, want=0, got=3
+            ),
         ),
         (  # mismatch_6: 1:2 vs 1:2, 2:3
             {ADDRESS_UNDER_TEST: Account(storage={"0x01": "0x02"}, nonce=1)},
-            {ADDRESS_UNDER_TEST: Account(storage={"0x01": "0x02", "0x02": "0x03"})},
-            Storage.KeyValueMismatchError(address=ADDRESS_UNDER_TEST, key=2, want=3, got=0),
+            {
+                ADDRESS_UNDER_TEST: Account(
+                    storage={"0x01": "0x02", "0x02": "0x03"}
+                )
+            },
+            Storage.KeyValueMismatchError(
+                address=ADDRESS_UNDER_TEST, key=2, want=3, got=0
+            ),
         ),
     ],
     indirect=["pre", "post"],
@@ -128,7 +173,9 @@ def test_post_storage_value_mismatch(
     generation.
     """
     with pytest.raises(Storage.KeyValueMismatchError) as e_info:
-        state_test.generate(t8n=default_t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(
+            t8n=default_t8n, fork=fork, fixture_format=StateFixture
+        )
     assert e_info.value == expected_exception
 
 
@@ -136,14 +183,27 @@ def test_post_storage_value_mismatch(
 @pytest.mark.parametrize(
     "pre,post",
     [
-        ({ADDRESS_UNDER_TEST: Account(nonce=1)}, {ADDRESS_UNDER_TEST: Account(nonce=2)}),
-        ({ADDRESS_UNDER_TEST: Account(nonce=1)}, {ADDRESS_UNDER_TEST: Account(nonce=0)}),
-        ({ADDRESS_UNDER_TEST: Account(nonce=1)}, {ADDRESS_UNDER_TEST: Account()}),
+        (
+            {ADDRESS_UNDER_TEST: Account(nonce=1)},
+            {ADDRESS_UNDER_TEST: Account(nonce=2)},
+        ),
+        (
+            {ADDRESS_UNDER_TEST: Account(nonce=1)},
+            {ADDRESS_UNDER_TEST: Account(nonce=0)},
+        ),
+        (
+            {ADDRESS_UNDER_TEST: Account(nonce=1)},
+            {ADDRESS_UNDER_TEST: Account()},
+        ),
     ],
     indirect=["pre", "post"],
 )
 def test_post_nonce_value_mismatch(
-    pre: Alloc, post: Alloc, state_test: StateTest, default_t8n: TransitionTool, fork: Fork
+    pre: Alloc,
+    post: Alloc,
+    state_test: StateTest,
+    default_t8n: TransitionTool,
+    fork: Fork,
 ) -> None:
     """
     Test post state `Account.nonce` verification and exceptions during state
@@ -156,10 +216,14 @@ def test_post_nonce_value_mismatch(
     pre_nonce = pre_account.nonce
     post_nonce = post_account.nonce
     if "nonce" not in post_account.model_fields_set:  # no exception
-        state_test.generate(t8n=default_t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(
+            t8n=default_t8n, fork=fork, fixture_format=StateFixture
+        )
         return
     with pytest.raises(Account.NonceMismatchError) as e_info:
-        state_test.generate(t8n=default_t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(
+            t8n=default_t8n, fork=fork, fixture_format=StateFixture
+        )
     assert e_info.value == Account.NonceMismatchError(
         address=ADDRESS_UNDER_TEST, want=post_nonce, got=pre_nonce
     )
@@ -169,14 +233,27 @@ def test_post_nonce_value_mismatch(
 @pytest.mark.parametrize(
     "pre,post",
     [
-        ({ADDRESS_UNDER_TEST: Account(code="0x02")}, {ADDRESS_UNDER_TEST: Account(code="0x01")}),
-        ({ADDRESS_UNDER_TEST: Account(code="0x02")}, {ADDRESS_UNDER_TEST: Account(code="0x")}),
-        ({ADDRESS_UNDER_TEST: Account(code="0x02")}, {ADDRESS_UNDER_TEST: Account()}),
+        (
+            {ADDRESS_UNDER_TEST: Account(code="0x02")},
+            {ADDRESS_UNDER_TEST: Account(code="0x01")},
+        ),
+        (
+            {ADDRESS_UNDER_TEST: Account(code="0x02")},
+            {ADDRESS_UNDER_TEST: Account(code="0x")},
+        ),
+        (
+            {ADDRESS_UNDER_TEST: Account(code="0x02")},
+            {ADDRESS_UNDER_TEST: Account()},
+        ),
     ],
     indirect=["pre", "post"],
 )
 def test_post_code_value_mismatch(
-    pre: Alloc, post: Alloc, state_test: StateTest, default_t8n: TransitionTool, fork: Fork
+    pre: Alloc,
+    post: Alloc,
+    state_test: StateTest,
+    default_t8n: TransitionTool,
+    fork: Fork,
 ) -> None:
     """
     Test post state `Account.code` verification and exceptions during state
@@ -189,10 +266,14 @@ def test_post_code_value_mismatch(
     pre_code = pre_account.code
     post_code = post_account.code
     if "code" not in post_account.model_fields_set:  # no exception
-        state_test.generate(t8n=default_t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(
+            t8n=default_t8n, fork=fork, fixture_format=StateFixture
+        )
         return
     with pytest.raises(Account.CodeMismatchError) as e_info:
-        state_test.generate(t8n=default_t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(
+            t8n=default_t8n, fork=fork, fixture_format=StateFixture
+        )
     assert e_info.value == Account.CodeMismatchError(
         address=ADDRESS_UNDER_TEST, want=post_code, got=pre_code
     )
@@ -202,14 +283,27 @@ def test_post_code_value_mismatch(
 @pytest.mark.parametrize(
     "pre,post",
     [
-        ({ADDRESS_UNDER_TEST: Account(balance=1)}, {ADDRESS_UNDER_TEST: Account(balance=2)}),
-        ({ADDRESS_UNDER_TEST: Account(balance=1)}, {ADDRESS_UNDER_TEST: Account(balance=0)}),
-        ({ADDRESS_UNDER_TEST: Account(balance=1)}, {ADDRESS_UNDER_TEST: Account()}),
+        (
+            {ADDRESS_UNDER_TEST: Account(balance=1)},
+            {ADDRESS_UNDER_TEST: Account(balance=2)},
+        ),
+        (
+            {ADDRESS_UNDER_TEST: Account(balance=1)},
+            {ADDRESS_UNDER_TEST: Account(balance=0)},
+        ),
+        (
+            {ADDRESS_UNDER_TEST: Account(balance=1)},
+            {ADDRESS_UNDER_TEST: Account()},
+        ),
     ],
     indirect=["pre", "post"],
 )
 def test_post_balance_value_mismatch(
-    pre: Alloc, post: Alloc, state_test: StateTest, default_t8n: TransitionTool, fork: Fork
+    pre: Alloc,
+    post: Alloc,
+    state_test: StateTest,
+    default_t8n: TransitionTool,
+    fork: Fork,
 ) -> None:
     """
     Test post state `Account.balance` verification and exceptions during state
@@ -222,10 +316,14 @@ def test_post_balance_value_mismatch(
     pre_balance = pre_account.balance
     post_balance = post_account.balance
     if "balance" not in post_account.model_fields_set:  # no exception
-        state_test.generate(t8n=default_t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(
+            t8n=default_t8n, fork=fork, fixture_format=StateFixture
+        )
         return
     with pytest.raises(Account.BalanceMismatchError) as e_info:
-        state_test.generate(t8n=default_t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(
+            t8n=default_t8n, fork=fork, fixture_format=StateFixture
+        )
     assert e_info.value == Account.BalanceMismatchError(
         address=ADDRESS_UNDER_TEST, want=post_balance, got=pre_balance
     )
@@ -242,7 +340,10 @@ def test_post_balance_value_mismatch(
         ),
         (
             {ADDRESS_UNDER_TEST: Account(balance=1)},
-            {ADDRESS_UNDER_TEST: Account(balance=1), Address(0x02): Account(balance=1)},
+            {
+                ADDRESS_UNDER_TEST: Account(balance=1),
+                Address(0x02): Account(balance=1),
+            },
             Alloc.MissingAccountError,
         ),
         (
@@ -269,10 +370,14 @@ def test_post_account_mismatch(
     fixture generation.
     """
     if exception_type is None:
-        state_test.generate(t8n=default_t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(
+            t8n=default_t8n, fork=fork, fixture_format=StateFixture
+        )
         return
     with pytest.raises(exception_type) as _:
-        state_test.generate(t8n=default_t8n, fork=fork, fixture_format=StateFixture)
+        state_test.generate(
+            t8n=default_t8n, fork=fork, fixture_format=StateFixture
+        )
 
 
 # Transaction result mismatch tests
@@ -361,10 +466,14 @@ def test_transaction_expectation(
             f"({default_t8n.__class__.__name__})."
         )
     if exception_type is None:
-        state_test.generate(t8n=default_t8n, fork=fork, fixture_format=fixture_format)
+        state_test.generate(
+            t8n=default_t8n, fork=fork, fixture_format=fixture_format
+        )
     else:
         with pytest.raises(exception_type) as _:
-            state_test.generate(t8n=default_t8n, fork=fork, fixture_format=fixture_format)
+            state_test.generate(
+                t8n=default_t8n, fork=fork, fixture_format=fixture_format
+            )
 
 
 @pytest.mark.parametrize(
@@ -415,8 +524,12 @@ def test_block_intermediate_state(
     env = Environment()
 
     to = Address(0x01)
-    tx = Transaction(gas_limit=100_000, to=to, value=1, nonce=0, secret_key=TestPrivateKey)
-    tx_2 = Transaction(gas_limit=100_000, to=to, value=1, nonce=1, secret_key=TestPrivateKey)
+    tx = Transaction(
+        gas_limit=100_000, to=to, value=1, nonce=0, secret_key=TestPrivateKey
+    )
+    tx_2 = Transaction(
+        gas_limit=100_000, to=to, value=1, nonce=1, secret_key=TestPrivateKey
+    )
 
     block_1 = Block(
         txs=[tx],
@@ -443,7 +556,9 @@ def test_block_intermediate_state(
                 pre=pre,
                 post=block_3.expected_post_state,
                 blocks=[block_1, block_2, block_3],
-            ).generate(t8n=default_t8n, fork=fork, fixture_format=fixture_format)
+            ).generate(
+                t8n=default_t8n, fork=fork, fixture_format=fixture_format
+            )
         return
     else:
         BlockchainTest(

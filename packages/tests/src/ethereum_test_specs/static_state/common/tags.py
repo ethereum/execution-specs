@@ -7,7 +7,11 @@ from typing import Any, ClassVar, Dict, Generic, Mapping, TypeVar
 from pydantic import BaseModel, model_validator
 
 from ethereum_test_base_types import Address, Bytes, Hash, HexNumber
-from ethereum_test_types import EOA, compute_create2_address, compute_create_address
+from ethereum_test_types import (
+    EOA,
+    compute_create2_address,
+    compute_create_address,
+)
 
 TagDict = Dict[str, Address | EOA]
 
@@ -64,7 +68,9 @@ class ContractTag(AddressTag):
     """Contract tag."""
 
     type: ClassVar[str] = "contract"
-    regex_pattern: ClassVar[re.Pattern] = re.compile(r"<contract:([^:>]+)(?::(0x[a-fA-F0-9]+))?>")
+    regex_pattern: ClassVar[re.Pattern] = re.compile(
+        r"<contract:([^:>]+)(?::(0x[a-fA-F0-9]+))?>"
+    )
     # Optional hard-coded address for debugging
     debug_address: Address | None = None
 
@@ -80,7 +86,9 @@ class ContractTag(AddressTag):
         if isinstance(data, str):
             if m := cls.regex_pattern.match(data):
                 name_or_addr = m.group(1)
-                debug_addr = m.group(2) if m.lastindex and m.lastindex >= 2 else None
+                debug_addr = (
+                    m.group(2) if m.lastindex and m.lastindex >= 2 else None
+                )
 
                 # Check if it's a 2-part format with an address
                 if name_or_addr.startswith("0x") and len(name_or_addr) == 42:
@@ -110,7 +118,9 @@ class CreateTag(AddressTag):
     initcode: Bytes | None = None
 
     type: ClassVar[str] = "contract"
-    regex_pattern: ClassVar[re.Pattern] = re.compile(r"<(create|create2):(\w+):(\w+):?(\w+)?>")
+    regex_pattern: ClassVar[re.Pattern] = re.compile(
+        r"<(create|create2):(\w+):(\w+):?(\w+)?>"
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -138,10 +148,14 @@ class CreateTag(AddressTag):
         assert self.name in tags, f"Tag {self.name} not found in tags"
         if self.create_type == "create":
             assert self.nonce is not None, "Nonce is required for create"
-            return compute_create_address(address=tags[self.name], nonce=self.nonce)
+            return compute_create_address(
+                address=tags[self.name], nonce=self.nonce
+            )
         elif self.create_type == "create2":
             assert self.salt is not None, "Salt is required for create2"
-            assert self.initcode is not None, "Init code is required for create2"
+            assert self.initcode is not None, (
+                "Init code is required for create2"
+            )
             return compute_create2_address(
                 address=tags[self.name], salt=self.salt, initcode=self.initcode
             )
@@ -153,7 +167,9 @@ class SenderTag(AddressTag):
     """Sender tag."""
 
     type: ClassVar[str] = "eoa"
-    regex_pattern: ClassVar[re.Pattern] = re.compile(r"<eoa:(\w+)(?::(0x[a-fA-F0-9]+))?>")
+    regex_pattern: ClassVar[re.Pattern] = re.compile(
+        r"<eoa:(\w+)(?::(0x[a-fA-F0-9]+))?>"
+    )
     # Optional hard-coded address for debugging
     debug_address: Address | None = None
 
@@ -164,7 +180,9 @@ class SenderTag(AddressTag):
         if isinstance(data, str):
             if m := cls.regex_pattern.match(data):
                 name = m.group(1)
-                debug_addr = m.group(2) if m.lastindex and m.lastindex >= 2 else None
+                debug_addr = (
+                    m.group(2) if m.lastindex and m.lastindex >= 2 else None
+                )
 
                 result = {"name": name, "original_string": data}
                 if debug_addr:
@@ -177,7 +195,9 @@ class SenderKeyTag(Tag[EOA]):
     """Sender eoa tag."""
 
     type: ClassVar[str] = "eoa"
-    regex_pattern: ClassVar[re.Pattern] = re.compile(r"<eoa:(\w+)(?::(0x[a-fA-F0-9]+))?>")
+    regex_pattern: ClassVar[re.Pattern] = re.compile(
+        r"<eoa:(\w+)(?::(0x[a-fA-F0-9]+))?>"
+    )
     debug_key: str | None = None  # Optional hard-coded key for debugging
 
     @model_validator(mode="before")
@@ -187,7 +207,9 @@ class SenderKeyTag(Tag[EOA]):
         if isinstance(data, str):
             if m := cls.regex_pattern.match(data):
                 name = m.group(1)
-                debug_key = m.group(2) if m.lastindex and m.lastindex >= 2 else None
+                debug_key = (
+                    m.group(2) if m.lastindex and m.lastindex >= 2 else None
+                )
 
                 result = {"name": name, "original_string": data}
                 if debug_key:
@@ -199,5 +221,7 @@ class SenderKeyTag(Tag[EOA]):
         """Resolve the tag."""
         assert self.name in tags, f"Tag {self.name} not found in tags"
         result = tags[self.name]
-        assert isinstance(result, EOA), f"Expected EOA but got {type(result)} for tag {self.name}"
+        assert isinstance(result, EOA), (
+            f"Expected EOA but got {type(result)} for tag {self.name}"
+        )
         return result

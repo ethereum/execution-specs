@@ -17,7 +17,8 @@ from ethereum_test_forks import Fork
 from pytest_plugins.custom_logging import get_logger
 
 CACHED_BLOBS_DIRECTORY: Path = (
-    Path(platformdirs.user_cache_dir("ethereum-execution-spec-tests")) / "cached_blobs"
+    Path(platformdirs.user_cache_dir("ethereum-execution-spec-tests"))
+    / "cached_blobs"
 )
 logger = get_logger(__name__)
 
@@ -65,7 +66,9 @@ class Blob(CamelModel):
     def trusted_setup(cls) -> Any:
         """Set trusted setup if it is not already set."""
         if cls._trusted_setup is None:
-            trusted_setup_path = Path(realpath(__file__)).parent / "kzg_trusted_setup.txt"
+            trusted_setup_path = (
+                Path(realpath(__file__)).parent / "kzg_trusted_setup.txt"
+            )
             trusted_setup = ckzg.load_trusted_setup(str(trusted_setup_path), 0)
             cls._trusted_setup = trusted_setup
 
@@ -76,8 +79,16 @@ class Blob(CamelModel):
         """
         Return filename this blob would have as string (with .json extension).
         """
-        amount_cell_proofs: int = cast(int, fork.get_blob_constant("AMOUNT_CELL_PROOFS"))
-        return "blob_" + str(seed) + "_cell_proofs_" + str(amount_cell_proofs) + ".json"
+        amount_cell_proofs: int = cast(
+            int, fork.get_blob_constant("AMOUNT_CELL_PROOFS")
+        )
+        return (
+            "blob_"
+            + str(seed)
+            + "_cell_proofs_"
+            + str(amount_cell_proofs)
+            + ".json"
+        )
 
     @staticmethod
     def get_filepath(fork: Fork, seed: int) -> Path:
@@ -106,13 +117,22 @@ class Blob(CamelModel):
             # generate blob
             ints: list[int] = [
                 rng.randrange(cast(int, fork.get_blob_constant("BLS_MODULUS")))
-                for _ in range(cast(int, fork.get_blob_constant("FIELD_ELEMENTS_PER_BLOB")))
+                for _ in range(
+                    cast(
+                        int, fork.get_blob_constant("FIELD_ELEMENTS_PER_BLOB")
+                    )
+                )
             ]
 
             encoded: list[bytes] = [
                 i.to_bytes(
-                    cast(int, fork.get_blob_constant("BYTES_PER_FIELD_ELEMENT")),
-                    cast(Literal["big"], fork.get_blob_constant("KZG_ENDIANNESS")),
+                    cast(
+                        int, fork.get_blob_constant("BYTES_PER_FIELD_ELEMENT")
+                    ),
+                    cast(
+                        Literal["big"],
+                        fork.get_blob_constant("KZG_ENDIANNESS"),
+                    ),
                 )
                 for i in ints
             ]
@@ -131,16 +151,24 @@ class Blob(CamelModel):
             Note: Each cell holds the exact same copy of this commitment.
             """
             # sanity check
-            field_elements: int = cast(int, fork.get_blob_constant("FIELD_ELEMENTS_PER_BLOB"))
-            bytes_per_field: int = cast(int, fork.get_blob_constant("BYTES_PER_FIELD_ELEMENT"))
+            field_elements: int = cast(
+                int, fork.get_blob_constant("FIELD_ELEMENTS_PER_BLOB")
+            )
+            bytes_per_field: int = cast(
+                int, fork.get_blob_constant("BYTES_PER_FIELD_ELEMENT")
+            )
             assert len(data) == field_elements * bytes_per_field, (
                 f"Expected blob of length "
                 f"{field_elements * bytes_per_field} but got blob of length {len(data)}"
             )
 
             # calculate commitment
-            commitment = ckzg.blob_to_kzg_commitment(data, Blob.trusted_setup())
-            assert len(commitment) == fork.get_blob_constant("BYTES_PER_COMMITMENT"), (
+            commitment = ckzg.blob_to_kzg_commitment(
+                data, Blob.trusted_setup()
+            )
+            assert len(commitment) == fork.get_blob_constant(
+                "BYTES_PER_COMMITMENT"
+            ), (
                 f"Expected {fork.get_blob_constant('BYTES_PER_COMMITMENT')} "
                 f"resulting commitments but got {len(commitment)} commitments"
             )
@@ -159,9 +187,14 @@ class Blob(CamelModel):
                 #  7a1d5962cd3dfb5f7b3e41aab728c55/tests/core/pyspec/eth2spec/
                 #  test/utils/kzg_tests.py#L58-L66)
                 z_valid_size: bytes = z.to_bytes(
-                    cast(int, fork.get_blob_constant("BYTES_PER_FIELD_ELEMENT")), byteorder="big"
+                    cast(
+                        int, fork.get_blob_constant("BYTES_PER_FIELD_ELEMENT")
+                    ),
+                    byteorder="big",
                 )
-                proof, _ = ckzg.compute_kzg_proof(data, z_valid_size, Blob.trusted_setup())
+                proof, _ = ckzg.compute_kzg_proof(
+                    data, z_valid_size, Blob.trusted_setup()
+                )
                 return proof
 
             # >=osaka
@@ -214,10 +247,14 @@ class Blob(CamelModel):
         lock_file_path = blob_location.with_suffix(".lock")
         with FileLock(lock_file_path):
             if blob_location.exists():
-                logger.debug(f"Blob exists already, reading it from file {blob_location}")
+                logger.debug(
+                    f"Blob exists already, reading it from file {blob_location}"
+                )
                 return Blob.from_file(Blob.get_filename(fork, seed))
 
-        assert fork.supports_blobs(), f"Provided fork {fork.name()} does not support blobs!"
+        assert fork.supports_blobs(), (
+            f"Provided fork {fork.name()} does not support blobs!"
+        )
 
         # get data for blob parameters
         data: Bytes = generate_blob_data(seed)
@@ -286,7 +323,9 @@ class Blob(CamelModel):
         with FileLock(lock_file_path):
             # warn if existing static_blob gets overwritten
             if output_location.exists():
-                logger.debug(f"Blob {output_location} already exists. It will be overwritten.")
+                logger.debug(
+                    f"Blob {output_location} already exists. It will be overwritten."
+                )
 
             # overwrite existing
             with open(output_location, "w", encoding="utf-8") as f:
@@ -297,7 +336,9 @@ class Blob(CamelModel):
         Check whether all cell proofs are valid and returns True only if that
         is the case.
         """
-        amount_cell_proofs: int = cast(int, self.fork.get_blob_constant("AMOUNT_CELL_PROOFS"))
+        amount_cell_proofs: int = cast(
+            int, self.fork.get_blob_constant("AMOUNT_CELL_PROOFS")
+        )
 
         assert amount_cell_proofs > 0, (
             f"verify_cell_kzg_proof_batch() is not available for your fork: {self.fork.name()}."
@@ -314,12 +355,18 @@ class Blob(CamelModel):
         commitments: list[bytes] = [self.commitment] * len(cell_indices)
 
         is_valid = ckzg.verify_cell_kzg_proof_batch(
-            commitments, cell_indices, self.cells, self.proof, Blob.trusted_setup()
+            commitments,
+            cell_indices,
+            self.cells,
+            self.proof,
+            Blob.trusted_setup(),
         )
 
         return is_valid
 
-    def delete_cells_then_recover_them(self, deletion_indices: list[int]) -> None:
+    def delete_cells_then_recover_them(
+        self, deletion_indices: list[int]
+    ) -> None:
         """
         Simulate the cell recovery process in user-specified scenario.
 
@@ -332,7 +379,9 @@ class Blob(CamelModel):
         missing cells. If no assertion is triggered the reconstruction was
         successful.
         """
-        amount_cell_proofs: int = cast(int, self.fork.get_blob_constant("AMOUNT_CELL_PROOFS"))
+        amount_cell_proofs: int = cast(
+            int, self.fork.get_blob_constant("AMOUNT_CELL_PROOFS")
+        )
 
         assert amount_cell_proofs > 0, (
             f"delete_cells_then_recover_them() is not available for fork: {self.fork.name()}"
@@ -355,12 +404,18 @@ class Blob(CamelModel):
             f"but you passed a deletion indices list of length {len(deletion_indices)}"
         )
         for i in deletion_indices:
-            assert 0 <= i <= 127, f"Expected integers in range [0, 127], but got: {i}"
+            assert 0 <= i <= 127, (
+                f"Expected integers in range [0, 127], but got: {i}"
+            )
 
         # delete cells
         all_cell_indices: list[int] = list(range(128))
-        remaining_indices: list[int] = [i for i in all_cell_indices if i not in deletion_indices]
-        remaining_cells = [c for i, c in enumerate(self.cells) if i not in deletion_indices]
+        remaining_indices: list[int] = [
+            i for i in all_cell_indices if i not in deletion_indices
+        ]
+        remaining_cells = [
+            c for i, c in enumerate(self.cells) if i not in deletion_indices
+        ]
 
         recovered_cells, recovered_proofs = ckzg.recover_cells_and_kzg_proofs(
             remaining_indices, remaining_cells, Blob.trusted_setup()
@@ -413,9 +468,13 @@ class Blob(CamelModel):
             return Bytes(bytes([b[0] ^ 0xFF]))
 
         # >=osaka
-        amount_cell_proofs: int = cast(int, self.fork.get_blob_constant("AMOUNT_CELL_PROOFS"))
+        amount_cell_proofs: int = cast(
+            int, self.fork.get_blob_constant("AMOUNT_CELL_PROOFS")
+        )
         if amount_cell_proofs > 0:
-            assert isinstance(self.proof, list), "proof was expected to be a list but it isn't"
+            assert isinstance(self.proof, list), (
+                "proof was expected to be a list but it isn't"
+            )
 
             if mode == self.ProofCorruptionMode.CORRUPT_FIRST_BYTE:
                 for i in range(len(self.proof)):
@@ -433,7 +492,9 @@ class Blob(CamelModel):
             elif mode == self.ProofCorruptionMode.CORRUPT_ALL_BYTES:
                 for i in range(len(self.proof)):
                     b = self.proof[i]
-                    corrupted_bytes = Bytes(b"".join(corrupt_byte(bytes([byte])) for byte in b))
+                    corrupted_bytes = Bytes(
+                        b"".join(corrupt_byte(bytes([byte])) for byte in b)
+                    )
                     self.proof[i] = corrupted_bytes
             return
 
@@ -441,7 +502,9 @@ class Blob(CamelModel):
         assert amount_cell_proofs == 0, (
             f"You need to adjust corrupt_proof to handle fork {self.fork.name()}"
         )
-        assert isinstance(self.proof, Bytes), "proof was expected to be Bytes but it isn't"
+        assert isinstance(self.proof, Bytes), (
+            "proof was expected to be Bytes but it isn't"
+        )
 
         if mode == self.ProofCorruptionMode.CORRUPT_FIRST_BYTE:
             self.proof = Bytes(corrupt_byte(self.proof[:1]) + self.proof[1:])
@@ -450,4 +513,6 @@ class Blob(CamelModel):
         elif mode == self.ProofCorruptionMode.CORRUPT_TO_ALL_ZEROES:
             self.proof = Bytes(bytes(len(self.proof)))
         elif mode == self.ProofCorruptionMode.CORRUPT_ALL_BYTES:
-            self.proof = Bytes(b"".join(corrupt_byte(bytes([byte])) for byte in self.proof))
+            self.proof = Bytes(
+                b"".join(corrupt_byte(bytes([byte])) for byte in self.proof)
+            )

@@ -27,7 +27,9 @@ def test_collect_only_output(pytester: pytest.Pytester) -> None:
     test_module = dummy_dir / "test_dummy_collect.py"
     test_module.write_text(test_module_dummy)
 
-    pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+    pytester.copy_example(
+        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
 
     result = pytester.runpytest(
         "-c",

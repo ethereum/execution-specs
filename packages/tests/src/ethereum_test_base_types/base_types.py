@@ -58,7 +58,9 @@ class Number(int, ToStringSchema):
         return hex(self)
 
     @classmethod
-    def or_none(cls: Type[Self], input_number: Self | NumberConvertible | None) -> Self | None:
+    def or_none(
+        cls: Type[Self], input_number: Self | NumberConvertible | None
+    ) -> Self | None:
         """Convert the input to a Number while accepting None."""
         if input_number is None:
             return input_number
@@ -83,7 +85,11 @@ class Wei(Number):
                 base, exp = value_str.split("**")
                 value = float(base) ** int(exp)
             else:
-                value = int(value_str) if value_str.isdecimal() else float(value_str)
+                value = (
+                    int(value_str)
+                    if value_str.isdecimal()
+                    else float(value_str)
+                )
             return super(Number, cls).__new__(cls, value * multiplier)
         return super(Number, cls).__new__(cls, to_number(input_number))
 
@@ -159,12 +165,16 @@ class ZeroPaddedHexNumber(HexNumber):
             source_type,
             serialization=to_string_ser_schema(),
             json_schema_input_schema=handler(
-                Annotated[str, StringConstraints(pattern=r"^0x([0-9a-fA-F]{2})*$")]
+                Annotated[
+                    str, StringConstraints(pattern=r"^0x([0-9a-fA-F]{2})*$")
+                ]
             ),
         )
 
 
-NumberBoundTypeVar = TypeVar("NumberBoundTypeVar", Number, HexNumber, ZeroPaddedHexNumber)
+NumberBoundTypeVar = TypeVar(
+    "NumberBoundTypeVar", Number, HexNumber, ZeroPaddedHexNumber
+)
 
 
 class Bytes(bytes, ToStringSchema):
@@ -189,7 +199,9 @@ class Bytes(bytes, ToStringSchema):
         return "0x" + super().hex(*args, **kwargs)
 
     @classmethod
-    def or_none(cls, input_bytes: "Bytes | BytesConvertible | None") -> "Bytes | None":
+    def or_none(
+        cls, input_bytes: "Bytes | BytesConvertible | None"
+    ) -> "Bytes | None":
         """Convert the input to a Bytes while accepting None."""
         if input_bytes is None:
             return input_bytes
@@ -216,7 +228,9 @@ class Bytes(bytes, ToStringSchema):
             source_type,
             serialization=to_string_ser_schema(),
             json_schema_input_schema=handler(
-                Annotated[str, StringConstraints(pattern=r"^0x([0-9a-fA-F]{2})*$")]
+                Annotated[
+                    str, StringConstraints(pattern=r"^0x([0-9a-fA-F]{2})*$")
+                ]
             ),
         )
 
@@ -246,11 +260,15 @@ class FixedSizeHexNumber(int, ToStringSchema):
         """Create a new Number object."""
         i = to_number(input_number)
         if i > cls.max_value:
-            raise ValueError(f"Value {i} is too large for {cls.byte_length} bytes")
+            raise ValueError(
+                f"Value {i} is too large for {cls.byte_length} bytes"
+            )
         if i < 0:
             i += cls.max_value + 1
             if i <= 0:
-                raise ValueError(f"Value {i} is too small for {cls.byte_length} bytes")
+                raise ValueError(
+                    f"Value {i} is too small for {cls.byte_length} bytes"
+                )
         return super(FixedSizeHexNumber, cls).__new__(cls, i)
 
     def __str__(self) -> str:
@@ -278,7 +296,9 @@ class FixedSizeHexNumber(int, ToStringSchema):
         return no_info_plain_validator_function(
             source_type,
             serialization=to_string_ser_schema(),
-            json_schema_input_schema=handler(Annotated[str, StringConstraints(pattern=pattern)]),
+            json_schema_input_schema=handler(
+                Annotated[str, StringConstraints(pattern=pattern)]
+            ),
         )
 
 
@@ -366,7 +386,9 @@ class FixedSizeBytes(Bytes):
         return no_info_plain_validator_function(
             source_type,
             serialization=to_string_ser_schema(),
-            json_schema_input_schema=handler(Annotated[str, StringConstraints(pattern=pattern)]),
+            json_schema_input_schema=handler(
+                Annotated[str, StringConstraints(pattern=pattern)]
+            ),
         )
 
 
@@ -391,7 +413,9 @@ class Address(FixedSizeBytes[20]):  # type: ignore
         **kwargs: Any,
     ) -> Self:
         """Create a new Address object with an optional label."""
-        instance = super(Address, cls).__new__(cls, input_bytes, *args, **kwargs)
+        instance = super(Address, cls).__new__(
+            cls, input_bytes, *args, **kwargs
+        )
         if isinstance(input_bytes, Address) and label is None:
             instance.label = input_bytes.label
         else:
@@ -412,7 +436,9 @@ class StorageKey(FixedSizeBytes[32]):  # type: ignore
     """
 
     def __new__(
-        cls, input_bytes: FixedSizeBytesConvertible | FixedSizeBytes, **kwargs: Any
+        cls,
+        input_bytes: FixedSizeBytesConvertible | FixedSizeBytes,
+        **kwargs: Any,
     ) -> Self:
         """Create a new StorageKey with automatic left padding."""
         # Always apply left_padding for storage keys unless explicitly set to

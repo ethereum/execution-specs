@@ -64,7 +64,9 @@ fixture_header_ones = FixtureHeader(
         ),
         pytest.param(
             fixture_header_ones,
-            Header(withdrawals_root=Header.REMOVE_FIELD),  # state_root is not removable
+            Header(
+                withdrawals_root=Header.REMOVE_FIELD
+            ),  # state_root is not removable
             fixture_header_ones.copy(withdrawals_root=None),
             id="state_root_as_header_remove_field",
         ),
@@ -125,7 +127,9 @@ fixture_header_ones = FixtureHeader(
     ],
 )
 def test_fixture_header_join(
-    fixture_header: FixtureHeader, modifier: Header, fixture_header_expected: FixtureHeader
+    fixture_header: FixtureHeader,
+    modifier: Header,
+    fixture_header_expected: FixtureHeader,
 ) -> None:
     """Test that the join method works as expected."""
     assert modifier.apply(fixture_header) == fixture_header_expected

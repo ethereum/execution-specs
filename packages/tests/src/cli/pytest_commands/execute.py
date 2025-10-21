@@ -29,7 +29,9 @@ def _create_execute_subcommand(
     """Create an execute subcommand with standardized structure."""
     pytest_command = PytestCommand(
         config_file=config_file,
-        argument_processors=[HelpFlagsProcessor(f"execute-{command_name}", required_args)],
+        argument_processors=[
+            HelpFlagsProcessor(f"execute-{command_name}", required_args)
+        ],
         command_logic_test_paths=command_logic_test_paths,
     )
 
@@ -68,8 +70,13 @@ eth_config = _create_execute_subcommand(
     "eth-config",
     "pytest-execute-eth-config.ini",
     "Test a client's configuration using the `eth_config` RPC endpoint.",
-    required_args=["--network=Mainnet", "--rpc-endpoint=http://localhost:8545"],
-    command_logic_test_paths=[Path("pytest_plugins/execute/eth_config/execute_eth_config.py")],
+    required_args=[
+        "--network=Mainnet",
+        "--rpc-endpoint=http://localhost:8545",
+    ],
+    command_logic_test_paths=[
+        Path("pytest_plugins/execute/eth_config/execute_eth_config.py")
+    ],
 )
 
 recover = _create_execute_subcommand(
@@ -82,5 +89,7 @@ recover = _create_execute_subcommand(
         "--start-eoa-index=1",
         "--destination=0x0000000000000000000000000000000000000000",
     ],
-    command_logic_test_paths=[Path("pytest_plugins/execute/execute_recover.py")],
+    command_logic_test_paths=[
+        Path("pytest_plugins/execute/execute_recover.py")
+    ],
 )

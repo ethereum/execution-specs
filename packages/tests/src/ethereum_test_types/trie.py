@@ -42,7 +42,9 @@ def keccak256(buffer: Bytes) -> Bytes32:
     return Bytes32(k.update(buffer).digest())
 
 
-def encode_account(raw_account_data: FrontierAccount, storage_root: Bytes) -> Bytes:
+def encode_account(
+    raw_account_data: FrontierAccount, storage_root: Bytes
+) -> Bytes:
     """
     Encode `Account` dataclass.
 
@@ -67,7 +69,9 @@ def encode_account(raw_account_data: FrontierAccount, storage_root: Bytes) -> By
 # 1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
 # which is the sha3Uncles hash in block header with no uncles
 EMPTY_TRIE_ROOT = Bytes32(
-    bytes.fromhex("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
+    bytes.fromhex(
+        "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+    )
 )
 
 Node = FrontierAccount | Bytes | Uint | U256 | None
@@ -182,7 +186,9 @@ def encode_node(node: Node, storage_root: Optional[Bytes] = None) -> Bytes:
         case Bytes():
             return node
         case _:
-            raise AssertionError(f"encoding for {type(node)} is not currently implemented")
+            raise AssertionError(
+                f"encoding for {type(node)} is not currently implemented"
+            )
 
 
 @dataclass(slots=True)
@@ -323,7 +329,9 @@ def root(
         return Bytes32(root_node)
 
 
-def patricialize(obj: Mapping[Bytes, Bytes], level: Uint) -> Optional[InternalNode]:
+def patricialize(
+    obj: Mapping[Bytes, Bytes], level: Uint
+) -> Optional[InternalNode]:
     """
     Structural composition function.
 
@@ -345,7 +353,9 @@ def patricialize(obj: Mapping[Bytes, Bytes], level: Uint) -> Optional[InternalNo
     substring = arbitrary_key[level:]
     prefix_length = len(substring)
     for key in obj:
-        prefix_length = min(prefix_length, common_prefix_length(substring, key[level:]))
+        prefix_length = min(
+            prefix_length, common_prefix_length(substring, key[level:])
+        )
 
         # finished searching, found another key at the current level
         if prefix_length == 0:
@@ -356,7 +366,9 @@ def patricialize(obj: Mapping[Bytes, Bytes], level: Uint) -> Optional[InternalNo
         prefix = arbitrary_key[int(level) : int(level) + prefix_length]
         return ExtensionNode(
             prefix,
-            encode_internal_node(patricialize(obj, level + Uint(prefix_length))),
+            encode_internal_node(
+                patricialize(obj, level + Uint(prefix_length))
+            ),
         )
 
     branches: List[MutableMapping[Bytes, Bytes]] = []
@@ -373,7 +385,8 @@ def patricialize(obj: Mapping[Bytes, Bytes], level: Uint) -> Optional[InternalNo
             branches[key[level]][key] = obj[key]
 
     subnodes = tuple(
-        encode_internal_node(patricialize(branches[k], level + Uint(1))) for k in range(16)
+        encode_internal_node(patricialize(branches[k], level + Uint(1)))
+        for k in range(16)
     )
     return BranchNode(
         cast(BranchSubnodes, assert_type(subnodes, Tuple[Extended, ...])),

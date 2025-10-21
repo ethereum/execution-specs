@@ -21,7 +21,9 @@ from typing import Any, Dict, List, cast
 import click
 
 
-def recursive_sort(item: Dict[str, Any] | List[Any]) -> Dict[str, Any] | List[Any]:
+def recursive_sort(
+    item: Dict[str, Any] | List[Any],
+) -> Dict[str, Any] | List[Any]:
     """
     Recursively sorts an item.
 
@@ -102,7 +104,9 @@ def process_directory(input_dir: Path, output_dir: Path) -> None:
     "--input",
     "-i",
     "input_dir",
-    type=click.Path(exists=True, file_okay=False, dir_okay=True, readable=True),
+    type=click.Path(
+        exists=True, file_okay=False, dir_okay=True, readable=True
+    ),
     required=True,
     help="input directory",
 )

@@ -21,8 +21,12 @@ class TransactionPost(BaseExecute):
     blocks: List[List[Transaction]]
     post: Alloc
     # Gas validation fields for benchmark tests
-    expected_benchmark_gas_used: int | None = None  # Expected total gas to be consumed
-    skip_gas_used_validation: bool = False  # Skip gas validation even if expected is set
+    expected_benchmark_gas_used: int | None = (
+        None  # Expected total gas to be consumed
+    )
+    skip_gas_used_validation: bool = (
+        False  # Skip gas validation even if expected is set
+    )
 
     format_name: ClassVar[str] = "transaction_post_test"
     description: ClassVar[str] = (
@@ -52,7 +56,11 @@ class TransactionPost(BaseExecute):
                 # Add metadata
                 tx = tx.with_signature_and_sender()
                 to_address = tx.to
-                label = to_address.label if isinstance(to_address, Address) else None
+                label = (
+                    to_address.label
+                    if isinstance(to_address, Address)
+                    else None
+                )
                 phase = (
                     "testing"
                     if (tx.test_phase == "execution" or tx.test_phase is None)
@@ -79,12 +87,17 @@ class TransactionPost(BaseExecute):
 
         # Perform gas validation if required for benchmarking
         # Ensures benchmark tests consume exactly the expected gas
-        if not self.skip_gas_used_validation and self.expected_benchmark_gas_used is not None:
+        if (
+            not self.skip_gas_used_validation
+            and self.expected_benchmark_gas_used is not None
+        ):
             total_gas_used = 0
             # Fetch transaction receipts to get actual gas used
             for tx_hash in all_tx_hashes:
                 receipt = eth_rpc.get_transaction_receipt(tx_hash)
-                assert receipt is not None, f"Failed to get receipt for transaction {tx_hash}"
+                assert receipt is not None, (
+                    f"Failed to get receipt for transaction {tx_hash}"
+                )
                 gas_used = int(receipt["gasUsed"], 16)
                 total_gas_used += gas_used
 
@@ -100,9 +113,15 @@ class TransactionPost(BaseExecute):
             code = eth_rpc.get_code(address)
             nonce = eth_rpc.get_transaction_count(address)
             if account is None:
-                assert balance == 0, f"Balance of {address} is {balance}, expected 0."
-                assert code == b"", f"Code of {address} is {code}, expected 0x."
-                assert nonce == 0, f"Nonce of {address} is {nonce}, expected 0."
+                assert balance == 0, (
+                    f"Balance of {address} is {balance}, expected 0."
+                )
+                assert code == b"", (
+                    f"Code of {address} is {code}, expected 0x."
+                )
+                assert nonce == 0, (
+                    f"Nonce of {address} is {nonce}, expected 0."
+                )
             else:
                 if "balance" in account.model_fields_set:
                     assert balance == account.balance, (
@@ -118,7 +137,9 @@ class TransactionPost(BaseExecute):
                     )
                 if "storage" in account.model_fields_set:
                     for key, value in account.storage.items():
-                        storage_value = eth_rpc.get_storage_at(address, Hash(key))
+                        storage_value = eth_rpc.get_storage_at(
+                            address, Hash(key)
+                        )
                         assert storage_value == value, (
                             f"Storage value at {key} of {address} is {storage_value},"
                             f"expected {value}."

@@ -59,8 +59,12 @@ def get_blob_schedule_entries(fork: Fork) -> Dict[str, int]:
 
     for fork_to_process in forks_with_blobs:
         prefix = fork_to_process.__name__.upper()
-        entries[f"HIVE_{prefix}_BLOB_TARGET"] = fork_to_process.target_blobs_per_block()
-        entries[f"HIVE_{prefix}_BLOB_MAX"] = fork_to_process.max_blobs_per_block()
+        entries[f"HIVE_{prefix}_BLOB_TARGET"] = (
+            fork_to_process.target_blobs_per_block()
+        )
+        entries[f"HIVE_{prefix}_BLOB_MAX"] = (
+            fork_to_process.max_blobs_per_block()
+        )
         entries[f"HIVE_{prefix}_BLOB_BASE_FEE_UPDATE_FRACTION"] = (
             fork_to_process.blob_base_fee_update_fraction()
         )

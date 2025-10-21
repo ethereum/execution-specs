@@ -1,7 +1,16 @@
 """Helper methods to resolve forks during test filling."""
 
 import re
-from typing import Annotated, Any, Callable, FrozenSet, List, Optional, Set, Type
+from typing import (
+    Annotated,
+    Any,
+    Callable,
+    FrozenSet,
+    List,
+    Optional,
+    Set,
+    Type,
+)
 
 from pydantic import (
     BaseModel,
@@ -68,7 +77,11 @@ def get_deployed_forks() -> List[Type[BaseFork]]:
     Return list of all the fork classes implemented by `ethereum_test_forks`
     that have been deployed to mainnet, chronologically ordered by deployment.
     """
-    return [fork for fork in get_forks() if fork.is_deployed() and not fork.ignore()]
+    return [
+        fork
+        for fork in get_forks()
+        if fork.is_deployed() and not fork.ignore()
+    ]
 
 
 def get_development_forks() -> List[Type[BaseFork]]:
@@ -100,14 +113,18 @@ def get_transition_forks() -> Set[Type[BaseFork]]:
     return set(ALL_TRANSITION_FORKS)
 
 
-def get_transition_fork_predecessor(transition_fork: Type[BaseFork]) -> Type[BaseFork]:
+def get_transition_fork_predecessor(
+    transition_fork: Type[BaseFork],
+) -> Type[BaseFork]:
     """Return the fork from which the transition fork transitions."""
     if not issubclass(transition_fork, TransitionBaseClass):
         raise InvalidForkError(f"{transition_fork} is not a transition fork.")
     return transition_fork.transitions_from()
 
 
-def get_transition_fork_successor(transition_fork: Type[BaseFork]) -> Type[BaseFork]:
+def get_transition_fork_successor(
+    transition_fork: Type[BaseFork],
+) -> Type[BaseFork]:
     """Return the fork to which the transition fork transitions."""
     if not issubclass(transition_fork, TransitionBaseClass):
         raise InvalidForkError(f"{transition_fork} is not a transition fork.")
@@ -145,7 +162,9 @@ def get_forks_with_no_parents(
     return resulting_forks
 
 
-def get_forks_with_no_descendants(forks: Set[Type[BaseFork]]) -> Set[Type[BaseFork]]:
+def get_forks_with_no_descendants(
+    forks: Set[Type[BaseFork]],
+) -> Set[Type[BaseFork]]:
     """Get forks with no descendants in the inheritance hierarchy."""
     resulting_forks: Set[Type[BaseFork]] = set()
     for fork in forks:
@@ -190,8 +209,12 @@ def get_selected_fork_set(
         if not forks_from:
             forks_from = get_forks_with_no_parents(ALL_FORKS)
         if not forks_until:
-            forks_until = get_last_descendants(set(get_deployed_forks()), forks_from)
-        selected_fork_set = get_from_until_fork_set(ALL_FORKS, forks_from, forks_until)
+            forks_until = get_last_descendants(
+                set(get_deployed_forks()), forks_from
+            )
+        selected_fork_set = get_from_until_fork_set(
+            ALL_FORKS, forks_from, forks_until
+        )
     if transition_forks:
         for fork in list(selected_fork_set):
             transition_fork_set = transition_fork_to(fork)
@@ -253,7 +276,9 @@ def forks_from_until(
     return forks
 
 
-def forks_from(fork: Type[BaseFork], deployed_only: bool = True) -> List[Type[BaseFork]]:
+def forks_from(
+    fork: Type[BaseFork], deployed_only: bool = True
+) -> List[Type[BaseFork]]:
     """Return specified fork and all forks after it."""
     if deployed_only:
         latest_fork = get_deployed_forks()[-1]
@@ -377,7 +402,9 @@ def fork_validator_generator(
                 return forks_dict[obj.lower()]
             else:
                 raise InvalidForkError(f"Invalid fork '{obj}' specified")
-        raise InvalidForkError(f"Invalid {cls_name}: {obj} (type: {type(obj)})")
+        raise InvalidForkError(
+            f"Invalid {cls_name}: {obj} (type: {type(obj)})"
+        )
 
     return fork_validator
 
@@ -395,7 +422,9 @@ def set_before_validator(value: Any) -> Any:
 Fork = Annotated[
     Type[BaseFork],
     PlainSerializer(str),
-    PlainValidator(fork_validator_generator("Fork", all_forks + transition_forks)),
+    PlainValidator(
+        fork_validator_generator("Fork", all_forks + transition_forks)
+    ),
 ]
 ForkAdapter: TypeAdapter = TypeAdapter(Fork)
 ForkOrNoneAdapter: TypeAdapter = TypeAdapter(Fork | None)
@@ -407,7 +436,9 @@ ForkSetAdapter: TypeAdapter = TypeAdapter(ForkSet)
 TransitionFork = Annotated[
     Type[BaseFork],
     PlainSerializer(str),
-    PlainValidator(fork_validator_generator("TransitionFork", transition_forks)),
+    PlainValidator(
+        fork_validator_generator("TransitionFork", transition_forks)
+    ),
 ]
 TransitionForkAdapter: TypeAdapter = TypeAdapter(TransitionFork)
 TransitionForkOrNoneAdapter: TypeAdapter = TypeAdapter(TransitionFork | None)

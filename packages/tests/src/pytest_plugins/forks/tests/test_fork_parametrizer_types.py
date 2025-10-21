@@ -28,7 +28,9 @@ from ..forks import (
                 ForkParametrizer(
                     fork=Frontier,
                     fork_covariant_parameters=[
-                        ForkCovariantParameter(names=["some_value"], values=[pytest.param(1)])
+                        ForkCovariantParameter(
+                            names=["some_value"], values=[pytest.param(1)]
+                        )
                     ],
                 )
             ],
@@ -68,7 +70,10 @@ from ..forks import (
                 )
             ],
             ["fork", "some_value"],
-            [pytest.param(Frontier, 1, marks=[pytest.mark.some_mark]), pytest.param(Frontier, 2)],
+            [
+                pytest.param(Frontier, 1, marks=[pytest.mark.some_mark]),
+                pytest.param(Frontier, 2),
+            ],
             id="fork_with_single_covariant_parameter_multiple_values_one_mark",
         ),
         pytest.param(
@@ -76,8 +81,12 @@ from ..forks import (
                 ForkParametrizer(
                     fork=Frontier,
                     fork_covariant_parameters=[
-                        ForkCovariantParameter(names=["some_value"], values=[pytest.param(1)]),
-                        ForkCovariantParameter(names=["another_value"], values=[pytest.param(2)]),
+                        ForkCovariantParameter(
+                            names=["some_value"], values=[pytest.param(1)]
+                        ),
+                        ForkCovariantParameter(
+                            names=["another_value"], values=[pytest.param(2)]
+                        ),
                     ],
                 )
             ],
@@ -90,7 +99,9 @@ from ..forks import (
                 ForkParametrizer(
                     fork=Frontier,
                     fork_covariant_parameters=[
-                        ForkCovariantParameter(names=["some_value"], values=[pytest.param(1)]),
+                        ForkCovariantParameter(
+                            names=["some_value"], values=[pytest.param(1)]
+                        ),
                         ForkCovariantParameter(
                             names=["another_value"],
                             values=[pytest.param(2), pytest.param(3)],
@@ -143,7 +154,13 @@ from ..forks import (
                     ],
                 )
             ],
-            ["fork", "some_value", "another_value", "yet_another_value", "last_value"],
+            [
+                "fork",
+                "some_value",
+                "another_value",
+                "yet_another_value",
+                "last_value",
+            ],
             [
                 pytest.param(Frontier, 1, "a", 3, "x"),
                 pytest.param(Frontier, 1, "a", 4, "y"),
@@ -191,7 +208,9 @@ def test_fork_parametrizer(
     """
     Test the fork parametrizer correctly parametrizes using the fork name.
     """
-    argnames, values = parameters_from_fork_parametrizer_list(fork_parametrizers)
+    argnames, values = parameters_from_fork_parametrizer_list(
+        fork_parametrizers
+    )
     assert argnames == expected_names
     assert len(values) == len(expected_parameter_sets)
     for i in range(len(values)):

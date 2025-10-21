@@ -70,7 +70,9 @@ class BlobTransaction(BaseExecute):
         request: FixtureRequest,
     ) -> None:
         """Execute the format."""
-        assert engine_rpc is not None, "Engine RPC is required for this format."
+        assert engine_rpc is not None, (
+            "Engine RPC is required for this format."
+        )
         versioned_hashes: Dict[Hash, BlobAndProofV1 | BlobAndProofV2] = {}
         sent_txs: List[Transaction] = []
         for tx_index, tx in enumerate(self.txs):
@@ -78,26 +80,34 @@ class BlobTransaction(BaseExecute):
                 tx.tx = tx.tx.with_signature_and_sender()
                 sent_txs.append(tx.tx)
                 expected_hash = tx.tx.hash
-                versioned_hashes.update(versioned_hashes_with_blobs_and_proofs(tx))
+                versioned_hashes.update(
+                    versioned_hashes_with_blobs_and_proofs(tx)
+                )
                 to_address = tx.tx.to
             else:
                 tx = tx.with_signature_and_sender()
                 sent_txs.append(tx)
                 expected_hash = tx.hash
                 to_address = tx.to
-            label = to_address.label if isinstance(to_address, Address) else None
+            label = (
+                to_address.label if isinstance(to_address, Address) else None
+            )
             metadata = TransactionTestMetadata(
                 test_id=request.node.nodeid,
                 phase="testing",
                 target=label,
                 tx_index=tx_index,
             )
-            received_hash = eth_rpc.send_raw_transaction(tx.rlp(), request_id=metadata.to_json())
+            received_hash = eth_rpc.send_raw_transaction(
+                tx.rlp(), request_id=metadata.to_json()
+            )
             assert expected_hash == received_hash, (
                 f"Expected hash {expected_hash} does not match received hash {received_hash}."
             )
         version = fork.engine_get_blobs_version()
-        assert version is not None, "Engine get blobs version is not supported by the fork."
+        assert version is not None, (
+            "Engine get blobs version is not supported by the fork."
+        )
 
         # ensure that clients respond 'null' when they have no access to at
         # least one blob
@@ -157,25 +167,29 @@ class BlobTransaction(BaseExecute):
                         index = 0
 
                         for expected_proof, received_proof in zip(
-                            expected_blob.proofs, received_blob.proofs, strict=False
+                            expected_blob.proofs,
+                            received_blob.proofs,
+                            strict=False,
                         ):
                             if len(expected_proof) != len(received_proof):
-                                error_message += f"Proof length mismatch. index = {index},"
+                                error_message += (
+                                    f"Proof length mismatch. index = {index},"
+                                )
                                 error_message += f"expected_proof length = {len(expected_proof)}, "
                                 error_message += f"received_proof length = {len(received_proof)}\n"
                                 index += 1
                                 continue
                             if expected_proof != received_proof:
-                                error_message += f"Proof mismatch. index = {index},"
                                 error_message += (
-                                    f"expected_proof hash = {sha256(expected_proof).hexdigest()}, "
+                                    f"Proof mismatch. index = {index},"
                                 )
-                                error_message += (
-                                    f"received_proof hash = {sha256(received_proof).hexdigest()}\n"
-                                )
+                                error_message += f"expected_proof hash = {sha256(expected_proof).hexdigest()}, "
+                                error_message += f"received_proof hash = {sha256(received_proof).hexdigest()}\n"
                             index += 1
                     raise ValueError(error_message)
             else:
-                raise ValueError(f"Unexpected blob type: {type(expected_blob)}")
+                raise ValueError(
+                    f"Unexpected blob type: {type(expected_blob)}"
+                )
 
         eth_rpc.wait_for_transactions(sent_txs)

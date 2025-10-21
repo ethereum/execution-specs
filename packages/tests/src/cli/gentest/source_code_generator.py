@@ -16,7 +16,9 @@ from config import AppConfig
 from .test_context_providers import Provider
 
 template_loader = jinja2.PackageLoader("cli.gentest")
-template_env = jinja2.Environment(loader=template_loader, keep_trailing_newline=True)
+template_env = jinja2.Environment(
+    loader=template_loader, keep_trailing_newline=True
+)
 
 # This filter maps python objects to string
 template_env.filters["stringify"] = lambda value: repr(value)
@@ -95,7 +97,9 @@ def format_code(code: str) -> str:
                 check=True,
             )
         except subprocess.CalledProcessError as e:
-            raise Exception(f"Error formatting code using formatter '{formatter_path}'") from e
+            raise Exception(
+                f"Error formatting code using formatter '{formatter_path}'"
+            ) from e
 
         # Return the formatted source code
         return input_file_path.read_text()

@@ -46,7 +46,9 @@ def genesis_contents(genesis_file_name: str) -> str:
     [
         pytest.param(
             "genesis_example.json",
-            Hash(0x3A8C8CEF63859865AA1D40DED77B083EEF06A1702B8188D5586434B9C3ADC4BE),
+            Hash(
+                0x3A8C8CEF63859865AA1D40DED77B083EEF06A1702B8188D5586434B9C3ADC4BE
+            ),
             NetworkConfig(
                 chain_id=7023102237,
                 genesis_hash=Hash(
@@ -73,14 +75,30 @@ def genesis_contents(genesis_file_name: str) -> str:
                     },
                 ),
                 blob_schedule={
-                    Cancun: ForkConfigBlobSchedule(target=3, max=6, baseFeeUpdateFraction=3338477),
-                    Prague: ForkConfigBlobSchedule(target=6, max=9, baseFeeUpdateFraction=5007716),
-                    Osaka: ForkConfigBlobSchedule(target=6, max=9, baseFeeUpdateFraction=5007716),
-                    BPO1: ForkConfigBlobSchedule(target=9, max=12, baseFeeUpdateFraction=5007716),
-                    BPO2: ForkConfigBlobSchedule(target=12, max=15, baseFeeUpdateFraction=5007716),
-                    BPO3: ForkConfigBlobSchedule(target=15, max=18, baseFeeUpdateFraction=5007716),
-                    BPO4: ForkConfigBlobSchedule(target=6, max=9, baseFeeUpdateFraction=5007716),
-                    BPO5: ForkConfigBlobSchedule(target=15, max=20, baseFeeUpdateFraction=5007716),
+                    Cancun: ForkConfigBlobSchedule(
+                        target=3, max=6, baseFeeUpdateFraction=3338477
+                    ),
+                    Prague: ForkConfigBlobSchedule(
+                        target=6, max=9, baseFeeUpdateFraction=5007716
+                    ),
+                    Osaka: ForkConfigBlobSchedule(
+                        target=6, max=9, baseFeeUpdateFraction=5007716
+                    ),
+                    BPO1: ForkConfigBlobSchedule(
+                        target=9, max=12, baseFeeUpdateFraction=5007716
+                    ),
+                    BPO2: ForkConfigBlobSchedule(
+                        target=12, max=15, baseFeeUpdateFraction=5007716
+                    ),
+                    BPO3: ForkConfigBlobSchedule(
+                        target=15, max=18, baseFeeUpdateFraction=5007716
+                    ),
+                    BPO4: ForkConfigBlobSchedule(
+                        target=6, max=9, baseFeeUpdateFraction=5007716
+                    ),
+                    BPO5: ForkConfigBlobSchedule(
+                        target=15, max=20, baseFeeUpdateFraction=5007716
+                    ),
                 },
             ),
         ),

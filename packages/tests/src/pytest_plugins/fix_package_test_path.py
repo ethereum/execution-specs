@@ -19,4 +19,6 @@ def pytest_collection_modifyitems(items: List[pytest.Item]) -> None:
         if item.name.startswith(remove):
             item.name = item.name.removeprefix(remove)[:-1]
         if remove in item.nodeid:
-            item._nodeid = item.nodeid[item.nodeid.index(remove) + len(remove) : -1]
+            item._nodeid = item.nodeid[
+                item.nodeid.index(remove) + len(remove) : -1
+            ]

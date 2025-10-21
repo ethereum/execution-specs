@@ -13,7 +13,11 @@ from typing import Callable, List
 import pytest
 
 from ethereum_test_base_types import EthereumTestRootModel
-from ethereum_test_fixtures.blockchain import BlockchainFixture, FixtureBlock, WitnessChunk
+from ethereum_test_fixtures.blockchain import (
+    BlockchainFixture,
+    FixtureBlock,
+    WitnessChunk,
+)
 from ethereum_test_forks import Paris
 
 
@@ -39,7 +43,9 @@ class Merge(Paris):
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Add witness command-line options to pytest."""
-    witness_group = parser.getgroup("witness", "Arguments for witness functionality")
+    witness_group = parser.getgroup(
+        "witness", "Arguments for witness functionality"
+    )
     witness_group.addoption(
         "--witness",
         "--witness-the-fitness",
@@ -118,7 +124,9 @@ def witness_generator(
             )
 
         try:
-            result_model = WitnessFillerResult.model_validate_json(result.stdout)
+            result_model = WitnessFillerResult.model_validate_json(
+                result.stdout
+            )
             witnesses = result_model.root
 
             for i, witness in enumerate(witnesses):

@@ -73,7 +73,11 @@ class BaseFeePerGasCalculator(Protocol):
     """A protocol to calculate the base fee per gas at a given fork."""
 
     def __call__(
-        self, *, parent_base_fee_per_gas: int, parent_gas_used: int, parent_gas_limit: int
+        self,
+        *,
+        parent_base_fee_per_gas: int,
+        parent_gas_used: int,
+        parent_gas_limit: int,
     ) -> int:
         """Return the base fee per gas at a given fork."""
         pass
@@ -189,7 +193,11 @@ class BaseForkMeta(ABCMeta):
         Return the transitioned fork, if a transition fork, otherwise return
         `fork_cls`.
         """
-        return fork_cls.transitions_to() if hasattr(fork_cls, "transitions_to") else fork_cls
+        return (
+            fork_cls.transitions_to()
+            if hasattr(fork_cls, "transitions_to")
+            else fork_cls
+        )
 
     @staticmethod
     def _is_subclass_of(a: "BaseForkMeta", b: "BaseForkMeta") -> bool:
@@ -271,55 +279,73 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     # Header information abstract methods
     @classmethod
     @abstractmethod
-    def header_base_fee_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_base_fee_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """Return true if the header must contain base fee."""
         pass
 
     @classmethod
     @abstractmethod
-    def header_prev_randao_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_prev_randao_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """Return true if the header must contain Prev Randao value."""
         pass
 
     @classmethod
     @abstractmethod
-    def header_zero_difficulty_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_zero_difficulty_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """Return true if the header must have difficulty zero."""
         pass
 
     @classmethod
     @abstractmethod
-    def header_withdrawals_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_withdrawals_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """Return true if the header must contain withdrawals."""
         pass
 
     @classmethod
     @abstractmethod
-    def header_excess_blob_gas_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_excess_blob_gas_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """Return true if the header must contain excess blob gas."""
         pass
 
     @classmethod
     @abstractmethod
-    def header_blob_gas_used_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_blob_gas_used_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """Return true if the header must contain blob gas used."""
         pass
 
     @classmethod
     @abstractmethod
-    def header_beacon_root_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_beacon_root_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """Return true if the header must contain parent beacon block root."""
         pass
 
     @classmethod
     @abstractmethod
-    def header_requests_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_requests_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """Return true if the header must contain beacon chain requests."""
         pass
 
     @classmethod
     @abstractmethod
-    def header_bal_hash_required(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_bal_hash_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """Return true if the header must contain block access list hash."""
         pass
 
@@ -327,7 +353,9 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def gas_costs(cls, *, block_number: int = 0, timestamp: int = 0) -> GasCosts:
+    def gas_costs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> GasCosts:
         """Return dataclass with the gas costs constants for the fork."""
         pass
 
@@ -376,19 +404,25 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def base_fee_max_change_denominator(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def base_fee_max_change_denominator(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the base fee max change denominator at a given fork."""
         pass
 
     @classmethod
     @abstractmethod
-    def base_fee_elasticity_multiplier(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def base_fee_elasticity_multiplier(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the base fee elasticity multiplier at a given fork."""
         pass
 
     @classmethod
     @abstractmethod
-    def max_refund_quotient(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_refund_quotient(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the max refund quotient at a given fork."""
         pass
 
@@ -437,49 +471,65 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def min_base_fee_per_blob_gas(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def min_base_fee_per_blob_gas(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the minimum base fee per blob gas at a given fork."""
         pass
 
     @classmethod
     @abstractmethod
-    def blob_gas_per_blob(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def blob_gas_per_blob(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the amount of blob gas used per blob at a given fork."""
         pass
 
     @classmethod
     @abstractmethod
-    def blob_base_fee_update_fraction(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def blob_base_fee_update_fraction(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the blob base fee update fraction at a given fork."""
         pass
 
     @classmethod
     @abstractmethod
-    def supports_blobs(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def supports_blobs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """Return whether the given fork supports blobs or not."""
         pass
 
     @classmethod
     @abstractmethod
-    def target_blobs_per_block(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def target_blobs_per_block(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the target blobs per block at a given fork."""
         pass
 
     @classmethod
     @abstractmethod
-    def max_blobs_per_tx(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_blobs_per_tx(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the max blobs per transaction at a given fork."""
         pass
 
     @classmethod
     @abstractmethod
-    def max_blobs_per_block(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_blobs_per_block(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the max blobs per block at a given fork."""
         pass
 
     @classmethod
     @abstractmethod
-    def blob_reserve_price_active(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def blob_reserve_price_active(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """
         Return whether the fork uses a reserve price mechanism for blobs or
         not.
@@ -488,7 +538,9 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def blob_base_cost(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def blob_base_cost(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the base cost of a blob at a given fork."""
         pass
 
@@ -506,7 +558,9 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     @classmethod
     @prefer_transition_to_method
     @abstractmethod
-    def blob_schedule(cls, *, block_number: int = 0, timestamp: int = 0) -> BlobSchedule | None:
+    def blob_schedule(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> BlobSchedule | None:
         """Return the blob schedule up until the given fork."""
         pass
 
@@ -520,13 +574,17 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def tx_types(cls, *, block_number: int = 0, timestamp: int = 0) -> List[int]:
+    def tx_types(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[int]:
         """Return list of the transaction types supported by the fork."""
         pass
 
     @classmethod
     @abstractmethod
-    def contract_creating_tx_types(cls, *, block_number: int = 0, timestamp: int = 0) -> List[int]:
+    def contract_creating_tx_types(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[int]:
         """
         Return list of the transaction types supported by the fork that can
         create contracts.
@@ -535,7 +593,9 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def transaction_gas_limit_cap(cls, *, block_number: int = 0, timestamp: int = 0) -> int | None:
+    def transaction_gas_limit_cap(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int | None:
         """
         Return the transaction gas limit cap, or None if no limit is imposed.
         """
@@ -543,7 +603,9 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def block_rlp_size_limit(cls, *, block_number: int = 0, timestamp: int = 0) -> int | None:
+    def block_rlp_size_limit(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int | None:
         """
         Return the maximum RLP size of a block in bytes, or None if no limit is
         imposed.
@@ -552,20 +614,26 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def precompiles(cls, *, block_number: int = 0, timestamp: int = 0) -> List[Address]:
+    def precompiles(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Address]:
         """Return list pre-compiles supported by the fork."""
         pass
 
     @classmethod
     @abstractmethod
-    def system_contracts(cls, *, block_number: int = 0, timestamp: int = 0) -> List[Address]:
+    def system_contracts(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Address]:
         """Return list system-contracts supported by the fork."""
         pass
 
     @classmethod
     @prefer_transition_to_method
     @abstractmethod
-    def pre_allocation(cls, *, block_number: int = 0, timestamp: int = 0) -> Mapping:
+    def pre_allocation(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Mapping:
         """
         Return required pre-allocation of accounts for any kind of test.
 
@@ -578,7 +646,9 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     @classmethod
     @prefer_transition_to_method
     @abstractmethod
-    def pre_allocation_blockchain(cls, *, block_number: int = 0, timestamp: int = 0) -> Mapping:
+    def pre_allocation_blockchain(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Mapping:
         """
         Return required pre-allocation of accounts for any blockchain tests.
 
@@ -602,7 +672,9 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def engine_new_payload_blob_hashes(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def engine_new_payload_blob_hashes(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """
         Return true if the engine api version requires new payload calls to
         include blob hashes.
@@ -611,7 +683,9 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def engine_new_payload_beacon_root(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def engine_new_payload_beacon_root(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """
         Return true if the engine api version requires new payload calls to
         include a parent beacon block root.
@@ -620,7 +694,9 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def engine_new_payload_requests(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+    def engine_new_payload_requests(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """
         Return true if the engine api version requires new payload calls to
         include requests.
@@ -706,13 +782,17 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     # EVM information abstract methods
     @classmethod
     @abstractmethod
-    def evm_code_types(cls, *, block_number: int = 0, timestamp: int = 0) -> List[EVMCodeType]:
+    def evm_code_types(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[EVMCodeType]:
         """Return list of EVM code types supported by the fork."""
         pass
 
     @classmethod
     @abstractmethod
-    def max_code_size(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_code_size(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """
         Return the maximum code size allowed to be deployed in a contract
         creation.
@@ -721,13 +801,17 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def max_stack_height(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_stack_height(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return the maximum stack height allowed in the EVM stack."""
         pass
 
     @classmethod
     @abstractmethod
-    def max_initcode_size(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_initcode_size(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """
         Return the maximum initcode size allowed to be used in a contract
         creation.
@@ -747,7 +831,9 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def valid_opcodes(cls, *, block_number: int = 0, timestamp: int = 0) -> List[Opcodes]:
+    def valid_opcodes(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Opcodes]:
         """Return list of Opcodes that are valid to work on this fork."""
         pass
 
@@ -764,7 +850,9 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def max_request_type(cls, *, block_number: int = 0, timestamp: int = 0) -> int:
+    def max_request_type(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
         """Return max request type supported by the fork."""
         pass
 
@@ -775,7 +863,9 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
         return cls.__name__
 
     @classmethod
-    def fork_at(cls, *, block_number: int = 0, timestamp: int = 0) -> Type["BaseFork"]:
+    def fork_at(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Type["BaseFork"]:
         """
         Return fork at the given block number and timestamp. Useful only for
         transition forks, and it's a no-op for normal forks.
@@ -785,7 +875,9 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def transition_tool_name(cls, *, block_number: int = 0, timestamp: int = 0) -> str:
+    def transition_tool_name(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> str:
         """
         Return fork name as it's meant to be passed to the transition tool for
         execution.

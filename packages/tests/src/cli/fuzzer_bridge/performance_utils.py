@@ -23,7 +23,9 @@ class FastJSONHandler:
         """Load JSON using memory-mapped file for better I/O performance."""
         with open(file_path, "r+b") as f:
             # Memory-map the file
-            with mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mmapped_file:
+            with mmap.mmap(
+                f.fileno(), 0, access=mmap.ACCESS_READ
+            ) as mmapped_file:
                 # Read the entire content at once
                 content = mmapped_file.read()
                 if HAS_ORJSON:
@@ -33,7 +35,9 @@ class FastJSONHandler:
                     return json.loads(content.decode("utf-8"))
 
     @staticmethod
-    def dump_json_fast(data: Dict[str, Any], file_path: Path, pretty: bool = False) -> None:
+    def dump_json_fast(
+        data: Dict[str, Any], file_path: Path, pretty: bool = False
+    ) -> None:
         """Dump JSON using optimized serialization."""
         if HAS_ORJSON:
             # Use orjson for faster serialization
@@ -64,7 +68,8 @@ class BatchProcessor:
         ideal_batches_per_worker = 4
 
         ideal_batch_size = max(
-            min_batch_size, file_count // (num_workers * ideal_batches_per_worker)
+            min_batch_size,
+            file_count // (num_workers * ideal_batches_per_worker),
         )
 
         # Adjust for very large file counts

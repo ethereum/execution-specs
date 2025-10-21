@@ -48,16 +48,22 @@ def apply_name_filters(input_string: str) -> str:
         "vm": "VM",
     }
     # adding these is the expensive part
-    opcode_replacements = {str(opcode): str(opcode) for opcode in Opcodes if str(opcode) != "GAS"}
+    opcode_replacements = {
+        str(opcode): str(opcode) for opcode in Opcodes if str(opcode) != "GAS"
+    }
     all_replacements = {**word_replacements, **opcode_replacements}
     for word, replacement in all_replacements.items():
-        input_string = re.sub(rf"(?i)\b{re.escape(word)}\b", replacement, input_string)
+        input_string = re.sub(
+            rf"(?i)\b{re.escape(word)}\b", replacement, input_string
+        )
 
     regex_patterns = [
         (r"eip-?([1-9]{1,5})", r"EIP-\1"),  # Matches "eip-123" or "eip123"
     ]
     for pattern, replacement in regex_patterns:
-        input_string = re.sub(pattern, replacement, input_string, flags=re.IGNORECASE)
+        input_string = re.sub(
+            pattern, replacement, input_string, flags=re.IGNORECASE
+        )
 
     return input_string
 
@@ -132,7 +138,9 @@ class PagePropsBase:
         path = top_level_nav_entry / Path(*self.path.parts[1:]).with_suffix("")
         return nav_path_to_sanitized_str_tuple(path)
 
-    def write_page(self, file_opener: FileOpener, jinja2_env: Environment) -> None:
+    def write_page(
+        self, file_opener: FileOpener, jinja2_env: Environment
+    ) -> None:
         """Write the page to the target directory."""
         template = jinja2_env.get_template(self.template)
         rendered_content = template.render(**asdict(self))
@@ -158,7 +166,9 @@ class EipChecklistPageProps(PagePropsBase):
         """Get the target output file for this page."""
         return self.path
 
-    def write_page(self, file_opener: FileOpener, jinja2_env: Environment) -> None:
+    def write_page(
+        self, file_opener: FileOpener, jinja2_env: Environment
+    ) -> None:
         """Write the page to the target directory."""
         del jinja2_env
         with file_opener.open(self.target_output_file, "w") as destination:
@@ -206,10 +216,14 @@ class FunctionPageProps(PagePropsBase):
 
     def nav_entry(self, top_level_nav_entry: str) -> tuple:
         """Get the mkdocs navigation entry for this page."""
-        nav_path_prefix = super().nav_entry(top_level_nav_entry)  # already sanitized
+        nav_path_prefix = super().nav_entry(
+            top_level_nav_entry
+        )  # already sanitized
         return (*nav_path_prefix, f"<code>{self.title}</code>")
 
-    def write_page(self, file_opener: FileOpener, jinja2_env: Environment) -> None:
+    def write_page(
+        self, file_opener: FileOpener, jinja2_env: Environment
+    ) -> None:
         """
         Test functions also get a static HTML page with parametrized test
         cases.
@@ -297,7 +311,9 @@ class MarkdownPageProps(PagePropsBase):
         """Get the target output file for this page."""
         return self.path
 
-    def write_page(self, file_opener: FileOpener, jinja2_env: Environment) -> None:
+    def write_page(
+        self, file_opener: FileOpener, jinja2_env: Environment
+    ) -> None:
         """
         Write the page to the target directory.
 

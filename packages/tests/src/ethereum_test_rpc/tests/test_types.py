@@ -9,7 +9,11 @@ from ethereum_test_rpc import EthConfigResponse
 eth_config_dict: Dict[str, Any] = {
     "current": {
         "activationTime": 0,
-        "blobSchedule": {"baseFeeUpdateFraction": 3338477, "max": 6, "target": 3},
+        "blobSchedule": {
+            "baseFeeUpdateFraction": 3338477,
+            "max": 6,
+            "target": 3,
+        },
         "chainId": "0x88bb0",
         "forkId": "0xbef71d30",
         "precompiles": {
@@ -24,11 +28,17 @@ eth_config_dict: Dict[str, Any] = {
             "RIPEMD160": "0x0000000000000000000000000000000000000003",
             "SHA256": "0x0000000000000000000000000000000000000002",
         },
-        "systemContracts": {"BEACON_ROOTS_ADDRESS": "0x000f3df6d732807ef1319fb7b8bb8522d0beac02"},
+        "systemContracts": {
+            "BEACON_ROOTS_ADDRESS": "0x000f3df6d732807ef1319fb7b8bb8522d0beac02"
+        },
     },
     "next": {
         "activationTime": 1742999832,
-        "blobSchedule": {"baseFeeUpdateFraction": 5007716, "max": 9, "target": 6},
+        "blobSchedule": {
+            "baseFeeUpdateFraction": 5007716,
+            "max": 9,
+            "target": 6,
+        },
         "chainId": "0x88bb0",
         "forkId": "0x0929e24e",
         "precompiles": {
@@ -55,14 +65,24 @@ eth_config_dict: Dict[str, Any] = {
             "CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS": (
                 "0x0000bbddc7ce488642fb579f8b00f3a590007251"
             ),
-            "DEPOSIT_CONTRACT_ADDRESS": ("0x00000000219ab540356cbb839cbe05303d7705fa"),
-            "HISTORY_STORAGE_ADDRESS": ("0x0000f90827f1c53a10cb7a02335b175320002935"),
-            "WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS": ("0x00000961ef480eb55e80d19ad83579a64c007002"),
+            "DEPOSIT_CONTRACT_ADDRESS": (
+                "0x00000000219ab540356cbb839cbe05303d7705fa"
+            ),
+            "HISTORY_STORAGE_ADDRESS": (
+                "0x0000f90827f1c53a10cb7a02335b175320002935"
+            ),
+            "WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS": (
+                "0x00000961ef480eb55e80d19ad83579a64c007002"
+            ),
         },
     },
     "last": {
         "activationTime": 1742999832,
-        "blobSchedule": {"baseFeeUpdateFraction": 5007716, "max": 9, "target": 6},
+        "blobSchedule": {
+            "baseFeeUpdateFraction": 5007716,
+            "max": 9,
+            "target": 6,
+        },
         "chainId": "0x88bb0",
         "forkId": "0x0929e24e",
         "precompiles": {
@@ -89,9 +109,15 @@ eth_config_dict: Dict[str, Any] = {
             "CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS": (
                 "0x0000bbddc7ce488642fb579f8b00f3a590007251"
             ),
-            "DEPOSIT_CONTRACT_ADDRESS": ("0x00000000219ab540356cbb839cbe05303d7705fa"),
-            "HISTORY_STORAGE_ADDRESS": ("0x0000f90827f1c53a10cb7a02335b175320002935"),
-            "WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS": ("0x00000961ef480eb55e80d19ad83579a64c007002"),
+            "DEPOSIT_CONTRACT_ADDRESS": (
+                "0x00000000219ab540356cbb839cbe05303d7705fa"
+            ),
+            "HISTORY_STORAGE_ADDRESS": (
+                "0x0000f90827f1c53a10cb7a02335b175320002935"
+            ),
+            "WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS": (
+                "0x00000961ef480eb55e80d19ad83579a64c007002"
+            ),
         },
     },
 }
@@ -121,12 +147,16 @@ def test_fork_config_get_hash(eth_config_response: EthConfigResponse) -> None:
         assert str(config.fork_id) == expected["forkId"]
 
         # Precompiles
-        assert set(config.precompiles.keys()) == set(expected["precompiles"].keys())
+        assert set(config.precompiles.keys()) == set(
+            expected["precompiles"].keys()
+        )
         for k, v in expected["precompiles"].items():
             assert config.precompiles[k] == v
 
         # System contracts
-        assert set(config.system_contracts.keys()) == set(expected["systemContracts"].keys())
+        assert set(config.system_contracts.keys()) == set(
+            expected["systemContracts"].keys()
+        )
         for k, v in expected["systemContracts"].items():
             assert config.system_contracts[k] == v
 
@@ -134,9 +164,13 @@ def test_fork_config_get_hash(eth_config_response: EthConfigResponse) -> None:
         if expected.get("blobSchedule") is not None:
             assert config.blob_schedule is not None
             assert (
-                config.blob_schedule.target_blobs_per_block == expected["blobSchedule"]["target"]
+                config.blob_schedule.target_blobs_per_block
+                == expected["blobSchedule"]["target"]
             )
-            assert config.blob_schedule.max_blobs_per_block == expected["blobSchedule"]["max"]
+            assert (
+                config.blob_schedule.max_blobs_per_block
+                == expected["blobSchedule"]["max"]
+            )
             assert (
                 config.blob_schedule.base_fee_update_fraction
                 == expected["blobSchedule"]["baseFeeUpdateFraction"]

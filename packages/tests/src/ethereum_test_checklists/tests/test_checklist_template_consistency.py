@@ -102,17 +102,28 @@ def test_checklist_template_consistency() -> None:
 
 def test_checklist_template_exists() -> None:
     """Test that the checklist template file exists."""
-    assert TEMPLATE_PATH.exists(), f"Checklist template not found at {TEMPLATE_PATH}"
+    assert TEMPLATE_PATH.exists(), (
+        f"Checklist template not found at {TEMPLATE_PATH}"
+    )
 
 
 def test_eip_checklist_class_structure() -> None:
     """Test that the EIPChecklist class has expected structure."""
-    assert hasattr(EIPChecklist, "General"), "EIPChecklist should have General class"
-    assert hasattr(EIPChecklist, "Opcode"), "EIPChecklist should have Opcode class"
-    assert hasattr(EIPChecklist, "Precompile"), "EIPChecklist should have Precompile class"
+    assert hasattr(EIPChecklist, "General"), (
+        "EIPChecklist should have General class"
+    )
+    assert hasattr(EIPChecklist, "Opcode"), (
+        "EIPChecklist should have Opcode class"
+    )
+    assert hasattr(EIPChecklist, "Precompile"), (
+        "EIPChecklist should have Precompile class"
+    )
 
     # Test that the metaclass is working correctly
-    assert str(EIPChecklist.General.CodeCoverage.Eels) == "general/code_coverage/eels"
+    assert (
+        str(EIPChecklist.General.CodeCoverage.Eels)
+        == "general/code_coverage/eels"
+    )
     assert (
         str(EIPChecklist.Opcode.Test.MemExp.ZeroBytesZeroOffset)
         == "opcode/test/mem_exp/zero_bytes_zero_offset"
@@ -173,7 +184,9 @@ def test_eip_checklist_pytest_param_usage() -> None:
     """Test that EIPChecklist works correctly in pytest.param marks."""
     # Test that parentheses form works in pytest.param
     param_with_parens = pytest.param(
-        "test_value", marks=EIPChecklist.Opcode.Test.GasUsage.Normal(), id="gas_test"
+        "test_value",
+        marks=EIPChecklist.Opcode.Test.GasUsage.Normal(),
+        id="gas_test",
     )
 
     # Verify the parameter was created successfully
@@ -186,13 +199,18 @@ def test_eip_checklist_pytest_param_usage() -> None:
     # Test that multiple marks work
     param_multiple_marks = pytest.param(
         "test_value",
-        marks=[EIPChecklist.Opcode.Test.StackComplexOperations(), pytest.mark.slow],  # type: ignore[list-item]
+        marks=[
+            EIPChecklist.Opcode.Test.StackComplexOperations(),
+            pytest.mark.slow,
+        ],  # type: ignore[list-item]
         id="complex_test",
     )
 
     # Verify multiple marks
     assert len(param_multiple_marks.marks) == 2
-    eip_mark = next(m for m in param_multiple_marks.marks if m.name == "eip_checklist")
+    eip_mark = next(
+        m for m in param_multiple_marks.marks if m.name == "eip_checklist"
+    )
     assert eip_mark.args == ("opcode/test/stack_complex_operations",)
 
     # Test that non-parentheses form fails gracefully with pytest.param

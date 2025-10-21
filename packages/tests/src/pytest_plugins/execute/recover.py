@@ -8,7 +8,9 @@ from ethereum_test_types import EOA
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Add command-line options to pytest."""
-    recover_group = parser.getgroup("execute", "Arguments defining fund recovery behavior.")
+    recover_group = parser.getgroup(
+        "execute", "Arguments defining fund recovery behavior."
+    )
     recover_group.addoption(
         "--start-eoa-index",
         action="store",
@@ -48,9 +50,13 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     max_index = metafunc.config.option.max_index
     start_eoa_index = metafunc.config.option.start_eoa_index
 
-    print(f"Generating {max_index} test cases starting from index {start_eoa_index}")
+    print(
+        f"Generating {max_index} test cases starting from index {start_eoa_index}"
+    )
 
-    indexes_keys = [(index, EOA(key=start_eoa_index + index)) for index in range(max_index)]
+    indexes_keys = [
+        (index, EOA(key=start_eoa_index + index)) for index in range(max_index)
+    ]
 
     metafunc.parametrize(
         ["index", "eoa"],
