@@ -17,7 +17,7 @@ from pydantic import (
     model_serializer,
     model_validator,
 )
-from trie import HexaryTrie  # type: ignore[import-untyped,unused-ignore]
+from trie import HexaryTrie  # type: ignore[import-untyped, unused-ignore]
 
 from ethereum_test_base_types import (
     AccessList,
@@ -172,7 +172,7 @@ class TransactionGeneric(BaseModel, Generic[NumberBoundTypeVar]):
     """
 
     ty: NumberBoundTypeVar = Field(0, alias="type")  # type: ignore
-    chain_id: NumberBoundTypeVar = Field( # type: ignore[assignment]
+    chain_id: NumberBoundTypeVar = Field(  # type: ignore[assignment, unused-ignore]
         default_factory=lambda: ChainConfigDefaults.chain_id, validate_default=True
     )
     nonce: NumberBoundTypeVar = Field(0)  # type: ignore

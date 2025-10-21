@@ -386,6 +386,8 @@ exclude = [
     "^\\.tox/",
     "^\\.venv/",
     "^\\.vscode/",
+    "^build/",
+    ".*/build/",
     "^fixtures/",
     "^logs/",
     "^site/",
