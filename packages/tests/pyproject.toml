@@ -126,10 +126,7 @@ ethereum_test_forks = ["forks/contracts/*.bin"]
 "ethereum_test_types" = ["kzg_trusted_setup.txt"]
 
 [tool.ruff]
-line-length = 99
-
-[tool.ruff.lint.per-file-ignores]
-"tests/*" = ["ARG001"] # TODO: ethereum/execution-spec-tests#2188
+line-length = 79
 
 [tool.codespell]
 skip = ".venv,__pycache__,.git,build,dist,*.pyc,*.lock"

@@ -343,6 +343,7 @@ ignore = [
 "src/ethereum_spec_tools/evm_tools/t8n/evm_trace.py" = [
     "N815"          # The traces must use camel case in JSON property names
 ]
+"tests/*" = ["ARG001"]
 
 [tool.codespell]
 builtin = "clear,code,usage"    # Built-in dictionaries to use
