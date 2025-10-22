@@ -8,7 +8,7 @@ Tests for ModExp gas cost increase in
 from typing import Dict, Generator
 
 import pytest
-from ethereum_test_checklists import EIPChecklist
+from ethereum_execution_tests.checklists import EIPChecklist
 from ethereum_execution_tests.forks import Fork, Osaka
 from ethereum_execution_tests.tools import (
     Alloc,

@@ -3,7 +3,7 @@ Tests benchmark worst-case opcode scenarios.
 """
 
 import pytest
-from ethereum_test_benchmark.benchmark_code_generator import JumpLoopGenerator
+from ethereum_execution_tests.benchmark.benchmark_code_generator import JumpLoopGenerator
 from ethereum_execution_tests.tools import (
     BenchmarkTestFiller,
     Bytecode,

@@ -5,7 +5,7 @@ Test [EIP-7823: Set upper bounds for MODEXP](https://eips.ethereum.org/EIPS/eip-
 from typing import Dict
 
 import pytest
-from ethereum_test_checklists import EIPChecklist
+from ethereum_execution_tests.checklists import EIPChecklist
 from ethereum_execution_tests.forks import Fork
 from ethereum_execution_tests.tools import (
     Account,

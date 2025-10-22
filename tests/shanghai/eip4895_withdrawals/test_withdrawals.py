@@ -6,7 +6,7 @@ from enum import Enum, unique
 from typing import Dict, List, Mapping
 
 import pytest
-from ethereum_clis import TransitionTool
+from ethereum_execution_tests.client_clis import TransitionTool
 from ethereum_execution_tests.forks import Cancun, Fork
 from ethereum_execution_tests.tools import (
     EOA,

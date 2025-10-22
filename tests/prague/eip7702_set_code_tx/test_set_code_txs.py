@@ -12,7 +12,7 @@ from typing import List
 
 import pytest
 from ethereum_execution_tests.base_types import HexNumber
-from ethereum_test_checklists import EIPChecklist
+from ethereum_execution_tests.checklists import EIPChecklist
 from ethereum_execution_tests.forks import Fork
 from ethereum_execution_tests.tools import (
     AccessList,
