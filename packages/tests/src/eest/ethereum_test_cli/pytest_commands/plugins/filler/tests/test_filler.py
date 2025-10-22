@@ -43,7 +43,7 @@ test_module_paris = textwrap.dedent(
     """\
     import pytest
 
-    from ethereum_test_tools import Account, Environment, TestAddress, Transaction
+    from eest.tools import Account, Environment, TestAddress, Transaction
 
     @pytest.mark.valid_from("Paris")
     @pytest.mark.valid_until("Shanghai")
@@ -64,7 +64,7 @@ test_module_shanghai = textwrap.dedent(
     """\
     import pytest
 
-    from ethereum_test_tools import Account, Environment, TestAddress, Transaction
+    from eest.tools import Account, Environment, TestAddress, Transaction
 
     @pytest.mark.valid_from("Paris")
     @pytest.mark.valid_until("Shanghai")
@@ -474,7 +474,7 @@ def test_fixture_output_based_on_command_line_args(
     test_module.write(test_module_shanghai)
 
     testdir.copy_example(
-        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+        name="src/eest/ethereum_test_cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
     args.append("-c")
     args.append("pytest-fill.ini")
@@ -563,7 +563,7 @@ test_module_environment_variables = textwrap.dedent(
     """\
     import pytest
 
-    from ethereum_test_tools import Account, Environment, Transaction
+    from eest.tools import Account, Environment, Transaction
 
     @pytest.mark.parametrize("block_gas_limit", [Environment().gas_limit])
     @pytest.mark.valid_at("Cancun")
@@ -624,7 +624,7 @@ def test_fill_variables(
     )
 
     testdir.copy_example(
-        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+        name="src/eest/ethereum_test_cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
     args.append("-c")
     args.append("pytest-fill.ini")

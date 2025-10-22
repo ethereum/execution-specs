@@ -12,7 +12,7 @@ def test_slow_marker_gets_pre_alloc_group(pytester: Any) -> None:
     test_module = textwrap.dedent(
         """\
         import pytest
-        from ethereum_test_tools import Alloc, StateTestFiller, Transaction
+        from eest.tools import Alloc, StateTestFiller, Transaction
 
         @pytest.mark.slow
         @pytest.mark.valid_from("Cancun")
@@ -33,7 +33,7 @@ def test_slow_marker_gets_pre_alloc_group(pytester: Any) -> None:
 
     # Copy the pytest configuration
     pytester.copy_example(
-        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+        name="src/eest/ethereum_test_cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
 
     # Run pytest with our plugin and check collection
@@ -57,7 +57,7 @@ def test_slow_with_benchmark_no_pre_alloc(pytester: Any) -> None:
     test_module = textwrap.dedent(
         """\
         import pytest
-        from ethereum_test_tools import Alloc, StateTestFiller, Transaction
+        from eest.tools import Alloc, StateTestFiller, Transaction
 
         @pytest.mark.slow
         @pytest.mark.benchmark
@@ -78,7 +78,7 @@ def test_slow_with_benchmark_no_pre_alloc(pytester: Any) -> None:
     test_file.write_text(test_module)
 
     pytester.copy_example(
-        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+        name="src/eest/ethereum_test_cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
 
     # Run with collection only to verify test is collected
@@ -102,7 +102,7 @@ def test_slow_with_existing_pre_alloc_unchanged(pytester: Any) -> None:
     test_module = textwrap.dedent(
         """\
         import pytest
-        from ethereum_test_tools import Alloc, StateTestFiller, Transaction
+        from eest.tools import Alloc, StateTestFiller, Transaction
 
         @pytest.mark.slow
         @pytest.mark.pre_alloc_group("custom_group", reason="Custom reason")
@@ -123,7 +123,7 @@ def test_slow_with_existing_pre_alloc_unchanged(pytester: Any) -> None:
     test_file.write_text(test_module)
 
     pytester.copy_example(
-        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+        name="src/eest/ethereum_test_cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
 
     # Run with collection only to verify test is collected
@@ -145,7 +145,7 @@ def test_non_slow_no_pre_alloc(pytester: Any) -> None:
     test_module = textwrap.dedent(
         """\
         import pytest
-        from ethereum_test_tools import Alloc, StateTestFiller, Transaction
+        from eest.tools import Alloc, StateTestFiller, Transaction
 
         @pytest.mark.valid_from("Cancun")
         def test_normal_speed(state_test: StateTestFiller, pre: Alloc) -> None:
@@ -164,7 +164,7 @@ def test_non_slow_no_pre_alloc(pytester: Any) -> None:
     test_file.write_text(test_module)
 
     pytester.copy_example(
-        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+        name="src/eest/ethereum_test_cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
 
     # Run with collection only to verify test is collected
@@ -188,7 +188,7 @@ def test_integration_with_fill(pytester: Any) -> None:
     test_module = textwrap.dedent(
         """\
         import pytest
-        from ethereum_test_tools import (
+        from eest.tools import (
             Account,
             Alloc,
             StateTestFiller,
@@ -217,7 +217,7 @@ def test_integration_with_fill(pytester: Any) -> None:
 
     # Copy pytest configuration
     pytester.copy_example(
-        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+        name="src/eest/ethereum_test_cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
 
     # Run fill command

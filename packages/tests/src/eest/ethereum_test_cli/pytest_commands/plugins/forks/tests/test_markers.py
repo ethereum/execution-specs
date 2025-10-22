@@ -213,7 +213,7 @@ def test_fork_markers(
     """
     pytester.makepyfile(test_function)
     pytester.copy_example(
-        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+        name="src/eest/ethereum_test_cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
     result = pytester.runpytest(
         "-c",

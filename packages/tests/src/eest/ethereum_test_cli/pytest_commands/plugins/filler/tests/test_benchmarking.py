@@ -9,7 +9,7 @@ test_module_dummy = textwrap.dedent(
     """\
     import pytest
 
-    from ethereum_test_tools import Environment
+    from eest.tools import Environment
 
     @pytest.mark.valid_at("Istanbul")
     def test_dummy_benchmark_test(state_test, gas_benchmark_value) -> None:
@@ -22,7 +22,7 @@ test_module_without_fixture = textwrap.dedent(
     """\
     import pytest
 
-    from ethereum_test_tools import Environment
+    from eest.tools import Environment
 
     @pytest.mark.valid_at("Istanbul")
     def test_dummy_no_benchmark_test(state_test) -> None:
@@ -54,7 +54,7 @@ def setup_test_directory_structure(
     test_module.write_text(test_content)
 
     pytester.copy_example(
-        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+        name="src/eest/ethereum_test_cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
 
     return test_module
@@ -63,7 +63,7 @@ def setup_test_directory_structure(
 def test_gas_benchmark_option_added(pytester: pytest.Pytester) -> None:
     """Test that the --gas-benchmark-values option is properly added."""
     pytester.copy_example(
-        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+        name="src/eest/ethereum_test_cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
 
     # Command: pytest -p pytest_plugins.filler.benchmarking --help

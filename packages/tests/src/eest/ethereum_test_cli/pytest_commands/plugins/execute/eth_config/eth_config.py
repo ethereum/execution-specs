@@ -67,7 +67,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         type=Path,
         default=None,
         help="Path to the yml file that contains custom network configuration "
-        "(e.g. ./src/pytest_plugins/execute/eth_config/networks.yml).\nIf no config is provided "
+        "(e.g. ./src/eest/ethereum_test_cli/pytest_commands/plugins/execute/eth_config/networks.yml).\nIf no config is provided "
         "then majority mode will be used for devnet testing (clients that have a different "
         "response than the majority of clients will fail the test)",
     )

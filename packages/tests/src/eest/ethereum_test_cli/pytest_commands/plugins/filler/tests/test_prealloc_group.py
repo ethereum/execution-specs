@@ -233,14 +233,14 @@ class StateTest(FormattedTest):  # noqa: D101
         """\
         import pytest
 
-        from ethereum_test_tools import (
+        from eest.tools import (
             Account,
             Alloc,
             Environment,
             StateTestFiller,
             Transaction
         )
-        from ethereum_test_vm import Opcodes as Op
+        from eest.vm import Opcodes as Op
 
         @pytest.mark.valid_from("Istanbul")
         def test_chainid(state_test: StateTestFiller, pre: Alloc) -> None:
@@ -269,7 +269,7 @@ class BlockchainTest(FormattedTest):  # noqa: D101
         """\
         import pytest
 
-        from ethereum_test_tools import (
+        from eest.tools import (
             Account,
             Alloc,
             Block,
@@ -277,7 +277,7 @@ class BlockchainTest(FormattedTest):  # noqa: D101
             Environment,
             Transaction
         )
-        from ethereum_test_vm import Opcodes as Op
+        from eest.vm import Opcodes as Op
 
         @pytest.mark.valid_from("Istanbul")
         def test_chainid_blockchain(blockchain_test: BlockchainTestFiller, pre: Alloc) -> None:
@@ -430,7 +430,7 @@ def test_pre_alloc_grouping_by_test_type(
         test_module = tests_dir / f"test_{i}.py"
         test_module.write_text(test.format())
     pytester.copy_example(
-        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+        name="src/eest/ethereum_test_cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
     args = [
         "-c",

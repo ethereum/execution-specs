@@ -122,7 +122,7 @@ class TestFillPytester:
 
         def _run_fill(*args: str) -> RunResult:
             pytester.copy_example(
-                name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+                name="src/eest/ethereum_test_cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
             )
             args = (
                 "-c",

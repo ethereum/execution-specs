@@ -6,7 +6,7 @@ from typing import Any
 test_module_with_verify_sync = textwrap.dedent(
     """\
     import pytest
-    from ethereum_test_tools import (
+    from eest.tools import (
         Account,
         BlockException,
         Block,
@@ -107,7 +107,7 @@ def test_verify_sync_marker(pytester: Any) -> None:
     test_module.write_text(test_module_with_verify_sync)
 
     pytester.copy_example(
-        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+        name="src/eest/ethereum_test_cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
 
     # Add the test directory to the arguments

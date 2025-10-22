@@ -34,12 +34,12 @@ def minimal_test_path(pytester: pytest.Pytester) -> Path:
 def consume_test_case_ids() -> list[str]:
     """Hard-coded expected output of `consume direct --collectonly -q`."""
     return [
-        f"src/pytest_plugins/consume/direct/test_via_direct.py::test_fixture[CollectOnlyFixtureConsumer-tests/{MINIMAL_TEST_FILE_NAME}::test_function[fork_Cancun-blockchain_test_from_state_test]]",
-        f"src/pytest_plugins/consume/direct/test_via_direct.py::test_fixture[CollectOnlyFixtureConsumer-tests/{MINIMAL_TEST_FILE_NAME}::test_function[fork_Paris-blockchain_test_from_state_test]]",
-        f"src/pytest_plugins/consume/direct/test_via_direct.py::test_fixture[CollectOnlyFixtureConsumer-tests/{MINIMAL_TEST_FILE_NAME}::test_function[fork_Shanghai-blockchain_test_from_state_test]]",
-        f"src/pytest_plugins/consume/direct/test_via_direct.py::test_fixture[CollectOnlyFixtureConsumer-tests/{MINIMAL_TEST_FILE_NAME}::test_function[fork_Cancun-state_test]]",
-        f"src/pytest_plugins/consume/direct/test_via_direct.py::test_fixture[CollectOnlyFixtureConsumer-tests/{MINIMAL_TEST_FILE_NAME}::test_function[fork_Paris-state_test]]",
-        f"src/pytest_plugins/consume/direct/test_via_direct.py::test_fixture[CollectOnlyFixtureConsumer-tests/{MINIMAL_TEST_FILE_NAME}::test_function[fork_Shanghai-state_test]]",
+        f"src/eest/ethereum_test_cli/pytest_commands/plugins/consume/direct/test_via_direct.py::test_fixture[CollectOnlyFixtureConsumer-tests/{MINIMAL_TEST_FILE_NAME}::test_function[fork_Cancun-blockchain_test_from_state_test]]",
+        f"src/eest/ethereum_test_cli/pytest_commands/plugins/consume/direct/test_via_direct.py::test_fixture[CollectOnlyFixtureConsumer-tests/{MINIMAL_TEST_FILE_NAME}::test_function[fork_Paris-blockchain_test_from_state_test]]",
+        f"src/eest/ethereum_test_cli/pytest_commands/plugins/consume/direct/test_via_direct.py::test_fixture[CollectOnlyFixtureConsumer-tests/{MINIMAL_TEST_FILE_NAME}::test_function[fork_Shanghai-blockchain_test_from_state_test]]",
+        f"src/eest/ethereum_test_cli/pytest_commands/plugins/consume/direct/test_via_direct.py::test_fixture[CollectOnlyFixtureConsumer-tests/{MINIMAL_TEST_FILE_NAME}::test_function[fork_Cancun-state_test]]",
+        f"src/eest/ethereum_test_cli/pytest_commands/plugins/consume/direct/test_via_direct.py::test_fixture[CollectOnlyFixtureConsumer-tests/{MINIMAL_TEST_FILE_NAME}::test_function[fork_Paris-state_test]]",
+        f"src/eest/ethereum_test_cli/pytest_commands/plugins/consume/direct/test_via_direct.py::test_fixture[CollectOnlyFixtureConsumer-tests/{MINIMAL_TEST_FILE_NAME}::test_function[fork_Shanghai-state_test]]",
     ]
 
 
@@ -83,7 +83,7 @@ def fill_tests(
         meta_folder = fixtures_dir / ".meta"
         if not meta_folder.exists():
             pytester.copy_example(
-                name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+                name="src/eest/ethereum_test_cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
             )
             args = [
                 "-c",
@@ -144,7 +144,7 @@ def copy_consume_test_paths(pytester: Pytester) -> None:
 
 
 single_test_id = (
-    "src/pytest_plugins/consume/direct/"
+    "src/eest/ethereum_test_cli/pytest_commands/plugins/consume/direct/"
     "test_via_direct.py::test_fixture[CollectOnlyFixtureConsumer-tests/"
     f"{MINIMAL_TEST_FILE_NAME}::test_function[fork_Shanghai-state_test]]"
 )
@@ -199,9 +199,9 @@ def test_consume_simlimit_collectonly(
 ) -> None:
     """Test consume's --sim.limit argument in collect-only mode."""
     pytester.copy_example(
-        name="src/cli/pytest_commands/pytest_ini_files/pytest-consume.ini"
+        name="src/eest/ethereum_test_cli/pytest_commands/pytest_ini_files/pytest-consume.ini"
     )
-    consume_test_path = "src/pytest_plugins/consume/direct/test_via_direct.py"
+    consume_test_path = "src/eest/ethereum_test_cli/pytest_commands/plugins/consume/direct/test_via_direct.py"
     args = [
         "-c",
         "pytest-consume.ini",

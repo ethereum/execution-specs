@@ -148,7 +148,7 @@ def test_tx_type(
     with open(generated_py_file, "r") as f:
         pytester.makepyfile(f.read())
     pytester.copy_example(
-        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+        name="src/eest/ethereum_test_cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
 
     args = [

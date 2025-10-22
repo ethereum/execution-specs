@@ -20,7 +20,7 @@ def test_eip_checklist_collection(testdir: Any) -> None:
         textwrap.dedent(
             """
             import pytest
-            from ethereum_test_tools import StateTestFiller
+            from eest.tools import StateTestFiller
 
             from ethereum_test_checklists import EIPChecklist
 
@@ -57,7 +57,7 @@ def test_eip_checklist_collection(testdir: Any) -> None:
         textwrap.dedent(
             """
             import pytest
-            from ethereum_test_tools import StateTestFiller
+            from eest.tools import StateTestFiller
 
             REFERENCE_SPEC_GIT_PATH = "N/A"
             REFERENCE_SPEC_VERSION = "N/A"
@@ -80,7 +80,7 @@ def test_eip_checklist_collection(testdir: Any) -> None:
     )
     # Run pytest with checklist-only mode
     testdir.copy_example(
-        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+        name="src/eest/ethereum_test_cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
     result = testdir.runpytest(
         "-c",

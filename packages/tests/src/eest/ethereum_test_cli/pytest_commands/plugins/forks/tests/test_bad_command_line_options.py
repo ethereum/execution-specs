@@ -73,7 +73,7 @@ def test_bad_options(
         """
     )
     pytester.copy_example(
-        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+        name="src/eest/ethereum_test_cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
     result = pytester.runpytest("-c", "pytest-fill.ini", "-v", *options)
     assert result.ret == pytest.ExitCode.USAGE_ERROR

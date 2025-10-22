@@ -15,7 +15,7 @@ from eest.config import AppConfig
 
 from .test_context_providers import Provider
 
-template_loader = jinja2.PackageLoader("cli.gentest")
+template_loader = jinja2.PackageLoader("eest.ethereum_test_cli.gentest")
 template_env = jinja2.Environment(
     loader=template_loader, keep_trailing_newline=True
 )
@@ -82,7 +82,7 @@ def format_code(code: str) -> str:
             formatter_path = Path(sys.prefix) / "bin" / "ruff"
 
         # Call ruff to format the file
-        config_path = AppConfig().ROOT_DIR / "pyproject.toml"
+        config_path = AppConfig().ROOT_DIR.parent / "pyproject.toml"
 
         try:
             subprocess.run(

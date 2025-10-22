@@ -8,7 +8,7 @@ test_module_dummy = textwrap.dedent(
     """\
     import pytest
 
-    from ethereum_test_tools import Environment
+    from eest.tools import Environment
 
     @pytest.mark.valid_at("Istanbul")
     def test_dummy_collect_only_test(state_test) -> None:
@@ -28,7 +28,7 @@ def test_collect_only_output(pytester: pytest.Pytester) -> None:
     test_module.write_text(test_module_dummy)
 
     pytester.copy_example(
-        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+        name="src/eest/ethereum_test_cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
 
     result = pytester.runpytest(

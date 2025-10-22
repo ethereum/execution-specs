@@ -34,7 +34,7 @@ def test_no_options_no_validity_marker(pytester: pytest.Pytester) -> None:
         """
     )
     pytester.copy_example(
-        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+        name="src/eest/ethereum_test_cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
     result = pytester.runpytest("-c", "pytest-fill.ini", "-v")
     all_forks = get_deployed_forks()
@@ -94,7 +94,7 @@ def test_from_london_option_no_validity_marker(
         """
     )
     pytester.copy_example(
-        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+        name="src/eest/ethereum_test_cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
     result = pytester.runpytest("-c", "pytest-fill.ini", "-v", "--from", fork)
     all_forks = get_deployed_forks()
@@ -150,7 +150,7 @@ def test_from_london_until_shanghai_option_no_validity_marker(
         """
     )
     pytester.copy_example(
-        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+        name="src/eest/ethereum_test_cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
     result = pytester.runpytest(
         "-c",
@@ -218,7 +218,7 @@ def test_from_paris_until_paris_option_no_validity_marker(
         """
     )
     pytester.copy_example(
-        name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+        name="src/eest/ethereum_test_cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
     result = pytester.runpytest(
         "-c", "pytest-fill.ini", "-v", "--from", "paris", "--until", "paris"
