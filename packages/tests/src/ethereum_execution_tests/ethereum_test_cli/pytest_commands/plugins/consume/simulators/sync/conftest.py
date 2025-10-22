@@ -18,12 +18,12 @@ from ethereum_test_fixtures import BlockchainEngineSyncFixture
 from ethereum_test_rpc import AdminRPC, EngineRPC, EthRPC, NetRPC
 
 pytest_plugins = (
-    "pytest_plugins.pytest_hive.pytest_hive",
-    "pytest_plugins.consume.simulators.base",
-    "pytest_plugins.consume.simulators.single_test_client",
-    "pytest_plugins.consume.simulators.test_case_description",
-    "pytest_plugins.consume.simulators.timing_data",
-    "pytest_plugins.consume.simulators.exceptions",
+    "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.pytest_hive.pytest_hive",
+    "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.consume.simulators.base",
+    "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.consume.simulators.single_test_client",
+    "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.consume.simulators.test_case_description",
+    "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.consume.simulators.timing_data",
+    "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.consume.simulators.exceptions",
 )
 
 
