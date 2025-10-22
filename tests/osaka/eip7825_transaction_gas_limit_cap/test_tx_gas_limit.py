@@ -8,8 +8,8 @@ Cap](https://eips.ethereum.org/EIPS/eip-7825).
 from typing import List
 
 import pytest
-from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.tools import (
+from eest.forks import Fork
+from eest.tools import (
     AccessList,
     Account,
     Address,
@@ -26,8 +26,8 @@ from ethereum_execution_tests.tools import (
     TransactionException,
     add_kzg_version,
 )
-from ethereum_execution_tests.tools.utility.pytest import ParameterSet
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.tools.utility.pytest import ParameterSet
+from eest.vm import Opcodes as Op
 
 from .spec import Spec, ref_spec_7825
 

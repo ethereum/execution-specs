@@ -3,8 +3,8 @@
 from typing import Iterator, Tuple
 
 import pytest
-from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.tools import (
+from eest.forks import Fork
+from eest.tools import (
     Account,
     Address,
     Alloc,
@@ -12,7 +12,7 @@ from ethereum_execution_tests.tools import (
     StateTestFiller,
     Transaction,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 
 def precompile_addresses(fork: Fork) -> Iterator[Tuple[Address, bool]]:

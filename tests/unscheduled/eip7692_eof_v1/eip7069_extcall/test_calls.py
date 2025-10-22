@@ -4,12 +4,12 @@ import itertools
 from enum import Enum, auto, unique
 
 import pytest
-from ethereum_execution_tests.base_types import Address, HashInt
-from ethereum_execution_tests.test_types.eof.v1 import Container, Section
-from ethereum_execution_tests.test_types.helpers import (
+from eest.base_types import Address, HashInt
+from eest.test_types.eof.v1 import Container, Section
+from eest.test_types.helpers import (
     compute_eofcreate_address,
 )
-from ethereum_execution_tests.tools import (
+from eest.tools import (
     EOA,
     Account,
     Alloc,
@@ -18,8 +18,8 @@ from ethereum_execution_tests.tools import (
     Storage,
     Transaction,
 )
-from ethereum_execution_tests.vm import Bytecode, EVMCodeType
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Bytecode, EVMCodeType
+from eest.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 from .spec import (

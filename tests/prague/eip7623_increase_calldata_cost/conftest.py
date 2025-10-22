@@ -3,8 +3,8 @@
 from typing import List, Sequence
 
 import pytest
-from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.tools import (
+from eest.forks import Fork
+from eest.tools import (
     EOA,
     AccessList,
     Address,
@@ -17,7 +17,7 @@ from ethereum_execution_tests.tools import (
     TransactionException,
     add_kzg_version,
 )
-from ethereum_execution_tests.tools import Opcodes as Op
+from eest.tools import Opcodes as Op
 
 from ...cancun.eip4844_blobs.spec import Spec as EIP_4844_Spec
 from .helpers import DataTestType, find_floor_cost_threshold

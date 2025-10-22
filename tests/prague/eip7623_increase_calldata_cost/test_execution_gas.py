@@ -5,8 +5,8 @@ Test [EIP-7623: Increase calldata cost](https://eips.ethereum.org/EIPS/eip-7623)
 from typing import List
 
 import pytest
-from ethereum_execution_tests.forks import Fork, Prague
-from ethereum_execution_tests.tools import (
+from eest.forks import Fork, Prague
+from eest.tools import (
     AccessList,
     Address,
     Alloc,
@@ -16,7 +16,7 @@ from ethereum_execution_tests.tools import (
     Transaction,
     TransactionReceipt,
 )
-from ethereum_execution_tests.tools import Opcodes as Op
+from eest.tools import Opcodes as Op
 
 from .helpers import DataTestType
 from .spec import ref_spec_7623

@@ -8,10 +8,10 @@ Tests for ModExp gas cost increase in
 from typing import Dict, Generator
 
 import pytest
-from ethereum_execution_tests.checklists import EIPChecklist
-from ethereum_execution_tests.forks import Fork, Osaka
-from ethereum_execution_tests.test_types.helpers import compute_create_address
-from ethereum_execution_tests.tools import (
+from eest.checklists import EIPChecklist
+from eest.forks import Fork, Osaka
+from eest.test_types.helpers import compute_create_address
+from eest.tools import (
     Alloc,
     Environment,
     StateTestFiller,
@@ -19,7 +19,7 @@ from ethereum_execution_tests.tools import (
     Transaction,
     keccak256,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput
 from .helpers import vectors_from_file

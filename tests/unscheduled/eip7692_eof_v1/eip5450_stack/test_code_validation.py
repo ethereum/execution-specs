@@ -8,19 +8,19 @@ from enum import Enum, auto, unique
 from typing import Generator, Tuple, Union
 
 import pytest
-from ethereum_execution_tests.exceptions.exceptions import EOFException
-from ethereum_execution_tests.test_types.eof.v1 import Container, Section
-from ethereum_execution_tests.test_types.eof.v1.constants import (
+from eest.exceptions.exceptions import EOFException
+from eest.test_types.eof.v1 import Container, Section
+from eest.test_types.eof.v1.constants import (
     MAX_STACK_INCREASE_LIMIT,
     NON_RETURNING_SECTION,
 )
-from ethereum_execution_tests.tools import (
+from eest.tools import (
     Account,
     EOFStateTestFiller,
     EOFTestFiller,
 )
-from ethereum_execution_tests.vm import Bytecode, Opcode
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Bytecode, Opcode
+from eest.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 from ..eip3540_eof_v1.test_all_opcodes_in_container import valid_eof_opcodes

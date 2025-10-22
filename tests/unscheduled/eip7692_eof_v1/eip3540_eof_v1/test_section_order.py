@@ -4,17 +4,17 @@ from enum import Enum
 from typing import List
 
 import pytest
-from ethereum_execution_tests.exceptions.exceptions import (
+from eest.exceptions.exceptions import (
     EOFExceptionInstanceOrList,
 )
-from ethereum_execution_tests.test_types.eof.v1 import (
+from eest.test_types.eof.v1 import (
     AutoSection,
     Container,
     Section,
     SectionKind,
 )
-from ethereum_execution_tests.tools import EOFException, EOFTestFiller
-from ethereum_execution_tests.tools import Opcodes as Op
+from eest.tools import EOFException, EOFTestFiller
+from eest.tools import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 

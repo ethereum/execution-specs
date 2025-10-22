@@ -1,17 +1,17 @@
 """Test bad TXCREATE cases."""
 
 import pytest
-from ethereum_execution_tests.base_types.base_types import Address, Bytes
-from ethereum_execution_tests.test_types import TransactionReceipt
-from ethereum_execution_tests.test_types.eof.v1 import Container
-from ethereum_execution_tests.tools import (
+from eest.base_types.base_types import Address, Bytes
+from eest.test_types import TransactionReceipt
+from eest.test_types.eof.v1 import Container
+from eest.tools import (
     Account,
     Alloc,
     Environment,
     StateTestFiller,
     Transaction,
 )
-from ethereum_execution_tests.tools import Initcode as LegacyInitcode
+from eest.tools import Initcode as LegacyInitcode
 
 from ....prague.eip7702_set_code_tx.spec import Spec
 from .. import EOF_FORK_NAME

@@ -1,15 +1,15 @@
 """test `CALLDATACOPY` opcode."""
 
 import pytest
-from ethereum_execution_tests.forks import Byzantium, Fork
-from ethereum_execution_tests.tools import (
+from eest.forks import Byzantium, Fork
+from eest.tools import (
     Account,
     Alloc,
     Bytecode,
     StateTestFiller,
     Transaction,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 
 @pytest.mark.ported_from(

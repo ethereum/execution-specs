@@ -6,13 +6,13 @@ Test the BLS12_G2MUL precompile introduced in
 """
 
 import pytest
-from ethereum_execution_tests.tools import (
+from eest.tools import (
     Alloc,
     Environment,
     StateTestFiller,
     Transaction,
 )
-from ethereum_execution_tests.tools import Opcodes as Op
+from eest.tools import Opcodes as Op
 
 from .conftest import G2_POINTS_NOT_IN_SUBGROUP, G2_POINTS_NOT_ON_CURVE
 from .helpers import vectors_from_file

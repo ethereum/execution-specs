@@ -7,8 +7,8 @@ RETURNDATALOAD instruction tests
 from typing import cast
 
 import pytest
-from ethereum_execution_tests.test_types.eof.v1 import Container, Section
-from ethereum_execution_tests.tools import (
+from eest.test_types.eof.v1 import Container, Section
+from eest.tools import (
     Account,
     Alloc,
     Environment,
@@ -16,7 +16,7 @@ from ethereum_execution_tests.tools import (
     Storage,
     Transaction,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 from . import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION

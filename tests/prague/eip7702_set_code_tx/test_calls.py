@@ -4,7 +4,7 @@ import itertools
 from enum import Enum, auto, unique
 
 import pytest
-from ethereum_execution_tests.tools import (
+from eest.tools import (
     Account,
     Address,
     Alloc,
@@ -12,7 +12,7 @@ from ethereum_execution_tests.tools import (
     StateTestFiller,
     Transaction,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 pytestmark = pytest.mark.valid_from("Prague")
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7702.md"

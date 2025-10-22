@@ -1,18 +1,18 @@
 """Test execution of EOF code in the context of the operand stack height."""
 
 import pytest
-from ethereum_execution_tests.exceptions import EOFException
-from ethereum_execution_tests.test_types.eof.constants import (
+from eest.exceptions import EOFException
+from eest.test_types.eof.constants import (
     MAX_RUNTIME_STACK_HEIGHT,
 )
-from ethereum_execution_tests.test_types.eof.v1 import Container, Section
-from ethereum_execution_tests.test_types.eof.v1.constants import (
+from eest.test_types.eof.v1 import Container, Section
+from eest.test_types.eof.v1.constants import (
     MAX_CODE_INPUTS,
     MAX_STACK_INCREASE_LIMIT,
     NON_RETURNING_SECTION,
 )
-from ethereum_execution_tests.tools import Account, EOFStateTestFiller
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.tools import Account, EOFStateTestFiller
+from eest.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 

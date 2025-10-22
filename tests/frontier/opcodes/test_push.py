@@ -8,16 +8,16 @@ GeneralStateTestsFiller/VMTests/vmTests/pushFiller.yml.
 """
 
 import pytest
-from ethereum_execution_tests.forks import Fork, Frontier, Homestead
-from ethereum_execution_tests.tools import (
+from eest.forks import Fork, Frontier, Homestead
+from eest.tools import (
     Account,
     Alloc,
     Environment,
     StateTestFiller,
     Transaction,
 )
-from ethereum_execution_tests.tools import Opcodes as Op
-from ethereum_execution_tests.vm import Bytecode
+from eest.tools import Opcodes as Op
+from eest.vm import Bytecode
 
 
 def get_input_for_push_opcode(opcode: Op) -> bytes:

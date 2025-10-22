@@ -9,12 +9,12 @@ from enum import Enum, auto
 from typing import List, Type
 
 import pytest
-from ethereum_execution_tests.base_types import (
+from eest.base_types import (
     Bytes,
     FixedSizeBytes,
     HexNumber,
 )
-from ethereum_execution_tests.tools import (
+from eest.tools import (
     Address,
     Alloc,
     AuthorizationTuple,

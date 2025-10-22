@@ -10,8 +10,8 @@ import itertools
 from typing import List, Mapping
 
 import pytest
-from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.tools import (
+from eest.forks import Fork
+from eest.tools import (
     AccessList,
     Account,
     Address,
@@ -22,7 +22,7 @@ from ethereum_execution_tests.tools import (
     Transaction,
     TransactionReceipt,
 )
-from ethereum_execution_tests.tools import Opcodes as Op
+from eest.tools import Opcodes as Op
 
 from .common import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION
 

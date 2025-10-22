@@ -5,8 +5,8 @@ These tests verify that clients properly reject blocks with corrupted BALs.
 """
 
 import pytest
-from ethereum_execution_tests.exceptions import BlockException
-from ethereum_execution_tests.test_types.block_access_list import (
+from eest.exceptions import BlockException
+from eest.test_types.block_access_list import (
     BalAccountChange,
     BalAccountExpectation,
     BalBalanceChange,
@@ -15,7 +15,7 @@ from ethereum_execution_tests.test_types.block_access_list import (
     BalStorageSlot,
     BlockAccessListExpectation,
 )
-from ethereum_execution_tests.test_types.block_access_list.modifiers import (
+from eest.test_types.block_access_list.modifiers import (
     append_account,
     duplicate_account,
     modify_balance,
@@ -27,7 +27,7 @@ from ethereum_execution_tests.test_types.block_access_list.modifiers import (
     reverse_accounts,
     swap_tx_indices,
 )
-from ethereum_execution_tests.tools import (
+from eest.tools import (
     Account,
     Alloc,
     Block,
@@ -35,7 +35,7 @@ from ethereum_execution_tests.tools import (
     Storage,
     Transaction,
 )
-from ethereum_execution_tests.tools import (
+from eest.tools import (
     Opcodes as Op,
 )
 

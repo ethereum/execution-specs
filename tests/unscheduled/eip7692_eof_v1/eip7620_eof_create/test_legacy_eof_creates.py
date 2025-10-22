@@ -1,19 +1,19 @@
 """Test interactions between CREATE, CREATE2, and EOFCREATE."""
 
 import pytest
-from ethereum_execution_tests.base_types.base_types import Address, Bytes
-from ethereum_execution_tests.test_types.eof.v1 import Container
-from ethereum_execution_tests.test_types.helpers import compute_create_address
-from ethereum_execution_tests.tools import (
+from eest.base_types.base_types import Address, Bytes
+from eest.test_types.eof.v1 import Container
+from eest.test_types.helpers import compute_create_address
+from eest.tools import (
     Account,
     Alloc,
     Environment,
     StateTestFiller,
     Transaction,
 )
-from ethereum_execution_tests.tools import Initcode as LegacyInitcode
-from ethereum_execution_tests.vm import Opcodes
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.tools import Initcode as LegacyInitcode
+from eest.vm import Opcodes
+from eest.vm import Opcodes as Op
 
 from ....prague.eip7702_set_code_tx.spec import Spec
 from .. import EOF_FORK_NAME

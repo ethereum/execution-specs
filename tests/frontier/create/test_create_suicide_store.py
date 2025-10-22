@@ -6,8 +6,8 @@ operations after being called for self destruct in a call.
 from enum import IntEnum
 
 import pytest
-from ethereum_execution_tests.forks import Byzantium, Fork
-from ethereum_execution_tests.tools import (
+from eest.forks import Byzantium, Fork
+from eest.tools import (
     Account,
     Alloc,
     CalldataCase,
@@ -18,7 +18,7 @@ from ethereum_execution_tests.tools import (
     Transaction,
     compute_create_address,
 )
-from ethereum_execution_tests.tools import Opcodes as Op
+from eest.tools import Opcodes as Op
 
 
 class Operation(IntEnum):

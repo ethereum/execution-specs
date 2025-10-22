@@ -10,14 +10,14 @@ from typing import Any, Dict, cast
 
 import pytest
 from _pytest.mark import ParameterSet
-from ethereum_execution_tests.base_types.base_types import Bytes
-from ethereum_execution_tests.benchmark import (
+from eest.base_types.base_types import Bytes
+from eest.benchmark import (
     ExtCallGenerator,
     JumpLoopGenerator,
 )
-from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.test_types import TransactionType
-from ethereum_execution_tests.tools import (
+from eest.forks import Fork
+from eest.test_types import TransactionType
+from eest.tools import (
     Address,
     Alloc,
     BenchmarkTestFiller,
@@ -26,8 +26,8 @@ from ethereum_execution_tests.tools import (
     Transaction,
     add_kzg_version,
 )
-from ethereum_execution_tests.vm import Opcode
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcode
+from eest.vm import Opcodes as Op
 from py_ecc.bn128 import G1, G2, multiply
 
 from ..byzantium.eip198_modexp_precompile.test_modexp import ModExpInput

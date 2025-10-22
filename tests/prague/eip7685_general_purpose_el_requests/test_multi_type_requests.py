@@ -9,10 +9,10 @@ from itertools import permutations
 from typing import Callable, Dict, Generator, List, Tuple
 
 import pytest
-from ethereum_execution_tests.base_types.base_types import Address
-from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.test_types import EOA
-from ethereum_execution_tests.tools import (
+from eest.base_types.base_types import Address
+from eest.forks import Fork
+from eest.test_types import EOA
+from eest.tools import (
     Account,
     Alloc,
     Block,
@@ -27,8 +27,8 @@ from ethereum_execution_tests.tools import (
     TestAddress,
     Transaction,
 )
-from ethereum_execution_tests.tools import Opcodes as Op
-from ethereum_execution_tests.tools.utility.pytest import ParameterSet
+from eest.tools import Opcodes as Op
+from eest.tools.utility.pytest import ParameterSet
 
 from ..eip6110_deposits.helpers import (
     DepositContract,

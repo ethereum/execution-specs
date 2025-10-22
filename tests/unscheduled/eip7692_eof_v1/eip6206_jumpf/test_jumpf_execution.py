@@ -1,21 +1,21 @@
 """EOF JUMPF tests covering simple cases."""
 
 import pytest
-from ethereum_execution_tests.base_types import Storage
-from ethereum_execution_tests.specs import StateTestFiller
-from ethereum_execution_tests.test_types import Alloc
-from ethereum_execution_tests.test_types.eof.v1 import Container, Section
-from ethereum_execution_tests.test_types.eof.v1.constants import (
+from eest.base_types import Storage
+from eest.specs import StateTestFiller
+from eest.test_types import Alloc
+from eest.test_types.eof.v1 import Container, Section
+from eest.test_types.eof.v1.constants import (
     NON_RETURNING_SECTION,
 )
-from ethereum_execution_tests.tools import (
+from eest.tools import (
     Account,
     Environment,
     EOFException,
     EOFStateTestFiller,
     Transaction,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 from .helpers import (

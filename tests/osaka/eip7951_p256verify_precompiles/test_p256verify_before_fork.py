@@ -9,8 +9,8 @@ active.
 """
 
 import pytest
-from ethereum_execution_tests.checklists import EIPChecklist
-from ethereum_execution_tests.tools import (
+from eest.checklists import EIPChecklist
+from eest.tools import (
     Alloc,
     Block,
     BlockchainTestFiller,

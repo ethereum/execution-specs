@@ -3,8 +3,8 @@
 from typing import SupportsBytes
 
 import pytest
-from ethereum_execution_tests.forks import Cancun, Fork
-from ethereum_execution_tests.tools import (
+from eest.forks import Cancun, Fork
+from eest.tools import (
     EOA,
     Account,
     Address,
@@ -14,7 +14,7 @@ from ethereum_execution_tests.tools import (
     StateTestFiller,
     Transaction,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-6780.md"
 REFERENCE_SPEC_VERSION = "1b6a0e94cc47e859b9866e570391cf37dc55059a"

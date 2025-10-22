@@ -3,11 +3,11 @@
 from typing import Callable, Dict
 
 import pytest
-from ethereum_execution_tests.base_types import AccessList, Address, Hash
-from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.specs.blockchain import Header
-from ethereum_execution_tests.test_types import Environment
-from ethereum_execution_tests.test_types.block_access_list import (
+from eest.base_types import AccessList, Address, Hash
+from eest.forks import Fork
+from eest.specs.blockchain import Header
+from eest.test_types import Environment
+from eest.test_types.block_access_list import (
     BalAccountExpectation,
     BalBalanceChange,
     BalCodeChange,
@@ -16,7 +16,7 @@ from ethereum_execution_tests.test_types.block_access_list import (
     BalStorageSlot,
     BlockAccessListExpectation,
 )
-from ethereum_execution_tests.tools import (
+from eest.tools import (
     Account,
     Alloc,
     Block,
@@ -25,7 +25,7 @@ from ethereum_execution_tests.tools import (
     Transaction,
     compute_create_address,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 from .spec import ref_spec_7928
 

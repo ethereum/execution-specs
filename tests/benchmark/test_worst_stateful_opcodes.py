@@ -6,15 +6,15 @@ import math
 from enum import auto
 
 import pytest
-from ethereum_execution_tests.benchmark.benchmark_code_generator import (
+from eest.benchmark.benchmark_code_generator import (
     ExtCallGenerator,
     JumpLoopGenerator,
 )
-from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.specs import StateTestFiller
-from ethereum_execution_tests.specs.benchmark import BenchmarkTestFiller
-from ethereum_execution_tests.test_types import TestPhaseManager
-from ethereum_execution_tests.tools import (
+from eest.forks import Fork
+from eest.specs import StateTestFiller
+from eest.specs.benchmark import BenchmarkTestFiller
+from eest.test_types import TestPhaseManager
+from eest.tools import (
     Account,
     Address,
     Alloc,
@@ -27,7 +27,7 @@ from ethereum_execution_tests.tools import (
     compute_create2_address,
     compute_create_address,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "TODO"
 REFERENCE_SPEC_VERSION = "TODO"

@@ -1,7 +1,7 @@
 """Test the SELFDESTRUCT opcode."""
 
 import pytest
-from ethereum_execution_tests.tools import (
+from eest.tools import (
     Account,
     Alloc,
     Block,

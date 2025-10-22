@@ -1,8 +1,8 @@
 """test `CALL` opcode."""
 
 import pytest
-from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.tools import (
+from eest.forks import Fork
+from eest.tools import (
     Account,
     Alloc,
     CodeGasMeasure,
@@ -10,7 +10,7 @@ from ethereum_execution_tests.tools import (
     StateTestFiller,
     Transaction,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 
 # TODO: There's an issue with gas definitions on forks previous to Berlin,

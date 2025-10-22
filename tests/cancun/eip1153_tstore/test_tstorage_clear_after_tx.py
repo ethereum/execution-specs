@@ -3,8 +3,8 @@
 from typing import Optional
 
 import pytest
-from ethereum_execution_tests.test_types.eof.v1 import Container
-from ethereum_execution_tests.tools import (
+from eest.test_types.eof.v1 import Container
+from eest.tools import (
     Account,
     Alloc,
     Block,
@@ -14,7 +14,7 @@ from ethereum_execution_tests.tools import (
     Initcode,
     Transaction,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 from .spec import ref_spec_1153
 

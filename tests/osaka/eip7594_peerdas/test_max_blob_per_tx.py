@@ -6,8 +6,8 @@ Availability Sampling](https://eips.ethereum.org/EIPS/eip-7594).
 """
 
 import pytest
-from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.tools import (
+from eest.forks import Fork
+from eest.tools import (
     Address,
     Alloc,
     Block,

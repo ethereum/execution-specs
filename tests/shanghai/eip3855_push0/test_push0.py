@@ -6,7 +6,7 @@ Tests ported from:
 """
 
 import pytest
-from ethereum_execution_tests.tools import (
+from eest.tools import (
     EOA,
     Account,
     Address,
@@ -17,7 +17,7 @@ from ethereum_execution_tests.tools import (
     StateTestFiller,
     Transaction,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 from .spec import ref_spec_3855
 

@@ -3,11 +3,11 @@
 from dataclasses import dataclass
 from typing import List
 
-from ethereum_execution_tests.test_types import compute_create_address
-from ethereum_execution_tests.tools import Alloc, Bytecode
-from ethereum_execution_tests.vm import EVMCodeType, Opcode
-from ethereum_execution_tests.vm import Macros as Om
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.test_types import compute_create_address
+from eest.tools import Alloc, Bytecode
+from eest.vm import EVMCodeType, Opcode
+from eest.vm import Macros as Om
+from eest.vm import Opcodes as Op
 
 from ..common import Scenario, ScenarioEnvironment, ScenarioGeneratorInput
 

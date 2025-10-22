@@ -1,17 +1,17 @@
 """EOF JUMPF tests covering stack validation rules."""
 
 import pytest
-from ethereum_execution_tests.specs import EOFTestFiller
-from ethereum_execution_tests.test_types.eof.constants import (
+from eest.specs import EOFTestFiller
+from eest.test_types.eof.constants import (
     MAX_RUNTIME_STACK_HEIGHT,
 )
-from ethereum_execution_tests.test_types.eof.v1 import Container, Section
-from ethereum_execution_tests.tools import (
+from eest.test_types.eof.v1 import Container, Section
+from eest.tools import (
     Account,
     EOFException,
     EOFStateTestFiller,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 from .helpers import slot_code_worked, value_code_worked

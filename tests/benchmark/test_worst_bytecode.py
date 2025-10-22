@@ -5,12 +5,12 @@ Tests that benchmark EVMs in worst-case opcode scenarios.
 import math
 
 import pytest
-from ethereum_execution_tests.benchmark.benchmark_code_generator import (
+from eest.benchmark.benchmark_code_generator import (
     JumpLoopGenerator,
 )
-from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.test_types.helpers import compute_create_address
-from ethereum_execution_tests.tools import (
+from eest.forks import Fork
+from eest.test_types.helpers import compute_create_address
+from eest.tools import (
     Account,
     Alloc,
     BenchmarkTestFiller,
@@ -23,7 +23,7 @@ from ethereum_execution_tests.tools import (
     While,
     compute_create2_address,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "TODO"
 REFERENCE_SPEC_VERSION = "TODO"

@@ -11,8 +11,8 @@ from itertools import cycle
 from typing import Dict, Generator, Iterator, List
 
 import pytest
-from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.tools import (
+from eest.forks import Fork
+from eest.tools import (
     EOA,
     AccessList,
     Account,
@@ -30,7 +30,7 @@ from ethereum_execution_tests.tools import (
     TransactionReceipt,
     extend_with_defaults,
 )
-from ethereum_execution_tests.tools import Opcodes as Op
+from eest.tools import Opcodes as Op
 
 from .helpers import AddressType, ChainIDType
 from .spec import Spec, ref_spec_7702

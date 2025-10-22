@@ -3,21 +3,21 @@
 import itertools
 
 import pytest
-from ethereum_execution_tests.test_types.eof.v1 import (
+from eest.test_types.eof.v1 import (
     AutoSection,
     Container,
     ContainerKind,
     Section,
     SectionKind,
 )
-from ethereum_execution_tests.test_types.eof.v1.constants import (
+from eest.test_types.eof.v1.constants import (
     MAX_CODE_INPUTS,
     MAX_CODE_OUTPUTS,
     MAX_CODE_SECTIONS,
     MAX_STACK_INCREASE_LIMIT,
 )
-from ethereum_execution_tests.tools import EOFException, EOFTestFiller
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.tools import EOFException, EOFTestFiller
+from eest.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 

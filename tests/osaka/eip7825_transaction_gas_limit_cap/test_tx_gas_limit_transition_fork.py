@@ -6,9 +6,9 @@ Cap](https://eips.ethereum.org/EIPS/eip-7825).
 """
 
 import pytest
-from ethereum_execution_tests.checklists import EIPChecklist
-from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.tools import (
+from eest.checklists import EIPChecklist
+from eest.forks import Fork
+from eest.tools import (
     Account,
     Alloc,
     Block,
@@ -16,7 +16,7 @@ from ethereum_execution_tests.tools import (
     Transaction,
     TransactionException,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 from .spec import ref_spec_7825
 

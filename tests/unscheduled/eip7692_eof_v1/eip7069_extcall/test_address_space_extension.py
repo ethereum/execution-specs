@@ -3,8 +3,8 @@
 import itertools
 
 import pytest
-from ethereum_execution_tests.test_types.eof.v1 import Container, Section
-from ethereum_execution_tests.tools import (
+from eest.test_types.eof.v1 import Container, Section
+from eest.tools import (
     Account,
     Address,
     Alloc,
@@ -12,7 +12,7 @@ from ethereum_execution_tests.tools import (
     StateTestFiller,
     Transaction,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 from .helpers import value_exceptional_abort_canary

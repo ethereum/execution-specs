@@ -1,13 +1,13 @@
 """Tests all EOF-only opcodes in legacy contracts and expects failure."""
 
 import pytest
-from ethereum_execution_tests.base_types import Account
-from ethereum_execution_tests.specs import StateTestFiller
-from ethereum_execution_tests.test_types import Alloc, Environment, Transaction
-from ethereum_execution_tests.test_types.eof.v1 import Container, Section
-from ethereum_execution_tests.tools import Initcode
-from ethereum_execution_tests.tools import Opcodes as Op
-from ethereum_execution_tests.vm import Opcodes
+from eest.base_types import Account
+from eest.specs import StateTestFiller
+from eest.test_types import Alloc, Environment, Transaction
+from eest.test_types.eof.v1 import Container, Section
+from eest.tools import Initcode
+from eest.tools import Opcodes as Op
+from eest.vm import Opcodes
 
 from .. import EOF_FORK_NAME
 

@@ -7,7 +7,7 @@ Tests for [EIP-7516: BLOBBASEFEE opcode](https://eips.ethereum.org/EIPS/eip-7516
 from itertools import count
 
 import pytest
-from ethereum_execution_tests.tools import (
+from eest.tools import (
     Account,
     Address,
     Alloc,
@@ -19,7 +19,7 @@ from ethereum_execution_tests.tools import (
     Storage,
     Transaction,
 )
-from ethereum_execution_tests.tools import Opcodes as Op
+from eest.tools import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7516.md"
 REFERENCE_SPEC_VERSION = "dcd2f4ede58a6ed908acd3cc2c198e9f605cbf3b"

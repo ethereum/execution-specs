@@ -6,7 +6,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ethereum-execution-tests"
+name = "eest"
 version = "1.0.0"
 description = "Ethereum execution client test authoring framework"
 readme = "README.md"
@@ -89,42 +89,42 @@ docs = [
 ]
 
 [project.scripts]
-fill = "ethereum_execution_tests.ethereum_test_cli.pytest_commands.fill:fill"
-phil = "ethereum_execution_tests.ethereum_test_cli.pytest_commands.fill:phil"
-execute = "ethereum_execution_tests.ethereum_test_cli.pytest_commands.execute:execute"
-attac = "ethereum_execution_tests.ethereum_test_cli.pytest_commands.execute:execute"
-checkfixtures = "ethereum_execution_tests.ethereum_test_cli.check_fixtures:check_fixtures"
-check_eip_versions = "ethereum_execution_tests.ethereum_test_cli.pytest_commands.check_eip_versions:check_eip_versions"
-consume = "ethereum_execution_tests.ethereum_test_cli.pytest_commands.consume:consume"
-protec = "ethereum_execution_tests.ethereum_test_cli.pytest_commands.consume:consume"
-checklist = "ethereum_execution_tests.ethereum_test_cli.pytest_commands.checklist:checklist"
-generate_checklist_stubs = "ethereum_execution_tests.ethereum_test_cli.generate_checklist_stubs:generate_checklist_stubs"
-genindex = "ethereum_execution_tests.ethereum_test_cli.gen_index:generate_fixtures_index_cli"
-gentest = "ethereum_execution_tests.ethereum_test_cli.gentest:generate"
-eofwrap = "ethereum_execution_tests.ethereum_test_cli.eofwrap:eof_wrap"
-pyspelling_soft_fail = "ethereum_execution_tests.ethereum_test_cli.tox_helpers:pyspelling"
-markdownlintcli2_soft_fail = "ethereum_execution_tests.ethereum_test_cli.tox_helpers:markdownlint"
-order_fixtures = "ethereum_execution_tests.ethereum_test_cli.order_fixtures:order_fixtures"
-evm_bytes = "ethereum_execution_tests.ethereum_test_cli.evm_bytes:evm_bytes"
-hasher = "ethereum_execution_tests.ethereum_test_cli.hasher:main"
-eest = "ethereum_execution_tests.ethereum_test_cli.eest.cli:eest"
-fillerconvert = "ethereum_execution_tests.ethereum_test_cli.fillerconvert.fillerconvert:main"
-groupstats = "ethereum_execution_tests.ethereum_test_cli.show_pre_alloc_group_stats:main"
-extract_config = "ethereum_execution_tests.ethereum_test_cli.extract_config:extract_config"
-compare_fixtures = "ethereum_execution_tests.ethereum_test_cli.compare_fixtures:main"
-modify_static_test_gas_limits = "ethereum_execution_tests.ethereum_test_cli.modify_static_test_gas_limits:main"
+fill = "eest.ethereum_test_cli.pytest_commands.fill:fill"
+phil = "eest.ethereum_test_cli.pytest_commands.fill:phil"
+execute = "eest.ethereum_test_cli.pytest_commands.execute:execute"
+attac = "eest.ethereum_test_cli.pytest_commands.execute:execute"
+checkfixtures = "eest.ethereum_test_cli.check_fixtures:check_fixtures"
+check_eip_versions = "eest.ethereum_test_cli.pytest_commands.check_eip_versions:check_eip_versions"
+consume = "eest.ethereum_test_cli.pytest_commands.consume:consume"
+protec = "eest.ethereum_test_cli.pytest_commands.consume:consume"
+checklist = "eest.ethereum_test_cli.pytest_commands.checklist:checklist"
+generate_checklist_stubs = "eest.ethereum_test_cli.generate_checklist_stubs:generate_checklist_stubs"
+genindex = "eest.ethereum_test_cli.gen_index:generate_fixtures_index_cli"
+gentest = "eest.ethereum_test_cli.gentest:generate"
+eofwrap = "eest.ethereum_test_cli.eofwrap:eof_wrap"
+pyspelling_soft_fail = "eest.ethereum_test_cli.tox_helpers:pyspelling"
+markdownlintcli2_soft_fail = "eest.ethereum_test_cli.tox_helpers:markdownlint"
+order_fixtures = "eest.ethereum_test_cli.order_fixtures:order_fixtures"
+evm_bytes = "eest.ethereum_test_cli.evm_bytes:evm_bytes"
+hasher = "eest.ethereum_test_cli.hasher:main"
+eest = "eest.ethereum_test_cli.eest.cli:eest"
+fillerconvert = "eest.ethereum_test_cli.fillerconvert.fillerconvert:main"
+groupstats = "eest.ethereum_test_cli.show_pre_alloc_group_stats:main"
+extract_config = "eest.ethereum_test_cli.extract_config:extract_config"
+compare_fixtures = "eest.ethereum_test_cli.compare_fixtures:main"
+modify_static_test_gas_limits = "eest.ethereum_test_cli.modify_static_test_gas_limits:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 exclude = ["*tests*"]
 
 [tool.setuptools.package-data]
-"ethereum_execution_tests.forks" = ["forks/contracts/*.bin"]
-"ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.execute" = ["eth_config/networks.yml"]
-"ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins" = ["eels_resolutions.json"]
-"ethereum_execution_tests.ethereum_test_cli.eest.make" = ["templates/*.j2"]
-"ethereum_execution_tests.ethereum_test_cli.pytest_commands" = ["pytest_ini_files/*.ini"]
-"ethereum_execution_tests.test_types" = ["kzg_trusted_setup.txt"]
+"eest.forks" = ["forks/contracts/*.bin"]
+"eest.ethereum_test_cli.pytest_commands.plugins.execute" = ["eth_config/networks.yml"]
+"eest.ethereum_test_cli.pytest_commands.plugins" = ["eels_resolutions.json"]
+"eest.ethereum_test_cli.eest.make" = ["templates/*.j2"]
+"eest.ethereum_test_cli.pytest_commands" = ["pytest_ini_files/*.ini"]
+"eest.test_types" = ["kzg_trusted_setup.txt"]
 
 [tool.ruff]
 line-length = 79
@@ -145,9 +145,9 @@ testpaths = [
 ]
 addopts = [
     "-p", "pytester",
-    "--ignore=src/ethereum_execution_tests/ethereum_test_cli/pytest_commands/plugins/consume/test_cache.py",
-    "--ignore=src/ethereum_execution_tests/ethereum_test_cli/pytest_commands/plugins/consume/direct/",
-    "--ignore=src/ethereum_execution_tests/ethereum_test_cli/pytest_commands/plugins/consume/simulators/",
+    "--ignore=src/eest/ethereum_test_cli/pytest_commands/plugins/consume/test_cache.py",
+    "--ignore=src/eest/ethereum_test_cli/pytest_commands/plugins/consume/direct/",
+    "--ignore=src/eest/ethereum_test_cli/pytest_commands/plugins/consume/simulators/",
 ]
 
 [tool.uv]

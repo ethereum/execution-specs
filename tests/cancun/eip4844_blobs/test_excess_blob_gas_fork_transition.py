@@ -7,8 +7,8 @@ Tests for [EIP-4844: Shard Blob Transactions](https://eips.ethereum.org/EIPS/eip
 from typing import List, Mapping
 
 import pytest
-from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.tools import (
+from eest.forks import Fork
+from eest.tools import (
     EOA,
     Account,
     Address,
@@ -23,7 +23,7 @@ from ethereum_execution_tests.tools import (
     Transaction,
     add_kzg_version,
 )
-from ethereum_execution_tests.tools import Opcodes as Op
+from eest.tools import Opcodes as Op
 
 from .spec import Spec, SpecHelpers, ref_spec_4844
 

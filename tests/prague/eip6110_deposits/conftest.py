@@ -3,8 +3,8 @@
 from typing import List
 
 import pytest
-from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.tools import (
+from eest.forks import Fork
+from eest.tools import (
     Alloc,
     Block,
     BlockException,

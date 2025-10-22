@@ -5,18 +5,18 @@ Tests that benchmark EVMs in the worst-case memory opcodes.
 from enum import auto
 
 import pytest
-from ethereum_execution_tests.base_types.base_types import Bytes
-from ethereum_execution_tests.benchmark.benchmark_code_generator import (
+from eest.base_types.base_types import Bytes
+from eest.benchmark.benchmark_code_generator import (
     JumpLoopGenerator,
 )
-from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.tools import (
+from eest.forks import Fork
+from eest.tools import (
     Alloc,
     BenchmarkTestFiller,
     Bytecode,
     Transaction,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "TODO"
 REFERENCE_SPEC_VERSION = "TODO"

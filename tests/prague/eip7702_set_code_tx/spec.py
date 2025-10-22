@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from ethereum_execution_tests.base_types import Address, Bytes
+from eest.base_types import Address, Bytes
 
 
 @dataclass(frozen=True)

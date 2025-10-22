@@ -6,9 +6,9 @@ from enum import Enum, unique
 from typing import Dict, List, Mapping
 
 import pytest
-from ethereum_execution_tests.client_clis import TransitionTool
-from ethereum_execution_tests.forks import Cancun, Fork
-from ethereum_execution_tests.tools import (
+from eest.client_clis import TransitionTool
+from eest.forks import Cancun, Fork
+from eest.tools import (
     EOA,
     Account,
     Address,
@@ -20,7 +20,7 @@ from ethereum_execution_tests.tools import (
     TransactionException,
     Withdrawal,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 from .spec import ref_spec_4895
 

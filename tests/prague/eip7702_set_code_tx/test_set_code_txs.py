@@ -11,12 +11,12 @@ from itertools import count
 from typing import List
 
 import pytest
-from ethereum_execution_tests.base_types import HexNumber
-from ethereum_execution_tests.checklists import EIPChecklist
-from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.test_types import TransactionReceipt
-from ethereum_execution_tests.test_types.eof.v1 import Container, Section
-from ethereum_execution_tests.tools import (
+from eest.base_types import HexNumber
+from eest.checklists import EIPChecklist
+from eest.forks import Fork
+from eest.test_types import TransactionReceipt
+from eest.test_types.eof.v1 import Container, Section
+from eest.tools import (
     AccessList,
     Account,
     Address,
@@ -42,8 +42,8 @@ from ethereum_execution_tests.tools import (
     call_return_code,
     compute_create_address,
 )
-from ethereum_execution_tests.tools import Macros as Om
-from ethereum_execution_tests.tools import Opcodes as Op
+from eest.tools import Macros as Om
+from eest.tools import Opcodes as Op
 
 from ...cancun.eip4844_blobs.spec import Spec as Spec4844
 from ..eip6110_deposits.helpers import DepositRequest

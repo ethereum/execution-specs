@@ -1,12 +1,12 @@
 """EOF V1 Code Validation tests."""
 
 import pytest
-from ethereum_execution_tests.test_types.eof.v1 import Container, Section
-from ethereum_execution_tests.test_types.eof.v1.constants import (
+from eest.test_types.eof.v1 import Container, Section
+from eest.test_types.eof.v1.constants import (
     MAX_INITCODE_SIZE,
 )
-from ethereum_execution_tests.tools import EOFException, EOFTestFiller
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.tools import EOFException, EOFTestFiller
+from eest.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 

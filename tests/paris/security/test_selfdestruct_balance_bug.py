@@ -13,7 +13,7 @@ To reproduce the issue with this test case:
 """
 
 import pytest
-from ethereum_execution_tests.tools import (
+from eest.tools import (
     Account,
     Alloc,
     Block,
@@ -24,7 +24,7 @@ from ethereum_execution_tests.tools import (
     Transaction,
     compute_create_address,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 
 @pytest.mark.valid_from("Constantinople")

@@ -4,7 +4,7 @@ import os
 from typing import Annotated, Any, List
 
 import pytest
-from ethereum_execution_tests.tools import Bytes
+from eest.tools import Bytes
 from pydantic import (
     BaseModel,
     ConfigDict,

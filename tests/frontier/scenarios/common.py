@@ -4,15 +4,15 @@ from abc import abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 
-from ethereum_execution_tests.forks import Fork, Frontier
-from ethereum_execution_tests.tools import (
+from eest.forks import Fork, Frontier
+from eest.tools import (
     Address,
     Alloc,
     Bytecode,
     Conditional,
     MemoryVariable,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 
 class ScenarioExpectOpcode(Enum):

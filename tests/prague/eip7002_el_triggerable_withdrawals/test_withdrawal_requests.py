@@ -5,8 +5,8 @@ Tests [EIP-7002: Execution layer triggerable withdrawals](https://eips.ethereum.
 from typing import List
 
 import pytest
-from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.tools import (
+from eest.forks import Fork
+from eest.tools import (
     Address,
     Alloc,
     Block,
@@ -19,7 +19,7 @@ from ethereum_execution_tests.tools import (
     TestAddress,
     TestAddress2,
 )
-from ethereum_execution_tests.tools import Opcodes as Op
+from eest.tools import Opcodes as Op
 
 from .helpers import (
     WithdrawalRequest,

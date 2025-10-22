@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Any, Generator
 
 import pytest
-from ethereum_execution_tests.forks import Fork, Prague
-from ethereum_execution_tests.tools import (
+from eest.forks import Fork, Prague
+from eest.tools import (
     Address,
     Alloc,
     Block,

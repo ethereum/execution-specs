@@ -5,7 +5,7 @@ Tests [EIP-2935: Serve historical block hashes from state](https://eips.ethereum
 from typing import Dict, List
 
 import pytest
-from ethereum_execution_tests.tools import (
+from eest.tools import (
     Account,
     Address,
     Alloc,
@@ -15,7 +15,7 @@ from ethereum_execution_tests.tools import (
     Storage,
     Transaction,
 )
-from ethereum_execution_tests.tools import Opcodes as Op
+from eest.tools import Opcodes as Op
 
 from .spec import Spec, ref_spec_2935
 

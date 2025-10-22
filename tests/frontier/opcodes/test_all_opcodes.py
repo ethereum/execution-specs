@@ -6,8 +6,8 @@ opcode is supported by the fork supports and fails otherwise.
 from typing import Dict
 
 import pytest
-from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.tools import (
+from eest.forks import Fork
+from eest.tools import (
     Account,
     Address,
     Alloc,
@@ -16,8 +16,8 @@ from ethereum_execution_tests.tools import (
     StateTestFiller,
     Transaction,
 )
-from ethereum_execution_tests.vm import Opcode, UndefinedOpcodes
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcode, UndefinedOpcodes
+from eest.vm import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"

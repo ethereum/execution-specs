@@ -7,9 +7,9 @@ import random
 from typing import Generator, Tuple
 
 import pytest
-from ethereum_execution_tests.base_types import Account
-from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.tools import (
+from eest.base_types import Account
+from eest.forks import Fork
+from eest.tools import (
     AccessList,
     Address,
     Alloc,
@@ -20,7 +20,7 @@ from ethereum_execution_tests.tools import (
     Hash,
     Transaction,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 
 @pytest.fixture

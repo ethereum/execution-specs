@@ -20,8 +20,8 @@ from itertools import count
 from typing import Callable, Dict, Iterator, List
 
 import pytest
-from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.tools import (
+from eest.forks import Fork
+from eest.tools import (
     Account,
     Address,
     Alloc,
@@ -33,7 +33,7 @@ from ethereum_execution_tests.tools import (
     Transaction,
     Withdrawal,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 from .spec import Spec, ref_spec_4788
 

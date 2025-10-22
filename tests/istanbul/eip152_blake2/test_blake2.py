@@ -5,8 +5,8 @@ Tests [EIP-152: BLAKE2b compression precompile](https://eips.ethereum.org/EIPS/e
 from typing import List
 
 import pytest
-from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.tools import (
+from eest.forks import Fork
+from eest.tools import (
     Account,
     Alloc,
     Bytecode,
@@ -14,7 +14,7 @@ from ethereum_execution_tests.tools import (
     StateTestFiller,
     Transaction,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 from .common import Blake2bInput, ExpectedOutput
 from .spec import SpecTestVectors, ref_spec_152

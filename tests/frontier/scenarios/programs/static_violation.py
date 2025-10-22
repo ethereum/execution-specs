@@ -2,9 +2,9 @@
 
 from functools import cached_property
 
-from ethereum_execution_tests.forks import Cancun, Fork
-from ethereum_execution_tests.tools import Alloc, Bytecode
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.forks import Cancun, Fork
+from eest.tools import Alloc, Bytecode
+from eest.vm import Opcodes as Op
 
 from ..common import ProgramResult, ScenarioTestProgram
 

@@ -3,9 +3,9 @@
 from typing import Dict
 
 import pytest
-from ethereum_execution_tests.forks import Fork, Osaka
-from ethereum_execution_tests.test_types import Environment
-from ethereum_execution_tests.tools import (
+from eest.forks import Fork, Osaka
+from eest.test_types import Environment
+from eest.tools import (
     Account,
     Address,
     Alloc,
@@ -13,7 +13,7 @@ from ethereum_execution_tests.tools import (
     Transaction,
     keccak256,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput
 from ..eip7883_modexp_gas_increase.spec import Spec, Spec7883

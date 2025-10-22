@@ -1,15 +1,15 @@
 """EOF validation tests for non-returning code sections."""
 
 import pytest
-from ethereum_execution_tests.test_types.eof.v1 import (
+from eest.test_types.eof.v1 import (
     NON_RETURNING_SECTION,
     Container,
     ContainerKind,
     Section,
 )
-from ethereum_execution_tests.tools import EOFException, EOFTestFiller
-from ethereum_execution_tests.vm import Bytecode
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.tools import EOFException, EOFTestFiller
+from eest.vm import Bytecode
+from eest.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 

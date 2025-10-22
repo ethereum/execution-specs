@@ -1,11 +1,11 @@
 """Tests [EIP-663: SWAPN, DUPN and EXCHANGE instructions](https://eips.ethereum.org/EIPS/eip-663)."""
 
 import pytest
-from ethereum_execution_tests.test_types.eof.v1 import Container, Section
-from ethereum_execution_tests.test_types.eof.v1.constants import (
+from eest.test_types.eof.v1 import Container, Section
+from eest.test_types.eof.v1.constants import (
     MAX_STACK_INCREASE_LIMIT,
 )
-from ethereum_execution_tests.tools import (
+from eest.tools import (
     Account,
     Alloc,
     Environment,
@@ -15,7 +15,7 @@ from ethereum_execution_tests.tools import (
     StateTestFiller,
     Transaction,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 from . import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION

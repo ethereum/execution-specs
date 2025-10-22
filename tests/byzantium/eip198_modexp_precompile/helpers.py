@@ -4,7 +4,7 @@ Helper functions for the EIP-198 ModExp precompile tests.
 
 from typing import Tuple
 
-from ethereum_execution_tests.tools import Bytes, TestParameterGroup
+from eest.tools import Bytes, TestParameterGroup
 from pydantic import Field
 
 

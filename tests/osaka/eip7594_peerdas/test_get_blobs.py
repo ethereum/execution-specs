@@ -9,12 +9,12 @@ from hashlib import sha256
 from typing import List, Optional
 
 import pytest
-from ethereum_execution_tests.base_types.base_types import Hash
-from ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.custom_logging import (  # noqa: E501
+from eest.base_types.base_types import Hash
+from eest.ethereum_test_cli.pytest_commands.plugins.custom_logging import (  # noqa: E501
     get_logger,
 )
-from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.tools import (
+from eest.forks import Fork
+from eest.tools import (
     Address,
     Alloc,
     Blob,

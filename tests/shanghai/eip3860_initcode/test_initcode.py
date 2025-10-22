@@ -9,8 +9,8 @@ Tests ported from:
 from typing import List
 
 import pytest
-from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.tools import (
+from eest.forks import Fork
+from eest.tools import (
     EOA,
     AccessList,
     Account,
@@ -26,7 +26,7 @@ from ethereum_execution_tests.tools import (
     ceiling_division,
     compute_create_address,
 )
-from ethereum_execution_tests.vm import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 from .helpers import (
     INITCODE_RESULTING_DEPLOYED_CODE,

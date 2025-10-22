@@ -3,9 +3,9 @@
 from typing import Mapping, Tuple
 
 import pytest
-from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.test_types.eof.v1 import Container
-from ethereum_execution_tests.tools import (
+from eest.forks import Fork
+from eest.test_types.eof.v1 import Container
+from eest.tools import (
     Account,
     Address,
     Alloc,
@@ -15,7 +15,7 @@ from ethereum_execution_tests.tools import (
     Storage,
     Transaction,
 )
-from ethereum_execution_tests.tools import Opcodes as Op
+from eest.tools import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 
