@@ -9,7 +9,7 @@ from typing import Dict, List
 
 import pytest
 
-from ethereum_test_rpc import EthConfigResponse, EthRPC
+from ethereum_execution_tests.rpc import EthConfigResponse, EthRPC
 from pytest_plugins.custom_logging import get_logger
 
 from .execute_types import NetworkConfig

@@ -8,7 +8,7 @@ import pytest
 import yaml
 
 from ethereum_execution_tests.base_types import ForkHash
-from ethereum_test_rpc import EthConfigResponse
+from ethereum_execution_tests.rpc import EthConfigResponse
 
 from ..execute_types import NetworkConfig, NetworkConfigFile
 

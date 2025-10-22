@@ -11,7 +11,7 @@ from ethereum_execution_tests.fixtures import (
 )
 from ethereum_execution_tests.fixtures.consume import TestCaseIndexFile, TestCaseStream
 from ethereum_execution_tests.fixtures.file import Fixtures
-from ethereum_test_rpc import EthRPC
+from ethereum_execution_tests.rpc import EthRPC
 
 from ..consume import FixturesSource
 

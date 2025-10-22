@@ -9,7 +9,7 @@ import pytest
 from click.testing import CliRunner
 
 import cli.check_fixtures
-from ethereum_clis import TransitionTool
+from ethereum_execution_tests.client_clis import TransitionTool
 from ethereum_execution_tests.base_types import AccessList, Account, Address, Hash
 from ethereum_execution_tests.exceptions import TransactionException
 from ethereum_execution_tests.fixtures import (

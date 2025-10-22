@@ -6,7 +6,7 @@ from typing import Mapping
 import pytest
 from semver import Version
 
-from ethereum_clis import TransitionTool
+from ethereum_execution_tests.client_clis import TransitionTool
 from ethereum_execution_tests.base_types import (
     Account,
     Address,

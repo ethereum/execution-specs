@@ -24,7 +24,7 @@ import pytest
 from _pytest.mark.structures import ParameterSet
 from pytest import Mark, Metafunc
 
-from ethereum_clis import TransitionTool
+from ethereum_execution_tests.client_clis import TransitionTool
 from ethereum_execution_tests.forks import (
     ALL_FORKS,
     ALL_FORKS_WITH_TRANSITIONS,

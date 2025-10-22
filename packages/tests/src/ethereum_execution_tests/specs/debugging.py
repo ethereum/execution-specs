@@ -2,7 +2,7 @@
 
 from typing import List
 
-from ethereum_clis import Traces
+from ethereum_execution_tests.client_clis import Traces
 
 
 def print_traces(traces: List[Traces] | None) -> None:

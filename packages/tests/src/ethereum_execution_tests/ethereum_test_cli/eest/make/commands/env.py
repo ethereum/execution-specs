@@ -3,7 +3,7 @@
 import click
 from jinja2 import Environment, PackageLoader
 
-from config.env import ENV_PATH, Config
+from ethereum_execution_tests.config.env import ENV_PATH, Config
 
 from ...quotes import get_quote
 

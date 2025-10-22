@@ -4,7 +4,7 @@ from typing import Dict
 
 import pytest
 
-from ethereum_clis import ExecutionSpecsTransitionTool, TransitionTool
+from ethereum_execution_tests.client_clis import ExecutionSpecsTransitionTool, TransitionTool
 from ethereum_execution_tests.base_types import (
     Account,
     Address,

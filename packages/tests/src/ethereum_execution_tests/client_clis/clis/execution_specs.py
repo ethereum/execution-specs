@@ -13,9 +13,9 @@ from ethereum_spec_tools.evm_tools import create_parser
 from ethereum_spec_tools.evm_tools.t8n import T8N
 from ethereum_spec_tools.evm_tools.utils import get_supported_forks
 
-from ethereum_clis.cli_types import TransitionToolOutput
-from ethereum_clis.file_utils import dump_files_to_directory
-from ethereum_clis.transition_tool import TransitionTool, model_dump_config
+from ethereum_execution_tests.client_clis.cli_types import TransitionToolOutput
+from ethereum_execution_tests.client_clis.file_utils import dump_files_to_directory
+from ethereum_execution_tests.client_clis.transition_tool import TransitionTool, model_dump_config
 from ethereum_execution_tests.exceptions import (
     BlockException,
     ExceptionBase,

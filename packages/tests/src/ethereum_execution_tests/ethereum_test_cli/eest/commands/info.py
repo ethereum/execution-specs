@@ -6,7 +6,7 @@ import sys
 
 import click
 
-from config.app import AppConfig
+from ethereum_execution_tests.config.app import AppConfig
 from ethereum_execution_tests.tools.utility.versioning import (
     get_current_commit_hash_or_tag,
 )

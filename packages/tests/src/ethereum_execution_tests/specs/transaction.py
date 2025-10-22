@@ -2,7 +2,7 @@
 
 from typing import Callable, ClassVar, Generator, Sequence, Type
 
-from ethereum_clis import TransitionTool
+from ethereum_execution_tests.client_clis import TransitionTool
 from ethereum_execution_tests.execution import (
     BaseExecute,
     ExecuteFormat,

@@ -20,7 +20,7 @@ from typing import Any, Dict, Optional
 from pydantic import BaseModel
 
 from ethereum_execution_tests.base_types import Account, Hash
-from ethereum_test_rpc.rpc_types import TransactionByHashResponse
+from ethereum_execution_tests.rpc.rpc_types import TransactionByHashResponse
 from ethereum_execution_tests.tools import Environment, Transaction
 
 from .request_manager import RPCRequest

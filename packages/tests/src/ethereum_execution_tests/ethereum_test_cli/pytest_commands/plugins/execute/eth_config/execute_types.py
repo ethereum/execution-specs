@@ -22,7 +22,7 @@ from ethereum_execution_tests.base_types import (
 )
 from ethereum_execution_tests.fixtures.blockchain import FixtureHeader
 from ethereum_execution_tests.forks import Fork, Frontier
-from ethereum_test_rpc import (
+from ethereum_execution_tests.rpc import (
     EthConfigResponse,
     ForkConfig,
     ForkConfigBlobSchedule,

@@ -19,7 +19,7 @@ from ethereum_execution_tests.base_types.reference_spec import (
     ReferenceSpec,
     ReferenceSpecTypes,
 )
-from ethereum_test_benchmark import (
+from ethereum_execution_tests.benchmark import (
     BenchmarkCodeGenerator,
     ExtCallGenerator,
     JumpLoopGenerator,

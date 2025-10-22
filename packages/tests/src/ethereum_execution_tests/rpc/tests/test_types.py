@@ -4,7 +4,7 @@ from typing import Any, Dict
 
 import pytest
 
-from ethereum_test_rpc import EthConfigResponse
+from ethereum_execution_tests.rpc import EthConfigResponse
 
 eth_config_dict: Dict[str, Any] = {
     "current": {

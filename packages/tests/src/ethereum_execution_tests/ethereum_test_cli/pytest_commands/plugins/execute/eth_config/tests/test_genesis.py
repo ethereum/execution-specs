@@ -24,7 +24,7 @@ from ethereum_execution_tests.forks import (
     Prague,
     Shanghai,
 )
-from ethereum_test_rpc import (
+from ethereum_execution_tests.rpc import (
     ForkConfigBlobSchedule,
 )
 

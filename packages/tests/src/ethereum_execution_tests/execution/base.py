@@ -8,7 +8,7 @@ from pytest import FixtureRequest
 
 from ethereum_execution_tests.base_types import CamelModel
 from ethereum_execution_tests.forks import Fork
-from ethereum_test_rpc import EngineRPC, EthRPC
+from ethereum_execution_tests.rpc import EngineRPC, EthRPC
 
 
 class BaseExecute(CamelModel):

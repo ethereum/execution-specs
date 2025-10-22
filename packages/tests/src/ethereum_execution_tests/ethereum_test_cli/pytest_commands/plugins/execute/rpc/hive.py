@@ -16,7 +16,7 @@ from hive.testing import HiveTest, HiveTestResult, HiveTestSuite
 from ethereum_execution_tests.base_types import EmptyOmmersRoot, EmptyTrieRoot, to_json
 from ethereum_execution_tests.fixtures.blockchain import FixtureHeader
 from ethereum_execution_tests.forks import Fork
-from ethereum_test_rpc import EngineRPC, EthRPC
+from ethereum_execution_tests.rpc import EngineRPC, EthRPC
 from ethereum_execution_tests.tools import (
     EOA,
     Account,

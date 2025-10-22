@@ -6,7 +6,7 @@ from typing import Any, Set
 
 import pytest
 
-from ethereum_test_checklists.eip_checklist import EIPChecklist
+from ethereum_execution_tests.checklists.eip_checklist import EIPChecklist
 
 TEMPLATE_PATH = (
     Path(__file__).parent.parent.parent.parent

@@ -21,7 +21,7 @@ from typing import (
 import pytest
 from pydantic import Field, TypeAdapter
 
-from ethereum_clis import EvmoneExceptionMapper, TransitionTool
+from ethereum_execution_tests.client_clis import EvmoneExceptionMapper, TransitionTool
 from ethereum_execution_tests.base_types import Account, Bytes, HexNumber
 from ethereum_execution_tests.exceptions import (
     EOFException,

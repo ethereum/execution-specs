@@ -13,8 +13,8 @@ from typing import Any, ClassVar, Dict, List, Optional
 
 import pytest
 
-from ethereum_clis.file_utils import dump_files_to_directory
-from ethereum_clis.fixture_consumer_tool import FixtureConsumerTool
+from ethereum_execution_tests.client_clis.file_utils import dump_files_to_directory
+from ethereum_execution_tests.client_clis.fixture_consumer_tool import FixtureConsumerTool
 from ethereum_execution_tests.exceptions import (
     EOFException,
     ExceptionBase,

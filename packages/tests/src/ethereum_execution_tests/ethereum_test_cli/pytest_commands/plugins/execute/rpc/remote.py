@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from ethereum_execution_tests.forks import Fork
-from ethereum_test_rpc import EngineRPC, EthRPC
+from ethereum_execution_tests.rpc import EngineRPC, EthRPC
 from ethereum_execution_tests.test_types.chain_config_types import ChainConfigDefaults
 
 from ..pre_alloc import AddressStubs

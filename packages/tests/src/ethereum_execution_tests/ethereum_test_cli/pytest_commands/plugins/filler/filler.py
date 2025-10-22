@@ -22,9 +22,9 @@ from _pytest.terminal import TerminalReporter
 from filelock import FileLock
 from pytest_metadata.plugin import metadata_key
 
-from cli.gen_index import generate_fixtures_index
-from ethereum_clis import TransitionTool
-from ethereum_clis.clis.geth import FixtureConsumerTool
+from ethereum_execution_tests.ethereum_test_cli.gen_index import generate_fixtures_index
+from ethereum_execution_tests.client_clis import TransitionTool
+from ethereum_execution_tests.client_clis.clis.geth import FixtureConsumerTool
 from ethereum_execution_tests.base_types import Account, Address, Alloc, ReferenceSpec
 from ethereum_execution_tests.fixtures import (
     BaseFixture,

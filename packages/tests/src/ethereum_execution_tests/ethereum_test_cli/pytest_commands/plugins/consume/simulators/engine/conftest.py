@@ -12,7 +12,7 @@ from hive.client import Client
 
 from ethereum_execution_tests.exceptions import ExceptionMapper
 from ethereum_execution_tests.fixtures import BlockchainEngineFixture
-from ethereum_test_rpc import EngineRPC
+from ethereum_execution_tests.rpc import EngineRPC
 
 pytest_plugins = (
     "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.pytest_hive.pytest_hive",

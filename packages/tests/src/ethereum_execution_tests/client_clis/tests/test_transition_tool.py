@@ -7,7 +7,7 @@ from typing import Type
 
 import pytest
 
-from ethereum_clis import (
+from ethereum_execution_tests.client_clis import (
     CLINotFoundInPathError,
     EvmOneTransitionTool,
     ExecutionSpecsTransitionTool,

@@ -10,7 +10,7 @@ import logging
 
 from ethereum_execution_tests.fixtures import BlockchainFixture
 from ethereum_execution_tests.fixtures.blockchain import FixtureBlock, FixtureHeader
-from ethereum_test_rpc import EthRPC
+from ethereum_execution_tests.rpc import EthRPC
 
 from ..helpers.exceptions import GenesisBlockMismatchExceptionError
 from ..helpers.timing import TimingData

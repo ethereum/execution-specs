@@ -16,7 +16,7 @@ from typing import (
 import pytest
 from pydantic import Field
 
-from ethereum_clis import TransitionTool, TransitionToolOutput
+from ethereum_execution_tests.client_clis import TransitionTool, TransitionToolOutput
 from ethereum_execution_tests.base_types import HexNumber
 from ethereum_execution_tests.exceptions import (
     BlockException,

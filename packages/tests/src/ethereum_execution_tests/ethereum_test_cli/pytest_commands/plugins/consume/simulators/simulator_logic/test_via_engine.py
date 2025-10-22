@@ -11,8 +11,8 @@ import time
 
 from ethereum_execution_tests.exceptions import UndefinedException
 from ethereum_execution_tests.fixtures import BlockchainEngineFixture
-from ethereum_test_rpc import EngineRPC, EthRPC
-from ethereum_test_rpc.rpc_types import (
+from ethereum_execution_tests.rpc import EngineRPC, EthRPC
+from ethereum_execution_tests.rpc.rpc_types import (
     ForkchoiceState,
     JSONRPCError,
     PayloadStatusEnum,

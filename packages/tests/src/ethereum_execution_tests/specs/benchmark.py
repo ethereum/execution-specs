@@ -17,7 +17,7 @@ from typing import (
 import pytest
 from pydantic import ConfigDict, Field
 
-from ethereum_clis import TransitionTool
+from ethereum_execution_tests.client_clis import TransitionTool
 from ethereum_execution_tests.base_types import Address, HexNumber
 from ethereum_execution_tests.exceptions import BlockException, TransactionException
 from ethereum_execution_tests.execution import (
