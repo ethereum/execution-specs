@@ -4,7 +4,7 @@ from abc import abstractmethod
 from collections import defaultdict
 from typing import ClassVar, Dict, List, SupportsBytes
 
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     Address,
     BLSPublicKey,
     BLSSignature,

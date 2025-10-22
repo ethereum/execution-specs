@@ -9,7 +9,7 @@ from typing import Annotated, Any, ClassVar, Dict, List, Self, Set
 import yaml
 from pydantic import BaseModel, BeforeValidator, Field, model_validator
 
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     Address,
     Bytes,
     CamelModel,

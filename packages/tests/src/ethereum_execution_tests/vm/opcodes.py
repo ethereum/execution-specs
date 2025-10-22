@@ -19,7 +19,7 @@ from typing import (
     SupportsBytes,
 )
 
-from ethereum_test_base_types import to_bytes
+from ethereum_execution_tests.base_types import to_bytes
 
 from .bytecode import Bytecode
 

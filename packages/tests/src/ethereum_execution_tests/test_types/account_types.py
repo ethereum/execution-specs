@@ -20,7 +20,7 @@ from ethereum_types.bytes import Bytes20
 from ethereum_types.numeric import U256, Bytes32, Uint
 from pydantic import PrivateAttr
 
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     Account,
     Address,
     Hash,
@@ -28,13 +28,13 @@ from ethereum_test_base_types import (
     Storage,
     StorageRootType,
 )
-from ethereum_test_base_types import Alloc as BaseAlloc
-from ethereum_test_base_types.conversions import (
+from ethereum_execution_tests.base_types import Alloc as BaseAlloc
+from ethereum_execution_tests.base_types.conversions import (
     BytesConvertible,
     FixedSizeBytesConvertible,
     NumberConvertible,
 )
-from ethereum_test_vm import EVMCodeType
+from ethereum_execution_tests.vm import EVMCodeType
 
 from .trie import (
     EMPTY_TRIE_ROOT,

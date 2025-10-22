@@ -4,8 +4,8 @@ from typing import Any, Dict
 
 import pytest
 
-from ethereum_test_base_types import Bytes, Hash, to_json
-from ethereum_test_exceptions import TransactionException
+from ethereum_execution_tests.base_types import Bytes, Hash, to_json
+from ethereum_execution_tests.exceptions import TransactionException
 
 from ..state import FixtureForkPost
 

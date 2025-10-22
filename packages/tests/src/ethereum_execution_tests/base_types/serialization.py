@@ -5,7 +5,7 @@ from typing import Any, ClassVar, List
 import ethereum_rlp as eth_rlp
 from ethereum_types.numeric import Uint
 
-from ethereum_test_base_types import Bytes
+from ethereum_execution_tests.base_types import Bytes
 
 
 def to_serializable_element(v: Any) -> Any:

@@ -10,13 +10,13 @@ from pydantic import (
     model_validator,
 )
 
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     Address,
     CamelModel,
     EthereumTestRootModel,
     Hash,
 )
-from ethereum_test_exceptions import TransactionExceptionInstanceOrList
+from ethereum_execution_tests.exceptions import TransactionExceptionInstanceOrList
 from ethereum_test_types import Transaction
 
 from .common import (

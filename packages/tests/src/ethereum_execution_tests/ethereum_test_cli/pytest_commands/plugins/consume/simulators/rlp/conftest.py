@@ -5,7 +5,7 @@ from typing import List, Mapping, cast
 
 import pytest
 
-from ethereum_test_base_types import Bytes
+from ethereum_execution_tests.base_types import Bytes
 from ethereum_test_fixtures import BlockchainFixture
 from ethereum_test_fixtures.consume import TestCaseIndexFile, TestCaseStream
 

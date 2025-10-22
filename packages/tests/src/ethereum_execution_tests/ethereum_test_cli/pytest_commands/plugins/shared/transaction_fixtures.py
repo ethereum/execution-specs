@@ -6,7 +6,7 @@ Each fixture can be overridden in test files to customize transaction behavior.
 
 import pytest
 
-from ethereum_test_base_types import AccessList
+from ethereum_execution_tests.base_types import AccessList
 from ethereum_test_forks import Fork
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_types import (

@@ -5,7 +5,7 @@ from typing import Dict, List
 import pytest
 from hive.client import ClientType
 
-from ethereum_test_exceptions import ExceptionMapper
+from ethereum_execution_tests.exceptions import ExceptionMapper
 from ethereum_test_fixtures import (
     BlockchainFixtureCommon,
 )

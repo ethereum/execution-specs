@@ -15,7 +15,7 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 
-from ethereum_test_base_types import to_json
+from ethereum_execution_tests.base_types import to_json
 from ethereum_test_fixtures.file import Fixtures
 from ethereum_test_specs.base import HashMismatchExceptionError
 

@@ -12,7 +12,7 @@ from semver import Version
 from typing_extensions import Self
 
 from ethereum_test_forks import Fork
-from ethereum_test_vm import Bytecode
+from ethereum_execution_tests.vm import Bytecode
 
 DEFAULT_SOLC_ARGS = ("--assemble", "-")
 VERSION_PATTERN = re.compile(r"Version: (.*)")

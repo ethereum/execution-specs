@@ -4,14 +4,14 @@ from typing import ClassVar, Mapping
 
 from pydantic import Field
 
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     Address,
     Bytes,
     CamelModel,
     Hash,
     ZeroPaddedHexNumber,
 )
-from ethereum_test_exceptions import TransactionExceptionInstanceOrList
+from ethereum_execution_tests.exceptions import TransactionExceptionInstanceOrList
 from ethereum_test_forks import Fork
 
 from .base import BaseFixture

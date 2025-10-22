@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 from click.testing import CliRunner
 
-from ethereum_test_base_types import Account
+from ethereum_execution_tests.base_types import Account
 from ethereum_test_tools import Environment, Storage, Transaction
 
 from ..cli import generate

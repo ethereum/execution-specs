@@ -4,11 +4,11 @@ from itertools import count
 
 import pytest
 
-from ethereum_test_base_types import Address, TestPrivateKey, TestPrivateKey2
+from ethereum_execution_tests.base_types import Address, TestPrivateKey, TestPrivateKey2
 from ethereum_test_forks import Fork, Prague
 from ethereum_test_types import EOA
-from ethereum_test_vm import EVMCodeType
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import EVMCodeType
+from ethereum_execution_tests.vm import Opcodes as Op
 
 from ..pre_alloc import (
     CONTRACT_ADDRESS_INCREMENTS_DEFAULT,

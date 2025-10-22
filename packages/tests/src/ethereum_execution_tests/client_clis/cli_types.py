@@ -6,7 +6,7 @@ from typing import Annotated, Any, Dict, List, Self
 
 from pydantic import Field, PlainSerializer, PlainValidator
 
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     Bloom,
     Bytes,
     CamelModel,
@@ -14,8 +14,8 @@ from ethereum_test_base_types import (
     Hash,
     HexNumber,
 )
-from ethereum_test_base_types.composite_types import ForkBlobSchedule
-from ethereum_test_exceptions import (
+from ethereum_execution_tests.base_types.composite_types import ForkBlobSchedule
+from ethereum_execution_tests.exceptions import (
     BlockException,
     ExceptionMapperValidator,
     ExceptionWithMessage,
@@ -29,7 +29,7 @@ from ethereum_test_types import (
     Transaction,
     TransactionReceipt,
 )
-from ethereum_test_vm import Opcode, Opcodes
+from ethereum_execution_tests.vm import Opcode, Opcodes
 from pytest_plugins.custom_logging import get_logger
 
 logger = get_logger(__name__)

@@ -15,7 +15,7 @@ import pytest
 
 from ethereum_clis.ethereum_cli import EthereumCLI
 from ethereum_clis.fixture_consumer_tool import FixtureConsumerTool
-from ethereum_test_base_types import to_json
+from ethereum_execution_tests.base_types import to_json
 from ethereum_test_fixtures import (
     BaseFixture,
     BlockchainFixture,

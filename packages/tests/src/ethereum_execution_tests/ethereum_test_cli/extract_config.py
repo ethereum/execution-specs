@@ -19,7 +19,7 @@ import click
 from hive.simulation import Simulation
 from hive.testing import HiveTestResult
 
-from ethereum_test_base_types import Alloc, to_json
+from ethereum_execution_tests.base_types import Alloc, to_json
 from ethereum_test_fixtures import BlockchainFixtureCommon
 from ethereum_test_fixtures.blockchain import FixtureHeader
 from ethereum_test_fixtures.file import Fixtures

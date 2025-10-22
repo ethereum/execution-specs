@@ -15,7 +15,7 @@ Key Responsibilities:
 
 from typing import Dict
 
-from ethereum_test_base_types import Address, Hash, HexNumber
+from ethereum_execution_tests.base_types import Address, Hash, HexNumber
 from ethereum_test_forks import Fork
 from ethereum_test_specs import BlockchainTest
 from ethereum_test_tools import Account, AuthorizationTuple, Block, Transaction

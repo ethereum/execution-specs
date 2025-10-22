@@ -3,8 +3,8 @@
 from typing import Callable, ClassVar, Generator, List, Sequence, Type
 
 from ethereum_clis import TransitionTool
-from ethereum_test_base_types import Alloc
-from ethereum_test_base_types.base_types import Hash
+from ethereum_execution_tests.base_types import Alloc
+from ethereum_execution_tests.base_types.base_types import Hash
 from ethereum_test_execution import BaseExecute, BlobTransaction
 from ethereum_test_fixtures import (
     BaseFixture,

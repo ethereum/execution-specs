@@ -2,7 +2,7 @@
 
 import pytest
 
-from ethereum_test_base_types import Address
+from ethereum_execution_tests.base_types import Address
 
 from ..opcodes import Bytecode
 from ..opcodes import Macros as Om

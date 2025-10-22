@@ -12,7 +12,7 @@ import pytest
 from pydantic import TypeAdapter
 
 from ethereum_clis import ExecutionSpecsTransitionTool, TransitionTool
-from ethereum_test_base_types import to_json
+from ethereum_execution_tests.base_types import to_json
 from ethereum_test_forks import Berlin
 from ethereum_test_types import Alloc, Environment, Transaction
 

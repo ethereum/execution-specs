@@ -2,7 +2,7 @@
 
 from pydantic import Field
 
-from ethereum_test_base_types import CamelModel
+from ethereum_execution_tests.base_types import CamelModel
 
 
 class ChainConfigDefaults:

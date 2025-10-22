@@ -13,7 +13,7 @@ from pydantic import (
     model_validator,
 )
 
-from ethereum_test_base_types import Bytes
+from ethereum_execution_tests.base_types import Bytes
 
 
 class BaseStaticTest(BaseModel):

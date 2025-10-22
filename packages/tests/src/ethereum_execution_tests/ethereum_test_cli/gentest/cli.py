@@ -11,7 +11,7 @@ from typing import TextIO
 
 import click
 
-from ethereum_test_base_types import Hash
+from ethereum_execution_tests.base_types import Hash
 
 from .source_code_generator import get_test_source
 from .test_context_providers import StateTestProvider

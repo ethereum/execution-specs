@@ -4,7 +4,7 @@ from typing import List
 
 from pydantic import Field
 
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     Address,
     Bloom,
     Bytes,

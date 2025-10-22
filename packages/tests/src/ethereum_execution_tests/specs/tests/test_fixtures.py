@@ -10,8 +10,8 @@ from click.testing import CliRunner
 
 import cli.check_fixtures
 from ethereum_clis import TransitionTool
-from ethereum_test_base_types import AccessList, Account, Address, Hash
-from ethereum_test_exceptions import TransactionException
+from ethereum_execution_tests.base_types import AccessList, Account, Address, Hash
+from ethereum_execution_tests.exceptions import TransactionException
 from ethereum_test_fixtures import (
     BaseFixture,
     BlockchainEngineFixture,
@@ -35,7 +35,7 @@ from ethereum_test_types import (
     Transaction,
     TransactionType,
 )
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Opcodes as Op
 
 from ..blockchain import Block, BlockchainTest, Header
 from ..state import StateTest

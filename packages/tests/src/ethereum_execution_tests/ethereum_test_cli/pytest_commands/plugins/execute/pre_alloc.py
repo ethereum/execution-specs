@@ -9,14 +9,14 @@ import pytest
 import yaml
 from pydantic import PrivateAttr
 
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     Bytes,
     EthereumTestRootModel,
     Number,
     StorageRootType,
     ZeroPaddedHexNumber,
 )
-from ethereum_test_base_types.conversions import (
+from ethereum_execution_tests.base_types.conversions import (
     BytesConvertible,
     FixedSizeBytesConvertible,
     NumberConvertible,
@@ -37,7 +37,7 @@ from ethereum_test_tools import Alloc as BaseAlloc
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_types import ChainConfig, TransactionTestMetadata
 from ethereum_test_types.eof.v1 import Container
-from ethereum_test_vm import Bytecode, EVMCodeType, Opcodes
+from ethereum_execution_tests.vm import Bytecode, EVMCodeType, Opcodes
 
 MAX_BYTECODE_SIZE = 24576
 MAX_INITCODE_SIZE = MAX_BYTECODE_SIZE * 2

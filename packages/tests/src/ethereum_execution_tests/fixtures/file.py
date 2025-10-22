@@ -7,7 +7,7 @@ from typing import Any, Dict, ItemsView, Iterator, KeysView, ValuesView
 from filelock import FileLock
 from pydantic import SerializeAsAny
 
-from ethereum_test_base_types import EthereumTestRootModel
+from ethereum_execution_tests.base_types import EthereumTestRootModel
 
 from .base import BaseFixture
 

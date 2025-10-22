@@ -22,14 +22,14 @@ import pytest
 from pydantic import Field, TypeAdapter
 
 from ethereum_clis import EvmoneExceptionMapper, TransitionTool
-from ethereum_test_base_types import Account, Bytes, HexNumber
-from ethereum_test_exceptions import (
+from ethereum_execution_tests.base_types import Account, Bytes, HexNumber
+from ethereum_execution_tests.exceptions import (
     EOFException,
     ExceptionMapperValidator,
     ExceptionWithMessage,
     UndefinedException,
 )
-from ethereum_test_exceptions.exceptions import (
+from ethereum_execution_tests.exceptions.exceptions import (
     EOFExceptionInstanceOrList,
     to_pipe_str,
 )
@@ -55,7 +55,7 @@ from ethereum_test_types.eof.v1 import (
     SectionKind,
 )
 from ethereum_test_types.helpers import compute_eofcreate_address
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Opcodes as Op
 
 from .base import BaseTest
 from .state import StateTest

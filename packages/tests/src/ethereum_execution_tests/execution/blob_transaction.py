@@ -5,8 +5,8 @@ from typing import ClassVar, Dict, List
 
 from pytest import FixtureRequest
 
-from ethereum_test_base_types import Address, Hash
-from ethereum_test_base_types.base_types import Bytes
+from ethereum_execution_tests.base_types import Address, Hash
+from ethereum_execution_tests.base_types.base_types import Bytes
 from ethereum_test_forks import Fork
 from ethereum_test_rpc import BlobAndProofV1, BlobAndProofV2, EngineRPC, EthRPC
 from ethereum_test_rpc.rpc_types import GetBlobsResponse

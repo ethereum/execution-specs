@@ -13,7 +13,7 @@ from pydantic import (
     model_validator,
 )
 
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     Account,
     Address,
     CamelModel,
@@ -21,7 +21,7 @@ from ethereum_test_base_types import (
     HexNumber,
     Storage,
 )
-from ethereum_test_exceptions import TransactionExceptionInstanceOrList
+from ethereum_execution_tests.exceptions import TransactionExceptionInstanceOrList
 from ethereum_test_forks import Fork, get_forks
 from ethereum_test_types import Alloc
 

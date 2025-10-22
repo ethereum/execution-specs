@@ -10,7 +10,7 @@ from functools import cache
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional
 
-from ethereum_test_exceptions import (
+from ethereum_execution_tests.exceptions import (
     BlockException,
     ExceptionBase,
     ExceptionMapper,

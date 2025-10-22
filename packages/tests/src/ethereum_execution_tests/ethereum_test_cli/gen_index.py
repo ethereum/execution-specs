@@ -19,7 +19,7 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 
-from ethereum_test_base_types import HexNumber
+from ethereum_execution_tests.base_types import HexNumber
 from ethereum_test_fixtures.consume import IndexFile, TestCaseIndexFile
 from ethereum_test_fixtures.file import Fixtures
 

@@ -5,7 +5,7 @@ from enum import StrEnum
 from typing import Any, Dict, List
 
 from ethereum_clis import Result
-from ethereum_test_exceptions import (
+from ethereum_execution_tests.exceptions import (
     BlockException,
     ExceptionBase,
     ExceptionWithMessage,

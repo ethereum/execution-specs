@@ -12,7 +12,7 @@ from typing import Any, List
 
 from pydantic import Field, model_validator
 
-from ethereum_test_base_types import CamelModel, StorageKey
+from ethereum_execution_tests.base_types import CamelModel, StorageKey
 
 from .account_changes import (
     BalAccountChange,

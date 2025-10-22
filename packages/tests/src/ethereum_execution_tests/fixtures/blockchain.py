@@ -29,7 +29,7 @@ from pydantic import (
     model_validator,
 )
 
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     Address,
     Alloc,
     Bloom,
@@ -43,7 +43,7 @@ from ethereum_test_base_types import (
     Number,
     ZeroPaddedHexNumber,
 )
-from ethereum_test_exceptions import EngineAPIError, ExceptionInstanceOrList
+from ethereum_execution_tests.exceptions import EngineAPIError, ExceptionInstanceOrList
 from ethereum_test_forks import Fork, Paris
 from ethereum_test_types import (
     BlockAccessList,

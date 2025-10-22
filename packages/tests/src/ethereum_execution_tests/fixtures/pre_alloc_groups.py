@@ -7,7 +7,7 @@ from typing import Any, Dict, Generator, Iterator, KeysView, List, Tuple
 from filelock import FileLock
 from pydantic import Field, PrivateAttr, computed_field
 
-from ethereum_test_base_types import CamelModel, EthereumTestRootModel
+from ethereum_execution_tests.base_types import CamelModel, EthereumTestRootModel
 from ethereum_test_forks import Fork
 from ethereum_test_types import Alloc, Environment
 

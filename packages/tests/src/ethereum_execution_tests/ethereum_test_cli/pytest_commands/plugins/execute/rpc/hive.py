@@ -13,7 +13,7 @@ from hive.client import Client, ClientType
 from hive.simulation import Simulation
 from hive.testing import HiveTest, HiveTestResult, HiveTestSuite
 
-from ethereum_test_base_types import EmptyOmmersRoot, EmptyTrieRoot, to_json
+from ethereum_execution_tests.base_types import EmptyOmmersRoot, EmptyTrieRoot, to_json
 from ethereum_test_fixtures.blockchain import FixtureHeader
 from ethereum_test_forks import Fork
 from ethereum_test_rpc import EngineRPC, EthRPC

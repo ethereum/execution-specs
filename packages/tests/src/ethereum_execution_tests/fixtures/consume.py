@@ -7,7 +7,7 @@ from typing import Iterator, List, Optional, TextIO
 
 from pydantic import BaseModel, RootModel
 
-from ethereum_test_base_types import HexNumber
+from ethereum_execution_tests.base_types import HexNumber
 from ethereum_test_forks import Fork
 
 from .base import BaseFixture, FixtureFormat

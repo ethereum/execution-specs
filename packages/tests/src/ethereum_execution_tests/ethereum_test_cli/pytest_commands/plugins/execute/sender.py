@@ -7,7 +7,7 @@ import pytest
 from filelock import FileLock
 from pytest_metadata.plugin import metadata_key
 
-from ethereum_test_base_types import Number, Wei
+from ethereum_execution_tests.base_types import Number, Wei
 from ethereum_test_rpc import EthRPC
 from ethereum_test_tools import EOA, Transaction
 

@@ -4,8 +4,8 @@ from typing import Any, Dict
 
 import pytest
 
-from ethereum_test_base_types import Bytes, to_json
-from ethereum_test_exceptions import EOFException
+from ethereum_execution_tests.base_types import Bytes, to_json
+from ethereum_execution_tests.exceptions import EOFException
 
 from ..eof import ContainerKind, EOFFixture, Result, Vector
 

@@ -15,7 +15,7 @@ import pytest
 
 from ethereum_clis.file_utils import dump_files_to_directory
 from ethereum_clis.fixture_consumer_tool import FixtureConsumerTool
-from ethereum_test_exceptions import (
+from ethereum_execution_tests.exceptions import (
     EOFException,
     ExceptionBase,
     ExceptionMapper,

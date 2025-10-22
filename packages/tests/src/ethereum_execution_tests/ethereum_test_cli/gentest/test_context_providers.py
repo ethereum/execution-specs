@@ -19,7 +19,7 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel
 
-from ethereum_test_base_types import Account, Hash
+from ethereum_execution_tests.base_types import Account, Hash
 from ethereum_test_rpc.rpc_types import TransactionByHashResponse
 from ethereum_test_tools import Environment, Transaction
 

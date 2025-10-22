@@ -10,7 +10,7 @@ from typing import Any, Iterator, List, Literal
 import pytest
 from pydantic import PrivateAttr
 
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     Account,
     Address,
     Number,
@@ -20,7 +20,7 @@ from ethereum_test_base_types import (
     TestPrivateKey2,
     ZeroPaddedHexNumber,
 )
-from ethereum_test_base_types.conversions import (
+from ethereum_execution_tests.base_types.conversions import (
     BytesConvertible,
     FixedSizeBytesConvertible,
     NumberConvertible,
@@ -31,7 +31,7 @@ from ethereum_test_specs import BaseTest
 from ethereum_test_types import EOA
 from ethereum_test_types import Alloc as BaseAlloc
 from ethereum_test_types.eof.v1 import Container
-from ethereum_test_vm import Bytecode, EVMCodeType, Opcodes
+from ethereum_execution_tests.vm import Bytecode, EVMCodeType, Opcodes
 
 CONTRACT_START_ADDRESS_DEFAULT = 0x1000000000000000000000000000000000001000
 CONTRACT_ADDRESS_INCREMENTS_DEFAULT = 0x100

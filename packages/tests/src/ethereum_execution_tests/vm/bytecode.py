@@ -9,7 +9,7 @@ from pydantic_core.core_schema import (
     plain_serializer_function_ser_schema,
 )
 
-from ethereum_test_base_types import Bytes, Hash
+from ethereum_execution_tests.base_types import Bytes, Hash
 
 
 class Bytecode:

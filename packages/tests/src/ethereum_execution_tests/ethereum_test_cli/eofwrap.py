@@ -21,8 +21,8 @@ import click
 
 from ethereum_clis import CLINotFoundInPathError
 from ethereum_clis.clis.evmone import EvmOneTransitionTool
-from ethereum_test_base_types import Bytes, EthereumTestRootModel
-from ethereum_test_base_types.conversions import to_hex
+from ethereum_execution_tests.base_types import Bytes, EthereumTestRootModel
+from ethereum_execution_tests.base_types.conversions import to_hex
 from ethereum_test_fixtures.blockchain import FixtureBlock, InvalidFixtureBlock
 from ethereum_test_fixtures.file import Fixtures
 from ethereum_test_forks.forks.forks import EOFv1
@@ -37,7 +37,7 @@ from ethereum_test_tools import Opcodes as Op
 from ethereum_test_types import Transaction
 from ethereum_test_types.block_types import Environment
 from ethereum_test_types.eof.v1 import Container
-from ethereum_test_vm import Bytecode
+from ethereum_execution_tests.vm import Bytecode
 
 from .evm_bytes import OpcodeWithOperands, process_evm_bytes
 

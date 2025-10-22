@@ -11,7 +11,7 @@ from typing import Dict, List, Set
 import click
 import yaml
 
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     EthereumTestRootModel,
     HexNumber,
     ZeroPaddedHexNumber,

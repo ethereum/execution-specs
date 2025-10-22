@@ -6,7 +6,7 @@ import yaml
 from pydantic import BaseModel, Field, RootModel
 from typing_extensions import Self
 
-from ethereum_test_base_types import CamelModel
+from ethereum_execution_tests.base_types import CamelModel
 
 
 class YAMLModel(BaseModel):

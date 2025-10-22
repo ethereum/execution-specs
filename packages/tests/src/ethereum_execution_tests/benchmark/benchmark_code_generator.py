@@ -5,11 +5,11 @@ optimized bytecode patterns.
 
 from dataclasses import dataclass
 
-from ethereum_test_base_types import Address
+from ethereum_execution_tests.base_types import Address
 from ethereum_test_forks import Fork
 from ethereum_test_specs.benchmark import BenchmarkCodeGenerator
 from ethereum_test_types import Alloc
-from ethereum_test_vm.opcodes import Opcodes as Op
+from ethereum_execution_tests.vm.opcodes import Opcodes as Op
 
 
 @dataclass(kw_only=True)

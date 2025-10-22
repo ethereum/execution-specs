@@ -16,7 +16,7 @@ from typing import Dict, List
 
 from pydantic import BaseModel, Field
 
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     AccessList,
     Address,
     Bytes,

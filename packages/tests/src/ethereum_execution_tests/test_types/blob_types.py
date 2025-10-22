@@ -11,8 +11,8 @@ import ckzg  # type: ignore
 import platformdirs
 from filelock import FileLock
 
-from ethereum_test_base_types.base_types import Bytes, Hash
-from ethereum_test_base_types.pydantic import CamelModel
+from ethereum_execution_tests.base_types.base_types import Bytes, Hash
+from ethereum_execution_tests.base_types.pydantic import CamelModel
 from ethereum_test_forks import Fork
 from pytest_plugins.custom_logging import get_logger
 

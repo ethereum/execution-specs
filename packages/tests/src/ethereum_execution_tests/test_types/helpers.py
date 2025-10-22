@@ -5,12 +5,12 @@ from typing import List, SupportsBytes
 import ethereum_rlp as eth_rlp
 from pydantic import BaseModel, ConfigDict
 
-from ethereum_test_base_types.base_types import Address, Bytes, Hash
-from ethereum_test_base_types.conversions import (
+from ethereum_execution_tests.base_types.base_types import Address, Bytes, Hash
+from ethereum_execution_tests.base_types.conversions import (
     BytesConvertible,
     FixedSizeBytesConvertible,
 )
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Opcodes as Op
 
 from .account_types import EOA
 from .utils import int_to_bytes

@@ -4,9 +4,9 @@ from typing import List, Tuple
 
 import pytest
 
-from ethereum_test_base_types import to_json
-from ethereum_test_base_types.pydantic import CopyValidateModel
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.base_types import to_json
+from ethereum_execution_tests.base_types.pydantic import CopyValidateModel
+from ethereum_execution_tests.vm import Opcodes as Op
 
 from ..eof.v1 import AutoSection, Container, Section, SectionKind
 

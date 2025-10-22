@@ -17,9 +17,9 @@ from typing import (
     Union,
 )
 
-from ethereum_test_base_types import AccessList, Address, BlobSchedule
-from ethereum_test_base_types.conversions import BytesConvertible
-from ethereum_test_vm import EVMCodeType, Opcodes
+from ethereum_execution_tests.base_types import AccessList, Address, BlobSchedule
+from ethereum_execution_tests.base_types.conversions import BytesConvertible
+from ethereum_execution_tests.vm import EVMCodeType, Opcodes
 
 from .base_decorators import prefer_transition_to_method
 from .gas_costs import GasCosts

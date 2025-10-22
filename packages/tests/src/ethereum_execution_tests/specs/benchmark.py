@@ -18,8 +18,8 @@ import pytest
 from pydantic import ConfigDict, Field
 
 from ethereum_clis import TransitionTool
-from ethereum_test_base_types import Address, HexNumber
-from ethereum_test_exceptions import BlockException, TransactionException
+from ethereum_execution_tests.base_types import Address, HexNumber
+from ethereum_execution_tests.exceptions import BlockException, TransactionException
 from ethereum_test_execution import (
     BaseExecute,
     ExecuteFormat,
@@ -36,8 +36,8 @@ from ethereum_test_fixtures import (
 )
 from ethereum_test_forks import Fork
 from ethereum_test_types import Alloc, Environment, Transaction
-from ethereum_test_vm import Bytecode
-from ethereum_test_vm.opcodes import Opcodes as Op
+from ethereum_execution_tests.vm import Bytecode
+from ethereum_execution_tests.vm.opcodes import Opcodes as Op
 
 from .base import BaseTest
 from .blockchain import Block, BlockchainTest

@@ -27,9 +27,9 @@ from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import ReadTimeout
 from requests_unixsocket import Session
 
-from ethereum_test_base_types import BlobSchedule
-from ethereum_test_base_types.composite_types import ForkBlobSchedule
-from ethereum_test_exceptions import ExceptionMapper
+from ethereum_execution_tests.base_types import BlobSchedule
+from ethereum_execution_tests.base_types.composite_types import ForkBlobSchedule
+from ethereum_execution_tests.exceptions import ExceptionMapper
 from ethereum_test_forks import Fork
 from ethereum_test_forks.helpers import get_development_forks, get_forks
 from ethereum_test_types import Alloc, Environment, Transaction

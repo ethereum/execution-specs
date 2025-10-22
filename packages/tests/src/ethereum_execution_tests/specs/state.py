@@ -17,8 +17,8 @@ import pytest
 from pydantic import Field
 
 from ethereum_clis import TransitionTool, TransitionToolOutput
-from ethereum_test_base_types import HexNumber
-from ethereum_test_exceptions import (
+from ethereum_execution_tests.base_types import HexNumber
+from ethereum_execution_tests.exceptions import (
     BlockException,
     EngineAPIError,
     TransactionException,

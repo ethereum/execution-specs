@@ -7,7 +7,7 @@ import pytest
 from semver import Version
 
 from ethereum_clis import TransitionTool
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     Account,
     Address,
     Hash,
@@ -24,8 +24,8 @@ from ethereum_test_forks import (
 )
 from ethereum_test_specs import StateTest
 from ethereum_test_types import Alloc, Environment, Transaction
-from ethereum_test_vm import Opcodes as Op
-from ethereum_test_vm import UndefinedOpcodes
+from ethereum_execution_tests.vm import Opcodes as Op
+from ethereum_execution_tests.vm import UndefinedOpcodes
 from pytest_plugins.solc.solc import SOLC_EXPECTED_MIN_VERSION
 
 from ..tools_code import CalldataCase, Case, Conditional, Initcode, Switch

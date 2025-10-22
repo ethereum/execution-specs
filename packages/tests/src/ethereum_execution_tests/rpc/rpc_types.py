@@ -8,7 +8,7 @@ from typing import Annotated, Any, Dict, List, Self
 
 from pydantic import AliasChoices, Field, model_validator
 
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     Address,
     Bytes,
     CamelModel,
@@ -18,7 +18,7 @@ from ethereum_test_base_types import (
     Hash,
     HexNumber,
 )
-from ethereum_test_exceptions import (
+from ethereum_execution_tests.exceptions import (
     BlockException,
     ExceptionMapperValidator,
     ExceptionWithMessage,

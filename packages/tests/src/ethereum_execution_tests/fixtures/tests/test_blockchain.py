@@ -5,7 +5,7 @@ from typing import Any, Dict
 import pytest
 from pydantic import TypeAdapter
 
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     AccessList,
     Address,
     Bloom,
@@ -18,7 +18,7 @@ from ethereum_test_base_types import (
     ZeroPaddedHexNumber,
     to_json,
 )
-from ethereum_test_exceptions import (
+from ethereum_execution_tests.exceptions import (
     BlockException,
     EngineAPIError,
     TransactionException,

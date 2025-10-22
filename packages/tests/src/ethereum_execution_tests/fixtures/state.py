@@ -4,7 +4,7 @@ from typing import ClassVar, List, Mapping, Sequence
 
 from pydantic import BaseModel, Field
 
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     AccessList,
     Address,
     Alloc,
@@ -13,7 +13,7 @@ from ethereum_test_base_types import (
     Hash,
     ZeroPaddedHexNumber,
 )
-from ethereum_test_exceptions import TransactionExceptionInstanceOrList
+from ethereum_execution_tests.exceptions import TransactionExceptionInstanceOrList
 from ethereum_test_forks import Fork
 from ethereum_test_types.block_types import EnvironmentGeneric
 from ethereum_test_types.transaction_types import (

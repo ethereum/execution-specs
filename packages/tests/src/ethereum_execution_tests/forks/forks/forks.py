@@ -6,15 +6,15 @@ from os.path import realpath
 from pathlib import Path
 from typing import List, Literal, Mapping, Optional, Sized, Tuple
 
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     AccessList,
     Address,
     BlobSchedule,
     Bytes,
     ForkBlobSchedule,
 )
-from ethereum_test_base_types.conversions import BytesConvertible
-from ethereum_test_vm import EVMCodeType, Opcodes
+from ethereum_execution_tests.base_types.conversions import BytesConvertible
+from ethereum_execution_tests.vm import EVMCodeType, Opcodes
 
 from ..base_fork import (
     BaseFeeChangeCalculator,

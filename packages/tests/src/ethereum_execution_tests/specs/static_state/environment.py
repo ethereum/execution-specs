@@ -4,7 +4,7 @@ from typing import Any, Dict
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ethereum_test_base_types import Address
+from ethereum_execution_tests.base_types import Address
 from ethereum_test_types import Environment
 
 from .common import AddressOrTagInFiller, Tag, TagDict, ValueInFiller

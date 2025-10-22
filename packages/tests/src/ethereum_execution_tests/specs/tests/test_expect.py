@@ -5,14 +5,14 @@ from typing import Any, Mapping, Type
 import pytest
 
 from ethereum_clis import TransitionTool
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     Account,
     Address,
     Storage,
     TestAddress,
     TestPrivateKey,
 )
-from ethereum_test_exceptions import TransactionException
+from ethereum_execution_tests.exceptions import TransactionException
 from ethereum_test_fixtures import (
     BlockchainFixture,
     FixtureFormat,

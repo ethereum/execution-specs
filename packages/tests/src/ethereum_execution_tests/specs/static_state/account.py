@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Mapping, Set, Tuple
 
 from pydantic import BaseModel, ConfigDict
 
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     Bytes,
     EthereumTestRootModel,
     HexNumber,

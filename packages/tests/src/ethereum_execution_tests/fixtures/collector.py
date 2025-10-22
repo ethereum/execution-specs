@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import ClassVar, Dict, Literal, Optional, Tuple
 
-from ethereum_test_base_types import to_json
+from ethereum_execution_tests.base_types import to_json
 
 from .base import BaseFixture
 from .consume import FixtureConsumer

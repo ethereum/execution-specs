@@ -5,10 +5,10 @@ from typing import Any, List, SupportsBytes
 
 from typing_extensions import Self
 
-from ethereum_test_base_types import Bytes
+from ethereum_execution_tests.base_types import Bytes
 from ethereum_test_types import ceiling_division
-from ethereum_test_vm import Bytecode, EVMCodeType
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Bytecode, EVMCodeType
+from ethereum_execution_tests.vm import Opcodes as Op
 
 GAS_PER_DEPLOYED_CODE_BYTE = 0xC8
 

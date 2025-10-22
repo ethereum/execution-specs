@@ -19,7 +19,7 @@ from pydantic import (
 )
 from trie import HexaryTrie
 
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     AccessList,
     Address,
     Bytes,
@@ -32,7 +32,7 @@ from ethereum_test_base_types import (
     TestAddress,
     TestPrivateKey,
 )
-from ethereum_test_exceptions import TransactionException
+from ethereum_execution_tests.exceptions import TransactionException
 from pytest_plugins.custom_logging import get_logger
 
 from .account_types import EOA

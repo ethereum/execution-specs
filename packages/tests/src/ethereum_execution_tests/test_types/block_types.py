@@ -10,7 +10,7 @@ from ethereum_types.numeric import Uint
 from pydantic import Field, computed_field
 from trie import HexaryTrie
 
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     Address,
     Bytes,
     CamelModel,

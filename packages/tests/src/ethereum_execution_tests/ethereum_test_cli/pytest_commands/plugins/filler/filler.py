@@ -25,7 +25,7 @@ from pytest_metadata.plugin import metadata_key
 from cli.gen_index import generate_fixtures_index
 from ethereum_clis import TransitionTool
 from ethereum_clis.clis.geth import FixtureConsumerTool
-from ethereum_test_base_types import Account, Address, Alloc, ReferenceSpec
+from ethereum_execution_tests.base_types import Account, Address, Alloc, ReferenceSpec
 from ethereum_test_fixtures import (
     BaseFixture,
     FixtureCollector,

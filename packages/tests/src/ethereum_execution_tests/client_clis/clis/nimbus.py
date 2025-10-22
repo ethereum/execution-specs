@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 from typing import ClassVar, Dict, Optional
 
-from ethereum_test_exceptions import (
+from ethereum_execution_tests.exceptions import (
     BlockException,
     ExceptionBase,
     ExceptionMapper,

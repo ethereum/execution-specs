@@ -2,7 +2,7 @@
 
 import pytest
 
-from ethereum_test_base_types import Address, HexNumber
+from ethereum_execution_tests.base_types import Address, HexNumber
 from ethereum_test_types import EOA
 
 

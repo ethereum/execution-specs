@@ -11,7 +11,7 @@ from filelock import FileLock
 from pydantic import RootModel
 from typing_extensions import Self
 
-from ethereum_test_base_types import HexNumber
+from ethereum_execution_tests.base_types import HexNumber
 from ethereum_test_forks import Fork
 from ethereum_test_rpc import EngineRPC
 from ethereum_test_rpc import EthRPC as BaseEthRPC

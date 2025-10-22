@@ -3,7 +3,7 @@ Module containing tools for generating cross-client Ethereum execution layer
 tests.
 """
 
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     AccessList,
     Account,
     Address,
@@ -15,7 +15,7 @@ from ethereum_test_base_types import (
     TestPrivateKey,
     TestPrivateKey2,
 )
-from ethereum_test_base_types.reference_spec import (
+from ethereum_execution_tests.base_types.reference_spec import (
     ReferenceSpec,
     ReferenceSpecTypes,
 )
@@ -24,7 +24,7 @@ from ethereum_test_benchmark import (
     ExtCallGenerator,
     JumpLoopGenerator,
 )
-from ethereum_test_exceptions import (
+from ethereum_execution_tests.exceptions import (
     BlockException,
     EngineAPIError,
     EOFException,
@@ -80,7 +80,7 @@ from ethereum_test_types import (
     compute_eofcreate_address,
     keccak256,
 )
-from ethereum_test_vm import (
+from ethereum_execution_tests.vm import (
     Bytecode,
     EVMCodeType,
     Macro,

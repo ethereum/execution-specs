@@ -6,8 +6,8 @@ from typing import Any, List
 import ethereum_rlp as eth_rlp
 from pydantic import Field
 
-from ethereum_test_base_types import Bytes, EthereumTestRootModel
-from ethereum_test_base_types.serialization import to_serializable_element
+from ethereum_execution_tests.base_types import Bytes, EthereumTestRootModel
+from ethereum_execution_tests.base_types.serialization import to_serializable_element
 
 from .account_changes import BalAccountChange
 

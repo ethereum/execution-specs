@@ -4,8 +4,8 @@ from typing import Any, ClassVar, Mapping
 
 from pydantic import Field
 
-from ethereum_test_base_types import Bytes, CamelModel, Number
-from ethereum_test_exceptions.exceptions import EOFExceptionInstanceOrList
+from ethereum_execution_tests.base_types import Bytes, CamelModel, Number
+from ethereum_execution_tests.exceptions.exceptions import EOFExceptionInstanceOrList
 from ethereum_test_forks import Fork
 from ethereum_test_types.eof.v1 import ContainerKind
 

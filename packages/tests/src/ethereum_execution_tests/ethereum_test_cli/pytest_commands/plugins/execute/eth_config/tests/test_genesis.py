@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from ethereum_test_base_types import Hash
+from ethereum_execution_tests.base_types import Hash
 from ethereum_test_forks import (
     BPO1,
     BPO2,

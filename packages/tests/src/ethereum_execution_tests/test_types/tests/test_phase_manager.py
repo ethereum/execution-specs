@@ -2,7 +2,7 @@
 
 import pytest
 
-from ethereum_test_base_types import Address
+from ethereum_execution_tests.base_types import Address
 from ethereum_test_tools import Transaction
 
 from ..phase_manager import TestPhase, TestPhaseManager

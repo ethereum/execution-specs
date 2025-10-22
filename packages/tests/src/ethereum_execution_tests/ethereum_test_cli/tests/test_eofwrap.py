@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from ethereum_test_base_types.conversions import to_hex
+from ethereum_execution_tests.base_types.conversions import to_hex
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_types.eof.v1 import Container
 

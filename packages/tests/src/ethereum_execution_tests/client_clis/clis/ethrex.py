@@ -1,6 +1,6 @@
 """Ethrex execution client transition tool."""
 
-from ethereum_test_exceptions import (
+from ethereum_execution_tests.exceptions import (
     BlockException,
     ExceptionMapper,
     TransactionException,

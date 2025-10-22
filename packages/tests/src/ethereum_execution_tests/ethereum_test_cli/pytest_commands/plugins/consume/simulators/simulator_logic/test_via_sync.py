@@ -16,7 +16,7 @@ import time
 
 import pytest
 
-from ethereum_test_exceptions import UndefinedException
+from ethereum_execution_tests.exceptions import UndefinedException
 from ethereum_test_fixtures import BlockchainEngineSyncFixture
 from ethereum_test_rpc import AdminRPC, EngineRPC, EthRPC, NetRPC
 from ethereum_test_rpc.rpc_types import (

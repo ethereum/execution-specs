@@ -9,7 +9,7 @@ from typing import Any, Callable, ClassVar, Dict, List, Optional
 
 from pydantic import Field, PrivateAttr
 
-from ethereum_test_base_types import Address, CamelModel, StorageKey
+from ethereum_execution_tests.base_types import Address, CamelModel, StorageKey
 
 from .account_absent_values import BalAccountAbsentValues
 from .account_changes import (

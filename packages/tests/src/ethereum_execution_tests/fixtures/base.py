@@ -18,7 +18,7 @@ from pydantic import (
 )
 from pydantic_core.core_schema import ValidatorFunctionWrapHandler
 
-from ethereum_test_base_types import CamelModel, ReferenceSpec
+from ethereum_execution_tests.base_types import CamelModel, ReferenceSpec
 from ethereum_test_forks import Fork
 
 

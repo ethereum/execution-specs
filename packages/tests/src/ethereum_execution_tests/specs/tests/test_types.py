@@ -2,7 +2,7 @@
 
 import pytest
 
-from ethereum_test_base_types import Address, Bloom, Bytes, Hash, HeaderNonce
+from ethereum_execution_tests.base_types import Address, Bloom, Bytes, Hash, HeaderNonce
 from ethereum_test_fixtures.blockchain import FixtureHeader
 
 from ..blockchain import Header

@@ -5,7 +5,7 @@ from typing import Dict
 import pytest
 
 from ethereum_clis import ExecutionSpecsTransitionTool, TransitionTool
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     Account,
     Address,
     TestAddress,
@@ -37,7 +37,7 @@ from ethereum_test_tools import (
     add_kzg_version,
 )
 from ethereum_test_types import Alloc
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Opcodes as Op
 
 BLOB_COMMITMENT_VERSION_KZG = 1
 

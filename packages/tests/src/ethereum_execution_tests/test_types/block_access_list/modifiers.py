@@ -8,7 +8,7 @@ and can be combined to create complex modifications.
 
 from typing import Any, Callable, List, Optional
 
-from ethereum_test_base_types import Address, HexNumber
+from ethereum_execution_tests.base_types import Address, HexNumber
 
 from .. import BalCodeChange
 from . import (

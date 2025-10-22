@@ -5,9 +5,9 @@ from typing import Any, List
 
 import click
 
-from ethereum_test_base_types import ZeroPaddedHexNumber
-from ethereum_test_vm import Bytecode, Macro
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.base_types import ZeroPaddedHexNumber
+from ethereum_execution_tests.vm import Bytecode, Macro
+from ethereum_execution_tests.vm import Opcodes as Op
 
 OPCODES_WITH_EMPTY_LINES_AFTER = {
     Op.STOP,

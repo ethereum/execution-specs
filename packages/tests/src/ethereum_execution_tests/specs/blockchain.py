@@ -17,7 +17,7 @@ import pytest
 from pydantic import ConfigDict, Field, field_validator, model_serializer
 
 from ethereum_clis import BlockExceptionWithMessage, Result, TransitionTool
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     Address,
     Bloom,
     Bytes,
@@ -27,7 +27,7 @@ from ethereum_test_base_types import (
     HexNumber,
     Number,
 )
-from ethereum_test_exceptions import (
+from ethereum_execution_tests.exceptions import (
     BlockException,
     EngineAPIError,
     ExceptionWithMessage,

@@ -25,7 +25,7 @@ from typing_extensions import Self
 
 from ethereum_clis import Result, TransitionTool
 from ethereum_clis.cli_types import OpcodeCount
-from ethereum_test_base_types import to_hex
+from ethereum_execution_tests.base_types import to_hex
 from ethereum_test_execution import (
     BaseExecute,
     ExecuteFormat,

@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from ethereum_test_base_types import Bytes, Hash
+from ethereum_execution_tests.base_types import Bytes, Hash
 
 
 def keccak256(data: bytes) -> Hash:

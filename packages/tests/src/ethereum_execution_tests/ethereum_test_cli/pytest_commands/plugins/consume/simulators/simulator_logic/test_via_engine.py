@@ -9,7 +9,7 @@ responses.
 
 import time
 
-from ethereum_test_exceptions import UndefinedException
+from ethereum_execution_tests.exceptions import UndefinedException
 from ethereum_test_fixtures import BlockchainEngineFixture
 from ethereum_test_rpc import EngineRPC, EthRPC
 from ethereum_test_rpc.rpc_types import (

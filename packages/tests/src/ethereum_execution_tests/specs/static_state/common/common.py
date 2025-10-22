@@ -17,7 +17,7 @@ from pydantic import (
 from pydantic_core import core_schema
 from typing_extensions import Annotated
 
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     AccessList,
     Address,
     CamelModel,

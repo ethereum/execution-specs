@@ -11,7 +11,7 @@ from typing import ClassVar, Dict, Optional
 
 import requests
 
-from ethereum_test_exceptions import (
+from ethereum_execution_tests.exceptions import (
     BlockException,
     ExceptionBase,
     ExceptionMapper,

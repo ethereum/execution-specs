@@ -4,7 +4,7 @@ from typing import Any, Dict, List
 
 import pytest
 
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     AccessList,
     Account,
     Address,
@@ -14,7 +14,7 @@ from ethereum_test_base_types import (
     ZeroPaddedHexNumber,
     to_json,
 )
-from ethereum_test_base_types.pydantic import CopyValidateModel
+from ethereum_execution_tests.base_types.pydantic import CopyValidateModel
 
 from ..account_types import EOA, Alloc
 from ..block_types import (

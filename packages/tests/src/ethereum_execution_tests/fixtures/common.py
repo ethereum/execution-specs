@@ -4,7 +4,7 @@ from typing import Dict
 
 from pydantic import AliasChoices, Field
 
-from ethereum_test_base_types import (
+from ethereum_execution_tests.base_types import (
     BlobSchedule,
     CamelModel,
     EthereumTestRootModel,
