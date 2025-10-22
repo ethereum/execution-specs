@@ -48,16 +48,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 TITLE_LINE = "# EIP Execution Layer Testing Checklist Template"
-PERCENTAGE_LINE = (
-    "| TOTAL_CHECKLIST_ITEMS | COVERED_CHECKLIST_ITEMS | PERCENTAGE |"
-)
-TEMPLATE_PATH = (
-    Path(__file__).parents[3]
-    / "docs"
-    / "writing_tests"
-    / "checklist_templates"
-    / "eip_testing_checklist_template.md"
-)
+PERCENTAGE_LINE = "| TOTAL_CHECKLIST_ITEMS | COVERED_CHECKLIST_ITEMS | PERCENTAGE |"
+TEMPLATE_PATH = Path("docs/writing_tests/checklist_templates/eip_testing_checklist_template.md")
 TEMPLATE_CONTENT = TEMPLATE_PATH.read_text()
 EXTERNAL_COVERAGE_FILE_NAME = "eip_checklist_external_coverage.txt"
 NOT_APPLICABLE_FILE_NAME = "eip_checklist_not_applicable.txt"
