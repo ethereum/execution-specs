@@ -11,7 +11,10 @@ from typing import Any, Dict, cast
 import pytest
 from _pytest.mark import ParameterSet
 from ethereum_execution_tests.base_types.base_types import Bytes
-from ethereum_execution_tests.benchmark import ExtCallGenerator, JumpLoopGenerator
+from ethereum_execution_tests.benchmark import (
+    ExtCallGenerator,
+    JumpLoopGenerator,
+)
 from ethereum_execution_tests.forks import Fork
 from ethereum_execution_tests.tools import (
     Address,

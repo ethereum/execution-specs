@@ -5,7 +5,13 @@ from functools import cached_property
 from itertools import count
 from typing import Callable, ClassVar, List
 
-from ethereum_execution_tests.tools import EOA, Address, Alloc, Bytecode, Transaction
+from ethereum_execution_tests.tools import (
+    EOA,
+    Address,
+    Alloc,
+    Bytecode,
+    Transaction,
+)
 from ethereum_execution_tests.tools import (
     ConsolidationRequest as ConsolidationRequestBase,
 )

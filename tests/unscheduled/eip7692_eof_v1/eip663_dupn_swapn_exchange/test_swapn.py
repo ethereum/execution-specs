@@ -12,7 +12,9 @@ from ethereum_execution_tests.tools import (
     Transaction,
 )
 from ethereum_execution_tests.test_types.eof.v1 import Container, Section
-from ethereum_execution_tests.test_types.eof.v1.constants import MAX_STACK_INCREASE_LIMIT
+from ethereum_execution_tests.test_types.eof.v1.constants import (
+    MAX_STACK_INCREASE_LIMIT,
+)
 from ethereum_execution_tests.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME

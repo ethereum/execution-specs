@@ -3,10 +3,16 @@
 from enum import IntEnum
 
 import pytest
-from ethereum_execution_tests.exceptions.exceptions import EOFExceptionInstanceOrList
+from ethereum_execution_tests.exceptions.exceptions import (
+    EOFExceptionInstanceOrList,
+)
 from ethereum_execution_tests.tools import EOFException, EOFTestFiller
 from ethereum_execution_tests.tools import Opcodes as Op
-from ethereum_execution_tests.test_types.eof.v1 import Container, Section, SectionKind
+from ethereum_execution_tests.test_types.eof.v1 import (
+    Container,
+    Section,
+    SectionKind,
+)
 
 from .. import EOF_FORK_NAME
 

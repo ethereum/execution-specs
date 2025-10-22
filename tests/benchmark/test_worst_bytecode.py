@@ -5,7 +5,9 @@ Tests that benchmark EVMs in worst-case opcode scenarios.
 import math
 
 import pytest
-from ethereum_execution_tests.benchmark.benchmark_code_generator import JumpLoopGenerator
+from ethereum_execution_tests.benchmark.benchmark_code_generator import (
+    JumpLoopGenerator,
+)
 from ethereum_execution_tests.forks import Fork
 from ethereum_execution_tests.tools import (
     Account,

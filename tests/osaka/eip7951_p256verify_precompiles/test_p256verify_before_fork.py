@@ -10,7 +10,12 @@ active.
 
 import pytest
 from ethereum_execution_tests.checklists import EIPChecklist
-from ethereum_execution_tests.tools import Alloc, Block, BlockchainTestFiller, Transaction
+from ethereum_execution_tests.tools import (
+    Alloc,
+    Block,
+    BlockchainTestFiller,
+    Transaction,
+)
 
 from .spec import Spec, ref_spec_7951
 

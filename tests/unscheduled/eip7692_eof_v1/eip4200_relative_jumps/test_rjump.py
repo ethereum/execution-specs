@@ -8,7 +8,9 @@ from ethereum_execution_tests.tools import (
     EOFTestFiller,
 )
 from ethereum_execution_tests.test_types.eof.v1 import Container, Section
-from ethereum_execution_tests.test_types.eof.v1.constants import MAX_BYTECODE_SIZE
+from ethereum_execution_tests.test_types.eof.v1.constants import (
+    MAX_BYTECODE_SIZE,
+)
 from ethereum_execution_tests.vm import Bytecode
 from ethereum_execution_tests.vm import Opcodes as Op
 

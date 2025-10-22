@@ -7,7 +7,11 @@ from ethereum_execution_tests.tools import (
     EOFStateTestFiller,
     EOFTestFiller,
 )
-from ethereum_execution_tests.test_types.eof.v1 import Container, ContainerKind, Section
+from ethereum_execution_tests.test_types.eof.v1 import (
+    Container,
+    ContainerKind,
+    Section,
+)
 from ethereum_execution_tests.test_types.eof.v1.constants import (
     MAX_BYTECODE_SIZE,
     MAX_INITCODE_SIZE,

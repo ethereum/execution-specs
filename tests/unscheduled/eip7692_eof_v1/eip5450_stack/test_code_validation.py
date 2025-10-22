@@ -9,7 +9,11 @@ from typing import Generator, Tuple, Union
 
 import pytest
 from ethereum_execution_tests.exceptions.exceptions import EOFException
-from ethereum_execution_tests.tools import Account, EOFStateTestFiller, EOFTestFiller
+from ethereum_execution_tests.tools import (
+    Account,
+    EOFStateTestFiller,
+    EOFTestFiller,
+)
 from ethereum_execution_tests.test_types.eof.v1 import Container, Section
 from ethereum_execution_tests.test_types.eof.v1.constants import (
     MAX_STACK_INCREASE_LIMIT,

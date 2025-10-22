@@ -20,7 +20,9 @@ from ethereum_execution_tests.tools import (
     Transaction,
     TransactionException,
 )
-from ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.custom_logging import get_logger
+from ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.custom_logging import (
+    get_logger,
+)
 
 from .spec import ref_spec_7594
 

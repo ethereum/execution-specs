@@ -9,7 +9,11 @@ from enum import Enum, auto
 from typing import List, Type
 
 import pytest
-from ethereum_execution_tests.base_types import Bytes, FixedSizeBytes, HexNumber
+from ethereum_execution_tests.base_types import (
+    Bytes,
+    FixedSizeBytes,
+    HexNumber,
+)
 from ethereum_execution_tests.tools import (
     Address,
     Alloc,
