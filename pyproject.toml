@@ -382,7 +382,7 @@ warn_unused_ignores = true
 warn_unused_configs = true
 warn_redundant_casts = true
 ignore_missing_imports = false
-mypy_path = ["src", "packages/tests/src"]
+mypy_path = ["src", "packages/tests/src", "packages/tests/stubs"]
 files = ["src", "tests", "packages"]
 exclude = [
     "^\\.cache/",
