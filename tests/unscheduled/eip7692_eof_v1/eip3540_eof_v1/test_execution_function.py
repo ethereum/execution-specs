@@ -3,16 +3,16 @@
 from typing import List
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Alloc,
     Environment,
     StateTestFiller,
     Transaction,
 )
-from eest import Opcodes as Op
-from eest.test_types.eof.v1 import Container, Section
-from eest.test_types.eof.v1.constants import (
+from execution_testing import Opcodes as Op
+from execution_testing.test_types.eof.v1 import Container, Section
+from execution_testing.test_types.eof.v1.constants import (
     MAX_CODE_SECTIONS,
     MAX_RETURN_STACK_HEIGHT,
 )

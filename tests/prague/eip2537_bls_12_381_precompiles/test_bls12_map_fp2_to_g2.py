@@ -6,13 +6,13 @@ Test the BLS12_MAP_FP2_TO_G2 precompile introduced in
 """
 
 import pytest
-from eest import (
+from execution_testing import (
     Alloc,
     Environment,
     StateTestFiller,
     Transaction,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from .conftest import G2_FIELD_POINTS_MAP_TO_IDENTITY
 from .helpers import vectors_from_file

@@ -5,7 +5,7 @@ from typing import Dict, Generator
 
 import pytest
 
-from eest.client_clis import (
+from execution_testing.client_clis import (
     BesuTransitionTool,
     ExecutionSpecsTransitionTool,
     TransitionTool,

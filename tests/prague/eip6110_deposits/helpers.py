@@ -5,7 +5,7 @@ from functools import cached_property
 from hashlib import sha256 as sha256_hashlib
 from typing import Callable, ClassVar, List
 
-from eest import (
+from execution_testing import (
     EOA,
     Address,
     Alloc,
@@ -13,8 +13,8 @@ from eest import (
     Hash,
     Transaction,
 )
-from eest import DepositRequest as DepositRequestBase
-from eest import Opcodes as Op
+from execution_testing import DepositRequest as DepositRequestBase
+from execution_testing import Opcodes as Op
 
 from .spec import Spec
 

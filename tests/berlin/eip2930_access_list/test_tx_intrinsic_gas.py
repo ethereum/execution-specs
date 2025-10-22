@@ -8,7 +8,7 @@ https://github.com/ethereum/tests/blob/v15.0/src/GeneralStateTestsFiller/stEIP15
 from typing import List
 
 import pytest
-from eest import (
+from execution_testing import (
     AccessList,
     Address,
     Alloc,
@@ -19,7 +19,7 @@ from eest import (
     Transaction,
     TransactionException,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from .spec import ref_spec_2930
 

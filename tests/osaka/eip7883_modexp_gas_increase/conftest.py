@@ -3,7 +3,7 @@
 from typing import Dict
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Address,
     Alloc,
@@ -14,8 +14,8 @@ from eest import (
     Transaction,
     keccak256,
 )
-from eest import Opcodes as Op
-from eest.forks import Osaka
+from execution_testing import Opcodes as Op
+from execution_testing.forks import Osaka
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput
 from .spec import Spec, Spec7883

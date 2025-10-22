@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from eest import Address, Bytes
+from execution_testing import Address, Bytes
 
 
 @dataclass(frozen=True)

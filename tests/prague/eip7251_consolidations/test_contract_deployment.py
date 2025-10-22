@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Generator
 
 import pytest
-from eest import (
+from execution_testing import (
     Address,
     Alloc,
     Block,
@@ -17,7 +17,7 @@ from eest import (
     Transaction,
     generate_system_contract_deploy_test,
 )
-from eest.forks import Prague
+from execution_testing.forks import Prague
 
 from .helpers import ConsolidationRequest
 from .spec import Spec, ref_spec_7251

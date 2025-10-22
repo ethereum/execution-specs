@@ -7,7 +7,7 @@ abstract: BloatNet bench cases extracted from https://hackmd.io/9icZeLN7R0Sk5mIj
 """
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Alloc,
     Block,
@@ -17,7 +17,7 @@ from eest import (
     Transaction,
     While,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
 REFERENCE_SPEC_VERSION = "1.0"

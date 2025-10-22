@@ -17,7 +17,7 @@ combinations and test cases.
 from typing import List, Optional, Tuple
 
 import pytest
-from eest import (
+from execution_testing import (
     EOA,
     AccessList,
     Account,
@@ -39,7 +39,7 @@ from eest import (
     TransactionException,
     add_kzg_version,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from .spec import Spec, SpecHelpers, ref_spec_4844
 

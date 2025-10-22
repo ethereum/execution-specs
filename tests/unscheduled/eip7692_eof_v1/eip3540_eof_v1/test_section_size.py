@@ -3,12 +3,12 @@
 from enum import IntEnum
 
 import pytest
-from eest import EOFException, EOFTestFiller
-from eest import Opcodes as Op
-from eest.exceptions.exceptions import (
+from execution_testing import EOFException, EOFTestFiller
+from execution_testing import Opcodes as Op
+from execution_testing.exceptions.exceptions import (
     EOFExceptionInstanceOrList,
 )
-from eest.test_types.eof.v1 import (
+from execution_testing.test_types.eof.v1 import (
     Container,
     Section,
     SectionKind,

@@ -8,7 +8,7 @@ Tests for ModExp gas cost increase in
 from typing import Dict, Generator
 
 import pytest
-from eest import (
+from execution_testing import (
     Alloc,
     EIPChecklist,
     Environment,
@@ -19,8 +19,8 @@ from eest import (
     compute_create_address,
     keccak256,
 )
-from eest import Opcodes as Op
-from eest.forks import Osaka
+from execution_testing import Opcodes as Op
+from execution_testing.forks import Osaka
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput
 from .helpers import vectors_from_file

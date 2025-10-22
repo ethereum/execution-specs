@@ -3,7 +3,7 @@ Tests [EIP-7939: Count leading zeros (CLZ)](https://eips.ethereum.org/EIPS/eip-7
 """
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Alloc,
     AuthorizationTuple,
@@ -19,7 +19,7 @@ from eest import (
     Transaction,
     compute_create_address,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .spec import Spec, ref_spec_7939

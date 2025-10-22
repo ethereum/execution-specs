@@ -3,9 +3,15 @@
 from dataclasses import dataclass
 from typing import List
 
-from eest import Alloc, Bytecode, EVMCodeType, Opcode, compute_create_address
-from eest import Macros as Om
-from eest import Opcodes as Op
+from execution_testing import (
+    Alloc,
+    Bytecode,
+    EVMCodeType,
+    Opcode,
+    compute_create_address,
+)
+from execution_testing import Macros as Om
+from execution_testing import Opcodes as Op
 
 from ..common import Scenario, ScenarioEnvironment, ScenarioGeneratorInput
 

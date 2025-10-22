@@ -5,15 +5,15 @@ Call data tests for EXT*CALL instructions
 """
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Alloc,
     Environment,
     StateTestFiller,
     Transaction,
 )
-from eest import Opcodes as Op
-from eest.test_types.eof.v1 import Container, Section
+from execution_testing import Opcodes as Op
+from execution_testing.test_types.eof.v1 import Container, Section
 
 from .. import EOF_FORK_NAME
 from . import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION

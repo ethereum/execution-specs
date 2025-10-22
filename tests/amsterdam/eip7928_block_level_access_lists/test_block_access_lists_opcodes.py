@@ -17,7 +17,7 @@ preventing consensus issues.
 from enum import Enum
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Alloc,
     BalAccountExpectation,
@@ -30,7 +30,7 @@ from eest import (
     Fork,
     Transaction,
 )
-from eest import (
+from execution_testing import (
     Opcodes as Op,
 )
 

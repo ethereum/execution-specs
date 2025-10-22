@@ -4,7 +4,7 @@ from itertools import count
 from typing import Dict, Iterator, List
 
 import pytest
-from eest import (
+from execution_testing import (
     AccessList,
     Account,
     Address,
@@ -19,7 +19,7 @@ from eest import (
     add_kzg_version,
     keccak256,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from .spec import Spec, SpecHelpers
 

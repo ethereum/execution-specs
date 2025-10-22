@@ -6,7 +6,7 @@ opcode is supported by the fork supports and fails otherwise.
 from typing import Dict
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Address,
     Alloc,
@@ -18,7 +18,7 @@ from eest import (
     Transaction,
     UndefinedOpcodes,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"

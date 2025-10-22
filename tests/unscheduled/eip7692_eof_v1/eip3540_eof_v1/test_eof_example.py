@@ -1,13 +1,13 @@
 """EOF Classes example use."""
 
 import pytest
-from eest import (
+from execution_testing import (
     Bytecode,
     EOFException,
     EOFTestFiller,
 )
-from eest import Opcodes as Op
-from eest.test_types.eof.v1 import (
+from execution_testing import Opcodes as Op
+from execution_testing.test_types.eof.v1 import (
     AutoSection,
     Container,
     Section,

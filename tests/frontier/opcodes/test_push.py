@@ -8,7 +8,7 @@ GeneralStateTestsFiller/VMTests/vmTests/pushFiller.yml.
 """
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Alloc,
     Bytecode,
@@ -17,8 +17,8 @@ from eest import (
     StateTestFiller,
     Transaction,
 )
-from eest import Opcodes as Op
-from eest.forks import Frontier, Homestead
+from execution_testing import Opcodes as Op
+from execution_testing.forks import Frontier, Homestead
 
 
 def get_input_for_push_opcode(opcode: Op) -> bytes:

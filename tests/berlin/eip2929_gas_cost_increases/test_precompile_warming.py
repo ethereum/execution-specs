@@ -9,7 +9,7 @@ Tests precompile warming behavior across fork transitions from
 from typing import Iterator, Tuple
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Address,
     Alloc,
@@ -18,8 +18,8 @@ from eest import (
     EIPChecklist,
     Transaction,
 )
-from eest import Opcodes as Op
-from eest.forks import (
+from execution_testing import Opcodes as Op
+from execution_testing.forks import (
     Fork,
     get_transition_fork_predecessor,
     get_transition_fork_successor,

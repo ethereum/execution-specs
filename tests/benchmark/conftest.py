@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from eest import Fork
+from execution_testing import Fork
 
 DEFAULT_BENCHMARK_FORK = "Prague"
 

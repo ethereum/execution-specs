@@ -4,7 +4,7 @@ from enum import Enum, auto, unique
 from typing import Tuple
 
 import pytest
-from eest import (
+from execution_testing import (
     AccessList,
     Account,
     Address,
@@ -18,8 +18,8 @@ from eest import (
     Transaction,
     compute_eofcreate_address,
 )
-from eest import Opcodes as Op
-from eest.test_types.eof.v1 import Container, Section
+from execution_testing import Opcodes as Op
+from execution_testing.test_types.eof.v1 import Container, Section
 
 from ....prague.eip7702_set_code_tx.spec import Spec
 from .. import EOF_FORK_NAME

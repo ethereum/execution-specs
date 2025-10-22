@@ -3,8 +3,8 @@
 from dataclasses import dataclass
 from typing import List
 
-from eest import Address, Alloc, EVMCodeType, Opcode
-from eest import Opcodes as Op
+from execution_testing import Address, Alloc, EVMCodeType, Opcode
+from execution_testing import Opcodes as Op
 
 from ..common import Scenario, ScenarioEnvironment, ScenarioGeneratorInput
 

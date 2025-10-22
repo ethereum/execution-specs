@@ -3,7 +3,7 @@
 from typing import List, Sequence
 
 import pytest
-from eest import (
+from execution_testing import (
     EOA,
     AccessList,
     Address,
@@ -17,7 +17,7 @@ from eest import (
     TransactionException,
     add_kzg_version,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from ...cancun.eip4844_blobs.spec import Spec as EIP_4844_Spec
 from .helpers import DataTestType, find_floor_cost_threshold

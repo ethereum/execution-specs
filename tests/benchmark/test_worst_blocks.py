@@ -7,7 +7,7 @@ import random
 from typing import Generator, Tuple
 
 import pytest
-from eest import (
+from execution_testing import (
     AccessList,
     Account,
     Address,
@@ -20,7 +20,7 @@ from eest import (
     Hash,
     Transaction,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 
 @pytest.fixture

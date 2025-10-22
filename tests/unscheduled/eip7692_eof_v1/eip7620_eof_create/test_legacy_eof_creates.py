@@ -1,7 +1,7 @@
 """Test interactions between CREATE, CREATE2, and EOFCREATE."""
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Address,
     Alloc,
@@ -12,9 +12,9 @@ from eest import (
     Transaction,
     compute_create_address,
 )
-from eest import Initcode as LegacyInitcode
-from eest import Opcodes as Op
-from eest.test_types.eof.v1 import Container
+from execution_testing import Initcode as LegacyInitcode
+from execution_testing import Opcodes as Op
+from execution_testing.test_types.eof.v1 import Container
 
 from ....prague.eip7702_set_code_tx.spec import Spec
 from .. import EOF_FORK_NAME

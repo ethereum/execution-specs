@@ -6,7 +6,7 @@ from the EIP are labelled with `EIP-198-caseX` in the test id.
 """
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Alloc,
     Bytes,
@@ -15,7 +15,7 @@ from eest import (
     Transaction,
     compute_create_address,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from .helpers import ModExpInput, ModExpOutput
 

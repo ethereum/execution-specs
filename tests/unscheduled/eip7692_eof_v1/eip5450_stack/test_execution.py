@@ -1,14 +1,14 @@
 """Test execution of EOF code in the context of the operand stack height."""
 
 import pytest
-from eest import Account, EOFStateTestFiller
-from eest import Opcodes as Op
-from eest.exceptions import EOFException
-from eest.test_types.eof.constants import (
+from execution_testing import Account, EOFStateTestFiller
+from execution_testing import Opcodes as Op
+from execution_testing.exceptions import EOFException
+from execution_testing.test_types.eof.constants import (
     MAX_RUNTIME_STACK_HEIGHT,
 )
-from eest.test_types.eof.v1 import Container, Section
-from eest.test_types.eof.v1.constants import (
+from execution_testing.test_types.eof.v1 import Container, Section
+from execution_testing.test_types.eof.v1.constants import (
     MAX_CODE_INPUTS,
     MAX_STACK_INCREASE_LIMIT,
     NON_RETURNING_SECTION,

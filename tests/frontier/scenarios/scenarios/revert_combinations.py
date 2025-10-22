@@ -2,9 +2,9 @@
 
 from typing import List
 
-from eest import Macro, Opcode
-from eest import Macros as Om
-from eest import Opcodes as Op
+from execution_testing import Macro, Opcode
+from execution_testing import Macros as Om
+from execution_testing import Opcodes as Op
 
 from ..common import Scenario, ScenarioEnvironment, ScenarioGeneratorInput
 

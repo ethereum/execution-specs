@@ -1,10 +1,10 @@
 """EOF V1 Code Validation tests."""
 
 import pytest
-from eest import EOFException, EOFTestFiller
-from eest import Opcodes as Op
-from eest.test_types.eof.v1 import Container, Section
-from eest.test_types.eof.v1.constants import (
+from execution_testing import EOFException, EOFTestFiller
+from execution_testing import Opcodes as Op
+from execution_testing.test_types.eof.v1 import Container, Section
+from execution_testing.test_types.eof.v1.constants import (
     MAX_INITCODE_SIZE,
 )
 

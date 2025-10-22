@@ -5,7 +5,7 @@ Tests [EIP-7251: Increase the MAX_EFFECTIVE_BALANCE](https://eips.ethereum.org/E
 from typing import List
 
 import pytest
-from eest import (
+from execution_testing import (
     Address,
     Alloc,
     Block,
@@ -19,7 +19,7 @@ from eest import (
     TestAddress,
     TestAddress2,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from .helpers import (
     ConsolidationRequest,

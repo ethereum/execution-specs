@@ -3,7 +3,7 @@
 from typing import Optional
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Alloc,
     Block,
@@ -13,8 +13,8 @@ from eest import (
     Initcode,
     Transaction,
 )
-from eest import Opcodes as Op
-from eest.test_types.eof.v1 import Container
+from execution_testing import Opcodes as Op
+from execution_testing.test_types.eof.v1 import Container
 
 from .spec import ref_spec_1153
 

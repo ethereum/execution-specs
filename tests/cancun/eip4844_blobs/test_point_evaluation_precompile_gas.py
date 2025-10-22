@@ -8,7 +8,7 @@ Tests gas usage on point evaluation precompile for
 from typing import Dict, Literal
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Address,
     Alloc,
@@ -20,7 +20,7 @@ from eest import (
     Transaction,
     ceiling_division,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from .common import INF_POINT, Z
 from .spec import Spec, ref_spec_4844

@@ -10,7 +10,7 @@ from typing import Any, Dict, cast
 
 import pytest
 from _pytest.mark import ParameterSet
-from eest import (
+from execution_testing import (
     Address,
     Alloc,
     BenchmarkTestFiller,
@@ -25,7 +25,7 @@ from eest import (
     TransactionType,
     add_kzg_version,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 from py_ecc.bn128 import G1, G2, multiply
 
 from ..byzantium.eip198_modexp_precompile.test_modexp import ModExpInput

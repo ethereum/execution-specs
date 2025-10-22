@@ -4,15 +4,15 @@ into EEST tests.
 """
 
 import pytest
-from eest import (
+from execution_testing import (
     Alloc,
     Environment,
     Fork,
     StateTestFiller,
     Transaction,
 )
-from eest import Opcodes as Op
-from eest.forks import Cancun
+from execution_testing import Opcodes as Op
+from execution_testing.forks import Cancun
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"

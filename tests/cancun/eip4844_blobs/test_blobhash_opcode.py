@@ -20,7 +20,7 @@ There is no specific structure to follow within this test module.
 from typing import List
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Address,
     Alloc,
@@ -36,7 +36,7 @@ from eest import (
     Transaction,
     add_kzg_version,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from .spec import Spec, ref_spec_4844
 

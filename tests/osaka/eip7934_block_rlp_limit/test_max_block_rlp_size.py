@@ -6,7 +6,7 @@ from functools import lru_cache
 from typing import List, Tuple
 
 import pytest
-from eest import (
+from execution_testing import (
     EOA,
     Address,
     Alloc,
@@ -20,12 +20,12 @@ from eest import (
     Transaction,
     Withdrawal,
 )
-from eest import Opcodes as Op
-from eest.base_types import (
+from execution_testing import Opcodes as Op
+from execution_testing.base_types import (
     HexNumber,
     ZeroPaddedHexNumber,
 )
-from eest.fixtures.blockchain import (
+from execution_testing.fixtures.blockchain import (
     FixtureBlockBase,
     FixtureHeader,
     FixtureWithdrawal,

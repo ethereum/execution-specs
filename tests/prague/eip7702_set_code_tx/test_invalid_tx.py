@@ -9,7 +9,7 @@ from enum import Enum, auto
 from typing import List, Type
 
 import pytest
-from eest import (
+from execution_testing import (
     Address,
     Alloc,
     AuthorizationTuple,
@@ -19,7 +19,7 @@ from eest import (
     TransactionException,
     TransactionTestFiller,
 )
-from eest.base_types import (
+from execution_testing.base_types import (
     FixedSizeBytes,
     HexNumber,
 )

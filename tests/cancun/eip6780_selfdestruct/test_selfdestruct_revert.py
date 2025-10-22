@@ -3,7 +3,7 @@
 from typing import Dict
 
 import pytest
-from eest import (
+from execution_testing import (
     EOA,
     Account,
     Address,
@@ -16,8 +16,8 @@ from eest import (
     Transaction,
     compute_create_address,
 )
-from eest import Opcodes as Op
-from eest.forks import Cancun
+from execution_testing import Opcodes as Op
+from execution_testing.forks import Cancun
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-6780.md"
 REFERENCE_SPEC_VERSION = "1b6a0e94cc47e859b9866e570391cf37dc55059a"

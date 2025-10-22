@@ -4,7 +4,7 @@ import itertools
 from enum import Enum, auto, unique
 
 import pytest
-from eest import (
+from execution_testing import (
     EOA,
     Account,
     Address,
@@ -17,9 +17,9 @@ from eest import (
     Transaction,
     compute_eofcreate_address,
 )
-from eest import Opcodes as Op
-from eest.base_types import HashInt
-from eest.test_types.eof.v1 import Container, Section
+from execution_testing import Opcodes as Op
+from execution_testing.base_types import HashInt
+from execution_testing.test_types.eof.v1 import Container, Section
 
 from .. import EOF_FORK_NAME
 from .spec import (

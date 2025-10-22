@@ -3,16 +3,16 @@
 import itertools
 
 import pytest
-from eest import EOFException, EOFTestFiller
-from eest import Opcodes as Op
-from eest.test_types.eof.v1 import (
+from execution_testing import EOFException, EOFTestFiller
+from execution_testing import Opcodes as Op
+from execution_testing.test_types.eof.v1 import (
     AutoSection,
     Container,
     ContainerKind,
     Section,
     SectionKind,
 )
-from eest.test_types.eof.v1.constants import (
+from execution_testing.test_types.eof.v1.constants import (
     MAX_CODE_INPUTS,
     MAX_CODE_OUTPUTS,
     MAX_CODE_SECTIONS,

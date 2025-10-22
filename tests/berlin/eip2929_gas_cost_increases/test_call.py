@@ -1,7 +1,7 @@
 """Test the CALL opcode after EIP-2929."""
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Alloc,
     CodeGasMeasure,
@@ -10,7 +10,7 @@ from eest import (
     StateTestFiller,
     Transaction,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-2929.md"
 REFERENCE_SPEC_VERSION = "0e11417265a623adb680c527b15d0cb6701b870b"

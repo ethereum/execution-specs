@@ -5,7 +5,7 @@ Test transient storage in contract creation contexts.
 from enum import unique
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Address,
     Alloc,
@@ -16,7 +16,7 @@ from eest import (
     Transaction,
     compute_create_address,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from . import CreateOpcodeParams, PytestParameterEnum
 from .spec import ref_spec_1153

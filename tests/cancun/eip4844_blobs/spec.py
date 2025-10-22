@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 from typing import List, Optional, Tuple
 
-from eest import Fork, Transaction
+from execution_testing import Fork, Transaction
 
 
 @dataclass(frozen=True)

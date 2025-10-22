@@ -4,7 +4,7 @@ in EIP-6110.
 """
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Alloc,
     Block,
@@ -14,8 +14,8 @@ from eest import (
     Requests,
     Transaction,
 )
-from eest import Macros as Om
-from eest import Opcodes as Op
+from execution_testing import Macros as Om
+from execution_testing import Opcodes as Op
 
 from .helpers import DepositRequest, create_deposit_log_bytes
 from .spec import Spec, ref_spec_6110

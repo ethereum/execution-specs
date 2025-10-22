@@ -8,7 +8,7 @@ Cap](https://eips.ethereum.org/EIPS/eip-7825).
 from typing import List
 
 import pytest
-from eest import (
+from execution_testing import (
     AccessList,
     Account,
     Address,
@@ -27,7 +27,7 @@ from eest import (
     TransactionException,
     add_kzg_version,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from .spec import Spec, ref_spec_7825
 

@@ -6,7 +6,7 @@ Availability Sampling](https://eips.ethereum.org/EIPS/eip-7594).
 """
 
 import pytest
-from eest import (
+from execution_testing import (
     Address,
     Alloc,
     Block,

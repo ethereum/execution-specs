@@ -9,7 +9,7 @@ Tests ported from:
 from typing import List
 
 import pytest
-from eest import (
+from execution_testing import (
     EOA,
     AccessList,
     Account,
@@ -26,7 +26,7 @@ from eest import (
     ceiling_division,
     compute_create_address,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from .helpers import (
     INITCODE_RESULTING_DEPLOYED_CODE,

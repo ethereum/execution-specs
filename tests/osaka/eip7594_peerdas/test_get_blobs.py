@@ -9,7 +9,7 @@ from hashlib import sha256
 from typing import List, Optional
 
 import pytest
-from eest import (
+from execution_testing import (
     Address,
     Alloc,
     Blob,
@@ -20,7 +20,7 @@ from eest import (
     Transaction,
     TransactionException,
 )
-from eest.ethereum_test_cli.pytest_commands.plugins.custom_logging import (  # noqa: E501
+from execution_testing.ethereum_test_cli.pytest_commands.plugins.custom_logging import (  # noqa: E501
     get_logger,
 )
 

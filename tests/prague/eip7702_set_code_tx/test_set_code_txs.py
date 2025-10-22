@@ -11,7 +11,7 @@ from itertools import count
 from typing import List
 
 import pytest
-from eest import (
+from execution_testing import (
     AccessList,
     Account,
     Address,
@@ -40,10 +40,10 @@ from eest import (
     call_return_code,
     compute_create_address,
 )
-from eest import Macros as Om
-from eest import Opcodes as Op
-from eest.base_types import HexNumber
-from eest.test_types.eof.v1 import Container, Section
+from execution_testing import Macros as Om
+from execution_testing import Opcodes as Op
+from execution_testing.base_types import HexNumber
+from execution_testing.test_types.eof.v1 import Container, Section
 
 from ...cancun.eip4844_blobs.spec import Spec as Spec4844
 from ..eip6110_deposits.helpers import DepositRequest

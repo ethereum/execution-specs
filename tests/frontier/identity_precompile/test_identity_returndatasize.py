@@ -1,7 +1,7 @@
 """Test identity precompile output size."""
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Alloc,
     Environment,
@@ -9,7 +9,7 @@ from eest import (
     Storage,
     Transaction,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from .common import Constants
 

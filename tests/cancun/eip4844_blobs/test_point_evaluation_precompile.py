@@ -35,7 +35,7 @@ from itertools import count
 from typing import Any, Dict, List, Optional
 
 import pytest
-from eest import (
+from execution_testing import (
     EOA,
     AccessList,
     Account,
@@ -52,7 +52,7 @@ from eest import (
     TransactionReceipt,
     call_return_code,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from .common import INF_POINT, Z_Y_VALID_ENDIANNESS, Z
 from .spec import Spec, ref_spec_4844

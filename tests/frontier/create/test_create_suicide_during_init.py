@@ -3,7 +3,7 @@
 from enum import Enum
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Alloc,
     Environment,
@@ -13,8 +13,8 @@ from eest import (
     Transaction,
     compute_create_address,
 )
-from eest import Opcodes as Op
-from eest.forks import Byzantium
+from execution_testing import Opcodes as Op
+from execution_testing.forks import Byzantium
 
 
 class Operation(Enum):

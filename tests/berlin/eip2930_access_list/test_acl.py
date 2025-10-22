@@ -3,7 +3,7 @@
 from typing import List
 
 import pytest
-from eest import (
+from execution_testing import (
     AccessList,
     Account,
     Address,
@@ -16,7 +16,7 @@ from eest import (
     Transaction,
     TransactionException,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-2930.md"
 REFERENCE_SPEC_VERSION = "c9db53a936c5c9cbe2db32ba0d1b86c4c6e73534"

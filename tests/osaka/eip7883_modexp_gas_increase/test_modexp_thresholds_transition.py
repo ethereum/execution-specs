@@ -3,7 +3,7 @@ Test ModExp gas cost transition from EIP-7883 before & after the Osaka fork.
 """
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Alloc,
     Block,
@@ -13,7 +13,7 @@ from eest import (
     Transaction,
     keccak256,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput
 from .spec import Spec, ref_spec_7883

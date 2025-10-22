@@ -7,23 +7,23 @@ import itertools
 from typing import Any, Dict, Generator, List, Tuple
 
 import pytest
-from eest import (
+from execution_testing import (
     Bytecode,
     EOFException,
     EOFTestFiller,
     Opcode,
     UndefinedOpcodes,
 )
-from eest import Opcodes as Op
-from eest.test_types.eof.constants import (
+from execution_testing import Opcodes as Op
+from execution_testing.test_types.eof.constants import (
     MAX_RUNTIME_STACK_HEIGHT,
 )
-from eest.test_types.eof.v1 import (
+from execution_testing.test_types.eof.v1 import (
     Container,
     ContainerKind,
     Section,
 )
-from eest.test_types.eof.v1.constants import (
+from execution_testing.test_types.eof.v1.constants import (
     MAX_STACK_INCREASE_LIMIT,
 )
 

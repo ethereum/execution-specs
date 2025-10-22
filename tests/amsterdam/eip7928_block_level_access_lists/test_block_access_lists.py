@@ -3,7 +3,7 @@
 from typing import Callable, Dict
 
 import pytest
-from eest import (
+from execution_testing import (
     AccessList,
     Account,
     Address,
@@ -25,7 +25,7 @@ from eest import (
     Transaction,
     compute_create_address,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from .spec import ref_spec_7928
 

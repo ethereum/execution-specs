@@ -8,7 +8,7 @@ Tests the validator deposit functionality implementation from
 from typing import List
 
 import pytest
-from eest import (
+from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
@@ -16,7 +16,7 @@ from eest import (
     Environment,
     Macros,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from .helpers import DepositContract, DepositRequest, DepositTransaction
 from .spec import ref_spec_6110

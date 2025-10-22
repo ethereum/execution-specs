@@ -3,8 +3,8 @@
 from dataclasses import dataclass
 from typing import Tuple
 
-from eest import Bytecode, Storage
-from eest import Opcodes as Op
+from execution_testing import Bytecode, Storage
+from execution_testing import Opcodes as Op
 from pydantic import BaseModel
 
 

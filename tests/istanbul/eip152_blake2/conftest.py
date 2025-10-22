@@ -1,8 +1,8 @@
 """pytest fixtures for testing the BLAKE2b precompile."""
 
 import pytest
-from eest import Bytecode
-from eest import Opcodes as Op
+from execution_testing import Bytecode
+from execution_testing import Opcodes as Op
 
 from .spec import Spec
 

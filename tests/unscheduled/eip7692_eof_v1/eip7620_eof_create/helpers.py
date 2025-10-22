@@ -2,8 +2,8 @@
 
 import itertools
 
-from eest import Opcodes as Op
-from eest.test_types.eof.v1 import Container, Section
+from execution_testing import Opcodes as Op
+from execution_testing.test_types.eof.v1 import Container, Section
 
 """Storage addresses for common testing fields"""
 _slot = itertools.count()

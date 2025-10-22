@@ -5,17 +5,17 @@ from functools import cached_property
 from itertools import count
 from typing import Callable, ClassVar, List
 
-from eest import (
+from execution_testing import (
     EOA,
     Address,
     Alloc,
     Bytecode,
     Transaction,
 )
-from eest import (
+from execution_testing import (
     ConsolidationRequest as ConsolidationRequestBase,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from .spec import Spec
 

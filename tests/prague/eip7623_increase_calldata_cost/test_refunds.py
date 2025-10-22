@@ -6,7 +6,7 @@ from enum import Enum, Flag, auto
 from typing import Dict, List
 
 import pytest
-from eest import (
+from execution_testing import (
     Address,
     Alloc,
     AuthorizationTuple,
@@ -16,8 +16,8 @@ from eest import (
     Transaction,
     TransactionReceipt,
 )
-from eest import Opcodes as Op
-from eest.forks import Prague
+from execution_testing import Opcodes as Op
+from execution_testing.forks import Prague
 
 from .helpers import DataTestType
 from .spec import ref_spec_7623

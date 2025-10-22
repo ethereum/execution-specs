@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Iterable, List
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Address,
     Alloc,
@@ -19,7 +19,7 @@ from eest import (
     add_kzg_version,
     compute_create_address,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from .spec import Spec, ref_spec_4844
 

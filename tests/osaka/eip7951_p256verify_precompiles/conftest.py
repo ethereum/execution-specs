@@ -3,7 +3,7 @@
 from typing import SupportsBytes
 
 import pytest
-from eest import (
+from execution_testing import (
     EOA,
     Address,
     Alloc,
@@ -13,7 +13,7 @@ from eest import (
     Transaction,
     keccak256,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from .spec import Spec
 

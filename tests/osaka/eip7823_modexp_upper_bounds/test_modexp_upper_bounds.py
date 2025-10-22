@@ -5,7 +5,7 @@ Test [EIP-7823: Set upper bounds for MODEXP](https://eips.ethereum.org/EIPS/eip-
 from typing import Dict
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Alloc,
     Block,
@@ -17,7 +17,7 @@ from eest import (
     Transaction,
     keccak256,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput
 from ..eip7883_modexp_gas_increase.spec import Spec

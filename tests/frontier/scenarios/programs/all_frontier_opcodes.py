@@ -5,8 +5,8 @@ entangles it's result.
 
 from functools import cached_property
 
-from eest import Alloc, Bytecode, Conditional, Fork
-from eest import Opcodes as Op
+from execution_testing import Alloc, Bytecode, Conditional, Fork
+from execution_testing import Opcodes as Op
 
 from ..common import ProgramResult, ScenarioTestProgram
 

@@ -1,7 +1,7 @@
 """Test good TXCREATE cases."""
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Address,
     Alloc,
@@ -13,8 +13,8 @@ from eest import (
     Transaction,
     compute_eofcreate_address,
 )
-from eest import Opcodes as Op
-from eest.test_types.eof.v1 import Container, Section
+from execution_testing import Opcodes as Op
+from execution_testing.test_types.eof.v1 import Container, Section
 
 from .. import EOF_FORK_NAME
 from ..eip7069_extcall.spec import EXTCALL_SUCCESS, LEGACY_CALL_SUCCESS

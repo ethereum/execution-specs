@@ -29,7 +29,7 @@ import itertools
 from typing import Callable, Dict, Iterator, List, Mapping, Optional, Tuple
 
 import pytest
-from eest import (
+from execution_testing import (
     EOA,
     Account,
     Address,
@@ -45,7 +45,7 @@ from eest import (
     Transaction,
     add_kzg_version,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from .spec import Spec, SpecHelpers, ref_spec_4844
 

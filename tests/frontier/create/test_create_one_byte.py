@@ -4,7 +4,7 @@ byte values, records in storage the values that failed to deploy.
 """
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Address,
     Alloc,
@@ -16,8 +16,8 @@ from eest import (
     Transaction,
     compute_create_address,
 )
-from eest import Opcodes as Op
-from eest.forks import Byzantium, London
+from execution_testing import Opcodes as Op
+from execution_testing.forks import Byzantium, London
 
 
 @pytest.mark.ported_from(

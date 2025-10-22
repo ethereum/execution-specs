@@ -1,7 +1,7 @@
 """Test Calling Precompile Range (close to zero)."""
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Address,
     Alloc,
@@ -11,7 +11,7 @@ from eest import (
     Storage,
     Transaction,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 UPPER_BOUND = 0x101
 RETURNDATASIZE_OFFSET = 0x10000000000000000  # Must be greater than UPPER_BOUND

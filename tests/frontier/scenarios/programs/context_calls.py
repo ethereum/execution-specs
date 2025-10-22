@@ -2,9 +2,9 @@
 
 from functools import cached_property
 
-from eest import Alloc, Bytecode, Fork
-from eest import Opcodes as Op
-from eest.forks import (
+from execution_testing import Alloc, Bytecode, Fork
+from execution_testing import Opcodes as Op
+from execution_testing.forks import (
     Byzantium,
     Cancun,
     Constantinople,
@@ -12,7 +12,7 @@ from eest.forks import (
     London,
     Shanghai,
 )
-from eest.test_types import ChainConfigDefaults
+from execution_testing.test_types import ChainConfigDefaults
 
 from ..common import (
     ProgramResult,

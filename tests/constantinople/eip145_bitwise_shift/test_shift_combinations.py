@@ -4,14 +4,14 @@ import itertools
 from typing import Callable
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Alloc,
     StateTestFiller,
     Storage,
     Transaction,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from .spec import Spec, ref_spec_145
 

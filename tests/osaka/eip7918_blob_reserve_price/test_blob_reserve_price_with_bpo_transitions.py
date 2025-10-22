@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Iterator, List
 
 import pytest
-from eest import (
+from execution_testing import (
     EOA,
     Address,
     Alloc,
@@ -18,8 +18,8 @@ from eest import (
     Transaction,
     add_kzg_version,
 )
-from eest import Opcodes as Op
-from eest.forks import BPO2ToBPO3AtTime15k
+from execution_testing import Opcodes as Op
+from execution_testing.forks import BPO2ToBPO3AtTime15k
 
 from .spec import Spec, ref_spec_7918
 

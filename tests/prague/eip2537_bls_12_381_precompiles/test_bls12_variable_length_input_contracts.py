@@ -10,7 +10,7 @@ for BLS12-381 curve operations]
 from typing import Callable, List, SupportsBytes
 
 import pytest
-from eest import (
+from execution_testing import (
     Alloc,
     Bytecode,
     Environment,
@@ -20,7 +20,7 @@ from eest import (
     Storage,
     Transaction,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from .spec import (
     GAS_CALCULATION_FUNCTION_MAP,

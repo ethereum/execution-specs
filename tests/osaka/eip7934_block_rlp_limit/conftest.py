@@ -1,12 +1,12 @@
 """Fixtures for the EIP-7934 RLP block size limit tests."""
 
 import pytest
-from eest import (
+from execution_testing import (
     Address,
     Alloc,
     Environment,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 
 @pytest.fixture

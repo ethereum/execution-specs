@@ -1,15 +1,15 @@
 """Test good and bad EOFCREATE cases."""
 
 import pytest
-from eest import (
+from execution_testing import (
     Alloc,
     Environment,
     Fork,
     StateTestFiller,
     compute_eofcreate_address,
 )
-from eest import Opcodes as Op
-from eest.test_types.eof.v1 import Container, Section
+from execution_testing import Opcodes as Op
+from execution_testing.test_types.eof.v1 import Container, Section
 
 from .. import EOF_FORK_NAME
 from ..gas_test import gas_test

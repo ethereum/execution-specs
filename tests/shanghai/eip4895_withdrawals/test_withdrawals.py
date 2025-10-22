@@ -6,7 +6,7 @@ from enum import Enum, unique
 from typing import Dict, List, Mapping
 
 import pytest
-from eest import (
+from execution_testing import (
     EOA,
     Account,
     Address,
@@ -19,8 +19,8 @@ from eest import (
     TransactionException,
     Withdrawal,
 )
-from eest import Opcodes as Op
-from eest.forks import Cancun
+from execution_testing import Opcodes as Op
+from execution_testing.forks import Cancun
 
 from .spec import ref_spec_4895
 

@@ -9,7 +9,7 @@ from itertools import permutations
 from typing import Callable, Dict, Generator, List, Tuple
 
 import pytest
-from eest import (
+from execution_testing import (
     EOA,
     Account,
     Address,
@@ -28,7 +28,7 @@ from eest import (
     TestAddress,
     Transaction,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from ..eip6110_deposits.helpers import (
     DepositContract,

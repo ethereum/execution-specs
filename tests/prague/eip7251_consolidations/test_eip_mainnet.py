@@ -5,7 +5,7 @@ abstract: Crafted tests for mainnet of [EIP-7251: Increase the MAX_EFFECTIVE_BAL
 from typing import List
 
 import pytest
-from eest import (
+from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,

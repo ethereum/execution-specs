@@ -1,7 +1,7 @@
 """Fixtures for the EIP-3855 PUSH0 tests."""
 
 import pytest
-from eest import Alloc, Environment
+from execution_testing import Alloc, Environment
 
 
 @pytest.fixture

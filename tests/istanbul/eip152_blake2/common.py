@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from eest import Bytes, TestParameterGroup
+from execution_testing import Bytes, TestParameterGroup
 
 from .spec import Spec, SpecTestVectors
 

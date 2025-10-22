@@ -5,7 +5,7 @@ Tests that benchmark EVMs in the worst-case memory opcodes.
 from enum import auto
 
 import pytest
-from eest import (
+from execution_testing import (
     Alloc,
     BenchmarkTestFiller,
     Bytecode,
@@ -14,7 +14,7 @@ from eest import (
     JumpLoopGenerator,
     Transaction,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "TODO"
 REFERENCE_SPEC_VERSION = "TODO"

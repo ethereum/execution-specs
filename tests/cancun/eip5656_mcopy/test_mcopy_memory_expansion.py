@@ -10,7 +10,7 @@ import itertools
 from typing import List, Mapping
 
 import pytest
-from eest import (
+from execution_testing import (
     AccessList,
     Account,
     Address,
@@ -22,7 +22,7 @@ from eest import (
     Transaction,
     TransactionReceipt,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from .common import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION
 

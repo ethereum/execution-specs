@@ -8,7 +8,7 @@ Ports and extends some tests from
 from enum import unique
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Alloc,
     Bytecode,
@@ -18,7 +18,7 @@ from eest import (
     StateTestFiller,
     Transaction,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from . import PytestParameterEnum
 from .spec import Spec, ref_spec_1153

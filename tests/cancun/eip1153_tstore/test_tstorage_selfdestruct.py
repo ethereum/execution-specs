@@ -9,7 +9,7 @@ from enum import unique
 from typing import Dict
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Alloc,
     Bytecode,
@@ -22,7 +22,7 @@ from eest import (
     Transaction,
     compute_create_address,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from . import PytestParameterEnum
 from .spec import ref_spec_1153

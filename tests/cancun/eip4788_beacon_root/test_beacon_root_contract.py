@@ -20,7 +20,7 @@ from itertools import count
 from typing import Callable, Dict, Iterator, List
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Address,
     Alloc,
@@ -33,7 +33,7 @@ from eest import (
     Transaction,
     Withdrawal,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from .spec import Spec, ref_spec_4788
 

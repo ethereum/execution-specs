@@ -1,7 +1,7 @@
 """Tests for the effects of EIP-7702 transactions on EIP-7928."""
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Alloc,
     AuthorizationTuple,
@@ -16,7 +16,7 @@ from eest import (
     BlockchainTestFiller,
     Transaction,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .spec import ref_spec_7928

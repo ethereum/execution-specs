@@ -5,7 +5,7 @@ abstract: Crafted tests for mainnet of [EIP-6110: Supply validator deposits on c
 from typing import List
 
 import pytest
-from eest import (
+from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,

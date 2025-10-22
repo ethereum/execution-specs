@@ -6,7 +6,7 @@ operations after being called for self destruct in a call.
 from enum import IntEnum
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Alloc,
     CalldataCase,
@@ -18,8 +18,8 @@ from eest import (
     Transaction,
     compute_create_address,
 )
-from eest import Opcodes as Op
-from eest.forks import Byzantium
+from execution_testing import Opcodes as Op
+from execution_testing.forks import Byzantium
 
 
 class Operation(IntEnum):

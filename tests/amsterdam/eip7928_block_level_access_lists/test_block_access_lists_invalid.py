@@ -5,7 +5,7 @@ These tests verify that clients properly reject blocks with corrupted BALs.
 """
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Alloc,
     BalAccountChange,
@@ -21,10 +21,10 @@ from eest import (
     Storage,
     Transaction,
 )
-from eest import (
+from execution_testing import (
     Opcodes as Op,
 )
-from eest.test_types.block_access_list.modifiers import (
+from execution_testing.test_types.block_access_list.modifiers import (
     append_account,
     duplicate_account,
     modify_balance,

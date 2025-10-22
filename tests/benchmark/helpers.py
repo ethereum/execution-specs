@@ -1,7 +1,7 @@
 """Helper functions for the EVM benchmark worst-case tests."""
 
-from eest import Bytecode, Fork
-from eest import Opcodes as Op
+from execution_testing import Bytecode, Fork
+from execution_testing import Opcodes as Op
 
 
 def code_loop_precompile_call(

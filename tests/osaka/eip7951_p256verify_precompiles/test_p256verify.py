@@ -3,7 +3,7 @@ Tests for [EIP-7951: Precompile for secp256r1 Curve Support](https://eips.ethere
 """
 
 import pytest
-from eest import (
+from execution_testing import (
     Address,
     Alloc,
     EIPChecklist,
@@ -13,7 +13,7 @@ from eest import (
     Transaction,
     compute_create_address,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from .helpers import vectors_from_file
 from .spec import H, R, S, Spec, X, Y, ref_spec_7951

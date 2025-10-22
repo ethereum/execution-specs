@@ -3,7 +3,7 @@
 from typing import Tuple
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     Alloc,
     Environment,
@@ -11,7 +11,7 @@ from eest import (
     Storage,
     Transaction,
 )
-from eest import Opcodes as Op
+from execution_testing import Opcodes as Op
 
 from .common import CallArgs, generate_identity_call_bytecode
 

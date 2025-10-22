@@ -1,17 +1,17 @@
 """EOF JUMPF tests covering stack validation rules."""
 
 import pytest
-from eest import (
+from execution_testing import (
     Account,
     EOFException,
     EOFStateTestFiller,
     EOFTestFiller,
 )
-from eest import Opcodes as Op
-from eest.test_types.eof.constants import (
+from execution_testing import Opcodes as Op
+from execution_testing.test_types.eof.constants import (
     MAX_RUNTIME_STACK_HEIGHT,
 )
-from eest.test_types.eof.v1 import Container, Section
+from execution_testing.test_types.eof.v1 import Container, Section
 
 from .. import EOF_FORK_NAME
 from .helpers import slot_code_worked, value_code_worked
