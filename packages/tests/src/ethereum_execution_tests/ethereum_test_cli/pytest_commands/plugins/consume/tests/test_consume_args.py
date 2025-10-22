@@ -130,7 +130,7 @@ def test_fixtures(
 def copy_consume_test_paths(pytester: Pytester) -> None:
     """Specify and copy the consume test paths to the testdir."""
     local_test_paths = [
-        Path("src/pytest_plugins/consume/direct/test_via_direct.py")
+        Path("src/ethereum_execution_tests/ethereum_test_cli/pytest_commands/plugins/consume/direct/test_via_direct.py")
     ]
     for test_path in local_test_paths:
         target_dir = Path(pytester.path) / test_path.parent

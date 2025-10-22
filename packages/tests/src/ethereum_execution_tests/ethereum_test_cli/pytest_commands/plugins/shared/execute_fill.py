@@ -45,7 +45,7 @@ def pytest_configure(config: pytest.Config) -> None:
        called before the pytest-html plugin's pytest_configure to ensure that
        it uses the modified `htmlpath` option.
     """
-    if config.pluginmanager.has_plugin("pytest_plugins.filler.filler"):
+    if config.pluginmanager.has_plugin("ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.filler"):
         for fixture_format in BaseFixture.formats.values():
             config.addinivalue_line(
                 "markers",
@@ -61,7 +61,7 @@ def pytest_configure(config: pytest.Config) -> None:
                 "markers",
                 (f"{label}: {labeled_fixture_format.description}"),
             )
-    elif config.pluginmanager.has_plugin("pytest_plugins.execute.execute"):
+    elif config.pluginmanager.has_plugin("ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.execute.execute"):
         for execute_format in BaseExecute.formats.values():
             config.addinivalue_line(
                 "markers",

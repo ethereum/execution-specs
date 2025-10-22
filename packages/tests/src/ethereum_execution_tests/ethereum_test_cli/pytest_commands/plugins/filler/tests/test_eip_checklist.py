@@ -86,7 +86,7 @@ def test_eip_checklist_collection(testdir: Any) -> None:
         "-c",
         "pytest-fill.ini",
         "-p",
-        "pytest_plugins.filler.eip_checklist",
+        "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.eip_checklist",
         "--collect-only",
         "--checklist-output",
         str(testdir.tmpdir / "checklists"),

@@ -16,7 +16,7 @@ class TestSimplifiedConsumeBehavior:
         test_url = "https://github.com/ethereum/execution-spec-tests/releases/download/v3.0.0/fixtures_develop.tar.gz"
 
         with patch(
-            "pytest_plugins.consume.consume.FixtureDownloader"
+            "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.consume.consume.FixtureDownloader"
         ) as mock_downloader:
             mock_instance = MagicMock()
             mock_instance.download_and_extract.return_value = (
@@ -39,15 +39,15 @@ class TestSimplifiedConsumeBehavior:
         test_spec = "stable@latest"
 
         with patch(
-            "pytest_plugins.consume.consume.get_release_url"
+            "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.consume.consume.get_release_url"
         ) as mock_get_url:
             mock_get_url.return_value = "https://github.com/ethereum/execution-spec-tests/releases/download/v3.0.0/fixtures_stable.tar.gz"
             with patch(
-                "pytest_plugins.consume.consume.get_release_page_url"
+                "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.consume.consume.get_release_page_url"
             ) as mock_get_page:
                 mock_get_page.return_value = "https://github.com/ethereum/execution-spec-tests/releases/tag/v3.0.0"
                 with patch(
-                    "pytest_plugins.consume.consume.FixtureDownloader"
+                    "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.consume.consume.FixtureDownloader"
                 ) as mock_downloader:
                     mock_instance = MagicMock()
                     mock_instance.download_and_extract.return_value = (
@@ -73,7 +73,7 @@ class TestSimplifiedConsumeBehavior:
         test_url = "http://example.com/fixtures.tar.gz"
 
         with patch(
-            "pytest_plugins.consume.consume.FixtureDownloader"
+            "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.consume.consume.FixtureDownloader"
         ) as mock_downloader:
             mock_instance = MagicMock()
             mock_instance.download_and_extract.return_value = (

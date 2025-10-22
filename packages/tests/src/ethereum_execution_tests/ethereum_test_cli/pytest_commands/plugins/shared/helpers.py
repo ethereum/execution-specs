@@ -19,10 +19,10 @@ def is_help_or_collectonly_mode(config: pytest.Config) -> bool:
         or config.getoption("links_as_filled", default=False)
         or config.getoption("help", default=False)
         or config.pluginmanager.has_plugin(
-            "pytest_plugins.filler.eip_checklist"
+            "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.eip_checklist"
         )
         or config.pluginmanager.has_plugin(
-            "pytest_plugins.filler.gen_test_doc.gen_test_doc"
+            "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.gen_test_doc.gen_test_doc"
         )
     )
 

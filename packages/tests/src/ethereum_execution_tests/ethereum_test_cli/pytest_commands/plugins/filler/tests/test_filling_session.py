@@ -54,7 +54,7 @@ class TestFillingSession:
         config = MockConfig()
 
         with patch(
-            "pytest_plugins.filler.filler.FixtureOutput", MockFixtureOutput
+            "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.filler.FixtureOutput", MockFixtureOutput
         ):
             session = FillingSession.from_config(config)  # type: ignore[arg-type]
 
@@ -66,7 +66,7 @@ class TestFillingSession:
         config = MockConfig(generate_pre_alloc_groups=True)
 
         with patch(
-            "pytest_plugins.filler.filler.FixtureOutput", MockFixtureOutput
+            "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.filler.FixtureOutput", MockFixtureOutput
         ):
             session = FillingSession.from_config(config)  # type: ignore[arg-type]
 
@@ -87,7 +87,7 @@ class TestFillingSession:
         mock_groups = PreAllocGroups(root={"test_hash": test_group})
 
         with patch(
-            "pytest_plugins.filler.filler.FixtureOutput", MockFixtureOutput
+            "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.filler.FixtureOutput", MockFixtureOutput
         ):
             with patch.object(Path, "exists", return_value=True):
                 with patch.object(
@@ -103,7 +103,7 @@ class TestFillingSession:
         config = MockConfig(use_pre_alloc_groups=True)
 
         with patch(
-            "pytest_plugins.filler.filler.FixtureOutput", MockFixtureOutput
+            "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.filler.FixtureOutput", MockFixtureOutput
         ):
             with patch.object(Path, "exists", return_value=False):
                 with pytest.raises(
@@ -117,7 +117,7 @@ class TestFillingSession:
         config = MockConfig()
 
         with patch(
-            "pytest_plugins.filler.filler.FixtureOutput", MockFixtureOutput
+            "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.filler.FixtureOutput", MockFixtureOutput
         ):
             session = FillingSession.from_config(config)  # type: ignore[arg-type]
 
@@ -136,7 +136,7 @@ class TestFillingSession:
         mock_groups = PreAllocGroups(root={})
 
         with patch(
-            "pytest_plugins.filler.filler.FixtureOutput", MockFixtureOutput
+            "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.filler.FixtureOutput", MockFixtureOutput
         ):
             with patch.object(Path, "exists", return_value=True):
                 with patch.object(
@@ -163,7 +163,7 @@ class TestFillingSession:
         mock_groups = PreAllocGroups(root={"test_hash": test_group})
 
         with patch(
-            "pytest_plugins.filler.filler.FixtureOutput", MockFixtureOutput
+            "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.filler.FixtureOutput", MockFixtureOutput
         ):
             with patch.object(Path, "exists", return_value=True):
                 with patch.object(
@@ -180,7 +180,7 @@ class TestFillingSession:
         mock_groups = PreAllocGroups(root={})
 
         with patch(
-            "pytest_plugins.filler.filler.FixtureOutput", MockFixtureOutput
+            "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.filler.FixtureOutput", MockFixtureOutput
         ):
             with patch.object(Path, "exists", return_value=True):
                 with patch.object(
@@ -198,7 +198,7 @@ class TestFillingSession:
         config = MockConfig()  # Normal fill, no pre-alloc groups
 
         with patch(
-            "pytest_plugins.filler.filler.FixtureOutput", MockFixtureOutput
+            "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.filler.FixtureOutput", MockFixtureOutput
         ):
             session = FillingSession.from_config(config)  # type: ignore[arg-type]
 
@@ -212,7 +212,7 @@ class TestFillingSession:
         config = MockConfig(generate_pre_alloc_groups=True)
 
         with patch(
-            "pytest_plugins.filler.filler.FixtureOutput", MockFixtureOutput
+            "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.filler.FixtureOutput", MockFixtureOutput
         ):
             session = FillingSession.from_config(config)  # type: ignore[arg-type]
 
@@ -231,7 +231,7 @@ class TestFillingSession:
         config = MockConfig()  # Normal fill
 
         with patch(
-            "pytest_plugins.filler.filler.FixtureOutput", MockFixtureOutput
+            "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.filler.FixtureOutput", MockFixtureOutput
         ):
             session = FillingSession.from_config(config)  # type: ignore[arg-type]
 
@@ -251,7 +251,7 @@ class TestFillingSession:
         config = MockConfig(generate_pre_alloc_groups=True)
 
         with patch(
-            "pytest_plugins.filler.filler.FixtureOutput", MockFixtureOutput
+            "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.filler.FixtureOutput", MockFixtureOutput
         ):
             session = FillingSession.from_config(config)  # type: ignore[arg-type]
 
@@ -276,7 +276,7 @@ class TestFillingSession:
         config = MockConfig()  # Normal fill
 
         with patch(
-            "pytest_plugins.filler.filler.FixtureOutput", MockFixtureOutput
+            "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.filler.FixtureOutput", MockFixtureOutput
         ):
             session = FillingSession.from_config(config)  # type: ignore[arg-type]
 
@@ -288,7 +288,7 @@ class TestFillingSession:
         config = MockConfig(generate_pre_alloc_groups=True)
 
         with patch(
-            "pytest_plugins.filler.filler.FixtureOutput", MockFixtureOutput
+            "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.filler.FixtureOutput", MockFixtureOutput
         ):
             session = FillingSession.from_config(config)  # type: ignore[arg-type]
 
@@ -315,7 +315,7 @@ class TestFillingSession:
         config = MockConfig(generate_pre_alloc_groups=True)
 
         with patch(
-            "pytest_plugins.filler.filler.FixtureOutput", MockFixtureOutput
+            "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.filler.FixtureOutput", MockFixtureOutput
         ):
             session = FillingSession.from_config(config)  # type: ignore[arg-type]
 

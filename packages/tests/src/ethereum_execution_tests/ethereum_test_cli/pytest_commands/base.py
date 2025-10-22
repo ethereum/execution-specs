@@ -67,7 +67,7 @@ class PytestRunner:
         if execution.command_logic_test_paths:
             pytest_args += [
                 "-p",
-                "pytest_plugins.fix_package_test_path",
+                "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.fix_package_test_path",
             ]
         if self._is_verbose(execution.args):
             pytest_cmd = f"pytest {' '.join(pytest_args)}"
