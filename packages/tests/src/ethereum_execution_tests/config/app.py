@@ -9,7 +9,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-import pytest_plugins.consume.releases as releases
+import ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.consume.releases as releases
 
 
 class AppConfig(BaseModel):

@@ -5,7 +5,7 @@ from typing import Dict, Generator
 
 import pytest
 
-from ethereum_clis import (
+from ethereum_execution_tests.client_clis import (
     BesuTransitionTool,
     ExecutionSpecsTransitionTool,
     TransitionTool,

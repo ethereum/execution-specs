@@ -36,7 +36,7 @@ from ethereum_execution_tests.forks import (
     get_transition_forks,
     transition_fork_to,
 )
-from pytest_plugins.custom_logging import get_logger
+from ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.custom_logging import get_logger
 
 logger = get_logger(__name__)
 

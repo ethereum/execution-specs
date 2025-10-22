@@ -11,7 +11,7 @@ from pathlib import Path
 
 import jinja2
 
-from config import AppConfig
+from ethereum_execution_tests.config import AppConfig
 
 from .test_context_providers import Provider
 

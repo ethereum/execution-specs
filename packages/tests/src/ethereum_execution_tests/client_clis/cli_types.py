@@ -30,7 +30,7 @@ from ethereum_execution_tests.test_types import (
     TransactionReceipt,
 )
 from ethereum_execution_tests.vm import Opcode, Opcodes
-from pytest_plugins.custom_logging import get_logger
+from ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.custom_logging import get_logger
 
 logger = get_logger(__name__)
 

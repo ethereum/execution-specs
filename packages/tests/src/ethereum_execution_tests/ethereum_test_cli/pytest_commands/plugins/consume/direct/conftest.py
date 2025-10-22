@@ -24,7 +24,7 @@ from ethereum_execution_tests.fixtures import (
 )
 from ethereum_execution_tests.fixtures.consume import TestCaseIndexFile, TestCaseStream
 from ethereum_execution_tests.fixtures.file import Fixtures
-from pytest_plugins.consume.consume import FixturesSource
+from ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.consume.consume import FixturesSource
 
 
 class CollectOnlyCLI(EthereumCLI):

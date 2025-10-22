@@ -7,7 +7,7 @@ import pytest
 from click.testing import CliRunner, Result
 from pytest import MonkeyPatch, Pytester, RunResult, TempPathFactory
 
-import pytest_plugins.filler.filler
+import ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.filler
 
 from ..pytest_commands.fill import fill
 
@@ -144,7 +144,7 @@ class TestFillPytester:
     @pytest.fixture()
     def default_html_report_file_path(self) -> str:
         """File path for fill's pytest html report."""
-        return pytest_plugins.filler.filler.default_html_report_file_path()
+        return ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.filler.default_html_report_file_path()
 
     @pytest.fixture(scope="function")
     def default_fixtures_output(
@@ -168,7 +168,7 @@ class TestFillPytester:
             return default_fixtures_output
 
         monkeypatch.setattr(
-            pytest_plugins.filler.filler,
+            ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.filler,
             "default_output_directory",
             mock_default_output_directory,
         )

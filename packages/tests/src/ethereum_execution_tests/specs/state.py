@@ -49,7 +49,7 @@ from ethereum_execution_tests.test_types import (
     Environment,
     Transaction,
 )
-from pytest_plugins.custom_logging import get_logger
+from ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.custom_logging import get_logger
 
 from .base import BaseTest, OpMode
 from .blockchain import Block, BlockchainTest, Header

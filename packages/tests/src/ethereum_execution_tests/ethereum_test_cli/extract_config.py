@@ -25,7 +25,7 @@ from ethereum_execution_tests.fixtures.blockchain import FixtureHeader
 from ethereum_execution_tests.fixtures.file import Fixtures
 from ethereum_execution_tests.fixtures.pre_alloc_groups import PreAllocGroup
 from ethereum_execution_tests.forks import Fork
-from pytest_plugins.consume.simulators.helpers.ruleset import ruleset
+from ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.consume.simulators.helpers.ruleset import ruleset
 
 
 def get_docker_containers() -> set[str]:

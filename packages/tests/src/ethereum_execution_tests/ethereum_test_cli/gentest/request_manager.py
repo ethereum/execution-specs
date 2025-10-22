@@ -16,7 +16,7 @@ Classes:
 
 from typing import Any, Dict
 
-from config import EnvConfig
+from ethereum_execution_tests.config import EnvConfig
 from ethereum_execution_tests.base_types import Hash
 from ethereum_execution_tests.rpc import BlockNumberType, DebugRPC, EthRPC
 from ethereum_execution_tests.rpc.rpc_types import TransactionByHashResponse

@@ -109,7 +109,7 @@ def generate_checklist_stubs(output: str | None, dry_run: bool) -> None:
         src_path = Path(__file__).parent.parent
         sys.path.insert(0, str(src_path))
 
-        from ethereum_test_checklists.eip_checklist import EIPChecklist
+        from ethereum_execution_tests.checklists.eip_checklist import EIPChecklist
 
         stub_content = '''"""
 Type stubs for EIP checklist - auto-generated.
@@ -150,7 +150,7 @@ class _CallableChecklistItem:
             stub_path = Path(output)
         else:
             stub_path = (
-                src_path / "ethereum_test_checklists" / "eip_checklist.pyi"
+                src_path / "ethereum_execution_tests" / "checklists" / "eip_checklist.pyi"
             )
 
         # Write to the stub file
