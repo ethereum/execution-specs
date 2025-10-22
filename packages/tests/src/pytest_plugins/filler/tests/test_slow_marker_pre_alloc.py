@@ -4,8 +4,7 @@ import textwrap
 from typing import Any
 
 
-
-def test_slow_marker_gets_pre_alloc_group(pytester: Any, default_t8n: TransitionTool) -> None:
+def test_slow_marker_gets_pre_alloc_group(pytester: Any) -> None:
     """
     Test that slow tests without benchmark marker get pre_alloc_group
     automatically.
@@ -51,7 +50,7 @@ def test_slow_marker_gets_pre_alloc_group(pytester: Any, default_t8n: Transition
     result.stdout.fnmatch_lines(["*test_slow_without_benchmark*"])
 
 
-def test_slow_with_benchmark_no_pre_alloc(pytester: Any, default_t8n: TransitionTool) -> None:
+def test_slow_with_benchmark_no_pre_alloc(pytester: Any) -> None:
     """
     Test that slow tests WITH benchmark marker do NOT get pre_alloc_group.
     """
@@ -141,7 +140,7 @@ def test_slow_with_existing_pre_alloc_unchanged(pytester: Any) -> None:
     result.stdout.fnmatch_lines(["*test_slow_with_existing_pre_alloc*"])
 
 
-def test_non_slow_no_pre_alloc(pytester: Any, default_t8n: TransitionTool) -> None:
+def test_non_slow_no_pre_alloc(pytester: Any) -> None:
     """Test that tests without slow marker do not get pre_alloc_group."""
     test_module = textwrap.dedent(
         """\
@@ -182,7 +181,7 @@ def test_non_slow_no_pre_alloc(pytester: Any, default_t8n: TransitionTool) -> No
     result.stdout.fnmatch_lines(["*test_normal_speed*"])
 
 
-def test_integration_with_fill(pytester: Any, default_t8n: TransitionTool) -> None:
+def test_integration_with_fill(pytester: Any) -> None:
     """
     Integration test using actual fill command to verify marker application.
     """

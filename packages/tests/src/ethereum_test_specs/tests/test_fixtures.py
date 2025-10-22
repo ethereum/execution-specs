@@ -199,7 +199,9 @@ def test_fill_state_test(
     }
 
     format_name = fixture_format.format_name
-    expected_json_file = f"chainid_{fork.name().lower()}_{format_name}_tx_type_{tx_type}.json"
+    expected_json_file = (
+        f"chainid_{fork.name().lower()}_{format_name}_tx_type_{tx_type}.json"
+    )
     expected = json.loads((FIXTURES_FOLDER / expected_json_file).read_text())
     remove_info_metadata(expected)
 
@@ -546,7 +548,9 @@ class TestFillBlockchainValidTxs:
             ),
         }
 
-        expected = json.loads((FIXTURES_FOLDER / expected_json_file).read_text())
+        expected = json.loads(
+            (FIXTURES_FOLDER / expected_json_file).read_text()
+        )
         remove_info_metadata(expected)
 
         remove_info_metadata(fixture)

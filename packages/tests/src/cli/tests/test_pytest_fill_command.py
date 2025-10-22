@@ -67,8 +67,12 @@ class TestFillClickCli:
         assert "[options] [file_or_dir] [file_or_dir] [...]" in result.output
         assert "-k EXPRESSION" in result.output
 
-    @pytest.mark.parametrize("expected_exit_code", [pytest.ExitCode.USAGE_ERROR])
-    def test_fill_with_invalid_option(self, run_fill: Callable[..., Result]) -> None:
+    @pytest.mark.parametrize(
+        "expected_exit_code", [pytest.ExitCode.USAGE_ERROR]
+    )
+    def test_fill_with_invalid_option(
+        self, run_fill: Callable[..., Result]
+    ) -> None:
         """Test invoking `fill` with an invalid option."""
         result = run_fill("--invalid-option")
         assert "unrecognized arguments" in result.output
@@ -117,7 +121,9 @@ class TestFillPytester:
         """Provide a function to run the fill command with various options."""
 
         def _run_fill(*args: str) -> RunResult:
-            pytester.copy_example(name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini")
+            pytester.copy_example(
+                name="src/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+            )
             args = (
                 "-c",
                 "pytest-fill.ini",
@@ -141,7 +147,9 @@ class TestFillPytester:
         return pytest_plugins.filler.filler.default_html_report_file_path()
 
     @pytest.fixture(scope="function")
-    def default_fixtures_output(self, tmp_path_factory: TempPathFactory) -> Path:
+    def default_fixtures_output(
+        self, tmp_path_factory: TempPathFactory
+    ) -> Path:
         """Provide a temporary directory as a pytest fixture."""
         return tmp_path_factory.mktemp("fixtures")
 
@@ -176,7 +184,9 @@ class TestFillPytester:
         Test default pytest html behavior: Neither `--html` or `--output` is
         specified.
         """
-        default_html_path = default_fixtures_output / default_html_report_file_path
+        default_html_path = (
+            default_fixtures_output / default_html_report_file_path
+        )
         run_fill(*fill_args)
         assert default_html_path.exists()
 
@@ -188,7 +198,9 @@ class TestFillPytester:
         default_html_report_file_path: str,
     ) -> None:
         """Test pytest html report is disabled with the `--no-html` flag."""
-        default_html_path = default_fixtures_output / default_html_report_file_path
+        default_html_path = (
+            default_fixtures_output / default_html_report_file_path
+        )
         fill_args += ["--no-html"]
         run_fill(*fill_args)
         assert not default_html_path.exists()
@@ -200,7 +212,9 @@ class TestFillPytester:
         fill_args: list[str],
     ) -> None:
         """Tests pytest html report generation with only the `--html` flag."""
-        non_default_html_path = pytester_temp_dir / "non_default_output_dir" / "report.html"
+        non_default_html_path = (
+            pytester_temp_dir / "non_default_output_dir" / "report.html"
+        )
         fill_args += ["--html", str(non_default_html_path)]
         run_fill(*fill_args)
         assert non_default_html_path.exists()
@@ -235,7 +249,11 @@ class TestFillPytester:
         flags.
         """
         output_dir = pytester_temp_dir / "non_default_output_dir_fixtures"
-        html_path = pytester_temp_dir / "non_default_output_dir_html" / "non_default.html"
+        html_path = (
+            pytester_temp_dir
+            / "non_default_output_dir_html"
+            / "non_default.html"
+        )
         fill_args += ["--output", str(output_dir), "--html", str(html_path)]
         run_fill(*fill_args)
         assert html_path.exists()

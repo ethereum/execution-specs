@@ -94,8 +94,12 @@ def test_calc_state_root(
 
 
 @pytest.mark.parametrize("evm_tool", [ExecutionSpecsTransitionTool])
-@pytest.mark.parametrize("binary_arg", ["no_binary_arg", "path_type", "str_type"])
-@pytest.mark.skip(reason="ExecutionSpecsTransitionTool through binary path is not supported")
+@pytest.mark.parametrize(
+    "binary_arg", ["no_binary_arg", "path_type", "str_type"]
+)
+@pytest.mark.skip(
+    reason="ExecutionSpecsTransitionTool through binary path is not supported"
+)
 def test_evm_tool_binary_arg(
     evm_tool: Type[ExecutionSpecsTransitionTool], binary_arg: str
 ) -> None:
