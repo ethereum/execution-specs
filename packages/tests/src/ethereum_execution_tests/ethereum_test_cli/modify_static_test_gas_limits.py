@@ -16,7 +16,7 @@ from ethereum_execution_tests.base_types import (
     HexNumber,
     ZeroPaddedHexNumber,
 )
-from ethereum_test_specs import StateStaticTest
+from ethereum_execution_tests.specs import StateStaticTest
 from pytest_plugins.filler.static_filler import NoIntResolver
 
 

@@ -6,11 +6,11 @@ from ethereum_clis import TransitionTool
 from ethereum_execution_tests.base_types import Alloc
 from ethereum_execution_tests.base_types.base_types import Hash
 from ethereum_test_execution import BaseExecute, BlobTransaction
-from ethereum_test_fixtures import (
+from ethereum_execution_tests.fixtures import (
     BaseFixture,
     FixtureFormat,
 )
-from ethereum_test_forks import Fork
+from ethereum_execution_tests.forks import Fork
 from ethereum_test_types import NetworkWrappedTransaction, Transaction
 
 from .base import BaseTest, ExecuteFormat, LabeledExecuteFormat

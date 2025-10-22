@@ -30,8 +30,8 @@ from ethereum_execution_tests.exceptions import (
     EOFException,
     TransactionException,
 )
-from ethereum_test_fixtures import BaseFixture, FixtureCollector
-from ethereum_test_specs import (
+from ethereum_execution_tests.fixtures import BaseFixture, FixtureCollector
+from ethereum_execution_tests.specs import (
     BaseTest,
     BenchmarkTest,
     BenchmarkTestFiller,
@@ -48,7 +48,7 @@ from ethereum_test_specs import (
     TransactionTest,
     TransactionTestFiller,
 )
-from ethereum_test_specs.blockchain import Block, Header
+from ethereum_execution_tests.specs.blockchain import Block, Header
 from ethereum_test_types import (
     EOA,
     Alloc,

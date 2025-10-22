@@ -7,7 +7,7 @@ from pydantic import PlainSerializer, PlainValidator
 from pytest import FixtureRequest
 
 from ethereum_execution_tests.base_types import CamelModel
-from ethereum_test_forks import Fork
+from ethereum_execution_tests.forks import Fork
 from ethereum_test_rpc import EngineRPC, EthRPC
 
 

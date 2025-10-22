@@ -12,8 +12,8 @@ from typing import List
 import pytest
 from hive.client import ClientType
 
-from ethereum_test_fixtures import BaseFixture
-from ethereum_test_fixtures.consume import TestCaseIndexFile, TestCaseStream
+from ethereum_execution_tests.fixtures import BaseFixture
+from ethereum_execution_tests.fixtures.consume import TestCaseIndexFile, TestCaseStream
 
 from ...pytest_hive.hive_info import ClientFile, HiveInfo
 

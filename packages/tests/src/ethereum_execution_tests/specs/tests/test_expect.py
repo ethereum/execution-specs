@@ -13,12 +13,12 @@ from ethereum_execution_tests.base_types import (
     TestPrivateKey,
 )
 from ethereum_execution_tests.exceptions import TransactionException
-from ethereum_test_fixtures import (
+from ethereum_execution_tests.fixtures import (
     BlockchainFixture,
     FixtureFormat,
     StateFixture,
 )
-from ethereum_test_forks import Fork, get_deployed_forks
+from ethereum_execution_tests.forks import Fork, get_deployed_forks
 from ethereum_test_tools import Block
 from ethereum_test_types import (
     Alloc,

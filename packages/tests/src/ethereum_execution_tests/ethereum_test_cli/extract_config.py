@@ -20,11 +20,11 @@ from hive.simulation import Simulation
 from hive.testing import HiveTestResult
 
 from ethereum_execution_tests.base_types import Alloc, to_json
-from ethereum_test_fixtures import BlockchainFixtureCommon
-from ethereum_test_fixtures.blockchain import FixtureHeader
-from ethereum_test_fixtures.file import Fixtures
-from ethereum_test_fixtures.pre_alloc_groups import PreAllocGroup
-from ethereum_test_forks import Fork
+from ethereum_execution_tests.fixtures import BlockchainFixtureCommon
+from ethereum_execution_tests.fixtures.blockchain import FixtureHeader
+from ethereum_execution_tests.fixtures.file import Fixtures
+from ethereum_execution_tests.fixtures.pre_alloc_groups import PreAllocGroup
+from ethereum_execution_tests.forks import Fork
 from pytest_plugins.consume.simulators.helpers.ruleset import ruleset
 
 

@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from ethereum_test_fixtures import TransactionFixture
-from ethereum_test_forks import Fork, Shanghai
+from ethereum_execution_tests.fixtures import TransactionFixture
+from ethereum_execution_tests.forks import Fork, Shanghai
 from ethereum_test_types import Transaction
 
 from ..transaction import TransactionTest

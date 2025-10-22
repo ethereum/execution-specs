@@ -9,14 +9,14 @@ from ethereum_test_execution import (
     LabeledExecuteFormat,
     TransactionPost,
 )
-from ethereum_test_fixtures import (
+from ethereum_execution_tests.fixtures import (
     BaseFixture,
     FixtureFormat,
     LabeledFixtureFormat,
     TransactionFixture,
 )
-from ethereum_test_fixtures.transaction import FixtureResult
-from ethereum_test_forks import Fork
+from ethereum_execution_tests.fixtures.transaction import FixtureResult
+from ethereum_execution_tests.forks import Fork
 from ethereum_test_types import Alloc, Transaction
 
 from .base import BaseTest

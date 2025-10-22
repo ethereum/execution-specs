@@ -29,20 +29,20 @@ from ethereum_test_execution import (
     LabeledExecuteFormat,
     TransactionPost,
 )
-from ethereum_test_fixtures import (
+from ethereum_execution_tests.fixtures import (
     BaseFixture,
     FixtureFormat,
     LabeledFixtureFormat,
     StateFixture,
 )
-from ethereum_test_fixtures.common import FixtureBlobSchedule
-from ethereum_test_fixtures.state import (
+from ethereum_execution_tests.fixtures.common import FixtureBlobSchedule
+from ethereum_execution_tests.fixtures.state import (
     FixtureConfig,
     FixtureEnvironment,
     FixtureForkPost,
     FixtureTransaction,
 )
-from ethereum_test_forks import Fork
+from ethereum_execution_tests.forks import Fork
 from ethereum_test_types import (
     Alloc,
     BlockAccessListExpectation,

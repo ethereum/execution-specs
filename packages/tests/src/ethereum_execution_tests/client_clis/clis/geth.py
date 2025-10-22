@@ -16,12 +16,12 @@ from ethereum_execution_tests.exceptions import (
     ExceptionMapper,
     TransactionException,
 )
-from ethereum_test_fixtures import (
+from ethereum_execution_tests.fixtures import (
     BlockchainFixture,
     FixtureFormat,
     StateFixture,
 )
-from ethereum_test_forks import Fork
+from ethereum_execution_tests.forks import Fork
 
 from ..ethereum_cli import EthereumCLI
 from ..fixture_consumer_tool import FixtureConsumerTool

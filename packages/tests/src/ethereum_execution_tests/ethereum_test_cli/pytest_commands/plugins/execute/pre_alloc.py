@@ -21,7 +21,7 @@ from ethereum_execution_tests.base_types.conversions import (
     FixedSizeBytesConvertible,
     NumberConvertible,
 )
-from ethereum_test_forks import Fork
+from ethereum_execution_tests.forks import Fork
 from ethereum_test_rpc import EthRPC
 from ethereum_test_rpc.rpc_types import TransactionByHashResponse
 from ethereum_test_tools import (

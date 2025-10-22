@@ -8,7 +8,7 @@ from filelock import FileLock
 from pydantic import Field, PrivateAttr, computed_field
 
 from ethereum_execution_tests.base_types import CamelModel, EthereumTestRootModel
-from ethereum_test_forks import Fork
+from ethereum_execution_tests.forks import Fork
 from ethereum_test_types import Alloc, Environment
 
 from .blockchain import FixtureHeader

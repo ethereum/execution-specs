@@ -25,7 +25,7 @@ from ethereum_execution_tests.exceptions import (
     TransactionException,
     UndefinedException,
 )
-from ethereum_test_fixtures.blockchain import FixtureExecutionPayload
+from ethereum_execution_tests.fixtures.blockchain import FixtureExecutionPayload
 from ethereum_test_types import EOA, Transaction, Withdrawal
 
 

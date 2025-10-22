@@ -16,7 +16,7 @@ from ethereum_execution_tests.exceptions import (
     ExceptionMapper,
     TransactionException,
 )
-from ethereum_test_fixtures import (
+from ethereum_execution_tests.fixtures import (
     BlockchainFixture,
     EOFFixture,
     FixtureFormat,

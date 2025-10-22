@@ -12,7 +12,7 @@ from ethereum_execution_tests.base_types import (
     ZeroPaddedHexNumber,
 )
 from ethereum_execution_tests.exceptions import TransactionExceptionInstanceOrList
-from ethereum_test_forks import Fork
+from ethereum_execution_tests.forks import Fork
 
 from .base import BaseFixture
 

@@ -26,7 +26,7 @@ from cli.gen_index import generate_fixtures_index
 from ethereum_clis import TransitionTool
 from ethereum_clis.clis.geth import FixtureConsumerTool
 from ethereum_execution_tests.base_types import Account, Address, Alloc, ReferenceSpec
-from ethereum_test_fixtures import (
+from ethereum_execution_tests.fixtures import (
     BaseFixture,
     FixtureCollector,
     FixtureConsumer,
@@ -36,13 +36,13 @@ from ethereum_test_fixtures import (
     PreAllocGroups,
     TestInfo,
 )
-from ethereum_test_forks import (
+from ethereum_execution_tests.forks import (
     Fork,
     get_transition_fork_predecessor,
     get_transition_forks,
 )
-from ethereum_test_specs import BaseTest
-from ethereum_test_specs.base import OpMode
+from ethereum_execution_tests.specs import BaseTest
+from ethereum_execution_tests.specs.base import OpMode
 from ethereum_test_tools.utility.versioning import (
     generate_github_url,
     get_current_commit_hash_or_tag,

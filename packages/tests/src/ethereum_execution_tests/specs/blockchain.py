@@ -40,7 +40,7 @@ from ethereum_test_execution import (
     LabeledExecuteFormat,
     TransactionPost,
 )
-from ethereum_test_fixtures import (
+from ethereum_execution_tests.fixtures import (
     BaseFixture,
     BlockchainEngineFixture,
     BlockchainEngineSyncFixture,
@@ -49,7 +49,7 @@ from ethereum_test_fixtures import (
     FixtureFormat,
     LabeledFixtureFormat,
 )
-from ethereum_test_fixtures.blockchain import (
+from ethereum_execution_tests.fixtures.blockchain import (
     FixtureBlock,
     FixtureBlockBase,
     FixtureConfig,
@@ -59,8 +59,8 @@ from ethereum_test_fixtures.blockchain import (
     FixtureWithdrawal,
     InvalidFixtureBlock,
 )
-from ethereum_test_fixtures.common import FixtureBlobSchedule
-from ethereum_test_forks import Fork
+from ethereum_execution_tests.fixtures.common import FixtureBlobSchedule
+from ethereum_execution_tests.forks import Fork
 from ethereum_test_types import (
     Alloc,
     Environment,

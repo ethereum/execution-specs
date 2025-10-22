@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from ethereum_test_fixtures import FixtureFillingPhase
+from ethereum_execution_tests.fixtures import FixtureFillingPhase
 
 from ..filler import PhaseManager
 

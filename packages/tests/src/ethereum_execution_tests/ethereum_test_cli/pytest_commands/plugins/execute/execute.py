@@ -11,7 +11,7 @@ import pytest
 from pytest_metadata.plugin import metadata_key
 
 from ethereum_test_execution import BaseExecute
-from ethereum_test_forks import Fork
+from ethereum_execution_tests.forks import Fork
 from ethereum_test_rpc import EngineRPC, EthRPC
 from ethereum_test_tools import BaseTest
 from ethereum_test_types import (

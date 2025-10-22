@@ -2,7 +2,7 @@
 
 from typing import List, Set, Tuple
 
-from ethereum_test_fixtures import (
+from ethereum_execution_tests.fixtures import (
     BaseFixture,
     FixtureFillingPhase,
     LabeledFixtureFormat,

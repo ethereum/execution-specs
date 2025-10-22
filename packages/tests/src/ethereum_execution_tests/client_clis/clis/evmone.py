@@ -21,10 +21,10 @@ from ethereum_execution_tests.exceptions import (
     ExceptionMapper,
     TransactionException,
 )
-from ethereum_test_fixtures.base import FixtureFormat
-from ethereum_test_fixtures.blockchain import BlockchainFixture
-from ethereum_test_fixtures.state import StateFixture
-from ethereum_test_forks import Fork
+from ethereum_execution_tests.fixtures.base import FixtureFormat
+from ethereum_execution_tests.fixtures.blockchain import BlockchainFixture
+from ethereum_execution_tests.fixtures.state import StateFixture
+from ethereum_execution_tests.forks import Fork
 
 from ..transition_tool import TransitionTool
 

@@ -20,7 +20,7 @@ from ethereum_execution_tests.base_types import (
     NumberBoundTypeVar,
     ZeroPaddedHexNumber,
 )
-from ethereum_test_forks import Fork
+from ethereum_execution_tests.forks import Fork
 
 DEFAULT_BASE_FEE = 7
 CURRENT_MAINNET_BLOCK_GAS_LIMIT = 45_000_000

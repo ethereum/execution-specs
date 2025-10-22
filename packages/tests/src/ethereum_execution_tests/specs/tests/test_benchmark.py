@@ -6,7 +6,7 @@ transaction splitting functionality.
 import pytest
 
 from ethereum_execution_tests.base_types import HexNumber
-from ethereum_test_specs.benchmark import BenchmarkTest
+from ethereum_execution_tests.specs.benchmark import BenchmarkTest
 from ethereum_test_types import Alloc, Environment, Transaction
 
 

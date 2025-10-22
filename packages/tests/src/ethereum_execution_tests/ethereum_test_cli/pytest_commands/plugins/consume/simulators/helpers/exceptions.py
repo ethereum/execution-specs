@@ -12,7 +12,7 @@ from ethereum_clis.clis.nethermind import NethermindExceptionMapper
 from ethereum_clis.clis.nimbus import NimbusExceptionMapper
 from ethereum_clis.clis.reth import RethExceptionMapper
 from ethereum_execution_tests.exceptions import ExceptionMapper
-from ethereum_test_fixtures.blockchain import FixtureHeader
+from ethereum_execution_tests.fixtures.blockchain import FixtureHeader
 
 
 class GenesisBlockMismatchExceptionError(Exception):

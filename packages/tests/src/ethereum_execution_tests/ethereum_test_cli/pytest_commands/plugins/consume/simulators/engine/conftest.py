@@ -11,7 +11,7 @@ import pytest
 from hive.client import Client
 
 from ethereum_execution_tests.exceptions import ExceptionMapper
-from ethereum_test_fixtures import BlockchainEngineFixture
+from ethereum_execution_tests.fixtures import BlockchainEngineFixture
 from ethereum_test_rpc import EngineRPC
 
 pytest_plugins = (

@@ -14,7 +14,7 @@ from typing import Dict, List, Optional
 import click
 
 from ethereum_clis.cli_types import OpcodeCount
-from ethereum_test_fixtures.file import Fixtures
+from ethereum_execution_tests.fixtures.file import Fixtures
 
 
 def find_json_files(directory: Path) -> List[Path]:

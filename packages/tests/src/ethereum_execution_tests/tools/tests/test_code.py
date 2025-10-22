@@ -14,15 +14,15 @@ from ethereum_execution_tests.base_types import (
     TestAddress,
     TestPrivateKey,
 )
-from ethereum_test_fixtures import BlockchainFixture
-from ethereum_test_forks import (
+from ethereum_execution_tests.fixtures import BlockchainFixture
+from ethereum_execution_tests.forks import (
     Cancun,
     Fork,
     Homestead,
     Shanghai,
     get_deployed_forks,
 )
-from ethereum_test_specs import StateTest
+from ethereum_execution_tests.specs import StateTest
 from ethereum_test_types import Alloc, Environment, Transaction
 from ethereum_execution_tests.vm import Opcodes as Op
 from ethereum_execution_tests.vm import UndefinedOpcodes

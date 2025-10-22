@@ -6,7 +6,7 @@ import pytest
 from _pytest.mark.structures import ParameterSet
 
 from ethereum_test_execution import ExecuteFormat, LabeledExecuteFormat
-from ethereum_test_fixtures import FixtureFormat, LabeledFixtureFormat
+from ethereum_execution_tests.fixtures import FixtureFormat, LabeledFixtureFormat
 from ethereum_test_tools import BaseTest
 
 

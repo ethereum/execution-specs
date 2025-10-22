@@ -26,7 +26,7 @@ from ethereum_test_execution import (
     LabeledExecuteFormat,
     TransactionPost,
 )
-from ethereum_test_fixtures import (
+from ethereum_execution_tests.fixtures import (
     BaseFixture,
     BlockchainEngineFixture,
     BlockchainEngineXFixture,
@@ -34,7 +34,7 @@ from ethereum_test_fixtures import (
     FixtureFormat,
     LabeledFixtureFormat,
 )
-from ethereum_test_forks import Fork
+from ethereum_execution_tests.forks import Fork
 from ethereum_test_types import Alloc, Environment, Transaction
 from ethereum_execution_tests.vm import Bytecode
 from ethereum_execution_tests.vm.opcodes import Opcodes as Op

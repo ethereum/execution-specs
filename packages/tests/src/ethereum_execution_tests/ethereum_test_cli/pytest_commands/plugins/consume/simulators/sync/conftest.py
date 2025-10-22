@@ -14,7 +14,7 @@ from hive.testing import HiveTest
 
 from ethereum_execution_tests.base_types import to_json
 from ethereum_execution_tests.exceptions import ExceptionMapper
-from ethereum_test_fixtures import BlockchainEngineSyncFixture
+from ethereum_execution_tests.fixtures import BlockchainEngineSyncFixture
 from ethereum_test_rpc import AdminRPC, EngineRPC, EthRPC, NetRPC
 
 pytest_plugins = (

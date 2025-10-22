@@ -2,8 +2,8 @@
 
 import pytest
 
-from ethereum_test_fixtures import LabeledFixtureFormat
-from ethereum_test_forks import (
+from ethereum_execution_tests.fixtures import LabeledFixtureFormat
+from ethereum_execution_tests.forks import (
     ArrowGlacier,
     Fork,
     forks_from_until,

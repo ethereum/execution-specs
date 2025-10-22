@@ -12,8 +12,8 @@ from hive.client import Client, ClientType
 from hive.testing import HiveTest
 
 from ethereum_execution_tests.base_types import Number, to_json
-from ethereum_test_fixtures import BlockchainFixtureCommon
-from ethereum_test_fixtures.blockchain import FixtureHeader
+from ethereum_execution_tests.fixtures import BlockchainFixtureCommon
+from ethereum_execution_tests.fixtures.blockchain import FixtureHeader
 
 from .helpers.ruleset import (
     ruleset,  # TODO: generate dynamically

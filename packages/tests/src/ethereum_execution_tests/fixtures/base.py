@@ -19,7 +19,7 @@ from pydantic import (
 from pydantic_core.core_schema import ValidatorFunctionWrapHandler
 
 from ethereum_execution_tests.base_types import CamelModel, ReferenceSpec
-from ethereum_test_forks import Fork
+from ethereum_execution_tests.forks import Fork
 
 
 def fixture_format_discriminator(v: Any) -> str | None:

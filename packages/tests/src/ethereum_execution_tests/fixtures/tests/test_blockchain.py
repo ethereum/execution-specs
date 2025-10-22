@@ -23,7 +23,7 @@ from ethereum_execution_tests.exceptions import (
     EngineAPIError,
     TransactionException,
 )
-from ethereum_test_forks import Prague
+from ethereum_execution_tests.forks import Prague
 from ethereum_test_types import (
     EOA,
     AuthorizationTuple,

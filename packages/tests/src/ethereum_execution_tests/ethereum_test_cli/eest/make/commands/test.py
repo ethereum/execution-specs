@@ -15,7 +15,7 @@ import click
 import jinja2
 
 from config.docs import DocsConfig
-from ethereum_test_forks import get_development_forks, get_forks
+from ethereum_execution_tests.forks import get_development_forks, get_forks
 
 from ....input import input_select, input_text
 

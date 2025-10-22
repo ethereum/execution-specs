@@ -25,9 +25,9 @@ from ethereum_execution_tests.base_types.conversions import (
     FixedSizeBytesConvertible,
     NumberConvertible,
 )
-from ethereum_test_fixtures import LabeledFixtureFormat
-from ethereum_test_forks import Fork
-from ethereum_test_specs import BaseTest
+from ethereum_execution_tests.fixtures import LabeledFixtureFormat
+from ethereum_execution_tests.forks import Fork
+from ethereum_execution_tests.specs import BaseTest
 from ethereum_test_types import EOA
 from ethereum_test_types import Alloc as BaseAlloc
 from ethereum_test_types.eof.v1 import Container

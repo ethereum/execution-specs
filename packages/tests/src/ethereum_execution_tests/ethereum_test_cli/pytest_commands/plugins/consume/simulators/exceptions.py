@@ -6,7 +6,7 @@ import pytest
 from hive.client import ClientType
 
 from ethereum_execution_tests.exceptions import ExceptionMapper
-from ethereum_test_fixtures import (
+from ethereum_execution_tests.fixtures import (
     BlockchainFixtureCommon,
 )
 

@@ -31,14 +31,14 @@ from ethereum_test_execution import (
     ExecuteFormat,
     LabeledExecuteFormat,
 )
-from ethereum_test_fixtures import (
+from ethereum_execution_tests.fixtures import (
     BaseFixture,
     FixtureFormat,
     LabeledFixtureFormat,
     PreAllocGroup,
     PreAllocGroups,
 )
-from ethereum_test_forks import Fork
+from ethereum_execution_tests.forks import Fork
 from ethereum_test_types import Alloc, Environment, Withdrawal
 
 

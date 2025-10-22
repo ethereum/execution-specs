@@ -8,7 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 from ethereum_execution_tests.base_types import Address, HexNumber
-from ethereum_test_forks import Osaka
+from ethereum_execution_tests.forks import Osaka
 from ethereum_test_tools import Account, AuthorizationTuple, Transaction
 from ethereum_test_types import Alloc, Environment
 

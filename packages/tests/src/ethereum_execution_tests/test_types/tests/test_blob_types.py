@@ -7,12 +7,12 @@ from typing import Any
 import pytest
 from filelock import FileLock
 
-from ethereum_test_forks import (
+from ethereum_execution_tests.forks import (
     Cancun,
     Osaka,
     Prague,
 )
-from ethereum_test_forks.forks.transition import (
+from ethereum_execution_tests.forks.forks.transition import (
     CancunToPragueAtTime15k,
     PragueToOsakaAtTime15k,
     ShanghaiToCancunAtTime15k,

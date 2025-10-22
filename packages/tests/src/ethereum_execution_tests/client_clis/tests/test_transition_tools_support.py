@@ -11,7 +11,7 @@ from ethereum_execution_tests.base_types import (
     TestAddress,
     TestPrivateKey,
 )
-from ethereum_test_forks import (
+from ethereum_execution_tests.forks import (
     ArrowGlacier,
     Berlin,
     Byzantium,
@@ -25,7 +25,7 @@ from ethereum_test_forks import (
     Prague,
     get_deployed_forks,
 )
-from ethereum_test_specs.blockchain import BlockchainFixture, BlockchainTest
+from ethereum_execution_tests.specs.blockchain import BlockchainFixture, BlockchainTest
 from ethereum_test_tools import (
     AccessList,
     AuthorizationTuple,

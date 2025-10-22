@@ -8,8 +8,8 @@ start-up.
 
 import logging
 
-from ethereum_test_fixtures import BlockchainFixture
-from ethereum_test_fixtures.blockchain import FixtureBlock, FixtureHeader
+from ethereum_execution_tests.fixtures import BlockchainFixture
+from ethereum_execution_tests.fixtures.blockchain import FixtureBlock, FixtureHeader
 from ethereum_test_rpc import EthRPC
 
 from ..helpers.exceptions import GenesisBlockMismatchExceptionError

@@ -22,7 +22,7 @@ from ethereum_execution_tests.exceptions import (
     ExceptionMapper,
     TransactionException,
 )
-from ethereum_test_forks import Fork
+from ethereum_execution_tests.forks import Fork
 
 
 class ExecutionSpecsTransitionTool(TransitionTool):

@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.table import Table
 
 from ethereum_execution_tests.base_types import CamelModel
-from ethereum_test_fixtures import PreAllocGroups
+from ethereum_execution_tests.fixtures import PreAllocGroups
 
 
 def extract_test_module(test_id: str) -> str:

@@ -7,7 +7,7 @@ Remove this file afterwards.
 
 from typing import Dict, List
 
-from ethereum_test_forks import (
+from ethereum_execution_tests.forks import (
     BPO1,
     BPO2,
     BPO3,

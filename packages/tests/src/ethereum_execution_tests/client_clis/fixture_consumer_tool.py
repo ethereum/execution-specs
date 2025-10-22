@@ -2,7 +2,7 @@
 
 from typing import List, Type
 
-from ethereum_test_fixtures import FixtureConsumer, FixtureFormat
+from ethereum_execution_tests.fixtures import FixtureConsumer, FixtureFormat
 
 from .ethereum_cli import EthereumCLI
 

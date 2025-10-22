@@ -7,9 +7,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from ethereum_test_fixtures import BaseFixture, PreAllocGroups
-from ethereum_test_forks import Fork, Prague
-from ethereum_test_specs.base import BaseTest
+from ethereum_execution_tests.fixtures import BaseFixture, PreAllocGroups
+from ethereum_execution_tests.forks import Fork, Prague
+from ethereum_execution_tests.specs.base import BaseTest
 from ethereum_test_types import Alloc, Environment
 
 from ..filler import default_output_directory

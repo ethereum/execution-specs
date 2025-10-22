@@ -24,7 +24,7 @@ from ethereum_execution_tests.base_types import (
     Hash,
     HexNumber,
 )
-from ethereum_test_forks import Fork
+from ethereum_execution_tests.forks import Fork
 from ethereum_test_types import Environment
 
 

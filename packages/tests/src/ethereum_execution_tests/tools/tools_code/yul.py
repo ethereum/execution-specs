@@ -11,7 +11,7 @@ from typing import Optional, Type
 from semver import Version
 from typing_extensions import Self
 
-from ethereum_test_forks import Fork
+from ethereum_execution_tests.forks import Fork
 from ethereum_execution_tests.vm import Bytecode
 
 DEFAULT_SOLC_ARGS = ("--assemble", "-")

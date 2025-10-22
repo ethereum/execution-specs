@@ -12,7 +12,7 @@ import cli.check_fixtures
 from ethereum_clis import TransitionTool
 from ethereum_execution_tests.base_types import AccessList, Account, Address, Hash
 from ethereum_execution_tests.exceptions import TransactionException
-from ethereum_test_fixtures import (
+from ethereum_execution_tests.fixtures import (
     BaseFixture,
     BlockchainEngineFixture,
     BlockchainFixture,
@@ -20,7 +20,7 @@ from ethereum_test_fixtures import (
     FixtureFormat,
     StateFixture,
 )
-from ethereum_test_forks import (
+from ethereum_execution_tests.forks import (
     Berlin,
     Cancun,
     Fork,

@@ -22,7 +22,7 @@ from ethereum_execution_tests.base_types import (
     Storage,
 )
 from ethereum_execution_tests.exceptions import TransactionExceptionInstanceOrList
-from ethereum_test_forks import Fork, get_forks
+from ethereum_execution_tests.forks import Fork, get_forks
 from ethereum_test_types import Alloc
 
 from .common import (

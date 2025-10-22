@@ -23,16 +23,16 @@ from ethereum_clis import CLINotFoundInPathError
 from ethereum_clis.clis.evmone import EvmOneTransitionTool
 from ethereum_execution_tests.base_types import Bytes, EthereumTestRootModel
 from ethereum_execution_tests.base_types.conversions import to_hex
-from ethereum_test_fixtures.blockchain import FixtureBlock, InvalidFixtureBlock
-from ethereum_test_fixtures.file import Fixtures
-from ethereum_test_forks.forks.forks import EOFv1
-from ethereum_test_specs.blockchain import (
+from ethereum_execution_tests.fixtures.blockchain import FixtureBlock, InvalidFixtureBlock
+from ethereum_execution_tests.fixtures.file import Fixtures
+from ethereum_execution_tests.forks.forks.forks import EOFv1
+from ethereum_execution_tests.specs.blockchain import (
     Block,
     BlockchainFixture,
     BlockchainTest,
 )
-from ethereum_test_specs.debugging import print_traces
-from ethereum_test_specs.eof import EOFParse
+from ethereum_execution_tests.specs.debugging import print_traces
+from ethereum_execution_tests.specs.eof import EOFParse
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_types import Transaction
 from ethereum_test_types.block_types import Environment

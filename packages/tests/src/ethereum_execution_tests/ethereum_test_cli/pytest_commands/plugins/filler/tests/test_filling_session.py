@@ -7,12 +7,12 @@ from unittest.mock import patch
 import pytest
 
 from ethereum_execution_tests.base_types import Alloc
-from ethereum_test_fixtures import (
+from ethereum_execution_tests.fixtures import (
     FixtureFillingPhase,
     PreAllocGroup,
     PreAllocGroups,
 )
-from ethereum_test_forks import Prague
+from ethereum_execution_tests.forks import Prague
 from ethereum_test_types import Environment
 
 from ..filler import FillingSession
