@@ -11,6 +11,7 @@ from typing import Callable, Dict, Generator, List, Tuple
 import pytest
 from ethereum_execution_tests.base_types.base_types import Address
 from ethereum_execution_tests.forks import Fork
+from ethereum_execution_tests.test_types import EOA
 from ethereum_execution_tests.tools import (
     Account,
     Alloc,
@@ -28,7 +29,6 @@ from ethereum_execution_tests.tools import (
 )
 from ethereum_execution_tests.tools import Opcodes as Op
 from ethereum_execution_tests.tools.utility.pytest import ParameterSet
-from ethereum_execution_tests.test_types import EOA
 
 from ..eip6110_deposits.helpers import (
     DepositContract,

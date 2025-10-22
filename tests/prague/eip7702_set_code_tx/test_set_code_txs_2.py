@@ -6,6 +6,7 @@ from enum import Enum, IntEnum
 
 import pytest
 from ethereum_execution_tests.forks import Fork, GasCosts
+from ethereum_execution_tests.test_types.eof.v1 import Container, Section
 from ethereum_execution_tests.tools import (
     AccessList,
     Account,
@@ -26,7 +27,6 @@ from ethereum_execution_tests.tools import (
     TransactionException,
     compute_create_address,
 )
-from ethereum_execution_tests.test_types.eof.v1 import Container, Section
 from ethereum_execution_tests.vm import Macros
 from ethereum_execution_tests.vm import Opcodes as Op
 

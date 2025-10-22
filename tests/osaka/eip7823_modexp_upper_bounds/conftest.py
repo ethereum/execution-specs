@@ -4,6 +4,7 @@ from typing import Dict
 
 import pytest
 from ethereum_execution_tests.forks import Fork, Osaka
+from ethereum_execution_tests.test_types import Environment
 from ethereum_execution_tests.tools import (
     Account,
     Address,
@@ -12,7 +13,6 @@ from ethereum_execution_tests.tools import (
     Transaction,
     keccak256,
 )
-from ethereum_execution_tests.test_types import Environment
 from ethereum_execution_tests.vm import Opcodes as Op
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput

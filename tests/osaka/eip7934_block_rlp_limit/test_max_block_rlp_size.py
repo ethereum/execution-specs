@@ -18,6 +18,7 @@ from ethereum_execution_tests.fixtures.blockchain import (
     FixtureWithdrawal,
 )
 from ethereum_execution_tests.forks import Fork
+from ethereum_execution_tests.test_types import EOA, Environment
 from ethereum_execution_tests.tools import (
     Alloc,
     Block,
@@ -28,7 +29,6 @@ from ethereum_execution_tests.tools import (
     Withdrawal,
 )
 from ethereum_execution_tests.tools import Opcodes as Op
-from ethereum_execution_tests.test_types import EOA, Environment
 
 from .spec import Spec, ref_spec_7934
 

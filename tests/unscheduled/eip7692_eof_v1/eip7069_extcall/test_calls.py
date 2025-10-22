@@ -5,6 +5,10 @@ from enum import Enum, auto, unique
 
 import pytest
 from ethereum_execution_tests.base_types import Address, HashInt
+from ethereum_execution_tests.test_types.eof.v1 import Container, Section
+from ethereum_execution_tests.test_types.helpers import (
+    compute_eofcreate_address,
+)
 from ethereum_execution_tests.tools import (
     EOA,
     Account,
@@ -13,10 +17,6 @@ from ethereum_execution_tests.tools import (
     StateTestFiller,
     Storage,
     Transaction,
-)
-from ethereum_execution_tests.test_types.eof.v1 import Container, Section
-from ethereum_execution_tests.test_types.helpers import (
-    compute_eofcreate_address,
 )
 from ethereum_execution_tests.vm import Bytecode, EVMCodeType
 from ethereum_execution_tests.vm import Opcodes as Op

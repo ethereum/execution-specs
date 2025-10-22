@@ -6,15 +6,6 @@ import pytest
 from ethereum_execution_tests.base_types import AccessList, Address, Hash
 from ethereum_execution_tests.forks import Fork
 from ethereum_execution_tests.specs.blockchain import Header
-from ethereum_execution_tests.tools import (
-    Account,
-    Alloc,
-    Block,
-    BlockchainTestFiller,
-    Initcode,
-    Transaction,
-    compute_create_address,
-)
 from ethereum_execution_tests.test_types import Environment
 from ethereum_execution_tests.test_types.block_access_list import (
     BalAccountExpectation,
@@ -24,6 +15,15 @@ from ethereum_execution_tests.test_types.block_access_list import (
     BalStorageChange,
     BalStorageSlot,
     BlockAccessListExpectation,
+)
+from ethereum_execution_tests.tools import (
+    Account,
+    Alloc,
+    Block,
+    BlockchainTestFiller,
+    Initcode,
+    Transaction,
+    compute_create_address,
 )
 from ethereum_execution_tests.vm import Opcodes as Op
 

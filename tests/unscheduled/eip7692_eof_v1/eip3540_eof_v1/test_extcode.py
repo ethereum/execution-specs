@@ -1,6 +1,7 @@
 """test execution semantics changes."""
 
 import pytest
+from ethereum_execution_tests.test_types.eof.v1 import Container
 from ethereum_execution_tests.tools import (
     Account,
     Alloc,
@@ -11,7 +12,6 @@ from ethereum_execution_tests.tools import (
     keccak256,
 )
 from ethereum_execution_tests.tools import Opcodes as Op
-from ethereum_execution_tests.test_types.eof.v1 import Container
 
 from .. import EOF_FORK_NAME
 

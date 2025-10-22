@@ -14,6 +14,8 @@ import pytest
 from ethereum_execution_tests.base_types import HexNumber
 from ethereum_execution_tests.checklists import EIPChecklist
 from ethereum_execution_tests.forks import Fork
+from ethereum_execution_tests.test_types import TransactionReceipt
+from ethereum_execution_tests.test_types.eof.v1 import Container, Section
 from ethereum_execution_tests.tools import (
     AccessList,
     Account,
@@ -42,8 +44,6 @@ from ethereum_execution_tests.tools import (
 )
 from ethereum_execution_tests.tools import Macros as Om
 from ethereum_execution_tests.tools import Opcodes as Op
-from ethereum_execution_tests.test_types import TransactionReceipt
-from ethereum_execution_tests.test_types.eof.v1 import Container, Section
 
 from ...cancun.eip4844_blobs.spec import Spec as Spec4844
 from ..eip6110_deposits.helpers import DepositRequest

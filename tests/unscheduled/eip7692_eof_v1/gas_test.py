@@ -3,6 +3,7 @@
 import itertools
 
 from ethereum_execution_tests.base_types.base_types import Address
+from ethereum_execution_tests.test_types.eof.v1 import Container, Section
 from ethereum_execution_tests.tools import (
     Account,
     Alloc,
@@ -10,7 +11,6 @@ from ethereum_execution_tests.tools import (
     StateTestFiller,
     Transaction,
 )
-from ethereum_execution_tests.test_types.eof.v1 import Container, Section
 from ethereum_execution_tests.vm import Bytecode, EVMCodeType
 from ethereum_execution_tests.vm import Opcodes as Op
 

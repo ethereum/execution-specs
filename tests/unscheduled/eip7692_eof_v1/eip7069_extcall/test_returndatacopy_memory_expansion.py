@@ -4,6 +4,7 @@ from typing import Mapping, Tuple
 
 import pytest
 from ethereum_execution_tests.forks import Fork
+from ethereum_execution_tests.test_types.eof.v1 import Container
 from ethereum_execution_tests.tools import (
     Account,
     Address,
@@ -15,7 +16,6 @@ from ethereum_execution_tests.tools import (
     Transaction,
 )
 from ethereum_execution_tests.tools import Opcodes as Op
-from ethereum_execution_tests.test_types.eof.v1 import Container
 
 from .. import EOF_FORK_NAME
 

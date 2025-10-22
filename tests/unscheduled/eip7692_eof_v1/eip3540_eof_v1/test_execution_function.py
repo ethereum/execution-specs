@@ -3,17 +3,17 @@
 from typing import List
 
 import pytest
+from ethereum_execution_tests.test_types.eof.v1 import Container, Section
+from ethereum_execution_tests.test_types.eof.v1.constants import (
+    MAX_CODE_SECTIONS,
+    MAX_RETURN_STACK_HEIGHT,
+)
 from ethereum_execution_tests.tools import (
     Account,
     Alloc,
     Environment,
     StateTestFiller,
     Transaction,
-)
-from ethereum_execution_tests.test_types.eof.v1 import Container, Section
-from ethereum_execution_tests.test_types.eof.v1.constants import (
-    MAX_CODE_SECTIONS,
-    MAX_RETURN_STACK_HEIGHT,
 )
 from ethereum_execution_tests.vm import Opcodes as Op
 

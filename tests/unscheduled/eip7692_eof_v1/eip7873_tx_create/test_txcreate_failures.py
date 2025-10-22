@@ -4,6 +4,11 @@ import pytest
 from ethereum_execution_tests.base_types import Bytes
 from ethereum_execution_tests.base_types.base_types import Address, Hash
 from ethereum_execution_tests.forks import Fork
+from ethereum_execution_tests.test_types.eof.v1 import Container, Section
+from ethereum_execution_tests.test_types.eof.v1.constants import (
+    MAX_BYTECODE_SIZE,
+    MAX_INITCODE_SIZE,
+)
 from ethereum_execution_tests.tools import (
     Account,
     Alloc,
@@ -12,11 +17,6 @@ from ethereum_execution_tests.tools import (
     StateTestFiller,
     Transaction,
     compute_eofcreate_address,
-)
-from ethereum_execution_tests.test_types.eof.v1 import Container, Section
-from ethereum_execution_tests.test_types.eof.v1.constants import (
-    MAX_BYTECODE_SIZE,
-    MAX_INITCODE_SIZE,
 )
 from ethereum_execution_tests.vm import Bytecode
 from ethereum_execution_tests.vm import Opcodes as Op

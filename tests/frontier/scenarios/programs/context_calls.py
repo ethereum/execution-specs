@@ -11,8 +11,8 @@ from ethereum_execution_tests.forks import (
     London,
     Shanghai,
 )
-from ethereum_execution_tests.tools import Alloc, Bytecode
 from ethereum_execution_tests.test_types import ChainConfigDefaults
+from ethereum_execution_tests.tools import Alloc, Bytecode
 from ethereum_execution_tests.vm import Opcodes as Op
 
 from ..common import (

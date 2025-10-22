@@ -9,6 +9,7 @@ from ethereum_execution_tests.benchmark.benchmark_code_generator import (
     JumpLoopGenerator,
 )
 from ethereum_execution_tests.forks import Fork
+from ethereum_execution_tests.test_types.helpers import compute_create_address
 from ethereum_execution_tests.tools import (
     Account,
     Alloc,
@@ -22,7 +23,6 @@ from ethereum_execution_tests.tools import (
     While,
     compute_create2_address,
 )
-from ethereum_execution_tests.test_types.helpers import compute_create_address
 from ethereum_execution_tests.vm import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "TODO"

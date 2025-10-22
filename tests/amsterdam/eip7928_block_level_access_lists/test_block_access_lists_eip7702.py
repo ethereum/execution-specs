@@ -1,14 +1,6 @@
 """Tests for the effects of EIP-7702 transactions on EIP-7928."""
 
 import pytest
-from ethereum_execution_tests.tools import (
-    Account,
-    Alloc,
-    AuthorizationTuple,
-    Block,
-    BlockchainTestFiller,
-    Transaction,
-)
 from ethereum_execution_tests.test_types.block_access_list import (
     BalAccountExpectation,
     BalBalanceChange,
@@ -17,6 +9,14 @@ from ethereum_execution_tests.test_types.block_access_list import (
     BalStorageChange,
     BalStorageSlot,
     BlockAccessListExpectation,
+)
+from ethereum_execution_tests.tools import (
+    Account,
+    Alloc,
+    AuthorizationTuple,
+    Block,
+    BlockchainTestFiller,
+    Transaction,
 )
 from ethereum_execution_tests.vm import Opcodes as Op
 

@@ -2,13 +2,13 @@
 
 import pytest
 from ethereum_execution_tests.forks import Fork
+from ethereum_execution_tests.test_types.eof.v1 import Container, Section
 from ethereum_execution_tests.tools import (
     Alloc,
     Environment,
     StateTestFiller,
     compute_eofcreate_address,
 )
-from ethereum_execution_tests.test_types.eof.v1 import Container, Section
 from ethereum_execution_tests.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME

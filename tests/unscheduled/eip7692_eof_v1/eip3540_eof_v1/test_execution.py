@@ -2,6 +2,7 @@
 
 import pytest
 from ethereum_execution_tests.base_types import Storage
+from ethereum_execution_tests.test_types.eof.v1 import Container, Section
 from ethereum_execution_tests.tools import (
     Account,
     Alloc,
@@ -9,7 +10,6 @@ from ethereum_execution_tests.tools import (
     StateTestFiller,
     Transaction,
 )
-from ethereum_execution_tests.test_types.eof.v1 import Container, Section
 from ethereum_execution_tests.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME

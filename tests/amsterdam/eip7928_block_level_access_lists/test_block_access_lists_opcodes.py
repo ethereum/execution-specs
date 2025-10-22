@@ -18,6 +18,12 @@ from enum import Enum
 
 import pytest
 from ethereum_execution_tests.forks import Fork
+from ethereum_execution_tests.test_types.block_access_list import (
+    BalAccountExpectation,
+    BalStorageChange,
+    BalStorageSlot,
+    BlockAccessListExpectation,
+)
 from ethereum_execution_tests.tools import (
     Account,
     Alloc,
@@ -27,12 +33,6 @@ from ethereum_execution_tests.tools import (
 )
 from ethereum_execution_tests.tools import (
     Opcodes as Op,
-)
-from ethereum_execution_tests.test_types.block_access_list import (
-    BalAccountExpectation,
-    BalStorageChange,
-    BalStorageSlot,
-    BlockAccessListExpectation,
 )
 from ethereum_execution_tests.vm import Bytecode
 
