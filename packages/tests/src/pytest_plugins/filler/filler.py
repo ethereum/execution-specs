@@ -61,45 +61,6 @@ from ..spec_version_checker.spec_version_checker import (
 from .fixture_output import FixtureOutput
 
 
-def print_migration_warning(terminalreporter: Any = None) -> None:
-    """Print migration warning about repository merge."""
-    lines = [
-        "",
-        "=" * 80,
-        "⚠️  IMPORTANT: Repository Migration in Progress - 'The Weld' ⚠️",
-        "=" * 80,
-        "",
-        "This repository is being merged into ethereum/execution-specs (EELS) during the",
-        "week of October 20-24, 2025.",
-        "",
-        "📅 Timeline:",
-        "  • Week of Oct 13-17: Closing PRs, porting issues to EELS",
-        "  • Week of Oct 20-24: Migration week - fixing CI and fixture building",
-        "  • Oct 24 (ETA): Weld finalized - all development moves to EELS",
-        "",
-        "👉 What This Means:",
-        "  • Test Contributors: After Oct 24, reopen draft PRs in ethereum/execution-specs",
-        "  • All future test development happens in EELS after completion",
-        "  • Fixture releases continue as usual during transition",
-        "",
-        "For details: https://steel.ethereum.foundation/blog/blog_posts/2025-09-11_weld-announcement/",
-        "=" * 80,
-        "",
-    ]
-
-    if terminalreporter:
-        for line in lines:
-            if "⚠️" in line or "IMPORTANT" in line:
-                terminalreporter.write_line(line, bold=True, yellow=True)
-            elif line.startswith("="):
-                terminalreporter.write_line(line, yellow=True)
-            else:
-                terminalreporter.write_line(line)
-    else:
-        for line in lines:
-            print(line)
-
-
 @dataclass(kw_only=True)
 class PhaseManager:
     """
@@ -725,8 +686,6 @@ def pytest_configure(config: pytest.Config) -> None:
        called before the pytest-html plugin's pytest_configure to ensure that
        it uses the modified `htmlpath` option.
     """
-    if not is_help_or_collectonly_mode(config):
-        print_migration_warning()
     # Register custom markers
     # Modify the block gas limit if specified.
     if config.getoption("block_gas_limit"):
@@ -874,7 +833,6 @@ def pytest_terminal_summary(
     yield
     if config.fixture_output.is_stdout or hasattr(config, "workerinput"):  # type: ignore[attr-defined]
         return
-    print_migration_warning(terminalreporter)
     stats = terminalreporter.stats
     if "passed" in stats and stats["passed"]:
         # Custom message for Phase 1 (pre-allocation group generation)

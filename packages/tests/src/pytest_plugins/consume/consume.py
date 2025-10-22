@@ -8,7 +8,7 @@ import tarfile
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Generator, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 from urllib.parse import urlparse
 
 import platformdirs
@@ -40,45 +40,6 @@ CACHED_DOWNLOADS_DIRECTORY = (
     Path(platformdirs.user_cache_dir("ethereum-execution-spec-tests"))
     / "cached_downloads"
 )
-
-
-def print_migration_warning(terminalreporter: Any = None) -> None:
-    """Print migration warning about repository merge."""
-    lines = [
-        "",
-        "=" * 80,
-        "⚠️  IMPORTANT: Repository Migration in Progress - 'The Weld' ⚠️",
-        "=" * 80,
-        "",
-        "This repository is being merged into ethereum/execution-specs (EELS) during the",
-        "week of October 20-24, 2025.",
-        "",
-        "📅 Timeline:",
-        "  • Week of Oct 13-17: Closing PRs, porting issues to EELS",
-        "  • Week of Oct 20-24: Migration week - fixing CI and fixture building",
-        "  • Oct 24 (ETA): Weld finalized - all development moves to EELS",
-        "",
-        "👉 What This Means:",
-        "  • Test Contributors: After Oct 24, reopen draft PRs in EELS",
-        "  • All future test development happens in EELS after completion",
-        "  • Fixture releases continue as usual during transition",
-        "",
-        "For details: https://steel.ethereum.foundation/blog/blog_posts/2025-09-11_weld-announcement/",
-        "=" * 80,
-        "",
-    ]
-
-    if terminalreporter:
-        for line in lines:
-            if "⚠️" in line or "IMPORTANT" in line:
-                terminalreporter.write_line(line, bold=True, yellow=True)
-            elif line.startswith("="):
-                terminalreporter.write_line(line, yellow=True)
-            else:
-                terminalreporter.write_line(line)
-    else:
-        for line in lines:
-            print(line)
 
 
 def default_input() -> str:
@@ -466,7 +427,6 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
     called before the pytest-html plugin's pytest_configure to ensure that it
     uses the modified `htmlpath` option.
     """
-    print_migration_warning()
     # Validate --extract-to usage
     if config.option.extract_to_folder is not None and "cache" not in sys.argv:
         pytest.exit(
@@ -642,17 +602,3 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
                 for client in metafunc.config.hive_execution_clients  # type: ignore[attr-defined]
             ],
         )
-
-
-@pytest.hookimpl(hookwrapper=True, trylast=True)
-def pytest_terminal_summary(
-    terminalreporter: Any,
-    exitstatus: int,
-    config: pytest.Config,
-) -> Generator[None, None, None]:
-    """Print migration warning at end of test session."""
-    del exitstatus
-    yield
-
-    if not hasattr(config, "workerinput"):
-        print_migration_warning(terminalreporter)
