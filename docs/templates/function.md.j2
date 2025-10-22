@@ -1,0 +1,31 @@
+{% extends "base.md.j2" %}
+{% block title %}
+---
+search:
+  exclude: true
+---
+{#
+    don't include function pages in the mkdocs-material site search index
+    see https://github.com/ethereum/execution-spec-tests/issues/1291
+#}
+
+# `{{ title }}()`
+{% endblock %}
+{% block additional_content %}
+
+::: {{ package_name }}
+    options:
+        filters: ["^[tT]est*|^Spec*"]
+
+## Parametrized Test Cases
+
+{% if test_case_count > 1 %}
+The interactive table below is also available as a [standalone page]({{ html_static_page_target }}).
+{% elif fixture_formats | length > 1 %}
+This test case is only parametrized by fork and fixture format.
+{% else %}
+This test case is only parametrized by fork.
+{% endif %}
+
+{% include 'function_parameter_datatable.html.j2' %}
+{% endblock %}

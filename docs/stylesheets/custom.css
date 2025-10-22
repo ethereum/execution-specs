@@ -1,0 +1,91 @@
+.slide {
+  display: inline-block;
+  position: relative;
+  opacity: 0;
+  left: 20px;
+  transition: all 0.5s ease;
+}
+
+.slide.show {
+  opacity: 1;
+  left: 0;
+}
+
+.slide.hide {
+  opacity: 0;
+  left: 20px;
+}
+
+/* Data table control panel */
+.control_panel .search_wrapper input {
+  border: 1px solid #9e9e9e;
+  border-radius: 4px;
+  padding: 8px 15px;
+
+  font-size: 18px;
+  display: block;
+  width: 100%;
+}
+.control_panel .filters {
+  display: flex;
+}
+
+.control_panel .filters .filter_wrapper {
+  margin-right: 15px;
+  padding: 8px 14px;
+  border-radius: 4px;
+  vertical-align: middle;
+  border: 1px solid #9e9e9e;
+  margin-bottom: 10px;
+}
+
+.control_panel .filters .filter_wrapper label {
+  color: #8f8f8f;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.control_panel .select2-container--default .select2-selection--single {
+  border: none;
+}
+
+#test_table_wrapper .dt-search {
+  display: none;
+}
+
+.twemoji {
+  --md-icon-size: 1.125em;
+  display: inline-flex;
+  height: var(--md-icon-size);
+  vertical-align: text-top;
+}
+
+.twemoji svg {
+  fill: currentcolor;
+  max-height: 100%;
+  width: var(--md-icon-size);
+}
+
+.stand_alone_container {
+  margin: 10px 15px;
+}
+
+.control_panel .filters .buttons-collection,
+.control_panel .filters .buttons-collection:hover {
+  background: transparent;
+  padding: 10px 15px;
+  vertical-align: middle;
+  border: 1px solid #9e9e9e;
+  margin-bottom: 10px;
+}
+
+.control_panel div.dt-buttons > .dt-button:hover:not(.disabled),
+div.dt-buttons > div.dt-button-split .dt-button:hover:not(.disabled) {
+  background: transparent;
+  border: 1px solid #9e9e9e;
+}
+
+.buttons-collection .twemoji {
+  color: #8f8f8f;
+  margin-right: 4px;
+}

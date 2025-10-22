@@ -1,0 +1,24 @@
+{% block title %}
+# {{ title }}
+{# templates inheriting from this base template can re-define the title block #}
+{% endblock %}
+
+Documentation for [`{{ pytest_node_id }}@{{ short_git_ref }}`]({{ source_code_url }}).
+
+{% if title != "Spec" %}
+!!! example "Generate fixtures for these test cases for {{ target_or_valid_fork }} with:"
+
+    ```console
+{% if is_benchmark %}
+    fill -v {{ pytest_node_id }} -m benchmark
+{% elif is_stateful %}
+    fill -v {{ pytest_node_id }} -m stateful
+{% else %}
+    fill -v {{ pytest_node_id }} --fork {{ target_or_valid_fork }}
+{% endif %}
+    ```
+{% endif %}
+
+{% block additional_content %}
+{# templates that inherit from base can add an additional_content block here #}
+{% endblock %}
