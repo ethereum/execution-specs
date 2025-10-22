@@ -3,8 +3,8 @@ Test [EIP-7623: Increase calldata cost](https://eips.ethereum.org/EIPS/eip-7623)
 """
 
 import pytest
-from ethereum_test_forks import Prague
-from ethereum_test_tools import (
+from ethereum_execution_tests.forks import Prague
+from ethereum_execution_tests.tools import (
     AccessList,
     Address,
     Alloc,
@@ -13,7 +13,7 @@ from ethereum_test_tools import (
     Transaction,
     add_kzg_version,
 )
-from ethereum_test_tools import Opcodes as Op
+from ethereum_execution_tests.tools import Opcodes as Op
 
 from ...cancun.eip4844_blobs.spec import Spec as EIP_4844_Spec
 from .helpers import DataTestType

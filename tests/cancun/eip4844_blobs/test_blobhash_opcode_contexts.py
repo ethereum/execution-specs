@@ -6,8 +6,8 @@ from enum import Enum
 from typing import Iterable, List
 
 import pytest
-from ethereum_test_forks import Fork
-from ethereum_test_tools import (
+from ethereum_execution_tests.forks import Fork
+from ethereum_execution_tests.tools import (
     Account,
     Address,
     Alloc,
@@ -19,7 +19,7 @@ from ethereum_test_tools import (
     add_kzg_version,
     compute_create_address,
 )
-from ethereum_test_tools import Opcodes as Op
+from ethereum_execution_tests.tools import Opcodes as Op
 
 from .spec import Spec, ref_spec_4844
 

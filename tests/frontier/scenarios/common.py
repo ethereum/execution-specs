@@ -4,8 +4,8 @@ from abc import abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 
-from ethereum_test_forks import Fork, Frontier
-from ethereum_test_tools import (
+from ethereum_execution_tests.forks import Fork, Frontier
+from ethereum_execution_tests.tools import (
     Address,
     Alloc,
     Bytecode,

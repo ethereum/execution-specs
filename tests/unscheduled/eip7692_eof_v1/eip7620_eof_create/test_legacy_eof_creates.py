@@ -2,16 +2,16 @@
 
 import pytest
 from ethereum_execution_tests.base_types.base_types import Address, Bytes
-from ethereum_test_tools import (
+from ethereum_execution_tests.tools import (
     Account,
     Alloc,
     Environment,
     StateTestFiller,
     Transaction,
 )
-from ethereum_test_tools import Initcode as LegacyInitcode
-from ethereum_test_types.eof.v1 import Container
-from ethereum_test_types.helpers import compute_create_address
+from ethereum_execution_tests.tools import Initcode as LegacyInitcode
+from ethereum_execution_tests.test_types.eof.v1 import Container
+from ethereum_execution_tests.test_types.helpers import compute_create_address
 from ethereum_execution_tests.vm import Opcodes
 from ethereum_execution_tests.vm import Opcodes as Op
 

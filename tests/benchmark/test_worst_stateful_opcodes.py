@@ -10,10 +10,10 @@ from ethereum_test_benchmark.benchmark_code_generator import (
     ExtCallGenerator,
     JumpLoopGenerator,
 )
-from ethereum_test_forks import Fork
-from ethereum_test_specs import StateTestFiller
-from ethereum_test_specs.benchmark import BenchmarkTestFiller
-from ethereum_test_tools import (
+from ethereum_execution_tests.forks import Fork
+from ethereum_execution_tests.specs import StateTestFiller
+from ethereum_execution_tests.specs.benchmark import BenchmarkTestFiller
+from ethereum_execution_tests.tools import (
     Account,
     Address,
     Alloc,
@@ -26,7 +26,7 @@ from ethereum_test_tools import (
     compute_create2_address,
     compute_create_address,
 )
-from ethereum_test_types import TestPhaseManager
+from ethereum_execution_tests.test_types import TestPhaseManager
 from ethereum_execution_tests.vm import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "TODO"

@@ -6,8 +6,8 @@ Tests ported from:
 """
 
 import pytest
-from ethereum_test_forks import Fork, Shanghai
-from ethereum_test_tools import (
+from ethereum_execution_tests.forks import Fork, Shanghai
+from ethereum_execution_tests.tools import (
     Account,
     Address,
     Alloc,

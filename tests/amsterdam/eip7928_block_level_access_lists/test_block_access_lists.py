@@ -4,9 +4,9 @@ from typing import Callable, Dict
 
 import pytest
 from ethereum_execution_tests.base_types import AccessList, Address, Hash
-from ethereum_test_forks import Fork
-from ethereum_test_specs.blockchain import Header
-from ethereum_test_tools import (
+from ethereum_execution_tests.forks import Fork
+from ethereum_execution_tests.specs.blockchain import Header
+from ethereum_execution_tests.tools import (
     Account,
     Alloc,
     Block,
@@ -15,8 +15,8 @@ from ethereum_test_tools import (
     Transaction,
     compute_create_address,
 )
-from ethereum_test_types import Environment
-from ethereum_test_types.block_access_list import (
+from ethereum_execution_tests.test_types import Environment
+from ethereum_execution_tests.test_types.block_access_list import (
     BalAccountExpectation,
     BalBalanceChange,
     BalCodeChange,

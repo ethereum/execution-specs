@@ -2,8 +2,8 @@
 
 from functools import cached_property
 
-from ethereum_test_forks import Fork
-from ethereum_test_tools import Alloc, Bytecode
+from ethereum_execution_tests.forks import Fork
+from ethereum_execution_tests.tools import Alloc, Bytecode
 from ethereum_execution_tests.vm import Opcodes as Op
 
 from ..common import (

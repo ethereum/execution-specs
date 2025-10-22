@@ -3,8 +3,8 @@
 from typing import List
 
 import pytest
-from ethereum_test_forks import Fork
-from ethereum_test_tools import (
+from ethereum_execution_tests.forks import Fork
+from ethereum_execution_tests.tools import (
     AccessList,
     Account,
     Address,
@@ -16,7 +16,7 @@ from ethereum_test_tools import (
     Transaction,
     TransactionException,
 )
-from ethereum_test_tools import Opcodes as Op
+from ethereum_execution_tests.tools import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-2930.md"
 REFERENCE_SPEC_VERSION = "c9db53a936c5c9cbe2db32ba0d1b86c4c6e73534"

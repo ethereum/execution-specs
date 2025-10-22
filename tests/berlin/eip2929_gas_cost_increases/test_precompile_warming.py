@@ -10,12 +10,12 @@ from typing import Iterator, Tuple
 
 import pytest
 from ethereum_test_checklists import EIPChecklist
-from ethereum_test_forks import (
+from ethereum_execution_tests.forks import (
     Fork,
     get_transition_fork_predecessor,
     get_transition_fork_successor,
 )
-from ethereum_test_tools import (
+from ethereum_execution_tests.tools import (
     Account,
     Address,
     Alloc,

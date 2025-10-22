@@ -4,8 +4,8 @@ Test ModExp gas cost transition from EIP-7883 before & after the Osaka fork.
 
 import pytest
 from ethereum_test_checklists import EIPChecklist
-from ethereum_test_forks import Fork
-from ethereum_test_tools import (
+from ethereum_execution_tests.forks import Fork
+from ethereum_execution_tests.tools import (
     Account,
     Alloc,
     Block,

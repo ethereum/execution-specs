@@ -9,8 +9,8 @@ from typing import Dict, Generator
 
 import pytest
 from ethereum_test_checklists import EIPChecklist
-from ethereum_test_forks import Fork, Osaka
-from ethereum_test_tools import (
+from ethereum_execution_tests.forks import Fork, Osaka
+from ethereum_execution_tests.tools import (
     Alloc,
     Environment,
     StateTestFiller,
@@ -18,7 +18,7 @@ from ethereum_test_tools import (
     Transaction,
     keccak256,
 )
-from ethereum_test_types.helpers import compute_create_address
+from ethereum_execution_tests.test_types.helpers import compute_create_address
 from ethereum_execution_tests.vm import Opcodes as Op
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput

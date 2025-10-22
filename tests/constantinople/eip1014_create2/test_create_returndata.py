@@ -5,14 +5,14 @@ call_then_create2_successful_then_returndatasizeFiller.json test.
 """
 
 import pytest
-from ethereum_test_tools import (
+from ethereum_execution_tests.tools import (
     Account,
     Alloc,
     StateTestFiller,
     Transaction,
     keccak256,
 )
-from ethereum_test_tools import Opcodes as Op
+from ethereum_execution_tests.tools import Opcodes as Op
 
 from .spec import ref_spec_1014
 

@@ -1,7 +1,7 @@
 """Helper functions for the EVM benchmark worst-case tests."""
 
-from ethereum_test_forks import Fork
-from ethereum_test_tools import Bytecode
+from ethereum_execution_tests.forks import Fork
+from ethereum_execution_tests.tools import Bytecode
 from ethereum_execution_tests.vm import Opcodes as Op
 
 

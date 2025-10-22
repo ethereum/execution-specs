@@ -6,8 +6,8 @@ import math
 
 import pytest
 from ethereum_test_benchmark.benchmark_code_generator import JumpLoopGenerator
-from ethereum_test_forks import Fork
-from ethereum_test_tools import (
+from ethereum_execution_tests.forks import Fork
+from ethereum_execution_tests.tools import (
     Account,
     Alloc,
     BenchmarkTestFiller,
@@ -20,7 +20,7 @@ from ethereum_test_tools import (
     While,
     compute_create2_address,
 )
-from ethereum_test_types.helpers import compute_create_address
+from ethereum_execution_tests.test_types.helpers import compute_create_address
 from ethereum_execution_tests.vm import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "TODO"

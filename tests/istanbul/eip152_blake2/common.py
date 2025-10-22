@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 from ethereum_execution_tests.base_types import Bytes
-from ethereum_test_types.helpers import TestParameterGroup
+from ethereum_execution_tests.test_types.helpers import TestParameterGroup
 
 from .spec import Spec, SpecTestVectors
 

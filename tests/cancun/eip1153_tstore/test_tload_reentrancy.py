@@ -5,7 +5,7 @@
 from enum import Enum
 
 import pytest
-from ethereum_test_tools import (
+from ethereum_execution_tests.tools import (
     Account,
     Address,
     Alloc,

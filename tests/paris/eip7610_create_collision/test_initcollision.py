@@ -4,7 +4,7 @@ only has a non-zero storage slot set.
 """
 
 import pytest
-from ethereum_test_tools import (
+from ethereum_execution_tests.tools import (
     Account,
     Alloc,
     Bytecode,
@@ -13,7 +13,7 @@ from ethereum_test_tools import (
     Transaction,
     compute_create_address,
 )
-from ethereum_test_tools import Opcodes as Op
+from ethereum_execution_tests.tools import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7610.md"
 REFERENCE_SPEC_VERSION = "80ef48d0bbb5a4939ade51caaaac57b5df6acd4e"

@@ -5,9 +5,9 @@ from functools import cached_property
 from itertools import count
 from typing import Callable, ClassVar, List
 
-from ethereum_test_tools import EOA, Address, Alloc, Bytecode, Transaction
-from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import WithdrawalRequest as WithdrawalRequestBase
+from ethereum_execution_tests.tools import EOA, Address, Alloc, Bytecode, Transaction
+from ethereum_execution_tests.tools import Opcodes as Op
+from ethereum_execution_tests.tools import WithdrawalRequest as WithdrawalRequestBase
 
 from .spec import Spec
 

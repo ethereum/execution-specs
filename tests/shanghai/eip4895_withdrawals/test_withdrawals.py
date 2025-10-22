@@ -7,8 +7,8 @@ from typing import Dict, List, Mapping
 
 import pytest
 from ethereum_clis import TransitionTool
-from ethereum_test_forks import Cancun, Fork
-from ethereum_test_tools import (
+from ethereum_execution_tests.forks import Cancun, Fork
+from ethereum_execution_tests.tools import (
     EOA,
     Account,
     Address,

@@ -5,7 +5,7 @@ Test transient storage in contract creation contexts.
 from enum import unique
 
 import pytest
-from ethereum_test_tools import (
+from ethereum_execution_tests.tools import (
     Account,
     Address,
     Alloc,
@@ -16,7 +16,7 @@ from ethereum_test_tools import (
     Transaction,
     compute_create_address,
 )
-from ethereum_test_tools import Opcodes as Op
+from ethereum_execution_tests.tools import Opcodes as Op
 
 from . import CreateOpcodeParams, PytestParameterEnum
 from .spec import ref_spec_1153

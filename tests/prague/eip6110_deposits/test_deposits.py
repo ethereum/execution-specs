@@ -8,7 +8,7 @@ Tests the validator deposit functionality implementation from
 from typing import List
 
 import pytest
-from ethereum_test_tools import (
+from ethereum_execution_tests.tools import (
     Alloc,
     Block,
     BlockchainTestFiller,
@@ -16,7 +16,7 @@ from ethereum_test_tools import (
     Environment,
     Macros,
 )
-from ethereum_test_tools import Opcodes as Op
+from ethereum_execution_tests.tools import Opcodes as Op
 
 from .helpers import DepositContract, DepositRequest, DepositTransaction
 from .spec import ref_spec_6110

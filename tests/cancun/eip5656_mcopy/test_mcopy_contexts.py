@@ -8,7 +8,7 @@ from itertools import cycle, islice
 from typing import Mapping
 
 import pytest
-from ethereum_test_tools import (
+from ethereum_execution_tests.tools import (
     Account,
     Address,
     Alloc,
@@ -19,7 +19,7 @@ from ethereum_test_tools import (
     Transaction,
     ceiling_division,
 )
-from ethereum_test_tools import Opcodes as Op
+from ethereum_execution_tests.tools import Opcodes as Op
 
 from .common import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION
 

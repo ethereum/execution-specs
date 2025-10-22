@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from typing import Iterator, List
 
 import pytest
-from ethereum_test_forks import BPO2ToBPO3AtTime15k, Fork
-from ethereum_test_tools import (
+from ethereum_execution_tests.forks import BPO2ToBPO3AtTime15k, Fork
+from ethereum_execution_tests.tools import (
     EOA,
     Address,
     Alloc,
@@ -17,8 +17,8 @@ from ethereum_test_tools import (
     Transaction,
     add_kzg_version,
 )
-from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools.utility.pytest import ParameterSet
+from ethereum_execution_tests.tools import Opcodes as Op
+from ethereum_execution_tests.tools.utility.pytest import ParameterSet
 
 from .spec import Spec, ref_spec_7918
 

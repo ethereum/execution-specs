@@ -6,7 +6,7 @@ withdrawals](https://eips.ethereum.org/EIPS/eip-7002).
 
 from dataclasses import dataclass
 
-from ethereum_test_tools import Address
+from ethereum_execution_tests.tools import Address
 
 
 @dataclass(frozen=True)

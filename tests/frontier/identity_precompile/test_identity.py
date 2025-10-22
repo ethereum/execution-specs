@@ -4,14 +4,14 @@ from typing import Tuple
 
 import pytest
 from ethereum_execution_tests.base_types.composite_types import Storage
-from ethereum_test_tools import (
+from ethereum_execution_tests.tools import (
     Account,
     Alloc,
     Environment,
     StateTestFiller,
     Transaction,
 )
-from ethereum_test_tools import Opcodes as Op
+from ethereum_execution_tests.tools import Opcodes as Op
 
 from .common import CallArgs, generate_identity_call_bytecode
 

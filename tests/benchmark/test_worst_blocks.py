@@ -8,8 +8,8 @@ from typing import Generator, Tuple
 
 import pytest
 from ethereum_execution_tests.base_types import Account
-from ethereum_test_forks import Fork
-from ethereum_test_tools import (
+from ethereum_execution_tests.forks import Fork
+from ethereum_execution_tests.tools import (
     AccessList,
     Address,
     Alloc,

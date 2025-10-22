@@ -3,7 +3,7 @@ Tests [EIP-663: SWAPN, DUPN and EXCHANGE instructions](https://eips.ethereum.org
 """
 
 import pytest
-from ethereum_test_tools import (
+from ethereum_execution_tests.tools import (
     Account,
     Alloc,
     Environment,
@@ -13,7 +13,7 @@ from ethereum_test_tools import (
     StateTestFiller,
     Transaction,
 )
-from ethereum_test_types.eof.v1 import Container, Section
+from ethereum_execution_tests.test_types.eof.v1 import Container, Section
 from ethereum_execution_tests.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME

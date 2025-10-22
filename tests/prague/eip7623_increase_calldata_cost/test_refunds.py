@@ -6,8 +6,8 @@ from enum import Enum, Flag, auto
 from typing import Dict, List
 
 import pytest
-from ethereum_test_forks import Fork, Prague
-from ethereum_test_tools import (
+from ethereum_execution_tests.forks import Fork, Prague
+from ethereum_execution_tests.tools import (
     Address,
     Alloc,
     AuthorizationTuple,
@@ -16,7 +16,7 @@ from ethereum_test_tools import (
     Transaction,
     TransactionReceipt,
 )
-from ethereum_test_tools import Opcodes as Op
+from ethereum_execution_tests.tools import Opcodes as Op
 
 from .helpers import DataTestType
 from .spec import ref_spec_7623

@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from ethereum_test_forks import Fork
+from ethereum_execution_tests.forks import Fork
 
 DEFAULT_BENCHMARK_FORK = "Prague"
 

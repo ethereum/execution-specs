@@ -4,7 +4,7 @@ Tests for [EIP-7951: Precompile for secp256r1 Curve Support](https://eips.ethere
 
 import pytest
 from ethereum_test_checklists import EIPChecklist
-from ethereum_test_tools import (
+from ethereum_execution_tests.tools import (
     Address,
     Alloc,
     Environment,
@@ -13,7 +13,7 @@ from ethereum_test_tools import (
     Transaction,
     compute_create_address,
 )
-from ethereum_test_tools import Opcodes as Op
+from ethereum_execution_tests.tools import Opcodes as Op
 
 from .helpers import vectors_from_file
 from .spec import H, R, S, Spec, X, Y, ref_spec_7951

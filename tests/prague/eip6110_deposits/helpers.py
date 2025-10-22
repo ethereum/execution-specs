@@ -5,7 +5,7 @@ from functools import cached_property
 from hashlib import sha256 as sha256_hashlib
 from typing import Callable, ClassVar, List
 
-from ethereum_test_tools import (
+from ethereum_execution_tests.tools import (
     EOA,
     Address,
     Alloc,
@@ -13,8 +13,8 @@ from ethereum_test_tools import (
     Hash,
     Transaction,
 )
-from ethereum_test_tools import DepositRequest as DepositRequestBase
-from ethereum_test_tools import Opcodes as Op
+from ethereum_execution_tests.tools import DepositRequest as DepositRequestBase
+from ethereum_execution_tests.tools import Opcodes as Op
 
 from .spec import Spec
 

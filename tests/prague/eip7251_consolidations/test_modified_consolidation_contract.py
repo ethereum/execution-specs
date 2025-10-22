@@ -5,7 +5,7 @@ Tests [EIP-7251: Execution layer triggerable consolidation](https://eips.ethereu
 from typing import List
 
 import pytest
-from ethereum_test_tools import (
+from ethereum_execution_tests.tools import (
     Account,
     Address,
     Alloc,
@@ -15,9 +15,9 @@ from ethereum_test_tools import (
     Transaction,
     generate_system_contract_error_test,
 )
-from ethereum_test_tools import Macros as Om
-from ethereum_test_tools import Opcodes as Op
-from ethereum_test_types import Requests
+from ethereum_execution_tests.tools import Macros as Om
+from ethereum_execution_tests.tools import Opcodes as Op
+from ethereum_execution_tests.test_types import Requests
 
 from .helpers import (
     ConsolidationRequest,

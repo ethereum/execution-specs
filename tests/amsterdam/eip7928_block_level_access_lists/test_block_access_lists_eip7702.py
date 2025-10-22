@@ -1,7 +1,7 @@
 """Tests for the effects of EIP-7702 transactions on EIP-7928."""
 
 import pytest
-from ethereum_test_tools import (
+from ethereum_execution_tests.tools import (
     Account,
     Alloc,
     AuthorizationTuple,
@@ -9,7 +9,7 @@ from ethereum_test_tools import (
     BlockchainTestFiller,
     Transaction,
 )
-from ethereum_test_types.block_access_list import (
+from ethereum_execution_tests.test_types.block_access_list import (
     BalAccountExpectation,
     BalBalanceChange,
     BalCodeChange,

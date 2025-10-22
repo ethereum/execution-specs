@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import List
 
-from ethereum_test_tools import Address, Alloc
+from ethereum_execution_tests.tools import Address, Alloc
 from ethereum_execution_tests.vm import EVMCodeType, Opcode
 from ethereum_execution_tests.vm import Opcodes as Op
 

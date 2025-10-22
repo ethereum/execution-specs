@@ -2,8 +2,8 @@
 
 import itertools
 
-from ethereum_test_tools import Opcodes as Op
-from ethereum_test_types.eof.v1 import Container, Section
+from ethereum_execution_tests.tools import Opcodes as Op
+from ethereum_execution_tests.test_types.eof.v1 import Container, Section
 
 """Storage addresses for common testing fields"""
 _slot = itertools.count()

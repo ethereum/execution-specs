@@ -3,7 +3,7 @@ Tests [EIP-1344: CHAINID opcode](https://eips.ethereum.org/EIPS/eip-1344).
 """
 
 import pytest
-from ethereum_test_tools import (
+from ethereum_execution_tests.tools import (
     Account,
     Alloc,
     ChainConfig,

@@ -6,7 +6,7 @@ from enum import EnumMeta, unique
 from typing import Any, Dict
 
 import pytest
-from ethereum_test_tools import (
+from ethereum_execution_tests.tools import (
     Account,
     Alloc,
     Bytecode,
@@ -18,7 +18,7 @@ from ethereum_test_tools import (
     Switch,
     Transaction,
 )
-from ethereum_test_tools import Opcodes as Op
+from ethereum_execution_tests.tools import Opcodes as Op
 
 from . import PytestParameterEnum
 from .spec import ref_spec_1153

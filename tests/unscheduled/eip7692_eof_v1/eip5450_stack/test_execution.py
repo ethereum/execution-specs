@@ -2,10 +2,10 @@
 
 import pytest
 from ethereum_execution_tests.exceptions import EOFException
-from ethereum_test_tools import Account, EOFStateTestFiller
-from ethereum_test_types.eof.constants import MAX_RUNTIME_STACK_HEIGHT
-from ethereum_test_types.eof.v1 import Container, Section
-from ethereum_test_types.eof.v1.constants import (
+from ethereum_execution_tests.tools import Account, EOFStateTestFiller
+from ethereum_execution_tests.test_types.eof.constants import MAX_RUNTIME_STACK_HEIGHT
+from ethereum_execution_tests.test_types.eof.v1 import Container, Section
+from ethereum_execution_tests.test_types.eof.v1.constants import (
     MAX_CODE_INPUTS,
     MAX_STACK_INCREASE_LIMIT,
     NON_RETURNING_SECTION,

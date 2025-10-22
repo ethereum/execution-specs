@@ -1,7 +1,7 @@
 """Tests for BLOCKHASH opcode."""
 
 import pytest
-from ethereum_test_tools import (
+from ethereum_execution_tests.tools import (
     Account,
     Alloc,
     Block,
@@ -9,7 +9,7 @@ from ethereum_test_tools import (
     Storage,
     Transaction,
 )
-from ethereum_test_tools import Opcodes as Op
+from ethereum_execution_tests.tools import Opcodes as Op
 
 
 @pytest.mark.valid_from("Frontier")

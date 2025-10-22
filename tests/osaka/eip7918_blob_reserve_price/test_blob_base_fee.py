@@ -8,8 +8,8 @@ Test the blob base fee reserve price mechanism for
 from typing import Dict, List
 
 import pytest
-from ethereum_test_forks import Fork
-from ethereum_test_tools import (
+from ethereum_execution_tests.forks import Fork
+from ethereum_execution_tests.tools import (
     Account,
     Address,
     Alloc,
@@ -21,7 +21,7 @@ from ethereum_test_tools import (
     Transaction,
     add_kzg_version,
 )
-from ethereum_test_tools import Opcodes as Op
+from ethereum_execution_tests.tools import Opcodes as Op
 
 from .spec import Spec, ref_spec_7918
 

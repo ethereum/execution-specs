@@ -5,7 +5,7 @@ in EIP-6110.
 
 import pytest
 from ethereum_execution_tests.exceptions.exceptions import BlockException
-from ethereum_test_tools import (
+from ethereum_execution_tests.tools import (
     Account,
     Alloc,
     Block,
@@ -14,8 +14,8 @@ from ethereum_test_tools import (
     Requests,
     Transaction,
 )
-from ethereum_test_tools import Macros as Om
-from ethereum_test_tools import Opcodes as Op
+from ethereum_execution_tests.tools import Macros as Om
+from ethereum_execution_tests.tools import Opcodes as Op
 
 from .helpers import DepositRequest, create_deposit_log_bytes
 from .spec import Spec, ref_spec_6110

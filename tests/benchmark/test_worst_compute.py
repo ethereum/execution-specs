@@ -12,8 +12,8 @@ import pytest
 from _pytest.mark import ParameterSet
 from ethereum_execution_tests.base_types.base_types import Bytes
 from ethereum_test_benchmark import ExtCallGenerator, JumpLoopGenerator
-from ethereum_test_forks import Fork
-from ethereum_test_tools import (
+from ethereum_execution_tests.forks import Fork
+from ethereum_execution_tests.tools import (
     Address,
     Alloc,
     BenchmarkTestFiller,
@@ -22,7 +22,7 @@ from ethereum_test_tools import (
     Transaction,
     add_kzg_version,
 )
-from ethereum_test_types import TransactionType
+from ethereum_execution_tests.test_types import TransactionType
 from ethereum_execution_tests.vm import Opcode
 from ethereum_execution_tests.vm import Opcodes as Op
 from py_ecc.bn128 import G1, G2, multiply

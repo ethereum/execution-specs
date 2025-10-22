@@ -2,15 +2,15 @@
 
 import pytest
 from ethereum_execution_tests.base_types import Account
-from ethereum_test_specs import StateTestFiller
-from ethereum_test_tools import Alloc, EOFException, EOFTestFiller
-from ethereum_test_types import (
+from ethereum_execution_tests.specs import StateTestFiller
+from ethereum_execution_tests.tools import Alloc, EOFException, EOFTestFiller
+from ethereum_execution_tests.test_types import (
     Environment,
     Transaction,
     compute_eofcreate_address,
 )
-from ethereum_test_types.eof.v1 import Container, ContainerKind, Section
-from ethereum_test_types.eof.v1.constants import MAX_BYTECODE_SIZE
+from ethereum_execution_tests.test_types.eof.v1 import Container, ContainerKind, Section
+from ethereum_execution_tests.test_types.eof.v1.constants import MAX_BYTECODE_SIZE
 from ethereum_execution_tests.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME

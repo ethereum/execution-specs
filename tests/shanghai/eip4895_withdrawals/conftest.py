@@ -1,7 +1,7 @@
 """Fixtures for the EIP-4895 withdrawals tests."""
 
 import pytest
-from ethereum_test_tools import Alloc, Environment
+from ethereum_execution_tests.tools import Alloc, Environment
 
 
 @pytest.fixture
