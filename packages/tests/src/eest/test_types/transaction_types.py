@@ -193,7 +193,7 @@ class TransactionGeneric(BaseModel, Generic[NumberBoundTypeVar]):
     """
 
     ty: NumberBoundTypeVar = Field(0, alias="type")  # type: ignore
-    chain_id: NumberBoundTypeVar = Field(  # type: ignore
+    chain_id: NumberBoundTypeVar = Field(
         default_factory=lambda: ChainConfigDefaults.chain_id,
         validate_default=True,
     )

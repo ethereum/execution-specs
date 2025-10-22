@@ -105,9 +105,9 @@ class BatchProcessor:
 def cached_fork_lookup(fork_name: str) -> Optional[Any]:
     """Cache fork lookups to avoid repeated module imports."""
     try:
-        import ethereum_test_forks
+        from eest.forks import get_fork_by_name
 
-        return getattr(ethereum_test_forks, fork_name, None)
+        return get_fork_by_name(fork_name)
     except (ImportError, AttributeError):
         return None
 

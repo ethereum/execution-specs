@@ -939,7 +939,7 @@ class ValidAtTransitionTo(
     to London at block number 5, `BerlinToLondonAt5`, and no other forks.
 
     To see or add a new transition fork, see the
-    `ethereum_test_forks.forks.transition` module.
+    `eest.forks.forks.transition` module.
 
     Note that the test uses a `BlockchainTestFiller` fixture instead of a
     `StateTestFiller`, as the transition forks are used to test changes

@@ -42,9 +42,7 @@ def create_consume_command(
 
 def get_command_logic_test_paths(command_name: str) -> List[Path]:
     """Determine the command paths based on the command name and hive flag."""
-    base_path = Path(
-        "eest/ethereum_test_cli/pytest_commands/plugins/consume"
-    )
+    base_path = Path("eest/ethereum_test_cli/pytest_commands/plugins/consume")
     if command_name in ["engine", "rlp"]:
         command_logic_test_paths = [
             base_path

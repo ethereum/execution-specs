@@ -66,7 +66,7 @@ ALL_FORKS_WITH_TRANSITIONS = frozenset(
 
 def get_forks() -> List[Type[BaseFork]]:
     """
-    Return list of all the fork classes implemented by `ethereum_test_forks`
+    Return list of all the fork classes implemented by `eest.forks`
     ordered chronologically by deployment.
     """
     return all_forks[:]
@@ -74,7 +74,7 @@ def get_forks() -> List[Type[BaseFork]]:
 
 def get_deployed_forks() -> List[Type[BaseFork]]:
     """
-    Return list of all the fork classes implemented by `ethereum_test_forks`
+    Return list of all the fork classes implemented by `eest.forks`
     that have been deployed to mainnet, chronologically ordered by deployment.
     """
     return [
@@ -86,7 +86,7 @@ def get_deployed_forks() -> List[Type[BaseFork]]:
 
 def get_development_forks() -> List[Type[BaseFork]]:
     """
-    Return list of all the fork classes implemented by `ethereum_test_forks`
+    Return list of all the fork classes implemented by `eest.forks`
     that have been not yet deployed to mainnet and are currently under
     development. The list is ordered by their planned deployment date.
     """

@@ -151,12 +151,7 @@ class _CallableChecklistItem:
         if output:
             stub_path = Path(output)
         else:
-            stub_path = (
-                src_path
-                / "eest"
-                / "checklists"
-                / "eip_checklist.pyi"
-            )
+            stub_path = src_path / "eest" / "checklists" / "eip_checklist.pyi"
 
         # Write to the stub file
         stub_path.parent.mkdir(parents=True, exist_ok=True)

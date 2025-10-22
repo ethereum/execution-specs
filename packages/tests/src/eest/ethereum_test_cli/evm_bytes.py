@@ -248,7 +248,7 @@ def binary_file(binary_file: Any, assembly: bool) -> None:
 
     Example: Convert the Withdrawal Request contract to assembly
         \b
-        uv run evm_bytes binary-file ./src/ethereum_test_forks/forks/
+        uv run evm_bytes binary-file ./src/eest/forks/
             contracts/withdrawal_request.bin --assembly
 
     Output:
