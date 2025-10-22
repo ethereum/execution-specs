@@ -742,7 +742,7 @@ provides-extras = ["test", "lint", "tools", "doc", "optimized", "dev"]
 [[package]]
 name = "eest"
 version = "1.0.0"
-source = { editable = "packages/tests" }
+source = { editable = "packages/testing" }
 dependencies = [
     { name = "ckzg" },
     { name = "click" },
@@ -991,7 +991,7 @@ requires-dist = [
     { name = "coincurve", specifier = ">=20,<21" },
     { name = "cryptography", specifier = ">=45.0.1,<46" },
     { name = "docc", marker = "extra == 'doc'", specifier = ">=0.3.0,<0.4.0" },
-    { name = "eest", marker = "extra == 'test'", editable = "packages/tests" },
+    { name = "eest", marker = "extra == 'test'", editable = "packages/testing" },
     { name = "ethash", marker = "extra == 'optimized'", specifier = ">=1.1.0,<2" },
     { name = "ethereum-rlp", specifier = ">=0.1.4,<0.2" },
     { name = "ethereum-types", specifier = ">=0.2.4,<0.3" },
