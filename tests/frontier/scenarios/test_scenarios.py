@@ -6,18 +6,18 @@ opcode is supported by the fork and fails otherwise.
 from typing import List
 
 import pytest
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     Account,
     Address,
     Alloc,
     Block,
     BlockchainTestFiller,
     Environment,
+    Fork,
     Storage,
     Transaction,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
 
 from .common import (
     ExecutionEnvironment,

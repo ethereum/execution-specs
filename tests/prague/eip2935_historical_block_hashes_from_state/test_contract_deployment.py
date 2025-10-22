@@ -7,8 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, Generator
 
 import pytest
-from eest.forks import Prague
-from eest.tools import (
+from eest import (
     Account,
     Address,
     Alloc,
@@ -17,7 +16,8 @@ from eest.tools import (
     Transaction,
     generate_system_contract_deploy_test,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
+from eest.forks import Prague
 
 from .spec import Spec, ref_spec_2935
 

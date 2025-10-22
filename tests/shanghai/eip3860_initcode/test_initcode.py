@@ -9,8 +9,7 @@ Tests ported from:
 from typing import List
 
 import pytest
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     EOA,
     AccessList,
     Account,
@@ -18,6 +17,7 @@ from eest.tools import (
     Alloc,
     Bytecode,
     Environment,
+    Fork,
     Initcode,
     StateTestFiller,
     Transaction,
@@ -26,7 +26,7 @@ from eest.tools import (
     ceiling_division,
     compute_create_address,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
 
 from .helpers import (
     INITCODE_RESULTING_DEPLOYED_CODE,

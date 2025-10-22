@@ -8,8 +8,7 @@ from itertools import cycle
 from typing import Dict, List
 
 import pytest
-from eest.forks import Cancun, Fork
-from eest.tools import (
+from eest import (
     EOA,
     Account,
     Address,
@@ -18,6 +17,7 @@ from eest.tools import (
     BlockchainTestFiller,
     Bytecode,
     Conditional,
+    Fork,
     Hash,
     Initcode,
     StateTestFiller,
@@ -25,7 +25,8 @@ from eest.tools import (
     Transaction,
     compute_create_address,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
+from eest.forks import Cancun
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-6780.md"
 REFERENCE_SPEC_VERSION = "1b6a0e94cc47e859b9866e570391cf37dc55059a"

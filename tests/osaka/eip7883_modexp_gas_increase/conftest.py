@@ -3,18 +3,19 @@
 from typing import Dict
 
 import pytest
-from eest.forks import Fork, Osaka
-from eest.tools import (
+from eest import (
     Account,
     Address,
     Alloc,
     Bytes,
     Environment,
+    Fork,
     Storage,
     Transaction,
     keccak256,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
+from eest.forks import Osaka
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput
 from .spec import Spec, Spec7883

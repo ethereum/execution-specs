@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from eest.tools import Storage
+from eest import Storage
 
 
 @dataclass(frozen=True)

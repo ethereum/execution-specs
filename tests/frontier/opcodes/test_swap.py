@@ -6,15 +6,16 @@ blob/develop/src/GeneralStateTestsFiller/VMTests/vmTests/swapFiller.yml.
 
 import pytest  # noqa: I001
 
-from eest.forks import Fork, Frontier, Homestead
-from eest.tools import (
+from eest import Fork
+from eest import (
     Account,
     Alloc,
     Bytecode,
     Environment,
 )
-from eest.tools import Opcodes as Op
-from eest.tools import (
+from eest.forks import Frontier, Homestead
+from eest import Opcodes as Op
+from eest import (
     StateTestFiller,
     Storage,
     Transaction,

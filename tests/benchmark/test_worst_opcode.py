@@ -3,15 +3,13 @@ Tests benchmark worst-case opcode scenarios.
 """
 
 import pytest
-from eest.benchmark.benchmark_code_generator import (
-    JumpLoopGenerator,
-)
-from eest.tools import (
+from eest import (
     BenchmarkTestFiller,
     Bytecode,
+    JumpLoopGenerator,
+    Opcode,
 )
-from eest.vm import Opcode
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
 
 
 @pytest.mark.parametrize(

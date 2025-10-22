@@ -5,7 +5,7 @@ abstract: Crafted tests for mainnet of [EIP-7002: Execution layer triggerable wi
 from typing import List
 
 import pytest
-from eest.tools import (
+from eest import (
     Alloc,
     Block,
     BlockchainTestFiller,

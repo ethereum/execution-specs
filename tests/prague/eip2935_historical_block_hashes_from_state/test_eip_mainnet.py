@@ -4,14 +4,14 @@ abstract: Crafted tests for mainnet of
 """  # noqa: E501
 
 import pytest
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     Block,
     BlockchainTestFiller,
     Transaction,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
 
 from .spec import Spec, ref_spec_2935
 

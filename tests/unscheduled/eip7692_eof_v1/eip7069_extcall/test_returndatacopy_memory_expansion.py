@@ -3,19 +3,19 @@
 from typing import Mapping, Tuple
 
 import pytest
-from eest.forks import Fork
-from eest.test_types.eof.v1 import Container
-from eest.tools import (
+from eest import (
     Account,
     Address,
     Alloc,
     Bytecode,
     Environment,
+    Fork,
     StateTestFiller,
     Storage,
     Transaction,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
+from eest.test_types.eof.v1 import Container
 
 from .. import EOF_FORK_NAME
 

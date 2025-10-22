@@ -1,7 +1,7 @@
 """Fixtures for the EIP-3860 initcode tests."""
 
 import pytest
-from eest.tools import Alloc, Environment
+from eest import Alloc, Environment
 
 
 @pytest.fixture

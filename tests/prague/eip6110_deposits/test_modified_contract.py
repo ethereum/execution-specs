@@ -4,18 +4,18 @@ in EIP-6110.
 """
 
 import pytest
-from eest.exceptions.exceptions import BlockException
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     Block,
     BlockchainTestFiller,
+    BlockException,
     Header,
     Requests,
     Transaction,
 )
-from eest.tools import Macros as Om
-from eest.tools import Opcodes as Op
+from eest import Macros as Om
+from eest import Opcodes as Op
 
 from .helpers import DepositRequest, create_deposit_log_bytes
 from .spec import Spec, ref_spec_6110

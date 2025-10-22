@@ -1,12 +1,12 @@
 """EOF validation tests for EIP-3540 container size."""
 
 import pytest
+from eest import EOFException, EOFTestFiller
+from eest import Opcodes as Op
 from eest.test_types.eof.v1 import Container, Section
 from eest.test_types.eof.v1.constants import (
     MAX_INITCODE_SIZE,
 )
-from eest.tools import EOFException, EOFTestFiller
-from eest.tools import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 

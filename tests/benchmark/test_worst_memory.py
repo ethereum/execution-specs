@@ -5,18 +5,16 @@ Tests that benchmark EVMs in the worst-case memory opcodes.
 from enum import auto
 
 import pytest
-from eest.base_types.base_types import Bytes
-from eest.benchmark.benchmark_code_generator import (
-    JumpLoopGenerator,
-)
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     Alloc,
     BenchmarkTestFiller,
     Bytecode,
+    Bytes,
+    Fork,
+    JumpLoopGenerator,
     Transaction,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "TODO"
 REFERENCE_SPEC_VERSION = "TODO"

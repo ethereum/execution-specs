@@ -7,6 +7,14 @@ import itertools
 from typing import Any, Dict, Generator, List, Tuple
 
 import pytest
+from eest import (
+    Bytecode,
+    EOFException,
+    EOFTestFiller,
+    Opcode,
+    UndefinedOpcodes,
+)
+from eest import Opcodes as Op
 from eest.test_types.eof.constants import (
     MAX_RUNTIME_STACK_HEIGHT,
 )
@@ -18,14 +26,6 @@ from eest.test_types.eof.v1 import (
 from eest.test_types.eof.v1.constants import (
     MAX_STACK_INCREASE_LIMIT,
 )
-from eest.tools import (
-    EOFException,
-    EOFTestFiller,
-    Opcode,
-    UndefinedOpcodes,
-)
-from eest.tools import Opcodes as Op
-from eest.vm import Bytecode
 
 from .. import EOF_FORK_NAME
 

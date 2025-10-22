@@ -4,21 +4,22 @@ from dataclasses import dataclass
 from typing import Iterator, List
 
 import pytest
-from eest.forks import BPO2ToBPO3AtTime15k, Fork
-from eest.tools import (
+from eest import (
     EOA,
     Address,
     Alloc,
     Block,
     BlockchainTestFiller,
     Environment,
+    Fork,
     Hash,
     Header,
+    ParameterSet,
     Transaction,
     add_kzg_version,
 )
-from eest.tools import Opcodes as Op
-from eest.tools.utility.pytest import ParameterSet
+from eest import Opcodes as Op
+from eest.forks import BPO2ToBPO3AtTime15k
 
 from .spec import Spec, ref_spec_7918
 

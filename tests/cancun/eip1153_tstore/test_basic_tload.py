@@ -6,7 +6,7 @@ https://eips.ethereum.org/EIPS/eip-1153.
 from typing import Dict, Union
 
 import pytest
-from eest.tools import (
+from eest import (
     Account,
     Address,
     Alloc,
@@ -14,7 +14,7 @@ from eest.tools import (
     StateTestFiller,
     Transaction,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
 
 from .spec import Spec, ref_spec_1153
 

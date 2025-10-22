@@ -7,13 +7,13 @@ Precompile for BLS12-381 curve operations]
 """
 
 import pytest
-from eest.tools import (
+from eest import (
     Alloc,
     Environment,
     StateTestFiller,
     Transaction,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
 
 from .conftest import G2_POINTS_NOT_IN_SUBGROUP, G2_POINTS_NOT_ON_CURVE
 from .helpers import add_points_g2, vectors_from_file

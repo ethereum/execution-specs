@@ -1,7 +1,7 @@
 """Test the SELFDESTRUCT opcode."""
 
 import pytest
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     Block,
@@ -9,7 +9,7 @@ from eest.tools import (
     Initcode,
     Transaction,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
 
 
 @pytest.mark.valid_from("Frontier")

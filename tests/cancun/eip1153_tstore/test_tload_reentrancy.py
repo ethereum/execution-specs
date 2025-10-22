@@ -5,10 +5,11 @@
 from enum import Enum
 
 import pytest
-from eest.tools import (
+from eest import (
     Account,
     Address,
     Alloc,
+    Bytecode,
     Case,
     Environment,
     Hash,
@@ -16,9 +17,8 @@ from eest.tools import (
     Switch,
     Transaction,
 )
-from eest.vm import Bytecode
-from eest.vm import Macros as Om
-from eest.vm import Opcodes as Op
+from eest import Macros as Om
+from eest import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-1153.md"
 REFERENCE_SPEC_VERSION = "1eb863b534a5a3e19e9c196ab2a7f3db4bb9da17"

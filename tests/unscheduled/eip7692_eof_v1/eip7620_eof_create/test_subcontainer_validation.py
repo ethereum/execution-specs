@@ -1,6 +1,14 @@
 """EOF Subcontainer tests covering simple cases."""
 
 import pytest
+from eest import (
+    Account,
+    Bytecode,
+    EOFException,
+    EOFStateTestFiller,
+    EOFTestFiller,
+)
+from eest import Opcodes as Op
 from eest.test_types.eof.v1 import (
     Container,
     ContainerKind,
@@ -10,14 +18,6 @@ from eest.test_types.eof.v1.constants import (
     MAX_BYTECODE_SIZE,
     MAX_INITCODE_SIZE,
 )
-from eest.tools import (
-    Account,
-    EOFException,
-    EOFStateTestFiller,
-    EOFTestFiller,
-)
-from eest.vm import Bytecode
-from eest.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 from .helpers import slot_code_worked, value_code_worked

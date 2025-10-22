@@ -4,19 +4,20 @@ byte values, records in storage the values that failed to deploy.
 """
 
 import pytest
-from eest.forks import Byzantium, Fork, London
-from eest.test_types import compute_create_address
-from eest.tools import (
+from eest import (
     Account,
     Address,
     Alloc,
     Bytecode,
     Environment,
+    Fork,
     StateTestFiller,
     Storage,
     Transaction,
+    compute_create_address,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
+from eest.forks import Byzantium, London
 
 
 @pytest.mark.ported_from(

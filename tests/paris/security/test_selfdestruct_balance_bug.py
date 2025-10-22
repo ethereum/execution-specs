@@ -13,7 +13,7 @@ To reproduce the issue with this test case:
 """
 
 import pytest
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     Block,
@@ -24,7 +24,7 @@ from eest.tools import (
     Transaction,
     compute_create_address,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
 
 
 @pytest.mark.valid_from("Constantinople")

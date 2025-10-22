@@ -6,20 +6,20 @@ from enum import Enum
 from typing import Iterable, List
 
 import pytest
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     Account,
     Address,
     Alloc,
     AuthorizationTuple,
     Bytecode,
+    Fork,
     Hash,
     StateTestFiller,
     Transaction,
     add_kzg_version,
     compute_create_address,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
 
 from .spec import Spec, ref_spec_4844
 

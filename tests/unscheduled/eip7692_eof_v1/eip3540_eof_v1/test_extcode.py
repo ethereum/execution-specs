@@ -1,8 +1,7 @@
 """test execution semantics changes."""
 
 import pytest
-from eest.test_types.eof.v1 import Container
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     Environment,
@@ -11,7 +10,8 @@ from eest.tools import (
     Transaction,
     keccak256,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
+from eest.test_types.eof.v1 import Container
 
 from .. import EOF_FORK_NAME
 

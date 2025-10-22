@@ -1,16 +1,16 @@
 """test `CALL` opcode."""
 
 import pytest
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     CodeGasMeasure,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
 
 
 # TODO: There's an issue with gas definitions on forks previous to Berlin,

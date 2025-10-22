@@ -3,12 +3,18 @@
 import math
 
 import pytest
-from eest.base_types import Hash, Storage
-from eest.specs import StateTestFiller
-from eest.test_types import Alloc, Environment, Transaction
+from eest import (
+    Account,
+    Alloc,
+    Environment,
+    EOFStateTestFiller,
+    Hash,
+    StateTestFiller,
+    Storage,
+    Transaction,
+)
+from eest import Opcodes as Op
 from eest.test_types.eof.v1 import Container, Section
-from eest.tools import Account, EOFStateTestFiller
-from eest.tools import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 from ..eip7620_eof_create.helpers import (

@@ -3,8 +3,7 @@
 import itertools
 
 import pytest
-from eest.test_types.eof.v1 import Container, Section
-from eest.tools import (
+from eest import (
     Account,
     Address,
     Alloc,
@@ -12,7 +11,8 @@ from eest.tools import (
     StateTestFiller,
     Transaction,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
+from eest.test_types.eof.v1 import Container, Section
 
 from .. import EOF_FORK_NAME
 from .helpers import value_exceptional_abort_canary

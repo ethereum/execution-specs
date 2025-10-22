@@ -9,11 +9,11 @@ active.
 """
 
 import pytest
-from eest.checklists import EIPChecklist
-from eest.tools import (
+from eest import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    EIPChecklist,
     Transaction,
 )
 

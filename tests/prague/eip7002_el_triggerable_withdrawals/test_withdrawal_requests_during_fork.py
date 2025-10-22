@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import List
 
 import pytest
-from eest.tools import (
+from eest import (
     Account,
     Address,
     Alloc,

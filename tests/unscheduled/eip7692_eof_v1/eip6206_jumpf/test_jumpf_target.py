@@ -1,16 +1,16 @@
 """EOF JUMPF tests covering JUMPF target rules."""
 
 import pytest
-from eest.test_types.eof.v1 import Container, Section
-from eest.test_types.eof.v1.constants import (
-    NON_RETURNING_SECTION,
-)
-from eest.tools import (
+from eest import (
     Account,
     EOFException,
     EOFStateTestFiller,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
+from eest.test_types.eof.v1 import Container, Section
+from eest.test_types.eof.v1.constants import (
+    NON_RETURNING_SECTION,
+)
 
 from .. import EOF_FORK_NAME
 from .helpers import slot_code_worked, value_code_worked

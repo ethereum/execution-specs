@@ -3,20 +3,20 @@
 from typing import List
 
 import pytest
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     AccessList,
     Account,
     Address,
     Alloc,
     CodeGasMeasure,
     Environment,
+    Fork,
     Hash,
     StateTestFiller,
     Transaction,
     TransactionException,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-2930.md"
 REFERENCE_SPEC_VERSION = "c9db53a936c5c9cbe2db32ba0d1b86c4c6e73534"

@@ -8,8 +8,7 @@ Cap](https://eips.ethereum.org/EIPS/eip-7825).
 from typing import List
 
 import pytest
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     AccessList,
     Account,
     Address,
@@ -19,15 +18,16 @@ from eest.tools import (
     BlockchainTestFiller,
     Bytecode,
     Environment,
+    Fork,
     Hash,
+    ParameterSet,
     StateTestFiller,
     Storage,
     Transaction,
     TransactionException,
     add_kzg_version,
 )
-from eest.tools.utility.pytest import ParameterSet
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
 
 from .spec import Spec, ref_spec_7825
 

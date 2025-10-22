@@ -1,13 +1,17 @@
 """Tests for RETURNCODE instruction validation."""
 
 import pytest
-from eest.base_types import Account
-from eest.specs import StateTestFiller
-from eest.test_types import (
+from eest import (
+    Account,
+    Alloc,
     Environment,
+    EOFException,
+    EOFTestFiller,
+    StateTestFiller,
     Transaction,
     compute_eofcreate_address,
 )
+from eest import Opcodes as Op
 from eest.test_types.eof.v1 import (
     Container,
     ContainerKind,
@@ -16,8 +20,6 @@ from eest.test_types.eof.v1 import (
 from eest.test_types.eof.v1.constants import (
     MAX_BYTECODE_SIZE,
 )
-from eest.tools import Alloc, EOFException, EOFTestFiller
-from eest.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 from .helpers import (

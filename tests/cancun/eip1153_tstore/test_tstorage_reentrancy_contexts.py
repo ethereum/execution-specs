@@ -6,7 +6,7 @@ from enum import EnumMeta, unique
 from typing import Any, Dict
 
 import pytest
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     Bytecode,
@@ -18,7 +18,7 @@ from eest.tools import (
     Switch,
     Transaction,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
 
 from . import PytestParameterEnum
 from .spec import ref_spec_1153

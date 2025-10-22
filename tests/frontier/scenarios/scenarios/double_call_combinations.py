@@ -2,9 +2,9 @@
 
 from typing import List
 
-from eest.tools import Bytecode, Conditional
-from eest.tools import Macros as Om
-from eest.tools import Opcodes as Op
+from eest import Bytecode, Conditional
+from eest import Macros as Om
+from eest import Opcodes as Op
 
 from ..common import Scenario, ScenarioEnvironment, ScenarioGeneratorInput
 

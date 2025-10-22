@@ -5,11 +5,9 @@ Gas consumption tests for EXT*CALL instructions
 """
 
 import pytest
-from eest.base_types import Address
-from eest.forks import Fork
+from eest import Address, Alloc, Environment, Fork, StateTestFiller
+from eest import Opcodes as Op
 from eest.test_types.eof.v1 import Container
-from eest.tools import Alloc, Environment, StateTestFiller
-from eest.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 from ..gas_test import gas_test

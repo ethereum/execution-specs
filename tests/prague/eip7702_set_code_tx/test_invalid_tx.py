@@ -9,19 +9,19 @@ from enum import Enum, auto
 from typing import List, Type
 
 import pytest
-from eest.base_types import (
-    Bytes,
-    FixedSizeBytes,
-    HexNumber,
-)
-from eest.tools import (
+from eest import (
     Address,
     Alloc,
     AuthorizationTuple,
+    Bytes,
     ChainConfig,
     Transaction,
     TransactionException,
     TransactionTestFiller,
+)
+from eest.base_types import (
+    FixedSizeBytes,
+    HexNumber,
 )
 
 from .spec import Spec, ref_spec_7702

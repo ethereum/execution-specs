@@ -6,29 +6,30 @@ from functools import lru_cache
 from typing import List, Tuple
 
 import pytest
-from eest.base_types import (
+from eest import (
+    EOA,
     Address,
-    HexNumber,
-    ZeroPaddedHexNumber,
-)
-from eest.checklists import EIPChecklist
-from eest.fixtures.blockchain import (
-    FixtureBlockBase,
-    FixtureHeader,
-    FixtureWithdrawal,
-)
-from eest.forks import Fork
-from eest.test_types import EOA, Environment
-from eest.tools import (
     Alloc,
     Block,
     BlockchainTestFiller,
     BlockException,
     Bytes,
+    EIPChecklist,
+    Environment,
+    Fork,
     Transaction,
     Withdrawal,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
+from eest.base_types import (
+    HexNumber,
+    ZeroPaddedHexNumber,
+)
+from eest.fixtures.blockchain import (
+    FixtureBlockBase,
+    FixtureHeader,
+    FixtureWithdrawal,
+)
 
 from .spec import Spec, ref_spec_7934
 

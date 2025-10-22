@@ -5,12 +5,7 @@ Tests that benchmark EVMs in worst-case opcode scenarios.
 import math
 
 import pytest
-from eest.benchmark.benchmark_code_generator import (
-    JumpLoopGenerator,
-)
-from eest.forks import Fork
-from eest.test_types.helpers import compute_create_address
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     BenchmarkTestFiller,
@@ -18,12 +13,15 @@ from eest.tools import (
     BlockchainTestFiller,
     Bytecode,
     Environment,
+    Fork,
     Hash,
+    JumpLoopGenerator,
     Transaction,
     While,
     compute_create2_address,
+    compute_create_address,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "TODO"
 REFERENCE_SPEC_VERSION = "TODO"

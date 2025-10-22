@@ -17,8 +17,7 @@ combinations and test cases.
 from typing import List, Optional, Tuple
 
 import pytest
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     EOA,
     AccessList,
     Account,
@@ -30,6 +29,7 @@ from eest.tools import (
     Bytecode,
     EngineAPIError,
     Environment,
+    Fork,
     Hash,
     Header,
     Removable,
@@ -39,7 +39,7 @@ from eest.tools import (
     TransactionException,
     add_kzg_version,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
 
 from .spec import Spec, SpecHelpers, ref_spec_4844
 

@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Sized, SupportsBytes
 
-from eest.tools import Address, Bytes
+from eest import Address, Bytes
 
 
 @dataclass(frozen=True)

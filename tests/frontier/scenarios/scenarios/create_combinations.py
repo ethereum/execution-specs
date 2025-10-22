@@ -3,11 +3,9 @@
 from dataclasses import dataclass
 from typing import List
 
-from eest.test_types import compute_create_address
-from eest.tools import Alloc, Bytecode
-from eest.vm import EVMCodeType, Opcode
-from eest.vm import Macros as Om
-from eest.vm import Opcodes as Op
+from eest import Alloc, Bytecode, EVMCodeType, Opcode, compute_create_address
+from eest import Macros as Om
+from eest import Opcodes as Op
 
 from ..common import Scenario, ScenarioEnvironment, ScenarioGeneratorInput
 

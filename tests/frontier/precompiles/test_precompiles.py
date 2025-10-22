@@ -3,16 +3,16 @@
 from typing import Iterator, Tuple
 
 import pytest
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     Account,
     Address,
     Alloc,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
 
 
 def precompile_addresses(fork: Fork) -> Iterator[Tuple[Address, bool]]:

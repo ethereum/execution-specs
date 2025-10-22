@@ -7,20 +7,20 @@ import random
 from typing import Generator, Tuple
 
 import pytest
-from eest.base_types import Account
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     AccessList,
+    Account,
     Address,
     Alloc,
     AuthorizationTuple,
     BenchmarkTestFiller,
     Block,
     BlockchainTestFiller,
+    Fork,
     Hash,
     Transaction,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
 
 
 @pytest.fixture

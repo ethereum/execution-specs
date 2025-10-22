@@ -1,8 +1,7 @@
 """Test DUP Test the DUP opcodes."""
 
 import pytest
-from eest.forks import Frontier, Homestead
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     Environment,
@@ -10,7 +9,8 @@ from eest.tools import (
     Storage,
     Transaction,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
+from eest.forks import Frontier, Homestead
 
 
 @pytest.mark.parametrize(

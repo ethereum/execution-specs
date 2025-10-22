@@ -5,8 +5,7 @@ Mostly a copy of `tests/cancun/eip4844_blobs/conftest.py`.
 """
 
 import pytest
-from eest.forks import Fork
-from eest.tools import Environment
+from eest import Environment, Fork
 
 from .spec import Spec
 

@@ -10,17 +10,17 @@ for BLS12-381 curve operations]
 from typing import Callable, List, SupportsBytes
 
 import pytest
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     Alloc,
     Bytecode,
     Environment,
+    Fork,
+    ParameterSet,
     StateTestFiller,
     Storage,
     Transaction,
 )
-from eest.tools import Opcodes as Op
-from eest.tools.utility.pytest import ParameterSet
+from eest import Opcodes as Op
 
 from .spec import (
     GAS_CALCULATION_FUNCTION_MAP,

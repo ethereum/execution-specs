@@ -5,19 +5,19 @@ Tests [EIP-7002: Execution layer triggerable withdrawals](https://eips.ethereum.
 from typing import List
 
 import pytest
-from eest.test_types import Requests
-from eest.tools import (
+from eest import (
     Account,
     Address,
     Alloc,
     Block,
     BlockchainTestFiller,
     Bytecode,
+    Requests,
     Transaction,
     generate_system_contract_error_test,
 )
-from eest.tools import Macros as Om
-from eest.tools import Opcodes as Op
+from eest import Macros as Om
+from eest import Opcodes as Op
 
 from .helpers import (
     WithdrawalRequest,

@@ -3,8 +3,7 @@
 from typing import List, Sequence
 
 import pytest
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     EOA,
     AccessList,
     Address,
@@ -12,12 +11,13 @@ from eest.tools import (
     AuthorizationTuple,
     Bytecode,
     Bytes,
+    Fork,
     Hash,
     Transaction,
     TransactionException,
     add_kzg_version,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
 
 from ...cancun.eip4844_blobs.spec import Spec as EIP_4844_Spec
 from .helpers import DataTestType, find_floor_cost_threshold

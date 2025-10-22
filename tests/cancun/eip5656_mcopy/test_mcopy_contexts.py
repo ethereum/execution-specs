@@ -8,7 +8,7 @@ from itertools import cycle, islice
 from typing import Mapping
 
 import pytest
-from eest.tools import (
+from eest import (
     Account,
     Address,
     Alloc,
@@ -19,7 +19,7 @@ from eest.tools import (
     Transaction,
     ceiling_division,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
 
 from .common import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION
 

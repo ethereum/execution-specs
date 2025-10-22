@@ -1,21 +1,21 @@
 """EOF JUMPF tests covering simple cases."""
 
 import pytest
-from eest.base_types import Storage
-from eest.specs import StateTestFiller
-from eest.test_types import Alloc
+from eest import (
+    Account,
+    Alloc,
+    Environment,
+    EOFException,
+    EOFStateTestFiller,
+    StateTestFiller,
+    Storage,
+    Transaction,
+)
+from eest import Opcodes as Op
 from eest.test_types.eof.v1 import Container, Section
 from eest.test_types.eof.v1.constants import (
     NON_RETURNING_SECTION,
 )
-from eest.tools import (
-    Account,
-    Environment,
-    EOFException,
-    EOFStateTestFiller,
-    Transaction,
-)
-from eest.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 from .helpers import (

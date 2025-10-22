@@ -3,17 +3,18 @@
 from enum import Enum
 
 import pytest
-from eest.forks import Byzantium, Fork
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     Environment,
+    Fork,
     Initcode,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
+from eest.forks import Byzantium
 
 
 class Operation(Enum):

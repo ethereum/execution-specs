@@ -4,8 +4,7 @@ from itertools import count
 from typing import Dict, Iterator, List
 
 import pytest
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     AccessList,
     Account,
     Address,
@@ -13,13 +12,14 @@ from eest.tools import (
     AuthorizationTuple,
     Bytecode,
     Environment,
+    Fork,
     Hash,
     Storage,
     Transaction,
     add_kzg_version,
     keccak256,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
 
 from .spec import Spec, SpecHelpers
 

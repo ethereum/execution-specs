@@ -5,19 +5,19 @@ Test [EIP-7823: Set upper bounds for MODEXP](https://eips.ethereum.org/EIPS/eip-
 from typing import Dict
 
 import pytest
-from eest.checklists import EIPChecklist
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     Block,
     BlockchainTestFiller,
     Bytes,
+    EIPChecklist,
+    Fork,
     StateTestFiller,
     Transaction,
     keccak256,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput
 from ..eip7883_modexp_gas_increase.spec import Spec

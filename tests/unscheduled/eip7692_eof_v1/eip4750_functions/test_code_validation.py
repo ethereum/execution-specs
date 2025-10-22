@@ -3,6 +3,8 @@
 from typing import List
 
 import pytest
+from eest import EOFException, EOFTestFiller
+from eest import Opcodes as Op
 from eest.test_types.eof.constants import (
     MAX_RUNTIME_STACK_HEIGHT,
 )
@@ -12,8 +14,6 @@ from eest.test_types.eof.v1.constants import (
     MAX_CODE_SECTIONS,
     MAX_STACK_INCREASE_LIMIT,
 )
-from eest.tools import EOFException, EOFTestFiller
-from eest.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 

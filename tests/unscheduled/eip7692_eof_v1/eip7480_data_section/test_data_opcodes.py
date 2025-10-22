@@ -1,16 +1,16 @@
 """Execution of DATA* opcodes within EOF V1 containers tests."""
 
 import pytest
-from eest.specs import EOFStateTestFiller
-from eest.test_types.eof.v1 import Container, Section
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     Environment,
+    EOFStateTestFiller,
     StateTestFiller,
     Transaction,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
+from eest.test_types.eof.v1 import Container, Section
 
 from .. import EOF_FORK_NAME
 

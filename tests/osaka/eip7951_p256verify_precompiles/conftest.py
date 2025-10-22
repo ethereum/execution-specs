@@ -3,17 +3,17 @@
 from typing import SupportsBytes
 
 import pytest
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     EOA,
     Address,
     Alloc,
     Bytecode,
+    Fork,
     Storage,
     Transaction,
     keccak256,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
 
 from .spec import Spec
 

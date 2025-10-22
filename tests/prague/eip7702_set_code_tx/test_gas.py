@@ -11,8 +11,7 @@ from itertools import cycle
 from typing import Dict, Generator, Iterator, List
 
 import pytest
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     EOA,
     AccessList,
     Account,
@@ -23,6 +22,7 @@ from eest.tools import (
     Bytes,
     ChainConfig,
     CodeGasMeasure,
+    Fork,
     StateTestFiller,
     Storage,
     Transaction,
@@ -30,7 +30,7 @@ from eest.tools import (
     TransactionReceipt,
     extend_with_defaults,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
 
 from .helpers import AddressType, ChainIDType
 from .spec import Spec, ref_spec_7702

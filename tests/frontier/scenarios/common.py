@@ -4,15 +4,16 @@ from abc import abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 
-from eest.forks import Fork, Frontier
-from eest.tools import (
+from eest import (
     Address,
     Alloc,
     Bytecode,
     Conditional,
+    Fork,
     MemoryVariable,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
+from eest.forks import Frontier
 
 
 class ScenarioExpectOpcode(Enum):

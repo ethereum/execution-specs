@@ -3,7 +3,7 @@
 from typing import List, SupportsBytes
 
 import pytest
-from eest.tools import (
+from eest import (
     Alloc,
     Block,
     BlockException,

@@ -4,7 +4,7 @@ only has a non-zero storage slot set.
 """
 
 import pytest
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     Bytecode,
@@ -13,7 +13,7 @@ from eest.tools import (
     Transaction,
     compute_create_address,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7610.md"
 REFERENCE_SPEC_VERSION = "80ef48d0bbb5a4939ade51caaaac57b5df6acd4e"

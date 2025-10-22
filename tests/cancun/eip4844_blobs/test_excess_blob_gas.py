@@ -29,8 +29,7 @@ import itertools
 from typing import Callable, Dict, Iterator, List, Mapping, Optional, Tuple
 
 import pytest
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     EOA,
     Account,
     Address,
@@ -40,12 +39,13 @@ from eest.tools import (
     BlockException,
     Bytecode,
     Environment,
+    Fork,
     Hash,
     Header,
     Transaction,
     add_kzg_version,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
 
 from .spec import Spec, SpecHelpers, ref_spec_4844
 

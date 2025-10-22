@@ -3,11 +3,8 @@
 from dataclasses import dataclass
 from typing import Tuple
 
-from eest.base_types.composite_types import Storage
-from eest.tools import (
-    Bytecode,
-)
-from eest.tools import Opcodes as Op
+from eest import Bytecode, Storage
+from eest import Opcodes as Op
 from pydantic import BaseModel
 
 

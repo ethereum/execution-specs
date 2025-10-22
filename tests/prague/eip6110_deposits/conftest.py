@@ -3,11 +3,11 @@
 from typing import List
 
 import pytest
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     Alloc,
     Block,
     BlockException,
+    Fork,
     Header,
     Requests,
     Transaction,

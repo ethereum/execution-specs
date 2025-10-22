@@ -4,21 +4,22 @@ from enum import Enum, auto, unique
 from typing import Tuple
 
 import pytest
-from eest.base_types import Bytes
-from eest.base_types.base_types import Address, Hash
-from eest.base_types.composite_types import AccessList
-from eest.test_types.eof.v1 import Container, Section
-from eest.tools import (
+from eest import (
+    AccessList,
     Account,
+    Address,
     Alloc,
+    Bytecode,
+    Bytes,
     Environment,
     EVMCodeType,
+    Hash,
     StateTestFiller,
     Transaction,
     compute_eofcreate_address,
 )
-from eest.vm import Bytecode
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
+from eest.test_types.eof.v1 import Container, Section
 
 from ....prague.eip7702_set_code_tx.spec import Spec
 from .. import EOF_FORK_NAME

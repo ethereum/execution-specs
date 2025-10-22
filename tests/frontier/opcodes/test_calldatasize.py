@@ -1,15 +1,16 @@
 """test `CALLDATASIZE` opcode."""
 
 import pytest
-from eest.forks import Byzantium, Fork
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
+    Fork,
     StateTestFiller,
     Transaction,
 )
-from eest.tools import Macros as Om
-from eest.vm import Opcodes as Op
+from eest import Macros as Om
+from eest import Opcodes as Op
+from eest.forks import Byzantium
 
 
 @pytest.mark.ported_from(

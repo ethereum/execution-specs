@@ -10,24 +10,22 @@ from typing import Any, Dict, cast
 
 import pytest
 from _pytest.mark import ParameterSet
-from eest.base_types.base_types import Bytes
-from eest.benchmark import (
-    ExtCallGenerator,
-    JumpLoopGenerator,
-)
-from eest.forks import Fork
-from eest.test_types import TransactionType
-from eest.tools import (
+from eest import (
     Address,
     Alloc,
     BenchmarkTestFiller,
     Block,
     Bytecode,
+    Bytes,
+    ExtCallGenerator,
+    Fork,
+    JumpLoopGenerator,
+    Opcode,
     Transaction,
+    TransactionType,
     add_kzg_version,
 )
-from eest.vm import Opcode
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
 from py_ecc.bn128 import G1, G2, multiply
 
 from ..byzantium.eip198_modexp_precompile.test_modexp import ModExpInput

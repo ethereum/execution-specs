@@ -6,18 +6,19 @@ Tests ported from:
 """
 
 import pytest
-from eest.forks import Fork, Shanghai
-from eest.tools import (
+from eest import (
     Account,
     Address,
     Alloc,
     Bytecode,
     CodeGasMeasure,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
+from eest.forks import Shanghai
 
 from .spec import ref_spec_3651
 

@@ -5,11 +5,7 @@ Test CREATE / CREATE2 and EOF interaction for EIP-3860 initcode limits.
 import itertools
 
 import pytest
-from eest.test_types.eof.v1.constants import (
-    MAX_BYTECODE_SIZE,
-    MAX_INITCODE_SIZE,
-)
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     Bytecode,
@@ -19,7 +15,11 @@ from eest.tools import (
     Transaction,
     compute_create_address,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
+from eest.test_types.eof.v1.constants import (
+    MAX_BYTECODE_SIZE,
+    MAX_INITCODE_SIZE,
+)
 
 from .spec import ref_spec_3860
 

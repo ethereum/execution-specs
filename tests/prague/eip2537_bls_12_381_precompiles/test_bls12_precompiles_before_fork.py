@@ -7,7 +7,7 @@ Tests the BLS12 precompiles behavior before fork activation from
 """
 
 import pytest
-from eest.tools import (
+from eest import (
     Alloc,
     Environment,
     StateTestFiller,

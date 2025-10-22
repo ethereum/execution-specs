@@ -6,18 +6,19 @@ opcode is supported by the fork supports and fails otherwise.
 from typing import Dict
 
 import pytest
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     Account,
     Address,
     Alloc,
     Bytecode,
     Environment,
+    Fork,
+    Opcode,
     StateTestFiller,
     Transaction,
+    UndefinedOpcodes,
 )
-from eest.vm import Opcode, UndefinedOpcodes
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"

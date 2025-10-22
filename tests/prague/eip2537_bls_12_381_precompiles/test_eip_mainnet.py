@@ -4,7 +4,7 @@ abstract: Crafted tests for mainnet of
 """  # noqa: E501
 
 import pytest
-from eest.tools import Alloc, StateTestFiller, Transaction
+from eest import Alloc, StateTestFiller, Transaction
 
 from .spec import FP, FP2, Scalar, Spec, ref_spec_2537
 

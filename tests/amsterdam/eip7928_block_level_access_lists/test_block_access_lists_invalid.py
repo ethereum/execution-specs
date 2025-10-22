@@ -5,15 +5,24 @@ These tests verify that clients properly reject blocks with corrupted BALs.
 """
 
 import pytest
-from eest.exceptions import BlockException
-from eest.test_types.block_access_list import (
+from eest import (
+    Account,
+    Alloc,
     BalAccountChange,
     BalAccountExpectation,
     BalBalanceChange,
     BalNonceChange,
     BalStorageChange,
     BalStorageSlot,
+    Block,
     BlockAccessListExpectation,
+    BlockchainTestFiller,
+    BlockException,
+    Storage,
+    Transaction,
+)
+from eest import (
+    Opcodes as Op,
 )
 from eest.test_types.block_access_list.modifiers import (
     append_account,
@@ -26,17 +35,6 @@ from eest.test_types.block_access_list.modifiers import (
     remove_nonces,
     reverse_accounts,
     swap_tx_indices,
-)
-from eest.tools import (
-    Account,
-    Alloc,
-    Block,
-    BlockchainTestFiller,
-    Storage,
-    Transaction,
-)
-from eest.tools import (
-    Opcodes as Op,
 )
 
 from .spec import ref_spec_7928

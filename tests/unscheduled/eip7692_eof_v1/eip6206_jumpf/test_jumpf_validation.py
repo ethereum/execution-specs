@@ -1,12 +1,12 @@
 """EOF validation tests for JUMPF instruction."""
 
 import pytest
+from eest import EOFException, EOFTestFiller
+from eest import Opcodes as Op
 from eest.test_types.eof.constants import (
     MAX_RUNTIME_STACK_HEIGHT,
 )
 from eest.test_types.eof.v1 import Container, Section
-from eest.tools import EOFException, EOFTestFiller
-from eest.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 

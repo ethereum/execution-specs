@@ -6,28 +6,26 @@ import math
 from enum import auto
 
 import pytest
-from eest.benchmark.benchmark_code_generator import (
-    ExtCallGenerator,
-    JumpLoopGenerator,
-)
-from eest.forks import Fork
-from eest.specs import StateTestFiller
-from eest.specs.benchmark import BenchmarkTestFiller
-from eest.test_types import TestPhaseManager
-from eest.tools import (
+from eest import (
     Account,
     Address,
     Alloc,
+    BenchmarkTestFiller,
     Block,
     Bytecode,
     Environment,
+    ExtCallGenerator,
+    Fork,
     Hash,
+    JumpLoopGenerator,
+    StateTestFiller,
+    TestPhaseManager,
     Transaction,
     While,
     compute_create2_address,
     compute_create_address,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "TODO"
 REFERENCE_SPEC_VERSION = "TODO"

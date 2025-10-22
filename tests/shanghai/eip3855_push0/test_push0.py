@@ -6,7 +6,7 @@ Tests ported from:
 """
 
 import pytest
-from eest.tools import (
+from eest import (
     EOA,
     Account,
     Address,
@@ -17,7 +17,7 @@ from eest.tools import (
     StateTestFiller,
     Transaction,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
 
 from .spec import ref_spec_3855
 

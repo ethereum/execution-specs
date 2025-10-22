@@ -20,8 +20,7 @@ There is no specific structure to follow within this test module.
 from typing import List
 
 import pytest
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     Account,
     Address,
     Alloc,
@@ -31,12 +30,13 @@ from eest.tools import (
     Bytecode,
     CodeGasMeasure,
     Environment,
+    Fork,
     Hash,
     StateTestFiller,
     Transaction,
     add_kzg_version,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
 
 from .spec import Spec, ref_spec_4844
 

@@ -1,16 +1,16 @@
 """Execution of basic EOF containers."""
 
 import pytest
-from eest.base_types import Storage
-from eest.test_types.eof.v1 import Container, Section
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     Environment,
     StateTestFiller,
+    Storage,
     Transaction,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
+from eest.test_types.eof.v1 import Container, Section
 
 from .. import EOF_FORK_NAME
 

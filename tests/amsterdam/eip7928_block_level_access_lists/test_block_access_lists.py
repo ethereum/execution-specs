@@ -3,29 +3,29 @@
 from typing import Callable, Dict
 
 import pytest
-from eest.base_types import AccessList, Address, Hash
-from eest.forks import Fork
-from eest.specs.blockchain import Header
-from eest.test_types import Environment
-from eest.test_types.block_access_list import (
+from eest import (
+    AccessList,
+    Account,
+    Address,
+    Alloc,
     BalAccountExpectation,
     BalBalanceChange,
     BalCodeChange,
     BalNonceChange,
     BalStorageChange,
     BalStorageSlot,
-    BlockAccessListExpectation,
-)
-from eest.tools import (
-    Account,
-    Alloc,
     Block,
+    BlockAccessListExpectation,
     BlockchainTestFiller,
+    Environment,
+    Fork,
+    Hash,
+    Header,
     Initcode,
     Transaction,
     compute_create_address,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
 
 from .spec import ref_spec_7928
 

@@ -1,7 +1,7 @@
 """Fixtures for the EIP-4895 withdrawals tests."""
 
 import pytest
-from eest.tools import Alloc, Environment
+from eest import Alloc, Environment
 
 
 @pytest.fixture

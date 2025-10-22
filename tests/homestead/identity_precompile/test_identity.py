@@ -1,7 +1,7 @@
 """abstract: EIP-2: Homestead Identity Precompile Test Cases."""
 
 import pytest
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     Environment,
@@ -9,7 +9,7 @@ from eest.tools import (
     Transaction,
     keccak256,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
 
 
 @pytest.mark.with_all_call_opcodes()

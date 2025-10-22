@@ -2,9 +2,8 @@
 
 from functools import cached_property
 
-from eest.forks import Fork
-from eest.tools import Alloc, Bytecode
-from eest.vm import Opcodes as Op
+from eest import Alloc, Bytecode, Fork
+from eest import Opcodes as Op
 
 from ..common import (
     ProgramResult,

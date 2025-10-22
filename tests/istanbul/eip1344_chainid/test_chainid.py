@@ -3,14 +3,14 @@ Tests [EIP-1344: CHAINID opcode](https://eips.ethereum.org/EIPS/eip-1344).
 """
 
 import pytest
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     ChainConfig,
     StateTestFiller,
     Transaction,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-1344.md"
 REFERENCE_SPEC_VERSION = "02e46aebc80e6e5006ab4d2daa41876139f9a9e2"

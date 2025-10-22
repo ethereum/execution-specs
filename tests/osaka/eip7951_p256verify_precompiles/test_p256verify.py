@@ -3,17 +3,17 @@ Tests for [EIP-7951: Precompile for secp256r1 Curve Support](https://eips.ethere
 """
 
 import pytest
-from eest.checklists import EIPChecklist
-from eest.tools import (
+from eest import (
     Address,
     Alloc,
+    EIPChecklist,
     Environment,
     StateTestFiller,
     Storage,
     Transaction,
     compute_create_address,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
 
 from .helpers import vectors_from_file
 from .spec import H, R, S, Spec, X, Y, ref_spec_7951

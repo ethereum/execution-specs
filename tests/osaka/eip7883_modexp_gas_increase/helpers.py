@@ -4,7 +4,7 @@ import os
 from typing import Annotated, Any, List
 
 import pytest
-from eest.tools import Bytes
+from eest import Bytes
 from pydantic import (
     BaseModel,
     ConfigDict,

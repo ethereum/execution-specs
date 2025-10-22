@@ -6,7 +6,7 @@ from enum import EnumMeta, unique
 from typing import Any, Dict, Mapping
 
 import pytest
-from eest.tools import (
+from eest import (
     Account,
     Address,
     Alloc,
@@ -16,7 +16,7 @@ from eest.tools import (
     StateTestFiller,
     Transaction,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
 
 from . import PytestParameterEnum
 from .spec import Spec, ref_spec_1153

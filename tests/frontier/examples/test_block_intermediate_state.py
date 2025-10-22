@@ -1,7 +1,7 @@
 """Test the SELFDESTRUCT opcode."""
 
 import pytest
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     Block,

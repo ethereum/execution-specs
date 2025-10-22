@@ -9,11 +9,10 @@ from itertools import permutations
 from typing import Callable, Dict, Generator, List, Tuple
 
 import pytest
-from eest.base_types.base_types import Address
-from eest.forks import Fork
-from eest.test_types import EOA
-from eest.tools import (
+from eest import (
+    EOA,
     Account,
+    Address,
     Alloc,
     Block,
     BlockchainTestFiller,
@@ -21,14 +20,15 @@ from eest.tools import (
     Bytecode,
     Bytes,
     Environment,
+    Fork,
     Header,
+    ParameterSet,
     Requests,
     Storage,
     TestAddress,
     Transaction,
 )
-from eest.tools import Opcodes as Op
-from eest.tools.utility.pytest import ParameterSet
+from eest import Opcodes as Op
 
 from ..eip6110_deposits.helpers import (
     DepositContract,

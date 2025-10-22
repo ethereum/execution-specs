@@ -1,7 +1,7 @@
 """Tests for BLOCKHASH opcode."""
 
 import pytest
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     Block,
@@ -9,7 +9,7 @@ from eest.tools import (
     Storage,
     Transaction,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
 
 
 @pytest.mark.valid_from("Frontier")

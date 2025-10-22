@@ -10,19 +10,19 @@ import itertools
 from typing import List, Mapping
 
 import pytest
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     AccessList,
     Account,
     Address,
     Alloc,
     Bytecode,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
     TransactionReceipt,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
 
 from .common import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION
 

@@ -4,22 +4,22 @@ import itertools
 from enum import Enum, auto, unique
 
 import pytest
-from eest.base_types import Address, HashInt
-from eest.test_types.eof.v1 import Container, Section
-from eest.test_types.helpers import (
-    compute_eofcreate_address,
-)
-from eest.tools import (
+from eest import (
     EOA,
     Account,
+    Address,
     Alloc,
+    Bytecode,
     Environment,
+    EVMCodeType,
     StateTestFiller,
     Storage,
     Transaction,
+    compute_eofcreate_address,
 )
-from eest.vm import Bytecode, EVMCodeType
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
+from eest.base_types import HashInt
+from eest.test_types.eof.v1 import Container, Section
 
 from .. import EOF_FORK_NAME
 from .spec import (

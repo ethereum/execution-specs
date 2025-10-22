@@ -3,16 +3,16 @@ Test delegatecall to Blake2B Precompile before and after added.
 """
 
 import pytest
-from eest.forks import Fork
-from eest.forks.forks.forks import Istanbul
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
+from eest.forks.forks.forks import Istanbul
 
 from .spec import Spec
 

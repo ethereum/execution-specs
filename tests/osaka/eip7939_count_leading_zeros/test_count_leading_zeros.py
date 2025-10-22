@@ -3,10 +3,7 @@ Tests [EIP-7939: Count leading zeros (CLZ)](https://eips.ethereum.org/EIPS/eip-7
 """
 
 import pytest
-from eest.base_types import Storage
-from eest.checklists import EIPChecklist
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     AuthorizationTuple,
@@ -14,12 +11,15 @@ from eest.tools import (
     BlockchainTestFiller,
     Bytecode,
     CodeGasMeasure,
+    EIPChecklist,
     Environment,
+    Fork,
     StateTestFiller,
+    Storage,
     Transaction,
     compute_create_address,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .spec import Spec, ref_spec_7939

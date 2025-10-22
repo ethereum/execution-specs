@@ -33,7 +33,7 @@ insufficient.
 from typing import Dict
 
 import pytest
-from eest.tools import (
+from eest import (
     EOA,
     Account,
     Address,
@@ -43,7 +43,7 @@ from eest.tools import (
     StateTestFiller,
     Transaction,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
 
 """
 PUSH opcode cost is 3, GAS opcode cost is 2.

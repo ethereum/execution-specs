@@ -7,7 +7,7 @@ from pprint import pprint
 from typing import Any, List
 
 import pytest
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
 
 
 class PytestParameterEnum(Enum):

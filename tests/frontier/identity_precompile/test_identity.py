@@ -3,15 +3,15 @@
 from typing import Tuple
 
 import pytest
-from eest.base_types.composite_types import Storage
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     Environment,
     StateTestFiller,
+    Storage,
     Transaction,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
 
 from .common import CallArgs, generate_identity_call_bytecode
 

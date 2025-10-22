@@ -1,7 +1,7 @@
 """Helpers for the EIP-3860 initcode tests."""
 
-from eest.tools import Initcode
-from eest.vm import Opcodes as Op
+from eest import Initcode
+from eest import Opcodes as Op
 
 INITCODE_RESULTING_DEPLOYED_CODE = Op.STOP
 

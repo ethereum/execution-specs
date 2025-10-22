@@ -20,20 +20,20 @@ from itertools import count
 from typing import Callable, Dict, Iterator, List
 
 import pytest
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     Account,
     Address,
     Alloc,
     Block,
     BlockchainTestFiller,
     Bytecode,
+    Fork,
     Hash,
     Storage,
     Transaction,
     Withdrawal,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
 
 from .spec import Spec, ref_spec_4788
 

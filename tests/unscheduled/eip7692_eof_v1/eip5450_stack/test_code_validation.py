@@ -8,19 +8,20 @@ from enum import Enum, auto, unique
 from typing import Generator, Tuple, Union
 
 import pytest
-from eest.exceptions.exceptions import EOFException
+from eest import (
+    Account,
+    Bytecode,
+    EOFException,
+    EOFStateTestFiller,
+    EOFTestFiller,
+    Opcode,
+)
+from eest import Opcodes as Op
 from eest.test_types.eof.v1 import Container, Section
 from eest.test_types.eof.v1.constants import (
     MAX_STACK_INCREASE_LIMIT,
     NON_RETURNING_SECTION,
 )
-from eest.tools import (
-    Account,
-    EOFStateTestFiller,
-    EOFTestFiller,
-)
-from eest.vm import Bytecode, Opcode
-from eest.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 from ..eip3540_eof_v1.test_all_opcodes_in_container import valid_eof_opcodes

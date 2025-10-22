@@ -1,16 +1,16 @@
 """EOF Container construction test."""
 
 import pytest
-from eest.exceptions.exceptions import (
-    EOFExceptionInstanceOrList,
-)
-from eest.test_types.eof.v1 import Container, Section
-from eest.tools import (
+from eest import (
     EOFException,
     EOFTestFiller,
     extend_with_defaults,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
+from eest.exceptions.exceptions import (
+    EOFExceptionInstanceOrList,
+)
+from eest.test_types.eof.v1 import Container, Section
 
 from .. import EOF_FORK_NAME
 

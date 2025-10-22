@@ -3,19 +3,19 @@
 from typing import List
 
 import pytest
-from eest.test_types.eof.v1 import Container, Section
-from eest.test_types.eof.v1.constants import (
-    MAX_CODE_SECTIONS,
-    MAX_RETURN_STACK_HEIGHT,
-)
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     Environment,
     StateTestFiller,
     Transaction,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
+from eest.test_types.eof.v1 import Container, Section
+from eest.test_types.eof.v1.constants import (
+    MAX_CODE_SECTIONS,
+    MAX_RETURN_STACK_HEIGHT,
+)
 
 from .. import EOF_FORK_NAME
 

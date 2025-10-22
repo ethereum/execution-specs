@@ -5,11 +5,7 @@ DUPN instruction tests
 """
 
 import pytest
-from eest.test_types.eof.v1 import Container, Section
-from eest.test_types.eof.v1.constants import (
-    MAX_STACK_INCREASE_LIMIT,
-)
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     Environment,
@@ -19,7 +15,11 @@ from eest.tools import (
     StateTestFiller,
     Transaction,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
+from eest.test_types.eof.v1 import Container, Section
+from eest.test_types.eof.v1.constants import (
+    MAX_STACK_INCREASE_LIMIT,
+)
 
 from .. import EOF_FORK_NAME
 from . import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION

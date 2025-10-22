@@ -1,18 +1,18 @@
 """EOF JUMPF tests covering stack and code validation rules."""
 
 import pytest
-from eest.test_types.eof.v1 import Container, Section
-from eest.test_types.eof.v1.constants import (
-    MAX_BYTECODE_SIZE,
-)
-from eest.tools import (
+from eest import (
     Account,
+    Bytecode,
     EOFException,
     EOFStateTestFiller,
     EOFTestFiller,
 )
-from eest.vm import Bytecode
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
+from eest.test_types.eof.v1 import Container, Section
+from eest.test_types.eof.v1.constants import (
+    MAX_BYTECODE_SIZE,
+)
 
 from .. import EOF_FORK_NAME
 from .helpers import JumpDirection, slot_code_worked, value_code_worked

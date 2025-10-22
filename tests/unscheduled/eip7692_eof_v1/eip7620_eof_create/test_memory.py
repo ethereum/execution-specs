@@ -1,16 +1,17 @@
 """Test good and bad EOFCREATE cases."""
 
 import pytest
-from eest.base_types import Account, Storage
-from eest.test_types import Transaction
-from eest.test_types.eof.v1 import Container, Section
-from eest.tools import (
+from eest import (
+    Account,
     Alloc,
     Environment,
     StateTestFiller,
+    Storage,
+    Transaction,
     compute_eofcreate_address,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
+from eest.test_types.eof.v1 import Container, Section
 
 from .. import EOF_FORK_NAME
 from .helpers import (

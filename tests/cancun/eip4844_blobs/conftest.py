@@ -3,11 +3,11 @@
 from typing import Iterable
 
 import pytest
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     Alloc,
     Block,
     Environment,
+    Fork,
     Hash,
     Transaction,
     add_kzg_version,

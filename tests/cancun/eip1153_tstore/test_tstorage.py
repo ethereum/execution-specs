@@ -8,17 +8,17 @@ Ports and extends some tests from
 from enum import unique
 
 import pytest
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     Bytecode,
     CodeGasMeasure,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
 
 from . import PytestParameterEnum
 from .spec import Spec, ref_spec_1153

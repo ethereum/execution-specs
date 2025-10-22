@@ -6,17 +6,18 @@ from enum import Enum, Flag, auto
 from typing import Dict, List
 
 import pytest
-from eest.forks import Fork, Prague
-from eest.tools import (
+from eest import (
     Address,
     Alloc,
     AuthorizationTuple,
     Bytecode,
+    Fork,
     StateTestFiller,
     Transaction,
     TransactionReceipt,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
+from eest.forks import Prague
 
 from .helpers import DataTestType
 from .spec import ref_spec_7623

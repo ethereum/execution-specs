@@ -4,6 +4,8 @@ from enum import Enum
 from typing import List
 
 import pytest
+from eest import EOFException, EOFTestFiller
+from eest import Opcodes as Op
 from eest.exceptions.exceptions import (
     EOFExceptionInstanceOrList,
 )
@@ -13,8 +15,6 @@ from eest.test_types.eof.v1 import (
     Section,
     SectionKind,
 )
-from eest.tools import EOFException, EOFTestFiller
-from eest.tools import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 

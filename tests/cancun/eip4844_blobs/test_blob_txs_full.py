@@ -3,9 +3,7 @@
 from typing import List, Optional
 
 import pytest
-from eest.base_types.base_types import Hash
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     Address,
     Alloc,
     Blob,
@@ -13,6 +11,8 @@ from eest.tools import (
     BlockchainTestFiller,
     BlockException,
     Environment,
+    Fork,
+    Hash,
     Header,
     NetworkWrappedTransaction,
     Transaction,

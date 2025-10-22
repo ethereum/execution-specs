@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from eest.tools import Address
+from eest import Address
 
 
 @dataclass(frozen=True)

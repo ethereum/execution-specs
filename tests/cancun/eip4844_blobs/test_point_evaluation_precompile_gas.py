@@ -8,19 +8,19 @@ Tests gas usage on point evaluation precompile for
 from typing import Dict, Literal
 
 import pytest
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     Account,
     Address,
     Alloc,
     Bytecode,
     CodeGasMeasure,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
     ceiling_division,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
 
 from .common import INF_POINT, Z
 from .spec import Spec, ref_spec_4844

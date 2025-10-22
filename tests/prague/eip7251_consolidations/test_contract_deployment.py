@@ -7,16 +7,17 @@ from pathlib import Path
 from typing import Any, Generator
 
 import pytest
-from eest.forks import Fork, Prague
-from eest.tools import (
+from eest import (
     Address,
     Alloc,
     Block,
+    Fork,
     Header,
     Requests,
     Transaction,
     generate_system_contract_deploy_test,
 )
+from eest.forks import Prague
 
 from .helpers import ConsolidationRequest
 from .spec import Spec, ref_spec_7251

@@ -6,16 +6,16 @@ Tests the BLS12_PAIRING precompile implementation from
 """
 
 import pytest
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     EOA,
     Address,
     Alloc,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
 
 from .conftest import (
     G1_POINTS_NOT_IN_SUBGROUP,

@@ -1,17 +1,17 @@
 """Test Account Self-destruction and Re-creation."""
 
 import pytest
-from eest.forks import Fork
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     Block,
     BlockchainTestFiller,
+    Fork,
     Initcode,
     Transaction,
     compute_create2_address,
 )
-from eest.tools import Opcodes as Op
+from eest import Opcodes as Op
 
 from .spec import ref_spec_1014
 

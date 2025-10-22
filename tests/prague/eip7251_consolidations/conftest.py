@@ -4,8 +4,7 @@ from itertools import zip_longest
 from typing import List
 
 import pytest
-from eest.forks import Fork
-from eest.tools import Alloc, Block, Header, Requests
+from eest import Alloc, Block, Fork, Header, Requests
 
 from .helpers import ConsolidationRequest, ConsolidationRequestInteractionBase
 from .spec import Spec

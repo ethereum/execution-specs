@@ -9,21 +9,21 @@ Tests precompile warming behavior across fork transitions from
 from typing import Iterator, Tuple
 
 import pytest
-from eest.checklists import EIPChecklist
-from eest.forks import (
-    Fork,
-    get_transition_fork_predecessor,
-    get_transition_fork_successor,
-)
-from eest.tools import (
+from eest import (
     Account,
     Address,
     Alloc,
     Block,
     BlockchainTestFiller,
+    EIPChecklist,
     Transaction,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
+from eest.forks import (
+    Fork,
+    get_transition_fork_predecessor,
+    get_transition_fork_successor,
+)
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-2929.md"
 REFERENCE_SPEC_VERSION = "0e11417265a623adb680c527b15d0cb6701b870b"

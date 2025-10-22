@@ -3,7 +3,7 @@ abstract: Crafted tests for mainnet of [EIP-7623: Increase calldata cost](https:
 """  # noqa: E501
 
 import pytest
-from eest.tools import (
+from eest import (
     AccessList,
     Address,
     Alloc,

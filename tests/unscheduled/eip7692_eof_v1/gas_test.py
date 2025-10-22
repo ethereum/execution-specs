@@ -2,17 +2,18 @@
 
 import itertools
 
-from eest.base_types.base_types import Address
-from eest.test_types.eof.v1 import Container, Section
-from eest.tools import (
+from eest import (
     Account,
+    Address,
     Alloc,
+    Bytecode,
     Environment,
+    EVMCodeType,
     StateTestFiller,
     Transaction,
 )
-from eest.vm import Bytecode, EVMCodeType
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
+from eest.test_types.eof.v1 import Container, Section
 
 from .eip7069_extcall.spec import (
     LEGACY_CALL_FAILURE,
