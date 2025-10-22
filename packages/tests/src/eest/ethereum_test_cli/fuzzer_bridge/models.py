@@ -14,7 +14,7 @@ Design Principle:
 
 from typing import Dict, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from eest.base_types import (
     AccessList,
@@ -36,16 +36,13 @@ class FuzzerAccountInput(BaseModel):
     EEST's Account validation logic or defaults.
     """
 
+    model_config = ConfigDict(populate_by_name=True)
+
     balance: HexNumber
     nonce: HexNumber = HexNumber(0)
     code: Bytes = Bytes(b"")
     storage: Dict[HexNumber, HexNumber] = Field(default_factory=dict)
     private_key: Hash | None = Field(None, alias="privateKey")
-
-    class Config:
-        """Pydantic configuration."""
-
-        populate_by_name = True
 
 
 class FuzzerAuthorizationInput(BaseModel):
@@ -55,17 +52,14 @@ class FuzzerAuthorizationInput(BaseModel):
     Accepts fuzzer's camelCase JSON format.
     """
 
+    model_config = ConfigDict(populate_by_name=True)
+
     chain_id: HexNumber = Field(..., alias="chainId")
     address: Address
     nonce: HexNumber
     v: HexNumber  # yParity
     r: HexNumber
     s: HexNumber
-
-    class Config:
-        """Pydantic configuration."""
-
-        populate_by_name = True
 
 
 class FuzzerTransactionInput(BaseModel):
@@ -83,6 +77,8 @@ class FuzzerTransactionInput(BaseModel):
     - No automatic transaction type detection
     - No automatic signature handling
     """
+
+    model_config = ConfigDict(populate_by_name=True)
 
     from_: Address = Field(..., alias="from")
     to: Address | None = None
@@ -105,11 +101,6 @@ class FuzzerTransactionInput(BaseModel):
     authorization_list: List[FuzzerAuthorizationInput] | None = Field(
         None, alias="authorizationList"
     )
-
-    class Config:
-        """Pydantic configuration."""
-
-        populate_by_name = True
 
 
 class FuzzerOutput(CamelModel):

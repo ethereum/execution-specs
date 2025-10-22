@@ -149,6 +149,12 @@ addopts = [
     "--ignore=src/eest/ethereum_test_cli/pytest_commands/plugins/consume/direct/",
     "--ignore=src/eest/ethereum_test_cli/pytest_commands/plugins/consume/simulators/",
 ]
+markers = [
+    "pre_alloc_group: Custom marker for pre-allocation grouping",
+    "some_mark: Test marker for parametrizer tests",
+    "eip_checklist: Custom marker for EIP checklist tests",
+    "slow: Marks tests as slow running",
+]
 
 [tool.uv]
 required-version = ">=0.7.0"
