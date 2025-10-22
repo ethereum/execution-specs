@@ -7,7 +7,7 @@ import sys
 import click
 
 from eest.config.app import AppConfig
-from eest.tools.utility.versioning import (
+from eest.tools import (
     get_current_commit_hash_or_tag,
 )
 

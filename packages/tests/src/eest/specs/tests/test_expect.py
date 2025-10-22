@@ -4,7 +4,6 @@ from typing import Any, Mapping, Type
 
 import pytest
 
-from eest.client_clis import TransitionTool
 from eest.base_types import (
     Account,
     Address,
@@ -12,6 +11,7 @@ from eest.base_types import (
     TestAddress,
     TestPrivateKey,
 )
+from eest.client_clis import TransitionTool
 from eest.exceptions import TransactionException
 from eest.fixtures import (
     BlockchainFixture,
@@ -19,7 +19,7 @@ from eest.fixtures import (
     StateFixture,
 )
 from eest.forks import Fork, get_deployed_forks
-from eest.tools import Block
+from eest.specs import Block
 from eest.test_types import (
     Alloc,
     Environment,

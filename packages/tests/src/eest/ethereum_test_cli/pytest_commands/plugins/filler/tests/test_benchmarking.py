@@ -9,7 +9,7 @@ test_module_dummy = textwrap.dedent(
     """\
     import pytest
 
-    from eest.tools import Environment
+    from eest import Environment
 
     @pytest.mark.valid_at("Istanbul")
     def test_dummy_benchmark_test(state_test, gas_benchmark_value) -> None:
@@ -22,7 +22,7 @@ test_module_without_fixture = textwrap.dedent(
     """\
     import pytest
 
-    from eest.tools import Environment
+    from eest import Environment
 
     @pytest.mark.valid_at("Istanbul")
     def test_dummy_no_benchmark_test(state_test) -> None:

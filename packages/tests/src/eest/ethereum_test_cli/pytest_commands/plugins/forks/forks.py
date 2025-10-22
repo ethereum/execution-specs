@@ -25,6 +25,9 @@ from _pytest.mark.structures import ParameterSet
 from pytest import Mark, Metafunc
 
 from eest.client_clis import TransitionTool
+from eest.ethereum_test_cli.pytest_commands.plugins.custom_logging import (
+    get_logger,
+)
 from eest.forks import (
     ALL_FORKS,
     ALL_FORKS_WITH_TRANSITIONS,
@@ -35,9 +38,6 @@ from eest.forks import (
     get_selected_fork_set,
     get_transition_forks,
     transition_fork_to,
-)
-from eest.ethereum_test_cli.pytest_commands.plugins.custom_logging import (
-    get_logger,
 )
 
 logger = get_logger(__name__)
@@ -831,7 +831,7 @@ class ValidFrom(ValidityMarker):
     ```python
     import pytest
 
-    from eest.tools import Alloc, StateTestFiller
+    from eest import  Alloc, StateTestFiller
 
     @pytest.mark.valid_from("London")
     def test_something_only_valid_after_london(
@@ -862,7 +862,7 @@ class ValidUntil(ValidityMarker):
     ```python
     import pytest
 
-    from eest.tools import Alloc, StateTestFiller
+    from eest import  Alloc, StateTestFiller
 
     @pytest.mark.valid_until("London")
     def test_something_only_valid_until_london(
@@ -892,7 +892,7 @@ class ValidAt(ValidityMarker):
     ```python
     import pytest
 
-    from eest.tools import Alloc, StateTestFiller
+    from eest import  Alloc, StateTestFiller
 
     @pytest.mark.valid_at("London", "Cancun")
     def test_something_only_valid_at_london_and_cancun(
@@ -925,7 +925,7 @@ class ValidAtTransitionTo(
     ```python
     import pytest
 
-    from eest.tools import Alloc, BlockchainTestFiller
+    from eest import  Alloc, BlockchainTestFiller
 
     @pytest.mark.valid_at_transition_to("London")
     def test_something_that_happens_during_the_fork_transition_to_london(
@@ -1020,7 +1020,7 @@ class ValidForBPOForks(
     ```python
     import pytest
 
-    from eest.tools import Alloc, BlockchainTestFiller
+    from eest import  Alloc, BlockchainTestFiller
 
     @pytest.mark.valid_for_bpo_forks()
     def test_something_in_a_bpo_fork(

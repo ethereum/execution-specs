@@ -21,11 +21,8 @@ from eest.rpc.rpc_types import (
     PayloadStatusEnum,
     TransactionByHashResponse,
 )
-from eest.tools import (
-    Address,
-    Hash,
-    Transaction,
-)
+from eest.base_types import Address, Hash
+from eest.test_types import Transaction
 from eest.test_types.trie import keccak256
 
 

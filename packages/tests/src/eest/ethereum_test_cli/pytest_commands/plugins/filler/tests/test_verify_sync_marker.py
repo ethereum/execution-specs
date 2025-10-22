@@ -6,7 +6,7 @@ from typing import Any
 test_module_with_verify_sync = textwrap.dedent(
     """\
     import pytest
-    from eest.tools import (
+    from eest import  (
         Account,
         BlockException,
         Block,

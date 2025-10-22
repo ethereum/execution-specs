@@ -12,7 +12,7 @@ def test_slow_marker_gets_pre_alloc_group(pytester: Any) -> None:
     test_module = textwrap.dedent(
         """\
         import pytest
-        from eest.tools import Alloc, StateTestFiller, Transaction
+        from eest import  Alloc, StateTestFiller, Transaction
 
         @pytest.mark.slow
         @pytest.mark.valid_from("Cancun")
@@ -57,7 +57,7 @@ def test_slow_with_benchmark_no_pre_alloc(pytester: Any) -> None:
     test_module = textwrap.dedent(
         """\
         import pytest
-        from eest.tools import Alloc, StateTestFiller, Transaction
+        from eest import  Alloc, StateTestFiller, Transaction
 
         @pytest.mark.slow
         @pytest.mark.benchmark
@@ -102,7 +102,7 @@ def test_slow_with_existing_pre_alloc_unchanged(pytester: Any) -> None:
     test_module = textwrap.dedent(
         """\
         import pytest
-        from eest.tools import Alloc, StateTestFiller, Transaction
+        from eest import  Alloc, StateTestFiller, Transaction
 
         @pytest.mark.slow
         @pytest.mark.pre_alloc_group("custom_group", reason="Custom reason")
@@ -145,7 +145,7 @@ def test_non_slow_no_pre_alloc(pytester: Any) -> None:
     test_module = textwrap.dedent(
         """\
         import pytest
-        from eest.tools import Alloc, StateTestFiller, Transaction
+        from eest import  Alloc, StateTestFiller, Transaction
 
         @pytest.mark.valid_from("Cancun")
         def test_normal_speed(state_test: StateTestFiller, pre: Alloc) -> None:
@@ -188,7 +188,7 @@ def test_integration_with_fill(pytester: Any) -> None:
     test_module = textwrap.dedent(
         """\
         import pytest
-        from eest.tools import (
+        from eest import  (
             Account,
             Alloc,
             StateTestFiller,

@@ -13,7 +13,7 @@ import pytest
 from _pytest.nodes import Item, Node
 from _pytest.python import Module
 
-from eest.tools import ReferenceSpec, ReferenceSpecTypes
+from eest.base_types.reference_spec import ReferenceSpec, ReferenceSpecTypes
 
 GITHUB_TOKEN_HELP = textwrap.dedent(
     "Either set the GITHUB_TOKEN environment variable or specify one via --github-token. "

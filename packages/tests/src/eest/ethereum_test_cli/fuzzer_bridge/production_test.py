@@ -19,20 +19,12 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
 from eest.client_clis import GethTransitionTool
 from eest.fixtures.blockchain import BlockchainFixture
 from eest.specs.blockchain import BlockchainTest
-from eest.tools import (
-    Account,
-    Address,
-    Alloc,
-    Block,
-    Environment,
-    Transaction,
-)
+from eest.base_types import Account, Address
+from eest.specs import Block
+from eest.test_types import Alloc, Environment, Transaction
 
 
 class FuzzerBridge:

@@ -233,7 +233,7 @@ class StateTest(FormattedTest):  # noqa: D101
         """\
         import pytest
 
-        from eest.tools import (
+        from eest import  (
             Account,
             Alloc,
             Environment,
@@ -269,7 +269,7 @@ class BlockchainTest(FormattedTest):  # noqa: D101
         """\
         import pytest
 
-        from eest.tools import (
+        from eest import  (
             Account,
             Alloc,
             Block,

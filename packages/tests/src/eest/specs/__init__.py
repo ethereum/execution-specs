@@ -5,9 +5,11 @@ from .base_static import BaseStaticTest
 from .benchmark import BenchmarkTest, BenchmarkTestFiller, BenchmarkTestSpec
 from .blobs import BlobsTest, BlobsTestFiller, BlobsTestSpec
 from .blockchain import (
+    Block,
     BlockchainTest,
     BlockchainTestFiller,
     BlockchainTestSpec,
+    Header,
 )
 from .eof import (
     EOFStateTest,
@@ -39,6 +41,8 @@ __all__ = (
     "BlockchainTestEngineSpec",
     "BlockchainTestFiller",
     "BlockchainTestSpec",
+    "Block",
+    "Header",
     "EOFStateTest",
     "EOFStateTestFiller",
     "EOFStateTestSpec",

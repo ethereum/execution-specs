@@ -8,7 +8,7 @@ import pytest
 
 from eest.base_types import AccessList
 from eest.forks import Fork
-from eest.tools import Opcodes as Op
+from eest.vm import Opcodes as Op
 from eest.test_types import (
     EOA,
     Alloc,

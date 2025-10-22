@@ -21,14 +21,8 @@ from eest.base_types import (
 from eest.fixtures.blockchain import FixtureHeader
 from eest.forks import Fork
 from eest.rpc import EngineRPC, EthRPC
-from eest.tools import (
-    EOA,
-    Account,
-    Alloc,
-    Environment,
-    Hash,
-    Withdrawal,
-)
+from eest.base_types import Account, Hash
+from eest.test_types import EOA, Alloc, Environment, Withdrawal
 from eest.test_types import ChainConfig, Requests
 
 from ...consume.simulators.helpers.ruleset import ruleset

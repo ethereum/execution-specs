@@ -6,8 +6,8 @@ from typing import Any
 import pytest
 from click.testing import CliRunner
 
-from eest.base_types import Account
-from eest.tools import Environment, Storage, Transaction
+from eest.base_types import Account, Storage
+from eest.test_types import Environment, Transaction
 
 from ..cli import generate
 from ..test_context_providers import StateTestProvider

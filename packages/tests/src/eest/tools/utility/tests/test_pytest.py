@@ -2,9 +2,9 @@
 
 import pytest
 
-from eest.tools import extend_with_defaults
-from eest.tools.utility.pytest import (
+from ..pytest import (
     UnknownParameterInCasesError,
+    extend_with_defaults,
 )
 
 

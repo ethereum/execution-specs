@@ -4,6 +4,7 @@ from .account_types import EOA, Alloc
 from .blob_types import Blob
 from .block_access_list import (
     BalAccountChange,
+    BalAccountExpectation,
     BalBalanceChange,
     BalCodeChange,
     BalNonceChange,
@@ -48,6 +49,7 @@ __all__ = (
     "Alloc",
     "AuthorizationTuple",
     "BalAccountChange",
+    "BalAccountExpectation",
     "BalBalanceChange",
     "BalCodeChange",
     "BalNonceChange",

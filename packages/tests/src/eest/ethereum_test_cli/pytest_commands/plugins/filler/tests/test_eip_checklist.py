@@ -20,7 +20,7 @@ def test_eip_checklist_collection(testdir: Any) -> None:
         textwrap.dedent(
             """
             import pytest
-            from eest.tools import StateTestFiller
+            from eest import  StateTestFiller
 
             from ethereum_test_checklists import EIPChecklist
 
@@ -57,7 +57,7 @@ def test_eip_checklist_collection(testdir: Any) -> None:
         textwrap.dedent(
             """
             import pytest
-            from eest.tools import StateTestFiller
+            from eest import  StateTestFiller
 
             REFERENCE_SPEC_GIT_PATH = "N/A"
             REFERENCE_SPEC_VERSION = "N/A"

@@ -2,7 +2,7 @@
 
 import pytest
 
-from eest.tools import Environment
+from eest.test_types import Environment
 from eest.test_types import EnvironmentDefaults
 
 from .execute_fill import OpMode

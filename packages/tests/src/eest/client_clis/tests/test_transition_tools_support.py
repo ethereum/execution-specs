@@ -4,16 +4,17 @@ from typing import Dict
 
 import pytest
 
-from eest.client_clis import (
-    ExecutionSpecsTransitionTool,
-    TransitionTool,
-)
 from eest.base_types import (
     Account,
     Address,
     TestAddress,
     TestPrivateKey,
 )
+from eest.client_clis import (
+    ExecutionSpecsTransitionTool,
+    TransitionTool,
+)
+from eest.fixtures import BlockchainFixture
 from eest.forks import (
     ArrowGlacier,
     Berlin,
@@ -28,21 +29,16 @@ from eest.forks import (
     Prague,
     get_deployed_forks,
 )
-from eest.specs.blockchain import (
-    BlockchainFixture,
-    BlockchainTest,
-)
-from eest.tools import (
-    AccessList,
+from eest.base_types import AccessList, Storage
+from eest.specs import Block, BlockchainTest
+from eest.test_types import (
+    Alloc,
     AuthorizationTuple,
-    Block,
     Environment,
-    Storage,
     Transaction,
     Withdrawal,
     add_kzg_version,
 )
-from eest.test_types import Alloc
 from eest.vm import Opcodes as Op
 
 BLOB_COMMITMENT_VERSION_KZG = 1

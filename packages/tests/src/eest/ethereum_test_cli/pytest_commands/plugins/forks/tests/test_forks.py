@@ -10,7 +10,7 @@ from eest.forks import (
     get_deployed_forks,
     get_forks,
 )
-from eest.tools import StateTest
+from eest.specs import StateTest
 
 
 @pytest.fixture

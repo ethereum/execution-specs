@@ -13,7 +13,7 @@ from pytest_metadata.plugin import metadata_key
 from eest.execution import BaseExecute
 from eest.forks import Fork
 from eest.rpc import EngineRPC, EthRPC
-from eest.tools import BaseTest
+from eest.specs import BaseTest
 from eest.test_types import (
     ChainConfigDefaults,
     EnvironmentDefaults,

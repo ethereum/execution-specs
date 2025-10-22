@@ -9,7 +9,7 @@ from pytest_metadata.plugin import metadata_key
 
 from eest.base_types import Number, Wei
 from eest.rpc import EthRPC
-from eest.tools import EOA, Transaction
+from eest.test_types import EOA, Transaction
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:

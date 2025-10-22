@@ -7,14 +7,9 @@ from typing import Any, Dict
 import pytest
 from pydantic import ValidationError
 
-from eest.base_types import Address, HexNumber
+from eest.base_types import Account, Address, HexNumber
 from eest.forks import Osaka
-from eest.tools import (
-    Account,
-    AuthorizationTuple,
-    Transaction,
-)
-from eest.test_types import Alloc, Environment
+from eest.test_types import Alloc, AuthorizationTuple, Environment, Transaction
 
 from ..fuzzer_bridge.converter import (
     blockchain_test_from_fuzzer,

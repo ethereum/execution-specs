@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 
 from eest.base_types.conversions import to_hex
-from eest.tools import Opcodes as Op
+from eest.vm import Opcodes as Op
 from eest.test_types.eof.v1 import Container
 
 from ..eofwrap import wrap_code

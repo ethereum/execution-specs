@@ -199,7 +199,7 @@ import pytest
         pytest.param(
             """
             import pytest
-            from eest.tools import EVMCodeType
+            from eest import  EVMCodeType
             @pytest.mark.with_all_call_opcodes(
                 selector=(lambda _, evm_code_type: evm_code_type == EVMCodeType.LEGACY)
             )
@@ -216,7 +216,7 @@ import pytest
         pytest.param(
             """
             import pytest
-            from eest.tools import Opcodes as Op
+            from eest import  Opcodes as Op
             @pytest.mark.with_all_call_opcodes(selector=lambda call_opcode: call_opcode == Op.CALL)
             @pytest.mark.valid_from("Cancun")
             @pytest.mark.valid_until("Cancun")
@@ -289,7 +289,7 @@ import pytest
         pytest.param(
             """
             import pytest
-            from eest.tools import Transaction
+            from eest import  Transaction
             @pytest.mark.with_all_typed_transactions
             @pytest.mark.valid_from("Berlin")
             @pytest.mark.valid_until("Berlin")
@@ -305,7 +305,7 @@ import pytest
         pytest.param(
             """
             import pytest
-            from eest.tools import Transaction
+            from eest import  Transaction
             @pytest.mark.with_all_typed_transactions()
             @pytest.mark.valid_from("London")
             @pytest.mark.valid_until("London")
@@ -321,7 +321,7 @@ import pytest
         pytest.param(
             """
             import pytest
-            from eest.tools import Transaction
+            from eest import  Transaction
             from eest.base_types import AccessList
 
             # Override the type 3 transaction fixture

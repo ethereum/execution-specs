@@ -5,16 +5,16 @@ abstract: Tests [EIP-{{eip_number}} {{eip_name}}](https://eips.ethereum.org/EIPS
 
 import pytest
 
-from ethereum_test_forks import Fork
-from eest.tools import (
+from eest import (
     Account,
     Alloc,
     Block,
     BlockchainTestFiller,
     Environment,
+    Fork,
     Transaction,
 )
-from eest.vm import Opcodes as Op
+from eest import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "DUMMY/eip-DUMMY.md"
 REFERENCE_SPEC_VERSION = "DUMMY_VERSION"

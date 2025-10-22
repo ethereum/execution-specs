@@ -21,7 +21,7 @@ from pydantic import BaseModel
 
 from eest.base_types import Account, Hash
 from eest.rpc.rpc_types import TransactionByHashResponse
-from eest.tools import Environment, Transaction
+from eest.test_types import Environment, Transaction
 
 from .request_manager import RPCRequest
 

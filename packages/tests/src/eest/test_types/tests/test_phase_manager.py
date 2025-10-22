@@ -3,7 +3,7 @@
 import pytest
 
 from eest.base_types import Address
-from eest.tools import Transaction
+from eest.test_types import Transaction
 
 from ..phase_manager import TestPhase, TestPhaseManager
 

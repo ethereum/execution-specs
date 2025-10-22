@@ -13,7 +13,7 @@ from eest.fixtures import (
     FixtureFormat,
     LabeledFixtureFormat,
 )
-from eest.tools import BaseTest
+from eest.specs import BaseTest
 
 
 def is_help_or_collectonly_mode(config: pytest.Config) -> bool:

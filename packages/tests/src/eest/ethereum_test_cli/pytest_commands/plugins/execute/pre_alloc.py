@@ -21,26 +21,22 @@ from eest.base_types.conversions import (
     FixedSizeBytesConvertible,
     NumberConvertible,
 )
+from eest.base_types import Account, Address, Storage
 from eest.forks import Fork
 from eest.rpc import EthRPC
 from eest.rpc.rpc_types import TransactionByHashResponse
-from eest.tools import (
-    EOA,
-    Account,
-    Address,
-    AuthorizationTuple,
-    Initcode,
-    Storage,
-    Transaction,
-)
-from eest.tools import Alloc as BaseAlloc
-from eest.tools import Opcodes as Op
 from eest.test_types import (
+    EOA,
+    AuthorizationTuple,
     ChainConfig,
+    Transaction,
     TransactionTestMetadata,
 )
+from eest.test_types import Alloc as BaseAlloc
 from eest.test_types.eof.v1 import Container
+from eest.tools import Initcode
 from eest.vm import Bytecode, EVMCodeType, Opcodes
+from eest.vm import Opcodes as Op
 
 MAX_BYTECODE_SIZE = 24576
 MAX_INITCODE_SIZE = MAX_BYTECODE_SIZE * 2

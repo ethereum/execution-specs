@@ -11,7 +11,7 @@ from ..fixture_output import FixtureOutput
 
 MINIMAL_TEST_FILE_NAME = "test_example.py"
 MINIMAL_TEST_CONTENTS = """
-from eest.tools import Transaction
+from eest import  Transaction
 def test_function(state_test, pre) -> None:
     tx = Transaction(to=0, gas_limit=21_000, sender=pre.fund_eoa())
     state_test(pre=pre, post={}, tx=tx)

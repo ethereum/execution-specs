@@ -2,7 +2,7 @@
 
 import pytest
 
-from eest.tools import Opcodes as Op
+from eest.vm import Opcodes as Op
 
 from ..evm_bytes import process_evm_bytes_string
 

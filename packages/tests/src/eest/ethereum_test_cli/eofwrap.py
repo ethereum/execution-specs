@@ -19,12 +19,12 @@ from typing import Any, Dict, cast, no_type_check
 
 import click
 
+from eest.base_types import Bytes, EthereumTestRootModel
+from eest.base_types.conversions import to_hex
 from eest.client_clis import CLINotFoundInPathError
 from eest.client_clis.clis.evmone import (
     EvmOneTransitionTool,
 )
-from eest.base_types import Bytes, EthereumTestRootModel
-from eest.base_types.conversions import to_hex
 from eest.fixtures.blockchain import (
     FixtureBlock,
     InvalidFixtureBlock,
@@ -38,11 +38,11 @@ from eest.specs.blockchain import (
 )
 from eest.specs.debugging import print_traces
 from eest.specs.eof import EOFParse
-from eest.tools import Opcodes as Op
 from eest.test_types import Transaction
 from eest.test_types.block_types import Environment
 from eest.test_types.eof.v1 import Container
 from eest.vm import Bytecode
+from eest.vm import Opcodes as Op
 
 from .evm_bytes import OpcodeWithOperands, process_evm_bytes
 

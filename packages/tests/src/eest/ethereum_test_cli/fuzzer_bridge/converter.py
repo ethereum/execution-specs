@@ -15,16 +15,10 @@ Key Responsibilities:
 
 from typing import Dict
 
-from eest.base_types import Address, Hash, HexNumber
+from eest.base_types import Account, Address, Hash, HexNumber
 from eest.forks import Fork
-from eest.specs import BlockchainTest
-from eest.tools import (
-    Account,
-    AuthorizationTuple,
-    Block,
-    Transaction,
-)
-from eest.test_types import Alloc, Environment
+from eest.specs import Block, BlockchainTest
+from eest.test_types import Alloc, AuthorizationTuple, Environment, Transaction
 from eest.test_types.account_types import EOA
 
 from .models import (

@@ -8,7 +8,7 @@ test_module_dummy = textwrap.dedent(
     """\
     import pytest
 
-    from eest.tools import Environment
+    from eest import Environment
 
     @pytest.mark.valid_at("Istanbul")
     def test_dummy_collect_only_test(state_test) -> None:

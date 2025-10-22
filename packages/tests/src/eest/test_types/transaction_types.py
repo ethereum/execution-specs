@@ -32,10 +32,10 @@ from eest.base_types import (
     TestAddress,
     TestPrivateKey,
 )
-from eest.exceptions import TransactionException
 from eest.ethereum_test_cli.pytest_commands.plugins.custom_logging import (
     get_logger,
 )
+from eest.exceptions import TransactionException
 
 from .account_types import EOA
 from .blob_types import Blob

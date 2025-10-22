@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from eest.tools import Environment
+from eest.test_types import Environment
 from eest.client_clis import (
     ExecutionSpecsTransitionTool,
     TransitionTool,
@@ -43,7 +43,7 @@ test_module_paris = textwrap.dedent(
     """\
     import pytest
 
-    from eest.tools import Account, Environment, TestAddress, Transaction
+    from eest import  Account, Environment, TestAddress, Transaction
 
     @pytest.mark.valid_from("Paris")
     @pytest.mark.valid_until("Shanghai")
@@ -64,7 +64,7 @@ test_module_shanghai = textwrap.dedent(
     """\
     import pytest
 
-    from eest.tools import Account, Environment, TestAddress, Transaction
+    from eest import  Account, Environment, TestAddress, Transaction
 
     @pytest.mark.valid_from("Paris")
     @pytest.mark.valid_until("Shanghai")
@@ -563,7 +563,7 @@ test_module_environment_variables = textwrap.dedent(
     """\
     import pytest
 
-    from eest.tools import Account, Environment, Transaction
+    from eest import  Account, Environment, Transaction
 
     @pytest.mark.parametrize("block_gas_limit", [Environment().gas_limit])
     @pytest.mark.valid_at("Cancun")

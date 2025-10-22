@@ -18,7 +18,7 @@ from typing import IO, Any, ContextManager, Dict, List, Protocol
 
 from jinja2 import Environment
 
-from eest.tools import Opcodes
+from eest.vm import Opcodes
 
 
 def apply_name_filters(input_string: str) -> str:
