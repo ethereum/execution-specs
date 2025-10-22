@@ -49,7 +49,7 @@ from ethereum_execution_tests.specs import (
     TransactionTestFiller,
 )
 from ethereum_execution_tests.specs.blockchain import Block, Header
-from ethereum_test_types import (
+from ethereum_execution_tests.test_types import (
     EOA,
     Alloc,
     AuthorizationTuple,

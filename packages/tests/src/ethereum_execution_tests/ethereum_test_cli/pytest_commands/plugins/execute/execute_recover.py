@@ -4,7 +4,7 @@ import pytest
 
 from ethereum_execution_tests.base_types import Address
 from ethereum_test_rpc import EthRPC
-from ethereum_test_types import EOA, Transaction
+from ethereum_execution_tests.test_types import EOA, Transaction
 
 
 @pytest.fixture(scope="session")

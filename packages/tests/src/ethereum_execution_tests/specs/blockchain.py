@@ -34,7 +34,7 @@ from ethereum_execution_tests.exceptions import (
     TransactionException,
     UndefinedException,
 )
-from ethereum_test_execution import (
+from ethereum_execution_tests.execution import (
     BaseExecute,
     ExecuteFormat,
     LabeledExecuteFormat,
@@ -61,7 +61,7 @@ from ethereum_execution_tests.fixtures.blockchain import (
 )
 from ethereum_execution_tests.fixtures.common import FixtureBlobSchedule
 from ethereum_execution_tests.forks import Fork
-from ethereum_test_types import (
+from ethereum_execution_tests.test_types import (
     Alloc,
     Environment,
     Removable,
@@ -69,7 +69,7 @@ from ethereum_test_types import (
     Transaction,
     Withdrawal,
 )
-from ethereum_test_types.block_access_list import (
+from ethereum_execution_tests.test_types.block_access_list import (
     BlockAccessList,
     BlockAccessListExpectation,
 )

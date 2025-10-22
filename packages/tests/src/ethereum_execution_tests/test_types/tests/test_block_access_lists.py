@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 
 from ethereum_execution_tests.base_types import Address, StorageKey
-from ethereum_test_types.block_access_list import (
+from ethereum_execution_tests.test_types.block_access_list import (
     BalAccountAbsentValues,
     BalAccountChange,
     BalAccountExpectation,

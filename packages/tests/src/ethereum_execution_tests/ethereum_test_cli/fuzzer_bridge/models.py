@@ -25,7 +25,7 @@ from ethereum_execution_tests.base_types import (
     HexNumber,
 )
 from ethereum_execution_tests.forks import Fork
-from ethereum_test_types import Environment
+from ethereum_execution_tests.test_types import Environment
 
 
 class FuzzerAccountInput(BaseModel):

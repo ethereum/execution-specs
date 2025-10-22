@@ -27,7 +27,7 @@ from ethereum_test_rpc import (
     ForkConfig,
     ForkConfigBlobSchedule,
 )
-from ethereum_test_types import Alloc, Environment
+from ethereum_execution_tests.test_types import Alloc, Environment
 
 
 class AddressOverrideDict(EthereumTestRootModel):

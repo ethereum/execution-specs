@@ -13,7 +13,7 @@ import pytest
 from _pytest.nodes import Item, Node
 from _pytest.python import Module
 
-from ethereum_test_tools import ReferenceSpec, ReferenceSpecTypes
+from ethereum_execution_tests.tools import ReferenceSpec, ReferenceSpecTypes
 
 GITHUB_TOKEN_HELP = textwrap.dedent(
     "Either set the GITHUB_TOKEN environment variable or specify one via --github-token. "

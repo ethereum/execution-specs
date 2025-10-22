@@ -13,7 +13,7 @@ from ethereum_execution_tests.fixtures import (
     PreAllocGroups,
 )
 from ethereum_execution_tests.forks import Prague
-from ethereum_test_types import Environment
+from ethereum_execution_tests.test_types import Environment
 
 from ..filler import FillingSession
 

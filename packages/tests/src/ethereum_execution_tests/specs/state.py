@@ -23,7 +23,7 @@ from ethereum_execution_tests.exceptions import (
     EngineAPIError,
     TransactionException,
 )
-from ethereum_test_execution import (
+from ethereum_execution_tests.execution import (
     BaseExecute,
     ExecuteFormat,
     LabeledExecuteFormat,
@@ -43,7 +43,7 @@ from ethereum_execution_tests.fixtures.state import (
     FixtureTransaction,
 )
 from ethereum_execution_tests.forks import Fork
-from ethereum_test_types import (
+from ethereum_execution_tests.test_types import (
     Alloc,
     BlockAccessListExpectation,
     Environment,

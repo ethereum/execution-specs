@@ -26,7 +26,7 @@ from ethereum_execution_tests.forks import (
     get_deployed_forks,
 )
 from ethereum_execution_tests.specs.blockchain import BlockchainFixture, BlockchainTest
-from ethereum_test_tools import (
+from ethereum_execution_tests.tools import (
     AccessList,
     AuthorizationTuple,
     Block,
@@ -36,7 +36,7 @@ from ethereum_test_tools import (
     Withdrawal,
     add_kzg_version,
 )
-from ethereum_test_types import Alloc
+from ethereum_execution_tests.test_types import Alloc
 from ethereum_execution_tests.vm import Opcodes as Op
 
 BLOB_COMMITMENT_VERSION_KZG = 1

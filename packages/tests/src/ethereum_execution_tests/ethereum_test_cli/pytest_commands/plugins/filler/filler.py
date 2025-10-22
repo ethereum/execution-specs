@@ -43,11 +43,11 @@ from ethereum_execution_tests.forks import (
 )
 from ethereum_execution_tests.specs import BaseTest
 from ethereum_execution_tests.specs.base import OpMode
-from ethereum_test_tools.utility.versioning import (
+from ethereum_execution_tests.tools.utility.versioning import (
     generate_github_url,
     get_current_commit_hash_or_tag,
 )
-from ethereum_test_types import EnvironmentDefaults
+from ethereum_execution_tests.test_types import EnvironmentDefaults
 
 from ..shared.execute_fill import ALL_FIXTURE_PARAMETERS
 from ..shared.helpers import (

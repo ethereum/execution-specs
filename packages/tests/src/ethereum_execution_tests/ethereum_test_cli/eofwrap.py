@@ -33,10 +33,10 @@ from ethereum_execution_tests.specs.blockchain import (
 )
 from ethereum_execution_tests.specs.debugging import print_traces
 from ethereum_execution_tests.specs.eof import EOFParse
-from ethereum_test_tools import Opcodes as Op
-from ethereum_test_types import Transaction
-from ethereum_test_types.block_types import Environment
-from ethereum_test_types.eof.v1 import Container
+from ethereum_execution_tests.tools import Opcodes as Op
+from ethereum_execution_tests.test_types import Transaction
+from ethereum_execution_tests.test_types.block_types import Environment
+from ethereum_execution_tests.test_types.eof.v1 import Container
 from ethereum_execution_tests.vm import Bytecode
 
 from .evm_bytes import OpcodeWithOperands, process_evm_bytes

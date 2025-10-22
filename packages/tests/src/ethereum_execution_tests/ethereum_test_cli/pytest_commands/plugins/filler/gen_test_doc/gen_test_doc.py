@@ -55,7 +55,7 @@ from pytest import Item
 
 from ethereum_execution_tests.forks import get_forks
 from ethereum_execution_tests.specs import BaseTest
-from ethereum_test_tools.utility.versioning import (
+from ethereum_execution_tests.tools.utility.versioning import (
     generate_github_url,
     get_current_commit_hash_or_tag,
 )

@@ -33,7 +33,7 @@ from ethereum_execution_tests.exceptions.exceptions import (
     EOFExceptionInstanceOrList,
     to_pipe_str,
 )
-from ethereum_test_execution import (
+from ethereum_execution_tests.execution import (
     BaseExecute,
     ExecuteFormat,
     LabeledExecuteFormat,
@@ -47,14 +47,14 @@ from ethereum_execution_tests.fixtures import (
 )
 from ethereum_execution_tests.fixtures.eof import Result, Vector
 from ethereum_execution_tests.forks import Fork
-from ethereum_test_types import EOA, Alloc, Environment, Transaction
-from ethereum_test_types.eof.v1 import (
+from ethereum_execution_tests.test_types import EOA, Alloc, Environment, Transaction
+from ethereum_execution_tests.test_types.eof.v1 import (
     Container,
     ContainerKind,
     Section,
     SectionKind,
 )
-from ethereum_test_types.helpers import compute_eofcreate_address
+from ethereum_execution_tests.test_types.helpers import compute_eofcreate_address
 from ethereum_execution_tests.vm import Opcodes as Op
 
 from .base import BaseTest

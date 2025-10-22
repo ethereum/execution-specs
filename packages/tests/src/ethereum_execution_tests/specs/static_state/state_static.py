@@ -7,7 +7,7 @@ from _pytest.mark.structures import ParameterSet
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ethereum_execution_tests.forks import Fork
-from ethereum_test_types import Alloc
+from ethereum_execution_tests.test_types import Alloc
 
 from ..base_static import BaseStaticTest
 from ..state import StateTestFiller

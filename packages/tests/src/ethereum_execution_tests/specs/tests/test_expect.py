@@ -19,8 +19,8 @@ from ethereum_execution_tests.fixtures import (
     StateFixture,
 )
 from ethereum_execution_tests.forks import Fork, get_deployed_forks
-from ethereum_test_tools import Block
-from ethereum_test_types import (
+from ethereum_execution_tests.tools import Block
+from ethereum_execution_tests.test_types import (
     Alloc,
     Environment,
     Transaction,

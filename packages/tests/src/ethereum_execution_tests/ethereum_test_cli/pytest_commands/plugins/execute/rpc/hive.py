@@ -17,7 +17,7 @@ from ethereum_execution_tests.base_types import EmptyOmmersRoot, EmptyTrieRoot, 
 from ethereum_execution_tests.fixtures.blockchain import FixtureHeader
 from ethereum_execution_tests.forks import Fork
 from ethereum_test_rpc import EngineRPC, EthRPC
-from ethereum_test_tools import (
+from ethereum_execution_tests.tools import (
     EOA,
     Account,
     Alloc,
@@ -25,7 +25,7 @@ from ethereum_test_tools import (
     Hash,
     Withdrawal,
 )
-from ethereum_test_types import ChainConfig, Requests
+from ethereum_execution_tests.test_types import ChainConfig, Requests
 
 from ...consume.simulators.helpers.ruleset import ruleset
 from .chain_builder_eth_rpc import ChainBuilderEthRPC

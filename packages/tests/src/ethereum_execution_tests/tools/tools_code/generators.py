@@ -6,7 +6,7 @@ from typing import Any, List, SupportsBytes
 from typing_extensions import Self
 
 from ethereum_execution_tests.base_types import Bytes
-from ethereum_test_types import ceiling_division
+from ethereum_execution_tests.test_types import ceiling_division
 from ethereum_execution_tests.vm import Bytecode, EVMCodeType
 from ethereum_execution_tests.vm import Opcodes as Op
 

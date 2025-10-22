@@ -18,9 +18,9 @@ from typing import Dict
 from ethereum_execution_tests.base_types import Address, Hash, HexNumber
 from ethereum_execution_tests.forks import Fork
 from ethereum_execution_tests.specs import BlockchainTest
-from ethereum_test_tools import Account, AuthorizationTuple, Block, Transaction
-from ethereum_test_types import Alloc, Environment
-from ethereum_test_types.account_types import EOA
+from ethereum_execution_tests.tools import Account, AuthorizationTuple, Block, Transaction
+from ethereum_execution_tests.test_types import Alloc, Environment
+from ethereum_execution_tests.test_types.account_types import EOA
 
 from .models import (
     FuzzerAccountInput,

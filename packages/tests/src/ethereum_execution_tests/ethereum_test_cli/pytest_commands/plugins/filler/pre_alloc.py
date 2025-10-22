@@ -28,9 +28,9 @@ from ethereum_execution_tests.base_types.conversions import (
 from ethereum_execution_tests.fixtures import LabeledFixtureFormat
 from ethereum_execution_tests.forks import Fork
 from ethereum_execution_tests.specs import BaseTest
-from ethereum_test_types import EOA
-from ethereum_test_types import Alloc as BaseAlloc
-from ethereum_test_types.eof.v1 import Container
+from ethereum_execution_tests.test_types import EOA
+from ethereum_execution_tests.test_types import Alloc as BaseAlloc
+from ethereum_execution_tests.test_types.eof.v1 import Container
 from ethereum_execution_tests.vm import Bytecode, EVMCodeType, Opcodes
 
 CONTRACT_START_ADDRESS_DEFAULT = 0x1000000000000000000000000000000000001000

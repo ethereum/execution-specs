@@ -7,7 +7,7 @@ from pydantic import Field
 from ethereum_execution_tests.base_types import Bytes, CamelModel, Number
 from ethereum_execution_tests.exceptions.exceptions import EOFExceptionInstanceOrList
 from ethereum_execution_tests.forks import Fork
-from ethereum_test_types.eof.v1 import ContainerKind
+from ethereum_execution_tests.test_types.eof.v1 import ContainerKind
 
 from .base import BaseFixture
 

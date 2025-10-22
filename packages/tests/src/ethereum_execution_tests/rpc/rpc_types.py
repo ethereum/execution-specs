@@ -26,7 +26,7 @@ from ethereum_execution_tests.exceptions import (
     UndefinedException,
 )
 from ethereum_execution_tests.fixtures.blockchain import FixtureExecutionPayload
-from ethereum_test_types import EOA, Transaction, Withdrawal
+from ethereum_execution_tests.test_types import EOA, Transaction, Withdrawal
 
 
 class JSONRPCError(Exception):

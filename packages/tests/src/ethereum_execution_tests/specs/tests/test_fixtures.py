@@ -29,7 +29,7 @@ from ethereum_execution_tests.forks import (
     Paris,
     Shanghai,
 )
-from ethereum_test_types import (
+from ethereum_execution_tests.test_types import (
     Alloc,
     Environment,
     Transaction,

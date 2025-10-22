@@ -5,8 +5,8 @@ from typing import Any
 import pytest
 
 from ethereum_execution_tests.base_types.conversions import to_hex
-from ethereum_test_tools import Opcodes as Op
-from ethereum_test_types.eof.v1 import Container
+from ethereum_execution_tests.tools import Opcodes as Op
+from ethereum_execution_tests.test_types.eof.v1 import Container
 
 from ..eofwrap import wrap_code
 

@@ -6,7 +6,7 @@ import pytest
 
 from ethereum_execution_tests.forks import Fork
 from ethereum_test_rpc import EngineRPC, EthRPC
-from ethereum_test_types.chain_config_types import ChainConfigDefaults
+from ethereum_execution_tests.test_types.chain_config_types import ChainConfigDefaults
 
 from ..pre_alloc import AddressStubs
 from .chain_builder_eth_rpc import ChainBuilderEthRPC

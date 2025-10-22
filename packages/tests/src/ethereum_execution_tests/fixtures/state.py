@@ -15,8 +15,8 @@ from ethereum_execution_tests.base_types import (
 )
 from ethereum_execution_tests.exceptions import TransactionExceptionInstanceOrList
 from ethereum_execution_tests.forks import Fork
-from ethereum_test_types.block_types import EnvironmentGeneric
-from ethereum_test_types.transaction_types import (
+from ethereum_execution_tests.test_types.block_types import EnvironmentGeneric
+from ethereum_execution_tests.test_types.transaction_types import (
     Transaction,
     TransactionFixtureConverter,
 )

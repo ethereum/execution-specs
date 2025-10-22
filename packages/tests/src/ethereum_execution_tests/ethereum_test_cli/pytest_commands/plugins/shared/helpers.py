@@ -5,9 +5,9 @@ from typing import Any, Dict, Tuple, Type
 import pytest
 from _pytest.mark.structures import ParameterSet
 
-from ethereum_test_execution import ExecuteFormat, LabeledExecuteFormat
+from ethereum_execution_tests.execution import ExecuteFormat, LabeledExecuteFormat
 from ethereum_execution_tests.fixtures import FixtureFormat, LabeledFixtureFormat
-from ethereum_test_tools import BaseTest
+from ethereum_execution_tests.tools import BaseTest
 
 
 def is_help_or_collectonly_mode(config: pytest.Config) -> bool:

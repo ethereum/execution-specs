@@ -25,7 +25,7 @@ from pydantic import BaseModel
 
 from ethereum_execution_tests.base_types import Account, Address, ZeroPaddedHexNumber
 from ethereum_test_rpc.rpc_types import TransactionByHashResponse
-from ethereum_test_types import Environment
+from ethereum_execution_tests.test_types import Environment
 
 
 class BlockchainTestProvider(BaseModel):

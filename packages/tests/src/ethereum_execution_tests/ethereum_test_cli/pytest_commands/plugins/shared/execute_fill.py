@@ -6,11 +6,11 @@ from typing import List
 
 import pytest
 
-from ethereum_test_execution import BaseExecute, LabeledExecuteFormat
+from ethereum_execution_tests.execution import BaseExecute, LabeledExecuteFormat
 from ethereum_execution_tests.fixtures import BaseFixture, LabeledFixtureFormat
 from ethereum_execution_tests.specs import BaseTest
 from ethereum_execution_tests.specs.base import OpMode
-from ethereum_test_types import EOA, Alloc, ChainConfig
+from ethereum_execution_tests.test_types import EOA, Alloc, ChainConfig
 
 from ..spec_version_checker.spec_version_checker import EIPSpecTestItem
 

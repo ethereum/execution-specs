@@ -23,7 +23,7 @@ from ethereum_execution_tests.forks import (
     get_deployed_forks,
 )
 from ethereum_execution_tests.specs import StateTest
-from ethereum_test_types import Alloc, Environment, Transaction
+from ethereum_execution_tests.test_types import Alloc, Environment, Transaction
 from ethereum_execution_tests.vm import Opcodes as Op
 from ethereum_execution_tests.vm import UndefinedOpcodes
 from pytest_plugins.solc.solc import SOLC_EXPECTED_MIN_VERSION

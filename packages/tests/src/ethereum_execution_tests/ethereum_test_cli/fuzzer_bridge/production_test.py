@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from ethereum_clis import GethTransitionTool
 from ethereum_execution_tests.fixtures.blockchain import BlockchainFixture
 from ethereum_execution_tests.specs.blockchain import BlockchainTest
-from ethereum_test_tools import (
+from ethereum_execution_tests.tools import (
     Account,
     Address,
     Alloc,

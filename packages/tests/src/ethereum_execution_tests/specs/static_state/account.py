@@ -10,7 +10,7 @@ from ethereum_execution_tests.base_types import (
     HexNumber,
     Storage,
 )
-from ethereum_test_types import Alloc
+from ethereum_execution_tests.test_types import Alloc
 
 from .common import (
     AddressOrTagInFiller,

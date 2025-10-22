@@ -3,7 +3,7 @@
 from typing import Callable, ClassVar, Generator, Sequence, Type
 
 from ethereum_clis import TransitionTool
-from ethereum_test_execution import (
+from ethereum_execution_tests.execution import (
     BaseExecute,
     ExecuteFormat,
     LabeledExecuteFormat,
@@ -17,7 +17,7 @@ from ethereum_execution_tests.fixtures import (
 )
 from ethereum_execution_tests.fixtures.transaction import FixtureResult
 from ethereum_execution_tests.forks import Fork
-from ethereum_test_types import Alloc, Transaction
+from ethereum_execution_tests.test_types import Alloc, Transaction
 
 from .base import BaseTest
 

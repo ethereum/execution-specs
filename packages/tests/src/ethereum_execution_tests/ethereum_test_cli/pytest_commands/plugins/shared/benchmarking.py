@@ -2,8 +2,8 @@
 
 import pytest
 
-from ethereum_test_tools import Environment
-from ethereum_test_types import EnvironmentDefaults
+from ethereum_execution_tests.tools import Environment
+from ethereum_execution_tests.test_types import EnvironmentDefaults
 
 from .execute_fill import OpMode
 

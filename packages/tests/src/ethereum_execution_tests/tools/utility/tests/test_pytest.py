@@ -2,8 +2,8 @@
 
 import pytest
 
-from ethereum_test_tools import extend_with_defaults
-from ethereum_test_tools.utility.pytest import UnknownParameterInCasesError
+from ethereum_execution_tests.tools import extend_with_defaults
+from ethereum_execution_tests.tools.utility.pytest import UnknownParameterInCasesError
 
 
 # TODO: This is from the docstring in extend_with_defaults; should be tested

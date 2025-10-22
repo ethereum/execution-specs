@@ -24,7 +24,7 @@ from ethereum_execution_tests.forks import (
     get_relative_fork_markers,
     get_transition_forks,
 )
-from ethereum_test_tools.utility.versioning import (
+from ethereum_execution_tests.tools.utility.versioning import (
     get_current_commit_hash_or_tag,
 )
 

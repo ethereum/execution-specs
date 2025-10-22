@@ -2,7 +2,7 @@
 
 import pytest
 
-from ethereum_test_tools import Opcodes as Op
+from ethereum_execution_tests.tools import Opcodes as Op
 
 from ..evm_bytes import process_evm_bytes_string
 

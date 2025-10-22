@@ -10,11 +10,11 @@ from typing import Any, Dict, Generator, List, Type
 import pytest
 from pytest_metadata.plugin import metadata_key
 
-from ethereum_test_execution import BaseExecute
+from ethereum_execution_tests.execution import BaseExecute
 from ethereum_execution_tests.forks import Fork
 from ethereum_test_rpc import EngineRPC, EthRPC
-from ethereum_test_tools import BaseTest
-from ethereum_test_types import (
+from ethereum_execution_tests.tools import BaseTest
+from ethereum_execution_tests.test_types import (
     ChainConfigDefaults,
     EnvironmentDefaults,
     TransactionDefaults,

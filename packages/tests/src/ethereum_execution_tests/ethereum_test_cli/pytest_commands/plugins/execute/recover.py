@@ -3,7 +3,7 @@
 import pytest
 
 from ethereum_execution_tests.base_types import Address, HexNumber
-from ethereum_test_types import EOA
+from ethereum_execution_tests.test_types import EOA
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:

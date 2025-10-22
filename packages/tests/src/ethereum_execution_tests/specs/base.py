@@ -26,7 +26,7 @@ from typing_extensions import Self
 from ethereum_clis import Result, TransitionTool
 from ethereum_clis.cli_types import OpcodeCount
 from ethereum_execution_tests.base_types import to_hex
-from ethereum_test_execution import (
+from ethereum_execution_tests.execution import (
     BaseExecute,
     ExecuteFormat,
     LabeledExecuteFormat,
@@ -39,7 +39,7 @@ from ethereum_execution_tests.fixtures import (
     PreAllocGroups,
 )
 from ethereum_execution_tests.forks import Fork
-from ethereum_test_types import Alloc, Environment, Withdrawal
+from ethereum_execution_tests.test_types import Alloc, Environment, Withdrawal
 
 
 class HashMismatchExceptionError(Exception):

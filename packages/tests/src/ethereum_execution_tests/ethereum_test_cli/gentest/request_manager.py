@@ -20,7 +20,7 @@ from config import EnvConfig
 from ethereum_execution_tests.base_types import Hash
 from ethereum_test_rpc import BlockNumberType, DebugRPC, EthRPC
 from ethereum_test_rpc.rpc_types import TransactionByHashResponse
-from ethereum_test_types import Environment
+from ethereum_execution_tests.test_types import Environment
 
 
 class RPCRequest:

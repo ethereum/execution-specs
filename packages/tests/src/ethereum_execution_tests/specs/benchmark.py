@@ -20,7 +20,7 @@ from pydantic import ConfigDict, Field
 from ethereum_clis import TransitionTool
 from ethereum_execution_tests.base_types import Address, HexNumber
 from ethereum_execution_tests.exceptions import BlockException, TransactionException
-from ethereum_test_execution import (
+from ethereum_execution_tests.execution import (
     BaseExecute,
     ExecuteFormat,
     LabeledExecuteFormat,
@@ -35,7 +35,7 @@ from ethereum_execution_tests.fixtures import (
     LabeledFixtureFormat,
 )
 from ethereum_execution_tests.forks import Fork
-from ethereum_test_types import Alloc, Environment, Transaction
+from ethereum_execution_tests.test_types import Alloc, Environment, Transaction
 from ethereum_execution_tests.vm import Bytecode
 from ethereum_execution_tests.vm.opcodes import Opcodes as Op
 

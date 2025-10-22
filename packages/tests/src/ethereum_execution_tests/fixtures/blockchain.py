@@ -45,15 +45,15 @@ from ethereum_execution_tests.base_types import (
 )
 from ethereum_execution_tests.exceptions import EngineAPIError, ExceptionInstanceOrList
 from ethereum_execution_tests.forks import Fork, Paris
-from ethereum_test_types import (
+from ethereum_execution_tests.test_types import (
     BlockAccessList,
     Environment,
     Requests,
     Transaction,
     Withdrawal,
 )
-from ethereum_test_types.block_types import WithdrawalGeneric
-from ethereum_test_types.transaction_types import (
+from ethereum_execution_tests.test_types.block_types import WithdrawalGeneric
+from ethereum_execution_tests.test_types.transaction_types import (
     TransactionFixtureConverter,
     TransactionGeneric,
 )

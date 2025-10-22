@@ -10,7 +10,7 @@ from ethereum_execution_tests.forks import (
     get_deployed_forks,
     get_forks,
 )
-from ethereum_test_tools import StateTest
+from ethereum_execution_tests.tools import StateTest
 
 
 @pytest.fixture

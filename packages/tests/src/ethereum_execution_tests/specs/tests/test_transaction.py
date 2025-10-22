@@ -8,7 +8,7 @@ import pytest
 
 from ethereum_execution_tests.fixtures import TransactionFixture
 from ethereum_execution_tests.forks import Fork, Shanghai
-from ethereum_test_types import Transaction
+from ethereum_execution_tests.test_types import Transaction
 
 from ..transaction import TransactionTest
 from .helpers import remove_info_metadata

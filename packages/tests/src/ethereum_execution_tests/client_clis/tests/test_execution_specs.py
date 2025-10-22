@@ -14,7 +14,7 @@ from pydantic import TypeAdapter
 from ethereum_clis import ExecutionSpecsTransitionTool, TransitionTool
 from ethereum_execution_tests.base_types import to_json
 from ethereum_execution_tests.forks import Berlin
-from ethereum_test_types import Alloc, Environment, Transaction
+from ethereum_execution_tests.test_types import Alloc, Environment, Transaction
 
 CURRENT_FOLDER = Path(realpath(__file__)).parent
 FIXTURES_ROOT = CURRENT_FOLDER / "fixtures"

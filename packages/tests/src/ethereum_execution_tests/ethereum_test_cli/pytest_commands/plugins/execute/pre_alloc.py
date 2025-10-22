@@ -24,7 +24,7 @@ from ethereum_execution_tests.base_types.conversions import (
 from ethereum_execution_tests.forks import Fork
 from ethereum_test_rpc import EthRPC
 from ethereum_test_rpc.rpc_types import TransactionByHashResponse
-from ethereum_test_tools import (
+from ethereum_execution_tests.tools import (
     EOA,
     Account,
     Address,
@@ -33,10 +33,10 @@ from ethereum_test_tools import (
     Storage,
     Transaction,
 )
-from ethereum_test_tools import Alloc as BaseAlloc
-from ethereum_test_tools import Opcodes as Op
-from ethereum_test_types import ChainConfig, TransactionTestMetadata
-from ethereum_test_types.eof.v1 import Container
+from ethereum_execution_tests.tools import Alloc as BaseAlloc
+from ethereum_execution_tests.tools import Opcodes as Op
+from ethereum_execution_tests.test_types import ChainConfig, TransactionTestMetadata
+from ethereum_execution_tests.test_types.eof.v1 import Container
 from ethereum_execution_tests.vm import Bytecode, EVMCodeType, Opcodes
 
 MAX_BYTECODE_SIZE = 24576

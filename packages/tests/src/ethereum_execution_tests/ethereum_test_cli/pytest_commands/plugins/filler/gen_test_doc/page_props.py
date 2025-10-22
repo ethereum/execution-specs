@@ -18,7 +18,7 @@ from typing import IO, Any, ContextManager, Dict, List, Protocol
 
 from jinja2 import Environment
 
-from ethereum_test_tools import Opcodes
+from ethereum_execution_tests.tools import Opcodes
 
 
 def apply_name_filters(input_string: str) -> str:

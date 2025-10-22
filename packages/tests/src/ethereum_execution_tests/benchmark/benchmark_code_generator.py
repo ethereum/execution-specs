@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from ethereum_execution_tests.base_types import Address
 from ethereum_execution_tests.forks import Fork
 from ethereum_execution_tests.specs.benchmark import BenchmarkCodeGenerator
-from ethereum_test_types import Alloc
+from ethereum_execution_tests.test_types import Alloc
 from ethereum_execution_tests.vm.opcodes import Opcodes as Op
 
 

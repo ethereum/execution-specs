@@ -12,7 +12,7 @@ from ethereum_execution_tests.exceptions import (
     TransactionException,
     UndefinedException,
 )
-from ethereum_test_types import Transaction, TransactionReceipt
+from ethereum_execution_tests.test_types import Transaction, TransactionReceipt
 
 
 class ExecutionContext(StrEnum):

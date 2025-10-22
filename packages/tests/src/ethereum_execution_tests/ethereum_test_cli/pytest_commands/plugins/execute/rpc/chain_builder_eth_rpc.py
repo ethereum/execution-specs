@@ -21,12 +21,12 @@ from ethereum_test_rpc.rpc_types import (
     PayloadStatusEnum,
     TransactionByHashResponse,
 )
-from ethereum_test_tools import (
+from ethereum_execution_tests.tools import (
     Address,
     Hash,
     Transaction,
 )
-from ethereum_test_types.trie import keccak256
+from ethereum_execution_tests.test_types.trie import keccak256
 
 
 class HashList(RootModel[List[Hash]]):

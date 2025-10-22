@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from ethereum_test_tools import Environment
+from ethereum_execution_tests.tools import Environment
 from ethereum_clis import ExecutionSpecsTransitionTool, TransitionTool
 from ..filler import default_output_directory
 
