@@ -14,7 +14,9 @@ from typing import Any, Generator
 import pytest
 
 from ethereum_execution_tests.client_clis.ethereum_cli import EthereumCLI
-from ethereum_execution_tests.client_clis.fixture_consumer_tool import FixtureConsumerTool
+from ethereum_execution_tests.client_clis.fixture_consumer_tool import (
+    FixtureConsumerTool,
+)
 from ethereum_execution_tests.base_types import to_json
 from ethereum_execution_tests.fixtures import (
     BaseFixture,
@@ -22,9 +24,14 @@ from ethereum_execution_tests.fixtures import (
     EOFFixture,
     StateFixture,
 )
-from ethereum_execution_tests.fixtures.consume import TestCaseIndexFile, TestCaseStream
+from ethereum_execution_tests.fixtures.consume import (
+    TestCaseIndexFile,
+    TestCaseStream,
+)
 from ethereum_execution_tests.fixtures.file import Fixtures
-from ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.consume.consume import FixturesSource
+from ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.consume.consume import (
+    FixturesSource,
+)
 
 
 class CollectOnlyCLI(EthereumCLI):

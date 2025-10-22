@@ -5,7 +5,10 @@ import random
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from ethereum_execution_tests.client_clis import GethTransitionTool, TransitionTool
+from ethereum_execution_tests.client_clis import (
+    GethTransitionTool,
+    TransitionTool,
+)
 from ethereum_execution_tests.fixtures import BlockchainFixture
 
 from .converter import blockchain_test_from_fuzzer

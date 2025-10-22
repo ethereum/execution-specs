@@ -17,7 +17,9 @@ from ethereum_execution_tests.base_types import (
     ZeroPaddedHexNumber,
 )
 from ethereum_execution_tests.specs import StateStaticTest
-from ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.static_filler import NoIntResolver
+from ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.static_filler import (
+    NoIntResolver,
+)
 
 
 class GasLimitDict(EthereumTestRootModel):

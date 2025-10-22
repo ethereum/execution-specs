@@ -191,7 +191,12 @@ class FuzzerBridge:
     def generate_fixture(self, test_params: Dict[str, Any]) -> Dict[str, Any]:
         """Generate blockchain test fixture."""
         # Get fork
-        from ethereum_execution_tests.forks import Cancun, Osaka, Prague, Shanghai
+        from ethereum_execution_tests.forks import (
+            Cancun,
+            Osaka,
+            Prague,
+            Shanghai,
+        )
 
         fork_map = {
             "Osaka": Osaka,

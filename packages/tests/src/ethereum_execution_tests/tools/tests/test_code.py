@@ -26,7 +26,9 @@ from ethereum_execution_tests.specs import StateTest
 from ethereum_execution_tests.test_types import Alloc, Environment, Transaction
 from ethereum_execution_tests.vm import Opcodes as Op
 from ethereum_execution_tests.vm import UndefinedOpcodes
-from ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.solc.solc import SOLC_EXPECTED_MIN_VERSION
+from ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.solc.solc import (
+    SOLC_EXPECTED_MIN_VERSION,
+)
 
 from ..tools_code import CalldataCase, Case, Conditional, Initcode, Switch
 

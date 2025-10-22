@@ -115,15 +115,24 @@ class HiveEnvironmentProcessor(ArgumentProcessor):
 
         if self.command_name == "engine":
             modified_args.extend(
-                ["-p", "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.consume.simulators.engine.conftest"]
+                [
+                    "-p",
+                    "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.consume.simulators.engine.conftest",
+                ]
             )
         elif self.command_name == "sync":
             modified_args.extend(
-                ["-p", "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.consume.simulators.sync.conftest"]
+                [
+                    "-p",
+                    "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.consume.simulators.sync.conftest",
+                ]
             )
         elif self.command_name == "rlp":
             modified_args.extend(
-                ["-p", "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.consume.simulators.rlp.conftest"]
+                [
+                    "-p",
+                    "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.consume.simulators.rlp.conftest",
+                ]
             )
         else:
             raise ValueError(f"Unknown command name: {self.command_name}")

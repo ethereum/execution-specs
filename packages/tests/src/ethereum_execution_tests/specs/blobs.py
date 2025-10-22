@@ -11,7 +11,10 @@ from ethereum_execution_tests.fixtures import (
     FixtureFormat,
 )
 from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.test_types import NetworkWrappedTransaction, Transaction
+from ethereum_execution_tests.test_types import (
+    NetworkWrappedTransaction,
+    Transaction,
+)
 
 from .base import BaseTest, ExecuteFormat, LabeledExecuteFormat
 

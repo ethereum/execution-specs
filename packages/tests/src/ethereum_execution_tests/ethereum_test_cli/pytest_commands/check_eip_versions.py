@@ -4,7 +4,9 @@ from typing import Any, List
 
 import click
 
-from ethereum_execution_tests.config.check_eip_versions import CheckEipVersionsConfig
+from ethereum_execution_tests.config.check_eip_versions import (
+    CheckEipVersionsConfig,
+)
 
 from .base import PytestCommand, common_pytest_options
 from .processors import HelpFlagsProcessor

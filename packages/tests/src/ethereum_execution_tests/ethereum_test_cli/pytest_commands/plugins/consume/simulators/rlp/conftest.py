@@ -7,7 +7,10 @@ import pytest
 
 from ethereum_execution_tests.base_types import Bytes
 from ethereum_execution_tests.fixtures import BlockchainFixture
-from ethereum_execution_tests.fixtures.consume import TestCaseIndexFile, TestCaseStream
+from ethereum_execution_tests.fixtures.consume import (
+    TestCaseIndexFile,
+    TestCaseStream,
+)
 
 TestCase = TestCaseIndexFile | TestCaseStream
 

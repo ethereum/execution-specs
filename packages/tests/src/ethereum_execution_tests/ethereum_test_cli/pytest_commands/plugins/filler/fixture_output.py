@@ -7,7 +7,9 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel, Field
 
-from ethereum_execution_tests.fixtures.blockchain import BlockchainEngineXFixture
+from ethereum_execution_tests.fixtures.blockchain import (
+    BlockchainEngineXFixture,
+)
 
 
 class FixtureOutput(BaseModel):

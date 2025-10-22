@@ -8,7 +8,9 @@ from pathlib import Path
 from re import Pattern
 from typing import Any, List, Optional, Type
 
-from ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.custom_logging import get_logger
+from ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.custom_logging import (
+    get_logger,
+)
 
 logger = get_logger(__name__)
 

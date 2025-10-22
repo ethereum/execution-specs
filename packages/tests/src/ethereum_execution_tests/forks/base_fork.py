@@ -17,7 +17,11 @@ from typing import (
     Union,
 )
 
-from ethereum_execution_tests.base_types import AccessList, Address, BlobSchedule
+from ethereum_execution_tests.base_types import (
+    AccessList,
+    Address,
+    BlobSchedule,
+)
 from ethereum_execution_tests.base_types.conversions import BytesConvertible
 from ethereum_execution_tests.vm import EVMCodeType, Opcodes
 

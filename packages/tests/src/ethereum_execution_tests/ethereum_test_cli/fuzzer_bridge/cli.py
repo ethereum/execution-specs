@@ -16,7 +16,10 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 
-from ethereum_execution_tests.client_clis import GethTransitionTool, TransitionTool
+from ethereum_execution_tests.client_clis import (
+    GethTransitionTool,
+    TransitionTool,
+)
 
 from .blocktest_builder import BlocktestBuilder
 

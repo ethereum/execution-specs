@@ -2,7 +2,9 @@
 
 from typing import Any
 
-from ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.fixture_output import FixtureOutput
+from ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.fixture_output import (
+    FixtureOutput,
+)
 
 
 def test_fixture_output_with_generate_all_formats() -> None:

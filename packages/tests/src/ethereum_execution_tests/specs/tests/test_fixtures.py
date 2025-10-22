@@ -10,7 +10,12 @@ from click.testing import CliRunner
 
 import ethereum_execution_tests.ethereum_test_cli.check_fixtures
 from ethereum_execution_tests.client_clis import TransitionTool
-from ethereum_execution_tests.base_types import AccessList, Account, Address, Hash
+from ethereum_execution_tests.base_types import (
+    AccessList,
+    Account,
+    Address,
+    Hash,
+)
 from ethereum_execution_tests.exceptions import TransactionException
 from ethereum_execution_tests.fixtures import (
     BaseFixture,
@@ -70,7 +75,10 @@ def test_check_helper_fixtures() -> None:
         "--quiet",
         "--stop-on-error",
     ]
-    result = runner.invoke(ethereum_execution_tests.ethereum_test_cli.check_fixtures.check_fixtures, args)
+    result = runner.invoke(
+        ethereum_execution_tests.ethereum_test_cli.check_fixtures.check_fixtures,
+        args,
+    )
     assert result.exit_code == 0, (
         "check_fixtures detected errors in the json fixtures:" + f"\n{result}"
     )
@@ -914,7 +922,9 @@ def test_fill_blockchain_invalid_txs(
     assert generated_fixture.__class__ == fixture_format
     # BlockchainEngineFixture inherits from BlockchainEngineFixtureCommon
     # (not BlockchainFixtureCommon)
-    from ethereum_execution_tests.fixtures.blockchain import BlockchainEngineFixtureCommon
+    from ethereum_execution_tests.fixtures.blockchain import (
+        BlockchainEngineFixtureCommon,
+    )
 
     assert isinstance(
         generated_fixture,

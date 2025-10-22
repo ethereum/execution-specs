@@ -22,10 +22,17 @@ from _pytest.terminal import TerminalReporter
 from filelock import FileLock
 from pytest_metadata.plugin import metadata_key
 
-from ethereum_execution_tests.ethereum_test_cli.gen_index import generate_fixtures_index
+from ethereum_execution_tests.ethereum_test_cli.gen_index import (
+    generate_fixtures_index,
+)
 from ethereum_execution_tests.client_clis import TransitionTool
 from ethereum_execution_tests.client_clis.clis.geth import FixtureConsumerTool
-from ethereum_execution_tests.base_types import Account, Address, Alloc, ReferenceSpec
+from ethereum_execution_tests.base_types import (
+    Account,
+    Address,
+    Alloc,
+    ReferenceSpec,
+)
 from ethereum_execution_tests.fixtures import (
     BaseFixture,
     FixtureCollector,
@@ -1215,7 +1222,9 @@ def fixture_collector(
         request.config.pluginmanager.import_plugin(
             "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.static_filler"
         )
-        request.config.pluginmanager.import_plugin("ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.solc.solc")
+        request.config.pluginmanager.import_plugin(
+            "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.solc.solc"
+        )
 
     fixture_collector = FixtureCollector(
         output_dir=fixture_output.directory,

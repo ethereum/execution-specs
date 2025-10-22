@@ -5,8 +5,14 @@ from typing import Any, Dict, Tuple, Type
 import pytest
 from _pytest.mark.structures import ParameterSet
 
-from ethereum_execution_tests.execution import ExecuteFormat, LabeledExecuteFormat
-from ethereum_execution_tests.fixtures import FixtureFormat, LabeledFixtureFormat
+from ethereum_execution_tests.execution import (
+    ExecuteFormat,
+    LabeledExecuteFormat,
+)
+from ethereum_execution_tests.fixtures import (
+    FixtureFormat,
+    LabeledFixtureFormat,
+)
 from ethereum_execution_tests.tools import BaseTest
 
 

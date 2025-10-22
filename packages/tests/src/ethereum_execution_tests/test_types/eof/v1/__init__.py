@@ -17,7 +17,9 @@ from pydantic_core.core_schema import (
 from ethereum_execution_tests.base_types import Bytes, Hash
 from ethereum_execution_tests.base_types.conversions import BytesConvertible
 from ethereum_execution_tests.base_types.pydantic import CopyValidateModel
-from ethereum_execution_tests.exceptions.exceptions import EOFExceptionInstanceOrList
+from ethereum_execution_tests.exceptions.exceptions import (
+    EOFExceptionInstanceOrList,
+)
 from ethereum_execution_tests.vm import Bytecode
 from ethereum_execution_tests.vm import Opcodes as Op
 

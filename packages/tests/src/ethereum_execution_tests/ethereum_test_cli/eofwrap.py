@@ -20,10 +20,15 @@ from typing import Any, Dict, cast, no_type_check
 import click
 
 from ethereum_execution_tests.client_clis import CLINotFoundInPathError
-from ethereum_execution_tests.client_clis.clis.evmone import EvmOneTransitionTool
+from ethereum_execution_tests.client_clis.clis.evmone import (
+    EvmOneTransitionTool,
+)
 from ethereum_execution_tests.base_types import Bytes, EthereumTestRootModel
 from ethereum_execution_tests.base_types.conversions import to_hex
-from ethereum_execution_tests.fixtures.blockchain import FixtureBlock, InvalidFixtureBlock
+from ethereum_execution_tests.fixtures.blockchain import (
+    FixtureBlock,
+    InvalidFixtureBlock,
+)
 from ethereum_execution_tests.fixtures.file import Fixtures
 from ethereum_execution_tests.forks.forks.forks import EOFv1
 from ethereum_execution_tests.specs.blockchain import (

@@ -53,7 +53,9 @@ def checklist(output: str, eip: tuple[int, ...], **kwargs: Any) -> None:
         args.extend(["--checklist-eip", str(eip_num)])
 
     command = FillCommand(
-        plugins=["ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.eip_checklist"],
+        plugins=[
+            "ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.filler.eip_checklist"
+        ],
     )
     command.execute(args)
 

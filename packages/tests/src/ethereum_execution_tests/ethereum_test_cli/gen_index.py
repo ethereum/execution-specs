@@ -20,7 +20,10 @@ from rich.progress import (
 )
 
 from ethereum_execution_tests.base_types import HexNumber
-from ethereum_execution_tests.fixtures.consume import IndexFile, TestCaseIndexFile
+from ethereum_execution_tests.fixtures.consume import (
+    IndexFile,
+    TestCaseIndexFile,
+)
 from ethereum_execution_tests.fixtures.file import Fixtures
 
 from .hasher import HashableItem

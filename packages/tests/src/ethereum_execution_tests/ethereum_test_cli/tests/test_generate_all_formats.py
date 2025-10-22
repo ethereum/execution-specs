@@ -2,7 +2,9 @@
 
 from unittest.mock import patch
 
-from ethereum_execution_tests.ethereum_test_cli.pytest_commands.fill import FillCommand
+from ethereum_execution_tests.ethereum_test_cli.pytest_commands.fill import (
+    FillCommand,
+)
 
 
 def test_generate_all_formats_creates_two_phase_execution() -> None:

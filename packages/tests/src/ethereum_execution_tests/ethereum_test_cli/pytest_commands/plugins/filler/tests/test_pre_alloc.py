@@ -4,7 +4,11 @@ from itertools import count
 
 import pytest
 
-from ethereum_execution_tests.base_types import Address, TestPrivateKey, TestPrivateKey2
+from ethereum_execution_tests.base_types import (
+    Address,
+    TestPrivateKey,
+    TestPrivateKey2,
+)
 from ethereum_execution_tests.forks import Fork, Prague
 from ethereum_execution_tests.test_types import EOA
 from ethereum_execution_tests.vm import EVMCodeType

@@ -4,7 +4,10 @@ from typing import Dict
 
 import pytest
 
-from ethereum_execution_tests.client_clis import ExecutionSpecsTransitionTool, TransitionTool
+from ethereum_execution_tests.client_clis import (
+    ExecutionSpecsTransitionTool,
+    TransitionTool,
+)
 from ethereum_execution_tests.base_types import (
     Account,
     Address,
@@ -25,7 +28,10 @@ from ethereum_execution_tests.forks import (
     Prague,
     get_deployed_forks,
 )
-from ethereum_execution_tests.specs.blockchain import BlockchainFixture, BlockchainTest
+from ethereum_execution_tests.specs.blockchain import (
+    BlockchainFixture,
+    BlockchainTest,
+)
 from ethereum_execution_tests.tools import (
     AccessList,
     AuthorizationTuple,

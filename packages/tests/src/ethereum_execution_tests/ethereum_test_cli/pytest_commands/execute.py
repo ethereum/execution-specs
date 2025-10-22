@@ -75,7 +75,9 @@ eth_config = _create_execute_subcommand(
         "--rpc-endpoint=http://localhost:8545",
     ],
     command_logic_test_paths=[
-        Path("ethereum_execution_tests/ethereum_test_cli/pytest_commands/plugins/execute/eth_config/execute_eth_config.py")
+        Path(
+            "ethereum_execution_tests/ethereum_test_cli/pytest_commands/plugins/execute/eth_config/execute_eth_config.py"
+        )
     ],
 )
 
@@ -90,6 +92,8 @@ recover = _create_execute_subcommand(
         "--destination=0x0000000000000000000000000000000000000000",
     ],
     command_logic_test_paths=[
-        Path("ethereum_execution_tests/ethereum_test_cli/pytest_commands/plugins/execute/execute_recover.py")
+        Path(
+            "ethereum_execution_tests/ethereum_test_cli/pytest_commands/plugins/execute/execute_recover.py"
+        )
     ],
 )

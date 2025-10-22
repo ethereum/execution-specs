@@ -4,12 +4,22 @@ import pprint
 from typing import Dict, List, Tuple
 
 from ethereum_execution_tests.client_clis.clis.besu import BesuExceptionMapper
-from ethereum_execution_tests.client_clis.clis.erigon import ErigonExceptionMapper
-from ethereum_execution_tests.client_clis.clis.ethereumjs import EthereumJSExceptionMapper
-from ethereum_execution_tests.client_clis.clis.ethrex import EthrexExceptionMapper
+from ethereum_execution_tests.client_clis.clis.erigon import (
+    ErigonExceptionMapper,
+)
+from ethereum_execution_tests.client_clis.clis.ethereumjs import (
+    EthereumJSExceptionMapper,
+)
+from ethereum_execution_tests.client_clis.clis.ethrex import (
+    EthrexExceptionMapper,
+)
 from ethereum_execution_tests.client_clis.clis.geth import GethExceptionMapper
-from ethereum_execution_tests.client_clis.clis.nethermind import NethermindExceptionMapper
-from ethereum_execution_tests.client_clis.clis.nimbus import NimbusExceptionMapper
+from ethereum_execution_tests.client_clis.clis.nethermind import (
+    NethermindExceptionMapper,
+)
+from ethereum_execution_tests.client_clis.clis.nimbus import (
+    NimbusExceptionMapper,
+)
 from ethereum_execution_tests.client_clis.clis.reth import RethExceptionMapper
 from ethereum_execution_tests.exceptions import ExceptionMapper
 from ethereum_execution_tests.fixtures.blockchain import FixtureHeader

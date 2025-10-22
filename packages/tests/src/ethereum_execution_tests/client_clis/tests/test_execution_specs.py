@@ -11,7 +11,10 @@ from typing import Dict, List, Type
 import pytest
 from pydantic import TypeAdapter
 
-from ethereum_execution_tests.client_clis import ExecutionSpecsTransitionTool, TransitionTool
+from ethereum_execution_tests.client_clis import (
+    ExecutionSpecsTransitionTool,
+    TransitionTool,
+)
 from ethereum_execution_tests.base_types import to_json
 from ethereum_execution_tests.forks import Berlin
 from ethereum_execution_tests.test_types import Alloc, Environment, Transaction

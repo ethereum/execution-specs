@@ -35,7 +35,10 @@ from ethereum_execution_tests.tools import (
 )
 from ethereum_execution_tests.tools import Alloc as BaseAlloc
 from ethereum_execution_tests.tools import Opcodes as Op
-from ethereum_execution_tests.test_types import ChainConfig, TransactionTestMetadata
+from ethereum_execution_tests.test_types import (
+    ChainConfig,
+    TransactionTestMetadata,
+)
 from ethereum_execution_tests.test_types.eof.v1 import Container
 from ethereum_execution_tests.vm import Bytecode, EVMCodeType, Opcodes
 

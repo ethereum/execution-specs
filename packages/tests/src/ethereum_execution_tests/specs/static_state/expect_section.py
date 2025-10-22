@@ -21,7 +21,9 @@ from ethereum_execution_tests.base_types import (
     HexNumber,
     Storage,
 )
-from ethereum_execution_tests.exceptions import TransactionExceptionInstanceOrList
+from ethereum_execution_tests.exceptions import (
+    TransactionExceptionInstanceOrList,
+)
 from ethereum_execution_tests.forks import Fork, get_forks
 from ethereum_execution_tests.test_types import Alloc
 

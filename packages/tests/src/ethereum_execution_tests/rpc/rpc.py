@@ -22,7 +22,9 @@ from tenacity import (
 
 from ethereum_execution_tests.base_types import Address, Bytes, Hash, to_json
 from ethereum_execution_tests.test_types import Transaction
-from ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.custom_logging import get_logger
+from ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.custom_logging import (
+    get_logger,
+)
 
 from .rpc_types import (
     EthConfigResponse,

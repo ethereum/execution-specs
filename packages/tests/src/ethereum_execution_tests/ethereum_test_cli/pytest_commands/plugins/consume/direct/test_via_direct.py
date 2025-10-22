@@ -6,7 +6,10 @@ interface similar to geth's EVM 'blocktest' command.
 from pathlib import Path
 
 from ethereum_execution_tests.fixtures import FixtureConsumer
-from ethereum_execution_tests.fixtures.consume import TestCaseIndexFile, TestCaseStream
+from ethereum_execution_tests.fixtures.consume import (
+    TestCaseIndexFile,
+    TestCaseStream,
+)
 
 
 def test_fixture(

@@ -14,7 +14,9 @@ from filelock import FileLock
 from ethereum_execution_tests.base_types.base_types import Bytes, Hash
 from ethereum_execution_tests.base_types.pydantic import CamelModel
 from ethereum_execution_tests.forks import Fork
-from ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.custom_logging import get_logger
+from ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.custom_logging import (
+    get_logger,
+)
 
 CACHED_BLOBS_DIRECTORY: Path = (
     Path(platformdirs.user_cache_dir("ethereum-execution-spec-tests"))

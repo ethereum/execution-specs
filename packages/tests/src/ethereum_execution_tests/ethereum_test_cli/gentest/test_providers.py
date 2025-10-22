@@ -23,7 +23,11 @@ from typing import Any, Dict
 
 from pydantic import BaseModel
 
-from ethereum_execution_tests.base_types import Account, Address, ZeroPaddedHexNumber
+from ethereum_execution_tests.base_types import (
+    Account,
+    Address,
+    ZeroPaddedHexNumber,
+)
 from ethereum_execution_tests.rpc.rpc_types import TransactionByHashResponse
 from ethereum_execution_tests.test_types import Environment
 

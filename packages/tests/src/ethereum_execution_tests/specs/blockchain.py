@@ -16,7 +16,11 @@ from typing import (
 import pytest
 from pydantic import ConfigDict, Field, field_validator, model_serializer
 
-from ethereum_execution_tests.client_clis import BlockExceptionWithMessage, Result, TransitionTool
+from ethereum_execution_tests.client_clis import (
+    BlockExceptionWithMessage,
+    Result,
+    TransitionTool,
+)
 from ethereum_execution_tests.base_types import (
     Address,
     Bloom,

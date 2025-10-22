@@ -16,7 +16,10 @@ from typing import (
 import pytest
 from pydantic import Field
 
-from ethereum_execution_tests.client_clis import TransitionTool, TransitionToolOutput
+from ethereum_execution_tests.client_clis import (
+    TransitionTool,
+    TransitionToolOutput,
+)
 from ethereum_execution_tests.base_types import HexNumber
 from ethereum_execution_tests.exceptions import (
     BlockException,
@@ -49,7 +52,9 @@ from ethereum_execution_tests.test_types import (
     Environment,
     Transaction,
 )
-from ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.custom_logging import get_logger
+from ethereum_execution_tests.ethereum_test_cli.pytest_commands.plugins.custom_logging import (
+    get_logger,
+)
 
 from .base import BaseTest, OpMode
 from .blockchain import Block, BlockchainTest, Header
