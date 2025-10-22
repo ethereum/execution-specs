@@ -6,7 +6,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "eest"
+name = "execution-testing"
 version = "1.0.0"
 description = "Ethereum execution client test authoring framework"
 readme = "README.md"
