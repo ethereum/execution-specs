@@ -4,7 +4,7 @@ in EIP-6110.
 """
 
 import pytest
-from ethereum_test_exceptions.exceptions import BlockException
+from ethereum_execution_tests.exceptions.exceptions import BlockException
 from ethereum_test_tools import (
     Account,
     Alloc,

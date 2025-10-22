@@ -27,7 +27,7 @@ from ethereum_test_tools import (
     add_kzg_version,
 )
 from ethereum_test_tools.utility.pytest import ParameterSet
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Opcodes as Op
 
 from .spec import Spec, ref_spec_7825
 

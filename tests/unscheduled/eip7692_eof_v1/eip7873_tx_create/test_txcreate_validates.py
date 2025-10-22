@@ -4,9 +4,9 @@ from enum import Enum, auto, unique
 from typing import Tuple
 
 import pytest
-from ethereum_test_base_types import Bytes
-from ethereum_test_base_types.base_types import Address, Hash
-from ethereum_test_base_types.composite_types import AccessList
+from ethereum_execution_tests.base_types import Bytes
+from ethereum_execution_tests.base_types.base_types import Address, Hash
+from ethereum_execution_tests.base_types.composite_types import AccessList
 from ethereum_test_tools import (
     Account,
     Alloc,
@@ -17,8 +17,8 @@ from ethereum_test_tools import (
     compute_eofcreate_address,
 )
 from ethereum_test_types.eof.v1 import Container, Section
-from ethereum_test_vm import Bytecode
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Bytecode
+from ethereum_execution_tests.vm import Opcodes as Op
 
 from ....prague.eip7702_set_code_tx.spec import Spec
 from .. import EOF_FORK_NAME

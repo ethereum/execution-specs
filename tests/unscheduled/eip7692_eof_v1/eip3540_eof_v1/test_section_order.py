@@ -4,7 +4,7 @@ from enum import Enum
 from typing import List
 
 import pytest
-from ethereum_test_exceptions.exceptions import EOFExceptionInstanceOrList
+from ethereum_execution_tests.exceptions.exceptions import EOFExceptionInstanceOrList
 from ethereum_test_tools import EOFException, EOFTestFiller
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_types.eof.v1 import (

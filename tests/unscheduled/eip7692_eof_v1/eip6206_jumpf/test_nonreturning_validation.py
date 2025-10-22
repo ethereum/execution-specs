@@ -8,8 +8,8 @@ from ethereum_test_types.eof.v1 import (
     ContainerKind,
     Section,
 )
-from ethereum_test_vm import Bytecode
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Bytecode
+from ethereum_execution_tests.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 

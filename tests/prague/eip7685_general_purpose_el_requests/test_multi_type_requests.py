@@ -9,7 +9,7 @@ from itertools import permutations
 from typing import Callable, Dict, Generator, List, Tuple
 
 import pytest
-from ethereum_test_base_types.base_types import Address
+from ethereum_execution_tests.base_types.base_types import Address
 from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     Account,

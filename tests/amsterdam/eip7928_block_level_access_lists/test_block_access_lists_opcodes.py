@@ -34,7 +34,7 @@ from ethereum_test_types.block_access_list import (
     BalStorageSlot,
     BlockAccessListExpectation,
 )
-from ethereum_test_vm import Bytecode
+from ethereum_execution_tests.vm import Bytecode
 
 from .spec import ref_spec_7928
 

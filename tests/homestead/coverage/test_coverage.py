@@ -11,7 +11,7 @@ from ethereum_test_tools import (
     StateTestFiller,
     Transaction,
 )
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"

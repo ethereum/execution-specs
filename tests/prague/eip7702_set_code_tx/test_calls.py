@@ -12,7 +12,7 @@ from ethereum_test_tools import (
     StateTestFiller,
     Transaction,
 )
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Opcodes as Op
 
 pytestmark = pytest.mark.valid_from("Prague")
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7702.md"

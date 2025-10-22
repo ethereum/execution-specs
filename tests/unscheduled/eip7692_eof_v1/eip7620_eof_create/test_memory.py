@@ -1,7 +1,7 @@
 """Test good and bad EOFCREATE cases."""
 
 import pytest
-from ethereum_test_base_types import Account, Storage
+from ethereum_execution_tests.base_types import Account, Storage
 from ethereum_test_tools import (
     Alloc,
     Environment,
@@ -10,7 +10,7 @@ from ethereum_test_tools import (
 )
 from ethereum_test_types import Transaction
 from ethereum_test_types.eof.v1 import Container, Section
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 from .helpers import (

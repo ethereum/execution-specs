@@ -16,8 +16,8 @@ from ethereum_test_tools import (
     Transaction,
     While,
 )
-from ethereum_test_vm import Bytecode
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Bytecode
+from ethereum_execution_tests.vm import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
 REFERENCE_SPEC_VERSION = "1.0"

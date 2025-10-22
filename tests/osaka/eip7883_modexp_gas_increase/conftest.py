@@ -14,7 +14,7 @@ from ethereum_test_tools import (
     Transaction,
     keccak256,
 )
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Opcodes as Op
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput
 from .spec import Spec, Spec7883

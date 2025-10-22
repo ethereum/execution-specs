@@ -1,8 +1,8 @@
 """pytest fixtures for testing the BLAKE2b precompile."""
 
 import pytest
-from ethereum_test_vm import Bytecode
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Bytecode
+from ethereum_execution_tests.vm import Opcodes as Op
 
 from .spec import Spec
 

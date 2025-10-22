@@ -4,7 +4,7 @@ import pytest
 from ethereum_test_forks import Byzantium, Fork
 from ethereum_test_tools import Account, Alloc, StateTestFiller, Transaction
 from ethereum_test_tools import Macros as Om
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Opcodes as Op
 
 
 @pytest.mark.ported_from(

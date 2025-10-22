@@ -26,7 +26,7 @@ from ethereum_test_tools import (
     ceiling_division,
     compute_create_address,
 )
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Opcodes as Op
 
 from .helpers import (
     INITCODE_RESULTING_DEPLOYED_CODE,

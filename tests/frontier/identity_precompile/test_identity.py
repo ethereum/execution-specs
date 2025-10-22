@@ -3,7 +3,7 @@
 from typing import Tuple
 
 import pytest
-from ethereum_test_base_types.composite_types import Storage
+from ethereum_execution_tests.base_types.composite_types import Storage
 from ethereum_test_tools import (
     Account,
     Alloc,

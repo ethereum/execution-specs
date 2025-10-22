@@ -4,7 +4,7 @@ import pytest
 from ethereum_test_tools import EOFException, EOFTestFiller
 from ethereum_test_types.eof.v1 import Container, Section
 from ethereum_test_types.eof.v1.constants import MAX_INITCODE_SIZE
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 

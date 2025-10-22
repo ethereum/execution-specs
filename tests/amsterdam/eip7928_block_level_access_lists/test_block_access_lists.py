@@ -3,7 +3,7 @@
 from typing import Callable, Dict
 
 import pytest
-from ethereum_test_base_types import AccessList, Address, Hash
+from ethereum_execution_tests.base_types import AccessList, Address, Hash
 from ethereum_test_forks import Fork
 from ethereum_test_specs.blockchain import Header
 from ethereum_test_tools import (
@@ -25,7 +25,7 @@ from ethereum_test_types.block_access_list import (
     BalStorageSlot,
     BlockAccessListExpectation,
 )
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Opcodes as Op
 
 from .spec import ref_spec_7928
 

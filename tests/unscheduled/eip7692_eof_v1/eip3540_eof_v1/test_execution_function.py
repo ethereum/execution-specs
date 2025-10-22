@@ -15,7 +15,7 @@ from ethereum_test_types.eof.v1.constants import (
     MAX_CODE_SECTIONS,
     MAX_RETURN_STACK_HEIGHT,
 )
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 

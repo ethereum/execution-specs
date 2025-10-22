@@ -6,7 +6,7 @@ from ethereum_test_tools import (
     Alloc,
 )
 from ethereum_test_types import Environment
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Opcodes as Op
 
 
 @pytest.fixture

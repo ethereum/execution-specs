@@ -17,7 +17,7 @@ from ethereum_test_tools import (
     Transaction,
 )
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_vm import Bytecode
+from ethereum_execution_tests.vm import Bytecode
 
 
 def get_input_for_push_opcode(opcode: Op) -> bytes:

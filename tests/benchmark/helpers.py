@@ -2,7 +2,7 @@
 
 from ethereum_test_forks import Fork
 from ethereum_test_tools import Bytecode
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Opcodes as Op
 
 
 def code_loop_precompile_call(

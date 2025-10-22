@@ -3,7 +3,7 @@
 import math
 
 import pytest
-from ethereum_test_base_types import Hash, Storage
+from ethereum_execution_tests.base_types import Hash, Storage
 from ethereum_test_specs import StateTestFiller
 from ethereum_test_tools import Account, EOFStateTestFiller
 from ethereum_test_tools import Opcodes as Op

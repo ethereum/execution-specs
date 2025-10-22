@@ -13,7 +13,7 @@ from ethereum_test_forks import (
 )
 from ethereum_test_tools import Alloc, Bytecode
 from ethereum_test_types import ChainConfigDefaults
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Opcodes as Op
 
 from ..common import (
     ProgramResult,

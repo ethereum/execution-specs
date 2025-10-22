@@ -16,9 +16,9 @@ from ethereum_test_tools import (
     Switch,
     Transaction,
 )
-from ethereum_test_vm import Bytecode
-from ethereum_test_vm import Macros as Om
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Bytecode
+from ethereum_execution_tests.vm import Macros as Om
+from ethereum_execution_tests.vm import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-1153.md"
 REFERENCE_SPEC_VERSION = "1eb863b534a5a3e19e9c196ab2a7f3db4bb9da17"

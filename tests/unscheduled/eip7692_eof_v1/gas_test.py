@@ -2,7 +2,7 @@
 
 import itertools
 
-from ethereum_test_base_types.base_types import Address
+from ethereum_execution_tests.base_types.base_types import Address
 from ethereum_test_tools import (
     Account,
     Alloc,
@@ -11,8 +11,8 @@ from ethereum_test_tools import (
     Transaction,
 )
 from ethereum_test_types.eof.v1 import Container, Section
-from ethereum_test_vm import Bytecode, EVMCodeType
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Bytecode, EVMCodeType
+from ethereum_execution_tests.vm import Opcodes as Op
 
 from .eip7069_extcall.spec import (
     LEGACY_CALL_FAILURE,

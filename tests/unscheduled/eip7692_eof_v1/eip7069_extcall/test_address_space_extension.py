@@ -12,7 +12,7 @@ from ethereum_test_tools import (
     Transaction,
 )
 from ethereum_test_types.eof.v1 import Container, Section
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 from .helpers import value_exceptional_abort_canary

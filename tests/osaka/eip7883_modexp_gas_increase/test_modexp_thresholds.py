@@ -19,7 +19,7 @@ from ethereum_test_tools import (
     keccak256,
 )
 from ethereum_test_types.helpers import compute_create_address
-from ethereum_test_vm import Opcodes as Op
+from ethereum_execution_tests.vm import Opcodes as Op
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput
 from .helpers import vectors_from_file
