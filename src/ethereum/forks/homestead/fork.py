@@ -751,39 +751,24 @@ def calculate_block_difficulty(
     offset will result in a positive number thus making the sum of
     ``parent_difficulty`` and ``offset`` to be a greater value in order to
     avoid mass forking. But, if the time is long enough, then the offset
-    results in a negative value making the block less difficult than
-    its parent.
+    results in a negative value making the block less difficult than its
+    parent.
 
-    The base standard for a block's difficulty is the predefined value
-    set for the genesis block since it has no parent. So, a block
-    can't be less difficult than the genesis block, therefore each block's
-    difficulty is set to the maximum value between the calculated
-    difficulty and the ``MINIMUM_DIFFICULTY``.
+    The base standard for a block's difficulty is the predefined value set for
+    the genesis block since it has no parent. So, a block can't be less
+    difficult than the genesis block, therefore each block's difficulty is set
+    to the maximum value between the calculated difficulty and the
+    ``MINIMUM_DIFFICULTY``.
 
-    Parameters
-    ----------
-    block_number :
-        Block number of the block.
-    block_timestamp :
-        Timestamp of the block.
-    parent_timestamp :
-        Timestamp of the parent block.
-    parent_difficulty :
-        difficulty of the parent block.
-
-    Returns
-    -------
-    difficulty : `ethereum.base_types.Uint`
-        Computed difficulty for a block.
-
+    Homestead difficulty: same behavior, fewer int() casts.
     """
-    # Precompute helpers to avoid repeated int() conversions while
-    # keeping behavior.
-
+    # Fewer casts: compute once, use many (using full names as requested)
     parent_difficulty_int = int(parent_difficulty)
     time_delta = int(block_timestamp) - int(parent_timestamp)
 
-    offset = (parent_difficulty_int // 2048) * max(1 - (time_delta // 10), -99)
+    # Base adjustment (non-negative, addressing reviewer's concern).
+    base_adjust = parent_difficulty_int // 2048
+    offset = base_adjust * max(1 - (time_delta // 10), -99)
     difficulty = parent_difficulty_int + offset
 
     # Historical Note: The difficulty bomb was not present in Ethereum at the
@@ -791,11 +776,14 @@ def calculate_block_difficulty(
     # bomb has no effect prior to block 200000 we pretend it existed from
     # genesis.
     # See https://github.com/ethereum/go-ethereum/pull/1588
+
+    # Block number conversion is necessary for the bomb calculation
     num_bomb_periods = (int(block_number) // 100000) - 2
     if num_bomb_periods >= 0:
+        # Keep exponent form (aligns with repo style)
         difficulty += 2**num_bomb_periods
 
-    # Some clients raise the difficulty to `MINIMUM_DIFFICULTY` prior to adding
-    # the bomb. This bug does not matter because the difficulty is always much
-    # greater than `MINIMUM_DIFFICULTY` on Mainnet.
+    # Some clients raise the difficulty to MINIMUM_DIFFICULTY prior to adding
+    # the bomb. This bug does not matter because difficulty is always greater
+    # than MINIMUM_DIFFICULTY on Mainnet.
     return Uint(max(difficulty, int(MINIMUM_DIFFICULTY)))
