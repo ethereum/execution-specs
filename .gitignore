@@ -80,5 +80,6 @@ fixtures/
 logs/
 *.log
 
-# config (output of `uv run make env`)
 env.yaml
+
+site/
