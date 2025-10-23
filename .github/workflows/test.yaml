@@ -36,6 +36,15 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event_name != 'push' || github.ref_name != github.event.repository.default_branch }}
     steps:
+      - name: Dump GitHub context # Debugging why this job is running on forks/osaka.
+        env:
+          EVENT_NAME: ${{ toJson(github.event_name) }}
+          REF_NAME: ${{ toJson(github.ref_name) }}
+          GH_REPO: ${{ toJson(github.event.repository) }}
+        run: |
+          printenv EVENT_NAME
+          printenv REF_NAME
+          printenv GH_REPO
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
           submodules: recursive
