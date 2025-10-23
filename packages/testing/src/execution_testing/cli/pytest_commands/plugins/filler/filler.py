@@ -66,6 +66,7 @@ from ..spec_version_checker.spec_version_checker import (
     get_ref_spec_from_module,
 )
 from .fixture_output import FixtureOutput
+from .pre_alloc import Alloc as FillerAlloc
 
 
 @dataclass(kw_only=True)
@@ -1395,7 +1396,14 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                         fork=fork
                     )
                     group = session.get_pre_alloc_group(pre_alloc_hash)
-                    self.pre = group.pre
+                    self.pre = FillerAlloc(
+                        group.pre.root,
+                        alloc_mode=pre._alloc_mode,
+                        contract_address_iterator=pre._contract_address_iterator,
+                        eoa_iterator=pre._eoa_iterator,
+                        fork=fork,
+                        evm_code_type=pre._evm_code_type,
+                    )
                 try:
                     fixture = self.generate(
                         t8n=t8n,
