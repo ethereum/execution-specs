@@ -12,10 +12,7 @@ from pytest import Collector
 from ethereum.exceptions import StateWithEmptyAccount
 from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum_spec_tools.evm_tools import create_parser
-from ethereum_spec_tools.evm_tools.statetest import TestCase as StateTestCase
-from ethereum_spec_tools.evm_tools.statetest import (
-    read_test_case as read_state_test_case,
-)
+from ethereum_spec_tools.evm_tools.statetest import TestCase, read_test_case
 from ethereum_spec_tools.evm_tools.t8n import T8N
 
 from .. import FORKS
@@ -30,13 +27,13 @@ parser = create_parser()
 class StateTest(Item):
     """Single state test case item."""
 
-    test_case: StateTestCase
+    test_case: TestCase
     test_dict: Dict[str, Any]
 
     def __init__(
         self,
         *args: Any,
-        test_case: StateTestCase,
+        test_case: TestCase,
         test_dict: Dict[str, Any],
         **kwargs: Any,
     ) -> None:
@@ -149,7 +146,7 @@ class StateTestFixture(Fixture, Collector):
 
     def collect(self) -> Iterable[Item | Collector]:
         """Collect state test cases inside of this fixture."""
-        for test_case in read_state_test_case(
+        for test_case in read_test_case(
             test_file_path=self.test_file,
             key=self.test_key,
             test=self.test_dict,

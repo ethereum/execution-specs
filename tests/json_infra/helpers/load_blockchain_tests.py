@@ -148,6 +148,9 @@ class BlockchainTestFixture(Fixture, Item):
                 if key.startswith("expectException"):
                     block_exception = value
                     break
+                if key == "exceptions":
+                    block_exception = value
+                    break
 
             if block_exception:
                 # TODO: Once all the specific exception types are thrown,
