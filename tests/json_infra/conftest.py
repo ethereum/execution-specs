@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import tarfile
+from glob import glob
 from pathlib import Path
 from typing import (
     Any,
@@ -36,7 +37,10 @@ from ethereum_spec_tools.evm_tools.statetest import (
 )
 
 from . import FORKS, TEST_FIXTURES
-from .helpers.exceptional_test_patterns import exceptional_state_test_patterns
+from .helpers.exceptional_test_patterns import (
+    exceptional_blockchain_test_patterns,
+    exceptional_state_test_patterns,
+)
 from .helpers.load_blockchain_tests import run_blockchain_st_test
 from .helpers.load_state_tests import run_state_test
 
@@ -280,6 +284,13 @@ def pytest_sessionstart(session: Session) -> None:
                     fixture_path,
                 )
 
+            # Remove any python files in the downloaded files to avoid
+            # importing them.
+            for python_file in glob(
+                os.path.join(fixture_path, "**/*.py"), recursive=True
+            ):
+                os.unlink(python_file)
+
 
 def pytest_sessionfinish(session: Session, exitstatus: int) -> None:
     """Clean up file locks at session finish."""
@@ -384,6 +395,8 @@ class StateTestFixture(Fixture):
         for test_case in read_state_test_case(
             test_file_path=file_path, key=key, test=obj
         ):
+            if test_case.fork_name not in FORKS:
+                continue
             name = f"{key} - {test_case.index}"
             new_item = StateTest.from_parent(
                 parent,
@@ -418,9 +431,11 @@ class BlockchainTest(Item):
         self.test_dict = test_dict
         self.own_markers.append(pytest.mark.fork(fork_name))
         self.own_markers.append(pytest.mark.evm_tools)
-        self.own_markers.append(pytest.mark.json_state_tests)
+        self.own_markers.append(pytest.mark.json_blockchain_tests)
         eels_fork = FORKS[fork_name]["eels_fork"]
-        test_patterns = exceptional_state_test_patterns(fork_name, eels_fork)
+        test_patterns = exceptional_blockchain_test_patterns(
+            fork_name, eels_fork
+        )
         _identifier = "(" + test_file + "|" + test_key + ")"
         if any(
             x.search(test_file) for x in test_patterns.expected_fail
@@ -465,7 +480,8 @@ class BlockchainTestFixture(Fixture):
     ) -> Generator[Item, None, None]:
         """Collect blockchain tests from a single fixture dictionary."""
         name = f"{key}"
-        assert "network" in obj
+        if "network" not in obj or obj["network"] not in FORKS:
+            return
         new_item = BlockchainTest.from_parent(
             parent,
             name=name,
@@ -493,19 +509,19 @@ class FixturesFile(File):
         with open(self.path, "r") as file:
             try:
                 loaded_file = json.load(file)
-                if not isinstance(loaded_file, dict):
-                    return
-                for key, fixture_dict in loaded_file.items():
-                    if not isinstance(fixture_dict, dict):
-                        continue
-                    for fixture_type in FixtureTypes:
-                        if not fixture_type.is_format(fixture_dict):
-                            continue
-                        yield from fixture_type.collect(
-                            parent=self,
-                            file_path=self.path,
-                            key=key,
-                            obj=fixture_dict,
-                        )
             except Exception:
+                return  # Skip *.json files that are unreadable.
+            if not isinstance(loaded_file, dict):
                 return
+            for key, fixture_dict in loaded_file.items():
+                if not isinstance(fixture_dict, dict):
+                    continue
+                for fixture_type in FixtureTypes:
+                    if not fixture_type.is_format(fixture_dict):
+                        continue
+                    yield from fixture_type.collect(
+                        parent=self,
+                        file_path=str(self.path),
+                        key=key,
+                        obj=fixture_dict,
+                    )
