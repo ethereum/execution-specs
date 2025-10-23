@@ -733,7 +733,6 @@ def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
 
     return True
 
-
 def calculate_block_difficulty(
     block_number: Uint,
     block_timestamp: U256,
@@ -762,13 +761,14 @@ def calculate_block_difficulty(
 
     Homestead difficulty: same behavior, fewer int() casts.
     """
-    # Fewer casts: compute once, use many (using full names as requested)
+    # Cast only when necessary for signed arithmetic, avoiding intermediate variables.
     parent_difficulty_int = int(parent_difficulty)
     time_delta = int(block_timestamp) - int(parent_timestamp)
 
-    # Base adjustment (non-negative, addressing reviewer's concern).
-    base_adjust = parent_difficulty_int // 2048
-    offset = base_adjust * max(1 - (time_delta // 10), -99)
+    offset = (parent_difficulty_int // 2048) * max(
+        1 - (time_delta // 10),
+        -99
+    )
     difficulty = parent_difficulty_int + offset
 
     # Historical Note: The difficulty bomb was not present in Ethereum at the
@@ -777,10 +777,8 @@ def calculate_block_difficulty(
     # genesis.
     # See https://github.com/ethereum/go-ethereum/pull/1588
 
-    # Block number conversion is necessary for the bomb calculation
     num_bomb_periods = (int(block_number) // 100000) - 2
     if num_bomb_periods >= 0:
-        # Keep exponent form (aligns with repo style)
         difficulty += 2**num_bomb_periods
 
     # Some clients raise the difficulty to MINIMUM_DIFFICULTY prior to adding
