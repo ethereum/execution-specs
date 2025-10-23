@@ -1,6 +1,5 @@
 """Pytest configuration for the json infra tests."""
 
-import json
 import os
 import shutil
 import tarfile
@@ -9,7 +8,6 @@ from pathlib import Path
 from typing import (
     Callable,
     Final,
-    Generator,
     Optional,
     Self,
     Set,
@@ -22,12 +20,12 @@ from _pytest.config.argparsing import Parser
 from _pytest.nodes import Item
 from filelock import FileLock
 from git.exc import GitCommandError, InvalidGitRepositoryError
-from pytest import Collector, File, Session, StashKey, fixture
+from pytest import Collector, Session, StashKey, fixture
 from requests_cache import CachedSession
 from requests_cache.backends.sqlite import SQLiteCache
 
 from . import TEST_FIXTURES
-from .helpers import ALL_FIXTURE_TYPES
+from .helpers import FixturesFile
 
 try:
     from xdist import get_xdist_worker_id
@@ -299,35 +297,3 @@ def pytest_collect_file(
     if file_path.suffix == ".json":
         return FixturesFile.from_parent(parent, path=file_path)
     return None
-
-
-class FixturesFile(File):
-    """Single JSON file containing fixtures."""
-
-    def collect(
-        self: Self,
-    ) -> Generator[Item | Collector, None, None]:
-        """Collect test cases from a single JSON fixtures file."""
-        with open(self.path, "r") as file:
-            try:
-                loaded_file = json.load(file)
-            except Exception:
-                return  # Skip *.json files that are unreadable.
-            if not isinstance(loaded_file, dict):
-                return
-            for key, test_dict in loaded_file.items():
-                if not isinstance(test_dict, dict):
-                    continue
-                for fixture_type in ALL_FIXTURE_TYPES:
-                    if not fixture_type.is_format(test_dict):
-                        continue
-                    name = key
-                    if "::" in name:
-                        name = name.split("::")[1]
-                    yield fixture_type.from_parent(  # type: ignore
-                        parent=self,
-                        name=name,
-                        test_file=str(self.path),
-                        test_key=key,
-                        test_dict=test_dict,
-                    )
