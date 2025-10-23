@@ -188,8 +188,8 @@ class Unscheduled(ForkCriteria):
     Forks that have not been scheduled.
     """
 
-    def __init__(self) -> None:
-        self._internal = (ForkCriteria.UNSCHEDULED, 0)
+    def __init__(self, order_index: int = 0) -> None:
+        self._internal = (ForkCriteria.UNSCHEDULED, order_index)
 
     @override
     def check(self, block_number: Uint, timestamp: U256) -> Literal[False]:
@@ -202,4 +202,4 @@ class Unscheduled(ForkCriteria):
         """
         String representation of this object.
         """
-        return "Unscheduled()"
+        return f"Unscheduled(order_index={self._internal[1]})"

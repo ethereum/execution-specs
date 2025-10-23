@@ -331,7 +331,13 @@ class ForkBuilder:
 
         # Try to make a sane guess for the activation criteria.
         if found is forks[-1]:
-            self.fork_criteria = Unscheduled()
+            order_index = 0
+
+            # check template fork's criteria and bump order_index if needed
+            if isinstance(found.criteria, Unscheduled):
+                order_index = found.criteria._internal[1] + 1
+
+            self.fork_criteria = Unscheduled(order_index=order_index)
         elif hasattr(found.criteria, "timestamp"):
             self.fork_criteria = ByTimestamp(
                 U256(found.criteria.timestamp) + U256(1)
