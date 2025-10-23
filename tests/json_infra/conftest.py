@@ -429,6 +429,7 @@ class BlockchainTest(Item):
         self.test_file = test_file
         self.test_key = test_key
         self.test_dict = test_dict
+        self.fork_name = fork_name
         self.own_markers.append(pytest.mark.fork(fork_name))
         self.own_markers.append(pytest.mark.evm_tools)
         self.own_markers.append(pytest.mark.json_blockchain_tests)
