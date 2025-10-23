@@ -19,7 +19,7 @@ uv run mkdocs build --strict
 Perform all docs related checks via `tox` in parallel:
 
 ```console
-uvx --with=tox-uv tox -e spellcheck,markdownlint,mkdocs --parallel
+uvx tox -e spellcheck,markdownlint,mkdocs --parallel
 ```
 
 ### Local Deployment and Test

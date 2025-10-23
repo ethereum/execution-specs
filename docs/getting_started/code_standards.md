@@ -8,15 +8,15 @@ Code pushed to @ethereum/execution-spec-tests must fulfill the following checks 
 
 | Type                   | Tox Command                                     | Explanation                                                                                                 |
 | ---------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Lint & code formatting | `uvx --with=tox-uv tox -e lint`                 | Python lint, format and module import check via `ruff`                                                      |
-| Typecheck              | `uvx --with=tox-uv tox -e typecheck`            | Objects that provide typehints pass type-checking via `mypy`.                                               |
-| Framework unit tests   | `uvx --with=tox-uv tox -e pytest`               | All framework unit tests must execute correctly.                                                            |
-| EL Client test cases   | `uvx --with=tox-uv tox -e tests-deployed`       | All client test cases for deployed forks can be generated.                                                  |
-| Benchmark EL Test cases    | `uvx --with=tox-uv tox -e tests-deployed-benchmark` | All client test cases specific to benchmarks for deployed forks can be generated.                               |
-| HTML doc build         | `uvx --with=tox-uv tox -e mkdocs`               | Documentation generated without warnings.                                                                   |
-| Spellcheck             | `uvx --with=tox-uv tox -e spellcheck`           | Code and documentation spell-check using codespell. |
-| Markdown lint          | `uvx --with=tox-uv tox -e markdownlint`         | Markdown lint (requires [additional dependency](code_standards_details.md#additional-dependencies)).        |
-| Changelog validation   | `uvx --with=tox-uv tox -e changelog`            | Validates changelog entries format and structure in `docs/CHANGELOG.md`.                                    |
+| Lint & code formatting | `uvx tox -e lint`                 | Python lint, format and module import check via `ruff`                                                      |
+| Typecheck              | `uvx tox -e typecheck`            | Objects that provide typehints pass type-checking via `mypy`.                                               |
+| Framework unit tests   | `uvx tox -e pytest`               | All framework unit tests must execute correctly.                                                            |
+| EL Client test cases   | `uvx tox -e tests-deployed`       | All client test cases for deployed forks can be generated.                                                  |
+| Benchmark EL Test cases    | `uvx tox -e tests-deployed-benchmark` | All client test cases specific to benchmarks for deployed forks can be generated.                               |
+| HTML doc build         | `uvx tox -e mkdocs`               | Documentation generated without warnings.                                                                   |
+| Spellcheck             | `uvx tox -e spellcheck`           | Code and documentation spell-check using codespell. |
+| Markdown lint          | `uvx tox -e markdownlint`         | Markdown lint (requires [additional dependency](code_standards_details.md#additional-dependencies)).        |
+| Changelog validation   | `uvx tox -e changelog`            | Validates changelog entries format and structure in `docs/CHANGELOG.md`.                                    |
 
 !!! important "Avoid CI surprises - Use pre-commit hooks!"
     **We strongly encourage all contributors to install and use pre-commit hooks!** This will run fast checks (lint, typecheck, spellcheck) automatically before each commit, helping you catch issues early and avoid frustrating CI failures after pushing your changes.
@@ -33,25 +33,25 @@ Code pushed to @ethereum/execution-spec-tests must fulfill the following checks 
     Add an alias:
 
     ```console
-    alias tox="uvx --with=tox-uv tox"
+    alias tox="uvx tox"
     ```
 
     Run all checks in parallel:
 
     ```console
-    uvx --with=tox-uv tox run-parallel
+    uvx tox run-parallel
     ```
 
     Run sequentially:
 
     ```console
-    uvx --with=tox-uv tox
+    uvx tox
     ```
 
     Run specific, faster checks:
 
     ```console
-    uvx --with=tox-uv tox -e lint,typecheck
+    uvx tox -e lint,typecheck
     ```
 
 !!! tip "Lint & code formatting: Using `ruff` and VS Code to help autoformat and fix module imports"

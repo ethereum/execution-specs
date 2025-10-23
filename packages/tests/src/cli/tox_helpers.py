@@ -44,7 +44,7 @@ def write_github_summary(
         f.write(f"{error_message}\n\n")
         f.write("### To reproduce this check locally:\n")
         f.write("```bash\n")
-        f.write(f"uvx --with=tox-uv tox -e {tox_env}\n")
+        f.write(f"uvx tox -e {tox_env}\n")
         f.write("```\n\n")
 
         if fix_commands:

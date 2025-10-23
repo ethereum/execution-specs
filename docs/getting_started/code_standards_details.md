@@ -9,19 +9,19 @@ This page provides in-depth information about the code standards and verificatio
 Run all `tox` environments in parallel:
 
 ```console
-uvx --with=tox-uv tox run-parallel
+uvx tox run-parallel
 ```
 
 Run environments sequentially with verbose output:
 
 ```console
-uvx --with=tox-uv tox -v
+uvx tox -v
 ```
 
 List all available environments:
 
 ```console
-uvx --with=tox-uv tox -av
+uvx tox -av
 ```
 
 ### Specific Environment Commands
@@ -29,25 +29,25 @@ uvx --with=tox-uv tox -av
 Run specific environments using the `-e` flag:
 
 ```console
-uvx --with=tox-uv tox -e lint,typecheck,spellcheck
+uvx tox -e lint,typecheck,spellcheck
 ```
 
 #### For Test Case Changes (`./tests/`)
 
 ```console
-uvx --with=tox-uv tox -e lint,typecheck,spellcheck,tests-deployed
+uvx tox -e lint,typecheck,spellcheck,tests-deployed
 ```
 
 #### For Framework and Library Changes (`./src/`)
 
 ```console
-uvx --with=tox-uv tox -e lint,typecheck,spellcheck,pytest
+uvx tox -e lint,typecheck,spellcheck,pytest
 ```
 
 #### For Documentation Changes (`./docs/`)
 
 ```console
-uvx --with=tox-uv tox -e spellcheck,markdownlint,mkdocs,changelog
+uvx tox -e spellcheck,markdownlint,mkdocs,changelog
 ```
 
 !!! note "Tox Virtual Environment"
