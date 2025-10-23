@@ -43,7 +43,9 @@ def create_default_env() -> None:
         exit(1)
 
     template_environment = Environment(
-        loader=PackageLoader("config"), trim_blocks=True, lstrip_blocks=True
+        loader=PackageLoader("execution_testing.config"),
+        trim_blocks=True,
+        lstrip_blocks=True,
     )
     template = template_environment.get_template("env.yaml.j2")
 

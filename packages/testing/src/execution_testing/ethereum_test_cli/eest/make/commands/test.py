@@ -19,7 +19,9 @@ from execution_testing.forks import get_development_forks, get_forks
 
 from ....input import input_select, input_text
 
-template_loader = jinja2.PackageLoader("cli.eest.make")
+template_loader = jinja2.PackageLoader(
+    "execution_testing.ethereum_test_cli.eest.make"
+)
 template_env = jinja2.Environment(
     loader=template_loader,
     keep_trailing_newline=True,
