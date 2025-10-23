@@ -41,7 +41,7 @@ from .helpers.exceptional_test_patterns import (
     exceptional_blockchain_test_patterns,
     exceptional_state_test_patterns,
 )
-from .helpers.load_blockchain_tests import run_blockchain_st_test
+from .helpers.load_blockchain_tests import Load, run_blockchain_st_test
 from .helpers.load_state_tests import run_state_test
 
 try:
@@ -453,7 +453,12 @@ class BlockchainTest(Item):
             "test_key": self.test_key,
             "test_dict": self.test_dict,
         }
-        run_blockchain_st_test(test_case_dict)
+        eels_fork = FORKS[self.fork_name]["eels_fork"]
+        load = Load(
+            self.fork_name,
+            eels_fork,
+        )
+        run_blockchain_st_test(test_case_dict, load=load)
 
 
 class BlockchainTestFixture(Fixture):
