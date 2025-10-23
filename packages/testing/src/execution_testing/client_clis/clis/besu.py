@@ -296,26 +296,6 @@ class BesuExceptionMapper(ExceptionMapper):
         BlockException.RLP_BLOCK_LIMIT_EXCEEDED: (
             r"Block size of \d+ bytes exceeds limit of \d+ bytes"
         ),
-        BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
-            r"Block access list hash mismatch, "
-            r"calculated:\s*(0x[a-f0-9]+)\s+header:\s*(0x[a-f0-9]+)"
-        ),
-        BlockException.INVALID_BAL_HASH: (
-            r"Block access list hash mismatch, "
-            r"calculated:\s*(0x[a-f0-9]+)\s+header:\s*(0x[a-f0-9]+)"
-        ),
-        BlockException.INVALID_BAL_MISSING_ACCOUNT: (
-            r"Block access list hash mismatch, "
-            r"calculated:\s*(0x[a-f0-9]+)\s+header:\s*(0x[a-f0-9]+)"
-        ),
-        BlockException.INVALID_BLOCK_ACCESS_LIST: (
-            r"Block access list hash mismatch, "
-            r"calculated:\s*(0x[a-f0-9]+)\s+header:\s*(0x[a-f0-9]+)"
-        ),
-        BlockException.INCORRECT_BLOCK_FORMAT: (
-            r"Block access list hash mismatch, "
-            r"calculated:\s*(0x[a-f0-9]+)\s+header:\s*(0x[a-f0-9]+)"
-        ),
         TransactionException.INITCODE_SIZE_EXCEEDED: (
             r"transaction invalid Initcode size of \d+ exceeds maximum size of \d+"
         ),
@@ -344,5 +324,26 @@ class BesuExceptionMapper(ExceptionMapper):
         ),
         TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: (
             r"Blob transaction has too many blobs: \d+|Invalid Blob Count: \d+"
+        ),
+        # BAL Exceptions: TODO - review once all clients completed.
+        BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
+            r"Block access list hash mismatch, "
+            r"calculated:\s*(0x[a-f0-9]+)\s+header:\s*(0x[a-f0-9]+)"
+        ),
+        BlockException.INVALID_BAL_HASH: (
+            r"Block access list hash mismatch, "
+            r"calculated:\s*(0x[a-f0-9]+)\s+header:\s*(0x[a-f0-9]+)"
+        ),
+        BlockException.INVALID_BAL_MISSING_ACCOUNT: (
+            r"Block access list hash mismatch, "
+            r"calculated:\s*(0x[a-f0-9]+)\s+header:\s*(0x[a-f0-9]+)"
+        ),
+        BlockException.INVALID_BLOCK_ACCESS_LIST: (
+            r"Block access list hash mismatch, "
+            r"calculated:\s*(0x[a-f0-9]+)\s+header:\s*(0x[a-f0-9]+)"
+        ),
+        BlockException.INCORRECT_BLOCK_FORMAT: (
+            r"Block access list hash mismatch, "
+            r"calculated:\s*(0x[a-f0-9]+)\s+header:\s*(0x[a-f0-9]+)"
         ),
     }
