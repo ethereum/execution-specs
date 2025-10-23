@@ -272,7 +272,11 @@ def pytest_sessionstart(session: Session) -> None:
             for python_file in glob(
                 os.path.join(fixture_path, "**/*.py"), recursive=True
             ):
-                os.unlink(python_file)
+                try:
+                    os.unlink(python_file)
+                except FileNotFoundError:
+                    # Not breaking error, another process deleted it first
+                    pass
 
 
 def pytest_sessionfinish(session: Session, exitstatus: int) -> None:
