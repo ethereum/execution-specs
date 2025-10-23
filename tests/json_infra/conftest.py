@@ -25,7 +25,7 @@ from requests_cache import CachedSession
 from requests_cache.backends.sqlite import SQLiteCache
 
 from . import TEST_FIXTURES
-from .helpers import FixturesFile
+from .helpers import FixturesFile, FixtureTestItem
 
 try:
     from xdist import get_xdist_worker_id
@@ -301,3 +301,16 @@ def pytest_collect_file(
     if file_path.suffix == ".json":
         return FixturesFile.from_parent(parent, path=file_path)
     return None
+
+
+def pytest_runtest_teardown(item: Item, nextitem: Item) -> None:
+    """
+    Drop cache from a `FixtureTestItem` if the next one is not of the
+    same type or does not belong to the same fixtures file.
+    """
+    if isinstance(item, FixtureTestItem):
+        if not isinstance(nextitem, FixtureTestItem):
+            item.fixtures_file.clear_data_cache()
+        else:
+            if item.fixtures_file != nextitem.fixtures_file:
+                item.fixtures_file.clear_data_cache()

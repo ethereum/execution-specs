@@ -2,10 +2,22 @@
 
 import json
 from abc import ABC, abstractmethod
+from functools import cached_property
 from typing import Any, Dict, Generator, List, Self, Type
 
 from _pytest.nodes import Node
 from pytest import Collector, File, Item
+
+
+class FixtureTestItem(Item):
+    """
+    Test item that comes from a fixture file.
+    """
+
+    @property
+    def fixtures_file(self) -> "FixturesFile":
+        """Return the fixtures file from which the test was extracted."""
+        raise NotImplementedError()
 
 
 class Fixture(ABC):
@@ -18,20 +30,17 @@ class Fixture(ABC):
 
     test_file: str
     test_key: str
-    test_dict: Dict[str, Any]
 
     def __init__(
         self,
         *args: Any,
         test_file: str,
         test_key: str,
-        test_dict: Dict[str, Any],
         **kwargs: Any,
     ):
         super().__init__(*args, **kwargs)
         self.test_file = test_file
         self.test_key = test_key
-        self.test_dict = test_dict
 
     @classmethod
     def from_parent(
@@ -57,30 +66,41 @@ ALL_FIXTURE_TYPES: List[Type[Fixture]] = []
 class FixturesFile(File):
     """Single JSON file containing fixtures."""
 
+    @cached_property
+    def data(self) -> Dict[str, Any]:
+        """Return the JSON data of the full file."""
+        # loaded once per worker per file (thanks to cached_property)
+        with self.fspath.open("r", encoding="utf-8") as f:
+            return json.load(f)
+
+    def clear_data_cache(self) -> None:
+        """Drop the data cache."""
+        del self.data
+
     def collect(
         self: Self,
     ) -> Generator[Item | Collector, None, None]:
         """Collect test cases from a single JSON fixtures file."""
-        with open(self.path, "r") as file:
-            try:
-                loaded_file = json.load(file)
-            except Exception:
-                return  # Skip *.json files that are unreadable.
-            if not isinstance(loaded_file, dict):
-                return
-            for key, test_dict in loaded_file.items():
-                if not isinstance(test_dict, dict):
+        try:
+            loaded_file = self.data
+        except Exception:
+            return  # Skip *.json files that are unreadable.
+        if not isinstance(loaded_file, dict):
+            return
+        for key, test_dict in loaded_file.items():
+            if not isinstance(test_dict, dict):
+                continue
+            for fixture_type in ALL_FIXTURE_TYPES:
+                if not fixture_type.is_format(test_dict):
                     continue
-                for fixture_type in ALL_FIXTURE_TYPES:
-                    if not fixture_type.is_format(test_dict):
-                        continue
-                    name = key
-                    if "::" in name:
-                        name = name.split("::")[1]
-                    yield fixture_type.from_parent(  # type: ignore
-                        parent=self,
-                        name=name,
-                        test_file=str(self.path),
-                        test_key=key,
-                        test_dict=test_dict,
-                    )
+                name = key
+                if "::" in name:
+                    name = name.split("::")[1]
+                yield fixture_type.from_parent(  # type: ignore
+                    parent=self,
+                    name=name,
+                    test_file=str(self.path),
+                    test_key=key,
+                )
+        # Make sure we don't keep anything from collection in memory.
+        self.clear_data_cache()

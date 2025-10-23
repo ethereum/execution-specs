@@ -12,51 +12,73 @@ from pytest import Collector
 from ethereum.exceptions import StateWithEmptyAccount
 from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum_spec_tools.evm_tools import create_parser
-from ethereum_spec_tools.evm_tools.statetest import TestCase, read_test_case
+from ethereum_spec_tools.evm_tools.statetest import read_test_case
 from ethereum_spec_tools.evm_tools.t8n import T8N
 
 from .. import FORKS
 from .exceptional_test_patterns import (
     exceptional_state_test_patterns,
 )
-from .fixtures import Fixture
+from .fixtures import Fixture, FixturesFile, FixtureTestItem
 
 parser = create_parser()
 
 
-class StateTest(Item):
+class StateTest(FixtureTestItem):
     """Single state test case item."""
 
-    test_case: TestCase
-    test_dict: Dict[str, Any]
+    index: int
+    fork_name: str
 
     def __init__(
         self,
         *args: Any,
-        test_case: TestCase,
-        test_dict: Dict[str, Any],
+        index: int,
+        fork_name: str,
+        key: str,
         **kwargs: Any,
     ) -> None:
         """Initialize a single test case item."""
         super().__init__(*args, **kwargs)
-        self.test_case = test_case
-        self.test_dict = test_dict
-        self.add_marker(pytest.mark.fork(self.test_case.fork_name))
+        self.index = index
+        self.fork_name = fork_name
+        self.add_marker(pytest.mark.fork(self.fork_name))
         self.add_marker("evm_tools")
         self.add_marker("json_state_tests")
-        eels_fork = FORKS[test_case.fork_name]["eels_fork"]
-        test_patterns = exceptional_state_test_patterns(
-            test_case.fork_name, eels_fork
-        )
-        if any(x.search(test_case.key) for x in test_patterns.slow):
+        eels_fork = FORKS[fork_name]["eels_fork"]
+        test_patterns = exceptional_state_test_patterns(fork_name, eels_fork)
+        if any(x.search(key) for x in test_patterns.slow):
             self.add_marker("slow")
+
+    @property
+    def state_test_fixture(self) -> "StateTestFixture":
+        """Return the state test fixture this test belongs to."""
+        parent = self.parent
+        assert parent is not None
+        assert isinstance(parent, StateTestFixture)
+        return parent
+
+    @property
+    def test_key(self) -> str:
+        """Return the key of the state test fixture in the fixture file."""
+        return self.state_test_fixture.test_key
+
+    @property
+    def fixtures_file(self) -> FixturesFile:
+        """Fixtures file from which the test fixture was collected."""
+        return self.state_test_fixture.fixtures_file
+
+    @property
+    def test_dict(self) -> Dict[str, Any]:
+        """Load test from disk."""
+        loaded_file = self.fixtures_file.data
+        return loaded_file[self.test_key]
 
     def runtest(self) -> None:
         """
         Runs a single general state test.
         """
-        index = self.test_case.index
-        json_fork = self.test_case.fork_name
+        json_fork = self.fork_name
         test_dict = self.test_dict
 
         env = test_dict["env"]
@@ -68,7 +90,7 @@ class StateTest(Item):
 
         alloc = test_dict["pre"]
 
-        post = test_dict["post"][json_fork][index]
+        post = test_dict["post"][self.fork_name][self.index]
         post_hash = post["hash"]
         d = post["indexes"]["data"]
         g = post["indexes"]["gas"]
@@ -144,6 +166,20 @@ class StateTestFixture(Fixture, Collector):
             return False
         return True
 
+    @property
+    def fixtures_file(self) -> FixturesFile:
+        """Fixtures file from which the test fixture was collected."""
+        parent = self.parent
+        assert parent is not None
+        assert isinstance(parent, FixturesFile)
+        return parent
+
+    @property
+    def test_dict(self) -> Dict[str, Any]:
+        """Load test from disk."""
+        loaded_file = self.fixtures_file.data
+        return loaded_file[self.test_key]
+
     def collect(self) -> Iterable[Item | Collector]:
         """Collect state test cases inside of this fixture."""
         for test_case in read_test_case(
@@ -157,6 +193,7 @@ class StateTestFixture(Fixture, Collector):
             yield StateTest.from_parent(
                 parent=self,
                 name=name,
-                test_case=test_case,
-                test_dict=self.test_dict,
+                index=test_case.index,
+                fork_name=test_case.fork_name,
+                key=self.test_key,
             )

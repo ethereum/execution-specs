@@ -9,7 +9,6 @@ import pytest
 from ethereum_rlp import rlp
 from ethereum_rlp.exceptions import RLPException
 from ethereum_types.numeric import U64
-from pytest import Item
 
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import EthereumException, StateWithEmptyAccount
@@ -18,7 +17,7 @@ from ethereum_spec_tools.evm_tools.loaders.fixture_loader import Load
 
 from .. import FORKS
 from .exceptional_test_patterns import exceptional_blockchain_test_patterns
-from .fixtures import Fixture
+from .fixtures import Fixture, FixturesFile, FixtureTestItem
 
 
 class NoTestsFoundError(Exception):
@@ -59,7 +58,7 @@ def add_block_to_chain(
             )
 
 
-class BlockchainTestFixture(Fixture, Item):
+class BlockchainTestFixture(Fixture, FixtureTestItem):
     """Single blockchain test fixture from a JSON file."""
 
     fork_name: str
@@ -90,6 +89,20 @@ class BlockchainTestFixture(Fixture, Item):
             self.add_marker("slow")
         if any(x.search(_identifier) for x in test_patterns.big_memory):
             self.add_marker("bigmem")
+
+    @property
+    def fixtures_file(self) -> FixturesFile:
+        """Fixtures file from which the test fixture was collected."""
+        parent = self.parent
+        assert parent is not None
+        assert isinstance(parent, FixturesFile)
+        return parent
+
+    @property
+    def test_dict(self) -> Dict[str, Any]:
+        """Load test from disk."""
+        loaded_file = self.fixtures_file.data
+        return loaded_file[self.test_key]
 
     def runtest(self) -> None:
         """Run a blockchain state test from JSON test case data."""
