@@ -5,7 +5,7 @@ import os
 import sys
 from glob import glob
 from io import StringIO
-from typing import Dict, Generator
+from typing import Any, Dict, Generator
 
 import pytest
 
@@ -71,7 +71,7 @@ def idfn(test_case: Dict) -> str:
         return f"{folder_name} - {test_key} - {index}"
 
 
-def run_state_test(test_case: Dict[str, str]) -> None:
+def run_state_test(test_case: Dict[str, str | Dict[str, Any]]) -> None:
     """
     Runs a single general state test.
     """
@@ -79,26 +79,30 @@ def run_state_test(test_case: Dict[str, str]) -> None:
     test_key = test_case["test_key"]
     index = test_case["index"]
     json_fork = test_case["json_fork"]
-    with open(test_file) as f:
-        tests = json.load(f)
+    if "test_dict" in test_case:
+        test_dict = test_case["test_dict"]
+    else:
+        with open(test_file) as f:
+            tests = json.load(f)
+            test_dict = tests[test_key]
 
-    env = tests[test_key]["env"]
+    env = test_dict["env"]
     try:
         env["blockHashes"] = {"0": env["previousHash"]}
     except KeyError:
         env["blockHashes"] = {}
     env["withdrawals"] = []
 
-    alloc = tests[test_key]["pre"]
+    alloc = test_dict["pre"]
 
-    post = tests[test_key]["post"][json_fork][index]
+    post = test_dict["post"][json_fork][index]
     post_hash = post["hash"]
     d = post["indexes"]["data"]
     g = post["indexes"]["gas"]
     v = post["indexes"]["value"]
 
     tx = {}
-    for k, value in tests[test_key]["transaction"].items():
+    for k, value in test_dict["transaction"].items():
         if k == "data":
             tx["input"] = value[d]
         elif k == "gasLimit":

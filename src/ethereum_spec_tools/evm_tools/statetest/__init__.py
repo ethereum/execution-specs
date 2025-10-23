@@ -9,7 +9,7 @@ import sys
 from copy import deepcopy
 from dataclasses import dataclass
 from io import StringIO
-from typing import Any, Dict, Iterable, List, Optional, TextIO
+from typing import Any, Dict, Generator, Iterable, List, Optional, TextIO
 
 from ethereum.utils.hexadecimal import hex_to_bytes
 
@@ -35,6 +35,41 @@ class TestCase:
     transaction: Dict
 
 
+def read_test_case(
+    test_file_path: str, key: str, test: Dict[str, Any]
+) -> Generator[TestCase, None, None]:
+    """
+    Given a key and a value, return a `TestCase` object.
+    """
+    env = test["env"]
+    if not isinstance(env, dict):
+        raise TypeError("env not dict")
+
+    pre = test["pre"]
+    if not isinstance(pre, dict):
+        raise TypeError("pre not dict")
+
+    transaction = test["transaction"]
+    if not isinstance(transaction, dict):
+        raise TypeError("transaction not dict")
+
+    for fork_name, content in test["post"].items():
+        for idx, post in enumerate(content):
+            if not isinstance(post, dict):
+                raise TypeError(f'post["{fork_name}"] not dict')
+
+            yield TestCase(
+                path=test_file_path,
+                key=key,
+                index=idx,
+                fork_name=fork_name,
+                post=post,
+                env=env,
+                pre=pre,
+                transaction=transaction,
+            )
+
+
 def read_test_cases(test_file_path: str) -> Iterable[TestCase]:
     """
     Given a path to a filled state test in JSON format, return all the
@@ -44,33 +79,7 @@ def read_test_cases(test_file_path: str) -> Iterable[TestCase]:
         tests = json.load(test_file)
 
     for key, test in tests.items():
-        env = test["env"]
-        if not isinstance(env, dict):
-            raise TypeError("env not dict")
-
-        pre = test["pre"]
-        if not isinstance(pre, dict):
-            raise TypeError("pre not dict")
-
-        transaction = test["transaction"]
-        if not isinstance(transaction, dict):
-            raise TypeError("transaction not dict")
-
-        for fork_name, content in test["post"].items():
-            for idx, post in enumerate(content):
-                if not isinstance(post, dict):
-                    raise TypeError(f'post["{fork_name}"] not dict')
-
-                yield TestCase(
-                    path=test_file_path,
-                    key=key,
-                    index=idx,
-                    fork_name=fork_name,
-                    post=post,
-                    env=env,
-                    pre=pre,
-                    transaction=transaction,
-                )
+        yield from read_test_case(test_file_path, key, test)
 
 
 def run_test_case(

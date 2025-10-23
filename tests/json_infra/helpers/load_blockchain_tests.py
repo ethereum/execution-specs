@@ -34,10 +34,12 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
     test_file = test_case["test_file"]
     test_key = test_case["test_key"]
 
-    with open(test_file, "r") as fp:
-        data = json.load(fp)
-
-    json_data = data[test_key]
+    if "test_dict" in test_case:
+        json_data = test_case["test_dict"]
+    else:
+        with open(test_file, "r") as fp:
+            data = json.load(fp)
+            json_data = data[test_key]
 
     if "postState" not in json_data:
         pytest.xfail(f"{test_case} doesn't have post state")
