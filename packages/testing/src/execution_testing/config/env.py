@@ -26,7 +26,18 @@ from typing import Dict, List
 import yaml
 from pydantic import BaseModel, HttpUrl, ValidationError
 
-ENV_PATH = Path(__file__).resolve().parent.parent.parent / "env.yaml"
+
+def get_project_root() -> Path:
+    """Find project root by locating .git directory."""
+    current = Path(__file__).resolve().parent
+    while current != current.parent:
+        if (current / ".git").exists():
+            return current
+        current = current.parent
+    raise FileNotFoundError("Could not find project root (no .git directory)")
+
+
+ENV_PATH = get_project_root() / "env.yaml"
 
 
 class RemoteNode(BaseModel):
