@@ -89,30 +89,30 @@ docs = [
 ]
 
 [project.scripts]
-fill = "execution_testing.ethereum_test_cli.pytest_commands.fill:fill"
-phil = "execution_testing.ethereum_test_cli.pytest_commands.fill:phil"
-execute = "execution_testing.ethereum_test_cli.pytest_commands.execute:execute"
-attac = "execution_testing.ethereum_test_cli.pytest_commands.execute:execute"
-checkfixtures = "execution_testing.ethereum_test_cli.check_fixtures:check_fixtures"
-check_eip_versions = "execution_testing.ethereum_test_cli.pytest_commands.check_eip_versions:check_eip_versions"
-consume = "execution_testing.ethereum_test_cli.pytest_commands.consume:consume"
-protec = "execution_testing.ethereum_test_cli.pytest_commands.consume:consume"
-checklist = "execution_testing.ethereum_test_cli.pytest_commands.checklist:checklist"
-generate_checklist_stubs = "execution_testing.ethereum_test_cli.generate_checklist_stubs:generate_checklist_stubs"
-genindex = "execution_testing.ethereum_test_cli.gen_index:generate_fixtures_index_cli"
-gentest = "execution_testing.ethereum_test_cli.gentest:generate"
-eofwrap = "execution_testing.ethereum_test_cli.eofwrap:eof_wrap"
-pyspelling_soft_fail = "execution_testing.ethereum_test_cli.tox_helpers:pyspelling"
-markdownlintcli2_soft_fail = "execution_testing.ethereum_test_cli.tox_helpers:markdownlint"
-order_fixtures = "execution_testing.ethereum_test_cli.order_fixtures:order_fixtures"
-evm_bytes = "execution_testing.ethereum_test_cli.evm_bytes:evm_bytes"
-hasher = "execution_testing.ethereum_test_cli.hasher:main"
-eest = "execution_testing.ethereum_test_cli.eest.cli:eest"
-fillerconvert = "execution_testing.ethereum_test_cli.fillerconvert.fillerconvert:main"
-groupstats = "execution_testing.ethereum_test_cli.show_pre_alloc_group_stats:main"
-extract_config = "execution_testing.ethereum_test_cli.extract_config:extract_config"
-compare_fixtures = "execution_testing.ethereum_test_cli.compare_fixtures:main"
-modify_static_test_gas_limits = "execution_testing.ethereum_test_cli.modify_static_test_gas_limits:main"
+fill = "execution_testing.cli.pytest_commands.fill:fill"
+phil = "execution_testing.cli.pytest_commands.fill:phil"
+execute = "execution_testing.cli.pytest_commands.execute:execute"
+attac = "execution_testing.cli.pytest_commands.execute:execute"
+checkfixtures = "execution_testing.cli.check_fixtures:check_fixtures"
+check_eip_versions = "execution_testing.cli.pytest_commands.check_eip_versions:check_eip_versions"
+consume = "execution_testing.cli.pytest_commands.consume:consume"
+protec = "execution_testing.cli.pytest_commands.consume:consume"
+checklist = "execution_testing.cli.pytest_commands.checklist:checklist"
+generate_checklist_stubs = "execution_testing.cli.generate_checklist_stubs:generate_checklist_stubs"
+genindex = "execution_testing.cli.gen_index:generate_fixtures_index_cli"
+gentest = "execution_testing.cli.gentest:generate"
+eofwrap = "execution_testing.cli.eofwrap:eof_wrap"
+pyspelling_soft_fail = "execution_testing.cli.tox_helpers:pyspelling"
+markdownlintcli2_soft_fail = "execution_testing.cli.tox_helpers:markdownlint"
+order_fixtures = "execution_testing.cli.order_fixtures:order_fixtures"
+evm_bytes = "execution_testing.cli.evm_bytes:evm_bytes"
+hasher = "execution_testing.cli.hasher:main"
+eest = "execution_testing.cli.eest.cli:eest"
+fillerconvert = "execution_testing.cli.fillerconvert.fillerconvert:main"
+groupstats = "execution_testing.cli.show_pre_alloc_group_stats:main"
+extract_config = "execution_testing.cli.extract_config:extract_config"
+compare_fixtures = "execution_testing.cli.compare_fixtures:main"
+modify_static_test_gas_limits = "execution_testing.cli.modify_static_test_gas_limits:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -120,10 +120,10 @@ exclude = ["*tests*"]
 
 [tool.setuptools.package-data]
 "execution_testing.forks" = ["forks/contracts/*.bin"]
-"execution_testing.ethereum_test_cli.pytest_commands.plugins.execute" = ["eth_config/networks.yml"]
-"execution_testing.ethereum_test_cli.pytest_commands.plugins" = ["eels_resolutions.json"]
-"execution_testing.ethereum_test_cli.eest.make" = ["templates/*.j2"]
-"execution_testing.ethereum_test_cli.pytest_commands" = ["pytest_ini_files/*.ini"]
+"execution_testing.cli.pytest_commands.plugins.execute" = ["eth_config/networks.yml"]
+"execution_testing.cli.pytest_commands.plugins" = ["eels_resolutions.json"]
+"execution_testing.cli.eest.make" = ["templates/*.j2"]
+"execution_testing.cli.pytest_commands" = ["pytest_ini_files/*.ini"]
 "execution_testing.test_types" = ["kzg_trusted_setup.txt"]
 
 [tool.ruff]
@@ -145,9 +145,9 @@ testpaths = [
 ]
 addopts = [
     "-p", "pytester",
-    "--ignore=src/execution_testing/ethereum_test_cli/pytest_commands/plugins/consume/test_cache.py",
-    "--ignore=src/execution_testing/ethereum_test_cli/pytest_commands/plugins/consume/direct/",
-    "--ignore=src/execution_testing/ethereum_test_cli/pytest_commands/plugins/consume/simulators/",
+    "--ignore=src/execution_testing/cli/pytest_commands/plugins/consume/test_cache.py",
+    "--ignore=src/execution_testing/cli/pytest_commands/plugins/consume/direct/",
+    "--ignore=src/execution_testing/cli/pytest_commands/plugins/consume/simulators/",
 ]
 markers = [
     "pre_alloc_group: Custom marker for pre-allocation grouping",

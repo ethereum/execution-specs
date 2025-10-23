@@ -8,7 +8,7 @@ from typing import Any, List, Mapping
 import pytest
 from click.testing import CliRunner
 
-import execution_testing.ethereum_test_cli.check_fixtures
+import execution_testing.cli.check_fixtures
 from execution_testing.base_types import (
     AccessList,
     Account,
@@ -76,7 +76,7 @@ def test_check_helper_fixtures() -> None:
         "--stop-on-error",
     ]
     result = runner.invoke(
-        execution_testing.ethereum_test_cli.check_fixtures.check_fixtures,
+        execution_testing.cli.check_fixtures.check_fixtures,
         args,
     )
     assert result.exit_code == 0, (

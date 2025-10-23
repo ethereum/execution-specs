@@ -14,7 +14,7 @@ from execution_testing.base_types import (
     TestPrivateKey,
 )
 from execution_testing.client_clis import TransitionTool
-from execution_testing.ethereum_test_cli.pytest_commands.plugins.solc.solc import (
+from execution_testing.cli.pytest_commands.plugins.solc.solc import (
     SOLC_EXPECTED_MIN_VERSION,
 )
 from execution_testing.fixtures import BlockchainFixture

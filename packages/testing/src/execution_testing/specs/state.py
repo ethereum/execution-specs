@@ -21,7 +21,7 @@ from execution_testing.client_clis import (
     TransitionTool,
     TransitionToolOutput,
 )
-from execution_testing.ethereum_test_cli.pytest_commands.plugins.custom_logging import (
+from execution_testing.cli.pytest_commands.plugins.custom_logging import (
     get_logger,
 )
 from execution_testing.exceptions import (
