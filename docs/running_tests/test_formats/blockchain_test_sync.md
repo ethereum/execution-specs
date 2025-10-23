@@ -48,9 +48,8 @@ For each [`HiveFixture`](#hivefixture) test object in the JSON fixture file, per
     - Send `engine_forkchoiceUpdatedVX` pointing to the last block hash
 
 4. Monitor and verify synchronization:
-    - Wait for the sync client to reach the [`lastblockhash`](#-lastblockhash-hash)
-    - Verify the final state root matches between both clients
-    - If [`post`](#-post-alloc) is provided, verify the final state matches
+    - Wait for the sync client to return `VALID` for `engine_forkchoiceUpdatedVX` with the sync block payload
+    - If RPC is available after sync, retrieve the sync block via `eth_getBlockByHash` for [`lastblockhash`](#-lastblockhash-hash) and check the state root matches on this block for client under test and sync client
 
 ## Structures
 

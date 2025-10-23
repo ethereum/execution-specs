@@ -55,6 +55,8 @@ def pytest_collection_modifyitems(
 
     for item in items:
         # Auto-mark all verify_sync tests as flaky with 3 reruns
+        # TODO: We can likely remove this as we have more stable sync
+        #  tests now. Leaving this here for now to be safe.
         if item.get_closest_marker("blockchain_test_sync"):
             item.add_marker(pytest.mark.flaky(reruns=3))
 
