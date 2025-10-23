@@ -5,6 +5,7 @@ and big memory tests.
 
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Pattern, Tuple
 
 
@@ -20,6 +21,7 @@ class TestPatterns:
     big_memory: Tuple[Pattern[str], ...]
 
 
+@lru_cache
 def exceptional_blockchain_test_patterns(
     json_fork: str, eels_fork: str
 ) -> TestPatterns:
@@ -104,6 +106,7 @@ def exceptional_blockchain_test_patterns(
     )
 
 
+@lru_cache
 def exceptional_state_test_patterns(
     json_fork: str, eels_fork: str
 ) -> TestPatterns:

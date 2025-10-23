@@ -7,20 +7,15 @@ import tarfile
 from glob import glob
 from pathlib import Path
 from typing import (
-    Any,
     Callable,
-    Dict,
     Final,
     Generator,
-    List,
     Optional,
     Self,
     Set,
-    Type,
 )
 
 import git
-import pytest
 import requests_cache
 from _pytest.config import Config
 from _pytest.config.argparsing import Parser
@@ -31,18 +26,8 @@ from pytest import Collector, File, Session, StashKey, fixture
 from requests_cache import CachedSession
 from requests_cache.backends.sqlite import SQLiteCache
 
-from ethereum_spec_tools.evm_tools.statetest import TestCase as StateTestCase
-from ethereum_spec_tools.evm_tools.statetest import (
-    read_test_case as read_state_test_case,
-)
-
-from . import FORKS, TEST_FIXTURES
-from .helpers.exceptional_test_patterns import (
-    exceptional_blockchain_test_patterns,
-    exceptional_state_test_patterns,
-)
-from .helpers.load_blockchain_tests import Load, run_blockchain_st_test
-from .helpers.load_state_tests import run_state_test
+from . import TEST_FIXTURES
+from .helpers import ALL_FIXTURE_TYPES
 
 try:
     from xdist import get_xdist_worker_id
@@ -316,201 +301,12 @@ def pytest_collect_file(
     return None
 
 
-class Fixture:
-    """Single fixture from a JSON file."""
-
-    @classmethod
-    def is_format(cls, obj: object) -> bool:
-        """Return true if the object can be parsed as the fixture type."""
-        raise NotImplementedError("Not implemented.")
-
-    @classmethod
-    def collect(
-        cls, file_path: str, key: str, obj: Dict[str, Any]
-    ) -> Generator[Item, None, None]:
-        """Collect tests from a single fixture dictionary."""
-        pass
-
-
-class StateTest(Item):
-    """Single state test case item."""
-
-    test_case: StateTestCase
-    test_dict: Dict[str, Any]
-
-    def __init__(
-        self,
-        *args: Any,
-        test_case: StateTestCase,
-        test_dict: Dict[str, Any],
-        **kwargs: Any,
-    ) -> None:
-        """Initialize a single test case item."""
-        super().__init__(*args, **kwargs)
-        self.test_case = test_case
-        self.test_dict = test_dict
-        self.own_markers.append(pytest.mark.fork(self.test_case.fork_name))
-        self.own_markers.append(pytest.mark.evm_tools)
-        self.own_markers.append(pytest.mark.json_state_tests)
-        eels_fork = FORKS[test_case.fork_name]["eels_fork"]
-        test_patterns = exceptional_state_test_patterns(
-            test_case.fork_name, eels_fork
-        )
-        if any(x.search(test_case.key) for x in test_patterns.slow):
-            self.own_markers.append(pytest.mark.slow)
-
-    def runtest(self) -> None:
-        """Execute the test logic for this specific static test."""
-        test_case_dict = {
-            "test_file": self.test_case.path,
-            "test_key": self.test_case.key,
-            "index": self.test_case.index,
-            "json_fork": self.test_case.fork_name,
-            "test_dict": self.test_dict,
-        }
-        run_state_test(test_case_dict)
-
-
-class StateTestFixture(Fixture):
-    """Single state test fixture from a JSON file."""
-
-    @classmethod
-    def is_format(cls, obj: object) -> bool:
-        """Return true if the object can be parsed as the fixture type."""
-        if "env" not in obj:
-            return False
-        if "pre" not in obj:
-            return False
-        if "transaction" not in obj:
-            return False
-        if "post" not in obj:
-            return False
-        return True
-
-    @classmethod
-    def collect(
-        cls, parent: Collector, file_path: str, key: str, obj: Dict[str, Any]
-    ) -> Generator[Item, None, None]:
-        """Collect state tests from a single fixture dictionary."""
-        for test_case in read_state_test_case(
-            test_file_path=file_path, key=key, test=obj
-        ):
-            if test_case.fork_name not in FORKS:
-                continue
-            name = f"{key} - {test_case.index}"
-            new_item = StateTest.from_parent(
-                parent,
-                name=name,
-                test_case=test_case,
-                test_dict=obj,
-            )
-            yield new_item
-
-
-class BlockchainTest(Item):
-    """Single state test case item."""
-
-    test_file: str
-    test_key: str
-    fork_name: str
-    test_dict: Dict[str, Any]
-
-    def __init__(
-        self,
-        *args: Any,
-        test_file: str,
-        test_key: str,
-        fork_name: str,
-        test_dict: Dict[str, Any],
-        **kwargs: Any,
-    ) -> None:
-        """Initialize a single test case item."""
-        super().__init__(*args, **kwargs)
-        self.test_file = test_file
-        self.test_key = test_key
-        self.test_dict = test_dict
-        self.fork_name = fork_name
-        self.own_markers.append(pytest.mark.fork(fork_name))
-        self.own_markers.append(pytest.mark.evm_tools)
-        self.own_markers.append(pytest.mark.json_blockchain_tests)
-        eels_fork = FORKS[fork_name]["eels_fork"]
-        test_patterns = exceptional_blockchain_test_patterns(
-            fork_name, eels_fork
-        )
-        _identifier = "(" + test_file + "|" + test_key + ")"
-        if any(
-            x.search(test_file) for x in test_patterns.expected_fail
-        ) or any(x.search(_identifier) for x in test_patterns.expected_fail):
-            self.own_markers.append(pytest.mark.skip("Expected to fail"))
-        if any(x.search(_identifier) for x in test_patterns.slow):
-            self.own_markers.append(pytest.mark.slow)
-        if any(x.search(_identifier) for x in test_patterns.big_memory):
-            self.own_markers.append(pytest.mark.bigmem)
-
-    def runtest(self) -> None:
-        """Execute the test logic for this specific static test."""
-        test_case_dict = {
-            "test_file": self.test_file,
-            "test_key": self.test_key,
-            "test_dict": self.test_dict,
-        }
-        eels_fork = FORKS[self.fork_name]["eels_fork"]
-        load = Load(
-            self.fork_name,
-            eels_fork,
-        )
-        run_blockchain_st_test(test_case_dict, load=load)
-
-
-class BlockchainTestFixture(Fixture):
-    """Single blockchain test fixture from a JSON file."""
-
-    @classmethod
-    def is_format(cls, obj: Dict) -> bool:
-        """Return true if the object can be parsed as the fixture type."""
-        if "genesisBlockHeader" not in obj:
-            return False
-        if "blocks" not in obj:
-            return False
-        if "engineNewPayloads" in obj:
-            return False
-        if "preHash" in obj:
-            return False
-        if "network" not in obj:
-            return False
-        return True
-
-    @classmethod
-    def collect(
-        cls, parent: Collector, file_path: str, key: str, obj: Dict[str, Any]
-    ) -> Generator[Item, None, None]:
-        """Collect blockchain tests from a single fixture dictionary."""
-        name = f"{key}"
-        if "network" not in obj or obj["network"] not in FORKS:
-            return
-        new_item = BlockchainTest.from_parent(
-            parent,
-            name=name,
-            test_file=file_path,
-            test_key=key,
-            fork_name=obj["network"],
-            test_dict=obj,
-        )
-        yield new_item
-
-
-FixtureTypes: List[Type[Fixture]] = [
-    StateTestFixture,
-    BlockchainTestFixture,
-]
-
-
 class FixturesFile(File):
     """Single JSON file containing fixtures."""
 
     def collect(
         self: Self,
-    ) -> Generator[StateTestFixture | BlockchainTestFixture, None, None]:
+    ) -> Generator[Item | Collector, None, None]:
         """Collect test cases from a single JSON fixtures file."""
         with open(self.path, "r") as file:
             try:
@@ -519,15 +315,19 @@ class FixturesFile(File):
                 return  # Skip *.json files that are unreadable.
             if not isinstance(loaded_file, dict):
                 return
-            for key, fixture_dict in loaded_file.items():
-                if not isinstance(fixture_dict, dict):
+            for key, test_dict in loaded_file.items():
+                if not isinstance(test_dict, dict):
                     continue
-                for fixture_type in FixtureTypes:
-                    if not fixture_type.is_format(fixture_dict):
+                for fixture_type in ALL_FIXTURE_TYPES:
+                    if not fixture_type.is_format(test_dict):
                         continue
-                    yield from fixture_type.collect(
+                    name = key
+                    if "::" in name:
+                        name = name.split("::")[1]
+                    yield fixture_type.from_parent(  # type: ignore
                         parent=self,
-                        file_path=str(self.path),
-                        key=key,
-                        obj=fixture_dict,
+                        name=name,
+                        test_file=str(self.path),
+                        test_key=key,
+                        test_dict=test_dict,
                     )
