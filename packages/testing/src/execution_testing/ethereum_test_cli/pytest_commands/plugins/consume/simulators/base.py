@@ -28,9 +28,9 @@ def eth_rpc(client: Client) -> EthRPC:
 @pytest.fixture(scope="function")
 def check_live_port(test_suite_name: str) -> Literal[8545, 8551]:
     """Port used by hive to check for liveness of the client."""
-    if test_suite_name == "eest/consume-rlp":
+    if test_suite_name == "eels/consume-rlp":
         return 8545
-    elif test_suite_name in {"eest/consume-engine", "eest/consume-sync"}:
+    elif test_suite_name in {"eels/consume-engine", "eels/consume-sync"}:
         return 8551
     raise ValueError(
         f"Unexpected test suite name '{test_suite_name}' while setting HIVE_CHECK_LIVE_PORT."

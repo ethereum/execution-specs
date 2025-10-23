@@ -226,7 +226,7 @@ def environment(session_fork: Fork, chain_config: ChainConfig) -> dict:
 @pytest.fixture(scope="session")
 def test_suite_name() -> str:
     """The name of the hive test suite used in this simulator."""
-    return "eest/execute, hive mode"
+    return "eels/execute, hive mode"
 
 
 @pytest.fixture(scope="session")

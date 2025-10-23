@@ -47,7 +47,7 @@ def engine_rpc(
 @pytest.fixture(scope="module")
 def test_suite_name() -> str:
     """The name of the hive test suite used in this simulator."""
-    return "eest/consume-engine"
+    return "eels/consume-engine"
 
 
 @pytest.fixture(scope="module")

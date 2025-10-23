@@ -310,7 +310,7 @@ def sync_admin_rpc(sync_client: Client) -> AdminRPC:
 @pytest.fixture(scope="module")
 def test_suite_name() -> str:
     """The name of the hive test suite used in this simulator."""
-    return "eest/consume-sync"
+    return "eels/consume-sync"
 
 
 @pytest.fixture(scope="module")

@@ -32,7 +32,7 @@ def pytest_configure(config: pytest.Config) -> None:
 @pytest.fixture(scope="module")
 def test_suite_name() -> str:
     """The name of the hive test suite used in this simulator."""
-    return "eest/consume-rlp"
+    return "eels/consume-rlp"
 
 
 @pytest.fixture(scope="module")
