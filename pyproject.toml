@@ -165,7 +165,7 @@ test = [
     "requests",
     "requests-cache>=1.2.1,<2",
     "libcst>=1.8,<2",
-    "execution-testing",
+    "ethereum-execution-testing",
 ]
 lint = [
     "codespell==2.4.1",
@@ -405,4 +405,4 @@ required-version = ">=0.7.0"
 members = ["packages/*"]
 
 [tool.uv.sources]
-execution-testing = { workspace = true }
+ethereum-execution-testing = { workspace = true }

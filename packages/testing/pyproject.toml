@@ -6,9 +6,9 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "execution-testing"
+name = "ethereum-execution-testing"
 version = "1.0.0"
-description = "Ethereum execution client test authoring framework"
+description = "Ethereum execution layer client test generation and runner framework"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"

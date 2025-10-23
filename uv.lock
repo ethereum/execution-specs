@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -8,8 +8,8 @@ resolution-markers = [
 
 [manifest]
 members = [
-    "execution-testing",
     "ethereum-execution",
+    "ethereum-execution-testing",
 ]
 
 [[package]]
@@ -688,7 +688,7 @@ optimized = [
     { name = "rust-pyspec-glue" },
 ]
 test = [
-    { name = "ethereum-execution-tests" },
+    { name = "ethereum-execution-testing" },
     { name = "filelock" },
     { name = "gitpython" },
     { name = "libcst" },
@@ -711,7 +711,7 @@ requires-dist = [
     { name = "docc", marker = "extra == 'doc'", specifier = ">=0.3.0,<0.4.0" },
     { name = "ethash", marker = "extra == 'optimized'", specifier = ">=1.1.0,<2" },
     { name = "ethereum-execution", extras = ["doc", "lint", "test", "tools"], marker = "extra == 'dev'" },
-    { name = "ethereum-execution-tests", marker = "extra == 'test'", editable = "packages/tests" },
+    { name = "ethereum-execution-testing", marker = "extra == 'test'", editable = "packages/testing" },
     { name = "ethereum-rlp", specifier = ">=0.1.4,<0.2" },
     { name = "ethereum-types", specifier = ">=0.2.4,<0.3" },
     { name = "filelock", marker = "extra == 'test'", specifier = ">=3.15.1,<4" },
@@ -740,7 +740,7 @@ requires-dist = [
 provides-extras = ["test", "lint", "tools", "doc", "optimized", "dev"]
 
 [[package]]
-name = "execution-testing"
+name = "ethereum-execution-testing"
 version = "1.0.0"
 source = { editable = "packages/testing" }
 dependencies = [
@@ -866,157 +866,6 @@ requires-dist = [
     { name = "typing-extensions", specifier = ">=4.12.2,<5" },
 ]
 provides-extras = ["test", "lint", "docs"]
-
-[[package]]
-name = "eth-abi"
-version = "5.2.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "eth-typing" },
-    { name = "eth-utils" },
-    { name = "parsimonious" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/00/71/d9e1380bd77fd22f98b534699af564f189b56d539cc2b9dab908d4e4c242/eth_abi-5.2.0.tar.gz", hash = "sha256:178703fa98c07d8eecd5ae569e7e8d159e493ebb6eeb534a8fe973fbc4e40ef0", size = 49797, upload-time = "2025-01-14T16:29:34.629Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/7a/b4/2f3982c4cbcbf5eeb6aec62df1533c0e63c653b3021ff338d44944405676/eth_abi-5.2.0-py3-none-any.whl", hash = "sha256:17abe47560ad753f18054f5b3089fcb588f3e3a092136a416b6c1502cb7e8877", size = 28511, upload-time = "2025-01-14T16:29:31.862Z" },
-]
-
-[[package]]
-name = "eth-hash"
-version = "0.7.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/ee/38/577b7bc9380ef9dff0f1dffefe0c9a1ded2385e7a06c306fd95afb6f9451/eth_hash-0.7.1.tar.gz", hash = "sha256:d2411a403a0b0a62e8247b4117932d900ffb4c8c64b15f92620547ca5ce46be5", size = 12227, upload-time = "2025-01-13T21:29:21.765Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/eb/db/f8775490669d28aca24871c67dd56b3e72105cb3bcae9a4ec65dd70859b3/eth_hash-0.7.1-py3-none-any.whl", hash = "sha256:0fb1add2adf99ef28883fd6228eb447ef519ea72933535ad1a0b28c6f65f868a", size = 8028, upload-time = "2025-01-13T21:29:19.365Z" },
-]
-
-[[package]]
-name = "eth-typing"
-version = "5.2.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/60/54/62aa24b9cc708f06316167ee71c362779c8ed21fc8234a5cd94a8f53b623/eth_typing-5.2.1.tar.gz", hash = "sha256:7557300dbf02a93c70fa44af352b5c4a58f94e997a0fd6797fb7d1c29d9538ee", size = 21806, upload-time = "2025-04-14T20:39:28.217Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/30/72/c370bbe4c53da7bf998d3523f5a0f38867654923a82192df88d0705013d3/eth_typing-5.2.1-py3-none-any.whl", hash = "sha256:b0c2812ff978267563b80e9d701f487dd926f1d376d674f3b535cfe28b665d3d", size = 19163, upload-time = "2025-04-14T20:39:26.571Z" },
-]
-
-[[package]]
-name = "eth-utils"
-version = "5.3.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "cytoolz", marker = "implementation_name == 'cpython'" },
-    { name = "eth-hash" },
-    { name = "eth-typing" },
-    { name = "pydantic" },
-    { name = "toolz", marker = "implementation_name == 'pypy'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/0d/49/bee95f16d2ef068097afeeffbd6c67738107001ee57ad7bcdd4fc4d3c6a7/eth_utils-5.3.0.tar.gz", hash = "sha256:1f096867ac6be895f456fa3acb26e9573ae66e753abad9208f316d24d6178156", size = 123753, upload-time = "2025-04-14T19:35:56.431Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c4/c6/0417a92e6a3fc9b85f5a8380d9f9d43b69ba836a90e45f79f9ae74d41e53/eth_utils-5.3.0-py3-none-any.whl", hash = "sha256:ac184883ab299d923428bbe25dae5e356979a3993e0ef695a864db0a20bc262d", size = 102531, upload-time = "2025-04-14T19:35:55.176Z" },
-]
-
-[[package]]
-name = "ethash"
-version = "1.1.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "cffi" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/48/04/3d70c9725ab5260aa0a3488e291a22046f8fa6047263bf4d69e56c56d76d/ethash-1.1.0.tar.gz", hash = "sha256:7ed9bb781c6b740ad1af2bd69d0b2d77d5ed1f3b2bf22542436660c0dde3b30f", size = 32650, upload-time = "2025-02-13T16:35:27.75Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c9/a8/7b95a5447609610e0a6402045d31fd39fb259d0e78e4ba15bdecd017733f/ethash-1.1.0-cp311-cp311-macosx_14_0_x86_64.whl", hash = "sha256:1f9681d25290bb6e3d90b39fa6224e73c08f7fe10b28a4296d35d34de9c680b1", size = 26387, upload-time = "2025-02-13T19:19:29.703Z" },
-    { url = "https://files.pythonhosted.org/packages/2d/00/9127d6dc37ea12335eab9ad058f759db398e2f8235acc4cb515fa53cc957/ethash-1.1.0-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:3718f0b110336c382956ae60166f2dde1a278aa66075f3ea46dd2e52756ba1be", size = 53415, upload-time = "2025-02-13T16:44:22.145Z" },
-    { url = "https://files.pythonhosted.org/packages/60/37/6ed40670bd75bc6226fb8324492dfb70c236415adf7b68d38ebaddbef773/ethash-1.1.0-cp311-cp311-win_amd64.whl", hash = "sha256:e66cbc6cf6ed41306c6a6d1ffabacda28681a61da0a8cf0724fd44e992b4864c", size = 21839, upload-time = "2025-02-13T17:07:56.182Z" },
-    { url = "https://files.pythonhosted.org/packages/3d/7a/e6de134a090c89ea2f86fc95826e482359f2f39c3c9508fcda9b424014e9/ethash-1.1.0-cp312-cp312-macosx_14_0_arm64.whl", hash = "sha256:7382498ead2df2d5c714774e08a7708cdc2a1bbd7bc6c74de786602f69ba4cb4", size = 26036, upload-time = "2025-02-13T16:44:23.979Z" },
-    { url = "https://files.pythonhosted.org/packages/03/a2/289d3d9227fd2e0b182232a71a40d54ce637599161d3f9539fb06be62eb6/ethash-1.1.0-cp312-cp312-macosx_14_0_x86_64.whl", hash = "sha256:3b791656fc1cc4eda727d697b289c7fecc0b414c5eefa3c1ecabee1bc5f889ce", size = 26385, upload-time = "2025-02-13T19:19:31.416Z" },
-    { url = "https://files.pythonhosted.org/packages/80/59/06a5b2076febb63240575c046fb4ebc0edf2add82929cc653a672691d278/ethash-1.1.0-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:704884467599c1195d886f6d36c15082bbf9b067ecce8c7d45c72fa5d6742183", size = 53542, upload-time = "2025-02-13T16:44:26.446Z" },
-    { url = "https://files.pythonhosted.org/packages/52/a0/4ba21ae669e57149017c51e0298143e597d4d99dde49eaf9b3bd9410159f/ethash-1.1.0-cp312-cp312-win_amd64.whl", hash = "sha256:74806864c6cdb1ac384fbe3ad123369188aa06b360d869fff84663e674791a7a", size = 21849, upload-time = "2025-02-13T17:07:58.656Z" },
-    { url = "https://files.pythonhosted.org/packages/a2/ea/685f04ef915bd7cf018b315f413f119f224e4f2ceba0c8ddf5e867f66dd5/ethash-1.1.0-cp313-cp313-macosx_15_0_x86_64.whl", hash = "sha256:88239e3cf47798de3816ab28e36bf8ec222f587311e516493ab0a3290d38a7ca", size = 26380, upload-time = "2025-02-13T19:19:34.008Z" },
-    { url = "https://files.pythonhosted.org/packages/5f/c1/63a614d6b5773a9c4eedefeb14402bab89e23e0dc910165f42344ce1f81d/ethash-1.1.0-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:5c93ce3e47718cb5cb3585457c9bbff8b4689242df5bbbcdb67ccff11c7b8c89", size = 53512, upload-time = "2025-02-13T16:44:28.686Z" },
-    { url = "https://files.pythonhosted.org/packages/b5/12/28c6e7056de44395ec3f50fc6db89b8caa056c9a077815406c15d898d895/ethash-1.1.0-cp313-cp313-win_amd64.whl", hash = "sha256:625062b65233b63bcae2e5d39c9b6a446762ffa6717bfe5f1c3e89df60a63ffb", size = 21844, upload-time = "2025-02-13T17:08:00.114Z" },
-]
-
-[[package]]
-name = "ethereum-execution"
-source = { editable = "." }
-dependencies = [
-    { name = "coincurve" },
-    { name = "cryptography" },
-    { name = "ethereum-rlp" },
-    { name = "ethereum-types" },
-    { name = "py-ecc" },
-    { name = "pycryptodome" },
-    { name = "typing-extensions" },
-]
-
-[package.optional-dependencies]
-doc = [
-    { name = "docc" },
-    { name = "fladrif" },
-    { name = "mistletoe" },
-]
-lint = [
-    { name = "codespell" },
-    { name = "mypy" },
-    { name = "ruff" },
-    { name = "types-requests" },
-    { name = "vulture" },
-]
-optimized = [
-    { name = "ethash" },
-    { name = "rust-pyspec-glue" },
-]
-test = [
-    { name = "execution-testing" },
-    { name = "filelock" },
-    { name = "gitpython" },
-    { name = "libcst" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "pytest-xdist" },
-    { name = "requests" },
-    { name = "requests-cache" },
-]
-tools = [
-    { name = "libcst" },
-    { name = "platformdirs" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "codespell", marker = "extra == 'lint'", specifier = "==2.4.1" },
-    { name = "coincurve", specifier = ">=20,<21" },
-    { name = "cryptography", specifier = ">=45.0.1,<46" },
-    { name = "docc", marker = "extra == 'doc'", specifier = ">=0.3.0,<0.4.0" },
-    { name = "execution-testing", marker = "extra == 'test'", editable = "packages/testing" },
-    { name = "ethash", marker = "extra == 'optimized'", specifier = ">=1.1.0,<2" },
-    { name = "ethereum-rlp", specifier = ">=0.1.4,<0.2" },
-    { name = "ethereum-types", specifier = ">=0.2.4,<0.3" },
-    { name = "filelock", marker = "extra == 'test'", specifier = ">=3.15.1,<4" },
-    { name = "fladrif", marker = "extra == 'doc'", specifier = ">=0.2.0,<0.3.0" },
-    { name = "gitpython", marker = "extra == 'test'", specifier = ">=3.1.0,<3.2" },
-    { name = "libcst", marker = "extra == 'test'", specifier = ">=1.8,<2" },
-    { name = "libcst", marker = "extra == 'tools'", specifier = ">=1.8,<2" },
-    { name = "mistletoe", marker = "extra == 'doc'", specifier = ">=1.5.0,<2" },
-    { name = "mypy", marker = "extra == 'lint'", specifier = "==1.17.0" },
-    { name = "platformdirs", marker = "extra == 'tools'", specifier = ">=4.2,<5" },
-    { name = "py-ecc", specifier = ">=8.0.0b2,<9" },
-    { name = "pycryptodome", specifier = ">=3.22,<4" },
-    { name = "pytest", marker = "extra == 'test'", specifier = ">=8,<9" },
-    { name = "pytest-cov", marker = "extra == 'test'", specifier = ">=4.1.0,<5" },
-    { name = "pytest-xdist", marker = "extra == 'test'", specifier = ">=3.3.1,<4" },
-    { name = "requests", marker = "extra == 'test'" },
-    { name = "requests-cache", marker = "extra == 'test'", specifier = ">=1.2.1,<2" },
-    { name = "ruff", marker = "extra == 'lint'", specifier = "==0.13.2" },
-    { name = "rust-pyspec-glue", marker = "extra == 'optimized'", specifier = ">=0.0.9,<0.1.0" },
-    { name = "types-requests", marker = "extra == 'lint'", specifier = ">=2.31,<2.33" },
-    { name = "typing-extensions", specifier = ">=4.4" },
-    { name = "vulture", marker = "extra == 'lint'", specifier = "==2.14.0" },
-]
-provides-extras = ["test", "lint", "tools", "doc", "optimized"]
 
 [[package]]
 name = "ethereum-hive"
