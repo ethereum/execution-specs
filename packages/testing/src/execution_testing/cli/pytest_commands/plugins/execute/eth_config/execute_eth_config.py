@@ -9,7 +9,7 @@ from typing import Dict, List
 
 import pytest
 
-from execution_testing.cli.pytest_commands.plugins.custom_logging import (
+from execution_testing.logging import (
     get_logger,
 )
 from execution_testing.rpc import EthConfigResponse, EthRPC

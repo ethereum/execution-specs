@@ -1,9 +1,11 @@
 """
 Import the logging module content to make it available from
-pytest_plugins.logging.
+pytest_plugins.logging for backwards compatibility.
+
+The core logging functionality has been moved to execution_testing.logging.
 """
 
-from .plugin_logging import (
+from execution_testing.logging import (
     FAIL_LEVEL,
     VERBOSE_LEVEL,
     ColorFormatter,

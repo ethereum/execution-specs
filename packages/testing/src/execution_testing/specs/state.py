@@ -17,12 +17,12 @@ import pytest
 from pydantic import Field
 
 from execution_testing.base_types import HexNumber
-from execution_testing.cli.pytest_commands.plugins.custom_logging import (
-    get_logger,
-)
 from execution_testing.client_clis import (
     TransitionTool,
     TransitionToolOutput,
+)
+from execution_testing.logging import (
+    get_logger,
 )
 from execution_testing.exceptions import (
     BlockException,
@@ -134,9 +134,9 @@ class StateTest(BaseTest):
     ) -> bool:
         """Verify a new lower gas limit yields the same transaction outcome."""
         base_traces = base_tool_output.result.traces
-        assert base_traces is not None, (
-            "Traces not collected for gas optimization"
-        )
+        assert (
+            base_traces is not None
+        ), "Traces not collected for gas optimization"
         new_tx = self.tx.copy(
             gas_limit=current_gas_limit
         ).with_signature_and_sender()
@@ -155,9 +155,9 @@ class StateTest(BaseTest):
             slow_request=self.is_tx_gas_heavy_test(),
         )
         modified_traces = modified_tool_output.result.traces
-        assert modified_traces is not None, (
-            "Traces not collected for gas optimization"
-        )
+        assert (
+            modified_traces is not None
+        ), "Traces not collected for gas optimization"
         if not base_traces.are_equivalent(
             modified_tool_output.result.traces,
             enable_post_processing,
@@ -249,12 +249,12 @@ class StateTest(BaseTest):
         """
         Generate the genesis environment for the BlockchainTest formatted test.
         """
-        assert self.env.number >= 1, (
-            "genesis block number cannot be negative, set state test env.number to at least 1"
-        )
-        assert self.env.timestamp >= 1, (
-            "genesis timestamp cannot be negative, set state test env.timestamp to at least 1"
-        )
+        assert (
+            self.env.number >= 1
+        ), "genesis block number cannot be negative, set state test env.number to at least 1"
+        assert (
+            self.env.timestamp >= 1
+        ), "genesis timestamp cannot be negative, set state test env.timestamp to at least 1"
         # There's only a handful of values that we need to set in the genesis
         # for the environment values at block 1 to make sense:
         # - Number: Needs to be N minus 1
@@ -394,9 +394,9 @@ class StateTest(BaseTest):
             )
             base_tool_output = transition_tool_output
 
-            assert base_tool_output.result.traces is not None, (
-                "Traces not found."
-            )
+            assert (
+                base_tool_output.result.traces is not None
+            ), "Traces not found."
 
             # First try reducing the gas limit only by one, if the validation
             # fails, it means that the traces change even with the slightest
@@ -453,9 +453,9 @@ class StateTest(BaseTest):
 
         if self._operation_mode == OpMode.BENCHMARKING:
             expected_benchmark_gas_used = self.expected_benchmark_gas_used
-            assert expected_benchmark_gas_used is not None, (
-                "expected_benchmark_gas_used is not set"
-            )
+            assert (
+                expected_benchmark_gas_used is not None
+            ), "expected_benchmark_gas_used is not set"
             gas_used = int(transition_tool_output.result.gas_used)
             if not self.skip_gas_used_validation:
                 assert gas_used == expected_benchmark_gas_used, (
