@@ -814,6 +814,7 @@ dev = [
     { name = "libcst" },
     { name = "mistletoe" },
     { name = "mypy" },
+    { name = "pydantic" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-xdist" },
@@ -859,6 +860,7 @@ docs = [
 lint = [
     { name = "codespell" },
     { name = "mypy" },
+    { name = "pydantic" },
     { name = "ruff" },
     { name = "types-requests" },
     { name = "vulture" },
@@ -903,6 +905,7 @@ dev = [
     { name = "libcst", specifier = ">=1.8,<2" },
     { name = "mistletoe", specifier = ">=1.5.0,<2" },
     { name = "mypy", specifier = "==1.17.0" },
+    { name = "pydantic", specifier = ">=2.10.0,<3" },
     { name = "pytest", specifier = ">=8,<9" },
     { name = "pytest-cov", specifier = ">=4.1.0,<5" },
     { name = "pytest-xdist", specifier = ">=3.3.1,<4" },
@@ -948,6 +951,7 @@ docs = [
 lint = [
     { name = "codespell", specifier = "==2.4.1" },
     { name = "mypy", specifier = "==1.17.0" },
+    { name = "pydantic", specifier = ">=2.10.0,<3" },
     { name = "ruff", specifier = "==0.13.2" },
     { name = "types-requests", specifier = ">=2.31,<2.33" },
     { name = "vulture", specifier = "==2.14.0" },

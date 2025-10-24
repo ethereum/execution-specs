@@ -76,7 +76,12 @@ def markdownlint(args: tuple[str, ...]) -> None:
         # Note: There's an additional step in test.yaml to run markdownlint-
         # cli2 in GitHub Actions
         click.echo(
-            "********* Install 'markdownlint-cli2' to enable markdown linting *********"
+            "********* Install 'markdownlint-cli2' to enable markdown linting\
+            *********\
+            ```\
+            sudo npm install -g markdownlint-cli2@0.17.2\
+            ```\
+            "
         )
         sys.exit(0)
 

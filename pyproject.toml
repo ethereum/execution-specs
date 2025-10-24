@@ -181,6 +181,7 @@ lint = [
     "ruff==0.13.2",
     "vulture==2.14.0",
     "types-requests>=2.31,<2.33",
+    "pydantic>=2.10.0,<3",
 ]
 doc = [
     "docc>=0.3.0,<0.4.0",
@@ -424,6 +425,7 @@ exclude = [
     "^fixtures/",
     "^logs/",
     "^site/",
+    "^tests/json_infra/"
 ]
 plugins = ["pydantic.mypy"]
 
