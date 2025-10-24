@@ -17,10 +17,10 @@ from execution_testing import (
     EIPChecklist,
     Environment,
     Fork,
+    Op,
     Transaction,
     Withdrawal,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.base_types import (
     HexNumber,
     ZeroPaddedHexNumber,

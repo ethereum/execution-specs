@@ -4,9 +4,9 @@ import pytest
 from execution_testing import (
     EOFException,
     EOFTestFiller,
+    Op,
     extend_with_defaults,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.exceptions.exceptions import (
     EOFExceptionInstanceOrList,
 )

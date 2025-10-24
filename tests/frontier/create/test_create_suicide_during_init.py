@@ -9,11 +9,11 @@ from execution_testing import (
     Environment,
     Fork,
     Initcode,
+    Op,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.forks import Byzantium
 
 

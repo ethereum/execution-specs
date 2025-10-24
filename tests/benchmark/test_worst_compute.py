@@ -20,12 +20,12 @@ from execution_testing import (
     ExtCallGenerator,
     Fork,
     JumpLoopGenerator,
+    Op,
     Opcode,
     Transaction,
     TransactionType,
     add_kzg_version,
 )
-from execution_testing import Opcodes as Op
 from py_ecc.bn128 import G1, G2, multiply
 
 from ..byzantium.eip198_modexp_precompile.test_modexp import ModExpInput

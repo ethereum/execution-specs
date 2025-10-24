@@ -11,12 +11,12 @@ from execution_testing import (
     Case,
     Environment,
     Hash,
+    Op,
     StateTestFiller,
     Switch,
     Transaction,
 )
 from execution_testing import Macros as Om
-from execution_testing import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-1153.md"
 REFERENCE_SPEC_VERSION = "1eb863b534a5a3e19e9c196ab2a7f3db4bb9da17"

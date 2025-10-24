@@ -32,6 +32,7 @@ from execution_testing import (
     Fork,
     Hash,
     Header,
+    Op,
     Removable,
     StateTestFiller,
     Storage,
@@ -39,7 +40,6 @@ from execution_testing import (
     TransactionException,
     add_kzg_version,
 )
-from execution_testing import Opcodes as Op
 
 from .spec import Spec, SpecHelpers, ref_spec_4844
 

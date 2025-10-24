@@ -11,11 +11,11 @@ from execution_testing import (
     BlockchainTestFiller,
     BlockException,
     Header,
+    Op,
     Requests,
     Transaction,
 )
 from execution_testing import Macros as Om
-from execution_testing import Opcodes as Op
 
 from .helpers import DepositRequest, create_deposit_log_bytes
 from .spec import Spec, ref_spec_6110

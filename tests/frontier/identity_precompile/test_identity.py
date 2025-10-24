@@ -7,11 +7,11 @@ from execution_testing import (
     Account,
     Alloc,
     Environment,
+    Op,
     StateTestFiller,
     Storage,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 
 from .common import CallArgs, generate_identity_call_bytecode
 

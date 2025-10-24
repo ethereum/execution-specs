@@ -10,10 +10,10 @@ from execution_testing import (
     BlockchainTestFiller,
     EIPChecklist,
     Fork,
+    Op,
     Transaction,
     keccak256,
 )
-from execution_testing import Opcodes as Op
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput
 from .spec import Spec, ref_spec_7883

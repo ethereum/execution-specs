@@ -16,9 +16,9 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     EIPChecklist,
+    Op,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.forks import (
     Fork,
     get_transition_fork_predecessor,

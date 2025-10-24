@@ -22,13 +22,13 @@ from execution_testing import (
     Environment,
     Fork,
     Header,
+    Op,
     ParameterSet,
     Requests,
     Storage,
     TestAddress,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 
 from ..eip6110_deposits.helpers import (
     DepositContract,

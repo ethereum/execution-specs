@@ -13,10 +13,10 @@ from execution_testing import (
     BlockchainTestFiller,
     EIPChecklist,
     Fork,
+    Op,
     Transaction,
     TransactionException,
 )
-from execution_testing import Opcodes as Op
 
 from .spec import ref_spec_7825
 

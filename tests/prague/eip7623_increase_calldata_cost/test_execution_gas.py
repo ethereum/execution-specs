@@ -12,11 +12,11 @@ from execution_testing import (
     AuthorizationTuple,
     Bytes,
     Fork,
+    Op,
     StateTestFiller,
     Transaction,
     TransactionReceipt,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.forks import Prague
 
 from .helpers import DataTestType

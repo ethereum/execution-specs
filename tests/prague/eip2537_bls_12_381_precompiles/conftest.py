@@ -9,11 +9,11 @@ from execution_testing import (
     Alloc,
     Bytecode,
     Fork,
+    Op,
     Storage,
     Transaction,
     keccak256,
 )
-from execution_testing import Opcodes as Op
 
 from .helpers import BLSPointGenerator
 from .spec import GAS_CALCULATION_FUNCTION_MAP

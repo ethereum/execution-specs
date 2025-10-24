@@ -13,10 +13,10 @@ from execution_testing import (
     Alloc,
     Block,
     DeploymentTestType,
+    Op,
     Transaction,
     generate_system_contract_deploy_test,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.forks import Prague
 
 from .spec import Spec, ref_spec_2935

@@ -13,11 +13,11 @@ from execution_testing import (
     Bytes,
     Fork,
     Hash,
+    Op,
     Transaction,
     TransactionException,
     add_kzg_version,
 )
-from execution_testing import Opcodes as Op
 
 from ...cancun.eip4844_blobs.spec import Spec as EIP_4844_Spec
 from .helpers import DataTestType, find_floor_cost_threshold

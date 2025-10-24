@@ -18,9 +18,9 @@ from execution_testing import (
     BlockchainTestFiller,
     Fork,
     Hash,
+    Op,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 
 
 @pytest.fixture

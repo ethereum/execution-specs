@@ -12,9 +12,9 @@ from execution_testing import (
     Bytes,
     Fork,
     JumpLoopGenerator,
+    Op,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "TODO"
 REFERENCE_SPEC_VERSION = "TODO"

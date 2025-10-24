@@ -10,12 +10,12 @@ from execution_testing import (
     Address,
     Alloc,
     Bytecode,
+    Op,
     Transaction,
 )
 from execution_testing import (
     ConsolidationRequest as ConsolidationRequestBase,
 )
-from execution_testing import Opcodes as Op
 
 from .spec import Spec
 

@@ -20,6 +20,7 @@ from execution_testing import (
     Environment,
     Fork,
     Hash,
+    Op,
     ParameterSet,
     StateTestFiller,
     Storage,
@@ -27,7 +28,6 @@ from execution_testing import (
     TransactionException,
     add_kzg_version,
 )
-from execution_testing import Opcodes as Op
 
 from .spec import Spec, ref_spec_7825
 

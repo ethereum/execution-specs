@@ -12,11 +12,11 @@ from execution_testing import (
     Bytecode,
     Environment,
     Initcode,
+    Op,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
-from execution_testing import Opcodes as Op
 
 from . import CreateOpcodeParams, PytestParameterEnum
 from .spec import ref_spec_1153

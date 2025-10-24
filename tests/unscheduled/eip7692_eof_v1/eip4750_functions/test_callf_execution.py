@@ -9,11 +9,11 @@ from execution_testing import (
     Environment,
     EOFStateTestFiller,
     Hash,
+    Op,
     StateTestFiller,
     Storage,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.test_types.eof.v1 import Container, Section
 
 from .. import EOF_FORK_NAME

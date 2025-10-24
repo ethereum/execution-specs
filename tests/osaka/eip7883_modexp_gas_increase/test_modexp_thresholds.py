@@ -13,13 +13,13 @@ from execution_testing import (
     EIPChecklist,
     Environment,
     Fork,
+    Op,
     StateTestFiller,
     Storage,
     Transaction,
     compute_create_address,
     keccak256,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.forks import Osaka
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput

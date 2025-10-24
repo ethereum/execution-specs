@@ -7,7 +7,7 @@ from pprint import pprint
 from typing import Any, List
 
 import pytest
-from execution_testing import Opcodes as Op
+from execution_testing import Op
 
 
 class PytestParameterEnum(Enum):

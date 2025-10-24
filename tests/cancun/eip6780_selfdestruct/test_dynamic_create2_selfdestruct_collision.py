@@ -16,11 +16,11 @@ from execution_testing import (
     Conditional,
     Fork,
     Initcode,
+    Op,
     StateTestFiller,
     Transaction,
     compute_create2_address,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.forks import Cancun
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-6780.md"

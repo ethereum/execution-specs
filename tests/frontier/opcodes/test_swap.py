@@ -14,7 +14,7 @@ from execution_testing import (
     Environment,
 )
 from execution_testing.forks import Frontier, Homestead
-from execution_testing import Opcodes as Op
+from execution_testing import Op
 from execution_testing import (
     StateTestFiller,
     Storage,

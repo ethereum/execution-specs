@@ -14,10 +14,10 @@ from execution_testing import (
     Bytecode,
     CodeGasMeasure,
     Environment,
+    Op,
     StateTestFiller,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 
 from .spec import ref_spec_3855
 

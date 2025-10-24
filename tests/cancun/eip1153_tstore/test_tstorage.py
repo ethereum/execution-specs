@@ -15,10 +15,10 @@ from execution_testing import (
     CodeGasMeasure,
     Environment,
     Fork,
+    Op,
     StateTestFiller,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 
 from . import PytestParameterEnum
 from .spec import Spec, ref_spec_1153

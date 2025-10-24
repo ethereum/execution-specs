@@ -7,11 +7,11 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Op,
     StateTestFiller,
     Storage,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 
 from .spec import Spec, ref_spec_145
 

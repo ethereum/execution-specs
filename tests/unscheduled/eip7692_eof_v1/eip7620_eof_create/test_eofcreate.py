@@ -8,12 +8,12 @@ from execution_testing import (
     Bytecode,
     Environment,
     EOFTestFiller,
+    Op,
     StateTestFiller,
     Storage,
     Transaction,
     compute_eofcreate_address,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.exceptions import EOFException
 from execution_testing.test_types.eof.v1 import Container, Section
 

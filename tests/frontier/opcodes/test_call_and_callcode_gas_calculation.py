@@ -40,10 +40,10 @@ from execution_testing import (
     Alloc,
     Bytecode,
     Environment,
+    Op,
     StateTestFiller,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 
 """
 PUSH opcode cost is 3, GAS opcode cost is 2.

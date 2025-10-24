@@ -15,11 +15,11 @@ from execution_testing import (
     BlockchainTestFiller,
     Fork,
     Hash,
+    Op,
     Transaction,
     TransactionException,
     Withdrawal,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.forks import Cancun
 
 from .spec import ref_spec_4895

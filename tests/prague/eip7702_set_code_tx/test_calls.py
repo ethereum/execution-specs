@@ -9,10 +9,10 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Op,
     StateTestFiller,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 
 pytestmark = pytest.mark.valid_from("Prague")
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7702.md"

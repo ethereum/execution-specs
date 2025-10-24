@@ -12,11 +12,11 @@ from execution_testing import (
     Environment,
     Fork,
     Hash,
+    Op,
     StateTestFiller,
     Transaction,
     TransactionException,
 )
-from execution_testing import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-2930.md"
 REFERENCE_SPEC_VERSION = "c9db53a936c5c9cbe2db32ba0d1b86c4c6e73534"

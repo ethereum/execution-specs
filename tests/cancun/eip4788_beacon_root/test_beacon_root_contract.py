@@ -29,11 +29,11 @@ from execution_testing import (
     Bytecode,
     Fork,
     Hash,
+    Op,
     Storage,
     Transaction,
     Withdrawal,
 )
-from execution_testing import Opcodes as Op
 
 from .spec import Spec, ref_spec_4788
 

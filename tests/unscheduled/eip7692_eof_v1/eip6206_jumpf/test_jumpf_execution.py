@@ -7,11 +7,11 @@ from execution_testing import (
     Environment,
     EOFException,
     EOFStateTestFiller,
+    Op,
     StateTestFiller,
     Storage,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.test_types.eof.v1 import Container, Section
 from execution_testing.test_types.eof.v1.constants import (
     NON_RETURNING_SECTION,

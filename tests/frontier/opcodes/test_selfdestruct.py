@@ -7,9 +7,9 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Initcode,
+    Op,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 
 
 @pytest.mark.valid_from("Frontier")

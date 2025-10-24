@@ -1,8 +1,7 @@
 """EOF validation tests for EIP-3540 container size."""
 
 import pytest
-from execution_testing import EOFException, EOFTestFiller
-from execution_testing import Opcodes as Op
+from execution_testing import EOFException, EOFTestFiller, Op
 from execution_testing.test_types.eof.v1 import Container, Section
 from execution_testing.test_types.eof.v1.constants import (
     MAX_INITCODE_SIZE,

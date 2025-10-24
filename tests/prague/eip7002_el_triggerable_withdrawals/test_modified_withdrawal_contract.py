@@ -12,12 +12,12 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
+    Op,
     Requests,
     Transaction,
     generate_system_contract_error_test,
 )
 from execution_testing import Macros as Om
-from execution_testing import Opcodes as Op
 
 from .helpers import (
     WithdrawalRequest,

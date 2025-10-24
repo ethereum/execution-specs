@@ -30,6 +30,7 @@ from execution_testing import (
     Fork,
     Hash,
     Initcode,
+    Op,
     Requests,
     StateTestFiller,
     Storage,
@@ -41,7 +42,6 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing import Macros as Om
-from execution_testing import Opcodes as Op
 from execution_testing.base_types import HexNumber
 from execution_testing.test_types.eof.v1 import Container, Section
 

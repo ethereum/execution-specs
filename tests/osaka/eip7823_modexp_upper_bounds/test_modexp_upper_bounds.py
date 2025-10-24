@@ -13,11 +13,11 @@ from execution_testing import (
     Bytes,
     EIPChecklist,
     Fork,
+    Op,
     StateTestFiller,
     Transaction,
     keccak256,
 )
-from execution_testing import Opcodes as Op
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput
 from ..eip7883_modexp_gas_increase.spec import Spec

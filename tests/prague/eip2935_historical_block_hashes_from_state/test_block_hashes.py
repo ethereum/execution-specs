@@ -12,10 +12,10 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
+    Op,
     Storage,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 
 from .spec import Spec, ref_spec_2935
 

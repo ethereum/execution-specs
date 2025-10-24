@@ -8,11 +8,11 @@ from execution_testing import (
     Address,
     Alloc,
     Hash,
+    Op,
     StateTestFiller,
     Transaction,
     add_kzg_version,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.forks import Prague
 
 from ...cancun.eip4844_blobs.spec import Spec as EIP_4844_Spec

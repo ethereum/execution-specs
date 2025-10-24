@@ -11,10 +11,10 @@ from execution_testing import (
     Bytecode,
     EOFException,
     EOFTestFiller,
+    Op,
     Opcode,
     UndefinedOpcodes,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.test_types.eof.constants import (
     MAX_RUNTIME_STACK_HEIGHT,
 )

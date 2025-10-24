@@ -8,11 +8,11 @@ from execution_testing import (
     Alloc,
     AuthorizationTuple,
     Fork,
+    Op,
     StateTestFiller,
     Storage,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 
 from .spec import Spec, ref_spec_7702
 

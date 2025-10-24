@@ -8,12 +8,12 @@ from execution_testing import (
     Alloc,
     EIPChecklist,
     Environment,
+    Op,
     StateTestFiller,
     Storage,
     Transaction,
     compute_create_address,
 )
-from execution_testing import Opcodes as Op
 
 from .helpers import vectors_from_file
 from .spec import H, R, S, Spec, X, Y, ref_spec_7951

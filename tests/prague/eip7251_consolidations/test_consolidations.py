@@ -15,11 +15,11 @@ from execution_testing import (
     Fork,
     Header,
     Macros,
+    Op,
     Requests,
     TestAddress,
     TestAddress2,
 )
-from execution_testing import Opcodes as Op
 
 from .helpers import (
     ConsolidationRequest,

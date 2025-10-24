@@ -12,13 +12,13 @@ from execution_testing import (
     Bytecode,
     Environment,
     Hash,
+    Op,
     StateTestFiller,
     Storage,
     Transaction,
     ceiling_division,
     keccak256,
 )
-from execution_testing import Opcodes as Op
 
 from .common import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION, mcopy
 

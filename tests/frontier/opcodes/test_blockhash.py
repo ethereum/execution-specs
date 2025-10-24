@@ -6,10 +6,10 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    Op,
     Storage,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 
 
 @pytest.mark.valid_from("Frontier")

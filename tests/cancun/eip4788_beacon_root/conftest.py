@@ -14,12 +14,12 @@ from execution_testing import (
     Environment,
     Fork,
     Hash,
+    Op,
     Storage,
     Transaction,
     add_kzg_version,
     keccak256,
 )
-from execution_testing import Opcodes as Op
 
 from .spec import Spec, SpecHelpers
 

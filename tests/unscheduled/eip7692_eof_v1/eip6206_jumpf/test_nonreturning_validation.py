@@ -1,8 +1,7 @@
 """EOF validation tests for non-returning code sections."""
 
 import pytest
-from execution_testing import Bytecode, EOFException, EOFTestFiller
-from execution_testing import Opcodes as Op
+from execution_testing import Bytecode, EOFException, EOFTestFiller, Op
 from execution_testing.test_types.eof.v1 import (
     NON_RETURNING_SECTION,
     Container,

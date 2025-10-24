@@ -46,13 +46,13 @@ from execution_testing import (
     Bytecode,
     Environment,
     Fork,
+    Op,
     StateTestFiller,
     Storage,
     Transaction,
     TransactionReceipt,
     call_return_code,
 )
-from execution_testing import Opcodes as Op
 
 from .common import INF_POINT, Z_Y_VALID_ENDIANNESS, Z
 from .spec import Spec, ref_spec_4844

@@ -23,6 +23,7 @@ from execution_testing import (
     ChainConfig,
     CodeGasMeasure,
     Fork,
+    Op,
     StateTestFiller,
     Storage,
     Transaction,
@@ -30,7 +31,6 @@ from execution_testing import (
     TransactionReceipt,
     extend_with_defaults,
 )
-from execution_testing import Opcodes as Op
 
 from .helpers import AddressType, ChainIDType
 from .spec import Spec, ref_spec_7702

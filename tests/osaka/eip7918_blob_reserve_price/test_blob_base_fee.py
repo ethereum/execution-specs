@@ -18,10 +18,10 @@ from execution_testing import (
     Fork,
     Hash,
     Header,
+    Op,
     Transaction,
     add_kzg_version,
 )
-from execution_testing import Opcodes as Op
 
 from .spec import Spec, ref_spec_7918
 

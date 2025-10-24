@@ -111,6 +111,9 @@ from .vm import (
     call_return_code,
 )
 
+# Ergonomic alias for the commonly used Opcodes enum
+Op = Opcodes
+
 __all__ = (
     "AccessList",
     "Account",
@@ -170,6 +173,7 @@ __all__ = (
     "Macros",
     "MemoryVariable",
     "NetworkWrappedTransaction",
+    "Op",
     "Opcode",
     "OpcodeCallArg",
     "Opcodes",

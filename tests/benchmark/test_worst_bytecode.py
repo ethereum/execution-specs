@@ -16,12 +16,12 @@ from execution_testing import (
     Fork,
     Hash,
     JumpLoopGenerator,
+    Op,
     Transaction,
     While,
     compute_create2_address,
     compute_create_address,
 )
-from execution_testing import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "TODO"
 REFERENCE_SPEC_VERSION = "TODO"

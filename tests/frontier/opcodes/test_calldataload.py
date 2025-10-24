@@ -5,11 +5,11 @@ from execution_testing import (
     Account,
     Alloc,
     Fork,
+    Op,
     StateTestFiller,
     Transaction,
 )
 from execution_testing import Macros as Om
-from execution_testing import Opcodes as Op
 from execution_testing.forks import Byzantium
 
 

@@ -22,10 +22,10 @@ from execution_testing import (
     Hash,
     Header,
     Initcode,
+    Op,
     Transaction,
     compute_create_address,
 )
-from execution_testing import Opcodes as Op
 
 from .spec import ref_spec_7928
 

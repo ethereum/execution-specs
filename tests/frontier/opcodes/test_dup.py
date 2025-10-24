@@ -5,11 +5,11 @@ from execution_testing import (
     Account,
     Alloc,
     Environment,
+    Op,
     StateTestFiller,
     Storage,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.forks import Frontier, Homestead
 
 

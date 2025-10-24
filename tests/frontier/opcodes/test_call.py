@@ -7,10 +7,10 @@ from execution_testing import (
     CodeGasMeasure,
     Environment,
     Fork,
+    Op,
     StateTestFiller,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 
 
 # TODO: There's an issue with gas definitions on forks previous to Berlin,

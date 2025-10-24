@@ -20,11 +20,11 @@ from execution_testing import (
     BlockchainTestFiller,
     CalldataCase,
     Initcode,
+    Op,
     Switch,
     Transaction,
     compute_create_address,
 )
-from execution_testing import Opcodes as Op
 
 
 @pytest.mark.valid_from("Constantinople")

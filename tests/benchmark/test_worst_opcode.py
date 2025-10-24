@@ -7,9 +7,9 @@ from execution_testing import (
     BenchmarkTestFiller,
     Bytecode,
     JumpLoopGenerator,
+    Op,
     Opcode,
 )
-from execution_testing import Opcodes as Op
 
 
 @pytest.mark.parametrize(

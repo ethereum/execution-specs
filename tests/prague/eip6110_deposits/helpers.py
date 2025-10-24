@@ -11,10 +11,10 @@ from execution_testing import (
     Alloc,
     Bytecode,
     Hash,
+    Op,
     Transaction,
 )
 from execution_testing import DepositRequest as DepositRequestBase
-from execution_testing import Opcodes as Op
 
 from .spec import Spec
 

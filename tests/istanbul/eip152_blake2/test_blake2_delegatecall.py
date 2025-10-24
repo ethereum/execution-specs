@@ -8,10 +8,10 @@ from execution_testing import (
     Alloc,
     Environment,
     Fork,
+    Op,
     StateTestFiller,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.forks.forks.forks import Istanbul
 
 from .spec import Spec

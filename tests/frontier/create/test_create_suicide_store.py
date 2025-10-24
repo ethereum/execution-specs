@@ -12,13 +12,13 @@ from execution_testing import (
     CalldataCase,
     Fork,
     Initcode,
+    Op,
     StateTestFiller,
     Storage,
     Switch,
     Transaction,
     compute_create_address,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.forks import Byzantium
 
 

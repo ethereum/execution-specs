@@ -8,10 +8,10 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Op,
     StateTestFiller,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.test_types.eof.v1 import Container, Section
 
 from .. import EOF_FORK_NAME

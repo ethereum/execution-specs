@@ -1,7 +1,6 @@
 """Helpers for the EIP-3860 initcode tests."""
 
-from execution_testing import Initcode
-from execution_testing import Opcodes as Op
+from execution_testing import Initcode, Op
 
 INITCODE_RESULTING_DEPLOYED_CODE = Op.STOP
 

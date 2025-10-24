@@ -11,10 +11,10 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Op,
     StateTestFiller,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 
 from .spec import Spec, ref_spec_1153
 

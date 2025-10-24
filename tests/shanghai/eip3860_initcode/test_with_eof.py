@@ -11,11 +11,11 @@ from execution_testing import (
     Bytecode,
     Environment,
     Initcode,
+    Op,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.test_types.eof.v1.constants import (
     MAX_BYTECODE_SIZE,
     MAX_INITCODE_SIZE,

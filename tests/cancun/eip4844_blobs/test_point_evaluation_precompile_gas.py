@@ -16,11 +16,11 @@ from execution_testing import (
     CodeGasMeasure,
     Environment,
     Fork,
+    Op,
     StateTestFiller,
     Transaction,
     ceiling_division,
 )
-from execution_testing import Opcodes as Op
 
 from .common import INF_POINT, Z
 from .spec import Spec, ref_spec_4844

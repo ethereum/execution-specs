@@ -4,8 +4,7 @@ ethereum/tests/src/EOFTestsFiller/EIP3540/validInvalidFiller.yml.
 """
 
 import pytest
-from execution_testing import EOFException, EOFTestFiller
-from execution_testing import Opcodes as Op
+from execution_testing import EOFException, EOFTestFiller, Op
 from execution_testing.exceptions.exceptions import (
     EOFExceptionInstanceOrList,
 )

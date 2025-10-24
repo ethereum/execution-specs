@@ -19,6 +19,7 @@ from execution_testing import (
     Environment,
     Fork,
     Initcode,
+    Op,
     StateTestFiller,
     Transaction,
     TransactionException,
@@ -26,7 +27,6 @@ from execution_testing import (
     ceiling_division,
     compute_create_address,
 )
-from execution_testing import Opcodes as Op
 
 from .helpers import (
     INITCODE_RESULTING_DEPLOYED_CODE,

@@ -13,12 +13,12 @@ from execution_testing import (
     Bytecode,
     Environment,
     Fork,
+    Op,
     Opcode,
     StateTestFiller,
     Transaction,
     UndefinedOpcodes,
 )
-from execution_testing import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"

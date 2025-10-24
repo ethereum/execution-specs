@@ -6,11 +6,11 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Op,
     StateTestFiller,
     Transaction,
     compute_eofcreate_address,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.test_types.eof.v1 import Container, Section
 from execution_testing.test_types.eof.v1.constants import (
     MAX_BYTECODE_SIZE,

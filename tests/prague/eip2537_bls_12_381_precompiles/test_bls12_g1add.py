@@ -10,10 +10,10 @@ import pytest
 from execution_testing import (
     Alloc,
     Environment,
+    Op,
     StateTestFiller,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 
 from .conftest import G1_POINTS_NOT_IN_SUBGROUP, G1_POINTS_NOT_ON_CURVE
 from .helpers import add_points_g1, vectors_from_file

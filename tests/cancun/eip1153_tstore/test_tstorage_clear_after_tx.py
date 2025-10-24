@@ -11,9 +11,9 @@ from execution_testing import (
     Environment,
     EVMCodeType,
     Initcode,
+    Op,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.test_types.eof.v1 import Container
 
 from .spec import ref_spec_1153

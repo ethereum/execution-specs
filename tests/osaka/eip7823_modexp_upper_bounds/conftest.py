@@ -9,11 +9,11 @@ from execution_testing import (
     Alloc,
     Environment,
     Fork,
+    Op,
     Storage,
     Transaction,
     keccak256,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.forks import Osaka
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput

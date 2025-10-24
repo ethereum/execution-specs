@@ -17,12 +17,12 @@ from execution_testing import (
     Environment,
     Hash,
     Initcode,
+    Op,
     StateTestFiller,
     Switch,
     Transaction,
     compute_create_address,
 )
-from execution_testing import Opcodes as Op
 
 from . import PytestParameterEnum
 from .spec import ref_spec_1153

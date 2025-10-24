@@ -2,8 +2,7 @@
 
 from functools import cached_property
 
-from execution_testing import Alloc, Bytecode, Fork
-from execution_testing import Opcodes as Op
+from execution_testing import Alloc, Bytecode, Fork, Op
 from execution_testing.forks import (
     Byzantium,
     Cancun,

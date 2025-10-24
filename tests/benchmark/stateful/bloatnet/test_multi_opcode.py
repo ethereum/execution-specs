@@ -14,10 +14,10 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytecode,
     Fork,
+    Op,
     Transaction,
     While,
 )
-from execution_testing import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
 REFERENCE_SPEC_VERSION = "1.0"

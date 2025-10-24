@@ -9,10 +9,10 @@ from execution_testing import (
     Alloc,
     Environment,
     Fork,
+    Op,
     StateTestFiller,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 
 
 def precompile_addresses(fork: Fork) -> Iterator[Tuple[Address, bool]]:

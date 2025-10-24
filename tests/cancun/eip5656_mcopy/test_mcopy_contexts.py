@@ -14,12 +14,12 @@ from execution_testing import (
     Alloc,
     Bytecode,
     Environment,
+    Op,
     StateTestFiller,
     Storage,
     Transaction,
     ceiling_division,
 )
-from execution_testing import Opcodes as Op
 
 from .common import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION
 

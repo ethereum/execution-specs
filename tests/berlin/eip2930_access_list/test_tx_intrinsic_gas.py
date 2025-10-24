@@ -15,11 +15,11 @@ from execution_testing import (
     Bytes,
     Environment,
     Fork,
+    Op,
     StateTestFiller,
     Transaction,
     TransactionException,
 )
-from execution_testing import Opcodes as Op
 
 from .spec import ref_spec_2930
 

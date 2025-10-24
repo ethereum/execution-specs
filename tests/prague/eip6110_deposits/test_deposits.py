@@ -15,8 +15,8 @@ from execution_testing import (
     BlockException,
     Environment,
     Macros,
+    Op,
 )
-from execution_testing import Opcodes as Op
 
 from .helpers import DepositContract, DepositRequest, DepositTransaction
 from .spec import ref_spec_6110

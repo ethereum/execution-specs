@@ -32,11 +32,11 @@ from execution_testing import (
     Environment,
     Fork,
     Hash,
+    Op,
     StateTestFiller,
     Transaction,
     add_kzg_version,
 )
-from execution_testing import Opcodes as Op
 
 from .spec import Spec, ref_spec_4844
 

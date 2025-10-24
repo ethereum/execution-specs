@@ -14,10 +14,10 @@ from execution_testing import (
     CodeGasMeasure,
     Environment,
     Fork,
+    Op,
     StateTestFiller,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.forks import Shanghai
 
 from .spec import ref_spec_3651

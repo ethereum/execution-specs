@@ -11,8 +11,8 @@ from execution_testing import (
     Conditional,
     Fork,
     MemoryVariable,
+    Op,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.forks import Frontier
 
 

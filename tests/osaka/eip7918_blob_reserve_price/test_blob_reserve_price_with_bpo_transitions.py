@@ -14,11 +14,11 @@ from execution_testing import (
     Fork,
     Hash,
     Header,
+    Op,
     ParameterSet,
     Transaction,
     add_kzg_version,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.forks import BPO2ToBPO3AtTime15k
 
 from .spec import Spec, ref_spec_7918

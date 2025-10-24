@@ -15,12 +15,12 @@ from execution_testing import (
     Bytecode,
     Environment,
     Fork,
+    Op,
     ParameterSet,
     StateTestFiller,
     Storage,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 
 from .spec import (
     GAS_CALCULATION_FUNCTION_MAP,

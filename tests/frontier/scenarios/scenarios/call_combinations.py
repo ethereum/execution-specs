@@ -3,8 +3,7 @@
 from dataclasses import dataclass
 from typing import List
 
-from execution_testing import Address, Alloc, EVMCodeType, Opcode
-from execution_testing import Opcodes as Op
+from execution_testing import Address, Alloc, EVMCodeType, Op, Opcode
 
 from ..common import Scenario, ScenarioEnvironment, ScenarioGeneratorInput
 

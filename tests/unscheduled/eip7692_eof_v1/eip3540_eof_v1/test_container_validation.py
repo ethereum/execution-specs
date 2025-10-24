@@ -3,8 +3,7 @@
 import itertools
 
 import pytest
-from execution_testing import EOFException, EOFTestFiller
-from execution_testing import Opcodes as Op
+from execution_testing import EOFException, EOFTestFiller, Op
 from execution_testing.test_types.eof.v1 import (
     AutoSection,
     Container,

@@ -5,11 +5,11 @@ from execution_testing import (
     Account,
     Alloc,
     Environment,
+    Op,
     StateTestFiller,
     Transaction,
     keccak256,
 )
-from execution_testing import Opcodes as Op
 
 
 @pytest.mark.with_all_call_opcodes()

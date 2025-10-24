@@ -8,11 +8,11 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Op,
     StateTestFiller,
     Transaction,
     keccak256,
 )
-from execution_testing import Opcodes as Op
 
 from .spec import ref_spec_1014
 

@@ -11,10 +11,10 @@ from execution_testing import (
     Bytecode,
     Environment,
     Fork,
+    Op,
     StateTestFiller,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 
 from .common import Blake2bInput, ExpectedOutput
 from .spec import SpecTestVectors, ref_spec_152

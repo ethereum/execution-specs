@@ -6,10 +6,10 @@ from execution_testing import (
     Alloc,
     Bytecode,
     Fork,
+    Op,
     StateTestFiller,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.forks import Byzantium
 
 

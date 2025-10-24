@@ -3,8 +3,7 @@
 from typing import List
 
 import pytest
-from execution_testing import EOFException, EOFTestFiller
-from execution_testing import Opcodes as Op
+from execution_testing import EOFException, EOFTestFiller, Op
 from execution_testing.test_types.eof.constants import (
     MAX_RUNTIME_STACK_HEIGHT,
 )

@@ -14,11 +14,11 @@ from execution_testing import (
     Conditional,
     Environment,
     Hash,
+    Op,
     StateTestFiller,
     Switch,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 
 from . import PytestParameterEnum
 from .spec import ref_spec_1153

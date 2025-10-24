@@ -8,10 +8,10 @@ from execution_testing import (
     BlockchainTestFiller,
     Fork,
     Initcode,
+    Op,
     Transaction,
     compute_create2_address,
 )
-from execution_testing import Opcodes as Op
 
 from .spec import ref_spec_1014
 

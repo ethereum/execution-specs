@@ -21,6 +21,7 @@ from execution_testing import (
     GasCosts,
     Hash,
     Macros,
+    Op,
     StateTestFiller,
     Storage,
     Switch,
@@ -28,7 +29,6 @@ from execution_testing import (
     TransactionException,
     compute_create_address,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.test_types.eof.v1 import Container, Section
 
 from .spec import Spec, ref_spec_7702

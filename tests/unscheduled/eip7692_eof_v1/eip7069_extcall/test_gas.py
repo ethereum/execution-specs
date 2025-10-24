@@ -10,9 +10,9 @@ from execution_testing import (
     Alloc,
     Environment,
     Fork,
+    Op,
     StateTestFiller,
 )
-from execution_testing import Opcodes as Op
 from execution_testing.test_types.eof.v1 import Container
 
 from .. import EOF_FORK_NAME

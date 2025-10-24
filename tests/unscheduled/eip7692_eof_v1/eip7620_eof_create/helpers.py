@@ -2,7 +2,7 @@
 
 import itertools
 
-from execution_testing import Opcodes as Op
+from execution_testing import Op
 from execution_testing.test_types.eof.v1 import Container, Section
 
 """Storage addresses for common testing fields"""

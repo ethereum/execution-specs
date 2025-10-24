@@ -11,11 +11,11 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Op,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
-from execution_testing import Opcodes as Op
 
 from .helpers import ModExpInput, ModExpOutput
 

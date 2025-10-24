@@ -7,13 +7,13 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Op,
     Opcodes,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
 from execution_testing import Initcode as LegacyInitcode
-from execution_testing import Opcodes as Op
 from execution_testing.test_types.eof.v1 import Container
 
 from ....prague.eip7702_set_code_tx.spec import Spec

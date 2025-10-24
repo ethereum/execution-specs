@@ -14,12 +14,12 @@ from execution_testing import (
     EIPChecklist,
     Environment,
     Fork,
+    Op,
     StateTestFiller,
     Storage,
     Transaction,
     compute_create_address,
 )
-from execution_testing import Opcodes as Op
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .spec import Spec, ref_spec_7939

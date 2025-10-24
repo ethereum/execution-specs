@@ -14,10 +14,10 @@ from execution_testing import (
     BlockchainTestFiller,
     Environment,
     Fork,
+    Op,
     Storage,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 
 from .common import (
     ExecutionEnvironment,

@@ -5,8 +5,8 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Op,
 )
-from execution_testing import Opcodes as Op
 
 
 @pytest.fixture

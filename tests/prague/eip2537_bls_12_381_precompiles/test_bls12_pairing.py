@@ -12,10 +12,10 @@ from execution_testing import (
     Alloc,
     Environment,
     Fork,
+    Op,
     StateTestFiller,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 
 from .conftest import (
     G1_POINTS_NOT_IN_SUBGROUP,

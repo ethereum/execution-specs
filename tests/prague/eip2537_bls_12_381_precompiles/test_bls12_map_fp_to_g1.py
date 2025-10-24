@@ -9,10 +9,10 @@ import pytest
 from execution_testing import (
     Alloc,
     Environment,
+    Op,
     StateTestFiller,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 
 from .conftest import G1_FIELD_POINTS_MAP_TO_IDENTITY
 from .helpers import vectors_from_file

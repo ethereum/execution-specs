@@ -10,9 +10,9 @@ from execution_testing import (
     Address,
     Alloc,
     Bytecode,
+    Op,
     Transaction,
 )
-from execution_testing import Opcodes as Op
 from execution_testing import (
     WithdrawalRequest as WithdrawalRequestBase,
 )

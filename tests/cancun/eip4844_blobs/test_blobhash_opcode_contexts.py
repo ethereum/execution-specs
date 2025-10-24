@@ -14,12 +14,12 @@ from execution_testing import (
     Bytecode,
     Fork,
     Hash,
+    Op,
     StateTestFiller,
     Transaction,
     add_kzg_version,
     compute_create_address,
 )
-from execution_testing import Opcodes as Op
 
 from .spec import Spec, ref_spec_4844
 
