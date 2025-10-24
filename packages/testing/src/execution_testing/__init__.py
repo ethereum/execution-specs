@@ -208,5 +208,4 @@ __all__ = (
     "generate_system_contract_deploy_test",
     "generate_system_contract_error_test",
     "keccak256",
-    "vm",
 )
