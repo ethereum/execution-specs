@@ -15,7 +15,7 @@ from execution_testing.test_types import (
     Transaction,
     add_kzg_version,
 )
-from execution_testing.vm import Opcodes as Op
+from execution_testing.vm import Op
 
 
 @pytest.fixture

@@ -104,15 +104,13 @@ from .vm import (
     Macro,
     Macros,
     MemoryVariable,
+    Op,
     Opcode,
     OpcodeCallArg,
     Opcodes,
     UndefinedOpcodes,
     call_return_code,
 )
-
-# Ergonomic alias for the commonly used Opcodes enum
-Op = Opcodes
 
 __all__ = (
     "AccessList",

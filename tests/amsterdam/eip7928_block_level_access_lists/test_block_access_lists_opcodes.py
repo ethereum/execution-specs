@@ -28,10 +28,8 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytecode,
     Fork,
+    Op,
     Transaction,
-)
-from execution_testing import (
-    Opcodes as Op,
 )
 
 from .spec import ref_spec_7928

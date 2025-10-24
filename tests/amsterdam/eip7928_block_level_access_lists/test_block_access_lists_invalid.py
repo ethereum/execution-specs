@@ -18,11 +18,9 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     BlockException,
+    Op,
     Storage,
     Transaction,
-)
-from execution_testing import (
-    Opcodes as Op,
 )
 from execution_testing.test_types.block_access_list.modifiers import (
     append_account,

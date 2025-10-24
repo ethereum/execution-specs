@@ -2,7 +2,7 @@
 
 import pytest
 
-from execution_testing.vm import Opcodes as Op
+from execution_testing.vm import Op
 
 from ..evm_bytes import process_evm_bytes_string
 

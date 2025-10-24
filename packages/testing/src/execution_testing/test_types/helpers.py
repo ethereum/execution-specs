@@ -10,7 +10,7 @@ from execution_testing.base_types.conversions import (
     BytesConvertible,
     FixedSizeBytesConvertible,
 )
-from execution_testing.vm import Opcodes as Op
+from execution_testing.vm import Op
 
 from .account_types import EOA
 from .utils import int_to_bytes

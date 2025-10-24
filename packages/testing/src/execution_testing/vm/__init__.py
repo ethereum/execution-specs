@@ -12,12 +12,16 @@ from .opcodes import (
     UndefinedOpcodes,
 )
 
+# Ergonomic alias for the commonly used Opcodes enum
+Op = Opcodes
+
 __all__ = (
     "Bytecode",
     "EVMCodeType",
     "Macro",
     "Macros",
     "MemoryVariable",
+    "Op",
     "Opcode",
     "OpcodeCallArg",
     "Opcodes",

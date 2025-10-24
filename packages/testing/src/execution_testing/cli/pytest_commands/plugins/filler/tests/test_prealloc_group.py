@@ -237,10 +237,10 @@ class StateTest(FormattedTest):  # noqa: D101
             Account,
             Alloc,
             Environment,
+            Op,
             StateTestFiller,
             Transaction
         )
-        from execution_testing.vm import Opcodes as Op
 
         @pytest.mark.valid_from("Istanbul")
         def test_chainid(state_test: StateTestFiller, pre: Alloc) -> None:
@@ -275,9 +275,9 @@ class BlockchainTest(FormattedTest):  # noqa: D101
             Block,
             BlockchainTestFiller,
             Environment,
+            Op,
             Transaction
         )
-        from execution_testing.vm import Opcodes as Op
 
         @pytest.mark.valid_from("Istanbul")
         def test_chainid_blockchain(blockchain_test: BlockchainTestFiller, pre: Alloc) -> None:

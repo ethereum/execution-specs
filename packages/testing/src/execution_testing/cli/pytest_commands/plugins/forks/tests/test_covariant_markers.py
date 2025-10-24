@@ -216,7 +216,7 @@ import pytest
         pytest.param(
             """
             import pytest
-            from execution_testing import  Opcodes as Op
+            from execution_testing import Op
             @pytest.mark.with_all_call_opcodes(selector=lambda call_opcode: call_opcode == Op.CALL)
             @pytest.mark.valid_from("Cancun")
             @pytest.mark.valid_until("Cancun")

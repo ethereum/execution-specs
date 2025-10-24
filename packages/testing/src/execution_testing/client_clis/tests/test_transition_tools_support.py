@@ -40,7 +40,7 @@ from execution_testing.test_types import (
     Withdrawal,
     add_kzg_version,
 )
-from execution_testing.vm import Opcodes as Op
+from execution_testing.vm import Op
 
 BLOB_COMMITMENT_VERSION_KZG = 1
 

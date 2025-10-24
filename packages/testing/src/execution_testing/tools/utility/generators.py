@@ -13,8 +13,7 @@ from execution_testing.forks import Fork
 from execution_testing.specs import BlockchainTestFiller
 from execution_testing.specs.blockchain import Block
 from execution_testing.test_types import Alloc, Transaction
-from execution_testing.vm import Bytecode
-from execution_testing.vm import Opcodes as Op
+from execution_testing.vm import Bytecode, Op
 
 
 class DeploymentTestType(StrEnum):

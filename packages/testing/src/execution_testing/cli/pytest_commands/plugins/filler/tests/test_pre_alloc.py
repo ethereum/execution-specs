@@ -11,8 +11,7 @@ from execution_testing.base_types import (
 )
 from execution_testing.forks import Fork, Prague
 from execution_testing.test_types import EOA
-from execution_testing.vm import EVMCodeType
-from execution_testing.vm import Opcodes as Op
+from execution_testing.vm import EVMCodeType, Op
 
 from ..pre_alloc import (
     CONTRACT_ADDRESS_INCREMENTS_DEFAULT,

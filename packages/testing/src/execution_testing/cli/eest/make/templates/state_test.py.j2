@@ -5,8 +5,15 @@ abstract: Tests [EIP-{{eip_number}} {{eip_name}}](https://eips.ethereum.org/EIPS
 
 import pytest
 
-from execution_testing import Account, Alloc, Environment, Fork, StateTestFiller, Transaction
-from execution_testing import Opcodes as Op
+from execution_testing import (
+    Account,
+    Alloc,
+    Environment,
+    Fork,
+    StateTestFiller,
+    Transaction,
+    Op,
+)
 
 REFERENCE_SPEC_GIT_PATH = "DUMMY/eip-DUMMY.md"
 REFERENCE_SPEC_VERSION = "DUMMY_VERSION"

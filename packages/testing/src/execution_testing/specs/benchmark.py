@@ -39,8 +39,7 @@ from execution_testing.fixtures import (
 )
 from execution_testing.forks import Fork
 from execution_testing.test_types import Alloc, Environment, Transaction
-from execution_testing.vm import Bytecode
-from execution_testing.vm.opcodes import Opcodes as Op
+from execution_testing.vm import Bytecode, Op
 
 from .base import BaseTest
 from .blockchain import Block, BlockchainTest

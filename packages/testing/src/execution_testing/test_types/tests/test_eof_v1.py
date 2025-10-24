@@ -6,7 +6,7 @@ import pytest
 
 from execution_testing.base_types import to_json
 from execution_testing.base_types.pydantic import CopyValidateModel
-from execution_testing.vm import Opcodes as Op
+from execution_testing.vm import Op
 
 from ..eof.v1 import AutoSection, Container, Section, SectionKind
 

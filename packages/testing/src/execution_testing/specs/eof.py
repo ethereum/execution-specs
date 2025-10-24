@@ -65,7 +65,7 @@ from execution_testing.test_types.eof.v1 import (
 from execution_testing.test_types.helpers import (
     compute_eofcreate_address,
 )
-from execution_testing.vm import Opcodes as Op
+from execution_testing.vm import Op
 
 from .base import BaseTest
 from .state import StateTest

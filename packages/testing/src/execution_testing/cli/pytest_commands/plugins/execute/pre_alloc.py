@@ -37,8 +37,7 @@ from execution_testing.test_types import (
 from execution_testing.test_types import Alloc as BaseAlloc
 from execution_testing.test_types.eof.v1 import Container
 from execution_testing.tools import Initcode
-from execution_testing.vm import Bytecode, EVMCodeType, Opcodes
-from execution_testing.vm import Opcodes as Op
+from execution_testing.vm import Bytecode, EVMCodeType, Op
 
 MAX_BYTECODE_SIZE = 24576
 MAX_INITCODE_SIZE = MAX_BYTECODE_SIZE * 2
@@ -247,7 +246,7 @@ class Alloc(BaseAlloc):
         if evm_code_type == EVMCodeType.EOF_V1:
             if not isinstance(code, Container):
                 if isinstance(code, Bytecode) and not code.terminating:
-                    return Container.Code(code + Opcodes.STOP)
+                    return Container.Code(code + Op.STOP)
                 return Container.Code(code)
         return code
 

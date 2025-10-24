@@ -6,7 +6,7 @@ import pytest
 
 from execution_testing.base_types.conversions import to_hex
 from execution_testing.test_types.eof.v1 import Container
-from execution_testing.vm import Opcodes as Op
+from execution_testing.vm import Op
 
 from ..eofwrap import wrap_code
 

@@ -40,7 +40,7 @@ from execution_testing.test_types import (
     Transaction,
     TransactionType,
 )
-from execution_testing.vm import Opcodes as Op
+from execution_testing.vm import Op
 
 from ..blockchain import Block, BlockchainTest, Header
 from ..state import StateTest

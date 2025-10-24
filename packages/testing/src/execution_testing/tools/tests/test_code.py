@@ -13,10 +13,10 @@ from execution_testing.base_types import (
     TestAddress,
     TestPrivateKey,
 )
-from execution_testing.client_clis import TransitionTool
 from execution_testing.cli.pytest_commands.plugins.solc.solc import (
     SOLC_EXPECTED_MIN_VERSION,
 )
+from execution_testing.client_clis import TransitionTool
 from execution_testing.fixtures import BlockchainFixture
 from execution_testing.forks import (
     Cancun,
@@ -27,8 +27,7 @@ from execution_testing.forks import (
 )
 from execution_testing.specs import StateTest
 from execution_testing.test_types import Alloc, Environment, Transaction
-from execution_testing.vm import Opcodes as Op
-from execution_testing.vm import UndefinedOpcodes
+from execution_testing.vm import Op, UndefinedOpcodes
 
 from ..tools_code import CalldataCase, Case, Conditional, Initcode, Switch
 

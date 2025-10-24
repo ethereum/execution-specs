@@ -6,8 +6,7 @@ from typing import Any, List
 import click
 
 from execution_testing.base_types import ZeroPaddedHexNumber
-from execution_testing.vm import Bytecode, Macro
-from execution_testing.vm import Opcodes as Op
+from execution_testing.vm import Bytecode, Macro, Op
 
 OPCODES_WITH_EMPTY_LINES_AFTER = {
     Op.STOP,

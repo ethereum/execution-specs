@@ -41,8 +41,7 @@ from execution_testing.specs.eof import EOFParse
 from execution_testing.test_types import Transaction
 from execution_testing.test_types.block_types import Environment
 from execution_testing.test_types.eof.v1 import Container
-from execution_testing.vm import Bytecode
-from execution_testing.vm import Opcodes as Op
+from execution_testing.vm import Bytecode, Op
 
 from .evm_bytes import OpcodeWithOperands, process_evm_bytes
 

@@ -9,7 +9,7 @@ from execution_testing.base_types import Address
 from execution_testing.forks import Fork
 from execution_testing.specs.benchmark import BenchmarkCodeGenerator
 from execution_testing.test_types import Alloc
-from execution_testing.vm.opcodes import Opcodes as Op
+from execution_testing.vm import Op
 
 
 @dataclass(kw_only=True)

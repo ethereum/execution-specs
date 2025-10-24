@@ -7,8 +7,7 @@ from typing_extensions import Self
 
 from execution_testing.base_types import Bytes
 from execution_testing.test_types import ceiling_division
-from execution_testing.vm import Bytecode, EVMCodeType
-from execution_testing.vm import Opcodes as Op
+from execution_testing.vm import Bytecode, EVMCodeType, Op
 
 GAS_PER_DEPLOYED_CODE_BYTE = 0xC8
 

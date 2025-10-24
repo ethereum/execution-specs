@@ -20,8 +20,7 @@ from execution_testing.base_types.pydantic import CopyValidateModel
 from execution_testing.exceptions.exceptions import (
     EOFExceptionInstanceOrList,
 )
-from execution_testing.vm import Bytecode
-from execution_testing.vm import Opcodes as Op
+from execution_testing.vm import Bytecode, Op
 
 from ..constants import EOF_HEADER_TERMINATOR, EOF_MAGIC
 from .constants import (
