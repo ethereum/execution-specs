@@ -219,7 +219,7 @@ class EOFTest(BaseTest):
     EOF container that will be tested for validity.
 
     The only supported type at the moment is
-    `ethereum_test_types.eof.v1.Container`.
+    `execution_testing.test_types.eof.v1.Container`.
 
     If an invalid container needs to be tested, and it cannot be generated
     using the Container class features, the `raw_bytes` field can be used to
@@ -235,7 +235,7 @@ class EOFTest(BaseTest):
     exceptions are raised.
 
     The list of supported exceptions can be found in the
-    `ethereum_test_exceptions.EOFException` class.
+    `execution_testing.exceptions.EOFException` class.
     """
     container_kind: ContainerKind = ContainerKind.RUNTIME
     """
@@ -592,7 +592,7 @@ class EOFStateTest(EOFTest, Transaction):
     Container deployment/validation is **not** tested like in the `EOFTest`
     unless the container under test is an initcode container.
 
-    All fields from `ethereum_test_types.Transaction` are available for use in
+    All fields from `execution_testing.test_types.Transaction` are available for use in
     the test.
     """
 
