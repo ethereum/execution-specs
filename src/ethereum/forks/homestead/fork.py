@@ -758,7 +758,7 @@ def calculate_block_difficulty(
     set for the genesis block since it has no parent. So, a block
     can't be less difficult than the genesis block, therefore each block's
     difficulty is set to the maximum value between the calculated
-    difficulty and the ``GENESIS_DIFFICULTY``.
+    difficulty and the ``MINIMUM_DIFFICULTY``.
 
     Parameters
     ----------
