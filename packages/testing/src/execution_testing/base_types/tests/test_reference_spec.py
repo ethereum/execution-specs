@@ -1,4 +1,4 @@
-"""Test suite for `ethereum_test_base_types.reference_spec` module."""
+"""Test suite for `execution_testing.base_types.reference_spec` module."""
 
 import re
 from typing import Any

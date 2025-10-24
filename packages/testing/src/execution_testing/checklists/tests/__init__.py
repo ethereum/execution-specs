@@ -1,1 +1,1 @@
-"""Tests for ethereum_test_checklists."""
+"""Tests for execution_testing.checklists."""

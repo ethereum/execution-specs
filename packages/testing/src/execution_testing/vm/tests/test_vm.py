@@ -1,4 +1,4 @@
-"""Test suite for `ethereum_test_vm` module."""
+"""Test suite for `execution_testing.vm` module."""
 
 import pytest
 

@@ -1,4 +1,4 @@
-"""Test the types in the `ethereum_test_rpc` package."""
+"""Test the types in the `execution_testing.rpc` package."""
 
 from typing import Any, Dict
 

@@ -1,1 +1,1 @@
-"""Unit tests for the `ethereum_test_rpc` package."""
+"""Unit tests for the `execution_testing.rpc` package."""

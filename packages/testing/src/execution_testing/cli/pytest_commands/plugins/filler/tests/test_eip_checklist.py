@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 
 
-@pytest.mark.skip(reason="Skipping test until ./docs/ folder is subtree'd")
+@pytest.mark.skip(reason="S kipping test until ./docs/ folder is subtree'd")
 def test_eip_checklist_collection(testdir: Any) -> None:
     """Test that checklist markers are collected correctly."""
     # Create the test in an EIP-specific directory
@@ -22,7 +22,7 @@ def test_eip_checklist_collection(testdir: Any) -> None:
             import pytest
             from execution_testing import  StateTestFiller
 
-            from ethereum_test_checklists import EIPChecklist
+            from execution_testing.checklists import EIPChecklist
 
             REFERENCE_SPEC_GIT_PATH = "N/A"
             REFERENCE_SPEC_VERSION = "N/A"

@@ -1,4 +1,4 @@
-"""Test cases for the ethereum_test_fixtures.base module."""
+"""Test cases for the execution_testing.fixtures.base module."""
 
 import pytest
 

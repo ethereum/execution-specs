@@ -1,4 +1,4 @@
-"""Test suite for `ethereum_test_specs` fixture generation."""
+"""Test suite for `execution_testing.specs` fixture generation."""
 
 import json
 from os.path import realpath

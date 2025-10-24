@@ -1,1 +1,1 @@
-"""Tests for the ethereum_test_vm package."""
+"""Tests for the execution_testing.vm package."""

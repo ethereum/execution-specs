@@ -145,7 +145,7 @@ class BlockAccessListExpectation(CamelModel):
             the modifiers applied
 
         Example:
-            from ethereum_test_types.block_access_list.
+            from execution_testing.test_types.block_access_list.
             modifiers import remove_nonces
 
             expectation = BlockAccessListExpectation(

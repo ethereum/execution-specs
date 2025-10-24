@@ -1,1 +1,1 @@
-"""Tests for the ethereum_test_specs package."""
+"""Tests for the execution_testing.specs package."""

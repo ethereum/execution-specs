@@ -1,1 +1,1 @@
-"""Tests for the ethereum_test_types package."""
+"""Tests for the execution_testing.test_types package."""

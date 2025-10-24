@@ -1,4 +1,4 @@
-"""Test suite for ethereum_test_exceptions module."""
+"""Test suite for execution_testing.exceptions module."""
 
 import pytest
 from pydantic import TypeAdapter

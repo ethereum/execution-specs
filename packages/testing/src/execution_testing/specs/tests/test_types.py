@@ -1,4 +1,4 @@
-"""Test types from ethereum_test_specs."""
+"""Test types from execution_testing.specs."""
 
 import pytest
 

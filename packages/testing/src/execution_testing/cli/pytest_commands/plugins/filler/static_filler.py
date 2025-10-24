@@ -409,7 +409,7 @@ def yul(fork: Fork, request: pytest.FixtureRequest) -> Type[Yul]:
     """
     Fixture that allows contract code to be defined with Yul code.
 
-    This fixture defines a class that wraps the ::ethereum_test_tools.Yul class
+    This fixture defines a class that wraps the ::execution_testing.tools.Yul class
     so that upon instantiation within the test case, it provides the test
     case's current fork parameter. The forks is then available for use in
     solc's arguments for the Yul code compilation.

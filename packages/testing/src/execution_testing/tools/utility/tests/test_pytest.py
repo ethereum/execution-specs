@@ -1,4 +1,4 @@
-"""Tests for ethereum_test_tools.utility.pytest."""
+"""Tests for execution_testing.tools.utility.pytest."""
 
 import pytest
 
