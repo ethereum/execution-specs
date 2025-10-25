@@ -20,22 +20,38 @@ Usage:
 - Access configuration values via properties (e.g., EnvConfig().remote_nodes).
 """
 
+import os
 from pathlib import Path
 from typing import Dict, List
 
 import yaml
 from pydantic import BaseModel, HttpUrl, ValidationError
 
-
 def get_project_root() -> Path:
-    """Find project root by locating .git directory."""
+    """
+    Find project root by locating .git directory, or use alternatives when missing.
+
+    Priority:
+    1. Use EEST_PROJECT_ROOT environment variable if set.
+    2. Traverse upward to find .git directory (development use).
+    3. Fallback to current working directory if no .git found (e.g., in packages or CI).
+    """
+    
+    # 1. Environment Variable Check
+    env_root = os.environ.get("EEST_PROJECT_ROOT")
+    if env_root:
+        return Path(env_root).resolve()
+
+    # 2. .git Directory Check
     current = Path(__file__).resolve().parent
     while current != current.parent:
         if (current / ".git").exists():
             return current
         current = current.parent
-    raise FileNotFoundError("Could not find project root (no .git directory)")
-
+    
+    # 3. Fallback to CWD
+    print("Warning: .git directory not found. Falling back to current working directory.")
+    return Path.cwd().resolve()
 
 ENV_PATH = get_project_root() / "env.yaml"
 
