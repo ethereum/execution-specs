@@ -11,6 +11,7 @@ from execution_testing import (
     Address,
     Alloc,
     BenchmarkTestFiller,
+    AuthorizationTuple,
     Block,
     Bytecode,
     Environment,
@@ -283,7 +284,7 @@ def test_worst_storage_access_cold(
     fork: Fork,
     storage_action: StorageAction,
     absent_slots: bool,
-    env: Environment,
+    tx_gas_limit_cap: int,
     gas_benchmark_value: int,
     tx_result: TransactionResult,
 ) -> None:
@@ -326,12 +327,13 @@ def test_worst_storage_access_cold(
     # Add costs jump-logic costs
     loop_cost += (
         gas_costs.G_JUMPDEST  # Prefix Jumpdest
-        + gas_costs.G_VERY_LOW * 7  # ISZEROs, PUSHs, SWAPs, SUB, DUP
+        + gas_costs.G_VERY_LOW * 5  # GT, PUSHs, SWAPs, SUB, DUP
+        + gas_costs.G_MID  # SELFBALANCE
         + gas_costs.G_HIGH  # JUMPI
     )
 
     prefix_cost = (
-        gas_costs.G_VERY_LOW  # Target slots push
+        gas_costs.G_VERY_LOW * 2  # CALLDATALOAD(0)
     )
 
     suffix_cost = 0
@@ -346,14 +348,15 @@ def test_worst_storage_access_cold(
         - prefix_cost
         - suffix_cost
     ) // loop_cost
+
     if tx_result == TransactionResult.OUT_OF_GAS:
         # Add an extra slot to make it run out-of-gas
         num_target_slots += 1
 
-    code_prefix = Op.PUSH4(num_target_slots) + Op.JUMPDEST
+    code_prefix = Op.CALLDATALOAD(0) + Op.JUMPDEST
     code_loop = execution_code_body + Op.JUMPI(
         len(code_prefix) - 1,
-        Op.PUSH1(1) + Op.SWAP1 + Op.SUB + Op.DUP1 + Op.ISZERO + Op.ISZERO,
+        Op.PUSH1(1) + Op.ADD + Op.DUP1 + Op.SELFBALANCE + Op.GT,
     )
     execution_code = code_prefix + code_loop
 
@@ -364,57 +367,123 @@ def test_worst_storage_access_cold(
 
     execution_code_address = pre.deploy_contract(code=execution_code)
 
-    total_gas_used = (
-        num_target_slots * loop_cost
-        + intrinsic_gas_cost_calc()
-        + prefix_cost
-        + suffix_cost
-    )
+    blocks = []
+    target_addr = execution_code_address
 
-    # Contract creation
-    slots_init = Bytecode()
+    # Setup the target address
     if not absent_slots:
-        slots_init = Op.PUSH4(num_target_slots) + While(
-            body=Op.SSTORE(Op.DUP1, Op.DUP1),
-            condition=Op.PUSH1(1)
-            + Op.SWAP1
-            + Op.SUB
-            + Op.DUP1
-            + Op.ISZERO
-            + Op.ISZERO,
+        init_prefix = Op.CALLDATALOAD(0) + Op.JUMPDEST
+        init_loop = Op.SSTORE(Op.DUP1, Op.DUP1)
+        init_condition = Op.JUMPI(
+            len(init_prefix) - 1,
+            Op.PUSH1(1) + Op.ADD + Op.DUP1 + Op.SELFBALANCE + Op.GT,
+        )
+        init_contract = init_prefix + init_loop + init_condition
+
+        target_addr = pre.fund_eoa(
+            amount=0, delegation=pre.deploy_contract(code=init_contract)
         )
 
-    # To create the contract, we apply the slots_init code to initialize the
-    # storage slots (int the case of absent_slots=False) and then copy the
-    # execution code to the contract.
-    creation_code = (
-        slots_init
-        + Op.EXTCODECOPY(
-            address=execution_code_address,
-            dest_offset=0,
-            offset=0,
-            size=Op.EXTCODESIZE(execution_code_address),
+        init_prefix_overhead = gas_costs.G_VERY_LOW * 2 + gas_costs.G_JUMPDEST
+        init_loop_overhead = (
+            gas_costs.G_VERY_LOW * 2 + gas_costs.G_WARM_ACCOUNT_ACCESS
         )
-        + Op.RETURN(0, Op.MSIZE)
-    )
-    sender_addr = pre.fund_eoa()
-    setup_tx = Transaction(
-        to=None,
-        gas_limit=env.gas_limit,
-        data=creation_code,
-        sender=sender_addr,
-    )
+        init_condition_overhead = (
+            gas_costs.G_VERY_LOW * 5 + gas_costs.G_MID + gas_costs.G_HIGH
+        )
+        init_total_overhead = (
+            init_prefix_overhead + init_loop_overhead + init_condition_overhead
+        )
+        iteration_count = (
+            gas_benchmark_value - intrinsic_gas_cost_calc()
+        ) // init_total_overhead
 
-    blocks = [Block(txs=[setup_tx])]
+        tx_count = gas_benchmark_value // tx_gas_limit_cap
+        total_txs = []
+        for i in range(tx_count * 2):
+            tx = Transaction(
+                to=target_addr,
+                data=Hash(i * iteration_count),
+                value=iteration_count,
+                gas_limit=tx_gas_limit_cap,
+                sender=pre.fund_eoa(),
+            )
+            total_txs.append(tx)
+        blocks.append(Block(txs=total_txs[:tx_count]))
+        blocks.append(Block(txs=total_txs[tx_count:]))
 
-    contract_address = compute_create_address(address=sender_addr, nonce=0)
+        tx = Transaction(
+            to=execution_code_address,
+            gas_limit=tx_gas_limit_cap,
+            sender=pre.fund_eoa(),
+            authorization_list=[
+                AuthorizationTuple(
+                    address=execution_code_address,
+                    nonce=target_addr.nonce,
+                    signer=target_addr,
+                )
+            ],
+        )
+        blocks.append(Block(txs=[tx]))
 
-    op_tx = Transaction(
-        to=contract_address,
-        gas_limit=gas_benchmark_value,
-        sender=pre.fund_eoa(),
-    )
-    blocks.append(Block(txs=[op_tx]))
+    attack_txs = []
+    gas_remaining = gas_benchmark_value
+    total_iteration = 0
+    total_gas_used = 0
+    while gas_remaining > 0:
+        gas_available = min(gas_remaining, tx_gas_limit_cap)
+
+        # Calculate minimum gas needed for at least one iteration
+        min_gas_needed = (
+            intrinsic_gas_cost_calc() + prefix_cost + loop_cost + suffix_cost
+        )
+        if gas_available < min_gas_needed:
+            break
+
+        # Calculate iterations accounting for all overhead costs
+        if tx_result == TransactionResult.OUT_OF_GAS:
+            # For OUT_OF_GAS, add an extra iteration to run out of gas
+            iterations = (
+                (
+                    gas_available
+                    - intrinsic_gas_cost_calc()
+                    - prefix_cost
+                    - suffix_cost
+                )
+                // loop_cost
+            ) + 1
+            tx_gas_used = (
+                gas_available  # Transaction will use all available gas
+            )
+        else:
+            # For SUCCESS and REVERT, calculate iterations properly
+            iterations = (
+                gas_available
+                - intrinsic_gas_cost_calc()
+                - prefix_cost
+                - suffix_cost
+            ) // loop_cost
+            tx_gas_used = (
+                intrinsic_gas_cost_calc()
+                + prefix_cost
+                + loop_cost * iterations
+                + suffix_cost
+            )
+
+        attack_txs.append(
+            Transaction(
+                to=execution_code_address,
+                data=Hash(total_iteration),
+                value=iterations,
+                gas_limit=gas_available,
+                sender=pre.fund_eoa(),
+            )
+        )
+        gas_remaining -= gas_available
+        total_iteration += iterations
+        total_gas_used += tx_gas_used
+
+    blocks.append(Block(txs=attack_txs))
 
     benchmark_test(
         blocks=blocks,
