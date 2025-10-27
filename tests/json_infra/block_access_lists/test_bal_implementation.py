@@ -8,6 +8,7 @@ This module tests the complete BAL implementation including:
 - Edge cases and error handling
 """
 
+from typing import Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -24,6 +25,7 @@ from ethereum.forks.amsterdam.block_access_lists import (
     add_storage_write,
     add_touched_account,
     build_block_access_list,
+    track_address_access,
 )
 from ethereum.forks.amsterdam.block_access_lists.rlp_types import (
     MAX_CODE_CHANGES,
@@ -38,6 +40,9 @@ from ethereum.forks.amsterdam.block_access_lists.tracker import (
     track_nonce_change,
     track_storage_write,
 )
+from ethereum.forks.amsterdam.fork_types import Address
+from ethereum.forks.amsterdam.state import State
+from ethereum.forks.amsterdam.trie import Trie
 
 
 class TestBALCore:
@@ -199,7 +204,7 @@ class TestBALTracker:
         builder = BlockAccessListBuilder()
         tracker = StateChangeTracker(builder)
 
-        set_block_access_index(tracker, 5)
+        set_block_access_index(tracker, Uint(5))
         assert tracker.current_block_access_index == 5
         # Pre-storage cache should be cleared for new block access index
         assert tracker.pre_storage_cache == {}
@@ -239,7 +244,7 @@ class TestBALTracker:
         """Test tracking storage write with actual change."""
         builder = BlockAccessListBuilder()
         tracker = StateChangeTracker(builder)
-        tracker.current_block_access_index = 1
+        tracker.current_block_access_index = Uint(1)
 
         mock_state = MagicMock()
         address = Bytes20(b"\x01" * 20)
@@ -269,7 +274,7 @@ class TestBALTracker:
         """Test tracking storage write with no actual change."""
         builder = BlockAccessListBuilder()
         tracker = StateChangeTracker(builder)
-        tracker.current_block_access_index = 1
+        tracker.current_block_access_index = Uint(1)
 
         mock_state = MagicMock()
         address = Bytes20(b"\x01" * 20)
@@ -289,7 +294,7 @@ class TestBALTracker:
         """Test tracking balance changes."""
         builder = BlockAccessListBuilder()
         tracker = StateChangeTracker(builder)
-        tracker.current_block_access_index = 2
+        tracker.current_block_access_index = Uint(2)
 
         address = Bytes20(b"\x01" * 20)
         new_balance = U256(1000)
@@ -308,7 +313,7 @@ class TestBALTracker:
         """Test tracking nonce changes."""
         builder = BlockAccessListBuilder()
         tracker = StateChangeTracker(builder)
-        tracker.current_block_access_index = 3
+        tracker.current_block_access_index = Uint(3)
 
         address = Bytes20(b"\x01" * 20)
         new_nonce = U64(10)
@@ -326,7 +331,7 @@ class TestBALTracker:
         """Test tracking code changes."""
         builder = BlockAccessListBuilder()
         tracker = StateChangeTracker(builder)
-        tracker.current_block_access_index = 1
+        tracker.current_block_access_index = Uint(1)
 
         address = Bytes20(b"\x01" * 20)
         new_code = Bytes(b"\x60\x80\x60\x40")
@@ -624,11 +629,10 @@ class TestValueCalls:
     """Test value call scenarios including 0 ETH calls."""
 
     def test_zero_eth_value_call_tracks_address_without_balance(self) -> None:
-        """Test that 0 ETH calls track recipient address without balance changes."""
-        from ethereum.forks.amsterdam.block_access_lists.tracker import (
-            track_address_access,
-        )
-
+        """
+        Test that 0 ETH calls track recipient address without
+        balance changes.
+        """
         builder = BlockAccessListBuilder()
         tracker = StateChangeTracker(builder)
         set_block_access_index(tracker, Uint(1))
@@ -651,7 +655,10 @@ class TestValueCalls:
         assert recipient_found
 
     def test_nonzero_eth_value_call_tracks_with_balance(self) -> None:
-        """Test that non-zero ETH calls track addresses with balance changes."""
+        """
+        Test that non-zero ETH calls track addresses with balance
+        changes.
+        """
         builder = BlockAccessListBuilder()
         tracker = StateChangeTracker(builder)
         set_block_access_index(tracker, Uint(1))
@@ -683,10 +690,6 @@ class TestValueCalls:
 
     def test_multiple_zero_eth_calls_deduplication(self) -> None:
         """Test that multiple 0 ETH calls to same address are deduplicated."""
-        from ethereum.forks.amsterdam.block_access_lists.tracker import (
-            track_address_access,
-        )
-
         builder = BlockAccessListBuilder()
         tracker = StateChangeTracker(builder)
         set_block_access_index(tracker, Uint(1))
@@ -740,8 +743,8 @@ class TestRevertScenarios:
         begin_call_frame(tracker)
 
         # Mock state for storage operations
-        class MockState:
-            _storage_tries = {}
+        class MockState(State):
+            _storage_tries: Dict[Address, Trie[Bytes32, U256]] = {}
 
         state = MockState()
 
@@ -778,7 +781,10 @@ class TestRevertScenarios:
         assert account_found
 
     def test_balance_changes_removed_on_revert(self) -> None:
-        """Test that balance changes are removed on revert but address remains."""
+        """
+        Test that balance changes are removed on revert but address
+        remains.
+        """
         from ethereum.forks.amsterdam.block_access_lists.tracker import (
             begin_call_frame,
             rollback_call_frame,
@@ -813,7 +819,10 @@ class TestRevertScenarios:
         assert account_found
 
     def test_nested_call_frames_with_partial_revert(self) -> None:
-        """Test nested call frames where inner frame reverts but outer succeeds."""
+        """
+        Test nested call frames where inner frame reverts but outer
+        succeeds.
+        """
         from ethereum.forks.amsterdam.block_access_lists.tracker import (
             begin_call_frame,
             commit_call_frame,

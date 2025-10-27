@@ -1,7 +1,4 @@
 """
-Block Access List RLP Utilities for EIP-7928
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
 Utilities for working with Block Access Lists using RLP encoding,
 as specified in EIP-7928.
 

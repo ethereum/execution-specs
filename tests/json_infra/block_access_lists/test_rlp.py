@@ -1,3 +1,5 @@
+"""Tests for RLP encoding and decoding of Cancun-specific objects."""
+
 import pytest
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes8, Bytes32
@@ -174,6 +176,7 @@ receipt = Receipt(
     ],
 )
 def test_cancun_rlp(rlp_object: rlp.Extended) -> None:
+    """Test RLP encoding and decoding for various Cancun objects."""
     encoded = rlp.encode(rlp_object)
     assert rlp.decode_to(type(rlp_object), encoded) == rlp_object
 
@@ -182,5 +185,6 @@ def test_cancun_rlp(rlp_object: rlp.Extended) -> None:
     "tx", [legacy_transaction, access_list_transaction, transaction_1559]
 )
 def test_transaction_encoding(tx: Transaction) -> None:
+    """Test transaction RLP encoding and decoding."""
     encoded = encode_transaction(tx)
     assert decode_transaction(encoded) == tx

@@ -1,13 +1,10 @@
 """
-RLP Types for EIP-7928 Block-Level Access Lists
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-This module defines the RLP data structures for Block-Level Access Lists
+Defines the RLP data structures for Block-Level Access Lists
 as specified in EIP-7928. These structures enable efficient encoding and
 decoding of all accounts and storage locations accessed during block execution.
 
 The encoding follows the pattern:
-address -> field -> block_access_index -> change
+address -> field -> block_access_index -> change.
 """
 
 from dataclasses import dataclass
@@ -38,8 +35,8 @@ MAX_CODE_CHANGES = 1
 @dataclass
 class StorageChange:
     """
-    Storage change: [block_access_index, new_value]
-    RLP encoded as a list
+    Storage change: [block_access_index, new_value].
+    RLP encoded as a list.
     """
 
     block_access_index: BlockAccessIndex
@@ -50,8 +47,8 @@ class StorageChange:
 @dataclass
 class BalanceChange:
     """
-    Balance change: [block_access_index, post_balance]
-    RLP encoded as a list
+    Balance change: [block_access_index, post_balance].
+    RLP encoded as a list.
     """
 
     block_access_index: BlockAccessIndex
@@ -62,8 +59,8 @@ class BalanceChange:
 @dataclass
 class NonceChange:
     """
-    Nonce change: [block_access_index, new_nonce]
-    RLP encoded as a list
+    Nonce change: [block_access_index, new_nonce].
+    RLP encoded as a list.
     """
 
     block_access_index: BlockAccessIndex
@@ -74,8 +71,8 @@ class NonceChange:
 @dataclass
 class CodeChange:
     """
-    Code change: [block_access_index, new_code]
-    RLP encoded as a list
+    Code change: [block_access_index, new_code].
+    RLP encoded as a list.
     """
 
     block_access_index: BlockAccessIndex
@@ -86,8 +83,8 @@ class CodeChange:
 @dataclass
 class SlotChanges:
     """
-    All changes to a single storage slot: [slot, [changes]]
-    RLP encoded as a list
+    All changes to a single storage slot: [slot, [changes]].
+    RLP encoded as a list.
     """
 
     slot: StorageKey
@@ -100,7 +97,7 @@ class AccountChanges:
     """
     All changes for a single account, grouped by field type.
     RLP encoded as: [address, storage_changes, storage_reads,
-    balance_changes, nonce_changes, code_changes]
+    balance_changes, nonce_changes, code_changes].
     """
 
     address: Address
@@ -127,7 +124,7 @@ class BlockAccessList:
     """
     Block-Level Access List for EIP-7928.
     Contains all addresses accessed during block execution.
-    RLP encoded as a list of AccountChanges
+    RLP encoded as a list of AccountChanges.
     """
 
     account_changes: Tuple[AccountChanges, ...]
