@@ -8,8 +8,9 @@ This module tests the complete BAL implementation including:
 - Edge cases and error handling
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 
@@ -24,6 +25,11 @@ from ethereum.forks.amsterdam.block_access_lists import (
     add_touched_account,
     build_block_access_list,
 )
+from ethereum.forks.amsterdam.block_access_lists.rlp_types import (
+    MAX_CODE_CHANGES,
+    BlockAccessIndex,
+    BlockAccessList,
+)
 from ethereum.forks.amsterdam.block_access_lists.tracker import (
     capture_pre_state,
     set_block_access_index,
@@ -31,11 +37,6 @@ from ethereum.forks.amsterdam.block_access_lists.tracker import (
     track_code_change,
     track_nonce_change,
     track_storage_write,
-)
-from ethereum.forks.amsterdam.block_access_lists.rlp_types import (
-    MAX_CODE_CHANGES,
-    BlockAccessIndex,
-    BlockAccessList,
 )
 
 
@@ -229,7 +230,9 @@ class TestBALTracker:
         assert value2 == expected_value
         mock_get_storage.assert_not_called()
 
-    @patch("ethereum.forks.amsterdam.block_access_lists.tracker.capture_pre_state")
+    @patch(
+        "ethereum.forks.amsterdam.block_access_lists.tracker.capture_pre_state"
+    )
     def test_tracker_storage_write_actual_change(
         self, mock_capture: MagicMock
     ) -> None:
@@ -257,7 +260,9 @@ class TestBALTracker:
         assert change.block_access_index == 1
         assert change.new_value == new_value.to_be_bytes32()
 
-    @patch("ethereum.forks.amsterdam.block_access_lists.tracker.capture_pre_state")
+    @patch(
+        "ethereum.forks.amsterdam.block_access_lists.tracker.capture_pre_state"
+    )
     def test_tracker_storage_write_no_change(
         self, mock_capture: MagicMock
     ) -> None:
@@ -344,8 +349,12 @@ class TestBALIntegration:
         builder = BlockAccessListBuilder()
 
         # Simulate pre-execution system contract changes
-        beacon_roots_addr = Bytes20(bytes.fromhex("000F3df6D732807Ef1319fB7B8bB8522d0Beac02"))
-        history_addr = Bytes20(bytes.fromhex("0000F90827F1C53a10cb7A02335B175320002935"))
+        beacon_roots_addr = Bytes20(
+            bytes.fromhex("000F3df6D732807Ef1319fB7B8bB8522d0Beac02")
+        )
+        history_addr = Bytes20(
+            bytes.fromhex("0000F90827F1C53a10cb7A02335B175320002935")
+        )
 
         # These should use index 0
         add_storage_write(
@@ -613,22 +622,24 @@ class TestEdgeCases:
 
 class TestValueCalls:
     """Test value call scenarios including 0 ETH calls."""
-    
+
     def test_zero_eth_value_call_tracks_address_without_balance(self) -> None:
         """Test that 0 ETH calls track recipient address without balance changes."""
-        from ethereum.forks.amsterdam.block_access_lists.tracker import track_address_access
-        
+        from ethereum.forks.amsterdam.block_access_lists.tracker import (
+            track_address_access,
+        )
+
         builder = BlockAccessListBuilder()
         tracker = StateChangeTracker(builder)
         set_block_access_index(tracker, Uint(1))
-        
+
         recipient = Bytes20(b"\x02" * 20)
-        
+
         # Track only the address access without balance change
         track_address_access(tracker, recipient)
-        
+
         block_access_list = build_block_access_list(builder)
-        
+
         # Verify recipient is tracked without balance changes
         recipient_found = False
         for account in block_access_list.account_changes:
@@ -636,28 +647,28 @@ class TestValueCalls:
                 recipient_found = True
                 assert len(account.balance_changes) == 0
                 break
-        
+
         assert recipient_found
-    
+
     def test_nonzero_eth_value_call_tracks_with_balance(self) -> None:
         """Test that non-zero ETH calls track addresses with balance changes."""
         builder = BlockAccessListBuilder()
         tracker = StateChangeTracker(builder)
         set_block_access_index(tracker, Uint(1))
-        
+
         sender = Bytes20(b"\x01" * 20)
         recipient = Bytes20(b"\x02" * 20)
-        
+
         # Track balance changes for value transfer
         track_balance_change(tracker, sender, U256(900))
         track_balance_change(tracker, recipient, U256(100))
-        
+
         block_access_list = build_block_access_list(builder)
-        
+
         # Verify both addresses tracked with balance changes
         sender_found = False
         recipient_found = False
-        
+
         for account in block_access_list.account_changes:
             if account.address == sender:
                 sender_found = True
@@ -667,31 +678,36 @@ class TestValueCalls:
                 recipient_found = True
                 assert len(account.balance_changes) == 1
                 assert account.balance_changes[0].post_balance == U256(100)
-        
+
         assert sender_found and recipient_found
-    
+
     def test_multiple_zero_eth_calls_deduplication(self) -> None:
         """Test that multiple 0 ETH calls to same address are deduplicated."""
-        from ethereum.forks.amsterdam.block_access_lists.tracker import track_address_access
-        
+        from ethereum.forks.amsterdam.block_access_lists.tracker import (
+            track_address_access,
+        )
+
         builder = BlockAccessListBuilder()
         tracker = StateChangeTracker(builder)
         set_block_access_index(tracker, Uint(1))
-        
+
         recipient = Bytes20(b"\x02" * 20)
-        
+
         # Multiple calls to same address
         track_address_access(tracker, recipient)
         track_address_access(tracker, recipient)
         track_address_access(tracker, recipient)
-        
+
         block_access_list = build_block_access_list(builder)
-        
+
         # Verify address appears exactly once without balance changes
-        recipient_count = sum(1 for account in block_access_list.account_changes 
-                            if account.address == recipient)
+        recipient_count = sum(
+            1
+            for account in block_access_list.account_changes
+            if account.address == recipient
+        )
         assert recipient_count == 1
-        
+
         for account in block_access_list.account_changes:
             if account.address == recipient:
                 assert len(account.balance_changes) == 0
@@ -699,52 +715,54 @@ class TestValueCalls:
 
 class TestRevertScenarios:
     """Test block access list behavior during reverts."""
-    
+
     @patch("ethereum.forks.amsterdam.state.get_storage")
-    def test_storage_write_becomes_read_on_revert(self, mock_get_storage: MagicMock) -> None:
+    def test_storage_write_becomes_read_on_revert(
+        self, mock_get_storage: MagicMock
+    ) -> None:
         """Test that storage writes become reads when transaction reverts."""
         from ethereum.forks.amsterdam.block_access_lists.tracker import (
             begin_call_frame,
             rollback_call_frame,
-            track_storage_write,
             track_storage_read,
+            track_storage_write,
         )
-        
+
         builder = BlockAccessListBuilder()
         tracker = StateChangeTracker(builder)
         set_block_access_index(tracker, Uint(1))
-        
+
         address = Bytes20(b"\x01" * 20)
         slot1 = Bytes32(b"\x01" * 32)
         slot2 = Bytes32(b"\x02" * 32)
-        
+
         # Begin call frame
         begin_call_frame(tracker)
-        
+
         # Mock state for storage operations
         class MockState:
             _storage_tries = {}
-            
+
         state = MockState()
-        
+
         # Mock get_storage to return U256(0) for reads
         mock_get_storage.return_value = U256(0)
-        
+
         # Track storage operations that will be reverted
         track_storage_read(tracker, address, slot1, state)  # Read slot 0x01
-        
+
         # Mock get_storage to return old value for slot2
         mock_get_storage.return_value = U256(10)  # Different from new value
-        
+
         # Storage write to slot 0x02 (will be reverted)
         track_storage_write(tracker, address, slot2, U256(42), state)
-        
+
         # Rollback the call frame (simulating revert)
         rollback_call_frame(tracker)
-        
+
         # Build and check the access list
         block_access_list = build_block_access_list(builder)
-        
+
         # Find the account in the access list
         account_found = False
         for account in block_access_list.account_changes:
@@ -756,34 +774,34 @@ class TestRevertScenarios:
                 # No storage changes should exist
                 assert len(account.storage_changes) == 0
                 break
-        
+
         assert account_found
-    
+
     def test_balance_changes_removed_on_revert(self) -> None:
         """Test that balance changes are removed on revert but address remains."""
         from ethereum.forks.amsterdam.block_access_lists.tracker import (
             begin_call_frame,
             rollback_call_frame,
         )
-        
+
         builder = BlockAccessListBuilder()
         tracker = StateChangeTracker(builder)
         set_block_access_index(tracker, Uint(1))
-        
+
         address = Bytes20(b"\x01" * 20)
-        
+
         # Begin call frame
         begin_call_frame(tracker)
-        
+
         # Track balance change that will be reverted
         track_balance_change(tracker, address, U256(1000))
-        
+
         # Rollback the call frame
         rollback_call_frame(tracker)
-        
+
         # Build and check the access list
         block_access_list = build_block_access_list(builder)
-        
+
         # Address should still be in access list but without balance changes
         account_found = False
         for account in block_access_list.account_changes:
@@ -791,9 +809,9 @@ class TestRevertScenarios:
                 account_found = True
                 assert len(account.balance_changes) == 0
                 break
-        
+
         assert account_found
-    
+
     def test_nested_call_frames_with_partial_revert(self) -> None:
         """Test nested call frames where inner frame reverts but outer succeeds."""
         from ethereum.forks.amsterdam.block_access_lists.tracker import (
@@ -801,35 +819,35 @@ class TestRevertScenarios:
             commit_call_frame,
             rollback_call_frame,
         )
-        
+
         builder = BlockAccessListBuilder()
         tracker = StateChangeTracker(builder)
         set_block_access_index(tracker, Uint(1))
-        
+
         address1 = Bytes20(b"\x01" * 20)
         address2 = Bytes20(b"\x02" * 20)
-        
+
         # Outer call frame
         begin_call_frame(tracker)
         track_balance_change(tracker, address1, U256(900))
-        
+
         # Inner call frame (will be reverted)
         begin_call_frame(tracker)
         track_balance_change(tracker, address2, U256(100))
-        
+
         # Rollback inner frame
         rollback_call_frame(tracker)
-        
+
         # Commit outer frame
         commit_call_frame(tracker)
-        
+
         # Build and check the access list
         block_access_list = build_block_access_list(builder)
-        
+
         # address1 should have balance change, address2 should not
         address1_found = False
         address2_found = False
-        
+
         for account in block_access_list.account_changes:
             if account.address == address1:
                 address1_found = True
@@ -838,7 +856,7 @@ class TestRevertScenarios:
             elif account.address == address2:
                 address2_found = True
                 assert len(account.balance_changes) == 0
-        
+
         assert address1_found
         assert address2_found  # Address2 touched but no changes
 

@@ -1,6 +1,7 @@
 """
 Minimal conftest for amsterdam BAL tests.
 """
+
 from typing import Any
 
 
