@@ -1,8 +1,5 @@
 """
-Block Access List State Change Tracker for EIP-7928
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-This module provides state change tracking functionality for building Block
+Provides state change tracking functionality for building Block
 Access Lists during transaction execution.
 
 The tracker integrates with the EVM execution to capture all state accesses
@@ -10,8 +7,7 @@ and modifications, distinguishing between actual changes and no-op operations.
 It maintains a cache of pre-state values to enable accurate change detection
 throughout block execution.
 
-See [EIP-7928] for the full specification.
-
+See [EIP-7928] for the full specification
 [EIP-7928]: https://eips.ethereum.org/EIPS/eip-7928
 """
 
