@@ -13,6 +13,8 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks.forks.forks import Berlin
+from execution_testing.forks.helpers import Fork
 from execution_testing.test_types.eof.v1 import Container, Section
 
 from .eip7069_extcall.spec import (
@@ -31,6 +33,7 @@ slot_sanity_call_result = next(_slot)
 
 
 def gas_test(
+    fork: Fork,
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
@@ -55,6 +58,11 @@ def gas_test(
     test, and MUST NOT have any side-effects which persist across message
     calls, and in particular, any effects on the gas usage of `subject_code`.
     """
+    if fork < Berlin:
+        raise ValueError(
+            "Gas tests before Berlin are not supported due to CALL gas changes"
+        )
+
     if cold_gas <= 0:
         raise ValueError(
             f"Target gas allocations (cold_gas) must be > 0, got {cold_gas}"

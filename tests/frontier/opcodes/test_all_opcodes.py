@@ -364,6 +364,7 @@ def test_constant_gas(
         + (code_increment_counter if opcode == Op.CREATE2 else Bytecode())
     )
     gas_test(
+        fork,
         state_test,
         env,
         pre,

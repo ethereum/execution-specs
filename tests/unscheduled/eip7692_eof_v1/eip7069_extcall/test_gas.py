@@ -143,6 +143,7 @@ def test_ext_calls_gas(
     )
     cost_memory_bytes = fork.memory_expansion_gas_calculator()
     gas_test(
+        fork,
         state_test,
         state_env,
         pre,
@@ -164,6 +165,7 @@ def test_ext_calls_gas(
 def test_transfer_gas_is_cleared(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     state_env: Environment,
     opcode: Op,
     value: int,
@@ -185,6 +187,7 @@ def test_transfer_gas_is_cleared(
     push_gas = (4 if opcode == Op.EXTCALL else 3) * 3
 
     gas_test(
+        fork,
         state_test,
         state_env,
         pre,
@@ -212,6 +215,7 @@ def test_transfer_gas_is_cleared(
 def test_late_account_create(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     state_env: Environment,
     opcode: Op,
 ) -> None:
@@ -222,6 +226,7 @@ def test_late_account_create(
     empty_address = Address(0xDECAFC0DE)
 
     gas_test(
+        fork,
         state_test,
         state_env,
         pre,
