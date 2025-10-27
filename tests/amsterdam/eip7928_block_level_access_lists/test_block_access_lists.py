@@ -1417,3 +1417,107 @@ def test_bal_fully_unmutated_account(
     )
 
     blockchain_test(pre=pre, blocks=[block], post={})
+
+
+def test_bal_empty_block_no_coinbase(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Test that BAL correctly handles empty blocks without including coinbase.
+
+    When a block has no transactions and no withdrawals, the coinbase/fee
+    recipient receives no fees and should not be included in the BAL.
+    """
+    coinbase = pre.fund_eoa(amount=0)
+
+    block = Block(
+        txs=[],
+        withdrawals=None,
+        fee_recipient=coinbase,
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                # Coinbase must NOT be included - receives no fees
+                coinbase: None,
+            }
+        ),
+    )
+
+    blockchain_test(pre=pre, blocks=[block], post={})
+
+
+def _test_bal_coinbase_zero_tip(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+) -> None:
+    """Ensure BAL includes coinbase even when priority fee is zero."""
+    alice_initial_balance = 1_000_000
+    alice = pre.fund_eoa(amount=alice_initial_balance)
+    bob = pre.fund_eoa(amount=0)
+    coinbase = pre.fund_eoa(amount=0)  # fee recipient
+
+    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
+    intrinsic_gas = intrinsic_gas_calculator(
+        calldata=b"",
+        contract_creation=False,
+        access_list=[],
+    )
+    tx_gas_limit = intrinsic_gas + 1000
+
+    # Calculate base fee
+    genesis_env = Environment(base_fee_per_gas=0x7)
+    base_fee_per_gas = fork.base_fee_per_gas_calculator()(
+        parent_base_fee_per_gas=int(genesis_env.base_fee_per_gas or 0),
+        parent_gas_used=0,
+        parent_gas_limit=genesis_env.gas_limit,
+    )
+
+    # Set gas_price equal to base_fee so tip = 0
+    tx = Transaction(
+        sender=alice,
+        to=bob,
+        value=5,
+        gas_limit=tx_gas_limit,
+        gas_price=base_fee_per_gas,
+    )
+
+    alice_final_balance = (
+        alice_initial_balance - 5 - (intrinsic_gas * base_fee_per_gas)
+    )
+
+    block = Block(
+        txs=[tx],
+        fee_recipient=coinbase,
+        header_verify=Header(base_fee_per_gas=base_fee_per_gas),
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                    balance_changes=[
+                        BalBalanceChange(
+                            tx_index=1, post_balance=alice_final_balance
+                        )
+                    ],
+                ),
+                bob: BalAccountExpectation(
+                    balance_changes=[
+                        BalBalanceChange(tx_index=1, post_balance=5)
+                    ]
+                ),
+                # Coinbase must be included even with zero tip
+                coinbase: BalAccountExpectation.empty(),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1, balance=alice_final_balance),
+            bob: Account(balance=5),
+            coinbase: Account(balance=0),
+        },
+        genesis_environment=genesis_env,
+    )
