@@ -12,6 +12,8 @@ Test fixtures for use by clients are available for each release on the [Github r
 
 #### `fill`
 
+- 🐞 Allow `evmone` to fill Prague and Osaka blockchain tests (mainly modified deposit contract tests) ([#1689](https://github.com/ethereum/execution-specs/pull/1689))
+
 #### `consume`
 
 - 🐞 Fix a bug with `consume sync` tests where some clients don't have JSON-RPC immediately available after syncing and can't yet serve the synced block ([#1670](https://github.com/ethereum/execution-specs/pull/1670)).

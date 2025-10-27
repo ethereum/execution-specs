@@ -11,6 +11,7 @@ from functools import cache
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional
 
+from execution_testing.exceptions.exceptions.block import BlockException
 import pytest
 
 from execution_testing.client_clis.file_utils import (
@@ -358,6 +359,11 @@ class EvmoneExceptionMapper(ExceptionMapper):
         TransactionException.NONCE_MISMATCH_TOO_LOW: "nonce too low",
         TransactionException.NONCE_MISMATCH_TOO_HIGH: "nonce too high",
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: "max gas limit exceeded",
+        BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: "invalid deposit event layout",
+        # TODO EVMONE needs to differentiate when the system contract is
+        # missing or failing
+        BlockException.SYSTEM_CONTRACT_EMPTY: "system contract empty or failed",
+        BlockException.SYSTEM_CONTRACT_CALL_FAILED: "system contract empty or failed",
         # TODO EVMONE needs to differentiate when the section is missing in the
         # header or body
         EOFException.MISSING_STOP_OPCODE: "err: no_terminating_instruction",
