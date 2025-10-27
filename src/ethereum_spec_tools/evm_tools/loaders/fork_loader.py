@@ -110,11 +110,6 @@ class ForkLoad:
         return self._module("fork").state_transition
 
     @property
-    def pay_rewards(self) -> Any:
-        """pay_rewards function of the fork."""
-        return self._module("fork").pay_rewards
-
-    @property
     def signing_hash(self) -> Any:
         """signing_hash function of the fork."""
         return self._module("transactions").signing_hash
@@ -158,11 +153,6 @@ class ForkLoad:
     def process_transaction(self) -> Any:
         """process_transaction function of the fork."""
         return self._module("fork").process_transaction
-
-    @property
-    def MAX_BLOB_GAS_PER_BLOCK(self) -> Any:
-        """MAX_BLOB_GAS_PER_BLOCK parameter of the fork."""
-        return self._module("fork").MAX_BLOB_GAS_PER_BLOCK
 
     @property
     def Block(self) -> Any:
@@ -240,11 +230,6 @@ class ForkLoad:
         return self._module("blocks").Withdrawal
 
     @property
-    def encode_transaction(self) -> Any:
-        """encode_transaction function of the fork."""
-        return self._module("transactions").encode_transaction
-
-    @property
     def decode_transaction(self) -> Any:
         """decode_transaction function of the fork."""
         return self._module("transactions").decode_transaction
@@ -318,31 +303,6 @@ class ForkLoad:
     def Authorization(self) -> Any:
         """Authorization class of the fork."""
         return self._module("fork_types").Authorization
-
-    @property
-    def TARGET_BLOB_GAS_PER_BLOCK(self) -> Any:
-        """TARGET_BLOB_GAS_PER_BLOCK of the fork."""
-        return self._module("vm.gas").TARGET_BLOB_GAS_PER_BLOCK
-
-    @property
-    def GAS_PER_BLOB(self) -> Any:
-        """GAS_PER_BLOB of the fork."""
-        return self._module("vm.gas").GAS_PER_BLOB
-
-    @property
-    def BLOB_BASE_COST(self) -> Any:
-        """BLOB_BASE_COST of the fork."""
-        return self._module("vm.gas").BLOB_BASE_COST
-
-    @property
-    def BLOB_SCHEDULE_MAX(self) -> Any:
-        """BLOB_SCHEDULE_MAX of the fork."""
-        return self._module("vm.gas").BLOB_SCHEDULE_MAX
-
-    @property
-    def BLOB_SCHEDULE_TARGET(self) -> Any:
-        """BLOB_SCHEDULE_TARGET of the fork."""
-        return self._module("vm.gas").BLOB_SCHEDULE_TARGET
 
     @property
     def calculate_excess_blob_gas(self) -> Any:
