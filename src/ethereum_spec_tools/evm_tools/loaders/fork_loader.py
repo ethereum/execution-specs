@@ -126,19 +126,19 @@ class ForkLoad:
 
     @property
     def build_block_access_list(self) -> Any:
-        """Build function of the fork"""
+        """Build function of the fork."""
         return self._module("block_access_lists").build_block_access_list
 
     @property
     def compute_block_access_list_hash(self) -> Any:
-        """compute_block_access_list_hash function of the fork"""
+        """compute_block_access_list_hash function of the fork."""
         return self._module(
             "block_access_lists"
         ).compute_block_access_list_hash
 
     @property
     def set_block_access_index(self) -> Any:
-        """set_block_access_index function of the fork"""
+        """set_block_access_index function of the fork."""
         return self._module("block_access_lists").set_block_access_index
 
     @property
