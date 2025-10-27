@@ -50,26 +50,20 @@ def test_worst_address_state_cold(
     fork: Fork,
     opcode: Op,
     absent_accounts: bool,
-    env: Environment,
     gas_benchmark_value: int,
+    tx_gas_limit_cap: int,
 ) -> None:
     """
     Test running a block with as many stateful opcodes accessing cold accounts.
     """
-    attack_gas_limit = gas_benchmark_value
-
+    # Gas Costs
     gas_costs = fork.gas_costs()
     intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
-    # For calculation robustness, the calculation below ignores "glue" opcodes
-    # like  PUSH and POP. It should be considered a worst-case number of
-    # accounts, and a few of them might not be targeted before the attacking
-    # transaction runs out of gas.
-    num_target_accounts = (
-        attack_gas_limit - intrinsic_gas_cost_calc()
-    ) // gas_costs.G_COLD_ACCOUNT_ACCESS
 
-    blocks = []
-    post = {}
+    # Constants
+    num_contracts = (
+        2 * gas_benchmark_value
+    ) // gas_costs.G_COLD_ACCOUNT_ACCESS
 
     # Setup The target addresses are going to be constructed (in the case of
     # absent=False) and called as addr_offset + i, where i is the index of the
@@ -77,50 +71,94 @@ def test_worst_address_state_cold(
     # created by the testing framework.
     addr_offset = int.from_bytes(pre.fund_eoa(amount=0))
 
+    # Variables
+    blocks = []
+    post = {}
+
     if not absent_accounts:
-        factory_code = Op.PUSH4(num_target_accounts) + While(
-            body=Op.POP(
-                Op.CALL(address=Op.ADD(addr_offset, Op.DUP6), value=10)
-            ),
+        setup = Op.JUMPDEST
+        loop = Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=Op.ADD(addr_offset, Op.SELFBALANCE),
+                value=1,
+                args_offset=Op.PUSH0,
+                args_size=Op.PUSH0,
+                ret_offset=Op.PUSH0,
+                ret_size=Op.PUSH0,
+            )
+        )
+        cleanup = (
+            Op.JUMPI(0, Op.ISZERO(Op.EQ(Op.SELFBALANCE, Op.CALLDATALOAD(0))))
+            + Op.STOP
+        )
+        factory_code = setup + loop + cleanup
+
+        factory_address = pre.deploy_contract(
+            code=factory_code, balance=num_contracts
+        )
+
+        loop_cost = 37_000
+        gas_available = tx_gas_limit_cap - intrinsic_gas_cost_calc()
+        loop_count_per_iter = gas_available // loop_cost
+        tx_count = gas_benchmark_value // tx_gas_limit_cap
+
+        setup_txs = []
+        for i in range(tx_count * 2):
+            tx = Transaction(
+                to=factory_address,
+                data=Hash(num_contracts - (i + 1) * loop_count_per_iter),
+                gas_limit=tx_gas_limit_cap,
+                sender=pre.fund_eoa(),
+            )
+            setup_txs.append(tx)
+
+        blocks.append(Block(txs=setup_txs[:tx_count]))
+        blocks.append(Block(txs=setup_txs[tx_count:]))
+
+        for i in range(tx_count * 2 * loop_count_per_iter):
+            addr = Address(addr_offset + num_contracts - i)
+            post[addr] = Account(balance=1)
+
+    # Execution
+    attack_address = pre.deploy_contract(
+        code=Op.CALLDATALOAD(0)
+        + While(
+            body=Op.POP(opcode(address=Op.ADD(addr_offset, Op.DUP1))),
             condition=Op.PUSH1(1)
             + Op.SWAP1
             + Op.SUB
             + Op.DUP1
-            + Op.ISZERO
-            + Op.ISZERO,
+            + Op.CALLVALUE
+            + Op.GT,
         )
-        factory_address = pre.deploy_contract(
-            code=factory_code, balance=10**18
-        )
+    )
 
-        setup_tx = Transaction(
-            to=factory_address,
-            gas_limit=env.gas_limit,
+    loop_cost = gas_costs.G_COLD_ACCOUNT_ACCESS + 25 * gas_costs.G_VERY_LOW
+
+    attack_txs = []
+    gas_remaining = gas_benchmark_value
+    total_iteration = 0
+    while gas_remaining > 0:
+        gas_available = min(gas_remaining, tx_gas_limit_cap)
+        iteration_count = gas_available // loop_cost
+
+        if gas_available < intrinsic_gas_cost_calc():
+            break
+
+        tx = Transaction(
+            to=attack_address,
+            data=Hash(num_contracts - total_iteration),
+            value=num_contracts - total_iteration - iteration_count,
+            gas_limit=gas_available,
             sender=pre.fund_eoa(),
         )
-        blocks.append(Block(txs=[setup_tx]))
 
-        for i in range(num_target_accounts):
-            addr = Address(i + addr_offset + 1)
-            post[addr] = Account(balance=10)
+        attack_txs.append(tx)
+        gas_remaining -= gas_available
+        total_iteration += iteration_count
 
-    # Execution
-    op_code = Op.PUSH4(num_target_accounts) + While(
-        body=Op.POP(opcode(Op.ADD(addr_offset, Op.DUP1))),
-        condition=Op.PUSH1(1)
-        + Op.SWAP1
-        + Op.SUB
-        + Op.DUP1
-        + Op.ISZERO
-        + Op.ISZERO,
-    )
-    op_address = pre.deploy_contract(code=op_code)
-    op_tx = Transaction(
-        to=op_address,
-        gas_limit=attack_gas_limit,
-        sender=pre.fund_eoa(),
-    )
-    blocks.append(Block(txs=[op_tx]))
+    blocks.append(Block(txs=attack_txs))
 
     benchmark_test(
         post=post,
