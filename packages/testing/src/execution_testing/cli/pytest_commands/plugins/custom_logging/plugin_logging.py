@@ -18,6 +18,7 @@ import logging
 import os
 import sys
 from datetime import datetime, timezone
+from logging import LogRecord
 from pathlib import Path
 from typing import Any, Optional
 
