@@ -145,6 +145,37 @@ REFERENCE_SPEC_VERSION = "5c8f066acb210c704ef80c1033a941aa5374aac5"
             ),
             id="EIP-198-case5-raw-input",
         ),
+        # different declared moduli lengths and parities
+        pytest.param(
+            ModExpInput(
+                base="1234",
+                exponent="234",
+                modulus="1000",
+                declared_modulus_length=256,
+            ),
+            ModExpOutput(
+                returned_data=Bytes(
+                    "07be9ec040921bf6ffa9faad54b5e88c503ea4511cc15505e36fc9569cf20698"
+                    "933819b8c4b15e52a51f64261954708f55432c5a7011dc7d1787c64a8ece6f20"
+                    "65772d1dbc3ea9e96e3f55eeec7477bc92cb587ae416c8316fb3fa825ee25410"
+                    "811fad4f98ade2eaa665b48e930247bb30b25100000000000000000000000000"
+                    + (256 - 4 * 32)
+                    * "00"
+                )
+            ),
+            id="EIP-198-case1-mod-power2-declared-length-256-bytes",
+        ),
+        pytest.param(
+            ModExpInput(
+                base="1234",
+                exponent="234",
+                modulus="1010",
+                declared_modulus_length=128,
+            ),
+            ModExpOutput(returned_data=Bytes("00") + Bytes(hex(2**1014))),
+            id="EIP-198-case1-mod-even-declared-length-128-bytes",
+        ),
+        # out of gas cases
         pytest.param(
             Bytes(
                 "0000000000000000000000000000000000000000000000000000000000000001"
