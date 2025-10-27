@@ -46,6 +46,7 @@ def gas_test(
     out_of_gas_testing: bool = True,
     *,
     prelude_code: Bytecode | None = None,
+    eof: bool = True,
 ) -> None:
     """
     Create State Test to check the gas cost of a sequence of EOF code.
@@ -65,16 +66,22 @@ def gas_test(
 
     address_baseline = pre.deploy_contract(
         Container.Code(setup_code + tear_down_code)
+        if eof
+        else setup_code + tear_down_code
     )
     code_subject = setup_code + subject_code + tear_down_code
     address_subject = pre.deploy_contract(
-        Container.Code(code_subject)
-        if not subject_subcontainer
-        else Container(
-            sections=[
-                Section.Code(code_subject),
-                Section.Container(subject_subcontainer),
-            ]
+        code_subject
+        if not eof
+        else (
+            Container.Code(code_subject)
+            if not subject_subcontainer
+            else Container(
+                sections=[
+                    Section.Code(code_subject),
+                    Section.Container(subject_subcontainer),
+                ]
+            )
         ),
         balance=subject_balance,
         address=subject_address,
