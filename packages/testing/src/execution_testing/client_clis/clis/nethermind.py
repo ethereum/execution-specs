@@ -459,9 +459,7 @@ class NethermindExceptionMapper(ExceptionMapper):
         BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
             r"could not be parsed as a block: Could not decode block access list."
         ),
-        BlockException.INVALID_BAL_HASH: (
-            r"InvalidBlockLevelAccessListRoot:"
-        ),
+        BlockException.INVALID_BAL_HASH: (r"InvalidBlockLevelAccessListRoot:"),
         BlockException.INVALID_BAL_MISSING_ACCOUNT: (
             r"InvalidBlockLevelAccessListRoot:"
         ),

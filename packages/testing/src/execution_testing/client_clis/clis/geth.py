@@ -117,9 +117,7 @@ class GethExceptionMapper(ExceptionMapper):
         BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
             r"invalid block access list:"
         ),
-        BlockException.INVALID_BAL_HASH: (
-            r"invalid block access list:"
-        ),
+        BlockException.INVALID_BAL_HASH: (r"invalid block access list:"),
         BlockException.INVALID_BAL_MISSING_ACCOUNT: (
             r"computed state diff contained mutated accounts which weren't reported in BAL"
         ),
@@ -127,9 +125,7 @@ class GethExceptionMapper(ExceptionMapper):
             r"difference between computed state diff and BAL entry for account"
             r"|invalid block access list:"
         ),
-        BlockException.INCORRECT_BLOCK_FORMAT: (
-            r"invalid block access list:"
-        ),
+        BlockException.INCORRECT_BLOCK_FORMAT: (r"invalid block access list:"),
     }
 
 

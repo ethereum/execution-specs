@@ -78,9 +78,7 @@ class RethExceptionMapper(ExceptionMapper):
         BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
             r"Block BAL contains an account change that is not present in the computed BAL."
         ),
-        BlockException.INVALID_BAL_HASH: (
-            r"Block's access list is invalid."
-        ),
+        BlockException.INVALID_BAL_HASH: (r"Block's access list is invalid."),
         BlockException.INVALID_BAL_MISSING_ACCOUNT: (
             r"Block BAL is missing an account change that is present in the computed BAL."
         ),
