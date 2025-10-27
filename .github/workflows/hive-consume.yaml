@@ -1,0 +1,124 @@
+name: Hive Consume Tests
+
+on:
+  push:
+    branches:
+      - 'forks/**'
+  pull_request:
+    # TODO: After initial testing, uncomment these paths to only run on relevant changes:
+    # paths:
+    #   - '.github/workflows/hive-consume.yaml'
+    #   - 'packages/tests/src/pytest_plugins/consume/**'
+    #   - 'packages/tests/src/pytest_plugins/pytest_hive/**'
+    #   - 'packages/testing/src/execution_testing/cli/pytest_commands/plugins/consume/**'
+  workflow_dispatch:
+
+concurrency:
+  group: hive-consume-${{ github.workflow }}-${{ github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  test-hive:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - name: consume-engine
+            mode: simulator
+            simulator: ethereum/eels/consume-engine
+          - name: consume-rlp
+            mode: simulator
+            simulator: ethereum/eels/consume-rlp
+          - name: consume-sync
+            mode: simulator
+            simulator: ethereum/eels/consume-sync
+          - name: dev-mode
+            mode: dev
+            consume_command: engine
+    steps:
+      - name: Checkout execution-specs
+        if: matrix.mode == 'dev'
+        uses: actions/checkout@v5
+        with:
+          path: execution-specs
+
+      - name: Checkout Hive
+        uses: actions/checkout@v5
+        with:
+          repository: ethereum/hive
+          ref: master
+          path: hive
+
+      - name: Setup go env and cache
+        uses: actions/setup-go@v5
+        with:
+          go-version: '>=1.24'
+          cache-dependency-path: hive/go.sum
+
+      - name: Setup Python
+        if: matrix.mode == 'dev'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        if: matrix.mode == 'dev'
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Pre-pull geth docker image
+        run: docker pull docker.ethquokkaops.io/dh/ethpandaops/geth:master
+
+      - name: Create clients.yaml
+        run: |
+          cat > hive/clients.yaml << 'EOF'
+          - client: go-ethereum
+            nametag: default
+            build_args:
+              baseimage: docker.ethquokkaops.io/dh/ethpandaops/geth
+              tag: master
+          EOF
+
+      - name: Build hive
+        run: |
+          cd hive
+          go build .
+
+      - name: Run simulator tests
+        if: matrix.mode == 'simulator'
+        run: |
+          cd hive
+          ./hive --sim '${{ matrix.simulator }}' \
+            --sim.parallelism=1 \
+            --client go-ethereum \
+            --client-file clients.yaml \
+            --sim.buildarg fixtures=develop@latest \
+            --sim.limit=".*test_block_at_rlp_limit_with_logs.*Osaka.*" \
+            --docker.output
+
+      - name: Start Hive in dev mode
+        if: matrix.mode == 'dev'
+        run: |
+          cd hive
+          ./hive --dev --client go-ethereum --client-file clients.yaml --docker.output &
+          echo "Waiting for Hive to be ready..."
+          for i in {1..30}; do
+            if curl -s http://127.0.0.1:3000 > /dev/null 2>&1; then
+              echo "Hive is ready!"
+              break
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 2
+          done
+
+      - name: Run consume in dev mode
+        if: matrix.mode == 'dev'
+        working-directory: execution-specs
+        env:
+          HIVE_SIMULATOR: http://127.0.0.1:3000
+        run: |
+          uv sync --all-extras
+          uv run consume ${{ matrix.consume_command }} --input develop@latest -k "Osaka and test_block_at_rlp_limit_with_logs"
