@@ -235,6 +235,12 @@ def test_suite_description() -> str:
     return "Execute EEST tests using hive endpoint."
 
 
+@pytest.fixture(scope="function")
+def test_case_description(request: pytest.FixtureRequest) -> str:
+    """The description of the current test case for hive."""
+    return f"Test: {request.node.name}"
+
+
 @pytest.fixture(autouse=True, scope="session")
 def base_hive_test(
     request: pytest.FixtureRequest,
