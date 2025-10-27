@@ -95,6 +95,12 @@ class EthrexExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: (
             r"Blob count exceeded.*"
         ),
+        TransactionException.GASLIMIT_PRICE_PRODUCT_OVERFLOW: (
+            r"Invalid transaction: Gas limit price product overflow.*"
+        ),
+        TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
+            r"Invalid transaction: Transaction gas limit exceeds maximum.*"
+        ),
         BlockException.SYSTEM_CONTRACT_CALL_FAILED: (r"System call failed.*"),
         BlockException.SYSTEM_CONTRACT_EMPTY: (
             r"System contract:.* has no code after deployment"
@@ -110,5 +116,8 @@ class EthrexExceptionMapper(ExceptionMapper):
         ),
         BlockException.INVALID_BLOCK_HASH: (
             r"Invalid block hash. Expected \w+, got \w+"
+        ),
+        BlockException.RLP_BLOCK_LIMIT_EXCEEDED: (
+            r"Maximum block size exceeded.*"
         ),
     }
