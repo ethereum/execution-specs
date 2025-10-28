@@ -5,12 +5,11 @@ on:
     branches:
       - 'forks/**'
   pull_request:
-    # TODO: After initial testing, uncomment these paths to only run on relevant changes:
-    # paths:
-    #   - '.github/workflows/hive-consume.yaml'
-    #   - 'packages/tests/src/pytest_plugins/consume/**'
-    #   - 'packages/tests/src/pytest_plugins/pytest_hive/**'
-    #   - 'packages/testing/src/execution_testing/cli/pytest_commands/plugins/consume/**'
+    paths:
+      - '.github/workflows/hive-consume.yaml'
+      - 'packages/tests/src/pytest_plugins/consume/**'
+      - 'packages/tests/src/pytest_plugins/pytest_hive/**'
+      - 'packages/testing/src/execution_testing/cli/pytest_commands/plugins/consume/**'
   workflow_dispatch:
 
 concurrency:
