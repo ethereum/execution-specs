@@ -5,10 +5,15 @@ Tests for the ethereum-spec-new-fork CLI tool.
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import libcst as cst
 import pytest
+from libcst.codemod import CodemodContext
 
 from ethereum_spec_tools.forks import Hardfork
 from ethereum_spec_tools.new_fork.cli import main as new_fork
+from ethereum_spec_tools.new_fork.codemod.remove_docstring import (
+    RemoveDocstringCommand,
+)
 
 
 @pytest.mark.parametrize(
@@ -56,9 +61,13 @@ def test_end_to_end(template_fork: str) -> None:
         with (fork_dir / "__init__.py").open("r") as f:
             source = f.read()
 
+            assert '"""' not in source[:20]
             assert "FORK_CRITERIA = ByTimestamp(7)" in source
-            assert "E2E Fork" in source
             assert template_fork.capitalize() not in source
+
+        with (fork_dir / "utils" / "hexadecimal.py").open("r") as f:
+            source = f.read()
+            assert "E2E Fork" in source
 
         with (fork_dir / "vm" / "gas.py").open("r") as f:
             source = f.read()
@@ -82,3 +91,76 @@ def test_end_to_end(template_fork: str) -> None:
                 "from ethereum.forks.paris import trie as previous_trie"
                 in f.read()
             )
+
+
+def has_module_docstring(file_path: Path) -> bool:
+    """Return True if the file starts with a module-level doc-string."""
+    tree = cst.parse_module(file_path.read_text())
+    if not tree.body:
+        return False
+    first = tree.body[0]
+    if not isinstance(first, cst.SimpleStatementLine):
+        return False
+    if len(first.body) != 1:
+        return False
+    expr = first.body[0]
+    return isinstance(expr, cst.Expr) and isinstance(
+        expr.value, cst.SimpleString
+    )
+
+
+def test_remove_docstring_command() -> None:
+    """Test that RemoveDocstringCommand removes module docstrings."""
+    source = '"""Module docstring."""\n\nsome_var = 123\n'
+    module = cst.parse_module(source)
+    context = CodemodContext()
+    command = RemoveDocstringCommand(context)
+
+    new_module = command.transform_module(module)
+    result = new_module.code
+
+    assert '"""Module docstring."""' not in result
+    assert "some_var = 123" in result
+
+
+def test_remove_docstring_preserves_other_docstrings() -> None:
+    """Test that function/class docstrings are preserved."""
+    source = '''"""Module docstring."""
+
+def foo():
+    """Function docstring."""
+    pass
+'''
+    module = cst.parse_module(source)
+    context = CodemodContext()
+    command = RemoveDocstringCommand(context)
+
+    new_module = command.transform_module(module)
+    result = new_module.code
+
+    assert not result.startswith('"""Module docstring."""')
+    assert '"""Function docstring."""' in result
+
+
+def test_remove_docstring_handles_files_without_docstrings() -> None:
+    """Test that files without docstrings remain unchanged."""
+    source_without_docstring = "some_var = 123\n\ndef foo():\n    pass\n"
+    module = cst.parse_module(source_without_docstring)
+    context = CodemodContext()
+    command = RemoveDocstringCommand(context)
+
+    new_module = command.transform_module(module)
+
+    assert new_module.code == source_without_docstring
+
+
+def test_remove_docstring_handles_empty_files() -> None:
+    """Test that empty files remain empty."""
+    source_empty = ""
+    module = cst.parse_module(source_empty)
+    context = CodemodContext()
+    command = RemoveDocstringCommand(context)
+
+    new_module = command.transform_module(module)
+
+    assert new_module.code == source_empty

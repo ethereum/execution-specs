@@ -31,7 +31,9 @@ from ethereum_spec_tools.lint.lints.glacier_forks_hygiene import (
 from ethereum_spec_tools.lint.lints.import_hygiene import ImportHygiene
 from ethereum_spec_tools.new_fork.codemod.comment import CommentReplaceCommand
 from ethereum_spec_tools.new_fork.codemod.constant import SetConstantCommand
-from ethereum_spec_tools.new_fork.codemod.string import StringReplaceCommand
+from ethereum_spec_tools.new_fork.codemod.string_replace import (
+    StringReplaceCommand,
+)
 
 # src/ethereum/utils/hexadecimal.py
 hex_to_bytes256
