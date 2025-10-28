@@ -46,6 +46,11 @@ class ErigonExceptionMapper(ExceptionMapper):
         BlockException.INVALID_REQUESTS: "invalid requests root hash in header",
         BlockException.INVALID_BLOCK_HASH: "invalid block hash",
         BlockException.RLP_BLOCK_LIMIT_EXCEEDED: "block exceeds max rlp size",
+        BlockException.INVALID_BASEFEE_PER_GAS: "invalid block: invalid baseFee",
+        BlockException.INVALID_BLOCK_TIMESTAMP_OLDER_THAN_PARENT: "invalid block: timestamp older than parent",
+        BlockException.INVALID_BLOCK_NUMBER: "invalid block number",
+        BlockException.EXTRA_DATA_TOO_BIG: "invalid block: extra-data longer than 32 bytes",
+        BlockException.INVALID_GASLIMIT: "invalid block: invalid gas limit",
     }
     mapping_regex = {
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (

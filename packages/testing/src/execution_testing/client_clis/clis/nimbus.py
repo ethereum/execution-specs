@@ -108,5 +108,11 @@ class NimbusExceptionMapper(ExceptionMapper):
             # TODO:
             "ExceededBlockSizeLimit: Exceeded block size limit"
         ),
+        BlockException.INVALID_BASEFEE_PER_GAS: "invalid baseFee",
+        BlockException.INVALID_BLOCK_NUMBER: "Blocks must be numbered consecutively",
+        BlockException.INVALID_BLOCK_TIMESTAMP_OLDER_THAN_PARENT: "Invalid timestamp",
+        BlockException.INVALID_GASLIMIT: "invalid gas limit",
+        BlockException.INVALID_GAS_USED_ABOVE_LIMIT: "gasUsed should be non negative and smaller or equal gasLimit",
+        BlockException.INVALID_BLOCK_HASH: "blockhash mismatch",
     }
     mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {}
