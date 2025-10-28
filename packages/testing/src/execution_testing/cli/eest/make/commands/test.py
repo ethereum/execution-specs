@@ -7,14 +7,16 @@ generated test file is saved in the appropriate directory with a rendered
 template using Jinja2.
 """
 
-import os
 import sys
 from pathlib import Path
+import subprocess
+import shutil
 
 import click
 import jinja2
 
 from execution_testing.config.docs import DocsConfig
+from execution_testing.config import AppConfig
 from execution_testing.forks import get_development_forks, get_forks
 
 from ....input import input_select, input_text
@@ -26,6 +28,26 @@ template_env = jinja2.Environment(
     trim_blocks=True,
     lstrip_blocks=True,
 )
+
+
+def _ruff_cmd() -> list[str]:
+    r = shutil.which("ruff")
+    return [r] if r else [sys.executable, "-m", "ruff"]
+
+
+def _project_pyproject() -> Path:
+    # ROOT_DIR -> packages/testing/src/execution_testing
+    # pyproject  -> packages/testing/pyproject.toml
+    return (AppConfig().ROOT_DIR.parent.parent / "pyproject.toml").resolve()
+
+
+def _ruff_format_file(target: Path) -> None:
+    cfg = _project_pyproject()
+    cmd = _ruff_cmd() + ["format"]
+    if cfg.exists():
+        cmd += ["--config", str(cfg)]
+    cmd += [str(target)]
+    subprocess.run(cmd, check=True)
 
 
 def exit_now() -> None:
@@ -146,7 +168,7 @@ def test() -> None:
         )
         sys.exit(1)
 
-    os.makedirs(directory_path, exist_ok=True)
+    directory_path.mkdir(parents=True, exist_ok=True)
 
     template = template_env.get_template(f"{test_type.lower()}_test.py.j2")
     rendered_template = template.render(
@@ -158,6 +180,9 @@ def test() -> None:
 
     with open(module_path, "w") as file:
         file.write(rendered_template)
+
+    _ruff_format_file(module_path)
+    _ruff_format_file(module_path)
 
     click.echo(
         click.style(
