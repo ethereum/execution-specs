@@ -197,7 +197,7 @@ def process_create_message(message: Message) -> Evm:
     evm = process_message(message)
     if not evm.error:
         contract_code = evm.output
-        contract_code_gas = Uint(len(contract_code)) * G.G_CODE_DEPOSIT_BYTE
+        contract_code_gas = Uint(len(contract_code)) * G.GAS_CODE_DEPOSIT
         try:
             if len(contract_code) > 0:
                 if contract_code[0] == 0xEF:

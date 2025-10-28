@@ -140,10 +140,10 @@ def access_delegation(
 
     address = Address(code[EOA_DELEGATION_MARKER_LENGTH:])
     if address in evm.accessed_addresses:
-        access_gas_cost = G.G_WARM_ACCOUNT_ACCESS
+        access_gas_cost = G.GAS_WARM_ACCESS
     else:
         evm.accessed_addresses.add(address)
-        access_gas_cost = G.G_COLD_ACCOUNT_ACCESS
+        access_gas_cost = G.GAS_COLD_ACCOUNT_ACCESS
     code = get_account(state, address).code
 
     return True, address, code, access_gas_cost

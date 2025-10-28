@@ -66,7 +66,7 @@ def test_worst_address_state_cold(
     # transaction runs out of gas.
     num_target_accounts = (
         attack_gas_limit - intrinsic_gas_cost_calc()
-    ) // gas_costs.G_COLD_ACCOUNT_ACCESS
+    ) // gas_costs.GAS_COLD_ACCOUNT_ACCESS
 
     blocks = []
     post = {}
@@ -255,19 +255,19 @@ def test_worst_storage_access_cold(
     gas_costs = fork.gas_costs()
     intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
 
-    loop_cost = gas_costs.G_COLD_SLOAD  # All accesses are always cold
+    loop_cost = gas_costs.GAS_COLD_SLOAD  # All accesses are always cold
     if storage_action == StorageAction.WRITE_NEW_VALUE:
         if not absent_slots:
-            loop_cost += gas_costs.G_STORAGE_RESET
+            loop_cost += gas_costs.GAS_STORAGE_UPDATE
         else:
-            loop_cost += gas_costs.G_STORAGE_SET
+            loop_cost += gas_costs.GAS_STORAGE_SET
     elif storage_action == StorageAction.WRITE_SAME_VALUE:
         if absent_slots:
-            loop_cost += gas_costs.G_STORAGE_SET
+            loop_cost += gas_costs.GAS_STORAGE_SET
         else:
             loop_cost += gas_costs.G_WARM_SLOAD
     elif storage_action == StorageAction.READ:
-        loop_cost += 0  # Only G_COLD_SLOAD is charged
+        loop_cost += 0  # Only GAS_COLD_SLOAD is charged
 
     # Contract code
     execution_code_body = Bytecode()
@@ -275,31 +275,31 @@ def test_worst_storage_access_cold(
         # All the storage slots in the contract are initialized to their index.
         # That is, storage slot `i` is initialized to `i`.
         execution_code_body = Op.SSTORE(Op.DUP1, Op.DUP1)
-        loop_cost += gas_costs.G_VERY_LOW * 2
+        loop_cost += gas_costs.GAS_VERY_LOW * 2
     elif storage_action == StorageAction.WRITE_NEW_VALUE:
         # The new value 2^256-1 is guaranteed to be different from the initial
         # value.
         execution_code_body = Op.SSTORE(Op.DUP2, Op.NOT(0))
-        loop_cost += gas_costs.G_VERY_LOW * 3
+        loop_cost += gas_costs.GAS_VERY_LOW * 3
     elif storage_action == StorageAction.READ:
         execution_code_body = Op.POP(Op.SLOAD(Op.DUP1))
-        loop_cost += gas_costs.G_VERY_LOW + gas_costs.G_BASE
+        loop_cost += gas_costs.GAS_VERY_LOW + gas_costs.GAS_BASE
 
     # Add costs jump-logic costs
     loop_cost += (
-        gas_costs.G_JUMPDEST  # Prefix Jumpdest
-        + gas_costs.G_VERY_LOW * 7  # ISZEROs, PUSHs, SWAPs, SUB, DUP
-        + gas_costs.G_HIGH  # JUMPI
+        gas_costs.GAS_JUMPDEST  # Prefix Jumpdest
+        + gas_costs.GAS_VERY_LOW * 7  # ISZEROs, PUSHs, SWAPs, SUB, DUP
+        + gas_costs.GAS_HIGH  # JUMPI
     )
 
     prefix_cost = (
-        gas_costs.G_VERY_LOW  # Target slots push
+        gas_costs.GAS_VERY_LOW  # Target slots push
     )
 
     suffix_cost = 0
     if tx_result == TransactionResult.REVERT:
         suffix_cost = (
-            gas_costs.G_VERY_LOW * 2  # Revert PUSHs
+            gas_costs.GAS_VERY_LOW * 2  # Revert PUSHs
         )
 
     num_target_slots = (
@@ -564,25 +564,25 @@ def test_worst_selfdestruct_existing(
     gas_costs = fork.gas_costs()
     intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
     loop_cost = (
-        gas_costs.G_KECCAK_256  # KECCAK static cost
-        + math.ceil(85 / 32) * gas_costs.G_KECCAK_256_WORD  # KECCAK dynamic
+        gas_costs.GAS_KECCAK256  # KECCAK static cost
+        + math.ceil(85 / 32) * gas_costs.GAS_KECCAK256_WORD  # KECCAK dynamic
         # cost for CREATE2
-        + gas_costs.G_VERY_LOW * 3  # ~MSTOREs+ADDs
-        + gas_costs.G_COLD_ACCOUNT_ACCESS  # CALL to self-destructing contract
-        + gas_costs.G_SELF_DESTRUCT
+        + gas_costs.GAS_VERY_LOW * 3  # ~MSTOREs+ADDs
+        + gas_costs.GAS_COLD_ACCOUNT_ACCESS  # CALL to self-destructing contract
+        + gas_costs.GAS_SELF_DESTRUCT
         + 63  # ~Gluing opcodes
     )
     final_storage_gas = (
-        gas_costs.G_STORAGE_RESET
-        + gas_costs.G_COLD_SLOAD
-        + (gas_costs.G_VERY_LOW * 2)
+        gas_costs.GAS_STORAGE_UPDATE
+        + gas_costs.GAS_COLD_SLOAD
+        + (gas_costs.GAS_VERY_LOW * 2)
     )
     memory_expansion_cost = fork().memory_expansion_gas_calculator()(
         new_bytes=96
     )
     base_costs = (
         intrinsic_gas_cost_calc()
-        + (gas_costs.G_VERY_LOW * 12)  # 8 PUSHs + 4 MSTOREs
+        + (gas_costs.GAS_VERY_LOW * 12)  # 8 PUSHs + 4 MSTOREs
         + final_storage_gas
         + memory_expansion_cost
     )
@@ -714,40 +714,40 @@ def test_worst_selfdestruct_created(
     intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
 
     initcode_costs = (
-        gas_costs.G_VERY_LOW * 8  # MSTOREs, PUSHs
+        gas_costs.GAS_VERY_LOW * 8  # MSTOREs, PUSHs
         + memory_expansion_calc(new_bytes=2)  # return into memory
     )
     create_costs = (
         initcode_costs
-        + gas_costs.G_CREATE
-        + gas_costs.G_VERY_LOW * 3  # Create Parameter PUSHs
-        + gas_costs.G_CODE_DEPOSIT_BYTE * 2
+        + gas_costs.GAS_CREATE
+        + gas_costs.GAS_VERY_LOW * 3  # Create Parameter PUSHs
+        + gas_costs.GAS_CODE_DEPOSIT * 2
         + gas_costs.G_INITCODE_WORD
     )
     call_costs = (
-        gas_costs.G_WARM_ACCOUNT_ACCESS
-        + gas_costs.G_BASE  # COINBASE
-        + gas_costs.G_SELF_DESTRUCT
-        + gas_costs.G_VERY_LOW * 5  # CALL Parameter PUSHs
-        + gas_costs.G_BASE  #  Parameter GAS
+        gas_costs.GAS_WARM_ACCESS
+        + gas_costs.GAS_BASE  # COINBASE
+        + gas_costs.GAS_SELF_DESTRUCT
+        + gas_costs.GAS_VERY_LOW * 5  # CALL Parameter PUSHs
+        + gas_costs.GAS_BASE  #  Parameter GAS
     )
     extra_costs = (
-        gas_costs.G_BASE  # POP
-        + gas_costs.G_VERY_LOW * 6  # PUSHs, ADD, DUP, GT
-        + gas_costs.G_HIGH  # JUMPI
-        + gas_costs.G_JUMPDEST
+        gas_costs.GAS_BASE  # POP
+        + gas_costs.GAS_VERY_LOW * 6  # PUSHs, ADD, DUP, GT
+        + gas_costs.GAS_HIGH  # JUMPI
+        + gas_costs.GAS_JUMPDEST
     )
     loop_cost = create_costs + call_costs + extra_costs
 
     prefix_cost = (
-        gas_costs.G_VERY_LOW * 3
-        + gas_costs.G_BASE
+        gas_costs.GAS_VERY_LOW * 3
+        + gas_costs.GAS_BASE
         + memory_expansion_calc(new_bytes=32)
     )
     suffix_cost = (
-        gas_costs.G_COLD_SLOAD
-        + gas_costs.G_STORAGE_RESET
-        + (gas_costs.G_VERY_LOW * 2)
+        gas_costs.GAS_COLD_SLOAD
+        + gas_costs.GAS_STORAGE_UPDATE
+        + (gas_costs.GAS_VERY_LOW * 2)
     )
 
     base_costs = prefix_cost + suffix_cost + intrinsic_gas_cost_calc()
@@ -817,32 +817,32 @@ def test_worst_selfdestruct_initcode(
     intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
 
     initcode_costs = (
-        gas_costs.G_BASE  # COINBASE
-        + gas_costs.G_SELF_DESTRUCT
+        gas_costs.GAS_BASE  # COINBASE
+        + gas_costs.GAS_SELF_DESTRUCT
     )
     create_costs = (
         initcode_costs
-        + gas_costs.G_CREATE
-        + gas_costs.G_VERY_LOW * 3  # Create Parameter PUSHs
+        + gas_costs.GAS_CREATE
+        + gas_costs.GAS_VERY_LOW * 3  # Create Parameter PUSHs
         + gas_costs.G_INITCODE_WORD
     )
     extra_costs = (
-        gas_costs.G_BASE  # POP
-        + gas_costs.G_VERY_LOW * 6  # PUSHs, ADD, DUP, GT
-        + gas_costs.G_HIGH  # JUMPI
-        + gas_costs.G_JUMPDEST
+        gas_costs.GAS_BASE  # POP
+        + gas_costs.GAS_VERY_LOW * 6  # PUSHs, ADD, DUP, GT
+        + gas_costs.GAS_HIGH  # JUMPI
+        + gas_costs.GAS_JUMPDEST
     )
     loop_cost = create_costs + extra_costs
 
     prefix_cost = (
-        gas_costs.G_VERY_LOW * 3
-        + gas_costs.G_BASE
+        gas_costs.GAS_VERY_LOW * 3
+        + gas_costs.GAS_BASE
         + memory_expansion_calc(new_bytes=32)
     )
     suffix_cost = (
-        gas_costs.G_COLD_SLOAD
-        + gas_costs.G_STORAGE_RESET
-        + (gas_costs.G_VERY_LOW * 2)
+        gas_costs.GAS_COLD_SLOAD
+        + gas_costs.GAS_STORAGE_UPDATE
+        + (gas_costs.GAS_VERY_LOW * 2)
     )
 
     base_costs = prefix_cost + suffix_cost + intrinsic_gas_cost_calc()

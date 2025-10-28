@@ -80,24 +80,26 @@ def test_worst_bytecode_single_opcode(
         new_bytes=len(bytes(max_contract_size))
     )
     code_deposit_gas_minimum = (
-        fork.gas_costs().G_CODE_DEPOSIT_BYTE * max_contract_size
+        fork.gas_costs().GAS_CODE_DEPOSIT * max_contract_size
         + memory_gas_minimum
     )
 
     intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
     # Calculate the loop cost of the attacker to query one address
     loop_cost = (
-        gas_costs.G_KECCAK_256  # KECCAK static cost
-        + math.ceil(85 / 32) * gas_costs.G_KECCAK_256_WORD  # KECCAK dynamic
+        gas_costs.GAS_KECCAK256  # KECCAK static cost
+        + math.ceil(85 / 32) * gas_costs.GAS_KECCAK256_WORD  # KECCAK dynamic
         # cost for CREATE2
-        + gas_costs.G_VERY_LOW * 3  # ~MSTOREs+ADDs
-        + gas_costs.G_COLD_ACCOUNT_ACCESS  # Opcode cost
+        + gas_costs.GAS_VERY_LOW * 3  # ~MSTOREs+ADDs
+        + gas_costs.GAS_COLD_ACCOUNT_ACCESS  # Opcode cost
         + 30  # ~Gluing opcodes
     )
     # Calculate the number of contracts to be targeted
     num_contracts = (
         # Base available gas = GAS_LIMIT - intrinsic - (out of loop MSTOREs)
-        attack_gas_limit - intrinsic_gas_cost_calc() - gas_costs.G_VERY_LOW * 4
+        attack_gas_limit
+        - intrinsic_gas_cost_calc()
+        - gas_costs.GAS_VERY_LOW * 4
     ) // loop_cost
 
     # Set the block gas limit to a relative high value to ensure the code
@@ -485,7 +487,7 @@ def test_worst_creates_collisions(
     gas_costs = fork.gas_costs()
     # The CALL to the proxy contract needs at a minimum gas corresponding to
     # the CREATE(2) plus extra required PUSH0s for arguments.
-    min_gas_required = gas_costs.G_CREATE + gas_costs.G_BASE * (
+    min_gas_required = gas_costs.GAS_CREATE + gas_costs.GAS_BASE * (
         3 if opcode == Op.CREATE else 4
     )
     setup = Op.PUSH20(proxy_contract) + Op.PUSH3(min_gas_required)
@@ -504,7 +506,7 @@ def test_worst_creates_collisions(
         pre.deploy_contract(address=addr, code=Op.INVALID)
     else:
         # Heuristic to have an upper bound.
-        max_contract_count = 2 * gas_benchmark_value // gas_costs.G_CREATE
+        max_contract_count = 2 * gas_benchmark_value // gas_costs.GAS_CREATE
         for nonce in range(max_contract_count):
             addr = compute_create_address(address=proxy_contract, nonce=nonce)
             pre.deploy_contract(address=addr, code=Op.INVALID)

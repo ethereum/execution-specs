@@ -58,8 +58,8 @@ def log_n(evm: Evm, num_topics: int) -> None:
     charge_gas(
         evm,
         G.LOG
-        + G.G_LOG_DATA * Uint(size)
-        + G.G_LOG_TOPIC * Uint(num_topics)
+        + G.GAS_LOG_DATA * Uint(size)
+        + G.GAS_LOG_TOPIC * Uint(num_topics)
         + extend_memory.cost,
     )
 

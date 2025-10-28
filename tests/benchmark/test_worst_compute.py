@@ -251,11 +251,11 @@ def test_worst_keccak(
     optimal_input_length = 0
     for i in range(1, 1_000_000, 32):
         iteration_gas_cost = (
-            2 * gsc.G_VERY_LOW  # PUSHN + PUSH1
-            + gsc.G_KECCAK_256  # KECCAK256 static cost
-            + math.ceil(i / 32) * gsc.G_KECCAK_256_WORD  # KECCAK256 dynamic
+            2 * gsc.GAS_VERY_LOW  # PUSHN + PUSH1
+            + gsc.GAS_KECCAK256  # KECCAK256 static cost
+            + math.ceil(i / 32) * gsc.GAS_KECCAK256_WORD  # KECCAK256 dynamic
             # cost
-            + gsc.G_BASE  # POP
+            + gsc.GAS_BASE  # POP
         )
         # From the available gas, we subtract the mem expansion costs
         # considering we know the current input size length i.
@@ -327,19 +327,19 @@ def test_worst_precompile_only_data_input(
     optimal_input_length = 0
     for input_length in range(1, 1_000_000, 32):
         parameters_gas = (
-            gsc.G_BASE  # PUSH0 = arg offset
-            + gsc.G_BASE  # PUSH0 = arg size
-            + gsc.G_BASE  # PUSH0 = arg size
-            + gsc.G_VERY_LOW  # PUSH0 = arg offset
-            + gsc.G_VERY_LOW  # PUSHN = address
-            + gsc.G_BASE  # GAS
+            gsc.GAS_BASE  # PUSH0 = arg offset
+            + gsc.GAS_BASE  # PUSH0 = arg size
+            + gsc.GAS_BASE  # PUSH0 = arg size
+            + gsc.GAS_VERY_LOW  # PUSH0 = arg offset
+            + gsc.GAS_VERY_LOW  # PUSHN = address
+            + gsc.GAS_BASE  # GAS
         )
         iteration_gas_cost = (
             parameters_gas
             + +static_cost  # Precompile static cost
             + math.ceil(input_length / 32) * per_word_dynamic_cost
             # Precompile dynamic cost
-            + gsc.G_BASE  # POP
+            + gsc.GAS_BASE  # POP
         )
         # From the available gas, we subtract the mem expansion costs
         # considering we know the current input size length.
@@ -2034,7 +2034,7 @@ def test_amortized_bn128_pairings(
         # This is ignoring "glue" opcodes, but helps to have a rough idea of
         # the right cutting point.
         approx_gas_cost_per_call = (
-            gsc.G_WARM_ACCOUNT_ACCESS + base_cost + i * pairing_cost
+            gsc.GAS_WARM_ACCESS + base_cost + i * pairing_cost
         )
 
         num_precompile_calls = (

@@ -254,9 +254,11 @@ def test_maximum_gas_refund(
 
     # Base Operation: SSTORE(slot, 0)
     iteration_cost = (
-        gas_costs.G_STORAGE_RESET + gas_costs.G_BASE + gas_costs.G_VERY_LOW
+        gas_costs.GAS_STORAGE_UPDATE
+        + gas_costs.GAS_BASE
+        + gas_costs.GAS_VERY_LOW
     )
-    gas_refund = gas_costs.R_STORAGE_CLEAR
+    gas_refund = gas_costs.GAS_STORAGE_CLEAR_REFUND
 
     # EIP-3529: Reduction in refunds
     storage_count = tx_gas_limit_cap // iteration_cost

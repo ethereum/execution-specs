@@ -993,12 +993,12 @@ def test_invalid_container_deployment(
         )
     elif reason == "out_of_gas_when_returning_contract":
         factory_gas_cost = (
-            7 * fork_gas_costs.G_VERY_LOW
-            + fork_gas_costs.G_STORAGE_SET
-            + fork_gas_costs.G_COLD_SLOAD
-            + fork_gas_costs.G_CREATE
+            7 * fork_gas_costs.GAS_VERY_LOW
+            + fork_gas_costs.GAS_STORAGE_SET
+            + fork_gas_costs.GAS_COLD_SLOAD
+            + fork_gas_costs.GAS_CREATE
         )
-        initcode_gas_cost = 2 * fork_gas_costs.G_VERY_LOW
+        initcode_gas_cost = 2 * fork_gas_costs.GAS_VERY_LOW
         tx_gas_limit = (
             fork_intrinsic_gas_calculator(calldata=initcontainer)
             + factory_gas_cost
@@ -1008,16 +1008,16 @@ def test_invalid_container_deployment(
         reason == "out_of_gas_when_returning_contract_due_to_memory_expansion"
     ):
         factory_gas_cost = (
-            7 * fork_gas_costs.G_VERY_LOW
-            + fork_gas_costs.G_STORAGE_SET
-            + fork_gas_costs.G_COLD_SLOAD
-            + fork_gas_costs.G_CREATE
+            7 * fork_gas_costs.GAS_VERY_LOW
+            + fork_gas_costs.GAS_STORAGE_SET
+            + fork_gas_costs.GAS_COLD_SLOAD
+            + fork_gas_costs.GAS_CREATE
         )
         initcode_gas_cost = (
             # Code deposit gas cost
-            len(deployed_container) * fork_gas_costs.G_CODE_DEPOSIT_BYTE
+            len(deployed_container) * fork_gas_costs.GAS_CODE_DEPOSIT
             # Two push opcodes
-            + 2 * fork_gas_costs.G_VERY_LOW
+            + 2 * fork_gas_costs.GAS_VERY_LOW
         )
         tx_gas_limit = (
             fork_intrinsic_gas_calculator(calldata=initcontainer)

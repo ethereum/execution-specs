@@ -73,7 +73,7 @@ def balance(evm: Evm) -> None:
         charge_gas(evm, G.WARM_STORAGE_READ_COST)
     else:
         evm.accessed_addresses.add(address)
-        charge_gas(evm, G.G_COLD_ACCOUNT_ACCESS)
+        charge_gas(evm, G.GAS_COLD_ACCOUNT_ACCESS)
 
     # OPERATION
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
@@ -338,7 +338,7 @@ def extcodesize(evm: Evm) -> None:
         access_gas_cost = G.WARM_STORAGE_READ_COST
     else:
         evm.accessed_addresses.add(address)
-        access_gas_cost = G.G_COLD_ACCOUNT_ACCESS
+        access_gas_cost = G.GAS_COLD_ACCOUNT_ACCESS
 
     charge_gas(evm, access_gas_cost)
 
@@ -379,7 +379,7 @@ def extcodecopy(evm: Evm) -> None:
         access_gas_cost = G.WARM_STORAGE_READ_COST
     else:
         evm.accessed_addresses.add(address)
-        access_gas_cost = G.G_COLD_ACCOUNT_ACCESS
+        access_gas_cost = G.GAS_COLD_ACCOUNT_ACCESS
 
     charge_gas(evm, access_gas_cost + copy_gas_cost + extend_memory.cost)
 
@@ -470,7 +470,7 @@ def extcodehash(evm: Evm) -> None:
         access_gas_cost = G.WARM_STORAGE_READ_COST
     else:
         evm.accessed_addresses.add(address)
-        access_gas_cost = G.G_COLD_ACCOUNT_ACCESS
+        access_gas_cost = G.GAS_COLD_ACCOUNT_ACCESS
 
     charge_gas(evm, access_gas_cost)
 

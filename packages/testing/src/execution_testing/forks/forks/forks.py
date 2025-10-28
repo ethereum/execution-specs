@@ -115,44 +115,44 @@ class Frontier(BaseFork, solc_name="homestead"):
         """
         del block_number, timestamp
         return GasCosts(
-            G_JUMPDEST=1,
-            G_BASE=2,
-            G_VERY_LOW=3,
-            G_LOW=5,
-            G_MID=8,
-            G_HIGH=10,
-            G_WARM_ACCOUNT_ACCESS=100,
-            G_COLD_ACCOUNT_ACCESS=2_600,
+            GAS_JUMPDEST=1,
+            GAS_BASE=2,
+            GAS_VERY_LOW=3,
+            GAS_LOW=5,
+            GAS_MID=8,
+            GAS_HIGH=10,
+            GAS_WARM_ACCESS=100,
+            GAS_COLD_ACCOUNT_ACCESS=2_600,
             G_ACCESS_LIST_ADDRESS=2_400,
             G_ACCESS_LIST_STORAGE=1_900,
             G_WARM_SLOAD=100,
-            G_COLD_SLOAD=2_100,
-            G_STORAGE_SET=20_000,
-            G_STORAGE_RESET=2_900,
-            R_STORAGE_CLEAR=4_800,
-            G_SELF_DESTRUCT=5_000,
-            G_CREATE=32_000,
-            G_CODE_DEPOSIT_BYTE=200,
+            GAS_COLD_SLOAD=2_100,
+            GAS_STORAGE_SET=20_000,
+            GAS_STORAGE_UPDATE=2_900,
+            GAS_STORAGE_CLEAR_REFUND=4_800,
+            GAS_SELF_DESTRUCT=5_000,
+            GAS_CREATE=32_000,
+            GAS_CODE_DEPOSIT=200,
             G_INITCODE_WORD=2,
-            G_CALL_VALUE=9_000,
-            G_CALL_STIPEND=2_300,
-            G_NEW_ACCOUNT=25_000,
-            G_EXP=10,
-            G_EXP_BYTE=50,
-            G_MEMORY=3,
+            GAS_CALL_VALUE=9_000,
+            GAS_CALL_STIPEND=2_300,
+            GAS_NEW_ACCOUNT=25_000,
+            GAS_EXPONENTIATION=10,
+            GAS_EXPONENTIATION_PER_BYTE=50,
+            GAS_MEMORY=3,
             G_TX_DATA_ZERO=4,
             G_TX_DATA_NON_ZERO=68,
             G_TX_DATA_STANDARD_TOKEN_COST=0,
             G_TX_DATA_FLOOR_TOKEN_COST=0,
             G_TRANSACTION=21_000,
             G_TRANSACTION_CREATE=32_000,
-            G_LOG=375,
-            G_LOG_DATA=8,
-            G_LOG_TOPIC=375,
-            G_KECCAK_256=30,
-            G_KECCAK_256_WORD=6,
-            G_COPY=3,
-            G_BLOCKHASH=20,
+            GAS_LOG=375,
+            GAS_LOG_DATA=8,
+            GAS_LOG_TOPIC=375,
+            GAS_KECCAK256=30,
+            GAS_KECCAK256_WORD=6,
+            GAS_COPY=3,
+            GAS_BLOCK_HASH=20,
             G_AUTHORIZATION=0,
             R_AUTHORIZATION_EXISTING_AUTHORITY=0,
         )
@@ -176,7 +176,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             previous_words = ceiling_division(previous_bytes, 32)
 
             def c(w: int) -> int:
-                return (gas_costs.G_MEMORY * w) + ((w * w) // 512)
+                return (gas_costs.GAS_MEMORY * w) + ((w * w) // 512)
 
             return c(new_words) - c(previous_words)
 
@@ -2324,6 +2324,27 @@ class Osaka(Prague, solc_name="cancun"):
         """Return the base cost of a blob at a given fork."""
         del block_number, timestamp
         return 2**13  # EIP-7918 new parameter
+
+    @classmethod
+    def gas_costs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> GasCosts:
+        """Return the gas costs for the fork."""
+        from ethereum.forks.osaka.vm import gas as g
+        from dataclasses import fields
+
+        # Build kwargs by matching GasCosts field names with gas module variables
+        kwargs = {}
+        for field in fields(GasCosts):
+            if hasattr(g, field.name):
+                kwargs[field.name] = getattr(g, field.name)
+            # Handle special mappings where names differ
+            elif field.name == "G_WARM_SLOAD":
+                kwargs[field.name] = g.GAS_WARM_ACCESS
+            elif field.name == "G_INITCODE_WORD":
+                kwargs[field.name] = g.GAS_INIT_CODE_WORD_COST
+
+        return GasCosts(**kwargs)
 
 
 class BPO1(Osaka, bpo_fork=True):

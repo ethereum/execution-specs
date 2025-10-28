@@ -45,11 +45,11 @@ def keccak(evm: Evm) -> None:
 
     # GAS
     words = ceil32(Uint(size)) // Uint(32)
-    word_gas_cost = G.G_KECCAK_256_WORD * words
+    word_gas_cost = G.GAS_KECCAK256_WORD * words
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_start_index, size)]
     )
-    charge_gas(evm, G.G_KECCAK_256 + word_gas_cost + extend_memory.cost)
+    charge_gas(evm, G.GAS_KECCAK256 + word_gas_cost + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by

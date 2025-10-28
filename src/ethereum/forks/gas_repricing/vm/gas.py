@@ -128,7 +128,7 @@ def calculate_memory_gas_cost(size_in_bytes: Uint) -> Uint:
 
     """
     size_in_words = ceil32(size_in_bytes) // Uint(32)
-    linear_cost = size_in_words * G.G_MEMORY
+    linear_cost = size_in_words * G.GAS_MEMORY
     quadratic_cost = size_in_words ** Uint(2) // Uint(512)
     total_gas_cost = linear_cost + quadratic_cost
     try:
@@ -183,7 +183,7 @@ def calculate_message_call_gas(
     gas_left: Uint,
     memory_cost: Uint,
     extra_gas: Uint,
-    call_stipend: Uint = G.G_CALL_STIPEND,
+    call_stipend: Uint = G.GAS_CALL_STIPEND,
 ) -> MessageCallGas:
     """
     Calculates the MessageCallGas (cost and gas made available to the sub-call)

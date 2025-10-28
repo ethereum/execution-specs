@@ -14,6 +14,7 @@ Implementations of the EVM system related instructions.
 from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.numeric import U256, Uint
 
+from ethereum.forks.osaka.vm.constant import OP_RETURN
 from ethereum.utils.numeric import ceil32
 
 from ...fork_types import Address
@@ -38,17 +39,15 @@ from .. import (
     incorporate_child_on_error,
     incorporate_child_on_success,
 )
+from ..constant import OP_CREATE, OP_CREATE2, OP_SELFDESTRUCT
 from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
 from ..gas import (
     GAS_CALL_VALUE,
     GAS_COLD_ACCOUNT_ACCESS,
-    GAS_CREATE,
     GAS_KECCAK256_WORD,
     GAS_NEW_ACCOUNT,
-    GAS_SELF_DESTRUCT,
     GAS_SELF_DESTRUCT_NEW_ACCOUNT,
     GAS_WARM_ACCESS,
-    GAS_ZERO,
     calculate_gas_extend_memory,
     calculate_message_call_gas,
     charge_gas,
@@ -166,7 +165,7 @@ def create(evm: Evm) -> None:
     )
     init_code_gas = init_code_cost(Uint(memory_size))
 
-    charge_gas(evm, GAS_CREATE + extend_memory.cost + init_code_gas)
+    charge_gas(evm, OP_CREATE + extend_memory.cost + init_code_gas)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -216,7 +215,7 @@ def create2(evm: Evm) -> None:
     init_code_gas = init_code_cost(Uint(memory_size))
     charge_gas(
         evm,
-        GAS_CREATE
+        OP_CREATE2
         + GAS_KECCAK256_WORD * call_data_words
         + extend_memory.cost
         + init_code_gas,
@@ -261,7 +260,7 @@ def return_(evm: Evm) -> None:
         evm.memory, [(memory_start_position, memory_size)]
     )
 
-    charge_gas(evm, GAS_ZERO + extend_memory.cost)
+    charge_gas(evm, OP_RETURN + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -531,7 +530,7 @@ def selfdestruct(evm: Evm) -> None:
     beneficiary = to_address_masked(pop(evm.stack))
 
     # GAS
-    gas_cost = GAS_SELF_DESTRUCT
+    gas_cost = OP_SELFDESTRUCT
     if beneficiary not in evm.accessed_addresses:
         evm.accessed_addresses.add(beneficiary)
         gas_cost += GAS_COLD_ACCOUNT_ACCESS
