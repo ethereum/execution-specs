@@ -622,6 +622,33 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+optimized = [
+    { name = "ethash" },
+    { name = "rust-pyspec-glue" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "codespell" },
+    { name = "docc" },
+    { name = "ethereum-execution", extra = ["optimized"] },
+    { name = "ethereum-execution-testing" },
+    { name = "filelock" },
+    { name = "fladrif" },
+    { name = "gitpython" },
+    { name = "libcst" },
+    { name = "mistletoe" },
+    { name = "mypy" },
+    { name = "platformdirs" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "pytest-xdist" },
+    { name = "requests" },
+    { name = "requests-cache" },
+    { name = "ruff" },
+    { name = "types-requests" },
+    { name = "vulture" },
+]
 doc = [
     { name = "docc" },
     { name = "fladrif" },
@@ -633,10 +660,6 @@ lint = [
     { name = "ruff" },
     { name = "types-requests" },
     { name = "vulture" },
-]
-optimized = [
-    { name = "ethash" },
-    { name = "rust-pyspec-glue" },
 ]
 test = [
     { name = "ethereum-execution-testing" },
@@ -654,46 +677,69 @@ tools = [
     { name = "platformdirs" },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "ethereum-execution", extra = ["doc", "lint", "test", "tools"] },
-]
-
 [package.metadata]
 requires-dist = [
-    { name = "codespell", marker = "extra == 'lint'", specifier = "==2.4.1" },
     { name = "coincurve", specifier = ">=20,<21" },
     { name = "cryptography", specifier = ">=45.0.1,<46" },
-    { name = "docc", marker = "extra == 'doc'", specifier = ">=0.3.0,<0.4.0" },
     { name = "ethash", marker = "extra == 'optimized'", specifier = ">=1.1.0,<2" },
-    { name = "ethereum-execution-testing", marker = "extra == 'test'", editable = "packages/testing" },
     { name = "ethereum-rlp", specifier = ">=0.1.4,<0.2" },
     { name = "ethereum-types", specifier = ">=0.2.4,<0.3" },
-    { name = "filelock", marker = "extra == 'test'", specifier = ">=3.15.1,<4" },
-    { name = "fladrif", marker = "extra == 'doc'", specifier = ">=0.2.0,<0.3.0" },
-    { name = "gitpython", marker = "extra == 'test'", specifier = ">=3.1.0,<3.2" },
-    { name = "libcst", marker = "extra == 'test'", specifier = ">=1.8,<2" },
-    { name = "libcst", marker = "extra == 'tools'", specifier = ">=1.8,<2" },
-    { name = "mistletoe", marker = "extra == 'doc'", specifier = ">=1.5.0,<2" },
-    { name = "mypy", marker = "extra == 'lint'", specifier = "==1.17.0" },
-    { name = "platformdirs", marker = "extra == 'tools'", specifier = ">=4.2,<5" },
     { name = "py-ecc", specifier = ">=8.0.0b2,<9" },
     { name = "pycryptodome", specifier = ">=3.22,<4" },
-    { name = "pytest", marker = "extra == 'test'", specifier = ">=8,<9" },
-    { name = "pytest-cov", marker = "extra == 'test'", specifier = ">=4.1.0,<5" },
-    { name = "pytest-xdist", marker = "extra == 'test'", specifier = ">=3.3.1,<4" },
-    { name = "requests", marker = "extra == 'test'" },
-    { name = "requests-cache", marker = "extra == 'test'", specifier = ">=1.2.1,<2" },
-    { name = "ruff", marker = "extra == 'lint'", specifier = "==0.13.2" },
     { name = "rust-pyspec-glue", marker = "extra == 'optimized'", specifier = ">=0.0.9,<0.1.0" },
-    { name = "types-requests", marker = "extra == 'lint'", specifier = ">=2.31,<2.33" },
     { name = "typing-extensions", specifier = ">=4.4" },
-    { name = "vulture", marker = "extra == 'lint'", specifier = "==2.14.0" },
 ]
-provides-extras = ["test", "lint", "tools", "doc", "optimized"]
+provides-extras = ["optimized"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "ethereum-execution", extras = ["test", "lint", "tools", "doc"] }]
+dev = [
+    { name = "codespell", specifier = "==2.4.1" },
+    { name = "docc", specifier = ">=0.3.0,<0.4.0" },
+    { name = "ethereum-execution", extras = ["optimized"] },
+    { name = "ethereum-execution-testing", editable = "packages/testing" },
+    { name = "filelock", specifier = ">=3.15.1,<4" },
+    { name = "fladrif", specifier = ">=0.2.0,<0.3.0" },
+    { name = "gitpython", specifier = ">=3.1.0,<3.2" },
+    { name = "libcst", specifier = ">=1.8,<2" },
+    { name = "mistletoe", specifier = ">=1.5.0,<2" },
+    { name = "mypy", specifier = "==1.17.0" },
+    { name = "platformdirs", specifier = ">=4.2,<5" },
+    { name = "pytest", specifier = ">=8,<9" },
+    { name = "pytest-cov", specifier = ">=4.1.0,<5" },
+    { name = "pytest-xdist", specifier = ">=3.3.1,<4" },
+    { name = "requests" },
+    { name = "requests-cache", specifier = ">=1.2.1,<2" },
+    { name = "ruff", specifier = "==0.13.2" },
+    { name = "types-requests", specifier = ">=2.31,<2.33" },
+    { name = "vulture", specifier = "==2.14.0" },
+]
+doc = [
+    { name = "docc", specifier = ">=0.3.0,<0.4.0" },
+    { name = "fladrif", specifier = ">=0.2.0,<0.3.0" },
+    { name = "mistletoe", specifier = ">=1.5.0,<2" },
+]
+lint = [
+    { name = "codespell", specifier = "==2.4.1" },
+    { name = "mypy", specifier = "==1.17.0" },
+    { name = "ruff", specifier = "==0.13.2" },
+    { name = "types-requests", specifier = ">=2.31,<2.33" },
+    { name = "vulture", specifier = "==2.14.0" },
+]
+test = [
+    { name = "ethereum-execution-testing", editable = "packages/testing" },
+    { name = "filelock", specifier = ">=3.15.1,<4" },
+    { name = "gitpython", specifier = ">=3.1.0,<3.2" },
+    { name = "libcst", specifier = ">=1.8,<2" },
+    { name = "pytest", specifier = ">=8,<9" },
+    { name = "pytest-cov", specifier = ">=4.1.0,<5" },
+    { name = "pytest-xdist", specifier = ">=3.3.1,<4" },
+    { name = "requests" },
+    { name = "requests-cache", specifier = ">=1.2.1,<2" },
+]
+tools = [
+    { name = "libcst", specifier = ">=1.8,<2" },
+    { name = "platformdirs", specifier = ">=4.2,<5" },
+]
 
 [[package]]
 name = "ethereum-execution-testing"
