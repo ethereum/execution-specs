@@ -28,11 +28,11 @@ from execution_testing.base_types import (
     Alloc,
     ReferenceSpec,
 )
-from execution_testing.client_clis import TransitionTool
-from execution_testing.client_clis.clis.geth import FixtureConsumerTool
 from execution_testing.cli.gen_index import (
     generate_fixtures_index,
 )
+from execution_testing.client_clis import TransitionTool
+from execution_testing.client_clis.clis.geth import FixtureConsumerTool
 from execution_testing.fixtures import (
     BaseFixture,
     FixtureCollector,
@@ -1350,6 +1350,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     kwargs["pre"] = pre
                 if "expected_benchmark_gas_used" not in kwargs:
                     kwargs["expected_benchmark_gas_used"] = gas_benchmark_value
+                kwargs["fork"] = fork
                 kwargs |= {
                     p: request.getfixturevalue(p)
                     for p in cls_fixture_parameters

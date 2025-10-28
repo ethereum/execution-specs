@@ -39,6 +39,7 @@ from execution_testing.fixtures import (
     PreAllocGroups,
 )
 from execution_testing.forks import Fork
+from execution_testing.forks.base_fork import BaseFork
 from execution_testing.test_types import Alloc, Environment, Withdrawal
 
 
@@ -91,6 +92,11 @@ class BaseTest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     tag: str = ""
+    fork: Fork = (
+        BaseFork  # type: ignore[type-abstract]
+        # default to BaseFork to allow the filler to set it,
+        # instead of each test having to set it
+    )
 
     _request: pytest.FixtureRequest | None = PrivateAttr(None)
     _operation_mode: OpMode | None = PrivateAttr(None)
@@ -113,6 +119,16 @@ class BaseTest(BaseModel):
     supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = []
 
     supported_markers: ClassVar[Dict[str, str]] = {}
+
+    def model_post_init(self, __context: Any, /) -> None:
+        """
+        Model post-init to assert that the custom pre-allocation was
+        provided and the default was not used.
+        """
+        super().model_post_init(__context)
+        assert self.fork != BaseFork, (
+            "Fork was not provided by the filler/executor."
+        )
 
     @classmethod
     def discard_fixture_format_by_marks(
@@ -148,6 +164,7 @@ class BaseTest(BaseModel):
         """Create a test in a different format from a base test."""
         new_instance = cls(
             tag=base_test.tag,
+            fork=base_test.fork,
             t8n_dump_dir=base_test.t8n_dump_dir,
             expected_benchmark_gas_used=base_test.expected_benchmark_gas_used,
             skip_gas_used_validation=base_test.skip_gas_used_validation,

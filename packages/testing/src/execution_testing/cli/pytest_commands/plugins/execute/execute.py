@@ -407,6 +407,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     kwargs["expected_benchmark_gas_used"] = (
                         request.getfixturevalue("gas_benchmark_value")
                     )
+                kwargs["fork"] = fork
                 kwargs |= {
                     p: request.getfixturevalue(p)
                     for p in cls_fixture_parameters
