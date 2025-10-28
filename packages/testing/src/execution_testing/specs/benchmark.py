@@ -200,8 +200,9 @@ class BenchmarkTest(BaseTest):
 
     def get_genesis_environment(self, fork: Fork) -> Environment:
         """Get the genesis environment for this benchmark test."""
-        del fork
-        return self.env
+        return self.generate_blockchain_test(
+            fork=fork
+        ).get_genesis_environment(fork=fork)
 
     def split_transaction(
         self, tx: Transaction, gas_limit_cap: int | None
