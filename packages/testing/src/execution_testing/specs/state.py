@@ -17,12 +17,12 @@ import pytest
 from pydantic import Field
 
 from execution_testing.base_types import HexNumber
+from execution_testing.cli.pytest_commands.plugins.custom_logging import (
+    get_logger,
+)
 from execution_testing.client_clis import (
     TransitionTool,
     TransitionToolOutput,
-)
-from execution_testing.cli.pytest_commands.plugins.custom_logging import (
-    get_logger,
 )
 from execution_testing.exceptions import (
     BlockException,
@@ -245,9 +245,7 @@ class StateTest(BaseTest):
             return fixture_format != StateFixture
         return False
 
-    def _generate_blockchain_genesis_environment(
-        self, *, fork: Fork
-    ) -> Environment:
+    def _generate_blockchain_genesis_environment(self) -> Environment:
         """
         Generate the genesis environment for the BlockchainTest formatted test.
         """
@@ -289,12 +287,13 @@ class StateTest(BaseTest):
             # will be subtracted from the excess blob gas when the first block
             # is mined.
             kwargs["excess_blob_gas"] = self.env.excess_blob_gas + (
-                fork.target_blobs_per_block() * fork.blob_gas_per_blob()
+                self.fork.target_blobs_per_block()
+                * self.fork.blob_gas_per_blob()
             )
 
         return Environment(**kwargs)
 
-    def _generate_blockchain_blocks(self, *, fork: Fork) -> List[Block]:
+    def _generate_blockchain_blocks(self) -> List[Block]:
         """
         Generate the single block that represents this state test in a
         BlockchainTest format.
@@ -314,7 +313,7 @@ class StateTest(BaseTest):
             "rlp_modifier": self.blockchain_test_rlp_modifier,
             "expected_block_access_list": self.expected_block_access_list,
         }
-        if not fork.header_prev_randao_required():
+        if not self.fork.header_prev_randao_required():
             kwargs["difficulty"] = self.env.difficulty
         if "block_exception" in self.model_fields_set:
             kwargs["exception"] = self.block_exception  # type: ignore
@@ -322,28 +321,25 @@ class StateTest(BaseTest):
             kwargs["exception"] = self.tx.error  # type: ignore
         return [Block(**kwargs)]
 
-    def generate_blockchain_test(self, *, fork: Fork) -> BlockchainTest:
+    def generate_blockchain_test(self) -> BlockchainTest:
         """Generate a BlockchainTest fixture from this StateTest fixture."""
         return BlockchainTest.from_test(
             base_test=self,
-            genesis_environment=self._generate_blockchain_genesis_environment(
-                fork=fork
-            ),
+            genesis_environment=self._generate_blockchain_genesis_environment(),
             pre=self.pre,
             post=self.post,
-            blocks=self._generate_blockchain_blocks(fork=fork),
+            blocks=self._generate_blockchain_blocks(),
         )
 
     def make_state_test_fixture(
         self,
         t8n: TransitionTool,
-        fork: Fork,
     ) -> StateFixture:
         """Create a fixture from the state test definition."""
         # We can't generate a state test fixture that names a transition fork,
         # so we get the fork at the block number and timestamp of the state
         # test
-        fork = fork.fork_at(
+        fork = self.fork.fork_at(
             block_number=self.env.number, timestamp=self.env.timestamp
         )
 
@@ -491,38 +487,32 @@ class StateTest(BaseTest):
             ),
         )
 
-    def get_genesis_environment(self, fork: Fork) -> Environment:
+    def get_genesis_environment(self) -> Environment:
         """Get the genesis environment for pre-allocation groups."""
-        return self.generate_blockchain_test(
-            fork=fork
-        ).get_genesis_environment(fork=fork)
+        return self.generate_blockchain_test().get_genesis_environment()
 
     def generate(
         self,
         t8n: TransitionTool,
-        fork: Fork,
         fixture_format: FixtureFormat,
     ) -> BaseFixture:
         """Generate the BlockchainTest fixture."""
         self.check_exception_test(exception=self.tx.error is not None)
         if fixture_format in BlockchainTest.supported_fixture_formats:
-            return self.generate_blockchain_test(fork=fork).generate(
-                t8n=t8n, fork=fork, fixture_format=fixture_format
+            return self.generate_blockchain_test().generate(
+                t8n=t8n, fixture_format=fixture_format
             )
         elif fixture_format == StateFixture:
-            return self.make_state_test_fixture(t8n, fork)
+            return self.make_state_test_fixture(t8n)
 
         raise Exception(f"Unknown fixture format: {fixture_format}")
 
     def execute(
         self,
         *,
-        fork: Fork,
         execute_format: ExecuteFormat,
     ) -> BaseExecute:
         """Generate the list of test fixtures."""
-        del fork
-
         if execute_format == TransactionPost:
             # Pass gas validation params for benchmark tests
             # If not benchmark mode, skip gas used validation

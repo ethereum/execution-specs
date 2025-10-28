@@ -1381,7 +1381,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     # Use the original update_pre_alloc_groups method which
                     # returns the groups
                     self.update_pre_alloc_groups(
-                        session.pre_alloc_groups, fork, request.node.nodeid
+                        session.pre_alloc_groups, request.node.nodeid
                     )
                     return  # Skip fixture generation in phase 1
 
@@ -1392,15 +1392,12 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     FixtureFillingPhase.PRE_ALLOC_GENERATION
                     in fixture_format.format_phases
                 ):
-                    pre_alloc_hash = self.compute_pre_alloc_group_hash(
-                        fork=fork
-                    )
+                    pre_alloc_hash = self.compute_pre_alloc_group_hash()
                     group = session.get_pre_alloc_group(pre_alloc_hash)
                     self.pre = group.pre
                 try:
                     fixture = self.generate(
                         t8n=t8n,
-                        fork=fork,
                         fixture_format=fixture_format,
                     )
                 finally:

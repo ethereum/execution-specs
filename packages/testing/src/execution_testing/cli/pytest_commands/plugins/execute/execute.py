@@ -437,9 +437,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     [str(eoa) for eoa in pre._funded_eoa]
                 )
 
-                execute = self.execute(
-                    fork=fork, execute_format=execute_format
-                )
+                execute = self.execute(execute_format=execute_format)
                 execute.execute(
                     fork=fork,
                     eth_rpc=eth_rpc,

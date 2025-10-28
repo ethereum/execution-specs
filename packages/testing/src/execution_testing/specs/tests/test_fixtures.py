@@ -109,12 +109,13 @@ def test_make_genesis(
     )
 
     fixture = BlockchainTest(
+        fork=fork,
         genesis_environment=env,
         pre=pre,
         post={},
         blocks=[],
         tag="some_state_test",
-    ).generate(t8n=default_t8n, fork=fork, fixture_format=BlockchainFixture)
+    ).generate(t8n=default_t8n, fixture_format=BlockchainFixture)
     assert isinstance(fixture, BlockchainFixture)
     assert fixture.genesis is not None
 
@@ -193,12 +194,13 @@ def test_fill_state_test(
     }
 
     generated_fixture = StateTest(
+        fork=fork,
         env=env,
         pre=pre,
         post=post,
         tx=tx,
         tag="my_chain_id_test",
-    ).generate(t8n=default_t8n, fork=fork, fixture_format=fixture_format)
+    ).generate(t8n=default_t8n, fixture_format=fixture_format)
     assert generated_fixture.__class__ == fixture_format
     fixture = {
         f"000/my_chain_id_test/{fork}/tx_type_{tx_type}": generated_fixture.json_dict_with_info(
@@ -521,12 +523,13 @@ class TestFillBlockchainValidTxs:
         default_t8n: TransitionTool,
     ) -> BaseFixture:
         return BlockchainTest(
+            fork=fork,
             pre=pre,
             post=post,
             blocks=blocks,
             genesis_environment=genesis_environment,
             tag="my_blockchain_test_valid_txs",
-        ).generate(t8n=default_t8n, fork=fork, fixture_format=fixture_format)
+        ).generate(t8n=default_t8n, fixture_format=fixture_format)
 
     @pytest.mark.parametrize("fork", [London, Shanghai], indirect=True)
     def test_fill_blockchain_valid_txs(  # noqa: D102
@@ -914,11 +917,12 @@ def test_fill_blockchain_invalid_txs(
         BlockchainEngineFixture if check_hive else BlockchainFixture
     )
     generated_fixture = BlockchainTest(
+        fork=fork,
         pre=pre,
         post=post,
         blocks=blocks,
         genesis_environment=genesis_environment,
-    ).generate(t8n=default_t8n, fork=fork, fixture_format=fixture_format)
+    ).generate(t8n=default_t8n, fixture_format=fixture_format)
     assert generated_fixture.__class__ == fixture_format
     # BlockchainEngineFixture inherits from BlockchainEngineFixtureCommon
     # (not BlockchainFixtureCommon)

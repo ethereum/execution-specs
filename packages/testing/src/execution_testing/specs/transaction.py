@@ -16,7 +16,6 @@ from execution_testing.fixtures import (
     TransactionFixture,
 )
 from execution_testing.fixtures.transaction import FixtureResult
-from execution_testing.forks import Fork
 from execution_testing.test_types import Alloc, Transaction
 
 from .base import BaseTest
@@ -45,7 +44,6 @@ class TransactionTest(BaseTest):
 
     def make_transaction_test_fixture(
         self,
-        fork: Fork,
     ) -> TransactionFixture:
         """Create a fixture from the transaction test definition."""
         if self.tx.error is not None:
@@ -57,7 +55,7 @@ class TransactionTest(BaseTest):
             )
         else:
             intrinsic_gas_cost_calculator = (
-                fork.transaction_intrinsic_cost_calculator()
+                self.fork.transaction_intrinsic_cost_calculator()
             )
             intrinsic_gas = intrinsic_gas_cost_calculator(
                 calldata=self.tx.data,
@@ -74,7 +72,7 @@ class TransactionTest(BaseTest):
 
         return TransactionFixture(
             result={
-                fork: result,
+                self.fork: result,
             },
             transaction=self.tx.with_signature_and_sender().rlp(),
         )
@@ -82,7 +80,6 @@ class TransactionTest(BaseTest):
     def generate(
         self,
         t8n: TransitionTool,
-        fork: Fork,
         fixture_format: FixtureFormat,
     ) -> BaseFixture:
         """Generate the TransactionTest fixture."""
@@ -90,19 +87,16 @@ class TransactionTest(BaseTest):
 
         self.check_exception_test(exception=self.tx.error is not None)
         if fixture_format == TransactionFixture:
-            return self.make_transaction_test_fixture(fork)
+            return self.make_transaction_test_fixture()
 
         raise Exception(f"Unknown fixture format: {fixture_format}")
 
     def execute(
         self,
         *,
-        fork: Fork,
         execute_format: ExecuteFormat,
     ) -> BaseExecute:
         """Execute the transaction test by sending it to the live network."""
-        del fork
-
         if execute_format == TransactionPost:
             return TransactionPost(
                 blocks=[[self.tx]],

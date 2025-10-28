@@ -239,11 +239,9 @@ class BenchmarkTest(BaseTest):
             return fixture_format != BlockchainEngineFixture
         return False
 
-    def get_genesis_environment(self, fork: Fork) -> Environment:
+    def get_genesis_environment(self) -> Environment:
         """Get the genesis environment for this benchmark test."""
-        return self.generate_blockchain_test().get_genesis_environment(
-            fork=fork
-        )
+        return self.generate_blockchain_test().get_genesis_environment()
 
     def split_transaction(
         self, tx: Transaction, gas_limit_cap: int | None
@@ -305,7 +303,6 @@ class BenchmarkTest(BaseTest):
     def generate(
         self,
         t8n: TransitionTool,
-        fork: Fork,
         fixture_format: FixtureFormat,
     ) -> BaseFixture:
         """Generate the blockchain test fixture."""
@@ -314,7 +311,7 @@ class BenchmarkTest(BaseTest):
         )
         if fixture_format in BlockchainTest.supported_fixture_formats:
             return self.generate_blockchain_test().generate(
-                t8n=t8n, fork=fork, fixture_format=fixture_format
+                t8n=t8n, fixture_format=fixture_format
             )
         else:
             raise Exception(f"Unsupported fixture format: {fixture_format}")
@@ -322,12 +319,9 @@ class BenchmarkTest(BaseTest):
     def execute(
         self,
         *,
-        fork: Fork,
         execute_format: ExecuteFormat,
     ) -> BaseExecute:
         """Execute the benchmark test by sending it to the live network."""
-        del fork
-
         if execute_format == TransactionPost:
             return TransactionPost(
                 blocks=[[self.tx]],

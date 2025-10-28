@@ -201,6 +201,7 @@ class FuzzerBridge:
         # Create test
         test = BlockchainTest(
             genesis_environment=test_params["genesis_environment"],
+            fork=fork,
             pre=test_params["pre"],
             post=test_params["post"],
             blocks=test_params["blocks"],
@@ -210,7 +211,6 @@ class FuzzerBridge:
         # Generate fixture
         fixture = test.generate(
             t8n=self.t8n,
-            fork=fork,
             fixture_format=BlockchainFixture,
         )
 

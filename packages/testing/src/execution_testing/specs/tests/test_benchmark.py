@@ -6,6 +6,7 @@ transaction splitting functionality.
 import pytest
 
 from execution_testing.base_types import HexNumber
+from execution_testing.forks import Osaka
 from execution_testing.specs.benchmark import BenchmarkTest
 from execution_testing.test_types import Alloc, Environment, Transaction
 
@@ -34,6 +35,7 @@ def test_split_transaction(
 
     # Create a minimal BenchmarkTest instance
     benchmark_test = BenchmarkTest(
+        fork=Osaka,
         pre=Alloc(),
         post=Alloc(),
         tx=Transaction(sender=HexNumber(0), to=HexNumber(0), nonce=0),
@@ -96,7 +98,9 @@ def test_split_transaction_edge_cases(
     gas_benchmark_value: int, gas_limit_cap: int | None
 ) -> None:
     """Test edge cases for transaction splitting."""
+    fork = Osaka
     benchmark_test = BenchmarkTest(
+        fork=fork,
         pre=Alloc(),
         post=Alloc(),
         tx=Transaction(
