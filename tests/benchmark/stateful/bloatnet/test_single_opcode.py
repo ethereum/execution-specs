@@ -19,6 +19,9 @@ from execution_testing import (
     Transaction,
     While,
 )
+from execution_testing.cli.pytest_commands.plugins.execute.pre_alloc import (
+    AddressStubs,
+)
 
 REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
 REFERENCE_SPEC_VERSION = "1.0"
@@ -81,7 +84,7 @@ def test_sload_empty_erc20_balanceof(
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
-    address_stubs,  # Type provided by pytest fixture
+    address_stubs: AddressStubs | None,
     num_contracts: int,
     request: pytest.FixtureRequest,
 ) -> None:
@@ -102,11 +105,13 @@ def test_sload_empty_erc20_balanceof(
     test_name = request.node.name.split("[")[0]
 
     # Filter stubs that match the test name prefix
-    matching_stubs = [
-        stub_name
-        for stub_name in address_stubs.root.keys()
-        if stub_name.startswith(test_name)
-    ]
+    matching_stubs = []
+    if address_stubs is not None:
+        matching_stubs = [
+            stub_name
+            for stub_name in address_stubs.root.keys()
+            if stub_name.startswith(test_name)
+        ]
 
     # Validate we have enough stubs
     if len(matching_stubs) < num_contracts:
@@ -251,7 +256,7 @@ def test_sstore_erc20_approve(
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
-    address_stubs,  # Type provided by pytest fixture
+    address_stubs: AddressStubs | None,
     num_contracts: int,
     request: pytest.FixtureRequest,
 ) -> None:
@@ -271,11 +276,13 @@ def test_sstore_erc20_approve(
     test_name = request.node.name.split("[")[0]
 
     # Filter stubs that match the test name prefix
-    matching_stubs = [
-        stub_name
-        for stub_name in address_stubs.root.keys()
-        if stub_name.startswith(test_name)
-    ]
+    matching_stubs = []
+    if address_stubs is not None:
+        matching_stubs = [
+            stub_name
+            for stub_name in address_stubs.root.keys()
+            if stub_name.startswith(test_name)
+        ]
 
     # Validate we have enough stubs
     if len(matching_stubs) < num_contracts:
