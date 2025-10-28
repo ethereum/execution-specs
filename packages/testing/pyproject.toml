@@ -51,6 +51,7 @@ dependencies = [
     "joblib>=1.4.2",
     "ckzg>=2.1.3,<3",
     "tenacity>=9.0.0,<10",
+    "ruff==0.13.2",
 ]
 
 [project.urls]
