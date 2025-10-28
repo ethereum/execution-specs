@@ -1,0 +1,208 @@
+# Gas Cost Configuration for Gas Repricing Fork
+# This YAML file serves as the single source of truth for gas costs in the gas_repricing fork.
+# It contains both static gas cost constants and opcode-to-gas-category mappings.
+# Reference: https://github.com/ethereum/execution-specs/issues/1599
+
+# Static Gas Costs
+# These constants define the base gas costs for various operation categories
+# Variable names follow the test framework convention (G_ prefix)
+static_costs:
+  # Basic operation costs
+  G_JUMPDEST: 1
+  G_BASE: 2
+  G_VERY_LOW: 3
+  G_LOW: 5
+  G_MID: 8
+  G_HIGH: 10
+
+  # Storage costs
+  G_STORAGE_SET: 20000
+  G_STORAGE_RESET: 5000
+  R_STORAGE_CLEAR: 4800
+
+  # Access costs (EIP-2929)
+  G_COLD_SLOAD: 2100
+  G_COLD_ACCOUNT_ACCESS: 2600
+  G_WARM_ACCOUNT_ACCESS: 100
+  G_WARM_SLOAD: 100
+  G_ACCESS_LIST_ADDRESS: 2400
+  G_ACCESS_LIST_STORAGE: 1900
+
+  # Exponentiation costs
+  G_EXP: 10
+  G_EXP_BYTE: 50
+
+  # Memory costs
+  G_MEMORY: 3
+
+  # Keccak256 costs
+  G_KECCAK_256: 30
+  G_KECCAK_256_WORD: 6
+
+  # Copy operation costs
+  G_COPY: 3
+
+  # Block operation costs
+  G_BLOCKHASH: 20
+
+  # Log costs
+  G_LOG: 375
+  G_LOG_DATA: 8
+  G_LOG_TOPIC: 375
+
+  # Create costs
+  G_CREATE: 32000
+  G_CODE_DEPOSIT_BYTE: 200
+
+  # Transaction costs
+  G_TRANSACTION: 21000
+  G_TRANSACTION_CREATE: 32000
+
+  # Account creation and value transfer costs
+  G_NEW_ACCOUNT: 25000
+  G_CALL_VALUE: 9000
+  G_CALL_STIPEND: 2300
+
+  # Self-destruct costs
+  G_SELF_DESTRUCT: 5000
+
+  # Transaction data costs
+  G_TX_DATA_ZERO: 4
+  G_TX_DATA_NON_ZERO: 16
+  G_TX_DATA_STANDARD_TOKEN_COST: 4
+  G_TX_DATA_FLOOR_TOKEN_COST: 10
+
+  # Init code costs (EIP-3860)
+  G_INITCODE_WORD: 2
+
+  # Authorization costs (EIP-7702)
+  G_AUTHORIZATION: 25000
+  R_AUTHORIZATION_EXISTING_AUTHORITY: 12500
+
+  # Gas Repricing New Categories
+  WARM_STORAGE_READ_COST: 5
+  BASE_OPCODE_COST: 1
+  FAST_OPCODE_COST: 2
+  MID_OPCODE_COST: 3
+  EXP_BASE_COST: 2
+
+  EXP_PER_BYTE_COST: 4
+  COPY_PER_WORD_COST: 1
+
+
+# Opcode to Gas Category Mappings
+# Maps each EVM opcode to its corresponding gas cost constant
+# Opcodes with dynamic costs (e.g., SLOAD, CALL) have their base costs listed here
+opcode_costs:
+  STOP: BASE_OPCODE_COST
+  ADD: BASE_OPCODE_COST
+  MUL: BASE_OPCODE_COST
+  SUB: BASE_OPCODE_COST
+  DIV: BASE_OPCODE_COST
+  SDIV: BASE_OPCODE_COST
+  MOD: BASE_OPCODE_COST
+  SMOD: BASE_OPCODE_COST
+  ADDMOD: FAST_OPCODE_COST
+  MULMOD: MID_OPCODE_COST
+  EXP: EXP_BASE_COST
+  SIGNEXTEND: BASE_OPCODE_COST
+
+  # Comparison operations
+  LT: BASE_OPCODE_COST
+  GT: BASE_OPCODE_COST
+  SLT: BASE_OPCODE_COST
+  SGT: BASE_OPCODE_COST
+  EQ: BASE_OPCODE_COST
+  ISZERO: BASE_OPCODE_COST
+
+  # Bitwise operations
+  AND: BASE_OPCODE_COST
+  OR: BASE_OPCODE_COST
+  XOR: BASE_OPCODE_COST
+  NOT: BASE_OPCODE_COST
+  BYTE: BASE_OPCODE_COST
+  SHL: BASE_OPCODE_COST
+  SHR: BASE_OPCODE_COST
+  SAR: BASE_OPCODE_COST
+  CLZ: G_VERY_LOW
+
+  # Keccak operation
+  KECCAK: G_KECCAK_256  # 0x20 - plus G_KECCAK_256_WORD per word
+
+  # Environmental operations
+  ADDRESS: BASE_OPCODE_COST
+  BALANCE: G_COLD_ACCOUNT_ACCESS
+  ORIGIN: BASE_OPCODE_COST
+  CALLER: BASE_OPCODE_COST
+  CALLVALUE: BASE_OPCODE_COST
+  CALLDATALOAD: BASE_OPCODE_COST
+  CALLDATASIZE: BASE_OPCODE_COST
+  CALLDATACOPY: BASE_OPCODE_COST
+  CODESIZE: BASE_OPCODE_COST
+  CODECOPY: BASE_OPCODE_COST
+  GASPRICE: BASE_OPCODE_COST
+  EXTCODESIZE: G_COLD_ACCOUNT_ACCESS
+  EXTCODECOPY: G_COLD_ACCOUNT_ACCESS
+  RETURNDATASIZE: BASE_OPCODE_COST
+  RETURNDATACOPY: BASE_OPCODE_COST
+  EXTCODEHASH: G_WARM_ACCOUNT_ACCESS
+
+  # Block operations
+  BLOCKHASH: G_BLOCKHASH
+  COINBASE: BASE_OPCODE_COST
+  TIMESTAMP: BASE_OPCODE_COST
+  NUMBER: BASE_OPCODE_COST
+  PREVRANDAO: G_BASE
+  GASLIMIT: BASE_OPCODE_COST
+  CHAINID: BASE_OPCODE_COST
+  SELFBALANCE: BASE_OPCODE_COST
+  BASEFEE: G_BASE
+  BLOBHASH: G_BASE
+  BLOBBASEFEE: G_BASE
+
+  # Memory operations
+  MLOAD: BASE_OPCODE_COST
+  MSTORE: BASE_OPCODE_COST
+  MSTORE8: BASE_OPCODE_COST
+  MSIZE: BASE_OPCODE_COST
+  MCOPY: BASE_OPCODE_COST
+
+  # Stack operations
+  POP: BASE_OPCODE_COST
+
+  # Storage operations
+  SLOAD: G_COLD_SLOAD
+  SSTORE: G_STORAGE_SET
+  TLOAD: WARM_STORAGE_READ_COST
+  TSTORE: WARM_STORAGE_READ_COST
+
+  # Control flow operations
+  JUMP: BASE_OPCODE_COST
+  JUMPI: BASE_OPCODE_COST
+  PC: BASE_OPCODE_COST
+  GAS: BASE_OPCODE_COST
+  JUMPDEST: BASE_OPCODE_COST
+
+  # Push operations
+  PUSH0: BASE_OPCODE_COST
+  PUSH: BASE_OPCODE_COST
+
+  # DUP1-16 operations
+  DUP: BASE_OPCODE_COST
+
+  # Swap operations
+  SWAP: BASE_OPCODE_COST
+
+  # Log operations
+  LOG0: G_LOG
+
+  # System operations
+  CREATE: G_CREATE
+  CALL: G_COLD_ACCOUNT_ACCESS
+  CALLCODE: G_COLD_ACCOUNT_ACCESS
+  RETURN: G_BASE
+  DELEGATECALL: G_COLD_ACCOUNT_ACCESS
+  CREATE2: G_CREATE
+  STATICCALL: G_COLD_ACCOUNT_ACCESS
+  REVERT: G_BASE
+  SELFDESTRUCT: G_SELF_DESTRUCT
