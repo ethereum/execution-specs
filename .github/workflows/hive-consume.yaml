@@ -94,7 +94,7 @@ jobs:
             --sim.parallelism=1 \
             --client go-ethereum \
             --client-file clients.yaml \
-            --sim.buildarg fixtures=develop@latest \
+            --sim.buildarg fixtures=develop@v5.3.0 \
             --sim.limit=".*test_block_at_rlp_limit_with_logs.*Osaka.*" \
             --docker.output
 
@@ -120,4 +120,4 @@ jobs:
           HIVE_SIMULATOR: http://127.0.0.1:3000
         run: |
           uv sync --all-extras
-          uv run consume ${{ matrix.consume_command }} --input develop@latest -k "Osaka and test_block_at_rlp_limit_with_logs"
+          uv run consume ${{ matrix.consume_command }} --input develop@v5.3.0 -k "Osaka and test_block_at_rlp_limit_with_logs"
