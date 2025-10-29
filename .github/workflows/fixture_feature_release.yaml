@@ -22,7 +22,7 @@ jobs:
         run: |
           FEATURE_PREFIX="${GITHUB_REF_NAME//@*/}"
           FEATURE_NAME="${FEATURE_PREFIX#tests-}"
-          names=$(grep -Po "^${FEATURE_NAME}[^:]*" .github/configs/feature.yaml | jq  --raw-input .  | jq -c --slurp .)
+          names=$(grep -Po "^${FEATURE_NAME}(?=:)" .github/configs/feature.yaml | jq  --raw-input .  | jq -c --slurp .)
           echo names=${names}
           echo names=${names} >> "$GITHUB_OUTPUT"
   
