@@ -4,7 +4,7 @@ StaticcallForPrecompilesIssue683:
     comment: |
       Bytecode from issue 683, that initially show the problem with staticcall in hevm.
       Issue link: https://github.com/ethereum/tests/issues/683
-      Pullrequest link with original bytecode: https://github.com/dapphub/dapptools/pull/360
+      Pull request link with original bytecode: https://github.com/dapphub/dapptools/pull/360
   env:
     currentCoinbase: '0xcafe000000000000000000000000000000000001'
     currentDifficulty: '0x20000'
