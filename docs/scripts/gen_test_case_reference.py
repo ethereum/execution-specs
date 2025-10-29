@@ -11,10 +11,12 @@ import logging
 import sys
 from os import getenv
 
-import execution_testing.cli.pytest_commands.plugins.filler.gen_test_doc.gen_test_doc as gen_test_doc  # noqa E501
 import pytest
 from click.testing import CliRunner
 from execution_testing.cli.pytest_commands.fill import fill
+from execution_testing.cli.pytest_commands.plugins.filler.gen_test_doc import (
+    gen_test_doc,
+)
 from execution_testing.config import DocsConfig
 
 importlib.reload(
