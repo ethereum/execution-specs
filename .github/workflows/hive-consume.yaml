@@ -7,9 +7,12 @@ on:
   pull_request:
     paths:
       - '.github/workflows/hive-consume.yaml'
-      - 'packages/tests/src/pytest_plugins/consume/**'
-      - 'packages/tests/src/pytest_plugins/pytest_hive/**'
+      - 'packages/testing/src/execution_testing/cli/pytest_commands/consume.py'
+      - 'packages/testing/src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-consume.ini'
       - 'packages/testing/src/execution_testing/cli/pytest_commands/plugins/consume/**'
+      - 'packages/testing/src/execution_testing/cli/pytest_commands/plugins/pytest_hive/**'
+      - 'packages/testing/src/execution_testing/fixtures/consume.py'
+      - 'packages/testing/src/execution_testing/rpc/**'
   workflow_dispatch:
 
 concurrency:
