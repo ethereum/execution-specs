@@ -1,3 +1,3 @@
 # Ethereum Test Types package
 
-::: ethereum_test_types
+::: execution_testing.test_types

@@ -32,7 +32,7 @@ uv run mkdocs serve
 
 For more help (including ensuring a clean build), see the `gen_test_doc` pytest plugin's documentation:
 
-::: src.pytest_plugins.filler.gen_test_doc.gen_test_doc
+::: execution_testing.cli.pytest_commands.plugins.filler.gen_test_doc.gen_test_doc
     options:
         members: no
 

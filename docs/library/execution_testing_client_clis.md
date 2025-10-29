@@ -1,3 +1,3 @@
 # Ethereum CLIs Package
 
-::: ethereum_clis
+::: execution_testing.client_clis
