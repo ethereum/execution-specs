@@ -15,12 +15,14 @@ preventing consensus issues.
 """
 
 from enum import Enum
+from typing import Callable
 
 import pytest
 from execution_testing import (
     Account,
     Alloc,
     BalAccountExpectation,
+    BalNonceChange,
     BalStorageChange,
     BalStorageSlot,
     Block,
@@ -604,5 +606,151 @@ def test_bal_extcodecopy_and_oog(
             alice: Account(nonce=1),
             extcodecopy_contract: Account(),
             target_contract: Account(),
+        },
+    )
+
+
+def test_bal_storage_write_read_same_frame(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Ensure BAL captures write precedence over read in same call frame.
+
+    Oracle writes to slot 0x01, then reads from slot 0x01 in same call.
+    The write shadows the read - only the write appears in BAL.
+    """
+    alice = pre.fund_eoa()
+
+    oracle_code = (
+        Op.SSTORE(0x01, 0x42)  # Write 0x42 to slot 0x01
+        + Op.SLOAD(0x01)  # Read from slot 0x01
+        + Op.STOP
+    )
+    oracle = pre.deploy_contract(code=oracle_code, storage={0x01: 0x99})
+
+    tx = Transaction(
+        sender=alice,
+        to=oracle,
+        gas_limit=1_000_000,
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                ),
+                oracle: BalAccountExpectation(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0x01,
+                            slot_changes=[
+                                BalStorageChange(tx_index=1, post_value=0x42)
+                            ],
+                        )
+                    ],
+                    storage_reads=[],  # Empty! Write shadows the read
+                ),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            oracle: Account(storage={0x01: 0x42}),
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "call_opcode",
+    [
+        pytest.param(
+            lambda target: Op.CALL(100_000, target, 0, 0, 0, 0, 0), id="call"
+        ),
+        pytest.param(
+            lambda target: Op.DELEGATECALL(100_000, target, 0, 0, 0, 0),
+            id="delegatecall",
+        ),
+        pytest.param(
+            lambda target: Op.CALLCODE(100_000, target, 0, 0, 0, 0, 0),
+            id="callcode",
+        ),
+    ],
+)
+def test_bal_storage_write_read_cross_frame(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    call_opcode: Callable[[Bytecode], Bytecode],
+) -> None:
+    """
+    Ensure BAL captures write precedence over read across call frames.
+
+    Frame 1: Read slot 0x01 (0x99), write 0x42, then call itself.
+    Frame 2: Read slot 0x01 (0x42), see it's 0x42 and return.
+    Both reads are shadowed by the write - only write appears in BAL.
+    """
+    alice = pre.fund_eoa()
+
+    # Oracle code:
+    # 1. Read slot 0x01 (initial: 0x99, recursive: 0x42)
+    # 2. If value == 0x42, return (exit recursion)
+    # 3. Write 0x42 to slot 0x01
+    # 4. Call itself recursively
+    oracle_code = (
+        Op.SLOAD(0x01)  # Load value from slot 0x01
+        + Op.PUSH1(0x42)  # Push 0x42 for comparison
+        + Op.EQ  # Check if loaded value == 0x42
+        + Op.PUSH1(0x1D)  # Jump destination (after SSTORE + CALL)
+        + Op.JUMPI  # If equal, jump to end (exit recursion)
+        + Op.PUSH1(0x42)  # Value to write
+        + Op.PUSH1(0x01)  # Slot 0x01
+        + Op.SSTORE  # Write 0x42 to slot 0x01
+        + call_opcode(Op.ADDRESS)  # Call itself
+        + Op.JUMPDEST  # Jump destination for exit
+        + Op.STOP
+    )
+
+    oracle = pre.deploy_contract(code=oracle_code, storage={0x01: 0x99})
+
+    tx = Transaction(
+        sender=alice,
+        to=oracle,
+        gas_limit=1_000_000,
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                ),
+                oracle: BalAccountExpectation(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0x01,
+                            slot_changes=[
+                                BalStorageChange(tx_index=1, post_value=0x42)
+                            ],
+                        )
+                    ],
+                    storage_reads=[],  # Empty! Write shadows both reads
+                ),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            oracle: Account(storage={0x01: 0x42}),
         },
     )
