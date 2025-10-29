@@ -179,7 +179,7 @@ Expected state root value that results of applying the transaction to the pre-st
 Hash of the RLP representation of the state logs result of applying the transaction to the pre-state
 (TODO: double-check this.)
 
-#### - `expectException`: [`TransactionException`](../../library/ethereum_test_exceptions.md#ethereum_test_exceptions.TransactionException)
+#### - `expectException`: [`TransactionException`](../../library/execution_testing_exceptions.md#execution_testing.exceptions.TransactionException)
 
 Exception that is expected to be thrown by the transaction execution (Field is missing if the transaction is expected to succeed)
 

@@ -124,7 +124,7 @@ The `EIPChecklist` classes are made callable through a companion `.pyi` stub fil
 
 ### Regenerating Type Stubs
 
-If you modify the `EIPChecklist` class structure in `src/ethereum_test_checklists/eip_checklist.py`, you need to regenerate the type stub file:
+If you modify the `EIPChecklist` class structure in `packages/testing/src/execution_testing/checklists/eip_checklist.py`, you need to regenerate the type stub file:
 
 ```bash
 # Generate the stub file (for maintainers):

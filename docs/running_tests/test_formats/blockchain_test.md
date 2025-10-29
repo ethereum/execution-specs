@@ -216,7 +216,7 @@ Optional list of withdrawals included in the block RLP.
 
 ### `InvalidFixtureBlock`
 
-#### - `expectException`: [`TransactionException`](../../library/ethereum_test_exceptions.md#ethereum_test_exceptions.TransactionException)` | `[`BlockException`](../../library/ethereum_test_exceptions.md#ethereum_test_exceptions.BlockException)
+#### - `expectException`: [`TransactionException`](../../library/execution_testing_exceptions.md#execution_testing.exceptions.TransactionException)` | `[`BlockException`](../../library/execution_testing_exceptions.md#execution_testing.exceptions.BlockException)
 
 Expected exception that invalidates the block.
 

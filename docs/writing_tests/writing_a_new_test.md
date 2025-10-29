@@ -51,10 +51,10 @@ markers on either the test function, test class or test module level:
     pytestmark = pytest.mark.valid_from("Shanghai")
     ```
 
-The [`ethereum_test_forks`](../library/ethereum_test_forks.md) package defines the available forks and provides the following helpers that return all forks within the specified range:
+The [`execution_testing.forks`](../library/execution_testing_forks.md) package defines the available forks and provides the following helpers that return all forks within the specified range:
 
-- [forks_from](../library/ethereum_test_forks.md#ethereum_test_forks.forks_from)
-- [forks_from_until](../library/ethereum_test_forks.md#ethereum_test_forks.forks_from_until)
+- [forks_from](../library/execution_testing_forks.md#execution_testing.forks.forks_from)
+- [forks_from_until](../library/execution_testing_forks.md#execution_testing.forks.forks_from_until)
 
 ### The `state_test` and `blockchain_test` Test Function Arguments
 
@@ -235,7 +235,7 @@ Within the `post` dictionary object, an account address can be:
 The `Account` object is used to specify the properties of an account to be
 verified in the post state.
 
-The python representation can be found in [src/ethereum_test_types/account_types.py](https://github.com/ethereum/execution-spec-tests/blob/main/src/ethereum_test_types/account_types.py).
+The python representation can be found in [packages/testing/src/execution_testing/test_types/account_types.py](https://github.com/ethereum/execution-spec-tests/blob/main/packages/testing/src/execution_testing/test_types/account_types.py).
 
 It can verify the following properties of an account:
 
