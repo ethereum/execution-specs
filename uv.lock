@@ -616,6 +616,8 @@ dependencies = [
     { name = "cryptography" },
     { name = "ethereum-rlp" },
     { name = "ethereum-types" },
+    { name = "libcst" },
+    { name = "platformdirs" },
     { name = "py-ecc" },
     { name = "pycryptodome" },
     { name = "typing-extensions" },
@@ -639,7 +641,6 @@ dev = [
     { name = "libcst" },
     { name = "mistletoe" },
     { name = "mypy" },
-    { name = "platformdirs" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-xdist" },
@@ -672,10 +673,6 @@ test = [
     { name = "requests" },
     { name = "requests-cache" },
 ]
-tools = [
-    { name = "libcst" },
-    { name = "platformdirs" },
-]
 
 [package.metadata]
 requires-dist = [
@@ -684,6 +681,8 @@ requires-dist = [
     { name = "ethash", marker = "extra == 'optimized'", specifier = ">=1.1.0,<2" },
     { name = "ethereum-rlp", specifier = ">=0.1.4,<0.2" },
     { name = "ethereum-types", specifier = ">=0.2.4,<0.3" },
+    { name = "libcst", specifier = ">=1.8,<2" },
+    { name = "platformdirs", specifier = ">=4.2,<5" },
     { name = "py-ecc", specifier = ">=8.0.0b2,<9" },
     { name = "pycryptodome", specifier = ">=3.22,<4" },
     { name = "rust-pyspec-glue", marker = "extra == 'optimized'", specifier = ">=0.0.9,<0.1.0" },
@@ -703,7 +702,6 @@ dev = [
     { name = "libcst", specifier = ">=1.8,<2" },
     { name = "mistletoe", specifier = ">=1.5.0,<2" },
     { name = "mypy", specifier = "==1.17.0" },
-    { name = "platformdirs", specifier = ">=4.2,<5" },
     { name = "pytest", specifier = ">=8,<9" },
     { name = "pytest-cov", specifier = ">=4.1.0,<5" },
     { name = "pytest-xdist", specifier = ">=3.3.1,<4" },
@@ -735,10 +733,6 @@ test = [
     { name = "pytest-xdist", specifier = ">=3.3.1,<4" },
     { name = "requests" },
     { name = "requests-cache", specifier = ">=1.2.1,<2" },
-]
-tools = [
-    { name = "libcst", specifier = ">=1.8,<2" },
-    { name = "platformdirs", specifier = ">=4.2,<5" },
 ]
 
 [[package]]
