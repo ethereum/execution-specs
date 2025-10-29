@@ -1417,3 +1417,511 @@ def test_bal_fully_unmutated_account(
     )
 
     blockchain_test(pre=pre, blocks=[block], post={})
+
+
+def test_bal_empty_block_no_coinbase(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Ensure BAL correctly handles empty blocks without including coinbase.
+
+    When a block has no transactions and no withdrawals, the coinbase/fee
+    recipient receives no fees and should not be included in the BAL.
+    """
+    coinbase = pre.fund_eoa(amount=0)
+
+    block = Block(
+        txs=[],
+        withdrawals=None,
+        fee_recipient=coinbase,
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                # Coinbase must NOT be included - receives no fees
+                coinbase: None,
+            }
+        ),
+    )
+
+    blockchain_test(pre=pre, blocks=[block], post={})
+
+
+def test_bal_coinbase_zero_tip(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+) -> None:
+    """Ensure BAL includes coinbase even when priority fee is zero."""
+    alice_initial_balance = 1_000_000
+    alice = pre.fund_eoa(amount=alice_initial_balance)
+    bob = pre.fund_eoa(amount=0)
+    coinbase = pre.fund_eoa(amount=0)  # fee recipient
+
+    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
+    intrinsic_gas = intrinsic_gas_calculator(
+        calldata=b"",
+        contract_creation=False,
+        access_list=[],
+    )
+    tx_gas_limit = intrinsic_gas + 1000
+
+    # Calculate base fee
+    genesis_env = Environment(base_fee_per_gas=0x7)
+    base_fee_per_gas = fork.base_fee_per_gas_calculator()(
+        parent_base_fee_per_gas=int(genesis_env.base_fee_per_gas or 0),
+        parent_gas_used=0,
+        parent_gas_limit=genesis_env.gas_limit,
+    )
+
+    # Set gas_price equal to base_fee so tip = 0
+    tx = Transaction(
+        sender=alice,
+        to=bob,
+        value=5,
+        gas_limit=tx_gas_limit,
+        gas_price=base_fee_per_gas,
+    )
+
+    alice_final_balance = (
+        alice_initial_balance - 5 - (intrinsic_gas * base_fee_per_gas)
+    )
+
+    block = Block(
+        txs=[tx],
+        fee_recipient=coinbase,
+        header_verify=Header(base_fee_per_gas=base_fee_per_gas),
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                    balance_changes=[
+                        BalBalanceChange(
+                            tx_index=1, post_balance=alice_final_balance
+                        )
+                    ],
+                ),
+                bob: BalAccountExpectation(
+                    balance_changes=[
+                        BalBalanceChange(tx_index=1, post_balance=5)
+                    ]
+                ),
+                # Coinbase must be included even with zero tip
+                coinbase: BalAccountExpectation.empty(),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1, balance=alice_final_balance),
+            bob: Account(balance=5),
+        },
+        genesis_environment=genesis_env,
+    )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param(10**18, id="with_value"),
+        pytest.param(0, id="no_value"),
+    ],
+)
+@pytest.mark.with_all_precompiles
+def test_bal_precompile_funded(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    precompile: Address,
+    value: int,
+) -> None:
+    """
+    Ensure BAL records precompile value transfer.
+
+    Alice sends value to precompile (pure value transfer).
+    If value > 0: BAL must include balance_changes.
+    If value = 0: BAL must have empty balance_changes.
+    """
+    alice = pre.fund_eoa()
+
+    addr_int = int.from_bytes(precompile, "big")
+
+    # Map precompile addresses to their required minimal input sizes
+    # - Most precompiles accept zero-padded input of appropriate length
+    # - For 0x0a (POINT_EVALUATION), use a known valid input from mainnet
+    if addr_int == 0x0A:
+        # Valid point evaluation input from mainnet tx:
+        # https://etherscan.io/tx/0xcb3dc8f3b14f1cda0c16a619a112102a8ec70dce1b3f1b28272227cf8d5fbb0e
+        tx_data = (
+            bytes.fromhex(
+                # versioned_hash (32)
+                "018156B94FE9735E573BAB36DAD05D60FEB720D424CCD20AAF719343C31E4246"
+            )
+            + bytes.fromhex(
+                # z (32)
+                "019123BCB9D06356701F7BE08B4494625B87A7B02EDC566126FB81F6306E915F"
+            )
+            + bytes.fromhex(
+                # y (32)
+                "6C2EB1E94C2532935B8465351BA1BD88EABE2B3FA1AADFF7D1CD816E8315BD38"
+            )
+            + bytes.fromhex(
+                # kzg_commitment (48)
+                "A9546D41993E10DF2A7429B8490394EA9EE62807BAE6F326D1044A51581306F58D4B9DFD5931E044688855280FF3799E"
+            )
+            + bytes.fromhex(
+                # kzg_proof (48)
+                "A2EA83D9391E0EE42E0C650ACC7A1F842A7D385189485DDB4FD54ADE3D9FD50D608167DCA6C776AAD4B8AD5C20691BFE"
+            )
+        )
+    else:
+        precompile_min_input = {
+            0x01: 128,  # ECRECOVER
+            0x02: 0,  # SHA256 (accepts empty)
+            0x03: 0,  # RIPEMD160 (accepts empty)
+            0x04: 0,  # IDENTITY (accepts empty)
+            0x05: 96,  # MODEXP
+            0x06: 128,  # BN256ADD
+            0x07: 96,  # BN256MUL
+            0x08: 0,  # BN256PAIRING (empty is valid)
+            0x09: 213,  # BLAKE2F
+            0x0B: 256,  # BLS12_G1_ADD
+            0x0C: 160,  # BLS12_G1_MSM
+            0x0D: 512,  # BLS12_G2_ADD
+            0x0E: 288,  # BLS12_G2_MSM
+            0x0F: 384,  # BLS12_PAIRING
+            0x10: 64,  # BLS12_MAP_FP_TO_G1
+            0x11: 128,  # BLS12_MAP_FP2_TO_G2
+            0x100: 160,  # P256VERIFY
+        }
+
+        input_size = precompile_min_input.get(addr_int, 0)
+        tx_data = bytes([0x00] * input_size if input_size > 0 else [])
+
+    tx = Transaction(
+        sender=alice,
+        to=precompile,
+        value=value,
+        gas_limit=5_000_000,
+        data=tx_data,
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                ),
+                precompile: BalAccountExpectation(
+                    balance_changes=[
+                        BalBalanceChange(tx_index=1, post_balance=value)
+                    ]
+                    if value > 0
+                    else [],
+                    storage_reads=[],
+                    storage_changes=[],
+                    code_changes=[],
+                ),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+        },
+    )
+
+
+@pytest.mark.parametrize_by_fork(
+    "precompile",
+    lambda fork: [
+        pytest.param(addr, id=f"0x{int.from_bytes(addr, 'big'):02x}")
+        for addr in fork.precompiles(block_number=0, timestamp=0)
+    ],
+)
+def test_bal_precompile_call(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    precompile: Address,
+) -> None:
+    """
+    Ensure BAL records precompile when called via contract.
+
+    Alice calls Oracle contract which calls precompile.
+    BAL must include precompile with no balance/storage/code changes.
+    """
+    alice = pre.fund_eoa()
+
+    # Oracle contract that calls the precompile
+    oracle = pre.deploy_contract(
+        code=Op.CALL(100_000, precompile, 0, 0, 0, 0, 0) + Op.STOP
+    )
+
+    tx = Transaction(
+        sender=alice,
+        to=oracle,
+        gas_limit=200_000,
+        gas_price=0xA,
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                ),
+                oracle: BalAccountExpectation.empty(),
+                precompile: BalAccountExpectation.empty(),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param(0, id="zero_value"),
+        pytest.param(10**18, id="positive_value"),
+    ],
+)
+def test_bal_nonexistent_value_transfer(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    value: int,
+) -> None:
+    """
+    Ensure BAL captures non-existent account on value transfer.
+
+    Alice sends value directly to non-existent Bob.
+    """
+    alice = pre.fund_eoa()
+    bob = Address(0xB0B)
+
+    tx = Transaction(
+        sender=alice,
+        to=bob,
+        value=value,
+        gas_limit=100_000,
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                ),
+                bob: BalAccountExpectation(
+                    balance_changes=[
+                        BalBalanceChange(tx_index=1, post_balance=value)
+                    ]
+                    if value > 0
+                    else [],
+                ),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            bob: Account(balance=value) if value > 0 else Account.NONEXISTENT,
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "account_access_opcode",
+    [
+        pytest.param(
+            lambda target_addr: Op.BALANCE(target_addr),
+            id="balance",
+        ),
+        pytest.param(
+            lambda target_addr: Op.EXTCODESIZE(target_addr),
+            id="extcodesize",
+        ),
+        pytest.param(
+            lambda target_addr: Op.EXTCODECOPY(target_addr, 0, 0, 32),
+            id="extcodecopy",
+        ),
+        pytest.param(
+            lambda target_addr: Op.EXTCODEHASH(target_addr),
+            id="extcodehash",
+        ),
+        pytest.param(
+            lambda target_addr: Op.STATICCALL(0, target_addr, 0, 0, 0, 0),
+            id="staticcall",
+        ),
+        pytest.param(
+            lambda target_addr: Op.DELEGATECALL(0, target_addr, 0, 0, 0, 0),
+            id="delegatecall",
+        ),
+    ],
+)
+def test_bal_nonexistent_account_access_read_only(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    account_access_opcode: Callable[[Address], Op],
+) -> None:
+    """
+    Ensure BAL captures non-existent account access via read-only opcodes.
+
+    Alice calls Oracle contract which uses read-only opcodes to access
+    non-existent Bob (BALANCE, EXTCODESIZE, EXTCODECOPY, EXTCODEHASH,
+    STATICCALL, DELEGATECALL).
+    """
+    alice = pre.fund_eoa()
+    bob = Address(0xB0B)
+    oracle_balance = 2 * 10**18
+
+    oracle_code = account_access_opcode(bob)
+    oracle = pre.deploy_contract(code=oracle_code, balance=oracle_balance)
+
+    tx = Transaction(
+        sender=alice,
+        to=oracle,
+        gas_limit=1_000_000,
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                ),
+                oracle: BalAccountExpectation.empty(),
+                bob: BalAccountExpectation.empty(),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            oracle: Account(balance=oracle_balance),
+            bob: Account.NONEXISTENT,
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "opcode_type,value",
+    [
+        pytest.param("call", 0, id="call_zero_value"),
+        pytest.param("call", 10**18, id="call_positive_value"),
+        pytest.param("callcode", 0, id="callcode_zero_value"),
+        pytest.param("callcode", 10**18, id="callcode_positive_value"),
+    ],
+)
+def test_bal_nonexistent_account_access_value_transfer(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    opcode_type: str,
+    value: int,
+) -> None:
+    """
+    Ensure BAL captures non-existent account access via CALL/CALLCODE
+    with value.
+
+    Alice calls Oracle contract which uses CALL or CALLCODE to access
+    non-existent Bob with value transfer.
+    - CALL: Transfers value from Oracle to Bob
+    - CALLCODE: Self-transfer (net zero), Bob accessed for code
+    """
+    alice = pre.fund_eoa()
+    bob = Address(0xB0B)
+    oracle_balance = 2 * 10**18
+
+    if opcode_type == "call":
+        oracle_code = Op.CALL(100_000, bob, value, 0, 0, 0, 0)
+    else:  # callcode
+        oracle_code = Op.CALLCODE(100_000, bob, value, 0, 0, 0, 0)
+
+    oracle = pre.deploy_contract(code=oracle_code, balance=oracle_balance)
+
+    tx = Transaction(
+        sender=alice,
+        to=oracle,
+        gas_limit=1_000_000,
+    )
+
+    # Calculate expected balances
+    if opcode_type == "call" and value > 0:
+        # CALL: Oracle loses value, Bob gains value
+        oracle_final_balance = oracle_balance - value
+        bob_final_balance = value
+        bob_has_balance_change = True
+        oracle_has_balance_change = True
+    elif opcode_type == "callcode" and value > 0:
+        # CALLCODE: Self-transfer (net zero), Bob just accessed for code
+        oracle_final_balance = oracle_balance
+        bob_final_balance = 0
+        bob_has_balance_change = False
+        oracle_has_balance_change = False
+    else:
+        # Zero value
+        oracle_final_balance = oracle_balance
+        bob_final_balance = 0
+        bob_has_balance_change = False
+        oracle_has_balance_change = False
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                ),
+                oracle: BalAccountExpectation(
+                    balance_changes=[
+                        BalBalanceChange(
+                            tx_index=1, post_balance=oracle_final_balance
+                        )
+                    ]
+                    if oracle_has_balance_change
+                    else [],
+                ),
+                bob: BalAccountExpectation(
+                    balance_changes=[
+                        BalBalanceChange(
+                            tx_index=1, post_balance=bob_final_balance
+                        )
+                    ]
+                    if bob_has_balance_change
+                    else [],
+                ),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            oracle: Account(balance=oracle_final_balance),
+            bob: Account(balance=bob_final_balance)
+            if bob_has_balance_change
+            else Account.NONEXISTENT,
+        },
+    )

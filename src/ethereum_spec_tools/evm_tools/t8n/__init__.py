@@ -414,7 +414,11 @@ class T8N(Load):
         if self.fork.is_after_fork("amsterdam"):
             assert block_env.state.change_tracker is not None
             num_transactions = ulen(
-                [tx for tx in self.txs.successfully_parsed if tx]
+                [
+                    tx_idx
+                    for tx_idx in self.txs.successfully_parsed
+                    if tx_idx is not None
+                ]
             )
 
             # post-execution use n + 1
