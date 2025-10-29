@@ -89,6 +89,6 @@ def pytest_collection_modifyitems(config: Any, items: Any) -> None:
 
 
 @pytest.fixture
-def tx_gas_limit_cap(fork: Fork, gas_benchmark_value: int) -> int:
+def tx_gas_limit(fork: Fork, gas_benchmark_value: int) -> int:
     """Return the transaction gas limit cap."""
     return fork.transaction_gas_limit_cap() or gas_benchmark_value
