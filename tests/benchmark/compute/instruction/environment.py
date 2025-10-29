@@ -4,33 +4,32 @@ import math
 from typing import Any, Dict
 
 import pytest
-from ethereum_test_forks import Fork
-from ethereum_test_tools import (
+from execution_testing import (
     Account,
     Address,
     Alloc,
+    BenchmarkTestFiller,
     Block,
     BlockchainTestFiller,
     Bytecode,
     Bytes,
     Environment,
+    ExtCallGenerator,
+    Fork,
     Hash,
+    JumpLoopGenerator,
+    Op,
     Transaction,
+    TransactionType,
     While,
+    add_kzg_version,
     compute_create2_address,
 )
-from ethereum_test_types import TransactionType, add_kzg_version
-from ethereum_test_vm import Opcodes as Op
 
 from tests.benchmark.compute.helpers import (
     XOR_TABLE,
     CallDataOrigin,
     ReturnDataStyle,
-)
-from tests.benchmark.test_worst_compute import (
-    BenchmarkTestFiller,
-    ExtCallGenerator,
-    JumpLoopGenerator,
 )
 from tests.cancun.eip4844_blobs.spec import Spec as BlobsSpec
 

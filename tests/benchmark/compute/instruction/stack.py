@@ -1,14 +1,14 @@
 """Benchmark stack instructions."""
 
 import pytest
-from ethereum_test_forks import Fork
-from ethereum_test_tools import (
+from execution_testing import (
     Alloc,
     BenchmarkTestFiller,
     ExtCallGenerator,
+    Fork,
     JumpLoopGenerator,
+    Op,
 )
-from ethereum_test_vm import Opcodes as Op
 
 # Stack instructions:
 # POP, PUSHx, DUPx, SWAPx

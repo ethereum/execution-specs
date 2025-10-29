@@ -1,11 +1,11 @@
 """Benchmark comparison instructions."""
 
 import pytest
-from ethereum_test_tools import (
+from execution_testing import (
     BenchmarkTestFiller,
     JumpLoopGenerator,
+    Op,
 )
-from ethereum_test_vm import Opcodes as Op
 
 # Comparison instructions:
 # LT, SLT, GT, SGT, EQ, ISZERO

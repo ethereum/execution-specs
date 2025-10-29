@@ -1,13 +1,13 @@
 """Benchmark POINT EVALUATION precompile."""
 
 import pytest
-from ethereum_test_benchmark import JumpLoopGenerator
-from ethereum_test_forks import Fork
-from ethereum_test_tools import (
+from execution_testing import (
     Address,
     BenchmarkTestFiller,
+    Fork,
+    JumpLoopGenerator,
+    Op,
 )
-from ethereum_test_vm import Opcodes as Op
 
 from tests.benchmark.compute.helpers import concatenate_parameters
 from tests.cancun.eip4844_blobs.spec import Spec as BlobsSpec

@@ -1,12 +1,12 @@
 """Benchmark block instructions."""
 
 import pytest
-from ethereum_test_tools import (
+from execution_testing import (
     BenchmarkTestFiller,
     Block,
     ExtCallGenerator,
+    Op,
 )
-from ethereum_test_vm import Opcodes as Op
 
 # Block instructions:
 # BLOCKHASH, COINBASE, TIMESTAMP, NUMBER, PREVRANDAO, GASLIMIT, CHAINID

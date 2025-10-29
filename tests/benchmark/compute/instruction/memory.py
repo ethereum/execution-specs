@@ -1,13 +1,13 @@
 """Benchmark memory instructions."""
 
 import pytest
-from ethereum_test_tools import (
+from execution_testing import (
     BenchmarkTestFiller,
     Bytecode,
     ExtCallGenerator,
     JumpLoopGenerator,
+    Op,
 )
-from ethereum_test_vm import Opcodes as Op
 
 # Memory instructions:
 # MSTORE, MSTORE8, MLOAD, MSIZE, MCOPY

@@ -3,8 +3,7 @@
 import math
 
 import pytest
-from ethereum_test_forks import Fork
-from ethereum_test_tools import (
+from execution_testing import (
     Account,
     Alloc,
     BenchmarkTestFiller,
@@ -12,15 +11,16 @@ from ethereum_test_tools import (
     BlockchainTestFiller,
     Bytecode,
     Environment,
+    Fork,
     Hash,
     JumpLoopGenerator,
+    Op,
     StateTestFiller,
     Transaction,
     While,
     compute_create2_address,
     compute_create_address,
 )
-from ethereum_test_vm import Opcodes as Op
 
 from tests.benchmark.compute.helpers import XOR_TABLE
 

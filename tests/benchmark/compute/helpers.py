@@ -4,9 +4,7 @@ import math
 from enum import Enum, auto
 from typing import cast
 
-from ethereum_test_base_types.base_types import Hash
-from ethereum_test_forks import Fork
-from ethereum_test_vm import Opcodes as Op
+from execution_testing import Fork, Hash, Op
 
 from tests.osaka.eip7951_p256verify_precompiles.spec import FieldElement
 from tests.prague.eip2537_bls_12_381_precompiles.spec import (

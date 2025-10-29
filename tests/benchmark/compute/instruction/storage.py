@@ -1,20 +1,20 @@
 """Benchmark storage instructions."""
 
 import pytest
-from ethereum_test_forks import Fork
-from ethereum_test_tools import (
+from execution_testing import (
     Alloc,
     BenchmarkTestFiller,
     Block,
     Bytecode,
     Environment,
+    Fork,
     JumpLoopGenerator,
+    Op,
+    TestPhaseManager,
     Transaction,
     While,
     compute_create_address,
 )
-from ethereum_test_types import TestPhaseManager
-from ethereum_test_vm import Opcodes as Op
 
 from tests.benchmark.compute.helpers import StorageAction, TransactionResult
 

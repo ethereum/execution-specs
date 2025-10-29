@@ -1,11 +1,11 @@
 """Benchmark IDENTITY precompile."""
 
-from ethereum_test_benchmark import JumpLoopGenerator
-from ethereum_test_forks import Fork
-from ethereum_test_tools import (
+from execution_testing import (
     BenchmarkTestFiller,
+    Fork,
+    JumpLoopGenerator,
+    Op,
 )
-from ethereum_test_vm import Opcodes as Op
 
 from tests.benchmark.compute.helpers import calculate_optimal_input_length
 

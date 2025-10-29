@@ -4,15 +4,15 @@ import operator
 import random
 
 import pytest
-from ethereum_test_forks import Fork
-from ethereum_test_tools import (
+from execution_testing import (
     Alloc,
     BenchmarkTestFiller,
     Bytecode,
+    Fork,
     JumpLoopGenerator,
+    Op,
     Transaction,
 )
-from ethereum_test_vm import Opcodes as Op
 
 from tests.benchmark.compute.helpers import DEFAULT_BINOP_ARGS, make_dup, neg
 

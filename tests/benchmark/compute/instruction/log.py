@@ -1,13 +1,12 @@
 """Benchmark log instructions."""
 
 import pytest
-from ethereum_test_tools import (
+from execution_testing import (
     BenchmarkTestFiller,
     Bytecode,
     JumpLoopGenerator,
+    Op,
 )
-from ethereum_test_vm import Opcode
-from ethereum_test_vm import Opcodes as Op
 
 # Log instructions:
 # LOG0, LOG1, LOG2, LOG3, LOG4
@@ -41,7 +40,7 @@ from ethereum_test_vm import Opcodes as Op
 @pytest.mark.parametrize("fixed_offset", [True, False])
 def test_log(
     benchmark_test: BenchmarkTestFiller,
-    opcode: Opcode,
+    opcode: Op,
     zeros_topic: bool,
     size: int,
     fixed_offset: bool,

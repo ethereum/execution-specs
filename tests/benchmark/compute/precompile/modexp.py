@@ -2,11 +2,11 @@
 
 import pytest
 from _pytest.mark import ParameterSet
-from ethereum_test_tools import (
+from execution_testing import (
     BenchmarkTestFiller,
     JumpLoopGenerator,
+    Op,
 )
-from ethereum_test_vm import Opcodes as Op
 
 from tests.byzantium.eip198_modexp_precompile.helpers import ModExpInput
 

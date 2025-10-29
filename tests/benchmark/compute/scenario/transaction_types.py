@@ -5,8 +5,7 @@ import random
 from typing import Generator, Tuple
 
 import pytest
-from ethereum_test_forks import Fork
-from ethereum_test_tools import (
+from execution_testing import (
     AccessList,
     Account,
     Address,
@@ -15,10 +14,11 @@ from ethereum_test_tools import (
     BenchmarkTestFiller,
     Block,
     BlockchainTestFiller,
+    Fork,
     Hash,
+    Op,
     Transaction,
 )
-from ethereum_test_vm import Opcodes as Op
 
 
 def test_empty_block(

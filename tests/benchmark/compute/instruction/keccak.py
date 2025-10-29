@@ -2,12 +2,12 @@
 
 import math
 
-from ethereum_test_forks import Fork
-from ethereum_test_tools import (
+from execution_testing import (
     BenchmarkTestFiller,
+    Fork,
     JumpLoopGenerator,
+    Op,
 )
-from ethereum_test_vm import Opcodes as Op
 
 # Keccak instructions:
 # KECCAK256

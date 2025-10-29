@@ -1,16 +1,16 @@
 """Benchmark mixed operations."""
 
 import pytest
-from ethereum_test_forks import Fork
-from ethereum_test_tools import (
+from execution_testing import (
     Account,
     Address,
+    Alloc,
     BenchmarkTestFiller,
     Bytecode,
+    Fork,
     JumpLoopGenerator,
+    Op,
 )
-from ethereum_test_types import Alloc
-from ethereum_test_vm import Opcodes as Op
 
 
 @pytest.mark.parametrize(

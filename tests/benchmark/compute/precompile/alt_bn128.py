@@ -3,10 +3,14 @@
 import random
 
 import pytest
-from ethereum_test_benchmark import JumpLoopGenerator
-from ethereum_test_forks import Fork
-from ethereum_test_tools import Address, BenchmarkTestFiller, Bytes
-from ethereum_test_vm import Opcodes as Op
+from execution_testing import (
+    Address,
+    BenchmarkTestFiller,
+    Bytes,
+    Fork,
+    JumpLoopGenerator,
+    Op,
+)
 from py_ecc.bn128 import G1, G2, multiply
 
 from tests.benchmark.compute.helpers import concatenate_parameters

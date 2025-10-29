@@ -1,13 +1,13 @@
 """Benchmark control flow instructions."""
 
-from ethereum_test_tools import (
+from execution_testing import (
     Alloc,
     BenchmarkTestFiller,
     ExtCallGenerator,
     JumpLoopGenerator,
+    Op,
     Transaction,
 )
-from ethereum_test_vm import Opcodes as Op
 
 # Control flow instructions:
 # STOP, JUMP, JUMPI, PC, GAS, JUMPDEST
