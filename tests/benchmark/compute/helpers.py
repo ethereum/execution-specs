@@ -2,13 +2,18 @@
 
 import math
 from enum import Enum, auto
-from typing import cast
+from typing import Sequence, cast
 
 from execution_testing import Fork, Hash, Op
 
-from tests.osaka.eip7951_p256verify_precompiles.spec import FieldElement
+from tests.osaka.eip7951_p256verify_precompiles.spec import (
+    BytesConcatenation as P256BytesConcatenation,
+)
+from tests.osaka.eip7951_p256verify_precompiles.spec import (
+    FieldElement,
+)
 from tests.prague.eip2537_bls_12_381_precompiles.spec import (
-    BytesConcatenation,
+    BytesConcatenation as BLSBytesConcatenation,
 )
 
 DEFAULT_BINOP_ARGS = (
@@ -92,7 +97,12 @@ def sar(x: int, s: int) -> int:
 
 
 def concatenate_parameters(
-    parameters: list[str] | list[BytesConcatenation] | list[bytes],
+    parameters: (
+        Sequence[str]
+        | Sequence[P256BytesConcatenation]
+        | Sequence[BLSBytesConcatenation]
+        | Sequence[bytes]
+    ),
 ) -> bytes:
     """
     Concatenate precompile parameters into bytes.
@@ -106,24 +116,38 @@ def concatenate_parameters(
 
     """
     if all(isinstance(p, str) for p in parameters):
-        parameters_str = cast(list[str], parameters)
+        parameters_str = cast(Sequence[str], parameters)
         concatenated_hex_string = "".join(parameters_str)
         return bytes.fromhex(concatenated_hex_string)
     elif all(
-        isinstance(p, (bytes, BytesConcatenation, FieldElement))
+        isinstance(
+            p,
+            (
+                bytes,
+                P256BytesConcatenation,
+                BLSBytesConcatenation,
+                FieldElement,
+            ),
+        )
         for p in parameters
     ):
         parameters_bytes_list = [
             bytes(p)
             for p in cast(
-                list[BytesConcatenation | bytes | FieldElement], parameters
+                Sequence[
+                    P256BytesConcatenation
+                    | BLSBytesConcatenation
+                    | bytes
+                    | FieldElement
+                ],
+                parameters,
             )
         ]
         return b"".join(parameters_bytes_list)
     else:
         raise TypeError(
-            "parameters must be a list of strings (hex) "
-            "or a list of byte-like objects (bytes, BytesConcatenation or "
+            "parameters must be a sequence of strings (hex) "
+            "or a sequence of byte-like objects (bytes, BytesConcatenation or "
             "FieldElement)."
         )
 
