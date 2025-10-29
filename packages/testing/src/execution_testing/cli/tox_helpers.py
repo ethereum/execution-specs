@@ -86,7 +86,7 @@ def markdownlint(args: tuple[str, ...]) -> None:
         sys.exit(0)
 
     args_list: list[str] = (
-        list(args) if len(args) > 0 else ["./docs/**/*.md", "./README.md"]
+        list(args) if len(args) > 0 else ["./docs/**/*.md", "./*.md"]
     )
 
     command = ["node", markdownlint] + args_list

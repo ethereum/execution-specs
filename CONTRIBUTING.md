@@ -13,7 +13,6 @@ In particular, we appreciate support in the following areas:
 
 For details about EELS usage and building, please refer the [README](https://github.com/ethereum/execution-specs/blob/master/README.md#usage)
 
-
 ## Contribution Guidelines
 
 This specification aims to be:
@@ -26,7 +25,7 @@ This specification aims to be:
 
 - Attempt to use descriptive English words (or _very common_ abbreviations) in documentation and identifiers.
 - Avoid using EIP numbers in identifiers.
-- If necessary, there is a custom dictionary `whitelist.txt`. 
+- If necessary, there is a custom dictionary `whitelist.txt`.
 
 ### Changes across various Forks
 
@@ -43,38 +42,38 @@ This saves you having to apply code review feedback repeatedly for each fork.
 
 Running the tests necessary to merge into the repository requires:
 
- * Python 3.11.x, and
- * [PyPy](https://www.pypy.org/) [7.3.19](https://downloads.python.org/pypy/) or later.
- * `geth` installed and present in `$PATH`
-
+- Python 3.11.x, and
+- [PyPy](https://www.pypy.org/) [7.3.19](https://downloads.python.org/pypy/) or later.
+- `geth` installed and present in `$PATH`
 
 `execution-specs` depends on a submodule that contains common tests that are run across all clients, so we need to clone the repo with the --recursive flag. Example:
+
 ```bash
-$ git clone --recursive https://github.com/ethereum/execution-specs.git
+git clone --recursive https://github.com/ethereum/execution-specs.git
 ```
 
 Or, if you've already cloned the repository, you can fetch the submodules with:
 
 ```bash
-$ git submodule update --init --recursive
+git submodule update --init --recursive
 ```
 
 The tests can be run with:
+
 ```bash
-$ tox
+tox
 ```
 
 The development tools can also be run outside of `tox`, and can automatically reformat the code:
 
 ```bash
-$ uv run --extra lint ruff check                # Detects code issues and produces a report to STDOUT
-$ uv run --extra lint ruff check --fix          # Fixes minor code issues (like unsorted imports).
-$ uv run --extra lint ruff format               # Formats code.
-$ uv run --extra lint mypy src packages tests   # Verifies type annotations.
+uv run --extra lint ruff check                # Detects code issues and produces a report to STDOUT
+uv run --extra lint ruff check --fix          # Fixes minor code issues (like unsorted imports).
+uv run --extra lint ruff format               # Formats code.
+uv run --extra lint mypy src packages tests   # Verifies type annotations.
 ```
 
 It is recommended to use a [virtual environment](https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment) to keep your system Python installation clean.
-
 
 A trace of the EVM execution for any test case can be obtained by providing the `--evm-trace` argument to pytest.
 Note: Make sure to run the EVM trace on a small number of tests at a time. The log might otherwise get very big.
@@ -86,20 +85,20 @@ uv run --extra test \
         --evm_trace
 ```
 
-
 ## CLI Utilities `ethereum_spec_tools`
 
 The EELS repository has various CLI utilities that can help in the development process.
 
 ### New Fork Tool
------------------
+
 This tool can be used to create the base code for a new fork by using the existing code from a given fork.
 
 The command takes 4 arguments, 2 of which are optional
- * from_fork: The fork name from which the code is to be duplicated. Eg. - "Tangerine Whistle"
- * to_fork: The fork name of the new fork Eg - "Spurious Dragon"
- * from_test (Optional): Name of the from fork within the test fixtures in case it is different from fork name. Eg. - "EIP150"
- * to_test (Optional): Name of the to fork within the test fixtures in case it is different from fork name Eg - "EIP158"
+
+- from_fork: The fork name from which the code is to be duplicated. Eg. - "Tangerine Whistle"
+- to_fork: The fork name of the new fork Eg - "Spurious Dragon"
+- from_test (Optional): Name of the from fork within the test fixtures in case it is different from fork name. Eg. - "EIP150"
+- to_test (Optional): Name of the to fork within the test fixtures in case it is different from fork name Eg - "EIP158"
 
 As an example, if one wants to create baseline code for the `Spurious Dragon` fork from the `Tangerine Whistle` one
 
@@ -108,46 +107,45 @@ ethereum-spec-new-fork --from_fork="Tangerine Whistle" --to_fork="Spurious Drago
 ```
 
 The following will have to however, be updated manually
- 1. The fork number and `MAINNET_FORK_BLOCK` in `__init__.py`. If you are proposing a new EIP, please set `MAINNET_FORK_BLOCK` to `None`.
- 2. Any absolute package imports from other forks eg. in `trie.py`
- 3. Package names under `setup.cfg`
- 4. Add the new fork to the `monkey_patch()` function in `src/ethereum_optimized/__init__.py`
- 5. Adjust the underline in `fork/__init__.py`
 
+1. The fork number and `MAINNET_FORK_BLOCK` in `__init__.py`. If you are proposing a new EIP, please set `MAINNET_FORK_BLOCK` to `None`.
+2. Any absolute package imports from other forks eg. in `trie.py`
+3. Package names under `setup.cfg`
+4. Add the new fork to the `monkey_patch()` function in `src/ethereum_optimized/__init__.py`
+5. Adjust the underline in `fork/__init__.py`
 
 ### Sync Tool
--------------
+
 The sync tool allows one to use an RPC provider to fetch and validate blocks against EELS.
 The state can also be stored in a local DB after validation. Since syncing directly with the specs can be
 very slow, one can also leverage the optimized module. This contains alternative implementations of routines
 in EELS that have been optimized for speed rather than clarity/readability.
 
-
 The tool can be called using the `ethereum-spec-sync` command which takes the following arguments
- * rpc-url: Endpoint providing the Ethereum RPC API. Defaults to `http://localhost:8545/`
- * unoptimized: Don't use the optimized state/ethash (this can be extremely slow)
- * persist: Store the state in a db in this file
- * geth: Use geth specific RPC endpoints while fetching blocks
- * reset: Delete the db and start from scratch
- * gas-per-commit: Commit to db each time this much gas is consumed. Defaults to 1_000_000_000
- * initial-state: Start from the state in this db, rather than genesis
- * stop-at: After syncing this block, exit successfully
+
+- rpc-url: Endpoint providing the Ethereum RPC API. Defaults to `http://localhost:8545/`
+- unoptimized: Don't use the optimized state/ethash (this can be extremely slow)
+- persist: Store the state in a db in this file
+- geth: Use geth specific RPC endpoints while fetching blocks
+- reset: Delete the db and start from scratch
+- gas-per-commit: Commit to db each time this much gas is consumed. Defaults to 1_000_000_000
+- initial-state: Start from the state in this db, rather than genesis
+- stop-at: After syncing this block, exit successfully
 
 - The following options are not supported WITH `--unoptimized` -> `--persist`, `--initial-state`, `--reset`
 - The following options are not supported WITHOUT `--persist` -> `--initial_state`, `--reset`
 
-
 ### Patch Tool
---------------
+
 This tool can be used to apply the unstaged changes in `SOURCE_FORK` to each of the `TARGET_FORKS`. If some
 of the change didn't apply, '.rej' files listing the unapplied changes will be left in the `TARGET_FORK`.
 
-
 The tool takes the following command line arguments
- * The fork name where the changes have been made. Eg:- `frontier` (only a single fork name)
- * The fork names where the changes have to be applied. Eg:- `homestead` (multiple values can be provided separated by space)
- * optimized: Patch the optimized code instead
- * tests: Patch the tests instead
+
+- The fork name where the changes have been made. Eg:- `frontier` (only a single fork name)
+- The fork names where the changes have to be applied. Eg:- `homestead` (multiple values can be provided separated by space)
+- optimized: Patch the optimized code instead
+- tests: Patch the tests instead
 
 As an example, if one wants to apply changes made in `Frontier` fork to `Homestead` and `Tangerine Whistle`
 
@@ -156,11 +154,12 @@ python src/ethereum_spec_tools/patch_tool.py frontier homestead tangerine_whistl
 ```
 
 ### Lint Tool
--------------
+
 This tool checks for style and formatting issues specific to EELS and emits diagnostics
 when issues are found
 
 The tool currently performs the following checks
+
 - The order of the identifiers between each hardfork is consistent.
 - Import statements follow the relevant import rules in modules.
 
