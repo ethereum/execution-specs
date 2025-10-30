@@ -98,8 +98,8 @@ Account1
 Account2
 AccountT
 acl
-ad
 AD
+ad
 add
 addinivalue
 addmod
@@ -108,10 +108,10 @@ addr
 address
 address2
 AddressType
-AE
 ae
-AF
+AE
 af
+AF
 alloc
 AnnAssign
 api
@@ -163,21 +163,21 @@ base64
 basedir
 basefee
 basename
-bb
 BB
-BC
+bb
 bc
-BD
+BC
 bd
-be
+BD
 BE
+be
 befores
 benchmarking
 berlin
 BerlinToLondonAt
 besu
-BF
 bf
+BF
 big0
 big1
 bigint
@@ -220,8 +220,8 @@ buildoutput
 bytecode
 byteorder
 Bytes0
-bytes20
 Bytes20
+bytes20
 Bytes256
 Bytes32
 bytes32
@@ -259,10 +259,10 @@ callvalue
 cancun
 caplog
 casefold
-cb
 CB
-CC
+cb
 cc
+CC
 CD
 cd
 ce
@@ -329,8 +329,8 @@ crypto
 cryptographic
 ctx
 currentframe
-Customizations
 customizations
+Customizations
 
 d
 D0
@@ -351,13 +351,13 @@ dataclasses
 datacopy
 dataload
 dataloadn
-DATASET
 dataset
+DATASET
 datasize
 datastructures
 datatables
-DB
 db
+DB
 DC
 dc
 dd
@@ -401,8 +401,8 @@ docstring
 docstrings
 docutils
 doseq
-downloader
 Downloader
+downloader
 dunder
 dup
 dup1
@@ -439,14 +439,14 @@ ea
 EA
 EB
 eb
-ec
 EC
-ECC
+ec
 ecc
+ECC
 ECDSA
 ecrecover
-ed
 ED
+ed
 EE
 ee
 eeast
@@ -454,8 +454,8 @@ EELST8N
 eest
 EESTLogger
 eestloglevel
-EF
 ef
+EF
 ef01
 eip
 EIP
@@ -470,8 +470,8 @@ eip7069
 eip7251
 eip7620
 eip7692
-eips
 EIPs
+eips
 el
 encodings
 endian
@@ -535,10 +535,10 @@ F6
 F7
 F8
 F9
-FA
 fa
-fb
+FA
 FB
+fb
 FC
 fc
 fcu
@@ -570,8 +570,8 @@ formatter
 Formatters
 fp
 FP
-FP2
 fp2
+FP2
 FQ
 FQ12
 FQ2
@@ -623,8 +623,8 @@ glightbox
 globals
 go-ethereum's
 goevmlab
-golang
 Golang
+golang
 gquaddivisor
 GQUADDIVISOR
 groupby
@@ -637,8 +637,8 @@ gz
 hacky
 hardfork
 hardforks
-Hash32
 hash32
+Hash32
 Hash64
 Hashable
 hashable
@@ -731,8 +731,8 @@ kzgs
 lastblockhash
 legacytests
 len
-lets
 Lets
+lets
 levelname
 Levenshtein
 lhs
@@ -794,8 +794,8 @@ mkdocs
 mkdocstrings
 mload
 mod
-ModExp
 modexp
+ModExp
 modifyitems
 modul
 monkeypatch
@@ -870,8 +870,8 @@ p1
 P1
 P2
 p2
-p256verify
 P256VERIFY
+p256verify
 P7692
 paradigmxyz
 param
@@ -977,8 +977,8 @@ pycache
 pycryptodome
 pydantic
 pyproject
-Pyspec
 pyspec
+Pyspec
 pyspecs
 pyspelling
 pytest
@@ -1074,8 +1074,8 @@ secp256k1
 secp256k1b
 secp256k1n
 secp256k1p
-SECP256R1
 secp256r1
+SECP256R1
 SECP256R1A
 SECP256R1B
 SECP256R1N
@@ -1095,8 +1095,8 @@ settext
 setuolimit
 setuptools
 sgt
-SHA
 sha
+SHA
 sha3
 sharding
 SharedPreStateGroup
@@ -1125,8 +1125,8 @@ ssz
 stackoverflow
 starmap
 stateful
-statetest
 StateTest
+statetest
 StateTestFiller
 StateTests
 staticcall
@@ -1212,8 +1212,8 @@ toc
 todo
 toml
 toplevel
-Tox
 tox
+Tox
 traceback
 Transaction1559
 Transaction2930
@@ -1241,8 +1241,8 @@ typehints
 typeshed
 
 U255
-u256
 U256
+u256
 U32
 U64
 U8
@@ -1251,8 +1251,8 @@ uds
 ufw
 UI
 uid
-uint
 Uint
+uint
 ukiyo
 ulen
 uname
@@ -1324,8 +1324,8 @@ xpassed
 
 y0
 y1
-yaml
 YAML
+yaml
 yml
 yParity
 yul
@@ -1333,4 +1333,5 @@ yul
 ZeroPaddedHexNumber
 zfill
 zkevm
+zsh
 Zsh
