@@ -32,8 +32,9 @@ from . import vm
 from .block_access_lists.builder import build_block_access_list
 from .block_access_lists.rlp_utils import compute_block_access_list_hash
 from .block_access_lists.tracker import (
-    finalize_transaction_changes,
+    capture_pre_balance,
     handle_in_transaction_selfdestruct,
+    normalize_balance_changes,
     set_block_access_index,
     track_balance_change,
 )
@@ -1024,9 +1025,9 @@ def process_transaction(
         )
         destroy_account(block_env.state, address)
 
-    # EIP-7928: Finalize transaction changes
+    # EIP-7928: Normalize balance changes for this transaction
     # Remove balance changes where post-tx balance equals pre-tx balance
-    finalize_transaction_changes(
+    normalize_balance_changes(
         block_env.state.change_tracker,
         block_env.state,
     )
@@ -1069,6 +1070,12 @@ def process_withdrawals(
             rlp.encode(wd),
         )
 
+        # Capture pre-balance before modification (even for zero withdrawals)
+        # This ensures the address appears in BAL per EIP-7928
+        capture_pre_balance(
+            block_env.state.change_tracker, wd.address, block_env.state
+        )
+
         modify_state(block_env.state, wd.address, increase_recipient_balance)
 
         # Track balance change for BAL
@@ -1076,6 +1083,14 @@ def process_withdrawals(
         new_balance = get_account(block_env.state, wd.address).balance
         track_balance_change(
             block_env.state.change_tracker, wd.address, U256(new_balance)
+        )
+
+        # EIP-7928: Normalize balance changes for this withdrawal
+        # Remove balance changes where post-withdrawal balance
+        # equals pre-withdrawal balance
+        normalize_balance_changes(
+            block_env.state.change_tracker,
+            block_env.state,
         )
 
         if account_exists_and_is_empty(block_env.state, wd.address):
