@@ -67,15 +67,25 @@ The Ethereum specification is maintained as a Python library, for better integra
 
 Requires Python 3.11+
 
-### Building
+### Building Specification Doucumentation
 
-Building the documentation is most easily done through [`tox`](https://tox.readthedocs.io/en/latest/):
+Building the spec documentation is most easily done through [`tox`](https://tox.readthedocs.io/en/latest/):
 
 ```bash
-uvx --with=tox-uv tox -e docs
+uvx --with=tox-uv tox -e spec-docs
 ```
 
 The path to the generated HTML will be printed to the console.
+
+### Browsing Updated Documentation
+
+To view the updated local documentation, run:
+
+```bash
+uv run mkdocs serve
+```
+
+then connect to `localhost:8000` in a browser
 
 ## License
 

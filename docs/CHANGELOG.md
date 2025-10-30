@@ -20,6 +20,9 @@ Test fixtures for use by clients are available for each release on the [Github r
 
 ### 📋 Misc
 
+- 🐞 WELDed the EEST tox environments relevent to producing documentation into EELS. ([#1695](https://github.com/ethereum/execution-specs/pull/1659))
+- 🔀 Merged codespell dictionaries for EEST/EELS and added a new tool to cleanly add words to the whitelist while keeping it organized. ([#1695](https://github.com/ethereum/execution-specs/pull/1659))
+
 ### 🧪 Test Cases
 
 - 🐞 Fix BALs opcode OOG test vectors by updating the Amsterdam commit hash in specs and validating appropriately on the testing side ([#2293](https://github.com/ethereum/execution-spec-tests/pull/2293)).

@@ -232,6 +232,7 @@ ethereum-spec-sync = "ethereum_spec_tools.sync:main"
 ethereum-spec-new-fork = "ethereum_spec_tools.new_fork.cli:main"
 ethereum-spec-patch = "ethereum_spec_tools.patch_tool:main"
 ethereum-spec-evm = "ethereum_spec_tools.evm_tools:main"
+whitelist = "ethereum_spec_tools.whitelist:main"
 
 [project.entry-points."docc.plugins"]
 "ethereum_spec_tools.docc.discover" = "ethereum_spec_tools.docc:EthereumDiscover"
@@ -393,10 +394,8 @@ skip = [                        # Don't check these files/folders
     "*.coverage*",
     "__pycache__",
     ".ruff_cache",
-    "fixtures.*",
     "tests/fixtures",
     "tests/json_infra/fixtures",
-    "eest_tests",
     "src/ethereum_spec_tools/evm_tools/t8n" # Temporary while being re-written
 ]
 count = true                    # Display counts of errors
