@@ -8,13 +8,13 @@ on:
     paths:
       - 'packages/testing/**'
       - 'tests/**'
-      - '.github/workflows/eest-docs.yaml'
+      - '.github/workflows/test-docs.yaml'
       - 'docs/**'
   pull_request:
     paths:
       - 'packages/testing/**'
       - 'tests/**'
-      - '.github/workflows/eest-docs.yaml'
+      - '.github/workflows/test-docs.yaml'
       - 'docs/**'
   workflow_dispatch:
 
@@ -37,7 +37,7 @@ jobs:
           version: ${{ vars.UV_VERSION }}
           python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
       - name: Run changelog validation via tox
-        run: uvx --with=tox-uv tox -e eest-changelog
+        run: uvx --with=tox-uv tox -e changelog
 
   markdownlint:
       name: Lint markdown files with markdownlint
