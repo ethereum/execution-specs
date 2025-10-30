@@ -14,8 +14,7 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks import Byzantium
-from execution_testing.forks.forks.forks import Frontier, Homestead
+from execution_testing.forks import Byzantium, Frontier, Homestead
 
 SLOT_CREATE_RESULT = 1
 SLOT_CREATE_RESULT_PRE = 0xDEADBEEF
