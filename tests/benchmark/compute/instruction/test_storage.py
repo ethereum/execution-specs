@@ -22,7 +22,6 @@ from tests.benchmark.compute.helpers import StorageAction, TransactionResult
 # SLOAD, SSTORE, TLOAD, TSTORE
 
 
-# test_worst_tload -> test_tload
 # `key_mut` indicates the key isn't fixed.
 @pytest.mark.parametrize("key_mut", [True, False])
 # `val_mut` indicates that at the end of each big-loop, the value of the target

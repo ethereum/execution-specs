@@ -2,9 +2,6 @@
 
 import pytest
 from execution_testing import (
-    Account,
-    Address,
-    Alloc,
     BenchmarkTestFiller,
     Bytecode,
     Fork,
@@ -86,53 +83,5 @@ def test_jumpdest_analysis(
             setup=setup,
             attack_block=attack_block,
             tx_kwargs={"data": tx_data},
-        ),
-    )
-
-
-@pytest.mark.parametrize(
-    "opcode",
-    [
-        Op.BALANCE,
-        Op.EXTCODESIZE,
-        Op.EXTCODEHASH,
-        Op.CALL,
-        Op.CALLCODE,
-        Op.DELEGATECALL,
-        Op.STATICCALL,
-    ],
-)
-@pytest.mark.parametrize(
-    "absent_target",
-    [
-        True,
-        False,
-    ],
-)
-def test_worst_address_state_warm(
-    benchmark_test: BenchmarkTestFiller,
-    pre: Alloc,
-    opcode: Op,
-    absent_target: bool,
-) -> None:
-    """
-    Test running a block with as many stateful opcodes doing warm access
-    for an account.
-    """
-    # Setup
-    target_addr = Address(100_000)
-    post = {}
-    if not absent_target:
-        code = Op.STOP + Op.JUMPDEST * 100
-        target_addr = pre.deploy_contract(balance=100, code=code)
-        post[target_addr] = Account(balance=100, code=code)
-
-    # Execution
-    setup = Op.MSTORE(0, target_addr)
-    attack_block = Op.POP(opcode(address=Op.MLOAD(0)))
-    benchmark_test(
-        post=post,
-        code_generator=JumpLoopGenerator(
-            setup=setup, attack_block=attack_block
         ),
     )

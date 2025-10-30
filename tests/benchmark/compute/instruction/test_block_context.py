@@ -1,4 +1,4 @@
-"""Benchmark block instructions."""
+"""Benchmark block context instructions."""
 
 import pytest
 from execution_testing import (
@@ -8,8 +8,9 @@ from execution_testing import (
     Op,
 )
 
-# Block instructions:
-# BLOCKHASH, COINBASE, TIMESTAMP, NUMBER, PREVRANDAO, GASLIMIT, CHAINID
+# Block context instructions:
+# BLOCKHASH, COINBASE, TIMESTAMP, NUMBER, PREVRANDAO, GASLIMIT, CHAINID,
+# BASEFEE, BLOBBASEFEE
 
 
 @pytest.mark.parametrize(
@@ -21,13 +22,15 @@ from execution_testing import (
         Op.PREVRANDAO,
         Op.GASLIMIT,
         Op.CHAINID,
+        Op.BASEFEE,
+        Op.BLOBBASEFEE,
     ],
 )
-def test_block_ops(
+def test_block_context_ops(
     benchmark_test: BenchmarkTestFiller,
     opcode: Op,
 ) -> None:
-    """Benchmark block zero-parameter instructions."""
+    """Benchmark zero-parameter block context instructions."""
     benchmark_test(
         code_generator=ExtCallGenerator(attack_block=opcode),
     )

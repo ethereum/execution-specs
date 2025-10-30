@@ -394,7 +394,7 @@ def create_modexp_test_cases() -> list[ParameterSet]:
     ["mod_exp_input"],
     create_modexp_test_cases(),
 )
-def test_worst_modexp(
+def test_modexp(
     benchmark_test: BenchmarkTestFiller,
     mod_exp_input: ModExpInput,
 ) -> None:

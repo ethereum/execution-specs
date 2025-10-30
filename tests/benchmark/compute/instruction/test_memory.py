@@ -81,7 +81,7 @@ def test_memory_access(
         False,
     ],
 )
-def test_worst_mcopy(
+def test_mcopy(
     benchmark_test: BenchmarkTestFiller,
     size: int,
     fixed_src_dst: bool,
