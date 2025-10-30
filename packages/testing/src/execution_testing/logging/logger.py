@@ -9,8 +9,6 @@ from logging import LogRecord
 from pathlib import Path
 from typing import Any, ClassVar, Optional, cast
 
-file_handler: Optional[logging.FileHandler] = None
-
 VERBOSE_LEVEL = 15  # Between INFO (10) and DEBUG (20)
 FAIL_LEVEL = 35  # Between WARNING (30) and ERROR (40)
 
