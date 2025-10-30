@@ -169,7 +169,7 @@ def test_xcall(
 
     contracts_deployment_tx = Transaction(
         to=factory_caller_address,
-        gas_limit=env.gas_limit,
+        gas_limit=20 * gas_benchmark_value,
         gas_price=10**6,
         data=Hash(num_contracts),
         sender=pre.fund_eoa(),
