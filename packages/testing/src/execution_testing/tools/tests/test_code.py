@@ -690,13 +690,13 @@ def test_switch(
     }
     state_test = StateTest(
         env=Environment(),
+        fork=Cancun,
         pre=pre,
         tx=tx,
         post=post,
     )
     state_test.generate(
         t8n=default_t8n,
-        fork=Cancun,
         fixture_format=BlockchainFixture,
     )
 

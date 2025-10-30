@@ -25,7 +25,7 @@ from execution_testing.rpc.rpc_types import (
     PayloadStatusEnum,
 )
 
-from ....custom_logging import get_logger
+from execution_testing.logging import get_logger
 from ..helpers.exceptions import GenesisBlockMismatchExceptionError
 from ..helpers.timing import TimingData
 

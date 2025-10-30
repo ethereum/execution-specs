@@ -455,4 +455,19 @@ class NethermindExceptionMapper(ExceptionMapper):
         BlockException.SYSTEM_CONTRACT_CALL_FAILED: (
             r"(Withdrawals|Consolidations)Failed: Contract execution failed\."
         ),
+        # BAL Exceptions: TODO - review once all clients completed.
+        BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
+            r"could not be parsed as a block: Could not decode block access list."
+        ),
+        BlockException.INVALID_BAL_HASH: (r"InvalidBlockLevelAccessListRoot:"),
+        BlockException.INVALID_BAL_MISSING_ACCOUNT: (
+            r"InvalidBlockLevelAccessListRoot:"
+        ),
+        BlockException.INVALID_BLOCK_ACCESS_LIST: (
+            r"InvalidBlockLevelAccessListRoot:"
+            r"|could not be parsed as a block: Could not decode block access list."
+        ),
+        BlockException.INCORRECT_BLOCK_FORMAT: (
+            r"could not be parsed as a block: Could not decode block access list."
+        ),
     }

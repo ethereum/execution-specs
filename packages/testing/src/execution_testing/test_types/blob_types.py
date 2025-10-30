@@ -13,7 +13,7 @@ from filelock import FileLock
 
 from execution_testing.base_types.base_types import Bytes, Hash
 from execution_testing.base_types.pydantic import CamelModel
-from execution_testing.cli.pytest_commands.plugins.custom_logging import (
+from execution_testing.logging import (
     get_logger,
 )
 from execution_testing.forks import Fork

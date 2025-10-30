@@ -21,7 +21,7 @@ from tenacity import (
 )
 
 from execution_testing.base_types import Address, Bytes, Hash, to_json
-from execution_testing.cli.pytest_commands.plugins.custom_logging import (
+from execution_testing.logging import (
     get_logger,
 )
 from execution_testing.test_types import Transaction

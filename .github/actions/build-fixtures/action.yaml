@@ -1,0 +1,45 @@
+name: Build and Package Fixture Release
+inputs:
+  release_name:
+    description: "Name of the fixture release"
+    required: true
+  uv_version:
+    description: "Version of UV to install"
+    required: true
+  python_version:
+    description: "Version of Python to install"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Install uv ${{ inputs.uv_version }} and python ${{ inputs.python_version }}
+      uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+      with:
+        enable-cache: false
+        version: ${{ inputs.uv_version }}
+        python-version: ${{ inputs.python_version }}
+    - name: Install EEST
+      shell: bash
+      run: uv sync --no-progress --extra test
+    - name: Extract fixture release properties from config
+      id: properties
+      shell: bash
+      run: |
+        echo "release_name=${{ inputs.release_name }}"
+        uv run -q .github/scripts/get_release_props.py ${{ inputs.release_name }} >> "$GITHUB_OUTPUT"
+    - uses: ./.github/actions/build-evm-base
+      id: evm-builder
+      with:
+        type: ${{ steps.properties.outputs.evm-type }}
+    - name: Generate fixtures using fill
+      shell: bash
+      run: |
+        if [ "${{ steps.evm-builder.outputs.impl }}" = "eels" ]; then
+          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} ${{ steps.properties.outputs.fill-params }} --output=fixtures_${{ inputs.release_name }}.tar.gz --build-name ${{ inputs.release_name }}
+        else
+          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} --output=fixtures_${{ inputs.release_name }}.tar.gz --build-name ${{ inputs.release_name }}
+        fi 
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: fixtures_${{ inputs.release_name }}
+        path: fixtures_${{ inputs.release_name }}.tar.gz

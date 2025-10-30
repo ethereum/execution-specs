@@ -44,7 +44,7 @@ def generate_github_url(
     """Generate a permalink to a source file in Github."""
     base_url = "https://github.com"
     username = "ethereum"
-    repository = "execution-spec-tests"
+    repository = "execution-specs"
     if line_number:
         line_number = f"#L{line_number}"
     release_tag_regex = (

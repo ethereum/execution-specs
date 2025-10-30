@@ -68,7 +68,6 @@ class BlocktestBuilder:
         # Generate fixture
         fixture = test.generate(
             t8n=self.t8n,
-            fork=fork,
             fixture_format=BlockchainFixture,
         )
 

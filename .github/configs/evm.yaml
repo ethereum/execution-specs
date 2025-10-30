@@ -1,0 +1,18 @@
+stable:
+  impl: eels
+  repo: null
+  ref: null
+develop:
+  impl: eels
+  repo: null
+  ref: null
+static:
+  impl: evmone
+  repo: ethereum/evmone
+  ref: master
+  targets: ["evmone-t8n"]
+benchmark:
+  impl: evmone
+  repo: ethereum/evmone
+  ref: master
+  targets: ["evmone-t8n"]

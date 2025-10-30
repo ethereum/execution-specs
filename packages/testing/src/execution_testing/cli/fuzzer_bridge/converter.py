@@ -251,6 +251,7 @@ def blockchain_test_from_fuzzer(
 
     return BlockchainTest(
         pre=pre,
+        fork=fork,
         blocks=blocks,
         post={},  # Post-state verification can be added later
         genesis_environment=genesis_env,

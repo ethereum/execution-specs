@@ -26,6 +26,8 @@ dependencies = [
     "ethereum-types>=0.2.4,<0.3",
     "ethereum-rlp>=0.1.4,<0.2",
     "cryptography>=45.0.1,<46",
+    "platformdirs>=4.2,<5",
+    "libcst>=1.8,<2",
 ]
 
 [tool.setuptools.package-dir]
@@ -156,6 +158,12 @@ packages = [
 "ethereum_spec_tools" = ["py.typed"]
 
 [project.optional-dependencies]
+optimized = [
+    "rust-pyspec-glue>=0.0.9,<0.1.0",
+    "ethash>=1.1.0,<2",
+]
+
+[dependency-groups]
 test = [
     "pytest>=8,<9",
     "pytest-cov>=4.1.0,<5",
@@ -174,23 +182,16 @@ lint = [
     "vulture==2.14.0",
     "types-requests>=2.31,<2.33",
 ]
-tools = [
-    "platformdirs>=4.2,<5",
-    "libcst>=1.8,<2",
-]
 doc = [
     "docc>=0.3.0,<0.4.0",
     "fladrif>=0.2.0,<0.3.0",
     "mistletoe>=1.5.0,<2",
 ]
-optimized = [
-    "rust-pyspec-glue>=0.0.9,<0.1.0",
-    "ethash>=1.1.0,<2",
-]
 dev = [
-    "ethereum-execution[test,lint,tools,doc]",
-    "tox>=4.0",
-    "tox-uv>=1.29",
+    {include-group = "test"},
+    {include-group = "lint"},
+    {include-group = "doc"},
+    "ethereum-execution[optimized]",
 ]
 
 [tool.setuptools.dynamic]

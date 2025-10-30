@@ -60,8 +60,10 @@ Repository = "https://github.com/ethereum/execution-specs"
 Issues = "https://github.com/ethereum/execution-specs/issues"
 Changelog = "https://eest.ethereum.org/main/CHANGELOG/"
 
-[project.optional-dependencies]
-test = ["pytest-cov>=4.1.0,<5"]
+[dependency-groups]
+test = [
+    "pytest-cov>=4.1.0,<5",
+]
 lint = [
     "ruff==0.13.2",
     "mypy==1.17.0",
@@ -86,6 +88,11 @@ docs = [
     "pyspelling>=2.8.2,<3",
     "lxml>=6.0.0,<7",  # needs to be >= 6.0 for pypy
     "setuptools==78.0.2",
+]
+dev = [
+    {include-group = "test"},
+    {include-group = "lint"},
+    {include-group = "docs"},
 ]
 
 [project.scripts]
