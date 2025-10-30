@@ -1,18 +1,5 @@
 """
-A Pytest plugin to configure logging for pytest sessions.
-
-Note: While pytest's builtin logging is generally amazing, it does not write
-timestamps when log output is written to pytest's caplog (the captured output
-for a test). And having timestamps in this output is the main use case for
-adding logging to our plugins. This output gets shown in the `FAILURES` summary
-section, which is shown as the "simulator log" in hive simulations. For this
-use case, timestamps are essential to verify timing issues against the clients
-log.
-
-This module provides both:
-1. A standalone logging configuration system that can be used in any
-   Python project
-2. A pytest plugin that automatically configures logging for pytest sessions
+Custom logger and configuration for use within `execution_testing`.
 """
 
 import logging
