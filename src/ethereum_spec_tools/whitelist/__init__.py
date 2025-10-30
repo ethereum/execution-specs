@@ -18,6 +18,7 @@ Tool for adding words to the codespell whitelist sanely.
 """
 
 import argparse
+from pathlib import Path
 
 DESCRIPTION = """
 Add words to the codespell whitelist sanely
@@ -34,6 +35,16 @@ parser.add_argument(
     "-v", "--verbose", action="store_true", help="Enable verbose output"
 )
 
+def find_project_root() -> Path:
+    """Locate the root directory of this project"""
+    # Search upwards from script location
+    script_dir = Path(__file__).resolve().parent
+    for parent in [script_dir, *script_dir.parents]:
+        if (parent / "pyproject.toml").exists():
+            return parent
+
+    raise FileNotFoundError("Unable to locate project root directory!")
+
 
 def main() -> None:
     """
@@ -44,7 +55,8 @@ def main() -> None:
     new_words = args.words
     verbose = args.verbose
 
-    whitelist_file = "whitelist.txt"
+    project_root = find_project_root()
+    whitelist_file = project_root / "whitelist.txt"
 
     # Read existing whitelist (create empty list if file doesn't exist)
     existing_words = []
