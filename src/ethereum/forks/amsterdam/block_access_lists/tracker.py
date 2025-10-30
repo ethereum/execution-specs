@@ -97,7 +97,7 @@ class StateChangeTracker:
     """
     Cache of pre-transaction balance values, keyed by address.
     This cache is cleared at the start of each transaction and used by
-    finalize_transaction_changes to filter out balance changes where
+    normalize_balance_changes to filter out balance changes where
     the final balance equals the initial balance.
     """
 
@@ -293,7 +293,7 @@ def capture_pre_balance(
     to ensure we capture the pre-transaction balance correctly. The cache is
     cleared at the beginning of each transaction.
 
-    This is used by finalize_transaction_changes to determine which balance
+    This is used by normalize_balance_changes to determine which balance
     changes should be filtered out.
 
     Parameters
@@ -331,9 +331,7 @@ def track_balance_change(
     Track a balance change for an account.
 
     Records the new balance after any balance-affecting operation, including
-    transfers, gas payments, block rewards, and withdrawals. The balance is
-    encoded as a 16-byte value (uint128) which is sufficient for the total
-    ETH supply.
+    transfers, gas payments, block rewards, and withdrawals.
 
     Parameters
     ----------
@@ -454,7 +452,7 @@ def handle_in_transaction_selfdestruct(
     code changes from the current transaction are also removed.
 
     Note: Balance changes are handled separately by
-          finalize_transaction_changes.
+          normalize_balance_changes.
 
     Parameters
     ----------
@@ -495,22 +493,25 @@ def handle_in_transaction_selfdestruct(
     ]
 
 
-def finalize_transaction_changes(
+def normalize_balance_changes(
     tracker: StateChangeTracker, state: "State"
 ) -> None:
     """
-    Finalize changes for the current transaction.
+    Normalize balance changes for the current block access index.
 
-    This method is called at the end of each transaction execution to filter
-    out spurious balance changes. It removes all balance changes for addresses
-    where the post-transaction balance equals the pre-transaction balance.
+    This method filters out spurious balance changes by removing all balance
+    changes for addresses where the post-execution balance equals the
+    pre-execution balance.
 
     This is crucial for handling cases like:
     - In-transaction self-destructs where an account with 0 balance is created
       and destroyed, resulting in no net balance change
     - Round-trip transfers where an account receives and sends equal amounts
+    - Zero-amount withdrawals where the balance doesn't actually change
 
-    Only actual state changes are recorded in the Block Access List.
+    This should be called at the end of any operation that tracks balance
+    changes (transactions, withdrawals, etc.). Only actual state changes are
+    recorded in the Block Access List.
 
     Parameters
     ----------
