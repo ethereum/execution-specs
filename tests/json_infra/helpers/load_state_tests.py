@@ -16,6 +16,7 @@ from ethereum_spec_tools.evm_tools.statetest import read_test_cases
 from ethereum_spec_tools.evm_tools.t8n import T8N
 
 from .. import FORKS
+from . import load_json_file
 from .exceptional_test_patterns import exceptional_state_test_patterns
 
 parser = create_parser()
@@ -79,8 +80,7 @@ def run_state_test(test_case: Dict[str, str]) -> None:
     test_key = test_case["test_key"]
     index = test_case["index"]
     json_fork = test_case["json_fork"]
-    with open(test_file) as f:
-        tests = json.load(f)
+    tests = load_json_file(test_file)
 
     env = tests[test_key]["env"]
     try:

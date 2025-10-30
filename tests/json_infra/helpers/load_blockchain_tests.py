@@ -1,7 +1,6 @@
 """Helpers to load and run blockchain tests from JSON files."""
 
 import importlib
-import json
 import os.path
 from glob import glob
 from typing import Any, Dict, Generator
@@ -19,6 +18,7 @@ from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum_spec_tools.evm_tools.loaders.fixture_loader import Load
 
 from .. import FORKS
+from . import load_json_file
 from .exceptional_test_patterns import exceptional_blockchain_test_patterns
 
 
@@ -34,8 +34,7 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
     test_file = test_case["test_file"]
     test_key = test_case["test_key"]
 
-    with open(test_file, "r") as fp:
-        data = json.load(fp)
+    data = load_json_file(test_file)
 
     json_data = data[test_key]
 
@@ -140,27 +139,26 @@ def load_json_fixture(test_file: str, json_fork: str) -> Generator:
     # Ex: Extract "world.json" from "path/to/file/world.json"
     # Extract the filename without the extension. Ex: Extract "world" from
     # "world.json"
-    with open(test_file, "r") as fp:
-        data = json.load(fp)
+    data = load_json_file(test_file)
 
-        # Search tests by looking at the `network` attribute
-        found_keys = []
-        for key, test in data.items():
-            if "network" not in test:
-                continue
+    # Search tests by looking at the `network` attribute
+    found_keys = []
+    for key, test in data.items():
+        if "network" not in test:
+            continue
 
-            if test["network"] == json_fork:
-                found_keys.append(key)
+        if test["network"] == json_fork:
+            found_keys.append(key)
 
-        if not any(found_keys):
-            raise NoTestsFoundError
+    if not any(found_keys):
+        raise NoTestsFoundError
 
-        for _key in found_keys:
-            yield {
-                "test_file": test_file,
-                "test_key": _key,
-                "json_fork": json_fork,
-            }
+    for _key in found_keys:
+        yield {
+            "test_file": test_file,
+            "test_key": _key,
+            "json_fork": json_fork,
+        }
 
 
 def fetch_blockchain_tests(
