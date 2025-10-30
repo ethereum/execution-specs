@@ -78,18 +78,22 @@ def generic_create(
         process_create_message,
     )
 
+    # Check static context first
+    if evm.message.is_static:
+        raise WriteInStaticContext
+
+    # Check max init code size early before memory read
+    if memory_size > U256(MAX_INIT_CODE_SIZE):
+        raise OutOfGasError
+
     state = evm.message.block_env.state
 
     call_data = memory_read_bytes(
         evm.memory, memory_start_position, memory_size
     )
-    if len(call_data) > MAX_INIT_CODE_SIZE:
-        raise OutOfGasError
 
     create_message_gas = max_message_call_gas(Uint(evm.gas_left))
     evm.gas_left -= create_message_gas
-    if evm.message.is_static:
-        raise WriteInStaticContext
     evm.return_data = b""
 
     sender_address = evm.message.current_target
@@ -544,6 +548,9 @@ def selfdestruct(evm: Evm) -> None:
         The current EVM frame.
 
     """
+    if evm.message.is_static:
+        raise WriteInStaticContext
+
     # STACK
     beneficiary = to_address_masked(pop(evm.stack))
 
@@ -563,8 +570,6 @@ def selfdestruct(evm: Evm) -> None:
         gas_cost += GAS_SELF_DESTRUCT_NEW_ACCOUNT
 
     charge_gas(evm, gas_cost)
-    if evm.message.is_static:
-        raise WriteInStaticContext
 
     originator = evm.message.current_target
     originator_balance = get_account(
