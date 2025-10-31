@@ -55,6 +55,17 @@ def write_github_summary(
             f.write("```\n")
 
 
+def find_project_root() -> Path:
+    """Locate the root directory of this project."""
+    # Search upwards from file location
+    script_dir = Path(__file__).resolve().parent
+    for parent in [script_dir, *script_dir.parents]:
+        if (parent / "EIP_AUTHORS_MANUAL.md").exists():
+            return parent
+
+    raise FileNotFoundError("Unable to locate project root directory!")
+
+
 @click.command(
     context_settings={
         "ignore_unknown_options": True,
@@ -215,7 +226,8 @@ def validate_changelog() -> None:
     - A period (.) for regular entries
     - A colon (:) for section headers that introduce lists
     """
-    changelog_path = Path("docs/CHANGELOG.md")
+    project_root = find_project_root()
+    changelog_path = Path(project_root / "docs/CHANGELOG.md")
 
     if not changelog_path.exists():
         click.echo(f"❌ Changelog file not found: {changelog_path}")

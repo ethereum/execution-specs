@@ -12,7 +12,7 @@ Test fixtures for use by clients are available for each release on the [Github r
 
 #### `fill`
 
-- 🐞 Allow `evmone` to fill Prague and Osaka blockchain tests (mainly modified deposit contract tests) ([#1689](https://github.com/ethereum/execution-specs/pull/1689))
+- 🐞 Allow `evmone` to fill Prague and Osaka blockchain tests (mainly modified deposit contract tests) ([#1689](https://github.com/ethereum/execution-specs/pull/1689)).
 
 #### `consume`
 
@@ -20,8 +20,7 @@ Test fixtures for use by clients are available for each release on the [Github r
 
 ### 📋 Misc
 
-- 🐞 WELDed the EEST tox environments relevant to producing documentation into EELS. ([#1695](https://github.com/ethereum/execution-specs/pull/1659))
-- 🔀 Merged codespell dictionaries for EEST/EELS and added a new tool to cleanly add words to the whitelist while keeping it organized. ([#1695](https://github.com/ethereum/execution-specs/pull/1659))
+- 🐞 WELDed the EEST tox environments relevant to producing documentation into EELS, and added a tool to cleanly add codespell whitelist entries. ([#1695](https://github.com/ethereum/execution-specs/pull/1659)).
 
 ### 🧪 Test Cases
 
