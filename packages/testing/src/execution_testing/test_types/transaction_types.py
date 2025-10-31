@@ -32,7 +32,7 @@ from execution_testing.base_types import (
     TestAddress,
     TestPrivateKey,
 )
-from execution_testing.cli.pytest_commands.plugins.custom_logging import (
+from execution_testing.logging import (
     get_logger,
 )
 from execution_testing.exceptions import TransactionException

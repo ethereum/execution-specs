@@ -1,6 +1,4 @@
-"""
-Tests benchmark worst-case opcode scenarios.
-"""
+"""Benchmark log instructions."""
 
 import pytest
 from execution_testing import (
@@ -8,8 +6,10 @@ from execution_testing import (
     Bytecode,
     JumpLoopGenerator,
     Op,
-    Opcode,
 )
+
+# Log instructions:
+# LOG0, LOG1, LOG2, LOG3, LOG4
 
 
 @pytest.mark.parametrize(
@@ -38,15 +38,15 @@ from execution_testing import (
     ],
 )
 @pytest.mark.parametrize("fixed_offset", [True, False])
-def test_worst_log_opcodes(
+def test_log(
     benchmark_test: BenchmarkTestFiller,
-    opcode: Opcode,
+    opcode: Op,
     zeros_topic: bool,
     size: int,
     fixed_offset: bool,
     non_zero_data: bool,
 ) -> None:
-    """Test running a block with as many LOG opcodes as possible."""
+    """Benchmark LOG instructions."""
     setup = Bytecode()
 
     # For non-zero data, load  into memory.
