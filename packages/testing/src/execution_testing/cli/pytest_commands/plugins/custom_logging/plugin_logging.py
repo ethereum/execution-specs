@@ -59,6 +59,13 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
             "CRITICAL, default - INFO. An integer in [0, 50] may be also provided."
         ),
     )
+    logging_group.addoption(
+        "--log-to",
+        action="store",
+        default=None,
+        dest="eest_log_dir",
+        help="Directory to write log files. Defaults to ./logs if not specified.",
+    )
 
 
 @functools.cache
@@ -108,9 +115,10 @@ def pytest_configure(config: pytest.Config) -> None:
 
     worker_id = os.getenv("PYTEST_XDIST_WORKER", "main")
     log_filename = f"{log_stem}-{worker_id}.log"
-    log_path = Path("logs")
-    log_path.mkdir(exist_ok=True)
-    log_file_path = log_path / log_filename
+    log_dir = getattr(config.option, "eest_log_dir", None)
+    base_logs_dir = Path("logs") if log_dir is None else Path(log_dir)
+    base_logs_dir.mkdir(parents=True, exist_ok=True)
+    log_file_path = base_logs_dir / log_filename
 
     # Store the log file path in the pytest config
     config.option.eest_log_file_path = log_file_path
