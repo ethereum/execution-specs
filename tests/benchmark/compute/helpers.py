@@ -186,19 +186,19 @@ def calculate_optimal_input_length(
 
     for input_length in range(1, 1_000_000, 32):
         parameters_gas = (
-            gsc.G_BASE  # PUSH0 = arg offset
-            + gsc.G_BASE  # PUSH0 = arg size
-            + gsc.G_BASE  # PUSH0 = arg size
-            + gsc.G_VERY_LOW  # PUSH0 = arg offset
-            + gsc.G_VERY_LOW  # PUSHN = address
-            + gsc.G_BASE  # GAS
+            gsc.GAS_BASE  # PUSH0 = arg offset
+            + gsc.GAS_BASE  # PUSH0 = arg size
+            + gsc.GAS_BASE  # PUSH0 = arg size
+            + gsc.GAS_VERY_LOW  # PUSH0 = arg offset
+            + gsc.GAS_VERY_LOW  # PUSHN = address
+            + gsc.GAS_BASE  # GAS
         )
         iteration_gas_cost = (
             parameters_gas
             + static_cost  # Precompile static cost
             + math.ceil(input_length / 32) * per_word_dynamic_cost
             # Precompile dynamic cost
-            + gsc.G_BASE  # POP
+            + gsc.GAS_BASE  # POP
         )
 
         # From the available gas, subtract the memory expansion costs

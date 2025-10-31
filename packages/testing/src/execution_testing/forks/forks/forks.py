@@ -115,46 +115,45 @@ class Frontier(BaseFork, solc_name="homestead"):
         """
         del block_number, timestamp
         return GasCosts(
-            G_JUMPDEST=1,
-            G_BASE=2,
-            G_VERY_LOW=3,
-            G_LOW=5,
-            G_MID=8,
-            G_HIGH=10,
-            G_WARM_ACCOUNT_ACCESS=100,
-            G_COLD_ACCOUNT_ACCESS=2_600,
-            G_ACCESS_LIST_ADDRESS=2_400,
-            G_ACCESS_LIST_STORAGE=1_900,
-            G_WARM_SLOAD=100,
-            G_COLD_SLOAD=2_100,
-            G_STORAGE_SET=20_000,
-            G_STORAGE_RESET=2_900,
-            R_STORAGE_CLEAR=4_800,
-            G_SELF_DESTRUCT=5_000,
-            G_CREATE=32_000,
-            G_CODE_DEPOSIT_BYTE=200,
-            G_INITCODE_WORD=2,
-            G_CALL_VALUE=9_000,
-            G_CALL_STIPEND=2_300,
-            G_NEW_ACCOUNT=25_000,
-            G_EXP=10,
-            G_EXP_BYTE=50,
-            G_MEMORY=3,
+            GAS_JUMPDEST=1,
+            GAS_BASE=2,
+            GAS_VERY_LOW=3,
+            GAS_LOW=5,
+            GAS_MID=8,
+            GAS_HIGH=10,
+            GAS_WARM_ACCESS=100,
+            GAS_COLD_ACCOUNT_ACCESS=2_600,
+            TX_ACCESS_LIST_ADDRESS_COST=2_400,
+            TX_ACCESS_LIST_STORAGE_KEY_COST=1_900,
+            GAS_COLD_SLOAD=2_100,
+            GAS_STORAGE_SET=20_000,
+            GAS_STORAGE_UPDATE=2_900,
+            GAS_STORAGE_CLEAR_REFUND=4_800,
+            GAS_SELF_DESTRUCT=5_000,
+            GAS_CREATE=32_000,
+            GAS_CODE_DEPOSIT=200,
+            GAS_INIT_CODE_WORD_COST=2,
+            GAS_CALL_VALUE=9_000,
+            GAS_CALL_STIPEND=2_300,
+            GAS_NEW_ACCOUNT=25_000,
+            GAS_EXPONENTIATION=10,
+            GAS_EXPONENTIATION_PER_BYTE=50,
+            GAS_MEMORY=3,
             G_TX_DATA_ZERO=4,
             G_TX_DATA_NON_ZERO=68,
-            G_TX_DATA_STANDARD_TOKEN_COST=0,
-            G_TX_DATA_FLOOR_TOKEN_COST=0,
-            G_TRANSACTION=21_000,
-            G_TRANSACTION_CREATE=32_000,
-            G_LOG=375,
-            G_LOG_DATA=8,
-            G_LOG_TOPIC=375,
-            G_KECCAK_256=30,
-            G_KECCAK_256_WORD=6,
-            G_COPY=3,
-            G_BLOCKHASH=20,
-            G_AUTHORIZATION=0,
-            R_AUTHORIZATION_EXISTING_AUTHORITY=0,
+            STANDARD_CALLDATA_TOKEN_COST=0,
+            FLOOR_CALLDATA_COST=0,
+            TX_BASE_COST=21_000,
+            TX_CREATE_COST=32_000,
+            GAS_LOG=375,
+            GAS_LOG_DATA=8,
+            GAS_LOG_TOPIC=375,
+            GAS_KECCAK256=30,
+            GAS_KECCAK256_WORD=6,
+            GAS_COPY=3,
+            GAS_BLOCK_HASH=20,
+            PER_EMPTY_ACCOUNT_COST=0,
+            PER_AUTH_BASE_COST=0,
         )
 
     @classmethod
@@ -176,7 +175,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             previous_words = ceiling_division(previous_bytes, 32)
 
             def c(w: int) -> int:
-                return (gas_costs.G_MEMORY * w) + ((w * w) // 512)
+                return (gas_costs.GAS_MEMORY * w) + ((w * w) // 512)
 
             return c(new_words) - c(previous_words)
 
@@ -295,11 +294,12 @@ class Frontier(BaseFork, solc_name="homestead"):
                 f"Authorizations are not supported in {cls.name()}"
             )
 
-            intrinsic_cost: int = gas_costs.G_TRANSACTION
+            intrinsic_cost: int = gas_costs.TX_BASE_COST
 
             if contract_creation:
-                intrinsic_cost += gas_costs.G_INITCODE_WORD * ceiling_division(
-                    len(Bytes(calldata)), 32
+                intrinsic_cost += (
+                    gas_costs.GAS_INIT_CODE_WORD_COST
+                    * ceiling_division(len(Bytes(calldata)), 32)
                 )
 
             return intrinsic_cost + calldata_gas_calculator(data=calldata)
@@ -923,7 +923,7 @@ class Homestead(Frontier):
                 authorization_list_or_count=authorization_list_or_count,
             )
             if contract_creation:
-                intrinsic_cost += gas_costs.G_TRANSACTION_CREATE
+                intrinsic_cost += gas_costs.TX_CREATE_COST
             return intrinsic_cost
 
         return fn
@@ -1155,9 +1155,11 @@ class Berlin(Istanbul):
             )
             if access_list is not None:
                 for access in access_list:
-                    intrinsic_cost += gas_costs.G_ACCESS_LIST_ADDRESS
+                    intrinsic_cost += gas_costs.TX_ACCESS_LIST_ADDRESS_COST
                     for _ in access.storage_keys:
-                        intrinsic_cost += gas_costs.G_ACCESS_LIST_STORAGE
+                        intrinsic_cost += (
+                            gas_costs.TX_ACCESS_LIST_STORAGE_KEY_COST
+                        )
             return intrinsic_cost
 
         return fn
@@ -1853,10 +1855,10 @@ class Prague(Cancun):
             super(Prague, cls).gas_costs(
                 block_number=block_number, timestamp=timestamp
             ),
-            G_TX_DATA_STANDARD_TOKEN_COST=4,  # https://eips.ethereum.org/EIPS/eip-7623
-            G_TX_DATA_FLOOR_TOKEN_COST=10,
-            G_AUTHORIZATION=25_000,
-            R_AUTHORIZATION_EXISTING_AUTHORITY=12_500,
+            STANDARD_CALLDATA_TOKEN_COST=4,  # https://eips.ethereum.org/EIPS/eip-7623
+            FLOOR_CALLDATA_COST=10,
+            PER_EMPTY_ACCOUNT_COST=25_000,
+            PER_AUTH_BASE_COST=12_500,
         )
 
     @classmethod
@@ -1919,8 +1921,8 @@ class Prague(Cancun):
                 else:
                     tokens += 4
             if floor:
-                return tokens * gas_costs.G_TX_DATA_FLOOR_TOKEN_COST
-            return tokens * gas_costs.G_TX_DATA_STANDARD_TOKEN_COST
+                return tokens * gas_costs.FLOOR_CALLDATA_COST
+            return tokens * gas_costs.STANDARD_CALLDATA_TOKEN_COST
 
         return fn
 
@@ -1942,7 +1944,7 @@ class Prague(Cancun):
         def fn(*, data: BytesConvertible) -> int:
             return (
                 calldata_gas_calculator(data=data, floor=True)
-                + gas_costs.G_TRANSACTION
+                + gas_costs.TX_BASE_COST
             )
 
         return fn
@@ -1987,7 +1989,8 @@ class Prague(Cancun):
                         authorization_list_or_count
                     )
                 intrinsic_cost += (
-                    authorization_list_or_count * gas_costs.G_AUTHORIZATION
+                    authorization_list_or_count
+                    * gas_costs.PER_EMPTY_ACCOUNT_COST
                 )
 
             if return_cost_deducted_prior_execution:
@@ -2324,6 +2327,21 @@ class Osaka(Prague, solc_name="cancun"):
         """Return the base cost of a blob at a given fork."""
         del block_number, timestamp
         return 2**13  # EIP-7918 new parameter
+
+    @classmethod
+    def gas_costs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> GasCosts:
+        """Return the gas costs for the fork."""
+        from ethereum.forks.osaka.vm import gas as g
+        from dataclasses import fields
+
+        kwargs = {}
+        for field in fields(GasCosts):
+            if hasattr(g, field.name):
+                kwargs[field.name] = int(getattr(g, field.name))
+
+        return GasCosts(**kwargs)
 
 
 class BPO1(Osaka, bpo_fork=True):

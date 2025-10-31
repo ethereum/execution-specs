@@ -98,8 +98,8 @@ def call_exact_cost(
     calldatacopy_cost += 3 * ((len(initial_memory) + 31) // 32)
     calldatacopy_cost += cost_memory_bytes(new_bytes=len(initial_memory))
 
-    pushes_cost = gas_costs.G_VERY_LOW * 9
-    calldatasize_cost = gas_costs.G_BASE
+    pushes_cost = gas_costs.GAS_VERY_LOW * 9
+    calldatasize_cost = gas_costs.GAS_BASE
 
     sstore_cost = 22100
     return (

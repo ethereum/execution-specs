@@ -306,8 +306,8 @@ def test_block_full_access_list_and_data(
 
         # Access list gas costs from fork's gas_costs
         gas_costs = fork.gas_costs()
-        gas_per_address = gas_costs.G_ACCESS_LIST_ADDRESS
-        gas_per_storage_key = gas_costs.G_ACCESS_LIST_STORAGE
+        gas_per_address = gas_costs.TX_ACCESS_LIST_ADDRESS_COST
+        gas_per_storage_key = gas_costs.TX_ACCESS_LIST_STORAGE_KEY_COST
 
         # Calculate number of storage keys we can fit
         gas_after_address = gas_for_access_list - gas_per_address
@@ -407,7 +407,7 @@ def test_worst_case_auth_block(
 
     iteration_count = (
         gas_benchmark_value - intrinsic_cost
-    ) // gas_costs.G_AUTHORIZATION
+    ) // gas_costs.PER_EMPTY_ACCOUNT_COST
 
     code = Op.STOP * fork.max_code_size()
     auth_target = (
@@ -441,10 +441,7 @@ def test_worst_case_auth_block(
     if not empty_authority:
         refund = min(
             gas_used // 5,
-            (
-                gas_costs.G_AUTHORIZATION
-                - gas_costs.R_AUTHORIZATION_EXISTING_AUTHORITY
-            )
+            (gas_costs.PER_EMPTY_ACCOUNT_COST - gas_costs.PER_AUTH_BASE_COST)
             * iteration_count,
         )
 

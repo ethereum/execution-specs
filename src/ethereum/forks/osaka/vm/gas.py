@@ -84,6 +84,22 @@ GAS_BLS_G2_ADD = Uint(600)
 GAS_BLS_G2_MUL = Uint(22500)
 GAS_BLS_G2_MAP = Uint(23800)
 
+# EEST Specific Variables
+G_TX_DATA_ZERO = 4
+G_TX_DATA_NON_ZERO = 68
+
+# Transaction costs (from transactions.py)
+TX_BASE_COST = Uint(21_000)
+TX_CREATE_COST = Uint(32_000)
+TX_ACCESS_LIST_ADDRESS_COST = Uint(2_400)
+TX_ACCESS_LIST_STORAGE_KEY_COST = Uint(1_900)
+STANDARD_CALLDATA_TOKEN_COST = Uint(4)
+FLOOR_CALLDATA_COST = Uint(10)
+
+# Authorization costs (from eoa_delegation.py)
+PER_EMPTY_ACCOUNT_COST = 25_000
+PER_AUTH_BASE_COST = 12_500
+
 
 @dataclass
 class ExtendMemory:

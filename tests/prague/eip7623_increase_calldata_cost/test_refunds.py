@@ -94,12 +94,12 @@ def max_refund(fork: Fork, refund_type: RefundType) -> int:
     """Return the max refund gas of the transaction."""
     gas_costs = fork.gas_costs()
     max_refund = (
-        gas_costs.R_STORAGE_CLEAR
+        gas_costs.GAS_STORAGE_CLEAR_REFUND
         if RefundType.STORAGE_CLEAR in refund_type
         else 0
     )
     max_refund += (
-        gas_costs.R_AUTHORIZATION_EXISTING_AUTHORITY
+        gas_costs.PER_AUTH_BASE_COST
         if RefundType.AUTHORIZATION_EXISTING_AUTHORITY in refund_type
         else 0
     )
@@ -113,9 +113,9 @@ def prefix_code_gas(fork: Fork, refund_type: RefundType) -> int:
         # Minimum code to generate a storage clear is Op.SSTORE(0, 0).
         gas_costs = fork.gas_costs()
         return (
-            gas_costs.G_COLD_SLOAD
-            + gas_costs.G_STORAGE_RESET
-            + (gas_costs.G_VERY_LOW * 2)
+            gas_costs.GAS_COLD_SLOAD
+            + gas_costs.GAS_STORAGE_UPDATE
+            + (gas_costs.GAS_VERY_LOW * 2)
         )
     return 0
 

@@ -37,7 +37,7 @@ def test_call_large_offset_mstore(
     call_measure = CodeGasMeasure(
         code=Op.CALL(gas=0, ret_offset=mem_offset, ret_size=0),
         # Cost of pushing CALL args
-        overhead_cost=gsc.G_VERY_LOW * len(Op.CALL.kwargs),
+        overhead_cost=gsc.GAS_VERY_LOW * len(Op.CALL.kwargs),
         extra_stack_items=1,  # Because CALL pushes 1 item to the stack
         sstore_key=0,
         stop=False,  # Because it's the first CodeGasMeasure
@@ -45,7 +45,7 @@ def test_call_large_offset_mstore(
     mstore_measure = CodeGasMeasure(
         code=Op.MSTORE(offset=mem_offset, value=1),
         # Cost of pushing MSTORE args
-        overhead_cost=gsc.G_VERY_LOW * len(Op.MSTORE.kwargs),
+        overhead_cost=gsc.GAS_VERY_LOW * len(Op.MSTORE.kwargs),
         extra_stack_items=0,
         sstore_key=1,
     )
@@ -60,11 +60,11 @@ def test_call_large_offset_mstore(
     )
 
     # this call cost is just the address_access_cost
-    call_cost = gsc.G_COLD_ACCOUNT_ACCESS
+    call_cost = gsc.GAS_COLD_ACCOUNT_ACCESS
 
     memory_expansion_gas_calc = fork.memory_expansion_gas_calculator()
     # mstore cost: base cost + expansion cost
-    mstore_cost = gsc.G_MEMORY + memory_expansion_gas_calc(
+    mstore_cost = gsc.GAS_MEMORY + memory_expansion_gas_calc(
         new_bytes=mem_offset + 1
     )
     state_test(
@@ -108,7 +108,7 @@ def test_call_memory_expands_on_early_revert(
         # CALL with value
         code=Op.CALL(gas=0, value=100, ret_size=ret_size),
         # Cost of pushing CALL args
-        overhead_cost=gsc.G_VERY_LOW * len(Op.CALL.kwargs),
+        overhead_cost=gsc.GAS_VERY_LOW * len(Op.CALL.kwargs),
         # Because CALL pushes 1 item to the stack
         extra_stack_items=1,
         sstore_key=0,
@@ -119,7 +119,7 @@ def test_call_memory_expands_on_early_revert(
         # Low offset for not expanding memory
         code=Op.MSTORE(offset=ret_size // 2, value=1),
         # Cost of pushing MSTORE args
-        overhead_cost=gsc.G_VERY_LOW * len(Op.MSTORE.kwargs),
+        overhead_cost=gsc.GAS_VERY_LOW * len(Op.MSTORE.kwargs),
         extra_stack_items=0,
         sstore_key=1,
     )
@@ -140,16 +140,16 @@ def test_call_memory_expands_on_early_revert(
     # call cost:
     #   address_access_cost+new_acc_cost+memory_expansion_cost+value-stipend
     call_cost = (
-        gsc.G_COLD_ACCOUNT_ACCESS
-        + gsc.G_NEW_ACCOUNT
+        gsc.GAS_COLD_ACCOUNT_ACCESS
+        + gsc.GAS_NEW_ACCOUNT
         + memory_expansion_gas_calc(new_bytes=ret_size)
-        + gsc.G_CALL_VALUE
-        - gsc.G_CALL_STIPEND
+        + gsc.GAS_CALL_VALUE
+        - gsc.GAS_CALL_STIPEND
     )
 
     # mstore cost: base cost. No memory expansion cost needed, it was expanded
     # on CALL.
-    mstore_cost = gsc.G_MEMORY
+    mstore_cost = gsc.GAS_MEMORY
     state_test(
         env=Environment(),
         pre=pre,
@@ -188,7 +188,7 @@ def test_call_large_args_offset_size_zero(
     call_measure = CodeGasMeasure(
         code=call_opcode(gas=0, args_offset=very_large_offset, args_size=0),
         # Cost of pushing xCALL args
-        overhead_cost=gsc.G_VERY_LOW * len(call_opcode.kwargs),
+        overhead_cost=gsc.GAS_VERY_LOW * len(call_opcode.kwargs),
         extra_stack_items=1,  # Because xCALL pushes 1 item to the stack
         sstore_key=0,
     )
@@ -203,7 +203,7 @@ def test_call_large_args_offset_size_zero(
     )
 
     # this call cost is just the address_access_cost
-    call_cost = gsc.G_COLD_ACCOUNT_ACCESS
+    call_cost = gsc.GAS_COLD_ACCOUNT_ACCESS
 
     state_test(
         env=Environment(),

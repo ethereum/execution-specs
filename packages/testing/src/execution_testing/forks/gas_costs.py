@@ -7,56 +7,55 @@ from dataclasses import dataclass
 class GasCosts:
     """Class that contains the gas cost constants for any fork."""
 
-    G_JUMPDEST: int
-    G_BASE: int
-    G_VERY_LOW: int
-    G_LOW: int
-    G_MID: int
-    G_HIGH: int
-    G_WARM_ACCOUNT_ACCESS: int
-    G_COLD_ACCOUNT_ACCESS: int
-    G_ACCESS_LIST_ADDRESS: int
-    G_ACCESS_LIST_STORAGE: int
-    G_WARM_SLOAD: int
-    G_COLD_SLOAD: int
-    G_STORAGE_SET: int
-    G_STORAGE_RESET: int
+    GAS_JUMPDEST: int
+    GAS_BASE: int
+    GAS_VERY_LOW: int
+    GAS_LOW: int
+    GAS_MID: int
+    GAS_HIGH: int
+    GAS_WARM_ACCESS: int
+    GAS_COLD_ACCOUNT_ACCESS: int
+    TX_ACCESS_LIST_ADDRESS_COST: int
+    TX_ACCESS_LIST_STORAGE_KEY_COST: int
+    GAS_COLD_SLOAD: int
+    GAS_STORAGE_SET: int
+    GAS_STORAGE_UPDATE: int
 
-    R_STORAGE_CLEAR: int
+    GAS_STORAGE_CLEAR_REFUND: int
 
-    G_SELF_DESTRUCT: int
-    G_CREATE: int
+    GAS_SELF_DESTRUCT: int
+    GAS_CREATE: int
 
-    G_CODE_DEPOSIT_BYTE: int
-    G_INITCODE_WORD: int
+    GAS_CODE_DEPOSIT: int
+    GAS_INIT_CODE_WORD_COST: int
 
-    G_CALL_VALUE: int
-    G_CALL_STIPEND: int
-    G_NEW_ACCOUNT: int
+    GAS_CALL_VALUE: int
+    GAS_CALL_STIPEND: int
+    GAS_NEW_ACCOUNT: int
 
-    G_EXP: int
-    G_EXP_BYTE: int
+    GAS_EXPONENTIATION: int
+    GAS_EXPONENTIATION_PER_BYTE: int
 
-    G_MEMORY: int
+    GAS_MEMORY: int
 
     G_TX_DATA_ZERO: int
     G_TX_DATA_NON_ZERO: int
-    G_TX_DATA_STANDARD_TOKEN_COST: int
-    G_TX_DATA_FLOOR_TOKEN_COST: int
+    STANDARD_CALLDATA_TOKEN_COST: int
+    FLOOR_CALLDATA_COST: int
 
-    G_TRANSACTION: int
-    G_TRANSACTION_CREATE: int
+    TX_BASE_COST: int
+    TX_CREATE_COST: int
 
-    G_LOG: int
-    G_LOG_DATA: int
-    G_LOG_TOPIC: int
+    GAS_LOG: int
+    GAS_LOG_DATA: int
+    GAS_LOG_TOPIC: int
 
-    G_KECCAK_256: int
-    G_KECCAK_256_WORD: int
+    GAS_KECCAK256: int
+    GAS_KECCAK256_WORD: int
 
-    G_COPY: int
-    G_BLOCKHASH: int
+    GAS_COPY: int
+    GAS_BLOCK_HASH: int
 
-    G_AUTHORIZATION: int
+    PER_EMPTY_ACCOUNT_COST: int
 
-    R_AUTHORIZATION_EXISTING_AUTHORITY: int
+    PER_AUTH_BASE_COST: int

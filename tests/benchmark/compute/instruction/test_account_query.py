@@ -144,24 +144,26 @@ def test_extcode_ops(
         new_bytes=len(bytes(max_contract_size))
     )
     code_deposit_gas_minimum = (
-        fork.gas_costs().G_CODE_DEPOSIT_BYTE * max_contract_size
+        fork.gas_costs().GAS_CODE_DEPOSIT * max_contract_size
         + memory_gas_minimum
     )
 
     intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
     # Calculate the loop cost of the attacker to query one address
     loop_cost = (
-        gas_costs.G_KECCAK_256  # KECCAK static cost
-        + math.ceil(85 / 32) * gas_costs.G_KECCAK_256_WORD  # KECCAK dynamic
+        gas_costs.GAS_KECCAK256  # KECCAK static cost
+        + math.ceil(85 / 32) * gas_costs.GAS_KECCAK256_WORD  # KECCAK dynamic
         # cost for CREATE2
-        + gas_costs.G_VERY_LOW * 3  # ~MSTOREs+ADDs
-        + gas_costs.G_COLD_ACCOUNT_ACCESS  # Opcode cost
+        + gas_costs.GAS_VERY_LOW * 3  # ~MSTOREs+ADDs
+        + gas_costs.GAS_COLD_ACCOUNT_ACCESS  # Opcode cost
         + 30  # ~Gluing opcodes
     )
     # Calculate the number of contracts to be targeted
     num_contracts = (
         # Base available gas = GAS_LIMIT - intrinsic - (out of loop MSTOREs)
-        attack_gas_limit - intrinsic_gas_cost_calc() - gas_costs.G_VERY_LOW * 4
+        attack_gas_limit
+        - intrinsic_gas_cost_calc()
+        - gas_costs.GAS_VERY_LOW * 4
     ) // loop_cost
 
     # Set the block gas limit to a relative high value to ensure the code
@@ -431,7 +433,7 @@ def test_ext_account_query_cold(
     # transaction runs out of gas.
     num_target_accounts = (
         attack_gas_limit - intrinsic_gas_cost_calc()
-    ) // gas_costs.G_COLD_ACCOUNT_ACCESS
+    ) // gas_costs.GAS_COLD_ACCOUNT_ACCESS
 
     blocks = []
     post = {}

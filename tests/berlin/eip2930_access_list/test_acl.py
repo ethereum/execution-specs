@@ -46,10 +46,10 @@ def test_account_storage_warm_cold_state(
 
     storage_reader_contract = pre.deploy_contract(Op.SLOAD(1) + Op.STOP)
     overhead_cost = (
-        gas_costs.G_VERY_LOW
+        gas_costs.GAS_VERY_LOW
         * (Op.CALL.popped_stack_items - 1)  # Call stack items
-        + gas_costs.G_BASE  # Call gas
-        + gas_costs.G_VERY_LOW  # SLOAD Push
+        + gas_costs.GAS_BASE  # Call gas
+        + gas_costs.GAS_VERY_LOW  # SLOAD Push
     )
     contract_address = pre.deploy_contract(
         CodeGasMeasure(
@@ -63,15 +63,15 @@ def test_account_storage_warm_cold_state(
     access_list_address = Address(0)
     access_list_storage_key = Hash(0)
     if account_warm:
-        expected_gas_cost += gas_costs.G_WARM_ACCOUNT_ACCESS
+        expected_gas_cost += gas_costs.GAS_WARM_ACCESS
         access_list_address = storage_reader_contract
     else:
-        expected_gas_cost += gas_costs.G_COLD_ACCOUNT_ACCESS
+        expected_gas_cost += gas_costs.GAS_COLD_ACCOUNT_ACCESS
     if storage_key_warm:
-        expected_gas_cost += gas_costs.G_WARM_SLOAD
+        expected_gas_cost += gas_costs.GAS_WARM_ACCESS
         access_list_storage_key = Hash(1)
     else:
-        expected_gas_cost += gas_costs.G_COLD_SLOAD
+        expected_gas_cost += gas_costs.GAS_COLD_SLOAD
 
     access_lists: List[AccessList] = [
         AccessList(
@@ -293,7 +293,7 @@ def test_repeated_address_acl(
 
     sload0_measure = CodeGasMeasure(
         code=Op.SLOAD(0),
-        overhead_cost=gsc.G_VERY_LOW
+        overhead_cost=gsc.GAS_VERY_LOW
         * len(Op.SLOAD.kwargs),  # Cost of pushing SLOAD args
         extra_stack_items=1,  # SLOAD pushes 1 item to the stack
         sstore_key=0,
@@ -302,7 +302,7 @@ def test_repeated_address_acl(
 
     sload1_measure = CodeGasMeasure(
         code=Op.SLOAD(1),
-        overhead_cost=gsc.G_VERY_LOW
+        overhead_cost=gsc.GAS_VERY_LOW
         * len(Op.SLOAD.kwargs),  # Cost of pushing SLOAD args
         extra_stack_items=1,  # SLOAD pushes 1 item to the stack
         sstore_key=1,
@@ -327,7 +327,7 @@ def test_repeated_address_acl(
         ],
     )
 
-    sload_cost = gsc.G_WARM_ACCOUNT_ACCESS
+    sload_cost = gsc.GAS_WARM_ACCESS
 
     state_test(
         env=Environment(),

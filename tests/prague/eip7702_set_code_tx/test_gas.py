@@ -885,12 +885,12 @@ def test_gas_cost(
     # fifth (EIP-3529) of the total gas used, so we can see the full discount
     # being reflected in most of the tests.
     gas_costs = fork.gas_costs()
-    gas_opcode_cost = gas_costs.G_BASE
+    gas_opcode_cost = gas_costs.GAS_BASE
     sstore_opcode_count = 10
     push_opcode_count = (2 * (sstore_opcode_count)) - 1
-    push_opcode_cost = gas_costs.G_VERY_LOW * push_opcode_count
-    sstore_opcode_cost = gas_costs.G_STORAGE_SET * sstore_opcode_count
-    cold_storage_cost = gas_costs.G_COLD_SLOAD * sstore_opcode_count
+    push_opcode_cost = gas_costs.GAS_VERY_LOW * push_opcode_count
+    sstore_opcode_cost = gas_costs.GAS_STORAGE_SET * sstore_opcode_count
+    cold_storage_cost = gas_costs.GAS_COLD_SLOAD * sstore_opcode_count
 
     execution_gas = (
         gas_opcode_cost
@@ -1259,8 +1259,8 @@ def test_call_to_pre_authorized_oog(
     )
     tx_gas_limit = (
         intrinsic_gas_cost_calculator()
-        + len(call_opcode.kwargs) * gas_costs.G_VERY_LOW
-        + (gas_costs.G_COLD_ACCOUNT_ACCESS * 2)
+        + len(call_opcode.kwargs) * gas_costs.GAS_VERY_LOW
+        + (gas_costs.GAS_COLD_ACCOUNT_ACCESS * 2)
         - 1
     )
     tx = Transaction(

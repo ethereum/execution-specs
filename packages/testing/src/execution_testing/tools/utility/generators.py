@@ -347,9 +347,9 @@ def generate_system_contract_error_test(
                 # code will only work once, so if the system contract is re-
                 # executed in a subsequent block, it will consume less gas.
                 gas_used_per_storage = (
-                    gas_costs.G_STORAGE_SET
-                    + gas_costs.G_COLD_SLOAD
-                    + (gas_costs.G_VERY_LOW * 2)
+                    gas_costs.GAS_STORAGE_SET
+                    + gas_costs.GAS_COLD_SLOAD
+                    + (gas_costs.GAS_VERY_LOW * 2)
                 )
                 modified_system_contract_code += sum(
                     Op.SSTORE(i, 1)
@@ -358,8 +358,8 @@ def generate_system_contract_error_test(
                 # If the gas limit is not divisible by the gas used per
                 # storage, we need to add some NO-OP (JUMPDEST) to the code
                 # that each consume 1 gas.
-                assert gas_costs.G_JUMPDEST == 1, (
-                    f"JUMPDEST gas cost should be 1, but got {gas_costs.G_JUMPDEST}. "
+                assert gas_costs.GAS_JUMPDEST == 1, (
+                    f"JUMPDEST gas cost should be 1, but got {gas_costs.GAS_JUMPDEST}. "
                     "Generator `generate_system_contract_error_test` needs to be updated."
                 )
                 modified_system_contract_code += sum(

@@ -512,10 +512,10 @@ class TestCreateInitcode:
         """Calculate gas cost of the contract creation operation."""
         gas_costs = fork.gas_costs()
 
-        create_contract_base_gas = gas_costs.G_CREATE
-        gas_opcode_gas = gas_costs.G_BASE
-        push_dup_opcode_gas = gas_costs.G_VERY_LOW
-        calldatasize_opcode_gas = gas_costs.G_BASE
+        create_contract_base_gas = gas_costs.GAS_CREATE
+        gas_opcode_gas = gas_costs.GAS_BASE
+        push_dup_opcode_gas = gas_costs.GAS_VERY_LOW
+        calldatasize_opcode_gas = gas_costs.GAS_BASE
         contract_creation_gas_usage = (
             create_contract_base_gas
             + gas_opcode_gas
@@ -530,7 +530,10 @@ class TestCreateInitcode:
     def initcode_word_cost(self, fork: Fork, initcode: Initcode) -> int:
         """Calculate gas cost charged for the initcode length."""
         gas_costs = fork.gas_costs()
-        return ceiling_division(len(initcode), 32) * gas_costs.G_INITCODE_WORD
+        return (
+            ceiling_division(len(initcode), 32)
+            * gas_costs.GAS_INIT_CODE_WORD_COST
+        )
 
     @pytest.fixture
     def create2_word_cost(
@@ -542,7 +545,7 @@ class TestCreateInitcode:
 
         gas_costs = fork.gas_costs()
         return (
-            ceiling_division(len(initcode), 32) * gas_costs.G_KECCAK_256_WORD
+            ceiling_division(len(initcode), 32) * gas_costs.GAS_KECCAK256_WORD
         )
 
     @pytest.mark.xdist_group(name="bigmem")
