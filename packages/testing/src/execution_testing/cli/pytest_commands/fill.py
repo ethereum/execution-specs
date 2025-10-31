@@ -291,9 +291,14 @@ def fill(pytest_args: List[str], **kwargs: Any) -> None:
     """Entry point for the fill command."""
     del kwargs
 
+    if not pytest_args:
+        ctx = click.get_current_context()
+        click.echo("Error: The 'fill' command requires a target file or directory.", err=True)
+        click.echo(ctx.get_help())
+        ctx.exit(1)
+
     command = FillCommand()
     command.execute(list(pytest_args))
-
 
 @click.command(
     context_settings={
