@@ -779,8 +779,8 @@ def calculate_block_difficulty(
     """
     offset = (
         parent_difficulty
-        // 2048
-        * max(1 - (block_timestamp - parent_timestamp) // 10, -99)
+        // Uint(2048)
+        * max(1 - (block_timestamp - parent_timestamp) // U256(10), -99)
     )
     difficulty = parent_difficulty + offset
     # Historical Note: The difficulty bomb was not present in Ethereum at the
@@ -788,7 +788,7 @@ def calculate_block_difficulty(
     # bomb has no effect prior to block 200000 we pretend it existed from
     # genesis.
     # See https://github.com/ethereum/go-ethereum/pull/1588
-    num_bomb_periods = (block_number // 100000) - 2
+    num_bomb_periods = (block_number // Uint(100000)) - 2
     if num_bomb_periods >= 0:
         difficulty += 2**num_bomb_periods
 
