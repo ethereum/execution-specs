@@ -1,0 +1,103 @@
+# Dependencies and environment folders
+node_modules/
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+
+# Build and output directories
+build/
+dist/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Python compiled files
+*.py[cod]
+*$py.class
+*.so
+
+# IDE and editor files
+.vscode/
+.idea/
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Temporary files
+*.tmp
+*.temp
+*.manifest
+*.spec
+
+# Logs and cache
+logs/
+*.log
+*.log.*
+cached_downloads/
+.coverage
+.coverage.*
+htmlcov/
+
+# Documentation build artifacts
+doc/_autosummary
+doc/diffs
+doc/autoapi
+docs/
+
+# Test fixtures and generated files (LARGE - 11GB+)
+tests/execution-spec-generated-tests/
+tests/fixtures/
+tests/t8n_testdata/
+tests/json_infra/fixtures/
+fixtures/
+
+# Large static data files
+*.csv
+*.tsv
+*.json.gz
+*.sqlite
+*.db
+*.zip
+*.tar.gz
+*.tar.bz2
+*.txt.bz2
+
+# AI and temporary folders
+.claude/
+
+# Temporary files in root
+temp.txt
+*.bak
+
+# Tox environment (LARGE - 164MB+)
+.tox/
+
+# Package lock files (keep pyproject.toml but ignore lock files if not needed)
+# uv.lock  # Uncomment if you want to ignore the lock file
+
+# Large binary files
+*.bin
+*.exe
+*.dll
+*.so
+*.dylib
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
