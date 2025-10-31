@@ -171,6 +171,47 @@ class BenchmarkTest(BaseTest):
             "pre allocation was not provided"
         )
 
+        set_props = [
+            name
+            for name, val in [
+                ("code_generator", self.code_generator),
+                ("blocks", self.blocks),
+                ("tx", self.tx),
+            ]
+            if val is not None
+        ]
+
+        if len(set_props) != 1:
+            raise ValueError(
+                f"Exactly one must be set, but got {len(set_props)}: {', '.join(set_props)}"
+            )
+
+        blocks: List[Block] = self.setup_blocks
+
+        if self.code_generator is not None:
+            generated_blocks = self.generate_blocks_from_code_generator()
+            blocks += generated_blocks
+
+        elif self.blocks is not None:
+            blocks += self.blocks
+
+        elif self.tx is not None:
+            gas_limit = (
+                self.fork.transaction_gas_limit_cap()
+                or self.gas_benchmark_value
+            )
+
+            transactions = self.split_transaction(self.tx, gas_limit)
+
+            blocks.append(Block(txs=transactions))
+
+        else:
+            raise ValueError(
+                "Cannot create BlockchainTest without a code generator, transactions, or blocks"
+            )
+
+        self.blocks = blocks
+
     @classmethod
     def pytest_parameter_name(cls) -> str:
         """
@@ -198,10 +239,9 @@ class BenchmarkTest(BaseTest):
             return fixture_format != BlockchainEngineFixture
         return False
 
-    def get_genesis_environment(self, fork: Fork) -> Environment:
+    def get_genesis_environment(self) -> Environment:
         """Get the genesis environment for this benchmark test."""
-        del fork
-        return self.env
+        return self.generate_blockchain_test().get_genesis_environment()
 
     def split_transaction(
         self, tx: Transaction, gas_limit_cap: int | None
@@ -233,14 +273,13 @@ class BenchmarkTest(BaseTest):
 
         return split_transactions
 
-    def generate_blocks_from_code_generator(self, fork: Fork) -> List[Block]:
+    def generate_blocks_from_code_generator(self) -> List[Block]:
         """Generate blocks using the code generator."""
         if self.code_generator is None:
             raise Exception("Code generator is not set")
-
-        self.code_generator.deploy_contracts(pre=self.pre, fork=fork)
+        self.code_generator.deploy_contracts(pre=self.pre, fork=self.fork)
         gas_limit = (
-            fork.transaction_gas_limit_cap() or self.gas_benchmark_value
+            self.fork.transaction_gas_limit_cap() or self.gas_benchmark_value
         )
         benchmark_tx = self.code_generator.generate_transaction(
             pre=self.pre, gas_benchmark_value=gas_limit
@@ -251,58 +290,19 @@ class BenchmarkTest(BaseTest):
 
         return [execution_block]
 
-    def generate_blockchain_test(self, fork: Fork) -> BlockchainTest:
+    def generate_blockchain_test(self) -> BlockchainTest:
         """Create a BlockchainTest from this BenchmarkTest."""
-        set_props = [
-            name
-            for name, val in [
-                ("code_generator", self.code_generator),
-                ("blocks", self.blocks),
-                ("tx", self.tx),
-            ]
-            if val is not None
-        ]
-
-        if len(set_props) != 1:
-            raise ValueError(
-                f"Exactly one must be set, but got {len(set_props)}: {', '.join(set_props)}"
-            )
-
-        blocks: List[Block] = self.setup_blocks
-
-        if self.code_generator is not None:
-            generated_blocks = self.generate_blocks_from_code_generator(fork)
-            blocks += generated_blocks
-
-        elif self.blocks is not None:
-            blocks += self.blocks
-
-        elif self.tx is not None:
-            gas_limit = (
-                fork.transaction_gas_limit_cap() or self.gas_benchmark_value
-            )
-
-            transactions = self.split_transaction(self.tx, gas_limit)
-
-            blocks.append(Block(txs=transactions))
-
-        else:
-            raise ValueError(
-                "Cannot create BlockchainTest without a code generator, transactions, or blocks"
-            )
-
         return BlockchainTest.from_test(
             base_test=self,
             genesis_environment=self.env,
             pre=self.pre,
             post=self.post,
-            blocks=blocks,
+            blocks=self.blocks,
         )
 
     def generate(
         self,
         t8n: TransitionTool,
-        fork: Fork,
         fixture_format: FixtureFormat,
     ) -> BaseFixture:
         """Generate the blockchain test fixture."""
@@ -310,8 +310,8 @@ class BenchmarkTest(BaseTest):
             exception=self.tx.error is not None if self.tx else False
         )
         if fixture_format in BlockchainTest.supported_fixture_formats:
-            return self.generate_blockchain_test(fork=fork).generate(
-                t8n=t8n, fork=fork, fixture_format=fixture_format
+            return self.generate_blockchain_test().generate(
+                t8n=t8n, fixture_format=fixture_format
             )
         else:
             raise Exception(f"Unsupported fixture format: {fixture_format}")
@@ -319,12 +319,9 @@ class BenchmarkTest(BaseTest):
     def execute(
         self,
         *,
-        fork: Fork,
         execute_format: ExecuteFormat,
     ) -> BaseExecute:
         """Execute the benchmark test by sending it to the live network."""
-        del fork
-
         if execute_format == TransactionPost:
             return TransactionPost(
                 blocks=[[self.tx]],

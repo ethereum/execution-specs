@@ -1,6 +1,4 @@
-"""
-Tests that benchmark EVMs in worst-case opcode scenarios.
-"""
+"""Benchmark system instructions."""
 
 import math
 
@@ -17,32 +15,31 @@ from execution_testing import (
     Hash,
     JumpLoopGenerator,
     Op,
+    StateTestFiller,
     Transaction,
     While,
     compute_create2_address,
     compute_create_address,
 )
 
-REFERENCE_SPEC_GIT_PATH = "TODO"
-REFERENCE_SPEC_VERSION = "TODO"
+from tests.benchmark.compute.helpers import XOR_TABLE
 
-XOR_TABLE_SIZE = 256
-XOR_TABLE = [Hash(i).sha256() for i in range(XOR_TABLE_SIZE)]
+# System instructions:
+# CREATE, CREATE2
+# RETURN, REVERT
+# CALL, CALLCODE, SELFDESTRUCT, DELEGATECALL, STATICCALL
 
 
 @pytest.mark.parametrize(
     "opcode",
     [
-        Op.EXTCODESIZE,
-        Op.EXTCODEHASH,
         Op.CALL,
         Op.CALLCODE,
         Op.DELEGATECALL,
         Op.STATICCALL,
-        Op.EXTCODECOPY,
     ],
 )
-def test_worst_bytecode_single_opcode(
+def test_xcall(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -50,18 +47,7 @@ def test_worst_bytecode_single_opcode(
     env: Environment,
     gas_benchmark_value: int,
 ) -> None:
-    """
-    Test a block execution where a single opcode execution maxes out the gas
-    limit, and the opcodes access a huge amount of contract code.
-
-    We first use a single block to deploy a factory contract that will be used
-    to deploy a large number of contracts.
-
-    This is done to avoid having a big pre-allocation size for the test.
-
-    The test is performed in the last block of the test, and the entire block
-    gas limit is consumed by repeated opcode executions.
-    """
+    """Benchmark a system execution where a single opcode execution."""
     # The attack gas limit is the gas limit which the target tx will use The
     # test will scale the block gas limit to setup the contracts accordingly to
     # be able to pay for the contract deposit. This has to take into account
@@ -249,83 +235,6 @@ def test_worst_bytecode_single_opcode(
 
 
 @pytest.mark.parametrize(
-    "pattern",
-    [
-        Op.STOP,
-        Op.JUMPDEST,
-        Op.PUSH1[bytes(Op.JUMPDEST)],
-        Op.PUSH2[bytes(Op.JUMPDEST + Op.JUMPDEST)],
-        Op.PUSH1[bytes(Op.JUMPDEST)] + Op.JUMPDEST,
-        Op.PUSH2[bytes(Op.JUMPDEST + Op.JUMPDEST)] + Op.JUMPDEST,
-    ],
-    ids=lambda x: x.hex(),
-)
-def test_worst_initcode_jumpdest_analysis(
-    benchmark_test: BenchmarkTestFiller,
-    fork: Fork,
-    pattern: Bytecode,
-) -> None:
-    """
-    Test the jumpdest analysis performance of the initcode.
-
-    This benchmark places a very long initcode in the memory and then invoke
-    CREATE instructions with this initcode up to the block gas limit. The
-    initcode itself has minimal execution time but forces the EVM to perform
-    the full jumpdest analysis on the parametrized byte pattern. The initicode
-    is modified by mixing-in the returned create address between CREATE
-    invocations to prevent caching.
-    """
-    initcode_size = fork.max_initcode_size()
-
-    # Expand the initcode pattern to the transaction data so it can be used in
-    # CALLDATACOPY in the main contract. TODO: tune the tx_data_len param.
-    tx_data_len = 1024
-    tx_data = pattern * (tx_data_len // len(pattern))
-    tx_data += (tx_data_len - len(tx_data)) * bytes(Op.JUMPDEST)
-    assert len(tx_data) == tx_data_len
-    assert initcode_size % len(tx_data) == 0
-
-    # Prepare the initcode in memory.
-    code_prepare_initcode = sum(
-        (
-            Op.CALLDATACOPY(
-                dest_offset=i * len(tx_data), offset=0, size=Op.CALLDATASIZE
-            )
-            for i in range(initcode_size // len(tx_data))
-        ),
-        Bytecode(),
-    )
-
-    # At the start of the initcode execution, jump to the last opcode.
-    # This forces EVM to do the full jumpdest analysis.
-    initcode_prefix = Op.JUMP(initcode_size - 1)
-    code_prepare_initcode += Op.MSTORE(
-        0, Op.PUSH32[bytes(initcode_prefix).ljust(32, bytes(Op.JUMPDEST))]
-    )
-
-    # Make sure the last opcode in the initcode is JUMPDEST.
-    code_prepare_initcode += Op.MSTORE(
-        initcode_size - 32, Op.PUSH32[bytes(Op.JUMPDEST) * 32]
-    )
-
-    attack_block = (
-        Op.PUSH1[len(initcode_prefix)]
-        + Op.MSTORE
-        + Op.CREATE(value=Op.PUSH0, offset=Op.PUSH0, size=Op.MSIZE)
-    )
-
-    setup = code_prepare_initcode + Op.PUSH0
-
-    benchmark_test(
-        code_generator=JumpLoopGenerator(
-            setup=setup,
-            attack_block=attack_block,
-            tx_kwargs={"data": tx_data},
-        ),
-    )
-
-
-@pytest.mark.parametrize(
     "opcode",
     [
         Op.CREATE,
@@ -356,7 +265,7 @@ def test_worst_initcode_jumpdest_analysis(
         pytest.param(1.00, False, 0, id="max code size with zero data"),
     ],
 )
-def test_worst_create(
+def test_create(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -365,9 +274,7 @@ def test_worst_create(
     non_zero_data: bool,
     value: int,
 ) -> None:
-    """
-    Test the CREATE and CREATE2 performance with different configurations.
-    """
+    """Benchmark CREATE and CREATE2 instructions."""
     max_code_size = fork.max_code_size()
 
     code_size = int(max_code_size * max_code_size_ratio)
@@ -452,14 +359,14 @@ def test_worst_create(
         Op.CREATE2,
     ],
 )
-def test_worst_creates_collisions(
+def test_creates_collisions(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     fork: Fork,
     opcode: Op,
     gas_benchmark_value: int,
 ) -> None:
-    """Test the CREATE and CREATE2 collisions performance."""
+    """Benchmark CREATE and CREATE2 instructions with collisions."""
     # We deploy a "proxy contract" which is the contract that will be called in
     # a loop using all the gas in the block. This "proxy contract" is the one
     # executing CREATE2 failing with a collision. The reason why we need a
@@ -513,4 +420,410 @@ def test_worst_creates_collisions(
         code_generator=JumpLoopGenerator(
             setup=setup, attack_block=attack_block
         ),
+    )
+
+
+@pytest.mark.parametrize(
+    "opcode",
+    [Op.RETURN, Op.REVERT],
+)
+@pytest.mark.parametrize(
+    "return_size, return_non_zero_data",
+    [
+        pytest.param(0, False, id="empty"),
+        pytest.param(1024, True, id="1KiB of non-zero data"),
+        pytest.param(1024, False, id="1KiB of zero data"),
+        pytest.param(1024 * 1024, True, id="1MiB of non-zero data"),
+        pytest.param(1024 * 1024, False, id="1MiB of zero data"),
+    ],
+)
+def test_return_revert(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    opcode: Op,
+    return_size: int,
+    return_non_zero_data: bool,
+) -> None:
+    """Benchmark RETURN and REVERT instructions."""
+    max_code_size = fork.max_code_size()
+
+    # Create the contract that will be called repeatedly.
+    # The bytecode of the contract is:
+    # ```
+    # [CODECOPY(returned_size) -- Conditional if return_non_zero_data]
+    # opcode(returned_size)
+    # <Fill with INVALID opcodes up to the max contract size>
+    # ```
+    # Filling the contract up to the max size is a cheap way of leveraging
+    # CODECOPY to return non-zero bytes if requested. Note that since this
+    # is a pre-deploy this cost isn't
+    # relevant for the benchmark.
+    mem_preparation = (
+        Op.CODECOPY(size=return_size) if return_non_zero_data else Bytecode()
+    )
+    executable_code = mem_preparation + opcode(size=return_size)
+    code = executable_code
+    if return_non_zero_data:
+        code += Op.INVALID * (max_code_size - len(executable_code))
+    target_contract_address = pre.deploy_contract(code=code)
+
+    attack_block = Op.POP(Op.STATICCALL(address=target_contract_address))
+
+    benchmark_test(
+        code_generator=JumpLoopGenerator(attack_block=attack_block),
+    )
+
+
+@pytest.mark.parametrize("value_bearing", [True, False])
+def test_selfdestruct_existing(
+    benchmark_test: BenchmarkTestFiller,
+    fork: Fork,
+    pre: Alloc,
+    value_bearing: bool,
+    env: Environment,
+    gas_benchmark_value: int,
+) -> None:
+    """
+    Benchmark SELFDESTRUCT instruction for existing contracts.
+    contracts.
+    """
+    attack_gas_limit = gas_benchmark_value
+    fee_recipient = pre.fund_eoa(amount=1)
+
+    # Template code that will be used to deploy a large number of contracts.
+    selfdestructable_contract_addr = pre.deploy_contract(
+        code=Op.SELFDESTRUCT(Op.COINBASE)
+    )
+    initcode = Op.EXTCODECOPY(
+        address=selfdestructable_contract_addr,
+        dest_offset=0,
+        offset=0,
+        size=Op.EXTCODESIZE(selfdestructable_contract_addr),
+    ) + Op.RETURN(0, Op.EXTCODESIZE(selfdestructable_contract_addr))
+    initcode_address = pre.deploy_contract(code=initcode)
+
+    # Calculate the number of contracts that can be deployed with the available
+    # gas.
+    gas_costs = fork.gas_costs()
+    intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
+    loop_cost = (
+        gas_costs.G_KECCAK_256  # KECCAK static cost
+        + math.ceil(85 / 32) * gas_costs.G_KECCAK_256_WORD  # KECCAK dynamic
+        # cost for CREATE2
+        + gas_costs.G_VERY_LOW * 3  # ~MSTOREs+ADDs
+        + gas_costs.G_COLD_ACCOUNT_ACCESS  # CALL to self-destructing contract
+        + gas_costs.G_SELF_DESTRUCT
+        + 63  # ~Gluing opcodes
+    )
+    final_storage_gas = (
+        gas_costs.G_STORAGE_RESET
+        + gas_costs.G_COLD_SLOAD
+        + (gas_costs.G_VERY_LOW * 2)
+    )
+    memory_expansion_cost = fork().memory_expansion_gas_calculator()(
+        new_bytes=96
+    )
+    base_costs = (
+        intrinsic_gas_cost_calc()
+        + (gas_costs.G_VERY_LOW * 12)  # 8 PUSHs + 4 MSTOREs
+        + final_storage_gas
+        + memory_expansion_cost
+    )
+    num_contracts = (attack_gas_limit - base_costs) // loop_cost
+    expected_benchmark_gas_used = num_contracts * loop_cost + base_costs
+
+    # Create a factory that deployes a new SELFDESTRUCT contract instance pre-
+    # funded depending on the value_bearing parameter. We use CREATE2 so the
+    # caller contract can easily reproduce the addresses in a loop for CALLs.
+    factory_code = (
+        Op.EXTCODECOPY(
+            address=initcode_address,
+            dest_offset=0,
+            offset=0,
+            size=Op.EXTCODESIZE(initcode_address),
+        )
+        + Op.MSTORE(
+            0,
+            Op.CREATE2(
+                value=1 if value_bearing else 0,
+                offset=0,
+                size=Op.EXTCODESIZE(initcode_address),
+                salt=Op.SLOAD(0),
+            ),
+        )
+        + Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1))
+        + Op.RETURN(0, 32)
+    )
+
+    required_balance = num_contracts if value_bearing else 0  # 1 wei per
+    # contract
+    factory_address = pre.deploy_contract(
+        code=factory_code, balance=required_balance
+    )
+
+    factory_caller_code = Op.CALLDATALOAD(0) + While(
+        body=Op.POP(Op.CALL(address=factory_address)),
+        condition=Op.PUSH1(1)
+        + Op.SWAP1
+        + Op.SUB
+        + Op.DUP1
+        + Op.ISZERO
+        + Op.ISZERO,
+    )
+    factory_caller_address = pre.deploy_contract(code=factory_caller_code)
+
+    contracts_deployment_tx = Transaction(
+        to=factory_caller_address,
+        gas_limit=env.gas_limit,
+        data=Hash(num_contracts),
+        sender=pre.fund_eoa(),
+    )
+
+    code = (
+        # Setup memory for later CREATE2 address generation loop.
+        # 0xFF+[Address(20bytes)]+[seed(32bytes)]+[initcode keccak(32bytes)]
+        Op.MSTORE(0, factory_address)
+        + Op.MSTORE8(32 - 20 - 1, 0xFF)
+        + Op.MSTORE(32, 0)
+        + Op.MSTORE(64, initcode.keccak256())
+        # Main loop
+        + While(
+            body=Op.POP(Op.CALL(address=Op.SHA3(32 - 20 - 1, 85)))
+            + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
+            # Only loop if we have enough gas to cover another iteration plus
+            # the final storage gas.
+            condition=Op.GT(Op.GAS, final_storage_gas + loop_cost),
+        )
+        + Op.SSTORE(0, 42)  # Done for successful tx execution assertion below.
+    )
+    assert len(code) <= fork.max_code_size()
+
+    # The 0 storage slot is initialize to avoid creation costs in SSTORE above.
+    code_addr = pre.deploy_contract(code=code, storage={0: 1})
+    opcode_tx = Transaction(
+        to=code_addr,
+        gas_limit=attack_gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {
+        factory_address: Account(storage={0: num_contracts}),
+        code_addr: Account(storage={0: 42}),  # Check for successful execution.
+    }
+    deployed_contract_addresses = []
+    for i in range(num_contracts):
+        deployed_contract_address = compute_create2_address(
+            address=factory_address,
+            salt=i,
+            initcode=initcode,
+        )
+        post[deployed_contract_address] = Account(nonce=1)
+        deployed_contract_addresses.append(deployed_contract_address)
+
+    benchmark_test(
+        post=post,
+        blocks=[
+            Block(txs=[contracts_deployment_tx]),
+            Block(txs=[opcode_tx], fee_recipient=fee_recipient),
+        ],
+        expected_benchmark_gas_used=expected_benchmark_gas_used,
+    )
+
+
+@pytest.mark.parametrize("value_bearing", [True, False])
+def test_selfdestruct_created(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    value_bearing: bool,
+    fork: Fork,
+    env: Environment,
+    gas_benchmark_value: int,
+) -> None:
+    """
+    Benchmark SELFDESTRUCT instruction for deployed contracts within same tx.
+    """
+    fee_recipient = pre.fund_eoa(amount=1)
+    env.fee_recipient = fee_recipient
+
+    # SELFDESTRUCT(COINBASE) contract deployment
+    initcode = (
+        Op.MSTORE8(0, Op.COINBASE.int())
+        + Op.MSTORE8(1, Op.SELFDESTRUCT.int())
+        + Op.RETURN(0, 2)
+    )
+    gas_costs = fork.gas_costs()
+    memory_expansion_calc = fork().memory_expansion_gas_calculator()
+    intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
+
+    initcode_costs = (
+        gas_costs.G_VERY_LOW * 8  # MSTOREs, PUSHs
+        + memory_expansion_calc(new_bytes=2)  # return into memory
+    )
+    create_costs = (
+        initcode_costs
+        + gas_costs.G_CREATE
+        + gas_costs.G_VERY_LOW * 3  # Create Parameter PUSHs
+        + gas_costs.G_CODE_DEPOSIT_BYTE * 2
+        + gas_costs.G_INITCODE_WORD
+    )
+    call_costs = (
+        gas_costs.G_WARM_ACCOUNT_ACCESS
+        + gas_costs.G_BASE  # COINBASE
+        + gas_costs.G_SELF_DESTRUCT
+        + gas_costs.G_VERY_LOW * 5  # CALL Parameter PUSHs
+        + gas_costs.G_BASE  #  Parameter GAS
+    )
+    extra_costs = (
+        gas_costs.G_BASE  # POP
+        + gas_costs.G_VERY_LOW * 6  # PUSHs, ADD, DUP, GT
+        + gas_costs.G_HIGH  # JUMPI
+        + gas_costs.G_JUMPDEST
+    )
+    loop_cost = create_costs + call_costs + extra_costs
+
+    prefix_cost = (
+        gas_costs.G_VERY_LOW * 3
+        + gas_costs.G_BASE
+        + memory_expansion_calc(new_bytes=32)
+    )
+    suffix_cost = (
+        gas_costs.G_COLD_SLOAD
+        + gas_costs.G_STORAGE_RESET
+        + (gas_costs.G_VERY_LOW * 2)
+    )
+
+    base_costs = prefix_cost + suffix_cost + intrinsic_gas_cost_calc()
+
+    iterations = (gas_benchmark_value - base_costs) // loop_cost
+
+    code_prefix = Op.MSTORE(0, initcode.hex()) + Op.PUSH0 + Op.JUMPDEST
+    code_suffix = (
+        Op.SSTORE(0, 42)  # Done for successful tx execution assertion below.
+        + Op.STOP
+    )
+    loop_body = (
+        Op.POP(
+            Op.CALL(
+                address=Op.CREATE(
+                    value=1 if value_bearing else 0,
+                    offset=32 - len(initcode),
+                    size=len(initcode),
+                )
+            )
+        )
+        + Op.PUSH1[1]
+        + Op.ADD
+        + Op.JUMPI(len(code_prefix) - 1, Op.GT(iterations, Op.DUP1))
+    )
+    code = code_prefix + loop_body + code_suffix
+    # The 0 storage slot is initialize to avoid creation costs in SSTORE above.
+    code_addr = pre.deploy_contract(
+        code=code,
+        balance=iterations if value_bearing else 0,
+        storage={0: 1},
+    )
+    code_tx = Transaction(
+        to=code_addr,
+        gas_limit=gas_benchmark_value,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {code_addr: Account(storage={0: 42})}  # Check for successful
+    # execution.
+    state_test(
+        pre=pre,
+        post=post,
+        tx=code_tx,
+        expected_benchmark_gas_used=iterations * loop_cost + base_costs,
+    )
+
+
+@pytest.mark.parametrize("value_bearing", [True, False])
+def test_selfdestruct_initcode(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    value_bearing: bool,
+    fork: Fork,
+    env: Environment,
+    gas_benchmark_value: int,
+) -> None:
+    """Benchmark SELFDESTRUCT instruction executed in initcode."""
+    fee_recipient = pre.fund_eoa(amount=1)
+    env.fee_recipient = fee_recipient
+
+    gas_costs = fork.gas_costs()
+    memory_expansion_calc = fork().memory_expansion_gas_calculator()
+    intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
+
+    initcode_costs = (
+        gas_costs.G_BASE  # COINBASE
+        + gas_costs.G_SELF_DESTRUCT
+    )
+    create_costs = (
+        initcode_costs
+        + gas_costs.G_CREATE
+        + gas_costs.G_VERY_LOW * 3  # Create Parameter PUSHs
+        + gas_costs.G_INITCODE_WORD
+    )
+    extra_costs = (
+        gas_costs.G_BASE  # POP
+        + gas_costs.G_VERY_LOW * 6  # PUSHs, ADD, DUP, GT
+        + gas_costs.G_HIGH  # JUMPI
+        + gas_costs.G_JUMPDEST
+    )
+    loop_cost = create_costs + extra_costs
+
+    prefix_cost = (
+        gas_costs.G_VERY_LOW * 3
+        + gas_costs.G_BASE
+        + memory_expansion_calc(new_bytes=32)
+    )
+    suffix_cost = (
+        gas_costs.G_COLD_SLOAD
+        + gas_costs.G_STORAGE_RESET
+        + (gas_costs.G_VERY_LOW * 2)
+    )
+
+    base_costs = prefix_cost + suffix_cost + intrinsic_gas_cost_calc()
+
+    iterations = (gas_benchmark_value - base_costs) // loop_cost
+
+    initcode = Op.SELFDESTRUCT(Op.COINBASE)
+    code_prefix = Op.MSTORE(0, initcode.hex()) + Op.PUSH0 + Op.JUMPDEST
+    code_suffix = (
+        Op.SSTORE(0, 42)  # Done for successful tx execution assertion below.
+        + Op.STOP
+    )
+
+    loop_body = (
+        Op.POP(
+            Op.CREATE(
+                value=1 if value_bearing else 0,
+                offset=32 - len(initcode),
+                size=len(initcode),
+            )
+        )
+        + Op.PUSH1[1]
+        + Op.ADD
+        + Op.JUMPI(len(code_prefix) - 1, Op.GT(iterations, Op.DUP1))
+    )
+    code = code_prefix + loop_body + code_suffix
+
+    # The 0 storage slot is initialize to avoid creation costs in SSTORE above.
+    code_addr = pre.deploy_contract(code=code, balance=100_000, storage={0: 1})
+    code_tx = Transaction(
+        to=code_addr,
+        gas_limit=gas_benchmark_value,
+        gas_price=10,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {code_addr: Account(storage={0: 42})}  # Check for successful
+    # execution.
+    state_test(
+        pre=pre,
+        post=post,
+        tx=code_tx,
+        expected_benchmark_gas_used=iterations * loop_cost + base_costs,
     )

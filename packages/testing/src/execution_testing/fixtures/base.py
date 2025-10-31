@@ -147,7 +147,7 @@ class BaseFixture(CamelModel):
     ) -> None:
         """Fill the info field for this fixture."""
         if "comment" not in self.info:
-            self.info["comment"] = "`execution-spec-tests` generated test"
+            self.info["comment"] = "`execution-specs` generated test"
         self.info["filling-transition-tool"] = t8n_version
         self.info["description"] = test_case_description
         self.info["url"] = fixture_source_url

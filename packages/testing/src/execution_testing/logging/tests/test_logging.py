@@ -15,7 +15,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ..plugin_logging import (
+from .. import (
     FAIL_LEVEL,
     VERBOSE_LEVEL,
     ColorFormatter,
@@ -206,7 +206,7 @@ class TestPytestIntegration:
 
     def test_pytest_configure(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that pytest_configure sets up logging correctly."""
-        from execution_testing.cli.pytest_commands.plugins.custom_logging.plugin_logging import (
+        from execution_testing.cli.pytest_commands.plugins.custom_logging.plugin_logging import (  # noqa: E501
             pytest_configure,
         )
 

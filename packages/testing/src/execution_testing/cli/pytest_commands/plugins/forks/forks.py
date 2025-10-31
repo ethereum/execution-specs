@@ -25,7 +25,7 @@ from _pytest.mark.structures import ParameterSet
 from pytest import Mark, Metafunc
 
 from execution_testing.client_clis import TransitionTool
-from execution_testing.cli.pytest_commands.plugins.custom_logging import (
+from execution_testing.logging import (
     get_logger,
 )
 from execution_testing.forks import (

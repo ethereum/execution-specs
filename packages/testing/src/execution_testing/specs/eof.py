@@ -379,11 +379,7 @@ class EOFTest(BaseTest):
         if self.post is None:
             self.post = Alloc()
 
-    def make_eof_test_fixture(
-        self,
-        *,
-        fork: Fork,
-    ) -> EOFFixture:
+    def make_eof_test_fixture(self) -> EOFFixture:
         """Generate the EOF test fixture."""
         container_bytes = Bytes(self.container)
         if container_bytes in existing_tests:
@@ -397,7 +393,7 @@ class EOFTest(BaseTest):
                 code=container_bytes,
                 container_kind=self.container_kind,
                 results={
-                    fork: Result(
+                    self.fork: Result(
                         exception=self.expect_exception,
                         valid=self.expect_exception is None,
                     ),
@@ -415,10 +411,10 @@ class EOFTest(BaseTest):
             return fixture
 
         for _, vector in fixture.vectors.items():
-            expected_result = vector.results.get(fork)
+            expected_result = vector.results.get(self.fork)
             if expected_result is None:
                 raise Exception(
-                    f"EOF Fixture missing vector result for fork: {fork}"
+                    f"EOF Fixture missing vector result for fork: {self.fork}"
                 )
             args = []
             if vector.container_kind == ContainerKind.INITCODE:
@@ -534,9 +530,8 @@ class EOFTest(BaseTest):
             )
         return tx
 
-    def generate_state_test(self, fork: Fork) -> StateTest:
+    def generate_state_test(self) -> StateTest:
         """Generate the StateTest filler."""
-        del fork
         return StateTest.from_test(
             base_test=self,
             pre=self.pre,
@@ -549,29 +544,27 @@ class EOFTest(BaseTest):
         self,
         *,
         t8n: TransitionTool,
-        fork: Fork,
         fixture_format: FixtureFormat,
         **_: Any,
     ) -> BaseFixture:
         """Generate the BlockchainTest fixture."""
         if fixture_format == EOFFixture:
-            return self.make_eof_test_fixture(fork=fork)
+            return self.make_eof_test_fixture()
         elif fixture_format in StateTest.supported_fixture_formats:
-            return self.generate_state_test(fork).generate(
-                t8n=t8n, fork=fork, fixture_format=fixture_format
+            return self.generate_state_test().generate(
+                t8n=t8n, fixture_format=fixture_format
             )
         raise Exception(f"Unknown fixture format: {fixture_format}")
 
     def execute(
         self,
         *,
-        fork: Fork,
         execute_format: ExecuteFormat,
     ) -> BaseExecute:
         """Generate the list of test fixtures."""
         if execute_format == TransactionPost:
-            return self.generate_state_test(fork).execute(
-                fork=fork, execute_format=execute_format
+            return self.generate_state_test().execute(
+                execute_format=execute_format
             )
         raise Exception(f"Unsupported execute format: {execute_format}")
 
@@ -693,10 +686,8 @@ class EOFStateTest(EOFTest, Transaction):
 
             self.post[self.to] = self.container_post
 
-    def generate_state_test(self, fork: Fork) -> StateTest:
+    def generate_state_test(self) -> StateTest:
         """Generate the StateTest filler."""
-        del fork
-
         assert self.pre is not None, "pre must be set to generate a StateTest."
         assert self.post is not None, (
             "post must be set to generate a StateTest."
@@ -714,7 +705,6 @@ class EOFStateTest(EOFTest, Transaction):
         self,
         *,
         t8n: TransitionTool,
-        fork: Fork,
         fixture_format: FixtureFormat,
         **_: Any,
     ) -> BaseFixture:
@@ -726,10 +716,10 @@ class EOFStateTest(EOFTest, Transaction):
                 pytest.skip(
                     f"Duplicate EOF container on EOFStateTest: {self.node_id()}"
                 )
-            return self.make_eof_test_fixture(fork=fork)
+            return self.make_eof_test_fixture()
         elif fixture_format in StateTest.supported_fixture_formats:
-            return self.generate_state_test(fork).generate(
-                t8n=t8n, fork=fork, fixture_format=fixture_format
+            return self.generate_state_test().generate(
+                t8n=t8n, fixture_format=fixture_format
             )
 
         raise Exception(f"Unknown fixture format: {fixture_format}")

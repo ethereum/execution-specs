@@ -28,10 +28,10 @@ def test_transaction_test_filling(
 ) -> None:
     """Test the transaction test filling."""
     generated_fixture = TransactionTest(
-        tx=tx.with_signature_and_sender()
+        tx=tx.with_signature_and_sender(),
+        fork=fork,
     ).generate(
         t8n=None,  # type: ignore
-        fork=fork,
         fixture_format=TransactionFixture,
     )
     assert generated_fixture.__class__ == TransactionFixture

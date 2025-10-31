@@ -39,6 +39,7 @@ from execution_testing.fixtures import (
     PreAllocGroups,
 )
 from execution_testing.forks import Fork
+from execution_testing.forks.base_fork import BaseFork
 from execution_testing.test_types import Alloc, Environment, Withdrawal
 
 
@@ -91,6 +92,11 @@ class BaseTest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     tag: str = ""
+    fork: Fork = (
+        BaseFork  # type: ignore[type-abstract]
+        # default to BaseFork to allow the filler to set it,
+        # instead of each test having to set it
+    )
 
     _request: pytest.FixtureRequest | None = PrivateAttr(None)
     _operation_mode: OpMode | None = PrivateAttr(None)
@@ -113,6 +119,16 @@ class BaseTest(BaseModel):
     supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = []
 
     supported_markers: ClassVar[Dict[str, str]] = {}
+
+    def model_post_init(self, __context: Any, /) -> None:
+        """
+        Model post-init to assert that the custom pre-allocation was
+        provided and the default was not used.
+        """
+        super().model_post_init(__context)
+        assert self.fork != BaseFork, (
+            "Fork was not provided by the filler/executor."
+        )
 
     @classmethod
     def discard_fixture_format_by_marks(
@@ -148,6 +164,7 @@ class BaseTest(BaseModel):
         """Create a test in a different format from a base test."""
         new_instance = cls(
             tag=base_test.tag,
+            fork=base_test.fork,
             t8n_dump_dir=base_test.t8n_dump_dir,
             expected_benchmark_gas_used=base_test.expected_benchmark_gas_used,
             skip_gas_used_validation=base_test.skip_gas_used_validation,
@@ -177,7 +194,6 @@ class BaseTest(BaseModel):
         self,
         *,
         t8n: TransitionTool,
-        fork: Fork,
         fixture_format: FixtureFormat,
     ) -> BaseFixture:
         """Generate the list of test fixtures."""
@@ -186,11 +202,9 @@ class BaseTest(BaseModel):
     def execute(
         self,
         *,
-        fork: Fork,
         execute_format: ExecuteFormat,
     ) -> BaseExecute:
         """Generate the list of test fixtures."""
-        del fork
         raise Exception(f"Unsupported execute format: {execute_format}")
 
     @classmethod
@@ -273,7 +287,7 @@ class BaseTest(BaseModel):
                     "from the test."
                 )
 
-    def get_genesis_environment(self, fork: Fork) -> Environment:
+    def get_genesis_environment(self) -> Environment:
         """
         Get the genesis environment for pre-allocation groups.
 
@@ -286,7 +300,7 @@ class BaseTest(BaseModel):
         )
 
     def update_pre_alloc_groups(
-        self, pre_alloc_groups: PreAllocGroups, fork: Fork, test_id: str
+        self, pre_alloc_groups: PreAllocGroups, test_id: str
     ) -> PreAllocGroups:
         """
         Create or update the pre-allocation group with the pre from the current
@@ -297,7 +311,7 @@ class BaseTest(BaseModel):
                 f"{self.__class__.__name__} does not have a 'pre' field. Pre-allocation groups "
                 "are only supported for test types that define pre-allocation."
             )
-        pre_alloc_hash = self.compute_pre_alloc_group_hash(fork=fork)
+        pre_alloc_hash = self.compute_pre_alloc_group_hash()
 
         if pre_alloc_hash in pre_alloc_groups:
             # Update existing group - just merge pre-allocations
@@ -307,36 +321,36 @@ class BaseTest(BaseModel):
                 self.pre,
                 key_collision_mode=Alloc.KeyCollisionMode.ALLOW_IDENTICAL_ACCOUNTS,
             )
-            group.fork = fork
+            group.fork = self.fork
             group.test_ids.append(str(test_id))
             pre_alloc_groups[pre_alloc_hash] = group
         else:
             # Create new group - use Environment instead of expensive genesis
             # generation
-            genesis_env = self.get_genesis_environment(fork)
+            genesis_env = self.get_genesis_environment()
             pre_alloc = Alloc.merge(
-                Alloc.model_validate(fork.pre_allocation_blockchain()),
+                Alloc.model_validate(self.fork.pre_allocation_blockchain()),
                 self.pre,
             )
             group = PreAllocGroup(
                 test_ids=[str(test_id)],
-                fork=fork,
+                fork=self.fork,
                 environment=genesis_env,
                 pre=pre_alloc,
             )
             pre_alloc_groups[pre_alloc_hash] = group
         return pre_alloc_groups
 
-    def compute_pre_alloc_group_hash(self, fork: Fork) -> str:
+    def compute_pre_alloc_group_hash(self) -> str:
         """Hash (fork, env) in order to group tests by genesis config."""
         if not hasattr(self, "pre"):
             raise AttributeError(
                 f"{self.__class__.__name__} does not have a 'pre' field. Pre-allocation group "
                 "usage is only supported for test types that define pre-allocs."
             )
-        fork_digest = hashlib.sha256(fork.name().encode("utf-8")).digest()
+        fork_digest = hashlib.sha256(self.fork.name().encode("utf-8")).digest()
         fork_hash = int.from_bytes(fork_digest[:8], byteorder="big")
-        genesis_env = self.get_genesis_environment(fork)
+        genesis_env = self.get_genesis_environment()
         combined_hash = fork_hash ^ hash(genesis_env)
 
         # Check if test has pre_alloc_group marker

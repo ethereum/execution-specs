@@ -1,6 +1,4 @@
-"""
-Tests that benchmark EVMs in worst-case block scenarios.
-"""
+"""Benchmark different transaction types."""
 
 import math
 import random
@@ -21,6 +19,16 @@ from execution_testing import (
     Op,
     Transaction,
 )
+
+
+def test_empty_block(
+    benchmark_test: BenchmarkTestFiller,
+) -> None:
+    """Test running an empty block as a baseline for fixed proving costs."""
+    benchmark_test(
+        blocks=[Block(txs=[])],
+        expected_benchmark_gas_used=0,
+    )
 
 
 @pytest.fixture
@@ -233,18 +241,17 @@ def test_block_full_data(
     intrinsic_cost: int,
     total_cost_floor_per_token: int,
     gas_benchmark_value: int,
-    tx_gas_limit_cap: int,
-    total_cost_standard_per_token: int,
+    tx_gas_limit: int,
     fork: Fork,
 ) -> None:
     """Test a block with empty payload."""
-    iteration_count = math.ceil(gas_benchmark_value / tx_gas_limit_cap)
+    iteration_count = math.ceil(gas_benchmark_value / tx_gas_limit)
 
     gas_remaining = gas_benchmark_value
     total_gas_used = 0
     txs = []
     for _ in range(iteration_count):
-        gas_available = min(tx_gas_limit_cap, gas_remaining) - intrinsic_cost
+        gas_available = min(tx_gas_limit, gas_remaining) - intrinsic_cost
         data = calldata_generator(
             gas_available,
             zero_byte,
@@ -278,20 +285,20 @@ def test_block_full_access_list_and_data(
     total_cost_standard_per_token: int,
     fork: Fork,
     gas_benchmark_value: int,
-    tx_gas_limit_cap: int,
+    tx_gas_limit: int,
 ) -> None:
     """
     Test a block with access lists (60% gas) and calldata (40% gas) using
     random mixed bytes.
     """
-    iteration_count = math.ceil(gas_benchmark_value / tx_gas_limit_cap)
+    iteration_count = math.ceil(gas_benchmark_value / tx_gas_limit)
 
     gas_remaining = gas_benchmark_value
     total_gas_used = 0
 
     txs = []
     for _ in range(iteration_count):
-        gas_available = min(tx_gas_limit_cap, gas_remaining) - intrinsic_cost
+        gas_available = min(tx_gas_limit, gas_remaining) - intrinsic_cost
 
         # Split available gas: 60% for access lists, 40% for calldata
         gas_for_access_list = int(gas_available * 0.6)

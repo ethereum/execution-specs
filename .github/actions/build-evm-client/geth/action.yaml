@@ -1,0 +1,36 @@
+name: 'Build Go-Ethereum EVM'
+description: 'Builds the Go-Ethereum EVM binary'
+inputs:
+  repo:
+    description: 'Source repository to use to build the EVM binary'
+    required: true
+    default: 'ethereum/go-ethereum'
+  ref:
+    description: 'Reference to branch, commit, or tag to use to build the EVM binary'
+    required: true
+    default: 'master'
+  golang:
+    description: 'Golang version to use to build Geth'
+    required: false
+    default: '1.21.x'
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout go-ethereum
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        repository: ${{ inputs.repo }}
+        ref: ${{ inputs.ref }}
+        path: go-ethereum
+    - name: Setup golang
+      uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b
+      with:
+        go-version: ${{ inputs.golang }}
+        cache-dependency-path: go-ethereum/go.sum
+    - name: Build evm cmd
+      shell: bash
+      run: |
+        mkdir -p $GITHUB_WORKSPACE/bin
+        cd $GITHUB_WORKSPACE/go-ethereum/cmd/evm
+        go build .
+        echo $GITHUB_WORKSPACE/go-ethereum/cmd/evm >> $GITHUB_PATH

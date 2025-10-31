@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from ethereum_rlp import rlp
-from ethereum_types.bytes import Bytes32
+from ethereum_types.bytes import Bytes8, Bytes20, Bytes32, Bytes256
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
@@ -99,11 +99,6 @@ class Env:
         if not t8n.fork.is_after_fork("cancun"):
             return
 
-        if "currentExcessBlobGas" in data:
-            self.excess_blob_gas = parse_hex_or_int(
-                data["currentExcessBlobGas"], U64
-            )
-
         if "parentExcessBlobGas" in data:
             self.parent_excess_blob_gas = parse_hex_or_int(
                 data["parentExcessBlobGas"], U64
@@ -114,51 +109,48 @@ class Env:
                 data["parentBlobGasUsed"], U64
             )
 
-        if self.excess_blob_gas is not None:
+        if "currentExcessBlobGas" in data:
+            self.excess_blob_gas = parse_hex_or_int(
+                data["currentExcessBlobGas"], U64
+            )
             return
 
         assert self.parent_excess_blob_gas is not None
         assert self.parent_blob_gas_used is not None
 
-        parent_blob_gas = (
-            self.parent_excess_blob_gas + self.parent_blob_gas_used
+        arguments = {
+            # Useless as far as calculate_excess_blob_gas is concerned.
+            "parent_hash": Hash32(b"\0" * 32),
+            "ommers_hash": Hash32(b"\0" * 32),
+            "coinbase": Bytes20(b"\0" * 20),
+            "state_root": Hash32(b"\0" * 32),
+            "transactions_root": Hash32(b"\0" * 32),
+            "receipt_root": Hash32(b"\0" * 32),
+            "bloom": Bytes256(b"\0" * 256),
+            "difficulty": Uint(0),
+            "number": Uint(0),
+            "gas_limit": Uint(0),
+            "gas_used": Uint(0),
+            "timestamp": U256(0),
+            "extra_data": b"",
+            "prev_randao": Bytes32(b"\0" * 32),
+            "nonce": Bytes8(b"\0" * 8),
+            "withdrawals_root": Hash32(b"\0" * 32),
+            "parent_beacon_block_root": Hash32(b"\0" * 32),
+            # Used for calculating excess_blob_gas.
+            "base_fee_per_gas": self.parent_base_fee_per_gas,
+            "blob_gas_used": self.parent_blob_gas_used,
+            "excess_blob_gas": self.parent_excess_blob_gas,
+        }
+
+        if t8n.fork.is_after_fork("prague"):
+            arguments["requests_hash"] = Hash32(b"\0" * 32)
+
+        parent_header = t8n.fork.Header(**arguments)
+
+        self.excess_blob_gas = t8n.fork.calculate_excess_blob_gas(
+            parent_header
         )
-
-        target_blob_gas_per_block = t8n.fork.TARGET_BLOB_GAS_PER_BLOCK
-
-        if parent_blob_gas < target_blob_gas_per_block:
-            self.excess_blob_gas = U64(0)
-        else:
-            self.excess_blob_gas = parent_blob_gas - target_blob_gas_per_block
-
-            if t8n.fork.is_after_fork("osaka"):
-                # Under certain conditions specified in EIP-7918, the
-                # the excess_blob_gas is calculated differently in osaka
-                assert self.parent_base_fee_per_gas is not None
-
-                GAS_PER_BLOB = t8n.fork.GAS_PER_BLOB  # noqa N806
-                BLOB_BASE_COST = t8n.fork.BLOB_BASE_COST  # noqa N806
-                BLOB_SCHEDULE_MAX = t8n.fork.BLOB_SCHEDULE_MAX  # noqa N806
-                BLOB_SCHEDULE_TARGET = t8n.fork.BLOB_SCHEDULE_TARGET  # noqa N806
-
-                target_blob_gas_price = Uint(GAS_PER_BLOB)
-                target_blob_gas_price *= t8n.fork.calculate_blob_gas_price(
-                    self.parent_excess_blob_gas
-                )
-
-                base_blob_tx_price = (
-                    BLOB_BASE_COST * self.parent_base_fee_per_gas
-                )
-                if base_blob_tx_price > target_blob_gas_price:
-                    blob_schedule_delta = (
-                        BLOB_SCHEDULE_MAX - BLOB_SCHEDULE_TARGET
-                    )
-                    self.excess_blob_gas = (
-                        self.parent_excess_blob_gas
-                        + self.parent_blob_gas_used
-                        * blob_schedule_delta
-                        // BLOB_SCHEDULE_MAX
-                    )
 
     def read_base_fee_per_gas(self, data: Any, t8n: "T8N") -> None:
         """

@@ -74,4 +74,18 @@ class RethExceptionMapper(ExceptionMapper):
         BlockException.INVALID_GAS_USED_ABOVE_LIMIT: (
             r"block used gas \(\d+\) is greater than gas limit \(\d+\)"
         ),
+        # BAL Exceptions: TODO - review once all clients completed.
+        BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
+            r"Block BAL contains an account change that is not present in the computed BAL."
+        ),
+        BlockException.INVALID_BAL_HASH: (r"Block's access list is invalid."),
+        BlockException.INVALID_BAL_MISSING_ACCOUNT: (
+            r"Block BAL is missing an account change that is present in the computed BAL."
+        ),
+        BlockException.INVALID_BLOCK_ACCESS_LIST: (
+            r"Block's access list is invalid."
+        ),
+        BlockException.INCORRECT_BLOCK_FORMAT: (
+            r"Block's access list is invalid."
+        ),
     }
