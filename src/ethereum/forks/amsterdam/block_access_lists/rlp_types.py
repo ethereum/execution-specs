@@ -7,7 +7,7 @@ The encoding follows the pattern:
 address -> field -> block_access_index -> change.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Tuple
 
 from ethereum_types.bytes import Bytes, Bytes20, Bytes32
@@ -123,8 +123,9 @@ class AccountChanges:
 class BlockAccessList:
     """
     Block-Level Access List for EIP-7928.
-    Contains all addresses accessed during block execution.
-    RLP encoded as a list of AccountChanges.
+    Contains all addresses accessed during block execution and gas used per
+    transaction. RLP encoded as [account_changes, gas_used].
     """
 
     account_changes: Tuple[AccountChanges, ...]
+    gas_used: Tuple[Uint, ...] = field(default_factory=tuple)

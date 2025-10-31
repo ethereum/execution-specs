@@ -112,6 +112,12 @@ class StateChangeTracker:
     Stack of snapshots for nested call frames to handle reverts properly.
     """
 
+    gas_used_list: List[Uint] = field(default_factory=list)
+    """
+    List of gas_used values for each transaction in the order they appear
+    in the block.
+    """
+
 
 def set_block_access_index(
     tracker: StateChangeTracker, block_access_index: Uint
@@ -666,3 +672,23 @@ def commit_call_frame(tracker: StateChangeTracker) -> None:
     """
     if tracker.call_frame_snapshots:
         tracker.call_frame_snapshots.pop()
+
+
+def track_transaction_gas_used(
+    tracker: StateChangeTracker, gas_used: Uint
+) -> None:
+    """
+    Track the gas used by a transaction.
+
+    Records the gas_used value for each transaction in the order they
+    appear in the block. This is called after each transaction is processed.
+
+    Parameters
+    ----------
+    tracker :
+        The state change tracker instance.
+    gas_used :
+        The gas used by the transaction.
+
+    """
+    tracker.gas_used_list.append(gas_used)

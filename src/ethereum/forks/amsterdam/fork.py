@@ -37,6 +37,7 @@ from .block_access_lists.tracker import (
     normalize_balance_changes,
     set_block_access_index,
     track_balance_change,
+    track_transaction_gas_used,
 )
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
@@ -809,7 +810,8 @@ def apply_body(
         block_output=block_output,
     )
     block_output.block_access_list = build_block_access_list(
-        block_env.state.change_tracker.block_access_list_builder
+        block_env.state.change_tracker.block_access_list_builder,
+        block_env.state.change_tracker.gas_used_list,
     )
 
     return block_output
@@ -1032,6 +1034,10 @@ def process_transaction(
 
     block_output.block_gas_used += tx_gas_used_after_refund
     block_output.blob_gas_used += tx_blob_gas_used
+
+    track_transaction_gas_used(
+        block_env.state.change_tracker, tx_gas_used_after_refund
+    )
 
     receipt = make_receipt(
         tx, tx_output.error, block_output.block_gas_used, tx_output.logs

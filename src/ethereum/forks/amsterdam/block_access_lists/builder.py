@@ -14,10 +14,10 @@ The builder follows a two-phase approach:
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Set
+from typing import Dict, List, Optional, Set
 
 from ethereum_types.bytes import Bytes, Bytes32
-from ethereum_types.numeric import U64, U256
+from ethereum_types.numeric import U64, U256, Uint
 
 from ..fork_types import Address
 from .rlp_types import (
@@ -364,6 +364,7 @@ def add_touched_account(
 
 def build_block_access_list(
     builder: BlockAccessListBuilder,
+    gas_used_list: Optional[List[Uint]] = None,
 ) -> BlockAccessList:
     """
     Build the final [`BlockAccessList`] from accumulated changes.
@@ -380,11 +381,14 @@ def build_block_access_list(
     ----------
     builder :
         The block access list builder containing all tracked changes.
+    gas_used_list :
+        Optional list of gas_used values for each transaction in the order
+        they appear in the block.
 
     Returns
     -------
     block_access_list :
-        The final sorted and encoded block access list.
+        The final sorted and encoded block access list including gas_used.
 
     [`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList  # noqa: E501
 
@@ -432,4 +436,8 @@ def build_block_access_list(
 
     account_changes_list.sort(key=lambda x: x.address)
 
-    return BlockAccessList(account_changes=tuple(account_changes_list))
+    gas_used_tuple = tuple(gas_used_list) if gas_used_list else tuple()
+    return BlockAccessList(
+        account_changes=tuple(account_changes_list),
+        gas_used=gas_used_tuple,
+    )

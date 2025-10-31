@@ -29,6 +29,7 @@ from .tracker import (
     track_nonce_change,
     track_storage_read,
     track_storage_write,
+    track_transaction_gas_used,
 )
 
 __all__ = [
@@ -53,5 +54,6 @@ __all__ = [
     "track_nonce_change",
     "track_storage_read",
     "track_storage_write",
+    "track_transaction_gas_used",
     "validate_block_access_list_against_execution",
 ]

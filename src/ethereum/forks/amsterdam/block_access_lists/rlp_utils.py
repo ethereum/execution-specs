@@ -114,7 +114,8 @@ def rlp_encode_block_access_list(block_access_list: BlockAccessList) -> Bytes:
             ]
         )
 
-    encoded = rlp.encode(cast(Extended, account_changes_list))
+    gas_used_list = [Uint(gas) for gas in block_access_list.gas_used]
+    encoded = rlp.encode(cast(Extended, [account_changes_list, gas_used_list]))
     return Bytes(encoded)
 
 
