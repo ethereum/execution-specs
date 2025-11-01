@@ -26,7 +26,7 @@ from ethereum_types.numeric import U256, Uint
 from .block_access_lists.builder import BlockAccessListBuilder
 from .block_access_lists.tracker import (
     StateChangeTracker,
-    capture_pre_balance,
+    prepare_balance_tracking,
     track_balance_change,
     track_code_change,
     track_nonce_change,
@@ -521,9 +521,10 @@ def move_ether(
     """
     Move funds between accounts.
     """
-    # Capture pre-transaction balance before first modification
-    capture_pre_balance(state.change_tracker, sender_address, state)
-    capture_pre_balance(state.change_tracker, recipient_address, state)
+    # Prepare for balance tracking (captures pre-balance and ensures
+    # addresses are tracked)
+    prepare_balance_tracking(state, sender_address)
+    prepare_balance_tracking(state, recipient_address)
 
     def reduce_sender_balance(sender: Account) -> None:
         if sender.balance < amount:
@@ -539,12 +540,8 @@ def move_ether(
     sender_new_balance = get_account(state, sender_address).balance
     recipient_new_balance = get_account(state, recipient_address).balance
 
-    track_balance_change(
-        state.change_tracker, sender_address, U256(sender_new_balance)
-    )
-    track_balance_change(
-        state.change_tracker, recipient_address, U256(recipient_new_balance)
-    )
+    track_balance_change(state, sender_address, U256(sender_new_balance))
+    track_balance_change(state, recipient_address, U256(recipient_new_balance))
 
 
 def set_account_balance(state: State, address: Address, amount: U256) -> None:
@@ -563,15 +560,16 @@ def set_account_balance(state: State, address: Address, amount: U256) -> None:
         The amount that needs to set in balance.
 
     """
-    # Capture pre-transaction balance before first modification
-    capture_pre_balance(state.change_tracker, address, state)
+    # Prepare for balance tracking (captures pre-balance and ensures
+    # address is tracked)
+    prepare_balance_tracking(state, address)
 
     def set_balance(account: Account) -> None:
         account.balance = amount
 
     modify_state(state, address, set_balance)
 
-    track_balance_change(state.change_tracker, address, amount)
+    track_balance_change(state, address, amount)
 
 
 def increment_nonce(state: State, address: Address) -> None:
@@ -601,7 +599,7 @@ def increment_nonce(state: State, address: Address) -> None:
     # - Deployed contracts
     # - EIP-7702 authorities
     account = get_account(state, address)
-    track_nonce_change(state.change_tracker, address, account.nonce)
+    track_nonce_change(state, address, account.nonce)
 
 
 def set_code(state: State, address: Address, code: Bytes) -> None:
@@ -631,7 +629,7 @@ def set_code(state: State, address: Address, code: Bytes) -> None:
     # code to b"" is not a meaningful state change since the address
     # had no code to begin with.
     if not (code == b"" and address in state.created_accounts):
-        track_code_change(state.change_tracker, address, code)
+        track_code_change(state, address, code)
 
 
 def get_storage_original(state: State, address: Address, key: Bytes32) -> U256:

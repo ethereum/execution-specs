@@ -141,7 +141,7 @@ def access_delegation(
         return False, address, code, Uint(0)
 
     # EIP-7928: Track the authority address (delegated account being called)
-    track_address_access(state.change_tracker, address)
+    track_address_access(state, address)
 
     address = Address(code[EOA_DELEGATION_MARKER_LENGTH:])
     if address in evm.accessed_addresses:
@@ -152,7 +152,7 @@ def access_delegation(
     code = get_account(state, address).code
 
     # EIP-7928: Track delegation target when loaded as call target
-    track_address_access(state.change_tracker, address)
+    track_address_access(state, address)
 
     return True, address, code, access_gas_cost
 
@@ -195,7 +195,7 @@ def set_delegation(message: Message) -> U256:
 
         # EIP-7928: Track authority account access in BAL even if delegation
         # fails
-        track_address_access(state.change_tracker, authority)
+        track_address_access(state, authority)
 
         if authority_code and not is_valid_delegation(authority_code):
             continue

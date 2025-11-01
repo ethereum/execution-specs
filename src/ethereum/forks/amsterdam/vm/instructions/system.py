@@ -111,7 +111,7 @@ def generic_create(
     evm.accessed_addresses.add(contract_address)
 
     # Track address access for BAL
-    track_address_access(state.change_tracker, contract_address)
+    track_address_access(state, contract_address)
 
     if account_has_code_or_nonce(
         state, contract_address
@@ -396,7 +396,7 @@ def call(evm: Evm) -> None:
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
     # Track address access for BAL
-    track_address_access(evm.message.block_env.state.change_tracker, to)
+    track_address_access(evm.message.block_env.state, to)
 
     code_address = to
     (
@@ -488,9 +488,7 @@ def callcode(evm: Evm) -> None:
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
     # Track address access for BAL
-    track_address_access(
-        evm.message.block_env.state.change_tracker, code_address
-    )
+    track_address_access(evm.message.block_env.state, code_address)
 
     (
         disable_precompiles,
@@ -564,9 +562,7 @@ def selfdestruct(evm: Evm) -> None:
         gas_cost += GAS_COLD_ACCOUNT_ACCESS
 
     # Track address access for BAL
-    track_address_access(
-        evm.message.block_env.state.change_tracker, beneficiary
-    )
+    track_address_access(evm.message.block_env.state, beneficiary)
 
     if (
         not is_account_alive(evm.message.block_env.state, beneficiary)
@@ -644,9 +640,7 @@ def delegatecall(evm: Evm) -> None:
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
     # Track address access for BAL
-    track_address_access(
-        evm.message.block_env.state.change_tracker, code_address
-    )
+    track_address_access(evm.message.block_env.state, code_address)
 
     (
         disable_precompiles,
@@ -718,7 +712,7 @@ def staticcall(evm: Evm) -> None:
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
     # Track address access for BAL
-    track_address_access(evm.message.block_env.state.change_tracker, to)
+    track_address_access(evm.message.block_env.state, to)
 
     code_address = to
     (

@@ -141,7 +141,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
 
             # EIP-7928: Track delegation target when loaded as call target
             track_address_access(
-                block_env.state.change_tracker,
+                block_env.state,
                 delegated_address,
             )
 
@@ -254,9 +254,9 @@ def process_message(message: Message) -> Evm:
     begin_transaction(state, transient_storage)
 
     if hasattr(state, "change_tracker") and state.change_tracker:
-        begin_call_frame(state.change_tracker)
+        begin_call_frame(state)
         # Track target address access when processing a message
-        track_address_access(state.change_tracker, message.current_target)
+        track_address_access(state, message.current_target)
 
     if message.should_transfer_value and message.value != 0:
         move_ether(
@@ -269,11 +269,11 @@ def process_message(message: Message) -> Evm:
         # since the message call resulted in an error
         rollback_transaction(state, transient_storage)
         if hasattr(state, "change_tracker") and state.change_tracker:
-            rollback_call_frame(state.change_tracker)
+            rollback_call_frame(state)
     else:
         commit_transaction(state, transient_storage)
         if hasattr(state, "change_tracker") and state.change_tracker:
-            commit_call_frame(state.change_tracker)
+            commit_call_frame(state)
     return evm
 
 

@@ -64,10 +64,9 @@ def sload(evm: Evm) -> None:
     value = get_storage(state, evm.message.current_target, key)
 
     track_storage_read(
-        state.change_tracker,
+        state,
         evm.message.current_target,
         key,
-        evm.message.block_env.state,
     )
 
     push(evm.stack, value)
@@ -101,10 +100,9 @@ def sstore(evm: Evm) -> None:
     # Track the implicit SLOAD that occurs in SSTORE
     # This must happen BEFORE charge_gas() so reads are recorded even if OOG
     track_storage_read(
-        state.change_tracker,
+        state,
         evm.message.current_target,
         key,
-        evm.message.block_env.state,
     )
 
     gas_cost = Uint(0)
@@ -150,11 +148,10 @@ def sstore(evm: Evm) -> None:
     # so we capture the correct pre-value
 
     track_storage_write(
-        state.change_tracker,
+        state,
         evm.message.current_target,
         key,
         new_value,
-        state,
     )
 
     # Now modify the storage
