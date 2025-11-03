@@ -1851,15 +1851,15 @@ class Prague(Cancun):
         On Prague, the standard token cost and the floor token costs are
         introduced due to EIP-7623.
         """
-        return replace(
-            super(Prague, cls).gas_costs(
-                block_number=block_number, timestamp=timestamp
-            ),
-            STANDARD_CALLDATA_TOKEN_COST=4,  # https://eips.ethereum.org/EIPS/eip-7623
-            FLOOR_CALLDATA_COST=10,
-            PER_EMPTY_ACCOUNT_COST=25_000,
-            PER_AUTH_BASE_COST=12_500,
-        )
+        from ethereum.forks.prague.vm import gas as g
+        from dataclasses import fields
+
+        kwargs = {}
+        for field in fields(GasCosts):
+            if hasattr(g, field.name):
+                kwargs[field.name] = int(getattr(g, field.name))
+
+        return GasCosts(**kwargs)
 
     @classmethod
     def system_contracts(

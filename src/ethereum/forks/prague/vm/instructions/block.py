@@ -14,7 +14,16 @@ Implementations of the EVM block instructions.
 from ethereum_types.numeric import U256, Uint
 
 from .. import Evm
-from ..gas import GAS_BASE, GAS_BLOCK_HASH, charge_gas
+from ..gas import (
+    G_BLOCKHASH,
+    G_CHAINID,
+    G_COINBASE,
+    G_GASLIMIT,
+    G_NUMBER,
+    G_PREVRANDAO,
+    G_TIMESTAMP,
+    charge_gas,
+)
 from ..stack import pop, push
 
 
@@ -40,7 +49,7 @@ def block_hash(evm: Evm) -> None:
     block_number = Uint(pop(evm.stack))
 
     # GAS
-    charge_gas(evm, GAS_BLOCK_HASH)
+    charge_gas(evm, G_BLOCKHASH)
 
     # OPERATION
     max_block_number = block_number + Uint(256)
@@ -89,7 +98,7 @@ def coinbase(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, G_COINBASE)
 
     # OPERATION
     push(evm.stack, U256.from_be_bytes(evm.message.block_env.coinbase))
@@ -123,7 +132,7 @@ def timestamp(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, G_TIMESTAMP)
 
     # OPERATION
     push(evm.stack, evm.message.block_env.time)
@@ -156,7 +165,7 @@ def number(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, G_NUMBER)
 
     # OPERATION
     push(evm.stack, U256(evm.message.block_env.number))
@@ -189,7 +198,7 @@ def prev_randao(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, G_PREVRANDAO)
 
     # OPERATION
     push(evm.stack, U256.from_be_bytes(evm.message.block_env.prev_randao))
@@ -222,7 +231,7 @@ def gas_limit(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, G_GASLIMIT)
 
     # OPERATION
     push(evm.stack, U256(evm.message.block_env.block_gas_limit))
@@ -252,7 +261,7 @@ def chain_id(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, G_CHAINID)
 
     # OPERATION
     push(evm.stack, U256(evm.message.block_env.chain_id))

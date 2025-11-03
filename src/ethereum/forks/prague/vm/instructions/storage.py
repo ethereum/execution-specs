@@ -23,6 +23,8 @@ from ...state import (
 from .. import Evm
 from ..exceptions import OutOfGasError, WriteInStaticContext
 from ..gas import (
+    G_TLOAD,
+    G_TSTORE,
     GAS_CALL_STIPEND,
     GAS_COLD_SLOAD,
     GAS_STORAGE_CLEAR_REFUND,
@@ -147,7 +149,7 @@ def tload(evm: Evm) -> None:
     key = pop(evm.stack).to_be_bytes32()
 
     # GAS
-    charge_gas(evm, GAS_WARM_ACCESS)
+    charge_gas(evm, G_TLOAD)
 
     # OPERATION
     value = get_transient_storage(
@@ -174,7 +176,7 @@ def tstore(evm: Evm) -> None:
     new_value = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_WARM_ACCESS)
+    charge_gas(evm, G_TSTORE)
     if evm.message.is_static:
         raise WriteInStaticContext
     set_transient_storage(

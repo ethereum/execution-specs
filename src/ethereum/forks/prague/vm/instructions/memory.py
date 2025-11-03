@@ -18,9 +18,12 @@ from ethereum.utils.numeric import ceil32
 
 from .. import Evm
 from ..gas import (
-    GAS_BASE,
+    G_MCOPY,
+    G_MLOAD,
+    G_MSIZE,
+    G_MSTORE,
+    G_MSTORE8,
     GAS_COPY,
-    GAS_VERY_LOW,
     calculate_gas_extend_memory,
     charge_gas,
 )
@@ -49,7 +52,7 @@ def mstore(evm: Evm) -> None:
         evm.memory, [(start_position, U256(len(value)))]
     )
 
-    charge_gas(evm, GAS_VERY_LOW + extend_memory.cost)
+    charge_gas(evm, G_MSTORE + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -80,7 +83,7 @@ def mstore8(evm: Evm) -> None:
         evm.memory, [(start_position, U256(1))]
     )
 
-    charge_gas(evm, GAS_VERY_LOW + extend_memory.cost)
+    charge_gas(evm, G_MSTORE8 + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -108,7 +111,7 @@ def mload(evm: Evm) -> None:
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(start_position, U256(32))]
     )
-    charge_gas(evm, GAS_VERY_LOW + extend_memory.cost)
+    charge_gas(evm, G_MLOAD + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -135,7 +138,7 @@ def msize(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, G_MSIZE)
 
     # OPERATION
     push(evm.stack, U256(len(evm.memory)))
@@ -166,7 +169,7 @@ def mcopy(evm: Evm) -> None:
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(source, length), (destination, length)]
     )
-    charge_gas(evm, GAS_VERY_LOW + copy_gas_cost + extend_memory.cost)
+    charge_gas(evm, G_MCOPY + copy_gas_cost + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by

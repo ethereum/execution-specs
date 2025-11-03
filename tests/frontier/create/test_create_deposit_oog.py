@@ -32,7 +32,7 @@ def test_create_deposit_oog(
     deposited_len = 10_000
     initcode = Op.RETURN(0, deposited_len)
     tx_gas_limit = 1_000_000
-    assert tx_gas_limit < deposited_len * fork.gas_costs().G_CODE_DEPOSIT_BYTE
+    assert tx_gas_limit < deposited_len * fork.gas_costs().GAS_CODE_DEPOSIT
 
     sender = pre.fund_eoa()
     expect_post = Storage()
