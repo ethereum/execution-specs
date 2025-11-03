@@ -20,7 +20,7 @@ runs:
         python-version: ${{ inputs.python_version }}
     - name: Install EEST
       shell: bash
-      run: uv sync --no-progress --extra test
+      run: uv sync --no-progress
     - name: Extract fixture release properties from config
       id: properties
       shell: bash
