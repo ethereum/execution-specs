@@ -107,6 +107,7 @@ class Opcode(Bytecode):
     kwargs: List[str]
     kwargs_defaults: KW_ARGS_DEFAULTS_TYPE
     unchecked_stack: bool = False
+    name: str = ""
 
     def __new__(
         cls,
@@ -123,6 +124,7 @@ class Opcode(Bytecode):
         terminating: bool = False,
         kwargs: List[str] | None = None,
         kwargs_defaults: Optional[KW_ARGS_DEFAULTS_TYPE] = None,
+        name: str = "",
     ) -> "Opcode":
         """Create new opcode instance."""
         if kwargs_defaults is None:
@@ -159,6 +161,7 @@ class Opcode(Bytecode):
             obj.data_portion_formatter = data_portion_formatter
             obj.stack_properties_modifier = stack_properties_modifier
             obj.unchecked_stack = unchecked_stack
+            obj.name = name
             if kwargs is None:
                 obj.kwargs = []
             else:
@@ -501,7 +504,7 @@ class Opcodes(Opcode, Enum):
     Do !! NOT !! remove or modify existing opcodes from this list.
     """
 
-    STOP = Opcode(0x00, terminating=True)
+    STOP = Opcode(0x00, terminating=True, name="STOP")
     """
     STOP()
     ----
@@ -529,7 +532,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#00](https://www.evm.codes/#00)
     """
 
-    ADD = Opcode(0x01, popped_stack_items=2, pushed_stack_items=1)
+    ADD = Opcode(0x01, popped_stack_items=2, pushed_stack_items=1, name="ADD")
     """
     ADD(a, b) = c
     ----
@@ -558,7 +561,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#01](https://www.evm.codes/#01)
     """
 
-    MUL = Opcode(0x02, popped_stack_items=2, pushed_stack_items=1)
+    MUL = Opcode(0x02, popped_stack_items=2, pushed_stack_items=1, name="MUL")
     """
     MUL(a, b) = c
     ----
@@ -587,7 +590,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#02](https://www.evm.codes/#02)
     """
 
-    SUB = Opcode(0x03, popped_stack_items=2, pushed_stack_items=1)
+    SUB = Opcode(0x03, popped_stack_items=2, pushed_stack_items=1, name="SUB")
     """
     SUB(a, b) = c
     ----
@@ -616,7 +619,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#03](https://www.evm.codes/#03)
     """
 
-    DIV = Opcode(0x04, popped_stack_items=2, pushed_stack_items=1)
+    DIV = Opcode(0x04, popped_stack_items=2, pushed_stack_items=1, name="DIV")
     """
     DIV(a, b) = c
     ----
@@ -645,7 +648,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#04](https://www.evm.codes/#04)
     """
 
-    SDIV = Opcode(0x05, popped_stack_items=2, pushed_stack_items=1)
+    SDIV = Opcode(
+        0x05, popped_stack_items=2, pushed_stack_items=1, name="SDIV"
+    )
     """
     SDIV(a, b) = c
     ----
@@ -676,7 +681,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#05](https://www.evm.codes/#05)
     """
 
-    MOD = Opcode(0x06, popped_stack_items=2, pushed_stack_items=1)
+    MOD = Opcode(0x06, popped_stack_items=2, pushed_stack_items=1, name="MOD")
     """
     MOD(a, b) = c
     ----
@@ -706,7 +711,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#06](https://www.evm.codes/#06)
     """
 
-    SMOD = Opcode(0x07, popped_stack_items=2, pushed_stack_items=1)
+    SMOD = Opcode(
+        0x07, popped_stack_items=2, pushed_stack_items=1, name="SMOD"
+    )
     """
     SMOD(a, b) = c
     ----
@@ -736,7 +743,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#07](https://www.evm.codes/#07)
     """
 
-    ADDMOD = Opcode(0x08, popped_stack_items=3, pushed_stack_items=1)
+    ADDMOD = Opcode(
+        0x08, popped_stack_items=3, pushed_stack_items=1, name="ADDMOD"
+    )
     """
     ADDMOD(a, b, c) = d
     ----
@@ -767,7 +776,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#08](https://www.evm.codes/#08)
     """
 
-    MULMOD = Opcode(0x09, popped_stack_items=3, pushed_stack_items=1)
+    MULMOD = Opcode(
+        0x09, popped_stack_items=3, pushed_stack_items=1, name="MULMOD"
+    )
     """
     MULMOD(a, b, N) = d
     ----
@@ -798,7 +809,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#09](https://www.evm.codes/#09)
     """
 
-    EXP = Opcode(0x0A, popped_stack_items=2, pushed_stack_items=1)
+    EXP = Opcode(0x0A, popped_stack_items=2, pushed_stack_items=1, name="EXP")
     """
     EXP(a, exponent) = a ** exponent
     ----
@@ -828,7 +839,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#0A](https://www.evm.codes/#0A)
     """
 
-    SIGNEXTEND = Opcode(0x0B, popped_stack_items=2, pushed_stack_items=1)
+    SIGNEXTEND = Opcode(
+        0x0B, popped_stack_items=2, pushed_stack_items=1, name="SIGNEXTEND"
+    )
     """
     SIGNEXTEND(b, x) = y
     ----
@@ -857,7 +870,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#0B](https://www.evm.codes/#0B)
     """
 
-    LT = Opcode(0x10, popped_stack_items=2, pushed_stack_items=1)
+    LT = Opcode(0x10, popped_stack_items=2, pushed_stack_items=1, name="LT")
     """
     LT(a, b) = a < b
     ----
@@ -886,7 +899,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#10](https://www.evm.codes/#10)
     """
 
-    GT = Opcode(0x11, popped_stack_items=2, pushed_stack_items=1)
+    GT = Opcode(0x11, popped_stack_items=2, pushed_stack_items=1, name="GT")
     """
     GT(a, b) = a > b
     ----
@@ -915,7 +928,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#11](https://www.evm.codes/#11)
     """
 
-    SLT = Opcode(0x12, popped_stack_items=2, pushed_stack_items=1)
+    SLT = Opcode(0x12, popped_stack_items=2, pushed_stack_items=1, name="SLT")
     """
     SLT(a, b) = a < b
     ----
@@ -944,7 +957,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#12](https://www.evm.codes/#12)
     """
 
-    SGT = Opcode(0x13, popped_stack_items=2, pushed_stack_items=1)
+    SGT = Opcode(0x13, popped_stack_items=2, pushed_stack_items=1, name="SGT")
     """
     SGT(a, b) = a > b
     ----
@@ -973,7 +986,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#13](https://www.evm.codes/#13)
     """
 
-    EQ = Opcode(0x14, popped_stack_items=2, pushed_stack_items=1)
+    EQ = Opcode(0x14, popped_stack_items=2, pushed_stack_items=1, name="EQ")
     """
     EQ(a, b) = a == b
     ----
@@ -1002,7 +1015,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#14](https://www.evm.codes/#14)
     """
 
-    ISZERO = Opcode(0x15, popped_stack_items=1, pushed_stack_items=1)
+    ISZERO = Opcode(
+        0x15, popped_stack_items=1, pushed_stack_items=1, name="ISZERO"
+    )
     """
     ISZERO(a) = a == 0
     ----
@@ -1030,7 +1045,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#15](https://www.evm.codes/#15)
     """
 
-    AND = Opcode(0x16, popped_stack_items=2, pushed_stack_items=1)
+    AND = Opcode(0x16, popped_stack_items=2, pushed_stack_items=1, name="AND")
     """
     AND(a, b) = a & b
     ----
@@ -1059,7 +1074,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#16](https://www.evm.codes/#16)
     """
 
-    OR = Opcode(0x17, popped_stack_items=2, pushed_stack_items=1)
+    OR = Opcode(0x17, popped_stack_items=2, pushed_stack_items=1, name="OR")
     """
     OR(a, b) = a | b
     ----
@@ -1088,7 +1103,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#17](https://www.evm.codes/#17)
     """
 
-    XOR = Opcode(0x18, popped_stack_items=2, pushed_stack_items=1)
+    XOR = Opcode(0x18, popped_stack_items=2, pushed_stack_items=1, name="XOR")
     """
     XOR(a, b) = a ^ b
     ----
@@ -1117,7 +1132,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#18](https://www.evm.codes/#18)
     """
 
-    NOT = Opcode(0x19, popped_stack_items=1, pushed_stack_items=1)
+    NOT = Opcode(0x19, popped_stack_items=1, pushed_stack_items=1, name="NOT")
     """
     NOT(a) = ~a
     ----
@@ -1145,7 +1160,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#19](https://www.evm.codes/#19)
     """
 
-    BYTE = Opcode(0x1A, popped_stack_items=2, pushed_stack_items=1)
+    BYTE = Opcode(
+        0x1A, popped_stack_items=2, pushed_stack_items=1, name="BYTE"
+    )
     """
     BYTE(i, x) = y
     ----
@@ -1175,7 +1192,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#1A](https://www.evm.codes/#1A)
     """
 
-    SHL = Opcode(0x1B, popped_stack_items=2, pushed_stack_items=1)
+    SHL = Opcode(0x1B, popped_stack_items=2, pushed_stack_items=1, name="SHL")
     """
     SHL(shift, value) = value << shift
     ----
@@ -1204,7 +1221,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#1B](https://www.evm.codes/#1B)
     """
 
-    SHR = Opcode(0x1C, popped_stack_items=2, pushed_stack_items=1)
+    SHR = Opcode(0x1C, popped_stack_items=2, pushed_stack_items=1, name="SHR")
     """
     SHR(shift, value) = value >> shift
     ----
@@ -1233,7 +1250,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#1C](https://www.evm.codes/#1C)
     """
 
-    SAR = Opcode(0x1D, popped_stack_items=2, pushed_stack_items=1)
+    SAR = Opcode(0x1D, popped_stack_items=2, pushed_stack_items=1, name="SAR")
     """
     SAR(shift, value) = value >> shift
     ----
@@ -1262,7 +1279,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#1D](https://www.evm.codes/#1D)
     """
 
-    CLZ = Opcode(0x1E, popped_stack_items=1, pushed_stack_items=1)
+    CLZ = Opcode(0x1E, popped_stack_items=1, pushed_stack_items=1, name="CLZ")
     """
     CLZ(value) = count_leading_zeros(value)
     ----
@@ -1295,6 +1312,7 @@ class Opcodes(Opcode, Enum):
         popped_stack_items=2,
         pushed_stack_items=1,
         kwargs=["offset", "size"],
+        name="KECCAK256",
     )
     """
     SHA3(offset, size) = hash
@@ -1326,7 +1344,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#20](https://www.evm.codes/#20)
     """
 
-    ADDRESS = Opcode(0x30, pushed_stack_items=1)
+    ADDRESS = Opcode(0x30, pushed_stack_items=1, name="ADDRESS")
     """
     ADDRESS() = address
     ----
@@ -1355,7 +1373,11 @@ class Opcodes(Opcode, Enum):
     """
 
     BALANCE = Opcode(
-        0x31, popped_stack_items=1, pushed_stack_items=1, kwargs=["address"]
+        0x31,
+        popped_stack_items=1,
+        pushed_stack_items=1,
+        kwargs=["address"],
+        name="BALANCE",
     )
     """
     BALANCE(address) = balance
@@ -1386,7 +1408,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#31](https://www.evm.codes/#31)
     """
 
-    ORIGIN = Opcode(0x32, pushed_stack_items=1)
+    ORIGIN = Opcode(0x32, pushed_stack_items=1, name="ORIGIN")
     """
     ORIGIN() = address
     ----
@@ -1415,7 +1437,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#32](https://www.evm.codes/#32)
     """
 
-    CALLER = Opcode(0x33, pushed_stack_items=1)
+    CALLER = Opcode(0x33, pushed_stack_items=1, name="CALLER")
     """
     CALLER() = address
     ----
@@ -1445,7 +1467,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#33](https://www.evm.codes/#33)
     """
 
-    CALLVALUE = Opcode(0x34, pushed_stack_items=1)
+    CALLVALUE = Opcode(0x34, pushed_stack_items=1, name="CALLVALUE")
     """
     CALLVALUE() = value
     ----
@@ -1475,7 +1497,11 @@ class Opcodes(Opcode, Enum):
     """
 
     CALLDATALOAD = Opcode(
-        0x35, popped_stack_items=1, pushed_stack_items=1, kwargs=["offset"]
+        0x35,
+        popped_stack_items=1,
+        pushed_stack_items=1,
+        kwargs=["offset"],
+        name="CALLDATALOAD",
     )
     """
     CALLDATALOAD(offset) = data[offset]
@@ -1506,7 +1532,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#35](https://www.evm.codes/#35)
     """
 
-    CALLDATASIZE = Opcode(0x36, pushed_stack_items=1)
+    CALLDATASIZE = Opcode(0x36, pushed_stack_items=1, name="CALLDATASIZE")
     """
     CALLDATASIZE() = size
     ----
@@ -1535,7 +1561,10 @@ class Opcodes(Opcode, Enum):
     """
 
     CALLDATACOPY = Opcode(
-        0x37, popped_stack_items=3, kwargs=["dest_offset", "offset", "size"]
+        0x37,
+        popped_stack_items=3,
+        kwargs=["dest_offset", "offset", "size"],
+        name="CALLDATACOPY",
     )
     """
     CALLDATACOPY(dest_offset, offset, size)
@@ -1568,7 +1597,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#37](https://www.evm.codes/#37)
     """
 
-    CODESIZE = Opcode(0x38, pushed_stack_items=1)
+    CODESIZE = Opcode(0x38, pushed_stack_items=1, name="CODESIZE")
     """
     CODESIZE() = size
     ----
@@ -1597,7 +1626,10 @@ class Opcodes(Opcode, Enum):
     """
 
     CODECOPY = Opcode(
-        0x39, popped_stack_items=3, kwargs=["dest_offset", "offset", "size"]
+        0x39,
+        popped_stack_items=3,
+        kwargs=["dest_offset", "offset", "size"],
+        name="CODECOPY",
     )
     """
     CODECOPY(dest_offset, offset, size)
@@ -1626,7 +1658,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#39](https://www.evm.codes/#39)
     """
 
-    GASPRICE = Opcode(0x3A, pushed_stack_items=1)
+    GASPRICE = Opcode(0x3A, pushed_stack_items=1, name="GASPRICE")
     """
     GASPRICE() = price
     ----
@@ -1651,7 +1683,11 @@ class Opcodes(Opcode, Enum):
     """
 
     EXTCODESIZE = Opcode(
-        0x3B, popped_stack_items=1, pushed_stack_items=1, kwargs=["address"]
+        0x3B,
+        popped_stack_items=1,
+        pushed_stack_items=1,
+        kwargs=["address"],
+        name="EXTCODESIZE",
     )
     """
     EXTCODESIZE(address) = size
@@ -1685,6 +1721,7 @@ class Opcodes(Opcode, Enum):
         0x3C,
         popped_stack_items=4,
         kwargs=["address", "dest_offset", "offset", "size"],
+        name="EXTCODECOPY",
     )
     """
     EXTCODECOPY(address, dest_offset, offset, size)
@@ -1719,7 +1756,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#3C](https://www.evm.codes/#3C)
     """
 
-    RETURNDATASIZE = Opcode(0x3D, pushed_stack_items=1)
+    RETURNDATASIZE = Opcode(0x3D, pushed_stack_items=1, name="RETURNDATASIZE")
     """
     RETURNDATASIZE() = size
     ----
@@ -1744,7 +1781,10 @@ class Opcodes(Opcode, Enum):
     """
 
     RETURNDATACOPY = Opcode(
-        0x3E, popped_stack_items=3, kwargs=["dest_offset", "offset", "size"]
+        0x3E,
+        popped_stack_items=3,
+        kwargs=["dest_offset", "offset", "size"],
+        name="RETURNDATACOPY",
     )
     """
     RETURNDATACOPY(dest_offset, offset, size)
@@ -1775,7 +1815,11 @@ class Opcodes(Opcode, Enum):
     """
 
     EXTCODEHASH = Opcode(
-        0x3F, popped_stack_items=1, pushed_stack_items=1, kwargs=["address"]
+        0x3F,
+        popped_stack_items=1,
+        pushed_stack_items=1,
+        kwargs=["address"],
+        name="EXTCODEHASH",
     )
     """
     EXTCODEHASH(address) = hash
@@ -1812,6 +1856,7 @@ class Opcodes(Opcode, Enum):
         popped_stack_items=1,
         pushed_stack_items=1,
         kwargs=["block_number"],
+        name="BLOCKHASH",
     )
     """
     BLOCKHASH(block_number) = hash
@@ -1843,7 +1888,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#40](https://www.evm.codes/#40)
     """
 
-    COINBASE = Opcode(0x41, pushed_stack_items=1)
+    COINBASE = Opcode(0x41, pushed_stack_items=1, name="COINBASE")
     """
     COINBASE() = address
     ----
@@ -1871,7 +1916,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#41](https://www.evm.codes/#41)
     """
 
-    TIMESTAMP = Opcode(0x42, pushed_stack_items=1)
+    TIMESTAMP = Opcode(0x42, pushed_stack_items=1, name="TIMESTAMP")
     """
     TIMESTAMP() = timestamp
     ----
@@ -1899,7 +1944,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#42](https://www.evm.codes/#42)
     """
 
-    NUMBER = Opcode(0x43, pushed_stack_items=1)
+    NUMBER = Opcode(0x43, pushed_stack_items=1, name="NUMBER")
     """
     NUMBER() = blockNumber
     ----
@@ -1927,7 +1972,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#43](https://www.evm.codes/#43)
     """
 
-    PREVRANDAO = Opcode(0x44, pushed_stack_items=1)
+    PREVRANDAO = Opcode(0x44, pushed_stack_items=1, name="PREVRANDAO")
     """
     PREVRANDAO() = prevRandao
     ----
@@ -1955,7 +2000,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#44](https://www.evm.codes/#44)
     """
 
-    GASLIMIT = Opcode(0x45, pushed_stack_items=1)
+    GASLIMIT = Opcode(0x45, pushed_stack_items=1, name="GASLIMIT")
     """
     GASLIMIT() = gasLimit
     ----
@@ -1983,7 +2028,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#45](https://www.evm.codes/#45)
     """
 
-    CHAINID = Opcode(0x46, pushed_stack_items=1)
+    CHAINID = Opcode(0x46, pushed_stack_items=1, name="CHAINID")
     """
     CHAINID() = chainId
     ----
@@ -2011,7 +2056,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#46](https://www.evm.codes/#46)
     """
 
-    SELFBALANCE = Opcode(0x47, pushed_stack_items=1)
+    SELFBALANCE = Opcode(0x47, pushed_stack_items=1, name="SELFBALANCE")
     """
     SELFBALANCE() = balance
     ----
@@ -2039,7 +2084,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#47](https://www.evm.codes/#47)
     """
 
-    BASEFEE = Opcode(0x48, pushed_stack_items=1)
+    BASEFEE = Opcode(0x48, pushed_stack_items=1, name="BASEFEE")
     """
     BASEFEE() = baseFee
     ----
@@ -2064,7 +2109,11 @@ class Opcodes(Opcode, Enum):
     """
 
     BLOBHASH = Opcode(
-        0x49, popped_stack_items=1, pushed_stack_items=1, kwargs=["index"]
+        0x49,
+        popped_stack_items=1,
+        pushed_stack_items=1,
+        kwargs=["index"],
+        name="BLOBHASH",
     )
     """
     BLOBHASH(index) = versionedHash
@@ -2095,7 +2144,9 @@ class Opcodes(Opcode, Enum):
     eip-4844](https://eips.ethereum.org/EIPS/eip-4844)
     """
 
-    BLOBBASEFEE = Opcode(0x4A, popped_stack_items=0, pushed_stack_items=1)
+    BLOBBASEFEE = Opcode(
+        0x4A, popped_stack_items=0, pushed_stack_items=1, name="BLOBBASEFEE"
+    )
     """
     BLOBBASEFEE() = fee
     ----
@@ -2124,7 +2175,7 @@ class Opcodes(Opcode, Enum):
     EIPS/eip-7516)
     """
 
-    POP = Opcode(0x50, popped_stack_items=1)
+    POP = Opcode(0x50, popped_stack_items=1, name="POP")
     """
     POP()
     ----
@@ -2153,7 +2204,11 @@ class Opcodes(Opcode, Enum):
     """
 
     MLOAD = Opcode(
-        0x51, popped_stack_items=1, pushed_stack_items=1, kwargs=["offset"]
+        0x51,
+        popped_stack_items=1,
+        pushed_stack_items=1,
+        kwargs=["offset"],
+        name="MLOAD",
     )
     """
     MLOAD(offset) = value
@@ -2184,7 +2239,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#51](https://www.evm.codes/#51)
     """
 
-    MSTORE = Opcode(0x52, popped_stack_items=2, kwargs=["offset", "value"])
+    MSTORE = Opcode(
+        0x52, popped_stack_items=2, kwargs=["offset", "value"], name="MSTORE"
+    )
     """
     MSTORE(offset, value)
     ----
@@ -2214,7 +2271,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#52](https://www.evm.codes/#52)
     """
 
-    MSTORE8 = Opcode(0x53, popped_stack_items=2, kwargs=["offset", "value"])
+    MSTORE8 = Opcode(
+        0x53, popped_stack_items=2, kwargs=["offset", "value"], name="MSTORE8"
+    )
     """
     MSTORE8(offset, value)
     ----
@@ -2242,7 +2301,11 @@ class Opcodes(Opcode, Enum):
     """
 
     SLOAD = Opcode(
-        0x54, popped_stack_items=1, pushed_stack_items=1, kwargs=["key"]
+        0x54,
+        popped_stack_items=1,
+        pushed_stack_items=1,
+        kwargs=["key"],
+        name="SLOAD",
     )
     """
     SLOAD(key) = value
@@ -2273,7 +2336,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#54](https://www.evm.codes/#54)
     """
 
-    SSTORE = Opcode(0x55, popped_stack_items=2, kwargs=["key", "value"])
+    SSTORE = Opcode(
+        0x55, popped_stack_items=2, kwargs=["key", "value"], name="SSTORE"
+    )
     """
     SSTORE(key, value)
     ----
@@ -2320,7 +2385,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#55](https://www.evm.codes/#55)
     """
 
-    JUMP = Opcode(0x56, popped_stack_items=1, kwargs=["pc"])
+    JUMP = Opcode(0x56, popped_stack_items=1, kwargs=["pc"], name="JUMP")
     """
     JUMP(pc)
     ----
@@ -2349,7 +2414,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#56](https://www.evm.codes/#56)
     """
 
-    JUMPI = Opcode(0x57, popped_stack_items=2, kwargs=["pc", "condition"])
+    JUMPI = Opcode(
+        0x57, popped_stack_items=2, kwargs=["pc", "condition"], name="JUMPI"
+    )
     """
     JUMPI(pc, condition)
     ----
@@ -2378,7 +2445,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#57](https://www.evm.codes/#57)
     """
 
-    PC = Opcode(0x58, pushed_stack_items=1)
+    PC = Opcode(0x58, pushed_stack_items=1, name="PC")
     """
     PC() = counter
     ----
@@ -2407,7 +2474,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#58](https://www.evm.codes/#58)
     """
 
-    MSIZE = Opcode(0x59, pushed_stack_items=1)
+    MSIZE = Opcode(0x59, pushed_stack_items=1, name="MSIZE")
     """
     MSIZE() = size
     ----
@@ -2431,7 +2498,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#59](https://www.evm.codes/#59)
     """
 
-    GAS = Opcode(0x5A, pushed_stack_items=1)
+    GAS = Opcode(0x5A, pushed_stack_items=1, name="GAS")
     """
     GAS() = gas_remaining
     ----
@@ -2460,7 +2527,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#5A](https://www.evm.codes/#5A)
     """
 
-    JUMPDEST = Opcode(0x5B)
+    JUMPDEST = Opcode(0x5B, name="JUMPDEST")
     """
     JUMPDEST()
     ----
@@ -2517,7 +2584,11 @@ class Opcodes(Opcode, Enum):
     """
 
     TLOAD = Opcode(
-        0x5C, popped_stack_items=1, pushed_stack_items=1, kwargs=["key"]
+        0x5C,
+        popped_stack_items=1,
+        pushed_stack_items=1,
+        kwargs=["key"],
+        name="TLOAD",
     )
     """
     TLOAD(key) = value
@@ -2547,7 +2618,9 @@ class Opcodes(Opcode, Enum):
     Source: [eips.ethereum.org/EIPS/eip-1153](https://eips.ethereum.org/EIPS/eip-1153)
     """
 
-    TSTORE = Opcode(0x5D, popped_stack_items=2, kwargs=["key", "value"])
+    TSTORE = Opcode(
+        0x5D, popped_stack_items=2, kwargs=["key", "value"], name="TSTORE"
+    )
     """
     TSTORE(key, value)
     ----
@@ -2574,7 +2647,10 @@ class Opcodes(Opcode, Enum):
     """
 
     MCOPY = Opcode(
-        0x5E, popped_stack_items=3, kwargs=["dest_offset", "offset", "size"]
+        0x5E,
+        popped_stack_items=3,
+        kwargs=["dest_offset", "offset", "size"],
+        name="MCOPY",
     )
     """
     MCOPY(dest_offset, offset, size)
@@ -2608,7 +2684,7 @@ class Opcodes(Opcode, Enum):
     eip-5656)
     """
 
-    PUSH0 = Opcode(0x5F, pushed_stack_items=1)
+    PUSH0 = Opcode(0x5F, pushed_stack_items=1, name="PUSH0")
     """
     PUSH0() = value
     ----
@@ -2636,7 +2712,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#5F](https://www.evm.codes/#5F)
     """
 
-    PUSH1 = Opcode(0x60, pushed_stack_items=1, data_portion_length=1)
+    PUSH1 = Opcode(
+        0x60, pushed_stack_items=1, data_portion_length=1, name="PUSH1"
+    )
     """
     PUSH1() = value
     ----
@@ -2665,7 +2743,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#60](https://www.evm.codes/#60)
     """
 
-    PUSH2 = Opcode(0x61, pushed_stack_items=1, data_portion_length=2)
+    PUSH2 = Opcode(
+        0x61, pushed_stack_items=1, data_portion_length=2, name="PUSH2"
+    )
     """
     PUSH2() = value
     ----
@@ -2694,7 +2774,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#61](https://www.evm.codes/#61)
     """
 
-    PUSH3 = Opcode(0x62, pushed_stack_items=1, data_portion_length=3)
+    PUSH3 = Opcode(
+        0x62, pushed_stack_items=1, data_portion_length=3, name="PUSH3"
+    )
     """
     PUSH3() = value
     ----
@@ -2723,7 +2805,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#62](https://www.evm.codes/#62)
     """
 
-    PUSH4 = Opcode(0x63, pushed_stack_items=1, data_portion_length=4)
+    PUSH4 = Opcode(
+        0x63, pushed_stack_items=1, data_portion_length=4, name="PUSH4"
+    )
     """
     PUSH4() = value
     ----
@@ -2752,7 +2836,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#63](https://www.evm.codes/#63)
     """
 
-    PUSH5 = Opcode(0x64, pushed_stack_items=1, data_portion_length=5)
+    PUSH5 = Opcode(
+        0x64, pushed_stack_items=1, data_portion_length=5, name="PUSH5"
+    )
     """
     PUSH5() = value
     ----
@@ -2781,7 +2867,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#64](https://www.evm.codes/#64)
     """
 
-    PUSH6 = Opcode(0x65, pushed_stack_items=1, data_portion_length=6)
+    PUSH6 = Opcode(
+        0x65, pushed_stack_items=1, data_portion_length=6, name="PUSH6"
+    )
     """
     PUSH6() = value
     ----
@@ -2810,7 +2898,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#65](https://www.evm.codes/#65)
     """
 
-    PUSH7 = Opcode(0x66, pushed_stack_items=1, data_portion_length=7)
+    PUSH7 = Opcode(
+        0x66, pushed_stack_items=1, data_portion_length=7, name="PUSH7"
+    )
     """
     PUSH7() = value
     ----
@@ -2839,7 +2929,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#66](https://www.evm.codes/#66)
     """
 
-    PUSH8 = Opcode(0x67, pushed_stack_items=1, data_portion_length=8)
+    PUSH8 = Opcode(
+        0x67, pushed_stack_items=1, data_portion_length=8, name="PUSH8"
+    )
     """
     PUSH8() = value
     ----
@@ -2868,7 +2960,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#67](https://www.evm.codes/#67)
     """
 
-    PUSH9 = Opcode(0x68, pushed_stack_items=1, data_portion_length=9)
+    PUSH9 = Opcode(
+        0x68, pushed_stack_items=1, data_portion_length=9, name="PUSH9"
+    )
     """
     PUSH9() = value
     ----
@@ -2897,7 +2991,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#68](https://www.evm.codes/#68)
     """
 
-    PUSH10 = Opcode(0x69, pushed_stack_items=1, data_portion_length=10)
+    PUSH10 = Opcode(
+        0x69, pushed_stack_items=1, data_portion_length=10, name="PUSH10"
+    )
     """
     PUSH10() = value
     ----
@@ -2926,7 +3022,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#69](https://www.evm.codes/#69)
     """
 
-    PUSH11 = Opcode(0x6A, pushed_stack_items=1, data_portion_length=11)
+    PUSH11 = Opcode(
+        0x6A, pushed_stack_items=1, data_portion_length=11, name="PUSH11"
+    )
     """
     PUSH11() = value
     ----
@@ -2955,7 +3053,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#6A](https://www.evm.codes/#6A)
     """
 
-    PUSH12 = Opcode(0x6B, pushed_stack_items=1, data_portion_length=12)
+    PUSH12 = Opcode(
+        0x6B, pushed_stack_items=1, data_portion_length=12, name="PUSH12"
+    )
     """
     PUSH12() = value
     ----
@@ -2984,7 +3084,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#6B](https://www.evm.codes/#6B)
     """
 
-    PUSH13 = Opcode(0x6C, pushed_stack_items=1, data_portion_length=13)
+    PUSH13 = Opcode(
+        0x6C, pushed_stack_items=1, data_portion_length=13, name="PUSH13"
+    )
     """
     PUSH13() = value
     ----
@@ -3013,7 +3115,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#6C](https://www.evm.codes/#6C)
     """
 
-    PUSH14 = Opcode(0x6D, pushed_stack_items=1, data_portion_length=14)
+    PUSH14 = Opcode(
+        0x6D, pushed_stack_items=1, data_portion_length=14, name="PUSH14"
+    )
     """
     PUSH14() = value
     ----
@@ -3043,7 +3147,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#6D](https://www.evm.codes/#6D)
     """
 
-    PUSH15 = Opcode(0x6E, pushed_stack_items=1, data_portion_length=15)
+    PUSH15 = Opcode(
+        0x6E, pushed_stack_items=1, data_portion_length=15, name="PUSH15"
+    )
     """
     PUSH15() = value
     ----
@@ -3072,7 +3178,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#6E](https://www.evm.codes/#6E)
     """
 
-    PUSH16 = Opcode(0x6F, pushed_stack_items=1, data_portion_length=16)
+    PUSH16 = Opcode(
+        0x6F, pushed_stack_items=1, data_portion_length=16, name="PUSH16"
+    )
     """
     PUSH16() = value
     ----
@@ -3101,7 +3209,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#6F](https://www.evm.codes/#6F)
     """
 
-    PUSH17 = Opcode(0x70, pushed_stack_items=1, data_portion_length=17)
+    PUSH17 = Opcode(
+        0x70, pushed_stack_items=1, data_portion_length=17, name="PUSH17"
+    )
     """
     PUSH17() = value
     ----
@@ -3130,7 +3240,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#70](https://www.evm.codes/#70)
     """
 
-    PUSH18 = Opcode(0x71, pushed_stack_items=1, data_portion_length=18)
+    PUSH18 = Opcode(
+        0x71, pushed_stack_items=1, data_portion_length=18, name="PUSH18"
+    )
     """
     PUSH18() = value
     ----
@@ -3159,7 +3271,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#71](https://www.evm.codes/#71)
     """
 
-    PUSH19 = Opcode(0x72, pushed_stack_items=1, data_portion_length=19)
+    PUSH19 = Opcode(
+        0x72, pushed_stack_items=1, data_portion_length=19, name="PUSH19"
+    )
     """
     PUSH19() = value
     ----
@@ -3188,7 +3302,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#72](https://www.evm.codes/#72)
     """
 
-    PUSH20 = Opcode(0x73, pushed_stack_items=1, data_portion_length=20)
+    PUSH20 = Opcode(
+        0x73, pushed_stack_items=1, data_portion_length=20, name="PUSH20"
+    )
     """
     PUSH20() = value
     ----
@@ -3217,7 +3333,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#73](https://www.evm.codes/#73)
     """
 
-    PUSH21 = Opcode(0x74, pushed_stack_items=1, data_portion_length=21)
+    PUSH21 = Opcode(
+        0x74, pushed_stack_items=1, data_portion_length=21, name="PUSH21"
+    )
     """
     PUSH21() = value
     ----
@@ -3246,7 +3364,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#74](https://www.evm.codes/#74)
     """
 
-    PUSH22 = Opcode(0x75, pushed_stack_items=1, data_portion_length=22)
+    PUSH22 = Opcode(
+        0x75, pushed_stack_items=1, data_portion_length=22, name="PUSH22"
+    )
     """
     PUSH22() = value
     ----
@@ -3275,7 +3395,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#75](https://www.evm.codes/#75)
     """
 
-    PUSH23 = Opcode(0x76, pushed_stack_items=1, data_portion_length=23)
+    PUSH23 = Opcode(
+        0x76, pushed_stack_items=1, data_portion_length=23, name="PUSH23"
+    )
     """
     PUSH23() = value
     ----
@@ -3304,7 +3426,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#76](https://www.evm.codes/#76)
     """
 
-    PUSH24 = Opcode(0x77, pushed_stack_items=1, data_portion_length=24)
+    PUSH24 = Opcode(
+        0x77, pushed_stack_items=1, data_portion_length=24, name="PUSH24"
+    )
     """
     PUSH24() = value
     ----
@@ -3333,7 +3457,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#77](https://www.evm.codes/#77)
     """
 
-    PUSH25 = Opcode(0x78, pushed_stack_items=1, data_portion_length=25)
+    PUSH25 = Opcode(
+        0x78, pushed_stack_items=1, data_portion_length=25, name="PUSH25"
+    )
     """
     PUSH25() = value
     ----
@@ -3362,7 +3488,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#78](https://www.evm.codes/#78)
     """
 
-    PUSH26 = Opcode(0x79, pushed_stack_items=1, data_portion_length=26)
+    PUSH26 = Opcode(
+        0x79, pushed_stack_items=1, data_portion_length=26, name="PUSH26"
+    )
     """
     PUSH26() = value
     ----
@@ -3391,7 +3519,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#79](https://www.evm.codes/#79)
     """
 
-    PUSH27 = Opcode(0x7A, pushed_stack_items=1, data_portion_length=27)
+    PUSH27 = Opcode(
+        0x7A, pushed_stack_items=1, data_portion_length=27, name="PUSH27"
+    )
     """
     PUSH27() = value
     ----
@@ -3420,7 +3550,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#7A](https://www.evm.codes/#7A)
     """
 
-    PUSH28 = Opcode(0x7B, pushed_stack_items=1, data_portion_length=28)
+    PUSH28 = Opcode(
+        0x7B, pushed_stack_items=1, data_portion_length=28, name="PUSH28"
+    )
     """
     PUSH28() = value
     ----
@@ -3449,7 +3581,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#7B](https://www.evm.codes/#7B)
     """
 
-    PUSH29 = Opcode(0x7C, pushed_stack_items=1, data_portion_length=29)
+    PUSH29 = Opcode(
+        0x7C, pushed_stack_items=1, data_portion_length=29, name="PUSH29"
+    )
     """
     PUSH29() = value
     ----
@@ -3478,7 +3612,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#7C](https://www.evm.codes/#7C)
     """
 
-    PUSH30 = Opcode(0x7D, pushed_stack_items=1, data_portion_length=30)
+    PUSH30 = Opcode(
+        0x7D, pushed_stack_items=1, data_portion_length=30, name="PUSH30"
+    )
     """
     PUSH30() = value
     ----
@@ -3507,7 +3643,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#7D](https://www.evm.codes/#7D)
     """
 
-    PUSH31 = Opcode(0x7E, pushed_stack_items=1, data_portion_length=31)
+    PUSH31 = Opcode(
+        0x7E, pushed_stack_items=1, data_portion_length=31, name="PUSH31"
+    )
     """
     PUSH31() = value
     ----
@@ -3536,7 +3674,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#7E](https://www.evm.codes/#7E)
     """
 
-    PUSH32 = Opcode(0x7F, pushed_stack_items=1, data_portion_length=32)
+    PUSH32 = Opcode(
+        0x7F, pushed_stack_items=1, data_portion_length=32, name="PUSH32"
+    )
     """
     PUSH32() = value
     ----
@@ -3565,7 +3705,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#7F](https://www.evm.codes/#7F)
     """
 
-    DUP1 = Opcode(0x80, pushed_stack_items=1, min_stack_height=1)
+    DUP1 = Opcode(0x80, pushed_stack_items=1, min_stack_height=1, name="DUP1")
     """
     DUP1(value) = value, value
     ----
@@ -3594,7 +3734,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#80](https://www.evm.codes/#80)
     """
 
-    DUP2 = Opcode(0x81, pushed_stack_items=1, min_stack_height=2)
+    DUP2 = Opcode(0x81, pushed_stack_items=1, min_stack_height=2, name="DUP2")
     """
     DUP2(v1, v2) = v2, v1, v2
     ----
@@ -3625,7 +3765,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#81](https://www.evm.codes/#81)
     """
 
-    DUP3 = Opcode(0x82, pushed_stack_items=1, min_stack_height=3)
+    DUP3 = Opcode(0x82, pushed_stack_items=1, min_stack_height=3, name="DUP3")
     """
     DUP3(v1, v2, v3) = v3, v1, v2, v3
     ----
@@ -3658,7 +3798,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#82](https://www.evm.codes/#82)
     """
 
-    DUP4 = Opcode(0x83, pushed_stack_items=1, min_stack_height=4)
+    DUP4 = Opcode(0x83, pushed_stack_items=1, min_stack_height=4, name="DUP4")
     """
     DUP4(v1, v2, v3, v4) = v4, v1, v2, v3, v4
     ----
@@ -3693,7 +3833,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#83](https://www.evm.codes/#83)
     """
 
-    DUP5 = Opcode(0x84, pushed_stack_items=1, min_stack_height=5)
+    DUP5 = Opcode(0x84, pushed_stack_items=1, min_stack_height=5, name="DUP5")
     """
     DUP5(v1, v2, v3, v4, v5) = v5, v1, v2, v3, v4, v5
     ----
@@ -3730,7 +3870,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#84](https://www.evm.codes/#84)
     """
 
-    DUP6 = Opcode(0x85, pushed_stack_items=1, min_stack_height=6)
+    DUP6 = Opcode(0x85, pushed_stack_items=1, min_stack_height=6, name="DUP6")
     """
     DUP6(v1, v2, ..., v5, v6) = v6, v1, v2, ..., v5, v6
     ----
@@ -3767,7 +3907,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#85](https://www.evm.codes/#85)
     """
 
-    DUP7 = Opcode(0x86, pushed_stack_items=1, min_stack_height=7)
+    DUP7 = Opcode(0x86, pushed_stack_items=1, min_stack_height=7, name="DUP7")
     """
     DUP7(v1, v2, ..., v6, v7) = v7, v1, v2, ..., v6, v7
     ----
@@ -3804,7 +3944,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#86](https://www.evm.codes/#86)
     """
 
-    DUP8 = Opcode(0x87, pushed_stack_items=1, min_stack_height=8)
+    DUP8 = Opcode(0x87, pushed_stack_items=1, min_stack_height=8, name="DUP8")
     """
     DUP8(v1, v2, ..., v7, v8) = v8, v1, v2, ..., v7, v8
     ----
@@ -3841,7 +3981,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#87](https://www.evm.codes/#87)
     """
 
-    DUP9 = Opcode(0x88, pushed_stack_items=1, min_stack_height=9)
+    DUP9 = Opcode(0x88, pushed_stack_items=1, min_stack_height=9, name="DUP9")
     """
     DUP9(v1, v2, ..., v8, v9) = v9, v1, v2, ..., v8, v9
     ----
@@ -3877,7 +4017,9 @@ class Opcodes(Opcode, Enum):
 
     Source: [evm.codes/#88](https://www.evm.codes/#88)
     """
-    DUP10 = Opcode(0x89, pushed_stack_items=1, min_stack_height=10)
+    DUP10 = Opcode(
+        0x89, pushed_stack_items=1, min_stack_height=10, name="DUP10"
+    )
     """
     DUP10(v1, v2, ..., v9, v10) = v10, v1, v2, ..., v9, v10
     ----
@@ -3914,7 +4056,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#89](https://www.evm.codes/#89)
     """
 
-    DUP11 = Opcode(0x8A, pushed_stack_items=1, min_stack_height=11)
+    DUP11 = Opcode(
+        0x8A, pushed_stack_items=1, min_stack_height=11, name="DUP11"
+    )
     """
     DUP11(v1, v2, ..., v10, v11) = v11, v1, v2, ..., v10, v11
     ----
@@ -3951,7 +4095,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#8A](https://www.evm.codes/#8A)
     """
 
-    DUP12 = Opcode(0x8B, pushed_stack_items=1, min_stack_height=12)
+    DUP12 = Opcode(
+        0x8B, pushed_stack_items=1, min_stack_height=12, name="DUP12"
+    )
     """
     DUP12(v1, v2, ..., v11, v12) = v12, v1, v2, ..., v11, v12
     ----
@@ -3988,7 +4134,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#8B](https://www.evm.codes/#8B)
     """
 
-    DUP13 = Opcode(0x8C, pushed_stack_items=1, min_stack_height=13)
+    DUP13 = Opcode(
+        0x8C, pushed_stack_items=1, min_stack_height=13, name="DUP13"
+    )
     """
     DUP13(v1, v2, ..., v12, v13) = v13, v1, v2, ..., v12, v13
     ----
@@ -4025,7 +4173,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#8C](https://www.evm.codes/#8C)
     """
 
-    DUP14 = Opcode(0x8D, pushed_stack_items=1, min_stack_height=14)
+    DUP14 = Opcode(
+        0x8D, pushed_stack_items=1, min_stack_height=14, name="DUP14"
+    )
     """
     DUP14(v1, v2, ..., v13, v14) = v14, v1, v2, ..., v13, v14
     ----
@@ -4062,7 +4212,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#8D](https://www.evm.codes/#8D)
     """
 
-    DUP15 = Opcode(0x8E, pushed_stack_items=1, min_stack_height=15)
+    DUP15 = Opcode(
+        0x8E, pushed_stack_items=1, min_stack_height=15, name="DUP15"
+    )
     """
     DUP15(v1, v2, ..., v14, v15) = v15, v1, v2, ..., v14, v15
     ----
@@ -4099,7 +4251,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#8E](https://www.evm.codes/#8E)
     """
 
-    DUP16 = Opcode(0x8F, pushed_stack_items=1, min_stack_height=16)
+    DUP16 = Opcode(
+        0x8F, pushed_stack_items=1, min_stack_height=16, name="DUP16"
+    )
     """
     DUP16(v1, v2, ..., v15, v16) = v16, v1, v2, ..., v15, v16
     ----
@@ -4136,7 +4290,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#8F](https://www.evm.codes/#8F)
     """
 
-    SWAP1 = Opcode(0x90, min_stack_height=2)
+    SWAP1 = Opcode(0x90, min_stack_height=2, name="SWAP1")
     """
     SWAP1(v1, v2) = v2, v1
     ----
@@ -4166,7 +4320,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#90](https://www.evm.codes/#90)
     """
 
-    SWAP2 = Opcode(0x91, min_stack_height=3)
+    SWAP2 = Opcode(0x91, min_stack_height=3, name="SWAP2")
     """
     SWAP2(v1, v2, v3) = v3, v2, v1
     ----
@@ -4198,7 +4352,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#91](https://www.evm.codes/#91)
     """
 
-    SWAP3 = Opcode(0x92, min_stack_height=4)
+    SWAP3 = Opcode(0x92, min_stack_height=4, name="SWAP3")
     """
     SWAP3(v1, v2, v3, v4) = v4, v2, v3, v1
     ----
@@ -4232,7 +4386,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#92](https://www.evm.codes/#92)
     """
 
-    SWAP4 = Opcode(0x93, min_stack_height=5)
+    SWAP4 = Opcode(0x93, min_stack_height=5, name="SWAP4")
     """
     SWAP4(v1, v2, ..., v4, v5) = v5, v2, ..., v4, v1
     ----
@@ -4268,7 +4422,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#93](https://www.evm.codes/#93)
     """
 
-    SWAP5 = Opcode(0x94, min_stack_height=6)
+    SWAP5 = Opcode(0x94, min_stack_height=6, name="SWAP5")
     """
     SWAP5(v1, v2, ..., v5, v6) = v6, v2, ..., v5, v1
     ----
@@ -4304,7 +4458,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#94](https://www.evm.codes/#94)
     """
 
-    SWAP6 = Opcode(0x95, min_stack_height=7)
+    SWAP6 = Opcode(0x95, min_stack_height=7, name="SWAP6")
     """
     SWAP6(v1, v2, ..., v6, v7) = v7, v2, ..., v6, v1
     ----
@@ -4340,7 +4494,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#95](https://www.evm.codes/#95)
     """
 
-    SWAP7 = Opcode(0x96, min_stack_height=8)
+    SWAP7 = Opcode(0x96, min_stack_height=8, name="SWAP7")
     """
     SWAP7(v1, v2, ..., v7, v8) = v8, v2, ..., v7, v1
     ----
@@ -4376,7 +4530,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#96](https://www.evm.codes/#96)
     """
 
-    SWAP8 = Opcode(0x97, min_stack_height=9)
+    SWAP8 = Opcode(0x97, min_stack_height=9, name="SWAP8")
     """
     SWAP8(v1, v2, ..., v8, v9) = v9, v2, ..., v8, v1
     ----
@@ -4412,7 +4566,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#97](https://www.evm.codes/#97)
     """
 
-    SWAP9 = Opcode(0x98, min_stack_height=10)
+    SWAP9 = Opcode(0x98, min_stack_height=10, name="SWAP9")
     """
     SWAP9(v1, v2, ..., v9, v10) = v10, v2, ..., v9, v1
     ----
@@ -4448,7 +4602,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#98](https://www.evm.codes/#98)
     """
 
-    SWAP10 = Opcode(0x99, min_stack_height=11)
+    SWAP10 = Opcode(0x99, min_stack_height=11, name="SWAP10")
     """
     SWAP10(v1, v2, ..., v10, v11) = v11, v2, ..., v10, v1
     ----
@@ -4484,7 +4638,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#99](https://www.evm.codes/#99)
     """
 
-    SWAP11 = Opcode(0x9A, min_stack_height=12)
+    SWAP11 = Opcode(0x9A, min_stack_height=12, name="SWAP11")
     """
     SWAP11(v1, v2, ..., v11, v12) = v12, v2, ..., v11, v1
     ----
@@ -4520,7 +4674,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#9A](https://www.evm.codes/#9A)
     """
 
-    SWAP12 = Opcode(0x9B, min_stack_height=13)
+    SWAP12 = Opcode(0x9B, min_stack_height=13, name="SWAP12")
     """
     SWAP12(v1, v2, ..., v12, v13) = v13, v2, ..., v12, v1
     ----
@@ -4556,7 +4710,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#9B](https://www.evm.codes/#9B)
     """
 
-    SWAP13 = Opcode(0x9C, min_stack_height=14)
+    SWAP13 = Opcode(0x9C, min_stack_height=14, name="SWAP13")
     """
     SWAP13(v1, v2, ..., v13, v14) = v14, v2, ..., v13, v1
     ----
@@ -4592,7 +4746,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#9C](https://www.evm.codes/#9C)
     """
 
-    SWAP14 = Opcode(0x9D, min_stack_height=15)
+    SWAP14 = Opcode(0x9D, min_stack_height=15, name="SWAP14")
     """
     SWAP14(v1, v2, ..., v14, v15) = v15, v2, ..., v14, v1
     ----
@@ -4628,7 +4782,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#9D](https://www.evm.codes/#9D)
     """
 
-    SWAP15 = Opcode(0x9E, min_stack_height=16)
+    SWAP15 = Opcode(0x9E, min_stack_height=16, name="SWAP15")
     """
     SWAP15(v1, v2, ..., v15, v16) = v16, v2, ..., v15, v1
     ----
@@ -4664,7 +4818,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#9E](https://www.evm.codes/#9E)
     """
 
-    SWAP16 = Opcode(0x9F, min_stack_height=17)
+    SWAP16 = Opcode(0x9F, min_stack_height=17, name="SWAP16")
     """
     SWAP16(v1, v2, ..., v16, v17) = v17, v2, ..., v16, v1
     ----
@@ -4700,7 +4854,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#9F](https://www.evm.codes/#9F)
     """
 
-    LOG0 = Opcode(0xA0, popped_stack_items=2, kwargs=["offset", "size"])
+    LOG0 = Opcode(
+        0xA0, popped_stack_items=2, kwargs=["offset", "size"], name="LOG0"
+    )
     """
     LOG0(offset, size)
     ----
@@ -4731,7 +4887,10 @@ class Opcodes(Opcode, Enum):
     """
 
     LOG1 = Opcode(
-        0xA1, popped_stack_items=3, kwargs=["offset", "size", "topic_1"]
+        0xA1,
+        popped_stack_items=3,
+        kwargs=["offset", "size", "topic_1"],
+        name="LOG1",
     )
     """
     LOG1(offset, size, topic_1)
@@ -4767,6 +4926,7 @@ class Opcodes(Opcode, Enum):
         0xA2,
         popped_stack_items=4,
         kwargs=["offset", "size", "topic_1", "topic_2"],
+        name="LOG2",
     )
     """
     LOG2(offset, size, topic_1, topic_2)
@@ -4803,6 +4963,7 @@ class Opcodes(Opcode, Enum):
         0xA3,
         popped_stack_items=5,
         kwargs=["offset", "size", "topic_1", "topic_2", "topic_3"],
+        name="LOG3",
     )
     """
     LOG3(offset, size, topic_1, topic_2, topic_3)
@@ -4840,6 +5001,7 @@ class Opcodes(Opcode, Enum):
         0xA4,
         popped_stack_items=6,
         kwargs=["offset", "size", "topic_1", "topic_2", "topic_3", "topic_4"],
+        name="LOG4",
     )
     """
     LOG4(offset, size, topic_1, topic_2, topic_3, topic_4)
@@ -4874,7 +5036,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#A4](https://www.evm.codes/#A4)
     """
 
-    RJUMP = Opcode(0xE0, data_portion_length=2)
+    RJUMP = Opcode(0xE0, data_portion_length=2, name="RJUMP")
     """
     !!! Note: This opcode is under development
 
@@ -4902,7 +5064,11 @@ class Opcodes(Opcode, Enum):
     """
 
     DATALOAD = Opcode(
-        0xD0, popped_stack_items=1, pushed_stack_items=1, kwargs=["offset"]
+        0xD0,
+        popped_stack_items=1,
+        pushed_stack_items=1,
+        kwargs=["offset"],
+        name="DATALOAD",
     )
     """
     !!! Note: This opcode is under development
@@ -4934,7 +5100,9 @@ class Opcodes(Opcode, Enum):
     eip-7480)
     """
 
-    DATALOADN = Opcode(0xD1, pushed_stack_items=1, data_portion_length=2)
+    DATALOADN = Opcode(
+        0xD1, pushed_stack_items=1, data_portion_length=2, name="DATALOADN"
+    )
     """
     !!! Note: This opcode is under development
 
@@ -4969,7 +5137,7 @@ class Opcodes(Opcode, Enum):
     eip-7480)
     """
 
-    DATASIZE = Opcode(0xD2, pushed_stack_items=1)
+    DATASIZE = Opcode(0xD2, pushed_stack_items=1, name="DATASIZE")
     """
     !!! Note: This opcode is under development
 
@@ -5000,7 +5168,10 @@ class Opcodes(Opcode, Enum):
     """
 
     DATACOPY = Opcode(
-        0xD3, popped_stack_items=3, kwargs=["dest_offset", "offset", "size"]
+        0xD3,
+        popped_stack_items=3,
+        kwargs=["dest_offset", "offset", "size"],
+        name="DATACOPY",
     )
     """
     !!! Note: This opcode is under development
@@ -5036,7 +5207,9 @@ class Opcodes(Opcode, Enum):
     eip-7480)
     """
 
-    RJUMPI = Opcode(0xE1, popped_stack_items=1, data_portion_length=2)
+    RJUMPI = Opcode(
+        0xE1, popped_stack_items=1, data_portion_length=2, name="RJUMPI"
+    )
     """
     !!! Note: This opcode is under development
 
@@ -5067,6 +5240,7 @@ class Opcodes(Opcode, Enum):
         0xE2,
         popped_stack_items=1,
         data_portion_formatter=_rjumpv_encoder,
+        name="RJUMPV",
     )
     """
     !!! Note: This opcode is under development
@@ -5103,7 +5277,9 @@ class Opcodes(Opcode, Enum):
     eip-4200)
     """
 
-    CALLF = Opcode(0xE3, data_portion_length=2, unchecked_stack=True)
+    CALLF = Opcode(
+        0xE3, data_portion_length=2, unchecked_stack=True, name="CALLF"
+    )
     """
     !!! Note: This opcode is under development
 
@@ -5144,7 +5320,7 @@ class Opcodes(Opcode, Enum):
     main/spec/eof.md)
     """
 
-    RETF = Opcode(0xE4, terminating=True)
+    RETF = Opcode(0xE4, terminating=True, name="RETF")
     """
     !!! Note: This opcode is under development
 
@@ -5170,7 +5346,11 @@ class Opcodes(Opcode, Enum):
     """
 
     JUMPF = Opcode(
-        0xE5, data_portion_length=2, terminating=True, unchecked_stack=True
+        0xE5,
+        data_portion_length=2,
+        terminating=True,
+        unchecked_stack=True,
+        name="JUMPF",
     )
     """
     !!! Note: This opcode is under development
@@ -5210,6 +5390,7 @@ class Opcodes(Opcode, Enum):
         pushed_stack_items=1,
         data_portion_length=1,
         stack_properties_modifier=_dupn_stack_properties_modifier,
+        name="DUPN",
     )
     """
     !!! Note: This opcode is under development
@@ -5246,6 +5427,7 @@ class Opcodes(Opcode, Enum):
         0xE7,
         data_portion_length=1,
         stack_properties_modifier=_swapn_stack_properties_modifier,
+        name="SWAPN",
     )
     """
     !!! Note: This opcode is under development
@@ -5283,6 +5465,7 @@ class Opcodes(Opcode, Enum):
         data_portion_length=1,
         data_portion_formatter=_exchange_encoder,
         stack_properties_modifier=_exchange_stack_properties_modifier,
+        name="EXCHANGE",
     )
     """
     !!! Note: This opcode is under development
@@ -5325,6 +5508,7 @@ class Opcodes(Opcode, Enum):
         pushed_stack_items=1,
         data_portion_length=1,
         kwargs=["salt", "input_offset", "input_size", "value"],
+        name="EOFCREATE",
     )
     """
     !!! Note: This opcode is under development
@@ -5360,6 +5544,7 @@ class Opcodes(Opcode, Enum):
             "input_size",
             "value",
         ],
+        name="TXCREATE",
     )
     """
     !!! Note: This opcode is under development
@@ -5390,6 +5575,7 @@ class Opcodes(Opcode, Enum):
         data_portion_length=1,
         terminating=True,
         kwargs=["auxdata_offset", "auxdata_size"],
+        name="RETURNCODE",
     )
     """
     !!! Note: This opcode is under development
@@ -5419,6 +5605,7 @@ class Opcodes(Opcode, Enum):
         popped_stack_items=3,
         pushed_stack_items=1,
         kwargs=["value", "offset", "size"],
+        name="CREATE",
     )
     """
     CREATE(value, offset, size) = address
@@ -5473,6 +5660,7 @@ class Opcodes(Opcode, Enum):
             "ret_size",
         ],
         kwargs_defaults={"gas": GAS},
+        name="CALL",
     )
     """
     CALL(gas, address, value, args_offset, args_size, ret_offset, ret_size)
@@ -5530,6 +5718,7 @@ class Opcodes(Opcode, Enum):
             "ret_size",
         ],
         kwargs_defaults={"gas": GAS},
+        name="CALLCODE",
     )
     """
     CALLCODE(gas, address, value, args_offset, args_size, ret_offset, ret_size)
@@ -5574,7 +5763,11 @@ class Opcodes(Opcode, Enum):
     """
 
     RETURN = Opcode(
-        0xF3, popped_stack_items=2, kwargs=["offset", "size"], terminating=True
+        0xF3,
+        popped_stack_items=2,
+        kwargs=["offset", "size"],
+        terminating=True,
+        name="RETURN",
     )
     """
     RETURN(offset, size)
@@ -5619,6 +5812,7 @@ class Opcodes(Opcode, Enum):
             "ret_size",
         ],
         kwargs_defaults={"gas": GAS},
+        name="DELEGATECALL",
     )
     """
     DELEGATECALL(gas, address, args_offset, args_size, ret_offset, ret_size)
@@ -5664,6 +5858,7 @@ class Opcodes(Opcode, Enum):
         popped_stack_items=4,
         pushed_stack_items=1,
         kwargs=["value", "offset", "size", "salt"],
+        name="CREATE2",
     )
     """
     CREATE2(value, offset, size, salt) = address
@@ -5711,6 +5906,7 @@ class Opcodes(Opcode, Enum):
         popped_stack_items=4,
         pushed_stack_items=1,
         kwargs=["address", "args_offset", "args_size", "value"],
+        name="EXTCALL",
     )
     """
     EXTCALL(address, args_offset, args_size, value) = address
@@ -5757,6 +5953,7 @@ class Opcodes(Opcode, Enum):
         popped_stack_items=3,
         pushed_stack_items=1,
         kwargs=["address", "args_offset", "args_size"],
+        name="EXTDELEGATECALL",
     )
     """
     EXTDELEGATECALL(address, args_offset, args_size) = address
@@ -5808,6 +6005,7 @@ class Opcodes(Opcode, Enum):
             "ret_size",
         ],
         kwargs_defaults={"gas": GAS},
+        name="STATICCALL",
     )
     """
     STATICCALL(gas, address, args_offset, args_size, ret_offset, ret_size)
@@ -5852,6 +6050,7 @@ class Opcodes(Opcode, Enum):
         popped_stack_items=3,
         pushed_stack_items=1,
         kwargs=["address", "args_offset", "args_size"],
+        name="EXTSTATICCALL",
     )
     """
     EXTSTATICCALL(address, args_offset, args_size) = address
@@ -5890,7 +6089,11 @@ class Opcodes(Opcode, Enum):
     """
 
     RETURNDATALOAD = Opcode(
-        0xF7, popped_stack_items=1, pushed_stack_items=1, kwargs=["offset"]
+        0xF7,
+        popped_stack_items=1,
+        pushed_stack_items=1,
+        kwargs=["offset"],
+        name="RETURNDATALOAD",
     )
     """
     RETURNDATALOAD(offset)
@@ -5915,7 +6118,11 @@ class Opcodes(Opcode, Enum):
     """
 
     REVERT = Opcode(
-        0xFD, popped_stack_items=2, kwargs=["offset", "size"], terminating=True
+        0xFD,
+        popped_stack_items=2,
+        kwargs=["offset", "size"],
+        terminating=True,
+        name="REVERT",
     )
     """
     REVERT(offset, size)
@@ -5943,7 +6150,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#FD](https://www.evm.codes/#FD)
     """
 
-    INVALID = Opcode(0xFE, terminating=True)
+    INVALID = Opcode(0xFE, terminating=True, name="INVALID")
     """
     INVALID()
     ----
@@ -5971,7 +6178,9 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#FE](https://www.evm.codes/#FE)
     """
 
-    SELFDESTRUCT = Opcode(0xFF, popped_stack_items=1, kwargs=["address"])
+    SELFDESTRUCT = Opcode(
+        0xFF, popped_stack_items=1, kwargs=["address"], name="SELFDESTRUCT"
+    )
     """
     SELFDESTRUCT(address)
     ----

@@ -2144,6 +2144,32 @@ class Prague(Cancun):
         del block_number, timestamp
         return 3
 
+    @classmethod
+    def op_cost(
+        cls, opcode: Opcodes, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
+        """
+        Return the base gas cost for a given opcode at Prague fork.
+        """
+        from ethereum.forks.prague.vm import gas as g
+
+        opcode_name = opcode.name
+
+        if opcode_name.startswith("PUSH") and opcode_name != "PUSH0":
+            gas_const_name = "G_PUSHx"
+        elif opcode_name.startswith("DUP") and len(opcode_name) > 3:
+            gas_const_name = "G_DUPx"
+        elif opcode_name.startswith("SWAP") and len(opcode_name) > 4:
+            gas_const_name = "G_SWAPx"
+        elif opcode_name.startswith("LOG") and len(opcode_name) > 3:
+            gas_const_name = "G_LOGx"
+        else:
+            gas_const_name = f"G_{opcode_name}"
+
+        if hasattr(g, gas_const_name):
+            return int(getattr(g, gas_const_name))
+        return 0
+
 
 class Osaka(Prague, solc_name="cancun"):
     """Osaka fork."""
@@ -2342,6 +2368,44 @@ class Osaka(Prague, solc_name="cancun"):
                 kwargs[field.name] = int(getattr(g, field.name))
 
         return GasCosts(**kwargs)
+
+    @classmethod
+    def op_cost(
+        cls, opcode: Opcodes, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
+        """
+        Return the base gas cost for a given opcode at Osaka fork.
+
+        Args:
+            opcode: The opcode enum value
+            block_number: Block number context
+            timestamp: Timestamp context
+
+        Returns:
+            Base gas cost for the opcode
+
+        Example:
+            >>> Osaka.op_cost(Opcodes.ADD)
+            3
+        """
+        from ethereum.forks.osaka.vm import gas as g
+
+        opcode_name = opcode.name
+
+        if opcode_name.startswith("PUSH") and opcode_name != "PUSH0":
+            gas_const_name = "G_PUSHx"
+        elif opcode_name.startswith("DUP") and len(opcode_name) > 3:
+            gas_const_name = "G_DUPx"
+        elif opcode_name.startswith("SWAP") and len(opcode_name) > 4:
+            gas_const_name = "G_SWAPx"
+        elif opcode_name.startswith("LOG") and len(opcode_name) > 3:
+            gas_const_name = "G_LOGx"
+        else:
+            gas_const_name = f"G_{opcode_name}"
+
+        if hasattr(g, gas_const_name):
+            return int(getattr(g, gas_const_name))
+        return 0
 
 
 class BPO1(Osaka, bpo_fork=True):
