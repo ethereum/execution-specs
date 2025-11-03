@@ -18,11 +18,18 @@ from ethereum.utils.numeric import get_sign
 
 from .. import Evm
 from ..gas import (
-    GAS_EXPONENTIATION,
+    G_ADD,
+    G_ADDMOD,
+    G_DIV,
+    G_EXP,
+    G_MOD,
+    G_MUL,
+    G_MULMOD,
+    G_SDIV,
+    G_SIGNEXTEND,
+    G_SMOD,
+    G_SUB,
     GAS_EXPONENTIATION_PER_BYTE,
-    GAS_LOW,
-    GAS_MID,
-    GAS_VERY_LOW,
     charge_gas,
 )
 from ..stack import pop, push
@@ -44,7 +51,7 @@ def add(evm: Evm) -> None:
     y = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_VERY_LOW)
+    charge_gas(evm, G_ADD)
 
     # OPERATION
     result = x.wrapping_add(y)
@@ -71,7 +78,7 @@ def sub(evm: Evm) -> None:
     y = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_VERY_LOW)
+    charge_gas(evm, G_SUB)
 
     # OPERATION
     result = x.wrapping_sub(y)
@@ -98,7 +105,7 @@ def mul(evm: Evm) -> None:
     y = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_LOW)
+    charge_gas(evm, G_MUL)
 
     # OPERATION
     result = x.wrapping_mul(y)
@@ -125,7 +132,7 @@ def div(evm: Evm) -> None:
     divisor = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_LOW)
+    charge_gas(evm, G_DIV)
 
     # OPERATION
     if divisor == 0:
@@ -158,7 +165,7 @@ def sdiv(evm: Evm) -> None:
     divisor = pop(evm.stack).to_signed()
 
     # GAS
-    charge_gas(evm, GAS_LOW)
+    charge_gas(evm, G_SDIV)
 
     # OPERATION
     if divisor == 0:
@@ -191,7 +198,7 @@ def mod(evm: Evm) -> None:
     y = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_LOW)
+    charge_gas(evm, G_MOD)
 
     # OPERATION
     if y == 0:
@@ -221,7 +228,7 @@ def smod(evm: Evm) -> None:
     y = pop(evm.stack).to_signed()
 
     # GAS
-    charge_gas(evm, GAS_LOW)
+    charge_gas(evm, G_SMOD)
 
     # OPERATION
     if y == 0:
@@ -252,7 +259,7 @@ def addmod(evm: Evm) -> None:
     z = Uint(pop(evm.stack))
 
     # GAS
-    charge_gas(evm, GAS_MID)
+    charge_gas(evm, G_ADDMOD)
 
     # OPERATION
     if z == 0:
@@ -283,7 +290,7 @@ def mulmod(evm: Evm) -> None:
     z = Uint(pop(evm.stack))
 
     # GAS
-    charge_gas(evm, GAS_MID)
+    charge_gas(evm, G_MULMOD)
 
     # OPERATION
     if z == 0:
@@ -317,9 +324,7 @@ def exp(evm: Evm) -> None:
     # function is inaccurate leading to wrong results.
     exponent_bits = exponent.bit_length()
     exponent_bytes = (exponent_bits + Uint(7)) // Uint(8)
-    charge_gas(
-        evm, GAS_EXPONENTIATION + GAS_EXPONENTIATION_PER_BYTE * exponent_bytes
-    )
+    charge_gas(evm, G_EXP + GAS_EXPONENTIATION_PER_BYTE * exponent_bytes)
 
     # OPERATION
     result = U256(pow(base, exponent, Uint(U256.MAX_VALUE) + Uint(1)))
@@ -346,7 +351,7 @@ def signextend(evm: Evm) -> None:
     value = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_LOW)
+    charge_gas(evm, G_SIGNEXTEND)
 
     # OPERATION
     if byte_num > U256(31):
