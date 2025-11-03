@@ -20,6 +20,8 @@ Test fixtures for use by clients are available for each release on the [Github r
 
 ### 📋 Misc
 
+- 🐞 Fix duplicate storage write issues for block access lists EIP-7928 implementation ([#1743](https://github.com/ethereum/execution-specs/pull/1743)).
+
 ### 🧪 Test Cases
 
 - 🐞 Fix BALs opcode OOG test vectors by updating the Amsterdam commit hash in specs and validating appropriately on the testing side ([#2293](https://github.com/ethereum/execution-spec-tests/pull/2293)).
