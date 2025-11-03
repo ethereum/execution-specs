@@ -60,7 +60,7 @@ def get_all_checklist_ids(obj: Any) -> Set[str]:
     return ids
 
 
-@pytest.mark.skip(reason="Skipping test until ./docs/ folder is subtree'd")
+
 def test_checklist_template_consistency() -> None:
     """
     Test that all IDs in markdown template match EIPChecklist class exactly.
@@ -101,7 +101,7 @@ def test_checklist_template_consistency() -> None:
         pytest.fail(error_message)
 
 
-@pytest.mark.skip(reason="Skipping test until ./docs/ folder is subtree'd")
+
 def test_checklist_template_exists() -> None:
     """Test that the checklist template file exists."""
     assert TEMPLATE_PATH.exists(), (
