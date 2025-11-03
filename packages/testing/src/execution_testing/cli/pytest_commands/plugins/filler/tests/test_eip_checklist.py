@@ -10,7 +10,7 @@ from pathlib import Path
 # Apply this fix inside the file: ...plugins/filler/eip_checklist.py
 TEMPLATE_PATH = (
     # Move up SIX times to exit the 'packages' directory and reach the repo root
-    Path(__file__).parent.parent.parent.parent.parent.parent 
+    Path(__file__).parent.parent.parent.parent.parent.parent.parent
     / "docs"
     / "writing_tests"
     / "checklist_templates"
