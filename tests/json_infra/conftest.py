@@ -309,8 +309,9 @@ def pytest_runtest_teardown(item: Item, nextitem: Item) -> None:
     same type or does not belong to the same fixtures file.
     """
     if isinstance(item, FixtureTestItem):
-        if not isinstance(nextitem, FixtureTestItem):
+        if (
+            nextitem is None
+            or not isinstance(nextitem, FixtureTestItem)
+            or item.fixtures_file != nextitem.fixtures_file
+        ):
             item.fixtures_file.clear_data_cache()
-        else:
-            if item.fixtures_file != nextitem.fixtures_file:
-                item.fixtures_file.clear_data_cache()

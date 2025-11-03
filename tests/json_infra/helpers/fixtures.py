@@ -75,7 +75,7 @@ class FixturesFile(File):
 
     def clear_data_cache(self) -> None:
         """Drop the data cache."""
-        del self.data
+        self.__dict__.pop("data", None)
 
     def collect(
         self: Self,
@@ -85,22 +85,21 @@ class FixturesFile(File):
             loaded_file = self.data
         except Exception:
             return  # Skip *.json files that are unreadable.
-        if not isinstance(loaded_file, dict):
-            return
-        for key, test_dict in loaded_file.items():
-            if not isinstance(test_dict, dict):
-                continue
-            for fixture_type in ALL_FIXTURE_TYPES:
-                if not fixture_type.is_format(test_dict):
+        if isinstance(loaded_file, dict):
+            for key, test_dict in loaded_file.items():
+                if not isinstance(test_dict, dict):
                     continue
-                name = key
-                if "::" in name:
-                    name = name.split("::")[1]
-                yield fixture_type.from_parent(  # type: ignore
-                    parent=self,
-                    name=name,
-                    test_file=str(self.path),
-                    test_key=key,
-                )
+                for fixture_type in ALL_FIXTURE_TYPES:
+                    if not fixture_type.is_format(test_dict):
+                        continue
+                    name = key
+                    if "::" in name:
+                        name = name.split("::")[1]
+                    yield fixture_type.from_parent(  # type: ignore
+                        parent=self,
+                        name=name,
+                        test_file=str(self.path),
+                        test_key=key,
+                    )
         # Make sure we don't keep anything from collection in memory.
         self.clear_data_cache()
