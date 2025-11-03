@@ -53,7 +53,7 @@ PERCENTAGE_LINE = (
 )
 
 TEMPLATE_PATH = (
-    Path(__file__).parents[7]
+    Path(__file__).parents[8]
     / "docs"
     / "writing_tests"
     / "checklist_templates"
