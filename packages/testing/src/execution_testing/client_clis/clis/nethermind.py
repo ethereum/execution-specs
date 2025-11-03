@@ -436,6 +436,9 @@ class NethermindExceptionMapper(ExceptionMapper):
         BlockException.INVALID_BLOCK_NUMBER: "InvalidBlockNumber: Block number does not match the parent",
         BlockException.EXTRA_DATA_TOO_BIG: "InvalidExtraData: Extra data in header is not valid",
         BlockException.INVALID_GASLIMIT: "InvalidGasLimit: Gas limit is not correct",
+        BlockException.INVALID_RECEIPTS_ROOT: "InvalidReceiptsRoot: Receipts root in header does not match",
+        BlockException.INVALID_LOG_BLOOM: "InvalidLogsBloom: Logs bloom in header does not match",
+        BlockException.INVALID_STATE_ROOT: "InvalidStateRoot: State root in header does not match",
     }
     mapping_regex = {
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (

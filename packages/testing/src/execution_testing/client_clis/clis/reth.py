@@ -41,6 +41,7 @@ class RethExceptionMapper(ExceptionMapper):
         BlockException.RLP_BLOCK_LIMIT_EXCEEDED: "block is too large: ",
         BlockException.INVALID_BASEFEE_PER_GAS: "block base fee mismatch",
         BlockException.EXTRA_DATA_TOO_BIG: "invalid payload extra data",
+        BlockException.INVALID_LOG_BLOOM: "header bloom filter mismatch",
     }
     mapping_regex = {
         TransactionException.NONCE_MISMATCH_TOO_LOW: r"nonce \d+ too low, expected \d+",
@@ -75,6 +76,15 @@ class RethExceptionMapper(ExceptionMapper):
         ),
         BlockException.INVALID_GAS_USED_ABOVE_LIMIT: (
             r"block used gas \(\d+\) is greater than gas limit \(\d+\)"
+        ),
+        BlockException.INVALID_GASLIMIT: (
+            r"child gas_limit \d+ max .* is .*|child gas limit \d+ is below the minimum allowed limit"
+        ),
+        BlockException.INVALID_BLOCK_TIMESTAMP_OLDER_THAN_PARENT: (
+            r"block timestamp \d+ is in the past compared to the parent timestamp \d+"
+        ),
+        BlockException.INVALID_BLOCK_NUMBER: (
+            r"block number \d+ does not match parent block number \d+"
         ),
         # BAL Exceptions: TODO - review once all clients completed.
         BlockException.INVALID_BAL_EXTRA_ACCOUNT: (

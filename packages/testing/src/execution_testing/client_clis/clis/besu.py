@@ -277,6 +277,9 @@ class BesuExceptionMapper(ExceptionMapper):
         BlockException.INVALID_BLOCK_NUMBER: "Header validation failed (FULL)",
         BlockException.INVALID_BASEFEE_PER_GAS: "Header validation failed (FULL)",
         BlockException.INVALID_BLOCK_TIMESTAMP_OLDER_THAN_PARENT: "block timestamp not greater than parent",
+        BlockException.INVALID_LOG_BLOOM: "failed to validate output of imported block",
+        BlockException.INVALID_RECEIPTS_ROOT: "failed to validate output of imported block",
+        BlockException.INVALID_STATE_ROOT: "World State Root does not match expected value",
     }
     mapping_regex = {
         BlockException.INVALID_REQUESTS: (

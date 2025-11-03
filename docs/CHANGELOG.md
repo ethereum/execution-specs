@@ -36,6 +36,7 @@ Test fixtures for use by clients are available for each release on the [Github r
 - ✨ Add test for old behavior of zero gasprice txs ([#1736](https://github.com/ethereum/execution-specs/pull/1736)).
 - ✨ Add stack overflow tests and expand `BLOCKHASH` tests ([#1728](https://github.com/ethereum/execution-specs/pull/1728)).
 - ✨ Add tests that EIP-1559 and EIP-2930 typed txs are invalid and void before their fork ([#1754](https://github.com/ethereum/execution-specs/pull/1754)).
+- ✨ Add tests for an old validation rule for gas limit above 5000 ([#1731](https://github.com/ethereum/execution-specs/pull/1731)).
 
 ## [v5.3.0](https://github.com/ethereum/execution-spec-tests/releases/tag/v5.3.0) - 2025-10-09
 
