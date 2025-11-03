@@ -57,3 +57,29 @@ def right_pad_zero_bytes(
 
     """
     return value.ljust(int(size), b"\x00")
+
+
+def count_bytes(data: Bytes) -> tuple[int, int]:
+    """
+    Count the number of zero and non-zero bytes in the given data.
+
+    Parameters
+    ----------
+    data :
+        The byte string to count bytes in.
+
+    Returns
+    -------
+    (zero_bytes, nonzero_bytes) : tuple[int, int]
+        A tuple containing the count of zero bytes and non-zero bytes.
+    """
+    zero_bytes = 0
+    nonzero_bytes = 0
+    
+    for byte in data:
+        if byte == 0:
+            zero_bytes += 1
+        else:
+            nonzero_bytes += 1
+    
+    return zero_bytes, nonzero_bytes
