@@ -6,16 +6,7 @@ from typing import Any
 
 import pytest
 
-from pathlib import Path
-# Apply this fix inside the file: ...plugins/filler/eip_checklist.py
-TEMPLATE_PATH = (
-    # Move up SIX times to exit the 'packages' directory and reach the repo root
-    Path(__file__).parent.parent.parent.parent.parent.parent.parent
-    / "docs"
-    / "writing_tests"
-    / "checklist_templates"
-    / "eip_testing_checklist_template.md"
-)
+
 
 def test_eip_checklist_collection(testdir: Any) -> None:
     """Test that checklist markers are collected correctly."""
