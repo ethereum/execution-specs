@@ -92,7 +92,7 @@ def test_eip_checklist_collection(testdir: Any) -> None:
         str(testdir.tmpdir / "checklists"),
         str(tests_dir),
     )
-  result.assert_outcomes(errors=0)
+   result.assert_outcomes(errors=0)
 
     # Check that checklists were generated
     checklist_dir = testdir.tmpdir / "checklists"
