@@ -5,6 +5,7 @@ Tests for the ethereum-spec-new-fork CLI tool.
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from ethereum_spec_tools.forks import Hardfork
 from ethereum_spec_tools.new_fork.cli import main as new_fork
 
 
@@ -17,12 +18,16 @@ def test_end_to_end() -> None:
         output_dir = Path(base_dir) / "ethereum"
         fork_dir = output_dir / "e2e_fork"
 
+        # Get the latest fork dynamically to avoid breaking with new forks
+        forks = Hardfork.discover()
+        template_fork = forks[-1].short_name
+
         new_fork(
             [
                 "--new-fork",
                 "e2e_fork",
                 "--template-fork",
-                "osaka",
+                template_fork,
                 "--target-blob-gas-per-block",
                 "199",
                 "--blob-base-fee-update-fraction",
@@ -47,7 +52,7 @@ def test_end_to_end() -> None:
 
             assert "FORK_CRITERIA = ByTimestamp(7)" in source
             assert "E2E Fork" in source
-            assert "Osaka" not in source
+            assert template_fork.title() not in source
 
         with (fork_dir / "vm" / "gas.py").open("r") as f:
             source = f.read()

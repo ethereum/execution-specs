@@ -330,7 +330,7 @@ class ForkBuilder:
             self.output = Path(template_path).parent
 
         # Try to make a sane guess for the activation criteria.
-        if found is forks[-1]:
+        if found is forks[-1] or isinstance(found.criteria, Unscheduled):
             order_index = 0
 
             # check template fork's criteria and bump order_index if needed
