@@ -54,10 +54,14 @@ def fetch_state_tests(json_fork: str) -> Generator:
                 "json_fork": json_fork,
             }
 
+            # Build marks list with xdist_group for all tests
+            marks = [pytest.mark.xdist_group(test_case_dict["test_file"])]
+
             if any(x.search(test_case.key) for x in test_patterns.slow):
-                yield pytest.param(test_case_dict, marks=pytest.mark.slow)
+                marks.append(pytest.mark.slow)
+                yield pytest.param(test_case_dict, marks=marks)
             else:
-                yield test_case_dict
+                yield pytest.param(test_case_dict, marks=marks)
 
 
 def idfn(test_case: Dict) -> str:

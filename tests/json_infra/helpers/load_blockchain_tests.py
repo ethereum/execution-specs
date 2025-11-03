@@ -200,18 +200,24 @@ def fetch_blockchain_tests(
                     + ")"
                 )
                 _test_case["eels_fork"] = eels_fork
+
+                # Build marks list with xdist_group for all tests
+                marks = [pytest.mark.xdist_group(_test_case["test_file"])]
+
                 if any(
                     x.search(_identifier) for x in test_patterns.expected_fail
                 ):
                     continue
                 elif any(x.search(_identifier) for x in test_patterns.slow):
-                    yield pytest.param(_test_case, marks=pytest.mark.slow)
+                    marks.append(pytest.mark.slow)
+                    yield pytest.param(_test_case, marks=marks)
                 elif any(
                     x.search(_identifier) for x in test_patterns.big_memory
                 ):
-                    yield pytest.param(_test_case, marks=pytest.mark.bigmem)
+                    marks.append(pytest.mark.bigmem)
+                    yield pytest.param(_test_case, marks=marks)
                 else:
-                    yield _test_case
+                    yield pytest.param(_test_case, marks=marks)
         except NoTestsFoundError:
             # file doesn't contain tests for the given fork
             continue
