@@ -13,6 +13,13 @@ from execution_testing.forks.helpers import Fork
 from execution_testing.vm import Opcodes as Op
 
 
+@pytest.mark.ported_from(
+    # The oog==True case:
+    [
+        "https://github.com/ethereum/execution-specs/blob/master/tests/static/state_tests/stPreCompiledContracts2/CallRipemd160_0Filler.json"
+    ],
+    pr=["https://github.com/ethereum/execution-specs/pull/1732"],
+)
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.parametrize(
     "msg, output",
@@ -134,12 +141,14 @@ from execution_testing.vm import Opcodes as Op
         ),
     ],
 )
+@pytest.mark.parametrize("oog", [True, False])
 def test_precompiles(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     msg: bytes,
     output: bytes,
+    oog: bool,
 ) -> None:
     """
     Tests the behavior of `RIPEMD-160` precompiled contract.
@@ -150,7 +159,7 @@ def test_precompiles(
         code=Op.CALLDATACOPY(0, 0, len(msg))
         + Op.MLOAD(0)
         + Op.CALL(
-            gas=50_000,
+            gas=50_000 if not oog else 255,
             address="0x03",  # RIPEMD-160 precompile address
             args_offset=0,
             args_size=len(msg),
@@ -170,6 +179,6 @@ def test_precompiles(
         protected=fork >= Byzantium,
     )
 
-    post = {account: Account(storage={0: output})}
+    post = {account: Account(storage={0: output if not oog else 0})}
 
     state_test(env=env, pre=pre, post=post, tx=tx)
