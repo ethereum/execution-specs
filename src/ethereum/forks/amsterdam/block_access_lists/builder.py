@@ -126,8 +126,8 @@ def add_storage_write(
     Add a storage write operation to the block access list.
 
     Records a storage slot modification for a given address at a specific
-    transaction index. Multiple writes to the same slot are tracked
-    separately, maintaining the order and transaction index of each change.
+    transaction index. If multiple writes occur to the same slot within the
+    same transaction (same block_access_index), only the final value is kept.
 
     Parameters
     ----------
@@ -149,6 +149,18 @@ def add_storage_write(
     if slot not in builder.accounts[address].storage_changes:
         builder.accounts[address].storage_changes[slot] = []
 
+    # Check if there's already an entry with the same block_access_index
+    # If so, update it with the new value, keeping only the final write
+    changes = builder.accounts[address].storage_changes[slot]
+    for i, existing_change in enumerate(changes):
+        if existing_change.block_access_index == block_access_index:
+            # Update the existing entry with the new value
+            changes[i] = StorageChange(
+                block_access_index=block_access_index, new_value=new_value
+            )
+            return
+
+    # No existing entry found, append new change
     change = StorageChange(
         block_access_index=block_access_index, new_value=new_value
     )
