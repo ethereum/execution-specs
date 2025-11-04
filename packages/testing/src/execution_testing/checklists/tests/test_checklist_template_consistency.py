@@ -9,7 +9,7 @@ import pytest
 from execution_testing.checklists.eip_checklist import EIPChecklist
 
 TEMPLATE_PATH = (
-    Path(__file__).parent.parent.parent.parent.parent.parent.parent
+    Path(__file__).parents[6]
     / "docs"
     / "writing_tests"
     / "checklist_templates"
