@@ -8,7 +8,7 @@ secp256r1 curve.
 
 ### Notices
 
-- [EIP-7935: Set default gas limit to XX0M][EIP-7935]
+- [EIP-7935: Set default gas limit to 60M][EIP-7935]
 
 ### Changes
 
@@ -27,11 +27,11 @@ secp256r1 curve.
 ### Upgrade Schedule
 
 | Network | Timestamp    | Date & Time (UTC)       | Fork Hash    | Beacon Chain Epoch |
-|---------|--------------|-------------------------|--------------| ------------------ |
-| Holesky | `          ` |     -  -     :  :       | `0x        ` |                    |
-| Sepolia | `          ` |     -  -     :  :       | `0x        ` |                    |
-| Hoodi   | `          ` |     -  -     :  :       | `0x        ` |                    |
-| Mainnet | `          ` |     -  -     :  :       | `0x        ` |                    |
+|---------|--------------|-------------------------|--------------|--------------------|
+| Holesky | `1759308480` | 2025-10-01 08:48:00     | `0x783def52` | `165120`           |
+| Sepolia | `1760427360` | 2025-10-14 07:36:00     | `0xe2ae4999` | `272640`           |
+| Hoodi   | `1761677592` | 2025-10-28 18:53:12     | `0xe7e0e7ff` |  `50688`           |
+| Mainnet | `1764798551` | 2025-12-03 21:49:11     | `0x5167e2a6` | `411392`           |
 
 ### Releases
 
@@ -50,6 +50,6 @@ secp256r1 curve.
 [EIP-7910]: https://eips.ethereum.org/EIPS/eip-7910
 """  # noqa: E501
 
-from ethereum.fork_criteria import Unscheduled
+from ethereum.fork_criteria import ByTimestamp
 
-FORK_CRITERIA = Unscheduled()
+FORK_CRITERIA = ByTimestamp(1764798551)
