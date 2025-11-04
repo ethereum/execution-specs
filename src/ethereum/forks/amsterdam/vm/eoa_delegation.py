@@ -140,9 +140,6 @@ def access_delegation(
     if not is_valid_delegation(code):
         return False, address, code, Uint(0)
 
-    # EIP-7928: Track the authority address (delegated account being called)
-    track_address_access(state.change_tracker, address)
-
     address = Address(code[EOA_DELEGATION_MARKER_LENGTH:])
     if address in evm.accessed_addresses:
         access_gas_cost = GAS_WARM_ACCESS
@@ -150,9 +147,6 @@ def access_delegation(
         evm.accessed_addresses.add(address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
     code = get_account(state, address).code
-
-    # EIP-7928: Track delegation target when loaded as call target
-    track_address_access(state.change_tracker, address)
 
     return True, address, code, access_gas_cost
 

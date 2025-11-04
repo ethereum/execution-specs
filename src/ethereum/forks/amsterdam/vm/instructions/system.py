@@ -407,16 +407,28 @@ def call(evm: Evm) -> None:
     ) = access_delegation(evm, code_address)
     access_gas_cost += delegated_access_gas_cost
 
+    # Charge delegation access cost before tracking delegation target
+    if delegated_access_gas_cost > Uint(0):
+        charge_gas(evm, delegated_access_gas_cost)
+
+    # Track delegation target if delegation occurred
+    if disable_precompiles:
+        track_address_access(
+            evm.message.block_env.state.change_tracker, code_address
+        )
+
     create_gas_cost = GAS_NEW_ACCOUNT
     if value == 0 or is_account_alive(evm.message.block_env.state, to):
         create_gas_cost = Uint(0)
     transfer_gas_cost = Uint(0) if value == 0 else GAS_CALL_VALUE
+
+    # Charge remaining costs (create, transfer, subcall)
     message_call_gas = calculate_message_call_gas(
         value,
         gas,
         Uint(evm.gas_left),
-        extend_memory.cost,
-        access_gas_cost + create_gas_cost + transfer_gas_cost,
+        Uint(0),  # Memory cost already charged
+        create_gas_cost + transfer_gas_cost,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
     if evm.message.is_static and value != U256(0):
@@ -500,13 +512,25 @@ def callcode(evm: Evm) -> None:
     ) = access_delegation(evm, code_address)
     access_gas_cost += delegated_access_gas_cost
 
+    # Charge delegation access cost before tracking delegation target
+    if delegated_access_gas_cost > Uint(0):
+        charge_gas(evm, delegated_access_gas_cost)
+
+    # Track delegation target if delegation occurred
+    if disable_precompiles:
+        track_address_access(
+            evm.message.block_env.state.change_tracker, code_address
+        )
+
     transfer_gas_cost = Uint(0) if value == 0 else GAS_CALL_VALUE
+
+    # Charge remaining costs (transfer, subcall)
     message_call_gas = calculate_message_call_gas(
         value,
         gas,
         Uint(evm.gas_left),
-        extend_memory.cost,
-        access_gas_cost + transfer_gas_cost,
+        Uint(0),  # Memory cost already charged
+        transfer_gas_cost,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 
@@ -656,7 +680,19 @@ def delegatecall(evm: Evm) -> None:
     ) = access_delegation(evm, code_address)
     access_gas_cost += delegated_access_gas_cost
 
+    # Charge delegation access cost before tracking delegation target
+    if delegated_access_gas_cost > Uint(0):
+        charge_gas(evm, delegated_access_gas_cost)
+
+    # Track delegation target if delegation occurred
+    if disable_precompiles:
+        track_address_access(
+            evm.message.block_env.state.change_tracker, code_address
+        )
+
+    # Charge remaining costs (subcall)
     message_call_gas = calculate_message_call_gas(
+        U256(0), gas, Uint(evm.gas_left), Uint(0), Uint(0)
         U256(0), gas, Uint(evm.gas_left), extend_memory.cost, access_gas_cost
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
@@ -729,12 +765,23 @@ def staticcall(evm: Evm) -> None:
     ) = access_delegation(evm, code_address)
     access_gas_cost += delegated_access_gas_cost
 
+    # Charge delegation access cost before tracking delegation target
+    if delegated_access_gas_cost > Uint(0):
+        charge_gas(evm, delegated_access_gas_cost)
+
+    # Track delegation target if delegation occurred
+    if disable_precompiles:
+        track_address_access(
+            evm.message.block_env.state.change_tracker, code_address
+        )
+
+    # Charge remaining costs (subcall)
     message_call_gas = calculate_message_call_gas(
         U256(0),
         gas,
         Uint(evm.gas_left),
-        extend_memory.cost,
-        access_gas_cost,
+        Uint(0),  # Memory cost already charged
+        Uint(0),
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 
