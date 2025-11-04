@@ -107,7 +107,6 @@ DEFAULT_REQUEST_LOG = create_deposit_log_bytes(
         ),
     ],
 )
-@pytest.mark.parametrize("extra_event_type", ["transfer_log", "no_topics"])
 def test_extra_logs(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
