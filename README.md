@@ -81,4 +81,4 @@ The path to the generated HTML will be printed to the console.
 
 # License
 
-The Ethereum Execution Layer Specification code is licensed under the [Creative Commons Zero v1.0 Universal](/execution-specs/LICENSE.md).
+The Ethereum Execution Layer Specification code is licensed under the [Creative Commons Zero v1.0 Universal](LICENSE.md).
