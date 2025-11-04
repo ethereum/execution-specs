@@ -5,11 +5,21 @@ Tests for the ethereum-spec-new-fork CLI tool.
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
+
 from ethereum_spec_tools.forks import Hardfork
 from ethereum_spec_tools.new_fork.cli import main as new_fork
 
 
-def test_end_to_end() -> None:
+@pytest.mark.parametrize(
+    "template_fork",
+    [
+        Hardfork.discover()[-1].short_name,
+        "osaka",
+    ],
+    ids=lambda tf: f"{tf}",
+)
+def test_end_to_end(template_fork: str) -> None:
     """
     Test that the ethereum-spec-new-fork CLI tool creates a fork from a
     template, correctly modifying names, blob parameters, and imports.
@@ -17,10 +27,6 @@ def test_end_to_end() -> None:
     with TemporaryDirectory() as base_dir:
         output_dir = Path(base_dir) / "ethereum"
         fork_dir = output_dir / "e2e_fork"
-
-        # Get the latest fork dynamically to avoid breaking with new forks
-        forks = Hardfork.discover()
-        template_fork = forks[-1].short_name
 
         new_fork(
             [
@@ -52,7 +58,7 @@ def test_end_to_end() -> None:
 
             assert "FORK_CRITERIA = ByTimestamp(7)" in source
             assert "E2E Fork" in source
-            assert template_fork.title() not in source
+            assert template_fork.capitalize() not in source
 
         with (fork_dir / "vm" / "gas.py").open("r") as f:
             source = f.read()
