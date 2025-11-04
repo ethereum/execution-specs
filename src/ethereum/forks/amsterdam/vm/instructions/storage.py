@@ -23,12 +23,15 @@ from ...state import (
 from .. import Evm
 from ..exceptions import OutOfGasError, WriteInStaticContext
 from ..gas import (
+    G_TLOAD,
+    G_TSTORE,
     GAS_CALL_STIPEND,
     GAS_COLD_SLOAD,
     GAS_STORAGE_CLEAR_REFUND,
     GAS_STORAGE_SET,
     GAS_STORAGE_UPDATE,
     GAS_WARM_ACCESS,
+    WARM_STORAGE_READ_COST,
     charge_gas,
 )
 from ..stack import pop, push
@@ -50,7 +53,7 @@ def sload(evm: Evm) -> None:
 
     # GAS
     if (evm.message.current_target, key) in evm.accessed_storage_keys:
-        charge_gas(evm, GAS_WARM_ACCESS)
+        charge_gas(evm, WARM_STORAGE_READ_COST)
     else:
         evm.accessed_storage_keys.add((evm.message.current_target, key))
         charge_gas(evm, GAS_COLD_SLOAD)
@@ -100,7 +103,7 @@ def sstore(evm: Evm) -> None:
         else:
             gas_cost += GAS_STORAGE_UPDATE - GAS_COLD_SLOAD
     else:
-        gas_cost += GAS_WARM_ACCESS
+        gas_cost += WARM_STORAGE_READ_COST
 
     # Refund Counter Calculation
     if current_value != new_value:
@@ -147,7 +150,7 @@ def tload(evm: Evm) -> None:
     key = pop(evm.stack).to_be_bytes32()
 
     # GAS
-    charge_gas(evm, GAS_WARM_ACCESS)
+    charge_gas(evm, G_TLOAD)
 
     # OPERATION
     value = get_transient_storage(
@@ -174,7 +177,7 @@ def tstore(evm: Evm) -> None:
     new_value = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_WARM_ACCESS)
+    charge_gas(evm, G_TSTORE)
     if evm.message.is_static:
         raise WriteInStaticContext
     set_transient_storage(

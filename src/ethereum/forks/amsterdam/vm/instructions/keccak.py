@@ -18,7 +18,7 @@ from ethereum.utils.numeric import ceil32
 
 from .. import Evm
 from ..gas import (
-    GAS_KECCAK256,
+    G_KECCAK256,
     GAS_KECCAK256_WORD,
     calculate_gas_extend_memory,
     charge_gas,
@@ -50,7 +50,7 @@ def keccak(evm: Evm) -> None:
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_start_index, size)]
     )
-    charge_gas(evm, GAS_KECCAK256 + word_gas_cost + extend_memory.cost)
+    charge_gas(evm, G_KECCAK256 + word_gas_cost + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by

@@ -40,15 +40,17 @@ from .. import (
 )
 from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
 from ..gas import (
+    G_CREATE,
+    G_CREATE2,
+    G_RETURN,
+    G_SELFDESTRUCT,
     GAS_CALL_VALUE,
     GAS_COLD_ACCOUNT_ACCESS,
-    GAS_CREATE,
     GAS_KECCAK256_WORD,
     GAS_NEW_ACCOUNT,
-    GAS_SELF_DESTRUCT,
     GAS_SELF_DESTRUCT_NEW_ACCOUNT,
     GAS_WARM_ACCESS,
-    GAS_ZERO,
+    WARM_STORAGE_READ_COST,
     calculate_gas_extend_memory,
     calculate_message_call_gas,
     charge_gas,
@@ -166,7 +168,7 @@ def create(evm: Evm) -> None:
     )
     init_code_gas = init_code_cost(Uint(memory_size))
 
-    charge_gas(evm, GAS_CREATE + extend_memory.cost + init_code_gas)
+    charge_gas(evm, G_CREATE + extend_memory.cost + init_code_gas)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -216,7 +218,7 @@ def create2(evm: Evm) -> None:
     init_code_gas = init_code_cost(Uint(memory_size))
     charge_gas(
         evm,
-        GAS_CREATE
+        G_CREATE2
         + GAS_KECCAK256_WORD * call_data_words
         + extend_memory.cost
         + init_code_gas,
@@ -261,7 +263,7 @@ def return_(evm: Evm) -> None:
         evm.memory, [(memory_start_position, memory_size)]
     )
 
-    charge_gas(evm, GAS_ZERO + extend_memory.cost)
+    charge_gas(evm, G_RETURN + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -374,7 +376,7 @@ def call(evm: Evm) -> None:
     )
 
     if to in evm.accessed_addresses:
-        access_gas_cost = GAS_WARM_ACCESS
+        access_gas_cost = WARM_STORAGE_READ_COST
     else:
         evm.accessed_addresses.add(to)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
@@ -531,7 +533,7 @@ def selfdestruct(evm: Evm) -> None:
     beneficiary = to_address_masked(pop(evm.stack))
 
     # GAS
-    gas_cost = GAS_SELF_DESTRUCT
+    gas_cost = G_SELFDESTRUCT
     if beneficiary not in evm.accessed_addresses:
         evm.accessed_addresses.add(beneficiary)
         gas_cost += GAS_COLD_ACCOUNT_ACCESS
@@ -604,7 +606,7 @@ def delegatecall(evm: Evm) -> None:
     )
 
     if code_address in evm.accessed_addresses:
-        access_gas_cost = GAS_WARM_ACCESS
+        access_gas_cost = WARM_STORAGE_READ_COST
     else:
         evm.accessed_addresses.add(code_address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
@@ -673,7 +675,7 @@ def staticcall(evm: Evm) -> None:
     )
 
     if to in evm.accessed_addresses:
-        access_gas_cost = GAS_WARM_ACCESS
+        access_gas_cost = WARM_STORAGE_READ_COST
     else:
         evm.accessed_addresses.add(to)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS

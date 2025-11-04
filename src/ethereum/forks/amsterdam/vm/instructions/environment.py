@@ -24,14 +24,29 @@ from ...vm.memory import buffer_read, memory_write
 from .. import Evm
 from ..exceptions import OutOfBoundsRead
 from ..gas import (
-    GAS_BASE,
-    GAS_BLOBHASH_OPCODE,
+    G_ADDRESS,
+    G_BALANCE,
+    G_BASEFEE,
+    G_BLOBBASEFEE,
+    G_BLOBHASH,
+    G_CALLDATACOPY,
+    G_CALLDATALOAD,
+    G_CALLDATASIZE,
+    G_CALLER,
+    G_CALLVALUE,
+    G_CODECOPY,
+    G_CODESIZE,
+    G_EXTCODECOPY,
+    G_EXTCODEHASH,
+    G_EXTCODESIZE,
+    G_GASPRICE,
+    G_ORIGIN,
+    G_RETURNDATACOPY,
+    G_RETURNDATASIZE,
+    G_SELFBALANCE,
     GAS_COLD_ACCOUNT_ACCESS,
     GAS_COPY,
-    GAS_FAST_STEP,
     GAS_RETURN_DATA_COPY,
-    GAS_VERY_LOW,
-    GAS_WARM_ACCESS,
     calculate_blob_gas_price,
     calculate_gas_extend_memory,
     charge_gas,
@@ -53,7 +68,7 @@ def address(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, G_ADDRESS)
 
     # OPERATION
     push(evm.stack, U256.from_be_bytes(evm.message.current_target))
@@ -77,7 +92,7 @@ def balance(evm: Evm) -> None:
 
     # GAS
     if address in evm.accessed_addresses:
-        charge_gas(evm, GAS_WARM_ACCESS)
+        charge_gas(evm, G_BALANCE)
     else:
         evm.accessed_addresses.add(address)
         charge_gas(evm, GAS_COLD_ACCOUNT_ACCESS)
@@ -107,7 +122,7 @@ def origin(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, G_ORIGIN)
 
     # OPERATION
     push(evm.stack, U256.from_be_bytes(evm.message.tx_env.origin))
@@ -130,7 +145,7 @@ def caller(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, G_CALLER)
 
     # OPERATION
     push(evm.stack, U256.from_be_bytes(evm.message.caller))
@@ -153,7 +168,7 @@ def callvalue(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, G_CALLVALUE)
 
     # OPERATION
     push(evm.stack, evm.message.value)
@@ -177,7 +192,7 @@ def calldataload(evm: Evm) -> None:
     start_index = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_VERY_LOW)
+    charge_gas(evm, G_CALLDATALOAD)
 
     # OPERATION
     value = buffer_read(evm.message.data, start_index, U256(32))
@@ -202,7 +217,7 @@ def calldatasize(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, G_CALLDATASIZE)
 
     # OPERATION
     push(evm.stack, U256(len(evm.message.data)))
@@ -235,7 +250,7 @@ def calldatacopy(evm: Evm) -> None:
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_start_index, size)]
     )
-    charge_gas(evm, GAS_VERY_LOW + copy_gas_cost + extend_memory.cost)
+    charge_gas(evm, G_CALLDATACOPY + copy_gas_cost + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -260,7 +275,7 @@ def codesize(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, G_CODESIZE)
 
     # OPERATION
     push(evm.stack, U256(len(evm.code)))
@@ -293,7 +308,7 @@ def codecopy(evm: Evm) -> None:
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_start_index, size)]
     )
-    charge_gas(evm, GAS_VERY_LOW + copy_gas_cost + extend_memory.cost)
+    charge_gas(evm, G_CODECOPY + copy_gas_cost + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -318,7 +333,7 @@ def gasprice(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, G_GASPRICE)
 
     # OPERATION
     push(evm.stack, U256(evm.message.tx_env.gas_price))
@@ -342,7 +357,7 @@ def extcodesize(evm: Evm) -> None:
 
     # GAS
     if address in evm.accessed_addresses:
-        access_gas_cost = GAS_WARM_ACCESS
+        access_gas_cost = G_EXTCODESIZE
     else:
         evm.accessed_addresses.add(address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
@@ -383,7 +398,7 @@ def extcodecopy(evm: Evm) -> None:
     )
 
     if address in evm.accessed_addresses:
-        access_gas_cost = GAS_WARM_ACCESS
+        access_gas_cost = G_EXTCODECOPY
     else:
         evm.accessed_addresses.add(address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
@@ -415,7 +430,7 @@ def returndatasize(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, G_RETURNDATASIZE)
 
     # OPERATION
     push(evm.stack, U256(len(evm.return_data)))
@@ -445,7 +460,7 @@ def returndatacopy(evm: Evm) -> None:
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_start_index, size)]
     )
-    charge_gas(evm, GAS_VERY_LOW + copy_gas_cost + extend_memory.cost)
+    charge_gas(evm, G_RETURNDATACOPY + copy_gas_cost + extend_memory.cost)
     if Uint(return_data_start_position) + Uint(size) > ulen(evm.return_data):
         raise OutOfBoundsRead
 
@@ -474,7 +489,7 @@ def extcodehash(evm: Evm) -> None:
 
     # GAS
     if address in evm.accessed_addresses:
-        access_gas_cost = GAS_WARM_ACCESS
+        access_gas_cost = G_EXTCODEHASH
     else:
         evm.accessed_addresses.add(address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
@@ -510,7 +525,7 @@ def self_balance(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_FAST_STEP)
+    charge_gas(evm, G_SELFBALANCE)
 
     # OPERATION
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
@@ -538,7 +553,7 @@ def base_fee(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, G_BASEFEE)
 
     # OPERATION
     push(evm.stack, U256(evm.message.block_env.base_fee_per_gas))
@@ -561,7 +576,7 @@ def blob_hash(evm: Evm) -> None:
     index = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_BLOBHASH_OPCODE)
+    charge_gas(evm, G_BLOBHASH)
 
     # OPERATION
     if int(index) < len(evm.message.tx_env.blob_versioned_hashes):
@@ -588,7 +603,7 @@ def blob_base_fee(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, G_BLOBBASEFEE)
 
     # OPERATION
     blob_base_fee = calculate_blob_gas_price(
