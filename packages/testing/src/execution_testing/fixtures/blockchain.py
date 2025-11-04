@@ -223,7 +223,7 @@ class FixtureHeader(CamelModel):
         # For each field, check if any of the annotations are of type
         # HeaderForkRequirement and if so, check if the field is required for
         # the given fork.
-        annotated_hints = get_type_hints(self, include_extras=True)
+        annotated_hints = get_type_hints(type(self), include_extras=True)
 
         for field in self.__class__.model_fields:
             if field == "fork":
