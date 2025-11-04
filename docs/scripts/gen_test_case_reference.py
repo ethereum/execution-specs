@@ -66,8 +66,8 @@ args = [
 
 runner = CliRunner()
 logger.info(
-    f"Generating documentation for test cases until {GENERATE_UNTIL_FORK} as \
-    fill {' '.join(args)}"
+    f"Generating documentation for test cases until {GENERATE_UNTIL_FORK} as "
+    f"fill {' '.join(args)}"
 )
 result = runner.invoke(fill, args)
 for line in result.output.split("\n"):
