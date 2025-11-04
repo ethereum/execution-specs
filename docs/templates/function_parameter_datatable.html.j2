@@ -42,14 +42,14 @@
     </div>
 </div>
 <table id="test_table" class="display compact nowrap">
-    <thread>
+    <thead>
         <tr>
             <th>Test ID (Abbreviated)</th>
             {% for header in cases[0].params.keys() %}
             <th>{{ header }}</th>
             {% endfor %}
         </tr>
-    </thread>
+    </thead>
     <tbody>
         {% for case in cases %}
         <tr data-fork="{{ case.fork }}" data-fixture="{{ case.fixture_type }}">
