@@ -392,10 +392,14 @@ def call(evm: Evm) -> None:
     if to in evm.accessed_addresses:
         access_gas_cost = GAS_WARM_ACCESS
     else:
-        evm.accessed_addresses.add(to)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
-    # Track address access for BAL
+    # Charge static costs (memory + access) before BAL tracking
+    charge_gas(evm, extend_memory.cost + access_gas_cost)
+
+    if to not in evm.accessed_addresses:
+        evm.accessed_addresses.add(to)
+
     track_address_access(evm.message.block_env.state.change_tracker, to)
 
     code_address = to
@@ -405,7 +409,6 @@ def call(evm: Evm) -> None:
         code,
         delegated_access_gas_cost,
     ) = access_delegation(evm, code_address)
-    access_gas_cost += delegated_access_gas_cost
 
     # Charge delegation access cost before tracking delegation target
     if delegated_access_gas_cost > Uint(0):
@@ -430,7 +433,7 @@ def call(evm: Evm) -> None:
         Uint(0),  # Memory cost already charged
         create_gas_cost + transfer_gas_cost,
     )
-    charge_gas(evm, message_call_gas.cost + extend_memory.cost)
+    charge_gas(evm, message_call_gas.cost)
     if evm.message.is_static and value != U256(0):
         raise WriteInStaticContext
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -496,10 +499,14 @@ def callcode(evm: Evm) -> None:
     if code_address in evm.accessed_addresses:
         access_gas_cost = GAS_WARM_ACCESS
     else:
-        evm.accessed_addresses.add(code_address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
-    # Track address access for BAL
+    # Charge static costs (memory + access) before BAL tracking
+    charge_gas(evm, extend_memory.cost + access_gas_cost)
+
+    if code_address not in evm.accessed_addresses:
+        evm.accessed_addresses.add(code_address)
+
     track_address_access(
         evm.message.block_env.state.change_tracker, code_address
     )
@@ -510,7 +517,6 @@ def callcode(evm: Evm) -> None:
         code,
         delegated_access_gas_cost,
     ) = access_delegation(evm, code_address)
-    access_gas_cost += delegated_access_gas_cost
 
     # Charge delegation access cost before tracking delegation target
     if delegated_access_gas_cost > Uint(0):
@@ -532,7 +538,7 @@ def callcode(evm: Evm) -> None:
         Uint(0),  # Memory cost already charged
         transfer_gas_cost,
     )
-    charge_gas(evm, message_call_gas.cost + extend_memory.cost)
+    charge_gas(evm, message_call_gas.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -582,12 +588,17 @@ def selfdestruct(evm: Evm) -> None:
     beneficiary = to_address_masked(pop(evm.stack))
 
     # GAS
-    gas_cost = GAS_SELF_DESTRUCT
+    if beneficiary not in evm.accessed_addresses:
+        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+    else:
+        access_gas_cost = Uint(0)
+
+    # Charge static costs (base + access) before BAL tracking
+    charge_gas(evm, GAS_SELF_DESTRUCT + access_gas_cost)
+
     if beneficiary not in evm.accessed_addresses:
         evm.accessed_addresses.add(beneficiary)
-        gas_cost += GAS_COLD_ACCOUNT_ACCESS
 
-    # Track address access for BAL
     track_address_access(
         evm.message.block_env.state.change_tracker, beneficiary
     )
@@ -599,9 +610,7 @@ def selfdestruct(evm: Evm) -> None:
         ).balance
         != 0
     ):
-        gas_cost += GAS_SELF_DESTRUCT_NEW_ACCOUNT
-
-    charge_gas(evm, gas_cost)
+        charge_gas(evm, GAS_SELF_DESTRUCT_NEW_ACCOUNT)
 
     originator = evm.message.current_target
     originator_balance = get_account(
@@ -664,10 +673,14 @@ def delegatecall(evm: Evm) -> None:
     if code_address in evm.accessed_addresses:
         access_gas_cost = GAS_WARM_ACCESS
     else:
-        evm.accessed_addresses.add(code_address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
-    # Track address access for BAL
+    # Charge static costs (memory + access) before BAL tracking
+    charge_gas(evm, extend_memory.cost + access_gas_cost)
+
+    if code_address not in evm.accessed_addresses:
+        evm.accessed_addresses.add(code_address)
+
     track_address_access(
         evm.message.block_env.state.change_tracker, code_address
     )
@@ -678,7 +691,6 @@ def delegatecall(evm: Evm) -> None:
         code,
         delegated_access_gas_cost,
     ) = access_delegation(evm, code_address)
-    access_gas_cost += delegated_access_gas_cost
 
     # Charge delegation access cost before tracking delegation target
     if delegated_access_gas_cost > Uint(0):
@@ -693,9 +705,8 @@ def delegatecall(evm: Evm) -> None:
     # Charge remaining costs (subcall)
     message_call_gas = calculate_message_call_gas(
         U256(0), gas, Uint(evm.gas_left), Uint(0), Uint(0)
-        U256(0), gas, Uint(evm.gas_left), extend_memory.cost, access_gas_cost
     )
-    charge_gas(evm, message_call_gas.cost + extend_memory.cost)
+    charge_gas(evm, message_call_gas.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -750,10 +761,14 @@ def staticcall(evm: Evm) -> None:
     if to in evm.accessed_addresses:
         access_gas_cost = GAS_WARM_ACCESS
     else:
-        evm.accessed_addresses.add(to)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
-    # Track address access for BAL
+    # Charge static costs (memory + access) before BAL tracking
+    charge_gas(evm, extend_memory.cost + access_gas_cost)
+
+    if to not in evm.accessed_addresses:
+        evm.accessed_addresses.add(to)
+
     track_address_access(evm.message.block_env.state.change_tracker, to)
 
     code_address = to
@@ -763,7 +778,6 @@ def staticcall(evm: Evm) -> None:
         code,
         delegated_access_gas_cost,
     ) = access_delegation(evm, code_address)
-    access_gas_cost += delegated_access_gas_cost
 
     # Charge delegation access cost before tracking delegation target
     if delegated_access_gas_cost > Uint(0):
@@ -783,7 +797,7 @@ def staticcall(evm: Evm) -> None:
         Uint(0),  # Memory cost already charged
         Uint(0),
     )
-    charge_gas(evm, message_call_gas.cost + extend_memory.cost)
+    charge_gas(evm, message_call_gas.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
