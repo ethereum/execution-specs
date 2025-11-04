@@ -63,7 +63,6 @@ pip-delete-this-directory.txt
 .tox/
 
 /doc/_autosummary
-/docs
 
 .coverage
 .coverage.*
