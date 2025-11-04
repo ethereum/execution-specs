@@ -82,8 +82,8 @@ if result.exit_code in [
     logger.info("Documentation generation successful.")
     sys.exit(0)
 logger.error(
-    f"Documentation generation failed (exit: \
-        {pytest.ExitCode(result.exit_code)}, "
+    f"Documentation generation failed (exit: "
+    f"{pytest.ExitCode(result.exit_code)}, "
     f"{pytest.ExitCode(result.exit_code).name})."
 )
 sys.exit(result.exit_code)
