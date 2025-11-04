@@ -57,6 +57,7 @@ Test fixtures for use by clients are available for each release on the [Github r
 ### 📋 Misc
 
 - 🐞 WELDed the EEST tox environments relevant to producing documentation into EELS, and added a tool to cleanly add codespell whitelist entries. ([#1695](https://github.com/ethereum/execution-specs/pull/1659)).
+- 🐞 Fix duplicate storage write issues for block access lists EIP-7928 implementation ([#1743](https://github.com/ethereum/execution-specs/pull/1743)).
 
 ### 🧪 Test Cases
 
