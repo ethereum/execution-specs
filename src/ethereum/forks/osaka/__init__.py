@@ -50,6 +50,6 @@ secp256r1 curve.
 [EIP-7910]: https://eips.ethereum.org/EIPS/eip-7910
 """  # noqa: E501
 
-from ethereum.fork_criteria import ByTimestamp
+from ethereum.fork_criteria import ByTimestamp, ForkCriteria
 
-FORK_CRITERIA = ByTimestamp(1764798551)
+FORK_CRITERIA: ForkCriteria = ByTimestamp(1764798551)
