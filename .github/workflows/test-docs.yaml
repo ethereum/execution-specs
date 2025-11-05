@@ -1,26 +1,26 @@
-name: Spec Docs
+name: Test mkdocs documentation
 
 on:
   push:
     branches:
       - mainnet
-      - 'forks/**'
+      - "forks/**"
     paths:
-      - 'packages/testing/**'
-      - 'tests/**'
-      - '.github/workflows/test-docs.yaml'
-      - 'docs/**'
+      - "packages/testing/**"
+      - "tests/**"
+      - ".github/workflows/test-docs.yaml"
+      - "docs/**"
   pull_request:
     paths:
-      - 'packages/testing/**'
-      - 'tests/**'
-      - '.github/workflows/test-docs.yaml'
-      - 'docs/**'
+      - "packages/testing/**"
+      - "tests/**"
+      - ".github/workflows/test-docs.yaml"
+      - "docs/**"
   workflow_dispatch:
 
 concurrency:
-    group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-    cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   changelog:
@@ -40,13 +40,13 @@ jobs:
         run: uvx --with=tox-uv tox -e changelog
 
   markdownlint:
-      name: Lint markdown files with markdownlint
-      runs-on: ubuntu-latest
-      steps:
-          - name: Checkout ethereum/execution-specs
-            uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-          - uses: DavidAnson/markdownlint-cli2-action@05f32210e84442804257b2a6f20b273450ec8265
-            with:
-                globs: |
-                    docs/**/*.md |
-                    *.md
+    name: Lint markdown files with markdownlint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ethereum/execution-specs
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: DavidAnson/markdownlint-cli2-action@05f32210e84442804257b2a6f20b273450ec8265
+        with:
+          globs: |
+            docs/**/*.md |
+            *.md
