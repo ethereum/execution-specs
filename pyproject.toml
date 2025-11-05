@@ -394,6 +394,7 @@ skip = [                        # Don't check these files/folders
     "*.coverage*",
     "__pycache__",
     ".ruff_cache",
+    "fixtures.*",
     "tests/fixtures",
     "tests/json_infra/fixtures",
     "src/ethereum_spec_tools/evm_tools/t8n" # Temporary while being re-written
@@ -424,7 +425,6 @@ exclude = [
     "^fixtures/",
     "^logs/",
     "^site/",
-    "^tests/json_infra/"
 ]
 plugins = ["pydantic.mypy"]
 
