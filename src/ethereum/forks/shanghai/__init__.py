@@ -42,6 +42,6 @@ bytecode, and deprecates the self-destruct EVM instruction.
 [js]: https://github.com/ethereumjs/ethereumjs-monorepo/releases/tag/%40ethereumjs%2Fvm%406.4.0
 """  # noqa: E501
 
-from ethereum.fork_criteria import ByTimestamp
+from ethereum.fork_criteria import ByTimestamp, ForkCriteria
 
-FORK_CRITERIA = ByTimestamp(1681338455)
+FORK_CRITERIA: ForkCriteria = ByTimestamp(1681338455)
