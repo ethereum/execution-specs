@@ -2,6 +2,6 @@
 Frontier is the first production-ready iteration of the Ethereum protocol.
 """
 
-from ethereum.fork_criteria import ByBlockNumber
+from ethereum.fork_criteria import ByBlockNumber, ForkCriteria
 
-FORK_CRITERIA = ByBlockNumber(0)
+FORK_CRITERIA: ForkCriteria = ByBlockNumber(0)
