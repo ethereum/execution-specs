@@ -1,4 +1,4 @@
-# EIP AUTHOR MANUAL
+# EIP Author's Manual
 
 ## Introduction
 
