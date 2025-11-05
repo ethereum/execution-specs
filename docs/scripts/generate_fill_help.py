@@ -83,25 +83,25 @@ def generate_command_line_options_docs():
     formatted_output = format_help_output(help_output)
 
     # Create the complete page content
-    page_content = f"""# Fill Command-Line Options
+    page_content = textwrap.dedent(f"""\
+        # Fill Command-Line Options
 
-Fill is a [pytest](https://docs.pytest.org/en/stable/)-based command. This page
-lists custom options that the `fill` command provides. To see the full list of
-options that is available to fill (including the standard pytest and plugin
-command-line options) use `fill --pytest-help`.
+        Fill is a [pytest](https://docs.pytest.org/en/stable/)-based command.
+        This page lists custom options that the `fill` command provides. To see
+        the full list of options that is available to fill (including the
+        standard pytest and plugin command-line options) use
+        `fill --pytest-help`.
 
-*This page is automatically generated from the current `fill --help` output.*
+        ## Command Help Output
 
-## Command Help Output
+        ```text
+        {formatted_output}
+        ```
 
-```text
-{formatted_output}
-```
+        ---
 
----
-
-*This page was automatically generated from `fill --help` output.*
-"""
+        *This page was automatically generated from `fill --help` output.*
+        """)
 
     # Write the generated content to a virtual file
     with mkdocs_gen_files.open(
