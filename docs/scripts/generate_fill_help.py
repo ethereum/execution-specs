@@ -110,10 +110,8 @@ command-line options) use `fill --pytest-help`.
         f.write(page_content)
 
     logger.info(
-        "Generated filling_tests_command_line_options.md with current fill \
-            --help output"
+        "Generated filling_tests_command_line_options.md from fill --help."
     )
 
 
-# Run the generation
 generate_command_line_options_docs()
