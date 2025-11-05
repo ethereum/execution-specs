@@ -52,7 +52,12 @@ PERCENTAGE_LINE = (
     "| TOTAL_CHECKLIST_ITEMS | COVERED_CHECKLIST_ITEMS | PERCENTAGE |"
 )
 TEMPLATE_PATH = Path(
-    "docs/writing_tests/checklist_templates/eip_testing_checklist_template.md"
+    # TODO: add better repo root detection
+    Path(__file__).parents[8]
+    / "docs"
+    / "writing_tests"
+    / "checklist_templates"
+    / "eip_testing_checklist_template.md"
 )
 TEMPLATE_CONTENT = TEMPLATE_PATH.read_text()
 EXTERNAL_COVERAGE_FILE_NAME = "eip_checklist_external_coverage.txt"
