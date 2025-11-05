@@ -60,10 +60,13 @@ def find_project_root() -> Path:
     # Search upwards from file location
     script_dir = Path(__file__).resolve().parent
     for parent in [script_dir, *script_dir.parents]:
-        if (parent / "EIP_AUTHORS_MANUAL.md").exists():
+        if (parent / "pyproject.toml").exists() and (parent / ".git").exists():
             return parent
 
-    raise FileNotFoundError("Unable to locate project root directory!")
+    raise FileNotFoundError(
+        "Unable to locate project root! "
+        "Looking for a directory with both pyproject.toml and .git."
+    )
 
 
 @click.command(
