@@ -100,6 +100,11 @@ def sstore(evm: Evm) -> None:
         state, evm.message.current_target, key
     )
     current_value = get_storage(state, evm.message.current_target, key)
+    track_storage_read(
+        evm.message.block_env,
+        evm.message.current_target,
+        key,
+    )
 
     # GAS
     gas_cost = Uint(0)
@@ -123,18 +128,6 @@ def sstore(evm: Evm) -> None:
 
     if is_cold_access:
         evm.accessed_storage_keys.add((evm.message.current_target, key))
-
-    track_storage_read(
-        evm.message.block_env,
-        evm.message.current_target,
-        key,
-    )
-    track_storage_write(
-        evm.message.block_env,
-        evm.message.current_target,
-        key,
-        new_value,
-    )
 
     charge_gas(evm, gas_cost)
     if evm.message.is_static:
@@ -163,6 +156,12 @@ def sstore(evm: Evm) -> None:
 
     # OPERATION
     set_storage(state, evm.message.current_target, key, new_value)
+    track_storage_write(
+        evm.message.block_env,
+        evm.message.current_target,
+        key,
+        new_value,
+    )
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
