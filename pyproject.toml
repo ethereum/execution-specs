@@ -399,6 +399,7 @@ skip = [                        # Don't check these files/folders
     "tests/json_infra/fixtures",
     "src/ethereum_spec_tools/evm_tools/t8n" # Temporary while being re-written
 ]
+ignore-words = "whitelist.txt"  # Custom whitelist file
 count = true                    # Display counts of errors
 check-hidden = false            # Don't check hidden files (starting with .)
 
