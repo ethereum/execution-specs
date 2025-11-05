@@ -5,17 +5,17 @@ on:
     branches:
       - mainnet
       - "forks/**"
-    paths:
-      - "packages/testing/**"
-      - "tests/**"
-      - ".github/workflows/test-docs.yaml"
+    paths: &mkdocs_paths
+      - uv.lock
+      - CONTRIBUTING.md
+      - SECURITY.md
       - "docs/**"
+      - "packages/testing/**"
+      - ".github/workflows/test-docs.yaml"
+      # disabling on tests/** until site is deployed with the "test case reference"
+      # - "tests/**"
   pull_request:
-    paths:
-      - "packages/testing/**"
-      - "tests/**"
-      - ".github/workflows/test-docs.yaml"
-      - "docs/**"
+    paths: *mkdocs_paths
   workflow_dispatch:
 
 concurrency:
