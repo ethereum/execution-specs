@@ -31,6 +31,7 @@ from .rlp_types import BlockAccessIndex
 
 if TYPE_CHECKING:
     from ..state import State  # noqa: F401
+    from ..vm import BlockEnvironment  # noqa: F401
 
 
 @dataclass
@@ -114,7 +115,7 @@ class StateChangeTracker:
 
 
 def set_block_access_index(
-    tracker: StateChangeTracker, block_access_index: Uint
+    block_env: "BlockEnvironment", block_access_index: Uint
 ) -> None:
     """
     Set the current block access index for tracking changes.
@@ -129,13 +130,14 @@ def set_block_access_index(
 
     Parameters
     ----------
-    tracker :
-        The state change tracker instance.
+    block_env :
+        The block execution environment.
     block_access_index :
         The block access index (0 for pre-execution,
         1..n for transactions, n+1 for post-execution).
 
     """
+    tracker = block_env.change_tracker
     tracker.current_block_access_index = block_access_index
     # Clear the pre-storage cache for each new transaction to ensure
     # no-op writes are detected relative to the transaction start
@@ -182,7 +184,7 @@ def capture_pre_state(
 
 
 def track_address_access(
-    tracker: StateChangeTracker, address: Address
+    block_env: "BlockEnvironment", address: Address
 ) -> None:
     """
     Track that an address was accessed.
@@ -192,17 +194,19 @@ def track_address_access(
 
     Parameters
     ----------
-    tracker :
-        The state change tracker instance.
+    block_env :
+        The block execution environment.
     address :
         The account address that was accessed.
 
     """
-    add_touched_account(tracker.block_access_list_builder, address)
+    add_touched_account(
+        block_env.change_tracker.block_access_list_builder, address
+    )
 
 
 def track_storage_read(
-    tracker: StateChangeTracker, address: Address, key: Bytes32, state: "State"
+    block_env: "BlockEnvironment", address: Address, key: Bytes32
 ) -> None:
     """
     Track a storage read operation.
@@ -213,29 +217,28 @@ def track_storage_read(
 
     Parameters
     ----------
-    tracker :
-        The state change tracker instance.
+    block_env :
+        The block execution environment.
     address :
         The account address whose storage is being read.
     key :
         The storage slot being read.
-    state :
-        The current execution state.
 
     """
-    track_address_access(tracker, address)
+    track_address_access(block_env, address)
 
-    capture_pre_state(tracker, address, key, state)
+    capture_pre_state(block_env.change_tracker, address, key, block_env.state)
 
-    add_storage_read(tracker.block_access_list_builder, address, key)
+    add_storage_read(
+        block_env.change_tracker.block_access_list_builder, address, key
+    )
 
 
 def track_storage_write(
-    tracker: StateChangeTracker,
+    block_env: "BlockEnvironment",
     address: Address,
     key: Bytes32,
     new_value: U256,
-    state: "State",
 ) -> None:
     """
     Track a storage write operation.
@@ -246,23 +249,22 @@ def track_storage_write(
 
     Parameters
     ----------
-    tracker :
-        The state change tracker instance.
+    block_env :
+        The block execution environment.
     address :
         The account address whose storage is being modified.
     key :
         The storage slot being written to.
     new_value :
         The new value to write.
-    state :
-        The current execution state.
 
     [EIP-7928]: https://eips.ethereum.org/EIPS/eip-7928
 
     """
-    track_address_access(tracker, address)
+    track_address_access(block_env, address)
 
-    pre_value = capture_pre_state(tracker, address, key, state)
+    tracker = block_env.change_tracker
+    pre_value = capture_pre_state(tracker, address, key, block_env.state)
 
     value_bytes = new_value.to_be_bytes32()
 
@@ -322,8 +324,36 @@ def capture_pre_balance(
     return tracker.pre_balance_cache[address]
 
 
+def prepare_balance_tracking(
+    block_env: "BlockEnvironment", address: Address
+) -> None:
+    """
+    Prepare for tracking balance changes by caching the pre-transaction
+    balance.
+
+    This should be called before any balance modifications when you need to
+    ensure the pre-balance is captured for later normalization. This is
+    particularly important for operations like withdrawals where the balance
+    might not actually change.
+
+    Parameters
+    ----------
+    block_env :
+        The block execution environment.
+    address :
+        The account address whose balance will be tracked.
+
+
+    """
+    # Ensure the address is tracked
+    track_address_access(block_env, address)
+
+    # Cache the pre-balance for later normalization
+    capture_pre_balance(block_env.change_tracker, address, block_env.state)
+
+
 def track_balance_change(
-    tracker: StateChangeTracker,
+    block_env: "BlockEnvironment",
     address: Address,
     new_balance: U256,
 ) -> None:
@@ -335,16 +365,17 @@ def track_balance_change(
 
     Parameters
     ----------
-    tracker :
-        The state change tracker instance.
+    block_env :
+        The block execution environment.
     address :
         The account address whose balance changed.
     new_balance :
         The new balance value.
 
     """
-    track_address_access(tracker, address)
+    track_address_access(block_env, address)
 
+    tracker = block_env.change_tracker
     block_access_index = BlockAccessIndex(tracker.current_block_access_index)
     add_balance_change(
         tracker.block_access_list_builder,
@@ -362,7 +393,7 @@ def track_balance_change(
 
 
 def track_nonce_change(
-    tracker: StateChangeTracker, address: Address, new_nonce: Uint
+    block_env: "BlockEnvironment", address: Address, new_nonce: Uint
 ) -> None:
     """
     Track a nonce change for an account.
@@ -373,20 +404,19 @@ def track_nonce_change(
 
     Parameters
     ----------
-    tracker :
-        The state change tracker instance.
+    block_env :
+        The block execution environment.
     address :
         The account address whose nonce changed.
     new_nonce :
         The new nonce value.
-    state :
-        The current execution state.
 
     [`CREATE`]: ref:ethereum.forks.amsterdam.vm.instructions.system.create
     [`CREATE2`]: ref:ethereum.forks.amsterdam.vm.instructions.system.create2
 
     """
-    track_address_access(tracker, address)
+    track_address_access(block_env, address)
+    tracker = block_env.change_tracker
     block_access_index = BlockAccessIndex(tracker.current_block_access_index)
     nonce_u64 = U64(new_nonce)
     add_nonce_change(
@@ -403,7 +433,7 @@ def track_nonce_change(
 
 
 def track_code_change(
-    tracker: StateChangeTracker, address: Address, new_code: Bytes
+    block_env: "BlockEnvironment", address: Address, new_code: Bytes
 ) -> None:
     """
     Track a code change for contract deployment.
@@ -414,8 +444,8 @@ def track_code_change(
 
     Parameters
     ----------
-    tracker :
-        The state change tracker instance.
+    block_env :
+        The block execution environment.
     address :
         The address receiving the contract code.
     new_code :
@@ -425,7 +455,8 @@ def track_code_change(
     [`CREATE2`]: ref:ethereum.forks.amsterdam.vm.instructions.system.create2
 
     """
-    track_address_access(tracker, address)
+    track_address_access(block_env, address)
+    tracker = block_env.change_tracker
     block_access_index = BlockAccessIndex(tracker.current_block_access_index)
     add_code_change(
         tracker.block_access_list_builder,
@@ -441,7 +472,7 @@ def track_code_change(
 
 
 def handle_in_transaction_selfdestruct(
-    tracker: StateChangeTracker, address: Address
+    block_env: "BlockEnvironment", address: Address
 ) -> None:
     """
     Handle an account that self-destructed in the same transaction it was
@@ -456,12 +487,13 @@ def handle_in_transaction_selfdestruct(
 
     Parameters
     ----------
-    tracker :
-        The state change tracker instance.
+    block_env :
+        The block execution environment.
     address :
         The address that self-destructed.
 
     """
+    tracker = block_env.change_tracker
     builder = tracker.block_access_list_builder
     if address not in builder.accounts:
         return
@@ -493,9 +525,7 @@ def handle_in_transaction_selfdestruct(
     ]
 
 
-def normalize_balance_changes(
-    tracker: StateChangeTracker, state: "State"
-) -> None:
+def normalize_balance_changes(block_env: "BlockEnvironment") -> None:
     """
     Normalize balance changes for the current block access index.
 
@@ -515,15 +545,14 @@ def normalize_balance_changes(
 
     Parameters
     ----------
-    tracker :
-        The state change tracker instance.
-    state :
-        The current execution state.
+    block_env :
+        The block execution environment.
 
     """
     # Import locally to avoid circular import
     from ..state import get_account
 
+    tracker = block_env.change_tracker
     builder = tracker.block_access_list_builder
     current_index = tracker.current_block_access_index
 
@@ -532,10 +561,10 @@ def normalize_balance_changes(
         account_data = builder.accounts[address]
 
         # Get the pre-transaction balance
-        pre_balance = capture_pre_balance(tracker, address, state)
+        pre_balance = capture_pre_balance(tracker, address, block_env.state)
 
         # Get the current (post-transaction) balance
-        post_balance = get_account(state, address).balance
+        post_balance = get_account(block_env.state, address).balance
 
         # If pre-tx balance equals post-tx balance, remove all balance changes
         # for this address in the current transaction
@@ -548,7 +577,7 @@ def normalize_balance_changes(
             ]
 
 
-def begin_call_frame(tracker: StateChangeTracker) -> None:
+def begin_call_frame(block_env: "BlockEnvironment") -> None:
     """
     Begin a new call frame for tracking reverts.
 
@@ -557,14 +586,14 @@ def begin_call_frame(tracker: StateChangeTracker) -> None:
 
     Parameters
     ----------
-    tracker :
-        The state change tracker instance.
+    block_env :
+        The block execution environment.
 
     """
-    tracker.call_frame_snapshots.append(CallFrameSnapshot())
+    block_env.change_tracker.call_frame_snapshots.append(CallFrameSnapshot())
 
 
-def rollback_call_frame(tracker: StateChangeTracker) -> None:
+def rollback_call_frame(block_env: "BlockEnvironment") -> None:
     """
     Rollback changes from the current call frame.
 
@@ -578,10 +607,11 @@ def rollback_call_frame(tracker: StateChangeTracker) -> None:
 
     Parameters
     ----------
-    tracker :
-        The state change tracker instance.
+    block_env :
+        The block execution environment.
 
     """
+    tracker = block_env.change_tracker
     if not tracker.call_frame_snapshots:
         return
 
@@ -651,7 +681,7 @@ def rollback_call_frame(tracker: StateChangeTracker) -> None:
     # All touched addresses remain in the access list (already tracked)
 
 
-def commit_call_frame(tracker: StateChangeTracker) -> None:
+def commit_call_frame(block_env: "BlockEnvironment") -> None:
     """
     Commit changes from the current call frame.
 
@@ -660,9 +690,9 @@ def commit_call_frame(tracker: StateChangeTracker) -> None:
 
     Parameters
     ----------
-    tracker :
-        The state change tracker instance.
+    block_env :
+        The block execution environment.
 
     """
-    if tracker.call_frame_snapshots:
-        tracker.call_frame_snapshots.pop()
+    if block_env.change_tracker.call_frame_snapshots:
+        block_env.change_tracker.call_frame_snapshots.pop()

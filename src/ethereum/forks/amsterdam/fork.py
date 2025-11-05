@@ -32,9 +32,9 @@ from . import vm
 from .block_access_lists.builder import build_block_access_list
 from .block_access_lists.rlp_utils import compute_block_access_list_hash
 from .block_access_lists.tracker import (
-    capture_pre_balance,
     handle_in_transaction_selfdestruct,
     normalize_balance_changes,
+    prepare_balance_tracking,
     set_block_access_index,
     track_balance_change,
 )
@@ -781,7 +781,7 @@ def apply_body(
 
     # Set block access index for pre-execution system contracts
     # EIP-7928: System contracts use block_access_index 0
-    set_block_access_index(block_env.state.change_tracker, Uint(0))
+    set_block_access_index(block_env, Uint(0))
 
     process_unchecked_system_transaction(
         block_env=block_env,
@@ -800,9 +800,7 @@ def apply_body(
 
     # EIP-7928: Post-execution uses block_access_index len(transactions) + 1
     post_execution_index = ulen(transactions) + Uint(1)
-    set_block_access_index(
-        block_env.state.change_tracker, post_execution_index
-    )
+    set_block_access_index(block_env, post_execution_index)
 
     process_withdrawals(block_env, block_output, withdrawals)
 
@@ -811,7 +809,7 @@ def apply_body(
         block_output=block_output,
     )
     block_output.block_access_list = build_block_access_list(
-        block_env.state.change_tracker.block_access_list_builder
+        block_env.change_tracker.block_access_list_builder
     )
 
     return block_output
@@ -894,7 +892,7 @@ def process_transaction(
     """
     # EIP-7928: Transactions use block_access_index 1 to len(transactions)
     # Transaction at index i gets block_access_index i+1
-    set_block_access_index(block_env.state.change_tracker, index + Uint(1))
+    set_block_access_index(block_env, index + Uint(1))
 
     trie_set(
         block_output.transactions_trie,
@@ -1020,17 +1018,12 @@ def process_transaction(
         # EIP-7928: In-transaction self-destruct - convert storage writes to
         # reads and remove nonce/code changes. Only accounts created in same
         # tx are in accounts_to_delete per EIP-6780.
-        handle_in_transaction_selfdestruct(
-            block_env.state.change_tracker, address
-        )
+        handle_in_transaction_selfdestruct(block_env, address)
         destroy_account(block_env.state, address)
 
     # EIP-7928: Normalize balance changes for this transaction
     # Remove balance changes where post-tx balance equals pre-tx balance
-    normalize_balance_changes(
-        block_env.state.change_tracker,
-        block_env.state,
-    )
+    normalize_balance_changes(block_env)
 
     block_output.block_gas_used += tx_gas_used_after_refund
     block_output.blob_gas_used += tx_blob_gas_used
@@ -1070,28 +1063,21 @@ def process_withdrawals(
             rlp.encode(wd),
         )
 
-        # Capture pre-balance before modification (even for zero withdrawals)
-        # This ensures the address appears in BAL per EIP-7928
-        capture_pre_balance(
-            block_env.state.change_tracker, wd.address, block_env.state
-        )
+        # Prepare for balance tracking (ensures address appears in BAL and
+        # pre-balance is cached for normalization)
+        prepare_balance_tracking(block_env, wd.address)
 
         modify_state(block_env.state, wd.address, increase_recipient_balance)
 
         # Track balance change for BAL
         # (withdrawals are tracked as system contract changes)
         new_balance = get_account(block_env.state, wd.address).balance
-        track_balance_change(
-            block_env.state.change_tracker, wd.address, U256(new_balance)
-        )
+        track_balance_change(block_env, wd.address, U256(new_balance))
 
         # EIP-7928: Normalize balance changes for this withdrawal
         # Remove balance changes where post-withdrawal balance
         # equals pre-withdrawal balance
-        normalize_balance_changes(
-            block_env.state.change_tracker,
-            block_env.state,
-        )
+        normalize_balance_changes(block_env)
 
         if account_exists_and_is_empty(block_env.state, wd.address):
             destroy_account(block_env.state, wd.address)
