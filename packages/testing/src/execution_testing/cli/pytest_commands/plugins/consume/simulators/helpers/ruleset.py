@@ -53,10 +53,27 @@ def get_blob_schedule_entries(fork: Fork) -> Dict[str, int]:
     entries: Dict = {}
     forks_with_blobs: List[Fork] = []
     current_fork = fork
+
+    # Walk up the parent chain to collect all forks with blob support
     while current_fork.supports_blobs():
         forks_with_blobs.append(current_fork)
         current_fork = current_fork.parent()  # type: ignore
 
+    # Special case: For forks that come after BPOs but don't inherit from them
+    # (e.g., Amsterdam and any future forks), include BPO fork configs.
+    # This allows the genesis to support both:
+    # - Osaka -> Amsterdam (skips BPOs, uses Osaka blob params)
+    # - Osaka -> BPO1 -> ... -> Amsterdam (uses BPO params chronologically)
+    bpo_forks = [BPO1, BPO2, BPO3, BPO4]
+    has_bpo_in_chain = any(bpo_fork in forks_with_blobs for bpo_fork in bpo_forks)
+
+    # If this fork doesn't have BPO in its inheritance chain but comes after Osaka,
+    # add all BPO forks so they can be configured in the genesis
+    if not has_bpo_in_chain and Osaka in forks_with_blobs:
+        for bpo_fork in bpo_forks:
+            forks_with_blobs.append(bpo_fork)
+
+    # Generate blob schedule entries for all collected forks
     for fork_to_process in forks_with_blobs:
         prefix = fork_to_process.__name__.upper()
         entries[f"HIVE_{prefix}_BLOB_TARGET"] = (
