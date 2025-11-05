@@ -1,10 +1,10 @@
-site_name: Ethereum Execution Spec Tests
-site_description: A collection of test cases implemented in Python for Ethereum execution clients
+site_name: Ethereum Execution Specs
+site_description: The Ethereum Execution Layer Python Specifications and Tests
 site_url: https://eest.ethereum.org/
-repo_url: https://github.com/ethereum/execution-spec-tests
-repo_name: execution-spec-tests
+repo_url: https://github.com/ethereum/execution-specs
+repo_name: execution-specs
 edit_uri: edit/main/docs/
-copyright: "Copyright: 2024, Ethereum Community"
+copyright: "Copyright: 2025, Ethereum Community"
 
 plugins:
   - git-authors:
@@ -35,7 +35,7 @@ plugins:
 watch:
   - CONTRIBUTING.md
   - SECURITY.md
-  - src/
+  - packages/testing/src/
   - tests/
 
 theme:
@@ -52,7 +52,7 @@ theme:
     - navigation.instant
     - navigation.tabs
     - navigation.footer
-  # disabled due to https://github.com/ethereum/execution-spec-tests/issues/816
+  # disabled due to https://github.com/ethereum/execution-specs/issues/1491
   # palette:
   #   # Palette toggle for automatic mode
   #   - media: "(prefers-color-scheme)"
@@ -102,7 +102,7 @@ markdown_extensions:
       social_url_shorthand: true
       social_url_shortener: true
       user: ethereum
-      repo: execution-spec-tests
+      repo: execution-specs
       normalize_issue_symbols: true
   - pymdownx.mark:
   - pymdownx.smartsymbols
