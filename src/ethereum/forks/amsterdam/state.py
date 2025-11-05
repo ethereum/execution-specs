@@ -515,17 +515,15 @@ def move_ether(
     sender_address: Address,
     recipient_address: Address,
     amount: U256,
-    block_env: "BlockEnvironment" = None,
+    block_env: "BlockEnvironment",
 ) -> None:
     """
     Move funds between accounts.
     """
-    # Only track if block_env is provided (EIP-7928 tracking)
-    if block_env is not None:
-        # Prepare for balance tracking (captures pre-balance and ensures
-        # addresses are tracked)
-        prepare_balance_tracking(block_env, sender_address)
-        prepare_balance_tracking(block_env, recipient_address)
+    # Prepare for balance tracking (captures pre-balance and ensures
+    # addresses are tracked)
+    prepare_balance_tracking(block_env, sender_address)
+    prepare_balance_tracking(block_env, recipient_address)
 
     def reduce_sender_balance(sender: Account) -> None:
         if sender.balance < amount:
@@ -538,24 +536,20 @@ def move_ether(
     modify_state(state, sender_address, reduce_sender_balance)
     modify_state(state, recipient_address, increase_recipient_balance)
 
-    # Only track if block_env is provided (EIP-7928 tracking)
-    if block_env is not None:
-        sender_new_balance = get_account(state, sender_address).balance
-        recipient_new_balance = get_account(state, recipient_address).balance
+    sender_new_balance = get_account(state, sender_address).balance
+    recipient_new_balance = get_account(state, recipient_address).balance
 
-        track_balance_change(
-            block_env, sender_address, U256(sender_new_balance)
-        )
-        track_balance_change(
-            block_env, recipient_address, U256(recipient_new_balance)
-        )
+    track_balance_change(block_env, sender_address, U256(sender_new_balance))
+    track_balance_change(
+        block_env, recipient_address, U256(recipient_new_balance)
+    )
 
 
 def set_account_balance(
     state: State,
     address: Address,
     amount: U256,
-    block_env: "BlockEnvironment" = None,
+    block_env: "BlockEnvironment",
 ) -> None:
     """
     Sets the balance of an account.
@@ -572,27 +566,23 @@ def set_account_balance(
         The amount that needs to set in balance.
 
     block_env:
-        Optional block environment for tracking changes.
+        Block environment for tracking changes.
 
     """
-    # Only track if block_env is provided (EIP-7928 tracking)
-    if block_env is not None:
-        # Prepare for balance tracking (captures pre-balance and ensures
-        # address is tracked)
-        prepare_balance_tracking(block_env, address)
+    # Prepare for balance tracking (captures pre-balance and ensures
+    # address is tracked)
+    prepare_balance_tracking(block_env, address)
 
     def set_balance(account: Account) -> None:
         account.balance = amount
 
     modify_state(state, address, set_balance)
 
-    # Only track if block_env is provided (EIP-7928 tracking)
-    if block_env is not None:
-        track_balance_change(block_env, address, amount)
+    track_balance_change(block_env, address, amount)
 
 
 def increment_nonce(
-    state: State, address: Address, block_env: "BlockEnvironment" = None
+    state: State, address: Address, block_env: "BlockEnvironment"
 ) -> None:
     """
     Increments the nonce of an account.
@@ -606,7 +596,7 @@ def increment_nonce(
         Address of the account whose nonce needs to be incremented.
 
     block_env:
-        Optional block environment for tracking changes.
+        Block environment for tracking changes.
 
     """
 
@@ -615,24 +605,22 @@ def increment_nonce(
 
     modify_state(state, address, increase_nonce)
 
-    # Only track if block_env is provided (EIP-7928 tracking)
-    if block_env is not None:
-        # Track nonce change for Block Access List
-        # (for ALL accounts and ALL nonce changes)
-        # This includes:
-        # - EOA senders (transaction nonce increments)
-        # - Contracts performing CREATE/CREATE2
-        # - Deployed contracts
-        # - EIP-7702 authorities
-        account = get_account(state, address)
-        track_nonce_change(block_env, address, account.nonce)
+    # Track nonce change for Block Access List (EIP-7928)
+    # (for ALL accounts and ALL nonce changes)
+    # This includes:
+    # - EOA senders (transaction nonce increments)
+    # - Contracts performing CREATE/CREATE2
+    # - Deployed contracts
+    # - EIP-7702 authorities
+    account = get_account(state, address)
+    track_nonce_change(block_env, address, account.nonce)
 
 
 def set_code(
     state: State,
     address: Address,
     code: Bytes,
-    block_env: "BlockEnvironment" = None,
+    block_env: "BlockEnvironment",
 ) -> None:
     """
     Sets Account code.
@@ -649,7 +637,7 @@ def set_code(
         The bytecode that needs to be set.
 
     block_env:
-        Optional block environment for tracking changes.
+        Block environment for tracking changes.
 
     """
 
@@ -658,14 +646,12 @@ def set_code(
 
     modify_state(state, address, write_code)
 
-    # Only track if block_env is provided (EIP-7928 tracking)
-    if block_env is not None:
-        # Only track code changes if it's not setting empty code on a
-        # newly created address. For newly created addresses, setting
-        # code to b"" is not a meaningful state change since the address
-        # had no code to begin with.
-        if not (code == b"" and address in state.created_accounts):
-            track_code_change(block_env, address, code)
+    # Only track code changes if it's not setting empty code on a
+    # newly created address (EIP-7928). For newly created addresses, setting
+    # code to b"" is not a meaningful state change since the address
+    # had no code to begin with.
+    if not (code == b"" and address in state.created_accounts):
+        track_code_change(block_env, address, code)
 
 
 def get_storage_original(state: State, address: Address, key: Bytes32) -> U256:

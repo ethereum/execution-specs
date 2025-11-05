@@ -255,9 +255,9 @@ def set_delegation(message: Message) -> U256:
             code_to_set = b""
         else:
             code_to_set = EOA_DELEGATION_MARKER + auth.address
-        set_code(state, authority, code_to_set)
+        set_code(state, authority, code_to_set, message.block_env)
 
-        increment_nonce(state, authority)
+        increment_nonce(state, authority, message.block_env)
 
     if message.code_address is None:
         raise InvalidBlock("Invalid type 4 transaction: no target")

@@ -253,9 +253,7 @@ class T8N(Load):
 
     def _run_blockchain_test(self, block_env: Any, block_output: Any) -> None:
         if self.fork.is_after_fork("amsterdam"):
-            self.fork.set_block_access_index(
-                block_env.state.change_tracker, Uint(0)
-            )
+            self.fork.set_block_access_index(block_env, Uint(0))
         if self.fork.is_after_fork("prague"):
             self.fork.process_unchecked_system_transaction(
                 block_env=block_env,
@@ -292,7 +290,6 @@ class T8N(Load):
                 )
 
         if self.fork.is_after_fork("amsterdam"):
-            assert block_env.state.change_tracker is not None
             num_transactions = ulen(
                 [
                     tx_idx
@@ -303,9 +300,7 @@ class T8N(Load):
 
             # post-execution use n + 1
             post_execution_index = num_transactions + Uint(1)
-            self.fork.set_block_access_index(
-                block_env.state.change_tracker, post_execution_index
-            )
+            self.fork.set_block_access_index(block_env, post_execution_index)
 
         if not self.fork.is_after_fork("paris"):
             if self.options.state_reward is None:
@@ -325,7 +320,7 @@ class T8N(Load):
 
         if self.fork.is_after_fork("amsterdam"):
             block_output.block_access_list = self.fork.build_block_access_list(
-                block_env.state.change_tracker.block_access_list_builder
+                block_env.change_tracker.block_access_list_builder
             )
 
     def run_blockchain_test(self) -> None:
