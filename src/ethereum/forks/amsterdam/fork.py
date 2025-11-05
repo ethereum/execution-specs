@@ -923,13 +923,13 @@ def process_transaction(
     effective_gas_fee = tx.gas * effective_gas_price
 
     gas = tx.gas - intrinsic_gas
-    increment_nonce(block_env.state, sender)
+    increment_nonce(block_env.state, sender, block_env)
 
     sender_balance_after_gas_fee = (
         Uint(sender_account.balance) - effective_gas_fee - blob_gas_fee
     )
     set_account_balance(
-        block_env.state, sender, U256(sender_balance_after_gas_fee)
+        block_env.state, sender, U256(sender_balance_after_gas_fee), block_env
     )
 
     access_list_addresses = set()
@@ -995,7 +995,9 @@ def process_transaction(
     sender_balance_after_refund = get_account(
         block_env.state, sender
     ).balance + U256(gas_refund_amount)
-    set_account_balance(block_env.state, sender, sender_balance_after_refund)
+    set_account_balance(
+        block_env.state, sender, sender_balance_after_refund, block_env
+    )
 
     # transfer miner fees
     coinbase_balance_after_mining_fee = get_account(
@@ -1007,6 +1009,7 @@ def process_transaction(
         block_env.state,
         block_env.coinbase,
         coinbase_balance_after_mining_fee,
+        block_env,
     )
 
     if coinbase_balance_after_mining_fee == 0 and account_exists_and_is_empty(
