@@ -7,7 +7,7 @@ from pathlib import Path
 from sys import stderr
 
 DESCRIPTION = """
-Add words to the codespell whitelist sanely
+Add words to the codespell whitelist.txt file sanely.
 """
 
 parser = argparse.ArgumentParser(
@@ -66,8 +66,8 @@ def main() -> int:
         if verbose:
             print(f"Total unique entries: {len(all_words)}")
 
-        # Sort alphabetically
-        sorted_words = sorted(all_words, key=str.casefold)
+        # Sort alphabetically (case-insensitive, then case-sensitive)
+        sorted_words = sorted(all_words, key=lambda w: (w.casefold(), w))
 
         # Add blank lines before each new letter
         words_with_separators: list[str] = []
