@@ -54,6 +54,12 @@ class GethExceptionMapper(ExceptionMapper):
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
             "max priority fee per gas higher than max fee per gas"
         ),
+        TransactionException.TYPE_1_TX_PRE_FORK: (
+            "transaction type not supported"
+        ),
+        TransactionException.TYPE_2_TX_PRE_FORK: (
+            "transaction type not supported"
+        ),
         TransactionException.TYPE_3_TX_PRE_FORK: (
             "transaction type not supported"
         ),

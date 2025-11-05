@@ -395,6 +395,12 @@ class NethermindExceptionMapper(ExceptionMapper):
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
             "InsufficientMaxFeePerBlobGas: Not enough to cover blob gas fee"
         ),
+        TransactionException.TYPE_1_TX_PRE_FORK: (
+            "InvalidTxType: Transaction type in Custom is not supported"
+        ),
+        TransactionException.TYPE_2_TX_PRE_FORK: (
+            "InvalidTxType: Transaction type in Custom is not supported"
+        ),
         TransactionException.TYPE_3_TX_PRE_FORK: (
             "InvalidTxType: Transaction type in Custom is not supported"
         ),
