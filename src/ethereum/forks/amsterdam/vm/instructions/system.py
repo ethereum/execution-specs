@@ -32,7 +32,10 @@ from ...utils.address import (
     compute_create2_contract_address,
     to_address_masked,
 )
-from ...vm.eoa_delegation import access_delegation
+from ...vm.eoa_delegation import (
+    apply_delegation_tracking,
+    check_delegation,
+)
 from .. import (
     Evm,
     Message,
@@ -53,6 +56,7 @@ from ..gas import (
     calculate_gas_extend_memory,
     calculate_message_call_gas,
     charge_gas,
+    check_gas,
     init_code_cost,
     max_message_call_gas,
 )
@@ -110,8 +114,7 @@ def generic_create(
 
     evm.accessed_addresses.add(contract_address)
 
-    # Track address access for BAL
-    track_address_access(state.change_tracker, contract_address)
+    track_address_access(evm.message.block_env, contract_address)
 
     if account_has_code_or_nonce(
         state, contract_address
@@ -389,23 +392,22 @@ def call(evm: Evm) -> None:
         ],
     )
 
-    if to in evm.accessed_addresses:
-        access_gas_cost = GAS_WARM_ACCESS
-    else:
-        evm.accessed_addresses.add(to)
-        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+    is_cold_access = to not in evm.accessed_addresses
+    access_gas_cost = (
+        GAS_COLD_ACCOUNT_ACCESS if is_cold_access else GAS_WARM_ACCESS
+    )
 
-    # Track address access for BAL
-    track_address_access(evm.message.block_env.state.change_tracker, to)
-
-    code_address = to
     (
-        disable_precompiles,
-        code_address,
+        is_delegated,
+        original_address,
+        final_address,
         code,
-        delegated_access_gas_cost,
-    ) = access_delegation(evm, code_address)
-    access_gas_cost += delegated_access_gas_cost
+        delegation_gas_cost,
+    ) = check_delegation(evm, to)
+    access_gas_cost += delegation_gas_cost
+
+    code_address = final_address
+    disable_precompiles = is_delegated
 
     create_gas_cost = GAS_NEW_ACCOUNT
     if value == 0 or is_account_alive(evm.message.block_env.state, to):
@@ -418,6 +420,17 @@ def call(evm: Evm) -> None:
         extend_memory.cost,
         access_gas_cost + create_gas_cost + transfer_gas_cost,
     )
+
+    check_gas(evm, message_call_gas.cost + extend_memory.cost)
+
+    if is_cold_access:
+        evm.accessed_addresses.add(to)
+
+    track_address_access(evm.message.block_env, to)
+
+    if is_delegated:
+        apply_delegation_tracking(evm, original_address, final_address)
+
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
     if evm.message.is_static and value != U256(0):
         raise WriteInStaticContext
@@ -453,7 +466,7 @@ def call(evm: Evm) -> None:
 
 def callcode(evm: Evm) -> None:
     """
-    Message-call into this account with alternative account’s code.
+    Message-call into this account with alternative account's code.
 
     Parameters
     ----------
@@ -481,24 +494,22 @@ def callcode(evm: Evm) -> None:
         ],
     )
 
-    if code_address in evm.accessed_addresses:
-        access_gas_cost = GAS_WARM_ACCESS
-    else:
-        evm.accessed_addresses.add(code_address)
-        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
-
-    # Track address access for BAL
-    track_address_access(
-        evm.message.block_env.state.change_tracker, code_address
+    is_cold_access = code_address not in evm.accessed_addresses
+    access_gas_cost = (
+        GAS_COLD_ACCOUNT_ACCESS if is_cold_access else GAS_WARM_ACCESS
     )
 
     (
-        disable_precompiles,
-        code_address,
+        is_delegated,
+        original_address,
+        final_address,
         code,
-        delegated_access_gas_cost,
-    ) = access_delegation(evm, code_address)
-    access_gas_cost += delegated_access_gas_cost
+        delegation_gas_cost,
+    ) = check_delegation(evm, code_address)
+    access_gas_cost += delegation_gas_cost
+
+    code_address = final_address
+    disable_precompiles = is_delegated
 
     transfer_gas_cost = Uint(0) if value == 0 else GAS_CALL_VALUE
     message_call_gas = calculate_message_call_gas(
@@ -508,6 +519,17 @@ def callcode(evm: Evm) -> None:
         extend_memory.cost,
         access_gas_cost + transfer_gas_cost,
     )
+
+    check_gas(evm, message_call_gas.cost + extend_memory.cost)
+
+    if is_cold_access:
+        evm.accessed_addresses.add(original_address)
+
+    track_address_access(evm.message.block_env, original_address)
+
+    if is_delegated:
+        apply_delegation_tracking(evm, original_address, final_address)
+
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 
     # OPERATION
@@ -559,14 +581,9 @@ def selfdestruct(evm: Evm) -> None:
 
     # GAS
     gas_cost = GAS_SELF_DESTRUCT
-    if beneficiary not in evm.accessed_addresses:
-        evm.accessed_addresses.add(beneficiary)
+    is_cold_access = beneficiary not in evm.accessed_addresses
+    if is_cold_access:
         gas_cost += GAS_COLD_ACCOUNT_ACCESS
-
-    # Track address access for BAL
-    track_address_access(
-        evm.message.block_env.state.change_tracker, beneficiary
-    )
 
     if (
         not is_account_alive(evm.message.block_env.state, beneficiary)
@@ -576,6 +593,13 @@ def selfdestruct(evm: Evm) -> None:
         != 0
     ):
         gas_cost += GAS_SELF_DESTRUCT_NEW_ACCOUNT
+
+    check_gas(evm, gas_cost)
+
+    if is_cold_access:
+        evm.accessed_addresses.add(beneficiary)
+
+    track_address_access(evm.message.block_env, beneficiary)
 
     charge_gas(evm, gas_cost)
 
@@ -637,28 +661,37 @@ def delegatecall(evm: Evm) -> None:
         ],
     )
 
-    if code_address in evm.accessed_addresses:
-        access_gas_cost = GAS_WARM_ACCESS
-    else:
-        evm.accessed_addresses.add(code_address)
-        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
-
-    # Track address access for BAL
-    track_address_access(
-        evm.message.block_env.state.change_tracker, code_address
+    is_cold_access = code_address not in evm.accessed_addresses
+    access_gas_cost = (
+        GAS_COLD_ACCOUNT_ACCESS if is_cold_access else GAS_WARM_ACCESS
     )
 
     (
-        disable_precompiles,
-        code_address,
+        is_delegated,
+        original_address,
+        final_address,
         code,
-        delegated_access_gas_cost,
-    ) = access_delegation(evm, code_address)
-    access_gas_cost += delegated_access_gas_cost
+        delegation_gas_cost,
+    ) = check_delegation(evm, code_address)
+    access_gas_cost += delegation_gas_cost
+
+    code_address = final_address
+    disable_precompiles = is_delegated
 
     message_call_gas = calculate_message_call_gas(
         U256(0), gas, Uint(evm.gas_left), extend_memory.cost, access_gas_cost
     )
+
+    check_gas(evm, message_call_gas.cost + extend_memory.cost)
+
+    if is_cold_access:
+        evm.accessed_addresses.add(original_address)
+
+    track_address_access(evm.message.block_env, original_address)
+
+    if is_delegated:
+        apply_delegation_tracking(evm, original_address, final_address)
+
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 
     # OPERATION
@@ -711,23 +744,22 @@ def staticcall(evm: Evm) -> None:
         ],
     )
 
-    if to in evm.accessed_addresses:
-        access_gas_cost = GAS_WARM_ACCESS
-    else:
-        evm.accessed_addresses.add(to)
-        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+    is_cold_access = to not in evm.accessed_addresses
+    access_gas_cost = (
+        GAS_COLD_ACCOUNT_ACCESS if is_cold_access else GAS_WARM_ACCESS
+    )
 
-    # Track address access for BAL
-    track_address_access(evm.message.block_env.state.change_tracker, to)
-
-    code_address = to
     (
-        disable_precompiles,
-        code_address,
+        is_delegated,
+        original_address,
+        final_address,
         code,
-        delegated_access_gas_cost,
-    ) = access_delegation(evm, code_address)
-    access_gas_cost += delegated_access_gas_cost
+        delegation_gas_cost,
+    ) = check_delegation(evm, to)
+    access_gas_cost += delegation_gas_cost
+
+    code_address = final_address
+    disable_precompiles = is_delegated
 
     message_call_gas = calculate_message_call_gas(
         U256(0),
@@ -736,6 +768,17 @@ def staticcall(evm: Evm) -> None:
         extend_memory.cost,
         access_gas_cost,
     )
+
+    check_gas(evm, message_call_gas.cost + extend_memory.cost)
+
+    if is_cold_access:
+        evm.accessed_addresses.add(to)
+
+    track_address_access(evm.message.block_env, to)
+
+    if is_delegated:
+        apply_delegation_tracking(evm, original_address, final_address)
+
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 
     # OPERATION
