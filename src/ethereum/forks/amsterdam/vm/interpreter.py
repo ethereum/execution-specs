@@ -141,7 +141,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
 
             # EIP-7928: Track delegation target when loaded as call target
             track_address_access(
-                block_env.state.change_tracker,
+                block_env,
                 delegated_address,
             )
 
@@ -253,14 +253,21 @@ def process_message(message: Message) -> Evm:
     # take snapshot of state before processing the message
     begin_transaction(state, transient_storage)
 
-    if hasattr(state, "change_tracker") and state.change_tracker:
-        begin_call_frame(state.change_tracker)
+    if (
+        hasattr(message.block_env, "change_tracker")
+        and message.block_env.change_tracker
+    ):
+        begin_call_frame(message.block_env)
         # Track target address access when processing a message
-        track_address_access(state.change_tracker, message.current_target)
+        track_address_access(message.block_env, message.current_target)
 
     if message.should_transfer_value and message.value != 0:
         move_ether(
-            state, message.caller, message.current_target, message.value
+            state,
+            message.caller,
+            message.current_target,
+            message.value,
+            message.block_env,
         )
 
     evm = execute_code(message)
@@ -268,12 +275,18 @@ def process_message(message: Message) -> Evm:
         # revert state to the last saved checkpoint
         # since the message call resulted in an error
         rollback_transaction(state, transient_storage)
-        if hasattr(state, "change_tracker") and state.change_tracker:
-            rollback_call_frame(state.change_tracker)
+        if (
+            hasattr(message.block_env, "change_tracker")
+            and message.block_env.change_tracker
+        ):
+            rollback_call_frame(message.block_env)
     else:
         commit_transaction(state, transient_storage)
-        if hasattr(state, "change_tracker") and state.change_tracker:
-            commit_call_frame(state.change_tracker)
+        if (
+            hasattr(message.block_env, "change_tracker")
+            and message.block_env.change_tracker
+        ):
+            commit_call_frame(message.block_env)
     return evm
 
 

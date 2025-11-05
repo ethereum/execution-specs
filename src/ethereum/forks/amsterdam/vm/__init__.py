@@ -21,7 +21,9 @@ from ethereum_types.numeric import U64, U256, Uint
 from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import EthereumException
 
+from ..block_access_lists.builder import BlockAccessListBuilder
 from ..block_access_lists.rlp_types import BlockAccessList
+from ..block_access_lists.tracker import StateChangeTracker
 from ..blocks import Log, Receipt, Withdrawal
 from ..fork_types import Address, Authorization, VersionedHash
 from ..state import State, TransientStorage
@@ -48,6 +50,9 @@ class BlockEnvironment:
     prev_randao: Bytes32
     excess_blob_gas: U64
     parent_beacon_block_root: Hash32
+    change_tracker: StateChangeTracker = field(
+        default_factory=lambda: StateChangeTracker(BlockAccessListBuilder())
+    )
 
 
 @dataclass

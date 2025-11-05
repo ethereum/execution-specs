@@ -36,6 +36,7 @@ from ..gas import (
     calculate_blob_gas_price,
     calculate_gas_extend_memory,
     charge_gas,
+    check_gas,
 )
 from ..stack import pop, push
 
@@ -77,17 +78,18 @@ def balance(evm: Evm) -> None:
     address = to_address_masked(pop(evm.stack))
 
     # GAS
-    if address in evm.accessed_addresses:
-        charge_gas(evm, GAS_WARM_ACCESS)
-    else:
+    is_cold_access = address not in evm.accessed_addresses
+    gas_cost = GAS_COLD_ACCOUNT_ACCESS if is_cold_access else GAS_WARM_ACCESS
+    check_gas(evm, gas_cost)
+    if is_cold_access:
         evm.accessed_addresses.add(address)
-        charge_gas(evm, GAS_COLD_ACCOUNT_ACCESS)
+    track_address_access(evm.message.block_env, address)
+    charge_gas(evm, gas_cost)
 
     # OPERATION
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
     state = evm.message.block_env.state
     balance = get_account(state, address).balance
-    track_address_access(state.change_tracker, address)
 
     push(evm.stack, balance)
 
@@ -344,18 +346,19 @@ def extcodesize(evm: Evm) -> None:
     address = to_address_masked(pop(evm.stack))
 
     # GAS
-    if address in evm.accessed_addresses:
-        access_gas_cost = GAS_WARM_ACCESS
-    else:
+    is_cold_access = address not in evm.accessed_addresses
+    access_gas_cost = (
+        GAS_COLD_ACCOUNT_ACCESS if is_cold_access else GAS_WARM_ACCESS
+    )
+    check_gas(evm, access_gas_cost)
+    if is_cold_access:
         evm.accessed_addresses.add(address)
-        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
-
+    track_address_access(evm.message.block_env, address)
     charge_gas(evm, access_gas_cost)
 
     # OPERATION
     state = evm.message.block_env.state
     code = get_account(state, address).code
-    track_address_access(state.change_tracker, address)
 
     codesize = U256(len(code))
     push(evm.stack, codesize)
@@ -387,19 +390,22 @@ def extcodecopy(evm: Evm) -> None:
         evm.memory, [(memory_start_index, size)]
     )
 
-    if address in evm.accessed_addresses:
-        access_gas_cost = GAS_WARM_ACCESS
-    else:
-        evm.accessed_addresses.add(address)
-        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+    is_cold_access = address not in evm.accessed_addresses
+    access_gas_cost = (
+        GAS_COLD_ACCOUNT_ACCESS if is_cold_access else GAS_WARM_ACCESS
+    )
+    total_gas_cost = access_gas_cost + copy_gas_cost + extend_memory.cost
 
-    charge_gas(evm, access_gas_cost + copy_gas_cost + extend_memory.cost)
+    check_gas(evm, total_gas_cost)
+    if is_cold_access:
+        evm.accessed_addresses.add(address)
+    track_address_access(evm.message.block_env, address)
+    charge_gas(evm, total_gas_cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
     state = evm.message.block_env.state
     code = get_account(state, address).code
-    track_address_access(state.change_tracker, address)
 
     value = buffer_read(code, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
@@ -480,18 +486,19 @@ def extcodehash(evm: Evm) -> None:
     address = to_address_masked(pop(evm.stack))
 
     # GAS
-    if address in evm.accessed_addresses:
-        access_gas_cost = GAS_WARM_ACCESS
-    else:
+    is_cold_access = address not in evm.accessed_addresses
+    access_gas_cost = (
+        GAS_COLD_ACCOUNT_ACCESS if is_cold_access else GAS_WARM_ACCESS
+    )
+    check_gas(evm, access_gas_cost)
+    if is_cold_access:
         evm.accessed_addresses.add(address)
-        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
-
+    track_address_access(evm.message.block_env, address)
     charge_gas(evm, access_gas_cost)
 
     # OPERATION
     state = evm.message.block_env.state
     account = get_account(state, address)
-    track_address_access(state.change_tracker, address)
 
     if account == EMPTY_ACCOUNT:
         codehash = U256(0)
