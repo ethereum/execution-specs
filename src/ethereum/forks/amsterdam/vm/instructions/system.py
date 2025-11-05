@@ -122,6 +122,7 @@ def generic_create(
         increment_nonce(
             state,
             evm.message.current_target,
+            evm.message.block_env,
         )
         push(evm.stack, U256(0))
         return
@@ -129,6 +130,7 @@ def generic_create(
     increment_nonce(
         state,
         evm.message.current_target,
+        evm.message.block_env,
     )
 
     child_message = Message(
@@ -613,6 +615,7 @@ def selfdestruct(evm: Evm) -> None:
         originator,
         beneficiary,
         originator_balance,
+        evm.message.block_env,
     )
 
     # register account for deletion only if it was created
@@ -624,6 +627,7 @@ def selfdestruct(evm: Evm) -> None:
             evm.message.block_env.state,
             originator,
             U256(0),
+            evm.message.block_env,
         )
         evm.accounts_to_delete.add(originator)
 
