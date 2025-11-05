@@ -24,6 +24,6 @@ recovers the stolen funds into a new contract.
 [Geth 1.4.10]: https://github.com/ethereum/go-ethereum/releases/tag/v1.4.10
 """
 
-from ethereum.fork_criteria import ByBlockNumber
+from ethereum.fork_criteria import ByBlockNumber, ForkCriteria
 
-FORK_CRITERIA = ByBlockNumber(1920000)
+FORK_CRITERIA: ForkCriteria = ByBlockNumber(1920000)
