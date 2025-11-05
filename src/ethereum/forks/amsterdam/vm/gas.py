@@ -118,6 +118,23 @@ class MessageCallGas:
     sub_call: Uint
 
 
+def check_gas(evm: Evm, amount: Uint) -> None:
+    """
+    Checks if `amount` gas is available without charging it.
+    Raises OutOfGasError if insufficient gas.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM.
+    amount :
+        The amount of gas to check.
+
+    """
+    if evm.gas_left < amount:
+        raise OutOfGasError
+
+
 def charge_gas(evm: Evm, amount: Uint) -> None:
     """
     Subtracts `amount` from `evm.gas_left`.
