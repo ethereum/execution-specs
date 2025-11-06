@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+"""
+Helper script to download geth for Linux.
+"""
+
 import argparse
 import os
 import shutil
@@ -8,6 +12,7 @@ import requests
 
 
 def parse_args():
+    """Parse command-line arguments."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--dir", help="Directory to which geth binary will be downloaded to"
@@ -17,6 +22,7 @@ def parse_args():
 
 
 def download_geth_linux(dir: str) -> None:
+    """Download geth from windows.net."""
     geth_release_name = "geth-linux-amd64-1.10.8-26675454"
     url = (
         f"https://gethstore.blob.core.windows.net/builds/"
