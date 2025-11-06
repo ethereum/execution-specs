@@ -2202,6 +2202,27 @@ class Osaka(Prague, solc_name="cancun"):
         """
         return False
 
+
+class Eip7805(Osaka, solc_name="cancun"):
+    """
+    EIP-7805 FOCIL feature fork - Fork-Choice Enforced Inclusion Lists.
+
+    Inherits all Osaka features plus FOCIL support.
+    """
+
+    @classmethod
+    def is_deployed(cls) -> bool:
+        """EIP-7805 FOCIL is not deployed to mainnet."""
+        return False
+
+    @classmethod
+    def transition_tool_name(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> str:
+        """Return fork name as known to EEST transition tools."""
+        del block_number, timestamp
+        return "Osaka"
+
     @classmethod
     def valid_opcodes(
         cls, *, block_number: int = 0, timestamp: int = 0

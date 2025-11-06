@@ -356,7 +356,13 @@ EngineNewPayloadV4Parameters = Tuple[
     Hash,
     List[Bytes],
 ]
-EngineNewPayloadV5Parameters = EngineNewPayloadV4Parameters
+EngineNewPayloadV5Parameters = Tuple[
+    FixtureExecutionPayload,
+    List[Hash],
+    Hash,
+    List[Bytes],
+    List[Bytes],  # inclusion_list_transactions
+]
 
 # Important: We check EngineNewPayloadV3Parameters first as it has more fields,
 # and pydantic has a weird behavior when the smaller tuple is checked first.

@@ -267,6 +267,8 @@ class Block(Header):
     """Post state for verification after block execution in BlockchainTest"""
     block_access_list: Bytes | None = Field(None)
     """EIP-7928: Block-level access lists (serialized)."""
+    inclusion_list_transactions: List[Transaction] | None = None
+    """EIP-7805: Inclusion List transactions."""
 
     def set_environment(self, env: Environment) -> Environment:
         """
@@ -352,6 +354,7 @@ class BuiltBlock(CamelModel):
     engine_api_error_code: EngineAPIError | None = None
     fork: Fork
     block_access_list: BlockAccessList | None
+    inclusion_list_transactions: List[Transaction] | None = None
 
     def get_fixture_block(self) -> FixtureBlock | InvalidFixtureBlock:
         """Get a FixtureBlockBase from the built block."""
@@ -401,6 +404,7 @@ class BuiltBlock(CamelModel):
             block_access_list=self.block_access_list.rlp
             if self.block_access_list
             else None,
+            inclusion_list_transactions=self.inclusion_list_transactions or [],
             validation_error=self.expected_exception,
             error_code=self.engine_api_error_code,
         )
@@ -435,6 +439,32 @@ class BuiltBlock(CamelModel):
                     message=f"Block RLP size limit exceeded: {rlp_size} > "
                     f"{fork_block_rlp_size_limit}",
                 )
+
+        # Verify inclusion list transactions are all included in the block
+        # Note: This only checks for the exception when we expect one.
+        # Missing transactions that are invalid (not executable) are acceptable
+        # and won't trigger an exception.
+        if (
+            self.inclusion_list_transactions is not None
+            and self.expected_exception is not None
+            and BlockException.INCLUSION_LIST_UNSATISFIED
+            in self.expected_exception
+        ):
+            # Create a set of transaction hashes from block transactions
+            block_tx_hashes = {tx.hash for tx in self.txs}
+
+            # Check if all inclusion list transactions are in the block
+            missing_txs = []
+            for il_tx in self.inclusion_list_transactions:
+                if il_tx.hash not in block_tx_hashes:
+                    missing_txs.append(il_tx)
+
+            if missing_txs:
+                got_exception = BlockExceptionWithMessage(
+                    exceptions=[BlockException.INCLUSION_LIST_UNSATISFIED],
+                    message=f"Block is missing {len(missing_txs)} inclusion list transaction(s)",
+                )
+
         verify_block(
             block_number=self.env.number,
             want_exception=self.expected_exception,
@@ -740,13 +770,15 @@ class BlockchainTest(BaseTest):
             engine_api_error_code=block.engine_api_error_code,
             fork=fork,
             block_access_list=bal,
+            inclusion_list_transactions=block.inclusion_list_transactions,
         )
 
         try:
             rejected_txs = built_block.verify_transactions(
                 transition_tool_exceptions_reliable=t8n.exception_mapper.reliable,
             )
-            if (
+            # Check if we should verify block exceptions
+            should_verify_block_exception = (
                 not rejected_txs
                 and block.rlp_modifier is None
                 and block.requests is None
@@ -755,7 +787,19 @@ class BlockchainTest(BaseTest):
                     block.expected_block_access_list is not None
                     and block.expected_block_access_list._modifier is not None
                 )
+            )
+
+            # Special case: always verify inclusion list exceptions even if skip_exception_verification is True
+            if (
+                block.skip_exception_verification
+                and block.inclusion_list_transactions is not None
+                and block.exception is not None
+                and BlockException.INCLUSION_LIST_UNSATISFIED
+                in block.exception
             ):
+                should_verify_block_exception = True
+
+            if should_verify_block_exception:
                 # Only verify block level exception if: - No transaction
                 # exception was raised, because these are not reported as block
                 # exceptions. - No RLP modifier was specified, because the
@@ -763,7 +807,8 @@ class BlockchainTest(BaseTest):
                 # requests were specified, because modified requests are also
                 # what normally produces the block exception. - No BAL modifier
                 # was specified, because modified BAL also produces block
-                # exceptions.
+                # exceptions. - Inclusion list validation is enabled even with
+                # skip_exception_verification.
                 built_block.verify_block_exception(
                     transition_tool_exceptions_reliable=t8n.exception_mapper.reliable,
                 )

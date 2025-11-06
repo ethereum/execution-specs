@@ -130,7 +130,15 @@ def test_blockchain_via_engine(
                             if payload.valid()
                             else PayloadStatusEnum.INVALID
                         )
-                        if payload_response.status != expected_validity:
+                        # INCLUSION_LIST_UNSATISFIED is a specific type of INVALID
+                        if (
+                            payload_response.status != expected_validity
+                            and not (
+                                expected_validity == PayloadStatusEnum.INVALID
+                                and payload_response.status
+                                == PayloadStatusEnum.INCLUSION_LIST_UNSATISFIED
+                            )
+                        ):
                             raise LoggedError(
                                 f"unexpected status: want {expected_validity},"
                                 f" got {payload_response.status}"
@@ -140,42 +148,49 @@ def test_blockchain_via_engine(
                                 f"Client failed to raise expected Engine API error code: "
                                 f"{payload.error_code}"
                             )
-                        elif (
-                            payload_response.status
-                            == PayloadStatusEnum.INVALID
+                        elif payload_response.status in (
+                            PayloadStatusEnum.INVALID,
+                            PayloadStatusEnum.INCLUSION_LIST_UNSATISFIED,
                         ):
-                            if payload_response.validation_error is None:
+                            # INCLUSION_LIST_UNSATISFIED doesn't require a validation_error
+                            # since the status itself is the error
+                            if (
+                                payload_response.status
+                                == PayloadStatusEnum.INVALID
+                                and payload_response.validation_error is None
+                            ):
                                 raise LoggedError(
                                     "Client returned INVALID but no validation error was provided."
                                 )
-                            if isinstance(
-                                payload_response.validation_error,
-                                UndefinedException,
-                            ):
-                                message = (
-                                    "Undefined exception message: "
-                                    f'expected exception: "{payload.validation_error}", '
-                                    f'returned exception: "{payload_response.validation_error}" '
-                                    f'(mapper: "{payload_response.validation_error.mapper_name}")'
-                                )
-                                if strict_exception_matching:
-                                    raise LoggedError(message)
-                                else:
-                                    logger.warning(message)
-                            else:
-                                if (
-                                    payload.validation_error
-                                    not in payload_response.validation_error
+                            if payload_response.validation_error is not None:
+                                if isinstance(
+                                    payload_response.validation_error,
+                                    UndefinedException,
                                 ):
                                     message = (
-                                        "Client returned unexpected validation error: "
-                                        f'got: "{payload_response.validation_error}" '
-                                        f'expected: "{payload.validation_error}"'
+                                        "Undefined exception message: "
+                                        f'expected exception: "{payload.validation_error}", '
+                                        f'returned exception: "{payload_response.validation_error}" '
+                                        f'(mapper: "{payload_response.validation_error.mapper_name}")'
                                     )
                                     if strict_exception_matching:
                                         raise LoggedError(message)
                                     else:
                                         logger.warning(message)
+                                else:
+                                    if (
+                                        payload.validation_error
+                                        not in payload_response.validation_error
+                                    ):
+                                        message = (
+                                            "Client returned unexpected validation error: "
+                                            f'got: "{payload_response.validation_error}" '
+                                            f'expected: "{payload.validation_error}"'
+                                        )
+                                        if strict_exception_matching:
+                                            raise LoggedError(message)
+                                        else:
+                                            logger.warning(message)
 
                     except JSONRPCError as e:
                         logger.info(

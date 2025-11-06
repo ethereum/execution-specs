@@ -186,3 +186,9 @@ class BlockException(ExceptionBase):
     """
     Block BAL is missing an account change that is present in the computed BAL.
     """
+    # --- Fork-choice Enforced Inclusion Lists (EIP-7805) --- #
+    INCLUSION_LIST_UNSATISFIED = auto()
+    """
+    Block does not include all transactions from the inclusion list that are
+    valid against the current state.
+    """
