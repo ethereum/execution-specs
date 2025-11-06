@@ -16,7 +16,7 @@ from ethereum_types.numeric import U256, Uint
 
 from ethereum.utils.numeric import ceil32
 
-from ...block_access_lists.tracker import track_address_access
+# track_address_access removed - now using state_changes.track_address()
 from ...fork_types import Address
 from ...state import (
     account_has_code_or_nonce,
@@ -114,7 +114,7 @@ def generic_create(
 
     evm.accessed_addresses.add(contract_address)
 
-    track_address_access(evm.message.block_env, contract_address)
+    evm.state_changes.track_address(contract_address)
 
     if account_has_code_or_nonce(
         state, contract_address
@@ -122,7 +122,7 @@ def generic_create(
         increment_nonce(
             state,
             evm.message.current_target,
-            evm.message.block_env,
+            evm.state_changes,
         )
         push(evm.stack, U256(0))
         return
@@ -130,7 +130,7 @@ def generic_create(
     increment_nonce(
         state,
         evm.message.current_target,
-        evm.message.block_env,
+        evm.state_changes,
     )
 
     child_message = Message(
@@ -327,6 +327,8 @@ def generic_call(
         evm.memory, memory_input_start_position, memory_input_size
     )
 
+    # EIP-7928: Child message inherits transaction_state_changes from parent
+    # The actual child frame will be created automatically in process_message
     child_message = Message(
         block_env=evm.message.block_env,
         tx_env=evm.message.tx_env,
@@ -345,6 +347,7 @@ def generic_call(
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         disable_precompiles=disable_precompiles,
         parent_evm=evm,
+        transaction_state_changes=evm.message.transaction_state_changes,
     )
 
     child_evm = process_message(child_message)
@@ -428,7 +431,7 @@ def call(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_addresses.add(to)
 
-    track_address_access(evm.message.block_env, to)
+    evm.state_changes.track_address(to)
 
     if is_delegated:
         apply_delegation_tracking(evm, original_address, final_address)
@@ -527,7 +530,7 @@ def callcode(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_addresses.add(original_address)
 
-    track_address_access(evm.message.block_env, original_address)
+    evm.state_changes.track_address(original_address)
 
     if is_delegated:
         apply_delegation_tracking(evm, original_address, final_address)
@@ -539,6 +542,15 @@ def callcode(evm: Evm) -> None:
     sender_balance = get_account(
         evm.message.block_env.state, evm.message.current_target
     ).balance
+
+    # EIP-7928: For CALLCODE with value transfer, capture pre-balance
+    # in parent frame. CALLCODE transfers value from/to current_target
+    # (same address), affecting current storage context, not child frame
+    if value != 0 and sender_balance >= value:
+        evm.state_changes.capture_pre_balance(
+            evm.message.current_target, sender_balance
+        )
+
     if sender_balance < value:
         push(evm.stack, U256(0))
         evm.return_data = b""
@@ -601,7 +613,7 @@ def selfdestruct(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_addresses.add(beneficiary)
 
-    track_address_access(evm.message.block_env, beneficiary)
+    evm.state_changes.track_address(beneficiary)
 
     charge_gas(evm, gas_cost)
 
@@ -615,7 +627,7 @@ def selfdestruct(evm: Evm) -> None:
         originator,
         beneficiary,
         originator_balance,
-        evm.message.block_env,
+        evm.state_changes,
     )
 
     # register account for deletion only if it was created
@@ -627,7 +639,7 @@ def selfdestruct(evm: Evm) -> None:
             evm.message.block_env.state,
             originator,
             U256(0),
-            evm.message.block_env,
+            evm.state_changes,
         )
         evm.accounts_to_delete.add(originator)
 
@@ -691,7 +703,7 @@ def delegatecall(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_addresses.add(original_address)
 
-    track_address_access(evm.message.block_env, original_address)
+    evm.state_changes.track_address(original_address)
 
     if is_delegated:
         apply_delegation_tracking(evm, original_address, final_address)
@@ -778,7 +790,7 @@ def staticcall(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_addresses.add(to)
 
-    track_address_access(evm.message.block_env, to)
+    evm.state_changes.track_address(to)
 
     if is_delegated:
         apply_delegation_tracking(evm, original_address, final_address)
