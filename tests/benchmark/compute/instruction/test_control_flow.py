@@ -10,6 +10,7 @@ Supported Opcodes:
 - JUMPDEST
 """
 
+import pytest
 from execution_testing import (
     Alloc,
     BenchmarkTestFiller,
@@ -80,6 +81,7 @@ def test_jumpis(
     benchmark_test(tx=tx)
 
 
+@pytest.mark.gas_ref
 def test_jumpdests(
     benchmark_test: BenchmarkTestFiller,
 ) -> None:

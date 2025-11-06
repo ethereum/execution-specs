@@ -33,8 +33,35 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 @pytest.hookimpl(tryfirst=True)
 def pytest_configure(config: pytest.Config) -> None:
     """Configure the fill and execute mode to benchmarking."""
+    config.addinivalue_line(
+        "markers",
+        "gas_ref: Mark test as a gas reference test for gas repricing analysis",
+    )
     if config.getoption("gas_benchmark_value"):
         config.op_mode = OpMode.BENCHMARKING  # type: ignore[attr-defined]
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
+    """Skip non-gas_ref tests when --fixed-opcode-count is specified."""
+    fixed_opcode_count = config.getoption("fixed_opcode_count")
+    if not fixed_opcode_count:
+        # If --fixed-opcode-count is not specified, don't filter anything
+        return
+
+    # Filter: keep only tests with gas_ref marker
+    for item in items:
+        has_gas_ref = item.get_closest_marker("gas_ref") is not None
+        has_benchmark = item.get_closest_marker("benchmark") is not None
+
+        # Skip benchmark tests that don't have gas_ref marker
+        if has_benchmark and not has_gas_ref:
+            item.add_marker(
+                pytest.mark.skip(
+                    reason="Test does not have gas_ref marker (required for --fixed-opcode-count)"
+                )
+            )
 
 
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
@@ -57,21 +84,30 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
             )
 
     if "fixed_opcode_count" in metafunc.fixturenames:
-        fixed_opcode_counts = metafunc.config.getoption("fixed_opcode_count")
-        if fixed_opcode_counts:
-            opcode_counts = [
-                int(x.strip()) for x in fixed_opcode_counts.split(",")
-            ]
-            opcode_count_parameters = [
-                pytest.param(
-                    opcode_count,
-                    id=f"opcount_{opcode_count}",
-                )
-                for opcode_count in opcode_counts
-            ]
-            metafunc.parametrize(
-                "fixed_opcode_count", opcode_count_parameters, scope="function"
+        # Only parametrize if test has gas_ref marker
+        has_gas_ref = (
+            metafunc.definition.get_closest_marker("gas_ref") is not None
+        )
+        if has_gas_ref:
+            fixed_opcode_counts = metafunc.config.getoption(
+                "fixed_opcode_count"
             )
+            if fixed_opcode_counts:
+                opcode_counts = [
+                    int(x.strip()) for x in fixed_opcode_counts.split(",")
+                ]
+                opcode_count_parameters = [
+                    pytest.param(
+                        opcode_count,
+                        id=f"opcount_{opcode_count}",
+                    )
+                    for opcode_count in opcode_counts
+                ]
+                metafunc.parametrize(
+                    "fixed_opcode_count",
+                    opcode_count_parameters,
+                    scope="function",
+                )
 
 
 @pytest.fixture(scope="function")
