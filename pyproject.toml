@@ -372,6 +372,11 @@ ignore = [
     "N815"          # The traces must use camel case in JSON property names
 ]
 "tests/*" = ["ARG001"]
+"vulture_whitelist.py" = [
+    "B018",  # Useless expression (intentional for Vulture whitelisting)
+    "F403",  # Star imports needed for whitelisting
+    "F405",  # Undefined names from star imports
+]
 
 [tool.codespell]
 builtin = "clear,code,usage"    # Built-in dictionaries to use

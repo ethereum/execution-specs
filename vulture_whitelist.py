@@ -1,6 +1,17 @@
+"""
+Whitelist for Vulture dead code detection.
+
+This file references symbols that Vulture might incorrectly flag as unused.
+The symbols are used indirectly through reflection, public APIs, or dynamic
+imports. Each bare expression tells Vulture to ignore that specific symbol.
+"""
+
 from ethereum.cancun.blocks import Withdrawal
+from ethereum_spec_tools.evm_tools.t8n.transition_tool import EELST8N
+
 from ethereum.ethash import *
 from ethereum.fork_criteria import Unscheduled
+from ethereum.trace import EvmTracer
 from ethereum.utils.hexadecimal import hex_to_bytes256
 from ethereum_optimized.state_db import State
 from ethereum_spec_tools.docc import *
@@ -11,18 +22,16 @@ from ethereum_spec_tools.evm_tools.loaders.transaction_loader import (
 )
 from ethereum_spec_tools.evm_tools.t8n.env import Ommer
 from ethereum_spec_tools.evm_tools.t8n.evm_trace.eip3155 import (
-    Trace,
     FinalTrace,
+    Trace,
 )
-from ethereum_spec_tools.evm_tools.t8n.transition_tool import EELST8N
 from ethereum_spec_tools.lint.lints.glacier_forks_hygiene import (
     GlacierForksHygiene,
 )
 from ethereum_spec_tools.lint.lints.import_hygiene import ImportHygiene
+from ethereum_spec_tools.new_fork.codemod.comment import CommentReplaceCommand
 from ethereum_spec_tools.new_fork.codemod.constant import SetConstantCommand
 from ethereum_spec_tools.new_fork.codemod.string import StringReplaceCommand
-from ethereum_spec_tools.new_fork.codemod.comment import CommentReplaceCommand
-from ethereum.trace import EvmTracer
 
 # src/ethereum/utils/hexadecimal.py
 hex_to_bytes256
