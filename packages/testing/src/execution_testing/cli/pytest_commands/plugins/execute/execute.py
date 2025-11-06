@@ -372,6 +372,8 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         eth_rpc: EthRPC,
         engine_rpc: EngineRPC | None,
         collector: Collector,
+        gas_benchmark_value: int,
+        fixed_opcode_count: int | None,
     ) -> Type[BaseTest]:
         """
         Fixture used to instantiate an auto-fillable BaseTest object from
@@ -404,9 +406,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     )
                 # Set default for expected_benchmark_gas_used
                 if "expected_benchmark_gas_used" not in kwargs:
-                    kwargs["expected_benchmark_gas_used"] = (
-                        request.getfixturevalue("gas_benchmark_value")
-                    )
+                    kwargs["expected_benchmark_gas_used"] = gas_benchmark_value
                 kwargs["fork"] = fork
                 kwargs |= {
                     p: request.getfixturevalue(p)
