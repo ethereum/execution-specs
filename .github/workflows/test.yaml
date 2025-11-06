@@ -43,9 +43,9 @@ jobs:
       - name: Check PR Title against Conventional Commits
         # This action validates the PR title against the Conventional Commits spec
         uses: amannn/action-semantic-pull-request@v6 
-        env:
-          # This token grants the action permission to read PR metadata
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:  # <--- Change 'env' to 'with'
+          # The GITHUB_TOKEN is passed as an input parameter to the action
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
   py3:
     runs-on: [self-hosted-ghr, size-xl-x64]
