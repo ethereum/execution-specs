@@ -322,6 +322,7 @@ ignore_names = ["pytest_*"]
 line-length = 79
 
 [tool.ruff.lint]
+exclude = ["tests/fixtures"]
 select = [
     "E", # pycodestyle errors
     "F", # Pyflakes
