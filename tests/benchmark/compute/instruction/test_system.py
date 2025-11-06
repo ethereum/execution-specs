@@ -424,6 +424,7 @@ def test_creates_collisions(
     )
 
 
+@pytest.mark.gas_ref
 @pytest.mark.parametrize(
     "opcode",
     [Op.RETURN, Op.REVERT],

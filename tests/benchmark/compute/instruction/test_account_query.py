@@ -40,6 +40,7 @@ from tests.benchmark.compute.helpers import (
 )
 
 
+@pytest.mark.gas_ref
 @pytest.mark.parametrize("contract_balance", [0, 1])
 def test_selfbalance(
     benchmark_test: BenchmarkTestFiller,
@@ -54,6 +55,7 @@ def test_selfbalance(
     )
 
 
+@pytest.mark.gas_ref
 def test_codesize(
     benchmark_test: BenchmarkTestFiller,
 ) -> None:
@@ -345,6 +347,7 @@ def test_extcodecopy_warm(
     benchmark_test(tx=tx)
 
 
+@pytest.mark.gas_ref
 @pytest.mark.parametrize(
     "opcode",
     [
