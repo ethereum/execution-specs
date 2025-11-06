@@ -21,12 +21,11 @@ from ethereum_types.numeric import U64, U256, Uint
 from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import EthereumException
 
-from ..block_access_lists.builder import BlockAccessListBuilder
 from ..block_access_lists.rlp_types import BlockAccessList
-from ..block_access_lists.tracker import StateChangeTracker
 from ..blocks import Log, Receipt, Withdrawal
 from ..fork_types import Address, Authorization, VersionedHash
 from ..state import State, TransientStorage
+from ..state_tracker import StateChanges
 from ..transactions import LegacyTransaction
 from ..trie import Trie
 
@@ -50,8 +49,8 @@ class BlockEnvironment:
     prev_randao: Bytes32
     excess_blob_gas: U64
     parent_beacon_block_root: Hash32
-    change_tracker: StateChangeTracker = field(
-        default_factory=lambda: StateChangeTracker(BlockAccessListBuilder())
+    block_state_changes: StateChanges = field(
+        default_factory=lambda: StateChanges()
     )
 
 
@@ -143,6 +142,7 @@ class Message:
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     disable_precompiles: bool
     parent_evm: Optional["Evm"]
+    transaction_state_changes: Optional[StateChanges] = None
 
 
 @dataclass
@@ -165,6 +165,7 @@ class Evm:
     error: Optional[EthereumException]
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
+    state_changes: StateChanges
 
 
 def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
@@ -186,6 +187,9 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     evm.accessed_addresses.update(child_evm.accessed_addresses)
     evm.accessed_storage_keys.update(child_evm.accessed_storage_keys)
 
+    # Merge state changes from successful child frame (EIP-7928)
+    child_evm.state_changes.merge_on_success()
+
 
 def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
     """
@@ -200,3 +204,7 @@ def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
 
     """
     evm.gas_left += child_evm.gas_left
+
+    # Merge state changes from failed child frame (EIP-7928)
+    # Only reads are merged, writes are discarded
+    child_evm.state_changes.merge_on_failure()

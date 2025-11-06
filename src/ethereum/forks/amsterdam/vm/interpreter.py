@@ -29,12 +29,6 @@ from ethereum.trace import (
     evm_trace,
 )
 
-from ..block_access_lists.tracker import (
-    begin_call_frame,
-    commit_call_frame,
-    rollback_call_frame,
-    track_address_access,
-)
 from ..blocks import Log
 from ..fork_types import Address
 from ..state import (
@@ -50,6 +44,7 @@ from ..state import (
     rollback_transaction,
     set_code,
 )
+from ..state_tracker import StateChanges, create_child_frame
 from ..vm import Message
 from ..vm.eoa_delegation import get_delegated_code_address, set_delegation
 from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
@@ -70,6 +65,59 @@ from .runtime import get_valid_jump_destinations
 STACK_DEPTH_LIMIT = Uint(1024)
 MAX_CODE_SIZE = 0x6000
 MAX_INIT_CODE_SIZE = 2 * MAX_CODE_SIZE
+
+
+def create_call_frame(parent_frame: StateChanges) -> StateChanges:
+    """
+    Create a child frame for call-level state tracking.
+
+    Used for contract calls (CALL, DELEGATECALL, STATICCALL, etc.) where
+    state changes need to be isolated and potentially reverted.
+
+    Parameters
+    ----------
+    parent_frame :
+        The parent frame (transaction or another call frame).
+
+    Returns
+    -------
+    call_frame : StateChanges
+        A new child frame linked to the parent.
+
+    """
+    return create_child_frame(parent_frame)
+
+
+def get_message_state_frame(message: Message) -> StateChanges:
+    """
+    Determine and create the appropriate state tracking frame for a message.
+
+    Frame selection logic:
+    - Nested calls: Create child of parent EVM's frame
+    - Top-level calls: Create child of transaction frame
+    - System transactions: Use block frame directly (no isolation needed)
+
+    Parameters
+    ----------
+    message :
+        The message being processed.
+
+    Returns
+    -------
+    state_frame : StateChanges
+        The state tracking frame to use for this message execution.
+
+    """
+    if message.parent_evm is not None:
+        # Nested call - create child of parent EVM's frame
+        return create_call_frame(message.parent_evm.state_changes)
+    elif message.transaction_state_changes is not None:
+        # Top-level transaction call - create child of transaction frame
+        # This ensures contract execution is isolated and can be reverted
+        return create_call_frame(message.transaction_state_changes)
+    else:
+        # System transaction - use block frame directly
+        return message.block_env.block_state_changes
 
 
 @dataclass
@@ -140,9 +188,8 @@ def process_message_call(message: Message) -> MessageCallOutput:
             message.code_address = delegated_address
 
             # EIP-7928: Track delegation target when loaded as call target
-            track_address_access(
-                block_env,
-                delegated_address,
+            message.block_env.block_state_changes.track_address(
+                delegated_address
             )
 
         evm = process_message(message)
@@ -205,7 +252,9 @@ def process_create_message(message: Message) -> Evm:
     # added to SELFDESTRUCT by EIP-6780.
     mark_account_created(state, message.current_target)
 
-    increment_nonce(state, message.current_target, message.block_env)
+    increment_nonce(
+        state, message.current_target, message.block_env.block_state_changes
+    )
     evm = process_message(message)
     if not evm.error:
         contract_code = evm.output
@@ -224,7 +273,10 @@ def process_create_message(message: Message) -> Evm:
             evm.error = error
         else:
             set_code(
-                state, message.current_target, contract_code, message.block_env
+                state,
+                message.current_target,
+                contract_code,
+                message.block_env.block_state_changes,
             )
             commit_transaction(state, transient_storage)
     else:
@@ -252,16 +304,10 @@ def process_message(message: Message) -> Evm:
     if message.depth > STACK_DEPTH_LIMIT:
         raise StackDepthLimitError("Stack depth limit reached")
 
-    # take snapshot of state before processing the message
     begin_transaction(state, transient_storage)
 
-    if (
-        hasattr(message.block_env, "change_tracker")
-        and message.block_env.change_tracker
-    ):
-        begin_call_frame(message.block_env)
-        # Track target address access when processing a message
-        track_address_access(message.block_env, message.current_target)
+    state_changes = get_message_state_frame(message)
+    state_changes.track_address(message.current_target)
 
     if message.should_transfer_value and message.value != 0:
         move_ether(
@@ -269,30 +315,24 @@ def process_message(message: Message) -> Evm:
             message.caller,
             message.current_target,
             message.value,
-            message.block_env,
+            state_changes,
         )
 
-    evm = execute_code(message)
+    evm = execute_code(message, state_changes)
     if evm.error:
         # revert state to the last saved checkpoint
         # since the message call resulted in an error
         rollback_transaction(state, transient_storage)
-        if (
-            hasattr(message.block_env, "change_tracker")
-            and message.block_env.change_tracker
-        ):
-            rollback_call_frame(message.block_env)
+        # Merge call frame state changes into parent
+        evm.state_changes.merge_on_failure()
     else:
         commit_transaction(state, transient_storage)
-        if (
-            hasattr(message.block_env, "change_tracker")
-            and message.block_env.change_tracker
-        ):
-            commit_call_frame(message.block_env)
+        # Merge call frame state changes into parent
+        evm.state_changes.merge_on_success()
     return evm
 
 
-def execute_code(message: Message) -> Evm:
+def execute_code(message: Message, state_changes: StateChanges) -> Evm:
     """
     Executes bytecode present in the `message`.
 
@@ -300,6 +340,8 @@ def execute_code(message: Message) -> Evm:
     ----------
     message :
         Transaction specific items.
+    state_changes :
+        The state changes frame to use for tracking.
 
     Returns
     -------
@@ -327,6 +369,7 @@ def execute_code(message: Message) -> Evm:
         error=None,
         accessed_addresses=message.accessed_addresses,
         accessed_storage_keys=message.accessed_storage_keys,
+        state_changes=state_changes,
     )
     try:
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:

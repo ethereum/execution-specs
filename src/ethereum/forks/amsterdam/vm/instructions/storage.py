@@ -13,10 +13,6 @@ Implementations of the EVM storage related instructions.
 
 from ethereum_types.numeric import Uint
 
-from ...block_access_lists.tracker import (
-    track_storage_read,
-    track_storage_write,
-)
 from ...state import (
     get_storage,
     get_storage_original,
@@ -62,8 +58,7 @@ def sload(evm: Evm) -> None:
     check_gas(evm, gas_cost)
     if (evm.message.current_target, key) not in evm.accessed_storage_keys:
         evm.accessed_storage_keys.add((evm.message.current_target, key))
-    track_storage_read(
-        evm.message.block_env,
+    evm.state_changes.track_storage_read(
         evm.message.current_target,
         key,
     )
@@ -100,11 +95,6 @@ def sstore(evm: Evm) -> None:
         state, evm.message.current_target, key
     )
     current_value = get_storage(state, evm.message.current_target, key)
-    track_storage_read(
-        evm.message.block_env,
-        evm.message.current_target,
-        key,
-    )
 
     # GAS
     gas_cost = Uint(0)
@@ -124,6 +114,15 @@ def sstore(evm: Evm) -> None:
     else:
         gas_cost += GAS_WARM_ACCESS
 
+    # Track storage access BEFORE checking gas (EIP-7928)
+    # Even if we run out of gas, the access attempt should be tracked
+    evm.state_changes.capture_pre_storage(
+        evm.message.current_target, key, current_value
+    )
+    evm.state_changes.track_storage_read(
+        evm.message.current_target,
+        key,
+    )
     check_gas(evm, gas_cost)
 
     if is_cold_access:
@@ -156,8 +155,7 @@ def sstore(evm: Evm) -> None:
 
     # OPERATION
     set_storage(state, evm.message.current_target, key, new_value)
-    track_storage_write(
-        evm.message.block_env,
+    evm.state_changes.track_storage_write(
         evm.message.current_target,
         key,
         new_value,
