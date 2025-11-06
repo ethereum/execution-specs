@@ -42,9 +42,10 @@ This saves you having to apply code review feedback repeatedly for each fork.
 
 Running the tests necessary to merge into the repository requires:
 
-- Python 3.11.x, and
+- [`uv`](https://docs.astral.sh/uv/) package manager,
+- Python 3.11.x,
 - [PyPy](https://www.pypy.org/) [7.3.19](https://downloads.python.org/pypy/) or later.
-- `geth` installed and present in `$PATH`
+- `geth` installed and present in `$PATH`.
 
 `execution-specs` depends on a submodule that contains common tests that are run across all clients, so we need to clone the repo with the --recursive flag. Example:
 
@@ -67,10 +68,10 @@ tox
 The development tools can also be run outside of `tox`, and can automatically reformat the code:
 
 ```bash
-uv run --extra lint ruff check                # Detects code issues and produces a report to STDOUT
-uv run --extra lint ruff check --fix          # Fixes minor code issues (like unsorted imports).
-uv run --extra lint ruff format               # Formats code.
-uv run --extra lint mypy src packages tests   # Verifies type annotations.
+uv run ruff check        # Detects code issues and produces a report to STDOUT.
+uv run ruff check --fix  # Fixes minor code issues (like unsorted imports).
+uv run ruff format       # Formats code.
+uv run mypy              # Verifies type annotations.
 ```
 
 It is recommended to use a [virtual environment](https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment) to keep your system Python installation clean.
@@ -80,9 +81,9 @@ Note: Make sure to run the EVM trace on a small number of tests at a time. The l
 Below is an example.
 
 ```bash
-uv run --extra test \
-    pytest 'tests/json_infra/test_state_tests.py::test_state_tests_frontier[stAttackTest - ContractCreationSpam - 0]' \
-        --evm_trace
+uv run pytest \
+    'tests/json_infra/test_state_tests.py::test_state_tests_frontier[stAttackTest - ContractCreationSpam - 0]' \
+    --evm_trace
 ```
 
 ## CLI Utilities `ethereum_spec_tools`
