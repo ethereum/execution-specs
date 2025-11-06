@@ -10,7 +10,7 @@ from contextlib import AbstractContextManager
 from typing import Any, Final, TextIO, Tuple, Type, TypeVar
 
 from ethereum_rlp import rlp
-from ethereum_types.numeric import U64, U256, Uint, ulen
+from ethereum_types.numeric import U64, U256, Uint
 from typing_extensions import override
 
 from ethereum import trace
@@ -411,18 +411,9 @@ class T8N(Load):
                     f"Transaction {original_idx} failed: {e!r}"
                 )
 
+        # Post-execution operations use index N+1
         if self.fork.is_after_fork("amsterdam"):
-            num_transactions = ulen(
-                [
-                    tx_idx
-                    for tx_idx in self.txs.successfully_parsed
-                    if tx_idx is not None
-                ]
-            )
-
-            # post-execution use n + 1
-            post_execution_index = num_transactions + Uint(1)
-            self.fork.set_block_access_index(block_env, post_execution_index)
+            block_env.block_state_changes.increment_index()
 
         if not self.fork.proof_of_stake:
             if self.options.state_reward is None:
@@ -441,8 +432,9 @@ class T8N(Load):
             self.fork.process_general_purpose_requests(block_env, block_output)
 
         if self.fork.is_after_fork("amsterdam"):
+            # Build block access list from block_env.block_state_changes
             block_output.block_access_list = self.fork.build_block_access_list(
-                block_env.change_tracker.block_access_list_builder
+                block_env.block_state_changes
             )
 
     def run_blockchain_test(self) -> None:
