@@ -20,6 +20,14 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=None,
         help="Specify gas benchmark values for tests as a comma-separated list.",
     )
+    evm_group.addoption(
+        "--fixed-opcode-count",
+        action="store",
+        dest="fixed_opcode_count",
+        type=str,
+        default=None,
+        help="Specify fixed opcode counts for benchmark tests as a comma-separated list.",
+    )
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -30,7 +38,7 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
-    """Generate tests for the gas benchmark values."""
+    """Generate tests for the gas benchmark values and fixed opcode counts."""
     if "gas_benchmark_value" in metafunc.fixturenames:
         gas_benchmark_values = metafunc.config.getoption("gas_benchmark_value")
         if gas_benchmark_values:
@@ -48,6 +56,23 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
                 "gas_benchmark_value", gas_parameters, scope="function"
             )
 
+    if "fixed_opcode_count" in metafunc.fixturenames:
+        fixed_opcode_counts = metafunc.config.getoption("fixed_opcode_count")
+        if fixed_opcode_counts:
+            opcode_counts = [
+                int(x.strip()) for x in fixed_opcode_counts.split(",")
+            ]
+            opcode_count_parameters = [
+                pytest.param(
+                    opcode_count,
+                    id=f"opcount_{opcode_count}",
+                )
+                for opcode_count in opcode_counts
+            ]
+            metafunc.parametrize(
+                "fixed_opcode_count", opcode_count_parameters, scope="function"
+            )
+
 
 @pytest.fixture(scope="function")
 def gas_benchmark_value(request: pytest.FixtureRequest) -> int:
@@ -56,6 +81,15 @@ def gas_benchmark_value(request: pytest.FixtureRequest) -> int:
         return request.param
 
     return EnvironmentDefaults.gas_limit
+
+
+@pytest.fixture(scope="function")
+def fixed_opcode_count(request: pytest.FixtureRequest) -> int | None:
+    """Return a fixed opcode count for the current test, or None if not set."""
+    if hasattr(request, "param"):
+        return request.param
+
+    return None
 
 
 BENCHMARKING_MAX_GAS = 1_000_000_000_000
