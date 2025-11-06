@@ -17,7 +17,7 @@ from ethereum_types.numeric import U256, Uint, ulen
 from ethereum.crypto.hash import keccak256
 from ethereum.utils.numeric import ceil32
 
-from ...block_access_lists.tracker import track_address_access
+# track_address_access removed - now using state_changes.track_address()
 from ...fork_types import EMPTY_ACCOUNT
 from ...state import get_account
 from ...utils.address import to_address_masked
@@ -83,7 +83,7 @@ def balance(evm: Evm) -> None:
     check_gas(evm, gas_cost)
     if is_cold_access:
         evm.accessed_addresses.add(address)
-    track_address_access(evm.message.block_env, address)
+    evm.state_changes.track_address(address)
     charge_gas(evm, gas_cost)
 
     # OPERATION
@@ -353,7 +353,7 @@ def extcodesize(evm: Evm) -> None:
     check_gas(evm, access_gas_cost)
     if is_cold_access:
         evm.accessed_addresses.add(address)
-    track_address_access(evm.message.block_env, address)
+    evm.state_changes.track_address(address)
     charge_gas(evm, access_gas_cost)
 
     # OPERATION
@@ -399,7 +399,7 @@ def extcodecopy(evm: Evm) -> None:
     check_gas(evm, total_gas_cost)
     if is_cold_access:
         evm.accessed_addresses.add(address)
-    track_address_access(evm.message.block_env, address)
+    evm.state_changes.track_address(address)
     charge_gas(evm, total_gas_cost)
 
     # OPERATION
@@ -493,7 +493,7 @@ def extcodehash(evm: Evm) -> None:
     check_gas(evm, access_gas_cost)
     if is_cold_access:
         evm.accessed_addresses.add(address)
-    track_address_access(evm.message.block_env, address)
+    evm.state_changes.track_address(address)
     charge_gas(evm, access_gas_cost)
 
     # OPERATION

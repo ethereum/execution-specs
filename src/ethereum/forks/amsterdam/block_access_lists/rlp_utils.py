@@ -216,10 +216,10 @@ def validate_block_access_list_against_execution(
     # 4. If Block Access List builder provided, validate against it
     # by comparing hashes
     if block_access_list_builder is not None:
-        from .builder import build_block_access_list
+        from .builder import _build_from_builder
 
         # Build a Block Access List from the builder
-        expected_block_access_list = build_block_access_list(
+        expected_block_access_list = _build_from_builder(
             block_access_list_builder
         )
 

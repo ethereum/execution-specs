@@ -133,11 +133,6 @@ class ForkLoad:
         ).compute_block_access_list_hash
 
     @property
-    def set_block_access_index(self) -> Any:
-        """set_block_access_index function of the fork."""
-        return self._module("block_access_lists").set_block_access_index
-
-    @property
     def signing_hash_2930(self) -> Any:
         """signing_hash_2930 function of the fork."""
         return self._module("transactions").signing_hash_2930
