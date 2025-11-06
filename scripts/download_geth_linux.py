@@ -21,7 +21,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def download_geth_linux(dir: str) -> None:
+def download_geth_linux(target_dir: str) -> None:
     """Download geth from windows.net."""
     geth_release_name = "geth-linux-amd64-1.10.8-26675454"
     url = (
@@ -30,15 +30,15 @@ def download_geth_linux(dir: str) -> None:
     )
     r = requests.get(url)
 
-    with open(f"{dir}/geth.tar.gz", "wb") as f:
+    with open(f"{target_dir}/geth.tar.gz", "wb") as f:
         f.write(r.content)
 
-    geth_tar = tarfile.open(f"{dir}/geth.tar.gz")
-    geth_tar.extractall(dir)
+    geth_tar = tarfile.open(f"{target_dir}/geth.tar.gz")
+    geth_tar.extractall(target_dir)
 
-    shutil.move(f"{dir}/{geth_release_name}/geth", dir)
-    shutil.rmtree(f"{dir}/{geth_release_name}", ignore_errors=True)
-    os.remove(f"{dir}/geth.tar.gz")
+    shutil.move(f"{target_dir}/{geth_release_name}/geth", target_dir)
+    shutil.rmtree(f"{target_dir}/{geth_release_name}", ignore_errors=True)
+    os.remove(f"{target_dir}/geth.tar.gz")
 
 
 if __name__ == "__main__":
