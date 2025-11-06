@@ -6,7 +6,7 @@ A minimum version of `uv>=0.7.0` is required to ensure `uv` writes `uv.lock` fil
 
 ## Managing Dependencies
 
-We aim to provide specific [version specifiers](https://peps.python.org/pep-0440/#version-specifiers) for each of our direct and extra dependencies.
+We aim to provide specific [version specifiers](https://peps.python.org/pep-0440/#version-specifiers) for all of our dependencies.
 
 !!! note "Packages should be managed via `uv`"
 
@@ -57,28 +57,58 @@ ethereum-spec-evm-resolver = { git = "https://github.com/petertdavies/ethereum-s
     uv add "ethereum-spec-evm-resolver @ git+https://github.com/petertdavies/ethereum-spec-evm-resolver@623ac4565025e72b65f45b926da2a3552041b469"
     ```
 
+### Adding/modifying development dependencies
+
+Development dependencies are managed in dependency groups: `lint`, `doc`, `test`, and `mkdocs` defined in the `pyproject.toml`:
+
+```toml
+[dependency-groups]
+test = [
+    "pytest>=8,<9",
+    "pytest-cov>=4.1.0,<5",
+    ...
+]
+lint = [
+    "ruff==0.13.2",
+    "mypy==1.17.0",
+    "types-requests>=2.31,<2.33",
+    ...
+]
+```
+
+These can be modified via `uv`on the command-line or edited by hand. If editing manually, you must run `uv lock` afterwards to update the lockfile.
+
+!!! example "Example: Updating a development dependency"
+
+    Using uv:
+    ```console
+    uv add --group lint "types-requests>=2.31,<2.33"
+    ```
+
+    Or edit `pyproject.toml` manually and then run:
+    ```console
+    uv lock
+    ```
+
 ### Adding/modifying optional dependencies
 
-The package versions in the optional "extra" groups should also be managed via uv on the command-line These are the: `lint`, `docs`, `test` optional groups defined in the `pyproject.toml`:
+The `optimized` optional extra provides performance enhancements and is the only remaining optional dependency group:
 
 ```toml
 [project.optional-dependencies]
-test = ["pytest-cov>=4.1.0,<5"]
-lint = [
-    "ruff==0.9.4",
-    "mypy>=1.15.0,<1.16",
-    "types-requests>=2.31,<2.33",
-]
-docs = [
-    ...
+optimized = [
+    "rust-pyspec-glue>=0.0.9,<0.1.0",
+    "ethash>=1.1.0,<2",
 ]
 ```
 
 !!! example "Example: Updating an optional dependency"
 
+    ```console
+    uv add --optional optimized "ethash>=1.1.0,<2"
     ```
-    uv add --optional lint "types-requests>=2.31,<2.33"
-    ```
+
+    Or edit `pyproject.toml` by hand and run `uv lock`.
 
 ## Upgrading Pinned Dependencies in `uv.lock`
 

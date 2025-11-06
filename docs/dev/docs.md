@@ -5,7 +5,7 @@ The `execution-spec-tests` documentation is generated via [`mkdocs`](https://www
 ## Prerequisites
 
 ```console
-uv sync --all-extras
+uv sync
 ```
 
 ## Build and Verify the Documentation

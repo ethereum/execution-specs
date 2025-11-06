@@ -203,7 +203,7 @@ def codespell() -> None:
             error_message="Codespell found spelling errors in the code.",
             fix_commands=[
                 "# Ensure codespell is installed (part of docs extras)",
-                "uv sync --all-extras",
+                "uv sync",
                 "",
                 "# Check for spelling errors",
                 f"uv run codespell {paths_str}",
