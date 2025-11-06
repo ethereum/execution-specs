@@ -14,7 +14,7 @@ The builder follows a two-phase approach:
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Set
+from typing import TYPE_CHECKING, Dict, List, Set
 
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U64, U256
@@ -30,6 +30,9 @@ from .rlp_types import (
     SlotChanges,
     StorageChange,
 )
+
+if TYPE_CHECKING:
+    from ..state_tracker import StateChanges
 
 
 @dataclass
@@ -374,11 +377,11 @@ def add_touched_account(
     ensure_account(builder, address)
 
 
-def build_block_access_list(
+def _build_from_builder(
     builder: BlockAccessListBuilder,
 ) -> BlockAccessList:
     """
-    Build the final [`BlockAccessList`] from accumulated changes.
+    Build the final [`BlockAccessList`] from a builder (internal helper).
 
     Constructs a deterministic block access list by sorting all accumulated
     changes. The resulting list is ordered by:
@@ -445,3 +448,65 @@ def build_block_access_list(
     account_changes_list.sort(key=lambda x: x.address)
 
     return BlockAccessList(account_changes=tuple(account_changes_list))
+
+
+def build_block_access_list(
+    state_changes: "StateChanges",
+) -> BlockAccessList:
+    """
+    Build a [`BlockAccessList`] from a StateChanges frame.
+
+    Converts the accumulated state changes from the frame-based architecture
+    into the final deterministic BlockAccessList format.
+
+    Parameters
+    ----------
+    state_changes :
+        The block-level StateChanges frame containing all changes from the block.
+
+    Returns
+    -------
+    block_access_list :
+        The final sorted and encoded block access list.
+
+    [`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList  # noqa: E501
+    [`StateChanges`]: ref:ethereum.forks.amsterdam.state_tracker.StateChanges
+
+    """
+    builder = BlockAccessListBuilder()
+
+    # Add all touched addresses
+    for address in state_changes.touched_addresses:
+        add_touched_account(builder, address)
+
+    # Add all storage reads
+    for address, slot in state_changes.storage_reads:
+        add_storage_read(builder, address, slot)
+
+    # Add all storage writes
+    for (address, slot), (
+        block_access_index,
+        value,
+    ) in state_changes.storage_writes.items():
+        # Convert U256 to Bytes32 for storage
+        value_bytes = Bytes32(value.to_bytes(U256(32), "big"))
+        add_storage_write(
+            builder, address, slot, block_access_index, value_bytes
+        )
+
+    # Add all balance changes (balance_changes is keyed by (address, index))
+    for (
+        address,
+        block_access_index,
+    ), new_balance in state_changes.balance_changes.items():
+        add_balance_change(builder, address, block_access_index, new_balance)
+
+    # Add all nonce changes
+    for address, block_access_index, new_nonce in state_changes.nonce_changes:
+        add_nonce_change(builder, address, block_access_index, new_nonce)
+
+    # Add all code changes
+    for address, block_access_index, new_code in state_changes.code_changes:
+        add_code_change(builder, address, block_access_index, new_code)
+
+    return _build_from_builder(builder)
