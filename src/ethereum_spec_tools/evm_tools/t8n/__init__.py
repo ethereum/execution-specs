@@ -9,7 +9,7 @@ import os
 from typing import Any, Final, TextIO, Type, TypeVar
 
 from ethereum_rlp import rlp
-from ethereum_types.numeric import U64, U256, Uint, ulen
+from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum import trace
 from ethereum.exceptions import EthereumException, InvalidBlock
@@ -252,8 +252,6 @@ class T8N(Load):
         self.result.rejected = self.txs.rejected_txs
 
     def _run_blockchain_test(self, block_env: Any, block_output: Any) -> None:
-        if self.fork.is_after_fork("amsterdam"):
-            self.fork.set_block_access_index(block_env, Uint(0))
         if self.fork.is_after_fork("prague"):
             self.fork.process_unchecked_system_transaction(
                 block_env=block_env,
@@ -289,18 +287,9 @@ class T8N(Load):
                     f"Transaction {original_idx} failed: {e!r}"
                 )
 
+        # Post-execution operations use index N+1
         if self.fork.is_after_fork("amsterdam"):
-            num_transactions = ulen(
-                [
-                    tx_idx
-                    for tx_idx in self.txs.successfully_parsed
-                    if tx_idx is not None
-                ]
-            )
-
-            # post-execution use n + 1
-            post_execution_index = num_transactions + Uint(1)
-            self.fork.set_block_access_index(block_env, post_execution_index)
+            block_env.block_state_changes.increment_index()
 
         if not self.fork.is_after_fork("paris"):
             if self.options.state_reward is None:
@@ -319,8 +308,9 @@ class T8N(Load):
             self.fork.process_general_purpose_requests(block_env, block_output)
 
         if self.fork.is_after_fork("amsterdam"):
+            # Build block access list from block_env.block_state_changes
             block_output.block_access_list = self.fork.build_block_access_list(
-                block_env.change_tracker.block_access_list_builder
+                block_env.block_state_changes
             )
 
     def run_blockchain_test(self) -> None:
