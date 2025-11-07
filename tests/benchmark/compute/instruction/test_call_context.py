@@ -1,4 +1,16 @@
-"""Benchmark call frame context instructions."""
+"""
+Benchmark call frame context instructions.
+
+Supported Opcodes:
+- ADDRESS
+- CALLER
+- CALLVALUE
+- CALLDATASIZE
+- CALLDATACOPY
+- CALLDATALOAD
+- RETURNDATASIZE
+- RETURNDATACOPY
+"""
 
 import pytest
 from execution_testing import (

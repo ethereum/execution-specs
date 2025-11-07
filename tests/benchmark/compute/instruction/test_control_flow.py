@@ -1,4 +1,14 @@
-"""Benchmark control flow instructions."""
+"""
+Benchmark control flow instructions.
+
+Supported Opcodes:
+- STOP
+- JUMP
+- JUMPI
+- PC
+- GAS
+- JUMPDEST
+"""
 
 from execution_testing import (
     Alloc,

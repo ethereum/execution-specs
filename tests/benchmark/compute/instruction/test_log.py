@@ -1,4 +1,13 @@
-"""Benchmark log instructions."""
+"""
+Benchmark log instructions.
+
+Supported Opcodes:
+- LOG0
+- LOG1
+- LOG2
+- LOG3
+- LOG4
+"""
 
 import pytest
 from execution_testing import (
@@ -7,9 +16,6 @@ from execution_testing import (
     JumpLoopGenerator,
     Op,
 )
-
-# Log instructions:
-# LOG0, LOG1, LOG2, LOG3, LOG4
 
 
 @pytest.mark.parametrize(

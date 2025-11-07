@@ -1,4 +1,13 @@
-"""Benchmark memory instructions."""
+"""
+Benchmark memory instructions.
+
+Supported Opcodes:
+- MSTORE
+- MSTORE8
+- MLOAD
+- MSIZE
+- MCOPY
+"""
 
 import pytest
 from execution_testing import (
@@ -8,9 +17,6 @@ from execution_testing import (
     JumpLoopGenerator,
     Op,
 )
-
-# Memory instructions:
-# MSTORE, MSTORE8, MLOAD, MSIZE, MCOPY
 
 
 @pytest.mark.parametrize("mem_size", [0, 1, 1_000, 100_000, 1_000_000])

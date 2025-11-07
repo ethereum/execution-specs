@@ -1,4 +1,17 @@
-"""Benchmark system instructions."""
+"""
+Benchmark system instructions.
+
+Supported Opcodes:
+- CREATE
+- CREATE2
+- RETURN
+- REVERT
+- CALL
+- CALLCODE
+- DELEGATECALL
+- STATICCALL
+- SELFDESTRUCT
+"""
 
 import math
 
@@ -23,11 +36,6 @@ from execution_testing import (
 )
 
 from tests.benchmark.compute.helpers import XOR_TABLE
-
-# System instructions:
-# CREATE, CREATE2
-# RETURN, REVERT
-# CALL, CALLCODE, SELFDESTRUCT, DELEGATECALL, STATICCALL
 
 
 @pytest.mark.parametrize(

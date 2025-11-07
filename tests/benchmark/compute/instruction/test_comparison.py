@@ -1,4 +1,14 @@
-"""Benchmark comparison instructions."""
+"""
+Benchmark comparison instructions.
+
+Supported Opcodes:
+- LT
+- SLT
+- GT
+- SGT
+- EQ
+- ISZERO
+"""
 
 import pytest
 from execution_testing import (
@@ -6,9 +16,6 @@ from execution_testing import (
     JumpLoopGenerator,
     Op,
 )
-
-# Comparison instructions:
-# LT, SLT, GT, SGT, EQ, ISZERO
 
 
 @pytest.mark.parametrize(
