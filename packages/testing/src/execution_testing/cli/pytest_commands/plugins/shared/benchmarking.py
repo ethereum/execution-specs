@@ -26,7 +26,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="fixed_opcode_count",
         type=str,
         default=None,
-        help="Specify fixed opcode counts for benchmark tests as a comma-separated list.",
+        help="Specify fixed opcode counts (in thousands) for benchmark tests as a comma-separated list.",
     )
 
 
@@ -44,30 +44,35 @@ def pytest_configure(config: pytest.Config) -> None:
 def pytest_collection_modifyitems(
     config: pytest.Config, items: list[pytest.Item]
 ) -> None:
-    """Skip non-gas_ref tests when --fixed-opcode-count is specified."""
+    """Remove non-gas_ref tests when --fixed-opcode-count is specified."""
     fixed_opcode_count = config.getoption("fixed_opcode_count")
     if not fixed_opcode_count:
         # If --fixed-opcode-count is not specified, don't filter anything
         return
 
-    # Filter: keep only tests with gas_ref marker
-    for item in items:
-        has_gas_ref = item.get_closest_marker("gas_ref") is not None
-        has_benchmark = item.get_closest_marker("benchmark") is not None
-
-        # Skip benchmark tests that don't have gas_ref marker
-        if has_benchmark and not has_gas_ref:
-            item.add_marker(
-                pytest.mark.skip(
-                    reason="Test does not have gas_ref marker (required for --fixed-opcode-count)"
-                )
-            )
+    items[:] = [
+        item
+        for item in items
+        if not (
+            item.get_closest_marker("benchmark") is not None
+            and item.get_closest_marker("gas_ref") is None
+        )
+    ]
 
 
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     """Generate tests for the gas benchmark values and fixed opcode counts."""
+    gas_benchmark_values = metafunc.config.getoption("gas_benchmark_value")
+    fixed_opcode_counts = metafunc.config.getoption("fixed_opcode_count")
+
+    # Ensure mutual exclusivity
+    if gas_benchmark_values and fixed_opcode_counts:
+        raise pytest.UsageError(
+            "--gas-benchmark-values and --fixed-opcode-count are mutually exclusive. "
+            "Use only one at a time."
+        )
+
     if "gas_benchmark_value" in metafunc.fixturenames:
-        gas_benchmark_values = metafunc.config.getoption("gas_benchmark_value")
         if gas_benchmark_values:
             gas_values = [
                 int(x.strip()) for x in gas_benchmark_values.split(",")
@@ -89,9 +94,6 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
             metafunc.definition.get_closest_marker("gas_ref") is not None
         )
         if has_gas_ref:
-            fixed_opcode_counts = metafunc.config.getoption(
-                "fixed_opcode_count"
-            )
             if fixed_opcode_counts:
                 opcode_counts = [
                     int(x.strip()) for x in fixed_opcode_counts.split(",")
@@ -99,7 +101,7 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
                 opcode_count_parameters = [
                     pytest.param(
                         opcode_count,
-                        id=f"opcount_{opcode_count}",
+                        id=f"opcount_{opcode_count}K",
                     )
                     for opcode_count in opcode_counts
                 ]
@@ -116,6 +118,10 @@ def gas_benchmark_value(request: pytest.FixtureRequest) -> int:
     if hasattr(request, "param"):
         return request.param
 
+    # If --fixed-opcode-count is specified, use high gas limit to avoid gas constraints
+    if request.config.getoption("fixed_opcode_count"):
+        return HIGH_GAS_LIMIT
+
     return EnvironmentDefaults.gas_limit
 
 
@@ -129,6 +135,7 @@ def fixed_opcode_count(request: pytest.FixtureRequest) -> int | None:
 
 
 BENCHMARKING_MAX_GAS = 1_000_000_000_000
+HIGH_GAS_LIMIT = 1_000_000_000
 
 
 @pytest.fixture
