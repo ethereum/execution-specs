@@ -2,6 +2,7 @@
 
 import math
 
+import pytest
 from execution_testing import (
     BenchmarkTestFiller,
     Fork,
@@ -15,15 +16,15 @@ from execution_testing import (
 KECCAK_RATE = 136
 
 
-def test_keccak(
+def test_keccak_max_permutations(
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
-    gas_benchmark_value: int,
+    tx_gas_limit: int,
 ) -> None:
-    """Benchmark KECCAK256 instruction."""
+    """Benchmark KECCAK256 instruction to maximize permutations per block."""
     # Intrinsic gas cost is paid once.
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    available_gas = gas_benchmark_value - intrinsic_gas_calculator()
+    available_gas = tx_gas_limit - intrinsic_gas_calculator()
 
     gsc = fork.gas_costs()
     mem_exp_gas_calculator = fork.memory_expansion_gas_calculator()
@@ -60,7 +61,24 @@ def test_keccak(
 
     benchmark_test(
         code_generator=JumpLoopGenerator(
-            setup=Op.PUSH20[optimal_input_length],
+            setup=Op.PUSH20(optimal_input_length),
             attack_block=Op.POP(Op.SHA3(Op.PUSH0, Op.DUP1)),
+        ),
+    )
+
+
+@pytest.mark.parametrize("mem_alloc", [b"", b"ff", b"ff" * 32])
+@pytest.mark.parametrize("offset", [0, 31, 1024])
+def test_keccak(
+    benchmark_test: BenchmarkTestFiller,
+    offset: int,
+    mem_alloc: bytes,
+) -> None:
+    """Benchmark KECCAK256 instruction with diff input data and offsets."""
+    benchmark_test(
+        code_generator=JumpLoopGenerator(
+            setup=Op.CALLDATACOPY(offset, Op.PUSH0, Op.CALLDATASIZE),
+            attack_block=Op.POP(Op.SHA3(offset, Op.CALLDATASIZE)),
+            tx_kwargs={"data": mem_alloc},
         ),
     )

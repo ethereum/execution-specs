@@ -18,14 +18,10 @@ def test_msize(
     benchmark_test: BenchmarkTestFiller,
     mem_size: int,
 ) -> None:
-    """
-    Benchmark MSIZE instruction.
-
-    - mem_size: by how much the memory is expanded.
-    """
+    """Benchmark MSIZE instruction."""
     benchmark_test(
         code_generator=ExtCallGenerator(
-            setup=Op.MLOAD(Op.SELFBALANCE) + Op.POP,
+            setup=Op.POP(Op.MLOAD(Op.SELFBALANCE)),
             attack_block=Op.MSIZE,
             contract_balance=mem_size,
         ),
@@ -99,6 +95,6 @@ def test_mcopy(
     )
     benchmark_test(
         code_generator=JumpLoopGenerator(
-            setup=mem_touch, attack_block=attack_block, cleanup=mem_touch
+            attack_block=attack_block, cleanup=mem_touch
         ),
     )

@@ -11,6 +11,7 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytecode,
     Environment,
+    ExtCallGenerator,
     Fork,
     Hash,
     JumpLoopGenerator,
@@ -335,21 +336,13 @@ def test_create(
         else Op.DUP3 + Op.PUSH0 + Op.DUP4 + Op.CREATE2
     )
 
-    code = JumpLoopGenerator(
-        setup=setup, attack_block=attack_block
-    ).generate_repeated_code(
-        repeated_code=attack_block, setup=setup, fork=fork
+    benchmark_test(
+        code_generator=JumpLoopGenerator(
+            setup=setup,
+            attack_block=attack_block,
+            contract_balance=1_000_000_000 if value > 0 else 0,
+        )
     )
-
-    tx = Transaction(
-        # Set enough balance in the pre-alloc for `value > 0` configurations.
-        to=pre.deploy_contract(
-            code=code, balance=1_000_000_000 if value > 0 else 0
-        ),
-        sender=pre.fund_eoa(),
-    )
-
-    benchmark_test(tx=tx)
 
 
 @pytest.mark.parametrize(
@@ -439,15 +432,11 @@ def test_creates_collisions(
 )
 def test_return_revert(
     benchmark_test: BenchmarkTestFiller,
-    pre: Alloc,
-    fork: Fork,
     opcode: Op,
     return_size: int,
     return_non_zero_data: bool,
 ) -> None:
     """Benchmark RETURN and REVERT instructions."""
-    max_code_size = fork.max_code_size()
-
     # Create the contract that will be called repeatedly.
     # The bytecode of the contract is:
     # ```
@@ -462,16 +451,10 @@ def test_return_revert(
     mem_preparation = (
         Op.CODECOPY(size=return_size) if return_non_zero_data else Bytecode()
     )
-    executable_code = mem_preparation + opcode(size=return_size)
-    code = executable_code
-    if return_non_zero_data:
-        code += Op.INVALID * (max_code_size - len(executable_code))
-    target_contract_address = pre.deploy_contract(code=code)
-
-    attack_block = Op.POP(Op.STATICCALL(address=target_contract_address))
-
     benchmark_test(
-        code_generator=JumpLoopGenerator(attack_block=attack_block),
+        code_generator=ExtCallGenerator(
+            setup=mem_preparation, attack_block=opcode(size=return_size)
+        ),
     )
 
 

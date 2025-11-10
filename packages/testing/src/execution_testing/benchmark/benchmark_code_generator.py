@@ -15,6 +15,7 @@ from execution_testing.vm import Op
 @dataclass(kw_only=True)
 class JumpLoopGenerator(BenchmarkCodeGenerator):
     """Generates bytecode that loops execution using JUMP operations."""
+
     contract_balance: int = 0
 
     def deploy_contracts(self, *, pre: Alloc, fork: Fork) -> Address:

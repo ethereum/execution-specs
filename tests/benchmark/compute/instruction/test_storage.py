@@ -7,6 +7,7 @@ from execution_testing import (
     Block,
     Bytecode,
     Environment,
+    ExtCallGenerator,
     Fork,
     JumpLoopGenerator,
     Op,
@@ -33,36 +34,25 @@ def test_tload(
     val_mut: bool,
 ) -> None:
     """Benchmark TLOAD instruction."""
-    start_key = 41
-    code_key_mut = Bytecode()
-    code_val_mut = Bytecode()
     setup = Bytecode()
     if key_mut and val_mut:
-        setup = Op.PUSH1(start_key)
-        attack_block = Op.POP(Op.TLOAD(Op.DUP1))
-        code_key_mut = Op.POP + Op.GAS
-        code_val_mut = Op.TSTORE(Op.DUP2, Op.GAS)
+        setup = Op.GAS + Op.TSTORE(Op.DUP2, Op.GAS)
+        attack_block = Op.TLOAD(Op.DUP1)
     if key_mut and not val_mut:
-        attack_block = Op.POP(Op.TLOAD(Op.GAS))
+        attack_block = Op.TLOAD(Op.GAS)
     if not key_mut and val_mut:
-        attack_block = Op.POP(Op.TLOAD(Op.CALLVALUE))
-        code_val_mut = Op.TSTORE(
-            Op.CALLVALUE, Op.GAS
-        )  # CALLVALUE configured in the tx
+        setup = Op.TSTORE(Op.CALLVALUE, Op.GAS)
+        attack_block = Op.TLOAD(Op.CALLVALUE)
     if not key_mut and not val_mut:
-        attack_block = Op.POP(Op.TLOAD(Op.CALLVALUE))
+        attack_block = Op.TLOAD(Op.CALLVALUE)
 
-    cleanup = code_key_mut + code_val_mut
-    tx_value = start_key if not key_mut and val_mut else 0
+    tx_value = 42 if not key_mut and val_mut else 0
 
     benchmark_test(
-        code_generator=JumpLoopGenerator(
+        code_generator=ExtCallGenerator(
             setup=setup,
             attack_block=attack_block,
-            cleanup=cleanup,
-            tx_kwargs={
-                "value": tx_value,
-            },
+            contract_balance=tx_value,
         ),
     )
 

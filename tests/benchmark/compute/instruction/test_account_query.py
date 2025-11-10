@@ -4,6 +4,7 @@ current executing account or on a target account.
 """
 
 import math
+from typing import Dict
 
 import pytest
 from execution_testing import (
@@ -24,6 +25,7 @@ from execution_testing import (
     While,
     compute_create2_address,
 )
+from execution_testing.base_types.conversions import NumberConvertible
 
 from tests.benchmark.compute.helpers import (
     XOR_TABLE,
@@ -72,7 +74,6 @@ def test_codesize(
 )
 def test_codecopy(
     benchmark_test: BenchmarkTestFiller,
-    pre: Alloc,
     fork: Fork,
     max_code_size_ratio: float,
     fixed_src_dst: bool,
@@ -86,25 +87,11 @@ def test_codecopy(
     src_dst = 0 if fixed_src_dst else Op.MOD(Op.GAS, 7)
     attack_block = Op.CODECOPY(src_dst, src_dst, Op.DUP1)  # DUP1 copies size.
 
-    code = JumpLoopGenerator(
-        setup=setup, attack_block=attack_block
-    ).generate_repeated_code(
-        repeated_code=attack_block, setup=setup, fork=fork
+    benchmark_test(
+        code_generator=JumpLoopGenerator(
+            setup=setup, attack_block=attack_block
+        )
     )
-
-    # Pad the generated code to ensure the contract size matches the maximum
-    # The content of the padding bytes is arbitrary.
-    code += Op.INVALID * (max_code_size - len(code))
-    assert len(code) == max_code_size, (
-        f"Code size {len(code)} is not equal to max code size {max_code_size}."
-    )
-
-    tx = Transaction(
-        to=pre.deploy_contract(code=code),
-        sender=pre.fund_eoa(),
-    )
-
-    benchmark_test(tx=tx)
 
 
 @pytest.mark.parametrize(
@@ -361,7 +348,21 @@ def test_extcodecopy_warm(
     ],
 )
 @pytest.mark.parametrize(
-    "absent_target",
+    "empty_account",
+    [
+        True,
+        False,
+    ],
+)
+@pytest.mark.parametrize(
+    "initial_balance",
+    [
+        True,
+        False,
+    ],
+)
+@pytest.mark.parametrize(
+    "initial_storage",
     [
         True,
         False,
@@ -371,27 +372,40 @@ def test_ext_account_query_warm(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     opcode: Op,
-    absent_target: bool,
+    empty_account: bool,
+    initial_balance: bool,
+    initial_storage: bool,
 ) -> None:
     """
     Test running a block with as many stateful opcodes doing warm access
     for an account.
     """
     # Setup
-    target_addr = pre.empty_account()
+    target_addr = pre.empty_account() if initial_balance else pre.fund_eoa()
     post = {}
-    if not absent_target:
+    if not empty_account:
         code = Op.STOP + Op.JUMPDEST * 100
-        target_addr = pre.deploy_contract(balance=100, code=code)
-        post[target_addr] = Account(balance=100, code=code)
 
-    # Execution
-    setup = Op.MSTORE(0, target_addr)
-    attack_block = Op.POP(opcode(address=Op.MLOAD(0)))
+        storage: Dict[NumberConvertible, NumberConvertible] = (
+            {0: 0x1337} if initial_storage else {0: 0}
+        )
+        target_addr = pre.deploy_contract(
+            balance=initial_balance,
+            code=code,
+            storage=storage,
+        )
+
+        post[target_addr] = Account(
+            balance=initial_balance,
+            code=code,
+            storage=storage,
+        )
+
     benchmark_test(
         post=post,
         code_generator=JumpLoopGenerator(
-            setup=setup, attack_block=attack_block
+            setup=Op.MSTORE(0, target_addr),
+            attack_block=Op.POP(opcode(address=Op.MLOAD(0))),
         ),
     )
 

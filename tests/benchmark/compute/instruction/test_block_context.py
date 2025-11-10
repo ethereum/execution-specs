@@ -36,14 +36,29 @@ def test_block_context_ops(
     )
 
 
+@pytest.mark.parametrize(
+    "index",
+    [
+        0,
+        1,
+        256,
+        257,
+        None,
+    ],
+)
 def test_blockhash(
     benchmark_test: BenchmarkTestFiller,
+    index: int | None,
 ) -> None:
     """Benchmark BLOCKHASH instruction accessing oldest allowed block."""
     # Create 256 dummy blocks to fill the blockhash window.
     blocks = [Block()] * 256
 
+    block_number = Op.AND(Op.GAS, 0xFF) if index is None else index
+
     benchmark_test(
         setup_blocks=blocks,
-        code_generator=ExtCallGenerator(attack_block=Op.BLOCKHASH(1)),
+        code_generator=ExtCallGenerator(
+            attack_block=Op.BLOCKHASH(block_number)
+        ),
     )

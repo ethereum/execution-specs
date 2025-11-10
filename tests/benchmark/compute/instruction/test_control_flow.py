@@ -22,6 +22,15 @@ def test_gas_op(
     )
 
 
+def test_pc_op(
+    benchmark_test: BenchmarkTestFiller,
+) -> None:
+    """Benchmark PC instruction."""
+    benchmark_test(
+        code_generator=ExtCallGenerator(attack_block=Op.PC),
+    )
+
+
 def test_jumps(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
