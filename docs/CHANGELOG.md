@@ -12,7 +12,7 @@ Test fixtures for use by clients are available for each release on the [Github r
 
 #### `fill`
 
-- 🐞 Allow `evmone` to fill Prague and Osaka blockchain tests (mainly modified deposit contract tests) ([#1689](https://github.com/ethereum/execution-specs/pull/1689))
+- 🐞 Allow `evmone` to fill Prague and Osaka blockchain tests (mainly modified deposit contract tests) ([#1689](https://github.com/ethereum/execution-specs/pull/1689)).
 - 🐞 Turn off Block-Level Access List related checks when filling tests for Amsterdam ([#1737](https://github.com/ethereum/execution-specs/pull/1737))
 
 #### `consume`
@@ -20,6 +20,8 @@ Test fixtures for use by clients are available for each release on the [Github r
 - 🐞 Fix a bug with `consume sync` tests where some clients don't have JSON-RPC immediately available after syncing and can't yet serve the synced block ([#1670](https://github.com/ethereum/execution-specs/pull/1670)).
 
 ### 📋 Misc
+
+- 🐞 WELDed the EEST tox environments relevant to producing documentation into EELS, and added a tool to cleanly add codespell whitelist entries. ([#1695](https://github.com/ethereum/execution-specs/pull/1659)).
 
 ### 🧪 Test Cases
 

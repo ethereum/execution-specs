@@ -1,4 +1,11 @@
-"""Benchmark transaction context instructions."""
+"""
+Benchmark transaction context instructions.
+
+Supported Opcodes:
+- ORIGIN
+- GASPRICE
+- BLOBHASH
+"""
 
 from typing import Any, Dict
 

@@ -1,3 +1,3 @@
 # Ethereum Test Fixtures package
 
-::: ethereum_test_fixtures
+::: execution_testing.fixtures

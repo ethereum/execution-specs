@@ -1,4 +1,12 @@
-"""Benchmark storage instructions."""
+"""
+Benchmark storage instructions.
+
+Supported Opcodes:
+- SLOAD
+- SSTORE
+- TLOAD
+- TSTORE
+"""
 
 import pytest
 from execution_testing import (
@@ -17,9 +25,6 @@ from execution_testing import (
 )
 
 from tests.benchmark.compute.helpers import StorageAction, TransactionResult
-
-# Storage instructions:
-# SLOAD, SSTORE, TLOAD, TSTORE
 
 
 # `key_mut` indicates the key isn't fixed.

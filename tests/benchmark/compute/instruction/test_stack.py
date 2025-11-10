@@ -1,4 +1,12 @@
-"""Benchmark stack instructions."""
+"""
+Benchmark stack instructions.
+
+Supported Opcodes:
+- POP
+- PUSHx
+- DUPx
+- SWAPx
+"""
 
 import pytest
 from execution_testing import (
@@ -9,9 +17,6 @@ from execution_testing import (
     JumpLoopGenerator,
     Op,
 )
-
-# Stack instructions:
-# POP, PUSHx, DUPx, SWAPx
 
 
 @pytest.mark.parametrize(

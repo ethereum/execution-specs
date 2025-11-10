@@ -5,7 +5,7 @@ This page provides guidance on how to troubleshoot common issues that may arise 
 ## Problem: `Failed building wheel for coincurve`
 
 !!! danger "Problem: `Failed building wheel for coincurve`"
-    Installing EEST and its dependencies via `uv sync --all-extras` fails with:
+    Installing EEST and its dependencies via `uv sync` fails with:
 
     ```bash
     Stored in directory: /tmp/...
@@ -126,10 +126,10 @@ This page provides guidance on how to troubleshoot common issues that may arise 
 
 !!! success "Solution: Install all required dependencies and select the correct interpreter"
 
-    1.  Ensure all dependencies are installed, including the `lint` extras.
+    1.  Ensure all developer dependencies are installed:
 
         ```bash
-        uv sync --all-extras
+        uv sync
         ```
 
     2.  In VS Code, open the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`) and select `Python: Select Interpreter`.

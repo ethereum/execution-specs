@@ -1,4 +1,9 @@
-"""Benchmark keccak instructions."""
+"""
+Benchmark keccak instructions.
+
+Supported Opcodes:
+- KECCAK256
+"""
 
 import math
 
@@ -8,9 +13,6 @@ from execution_testing import (
     JumpLoopGenerator,
     Op,
 )
-
-# Keccak instructions:
-# KECCAK256
 
 KECCAK_RATE = 136
 

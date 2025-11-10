@@ -1,6 +1,15 @@
 """
 Benchmark operations that require querying the account state, either on the
 current executing account or on a target account.
+
+Supported Opcodes:
+- SELFBALANCE
+- CODESIZE
+- CODECOPY
+- EXTCODESIZE
+- EXTCODEHASH
+- EXTCODECOPY
+- BALANCE
 """
 
 import math

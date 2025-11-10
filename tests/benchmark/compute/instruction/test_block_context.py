@@ -1,4 +1,17 @@
-"""Benchmark block context instructions."""
+"""
+Benchmark block context instructions.
+
+Supported Opcodes:
+- BLOCKHASH
+- COINBASE
+- TIMESTAMP
+- NUMBER
+- PREVRANDAO
+- GASLIMIT
+- CHAINID
+- BASEFEE
+- BLOBBASEFEE
+"""
 
 import pytest
 from execution_testing import (
@@ -7,10 +20,6 @@ from execution_testing import (
     ExtCallGenerator,
     Op,
 )
-
-# Block context instructions:
-# BLOCKHASH, COINBASE, TIMESTAMP, NUMBER, PREVRANDAO, GASLIMIT, CHAINID,
-# BASEFEE, BLOBBASEFEE
 
 
 @pytest.mark.parametrize(

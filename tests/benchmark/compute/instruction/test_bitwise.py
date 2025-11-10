@@ -1,4 +1,17 @@
-"""Benchmark bitwise instructions."""
+"""
+Benchmark bitwise instructions.
+
+Supported Opcodes:
+- AND
+- OR
+- XOR
+- NOT
+- BYTE
+- SHL
+- SHR
+- SAR
+- CLZ
+"""
 
 import random
 from typing import Callable
@@ -21,9 +34,6 @@ from tests.benchmark.compute.helpers import (
     shl,
     shr,
 )
-
-# Bitwise instructions:
-# AND, OR, XOR, NOT, BYTE, SHL, SHR, SAR, CLZ
 
 
 @pytest.mark.parametrize(

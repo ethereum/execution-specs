@@ -1,4 +1,17 @@
-"""Benchmark system instructions."""
+"""
+Benchmark system instructions.
+
+Supported Opcodes:
+- CREATE
+- CREATE2
+- RETURN
+- REVERT
+- CALL
+- CALLCODE
+- DELEGATECALL
+- STATICCALL
+- SELFDESTRUCT
+"""
 
 import math
 
@@ -23,11 +36,6 @@ from execution_testing import (
 )
 
 from tests.benchmark.compute.helpers import XOR_TABLE
-
-# System instructions:
-# CREATE, CREATE2
-# RETURN, REVERT
-# CALL, CALLCODE, SELFDESTRUCT, DELEGATECALL, STATICCALL
 
 
 @pytest.mark.parametrize(
@@ -169,7 +177,7 @@ def test_xcall(
 
     contracts_deployment_tx = Transaction(
         to=factory_caller_address,
-        gas_limit=env.gas_limit,
+        gas_limit=20 * gas_benchmark_value,
         gas_price=10**6,
         data=Hash(num_contracts),
         sender=pre.fund_eoa(),

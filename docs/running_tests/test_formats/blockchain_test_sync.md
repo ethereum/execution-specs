@@ -127,7 +127,7 @@ List of hashes of the versioned blobs that are part of the execution payload.
 
 Hash of the parent beacon block root.
 
-#### - `validationError`: [`Optional`](./common_types.md#optional)`[`[`TransactionException`](../../library/ethereum_test_exceptions.md#ethereum_test_exceptions.TransactionException)` | `[`BlockException`](../../library/ethereum_test_exceptions.md#ethereum_test_exceptions.BlockException)`]`
+#### - `validationError`: [`Optional`](./common_types.md#optional)`[`[`TransactionException`](../../library/execution_testing_exceptions.md#execution_testing.exceptions.TransactionException)` | `[`BlockException`](../../library/execution_testing_exceptions.md#execution_testing.exceptions.BlockException)`]`
 
 For sync tests, this field should not be present as sync tests only work with valid chains. Invalid blocks cannot be synced.
 

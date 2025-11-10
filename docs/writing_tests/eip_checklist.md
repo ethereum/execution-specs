@@ -14,8 +14,8 @@ To mark a test as implementing a specific checklist item, use the structured `EI
 
 ```python
 import pytest
-from ethereum_test_tools import StateTestFiller
-from ethereum_test_checklists import EIPChecklist
+from execution_testing.tools import StateTestFiller
+from execution_testing.checklists import EIPChecklist
 
 @EIPChecklist.TransactionType.Test.IntrinsicValidity.GasLimit.Exact()
 def test_exact_intrinsic_gas(state_test: StateTestFiller):
@@ -124,7 +124,7 @@ The `EIPChecklist` classes are made callable through a companion `.pyi` stub fil
 
 ### Regenerating Type Stubs
 
-If you modify the `EIPChecklist` class structure in `src/ethereum_test_checklists/eip_checklist.py`, you need to regenerate the type stub file:
+If you modify the `EIPChecklist` class structure in `packages/testing/src/execution_testing/checklists/eip_checklist.py`, you need to regenerate the type stub file:
 
 ```bash
 # Generate the stub file (for maintainers):
@@ -216,7 +216,7 @@ Example output snippet:
 2. **Mark tests as you implement them**:
 
       ```python
-      from ethereum_test_checklists import EIPChecklist
+      from execution_testing.checklists import EIPChecklist
       
       @EIPChecklist.Opcode.Test.GasUsage.Normal()
       def test_opcode_gas_consumption(state_test: StateTestFiller):

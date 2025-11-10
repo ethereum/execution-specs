@@ -1,4 +1,20 @@
-"""Benchmark arithmetic instructions."""
+"""
+Benchmark arithmetic instructions.
+
+Supported Opcodes:
+- ADD
+- ADDMOD
+- MUL
+- MULMOD
+- SUB
+- SUBMOD
+- DIV
+- SDIV
+- MOD
+- SMOD
+- EXP
+- SIGNEXTEND
+"""
 
 import operator
 import random
@@ -15,15 +31,6 @@ from execution_testing import (
 )
 
 from tests.benchmark.compute.helpers import DEFAULT_BINOP_ARGS, make_dup, neg
-
-# Arithmetic instructions:
-# ADD, ADDMOD
-# SUB, SUBMOD
-# MUL, MULMOD
-# DIV, SDIV
-# MOD, SMOD
-# EXP
-# SIGNEXTEND
 
 
 @pytest.mark.parametrize(

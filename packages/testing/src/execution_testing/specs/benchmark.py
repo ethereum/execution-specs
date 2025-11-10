@@ -323,8 +323,9 @@ class BenchmarkTest(BaseTest):
     ) -> BaseExecute:
         """Execute the benchmark test by sending it to the live network."""
         if execute_format == TransactionPost:
+            assert self.blocks is not None
             return TransactionPost(
-                blocks=[[self.tx]],
+                blocks=[block.txs for block in self.blocks],
                 post=self.post,
             )
         raise Exception(f"Unsupported execute format: {execute_format}")

@@ -51,10 +51,10 @@ markers on either the test function, test class or test module level:
     pytestmark = pytest.mark.valid_from("Shanghai")
     ```
 
-The [`ethereum_test_forks`](../library/ethereum_test_forks.md) package defines the available forks and provides the following helpers that return all forks within the specified range:
+The [`execution_testing.forks`](../library/execution_testing_forks.md) package defines the available forks and provides the following helpers that return all forks within the specified range:
 
-- [forks_from](../library/ethereum_test_forks.md#ethereum_test_forks.forks_from)
-- [forks_from_until](../library/ethereum_test_forks.md#ethereum_test_forks.forks_from_until)
+- [forks_from](../library/execution_testing_forks.md#execution_testing.forks.forks_from)
+- [forks_from_until](../library/execution_testing_forks.md#execution_testing.forks.forks_from_until)
 
 ### The `state_test` and `blockchain_test` Test Function Arguments
 
@@ -146,16 +146,16 @@ which allows checking for an exact `gas_used` value.
 
 ## Writing code for the accounts in the test
 
-Account bytecode can be "deployed" in a test's pre-state using the `pre` pytest fixture. The @ethereum/execution-spec-tests Python [`Opcodes`][ethereum_test_vm.Opcodes] minilang can be used to help write the bytecode in a readable form.
+Account bytecode can be "deployed" in a test's pre-state using the `pre` pytest fixture. The @ethereum/execution-spec-tests Python [`Opcodes`][execution_testing.vm.Opcodes] minilang can be used to help write the bytecode in a readable form.
 
 ### Using the Python Opcode Minilang
 
-EVM bytecode for tests should be written using the Python-based minilang provided by the [`Opcodes`][ethereum_test_vm.Opcodes] class. This allows you to construct bytecode using symbolic opcodes as Python objects.
+EVM bytecode for tests should be written using the Python-based minilang provided by the [`Opcodes`][execution_testing.vm.Opcodes] class. This allows you to construct bytecode using symbolic opcodes as Python objects.
 
 #### Example: Simple Addition Contract
 
 ```python
-from ethereum_test_vm.opcode import Opcodes
+from execution_testing.vm.opcode import Opcodes
 
 code = (
     Opcodes.PUSH1(0x02)
@@ -172,15 +172,15 @@ contract_address = pre.deploy_contract(code=code)
 
 You add this contract to the test's pre-state using the `pre` fixture or assign this `code` to the `code` field of an account in your test's `post` state. See the [state test tutorial](./tutorials/state_transition.md) for more help.
 
-For a full list of available opcodes and their usage, see [`Opcodes`][ethereum_test_vm.Opcodes].
+For a full list of available opcodes and their usage, see [`Opcodes`][execution_testing.vm.Opcodes].
 
 #### Higher-Level Constructs
 
-For more complex control flow, you can use constructs like [`Switch`][ethereum_test_tools.tools_code.generators.Switch] and [`Case`][ethereum_test_tools.tools_code.generators.Case] from the `ethereum_test_tools.tools_code.generators` module:
+For more complex control flow, you can use constructs like [`Switch`][execution_testing.tools.tools_code.generators.Switch] and [`Case`][execution_testing.tools.tools_code.generators.Case] from the `execution_testing.tools.tools_code.generators` module:
 
 ```python
-from ethereum_test_tools.tools_code.generators import Switch, Case
-from ethereum_test_vm.opcode import Opcodes as Op
+from execution_testing.tools.tools_code.generators import Switch, Case
+from execution_testing.vm.opcode import Opcodes as Op
 
 code = Switch(
     cases=[
@@ -191,7 +191,7 @@ code = Switch(
 )
 ```
 
-The `ethereum_test_tools.tools_code.generators` module also defines other high-level constructs like [`While`][ethereum_test_tools.tools_code.generators.While] and [`Conditional`][ethereum_test_tools.tools_code.generators.Conditional].
+The `execution_testing.tools.tools_code.generators` module also defines other high-level constructs like [`While`][execution_testing.tools.tools_code.generators.While] and [`Conditional`][execution_testing.tools.tools_code.generators.Conditional].
 
 #### Converting Bytecode to Minilang
 
@@ -235,7 +235,7 @@ Within the `post` dictionary object, an account address can be:
 The `Account` object is used to specify the properties of an account to be
 verified in the post state.
 
-The python representation can be found in [src/ethereum_test_types/account_types.py](https://github.com/ethereum/execution-spec-tests/blob/main/src/ethereum_test_types/account_types.py).
+The python representation can be found in [packages/testing/src/execution_testing/test_types/account_types.py](https://github.com/ethereum/execution-spec-tests/blob/main/packages/testing/src/execution_testing/test_types/account_types.py).
 
 It can verify the following properties of an account:
 
@@ -327,4 +327,4 @@ values using the `with_all_*` markers listed in the
 
 ### The `extend_with_defaults` Utility
 
-::: ethereum_test_tools.utility.pytest.extend_with_defaults
+::: execution_testing.tools.utility.pytest.extend_with_defaults
