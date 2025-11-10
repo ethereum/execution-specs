@@ -381,7 +381,14 @@ def test_ext_account_query_warm(
     for an account.
     """
     # Setup
-    target_addr = pre.empty_account() if initial_balance else pre.fund_eoa()
+    target_addr = Address()
+    if not initial_balance and not initial_storage:
+        target_addr = pre.empty_account()
+    elif initial_balance or initial_storage:
+        target_addr = pre.fund_eoa(
+            storage={0: 0x1337} if initial_storage else {0: 0}
+        )
+
     post = {}
     if not empty_account:
         code = Op.STOP + Op.JUMPDEST * 100
