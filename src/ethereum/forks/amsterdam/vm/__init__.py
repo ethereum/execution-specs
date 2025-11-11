@@ -21,6 +21,7 @@ from ethereum_types.numeric import U64, U256, Uint
 from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import EthereumException
 
+from ..block_access_lists.rlp_types import BlockAccessList
 from ..blocks import Log, Receipt, Withdrawal
 from ..fork_types import Address, Authorization, VersionedHash
 from ..state import State, TransientStorage
@@ -73,6 +74,8 @@ class BlockOutput:
         Total blob gas used in the block.
     requests : `Bytes`
         Hash of all the requests in the block.
+    block_access_list: `BlockAccessList`
+        The block access list for the block.
     """
 
     block_gas_used: Uint = Uint(0)
@@ -89,6 +92,9 @@ class BlockOutput:
     )
     blob_gas_used: U64 = U64(0)
     requests: List[Bytes] = field(default_factory=list)
+    block_access_list: BlockAccessList = field(
+        default_factory=lambda: BlockAccessList(account_changes=())
+    )
 
 
 @dataclass

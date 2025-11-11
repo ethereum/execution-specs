@@ -146,6 +146,9 @@ class Env:
         if t8n.fork.is_after_fork("prague"):
             arguments["requests_hash"] = Hash32(b"\0" * 32)
 
+        if t8n.fork.is_after_fork("amsterdam"):
+            arguments["block_access_list_hash"] = Hash32(b"\0" * 32)
+
         parent_header = t8n.fork.Header(**arguments)
 
         self.excess_blob_gas = t8n.fork.calculate_excess_blob_gas(
