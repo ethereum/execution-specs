@@ -10,7 +10,7 @@ from contextlib import AbstractContextManager
 from typing import Any, Final, TextIO, Tuple, Type, TypeVar
 
 from ethereum_rlp import rlp
-from ethereum_types.numeric import U64, U256, Uint
+from ethereum_types.numeric import U64, U256, Uint, ulen
 from typing_extensions import override
 
 from ethereum import trace
@@ -372,6 +372,10 @@ class T8N(Load):
         self.result.rejected = self.txs.rejected_txs
 
     def _run_blockchain_test(self, block_env: Any, block_output: Any) -> None:
+        if self.fork.is_after_fork("amsterdam"):
+            self.fork.set_block_access_index(
+                block_env.state.change_tracker, Uint(0)
+            )
         if self.fork.has_compute_requests_hash:
             self.fork.process_unchecked_system_transaction(
                 block_env=block_env,
@@ -386,20 +390,38 @@ class T8N(Load):
                 data=block_env.parent_beacon_block_root,
             )
 
-        for i, tx in zip(
-            self.txs.successfully_parsed,
-            self.txs.transactions,
-            strict=True,
+        for tx_index, (original_idx, tx) in enumerate(
+            zip(
+                self.txs.successfully_parsed,
+                self.txs.transactions,
+                strict=True,
+            )
         ):
             self.backup_state()
             try:
                 self.fork.process_transaction(
-                    block_env, block_output, tx, Uint(i)
+                    block_env, block_output, tx, Uint(tx_index)
                 )
             except EthereumException as e:
-                self.txs.rejected_txs[i] = f"Failed transaction: {e!r}"
+                self.txs.rejected_txs[original_idx] = (
+                    f"Failed transaction: {e!r}"
+                )
                 self.restore_state()
-                self.logger.warning(f"Transaction {i} failed: {e!r}")
+                self.logger.warning(
+                    f"Transaction {original_idx} failed: {e!r}"
+                )
+
+        if self.fork.is_after_fork("amsterdam"):
+            assert block_env.state.change_tracker is not None
+            num_transactions = ulen(
+                [tx for tx in self.txs.successfully_parsed if tx]
+            )
+
+            # post-execution use n + 1
+            post_execution_index = num_transactions + Uint(1)
+            self.fork.set_block_access_index(
+                block_env.state.change_tracker, post_execution_index
+            )
 
         if not self.fork.proof_of_stake:
             if self.options.state_reward is None:
@@ -416,6 +438,11 @@ class T8N(Load):
 
         if self.fork.has_compute_requests_hash:
             self.fork.process_general_purpose_requests(block_env, block_output)
+
+        if self.fork.is_after_fork("amsterdam"):
+            block_output.block_access_list = self.fork.build_block_access_list(
+                block_env.state.change_tracker.block_access_list_builder
+            )
 
     def run_blockchain_test(self) -> None:
         """
