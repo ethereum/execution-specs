@@ -50,14 +50,30 @@ def pytest_collection_modifyitems(
         # If --fixed-opcode-count is not specified, don't filter anything
         return
 
-    items = [
-        item
-        for item in items
-        if not (
-            item.get_closest_marker("benchmark") is not None
-            and item.get_closest_marker("repricing") is None
-        )
-    ]
+    filtered = []
+    for item in items:
+        if not item.get_closest_marker("benchmark"):
+            continue
+
+        repricing_marker = item.get_closest_marker("repricing")
+        if not repricing_marker:
+            continue
+
+        if not repricing_marker.kwargs:
+            filtered.append(item)
+            continue
+
+        if hasattr(item, "callspec"):
+            if all(
+                item.callspec.params.get(key) == value
+                for key, value in repricing_marker.kwargs.items()
+            ):
+                filtered.append(item)
+        else:
+            if not repricing_marker.kwargs:
+                filtered.append(item)
+
+    items[:] = filtered
 
 
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:

@@ -40,7 +40,7 @@ from tests.benchmark.compute.helpers import (
 )
 
 
-@pytest.mark.repricing
+@pytest.mark.repricing(contract_balance=0)
 @pytest.mark.parametrize("contract_balance", [0, 1])
 def test_selfbalance(
     benchmark_test: BenchmarkTestFiller,
@@ -347,7 +347,7 @@ def test_extcodecopy_warm(
     benchmark_test(tx=tx)
 
 
-@pytest.mark.repricing
+@pytest.mark.repricing(absent_target=False)
 @pytest.mark.parametrize(
     "opcode",
     [

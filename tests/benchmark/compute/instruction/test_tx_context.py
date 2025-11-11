@@ -40,7 +40,7 @@ def test_call_frame_context_ops(
     )
 
 
-@pytest.mark.repricing
+@pytest.mark.repricing(blob_index=0, blobs_present=0)
 @pytest.mark.parametrize(
     "blob_index, blobs_present",
     [

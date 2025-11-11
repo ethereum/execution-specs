@@ -28,6 +28,7 @@ from execution_testing import (
 from tests.benchmark.compute.helpers import StorageAction, TransactionResult
 
 
+@pytest.mark.repricing(fixed_key=False, fixed_value=False)
 @pytest.mark.parametrize("fixed_key", [True, False])
 @pytest.mark.parametrize("fixed_value", [True, False])
 def test_tload(
@@ -59,7 +60,7 @@ def test_tload(
     )
 
 
-@pytest.mark.repricing
+@pytest.mark.repricing(fixed_key=False, fixed_value=False)
 @pytest.mark.parametrize("fixed_key", [True, False])
 @pytest.mark.parametrize("fixed_value", [True, False])
 def test_tstore(

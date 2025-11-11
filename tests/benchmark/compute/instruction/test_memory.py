@@ -19,7 +19,7 @@ from execution_testing import (
 )
 
 
-@pytest.mark.repricing
+@pytest.mark.repricing(mem_size=1_000)
 @pytest.mark.parametrize("mem_size", [0, 1, 1_000, 100_000, 1_000_000])
 def test_msize(
     benchmark_test: BenchmarkTestFiller,
@@ -35,7 +35,11 @@ def test_msize(
     )
 
 
-@pytest.mark.repricing
+@pytest.mark.repricing(
+    offset=31,
+    offset_initialized=True,
+    big_memory_expansion=True,
+)
 @pytest.mark.parametrize("opcode", [Op.MLOAD, Op.MSTORE, Op.MSTORE8])
 @pytest.mark.parametrize("offset", [0, 1, 31])
 @pytest.mark.parametrize("offset_initialized", [True, False])
@@ -69,7 +73,7 @@ def test_memory_access(
     )
 
 
-@pytest.mark.repricing
+@pytest.mark.repricing(size=10 * 1024, fixed_src_dst=True)
 @pytest.mark.parametrize(
     "size",
     [

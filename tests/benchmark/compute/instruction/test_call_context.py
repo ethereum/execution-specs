@@ -49,7 +49,7 @@ def test_call_frame_context_ops(
     )
 
 
-@pytest.mark.repricing
+@pytest.mark.repricing(calldata_length=1_000)
 @pytest.mark.parametrize("calldata_length", [0, 1_000, 10_000])
 def test_calldatasize(
     benchmark_test: BenchmarkTestFiller,
@@ -64,6 +64,7 @@ def test_calldatasize(
     )
 
 
+@pytest.mark.repricing(non_zero_value=True, from_origin=True)
 @pytest.mark.parametrize("non_zero_value", [True, False])
 @pytest.mark.parametrize("from_origin", [True, False])
 def test_callvalue(
@@ -103,7 +104,7 @@ def test_callvalue(
     benchmark_test(tx=tx)
 
 
-@pytest.mark.repricing
+@pytest.mark.repricing(calldata=b"")
 @pytest.mark.parametrize(
     "calldata",
     [
@@ -232,7 +233,10 @@ def test_calldatacopy(
     benchmark_test(tx=tx)
 
 
-@pytest.mark.repricing
+@pytest.mark.repricing(
+    returned_size=1,
+    return_data_style=ReturnDataStyle.RETURN,
+)
 @pytest.mark.parametrize(
     "return_data_style",
     [
@@ -286,7 +290,7 @@ def test_returndatasize_zero(
     )
 
 
-@pytest.mark.repricing
+@pytest.mark.repricing(size=10 * 1024, fixed_dst=True)
 @pytest.mark.parametrize(
     "size",
     [
