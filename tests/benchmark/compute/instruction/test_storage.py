@@ -59,6 +59,7 @@ def test_tload(
     )
 
 
+@pytest.mark.repricing
 @pytest.mark.parametrize("fixed_key", [True, False])
 @pytest.mark.parametrize("fixed_value", [True, False])
 def test_tstore(

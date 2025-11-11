@@ -18,7 +18,7 @@ from execution_testing import (
 )
 
 
-@pytest.mark.gas_ref
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "opcode,opcode_args",
     [
@@ -80,7 +80,7 @@ def test_comparison(
     )
 
 
-@pytest.mark.gas_ref
+@pytest.mark.repricing
 def test_iszero(
     benchmark_test: BenchmarkTestFiller,
 ) -> None:

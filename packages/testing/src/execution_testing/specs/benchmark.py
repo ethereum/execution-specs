@@ -218,7 +218,7 @@ class BenchmarkTest(BaseTest):
     supported_markers: ClassVar[Dict[str, str]] = {
         "blockchain_test_engine_only": "Only generate a blockchain test engine fixture",
         "blockchain_test_only": "Only generate a blockchain test fixture",
-        "gas_ref": "Mark test as a gas reference test for gas repricing analysis",
+        "repricing": "Mark test as reference test for gas repricing analysis",
     }
 
     def model_post_init(self, __context: Any, /) -> None:

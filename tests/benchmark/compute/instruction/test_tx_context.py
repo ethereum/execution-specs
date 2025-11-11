@@ -22,7 +22,7 @@ from execution_testing import (
 from tests.cancun.eip4844_blobs.spec import Spec as BlobsSpec
 
 
-@pytest.mark.gas_ref
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "opcode",
     [
@@ -40,7 +40,7 @@ def test_call_frame_context_ops(
     )
 
 
-@pytest.mark.gas_ref
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "blob_index, blobs_present",
     [

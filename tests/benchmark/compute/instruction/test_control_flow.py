@@ -24,7 +24,7 @@ from execution_testing import (
 # STOP, JUMP, JUMPI, PC, GAS, JUMPDEST
 
 
-@pytest.mark.gas_ref
+@pytest.mark.repricing
 def test_gas_op(
     benchmark_test: BenchmarkTestFiller,
 ) -> None:
@@ -56,7 +56,7 @@ def test_jumps(
     benchmark_test(tx=tx)
 
 
-@pytest.mark.gas_ref
+@pytest.mark.repricing
 def test_jumpi_fallthrough(
     benchmark_test: BenchmarkTestFiller,
 ) -> None:
@@ -83,7 +83,7 @@ def test_jumpis(
     benchmark_test(tx=tx)
 
 
-@pytest.mark.gas_ref
+@pytest.mark.repricing
 def test_jumpdests(
     benchmark_test: BenchmarkTestFiller,
 ) -> None:

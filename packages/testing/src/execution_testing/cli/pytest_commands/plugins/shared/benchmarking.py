@@ -35,7 +35,7 @@ def pytest_configure(config: pytest.Config) -> None:
     """Configure the fill and execute mode to benchmarking."""
     config.addinivalue_line(
         "markers",
-        "gas_ref: Mark test as a gas reference test for gas repricing analysis",
+        "repricing: Mark test as reference test for gas repricing analysis",
     )
     if config.getoption("gas_benchmark_value"):
         config.op_mode = OpMode.BENCHMARKING  # type: ignore[attr-defined]
@@ -44,18 +44,18 @@ def pytest_configure(config: pytest.Config) -> None:
 def pytest_collection_modifyitems(
     config: pytest.Config, items: list[pytest.Item]
 ) -> None:
-    """Remove non-gas_ref tests when --fixed-opcode-count is specified."""
+    """Remove non-repricing tests when --fixed-opcode-count is specified."""
     fixed_opcode_count = config.getoption("fixed_opcode_count")
     if not fixed_opcode_count:
         # If --fixed-opcode-count is not specified, don't filter anything
         return
 
-    items[:] = [
+    items = [
         item
         for item in items
         if not (
             item.get_closest_marker("benchmark") is not None
-            and item.get_closest_marker("gas_ref") is None
+            and item.get_closest_marker("repricing") is None
         )
     ]
 
@@ -89,11 +89,11 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
             )
 
     if "fixed_opcode_count" in metafunc.fixturenames:
-        # Only parametrize if test has gas_ref marker
-        has_gas_ref = (
-            metafunc.definition.get_closest_marker("gas_ref") is not None
+        # Only parametrize if test has repricing marker
+        has_repricing = (
+            metafunc.definition.get_closest_marker("repricing") is not None
         )
-        if has_gas_ref:
+        if has_repricing:
             if fixed_opcode_counts:
                 opcode_counts = [
                     int(x.strip()) for x in fixed_opcode_counts.split(",")

@@ -22,7 +22,7 @@ from execution_testing import (
 )
 
 
-@pytest.mark.gas_ref
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "opcode",
     [
@@ -46,6 +46,7 @@ def test_block_context_ops(
     )
 
 
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "index",
     [

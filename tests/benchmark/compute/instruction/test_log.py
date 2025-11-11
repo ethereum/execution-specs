@@ -18,7 +18,7 @@ from execution_testing import (
 )
 
 
-@pytest.mark.gas_ref
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "opcode",
     [

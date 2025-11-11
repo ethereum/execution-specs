@@ -31,7 +31,7 @@ from tests.benchmark.compute.helpers import (
 )
 
 
-@pytest.mark.gas_ref
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "opcode",
     [
@@ -49,7 +49,7 @@ def test_call_frame_context_ops(
     )
 
 
-@pytest.mark.gas_ref
+@pytest.mark.repricing
 @pytest.mark.parametrize("calldata_length", [0, 1_000, 10_000])
 def test_calldatasize(
     benchmark_test: BenchmarkTestFiller,
@@ -103,7 +103,7 @@ def test_callvalue(
     benchmark_test(tx=tx)
 
 
-@pytest.mark.gas_ref
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "calldata",
     [
@@ -232,7 +232,7 @@ def test_calldatacopy(
     benchmark_test(tx=tx)
 
 
-@pytest.mark.gas_ref
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "return_data_style",
     [
@@ -276,7 +276,7 @@ def test_returndatasize_nonzero(
     )
 
 
-@pytest.mark.gas_ref
+@pytest.mark.repricing
 def test_returndatasize_zero(
     benchmark_test: BenchmarkTestFiller,
 ) -> None:
@@ -286,7 +286,7 @@ def test_returndatasize_zero(
     )
 
 
-@pytest.mark.gas_ref
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "size",
     [

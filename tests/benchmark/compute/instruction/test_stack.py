@@ -17,7 +17,7 @@ from execution_testing import (
 )
 
 
-@pytest.mark.gas_ref
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "opcode",
     [
@@ -51,7 +51,7 @@ def test_swap(
     )
 
 
-@pytest.mark.gas_ref
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "opcode",
     [
@@ -87,7 +87,7 @@ def test_dup(
     )
 
 
-@pytest.mark.gas_ref
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "opcode",
     [
