@@ -142,6 +142,13 @@ packages = [
     "ethereum.forks.osaka.vm.instructions",
     "ethereum.forks.osaka.vm.precompiled_contracts",
     "ethereum.forks.osaka.vm.precompiled_contracts.bls12_381",
+    "ethereum.forks.amsterdam",
+    "ethereum.forks.amsterdam.block_access_lists",
+    "ethereum.forks.amsterdam.utils",
+    "ethereum.forks.amsterdam.vm",
+    "ethereum.forks.amsterdam.vm.instructions",
+    "ethereum.forks.amsterdam.vm.precompiled_contracts",
+    "ethereum.forks.amsterdam.vm.precompiled_contracts.bls12_381",
 ]
 
 [tool.setuptools.package-data]
@@ -378,12 +385,25 @@ ignore = [
 "src/ethereum_spec_tools/evm_tools/t8n/evm_trace.py" = [
     "N815"          # The traces must use camel case in JSON property names
 ]
+"src/ethereum/forks/amsterdam/blocks.py" = [
+    "E501"          # Line too long - needed for long ref links
+]
+ "src/ethereum/forks/amsterdam/block_access_lists/builder.py" = [
+    "E501"          # Line too long - needed for long ref links
+ ]
+"src/ethereum/forks/amsterdam/block_access_lists/rlp_utils.py" = [
+    "E501"          # Line too long - needed for long ref links
+ ]
 "tests/*" = ["ARG001"]
 "vulture_whitelist.py" = [
     "B018",  # Useless expression (intentional for Vulture whitelisting)
     "F403",  # Star imports needed for whitelisting
     "F405",  # Undefined names from star imports
 ]
+
+[tool.ruff.lint.mccabe]
+# Set the maximum allowed cyclomatic complexity. C901 default is 10.
+max-complexity = 7
 
 [tool.codespell]
 builtin = "clear,code,usage"
