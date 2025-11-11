@@ -401,6 +401,8 @@ def call(evm: Evm) -> None:
     access_gas_cost = (
         GAS_COLD_ACCOUNT_ACCESS if is_cold_access else GAS_WARM_ACCESS
     )
+    if is_cold_access:
+        evm.accessed_addresses.add(to)
 
     (
         is_delegated,
@@ -428,11 +430,7 @@ def call(evm: Evm) -> None:
 
     check_gas(evm, message_call_gas.cost + extend_memory.cost)
 
-    if is_cold_access:
-        evm.accessed_addresses.add(to)
-
     evm.state_changes.track_address(to)
-
     if is_delegated:
         apply_delegation_tracking(evm, original_address, final_address)
 
@@ -503,6 +501,8 @@ def callcode(evm: Evm) -> None:
     access_gas_cost = (
         GAS_COLD_ACCOUNT_ACCESS if is_cold_access else GAS_WARM_ACCESS
     )
+    if is_cold_access:
+        evm.accessed_addresses.add(code_address)
 
     (
         is_delegated,
@@ -527,11 +527,7 @@ def callcode(evm: Evm) -> None:
 
     check_gas(evm, message_call_gas.cost + extend_memory.cost)
 
-    if is_cold_access:
-        evm.accessed_addresses.add(original_address)
-
     evm.state_changes.track_address(original_address)
-
     if is_delegated:
         apply_delegation_tracking(evm, original_address, final_address)
 
@@ -681,6 +677,8 @@ def delegatecall(evm: Evm) -> None:
     access_gas_cost = (
         GAS_COLD_ACCOUNT_ACCESS if is_cold_access else GAS_WARM_ACCESS
     )
+    if is_cold_access:
+        evm.accessed_addresses.add(code_address)
 
     (
         is_delegated,
@@ -700,11 +698,7 @@ def delegatecall(evm: Evm) -> None:
 
     check_gas(evm, message_call_gas.cost + extend_memory.cost)
 
-    if is_cold_access:
-        evm.accessed_addresses.add(original_address)
-
     evm.state_changes.track_address(original_address)
-
     if is_delegated:
         apply_delegation_tracking(evm, original_address, final_address)
 
@@ -764,6 +758,8 @@ def staticcall(evm: Evm) -> None:
     access_gas_cost = (
         GAS_COLD_ACCOUNT_ACCESS if is_cold_access else GAS_WARM_ACCESS
     )
+    if is_cold_access:
+        evm.accessed_addresses.add(to)
 
     (
         is_delegated,
@@ -787,11 +783,7 @@ def staticcall(evm: Evm) -> None:
 
     check_gas(evm, message_call_gas.cost + extend_memory.cost)
 
-    if is_cold_access:
-        evm.accessed_addresses.add(to)
-
     evm.state_changes.track_address(to)
-
     if is_delegated:
         apply_delegation_tracking(evm, original_address, final_address)
 
