@@ -29,6 +29,12 @@ from ethereum.trace import (
     evm_trace,
 )
 
+from ..block_access_lists.tracker import (
+    begin_call_frame,
+    commit_call_frame,
+    rollback_call_frame,
+    track_address_access,
+)
 from ..blocks import Log
 from ..fork_types import Address
 from ..state import (
@@ -132,6 +138,12 @@ def process_message_call(message: Message) -> MessageCallOutput:
             message.accessed_addresses.add(delegated_address)
             message.code = get_account(block_env.state, delegated_address).code
             message.code_address = delegated_address
+
+            # EIP-7928: Track delegation target when loaded as call target
+            track_address_access(
+                block_env.state.change_tracker,
+                delegated_address,
+            )
 
         evm = process_message(message)
 
@@ -241,6 +253,11 @@ def process_message(message: Message) -> Evm:
     # take snapshot of state before processing the message
     begin_transaction(state, transient_storage)
 
+    if hasattr(state, "change_tracker") and state.change_tracker:
+        begin_call_frame(state.change_tracker)
+        # Track target address access when processing a message
+        track_address_access(state.change_tracker, message.current_target)
+
     if message.should_transfer_value and message.value != 0:
         move_ether(
             state, message.caller, message.current_target, message.value
@@ -251,8 +268,12 @@ def process_message(message: Message) -> Evm:
         # revert state to the last saved checkpoint
         # since the message call resulted in an error
         rollback_transaction(state, transient_storage)
+        if hasattr(state, "change_tracker") and state.change_tracker:
+            rollback_call_frame(state.change_tracker)
     else:
         commit_transaction(state, transient_storage)
+        if hasattr(state, "change_tracker") and state.change_tracker:
+            commit_call_frame(state.change_tracker)
     return evm
 
 

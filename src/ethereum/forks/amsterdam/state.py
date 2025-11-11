@@ -23,6 +23,14 @@ from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import modify
 from ethereum_types.numeric import U256, Uint
 
+from .block_access_lists.builder import BlockAccessListBuilder
+from .block_access_lists.tracker import (
+    StateChangeTracker,
+    capture_pre_balance,
+    track_balance_change,
+    track_code_change,
+    track_nonce_change,
+)
 from .fork_types import EMPTY_ACCOUNT, Account, Address, Root
 from .trie import EMPTY_TRIE_ROOT, Trie, copy_trie, root, trie_get, trie_set
 
@@ -46,6 +54,9 @@ class State:
         ]
     ] = field(default_factory=list)
     created_accounts: Set[Address] = field(default_factory=set)
+    change_tracker: StateChangeTracker = field(
+        default_factory=lambda: StateChangeTracker(BlockAccessListBuilder())
+    )
 
 
 @dataclass
@@ -440,6 +451,34 @@ def account_has_storage(state: State, address: Address) -> bool:
     return address in state._storage_tries
 
 
+def account_exists_and_is_empty(state: State, address: Address) -> bool:
+    """
+    Checks if an account exists and has zero nonce, empty code and zero
+    balance.
+
+    Parameters
+    ----------
+    state:
+        The state
+    address:
+        Address of the account that needs to be checked.
+
+    Returns
+    -------
+    exists_and_is_empty : `bool`
+        True if an account exists and has zero nonce, empty code and zero
+        balance, False otherwise.
+
+    """
+    account = get_account_optional(state, address)
+    return (
+        account is not None
+        and account.nonce == Uint(0)
+        and account.code == b""
+        and account.balance == 0
+    )
+
+
 def is_account_alive(state: State, address: Address) -> bool:
     """
     Check whether an account is both in the state and non-empty.
@@ -469,16 +508,7 @@ def modify_state(
     exists and has zero nonce, empty code, and zero balance, it is destroyed.
     """
     set_account(state, address, modify(get_account(state, address), f))
-
-    account = get_account_optional(state, address)
-    account_exists_and_is_empty = (
-        account is not None
-        and account.nonce == Uint(0)
-        and account.code == b""
-        and account.balance == 0
-    )
-
-    if account_exists_and_is_empty:
+    if account_exists_and_is_empty(state, address):
         destroy_account(state, address)
 
 
@@ -491,6 +521,9 @@ def move_ether(
     """
     Move funds between accounts.
     """
+    # Capture pre-transaction balance before first modification
+    capture_pre_balance(state.change_tracker, sender_address, state)
+    capture_pre_balance(state.change_tracker, recipient_address, state)
 
     def reduce_sender_balance(sender: Account) -> None:
         if sender.balance < amount:
@@ -502,6 +535,16 @@ def move_ether(
 
     modify_state(state, sender_address, reduce_sender_balance)
     modify_state(state, recipient_address, increase_recipient_balance)
+
+    sender_new_balance = get_account(state, sender_address).balance
+    recipient_new_balance = get_account(state, recipient_address).balance
+
+    track_balance_change(
+        state.change_tracker, sender_address, U256(sender_new_balance)
+    )
+    track_balance_change(
+        state.change_tracker, recipient_address, U256(recipient_new_balance)
+    )
 
 
 def set_account_balance(state: State, address: Address, amount: U256) -> None:
@@ -520,11 +563,15 @@ def set_account_balance(state: State, address: Address, amount: U256) -> None:
         The amount that needs to set in balance.
 
     """
+    # Capture pre-transaction balance before first modification
+    capture_pre_balance(state.change_tracker, address, state)
 
     def set_balance(account: Account) -> None:
         account.balance = amount
 
     modify_state(state, address, set_balance)
+
+    track_balance_change(state.change_tracker, address, amount)
 
 
 def increment_nonce(state: State, address: Address) -> None:
@@ -545,6 +592,16 @@ def increment_nonce(state: State, address: Address) -> None:
         sender.nonce += Uint(1)
 
     modify_state(state, address, increase_nonce)
+
+    # Track nonce change for Block Access List
+    # (for ALL accounts and ALL nonce changes)
+    # This includes:
+    # - EOA senders (transaction nonce increments)
+    # - Contracts performing CREATE/CREATE2
+    # - Deployed contracts
+    # - EIP-7702 authorities
+    account = get_account(state, address)
+    track_nonce_change(state.change_tracker, address, account.nonce)
 
 
 def set_code(state: State, address: Address, code: Bytes) -> None:
@@ -568,6 +625,13 @@ def set_code(state: State, address: Address, code: Bytes) -> None:
         sender.code = code
 
     modify_state(state, address, write_code)
+
+    # Only track code changes if it's not setting empty code on a
+    # newly created address. For newly created addresses, setting
+    # code to b"" is not a meaningful state change since the address
+    # had no code to begin with.
+    if not (code == b"" and address in state.created_accounts):
+        track_code_change(state.change_tracker, address, code)
 
 
 def get_storage_original(state: State, address: Address, key: Bytes32) -> U256:

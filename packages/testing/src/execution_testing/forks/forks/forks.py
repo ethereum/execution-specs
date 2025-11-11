@@ -444,6 +444,14 @@ class Frontier(BaseFork, solc_name="homestead"):
         return False
 
     @classmethod
+    def header_bal_hash_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """At genesis, header must not contain block access list hash."""
+        del block_number, timestamp
+        return False
+
+    @classmethod
     def engine_new_payload_version(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> Optional[int]:
@@ -480,6 +488,14 @@ class Frontier(BaseFork, solc_name="homestead"):
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> bool:
         """At genesis, payloads do not have requests."""
+        del block_number, timestamp
+        return False
+
+    @classmethod
+    def engine_execution_payload_block_access_list(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """At genesis, payloads do not have block access list."""
         del block_number, timestamp
         return False
 
@@ -2463,6 +2479,16 @@ class Amsterdam(Osaka):
     """Amsterdam fork."""
 
     @classmethod
+    def header_bal_hash_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """
+        From Amsterdam, header must contain block access list hash (EIP-7928).
+        """
+        del block_number, timestamp
+        return True
+
+    @classmethod
     def is_deployed(cls) -> bool:
         """Return True if this fork is deployed."""
         return False
@@ -2474,6 +2500,17 @@ class Amsterdam(Osaka):
         """From Amsterdam, new payload calls must use version 5."""
         del block_number, timestamp
         return 5
+
+    @classmethod
+    def engine_execution_payload_block_access_list(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """
+        From Amsterdam, engine execution payload includes `block_access_list`
+        as a parameter.
+        """
+        del block_number, timestamp
+        return True
 
 
 class EOFv1(Prague, solc_name="cancun"):
