@@ -13,7 +13,7 @@ Test fixtures for use by clients are available for each release on the [Github r
 #### `fill`
 
 - 🐞 Allow `evmone` to fill Prague and Osaka blockchain tests (mainly modified deposit contract tests) ([#1689](https://github.com/ethereum/execution-specs/pull/1689)).
-- 🐞 Turn off Block-Level Access List related checks when filling tests for Amsterdam ([#1737](https://github.com/ethereum/execution-specs/pull/1737))
+- 🐞 Turn off Block-Level Access List related checks when filling tests for Amsterdam ([#1737](https://github.com/ethereum/execution-specs/pull/1737)).
 
 #### `consume`
 
