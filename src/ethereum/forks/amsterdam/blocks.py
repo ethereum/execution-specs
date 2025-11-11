@@ -19,6 +19,7 @@ from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32
 
+from .block_access_lists.rlp_types import BlockAccessList
 from .fork_types import Address, Bloom, Root
 from .transactions import (
     AccessListTransaction,
@@ -242,6 +243,16 @@ class Header:
     [SHA2-256]: https://en.wikipedia.org/wiki/SHA-2
     """
 
+    block_access_list_hash: Hash32
+    """
+    [SHA2-256] hash of the Block Access List containing all accounts and
+    storage locations accessed during block execution. Introduced in
+    [EIP-7928]. See [`compute_block_access_list_hash`][cbalh] for more
+    details.
+    [EIP-7928]: https://eips.ethereum.org/EIPS/eip-7928
+    [cbalh]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_utils.compute_block_access_list_hash  # noqa: E501
+    """
+
 
 @slotted_freezable
 @dataclass
@@ -293,6 +304,13 @@ class Block:
     withdrawals: Tuple[Withdrawal, ...]
     """
     A tuple of withdrawals processed in this block.
+    """
+
+    block_access_list: BlockAccessList
+    """
+    Block Access List containing all accounts and storage locations accessed
+    during block execution. Introduced in [EIP-7928].
+    [EIP-7928]: https://eips.ethereum.org/EIPS/eip-7928
     """
 
 
