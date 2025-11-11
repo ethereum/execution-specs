@@ -2,10 +2,8 @@
 
 import pytest
 from execution_testing import (
-    Alloc,
     BenchmarkTestFiller,
     ExtCallGenerator,
-    Fork,
     JumpLoopGenerator,
     Op,
 )
@@ -70,25 +68,15 @@ def test_swap(
 )
 def test_dup(
     benchmark_test: BenchmarkTestFiller,
-    pre: Alloc,
-    fork: Fork,
     opcode: Op,
 ) -> None:
     """Benchmark DUP instruction."""
-    max_stack_height = fork.max_stack_height()
-
     min_stack_height = opcode.min_stack_height
-    code = Op.PUSH0 * min_stack_height + opcode * (
-        max_stack_height - min_stack_height
-    )
-    target_contract_address = pre.deploy_contract(code=code)
-
-    attack_block = Op.POP(
-        Op.STATICCALL(Op.GAS, target_contract_address, 0, 0, 0, 0)
-    )
-
     benchmark_test(
-        code_generator=JumpLoopGenerator(attack_block=attack_block),
+        code_generator=ExtCallGenerator(
+            setup=Op.PUSH0 * min_stack_height,
+            attack_block=opcode,
+        ),
     )
 
 

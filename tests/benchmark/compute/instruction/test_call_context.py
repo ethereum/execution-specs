@@ -43,8 +43,8 @@ def test_calldatasize(
 ) -> None:
     """Benchmark CALLDATASIZE instruction."""
     benchmark_test(
-        code_generator=JumpLoopGenerator(
-            attack_block=Op.POP(Op.CALLDATASIZE),
+        code_generator=ExtCallGenerator(
+            attack_block=Op.CALLDATASIZE,
             tx_kwargs={"data": b"\x00" * calldata_length},
         ),
     )
