@@ -43,7 +43,7 @@ def test_block_context_ops(
         1,
         256,
         257,
-        None,
+        pytest.param(None, id="random"),
     ],
 )
 def test_blockhash(

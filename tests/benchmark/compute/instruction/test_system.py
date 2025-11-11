@@ -453,7 +453,9 @@ def test_return_revert(
     )
     benchmark_test(
         code_generator=ExtCallGenerator(
-            setup=mem_preparation, attack_block=opcode(size=return_size)
+            setup=mem_preparation,
+            attack_block=opcode(size=return_size),
+            code_padding_opcode=Op.INVALID,
         ),
     )
 

@@ -76,7 +76,10 @@ class ExtCallGenerator(BenchmarkCodeGenerator):
 
         code = self.setup + self.attack_block * max_iterations
         # Pad the code to the maximum code size.
-        code += Op.STOP * (fork.max_code_size() - len(code))
+        if self.code_padding_opcode is not None:
+            code += self.code_padding_opcode * (
+                fork.max_code_size() - len(code)
+            )
 
         self._validate_code_size(code, fork)
 

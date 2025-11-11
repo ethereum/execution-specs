@@ -61,7 +61,7 @@ def test_keccak_max_permutations(
 
     benchmark_test(
         code_generator=JumpLoopGenerator(
-            setup=Op.PUSH20(optimal_input_length),
+            setup=Op.PUSH20[optimal_input_length],
             attack_block=Op.POP(Op.SHA3(Op.PUSH0, Op.DUP1)),
         ),
     )

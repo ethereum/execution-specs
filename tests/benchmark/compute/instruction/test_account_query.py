@@ -4,7 +4,7 @@ current executing account or on a target account.
 """
 
 import math
-from typing import Dict
+from typing import Any
 
 import pytest
 from execution_testing import (
@@ -25,7 +25,6 @@ from execution_testing import (
     While,
     compute_create2_address,
 )
-from execution_testing.base_types.conversions import NumberConvertible
 
 from tests.benchmark.compute.helpers import (
     XOR_TABLE,
@@ -89,7 +88,9 @@ def test_codecopy(
 
     benchmark_test(
         code_generator=JumpLoopGenerator(
-            setup=setup, attack_block=attack_block
+            setup=setup,
+            attack_block=attack_block,
+            code_padding_opcode=Op.STOP,
         )
     )
 
@@ -348,7 +349,7 @@ def test_extcodecopy_warm(
     ],
 )
 @pytest.mark.parametrize(
-    "empty_account",
+    "empty_code",
     [
         True,
         False,
@@ -372,7 +373,7 @@ def test_ext_account_query_warm(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     opcode: Op,
-    empty_account: bool,
+    empty_code: bool,
     initial_balance: bool,
     initial_storage: bool,
 ) -> None:
@@ -381,32 +382,24 @@ def test_ext_account_query_warm(
     for an account.
     """
     # Setup
-    target_addr = Address()
-    if not initial_balance and not initial_storage:
-        target_addr = pre.empty_account()
-    elif initial_balance or initial_storage:
-        target_addr = pre.fund_eoa(
-            storage={0: 0x1337} if initial_storage else {0: 0}
-        )
-
     post = {}
-    if not empty_account:
-        code = Op.STOP + Op.JUMPDEST * 100
 
-        storage: Dict[NumberConvertible, NumberConvertible] = (
-            {0: 0x1337} if initial_storage else {0: 0}
-        )
-        target_addr = pre.deploy_contract(
-            balance=initial_balance,
-            code=code,
-            storage=storage,
-        )
+    if not initial_balance and not initial_storage and empty_code:
+        target_addr = pre.empty_account()
+    else:
+        kwargs: dict[str, Any] = {}
+        if initial_balance:
+            kwargs["balance"] = 100
+        if initial_storage:
+            kwargs["storage"] = {0: 0x1337}
 
-        post[target_addr] = Account(
-            balance=initial_balance,
-            code=code,
-            storage=storage,
-        )
+        if empty_code:
+            target_addr = pre.fund_eoa(**kwargs)
+        else:
+            code = Op.STOP + Op.JUMPDEST * 100
+            kwargs["code"] = code
+            target_addr = pre.deploy_contract(**kwargs)
+            post[target_addr] = Account(**kwargs)
 
     benchmark_test(
         post=post,

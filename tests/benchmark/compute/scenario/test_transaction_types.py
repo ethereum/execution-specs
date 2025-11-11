@@ -83,10 +83,11 @@ def get_single_receiver_list(
         yield receiver
 
 
+@pytest.fixture
 def ether_transfer_case(
     case_id: str, pre: Alloc, balance: int
 ) -> Tuple[Generator[Address, None, None], Generator[Address, None, None]]:
-    """Generate the test parameters based on the case ID."""
+    """Generate sender and receiver generators based on the test case."""
     if case_id == "a_to_a":
         """Sending to self."""
         senders = get_single_sender_list(pre)
@@ -137,6 +138,9 @@ def test_block_full_of_ether_transfers(
     iteration_count: int,
     transfer_amount: int,
     intrinsic_cost: int,
+    ether_transfer_case: Tuple[
+        Generator[Address, None, None], Generator[Address, None, None]
+    ],
 ) -> None:
     """
     Single test for ether transfer scenarios.
@@ -148,7 +152,7 @@ def test_block_full_of_ether_transfers(
     - a_to_diff_acc: one sender → multiple receivers
     - diff_acc_to_diff_acc: multiple senders → multiple receivers
     """
-    senders, receivers = ether_transfer_case(case_id, pre, balance)
+    senders, receivers = ether_transfer_case
 
     # Create a single block with all transactions
     txs = []
