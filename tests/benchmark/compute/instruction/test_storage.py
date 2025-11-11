@@ -255,22 +255,24 @@ def test_storage_access_cold(
         + Op.RETURN(0, Op.MSIZE)
     )
     sender_addr = pre.fund_eoa()
-    setup_tx = Transaction(
-        to=None,
-        gas_limit=env.gas_limit,
-        data=creation_code,
-        sender=sender_addr,
-    )
+    with TestPhaseManager.setup():
+        setup_tx = Transaction(
+            to=None,
+            gas_limit=env.gas_limit,
+            data=creation_code,
+            sender=sender_addr,
+        )
 
     blocks = [Block(txs=[setup_tx])]
 
     contract_address = compute_create_address(address=sender_addr, nonce=0)
 
-    op_tx = Transaction(
-        to=contract_address,
-        gas_limit=gas_benchmark_value,
-        sender=pre.fund_eoa(),
-    )
+    with TestPhaseManager.execution():
+        op_tx = Transaction(
+            to=contract_address,
+            gas_limit=gas_benchmark_value,
+            sender=pre.fund_eoa(),
+        )
     blocks.append(Block(txs=[op_tx]))
 
     benchmark_test(

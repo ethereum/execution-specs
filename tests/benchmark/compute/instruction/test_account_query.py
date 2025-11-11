@@ -30,6 +30,7 @@ from execution_testing import (
     Hash,
     JumpLoopGenerator,
     Op,
+    TestPhaseManager,
     Transaction,
     While,
     compute_create2_address,
@@ -244,13 +245,14 @@ def test_extcode_ops(
     )
     factory_caller_address = pre.deploy_contract(code=factory_caller_code)
 
-    contracts_deployment_tx = Transaction(
-        to=factory_caller_address,
-        gas_limit=env.gas_limit,
-        gas_price=10**6,
-        data=Hash(num_contracts),
-        sender=pre.fund_eoa(),
-    )
+    with TestPhaseManager.setup():
+        contracts_deployment_tx = Transaction(
+            to=factory_caller_address,
+            gas_limit=env.gas_limit,
+            gas_price=10**6,
+            data=Hash(num_contracts),
+            sender=pre.fund_eoa(),
+        )
 
     post = {}
     deployed_contract_addresses = []
@@ -293,12 +295,14 @@ def test_extcode_ops(
             f"code size {max_contract_size}"
         )
     opcode_address = pre.deploy_contract(code=attack_code)
-    opcode_tx = Transaction(
-        to=opcode_address,
-        gas_limit=attack_gas_limit,
-        gas_price=10**9,
-        sender=pre.fund_eoa(),
-    )
+
+    with TestPhaseManager.execution():
+        opcode_tx = Transaction(
+            to=opcode_address,
+            gas_limit=attack_gas_limit,
+            gas_price=10**9,
+            sender=pre.fund_eoa(),
+        )
 
     blockchain_test(
         pre=pre,
@@ -488,11 +492,12 @@ def test_ext_account_query_cold(
             code=factory_code, balance=10**18
         )
 
-        setup_tx = Transaction(
-            to=factory_address,
-            gas_limit=env.gas_limit,
-            sender=pre.fund_eoa(),
-        )
+        with TestPhaseManager.setup():
+            setup_tx = Transaction(
+                to=factory_address,
+                gas_limit=env.gas_limit,
+                sender=pre.fund_eoa(),
+            )
         blocks.append(Block(txs=[setup_tx]))
 
         for i in range(num_target_accounts):
@@ -510,11 +515,13 @@ def test_ext_account_query_cold(
         + Op.ISZERO,
     )
     op_address = pre.deploy_contract(code=op_code)
-    op_tx = Transaction(
-        to=op_address,
-        gas_limit=attack_gas_limit,
-        sender=pre.fund_eoa(),
-    )
+
+    with TestPhaseManager.execution():
+        op_tx = Transaction(
+            to=op_address,
+            gas_limit=attack_gas_limit,
+            sender=pre.fund_eoa(),
+        )
     blocks.append(Block(txs=[op_tx]))
 
     benchmark_test(

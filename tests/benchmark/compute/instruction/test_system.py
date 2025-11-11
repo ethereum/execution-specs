@@ -30,6 +30,7 @@ from execution_testing import (
     JumpLoopGenerator,
     Op,
     StateTestFiller,
+    TestPhaseManager,
     Transaction,
     While,
     compute_create2_address,
@@ -176,13 +177,14 @@ def test_xcall(
     )
     factory_caller_address = pre.deploy_contract(code=factory_caller_code)
 
-    contracts_deployment_tx = Transaction(
-        to=factory_caller_address,
-        gas_limit=env.gas_limit,
-        gas_price=10**6,
-        data=Hash(num_contracts),
-        sender=pre.fund_eoa(),
-    )
+    with TestPhaseManager.setup():
+        contracts_deployment_tx = Transaction(
+            to=factory_caller_address,
+            gas_limit=env.gas_limit,
+            gas_price=10**6,
+            data=Hash(num_contracts),
+            sender=pre.fund_eoa(),
+        )
 
     post = {}
     deployed_contract_addresses = []
@@ -225,12 +227,14 @@ def test_xcall(
             f"code size {max_contract_size}"
         )
     opcode_address = pre.deploy_contract(code=attack_code)
-    opcode_tx = Transaction(
-        to=opcode_address,
-        gas_limit=attack_gas_limit,
-        gas_price=10**9,
-        sender=pre.fund_eoa(),
-    )
+
+    with TestPhaseManager.execution():
+        opcode_tx = Transaction(
+            to=opcode_address,
+            gas_limit=attack_gas_limit,
+            gas_price=10**9,
+            sender=pre.fund_eoa(),
+        )
 
     blockchain_test(
         pre=pre,
@@ -567,12 +571,13 @@ def test_selfdestruct_existing(
     )
     factory_caller_address = pre.deploy_contract(code=factory_caller_code)
 
-    contracts_deployment_tx = Transaction(
-        to=factory_caller_address,
-        gas_limit=env.gas_limit,
-        data=Hash(num_contracts),
-        sender=pre.fund_eoa(),
-    )
+    with TestPhaseManager.setup():
+        contracts_deployment_tx = Transaction(
+            to=factory_caller_address,
+            gas_limit=env.gas_limit,
+            data=Hash(num_contracts),
+            sender=pre.fund_eoa(),
+        )
 
     code = (
         # Setup memory for later CREATE2 address generation loop.
@@ -595,11 +600,12 @@ def test_selfdestruct_existing(
 
     # The 0 storage slot is initialize to avoid creation costs in SSTORE above.
     code_addr = pre.deploy_contract(code=code, storage={0: 1})
-    opcode_tx = Transaction(
-        to=code_addr,
-        gas_limit=attack_gas_limit,
-        sender=pre.fund_eoa(),
-    )
+    with TestPhaseManager.execution():
+        opcode_tx = Transaction(
+            to=code_addr,
+            gas_limit=attack_gas_limit,
+            sender=pre.fund_eoa(),
+        )
 
     post = {
         factory_address: Account(storage={0: num_contracts}),

@@ -19,6 +19,7 @@ from execution_testing import (
     Block,
     ExtCallGenerator,
     Op,
+    TestPhaseManager,
 )
 
 
@@ -66,7 +67,8 @@ def test_blockhash(
 ) -> None:
     """Benchmark BLOCKHASH instruction accessing oldest allowed block."""
     # Create `chain_length` dummy blocks to fill the blockhash window.
-    blocks = [Block()] * chain_length
+    with TestPhaseManager.setup():
+        blocks = [Block()] * chain_length
 
     block_number = Op.AND(Op.GAS, 0xFF) if index is None else index
 
