@@ -252,9 +252,11 @@ def process_create_message(message: Message) -> Evm:
     # added to SELFDESTRUCT by EIP-6780.
     mark_account_created(state, message.current_target)
 
-    increment_nonce(
-        state, message.current_target, message.block_env.block_state_changes
-    )
+    # Create a temporary child frame for tracking changes that may be rolled
+    # back on OOG during code deposit. This frame is merged only on success.
+    create_frame = create_child_frame(message.block_env.block_state_changes)
+
+    increment_nonce(state, message.current_target, create_frame)
     evm = process_message(message)
     if not evm.error:
         contract_code = evm.output
@@ -268,6 +270,9 @@ def process_create_message(message: Message) -> Evm:
                 raise OutOfGasError
         except ExceptionalHalt as error:
             rollback_transaction(state, transient_storage)
+            # Merge create_frame on failure - keeps reads, discards writes
+            # (address access is preserved, nonce change is discarded)
+            create_frame.merge_on_failure()
             evm.gas_left = Uint(0)
             evm.output = b""
             evm.error = error
@@ -276,9 +281,11 @@ def process_create_message(message: Message) -> Evm:
                 state,
                 message.current_target,
                 contract_code,
-                message.block_env.block_state_changes,
+                create_frame,
             )
             commit_transaction(state, transient_storage)
+            # Merge create_frame on success - includes nonce and code changes
+            create_frame.merge_on_success()
     else:
         rollback_transaction(state, transient_storage)
     return evm
