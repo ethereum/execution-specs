@@ -318,6 +318,87 @@ REFERENCE_SPEC_VERSION = "5c8f066acb210c704ef80c1033a941aa5374aac5"
             ),
             id="immunefi-38958-by-omik-overflow",
         ),
+        pytest.param(
+            ModExpInput(
+                base="03",
+                exponent="52",
+                modulus=8 * "ff" + 8 * "00",
+            ),
+            ModExpOutput(
+                returned_data="e8ca816be3ddb8a1243d253d80487649",
+            ),
+            id="mod-16-even-ctz-8",
+        ),
+        pytest.param(
+            ModExpInput(
+                base="03",
+                exponent="83",
+                modulus=8 * "ff" + 16 * "00",
+            ),
+            ModExpOutput(
+                returned_data="b05147078624b9661557222e8610fb9986f829a99c2ede1b",
+            ),
+            id="mod-24-even-ctz-16",
+        ),
+        pytest.param(
+            ModExpInput(
+                base="03",
+                exponent="0100",
+                modulus=16 * "ff" + 24 * "00",
+            ),
+            ModExpOutput(
+                returned_data="4af58b4c59a562ee7345b3805ed8b417fed242815e55bc8375a205de07597d51"
+                "d2105f2f0730f401",
+            ),
+            id="mod-40-even-ctz-24",
+        ),
+        pytest.param(
+            ModExpInput(
+                base="03",
+                exponent="0200",
+                modulus=40 * "ff" + 32 * "00",
+            ),
+            ModExpOutput(
+                returned_data="e33fcb0f1a5abfca90c5036512aca2cb657acf53b0e31fed3e122d5dec19ee8c"
+                "2e60be065d0b77059483760fbd2a7e5335bd075f4d13ebbd7679ef1b4306890c"
+                "1d660d1276f1e801",
+            ),
+            id="mod-72-even-ctz-32",
+        ),
+        pytest.param(
+            ModExpInput(
+                base="03",
+                exponent="0300",
+                modulus=96 * "ff" + 40 * "00",
+            ),
+            ModExpOutput(
+                returned_data="4059444789547ff685087bca8a144d32556b2251613171aa4cf05d8a005015d9"
+                "b8408ba5f7c89595e76d925173cf80e552a856b1ce217c1f33940f8241e6adcf"
+                "76b672c4935a40f4bb36410ee24654c114cd718bea878742c703dc5abddbdbfa"
+                "17d12328a2a6bb9d6e80dc0bc224eef03128625977a1e2c1d189336e303567d7"
+                "442488538f42dc01",
+            ),
+            id="mod-136-even-ctz-40",
+        ),
+        pytest.param(
+            ModExpInput(
+                base="03",
+                exponent="0600",
+                modulus=216 * "ff" + 48 * "00",
+            ),
+            ModExpOutput(
+                returned_data="b2eb4387ee3ad0b4cfe1e05b3962718e2de238b02cc2c2ce80ae1a3c13ffe387"
+                "2a5b829fc77634ec4b2d07f57862a019d4e7a3dc035851d60a4dabfed7bc5a2d"
+                "44d5f7840e621678a3dbfeb9c37a78350e7f98e1440cc8d7d601be78db75e3ed"
+                "79a1b5200f3290263da23ee75df076a34b600b670226e21aee2ccfaa51aa7ad2"
+                "76b55e50ca6c4854070e5f115a377f2b4177fd5f3803408989454bf61789f4b1"
+                "4241d7e0cf2606929f8d5da04c743e3b44a9d692e60bfcd077ab7cc8ad3d70ec"
+                "eac9a053acb9f436612e986706f715c3580fbe4b0485724f9363912131c1dedb"
+                "9706f4241afc62d706153951fe69b5b5b754d8301063494791b58250ebf50ad9"
+                "a78f7be54b95b801",
+            ),
+            id="mod-264-even-ctz-48",
+        ),
     ],
     ids=lambda param: param.__repr__(),  # only required to remove parameter
     # names (input/output)

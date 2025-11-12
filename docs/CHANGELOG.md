@@ -31,7 +31,7 @@ Test fixtures for use by clients are available for each release on the [Github r
 - ✨ Add a CREATE/2 test cases for when it runs OOG on code deposit ([#1705](https://github.com/ethereum/execution-specs/pull/1705)).
 - ✨ Expand cases to test *CALL opcodes causing OOG ([#1703](https://github.com/ethereum/execution-specs/pull/1703)).
 - ✨ Add a test case for base fee in block check after London ([#1702](https://github.com/ethereum/execution-specs/pull/1702)).
-- ✨ Add tests for `modexp` and `ripemd` precompiled contracts ([#1691](https://github.com/ethereum/execution-specs/pull/1691)).
+- ✨ Add tests for `modexp` and `ripemd` precompiled contracts ([#1691](https://github.com/ethereum/execution-specs/pull/1691), [#1781](https://github.com/ethereum/execution-specs/pull/1781)).
 - ✨ Add `ecrecover` precompile tests originating form `evmone` unittests ([#1685](https://github.com/ethereum/execution-specs/pull/1685)).
 - ✨ Add test to validate withdarawls root ([#1746](https://github.com/ethereum/execution-specs/pull/1746)).
 - ✨ Add test for old behavior of zero gasprice txs ([#1736](https://github.com/ethereum/execution-specs/pull/1736)).
