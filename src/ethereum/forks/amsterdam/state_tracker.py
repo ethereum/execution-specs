@@ -56,8 +56,8 @@ class StateChanges:
     nonce_changes: Set[Tuple[Address, BlockAccessIndex, U64]] = field(
         default_factory=set
     )
-    code_changes: Set[Tuple[Address, BlockAccessIndex, Bytes]] = field(
-        default_factory=set
+    code_changes: Dict[Tuple[Address, BlockAccessIndex], Bytes] = field(
+        default_factory=dict
     )
 
     # Pre-state captures for net-zero filtering
@@ -66,6 +66,7 @@ class StateChanges:
     pre_storage: Dict[Tuple[Address, Bytes32], U256] = field(
         default_factory=dict
     )
+    pre_code: Dict[Address, Bytes] = field(default_factory=dict)
 
     def get_block_access_index(self) -> BlockAccessIndex:
         """Get current block access index by walking to root."""
@@ -91,6 +92,11 @@ class StateChanges:
         slot = (address, key)
         if slot not in self.pre_storage:
             self.pre_storage[slot] = value
+
+    def capture_pre_code(self, address: Address, code: Bytes) -> None:
+        """Capture pre-code (first-write-wins)."""
+        if address not in self.pre_code:
+            self.pre_code[address] = code
 
     def track_address(self, address: Address) -> None:
         """Track that an address was accessed."""
@@ -125,9 +131,7 @@ class StateChanges:
 
     def track_code_change(self, address: Address, new_code: Bytes) -> None:
         """Track a code change."""
-        self.code_changes.add(
-            (address, self.get_block_access_index(), new_code)
-        )
+        self.code_changes[(address, self.get_block_access_index())] = new_code
 
     def increment_index(self) -> None:
         """Increment block access index by walking to root."""
@@ -163,6 +167,9 @@ class StateChanges:
         for slot, value in self.pre_storage.items():
             if slot not in self.parent.pre_storage:
                 self.parent.pre_storage[slot] = value
+        for addr, code in self.pre_code.items():
+            if addr not in self.parent.pre_code:
+                self.parent.pre_code[addr] = code
 
         # Merge storage operations, filtering noop writes
         self.parent.storage_reads.update(self.storage_reads)
@@ -205,19 +212,17 @@ class StateChanges:
         for addr, (idx, final_nonce) in address_final_nonces.items():
             self.parent.nonce_changes.add((addr, idx, final_nonce))
 
-        # Merge code changes - keep only latest code per address
-        address_final_code: Dict[Address, Tuple[BlockAccessIndex, Bytes]] = {}
-        for addr, idx, code in self.code_changes:
-            # Keep the change with highest index (most recent)
-            if (
-                addr not in address_final_code
-                or idx >= address_final_code[addr][0]
-            ):
-                address_final_code[addr] = (idx, code)
-
-        # Merge final code changes
-        for addr, (idx, final_code) in address_final_code.items():
-            self.parent.code_changes.add((addr, idx, final_code))
+        # Merge code changes - filter net-zero changes
+        # code_changes keyed by (address, index)
+        for (addr, idx), final_code in self.code_changes.items():
+            if addr in self.pre_code:
+                if self.pre_code[addr] != final_code:
+                    # Net change occurred - merge the final code
+                    self.parent.code_changes[(addr, idx)] = final_code
+                # else: Net-zero change - skip entirely
+            else:
+                # No pre-code captured, merge as-is
+                self.parent.code_changes[(addr, idx)] = final_code
 
     def merge_on_failure(self) -> None:
         """
@@ -275,11 +280,8 @@ def handle_in_transaction_selfdestruct(
     }
 
     # Remove code changes from current transaction
-    state_changes.code_changes = {
-        (addr, idx, code)
-        for addr, idx, code in state_changes.code_changes
-        if not (addr == address and idx == current_block_access_index)
-    }
+    if (address, current_block_access_index) in state_changes.code_changes:
+        del state_changes.code_changes[(address, current_block_access_index)]
 
     # Convert storage writes from current transaction to reads
     for (addr, key), (idx, _value) in list(
