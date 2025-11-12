@@ -261,6 +261,9 @@ def set_delegation(message: Message) -> U256:
             message.transaction_state_changes
             or message.block_env.block_state_changes
         )
+
+        # Capture pre-code just before setting to enable no-op filtering
+        state_changes.capture_pre_code(authority, authority_code)
         set_code(state, authority, code_to_set, state_changes)
         increment_nonce(state, authority, state_changes)
 

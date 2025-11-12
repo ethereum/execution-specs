@@ -608,3 +608,58 @@ def test_bal_7702_delegated_via_call_opcode(
         blocks=[block],
         post=post,
     )
+
+
+def test_bal_7702_null_address_delegation_no_code_change(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Ensure BAL does not record spurious code changes when delegating to
+    NULL_ADDRESS (sets code to empty on an account that already has
+    empty code).
+    """
+    alice = pre.fund_eoa()
+    bob = pre.fund_eoa(amount=0)
+
+    tx = Transaction(
+        sender=alice,
+        to=bob,
+        value=10,
+        gas_limit=1_000_000,
+        authorization_list=[
+            AuthorizationTuple(
+                address=0,
+                nonce=1,
+                signer=alice,
+            )
+        ],
+    )
+
+    # `alice` should appear in BAL with nonce change only, NOT code change
+    # because setting code from b"" to b"" is a net-zero change
+    account_expectations = {
+        alice: BalAccountExpectation(
+            nonce_changes=[BalNonceChange(tx_index=1, post_nonce=2)],
+            code_changes=[],  # explicit check for no code changes
+        ),
+        bob: BalAccountExpectation(
+            balance_changes=[BalBalanceChange(tx_index=1, post_balance=10)]
+        ),
+    }
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations=account_expectations
+                ),
+            )
+        ],
+        post={
+            alice: Account(nonce=2, code=b""),
+            bob: Account(balance=10),
+        },
+    )
