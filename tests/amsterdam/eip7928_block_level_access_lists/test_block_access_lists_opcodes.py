@@ -32,6 +32,7 @@ from execution_testing import (
     Fork,
     Op,
     Transaction,
+    compute_create_address,
 )
 
 from .spec import ref_spec_7928
@@ -752,5 +753,87 @@ def test_bal_storage_write_read_cross_frame(
         post={
             alice: Account(nonce=1),
             oracle: Account(storage={0x01: 0x42}),
+        },
+    )
+
+
+def test_bal_create_oog_code_deposit(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+) -> None:
+    """
+    Ensure BAL correctly handles CREATE that runs out of gas during code
+    deposit. The contract address should appear with empty changes (read
+    during collision check) but no nonce or code changes (rolled back).
+    """
+    alice = pre.fund_eoa()
+
+    # create init code that returns a very large contract to force OOG
+    deposited_len = 10_000
+    initcode = Op.RETURN(0, deposited_len)
+
+    factory = pre.deploy_contract(
+        code=Op.MSTORE(0, Op.PUSH32(bytes(initcode)))
+        + Op.SSTORE(
+            1, Op.CREATE(offset=32 - len(initcode), size=len(initcode))
+        )
+        + Op.STOP,
+        storage={1: 0xDEADBEEF},
+    )
+
+    contract_address = compute_create_address(address=factory, nonce=1)
+
+    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
+    intrinsic_gas = intrinsic_gas_calculator(
+        calldata=b"",
+        contract_creation=False,
+        access_list=[],
+    )
+
+    tx = Transaction(
+        sender=alice,
+        to=factory,
+        gas_limit=intrinsic_gas + 500_000,  # insufficient for deposit
+    )
+
+    # BAL expectations:
+    # - Alice: nonce change (tx sender)
+    # - Factory: nonce change (CREATE increments factory nonce)
+    # - Contract address: empty changes (read during collision check,
+    #   nonce/code changes rolled back on OOG)
+    account_expectations = {
+        alice: BalAccountExpectation(
+            nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+        ),
+        factory: BalAccountExpectation(
+            nonce_changes=[BalNonceChange(tx_index=1, post_nonce=2)],
+            storage_changes=[
+                BalStorageSlot(
+                    slot=1,
+                    slot_changes=[
+                        # SSTORE saves 0 (CREATE failed)
+                        BalStorageChange(tx_index=1, post_value=0),
+                    ],
+                )
+            ],
+        ),
+        contract_address: BalAccountExpectation.empty(),
+    }
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations=account_expectations
+                ),
+            )
+        ],
+        post={
+            alice: Account(nonce=1),
+            factory: Account(nonce=2, storage={1: 0}),
+            contract_address: Account.NONEXISTENT,
         },
     )
