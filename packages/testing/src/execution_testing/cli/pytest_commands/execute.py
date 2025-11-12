@@ -76,7 +76,7 @@ eth_config = _create_execute_subcommand(
     ],
     command_logic_test_paths=[
         Path(
-            "execution_testing/cli/pytest_commands/plugins/execute/eth_config/execute_eth_config.py"
+            "cli/pytest_commands/plugins/execute/eth_config/execute_eth_config.py"
         )
     ],
 )
@@ -87,13 +87,13 @@ recover = _create_execute_subcommand(
     "Recover funds from test executions using a remote RPC endpoint.",
     required_args=[
         "--rpc-endpoint=http://localhost:8545",
-        "--rpc-chain-id=1",
+        "--chain-id=1",
         "--start-eoa-index=1",
         "--destination=0x0000000000000000000000000000000000000000",
     ],
     command_logic_test_paths=[
         Path(
-            "execution_testing/cli/pytest_commands/plugins/execute/execute_recover.py"
+            "cli/pytest_commands/plugins/execute/execute_recover.py"
         )
     ],
 )

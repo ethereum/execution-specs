@@ -174,7 +174,7 @@ def pytest_configure(config: pytest.Config) -> None:
 
     # Configure the chain ID for the tests.
     rpc_chain_id = config.getoption("rpc_chain_id", None)
-    chain_id = config.getoption("chain_id")
+    chain_id = config.getoption("chain_id", None)
     if rpc_chain_id is not None or chain_id is not None:
         if rpc_chain_id is not None and chain_id is not None:
             if chain_id != rpc_chain_id:
