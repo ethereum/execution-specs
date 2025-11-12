@@ -513,7 +513,10 @@ def build_block_access_list(
         add_nonce_change(builder, address, block_access_index, new_nonce)
 
     # Add all code changes
-    for address, block_access_index, new_code in state_changes.code_changes:
+    for (
+        address,
+        block_access_index,
+    ), new_code in state_changes.code_changes.items():
         add_code_change(builder, address, block_access_index, new_code)
 
     return _build_from_builder(builder)
