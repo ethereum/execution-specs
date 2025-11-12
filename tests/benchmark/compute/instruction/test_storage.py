@@ -48,7 +48,7 @@ def test_tload(
     if fixed_key and fixed_value:
         attack_block = Op.TLOAD(Op.CALLDATASIZE)
 
-    tx_data = b"42" if fixed_key and not fixed_value else 0
+    tx_data = b"42" if fixed_key and not fixed_value else b""
 
     benchmark_test(
         code_generator=ExtCallGenerator(

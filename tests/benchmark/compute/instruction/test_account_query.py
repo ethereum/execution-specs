@@ -393,22 +393,26 @@ def test_ext_account_query_warm(
     # Setup
     post = {}
 
+    # Case 1: Completely empty account (no balance, no storage, no code)
     if not initial_balance and not initial_storage and empty_code:
         target_addr = pre.empty_account()
-    else:
-        kwargs: dict[str, Any] = {}
+    # Case 2: EOA with optional balance and storage
+    elif empty_code:
+        eoa_kwargs: dict[str, Any] = {}
         if initial_balance:
-            kwargs["balance"] = 100
+            eoa_kwargs["amount"] = 100
         if initial_storage:
-            kwargs["storage"] = {0: 0x1337}
-
-        if empty_code:
-            target_addr = pre.fund_eoa(**kwargs)
-        else:
-            code = Op.STOP + Op.JUMPDEST * 100
-            kwargs["code"] = code
-            target_addr = pre.deploy_contract(**kwargs)
-            post[target_addr] = Account(**kwargs)
+            eoa_kwargs["storage"] = {0: 0x1337}
+        target_addr = pre.fund_eoa(**eoa_kwargs)
+    # Case 3: Contract with optional balance and storage
+    else:
+        contract_kwargs: dict[str, Any] = {"code": Op.STOP + Op.JUMPDEST * 100}
+        if initial_balance:
+            contract_kwargs["balance"] = 100
+        if initial_storage:
+            contract_kwargs["storage"] = {0: 0x1337}
+        target_addr = pre.deploy_contract(**contract_kwargs)
+        post[target_addr] = Account(**contract_kwargs)
 
     benchmark_test(
         post=post,
