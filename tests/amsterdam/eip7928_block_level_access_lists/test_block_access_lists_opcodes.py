@@ -837,3 +837,76 @@ def test_bal_create_oog_code_deposit(
             contract_address: Account.NONEXISTENT,
         },
     )
+
+
+def test_bal_sstore_static_context(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Ensure BAL does not record storage reads when SSTORE fails in static
+    context.
+
+    Contract A makes STATICCALL to Contract B. Contract B attempts SSTORE,
+    which should fail immediately without recording any storage reads.
+    """
+    alice = pre.fund_eoa()
+
+    contract_b = pre.deploy_contract(code=Op.SSTORE(0, 5))
+
+    # Contract A makes STATICCALL to Contract B
+    # The STATICCALL will fail because B tries SSTORE in static context
+    # But contract_a continues and writes to its own storage
+    contract_a = pre.deploy_contract(
+        code=Op.STATICCALL(
+            gas=1_000_000,
+            address=contract_b,
+            args_offset=0,
+            args_size=0,
+            ret_offset=0,
+            ret_size=0,
+        )
+        + Op.POP  # pop the return value (0 = failure)
+        + Op.SSTORE(0, 1)  # this should succeed (non-static context)
+    )
+
+    tx = Transaction(
+        sender=alice,
+        to=contract_a,
+        gas_limit=2_000_000,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(tx_index=1, post_nonce=1)
+                            ],
+                        ),
+                        contract_a: BalAccountExpectation(
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=0x00,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            tx_index=1, post_value=1
+                                        ),
+                                    ],
+                                ),
+                            ],
+                        ),
+                        contract_b: BalAccountExpectation.empty(),
+                    }
+                ),
+            )
+        ],
+        post={
+            contract_a: Account(storage={0: 1}),
+            contract_b: Account(storage={0: 0}),  # SSTORE failed
+        },
+    )
