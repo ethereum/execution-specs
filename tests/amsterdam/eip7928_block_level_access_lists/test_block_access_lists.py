@@ -1925,3 +1925,92 @@ def test_bal_nonexistent_account_access_value_transfer(
             else Account.NONEXISTENT,
         },
     )
+
+
+def test_bal_multiple_balance_changes_same_account(
+    pre: Alloc,
+    fork: Fork,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Ensure BAL correctly tracks multiple balance changes to same account
+    across multiple transactions.
+
+    An account that receives funds in TX0 and spends them in TX1 should
+    have TWO balance change entries in the BAL, one for each transaction.
+    """
+    alice = pre.fund_eoa()
+    bob = pre.fund_eoa(amount=0)
+    charlie = pre.fund_eoa(amount=0)
+
+    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
+    tx_intrinsic_gas = intrinsic_gas_calculator(calldata=b"", access_list=[])
+
+    # bob receives funds in tx0, then spends everything in tx1
+    gas_price = 10
+    tx1_gas_cost = tx_intrinsic_gas * gas_price
+    spend_amount = 100
+    funding_amount = tx1_gas_cost + spend_amount
+
+    tx0 = Transaction(
+        sender=alice,
+        to=bob,
+        value=funding_amount,
+        gas_limit=tx_intrinsic_gas,
+        gas_price=gas_price,
+    )
+
+    tx1 = Transaction(
+        sender=bob,
+        to=charlie,
+        value=spend_amount,
+        gas_limit=tx_intrinsic_gas,
+        gas_price=gas_price,
+    )
+
+    bob_balance_after_tx0 = funding_amount
+    bob_balance_after_tx1 = 0
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx0, tx1],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(tx_index=1, post_nonce=1)
+                            ],
+                        ),
+                        bob: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(tx_index=2, post_nonce=1)
+                            ],
+                            balance_changes=[
+                                BalBalanceChange(
+                                    tx_index=1,
+                                    post_balance=bob_balance_after_tx0,
+                                ),
+                                BalBalanceChange(
+                                    tx_index=2,
+                                    post_balance=bob_balance_after_tx1,
+                                ),
+                            ],
+                        ),
+                        charlie: BalAccountExpectation(
+                            balance_changes=[
+                                BalBalanceChange(
+                                    tx_index=2, post_balance=spend_amount
+                                )
+                            ],
+                        ),
+                    }
+                ),
+            )
+        ],
+        post={
+            bob: Account(nonce=1, balance=bob_balance_after_tx1),
+            charlie: Account(balance=spend_amount),
+        },
+    )

@@ -1051,13 +1051,20 @@ def process_transaction(
 
     block_output.block_logs += tx_output.logs
 
+    # EIP-7928: Normalize balance changes for this transaction before merging
+    # into block frame.
+    normalize_balance_changes_for_transaction(
+        tx_state_changes,
+        BlockAccessIndex(tx_state_changes.get_block_access_index()),
+        block_env.state,
+    )
+
     # Merge transaction frame into block frame
     tx_state_changes.merge_on_success()
 
     # EIP-7928: Handle in-transaction self-destruct AFTER merge
     # Convert storage writes to reads and remove nonce/code changes
     # Only accounts created in same tx are in accounts_to_delete per EIP-6780
-
     for address in tx_output.accounts_to_delete:
         handle_in_transaction_selfdestruct(
             block_env.block_state_changes,
@@ -1067,17 +1074,6 @@ def process_transaction(
             ),
         )
         destroy_account(block_env.state, address)
-
-    # EIP-7928: Normalize balance changes for this transaction
-    # Remove balance changes where post-tx balance equals pre-tx balance
-
-    normalize_balance_changes_for_transaction(
-        block_env.block_state_changes,
-        BlockAccessIndex(
-            block_env.block_state_changes.get_block_access_index()
-        ),
-        block_env.state,
-    )
 
 
 def process_withdrawals(
