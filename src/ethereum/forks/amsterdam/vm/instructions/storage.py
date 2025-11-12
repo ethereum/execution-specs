@@ -90,6 +90,10 @@ def sstore(evm: Evm) -> None:
     if evm.gas_left <= GAS_CALL_STIPEND:
         raise OutOfGasError
 
+    # Check static context before accessing storage
+    if evm.message.is_static:
+        raise WriteInStaticContext
+
     state = evm.message.block_env.state
     original_value = get_storage_original(
         state, evm.message.current_target, key
@@ -129,8 +133,6 @@ def sstore(evm: Evm) -> None:
         evm.accessed_storage_keys.add((evm.message.current_target, key))
 
     charge_gas(evm, gas_cost)
-    if evm.message.is_static:
-        raise WriteInStaticContext
 
     # REFUND COUNTER
     if current_value != new_value:
