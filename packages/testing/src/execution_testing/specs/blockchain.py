@@ -729,6 +729,12 @@ class BlockchainTest(BaseTest):
         # tests
         t8n_bal = transition_tool_output.result.block_access_list
         bal = t8n_bal
+
+        # Always validate BAL structural integrity (ordering, duplicates) if present
+        if t8n_bal is not None:
+            t8n_bal.validate_structure()
+
+        # If expected BAL is defined, verify against it
         if (
             block.expected_block_access_list is not None
             and t8n_bal is not None
