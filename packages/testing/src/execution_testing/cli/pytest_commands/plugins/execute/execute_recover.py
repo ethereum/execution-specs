@@ -28,7 +28,8 @@ def test_recover_funds(
     tx_cost = refund_gas_limit * gas_price
     if remaining_balance < tx_cost:
         pytest.skip(
-            f"Balance {remaining_balance} is less than the transaction cost {tx_cost}"
+            f"Balance {remaining_balance} is less than the "
+            f"transaction cost {tx_cost}"
         )
 
     # Get the current nonce for this address from the RPC
