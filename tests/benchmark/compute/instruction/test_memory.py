@@ -112,6 +112,7 @@ def test_mcopy(
         ),
     )
 
+
 @pytest.mark.parametrize("opcode", [Op.MLOAD, Op.MSTORE, Op.MSTORE8])
 @pytest.mark.parametrize(
     "memory_layout",
@@ -130,7 +131,7 @@ def test_memory_layout_access(
 ) -> None:
     """
     Benchmark memory access with custom layouts and overwriting scenarios.
-    
+
     Variants:
     - memory_layout: Memory initialization pattern
       (sequential=stride 32, sparse=stride 1000, overlapping=stride 16)
@@ -138,7 +139,7 @@ def test_memory_layout_access(
     - opcode: Memory operation (MLOAD, MSTORE, MSTORE8)
     """
     setup = Bytecode()
-    
+
     # Initialize memory with pattern
     if memory_layout == "sequential":
         # Write sequential 32-byte words: 0, 32, 64, 96, 128...
@@ -155,24 +156,24 @@ def test_memory_layout_access(
         for i in range(20):
             setup += Op.MSTORE(i * 16, i)
         access_offset = 48  # Access overlapping region
-    
+
     # Overwrite pattern: pre-write to the access offset
     if overwrite_existing:
         if opcode == Op.MSTORE8:
             setup += Op.MSTORE8(access_offset, 0xEF)
         else:
             setup += Op.MSTORE(access_offset, 0xDEADBEEF)
-    
+
     # Prepare stack for operation
     setup += Op.PUSH1(42) + Op.PUSH2(access_offset)
-    
+
     # Attack block performs the memory operation
     attack_block = (
         Op.POP(Op.MLOAD(Op.DUP1))
         if opcode == Op.MLOAD
         else opcode(Op.DUP2, Op.DUP2)
     )
-    
+
     benchmark_test(
         code_generator=JumpLoopGenerator(
             setup=setup,
