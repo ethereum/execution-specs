@@ -27,6 +27,7 @@ from ...state import (
     move_ether,
     set_account_balance,
 )
+from ...state_tracker import capture_pre_balance, track_address
 from ...utils.address import (
     compute_contract_address,
     compute_create2_contract_address,
@@ -114,24 +115,16 @@ def generic_create(
 
     evm.accessed_addresses.add(contract_address)
 
-    evm.state_changes.track_address(contract_address)
+    track_address(evm.state_changes, contract_address)
 
     if account_has_code_or_nonce(
         state, contract_address
     ) or account_has_storage(state, contract_address):
-        increment_nonce(
-            state,
-            evm.message.current_target,
-            evm.state_changes,
-        )
+        increment_nonce(state, evm.message.current_target, evm.state_changes)
         push(evm.stack, U256(0))
         return
 
-    increment_nonce(
-        state,
-        evm.message.current_target,
-        evm.state_changes,
-    )
+    increment_nonce(state, evm.message.current_target, evm.state_changes)
 
     child_message = Message(
         block_env=evm.message.block_env,
@@ -430,7 +423,7 @@ def call(evm: Evm) -> None:
 
     check_gas(evm, message_call_gas.cost + extend_memory.cost)
 
-    evm.state_changes.track_address(to)
+    track_address(evm.state_changes, to)
     if is_delegated:
         apply_delegation_tracking(evm, original_address, final_address)
 
@@ -527,7 +520,7 @@ def callcode(evm: Evm) -> None:
 
     check_gas(evm, message_call_gas.cost + extend_memory.cost)
 
-    evm.state_changes.track_address(original_address)
+    track_address(evm.state_changes, original_address)
     if is_delegated:
         apply_delegation_tracking(evm, original_address, final_address)
 
@@ -543,8 +536,8 @@ def callcode(evm: Evm) -> None:
     # in parent frame. CALLCODE transfers value from/to current_target
     # (same address), affecting current storage context, not child frame
     if value != 0 and sender_balance >= value:
-        evm.state_changes.capture_pre_balance(
-            evm.message.current_target, sender_balance
+        capture_pre_balance(
+            evm.state_changes, evm.message.current_target, sender_balance
         )
 
     if sender_balance < value:
@@ -609,7 +602,7 @@ def selfdestruct(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_addresses.add(beneficiary)
 
-    evm.state_changes.track_address(beneficiary)
+    track_address(evm.state_changes, beneficiary)
 
     charge_gas(evm, gas_cost)
 
@@ -629,13 +622,8 @@ def selfdestruct(evm: Evm) -> None:
     # register account for deletion only if it was created
     # in the same transaction
     if originator in evm.message.block_env.state.created_accounts:
-        # If beneficiary is the same as originator, then
-        # the ether is burnt.
         set_account_balance(
-            evm.message.block_env.state,
-            originator,
-            U256(0),
-            evm.state_changes,
+            evm.message.block_env.state, originator, U256(0), evm.state_changes
         )
         evm.accounts_to_delete.add(originator)
 
@@ -698,7 +686,7 @@ def delegatecall(evm: Evm) -> None:
 
     check_gas(evm, message_call_gas.cost + extend_memory.cost)
 
-    evm.state_changes.track_address(original_address)
+    track_address(evm.state_changes, original_address)
     if is_delegated:
         apply_delegation_tracking(evm, original_address, final_address)
 
@@ -783,7 +771,7 @@ def staticcall(evm: Evm) -> None:
 
     check_gas(evm, message_call_gas.cost + extend_memory.cost)
 
-    evm.state_changes.track_address(to)
+    track_address(evm.state_changes, to)
     if is_delegated:
         apply_delegation_tracking(evm, original_address, final_address)
 
