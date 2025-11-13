@@ -25,7 +25,7 @@ from ..block_access_lists.rlp_types import BlockAccessList
 from ..blocks import Log, Receipt, Withdrawal
 from ..fork_types import Address, Authorization, VersionedHash
 from ..state import State, TransientStorage
-from ..state_tracker import StateChanges
+from ..state_tracker import StateChanges, merge_on_failure, merge_on_success
 from ..transactions import LegacyTransaction
 from ..trie import Trie
 
@@ -187,8 +187,7 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     evm.accessed_addresses.update(child_evm.accessed_addresses)
     evm.accessed_storage_keys.update(child_evm.accessed_storage_keys)
 
-    # Merge state changes from successful child frame (EIP-7928)
-    child_evm.state_changes.merge_on_success()
+    merge_on_success(child_evm.state_changes)
 
 
 def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
@@ -205,6 +204,4 @@ def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
     """
     evm.gas_left += child_evm.gas_left
 
-    # Merge state changes from failed child frame (EIP-7928)
-    # Only reads are merged, writes are discarded
-    child_evm.state_changes.merge_on_failure()
+    merge_on_failure(child_evm.state_changes)

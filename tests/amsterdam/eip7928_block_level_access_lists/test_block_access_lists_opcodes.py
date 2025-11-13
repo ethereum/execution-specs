@@ -910,3 +910,62 @@ def test_bal_sstore_static_context(
             contract_b: Account(storage={0: 0}),  # SSTORE failed
         },
     )
+
+
+def test_bal_create_contract_init_revert(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test that BAL does not include nonce/code changes when CREATE happens
+    in a call that then REVERTs.
+    """
+    alice = pre.fund_eoa(amount=10**18)
+
+    # Simple init code that returns STOP as deployed code
+    init_code_bytes = bytes(Op.RETURN(0, 1) + Op.STOP)
+
+    # Factory that does CREATE then REVERTs
+    factory = pre.deploy_contract(
+        code=Op.MSTORE(0, Op.PUSH32(init_code_bytes))
+        + Op.POP(Op.CREATE(0, 32 - len(init_code_bytes), len(init_code_bytes)))
+        + Op.REVERT(0, 0)
+    )
+
+    # A caller that CALLs factory to CREATE then REVERT
+    caller = pre.deploy_contract(code=Op.CALL(address=factory))
+
+    created_address = compute_create_address(address=factory, nonce=1)
+
+    tx = Transaction(
+        sender=alice,
+        to=caller,
+        gas_limit=500_000,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(tx_index=1, post_nonce=1)
+                            ],
+                        ),
+                        caller: BalAccountExpectation.empty(),
+                        factory: BalAccountExpectation.empty(),
+                        created_address: BalAccountExpectation.empty(),
+                    }
+                ),
+            )
+        ],
+        post={
+            alice: Account(nonce=1),
+            caller: Account(nonce=1),
+            factory: Account(nonce=1),
+            created_address: Account.NONEXISTENT,
+        },
+    )
