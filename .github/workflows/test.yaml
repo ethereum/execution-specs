@@ -101,6 +101,9 @@ jobs:
   json_infra:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
@@ -112,12 +115,30 @@ jobs:
       - uses: ./.github/actions/setup-env
       - name: Run json infra tests
         run: tox -e json_infra
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7
+      - name: Summarize coverage in GitHub summary
+        shell: bash
+        run: |
+          python - <<'PY' > coverage_pct.txt
+          import xml.etree.ElementTree as ET
+          try:
+              tree = ET.parse('.tox/coverage.xml')
+              root = tree.getroot()
+              cov = float(root.get('line-rate', '0'))
+              pct = round(cov * 100, 2)
+              print(f"Coverage: {pct}%")
+          except Exception as e:
+              print(f"Coverage: unavailable ({e})")
+          PY
+          echo "## Coverage" >> "$GITHUB_STEP_SUMMARY"
+          echo "$(cat coverage_pct.txt)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage to Codecov (required)
+        uses: codecov/codecov-action@v4
         with:
           files: .tox/coverage.xml
           flags: unittests
-          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
+          verbose: true
 
   optimized:
     runs-on: [self-hosted-ghr, size-xl-x64]
