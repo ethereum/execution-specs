@@ -27,26 +27,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="RPC endpoint to an execution client",
     )
     remote_rpc_group.addoption(
-        "--chain-id",
-        action="store",
-        dest="chain_id",
-        required=False,
-        type=int,
-        default=None,
-        help="ID of the chain where the tests will be executed.",
-    )
-    remote_rpc_group.addoption(
-        "--rpc-chain-id",
-        action="store",
-        dest="rpc_chain_id",
-        required=False,
-        type=int,
-        default=None,
-        help="DEPRECATED: ID of the chain where the tests will be executed. "
-        "This flag is deprecated and will be removed in a future release."
-        "Use --chain-id instead.",
-    )
-    remote_rpc_group.addoption(
         "--tx-wait-timeout",
         action="store",
         dest="tx_wait_timeout",
@@ -100,27 +80,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 def pytest_configure(config: pytest.Config) -> None:
     """Check if a chain ID configuration is provided."""
-    rpc_chain_id = config.getoption("rpc_chain_id", None)
-    chain_id = config.getoption("chain_id", None)
-
-    if rpc_chain_id is None and chain_id is None:
-        pytest.exit("No chain ID configuration found. Please use --chain-id.")
-
-    # Handle both --chain-id and deprecated --rpc-chain-id
-    if rpc_chain_id is not None and chain_id is not None:
-        if chain_id != rpc_chain_id:
-            pytest.exit(
-                "Conflicting chain ID configuration. "
-                "The --rpc-chain-id flag is deprecated and will be removed in a future "
-                "release. Use --chain-id instead."
-            )
-
-    # Set the chain ID
-    if chain_id is not None:
-        ChainConfigDefaults.chain_id = chain_id
-    elif rpc_chain_id is not None:
-        ChainConfigDefaults.chain_id = rpc_chain_id
-
     # Verify the chain ID configuration is consistent with the remote RPC endpoint
     rpc_endpoint = config.getoption("rpc_endpoint")
     eth_rpc = EthRPC(rpc_endpoint)

@@ -15,7 +15,6 @@ from execution_testing.forks import Fork
 from execution_testing.rpc import EngineRPC, EthRPC
 from execution_testing.specs import BaseTest
 from execution_testing.test_types import (
-    ChainConfigDefaults,
     EnvironmentDefaults,
     TransactionDefaults,
 )
@@ -106,15 +105,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "Time to wait after sending a forkchoice_updated before getting the payload."
         ),
     )
-    execute_group.addoption(
-        "--chain-id",
-        action="store",
-        dest="chain_id",
-        required=False,
-        type=int,
-        default=None,
-        help="ID of the chain where the tests will be executed.",
-    )
 
     report_group = parser.getgroup(
         "tests", "Arguments defining html report behavior"
@@ -171,22 +161,6 @@ def pytest_configure(config: pytest.Config) -> None:
     # Configuration for the forks pytest plugin
     config.skip_transition_forks = True  # type: ignore[attr-defined]
     config.single_fork_mode = True  # type: ignore[attr-defined]
-
-    # Configure the chain ID for the tests.
-    rpc_chain_id = config.getoption("rpc_chain_id", None)
-    chain_id = config.getoption("chain_id", None)
-    if rpc_chain_id is not None or chain_id is not None:
-        if rpc_chain_id is not None and chain_id is not None:
-            if chain_id != rpc_chain_id:
-                pytest.exit(
-                    "Conflicting chain ID configuration. "
-                    "The --rpc-chain-id flag is deprecated and will be removed in a future "
-                    "release. Use --chain-id instead."
-                )
-        if rpc_chain_id is not None:
-            ChainConfigDefaults.chain_id = rpc_chain_id
-        if chain_id is not None:
-            ChainConfigDefaults.chain_id = chain_id
 
 
 def pytest_metadata(metadata: dict[str, Any]) -> None:

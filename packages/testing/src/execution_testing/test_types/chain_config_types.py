@@ -14,6 +14,7 @@ class ChainConfigDefaults:
     """
 
     chain_id: int = 1
+    rpc_chain_id: int = 1
 
 
 class ChainConfig(CamelModel):
