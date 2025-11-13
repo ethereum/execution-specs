@@ -20,6 +20,11 @@ from ...state import (
     set_storage,
     set_transient_storage,
 )
+from ...state_tracker import (
+    capture_pre_storage,
+    track_storage_read,
+    track_storage_write,
+)
 from .. import Evm
 from ..exceptions import OutOfGasError, WriteInStaticContext
 from ..gas import (
@@ -58,7 +63,8 @@ def sload(evm: Evm) -> None:
     check_gas(evm, gas_cost)
     if (evm.message.current_target, key) not in evm.accessed_storage_keys:
         evm.accessed_storage_keys.add((evm.message.current_target, key))
-    evm.state_changes.track_storage_read(
+    track_storage_read(
+        evm.state_changes,
         evm.message.current_target,
         key,
     )
@@ -120,10 +126,11 @@ def sstore(evm: Evm) -> None:
 
     # Track storage access BEFORE checking gas (EIP-7928)
     # Even if we run out of gas, the access attempt should be tracked
-    evm.state_changes.capture_pre_storage(
-        evm.message.current_target, key, current_value
+    capture_pre_storage(
+        evm.state_changes, evm.message.current_target, key, current_value
     )
-    evm.state_changes.track_storage_read(
+    track_storage_read(
+        evm.state_changes,
         evm.message.current_target,
         key,
     )
@@ -157,10 +164,8 @@ def sstore(evm: Evm) -> None:
 
     # OPERATION
     set_storage(state, evm.message.current_target, key, new_value)
-    evm.state_changes.track_storage_write(
-        evm.message.current_target,
-        key,
-        new_value,
+    track_storage_write(
+        evm.state_changes, evm.message.current_target, key, new_value
     )
 
     # PROGRAM COUNTER

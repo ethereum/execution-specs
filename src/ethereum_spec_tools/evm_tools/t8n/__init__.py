@@ -289,7 +289,11 @@ class T8N(Load):
 
         # Post-execution operations use index N+1
         if self.fork.is_after_fork("amsterdam"):
-            block_env.block_state_changes.increment_index()
+            from ethereum.forks.amsterdam.state_tracker import (
+                increment_block_access_index,
+            )
+
+            increment_block_access_index(block_env.block_state_changes)
 
         if not self.fork.is_after_fork("paris"):
             if self.options.state_reward is None:

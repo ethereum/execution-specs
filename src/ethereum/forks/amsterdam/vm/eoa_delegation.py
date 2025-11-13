@@ -15,6 +15,7 @@ from ethereum.exceptions import InvalidBlock, InvalidSignatureError
 # track_address_access removed - now using state_changes.track_address()
 from ..fork_types import Address, Authorization
 from ..state import account_exists, get_account, increment_nonce, set_code
+from ..state_tracker import capture_pre_code, track_address
 from ..utils.hexadecimal import hex_to_address
 from ..vm.gas import GAS_COLD_ACCOUNT_ACCESS, GAS_WARM_ACCESS
 from . import Evm, Message
@@ -175,12 +176,12 @@ def apply_delegation_tracking(
         The address delegated to.
 
     """
-    evm.state_changes.track_address(original_address)
+    track_address(evm.state_changes, original_address)
 
     if delegated_address not in evm.accessed_addresses:
         evm.accessed_addresses.add(delegated_address)
 
-    evm.state_changes.track_address(delegated_address)
+    track_address(evm.state_changes, delegated_address)
 
 
 def access_delegation(
@@ -239,7 +240,7 @@ def set_delegation(message: Message) -> U256:
         authority_account = get_account(state, authority)
         authority_code = authority_account.code
 
-        message.block_env.block_state_changes.track_address(authority)
+        track_address(message.block_env.block_state_changes, authority)
 
         if authority_code and not is_valid_delegation(authority_code):
             continue
@@ -256,14 +257,12 @@ def set_delegation(message: Message) -> U256:
         else:
             code_to_set = EOA_DELEGATION_MARKER + auth.address
 
-        # Use transaction frame, not block frame (EIP-7928)
         state_changes = (
             message.transaction_state_changes
             or message.block_env.block_state_changes
         )
 
-        # Capture pre-code just before setting to enable no-op filtering
-        state_changes.capture_pre_code(authority, authority_code)
+        capture_pre_code(state_changes, authority, authority_code)
         set_code(state, authority, code_to_set, state_changes)
         increment_nonce(state, authority, state_changes)
 

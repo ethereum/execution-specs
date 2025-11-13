@@ -12,7 +12,7 @@ Frame Hierarchy:
   Call Frame: Child of transaction/call, lifetime = single message
 
 Block Access Index: 0=pre-exec, 1..N=transactions, N+1=post-exec
-Stored in root frame, accessed by walking parent chain.
+Stored in root frame, passed explicitly to operations.
 
 Pre-State Tracking: Values captured before modifications to enable
 net-zero filtering.
@@ -38,7 +38,8 @@ class StateChanges:
     """
     Tracks state changes within a single execution frame.
 
-    Frames form a hierarchy and merge changes upward on completion.
+    Frames form a hierarchy: Block → Transaction → Call frames.
+    Each frame holds a reference to its parent for upward traversal.
     """
 
     parent: Optional["StateChanges"] = None
@@ -68,182 +69,409 @@ class StateChanges:
     )
     pre_code: Dict[Address, Bytes] = field(default_factory=dict)
 
-    def get_block_access_index(self) -> BlockAccessIndex:
-        """Get current block access index by walking to root."""
-        current = self
-        while current.parent is not None:
-            current = current.parent
-        return current._block_access_index
 
-    def capture_pre_balance(self, address: Address, balance: U256) -> None:
-        """Capture pre-balance (first-write-wins for net-zero filtering)."""
-        if address not in self.pre_balances:
-            self.pre_balances[address] = balance
+def get_block_frame(state_changes: StateChanges) -> StateChanges:
+    """
+    Walk to block-level frame.
 
-    def capture_pre_nonce(self, address: Address, nonce: U64) -> None:
-        """Capture pre-nonce (first-write-wins)."""
-        if address not in self.pre_nonces:
-            self.pre_nonces[address] = nonce
+    Parameters
+    ----------
+    state_changes :
+        Any state changes frame.
 
-    def capture_pre_storage(
-        self, address: Address, key: Bytes32, value: U256
-    ) -> None:
-        """Capture pre-storage (first-write-wins for noop filtering)."""
-        slot = (address, key)
-        if slot not in self.pre_storage:
-            self.pre_storage[slot] = value
+    Returns
+    -------
+    block_frame : StateChanges
+        The block-level frame.
 
-    def capture_pre_code(self, address: Address, code: Bytes) -> None:
-        """Capture pre-code (first-write-wins)."""
-        if address not in self.pre_code:
-            self.pre_code[address] = code
+    """
+    block_frame = state_changes
+    while block_frame.parent is not None:
+        block_frame = block_frame.parent
+    return block_frame
 
-    def track_address(self, address: Address) -> None:
-        """Track that an address was accessed."""
-        self.touched_addresses.add(address)
 
-    def track_storage_read(self, address: Address, key: Bytes32) -> None:
-        """Track a storage read operation."""
-        self.storage_reads.add((address, key))
+def get_block_access_index(root_frame: StateChanges) -> BlockAccessIndex:
+    """
+    Get current block access index from root frame.
 
-    def track_storage_write(
-        self, address: Address, key: Bytes32, value: U256
-    ) -> None:
-        """Track a storage write operation with block access index."""
-        self.storage_writes[(address, key, self.get_block_access_index())] = (
-            value
-        )
+    Parameters
+    ----------
+    root_frame :
+        The root (block-level) state changes frame.
 
-    def track_balance_change(
-        self, address: Address, new_balance: U256
-    ) -> None:
-        """Track balance change keyed by (address, index)."""
-        self.balance_changes[(address, self.get_block_access_index())] = (
-            new_balance
-        )
+    Returns
+    -------
+    index : BlockAccessIndex
+        The current block access index.
 
-    def track_nonce_change(self, address: Address, new_nonce: U64) -> None:
-        """Track a nonce change."""
-        self.nonce_changes.add(
-            (address, self.get_block_access_index(), new_nonce)
-        )
+    """
+    return root_frame._block_access_index
 
-    def track_code_change(self, address: Address, new_code: Bytes) -> None:
-        """Track a code change."""
-        self.code_changes[(address, self.get_block_access_index())] = new_code
 
-    def increment_index(self) -> None:
-        """Increment block access index by walking to root."""
-        root = self
-        while root.parent is not None:
-            root = root.parent
-        root._block_access_index = BlockAccessIndex(
-            root._block_access_index + Uint(1)
-        )
+def increment_block_access_index(root_frame: StateChanges) -> None:
+    """
+    Increment block access index in root frame.
 
-    def merge_on_success(self) -> None:
-        """
-        Merge this frame's changes into parent on successful completion.
+    Parameters
+    ----------
+    root_frame :
+        The root (block-level) state changes frame to increment.
 
-        Merges all tracked changes (reads and writes) from this frame
-        into the parent frame. Filters out net-zero changes based on
-        captured pre-state values by comparing initial vs final values.
-        """
-        if self.parent is None:
-            return
+    """
+    root_frame._block_access_index = BlockAccessIndex(
+        root_frame._block_access_index + Uint(1)
+    )
 
-        # Merge address accesses
-        self.parent.touched_addresses.update(self.touched_addresses)
 
-        # Merge pre-state captures for transaction-level normalization
-        # Only if parent doesn't have value (first capture wins)
-        for addr, balance in self.pre_balances.items():
-            if addr not in self.parent.pre_balances:
-                self.parent.pre_balances[addr] = balance
-        for addr, nonce in self.pre_nonces.items():
-            if addr not in self.parent.pre_nonces:
-                self.parent.pre_nonces[addr] = nonce
-        for slot, value in self.pre_storage.items():
-            if slot not in self.parent.pre_storage:
-                self.parent.pre_storage[slot] = value
-        for addr, code in self.pre_code.items():
-            if addr not in self.parent.pre_code:
-                self.parent.pre_code[addr] = code
+def capture_pre_balance(
+    state_changes: StateChanges, address: Address, balance: U256
+) -> None:
+    """
+    Capture pre-balance (first-write-wins for net-zero filtering).
 
-        # Merge storage operations, filtering noop writes
-        self.parent.storage_reads.update(self.storage_reads)
-        for (addr, key, idx), value in self.storage_writes.items():
-            # Only merge if value actually changed from pre-state
-            if (addr, key) in self.pre_storage:
-                if self.pre_storage[(addr, key)] != value:
-                    self.parent.storage_writes[(addr, key, idx)] = value
-                # If equal, it's a noop write - convert to read only
-                else:
-                    self.parent.storage_reads.add((addr, key))
+    Parameters
+    ----------
+    state_changes :
+        The state changes frame.
+    address :
+        The address whose balance is being captured.
+    balance :
+        The balance value before modification.
+
+    """
+    if address not in state_changes.pre_balances:
+        state_changes.pre_balances[address] = balance
+
+
+def capture_pre_nonce(
+    state_changes: StateChanges, address: Address, nonce: U64
+) -> None:
+    """
+    Capture pre-nonce (first-write-wins).
+
+    Parameters
+    ----------
+    state_changes :
+        The state changes frame.
+    address :
+        The address whose nonce is being captured.
+    nonce :
+        The nonce value before modification.
+
+    """
+    if address not in state_changes.pre_nonces:
+        state_changes.pre_nonces[address] = nonce
+
+
+def capture_pre_storage(
+    state_changes: StateChanges, address: Address, key: Bytes32, value: U256
+) -> None:
+    """
+    Capture pre-storage (first-write-wins for noop filtering).
+
+    Parameters
+    ----------
+    state_changes :
+        The state changes frame.
+    address :
+        The address whose storage is being captured.
+    key :
+        The storage key.
+    value :
+        The storage value before modification.
+
+    """
+    slot = (address, key)
+    if slot not in state_changes.pre_storage:
+        state_changes.pre_storage[slot] = value
+
+
+def capture_pre_code(
+    state_changes: StateChanges, address: Address, code: Bytes
+) -> None:
+    """
+    Capture pre-code (first-write-wins).
+
+    Parameters
+    ----------
+    state_changes :
+        The state changes frame.
+    address :
+        The address whose code is being captured.
+    code :
+        The code value before modification.
+
+    """
+    if address not in state_changes.pre_code:
+        state_changes.pre_code[address] = code
+
+
+def track_address(state_changes: StateChanges, address: Address) -> None:
+    """
+    Track that an address was accessed.
+
+    Parameters
+    ----------
+    state_changes :
+        The state changes frame.
+    address :
+        The address that was accessed.
+
+    """
+    state_changes.touched_addresses.add(address)
+
+
+def track_storage_read(
+    state_changes: StateChanges, address: Address, key: Bytes32
+) -> None:
+    """
+    Track a storage read operation.
+
+    Parameters
+    ----------
+    state_changes :
+        The state changes frame.
+    address :
+        The address whose storage was read.
+    key :
+        The storage key that was read.
+
+    """
+    state_changes.storage_reads.add((address, key))
+
+
+def track_storage_write(
+    state_changes: StateChanges,
+    address: Address,
+    key: Bytes32,
+    value: U256,
+) -> None:
+    """
+    Track a storage write operation with block access index.
+
+    Parameters
+    ----------
+    state_changes :
+        The state changes frame.
+    address :
+        The address whose storage was written.
+    key :
+        The storage key that was written.
+    value :
+        The new storage value.
+
+    """
+    block_frame = get_block_frame(state_changes)
+    state_changes.storage_writes[
+        (address, key, get_block_access_index(block_frame))
+    ] = value
+
+
+def track_balance_change(
+    state_changes: StateChanges,
+    address: Address,
+    new_balance: U256,
+) -> None:
+    """
+    Track balance change keyed by (address, index).
+
+    Parameters
+    ----------
+    state_changes :
+        The state changes frame.
+    address :
+        The address whose balance changed.
+    new_balance :
+        The new balance value.
+
+    """
+    block_frame = get_block_frame(state_changes)
+    state_changes.balance_changes[
+        (address, get_block_access_index(block_frame))
+    ] = new_balance
+
+
+def track_nonce_change(
+    state_changes: StateChanges,
+    address: Address,
+    new_nonce: U64,
+) -> None:
+    """
+    Track a nonce change.
+
+    Parameters
+    ----------
+    state_changes :
+        The state changes frame.
+    address :
+        The address whose nonce changed.
+    new_nonce :
+        The new nonce value.
+
+    """
+    block_frame = get_block_frame(state_changes)
+    state_changes.nonce_changes.add(
+        (address, get_block_access_index(block_frame), new_nonce)
+    )
+
+
+def track_code_change(
+    state_changes: StateChanges,
+    address: Address,
+    new_code: Bytes,
+) -> None:
+    """
+    Track a code change.
+
+    Parameters
+    ----------
+    state_changes :
+        The state changes frame.
+    address :
+        The address whose code changed.
+    new_code :
+        The new code value.
+
+    """
+    block_frame = get_block_frame(state_changes)
+    state_changes.code_changes[
+        (address, get_block_access_index(block_frame))
+    ] = new_code
+
+
+def merge_on_success(child_frame: StateChanges) -> None:
+    """
+    Merge child frame's changes into parent on successful completion.
+
+    Merges all tracked changes (reads and writes) from the child frame
+    into the parent frame. Filters out net-zero changes based on
+    captured pre-state values by comparing initial vs final values.
+
+    Parameters
+    ----------
+    child_frame :
+        The child frame being merged.
+
+    """
+    assert child_frame.parent is not None
+    parent_frame = child_frame.parent
+    # Merge address accesses
+    parent_frame.touched_addresses.update(child_frame.touched_addresses)
+
+    # Merge pre-state captures for transaction-level normalization
+    # Only if parent doesn't have value (first capture wins)
+    for addr, balance in child_frame.pre_balances.items():
+        if addr not in parent_frame.pre_balances:
+            parent_frame.pre_balances[addr] = balance
+    for addr, nonce in child_frame.pre_nonces.items():
+        if addr not in parent_frame.pre_nonces:
+            parent_frame.pre_nonces[addr] = nonce
+    for slot, value in child_frame.pre_storage.items():
+        if slot not in parent_frame.pre_storage:
+            parent_frame.pre_storage[slot] = value
+    for addr, code in child_frame.pre_code.items():
+        if addr not in parent_frame.pre_code:
+            parent_frame.pre_code[addr] = code
+
+    # Merge storage operations, filtering noop writes
+    parent_frame.storage_reads.update(child_frame.storage_reads)
+    for (addr, key, idx), value in child_frame.storage_writes.items():
+        # Only merge if value actually changed from pre-state
+        if (addr, key) in child_frame.pre_storage:
+            if child_frame.pre_storage[(addr, key)] != value:
+                parent_frame.storage_writes[(addr, key, idx)] = value
+            # If equal, it's a noop write - convert to read only
             else:
-                # No pre-state captured, merge as-is
-                self.parent.storage_writes[(addr, key, idx)] = value
+                parent_frame.storage_reads.add((addr, key))
+        else:
+            # No pre-state captured, merge as-is
+            parent_frame.storage_writes[(addr, key, idx)] = value
 
-        # Merge balance changes - filter net-zero changes
-        # balance_changes keyed by (address, index)
-        for (addr, idx), final_balance in self.balance_changes.items():
-            if addr in self.pre_balances:
-                if self.pre_balances[addr] != final_balance:
-                    # Net change occurred - merge the final balance
-                    self.parent.balance_changes[(addr, idx)] = final_balance
-                # else: Net-zero change - skip entirely
-            else:
-                # No pre-balance captured, merge as-is
-                self.parent.balance_changes[(addr, idx)] = final_balance
+    # Merge balance changes - filter net-zero changes
+    # balance_changes keyed by (address, index)
+    for (addr, idx), final_balance in child_frame.balance_changes.items():
+        if addr in child_frame.pre_balances:
+            if child_frame.pre_balances[addr] != final_balance:
+                # Net change occurred - merge the final balance
+                parent_frame.balance_changes[(addr, idx)] = final_balance
+            # else: Net-zero change - skip entirely
+        else:
+            # No pre-balance captured, merge as-is
+            parent_frame.balance_changes[(addr, idx)] = final_balance
 
-        # Merge nonce changes - keep only highest nonce per address
-        # Nonces are monotonically increasing, so just keep the max
-        address_final_nonces: Dict[Address, Tuple[BlockAccessIndex, U64]] = {}
-        for addr, idx, nonce in self.nonce_changes:
-            # Keep the highest nonce value for each address
-            if (
-                addr not in address_final_nonces
-                or nonce > address_final_nonces[addr][1]
-            ):
-                address_final_nonces[addr] = (idx, nonce)
+    # Merge nonce changes - keep only highest nonce per address
+    # Nonces are monotonically increasing, so just keep the max
+    address_final_nonces: Dict[Address, Tuple[BlockAccessIndex, U64]] = {}
+    for addr, idx, nonce in child_frame.nonce_changes:
+        # Keep the highest nonce value for each address
+        if (
+            addr not in address_final_nonces
+            or nonce > address_final_nonces[addr][1]
+        ):
+            address_final_nonces[addr] = (idx, nonce)
 
-        # Merge final nonces (no net-zero filtering - nonces never decrease)
-        for addr, (idx, final_nonce) in address_final_nonces.items():
-            self.parent.nonce_changes.add((addr, idx, final_nonce))
+    # Merge final nonces (no net-zero filtering - nonces never decrease)
+    for addr, (idx, final_nonce) in address_final_nonces.items():
+        parent_frame.nonce_changes.add((addr, idx, final_nonce))
 
-        # Merge code changes - filter net-zero changes
-        # code_changes keyed by (address, index)
-        for (addr, idx), final_code in self.code_changes.items():
-            if addr in self.pre_code:
-                if self.pre_code[addr] != final_code:
-                    # Net change occurred - merge the final code
-                    self.parent.code_changes[(addr, idx)] = final_code
-                # else: Net-zero change - skip entirely
-            else:
-                # No pre-code captured, merge as-is
-                self.parent.code_changes[(addr, idx)] = final_code
+    # Merge code changes - filter net-zero changes
+    # code_changes keyed by (address, index)
+    for (addr, idx), final_code in child_frame.code_changes.items():
+        if addr in child_frame.pre_code:
+            if child_frame.pre_code[addr] != final_code:
+                # Net change occurred - merge the final code
+                parent_frame.code_changes[(addr, idx)] = final_code
+            # else: Net-zero change - skip entirely
+        else:
+            # No pre-code captured, merge as-is
+            parent_frame.code_changes[(addr, idx)] = final_code
 
-    def merge_on_failure(self) -> None:
-        """
-        Merge this frame's changes into parent on failed completion.
 
-        Merges only read operations from this frame into the parent.
-        Write operations are discarded since the frame reverted.
-        This is called when a call frame fails/reverts.
-        """
-        if self.parent is None:
-            return
+def merge_on_failure(child_frame: StateChanges) -> None:
+    """
+    Merge child frame's changes into parent on failed completion.
 
-        # Only merge reads and address accesses on failure
-        self.parent.touched_addresses.update(self.touched_addresses)
-        self.parent.storage_reads.update(self.storage_reads)
+    Merges only read operations from the child frame into the parent.
+    Write operations are discarded since the frame reverted.
+    This is called when a call frame fails/reverts.
 
-        # Convert writes to reads (failed writes still accessed the slots)
-        for address, key, _idx in self.storage_writes.keys():
-            self.parent.storage_reads.add((address, key))
+    Parameters
+    ----------
+    child_frame :
+        The failed child frame.
 
-        # Note: balance_changes, nonce_changes, and code_changes are NOT
-        # merged on failure - they are discarded
+    """
+    assert child_frame.parent is not None
+    parent_frame = child_frame.parent
+    # Only merge reads and address accesses on failure
+    parent_frame.touched_addresses.update(child_frame.touched_addresses)
+    parent_frame.storage_reads.update(child_frame.storage_reads)
+
+    # Convert writes to reads (failed writes still accessed the slots)
+    for address, key, _idx in child_frame.storage_writes.keys():
+        parent_frame.storage_reads.add((address, key))
+
+    # Note: balance_changes, nonce_changes, and code_changes are NOT
+    # merged on failure - they are discarded
+
+
+def create_child_frame(parent: StateChanges) -> StateChanges:
+    """
+    Create a child frame for nested execution.
+
+    Parameters
+    ----------
+    parent :
+        The parent frame.
+
+    Returns
+    -------
+    child : StateChanges
+        A new child frame with parent reference set.
+
+    """
+    return StateChanges(parent=parent)
 
 
 def handle_in_transaction_selfdestruct(
@@ -336,24 +564,3 @@ def normalize_balance_changes_for_transaction(
                 del block_frame.balance_changes[
                     (addr, current_block_access_index)
                 ]
-
-
-def create_child_frame(parent: StateChanges) -> StateChanges:
-    """
-    Create a child frame for nested execution.
-
-    The child frame will dynamically read the block_access_index from
-    the root (block) frame, ensuring all frames see the same current index.
-
-    Parameters
-    ----------
-    parent : StateChanges
-        The parent frame.
-
-    Returns
-    -------
-    child : StateChanges
-        A new child frame with parent link.
-
-    """
-    return StateChanges(parent=parent)
