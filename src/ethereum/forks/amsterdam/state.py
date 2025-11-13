@@ -24,7 +24,14 @@ from ethereum_types.frozen import modify
 from ethereum_types.numeric import U64, U256, Uint
 
 from .fork_types import EMPTY_ACCOUNT, Account, Address, Root
-from .state_tracker import StateChanges
+from .state_tracker import (
+    StateChanges,
+    capture_pre_balance,
+    track_address,
+    track_balance_change,
+    track_code_change,
+    track_nonce_change,
+)
 from .trie import EMPTY_TRIE_ROOT, Trie, copy_trie, root, trie_get, trie_set
 
 if TYPE_CHECKING:
@@ -518,10 +525,10 @@ def move_ether(
     sender_balance = get_account(state, sender_address).balance
     recipient_balance = get_account(state, recipient_address).balance
 
-    state_changes.track_address(sender_address)
-    state_changes.capture_pre_balance(sender_address, sender_balance)
-    state_changes.track_address(recipient_address)
-    state_changes.capture_pre_balance(recipient_address, recipient_balance)
+    track_address(state_changes, sender_address)
+    capture_pre_balance(state_changes, sender_address, sender_balance)
+    track_address(state_changes, recipient_address)
+    capture_pre_balance(state_changes, recipient_address, recipient_balance)
 
     def reduce_sender_balance(sender: Account) -> None:
         if sender.balance < amount:
@@ -537,11 +544,11 @@ def move_ether(
     sender_new_balance = get_account(state, sender_address).balance
     recipient_new_balance = get_account(state, recipient_address).balance
 
-    state_changes.track_balance_change(
-        sender_address, U256(sender_new_balance)
+    track_balance_change(
+        state_changes, sender_address, U256(sender_new_balance)
     )
-    state_changes.track_balance_change(
-        recipient_address, U256(recipient_new_balance)
+    track_balance_change(
+        state_changes, recipient_address, U256(recipient_new_balance)
     )
 
 
@@ -571,14 +578,14 @@ def set_account_balance(
     """
     current_balance = get_account(state, address).balance
 
-    state_changes.track_address(address)
-    state_changes.capture_pre_balance(address, current_balance)
+    track_address(state_changes, address)
+    capture_pre_balance(state_changes, address, current_balance)
 
     def set_balance(account: Account) -> None:
         account.balance = amount
 
     modify_state(state, address, set_balance)
-    state_changes.track_balance_change(address, amount)
+    track_balance_change(state_changes, address, amount)
 
 
 def increment_nonce(
@@ -607,9 +614,8 @@ def increment_nonce(
 
     modify_state(state, address, increase_nonce)
 
-    # Track nonce change for Block Access List (EIP-7928)
     account = get_account(state, address)
-    state_changes.track_nonce_change(address, U64(account.nonce))
+    track_nonce_change(state_changes, address, U64(account.nonce))
 
 
 def set_code(
@@ -641,7 +647,7 @@ def set_code(
         sender.code = code
 
     modify_state(state, address, write_code)
-    state_changes.track_code_change(address, code)
+    track_code_change(state_changes, address, code)
 
 
 def get_storage_original(state: State, address: Address, key: Bytes32) -> U256:

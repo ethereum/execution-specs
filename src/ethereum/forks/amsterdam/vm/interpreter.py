@@ -44,7 +44,13 @@ from ..state import (
     rollback_transaction,
     set_code,
 )
-from ..state_tracker import StateChanges, create_child_frame
+from ..state_tracker import (
+    StateChanges,
+    create_child_frame,
+    merge_on_failure,
+    merge_on_success,
+    track_address,
+)
 from ..vm import Message
 from ..vm.eoa_delegation import get_delegated_code_address, set_delegation
 from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
@@ -67,35 +73,39 @@ MAX_CODE_SIZE = 0x6000
 MAX_INIT_CODE_SIZE = 2 * MAX_CODE_SIZE
 
 
-def create_call_frame(parent_frame: StateChanges) -> StateChanges:
+def get_parent_frame(message: Message) -> StateChanges:
     """
-    Create a child frame for call-level state tracking.
+    Get the appropriate parent frame for a message's state changes.
 
-    Used for contract calls (CALL, DELEGATECALL, STATICCALL, etc.) where
-    state changes need to be isolated and potentially reverted.
+    Frame selection logic:
+    - Nested calls: Parent EVM's frame
+    - Top-level calls: Transaction frame
+    - System transactions: Block frame
 
     Parameters
     ----------
-    parent_frame :
-        The parent frame (transaction or another call frame).
+    message :
+        The message being processed.
 
     Returns
     -------
-    call_frame : StateChanges
-        A new child frame linked to the parent.
+    parent_frame : StateChanges
+        The parent frame to use for creating child frames.
 
     """
-    return create_child_frame(parent_frame)
+    if message.parent_evm is not None:
+        return message.parent_evm.state_changes
+    elif message.transaction_state_changes is not None:
+        return message.transaction_state_changes
+    else:
+        return message.block_env.block_state_changes
 
 
 def get_message_state_frame(message: Message) -> StateChanges:
     """
     Determine and create the appropriate state tracking frame for a message.
 
-    Frame selection logic:
-    - Nested calls: Create child of parent EVM's frame
-    - Top-level calls: Create child of transaction frame
-    - System transactions: Use block frame directly (no isolation needed)
+    Creates a call frame as a child of the appropriate parent frame.
 
     Parameters
     ----------
@@ -108,16 +118,14 @@ def get_message_state_frame(message: Message) -> StateChanges:
         The state tracking frame to use for this message execution.
 
     """
-    if message.parent_evm is not None:
-        # Nested call - create child of parent EVM's frame
-        return create_call_frame(message.parent_evm.state_changes)
-    elif message.transaction_state_changes is not None:
-        # Top-level transaction call - create child of transaction frame
-        # This ensures contract execution is isolated and can be reverted
-        return create_call_frame(message.transaction_state_changes)
+    parent_frame = get_parent_frame(message)
+    if (
+        message.parent_evm is not None
+        or message.transaction_state_changes is not None
+    ):
+        return create_child_frame(parent_frame)
     else:
-        # System transaction - use block frame directly
-        return message.block_env.block_state_changes
+        return parent_frame
 
 
 @dataclass
@@ -188,8 +196,8 @@ def process_message_call(message: Message) -> MessageCallOutput:
             message.code_address = delegated_address
 
             # EIP-7928: Track delegation target when loaded as call target
-            message.block_env.block_state_changes.track_address(
-                delegated_address
+            track_address(
+                message.block_env.block_state_changes, delegated_address
             )
 
         evm = process_message(message)
@@ -252,9 +260,8 @@ def process_create_message(message: Message) -> Evm:
     # added to SELFDESTRUCT by EIP-6780.
     mark_account_created(state, message.current_target)
 
-    # Create a temporary child frame for tracking changes that may be rolled
-    # back on OOG during code deposit. This frame is merged only on success.
-    create_frame = create_child_frame(message.block_env.block_state_changes)
+    parent_frame = get_parent_frame(message)
+    create_frame = create_child_frame(parent_frame)
 
     increment_nonce(state, message.current_target, create_frame)
     evm = process_message(message)
@@ -270,24 +277,19 @@ def process_create_message(message: Message) -> Evm:
                 raise OutOfGasError
         except ExceptionalHalt as error:
             rollback_transaction(state, transient_storage)
-            # Merge create_frame on failure - keeps reads, discards writes
-            # (address access is preserved, nonce change is discarded)
-            create_frame.merge_on_failure()
+            merge_on_failure(create_frame)
             evm.gas_left = Uint(0)
             evm.output = b""
             evm.error = error
         else:
             set_code(
-                state,
-                message.current_target,
-                contract_code,
-                create_frame,
+                state, message.current_target, contract_code, create_frame
             )
             commit_transaction(state, transient_storage)
-            # Merge create_frame on success - includes nonce and code changes
-            create_frame.merge_on_success()
+            merge_on_success(create_frame)
     else:
         rollback_transaction(state, transient_storage)
+        merge_on_failure(create_frame)
     return evm
 
 
@@ -313,8 +315,10 @@ def process_message(message: Message) -> Evm:
 
     begin_transaction(state, transient_storage)
 
+    parent_frame = get_parent_frame(message)
     state_changes = get_message_state_frame(message)
-    state_changes.track_address(message.current_target)
+
+    track_address(state_changes, message.current_target)
 
     if message.should_transfer_value and message.value != 0:
         move_ether(
@@ -327,15 +331,13 @@ def process_message(message: Message) -> Evm:
 
     evm = execute_code(message, state_changes)
     if evm.error:
-        # revert state to the last saved checkpoint
-        # since the message call resulted in an error
         rollback_transaction(state, transient_storage)
-        # Merge call frame state changes into parent
-        evm.state_changes.merge_on_failure()
+        if state_changes != parent_frame:
+            merge_on_failure(evm.state_changes)
     else:
         commit_transaction(state, transient_storage)
-        # Merge call frame state changes into parent
-        evm.state_changes.merge_on_success()
+        if state_changes != parent_frame:
+            merge_on_success(evm.state_changes)
     return evm
 
 
