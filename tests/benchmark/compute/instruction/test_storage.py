@@ -28,6 +28,7 @@ from execution_testing import (
 from tests.benchmark.compute.helpers import StorageAction, TransactionResult
 
 
+@pytest.mark.repricing(fixed_key=False, fixed_value=False)
 @pytest.mark.parametrize("fixed_key", [True, False])
 @pytest.mark.parametrize("fixed_value", [True, False])
 def test_tload(
@@ -48,7 +49,7 @@ def test_tload(
     if fixed_key and fixed_value:
         attack_block = Op.TLOAD(Op.CALLDATASIZE)
 
-    tx_data = b"42" if fixed_key and not fixed_value else 0
+    tx_data = b"42" if fixed_key and not fixed_value else b""
 
     benchmark_test(
         code_generator=ExtCallGenerator(
@@ -59,6 +60,7 @@ def test_tload(
     )
 
 
+@pytest.mark.repricing(fixed_key=False, fixed_value=False)
 @pytest.mark.parametrize("fixed_key", [True, False])
 @pytest.mark.parametrize("fixed_value", [True, False])
 def test_tstore(

@@ -36,20 +36,23 @@ from tests.benchmark.compute.helpers import DEFAULT_BINOP_ARGS, make_dup, neg
 @pytest.mark.parametrize(
     "opcode,opcode_args",
     [
-        (
+        pytest.param(
             Op.ADD,
             DEFAULT_BINOP_ARGS,
+            marks=pytest.mark.repricing,
         ),
-        (
+        pytest.param(
             Op.MUL,
             DEFAULT_BINOP_ARGS,
+            marks=pytest.mark.repricing,
         ),
-        (
+        pytest.param(
             # After every 2 SUB operations, values return to initial.
             Op.SUB,
             DEFAULT_BINOP_ARGS,
+            marks=pytest.mark.repricing,
         ),
-        (
+        pytest.param(
             # This has the cycle of 2:
             # v[0] = a // b
             # v[1] = a // v[0] = a // (a // b) = b
@@ -62,8 +65,9 @@ from tests.benchmark.compute.helpers import DEFAULT_BINOP_ARGS, make_dup, neg
                 # optimized paths for division by 1 and 2 words.
                 0x100000000000000000000000000000033,
             ),
+            marks=pytest.mark.repricing,
         ),
-        (
+        pytest.param(
             # This has the cycle of 2, see above.
             Op.DIV,
             (
@@ -74,7 +78,7 @@ from tests.benchmark.compute.helpers import DEFAULT_BINOP_ARGS, make_dup, neg
                 0x10000000000000033,
             ),
         ),
-        (
+        pytest.param(
             # Same as DIV-0
             # But the numerator made positive, and the divisor made negative.
             Op.SDIV,
@@ -82,8 +86,9 @@ from tests.benchmark.compute.helpers import DEFAULT_BINOP_ARGS, make_dup, neg
                 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,
                 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFCD,
             ),
+            marks=pytest.mark.repricing,
         ),
-        (
+        pytest.param(
             # Same as DIV-1
             # But the numerator made positive, and the divisor made negative.
             Op.SDIV,
@@ -92,17 +97,19 @@ from tests.benchmark.compute.helpers import DEFAULT_BINOP_ARGS, make_dup, neg
                 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFCD,
             ),
         ),
-        (
+        pytest.param(
             # Not suitable for MOD, as values quickly become zero.
             Op.MOD,
             DEFAULT_BINOP_ARGS,
+            marks=pytest.mark.repricing,
         ),
-        (
+        pytest.param(
             # Not suitable for SMOD, as values quickly become zero.
             Op.SMOD,
             DEFAULT_BINOP_ARGS,
+            marks=pytest.mark.repricing,
         ),
-        (
+        pytest.param(
             # This keeps the values unchanged
             # pow(2**256-1, 2**256-1, 2**256) == 2**256-1.
             Op.EXP,
@@ -110,14 +117,16 @@ from tests.benchmark.compute.helpers import DEFAULT_BINOP_ARGS, make_dup, neg
                 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
                 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
             ),
+            marks=pytest.mark.repricing,
         ),
-        (
+        pytest.param(
             # Not great, as we always sign-extend the 4 bytes.
             Op.SIGNEXTEND,
             (
                 3,
                 0xFFDADADA,  # Negative to have more work.
             ),
+            marks=pytest.mark.repricing,
         ),
     ],
     ids=lambda param: "" if isinstance(param, tuple) else param,
@@ -149,6 +158,7 @@ def test_arithmetic(
     )
 
 
+@pytest.mark.repricing(mod_bits=255)
 @pytest.mark.parametrize("mod_bits", [255, 191, 127, 63])
 @pytest.mark.parametrize("op", [Op.MOD, Op.SMOD])
 def test_mod(
@@ -267,6 +277,7 @@ def test_mod(
     )
 
 
+@pytest.mark.repricing(mod_bits=255)
 @pytest.mark.parametrize("mod_bits", [255, 191, 127, 63])
 @pytest.mark.parametrize("op", [Op.ADDMOD, Op.MULMOD])
 def test_mod_arithmetic(

@@ -18,6 +18,7 @@ from execution_testing import (
 KECCAK_RATE = 136
 
 
+@pytest.mark.repricing
 def test_keccak_max_permutations(
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,

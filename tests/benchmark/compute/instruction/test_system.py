@@ -424,6 +424,7 @@ def test_creates_collisions(
     )
 
 
+@pytest.mark.repricing(return_size=1024, return_non_zero_data=True)
 @pytest.mark.parametrize(
     "opcode",
     [Op.RETURN, Op.REVERT],

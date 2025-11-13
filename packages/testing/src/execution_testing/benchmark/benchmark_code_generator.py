@@ -66,7 +66,13 @@ class ExtCallGenerator(BenchmarkCodeGenerator):
         )
         assert setup_stack_delta >= 0, "setup stack delta must be non-negative"
 
-        max_iterations = fork.max_code_size() // len(self.attack_block)
+        # Account for setup code length when calculating max iterations
+        available_space = fork.max_code_size() - len(self.setup)
+        max_iterations = (
+            available_space // len(self.attack_block)
+            if len(self.attack_block) > 0
+            else 0
+        )
         max_stack_height = fork.max_stack_height() - setup_stack_delta
 
         if attack_block_stack_delta > 0:
@@ -77,9 +83,9 @@ class ExtCallGenerator(BenchmarkCodeGenerator):
         code = self.setup + self.attack_block * max_iterations
         # Pad the code to the maximum code size.
         if self.code_padding_opcode is not None:
-            code += self.code_padding_opcode * (
-                fork.max_code_size() - len(code)
-            )
+            padding_size = fork.max_code_size() - len(code)
+            if padding_size > 0:
+                code += self.code_padding_opcode * padding_size
 
         self._validate_code_size(code, fork)
 

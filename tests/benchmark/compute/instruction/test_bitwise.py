@@ -36,6 +36,7 @@ from tests.benchmark.compute.helpers import (
 )
 
 
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "opcode,opcode_args",
     [
@@ -109,6 +110,7 @@ def test_bitwise(
     )
 
 
+@pytest.mark.repricing
 def test_not_op(
     benchmark_test: BenchmarkTestFiller,
 ) -> None:
@@ -193,6 +195,7 @@ def test_shifts(
     benchmark_test(tx=tx)
 
 
+@pytest.mark.repricing
 @pytest.mark.valid_from("Osaka")
 def test_clz_same(benchmark_test: BenchmarkTestFiller) -> None:
     """Benchmark CLZ instruction with same input."""
