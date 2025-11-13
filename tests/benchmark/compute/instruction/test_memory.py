@@ -73,7 +73,7 @@ def test_memory_access(
     )
 
 
-@pytest.mark.repricing(size=10 * 1024, fixed_src_dst=True)
+@pytest.mark.repricing(size=10, fixed_src_dst=True)
 @pytest.mark.parametrize(
     "size",
     [
