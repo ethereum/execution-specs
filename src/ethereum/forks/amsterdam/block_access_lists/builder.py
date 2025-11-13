@@ -484,10 +484,11 @@ def build_block_access_list(
         add_storage_read(builder, address, slot)
 
     # Add all storage writes, filtering net-zero changes
-    for (address, slot), (
+    for (
+        address,
+        slot,
         block_access_index,
-        value,
-    ) in state_changes.storage_writes.items():
+    ), value in state_changes.storage_writes.items():
         # Check if this is a net-zero change by comparing with pre-state
         if (address, slot) in state_changes.pre_storage:
             if state_changes.pre_storage[(address, slot)] == value:
