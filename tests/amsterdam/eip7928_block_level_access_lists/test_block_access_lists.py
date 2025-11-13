@@ -2014,3 +2014,77 @@ def test_bal_multiple_balance_changes_same_account(
             charlie: Account(balance=spend_amount),
         },
     )
+
+
+def test_bal_multiple_storage_writes_same_slot(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test that BAL tracks multiple writes to the same storage slot across
+    transactions in the same block.
+
+    Setup:
+    - Deploy a contract that increments storage slot 1 on each call
+    - Alice calls the contract 3 times in the same block
+    - Each call increments slot 1: 0 -> 1 -> 2 -> 3
+
+    Expected BAL:
+    - Contract should have 3 storage_changes for slot 1:
+      * txIndex 1: postValue = 1
+      * txIndex 2: postValue = 2
+      * txIndex 3: postValue = 3
+    """
+    alice = pre.fund_eoa(amount=10**18)
+
+    increment_code = Op.SSTORE(1, Op.ADD(Op.SLOAD(1), 1))
+    contract = pre.deploy_contract(code=increment_code)
+
+    tx1 = Transaction(sender=alice, to=contract, gas_limit=200_000)
+    tx2 = Transaction(sender=alice, to=contract, gas_limit=200_000)
+    tx3 = Transaction(sender=alice, to=contract, gas_limit=200_000)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx1, tx2, tx3],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(tx_index=1, post_nonce=1),
+                                BalNonceChange(tx_index=2, post_nonce=2),
+                                BalNonceChange(tx_index=3, post_nonce=3),
+                            ],
+                        ),
+                        contract: BalAccountExpectation(
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=1,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            tx_index=1, post_value=1
+                                        ),
+                                        BalStorageChange(
+                                            tx_index=2, post_value=2
+                                        ),
+                                        BalStorageChange(
+                                            tx_index=3, post_value=3
+                                        ),
+                                    ],
+                                ),
+                            ],
+                            storage_reads=[],
+                            balance_changes=[],
+                            code_changes=[],
+                        ),
+                    }
+                ),
+            )
+        ],
+        post={
+            alice: Account(nonce=3),
+            contract: Account(storage={1: 3}),
+        },
+    )
