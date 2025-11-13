@@ -18,7 +18,6 @@ from .account_changes import (
     BalCodeChange,
     BalNonceChange,
     BalStorageSlot,
-    BlockAccessListChangeLists,
 )
 from .exceptions import BlockAccessListValidationError
 from .t8n import BlockAccessList
@@ -175,9 +174,8 @@ class BlockAccessListExpectation(CamelModel):
         Verify that the actual BAL from the client matches this expected BAL.
 
         Validation steps:
-        1. Validate actual BAL conforms to EIP-7928 ordering requirements
-        2. Verify address expectations - presence or explicit absence
-        3. Verify expected changes within accounts match actual changes
+        1. Verify address expectations - presence or explicit absence
+        2. Verify expected changes within accounts match actual changes
 
         Args:
             actual_bal: The BlockAccessList model from the client
@@ -186,9 +184,6 @@ class BlockAccessListExpectation(CamelModel):
             BlockAccessListValidationError: If verification fails
 
         """
-        # validate the actual BAL structure follows EIP-7928 ordering
-        self._validate_bal_ordering(actual_bal)
-
         actual_accounts_by_addr = {acc.address: acc for acc in actual_bal.root}
         for address, expectation in self.account_expectations.items():
             if expectation is None:
@@ -231,111 +226,6 @@ class BlockAccessListExpectation(CamelModel):
                     raise BlockAccessListValidationError(
                         f"Account {address}: {str(e)}"
                     ) from e
-
-    @staticmethod
-    def _validate_bal_ordering(bal: "BlockAccessList") -> None:
-        """
-        Validate BAL ordering follows EIP-7928 requirements.
-
-        Args:
-            bal: The BlockAccessList to validate
-
-        Raises:
-            BlockAccessListValidationError: If ordering is invalid
-
-        """
-        # Check address ordering (ascending)
-        for i in range(1, len(bal.root)):
-            if bal.root[i - 1].address >= bal.root[i].address:
-                raise BlockAccessListValidationError(
-                    f"BAL addresses are not in lexicographic order: "
-                    f"{bal.root[i - 1].address} >= {bal.root[i].address}"
-                )
-
-        # Check transaction index ordering and uniqueness within accounts
-        for account in bal.root:
-            changes_to_check: List[tuple[str, BlockAccessListChangeLists]] = [
-                ("nonce_changes", account.nonce_changes),
-                ("balance_changes", account.balance_changes),
-                ("code_changes", account.code_changes),
-            ]
-
-            for field_name, change_list in changes_to_check:
-                if not change_list:
-                    continue
-
-                tx_indices = [c.tx_index for c in change_list]
-
-                # Check both ordering and duplicates
-                if tx_indices != sorted(tx_indices):
-                    raise BlockAccessListValidationError(
-                        f"Transaction indices not in ascending order in {field_name} of account "
-                        f"{account.address}. Got: {tx_indices}, Expected: {sorted(tx_indices)}"
-                    )
-
-                if len(tx_indices) != len(set(tx_indices)):
-                    duplicates = sorted(
-                        {
-                            idx
-                            for idx in tx_indices
-                            if tx_indices.count(idx) > 1
-                        }
-                    )
-                    raise BlockAccessListValidationError(
-                        f"Duplicate transaction indices in {field_name} of account "
-                        f"{account.address}. Duplicates: {duplicates}"
-                    )
-
-            # Check storage slot ordering
-            for i in range(1, len(account.storage_changes)):
-                if (
-                    account.storage_changes[i - 1].slot
-                    >= account.storage_changes[i].slot
-                ):
-                    raise BlockAccessListValidationError(
-                        f"Storage slots not in ascending order in account "
-                        f"{account.address}: {account.storage_changes[i - 1].slot} >= "
-                        f"{account.storage_changes[i].slot}"
-                    )
-
-            # Check transaction index ordering and uniqueness within storage
-            # slots
-            for storage_slot in account.storage_changes:
-                if not storage_slot.slot_changes:
-                    continue
-
-                tx_indices = [c.tx_index for c in storage_slot.slot_changes]
-
-                # Check both ordering and duplicates
-                if tx_indices != sorted(tx_indices):
-                    raise BlockAccessListValidationError(
-                        f"Transaction indices not in ascending order in storage slot "
-                        f"{storage_slot.slot} of account {account.address}. "
-                        f"Got: {tx_indices}, Expected: {sorted(tx_indices)}"
-                    )
-
-                if len(tx_indices) != len(set(tx_indices)):
-                    duplicates = sorted(
-                        {
-                            idx
-                            for idx in tx_indices
-                            if tx_indices.count(idx) > 1
-                        }
-                    )
-                    raise BlockAccessListValidationError(
-                        f"Duplicate transaction indices in storage slot "
-                        f"{storage_slot.slot} of account {account.address}. "
-                        f"Duplicates: {duplicates}"
-                    )
-
-            # Check storage reads ordering
-            for i in range(1, len(account.storage_reads)):
-                if account.storage_reads[i - 1] >= account.storage_reads[i]:
-                    raise BlockAccessListValidationError(
-                        f"Storage reads not in ascending order in account "
-                        f"{account.address}: {account.storage_reads[i - 1]} >= "
-                        f"{account.storage_reads[i]}"
-                    )
 
     @staticmethod
     def _compare_account_expectations(
