@@ -79,6 +79,8 @@ from .utils.message import prepare_message
 from .vm import Message
 from .vm.eoa_delegation import is_valid_delegation
 from .vm.gas import (
+    BLOB_SCHEDULE_MAX,
+    GAS_PER_BLOB,
     calculate_blob_gas_price,
     calculate_data_fee,
     calculate_excess_blob_gas,
@@ -96,7 +98,7 @@ BEACON_ROOTS_ADDRESS = hex_to_address(
     "0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"
 )
 SYSTEM_TRANSACTION_GAS = Uint(30000000)
-MAX_BLOB_GAS_PER_BLOCK = U64(1179648)
+MAX_BLOB_GAS_PER_BLOCK = BLOB_SCHEDULE_MAX * GAS_PER_BLOB
 VERSIONED_HASH_VERSION_KZG = b"\x01"
 
 WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS = hex_to_address(
