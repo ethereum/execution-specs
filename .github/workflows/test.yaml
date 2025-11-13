@@ -32,39 +32,6 @@ jobs:
       - name: Run static checks
         run: tox -e static
 
-  lint-commits:
-    runs-on: ubuntu-latest
-    if: ${{ github.event_name != 'push' || github.ref_name != github.event.repository.default_branch }}
-    steps:
-      - name: Dump GitHub context # Debugging why this job is running on forks/osaka.
-        env:
-          EVENT_NAME: ${{ toJson(github.event_name) }}
-          REF_NAME: ${{ toJson(github.ref_name) }}
-          GH_REPO: ${{ toJson(github.event.repository) }}
-        run: |
-          printenv EVENT_NAME
-          printenv REF_NAME
-          printenv GH_REPO
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
-        with:
-          submodules: recursive
-          fetch-depth: 0
-      - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
-        with:
-          python-version: "3.11"
-      - name: Install gitlint
-        run: pip install gitlint>=0.20.0
-      - name: Lint commits
-        run: |
-          BASE_REF="${{ github.base_ref || github.repository.default_branch }}"
-          BASE_SHA=$(git merge-base HEAD "origin/$BASE_REF")
-          echo "Linting commits from $BASE_SHA to HEAD (base ref: $BASE_REF)"
-          echo "Commits in range:"
-          git log --oneline "$BASE_SHA"..HEAD || echo "No new commits"
-          gitlint --contrib CT1 --commits "$BASE_SHA"..HEAD --ignore body-is-missing
-          echo "Conventional Commits linting PASSED!"
-
   py3:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
