@@ -46,9 +46,9 @@ class StateChanges:
 
     touched_addresses: Set[Address] = field(default_factory=set)
     storage_reads: Set[Tuple[Address, Bytes32]] = field(default_factory=set)
-    storage_writes: Dict[
-        Tuple[Address, Bytes32], Tuple[BlockAccessIndex, U256]
-    ] = field(default_factory=dict)
+    storage_writes: Dict[Tuple[Address, Bytes32, BlockAccessIndex], U256] = (
+        field(default_factory=dict)
+    )
 
     balance_changes: Dict[Tuple[Address, BlockAccessIndex], U256] = field(
         default_factory=dict
@@ -110,9 +110,8 @@ class StateChanges:
         self, address: Address, key: Bytes32, value: U256
     ) -> None:
         """Track a storage write operation with block access index."""
-        self.storage_writes[(address, key)] = (
-            self.get_block_access_index(),
-            value,
+        self.storage_writes[(address, key, self.get_block_access_index())] = (
+            value
         )
 
     def track_balance_change(
@@ -173,17 +172,17 @@ class StateChanges:
 
         # Merge storage operations, filtering noop writes
         self.parent.storage_reads.update(self.storage_reads)
-        for (addr, key), (idx, value) in self.storage_writes.items():
+        for (addr, key, idx), value in self.storage_writes.items():
             # Only merge if value actually changed from pre-state
             if (addr, key) in self.pre_storage:
                 if self.pre_storage[(addr, key)] != value:
-                    self.parent.storage_writes[(addr, key)] = (idx, value)
+                    self.parent.storage_writes[(addr, key, idx)] = value
                 # If equal, it's a noop write - convert to read only
                 else:
                     self.parent.storage_reads.add((addr, key))
             else:
                 # No pre-state captured, merge as-is
-                self.parent.storage_writes[(addr, key)] = (idx, value)
+                self.parent.storage_writes[(addr, key, idx)] = value
 
         # Merge balance changes - filter net-zero changes
         # balance_changes keyed by (address, index)
@@ -240,7 +239,7 @@ class StateChanges:
         self.parent.storage_reads.update(self.storage_reads)
 
         # Convert writes to reads (failed writes still accessed the slots)
-        for address, key in self.storage_writes.keys():
+        for address, key, _idx in self.storage_writes.keys():
             self.parent.storage_reads.add((address, key))
 
         # Note: balance_changes, nonce_changes, and code_changes are NOT
@@ -284,11 +283,9 @@ def handle_in_transaction_selfdestruct(
         del state_changes.code_changes[(address, current_block_access_index)]
 
     # Convert storage writes from current transaction to reads
-    for (addr, key), (idx, _value) in list(
-        state_changes.storage_writes.items()
-    ):
+    for addr, key, idx in list(state_changes.storage_writes.keys()):
         if addr == address and idx == current_block_access_index:
-            del state_changes.storage_writes[(addr, key)]
+            del state_changes.storage_writes[(addr, key, idx)]
             state_changes.storage_reads.add((addr, key))
 
 
