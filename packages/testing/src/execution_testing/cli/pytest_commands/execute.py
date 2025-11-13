@@ -92,8 +92,6 @@ recover = _create_execute_subcommand(
         "--destination=0x0000000000000000000000000000000000000000",
     ],
     command_logic_test_paths=[
-        Path(
-            "cli/pytest_commands/plugins/execute/execute_recover.py"
-        )
+        Path("cli/pytest_commands/plugins/execute/execute_recover.py")
     ],
 )
