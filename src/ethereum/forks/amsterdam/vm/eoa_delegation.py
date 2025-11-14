@@ -116,11 +116,15 @@ def recover_authority(authorization: Authorization) -> Address:
     return Address(keccak256(public_key)[12:32])
 
 
-def check_delegation(
+def calculate_delegation_cost(
     evm: Evm, address: Address
-) -> Tuple[bool, Address, Address, Bytes, Uint]:
+) -> Tuple[bool, Address, Optional[Address], Uint]:
     """
-    Check delegation info without modifying state or tracking.
+    Check if address has delegation and calculate delegation target gas cost.
+
+    This function reads the original account's code to check for delegation
+    and tracks it in state_changes. It calculates the delegation target's
+    gas cost but does NOT read the delegation target yet.
 
     Parameters
     ----------
@@ -131,77 +135,64 @@ def check_delegation(
 
     Returns
     -------
-    delegation : `Tuple[bool, Address, Address, Bytes, Uint]`
-        (is_delegated, original_address, final_address, code,
-        additional_gas_cost)
+    delegation_info : `Tuple[bool, Address, Optional[Address], Uint]`
+        (is_delegated, original_address, delegated_address_or_none,
+        delegation_gas_cost)
 
     """
     state = evm.message.block_env.state
 
     code = get_account(state, address).code
+    track_address(evm.state_changes, address)
+
     if not is_valid_delegation(code):
-        return False, address, address, code, Uint(0)
+        return False, address, None, Uint(0)
 
     delegated_address = Address(code[EOA_DELEGATION_MARKER_LENGTH:])
 
+    # Calculate gas cost for delegation target access
     if delegated_address in evm.accessed_addresses:
-        additional_gas_cost = GAS_WARM_ACCESS
+        delegation_gas_cost = GAS_WARM_ACCESS
     else:
-        additional_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+        delegation_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
-    delegated_code = get_account(state, delegated_address).code
-
-    return (
-        True,
-        address,
-        delegated_address,
-        delegated_code,
-        additional_gas_cost,
-    )
+    return True, address, delegated_address, delegation_gas_cost
 
 
-def apply_delegation_tracking(
-    evm: Evm, original_address: Address, delegated_address: Address
-) -> None:
+def read_delegation_target(evm: Evm, delegated_address: Address) -> Bytes:
     """
-    Apply delegation tracking after gas check passes.
+    Read the delegation target's code and track the access.
+
+    Should ONLY be called AFTER verifying we have gas for the access.
+
+    This function:
+    1. Reads the delegation target's code from state
+    2. Adds it to accessed_addresses (if not already there)
+    3. Tracks it in state_changes for BAL
 
     Parameters
     ----------
     evm : `Evm`
         The execution frame.
-    original_address : `Address`
-        The original address that was called.
     delegated_address : `Address`
-        The address delegated to.
+        The delegation target address.
+
+    Returns
+    -------
+    code : `Bytes`
+        The delegation target's code.
 
     """
-    track_address(evm.state_changes, original_address)
+    state = evm.message.block_env.state
 
+    # Add to accessed addresses for warm/cold gas accounting
     if delegated_address not in evm.accessed_addresses:
         evm.accessed_addresses.add(delegated_address)
 
+    # Track the address for BAL
     track_address(evm.state_changes, delegated_address)
 
-
-def access_delegation(
-    evm: Evm, address: Address
-) -> Tuple[bool, Address, Bytes, Uint]:
-    """
-    Access delegation info and track state changes.
-
-    DEPRECATED: Use check_delegation and apply_delegation_tracking
-    for proper gas check ordering.
-
-    """
-    is_delegated, orig_addr, final_addr, code, gas_cost = check_delegation(
-        evm, address
-    )
-
-    if is_delegated:
-        apply_delegation_tracking(evm, orig_addr, final_addr)
-
-    return is_delegated, final_addr, code, gas_cost
+    return get_account(state, delegated_address).code
 
 
 def set_delegation(message: Message) -> U256:
