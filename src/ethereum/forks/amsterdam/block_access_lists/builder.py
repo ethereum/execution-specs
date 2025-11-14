@@ -278,14 +278,15 @@ def add_nonce_change(
     ensure_account(builder, address)
 
     # Check if we already have a nonce change for this tx_index and update it
-    # This ensures we only track the final nonce per transaction
+    # This ensures we only track the final (highest) nonce per transaction
     existing_changes = builder.accounts[address].nonce_changes
     for i, existing in enumerate(existing_changes):
         if existing.block_access_index == block_access_index:
-            # Update the existing nonce change with the new nonce
-            existing_changes[i] = NonceChange(
-                block_access_index=block_access_index, new_nonce=new_nonce
-            )
+            # Keep the highest nonce value
+            if new_nonce > existing.new_nonce:
+                existing_changes[i] = NonceChange(
+                    block_access_index=block_access_index, new_nonce=new_nonce
+                )
             return
 
     # No existing change for this tx_index, add a new one
@@ -514,6 +515,8 @@ def build_block_access_list(
         add_nonce_change(builder, address, block_access_index, new_nonce)
 
     # Add all code changes
+    # Net-zero filtering for code changes should happen at the
+    # transaction level (in merge_on_success), not at the block level.
     for (
         address,
         block_access_index,

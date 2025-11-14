@@ -66,11 +66,11 @@ from .state import (
 )
 from .state_tracker import (
     capture_pre_balance,
+    commit_transaction_frame,
     create_child_frame,
     get_block_access_index,
     handle_in_transaction_selfdestruct,
     increment_block_access_index,
-    merge_on_success,
     normalize_balance_changes_for_transaction,
     track_address,
     track_balance_change,
@@ -1067,7 +1067,7 @@ def process_transaction(
         block_env.state,
     )
 
-    merge_on_success(tx_state_changes)
+    commit_transaction_frame(tx_state_changes)
 
     # EIP-7928: Handle in-transaction self-destruct AFTER merge
     # Convert storage writes to reads and remove nonce/code changes
