@@ -34,8 +34,8 @@ from ...utils.address import (
     to_address_masked,
 )
 from ...vm.eoa_delegation import (
-    apply_delegation_tracking,
-    check_delegation,
+    calculate_delegation_cost,
+    read_delegation_target,
 )
 from .. import (
     Evm,
@@ -397,13 +397,30 @@ def call(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_addresses.add(to)
 
+    # check gas for base access before reading `to` account
+    base_gas_cost = extend_memory.cost + access_gas_cost
+    check_gas(evm, base_gas_cost)
+
+    # read `to` account and assess delegation cost
     (
         is_delegated,
         original_address,
-        final_address,
-        code,
+        delegated_address,
         delegation_gas_cost,
-    ) = check_delegation(evm, to)
+    ) = calculate_delegation_cost(evm, to)
+
+    # check gas again for delegation target access before reading it
+    if is_delegated and delegation_gas_cost > Uint(0):
+        check_gas(evm, base_gas_cost + delegation_gas_cost)
+
+    if is_delegated:
+        assert delegated_address is not None
+        code = read_delegation_target(evm, delegated_address)
+        final_address = delegated_address
+    else:
+        code = get_account(evm.message.block_env.state, to).code
+        final_address = to
+
     access_gas_cost += delegation_gas_cost
 
     code_address = final_address
@@ -420,12 +437,6 @@ def call(evm: Evm) -> None:
         extend_memory.cost,
         access_gas_cost + create_gas_cost + transfer_gas_cost,
     )
-
-    check_gas(evm, message_call_gas.cost + extend_memory.cost)
-
-    track_address(evm.state_changes, to)
-    if is_delegated:
-        apply_delegation_tracking(evm, original_address, final_address)
 
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
     if evm.message.is_static and value != U256(0):
@@ -497,13 +508,30 @@ def callcode(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_addresses.add(code_address)
 
+    # check gas for base access before reading `code_address` account
+    base_gas_cost = extend_memory.cost + access_gas_cost
+    check_gas(evm, base_gas_cost)
+
+    # read code_address account and assess delegation cost
     (
         is_delegated,
         original_address,
-        final_address,
-        code,
+        delegated_address,
         delegation_gas_cost,
-    ) = check_delegation(evm, code_address)
+    ) = calculate_delegation_cost(evm, code_address)
+
+    # check gas again for delegation target access before reading it
+    if is_delegated and delegation_gas_cost > Uint(0):
+        check_gas(evm, base_gas_cost + delegation_gas_cost)
+
+    if is_delegated:
+        assert delegated_address is not None
+        code = read_delegation_target(evm, delegated_address)
+        final_address = delegated_address
+    else:
+        code = get_account(evm.message.block_env.state, code_address).code
+        final_address = code_address
+
     access_gas_cost += delegation_gas_cost
 
     code_address = final_address
@@ -517,12 +545,6 @@ def callcode(evm: Evm) -> None:
         extend_memory.cost,
         access_gas_cost + transfer_gas_cost,
     )
-
-    check_gas(evm, message_call_gas.cost + extend_memory.cost)
-
-    track_address(evm.state_changes, original_address)
-    if is_delegated:
-        apply_delegation_tracking(evm, original_address, final_address)
 
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 
@@ -665,16 +687,35 @@ def delegatecall(evm: Evm) -> None:
     access_gas_cost = (
         GAS_COLD_ACCOUNT_ACCESS if is_cold_access else GAS_WARM_ACCESS
     )
+
+    # check gas for base access before reading `code_address` account
+    base_gas_cost = extend_memory.cost + access_gas_cost
+    check_gas(evm, base_gas_cost)
+
     if is_cold_access:
         evm.accessed_addresses.add(code_address)
 
+    # read `code_address` account and assess delegation cost
     (
         is_delegated,
         original_address,
-        final_address,
-        code,
+        delegated_address,
         delegation_gas_cost,
-    ) = check_delegation(evm, code_address)
+    ) = calculate_delegation_cost(evm, code_address)
+
+    # check gas again for delegation target access before reading it
+    if is_delegated and delegation_gas_cost > Uint(0):
+        check_gas(evm, base_gas_cost + delegation_gas_cost)
+
+    # Now safe to read delegation target since we verified gas
+    if is_delegated:
+        assert delegated_address is not None
+        code = read_delegation_target(evm, delegated_address)
+        final_address = delegated_address
+    else:
+        code = get_account(evm.message.block_env.state, code_address).code
+        final_address = code_address
+
     access_gas_cost += delegation_gas_cost
 
     code_address = final_address
@@ -683,12 +724,6 @@ def delegatecall(evm: Evm) -> None:
     message_call_gas = calculate_message_call_gas(
         U256(0), gas, Uint(evm.gas_left), extend_memory.cost, access_gas_cost
     )
-
-    check_gas(evm, message_call_gas.cost + extend_memory.cost)
-
-    track_address(evm.state_changes, original_address)
-    if is_delegated:
-        apply_delegation_tracking(evm, original_address, final_address)
 
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 
@@ -749,13 +784,31 @@ def staticcall(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_addresses.add(to)
 
+    # check gas for base access before reading `to` account
+    base_gas_cost = extend_memory.cost + access_gas_cost
+    check_gas(evm, base_gas_cost)
+
+    # read `to` account and assess delegation cost
     (
         is_delegated,
         original_address,
-        final_address,
-        code,
+        delegated_address,
         delegation_gas_cost,
-    ) = check_delegation(evm, to)
+    ) = calculate_delegation_cost(evm, to)
+
+    # check gas again for delegation target access before reading it
+    if is_delegated and delegation_gas_cost > Uint(0):
+        check_gas(evm, base_gas_cost + delegation_gas_cost)
+
+    # Now safe to read delegation target since we verified gas
+    if is_delegated:
+        assert delegated_address is not None
+        code = read_delegation_target(evm, delegated_address)
+        final_address = delegated_address
+    else:
+        code = get_account(evm.message.block_env.state, to).code
+        final_address = to
+
     access_gas_cost += delegation_gas_cost
 
     code_address = final_address
@@ -768,12 +821,6 @@ def staticcall(evm: Evm) -> None:
         extend_memory.cost,
         access_gas_cost,
     )
-
-    check_gas(evm, message_call_gas.cost + extend_memory.cost)
-
-    track_address(evm.state_changes, to)
-    if is_delegated:
-        apply_delegation_tracking(evm, original_address, final_address)
 
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 
