@@ -8,8 +8,12 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    BalAccountExpectation,
+    BalBalanceChange,
+    BlockAccessListExpectation,
     Bytecode,
     Environment,
+    Fork,
     Initcode,
     Op,
     StateTestFiller,
@@ -343,6 +347,7 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
     selfdestruct_with_transfer_initcode_copy_from_address: Address,
     recursive_revert_contract_address: Address,
     recursive_revert_contract_code: Bytecode,
+    fork: Fork,
 ) -> None:
     """
     Given:
@@ -427,7 +432,41 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
         gas_limit=500_000,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    expected_block_access_list = None
+    if fork.header_bal_hash_required():
+        account_expectations = {}
+
+        if selfdestruct_on_outer_call > 0:
+            account_expectations[
+                selfdestruct_with_transfer_contract_address
+            ] = BalAccountExpectation(
+                storage_reads=[0, 1],  # Storage was accessed
+                balance_changes=[],  # No net balance change
+            )
+            account_expectations[selfdestruct_recipient_address] = (
+                BalAccountExpectation(
+                    balance_changes=[
+                        BalBalanceChange(
+                            tx_index=1,
+                            post_balance=1
+                            if selfdestruct_on_outer_call == 1
+                            else 2,
+                        )
+                    ],
+                )
+            )
+
+        expected_block_access_list = BlockAccessListExpectation(
+            account_expectations=account_expectations
+        )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post=post,
+        tx=tx,
+        expected_block_access_list=expected_block_access_list,
+    )
 
 
 @pytest.mark.parametrize(
