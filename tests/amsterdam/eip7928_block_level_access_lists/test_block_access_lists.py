@@ -2088,3 +2088,48 @@ def test_bal_multiple_storage_writes_same_slot(
             contract: Account(storage={1: 3}),
         },
     )
+
+
+def test_bal_create_transaction_empty_code(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Ensure BAL does not record spurious code changes when a CREATE transaction
+    deploys empty code.
+    """
+    alice = pre.fund_eoa()
+    contract_address = compute_create_address(address=alice, nonce=0)
+
+    tx = Transaction(
+        sender=alice,
+        to=None,
+        data=b"",
+        gas_limit=100_000,
+    )
+
+    account_expectations = {
+        alice: BalAccountExpectation(
+            nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+        ),
+        contract_address: BalAccountExpectation(
+            nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+            code_changes=[],  # ensure no code_changes recorded
+        ),
+    }
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations=account_expectations
+                ),
+            )
+        ],
+        post={
+            alice: Account(nonce=1),
+            contract_address: Account(nonce=1, code=b""),
+        },
+    )
