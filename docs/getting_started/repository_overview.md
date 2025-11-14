@@ -15,8 +15,7 @@ The most relevant folders and files in the repo are:
 │   ├── 📁 state_tests/
 │   └── 📁 ...
 ├─╴📁 src/                       # library & framework packages
-│   ├── 📁 ethereum_test_fork/
-│   ├── 📁 ethereum_test_tools/
+│   ├── 📁 execution_testing/
 │   └── 📁 ...
 ├─╴📁 docs/                      # markdown documentation
 │   ├── 📁 getting_started
