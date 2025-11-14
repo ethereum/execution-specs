@@ -647,7 +647,12 @@ def set_code(
         sender.code = code
 
     modify_state(state, address, write_code)
-    track_code_change(state_changes, address, code)
+
+    # Only track code change if it's not net-zero within this frame
+    # Compare against pre-code captured in this frame, default to b""
+    pre_code = state_changes.pre_code.get(address, b"")
+    if pre_code != code:
+        track_code_change(state_changes, address, code)
 
 
 def get_storage_original(state: State, address: Address, key: Bytes32) -> U256:
