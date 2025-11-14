@@ -160,11 +160,11 @@ def test_arithmetic(
 
 @pytest.mark.repricing(mod_bits=255)
 @pytest.mark.parametrize("mod_bits", [255, 191, 127, 63])
-@pytest.mark.parametrize("op", [Op.MOD, Op.SMOD])
+@pytest.mark.parametrize("opcode", [Op.MOD, Op.SMOD])
 def test_mod(
     benchmark_test: BenchmarkTestFiller,
     mod_bits: int,
-    op: Op,
+    opcode: Op,
 ) -> None:
     """
     Benchmark MOD instructions.
@@ -185,7 +185,7 @@ def test_mod(
     # just the SMOD implementation will have to additionally handle the
     # sign bits.
     # The result stays negative.
-    should_negate = op == Op.SMOD
+    should_negate = opcode == Op.SMOD
 
     num_numerators = 15
     numerator_bits = 256 if not should_negate else 255
@@ -200,7 +200,7 @@ def test_mod(
     # Select the random seed giving the longest found MOD chain. You can look
     # for a longer one by increasing the numerators_min_len. This will activate
     # the while loop below.
-    match op, mod_bits:
+    match opcode, mod_bits:
         case Op.MOD, 255:
             seed = 20393
             numerators_min_len = 750
@@ -226,7 +226,7 @@ def test_mod(
             seed = 7562
             numerators_min_len = 720
         case _:
-            raise ValueError(f"{mod_bits}-bit {op} not supported.")
+            raise ValueError(f"{mod_bits}-bit {opcode} not supported.")
 
     while True:
         rng = random.Random(seed)
@@ -263,7 +263,7 @@ def test_mod(
     setup = sum((Op.PUSH32[n] for n in numerators), Bytecode())
     attack_block = (
         Op.CALLDATALOAD(0)
-        + sum(make_dup(len(numerators) - i) + op for i in indexes)
+        + sum(make_dup(len(numerators) - i) + opcode for i in indexes)
         + Op.POP
     )
 
@@ -279,13 +279,13 @@ def test_mod(
 
 @pytest.mark.repricing(mod_bits=255)
 @pytest.mark.parametrize("mod_bits", [255, 191, 127, 63])
-@pytest.mark.parametrize("op", [Op.ADDMOD, Op.MULMOD])
+@pytest.mark.parametrize("opcode", [Op.ADDMOD, Op.MULMOD])
 def test_mod_arithmetic(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     fork: Fork,
     mod_bits: int,
-    op: Op,
+    opcode: Op,
     gas_benchmark_value: int,
 ) -> None:
     """
@@ -316,7 +316,7 @@ def test_mod_arithmetic(
     # for a longer one by increasing the op_chain_len. This will activate the
     # while loop below.
     op_chain_len = 666
-    match op, mod_bits:
+    match opcode, mod_bits:
         case Op.ADDMOD, 255:
             seed = 4
         case Op.ADDMOD, 191:
@@ -337,7 +337,7 @@ def test_mod_arithmetic(
             seed = 4193
             op_chain_len = 600
         case _:
-            raise ValueError(f"{mod_bits}-bit {op} not supported.")
+            raise ValueError(f"{mod_bits}-bit {opcode} not supported.")
 
     while True:
         rng = random.Random(seed)
@@ -345,7 +345,7 @@ def test_mod_arithmetic(
         initial_mod = rng.randint(2 ** (mod_bits - 1), 2**mod_bits - 1)
 
         # Evaluate the op chain and collect the order of accessing numerators.
-        op_fn = operator.add if op == Op.ADDMOD else operator.mul
+        op_fn = operator.add if opcode == Op.ADDMOD else operator.mul
         mod = initial_mod
         indexes: list[int] = []
         while mod >= mod_min and len(indexes) < op_chain_len:
@@ -366,7 +366,7 @@ def test_mod_arithmetic(
     code_segment = (
         Op.CALLDATALOAD(0)
         + sum(
-            make_dup(len(args) - i) + Op.PUSH32[fixed_arg] + op
+            make_dup(len(args) - i) + Op.PUSH32[fixed_arg] + opcode
             for i in indexes
         )
         + Op.POP

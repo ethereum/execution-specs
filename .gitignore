@@ -9,6 +9,9 @@
 # AI
 .claude/
 
+# Benchmark fixed opcode counts
+.fixed_opcode_counts.json
+
 # C extensions
 *.so
 
