@@ -400,10 +400,8 @@ def merge_on_success(child_frame: StateChanges) -> None:
             parent_frame.balance_changes[(addr, idx)] = final_balance
 
     # Merge nonce changes - keep only highest nonce per address
-    # Nonces are monotonically increasing, so just keep the max
     address_final_nonces: Dict[Address, Tuple[BlockAccessIndex, U64]] = {}
     for addr, idx, nonce in child_frame.nonce_changes:
-        # Keep the highest nonce value for each address
         if (
             addr not in address_final_nonces
             or nonce > address_final_nonces[addr][1]
@@ -421,6 +419,48 @@ def merge_on_success(child_frame: StateChanges) -> None:
         if pre_code != final_code:
             parent_frame.code_changes[(addr, idx)] = final_code
         # else: Net-zero change - skip entirely
+
+
+def commit_transaction_frame(tx_frame: StateChanges) -> None:
+    """
+    Commit a transaction frame's changes to the block frame.
+
+    Merges ALL changes from the transaction frame into the block frame
+    without net-zero filtering. Each transaction's changes are recorded
+    at their respective transaction index, even if a later transaction
+    reverts a change back to its original value.
+
+    This is different from merge_on_success() which filters net-zero
+    changes within a single transaction's execution.
+
+    Parameters
+    ----------
+    tx_frame :
+        The transaction frame to commit.
+
+    """
+    assert tx_frame.parent is not None
+    block_frame = tx_frame.parent
+
+    # Merge address accesses
+    block_frame.touched_addresses.update(tx_frame.touched_addresses)
+
+    # Merge storage operations
+    block_frame.storage_reads.update(tx_frame.storage_reads)
+    for (addr, key, idx), value in tx_frame.storage_writes.items():
+        block_frame.storage_writes[(addr, key, idx)] = value
+
+    # Merge balance changes
+    for (addr, idx), final_balance in tx_frame.balance_changes.items():
+        block_frame.balance_changes[(addr, idx)] = final_balance
+
+    # Merge nonce changes
+    for addr, idx, nonce in tx_frame.nonce_changes:
+        block_frame.nonce_changes.add((addr, idx, nonce))
+
+    # Merge code changes
+    for (addr, idx), final_code in tx_frame.code_changes.items():
+        block_frame.code_changes[(addr, idx)] = final_code
 
 
 def merge_on_failure(child_frame: StateChanges) -> None:
