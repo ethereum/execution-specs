@@ -2133,3 +2133,76 @@ def test_bal_create_transaction_empty_code(
             contract_address: Account(nonce=1, code=b""),
         },
     )
+
+
+def test_bal_cross_tx_storage_revert_to_zero(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Ensure BAL captures storage changes when tx1 writes a non-zero value
+    and tx2 reverts it back to zero. This is a regression test for the
+    blobhash scenario where slot changes were being incorrectly filtered
+    as net-zero across transaction boundaries.
+
+    Tx1: slot 0 = 0x0 -> 0xABCD (change recorded at tx_index=1)
+    Tx2: slot 0 = 0xABCD -> 0x0 (change MUST be recorded at tx_index=2)
+    """
+    alice = pre.fund_eoa()
+
+    # Contract that writes to slot 0 based on calldata
+    contract = pre.deploy_contract(code=Op.SSTORE(0, Op.CALLDATALOAD(0)))
+
+    # Tx1: Write slot 0 = 0xABCD
+    tx1 = Transaction(
+        sender=alice,
+        to=contract,
+        data=Hash(0xABCD),
+        gas_limit=100_000,
+    )
+
+    # Tx2: Write slot 0 = 0x0 (revert to zero)
+    tx2 = Transaction(
+        sender=alice,
+        to=contract,
+        data=Hash(0x0),
+        gas_limit=100_000,
+    )
+
+    account_expectations = {
+        alice: BalAccountExpectation(
+            nonce_changes=[
+                BalNonceChange(tx_index=1, post_nonce=1),
+                BalNonceChange(tx_index=2, post_nonce=2),
+            ],
+        ),
+        contract: BalAccountExpectation(
+            storage_changes=[
+                BalStorageSlot(
+                    slot=0,
+                    slot_changes=[
+                        BalStorageChange(tx_index=1, post_value=0xABCD),
+                        # CRITICAL: tx2's write to 0x0 MUST appear
+                        # even though it returns slot to original value
+                        BalStorageChange(tx_index=2, post_value=0x0),
+                    ],
+                ),
+            ],
+        ),
+    }
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx1, tx2],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations=account_expectations
+                ),
+            )
+        ],
+        post={
+            alice: Account(nonce=2),
+            contract: Account(storage={0: 0x0}),
+        },
+    )
