@@ -393,7 +393,6 @@ def merge_on_success(child_frame: StateChanges) -> None:
     for (addr, idx), final_balance in child_frame.balance_changes.items():
         if addr in child_frame.pre_balances:
             if child_frame.pre_balances[addr] != final_balance:
-                # Net change occurred - merge the final balance
                 parent_frame.balance_changes[(addr, idx)] = final_balance
             # else: Net-zero change - skip entirely
         else:
@@ -418,14 +417,10 @@ def merge_on_success(child_frame: StateChanges) -> None:
     # Merge code changes - filter net-zero changes
     # code_changes keyed by (address, index)
     for (addr, idx), final_code in child_frame.code_changes.items():
-        if addr in child_frame.pre_code:
-            if child_frame.pre_code[addr] != final_code:
-                # Net change occurred - merge the final code
-                parent_frame.code_changes[(addr, idx)] = final_code
-            # else: Net-zero change - skip entirely
-        else:
-            # No pre-code captured, merge as-is
+        pre_code = child_frame.pre_code.get(addr, b"")
+        if pre_code != final_code:
             parent_frame.code_changes[(addr, idx)] = final_code
+        # else: Net-zero change - skip entirely
 
 
 def merge_on_failure(child_frame: StateChanges) -> None:
