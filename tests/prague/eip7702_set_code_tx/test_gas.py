@@ -18,6 +18,9 @@ from execution_testing import (
     Address,
     Alloc,
     AuthorizationTuple,
+    BalAccountExpectation,
+    BalNonceChange,
+    BlockAccessListExpectation,
     Bytecode,
     Bytes,
     ChainConfig,
@@ -1269,6 +1272,25 @@ def test_call_to_pre_authorized_oog(
         sender=pre.fund_eoa(),
     )
 
+    expected_block_access_list = None
+    if fork.header_bal_hash_required():
+        # Sender nonce changes, callee is accessed but storage unchanged (OOG)
+        # auth_signer is tracked (we read its code to check delegation)
+        # delegation is NOT tracked (OOG before reading it)
+        account_expectations = {
+            tx.sender: BalAccountExpectation(
+                nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+            ),
+            callee_address: BalAccountExpectation.empty(),
+            # read for calculating delegation access cost:
+            auth_signer: BalAccountExpectation.empty(),
+            # OOG - not enough gas for delegation access:
+            delegation: None,
+        }
+        expected_block_access_list = BlockAccessListExpectation(
+            account_expectations=account_expectations
+        )
+
     state_test(
         pre=pre,
         tx=tx,
@@ -1277,4 +1299,5 @@ def test_call_to_pre_authorized_oog(
             auth_signer: Account(code=Spec.delegation_designation(delegation)),
             delegation: Account(storage=Storage()),
         },
+        expected_block_access_list=expected_block_access_list,
     )
