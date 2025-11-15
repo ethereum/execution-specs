@@ -655,6 +655,53 @@ def set_code(
         track_code_change(state_changes, address, code)
 
 
+def set_authority_code(
+    state: State,
+    address: Address,
+    code: Bytes,
+    state_changes: StateChanges,
+    current_code: Bytes,
+) -> None:
+    """
+    Sets authority account code for EIP-7702 delegation.
+
+    This function is used specifically for setting authority code within
+    EIP-7702 Set Code Transactions. Unlike set_code(), it tracks changes based
+    on the current code rather than pre_code to handle multiple authorizations
+    to the same address within a single transaction correctly.
+
+    Parameters
+    ----------
+    state:
+        The current state.
+
+    address:
+        Address of the authority account whose code needs to be set.
+
+    code:
+        The delegation designation bytecode to set.
+
+    state_changes:
+        State changes frame for tracking (EIP-7928).
+
+    current_code:
+        The current code before this change. Used to determine if tracking
+        is needed (only track if code actually changes from current value).
+
+    """
+
+    def write_code(sender: Account) -> None:
+        sender.code = code
+
+    modify_state(state, address, write_code)
+
+    # Only track if code is actually changing from current value
+    # This allows multiple auths to same address to be tracked individually
+    # Net-zero filtering happens in commit_transaction_frame
+    if current_code != code:
+        track_code_change(state_changes, address, code)
+
+
 def get_storage_original(state: State, address: Address, key: Bytes32) -> U256:
     """
     Get the original value in a storage slot i.e. the value before the current
