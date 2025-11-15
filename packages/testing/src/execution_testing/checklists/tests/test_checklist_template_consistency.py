@@ -60,7 +60,6 @@ def get_all_checklist_ids(obj: Any) -> Set[str]:
     return ids
 
 
-
 def test_checklist_template_consistency() -> None:
     """
     Test that all IDs in markdown template match EIPChecklist class exactly.
@@ -99,7 +98,6 @@ def test_checklist_template_consistency() -> None:
         error_message += f"Total checklist IDs: {len(checklist_ids)}\n\n"
         error_message += "\n\n".join(errors)
         pytest.fail(error_message)
-
 
 
 def test_checklist_template_exists() -> None:

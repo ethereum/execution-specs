@@ -5,8 +5,6 @@ import textwrap
 from typing import Any
 
 
-
-
 def test_eip_checklist_collection(testdir: Any) -> None:
     """Test that checklist markers are collected correctly."""
     # Create the test in an EIP-specific directory
