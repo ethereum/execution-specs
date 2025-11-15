@@ -14,7 +14,12 @@ from ethereum.exceptions import InvalidBlock, InvalidSignatureError
 
 # track_address_access removed - now using state_changes.track_address()
 from ..fork_types import Address, Authorization
-from ..state import account_exists, get_account, increment_nonce, set_code
+from ..state import (
+    account_exists,
+    get_account,
+    increment_nonce,
+    set_authority_code,
+)
 from ..state_tracker import capture_pre_code, track_address
 from ..utils.hexadecimal import hex_to_address
 from ..vm.gas import GAS_COLD_ACCOUNT_ACCESS, GAS_WARM_ACCESS
@@ -253,8 +258,16 @@ def set_delegation(message: Message) -> U256:
             or message.block_env.block_state_changes
         )
 
+        # Capture pre-code before any changes (first-write-wins)
         capture_pre_code(state_changes, authority, authority_code)
-        set_code(state, authority, code_to_set, state_changes)
+
+        # Set delegation code
+        # Uses authority_code (current) for tracking to handle multiple auths
+        # Net-zero filtering happens in commit_transaction_frame
+        set_authority_code(
+            state, authority, code_to_set, state_changes, authority_code
+        )
+
         increment_nonce(state, authority, state_changes)
 
     if message.code_address is None:

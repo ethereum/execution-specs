@@ -663,3 +663,168 @@ def test_bal_7702_null_address_delegation_no_code_change(
             bob: Account(balance=10),
         },
     )
+
+
+def test_bal_7702_double_auth_reset(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Ensure BAL captures the net code change when multiple authorizations
+    occur in the same transaction (double auth).
+
+    This test verifies that when:
+    1. First auth sets delegation to CONTRACT_A
+    2. Second auth resets delegation to empty (address 0)
+
+    The BAL should show the NET change (empty -> empty), not intermediate
+    states. This is a regression test for the bug where the BAL showed
+    the first auth's code but the final state was empty.
+    """
+    alice = pre.fund_eoa()
+    bob = pre.fund_eoa(amount=0)
+    relayer = pre.fund_eoa()
+
+    contract_a = pre.deploy_contract(code=Op.STOP)
+
+    # Transaction with double auth:
+    # 1. First sets delegation to contract_a
+    # 2. Second resets to empty
+    tx = Transaction(
+        sender=relayer,
+        to=bob,
+        value=10,
+        gas_limit=1_000_000,
+        gas_price=0xA,
+        authorization_list=[
+            AuthorizationTuple(
+                address=contract_a,
+                nonce=0,
+                signer=alice,
+            ),
+            AuthorizationTuple(
+                address=0,  # Reset to empty
+                nonce=1,
+                signer=alice,
+            ),
+        ],
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(tx_index=1, post_nonce=2)
+                            ],
+                            code_changes=[],
+                        ),
+                        bob: BalAccountExpectation(
+                            balance_changes=[
+                                BalBalanceChange(tx_index=1, post_balance=10)
+                            ]
+                        ),
+                        relayer: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(tx_index=1, post_nonce=1)
+                            ],
+                        ),
+                        contract_a: None,
+                    }
+                ),
+            )
+        ],
+        post={
+            alice: Account(nonce=2, code=b""),  # Final code is empty
+            bob: Account(balance=10),
+            relayer: Account(nonce=1),
+        },
+    )
+
+
+def test_bal_7702_double_auth_swap(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Ensure BAL captures the net code change when double auth swaps
+    delegation targets.
+
+    This test verifies that when:
+    1. First auth sets delegation to CONTRACT_A
+    2. Second auth changes delegation to CONTRACT_B
+
+    The BAL should show the final code change (empty -> CONTRACT_B),
+    not the intermediate CONTRACT_A.
+    """
+    alice = pre.fund_eoa()
+    bob = pre.fund_eoa(amount=0)
+    relayer = pre.fund_eoa()
+
+    contract_a = pre.deploy_contract(code=Op.STOP)
+    contract_b = pre.deploy_contract(code=Op.STOP)
+
+    tx = Transaction(
+        sender=relayer,
+        to=bob,
+        value=10,
+        gas_limit=1_000_000,
+        gas_price=0xA,
+        authorization_list=[
+            AuthorizationTuple(
+                address=contract_a,
+                nonce=0,
+                signer=alice,
+            ),
+            AuthorizationTuple(
+                address=contract_b,  # Override to contract_b
+                nonce=1,
+                signer=alice,
+            ),
+        ],
+    )
+
+    account_expectations = {
+        alice: BalAccountExpectation(
+            nonce_changes=[BalNonceChange(tx_index=1, post_nonce=2)],
+            code_changes=[
+                # Should show final code (CONTRACT_B), not CONTRACT_A
+                BalCodeChange(
+                    tx_index=1,
+                    new_code=Spec7702.delegation_designation(contract_b),
+                )
+            ],
+        ),
+        bob: BalAccountExpectation(
+            balance_changes=[BalBalanceChange(tx_index=1, post_balance=10)]
+        ),
+        relayer: BalAccountExpectation(
+            nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+        ),
+        # Neither contract appears in BAL during delegation setup
+        contract_a: None,
+        contract_b: None,
+    }
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations=account_expectations
+                ),
+            )
+        ],
+        post={
+            alice: Account(
+                nonce=2, code=Spec7702.delegation_designation(contract_b)
+            ),
+            bob: Account(balance=10),
+            relayer: Account(nonce=1),
+        },
+    )

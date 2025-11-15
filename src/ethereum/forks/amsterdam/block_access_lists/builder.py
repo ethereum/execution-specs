@@ -515,8 +515,7 @@ def build_block_access_list(
         add_nonce_change(builder, address, block_access_index, new_nonce)
 
     # Add all code changes
-    # Net-zero filtering for code changes should happen at the
-    # transaction level (in merge_on_success), not at the block level.
+    # Filtering happens at transaction level in eoa_delegation.py
     for (
         address,
         block_access_index,
