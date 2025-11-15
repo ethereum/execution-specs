@@ -372,7 +372,7 @@ def merge_on_success(child_frame: StateChanges) -> None:
             parent_frame.pre_storage[slot] = value
     for addr, code in child_frame.pre_code.items():
         if addr not in parent_frame.pre_code:
-            parent_frame.pre_code[addr] = code
+            capture_pre_code(parent_frame, addr, code)
 
     # Merge storage operations, filtering noop writes
     parent_frame.storage_reads.update(child_frame.storage_reads)
@@ -458,9 +458,13 @@ def commit_transaction_frame(tx_frame: StateChanges) -> None:
     for addr, idx, nonce in tx_frame.nonce_changes:
         block_frame.nonce_changes.add((addr, idx, nonce))
 
-    # Merge code changes
+    # Merge code changes - filter net-zero changes within the transaction
+    # Compare final code against transaction's pre-code
     for (addr, idx), final_code in tx_frame.code_changes.items():
-        block_frame.code_changes[(addr, idx)] = final_code
+        pre_code = tx_frame.pre_code.get(addr, b"")
+        if pre_code != final_code:
+            block_frame.code_changes[(addr, idx)] = final_code
+        # else: Net-zero change within this transaction - skip
 
 
 def merge_on_failure(child_frame: StateChanges) -> None:
