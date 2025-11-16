@@ -47,6 +47,7 @@ def test_block_context_ops(
 
 
 @pytest.mark.repricing
+@pytest.mark.blockchain_test_no_engine_x
 @pytest.mark.parametrize(
     "index,chain_length",
     [
@@ -64,6 +65,17 @@ def test_blockhash(
     index: int | None,
     chain_length: int,
 ) -> None:
+    """
+    Benchmark BLOCKHASH instruction accessing oldest allowed block.
+
+    Note: This test is excluded from engine x format generation because it
+    creates 256 empty blocks which are particularly slow to process in
+    pre-allocation grouping mode. The test still generates blockchain_test and
+    blockchain_test_engine formats which are sufficient for benchmarking
+    purposes.
+    """
+    # Create 256 dummy blocks to fill the blockhash window.
+    blocks = [Block()] * 256
     """Benchmark BLOCKHASH instruction accessing oldest allowed block."""
     # Create `chain_length` dummy blocks to fill the blockhash window.
     blocks = [Block()] * chain_length

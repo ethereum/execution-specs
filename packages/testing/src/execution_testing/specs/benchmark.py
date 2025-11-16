@@ -220,6 +220,7 @@ class BenchmarkTest(BaseTest):
     supported_markers: ClassVar[Dict[str, str]] = {
         "blockchain_test_engine_only": "Only generate a blockchain test engine fixture",
         "blockchain_test_only": "Only generate a blockchain test fixture",
+        "blockchain_test_no_engine_x": "Exclude blockchain test engine x fixture (for tests that are slow with pre-allocation groups)",
         "repricing": "Mark test as reference test for gas repricing analysis",
     }
 
@@ -306,10 +307,13 @@ class BenchmarkTest(BaseTest):
         """
         del fork
 
-        if "blockchain_test_only" in [m.name for m in markers]:
+        marker_names = [m.name for m in markers]
+        if "blockchain_test_only" in marker_names:
             return fixture_format != BlockchainFixture
-        if "blockchain_test_engine_only" in [m.name for m in markers]:
+        if "blockchain_test_engine_only" in marker_names:
             return fixture_format != BlockchainEngineFixture
+        if "blockchain_test_no_engine_x" in marker_names:
+            return fixture_format == BlockchainEngineXFixture
         return False
 
     def get_genesis_environment(self) -> Environment:
