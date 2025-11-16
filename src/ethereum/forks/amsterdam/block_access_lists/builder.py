@@ -484,19 +484,14 @@ def build_block_access_list(
     for address, slot in state_changes.storage_reads:
         add_storage_read(builder, address, slot)
 
-    # Add all storage writes, filtering net-zero changes
+    # Add all storage writes
+    # Net-zero filtering happens at transaction commit time, not here.
+    # At block level, we track ALL writes at their respective indices.
     for (
         address,
         slot,
         block_access_index,
     ), value in state_changes.storage_writes.items():
-        # Check if this is a net-zero change by comparing with pre-state
-        if (address, slot) in state_changes.pre_storage:
-            if state_changes.pre_storage[(address, slot)] == value:
-                # Net-zero change - convert to read only
-                add_storage_read(builder, address, slot)
-                continue
-
         # Convert U256 to Bytes32 for storage
         value_bytes = Bytes32(value.to_bytes(U256(32), "big"))
         add_storage_write(
