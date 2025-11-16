@@ -71,6 +71,7 @@ from .state_tracker import (
     get_block_access_index,
     handle_in_transaction_selfdestruct,
     increment_block_access_index,
+    merge_on_success,
     normalize_balance_changes_for_transaction,
     track_address,
     track_balance_change,
@@ -633,6 +634,10 @@ def process_system_transaction(
         Output of processing the system transaction.
 
     """
+    # EIP-7928: Create a child frame for system transaction
+    # This allows proper pre-state capture for net-zero filtering
+    system_tx_state_changes = create_child_frame(block_env.block_state_changes)
+
     tx_env = vm.TransactionEnvironment(
         origin=SYSTEM_ADDRESS,
         gas_price=block_env.base_fee_per_gas,
@@ -664,9 +669,14 @@ def process_system_transaction(
         accessed_storage_keys=set(),
         disable_precompiles=False,
         parent_evm=None,
+        transaction_state_changes=system_tx_state_changes,
     )
 
     system_tx_output = process_message_call(system_tx_message)
+
+    # Merge system transaction changes back to block frame
+    # System transactions always succeed (or block is invalid)
+    merge_on_success(system_tx_state_changes)
 
     return system_tx_output
 
