@@ -4,6 +4,7 @@ Pytest source code generator.
 This module maps a test provider instance to pytest source code.
 """
 
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -53,20 +54,36 @@ def get_test_source(provider: Provider, template_path: str) -> str:
 
 def format_code(code: str) -> str:
     """
-    Format the provided Python code using the Black code formatter.
+    Format the provided Python code using ruff formatter.
 
     This function writes the given code to a temporary Python file, formats it
-    using the Black formatter, and returns the formatted code as a string.
+    using ruff if available, and returns the formatted (or original) code as a string.
+    If ruff is not available, the code is returned unformatted.
 
     Args:
       code (str): The Python code to be formatted.
 
     Returns:
-        str: The formatted Python code.
+      str: The formatted Python code (or original if ruff is not available).
 
     """
+    # Get the path to the formatter executable in the virtual environment
+    if sys.platform.startswith("win"):
+        formatter_path = Path(sys.prefix) / "Scripts" / "ruff.exe"
+    else:
+        formatter_path = Path(sys.prefix) / "bin" / "ruff"
+
+    # Check if ruff is available
+    if not formatter_path.exists():
+        # Try to find ruff in PATH
+        ruff_in_path = shutil.which("ruff")
+        if ruff_in_path is None:
+            # Ruff is not available, return code unformatted
+            return code
+        formatter_path = Path(ruff_in_path)
+
     # Create a temporary python file
-    with tempfile.NamedTemporaryFile(suffix=".py") as temp_file:
+    with tempfile.NamedTemporaryFile(suffix=".py", delete=False) as temp_file:
         # Write the code to the temporary file
         temp_file.write(code.encode("utf-8"))
         # Ensure the file is written
@@ -75,31 +92,32 @@ def format_code(code: str) -> str:
         # Create a Path object for the input file
         input_file_path = Path(temp_file.name)
 
-        # Get the path to the formatter executable in the virtual environment
-        if sys.platform.startswith("win"):
-            formatter_path = Path(sys.prefix) / "Scripts" / "ruff.exe"
-        else:
-            formatter_path = Path(sys.prefix) / "bin" / "ruff"
+    # Call ruff to format the file
+    config_path = AppConfig().ROOT_DIR.parent / "pyproject.toml"
 
-        # Call ruff to format the file
-        config_path = AppConfig().ROOT_DIR.parent / "pyproject.toml"
-
+    try:
+        subprocess.run(
+            [
+                str(formatter_path),
+                "format",
+                str(input_file_path),
+                "--quiet",
+                "--config",
+                str(config_path),
+            ],
+            check=True,
+            capture_output=True,
+        )
+        # Read the formatted source code
+        formatted_code = input_file_path.read_text()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # If formatting fails or ruff is not found, return original code
+        formatted_code = code
+    finally:
+        # Clean up the temporary file
         try:
-            subprocess.run(
-                [
-                    str(formatter_path),
-                    "format",
-                    str(input_file_path),
-                    "--quiet",
-                    "--config",
-                    str(config_path),
-                ],
-                check=True,
-            )
-        except subprocess.CalledProcessError as e:
-            raise Exception(
-                f"Error formatting code using formatter '{formatter_path}'"
-            ) from e
+            input_file_path.unlink()
+        except OSError:
+            pass
 
-        # Return the formatted source code
-        return input_file_path.read_text()
+    return formatted_code

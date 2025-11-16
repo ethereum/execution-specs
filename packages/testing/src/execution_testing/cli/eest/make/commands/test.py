@@ -8,12 +8,15 @@ template using Jinja2.
 """
 
 import os
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
 import click
 import jinja2
 
+from execution_testing.config import AppConfig
 from execution_testing.config.docs import DocsConfig
 from execution_testing.forks import get_development_forks, get_forks
 
@@ -32,6 +35,52 @@ def exit_now() -> None:
     """Interrupt execution instantly via ctrl+C."""
     print("Ctrl+C detected, exiting..")
     exit(0)
+
+
+def _format_file_if_ruff_available(file_path: Path) -> None:
+    """
+    Format a Python file using ruff if ruff is available.
+
+    If ruff is not available, this function does nothing. This allows
+    package users to use the command without requiring ruff as a dependency.
+
+    Args:
+        file_path: Path to the Python file to format.
+    """
+    # Get the path to the formatter executable in the virtual environment
+    if sys.platform.startswith("win"):
+        formatter_path = Path(sys.prefix) / "Scripts" / "ruff.exe"
+    else:
+        formatter_path = Path(sys.prefix) / "bin" / "ruff"
+
+    # Check if ruff is available
+    if not formatter_path.exists():
+        # Try to find ruff in PATH
+        ruff_in_path = shutil.which("ruff")
+        if ruff_in_path is None:
+            # Ruff is not available, skip formatting
+            return
+        formatter_path = Path(ruff_in_path)
+
+    # Get the config path
+    config_path = AppConfig().ROOT_DIR.parent / "pyproject.toml"
+
+    try:
+        subprocess.run(
+            [
+                str(formatter_path),
+                "format",
+                str(file_path),
+                "--quiet",
+                "--config",
+                str(config_path),
+            ],
+            check=True,
+            capture_output=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # If formatting fails, silently continue
+        pass
 
 
 @click.command(
@@ -158,6 +207,9 @@ def test() -> None:
 
     with open(module_path, "w") as file:
         file.write(rendered_template)
+
+    # Try to format the generated file with ruff if available
+    _format_file_if_ruff_available(module_path)
 
     click.echo(
         click.style(
