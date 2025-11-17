@@ -58,7 +58,7 @@ def test_block_context_ops(
     ],
 )
 @pytest.mark.slow("Generates long chain")
-@pytest.mark.skip("Blocks release generation")
+@pytest.mark.pre_alloc_group("separate", reason="Generates long chain")
 def test_blockhash(
     benchmark_test: BenchmarkTestFiller,
     index: int | None,
