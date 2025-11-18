@@ -44,7 +44,7 @@ runs:
         cd hive
         ./hive --dev \
           --client besu,go-ethereum,nethermind \
-          --client-file ../.github/configs/hive/latest_client_releases.yaml \
+          --client-file ../.github/configs/hive/latest.yaml \
           --docker.output &
         
         export HIVE_PID=$!
