@@ -74,14 +74,8 @@ runs:
           sleep 1
         done
 
-        echo "hive_pid=$HIVE_PID" >> "$GITHUB_OUTPUT"
-
-    - name: Extract genesis configs from clients
-      shell: bash
-      env:
-        HIVE_SIMULATOR: http://127.0.0.1:3000
-      run: |
         echo "Running extract_config for benchmark fixtures..."
+        cd ..
         uv run extract_config \
           --fixture fixtures/blockchain_tests_engine_x/pre_alloc/ \
           --output genesis/ \
@@ -89,12 +83,6 @@ runs:
 
         echo "Genesis configs extracted successfully"
         ls -la genesis/
-
-    - name: Stop Hive
-      shell: bash
-      run: |
-
-        kill -SIGINT ${{ steps.start-hive.outputs.path }}
 
     - name: Create benchmark_genesis.tar.gz
       id: create-tarball
