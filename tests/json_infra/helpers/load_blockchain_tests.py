@@ -31,9 +31,14 @@ _fixture_query = None
 
 def _use_database_backend() -> bool:
     """Check if database backend should be used."""
-    if os.getenv("EELS_USE_FIXTURE_DB", "0") == "1":
-        db_path = "tests/json_infra/fixtures.db"
-        return os.path.exists(db_path)
+    env_set = os.getenv("EELS_USE_FIXTURE_DB", "0") == "1"
+    db_path = "tests/json_infra/fixtures.db"
+    db_exists = os.path.exists(db_path)
+
+    print(f"Database backend check: EELS_USE_FIXTURE_DB={os.getenv('EELS_USE_FIXTURE_DB')}, db_exists={db_exists}, cwd={os.getcwd()}")
+
+    if env_set:
+        return db_exists
     return False
 
 
