@@ -262,10 +262,15 @@ def pytest_sessionstart(session: Session) -> None:
 
     # Build fixture database after downloading fixtures
     if os.getenv("EELS_USE_FIXTURE_DB") == "1":
-        print("Building fixture database...")
+        print("Building fixture database...", flush=True)
+        import sys
+
+        sys.stdout.flush()
         from .build_fixture_db import main as build_db
 
         build_db()
+        print("Database build complete!", flush=True)
+        sys.stdout.flush()
 
 
 def pytest_sessionfinish(session: Session, exitstatus: int) -> None:
