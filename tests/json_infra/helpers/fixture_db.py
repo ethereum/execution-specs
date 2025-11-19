@@ -362,8 +362,17 @@ class FixtureQuery:
     def connect(self) -> sqlite3.Connection:
         """Connect to database."""
         if self.conn is None:
-            self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            self.conn = sqlite3.connect(
+                self.db_path,
+                check_same_thread=False,
+                timeout=30.0,  # 30 second timeout for locks
+                uri=True,
+            )
             self.conn.row_factory = sqlite3.Row
+            # Read-only optimizations for concurrent access
+            self.conn.execute("PRAGMA query_only=1")
+            self.conn.execute("PRAGMA temp_store=MEMORY")
+            self.conn.execute("PRAGMA cache_size=-64000")  # 64MB cache
         return self.conn
 
     def fetch_state_tests(self, fork: str) -> Generator[Dict, None, None]:
