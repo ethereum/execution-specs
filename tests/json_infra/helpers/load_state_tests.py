@@ -34,7 +34,11 @@ def _use_database_backend() -> bool:
     db_path = "tests/json_infra/fixtures.db"
     db_exists = os.path.exists(db_path)
 
-    print(f"Database backend check: EELS_USE_FIXTURE_DB={os.getenv('EELS_USE_FIXTURE_DB')}, db_exists={db_exists}, cwd={os.getcwd()}")
+    print(
+        f"Database backend check: "
+        f"EELS_USE_FIXTURE_DB={os.getenv('EELS_USE_FIXTURE_DB')}, "
+        f"db_exists={db_exists}, cwd={os.getcwd()}"
+    )
 
     if env_set:
         return db_exists
