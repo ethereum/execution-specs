@@ -194,6 +194,7 @@ def fetch_blockchain_tests(
     """Fetch all blockchain test cases for the specified JSON fork."""
     # Try database backend first
     if _use_database_backend():
+        print(f"Loading blockchain tests for {json_fork} from database")
         query = _get_fixture_query()
         for test_case_data in query.fetch_blockchain_tests(json_fork):
             test_case_dict = test_case_data["data"]

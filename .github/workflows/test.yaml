@@ -94,7 +94,7 @@ jobs:
           python-version: "3.11"
       - uses: ./.github/actions/setup-env
       - name: Build fixture database
-        run: tox -e json_infra --notest && tox -e json_infra -- python -m tests.json_infra.build_fixture_db
+        run: tox -e build_fixture_db
       - name: Run json infra tests
         run: tox -e json_infra
         env:

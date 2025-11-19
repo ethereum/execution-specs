@@ -53,6 +53,7 @@ def fetch_state_tests(json_fork: str) -> Generator:
     """
     # Try database backend first
     if _use_database_backend():
+        print(f"Loading state tests for {json_fork} from database")
         query = _get_fixture_query()
         for test_case_data in query.fetch_state_tests(json_fork):
             test_case_dict = test_case_data["data"]
