@@ -93,8 +93,12 @@ jobs:
         with:
           python-version: "3.11"
       - uses: ./.github/actions/setup-env
+      - name: Build fixture database
+        run: uv run python tests/json_infra/build_fixture_db.py
       - name: Run json infra tests
         run: tox -e json_infra
+        env:
+          EELS_USE_FIXTURE_DB: 1
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7
         with:
