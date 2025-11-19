@@ -93,19 +93,8 @@ jobs:
         with:
           python-version: "3.11"
       - uses: ./.github/actions/setup-env
-      - name: Cache fixture database
-        id: cache-fixtures-db
-        uses: actions/cache@v4
-        with:
-          path: tests/json_infra/fixtures.db
-          key: fixtures-db-${{ hashFiles('tests/json_infra/fixtures/**/*.json') }}
-      - name: Build fixture database if cache miss
-        if: steps.cache-fixtures-db.outputs.cache-hit != 'true'
-        run: uv run python tests/json_infra/build_fixture_db.py
       - name: Run json infra tests
         run: tox -e json_infra
-        env:
-          EELS_USE_FIXTURE_DB: 1
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7
         with:
