@@ -20,12 +20,47 @@ from .exceptional_test_patterns import exceptional_state_test_patterns
 
 parser = create_parser()
 
+# Global query instance for database backend
+_fixture_query = None
+
+
+def _use_database_backend() -> bool:
+    """Check if database backend should be used."""
+    # Check environment variable
+    if os.getenv("EELS_USE_FIXTURE_DB", "0") == "1":
+        db_path = "tests/json_infra/fixtures.db"
+        return os.path.exists(db_path)
+    return False
+
+
+def _get_fixture_query():
+    """Get or create database query instance."""
+    global _fixture_query
+    if _fixture_query is None:
+        from .fixture_db import FixtureQuery
+
+        _fixture_query = FixtureQuery()
+    return _fixture_query
+
 
 def fetch_state_tests(json_fork: str) -> Generator:
     """
     Fetches all the general state tests from the given directory.
+    Supports both file-based and database-backed loading.
     """
-    # Filter FORKS based on fork_option parameter
+    # Try database backend first
+    if _use_database_backend():
+        query = _get_fixture_query()
+        for test_case_data in query.fetch_state_tests(json_fork):
+            test_case_dict = test_case_data["data"]
+
+            if test_case_data["is_slow"]:
+                yield pytest.param(test_case_dict, marks=pytest.mark.slow)
+            else:
+                yield test_case_dict
+        return
+
+    # Fallback to file-based loading (original implementation)
     eels_fork = FORKS[json_fork]["eels_fork"]
     test_dirs = FORKS[json_fork]["state_test_dirs"]
 

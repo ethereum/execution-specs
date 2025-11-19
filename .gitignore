@@ -82,3 +82,6 @@ logs/
 env.yaml
 
 site/
+
+# fixture db
+tests/json_infra/fixtures.db
