@@ -265,7 +265,9 @@ class FixtureDatabase:
 
             fork_count = 0
             for test_dir in test_dirs:
+                print("test_dir", test_dir)
                 if not os.path.exists(test_dir):
+                    print("test_dir does not exist")
                     continue
 
                 json_files = glob(
