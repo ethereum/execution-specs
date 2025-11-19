@@ -40,15 +40,15 @@ runs:
     - name: Start Hive in dev mode
       id: start-hive
       shell: bash
+      env:
+        HIVE_SIMULATOR: http://127.0.0.1:3000
       run: |
         cd hive
         ./hive --dev \
           --client besu,go-ethereum,nethermind \
           --client-file ../.github/configs/hive/latest.yaml \
           --docker.output &
-        
         export HIVE_PID=$!
-        export HIVE_SIMULATOR=http://127.0.0.1:3000
 
         echo "Waiting for Hive to be ready, pid=$HIVE_PID"
         deadline=$((SECONDS + 600))
