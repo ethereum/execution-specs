@@ -16,7 +16,7 @@ project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 
-def main():
+def main() -> None:
     """Build fixture DB."""
     db_path = "tests/json_infra/fixtures.db"
     db = FixtureDatabase(db_path)

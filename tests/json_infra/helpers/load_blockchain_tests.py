@@ -5,10 +5,13 @@ import json
 import os
 import os.path
 from glob import glob
-from typing import Any, Dict, Generator
+from typing import TYPE_CHECKING, Any, Dict, Generator
 from unittest.mock import call, patch
 
 import pytest
+
+if TYPE_CHECKING:
+    from .fixture_db import FixtureQuery
 from _pytest.mark.structures import ParameterSet
 from ethereum_rlp import rlp
 from ethereum_rlp.exceptions import RLPException
@@ -34,7 +37,7 @@ def _use_database_backend() -> bool:
     return False
 
 
-def _get_fixture_query():
+def _get_fixture_query() -> "FixtureQuery":
     """Get or create database query instance."""
     global _fixture_query
     if _fixture_query is None:

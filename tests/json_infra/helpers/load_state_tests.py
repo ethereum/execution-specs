@@ -5,9 +5,12 @@ import os
 import sys
 from glob import glob
 from io import StringIO
-from typing import Dict, Generator
+from typing import TYPE_CHECKING, Dict, Generator
 
 import pytest
+
+if TYPE_CHECKING:
+    from .fixture_db import FixtureQuery
 
 from ethereum.exceptions import StateWithEmptyAccount
 from ethereum.utils.hexadecimal import hex_to_bytes
@@ -33,7 +36,7 @@ def _use_database_backend() -> bool:
     return False
 
 
-def _get_fixture_query():
+def _get_fixture_query() -> "FixtureQuery":
     """Get or create database query instance."""
     global _fixture_query
     if _fixture_query is None:
