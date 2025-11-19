@@ -260,6 +260,13 @@ def pytest_sessionstart(session: Session) -> None:
                     fixture_path,
                 )
 
+    # Build fixture database after downloading fixtures
+    if os.getenv("EELS_USE_FIXTURE_DB") == "1":
+        print("Building fixture database...")
+        from .build_fixture_db import main as build_db
+
+        build_db()
+
 
 def pytest_sessionfinish(session: Session, exitstatus: int) -> None:
     """Clean up file locks at session finish."""
