@@ -100,7 +100,9 @@ class UTCFormatter(logging.Formatter):
         """Format with relative pathname from current working directory."""
         # Make pathname relative to cwd
         try:
-            record.pathname = "./" + str(Path(record.pathname).relative_to(Path.cwd()))
+            record.pathname = "./" + str(
+                Path(record.pathname).relative_to(Path.cwd())
+            )  # noqa: E501
         except ValueError:
             # If path is not relative to cwd, keep as is
             pass
@@ -159,7 +161,7 @@ class LogLevel:
 
         valid = ", ".join(logging._nameToLevel.keys())
         raise ValueError(
-            f"Invalid log level '{value}'. Expected one of: {valid} or a number."
+            f"Invalid log level '{value}'. Expected: {valid} or a number."
         )
 
 
