@@ -30,13 +30,17 @@ class FixtureDatabase:
     def connect(self) -> sqlite3.Connection:
         """Connect to database with optimized settings."""
         if self.conn is None:
-            self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            self.conn = sqlite3.connect(
+                self.db_path,
+                check_same_thread=False,
+                timeout=30.0,  # 30 second timeout for locks
+                uri=True,
+            )
             self.conn.row_factory = sqlite3.Row
-            # Performance optimizations
-            self.conn.execute("PRAGMA journal_mode=WAL")
-            self.conn.execute("PRAGMA synchronous=NORMAL")
+            # Read-only optimizations for concurrent access
+            self.conn.execute("PRAGMA query_only=1")
             self.conn.execute("PRAGMA temp_store=MEMORY")
-            self.conn.execute("PRAGMA cache_size=-64000")  # 64MB cache
+            self.conn.execute("PRAGMA cache_size=-64000")
         return self.conn
 
     def initialize_schema(self) -> None:
