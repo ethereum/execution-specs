@@ -32,10 +32,10 @@ from execution_testing.base_types import (
     TestAddress,
     TestPrivateKey,
 )
+from execution_testing.exceptions import TransactionException
 from execution_testing.logging import (
     get_logger,
 )
-from execution_testing.exceptions import TransactionException
 
 from .account_types import EOA
 from .blob_types import Blob
