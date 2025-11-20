@@ -108,24 +108,39 @@ class FixtureDatabase:
         with open(file_path, "rb") as f:
             return hashlib.sha256(f.read()).hexdigest()
 
-    def is_file_cached(self, file_path: str) -> bool:
-        """Check if file is already in database and unchanged."""
+    def is_file_cached(self, file_path: str, fork: str = None) -> bool:
+        """Check if file is already in database and unchanged.
+
+        Args:
+            file_path: Path to the file to check
+            fork: Optional fork name. If provided, checks if file is cached for this specific fork.
+                  If not provided, checks if file is cached for any fork.
+        """
         if not os.path.exists(file_path):
             return False
 
         file_hash = self.compute_file_hash(file_path)
         conn = self.connect()
-        cursor = conn.execute(
-            "SELECT 1 FROM test_fixtures WHERE source_file = ? AND file_hash = ? LIMIT 1",  # noqa: E501
-            (file_path, file_hash),
-        )
+
+        if fork is not None:
+            # Check if file is cached for this specific fork
+            cursor = conn.execute(
+                "SELECT 1 FROM test_fixtures WHERE source_file = ? AND file_hash = ? AND fork = ? LIMIT 1",  # noqa: E501
+                (file_path, file_hash, fork),
+            )
+        else:
+            # Check if file is cached for any fork
+            cursor = conn.execute(
+                "SELECT 1 FROM test_fixtures WHERE source_file = ? AND file_hash = ? LIMIT 1",  # noqa: E501
+                (file_path, file_hash),
+            )
         return cursor.fetchone() is not None
 
     def load_state_test_file(
         self, file_path: str, json_fork: str, eels_fork: str
     ) -> int:
         """Load a state test JSON file into the database."""
-        if self.is_file_cached(file_path):
+        if self.is_file_cached(file_path, fork=json_fork):
             return 0  # Already loaded
 
         try:
@@ -185,7 +200,7 @@ class FixtureDatabase:
         self, file_path: str, json_fork: str, eels_fork: str
     ) -> int:
         """Load a blockchain test JSON file into the database."""
-        if self.is_file_cached(file_path):
+        if self.is_file_cached(file_path, fork=json_fork):
             return 0
 
         try:
@@ -255,74 +270,305 @@ class FixtureDatabase:
 
         return len(records)
 
+    def load_generic_test_file(self, file_path: str, test_type: str) -> int:
+        """Load a generic test JSON file (TransactionTests, RLPTests, etc.)."""
+        if self.is_file_cached(file_path, fork="all"):
+            return 0
+
+        try:
+            with open(file_path, "r") as fp:
+                data = json.load(fp)
+        except Exception as e:
+            print(f"Warning: Failed to parse {file_path}: {e}")
+            return 0
+
+        file_hash = self.compute_file_hash(file_path)
+        records = []
+
+        # Handle case where JSON root is a list (some test files)
+        if isinstance(data, list):
+            return 0
+
+        # These test types don't have fork-specific versions
+        # Each key in the JSON is a test case
+        for test_key, test_data in data.items():
+            if not isinstance(test_data, dict):
+                continue
+
+            test_data_dict = {
+                "test_file": file_path,
+                "test_key": test_key,
+                "test_type": test_type,
+            }
+
+            records.append(
+                (
+                    test_key,
+                    test_type,
+                    "all",  # These tests apply to all forks
+                    file_path,
+                    0,
+                    json.dumps(test_data_dict),
+                    file_hash,
+                    0,  # is_slow
+                    0,  # is_bigmem
+                    0,  # is_expected_fail
+                )
+            )
+
+        if records:
+            conn = self.connect()
+            conn.executemany(
+                """INSERT OR REPLACE INTO test_fixtures
+                   (test_key, test_type, fork, source_file, test_index,
+                    test_data, file_hash, is_slow, is_bigmem, is_expected_fail)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                records,
+            )
+            conn.commit()
+
+        return len(records)
+
     def load_all_state_tests(self) -> Dict[str, int]:
-        """Load all state test fixtures for all forks."""
-        stats = {}
+        """Load all state test fixtures for all forks.
 
+        Optimized to parse each file only once and extract tests for all forks.
+        """
+        # First pass: collect all unique files across all forks
+        all_files = set()
         for json_fork, config in FORKS.items():
-            eels_fork = config["eels_fork"]
             test_dirs = config["state_test_dirs"]
-
-            fork_count = 0
             for test_dir in test_dirs:
-                print("test_dir", test_dir)
                 if not os.path.exists(test_dir):
-                    print("test_dir does not exist")
                     continue
-
                 json_files = glob(
                     os.path.join(test_dir, "**/*.json"), recursive=True
                 )
-                for json_file in json_files:
-                    count = self.load_state_test_file(
-                        json_file, json_fork, eels_fork
-                    )
-                    fork_count += count
+                for full_path in json_files:
+                    all_files.add(full_path)
 
-            stats[json_fork] = fork_count
-            if fork_count > 0:
-                print(f"Loaded {fork_count} state tests for {json_fork}")
+        print(
+            f"Processing {len(all_files)} unique state test files across all forks..."
+        )
+
+        # Second pass: process each file once and extract tests for all forks
+        stats = {fork: 0 for fork in FORKS.keys()}
+        processed = 0
+
+        for file_path in all_files:
+            if self.is_file_cached(file_path):
+                # File already processed for all forks
+                continue
+
+            try:
+                test_cases = read_test_cases(file_path)
+            except Exception as e:
+                print(f"Warning: Failed to parse {file_path}: {e}")
+                continue
+
+            file_hash = self.compute_file_hash(file_path)
+
+            # Group test cases by fork
+            tests_by_fork = {}
+            for test_case in test_cases:
+                fork = test_case.fork_name
+                if fork not in tests_by_fork:
+                    tests_by_fork[fork] = []
+                tests_by_fork[fork].append(test_case)
+
+            # Insert tests for each fork found in this file
+            conn = self.connect()
+            for json_fork, test_cases_for_fork in tests_by_fork.items():
+                if json_fork not in FORKS:
+                    continue
+
+                eels_fork = FORKS[json_fork]["eels_fork"]
+                test_patterns = exceptional_state_test_patterns(
+                    json_fork, eels_fork
+                )
+
+                records = []
+                for test_case in test_cases_for_fork:
+                    is_slow = any(
+                        p.search(test_case.key) for p in test_patterns.slow
+                    )
+                    is_bigmem = False
+
+                    test_data = {
+                        "test_file": test_case.path,
+                        "test_key": test_case.key,
+                        "index": test_case.index,
+                        "json_fork": json_fork,
+                    }
+
+                    records.append(
+                        (
+                            test_case.key,
+                            "state",
+                            json_fork,
+                            file_path,
+                            test_case.index,
+                            json.dumps(test_data),
+                            file_hash,
+                            int(is_slow),
+                            int(is_bigmem),
+                            0,
+                        )
+                    )
+
+                if records:
+                    conn.executemany(
+                        """INSERT OR REPLACE INTO test_fixtures
+                           (test_key, test_type, fork, source_file, test_index,
+                            test_data, file_hash, is_slow, is_bigmem, is_expected_fail)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        records,
+                    )
+                    stats[json_fork] += len(records)
+
+            conn.commit()
+            processed += 1
+            if processed % 1000 == 0:
+                print(f"  Processed {processed}/{len(all_files)} files...")
+
+        # Print summary
+        for fork, count in sorted(stats.items()):
+            if count > 0:
+                print(f"Loaded {count} state tests for {fork}")
 
         return stats
 
     def load_all_blockchain_tests(self) -> Dict[str, int]:
-        """Load all blockchain test fixtures for all forks."""
-        stats = {}
+        """Load all blockchain test fixtures for all forks.
 
+        Optimized to parse each file only once and extract tests for all forks.
+        """
+        # First pass: collect all unique files across all forks
+        all_files = set()
         for json_fork, config in FORKS.items():
-            eels_fork = config["eels_fork"]
             test_dirs = config["blockchain_test_dirs"]
-
-            fork_count = 0
             for test_dir in test_dirs:
                 if not os.path.exists(test_dir):
                     continue
-
                 json_files = glob(
                     os.path.join(test_dir, "**/*.json"), recursive=True
                 )
+                for full_path in json_files:
+                    # Skip pre_alloc directories - they contain metadata, not tests
+                    if "/pre_alloc/" not in full_path:
+                        all_files.add(full_path)
 
-                # Apply file-level filtering
+        print(
+            f"Processing {len(all_files)} unique blockchain test files across all forks..."
+        )
+
+        # Second pass: process each file once and extract tests for all forks
+        stats = {fork: 0 for fork in FORKS.keys()}
+        processed = 0
+
+        for file_path in all_files:
+            if self.is_file_cached(file_path):
+                # File already processed for all forks
+                continue
+
+            try:
+                with open(file_path, "r") as fp:
+                    data = json.load(fp)
+            except Exception as e:
+                print(f"Warning: Failed to parse {file_path}: {e}")
+                continue
+
+            file_hash = self.compute_file_hash(file_path)
+
+            # Group tests by network (fork)
+            tests_by_fork = {}
+            for key, test in data.items():
+                if not isinstance(test, dict):
+                    continue
+                if "network" not in test:
+                    continue
+
+                network = test["network"]
+                if network not in tests_by_fork:
+                    tests_by_fork[network] = []
+                tests_by_fork[network].append(key)
+
+            # Insert tests for each fork found in this file
+            conn = self.connect()
+            for json_fork, test_keys in tests_by_fork.items():
+                if json_fork not in FORKS:
+                    continue
+
+                eels_fork = FORKS[json_fork]["eels_fork"]
                 test_patterns = exceptional_blockchain_test_patterns(
                     json_fork, eels_fork
                 )
-                files_to_load = []
-                for full_path in json_files:
-                    if not any(
-                        x.search(full_path)
+
+                # Skip files that are marked as expected_fail for this fork
+                if any(
+                    x.search(file_path) for x in test_patterns.expected_fail
+                ):
+                    continue
+
+                records = []
+                for test_key in test_keys:
+                    identifier = f"({file_path}|{test_key})"
+
+                    # Check if test case is expected to fail
+                    if any(
+                        x.search(identifier)
                         for x in test_patterns.expected_fail
                     ):
-                        files_to_load.append(full_path)
+                        continue
 
-                for json_file in files_to_load:
-                    count = self.load_blockchain_test_file(
-                        json_file, json_fork, eels_fork
+                    is_slow = any(
+                        x.search(identifier) for x in test_patterns.slow
                     )
-                    fork_count += count
+                    is_bigmem = any(
+                        x.search(identifier) for x in test_patterns.big_memory
+                    )
 
-            stats[json_fork] = fork_count
-            if fork_count > 0:
-                print(f"Loaded {fork_count} blockchain tests for {json_fork}")
+                    test_data = {
+                        "test_file": file_path,
+                        "test_key": test_key,
+                        "json_fork": json_fork,
+                        "eels_fork": eels_fork,
+                    }
+
+                    records.append(
+                        (
+                            test_key,
+                            "blockchain",
+                            json_fork,
+                            file_path,
+                            0,
+                            json.dumps(test_data),
+                            file_hash,
+                            int(is_slow),
+                            int(is_bigmem),
+                            0,
+                        )
+                    )
+
+                if records:
+                    conn.executemany(
+                        """INSERT OR REPLACE INTO test_fixtures
+                           (test_key, test_type, fork, source_file, test_index,
+                            test_data, file_hash, is_slow, is_bigmem, is_expected_fail)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        records,
+                    )
+                    stats[json_fork] += len(records)
+
+            conn.commit()
+            processed += 1
+            if processed % 1000 == 0:
+                print(f"  Processed {processed}/{len(all_files)} files...")
+
+        # Print summary
+        for fork, count in sorted(stats.items()):
+            if count > 0:
+                print(f"Loaded {count} blockchain tests for {fork}")
 
         return stats
 
