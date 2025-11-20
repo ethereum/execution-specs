@@ -725,6 +725,42 @@ class Transaction(
             return None
         return self.metadata.to_json()
 
+    def _format_field_value(self, field_name: str, value: Any) -> str:
+        """
+        Format a field value for string representation.
+
+        Special handling for to, data, and sender fields to show hex encoding.
+        """
+        if field_name in ("to", "data", "sender"):
+            if value is None:
+                return "None"
+            elif hasattr(value, "hex"):
+                return value.hex()
+            else:
+                return repr(value)
+        else:
+            return repr(value)
+
+    def __repr__(self) -> str:
+        """
+        Return string representation with hex-encoded values for to, data, and
+        sender fields.
+        """
+        field_strs = []
+        for field_name in self.model_fields:
+            value = getattr(self, field_name)
+            formatted_value = self._format_field_value(field_name, value)
+            field_strs.append(f"{field_name}={formatted_value}")
+
+        return " ".join(field_strs)
+
+    def __str__(self) -> str:
+        """
+        Return string representation with hex-encoded values for to, data, and
+        sender fields.
+        """
+        return self.__repr__()
+
     @cached_property
     def hash(self) -> Hash:
         """Returns hash of the transaction."""
