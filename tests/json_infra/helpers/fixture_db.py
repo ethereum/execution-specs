@@ -38,7 +38,6 @@ class FixtureDatabase:
             )
             self.conn.row_factory = sqlite3.Row
             # Read-only optimizations for concurrent access
-            self.conn.execute("PRAGMA query_only=1")
             self.conn.execute("PRAGMA temp_store=MEMORY")
             self.conn.execute("PRAGMA cache_size=-64000")
         return self.conn
