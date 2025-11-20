@@ -1,8 +1,10 @@
 """Tests related to json infrastructure."""
 
-from typing import Dict, Optional, TypedDict
+from typing import Dict, TypedDict
 
 from typing_extensions import NotRequired
+
+from .hardfork import TestHardfork
 
 
 class _FixtureSource(TypedDict):
@@ -31,113 +33,6 @@ TEST_FIXTURES: Dict[str, _FixtureSource] = {
 }
 
 
-def _get_fixture_path(key: str) -> str:
-    return TEST_FIXTURES[key]["fixture_path"]
-
-
-def _build_ethereum_test_paths(
-    base_path: str, legacy_fork: Optional[str] = None
-) -> tuple:
-    if legacy_fork:
-        bc_path = f"{base_path}/LegacyTests/{legacy_fork}/BlockchainTests/"
-        state_path = (
-            f"{base_path}/LegacyTests/{legacy_fork}/GeneralStateTests/"
-        )
-    else:
-        bc_path = f"{base_path}/BlockchainTests/"
-        state_path = f"{base_path}/GeneralStateTests/"
-    return bc_path, state_path
-
-
-def _build_eest_test_paths(base_path: str) -> tuple:
-    bc_path = f"{base_path}/fixtures/blockchain_tests/"
-    state_path = f"{base_path}/fixtures/state_tests/"
-    return bc_path, state_path
-
-
-# Base paths
-ETHEREUM_TESTS_BASE = _get_fixture_path("ethereum_tests")
-EEST_TESTS_BASE = _get_fixture_path("latest_fork_tests")
-
-# Ethereum test paths
-(
-    PRE_CONSTANTINOPLE_BC_ETHEREUM_TESTS,
-    PRE_CONSTANTINOPLE_STATE_ETHEREUM_TESTS,
-) = _build_ethereum_test_paths(ETHEREUM_TESTS_BASE, "Constantinople")
-(
-    PRE_CANCUN_BC_ETHEREUM_TESTS,
-    PRE_CANCUN_STATE_ETHEREUM_TESTS,
-) = _build_ethereum_test_paths(ETHEREUM_TESTS_BASE, "Cancun")
-BC_ETHEREUM_TESTS, STATE_ETHEREUM_TESTS = _build_ethereum_test_paths(
-    ETHEREUM_TESTS_BASE
-)
-
-# EEST test paths
-EEST_BC_TESTS, EEST_STATE_TESTS = _build_eest_test_paths(EEST_TESTS_BASE)
-
-ForkConfig = TypedDict(
-    "ForkConfig",
-    {
-        "eels_fork": str,
-        "blockchain_test_dirs": list[str],
-        "state_test_dirs": list[str],
-    },
-)
-
-
-def _create_fork_config(
-    eels_fork: str, bc_dirs: list, state_dirs: list
-) -> ForkConfig:
-    return {
-        "eels_fork": eels_fork,
-        "blockchain_test_dirs": bc_dirs,
-        "state_test_dirs": state_dirs,
-    }
-
-
-PRE_CONSTANTINOPLE_DIRS = (
-    [PRE_CONSTANTINOPLE_BC_ETHEREUM_TESTS, EEST_BC_TESTS],
-    [PRE_CONSTANTINOPLE_STATE_ETHEREUM_TESTS, EEST_STATE_TESTS],
-)
-
-PRE_CANCUN_DIRS = (
-    [PRE_CANCUN_BC_ETHEREUM_TESTS, EEST_BC_TESTS],
-    [PRE_CANCUN_STATE_ETHEREUM_TESTS, EEST_STATE_TESTS],
-)
-
-CURRENT_DIRS = (
-    [BC_ETHEREUM_TESTS, EEST_BC_TESTS],
-    [STATE_ETHEREUM_TESTS, EEST_STATE_TESTS],
-)
-
-FORKS: Dict[str, ForkConfig] = {
-    **{
-        json_fork: _create_fork_config(eels_fork, *PRE_CONSTANTINOPLE_DIRS)
-        for json_fork, eels_fork in [
-            ("Frontier", "frontier"),
-            ("Homestead", "homestead"),
-            ("EIP150", "tangerine_whistle"),
-            ("EIP158", "spurious_dragon"),
-            ("Byzantium", "byzantium"),
-            ("ConstantinopleFix", "constantinople"),
-        ]
-    },
-    **{
-        json_fork: _create_fork_config(eels_fork, *PRE_CANCUN_DIRS)
-        for json_fork, eels_fork in [
-            ("Istanbul", "istanbul"),
-            ("Berlin", "berlin"),
-            ("London", "london"),
-            ("Paris", "paris"),
-            ("Shanghai", "shanghai"),
-        ]
-    },
-    **{
-        json_fork: _create_fork_config(eels_fork, *CURRENT_DIRS)
-        for json_fork, eels_fork in [
-            ("Cancun", "cancun"),
-            ("Prague", "prague"),
-            ("Osaka", "osaka"),
-        ]
-    },
+FORKS: Dict[str, TestHardfork] = {
+    fork.json_test_name: fork for fork in TestHardfork.discover()
 }

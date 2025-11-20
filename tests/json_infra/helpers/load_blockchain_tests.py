@@ -6,6 +6,7 @@ from typing import Any, Dict, Tuple
 from unittest.mock import call, patch
 
 import pytest
+from _pytest.config import Config
 from ethereum_rlp import rlp
 from ethereum_rlp.exceptions import RLPException
 from ethereum_types.numeric import U64
@@ -16,6 +17,7 @@ from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum_spec_tools.evm_tools.loaders.fixture_loader import Load
 
 from .. import FORKS
+from ..stash_keys import desired_forks_key
 from .exceptional_test_patterns import exceptional_blockchain_test_patterns
 from .fixtures import Fixture, FixturesFile, FixtureTestItem
 
@@ -72,11 +74,10 @@ class BlockchainTestFixture(Fixture, FixtureTestItem):
         super().__init__(*args, **kwargs)
         self.fork_name = self.test_dict["network"]
         self.add_marker(pytest.mark.fork(self.fork_name))
-        self.add_marker("evm_tools")
         self.add_marker("json_blockchain_tests")
-        eels_fork = FORKS[self.fork_name]["eels_fork"]
+        self.eels_fork = FORKS[self.fork_name].short_name
         test_patterns = exceptional_blockchain_test_patterns(
-            self.fork_name, eels_fork
+            self.fork_name, self.eels_fork
         )
         assert self.test_file is not None
         assert self.test_key is not None
@@ -112,10 +113,9 @@ class BlockchainTestFixture(Fixture, FixtureTestItem):
                 f"{self.test_file}[{self.test_key}] doesn't have post state"
             )
 
-        eels_fork = FORKS[self.fork_name]["eels_fork"]
         load = Load(
             self.fork_name,
-            eels_fork,
+            self.eels_fork,
         )
 
         genesis_header = load.json_to_header(json_data["genesisBlockHeader"])
@@ -202,6 +202,16 @@ class BlockchainTestFixture(Fixture, FixtureTestItem):
             return False
         if "network" not in test_dict:
             return False
-        if test_dict["network"] not in FORKS:
-            return False
         return True
+
+    @classmethod
+    def has_desired_fork(
+        cls, test_dict: Dict[str, Any], config: Config
+    ) -> bool:
+        """
+        Check if the item fork is in the desired forks list.
+        """
+        desired_forks = config.stash.get(desired_forks_key, None)
+        if desired_forks is None or test_dict["network"] in desired_forks:
+            return True
+        return False

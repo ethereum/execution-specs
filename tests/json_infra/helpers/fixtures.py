@@ -6,7 +6,7 @@ from functools import cached_property
 from typing import Any, Dict, Generator, List, Self, Type
 
 from _pytest.nodes import Node
-from pytest import Collector, File, Item
+from pytest import Collector, Config, File, Item
 
 
 class FixtureTestItem(Item):
@@ -59,6 +59,17 @@ class Fixture(ABC):
         """Return true if the object can be parsed as the fixture type."""
         pass
 
+    @classmethod
+    @abstractmethod
+    def has_desired_fork(
+        cls, test_dict: Dict[str, Any], config: Config
+    ) -> bool:
+        """
+        Check if the fork(s) relevant to this item/
+        collector are in the desired forks list.
+        """
+        pass
+
 
 ALL_FIXTURE_TYPES: List[Type[Fixture]] = []
 
@@ -91,6 +102,11 @@ class FixturesFile(File):
                     continue
                 for fixture_type in ALL_FIXTURE_TYPES:
                     if not fixture_type.is_format(test_dict):
+                        continue
+                    # Check if we should collect this test
+                    if not fixture_type.has_desired_fork(
+                        test_dict, self.config
+                    ):
                         continue
                     name = key
                     if "::" in name:
