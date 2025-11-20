@@ -108,13 +108,16 @@ class FixtureDatabase:
         with open(file_path, "rb") as f:
             return hashlib.sha256(f.read()).hexdigest()
 
-    def is_file_cached(self, file_path: str, fork: str = None) -> bool:
-        """Check if file is already in database and unchanged.
+    def is_file_cached(self, file_path: str, fork: str | None = None) -> bool:
+        """
+        Check if file is already in database and unchanged.
 
         Args:
             file_path: Path to the file to check
-            fork: Optional fork name. If provided, checks if file is cached for this specific fork.
+            fork: Optional fork name. If provided, checks if file
+                  is cached for this specific fork.
                   If not provided, checks if file is cached for any fork.
+
         """
         if not os.path.exists(file_path):
             return False
@@ -330,13 +333,14 @@ class FixtureDatabase:
         return len(records)
 
     def load_all_state_tests(self) -> Dict[str, int]:
-        """Load all state test fixtures for all forks.
+        """
+        Load all state test fixtures for all forks.
 
         Optimized to parse each file only once and extract tests for all forks.
         """
         # First pass: collect all unique files across all forks
         all_files = set()
-        for json_fork, config in FORKS.items():
+        for _, config in FORKS.items():
             test_dirs = config["state_test_dirs"]
             for test_dir in test_dirs:
                 if not os.path.exists(test_dir):
@@ -348,11 +352,12 @@ class FixtureDatabase:
                     all_files.add(full_path)
 
         print(
-            f"Processing {len(all_files)} unique state test files across all forks..."
+            f"Processing {len(all_files)} unique state "
+            "test files across all forks..."
         )
 
         # Second pass: process each file once and extract tests for all forks
-        stats = {fork: 0 for fork in FORKS.keys()}
+        stats = dict.fromkeys(FORKS, 0)
         processed = 0
 
         for file_path in all_files:
@@ -369,7 +374,7 @@ class FixtureDatabase:
             file_hash = self.compute_file_hash(file_path)
 
             # Group test cases by fork
-            tests_by_fork = {}
+            tests_by_fork: dict[Any, Any] = {}
             for test_case in test_cases:
                 fork = test_case.fork_name
                 if fork not in tests_by_fork:
@@ -420,7 +425,8 @@ class FixtureDatabase:
                     conn.executemany(
                         """INSERT OR REPLACE INTO test_fixtures
                            (test_key, test_type, fork, source_file, test_index,
-                            test_data, file_hash, is_slow, is_bigmem, is_expected_fail)
+                            test_data, file_hash, is_slow, is_bigmem,
+                            is_expected_fail)
                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                         records,
                     )
@@ -439,13 +445,14 @@ class FixtureDatabase:
         return stats
 
     def load_all_blockchain_tests(self) -> Dict[str, int]:
-        """Load all blockchain test fixtures for all forks.
+        """
+        Load all blockchain test fixtures for all forks.
 
         Optimized to parse each file only once and extract tests for all forks.
         """
         # First pass: collect all unique files across all forks
         all_files = set()
-        for json_fork, config in FORKS.items():
+        for _, config in FORKS.items():
             test_dirs = config["blockchain_test_dirs"]
             for test_dir in test_dirs:
                 if not os.path.exists(test_dir):
@@ -454,16 +461,18 @@ class FixtureDatabase:
                     os.path.join(test_dir, "**/*.json"), recursive=True
                 )
                 for full_path in json_files:
-                    # Skip pre_alloc directories - they contain metadata, not tests
+                    # Skip pre_alloc directories - they contain
+                    # metadata, not tests
                     if "/pre_alloc/" not in full_path:
                         all_files.add(full_path)
 
         print(
-            f"Processing {len(all_files)} unique blockchain test files across all forks..."
+            f"Processing {len(all_files)} unique blockchain test "
+            "files across all forks..."
         )
 
         # Second pass: process each file once and extract tests for all forks
-        stats = {fork: 0 for fork in FORKS.keys()}
+        stats = dict.fromkeys(FORKS, 0)
         processed = 0
 
         for file_path in all_files:
@@ -481,7 +490,7 @@ class FixtureDatabase:
             file_hash = self.compute_file_hash(file_path)
 
             # Group tests by network (fork)
-            tests_by_fork = {}
+            tests_by_fork: dict[Any, Any] = {}
             for key, test in data.items():
                 if not isinstance(test, dict):
                     continue
@@ -554,7 +563,8 @@ class FixtureDatabase:
                     conn.executemany(
                         """INSERT OR REPLACE INTO test_fixtures
                            (test_key, test_type, fork, source_file, test_index,
-                            test_data, file_hash, is_slow, is_bigmem, is_expected_fail)
+                            test_data, file_hash, is_slow, is_bigmem,
+                            is_expected_fail)
                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                         records,
                     )
