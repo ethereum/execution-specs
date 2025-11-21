@@ -173,6 +173,9 @@ def process_message_call(message: Message) -> MessageCallOutput:
         is_collision = account_has_code_or_nonce(
             block_env.state, message.current_target
         ) or account_has_storage(block_env.state, message.current_target)
+        track_address(
+            message.transaction_state_changes, message.current_target
+        )
         if is_collision:
             return MessageCallOutput(
                 Uint(0),

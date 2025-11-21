@@ -7,7 +7,10 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    BalAccountExpectation,
+    BlockAccessListExpectation,
     Bytecode,
+    Fork,
     Initcode,
     Op,
     StateTestFiller,
@@ -66,6 +69,7 @@ def test_init_collision_create_tx(
     collision_balance: int,
     collision_code: bytes,
     initcode: Bytecode,
+    fork: Fork,
 ) -> None:
     """
     Test that a contract creation transaction exceptionally aborts when
@@ -89,6 +93,14 @@ def test_init_collision_create_tx(
         code=collision_code,
     )
 
+    expected_block_access_list = None
+    if fork.header_bal_hash_required():
+        expected_block_access_list = BlockAccessListExpectation(
+            account_expectations={
+                created_contract_address: BalAccountExpectation.empty()
+            }
+        )
+
     state_test(
         pre=pre,
         post={
@@ -97,6 +109,7 @@ def test_init_collision_create_tx(
             ),
         },
         tx=tx,
+        expected_block_access_list=expected_block_access_list,
     )
 
 
