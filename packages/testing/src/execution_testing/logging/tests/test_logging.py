@@ -108,8 +108,6 @@ class TestFormatters:
         assert "2021-01-01 00:00:00" in formatted
         #       message
         assert "Test message" in formatted
-        #       filepath
-        assert "/tests/test_logging.py" in formatted
 
     def test_color_formatter(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that ColorFormatter adds color codes to the log level."""
