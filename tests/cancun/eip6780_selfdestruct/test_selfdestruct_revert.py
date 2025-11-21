@@ -441,7 +441,10 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
                 selfdestruct_with_transfer_contract_address
             ] = BalAccountExpectation(
                 storage_reads=[0, 1],  # Storage was accessed
-                balance_changes=[],  # No net balance change
+                nonce_changes=[],
+                balance_changes=[],
+                code_changes=[],
+                storage_changes=[],
             )
             account_expectations[selfdestruct_recipient_address] = (
                 BalAccountExpectation(
