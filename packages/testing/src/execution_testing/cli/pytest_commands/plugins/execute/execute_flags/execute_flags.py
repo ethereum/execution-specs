@@ -55,12 +55,9 @@ def pytest_configure(config: pytest.Config) -> None:
             returncode=4,
         )
 
-    # now enforce both having the same value
-    if chain_id:
-        rpc_chain_id = chain_id
-    elif rpc_chain_id:
+    # Use rpc_chain_id if chain_id is not provided (for backwards compatibility)
+    if not chain_id:
         chain_id = rpc_chain_id
 
-    # write them to config
+    # write to config
     ChainConfigDefaults.chain_id = chain_id
-    ChainConfigDefaults.rpc_chain_id = rpc_chain_id

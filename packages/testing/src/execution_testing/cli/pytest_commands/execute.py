@@ -61,7 +61,7 @@ remote = _create_execute_subcommand(
     "Execute tests using a remote RPC endpoint.",
     required_args=[
         "--rpc-endpoint=http://localhost:8545",
-        "--rpc-chain-id=1",
+        "--chain-id=1",
         "--rpc-seed-key=1",
     ],
 )
