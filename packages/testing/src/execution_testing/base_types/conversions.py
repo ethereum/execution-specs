@@ -1,30 +1,12 @@
 """Common conversion methods."""
 
-from typing import Any, List, Optional, SupportsBytes, TypeAlias
+from typing import List, SupportsBytes, TypeAlias
 
 BytesConvertible: TypeAlias = str | bytes | SupportsBytes | List[int]
 FixedSizeBytesConvertible: TypeAlias = (
     str | bytes | SupportsBytes | List[int] | int
 )
 NumberConvertible: TypeAlias = str | bytes | SupportsBytes | int
-
-
-def int_or_none(input_value: Any, default: Optional[int] = None) -> int | None:
-    """Convert a value to int or returns a default (None)."""
-    if input_value is None:
-        return default
-    if isinstance(input_value, int):
-        return input_value
-    return int(input_value, 0)
-
-
-def str_or_none(input_value: Any, default: Optional[str] = None) -> str | None:
-    """Convert a value to string or returns a default (None)."""
-    if input_value is None:
-        return default
-    if isinstance(input_value, str):
-        return input_value
-    return str(input_value)
 
 
 def to_bytes(input_bytes: BytesConvertible) -> bytes:
