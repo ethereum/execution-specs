@@ -995,9 +995,12 @@ def process_transaction(
         tx_hash=get_transaction_hash(encode_transaction(tx)),
     )
 
-    message = prepare_message(block_env, tx_env, tx)
-    # Set transaction frame so call frames become children of it
-    message.transaction_state_changes = tx_state_changes
+    message = prepare_message(
+        block_env,
+        tx_env,
+        tx,
+        tx_state_changes,
+    )
 
     tx_output = process_message_call(message)
 
