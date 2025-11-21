@@ -14,7 +14,7 @@ from pydantic_core.core_schema import (
     to_string_ser_schema,
 )
 
-from execution_testing.base_types import Bytes, Hash
+from execution_testing.base_types import Bytes, CoerceBytes, Hash
 from execution_testing.base_types.conversions import BytesConvertible
 from execution_testing.base_types.pydantic import CopyValidateModel
 from execution_testing.exceptions.exceptions import (
@@ -367,13 +367,13 @@ class Container(CopyValidateModel):
     """Optional error expected for the container. TODO: Remove str"""
     kind: ContainerKind = ContainerKind.RUNTIME
     """Kind type of the container."""
-    raw_bytes: Optional[Bytes] = None
+    raw_bytes: Optional[CoerceBytes] = None
     """
     Optional raw bytes that represent the container. Used to have a cohesive
     type among all test cases, even those that do not resemble a valid EOF V1
     container.
     """
-    expected_bytecode: Optional[Bytes] = None
+    expected_bytecode: Optional[CoerceBytes] = None
     """
     Optional raw bytes of the expected constructed bytecode. This allows
     confirming that raw EOF and Container() representations are identical.

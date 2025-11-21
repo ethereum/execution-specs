@@ -1,6 +1,7 @@
 """Basic type primitives used to define other types."""
 
 from hashlib import sha256
+from re import sub
 from typing import Annotated, Any, ClassVar, SupportsBytes, Type, TypeVar
 
 from Crypto.Hash import keccak
@@ -56,15 +57,6 @@ class Number(int, ToStringSchema):
     def hex(self) -> str:
         """Return the hexadecimal representation of the number."""
         return hex(self)
-
-    @classmethod
-    def or_none(
-        cls: Type[Self], input_number: Self | NumberConvertible | None
-    ) -> Self | None:
-        """Convert the input to a Number while accepting None."""
-        if input_number is None:
-            return input_number
-        return cls(input_number)
 
 
 class Wei(Number):
@@ -198,15 +190,6 @@ class Bytes(bytes, ToStringSchema):
         """Return the hexadecimal representation of the bytes."""
         return "0x" + super().hex(*args, **kwargs)
 
-    @classmethod
-    def or_none(
-        cls, input_bytes: "Bytes | BytesConvertible | None"
-    ) -> "Bytes | None":
-        """Convert the input to a Bytes while accepting None."""
-        if input_bytes is None:
-            return input_bytes
-        return cls(input_bytes)
-
     def keccak256(self) -> "Hash":
         """Return the keccak256 hash of the opcode byte representation."""
         k = keccak.new(digest_bits=256)
@@ -233,6 +216,21 @@ class Bytes(bytes, ToStringSchema):
                 ]
             ),
         )
+
+
+class CoerceBytes(Bytes):
+    """
+    Class that helps represent bytes of variable length in tests and
+    supports removing white spaces anywhere in the string.
+    """
+
+    def __new__(cls, input_bytes: BytesConvertible = b"") -> Self:
+        """Create a new CoerceBytes object."""
+        if type(input_bytes) is cls:
+            return input_bytes
+        if isinstance(input_bytes, str):
+            input_bytes = sub(r"\s+", "", input_bytes)
+        return super(Bytes, cls).__new__(cls, to_bytes(input_bytes))
 
 
 class FixedSizeHexNumber(int, ToStringSchema):
@@ -346,15 +344,6 @@ class FixedSizeBytes(Bytes):
     def __hash__(self) -> int:
         """Return the hash of the bytes."""
         return super(FixedSizeBytes, self).__hash__()
-
-    @classmethod
-    def or_none(
-        cls: Type[Self], input_bytes: Self | FixedSizeBytesConvertible | None
-    ) -> Self | None:
-        """Convert the input to a Fixed Size Bytes while accepting None."""
-        if input_bytes is None:
-            return input_bytes
-        return cls(input_bytes)
 
     def __eq__(self, other: object) -> bool:
         """Compare two FixedSizeBytes objects to be equal."""
