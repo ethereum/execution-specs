@@ -144,6 +144,7 @@ def generic_create(
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         disable_precompiles=False,
         parent_evm=evm,
+        transaction_state_changes=evm.message.transaction_state_changes,
     )
 
     child_evm = process_create_message(child_message)
