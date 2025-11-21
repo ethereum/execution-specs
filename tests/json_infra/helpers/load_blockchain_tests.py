@@ -113,6 +113,20 @@ class BlockchainTestFixture(Fixture, FixtureTestItem):
                 f"{self.test_file}[{self.test_key}] doesn't have post state"
             )
 
+        # Currently, there are 5 tests in the ethereum/tests fixtures
+        # where we have non block specific exceptions.
+        # For example: All the blocks process correctly but the final
+        # block hash provided in the test is not correct. Or all the
+        # blocks process correctly but the post state provided is not
+        # right. Since these tests do not directly have anything to do
+        # with the state teansition itself, we skip these
+        # See src/BlockchainTestsFiller/InvalidBlocks/bcExpectSection
+        # in ethereum/tests
+        if "exceptions" in json_data:
+            pytest.xfail(
+                f"{self.test_file}[{self.test_key}] has unrelated exceptions"
+            )
+
         load = Load(
             self.fork_name,
             self.eels_fork,
@@ -171,6 +185,7 @@ class BlockchainTestFixture(Fixture, FixtureTestItem):
                 #       of all of them.
                 with pytest.raises((EthereumException, RLPException)):
                     add_block_to_chain(chain, json_block, load, mock_pow)
+                    load.fork.close_state(chain.state)
                 return
             else:
                 add_block_to_chain(chain, json_block, load, mock_pow)
