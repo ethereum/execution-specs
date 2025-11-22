@@ -2,28 +2,24 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Generator, Iterator, KeysView, List, Tuple
+from typing import Any, Dict, Generator, Iterator, KeysView, List, Self, Tuple
 
 from filelock import FileLock
-from pydantic import Field, PrivateAttr, computed_field
+from pydantic import Field, PrivateAttr
 
-from execution_testing.base_types import CamelModel, EthereumTestRootModel
+from execution_testing.base_types import (
+    CamelModel,
+    EthereumTestRootModel,
+    Hash,
+)
 from execution_testing.forks import Fork
 from execution_testing.test_types import Alloc, Environment
 
 from .blockchain import FixtureHeader
 
 
-class PreAllocGroup(CamelModel):
-    """
-    Pre-allocation group for tests with identical Environment and fork values.
-
-    Groups tests by a hash of their fixture Environment and fork to enable
-    pre-allocation group optimization.
-    """
-
-    # Allow both field names and aliases
-    model_config = {"populate_by_name": True}
+class PreAllocGroupBuilder(CamelModel):
+    """Pre-allocation group builder."""
 
     test_ids: List[str] = Field(default_factory=list)
     environment: Environment = Field(
@@ -32,26 +28,41 @@ class PreAllocGroup(CamelModel):
     fork: Fork = Field(..., alias="network")
     pre: Alloc
 
-    @computed_field(description="Number of accounts in the pre-allocation")  # type: ignore[prop-decorator]
-    @property
-    def pre_account_count(self) -> int:
+    def get_pre_account_count(self) -> int:
         """Return the amount of accounts the pre-allocation group holds."""
         return len(self.pre.root)
 
-    @computed_field(description="Number of tests in this group")  # type: ignore[prop-decorator]
-    @property
-    def test_count(self) -> int:
+    def get_test_count(self) -> int:
         """Return the amount of tests that use this pre-allocation group."""
         return len(self.test_ids)
 
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def genesis(self) -> FixtureHeader:
+    def calculate_genesis(self) -> FixtureHeader:
         """Get the genesis header for this group."""
         return FixtureHeader.genesis(
             self.fork,
             self.environment,
             self.pre.state_root(),
+        )
+
+    def add_test_alloc(self, test_id: str, new_pre: Alloc) -> None:
+        """Adds a pre to this builder's pre."""
+        self.pre = Alloc.merge(
+            self.pre,
+            new_pre,
+            key_collision_mode=Alloc.KeyCollisionMode.ALLOW_IDENTICAL_ACCOUNTS,
+        )
+        self.test_ids.append(test_id)
+
+    def build(self) -> "PreAllocGroup":
+        """Build the pre-alloc group."""
+        return PreAllocGroup(
+            test_ids=self.test_ids,
+            environment=self.environment,
+            fork=self.fork,
+            pre=self.pre.model_dump(),
+            pre_account_count=self.get_pre_account_count(),
+            test_count=self.get_test_count(),
+            genesis=self.calculate_genesis(),
         )
 
     def to_file(self, file: Path) -> None:
@@ -86,13 +97,99 @@ class PreAllocGroup(CamelModel):
                                 )
                             raise collision_exception
                 self.test_ids.extend(previous_pre_alloc_group.test_ids)
-
             with open(file, "w") as f:
                 f.write(
-                    self.model_dump_json(
+                    self.build().model_dump_json(
                         by_alias=True, exclude_none=True, indent=2
                     )
                 )
+
+
+class PreAllocGroupBuilders(EthereumTestRootModel):
+    """
+    Root model mapping pre-allocation group hashes to test groups.
+
+    If lazy_load is True, the groups are not loaded from the folder until they
+    are accessed.
+
+    Iterating will fail if lazy_load is True.
+    """
+
+    root: Dict[str, PreAllocGroupBuilder]
+
+    def to_folder(self, folder: Path) -> None:
+        """Save PreAllocGroups to a folder of pre-allocation files."""
+        for key, value in self.root.items():
+            assert value is not None, f"Value for key {key} is None"
+            value.to_file(folder / f"{key}.json")
+
+    def add_test_pre(
+        self,
+        *,
+        pre_alloc_hash: str,
+        test_id: str,
+        fork: Fork,
+        environment: Environment,
+        pre: Alloc,
+    ) -> None:
+        """Adds a single test to the appropriate group based on the hash."""
+        if pre_alloc_hash in self.root:
+            # Update existing group - just merge pre-allocations
+            group = self.root[pre_alloc_hash]
+            assert group.fork == fork, (
+                f"Incompatible fork: {group.fork}!={fork}"
+            )
+            group.add_test_alloc(test_id, pre)
+        else:
+            # Create new group - use Environment instead of expensive genesis
+            # generation
+            group = PreAllocGroupBuilder(
+                test_ids=[test_id],
+                fork=fork,
+                environment=environment,
+                pre=Alloc.merge(
+                    Alloc.model_validate(fork.pre_allocation_blockchain()),
+                    pre,
+                ),
+            )
+            self.root[pre_alloc_hash] = group
+
+
+class GroupPreAlloc(Alloc):
+    _pre_alloc_group: "PreAllocGroup" = PrivateAttr(init=False)
+
+    def state_root(self) -> Hash:
+        """On pre-alloc groups, which are normally very big, we always cache."""
+        return self._pre_alloc_group.genesis.state_root
+
+
+class PreAllocGroup(PreAllocGroupBuilder):
+    """
+    Pre-allocation group for tests with identical Environment and fork values.
+
+    Groups tests by a hash of their fixture Environment and fork to enable
+    pre-allocation group optimization.
+    """
+
+    # Allow both field names and aliases
+    model_config = {"populate_by_name": True}
+    pre: GroupPreAlloc
+    genesis: FixtureHeader
+    pre_account_count: int
+    test_count: int
+
+    def model_post_init(self, __context: Any) -> None:
+        """
+        Model post init method to set GroupPreAlloc reference.
+        """
+        super().model_post_init(__context)
+        self.pre._pre_alloc_group = self
+
+    @classmethod
+    def from_file(cls, file: Path) -> Self:
+        """Load a pre-allocation group from a JSON file."""
+        with open(file) as f:
+            return cls.model_validate_json(f.read())
 
 
 class PreAllocGroups(EthereumTestRootModel):
@@ -117,9 +214,7 @@ class PreAllocGroups(EthereumTestRootModel):
         self.root[key] = value
 
     @classmethod
-    def from_folder(
-        cls, folder: Path, *, lazy_load: bool = False
-    ) -> "PreAllocGroups":
+    def from_folder(cls, folder: Path, *, lazy_load: bool = False) -> Self:
         """Create PreAllocGroups from a folder of pre-allocation files."""
         # First check for collision failures
         for fail_file in folder.glob("*.fail"):
@@ -131,20 +226,11 @@ class PreAllocGroups(EthereumTestRootModel):
             if lazy_load:
                 data[file.stem] = None
             else:
-                with open(file) as f:
-                    data[file.stem] = PreAllocGroup.model_validate_json(
-                        f.read()
-                    )
+                data[file.stem] = PreAllocGroup.from_file(file)
         instance = cls(root=data)
         if lazy_load:
             instance._folder_source = folder
         return instance
-
-    def to_folder(self, folder: Path) -> None:
-        """Save PreAllocGroups to a folder of pre-allocation files."""
-        for key, value in self.root.items():
-            assert value is not None, f"Value for key {key} is None"
-            value.to_file(folder / f"{key}.json")
 
     def __getitem__(self, item: str) -> PreAllocGroup:
         """Get item from root dict."""
@@ -154,10 +240,9 @@ class PreAllocGroups(EthereumTestRootModel):
             return value
         else:
             if self.root[item] is None:
-                with open(self._folder_source / f"{item}.json") as f:
-                    self.root[item] = PreAllocGroup.model_validate_json(
-                        f.read()
-                    )
+                self.root[item] = PreAllocGroup.from_file(
+                    self._folder_source / f"{item}.json"
+                )
             result = self.root[item]
             assert result is not None
             return result

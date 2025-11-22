@@ -35,12 +35,11 @@ from execution_testing.fixtures import (
     BaseFixture,
     FixtureFormat,
     LabeledFixtureFormat,
-    PreAllocGroup,
-    PreAllocGroups,
+    PreAllocGroupBuilders,
 )
 from execution_testing.forks import Fork
 from execution_testing.forks.base_fork import BaseFork
-from execution_testing.test_types import Alloc, Environment, Withdrawal
+from execution_testing.test_types import Environment, Withdrawal
 
 
 class HashMismatchExceptionError(Exception):
@@ -300,8 +299,8 @@ class BaseTest(BaseModel):
         )
 
     def update_pre_alloc_groups(
-        self, pre_alloc_groups: PreAllocGroups, test_id: str
-    ) -> PreAllocGroups:
+        self, pre_alloc_group_builders: PreAllocGroupBuilders, test_id: str
+    ) -> None:
         """
         Create or update the pre-allocation group with the pre from the current
         spec.
@@ -312,34 +311,13 @@ class BaseTest(BaseModel):
                 "are only supported for test types that define pre-allocation."
             )
         pre_alloc_hash = self.compute_pre_alloc_group_hash()
-
-        if pre_alloc_hash in pre_alloc_groups:
-            # Update existing group - just merge pre-allocations
-            group = pre_alloc_groups[pre_alloc_hash]
-            group.pre = Alloc.merge(
-                group.pre,
-                self.pre,
-                key_collision_mode=Alloc.KeyCollisionMode.ALLOW_IDENTICAL_ACCOUNTS,
-            )
-            group.fork = self.fork
-            group.test_ids.append(str(test_id))
-            pre_alloc_groups[pre_alloc_hash] = group
-        else:
-            # Create new group - use Environment instead of expensive genesis
-            # generation
-            genesis_env = self.get_genesis_environment()
-            pre_alloc = Alloc.merge(
-                Alloc.model_validate(self.fork.pre_allocation_blockchain()),
-                self.pre,
-            )
-            group = PreAllocGroup(
-                test_ids=[str(test_id)],
-                fork=self.fork,
-                environment=genesis_env,
-                pre=pre_alloc,
-            )
-            pre_alloc_groups[pre_alloc_hash] = group
-        return pre_alloc_groups
+        pre_alloc_group_builders.add_test_pre(
+            pre_alloc_hash=pre_alloc_hash,
+            test_id=str(test_id),
+            fork=self.fork,
+            environment=self.get_genesis_environment(),
+            pre=self.pre,
+        )
 
     def compute_pre_alloc_group_hash(self) -> str:
         """Hash (fork, env) in order to group tests by genesis config."""

@@ -17,7 +17,12 @@ from .blockchain import (
 from .collector import FixtureCollector, TestInfo
 from .consume import FixtureConsumer
 from .eof import EOFFixture
-from .pre_alloc_groups import PreAllocGroup, PreAllocGroups
+from .pre_alloc_groups import (
+    PreAllocGroup,
+    PreAllocGroupBuilder,
+    PreAllocGroupBuilders,
+    PreAllocGroups,
+)
 from .state import StateFixture
 from .transaction import TransactionFixture
 
@@ -35,8 +40,10 @@ __all__ = [
     "FixtureFillingPhase",
     "FixtureFormat",
     "LabeledFixtureFormat",
-    "PreAllocGroups",
     "PreAllocGroup",
+    "PreAllocGroupBuilder",
+    "PreAllocGroupBuilders",
+    "PreAllocGroups",
     "StateFixture",
     "TestInfo",
     "TransactionFixture",

@@ -40,6 +40,8 @@ from execution_testing.fixtures import (
     FixtureFillingPhase,
     LabeledFixtureFormat,
     PreAllocGroup,
+    PreAllocGroupBuilder,
+    PreAllocGroupBuilders,
     PreAllocGroups,
     TestInfo,
 )
@@ -231,7 +233,8 @@ class FillingSession:
     fixture_output: FixtureOutput
     phase_manager: PhaseManager
     format_selector: FormatSelector
-    pre_alloc_groups: PreAllocGroups | None
+    pre_alloc_groups: PreAllocGroups | None = None
+    pre_alloc_group_builders: PreAllocGroupBuilders | None = None
 
     @classmethod
     def from_config(cls, config: pytest.Config) -> "Self":
@@ -263,7 +266,7 @@ class FillingSession:
         """Initialize pre-allocation groups based on the current phase."""
         if self.phase_manager.is_pre_alloc_generation:
             # Phase 1: Create empty container for collecting groups
-            self.pre_alloc_groups = PreAllocGroups(root={})
+            self.pre_alloc_group_builders = PreAllocGroupBuilders(root={})
         elif self.phase_manager.is_fill_after_pre_alloc:
             # Phase 2: Load pre-alloc groups from disk
             self._load_pre_alloc_groups_from_folder()
@@ -326,15 +329,15 @@ class FillingSession:
 
         return self.pre_alloc_groups[hash_key]
 
-    def update_pre_alloc_group(
-        self, hash_key: str, group: PreAllocGroup
+    def update_pre_alloc_group_builder(
+        self, hash_key: str, group_builder: PreAllocGroupBuilder
     ) -> None:
         """
         Update or add a pre-allocation group.
 
         Args:
             hash_key: The hash of the pre-alloc group.
-            group: The pre-allocation group.
+            group_builder: The pre-allocation group builder.
 
         Raises:
             ValueError: If not in pre-alloc generation phase.
@@ -345,44 +348,19 @@ class FillingSession:
                 "Can only update pre-alloc groups in generation phase"
             )
 
-        if self.pre_alloc_groups is None:
-            self.pre_alloc_groups = PreAllocGroups(root={})
+        if self.pre_alloc_group_builders is None:
+            self.pre_alloc_group_builders = PreAllocGroupBuilders(root={})
 
-        self.pre_alloc_groups[hash_key] = group
+        self.pre_alloc_group_builders.root[hash_key] = group_builder
 
     def save_pre_alloc_groups(self) -> None:
         """Save pre-allocation groups to disk."""
-        if self.pre_alloc_groups is None:
+        if self.pre_alloc_group_builders is None:
             return
 
         pre_alloc_folder = self.fixture_output.pre_alloc_groups_folder_path
         pre_alloc_folder.mkdir(parents=True, exist_ok=True)
-        self.pre_alloc_groups.to_folder(pre_alloc_folder)
-
-    def aggregate_pre_alloc_groups(
-        self, worker_groups: PreAllocGroups
-    ) -> None:
-        """
-        Aggregate pre-alloc groups from a worker process (xdist support).
-
-        Args:
-            worker_groups: Pre-alloc groups from a worker process.
-
-        """
-        if self.pre_alloc_groups is None:
-            self.pre_alloc_groups = PreAllocGroups(root={})
-
-        for hash_key, group in worker_groups.items():
-            if hash_key in self.pre_alloc_groups:
-                # Merge if exists (should not happen in practice)
-                existing = self.pre_alloc_groups[hash_key]
-                if existing.pre != group.pre:
-                    raise ValueError(
-                        f"Conflicting pre-alloc groups for hash {hash_key}: "
-                        f"existing={self.pre_alloc_groups[hash_key].pre}, new={group.pre}"
-                    )
-            else:
-                self.pre_alloc_groups[hash_key] = group
+        self.pre_alloc_group_builders.to_folder(pre_alloc_folder)
 
 
 def calculate_post_state_diff(
@@ -1382,7 +1360,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     # Use the original update_pre_alloc_groups method which
                     # returns the groups
                     self.update_pre_alloc_groups(
-                        session.pre_alloc_groups, request.node.nodeid
+                        session.pre_alloc_group_builders, request.node.nodeid
                     )
                     return  # Skip fixture generation in phase 1
 

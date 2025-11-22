@@ -9,7 +9,8 @@ import pytest
 from execution_testing.base_types import Alloc
 from execution_testing.fixtures import (
     FixtureFillingPhase,
-    PreAllocGroup,
+    PreAllocGroupBuilder,
+    PreAllocGroupBuilders,
     PreAllocGroups,
 )
 from execution_testing.forks import Prague
@@ -60,7 +61,7 @@ class TestFillingSession:
             session = FillingSession.from_config(config)  # type: ignore[arg-type]
 
         assert session.phase_manager.is_single_phase_fill
-        assert session.pre_alloc_groups is None
+        assert session.pre_alloc_group_builders is None
 
     def test_init_pre_alloc_generation(self) -> None:
         """Test initialization for pre-alloc generation phase."""
@@ -73,19 +74,22 @@ class TestFillingSession:
             session = FillingSession.from_config(config)  # type: ignore[arg-type]
 
         assert session.phase_manager.is_pre_alloc_generation
-        assert session.pre_alloc_groups is not None
-        assert len(session.pre_alloc_groups.root) == 0
+        assert session.pre_alloc_group_builders is not None
+        assert len(session.pre_alloc_group_builders.root) == 0
 
     def test_init_use_pre_alloc(self) -> None:
         """Test initialization for phase 2 (using pre-alloc groups)."""
         config = MockConfig(use_pre_alloc_groups=True)
 
         # Mock the file system operations
-        test_group = PreAllocGroup(
+        test_group_builder = PreAllocGroupBuilder(
             pre=Alloc().model_dump(mode="json"),
-            environment=Environment().model_dump(mode="json"),
+            environment=Environment()
+            .set_fork_requirements(Prague)
+            .model_dump(mode="json"),
             network=Prague.name(),
         )
+        test_group = test_group_builder.build()
         mock_groups = PreAllocGroups(root={"test_hash": test_group})
 
         with patch(
@@ -94,7 +98,9 @@ class TestFillingSession:
         ):
             with patch.object(Path, "exists", return_value=True):
                 with patch.object(
-                    PreAllocGroups, "from_folder", return_value=mock_groups
+                    PreAllocGroups,
+                    "from_folder",
+                    return_value=mock_groups,
                 ):
                     session = FillingSession.from_config(config)  # type: ignore[arg-type]
 
@@ -161,11 +167,14 @@ class TestFillingSession:
         """Test getting a pre-alloc group by hash."""
         config = MockConfig(use_pre_alloc_groups=True)
 
-        test_group = PreAllocGroup(
+        test_group_builder = PreAllocGroupBuilder(
             pre=Alloc().model_dump(mode="json"),
-            environment=Environment().model_dump(mode="json"),
+            environment=Environment()
+            .set_fork_requirements(Prague)
+            .model_dump(mode="json"),
             network=Prague.name(),
         )
+        test_group = test_group_builder.build()
         mock_groups = PreAllocGroups(root={"test_hash": test_group})
 
         with patch(
@@ -226,15 +235,21 @@ class TestFillingSession:
         ):
             session = FillingSession.from_config(config)  # type: ignore[arg-type]
 
-        test_group = PreAllocGroup(
+        test_group_builder = PreAllocGroupBuilder(
             pre=Alloc().model_dump(mode="json"),
-            environment=Environment().model_dump(mode="json"),
+            environment=Environment()
+            .set_fork_requirements(Prague)
+            .model_dump(mode="json"),
             network=Prague.name(),
         )
-        session.update_pre_alloc_group("test_hash", test_group)
+        session.update_pre_alloc_group_builder("test_hash", test_group_builder)
 
-        assert "test_hash" in session.pre_alloc_groups  # type: ignore[operator]
-        assert session.pre_alloc_groups["test_hash"] is test_group  # type: ignore[index]
+        assert session.pre_alloc_group_builders is not None
+        assert "test_hash" in session.pre_alloc_group_builders.root
+        assert (
+            session.pre_alloc_group_builders.root["test_hash"]
+            is test_group_builder
+        )
 
     def test_update_pre_alloc_group_wrong_phase(self) -> None:
         """Test updating pre-alloc group in wrong phase."""
@@ -246,16 +261,20 @@ class TestFillingSession:
         ):
             session = FillingSession.from_config(config)  # type: ignore[arg-type]
 
-        test_group = PreAllocGroup(
+        test_group_builder = PreAllocGroupBuilder(
             pre=Alloc().model_dump(mode="json"),
-            environment=Environment().model_dump(mode="json"),
+            environment=Environment()
+            .set_fork_requirements(Prague)
+            .model_dump(mode="json"),
             network=Prague.name(),
         )
         with pytest.raises(
             ValueError,
             match="Can only update pre-alloc groups in generation phase",
         ):
-            session.update_pre_alloc_group("test_hash", test_group)
+            session.update_pre_alloc_group_builder(
+                "test_hash", test_group_builder
+            )
 
     def test_save_pre_alloc_groups(self) -> None:
         """Test saving pre-alloc groups to disk."""
@@ -268,16 +287,20 @@ class TestFillingSession:
             session = FillingSession.from_config(config)  # type: ignore[arg-type]
 
         # Add a test group
-        test_group = PreAllocGroup(
+        test_group_builder = PreAllocGroupBuilder(
             pre=Alloc().model_dump(mode="json"),
-            environment=Environment().model_dump(mode="json"),
+            environment=Environment()
+            .set_fork_requirements(Prague)
+            .model_dump(mode="json"),
             network=Prague.name(),
         )
-        session.update_pre_alloc_group("test_hash", test_group)
+        session.update_pre_alloc_group_builder("test_hash", test_group_builder)
 
         # Mock file operations
         with patch.object(Path, "mkdir") as mock_mkdir:
-            with patch.object(PreAllocGroups, "to_folder") as mock_to_folder:
+            with patch.object(
+                PreAllocGroupBuilders, "to_folder"
+            ) as mock_to_folder:
                 session.save_pre_alloc_groups()
 
         mock_mkdir.assert_called_once_with(parents=True, exist_ok=True)
@@ -295,65 +318,3 @@ class TestFillingSession:
 
         # Should not raise, just return
         session.save_pre_alloc_groups()
-
-    def test_aggregate_pre_alloc_groups(self) -> None:
-        """Test aggregating pre-alloc groups from workers (xdist)."""
-        config = MockConfig(generate_pre_alloc_groups=True)
-
-        with patch(
-            "execution_testing.cli.pytest_commands.plugins.filler.filler.FixtureOutput",
-            MockFixtureOutput,
-        ):
-            session = FillingSession.from_config(config)  # type: ignore[arg-type]
-
-        # Worker groups to aggregate
-        group1 = PreAllocGroup(
-            pre=Alloc().model_dump(mode="json"),
-            environment=Environment().model_dump(mode="json"),
-            network=Prague.name(),
-        )
-        group2 = PreAllocGroup(
-            pre=Alloc().model_dump(mode="json"),
-            environment=Environment().model_dump(mode="json"),
-            network=Prague.name(),
-        )
-        worker_groups = PreAllocGroups(root={"hash1": group1, "hash2": group2})
-
-        session.aggregate_pre_alloc_groups(worker_groups)
-
-        assert "hash1" in session.pre_alloc_groups  # type: ignore[operator]
-        assert "hash2" in session.pre_alloc_groups  # type: ignore[operator]
-
-    def test_aggregate_pre_alloc_groups_conflict(self) -> None:
-        """Test aggregating conflicting pre-alloc groups."""
-        config = MockConfig(generate_pre_alloc_groups=True)
-
-        with patch(
-            "execution_testing.cli.pytest_commands.plugins.filler.filler.FixtureOutput",
-            MockFixtureOutput,
-        ):
-            session = FillingSession.from_config(config)  # type: ignore[arg-type]
-
-        # Add initial group
-        alloc1 = Alloc().model_dump(mode="json")
-        group1 = PreAllocGroup(
-            pre=alloc1,
-            environment=Environment().model_dump(mode="json"),
-            network=Prague.name(),
-        )
-        session.update_pre_alloc_group("hash1", group1)
-
-        # Try to aggregate conflicting group with same hash but different pre
-        alloc2_dict = Alloc().model_dump(mode="json")
-        alloc2_dict["0x1234567890123456789012345678901234567890"] = (
-            None  # Make it different
-        )
-        group2 = PreAllocGroup(
-            pre=alloc2_dict,
-            environment=Environment().model_dump(mode="json"),
-            network=Prague.name(),
-        )
-        worker_groups = PreAllocGroups(root={"hash1": group2})
-
-        with pytest.raises(ValueError, match="Conflicting pre-alloc groups"):
-            session.aggregate_pre_alloc_groups(worker_groups)
