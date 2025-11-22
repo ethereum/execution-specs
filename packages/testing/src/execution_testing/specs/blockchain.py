@@ -343,6 +343,7 @@ class BuiltBlock(CamelModel):
     header: FixtureHeader
     env: Environment
     alloc: Alloc
+    state_root: Hash
     txs: List[Transaction]
     ommers: List[FixtureHeader]
     withdrawals: List[Withdrawal] | None
@@ -696,6 +697,7 @@ class BlockchainTest(BaseTest):
         built_block = BuiltBlock(
             header=header,
             alloc=transition_tool_output.alloc,
+            state_root=transition_tool_output.result.state_root,
             env=env,
             txs=txs,
             ommers=[],
@@ -779,6 +781,7 @@ class BlockchainTest(BaseTest):
         pre, genesis = self.make_genesis(apply_pre_allocation_blockchain=True)
 
         alloc = pre
+        state_root = genesis.header.state_root
         env = environment_from_parent_header(genesis.header)
         head = genesis.header.block_hash
         invalid_blocks = 0
@@ -801,6 +804,7 @@ class BlockchainTest(BaseTest):
             if block.exception is None:
                 # Update env, alloc and last block hash for the next block.
                 alloc = built_block.alloc
+                state_root = built_block.state_root
                 env = apply_new_parent(built_block.env, built_block.header)
                 head = built_block.header.block_hash
             else:
@@ -827,7 +831,7 @@ class BlockchainTest(BaseTest):
             post_state=alloc
             if not self.exclude_full_post_state_in_output
             else None,
-            post_state_hash=alloc.state_root()
+            post_state_hash=state_root
             if self.exclude_full_post_state_in_output
             else None,
             config=FixtureConfig(
@@ -857,6 +861,7 @@ class BlockchainTest(BaseTest):
             != BlockchainEngineXFixture,
         )
         alloc = pre
+        state_root = genesis.header.state_root
         env = environment_from_parent_header(genesis.header)
         head_hash = genesis.header.block_hash
         invalid_blocks = 0
@@ -873,6 +878,7 @@ class BlockchainTest(BaseTest):
             )
             if block.exception is None:
                 alloc = built_block.alloc
+                state_root = built_block.state_root
                 env = apply_new_parent(built_block.env, built_block.header)
                 head_hash = built_block.header.block_hash
             else:
@@ -905,7 +911,7 @@ class BlockchainTest(BaseTest):
             "genesis": genesis.header,
             "payloads": fixture_payloads,
             "last_block_hash": head_hash,
-            "post_state_hash": alloc.state_root()
+            "post_state_hash": state_root
             if self.exclude_full_post_state_in_output
             else None,
             "config": FixtureConfig(
