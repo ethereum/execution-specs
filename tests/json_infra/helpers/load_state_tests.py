@@ -37,7 +37,6 @@ class StateTest(FixtureTestItem):
         *args: Any,
         index: int,
         fork_name: str,
-        key: str,
         **kwargs: Any,
     ) -> None:
         """Initialize a single test case item."""
@@ -48,8 +47,10 @@ class StateTest(FixtureTestItem):
         self.add_marker("evm_tools")
         self.add_marker("json_state_tests")
         eels_fork = FORKS[fork_name].short_name
+
+        # Mark tests with exceptional markers
         test_patterns = exceptional_state_test_patterns(fork_name, eels_fork)
-        if any(x.search(key) for x in test_patterns.slow):
+        if any(x.search(self.nodeid) for x in test_patterns.slow):
             self.add_marker("slow")
 
     @property
@@ -207,7 +208,6 @@ class StateTestFixture(Fixture, Collector):
                 name=name,
                 index=test_case.index,
                 fork_name=test_case.fork_name,
-                key=self.test_key,
             )
 
     @classmethod

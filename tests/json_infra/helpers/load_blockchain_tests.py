@@ -76,19 +76,16 @@ class BlockchainTestFixture(Fixture, FixtureTestItem):
         self.add_marker(pytest.mark.fork(self.fork_name))
         self.add_marker("json_blockchain_tests")
         self.eels_fork = FORKS[self.fork_name].short_name
+
+        # Mark tests with exceptional markers
         test_patterns = exceptional_blockchain_test_patterns(
             self.fork_name, self.eels_fork
         )
-        assert self.test_file is not None
-        assert self.test_key is not None
-        _identifier = "(" + self.test_file + "|" + self.test_key + ")"
-        if any(
-            x.search(self.test_file) for x in test_patterns.expected_fail
-        ) or any(x.search(_identifier) for x in test_patterns.expected_fail):
+        if any(x.search(self.nodeid) for x in test_patterns.expected_fail):
             self.add_marker(pytest.mark.skip("Expected to fail"))
-        if any(x.search(_identifier) for x in test_patterns.slow):
+        if any(x.search(self.nodeid) for x in test_patterns.slow):
             self.add_marker("slow")
-        if any(x.search(_identifier) for x in test_patterns.big_memory):
+        if any(x.search(self.nodeid) for x in test_patterns.big_memory):
             self.add_marker("bigmem")
 
     @property
