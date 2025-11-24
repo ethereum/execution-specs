@@ -108,12 +108,9 @@ class FixturesFile(File):
                         test_dict, self.config
                     ):
                         continue
-                    name = key
-                    if "::" in name:
-                        name = name.split("::")[1]
                     yield fixture_type.from_parent(  # type: ignore
                         parent=self,
-                        name=name,
+                        name=key,
                         test_file=str(self.path),
                         test_key=key,
                     )

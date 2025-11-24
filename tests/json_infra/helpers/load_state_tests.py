@@ -202,7 +202,7 @@ class StateTestFixture(Fixture, Collector):
             # nothing other than the desired forks.
             if test_case.fork_name not in desired_forks:
                 continue
-            name = f"{test_case.index}"
+            name = f"{test_case.fork_name}::{test_case.index}"
             yield StateTest.from_parent(
                 parent=self,
                 name=name,
