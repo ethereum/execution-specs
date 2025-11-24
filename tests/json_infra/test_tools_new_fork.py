@@ -62,7 +62,7 @@ def test_end_to_end(template_fork: str) -> None:
             source = f.read()
 
             assert '"""' not in source[:20]
-            assert "FORK_CRITERIA = ByTimestamp(7)" in source
+            assert "FORK_CRITERIA: ForkCriteria = ByTimestamp(7)" in source
             assert template_fork.capitalize() not in source
 
         with (fork_dir / "utils" / "hexadecimal.py").open("r") as f:
