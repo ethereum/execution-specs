@@ -80,6 +80,7 @@ def pytest_addoption(parser: Parser) -> None:
         type=str,
         help="Run tests from and including the specified fork.",
     )
+
     parser.addoption(
         "--until",
         action="store",
@@ -88,6 +89,7 @@ def pytest_addoption(parser: Parser) -> None:
         type=str,
         help="Run tests until and including the specified fork.",
     )
+
     parser.addoption(
         "--fork",
         action="store",
@@ -95,6 +97,7 @@ def pytest_addoption(parser: Parser) -> None:
         default="",
         help="Only run tests for the specified fork.",
     )
+
     parser.addoption(
         "--file-list",
         action="store",
@@ -104,6 +107,13 @@ def pytest_addoption(parser: Parser) -> None:
             "repository. This option specifies the path to a file which "
             "contains a list of relevant paths."
         ),
+    )
+
+    parser.addoption(
+        "--tests-file",
+        dest="tests_path",
+        type=Path,
+        help="Path to a file containing test ids, one per line",
     )
 
 
@@ -173,6 +183,29 @@ def pytest_configure(config: Config) -> None:
         print(f"Running tests for the following forks: {fork_list_str}")
 
     config.stash[desired_forks_key] = desired_forks
+
+
+def pytest_collection_modifyitems(config: Config, items: list[Item]) -> None:
+    """Filter test items."""
+    tests_path = config.getoption("tests_path", None)
+    if tests_path is None:
+        return
+
+    with open(tests_path) as f:
+        test_ids = set(x.removesuffix("\n") for x in f.readlines())
+
+    selected = []
+    deselected = []
+    for item in items:
+        if item.nodeid in test_ids:
+            selected.append(item)
+            test_ids.remove(item.nodeid)
+        else:
+            deselected.append(item)
+
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+        items[:] = selected  # keep only what matches
 
 
 class _FixturesDownloader:
