@@ -424,6 +424,7 @@ exclude = [
     "^fixtures/",
     "^logs/",
     "^site/",
+    "^tests/json_infra/fixtures/",
 ]
 plugins = ["pydantic.mypy"]
 

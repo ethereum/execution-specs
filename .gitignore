@@ -82,3 +82,5 @@ logs/
 env.yaml
 
 site/
+
+.pymon
