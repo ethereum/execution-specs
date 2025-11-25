@@ -5,6 +5,7 @@ tools.
 
 from .cli_types import (
     BlockExceptionWithMessage,
+    LazyAlloc,
     Result,
     Traces,
     TransactionExceptionWithMessage,
@@ -42,6 +43,7 @@ __all__ = (
     "FixtureConsumerTool",
     "GethFixtureConsumer",
     "GethTransitionTool",
+    "LazyAlloc",
     "Nethtest",
     "NethtestFixtureConsumer",
     "NimbusTransitionTool",

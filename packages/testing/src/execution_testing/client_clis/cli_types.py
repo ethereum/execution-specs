@@ -1,6 +1,7 @@
 """Types used in the transition tool interactions."""
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any, Dict, List, Self
 
@@ -17,15 +18,15 @@ from execution_testing.base_types import (
 from execution_testing.base_types.composite_types import (
     ForkBlobSchedule,
 )
-from execution_testing.logging import (
-    get_logger,
-)
 from execution_testing.exceptions import (
     BlockException,
     ExceptionMapperValidator,
     ExceptionWithMessage,
     TransactionException,
     UndefinedException,
+)
+from execution_testing.logging import (
+    get_logger,
 )
 from execution_testing.test_types import (
     Alloc,
@@ -286,21 +287,208 @@ class Result(CamelModel):
     opcode_count: OpcodeCount | None = None
 
 
-class TransitionToolInput(CamelModel):
+def write_json_file(data: str, file_path: str) -> None:
+    """Write a JSON file to the given path."""
+    with open(file_path, "w") as f:
+        f.write(data)
+
+
+@dataclass(kw_only=True)
+class LazyAlloc:
+    """
+    Allocation that is lazily loaded from a JSON file.
+    """
+
+    json_contents: Dict | None = None
+    str_contents: str | None = None
+    alloc: Alloc | None = None
+
+    def str_contents_from_cache(self) -> str:
+        """
+        Return the cached, unparsed, alloc from the last t8n execution.
+        """
+        assert self.str_contents is not None, "No string cache found"
+        return self.str_contents
+
+    def json_contents_from_cache(self) -> Dict:
+        """
+        Return the cached, unparsed, json dict from the last t8n execution.
+        """
+        assert self.json_contents is not None, "No json cache found"
+        return self.json_contents
+
+    def get_alloc(self) -> Alloc:
+        """Model validate the allocation and return it."""
+        if self.alloc is not None:
+            return self.alloc
+        elif self.json_contents is not None:
+            self.alloc = Alloc.model_validate(self.json_contents)
+            return self.alloc
+        elif self.str_contents is not None:
+            self.alloc = Alloc.model_validate_json(self.str_contents)
+            return self.alloc
+        raise ValueError("No alloc found")
+
+
+@dataclass
+class TransitionToolInput:
     """Transition tool input."""
 
-    alloc: Alloc
+    alloc: Alloc | LazyAlloc
     txs: List[Transaction]
     env: Environment
     blob_params: ForkBlobSchedule | None = None
 
+    def to_files(
+        self, directory_path: Path, **model_dump_config: Any
+    ) -> Dict[str, str]:
+        """
+        Prepare the input in a directory path in the file system for
+        consumption by the t8n tool.
+        """
+        if isinstance(self.alloc, LazyAlloc):
+            alloc_contents = self.alloc.str_contents_from_cache()
+        else:
+            alloc_contents = self.alloc.model_dump_json(**model_dump_config)
 
-class TransitionToolOutput(CamelModel):
+        env_contents = self.env.model_dump_json(**model_dump_config)
+        txs_contents = (
+            "["
+            + ",".join(
+                tx.model_dump_json(**model_dump_config) for tx in self.txs
+            )
+            + "]"
+        )
+        input_contents: Dict[str, str] = {
+            "alloc": alloc_contents,
+            "env": env_contents,
+            "txs": txs_contents,
+        }
+        if self.blob_params is not None:
+            input_contents["blobParams"] = self.blob_params.model_dump_json(
+                **model_dump_config
+            )
+
+        input_paths: Dict[str, str] = {}
+        for content_type, contents in input_contents.items():
+            file_path = directory_path / f"{content_type}.json"
+            file_path.write_text(contents)
+            input_paths[content_type] = str(file_path)
+
+        return input_paths
+
+    def model_dump_json(self, **model_dump_config: Any) -> str:
+        """Dump the model in string JSON format."""
+        if isinstance(self.alloc, LazyAlloc):
+            alloc_contents = self.alloc.str_contents_from_cache()
+        else:
+            alloc_contents = self.alloc.model_dump_json(**model_dump_config)
+
+        env_contents = self.env.model_dump_json(**model_dump_config)
+        txs_contents = (
+            "["
+            + ",".join(
+                tx.model_dump_json(**model_dump_config) for tx in self.txs
+            )
+            + "]"
+        )
+        input_contents: Dict[str, str] = {
+            "alloc": alloc_contents,
+            "env": env_contents,
+            "txs": txs_contents,
+        }
+        if self.blob_params is not None:
+            input_contents["blobParams"] = self.blob_params.model_dump_json(
+                **model_dump_config
+            )
+        contents: List[str] = []
+        for content_type, type_contents in input_contents.items():
+            contents.append(f'"{content_type}": {type_contents}')
+        return "{" + ",".join(contents) + "}"
+
+    def model_dump(self, mode: str, **model_dump_config: Any) -> Any:
+        """Return the validated model."""
+        assert mode == "json", f"Mode {mode} not supported."
+        if isinstance(self.alloc, LazyAlloc):
+            alloc_contents = self.alloc.json_contents_from_cache()
+        else:
+            alloc_contents = self.alloc.model_dump(
+                mode=mode, **model_dump_config
+            )
+
+        env_contents = self.env.model_dump(mode=mode, **model_dump_config)
+        txs_contents = [
+            tx.model_dump(mode=mode, **model_dump_config) for tx in self.txs
+        ]
+        input_contents: Dict[str, Any] = {
+            "alloc": alloc_contents,
+            "env": env_contents,
+            "txs": txs_contents,
+        }
+        if self.blob_params is not None:
+            input_contents["blobParams"] = self.blob_params.model_dump(
+                mode=mode, **model_dump_config
+            )
+
+        return input_contents
+
+
+@dataclass
+class TransitionToolOutput:
     """Transition tool output."""
 
-    alloc: Alloc
+    alloc: LazyAlloc
     result: Result
     body: Bytes | None = None
+
+    @classmethod
+    def model_validate_files(
+        cls, directory_path: Path, *, context: Any | None = None
+    ) -> "Self":
+        """
+        Validate the model from the file system where each key is a
+        different JSON file.
+        """
+        alloc_data = (directory_path / "alloc.json").read_text()
+        result_data = (directory_path / "result.json").read_text()
+        result = Result.model_validate_json(
+            json_data=result_data, context=context
+        )
+        alloc = LazyAlloc(str_contents=alloc_data)
+        output = cls(result=result, alloc=alloc)
+        return output
+
+    @classmethod
+    def model_validate(
+        cls, response_json: Dict, *, context: Any | None = None
+    ) -> "Self":
+        """
+        Validate the model from the file system where each key is a
+        different JSON file.
+        """
+        result = Result.model_validate(
+            obj=response_json["result"], context=context
+        )
+        alloc = LazyAlloc(json_contents=response_json["alloc"])
+        output = cls(result=result, alloc=alloc)
+        return output
+
+    @classmethod
+    def model_validate_json(
+        cls, response_json: str | bytes, *, context: Any | None = None
+    ) -> "Self":
+        """
+        Validate the model from a JSON string.
+        """
+        # Manually parsing from a JSON string is tricky.
+        # We parse using json.loads and then validate.
+        parsed_json = json.loads(response_json)
+        result = Result.model_validate(
+            obj=parsed_json["result"], context=context
+        )
+        alloc = LazyAlloc(str_contents=json.dumps(parsed_json["alloc"]))
+        output = cls(result=result, alloc=alloc)
+        return output
 
 
 class TransitionToolContext(CamelModel):
@@ -311,8 +499,17 @@ class TransitionToolContext(CamelModel):
     reward: int
 
 
-class TransitionToolRequest(CamelModel):
+@dataclass(kw_only=True)
+class TransitionToolRequest:
     """Transition tool server request data."""
 
     state: TransitionToolContext
     input: TransitionToolInput
+
+    def model_dump(self, mode: str, **model_dump_config: Any) -> Any:
+        """Return the validated model."""
+        assert mode == "json", f"Mode {mode} not supported."
+        return {
+            "state": self.state.model_dump(mode=mode, **model_dump_config),
+            "input": self.input.model_dump(mode=mode, **model_dump_config),
+        }
