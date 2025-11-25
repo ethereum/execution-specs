@@ -1,5 +1,7 @@
 """Transition tool abstract class."""
 
+import contextlib
+import cProfile
 import json
 import os
 import shutil
@@ -13,7 +15,9 @@ from pathlib import Path
 from typing import (
     Any,
     ClassVar,
+    ContextManager,
     Dict,
+    Generator,
     List,
     LiteralString,
     Mapping,
@@ -58,6 +62,55 @@ model_dump_config: Mapping = {"by_alias": True, "exclude_none": True}
 # resolved: https://github.com/ethereum/execution-spec-tests/issues/1894
 NORMAL_SERVER_TIMEOUT = 600
 SLOW_REQUEST_TIMEOUT = 600
+
+
+class Profiler:
+    """
+    Small helper to manage optional profiling and pausing.
+    """
+
+    def __init__(
+        self,
+        enabled: bool = False,
+        filename: Optional[Path] = None,
+    ) -> None:
+        """Initialize the profiler."""
+        self.enabled = enabled
+        self.filename = filename
+        self._prof: Optional[cProfile.Profile] = (
+            cProfile.Profile() if enabled else None
+        )
+
+    def __enter__(self) -> "Profiler":
+        """Enter the profiler context manager."""
+        if self._prof:
+            self._prof.enable()
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        """
+        Exit the profiler context manager, and dump the stats if enabled.
+        """
+        if self._prof:
+            self._prof.disable()
+            if self.filename:
+                self._prof.dump_stats(str(self.filename))
+
+    def pause(self) -> ContextManager[None]:
+        """Context manager that temporarily disables profiling, if enabled."""
+        prof = self._prof
+        if prof is None:
+            return contextlib.nullcontext()
+
+        @contextlib.contextmanager
+        def _paused() -> Generator[None, None, None]:
+            prof.disable()
+            try:
+                yield
+            finally:
+                prof.enable()
+
+        return _paused()
 
 
 def get_valid_transition_tool_names() -> set[str]:
@@ -251,6 +304,7 @@ class TransitionTool(EthereumCLI):
         *,
         t8n_data: TransitionToolData,
         debug_output_path: str = "",
+        profiler: Profiler,
     ) -> TransitionToolOutput:
         """
         Execute a transition tool using the filesystem for its inputs and
@@ -458,6 +512,7 @@ class TransitionTool(EthereumCLI):
         t8n_data: TransitionToolData,
         debug_output_path: str = "",
         timeout: int,
+        profiler: Profiler,
     ) -> TransitionToolOutput:
         """
         Execute the transition tool sending inputs and outputs via a server.
@@ -534,6 +589,7 @@ class TransitionTool(EthereumCLI):
         *,
         t8n_data: TransitionToolData,
         debug_output_path: str = "",
+        profiler: Profiler,
     ) -> TransitionToolOutput:
         """
         Execute a transition tool using stdin and stdout for its inputs and
@@ -706,24 +762,33 @@ class TransitionTool(EthereumCLI):
         If a client's `t8n` tool varies from the default behavior, this method
         can be overridden.
         """
-        if self.t8n_use_server:
-            if not self.server_url:
-                self.start_server()
-            return self._evaluate_server(
-                t8n_data=transition_tool_data,
-                debug_output_path=debug_output_path,
-                timeout=SLOW_REQUEST_TIMEOUT
-                if slow_request
-                else NORMAL_SERVER_TIMEOUT,
-            )
+        with Profiler(
+            enabled=debug_output_path != "",
+            filename=Path(debug_output_path) / "profile.out"
+            if debug_output_path
+            else None,
+        ) as profiler:
+            if self.t8n_use_server:
+                if not self.server_url:
+                    self.start_server()
+                return self._evaluate_server(
+                    t8n_data=transition_tool_data,
+                    debug_output_path=debug_output_path,
+                    timeout=SLOW_REQUEST_TIMEOUT
+                    if slow_request
+                    else NORMAL_SERVER_TIMEOUT,
+                    profiler=profiler,
+                )
 
-        if self.t8n_use_stream:
-            return self._evaluate_stream(
-                t8n_data=transition_tool_data,
-                debug_output_path=debug_output_path,
-            )
-
-        return self._evaluate_filesystem(
-            t8n_data=transition_tool_data,
-            debug_output_path=debug_output_path,
-        )
+            elif self.t8n_use_stream:
+                return self._evaluate_stream(
+                    t8n_data=transition_tool_data,
+                    debug_output_path=debug_output_path,
+                    profiler=profiler,
+                )
+            else:
+                return self._evaluate_filesystem(
+                    t8n_data=transition_tool_data,
+                    debug_output_path=debug_output_path,
+                    profiler=profiler,
+                )
