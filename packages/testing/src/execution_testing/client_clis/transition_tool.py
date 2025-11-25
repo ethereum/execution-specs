@@ -382,40 +382,43 @@ class TransitionTool(EthereumCLI):
         )
 
         if debug_output_path:
-            if os.path.exists(debug_output_path):
-                shutil.rmtree(debug_output_path)
-            shutil.copytree(temp_dir.name, debug_output_path)
-            t8n_output_base_dir = os.path.join(debug_output_path, "t8n.sh.out")
-            t8n_call = " ".join(args)
-            for file_path in input_paths.values():  # update input paths
-                t8n_call = t8n_call.replace(
-                    os.path.dirname(file_path),
-                    os.path.join(debug_output_path, "input"),
+            with profiler.pause():
+                if os.path.exists(debug_output_path):
+                    shutil.rmtree(debug_output_path)
+                shutil.copytree(temp_dir.name, debug_output_path)
+                t8n_output_base_dir = os.path.join(
+                    debug_output_path, "t8n.sh.out"
                 )
-            # use a new output path for basedir and outputs
-            t8n_call = t8n_call.replace(
-                temp_dir.name,
-                t8n_output_base_dir,
-            )
-            t8n_script = textwrap.dedent(
-                f"""\
-                #!/bin/bash
-                # hard-coded to avoid surprises
-                rm -rf {debug_output_path}/t8n.sh.out
-                mkdir -p {debug_output_path}/t8n.sh.out/output
-                {t8n_call}
-                """
-            )
-            dump_files_to_directory(
-                debug_output_path,
-                {
-                    "args.py": args,
-                    "returncode.txt": result.returncode,
-                    "stdout.txt": result.stdout.decode(),
-                    "stderr.txt": result.stderr.decode(),
-                    "t8n.sh+x": t8n_script,
-                },
-            )
+                t8n_call = " ".join(args)
+                for file_path in input_paths.values():  # update input paths
+                    t8n_call = t8n_call.replace(
+                        os.path.dirname(file_path),
+                        os.path.join(debug_output_path, "input"),
+                    )
+                # use a new output path for basedir and outputs
+                t8n_call = t8n_call.replace(
+                    temp_dir.name,
+                    t8n_output_base_dir,
+                )
+                t8n_script = textwrap.dedent(
+                    f"""\
+                    #!/bin/bash
+                    # hard-coded to avoid surprises
+                    rm -rf {debug_output_path}/t8n.sh.out
+                    mkdir -p {debug_output_path}/t8n.sh.out/output
+                    {t8n_call}
+                    """
+                )
+                dump_files_to_directory(
+                    debug_output_path,
+                    {
+                        "args.py": args,
+                        "returncode.txt": result.returncode,
+                        "stdout.txt": result.stdout.decode(),
+                        "stderr.txt": result.stderr.decode(),
+                        "t8n.sh+x": t8n_script,
+                    },
+                )
 
         if result.returncode != 0:
             raise Exception("failed to evaluate: " + result.stderr.decode())
@@ -442,12 +445,13 @@ class TransitionTool(EthereumCLI):
                 output.result.opcode_count = opcode_count
 
                 if debug_output_path:
-                    dump_files_to_directory(
-                        debug_output_path,
-                        {
-                            "opcodes.json": opcode_count.model_dump(),
-                        },
-                    )
+                    with profiler.pause():
+                        dump_files_to_directory(
+                            debug_output_path,
+                            {
+                                "opcodes.json": opcode_count.model_dump(),
+                            },
+                        )
 
         if self.trace:
             output.result.traces = self.collect_traces(
@@ -528,23 +532,24 @@ class TransitionTool(EthereumCLI):
             request_data_json["output-basedir"] = temp_dir.name
 
         if debug_output_path:
-            request_info = (
-                f"Server URL: {self.server_url}\n\n"
-                f"Request Data:\n{json.dumps(request_data_json, indent=2)}\n"
-            )
-            dump_files_to_directory(
-                debug_output_path,
-                {
-                    "input/alloc.json": request_data.input.alloc,
-                    "input/env.json": request_data.input.env,
-                    "input/txs.json": [
-                        tx.model_dump(mode="json", **model_dump_config)
-                        for tx in request_data.input.txs
-                    ],
-                    "input/blob_params.json": request_data.input.blob_params,
-                    "request_info.txt": request_info,
-                },
-            )
+            with profiler.pause():
+                request_info = (
+                    f"Server URL: {self.server_url}\n\n"
+                    f"Request Data:\n{json.dumps(request_data_json, indent=2)}\n"
+                )
+                dump_files_to_directory(
+                    debug_output_path,
+                    {
+                        "input/alloc.json": request_data.input.alloc,
+                        "input/env.json": request_data.input.env,
+                        "input/txs.json": [
+                            tx.model_dump(mode="json", **model_dump_config)
+                            for tx in request_data.input.txs
+                        ],
+                        "input/blob_params.json": request_data.input.blob_params,
+                        "request_info.txt": request_info,
+                    },
+                )
 
         response = self._server_post(
             data=request_data_json,
@@ -567,20 +572,21 @@ class TransitionTool(EthereumCLI):
         temp_dir.cleanup()
 
         if debug_output_path:
-            response_info = (
-                f"Status Code: {response.status_code}\n\n"
-                f"Headers:\n{json.dumps(dict(response.headers), indent=2)}\n\n"
-                f"Content:\n{response.text}\n"
-            )
-            dump_files_to_directory(
-                debug_output_path,
-                {
-                    "output/alloc.json": output.alloc,
-                    "output/result.json": output.result,
-                    "output/txs.rlp": str(output.body),
-                    "response_info.txt": response_info,
-                },
-            )
+            with profiler.pause():
+                response_info = (
+                    f"Status Code: {response.status_code}\n\n"
+                    f"Headers:\n{json.dumps(dict(response.headers), indent=2)}\n\n"
+                    f"Content:\n{response.text}\n"
+                )
+                dump_files_to_directory(
+                    debug_output_path,
+                    {
+                        "output/alloc.json": output.alloc,
+                        "output/result.json": output.result,
+                        "output/txs.rlp": str(output.body),
+                        "response_info.txt": response_info,
+                    },
+                )
 
         return output
 
@@ -607,9 +613,10 @@ class TransitionTool(EthereumCLI):
             stderr=subprocess.PIPE,
         )
 
-        self.dump_debug_stream(
-            debug_output_path, temp_dir, stdin, args, result
-        )
+        with profiler.pause():
+            self.dump_debug_stream(
+                debug_output_path, temp_dir, stdin, args, result
+            )
 
         if result.returncode != 0:
             raise Exception("failed to evaluate: " + result.stderr.decode())
@@ -622,14 +629,15 @@ class TransitionTool(EthereumCLI):
         )
 
         if debug_output_path:
-            dump_files_to_directory(
-                debug_output_path,
-                {
-                    "output/alloc.json": output.alloc,
-                    "output/result.json": output.result,
-                    "output/txs.rlp": str(output.body),
-                },
-            )
+            with profiler.pause():
+                dump_files_to_directory(
+                    debug_output_path,
+                    {
+                        "output/alloc.json": output.alloc,
+                        "output/result.json": output.result,
+                        "output/txs.rlp": str(output.body),
+                    },
+                )
 
         if self.trace:
             output.result.traces = self.collect_traces(
