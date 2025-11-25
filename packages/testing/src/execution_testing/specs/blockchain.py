@@ -28,6 +28,7 @@ from execution_testing.base_types import (
 )
 from execution_testing.client_clis import (
     BlockExceptionWithMessage,
+    LazyAlloc,
     Result,
     TransitionTool,
 )
@@ -342,7 +343,7 @@ class BuiltBlock(CamelModel):
 
     header: FixtureHeader
     env: Environment
-    alloc: Alloc
+    alloc: LazyAlloc
     state_root: Hash
     txs: List[Transaction]
     ommers: List[FixtureHeader]
@@ -563,7 +564,7 @@ class BlockchainTest(BaseTest):
         t8n: TransitionTool,
         block: Block,
         previous_env: Environment,
-        previous_alloc: Alloc,
+        previous_alloc: Alloc | LazyAlloc,
         last_block: bool,
     ) -> BuiltBlock:
         """
@@ -740,7 +741,7 @@ class BlockchainTest(BaseTest):
             print_traces(t8n.get_traces())
             pprint(transition_tool_output.result)
             pprint(previous_alloc)
-            pprint(transition_tool_output.alloc)
+            pprint(transition_tool_output.alloc.get_alloc())
             raise e
 
         if len(rejected_txs) > 0 and block.exception is None:
@@ -780,7 +781,7 @@ class BlockchainTest(BaseTest):
 
         pre, genesis = self.make_genesis(apply_pre_allocation_blockchain=True)
 
-        alloc = pre
+        alloc: Alloc | LazyAlloc = pre
         state_root = genesis.header.state_root
         env = environment_from_parent_header(genesis.header)
         head = genesis.header.block_hash
@@ -813,10 +814,13 @@ class BlockchainTest(BaseTest):
             if block.expected_post_state:
                 self.verify_post_state(
                     t8n,
-                    t8n_state=alloc,
+                    t8n_state=alloc.get_alloc()
+                    if isinstance(alloc, LazyAlloc)
+                    else alloc,
                     expected_state=block.expected_post_state,
                 )
         self.check_exception_test(exception=invalid_blocks > 0)
+        alloc = alloc.get_alloc() if isinstance(alloc, LazyAlloc) else alloc
         self.verify_post_state(t8n, t8n_state=alloc)
         info = {}
         if self._opcode_count is not None:
@@ -860,7 +864,7 @@ class BlockchainTest(BaseTest):
             apply_pre_allocation_blockchain=fixture_format
             != BlockchainEngineXFixture,
         )
-        alloc = pre
+        alloc: Alloc | LazyAlloc = pre
         state_root = genesis.header.state_root
         env = environment_from_parent_header(genesis.header)
         head_hash = genesis.header.block_hash
@@ -887,7 +891,9 @@ class BlockchainTest(BaseTest):
             if block.expected_post_state:
                 self.verify_post_state(
                     t8n,
-                    t8n_state=alloc,
+                    t8n_state=alloc.get_alloc()
+                    if isinstance(alloc, LazyAlloc)
+                    else alloc,
                     expected_state=block.expected_post_state,
                 )
         self.check_exception_test(exception=invalid_blocks > 0)
@@ -900,6 +906,7 @@ class BlockchainTest(BaseTest):
             " The framework should never try to execute this test case."
         )
 
+        alloc = alloc.get_alloc() if isinstance(alloc, LazyAlloc) else alloc
         self.verify_post_state(t8n, t8n_state=alloc)
 
         # Create base fixture data, common to all fixture formats

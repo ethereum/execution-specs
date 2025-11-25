@@ -18,11 +18,8 @@ from pydantic import Field
 
 from execution_testing.base_types import HexNumber
 from execution_testing.client_clis import (
+    Result,
     TransitionTool,
-    TransitionToolOutput,
-)
-from execution_testing.logging import (
-    get_logger,
 )
 from execution_testing.exceptions import (
     BlockException,
@@ -49,6 +46,9 @@ from execution_testing.fixtures.state import (
     FixtureTransaction,
 )
 from execution_testing.forks import Fork
+from execution_testing.logging import (
+    get_logger,
+)
 from execution_testing.test_types import (
     Alloc,
     BlockAccessListExpectation,
@@ -125,7 +125,8 @@ class StateTest(BaseTest):
         self,
         *,
         t8n: TransitionTool,
-        base_tool_output: TransitionToolOutput,
+        base_tool_result: Result,
+        base_tool_alloc: Alloc,
         fork: Fork,
         current_gas_limit: int,
         pre_alloc: Alloc,
@@ -133,7 +134,7 @@ class StateTest(BaseTest):
         enable_post_processing: bool,
     ) -> bool:
         """Verify a new lower gas limit yields the same transaction outcome."""
-        base_traces = base_tool_output.result.traces
+        base_traces = base_tool_result.traces
         assert base_traces is not None, (
             "Traces not collected for gas optimization"
         )
@@ -167,7 +168,7 @@ class StateTest(BaseTest):
             )
             return False
         try:
-            self.post.verify_post_alloc(modified_tool_output.alloc)
+            self.post.verify_post_alloc(modified_tool_output.alloc.get_alloc())
         except Exception as e:
             logger.debug(
                 f"Post alloc is not equivalent (gas_limit={current_gas_limit})"
@@ -186,29 +187,29 @@ class StateTest(BaseTest):
             )
             logger.debug(e)
             return False
-        if len(base_tool_output.alloc.root) != len(
-            modified_tool_output.alloc.root
+        if len(base_tool_alloc.root) != len(
+            modified_tool_output.alloc.get_alloc().root
         ):
             logger.debug(
                 f"Post alloc is not equivalent (gas_limit={current_gas_limit})"
             )
             return False
         if (
-            modified_tool_output.alloc.root.keys()
-            != modified_tool_output.alloc.root.keys()
+            modified_tool_output.alloc.get_alloc().root.keys()
+            != modified_tool_output.alloc.get_alloc().root.keys()
         ):
             logger.debug(
                 f"Post alloc is not equivalent (gas_limit={current_gas_limit})"
             )
             return False
-        for k in base_tool_output.alloc.root.keys():
-            if k not in modified_tool_output.alloc:
+        for k in base_tool_alloc.root.keys():
+            if k not in modified_tool_output.alloc.get_alloc():
                 logger.debug(
                     f"Post alloc is not equivalent (gas_limit={current_gas_limit})"
                 )
                 return False
-            base_account = base_tool_output.alloc[k]
-            modified_account = modified_tool_output.alloc[k]
+            base_account = base_tool_alloc[k]
+            modified_account = modified_tool_output.alloc.get_alloc()[k]
             if (modified_account is None) != (base_account is None):
                 logger.debug(
                     f"Post alloc is not equivalent (gas_limit={current_gas_limit})"
@@ -366,9 +367,10 @@ class StateTest(BaseTest):
             debug_output_path=self.get_next_transition_tool_output_path(),
             slow_request=self.is_tx_gas_heavy_test(),
         )
+        output_alloc = transition_tool_output.alloc.get_alloc()
 
         try:
-            self.post.verify_post_alloc(transition_tool_output.alloc)
+            self.post.verify_post_alloc(output_alloc)
         except Exception as e:
             print_traces(t8n.get_traces())
             raise e
@@ -382,7 +384,7 @@ class StateTest(BaseTest):
         except Exception as e:
             print_traces(t8n.get_traces())
             pprint(transition_tool_output.result)
-            pprint(transition_tool_output.alloc)
+            pprint(output_alloc)
             raise e
 
         if (
@@ -393,17 +395,18 @@ class StateTest(BaseTest):
                 self._operation_mode == OpMode.OPTIMIZE_GAS_POST_PROCESSING
             )
             base_tool_output = transition_tool_output
+            base_tool_alloc = base_tool_output.alloc.get_alloc()
+            base_tool_result = base_tool_output.result
 
-            assert base_tool_output.result.traces is not None, (
-                "Traces not found."
-            )
+            assert base_tool_result.traces is not None, "Traces not found."
 
             # First try reducing the gas limit only by one, if the validation
             # fails, it means that the traces change even with the slightest
             # modification to the gas.
             if self.verify_modified_gas_limit(
                 t8n=t8n,
-                base_tool_output=base_tool_output,
+                base_tool_result=base_tool_result,
+                base_tool_alloc=base_tool_alloc,
                 fork=fork,
                 current_gas_limit=self.tx.gas_limit - 1,
                 pre_alloc=pre_alloc,
@@ -418,7 +421,8 @@ class StateTest(BaseTest):
                     ) // 2
                     if self.verify_modified_gas_limit(
                         t8n=t8n,
-                        base_tool_output=base_tool_output,
+                        base_tool_result=base_tool_result,
+                        base_tool_alloc=base_tool_alloc,
                         fork=fork,
                         current_gas_limit=current_gas_limit,
                         pre_alloc=pre_alloc,
@@ -440,7 +444,8 @@ class StateTest(BaseTest):
 
                 assert self.verify_modified_gas_limit(
                     t8n=t8n,
-                    base_tool_output=base_tool_output,
+                    base_tool_result=base_tool_result,
+                    base_tool_alloc=base_tool_alloc,
                     fork=fork,
                     current_gas_limit=minimum_gas_limit,
                     pre_alloc=pre_alloc,
@@ -474,7 +479,7 @@ class StateTest(BaseTest):
                         logs_hash=transition_tool_output.result.logs_hash,
                         tx_bytes=tx.rlp(),
                         expect_exception=tx.error,
-                        state=transition_tool_output.alloc,
+                        state=output_alloc,
                     )
                 ]
             },

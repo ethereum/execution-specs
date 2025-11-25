@@ -44,6 +44,7 @@ from execution_testing.forks.helpers import (
 from execution_testing.test_types import Alloc, Environment, Transaction
 
 from .cli_types import (
+    LazyAlloc,
     OpcodeCount,
     Traces,
     TransactionReceipt,
@@ -54,7 +55,7 @@ from .cli_types import (
     TransitionToolRequest,
 )
 from .ethereum_cli import EthereumCLI
-from .file_utils import dump_files_to_directory, write_json_file
+from .file_utils import dump_files_to_directory
 
 model_dump_config: Mapping = {"by_alias": True, "exclude_none": True}
 
@@ -227,7 +228,7 @@ class TransitionTool(EthereumCLI):
     class TransitionToolData:
         """Transition tool files and data to pass between methods."""
 
-        alloc: Alloc
+        alloc: Alloc | LazyAlloc
         txs: List[Transaction]
         env: Environment
         fork: Fork
@@ -311,19 +312,13 @@ class TransitionTool(EthereumCLI):
         outputs.
         """
         temp_dir = tempfile.TemporaryDirectory()
+        temp_dir_path = Path(temp_dir.name)
         os.mkdir(os.path.join(temp_dir.name, "input"))
         os.mkdir(os.path.join(temp_dir.name, "output"))
 
-        input_contents = t8n_data.to_input().model_dump(
-            mode="json", **model_dump_config
+        input_paths = t8n_data.to_input().to_files(
+            temp_dir_path / "input", **model_dump_config
         )
-
-        input_paths = {
-            k: os.path.join(temp_dir.name, "input", f"{k}.json")
-            for k in input_contents.keys()
-        }
-        for key, file_path in input_paths.items():
-            write_json_file(input_contents[key], file_path)
 
         output_paths = {
             output: os.path.join("output", f"{output}.json")
@@ -423,17 +418,8 @@ class TransitionTool(EthereumCLI):
         if result.returncode != 0:
             raise Exception("failed to evaluate: " + result.stderr.decode())
 
-        for key, file_path in output_paths.items():
-            output_paths[key] = os.path.join(temp_dir.name, file_path)
-
-        output_contents = {}
-        for key, file_path in output_paths.items():
-            if "txs.rlp" in file_path:
-                continue
-            with open(file_path, "r+") as file:
-                output_contents[key] = json.load(file)
-        output = TransitionToolOutput.model_validate(
-            output_contents,
+        output = TransitionToolOutput.model_validate_files(
+            temp_dir_path / "output",
             context={"exception_mapper": self.exception_mapper},
         )
         if self.supports_opcode_count:
@@ -540,7 +526,11 @@ class TransitionTool(EthereumCLI):
                 dump_files_to_directory(
                     debug_output_path,
                     {
-                        "input/alloc.json": request_data.input.alloc,
+                        "input/alloc.json": request_data.input.alloc.json_contents_from_cache()
+                        if isinstance(request_data.input.alloc, LazyAlloc)
+                        else request_data.input.alloc.model_dump(
+                            mode="json", **model_dump_config
+                        ),
                         "input/env.json": request_data.input.env,
                         "input/txs.json": [
                             tx.model_dump(mode="json", **model_dump_config)
@@ -581,7 +571,7 @@ class TransitionTool(EthereumCLI):
                 dump_files_to_directory(
                     debug_output_path,
                     {
-                        "output/alloc.json": output.alloc,
+                        "output/alloc.json": output.alloc.json_contents_from_cache(),
                         "output/result.json": output.result,
                         "output/txs.rlp": str(output.body),
                         "response_info.txt": response_info,
@@ -606,9 +596,12 @@ class TransitionTool(EthereumCLI):
 
         stdin = t8n_data.to_input()
 
+        process_input = stdin.model_dump_json(**model_dump_config)
+        encoded_process_input = process_input.encode()
+
         result = subprocess.run(
             args,
-            input=stdin.model_dump_json(**model_dump_config).encode(),
+            input=encoded_process_input,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
@@ -633,7 +626,7 @@ class TransitionTool(EthereumCLI):
                 dump_files_to_directory(
                     debug_output_path,
                     {
-                        "output/alloc.json": output.alloc,
+                        "output/alloc.json": output.alloc.str_contents_from_cache(),
                         "output/result.json": output.result,
                         "output/txs.rlp": str(output.body),
                     },
