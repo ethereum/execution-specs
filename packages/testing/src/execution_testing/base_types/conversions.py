@@ -1,6 +1,5 @@
 """Common conversion methods."""
 
-from re import sub
 from typing import Any, List, Optional, SupportsBytes, TypeAlias
 
 BytesConvertible: TypeAlias = str | bytes | SupportsBytes | List[int]
@@ -33,23 +32,15 @@ def to_bytes(input_bytes: BytesConvertible) -> bytes:
     if input_bytes is None:
         raise Exception("Cannot convert `None` input to bytes")
 
-    if (
-        isinstance(input_bytes, SupportsBytes)
-        or isinstance(input_bytes, bytes)
-        or isinstance(input_bytes, list)
-    ):
-        return bytes(input_bytes)
-
     if isinstance(input_bytes, str):
         # We can have a hex representation of bytes with spaces for readability
-        input_bytes = sub(r"\s+", "", input_bytes)
         if input_bytes.startswith("0x"):
             input_bytes = input_bytes[2:]
         if len(input_bytes) % 2 == 1:
             input_bytes = "0" + input_bytes
         return bytes.fromhex(input_bytes)
 
-    raise Exception("invalid type for `bytes`")
+    return bytes(input_bytes)
 
 
 def to_fixed_size_bytes(
@@ -85,9 +76,9 @@ def to_fixed_size_bytes(
         )
     if len(input_bytes) < size:
         if left_padding:
-            return bytes(input_bytes).rjust(size, b"\x00")
+            return input_bytes.rjust(size, b"\x00")
         if right_padding:
-            return bytes(input_bytes).ljust(size, b"\x00")
+            return input_bytes.ljust(size, b"\x00")
         raise Exception(
             f"input is too small for fixed size bytes: {len(input_bytes)} < {size}\n"
             "Use `left_padding=True` or `right_padding=True` to allow padding."
