@@ -1,8 +1,19 @@
 """Pre-allocation group models for test fixture generation."""
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Generator, Iterator, KeysView, List, Self, Tuple
+from typing import (
+    Any,
+    Dict,
+    Generator,
+    Iterator,
+    KeysView,
+    List,
+    Literal,
+    Self,
+    Tuple,
+)
 
 from filelock import FileLock
 from pydantic import Field, PrivateAttr
@@ -155,12 +166,88 @@ class PreAllocGroupBuilders(EthereumTestRootModel):
             self.root[pre_alloc_hash] = group
 
 
+@dataclass(kw_only=True)
+class ModelDumpCache:
+    """
+    Holds a cached dump of a model, the type of the cache (str or json)
+    and the keyword arguments used to generate it.
+    """
+
+    model_dump_config: Dict[str, Any]
+    """Keyword arguments used to model dump the data."""
+    model_dump_mode: Literal["json", "python"]
+    """Mode of the model dump when `model_dump` is called."""
+    model_dump_type: Literal["string", "dict"]
+    """Whether `model_dump_json` or `model_dump` was used to generate the data."""
+    data: Any
+
+
 class GroupPreAlloc(Alloc):
+    """
+    Alloc that belongs to a pre-allocation group.
+
+    This is used to avoid re-calculating the state root for the pre-allocation
+    group when it is accessed.
+
+    Also holds a cached model dump of the pre-allocation group, either in
+    string or JSON format depending on the last request.
+    """
+
     _pre_alloc_group: "PreAllocGroup" = PrivateAttr(init=False)
+    _model_dump_cache: ModelDumpCache | None = PrivateAttr(None)
+    _cache_miss_count: int = PrivateAttr(0)
 
     def state_root(self) -> Hash:
         """On pre-alloc groups, which are normally very big, we always cache."""
         return self._pre_alloc_group.genesis.state_root
+
+    def model_dump(  # type: ignore[override]
+        self, mode: Literal["json", "python"], **kwargs: Any
+    ) -> Any:
+        """
+        Model dump the pre-allocation group, with caching.
+
+        Note: 'mode' here follows Pydantic's semantics:
+        - 'python' -> standard model_dump
+        - 'json'   -> JSON-compatible python data
+        """
+        if (
+            self._model_dump_cache is not None
+            and self._model_dump_cache.model_dump_mode == mode
+            and self._model_dump_cache.model_dump_type == "dict"
+            and self._model_dump_cache.model_dump_config == kwargs
+        ):
+            return self._model_dump_cache.data
+
+        self._cache_miss_count += 1
+        data = super().model_dump(mode=mode, **kwargs)
+        self._model_dump_cache = ModelDumpCache(
+            model_dump_mode=mode,
+            model_dump_config=kwargs,
+            model_dump_type="dict",
+            data=data,
+        )
+        return data
+
+    def model_dump_json(self, **kwargs: Any) -> str:
+        """Model dump the pre-allocation group in JSON string format, with caching."""
+        if (
+            self._model_dump_cache is not None
+            and self._model_dump_cache.model_dump_mode == "json"
+            and self._model_dump_cache.model_dump_type == "string"
+            and self._model_dump_cache.model_dump_config == kwargs
+        ):
+            return self._model_dump_cache.data
+
+        self._cache_miss_count += 1
+        data = super().model_dump_json(**kwargs)
+        self._model_dump_cache = ModelDumpCache(
+            model_dump_mode="json",
+            model_dump_config=kwargs,
+            model_dump_type="string",
+            data=data,
+        )
+        return data
 
 
 class PreAllocGroup(PreAllocGroupBuilder):
