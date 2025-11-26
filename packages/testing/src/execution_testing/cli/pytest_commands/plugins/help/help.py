@@ -63,6 +63,13 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=False,
         help="Show help options specific to the execute's command eth_config and exit.",
     )
+    help_group.addoption(
+        "--execute-blob-sender-help",
+        action="store_true",
+        dest="show_execute_blob_sender_help",
+        default=False,
+        help="Show help options for the execute blob-sender command and exit.",
+    )
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -113,6 +120,7 @@ def pytest_configure(config: pytest.Config) -> None:
                 "sender key fixtures",
                 "remote seed sender",
                 "chain configuration",
+                "blob sender",
             ],
         )
     elif config.getoption("show_execute_hive_help"):
@@ -145,6 +153,20 @@ def pytest_configure(config: pytest.Config) -> None:
             "pytest-execute-eth-config.ini",
             [
                 "eth_config",
+                "chain configuration",
+            ],
+        )
+    elif config.getoption("show_execute_blob_sender_help"):
+        show_specific_help(
+            config,
+            "pytest-execute-blob-sender.ini",
+            [
+                "blob_sender",
+                "fork range",
+                "remote RPC configuration",
+                "pre-allocation behavior during test execution",
+                "sender key fixtures",
+                "remote seed sender",
                 "chain configuration",
             ],
         )

@@ -95,3 +95,18 @@ recover = _create_execute_subcommand(
         Path("cli/pytest_commands/plugins/execute/execute_recover.py")
     ],
 )
+
+blob_sender = _create_execute_subcommand(
+    "blob-sender",
+    "pytest-execute-blob-sender.ini",
+    "Send blobs to a remote RPC endpoint.",
+    required_args=[
+        "--rpc-endpoint=http://localhost:8545",
+        "--rpc-seed-key=1",
+        "--chain-id=1",
+        "--fork=Cancun",
+    ],
+    command_logic_test_paths=[
+        Path("cli/pytest_commands/plugins/execute/blob_sender/blob_sender.py")
+    ],
+)
