@@ -1,5 +1,16 @@
-"""Benchmark control flow instructions."""
+"""
+Benchmark control flow instructions.
 
+Supported Opcodes:
+- STOP
+- JUMP
+- JUMPI
+- PC
+- GAS
+- JUMPDEST
+"""
+
+import pytest
 from execution_testing import (
     Alloc,
     BenchmarkTestFiller,
@@ -13,12 +24,22 @@ from execution_testing import (
 # STOP, JUMP, JUMPI, PC, GAS, JUMPDEST
 
 
+@pytest.mark.repricing
 def test_gas_op(
     benchmark_test: BenchmarkTestFiller,
 ) -> None:
     """Benchmark GAS instruction."""
     benchmark_test(
         code_generator=ExtCallGenerator(attack_block=Op.GAS),
+    )
+
+
+def test_pc_op(
+    benchmark_test: BenchmarkTestFiller,
+) -> None:
+    """Benchmark PC instruction."""
+    benchmark_test(
+        code_generator=ExtCallGenerator(attack_block=Op.PC),
     )
 
 
@@ -35,6 +56,7 @@ def test_jumps(
     benchmark_test(tx=tx)
 
 
+@pytest.mark.repricing
 def test_jumpi_fallthrough(
     benchmark_test: BenchmarkTestFiller,
 ) -> None:
@@ -61,6 +83,7 @@ def test_jumpis(
     benchmark_test(tx=tx)
 
 
+@pytest.mark.repricing
 def test_jumpdests(
     benchmark_test: BenchmarkTestFiller,
 ) -> None:

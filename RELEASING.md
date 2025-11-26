@@ -13,7 +13,7 @@ borrow some of SemVer's concepts.)
 
 The general format of EELS version numbers is as follows:
 
-```
+```text
 COMPAT "." HARDFORK ( "." PATCH | ".0rc" DEVNET [ ".post" PATCH ] ) [ ".dev" DEV ]
 ```
 
@@ -54,7 +54,6 @@ The following table is a hypothetical complete example of all of the releases be
 | prague | finalize devnet1   | `2.16.0rc1`       |
 |        |                    |                   |
 | prague | finalize mainnet   | `2.16.0`          |
-
 
 ## Creating a Release
 
@@ -138,13 +137,13 @@ The usual. `git checkout -b release-vX.Y.Z`, `git commit -a`, and `git push`.
 
 ### Waiting
 
-```
+```text
   ______________________________________
 / Just because the message may never be  \\
 | received does not mean it is not worth |
 \\ sending.                               /
   --------------------------------------
-         \   ^__^ 
+         \   ^__^
           \  (oo)\_______
              (__)\       )\/\\
                  ||----w |

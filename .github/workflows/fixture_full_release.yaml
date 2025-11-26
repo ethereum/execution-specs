@@ -1,4 +1,4 @@
-name: Create Fixture Full Release 
+name: Create Fixture Full Release
 
 on:
   push:
@@ -77,13 +77,13 @@ jobs:
           gh run download ${{ github.run_id }} --dir ./artifacts
         env:
           GH_TOKEN: ${{ github.token }}
-          
+
       - name: Create Release
         run: |
           # Strip "tests-" prefix from tag for EEST
           TAG_NAME="${{ github.ref_name }}"
           RELEASE_TAG="${TAG_NAME#tests-}"
-            
+
           gh release create "$RELEASE_TAG" \
             --repo ethereum/execution-spec-tests \
             --draft \

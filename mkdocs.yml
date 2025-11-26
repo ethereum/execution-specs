@@ -1,0 +1,137 @@
+site_name: Ethereum Execution Specs
+site_description: The Ethereum Execution Layer Python Specifications and Tests
+site_url: https://eest.ethereum.org/
+repo_url: https://github.com/ethereum/execution-specs
+repo_name: execution-specs
+edit_uri: edit/main/docs/
+copyright: "Copyright: 2025, Ethereum Community"
+
+plugins:
+  - git-authors:
+      exclude:
+        - tests/*
+        - navigation.md
+        - getting_started/contributing.md
+        - getting_started/security.md
+        - filling_tests/filling_tests_command_line_options.md
+  - glightbox
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            members_order: source
+            group_by_category: false
+  - search
+  - social
+  - gen-files:
+      scripts:
+        - docs/scripts/copy_repo_docs_to_mkdocs.py
+        - docs/scripts/gen_test_case_reference.py
+        - docs/scripts/generate_fill_help.py
+  - literate-nav:
+      nav_file: navigation.md
+
+watch:
+  - CONTRIBUTING.md
+  - SECURITY.md
+  - packages/testing/src/
+  - tests/
+
+theme:
+  name: material
+  logo: img/Ethereum-logo-600px.png
+  favicon: img/ETH-logo-icon.svg
+  language: en
+  features:
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - navigation.indexes
+    - navigation.instant
+    - navigation.tabs
+    - navigation.footer
+  # disabled due to https://github.com/ethereum/execution-specs/issues/1491
+  # palette:
+  #   # Palette toggle for automatic mode
+  #   - media: "(prefers-color-scheme)"
+  #     toggle:
+  #       icon: material/brightness-auto
+  #       name: Switch to light mode
+  #   Palette toggle for light mode
+  #   - media: "(prefers-color-scheme: light)"
+  #    scheme: default
+  #    toggle:
+  #      icon: material/brightness-7
+  #      name: Switch to dark mode
+  #   # Palette toggle for dark mode
+  #   - media: "(prefers-color-scheme: dark)"
+  #     scheme: slate
+  #     toggle:
+  #       icon: material/brightness-4
+  #       name: Switch to system preference
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - mkdocs-click
+  - toc:
+      permalink: true
+      toc_depth: 4
+  # Python Markdown Extensions
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.magiclink:
+      repo_url_shortener: true
+      repo_url_shorthand: true
+      social_url_shorthand: true
+      social_url_shortener: true
+      user: ethereum
+      repo: execution-specs
+      normalize_issue_symbols: true
+  - pymdownx.mark:
+  - pymdownx.smartsymbols
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+extra:
+  version:
+    provider: mike
+
+extra_javascript:
+  - https://code.jquery.com/jquery-3.7.1.min.js
+  - https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js
+  - https://cdn.datatables.net/2.1.7/js/dataTables.min.js
+  - https://cdn.datatables.net/buttons/3.1.2/js/dataTables.buttons.js
+  - https://cdn.datatables.net/buttons/3.1.2/js/buttons.dataTables.js
+  - https://cdn.datatables.net/buttons/3.1.2/js/buttons.colVis.min.js
+  - javascripts/site.js
+
+extra_css:
+  - https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css
+  - https://cdn.datatables.net/2.1.7/css/dataTables.dataTables.min.css
+  - https://cdn.datatables.net/buttons/3.1.2/css/buttons.dataTables.css
+  - stylesheets/custom.css

@@ -192,7 +192,7 @@ def hex_to_u64(hex_string: str) -> U64:
     Parameters
     ----------
     hex_string :
-        The hexadecimal string to be converted to U256.
+        The hexadecimal string to be converted to U64.
 
     Returns
     -------

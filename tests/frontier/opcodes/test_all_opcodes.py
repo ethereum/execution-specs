@@ -3,7 +3,7 @@ Call every possible opcode and test that the subcall is successful if the
 opcode is supported by the fork supports and fails otherwise.
 """
 
-from typing import Dict
+from typing import Dict, Iterator
 
 import pytest
 from execution_testing import (
@@ -19,6 +19,7 @@ from execution_testing import (
     Transaction,
     UndefinedOpcodes,
 )
+from execution_testing.forks import Byzantium
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -135,3 +136,60 @@ def test_cover_revert(state_test: StateTestFiller, pre: Alloc) -> None:
     )
 
     state_test(env=Environment(), pre=pre, post={}, tx=tx)
+
+
+def fork_opcodes_increasing_stack(
+    fork: Fork,
+) -> Iterator[Op]:
+    """
+    Yields opcodes which are valid for `fork` and increase the operand stack.
+    """
+    for opcode in fork.valid_opcodes():
+        if opcode.pushed_stack_items > opcode.popped_stack_items:
+            yield opcode
+
+
+@pytest.mark.parametrize_by_fork("opcode", fork_opcodes_increasing_stack)
+@pytest.mark.parametrize("fails", [True, False])
+def test_stack_overflow(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    opcode: Op,
+    fails: bool,
+    env: Environment,
+) -> None:
+    """Test that opcodes which leave new items on the stack can overflow."""
+    pre_stack_items = fork.max_stack_height()
+    if not fails:
+        pre_stack_items -= (
+            opcode.pushed_stack_items - opcode.popped_stack_items
+        )
+    slot_code_worked = 1
+    value_code_failed = 0xDEADBEEF
+    value_code_worked = 1
+
+    contract = pre.deploy_contract(
+        code=Op.SSTORE(slot_code_worked, value_code_worked)
+        + Op.PUSH1(0) * pre_stack_items
+        + opcode
+        + Op.STOP,
+        storage={slot_code_worked: value_code_failed},
+    )
+
+    tx = Transaction(
+        gas_limit=100_000,
+        to=contract,
+        sender=pre.fund_eoa(),
+        protected=fork >= Byzantium,
+    )
+    expected_storage = {
+        slot_code_worked: value_code_failed if fails else value_code_worked
+    }
+
+    state_test(
+        env=env,
+        pre=pre,
+        tx=tx,
+        post={contract: Account(storage=expected_storage)},
+    )

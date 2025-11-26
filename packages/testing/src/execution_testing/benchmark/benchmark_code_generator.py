@@ -16,6 +16,8 @@ from execution_testing.vm import Op
 class JumpLoopGenerator(BenchmarkCodeGenerator):
     """Generates bytecode that loops execution using JUMP operations."""
 
+    contract_balance: int = 0
+
     def deploy_contracts(self, *, pre: Alloc, fork: Fork) -> Address:
         """Deploy the looping contract."""
         # Benchmark Test Structure:
@@ -28,7 +30,9 @@ class JumpLoopGenerator(BenchmarkCodeGenerator):
             cleanup=self.cleanup,
             fork=fork,
         )
-        self._contract_address = pre.deploy_contract(code=code)
+        self._contract_address = pre.deploy_contract(
+            code=code, balance=self.contract_balance
+        )
         return self._contract_address
 
 
@@ -49,20 +53,45 @@ class ExtCallGenerator(BenchmarkCodeGenerator):
         #    but not loop (e.g. PUSH)
         # 2. The loop contract that calls the target contract in a loop
 
-        pushed_stack_items = self.attack_block.pushed_stack_items
-        popped_stack_items = self.attack_block.popped_stack_items
-        stack_delta = pushed_stack_items - popped_stack_items
+        attack_block_stack_delta = (
+            self.attack_block.pushed_stack_items
+            - self.attack_block.popped_stack_items
+        )
+        assert attack_block_stack_delta >= 0, (
+            "attack block stack delta must be non-negative"
+        )
 
-        max_iterations = fork.max_code_size() // len(self.attack_block)
+        setup_stack_delta = (
+            self.setup.pushed_stack_items - self.setup.popped_stack_items
+        )
+        assert setup_stack_delta >= 0, "setup stack delta must be non-negative"
 
-        if stack_delta > 0:
+        # Account for setup code length when calculating max iterations
+        available_space = fork.max_code_size() - len(self.setup)
+        max_iterations = (
+            available_space // len(self.attack_block)
+            if len(self.attack_block) > 0
+            else 0
+        )
+        max_stack_height = fork.max_stack_height() - setup_stack_delta
+
+        if attack_block_stack_delta > 0:
             max_iterations = min(
-                fork.max_stack_height() // stack_delta, max_iterations
+                max_stack_height // attack_block_stack_delta, max_iterations
             )
+
+        code = self.setup + self.attack_block * max_iterations
+        # Pad the code to the maximum code size.
+        if self.code_padding_opcode is not None:
+            padding_size = fork.max_code_size() - len(code)
+            if padding_size > 0:
+                code += self.code_padding_opcode * padding_size
+
+        self._validate_code_size(code, fork)
 
         # Deploy target contract that contains the actual attack block
         self._target_contract_address = pre.deploy_contract(
-            code=self.setup + self.attack_block * max_iterations,
+            code=code,
             balance=self.contract_balance,
         )
 
@@ -74,11 +103,22 @@ class ExtCallGenerator(BenchmarkCodeGenerator):
         # setup + JUMPDEST + attack + attack + ... + attack +
         # JUMP(setup_length)
         code_sequence = Op.POP(
-            Op.STATICCALL(Op.GAS, self._target_contract_address, 0, 0, 0, 0)
+            Op.STATICCALL(
+                Op.GAS,
+                self._target_contract_address,
+                Op.PUSH0,
+                Op.CALLDATASIZE,
+                Op.PUSH0,
+                Op.PUSH0,
+            )
         )
 
         caller_code = self.generate_repeated_code(
-            repeated_code=code_sequence, cleanup=self.cleanup, fork=fork
+            setup=Op.CALLDATACOPY(Op.PUSH0, Op.PUSH0, Op.CALLDATASIZE),
+            repeated_code=code_sequence,
+            cleanup=self.cleanup,
+            fork=fork,
         )
+
         self._contract_address = pre.deploy_contract(code=caller_code)
         return self._contract_address

@@ -1,4 +1,17 @@
-"""Benchmark system instructions."""
+"""
+Benchmark system instructions.
+
+Supported Opcodes:
+- CREATE
+- CREATE2
+- RETURN
+- REVERT
+- CALL
+- CALLCODE
+- DELEGATECALL
+- STATICCALL
+- SELFDESTRUCT
+"""
 
 import math
 
@@ -11,11 +24,13 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytecode,
     Environment,
+    ExtCallGenerator,
     Fork,
     Hash,
     JumpLoopGenerator,
     Op,
     StateTestFiller,
+    TestPhaseManager,
     Transaction,
     While,
     compute_create2_address,
@@ -23,11 +38,6 @@ from execution_testing import (
 )
 
 from tests.benchmark.compute.helpers import XOR_TABLE
-
-# System instructions:
-# CREATE, CREATE2
-# RETURN, REVERT
-# CALL, CALLCODE, SELFDESTRUCT, DELEGATECALL, STATICCALL
 
 
 @pytest.mark.parametrize(
@@ -167,13 +177,14 @@ def test_xcall(
     )
     factory_caller_address = pre.deploy_contract(code=factory_caller_code)
 
-    contracts_deployment_tx = Transaction(
-        to=factory_caller_address,
-        gas_limit=env.gas_limit,
-        gas_price=10**6,
-        data=Hash(num_contracts),
-        sender=pre.fund_eoa(),
-    )
+    with TestPhaseManager.setup():
+        contracts_deployment_tx = Transaction(
+            to=factory_caller_address,
+            gas_limit=env.gas_limit,
+            gas_price=10**6,
+            data=Hash(num_contracts),
+            sender=pre.fund_eoa(),
+        )
 
     post = {}
     deployed_contract_addresses = []
@@ -216,12 +227,14 @@ def test_xcall(
             f"code size {max_contract_size}"
         )
     opcode_address = pre.deploy_contract(code=attack_code)
-    opcode_tx = Transaction(
-        to=opcode_address,
-        gas_limit=attack_gas_limit,
-        gas_price=10**9,
-        sender=pre.fund_eoa(),
-    )
+
+    with TestPhaseManager.execution():
+        opcode_tx = Transaction(
+            to=opcode_address,
+            gas_limit=attack_gas_limit,
+            gas_price=10**9,
+            sender=pre.fund_eoa(),
+        )
 
     blockchain_test(
         pre=pre,
@@ -335,21 +348,13 @@ def test_create(
         else Op.DUP3 + Op.PUSH0 + Op.DUP4 + Op.CREATE2
     )
 
-    code = JumpLoopGenerator(
-        setup=setup, attack_block=attack_block
-    ).generate_repeated_code(
-        repeated_code=attack_block, setup=setup, fork=fork
+    benchmark_test(
+        code_generator=JumpLoopGenerator(
+            setup=setup,
+            attack_block=attack_block,
+            contract_balance=1_000_000_000 if value > 0 else 0,
+        )
     )
-
-    tx = Transaction(
-        # Set enough balance in the pre-alloc for `value > 0` configurations.
-        to=pre.deploy_contract(
-            code=code, balance=1_000_000_000 if value > 0 else 0
-        ),
-        sender=pre.fund_eoa(),
-    )
-
-    benchmark_test(tx=tx)
 
 
 @pytest.mark.parametrize(
@@ -423,6 +428,7 @@ def test_creates_collisions(
     )
 
 
+@pytest.mark.repricing(return_size=1024, return_non_zero_data=True)
 @pytest.mark.parametrize(
     "opcode",
     [Op.RETURN, Op.REVERT],
@@ -439,15 +445,11 @@ def test_creates_collisions(
 )
 def test_return_revert(
     benchmark_test: BenchmarkTestFiller,
-    pre: Alloc,
-    fork: Fork,
     opcode: Op,
     return_size: int,
     return_non_zero_data: bool,
 ) -> None:
     """Benchmark RETURN and REVERT instructions."""
-    max_code_size = fork.max_code_size()
-
     # Create the contract that will be called repeatedly.
     # The bytecode of the contract is:
     # ```
@@ -462,16 +464,12 @@ def test_return_revert(
     mem_preparation = (
         Op.CODECOPY(size=return_size) if return_non_zero_data else Bytecode()
     )
-    executable_code = mem_preparation + opcode(size=return_size)
-    code = executable_code
-    if return_non_zero_data:
-        code += Op.INVALID * (max_code_size - len(executable_code))
-    target_contract_address = pre.deploy_contract(code=code)
-
-    attack_block = Op.POP(Op.STATICCALL(address=target_contract_address))
-
     benchmark_test(
-        code_generator=JumpLoopGenerator(attack_block=attack_block),
+        code_generator=ExtCallGenerator(
+            setup=mem_preparation,
+            attack_block=opcode(size=return_size),
+            code_padding_opcode=Op.INVALID,
+        ),
     )
 
 
@@ -573,12 +571,13 @@ def test_selfdestruct_existing(
     )
     factory_caller_address = pre.deploy_contract(code=factory_caller_code)
 
-    contracts_deployment_tx = Transaction(
-        to=factory_caller_address,
-        gas_limit=env.gas_limit,
-        data=Hash(num_contracts),
-        sender=pre.fund_eoa(),
-    )
+    with TestPhaseManager.setup():
+        contracts_deployment_tx = Transaction(
+            to=factory_caller_address,
+            gas_limit=env.gas_limit,
+            data=Hash(num_contracts),
+            sender=pre.fund_eoa(),
+        )
 
     code = (
         # Setup memory for later CREATE2 address generation loop.
@@ -601,11 +600,12 @@ def test_selfdestruct_existing(
 
     # The 0 storage slot is initialize to avoid creation costs in SSTORE above.
     code_addr = pre.deploy_contract(code=code, storage={0: 1})
-    opcode_tx = Transaction(
-        to=code_addr,
-        gas_limit=attack_gas_limit,
-        sender=pre.fund_eoa(),
-    )
+    with TestPhaseManager.execution():
+        opcode_tx = Transaction(
+            to=code_addr,
+            gas_limit=attack_gas_limit,
+            sender=pre.fund_eoa(),
+        )
 
     post = {
         factory_address: Account(storage={0: num_contracts}),

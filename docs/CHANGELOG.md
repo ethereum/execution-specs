@@ -12,13 +12,16 @@ Test fixtures for use by clients are available for each release on the [Github r
 
 #### `fill`
 
-- 🐞 Allow `evmone` to fill Prague and Osaka blockchain tests (mainly modified deposit contract tests) ([#1689](https://github.com/ethereum/execution-specs/pull/1689))
+- 🐞 Allow `evmone` to fill Prague and Osaka blockchain tests (mainly modified deposit contract tests) ([#1689](https://github.com/ethereum/execution-specs/pull/1689)).
+- 🐞 Turn off Block-Level Access List related checks when filling tests for Amsterdam ([#1737](https://github.com/ethereum/execution-specs/pull/1737)).
 
 #### `consume`
 
 - 🐞 Fix a bug with `consume sync` tests where some clients don't have JSON-RPC immediately available after syncing and can't yet serve the synced block ([#1670](https://github.com/ethereum/execution-specs/pull/1670)).
 
 ### 📋 Misc
+
+- 🐞 WELDed the EEST tox environments relevant to producing documentation into EELS, and added a tool to cleanly add codespell whitelist entries. ([#1695](https://github.com/ethereum/execution-specs/pull/1659)).
 
 ### 🧪 Test Cases
 
@@ -27,9 +30,11 @@ Test fixtures for use by clients are available for each release on the [Github r
 - ✨ Expand EIP-6110 modified contract tests, where the extra event log has no topics at all ([#1693](https://github.com/ethereum/execution-specs/pull/1693)).
 - ✨ Add a CREATE/2 test cases for when it runs OOG on code deposit ([#1705](https://github.com/ethereum/execution-specs/pull/1705)).
 - ✨ Expand cases to test *CALL opcodes causing OOG ([#1703](https://github.com/ethereum/execution-specs/pull/1703)).
+- ✨ Add a test case for base fee in block check after London ([#1702](https://github.com/ethereum/execution-specs/pull/1702)).
 - ✨ Add tests for `modexp` and `ripemd` precompiled contracts ([#1691](https://github.com/ethereum/execution-specs/pull/1691)).
 - ✨ Add `ecrecover` precompile tests originating form `evmone` unittests ([#1685](https://github.com/ethereum/execution-specs/pull/1685)).
 - ✨ Add test to validate withdarawls root ([#1746](https://github.com/ethereum/execution-specs/pull/1746)).
+- ✨ Add stack overflow tests and expand `BLOCKHASH` tests ([#1728](https://github.com/ethereum/execution-specs/pull/1728)).
 
 ## [v5.3.0](https://github.com/ethereum/execution-spec-tests/releases/tag/v5.3.0) - 2025-10-09
 

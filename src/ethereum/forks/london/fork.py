@@ -28,6 +28,7 @@ from ethereum.exceptions import (
     InvalidSenderError,
     NonceMismatchError,
 )
+from ethereum.fork_criteria import ByBlockNumber
 
 from . import FORK_CRITERIA, vm
 from .blocks import Block, Header, Log, Receipt, encode_receipt
@@ -318,6 +319,8 @@ def validate_header(chain: BlockChain, header: Header) -> None:
 
     if header.gas_used > header.gas_limit:
         raise InvalidBlock
+
+    assert isinstance(FORK_CRITERIA, ByBlockNumber)
 
     expected_base_fee_per_gas = INITIAL_BASE_FEE
     if header.number != FORK_CRITERIA.block_number:

@@ -685,24 +685,6 @@ class BlockchainTest(BaseTest):
             )
             requests_list = block.requests
 
-        if self.fork.header_bal_hash_required(
-            block_number=header.number, timestamp=header.timestamp
-        ):
-            assert (
-                transition_tool_output.result.block_access_list is not None
-            ), (
-                "Block access list is required for this block but was not provided "
-                "by the transition tool"
-            )
-
-            rlp = transition_tool_output.result.block_access_list.rlp
-            computed_bal_hash = Hash(rlp.keccak256())
-            assert computed_bal_hash == header.block_access_list_hash, (
-                "Block access list hash in header does not match the "
-                f"computed hash from BAL: {header.block_access_list_hash} "
-                f"!= {computed_bal_hash}"
-            )
-
         if block.rlp_modifier is not None:
             # Modify any parameter specified in the `rlp_modifier` after
             # transition tool processing.
@@ -710,23 +692,6 @@ class BlockchainTest(BaseTest):
             header.fork = (
                 self.fork
             )  # Deleted during `apply` because `exclude=True`
-
-        # Process block access list - apply transformer if present for invalid
-        # tests
-        t8n_bal = transition_tool_output.result.block_access_list
-        bal = t8n_bal
-        if (
-            block.expected_block_access_list is not None
-            and t8n_bal is not None
-        ):
-            block.expected_block_access_list.verify_against(t8n_bal)
-
-            bal = block.expected_block_access_list.modify_if_invalid_test(
-                t8n_bal
-            )
-            if bal != t8n_bal:
-                # If the BAL was modified, update the header hash
-                header.block_access_list_hash = Hash(bal.rlp.keccak256())
 
         built_block = BuiltBlock(
             header=header,
@@ -740,7 +705,7 @@ class BlockchainTest(BaseTest):
             expected_exception=block.exception,
             engine_api_error_code=block.engine_api_error_code,
             fork=self.fork,
-            block_access_list=bal,
+            block_access_list=None,
         )
 
         try:

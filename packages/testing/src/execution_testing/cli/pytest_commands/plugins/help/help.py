@@ -112,6 +112,7 @@ def pytest_configure(config: pytest.Config) -> None:
                 "pre-allocation behavior during test execution",
                 "sender key fixtures",
                 "remote seed sender",
+                "chain configuration",
             ],
         )
     elif config.getoption("show_execute_hive_help"):
@@ -124,6 +125,7 @@ def pytest_configure(config: pytest.Config) -> None:
                 "pre-allocation behavior during test execution",
                 "sender key fixtures",
                 "remote seed sender",
+                "chain configuration",
             ],
         )
     elif config.getoption("show_execute_recover_help"):
@@ -134,6 +136,7 @@ def pytest_configure(config: pytest.Config) -> None:
                 "fund recovery",
                 "remote RPC configuration",
                 "remote seed sender",
+                "chain configuration",
             ],
         )
     elif config.getoption("show_execute_eth_config_help"):
@@ -142,6 +145,7 @@ def pytest_configure(config: pytest.Config) -> None:
             "pytest-execute-eth-config.ini",
             [
                 "eth_config",
+                "chain configuration",
             ],
         )
 

@@ -55,6 +55,20 @@ def write_github_summary(
             f.write("```\n")
 
 
+def find_project_root() -> Path:
+    """Locate the root directory of this project."""
+    # Search upwards from file location
+    script_dir = Path(__file__).resolve().parent
+    for parent in [script_dir, *script_dir.parents]:
+        if (parent / "pyproject.toml").exists() and (parent / ".git").exists():
+            return parent
+
+    raise FileNotFoundError(
+        "Unable to locate project root! "
+        "Looking for a directory with both pyproject.toml and .git."
+    )
+
+
 @click.command(
     context_settings={
         "ignore_unknown_options": True,
@@ -76,12 +90,17 @@ def markdownlint(args: tuple[str, ...]) -> None:
         # Note: There's an additional step in test.yaml to run markdownlint-
         # cli2 in GitHub Actions
         click.echo(
-            "********* Install 'markdownlint-cli2' to enable markdown linting *********"
+            "********* Install 'markdownlint-cli2' to enable markdown linting\
+            *********\
+            ```\
+            sudo npm install -g markdownlint-cli2@0.17.2\
+            ```\
+            "
         )
         sys.exit(0)
 
     args_list: list[str] = (
-        list(args) if len(args) > 0 else ["./docs/**/*.md", "./README.md"]
+        list(args) if len(args) > 0 else ["./docs/**/*.md", "./*.md"]
     )
 
     command = ["node", markdownlint] + args_list
@@ -184,7 +203,7 @@ def codespell() -> None:
             error_message="Codespell found spelling errors in the code.",
             fix_commands=[
                 "# Ensure codespell is installed (part of docs extras)",
-                "uv sync --all-extras",
+                "uv sync",
                 "",
                 "# Check for spelling errors",
                 f"uv run codespell {paths_str}",
@@ -210,7 +229,8 @@ def validate_changelog() -> None:
     - A period (.) for regular entries
     - A colon (:) for section headers that introduce lists
     """
-    changelog_path = Path("docs/CHANGELOG.md")
+    project_root = find_project_root()
+    changelog_path = Path(project_root / "docs/CHANGELOG.md")
 
     if not changelog_path.exists():
         click.echo(f"❌ Changelog file not found: {changelog_path}")

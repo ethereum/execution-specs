@@ -50,7 +50,7 @@ Create a JSON file (`stubs.json`) mapping test-specific stub names to deployed c
 uv run execute remote \
   --rpc-endpoint http://localhost:8545 \
   --rpc-seed-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
-  --rpc-chain-id 1337 \
+  --chain-id 1337 \
   --address-stubs geth_stubs.json \
   --fork Prague \
   tests/benchmark/stateful/bloatnet/test_single_opcode.py::test_sload_empty_erc20_balanceof \

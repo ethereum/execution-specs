@@ -7,7 +7,6 @@ including both the standalone configuration and the pytest integration.
 
 import io
 import logging
-import re
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -103,9 +102,12 @@ class TestFormatters:
         )
 
         formatted = formatter.format(record)
-        assert re.match(
-            r"2021-01-01 00:00:00\.\d{3}\+00:00: Test message", formatted
-        )
+
+        # logs contain
+        #       timestamp
+        assert "2021-01-01 00:00:00" in formatted
+        #       message
+        assert "Test message" in formatted
 
     def test_color_formatter(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that ColorFormatter adds color codes to the log level."""

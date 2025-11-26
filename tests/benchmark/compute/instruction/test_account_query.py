@@ -1,9 +1,19 @@
 """
 Benchmark operations that require querying the account state, either on the
 current executing account or on a target account.
+
+Supported Opcodes:
+- SELFBALANCE
+- CODESIZE
+- CODECOPY
+- EXTCODESIZE
+- EXTCODEHASH
+- EXTCODECOPY
+- BALANCE
 """
 
 import math
+from typing import Any
 
 import pytest
 from execution_testing import (
@@ -20,6 +30,7 @@ from execution_testing import (
     Hash,
     JumpLoopGenerator,
     Op,
+    TestPhaseManager,
     Transaction,
     While,
     compute_create2_address,
@@ -30,6 +41,7 @@ from tests.benchmark.compute.helpers import (
 )
 
 
+@pytest.mark.repricing(contract_balance=0)
 @pytest.mark.parametrize("contract_balance", [0, 1])
 def test_selfbalance(
     benchmark_test: BenchmarkTestFiller,
@@ -44,6 +56,7 @@ def test_selfbalance(
     )
 
 
+@pytest.mark.repricing
 def test_codesize(
     benchmark_test: BenchmarkTestFiller,
 ) -> None:
@@ -72,7 +85,6 @@ def test_codesize(
 )
 def test_codecopy(
     benchmark_test: BenchmarkTestFiller,
-    pre: Alloc,
     fork: Fork,
     max_code_size_ratio: float,
     fixed_src_dst: bool,
@@ -86,25 +98,13 @@ def test_codecopy(
     src_dst = 0 if fixed_src_dst else Op.MOD(Op.GAS, 7)
     attack_block = Op.CODECOPY(src_dst, src_dst, Op.DUP1)  # DUP1 copies size.
 
-    code = JumpLoopGenerator(
-        setup=setup, attack_block=attack_block
-    ).generate_repeated_code(
-        repeated_code=attack_block, setup=setup, fork=fork
+    benchmark_test(
+        code_generator=JumpLoopGenerator(
+            setup=setup,
+            attack_block=attack_block,
+            code_padding_opcode=Op.STOP,
+        )
     )
-
-    # Pad the generated code to ensure the contract size matches the maximum
-    # The content of the padding bytes is arbitrary.
-    code += Op.INVALID * (max_code_size - len(code))
-    assert len(code) == max_code_size, (
-        f"Code size {len(code)} is not equal to max code size {max_code_size}."
-    )
-
-    tx = Transaction(
-        to=pre.deploy_contract(code=code),
-        sender=pre.fund_eoa(),
-    )
-
-    benchmark_test(tx=tx)
 
 
 @pytest.mark.parametrize(
@@ -245,13 +245,14 @@ def test_extcode_ops(
     )
     factory_caller_address = pre.deploy_contract(code=factory_caller_code)
 
-    contracts_deployment_tx = Transaction(
-        to=factory_caller_address,
-        gas_limit=env.gas_limit,
-        gas_price=10**6,
-        data=Hash(num_contracts),
-        sender=pre.fund_eoa(),
-    )
+    with TestPhaseManager.setup():
+        contracts_deployment_tx = Transaction(
+            to=factory_caller_address,
+            gas_limit=env.gas_limit,
+            gas_price=10**6,
+            data=Hash(num_contracts),
+            sender=pre.fund_eoa(),
+        )
 
     post = {}
     deployed_contract_addresses = []
@@ -294,12 +295,14 @@ def test_extcode_ops(
             f"code size {max_contract_size}"
         )
     opcode_address = pre.deploy_contract(code=attack_code)
-    opcode_tx = Transaction(
-        to=opcode_address,
-        gas_limit=attack_gas_limit,
-        gas_price=10**9,
-        sender=pre.fund_eoa(),
-    )
+
+    with TestPhaseManager.execution():
+        opcode_tx = Transaction(
+            to=opcode_address,
+            gas_limit=attack_gas_limit,
+            gas_price=10**9,
+            sender=pre.fund_eoa(),
+        )
 
     blockchain_test(
         pre=pre,
@@ -348,6 +351,7 @@ def test_extcodecopy_warm(
     benchmark_test(tx=tx)
 
 
+@pytest.mark.repricing(absent_target=False)
 @pytest.mark.parametrize(
     "opcode",
     [
@@ -361,7 +365,21 @@ def test_extcodecopy_warm(
     ],
 )
 @pytest.mark.parametrize(
-    "absent_target",
+    "empty_code",
+    [
+        True,
+        False,
+    ],
+)
+@pytest.mark.parametrize(
+    "initial_balance",
+    [
+        True,
+        False,
+    ],
+)
+@pytest.mark.parametrize(
+    "initial_storage",
     [
         True,
         False,
@@ -371,27 +389,43 @@ def test_ext_account_query_warm(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     opcode: Op,
-    absent_target: bool,
+    empty_code: bool,
+    initial_balance: bool,
+    initial_storage: bool,
 ) -> None:
     """
     Test running a block with as many stateful opcodes doing warm access
     for an account.
     """
     # Setup
-    target_addr = pre.empty_account()
     post = {}
-    if not absent_target:
-        code = Op.STOP + Op.JUMPDEST * 100
-        target_addr = pre.deploy_contract(balance=100, code=code)
-        post[target_addr] = Account(balance=100, code=code)
 
-    # Execution
-    setup = Op.MSTORE(0, target_addr)
-    attack_block = Op.POP(opcode(address=Op.MLOAD(0)))
+    # Case 1: Completely empty account (no balance, no storage, no code)
+    if not initial_balance and not initial_storage and empty_code:
+        target_addr = pre.empty_account()
+    # Case 2: EOA with optional balance and storage
+    elif empty_code:
+        eoa_kwargs: dict[str, Any] = {}
+        if initial_balance:
+            eoa_kwargs["amount"] = 100
+        if initial_storage:
+            eoa_kwargs["storage"] = {0: 0x1337}
+        target_addr = pre.fund_eoa(**eoa_kwargs)
+    # Case 3: Contract with optional balance and storage
+    else:
+        contract_kwargs: dict[str, Any] = {"code": Op.STOP + Op.JUMPDEST * 100}
+        if initial_balance:
+            contract_kwargs["balance"] = 100
+        if initial_storage:
+            contract_kwargs["storage"] = {0: 0x1337}
+        target_addr = pre.deploy_contract(**contract_kwargs)
+        post[target_addr] = Account(**contract_kwargs)
+
     benchmark_test(
         post=post,
         code_generator=JumpLoopGenerator(
-            setup=setup, attack_block=attack_block
+            setup=Op.MSTORE(0, target_addr),
+            attack_block=Op.POP(opcode(address=Op.MLOAD(0))),
         ),
     )
 
@@ -458,11 +492,12 @@ def test_ext_account_query_cold(
             code=factory_code, balance=10**18
         )
 
-        setup_tx = Transaction(
-            to=factory_address,
-            gas_limit=env.gas_limit,
-            sender=pre.fund_eoa(),
-        )
+        with TestPhaseManager.setup():
+            setup_tx = Transaction(
+                to=factory_address,
+                gas_limit=env.gas_limit,
+                sender=pre.fund_eoa(),
+            )
         blocks.append(Block(txs=[setup_tx]))
 
         for i in range(num_target_accounts):
@@ -480,11 +515,13 @@ def test_ext_account_query_cold(
         + Op.ISZERO,
     )
     op_address = pre.deploy_contract(code=op_code)
-    op_tx = Transaction(
-        to=op_address,
-        gas_limit=attack_gas_limit,
-        sender=pre.fund_eoa(),
-    )
+
+    with TestPhaseManager.execution():
+        op_tx = Transaction(
+            to=op_address,
+            gas_limit=attack_gas_limit,
+            sender=pre.fund_eoa(),
+        )
     blocks.append(Block(txs=[op_tx]))
 
     benchmark_test(

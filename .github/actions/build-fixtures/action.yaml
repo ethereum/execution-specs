@@ -38,7 +38,18 @@ runs:
           uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} ${{ steps.properties.outputs.fill-params }} --output=fixtures_${{ inputs.release_name }}.tar.gz --build-name ${{ inputs.release_name }}
         else
           uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} --output=fixtures_${{ inputs.release_name }}.tar.gz --build-name ${{ inputs.release_name }}
-        fi 
+        fi
+    - name: Generate Benchmark Genesis Files
+      if: contains(inputs.release_name, 'benchmark')
+      uses: ./.github/actions/build-benchmark-genesis
+      with:
+        fixtures_path: fixtures_${{ inputs.release_name }}.tar.gz
+    - name: Upload Benchmark Genesis Artifact
+      if: contains(inputs.release_name, 'benchmark')
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: benchmark_genesis_${{ inputs.release_name }}
+        path: benchmark_genesis.tar.gz
     - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
       with:
         name: fixtures_${{ inputs.release_name }}

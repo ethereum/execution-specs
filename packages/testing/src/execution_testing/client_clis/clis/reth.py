@@ -39,6 +39,8 @@ class RethExceptionMapper(ExceptionMapper):
         BlockException.INVALID_BLOCK_HASH: "block hash mismatch",
         BlockException.INVALID_GAS_USED: "block gas used mismatch",
         BlockException.RLP_BLOCK_LIMIT_EXCEEDED: "block is too large: ",
+        BlockException.INVALID_BASEFEE_PER_GAS: "block base fee mismatch",
+        BlockException.EXTRA_DATA_TOO_BIG: "invalid payload extra data",
     }
     mapping_regex = {
         TransactionException.NONCE_MISMATCH_TOO_LOW: r"nonce \d+ too low, expected \d+",
@@ -87,5 +89,12 @@ class RethExceptionMapper(ExceptionMapper):
         ),
         BlockException.INCORRECT_BLOCK_FORMAT: (
             r"Block's access list is invalid."
+        ),
+        BlockException.INVALID_GASLIMIT: (r"child gas_limit \d+ max .* is .*"),
+        BlockException.INVALID_BLOCK_TIMESTAMP_OLDER_THAN_PARENT: (
+            r"block timestamp \d+ is in the past compared to the parent timestamp \d+"
+        ),
+        BlockException.INVALID_BLOCK_NUMBER: (
+            r"block number \d+ does not match parent block number \d+"
         ),
     }

@@ -425,6 +425,11 @@ class NethermindExceptionMapper(ExceptionMapper):
         BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: (
             "DepositsInvalid: Invalid deposit event layout:"
         ),
+        BlockException.INVALID_BASEFEE_PER_GAS: "InvalidBaseFeePerGas: Does not match calculated",
+        BlockException.INVALID_BLOCK_TIMESTAMP_OLDER_THAN_PARENT: "InvalidTimestamp: Timestamp in header cannot be lower than ancestor",
+        BlockException.INVALID_BLOCK_NUMBER: "InvalidBlockNumber: Block number does not match the parent",
+        BlockException.EXTRA_DATA_TOO_BIG: "InvalidExtraData: Extra data in header is not valid",
+        BlockException.INVALID_GASLIMIT: "InvalidGasLimit: Gas limit is not correct",
     }
     mapping_regex = {
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (

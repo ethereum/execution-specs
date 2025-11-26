@@ -3,7 +3,6 @@ name: render
 on:
   push:
     branches:
-      - master
       - mainnet
       - 'forks/**'
     paths: &render_paths
@@ -42,7 +41,7 @@ jobs:
 
       - name: Build Documentation
         run: |
-          tox -e doc
+          tox -e spec-docs
           touch .tox/docs/.nojekyll
 
       - name: Upload Pages Artifact

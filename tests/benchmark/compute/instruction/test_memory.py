@@ -1,4 +1,13 @@
-"""Benchmark memory instructions."""
+"""
+Benchmark memory instructions.
+
+Supported Opcodes:
+- MSTORE
+- MSTORE8
+- MLOAD
+- MSIZE
+- MCOPY
+"""
 
 import pytest
 from execution_testing import (
@@ -9,29 +18,28 @@ from execution_testing import (
     Op,
 )
 
-# Memory instructions:
-# MSTORE, MSTORE8, MLOAD, MSIZE, MCOPY
 
-
+@pytest.mark.repricing(mem_size=1_000)
 @pytest.mark.parametrize("mem_size", [0, 1, 1_000, 100_000, 1_000_000])
 def test_msize(
     benchmark_test: BenchmarkTestFiller,
     mem_size: int,
 ) -> None:
-    """
-    Benchmark MSIZE instruction.
-
-    - mem_size: by how much the memory is expanded.
-    """
+    """Benchmark MSIZE instruction."""
     benchmark_test(
         code_generator=ExtCallGenerator(
-            setup=Op.MLOAD(Op.SELFBALANCE) + Op.POP,
+            setup=Op.POP(Op.MLOAD(Op.SELFBALANCE)),
             attack_block=Op.MSIZE,
             contract_balance=mem_size,
         ),
     )
 
 
+@pytest.mark.repricing(
+    offset=31,
+    offset_initialized=True,
+    big_memory_expansion=True,
+)
 @pytest.mark.parametrize("opcode", [Op.MLOAD, Op.MSTORE, Op.MSTORE8])
 @pytest.mark.parametrize("offset", [0, 1, 31])
 @pytest.mark.parametrize("offset_initialized", [True, False])
@@ -65,6 +73,7 @@ def test_memory_access(
     )
 
 
+@pytest.mark.repricing(size=10 * 1024, fixed_src_dst=True)
 @pytest.mark.parametrize(
     "size",
     [
@@ -99,6 +108,6 @@ def test_mcopy(
     )
     benchmark_test(
         code_generator=JumpLoopGenerator(
-            setup=mem_touch, attack_block=attack_block, cleanup=mem_touch
+            attack_block=attack_block, cleanup=mem_touch
         ),
     )

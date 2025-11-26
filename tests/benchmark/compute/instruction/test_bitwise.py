@@ -1,4 +1,17 @@
-"""Benchmark bitwise instructions."""
+"""
+Benchmark bitwise instructions.
+
+Supported Opcodes:
+- AND
+- OR
+- XOR
+- NOT
+- BYTE
+- SHL
+- SHR
+- SAR
+- CLZ
+"""
 
 import random
 from typing import Callable
@@ -22,10 +35,8 @@ from tests.benchmark.compute.helpers import (
     shr,
 )
 
-# Bitwise instructions:
-# AND, OR, XOR, NOT, BYTE, SHL, SHR, SAR, CLZ
 
-
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "opcode,opcode_args",
     [
@@ -99,6 +110,7 @@ def test_bitwise(
     )
 
 
+@pytest.mark.repricing
 def test_not_op(
     benchmark_test: BenchmarkTestFiller,
 ) -> None:
@@ -183,6 +195,7 @@ def test_shifts(
     benchmark_test(tx=tx)
 
 
+@pytest.mark.repricing
 @pytest.mark.valid_from("Osaka")
 def test_clz_same(benchmark_test: BenchmarkTestFiller) -> None:
     """Benchmark CLZ instruction with same input."""
