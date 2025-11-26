@@ -19,7 +19,7 @@ Each client has unique error message formats. EEST maintains exception mappers t
 
 Exception mappers are defined in the EEST codebase:
 
-- `src/ethereum_clis/clis/<client>.py` (e.g., `geth.py`, `besu.py`, `nethermind.py`)
+- `packages/testing/src/execution_testing/client_clis/clis/<client>.py` (e.g., `geth.py`, `besu.py`, `nethermind.py`)
 
 ### Example Mapper Structure
 
@@ -52,10 +52,10 @@ Unmapped exception from client 'go-ethereum': "block gas cost exceeds limit: hav
 
 ### 2. Update the Exception Mapper
 
-Edit the client's exception mapper in `src/ethereum_clis/clis/<client>.py`:
+Edit the client's exception mapper in `packages/testing/src/execution_testing/client_clis/clis/<client>.py`:
 
 ```python
-# In src/ethereum_clis/clis/geth.py
+# In packages/testing/src/execution_testing/client_clis/clis/geth.py
 class GethCLI(TransitionTool):
     exception_map = {
         # Existing mappings...

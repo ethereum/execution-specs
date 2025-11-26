@@ -27,6 +27,6 @@ empty accounts.
 [p]: https://github.com/openethereum/parity-ethereum/releases/tag/v1.3.8
 """
 
-from ethereum.fork_criteria import ByBlockNumber
+from ethereum.fork_criteria import ByBlockNumber, ForkCriteria
 
-FORK_CRITERIA = ByBlockNumber(2463000)
+FORK_CRITERIA: ForkCriteria = ByBlockNumber(2463000)

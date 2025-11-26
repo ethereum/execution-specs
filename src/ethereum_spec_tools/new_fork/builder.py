@@ -215,7 +215,7 @@ class ReplaceForkName(CodemodArgs):
             [
                 "codemod",
                 "--no-format",
-                "string.StringReplaceCommand",
+                "string_replace.StringReplaceCommand",
             ]
             + common,
             [
@@ -227,6 +227,32 @@ class ReplaceForkName(CodemodArgs):
         ]
 
         return commands
+
+
+@dataclass
+class ClearDocstring(CodemodArgs):
+    """
+    Describe how to clear the docstring in __init__.py to libcst.tool:main.
+    """
+
+    @override
+    def _to_args(
+        self, fork_builder: "ForkBuilder", working_directory: Path
+    ) -> list[list[str]]:
+        init_path = (
+            working_directory
+            / "ethereum"
+            / fork_builder.new_fork
+            / "__init__.py"
+        )
+        return [
+            [
+                "codemod",
+                "remove_docstring.RemoveDocstringCommand",
+                "--no-format",
+                str(init_path),
+            ]
+        ]
 
 
 class ForkBuilder:
@@ -330,7 +356,7 @@ class ForkBuilder:
             self.output = Path(template_path).parent
 
         # Try to make a sane guess for the activation criteria.
-        if found is forks[-1]:
+        if found is forks[-1] or isinstance(found.criteria, Unscheduled):
             order_index = 0
 
             # check template fork's criteria and bump order_index if needed
@@ -353,6 +379,7 @@ class ForkBuilder:
             RenameFork(),
             SetForkCriteria(),
             ReplaceForkName(),
+            ClearDocstring(),
         ]
 
     def _create_working_directory(self) -> TemporaryDirectory:

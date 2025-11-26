@@ -33,6 +33,6 @@ empty accounts.
 [rb]: https://github.com/cryptape/ruby-ethereum/releases/tag/v0.11.0
 """
 
-from ethereum.fork_criteria import ByBlockNumber
+from ethereum.fork_criteria import ByBlockNumber, ForkCriteria
 
-FORK_CRITERIA = ByBlockNumber(2675000)
+FORK_CRITERIA: ForkCriteria = ByBlockNumber(2675000)

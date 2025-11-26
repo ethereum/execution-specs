@@ -71,20 +71,38 @@ DEFAULT_REQUEST_LOG = create_deposit_log_bytes(
 
 
 @pytest.mark.parametrize(
-    "include_deposit_event",
+    "include_deposit_event,extra_event_type",
     [
         pytest.param(
             True,
+            "transfer_log",
             marks=pytest.mark.pre_alloc_group(
-                "deposit_extra_logs_with_event",
+                "deposit_extra_logs_with_event_transfer",
                 reason="Deposit contract with Transfer log AND deposit event",
             ),
         ),
         pytest.param(
-            False,
+            True,
+            "no_topics",
             marks=pytest.mark.pre_alloc_group(
-                "deposit_extra_logs_no_event",
+                "deposit_extra_logs_with_event_no_topics",
+                reason="Deposit contract with no-topics log AND deposit event",
+            ),
+        ),
+        pytest.param(
+            False,
+            "transfer_log",
+            marks=pytest.mark.pre_alloc_group(
+                "deposit_extra_logs_no_event_transfer",
                 reason="Deposit contract with Transfer log NO deposit event",
+            ),
+        ),
+        pytest.param(
+            False,
+            "no_topics",
+            marks=pytest.mark.pre_alloc_group(
+                "deposit_extra_logs_no_event_no_topics",
+                reason="Deposit contract with no-topics log NO deposit event",
             ),
         ),
     ],
@@ -93,6 +111,7 @@ def test_extra_logs(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     include_deposit_event: bool,
+    extra_event_type: str,
 ) -> None:
     """
     Test deposit contract emitting more log event types than the ones in
@@ -127,16 +146,23 @@ def test_extra_logs(
     # "0x0000000000000000000000006885e36bfcb68cb383dfe90023a462c03bcb2ae5",
     # "0x00000000000000000000000080b5dc88c98e528bf9cb4b7f0f076ac41da24651"]
 
-    bytecode = Op.LOG3(
+    if extra_event_type == "no_topics":
+        # Log with no topics
+        bytecode = Op.LOG0(
+            0,
+            32,
+        )
+    else:
         # ERC-20 token transfer log ERC-20 token transfers are LOG3, since the
         # topic, the sender, and receiver are all topics (the sender and
         # receiver are `indexed` in the solidity event)
-        0,
-        32,
-        0xDDF252AD1BE2C89B69C2B068FC378DAA952BA7F163C4A11628F55A4DF523B3EF,
-        0x000000000000000000000000AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,
-        0x000000000000000000000000BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB,
-    )
+        bytecode = Op.LOG3(
+            0,
+            32,
+            0xDDF252AD1BE2C89B69C2B068FC378DAA952BA7F163C4A11628F55A4DF523B3EF,
+            0x000000000000000000000000AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,
+            0x000000000000000000000000BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB,
+        )
 
     requests = Requests()
 

@@ -1,0 +1,68 @@
+name: Test mkdocs documentation
+
+on:
+  push:
+    branches:
+      - mainnet
+      - "forks/**"
+    paths: &mkdocs_paths
+      - uv.lock
+      - CONTRIBUTING.md
+      - SECURITY.md
+      - "docs/**"
+      - "packages/testing/**"
+      - ".github/workflows/test-docs.yaml"
+      # disabling on tests/** until site is deployed with the "test case reference"
+      # - "tests/**"
+  pull_request:
+    paths: *mkdocs_paths
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  mkdocs:
+    name: Test html documentation build with mkdocs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ethereum/execution-specs
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Install uv ${{ vars.UV_VERSION }} and python ${{ vars.DEFAULT_PYTHON_VERSION }}
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          version: ${{ vars.UV_VERSION }}
+          python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
+      - name: Build html documentation with mkdocs via tox
+        run: uvx tox -e mkdocs
+
+  changelog:
+    name: Validate changelog entries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ethereum/execution-specs
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Install uv ${{ vars.UV_VERSION }} and python ${{ vars.DEFAULT_PYTHON_VERSION }}
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          version: ${{ vars.UV_VERSION }}
+          python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
+      - name: Run changelog validation via tox
+        run: uvx tox -e changelog
+
+  markdownlint:
+    name: Lint markdown files with markdownlint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ethereum/execution-specs
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: DavidAnson/markdownlint-cli2-action@05f32210e84442804257b2a6f20b273450ec8265
+        with:
+          globs: |
+            docs/**/*.md
+            *.md

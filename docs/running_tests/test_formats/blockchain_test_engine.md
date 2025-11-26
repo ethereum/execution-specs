@@ -104,7 +104,7 @@ They can mismatch the hashes of the versioned blobs in the execution payload, fo
 
 Hash of the parent beacon block root.
 
-#### - `validationError`: [`TransactionException`](../../library/ethereum_test_exceptions.md#ethereum_test_exceptions.TransactionException)` | `[`BlockException`](../../library/ethereum_test_exceptions.md#ethereum_test_exceptions.BlockException)
+#### - `validationError`: [`TransactionException`](../../library/execution_testing_exceptions.md#execution_testing.exceptions.TransactionException)` | `[`BlockException`](../../library/execution_testing_exceptions.md#execution_testing.exceptions.BlockException)
 
 Validation error expected when executing the payload.
 

@@ -19,6 +19,7 @@ from ..spec_version_checker.spec_version_checker import EIPSpecTestItem
 
 ALL_FIXTURE_PARAMETERS = {
     "gas_benchmark_value",
+    "fixed_opcode_count",
     "genesis_environment",
     "env",
 }

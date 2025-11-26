@@ -17,12 +17,12 @@ import pytest
 from pydantic import Field
 
 from execution_testing.base_types import HexNumber
-from execution_testing.cli.pytest_commands.plugins.custom_logging import (
-    get_logger,
-)
 from execution_testing.client_clis import (
     TransitionTool,
     TransitionToolOutput,
+)
+from execution_testing.logging import (
+    get_logger,
 )
 from execution_testing.exceptions import (
     BlockException,
