@@ -441,7 +441,6 @@ def storage_contract(sloads_before_sstore: bool) -> Bytecode:
 
     assert len(setup) - 1 == start_marker
     assert len(setup) + len(loop) == end_marker
-    print(f"setup: {len(setup)}, loop: {len(loop)}, cleanup: {len(cleanup)}")
     return setup + loop + cleanup
 
 
@@ -470,7 +469,7 @@ def storage_contract(sloads_before_sstore: bool) -> Bytecode:
 def test_sstore_variants(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
-    gas_benchmark_value: int,
+    tx_gas_limit: int,
     slot_count: int,
     use_access_list: bool,
     contract_size: int,
@@ -499,16 +498,16 @@ def test_sstore_variants(
 
     slots_per_contract = slot_count // num_contracts
 
-    txs = []
+    txs: list[Transaction] = []
     post = {}
 
-    base_gas_per_contract = gas_benchmark_value // num_contracts
-    gas_remainder = gas_benchmark_value % num_contracts
+    base_gas_per_contract = tx_gas_limit // num_contracts
+    gas_remainder = tx_gas_limit % num_contracts
 
     for contract_idx in range(num_contracts):
         initial_storage = Storage()
 
-        start_slot = contract_idx * slot_count
+        start_slot = contract_idx * slots_per_contract
         for i in range(slots_per_contract):
             initial_storage[start_slot + i] = initial_value
 
@@ -536,7 +535,7 @@ def test_sstore_variants(
             ]
 
         contract_gas_limit = base_gas_per_contract
-        if contract_idx == 0:
+        if contract_idx == len(txs) - 1:
             contract_gas_limit += gas_remainder
 
         tx = Transaction(
