@@ -125,6 +125,45 @@ class SetConstantCommand(VisitorBasedCodemodCommand):
         return updated_node.with_changes(value=self.value.deep_clone())
 
     @override
+    def visit_AnnAssign_target(self, node: cst.AnnAssign) -> None:  # noqa: D102
+        if self._in_assign_target:
+            raise Exception("already in assign target")
+        self._in_assign_target = True
+
+    @override
+    def leave_AnnAssign_target(self, node: cst.AnnAssign) -> None:  # noqa: D102
+        if not self._in_assign_target:
+            raise Exception("not in assign target")
+        self._in_assign_target = False
+
+    @override
+    def visit_AnnAssign(self, node: cst.AnnAssign) -> None:  # noqa: D102
+        if self._matches or self._in_assign_target:
+            raise Exception("nested assign")
+
+    @override
+    def leave_AnnAssign(  # noqa: D102
+        self, original_node: cst.AnnAssign, updated_node: cst.AnnAssign
+    ) -> cst.AnnAssign:
+        if self._in_assign_target:
+            raise Exception("still in assign target")
+
+        if not self._matches:
+            return updated_node
+
+        self._matches = False
+
+        for module, identifier in self.imports:
+            AddImportsVisitor.add_needed_import(
+                self.context, module, identifier
+            )
+            RemoveImportsVisitor.remove_unused_import(
+                self.context, module, identifier
+            )
+
+        return updated_node.with_changes(value=self.value.deep_clone())
+
+    @override
     def visit_Name(self, node: cst.Name) -> None:  # noqa: D102
         if not self._in_assign_target:
             return
