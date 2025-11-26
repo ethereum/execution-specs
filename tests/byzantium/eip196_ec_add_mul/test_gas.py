@@ -1,47 +1,50 @@
-"""Tests ecadd/ecmul/ecpairing precompiled contracts."""
+"""Tests ecadd/ecmul precompiled contracts gas pricing."""
 
 import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Environment,
     StateTestFiller,
     Transaction,
 )
 from execution_testing.base_types.base_types import Address
-from execution_testing.forks import Byzantium, Istanbul
+from execution_testing.forks import Byzantium
 from execution_testing.forks.helpers import Fork
 from execution_testing.vm import Opcodes as Op
+
+REFERENCE_SPEC_GIT_PATH = "EIPS/eip-196.md"
+REFERENCE_SPEC_VERSION = "6538d198b1db10784ddccd6931888d7ae718de75"
+
+EC_ADD_ADDRESS = Address(0x06)
+EC_MUL_ADDRESS = Address(0x07)
 
 
 @pytest.mark.valid_from("Byzantium")
 @pytest.mark.parametrize(
-    "address,gas_pre_istanbul,gas_post_istanbul",
+    "address",
     [
-        pytest.param(0x06, 500, 150, id="ecadd"),
-        pytest.param(0x07, 40_000, 6000, id="ecmul"),
-        pytest.param(0x08, 100_000, 45_000, id="ecpairing"),
+        pytest.param(EC_ADD_ADDRESS, id="ecadd"),
+        pytest.param(EC_MUL_ADDRESS, id="ecmul"),
     ],
 )
 @pytest.mark.parametrize("enough_gas", [True, False])
-def test_bn254_precompiles_gascosts(
+def test_gas_costs(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     address: Address,
-    gas_pre_istanbul: int,
-    gas_post_istanbul: int,
     enough_gas: bool,
 ) -> None:
     """
     Tests the constant gas behavior of `ecadd/ecmul/ecpairing` precompiled
     contract.
     """
-    env = Environment()
-    if fork < Istanbul:
-        gas = gas_pre_istanbul
-    else:
-        gas = gas_post_istanbul
+    gas_costs = fork.gas_costs()
+    gas = (
+        gas_costs.G_PRECOMPILE_ECADD
+        if address == EC_ADD_ADDRESS
+        else gas_costs.G_PRECOMPILE_ECMUL
+    )
     if not enough_gas:
         gas -= 1
 
@@ -59,4 +62,4 @@ def test_bn254_precompiles_gascosts(
 
     post = {account: Account(storage={0: 1 if enough_gas else 0})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
