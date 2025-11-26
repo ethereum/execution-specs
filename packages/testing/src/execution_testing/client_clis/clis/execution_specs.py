@@ -195,6 +195,12 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
             r"InsufficientMaxFeePerGasError|InvalidBlock"  # Temporary solution for issue #1981.
         ),
+        TransactionException.TYPE_1_TX_PRE_FORK: (
+            r"module '.*transactions' has no attribute 'AccessListTransaction'"
+        ),
+        TransactionException.TYPE_2_TX_PRE_FORK: (
+            r"'.*transactions' has no attribute 'FeeMarketTransaction'"
+        ),
         TransactionException.TYPE_3_TX_PRE_FORK: (
             r"module '.*transactions' has no attribute 'BlobTransaction'"
         ),
