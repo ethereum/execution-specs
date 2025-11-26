@@ -31,7 +31,7 @@ def test_zero_gas_price_and_touching(
     tx = Transaction(
         gas_limit=500_000,
         to=contract,
-        gas_price=0,
+        gas_price=0,  # Part of the test, do not change.
         sender=sender,
         protected=False,
     )
