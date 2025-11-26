@@ -248,6 +248,11 @@ class BenchmarkTest(BaseTest):
 
         blocks: List[Block] = self.setup_blocks
 
+        if self.fixed_opcode_count is not None and self.code_generator is None:
+            pytest.skip(
+                "Cannot run fixed opcode count tests without a code generator"
+            )
+
         if self.code_generator is not None:
             # Inject fixed_opcode_count into the code generator if provided
             self.code_generator.fixed_opcode_count = self.fixed_opcode_count

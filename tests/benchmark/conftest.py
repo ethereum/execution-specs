@@ -49,11 +49,10 @@ def pytest_collection_modifyitems(config: Any, items: Any) -> None:
         return
 
     marker_expr = config.getoption("-m", default="")
+
     run_benchmarks = (
-        marker_expr
-        and "benchmark" in marker_expr
-        and "not benchmark" not in marker_expr
-    )
+        "benchmark" in marker_expr and "not benchmark" not in marker_expr
+    ) or ("repricing" in marker_expr and "not repricing" not in marker_expr)
     run_stateful_tests = (
         marker_expr
         and "stateful" in marker_expr
