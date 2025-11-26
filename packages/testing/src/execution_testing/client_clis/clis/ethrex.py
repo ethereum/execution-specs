@@ -51,7 +51,7 @@ class EthrexExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: (
             r"blob version not supported|Invalid blob versioned hash"
         ),
-        TransactionException.TYPE_3_TX_PRE_FORK: (
+        TransactionException.TYPE_2_TX_PRE_FORK: (
             r"Type 2 transactions are not supported before the London fork"
         ),
         TransactionException.TYPE_3_TX_PRE_FORK: (
