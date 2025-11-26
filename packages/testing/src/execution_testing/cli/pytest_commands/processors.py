@@ -121,6 +121,13 @@ class HiveEnvironmentProcessor(ArgumentProcessor):
                     "execution_testing.cli.pytest_commands.plugins.consume.simulators.engine.conftest",
                 ]
             )
+        elif self.command_name == "enginex":
+            modified_args.extend(
+                [
+                    "-p",
+                    "execution_testing.cli.pytest_commands.plugins.consume.simulators.enginex.conftest",
+                ]
+            )
         elif self.command_name == "sync":
             modified_args.extend(
                 [

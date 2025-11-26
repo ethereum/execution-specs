@@ -24,6 +24,7 @@ pytest_plugins = (
     "execution_testing.cli.pytest_commands.plugins.consume.simulators.test_case_description",
     "execution_testing.cli.pytest_commands.plugins.consume.simulators.timing_data",
     "execution_testing.cli.pytest_commands.plugins.consume.simulators.exceptions",
+    "execution_testing.cli.pytest_commands.plugins.consume.simulators.engine_api",
 )
 
 
@@ -102,21 +103,6 @@ def pytest_collection_modifyitems(
                     item._nodeid = base
                 else:
                     item._nodeid = base + new_suffix
-
-
-@pytest.fixture(scope="function")
-def engine_rpc(
-    client: Client, client_exception_mapper: ExceptionMapper | None
-) -> EngineRPC:
-    """Initialize engine RPC client for the execution client under test."""
-    if client_exception_mapper:
-        return EngineRPC(
-            f"http://{client.ip}:8551",
-            response_validation_context={
-                "exception_mapper": client_exception_mapper,
-            },
-        )
-    return EngineRPC(f"http://{client.ip}:8551")
 
 
 @pytest.fixture(scope="function")

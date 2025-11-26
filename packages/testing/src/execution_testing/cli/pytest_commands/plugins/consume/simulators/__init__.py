@@ -1,1 +1,1 @@
-"""Consume hive simulators test functions."""
+"""Consume Hive simulators test functions."""

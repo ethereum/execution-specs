@@ -19,7 +19,11 @@ import rich
 from execution_testing.cli.gen_index import (
     generate_fixtures_index,
 )
-from execution_testing.fixtures import BaseFixture, FixtureFormat
+from execution_testing.fixtures import (
+    BaseFixture,
+    BlockchainEngineXFixture,
+    FixtureFormat,
+)
 from execution_testing.fixtures.consume import IndexFile, TestCases
 from execution_testing.forks import (
     get_forks,
@@ -596,11 +600,26 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
         fork_markers = get_relative_fork_markers(
             test_case.fork, strict_mode=False
         )
+
+        # Build base marks (fork and format)
+        marks = [getattr(pytest.mark, m) for m in fork_markers] + [
+            getattr(pytest.mark, test_case.format.format_name)
+        ]
+
+        # Add xdist_group marker for engine x tests to enable
+        # client reuse tracking
+        if test_case.format is BlockchainEngineXFixture:
+            assert hasattr(test_case, "pre_hash") and test_case.pre_hash, (
+                f"BlockchainEngineXFixture test case "
+                f"'{test_case.id}' missing pre_hash"
+            )
+            group_identifier = test_case.pre_hash
+            marks.append(pytest.mark.xdist_group(name=group_identifier))
+
         param = pytest.param(
             test_case,
             id=test_case.id,
-            marks=[getattr(pytest.mark, m) for m in fork_markers]
-            + [getattr(pytest.mark, test_case.format.format_name)],
+            marks=marks,
         )
         param_list.append(param)
 

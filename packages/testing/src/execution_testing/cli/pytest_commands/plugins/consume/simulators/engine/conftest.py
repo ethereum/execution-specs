@@ -8,11 +8,9 @@ import io
 from typing import Mapping
 
 import pytest
-from hive.client import Client
 
-from execution_testing.exceptions import ExceptionMapper
 from execution_testing.fixtures import BlockchainEngineFixture
-from execution_testing.rpc import EngineRPC
+from execution_testing.fixtures.blockchain import FixtureHeader
 
 pytest_plugins = (
     "execution_testing.cli.pytest_commands.plugins.pytest_hive.pytest_hive",
@@ -21,27 +19,13 @@ pytest_plugins = (
     "execution_testing.cli.pytest_commands.plugins.consume.simulators.test_case_description",
     "execution_testing.cli.pytest_commands.plugins.consume.simulators.timing_data",
     "execution_testing.cli.pytest_commands.plugins.consume.simulators.exceptions",
+    "execution_testing.cli.pytest_commands.plugins.consume.simulators.engine_api",
 )
 
 
 def pytest_configure(config: pytest.Config) -> None:
     """Set the supported fixture formats for the engine simulator."""
     config.supported_fixture_formats = [BlockchainEngineFixture]  # type: ignore[attr-defined]
-
-
-@pytest.fixture(scope="function")
-def engine_rpc(
-    client: Client, client_exception_mapper: ExceptionMapper | None
-) -> EngineRPC:
-    """Initialize engine RPC client for the execution client under test."""
-    if client_exception_mapper:
-        return EngineRPC(
-            f"http://{client.ip}:8551",
-            response_validation_context={
-                "exception_mapper": client_exception_mapper,
-            },
-        )
-    return EngineRPC(f"http://{client.ip}:8551")
 
 
 @pytest.fixture(scope="module")
@@ -64,3 +48,9 @@ def client_files(
     files = {}
     files["/genesis.json"] = buffered_genesis
     return files
+
+
+@pytest.fixture(scope="function")
+def genesis_header(fixture: BlockchainEngineFixture) -> "FixtureHeader":
+    """Provide the genesis header from the fixture."""
+    return fixture.genesis
