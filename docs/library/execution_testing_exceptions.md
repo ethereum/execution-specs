@@ -1,3 +1,3 @@
 # Ethereum Test Exceptions package
 
-::: ethereum_test_exceptions
+::: execution_testing.exceptions

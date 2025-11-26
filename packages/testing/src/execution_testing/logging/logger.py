@@ -86,8 +86,7 @@ logger = get_logger(__name__)
 
 class UTCFormatter(logging.Formatter):
     """
-    Log formatter that formats UTC timestamps with milliseconds and +00:00
-    suffix.
+    Log formatter that formats UTC timestamps without milliseconds.
     """
 
     def formatTime(self, record: LogRecord, datefmt: str | None = None) -> str:  # noqa: D102,N802
@@ -95,7 +94,19 @@ class UTCFormatter(logging.Formatter):
         del datefmt
 
         dt = datetime.fromtimestamp(record.created, tz=timezone.utc)
-        return dt.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] + "+00:00"
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+    def format(self, record: LogRecord) -> str:
+        """Format with relative pathname from current working directory."""
+        # Make pathname relative to cwd
+        try:
+            record.pathname = "./" + str(
+                Path(record.pathname).relative_to(Path.cwd())
+            )  # noqa: E501
+        except ValueError:
+            # If path is not relative to cwd, keep as is
+            pass
+        return super().format(record)
 
 
 class ColorFormatter(UTCFormatter):
@@ -150,7 +161,7 @@ class LogLevel:
 
         valid = ", ".join(logging._nameToLevel.keys())
         raise ValueError(
-            f"Invalid log level '{value}'. Expected one of: {valid} or a number."
+            f"Invalid log level '{value}'. Expected: {valid} or a number."
         )
 
 
@@ -163,7 +174,9 @@ def configure_logging(
     log_level: int | str = "INFO",
     log_file: Optional[str | Path] = None,
     log_to_stdout: bool = True,
-    log_format: str = "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    log_format: str = (
+        "%(asctime)s [%(levelname)s] %(pathname)s:%(lineno)d: %(message)s"
+    ),
     use_color: Optional[bool] = None,
 ) -> Optional[logging.FileHandler]:
     """

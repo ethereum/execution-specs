@@ -1,3 +1,3 @@
 # Ethereum Test Base Types package
 
-::: ethereum_test_base_types
+::: execution_testing.base_types

@@ -46,6 +46,6 @@ awkward situation and presents only a single fork without EIP-1283.
 [t]: https://github.com/ethereum/trinity/releases/tag/v0.1.0-alpha.23
 """  # noqa: E501
 
-from ethereum.fork_criteria import ByBlockNumber
+from ethereum.fork_criteria import ByBlockNumber, ForkCriteria
 
-FORK_CRITERIA = ByBlockNumber(7280000)
+FORK_CRITERIA: ForkCriteria = ByBlockNumber(7280000)

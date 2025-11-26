@@ -1321,6 +1321,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         test_case_description: str,
         fixture_source_url: str,
         gas_benchmark_value: int,
+        fixed_opcode_count: int | None,
         witness_generator: Any,
     ) -> Any:
         """

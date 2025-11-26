@@ -1,6 +1,7 @@
 """Include EEST's CONTRIBUTING.md and SECURITY.md in the HTML documentation."""
 
 import logging
+import os
 import re
 from pathlib import Path
 
@@ -16,7 +17,7 @@ def copy_markdown_file(source_path, destination_path, fix_links=True):
 
     if not source_file.is_file():
         raise FileNotFoundError(
-            f"Error: Source file '{source_file}' not found in current directory."
+            f"Error: Source file '{source_file}' not found at '{os.getcwd()}'."
         )
 
     try:
@@ -26,7 +27,9 @@ def copy_markdown_file(source_path, destination_path, fix_links=True):
                     if fix_links:
                         # Fix absolute website links to relative docs links
                         line = re.sub(
-                            r"https://eest\.ethereum\.org/main/([^)\s]+)", r"../\1.md", line
+                            r"https://eest\.ethereum\.org/main/([^)\s]+)",
+                            r"../\1.md",
+                            line,
                         )
 
                         # Fix SECURITY.md link
@@ -45,7 +48,9 @@ def copy_markdown_file(source_path, destination_path, fix_links=True):
 
                     destination.write(line)
     except Exception as e:
-        raise Exception(f"Error copying file {source_file} to {destination_file}") from e
+        raise Exception(
+            f"Error copying file {source_file} to {destination_file}"
+        ) from e
 
     logger.info(f"Copied {source_file} to {destination_file}.")
 

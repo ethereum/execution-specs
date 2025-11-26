@@ -10,19 +10,19 @@ These markers are used to specify the forks for which a test is valid.
 
 ### `@pytest.mark.valid_from("FORK_NAME")`
 
-:::pytest_plugins.forks.forks.ValidFrom
+:::execution_testing.cli.pytest_commands.plugins.forks.forks.ValidFrom
 
 ### `@pytest.mark.valid_until("FORK_NAME")`
 
-:::pytest_plugins.forks.forks.ValidUntil
+:::execution_testing.cli.pytest_commands.plugins.forks.forks.ValidUntil
 
 ### `@pytest.mark.valid_at("FORK_NAME_1", "FORK_NAME_2", ...)`
 
-:::pytest_plugins.forks.forks.ValidAt
+:::execution_testing.cli.pytest_commands.plugins.forks.forks.ValidAt
 
 ### `@pytest.mark.valid_at_transition_to("FORK_NAME")`
 
-:::pytest_plugins.forks.forks.ValidAtTransitionTo
+:::execution_testing.cli.pytest_commands.plugins.forks.forks.ValidAtTransitionTo
 
 ## Fork Covariant Markers
 
@@ -35,12 +35,12 @@ This marker is used to automatically parameterize a test with all transaction ty
 ```python
 import pytest
 
-from ethereum_test_tools import Alloc, StateTestFiller
+from execution_testing.tools import Alloc, StateTestFiller
 
 @pytest.mark.with_all_tx_types
 @pytest.mark.valid_from("Berlin")
 def test_something_with_all_tx_types(
-    state_test: StateTestFiller, 
+    state_test: StateTestFiller,
     pre: Alloc,
     tx_type: int
 ):
@@ -60,14 +60,14 @@ This marker only differs from `pytest.mark.with_all_tx_types` in that it does no
 This marker is used to automatically parameterize a test with all typed transactions, including `type=0` (legacy transaction), that are valid for the fork being tested.
 This marker is an indirect marker that utilizes the `tx_type` values from the `pytest.mark.with_all_tx_types` marker to build default typed transactions for each `tx_type`.
 
-Optional: Default typed transactions used as values for `typed_transaction` exist in `src/pytest_plugins/shared/transaction_fixtures.py` and can be overridden for the scope of
+Optional: Default typed transactions used as values for `typed_transaction` exist in `src/execution_testing/cli/pytest_commands/plugins/shared/transaction_fixtures.py` and can be overridden for the scope of
 the test by re-defining the appropriate `pytest.fixture` for that transaction type.
 
 ```python
 import pytest
 
-from ethereum_test_tools import Account, Alloc, StateTestFiller
-from ethereum_test_types import Transaction
+from execution_testing.tools import Account, Alloc, StateTestFiller
+from execution_testing.test_types import Transaction
 
 # Optional override for type 2 transaction
 @pytest.fixture
@@ -115,12 +115,12 @@ This marker is used to automatically parameterize a test with all precompiles th
 ```python
 import pytest
 
-from ethereum_test_tools import Alloc, StateTestFiller
+from execution_testing.tools import Alloc, StateTestFiller
 
 @pytest.mark.with_all_precompiles
 @pytest.mark.valid_from("Shanghai")
 def test_something_with_all_precompiles(
-    state_test: StateTestFiller, 
+    state_test: StateTestFiller,
     pre: Alloc,
     precompile: int,
 ):
@@ -136,12 +136,12 @@ This marker is used to automatically parameterize a test with all EVM code types
 ```python
 import pytest
 
-from ethereum_test_tools import Alloc, StateTestFiller
+from execution_testing.tools import Alloc, StateTestFiller
 
 @pytest.mark.with_all_evm_code_types
 @pytest.mark.valid_from("Frontier")
 def test_something_with_all_evm_code_types(
-    state_test: StateTestFiller,     
+    state_test: StateTestFiller,
     pre: Alloc,
 ):
     pass
@@ -163,9 +163,9 @@ One thing to note is that `evm_code_type` is not necessary to be added as a para
 ```python
 import pytest
 
-from ethereum_test_tools import Alloc, StateTestFiller
-from ethereum_test_vm import EVMCodeType
-from ethereum_test_vm import Opcodes as Op
+from execution_testing.tools import Alloc, StateTestFiller
+from execution_testing.vm import EVMCodeType
+from execution_testing.vm import Opcodes as Op
 
 @pytest.mark.with_all_evm_code_types
 @pytest.mark.valid_from("Frontier")
@@ -189,8 +189,8 @@ This marker is used to automatically parameterize a test with all EVM call opcod
 ```python
 import pytest
 
-from ethereum_test_tools import Alloc, StateTestFiller
-from ethereum_test_vm import Opcodes as Op
+from execution_testing.tools import Alloc, StateTestFiller
+from execution_testing.vm import Opcodes as Op
 
 @pytest.mark.with_all_call_opcodes
 @pytest.mark.valid_from("Frontier")
@@ -213,8 +213,8 @@ This marker is used to automatically parameterize a test with all EVM create opc
 ```python
 import pytest
 
-from ethereum_test_tools import Alloc, StateTestFiller
-from ethereum_test_vm import Opcodes as Op
+from execution_testing.tools import Alloc, StateTestFiller
+from execution_testing.vm import Opcodes as Op
 
 @pytest.mark.with_all_create_opcodes
 @pytest.mark.valid_from("Frontier")
@@ -237,8 +237,8 @@ This marker is used to automatically parameterize a test with all system contrac
 ```python
 import pytest
 
-from ethereum_test_tools import Alloc, StateTestFiller
-from ethereum_test_base_types import Address
+from execution_testing.tools import Alloc, StateTestFiller
+from execution_testing.base_types import Address
 
 @pytest.mark.with_all_system_contracts
 @pytest.mark.valid_from("Cancun")
@@ -264,12 +264,12 @@ A lambda function that can be used to filter the fork covariant values that are 
 ```python
 import pytest
 
-from ethereum_test_tools import Alloc, StateTestFiller
+from execution_testing.tools import Alloc, StateTestFiller
 
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type != 2)
 @pytest.mark.valid_from("London")
 def test_something_with_all_tx_types(
-    state_test: StateTestFiller, 
+    state_test: StateTestFiller,
     pre: Alloc,
     tx_type: int
 ):
@@ -347,11 +347,11 @@ This marker is used to apply markers to a test when it is being filled.
 ```python
 import pytest
 
-from ethereum_test_tools import Alloc, StateTestFiller
+from execution_testing.tools import Alloc, StateTestFiller
 
 @pytest.mark.fill(pytest.mark.skip(reason="Only for execution"))
 def test_something(
-    state_test: StateTestFiller, 
+    state_test: StateTestFiller,
     pre: Alloc
 ):
     pass
@@ -366,11 +366,11 @@ This marker is used to apply markers to a test when it is being executed.
 ```python
 import pytest
 
-from ethereum_test_tools import Alloc, StateTestFiller
+from execution_testing.tools import Alloc, StateTestFiller
 
 @pytest.mark.execute(pytest.mark.xfail(reason="Depends on block context"))
 def test_something(
-    state_test: StateTestFiller, 
+    state_test: StateTestFiller,
     pre: Alloc
 ):
     pass
@@ -400,7 +400,7 @@ This marker can be used to skip a test.
 ```python
 import pytest
 
-from ethereum_test_tools import Alloc, StateTestFiller
+from execution_testing.tools import Alloc, StateTestFiller
 
 @pytest.mark.skip(reason="Not implemented")
 def test_something(state_test: StateTestFiller, pre: Alloc):
@@ -414,7 +414,7 @@ This marker can be used to mark a test as expected to fail.
 ```python
 import pytest
 
-from ethereum_test_tools import Alloc, StateTestFiller
+from execution_testing.tools import Alloc, StateTestFiller
 
 @pytest.mark.xfail(reason="EVM binary doesn't support this opcode")
 def test_something(state_test: StateTestFiller, pre: Alloc):

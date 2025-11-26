@@ -28,6 +28,6 @@ in this fork.
 [nm]: https://github.com/NethermindEth/nethermind/releases/tag/1.11.7
 """  # noqa: E501
 
-from ethereum.fork_criteria import ByBlockNumber
+from ethereum.fork_criteria import ByBlockNumber, ForkCriteria
 
-FORK_CRITERIA = ByBlockNumber(13773000)
+FORK_CRITERIA: ForkCriteria = ByBlockNumber(13773000)

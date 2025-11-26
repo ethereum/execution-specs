@@ -38,6 +38,6 @@ with the first new transaction type—optional access lists.
 [oe]: https://github.com/openethereum/openethereum/releases/tag/v3.2.0
 """  # noqa: E501
 
-from ethereum.fork_criteria import ByBlockNumber
+from ethereum.fork_criteria import ByBlockNumber, ForkCriteria
 
-FORK_CRITERIA = ByBlockNumber(12244000)
+FORK_CRITERIA: ForkCriteria = ByBlockNumber(12244000)

@@ -28,8 +28,12 @@ def test_recover_funds(
     tx_cost = refund_gas_limit * gas_price
     if remaining_balance < tx_cost:
         pytest.skip(
-            f"Balance {remaining_balance} is less than the transaction cost {tx_cost}"
+            f"Balance {remaining_balance} is less than the "
+            f"transaction cost {tx_cost}"
         )
+
+    # Get the current nonce for this address from the RPC
+    current_nonce = eth_rpc.get_transaction_count(eoa)
 
     refund_tx = Transaction(
         sender=eoa,
@@ -37,6 +41,7 @@ def test_recover_funds(
         gas_limit=refund_gas_limit,
         gas_price=gas_price,
         value=remaining_balance - tx_cost,
+        nonce=current_nonce,
     ).with_signature_and_sender()
 
     eth_rpc.send_wait_transaction(refund_tx)

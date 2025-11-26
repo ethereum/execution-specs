@@ -63,7 +63,6 @@ pip-delete-this-directory.txt
 .tox/
 
 /doc/_autosummary
-/docs
 
 .coverage
 .coverage.*
@@ -80,5 +79,6 @@ fixtures/
 logs/
 *.log
 
-# config (output of `uv run make env`)
 env.yaml
+
+site/

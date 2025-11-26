@@ -29,6 +29,6 @@ difficulty bomb, and adds an improved delegate call EVM instruction.
 [Geth 1.3.5]: https://github.com/ethereum/go-ethereum/releases/tag/v1.3.5
 """
 
-from ethereum.fork_criteria import ByBlockNumber
+from ethereum.fork_criteria import ByBlockNumber, ForkCriteria
 
-FORK_CRITERIA = ByBlockNumber(1150000)
+FORK_CRITERIA: ForkCriteria = ByBlockNumber(1150000)

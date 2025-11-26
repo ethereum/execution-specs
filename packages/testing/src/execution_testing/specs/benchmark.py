@@ -53,12 +53,58 @@ class BenchmarkCodeGenerator(ABC):
     setup: Bytecode = field(default_factory=Bytecode)
     cleanup: Bytecode = field(default_factory=Bytecode)
     tx_kwargs: Dict[str, Any] = field(default_factory=dict)
+    fixed_opcode_count: int | None = None
+    code_padding_opcode: Op | None = None
     _contract_address: Address | None = None
 
     @abstractmethod
     def deploy_contracts(self, *, pre: Alloc, fork: Fork) -> Address:
         """Deploy any contracts needed for the benchmark."""
         ...
+
+    def deploy_fix_count_contracts(self, *, pre: Alloc, fork: Fork) -> Address:
+        """Deploy the contract with a fixed opcode count."""
+        code = self.generate_repeated_code(
+            repeated_code=self.attack_block,
+            setup=self.setup,
+            cleanup=self.cleanup,
+            fork=fork,
+        )
+        self._target_contract_address = pre.deploy_contract(code=code)
+
+        iterations = self.fixed_opcode_count
+        assert iterations is not None, "fixed_opcode_count is not set"
+
+        prefix = Op.CALLDATACOPY(
+            Op.PUSH0, Op.PUSH0, Op.CALLDATASIZE
+        ) + Op.PUSH4(iterations)
+        opcode = (
+            prefix
+            + Op.JUMPDEST
+            + Op.POP(
+                Op.STATICCALL(
+                    gas=Op.GAS,
+                    address=self._target_contract_address,
+                    args_offset=0,
+                    args_size=Op.CALLDATASIZE,
+                    ret_offset=0,
+                    ret_size=0,
+                )
+            )
+            + Op.PUSH1(1)
+            + Op.SWAP1
+            + Op.SUB
+            + Op.DUP1
+            + Op.ISZERO
+            + Op.ISZERO
+            + Op.PUSH1(len(prefix))
+            + Op.JUMPI
+            + Op.STOP
+        )
+        self._validate_code_size(opcode, fork)
+
+        self._contract_address = pre.deploy_contract(code=opcode)
+        return self._contract_address
 
     def generate_transaction(
         self, *, pre: Alloc, gas_benchmark_value: int
@@ -101,9 +147,23 @@ class BenchmarkCodeGenerator(ABC):
         available_space = max_code_size - overhead
         max_iterations = available_space // len(repeated_code)
 
+        # Use fixed_opcode_count if provided, otherwise fill to max
+        if self.fixed_opcode_count is not None:
+            max_iterations = min(max_iterations, 1000)
+
+        print(f"max_iterations: {max_iterations}")
+
         # TODO: Unify the PUSH0 and PUSH1 usage.
-        code = setup + Op.JUMPDEST + repeated_code * max_iterations + cleanup
-        code += Op.JUMP(len(setup)) if len(setup) > 0 else Op.PUSH0 + Op.JUMP
+        code = setup + Op.JUMPDEST + repeated_code * max_iterations
+        if self.fixed_opcode_count is None:
+            code += cleanup + (
+                Op.JUMP(len(setup)) if len(setup) > 0 else Op.PUSH0 + Op.JUMP
+            )
+        # Pad the code to the maximum code size.
+        if self.code_padding_opcode is not None:
+            padding_size = max_code_size - len(code)
+            if padding_size > 0:
+                code += self.code_padding_opcode * padding_size
         self._validate_code_size(code, fork)
 
         return code
@@ -138,6 +198,7 @@ class BenchmarkTest(BaseTest):
     gas_benchmark_value: int = Field(
         default_factory=lambda: int(Environment().gas_limit)
     )
+    fixed_opcode_count: int | None = None
     code_generator: BenchmarkCodeGenerator | None = None
 
     supported_fixture_formats: ClassVar[
@@ -159,6 +220,7 @@ class BenchmarkTest(BaseTest):
     supported_markers: ClassVar[Dict[str, str]] = {
         "blockchain_test_engine_only": "Only generate a blockchain test engine fixture",
         "blockchain_test_only": "Only generate a blockchain test fixture",
+        "repricing": "Mark test as reference test for gas repricing analysis",
     }
 
     def model_post_init(self, __context: Any, /) -> None:
@@ -189,7 +251,18 @@ class BenchmarkTest(BaseTest):
         blocks: List[Block] = self.setup_blocks
 
         if self.code_generator is not None:
-            generated_blocks = self.generate_blocks_from_code_generator()
+            # Inject fixed_opcode_count into the code generator if provided
+            self.code_generator.fixed_opcode_count = self.fixed_opcode_count
+
+            # In fixed opcode count mode, skip gas validation since we're
+            # measuring performance by operation count, not gas usage
+            if self.fixed_opcode_count is not None:
+                self.skip_gas_used_validation = True
+                generated_blocks = (
+                    self.generate_fixed_opcode_count_transactions()
+                )
+            else:
+                generated_blocks = self.generate_blocks_from_code_generator()
             blocks += generated_blocks
 
         elif self.blocks is not None:
@@ -290,6 +363,22 @@ class BenchmarkTest(BaseTest):
 
         return [execution_block]
 
+    def generate_fixed_opcode_count_transactions(self) -> List[Block]:
+        """Generate transactions with a fixed opcode count."""
+        if self.code_generator is None:
+            raise Exception("Code generator is not set")
+        self.code_generator.deploy_fix_count_contracts(
+            pre=self.pre, fork=self.fork
+        )
+        gas_limit = (
+            self.fork.transaction_gas_limit_cap() or self.gas_benchmark_value
+        )
+        benchmark_tx = self.code_generator.generate_transaction(
+            pre=self.pre, gas_benchmark_value=gas_limit
+        )
+        execution_block = Block(txs=[benchmark_tx])
+        return [execution_block]
+
     def generate_blockchain_test(self) -> BlockchainTest:
         """Create a BlockchainTest from this BenchmarkTest."""
         return BlockchainTest.from_test(
@@ -323,8 +412,9 @@ class BenchmarkTest(BaseTest):
     ) -> BaseExecute:
         """Execute the benchmark test by sending it to the live network."""
         if execute_format == TransactionPost:
+            assert self.blocks is not None
             return TransactionPost(
-                blocks=[[self.tx]],
+                blocks=[block.txs for block in self.blocks],
                 post=self.post,
             )
         raise Exception(f"Unsupported execute format: {execute_format}")

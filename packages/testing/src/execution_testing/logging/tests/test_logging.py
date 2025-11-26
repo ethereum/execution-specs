@@ -7,7 +7,6 @@ including both the standalone configuration and the pytest integration.
 
 import io
 import logging
-import re
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -103,9 +102,12 @@ class TestFormatters:
         )
 
         formatted = formatter.format(record)
-        assert re.match(
-            r"2021-01-01 00:00:00\.\d{3}\+00:00: Test message", formatted
-        )
+
+        # logs contain
+        #       timestamp
+        assert "2021-01-01 00:00:00" in formatted
+        #       message
+        assert "Test message" in formatted
 
     def test_color_formatter(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that ColorFormatter adds color codes to the log level."""
@@ -211,66 +213,66 @@ class TestPytestIntegration:
         )
 
         # Create logs directory if it doesn't exist
-        log_dir = Path("logs")
-        if not log_dir.exists():
-            log_dir.mkdir()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_dir = Path(temp_dir)
 
-        # Save the original handlers to restore later
-        original_handlers = logging.getLogger().handlers.copy()
+            # Save the original handlers to restore later
+            original_handlers = logging.getLogger().handlers.copy()
 
-        try:
-            # Remove existing handlers to start clean
-            for handler in logging.getLogger().handlers[:]:
-                logging.getLogger().removeHandler(handler)
+            try:
+                # Remove existing handlers to start clean
+                for handler in logging.getLogger().handlers[:]:
+                    logging.getLogger().removeHandler(handler)
 
-            # Create a mock pytest config
-            class MockConfig:
-                def __init__(self) -> None:
-                    self.option = MagicMock()
-                    self.option.eest_log_level = logging.INFO
-                    self.workerinput: dict[str, Any] = {}
+                # Create a mock pytest config
+                class MockConfig:
+                    def __init__(self) -> None:
+                        self.option = MagicMock()
+                        self.option.eest_log_level = logging.INFO
+                        self.option.eest_log_dir = temp_dir
+                        self.workerinput: dict[str, Any] = {}
 
-                def getoption(self, name: str) -> Any:
-                    if name == "eest_log_level":
-                        return logging.INFO
+                    def getoption(self, name: str) -> Any:
+                        if name == "eest_log_level":
+                            return logging.INFO
 
-            # Set up environment
-            monkeypatch.setattr("sys.argv", ["pytest"])
-            monkeypatch.setenv("PYTEST_XDIST_WORKER", "worker1")
+                # Set up environment
+                monkeypatch.setattr("sys.argv", ["pytest"])
+                monkeypatch.setenv("PYTEST_XDIST_WORKER", "worker1")
 
-            # Call pytest_configure
-            config = MockConfig()
-            pytest_configure(config)  # type: ignore[arg-type]
+                # Call pytest_configure
+                config = MockConfig()
+                pytest_configure(config)  # type: ignore[arg-type]
 
-            # Check that logging is configured
-            assert hasattr(config.option, "eest_log_file_path")
+                # Check that logging is configured
+                assert hasattr(config.option, "eest_log_file_path")
 
-            # Check that a file handler was added to the root logger
-            file_handlers = [
-                h
-                for h in logging.getLogger().handlers
-                if isinstance(h, logging.FileHandler)
-            ]
-            assert len(file_handlers) > 0
+                # Check that a file handler was added to the root logger
+                file_handlers = [
+                    h
+                    for h in logging.getLogger().handlers
+                    if isinstance(h, logging.FileHandler)
+                ]
+                assert len(file_handlers) > 0
 
-            # Find the log file handler's file
-            log_file = Path(file_handlers[0].baseFilename)
+                # Find the log file handler's file
+                log_file = Path(file_handlers[0].baseFilename)
 
-            # Check that the log file was created
-            assert log_file.exists()
+                # Check that the log file was created
+                assert log_file.exists()
 
-            # Verify the file is in the logs directory
-            assert log_file.parent.resolve() == log_dir.resolve()
+                # Verify the file is in the logs directory
+                assert log_file.parent.resolve() == log_dir.resolve()
 
-            # Clean up the test log file
-            log_file.unlink()
+                # Clean up the test log file
+                log_file.unlink()
 
-        finally:
-            # Clean up: Remove any handlers we added
-            for handler in logging.getLogger().handlers[:]:
-                handler.close()
-                logging.getLogger().removeHandler(handler)
+            finally:
+                # Clean up: Remove any handlers we added
+                for handler in logging.getLogger().handlers[:]:
+                    handler.close()
+                    logging.getLogger().removeHandler(handler)
 
-            # Restore original handlers
-            for handler in original_handlers:
-                logging.getLogger().addHandler(handler)
+                # Restore original handlers
+                for handler in original_handlers:
+                    logging.getLogger().addHandler(handler)

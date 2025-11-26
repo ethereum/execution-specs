@@ -43,6 +43,6 @@ reserves a contract prefix for future use, and delays the difficulty bomb.
 [oe]: https://github.com/openethereum/openethereum/releases/tag/v3.3.0-rc.4
 """  # noqa: E501
 
-from ethereum.fork_criteria import ByBlockNumber
+from ethereum.fork_criteria import ByBlockNumber, ForkCriteria
 
-FORK_CRITERIA = ByBlockNumber(12965000)
+FORK_CRITERIA: ForkCriteria = ByBlockNumber(12965000)

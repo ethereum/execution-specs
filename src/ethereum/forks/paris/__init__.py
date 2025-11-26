@@ -34,10 +34,10 @@ marks the integration of the [consensus layer] with the execution layer
 [nm]: https://github.com/NethermindEth/nethermind/releases/tag/1.14.1
 """  # noqa: E501
 
-from ethereum.fork_criteria import ByBlockNumber
+from ethereum.fork_criteria import ByBlockNumber, ForkCriteria
 
 # The actual trigger for the Paris hardfork was The Merge occurring when
 # total difficulty (the sum of the all block difficulties) reached the
 # Terminal Total Difficulty value (58750000000000000000000 on Mainnet). The
 # Merge is now a historical event.
-FORK_CRITERIA = ByBlockNumber(15537394)
+FORK_CRITERIA: ForkCriteria = ByBlockNumber(15537394)

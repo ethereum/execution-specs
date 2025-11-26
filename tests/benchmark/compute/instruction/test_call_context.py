@@ -1,4 +1,16 @@
-"""Benchmark call frame context instructions."""
+"""
+Benchmark call frame context instructions.
+
+Supported Opcodes:
+- ADDRESS
+- CALLER
+- CALLVALUE
+- CALLDATASIZE
+- CALLDATACOPY
+- CALLDATALOAD
+- RETURNDATASIZE
+- RETURNDATACOPY
+"""
 
 import pytest
 from execution_testing import (
@@ -19,6 +31,7 @@ from tests.benchmark.compute.helpers import (
 )
 
 
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "opcode",
     [
@@ -36,6 +49,7 @@ def test_call_frame_context_ops(
     )
 
 
+@pytest.mark.repricing(calldata_length=1_000)
 @pytest.mark.parametrize("calldata_length", [0, 1_000, 10_000])
 def test_calldatasize(
     benchmark_test: BenchmarkTestFiller,
@@ -43,13 +57,14 @@ def test_calldatasize(
 ) -> None:
     """Benchmark CALLDATASIZE instruction."""
     benchmark_test(
-        code_generator=JumpLoopGenerator(
-            attack_block=Op.POP(Op.CALLDATASIZE),
+        code_generator=ExtCallGenerator(
+            attack_block=Op.CALLDATASIZE,
             tx_kwargs={"data": b"\x00" * calldata_length},
         ),
     )
 
 
+@pytest.mark.repricing(non_zero_value=True, from_origin=True)
 @pytest.mark.parametrize("non_zero_value", [True, False])
 @pytest.mark.parametrize("from_origin", [True, False])
 def test_callvalue(
@@ -89,6 +104,7 @@ def test_callvalue(
     benchmark_test(tx=tx)
 
 
+@pytest.mark.repricing(calldata=b"")
 @pytest.mark.parametrize(
     "calldata",
     [
@@ -149,7 +165,7 @@ def test_calldatacopy(
     size: int,
     fixed_src_dst: bool,
     non_zero_data: bool,
-    gas_benchmark_value: int,
+    tx_gas_limit: int,
 ) -> None:
     """Benchmark CALLDATACOPY instruction."""
     if size == 0 and non_zero_data:
@@ -162,7 +178,7 @@ def test_calldatacopy(
 
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     min_gas = intrinsic_gas_calculator(calldata=data)
-    if min_gas > gas_benchmark_value:
+    if min_gas > tx_gas_limit:
         pytest.skip(
             "Minimum gas required for calldata ({min_gas}) is greater "
             "than the gas limit"
@@ -210,7 +226,6 @@ def test_calldatacopy(
 
     tx = Transaction(
         to=tx_target,
-        gas_limit=gas_benchmark_value,
         data=data,
         sender=pre.fund_eoa(),
     )
@@ -218,6 +233,10 @@ def test_calldatacopy(
     benchmark_test(tx=tx)
 
 
+@pytest.mark.repricing(
+    returned_size=1,
+    return_data_style=ReturnDataStyle.RETURN,
+)
 @pytest.mark.parametrize(
     "return_data_style",
     [
@@ -261,6 +280,7 @@ def test_returndatasize_nonzero(
     )
 
 
+@pytest.mark.repricing
 def test_returndatasize_zero(
     benchmark_test: BenchmarkTestFiller,
 ) -> None:
@@ -270,6 +290,7 @@ def test_returndatasize_zero(
     )
 
 
+@pytest.mark.repricing(size=10 * 1024, fixed_dst=True)
 @pytest.mark.parametrize(
     "size",
     [
@@ -311,11 +332,6 @@ def test_returndatacopy(
     )
     dst = 0 if fixed_dst else Op.MOD(Op.GAS, 7)
 
-    # We create the contract that will be doing the RETURNDATACOPY multiple
-    # times.
-    returndata_gen = (
-        Op.STATICCALL(address=helper_contract) if size > 0 else Bytecode()
-    )
     attack_block = Op.RETURNDATACOPY(dst, Op.PUSH0, Op.RETURNDATASIZE)
 
     benchmark_test(

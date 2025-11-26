@@ -518,6 +518,8 @@ APPROVE_SELECTOR = 0x095EA7B3  # approve(address,uint256)
 @pytest.mark.parametrize(
     "sload_percent,sstore_percent",
     [
+        pytest.param(10, 90, id="10-90"),
+        pytest.param(30, 70, id="30-70"),
         pytest.param(50, 50, id="50-50"),
         pytest.param(70, 30, id="70-30"),
         pytest.param(90, 10, id="90-10"),

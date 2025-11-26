@@ -71,25 +71,42 @@ DEFAULT_REQUEST_LOG = create_deposit_log_bytes(
 
 
 @pytest.mark.parametrize(
-    "include_deposit_event",
+    "include_deposit_event,extra_event_type",
     [
         pytest.param(
             True,
+            "transfer_log",
             marks=pytest.mark.pre_alloc_group(
-                "deposit_extra_logs_with_event",
+                "deposit_extra_logs_with_event_transfer",
                 reason="Deposit contract with Transfer log AND deposit event",
             ),
         ),
         pytest.param(
-            False,
+            True,
+            "no_topics",
             marks=pytest.mark.pre_alloc_group(
-                "deposit_extra_logs_no_event",
+                "deposit_extra_logs_with_event_no_topics",
+                reason="Deposit contract with no-topics log AND deposit event",
+            ),
+        ),
+        pytest.param(
+            False,
+            "transfer_log",
+            marks=pytest.mark.pre_alloc_group(
+                "deposit_extra_logs_no_event_transfer",
                 reason="Deposit contract with Transfer log NO deposit event",
+            ),
+        ),
+        pytest.param(
+            False,
+            "no_topics",
+            marks=pytest.mark.pre_alloc_group(
+                "deposit_extra_logs_no_event_no_topics",
+                reason="Deposit contract with no-topics log NO deposit event",
             ),
         ),
     ],
 )
-@pytest.mark.parametrize("extra_event_type", ["transfer_log", "no_topics"])
 def test_extra_logs(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

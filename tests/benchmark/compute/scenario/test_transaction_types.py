@@ -59,10 +59,12 @@ def get_distinct_sender_list(pre: Alloc) -> Generator[Address, None, None]:
         yield pre.fund_eoa()
 
 
-def get_distinct_receiver_list(pre: Alloc) -> Generator[Address, None, None]:
+def get_distinct_receiver_list(
+    pre: Alloc, balance: int
+) -> Generator[Address, None, None]:
     """Get a list of distinct receiver accounts."""
     while True:
-        yield pre.fund_eoa(0)
+        yield pre.fund_eoa(balance)
 
 
 def get_single_sender_list(pre: Alloc) -> Generator[Address, None, None]:
@@ -72,19 +74,20 @@ def get_single_sender_list(pre: Alloc) -> Generator[Address, None, None]:
         yield sender
 
 
-def get_single_receiver_list(pre: Alloc) -> Generator[Address, None, None]:
+def get_single_receiver_list(
+    pre: Alloc, balance: int
+) -> Generator[Address, None, None]:
     """Get a list of single receiver accounts."""
-    receiver = pre.fund_eoa(0)
+    receiver = pre.fund_eoa(balance)
     while True:
         yield receiver
 
 
 @pytest.fixture
 def ether_transfer_case(
-    case_id: str,
-    pre: Alloc,
+    case_id: str, pre: Alloc, balance: int
 ) -> Tuple[Generator[Address, None, None], Generator[Address, None, None]]:
-    """Generate the test parameters based on the case ID."""
+    """Generate sender and receiver generators based on the test case."""
     if case_id == "a_to_a":
         """Sending to self."""
         senders = get_single_sender_list(pre)
@@ -93,22 +96,22 @@ def ether_transfer_case(
     elif case_id == "a_to_b":
         """One sender → one receiver."""
         senders = get_single_sender_list(pre)
-        receivers = get_single_receiver_list(pre)
+        receivers = get_single_receiver_list(pre, balance)
 
     elif case_id == "diff_acc_to_b":
         """Multiple senders → one receiver."""
         senders = get_distinct_sender_list(pre)
-        receivers = get_single_receiver_list(pre)
+        receivers = get_single_receiver_list(pre, balance)
 
     elif case_id == "a_to_diff_acc":
         """One sender → multiple receivers."""
         senders = get_single_sender_list(pre)
-        receivers = get_distinct_receiver_list(pre)
+        receivers = get_distinct_receiver_list(pre, balance)
 
     elif case_id == "diff_acc_to_diff_acc":
         """Multiple senders → multiple receivers."""
         senders = get_distinct_sender_list(pre)
-        receivers = get_distinct_receiver_list(pre)
+        receivers = get_distinct_receiver_list(pre, balance)
 
     else:
         raise ValueError(f"Unknown case: {case_id}")
@@ -126,16 +129,18 @@ def ether_transfer_case(
         "diff_acc_to_diff_acc",
     ],
 )
+@pytest.mark.parametrize("balance", [0, 1])
 def test_block_full_of_ether_transfers(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     case_id: str,
-    ether_transfer_case: Tuple[
-        Generator[Address, None, None], Generator[Address, None, None]
-    ],
+    balance: int,
     iteration_count: int,
     transfer_amount: int,
     intrinsic_cost: int,
+    ether_transfer_case: Tuple[
+        Generator[Address, None, None], Generator[Address, None, None]
+    ],
 ) -> None:
     """
     Single test for ether transfer scenarios.
@@ -151,10 +156,12 @@ def test_block_full_of_ether_transfers(
 
     # Create a single block with all transactions
     txs = []
-    balances: dict[Address, int] = {}
+    token_transfers: dict[Address, int] = {}
     for _ in range(iteration_count):
         receiver = next(receivers)
-        balances[receiver] = balances.get(receiver, 0) + transfer_amount
+        token_transfers[receiver] = (
+            token_transfers.get(receiver, 0) + transfer_amount
+        )
         txs.append(
             Transaction(
                 to=receiver,
@@ -169,8 +176,8 @@ def test_block_full_of_ether_transfers(
         {}
         if case_id == "a_to_a"
         else {
-            receiver: Account(balance=balance)
-            for receiver, balance in balances.items()
+            receiver: Account(balance=balance + transferred_amount)
+            for receiver, transferred_amount in token_transfers.items()
         }
     )
 
@@ -393,7 +400,7 @@ def test_block_full_access_list_and_data(
 
 @pytest.mark.parametrize("empty_authority", [True, False])
 @pytest.mark.parametrize("zero_delegation", [True, False])
-def test_worst_case_auth_block(
+def test_auth_transaction(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     intrinsic_cost: int,

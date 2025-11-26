@@ -49,6 +49,6 @@ contract][b].
 [EIP-7549]: https://eips.ethereum.org/EIPS/eip-7549
 """  # noqa: E501
 
-from ethereum.fork_criteria import ByTimestamp
+from ethereum.fork_criteria import ByTimestamp, ForkCriteria
 
-FORK_CRITERIA = ByTimestamp(1746612311)
+FORK_CRITERIA: ForkCriteria = ByTimestamp(1746612311)

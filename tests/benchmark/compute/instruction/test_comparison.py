@@ -1,4 +1,14 @@
-"""Benchmark comparison instructions."""
+"""
+Benchmark comparison instructions.
+
+Supported Opcodes:
+- LT
+- SLT
+- GT
+- SGT
+- EQ
+- ISZERO
+"""
 
 import pytest
 from execution_testing import (
@@ -7,10 +17,8 @@ from execution_testing import (
     Op,
 )
 
-# Comparison instructions:
-# LT, SLT, GT, SGT, EQ, ISZERO
 
-
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "opcode,opcode_args",
     [
@@ -72,6 +80,7 @@ def test_comparison(
     )
 
 
+@pytest.mark.repricing
 def test_iszero(
     benchmark_test: BenchmarkTestFiller,
 ) -> None:
