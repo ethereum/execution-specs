@@ -10,6 +10,10 @@ from execution_testing import (
     Alloc,
     BalAccountExpectation,
     BalBalanceChange,
+    BalCodeChange,
+    BalNonceChange,
+    BalStorageChange,
+    BalStorageSlot,
     BlockAccessListExpectation,
     Bytecode,
     Environment,
@@ -457,6 +461,31 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
                         )
                     ],
                 )
+            )
+        else:
+            account_expectations[
+                selfdestruct_with_transfer_contract_address
+            ] = BalAccountExpectation(
+                storage_reads=[1],
+                nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                balance_changes=[BalBalanceChange(tx_index=1, post_balance=1)],
+                code_changes=[
+                    BalCodeChange(
+                        tx_index=1,
+                        new_code=selfdestruct_with_transfer_contract_code,
+                    ),
+                ],
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=0,
+                        slot_changes=[
+                            BalStorageChange(tx_index=1, post_value=1),
+                        ],
+                    ),
+                ],
+            )
+            account_expectations[selfdestruct_recipient_address] = (
+                BalAccountExpectation.empty()
             )
 
         expected_block_access_list = BlockAccessListExpectation(
