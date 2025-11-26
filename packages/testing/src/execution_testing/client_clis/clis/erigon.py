@@ -48,6 +48,7 @@ class ErigonExceptionMapper(ExceptionMapper):
         BlockException.RLP_BLOCK_LIMIT_EXCEEDED: "block exceeds max rlp size",
     }
     mapping_regex = {
+        BlockException.INVALID_BLOCK_ACCESS_LIST: r"invalid block access list|block access list mismatch",
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
             r"invalid block, txnIdx=\d+,.*gas limit too high"
         ),
