@@ -57,6 +57,7 @@ class ErigonExceptionMapper(ExceptionMapper):
         BlockException.INVALID_LOG_BLOOM: "invalid bloom",
     }
     mapping_regex = {
+        BlockException.INVALID_BLOCK_ACCESS_LIST: r"invalid block access list|block access list mismatch",
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
             r"invalid block, txnIdx=\d+,.*gas limit too high"
         ),
