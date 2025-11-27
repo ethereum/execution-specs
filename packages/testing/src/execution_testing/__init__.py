@@ -95,6 +95,7 @@ from .tools import (
     Switch,
     While,
     extend_with_defaults,
+    gas_test,
     generate_system_contract_deploy_test,
     generate_system_contract_error_test,
 )
@@ -207,6 +208,7 @@ __all__ = (
     "compute_create2_address",
     "compute_eofcreate_address",
     "extend_with_defaults",
+    "gas_test",
     "generate_system_contract_deploy_test",
     "generate_system_contract_error_test",
     "keccak256",

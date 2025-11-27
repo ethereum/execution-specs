@@ -6,13 +6,12 @@ import pytest
 from execution_testing import (
     Alloc,
     Environment,
+    Fork,
+    Op,
     StateTestFiller,
+    gas_test,
 )
 from execution_testing.base_types.base_types import ZeroPaddedHexNumber
-from execution_testing.forks.helpers import Fork
-from execution_testing.vm import Opcodes as Op
-
-from tests.unscheduled.eip7692_eof_v1.gas_test import gas_test
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -62,10 +61,10 @@ def test_gas(
     print(hex(data_size))
 
     gas_test(
-        fork,
-        state_test,
-        env,
-        pre,
+        fork=fork,
+        state_test=state_test,
+        env=env,
+        pre=pre,
         setup_code=Op.MSTORE8(data_size, 0)
         + Op.PUSH1(0) * topics
         + Op.PUSH32(data_size)
@@ -74,5 +73,4 @@ def test_gas(
         tear_down_code=Op.STOP,
         cold_gas=warm_gas,
         warm_gas=warm_gas,
-        eof=False,
     )

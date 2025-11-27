@@ -18,6 +18,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
     UndefinedOpcodes,
+    gas_test,
 )
 from execution_testing.base_types.base_types import ZeroPaddedHexNumber
 from execution_testing.forks import Byzantium
@@ -25,7 +26,6 @@ from execution_testing.forks import Byzantium
 from tests.unscheduled.eip7692_eof_v1.eip3540_eof_v1.opcodes import (
     V1_EOF_ONLY_OPCODES,
 )
-from tests.unscheduled.eip7692_eof_v1.gas_test import gas_test
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -364,14 +364,13 @@ def test_constant_gas(
         + (code_increment_counter if opcode == Op.CREATE2 else Bytecode())
     )
     gas_test(
-        fork,
-        state_test,
-        env,
-        pre,
+        fork=fork,
+        state_test=state_test,
+        env=env,
+        pre=pre,
         setup_code=setup_code,
         subject_code=opcode,
         tear_down_code=prepare_suffix(opcode),
         cold_gas=cold_gas,
         warm_gas=warm_gas,
-        eof=False,
     )
