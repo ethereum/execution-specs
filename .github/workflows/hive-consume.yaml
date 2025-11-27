@@ -1,0 +1,123 @@
+name: Hive Consume Tests
+
+on:
+  push:
+    branches:
+      - 'forks/**'
+  pull_request:
+    paths:
+      - '.github/workflows/hive-consume.yaml'
+      - 'packages/testing/src/execution_testing/cli/pytest_commands/consume.py'
+      - 'packages/testing/src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-consume.ini'
+      - 'packages/testing/src/execution_testing/cli/pytest_commands/plugins/consume/**'
+      - 'packages/testing/src/execution_testing/cli/pytest_commands/plugins/pytest_hive/**'
+      - 'packages/testing/src/execution_testing/fixtures/consume.py'
+      - 'packages/testing/src/execution_testing/rpc/**'
+  workflow_dispatch:
+
+concurrency:
+  group: hive-consume-${{ github.workflow }}-${{ github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  test-hive:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - name: consume-engine
+            mode: simulator
+            simulator: ethereum/eels/consume-engine
+          - name: consume-rlp
+            mode: simulator
+            simulator: ethereum/eels/consume-rlp
+          - name: consume-sync
+            mode: simulator
+            simulator: ethereum/eels/consume-sync
+          - name: dev-mode
+            mode: dev
+            consume_command: engine
+    steps:
+      - name: Checkout execution-specs
+        if: matrix.mode == 'dev'
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          path: execution-specs
+
+      - name: Checkout Hive
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          repository: ethereum/hive
+          ref: master
+          path: hive
+
+      - name: Setup go env and cache
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version: '>=1.24'
+          cache-dependency-path: hive/go.sum
+
+      - name: Install uv and python
+        if: matrix.mode == 'dev'
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+        with:
+          enable-cache: true
+          cache-dependency-glob: "execution-specs/uv.lock"
+          version: ${{ vars.UV_VERSION }}
+          python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
+
+      - name: Pre-pull geth docker image
+        run: docker pull docker.ethquokkaops.io/dh/ethpandaops/geth:master
+
+      - name: Create clients.yaml
+        run: |
+          cat > hive/clients.yaml << 'EOF'
+          - client: go-ethereum
+            nametag: default
+            build_args:
+              baseimage: docker.ethquokkaops.io/dh/ethpandaops/geth
+              tag: master
+          EOF
+
+      - name: Build hive
+        run: |
+          cd hive
+          go build .
+
+      - name: Run simulator tests
+        if: matrix.mode == 'simulator'
+        run: |
+          cd hive
+          ./hive --sim '${{ matrix.simulator }}' \
+            --sim.parallelism=1 \
+            --client go-ethereum \
+            --client-file clients.yaml \
+            --sim.buildarg fixtures=develop@v5.3.0 \
+            --sim.limit=".*test_block_at_rlp_limit_with_logs.*Osaka.*" \
+            --docker.output
+
+      - name: Start Hive in dev mode
+        if: matrix.mode == 'dev'
+        run: |
+          cd hive
+          ./hive --dev --client go-ethereum --client-file clients.yaml --docker.output &
+          echo "Waiting for Hive to be ready..."
+          for i in {1..30}; do
+            if curl -s http://127.0.0.1:3000 > /dev/null 2>&1; then
+              echo "Hive is ready!"
+              break
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 2
+          done
+
+      - name: Run consume in dev mode
+        if: matrix.mode == 'dev'
+        working-directory: execution-specs
+        env:
+          HIVE_SIMULATOR: http://127.0.0.1:3000
+        run: |
+          uv sync --all-extras
+          uv run consume ${{ matrix.consume_command }} --input develop@v5.3.0 -k "Osaka and test_block_at_rlp_limit_with_logs"

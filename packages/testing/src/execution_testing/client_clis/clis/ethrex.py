@@ -28,6 +28,7 @@ class EthrexExceptionMapper(ExceptionMapper):
         ),
         BlockException.INVALID_GAS_USED: "Gas used doesn't match value in header",
         BlockException.INCORRECT_BLOB_GAS_USED: "Blob gas used doesn't match value in header",
+        BlockException.INVALID_BASEFEE_PER_GAS: "Base fee per gas is incorrect",
     }
     mapping_regex = {
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
@@ -49,6 +50,9 @@ class EthrexExceptionMapper(ExceptionMapper):
         ),
         TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: (
             r"blob version not supported|Invalid blob versioned hash"
+        ),
+        TransactionException.TYPE_2_TX_PRE_FORK: (
+            r"Type 2 transactions are not supported before the London fork"
         ),
         TransactionException.TYPE_3_TX_PRE_FORK: (
             r"blob versioned hashes not supported|"

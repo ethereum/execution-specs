@@ -350,6 +350,8 @@ class EvmoneExceptionMapper(ExceptionMapper):
         ),
         TransactionException.TYPE_4_TX_PRE_FORK: "transaction type not supported",
         TransactionException.TYPE_3_TX_PRE_FORK: "transaction type not supported",
+        TransactionException.TYPE_2_TX_PRE_FORK: "transaction type not supported",
+        TransactionException.TYPE_1_TX_PRE_FORK: "transaction type not supported",
         TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: "invalid blob hash version",
         TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: "blob gas limit exceeded",
         TransactionException.TYPE_3_TX_ZERO_BLOBS: "empty blob hashes list",

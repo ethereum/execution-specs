@@ -153,6 +153,10 @@ class TransactionException(ExceptionBase):
     """
     Transaction's initcode for a contract-creating transaction is too large.
     """
+    TYPE_1_TX_PRE_FORK = auto()
+    """Transaction type 1 included before activation fork."""
+    TYPE_2_TX_PRE_FORK = auto()
+    """Transaction type 2 included before activation fork."""
     TYPE_3_TX_PRE_FORK = auto()
     """Transaction type 3 included before activation fork."""
     TYPE_3_TX_ZERO_BLOBS_PRE_FORK = auto()
