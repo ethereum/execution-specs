@@ -395,6 +395,12 @@ class NethermindExceptionMapper(ExceptionMapper):
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
             "InsufficientMaxFeePerBlobGas: Not enough to cover blob gas fee"
         ),
+        TransactionException.TYPE_1_TX_PRE_FORK: (
+            "InvalidTxType: Transaction type in Custom is not supported"
+        ),
+        TransactionException.TYPE_2_TX_PRE_FORK: (
+            "InvalidTxType: Transaction type in Custom is not supported"
+        ),
         TransactionException.TYPE_3_TX_PRE_FORK: (
             "InvalidTxType: Transaction type in Custom is not supported"
         ),
@@ -430,6 +436,9 @@ class NethermindExceptionMapper(ExceptionMapper):
         BlockException.INVALID_BLOCK_NUMBER: "InvalidBlockNumber: Block number does not match the parent",
         BlockException.EXTRA_DATA_TOO_BIG: "InvalidExtraData: Extra data in header is not valid",
         BlockException.INVALID_GASLIMIT: "InvalidGasLimit: Gas limit is not correct",
+        BlockException.INVALID_RECEIPTS_ROOT: "InvalidReceiptsRoot: Receipts root in header does not match",
+        BlockException.INVALID_LOG_BLOOM: "InvalidLogsBloom: Logs bloom in header does not match",
+        BlockException.INVALID_STATE_ROOT: "InvalidStateRoot: State root in header does not match",
     }
     mapping_regex = {
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (

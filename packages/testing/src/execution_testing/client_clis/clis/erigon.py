@@ -51,6 +51,9 @@ class ErigonExceptionMapper(ExceptionMapper):
         BlockException.INVALID_BLOCK_NUMBER: "invalid block number",
         BlockException.EXTRA_DATA_TOO_BIG: "invalid block: extra-data longer than 32 bytes",
         BlockException.INVALID_GASLIMIT: "invalid block: invalid gas limit",
+        BlockException.INVALID_STATE_ROOT: "invalid block: wrong trie root",
+        BlockException.INVALID_RECEIPTS_ROOT: "receiptHash mismatch",
+        BlockException.INVALID_LOG_BLOOM: "invalid bloom",
     }
     mapping_regex = {
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
