@@ -14,6 +14,7 @@ from .tools_code import (
 )
 from .utility.generators import (
     DeploymentTestType,
+    gas_test,
     generate_system_contract_deploy_test,
     generate_system_contract_error_test,
 )
@@ -31,6 +32,7 @@ __all__ = (
     "Switch",
     "While",
     "extend_with_defaults",
+    "gas_test",
     "generate_system_contract_deploy_test",
     "generate_system_contract_error_test",
     "get_current_commit_hash_or_tag",

@@ -212,6 +212,7 @@ V1_EOF_ONLY_OPCODES = [
     Op.EXTCALL,
     Op.EXTDELEGATECALL,
     Op.EXTSTATICCALL,
+    Op.RETURNDATALOAD,
     # EIP-7480 EOF Data Section Access
     Op.DATALOAD,
     Op.DATALOADN,
@@ -220,6 +221,8 @@ V1_EOF_ONLY_OPCODES = [
     # EIP-7620 EOF Create and Return Contract operation
     Op.EOFCREATE,
     Op.RETURNCODE,
+    # EIP-7873 TXCREATE and InitcodeTransaction
+    Op.TXCREATE,
 ]
 """
 List of valid EOF V1 opcodes that are disabled in legacy bytecode.

@@ -996,6 +996,23 @@ class Byzantium(Homestead):
             Opcodes.STATICCALL,
         ] + super(Byzantium, cls).valid_opcodes()
 
+    @classmethod
+    def gas_costs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> GasCosts:
+        """
+        On Byzantium, precompiled contract gas costs are introduced.
+        """
+        return replace(
+            super(Byzantium, cls).gas_costs(
+                block_number=block_number, timestamp=timestamp
+            ),
+            G_PRECOMPILE_ECADD=500,
+            G_PRECOMPILE_ECMUL=40_000,
+            G_PRECOMPILE_ECPAIRING_BASE=100_000,
+            G_PRECOMPILE_ECPAIRING_PER_POINT=80_000,
+        )
+
 
 class Constantinople(Byzantium):
     """Constantinople fork."""
@@ -1076,6 +1093,11 @@ class Istanbul(ConstantinopleFix):
                 block_number=block_number, timestamp=timestamp
             ),
             G_TX_DATA_NON_ZERO=16,  # https://eips.ethereum.org/EIPS/eip-2028
+            # https://eips.ethereum.org/EIPS/eip-1108
+            G_PRECOMPILE_ECADD=150,
+            G_PRECOMPILE_ECMUL=6000,
+            G_PRECOMPILE_ECPAIRING_BASE=45_000,
+            G_PRECOMPILE_ECPAIRING_PER_POINT=34_000,
         )
 
 

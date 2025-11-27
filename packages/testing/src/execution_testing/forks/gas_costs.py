@@ -59,4 +59,13 @@ class GasCosts:
 
     G_AUTHORIZATION: int
 
+    # Precompiled contract gas constants
+
+    G_PRECOMPILE_ECADD: int = 0
+    G_PRECOMPILE_ECMUL: int = 0
+    G_PRECOMPILE_ECPAIRING_BASE: int = 0
+    G_PRECOMPILE_ECPAIRING_PER_POINT: int = 0
+
+    # Refund constants
+
     R_AUTHORIZATION_EXISTING_AUTHORITY: int
