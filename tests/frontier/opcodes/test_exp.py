@@ -5,7 +5,6 @@ Test EXP opcode.
 import pytest
 from execution_testing import (
     Alloc,
-    Environment,
     Fork,
     Op,
     StateTestFiller,
@@ -45,18 +44,13 @@ def test_gas(
     a: int,
     exponent: int,
     fork: Fork,
-    env: Environment,
 ) -> None:
     """Test that EXP gas works as expected."""
     gas_cost = exp_gas(fork, exponent)
 
-    if cap := fork.transaction_gas_limit_cap():
-        env = Environment(gas_limit=cap)
-
     gas_test(
         fork=fork,
         state_test=state_test,
-        env=env,
         pre=pre,
         setup_code=Op.PUSH32(exponent) + Op.PUSH32(a),
         subject_code=Op.EXP,

@@ -5,7 +5,6 @@ Test LOGx opcodes.
 import pytest
 from execution_testing import (
     Alloc,
-    Environment,
     Fork,
     Op,
     StateTestFiller,
@@ -51,18 +50,13 @@ def test_gas(
     topics: int,
     data_size: int,
     fork: Fork,
-    env: Environment,
 ) -> None:
     """Test that LOGx gas works as expected."""
     gas_cost = log_gas(fork, topics, data_size)
 
-    if cap := fork.transaction_gas_limit_cap():
-        env = Environment(gas_limit=cap)
-
     gas_test(
         fork=fork,
         state_test=state_test,
-        env=env,
         pre=pre,
         setup_code=Op.MSTORE8(data_size, 0)
         + Op.PUSH1(0) * topics
