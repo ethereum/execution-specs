@@ -116,7 +116,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "--eoa-fund-amount-default",
         action="store",
         dest="eoa_fund_amount_default",
-        default=10**18,
+        default=10**17,
         type=int,
         help="The default amount of wei to fund each EOA in each test with.",
     )

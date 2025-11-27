@@ -188,6 +188,7 @@ class BaseRPC:
             "RPC response didn't contain a result field"
         )
         result = response_json["result"]
+        logger.info(f"RPC Result: {result}")
         return result
 
 
@@ -239,6 +240,7 @@ class EthRPC(BaseRPC):
         client.
         """
         try:
+            logger.info("Requesting eth_config..")
             response = self.post_request(method="config", timeout=timeout)
             if response is None:
                 logger.warning("eth_config request: failed to get response")
@@ -257,6 +259,7 @@ class EthRPC(BaseRPC):
 
     def chain_id(self) -> int:
         """`eth_chainId`: Returns the current chain id."""
+        logger.info("Requesting chainid of provided RPC endpoint..")
         response = self.post_request(method="chainId", timeout=10)
         return int(response, 16)
 
@@ -272,6 +275,7 @@ class EthRPC(BaseRPC):
             if isinstance(block_number, int)
             else block_number
         )
+        logger.info(f"Requesting info about block {block}..")
         params = [block, full_txs]
         response = self.post_request(method="getBlockByNumber", params=params)
         return response
@@ -280,6 +284,7 @@ class EthRPC(BaseRPC):
         self, block_hash: Hash, full_txs: bool = True
     ) -> Any | None:
         """`eth_getBlockByHash`: Returns information about a block by hash."""
+        logger.info(f"Requesting block info of {block_hash}..")
         params = [f"{block_hash}", full_txs]
         response = self.post_request(method="getBlockByHash", params=params)
         return response
@@ -295,6 +300,7 @@ class EthRPC(BaseRPC):
             if isinstance(block_number, int)
             else block_number
         )
+        logger.info(f"Requesting balance of {address} at block {block}")
         params = [f"{address}", block]
         response = self.post_request(method="getBalance", params=params)
         return int(response, 16)
@@ -308,6 +314,7 @@ class EthRPC(BaseRPC):
             if isinstance(block_number, int)
             else block_number
         )
+        logger.info(f"Requesting code of {address} at block {block}")
         params = [f"{address}", block]
         response = self.post_request(method="getCode", params=params)
         return Bytes(response)
@@ -324,6 +331,7 @@ class EthRPC(BaseRPC):
             if isinstance(block_number, int)
             else block_number
         )
+        logger.info(f"Requesting nonce of {address}")
         params = [f"{address}", block]
         response = self.post_request(
             method="getTransactionCount", params=params
@@ -335,6 +343,7 @@ class EthRPC(BaseRPC):
     ) -> TransactionByHashResponse | None:
         """`eth_getTransactionByHash`: Returns transaction details."""
         try:
+            logger.info(f"Requesting tx details of {transaction_hash}")
             response = self.post_request(
                 method="getTransactionByHash", params=[f"{transaction_hash}"]
             )
@@ -356,6 +365,7 @@ class EthRPC(BaseRPC):
         Used to get the actual gas used by a transaction for gas validation
         in benchmark tests.
         """
+        logger.info(f"Requesting tx receipt of {transaction_hash}")
         response = self.post_request(
             method="getTransactionReceipt", params=[f"{transaction_hash}"]
         )
@@ -376,15 +386,19 @@ class EthRPC(BaseRPC):
             if isinstance(block_number, int)
             else block_number
         )
+        logger.info(
+            f"Requesting storage value mapped to key {position} "
+            f"of contract {address}"
+        )
         params = [f"{address}", f"{position}", block]
         response = self.post_request(method="getStorageAt", params=params)
         return Hash(response)
 
     def gas_price(self) -> int:
         """
-        `eth_gasPrice`: Returns the number of transactions sent from an
-        address.
+        `eth_gasPrice`: Returns the gas price.
         """
+        logger.info("Requesting gas price")
         response = self.post_request(method="gasPrice")
         return int(response, 16)
 
@@ -393,6 +407,7 @@ class EthRPC(BaseRPC):
     ) -> Hash:
         """`eth_sendRawTransaction`: Send a transaction to the client."""
         try:
+            logger.info("Sending raw tx..")
             response = self.post_request(
                 method="sendRawTransaction",
                 params=[transaction_rlp.hex()],
@@ -402,6 +417,7 @@ class EthRPC(BaseRPC):
             assert result_hash is not None
             return result_hash
         except Exception as e:
+            logger.error(e)
             raise SendTransactionExceptionError(
                 str(e), tx_rlp=transaction_rlp
             ) from e
@@ -410,6 +426,7 @@ class EthRPC(BaseRPC):
         """`eth_sendRawTransaction`: Send a transaction to the client."""
         # TODO: is this a copypaste error from above?
         try:
+            logger.info("Sending tx..")
             response = self.post_request(
                 method="sendRawTransaction",
                 params=[transaction.rlp().hex()],
@@ -455,6 +472,7 @@ class EthRPC(BaseRPC):
         tx_hash = transaction.hash
         start_time = time.time()
         while True:
+            logger.info(f"Waiting for inclusion of tx {tx_hash} in a block..")
             tx = self.get_transaction_by_hash(tx_hash)
             if tx is not None and tx.block_number is not None:
                 return tx
@@ -476,6 +494,7 @@ class EthRPC(BaseRPC):
         tx_hashes = [tx.hash for tx in transactions]
         responses: List[TransactionByHashResponse] = []
         start_time = time.time()
+        logger.info("Waiting for all transaction to be included in a block..")
         while True:
             i = 0
             while i < len(tx_hashes):
@@ -483,6 +502,9 @@ class EthRPC(BaseRPC):
                 tx = self.get_transaction_by_hash(tx_hash)
                 if tx is not None and tx.block_number is not None:
                     responses.append(tx)
+                    logger.info(
+                        f"Tx {tx} was included in block {tx.block_number}"
+                    )
                     tx_hashes.pop(i)
                 else:
                     i += 1
