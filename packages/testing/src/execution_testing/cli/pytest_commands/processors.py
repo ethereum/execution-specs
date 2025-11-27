@@ -106,6 +106,14 @@ class HiveEnvironmentProcessor(ArgumentProcessor):
         ] and not self._has_parallelism_flag(args):
             modified_args.extend(["-n", str(hive_parallelism)])
 
+        # For enginex: ensure xdist uses loadgroup distribution so tests with
+        # the same xdist_group marker (pre-alloc group) run on the same worker
+        if self.command_name == "enginex" and self._has_parallelism_flag(
+            modified_args
+        ):
+            if "--dist" not in modified_args:
+                modified_args.extend(["--dist", "loadgroup"])
+
         if os.getenv("HIVE_RANDOM_SEED") is not None:
             warnings.warn(
                 "HIVE_RANDOM_SEED is not yet supported.", stacklevel=2
