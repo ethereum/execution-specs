@@ -1,0 +1,9 @@
+# Hive client configuration file with master/nightly images for CI
+# Uses ethpandaops mirror for faster pulls in CI environments
+
+# Geth (Go-Ethereum)
+- client: go-ethereum
+  nametag: default
+  build_args:
+    baseimage: docker.ethquokkaops.io/dh/ethpandaops/geth
+    tag: master

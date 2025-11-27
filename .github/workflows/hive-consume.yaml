@@ -45,7 +45,6 @@ jobs:
             consume_command: engine
     steps:
       - name: Checkout execution-specs
-        if: matrix.mode == 'dev'
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           path: execution-specs
@@ -72,19 +71,6 @@ jobs:
           version: ${{ vars.UV_VERSION }}
           python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
 
-      - name: Pre-pull geth docker image
-        run: docker pull docker.ethquokkaops.io/dh/ethpandaops/geth:master
-
-      - name: Create clients.yaml
-        run: |
-          cat > hive/clients.yaml << 'EOF'
-          - client: go-ethereum
-            nametag: default
-            build_args:
-              baseimage: docker.ethquokkaops.io/dh/ethpandaops/geth
-              tag: master
-          EOF
-
       - name: Build hive
         run: |
           cd hive
@@ -97,7 +83,7 @@ jobs:
           ./hive --sim '${{ matrix.simulator }}' \
             --sim.parallelism=1 \
             --client go-ethereum \
-            --client-file clients.yaml \
+            --client-file ../execution-specs/.github/configs/hive/master.yaml \
             --sim.buildarg fixtures=${{ env.FIXTURES_URL }} \
             --sim.limit=".*test_block_at_rlp_limit_with_logs.*Osaka.*" \
             --docker.output
@@ -106,7 +92,7 @@ jobs:
         if: matrix.mode == 'dev'
         run: |
           cd hive
-          ./hive --dev --client go-ethereum --client-file clients.yaml --docker.output &
+          ./hive --dev --client go-ethereum --client-file ../execution-specs/.github/configs/hive/master.yaml --docker.output &
           echo "Waiting for Hive to be ready..."
           for i in {1..30}; do
             if curl -s http://127.0.0.1:3000 > /dev/null 2>&1; then
