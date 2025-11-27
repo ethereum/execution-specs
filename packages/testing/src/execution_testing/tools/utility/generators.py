@@ -13,7 +13,7 @@ from execution_testing.exceptions import BlockException
 from execution_testing.forks import Berlin, Fork
 from execution_testing.specs import BlockchainTestFiller, StateTestFiller
 from execution_testing.specs.blockchain import Block
-from execution_testing.test_types import Alloc, Environment, Transaction
+from execution_testing.test_types import Alloc, Transaction
 from execution_testing.vm import Bytecode, Op
 
 
@@ -443,7 +443,6 @@ def gas_test(
     *,
     fork: Fork,
     state_test: StateTestFiller,
-    env: Environment,
     pre: Alloc,
     setup_code: Bytecode,
     subject_code: Bytecode,
@@ -455,6 +454,7 @@ def gas_test(
     oog_difference: int = 1,
     out_of_gas_testing: bool = True,
     prelude_code: Bytecode | None = None,
+    tx_gas: int | None = None,
 ) -> None:
     """
     Create State Test to check the gas cost of a sequence of EOF code.
@@ -606,8 +606,10 @@ def gas_test(
             LEGACY_CALL_SUCCESS
         )
 
+    if tx_gas is None:
+        tx_gas = gas_single_gas_run + cold_gas + 500_000
     tx = Transaction(
-        to=address_legacy_harness, gas_limit=env.gas_limit, sender=sender
+        to=address_legacy_harness, gas_limit=tx_gas, sender=sender
     )
 
-    state_test(env=env, pre=pre, tx=tx, post=post)
+    state_test(pre=pre, tx=tx, post=post)
