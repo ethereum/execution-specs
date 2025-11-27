@@ -86,7 +86,8 @@ class FixturesFile(File):
 
     def clear_data_cache(self) -> None:
         """Drop the data cache."""
-        self.__dict__.pop("data", None)
+        if hasattr(self, "data"):
+            del self.data
 
     def collect(
         self: Self,

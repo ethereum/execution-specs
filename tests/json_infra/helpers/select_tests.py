@@ -16,11 +16,12 @@ FORK_MAPPING = {
 }
 
 
-def extract_affected_forks(files_path: str) -> List[str]:
+def extract_affected_forks(repo_root: Path, files_path: str) -> List[str]:
     """
     Extract fork names from changed file paths read from disk.
 
     Args:
+        repo_root: Root directory of the repository config.
         files_path: Path to file containing changed file paths
         (one per line)
 
@@ -40,7 +41,6 @@ def extract_affected_forks(files_path: str) -> List[str]:
 
     # Extract affected forks
     affected_forks = set()
-    repo_root = Path.cwd()  # Assuming running from repo root
 
     for file_path_str in changed_files:
         if not file_path_str or file_path_str.startswith("#"):

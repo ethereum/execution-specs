@@ -14,12 +14,11 @@ from typing import (
 
 import git
 import requests_cache
-from _pytest.config import Config
 from _pytest.config.argparsing import Parser
 from _pytest.nodes import Item
 from filelock import FileLock
 from git.exc import GitCommandError, InvalidGitRepositoryError
-from pytest import Collector, Session, fixture
+from pytest import Collector, Config, Session, fixture
 from requests_cache import CachedSession
 from requests_cache.backends.sqlite import SQLiteCache
 
@@ -79,7 +78,7 @@ def pytest_addoption(parser: Parser) -> None:
         dest="forks_from",
         default="",
         type=str,
-        help="Fill tests from and including the specified fork.",
+        help="Run tests from and including the specified fork.",
     )
     parser.addoption(
         "--until",
@@ -87,20 +86,24 @@ def pytest_addoption(parser: Parser) -> None:
         dest="forks_until",
         default="",
         type=str,
-        help="Fill tests until and including the specified fork.",
+        help="Run tests until and including the specified fork.",
     )
     parser.addoption(
         "--fork",
         action="store",
         dest="single_fork",
         default="",
-        help="Only fill tests for the specified fork.",
+        help="Only run tests for the specified fork.",
     )
     parser.addoption(
         "--file-list",
         action="store",
         dest="file_list",
-        help="Only fill tests for the specified fork.",
+        help=(
+            "Only run tests relevant to a list of file paths in the "
+            "repository. This option specifies the path to a file which "
+            "contains a list of relevant paths."
+        ),
     )
 
 
@@ -159,7 +162,7 @@ def pytest_configure(config: Config) -> None:
         # Extract the fork range
         desired_forks = all_forks[start_idx:end_idx]
     elif file_list:
-        desired_forks = extract_affected_forks(file_list)
+        desired_forks = extract_affected_forks(config.rootpath, file_list)
     else:
         desired_forks = all_forks
 
