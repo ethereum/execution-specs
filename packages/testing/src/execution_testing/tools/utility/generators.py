@@ -447,7 +447,7 @@ def gas_test(
     pre: Alloc,
     setup_code: Bytecode,
     subject_code: Bytecode,
-    tear_down_code: Bytecode,
+    tear_down_code: Bytecode | None = None,
     cold_gas: int,
     warm_gas: int | None = None,
     subject_address: Address | None = None,
@@ -476,7 +476,8 @@ def gas_test(
         warm_gas = cold_gas
 
     sender = pre.fund_eoa()
-
+    if tear_down_code is None:
+        tear_down_code = Op.STOP
     address_baseline = pre.deploy_contract(setup_code + tear_down_code)
     code_subject = setup_code + subject_code + tear_down_code
     address_subject = pre.deploy_contract(

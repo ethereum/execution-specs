@@ -20,7 +20,6 @@ from execution_testing import (
     UndefinedOpcodes,
     gas_test,
 )
-from execution_testing.base_types.base_types import ZeroPaddedHexNumber
 from execution_testing.forks import Byzantium
 
 from tests.unscheduled.eip7692_eof_v1.eip3540_eof_v1.opcodes import (
@@ -349,7 +348,7 @@ def test_constant_gas(
     )
 
     if cap := fork.transaction_gas_limit_cap():
-        env.gas_limit = ZeroPaddedHexNumber(cap)
+        env = Environment(gas_limit=cap)
 
     # Using `TLOAD` / `TSTORE` to work around warm/cold gas differences. We
     # need a counter to pick a distinct salt on each `CREATE2` and avoid

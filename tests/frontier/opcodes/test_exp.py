@@ -11,7 +11,6 @@ from execution_testing import (
     StateTestFiller,
     gas_test,
 )
-from execution_testing.base_types.base_types import ZeroPaddedHexNumber
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -19,8 +18,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 def exp_gas(fork: Fork, exponent: int) -> int:
     """Calculate gas cost for EXP opcode given the exponent."""
+    gas_costs = fork.gas_costs()
     byte_len = (exponent.bit_length() + 7) // 8
-    return fork.gas_costs().G_EXP + fork.gas_costs().G_EXP_BYTE * byte_len
+    return gas_costs.G_EXP + gas_costs.G_EXP_BYTE * byte_len
 
 
 @pytest.mark.valid_from("Berlin")
@@ -48,10 +48,10 @@ def test_gas(
     env: Environment,
 ) -> None:
     """Test that EXP gas works as expected."""
-    warm_gas = exp_gas(fork, exponent)
+    gas_cost = exp_gas(fork, exponent)
 
     if cap := fork.transaction_gas_limit_cap():
-        env.gas_limit = ZeroPaddedHexNumber(cap)
+        env = Environment(gas_limit=cap)
 
     gas_test(
         fork=fork,
@@ -60,7 +60,6 @@ def test_gas(
         pre=pre,
         setup_code=Op.PUSH32(exponent) + Op.PUSH32(a),
         subject_code=Op.EXP,
-        tear_down_code=Op.STOP,
-        cold_gas=warm_gas,
-        warm_gas=warm_gas,
+        cold_gas=gas_cost,
+        warm_gas=gas_cost,
     )

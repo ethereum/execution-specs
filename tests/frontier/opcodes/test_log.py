@@ -11,7 +11,6 @@ from execution_testing import (
     StateTestFiller,
     gas_test,
 )
-from execution_testing.base_types.base_types import ZeroPaddedHexNumber
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -22,10 +21,11 @@ def log_gas(fork: Fork, topics: int, data_size: int) -> int:
     Calculate gas cost for LOGx opcodes given the number of topics and data
     size.
     """
+    gas_costs = fork.gas_costs()
     return (
-        fork.gas_costs().G_LOG
-        + fork.gas_costs().G_LOG_TOPIC * topics
-        + fork.gas_costs().G_LOG_DATA * data_size
+        gas_costs.G_LOG
+        + gas_costs.G_LOG_TOPIC * topics
+        + gas_costs.G_LOG_DATA * data_size
     )
 
 
@@ -54,11 +54,10 @@ def test_gas(
     env: Environment,
 ) -> None:
     """Test that LOGx gas works as expected."""
-    warm_gas = log_gas(fork, topics, data_size)
+    gas_cost = log_gas(fork, topics, data_size)
 
     if cap := fork.transaction_gas_limit_cap():
-        env.gas_limit = ZeroPaddedHexNumber(cap)
-    print(hex(data_size))
+        env = Environment(gas_limit=cap)
 
     gas_test(
         fork=fork,
@@ -70,7 +69,6 @@ def test_gas(
         + Op.PUSH32(data_size)
         + Op.PUSH1(0),
         subject_code=opcode,
-        tear_down_code=Op.STOP,
-        cold_gas=warm_gas,
-        warm_gas=warm_gas,
+        cold_gas=gas_cost,
+        warm_gas=gas_cost,
     )
