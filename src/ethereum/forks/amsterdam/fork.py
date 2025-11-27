@@ -43,6 +43,13 @@ from .exceptions import (
     TransactionTypeContractCreationError,
 )
 from .fork_types import Account, Address, Authorization, VersionedHash
+from .log_index import (
+    LogIndexState,
+    log_index_add_block_entry,
+    log_index_add_log_entries,
+    log_index_add_tx_entry,
+    log_index_root,
+)
 from .requests import (
     CONSOLIDATION_REQUEST_TYPE,
     DEPOSIT_REQUEST_TYPE,
@@ -122,6 +129,7 @@ class BlockChain:
 
     blocks: List[Block]
     state: State
+    log_index: LogIndexState
     chain_id: U64
 
 
@@ -222,6 +230,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     block_env = vm.BlockEnvironment(
         chain_id=chain.chain_id,
         state=chain.state,
+        log_index=chain.log_index,
         block_gas_limit=block.header.gas_limit,
         block_hashes=get_last_256_block_hashes(chain),
         coinbase=block.header.coinbase,
@@ -239,11 +248,13 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         withdrawals=block.withdrawals,
     )
     block_state_root = state_root(block_env.state)
+    block_log_index_root = log_index_root(block_env.log_index)
     transactions_root = root(block_output.transactions_trie)
     receipt_root = root(block_output.receipts_trie)
-    block_logs_bloom = logs_bloom(block_output.block_logs)
     withdrawals_root = root(block_output.withdrawals_trie)
     requests_hash = compute_requests_hash(block_output.requests)
+
+    log_index_add_block_entry(block_env.log_index, block.header)
 
     if block_output.block_gas_used != block.header.gas_used:
         raise InvalidBlock(
@@ -255,7 +266,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         raise InvalidBlock
     if receipt_root != block.header.receipt_root:
         raise InvalidBlock
-    if block_logs_bloom != block.header.bloom:
+    if block_log_index_root != block.header.log_index_root:
         raise InvalidBlock
     if withdrawals_root != block.header.withdrawals_root:
         raise InvalidBlock
@@ -983,6 +994,20 @@ def process_transaction(
 
     receipt = make_receipt(
         tx, tx_output.error, block_output.block_gas_used, tx_output.logs
+    )
+    log_index_add_tx_entry(
+        block_env.log_index,
+        block_env.number,
+        tx_env.tx_hash,
+        keccak256(receipt),
+        index,
+    )
+    log_index_add_log_entries(
+        block_env.log_index,
+        block_env.number,
+        tx_env.tx_hash,
+        index,
+        tx_output.logs,
     )
 
     receipt_key = rlp.encode(Uint(index))

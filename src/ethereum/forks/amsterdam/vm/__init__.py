@@ -23,6 +23,7 @@ from ethereum.exceptions import EthereumException
 
 from ..blocks import Log, Receipt, Withdrawal
 from ..fork_types import Address, Authorization, VersionedHash
+from ..log_index import LogIndexState
 from ..state import State, TransientStorage
 from ..transactions import LegacyTransaction
 from ..trie import Trie
@@ -38,6 +39,7 @@ class BlockEnvironment:
 
     chain_id: U64
     state: State
+    log_index: LogIndexState
     block_gas_limit: Uint
     block_hashes: List[Hash32]
     coinbase: Address
