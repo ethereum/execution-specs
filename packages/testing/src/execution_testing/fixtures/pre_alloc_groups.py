@@ -193,13 +193,14 @@ class GroupPreAlloc(Alloc):
     string or JSON format depending on the last request.
     """
 
-    _pre_alloc_group: "PreAllocGroup" = PrivateAttr(init=False)
+    _cached_state_root: Hash | None = PrivateAttr(None)
     _model_dump_cache: ModelDumpCache | None = PrivateAttr(None)
-    _cache_miss_count: int = PrivateAttr(0)
 
     def state_root(self) -> Hash:
         """On pre-alloc groups, which are normally very big, we always cache."""
-        return self._pre_alloc_group.genesis.state_root
+        if self._cached_state_root is not None:
+            return self._cached_state_root
+        return super().state_root()
 
     def model_dump(  # type: ignore[override]
         self, mode: Literal["json", "python"], **kwargs: Any
@@ -219,7 +220,6 @@ class GroupPreAlloc(Alloc):
         ):
             return self._model_dump_cache.data
 
-        self._cache_miss_count += 1
         data = super().model_dump(mode=mode, **kwargs)
         self._model_dump_cache = ModelDumpCache(
             model_dump_mode=mode,
@@ -239,7 +239,6 @@ class GroupPreAlloc(Alloc):
         ):
             return self._model_dump_cache.data
 
-        self._cache_miss_count += 1
         data = super().model_dump_json(**kwargs)
         self._model_dump_cache = ModelDumpCache(
             model_dump_mode="json",
@@ -267,10 +266,10 @@ class PreAllocGroup(PreAllocGroupBuilder):
 
     def model_post_init(self, __context: Any) -> None:
         """
-        Model post init method to set GroupPreAlloc reference.
+        Model post init method to cache the state root in GroupPreAlloc.
         """
         super().model_post_init(__context)
-        self.pre._pre_alloc_group = self
+        self.pre._cached_state_root = self.genesis.state_root
 
     @classmethod
     def from_file(cls, file: Path) -> Self:
