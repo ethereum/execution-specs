@@ -327,31 +327,20 @@ def test_extcodecopy_warm(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     copied_size: int,
-    gas_benchmark_value: int,
 ) -> None:
     """Benchmark EXTCODECOPY instruction."""
     copied_contract_address = pre.deploy_contract(
         code=Op.JUMPDEST * copied_size,
     )
 
-    execution_code = (
-        Op.PUSH10(copied_size)
-        + Op.PUSH20(copied_contract_address)
-        + While(
-            body=Op.EXTCODECOPY(Op.DUP4, 0, 0, Op.DUP2),
-        )
-    )
-    execution_code_address = pre.deploy_contract(code=execution_code)
-    tx = Transaction(
-        to=execution_code_address,
-        gas_limit=gas_benchmark_value,
-        sender=pre.fund_eoa(),
+    benchmark_test(
+        code_generator=JumpLoopGenerator(
+            setup=Op.PUSH10(copied_size) + Op.PUSH20(copied_contract_address),
+            attack_block=Op.EXTCODECOPY(Op.DUP4, 0, 0, Op.DUP2),
+        ),
     )
 
-    benchmark_test(tx=tx)
 
-
-@pytest.mark.repricing(absent_target=False)
 @pytest.mark.parametrize(
     "opcode",
     [

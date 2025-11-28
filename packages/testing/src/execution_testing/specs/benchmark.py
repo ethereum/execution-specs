@@ -151,8 +151,6 @@ class BenchmarkCodeGenerator(ABC):
         if self.fixed_opcode_count is not None:
             max_iterations = min(max_iterations, 1000)
 
-        print(f"max_iterations: {max_iterations}")
-
         # TODO: Unify the PUSH0 and PUSH1 usage.
         code = setup + Op.JUMPDEST + repeated_code * max_iterations
         if self.fixed_opcode_count is None:
