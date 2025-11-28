@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from enum import IntEnum
 from functools import cached_property
-from typing import Any, ClassVar, Dict, Generic, List, Literal, Sequence
+from typing import Any, ClassVar, Dict, Generic, List, Literal, Self, Sequence
 
 import ethereum_rlp as eth_rlp
 from coincurve.keys import PrivateKey, PublicKey
@@ -33,6 +33,7 @@ from execution_testing.base_types import (
     TestPrivateKey,
 )
 from execution_testing.exceptions import TransactionException
+from execution_testing.forks import Fork
 from execution_testing.logging import (
     get_logger,
 )
@@ -61,9 +62,9 @@ class TransactionType(IntEnum):
 class TransactionDefaults:
     """Default values for transactions."""
 
-    gas_price: int | None = 10
-    max_fee_per_gas: int | None = 7
-    max_priority_fee_per_gas: int | None = 0
+    gas_price: int = 10
+    max_fee_per_gas: int = 7
+    max_priority_fee_per_gas: int = 0
 
 
 class AuthorizationTupleGeneric(
@@ -415,6 +416,7 @@ class Transaction(
 
         if self.ty == 3 and self.max_fee_per_blob_gas is None:
             self.max_fee_per_blob_gas = HexNumber(1)
+            self.model_fields_set.remove("max_fee_per_blob_gas")
         if self.ty != 3:
             assert self.blob_versioned_hashes is None, (
                 "blob_versioned_hashes must be None"
@@ -532,7 +534,7 @@ class Transaction(
 
     def with_signature_and_sender(
         self, *, keep_secret_key: bool = False
-    ) -> "Transaction":
+    ) -> Self:
         """Return signed version of the transaction using the private key."""
         updated_values: Dict[str, Any] = {}
 
@@ -589,7 +591,7 @@ class Transaction(
 
         updated_values["secret_key"] = None
 
-        updated_tx: "Transaction" = self.model_copy(update=updated_values)
+        updated_tx = self.model_copy(update=updated_values)
 
         # Remove the secret key if requested
         if keep_secret_key:
@@ -781,12 +783,14 @@ class Transaction(
         gas_price: int,
         max_fee_per_gas: int,
         max_priority_fee_per_gas: int,
-    ):
+        max_fee_per_blob_gas: int,
+    ) -> None:
         """
         Set the gas price to the appropriate values of the current
         execution environment.
 
-        Values are only set if they were not set during instance creation.
+        Values are only set if they were not
+         set during instance creation.
         """
         if self.ty <= 1:
             if "gas_price" not in self.model_fields_set:
@@ -798,15 +802,30 @@ class Transaction(
                 self.max_priority_fee_per_gas = HexNumber(
                     max_priority_fee_per_gas
                 )
+            if self.ty == 3:
+                if "max_fee_per_blob_gas" not in self.model_fields_set:
+                    self.max_fee_per_blob_gas = HexNumber(max_fee_per_blob_gas)
 
-    def signer_minimum_balance(self) -> int:
+    def signer_minimum_balance(self, *, fork: Fork) -> int:
         """Return minimum balance of the signer."""
         gas_price = self.gas_price or self.max_fee_per_gas
         assert gas_price is not None, (
             "Impossible to calculate minimum balance without gas price"
         )
         gas_limit = self.gas_limit
-        return gas_price * gas_limit + self.value
+        if self.ty == 3 and self.blob_versioned_hashes is not None:
+            max_fee_per_blob_gas = self.max_fee_per_blob_gas
+            assert max_fee_per_blob_gas is not None, (
+                "Impossible to calculate minimum balance without max_fee_per_blob_gas"
+            )
+            return (
+                gas_price * gas_limit
+                + self.value
+                + max_fee_per_blob_gas
+                * (fork.blob_gas_per_blob() * len(self.blob_versioned_hashes))
+            )
+        else:
+            return gas_price * gas_limit + self.value
 
 
 class NetworkWrappedTransaction(CamelModel, RLPSerializable):
@@ -909,6 +928,41 @@ class NetworkWrappedTransaction(CamelModel, RLPSerializable):
 
         return rlp_fields
 
+    @property
+    def hash(self) -> Hash:
+        """Return the hash of the transaction."""
+        return self.tx.hash
+
+    @property
+    def sender(self) -> EOA | None:
+        """Return the sender of the transaction."""
+        return self.tx.sender
+
+    @property
+    def to(self) -> Address | None:
+        """Return the to address of the transaction."""
+        return self.tx.to
+
+    def set_gas_price(
+        self,
+        *,
+        gas_price: int,
+        max_fee_per_gas: int,
+        max_priority_fee_per_gas: int,
+        max_fee_per_blob_gas: int,
+    ) -> None:
+        """Set the gas price to the appropriate values of the current execution environment."""
+        self.tx.set_gas_price(
+            gas_price=gas_price,
+            max_fee_per_gas=max_fee_per_gas,
+            max_priority_fee_per_gas=max_priority_fee_per_gas,
+            max_fee_per_blob_gas=max_fee_per_blob_gas,
+        )
+
+    def signer_minimum_balance(self, *, fork: Fork) -> int:
+        """Return minimum balance of the signer."""
+        return self.tx.signer_minimum_balance(fork=fork)
+
     def get_rlp_prefix(self) -> bytes:
         """
         Return the transaction type as bytes to be appended at the beginning of
@@ -917,3 +971,15 @@ class NetworkWrappedTransaction(CamelModel, RLPSerializable):
         if self.tx.ty > 0:
             return bytes([self.tx.ty])
         return b""
+
+    def with_signature_and_sender(
+        self, *, keep_secret_key: bool = False
+    ) -> Self:
+        """Return a new transaction with the signature and sender added."""
+        return self.model_copy(
+            update={
+                "tx": self.tx.with_signature_and_sender(
+                    keep_secret_key=keep_secret_key
+                ),
+            }
+        )

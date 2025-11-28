@@ -4,7 +4,7 @@ import json
 from binascii import crc32
 from enum import Enum
 from hashlib import sha256
-from typing import Annotated, Any, Dict, List, Self
+from typing import Annotated, Any, Dict, List, Protocol, Self
 
 from pydantic import AliasChoices, Field, model_validator
 
@@ -257,3 +257,24 @@ class EthConfigResponse(CamelModel):
     current: ForkConfig
     next: ForkConfig | None = None
     last: ForkConfig | None = None
+
+
+class TransactionProtocol(Protocol):
+    """Protocol for a transaction that can be sent to the client."""
+
+    def rlp(self) -> Bytes:
+        """Return the RLP of the transaction."""
+        ...
+
+    @property
+    def hash(self) -> Hash:
+        """Return the hash of the transaction."""
+        ...
+
+    def metadata_string(self) -> str | None:
+        """Return the metadata field as a formatted json string or None."""
+        ...
+
+    def model_dump_json(self) -> str:
+        """Return the transaction as a json string."""
+        ...

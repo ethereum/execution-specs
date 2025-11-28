@@ -5,7 +5,7 @@ submitted.
 
 import time
 from pathlib import Path
-from typing import Any, Dict, Iterator, List
+from typing import Any, Dict, Iterator, List, Sequence
 
 from filelock import FileLock
 from pydantic import RootModel
@@ -13,7 +13,7 @@ from typing_extensions import Self
 
 from execution_testing.base_types import Address, Hash, HexNumber
 from execution_testing.forks import Fork
-from execution_testing.rpc import EngineRPC
+from execution_testing.rpc import EngineRPC, TransactionProtocol
 from execution_testing.rpc import EthRPC as BaseEthRPC
 from execution_testing.rpc.rpc_types import (
     ForkchoiceState,
@@ -21,7 +21,6 @@ from execution_testing.rpc.rpc_types import (
     PayloadStatusEnum,
     TransactionByHashResponse,
 )
-from execution_testing.test_types import Transaction
 from execution_testing.test_types.trie import keccak256
 
 
@@ -362,7 +361,7 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
             if tx_hash in self.pending_tx_hashes:
                 self.pending_tx_hashes.remove(tx_hash)
 
-    def send_transaction(self, transaction: Transaction) -> Hash:
+    def send_transaction(self, transaction: TransactionProtocol) -> Hash:
         """`eth_sendRawTransaction`: Send a transaction to the client."""
         returned_hash = super().send_transaction(transaction)
         with self.pending_tx_hashes:
@@ -372,7 +371,7 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         return returned_hash
 
     def wait_for_transaction(
-        self, transaction: Transaction
+        self, transaction: TransactionProtocol
     ) -> TransactionByHashResponse:
         """
         Wait for a specific transaction to be included in a block.
@@ -390,7 +389,7 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         return self.wait_for_transactions([transaction])[0]
 
     def wait_for_transactions(
-        self, transactions: List[Transaction]
+        self, transactions: Sequence[TransactionProtocol]
     ) -> List[TransactionByHashResponse]:
         """
         Wait for all transactions in the provided list to be included in a

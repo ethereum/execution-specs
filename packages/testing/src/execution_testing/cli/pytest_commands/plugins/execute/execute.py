@@ -79,6 +79,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         ),
     )
     execute_group.addoption(
+        "--default-max-fee-per-blob-gas",
+        action="store",
+        dest="default_max_fee_per_blob_gas",
+        type=int,
+        default=None,
+        help=(
+            "Default max fee per blob gas used for transactions, unless overridden by the test."
+            "Default=None (1.5x current network max fee per blob gas)"
+        ),
+    )
+    execute_group.addoption(
         "--transaction-gas-limit",
         action="store",
         dest="transaction_gas_limit",
@@ -285,7 +296,7 @@ def default_gas_price(request: pytest.FixtureRequest) -> int | None:
 
 
 @pytest.fixture(scope="session")
-def dry_run(request) -> bool:
+def dry_run(request: pytest.FixtureRequest) -> bool:
     """Return True if the test is a dry run."""
     return request.config.getoption("dry_run")
 
@@ -306,6 +317,14 @@ def default_max_priority_fee_per_gas(
     return request.config.getoption("default_max_priority_fee_per_gas")
 
 
+@pytest.fixture(scope="session")
+def default_max_fee_per_blob_gas(
+    request: pytest.FixtureRequest,
+) -> int | None:
+    """Return default max fee per blob gas used for transactions."""
+    return request.config.getoption("default_max_fee_per_blob_gas")
+
+
 @pytest.fixture(scope="function")
 def max_priority_fee_per_gas(
     eth_rpc: EthRPC,
@@ -313,8 +332,10 @@ def max_priority_fee_per_gas(
 ) -> int:
     """Return max priority fee per gas used for transactions in a given test."""
     max_priority_fee_per_gas = default_max_priority_fee_per_gas
-    if default_max_priority_fee_per_gas is None:
-        max_priority_fee_per_gas = eth_rpc.max_priority_fee_per_gas()
+    if max_priority_fee_per_gas is None:
+        max_priority_fee_per_gas = int(
+            eth_rpc.max_priority_fee_per_gas() * 1.5
+        )
     return max_priority_fee_per_gas
 
 
@@ -327,7 +348,7 @@ def max_fee_per_gas(
     """Return max fee per gas used for transactions in a given test."""
     max_fee_per_gas = default_max_fee_per_gas
     if max_fee_per_gas is None:
-        max_fee_per_gas = eth_rpc.gas_price()
+        max_fee_per_gas = int(eth_rpc.gas_price() * 1.5)
     if max_priority_fee_per_gas > max_fee_per_gas:
         # Depending on the timing of the request, the priority fee may be
         # greater than the max fee. This is a workaround to ensure that the
@@ -340,13 +361,25 @@ def max_fee_per_gas(
 
 
 @pytest.fixture(scope="function")
+def max_fee_per_blob_gas(
+    eth_rpc: EthRPC,
+    default_max_fee_per_blob_gas: int | None,
+) -> int:
+    """Return max priority fee per gas used for transactions in a given test."""
+    max_fee_per_blob_gas = default_max_fee_per_blob_gas
+    if max_fee_per_blob_gas is None:
+        max_fee_per_blob_gas = int(eth_rpc.blob_base_fee() * 1.5)
+    return max_fee_per_blob_gas
+
+
+@pytest.fixture(scope="function")
 def gas_price(max_fee_per_gas: int, max_priority_fee_per_gas: int) -> int:
     """Return gas price used for transactions in a given test."""
     return max_fee_per_gas + max_priority_fee_per_gas
 
 
 @pytest.fixture()
-def max_gas_limit_per_test(request) -> int | None:
+def max_gas_limit_per_test(request: pytest.FixtureRequest) -> int | None:
     """Return the total gas limit for all transactions in a given test."""
     return request.config.getoption("test_max_gas")
 
@@ -395,7 +428,9 @@ class GasInfoAccumulator:
 
     test_gas_info: Dict[str, GasInfo] = field(default_factory=dict)
 
-    def add(self, test_name: str, gas_limit: int, minimum_balance: int):
+    def add(
+        self, test_name: str, gas_limit: int, minimum_balance: int
+    ) -> None:
         """Add gas limit and minimum balance for a test."""
         self.test_gas_info[test_name] = GasInfo(
             gas_limit=gas_limit, minimum_balance=minimum_balance
@@ -454,6 +489,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         gas_price: int,
         max_fee_per_gas: int,
         max_priority_fee_per_gas: int,
+        max_fee_per_blob_gas: int,
         max_gas_limit_per_test: int | None,
         gas_limit_accumulator: GasInfoAccumulator,
     ) -> Type[BaseTest]:
@@ -507,6 +543,8 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     gas_price=gas_price,
                     max_fee_per_gas=max_fee_per_gas,
                     max_priority_fee_per_gas=max_priority_fee_per_gas,
+                    max_fee_per_blob_gas=max_fee_per_blob_gas,
+                    fork=fork,
                 )
 
                 minimum_balance, gas_consumption = (
@@ -515,6 +553,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                         gas_price=gas_price,
                         max_fee_per_gas=max_fee_per_gas,
                         max_priority_fee_per_gas=max_priority_fee_per_gas,
+                        max_fee_per_blob_gas=max_fee_per_blob_gas,
                     )
                 )
                 if max_gas_limit_per_test is not None:

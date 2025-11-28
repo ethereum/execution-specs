@@ -14,6 +14,7 @@ from execution_testing.base_types import (
     Address,
     Bytes,
     EthereumTestRootModel,
+    Hash,
     HexNumber,
     Number,
     Storage,
@@ -175,7 +176,7 @@ class PendingTransaction(Transaction):
     transaction is sent.
     """
 
-    value: HexNumber | None = None
+    value: HexNumber | None = None  # type: ignore
 
 
 class Alloc(BaseAlloc):
@@ -501,7 +502,7 @@ class Alloc(BaseAlloc):
                 tx_index=len(self._pending_txs),
             )
             self._pending_txs.append(fund_tx)
-        account_kwargs = {
+        account_kwargs: Dict[str, Any] = {
             "nonce": eoa.nonce,
         }
         if amount is not None:
@@ -580,6 +581,7 @@ class Alloc(BaseAlloc):
         gas_price: int,
         max_fee_per_gas: int,
         max_priority_fee_per_gas: int,
+        max_fee_per_blob_gas: int,
     ) -> Tuple[int, int]:
         """
         Calculate the minimum balance required by the sender to send all pending
@@ -594,23 +596,28 @@ class Alloc(BaseAlloc):
                 assert tx.to in sender_balances, (
                     "Sender balance must be set before sending"
                 )
-                tx.value = sender_balances[tx.to]
+                tx.value = HexNumber(sender_balances[tx.to])
             tx.set_gas_price(
                 gas_price=gas_price,
                 max_fee_per_gas=max_fee_per_gas,
                 max_priority_fee_per_gas=max_priority_fee_per_gas,
+                max_fee_per_blob_gas=max_fee_per_blob_gas,
             )
             gas_consumption += tx.gas_limit
-            minimum_balance += tx.signer_minimum_balance()
+            minimum_balance += tx.signer_minimum_balance(fork=self._fork)
         return minimum_balance + gas_consumption * gas_price, gas_consumption
 
-    def send_pending_transactions(self) -> List[TransactionByHashResponse]:
+    def send_pending_transactions(self) -> List[Hash]:
         """Send all pending transactions."""
         txs = [tx.with_signature_and_sender() for tx in self._pending_txs]
         return self._eth_rpc.send_transactions(txs)
 
     def wait_for_transactions(self) -> List[TransactionByHashResponse]:
         """Wait for all transactions to be included in blocks."""
+        for tx in self._pending_txs:
+            assert tx.value is not None, (
+                "Transaction value must be set before waiting for it to be included in a block"
+            )
         return self._eth_rpc.wait_for_transactions(self._pending_txs)
 
 

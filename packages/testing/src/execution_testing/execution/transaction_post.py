@@ -14,6 +14,7 @@ from execution_testing.rpc import (
     SendTransactionExceptionError,
 )
 from execution_testing.test_types import (
+    NetworkWrappedTransaction,
     Transaction,
     TransactionTestMetadata,
 )
@@ -45,9 +46,12 @@ class TransactionPost(BaseExecute):
 
     def get_required_sender_balances(
         self,
+        *,
         gas_price: int,
         max_fee_per_gas: int,
         max_priority_fee_per_gas: int,
+        max_fee_per_blob_gas: int,
+        fork: Fork,
     ) -> Dict[Address, int]:
         """Get the required sender balances."""
         balances: Dict[Address, int] = {}
@@ -59,10 +63,11 @@ class TransactionPost(BaseExecute):
                     gas_price=gas_price,
                     max_fee_per_gas=max_fee_per_gas,
                     max_priority_fee_per_gas=max_priority_fee_per_gas,
+                    max_fee_per_blob_gas=max_fee_per_blob_gas,
                 )
                 if sender not in balances:
                     balances[sender] = 0
-                balances[sender] += tx.signer_minimum_balance()
+                balances[sender] += tx.signer_minimum_balance(fork=fork)
         return balances
 
     def execute(
@@ -75,15 +80,18 @@ class TransactionPost(BaseExecute):
         """Execute the format."""
         del fork
         del engine_rpc
-        assert not any(tx.ty == 3 for block in self.blocks for tx in block), (
-            "Transaction type 3 is not supported in execute mode."
-        )
+        for block in self.blocks:
+            for tx in block:
+                if not isinstance(tx, NetworkWrappedTransaction):
+                    assert tx.ty != 3, (
+                        "Unwrapped transaction type 3 is not supported in execute mode."
+                    )
 
         # Track transaction hashes for gas validation (benchmarking)
         all_tx_hashes = []
 
         for block in self.blocks:
-            signed_txs = []
+            signed_txs: List[Transaction] = []
             for tx_index, tx in enumerate(block):
                 # Add metadata
                 tx = tx.with_signature_and_sender()

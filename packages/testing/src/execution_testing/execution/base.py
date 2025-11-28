@@ -34,9 +34,12 @@ class BaseExecute(CamelModel):
 
     def get_required_sender_balances(
         self,
+        *,
         gas_price: int,
         max_fee_per_gas: int,
         max_priority_fee_per_gas: int,
+        max_fee_per_blob_gas: int,
+        fork: Fork,
     ) -> Dict[Address, int]:
         """Get the required sender balances."""
         raise Exception(

@@ -55,7 +55,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 @pytest.fixture(scope="session")
 def sender_funding_transactions_gas_price(
-    request: pytest.FixtureRequest, eth_rpc: EthRPC,
+    request: pytest.FixtureRequest,
+    eth_rpc: EthRPC,
 ) -> int:
     """Get the gas price for the funding transactions."""
     gas_price: int | None = (
@@ -169,7 +170,7 @@ def sender_key(
     session_temp_folder: Path,
     sender_funding_transactions_gas_price: int,
     sender_fund_refund_gas_limit: int,
-    dry_run:bool,
+    dry_run: bool,
 ) -> Generator[EOA, None, None]:
     """
     Get the sender keys for all tests.

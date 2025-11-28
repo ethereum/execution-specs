@@ -17,6 +17,7 @@ from .rpc_types import (
     EthConfigResponse,
     ForkConfig,
     ForkConfigBlobSchedule,
+    TransactionProtocol,
 )
 
 __all__ = [
@@ -32,4 +33,5 @@ __all__ = [
     "ForkConfigBlobSchedule",
     "NetRPC",
     "SendTransactionExceptionError",
+    "TransactionProtocol",
 ]

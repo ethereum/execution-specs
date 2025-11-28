@@ -7,10 +7,10 @@ from pytest import FixtureRequest
 
 from execution_testing.base_types import Address, Hash
 from execution_testing.base_types.base_types import Bytes
+from execution_testing.forks import Fork
 from execution_testing.logging import (
     get_logger,
 )
-from execution_testing.forks import Fork
 from execution_testing.rpc import (
     BlobAndProofV1,
     BlobAndProofV2,
@@ -69,10 +69,34 @@ class BlobTransaction(BaseExecute):
         "Send blob transactions to the execution client and validate their availability via "
         "`engine_getBlobsV*`"
     )
-    requires_engine_rpc: ClassVar[bool] = True
 
     txs: List[NetworkWrappedTransaction | Transaction]
     nonexisting_blob_hashes: List[Hash] | None = None
+
+    def get_required_sender_balances(
+        self,
+        *,
+        gas_price: int,
+        max_fee_per_gas: int,
+        max_priority_fee_per_gas: int,
+        max_fee_per_blob_gas: int,
+        fork: Fork,
+    ) -> Dict[Address, int]:
+        """Get the required sender balances."""
+        balances: Dict[Address, int] = {}
+        for tx in self.txs:
+            sender = tx.sender
+            assert sender is not None, "Sender is None"
+            tx.set_gas_price(
+                gas_price=gas_price,
+                max_fee_per_gas=max_fee_per_gas,
+                max_priority_fee_per_gas=max_priority_fee_per_gas,
+                max_fee_per_blob_gas=max_fee_per_blob_gas,
+            )
+            if sender not in balances:
+                balances[sender] = 0
+            balances[sender] += tx.signer_minimum_balance(fork=fork)
+        return balances
 
     def execute(
         self,
@@ -82,25 +106,19 @@ class BlobTransaction(BaseExecute):
         request: FixtureRequest,
     ) -> None:
         """Execute the format."""
-        assert engine_rpc is not None, (
-            "Engine RPC is required for this format."
-        )
         versioned_hashes: Dict[Hash, BlobAndProofV1 | BlobAndProofV2] = {}
         sent_txs: List[Transaction] = []
         for tx_index, tx in enumerate(self.txs):
+            tx = tx.with_signature_and_sender()
+            expected_hash = tx.hash
+            to_address = tx.to
             if isinstance(tx, NetworkWrappedTransaction):
-                tx.tx = tx.tx.with_signature_and_sender()
                 sent_txs.append(tx.tx)
-                expected_hash = tx.tx.hash
                 versioned_hashes.update(
                     versioned_hashes_with_blobs_and_proofs(tx)
                 )
-                to_address = tx.tx.to
             else:
-                tx = tx.with_signature_and_sender()
                 sent_txs.append(tx)
-                expected_hash = tx.hash
-                to_address = tx.to
             label = (
                 to_address.label if isinstance(to_address, Address) else None
             )
@@ -116,6 +134,13 @@ class BlobTransaction(BaseExecute):
             assert expected_hash == received_hash, (
                 f"Expected hash {expected_hash} does not match received hash {received_hash}."
             )
+
+        if engine_rpc is None:
+            logger.info(
+                "Engine RPC is not available, skipping getBlobsV* validation."
+            )
+            return
+
         version = fork.engine_get_blobs_version()
         assert version is not None, (
             "Engine get blobs version is not supported by the fork."
