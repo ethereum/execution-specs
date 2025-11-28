@@ -12,11 +12,11 @@ from pytest_metadata.plugin import metadata_key
 
 from execution_testing.execution import BaseExecute
 from execution_testing.forks import Fork
+from execution_testing.logging import get_logger
 from execution_testing.rpc import EngineRPC, EthRPC
 from execution_testing.specs import BaseTest
 from execution_testing.test_types import (
     EnvironmentDefaults,
-    TransactionDefaults,
 )
 
 from ..shared.execute_fill import ALL_FIXTURE_PARAMETERS
@@ -27,6 +27,8 @@ from ..shared.helpers import (
 )
 from ..spec_version_checker.spec_version_checker import EIPSpecTestItem
 from .pre_alloc import Alloc
+
+logger = get_logger(__name__)
 
 
 def default_html_report_file_path() -> str:
@@ -47,9 +49,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action="store",
         dest="default_gas_price",
         type=int,
-        default=10**9,
+        default=None,
         help=(
-            "Default gas price used for transactions, unless overridden by the test."
+            "Default gas price used for transactions, unless overridden by the test. "
+            "Default=None (1.5x current network gas price)"
         ),
     )
     execute_group.addoption(
@@ -57,9 +60,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action="store",
         dest="default_max_fee_per_gas",
         type=int,
-        default=10**9,
+        default=None,
         help=(
-            "Default max fee per gas used for transactions, unless overridden by the test."
+            "Default max fee per gas used for transactions, unless overridden by the test. "
+            "Default=None (1.5x current network max fee per gas)"
         ),
     )
     execute_group.addoption(
@@ -67,10 +71,11 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action="store",
         dest="default_max_priority_fee_per_gas",
         type=int,
-        default=10**9,
+        default=None,
         help=(
             "Default max priority fee per gas used for transactions, "
             "unless overridden by the test."
+            "Default=None (1.5x current network max priority fee per gas)"
         ),
     )
     execute_group.addoption(
@@ -104,6 +109,23 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help=(
             "Time to wait after sending a forkchoice_updated before getting the payload."
         ),
+    )
+    execute_group.addoption(
+        "--test-max-gas",
+        action="store",
+        dest="test_max_gas",
+        default=None,
+        type=int,
+        help=(
+            "Maximum gas limit for all transactions in a test. Default=None (No limit)"
+        ),
+    )
+    execute_group.addoption(
+        "--dry-run",
+        action="store_true",
+        dest="dry_run",
+        default=False,
+        help="Don't send transactions, just print the minimum balance required per test.",
     )
 
     report_group = parser.getgroup(
@@ -255,7 +277,7 @@ def transactions_per_block(
 
 
 @pytest.fixture(scope="session")
-def default_gas_price(request: pytest.FixtureRequest) -> int:
+def default_gas_price(request: pytest.FixtureRequest) -> int | None:
     """Return default gas price used for transactions."""
     gas_price = request.config.getoption("default_gas_price")
     assert gas_price > 0, "Gas price must be greater than 0"
@@ -263,9 +285,15 @@ def default_gas_price(request: pytest.FixtureRequest) -> int:
 
 
 @pytest.fixture(scope="session")
+def dry_run(request) -> bool:
+    """Return True if the test is a dry run."""
+    return request.config.getoption("dry_run")
+
+
+@pytest.fixture(scope="session")
 def default_max_fee_per_gas(
     request: pytest.FixtureRequest,
-) -> int:
+) -> int | None:
     """Return default max fee per gas used for transactions."""
     return request.config.getoption("default_max_fee_per_gas")
 
@@ -273,25 +301,41 @@ def default_max_fee_per_gas(
 @pytest.fixture(scope="session")
 def default_max_priority_fee_per_gas(
     request: pytest.FixtureRequest,
-) -> int:
+) -> int | None:
     """Return default max priority fee per gas used for transactions."""
     return request.config.getoption("default_max_priority_fee_per_gas")
 
 
-@pytest.fixture(autouse=True, scope="session")
-def modify_transaction_defaults(
-    default_gas_price: int,
-    default_max_fee_per_gas: int,
-    default_max_priority_fee_per_gas: int,
-) -> None:
-    """
-    Modify transaction defaults to values better suited for live networks.
-    """
-    TransactionDefaults.gas_price = default_gas_price
-    TransactionDefaults.max_fee_per_gas = default_max_fee_per_gas
-    TransactionDefaults.max_priority_fee_per_gas = (
-        default_max_priority_fee_per_gas
-    )
+@pytest.fixture()
+def max_fee_per_gas(
+    eth_rpc: EthRPC, default_max_fee_per_gas: int | None
+) -> int:
+    """Return max fee per gas used for transactions in a given test."""
+    if default_max_fee_per_gas is None:
+        return eth_rpc.gas_price()
+    return default_max_fee_per_gas
+
+
+@pytest.fixture()
+def max_priority_fee_per_gas(
+    eth_rpc: EthRPC, default_max_priority_fee_per_gas: int | None
+) -> int:
+    """Return max priority fee per gas used for transactions in a given test."""
+    if default_max_priority_fee_per_gas is None:
+        return eth_rpc.max_priority_fee_per_gas()
+    return default_max_priority_fee_per_gas
+
+
+@pytest.fixture()
+def gas_price(max_fee_per_gas: int, max_priority_fee_per_gas: int) -> int:
+    """Return gas price used for transactions in a given test."""
+    return max_fee_per_gas + max_priority_fee_per_gas
+
+
+@pytest.fixture()
+def max_gas_limit_per_test(request) -> int | None:
+    """Return the total gas limit for all transactions in a given test."""
+    return request.config.getoption("test_max_gas")
 
 
 @dataclass(kw_only=True)
@@ -324,6 +368,51 @@ def collector(
     yield collector
 
 
+@dataclass(kw_only=True)
+class GasInfo:
+    """A class that contains gas limit and minimum balance for a test."""
+
+    gas_limit: int
+    minimum_balance: int
+
+
+@dataclass(kw_only=True)
+class GasInfoAccumulator:
+    """A class that accumulates gas limit for all tests."""
+
+    test_gas_info: Dict[str, GasInfo] = field(default_factory=dict)
+
+    def add(self, test_name: str, gas_limit: int, minimum_balance: int):
+        """Add gas limit and minimum balance for a test."""
+        self.test_gas_info[test_name] = GasInfo(
+            gas_limit=gas_limit, minimum_balance=minimum_balance
+        )
+
+    def total_gas_limit(self) -> int:
+        """Return the total gas limit for all tests."""
+        return sum(
+            gas_info.gas_limit for gas_info in self.test_gas_info.values()
+        )
+
+    def total_minimum_balance(self) -> int:
+        """Return the total minimum balance for all tests."""
+        return sum(
+            gas_info.minimum_balance
+            for gas_info in self.test_gas_info.values()
+        )
+
+
+@pytest.fixture(scope="session")
+def gas_limit_accumulator() -> Generator[GasInfoAccumulator, None, None]:
+    """Return the gas limit accumulator for all tests."""
+    gas_limit_accumulator = GasInfoAccumulator()
+    yield gas_limit_accumulator
+    logger.info(f"Total gas limit: {gas_limit_accumulator.total_gas_limit()}")
+    logger.info(
+        f"Total minimum balance: {gas_limit_accumulator.total_minimum_balance() / 10**18:.18f}"
+    )
+
+
 def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
     """
     Generate pytest.fixture for a given BaseTest subclass.
@@ -345,9 +434,15 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         pre: Alloc,
         eth_rpc: EthRPC,
         engine_rpc: EngineRPC | None,
+        dry_run: bool,
         collector: Collector,
         gas_benchmark_value: int,
         fixed_opcode_count: int | None,
+        gas_price: int,
+        max_fee_per_gas: int,
+        max_priority_fee_per_gas: int,
+        max_gas_limit_per_test: int | None,
+        gas_limit_accumulator: GasInfoAccumulator,
     ) -> Type[BaseTest]:
         """
         Fixture used to instantiate an auto-fillable BaseTest object from
@@ -392,6 +487,44 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
 
                 super(BaseTestWrapper, self).__init__(*args, **kwargs)
                 self._request = request
+                execute = self.execute(execute_format=execute_format)
+
+                # get balances of required sender accounts
+                required_balances = execute.get_required_sender_balances(
+                    gas_price=gas_price,
+                    max_fee_per_gas=max_fee_per_gas,
+                    max_priority_fee_per_gas=max_priority_fee_per_gas,
+                )
+
+                minimum_balance, gas_consumption = (
+                    pre.minimum_balance_for_pending_transactions(
+                        required_balances,
+                        gas_price=gas_price,
+                        max_fee_per_gas=max_fee_per_gas,
+                        max_priority_fee_per_gas=max_priority_fee_per_gas,
+                    )
+                )
+                if max_gas_limit_per_test is not None:
+                    assert gas_consumption <= max_gas_limit_per_test, (
+                        f"Test gas consumption ({gas_consumption}) exceeds the gas limit allowed "
+                        f"per test({max_gas_limit_per_test})."
+                    )
+
+                gas_limit_accumulator.add(
+                    test_name=request.node.nodeid,
+                    gas_limit=gas_consumption,
+                    minimum_balance=minimum_balance,
+                )
+
+                if dry_run:
+                    logger.info(
+                        f"Minimum balance required: {minimum_balance / 10**18:.18f}"
+                    )
+                    logger.info(f"Gas consumption: {gas_consumption}")
+                    return
+
+                # send the funds to the required sender accounts
+                pre.send_pending_transactions()
 
                 # wait for pre-requisite transactions to be included in blocks
                 pre.wait_for_transactions()
@@ -411,7 +544,6 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     [str(eoa) for eoa in pre._funded_eoa]
                 )
 
-                execute = self.execute(execute_format=execute_format)
                 execute.execute(
                     fork=fork,
                     eth_rpc=eth_rpc,

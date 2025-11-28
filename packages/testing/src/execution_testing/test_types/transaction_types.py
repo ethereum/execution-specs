@@ -32,10 +32,10 @@ from execution_testing.base_types import (
     TestAddress,
     TestPrivateKey,
 )
+from execution_testing.exceptions import TransactionException
 from execution_testing.logging import (
     get_logger,
 )
-from execution_testing.exceptions import TransactionException
 
 from .account_types import EOA
 from .blob_types import Blob
@@ -61,9 +61,9 @@ class TransactionType(IntEnum):
 class TransactionDefaults:
     """Default values for transactions."""
 
-    gas_price = 10
-    max_fee_per_gas = 7
-    max_priority_fee_per_gas: int = 0
+    gas_price: int | None = 10
+    max_fee_per_gas: int | None = 7
+    max_priority_fee_per_gas: int | None = 0
 
 
 class AuthorizationTupleGeneric(
@@ -391,6 +391,7 @@ class Transaction(
         # Set default values for fields that are required for certain tx types
         if self.ty <= 1 and self.gas_price is None:
             self.gas_price = HexNumber(TransactionDefaults.gas_price)
+            self.model_fields_set.remove("gas_price")
         if self.ty >= 1 and self.access_list is None:
             self.access_list = []
         if self.ty < 1:
@@ -400,10 +401,12 @@ class Transaction(
             self.max_fee_per_gas = HexNumber(
                 TransactionDefaults.max_fee_per_gas
             )
+            self.model_fields_set.remove("max_fee_per_gas")
         if self.ty >= 2 and self.max_priority_fee_per_gas is None:
             self.max_priority_fee_per_gas = HexNumber(
                 TransactionDefaults.max_priority_fee_per_gas
             )
+            self.model_fields_set.remove("max_priority_fee_per_gas")
         if self.ty < 2:
             assert self.max_fee_per_gas is None, "max_fee_per_gas must be None"
             assert self.max_priority_fee_per_gas is None, (
@@ -771,6 +774,39 @@ class Transaction(
             eth_rlp.encode([self.sender, int_to_bytes(self.nonce)])
         ).keccak256()
         return Address(hash_bytes[-20:])
+
+    def set_gas_price(
+        self,
+        *,
+        gas_price: int,
+        max_fee_per_gas: int,
+        max_priority_fee_per_gas: int,
+    ):
+        """
+        Set the gas price to the appropriate values of the current
+        execution environment.
+
+        Values are only set if they were not set during instance creation.
+        """
+        if self.ty <= 1:
+            if "gas_price" not in self.model_fields_set:
+                self.gas_price = HexNumber(gas_price)
+        else:
+            if "max_fee_per_gas" not in self.model_fields_set:
+                self.max_fee_per_gas = HexNumber(max_fee_per_gas)
+            if "max_priority_fee_per_gas" not in self.model_fields_set:
+                self.max_priority_fee_per_gas = HexNumber(
+                    max_priority_fee_per_gas
+                )
+
+    def signer_minimum_balance(self) -> int:
+        """Return minimum balance of the signer."""
+        gas_price = self.gas_price or self.max_fee_per_gas
+        assert gas_price is not None, (
+            "Impossible to calculate minimum balance without gas price"
+        )
+        gas_limit = self.gas_limit
+        return gas_price * gas_limit + self.value
 
 
 class NetworkWrappedTransaction(CamelModel, RLPSerializable):

@@ -201,6 +201,11 @@ class EthRPC(BaseRPC):
     transaction_wait_timeout: int = 60
     poll_interval: float = 1.0  # how often to poll for tx inclusion
 
+    gas_information_stale_seconds: int
+
+    _gas_information_cache: Dict[str, int]
+    _gas_information_cache_timestamp: Dict[str, float]
+
     BlockNumberType = int | Literal["latest", "earliest", "pending"]
 
     def __init__(
@@ -208,6 +213,7 @@ class EthRPC(BaseRPC):
         *args: Any,
         transaction_wait_timeout: int = 60,
         poll_interval: float | None = None,
+        gas_information_stale_seconds: int = 12,
         **kwargs: Any,
     ) -> None:
         """
@@ -233,6 +239,15 @@ class EthRPC(BaseRPC):
                 self.poll_interval = 1.0
         else:
             self.poll_interval = 1.0
+        self.gas_information_stale_seconds = gas_information_stale_seconds
+        self._gas_information_cache = {
+            "gasPrice": 0,
+            "maxPriorityFeePerGas": 0,
+        }
+        self._gas_information_cache_timestamp = {
+            "gasPrice": 0.0,
+            "maxPriorityFeePerGas": 0.0,
+        }
 
     def config(self, timeout: int | None = None) -> EthConfigResponse | None:
         """
@@ -394,13 +409,32 @@ class EthRPC(BaseRPC):
         response = self.post_request(method="getStorageAt", params=params)
         return Hash(response)
 
+    def _get_gas_information(
+        self, *, method: Literal["gasPrice", "maxPriorityFeePerGas"]
+    ) -> int:
+        """Get gas information from the cache or the RPC server."""
+        if (
+            time.time() - self._gas_information_cache_timestamp[method]
+            > self.gas_information_stale_seconds
+        ):
+            response = self.post_request(method=method)
+            logger.info(f"Requesting stale {method}")
+            self._gas_information_cache[method] = int(response, 16)
+            self._gas_information_cache_timestamp[method] = time.time()
+        return self._gas_information_cache[method]
+
     def gas_price(self) -> int:
         """
         `eth_gasPrice`: Returns the gas price.
         """
-        logger.info("Requesting gas price")
-        response = self.post_request(method="gasPrice")
-        return int(response, 16)
+        return self._get_gas_information(method="gasPrice")
+    
+    def max_priority_fee_per_gas(self) -> int:
+        """
+        `eth_maxPriorityFeePerGas`: Return the current max priority fee per
+        gas of the network.
+        """
+        return self._get_gas_information(method="maxPriorityFeePerGas")
 
     def send_raw_transaction(
         self, transaction_rlp: Bytes, request_id: int | str | None = None

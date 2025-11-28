@@ -6,7 +6,7 @@ from typing import Annotated, Any, ClassVar, Dict, Type
 from pydantic import PlainSerializer, PlainValidator
 from pytest import FixtureRequest
 
-from execution_testing.base_types import CamelModel
+from execution_testing.base_types import Address, CamelModel
 from execution_testing.forks import Fork
 from execution_testing.rpc import EngineRPC, EthRPC
 
@@ -31,6 +31,17 @@ class BaseExecute(CamelModel):
         if cls.format_name:
             # Register the new execute format
             BaseExecute.formats[cls.format_name] = cls
+
+    def get_required_sender_balances(
+        self,
+        gas_price: int,
+        max_fee_per_gas: int,
+        max_priority_fee_per_gas: int,
+    ) -> Dict[Address, int]:
+        """Get the required sender balances."""
+        raise Exception(
+            f"Method `get_required_sender_balances` not implemented for {self.format_name}"
+        )
 
     @abstractmethod
     def execute(
