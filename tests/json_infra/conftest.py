@@ -126,6 +126,7 @@ def pytest_configure(config: Config) -> None:
         ethereum.trace.set_evm_trace(Eip3155Tracer())
 
     # Process fork range options
+    optimized = config.getoption("optimized")
     desired_fork = config.getoption("single_fork", "")
     forks_from = config.getoption("forks_from", "")
     forks_until = config.getoption("forks_until", "")
@@ -162,7 +163,9 @@ def pytest_configure(config: Config) -> None:
         # Extract the fork range
         desired_forks = all_forks[start_idx:end_idx]
     elif file_list:
-        desired_forks = extract_affected_forks(config.rootpath, file_list)
+        desired_forks = extract_affected_forks(
+            config.rootpath, file_list, optimized
+        )
     else:
         desired_forks = all_forks
 

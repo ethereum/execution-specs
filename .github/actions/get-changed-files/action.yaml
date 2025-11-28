@@ -1,0 +1,33 @@
+name: Get Changed Files
+description: Get list of changed files between base and head commits
+
+outputs:
+  file_list:
+    description: Path to the file containing the list of changed files
+    value: ${{ steps.get-changed-files.outputs.file_list }}
+
+runs:
+  using: composite
+  steps:
+    - name: Get changed files and save to disk
+      id: get-changed-files
+      shell: bash
+      run: |
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          BASE_SHA=$(git merge-base "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}")
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+        else
+        # On push or force push to the feature branch
+          BASE_SHA=$(git merge-base "${{ github.event.before }}" "${{ github.sha }}")
+          HEAD_SHA="${{ github.sha }}"
+        fi
+
+        echo "Diffing commits: $BASE_SHA..$HEAD_SHA"
+
+        # Get changed files and save to disk (use absolute path for reliability)
+        FILE_LIST="${GITHUB_WORKSPACE}/changed_files.txt"
+        git diff --name-only "$BASE_SHA" "$HEAD_SHA" > "$FILE_LIST"
+        echo "Changed files saved to $FILE_LIST"
+        echo "file_list=$FILE_LIST" >> $GITHUB_OUTPUT
+        echo "List of files changed in the PR"
+        cat $FILE_LIST

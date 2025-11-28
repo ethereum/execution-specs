@@ -94,27 +94,8 @@ jobs:
         with:
           python-version: "3.11"
       - uses: ./.github/actions/setup-env
-      - name: Get changed files and save to disk
+      - uses: ./.github/actions/get-changed-files
         id: get-changed-files
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE_SHA=$(git merge-base "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}")
-            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-          else
-          # On push or force push to the feature branch
-            BASE_SHA=$(git merge-base "${{ github.event.before }}" "${{ github.sha }}")
-            HEAD_SHA="${{ github.sha }}"
-          fi
-
-          echo "Diffing commits: $BASE_SHA..$HEAD_SHA"
-
-          # Get changed files and save to disk
-          FILE_LIST="changed_files.txt"
-          git diff --name-only "$BASE_SHA" "$HEAD_SHA" > "$FILE_LIST"
-          echo "Changed files saved to $FILE_LIST"
-          echo "file_list=$FILE_LIST" >> $GITHUB_OUTPUT
-          echo "List of files changed in the PR"
-          cat $FILE_LIST
       - name: Run json infra tests
         run: tox -e json_infra -- --file-list="${{ steps.get-changed-files.outputs.file_list }}"
       - name: Upload coverage reports to Codecov
@@ -131,13 +112,16 @@ jobs:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
           submodules: recursive
+          fetch-depth: 0  # Fetch full history for commit comparison
       - name: Setup Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.11"
       - uses: ./.github/actions/setup-env
+      - uses: ./.github/actions/get-changed-files
+        id: get-changed-files
       - name: Run optimized tests
-        run: tox -e optimized
+        run: tox -e optimized -- --file-list="${{ steps.get-changed-files.outputs.file_list }}"
 
   tests_pytest_py3:
     runs-on: [self-hosted-ghr, size-xl-x64]

@@ -16,7 +16,9 @@ FORK_MAPPING = {
 }
 
 
-def extract_affected_forks(repo_root: Path, files_path: str) -> List[str]:
+def extract_affected_forks(
+    repo_root: Path, files_path: str, optimized: bool
+) -> List[str]:
     """
     Extract fork names from changed file paths read from disk.
 
@@ -24,6 +26,7 @@ def extract_affected_forks(repo_root: Path, files_path: str) -> List[str]:
         repo_root: Root directory of the repository config.
         files_path: Path to file containing changed file paths
         (one per line)
+        optimized: If optimized tests are being run.
 
     Returns:
         List of fork json_test_names that have been affected
@@ -71,7 +74,10 @@ def extract_affected_forks(repo_root: Path, files_path: str) -> List[str]:
             # Run all forks if something changes in the evm
             # tools
             return all_forks
-
+        if optimized and file_path.is_relative_to("src/ethereum_optimized"):
+            # Run all forks if something changes in the optimized tools and
+            # while running optimized environment.
+            return all_forks
         if file_path.is_relative_to("src/ethereum/"):
             parts = Path(file_path).parts
             if len(parts) < 4 or parts[2] != "forks":
