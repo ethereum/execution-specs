@@ -2647,7 +2647,7 @@ def test_bal_revert_insufficient_funds(
 
     Expected BAL:
     - Contract: storage_reads [0x01], storage_changes slot 0x02 (value=0)
-    - Target: MUST NOT appear (balance check fails before target access)
+    - Target: appears in BAL (accessed before balance check fails)
     """
     alice = pre.fund_eoa()
 
@@ -2711,8 +2711,8 @@ def test_bal_revert_insufficient_funds(
                         )
                     ],
                 ),
-                # Target MUST NOT appear in BAL - balance check fails before
-                # target state is accessed, so no witness is needed for target
+                # Target appears in BAL - accessed before balance check fails
+                target_address: BalAccountExpectation.empty(),
             }
         ),
     )
