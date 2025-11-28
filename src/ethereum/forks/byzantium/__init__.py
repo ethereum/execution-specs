@@ -45,6 +45,6 @@ contracts, and adds cryptographic primitives for layer 2 scaling.
 [p]: https://github.com/paritytech/parity/releases/tag/v1.7.6
 """
 
-from ethereum.fork_criteria import ByBlockNumber
+from ethereum.fork_criteria import ByBlockNumber, ForkCriteria
 
-FORK_CRITERIA = ByBlockNumber(4370000)
+FORK_CRITERIA: ForkCriteria = ByBlockNumber(4370000)

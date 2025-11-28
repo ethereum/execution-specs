@@ -1,8 +1,14 @@
 """Pytest plugin to recover funds from a failed remote execution."""
 
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from typing import Any, Generator, Literal
+
 import pytest
 
 from execution_testing.base_types import Address, HexNumber
+from execution_testing.forks import Paris
+from execution_testing.forks.helpers import Fork
 from execution_testing.test_types import EOA
 
 
@@ -51,7 +57,7 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     start_eoa_index = metafunc.config.option.start_eoa_index
 
     print(
-        f"Generating {max_index} test cases starting from index {start_eoa_index}"
+        f"Generating {max_index} test cases starting from index {start_eoa_index}"  # noqa: E501
     )
 
     indexes_keys = [
@@ -63,3 +69,22 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
         indexes_keys,
         ids=[f"{index}-{eoa}" for index, eoa in indexes_keys],
     )
+
+
+@pytest.fixture(scope="session")
+def session_fork() -> Fork:
+    """Return a default fork for the recover command."""
+    return Paris
+
+
+@pytest.fixture(scope="session")
+def transactions_per_block() -> Literal[1]:
+    """Return the number of transactions per block for the recover command."""
+    return 1
+
+
+@pytest.fixture(scope="session")
+def session_temp_folder() -> Generator[Path, Any, None]:
+    """Return a temporary folder for the session."""
+    with TemporaryDirectory() as tmpdir:
+        yield Path(tmpdir)

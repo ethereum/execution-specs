@@ -323,6 +323,7 @@ class EofWrapper:
 
         test = BlockchainTest(
             genesis_environment=env,
+            fork=EOFv1,
             pre=pre.root,
             post=fixture.post_state.root if fixture.post_state else {},
             blocks=[],
@@ -373,7 +374,6 @@ class EofWrapper:
 
         result = test.generate(
             t8n=t8n,
-            fork=EOFv1,
             fixture_format=BlockchainFixture,
         )
         assert isinstance(result, BlockchainFixture)

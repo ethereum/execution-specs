@@ -29,6 +29,7 @@ from ethereum.exceptions import (
     InvalidSenderError,
     NonceMismatchError,
 )
+from ethereum.fork_criteria import ByBlockNumber
 
 from . import FORK_CRITERIA, vm
 from .blocks import Block, Header, Log, Receipt
@@ -270,6 +271,8 @@ def validate_header(chain: BlockChain, header: Header) -> None:
     block_parent_hash = keccak256(rlp.encode(parent_header))
     if header.parent_hash != block_parent_hash:
         raise InvalidBlock
+
+    assert isinstance(FORK_CRITERIA, ByBlockNumber)
 
     if (
         header.number >= FORK_CRITERIA.block_number

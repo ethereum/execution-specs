@@ -199,9 +199,6 @@ class FixtureHeader(CamelModel):
     requests_hash: (
         Annotated[Hash, HeaderForkRequirement("requests")] | None
     ) = Field(None)
-    block_access_list_hash: (
-        Annotated[Hash, HeaderForkRequirement("bal_hash")] | None
-    ) = Field(None, alias="blockAccessListHash")
 
     fork: Fork | None = Field(None, exclude=True)
 
@@ -223,7 +220,7 @@ class FixtureHeader(CamelModel):
         # For each field, check if any of the annotations are of type
         # HeaderForkRequirement and if so, check if the field is required for
         # the given fork.
-        annotated_hints = get_type_hints(self, include_extras=True)
+        annotated_hints = get_type_hints(type(self), include_extras=True)
 
         for field in self.__class__.model_fields:
             if field == "fork":
@@ -286,11 +283,6 @@ class FixtureHeader(CamelModel):
             "requests_hash": Requests()
             if fork.header_requests_required(block_number=0, timestamp=0)
             else None,
-            "block_access_list_hash": (
-                BlockAccessList().rlp_hash
-                if fork.header_bal_hash_required(block_number=0, timestamp=0)
-                else None
-            ),
             "fork": fork,
         }
         return cls(**environment_values, **extras)
@@ -421,14 +413,6 @@ class FixtureEngineNewPayload(CamelModel):
         assert new_payload_version is not None, (
             "Invalid header for engine_newPayload"
         )
-
-        if fork.engine_execution_payload_block_access_list(
-            block_number=header.number, timestamp=header.timestamp
-        ):
-            if block_access_list is None:
-                raise ValueError(
-                    f"`block_access_list` is required in engine `ExecutionPayload` for >={fork}."
-                )
 
         execution_payload = FixtureExecutionPayload.from_fixture_header(
             header=header,

@@ -308,8 +308,8 @@ Opcode is used to attempt to recreate a contract that is currently mid-creation 
 
 ### Framework Changes
 
-- Add opcode to `src/ethereum_test_vm/opcode.py`
-- Add opcode to relevant methods in the fork where the EIP is introduced in `src/ethereum_test_forks/forks/forks.py`
+- Add opcode to `packages/testing/src/execution_testing/vm/opcode.py`
+- Add opcode to relevant methods in the fork where the EIP is introduced in `packages/testing/src/execution_testing/forks/forks/forks.py`
 
 ## New Precompile
 
@@ -504,7 +504,7 @@ Verify the cold/warm state of the precompile address depending on the fork activ
 
 ### Framework Changes
 
-- Add precompile address to relevant methods in the fork where the EIP is introduced in `src/ethereum_test_forks/forks/forks.py`
+- Add precompile address to relevant methods in the fork where the EIP is introduced in `packages/testing/src/execution_testing/forks/forks/forks.py`
 
 ## Removed Precompile
 
@@ -533,7 +533,7 @@ Verify the cold/warm state of the precompile address depending on the fork activ
 
 ### Framework Changes
 
-- Remove the precompile address from relevant methods in the fork where the EIP is removed in `src/ethereum_test_forks/forks/forks.py`
+- Remove the precompile address from relevant methods in the fork where the EIP is removed in `packages/testing/src/execution_testing/forks/forks/forks.py`
 
 ## New System Contract
 
@@ -753,8 +753,8 @@ Verify calling the system contract before its activation fork results in correct
 
 ### Framework Changes
 
-- Add system contract address to relevant methods in the fork where the EIP is introduced in `src/ethereum_test_forks/forks/forks.py`
-- Add system contract bytecode to the returned value of `pre_allocation_blockchain` in the fork where the EIP is introduced in `src/ethereum_test_forks/forks/forks.py`
+- Add system contract address to relevant methods in the fork where the EIP is introduced in `packages/testing/src/execution_testing/forks/forks/forks.py`
+- Add system contract bytecode to the returned value of `pre_allocation_blockchain` in the fork where the EIP is introduced in `packages/testing/src/execution_testing/forks/forks/forks.py`
 
 ## New Transaction Type
 
@@ -1004,8 +1004,8 @@ Verify that a block prior to fork activation where the new transaction type is i
 
 ### Framework Changes
 
-- Modify `transaction_intrinsic_cost_calculator` in the fork where the EIP is introduced in `src/ethereum_test_forks/forks/forks.py`, adding the appropriate new fields that the transaction introduced and the logic to the intrinsic gas cost calculation, if any.
-- Add the transaction type number to `tx_types` response in the fork where the EIP is introduced in `src/ethereum_test_forks/forks/forks.py` (If applicable add also to `contract_creating_tx_types`).
+- Modify `transaction_intrinsic_cost_calculator` in the fork where the EIP is introduced in `packages/testing/src/execution_testing/forks/forks/forks.py`, adding the appropriate new fields that the transaction introduced and the logic to the intrinsic gas cost calculation, if any.
+- Add the transaction type number to `tx_types` response in the fork where the EIP is introduced in `packages/testing/src/execution_testing/forks/forks/forks.py` (If applicable add also to `contract_creating_tx_types`).
 
 ## New Block Header Field
 
@@ -1103,10 +1103,10 @@ Verify gas costs are updated at the fork transition boundary.
 
 ### Framework Changes
 
-- Modify `transaction_intrinsic_cost_calculator` in the fork where the EIP is introduced in `src/ethereum_test_forks/forks/forks.py` if the EIP affects intrinsic gas cost calculation.
-- Modify `transaction_data_floor_cost_calculator` in the fork where the EIP is introduced in `src/ethereum_test_forks/forks/forks.py` if the EIP affects calldata floor cost.
-- Modify `memory_expansion_gas_calculator` in the fork where the EIP is introduced in `src/ethereum_test_forks/forks/forks.py` if the EIP affects memory expansion gas cost calculation.
-- Modify `gas_costs` in the fork where the EIP is introduced in `src/ethereum_test_forks/forks/forks.py` if the EIP affects specific opcode gas costs.
+- Modify `transaction_intrinsic_cost_calculator` in the fork where the EIP is introduced in `packages/testing/src/execution_testing/forks/forks/forks.py` if the EIP affects intrinsic gas cost calculation.
+- Modify `transaction_data_floor_cost_calculator` in the fork where the EIP is introduced in `packages/testing/src/execution_testing/forks/forks/forks.py` if the EIP affects calldata floor cost.
+- Modify `memory_expansion_gas_calculator` in the fork where the EIP is introduced in `packages/testing/src/execution_testing/forks/forks/forks.py` if the EIP affects memory expansion gas cost calculation.
+- Modify `gas_costs` in the fork where the EIP is introduced in `packages/testing/src/execution_testing/forks/forks/forks.py` if the EIP affects specific opcode gas costs.
 
 ## Gas Refunds Changes
 
@@ -1162,7 +1162,7 @@ Verify tests in `tests/cancun/eip4844_blobs` were correctly and automatically up
 
 ### Framework Changes
 
-- Modify `blob_base_fee_update_fraction`, `target_blobs_per_block`, `max_blobs_per_block` in the fork where the EIP is introduced in `src/ethereum_test_forks/forks/forks.py` if the EIP affects any of the values returned by each function.
+- Modify `blob_base_fee_update_fraction`, `target_blobs_per_block`, `max_blobs_per_block` in the fork where the EIP is introduced in `packages/testing/src/execution_testing/forks/forks/forks.py` if the EIP affects any of the values returned by each function.
 
 ## New Execution Layer Request
 
@@ -1176,7 +1176,7 @@ Verify tests in `tests/cancun/eip4844_blobs` were correctly and automatically up
 
 ### Framework Changes
 
-- Increment `max_request_type` in the fork where the EIP is introduced in `src/ethereum_test_forks/forks/forks.py` to the new maximum request type number after the EIP is activated.
+- Increment `max_request_type` in the fork where the EIP is introduced in `packages/testing/src/execution_testing/forks/forks/forks.py` to the new maximum request type number after the EIP is activated.
 
 ## New Transaction-Validity Constraint
 

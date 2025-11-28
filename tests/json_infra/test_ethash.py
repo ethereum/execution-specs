@@ -44,7 +44,7 @@ POW_FORKS = [
 @pytest.mark.parametrize("json_fork", POW_FORKS)
 def test_ethtest_fixtures(json_fork: str) -> None:
     """Tests ethash proof-of-work validation against ethereum test fixtures."""
-    eels_fork = FORKS[json_fork]["eels_fork"]
+    eels_fork = FORKS[json_fork].short_name
     fork_module = importlib.import_module(f"ethereum.forks.{eels_fork}.fork")
 
     ethereum_tests = load_pow_test_fixtures(json_fork)
@@ -79,7 +79,7 @@ def load_pow_test_fixtures(json_fork: str) -> List[Dict[str, Any]]:
     Loads proof-of-work test fixtures for a specific fork
     from JSON files.
     """
-    eels_fork = FORKS[json_fork]["eels_fork"]
+    eels_fork = FORKS[json_fork].short_name
     header = importlib.import_module(
         f"ethereum.forks.{eels_fork}.blocks"
     ).Header
@@ -122,7 +122,7 @@ def test_pow_validation_block_headers(
     Tests proof-of-work validation on real block headers for
     specific forks.
     """
-    eels_fork = FORKS[json_fork]["eels_fork"]
+    eels_fork = FORKS[json_fork].short_name
     fork_module = importlib.import_module(f"ethereum.forks.{eels_fork}.fork")
 
     block_str_data = cast(

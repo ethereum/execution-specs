@@ -10,7 +10,6 @@ from execution_testing.fixtures import (
     BaseFixture,
     FixtureFormat,
 )
-from execution_testing.forks import Fork
 from execution_testing.test_types import (
     NetworkWrappedTransaction,
     Transaction,
@@ -38,22 +37,18 @@ class BlobsTest(BaseTest):
         self,
         *,
         t8n: TransitionTool,
-        fork: Fork,
         fixture_format: FixtureFormat,
     ) -> BaseFixture:
         """Generate the list of test fixtures."""
-        del t8n, fork
+        del t8n
         raise Exception(f"Unknown fixture format: {fixture_format}")
 
     def execute(
         self,
         *,
-        fork: Fork,
         execute_format: ExecuteFormat,
     ) -> BaseExecute:
         """Generate the list of test fixtures."""
-        del fork
-
         if execute_format == BlobTransaction:
             return BlobTransaction(
                 txs=self.txs,

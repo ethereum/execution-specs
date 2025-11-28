@@ -1,6 +1,6 @@
 # Pytest Framework and Customizations
 
-::: pytest_plugins
+::: execution_testing.cli.pytest_commands.plugins
 
 - [Filler Plugin](./filler.md).
 - [Forks Plugin](./forks.md).

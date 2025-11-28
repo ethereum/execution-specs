@@ -27,17 +27,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="RPC endpoint to an execution client",
     )
     remote_rpc_group.addoption(
-        "--rpc-chain-id",
-        action="store",
-        dest="rpc_chain_id",
-        required=False,
-        type=int,
-        default=None,
-        help="DEPRECATED: ID of the chain where the tests will be executed. "
-        "This flag is deprecated and will be removed in a future release."
-        "Use --chain-id instead.",
-    )
-    remote_rpc_group.addoption(
         "--tx-wait-timeout",
         action="store",
         dest="tx_wait_timeout",
@@ -91,13 +80,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 def pytest_configure(config: pytest.Config) -> None:
     """Check if a chain ID configuration is provided."""
-    if (
-        config.getoption("rpc_chain_id") is None
-        and config.getoption("chain_id") is None
-    ):
-        pytest.exit("No chain ID configuration found. Please use --chain-id.")
-    # Verify the chain ID configuration is consistent with the remote RPC
-    # endpoint
+    # Verify the chain ID configuration is consistent with the remote RPC endpoint
     rpc_endpoint = config.getoption("rpc_endpoint")
     eth_rpc = EthRPC(rpc_endpoint)
     remote_chain_id = eth_rpc.chain_id()

@@ -20,7 +20,7 @@ from execution_testing import (
     Transaction,
     TransactionException,
 )
-from execution_testing.cli.pytest_commands.plugins.custom_logging import (  # noqa: E501
+from execution_testing.logging import (  # noqa: E501
     get_logger,
 )
 

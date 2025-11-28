@@ -48,6 +48,6 @@ instruction to fetch the current chain identifier.
 [t]: https://github.com/ethereum/trinity/releases/tag/v0.1.0-alpha.31
 """
 
-from ethereum.fork_criteria import ByBlockNumber
+from ethereum.fork_criteria import ByBlockNumber, ForkCriteria
 
-FORK_CRITERIA = ByBlockNumber(9069000)
+FORK_CRITERIA: ForkCriteria = ByBlockNumber(9069000)

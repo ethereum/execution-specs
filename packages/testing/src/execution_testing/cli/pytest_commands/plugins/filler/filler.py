@@ -28,11 +28,11 @@ from execution_testing.base_types import (
     Alloc,
     ReferenceSpec,
 )
-from execution_testing.client_clis import TransitionTool
-from execution_testing.client_clis.clis.geth import FixtureConsumerTool
 from execution_testing.cli.gen_index import (
     generate_fixtures_index,
 )
+from execution_testing.client_clis import TransitionTool
+from execution_testing.client_clis.clis.geth import FixtureConsumerTool
 from execution_testing.fixtures import (
     BaseFixture,
     FixtureCollector,
@@ -1321,6 +1321,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         test_case_description: str,
         fixture_source_url: str,
         gas_benchmark_value: int,
+        fixed_opcode_count: int | None,
         witness_generator: Any,
     ) -> Any:
         """
@@ -1350,6 +1351,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     kwargs["pre"] = pre
                 if "expected_benchmark_gas_used" not in kwargs:
                     kwargs["expected_benchmark_gas_used"] = gas_benchmark_value
+                kwargs["fork"] = fork
                 kwargs |= {
                     p: request.getfixturevalue(p)
                     for p in cls_fixture_parameters
@@ -1380,7 +1382,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     # Use the original update_pre_alloc_groups method which
                     # returns the groups
                     self.update_pre_alloc_groups(
-                        session.pre_alloc_groups, fork, request.node.nodeid
+                        session.pre_alloc_groups, request.node.nodeid
                     )
                     return  # Skip fixture generation in phase 1
 
@@ -1391,15 +1393,12 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     FixtureFillingPhase.PRE_ALLOC_GENERATION
                     in fixture_format.format_phases
                 ):
-                    pre_alloc_hash = self.compute_pre_alloc_group_hash(
-                        fork=fork
-                    )
+                    pre_alloc_hash = self.compute_pre_alloc_group_hash()
                     group = session.get_pre_alloc_group(pre_alloc_hash)
                     self.pre = group.pre
                 try:
                     fixture = self.generate(
                         t8n=t8n,
-                        fork=fork,
                         fixture_format=fixture_format,
                     )
                 finally:

@@ -33,7 +33,7 @@ Clone [execution-spec-tests](https://github.com/ethereum/execution-spec-tests) a
     cd execution-spec-tests
     uv python install 3.12
     uv python pin 3.12
-    uv sync --all-extras
+    uv sync
     ```
 
 Static tests/maintainers only: To learn how to build the `solc` binary from source (optional) follow [this guide](./installation_troubleshooting.md#problem-exception-failed-to-compile-yul-source).

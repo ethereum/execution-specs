@@ -13,6 +13,8 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks.forks.forks import Berlin
+from execution_testing.forks.helpers import Fork
 from execution_testing.test_types.eof.v1 import Container, Section
 
 from .eip7069_extcall.spec import (
@@ -31,6 +33,7 @@ slot_sanity_call_result = next(_slot)
 
 
 def gas_test(
+    fork: Fork,
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
@@ -46,6 +49,7 @@ def gas_test(
     out_of_gas_testing: bool = True,
     *,
     prelude_code: Bytecode | None = None,
+    eof: bool = True,
 ) -> None:
     """
     Create State Test to check the gas cost of a sequence of EOF code.
@@ -54,6 +58,11 @@ def gas_test(
     test, and MUST NOT have any side-effects which persist across message
     calls, and in particular, any effects on the gas usage of `subject_code`.
     """
+    if fork < Berlin:
+        raise ValueError(
+            "Gas tests before Berlin are not supported due to CALL gas changes"
+        )
+
     if cold_gas <= 0:
         raise ValueError(
             f"Target gas allocations (cold_gas) must be > 0, got {cold_gas}"
@@ -65,16 +74,22 @@ def gas_test(
 
     address_baseline = pre.deploy_contract(
         Container.Code(setup_code + tear_down_code)
+        if eof
+        else setup_code + tear_down_code
     )
     code_subject = setup_code + subject_code + tear_down_code
     address_subject = pre.deploy_contract(
-        Container.Code(code_subject)
-        if not subject_subcontainer
-        else Container(
-            sections=[
-                Section.Code(code_subject),
-                Section.Container(subject_subcontainer),
-            ]
+        code_subject
+        if not eof
+        else (
+            Container.Code(code_subject)
+            if not subject_subcontainer
+            else Container(
+                sections=[
+                    Section.Code(code_subject),
+                    Section.Container(subject_subcontainer),
+                ]
+            )
         ),
         balance=subject_balance,
         address=subject_address,

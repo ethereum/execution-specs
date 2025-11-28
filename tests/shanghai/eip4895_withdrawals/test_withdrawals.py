@@ -20,7 +20,9 @@ from execution_testing import (
     TransactionException,
     Withdrawal,
 )
+from execution_testing.exceptions.exceptions import BlockException
 from execution_testing.forks import Cancun
+from execution_testing.specs.blockchain import Header
 
 from .spec import ref_spec_4895
 
@@ -247,6 +249,52 @@ def test_balance_within_block(
     }
 
     blockchain_test(pre=pre, post=post, blocks=blocks)
+
+
+@pytest.mark.parametrize(
+    "valid", [True, pytest.param(False, marks=pytest.mark.exception_test)]
+)
+@pytest.mark.parametrize("n_withdrawals", [0, 1, 16])
+def test_withdrawals_root(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    valid: bool,
+    n_withdrawals: int,
+) -> None:
+    """
+    Test validation of withdrawals root.
+    """
+    recipient = pre.fund_eoa(ONE_GWEI)
+    withdrawals = [
+        Withdrawal(
+            index=index,
+            validator_index=0,
+            address=recipient,
+            amount=1,
+        )
+        for index in range(n_withdrawals)
+    ]
+
+    modified_fields = {
+        "withdrawals_root": Withdrawal.list_root(withdrawals)
+        if valid
+        else b"\x01" * 32
+    }
+
+    blocks = [
+        Block(
+            withdrawals=withdrawals,
+            rlp_modifier=Header(**modified_fields),
+            exception=[
+                BlockException.INVALID_WITHDRAWALS_ROOT,
+                BlockException.INVALID_BLOCK_HASH,
+            ]
+            if not valid
+            else None,
+        ),
+    ]
+
+    blockchain_test(pre=pre, post={}, blocks=blocks)
 
 
 @pytest.mark.parametrize("test_case", ["single_block", "multiple_blocks"])

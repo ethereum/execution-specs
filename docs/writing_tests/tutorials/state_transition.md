@@ -31,11 +31,11 @@ In Python, multi-line strings are denoted using `"""`. As a convention, a file's
 ```python
 import pytest
 
-from ethereum_test_tools import Account, Alloc, Environment, StateTestFiller, Transaction
-from ethereum_test_vm import Opcodes as Op
+from execution_testing.tools import Account, Alloc, Environment, StateTestFiller, Transaction
+from execution_testing.vm import Opcodes as Op
 ```
 
-In this snippet the required constants, types and helper functions are imported from `ethereum_test_tools`. The `Opcodes` class (aliased as `Op`) provides the Python minilang for writing EVM bytecode. We will go over these as we come across them.
+In this snippet the required constants, types and helper functions are imported from `execution_testing.tools`. The `Opcodes` class (aliased as `Op`) provides the Python minilang for writing EVM bytecode. We will go over these as we come across them.
 
 ```python
 @pytest.mark.valid_from("Istanbul")
@@ -79,7 +79,7 @@ The function parameters (`state_test` and `pre`) are [pytest fixtures](https://d
     env = Environment(number=1)
 ```
 
-This line specifies that `env` is an [`Environment`][ethereum_test_types.Environment] object. In this example, we only override the block `number` to 1, leaving all other values at their defaults. It's recommended to use default values whenever possible and only specify custom values when required for your specific test scenario. (For all available fields, see the pydantic model fields in the source code of [`Environment`][ethereum_test_types.Environment] and [`EnvironmentGeneric`](https://github.com/ethereum/execution-spec-tests/blob/b4d7826bec631574a6fb95d0c58d2c8c4d6e02ca/src/ethereum_test_types/block_types.py#L76) from which `Environment` inherits.)
+This line specifies that `env` is an [`Environment`][execution_testing.test_types.Environment] object. In this example, we only override the block `number` to 1, leaving all other values at their defaults. It's recommended to use default values whenever possible and only specify custom values when required for your specific test scenario. (For all available fields, see the pydantic model fields in the source code of [`Environment`][execution_testing.test_types.Environment] and [`EnvironmentGeneric`](https://github.com/ethereum/execution-spec-tests/blob/b4d7826bec631574a6fb95d0c58d2c8c4d6e02ca/packages/testing/src/execution_testing/test_types/block_types.py#L76) from which `Environment` inherits.)
 
 #### Pre State
 
@@ -132,7 +132,7 @@ The returned object, which includes a private key, an address, and a nonce, is s
     )
 ```
 
-With the pre-state built, we can now create the transaction that will call our contract. Let's examine the key components of this [`Transaction`][ethereum_test_types.Transaction] (for all available fields, see the source code of [`Transaction`][ethereum_test_types.Transaction] and [`TransactionGeneric`](https://github.com/ethereum/execution-spec-tests/blob/b4d7826bec631574a6fb95d0c58d2c8c4d6e02ca/src/ethereum_test_types/transaction_types.py#L163) from which `Transaction` inherits).
+With the pre-state built, we can now create the transaction that will call our contract. Let's examine the key components of this [`Transaction`][execution_testing.test_types.Transaction] (for all available fields, see the source code of [`Transaction`][execution_testing.test_types.Transaction] and [`TransactionGeneric`](https://github.com/ethereum/execution-spec-tests/blob/b4d7826bec631574a6fb95d0c58d2c8c4d6e02ca/packages/testing/src/execution_testing/test_types/transaction_types.py#L163) from which `Transaction` inherits).
 
 - **`sender=sender`**: We use the EOA we created earlier, which already has the necessary information to sign the transaction and contains the correct `nonce`. The `nonce` is a protection mechanism to prevent replay attacks - it must equal the number of transactions sent from the sender's address, starting from zero. The framework automatically manages nonce incrementing for us.
 

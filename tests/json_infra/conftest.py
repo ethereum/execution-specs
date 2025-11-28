@@ -3,22 +3,29 @@
 import os
 import shutil
 import tarfile
+from glob import glob
 from pathlib import Path
-from typing import Callable, Final, Optional, Set
+from typing import (
+    Callable,
+    Final,
+    Self,
+    Set,
+)
 
 import git
 import requests_cache
-from _pytest.config import Config
 from _pytest.config.argparsing import Parser
 from _pytest.nodes import Item
 from filelock import FileLock
 from git.exc import GitCommandError, InvalidGitRepositoryError
-from pytest import Session, StashKey, fixture
+from pytest import Collector, Config, Session, fixture
 from requests_cache import CachedSession
 from requests_cache.backends.sqlite import SQLiteCache
-from typing_extensions import Self
 
-from . import TEST_FIXTURES
+from . import FORKS, TEST_FIXTURES
+from .helpers import FixturesFile, FixtureTestItem
+from .helpers.select_tests import extract_affected_forks
+from .stash_keys import desired_forks_key, fixture_lock
 
 try:
     from xdist import get_xdist_worker_id
@@ -45,7 +52,7 @@ def root_relative() -> Callable[[str | Path], Path]:
 
 def pytest_addoption(parser: Parser) -> None:
     """
-    Accept --evm-trace option in pytest.
+    Accept custom options in pytest.
     """
     parser.addoption(
         "--optimized",
@@ -66,10 +73,37 @@ def pytest_addoption(parser: Parser) -> None:
     )
 
     parser.addoption(
-        "--fork",
-        dest="fork",
+        "--from",
+        action="store",
+        dest="forks_from",
+        default="",
         type=str,
-        help="Run tests for this fork only (e.g., --fork Osaka)",
+        help="Run tests from and including the specified fork.",
+    )
+    parser.addoption(
+        "--until",
+        action="store",
+        dest="forks_until",
+        default="",
+        type=str,
+        help="Run tests until and including the specified fork.",
+    )
+    parser.addoption(
+        "--fork",
+        action="store",
+        dest="single_fork",
+        default="",
+        help="Only run tests for the specified fork.",
+    )
+    parser.addoption(
+        "--file-list",
+        action="store",
+        dest="file_list",
+        help=(
+            "Only run tests relevant to a list of file paths in the "
+            "repository. This option specifies the path to a file which "
+            "contains a list of relevant paths."
+        ),
     )
 
 
@@ -91,38 +125,54 @@ def pytest_configure(config: Config) -> None:
         # Replace the function in the module
         ethereum.trace.set_evm_trace(Eip3155Tracer())
 
+    # Process fork range options
+    desired_fork = config.getoption("single_fork", "")
+    forks_from = config.getoption("forks_from", "")
+    forks_until = config.getoption("forks_until", "")
+    file_list = config.getoption("file_list", None)
 
-def pytest_collection_modifyitems(config: Config, items: list[Item]) -> None:
-    """Filter test items based on the specified fork option."""
-    desired_fork = config.getoption("fork", None)
-    if not desired_fork:
-        return
+    desired_forks = []
+    all_forks = list(FORKS.keys())
+    if desired_fork:
+        if desired_fork not in all_forks:
+            raise ValueError(f"Unknown fork: {desired_fork}")
+        desired_forks.append(desired_fork)
+    elif forks_from or forks_until:
+        # Determine start and end indices
+        start_idx = 0
+        end_idx = len(all_forks)
 
-    selected = []
-    deselected = []
+        if forks_from:
+            try:
+                start_idx = all_forks.index(forks_from)
+            except ValueError as e:
+                raise ValueError(f"Unknown fork: {forks_from}") from e
 
-    for item in items:
-        forks_of_test = [m.args[0] for m in item.iter_markers(name="fork")]
-        if forks_of_test and desired_fork not in forks_of_test:
-            deselected.append(item)
-        # Check if the test has a vm test marker
-        elif any(item.iter_markers(name="vm_test")):
-            callspec = getattr(item, "callspec", None)
-            if not callspec or "fork" not in getattr(callspec, "params", {}):
-                # no fork param on this test. We keep the test
-                selected.append(item)
-                continue
-            fork_param = callspec.params["fork"]
-            if fork_param[0] == desired_fork:
-                selected.append(item)
-            else:
-                deselected.append(item)
-        else:
-            selected.append(item)
+        if forks_until:
+            try:
+                # +1 to include the until fork
+                end_idx = all_forks.index(forks_until) + 1
+            except ValueError as e:
+                raise ValueError(f"Unknown fork: {forks_until}") from e
 
-    if deselected:
-        config.hook.pytest_deselected(items=deselected)
-        items[:] = selected  # keep only what matches
+        # Validate the fork range
+        if start_idx >= end_idx:
+            raise ValueError(f"{forks_until} is before {forks_from}")
+
+        # Extract the fork range
+        desired_forks = all_forks[start_idx:end_idx]
+    elif file_list:
+        desired_forks = extract_affected_forks(config.rootpath, file_list)
+    else:
+        desired_forks = all_forks
+
+    if not any(desired_forks):
+        print("No fork specific tests will be run!!!")
+    else:
+        fork_list_str = ", ".join(desired_forks)
+        print(f"Running tests for the following forks: {fork_list_str}")
+
+    config.stash[desired_forks_key] = desired_forks
 
 
 class _FixturesDownloader:
@@ -228,9 +278,6 @@ class _FixturesDownloader:
         self.keep_cache_keys.clear()
 
 
-fixture_lock = StashKey[Optional[FileLock]]()
-
-
 def pytest_sessionstart(session: Session) -> None:
     """Initialize test fixtures and file locking at session start."""
     if get_xdist_worker_id(session) != "master":
@@ -260,6 +307,17 @@ def pytest_sessionstart(session: Session) -> None:
                     fixture_path,
                 )
 
+            # Remove any python files in the downloaded files to avoid
+            # importing them.
+            for python_file in glob(
+                os.path.join(fixture_path, "**/*.py"), recursive=True
+            ):
+                try:
+                    os.unlink(python_file)
+                except FileNotFoundError:
+                    # Not breaking error, another process deleted it first
+                    pass
+
 
 def pytest_sessionfinish(session: Session, exitstatus: int) -> None:
     """Clean up file locks at session finish."""
@@ -272,3 +330,28 @@ def pytest_sessionfinish(session: Session, exitstatus: int) -> None:
 
     assert lock_file is not None
     lock_file.release()
+
+
+def pytest_collect_file(
+    file_path: Path, parent: Collector
+) -> Collector | None:
+    """
+    Pytest hook that collects test cases from fixture JSON files.
+    """
+    if file_path.suffix == ".json":
+        return FixturesFile.from_parent(parent, path=file_path)
+    return None
+
+
+def pytest_runtest_teardown(item: Item, nextitem: Item) -> None:
+    """
+    Drop cache from a `FixtureTestItem` if the next one is not of the
+    same type or does not belong to the same fixtures file.
+    """
+    if isinstance(item, FixtureTestItem):
+        if (
+            nextitem is None
+            or not isinstance(nextitem, FixtureTestItem)
+            or item.fixtures_file != nextitem.fixtures_file
+        ):
+            item.fixtures_file.clear_data_cache()

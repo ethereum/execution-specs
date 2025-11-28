@@ -25,7 +25,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="seed_account_sweep_amount",
         type=Wei,
         default=None,
-        help="Amount of wei to sweep from the seed account to the sender account. "
+        help="Amount of wei to sweep from the seed account to the sender account. "  # noqa: E501
         "Default=None (Entire balance)",
     )
 
@@ -36,7 +36,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         type=Wei,
         default=None,
         help=(
-            "Gas price set for the funding transactions of each worker's sender key."
+            "Gas price set for the funding transactions of each worker's sender key."  # noqa: E501
         ),
     )
 
@@ -47,7 +47,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         type=Wei,
         default=21_000,
         help=(
-            "Gas limit set for the funding transactions of each worker's sender key."
+            "Gas limit set for the funding transactions of each worker's sender key."  # noqa: E501
         ),
     )
 
@@ -80,6 +80,7 @@ def seed_account_sweep_amount(request: pytest.FixtureRequest) -> int | None:
 
 @pytest.fixture(scope="session")
 def sender_key_initial_balance(
+    request: pytest.FixtureRequest,
     seed_sender: EOA,
     eth_rpc: EthRPC,
     session_temp_folder: Path,
@@ -126,6 +127,31 @@ def sender_key_initial_balance(
                 sender_fund_refund_gas_limit
                 * sender_funding_transactions_gas_price
             )
+
+            # ensure sender has enough balance for eoa_fund_amount_default
+            eoa_fund_amount_default: int = (
+                request.config.option.eoa_fund_amount_default
+            )
+            # Reserve gas for funding tx (21000 gas * gas_price)
+            funding_tx_cost = (
+                sender_fund_refund_gas_limit
+                * sender_funding_transactions_gas_price
+            )
+            if (
+                sender_key_initial_balance
+                < eoa_fund_amount_default + funding_tx_cost
+            ):
+                raise ValueError(
+                    f"Seed sender balance too low for --eoa-fund-amount-default="  # noqa: E501
+                    f"{eoa_fund_amount_default}. "
+                    f"Available balance per worker: {sender_key_initial_balance} wei "  # noqa: E501
+                    f"({sender_key_initial_balance / 10**18:.6f} ETH). "
+                    f"Required: {eoa_fund_amount_default + funding_tx_cost} wei "  # noqa: E501
+                    f"({(eoa_fund_amount_default + funding_tx_cost) / 10**18:.6f} ETH). "  # noqa: E501
+                    f"Either fund the seed account with more ETH or use "
+                    f"--eoa-fund-amount-default={sender_key_initial_balance - funding_tx_cost} "  # noqa: E501
+                    f"or lower."
+                )
 
             with base_file.open("w") as f:
                 f.write(str(sender_key_initial_balance))

@@ -8,12 +8,12 @@ uvx  --with-editable . ipython
 
 This command will create a virtual environment, install EEST's packages in "[editable mode](https://setuptools.pypa.io/en/latest/userguide/development_mode.html)" (source changes get reflected in the interactive shell), and start an `ipython` shell. You can then import any of the packages and experiment with them interactively.
 
-!!! example "Example: Working with `ethereum_test_forks`"
+!!! example "Example: Working with `execution_testing.forks`"
 
     See which defined forks are "ignored" by default:
 
     ```python
-    from ethereum_test_forks import forks, get_forks
+    from execution_testing.forks import forks, get_forks
     forks = set([fork for fork in get_forks() if fork.ignore()])
     print(forks)
     # -> {MuirGlacier, ArrowGlacier, GrayGlacier}

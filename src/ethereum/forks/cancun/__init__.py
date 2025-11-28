@@ -44,6 +44,6 @@ same transaction, and adds an instruction to read the blob base fee.
 [r]: https://github.com/paradigmxyz/reth/releases/tag/v0.1.0-alpha.19
 """  # noqa: E501
 
-from ethereum.fork_criteria import ByTimestamp
+from ethereum.fork_criteria import ByTimestamp, ForkCriteria
 
-FORK_CRITERIA = ByTimestamp(1710338135)
+FORK_CRITERIA: ForkCriteria = ByTimestamp(1710338135)

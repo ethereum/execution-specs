@@ -1,5 +1,5 @@
 # Forks Plugin
 
-::: pytest_plugins.forks
+::: execution_testing.cli.pytest_commands.plugins.forks
 
-::: pytest_plugins.forks.forks
+::: execution_testing.cli.pytest_commands.plugins.forks.forks

@@ -3,11 +3,22 @@ name: render
 on:
   push:
     branches:
-      - master
       - mainnet
       - 'forks/**'
+    paths: &render_paths
+      - 'src/ethereum/**'
+      - 'static/**'
+      - '.github/workflows/gh-pages.yaml'
+      - 'uv.lock'
+      - 'src/ethereum_spec_tools/docc.py'
+      - 'src/ethereum_spec_tools/forks.py'
   workflow_dispatch:
   pull_request:
+    paths: *render_paths
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -30,7 +41,7 @@ jobs:
 
       - name: Build Documentation
         run: |
-          tox -e doc
+          tox -e spec-docs
           touch .tox/docs/.nojekyll
 
       - name: Upload Pages Artifact

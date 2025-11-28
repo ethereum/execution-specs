@@ -26,6 +26,8 @@ dependencies = [
     "ethereum-types>=0.2.4,<0.3",
     "ethereum-rlp>=0.1.4,<0.2",
     "cryptography>=45.0.1,<46",
+    "platformdirs>=4.2,<5",
+    "libcst>=1.8,<2",
 ]
 
 [tool.setuptools.package-dir]
@@ -156,6 +158,12 @@ packages = [
 "ethereum_spec_tools" = ["py.typed"]
 
 [project.optional-dependencies]
+optimized = [
+    "rust-pyspec-glue>=0.0.9,<0.1.0",
+    "ethash>=1.1.0,<2",
+]
+
+[dependency-groups]
 test = [
     "pytest>=8,<9",
     "pytest-cov>=4.1.0,<5",
@@ -174,23 +182,37 @@ lint = [
     "vulture==2.14.0",
     "types-requests>=2.31,<2.33",
 ]
-tools = [
-    "platformdirs>=4.2,<5",
-    "libcst>=1.8,<2",
-]
 doc = [
     "docc>=0.3.0,<0.4.0",
     "fladrif>=0.2.0,<0.3.0",
     "mistletoe>=1.5.0,<2",
 ]
-optimized = [
-    "rust-pyspec-glue>=0.0.9,<0.1.0",
-    "ethash>=1.1.0,<2",
+mkdocs = [
+    "cairosvg>=2.7.0,<3",
+    "codespell>=2.4.1,<3",
+    "Jinja2>=3,<4",
+    "markdown==3.8",
+    "mike>=1.1.2,<2",
+    "mkdocs>=1.4.3,<2",
+    "mkdocs-click>=0.8,<1",
+    "mkdocs-gen-files>=0.5.0,<1",
+    "mkdocs-git-authors-plugin>=0.7.1,<1",
+    "mkdocs-glightbox>=0.3.4,<1",
+    "mkdocs-literate-nav>=0.6.0,<1",
+    "mkdocs-material>=9.1.14,<10",
+    "mkdocs-material-extensions>=1.1.1,<2",
+    "mkdocstrings>=0.21.2,<1",
+    "mkdocstrings-python>=1.0.0,<2",
+    "pillow>=10.0.1,<11",
+    "pyspelling>=2.8.2,<3",
+    "lxml>=6.0.0,<7",                       # needs to be >= 6.0 for pypy
 ]
 dev = [
-    "ethereum-execution[test,lint,tools,doc]",
-    "tox>=4.0",
-    "tox-uv>=1.29",
+    { include-group = "test" },
+    { include-group = "lint" },
+    { include-group = "doc" },
+    { include-group = "mkdocs" },
+    "ethereum-execution[optimized]",
 ]
 
 [tool.setuptools.dynamic]
@@ -202,6 +224,7 @@ ethereum-spec-sync = "ethereum_spec_tools.sync:main"
 ethereum-spec-new-fork = "ethereum_spec_tools.new_fork.cli:main"
 ethereum-spec-patch = "ethereum_spec_tools.patch_tool:main"
 ethereum-spec-evm = "ethereum_spec_tools.evm_tools:main"
+whitelist = "ethereum_spec_tools.whitelist:main"
 
 [project.entry-points."docc.plugins"]
 "ethereum_spec_tools.docc.discover" = "ethereum_spec_tools.docc:EthereumDiscover"
@@ -299,6 +322,7 @@ ignore_names = ["pytest_*"]
 line-length = 79
 
 [tool.ruff.lint]
+exclude = ["tests/fixtures"]
 select = [
     "E", # pycodestyle errors
     "F", # Pyflakes
@@ -349,6 +373,11 @@ ignore = [
     "N815"          # The traces must use camel case in JSON property names
 ]
 "tests/*" = ["ARG001"]
+"vulture_whitelist.py" = [
+    "B018",  # Useless expression (intentional for Vulture whitelisting)
+    "F403",  # Star imports needed for whitelisting
+    "F405",  # Undefined names from star imports
+]
 
 [tool.codespell]
 builtin = "clear,code,usage"    # Built-in dictionaries to use
@@ -366,9 +395,9 @@ skip = [                        # Don't check these files/folders
     "fixtures.*",
     "tests/fixtures",
     "tests/json_infra/fixtures",
-    "eest_tests",
     "src/ethereum_spec_tools/evm_tools/t8n" # Temporary while being re-written
 ]
+ignore-words = "whitelist.txt"  # Custom whitelist file
 count = true                    # Display counts of errors
 check-hidden = false            # Don't check hidden files (starting with .)
 

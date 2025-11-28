@@ -51,7 +51,12 @@ def format_help_output(help_text: str, max_width: int = 88) -> str:
 
     for line in lines:
         # Don't wrap lines that are part of the usage section or are empty
-        if not line.strip() or line.startswith("usage:") or line.startswith("  ") and "--" in line:
+        if (
+            not line.strip()
+            or line.startswith("usage:")
+            or line.startswith("  ")
+            and "--" in line
+        ):
             formatted_lines.append(line)
         else:
             # Wrap long lines while preserving indentation
@@ -78,31 +83,35 @@ def generate_command_line_options_docs():
     formatted_output = format_help_output(help_output)
 
     # Create the complete page content
-    page_content = f"""# Fill Command-Line Options
+    page_content = textwrap.dedent(f"""\
+        # Fill Command-Line Options
 
-Fill is a [pytest](https://docs.pytest.org/en/stable/)-based command. This page lists custom
-options that the `fill` command provides. To see the full list of options that is available
-to fill (including the standard pytest and plugin command-line options) use `fill --pytest-help`.
+        Fill is a [pytest](https://docs.pytest.org/en/stable/)-based command.
+        This page lists custom options that the `fill` command provides. To see
+        the full list of options that is available to fill (including the
+        standard pytest and plugin command-line options) use
+        `fill --pytest-help`.
 
-*This page is automatically generated from the current `fill --help` output.*
+        ## Command Help Output
 
-## Command Help Output
+        ```text
+        {formatted_output}
+        ```
 
-```text
-{formatted_output}
-```
+        ---
 
----
-
-*This page was automatically generated from `fill --help` output.*
-"""
+        *This page was automatically generated from `fill --help` output.*
+        """)
 
     # Write the generated content to a virtual file
-    with mkdocs_gen_files.open("filling_tests/filling_tests_command_line_options.md", "w") as f:
+    with mkdocs_gen_files.open(
+        "filling_tests/filling_tests_command_line_options.md", "w"
+    ) as f:
         f.write(page_content)
 
-    logger.info("Generated filling_tests_command_line_options.md with current fill --help output")
+    logger.info(
+        "Generated filling_tests_command_line_options.md from fill --help."
+    )
 
 
-# Run the generation
 generate_command_line_options_docs()
