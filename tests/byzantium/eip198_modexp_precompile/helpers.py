@@ -155,10 +155,18 @@ class ModExpOutput(TestParameterGroup):
       call_success (bool): The return_code from CALL, 0 indicates
                            unsuccessful call (out-of-gas), 1 indicates call
                            succeeded.
-      returned_data(str): The output returnData is the expected
+      returned_data (Bytes): The output returnData is the expected
                           output of the call.
 
     """
 
-    call_success: bool = True
+    call_success: bool
     returned_data: Bytes
+
+    def __len__(self) -> int:
+        """Return the length of the returned data."""
+        return len(self.returned_data)
+
+    def __bytes__(self) -> bytes:
+        """Return the returned data as bytes."""
+        return bytes(self.returned_data)

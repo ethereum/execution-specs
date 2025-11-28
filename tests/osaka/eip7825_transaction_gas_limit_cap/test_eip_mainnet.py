@@ -5,7 +5,6 @@ Cap](https://eips.ethereum.org/EIPS/eip-7825).
 
 import pytest
 from execution_testing import (
-    Account,
     Alloc,
     Environment,
     Op,

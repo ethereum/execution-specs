@@ -12,15 +12,26 @@ from execution_testing import (
     Transaction,
     # TransactionException,
 )
+from execution_testing.base_types.base_types import Bytes
 from execution_testing.test_types.block_types import Environment
 
-from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput
+from ...byzantium.eip198_modexp_precompile.helpers import (
+    ModExpInput,
+    ModExpOutput,
+)
 from .spec import ref_spec_7823
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7823.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7823.version
 
 pytestmark = [pytest.mark.valid_at("Osaka"), pytest.mark.mainnet]
+
+
+# overwrite the conftest fixture
+@pytest.fixture
+def call_succeeds(modexp_expected: ModExpOutput) -> bool:
+    """Override call_succeeds to use the parametrized ModExpOutput value."""
+    return modexp_expected.call_success
 
 
 # @pytest.mark.exception_test
@@ -36,8 +47,10 @@ pytestmark = [pytest.mark.valid_at("Osaka"), pytest.mark.mainnet]
                 declared_exponent_length=1,
                 declared_modulus_length=1,
             ),
-            # expected result:
-            bytes.fromhex("00"),
+            ModExpOutput(
+                call_success=False,
+                returned_data=Bytes(),
+            ),
             id="3070-bytes-long-base",
         ),
         pytest.param(
@@ -49,8 +62,10 @@ pytestmark = [pytest.mark.valid_at("Osaka"), pytest.mark.mainnet]
                 declared_exponent_length=3070,
                 declared_modulus_length=1,
             ),
-            # expected result:
-            bytes.fromhex("00"),
+            ModExpOutput(
+                call_success=False,
+                returned_data=Bytes(),
+            ),
             id="3070-bytes-long-exp",
         ),
         pytest.param(
@@ -62,8 +77,10 @@ pytestmark = [pytest.mark.valid_at("Osaka"), pytest.mark.mainnet]
                 declared_exponent_length=1,
                 declared_modulus_length=3070,
             ),
-            # expected result:
-            bytes.fromhex("00"),
+            ModExpOutput(
+                call_success=False,
+                returned_data=Bytes(),
+            ),
             id="3070-bytes-long-mod",
         ),
     ],
@@ -74,7 +91,8 @@ def test_modexp_different_base_lengths(
     tx: Transaction,
     post: Dict,
     modexp_input: ModExpInput,
-    modexp_expected: ModExpInput,
+    modexp_expected: ModExpOutput,
+    call_succeeds: bool,
 ) -> None:
     """
     Mainnet test for triggering gas cost increase.
