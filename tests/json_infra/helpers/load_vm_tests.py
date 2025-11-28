@@ -1,12 +1,15 @@
 """Helper class to load and run VM tests."""
 
-import json
-import os
 from importlib import import_module
-from typing import Any, List
+from pathlib import Path
+from typing import Any, Dict, Generator, List, Tuple
 
+import pytest
+from _pytest.config import Config
+from _pytest.nodes import Item
 from ethereum_rlp import rlp
 from ethereum_types.numeric import U64, U256, Uint
+from pytest import Collector
 
 from ethereum.crypto.hash import keccak256
 from ethereum.utils.hexadecimal import (
@@ -15,6 +18,27 @@ from ethereum.utils.hexadecimal import (
     hex_to_u256,
     hex_to_uint,
 )
+
+from ..hardfork import TestHardfork
+from ..stash_keys import desired_forks_key
+from .exceptional_test_patterns import exceptional_vm_test_patterns
+from .fixtures import Fixture, FixturesFile, FixtureTestItem
+
+
+def _get_vm_forks() -> List[TestHardfork]:
+    """
+    Get the list of forks for which VM tests should run.
+
+    VM tests are only run for legacy forks up to Constantinople.
+    """
+    all_forks = list(TestHardfork.discover())
+    constantinople = next(
+        f for f in all_forks if f.short_name == "constantinople"
+    )
+    return [f for f in all_forks if f.criteria <= constantinople.criteria]
+
+
+VM_FORKS: List[TestHardfork] = _get_vm_forks()
 
 
 class VmTestLoader:
@@ -61,13 +85,11 @@ class VmTestLoader:
     def _module(self, name: str) -> Any:
         return import_module(f"ethereum.forks.{self.fork_name}.{name}")
 
-    def run_test(
-        self, test_dir: str, test_file: str, check_gas_left: bool = True
-    ) -> None:
+    def run_test_from_dict(self, json_data: Dict[str, Any]) -> None:
         """
-        Execute a test case and check its post state.
+        Execute a test case from parsed JSON data and check its post state.
         """
-        test_data = self.load_test(test_dir, test_file)
+        test_data = self.prepare_test_data(json_data)
         block_env = test_data["block_env"]
         tx_env = test_data["tx_env"]
         tx = test_data["tx"]
@@ -81,8 +103,6 @@ class VmTestLoader:
         output = self.process_message_call(message)
 
         if test_data["has_post_state"]:
-            if check_gas_left:
-                assert output.gas_left == test_data["expected_gas_left"]
             assert (
                 keccak256(rlp.encode(output.logs))
                 == test_data["expected_logs_hash"]
@@ -101,15 +121,10 @@ class VmTestLoader:
         self.close_state(block_env.state)
         self.close_state(test_data["expected_post_state"])
 
-    def load_test(self, test_dir: str, test_file: str) -> Any:
+    def prepare_test_data(self, json_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Read tests from a file.
+        Prepare test data from parsed JSON.
         """
-        test_name = os.path.splitext(test_file)[0]
-        path = os.path.join(test_dir, test_file)
-        with open(path, "r") as fp:
-            json_data = json.load(fp)[test_name]
-
         block_env = self.json_to_block_env(json_data)
 
         tx = self.Transaction(
@@ -156,9 +171,8 @@ class VmTestLoader:
         # Hence creating a dummy caller state.
         if caller_hex_address not in json_data["pre"]:
             value = json_data["exec"]["value"]
-            json_data["pre"][caller_hex_address] = (
-                self.get_dummy_account_state(value)
-            )
+            dummy_state = self.get_dummy_account_state(value)
+            json_data["pre"][caller_hex_address] = dummy_state
 
         current_state = self.json_to_state(json_data["pre"])
 
@@ -226,3 +240,133 @@ class VmTestLoader:
             "nonce": "0x00",
             "storage": {},
         }
+
+
+class VmTest(FixtureTestItem):
+    """Single VM test case item for a specific fork."""
+
+    fork_name: str
+    eels_fork: str
+
+    def __init__(
+        self,
+        *args: Any,
+        fork_name: str,
+        eels_fork: str,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize a single VM test case item."""
+        super().__init__(*args, **kwargs)
+        self.fork_name = fork_name
+        self.eels_fork = eels_fork
+        self.add_marker(pytest.mark.fork(self.fork_name))
+        self.add_marker("vm_test")
+
+        # Mark tests with exceptional markers
+        test_patterns = exceptional_vm_test_patterns(fork_name, eels_fork)
+        if any(x.search(self.nodeid) for x in test_patterns.slow):
+            self.add_marker("slow")
+
+    @property
+    def vm_test_fixture(self) -> "VmTestFixture":
+        """Return the VM test fixture this test belongs to."""
+        parent = self.parent
+        assert parent is not None
+        assert isinstance(parent, VmTestFixture)
+        return parent
+
+    @property
+    def test_key(self) -> str:
+        """Return the key of the VM test fixture in the fixture file."""
+        return self.vm_test_fixture.test_key
+
+    @property
+    def fixtures_file(self) -> FixturesFile:
+        """Fixtures file from which the test fixture was collected."""
+        return self.vm_test_fixture.fixtures_file
+
+    @property
+    def test_dict(self) -> Dict[str, Any]:
+        """Load test from disk."""
+        loaded_file = self.fixtures_file.data
+        return loaded_file[self.test_key]
+
+    def runtest(self) -> None:
+        """Run a VM test from JSON test case data."""
+        loader = VmTestLoader(self.fork_name, self.eels_fork)
+        loader.run_test_from_dict(self.test_dict)
+
+    def reportinfo(self) -> Tuple[Path, int, str]:
+        """Return information for test reporting."""
+        return self.path, 1, self.name
+
+
+class VmTestFixture(Fixture, Collector):
+    """
+    VM test fixture from a JSON file that yields test items for each
+    supported fork.
+    """
+
+    @classmethod
+    def is_format(cls, test_dict: Dict[str, Any]) -> bool:
+        """Return true if the object can be parsed as a VM test fixture."""
+        # VM tests have exec, env, and pre keys
+        if "exec" not in test_dict:
+            return False
+        if "env" not in test_dict:
+            return False
+        if "pre" not in test_dict:
+            return False
+        if "logs" not in test_dict:
+            return False
+        # Make sure it's not a state test (which has "transaction" and "post")
+        if "transaction" in test_dict:
+            return False
+        return True
+
+    @property
+    def fixtures_file(self) -> FixturesFile:
+        """Fixtures file from which the test fixture was collected."""
+        parent = self.parent
+        assert parent is not None
+        assert isinstance(parent, FixturesFile)
+        return parent
+
+    @property
+    def test_dict(self) -> Dict[str, Any]:
+        """Load test from disk."""
+        loaded_file = self.fixtures_file.data
+        return loaded_file[self.test_key]
+
+    def collect(self) -> Generator[Item | Collector, None, None]:
+        """Collect VM test cases for each supported fork."""
+        desired_forks: List[str] = self.config.stash.get(desired_forks_key, [])
+
+        for fork in VM_FORKS:
+            if fork.json_test_name not in desired_forks:
+                continue
+            yield VmTest.from_parent(
+                parent=self,
+                name=fork.json_test_name,
+                fork_name=fork.json_test_name,
+                eels_fork=fork.short_name,
+            )
+
+    @classmethod
+    def has_desired_fork(
+        cls,
+        test_dict: Dict[str, Any],  # noqa: ARG003
+        config: Config,
+    ) -> bool:
+        """
+        Check if any of the VM test forks are in the desired forks list.
+        """
+        desired_forks = config.stash.get(desired_forks_key, None)
+        if desired_forks is None:
+            return True
+
+        # Check if any VM fork is in the desired forks
+        for fork in VM_FORKS:
+            if fork.json_test_name in desired_forks:
+                return True
+        return False

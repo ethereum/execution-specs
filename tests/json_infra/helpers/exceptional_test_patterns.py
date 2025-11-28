@@ -140,3 +140,24 @@ def exceptional_state_test_patterns(
         expected_fail=tuple(),
         big_memory=tuple(),
     )
+
+
+def exceptional_vm_test_patterns(
+    json_fork: str, eels_fork: str
+) -> TestPatterns:
+    """
+    Returns patterns for slow, ignored, and big-memory VM tests for a
+    given json_fork and eels_fork.
+    """
+    del json_fork, eels_fork  # Not used for VM tests currently
+
+    slow_tests = (
+        # vmPerformance tests are slow
+        "vmPerformance/",
+    )
+
+    return TestPatterns(
+        slow=tuple(re.compile(p) for p in slow_tests),
+        expected_fail=tuple(),
+        big_memory=tuple(),
+    )
