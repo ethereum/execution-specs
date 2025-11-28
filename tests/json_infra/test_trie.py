@@ -10,6 +10,7 @@ from ethereum_types.bytes import Bytes
 from ethereum.utils.hexadecimal import has_hex_prefix, hex_to_bytes
 
 from . import FORKS, TEST_FIXTURES
+from .stash_keys import desired_forks_key
 
 FIXTURE_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
 
@@ -27,8 +28,12 @@ def to_bytes(data: Optional[str]) -> Bytes:
 
 
 @pytest.mark.parametrize("fork", forks)
-def test_trie_secure_hex(fork: str) -> None:
+def test_trie_secure_hex(fork: str, request: pytest.FixtureRequest) -> None:
     """Tests secure trie implementation with hex-encoded test data."""
+    desired_forks = request.config.stash.get(desired_forks_key, [])
+    if fork not in desired_forks:
+        pytest.skip(f"Fork {fork} not in desired forks")
+
     tests = load_tests("hex_encoded_securetrie_test.json")
 
     eels_fork = FORKS[fork].short_name
@@ -44,8 +49,12 @@ def test_trie_secure_hex(fork: str) -> None:
 
 
 @pytest.mark.parametrize("fork", forks)
-def test_trie_secure(fork: str) -> None:
+def test_trie_secure(fork: str, request: pytest.FixtureRequest) -> None:
     """Tests secure trie implementation with standard test data."""
+    desired_forks = request.config.stash.get(desired_forks_key, [])
+    if fork not in desired_forks:
+        pytest.skip(f"Fork {fork} not in desired forks")
+
     tests = load_tests("trietest_secureTrie.json")
 
     eels_fork = FORKS[fork].short_name
@@ -61,8 +70,14 @@ def test_trie_secure(fork: str) -> None:
 
 
 @pytest.mark.parametrize("fork", forks)
-def test_trie_secure_any_order(fork: str) -> None:
+def test_trie_secure_any_order(
+    fork: str, request: pytest.FixtureRequest
+) -> None:
     """Tests secure trie implementation with any-order test data."""
+    desired_forks = request.config.stash.get(desired_forks_key, [])
+    if fork not in desired_forks:
+        pytest.skip(f"Fork {fork} not in desired forks")
+
     tests = load_tests("trieanyorder_secureTrie.json")
 
     eels_fork = FORKS[fork].short_name
@@ -78,8 +93,12 @@ def test_trie_secure_any_order(fork: str) -> None:
 
 
 @pytest.mark.parametrize("fork", forks)
-def test_trie(fork: str) -> None:
+def test_trie(fork: str, request: pytest.FixtureRequest) -> None:
     """Tests non-secure trie implementation with standard test data."""
+    desired_forks = request.config.stash.get(desired_forks_key, [])
+    if fork not in desired_forks:
+        pytest.skip(f"Fork {fork} not in desired forks")
+
     tests = load_tests("trietest.json")
 
     eels_fork = FORKS[fork].short_name
@@ -95,8 +114,12 @@ def test_trie(fork: str) -> None:
 
 
 @pytest.mark.parametrize("fork", forks)
-def test_trie_any_order(fork: str) -> None:
+def test_trie_any_order(fork: str, request: pytest.FixtureRequest) -> None:
     """Tests non-secure trie implementation with any-order test data."""
+    desired_forks = request.config.stash.get(desired_forks_key, [])
+    if fork not in desired_forks:
+        pytest.skip(f"Fork {fork} not in desired forks")
+
     tests = load_tests("trieanyorder.json")
 
     eels_fork = FORKS[fork].short_name
