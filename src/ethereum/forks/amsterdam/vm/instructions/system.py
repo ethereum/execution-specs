@@ -427,6 +427,19 @@ def call(evm: Evm) -> None:
         evm,
         access_gas_cost + transfer_gas_cost + extend_memory.cost,
     )
+    # Early balance check - before accessing target state.
+    # This ensures target is NOT in BAL when call fails due to insufficient funds.
+    sender_balance = get_account(
+        evm.message.block_env.state, evm.message.current_target
+    ).balance
+    if sender_balance < value:
+        # Only charge transfer + memory (not cold access, since we didn't access)
+        charge_gas(evm, transfer_gas_cost + extend_memory.cost)
+        evm.memory += b"\x00" * extend_memory.expand_by
+        push(evm.stack, U256(0))
+        evm.return_data = b""
+        evm.pc += Uint(1)
+        return
 
     # need to access account to check if account is alive, check gas before
     create_gas_cost = GAS_NEW_ACCOUNT
@@ -477,30 +490,23 @@ def call(evm: Evm) -> None:
     if evm.message.is_static and value != U256(0):
         raise WriteInStaticContext
     evm.memory += b"\x00" * extend_memory.expand_by
-    sender_balance = get_account(
-        evm.message.block_env.state, evm.message.current_target
-    ).balance
-    if sender_balance < value:
-        push(evm.stack, U256(0))
-        evm.return_data = b""
-        evm.gas_left += message_call_gas.sub_call
-    else:
-        generic_call(
-            evm,
-            message_call_gas.sub_call,
-            value,
-            evm.message.current_target,
-            to,
-            code_address,
-            True,
-            False,
-            memory_input_start_position,
-            memory_input_size,
-            memory_output_start_position,
-            memory_output_size,
-            code,
-            disable_precompiles,
-        )
+
+    generic_call(
+        evm,
+        message_call_gas.sub_call,
+        value,
+        evm.message.current_target,
+        to,
+        code_address,
+        True,
+        False,
+        memory_input_start_position,
+        memory_input_size,
+        memory_output_start_position,
+        memory_output_size,
+        code,
+        disable_precompiles,
+    )
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
