@@ -306,27 +306,40 @@ def default_max_priority_fee_per_gas(
     return request.config.getoption("default_max_priority_fee_per_gas")
 
 
-@pytest.fixture()
-def max_fee_per_gas(
-    eth_rpc: EthRPC, default_max_fee_per_gas: int | None
-) -> int:
-    """Return max fee per gas used for transactions in a given test."""
-    if default_max_fee_per_gas is None:
-        return eth_rpc.gas_price()
-    return default_max_fee_per_gas
-
-
-@pytest.fixture()
+@pytest.fixture(scope="function")
 def max_priority_fee_per_gas(
-    eth_rpc: EthRPC, default_max_priority_fee_per_gas: int | None
+    eth_rpc: EthRPC,
+    default_max_priority_fee_per_gas: int | None,
 ) -> int:
     """Return max priority fee per gas used for transactions in a given test."""
+    max_priority_fee_per_gas = default_max_priority_fee_per_gas
     if default_max_priority_fee_per_gas is None:
-        return eth_rpc.max_priority_fee_per_gas()
-    return default_max_priority_fee_per_gas
+        max_priority_fee_per_gas = eth_rpc.max_priority_fee_per_gas()
+    return max_priority_fee_per_gas
 
 
-@pytest.fixture()
+@pytest.fixture(scope="function")
+def max_fee_per_gas(
+    eth_rpc: EthRPC,
+    default_max_fee_per_gas: int | None,
+    max_priority_fee_per_gas: int,
+) -> int:
+    """Return max fee per gas used for transactions in a given test."""
+    max_fee_per_gas = default_max_fee_per_gas
+    if max_fee_per_gas is None:
+        max_fee_per_gas = eth_rpc.gas_price()
+    if max_priority_fee_per_gas > max_fee_per_gas:
+        # Depending on the timing of the request, the priority fee may be
+        # greater than the max fee. This is a workaround to ensure that the
+        # transaction is valid.
+        logger.info(
+            f"Max priority fee per gas is greater than max fee per gas, using max priority fee per gas + 1: {max_priority_fee_per_gas} > {max_fee_per_gas}"
+        )
+        max_fee_per_gas = max_priority_fee_per_gas + 1
+    return max_fee_per_gas
+
+
+@pytest.fixture(scope="function")
 def gas_price(max_fee_per_gas: int, max_priority_fee_per_gas: int) -> int:
     """Return gas price used for transactions in a given test."""
     return max_fee_per_gas + max_priority_fee_per_gas
