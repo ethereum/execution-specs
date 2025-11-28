@@ -1010,7 +1010,9 @@ def test_bal_withdrawal_to_7702_delegation(
         ],
     )
 
-    alice_final_balance = alice_initial_balance + (withdrawal_amount_gwei * GWEI)
+    alice_final_balance = alice_initial_balance + (
+        withdrawal_amount_gwei * GWEI
+    )
 
     account_expectations = {
         alice: BalAccountExpectation(
@@ -1068,7 +1070,3 @@ def test_bal_withdrawal_to_7702_delegation(
         blocks=[block],
         post=post,
     )
-
-
-
-
