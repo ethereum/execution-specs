@@ -355,8 +355,6 @@ class Alloc(BaseAlloc):
         deploy_gas_limit = min(deploy_gas_limit * 2, 30_000_000)
         print(f"Deploying contract with gas limit: {deploy_gas_limit}")
 
-        self._refresh_sender_nonce()
-
         deploy_tx = PendingTransaction(
             sender=self._sender,
             to=None,
@@ -422,8 +420,6 @@ class Alloc(BaseAlloc):
                     )
                 )
 
-                self._refresh_sender_nonce()
-
                 set_storage_tx = PendingTransaction(
                     sender=self._sender,
                     to=eoa,
@@ -446,8 +442,6 @@ class Alloc(BaseAlloc):
                     tx_index=len(self._pending_txs),
                 )
                 self._pending_txs.append(set_storage_tx)
-
-            self._refresh_sender_nonce()
 
             if delegation is not None:
                 if (
@@ -492,8 +486,6 @@ class Alloc(BaseAlloc):
 
         else:
             if amount is None or Number(amount) > 0:
-                self._refresh_sender_nonce()
-
                 fund_tx = PendingTransaction(
                     sender=self._sender,
                     to=eoa,
@@ -528,8 +520,6 @@ class Alloc(BaseAlloc):
         If the address is already present in the pre-alloc the amount will be
         added to its existing balance.
         """
-        self._refresh_sender_nonce()
-
         fund_tx = PendingTransaction(
             sender=self._sender,
             to=address,
