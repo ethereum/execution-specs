@@ -26,6 +26,7 @@ from ethereum.utils.numeric import le_uint32_sequence_to_bytes
 
 from . import FORKS, TEST_FIXTURES
 from .helpers.load_blockchain_tests import Load
+from .stash_keys import desired_forks_key
 
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
 
@@ -41,9 +42,16 @@ POW_FORKS = [
 ]
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("json_fork", POW_FORKS)
-def test_ethtest_fixtures(json_fork: str) -> None:
+def test_ethtest_fixtures(
+    json_fork: str, request: pytest.FixtureRequest
+) -> None:
     """Tests ethash proof-of-work validation against ethereum test fixtures."""
+    desired_forks = request.config.stash.get(desired_forks_key, [])
+    if json_fork not in desired_forks:
+        pytest.skip(f"Fork {json_fork} not in desired forks")
+
     eels_fork = FORKS[json_fork].short_name
     fork_module = importlib.import_module(f"ethereum.forks.{eels_fork}.fork")
 
@@ -116,12 +124,16 @@ def load_pow_test_fixtures(json_fork: str) -> List[Dict[str, Any]]:
     ],
 )
 def test_pow_validation_block_headers(
-    json_fork: str, block_file_name: str
+    json_fork: str, block_file_name: str, request: pytest.FixtureRequest
 ) -> None:
     """
     Tests proof-of-work validation on real block headers for
     specific forks.
     """
+    desired_forks = request.config.stash.get(desired_forks_key, [])
+    if json_fork not in desired_forks:
+        pytest.skip(f"Fork {json_fork} not in desired forks")
+
     eels_fork = FORKS[json_fork].short_name
     fork_module = importlib.import_module(f"ethereum.forks.{eels_fork}.fork")
 
