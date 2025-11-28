@@ -160,7 +160,7 @@ class ModExpOutput(TestParameterGroup):
 
     """
 
-    call_success: bool
+    call_success: bool = True
     returned_data: Bytes
 
     def __len__(self) -> int:
