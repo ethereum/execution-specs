@@ -1,5 +1,7 @@
 """The module contains the pytest hooks for the gas benchmark values."""
 
+from pathlib import Path
+
 import pytest
 
 from execution_testing.test_types import Environment, EnvironmentDefaults
@@ -30,6 +32,43 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
 
 
+def pytest_ignore_collect(
+    collection_path: Path, config: pytest.Config
+) -> bool | None:
+    """
+    Ignore tests/benchmark/ directory by default unless explicitly specified.
+
+    Returns True to ignore, False to collect, None for default behavior.
+    """
+    # Only handle paths within tests/benchmark/
+    try:
+        collection_path.relative_to(config.rootpath / "tests" / "benchmark")
+    except ValueError:
+        return None
+
+    # Check if benchmark tests explicitly specified in command line arguments
+    benchmark_path = config.rootpath / "tests" / "benchmark"
+    for arg in config.args:
+        arg_path = Path(arg)
+        # Check absolute paths
+        if arg_path.is_absolute():
+            try:
+                arg_path.relative_to(benchmark_path)
+                # Explicitly specified, set op_mode and don't ignore
+                config.op_mode = OpMode.BENCHMARKING  # type: ignore[attr-defined]
+                return False
+            except ValueError:
+                continue
+        # Check relative paths containing 'benchmark'
+        elif "benchmark" in arg:
+            # Explicitly specified, set op_mode and don't ignore
+            config.op_mode = OpMode.BENCHMARKING  # type: ignore[attr-defined]
+            return False
+
+    # Not explicitly specified, ignore by default
+    return True
+
+
 @pytest.hookimpl(tryfirst=True)
 def pytest_configure(config: pytest.Config) -> None:
     """Configure the fill and execute mode to benchmarking."""
@@ -37,24 +76,24 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "repricing: Mark test as reference test for gas repricing analysis",
     )
-    if config.getoption("gas_benchmark_value"):
-        config.op_mode = OpMode.BENCHMARKING  # type: ignore[attr-defined]
 
 
 def pytest_collection_modifyitems(
     config: pytest.Config, items: list[pytest.Item]
 ) -> None:
-    """Remove non-repricing tests when --fixed-opcode-count is specified."""
-    fixed_opcode_count = config.getoption("fixed_opcode_count")
-    if not fixed_opcode_count:
-        # If --fixed-opcode-count is not specified, don't filter anything
+    """
+    Filter tests based on repricing marker kwargs when -m repricing is specified.
+
+    When a test has @pytest.mark.repricing(param=value), only the parameterized
+    variant matching those kwargs should be selected.
+    """
+    # Check if -m repricing marker filter was specified
+    markexpr = config.getoption("markexpr", "")
+    if "repricing" not in markexpr:
         return
 
     filtered = []
     for item in items:
-        if not item.get_closest_marker("benchmark"):
-            continue
-
         repricing_marker = item.get_closest_marker("repricing")
         if not repricing_marker:
             continue
@@ -160,7 +199,10 @@ def genesis_environment(request: pytest.FixtureRequest) -> Environment:  # noqa:
     Return an Environment instance with appropriate gas limit based on test
     type.
     """
-    if request.node.get_closest_marker("benchmark") is not None:
+    is_benchmark = (
+        getattr(request.config, "op_mode", False) == OpMode.BENCHMARKING
+    )
+    if is_benchmark:
         return Environment(gas_limit=BENCHMARKING_MAX_GAS)
     return Environment()
 
@@ -171,6 +213,9 @@ def env(request: pytest.FixtureRequest) -> Environment:  # noqa: D103
     Return an Environment instance with appropriate gas limit based on test
     type.
     """
-    if request.node.get_closest_marker("benchmark") is not None:
+    is_benchmark = (
+        getattr(request.config, "op_mode", False) == OpMode.BENCHMARKING
+    )
+    if is_benchmark:
         return Environment(gas_limit=BENCHMARKING_MAX_GAS)
     return Environment()
