@@ -46,6 +46,12 @@ jobs:
       - uses: ./.github/actions/setup-env
       - name: Run py3 tests
         run: tox -e py3
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7
+        with:
+          files: .tox/coverage.xml
+          flags: unittests
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   pypy3:
     runs-on: [self-hosted-ghr, size-xl-x64]
@@ -117,12 +123,6 @@ jobs:
           cat $FILE_LIST
       - name: Run json infra tests
         run: tox -e json_infra -- --file-list="${{ steps.get-changed-files.outputs.file_list }}"
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7
-        with:
-          files: .tox/coverage.xml
-          flags: unittests
-          token: ${{ secrets.CODECOV_TOKEN }}
 
   optimized:
     runs-on: [self-hosted-ghr, size-xl-x64]
