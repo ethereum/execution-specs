@@ -611,6 +611,96 @@ def test_bal_extcodecopy_and_oog(
     )
 
 
+@pytest.mark.parametrize(
+    "memory_offset,copy_size,gas_shortfall",
+    [
+        pytest.param(0x10000, 32, "large", id="large_offset"),
+        pytest.param(256, 32, "boundary", id="boundary"),
+    ],
+)
+def test_bal_extcodecopy_oog_at_memory_expansion(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+    memory_offset: int,
+    copy_size: int,
+    gas_shortfall: str,
+) -> None:
+    """
+    Test EXTCODECOPY OOG at memory expansion - target should NOT appear in BAL.
+
+    Gas for all components (cold access + copy + memory expansion) must be
+    checked BEFORE recording account access.
+    """
+    alice = pre.fund_eoa()
+    gas_costs = fork.gas_costs()
+
+    target_contract = pre.deploy_contract(code=Bytecode(Op.STOP))
+
+    # Build EXTCODECOPY contract with appropriate PUSH sizes
+    if memory_offset <= 0xFF:
+        dest_push = Op.PUSH1(memory_offset)
+    elif memory_offset <= 0xFFFF:
+        dest_push = Op.PUSH2(memory_offset)
+    else:
+        dest_push = Op.PUSH3(memory_offset)
+
+    extcodecopy_contract_code = Bytecode(
+        Op.PUSH1(copy_size)
+        + Op.PUSH1(0)
+        + dest_push
+        + Op.PUSH20(target_contract)
+        + Op.EXTCODECOPY
+        + Op.STOP
+    )
+
+    extcodecopy_contract = pre.deploy_contract(code=extcodecopy_contract_code)
+
+    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
+    intrinsic_gas_cost = intrinsic_gas_calculator()
+
+    push_cost = gas_costs.G_VERY_LOW * 4
+    cold_access_cost = gas_costs.G_COLD_ACCOUNT_ACCESS
+    copy_cost = gas_costs.G_COPY * ((copy_size + 31) // 32)
+
+    if gas_shortfall == "large":
+        # Provide gas for push + cold access + copy, but NOT memory expansion
+        execution_cost = push_cost + cold_access_cost + copy_cost
+        tx_gas_limit = intrinsic_gas_cost + execution_cost
+    else:
+        # Calculate memory cost and provide exactly 1 less than needed
+        words = (memory_offset + copy_size + 31) // 32
+        memory_cost = (words * gas_costs.G_MEMORY) + (words * words // 512)
+        execution_cost = push_cost + cold_access_cost + copy_cost + memory_cost
+        tx_gas_limit = intrinsic_gas_cost + execution_cost - 1
+
+    tx = Transaction(
+        sender=alice,
+        to=extcodecopy_contract,
+        gas_limit=tx_gas_limit,
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                extcodecopy_contract: BalAccountExpectation.empty(),
+                target_contract: None,
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            extcodecopy_contract: Account(),
+            target_contract: Account(),
+        },
+    )
+
+
 def test_bal_storage_write_read_same_frame(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
