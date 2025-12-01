@@ -2208,20 +2208,18 @@ def test_bal_cross_tx_storage_revert_to_zero(
     )
 
 
-# RIPEMD-160 precompile address (used in Parity Touch Bug test)
-RIPEMD_160 = Address(0x03)
-
-
-def test_bal_cross_block_precompile_state_leak(
+def test_bal_cross_block_ripemd160_state_leak(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
-    Ensure internal EVM state for precompile handling does not leak between blocks.
+    Ensure internal EVM state for RIMPEMD-160 precompile handling does not
+    leak between blocks.
 
     The EVM may track internal state related to the Parity Touch Bug (EIP-161)
-    when calling RIPEMD-160 (0x03) with zero value. If this state is not properly
-    reset between blocks, it can cause incorrect BAL entries in subsequent blocks.
+    when calling RIPEMD-160 (0x03) with zero value. If this state is not
+    properly reset between blocks, it can cause incorrect BAL entries in
+    subsequent blocks.
 
     Prerequisites for triggering the bug:
     1. RIPEMD-160 (0x03) must already exist in state before the call.
@@ -2233,21 +2231,22 @@ def test_bal_cross_block_precompile_state_leak(
     - Block 2: RIPEMD-160 NOT in BAL (never touched in this block)
 
     Bug behavior:
-    - Block 2 incorrectly has RIPEMD-160 in its BAL due to leaked internal state.
+    - Block 2 incorrectly has RIPEMD-160 in its BAL due to leaked
+      internal state.
     """
     alice = pre.fund_eoa()
     bob = pre.fund_eoa()
-
     # Pre-fund RIPEMD-160 so it exists before the call.
     # This is required to trigger the internal state tracking.
-    pre[RIPEMD_160] = Account(balance=1)
+    ripemd160_addr = Address(0x03)
+    pre.fund_address(ripemd160_addr, amount=1)
 
     # Contract that calls RIPEMD-160 with zero value
     ripemd_caller = pre.deploy_contract(
-        code=Op.CALL(50_000, RIPEMD_160, 0, 0, 0, 0, 0) + Op.STOP
+        code=Op.CALL(50_000, ripemd160_addr, 0, 0, 0, 0, 0) + Op.STOP
     )
-
-    # Contract that triggers an exception (stack underflow from ADD on empty stack)
+    # Contract that triggers an exception
+    # (stack underflow from ADD on empty stack)
     exception_contract = pre.deploy_contract(code=Op.ADD)
 
     # Block 1: Call RIPEMD-160 successfully
@@ -2259,6 +2258,16 @@ def test_bal_cross_block_precompile_state_leak(
                 gas_limit=100_000,
             )
         ],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)]
+                ),
+                bob: None,
+                ripemd_caller: BalAccountExpectation.empty(),
+                ripemd160_addr: BalAccountExpectation.empty(),
+            }
+        ),
     )
 
     # Block 2: Exception triggers internal exception handling.
@@ -2272,6 +2281,16 @@ def test_bal_cross_block_precompile_state_leak(
                 gas_limit=100_000,
             )
         ],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: None,
+                bob: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)]
+                ),
+                # this is the important check
+                ripemd160_addr: None,
+            }
+        ),
     )
 
     blockchain_test(
@@ -2280,6 +2299,6 @@ def test_bal_cross_block_precompile_state_leak(
         post={
             alice: Account(nonce=1),
             bob: Account(nonce=1),
-            RIPEMD_160: Account(balance=1),
+            ripemd160_addr: Account(balance=1),
         },
     )
