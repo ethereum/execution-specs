@@ -5,7 +5,7 @@ Test the blob base fee reserve price mechanism for
 [EIP-7918: Blob base fee bounded by execution cost](https://eips.ethereum.org/EIPS/eip-7918).
 """
 
-from typing import Dict, Iterator, List
+from typing import Any, Dict, Iterator, List
 
 import pytest
 from execution_testing import (
@@ -175,7 +175,7 @@ def get_excess_blobs_for_blob_gas_price(fork: Fork, target_price: int) -> int:
         excess_blobs += 1
 
 
-def get_boundary_scenarios(fork: Fork) -> Iterator[pytest.param]:
+def get_boundary_scenarios(fork: Fork) -> Iterator[Any]:
     """
     Generate boundary test scenarios including both low and high
     blob gas prices.
