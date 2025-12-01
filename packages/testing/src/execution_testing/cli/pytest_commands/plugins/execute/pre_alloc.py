@@ -646,7 +646,11 @@ class Alloc(BaseAlloc):
                 assert tx.to in sender_balances, (
                     "Sender balance must be set before sending"
                 )
-                tx.value = HexNumber(sender_balances[tx.to])
+                sender_balance = sender_balances[tx.to]
+                logger.info(
+                    f"Deferred EOA balance for {tx.to} set to {sender_balance / 10**18:.18f} ETH"
+                )
+                tx.value = HexNumber(sender_balance)
             tx.set_gas_price(
                 gas_price=gas_price,
                 max_fee_per_gas=max_fee_per_gas,

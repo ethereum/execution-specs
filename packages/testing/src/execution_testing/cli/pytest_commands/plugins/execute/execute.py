@@ -291,7 +291,15 @@ def transactions_per_block(
 def default_gas_price(request: pytest.FixtureRequest) -> int | None:
     """Return default gas price used for transactions."""
     gas_price = request.config.getoption("default_gas_price")
-    assert gas_price > 0, "Gas price must be greater than 0"
+    if gas_price is not None:
+        assert gas_price > 0, "Gas price must be greater than 0"
+        logger.info(
+            f"Using configured default gas price: {gas_price / 10**9:.2f} Gwei"
+        )
+    else:
+        logger.info(
+            "No default gas price configured, will use network gas price * 1.5"
+        )
     return gas_price
 
 
@@ -306,7 +314,16 @@ def default_max_fee_per_gas(
     request: pytest.FixtureRequest,
 ) -> int | None:
     """Return default max fee per gas used for transactions."""
-    return request.config.getoption("default_max_fee_per_gas")
+    max_fee_per_gas = request.config.getoption("default_max_fee_per_gas")
+    if max_fee_per_gas is not None:
+        logger.info(
+            f"Using configured default max fee per gas: {max_fee_per_gas / 10**9:.2f} Gwei"
+        )
+    else:
+        logger.info(
+            "No default max fee per gas configured, will use network gas price * 1.5"
+        )
+    return max_fee_per_gas
 
 
 @pytest.fixture(scope="session")
@@ -314,7 +331,18 @@ def default_max_priority_fee_per_gas(
     request: pytest.FixtureRequest,
 ) -> int | None:
     """Return default max priority fee per gas used for transactions."""
-    return request.config.getoption("default_max_priority_fee_per_gas")
+    max_priority_fee_per_gas = request.config.getoption(
+        "default_max_priority_fee_per_gas"
+    )
+    if max_priority_fee_per_gas is not None:
+        logger.info(
+            f"Using configured default max priority fee per gas: {max_priority_fee_per_gas / 10**9:.2f} Gwei"
+        )
+    else:
+        logger.info(
+            "No default max priority fee per gas configured, will use network max priority fee * 1.5"
+        )
+    return max_priority_fee_per_gas
 
 
 @pytest.fixture(scope="session")
@@ -322,7 +350,18 @@ def default_max_fee_per_blob_gas(
     request: pytest.FixtureRequest,
 ) -> int | None:
     """Return default max fee per blob gas used for transactions."""
-    return request.config.getoption("default_max_fee_per_blob_gas")
+    max_fee_per_blob_gas = request.config.getoption(
+        "default_max_fee_per_blob_gas"
+    )
+    if max_fee_per_blob_gas is not None:
+        logger.info(
+            f"Using configured default max fee per blob gas: {max_fee_per_blob_gas / 10**9:.2f} Gwei"
+        )
+    else:
+        logger.info(
+            "No default max fee per blob gas configured, will use network blob base fee * 1.5"
+        )
+    return max_fee_per_blob_gas
 
 
 @pytest.fixture(scope="function")
@@ -333,8 +372,14 @@ def max_priority_fee_per_gas(
     """Return max priority fee per gas used for transactions in a given test."""
     max_priority_fee_per_gas = default_max_priority_fee_per_gas
     if max_priority_fee_per_gas is None:
-        max_priority_fee_per_gas = int(
-            eth_rpc.max_priority_fee_per_gas() * 1.5
+        network_max_priority_fee = eth_rpc.max_priority_fee_per_gas()
+        max_priority_fee_per_gas = int(network_max_priority_fee * 1.5)
+        logger.info(
+            f"Calculated max priority fee per gas from network: {network_max_priority_fee / 10**9:.2f} Gwei * 1.5 = {max_priority_fee_per_gas / 10**9:.2f} Gwei"
+        )
+    else:
+        logger.info(
+            f"Using default max priority fee per gas: {max_priority_fee_per_gas / 10**9:.2f} Gwei"
         )
     return max_priority_fee_per_gas
 
@@ -348,15 +393,27 @@ def max_fee_per_gas(
     """Return max fee per gas used for transactions in a given test."""
     max_fee_per_gas = default_max_fee_per_gas
     if max_fee_per_gas is None:
-        max_fee_per_gas = int(eth_rpc.gas_price() * 1.5)
+        network_gas_price = eth_rpc.gas_price()
+        max_fee_per_gas = int(network_gas_price * 1.5)
+        logger.info(
+            f"Calculated max fee per gas from network: {network_gas_price / 10**9:.2f} Gwei * 1.5 = {max_fee_per_gas / 10**9:.2f} Gwei"
+        )
+    else:
+        logger.info(
+            f"Using default max fee per gas: {max_fee_per_gas / 10**9:.2f} Gwei"
+        )
     if max_priority_fee_per_gas > max_fee_per_gas:
         # Depending on the timing of the request, the priority fee may be
         # greater than the max fee. This is a workaround to ensure that the
         # transaction is valid.
-        logger.info(
-            f"Max priority fee per gas is greater than max fee per gas, using max priority fee per gas + 1: {max_priority_fee_per_gas} > {max_fee_per_gas}"
+        logger.warning(
+            f"Max priority fee per gas ({max_priority_fee_per_gas / 10**9:.2f} Gwei) is greater than max fee per gas ({max_fee_per_gas / 10**9:.2f} Gwei), "
+            f"adjusting max fee per gas to {(max_priority_fee_per_gas + 1) / 10**9:.2f} Gwei"
         )
         max_fee_per_gas = max_priority_fee_per_gas + 1
+    logger.debug(
+        f"Final max fee per gas: {max_fee_per_gas / 10**9:.2f} Gwei, max priority fee per gas: {max_priority_fee_per_gas / 10**9:.2f} Gwei"
+    )
     return max_fee_per_gas
 
 
@@ -365,23 +422,44 @@ def max_fee_per_blob_gas(
     eth_rpc: EthRPC,
     default_max_fee_per_blob_gas: int | None,
 ) -> int:
-    """Return max priority fee per gas used for transactions in a given test."""
+    """Return max fee per blob gas used for transactions in a given test."""
     max_fee_per_blob_gas = default_max_fee_per_blob_gas
     if max_fee_per_blob_gas is None:
-        max_fee_per_blob_gas = int(eth_rpc.blob_base_fee() * 1.5)
+        network_blob_base_fee = eth_rpc.blob_base_fee()
+        max_fee_per_blob_gas = int(network_blob_base_fee * 1.5)
+        logger.info(
+            f"Calculated max fee per blob gas from network: {network_blob_base_fee / 10**9:.2f} Gwei * 1.5 = {max_fee_per_blob_gas / 10**9:.2f} Gwei"
+        )
+    else:
+        logger.info(
+            f"Using default max fee per blob gas: {max_fee_per_blob_gas / 10**9:.2f} Gwei"
+        )
     return max_fee_per_blob_gas
 
 
 @pytest.fixture(scope="function")
 def gas_price(max_fee_per_gas: int, max_priority_fee_per_gas: int) -> int:
     """Return gas price used for transactions in a given test."""
-    return max_fee_per_gas + max_priority_fee_per_gas
+    calculated_gas_price = max_fee_per_gas + max_priority_fee_per_gas
+    logger.debug(
+        f"Calculated gas price: {max_fee_per_gas / 10**9:.2f} Gwei (max fee) + {max_priority_fee_per_gas / 10**9:.2f} Gwei (max priority fee) = {calculated_gas_price / 10**9:.2f} Gwei"
+    )
+    return calculated_gas_price
 
 
 @pytest.fixture()
 def max_gas_limit_per_test(request: pytest.FixtureRequest) -> int | None:
     """Return the total gas limit for all transactions in a given test."""
-    return request.config.getoption("test_max_gas")
+    max_gas_limit = request.config.getoption("test_max_gas")
+    if max_gas_limit is not None:
+        logger.info(
+            f"Using configured max gas limit per test: {max_gas_limit}"
+        )
+    else:
+        logger.debug(
+            "No max gas limit per test configured, no limit will be enforced"
+        )
+    return max_gas_limit
 
 
 @dataclass(kw_only=True)
