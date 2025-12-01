@@ -755,6 +755,7 @@ def pre(
     )
     refund_txs = []
     skipped_refunds = 0
+    error_refunds = 0
     for idx, eoa in enumerate(pre._funded_eoa):
         remaining_balance = eth_rpc.get_balance(eoa)
         eoa.nonce = Number(eth_rpc.get_transaction_count(eoa))
@@ -789,16 +790,35 @@ def pre(
             target=eoa.label,
             tx_index=idx,
         )
-        refund_txs.append(refund_tx)
+        try:
+            logger.info(
+                f"Sending refund transaction for EOA {eoa}: {refund_tx.hash}"
+            )
+            refund_tx_hash = eth_rpc.send_transaction(refund_tx)
+            logger.info(f"Refund transaction sent: {refund_tx_hash}")
+            refund_txs.append(refund_tx)
+        except Exception as e:
+            eoa_key = eoa.key
+            logger.error(
+                f"Error sending refund transaction for EOA {eoa}: {e}."
+            )
+            if eoa_key is not None:
+                logger.info(
+                    f"Retrieve funds manually from EOA {eoa} "
+                    f"using private key {eoa_key.hex()}."
+                )
+            error_refunds += 1
+            continue
     if refund_txs:
         logger.info(
-            f"Sending {len(refund_txs)} refund transactions "
-            f"({skipped_refunds} skipped due to insufficient balance)"
+            f"Waiting for {len(refund_txs)} refund transactions "
+            f"({skipped_refunds} skipped due to insufficient balance, "
+            f"{error_refunds} errored)"
         )
-        eth_rpc.send_wait_transactions(refund_txs)
+        eth_rpc.wait_for_transactions(refund_txs)
         logger.info(f"All {len(refund_txs)} refund transactions confirmed")
     else:
         logger.info(
             f"No refund transactions to send ({skipped_refunds} EOAs skipped "
-            f"due to insufficient balance)"
+            f"due to insufficient balance, {error_refunds} errored)"
         )
