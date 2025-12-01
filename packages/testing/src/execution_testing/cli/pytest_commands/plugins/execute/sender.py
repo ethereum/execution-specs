@@ -8,8 +8,11 @@ from filelock import FileLock
 from pytest_metadata.plugin import metadata_key
 
 from execution_testing.base_types import Number, Wei
+from execution_testing.logging import get_logger
 from execution_testing.rpc import EthRPC
 from execution_testing.test_types import EOA, Transaction
+
+logger = get_logger(__name__)
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -83,7 +86,7 @@ def seed_account_sweep_amount(request: pytest.FixtureRequest) -> int | None:
 @pytest.fixture(scope="session")
 def sender_key_initial_balance(
     request: pytest.FixtureRequest,
-    seed_sender: EOA,
+    seed_key: EOA,
     eth_rpc: EthRPC,
     session_temp_folder: Path,
     worker_count: int,
@@ -92,10 +95,10 @@ def sender_key_initial_balance(
     seed_account_sweep_amount: int | None,
 ) -> int:
     """
-    Calculate the initial balance of each sender key.
+    Calculate the initial balance of each worker key.
 
-    The way to do this is to fetch the seed sender balance and divide it by the
-    number of workers. This way we can ensure that each sender key has the same
+    The way to do this is to fetch the seed key balance and divide it by the
+    number of workers. This way we can ensure that each worker key has the same
     initial balance.
 
     We also only do this once per session, because if we try to fetch the
@@ -116,7 +119,8 @@ def sender_key_initial_balance(
                 sender_key_initial_balance = int(f.read())
         else:
             if seed_account_sweep_amount is None:
-                seed_account_sweep_amount = eth_rpc.get_balance(seed_sender)
+                # No sweep amount specified, sweep the entire balance.
+                seed_account_sweep_amount = eth_rpc.get_balance(seed_key)
             seed_sender_balance_per_worker = (
                 seed_account_sweep_amount // worker_count
             )
@@ -161,9 +165,9 @@ def sender_key_initial_balance(
 
 
 @pytest.fixture(scope="session")
-def sender_key(
+def session_worker_key(
     request: pytest.FixtureRequest,
-    seed_sender: EOA,
+    seed_key: EOA,
     sender_key_initial_balance: int,
     eoa_iterator: Iterator[EOA],
     eth_rpc: EthRPC,
@@ -173,10 +177,11 @@ def sender_key(
     dry_run: bool,
 ) -> Generator[EOA, None, None]:
     """
-    Get the sender keys for all tests.
+    Get the key for this worker in this session that will be the account
+    that funds all EOAs and contracts in the tests that this worker executes.
 
-    The seed sender is going to be shared among different processes, so we need
-    to lock it before we produce each funding transaction.
+    Each worker will have a different key, but coordination is required
+    because all worker keys come from the same seed key.
     """
     # For the seed sender we do need to keep track of the nonce because it is
     # shared among different processes, and there might not be a new block
@@ -186,16 +191,16 @@ def sender_key(
     seed_sender_nonce_file = session_temp_folder / seed_sender_nonce_file_name
     seed_sender_lock_file = session_temp_folder / seed_sender_lock_file_name
 
-    sender = next(eoa_iterator)
+    worker_key = next(eoa_iterator)
 
     # prepare funding transaction
     with FileLock(seed_sender_lock_file):
         if seed_sender_nonce_file.exists():
             with seed_sender_nonce_file.open("r") as f:
-                seed_sender.nonce = Number(f.read())
+                seed_key.nonce = Number(f.read())
         fund_tx = Transaction(
-            sender=seed_sender,
-            to=sender,
+            sender=seed_key,
+            to=worker_key,
             gas_limit=sender_fund_refund_gas_limit,
             gas_price=sender_funding_transactions_gas_price,
             value=sender_key_initial_balance,
@@ -203,17 +208,17 @@ def sender_key(
         if not dry_run:
             eth_rpc.send_transaction(fund_tx)
         with seed_sender_nonce_file.open("w") as f:
-            f.write(str(seed_sender.nonce))
+            f.write(str(seed_key.nonce))
     if not dry_run:
         eth_rpc.wait_for_transaction(fund_tx)
 
-    yield sender
+    yield worker_key
 
-    # refund seed sender
-    remaining_balance = eth_rpc.get_balance(sender)
-    sender.nonce = Number(eth_rpc.get_transaction_count(sender))
+    # refund seed key
+    remaining_balance = eth_rpc.get_balance(worker_key)
+    worker_key.nonce = Number(eth_rpc.get_transaction_count(worker_key))
     used_balance = sender_key_initial_balance - remaining_balance
-    request.config.stash[metadata_key]["Senders"][str(sender)] = (
+    request.config.stash[metadata_key]["Senders"][str(worker_key)] = (
         f"Used balance={used_balance / 10**18:.18f}"
     )
 
@@ -228,17 +233,37 @@ def sender_key(
 
     # Update the nonce of the sender in case one of the pre-alloc transactions
     # failed
-    sender.nonce = Number(eth_rpc.get_transaction_count(sender))
+    worker_key.nonce = Number(eth_rpc.get_transaction_count(worker_key))
 
     refund_tx = Transaction(
-        sender=sender,
-        to=seed_sender,
+        sender=worker_key,
+        to=seed_key,
         gas_limit=refund_gas_limit,
         gas_price=refund_gas_price,
         value=remaining_balance - tx_cost - 1,
     ).with_signature_and_sender()
 
     eth_rpc.send_wait_transaction(refund_tx)
+
+
+@pytest.fixture(scope="function")
+def worker_key(
+    eth_rpc: EthRPC, session_worker_key: EOA
+) -> Generator[EOA, None, None]:
+    """Prepare the worker key for the current test."""
+    rpc_nonce = eth_rpc.get_transaction_count(
+        session_worker_key, block_number="pending"
+    )
+    session_worker_key.nonce = Number(rpc_nonce)
+
+    # Record the start balance of the worker key
+    worker_key_start_balance = eth_rpc.get_balance(session_worker_key)
+
+    yield session_worker_key
+
+    final_balance = eth_rpc.get_balance(session_worker_key)
+    used_balance = worker_key_start_balance - final_balance
+    logger.info(f"Used balance={used_balance / 10**18:.18f}")
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:

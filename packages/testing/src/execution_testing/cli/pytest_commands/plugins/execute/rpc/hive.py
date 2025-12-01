@@ -70,9 +70,12 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
 
 
 @pytest.fixture(scope="session")
-def seed_sender(session_temp_folder: Path) -> EOA:
-    """Determine the seed sender account for the client's genesis."""
-    base_name = "seed_sender"
+def seed_key(session_temp_folder: Path) -> EOA:
+    """
+    Determine the seed account, which is used to fund all worker accounts,
+    and place it in the client's genesis.
+    """
+    base_name = "seed_key"
     base_file = session_temp_folder / base_name
     base_lock_file = session_temp_folder / f"{base_name}.lock"
 
@@ -80,18 +83,18 @@ def seed_sender(session_temp_folder: Path) -> EOA:
         if base_file.exists():
             with base_file.open("r") as f:
                 seed_sender_key = Hash(f.read())
-            seed_sender = EOA(key=seed_sender_key)
+            seed_key = EOA(key=seed_sender_key)
         else:
-            seed_sender = EOA(key=randint(0, 2**256))
+            seed_key = EOA(key=randint(0, 2**256))
             with base_file.open("w") as f:
-                f.write(str(seed_sender.key))
-    return seed_sender
+                f.write(str(seed_key.key))
+    return seed_key
 
 
 @pytest.fixture(scope="session")
 def base_pre(
     request: pytest.FixtureRequest,
-    seed_sender: EOA,
+    seed_key: EOA,
     worker_count: int,
 ) -> Alloc:
     """Pre-allocation for the client's genesis."""
@@ -100,7 +103,7 @@ def base_pre(
     )
     return Alloc(
         {
-            seed_sender: Account(
+            seed_key: Account(
                 balance=(worker_count * sender_key_initial_balance) + 10**18
             )
         }

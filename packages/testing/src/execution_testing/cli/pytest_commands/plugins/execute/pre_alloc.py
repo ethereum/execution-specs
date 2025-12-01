@@ -219,21 +219,6 @@ class Alloc(BaseAlloc):
         self._node_id = node_id
         self._address_stubs = address_stubs or AddressStubs(root={})
 
-    # always refresh _sender nonce from RPC ("pending") before building tx
-    def _refresh_sender_nonce(self) -> None:
-        """
-        Synchronize self._sender.nonce with the node's view.
-        Prefer 'pending' to account for in-flight transactions.
-        """
-        try:
-            rpc_nonce = self._eth_rpc.get_transaction_count(
-                self._sender, block_number="pending"
-            )
-        except TypeError:
-            # If EthRPC.get_transaction_count has no 'block' kwarg
-            rpc_nonce = self._eth_rpc.get_transaction_count(self._sender)
-        self._sender.nonce = Number(rpc_nonce)
-
     def __setitem__(
         self,
         address: Address | FixedSizeBytesConvertible,
@@ -642,7 +627,7 @@ def eoa_fund_amount_default(request: pytest.FixtureRequest) -> int:
 @pytest.fixture(autouse=True, scope="function")
 def pre(
     fork: Fork,
-    sender_key: EOA,
+    worker_key: EOA,
     eoa_iterator: Iterator[EOA],
     eth_rpc: EthRPC,
     evm_code_type: EVMCodeType,
@@ -661,13 +646,10 @@ def pre(
         assert hasattr(request.node, "fork")
         actual_fork = request.node.fork
 
-    # Record the starting balance of the sender
-    sender_test_starting_balance = eth_rpc.get_balance(sender_key)
-
     # Prepare the pre-alloc
     pre = Alloc(
-        fork=fork,
-        sender=sender_key,
+        fork=actual_fork,
+        sender=worker_key,
         eth_rpc=eth_rpc,
         eoa_iterator=eoa_iterator,
         evm_code_type=evm_code_type,
@@ -679,38 +661,32 @@ def pre(
     # Yield the pre-alloc for usage during the test
     yield pre
 
-    if dry_run:
+    if dry_run or skip_cleanup:
         return
 
-    if not skip_cleanup:
-        # Refund all EOAs (regardless of whether the test passed or failed)
-        refund_txs = []
-        for idx, eoa in enumerate(pre._funded_eoa):
-            remaining_balance = eth_rpc.get_balance(eoa)
-            eoa.nonce = Number(eth_rpc.get_transaction_count(eoa))
-            refund_gas_limit = 21_000
-            tx_cost = refund_gas_limit * max_fee_per_gas
-            if remaining_balance < tx_cost:
-                continue
-            refund_tx = Transaction(
-                sender=eoa,
-                to=sender_key,
-                gas_limit=21_000,
-                max_fee_per_gas=max_fee_per_gas,
-                max_priority_fee_per_gas=max_priority_fee_per_gas,
-                value=remaining_balance - tx_cost,
-            ).with_signature_and_sender()
-            refund_tx.metadata = TransactionTestMetadata(
-                test_id=request.node.nodeid,
-                phase="cleanup",
-                action="refund_from_eoa",
-                target=eoa.label,
-                tx_index=idx,
-            )
-            refund_txs.append(refund_tx)
-        eth_rpc.send_wait_transactions(refund_txs)
-
-    # Record the ending balance of the sender
-    sender_test_ending_balance = eth_rpc.get_balance(sender_key)
-    used_balance = sender_test_starting_balance - sender_test_ending_balance
-    print(f"Used balance={used_balance / 10**18:.18f}")
+    # Refund all EOAs (regardless of whether the test passed or failed)
+    refund_txs = []
+    for idx, eoa in enumerate(pre._funded_eoa):
+        remaining_balance = eth_rpc.get_balance(eoa)
+        eoa.nonce = Number(eth_rpc.get_transaction_count(eoa))
+        refund_gas_limit = 21_000
+        tx_cost = refund_gas_limit * max_fee_per_gas
+        if remaining_balance < tx_cost:
+            continue
+        refund_tx = Transaction(
+            sender=eoa,
+            to=worker_key,
+            gas_limit=21_000,
+            max_fee_per_gas=max_fee_per_gas,
+            max_priority_fee_per_gas=max_priority_fee_per_gas,
+            value=remaining_balance - tx_cost,
+        ).with_signature_and_sender()
+        refund_tx.metadata = TransactionTestMetadata(
+            test_id=request.node.nodeid,
+            phase="cleanup",
+            action="refund_from_eoa",
+            target=eoa.label,
+            tx_index=idx,
+        )
+        refund_txs.append(refund_tx)
+    eth_rpc.send_wait_transactions(refund_txs)
