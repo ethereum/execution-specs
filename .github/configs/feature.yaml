@@ -18,6 +18,11 @@ benchmark_develop:
   fill-params: --fork=Osaka --gas-benchmark-values 1,10,30,60,100,150 -m "benchmark and not state_test" ./tests/benchmark
   feature_only: true
 
+benchmark_fast:
+  evm-type: benchmark
+  fill-params: --fork=Prague --gas-benchmark-values 100 -m "benchmark and not state_test" ./tests/benchmark
+  feature_only: true
+
 bal:
   evm-type: develop
   fill-params: --fork=Amsterdam ./tests/amsterdam/eip7928_block_level_access_lists
