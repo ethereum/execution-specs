@@ -114,6 +114,7 @@ def worker_key_funding_amount(
 
     with FileLock(base_lock_file):
         if base_file.exists():
+            # Some other worker already did this for us, use that value.
             return int(base_file.read_text())
 
         available_amount = (
@@ -150,6 +151,7 @@ def worker_key_funding_amount(
                 negative value.
                 """
             )
+        # Write the value to the file for the rest of the workers to use.
         base_file.write_text(str(worker_key_funding_amount))
         return worker_key_funding_amount
 
