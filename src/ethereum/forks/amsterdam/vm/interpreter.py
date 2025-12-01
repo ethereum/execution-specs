@@ -267,7 +267,7 @@ def process_create_message(message: Message) -> Evm:
     create_frame = create_child_frame(parent_frame)
 
     increment_nonce(state, message.current_target, create_frame)
-    evm = process_message(message)
+    evm = process_message(message, parent_state_frame=create_frame)
     if not evm.error:
         contract_code = evm.output
         contract_code_gas = Uint(len(contract_code)) * GAS_CODE_DEPOSIT
@@ -296,7 +296,10 @@ def process_create_message(message: Message) -> Evm:
     return evm
 
 
-def process_message(message: Message) -> Evm:
+def process_message(
+    message: Message,
+    parent_state_frame: Optional[StateChanges] = None,
+) -> Evm:
     """
     Move ether and execute the relevant code.
 
@@ -304,6 +307,12 @@ def process_message(message: Message) -> Evm:
     ----------
     message :
         Transaction specific items.
+    parent_state_frame :
+        Optional parent frame for state tracking. When provided (e.g., for
+        CREATE's init code), state changes are tracked as a child of this
+        frame instead of the default parent determined by the message.
+        This ensures proper frame hierarchy for CREATE operations where
+        init code changes must be children of the CREATE frame.
 
     Returns
     -------
@@ -318,8 +327,15 @@ def process_message(message: Message) -> Evm:
 
     begin_transaction(state, transient_storage)
 
-    parent_frame = get_parent_frame(message)
-    state_changes = get_message_state_frame(message)
+    if parent_state_frame is not None:
+        # Use provided parent for CREATE's init code execution.
+        # This ensures init code state changes are children of create_frame,
+        # so they are properly converted to reads if code deposit fails.
+        parent_changes = parent_state_frame
+        state_changes = create_child_frame(parent_state_frame)
+    else:
+        parent_changes = get_parent_frame(message)
+        state_changes = get_message_state_frame(message)
 
     track_address(state_changes, message.current_target)
 
@@ -335,11 +351,11 @@ def process_message(message: Message) -> Evm:
     evm = execute_code(message, state_changes)
     if evm.error:
         rollback_transaction(state, transient_storage)
-        if state_changes != parent_frame:
+        if state_changes != parent_changes:
             merge_on_failure(evm.state_changes)
     else:
         commit_transaction(state, transient_storage)
-        if state_changes != parent_frame:
+        if state_changes != parent_changes:
             merge_on_success(evm.state_changes)
     return evm
 
