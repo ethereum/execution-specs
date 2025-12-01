@@ -1,11 +1,11 @@
 """
- [EIP-7918: Blob base fee bounded by execution cost](https://eips.ethereum.org/EIPS/eip-7918).
+[EIP-7918: Blob base fee bounded by execution cost](https://eips.ethereum.org/EIPS/eip-7918).
 
 Test the blob base fee reserve price mechanism for
 [EIP-7918: Blob base fee bounded by execution cost](https://eips.ethereum.org/EIPS/eip-7918).
 """
 
-from typing import Dict, List
+from typing import Dict, Iterator, List
 
 import pytest
 from execution_testing import (
@@ -95,6 +95,7 @@ def block(
     tx: Transaction,
     fork: Fork,
     parent_excess_blobs: int,
+    parent_blobs: int,
     block_base_fee_per_gas: int,
     blob_gas_per_blob: int,
 ) -> Block:
@@ -105,7 +106,7 @@ def block(
     excess_blob_gas_calculator = fork.excess_blob_gas_calculator()
     expected_excess_blob_gas = excess_blob_gas_calculator(
         parent_excess_blobs=parent_excess_blobs,
-        parent_blob_count=0,
+        parent_blob_count=parent_blobs,
         parent_base_fee_per_gas=block_base_fee_per_gas,
     )
     return Block(
@@ -159,19 +160,68 @@ def test_reserve_price_various_base_fee_scenarios(
     )
 
 
-@pytest.mark.parametrize_by_fork(
-    "parent_excess_blobs",
-    # Keep max assuming this will be greater than 20 in the future, to test a
-    # blob fee of > 1 :)
-    lambda fork: [
+def get_excess_blobs_for_blob_gas_price(fork: Fork, target_price: int) -> int:
+    """Find minimum excess blobs to achieve a target blob gas price."""
+    blob_gas_price_calculator = fork.blob_gas_price_calculator()
+    gas_per_blob = fork.blob_gas_per_blob()
+    excess_blobs = 0
+    while True:
+        excess_blob_gas = excess_blobs * gas_per_blob
+        current_price = blob_gas_price_calculator(
+            excess_blob_gas=excess_blob_gas
+        )
+        if current_price >= target_price:
+            return excess_blobs
+        excess_blobs += 1
+
+
+def get_boundary_scenarios(fork: Fork) -> Iterator[pytest.param]:
+    """
+    Generate boundary test scenarios including both low and high
+    blob gas prices.
+
+    The reserve price condition from EIP-7918 is:
+        BLOB_BASE_COST * base_fee > GAS_PER_BLOB * blob_gas_price
+        8192 * base_fee > 131072 * blob_gas_price
+        base_fee > 16 * blob_gas_price
+
+    The conftest calculates block_base_fee_per_gas as:
+        base_fee = 8 * blob_gas_price + delta
+
+    For equality (base_fee = 16 * blob_gas_price):
+        8 * blob_gas_price + delta = 16 * blob_gas_price
+        delta = 8 * blob_gas_price
+
+    Tests the reserve price boundary at:
+    - blob_gas_price = 1 (low excess blobs, various deltas around boundary)
+    - blob_gas_price = 2, 3, 5, 10 (high excess blobs, delta set to hit exact
+        equality where reserve_price == blob_gas_price)
+    """
+    # blob_gas_price = 1
+    for excess_blobs in [
         0,
         3,
         fork.target_blobs_per_block(),
         fork.max_blobs_per_block(),
-    ],
-)
-@pytest.mark.parametrize(
-    "block_base_fee_per_gas_delta", [-2, -1, 0, 1, 10, 100]
+    ]:
+        for delta in [-2, -1, 0, 1, 10, 100]:
+            yield pytest.param(excess_blobs, delta)
+
+    # blob_gas_price > 1
+    for target_price in [2, 3, 5, 10]:
+        excess_blobs = get_excess_blobs_for_blob_gas_price(fork, target_price)
+        blob_gas_price_calculator = fork.blob_gas_price_calculator()
+        gas_per_blob = fork.blob_gas_per_blob()
+        actual_price = blob_gas_price_calculator(
+            excess_blob_gas=excess_blobs * gas_per_blob
+        )
+        delta = 8 * actual_price
+        yield pytest.param(excess_blobs, delta)
+
+
+@pytest.mark.parametrize_by_fork(
+    "parent_excess_blobs,block_base_fee_per_gas_delta",
+    get_boundary_scenarios,
 )
 def test_reserve_price_boundary(
     blockchain_test: BlockchainTestFiller,
@@ -181,29 +231,20 @@ def test_reserve_price_boundary(
     post: Dict[Address, Account],
 ) -> None:
     """
-    Tests the reserve price boundary mechanism. Note the default block base fee
-    per gas is 7 (delta is 0). With a non zero delta the block base fee per gas
-    is set to (boundary * blob base fee) + delta.
+    Tests the reserve price boundary mechanism.
 
-    Example scenarios from parametrization:
-    Assume
-      parent_excess_blobs = 3:
-      delta=-2:
-      blob_base_fee=1,
-      boundary=8,
-      block_base_fee_per_gas=8+(-2)=6, 6 < 8,
-      reserve inactive,
-      effective_fee=1 delta=0:
-      blob_base_fee=1, boundary=8,
-      block_base_fee_per_gas=7, 7 < 8,
-      reserve inactive, effective_fee=1
-      delta=100: blob_base_fee=1,
-      boundary=8, block_base_fee_per_gas=8+100=108, 108 > 8,
-      reserve active, effective_fee=max(108/8, 1)=13
+    The block base fee per gas is calculated as (8 * blob_base_fee) + delta,
+    where 8 * blob_base_fee is the boundary at which reserve_price equals
+    blob_gas_price.
 
-    All values give a blob base_ fee of 1 because we need a much higher excess
-    blob gas to increase the blob fee. This only increases to 2 at 20 excess
-    blobs.
+    Tests include:
+    - Low excess blob scenarios (blob_gas_price = 1) with various deltas
+    - High blob gas price scenarios (2, 3, 5, 10) at exact equality boundary
+
+    Example scenarios:
+    - delta < 0: reserve inactive, effective_fee = blob_gas_price
+    - delta = 0: equality boundary, reserve inactive (uses > not >=)
+    - delta > 0: reserve active, effective_fee = reserve_price
     """
     blockchain_test(
         genesis_environment=env,
