@@ -85,7 +85,6 @@ def seed_account_sweep_amount(request: pytest.FixtureRequest) -> int | None:
 
 @pytest.fixture(scope="session")
 def worker_key_funding_amount(
-    request: pytest.FixtureRequest,
     seed_key: EOA,
     eth_rpc: EthRPC,
     session_temp_folder: Path,
