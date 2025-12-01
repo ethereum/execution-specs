@@ -529,18 +529,45 @@ def test_bal_delegatecall_and_oog(
 
 
 @pytest.mark.parametrize(
-    "fails_at_extcodecopy",
-    [True, False],
-    ids=["oog_at_extcodecopy", "successful_extcodecopy"],
+    "oog_scenario,memory_offset,copy_size",
+    [
+        pytest.param("success", 0, 0, id="successful_extcodecopy"),
+        pytest.param("oog_at_cold_access", 0, 0, id="oog_at_cold_access"),
+        pytest.param(
+            "oog_at_memory_large_offset",
+            0x10000,
+            32,
+            id="oog_at_memory_large_offset",
+        ),
+        pytest.param(
+            "oog_at_memory_boundary",
+            256,
+            32,
+            id="oog_at_memory_boundary",
+        ),
+    ],
 )
 def test_bal_extcodecopy_and_oog(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
     fork: Fork,
-    fails_at_extcodecopy: bool,
+    oog_scenario: str,
+    memory_offset: int,
+    copy_size: int,
 ) -> None:
     """
     Ensure BAL handles EXTCODECOPY and OOG during EXTCODECOPY appropriately.
+
+    Tests various OOG scenarios:
+    - success: EXTCODECOPY completes, target appears in BAL
+    - oog_at_cold_access: OOG before cold access, target NOT in BAL
+    - oog_at_memory_large_offset: OOG at memory expansion (large offset),
+      target NOT in BAL
+    - oog_at_memory_boundary: OOG at memory expansion (boundary case),
+      target NOT in BAL
+
+    Gas for all components (cold access + copy + memory expansion) must be
+    checked BEFORE recording account access.
     """
     alice = pre.fund_eoa()
     gas_costs = fork.gas_costs()
@@ -549,93 +576,6 @@ def test_bal_extcodecopy_and_oog(
     target_contract = pre.deploy_contract(
         code=Bytecode(Op.PUSH1(0x42) + Op.STOP)
     )
-
-    # Create contract that attempts to copy code from target
-    extcodecopy_contract_code = Bytecode(
-        Op.PUSH1(0)  # size - copy 0 bytes to minimize memory expansion cost
-        + Op.PUSH1(0)  # codeOffset
-        + Op.PUSH1(0)  # destOffset
-        + Op.PUSH20(target_contract)  # address
-        + Op.EXTCODECOPY  # Copy code (cold access + base cost)
-        + Op.STOP
-    )
-
-    extcodecopy_contract = pre.deploy_contract(code=extcodecopy_contract_code)
-
-    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    intrinsic_gas_cost = intrinsic_gas_calculator()
-
-    # Costs:
-    # - 4 PUSH operations = G_VERY_LOW * 4
-    # - EXTCODECOPY cold = G_COLD_ACCOUNT_ACCESS + (G_COPY * words)
-    #   where words = ceil32(size) // 32 = ceil32(0) // 32 = 0
-    push_cost = gas_costs.G_VERY_LOW * 4
-    extcodecopy_cold_cost = (
-        gas_costs.G_COLD_ACCOUNT_ACCESS
-    )  # + (G_COPY * 0) = 0
-    tx_gas_limit = intrinsic_gas_cost + push_cost + extcodecopy_cold_cost
-
-    if fails_at_extcodecopy:
-        # subtract 1 gas to ensure OOG at EXTCODECOPY
-        tx_gas_limit -= 1
-
-    tx = Transaction(
-        sender=alice,
-        to=extcodecopy_contract,
-        gas_limit=tx_gas_limit,
-    )
-
-    block = Block(
-        txs=[tx],
-        expected_block_access_list=BlockAccessListExpectation(
-            account_expectations={
-                extcodecopy_contract: BalAccountExpectation.empty(),
-                # Target should only appear if EXTCODECOPY succeeded
-                **(
-                    {target_contract: None}
-                    if fails_at_extcodecopy
-                    else {target_contract: BalAccountExpectation.empty()}
-                ),
-            }
-        ),
-    )
-
-    blockchain_test(
-        pre=pre,
-        blocks=[block],
-        post={
-            alice: Account(nonce=1),
-            extcodecopy_contract: Account(),
-            target_contract: Account(),
-        },
-    )
-
-
-@pytest.mark.parametrize(
-    "memory_offset,copy_size,gas_shortfall",
-    [
-        pytest.param(0x10000, 32, "large", id="large_offset"),
-        pytest.param(256, 32, "boundary", id="boundary"),
-    ],
-)
-def test_bal_extcodecopy_oog_at_memory_expansion(
-    pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
-    fork: Fork,
-    memory_offset: int,
-    copy_size: int,
-    gas_shortfall: str,
-) -> None:
-    """
-    Test EXTCODECOPY OOG at memory expansion - target should NOT appear in BAL.
-
-    Gas for all components (cold access + copy + memory expansion) must be
-    checked BEFORE recording account access.
-    """
-    alice = pre.fund_eoa()
-    gas_costs = fork.gas_costs()
-
-    target_contract = pre.deploy_contract(code=Bytecode(Op.STOP))
 
     # Build EXTCODECOPY contract with appropriate PUSH sizes
     if memory_offset <= 0xFF:
@@ -647,8 +587,8 @@ def test_bal_extcodecopy_oog_at_memory_expansion(
 
     extcodecopy_contract_code = Bytecode(
         Op.PUSH1(copy_size)
-        + Op.PUSH1(0)
-        + dest_push
+        + Op.PUSH1(0)  # codeOffset
+        + dest_push  # destOffset
         + Op.PUSH20(target_contract)
         + Op.EXTCODECOPY
         + Op.STOP
@@ -659,20 +599,37 @@ def test_bal_extcodecopy_oog_at_memory_expansion(
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     intrinsic_gas_cost = intrinsic_gas_calculator()
 
+    # Calculate costs
     push_cost = gas_costs.G_VERY_LOW * 4
     cold_access_cost = gas_costs.G_COLD_ACCOUNT_ACCESS
     copy_cost = gas_costs.G_COPY * ((copy_size + 31) // 32)
 
-    if gas_shortfall == "large":
+    if oog_scenario == "success":
+        # Provide enough gas for everything including memory expansion
+        words = (memory_offset + copy_size + 31) // 32
+        memory_cost = (words * gas_costs.G_MEMORY) + (words * words // 512)
+        execution_cost = push_cost + cold_access_cost + copy_cost + memory_cost
+        tx_gas_limit = intrinsic_gas_cost + execution_cost
+        target_in_bal = True
+    elif oog_scenario == "oog_at_cold_access":
+        # Provide gas for pushes but 1 less than cold access cost
+        execution_cost = push_cost + cold_access_cost
+        tx_gas_limit = intrinsic_gas_cost + execution_cost - 1
+        target_in_bal = False
+    elif oog_scenario == "oog_at_memory_large_offset":
         # Provide gas for push + cold access + copy, but NOT memory expansion
         execution_cost = push_cost + cold_access_cost + copy_cost
         tx_gas_limit = intrinsic_gas_cost + execution_cost
-    else:
+        target_in_bal = False
+    elif oog_scenario == "oog_at_memory_boundary":
         # Calculate memory cost and provide exactly 1 less than needed
         words = (memory_offset + copy_size + 31) // 32
         memory_cost = (words * gas_costs.G_MEMORY) + (words * words // 512)
         execution_cost = push_cost + cold_access_cost + copy_cost + memory_cost
         tx_gas_limit = intrinsic_gas_cost + execution_cost - 1
+        target_in_bal = False
+    else:
+        raise ValueError(f"Invariant: unknown oog_scenario {oog_scenario}")
 
     tx = Transaction(
         sender=alice,
@@ -685,7 +642,11 @@ def test_bal_extcodecopy_oog_at_memory_expansion(
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 extcodecopy_contract: BalAccountExpectation.empty(),
-                target_contract: None,
+                **(
+                    {target_contract: BalAccountExpectation.empty()}
+                    if target_in_bal
+                    else {target_contract: None}
+                ),
             }
         ),
     )
