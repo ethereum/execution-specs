@@ -1,5 +1,7 @@
 """Seed sender on a remote execution client."""
 
+from typing import Generator
+
 import pytest
 
 from execution_testing.base_types import Hash, Number
@@ -32,7 +34,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 @pytest.fixture(scope="session")
-def seed_key(request: pytest.FixtureRequest, eth_rpc: EthRPC) -> EOA:
+def seed_key(
+    request: pytest.FixtureRequest, eth_rpc: EthRPC
+) -> Generator[EOA, None, None]:
     """
     Get the seed key from the command flags and create the EOA account object
     with the updated nonce value from the network.
