@@ -43,14 +43,14 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "Arguments defining the hive RPC client properties for the test.",
     )
     hive_rpc_group.addoption(
-        "--sender-key-initial-balance",
+        "--seed-key-initial-balance",
         action="store",
-        dest="sender_key_initial_balance",
+        dest="seed_key_initial_balance",
         type=int,
         default=10**26,
         help=(
-            "Initial balance of each sender key. There is one sender key per worker process "
-            "(`-n` option)."
+            "Initial balance of the seed key. This balance will be "
+            "distributed equally between each pytest worker (`-n` option)."
         ),
     )
     hive_rpc_group.addoption(
@@ -95,19 +95,12 @@ def seed_key(session_temp_folder: Path) -> EOA:
 def base_pre(
     request: pytest.FixtureRequest,
     seed_key: EOA,
-    worker_count: int,
 ) -> Alloc:
     """Pre-allocation for the client's genesis."""
-    sender_key_initial_balance = request.config.getoption(
-        "sender_key_initial_balance"
+    seed_key_initial_balance = request.config.getoption(
+        "seed_key_initial_balance"
     )
-    return Alloc(
-        {
-            seed_key: Account(
-                balance=(worker_count * sender_key_initial_balance) + 10**18
-            )
-        }
-    )
+    return Alloc({seed_key: Account(balance=seed_key_initial_balance)})
 
 
 @pytest.fixture(scope="session")

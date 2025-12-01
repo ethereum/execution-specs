@@ -115,14 +115,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="Type of EVM code to deploy in each test by default.",
     )
     pre_alloc_group.addoption(
-        "--eoa-fund-amount-default",
-        action="store",
-        dest="eoa_fund_amount_default",
-        default=10**17,
-        type=int,
-        help="The default amount of wei to fund each EOA in each test with.",
-    )
-    pre_alloc_group.addoption(
         "--skip-cleanup",
         action="store_true",
         dest="skip_cleanup",
@@ -616,12 +608,6 @@ def evm_code_type(request: pytest.FixtureRequest) -> EVMCodeType:
         )
         return parameter_evm_code_type
     return EVMCodeType.LEGACY
-
-
-@pytest.fixture(scope="session")
-def eoa_fund_amount_default(request: pytest.FixtureRequest) -> int:
-    """Get the gas price for the funding transactions."""
-    return request.config.option.eoa_fund_amount_default
 
 
 @pytest.fixture(autouse=True, scope="function")

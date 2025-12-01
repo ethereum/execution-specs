@@ -84,7 +84,7 @@ def seed_account_sweep_amount(request: pytest.FixtureRequest) -> int | None:
 
 
 @pytest.fixture(scope="session")
-def sender_key_initial_balance(
+def worker_key_funding_amount(
     request: pytest.FixtureRequest,
     seed_key: EOA,
     eth_rpc: EthRPC,
@@ -109,66 +109,57 @@ def sender_key_initial_balance(
     that each worker is going to run, so we can't really calculate the initial
     balance of each sender key based on that.
     """
-    base_name = "sender_key_initial_balance"
+    base_name = "worker_key_funding_amount"
     base_file = session_temp_folder / base_name
     base_lock_file = session_temp_folder / f"{base_name}.lock"
 
     with FileLock(base_lock_file):
         if base_file.exists():
-            with base_file.open("r") as f:
-                sender_key_initial_balance = int(f.read())
-        else:
-            if seed_account_sweep_amount is None:
-                # No sweep amount specified, sweep the entire balance.
-                seed_account_sweep_amount = eth_rpc.get_balance(seed_key)
-            seed_sender_balance_per_worker = (
-                seed_account_sweep_amount // worker_count
-            )
-            assert seed_sender_balance_per_worker > 100, (
-                "Seed sender balance too low"
-            )
-            # Subtract the cost of the transaction that is going to be sent to
-            # the seed sender
-            sender_key_initial_balance = seed_sender_balance_per_worker - (
-                sender_fund_refund_gas_limit
-                * sender_funding_transactions_gas_price
-            )
+            return int(base_file.read_text())
 
-            # ensure sender has enough balance for eoa_fund_amount_default
-            eoa_fund_amount_default: int = (
-                request.config.option.eoa_fund_amount_default
+        available_amount = (
+            seed_account_sweep_amount
+            if seed_account_sweep_amount is not None
+            # No sweep amount specified, sweep the entire balance.
+            else eth_rpc.get_balance(seed_key)
+        )
+        amount_source = (
+            "Specified sweep amount"
+            if seed_account_sweep_amount is not None
+            else "Seed account balance"
+        )
+        seed_sender_balance_per_worker = available_amount // worker_count
+        # Calculate the cost of the transaction to send the amount.
+        funding_tx_cost = (
+            sender_fund_refund_gas_limit
+            * sender_funding_transactions_gas_price
+        )
+        # Subtract the cost of the transaction that is going to be sent to
+        # the seed sender
+        worker_key_funding_amount = (
+            seed_sender_balance_per_worker - funding_tx_cost
+        )
+        if worker_key_funding_amount <= 0:
+            raise AssertionError(
+                f"""
+                {amount_source} is too low to distribute to the
+                specified number of workers ({worker_count}).
+                {available_amount / 10**18:.6f} ETH,
+                when distributed across all workers, and subtracting the
+                funding transaction cost
+                ({funding_tx_cost / 10**18:.6f} ETH), results in a zero or
+                negative value.
+                """
             )
-            # Reserve gas for funding tx (21000 gas * gas_price)
-            funding_tx_cost = (
-                sender_fund_refund_gas_limit
-                * sender_funding_transactions_gas_price
-            )
-            if (
-                sender_key_initial_balance
-                < eoa_fund_amount_default + funding_tx_cost
-            ):
-                raise ValueError(
-                    f"Seed sender balance too low for --eoa-fund-amount-default="  # noqa: E501
-                    f"{eoa_fund_amount_default}. "
-                    f"Available balance per worker: {sender_key_initial_balance} wei "  # noqa: E501
-                    f"({sender_key_initial_balance / 10**18:.6f} ETH). "
-                    f"Required: {eoa_fund_amount_default + funding_tx_cost} wei "  # noqa: E501
-                    f"({(eoa_fund_amount_default + funding_tx_cost) / 10**18:.6f} ETH). "  # noqa: E501
-                    f"Either fund the seed account with more ETH or use "
-                    f"--eoa-fund-amount-default={sender_key_initial_balance - funding_tx_cost} "  # noqa: E501
-                    f"or lower."
-                )
-
-            with base_file.open("w") as f:
-                f.write(str(sender_key_initial_balance))
-    return sender_key_initial_balance
+        base_file.write_text(str(worker_key_funding_amount))
+        return worker_key_funding_amount
 
 
 @pytest.fixture(scope="session")
 def session_worker_key(
     request: pytest.FixtureRequest,
     seed_key: EOA,
-    sender_key_initial_balance: int,
+    worker_key_funding_amount: int,
     eoa_iterator: Iterator[EOA],
     eth_rpc: EthRPC,
     session_temp_folder: Path,
@@ -193,7 +184,8 @@ def session_worker_key(
 
     worker_key = next(eoa_iterator)
 
-    # prepare funding transaction
+    # Prepare funding transaction for this specific worker.
+    # Each worker locks the next nonce by using a file lock to coordinate.
     with FileLock(seed_sender_lock_file):
         if seed_sender_nonce_file.exists():
             with seed_sender_nonce_file.open("r") as f:
@@ -203,7 +195,7 @@ def session_worker_key(
             to=worker_key,
             gas_limit=sender_fund_refund_gas_limit,
             gas_price=sender_funding_transactions_gas_price,
-            value=sender_key_initial_balance,
+            value=worker_key_funding_amount,
         ).with_signature_and_sender()
         if not dry_run:
             eth_rpc.send_transaction(fund_tx)
@@ -212,12 +204,13 @@ def session_worker_key(
     if not dry_run:
         eth_rpc.wait_for_transaction(fund_tx)
 
+    # Run all tests for this worker.
     yield worker_key
 
-    # refund seed key
+    # All tests for this worker have completed, refund seed key.
     remaining_balance = eth_rpc.get_balance(worker_key)
     worker_key.nonce = Number(eth_rpc.get_transaction_count(worker_key))
-    used_balance = sender_key_initial_balance - remaining_balance
+    used_balance = worker_key_funding_amount - remaining_balance
     request.config.stash[metadata_key]["Senders"][str(worker_key)] = (
         f"Used balance={used_balance / 10**18:.18f}"
     )
