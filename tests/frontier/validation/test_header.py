@@ -1,4 +1,4 @@
-"""Test the validations applied from Frontier."""
+"""Test the block header validations applied from Frontier."""
 
 import pytest
 from execution_testing.base_types.base_types import ZeroPaddedHexNumber
