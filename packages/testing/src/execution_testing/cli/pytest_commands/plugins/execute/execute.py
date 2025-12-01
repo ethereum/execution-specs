@@ -175,10 +175,12 @@ def pytest_configure(config: pytest.Config) -> None:
         EnvironmentDefaults.gas_limit = config.getoption(
             "transaction_gas_limit"
         )
+
+    config.engine_rpc_supported = False  # type: ignore[attr-defined]
+
     if is_help_or_collectonly_mode(config):
         return
 
-    config.engine_rpc_supported = False  # type: ignore[attr-defined]
     if (
         config.getoption("disable_html")
         and config.getoption("htmlpath") is None
