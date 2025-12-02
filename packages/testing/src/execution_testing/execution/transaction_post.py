@@ -93,7 +93,9 @@ class TransactionPost(BaseExecute):
                             f"Sending transaction expecting rejection "
                             f"(expected error: {transaction.error})..."
                         )
-                        with pytest.raises(SendTransactionExceptionError) as exc_info:
+                        with pytest.raises(
+                            SendTransactionExceptionError
+                        ) as exc_info:
                             eth_rpc.send_transaction(transaction)
                         logger.info(
                             f"Transaction rejected as expected: {exc_info.value}"
