@@ -208,8 +208,17 @@ def get_boundary_scenarios(fork: Fork) -> Iterator[Any]:
             yield pytest.param(excess_blobs, delta)
 
     # blob_gas_price > 1
-    for target_price in [2, 3, 5, 10]:
-        excess_blobs = get_excess_blobs_for_blob_gas_price(fork, target_price)
+    for blob_target_price in [
+        2,
+        3,
+        5,
+        10,
+        10**9,  # 1 Gwei
+        10**11,  # 100 Gwei
+    ]:
+        excess_blobs = get_excess_blobs_for_blob_gas_price(
+            fork, blob_target_price
+        )
         blob_gas_price_calculator = fork.blob_gas_price_calculator()
         gas_per_blob = fork.blob_gas_per_blob()
         actual_price = blob_gas_price_calculator(

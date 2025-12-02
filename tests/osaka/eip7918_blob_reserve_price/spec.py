@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass
 
+from execution_testing import Fork
+
 # Base the spec on EIP-4844 which EIP-7918 extends
 from ...cancun.eip4844_blobs.spec import Spec as EIP4844Spec
 
@@ -31,29 +33,41 @@ class Spec(EIP4844Spec):
     @classmethod
     def get_reserve_price(
         cls,
+        *,
+        fork: Fork,
         base_fee_per_gas: int,
     ) -> int:
         """Calculate the reserve price for blob gas given the blob base fee."""
-        return (cls.BLOB_BASE_COST * base_fee_per_gas) // cls.GAS_PER_BLOB
+        return (
+            cls.BLOB_BASE_COST * base_fee_per_gas
+        ) // fork.blob_gas_per_blob()
 
     @classmethod
     def is_reserve_price_active(
         cls,
+        *,
+        fork: Fork,
         base_fee_per_gas: int,
         blob_base_fee: int,
     ) -> bool:
         """Check if the reserve price mechanism should be active."""
-        reserve_price = cls.get_reserve_price(base_fee_per_gas)
-        return reserve_price > blob_base_fee
+        return (
+            cls.BLOB_BASE_COST * base_fee_per_gas
+            > blob_base_fee * fork.blob_gas_per_blob()
+        )
 
     @classmethod
     def calc_effective_blob_base_fee(
         cls,
+        *,
+        fork: Fork,
         base_fee_per_gas: int,
         blob_base_fee: int,
     ) -> int:
         """
         Calculate the effective blob base fee considering the reserve price.
         """
-        reserve_price = cls.get_reserve_price(base_fee_per_gas)
+        reserve_price = cls.get_reserve_price(
+            fork=fork, base_fee_per_gas=base_fee_per_gas
+        )
         return max(reserve_price, blob_base_fee)

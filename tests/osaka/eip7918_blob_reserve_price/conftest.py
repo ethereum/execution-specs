@@ -89,19 +89,62 @@ def block_base_fee_per_gas(
     """
     Block base fee per gas. Default is 7 unless a delta is provided or
     overloaded.
+
+    When `block_base_fee_per_gas_delta` is zero the returned base fee per gas
+    is right at the boundary before the activation of the reserve price.
+
+    If a positive value is passed instead, the returned base fee per gas value
+    will trigger the reserve price.
     """
-    if block_base_fee_per_gas_delta != 0:
-        if parent_excess_blobs is None:
-            blob_base_fee = 1
-        else:
-            excess_blob_gas = parent_excess_blobs * fork.blob_gas_per_blob()
-            blob_gas_price_calculator = fork.blob_gas_price_calculator()
-            blob_base_fee = blob_gas_price_calculator(
-                excess_blob_gas=excess_blob_gas
-            )
-        boundary_base_fee = 8 * blob_base_fee
-        return boundary_base_fee + block_base_fee_per_gas_delta
-    return 7
+    blob_base_cost = Spec.BLOB_BASE_COST
+    gas_per_blob = fork.blob_gas_per_blob()
+    if parent_excess_blobs is None:
+        blob_base_fee = 1
+    else:
+        parent_excess_blob_gas = parent_excess_blobs * gas_per_blob
+        blob_gas_price_calculator = fork.blob_gas_price_calculator()
+        blob_base_fee = blob_gas_price_calculator(
+            excess_blob_gas=parent_excess_blob_gas
+        )
+    boundary_base_fee = gas_per_blob * blob_base_fee // blob_base_cost
+    if Spec.is_reserve_price_active(
+        fork=fork,
+        base_fee_per_gas=boundary_base_fee,
+        blob_base_fee=blob_base_fee,
+    ):
+        raise AssertionError(f"""
+        Reserve price should be inactive at boundary:
+        parent_excess_blob_gas={parent_excess_blob_gas}
+        blob_base_fee={blob_base_fee}
+
+        boundary_base_fee={boundary_base_fee}
+        BLOB_BASE_COST={blob_base_cost}
+        BLOB_BASE_COST * boundary_base_fee={boundary_base_fee * blob_base_cost}
+
+        blob_base_fee={blob_base_fee}
+        GAS_PER_BLOB={gas_per_blob}
+        GAS_PER_BLOB * blob_base_fee={gas_per_blob * blob_base_fee}
+        """)
+    if not Spec.is_reserve_price_active(
+        fork=fork,
+        base_fee_per_gas=boundary_base_fee + 1,
+        blob_base_fee=blob_base_fee,
+    ):
+        boundary_plus_one = boundary_base_fee + 1
+        raise AssertionError(f"""
+        Reserve price should be active after boundary:
+        parent_excess_blob_gas={parent_excess_blob_gas}
+        blob_base_fee={blob_base_fee}
+
+        boundary_base_fee={boundary_plus_one}
+        BLOB_BASE_COST={blob_base_cost}
+        BLOB_BASE_COST * boundary_base_fee={boundary_plus_one * blob_base_cost}
+
+        blob_base_fee={blob_base_fee}
+        GAS_PER_BLOB={gas_per_blob}
+        GAS_PER_BLOB * blob_base_fee={gas_per_blob * blob_base_fee}
+        """)
+    return boundary_base_fee + block_base_fee_per_gas_delta
 
 
 @pytest.fixture
@@ -173,19 +216,27 @@ def correct_blob_gas_used(
 
 @pytest.fixture
 def reserve_price(
+    fork: Fork,
     block_base_fee_per_gas: int,
 ) -> int:
     """Calculate the blob base fee reserve price for the current base fee."""
-    return Spec.get_reserve_price(block_base_fee_per_gas)
+    return Spec.get_reserve_price(
+        fork=fork, base_fee_per_gas=block_base_fee_per_gas
+    )
 
 
 @pytest.fixture
 def is_reserve_price_active(
+    fork: Fork,
     block_base_fee_per_gas: int,
     blob_gas_price: int,
 ) -> bool:
     """Check if the reserve price mechanism should be active."""
-    return Spec.is_reserve_price_active(block_base_fee_per_gas, blob_gas_price)
+    return Spec.is_reserve_price_active(
+        fork=fork,
+        base_fee_per_gas=block_base_fee_per_gas,
+        blob_base_fee=blob_gas_price,
+    )
 
 
 @pytest.fixture
