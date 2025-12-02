@@ -45,6 +45,7 @@ uv run execute remote --fork=Prague --rpc-endpoint=https://rpc.endpoint.io --dry
 ```
 
 This outputs the minimum balance needed and total gas consumption per test, useful for:
+
 - Estimating costs before execution
 - Verifying seed account has sufficient funds
 - Planning parallel execution funding requirements
