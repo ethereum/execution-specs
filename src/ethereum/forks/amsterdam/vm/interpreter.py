@@ -93,12 +93,9 @@ def get_parent_frame(message: Message) -> StateChanges:
         The parent frame to use for creating child frames.
 
     """
-    if message.parent_evm is not None:
-        return message.parent_evm.state_changes
-    elif message.transaction_state_changes is not None:
-        return message.transaction_state_changes
-    else:
-        return message.block_env.block_state_changes
+    assert message.parent_evm is not None
+
+    return message.parent_evm.state_changes
 
 
 def get_message_state_frame(message: Message) -> StateChanges:
@@ -119,13 +116,7 @@ def get_message_state_frame(message: Message) -> StateChanges:
 
     """
     parent_frame = get_parent_frame(message)
-    if (
-        message.parent_evm is not None
-        or message.transaction_state_changes is not None
-    ):
-        return create_child_frame(parent_frame)
-    else:
-        return parent_frame
+    return create_child_frame(parent_frame)
 
 
 @dataclass
