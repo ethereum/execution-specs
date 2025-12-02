@@ -1,7 +1,5 @@
 """
-Mainnet marked tests for EIP-7883 ModExp gas cost increase.
-
-Tests for ModExp gas cost increase in
+Mainnet marked execute checklist tests for
 [EIP-7883: ModExp Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-7883).
 """
 
@@ -28,10 +26,9 @@ REFERENCE_SPEC_VERSION = ref_spec_7883.version
 pytestmark = [pytest.mark.valid_at("Osaka"), pytest.mark.mainnet]
 
 
-# overwrite the conftest fixture
 @pytest.fixture
 def call_succeeds(modexp_expected: ModExpOutput) -> bool:
-    """Override call_succeeds to use the parametrized ModExpOutput value."""
+    """Override `call_succeeds` to use the parametrized ModExpOutput value."""
     return modexp_expected.call_success
 
 
@@ -128,9 +125,6 @@ def test_modexp_different_base_lengths(
     pre: Alloc,
     tx: Transaction,
     post: Dict,
-    modexp_input: ModExpInput,
-    modexp_expected: ModExpOutput,
-    call_succeeds: bool,
 ) -> None:
     """Mainnet test for triggering gas cost increase."""
     state_test(env=Environment(), pre=pre, tx=tx, post=post)

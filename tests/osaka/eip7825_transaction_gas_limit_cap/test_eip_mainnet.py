@@ -1,65 +1,67 @@
 """
-Mainnet tests for transaction gas limit cap [EIP-7825: Transaction Gas Limit
-Cap](https://eips.ethereum.org/EIPS/eip-7825).
+Mainnet marked execute checklist tests for
+[EIP-7825: Transaction Gas Limit Cap](https://eips.ethereum.org/EIPS/eip-7825).
 """
 
 import pytest
 from execution_testing import (
+    Account,
     Alloc,
     Environment,
     Op,
     StateTestFiller,
+    Storage,
     Transaction,
     TransactionException,
 )
 
-from .spec import ref_spec_7825
+from .spec import Spec, ref_spec_7825
 
-# Update reference spec constants
 REFERENCE_SPEC_GIT_PATH = ref_spec_7825.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7825.version
 
 pytestmark = [pytest.mark.valid_at("Osaka"), pytest.mark.mainnet]
 
 
-@pytest.mark.exception_test
-def test_tx_gas_limit_cap_mainnet(
+def test_tx_gas_limit_cap_at_maximum(
     state_test: StateTestFiller,
     pre: Alloc,
     env: Environment,
 ) -> None:
-    """Negative test going beyond transaction gas limit cap."""
-    target_gas_wasted_min = 2 ^ 24 + 1
-
-    # repeatedly call BALANCE on different addresses until we detect
-    # that we used up target_gas_wasted_min
-    code = (
-        Op.PUSH4[target_gas_wasted_min]
-        + Op.GAS
-        + Op.PUSH1[0x0]
-        + Op.JUMPDEST
-        + Op.DUP1
-        + Op.BALANCE
-        + Op.POP
-        + Op.PUSH1[0x1]
-        + Op.ADD
-        + Op.GAS
-        + Op.DUP4
-        + Op.SWAP1
-        + Op.SUB
-        + Op.DUP4
-        + Op.GT
-        + Op.PUSH1[0x8]
-        + Op.JUMPI
-        + Op.STOP
+    """Test transaction at exactly the gas limit cap (2^24)."""
+    storage = Storage()
+    contract_address = pre.deploy_contract(
+        code=Op.SSTORE(storage.store_next(1), 1) + Op.STOP,
     )
 
-    caller_address = pre.deploy_contract(code=code)
+    tx = Transaction(
+        to=contract_address,
+        sender=pre.fund_eoa(),
+        gas_limit=Spec.tx_gas_limit_cap,
+    )
+
+    post = {
+        contract_address: Account(storage=storage),
+    }
+
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.exception_test
+def test_tx_gas_limit_cap_exceeded(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    env: Environment,
+) -> None:
+    """Test transaction exceeding the gas limit cap (2^24 + 1)."""
+    contract_address = pre.deploy_contract(
+        code=Op.SSTORE(0, 1) + Op.STOP,
+    )
 
     tx = Transaction(
-        to=caller_address,
+        to=contract_address,
         sender=pre.fund_eoa(),
-        gas_limit=17_000_000,  # more than target_gas_wasted_min
+        gas_limit=Spec.tx_gas_limit_cap + 1,
         error=TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM,
     )
 

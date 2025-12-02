@@ -1,5 +1,6 @@
 """
-Mainnet testing for osaka's [EIP-7939: Count leading zeros (CLZ)](https://eips.ethereum.org/EIPS/eip-7939).
+Mainnet marked execute checklist tests for
+[EIP-7939: Count leading zeros (CLZ)](https://eips.ethereum.org/EIPS/eip-7939).
 """
 
 import pytest
@@ -20,29 +21,17 @@ REFERENCE_SPEC_VERSION = ref_spec_7939.version
 pytestmark = [pytest.mark.valid_at("Osaka"), pytest.mark.mainnet]
 
 
-# ruff keeps making parameters unreadable by putting them in one line
-# fmt: off
 @pytest.mark.parametrize(
     "clz_input,clz_expected",
     [
         pytest.param(
-            2**256 - 1,
-            0,
-            id="max-size-input-clz"
+            0x00FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
+            8,
+            id="clz-8-leading-zeros",
         ),
-        pytest.param(
-            0,
-            256,
-            id="min-size-input-clz"
-        ),
-        pytest.param(
-            1231350950569847740520874169721133058840016695,
-            106,
-            id="some-other-input-clz"
-        ),
+        pytest.param(0, 256, id="clz-all-zeros"),
     ],
 )
-# fmt: on
 def test_clz_mainnet(
     state_test: StateTestFiller,
     pre: Alloc,
