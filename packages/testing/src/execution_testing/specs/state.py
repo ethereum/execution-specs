@@ -167,8 +167,9 @@ class StateTest(BaseTest):
                 f"Traces are not equivalent (gas_limit={current_gas_limit})"
             )
             return False
+        modified_tool_alloc = modified_tool_output.alloc.get_alloc()
         try:
-            self.post.verify_post_alloc(modified_tool_output.alloc.get_alloc())
+            self.post.verify_post_alloc(modified_tool_alloc)
         except Exception as e:
             logger.debug(
                 f"Post alloc is not equivalent (gas_limit={current_gas_limit})"
@@ -187,29 +188,24 @@ class StateTest(BaseTest):
             )
             logger.debug(e)
             return False
-        if len(base_tool_alloc.root) != len(
-            modified_tool_output.alloc.get_alloc().root
-        ):
+        if len(base_tool_alloc.root) != len(modified_tool_alloc.root):
             logger.debug(
                 f"Post alloc is not equivalent (gas_limit={current_gas_limit})"
             )
             return False
-        if (
-            modified_tool_output.alloc.get_alloc().root.keys()
-            != modified_tool_output.alloc.get_alloc().root.keys()
-        ):
+        if base_tool_alloc.root.keys() != modified_tool_alloc.root.keys():
             logger.debug(
                 f"Post alloc is not equivalent (gas_limit={current_gas_limit})"
             )
             return False
         for k in base_tool_alloc.root.keys():
-            if k not in modified_tool_output.alloc.get_alloc():
+            if k not in modified_tool_alloc:
                 logger.debug(
                     f"Post alloc is not equivalent (gas_limit={current_gas_limit})"
                 )
                 return False
             base_account = base_tool_alloc[k]
-            modified_account = modified_tool_output.alloc.get_alloc()[k]
+            modified_account = modified_tool_alloc[k]
             if (modified_account is None) != (base_account is None):
                 logger.debug(
                     f"Post alloc is not equivalent (gas_limit={current_gas_limit})"
