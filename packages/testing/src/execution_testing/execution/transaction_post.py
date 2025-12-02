@@ -7,6 +7,7 @@ from pytest import FixtureRequest
 
 from execution_testing.base_types import Address, Alloc, Hash
 from execution_testing.forks import Fork
+from execution_testing.logging import get_logger
 from execution_testing.rpc import (
     EngineRPC,
     EthRPC,
@@ -18,6 +19,8 @@ from execution_testing.test_types import (
 )
 
 from .base import BaseExecute
+
+logger = get_logger(__name__)
 
 
 class TransactionPost(BaseExecute):
@@ -86,8 +89,15 @@ class TransactionPost(BaseExecute):
                         eth_rpc.send_wait_transaction(transaction)
                         all_tx_hashes.append(transaction.hash)
                     else:
-                        with pytest.raises(SendTransactionExceptionError):
+                        logger.info(
+                            f"Sending transaction expecting rejection "
+                            f"(expected error: {transaction.error})..."
+                        )
+                        with pytest.raises(SendTransactionExceptionError) as exc_info:
                             eth_rpc.send_transaction(transaction)
+                        logger.info(
+                            f"Transaction rejected as expected: {exc_info.value}"
+                        )
             else:
                 eth_rpc.send_wait_transactions(signed_txs)
                 all_tx_hashes.extend([tx.hash for tx in signed_txs])
