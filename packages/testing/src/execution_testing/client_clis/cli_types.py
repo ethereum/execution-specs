@@ -287,18 +287,17 @@ class Result(CamelModel):
     opcode_count: OpcodeCount | None = None
 
 
-JSONDict = Dict[str, Any]
-
-TRaw = TypeVar("TRaw", str, JSONDict)
+TRaw = TypeVar("TRaw")
 
 
 @dataclass(kw_only=True)
 class LazyAlloc(Generic[TRaw]):
     """
-    Allocation that is lazily loaded from a JSON file.
+    Allocation that is lazily loaded from the transition tool response.
     """
 
     raw: TRaw
+    _state_root: Hash
     alloc: Alloc | None = None
 
     def validate(self) -> Alloc:
@@ -310,6 +309,13 @@ class LazyAlloc(Generic[TRaw]):
         if self.alloc is None:
             self.alloc = self.validate()
         return self.alloc
+
+    def state_root(self) -> Hash:
+        """Return state root of the allocation."""
+        return self._state_root
+
+
+JSONDict = Dict[str, Any]
 
 
 class LazyAllocJson(LazyAlloc[JSONDict]):
@@ -326,9 +332,9 @@ class LazyAllocJson(LazyAlloc[JSONDict]):
 
 class LazyAllocStr(LazyAlloc[str]):
     """
-    Lazy allocation backed by a JSON dict cache.
+    Lazy allocation backed by a str cache.
 
-    Uses Alloc.model_validate on the dict.
+    Uses Alloc.model_validate_json on the string.
     """
 
     def validate(self) -> Alloc:
@@ -466,7 +472,7 @@ class TransitionToolOutput:
         result = Result.model_validate_json(
             json_data=result_data, context=context
         )
-        alloc = LazyAllocStr(raw=alloc_data)
+        alloc = LazyAllocStr(raw=alloc_data, _state_root=result.state_root)
         output = cls(result=result, alloc=alloc)
         return output
 
@@ -481,7 +487,9 @@ class TransitionToolOutput:
         result = Result.model_validate(
             obj=response_json["result"], context=context
         )
-        alloc = LazyAllocJson(raw=response_json["alloc"])
+        alloc = LazyAllocJson(
+            raw=response_json["alloc"], _state_root=result.state_root
+        )
         output = cls(result=result, alloc=alloc)
         return output
 
@@ -498,7 +506,9 @@ class TransitionToolOutput:
         result = Result.model_validate(
             obj=parsed_json["result"], context=context
         )
-        alloc = LazyAllocStr(raw=json.dumps(parsed_json["alloc"]))
+        alloc = LazyAllocStr(
+            raw=json.dumps(parsed_json["alloc"]), _state_root=result.state_root
+        )
         output = cls(result=result, alloc=alloc)
         return output
 
