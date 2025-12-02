@@ -8,6 +8,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    AuthorizationTuple,
     BalAccountExpectation,
     BalBalanceChange,
     BalCodeChange,
@@ -23,6 +24,7 @@ from execution_testing import (
     Header,
     Op,
     Transaction,
+    add_kzg_version,
     compute_create_address,
 )
 
@@ -2143,5 +2145,925 @@ def test_bal_cross_block_ripemd160_state_leak(
             alice: Account(nonce=1),
             bob: Account(nonce=1),
             ripemd160_addr: Account(balance=1),
+        },
+    )
+
+
+def test_bal_all_transaction_types(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Test BAL with all 5 tx types in single block: Legacy, EIP-2930, EIP-1559, Blob, EIP-7702.
+
+    Each tx writes to contract storage. Access list addresses are pre-warmed but NOT in BAL.
+
+    Expected BAL:
+    - All 5 senders: nonce_changes
+    - Contracts 0-3: storage_changes
+    - Alice (7702): nonce_changes, code_changes (delegation), storage_changes
+    - Oracle: empty (delegation target, accessed)
+    """
+    from tests.prague.eip7702_set_code_tx.spec import Spec as Spec7702
+
+    # Create senders for each transaction type
+    sender_0 = pre.fund_eoa()  # Type 0 - Legacy
+    sender_1 = pre.fund_eoa()  # Type 1 - Access List
+    sender_2 = pre.fund_eoa()  # Type 2 - EIP-1559
+    sender_3 = pre.fund_eoa()  # Type 3 - Blob
+    sender_4 = pre.fund_eoa()  # Type 4 - EIP-7702
+
+    # Create contracts for each tx type (except 7702 which uses delegation)
+    contract_code = Op.SSTORE(0x01, Op.CALLDATALOAD(0)) + Op.STOP
+    contract_0 = pre.deploy_contract(code=contract_code)
+    contract_1 = pre.deploy_contract(code=contract_code)
+    contract_2 = pre.deploy_contract(code=contract_code)
+    contract_3 = pre.deploy_contract(code=contract_code)
+
+    # For Type 4 (EIP-7702): Alice delegates to Oracle
+    alice = pre.fund_eoa()
+    oracle = pre.deploy_contract(code=Op.SSTORE(0x01, 0x05) + Op.STOP)
+
+    # Dummy address to warm in access list
+    warmed_address = Address("0x0000000000000000000000000000000000001234")
+    pre[warmed_address] = Account(balance=1)
+
+    # TX1: Type 0 - Legacy transaction
+    tx_type_0 = Transaction(
+        ty=0,
+        sender=sender_0,
+        to=contract_0,
+        gas_limit=100_000,
+        gas_price=10,
+        data=Hash(0x01),  # Value to store
+    )
+
+    # TX2: Type 1 - Access List transaction (EIP-2930)
+    tx_type_1 = Transaction(
+        ty=1,
+        sender=sender_1,
+        to=contract_1,
+        gas_limit=100_000,
+        gas_price=10,
+        data=Hash(0x02),
+        access_list=[
+            AccessList(
+                address=warmed_address,
+                storage_keys=[],
+            )
+        ],
+    )
+
+    # TX3: Type 2 - EIP-1559 Dynamic fee transaction
+    tx_type_2 = Transaction(
+        ty=2,
+        sender=sender_2,
+        to=contract_2,
+        gas_limit=100_000,
+        max_fee_per_gas=50,
+        max_priority_fee_per_gas=5,
+        data=Hash(0x03),
+    )
+
+    # TX4: Type 3 - Blob transaction (EIP-4844)
+    # Blob versioned hashes need KZG version prefix (0x01)
+    blob_hashes = add_kzg_version([Hash(0xBEEF)], 1)
+    tx_type_3 = Transaction(
+        ty=3,
+        sender=sender_3,
+        to=contract_3,
+        gas_limit=100_000,
+        max_fee_per_gas=50,
+        max_priority_fee_per_gas=5,
+        max_fee_per_blob_gas=10,
+        blob_versioned_hashes=blob_hashes,
+        data=Hash(0x04),
+    )
+
+    # TX5: Type 4 - EIP-7702 Set Code transaction
+    tx_type_4 = Transaction(
+        ty=4,
+        sender=sender_4,
+        to=alice,
+        gas_limit=100_000,
+        max_fee_per_gas=50,
+        max_priority_fee_per_gas=5,
+        authorization_list=[
+            AuthorizationTuple(
+                address=oracle,
+                nonce=0,
+                signer=alice,
+            )
+        ],
+    )
+
+    block = Block(
+        txs=[tx_type_0, tx_type_1, tx_type_2, tx_type_3, tx_type_4],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                # Type 0 sender
+                sender_0: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                ),
+                # Type 1 sender
+                sender_1: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=2, post_nonce=1)],
+                ),
+                # Type 2 sender
+                sender_2: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=3, post_nonce=1)],
+                ),
+                # Type 3 sender
+                sender_3: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=4, post_nonce=1)],
+                ),
+                # Type 4 sender
+                sender_4: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=5, post_nonce=1)],
+                ),
+                # Contract touched by Type 0
+                contract_0: BalAccountExpectation(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0x01,
+                            slot_changes=[BalStorageChange(tx_index=1, post_value=0x01)],
+                        )
+                    ],
+                ),
+                # Contract touched by Type 1
+                contract_1: BalAccountExpectation(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0x01,
+                            slot_changes=[BalStorageChange(tx_index=2, post_value=0x02)],
+                        )
+                    ],
+                ),
+                # Note: warmed_address from access_list is NOT in BAL because
+                # access lists pre-warm but don't record in BAL (no state access)
+                # Contract touched by Type 2
+                contract_2: BalAccountExpectation(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0x01,
+                            slot_changes=[BalStorageChange(tx_index=3, post_value=0x03)],
+                        )
+                    ],
+                ),
+                # Contract touched by Type 3
+                contract_3: BalAccountExpectation(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0x01,
+                            slot_changes=[BalStorageChange(tx_index=4, post_value=0x04)],
+                        )
+                    ],
+                ),
+                # Alice (Type 4 delegation target, executes oracle code)
+                alice: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=5, post_nonce=1)],
+                    code_changes=[
+                        BalCodeChange(
+                            tx_index=5,
+                            new_code=Spec7702.delegation_designation(oracle),
+                        )
+                    ],
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0x01,
+                            slot_changes=[BalStorageChange(tx_index=5, post_value=0x05)],
+                        )
+                    ],
+                ),
+                # Oracle (accessed via delegation)
+                oracle: BalAccountExpectation.empty(),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            sender_0: Account(nonce=1),
+            sender_1: Account(nonce=1),
+            sender_2: Account(nonce=1),
+            sender_3: Account(nonce=1),
+            sender_4: Account(nonce=1),
+            contract_0: Account(storage={0x01: 0x01}),
+            contract_1: Account(storage={0x01: 0x02}),
+            contract_2: Account(storage={0x01: 0x03}),
+            contract_3: Account(storage={0x01: 0x04}),
+            alice: Account(
+                nonce=1,
+                code=Spec7702.delegation_designation(oracle),
+                storage={0x01: 0x05},
+            ),
+        },
+    )
+
+
+def test_bal_create2_collision(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Test BAL with CREATE2 collision against pre-existing contract (code=STOP, nonce=1).
+
+    Factory (nonce=1, slot[0]=0xDEAD) executes CREATE2 targeting occupied address.
+
+    Expected BAL:
+    - Factory: nonce_changes (1→2), storage_changes slot 0 (0xDEAD→0)
+    - Collision address: empty (accessed during collision check, no state changes)
+    - Collision address MUST NOT have nonce_changes or code_changes
+    """
+    alice = pre.fund_eoa()
+
+    # Init code that deploys simple STOP contract
+    init_code = Initcode(deploy_code=Op.STOP)
+    init_code_bytes = bytes(init_code)
+
+    # Factory code: CREATE2(value=0, salt=0, initcode) and store result in slot 0
+    factory_code = (
+        # Push init code to memory
+        Op.MSTORE(0, Op.PUSH32(init_code_bytes))
+        # SSTORE(0, CREATE2(...)) - stores CREATE2 result in slot 0
+        + Op.SSTORE(
+            0x00,
+            Op.CREATE2(
+                value=0,
+                offset=32 - len(init_code_bytes),
+                size=len(init_code_bytes),
+                salt=0,
+            ),
+        )
+        + Op.STOP
+    )
+
+    # Deploy factory - it starts with nonce=1 by default
+    factory = pre.deploy_contract(
+        code=factory_code,
+        storage={0x00: 0xDEAD},  # Initial value to prove SSTORE works
+    )
+
+    # Calculate the CREATE2 target address
+    collision_address = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=0,
+        initcode=init_code_bytes,
+        opcode=Op.CREATE2,
+    )
+
+    # Set up the collision by pre-populating the target address
+    # This contract has code (STOP) and nonce=1, causing collision
+    pre[collision_address] = Account(
+        code=Op.STOP,
+        nonce=1,
+    )
+
+    tx = Transaction(
+        sender=alice,
+        to=factory,
+        gas_limit=1_000_000,
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                ),
+                factory: BalAccountExpectation(
+                    # Nonce incremented 1→2 even on failed CREATE2
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=2)],
+                    # Storage changes: slot 0 = 0xDEAD → 0 (CREATE2 returned 0)
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0x00,
+                            slot_changes=[
+                                BalStorageChange(tx_index=1, post_value=0)
+                            ],
+                        )
+                    ],
+                ),
+                # Collision address: empty changes (accessed but no state changes)
+                # Explicitly verify ALL fields are empty to avoid false positives
+                collision_address: BalAccountExpectation(
+                    nonce_changes=[],  # MUST NOT have nonce changes
+                    balance_changes=[],  # MUST NOT have balance changes
+                    code_changes=[],  # MUST NOT have code changes
+                    storage_changes=[],  # MUST NOT have storage changes
+                    storage_reads=[],  # MUST NOT have storage reads
+                ),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            factory: Account(nonce=2, storage={0x00: 0}),
+            # Collision address unchanged - contract still exists
+            collision_address: Account(code=bytes(Op.STOP), nonce=1),
+        },
+    )
+
+
+def test_bal_create_selfdestruct_to_self_with_call(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Test BAL with init code that CALLs Oracle, writes storage, then SELFDESTRUCTs to self.
+
+    Factory CREATE2(endowment=100). Init: CALL(Oracle)→SSTORE(0x01)→SELFDESTRUCT(SELF).
+
+    Expected BAL:
+    - Factory: nonce_changes, balance_changes (loses 100)
+    - Oracle: storage_changes slot 0x01
+    - Created address: storage_reads [0x01] (aborted write→read),
+      MUST NOT have nonce/code/storage/balance changes (ephemeral)
+    """
+    alice = pre.fund_eoa()
+    factory_balance = 1000
+
+    # Oracle contract that writes to slot 0x01 when called
+    oracle_code = Op.SSTORE(0x01, 0x42) + Op.STOP
+    oracle = pre.deploy_contract(code=oracle_code)
+
+    endowment = 100
+
+    # Init code that:
+    # 1. Calls Oracle (which writes to its slot 0x01)
+    # 2. Writes 0x42 to own slot 0x01
+    # 3. Selfdestructs to self
+    initcode_runtime = (
+        # CALL(gas, Oracle, value=0, ...)
+        Op.CALL(100_000, oracle, 0, 0, 0, 0, 0)
+        + Op.POP
+        # Write to own storage slot 0x01
+        + Op.SSTORE(0x01, 0x42)
+        # SELFDESTRUCT to self (ADDRESS returns own address)
+        + Op.SELFDESTRUCT(Op.ADDRESS)
+    )
+    init_code = Initcode(deploy_code=Op.STOP, initcode_prefix=initcode_runtime)
+    init_code_bytes = bytes(init_code)
+    init_code_size = len(init_code_bytes)
+
+    # Factory code with embedded initcode (no template contract needed)
+    # Structure: [execution code] [initcode bytes]
+    # CODECOPY copies initcode from factory's own code to memory
+    #
+    # Two-pass approach: build with placeholder, measure, rebuild with actual size
+    placeholder_offset = 0xFF  # Placeholder (same byte size as final value)
+    factory_execution_template = (
+        Op.CODECOPY(0, placeholder_offset, init_code_size)
+        + Op.SSTORE(
+            0x00,
+            Op.CREATE2(
+                value=endowment,
+                offset=0,
+                size=init_code_size,
+                salt=0,
+            ),
+        )
+        + Op.STOP
+    )
+    # Measure execution code size
+    execution_code_size = len(bytes(factory_execution_template))
+
+    # Rebuild with actual offset value
+    factory_execution = (
+        Op.CODECOPY(0, execution_code_size, init_code_size)
+        + Op.SSTORE(
+            0x00,
+            Op.CREATE2(
+                value=endowment,
+                offset=0,
+                size=init_code_size,
+                salt=0,
+            ),
+        )
+        + Op.STOP
+    )
+    # Combine execution code with embedded initcode
+    factory_code = bytes(factory_execution) + init_code_bytes
+
+    factory = pre.deploy_contract(code=factory_code, balance=factory_balance)
+
+    # Calculate the CREATE2 target address
+    created_address = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=0,
+        initcode=init_code_bytes,
+        opcode=Op.CREATE2,
+    )
+
+    tx = Transaction(
+        sender=alice,
+        to=factory,
+        gas_limit=1_000_000,
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                ),
+                factory: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=2)],
+                    # Balance changes: loses endowment (100)
+                    balance_changes=[
+                        BalBalanceChange(
+                            tx_index=1, post_balance=factory_balance - endowment
+                        )
+                    ],
+                ),
+                # Oracle: storage changes for slot 0x01
+                oracle: BalAccountExpectation(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0x01,
+                            slot_changes=[
+                                BalStorageChange(tx_index=1, post_value=0x42)
+                            ],
+                        )
+                    ],
+                ),
+                # Created address: ephemeral (created and destroyed same tx)
+                # - storage_reads for slot 0x01 (aborted write becomes read)
+                # - NO nonce_changes, code_changes, storage_changes, balance_changes
+                created_address: BalAccountExpectation(
+                    storage_reads=[0x01],
+                    storage_changes=[],
+                    nonce_changes=[],
+                    code_changes=[],
+                    balance_changes=[],
+                ),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            factory: Account(nonce=2, balance=factory_balance - endowment),
+            oracle: Account(storage={0x01: 0x42}),
+            # Created address doesn't exist - destroyed in same tx
+            created_address: Account.NONEXISTENT,
+        },
+    )
+
+
+def test_bal_revert_insufficient_funds(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Test BAL with CALL failure due to insufficient balance (not OOG).
+
+    Contract (balance=100): SLOAD(0x01)→CALL(target, value=1000)→SSTORE(0x02, result).
+    CALL fails because 1000 > 100. Target is 0xDEAD (pre-existing).
+
+    Expected BAL:
+    - Contract: storage_reads [0x01], storage_changes slot 0x02 (value=0)
+    - Target: MUST NOT appear (balance check fails before target access)
+    """
+    alice = pre.fund_eoa()
+
+    contract_balance = 100
+    transfer_amount = 1000  # More than contract has
+
+    # Target address that should be warmed but not receive funds
+    # Give it a small balance so it's not considered "empty" and pruned
+    target_balance = 1
+    target_address = Address("0x000000000000000000000000000000000000DEAD")
+    pre[target_address] = Account(balance=target_balance)
+
+    # Contract that:
+    # 1. SLOAD slot 0x01
+    # 2. CALL target with value=1000 (will fail - insufficient funds)
+    # 3. SSTORE slot 0x02 with CALL result (0 = failure)
+    contract_code = (
+        Op.SLOAD(0x01)  # Read from slot 0x01, push to stack
+        + Op.POP  # Discard value
+        # CALL(gas, addr, value, argsOffset, argsSize, retOffset, retSize)
+        + Op.CALL(100_000, target_address, transfer_amount, 0, 0, 0, 0)
+        # CALL result is on stack (0 = failure, 1 = success)
+        # Stack: [result]
+        + Op.PUSH1(0x02)  # Push slot number
+        # Stack: [0x02, result]
+        + Op.SSTORE  # SSTORE pops slot (0x02), then value (result)
+        + Op.STOP
+    )
+
+    contract = pre.deploy_contract(
+        code=contract_code,
+        balance=contract_balance,
+        storage={0x02: 0xDEAD},  # Non-zero initial value so SSTORE(0) is a change
+    )
+
+    tx = Transaction(
+        sender=alice,
+        to=contract,
+        gas_limit=1_000_000,
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                ),
+                contract: BalAccountExpectation(
+                    # Storage read for slot 0x01
+                    storage_reads=[0x01],
+                    # Storage change for slot 0x02 (CALL result = 0)
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0x02,
+                            slot_changes=[
+                                BalStorageChange(tx_index=1, post_value=0)
+                            ],
+                        )
+                    ],
+                ),
+                # Target MUST NOT appear in BAL - balance check fails before
+                # target state is accessed, so no witness is needed for target
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            contract: Account(
+                balance=contract_balance,  # Unchanged - transfer failed
+                storage={0x02: 0},  # CALL returned 0 (failure)
+            ),
+            target_address: Account(balance=target_balance),  # Unchanged
+        },
+    )
+
+
+def test_bal_lexicographic_address_ordering(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Test BAL enforces strict lexicographic byte-wise address ordering.
+
+    Addresses: addr_low (0x...01), addr_mid (0x...0100), addr_high (0x01...00).
+    Endian-trap: addr_endian_low (0x01...02), addr_endian_high (0x02...01).
+    Contract touches them in reverse order to verify sorting.
+
+    Expected BAL order: addr_low < addr_mid < addr_high < addr_endian_low < addr_endian_high
+    Catches endianness bugs in address comparison.
+    """
+    alice = pre.fund_eoa()
+
+    # Create addresses with specific byte patterns for lexicographic testing
+    # In lexicographic (byte-wise) order: low < mid < high
+    # addr_low:  0x0000000000000000000000000000000000000001 (rightmost byte = 0x01)
+    # addr_mid:  0x0000000000000000000000000000000000000100 (second-rightmost byte = 0x01)
+    # addr_high: 0x0100000000000000000000000000000000000000 (leftmost byte = 0x01)
+    addr_low = Address("0x0000000000000000000000000000000000000001")
+    addr_mid = Address("0x0000000000000000000000000000000000000100")
+    addr_high = Address("0x0100000000000000000000000000000000000000")
+
+    # Endian-trap addresses: byte-reversals of each other to catch byte-order bugs
+    # addr_endian_low:  0x01...02 (0x01 at byte 0, 0x02 at byte 19)
+    # addr_endian_high: 0x02...01 (0x02 at byte 0, 0x01 at byte 19)
+    # Note: reverse(addr_endian_low) = addr_endian_high
+    # Correct order: addr_endian_low < addr_endian_high (0x01 < 0x02 at byte 0)
+    # If bytes are reversed before comparing: would incorrectly get opposite order
+    addr_endian_low = Address("0x0100000000000000000000000000000000000002")
+    addr_endian_high = Address("0x0200000000000000000000000000000000000001")
+
+    # Give each address a balance so they exist
+    addr_balance = 100
+    pre[addr_low] = Account(balance=addr_balance)
+    pre[addr_mid] = Account(balance=addr_balance)
+    pre[addr_high] = Account(balance=addr_balance)
+    pre[addr_endian_low] = Account(balance=addr_balance)
+    pre[addr_endian_high] = Account(balance=addr_balance)
+
+    # Contract that accesses addresses in REVERSE lexicographic order
+    # to verify sorting is applied correctly
+    contract_code = (
+        Op.BALANCE(addr_high)  # Access high first
+        + Op.POP
+        + Op.BALANCE(addr_low)  # Access low second
+        + Op.POP
+        + Op.BALANCE(addr_mid)  # Access mid third
+        + Op.POP
+        # Access endian-trap addresses in reverse order
+        + Op.BALANCE(addr_endian_high)  # Access endian_high before endian_low
+        + Op.POP
+        + Op.BALANCE(addr_endian_low)
+        + Op.POP
+        + Op.STOP
+    )
+
+    contract = pre.deploy_contract(code=contract_code)
+
+    tx = Transaction(
+        sender=alice,
+        to=contract,
+        gas_limit=1_000_000,
+    )
+
+    # BAL must be sorted lexicographically by address bytes
+    # The order should be: addr_low < addr_mid < addr_high < addr_endian_low < addr_endian_high
+    # (sorted by raw address bytes, regardless of access order)
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                ),
+                contract: BalAccountExpectation.empty(),
+                # These addresses appear in BAL due to BALANCE access
+                # The expectation framework will verify they're in correct order
+                addr_low: BalAccountExpectation.empty(),
+                addr_mid: BalAccountExpectation.empty(),
+                addr_high: BalAccountExpectation.empty(),
+                # Endian-trap addresses: must be sorted correctly despite being
+                # byte-reversals of each other
+                addr_endian_low: BalAccountExpectation.empty(),
+                addr_endian_high: BalAccountExpectation.empty(),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            contract: Account(),
+            addr_low: Account(balance=addr_balance),
+            addr_mid: Account(balance=addr_balance),
+            addr_high: Account(balance=addr_balance),
+            addr_endian_low: Account(balance=addr_balance),
+            addr_endian_high: Account(balance=addr_balance),
+        },
+    )
+
+
+def test_bal_transient_storage_not_tracked(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Test BAL excludes EIP-1153 transient storage (TSTORE/TLOAD).
+
+    Contract: TSTORE(0x01, 0x42)→TLOAD(0x01)→SSTORE(0x02, result).
+
+    Expected BAL:
+    - storage_changes: slot 0x02 (persistent)
+    - MUST NOT include slot 0x01 (transient storage not persisted)
+    """
+    alice = pre.fund_eoa()
+
+    # Contract that uses transient storage then persists to regular storage
+    contract_code = (
+        # TSTORE slot 0x01 with value 0x42 (transient storage)
+        Op.TSTORE(0x01, 0x42)
+        # TLOAD slot 0x01 (transient storage read)
+        + Op.TLOAD(0x01)
+        # Result (0x42) is on stack, store it in persistent slot 0x02
+        + Op.PUSH1(0x02)
+        + Op.SSTORE  # SSTORE pops slot (0x02), then value (0x42)
+        + Op.STOP
+    )
+
+    contract = pre.deploy_contract(code=contract_code)
+
+    tx = Transaction(
+        sender=alice,
+        to=contract,
+        gas_limit=1_000_000,
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                ),
+                contract: BalAccountExpectation(
+                    # Persistent storage change for slot 0x02
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0x02,
+                            slot_changes=[
+                                BalStorageChange(tx_index=1, post_value=0x42)
+                            ],
+                        )
+                    ],
+                    # MUST NOT include slot 0x01 in storage_reads
+                    # Transient storage operations don't pollute BAL
+                    storage_reads=[],
+                ),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            contract: Account(storage={0x02: 0x42}),
+        },
+    )
+
+
+def test_bal_selfdestruct_to_precompile(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Test BAL with SELFDESTRUCT to precompile (ecrecover 0x01) as beneficiary.
+
+    Victim (balance=100) selfdestructs to precompile 0x01.
+
+    Expected BAL:
+    - Victim: balance_changes (100→0)
+    - Precompile 0x01: balance_changes (0→100), MUST NOT have code/nonce changes
+    """
+    alice = pre.fund_eoa()
+
+    contract_balance = 100
+    ecrecover_precompile = Address(1)  # 0x0000...0001
+
+    # Contract that selfdestructs to ecrecover precompile
+    victim_code = Op.SELFDESTRUCT(ecrecover_precompile)
+
+    victim = pre.deploy_contract(code=victim_code, balance=contract_balance)
+
+    # Caller that triggers the selfdestruct
+    caller_code = Op.CALL(100_000, victim, 0, 0, 0, 0, 0) + Op.STOP
+    caller = pre.deploy_contract(code=caller_code)
+
+    tx = Transaction(
+        sender=alice,
+        to=caller,
+        gas_limit=1_000_000,
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                ),
+                caller: BalAccountExpectation.empty(),
+                # Victim (selfdestructing contract): balance changes 100→0
+                # Explicitly verify ALL fields to avoid false positives
+                victim: BalAccountExpectation(
+                    nonce_changes=[],  # Contract nonce unchanged
+                    balance_changes=[BalBalanceChange(tx_index=1, post_balance=0)],
+                    code_changes=[],  # Code unchanged (post-Cancun SELFDESTRUCT)
+                    storage_changes=[],  # No storage changes
+                    storage_reads=[],  # No storage reads
+                ),
+                # Precompile receives selfdestruct balance
+                # Explicitly verify ALL fields to avoid false positives
+                ecrecover_precompile: BalAccountExpectation(
+                    nonce_changes=[],  # MUST NOT have nonce changes
+                    balance_changes=[
+                        BalBalanceChange(tx_index=1, post_balance=contract_balance)
+                    ],
+                    code_changes=[],  # MUST NOT have code changes
+                    storage_changes=[],  # MUST NOT have storage changes
+                    storage_reads=[],  # MUST NOT have storage reads
+                ),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            caller: Account(),
+            # Victim still exists with 0 balance (post-Cancun SELFDESTRUCT)
+            victim: Account(balance=0),
+            # Precompile has received the balance
+            ecrecover_precompile: Account(balance=contract_balance),
+        },
+    )
+
+
+def test_bal_create_early_failure(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Test BAL with CREATE failure due to insufficient endowment (before track_address).
+
+    Factory (balance=50) attempts CREATE(value=100). Fails before nonce increment.
+    Distinct from collision where address IS accessed and nonce IS incremented.
+
+    Expected BAL:
+    - Alice: nonce_changes
+    - Factory: storage_changes slot 0 (0xDEAD→0), NO nonce_changes
+    - Contract address: MUST NOT appear (never accessed)
+    """
+    alice = pre.fund_eoa()
+
+    factory_balance = 50
+    endowment = 100  # More than factory has
+
+    # Simple init code that deploys STOP
+    init_code = Initcode(deploy_code=Op.STOP)
+    init_code_bytes = bytes(init_code)
+
+    # Factory code: CREATE(value=endowment) and store result in slot 0
+    factory_code = (
+        # Push init code to memory
+        Op.MSTORE(0, Op.PUSH32(init_code_bytes))
+        # SSTORE(0, CREATE(value, offset, size))
+        + Op.SSTORE(
+            0x00,
+            Op.CREATE(
+                value=endowment,  # 100 > 50, will fail
+                offset=32 - len(init_code_bytes),
+                size=len(init_code_bytes),
+            ),
+        )
+        + Op.STOP
+    )
+
+    # Deploy factory with insufficient balance for the CREATE endowment
+    factory = pre.deploy_contract(
+        code=factory_code,
+        balance=factory_balance,
+        storage={0x00: 0xDEAD},  # Initial value to prove SSTORE works
+    )
+
+    # Calculate what the contract address WOULD be (but it won't be created)
+    would_be_contract_address = compute_create_address(address=factory, nonce=1)
+
+    tx = Transaction(
+        sender=alice,
+        to=factory,
+        gas_limit=1_000_000,
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                ),
+                factory: BalAccountExpectation(
+                    # NO nonce_changes - CREATE failed before increment_nonce
+                    nonce_changes=[],
+                    # Storage changes: slot 0 = 0xDEAD → 0 (CREATE returned 0)
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0x00,
+                            slot_changes=[
+                                BalStorageChange(tx_index=1, post_value=0)
+                            ],
+                        )
+                    ],
+                ),
+                # Contract address MUST NOT appear in BAL - never accessed
+                # (CREATE failed before track_address was called)
+                would_be_contract_address: None,
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            # Factory nonce unchanged (still 1), balance unchanged
+            factory: Account(nonce=1, balance=factory_balance, storage={0x00: 0}),
+            # Contract was never created
+            would_be_contract_address: Account.NONEXISTENT,
         },
     )
