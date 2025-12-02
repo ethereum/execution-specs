@@ -39,4 +39,12 @@ Reasoning behind the random generation of the sender keys is that one can execut
 
 The `fill` plugin will use a fixed and minimum gas price for all the transactions it uses for testing, but this is not possible with the `execute` plugin, as the gas price is determined by the current state of the network.
 
-At the moment, the `execute` plugin does not query the client for the current gas price, but instead uses a fixed increment to the gas price in order to avoid the transactions to be stuck in the mempool.
+The `execute` plugin queries the network for current gas prices and defaults to 1.5x the network price to ensure transaction inclusion. Gas prices can be overridden via command-line flags (`--default-gas-price`, `--default-max-fee-per-gas`, `--default-max-priority-fee-per-gas`).
+
+### Deferred EOA Funding
+
+EOAs are funded after gas prices are determined, enabling accurate balance calculations based on actual network conditions. This ensures sufficient funds are allocated for all test transactions.
+
+### Blob Transaction Support
+
+Blob transactions are fully supported in execute mode, including automatic gas pricing for blob gas fees and validation via `engine_getBlobsVX` endpoints when Engine RPC is available.

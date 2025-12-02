@@ -24,6 +24,41 @@ One last requirement is that the `--chain-id` flag is set to the chain id of the
 uv run execute remote --fork=Prague --rpc-endpoint=https://rpc.endpoint.io --rpc-seed-key 0x000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f --chain-id 12345
 ```
 
+## Test Accounts and Contracts
+
+Since `execute remote` does not control the blockchain where it runs the tests, and therefore cannot modify the genesis pre-allocation like `fill` does, all accounts and contracts need to be deployed via transactions sent to the network.
+
+These transactions are created from the seed or worker accounts provided via the command flags.
+
+When the test is executed, all instances of `pre.fund_eoa` and `pre.deploy_contract` calls, instead of placing the account directly in the `pre` object like `fill` does, they generate transactions that result in the creation of the accounts when executed on chain.
+
+The transactions are collected and only sent after the test function finishes execution. This is done in order to perform optimizations based on the transactions that the test requires to perform its verifications.
+
+One optimization is the deferred calculation of the funding amount for the EOA, which is calculated on the fly depending the test transactions that use the account as sender, and this amount is the minimum balance that the account would need in order for the transactions to be included given the current network gas prices.
+
+### Dry Run Mode
+
+Calculate minimum balance requirements without executing any transactions on chain:
+
+```bash
+uv run execute remote --fork=Prague --rpc-endpoint=https://rpc.endpoint.io --dry-run ./tests/prague/eip7702_set_code_tx/
+```
+
+This outputs the minimum balance needed and total gas consumption per test, useful for:
+- Estimating costs before execution
+- Verifying seed account has sufficient funds
+- Planning parallel execution funding requirements
+
+### Limit Gas Used By Tests
+
+A limit of the total gas consumption per test can be specified with the `--max-gas-per-test` flag:
+
+```bash
+uv run execute remote --fork=Prague --rpc-endpoint=https://rpc.endpoint.io --max-gas-per-test 30000000 --rpc-seed-key 0x... --chain-id 12345
+```
+
+Tests exceeding this limit will fail with an assertion error and will not send any transactions to the chain.
+
 ## Engine RPC Endpoint (Optional)
 
 By default, the `execute remote` command assumes that the execution client is connected to a beacon node and the chain progresses automatically. However, you can optionally specify an Engine RPC endpoint to drive the chain manually when new transactions are submitted.
