@@ -838,7 +838,8 @@ def test_bal_selfdestruct_to_7702_delegation(
     """
     Test BAL with SELFDESTRUCT to 7702 delegated account.
 
-    Tx1: Alice delegates to Oracle. Tx2: Victim (balance=100) selfdestructs to Alice.
+    Tx1: Alice delegates to Oracle.
+    Tx2: Victim (balance=100) selfdestructs to Alice.
     SELFDESTRUCT transfers balance without executing recipient code.
 
     Expected BAL:

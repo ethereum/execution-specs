@@ -22,6 +22,7 @@ from execution_testing import (
     Fork,
     Hash,
     Header,
+    Initcode,
     Op,
     Transaction,
     add_kzg_version,
@@ -2154,9 +2155,11 @@ def test_bal_all_transaction_types(
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
-    Test BAL with all 5 tx types in single block: Legacy, EIP-2930, EIP-1559, Blob, EIP-7702.
+    Test BAL with all 5 tx types in single block.
 
-    Each tx writes to contract storage. Access list addresses are pre-warmed but NOT in BAL.
+    Types: Legacy, EIP-2930, EIP-1559, Blob, EIP-7702.
+    Each tx writes to contract storage. Access list addresses are pre-warmed
+    but NOT in BAL.
 
     Expected BAL:
     - All 5 senders: nonce_changes
@@ -2303,8 +2306,8 @@ def test_bal_all_transaction_types(
                         )
                     ],
                 ),
-                # Note: warmed_address from access_list is NOT in BAL because
-                # access lists pre-warm but don't record in BAL (no state access)
+                # Note: warmed_address from access_list is NOT in BAL
+                # because access lists pre-warm but don't record in BAL
                 # Contract touched by Type 2
                 contract_2: BalAccountExpectation(
                     storage_changes=[
@@ -2378,13 +2381,14 @@ def test_bal_create2_collision(
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
-    Test BAL with CREATE2 collision against pre-existing contract (code=STOP, nonce=1).
+    Test BAL with CREATE2 collision against pre-existing contract.
 
-    Factory (nonce=1, slot[0]=0xDEAD) executes CREATE2 targeting occupied address.
+    Pre-existing contract has code=STOP, nonce=1.
+    Factory (nonce=1, slot[0]=0xDEAD) executes CREATE2 targeting it.
 
     Expected BAL:
     - Factory: nonce_changes (1→2), storage_changes slot 0 (0xDEAD→0)
-    - Collision address: empty (accessed during collision check, no state changes)
+    - Collision address: empty (accessed during collision check)
     - Collision address MUST NOT have nonce_changes or code_changes
     """
     alice = pre.fund_eoa()
@@ -2393,7 +2397,7 @@ def test_bal_create2_collision(
     init_code = Initcode(deploy_code=Op.STOP)
     init_code_bytes = bytes(init_code)
 
-    # Factory code: CREATE2(value=0, salt=0, initcode) and store result in slot 0
+    # Factory code: CREATE2 and store result in slot 0
     factory_code = (
         # Push init code to memory
         Op.MSTORE(0, Op.PUSH32(init_code_bytes))
@@ -2458,8 +2462,8 @@ def test_bal_create2_collision(
                         )
                     ],
                 ),
-                # Collision address: empty changes (accessed but no state changes)
-                # Explicitly verify ALL fields are empty to avoid false positives
+                # Collision address: empty (accessed but no state changes)
+                # Explicitly verify ALL fields are empty
                 collision_address: BalAccountExpectation(
                     nonce_changes=[],  # MUST NOT have nonce changes
                     balance_changes=[],  # MUST NOT have balance changes
@@ -2488,9 +2492,11 @@ def test_bal_create_selfdestruct_to_self_with_call(
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
-    Test BAL with init code that CALLs Oracle, writes storage, then SELFDESTRUCTs to self.
+    Test BAL with init code that CALLs Oracle, writes storage, then
+    SELFDESTRUCTs to self.
 
-    Factory CREATE2(endowment=100). Init: CALL(Oracle)→SSTORE(0x01)→SELFDESTRUCT(SELF).
+    Factory CREATE2(endowment=100).
+    Init: CALL(Oracle)→SSTORE(0x01)→SELFDESTRUCT(SELF).
 
     Expected BAL:
     - Factory: nonce_changes, balance_changes (loses 100)
@@ -2528,7 +2534,7 @@ def test_bal_create_selfdestruct_to_self_with_call(
     # Structure: [execution code] [initcode bytes]
     # CODECOPY copies initcode from factory's own code to memory
     #
-    # Two-pass approach: build with placeholder, measure, rebuild with actual size
+    # Two-pass approach: build with placeholder, measure, rebuild
     placeholder_offset = 0xFF  # Placeholder (same byte size as final value)
     factory_execution_template = (
         Op.CODECOPY(0, placeholder_offset, init_code_size)
@@ -2610,7 +2616,7 @@ def test_bal_create_selfdestruct_to_self_with_call(
                 ),
                 # Created address: ephemeral (created and destroyed same tx)
                 # - storage_reads for slot 0x01 (aborted write becomes read)
-                # - NO nonce_changes, code_changes, storage_changes, balance_changes
+                # - NO nonce/code/storage/balance changes
                 created_address: BalAccountExpectation(
                     storage_reads=[0x01],
                     storage_changes=[],
@@ -2642,8 +2648,8 @@ def test_bal_revert_insufficient_funds(
     """
     Test BAL with CALL failure due to insufficient balance (not OOG).
 
-    Contract (balance=100): SLOAD(0x01)→CALL(target, value=1000)→SSTORE(0x02, result).
-    CALL fails because 1000 > 100. Target is 0xDEAD (pre-existing).
+    Contract (balance=100): SLOAD(0x01)→CALL(target, value=1000)→SSTORE(0x02).
+    CALL fails because 1000 > 100. Target is 0xDEAD.
 
     Expected BAL:
     - Contract: storage_reads [0x01], storage_changes slot 0x02 (value=0)
@@ -2742,26 +2748,26 @@ def test_bal_lexicographic_address_ordering(
     Endian-trap: addr_endian_low (0x01...02), addr_endian_high (0x02...01).
     Contract touches them in reverse order to verify sorting.
 
-    Expected BAL order: addr_low < addr_mid < addr_high < addr_endian_low < addr_endian_high
+    Expected BAL order: low < mid < high < endian_low < endian_high.
     Catches endianness bugs in address comparison.
     """
     alice = pre.fund_eoa()
 
     # Create addresses with specific byte patterns for lexicographic testing
     # In lexicographic (byte-wise) order: low < mid < high
-    # addr_low:  0x0000000000000000000000000000000000000001 (rightmost byte = 0x01)
-    # addr_mid:  0x0000000000000000000000000000000000000100 (second-rightmost byte = 0x01)
-    # addr_high: 0x0100000000000000000000000000000000000000 (leftmost byte = 0x01)
+    # addr_low:  0x00...01 (rightmost byte = 0x01)
+    # addr_mid:  0x00...0100 (second-rightmost byte = 0x01)
+    # addr_high: 0x01...00 (leftmost byte = 0x01)
     addr_low = Address("0x0000000000000000000000000000000000000001")
     addr_mid = Address("0x0000000000000000000000000000000000000100")
     addr_high = Address("0x0100000000000000000000000000000000000000")
 
-    # Endian-trap addresses: byte-reversals of each other to catch byte-order bugs
+    # Endian-trap addresses: byte-reversals to catch byte-order bugs
     # addr_endian_low:  0x01...02 (0x01 at byte 0, 0x02 at byte 19)
     # addr_endian_high: 0x02...01 (0x02 at byte 0, 0x01 at byte 19)
     # Note: reverse(addr_endian_low) = addr_endian_high
-    # Correct order: addr_endian_low < addr_endian_high (0x01 < 0x02 at byte 0)
-    # If bytes are reversed before comparing: would incorrectly get opposite order
+    # Correct order: endian_low < endian_high (0x01 < 0x02 at byte 0)
+    # Reversed bytes would incorrectly get opposite order
     addr_endian_low = Address("0x0100000000000000000000000000000000000002")
     addr_endian_high = Address("0x0200000000000000000000000000000000000001")
 
@@ -2799,7 +2805,7 @@ def test_bal_lexicographic_address_ordering(
     )
 
     # BAL must be sorted lexicographically by address bytes
-    # The order should be: addr_low < addr_mid < addr_high < addr_endian_low < addr_endian_high
+    # Order: low < mid < high < endian_low < endian_high
     # (sorted by raw address bytes, regardless of access order)
     block = Block(
         txs=[tx],
@@ -2810,7 +2816,7 @@ def test_bal_lexicographic_address_ordering(
                 ),
                 contract: BalAccountExpectation.empty(),
                 # These addresses appear in BAL due to BALANCE access
-                # The expectation framework will verify they're in correct order
+                # The expectation framework verifies correct order
                 addr_low: BalAccountExpectation.empty(),
                 addr_mid: BalAccountExpectation.empty(),
                 addr_high: BalAccountExpectation.empty(),
@@ -2912,13 +2918,13 @@ def test_bal_selfdestruct_to_precompile(
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
-    Test BAL with SELFDESTRUCT to precompile (ecrecover 0x01) as beneficiary.
+    Test BAL with SELFDESTRUCT to precompile (ecrecover 0x01).
 
     Victim (balance=100) selfdestructs to precompile 0x01.
 
     Expected BAL:
     - Victim: balance_changes (100→0)
-    - Precompile 0x01: balance_changes (0→100), MUST NOT have code/nonce changes
+    - Precompile 0x01: balance_changes (0→100), no code/nonce changes
     """
     alice = pre.fund_eoa()
 
@@ -2955,7 +2961,7 @@ def test_bal_selfdestruct_to_precompile(
                     balance_changes=[
                         BalBalanceChange(tx_index=1, post_balance=0)
                     ],
-                    code_changes=[],  # Code unchanged (post-Cancun SELFDESTRUCT)
+                    code_changes=[],  # Code unchanged (post-Cancun)
                     storage_changes=[],  # No storage changes
                     storage_reads=[],  # No storage reads
                 ),
@@ -2995,10 +3001,11 @@ def test_bal_create_early_failure(
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
-    Test BAL with CREATE failure due to insufficient endowment (before track_address).
+    Test BAL with CREATE failure due to insufficient endowment.
 
-    Factory (balance=50) attempts CREATE(value=100). Fails before nonce increment.
-    Distinct from collision where address IS accessed and nonce IS incremented.
+    Factory (balance=50) attempts CREATE(value=100).
+    Fails before nonce increment (before track_address).
+    Distinct from collision where address IS accessed.
 
     Expected BAL:
     - Alice: nonce_changes
