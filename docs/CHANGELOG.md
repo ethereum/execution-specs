@@ -18,6 +18,7 @@ Test fixtures for use by clients are available for each release on the [Github r
 
 - 🐞 Allow `evmone` to fill Prague and Osaka blockchain tests (mainly modified deposit contract tests) ([#1689](https://github.com/ethereum/execution-specs/pull/1689)).
 - 🐞 Turn off Block-Level Access List related checks when filling tests for Amsterdam ([#1737](https://github.com/ethereum/execution-specs/pull/1737)).
+- ✨ Optimize the filling process by lazily loading the t8n response only when it’s actually needed. Otherwise, pass it verbatim into the next t8n execution, skipping both pydantic validation and model serialization entirely ([#1804](https://github.com/ethereum/execution-specs/pull/1804)).
 
 #### `consume`
 
