@@ -24,6 +24,16 @@ Test fixtures for use by clients are available for each release on the [Github r
 
 - 🐞 Fix a bug with `consume sync` tests where some clients don't have JSON-RPC immediately available after syncing and can't yet serve the synced block ([#1670](https://github.com/ethereum/execution-specs/pull/1670)).
 
+#### `execute`
+
+- ✨ `execute hive` and `execute remote` now defer funding of accounts until the minimum amount required to send the test transactions is calculated, in order to optimize the amount of Eth used to execute the tests ([#1822](https://github.com/ethereum/execution-specs/pull/1822)).
+- ✨ Dynamically fetch gas prices from the network and update all transactions to use 1.5x the current values ([#1822](https://github.com/ethereum/execution-specs/pull/1822)).
+- ✨ New `--dry-run` flag to calculate the amount of Eth that will be spent executing a test given the current network gas prices ([#1822](https://github.com/ethereum/execution-specs/pull/1822)).
+- 🔀 Load balancing mode of `execute` for xdist was updated from `loadscope` to `load` ([#1822](https://github.com/ethereum/execution-specs/pull/1822)).
+- 💥 `--eoa-fund-amount-default` has been deprecated since the command now automatically calculates the funding amount ([#1822](https://github.com/ethereum/execution-specs/pull/1822)).
+- 💥 `--sender-key-initial-balance` flag of `execute hive` has been renamed to `--seed-key-initial-balance` ([#1822](https://github.com/ethereum/execution-specs/pull/1822)).
+- 🔀 Flags --default-gas-price, --default-max-fee-per-gas and --default-max-priority-fee-per-gas now default to None and ideally should be omitted because, when unset, the command now defaults to fetch the value from the network, which is a more reliable behavior ([#1822](https://github.com/ethereum/execution-specs/pull/1822)).
+
 ### 📋 Misc
 
 - 🐞 WELDed the EEST tox environments relevant to producing documentation into EELS, and added a tool to cleanly add codespell whitelist entries. ([#1695](https://github.com/ethereum/execution-specs/pull/1659)).
