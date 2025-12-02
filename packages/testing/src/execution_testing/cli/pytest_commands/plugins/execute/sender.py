@@ -110,7 +110,7 @@ def worker_key_funding_amount(
     sender_funding_transactions_gas_price: int,
     sender_fund_refund_gas_limit: int,
     seed_account_sweep_amount: int | None,
-) -> int:
+) -> int | None:
     """
     Calculate the initial balance of each worker key.
 
@@ -125,7 +125,13 @@ def worker_key_funding_amount(
     It's not really possible to calculate the transaction costs of each test
     that each worker is going to run, so we can't really calculate the initial
     balance of each sender key based on that.
+
+    If we are not running tests in parallel, this method is skipped since
+    all tests will run from the seed account.
     """
+    if worker_count <= 1:
+        return None
+
     base_name = "worker_key_funding_amount"
     base_file = session_temp_folder / base_name
     base_lock_file = session_temp_folder / f"{base_name}.lock"
@@ -202,7 +208,8 @@ def worker_key_funding_amount(
 def session_worker_key(
     request: pytest.FixtureRequest,
     seed_key: EOA,
-    worker_key_funding_amount: int,
+    worker_count: int,
+    worker_key_funding_amount: int | None,
     eoa_iterator: Iterator[EOA],
     eth_rpc: EthRPC,
     session_temp_folder: Path,
@@ -216,7 +223,29 @@ def session_worker_key(
 
     Each worker will have a different key, but coordination is required
     because all worker keys come from the same seed key.
+
+    If we are not running tests in parallel, this method simply returns the
+    seed account directly.
     """
+    if worker_count <= 1:
+        logger.info("Not running tests in parallel, using seed key directly")
+        starting_balance = eth_rpc.get_balance(seed_key)
+        yield seed_key
+
+        remaining_balance = eth_rpc.get_balance(seed_key)
+        used_balance = starting_balance - remaining_balance
+        logger.info(
+            f"Seed {seed_key} used balance: {used_balance / 10**18:.18f} ETH "
+            f"(remaining: {remaining_balance / 10**18:.18f} ETH)"
+        )
+        request.config.stash[metadata_key]["Senders"][str(seed_key)] = (
+            f"Used balance={used_balance / 10**18:.18f}"
+        )
+        return None
+
+    assert worker_key_funding_amount is not None, (
+        "`worker_key_funding_amount` is None"
+    )
     # For the seed sender we do need to keep track of the nonce because it is
     # shared among different processes, and there might not be a new block
     # produced between the transactions.

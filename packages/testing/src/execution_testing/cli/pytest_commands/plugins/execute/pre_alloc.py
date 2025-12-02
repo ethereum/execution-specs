@@ -357,11 +357,6 @@ class Alloc(BaseAlloc):
 
         # Limit the gas limit
         deploy_gas_limit = min(deploy_gas_limit * 2, 30_000_000)
-        logger.info(
-            f"Deploying contract (label={label}): gas_limit={deploy_gas_limit}, "
-            f"code_size={len(code)} bytes, initcode_size={len(initcode)} bytes, "
-            f"balance={Number(balance) / 10**18:.18f} ETH, storage_slots={len(storage.root)}"
-        )
 
         deploy_tx = PendingTransaction(
             sender=self._sender,
@@ -378,6 +373,12 @@ class Alloc(BaseAlloc):
             tx_index=len(self._pending_txs),
         )
         self._pending_txs.append(deploy_tx)
+        logger.info(
+            f"Contract deployment tx created (label={label}): "
+            f"tx_nonce={deploy_tx.nonce}, gas_limit={deploy_gas_limit}, "
+            f"code_size={len(code)} bytes, initcode_size={len(initcode)} bytes, "
+            f"balance={Number(balance) / 10**18:.18f} ETH, storage_slots={len(storage.root)}"
+        )
 
         contract_address = deploy_tx.created_contract
         logger.debug(
@@ -528,9 +529,10 @@ class Alloc(BaseAlloc):
                 tx_index=len(self._pending_txs),
             )
             self._pending_txs.append(fund_tx)
-            logger.debug(
-                f"Added funding transaction for EOA {eoa} (label={label}, "
-                f"tx_index={len(self._pending_txs) - 1})"
+            logger.info(
+                f"Added funding transaction for EOA {eoa} (label={label}): "
+                f"tx_nonce={fund_tx.nonce}, "
+                f"tx_index={len(self._pending_txs) - 1}"
             )
         account_kwargs: Dict[str, Any] = {
             "nonce": eoa.nonce,
@@ -546,7 +548,8 @@ class Alloc(BaseAlloc):
             else "Deferred"
         )
         logger.info(
-            f"EOA {eoa} funded (label={label}, nonce={eoa.nonce}, balance={balance_str})"
+            f"EOA {eoa} funding tx created (label={label}):"
+            f"tx_nonce={eoa.nonce}, balance={balance_str}"
         )
         return eoa
 
@@ -590,7 +593,7 @@ class Alloc(BaseAlloc):
 
         super().__setitem__(address, Account(balance=amount))
         logger.info(
-            f"Address {address} funded (label={address.label}): "
+            f"Address {address} funding tx created (label={address.label}): "
             f"{Number(amount) / 10**18:.18f} ETH"
         )
 
