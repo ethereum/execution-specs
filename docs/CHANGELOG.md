@@ -10,6 +10,10 @@ Test fixtures for use by clients are available for each release on the [Github r
 
 ### 🛠️ Framework
 
+#### General
+
+- 🔀 Updated default block gas limit from 45M to 60M to align with [EIP-7935](https://eips.ethereum.org/EIPS/eip-7935) for the Osaka fork.
+
 #### `fill`
 
 - 🐞 Allow `evmone` to fill Prague and Osaka blockchain tests (mainly modified deposit contract tests) ([#1689](https://github.com/ethereum/execution-specs/pull/1689)).
