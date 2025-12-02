@@ -526,7 +526,7 @@ class TransitionTool(EthereumCLI):
                 dump_files_to_directory(
                     debug_output_path,
                     {
-                        "input/alloc.json": request_data.input.alloc.json_contents_from_cache()
+                        "input/alloc.json": request_data.input.alloc.raw
                         if isinstance(request_data.input.alloc, LazyAlloc)
                         else request_data.input.alloc.model_dump(
                             mode="json", **model_dump_config
@@ -571,7 +571,7 @@ class TransitionTool(EthereumCLI):
                 dump_files_to_directory(
                     debug_output_path,
                     {
-                        "output/alloc.json": output.alloc.json_contents_from_cache(),
+                        "output/alloc.json": output.alloc.raw,
                         "output/result.json": output.result,
                         "output/txs.rlp": str(output.body),
                         "response_info.txt": response_info,
@@ -626,7 +626,7 @@ class TransitionTool(EthereumCLI):
                 dump_files_to_directory(
                     debug_output_path,
                     {
-                        "output/alloc.json": output.alloc.str_contents_from_cache(),
+                        "output/alloc.json": output.alloc.raw,
                         "output/result.json": output.result,
                         "output/txs.rlp": str(output.body),
                     },

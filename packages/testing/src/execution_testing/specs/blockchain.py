@@ -741,7 +741,7 @@ class BlockchainTest(BaseTest):
             print_traces(t8n.get_traces())
             pprint(transition_tool_output.result)
             pprint(previous_alloc)
-            pprint(transition_tool_output.alloc.get_alloc())
+            pprint(transition_tool_output.alloc.get())
             raise e
 
         if len(rejected_txs) > 0 and block.exception is None:
@@ -814,13 +814,13 @@ class BlockchainTest(BaseTest):
             if block.expected_post_state:
                 self.verify_post_state(
                     t8n,
-                    t8n_state=alloc.get_alloc()
+                    t8n_state=alloc.get()
                     if isinstance(alloc, LazyAlloc)
                     else alloc,
                     expected_state=block.expected_post_state,
                 )
         self.check_exception_test(exception=invalid_blocks > 0)
-        alloc = alloc.get_alloc() if isinstance(alloc, LazyAlloc) else alloc
+        alloc = alloc.get() if isinstance(alloc, LazyAlloc) else alloc
         self.verify_post_state(t8n, t8n_state=alloc)
         info = {}
         if self._opcode_count is not None:
@@ -891,7 +891,7 @@ class BlockchainTest(BaseTest):
             if block.expected_post_state:
                 self.verify_post_state(
                     t8n,
-                    t8n_state=alloc.get_alloc()
+                    t8n_state=alloc.get()
                     if isinstance(alloc, LazyAlloc)
                     else alloc,
                     expected_state=block.expected_post_state,
@@ -906,7 +906,7 @@ class BlockchainTest(BaseTest):
             " The framework should never try to execute this test case."
         )
 
-        alloc = alloc.get_alloc() if isinstance(alloc, LazyAlloc) else alloc
+        alloc = alloc.get() if isinstance(alloc, LazyAlloc) else alloc
         self.verify_post_state(t8n, t8n_state=alloc)
 
         # Create base fixture data, common to all fixture formats

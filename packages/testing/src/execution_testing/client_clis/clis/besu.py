@@ -191,7 +191,7 @@ class BesuTransitionTool(TransitionTool):
             dump_files_to_directory(
                 debug_output_path,
                 {
-                    "output/alloc.json": output.alloc.json_contents_from_cache(),
+                    "output/alloc.json": output.alloc.raw,
                     "output/result.json": output.result.model_dump(
                         mode="json", **model_dump_config
                     ),

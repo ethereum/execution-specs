@@ -3,7 +3,7 @@
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Any, Dict, List, Self
+from typing import Annotated, Any, Dict, Generic, List, Self, TypeVar
 
 from pydantic import Field, PlainSerializer, PlainValidator
 
@@ -287,43 +287,53 @@ class Result(CamelModel):
     opcode_count: OpcodeCount | None = None
 
 
+JSONDict = Dict[str, Any]
+
+TRaw = TypeVar("TRaw", str, JSONDict)
 
 
 @dataclass(kw_only=True)
-class LazyAlloc:
+class LazyAlloc(Generic[TRaw]):
     """
     Allocation that is lazily loaded from a JSON file.
     """
 
-    json_contents: Dict | None = None
-    str_contents: str | None = None
+    raw: TRaw
     alloc: Alloc | None = None
 
-    def str_contents_from_cache(self) -> str:
-        """
-        Return the cached, unparsed, alloc from the last t8n execution.
-        """
-        assert self.str_contents is not None, "No string cache found"
-        return self.str_contents
+    def validate(self) -> Alloc:
+        """Validate the alloc."""
+        raise NotImplementedError("validate method not implemented.")
 
-    def json_contents_from_cache(self) -> Dict:
-        """
-        Return the cached, unparsed, json dict from the last t8n execution.
-        """
-        assert self.json_contents is not None, "No json cache found"
-        return self.json_contents
-
-    def get_alloc(self) -> Alloc:
+    def get(self) -> Alloc:
         """Model validate the allocation and return it."""
-        if self.alloc is not None:
-            return self.alloc
-        elif self.json_contents is not None:
-            self.alloc = Alloc.model_validate(self.json_contents)
-            return self.alloc
-        elif self.str_contents is not None:
-            self.alloc = Alloc.model_validate_json(self.str_contents)
-            return self.alloc
-        raise ValueError("No alloc found")
+        if self.alloc is None:
+            self.alloc = self.validate()
+        return self.alloc
+
+
+class LazyAllocJson(LazyAlloc[JSONDict]):
+    """
+    Lazy allocation backed by a JSON dict cache.
+
+    Uses Alloc.model_validate on the dict.
+    """
+
+    def validate(self) -> Alloc:
+        """Validate the alloc."""
+        return Alloc.model_validate(self.raw)
+
+
+class LazyAllocStr(LazyAlloc[str]):
+    """
+    Lazy allocation backed by a JSON dict cache.
+
+    Uses Alloc.model_validate on the dict.
+    """
+
+    def validate(self) -> Alloc:
+        """Validate the alloc."""
+        return Alloc.model_validate_json(self.raw)
 
 
 @dataclass
@@ -342,10 +352,12 @@ class TransitionToolInput:
         Prepare the input in a directory path in the file system for
         consumption by the t8n tool.
         """
-        if isinstance(self.alloc, LazyAlloc):
-            alloc_contents = self.alloc.str_contents_from_cache()
-        else:
+        if isinstance(self.alloc, Alloc):
             alloc_contents = self.alloc.model_dump_json(**model_dump_config)
+        elif isinstance(self.alloc, LazyAllocStr):
+            alloc_contents = self.alloc.raw
+        else:
+            raise Exception(f"Invalid alloc type: {type(self.alloc)}")
 
         env_contents = self.env.model_dump_json(**model_dump_config)
         txs_contents = (
@@ -375,10 +387,12 @@ class TransitionToolInput:
 
     def model_dump_json(self, **model_dump_config: Any) -> str:
         """Dump the model in string JSON format."""
-        if isinstance(self.alloc, LazyAlloc):
-            alloc_contents = self.alloc.str_contents_from_cache()
-        else:
+        if isinstance(self.alloc, Alloc):
             alloc_contents = self.alloc.model_dump_json(**model_dump_config)
+        elif isinstance(self.alloc, LazyAllocStr):
+            alloc_contents = self.alloc.raw
+        else:
+            raise Exception(f"Invalid alloc type: {type(self.alloc)}")
 
         env_contents = self.env.model_dump_json(**model_dump_config)
         txs_contents = (
@@ -405,12 +419,14 @@ class TransitionToolInput:
     def model_dump(self, mode: str, **model_dump_config: Any) -> Any:
         """Return the validated model."""
         assert mode == "json", f"Mode {mode} not supported."
-        if isinstance(self.alloc, LazyAlloc):
-            alloc_contents = self.alloc.json_contents_from_cache()
-        else:
+        if isinstance(self.alloc, Alloc):
             alloc_contents = self.alloc.model_dump(
                 mode=mode, **model_dump_config
             )
+        elif isinstance(self.alloc, LazyAllocJson):
+            alloc_contents = self.alloc.raw
+        else:
+            raise Exception(f"Invalid alloc type: {type(self.alloc)}")
 
         env_contents = self.env.model_dump(mode=mode, **model_dump_config)
         txs_contents = [
@@ -450,7 +466,7 @@ class TransitionToolOutput:
         result = Result.model_validate_json(
             json_data=result_data, context=context
         )
-        alloc = LazyAlloc(str_contents=alloc_data)
+        alloc = LazyAllocStr(raw=alloc_data)
         output = cls(result=result, alloc=alloc)
         return output
 
@@ -465,7 +481,7 @@ class TransitionToolOutput:
         result = Result.model_validate(
             obj=response_json["result"], context=context
         )
-        alloc = LazyAlloc(json_contents=response_json["alloc"])
+        alloc = LazyAllocJson(raw=response_json["alloc"])
         output = cls(result=result, alloc=alloc)
         return output
 
@@ -482,7 +498,7 @@ class TransitionToolOutput:
         result = Result.model_validate(
             obj=parsed_json["result"], context=context
         )
-        alloc = LazyAlloc(str_contents=json.dumps(parsed_json["alloc"]))
+        alloc = LazyAllocStr(raw=json.dumps(parsed_json["alloc"]))
         output = cls(result=result, alloc=alloc)
         return output
 
