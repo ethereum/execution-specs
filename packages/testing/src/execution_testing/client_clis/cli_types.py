@@ -287,10 +287,6 @@ class Result(CamelModel):
     opcode_count: OpcodeCount | None = None
 
 
-def write_json_file(data: str, file_path: str) -> None:
-    """Write a JSON file to the given path."""
-    with open(file_path, "w") as f:
-        f.write(data)
 
 
 @dataclass(kw_only=True)
