@@ -3,7 +3,7 @@
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Type
+from typing import Any, Type
 
 import pytest
 
@@ -15,6 +15,12 @@ from execution_testing.client_clis import (
     NimbusTransitionTool,
     TransitionTool,
 )
+from execution_testing.client_clis.cli_types import (
+    LazyAlloc,
+    LazyAllocJson,
+    LazyAllocStr,
+)
+from execution_testing.test_types import Alloc
 
 
 def test_default_tool() -> None:
@@ -95,3 +101,27 @@ def test_unknown_binary_path() -> None:
         TransitionTool.from_binary_path(
             binary_path=Path("unknown_binary_path")
         )
+
+
+TEST_ALLOC = Alloc.model_validate(
+    {0xA: {"balance": 1, "nonce": 2, "code": "0x00"}}
+)
+TEST_ALLOC_STATE_ROOT = TEST_ALLOC.state_root()
+
+
+@pytest.mark.parametrize(
+    "ty,raw",
+    [
+        pytest.param(
+            LazyAllocJson, TEST_ALLOC.model_dump(), id="lazy_alloc_json"
+        ),
+        pytest.param(
+            LazyAllocStr, TEST_ALLOC.model_dump_json(), id="lazy_alloc_str"
+        ),
+    ],
+)
+def test_lazy_alloc(ty: Type[LazyAlloc], raw: Any) -> None:
+    """Test LazyAlloc types."""
+    lazy_instance = ty(raw=raw, _state_root=TEST_ALLOC_STATE_ROOT)
+    assert lazy_instance.get() == TEST_ALLOC
+    assert lazy_instance.state_root() == TEST_ALLOC_STATE_ROOT
