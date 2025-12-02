@@ -122,9 +122,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         ),
     )
     execute_group.addoption(
-        "--test-max-gas",
+        "--max-gas-per-test",
         action="store",
-        dest="test_max_gas",
+        dest="max_gas_per_test",
         default=None,
         type=int,
         help=(
@@ -452,7 +452,7 @@ def gas_price(max_fee_per_gas: int, max_priority_fee_per_gas: int) -> int:
 @pytest.fixture()
 def max_gas_limit_per_test(request: pytest.FixtureRequest) -> int | None:
     """Return the total gas limit for all transactions in a given test."""
-    max_gas_limit = request.config.getoption("test_max_gas")
+    max_gas_limit = request.config.getoption("max_gas_per_test")
     if max_gas_limit is not None:
         logger.info(
             f"Using configured max gas limit per test: {max_gas_limit}"
