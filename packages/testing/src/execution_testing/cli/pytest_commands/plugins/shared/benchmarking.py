@@ -44,10 +44,7 @@ def pytest_configure(config: pytest.Config) -> None:
 def pytest_collection_modifyitems(
     config: pytest.Config, items: list[pytest.Item]
 ) -> None:
-    """
-    Filter tests based on repricing marker when both -m repricing and
-    benchmark flags are specified.
-    """
+    """Filter tests based on repricing marker"""
     gas_benchmark_value = config.getoption("gas_benchmark_value")
     fixed_opcode_count = config.getoption("fixed_opcode_count")
 
@@ -114,7 +111,6 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
             )
 
     if "fixed_opcode_count" in metafunc.fixturenames:
-        # Only parametrize if test has repricing marker
         if fixed_opcode_counts:
             opcode_counts = [
                 int(x.strip()) for x in fixed_opcode_counts.split(",")
