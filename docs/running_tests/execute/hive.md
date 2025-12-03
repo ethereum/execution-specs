@@ -16,7 +16,7 @@ Tests can be run using:
 ./hive --client besu --client-file ./configs/osaka.yaml --sim ethereum/eels/execute-blobs
 ```
 
-**Note**: If Engine RPC is unavailable, blob transactions will be sent but `getBlobsV*` validation is skipped.
+**Note**: If the Engine RPC is unavailable, blob transactions will be sent and `getBlobsV*` validation is skipped.
 
 See [Hive](../hive/index.md) for help installing and configuring Hive.
 
