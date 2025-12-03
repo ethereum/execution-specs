@@ -295,11 +295,11 @@ def default_gas_price(request: pytest.FixtureRequest) -> int | None:
     gas_price = request.config.getoption("default_gas_price")
     if gas_price is not None:
         assert gas_price > 0, "Gas price must be greater than 0"
-        logger.info(
+        logger.debug(
             f"Using configured default gas price: {gas_price / 10**9:.2f} Gwei"
         )
     else:
-        logger.info(
+        logger.debug(
             "No default gas price configured, will use network gas price * 1.5"
         )
     return gas_price
@@ -318,11 +318,11 @@ def default_max_fee_per_gas(
     """Return default max fee per gas used for transactions."""
     max_fee_per_gas = request.config.getoption("default_max_fee_per_gas")
     if max_fee_per_gas is not None:
-        logger.info(
+        logger.debug(
             f"Using configured default max fee per gas: {max_fee_per_gas / 10**9:.2f} Gwei"
         )
     else:
-        logger.info(
+        logger.debug(
             "No default max fee per gas configured, will use network gas price * 1.5"
         )
     return max_fee_per_gas
@@ -337,11 +337,11 @@ def default_max_priority_fee_per_gas(
         "default_max_priority_fee_per_gas"
     )
     if max_priority_fee_per_gas is not None:
-        logger.info(
+        logger.debug(
             f"Using configured default max priority fee per gas: {max_priority_fee_per_gas / 10**9:.2f} Gwei"
         )
     else:
-        logger.info(
+        logger.debug(
             "No default max priority fee per gas configured, will use network max priority fee * 1.5"
         )
     return max_priority_fee_per_gas
@@ -356,11 +356,11 @@ def default_max_fee_per_blob_gas(
         "default_max_fee_per_blob_gas"
     )
     if max_fee_per_blob_gas is not None:
-        logger.info(
+        logger.debug(
             f"Using configured default max fee per blob gas: {max_fee_per_blob_gas / 10**9:.2f} Gwei"
         )
     else:
-        logger.info(
+        logger.debug(
             "No default max fee per blob gas configured, will use network blob base fee * 1.5"
         )
     return max_fee_per_blob_gas
