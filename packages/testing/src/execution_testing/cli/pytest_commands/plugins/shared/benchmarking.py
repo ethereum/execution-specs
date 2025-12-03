@@ -115,26 +115,22 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
 
     if "fixed_opcode_count" in metafunc.fixturenames:
         # Only parametrize if test has repricing marker
-        has_repricing = (
-            metafunc.definition.get_closest_marker("repricing") is not None
-        )
-        if has_repricing:
-            if fixed_opcode_counts:
-                opcode_counts = [
-                    int(x.strip()) for x in fixed_opcode_counts.split(",")
-                ]
-                opcode_count_parameters = [
-                    pytest.param(
-                        opcode_count,
-                        id=f"opcount_{opcode_count}K",
-                    )
-                    for opcode_count in opcode_counts
-                ]
-                metafunc.parametrize(
-                    "fixed_opcode_count",
-                    opcode_count_parameters,
-                    scope="function",
+        if fixed_opcode_counts:
+            opcode_counts = [
+                int(x.strip()) for x in fixed_opcode_counts.split(",")
+            ]
+            opcode_count_parameters = [
+                pytest.param(
+                    opcode_count,
+                    id=f"opcount_{opcode_count}K",
                 )
+                for opcode_count in opcode_counts
+            ]
+            metafunc.parametrize(
+                "fixed_opcode_count",
+                opcode_count_parameters,
+                scope="function",
+            )
 
 
 @pytest.fixture(scope="function")
