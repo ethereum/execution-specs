@@ -47,4 +47,4 @@ EOAs are funded after gas prices are determined, enabling accurate balance calcu
 
 ### Blob Transaction Support
 
-Blob transactions are fully supported in execute mode, including automatic gas pricing for blob gas fees and validation via `engine_getBlobsVX` endpoints when Engine RPC is available.
+Blob transactions are fully supported in execute mode, including automatic gas pricing for blob gas fees and validation via `engine_getBlobsVX` endpoints when the Engine RPC is available.
