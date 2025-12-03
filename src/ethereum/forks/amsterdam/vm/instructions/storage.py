@@ -22,6 +22,7 @@ from ...state import (
 )
 from ...state_tracker import (
     capture_pre_storage,
+    get_block_access_index,
     track_storage_read,
     track_storage_write,
 )
@@ -127,7 +128,10 @@ def sstore(evm: Evm) -> None:
     # Track storage access BEFORE checking gas (EIP-7928)
     # Even if we run out of gas, the access attempt should be tracked
     capture_pre_storage(
-        evm.state_changes, evm.message.current_target, key, current_value
+        evm.message.tx_env.state_changes,
+        evm.message.current_target,
+        key,
+        current_value,
     )
     track_storage_read(
         evm.state_changes,
@@ -164,8 +168,15 @@ def sstore(evm: Evm) -> None:
 
     # OPERATION
     set_storage(state, evm.message.current_target, key, new_value)
+    block_access_index = get_block_access_index(
+        evm.message.block_env.block_state_changes
+    )
     track_storage_write(
-        evm.state_changes, evm.message.current_target, key, new_value
+        evm.state_changes,
+        evm.message.current_target,
+        key,
+        new_value,
+        block_access_index,
     )
 
     # PROGRAM COUNTER

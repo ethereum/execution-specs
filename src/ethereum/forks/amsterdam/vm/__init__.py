@@ -117,6 +117,7 @@ class TransactionEnvironment:
     authorizations: Tuple[Authorization, ...]
     index_in_block: Optional[Uint]
     tx_hash: Optional[Hash32]
+    state_changes: "StateChanges" = field(default_factory=StateChanges)
 
 
 @dataclass
@@ -142,7 +143,8 @@ class Message:
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     disable_precompiles: bool
     parent_evm: Optional["Evm"]
-    transaction_state_changes: StateChanges
+    is_create: bool = False
+    state_changes: "StateChanges" = field(default_factory=StateChanges)
 
 
 @dataclass
