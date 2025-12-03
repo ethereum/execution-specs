@@ -261,19 +261,17 @@ def set_delegation(message: Message) -> U256:
             message.block_env.block_state_changes
         )
 
-        # Capture pre-code before any changes (first-write-wins)
+        # EIP-7928: Capture pre-code before any changes
         capture_pre_code(tx_frame, authority, authority_code)
 
-        # Set delegation code
         set_authority_code(state, authority, code_to_set)
 
-        # Track code change if different from current
         if authority_code != code_to_set:
+            # Track code change if different from current
             track_code_change(
                 tx_frame, authority, code_to_set, block_access_index
             )
 
-        # Track nonce increment
         increment_nonce(state, authority)
         nonce_after = get_account(state, authority).nonce
         track_nonce_change(

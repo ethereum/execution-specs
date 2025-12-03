@@ -70,7 +70,6 @@ from .state_tracker import (
     create_child_frame,
     get_block_access_index,
     increment_block_access_index,
-    merge_on_success,
     normalize_balance_changes_for_transaction,
     track_address,
     track_balance_change,
@@ -1093,9 +1092,6 @@ def process_transaction(
 
     block_output.block_logs += tx_output.logs
 
-    # EIP-7928: Handle in-transaction self-destruct BEFORE normalization
-    # Destroy accounts first so normalization sees correct post-tx state
-    # Only accounts created in same tx are in accounts_to_delete per EIP-6780
     for address in tx_output.accounts_to_delete:
         destroy_account(block_env.state, address)
 
@@ -1130,7 +1126,6 @@ def process_withdrawals(
     """
     Increase the balance of the withdrawing account.
     """
-    # Get block access index for withdrawals (post-exec phase)
     block_access_index = get_block_access_index(block_env.block_state_changes)
 
     # Capture pre-state for withdrawal balance filtering

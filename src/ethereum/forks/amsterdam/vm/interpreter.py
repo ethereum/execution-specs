@@ -145,8 +145,6 @@ def process_message_call(message: Message) -> MessageCallOutput:
             message.accessed_addresses.add(delegated_address)
             message.code = get_account(block_env.state, delegated_address).code
             message.code_address = delegated_address
-
-            # EIP-7928: Track delegation target when loaded as call target
             track_address(
                 message.block_env.block_state_changes, delegated_address
             )
@@ -215,7 +213,6 @@ def process_create_message(message: Message) -> Evm:
         message.block_env.block_state_changes
     )
 
-    # Track nonce increment for contract creation
     increment_nonce(state, message.current_target)
     nonce_after = get_account(state, message.current_target).nonce
     track_nonce_change(
@@ -284,6 +281,7 @@ def process_message(message: Message) -> Evm:
     if message.depth > STACK_DEPTH_LIMIT:
         raise StackDepthLimitError("Stack depth limit reached")
 
+    # take snapshot of state before processing the message
     begin_transaction(state, transient_storage)
 
     block_access_index = get_block_access_index(

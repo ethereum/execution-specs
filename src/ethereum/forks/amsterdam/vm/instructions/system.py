@@ -130,7 +130,6 @@ def generic_create(
     if account_has_code_or_nonce(
         state, contract_address
     ) or account_has_storage(state, contract_address):
-        # Track nonce increment even on collision
         increment_nonce(state, evm.message.current_target)
         nonce_after = get_account(state, evm.message.current_target).nonce
         track_nonce_change(
