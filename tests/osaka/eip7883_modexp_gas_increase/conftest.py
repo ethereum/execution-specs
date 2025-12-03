@@ -15,7 +15,7 @@ from execution_testing import (
     Transaction,
     keccak256,
 )
-from execution_testing.forks import Osaka
+from execution_testing.forks import London, Osaka
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput
 from .spec import Spec, Spec7883
@@ -252,6 +252,7 @@ def precompile_gas_modifier() -> int:
 
 @pytest.fixture
 def tx(
+    fork: Fork,
     pre: Alloc,
     gas_measure_contract: Address,
     modexp_input: ModExpInput,
@@ -259,7 +260,7 @@ def tx(
 ) -> Transaction:
     """Transaction to measure gas consumption of the ModExp precompile."""
     return Transaction(
-        ty=0x02,
+        ty=0x02 if fork >= London else 0x00,
         sender=pre.fund_eoa(),
         to=gas_measure_contract,
         data=bytes(modexp_input),
