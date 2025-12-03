@@ -30,7 +30,7 @@ Since `execute remote` does not control the blockchain where it runs the tests, 
 
 These transactions are created from the seed or worker accounts provided via the command flags.
 
-When the test is executed, all instances of `pre.fund_eoa` and `pre.deploy_contract` calls, instead of placing the account directly in the `pre` object like `fill` does, they generate transactions that result in the creation of the accounts when executed on chain.
+When the test is executed, all `pre.fund_eoa` and `pre.deploy_contract` calls generate transactions that create the accounts on chain, instead of placing them directly in the `pre` object like `fill` does.
 
 The transactions are collected and only sent after the test function finishes execution. This is done in order to perform optimizations based on the transactions that the test requires to perform its verifications.
 
@@ -38,7 +38,7 @@ One optimization is the deferred calculation of the funding amount for the EOA, 
 
 ### Dry Run Mode
 
-Calculate minimum balance requirements without executing any transactions on chain:
+Dry run mode calculates the minimum balance required without executing any transactions on chain:
 
 ```bash
 uv run execute remote --fork=Prague --rpc-endpoint=https://rpc.endpoint.io --dry-run ./tests/prague/eip7702_set_code_tx/
@@ -46,8 +46,8 @@ uv run execute remote --fork=Prague --rpc-endpoint=https://rpc.endpoint.io --dry
 
 This outputs the minimum balance needed and total gas consumption per test, useful for:
 
-- Estimating costs before execution
-- Verifying seed account has sufficient funds
+- Estimating gas costs before execution
+- Verifying the seed account has sufficient funds
 - Planning parallel execution funding requirements
 
 ### Limit Gas Used By Tests
