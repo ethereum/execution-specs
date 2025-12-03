@@ -46,7 +46,7 @@ def call_succeeds(modexp_expected: ModExpOutput) -> bool:
             ),
             ModExpOutput(
                 call_success=True,
-                returned_data=Bytes(bytes.fromhex("04")),
+                returned_data="0x04",
             ),
             id="32-bytes-long-base",
         ),
@@ -61,7 +61,7 @@ def call_succeeds(modexp_expected: ModExpOutput) -> bool:
             ),
             ModExpOutput(
                 call_success=True,
-                returned_data=Bytes(bytes.fromhex("01")),
+                returned_data="0x01",
             ),
             id="33-bytes-long-base",  # higher cost than 32 bytes
         ),
@@ -76,7 +76,7 @@ def call_succeeds(modexp_expected: ModExpOutput) -> bool:
             ),
             ModExpOutput(
                 call_success=True,
-                returned_data=Bytes(bytes.fromhex("02")),
+                returned_data="0x02",
             ),
             id="1024-bytes-long-exp",
         ),
@@ -91,10 +91,8 @@ def call_succeeds(modexp_expected: ModExpOutput) -> bool:
             ),
             ModExpOutput(
                 call_success=True,
-                returned_data=Bytes(
-                    bytes.fromhex(
-                        "c36d804180c35d4426b57b50c5bfcca5c01856d104564cd513b461d3c8b8409128a5573e416d0ebe38f5f736766d9dc27143e4da981dfa4d67f7dc474cbee6d2"
-                    )
+                returned_data=(
+                    "0xc36d804180c35d4426b57b50c5bfcca5c01856d104564cd513b461d3c8b8409128a5573e416d0ebe38f5f736766d9dc27143e4da981dfa4d67f7dc474cbee6d2"
                 ),
             ),
             id="nagydani-1-pow0x10001",
@@ -110,10 +108,8 @@ def call_succeeds(modexp_expected: ModExpOutput) -> bool:
             ),
             ModExpOutput(
                 call_success=True,
-                returned_data=Bytes(
-                    bytes.fromhex(
-                        "0000000000000000000000000000000000000000000000000000000000000001"
-                    )
+                returned_data=(
+                    "0x0000000000000000000000000000000000000000000000000000000000000001"
                 ),
             ),
             id="zero-exponent-64bytes",
@@ -127,4 +123,4 @@ def test_modexp_different_base_lengths(
     post: Dict,
 ) -> None:
     """Mainnet test for triggering gas cost increase."""
-    state_test(env=Environment(), pre=pre, tx=tx, post=post)
+    state_test(pre=pre, tx=tx, post=post)

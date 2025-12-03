@@ -11,7 +11,6 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.test_types.block_types import Environment
 
 from .spec import ref_spec_7939
 
@@ -47,6 +46,7 @@ def test_clz_mainnet(
         storage={"0x00": "0xdeadbeef"},
     )
     tx = Transaction(
+        ty=0x02,
         to=contract_address,
         sender=sender,
         gas_limit=200_000,
@@ -54,4 +54,4 @@ def test_clz_mainnet(
     post = {
         contract_address: Account(storage={"0x00": clz_expected}),
     }
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

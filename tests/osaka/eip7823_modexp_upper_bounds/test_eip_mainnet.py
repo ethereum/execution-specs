@@ -11,8 +11,6 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.base_types.base_types import Bytes
-from execution_testing.test_types.block_types import Environment
 
 from ...byzantium.eip198_modexp_precompile.helpers import (
     ModExpInput,
@@ -44,7 +42,7 @@ def call_succeeds(modexp_expected: ModExpOutput) -> bool:
             ),
             ModExpOutput(
                 call_success=True,
-                returned_data=Bytes(bytes.fromhex("01")),
+                returned_data="0x01",
             ),
             id="base-boundary-1024-bytes",
         ),
@@ -62,7 +60,7 @@ def test_modexp_boundary(
     Tests that the ModExp precompile correctly handles input at the maximum
     allowed length (1024 bytes) per EIP-7823.
     """
-    state_test(env=Environment(), pre=pre, tx=tx, post=post)
+    state_test(pre=pre, tx=tx, post=post)
 
 
 @pytest.mark.parametrize(
@@ -76,7 +74,7 @@ def test_modexp_boundary(
             ),
             ModExpOutput(
                 call_success=False,
-                returned_data=Bytes(),
+                returned_data="",
             ),
             id="base-over-boundary-1025-bytes",
         ),
@@ -95,4 +93,4 @@ def test_modexp_over_boundary(
     maximum allowed length (1024 bytes) per EIP-7823. This proves the EIP
     is correctly activated.
     """
-    state_test(env=Environment(), pre=pre, tx=tx, post=post)
+    state_test(pre=pre, tx=tx, post=post)

@@ -7,7 +7,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Environment,
     Op,
     StateTestFiller,
     Storage,
@@ -26,7 +25,6 @@ pytestmark = [pytest.mark.valid_at("Osaka"), pytest.mark.mainnet]
 def test_tx_gas_limit_cap_at_maximum(
     state_test: StateTestFiller,
     pre: Alloc,
-    env: Environment,
 ) -> None:
     """Test transaction at exactly the gas limit cap (2^24)."""
     storage = Storage()
@@ -35,6 +33,7 @@ def test_tx_gas_limit_cap_at_maximum(
     )
 
     tx = Transaction(
+        ty=0x02,
         to=contract_address,
         sender=pre.fund_eoa(),
         gas_limit=Spec.tx_gas_limit_cap,
@@ -44,14 +43,13 @@ def test_tx_gas_limit_cap_at_maximum(
         contract_address: Account(storage=storage),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.exception_test
 def test_tx_gas_limit_cap_exceeded(
     state_test: StateTestFiller,
     pre: Alloc,
-    env: Environment,
 ) -> None:
     """Test transaction exceeding the gas limit cap (2^24 + 1)."""
     contract_address = pre.deploy_contract(
@@ -59,10 +57,11 @@ def test_tx_gas_limit_cap_exceeded(
     )
 
     tx = Transaction(
+        ty=0x02,
         to=contract_address,
         sender=pre.fund_eoa(),
         gas_limit=Spec.tx_gas_limit_cap + 1,
         error=TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM,
     )
 
-    state_test(env=env, pre=pre, post={}, tx=tx)
+    state_test(pre=pre, post={}, tx=tx)
