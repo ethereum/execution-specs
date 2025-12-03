@@ -8,7 +8,7 @@ The `blob_transaction_test` execute test spec sends blob transactions to a runni
 
 - Blob transactions can be sent via `eth_sendRawTransaction`
 - Blob validation via `engine_getBlobsVX` endpoints (when Engine RPC available)
-- Automatic gas pricing for blob gas fees
+- Automatic gas pricing is used for the blob gas fees
 
 Tests can be run using:
 
