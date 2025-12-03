@@ -13,7 +13,7 @@ The `blob_transaction_test` execute test spec sends blob transactions to a runni
 Tests can be run using:
 
 ```bash
-./hive --client besu --client-file ./configs/osaka.yaml --sim ethereum/eest/execute-blobs
+./hive --client besu --client-file ./configs/osaka.yaml --sim ethereum/eels/execute-blobs
 ```
 
 **Note**: If Engine RPC is unavailable, blob transactions will be sent but `getBlobsV*` validation is skipped.
