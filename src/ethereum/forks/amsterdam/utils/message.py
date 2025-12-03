@@ -62,11 +62,13 @@ def prepare_message(
         msg_data = Bytes(b"")
         code = tx.data
         code_address = None
+        is_create = True
     elif isinstance(tx.to, Address):
         current_target = tx.to
         msg_data = tx.data
         code = get_account(block_env.state, tx.to).code
         code_address = tx.to
+        is_create = False
     else:
         raise AssertionError("Target must be address or empty bytes")
 
@@ -90,5 +92,6 @@ def prepare_message(
         accessed_storage_keys=set(tx_env.access_list_storage_keys),
         disable_precompiles=False,
         parent_evm=None,
+        is_create=is_create,
         state_changes=create_child_frame(tx_env.state_changes),
     )

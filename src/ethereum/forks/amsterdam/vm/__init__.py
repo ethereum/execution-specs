@@ -143,6 +143,7 @@ class Message:
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     disable_precompiles: bool
     parent_evm: Optional["Evm"]
+    is_create: bool
     state_changes: StateChanges
 
 

@@ -251,11 +251,8 @@ def process_create_message(message: Message) -> Evm:
     # added to SELFDESTRUCT by EIP-6780.
     mark_account_created(state, message.current_target)
 
-    parent_frame = get_parent_frame(message)
-    create_frame = create_child_frame(parent_frame)
-
-    increment_nonce(state, message.current_target, create_frame)
-    evm = process_message(message, parent_state_frame=create_frame)
+    increment_nonce(state, message.current_target, message.state_changes)
+    evm = process_message(message)
     if not evm.error:
         contract_code = evm.output
         contract_code_gas = Uint(len(contract_code)) * GAS_CODE_DEPOSIT
@@ -268,26 +265,26 @@ def process_create_message(message: Message) -> Evm:
                 raise OutOfGasError
         except ExceptionalHalt as error:
             rollback_transaction(state, transient_storage)
-            merge_on_failure(create_frame)
+            merge_on_failure(message.state_changes)
             evm.gas_left = Uint(0)
             evm.output = b""
             evm.error = error
         else:
             set_code(
-                state, message.current_target, contract_code, create_frame
+                state,
+                message.current_target,
+                contract_code,
+                message.state_changes,
             )
             commit_transaction(state, transient_storage)
-            merge_on_success(create_frame)
+            merge_on_success(message.state_changes)
     else:
         rollback_transaction(state, transient_storage)
-        merge_on_failure(create_frame)
+        merge_on_failure(message.state_changes)
     return evm
 
 
-def process_message(
-    message: Message,
-    parent_state_frame: Optional[StateChanges] = None,
-) -> Evm:
+def process_message(message: Message) -> Evm:
     """
     Move ether and execute the relevant code.
 
@@ -295,12 +292,6 @@ def process_message(
     ----------
     message :
         Transaction specific items.
-    parent_state_frame :
-        Optional parent frame for state tracking. When provided (e.g., for
-        CREATE's init code), state changes are tracked as a child of this
-        frame instead of the default parent determined by the message.
-        This ensures proper frame hierarchy for CREATE operations where
-        init code changes must be children of the CREATE frame.
 
     Returns
     -------
@@ -315,17 +306,7 @@ def process_message(
 
     begin_transaction(state, transient_storage)
 
-    if parent_state_frame is not None:
-        # Use provided parent for CREATE's init code execution.
-        # This ensures init code state changes are children of create_frame,
-        # so they are properly converted to reads if code deposit fails.
-        parent_changes = parent_state_frame
-        state_changes = create_child_frame(parent_state_frame)
-    else:
-        parent_changes = get_parent_frame(message)
-        state_changes = get_message_state_frame(message)
-
-    track_address(state_changes, message.current_target)
+    track_address(message.state_changes, message.current_target)
 
     if message.should_transfer_value and message.value != 0:
         move_ether(
@@ -333,22 +314,25 @@ def process_message(
             message.caller,
             message.current_target,
             message.value,
-            state_changes,
+            message.state_changes,
         )
 
-    evm = execute_code(message, state_changes)
+    evm = execute_code(message)
     if evm.error:
         rollback_transaction(state, transient_storage)
-        if state_changes != parent_changes:
+        if not message.is_create:
+            # For create messages further checks need to be done
+            # before merging the state changes. These are done
+            # in the `process_create_message` function
             merge_on_failure(evm.state_changes)
     else:
         commit_transaction(state, transient_storage)
-        if state_changes != parent_changes:
+        if not message.is_create:
             merge_on_success(evm.state_changes)
     return evm
 
 
-def execute_code(message: Message, state_changes: StateChanges) -> Evm:
+def execute_code(message: Message) -> Evm:
     """
     Executes bytecode present in the `message`.
 
@@ -356,8 +340,6 @@ def execute_code(message: Message, state_changes: StateChanges) -> Evm:
     ----------
     message :
         Transaction specific items.
-    state_changes :
-        The state changes frame to use for tracking.
 
     Returns
     -------
@@ -385,7 +367,7 @@ def execute_code(message: Message, state_changes: StateChanges) -> Evm:
         error=None,
         accessed_addresses=message.accessed_addresses,
         accessed_storage_keys=message.accessed_storage_keys,
-        state_changes=state_changes,
+        state_changes=message.state_changes,
     )
     try:
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:

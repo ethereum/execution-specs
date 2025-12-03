@@ -668,6 +668,7 @@ def process_system_transaction(
         accessed_storage_keys=set(),
         disable_precompiles=False,
         parent_evm=None,
+        is_create=False,
         state_changes=create_child_frame(system_tx_state_changes),
     )
 

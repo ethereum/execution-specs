@@ -27,7 +27,11 @@ from ...state import (
     move_ether,
     set_account_balance,
 )
-from ...state_tracker import capture_pre_balance, track_address
+from ...state_tracker import (
+    capture_pre_balance,
+    create_child_frame,
+    track_address,
+)
 from ...utils.address import (
     compute_contract_address,
     compute_create2_contract_address,
@@ -144,7 +148,8 @@ def generic_create(
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         disable_precompiles=False,
         parent_evm=evm,
-        state_changes=evm.message.state_changes,
+        is_create=True,
+        state_changes=create_child_frame(evm.state_changes),
     )
 
     child_evm = process_create_message(child_message)
@@ -341,7 +346,8 @@ def generic_call(
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         disable_precompiles=disable_precompiles,
         parent_evm=evm,
-        state_changes=evm.message.state_changes,
+        is_create=False,
+        state_changes=create_child_frame(evm.state_changes),
     )
 
     child_evm = process_message(child_message)
