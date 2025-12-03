@@ -17,7 +17,7 @@ from ethereum_types.numeric import Uint
 
 from ..fork_types import Address
 from ..state import get_account
-from ..state_tracker import StateChanges
+from ..state_tracker import create_child_frame
 from ..transactions import Transaction
 from ..vm import BlockEnvironment, Message, TransactionEnvironment
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
@@ -28,7 +28,6 @@ def prepare_message(
     block_env: BlockEnvironment,
     tx_env: TransactionEnvironment,
     tx: Transaction,
-    transaction_state_changes: StateChanges,
 ) -> Message:
     """
     Execute a transaction against the provided environment.
@@ -91,5 +90,5 @@ def prepare_message(
         accessed_storage_keys=set(tx_env.access_list_storage_keys),
         disable_precompiles=False,
         parent_evm=None,
-        transaction_state_changes=transaction_state_changes,
+        state_changes=create_child_frame(tx_env.state_changes),
     )

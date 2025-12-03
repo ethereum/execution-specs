@@ -219,6 +219,7 @@ def set_delegation(message: Message) -> U256:
     """
     state = message.block_env.state
     refund_counter = U256(0)
+    tx_state_changes = message.tx_env.state_changes
     for auth in message.tx_env.authorizations:
         if auth.chain_id not in (message.block_env.chain_id, U256(0)):
             continue
@@ -236,7 +237,7 @@ def set_delegation(message: Message) -> U256:
         authority_account = get_account(state, authority)
         authority_code = authority_account.code
 
-        track_address(message.block_env.block_state_changes, authority)
+        track_address(tx_state_changes, authority)
 
         if authority_code and not is_valid_delegation(authority_code):
             continue
@@ -253,22 +254,17 @@ def set_delegation(message: Message) -> U256:
         else:
             code_to_set = EOA_DELEGATION_MARKER + auth.address
 
-        state_changes = (
-            message.transaction_state_changes
-            or message.block_env.block_state_changes
-        )
-
         # Capture pre-code before any changes (first-write-wins)
-        capture_pre_code(state_changes, authority, authority_code)
+        capture_pre_code(tx_state_changes, authority, authority_code)
 
         # Set delegation code
         # Uses authority_code (current) for tracking to handle multiple auths
         # Net-zero filtering happens in commit_transaction_frame
         set_authority_code(
-            state, authority, code_to_set, state_changes, authority_code
+            state, authority, code_to_set, tx_state_changes, authority_code
         )
 
-        increment_nonce(state, authority, state_changes)
+        increment_nonce(state, authority, tx_state_changes)
 
     if message.code_address is None:
         raise InvalidBlock("Invalid type 4 transaction: no target")

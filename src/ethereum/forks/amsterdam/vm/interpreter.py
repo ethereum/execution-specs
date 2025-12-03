@@ -80,7 +80,6 @@ def get_parent_frame(message: Message) -> StateChanges:
     Frame selection logic:
     - Nested calls: Parent EVM's frame
     - Top-level calls: Transaction frame
-    - System transactions: Block frame
 
     Parameters
     ----------
@@ -164,9 +163,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
         is_collision = account_has_code_or_nonce(
             block_env.state, message.current_target
         ) or account_has_storage(block_env.state, message.current_target)
-        track_address(
-            message.transaction_state_changes, message.current_target
-        )
+        track_address(message.tx_env.state_changes, message.current_target)
         if is_collision:
             return MessageCallOutput(
                 Uint(0),
@@ -190,19 +187,19 @@ def process_message_call(message: Message) -> MessageCallOutput:
             message.code_address = delegated_address
 
             # EIP-7928: Track delegation target when loaded as call target
-            track_address(
-                message.block_env.block_state_changes, delegated_address
-            )
+            track_address(message.tx_env.state_changes, delegated_address)
 
         evm = process_message(message)
 
     if evm.error:
         logs: Tuple[Log, ...] = ()
         accounts_to_delete = set()
+        merge_on_failure(message.state_changes)
     else:
         logs = evm.logs
         accounts_to_delete = evm.accounts_to_delete
         refund_counter += U256(evm.refund_counter)
+        merge_on_success(message.state_changes)
 
     tx_end = TransactionEnd(
         int(message.gas) - int(evm.gas_left), evm.output, evm.error

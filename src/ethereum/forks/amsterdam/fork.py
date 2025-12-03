@@ -647,6 +647,7 @@ def process_system_transaction(
         authorizations=(),
         index_in_block=None,
         tx_hash=None,
+        state_changes=system_tx_state_changes,
     )
 
     system_tx_message = Message(
@@ -667,7 +668,7 @@ def process_system_transaction(
         accessed_storage_keys=set(),
         disable_precompiles=False,
         parent_evm=None,
-        transaction_state_changes=system_tx_state_changes,
+        state_changes=create_child_frame(system_tx_state_changes),
     )
 
     system_tx_output = process_message_call(system_tx_message)
@@ -991,13 +992,13 @@ def process_transaction(
         authorizations=authorizations,
         index_in_block=index,
         tx_hash=get_transaction_hash(encode_transaction(tx)),
+        state_changes=tx_state_changes,
     )
 
     message = prepare_message(
         block_env,
         tx_env,
         tx,
-        tx_state_changes,
     )
 
     tx_output = process_message_call(message)
