@@ -168,6 +168,7 @@ def tx(
 ) -> Transaction:
     """Transaction to measure gas consumption of the ModExp precompile."""
     return Transaction(
+        ty=0x02,
         sender=pre.fund_eoa(),
         to=gas_measure_contract,
         data=bytes(modexp_input),

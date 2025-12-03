@@ -4,12 +4,7 @@ Mainnet marked execute checklist tests for
 """
 
 import pytest
-from execution_testing import (
-    Alloc,
-    Environment,
-    StateTestFiller,
-    Transaction,
-)
+from execution_testing import Alloc, StateTestFiller, Transaction
 
 from .spec import H, R, S, Spec, X, Y, ref_spec_7951
 
@@ -50,7 +45,7 @@ def test_valid(
     state_test: StateTestFiller, pre: Alloc, post: dict, tx: Transaction
 ) -> None:
     """Positive mainnet test for the P256VERIFY precompile."""
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize(
@@ -89,4 +84,4 @@ def test_invalid(
     The signature actually is a valid secp256k1 signature,
     so this is an interesting test case.
     """
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

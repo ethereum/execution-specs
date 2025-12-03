@@ -177,6 +177,7 @@ def tx(
 ) -> Transaction:
     """Transaction for the test."""
     return Transaction(
+        ty=0x02,
         gas_limit=tx_gas_limit,
         data=input_data,
         to=call_contract_address,

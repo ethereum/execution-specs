@@ -11,8 +11,6 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.base_types.base_types import Bytes
-from execution_testing.test_types.block_types import Environment
 
 from ...byzantium.eip198_modexp_precompile.helpers import (
     ModExpInput,
