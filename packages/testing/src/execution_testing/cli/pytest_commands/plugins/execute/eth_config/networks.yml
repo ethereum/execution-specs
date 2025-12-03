@@ -18,6 +18,9 @@ Mainnet:
     Shanghai:           1681338455
     Cancun:             1710338135
     Prague:             1746612311
+    Osaka:              1764798551
+    BPO1:               1765290071
+    BPO2:               1767747671
   blobSchedule:
     Cancun:
       target: 3
