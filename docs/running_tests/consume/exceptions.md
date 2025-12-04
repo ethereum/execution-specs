@@ -98,7 +98,7 @@ uv run consume engine --disable-strict-exception-matching=nimbus-el
 Enable verbose client output:
 
 ```bash
-./hive --sim ethereum/eest/consume-engine \
+./hive --sim ethereum/eels/consume-engine \
   --docker.output \
   --sim.loglevel 5
 ```

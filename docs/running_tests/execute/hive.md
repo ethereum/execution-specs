@@ -2,12 +2,12 @@
 
 Tests can be executed on a local hive-controlled single-client network by running the `execute hive` command.
 
-## The `eest/execute-blobs` Simulator
+## The `eels/execute-blobs` Simulator
 
 The `blob_transaction_test` execute test spec sends blob transactions to a running client in order to verify its `engine_getBlobsVX` endpoint behavior. These tests can be run using:
 
 ```bash
-./hive --client besu --client-file ./configs/osaka.yaml --sim ethereum/eest/execute-blobs
+./hive --client besu --client-file ./configs/osaka.yaml --sim ethereum/eels/execute-blobs
 ```
 
 See [Hive](../hive/index.md) for help installing and configuring Hive.

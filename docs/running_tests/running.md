@@ -23,9 +23,9 @@ Both `consume` and `execute` provide sub-commands which correspond to different 
 
 The following sections describe the different methods in more detail.
 
-!!! note "`./hive --sim=eest/consume-engine` vs `consume engine`"
+!!! note "`./hive --sim=eels/consume-engine` vs `consume engine`"
 
-     EEST simulators can be ran either standalone using the `./hive` command or via an EEST command against a `./hive --dev` backend, more details are [provided below](#two-methods-to-run-eest-simulators).
+     The execution-specs simulators can be ran either standalone using the `./hive` command or via a `uv`/Python-based command against a `./hive --dev` backend, more details are [provided below](#two-methods-to-run-eels-simulators).
 
 ## Direct
 
@@ -48,7 +48,7 @@ The EEST `consume direct` command is a small wrapper around client direct interf
 | Nomenclature   |                          |
 | -------------- | ------------------------ |
 | Command        | `consume engine`         |
-| Simulator      | `eest/consume-engine`    |
+| Simulator      | `eels/consume-engine`    |
 | Fixture format | `blockchain_test_engine` |
 
 The consume engine method tests execution clients via the Engine API by sending block payloads and verifying the response (post-merge forks only). This method provides the most realistic testing environment for production Ethereum client behavior, covering consensus integration, payload validation, and state synchronization.
@@ -67,7 +67,7 @@ The `consume engine` command:
 | Nomenclature   |                    |
 | -------------- | ------------------ |
 | Command        | `consume rlp`      |
-| Simulator      | `eest/consume-rlp` |
+| Simulator      | `eels/consume-rlp` |
 | Fixture format | `blockchain_test`  |
 
 The RLP consumption method tests execution clients by providing them with RLP-encoded blocks to load upon startup, similar to the block import process during historical synchronization. This method tests the client's core block processing logic without the overhead of network protocols.
@@ -103,15 +103,15 @@ The `consume sync` command:
 
 ## Engine vs RLP Simulator
 
-The RLP Simulator (`eest/consume-rlp`) and the Engine Simulator (`eest/consume-engine`) should be seen as complimentary to one another. Although they execute the same underlying EVM test cases, the block validation logic is executed via different client code paths (using different [fixture formats](./test_formats/index.md)). Therefore, ideally, **both simulators should be executed for full coverage**.
+The RLP Simulator (`eels/consume-rlp`) and the Engine Simulator (`eels/consume-engine`) should be seen as complimentary to one another. Although they execute the same underlying EVM test cases, the block validation logic is executed via different client code paths (using different [fixture formats](./test_formats/index.md)). Therefore, ideally, **both simulators should be executed for full coverage**.
 
 ### Code Path Choices
 
-Clients consume fixtures in the `eest/consume-engine` simulator via the Engine API's `EngineNewPayloadv*` endpoint; a natural way to validate, respectively invalidate, block payloads. In this case, there is no flexibility in the choice of code path - it directly harnesses mainnet client functionality. The `eest/consume-rlp` Simulator, however, allows clients more freedom, as the rlp-encoded blocks are imported upon client startup. Clients are recommended to try and hook the block import into the code path used for historical syncing.
+Clients consume fixtures in the `eels/consume-engine` simulator via the Engine API's `EngineNewPayloadv*` endpoint; a natural way to validate, respectively invalidate, block payloads. In this case, there is no flexibility in the choice of code path - it directly harnesses mainnet client functionality. The `eels/consume-rlp` Simulator, however, allows clients more freedom, as the rlp-encoded blocks are imported upon client startup. Clients are recommended to try and hook the block import into the code path used for historical syncing.
 
 ### Differences
 
-|                         | `eest/consume-rlp`                                    | `eest/consume-engine`                                              |
+|                         | `eels/consume-rlp`                                    | `eels/consume-engine`                                              |
 | ----------------------- | ----------------------------------------------------- | ------------------------------------------------------------------ |
 | **Fixture Format Used** | [`BlockchainTest`](./test_formats/blockchain_test.md) | [`BlockchainTestEngine`](./test_formats/blockchain_test_engine.md) |
 | **Fork support**        | All forks (including pre-merge)                       | Post-merge forks only (Paris+)                                     |
@@ -128,9 +128,9 @@ Clients consume fixtures in the `eest/consume-engine` simulator via the Engine A
 
 See [Execute Command](./execute/index.md).
 
-## Two Methods to Run EEST Simulators
+## Two Methods to Run EELS Simulators
 
-Many of the methods use the Hive Testing Environment to interact with clients and run tests against them. These methods are also called Hive simulators. While Hive is always necessary to run simulators, they can be called in two different ways. Both of these commands execute the same simulator code, but in different environments, we take the example of the `eest/consume-engine` simulator:
+Many of the methods use the Hive Testing Environment to interact with clients and run tests against them. These methods are also called Hive simulators. While Hive is always necessary to run simulators, they can be called in two different ways. Both of these commands execute the same simulator code, but in different environments, we take the example of the `eels/consume-engine` simulator:
 
-1. `./hive --sim=eest/consume-engine` is a standalone command that installs EEST and the `consume` command in a dockerized container managed by Hive. This is the standard method to execute EEST [fixture releases](./releases.md) against clients in CI environments and is the method to generate the results at [hive.ethpandaops.io](https://hive.ethpandaops.io). See [Hive](./hive/index.md) and its [Common Options](./hive/common_options.md) for help with this method.
-2. `uv run consume engine` requires the user to clone and [install EEST](../getting_started/installation.md) and start a Hive server in [development mode](./hive/dev_mode.md). In this case, the simulator runs on the native system and communicate to the client via the Hive API. This is particularly useful during test development as fixtures on the local disk can be specified via `--input=fixtures/`. As the simulator runs natively, it is easy to drop into a debugger and inspect the simulator or client container state. See [Hive Developer Mode](./hive/dev_mode.md) for help with this method.
+1. `./hive --sim=eels/consume-engine` is a standalone command that installs and configures execution-specs and its `consume` command in a dockerized container managed by Hive. This is the standard method to execute EEST [fixture releases](./releases.md) against clients in CI environments and is the method to generate the results at [hive.ethpandaops.io](https://hive.ethpandaops.io). See [Hive](./hive/index.md) and its [Common Options](./hive/common_options.md) for help with this method.
+2. `uv run consume engine` requires the user to clone and [configure execution-specs](../getting_started/installation.md) and start a Hive server in [development mode](./hive/dev_mode.md). In this case, the simulator runs on the native system and communicate to the client via the Hive API. This is particularly useful during test development as fixtures on the local disk can be specified via `--input=fixtures/`. As the simulator runs natively, it is easy to drop into a debugger and inspect the simulator or client container state. See [Hive Developer Mode](./hive/dev_mode.md) for help with this method.
