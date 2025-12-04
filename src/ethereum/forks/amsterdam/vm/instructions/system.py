@@ -625,6 +625,9 @@ def selfdestruct(evm: Evm) -> None:
     if is_cold_access:
         gas_cost += GAS_COLD_ACCOUNT_ACCESS
 
+    check_gas(evm, gas_cost)
+
+    # is_account_alive requires account to be accessed, check gas before
     if (
         not is_account_alive(evm.message.block_env.state, beneficiary)
         and get_account(
@@ -634,11 +637,8 @@ def selfdestruct(evm: Evm) -> None:
     ):
         gas_cost += GAS_SELF_DESTRUCT_NEW_ACCOUNT
 
-    check_gas(evm, gas_cost)
-
     if is_cold_access:
         evm.accessed_addresses.add(beneficiary)
-
     track_address(evm.state_changes, beneficiary)
 
     charge_gas(evm, gas_cost)
