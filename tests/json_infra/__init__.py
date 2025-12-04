@@ -25,8 +25,12 @@ TEST_FIXTURES: Dict[str, _FixtureSource] = {
         "fixture_path": "tests/json_infra/fixtures/ethereum_tests",
     },
     "latest_fork_tests": {
-        "url": "https://github.com/ethereum/execution-spec-tests/releases/download/v5.0.0/fixtures_develop.tar.gz",
+        "url": "https://github.com/ethereum/execution-spec-tests/releases/download/v5.3.0/fixtures_develop.tar.gz",
         "fixture_path": "tests/json_infra/fixtures/latest_fork_tests",
+    },
+    "amsterdam_tests": {
+        "url": "https://github.com/ethereum/execution-spec-tests/releases/download/bal%40v1.8.0/fixtures_bal.tar.gz",
+        "fixture_path": "tests/json_infra/fixtures/amsterdam_tests",
     },
 }
 
@@ -58,6 +62,7 @@ def _build_eest_test_paths(base_path: str) -> tuple:
 # Base paths
 ETHEREUM_TESTS_BASE = _get_fixture_path("ethereum_tests")
 EEST_TESTS_BASE = _get_fixture_path("latest_fork_tests")
+AMSTERDAM_TESTS_BASE = _get_fixture_path("amsterdam_tests")
 
 # Ethereum test paths
 (
@@ -74,6 +79,9 @@ BC_ETHEREUM_TESTS, STATE_ETHEREUM_TESTS = _build_ethereum_test_paths(
 
 # EEST test paths
 EEST_BC_TESTS, EEST_STATE_TESTS = _build_eest_test_paths(EEST_TESTS_BASE)
+AMSTERDAM_BC_TESTS, AMSTERDAM_STATE_TESTS = _build_eest_test_paths(
+    AMSTERDAM_TESTS_BASE
+)
 
 ForkConfig = TypedDict(
     "ForkConfig",
@@ -110,6 +118,11 @@ CURRENT_DIRS = (
     [STATE_ETHEREUM_TESTS, EEST_STATE_TESTS],
 )
 
+AMSTERDAM_DIRS = (
+    [AMSTERDAM_BC_TESTS],
+    [AMSTERDAM_STATE_TESTS],
+)
+
 FORKS: Dict[str, ForkConfig] = {
     **{
         json_fork: _create_fork_config(eels_fork, *PRE_CONSTANTINOPLE_DIRS)
@@ -138,6 +151,12 @@ FORKS: Dict[str, ForkConfig] = {
             ("Cancun", "cancun"),
             ("Prague", "prague"),
             ("Osaka", "osaka"),
+        ]
+    },
+    **{
+        json_fork: _create_fork_config(eels_fork, *AMSTERDAM_DIRS)
+        for json_fork, eels_fork in [
+            ("Amsterdam", "amsterdam"),
         ]
     },
 }
