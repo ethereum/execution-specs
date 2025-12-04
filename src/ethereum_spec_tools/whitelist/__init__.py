@@ -36,7 +36,7 @@ def find_project_root() -> Path:
 def main() -> int:
     """
     `whitelist` accepts any number of strings, adds them to the whitelist, then
-    sorts the list and maintain visible sections for each leading character.
+    sorts the list and maintains visible sections for each leading character.
 
     Returns:
       - 0 on success
