@@ -70,17 +70,23 @@ def test_keccak_max_permutations(
 
 @pytest.mark.parametrize("mem_alloc", [b"", b"ff", b"ff" * 32])
 @pytest.mark.parametrize("offset", [0, 31, 1024])
+@pytest.mark.parametrize("mem_update", [True, False])
 def test_keccak(
     benchmark_test: BenchmarkTestFiller,
     offset: int,
     mem_alloc: bytes,
+    mem_update: bool
 ) -> None:
     """Benchmark KECCAK256 instruction with diff input data and offsets."""
+
+    code_hash = Op.SHA3(offset, Op.CALLDATASIZE)
+    attack_block = Op.MSTORE(Op.PUSH0, code_hash) if mem_update else Op.POP(code_hash)
+
     benchmark_test(
         target_opcode=Op.SHA3,
         code_generator=JumpLoopGenerator(
             setup=Op.CALLDATACOPY(offset, Op.PUSH0, Op.CALLDATASIZE),
-            attack_block=Op.POP(Op.SHA3(offset, Op.CALLDATASIZE)),
+            attack_block=attack_block,
             tx_kwargs={"data": mem_alloc},
         ),
     )
