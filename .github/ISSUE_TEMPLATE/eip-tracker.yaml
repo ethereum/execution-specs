@@ -1,0 +1,77 @@
+name: "EIP Implementation Tracker"
+description: "Track specification and testing progress for an EIP"
+title: "EIP ${{ form.eip_number }} Progress Tracker"
+labels:
+  - A-spec-specs
+  - A-spec-tests
+  - C-eip
+  - C-test
+
+body:
+  - type: input
+    id: eip_number
+    attributes:
+      label: "EIP Number"
+      description: "Enter the EIP number (digits only)."
+      placeholder: "e.g., 8024"
+    validations:
+      required: true
+
+  - type: input
+    id: eip_title
+    attributes:
+      label: "EIP Title"
+      description: "Copy the title from the EIP."
+      placeholder: "e.g., Backwards compatible SWAPN, DUPN, EXCHANGE"
+    validations:
+      required: true
+  
+  - type: dropdown
+    id: fork
+    attributes:
+      label: "Fork"
+      description: |
+        Specify the target fork **only if the EIP has reached the CFI stage**.
+        More info: https://eips.ethereum.org/EIPS/eip-7723#considered-for-inclusion
+      options:
+        - TBD
+        - amsterdam
+        - bogota
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## EIP ${{ form.eip_number }}: ${{ form.eip_title }}
+
+        **Link:** https://eips.ethereum.org/EIPS/eip-${{ form.eip_number }}
+
+        ## Target Fork
+
+        Fork **${{ form.fork }}**
+
+        - [ ] Add issue to fork milestone (if applicable).
+
+        ## Ownership
+        
+        Owner(s): **TBD**
+
+        ## Specification + Testing Status
+
+        - [ ] Testing complexity assessed and documented.
+        - [ ] Specification implementation merged to `eips/${{ form.fork }}/eip-${{ form.eip_number }}`.
+        - [ ] Specification updates merged to the corresponding `forks/${{ form.fork }}` branch.
+        - [ ] Required testing framework modifications implemented.
+        - [ ] Test suite implemented.
+        - [ ] Full code coverage for all changes.
+        - [ ] Testing checklist complete  
+              (https://github.com/ethereum/execution-specs/blob/HEAD/docs/writing_tests/checklist_templates/eip_testing_checklist_template.md).
+        - [ ] No regressions or failures in tests from prior forks (including static tests).
+        - [ ] Hardening session completed.
+        - [ ] Benchmarking performed and results documented.
+
+        ## Process Status
+        
+        - [ ] Client implementation prototypes done.
+        - [ ] EIP included in a devnet.
