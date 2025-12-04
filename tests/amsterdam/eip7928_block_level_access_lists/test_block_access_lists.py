@@ -373,6 +373,76 @@ def test_bal_self_destruct(
     )
 
 
+def test_bal_self_destruct_oog(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Test that SELFDESTRUCT beneficiary is NOT included in BAL when OOG.
+
+    When SELFDESTRUCT runs out of gas, the operation fails and the beneficiary
+    address should NOT be added to the Block Access List.
+
+    This test:
+    1. Deploys a contract with SELFDESTRUCT bytecode
+    2. Calls the contract with limited gas so SELFDESTRUCT fails OOG
+    3. Verifies beneficiary is NOT in BAL (the CALL reverts, undoing BAL changes)
+
+    SELFDESTRUCT gas cost to cold new account: 5000 + 2600 + 25000 = 32600 gas
+    """
+    alice = pre.fund_eoa()
+
+    # Beneficiary address for SELFDESTRUCT
+    beneficiary = Address(0xBEEF)
+
+    # Contract: PUSH20 <beneficiary> SELFDESTRUCT
+    selfdestruct_code = Op.SELFDESTRUCT(beneficiary)
+    selfdestruct_contract = pre.deploy_contract(code=selfdestruct_code, balance=1000)
+
+    # Caller contract: CALL with limited gas to cause OOG on SELFDESTRUCT
+    # SELFDESTRUCT needs 32600 gas, we give it only 100
+    caller_code = (
+        Op.CALL(gas=100, address=selfdestruct_contract, value=0,
+                args_offset=0, args_size=0, ret_offset=0, ret_size=0)
+        + Op.STOP
+    )
+    caller_contract = pre.deploy_contract(code=caller_code)
+
+    tx = Transaction(
+        sender=alice,
+        to=caller_contract,
+        gas_limit=100_000,
+        gas_price=0xA,
+    )
+
+    # The inner CALL fails OOG, so SELFDESTRUCT doesn't complete.
+    # Beneficiary should NOT be in BAL.
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                ),
+                caller_contract: BalAccountExpectation.empty(),
+                selfdestruct_contract: BalAccountExpectation.empty(),
+                # beneficiary should NOT appear - SELFDESTRUCT failed OOG
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            caller_contract: Account(code=caller_code),
+            # Contract still exists - SELFDESTRUCT failed
+            selfdestruct_contract: Account(balance=1000, code=selfdestruct_code),
+        },
+    )
+
+
 @pytest.mark.parametrize(
     "account_access_opcode",
     [
