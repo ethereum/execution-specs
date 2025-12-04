@@ -5,9 +5,7 @@ stable:
 
 develop:
   evm-type: develop 
-  # TODO: Fix BPO filling.
-  # fill-params: --until=BPO4 --fill-static-tests --ignore=tests/static/state_tests/stQuadraticComplexityTest
-  fill-params: --until=Osaka --fill-static-tests --ignore=tests/static/state_tests/stQuadraticComplexityTest -k "not BPO"
+  fill-params: --until=BPO4 --fill-static-tests --ignore=tests/static/state_tests/stQuadraticComplexityTest
 
 benchmark:
   evm-type: benchmark

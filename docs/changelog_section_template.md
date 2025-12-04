@@ -12,6 +12,8 @@ The following can be copy-pasted into the `CHANGELOG.md` file for a new release.
 
 #### `consume`
 
+#### `execute`
+
 ### 📋 Misc
 
 ### 🧪 Test Cases
