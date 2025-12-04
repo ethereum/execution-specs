@@ -206,7 +206,7 @@ class Hardfork:
     @property
     def timestamp(self) -> U256:
         """
-        Block number of the first block in this hard fork.
+        Timestamp of the first block in this hard fork.
         """
         from ethereum.fork_criteria import ByTimestamp
 
