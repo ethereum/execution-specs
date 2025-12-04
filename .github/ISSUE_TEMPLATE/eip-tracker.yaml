@@ -57,6 +57,8 @@ body:
         
         Owner(s): **TBD**
 
+        **Important note:** A specifications specialist and a testing specialist should ideally share ownership of the EIP.
+
         ## Specification + Testing Status
 
         - [ ] Testing complexity assessed and documented.
@@ -73,5 +75,5 @@ body:
 
         ## Process Status
         
-        - [ ] Client implementation prototypes done.
+        - [ ] Hive tests passing on all implementations.
         - [ ] EIP included in a devnet.
