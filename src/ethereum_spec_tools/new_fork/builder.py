@@ -329,7 +329,7 @@ class ForkBuilder:
 
         forks = Hardfork.discover()
 
-        # Find the `Hardfork` object named by 'template_fork`.
+        # Find the `Hardfork` object named by `template_fork`.
         before = None
         found = None
         for index, fork in enumerate(forks):
