@@ -66,17 +66,16 @@ Within the [`eels/`](https://github.com/ethereum/hive/tree/master/simulators/eth
 
 ```docker
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
-ARG branch=main
-ENV GIT_REF=${branch} 
+ARG branch=""
 
 RUN apt-get update && apt-get install -y git
-RUN git init execution-spec-tests && \
-    cd execution-spec-tests && \
-    git remote add origin https://github.com/ethereum/execution-spec-tests.git && \
-    git fetch --depth 1 origin $GIT_REF && \
-    git checkout FETCH_HEAD;
-
-WORKDIR /execution-spec-tests
+RUN git clone --depth 1 https://github.com/ethereum/execution-specs.git && \
+    cd execution-specs && \
+    if [ -n "$branch" ]; then \
+        git fetch --depth 1 origin "$branch" && \
+        git checkout FETCH_HEAD; \
+    fi
+WORKDIR /execution-specs/packages/testing
 RUN uv sync
 ENTRYPOINT ["/bin/bash"]
 ```
