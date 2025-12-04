@@ -15,13 +15,15 @@ preventing consensus issues.
 """
 
 from enum import Enum
-from typing import Callable
+from typing import Callable, Dict
 
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     BalAccountExpectation,
+    BalBalanceChange,
     BalNonceChange,
     BalStorageChange,
     BalStorageSlot,
@@ -30,6 +32,7 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytecode,
     Fork,
+    Initcode,
     Op,
     Transaction,
     compute_create_address,
@@ -658,6 +661,249 @@ def test_bal_extcodecopy_and_oog(
             alice: Account(nonce=1),
             extcodecopy_contract: Account(),
             target_contract: Account(),
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "self_destruct_in_same_tx", [True, False], ids=["same_tx", "new_tx"]
+)
+@pytest.mark.parametrize(
+    "pre_funded", [True, False], ids=["pre_funded", "not_pre_funded"]
+)
+def test_bal_self_destruct(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    self_destruct_in_same_tx: bool,
+    pre_funded: bool,
+) -> None:
+    """Ensure BAL captures balance changes caused by `SELFDESTRUCT`."""
+    alice = pre.fund_eoa()
+    bob = pre.fund_eoa(amount=0)
+
+    selfdestruct_code = (
+        Op.SLOAD(0x01)  # Read from storage slot 0x01
+        + Op.SSTORE(0x02, 0x42)  # Write to storage slot 0x02
+        + Op.SELFDESTRUCT(bob)
+    )
+    # A pre existing self-destruct contract with initial storage
+    kaboom = pre.deploy_contract(code=selfdestruct_code, storage={0x01: 0x123})
+
+    # A template for self-destruct contract
+    self_destruct_init_code = Initcode(deploy_code=selfdestruct_code)
+    template = pre.deploy_contract(code=self_destruct_init_code)
+
+    transfer_amount = expected_recipient_balance = 100
+    pre_fund_amount = 10
+
+    if self_destruct_in_same_tx:
+        # The goal is to create a self-destructing contract in the same
+        # transaction to trigger deletion of code as per EIP-6780.
+        # The factory contract below creates a new self-destructing
+        # contract and calls it in this transaction.
+
+        bytecode_size = len(self_destruct_init_code)
+        factory_bytecode = (
+            # Clone template memory
+            Op.EXTCODECOPY(template, 0, 0, bytecode_size)
+            # Fund 100 wei and deploy the clone
+            + Op.CREATE(transfer_amount, 0, bytecode_size)
+            # Call the clone, which self-destructs
+            + Op.CALL(1_000_000, Op.DUP6, 0, 0, 0, 0, 0)
+            + Op.STOP
+        )
+
+        factory = pre.deploy_contract(code=factory_bytecode)
+        kaboom_same_tx = compute_create_address(address=factory, nonce=1)
+
+    # Determine which account will be self-destructed
+    self_destructed_account = (
+        kaboom_same_tx if self_destruct_in_same_tx else kaboom
+    )
+
+    if pre_funded:
+        expected_recipient_balance += pre_fund_amount
+        pre.fund_address(
+            address=self_destructed_account, amount=pre_fund_amount
+        )
+
+    tx = Transaction(
+        sender=alice,
+        to=factory if self_destruct_in_same_tx else kaboom,
+        value=transfer_amount,
+        gas_limit=1_000_000,
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                ),
+                bob: BalAccountExpectation(
+                    balance_changes=[
+                        BalBalanceChange(
+                            tx_index=1, post_balance=expected_recipient_balance
+                        )
+                    ]
+                ),
+                self_destructed_account: BalAccountExpectation(
+                    balance_changes=[
+                        BalBalanceChange(tx_index=1, post_balance=0)
+                    ]
+                    if pre_funded
+                    else [],
+                    # Accessed slots for same-tx are recorded as reads (0x02)
+                    storage_reads=[0x01, 0x02]
+                    if self_destruct_in_same_tx
+                    else [0x01],
+                    # Storage changes are recorded for non-same-tx
+                    # self-destructs
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0x02,
+                            slot_changes=[
+                                BalStorageChange(tx_index=1, post_value=0x42)
+                            ],
+                        )
+                    ]
+                    if not self_destruct_in_same_tx
+                    else [],
+                    code_changes=[],  # should not be present
+                    nonce_changes=[],  # should not be present
+                ),
+            }
+        ),
+    )
+
+    post: Dict[Address, Account] = {
+        alice: Account(nonce=1),
+        bob: Account(balance=expected_recipient_balance),
+    }
+
+    # If the account was self-destructed in the same transaction,
+    # we expect the account to non-existent and its balance to be 0.
+    if self_destruct_in_same_tx:
+        post.update(
+            {
+                factory: Account(
+                    nonce=2,  # incremented after CREATE
+                    balance=0,  # spent on CREATE
+                    code=factory_bytecode,
+                ),
+                kaboom_same_tx: Account.NONEXISTENT,  # type: ignore
+                # The pre-existing contract remains unaffected
+                kaboom: Account(
+                    balance=0, code=selfdestruct_code, storage={0x01: 0x123}
+                ),
+            }
+        )
+    else:
+        post.update(
+            {
+                # This contract was self-destructed in a separate tx.
+                # From EIP 6780: `SELFDESTRUCT` does not delete any data
+                # (including storage keys, code, or the account itself).
+                kaboom: Account(
+                    balance=0,
+                    code=selfdestruct_code,
+                    storage={0x01: 0x123, 0x2: 0x42},
+                ),
+            }
+        )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post=post,
+    )
+
+
+@pytest.mark.parametrize("oog_before_state_access", [True, False])
+def test_bal_self_destruct_oog(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+    oog_before_state_access: bool,
+) -> None:
+    """
+    Test SELFDESTRUCT BAL behavior at gas boundaries.
+
+    SELFDESTRUCT has two gas checkpoints:
+    1. static checks: G_SELF_DESTRUCT + G_COLD_ACCOUNT_ACCESS
+       OOG here = no state access, beneficiary NOT in BAL
+    2. state access: same as static checks, plus G_NEW_ACCOUNT for new account
+       OOG here = enough gas to access state but not enough for new account,
+       beneficiary IS in BAL
+    """
+    alice = pre.fund_eoa()
+    # always use new account so we incur extra G_NEW_ACCOUNT cost
+    # there is no other gas boundary to test between cold access
+    # and new account
+    beneficiary = pre.empty_account()
+
+    # selfdestruct_contract: PUSH20 <beneficiary> SELFDESTRUCT
+    selfdestruct_code = Op.SELFDESTRUCT(beneficiary)
+    selfdestruct_contract = pre.deploy_contract(
+        code=selfdestruct_code, balance=1000
+    )
+
+    # Gas needed inside the CALL for SELFDESTRUCT:
+    # - PUSH20: G_VERY_LOW = 3
+    # - SELFDESTRUCT: G_SELF_DESTRUCT
+    # - G_COLD_ACCOUNT_ACCESS (beneficiary cold access)
+    gas_costs = fork.gas_costs()
+    exact_static_gas = (
+        gas_costs.G_VERY_LOW
+        + gas_costs.G_SELF_DESTRUCT
+        + gas_costs.G_COLD_ACCOUNT_ACCESS
+    )
+
+    # subtract one from the exact gas to trigger OOG before state access
+    oog_gas = (
+        exact_static_gas - 1 if oog_before_state_access else exact_static_gas
+    )
+
+    # caller_contract: CALL with oog_gas
+    caller_code = Op.CALL(gas=oog_gas, address=selfdestruct_contract)
+    caller_contract = pre.deploy_contract(code=caller_code)
+
+    tx = Transaction(
+        sender=alice,
+        to=caller_contract,
+        gas_limit=100_000,
+    )
+
+    account_expectations: Dict[Address, BalAccountExpectation | None] = {
+        alice: BalAccountExpectation(
+            nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+        ),
+        caller_contract: BalAccountExpectation.empty(),
+        selfdestruct_contract: BalAccountExpectation.empty(),
+        # beneficiary only in BAL if we passed check_gas (state accessed)
+        beneficiary: None
+        if oog_before_state_access
+        else BalAccountExpectation.empty(),
+    }
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations=account_expectations
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            caller_contract: Account(code=caller_code),
+            # selfdestruct_contract still exists - SELFDESTRUCT failed
+            selfdestruct_contract: Account(
+                balance=1000, code=selfdestruct_code
+            ),
         },
     )
 
