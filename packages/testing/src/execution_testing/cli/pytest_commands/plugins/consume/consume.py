@@ -533,7 +533,10 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
         and config.getoption("htmlpath") is None
     ):
         # generate an html report by default, unless explicitly disabled
-        config.option.htmlpath = Path(default_html_report_file_path())
+        config.option.htmlpath = (
+            config.fixtures_source.path  # type: ignore[attr-defined]
+            / default_html_report_file_path()
+        )
 
 
 def pytest_html_report_title(report: Any) -> None:
