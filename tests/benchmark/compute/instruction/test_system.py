@@ -18,6 +18,7 @@ import math
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     BenchmarkTestFiller,
     Block,
@@ -108,74 +109,7 @@ def test_xcall(
             "during the setup phase of this test."
         )
 
-    # The initcode will take its address as a starting point to the input to
-    # the keccak hash function. It will reuse the output of the hash function
-    # in a loop to create a large amount of seemingly random code, until it
-    # reaches the maximum contract size.
-    initcode = (
-        Op.MSTORE(0, Op.ADDRESS)
-        + While(
-            body=(
-                Op.SHA3(Op.SUB(Op.MSIZE, 32), 32)
-                # Use a xor table to avoid having to call the "expensive" sha3
-                # opcode as much
-                + sum(
-                    (
-                        Op.PUSH32[xor_value]
-                        + Op.XOR
-                        + Op.DUP1
-                        + Op.MSIZE
-                        + Op.MSTORE
-                    )
-                    for xor_value in XOR_TABLE
-                )
-                + Op.POP
-            ),
-            condition=Op.LT(Op.MSIZE, max_contract_size),
-        )
-        # Despite the whole contract has random bytecode, we make the first
-        # opcode be a STOP so CALL-like attacks return as soon as possible,
-        # while EXTCODE(HASH|SIZE) work as intended.
-        + Op.MSTORE8(0, 0x00)
-        + Op.RETURN(0, max_contract_size)
-    )
-    initcode_address = pre.deploy_contract(code=initcode)
-
-    # The factory contract will simply use the initcode that is already
-    # deployed, and create a new contract and return its address if successful.
-    factory_code = (
-        Op.EXTCODECOPY(
-            address=initcode_address,
-            dest_offset=0,
-            offset=0,
-            size=Op.EXTCODESIZE(initcode_address),
-        )
-        + Op.MSTORE(
-            0,
-            Op.CREATE2(
-                value=0,
-                offset=0,
-                size=Op.EXTCODESIZE(initcode_address),
-                salt=Op.SLOAD(0),
-            ),
-        )
-        + Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1))
-        + Op.RETURN(0, 32)
-    )
-    factory_address = pre.deploy_contract(code=factory_code)
-
-    # The factory caller will call the factory contract N times, creating N new
-    # contracts. Calldata should contain the N value.
-    factory_caller_code = Op.CALLDATALOAD(0) + While(
-        body=Op.POP(Op.CALL(address=factory_address)),
-        condition=Op.PUSH1(1)
-        + Op.SWAP1
-        + Op.SUB
-        + Op.DUP1
-        + Op.ISZERO
-        + Op.ISZERO,
-    )
-    factory_caller_address = pre.deploy_contract(code=factory_caller_code)
+    initcode, factory_address, factory_caller_address = deploy_max_contract_factory(pre, fork)
 
     with TestPhaseManager.setup():
         contracts_deployment_tx = Transaction(
@@ -245,6 +179,83 @@ def test_xcall(
         ],
         exclude_full_post_state_in_output=True,
     )
+
+def deploy_max_contract_factory(
+    pre: Alloc,
+    fork: Fork,
+) -> tuple[Bytecode, Address, Address]: 
+    max_contract_size = fork.max_code_size()
+
+    # The initcode will take its address as a starting point to the input to
+    # the keccak hash function. It will reuse the output of the hash function
+    # in a loop to create a large amount of seemingly random code, until it
+    # reaches the maximum contract size.
+    initcode = (
+        Op.MSTORE(0, Op.ADDRESS)
+        + While(
+            body=(
+                Op.SHA3(Op.SUB(Op.MSIZE, 32), 32)
+                # Use a xor table to avoid having to call the "expensive" sha3
+                # opcode as much
+                + sum(
+                    (
+                        Op.PUSH32[xor_value]
+                        + Op.XOR
+                        + Op.DUP1
+                        + Op.MSIZE
+                        + Op.MSTORE
+                    )
+                    for xor_value in XOR_TABLE
+                )
+                + Op.POP
+            ),
+            condition=Op.LT(Op.MSIZE, max_contract_size),
+        )
+        # Despite the whole contract has random bytecode, we make the first
+        # opcode be a STOP so CALL-like attacks return as soon as possible,
+        # while EXTCODE(HASH|SIZE) work as intended.
+        + Op.MSTORE8(0, 0x00)
+        + Op.RETURN(0, max_contract_size)
+    )
+    initcode_address = pre.deploy_contract(code=initcode)
+
+    # The factory contract will simply use the initcode that is already
+    # deployed, and create a new contract and return its address if successful.
+    factory_code = (
+        Op.EXTCODECOPY(
+            address=initcode_address,
+            dest_offset=0,
+            offset=0,
+            size=Op.EXTCODESIZE(initcode_address),
+        )
+        + Op.MSTORE(
+            0,
+            Op.CREATE2(
+                value=0,
+                offset=0,
+                size=Op.EXTCODESIZE(initcode_address),
+                salt=Op.SLOAD(0),
+            ),
+        )
+        + Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1))
+        + Op.RETURN(0, 32)
+    )
+    factory_address = pre.deploy_contract(code=factory_code)
+
+    # The factory caller will call the factory contract N times, creating N new
+    # contracts. Calldata should contain the N value.
+    factory_caller_code = Op.CALLDATALOAD(0) + While(
+        body=Op.POP(Op.CALL(address=factory_address)),
+        condition=Op.PUSH1(1)
+        + Op.SWAP1
+        + Op.SUB
+        + Op.DUP1
+        + Op.ISZERO
+        + Op.ISZERO,
+    )
+    factory_caller_address = pre.deploy_contract(code=factory_caller_code)
+
+    return initcode, factory_address, factory_caller_address
 
 
 @pytest.mark.parametrize(
