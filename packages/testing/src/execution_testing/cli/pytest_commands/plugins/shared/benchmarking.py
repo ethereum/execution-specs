@@ -13,19 +13,23 @@ from .execute_fill import OpMode
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    """Add command line options for gas benchmark values."""
-    evm_group = parser.getgroup(
-        "evm", "Arguments defining evm executable behavior"
+    """Add command line options for benchmark tests."""
+    benchmark_group = parser.getgroup(
+        "benchmarking", "Arguments for benchmark test execution"
     )
-    evm_group.addoption(
+    benchmark_group.addoption(
         "--gas-benchmark-values",
         action="store",
         dest="gas_benchmark_value",
         type=str,
         default=None,
-        help="Specify gas benchmark values for tests as a comma-separated list.",
+        help=(
+            "Gas limits (in millions) for benchmark tests. "
+            "Example: '100,500' runs tests with 100M and 500M gas. "
+            "Cannot be used with --fixed-opcode-count."
+        ),
     )
-    evm_group.addoption(
+    benchmark_group.addoption(
         "--fixed-opcode-count",
         action="store",
         dest="fixed_opcode_count",
@@ -34,8 +38,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         nargs="?",
         const="",
         help=(
-            "Specify fixed opcode counts (in thousands) for benchmark tests as a comma-separated list. "
-            "If provided without a value, uses defaults from tests/benchmark/configs/fixed_opcode_counts.py."
+            "Opcode counts (in thousands) for benchmark tests. "
+            "Example: '1,10,100' runs tests with 1K, 10K, 100K opcodes. "
+            "Without value, uses .fixed_opcode_counts.json config. "
+            "Cannot be used with --gas-benchmark-values."
         ),
     )
 

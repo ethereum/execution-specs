@@ -92,6 +92,7 @@ def pytest_configure(config: pytest.Config) -> None:
                 "pre-allocation behavior during test filling",
                 "ported",
                 "witness",
+                "benchmark",
             ],
         )
     elif config.getoption("show_consume_help"):
@@ -113,6 +114,7 @@ def pytest_configure(config: pytest.Config) -> None:
                 "sender key fixtures",
                 "remote seed sender",
                 "chain configuration",
+                "benchmark",
             ],
         )
     elif config.getoption("show_execute_hive_help"):
@@ -126,6 +128,7 @@ def pytest_configure(config: pytest.Config) -> None:
                 "sender key fixtures",
                 "remote seed sender",
                 "chain configuration",
+                "benchmark",
             ],
         )
     elif config.getoption("show_execute_recover_help"):
