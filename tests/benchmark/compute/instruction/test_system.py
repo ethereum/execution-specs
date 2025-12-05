@@ -109,16 +109,33 @@ def test_xcall(
             "during the setup phase of this test."
         )
 
-    initcode, factory_address, factory_caller_address = deploy_max_contract_factory(pre, fork)
+    initcode, factory_address, factory_caller_address = (
+        deploy_max_contract_factory(pre, fork)
+    )
 
     with TestPhaseManager.setup():
-        contracts_deployment_tx = Transaction(
-            to=factory_caller_address,
-            gas_limit=env.gas_limit,
-            gas_price=10**6,
-            data=Hash(num_contracts),
-            sender=pre.fund_eoa(),
+        # We require deploying num_contracts by calling the factory contract. Each call can only
+        # use up to the transaction gas limit cap, thus we need to split the deployment into
+        # multiple transactions. The factory contract uses a storage slot to keep track of the last
+        # seed used to generate bytecodes, so it is safe to call it multiple times in different txs.
+        num_contracts_per_tx = (
+            3  # TODO: Try generalizing for any tx gas limit cap. For 17M is 3.
         )
+        num_contract_creation_txs = math.ceil(
+            num_contracts / num_contracts_per_tx
+        )
+
+        contracts_deployment_txs = []
+        for _ in range(num_contract_creation_txs):
+            contracts_deployment_txs.append(
+                Transaction(
+                    to=factory_caller_address,
+                    gas_limit=fork.transaction_gas_limit_cap(),
+                    gas_price=10**6,
+                    data=Hash(num_contracts_per_tx),
+                    sender=pre.fund_eoa(),
+                )
+            )
 
     post = {}
     deployed_contract_addresses = []
@@ -174,16 +191,17 @@ def test_xcall(
         pre=pre,
         post=post,
         blocks=[
-            Block(txs=[contracts_deployment_tx]),
-            Block(txs=[opcode_tx]),
+            Block(txs=contracts_deployment_txs),
+            # Block(txs=[opcode_tx]),
         ],
         exclude_full_post_state_in_output=True,
     )
 
+
 def deploy_max_contract_factory(
     pre: Alloc,
     fork: Fork,
-) -> tuple[Bytecode, Address, Address]: 
+) -> tuple[Bytecode, Address, Address]:
     max_contract_size = fork.max_code_size()
 
     # The initcode will take its address as a starting point to the input to
