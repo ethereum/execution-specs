@@ -71,6 +71,8 @@ body:
         - [ ] No regressions or failures in tests from prior forks (including static tests).
         - [ ] Hardening session completed.
         - [ ] Benchmarking performed and results documented.
+        - [ ] Ran tests using `execute` to ensure compatibility, and marked specific tests to be skipped when they cannot be executed on live networks.
+        - [ ] Added Mainnet-marked tests ([example test](https://github.com/ethereum/execution-specs/blob/2a6f9ee98ba7c0d04c7d523a0ea0ee8a98a5c418/tests/osaka/eip7939_count_leading_zeros/test_eip_mainnet.py)).
 
         ### Process Status
         
