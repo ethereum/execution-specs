@@ -68,7 +68,10 @@ def test_xcall(
     max_contract_size = fork.max_code_size()
 
     gas_costs = fork.gas_costs()
-    tx_gas_limit_cap = fork.transaction_gas_limit_cap() or attack_gas_limit
+    tx_gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert tx_gas_limit_cap is not None, (
+        "This benchmark requires a tx gas limit cap"
+    )
 
     # Calculate the absolute minimum gas costs to deploy the contract This does
     # not take into account setting up the actual memory (using KECCAK256 and
