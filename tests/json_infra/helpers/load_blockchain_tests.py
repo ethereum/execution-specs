@@ -58,11 +58,8 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
 
     genesis_header_hash = hex_to_bytes(json_data["genesisBlockHeader"]["hash"])
     assert keccak256(rlp.encode(genesis_header)) == genesis_header_hash
-    # TODO: In the current versions of the amsterdam fixtures
-    # release, the `genesisRLP` is malformed. Hence these checks
-    # are disables and will need to be re-enabled later.
-    # genesis_rlp = hex_to_bytes(json_data["genesisRLP"])
-    # assert rlp.encode(genesis_block) == genesis_rlp
+    genesis_rlp = hex_to_bytes(json_data["genesisRLP"])
+    assert rlp.encode(genesis_block) == genesis_rlp
 
     try:
         state = load.json_to_state(json_data["pre"])
