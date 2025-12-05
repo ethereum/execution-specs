@@ -68,8 +68,8 @@ body:
         - [ ] Required testing framework modifications implemented.
         - [ ] Test suite implemented.
         - [ ] Full code coverage for all changes.
-        - [ ] Testing checklist complete  
-              (https://github.com/ethereum/execution-specs/blob/HEAD/docs/writing_tests/checklist_templates/eip_testing_checklist_template.md).
+        - [ ] [Testing checklist](https://github.com/ethereum/execution-specs/blob/HEAD/docs/writing_tests/checklist_templates/eip_testing_checklist_template.md) complete  
+              .
         - [ ] No regressions or failures in tests from prior forks (including static tests).
         - [ ] Hardening session completed.
         - [ ] Benchmarking performed and results documented.
