@@ -45,34 +45,34 @@ body:
       value: |
         ## [EIP-${{ form.eip_number }}](https://eips.ethereum.org/EIPS/eip-${{ form.eip_number }})
 
-        ## Target Fork
+        ### Target Fork
 
         Fork **${{ form.fork }}**
 
-        - [ ] Add issue to fork milestone (if applicable).
-
-        ## Ownership
+        ### Instructions
         
-        Owner(s): **TBD**
+        - [ ] Assign issue to EIP specification and testing owner(s).
 
-        [!IMPORTANT]
-        A specifications specialist and a testing specialist should ideally share ownership of the EIP.
+        > [!IMPORTANT]
+        > A specifications specialist and a testing specialist should ideally share ownership of the EIP.
 
-        ## Specification + Testing Status
+        - [ ] Add the issue to the target fork milestone if applicable (i.e., the EIP is at least in the (CFI stage)[https://eips.ethereum.org/EIPS/eip-7723#considered-for-inclusion]).
+
+        ### Specification + Testing Status
 
         - [ ] Testing complexity assessed and documented.
-        - [ ] Specification implementation merged to `eips/${{ form.fork }}/eip-${{ form.eip_number }}`.
+        - [ ] Specification implementation merged to `eips/${{ form.fork }}/eip-${{ form.eip_number }}` *(skip if the fork branch merge below is already complete)*.
         - [ ] Specification updates merged to the corresponding `forks/${{ form.fork }}` branch.
+        - [ ] EIP updates proposed in case of architectural choices surfaced during implementation.
         - [ ] Required testing framework modifications implemented.
         - [ ] Test suite implemented.
         - [ ] Full code coverage for all changes.
-        - [ ] [Testing checklist](https://github.com/ethereum/execution-specs/blob/HEAD/docs/writing_tests/checklist_templates/eip_testing_checklist_template.md) complete  
-              .
+        - [ ] [Testing checklist](https://github.com/ethereum/execution-specs/blob/HEAD/docs/writing_tests/checklist_templates/eip_testing_checklist_template.md) complete.
         - [ ] No regressions or failures in tests from prior forks (including static tests).
         - [ ] Hardening session completed.
         - [ ] Benchmarking performed and results documented.
 
-        ## Process Status
+        ### Process Status
         
         - [ ] Hive tests passing on all implementations.
         - [ ] EIP included in a devnet.
