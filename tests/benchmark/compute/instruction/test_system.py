@@ -110,16 +110,20 @@ def test_xcall(
         )
 
     initcode, factory_address, factory_caller_address = (
-        deploy_max_contract_factory(pre, fork)
+        _deploy_max_contract_factory(pre, fork)
     )
 
+    # Deploy num_contracts via multiple txs (each capped by tx gas limit).
     with TestPhaseManager.setup():
-        # We require deploying num_contracts by calling the factory contract. Each call can only
-        # use up to the transaction gas limit cap, thus we need to split the deployment into
-        # multiple transactions. The factory contract uses a storage slot to keep track of the last
-        # seed used to generate bytecodes, so it is safe to call it multiple times in different txs.
-        num_contracts_per_tx = (
-            3  # TODO: Try generalizing for any tx gas limit cap. For 17M is 3.
+        # Rough estimate (rounded down) of contracts per tx based on dominant
+        # cost factor only. E.g., 17M gas limit + 24KiB contracts = ~3 per tx.
+        # The goal is to involve the minimum amount of gas pricing to avoid
+        # complexity and potential brittleness.
+        # If this estimation is incorrect in the future (i.e. tx gas limit cap)
+        # is increased or cost per byte, the post-state check will detect it
+        # and can be adjusted with a more complex formula.
+        num_contracts_per_tx = fork.transaction_gas_limit_cap() // (
+            gas_costs.G_CODE_DEPOSIT_BYTE * max_contract_size
         )
         attack_txs = math.ceil(num_contracts / num_contracts_per_tx)
 
@@ -181,7 +185,8 @@ def test_xcall(
         remainder = attack_gas_limit % tx_gas_cap
 
         num_targeted_contracts_per_full_tx = (
-            # Base available gas = TX_GAS_LIMIT - intrinsic - (out of loop MSTOREs)
+            # Base available gas:
+            # TX_GAS_LIMIT - intrinsic - (out of loop MSTOREs)
             tx_gas_cap - intrinsic_gas_cost_calc() - gas_costs.G_VERY_LOW * 4
         ) // loop_cost
         contract_start_index = 0
@@ -219,7 +224,7 @@ def test_xcall(
     )
 
 
-def deploy_max_contract_factory(
+def _deploy_max_contract_factory(
     pre: Alloc,
     fork: Fork,
 ) -> tuple[Bytecode, Address, Address]:
