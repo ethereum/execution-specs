@@ -91,7 +91,7 @@ def test_xcall(
         + gas_costs.G_COLD_ACCOUNT_ACCESS  # Opcode cost
         + 30  # ~Gluing opcodes
     )
-    # Calculate the number of contracts to be targeted
+    # Calculate an upper bound of the number of contracts to be targeted
     num_contracts = (
         # Base available gas = GAS_LIMIT - intrinsic - (out of loop MSTOREs)
         attack_gas_limit - intrinsic_gas_cost_calc() - gas_costs.G_VERY_LOW * 4
@@ -121,12 +121,10 @@ def test_xcall(
         num_contracts_per_tx = (
             3  # TODO: Try generalizing for any tx gas limit cap. For 17M is 3.
         )
-        num_contract_creation_txs = math.ceil(
-            num_contracts / num_contracts_per_tx
-        )
+        attack_txs = math.ceil(num_contracts / num_contracts_per_tx)
 
         contracts_deployment_txs = []
-        for _ in range(num_contract_creation_txs):
+        for _ in range(attack_txs):
             contracts_deployment_txs.append(
                 Transaction(
                     to=factory_caller_address,
@@ -138,7 +136,6 @@ def test_xcall(
             )
 
     post = {}
-    deployed_contract_addresses = []
     for i in range(num_contracts):
         deployed_contract_address = compute_create2_address(
             address=factory_address,
@@ -146,7 +143,6 @@ def test_xcall(
             initcode=initcode,
         )
         post[deployed_contract_address] = Account(nonce=1)
-        deployed_contract_addresses.append(deployed_contract_address)
 
     attack_call = Bytecode()
     if opcode == Op.EXTCODECOPY:
@@ -162,7 +158,7 @@ def test_xcall(
         # 0xFF+[Address(20bytes)]+[seed(32bytes)]+[initcode keccak(32bytes)]
         Op.MSTORE(0, factory_address)
         + Op.MSTORE8(32 - 20 - 1, 0xFF)
-        + Op.MSTORE(32, 0)
+        + Op.MSTORE(32, Op.CALLDATALOAD(0))
         + Op.MSTORE(64, initcode.keccak256())
         # Main loop
         + While(
@@ -177,22 +173,47 @@ def test_xcall(
             f"Code size {len(attack_code)} exceeds maximum "
             f"code size {max_contract_size}"
         )
-    opcode_address = pre.deploy_contract(code=attack_code)
+    attack_address = pre.deploy_contract(code=attack_code)
 
     with TestPhaseManager.execution():
-        opcode_tx = Transaction(
-            to=opcode_address,
-            gas_limit=attack_gas_limit,
-            gas_price=10**9,
-            sender=pre.fund_eoa(),
-        )
+        tx_gas_cap = fork.transaction_gas_limit_cap()
+        full_txs = attack_gas_limit // tx_gas_cap
+        remainder = attack_gas_limit % tx_gas_cap
+
+        num_targeted_contracts_per_full_tx = (
+            # Base available gas = TX_GAS_LIMIT - intrinsic - (out of loop MSTOREs)
+            tx_gas_cap - intrinsic_gas_cost_calc() - gas_costs.G_VERY_LOW * 4
+        ) // loop_cost
+        contract_start_index = 0
+        opcode_txs = []
+        for _ in range(full_txs):
+            opcode_txs.append(
+                Transaction(
+                    to=attack_address,
+                    gas_limit=tx_gas_cap,
+                    gas_price=10**9,
+                    data=Hash(contract_start_index),
+                    sender=pre.fund_eoa(),
+                )
+            )
+            contract_start_index += num_targeted_contracts_per_full_tx
+        if remainder > 0:
+            opcode_txs.append(
+                Transaction(
+                    to=attack_address,
+                    gas_limit=remainder,
+                    gas_price=10**9,
+                    data=Hash(contract_start_index),
+                    sender=pre.fund_eoa(),
+                )
+            )
 
     blockchain_test(
         pre=pre,
         post=post,
         blocks=[
             Block(txs=contracts_deployment_txs),
-            # Block(txs=[opcode_tx]),
+            Block(txs=opcode_txs),
         ],
         exclude_full_post_state_in_output=True,
     )
