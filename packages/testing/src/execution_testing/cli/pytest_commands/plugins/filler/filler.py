@@ -723,6 +723,13 @@ def pytest_configure(config: pytest.Config) -> None:
         or config.getoption("optimize_gas", False)
     )
 
+    # set default for --evm-dump-dir
+    if (
+        config.collect_traces  # type: ignore[attr-defined]
+        and config.getoption("base_dump_dir")
+    ) is None:
+        config.option.base_dump_dir = "traces"
+
     # Instantiate the transition tool here to check that the binary path/trace
     # option is valid. This ensures we only raise an error once, if
     # appropriate, instead of for every test.
