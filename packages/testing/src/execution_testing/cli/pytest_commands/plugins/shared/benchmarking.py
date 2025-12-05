@@ -53,7 +53,7 @@ def pytest_collection_modifyitems(
 
     # Check if -m repricing marker filter was specified
     markexpr = config.getoption("markexpr", "")
-    if "repricing" not in markexpr:
+    if "repricing" not in markexpr or "not repricing" in markexpr:
         return
 
     filtered = []
