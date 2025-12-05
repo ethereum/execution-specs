@@ -57,7 +57,8 @@ body:
         
         Owner(s): **TBD**
 
-        **Important note:** A specifications specialist and a testing specialist should ideally share ownership of the EIP.
+        [!IMPORTANT]
+        A specifications specialist and a testing specialist should ideally share ownership of the EIP.
 
         ## Specification + Testing Status
 
