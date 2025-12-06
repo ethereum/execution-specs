@@ -49,9 +49,7 @@ class BlockEnvironment:
     prev_randao: Bytes32
     excess_blob_gas: U64
     parent_beacon_block_root: Hash32
-    block_state_changes: StateChanges = field(
-        default_factory=lambda: StateChanges()
-    )
+    state_changes: StateChanges = field(default_factory=lambda: StateChanges())
 
 
 @dataclass
@@ -143,7 +141,7 @@ class Message:
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     disable_precompiles: bool
     parent_evm: Optional["Evm"]
-    is_create: bool = False
+    is_create: bool
     state_changes: "StateChanges" = field(default_factory=StateChanges)
 
 

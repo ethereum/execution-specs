@@ -22,7 +22,6 @@ from ...state import (
 )
 from ...state_tracker import (
     capture_pre_storage,
-    get_block_access_index,
     track_storage_read,
     track_storage_write,
 )
@@ -167,15 +166,11 @@ def sstore(evm: Evm) -> None:
 
     # OPERATION
     set_storage(state, evm.message.current_target, key, new_value)
-    block_access_index = get_block_access_index(
-        evm.message.block_env.block_state_changes
-    )
     track_storage_write(
         evm.state_changes,
         evm.message.current_target,
         key,
         new_value,
-        block_access_index,
     )
 
     # PROGRAM COUNTER

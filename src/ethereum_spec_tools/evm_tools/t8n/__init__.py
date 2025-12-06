@@ -293,7 +293,7 @@ class T8N(Load):
                 increment_block_access_index,
             )
 
-            increment_block_access_index(block_env.block_state_changes)
+            increment_block_access_index(block_env.state_changes)
 
         if not self.fork.is_after_fork("paris"):
             if self.options.state_reward is None:
@@ -312,9 +312,9 @@ class T8N(Load):
             self.fork.process_general_purpose_requests(block_env, block_output)
 
         if self.fork.is_after_fork("amsterdam"):
-            # Build block access list from block_env.block_state_changes
+            # Build block access list from block_env.state_changes
             block_output.block_access_list = self.fork.build_block_access_list(
-                block_env.block_state_changes
+                block_env.state_changes
             )
 
     def run_blockchain_test(self) -> None:

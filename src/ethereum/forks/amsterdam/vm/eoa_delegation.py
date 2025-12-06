@@ -21,7 +21,6 @@ from ..state import (
 )
 from ..state_tracker import (
     capture_pre_code,
-    get_block_access_index,
     track_address,
     track_code_change,
     track_nonce_change,
@@ -257,10 +256,6 @@ def set_delegation(message: Message) -> U256:
             code_to_set = EOA_DELEGATION_MARKER + auth.address
 
         tx_frame = message.tx_env.state_changes
-        block_access_index = get_block_access_index(
-            message.block_env.block_state_changes
-        )
-
         # EIP-7928: Capture pre-code before any changes
         capture_pre_code(tx_frame, authority, authority_code)
 
@@ -268,15 +263,11 @@ def set_delegation(message: Message) -> U256:
 
         if authority_code != code_to_set:
             # Track code change if different from current
-            track_code_change(
-                tx_frame, authority, code_to_set, block_access_index
-            )
+            track_code_change(tx_frame, authority, code_to_set)
 
         increment_nonce(state, authority)
         nonce_after = get_account(state, authority).nonce
-        track_nonce_change(
-            tx_frame, authority, U64(nonce_after), block_access_index
-        )
+        track_nonce_change(tx_frame, authority, U64(nonce_after))
 
     if message.code_address is None:
         raise InvalidBlock("Invalid type 4 transaction: no target")

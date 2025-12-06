@@ -30,7 +30,6 @@ from ...state import (
 from ...state_tracker import (
     capture_pre_balance,
     create_child_frame,
-    get_block_access_index,
     track_address,
     track_balance_change,
     track_nonce_change,
@@ -123,9 +122,6 @@ def generic_create(
     evm.accessed_addresses.add(contract_address)
 
     track_address(evm.state_changes, contract_address)
-    block_access_index = get_block_access_index(
-        evm.message.block_env.block_state_changes
-    )
 
     if account_has_code_or_nonce(
         state, contract_address
@@ -136,7 +132,6 @@ def generic_create(
             evm.state_changes,
             evm.message.current_target,
             U64(nonce_after),
-            block_access_index,
         )
         push(evm.stack, U256(0))
         return
@@ -148,7 +143,6 @@ def generic_create(
         evm.state_changes,
         evm.message.current_target,
         U64(nonce_after),
-        block_access_index,
     )
 
     # Create call frame as child of parent EVM's frame
@@ -371,6 +365,7 @@ def generic_call(
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         disable_precompiles=disable_precompiles,
         parent_evm=evm,
+        is_create=False,
         state_changes=child_state_changes,
     )
 
@@ -682,9 +677,6 @@ def selfdestruct(evm: Evm) -> None:
 
     # Get tracking context
     tx_frame = evm.message.tx_env.state_changes
-    block_access_index = get_block_access_index(
-        evm.message.block_env.block_state_changes
-    )
 
     # Capture pre-balances for net-zero filtering
     track_address(evm.state_changes, originator)
@@ -701,22 +693,18 @@ def selfdestruct(evm: Evm) -> None:
         evm.state_changes,
         originator,
         originator_new_balance,
-        block_access_index,
     )
     track_balance_change(
         evm.state_changes,
         beneficiary,
         beneficiary_new_balance,
-        block_access_index,
     )
 
     # register account for deletion only if it was created
     # in the same transaction
     if originator in state.created_accounts:
         set_account_balance(state, originator, U256(0))
-        track_balance_change(
-            evm.state_changes, originator, U256(0), block_access_index
-        )
+        track_balance_change(evm.state_changes, originator, U256(0))
         evm.accounts_to_delete.add(originator)
 
     # HALT the execution

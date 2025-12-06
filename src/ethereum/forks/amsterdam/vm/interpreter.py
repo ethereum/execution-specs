@@ -47,8 +47,6 @@ from ..state import (
 from ..state_tracker import (
     StateChanges,
     capture_pre_balance,
-    capture_pre_code,
-    get_block_access_index,
     merge_on_failure,
     merge_on_success,
     track_address,
@@ -145,9 +143,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
             message.accessed_addresses.add(delegated_address)
             message.code = get_account(block_env.state, delegated_address).code
             message.code_address = delegated_address
-            track_address(
-                message.block_env.block_state_changes, delegated_address
-            )
+            track_address(message.block_env.state_changes, delegated_address)
 
         evm = process_message(message)
 
@@ -209,17 +205,12 @@ def process_create_message(message: Message) -> Evm:
     # added to SELFDESTRUCT by EIP-6780.
     mark_account_created(state, message.current_target)
 
-    block_access_index = get_block_access_index(
-        message.block_env.block_state_changes
-    )
-
     increment_nonce(state, message.current_target)
     nonce_after = get_account(state, message.current_target).nonce
     track_nonce_change(
         message.state_changes,
         message.current_target,
         U64(nonce_after),
-        block_access_index,
     )
 
     evm = process_message(message)
@@ -240,18 +231,13 @@ def process_create_message(message: Message) -> Evm:
             evm.output = b""
             evm.error = error
         else:
-            # Track code change for contract creation
-            pre_code = get_account(state, message.current_target).code
-            capture_pre_code(
-                message.tx_env.state_changes, message.current_target, pre_code
-            )
+            # Note: No need to capture pre code since it's always b"" here
             set_code(state, message.current_target, contract_code)
-            if pre_code != contract_code:
+            if contract_code != b"":
                 track_code_change(
                     message.state_changes,
                     message.current_target,
                     contract_code,
-                    block_access_index,
                 )
             commit_transaction(state, transient_storage)
             merge_on_success(message.state_changes)
@@ -284,9 +270,6 @@ def process_message(message: Message) -> Evm:
     # take snapshot of state before processing the message
     begin_transaction(state, transient_storage)
 
-    block_access_index = get_block_access_index(
-        message.block_env.block_state_changes
-    )
     track_address(message.state_changes, message.current_target)
 
     if message.should_transfer_value and message.value != 0:
@@ -317,13 +300,11 @@ def process_message(message: Message) -> Evm:
             message.state_changes,
             message.caller,
             U256(sender_new_balance),
-            block_access_index,
         )
         track_balance_change(
             message.state_changes,
             message.current_target,
             U256(recipient_new_balance),
-            block_access_index,
         )
 
     evm = execute_code(message, message.state_changes)

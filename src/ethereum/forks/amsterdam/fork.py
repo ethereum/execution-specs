@@ -30,7 +30,6 @@ from ethereum.exceptions import (
 
 from . import vm
 from .block_access_lists.builder import build_block_access_list
-from .block_access_lists.rlp_types import BlockAccessIndex
 from .block_access_lists.rlp_utils import compute_block_access_list_hash
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
@@ -68,9 +67,8 @@ from .state_tracker import (
     capture_pre_balance,
     commit_transaction_frame,
     create_child_frame,
-    get_block_access_index,
+    filter_net_zero_frame_changes,
     increment_block_access_index,
-    normalize_balance_changes_for_transaction,
     track_address,
     track_balance_change,
     track_nonce_change,
@@ -634,7 +632,7 @@ def process_system_transaction(
     """
     # EIP-7928: Create a child frame for system transaction
     # This allows proper pre-state capture for net-zero filtering
-    system_tx_state_changes = create_child_frame(block_env.block_state_changes)
+    system_tx_state_changes = create_child_frame(block_env.state_changes)
 
     tx_env = vm.TransactionEnvironment(
         origin=SYSTEM_ADDRESS,
@@ -671,6 +669,7 @@ def process_system_transaction(
         accessed_storage_keys=set(),
         disable_precompiles=False,
         parent_evm=None,
+        is_create=False,
         state_changes=call_frame,
     )
 
@@ -818,7 +817,7 @@ def apply_body(
     # EIP-7928: Increment block frame to post-execution index
     # After N transactions, block frame is at index N
     # Post-execution operations (withdrawals, etc.) use index N+1
-    increment_block_access_index(block_env.block_state_changes)
+    increment_block_access_index(block_env.state_changes)
 
     process_withdrawals(block_env, block_output, withdrawals)
 
@@ -826,9 +825,9 @@ def apply_body(
         block_env=block_env,
         block_output=block_output,
     )
-    # Build block access list from block_env.block_state_changes
+    # Build block access list from block_env.state_changes
     block_output.block_access_list = build_block_access_list(
-        block_env.block_state_changes
+        block_env.state_changes
     )
 
     return block_output
@@ -911,9 +910,8 @@ def process_transaction(
     """
     # EIP-7928: Create a transaction-level StateChanges frame
     # The frame will read the current block_access_index from the block frame
-    increment_block_access_index(block_env.block_state_changes)
-    tx_state_changes = create_child_frame(block_env.block_state_changes)
-    block_access_index = get_block_access_index(block_env.block_state_changes)
+    increment_block_access_index(block_env.state_changes)
+    tx_state_changes = create_child_frame(block_env.state_changes)
 
     # Capture coinbase pre-balance for net-zero filtering
     coinbase_pre_balance = get_account(
@@ -957,9 +955,7 @@ def process_transaction(
     # Track sender nonce increment
     increment_nonce(block_env.state, sender)
     sender_nonce_after = get_account(block_env.state, sender).nonce
-    track_nonce_change(
-        tx_state_changes, sender, U64(sender_nonce_after), block_access_index
-    )
+    track_nonce_change(tx_state_changes, sender, U64(sender_nonce_after))
 
     # Track sender balance deduction for gas fee
     sender_balance_before = get_account(block_env.state, sender).balance
@@ -976,7 +972,6 @@ def process_transaction(
         tx_state_changes,
         sender,
         U256(sender_balance_after_gas_fee),
-        block_access_index,
     )
 
     access_list_addresses = set()
@@ -1052,7 +1047,6 @@ def process_transaction(
         tx_env.state_changes,
         sender,
         sender_balance_after_refund,
-        block_access_index,
     )
 
     coinbase_balance_after_mining_fee = get_account(
@@ -1066,7 +1060,6 @@ def process_transaction(
         tx_env.state_changes,
         block_env.coinbase,
         coinbase_balance_after_mining_fee,
-        block_access_index,
     )
 
     if coinbase_balance_after_mining_fee == 0 and account_exists_and_is_empty(
@@ -1095,27 +1088,16 @@ def process_transaction(
     for address in tx_output.accounts_to_delete:
         destroy_account(block_env.state, address)
 
-    # EIP-7928: Normalize balance changes for this transaction before merging
-    # into block frame. Must happen AFTER destroy_account so net-zero filtering
-    # sees the correct post-transaction balance (0 for destroyed accounts).
-    normalize_balance_changes_for_transaction(
-        tx_env.state_changes,
-        block_access_index,
-        block_env.state,
-    )
+    # EIP-7928: Filter net-zero changes before committing to block frame.
+    # Must happen AFTER destroy_account so filtering sees correct state.
+    filter_net_zero_frame_changes(tx_env.state_changes, block_env.state)
 
     commit_transaction_frame(tx_env.state_changes)
 
     # EIP-7928: Track in-transaction self-destruct normalization AFTER merge
     # Convert storage writes to reads and remove nonce/code changes
     for address in tx_output.accounts_to_delete:
-        track_selfdestruct(
-            block_env.block_state_changes,
-            address,
-            BlockAccessIndex(
-                get_block_access_index(block_env.block_state_changes)
-            ),
-        )
+        track_selfdestruct(block_env.state_changes, address)
 
 
 def process_withdrawals(
@@ -1126,16 +1108,12 @@ def process_withdrawals(
     """
     Increase the balance of the withdrawing account.
     """
-    block_access_index = get_block_access_index(block_env.block_state_changes)
-
     # Capture pre-state for withdrawal balance filtering
     withdrawal_addresses = {wd.address for wd in withdrawals}
     for address in withdrawal_addresses:
         pre_balance = get_account(block_env.state, address).balance
-        track_address(block_env.block_state_changes, address)
-        capture_pre_balance(
-            block_env.block_state_changes, address, pre_balance
-        )
+        track_address(block_env.state_changes, address)
+        capture_pre_balance(block_env.state_changes, address, pre_balance)
 
     def increase_recipient_balance(recipient: Account) -> None:
         recipient.balance += wd.amount * U256(10**9)
@@ -1151,22 +1129,16 @@ def process_withdrawals(
 
         new_balance = get_account(block_env.state, wd.address).balance
         track_balance_change(
-            block_env.block_state_changes,
+            block_env.state_changes,
             wd.address,
             new_balance,
-            block_access_index,
         )
 
         if account_exists_and_is_empty(block_env.state, wd.address):
             destroy_account(block_env.state, wd.address)
 
-    # EIP-7928: Normalize balance changes after all withdrawals
-    # Filters out net-zero changes
-    normalize_balance_changes_for_transaction(
-        block_env.block_state_changes,
-        block_access_index,
-        block_env.state,
-    )
+    # EIP-7928: Filter net-zero balance changes for withdrawals
+    filter_net_zero_frame_changes(block_env.state_changes, block_env.state)
 
 
 def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
