@@ -14,6 +14,8 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
+    Bytecode,
+    Fork,
     Op,
     Transaction,
     Withdrawal,
@@ -1070,4 +1072,171 @@ def test_bal_withdrawal_to_7702_delegation(
         pre=pre,
         blocks=[block],
         post=post,
+    )
+
+
+def test_bal_7702_oog_at_authority(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+) -> None:
+    """Ensure BAL handles OOG during EIP-7702 authority account access."""
+    alice = pre.fund_eoa()
+    target_contract = pre.deploy_contract(code=Op.STOP)
+    gas_costs = fork.gas_costs()
+
+    # Bob is a pre-deployed account with 7702 delegation to target_contract
+    bob = pre.deploy_contract(
+        nonce=1,
+        code=Spec7702.delegation_designation(target_contract),
+        balance=0,
+    )
+
+    # Caller contract that attempts to CALL Bob
+    caller_code = Bytecode(
+        Op.PUSH1(0)  # retSize
+        + Op.PUSH1(0)  # retOffset
+        + Op.PUSH1(0)  # argsSize
+        + Op.PUSH1(0)  # argsOffset
+        + Op.PUSH1(0)  # value
+        + Op.PUSH20(bob)  # address
+        + Op.PUSH1(0)  # gas (zero stipend)
+        + Op.CALL  # Call (cold account access)
+        + Op.STOP
+    )
+
+    caller = pre.deploy_contract(code=caller_code)
+
+    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
+    intrinsic_gas_cost = intrinsic_gas_calculator()
+
+    # Costs:
+    # - 7 PUSH operations = G_VERY_LOW * 7
+    # - CALL cold = G_COLD_ACCOUNT_ACCESS (minimum for account access)
+    push_cost = gas_costs.G_VERY_LOW * 7
+    call_cold_cost = gas_costs.G_COLD_ACCOUNT_ACCESS
+
+    # Subtract 1 gas to ensure OOG at CALL before Bob is accessed
+    tx_gas_limit = intrinsic_gas_cost + push_cost + call_cold_cost - 1
+
+    tx = Transaction(
+        sender=alice,
+        to=caller,
+        gas_limit=tx_gas_limit,
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)]
+                ),
+                caller: BalAccountExpectation.empty(),
+                # Bob should NOT appear - OOG before access completes
+                bob: None,
+                # TargetContract should NOT appear - never reached
+                target_contract: None,
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            caller: Account(),
+        },
+    )
+
+
+def test_bal_7702_oog_at_target(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+) -> None:
+    """
+    Ensure BAL handles OOG during EIP-7702 delegation target access
+    (after authority accessed successfully).
+    """
+    alice = pre.fund_eoa()
+    target_contract = pre.deploy_contract(code=Op.STOP)
+    gas_costs = fork.gas_costs()
+
+    # Bob is a pre-deployed account with 7702 delegation to target_contract
+    bob = pre.deploy_contract(
+        nonce=1,
+        code=Spec7702.delegation_designation(target_contract),
+        balance=0,
+    )
+
+    # Caller contract that attempts to CALL Bob
+    caller_code = Bytecode(
+        Op.PUSH1(0)  # retSize
+        + Op.PUSH1(0)  # retOffset
+        + Op.PUSH1(0)  # argsSize
+        + Op.PUSH1(0)  # argsOffset
+        + Op.PUSH1(0)  # value
+        + Op.PUSH20(bob)  # address
+        + Op.PUSH1(0)  # gas (zero stipend)
+        + Op.CALL  # Call (cold account access)
+        + Op.STOP
+    )
+
+    caller = pre.deploy_contract(code=caller_code)
+
+    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
+    intrinsic_gas_cost = intrinsic_gas_calculator()
+
+    # When Caller performs CALL to Bob (7702-delegated account):
+    # 1. Bob is accessed (cold) - G_COLD_ACCOUNT_ACCESS
+    # 2. EVM reads delegation designation from Bob
+    # 3. EVM tries to access TargetContract (cold) - G_COLD_ACCOUNT_ACCESS
+    #
+    # Costs:
+    # - 7 PUSH operations = G_VERY_LOW * 7
+    # - CALL accesses Bob (cold) = G_COLD_ACCOUNT_ACCESS
+    # - Then tries to access TargetContract (cold) = G_COLD_ACCOUNT_ACCESS
+    #
+    # We provide enough gas for Bob access but OOG before TargetContract access
+    push_cost = gas_costs.G_VERY_LOW * 7
+    bob_cold_cost = gas_costs.G_COLD_ACCOUNT_ACCESS
+    target_cold_cost = gas_costs.G_COLD_ACCOUNT_ACCESS
+
+    # Provide enough for intrinsic + pushes + Bob access,
+    # but not TargetContract
+    tx_gas_limit = (
+        intrinsic_gas_cost + push_cost + bob_cold_cost + target_cold_cost - 1
+    )
+
+    tx = Transaction(
+        sender=alice,
+        to=caller,
+        gas_limit=tx_gas_limit,
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)]
+                ),
+                caller: BalAccountExpectation.empty(),
+                # Bob is successfully accessed
+                bob: BalAccountExpectation.empty(),
+                # TargetContract MUST NOT appear - OOG before access completes
+                target_contract: None,
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            caller: Account(),
+        },
     )
