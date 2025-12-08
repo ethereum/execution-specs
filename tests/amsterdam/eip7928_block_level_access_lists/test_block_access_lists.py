@@ -2188,8 +2188,7 @@ def test_bal_all_transaction_types(
     oracle = pre.deploy_contract(code=Op.SSTORE(0x01, 0x05) + Op.STOP)
 
     # Dummy address to warm in access list
-    warmed_address = Address("0x0000000000000000000000000000000000001234")
-    pre[warmed_address] = Account(balance=1)
+    warmed_address = pre.fund_eoa(amount=1)
 
     # TX1: Type 0 - Legacy transaction
     tx_type_0 = Transaction(
@@ -2309,6 +2308,7 @@ def test_bal_all_transaction_types(
                 # Note: warmed_address from access_list is NOT in BAL
                 # because access lists pre-warm but don't record in BAL
                 # Contract touched by Type 2
+                warmed_address: None,  # explicit check
                 contract_2: BalAccountExpectation(
                     storage_changes=[
                         BalStorageSlot(
@@ -2663,8 +2663,7 @@ def test_bal_revert_insufficient_funds(
     # Target address that should be warmed but not receive funds
     # Give it a small balance so it's not considered "empty" and pruned
     target_balance = 1
-    target_address = Address("0x000000000000000000000000000000000000DEAD")
-    pre[target_address] = Account(balance=target_balance)
+    target_address = pre.fund_eoa(amount=target_balance)
 
     # Contract that:
     # 1. SLOAD slot 0x01
