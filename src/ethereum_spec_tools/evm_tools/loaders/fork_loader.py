@@ -133,6 +133,15 @@ class ForkLoad:
         ).compute_block_access_list_hash
 
     @property
+    def has_block_access_list_hash(self) -> bool:
+        """Check if the fork has a `block_access_list_hash` function."""
+        try:
+            module = self._module("block_access_lists")
+        except ModuleNotFoundError:
+            return False
+        return hasattr(module, "compute_block_access_list_hash")
+
+    @property
     def signing_hash_2930(self) -> Any:
         """signing_hash_2930 function of the fork."""
         return self._module("transactions").signing_hash_2930

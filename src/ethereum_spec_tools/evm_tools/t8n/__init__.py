@@ -16,9 +16,8 @@ from typing_extensions import override
 from ethereum import trace
 from ethereum.exceptions import EthereumException, InvalidBlock
 from ethereum.fork_criteria import ByBlockNumber, ByTimestamp, Unscheduled
-from ethereum_spec_tools.forks import TemporaryHardfork
 from ethereum.forks.amsterdam.state_tracker import StateChanges
-from ethereum_spec_tools.forks import Hardfork
+from ethereum_spec_tools.forks import Hardfork, TemporaryHardfork
 
 from ..loaders.fixture_loader import Load
 from ..utils import (
@@ -310,7 +309,7 @@ class T8N(Load):
             )
             kw_arguments["excess_blob_gas"] = self.env.excess_blob_gas
 
-        if self.fork.is_after_fork("amsterdam"):
+        if self.fork.has_block_access_list_hash:
             kw_arguments["state_changes"] = StateChanges()
 
         return block_environment(**kw_arguments)
@@ -377,10 +376,6 @@ class T8N(Load):
         self.result.rejected = self.txs.rejected_txs
 
     def _run_blockchain_test(self, block_env: Any, block_output: Any) -> None:
-        if self.fork.is_after_fork("amsterdam"):
-            self.fork.set_block_access_index(
-                block_env.state.change_tracker, Uint(0)
-            )
         if self.fork.has_compute_requests_hash:
             self.fork.process_unchecked_system_transaction(
                 block_env=block_env,
@@ -417,7 +412,7 @@ class T8N(Load):
                 )
 
         # Post-execution operations use index N+1
-        if self.fork.is_after_fork("amsterdam"):
+        if self.fork.has_block_access_list_hash:
             from ethereum.forks.amsterdam.state_tracker import (
                 increment_block_access_index,
             )
@@ -440,7 +435,7 @@ class T8N(Load):
         if self.fork.has_compute_requests_hash:
             self.fork.process_general_purpose_requests(block_env, block_output)
 
-        if self.fork.is_after_fork("amsterdam"):
+        if self.fork.has_block_access_list_hash:
             # Build block access list from block_env.state_changes
             block_output.block_access_list = self.fork.build_block_access_list(
                 block_env.state_changes
