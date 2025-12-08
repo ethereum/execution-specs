@@ -455,6 +455,9 @@ def test_ext_account_query_cold(
     num_target_accounts = (
         attack_gas_limit - intrinsic_gas_cost_calc()
     ) // gas_costs.G_COLD_ACCOUNT_ACCESS
+    max_target_per_tx = (
+        fork.transaction_gas_limit_cap() - intrinsic_gas_cost_calc()
+    ) // gas_costs.G_COLD_ACCOUNT_ACCESS
 
     blocks = []
     post = {}
@@ -466,10 +469,67 @@ def test_ext_account_query_cold(
     addr_offset = int.from_bytes(pre.fund_eoa(amount=0))
 
     if not absent_accounts:
-        factory_code = Op.PUSH4(num_target_accounts) + While(
-            body=Op.POP(
-                Op.CALL(address=Op.ADD(addr_offset, Op.DUP6), value=10)
-            ),
+        account_creation_gas = (
+            gas_costs.G_COLD_ACCOUNT_ACCESS
+            + gas_costs.G_CALL_VALUE
+            + gas_costs.G_NEW_ACCOUNT
+        )
+        # To avoid brittle/tight gas calculations of glue opcodes, we take 90% of the maximum tx capacity.
+        # Even if this calculation fails in the future, it would be catched by the post-state check.
+        max_creations_per_tx = int(
+            (fork.transaction_gas_limit_cap() * 0.9) // account_creation_gas
+        )
+        factory_code = (
+            Op.CALLDATALOAD(0)  # addr_start
+            + Op.PUSH4(max_creations_per_tx)  # counter
+            # Stack: [counter, addr_start]
+            + While(
+                body=Op.POP(
+                    Op.CALL(
+                        address=Op.ADD(addr_offset, Op.ADD(Op.DUP7, Op.DUP7)),
+                        value=10,
+                    )
+                ),
+                condition=Op.PUSH1(1)
+                + Op.SWAP1
+                + Op.SUB
+                + Op.DUP1
+                + Op.ISZERO
+                + Op.ISZERO,
+            )
+        )
+        factory_address = pre.deploy_contract(
+            code=factory_code, balance=10**18
+        )
+
+        creation_txs = []
+        with TestPhaseManager.setup():
+            num_creation_txs = math.ceil(
+                num_target_accounts / max_creations_per_tx
+            )
+            for i in range(num_creation_txs):
+                addr_start = i * int(max_creations_per_tx)
+                creation_txs.append(
+                    Transaction(
+                        to=factory_address,
+                        data=Hash(addr_start),
+                        gas_limit=fork.transaction_gas_limit_cap(),
+                        sender=pre.fund_eoa(),
+                    )
+                )
+        blocks.append(Block(txs=creation_txs))
+
+        for i in range(num_target_accounts):
+            addr = Address(i + addr_offset + 1)
+            post[addr] = Account(balance=10)
+
+    # Execution
+    op_code = (
+        Op.CALLDATALOAD(0)  # address_start
+        + Op.CALLDATALOAD(32)  # num_to_query
+        # Stack: [num_to_query, address_start]
+        + While(
+            body=Op.POP(opcode(Op.ADD(addr_offset, Op.ADD(Op.DUP2, Op.DUP2)))),
             condition=Op.PUSH1(1)
             + Op.SWAP1
             + Op.SUB
@@ -477,41 +537,25 @@ def test_ext_account_query_cold(
             + Op.ISZERO
             + Op.ISZERO,
         )
-        factory_address = pre.deploy_contract(
-            code=factory_code, balance=10**18
-        )
-
-        with TestPhaseManager.setup():
-            setup_tx = Transaction(
-                to=factory_address,
-                gas_limit=env.gas_limit,
-                sender=pre.fund_eoa(),
-            )
-        blocks.append(Block(txs=[setup_tx]))
-
-        for i in range(num_target_accounts):
-            addr = Address(i + addr_offset + 1)
-            post[addr] = Account(balance=10)
-
-    # Execution
-    op_code = Op.PUSH4(num_target_accounts) + While(
-        body=Op.POP(opcode(Op.ADD(addr_offset, Op.DUP1))),
-        condition=Op.PUSH1(1)
-        + Op.SWAP1
-        + Op.SUB
-        + Op.DUP1
-        + Op.ISZERO
-        + Op.ISZERO,
     )
     op_address = pre.deploy_contract(code=op_code)
 
+    execution_txs = []
     with TestPhaseManager.execution():
-        op_tx = Transaction(
-            to=op_address,
-            gas_limit=attack_gas_limit,
-            sender=pre.fund_eoa(),
-        )
-    blocks.append(Block(txs=[op_tx]))
+        num_execution_txs = math.ceil(num_target_accounts / max_target_per_tx)
+        for i in range(num_execution_txs):
+            address_start = i * int(max_target_per_tx)
+            remaining = num_target_accounts - address_start
+            num_to_query = min(int(max_target_per_tx), remaining)
+            execution_txs.append(
+                Transaction(
+                    to=op_address,
+                    data=Hash(address_start) + Hash(num_to_query),
+                    gas_limit=fork.transaction_gas_limit_cap(),
+                    sender=pre.fund_eoa(),
+                )
+            )
+    blocks.append(Block(txs=execution_txs))
 
     benchmark_test(
         post=post,
