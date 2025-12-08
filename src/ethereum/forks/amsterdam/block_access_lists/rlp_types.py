@@ -8,7 +8,7 @@ address -> field -> block_access_index -> change.
 """
 
 from dataclasses import dataclass
-from typing import Tuple
+from typing import List, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.frozen import slotted_freezable
@@ -118,13 +118,4 @@ class AccountChanges:
     code_changes: Tuple[CodeChange, ...]
 
 
-@slotted_freezable
-@dataclass
-class BlockAccessList:
-    """
-    Block-Level Access List for EIP-7928.
-    Contains all addresses accessed during block execution.
-    RLP encoded as a list of AccountChanges.
-    """
-
-    account_changes: Tuple[AccountChanges, ...]
+BlockAccessList = List[AccountChanges]

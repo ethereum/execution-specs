@@ -333,18 +333,17 @@ class Result:
                 )
             )
 
-    def _block_access_list_to_json(self, bal: Any) -> Any:
+    @staticmethod
+    def _block_access_list_to_json(account_changes: Any) -> Any:
         """
         Convert BlockAccessList to JSON format matching the Pydantic models.
         """
-        account_changes = []
-
-        for account in bal.account_changes:
+        json_account_changes = []
+        for account in account_changes:
             account_data: Dict[str, Any] = {
                 "address": "0x" + account.address.hex()
             }
 
-            # Add storage changes if present
             if account.storage_changes:
                 storage_changes = []
                 for slot_change in account.storage_changes:
@@ -364,14 +363,12 @@ class Result:
                     storage_changes.append(slot_data)
                 account_data["storageChanges"] = storage_changes
 
-            # Add storage reads if present
             if account.storage_reads:
                 account_data["storageReads"] = [
                     int.from_bytes(slot, "big")
                     for slot in account.storage_reads
                 ]
 
-            # Add balance changes if present
             if account.balance_changes:
                 account_data["balanceChanges"] = [
                     {
@@ -381,7 +378,6 @@ class Result:
                     for change in account.balance_changes
                 ]
 
-            # Add nonce changes if present
             if account.nonce_changes:
                 account_data["nonceChanges"] = [
                     {
@@ -391,7 +387,6 @@ class Result:
                     for change in account.nonce_changes
                 ]
 
-            # Add code changes if present
             if account.code_changes:
                 account_data["codeChanges"] = [
                     {
@@ -401,10 +396,9 @@ class Result:
                     for change in account.code_changes
                 ]
 
-            account_changes.append(account_data)
+            json_account_changes.append(account_data)
 
-        # return as list directly
-        return account_changes
+        return json_account_changes
 
     def json_encode_receipts(self) -> Any:
         """

@@ -27,8 +27,12 @@ TEST_FIXTURES: Dict[str, _FixtureSource] = {
         "fixture_path": "tests/json_infra/fixtures/ethereum_tests",
     },
     "latest_fork_tests": {
-        "url": "https://github.com/ethereum/execution-spec-tests/releases/download/v5.0.0/fixtures_develop.tar.gz",
+        "url": "https://github.com/ethereum/execution-spec-tests/releases/download/v5.3.0/fixtures_develop.tar.gz",
         "fixture_path": "tests/json_infra/fixtures/latest_fork_tests",
+    },
+    "amsterdam_tests": {
+        "url": "https://github.com/ethereum/execution-spec-tests/releases/download/bal%40v1.8.0/fixtures_bal.tar.gz",
+        "fixture_path": "tests/json_infra/fixtures/amsterdam_tests",
     },
 }
 
