@@ -1,8 +1,17 @@
 """Basic type primitives used to define other types."""
 
+from abc import ABCMeta
 from hashlib import sha256
 from re import sub
-from typing import Annotated, Any, ClassVar, SupportsBytes, Type, TypeVar
+from typing import (
+    Annotated,
+    Any,
+    ClassVar,
+    Sized,
+    SupportsBytes,
+    Type,
+    TypeVar,
+)
 
 from Crypto.Hash import keccak
 from pydantic import GetCoreSchemaHandler, StringConstraints
@@ -231,6 +240,22 @@ class CoerceBytes(Bytes):
         if isinstance(input_bytes, str):
             input_bytes = sub(r"\s+", "", input_bytes)
         return super(Bytes, cls).__new__(cls, to_bytes(input_bytes))
+
+
+class BytesConcatenation(SupportsBytes, Sized, metaclass=ABCMeta):
+    """A class that can be concatenated with bytes."""
+
+    def __len__(self) -> int:
+        """Return length of the object when converted to bytes."""
+        return len(bytes(self))
+
+    def __add__(self, other: bytes | SupportsBytes) -> bytes:
+        """Concatenates the object with another bytes object."""
+        return bytes(self) + bytes(other)
+
+    def __radd__(self, other: bytes | SupportsBytes) -> bytes:
+        """Concatenates the object with another bytes object."""
+        return bytes(other) + bytes(self)
 
 
 class FixedSizeHexNumber(int, ToStringSchema):

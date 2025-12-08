@@ -4,16 +4,10 @@ import math
 from enum import Enum, auto
 from typing import Sequence, cast
 
-from execution_testing import Fork, Hash, Op
+from execution_testing import BytesConcatenation, Fork, Hash, Op
 
 from tests.osaka.eip7951_p256verify_precompiles.spec import (
-    BytesConcatenation as P256BytesConcatenation,
-)
-from tests.osaka.eip7951_p256verify_precompiles.spec import (
     FieldElement,
-)
-from tests.prague.eip2537_bls_12_381_precompiles.spec import (
-    BytesConcatenation as BLSBytesConcatenation,
 )
 
 DEFAULT_BINOP_ARGS = (
@@ -98,10 +92,7 @@ def sar(x: int, s: int) -> int:
 
 def concatenate_parameters(
     parameters: (
-        Sequence[str]
-        | Sequence[P256BytesConcatenation]
-        | Sequence[BLSBytesConcatenation]
-        | Sequence[bytes]
+        Sequence[str] | Sequence[BytesConcatenation] | Sequence[bytes]
     ),
 ) -> bytes:
     """
@@ -124,8 +115,7 @@ def concatenate_parameters(
             p,
             (
                 bytes,
-                P256BytesConcatenation,
-                BLSBytesConcatenation,
+                BytesConcatenation,
                 FieldElement,
             ),
         )
@@ -134,12 +124,7 @@ def concatenate_parameters(
         parameters_bytes_list = [
             bytes(p)
             for p in cast(
-                Sequence[
-                    P256BytesConcatenation
-                    | BLSBytesConcatenation
-                    | bytes
-                    | FieldElement
-                ],
+                Sequence[BytesConcatenation | bytes | FieldElement],
                 parameters,
             )
         ]

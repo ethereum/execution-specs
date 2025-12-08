@@ -2,7 +2,9 @@
 
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Callable, Sized, SupportsBytes, Tuple
+from typing import Callable, Tuple
+
+from execution_testing import BytesConcatenation
 
 
 @dataclass(frozen=True)
@@ -16,22 +18,6 @@ class ReferenceSpec:
 ref_spec_2537 = ReferenceSpec(
     "EIPS/eip-2537.md", "c561ec1426fe5ec470eade499a0bd4174f270583"
 )
-
-
-class BytesConcatenation(SupportsBytes, Sized):
-    """A class that can be concatenated with bytes."""
-
-    def __len__(self) -> int:
-        """Return length of the object when converted to bytes."""
-        return len(bytes(self))
-
-    def __add__(self, other: bytes | SupportsBytes) -> bytes:
-        """Concatenates the object with another bytes object."""
-        return bytes(self) + bytes(other)
-
-    def __radd__(self, other: bytes | SupportsBytes) -> bytes:
-        """Concatenates the object with another bytes object."""
-        return bytes(other) + bytes(self)
 
 
 @dataclass(frozen=True)

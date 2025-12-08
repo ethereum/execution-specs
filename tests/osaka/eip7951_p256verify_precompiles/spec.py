@@ -1,9 +1,8 @@
 """Defines EIP-7951 specification constants and functions."""
 
 from dataclasses import dataclass
-from typing import Sized, SupportsBytes
 
-from execution_testing import Address, Bytes
+from execution_testing import Address, Bytes, BytesConcatenation
 
 
 @dataclass(frozen=True)
@@ -17,22 +16,6 @@ class ReferenceSpec:
 ref_spec_7951 = ReferenceSpec(
     "EIPS/eip-7951.md", "06aadd458ee04ede80498db55927b052eb5bef38"
 )
-
-
-class BytesConcatenation(SupportsBytes, Sized):
-    """A class that can be concatenated with bytes."""
-
-    def __len__(self) -> int:
-        """Return length of the object when converted to bytes."""
-        return len(bytes(self))
-
-    def __add__(self, other: bytes | SupportsBytes) -> bytes:
-        """Concatenates the object with another bytes object."""
-        return bytes(self) + bytes(other)
-
-    def __radd__(self, other: bytes | SupportsBytes) -> bytes:
-        """Concatenates the object with another bytes object."""
-        return bytes(other) + bytes(self)
 
 
 @dataclass(frozen=True)
