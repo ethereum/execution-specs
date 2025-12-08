@@ -245,6 +245,10 @@ markers = [
     "json_blockchain_tests: marks tests as json_blockchain_tests (deselect with '-m \"not json_blockchain_tests\"')",
     "json_state_tests: marks tests as json_state_tests (deselect with '-m \"not json_state_tests\"')",
     "vm_test: marks tests as vm_test (deselect with '-m \"not vm_test\"')",
+    "fully_tagged: marks tests as fully tagged with all metadata",
+]
+filterwarnings = [
+    "ignore::pytest.PytestAssertRewriteWarning",
 ]
 
 [tool.coverage.run]
