@@ -1939,6 +1939,98 @@ def test_bal_multiple_storage_writes_same_slot(
     )
 
 
+@pytest.mark.parametrize(
+    "intermediate_values",
+    [
+        pytest.param([2], id="depth_1"),
+        pytest.param([2, 3], id="depth_2"),
+        pytest.param([2, 3, 4], id="depth_3"),
+    ],
+)
+def test_bal_nested_delegatecall_storage_writes_net_zero(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    intermediate_values: list,
+) -> None:
+    """
+    Test BAL correctly handles nested DELEGATECALL frames where intermediate
+    frames write different values but the deepest frame reverts to original.
+
+    Each nesting level writes a different intermediate value, and the deepest
+    frame writes back the original value, resulting in net-zero change.
+
+    Example for depth=2 (intermediate_values=[2, 3]):
+    - Pre-state: slot 0 = 1
+    - Root frame writes: slot 0 = 2
+    - Child frame writes: slot 0 = 3
+    - Grandchild frame writes: slot 0 = 1 (back to original)
+    - Expected: No storage_changes (net-zero overall)
+    """
+    alice = pre.fund_eoa()
+    starting_value = 1
+
+    # deepest contract writes back to starting_value
+    deepest_code = Op.SSTORE(0, starting_value) + Op.STOP
+    next_contract = pre.deploy_contract(code=deepest_code)
+    delegate_contracts = [next_contract]
+
+    # Build intermediate contracts (in reverse order) that write then
+    # DELEGATECALL. Skip the first value since that's for the root contract
+    for value in reversed(intermediate_values[1:]):
+        code = (
+            Op.SSTORE(0, value)
+            + Op.DELEGATECALL(100_000, next_contract, 0, 0, 0, 0)
+            + Op.STOP
+        )
+        next_contract = pre.deploy_contract(code=code)
+        delegate_contracts.append(next_contract)
+
+    # root_contract writes first intermediate value, then DELEGATECALLs
+    root_contract = pre.deploy_contract(
+        code=(
+            Op.SSTORE(0, intermediate_values[0])
+            + Op.DELEGATECALL(100_000, next_contract, 0, 0, 0, 0)
+            + Op.STOP
+        ),
+        storage={0: starting_value},
+    )
+
+    tx = Transaction(
+        sender=alice,
+        to=root_contract,
+        gas_limit=500_000,
+    )
+
+    account_expectations = {
+        alice: BalAccountExpectation(
+            nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+        ),
+        root_contract: BalAccountExpectation(
+            storage_reads=[0],
+            storage_changes=[],  # validate no changes
+        ),
+    }
+    # All delegate contracts accessed but no changes
+    for contract in delegate_contracts:
+        account_expectations[contract] = BalAccountExpectation.empty()
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations=account_expectations
+                ),
+            )
+        ],
+        post={
+            alice: Account(nonce=1),
+            root_contract: Account(storage={0: starting_value}),
+        },
+    )
+
+
 def test_bal_create_transaction_empty_code(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
