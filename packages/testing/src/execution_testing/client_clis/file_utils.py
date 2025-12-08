@@ -7,7 +7,11 @@ from typing import Any, Dict
 
 from pydantic import BaseModel, RootModel
 
-from execution_testing.client_clis.cli_types import LazyAllocJson, LazyAllocStr
+from execution_testing.client_clis.cli_types import (
+    LazyAllocJson,
+    LazyAllocStr,
+    TransitionToolInput,
+)
 
 
 def dump_files_to_directory(output_path: str, files: Dict[str, Any]) -> None:
@@ -30,8 +34,8 @@ def dump_files_to_directory(output_path: str, files: Dict[str, Any]) -> None:
                 else:
                     f.write(file_contents.raw)
 
-            elif isinstance(file_contents, BaseModel) or isinstance(
-                file_contents, RootModel
+            elif isinstance(
+                file_contents, (BaseModel, RootModel, TransitionToolInput)
             ):
                 f.write(
                     file_contents.model_dump_json(
