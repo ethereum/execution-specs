@@ -228,6 +228,120 @@ from execution_testing.vm import Opcodes as Op
             ),
             id="13u1_eq_u2_R_eq_13G",
         ),
+        # R == 2G, low s
+        pytest.param(
+            bytes.fromhex(
+                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001c"
+            ),
+            bytes.fromhex(
+                "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000000b"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000a77cc0129dba3df2c0e27f2bfe79a18b498f8934"
+            ),
+            id="R_eq_2G_low_s",
+        ),
+        # R == 2G, high s
+        pytest.param(
+            bytes.fromhex(
+                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001c"
+            ),
+            bytes.fromhex(
+                "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+            ),
+            bytes.fromhex(
+                "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd036413b"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000bbb10a3b5835400b63ca00372c16db781220fb0b"
+            ),
+            id="R_eq_2G_high_s",
+        ),
+        # R == 3G, low s
+        pytest.param(
+            bytes.fromhex(
+                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001c"
+            ),
+            bytes.fromhex(
+                "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+            ),
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000010"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000620833dce54ca9329f13a22c3831b102f15df27c"
+            ),
+            id="R_eq_3G_low_s",
+        ),
+        # R == 3G, high s
+        pytest.param(
+            bytes.fromhex(
+                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001c"
+            ),
+            bytes.fromhex(
+                "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+            ),
+            bytes.fromhex(
+                "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd036412a"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000b0e0b5974d71cd6d9142451cc94291dec4191b8b"
+            ),
+            id="R_eq_3G_high_s",
+        ),
+        # R == 4G, low s
+        pytest.param(
+            bytes.fromhex(
+                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001c"
+            ),
+            bytes.fromhex(
+                "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13"
+            ),
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000020"
+            ),
+            bytes.fromhex(
+                "0000000000000000000000009d39e4bd10915d73b7d6ba205c1aefd814710aaa"
+            ),
+            id="R_eq_4G_low_s",
+        ),
+        # R == 4G, high s
+        pytest.param(
+            bytes.fromhex(
+                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001c"
+            ),
+            bytes.fromhex(
+                "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13"
+            ),
+            bytes.fromhex(
+                "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364112"
+            ),
+            bytes.fromhex(
+                "0000000000000000000000000a6fe081a013109d981bad2c5143d7a1fd3bfef7"
+            ),
+            id="R_eq_4G_high_s",
+        ),
     ],
 )
 def test_precompiles(
