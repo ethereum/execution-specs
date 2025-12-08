@@ -83,7 +83,7 @@ jobs:
           ./hive --sim '${{ matrix.simulator }}' \
             --sim.parallelism=1 \
             --client go-ethereum \
-            --client-file ../execution-specs/.github/configs/hive/latest.yaml \
+            --client-file ../execution-specs/.github/configs/hive/master.yaml \
             --sim.buildarg fixtures=${{ env.FIXTURES_URL }} \
             --sim.limit=".*test_block_at_rlp_limit_with_logs.*Osaka.*" \
             --docker.output
@@ -92,7 +92,7 @@ jobs:
         if: matrix.mode == 'dev'
         run: |
           cd hive
-          ./hive --dev --client go-ethereum --client-file ../execution-specs/.github/configs/hive/latest.yaml --docker.output &
+          ./hive --dev --client go-ethereum --client-file ../execution-specs/.github/configs/hive/master.yaml --docker.output &
           echo "Waiting for Hive to be ready..."
           for i in {1..30}; do
             if curl -s http://127.0.0.1:3000 > /dev/null 2>&1; then
