@@ -39,43 +39,18 @@ runs:
 
     - name: Start Hive in dev mode
       id: start-hive
+      uses: ./.github/actions/start-hive-dev
+      with:
+        clients: besu,go-ethereum,nethermind
+        client-file: .github/configs/hive/latest.yaml
+        hive-path: hive
+
+    - name: Extract genesis configs
       shell: bash
       env:
-        HIVE_SIMULATOR: http://127.0.0.1:3000
+        HIVE_SIMULATOR: ${{ steps.start-hive.outputs.hive-url }}
       run: |
-        cd hive
-        ./hive --dev \
-          --client besu,go-ethereum,nethermind \
-          --client-file ../.github/configs/hive/latest.yaml \
-          --docker.output &
-        export HIVE_PID=$!
-
-        echo "Waiting for Hive to be ready, pid=$HIVE_PID"
-        deadline=$((SECONDS + 600))
-        
-        while :; do
-          # condition 1: time is up
-          if (( SECONDS >= deadline )); then
-            echo "Hive failed to start within timeout"
-            exit 1
-          fi
-
-          # condition 2: process exited
-          if ! kill -0 "$HIVE_PID" 2>/dev/null; then
-            echo "Hive process died"
-            exit 1
-          fi
-
-          # condition 3: curl succeeded
-          if curl -s $HIVE_SIMULATOR > /dev/null; then
-            echo "Hive is ready!"
-            break
-          fi
-          sleep 1
-        done
-
         echo "Running extract_config for benchmark fixtures..."
-        cd ..
         uv run extract_config \
           --fixture fixtures/blockchain_tests_engine_x/pre_alloc/ \
           --output genesis/ \

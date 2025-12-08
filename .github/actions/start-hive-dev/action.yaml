@@ -1,0 +1,63 @@
+name: Start Hive in Dev Mode
+description: Start Hive simulator API in dev mode with robust waiting
+
+inputs:
+  clients:
+    description: "Comma-separated list of clients to use"
+    required: true
+  client-file:
+    description: "Path to YAML file with client configurations"
+    required: true
+  timeout:
+    description: "Timeout in seconds waiting for Hive to be ready"
+    required: false
+    default: "600"
+  hive-path:
+    description: "Path to hive directory (must be checked out and built)"
+    required: false
+    default: "hive"
+
+outputs:
+  hive-url:
+    description: "URL of the Hive simulator API"
+    value: ${{ steps.start.outputs.hive-url }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Start Hive dev mode
+      id: start
+      shell: bash
+      run: |
+        cd "${{ inputs.hive-path }}"
+
+        ./hive --dev \
+          --client "${{ inputs.clients }}" \
+          --client-file "../${{ inputs.client-file }}" \
+          --docker.output &
+        HIVE_PID=$!
+
+        HIVE_URL="http://127.0.0.1:3000"
+        echo "hive-url=$HIVE_URL" >> "$GITHUB_OUTPUT"
+
+        echo "Waiting for Hive to be ready (pid=$HIVE_PID, timeout=${{ inputs.timeout }}s)..."
+        deadline=$((SECONDS + ${{ inputs.timeout }}))
+
+        while :; do
+          if (( SECONDS >= deadline )); then
+            echo "::error::Hive failed to start within ${{ inputs.timeout }}s timeout"
+            exit 1
+          fi
+
+          if ! kill -0 "$HIVE_PID" 2>/dev/null; then
+            echo "::error::Hive process died unexpectedly"
+            exit 1
+          fi
+
+          if curl -s "$HIVE_URL" > /dev/null; then
+            echo "Hive is ready at $HIVE_URL"
+            exit 0
+          fi
+
+          sleep 1
+        done
