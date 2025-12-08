@@ -448,15 +448,13 @@ def test_ext_account_query_cold(
 
     gas_costs = fork.gas_costs()
     intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
+    tx_gas_limit_cap = fork.transaction_gas_limit_cap()
     # For calculation robustness, the calculation below ignores "glue" opcodes
     # like  PUSH and POP. It should be considered a worst-case number of
     # accounts, and a few of them might not be targeted before the attacking
     # transaction runs out of gas.
     num_target_accounts = (
         attack_gas_limit - intrinsic_gas_cost_calc()
-    ) // gas_costs.G_COLD_ACCOUNT_ACCESS
-    max_target_per_tx = (
-        fork.transaction_gas_limit_cap() - intrinsic_gas_cost_calc()
     ) // gas_costs.G_COLD_ACCOUNT_ACCESS
 
     blocks = []
@@ -474,11 +472,17 @@ def test_ext_account_query_cold(
             + gas_costs.G_CALL_VALUE
             + gas_costs.G_NEW_ACCOUNT
         )
-        # To avoid brittle/tight gas calculations of glue opcodes, we take 90% of the maximum tx capacity.
-        # Even if this calculation fails in the future, it would be catched by the post-state check.
-        max_creations_per_tx = int(
-            (fork.transaction_gas_limit_cap() * 0.9) // account_creation_gas
-        )
+        # To avoid brittle/tight gas calculations of glue opcodes, we take
+        # 90% of the maximum tx capacity. Even if this calculation fails
+        # in the future, it will be caught by the post-state check.
+        # Also, this is only for the setup phase, so being optimal is
+        # not critical.
+        if tx_gas_limit_cap:
+            max_creations_per_tx = int(
+                (tx_gas_limit_cap * 0.9) // account_creation_gas
+            )
+        else:
+            max_creations_per_tx = num_target_accounts
         factory_code = (
             Op.CALLDATALOAD(0)  # addr_start
             + Op.PUSH4(max_creations_per_tx)  # counter
@@ -513,7 +517,7 @@ def test_ext_account_query_cold(
                     Transaction(
                         to=factory_address,
                         data=Hash(addr_start),
-                        gas_limit=fork.transaction_gas_limit_cap(),
+                        gas_limit=tx_gas_limit_cap or env.gas_limit,
                         sender=pre.fund_eoa(),
                     )
                 )
@@ -542,6 +546,13 @@ def test_ext_account_query_cold(
 
     execution_txs = []
     with TestPhaseManager.execution():
+        if tx_gas_limit_cap:
+            max_target_per_tx = (
+                tx_gas_limit_cap - intrinsic_gas_cost_calc()
+            ) // gas_costs.G_COLD_ACCOUNT_ACCESS
+        else:
+            max_target_per_tx = num_target_accounts
+
         num_execution_txs = math.ceil(num_target_accounts / max_target_per_tx)
         for i in range(num_execution_txs):
             address_start = i * int(max_target_per_tx)
@@ -551,7 +562,7 @@ def test_ext_account_query_cold(
                 Transaction(
                     to=op_address,
                     data=Hash(address_start) + Hash(num_to_query),
-                    gas_limit=fork.transaction_gas_limit_cap(),
+                    gas_limit=tx_gas_limit_cap or env.gas_limit,
                     sender=pre.fund_eoa(),
                 )
             )
