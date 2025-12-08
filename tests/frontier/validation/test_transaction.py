@@ -30,7 +30,7 @@ def test_tx_gas_limit(
     tx = Transaction(
         gas_limit=21001,
         to=to,
-        gas_price=0x01,
+        gas_price=0x10,  # Must be >= base fee to isolate gas limit validation
         sender=sender,
         protected=False,
         error=TransactionException.GAS_ALLOWANCE_EXCEEDED,
