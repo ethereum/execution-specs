@@ -16,6 +16,7 @@ from execution_testing import (
     BlockchainTestFiller,
     Op,
     Transaction,
+    Withdrawal,
 )
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
@@ -827,4 +828,246 @@ def test_bal_7702_double_auth_swap(
             bob: Account(balance=10),
             relayer: Account(nonce=1),
         },
+    )
+
+
+def test_bal_selfdestruct_to_7702_delegation(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Test BAL with SELFDESTRUCT to 7702 delegated account.
+
+    Tx1: Alice delegates to Oracle.
+    Tx2: Victim (balance=100) selfdestructs to Alice.
+    SELFDESTRUCT transfers balance without executing recipient code.
+
+    Expected BAL:
+    - Alice tx1: code_changes (delegation), nonce_changes
+    - Alice tx2: balance_changes (+100)
+    - Victim tx2: balance_changes (100→0)
+    - Oracle: MUST NOT appear (SELFDESTRUCT doesn't execute recipient code)
+    """
+    # Alice (EOA) will receive delegation then receive selfdestruct balance
+    # Use explicit initial balance for clarity
+    alice_initial_balance = 10**18  # 1 ETH default
+    alice = pre.fund_eoa(amount=alice_initial_balance)
+    bob = pre.fund_eoa(amount=0)  # Just to be the recipient of tx
+
+    # Oracle contract that Alice will delegate to
+    oracle = pre.deploy_contract(code=Op.SSTORE(0x01, 0x42) + Op.STOP)
+
+    victim_balance = 100
+
+    # Victim contract that selfdestructs to Alice
+    victim = pre.deploy_contract(
+        code=Op.SELFDESTRUCT(alice),
+        balance=victim_balance,
+    )
+
+    # Relayer for tx1 (delegation)
+    relayer = pre.fund_eoa()
+
+    # Tx1: Alice authorizes delegation to Oracle
+    tx1 = Transaction(
+        sender=relayer,
+        to=bob,
+        value=10,
+        gas_limit=1_000_000,
+        gas_price=0xA,
+        authorization_list=[
+            AuthorizationTuple(
+                address=oracle,
+                nonce=0,
+                signer=alice,
+            )
+        ],
+    )
+
+    # Caller contract that triggers selfdestruct on victim
+    caller = pre.deploy_contract(code=Op.CALL(100_000, victim, 0, 0, 0, 0, 0))
+
+    # Tx2: Trigger selfdestruct on victim (victim sends balance to Alice)
+    tx2 = Transaction(
+        nonce=1,
+        sender=relayer,
+        to=caller,
+        gas_limit=1_000_000,
+        gas_price=0xA,
+    )
+
+    alice_final_balance = alice_initial_balance + victim_balance
+
+    account_expectations = {
+        alice: BalAccountExpectation(
+            # tx1: nonce change for auth, code change for delegation
+            nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+            code_changes=[
+                BalCodeChange(
+                    tx_index=1,
+                    new_code=Spec7702.delegation_designation(oracle),
+                )
+            ],
+            # tx2: balance change from selfdestruct
+            balance_changes=[
+                BalBalanceChange(tx_index=2, post_balance=alice_final_balance)
+            ],
+        ),
+        bob: BalAccountExpectation(
+            balance_changes=[BalBalanceChange(tx_index=1, post_balance=10)]
+        ),
+        relayer: BalAccountExpectation(
+            nonce_changes=[
+                BalNonceChange(tx_index=1, post_nonce=1),
+                BalNonceChange(tx_index=2, post_nonce=2),
+            ],
+        ),
+        caller: BalAccountExpectation.empty(),
+        # Victim (selfdestructing contract): balance changes to 0
+        # Explicitly verify ALL fields to avoid false positives
+        victim: BalAccountExpectation(
+            nonce_changes=[],  # Contract nonce unchanged
+            balance_changes=[BalBalanceChange(tx_index=2, post_balance=0)],
+            code_changes=[],  # Code unchanged (post-Cancun SELFDESTRUCT)
+            storage_changes=[],  # No storage changes
+            storage_reads=[],  # No storage reads
+        ),
+        # Oracle MUST NOT appear in tx2 - SELFDESTRUCT doesn't execute
+        # recipient code, so delegation target is never accessed
+        oracle: None,
+    }
+
+    block = Block(
+        txs=[tx1, tx2],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations=account_expectations
+        ),
+    )
+
+    post = {
+        alice: Account(
+            nonce=1,
+            code=Spec7702.delegation_designation(oracle),
+            balance=alice_final_balance,
+        ),
+        bob: Account(balance=10),
+        relayer: Account(nonce=2),
+        # Victim still exists but with 0 balance (post-Cancun SELFDESTRUCT)
+        victim: Account(balance=0),
+    }
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post=post,
+    )
+
+
+GWEI = 10**9
+
+
+def test_bal_withdrawal_to_7702_delegation(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Test BAL with withdrawal to 7702 delegated account.
+
+    Tx1: Alice delegates to Oracle. Withdrawal: 10 gwei to Alice.
+    Withdrawals credit balance without executing code.
+
+    Expected BAL:
+    - Alice tx1: code_changes (delegation), nonce_changes
+    - Alice tx2: balance_changes (+10 gwei)
+    - Oracle: MUST NOT appear (withdrawals don't execute recipient code)
+    """
+    # Alice (EOA) will receive delegation then receive withdrawal
+    alice_initial_balance = 10**18  # 1 ETH default
+    alice = pre.fund_eoa(amount=alice_initial_balance)
+    bob = pre.fund_eoa(amount=0)  # Recipient of tx value
+
+    # Oracle contract that Alice will delegate to
+    # If delegation were followed, this would write to storage
+    oracle = pre.deploy_contract(code=Op.SSTORE(0x01, 0x42) + Op.STOP)
+
+    # Relayer for the delegation tx
+    relayer = pre.fund_eoa()
+
+    withdrawal_amount_gwei = 10
+
+    # Tx1: Alice authorizes delegation to Oracle
+    tx1 = Transaction(
+        sender=relayer,
+        to=bob,
+        value=10,
+        gas_limit=1_000_000,
+        gas_price=0xA,
+        authorization_list=[
+            AuthorizationTuple(
+                address=oracle,
+                nonce=0,
+                signer=alice,
+            )
+        ],
+    )
+
+    alice_final_balance = alice_initial_balance + (
+        withdrawal_amount_gwei * GWEI
+    )
+
+    account_expectations = {
+        alice: BalAccountExpectation(
+            # tx1: nonce change for auth, code change for delegation
+            nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+            code_changes=[
+                BalCodeChange(
+                    tx_index=1,
+                    new_code=Spec7702.delegation_designation(oracle),
+                )
+            ],
+            # tx2 (withdrawal): balance change
+            balance_changes=[
+                BalBalanceChange(tx_index=2, post_balance=alice_final_balance)
+            ],
+        ),
+        bob: BalAccountExpectation(
+            balance_changes=[BalBalanceChange(tx_index=1, post_balance=10)]
+        ),
+        relayer: BalAccountExpectation(
+            nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+        ),
+        # Oracle MUST NOT appear - withdrawals don't execute recipient code,
+        # so delegation target is never accessed
+        oracle: None,
+    }
+
+    block = Block(
+        txs=[tx1],
+        withdrawals=[
+            Withdrawal(
+                index=0,
+                validator_index=0,
+                address=alice,
+                amount=withdrawal_amount_gwei,
+            )
+        ],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations=account_expectations
+        ),
+    )
+
+    post = {
+        alice: Account(
+            nonce=1,
+            code=Spec7702.delegation_designation(oracle),
+            balance=alice_final_balance,
+        ),
+        bob: Account(balance=10),
+        relayer: Account(nonce=1),
+    }
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post=post,
     )
