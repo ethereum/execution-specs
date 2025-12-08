@@ -8,6 +8,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    AuthorizationTuple,
     BalAccountExpectation,
     BalBalanceChange,
     BalCodeChange,
@@ -23,6 +24,7 @@ from execution_testing import (
     Header,
     Op,
     Transaction,
+    add_kzg_version,
     compute_create_address,
 )
 
@@ -1365,6 +1367,10 @@ def test_bal_coinbase_zero_tip(
     )
 
 
+@pytest.mark.pre_alloc_group(
+    "precompile_funded",
+    reason="Expects clean precompile balances, isolate in EngineX",
+)
 @pytest.mark.parametrize(
     "value",
     [
@@ -2051,6 +2057,10 @@ def test_bal_cross_tx_storage_revert_to_zero(
     )
 
 
+@pytest.mark.pre_alloc_group(
+    "ripemd160_state_leak",
+    reason="Pre-funds RIPEMD-160, must be isolated in EngineX format",
+)
 def test_bal_cross_block_ripemd160_state_leak(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
@@ -2143,5 +2153,337 @@ def test_bal_cross_block_ripemd160_state_leak(
             alice: Account(nonce=1),
             bob: Account(nonce=1),
             ripemd160_addr: Account(balance=1),
+        },
+    )
+
+
+def test_bal_all_transaction_types(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Test BAL with all 5 tx types in single block.
+
+    Types: Legacy, EIP-2930, EIP-1559, Blob, EIP-7702.
+    Each tx writes to contract storage. Access list addresses are pre-warmed
+    but NOT in BAL.
+
+    Expected BAL:
+    - All 5 senders: nonce_changes
+    - Contracts 0-3: storage_changes
+    - Alice (7702): nonce_changes, code_changes (delegation), storage_changes
+    - Oracle: empty (delegation target, accessed)
+    """
+    from tests.prague.eip7702_set_code_tx.spec import Spec as Spec7702
+
+    # Create senders for each transaction type
+    sender_0 = pre.fund_eoa()  # Type 0 - Legacy
+    sender_1 = pre.fund_eoa()  # Type 1 - Access List
+    sender_2 = pre.fund_eoa()  # Type 2 - EIP-1559
+    sender_3 = pre.fund_eoa()  # Type 3 - Blob
+    sender_4 = pre.fund_eoa()  # Type 4 - EIP-7702
+
+    # Create contracts for each tx type (except 7702 which uses delegation)
+    contract_code = Op.SSTORE(0x01, Op.CALLDATALOAD(0)) + Op.STOP
+    contract_0 = pre.deploy_contract(code=contract_code)
+    contract_1 = pre.deploy_contract(code=contract_code)
+    contract_2 = pre.deploy_contract(code=contract_code)
+    contract_3 = pre.deploy_contract(code=contract_code)
+
+    # For Type 4 (EIP-7702): Alice delegates to Oracle
+    alice = pre.fund_eoa()
+    oracle = pre.deploy_contract(code=Op.SSTORE(0x01, 0x05) + Op.STOP)
+
+    # Dummy address to warm in access list
+    warmed_address = pre.fund_eoa(amount=1)
+
+    # TX1: Type 0 - Legacy transaction
+    tx_type_0 = Transaction(
+        ty=0,
+        sender=sender_0,
+        to=contract_0,
+        gas_limit=100_000,
+        gas_price=10,
+        data=Hash(0x01),  # Value to store
+    )
+
+    # TX2: Type 1 - Access List transaction (EIP-2930)
+    tx_type_1 = Transaction(
+        ty=1,
+        sender=sender_1,
+        to=contract_1,
+        gas_limit=100_000,
+        gas_price=10,
+        data=Hash(0x02),
+        access_list=[
+            AccessList(
+                address=warmed_address,
+                storage_keys=[],
+            )
+        ],
+    )
+
+    # TX3: Type 2 - EIP-1559 Dynamic fee transaction
+    tx_type_2 = Transaction(
+        ty=2,
+        sender=sender_2,
+        to=contract_2,
+        gas_limit=100_000,
+        max_fee_per_gas=50,
+        max_priority_fee_per_gas=5,
+        data=Hash(0x03),
+    )
+
+    # TX4: Type 3 - Blob transaction (EIP-4844)
+    # Blob versioned hashes need KZG version prefix (0x01)
+    blob_hashes = add_kzg_version([Hash(0xBEEF)], 1)
+    tx_type_3 = Transaction(
+        ty=3,
+        sender=sender_3,
+        to=contract_3,
+        gas_limit=100_000,
+        max_fee_per_gas=50,
+        max_priority_fee_per_gas=5,
+        max_fee_per_blob_gas=10,
+        blob_versioned_hashes=blob_hashes,
+        data=Hash(0x04),
+    )
+
+    # TX5: Type 4 - EIP-7702 Set Code transaction
+    tx_type_4 = Transaction(
+        ty=4,
+        sender=sender_4,
+        to=alice,
+        gas_limit=100_000,
+        max_fee_per_gas=50,
+        max_priority_fee_per_gas=5,
+        authorization_list=[
+            AuthorizationTuple(
+                address=oracle,
+                nonce=0,
+                signer=alice,
+            )
+        ],
+    )
+
+    block = Block(
+        txs=[tx_type_0, tx_type_1, tx_type_2, tx_type_3, tx_type_4],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                # Type 0 sender
+                sender_0: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                ),
+                # Type 1 sender
+                sender_1: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=2, post_nonce=1)],
+                ),
+                # Type 2 sender
+                sender_2: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=3, post_nonce=1)],
+                ),
+                # Type 3 sender
+                sender_3: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=4, post_nonce=1)],
+                ),
+                # Type 4 sender
+                sender_4: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=5, post_nonce=1)],
+                ),
+                # Contract touched by Type 0
+                contract_0: BalAccountExpectation(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0x01,
+                            slot_changes=[
+                                BalStorageChange(tx_index=1, post_value=0x01)
+                            ],
+                        )
+                    ],
+                ),
+                # Contract touched by Type 1
+                contract_1: BalAccountExpectation(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0x01,
+                            slot_changes=[
+                                BalStorageChange(tx_index=2, post_value=0x02)
+                            ],
+                        )
+                    ],
+                ),
+                # Note: warmed_address from access_list is NOT in BAL
+                # because access lists pre-warm but don't record in BAL
+                # Contract touched by Type 2
+                warmed_address: None,  # explicit check
+                contract_2: BalAccountExpectation(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0x01,
+                            slot_changes=[
+                                BalStorageChange(tx_index=3, post_value=0x03)
+                            ],
+                        )
+                    ],
+                ),
+                # Contract touched by Type 3
+                contract_3: BalAccountExpectation(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0x01,
+                            slot_changes=[
+                                BalStorageChange(tx_index=4, post_value=0x04)
+                            ],
+                        )
+                    ],
+                ),
+                # Alice (Type 4 delegation target, executes oracle code)
+                alice: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=5, post_nonce=1)],
+                    code_changes=[
+                        BalCodeChange(
+                            tx_index=5,
+                            new_code=Spec7702.delegation_designation(oracle),
+                        )
+                    ],
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0x01,
+                            slot_changes=[
+                                BalStorageChange(tx_index=5, post_value=0x05)
+                            ],
+                        )
+                    ],
+                ),
+                # Oracle (accessed via delegation)
+                oracle: BalAccountExpectation.empty(),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            sender_0: Account(nonce=1),
+            sender_1: Account(nonce=1),
+            sender_2: Account(nonce=1),
+            sender_3: Account(nonce=1),
+            sender_4: Account(nonce=1),
+            contract_0: Account(storage={0x01: 0x01}),
+            contract_1: Account(storage={0x01: 0x02}),
+            contract_2: Account(storage={0x01: 0x03}),
+            contract_3: Account(storage={0x01: 0x04}),
+            alice: Account(
+                nonce=1,
+                code=Spec7702.delegation_designation(oracle),
+                storage={0x01: 0x05},
+            ),
+        },
+    )
+
+
+def test_bal_lexicographic_address_ordering(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Test BAL enforces strict lexicographic byte-wise address ordering.
+
+    Addresses: addr_low (0x...01), addr_mid (0x...0100), addr_high (0x01...00).
+    Endian-trap: addr_endian_low (0x01...02), addr_endian_high (0x02...01).
+    Contract touches them in reverse order to verify sorting.
+
+    Expected BAL order: low < mid < high < endian_low < endian_high.
+    Catches endianness bugs in address comparison.
+    """
+    alice = pre.fund_eoa()
+
+    # Create addresses with specific byte patterns for lexicographic testing
+    # In lexicographic (byte-wise) order: low < mid < high
+    # addr_low:  0x00...01 (rightmost byte = 0x01)
+    # addr_mid:  0x00...0100 (second-rightmost byte = 0x01)
+    # addr_high: 0x01...00 (leftmost byte = 0x01)
+    addr_low = Address("0x0000000000000000000000000000000000000001")
+    addr_mid = Address("0x0000000000000000000000000000000000000100")
+    addr_high = Address("0x0100000000000000000000000000000000000000")
+
+    # Endian-trap addresses: byte-reversals to catch byte-order bugs
+    # addr_endian_low:  0x01...02 (0x01 at byte 0, 0x02 at byte 19)
+    # addr_endian_high: 0x02...01 (0x02 at byte 0, 0x01 at byte 19)
+    # Note: reverse(addr_endian_low) = addr_endian_high
+    # Correct order: endian_low < endian_high (0x01 < 0x02 at byte 0)
+    # Reversed bytes would incorrectly get opposite order
+    addr_endian_low = Address("0x0100000000000000000000000000000000000002")
+    addr_endian_high = Address("0x0200000000000000000000000000000000000001")
+
+    # Give each address a balance so they exist
+    addr_balance = 100
+    pre[addr_low] = Account(balance=addr_balance)
+    pre[addr_mid] = Account(balance=addr_balance)
+    pre[addr_high] = Account(balance=addr_balance)
+    pre[addr_endian_low] = Account(balance=addr_balance)
+    pre[addr_endian_high] = Account(balance=addr_balance)
+
+    # Contract that accesses addresses in REVERSE lexicographic order
+    # to verify sorting is applied correctly
+    contract_code = (
+        Op.BALANCE(addr_high)  # Access high first
+        + Op.POP
+        + Op.BALANCE(addr_low)  # Access low second
+        + Op.POP
+        + Op.BALANCE(addr_mid)  # Access mid third
+        + Op.POP
+        # Access endian-trap addresses in reverse order
+        + Op.BALANCE(addr_endian_high)  # Access endian_high before endian_low
+        + Op.POP
+        + Op.BALANCE(addr_endian_low)
+        + Op.POP
+        + Op.STOP
+    )
+
+    contract = pre.deploy_contract(code=contract_code)
+
+    tx = Transaction(
+        sender=alice,
+        to=contract,
+        gas_limit=1_000_000,
+    )
+
+    # BAL must be sorted lexicographically by address bytes
+    # Order: low < mid < high < endian_low < endian_high
+    # (sorted by raw address bytes, regardless of access order)
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                ),
+                contract: BalAccountExpectation.empty(),
+                # These addresses appear in BAL due to BALANCE access
+                # The expectation framework verifies correct order
+                addr_low: BalAccountExpectation.empty(),
+                addr_mid: BalAccountExpectation.empty(),
+                addr_high: BalAccountExpectation.empty(),
+                # Endian-trap addresses: must be sorted correctly despite being
+                # byte-reversals of each other
+                addr_endian_low: BalAccountExpectation.empty(),
+                addr_endian_high: BalAccountExpectation.empty(),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            contract: Account(),
+            addr_low: Account(balance=addr_balance),
+            addr_mid: Account(balance=addr_balance),
+            addr_high: Account(balance=addr_balance),
+            addr_endian_low: Account(balance=addr_balance),
+            addr_endian_high: Account(balance=addr_balance),
         },
     )
