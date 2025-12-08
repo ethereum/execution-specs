@@ -94,9 +94,7 @@ class BlockOutput:
     )
     blob_gas_used: U64 = U64(0)
     requests: List[Bytes] = field(default_factory=list)
-    block_access_list: BlockAccessList = field(
-        default_factory=lambda: BlockAccessList(account_changes=())
-    )
+    block_access_list: BlockAccessList = field(default_factory=list)
 
 
 @dataclass

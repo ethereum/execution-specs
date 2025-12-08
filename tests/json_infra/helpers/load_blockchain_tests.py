@@ -138,6 +138,9 @@ class BlockchainTestFixture(Fixture, FixtureTestItem):
         if hasattr(genesis_header, "requests_root"):
             parameters.append(())
 
+        if hasattr(genesis_header, "block_access_list_hash"):
+            parameters.append([])
+
         genesis_block = load.fork.Block(*parameters)
 
         genesis_header_hash = hex_to_bytes(

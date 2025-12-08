@@ -71,7 +71,7 @@ def rlp_encode_block_access_list(block_access_list: BlockAccessList) -> Bytes:
     """
     # Encode as a list of AccountChanges directly (not wrapped)
     account_changes_list = []
-    for account in block_access_list.account_changes:
+    for account in block_access_list:
         # Each account is encoded as:
         # [address, storage_changes, storage_reads,
         # balance_changes, nonce_changes, code_changes]
@@ -146,7 +146,7 @@ def validate_block_access_list_against_execution(
     # 1. Validate structural constraints
 
     # Check that storage changes and reads don't overlap for the same slot
-    for account in block_access_list.account_changes:
+    for account in block_access_list:
         changed_slots = {sc.slot for sc in account.storage_changes}
         read_slots = set(account.storage_reads)
 
@@ -155,9 +155,7 @@ def validate_block_access_list_against_execution(
             return False
 
     # 2. Validate ordering (addresses should be sorted lexicographically)
-    addresses = [
-        account.address for account in block_access_list.account_changes
-    ]
+    addresses = [account.address for account in block_access_list]
     if addresses != sorted(addresses):
         return False
 
@@ -165,7 +163,7 @@ def validate_block_access_list_against_execution(
     max_block_access_index = (
         MAX_TXS + 1
     )  # 0 for pre-exec, 1..MAX_TXS for txs, MAX_TXS+1 for post-exec
-    for account in block_access_list.account_changes:
+    for account in block_access_list:
         # Validate storage slots are sorted within each account
         storage_slots = [sc.slot for sc in account.storage_changes]
         if storage_slots != sorted(storage_slots):
