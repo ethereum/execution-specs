@@ -12,7 +12,7 @@ Implementations of the EVM system related instructions.
 """
 
 from ethereum_types.bytes import Bytes, Bytes0
-from ethereum_types.numeric import U256, Uint
+from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.utils.numeric import ceil32
 
@@ -27,7 +27,13 @@ from ...state import (
     move_ether,
     set_account_balance,
 )
-from ...state_tracker import capture_pre_balance, track_address
+from ...state_tracker import (
+    capture_pre_balance,
+    create_child_frame,
+    track_address,
+    track_balance_change,
+    track_nonce_change,
+)
 from ...utils.address import (
     compute_contract_address,
     compute_create2_contract_address,
@@ -120,11 +126,27 @@ def generic_create(
     if account_has_code_or_nonce(
         state, contract_address
     ) or account_has_storage(state, contract_address):
-        increment_nonce(state, evm.message.current_target, evm.state_changes)
+        increment_nonce(state, evm.message.current_target)
+        nonce_after = get_account(state, evm.message.current_target).nonce
+        track_nonce_change(
+            evm.state_changes,
+            evm.message.current_target,
+            U64(nonce_after),
+        )
         push(evm.stack, U256(0))
         return
 
-    increment_nonce(state, evm.message.current_target, evm.state_changes)
+    # Track nonce increment for CREATE
+    increment_nonce(state, evm.message.current_target)
+    nonce_after = get_account(state, evm.message.current_target).nonce
+    track_nonce_change(
+        evm.state_changes,
+        evm.message.current_target,
+        U64(nonce_after),
+    )
+
+    # Create call frame as child of parent EVM's frame
+    child_state_changes = create_child_frame(evm.state_changes)
 
     child_message = Message(
         block_env=evm.message.block_env,
@@ -144,7 +166,8 @@ def generic_create(
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         disable_precompiles=False,
         parent_evm=evm,
-        transaction_state_changes=evm.message.transaction_state_changes,
+        is_create=True,
+        state_changes=child_state_changes,
     )
 
     child_evm = process_create_message(child_message)
@@ -321,8 +344,9 @@ def generic_call(
         evm.memory, memory_input_start_position, memory_input_size
     )
 
-    # EIP-7928: Child message inherits transaction_state_changes from parent
-    # The actual child frame will be created automatically in process_message
+    # Create call frame as child of parent EVM's frame
+    child_state_changes = create_child_frame(evm.state_changes)
+
     child_message = Message(
         block_env=evm.message.block_env,
         tx_env=evm.message.tx_env,
@@ -341,7 +365,8 @@ def generic_call(
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         disable_precompiles=disable_precompiles,
         parent_evm=evm,
-        transaction_state_changes=evm.message.transaction_state_changes,
+        is_create=False,
+        state_changes=child_state_changes,
     )
 
     child_evm = process_message(child_message)
@@ -570,11 +595,13 @@ def callcode(evm: Evm) -> None:
     ).balance
 
     # EIP-7928: For CALLCODE with value transfer, capture pre-balance
-    # in parent frame. CALLCODE transfers value from/to current_target
+    # in transaction frame. CALLCODE transfers value from/to current_target
     # (same address), affecting current storage context, not child frame
     if value != 0 and sender_balance >= value:
         capture_pre_balance(
-            evm.state_changes, evm.message.current_target, sender_balance
+            evm.message.tx_env.state_changes,
+            evm.message.current_target,
+            sender_balance,
         )
 
     if sender_balance < value:
@@ -643,25 +670,41 @@ def selfdestruct(evm: Evm) -> None:
 
     charge_gas(evm, gas_cost)
 
+    state = evm.message.block_env.state
     originator = evm.message.current_target
-    originator_balance = get_account(
-        evm.message.block_env.state, originator
-    ).balance
+    originator_balance = get_account(state, originator).balance
+    beneficiary_balance = get_account(state, beneficiary).balance
 
-    move_ether(
-        evm.message.block_env.state,
-        originator,
-        beneficiary,
-        originator_balance,
+    # Get tracking context
+    tx_frame = evm.message.tx_env.state_changes
+
+    # Capture pre-balances for net-zero filtering
+    track_address(evm.state_changes, originator)
+    capture_pre_balance(tx_frame, originator, originator_balance)
+    capture_pre_balance(tx_frame, beneficiary, beneficiary_balance)
+
+    # Transfer balance
+    move_ether(state, originator, beneficiary, originator_balance)
+
+    # Track balance changes
+    originator_new_balance = get_account(state, originator).balance
+    beneficiary_new_balance = get_account(state, beneficiary).balance
+    track_balance_change(
         evm.state_changes,
+        originator,
+        originator_new_balance,
+    )
+    track_balance_change(
+        evm.state_changes,
+        beneficiary,
+        beneficiary_new_balance,
     )
 
     # register account for deletion only if it was created
     # in the same transaction
-    if originator in evm.message.block_env.state.created_accounts:
-        set_account_balance(
-            evm.message.block_env.state, originator, U256(0), evm.state_changes
-        )
+    if originator in state.created_accounts:
+        set_account_balance(state, originator, U256(0))
+        track_balance_change(evm.state_changes, originator, U256(0))
         evm.accounts_to_delete.add(originator)
 
     # HALT the execution
