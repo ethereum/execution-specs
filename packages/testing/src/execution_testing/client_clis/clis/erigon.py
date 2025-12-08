@@ -23,6 +23,7 @@ class ErigonExceptionMapper(ExceptionMapper):
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: "tip higher than fee cap",
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: "max fee per blob gas too low",
         TransactionException.NONCE_MISMATCH_TOO_LOW: "nonce too low",
+        TransactionException.NONCE_MISMATCH_TOO_HIGH: "nonce too high",
         TransactionException.GAS_ALLOWANCE_EXCEEDED: "gas limit reached",
         TransactionException.TYPE_3_TX_PRE_FORK: "blob txn is not supported by signer",
         TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: (

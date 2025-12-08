@@ -30,9 +30,6 @@ class RethExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_4_TX_PRE_FORK: (
             "eip 7702 transactions present in pre-prague payload"
         ),
-        BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: (
-            "failed to decode deposit requests from receipts"
-        ),
         BlockException.INVALID_REQUESTS: "mismatched block requests hash",
         BlockException.INVALID_RECEIPTS_ROOT: "receipt root mismatch",
         BlockException.INVALID_STATE_ROOT: "mismatched block state root",
@@ -45,6 +42,7 @@ class RethExceptionMapper(ExceptionMapper):
     }
     mapping_regex = {
         TransactionException.NONCE_MISMATCH_TOO_LOW: r"nonce \d+ too low, expected \d+",
+        TransactionException.NONCE_MISMATCH_TOO_HIGH: r"nonce \d+ too high, expected \d+",
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
             r"blob gas price \(\d+\) is greater than max fee per blob gas \(\d+\)"
         ),
@@ -100,11 +98,21 @@ class RethExceptionMapper(ExceptionMapper):
         BlockException.INCORRECT_BLOCK_FORMAT: (
             r"Block's access list is invalid."
         ),
-        BlockException.INVALID_GASLIMIT: (r"child gas_limit \d+ max .* is .*"),
-        BlockException.INVALID_BLOCK_TIMESTAMP_OLDER_THAN_PARENT: (
-            r"block timestamp \d+ is in the past compared to the parent timestamp \d+"
-        ),
-        BlockException.INVALID_BLOCK_NUMBER: (
-            r"block number \d+ does not match parent block number \d+"
+        # Reth does not validate the sizes or offsets of the deposit
+        # contract logs. As a workaround we have set
+        # INVALID_DEPOSIT_EVENT_LAYOUT equal to INVALID_REQUESTS.
+        #
+        # Although this is out of spec, it is understood that this
+        # will not cause an issue so long as the mainnet/testnet
+        # deposit contracts don't change.
+        #
+        # The offsets are checked second and the sizes are checked
+        # third within the `is_valid_deposit_event_data` function:
+        # https://eips.ethereum.org/EIPS/eip-6110#block-validity
+        #
+        # EELS definition for `is_valid_deposit_event_data`:
+        # https://github.com/ethereum/execution-specs/blob/5ddb904fa7ba27daeff423e78466744c51e8cb6a/src/ethereum/forks/prague/requests.py#L51
+        BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: (
+            r"failed to decode deposit requests from receipts|mismatched block requests hash"
         ),
     }

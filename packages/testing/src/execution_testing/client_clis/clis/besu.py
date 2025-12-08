@@ -322,6 +322,9 @@ class BesuExceptionMapper(ExceptionMapper):
         TransactionException.NONCE_MISMATCH_TOO_LOW: (
             r"transaction invalid transaction nonce \d+ below sender account nonce \d+"
         ),
+        TransactionException.NONCE_MISMATCH_TOO_HIGH: (
+            r"transaction invalid transaction nonce \d+ does not match sender account nonce \d+"
+        ),
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
             r"transaction invalid Transaction gas limit must be at most \d+"
         ),
