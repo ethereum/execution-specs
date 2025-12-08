@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Optional, Set, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes0
-from ethereum_types.numeric import U256, Uint, ulen
+from ethereum_types.numeric import U64, U256, Uint, ulen
 
 from ethereum.exceptions import EthereumException
 from ethereum.trace import (
@@ -46,10 +46,13 @@ from ..state import (
 )
 from ..state_tracker import (
     StateChanges,
-    create_child_frame,
+    capture_pre_balance,
     merge_on_failure,
     merge_on_success,
     track_address,
+    track_balance_change,
+    track_code_change,
+    track_nonce_change,
 )
 from ..vm import Message
 from ..vm.eoa_delegation import get_delegated_code_address, set_delegation
@@ -71,61 +74,6 @@ from .runtime import get_valid_jump_destinations
 STACK_DEPTH_LIMIT = Uint(1024)
 MAX_CODE_SIZE = 0x6000
 MAX_INIT_CODE_SIZE = 2 * MAX_CODE_SIZE
-
-
-def get_parent_frame(message: Message) -> StateChanges:
-    """
-    Get the appropriate parent frame for a message's state changes.
-
-    Frame selection logic:
-    - Nested calls: Parent EVM's frame
-    - Top-level calls: Transaction frame
-    - System transactions: Block frame
-
-    Parameters
-    ----------
-    message :
-        The message being processed.
-
-    Returns
-    -------
-    parent_frame : StateChanges
-        The parent frame to use for creating child frames.
-
-    """
-    if message.parent_evm is not None:
-        return message.parent_evm.state_changes
-    elif message.transaction_state_changes is not None:
-        return message.transaction_state_changes
-    else:
-        return message.block_env.block_state_changes
-
-
-def get_message_state_frame(message: Message) -> StateChanges:
-    """
-    Determine and create the appropriate state tracking frame for a message.
-
-    Creates a call frame as a child of the appropriate parent frame.
-
-    Parameters
-    ----------
-    message :
-        The message being processed.
-
-    Returns
-    -------
-    state_frame : StateChanges
-        The state tracking frame to use for this message execution.
-
-    """
-    parent_frame = get_parent_frame(message)
-    if (
-        message.parent_evm is not None
-        or message.transaction_state_changes is not None
-    ):
-        return create_child_frame(parent_frame)
-    else:
-        return parent_frame
 
 
 @dataclass
@@ -173,9 +121,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
         is_collision = account_has_code_or_nonce(
             block_env.state, message.current_target
         ) or account_has_storage(block_env.state, message.current_target)
-        track_address(
-            message.transaction_state_changes, message.current_target
-        )
+        track_address(message.tx_env.state_changes, message.current_target)
         if is_collision:
             return MessageCallOutput(
                 Uint(0),
@@ -197,11 +143,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
             message.accessed_addresses.add(delegated_address)
             message.code = get_account(block_env.state, delegated_address).code
             message.code_address = delegated_address
-
-            # EIP-7928: Track delegation target when loaded as call target
-            track_address(
-                message.block_env.block_state_changes, delegated_address
-            )
+            track_address(message.block_env.state_changes, delegated_address)
 
         evm = process_message(message)
 
@@ -263,11 +205,15 @@ def process_create_message(message: Message) -> Evm:
     # added to SELFDESTRUCT by EIP-6780.
     mark_account_created(state, message.current_target)
 
-    parent_frame = get_parent_frame(message)
-    create_frame = create_child_frame(parent_frame)
+    increment_nonce(state, message.current_target)
+    nonce_after = get_account(state, message.current_target).nonce
+    track_nonce_change(
+        message.state_changes,
+        message.current_target,
+        U64(nonce_after),
+    )
 
-    increment_nonce(state, message.current_target, create_frame)
-    evm = process_message(message, parent_state_frame=create_frame)
+    evm = process_message(message)
     if not evm.error:
         contract_code = evm.output
         contract_code_gas = Uint(len(contract_code)) * GAS_CODE_DEPOSIT
@@ -280,26 +226,28 @@ def process_create_message(message: Message) -> Evm:
                 raise OutOfGasError
         except ExceptionalHalt as error:
             rollback_transaction(state, transient_storage)
-            merge_on_failure(create_frame)
+            merge_on_failure(message.state_changes)
             evm.gas_left = Uint(0)
             evm.output = b""
             evm.error = error
         else:
-            set_code(
-                state, message.current_target, contract_code, create_frame
-            )
+            # Note: No need to capture pre code since it's always b"" here
+            set_code(state, message.current_target, contract_code)
+            if contract_code != b"":
+                track_code_change(
+                    message.state_changes,
+                    message.current_target,
+                    contract_code,
+                )
             commit_transaction(state, transient_storage)
-            merge_on_success(create_frame)
+            merge_on_success(message.state_changes)
     else:
         rollback_transaction(state, transient_storage)
-        merge_on_failure(create_frame)
+        merge_on_failure(message.state_changes)
     return evm
 
 
-def process_message(
-    message: Message,
-    parent_state_frame: Optional[StateChanges] = None,
-) -> Evm:
+def process_message(message: Message) -> Evm:
     """
     Move ether and execute the relevant code.
 
@@ -307,12 +255,6 @@ def process_message(
     ----------
     message :
         Transaction specific items.
-    parent_state_frame :
-        Optional parent frame for state tracking. When provided (e.g., for
-        CREATE's init code), state changes are tracked as a child of this
-        frame instead of the default parent determined by the message.
-        This ensures proper frame hierarchy for CREATE operations where
-        init code changes must be children of the CREATE frame.
 
     Returns
     -------
@@ -325,37 +267,54 @@ def process_message(
     if message.depth > STACK_DEPTH_LIMIT:
         raise StackDepthLimitError("Stack depth limit reached")
 
+    # take snapshot of state before processing the message
     begin_transaction(state, transient_storage)
 
-    if parent_state_frame is not None:
-        # Use provided parent for CREATE's init code execution.
-        # This ensures init code state changes are children of create_frame,
-        # so they are properly converted to reads if code deposit fails.
-        parent_changes = parent_state_frame
-        state_changes = create_child_frame(parent_state_frame)
-    else:
-        parent_changes = get_parent_frame(message)
-        state_changes = get_message_state_frame(message)
-
-    track_address(state_changes, message.current_target)
+    track_address(message.state_changes, message.current_target)
 
     if message.should_transfer_value and message.value != 0:
-        move_ether(
-            state,
-            message.caller,
+        # Track value transfer
+        sender_balance = get_account(state, message.caller).balance
+        recipient_balance = get_account(state, message.current_target).balance
+
+        track_address(message.state_changes, message.caller)
+        capture_pre_balance(
+            message.tx_env.state_changes, message.caller, sender_balance
+        )
+        capture_pre_balance(
+            message.tx_env.state_changes,
             message.current_target,
-            message.value,
-            state_changes,
+            recipient_balance,
         )
 
-    evm = execute_code(message, state_changes)
+        move_ether(
+            state, message.caller, message.current_target, message.value
+        )
+
+        sender_new_balance = get_account(state, message.caller).balance
+        recipient_new_balance = get_account(
+            state, message.current_target
+        ).balance
+
+        track_balance_change(
+            message.state_changes,
+            message.caller,
+            U256(sender_new_balance),
+        )
+        track_balance_change(
+            message.state_changes,
+            message.current_target,
+            U256(recipient_new_balance),
+        )
+
+    evm = execute_code(message, message.state_changes)
     if evm.error:
         rollback_transaction(state, transient_storage)
-        if state_changes != parent_changes:
+        if not message.is_create:
             merge_on_failure(evm.state_changes)
     else:
         commit_transaction(state, transient_storage)
-        if state_changes != parent_changes:
+        if not message.is_create:
             merge_on_success(evm.state_changes)
     return evm
 
