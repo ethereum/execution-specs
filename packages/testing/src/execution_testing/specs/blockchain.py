@@ -563,11 +563,16 @@ class BlockchainTest(BaseTest):
         state_root = pre_alloc.state_root()
         genesis = FixtureHeader.genesis(self.fork, env, state_root)
 
+        genesis_bal = None
+        if self.fork.header_bal_hash_required(block_number=0, timestamp=0):
+            genesis_bal = BlockAccessList()
+
         return (
             pre_alloc,
             FixtureBlockBase(
                 header=genesis,
                 withdrawals=None if env.withdrawals is None else [],
+                block_access_list=genesis_bal,
             ).with_rlp(txs=[]),
         )
 
