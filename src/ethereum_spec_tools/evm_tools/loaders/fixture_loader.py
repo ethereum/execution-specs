@@ -196,4 +196,8 @@ class Load(BaseLoad):
             requests_hash = hex_to_bytes32(raw.get("requestsHash"))
             parameters.append(requests_hash)
 
+        if "blockAccessListHash" in raw:
+            bal_hash = hex_to_bytes32(raw.get("blockAccessListHash"))
+            parameters.append(bal_hash)
+
         return self.fork.Header(*parameters)
