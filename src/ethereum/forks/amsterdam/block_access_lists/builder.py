@@ -405,7 +405,7 @@ def _build_from_builder(
     [`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList  # noqa: E501
 
     """
-    account_changes_list = []
+    block_access_list: BlockAccessList = []
 
     for address, changes in builder.accounts.items():
         storage_changes = []
@@ -444,11 +444,11 @@ def _build_from_builder(
             code_changes=code_changes,
         )
 
-        account_changes_list.append(account_change)
+        block_access_list.append(account_change)
 
-    account_changes_list.sort(key=lambda x: x.address)
+    block_access_list.sort(key=lambda x: x.address)
 
-    return BlockAccessList(account_changes=tuple(account_changes_list))
+    return block_access_list
 
 
 def build_block_access_list(
