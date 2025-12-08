@@ -137,7 +137,6 @@ def test_xcall(
                 Transaction(
                     to=factory_caller_address,
                     gas_limit=tx_gas_limit_cap,
-                    gas_price=10**6,
                     data=Hash(num_contracts_per_tx),
                     sender=pre.fund_eoa(),
                 )
@@ -174,13 +173,6 @@ def test_xcall(
         )
     )
 
-    if len(attack_code) > max_contract_size:
-        # TODO: A workaround could be to split the opcode code into multiple
-        # contracts and call them in sequence.
-        raise ValueError(
-            f"Code size {len(attack_code)} exceeds maximum "
-            f"code size {max_contract_size}"
-        )
     attack_address = pre.deploy_contract(code=attack_code)
 
     with TestPhaseManager.execution():
@@ -201,7 +193,6 @@ def test_xcall(
                 Transaction(
                     to=attack_address,
                     gas_limit=tx_gas_limit_cap,
-                    gas_price=10**9,
                     data=Hash(contract_start_index),
                     sender=pre.fund_eoa(),
                 )
@@ -212,7 +203,6 @@ def test_xcall(
                 Transaction(
                     to=attack_address,
                     gas_limit=remainder,
-                    gas_price=10**9,
                     data=Hash(contract_start_index),
                     sender=pre.fund_eoa(),
                 )
