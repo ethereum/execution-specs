@@ -83,7 +83,7 @@ jobs:
           ./hive --sim '${{ matrix.simulator }}' \
             --sim.parallelism=1 \
             --client go-ethereum \
-            --client-file ../execution-specs/.github/configs/hive/master.yaml \
+            --client-file ../execution-specs/.github/configs/hive/latest.yaml \
             --sim.buildarg fixtures=${{ env.FIXTURES_URL }} \
             --sim.limit=".*test_block_at_rlp_limit_with_logs.*Osaka.*" \
             --docker.output
@@ -94,7 +94,7 @@ jobs:
         uses: ./execution-specs/.github/actions/start-hive-dev
         with:
           clients: go-ethereum
-          client-file: execution-specs/.github/configs/hive/master.yaml
+          client-file: execution-specs/.github/configs/hive/latest.yaml
           hive-path: hive
           timeout: "120"
 
