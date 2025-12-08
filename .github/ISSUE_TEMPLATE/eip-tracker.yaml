@@ -90,5 +90,5 @@ body:
 
         ### Process Status
         
-        - [ ] Hive tests passing on all implementations.
+        - [ ] Hive tests passing on at least two implementations.
         - [ ] EIP included in a devnet.
