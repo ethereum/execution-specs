@@ -13,6 +13,7 @@ from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum import trace
 from ethereum.exceptions import EthereumException, InvalidBlock
+from ethereum.forks.amsterdam.state_tracker import StateChanges
 from ethereum_spec_tools.forks import Hardfork
 
 from ..loaders.fixture_loader import Load
@@ -187,6 +188,9 @@ class T8N(Load):
                 self.env.parent_beacon_block_root
             )
             kw_arguments["excess_blob_gas"] = self.env.excess_blob_gas
+
+        if self.fork.is_after_fork("amsterdam"):
+            kw_arguments["state_changes"] = StateChanges()
 
         return self.fork.BlockEnvironment(**kw_arguments)
 

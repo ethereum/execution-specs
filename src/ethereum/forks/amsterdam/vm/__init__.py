@@ -49,7 +49,7 @@ class BlockEnvironment:
     prev_randao: Bytes32
     excess_blob_gas: U64
     parent_beacon_block_root: Hash32
-    state_changes: StateChanges = field(default_factory=lambda: StateChanges())
+    state_changes: StateChanges
 
 
 @dataclass

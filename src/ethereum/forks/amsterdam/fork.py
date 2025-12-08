@@ -64,6 +64,7 @@ from .state import (
     state_root,
 )
 from .state_tracker import (
+    StateChanges,
     capture_pre_balance,
     commit_transaction_frame,
     create_child_frame,
@@ -245,6 +246,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         prev_randao=block.header.prev_randao,
         excess_blob_gas=block.header.excess_blob_gas,
         parent_beacon_block_root=block.header.parent_beacon_block_root,
+        state_changes=StateChanges(),
     )
 
     block_output = apply_body(
