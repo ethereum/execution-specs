@@ -21,17 +21,9 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import modify
-from ethereum_types.numeric import U64, U256, Uint
+from ethereum_types.numeric import U256, Uint
 
 from .fork_types import EMPTY_ACCOUNT, Account, Address, Root
-from .state_tracker import (
-    StateChanges,
-    capture_pre_balance,
-    track_address,
-    track_balance_change,
-    track_code_change,
-    track_nonce_change,
-)
 from .trie import EMPTY_TRIE_ROOT, Trie, copy_trie, root, trie_get, trie_set
 
 if TYPE_CHECKING:
@@ -517,18 +509,22 @@ def move_ether(
     sender_address: Address,
     recipient_address: Address,
     amount: U256,
-    state_changes: StateChanges,
 ) -> None:
     """
     Move funds between accounts.
-    """
-    sender_balance = get_account(state, sender_address).balance
-    recipient_balance = get_account(state, recipient_address).balance
 
-    track_address(state_changes, sender_address)
-    capture_pre_balance(state_changes, sender_address, sender_balance)
-    track_address(state_changes, recipient_address)
-    capture_pre_balance(state_changes, recipient_address, recipient_balance)
+    Parameters
+    ----------
+    state:
+        The current state.
+    sender_address:
+        Address of the sender.
+    recipient_address:
+        Address of the recipient.
+    amount:
+        The amount to transfer.
+
+    """
 
     def reduce_sender_balance(sender: Account) -> None:
         if sender.balance < amount:
@@ -541,23 +537,8 @@ def move_ether(
     modify_state(state, sender_address, reduce_sender_balance)
     modify_state(state, recipient_address, increase_recipient_balance)
 
-    sender_new_balance = get_account(state, sender_address).balance
-    recipient_new_balance = get_account(state, recipient_address).balance
 
-    track_balance_change(
-        state_changes, sender_address, U256(sender_new_balance)
-    )
-    track_balance_change(
-        state_changes, recipient_address, U256(recipient_new_balance)
-    )
-
-
-def set_account_balance(
-    state: State,
-    address: Address,
-    amount: U256,
-    state_changes: StateChanges,
-) -> None:
+def set_account_balance(state: State, address: Address, amount: U256) -> None:
     """
     Sets the balance of an account.
 
@@ -567,32 +548,20 @@ def set_account_balance(
         The current state.
 
     address:
-        Address of the account whose nonce needs to be incremented.
+        Address of the account whose balance needs to be set.
 
     amount:
         The amount that needs to set in balance.
 
-    state_changes:
-        State changes frame for tracking (EIP-7928).
-
     """
-    current_balance = get_account(state, address).balance
-
-    track_address(state_changes, address)
-    capture_pre_balance(state_changes, address, current_balance)
 
     def set_balance(account: Account) -> None:
         account.balance = amount
 
     modify_state(state, address, set_balance)
-    track_balance_change(state_changes, address, amount)
 
 
-def increment_nonce(
-    state: State,
-    address: Address,
-    state_changes: "StateChanges",
-) -> None:
+def increment_nonce(state: State, address: Address) -> None:
     """
     Increments the nonce of an account.
 
@@ -604,9 +573,6 @@ def increment_nonce(
     address:
         Address of the account whose nonce needs to be incremented.
 
-    state_changes:
-        State changes frame for tracking (EIP-7928).
-
     """
 
     def increase_nonce(sender: Account) -> None:
@@ -614,16 +580,8 @@ def increment_nonce(
 
     modify_state(state, address, increase_nonce)
 
-    account = get_account(state, address)
-    track_nonce_change(state_changes, address, U64(account.nonce))
 
-
-def set_code(
-    state: State,
-    address: Address,
-    code: Bytes,
-    state_changes: StateChanges,
-) -> None:
+def set_code(state: State, address: Address, code: Bytes) -> None:
     """
     Sets Account code.
 
@@ -638,9 +596,6 @@ def set_code(
     code:
         The bytecode that needs to be set.
 
-    state_changes:
-        State changes frame for tracking (EIP-7928).
-
     """
 
     def write_code(sender: Account) -> None:
@@ -648,27 +603,13 @@ def set_code(
 
     modify_state(state, address, write_code)
 
-    # Only track code change if it's not net-zero within this frame
-    # Compare against pre-code captured in this frame, default to b""
-    pre_code = state_changes.pre_code.get(address, b"")
-    if pre_code != code:
-        track_code_change(state_changes, address, code)
 
-
-def set_authority_code(
-    state: State,
-    address: Address,
-    code: Bytes,
-    state_changes: StateChanges,
-    current_code: Bytes,
-) -> None:
+def set_authority_code(state: State, address: Address, code: Bytes) -> None:
     """
     Sets authority account code for EIP-7702 delegation.
 
     This function is used specifically for setting authority code within
-    EIP-7702 Set Code Transactions. Unlike set_code(), it tracks changes based
-    on the current code rather than pre_code to handle multiple authorizations
-    to the same address within a single transaction correctly.
+    EIP-7702 Set Code Transactions.
 
     Parameters
     ----------
@@ -681,25 +622,12 @@ def set_authority_code(
     code:
         The delegation designation bytecode to set.
 
-    state_changes:
-        State changes frame for tracking (EIP-7928).
-
-    current_code:
-        The current code before this change. Used to determine if tracking
-        is needed (only track if code actually changes from current value).
-
     """
 
     def write_code(sender: Account) -> None:
         sender.code = code
 
     modify_state(state, address, write_code)
-
-    # Only track if code is actually changing from current value
-    # This allows multiple auths to same address to be tracked individually
-    # Net-zero filtering happens in commit_transaction_frame
-    if current_code != code:
-        track_code_change(state_changes, address, code)
 
 
 def get_storage_original(state: State, address: Address, key: Bytes32) -> U256:

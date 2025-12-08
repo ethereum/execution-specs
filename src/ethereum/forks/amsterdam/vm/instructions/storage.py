@@ -26,7 +26,7 @@ from ...state_tracker import (
     track_storage_write,
 )
 from .. import Evm
-from ..exceptions import OutOfGasError, WriteInStaticContext
+from ..exceptions import WriteInStaticContext
 from ..gas import (
     GAS_CALL_STIPEND,
     GAS_COLD_SLOAD,
@@ -55,24 +55,25 @@ def sload(evm: Evm) -> None:
     key = pop(evm.stack).to_be_bytes32()
 
     # GAS
-    gas_cost = (
-        GAS_WARM_ACCESS
-        if (evm.message.current_target, key) in evm.accessed_storage_keys
-        else GAS_COLD_SLOAD
-    )
-    check_gas(evm, gas_cost)
-    if (evm.message.current_target, key) not in evm.accessed_storage_keys:
+    is_cold_access = (
+        evm.message.current_target,
+        key,
+    ) not in evm.accessed_storage_keys
+    gas_cost = GAS_COLD_SLOAD if is_cold_access else GAS_WARM_ACCESS
+
+    charge_gas(evm, gas_cost)
+
+    # OPERATION
+    state = evm.message.block_env.state
+    value = get_storage(state, evm.message.current_target, key)
+
+    if is_cold_access:
         evm.accessed_storage_keys.add((evm.message.current_target, key))
     track_storage_read(
         evm.state_changes,
         evm.message.current_target,
         key,
     )
-    charge_gas(evm, gas_cost)
-
-    # OPERATION
-    state = evm.message.block_env.state
-    value = get_storage(state, evm.message.current_target, key)
 
     push(evm.stack, value)
 
@@ -93,18 +94,13 @@ def sstore(evm: Evm) -> None:
     # STACK
     key = pop(evm.stack).to_be_bytes32()
     new_value = pop(evm.stack)
-    if evm.gas_left <= GAS_CALL_STIPEND:
-        raise OutOfGasError
 
-    # Check static context before accessing storage
+    # check we have at least the stipend gas
+    check_gas(evm, GAS_CALL_STIPEND + Uint(1))
+
+    # check static context before accessing storage
     if evm.message.is_static:
         raise WriteInStaticContext
-
-    state = evm.message.block_env.state
-    original_value = get_storage_original(
-        state, evm.message.current_target, key
-    )
-    current_value = get_storage(state, evm.message.current_target, key)
 
     # GAS
     gas_cost = Uint(0)
@@ -116,6 +112,27 @@ def sstore(evm: Evm) -> None:
     if is_cold_access:
         gas_cost += GAS_COLD_SLOAD
 
+    state = evm.message.block_env.state
+    original_value = get_storage_original(
+        state, evm.message.current_target, key
+    )
+    current_value = get_storage(state, evm.message.current_target, key)
+
+    if is_cold_access:
+        evm.accessed_storage_keys.add((evm.message.current_target, key))
+
+    capture_pre_storage(
+        evm.message.tx_env.state_changes,
+        evm.message.current_target,
+        key,
+        current_value,
+    )
+    track_storage_read(
+        evm.state_changes,
+        evm.message.current_target,
+        key,
+    )
+
     if original_value == current_value and current_value != new_value:
         if original_value == 0:
             gas_cost += GAS_STORAGE_SET
@@ -123,21 +140,6 @@ def sstore(evm: Evm) -> None:
             gas_cost += GAS_STORAGE_UPDATE - GAS_COLD_SLOAD
     else:
         gas_cost += GAS_WARM_ACCESS
-
-    # Track storage access BEFORE checking gas (EIP-7928)
-    # Even if we run out of gas, the access attempt should be tracked
-    capture_pre_storage(
-        evm.state_changes, evm.message.current_target, key, current_value
-    )
-    track_storage_read(
-        evm.state_changes,
-        evm.message.current_target,
-        key,
-    )
-    check_gas(evm, gas_cost)
-
-    if is_cold_access:
-        evm.accessed_storage_keys.add((evm.message.current_target, key))
 
     charge_gas(evm, gas_cost)
 
@@ -165,7 +167,10 @@ def sstore(evm: Evm) -> None:
     # OPERATION
     set_storage(state, evm.message.current_target, key, new_value)
     track_storage_write(
-        evm.state_changes, evm.message.current_target, key, new_value
+        evm.state_changes,
+        evm.message.current_target,
+        key,
+        new_value,
     )
 
     # PROGRAM COUNTER
