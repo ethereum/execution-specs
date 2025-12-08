@@ -56,7 +56,7 @@ body:
         > [!IMPORTANT]
         > A specifications specialist and a testing specialist should ideally share ownership of the EIP.
 
-        - [ ] Add the issue to the target fork milestone if applicable (i.e., the EIP is at least in the (CFI stage)[https://eips.ethereum.org/EIPS/eip-7723#considered-for-inclusion]).
+        - [ ] Add the issue to the target fork milestone if applicable (i.e., the EIP is at least in the [CFI stage](https://eips.ethereum.org/EIPS/eip-7723#considered-for-inclusion)).
 
         ### Specification + Testing Status
 
