@@ -109,14 +109,15 @@ def get_opcode_counts_for_test(
 def pytest_collection_modifyitems(
     config: pytest.Config, items: list[pytest.Item]
 ) -> None:
-    """Remove non-repricing tests when `--fixed-opcode-count` is specified."""
+    """Filter tests based on repricing marker when benchmark options are used."""
+    gas_benchmark_value = config.getoption("gas_benchmark_value")
     fixed_opcode_count = config.getoption("fixed_opcode_count")
 
-    # Only filter if --fixed-opcode-count flag was provided
-    if fixed_opcode_count is None:
+    # Only filter if either benchmark option is provided
+    if not gas_benchmark_value and fixed_opcode_count is None:
         return
 
-    # Load config data if flag provided without value
+    # Load config data if --fixed-opcode-count flag provided without value
     if fixed_opcode_count == "":
         config_data = load_opcode_counts_config(config)
         if config_data:
