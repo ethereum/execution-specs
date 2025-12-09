@@ -12,16 +12,15 @@ from execution_testing.exceptions import (
 )
 from execution_testing.forks import Fork
 
-from ..transition_tool import TransitionTool
+from ..transition_tool import TransitionToolFileSystem
 
 
-class EthereumJSTransitionTool(TransitionTool):
+class EthereumJSTransitionTool(TransitionToolFileSystem):
     """EthereumJS Transition tool interface wrapper class."""
 
     default_binary = Path("ethereumjs-t8ntool.sh")
     detect_binary_pattern = re.compile(r"^ethereumjs t8n\b")
     version_flag: str = "--version"
-    t8n_use_stream = False
 
     binary: Path
     cached_version: Optional[str] = None

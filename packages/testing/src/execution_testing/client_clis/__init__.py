@@ -25,7 +25,12 @@ from .clis.nethermind import Nethtest, NethtestFixtureConsumer
 from .clis.nimbus import NimbusTransitionTool
 from .ethereum_cli import CLINotFoundInPathError, UnknownCLIError
 from .fixture_consumer_tool import FixtureConsumerTool
-from .transition_tool import TransitionTool
+from .transition_tool import (
+    TransitionTool,
+    TransitionToolFileSystem,
+    TransitionToolServer,
+    TransitionToolStream,
+)
 
 TransitionTool.set_default_tool(ExecutionSpecsTransitionTool)
 FixtureConsumerTool.set_default_tool(GethFixtureConsumer)
@@ -51,6 +56,9 @@ __all__ = (
     "Traces",
     "TransactionExceptionWithMessage",
     "TransitionTool",
+    "TransitionToolFileSystem",
     "TransitionToolOutput",
+    "TransitionToolServer",
+    "TransitionToolStream",
     "UnknownCLIError",
 )

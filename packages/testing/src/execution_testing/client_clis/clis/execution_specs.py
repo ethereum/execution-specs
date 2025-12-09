@@ -7,18 +7,19 @@ import tempfile
 from io import StringIO
 from pathlib import Path
 from typing import Any, ClassVar, Dict, Optional
-from typing_extensions import override
 
 import ethereum
 from ethereum_spec_tools.evm_tools import create_parser
 from ethereum_spec_tools.evm_tools.t8n import T8N, ForkCache
 from ethereum_spec_tools.evm_tools.utils import get_supported_forks
+from typing_extensions import override
 
 from execution_testing.client_clis.cli_types import TransitionToolOutput
 from execution_testing.client_clis.file_utils import (
     dump_files_to_directory,
 )
 from execution_testing.client_clis.transition_tool import (
+    Profiler,
     TransitionTool,
     model_dump_config,
 )
@@ -62,12 +63,13 @@ class ExecutionSpecsTransitionTool(TransitionTool):
         """Return True if the fork is supported by the tool."""
         return fork.transition_tool_name() in get_supported_forks()
 
-    def evaluate(
+    def _evaluate(
         self,
         *,
         transition_tool_data: TransitionTool.TransitionToolData,
         debug_output_path: str = "",
-        slow_request: bool = False,
+        profiler: Profiler,
+        slow_request: bool,
     ) -> TransitionToolOutput:
         """
         Evaluate using the EELS T8N entry point.

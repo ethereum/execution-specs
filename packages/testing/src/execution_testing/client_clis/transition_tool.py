@@ -59,11 +59,6 @@ from .file_utils import dump_files_to_directory
 
 model_dump_config: Mapping = {"by_alias": True, "exclude_none": True}
 
-# TODO: reduce NORMAL_SERVER_TIMEOUT back down to 20 once BLS timeout issue is
-# resolved: https://github.com/ethereum/execution-spec-tests/issues/1894
-NORMAL_SERVER_TIMEOUT = 600
-SLOW_REQUEST_TIMEOUT = 600
-
 
 class Profiler:
     """
@@ -137,9 +132,6 @@ class TransitionTool(EthereumCLI):
 
     subcommand: Optional[str] = None
     cached_version: Optional[str] = None
-    t8n_use_stream: bool = False
-    t8n_use_server: bool = False
-    server_url: str | None = None
     process: Optional[subprocess.Popen] = None
     supports_opcode_count: ClassVar[bool] = False
 
@@ -163,24 +155,20 @@ class TransitionTool(EthereumCLI):
         self.trace = trace
         self._info_metadata: Optional[Dict[str, Any]] = {}
 
-    def __init_subclass__(cls) -> None:
-        """Register all subclasses of TransitionTool as possible tools."""
-        TransitionTool.register_tool(cls)
+    def __init_subclass__(cls, abstract: bool = False) -> None:
+        """
+        Register all subclasses of TransitionTool as possible tools.
+
+        Use `abstract=True` to define a subclass that does not implement
+        a specific transition tool for a client, and is meant to be
+        subclassed itself.
+        """
+        if not abstract:
+            TransitionTool.register_tool(cls)
 
     @abstractmethod
     def is_fork_supported(self, fork: Fork) -> bool:
         """Return True if the fork is supported by the tool."""
-        pass
-
-    def start_server(self) -> None:
-        """
-        Start the t8n-server process, extract the port, and leave it
-        running for future reuse.
-        """
-        pass
-
-    def shutdown(self) -> None:
-        """Perform any cleanup tasks related to the tested tool."""
         pass
 
     def reset_traces(self) -> None:
@@ -300,12 +288,401 @@ class TransitionTool(EthereumCLI):
                 input=self.to_input(),
             )
 
-    def _evaluate_filesystem(
+    @abstractmethod
+    def _evaluate(
         self,
         *,
-        t8n_data: TransitionToolData,
+        transition_tool_data: TransitionToolData,
         debug_output_path: str = "",
         profiler: Profiler,
+        slow_request: bool,
+    ) -> TransitionToolOutput:
+        """
+        Internal method to execute the transition tool evaluation.
+        Must be implemented by subclasses.
+        """
+        pass
+
+    def evaluate(
+        self,
+        *,
+        transition_tool_data: TransitionToolData,
+        debug_output_path: str = "",
+        slow_request: bool = False,
+    ) -> TransitionToolOutput:
+        """
+        Execute the relevant evaluate method as required by the `t8n` tool.
+
+        If a client's `t8n` tool varies from the default behavior, this method
+        can be overridden.
+        """
+        with Profiler(
+            enabled=debug_output_path != "",
+            filename=Path(debug_output_path) / "profile.out"
+            if debug_output_path
+            else None,
+        ) as profiler:
+            return self._evaluate(
+                transition_tool_data=transition_tool_data,
+                debug_output_path=debug_output_path,
+                profiler=profiler,
+                slow_request=slow_request,
+            )
+
+
+class TransitionToolServer(TransitionTool, abstract=True):
+    """
+    Transition tool implementation that uses a server for communication.
+    """
+
+    # TODO: reduce NORMAL_SERVER_TIMEOUT back down to 20 once BLS timeout issue is
+    # resolved: https://github.com/ethereum/execution-spec-tests/issues/1894
+    NORMAL_SERVER_TIMEOUT = 600
+    SLOW_REQUEST_TIMEOUT = 600
+
+    server_url: str | None = None
+
+    def start_server(self) -> None:
+        """
+        Start the t8n-server process, extract the port, and leave it
+        running for future reuse.
+        """
+        pass
+
+    def shutdown(self) -> None:
+        """Perform any cleanup tasks related to the tested tool."""
+        pass
+
+    def _restart_server(self) -> None:
+        """Check if server is still responsive and restart if needed."""
+        self.shutdown()
+        time.sleep(0.1)
+        self.start_server()
+
+    def _server_post(
+        self,
+        data: Dict[str, Any],
+        timeout: int,
+        url_args: Optional[Dict[str, List[str] | str]] = None,
+        retries: int = 5,
+    ) -> Response:
+        """Send a POST request to the t8n-server and return the response."""
+        if url_args is None:
+            url_args = {}
+        post_delay = 0.1
+
+        while True:
+            try:
+                response = Session().post(
+                    f"{self.server_url}?{urlencode(url_args, doseq=True)}",
+                    json=data,
+                    timeout=timeout,
+                )
+                break
+            except (RequestsConnectionError, ReadTimeout) as e:
+                self._restart_server()
+                retries -= 1
+                if retries == 0:
+                    raise e
+                time.sleep(post_delay)
+                post_delay *= 2
+        response.raise_for_status()
+        if response.status_code != 200:
+            raise Exception(
+                f"t8n-server returned status code {response.status_code}, "
+                f"response: {response.text}"
+            )
+        return response
+
+    def _generate_post_args(
+        self, t8n_data: TransitionTool.TransitionToolData
+    ) -> Dict[str, List[str] | str]:
+        """Generate the arguments for the POST request to the t8n-server."""
+        del t8n_data
+        return {}
+
+    def _evaluate(
+        self,
+        *,
+        transition_tool_data: TransitionTool.TransitionToolData,
+        debug_output_path: str = "",
+        profiler: Profiler,
+        slow_request: bool,
+    ) -> TransitionToolOutput:
+        """
+        Execute the transition tool sending inputs and outputs via a server.
+        """
+        if not self.server_url:
+            self.start_server()
+
+        timeout = (
+            self.SLOW_REQUEST_TIMEOUT
+            if slow_request
+            else self.NORMAL_SERVER_TIMEOUT
+        )
+        request_data = transition_tool_data.get_request_data()
+        request_data_json = request_data.model_dump(
+            mode="json", **model_dump_config
+        )
+
+        temp_dir = tempfile.TemporaryDirectory()
+        request_data_json["trace"] = self.trace
+        if self.trace:
+            request_data_json["output-basedir"] = temp_dir.name
+
+        if debug_output_path:
+            with profiler.pause():
+                request_info = (
+                    f"Server URL: {self.server_url}\n\n"
+                    f"Request Data:\n{json.dumps(request_data_json, indent=2)}\n"
+                )
+                dump_files_to_directory(
+                    debug_output_path,
+                    {
+                        "input/alloc.json": request_data.input.alloc.raw
+                        if isinstance(request_data.input.alloc, LazyAlloc)
+                        else request_data.input.alloc.model_dump(
+                            mode="json", **model_dump_config
+                        ),
+                        "input/env.json": request_data.input.env,
+                        "input/txs.json": [
+                            tx.model_dump(mode="json", **model_dump_config)
+                            for tx in request_data.input.txs
+                        ],
+                        "input/blob_params.json": request_data.input.blob_params,
+                        "request_info.txt": request_info,
+                    },
+                )
+
+        response = self._server_post(
+            data=request_data_json,
+            url_args=self._generate_post_args(transition_tool_data),
+            timeout=timeout,
+        )
+        response_json = response.json()
+
+        # pop optional test ``_info`` metadata from response, if present
+        self._info_metadata = response_json.pop("_info_metadata", {})
+
+        output: TransitionToolOutput = TransitionToolOutput.model_validate(
+            response_json, context={"exception_mapper": self.exception_mapper}
+        )
+
+        if self.trace:
+            output.result.traces = self.collect_traces(
+                output.result.receipts, temp_dir, debug_output_path
+            )
+        temp_dir.cleanup()
+
+        if debug_output_path:
+            with profiler.pause():
+                response_info = (
+                    f"Status Code: {response.status_code}\n\n"
+                    f"Headers:\n{json.dumps(dict(response.headers), indent=2)}\n\n"
+                    f"Content:\n{response.text}\n"
+                )
+                dump_files_to_directory(
+                    debug_output_path,
+                    {
+                        "output/alloc.json": output.alloc.raw,
+                        "output/result.json": output.result,
+                        "output/txs.rlp": str(output.body),
+                        "response_info.txt": response_info,
+                    },
+                )
+
+        return output
+
+
+class TransitionToolStream(TransitionTool, abstract=True):
+    """
+    Transition tool implementation that uses stdin/stdout streams for communication.
+    """
+
+    def safe_t8n_args(
+        self,
+        fork_name: str,
+        chain_id: int,
+        reward: int,
+        temp_dir: tempfile.TemporaryDirectory | None = None,
+    ) -> List[str]:
+        """Safely construct t8n arguments with validated inputs."""
+        # Validate fork name against actual transition tool names from all
+        # available forks
+        valid_forks = get_valid_transition_tool_names()
+        if fork_name not in valid_forks:
+            raise ValueError(f"Invalid fork name: {fork_name}")
+
+        # Validate chain ID (should be positive integer)
+        if not isinstance(chain_id, int) or chain_id <= 0:
+            raise ValueError(f"Invalid chain ID: {chain_id}")
+
+        # Validate reward (should be non-negative integer)
+        if not isinstance(reward, int) or reward < 0:
+            raise ValueError(f"Invalid reward: {reward}")
+
+        # Use literal strings for command flags
+        input_alloc: LiteralString = "--input.alloc=stdin"
+        input_txs: LiteralString = "--input.txs=stdin"
+        input_env: LiteralString = "--input.env=stdin"
+        output_result: LiteralString = "--output.result=stdout"
+        output_alloc: LiteralString = "--output.alloc=stdout"
+        output_body: LiteralString = "--output.body=stdout"
+        trace_flag: LiteralString = "--trace"
+
+        args = [
+            input_alloc,
+            input_txs,
+            input_env,
+            output_result,
+            output_alloc,
+            output_body,
+            f"--state.fork={fork_name}",
+            f"--state.chainid={chain_id}",
+            f"--state.reward={reward}",
+        ]
+
+        if self.trace and temp_dir:
+            args.extend([trace_flag, f"--output.basedir={temp_dir.name}"])
+
+        return args
+
+    def construct_args_stream(
+        self,
+        t8n_data: TransitionTool.TransitionToolData,
+        temp_dir: tempfile.TemporaryDirectory,
+    ) -> List[str]:
+        """Construct arguments for t8n interaction via streams."""
+        command: list[str] = [str(self.binary)]
+        if self.subcommand:
+            command.append(self.subcommand)
+
+        safe_args = self.safe_t8n_args(
+            t8n_data.fork_name, t8n_data.chain_id, t8n_data.reward, temp_dir
+        )
+        return command + safe_args
+
+    def dump_debug_stream(
+        self,
+        debug_output_path: str,
+        temp_dir: tempfile.TemporaryDirectory,
+        stdin: TransitionToolInput,
+        args: List[str],
+        result: subprocess.CompletedProcess,
+    ) -> None:
+        """
+        Export debug files if requested when interacting with t8n via streams.
+        """
+        if not debug_output_path:
+            return
+
+        t8n_call = " ".join(args)
+        t8n_output_base_dir = os.path.join(debug_output_path, "t8n.sh.out")
+        if self.trace:
+            t8n_call = t8n_call.replace(temp_dir.name, t8n_output_base_dir)
+        t8n_script = textwrap.dedent(
+            f"""\
+            #!/bin/bash
+            # hard-coded to avoid surprises
+            rm -rf {debug_output_path}/t8n.sh.out
+
+            # unused if tracing is not enabled
+            mkdir {debug_output_path}/t8n.sh.out
+            {t8n_call} < {debug_output_path}/stdin.txt
+            """
+        )
+        dump_files_to_directory(
+            debug_output_path,
+            {
+                "args.py": args,
+                "input/alloc.json": stdin.alloc,
+                "input/env.json": stdin.env,
+                "input/txs.json": [
+                    tx.model_dump(mode="json", **model_dump_config)
+                    for tx in stdin.txs
+                ],
+                "returncode.txt": result.returncode,
+                "stdin.txt": stdin,
+                "stdout.txt": result.stdout.decode(),
+                "stderr.txt": result.stderr.decode(),
+                "t8n.sh+x": t8n_script,
+            },
+        )
+
+    def _evaluate(
+        self,
+        *,
+        transition_tool_data: TransitionTool.TransitionToolData,
+        debug_output_path: str = "",
+        profiler: Profiler,
+        slow_request: bool,
+    ) -> TransitionToolOutput:
+        """
+        Execute a transition tool using stdin and stdout for its inputs and
+        outputs.
+        """
+        temp_dir = tempfile.TemporaryDirectory()
+        args = self.construct_args_stream(transition_tool_data, temp_dir)
+
+        stdin = transition_tool_data.to_input()
+
+        process_input = stdin.model_dump_json(**model_dump_config)
+        encoded_process_input = process_input.encode()
+
+        result = subprocess.run(
+            args,
+            input=encoded_process_input,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        with profiler.pause():
+            self.dump_debug_stream(
+                debug_output_path, temp_dir, stdin, args, result
+            )
+
+        if result.returncode != 0:
+            raise Exception("failed to evaluate: " + result.stderr.decode())
+
+        output: TransitionToolOutput = (
+            TransitionToolOutput.model_validate_json(
+                result.stdout,
+                context={"exception_mapper": self.exception_mapper},
+            )
+        )
+
+        if debug_output_path:
+            with profiler.pause():
+                dump_files_to_directory(
+                    debug_output_path,
+                    {
+                        "output/alloc.json": output.alloc.raw,
+                        "output/result.json": output.result,
+                        "output/txs.rlp": str(output.body),
+                    },
+                )
+
+        if self.trace:
+            output.result.traces = self.collect_traces(
+                output.result.receipts, temp_dir, debug_output_path
+            )
+
+        temp_dir.cleanup()
+        return output
+
+
+class TransitionToolFileSystem(TransitionTool, abstract=True):
+    """
+    Transition tool implementation that uses the filesystem for communication.
+    """
+
+    def _evaluate(
+        self,
+        *,
+        transition_tool_data: TransitionTool.TransitionToolData,
+        debug_output_path: str = "",
+        profiler: Profiler,
+        slow_request: bool,
     ) -> TransitionToolOutput:
         """
         Execute a transition tool using the filesystem for its inputs and
@@ -316,7 +693,7 @@ class TransitionTool(EthereumCLI):
         os.mkdir(os.path.join(temp_dir.name, "input"))
         os.mkdir(os.path.join(temp_dir.name, "output"))
 
-        input_paths = t8n_data.to_input().to_files(
+        input_paths = transition_tool_data.to_input().to_files(
             temp_dir_path / "input", **model_dump_config
         )
 
@@ -330,9 +707,9 @@ class TransitionTool(EthereumCLI):
         args = [
             str(self.binary),
             "--state.fork",
-            t8n_data.fork_name_if_supports_blob_params
+            transition_tool_data.fork_name_if_supports_blob_params
             if self.supports_blob_params
-            else t8n_data.fork_name,
+            else transition_tool_data.fork_name,
             "--input.alloc",
             input_paths["alloc"],
             "--input.env",
@@ -348,9 +725,9 @@ class TransitionTool(EthereumCLI):
             "--output.body",
             output_paths["body"],
             "--state.reward",
-            str(t8n_data.reward),
+            str(transition_tool_data.reward),
             "--state.chainid",
-            str(t8n_data.chain_id),
+            str(transition_tool_data.chain_id),
         ]
         if self.supports_opcode_count:
             args.extend(
@@ -447,349 +824,3 @@ class TransitionTool(EthereumCLI):
         temp_dir.cleanup()
 
         return output
-
-    def _restart_server(self) -> None:
-        """Check if server is still responsive and restart if needed."""
-        self.shutdown()
-        time.sleep(0.1)
-        self.start_server()
-
-    def _server_post(
-        self,
-        data: Dict[str, Any],
-        timeout: int,
-        url_args: Optional[Dict[str, List[str] | str]] = None,
-        retries: int = 5,
-    ) -> Response:
-        """Send a POST request to the t8n-server and return the response."""
-        if url_args is None:
-            url_args = {}
-        post_delay = 0.1
-
-        while True:
-            try:
-                response = Session().post(
-                    f"{self.server_url}?{urlencode(url_args, doseq=True)}",
-                    json=data,
-                    timeout=timeout,
-                )
-                break
-            except (RequestsConnectionError, ReadTimeout) as e:
-                self._restart_server()
-                retries -= 1
-                if retries == 0:
-                    raise e
-                time.sleep(post_delay)
-                post_delay *= 2
-        response.raise_for_status()
-        if response.status_code != 200:
-            raise Exception(
-                f"t8n-server returned status code {response.status_code}, "
-                f"response: {response.text}"
-            )
-        return response
-
-    def _generate_post_args(
-        self, t8n_data: TransitionToolData
-    ) -> Dict[str, List[str] | str]:
-        """Generate the arguments for the POST request to the t8n-server."""
-        del t8n_data
-        return {}
-
-    def _evaluate_server(
-        self,
-        *,
-        t8n_data: TransitionToolData,
-        debug_output_path: str = "",
-        timeout: int,
-        profiler: Profiler,
-    ) -> TransitionToolOutput:
-        """
-        Execute the transition tool sending inputs and outputs via a server.
-        """
-        request_data = t8n_data.get_request_data()
-        request_data_json = request_data.model_dump(
-            mode="json", **model_dump_config
-        )
-
-        temp_dir = tempfile.TemporaryDirectory()
-        request_data_json["trace"] = self.trace
-        if self.trace:
-            request_data_json["output-basedir"] = temp_dir.name
-
-        if debug_output_path:
-            with profiler.pause():
-                request_info = (
-                    f"Server URL: {self.server_url}\n\n"
-                    f"Request Data:\n{json.dumps(request_data_json, indent=2)}\n"
-                )
-                dump_files_to_directory(
-                    debug_output_path,
-                    {
-                        "input/alloc.json": request_data.input.alloc.raw
-                        if isinstance(request_data.input.alloc, LazyAlloc)
-                        else request_data.input.alloc.model_dump(
-                            mode="json", **model_dump_config
-                        ),
-                        "input/env.json": request_data.input.env,
-                        "input/txs.json": [
-                            tx.model_dump(mode="json", **model_dump_config)
-                            for tx in request_data.input.txs
-                        ],
-                        "input/blob_params.json": request_data.input.blob_params,
-                        "request_info.txt": request_info,
-                    },
-                )
-
-        response = self._server_post(
-            data=request_data_json,
-            url_args=self._generate_post_args(t8n_data),
-            timeout=timeout,
-        )
-        response_json = response.json()
-
-        # pop optional test ``_info`` metadata from response, if present
-        self._info_metadata = response_json.pop("_info_metadata", {})
-
-        output: TransitionToolOutput = TransitionToolOutput.model_validate(
-            response_json, context={"exception_mapper": self.exception_mapper}
-        )
-
-        if self.trace:
-            output.result.traces = self.collect_traces(
-                output.result.receipts, temp_dir, debug_output_path
-            )
-        temp_dir.cleanup()
-
-        if debug_output_path:
-            with profiler.pause():
-                response_info = (
-                    f"Status Code: {response.status_code}\n\n"
-                    f"Headers:\n{json.dumps(dict(response.headers), indent=2)}\n\n"
-                    f"Content:\n{response.text}\n"
-                )
-                dump_files_to_directory(
-                    debug_output_path,
-                    {
-                        "output/alloc.json": output.alloc.raw,
-                        "output/result.json": output.result,
-                        "output/txs.rlp": str(output.body),
-                        "response_info.txt": response_info,
-                    },
-                )
-
-        return output
-
-    def _evaluate_stream(
-        self,
-        *,
-        t8n_data: TransitionToolData,
-        debug_output_path: str = "",
-        profiler: Profiler,
-    ) -> TransitionToolOutput:
-        """
-        Execute a transition tool using stdin and stdout for its inputs and
-        outputs.
-        """
-        temp_dir = tempfile.TemporaryDirectory()
-        args = self.construct_args_stream(t8n_data, temp_dir)
-
-        stdin = t8n_data.to_input()
-
-        process_input = stdin.model_dump_json(**model_dump_config)
-        encoded_process_input = process_input.encode()
-
-        result = subprocess.run(
-            args,
-            input=encoded_process_input,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-
-        with profiler.pause():
-            self.dump_debug_stream(
-                debug_output_path, temp_dir, stdin, args, result
-            )
-
-        if result.returncode != 0:
-            raise Exception("failed to evaluate: " + result.stderr.decode())
-
-        output: TransitionToolOutput = (
-            TransitionToolOutput.model_validate_json(
-                result.stdout,
-                context={"exception_mapper": self.exception_mapper},
-            )
-        )
-
-        if debug_output_path:
-            with profiler.pause():
-                dump_files_to_directory(
-                    debug_output_path,
-                    {
-                        "output/alloc.json": output.alloc.raw,
-                        "output/result.json": output.result,
-                        "output/txs.rlp": str(output.body),
-                    },
-                )
-
-        if self.trace:
-            output.result.traces = self.collect_traces(
-                output.result.receipts, temp_dir, debug_output_path
-            )
-
-        temp_dir.cleanup()
-        return output
-
-    def safe_t8n_args(
-        self,
-        fork_name: str,
-        chain_id: int,
-        reward: int,
-        temp_dir: tempfile.TemporaryDirectory | None = None,
-    ) -> List[str]:
-        """Safely construct t8n arguments with validated inputs."""
-        # Validate fork name against actual transition tool names from all
-        # available forks
-        valid_forks = get_valid_transition_tool_names()
-        if fork_name not in valid_forks:
-            raise ValueError(f"Invalid fork name: {fork_name}")
-
-        # Validate chain ID (should be positive integer)
-        if not isinstance(chain_id, int) or chain_id <= 0:
-            raise ValueError(f"Invalid chain ID: {chain_id}")
-
-        # Validate reward (should be non-negative integer)
-        if not isinstance(reward, int) or reward < 0:
-            raise ValueError(f"Invalid reward: {reward}")
-
-        # Use literal strings for command flags
-        input_alloc: LiteralString = "--input.alloc=stdin"
-        input_txs: LiteralString = "--input.txs=stdin"
-        input_env: LiteralString = "--input.env=stdin"
-        output_result: LiteralString = "--output.result=stdout"
-        output_alloc: LiteralString = "--output.alloc=stdout"
-        output_body: LiteralString = "--output.body=stdout"
-        trace_flag: LiteralString = "--trace"
-
-        args = [
-            input_alloc,
-            input_txs,
-            input_env,
-            output_result,
-            output_alloc,
-            output_body,
-            f"--state.fork={fork_name}",
-            f"--state.chainid={chain_id}",
-            f"--state.reward={reward}",
-        ]
-
-        if self.trace and temp_dir:
-            args.extend([trace_flag, f"--output.basedir={temp_dir.name}"])
-
-        return args
-
-    def construct_args_stream(
-        self,
-        t8n_data: TransitionToolData,
-        temp_dir: tempfile.TemporaryDirectory,
-    ) -> List[str]:
-        """Construct arguments for t8n interaction via streams."""
-        command: list[str] = [str(self.binary)]
-        if self.subcommand:
-            command.append(self.subcommand)
-
-        safe_args = self.safe_t8n_args(
-            t8n_data.fork_name, t8n_data.chain_id, t8n_data.reward, temp_dir
-        )
-        return command + safe_args
-
-    def dump_debug_stream(
-        self,
-        debug_output_path: str,
-        temp_dir: tempfile.TemporaryDirectory,
-        stdin: TransitionToolInput,
-        args: List[str],
-        result: subprocess.CompletedProcess,
-    ) -> None:
-        """
-        Export debug files if requested when interacting with t8n via streams.
-        """
-        if not debug_output_path:
-            return
-
-        t8n_call = " ".join(args)
-        t8n_output_base_dir = os.path.join(debug_output_path, "t8n.sh.out")
-        if self.trace:
-            t8n_call = t8n_call.replace(temp_dir.name, t8n_output_base_dir)
-        t8n_script = textwrap.dedent(
-            f"""\
-            #!/bin/bash
-            # hard-coded to avoid surprises
-            rm -rf {debug_output_path}/t8n.sh.out
-
-            # unused if tracing is not enabled
-            mkdir {debug_output_path}/t8n.sh.out
-            {t8n_call} < {debug_output_path}/stdin.txt
-            """
-        )
-        dump_files_to_directory(
-            debug_output_path,
-            {
-                "args.py": args,
-                "input/alloc.json": stdin.alloc,
-                "input/env.json": stdin.env,
-                "input/txs.json": [
-                    tx.model_dump(mode="json", **model_dump_config)
-                    for tx in stdin.txs
-                ],
-                "returncode.txt": result.returncode,
-                "stdin.txt": stdin,
-                "stdout.txt": result.stdout.decode(),
-                "stderr.txt": result.stderr.decode(),
-                "t8n.sh+x": t8n_script,
-            },
-        )
-
-    def evaluate(
-        self,
-        *,
-        transition_tool_data: TransitionToolData,
-        debug_output_path: str = "",
-        slow_request: bool = False,
-    ) -> TransitionToolOutput:
-        """
-        Execute the relevant evaluate method as required by the `t8n` tool.
-
-        If a client's `t8n` tool varies from the default behavior, this method
-        can be overridden.
-        """
-        with Profiler(
-            enabled=debug_output_path != "",
-            filename=Path(debug_output_path) / "profile.out"
-            if debug_output_path
-            else None,
-        ) as profiler:
-            if self.t8n_use_server:
-                if not self.server_url:
-                    self.start_server()
-                return self._evaluate_server(
-                    t8n_data=transition_tool_data,
-                    debug_output_path=debug_output_path,
-                    timeout=SLOW_REQUEST_TIMEOUT
-                    if slow_request
-                    else NORMAL_SERVER_TIMEOUT,
-                    profiler=profiler,
-                )
-
-            elif self.t8n_use_stream:
-                return self._evaluate_stream(
-                    t8n_data=transition_tool_data,
-                    debug_output_path=debug_output_path,
-                    profiler=profiler,
-                )
-            else:
-                return self._evaluate_filesystem(
-                    t8n_data=transition_tool_data,
-                    debug_output_path=debug_output_path,
-                    profiler=profiler,
-                )

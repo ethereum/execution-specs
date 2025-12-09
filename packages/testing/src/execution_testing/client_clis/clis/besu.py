@@ -21,13 +21,15 @@ from execution_testing.forks import Fork
 
 from ..cli_types import TransitionToolOutput
 from ..transition_tool import (
+    Profiler,
     TransitionTool,
+    TransitionToolServer,
     dump_files_to_directory,
     model_dump_config,
 )
 
 
-class BesuTransitionTool(TransitionTool):
+class BesuTransitionTool(TransitionToolServer):
     """Besu EvmTool Transition tool frontend wrapper class."""
 
     default_binary = Path("evm")
@@ -112,12 +114,13 @@ class BesuTransitionTool(TransitionTool):
         if self.besu_trace_dir:
             self.besu_trace_dir.cleanup()
 
-    def evaluate(
+    def _evaluate(
         self,
         *,
         transition_tool_data: TransitionTool.TransitionToolData,
         debug_output_path: str = "",
-        slow_request: bool = False,
+        profiler: Profiler,
+        slow_request: bool,
     ) -> TransitionToolOutput:
         """Execute `evm t8n` with the specified arguments."""
         del slow_request

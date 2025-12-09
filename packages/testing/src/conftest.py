@@ -9,6 +9,7 @@ from execution_testing.client_clis import (
     BesuTransitionTool,
     ExecutionSpecsTransitionTool,
     TransitionTool,
+    TransitionToolServer,
 )
 
 DEFAULT_TRANSITION_TOOL_FOR_UNIT_TESTS = ExecutionSpecsTransitionTool
@@ -34,7 +35,8 @@ def installed_transition_tool_instances() -> Generator[
     for transition_tool_class in INSTALLED_TRANSITION_TOOLS:
         try:
             transition_tool_instance = transition_tool_class()
-            transition_tool_instance.start_server()
+            if isinstance(transition_tool_instance, TransitionToolServer):
+                transition_tool_instance.start_server()
             instances[transition_tool_class.__name__] = (
                 transition_tool_instance
             )
@@ -44,7 +46,7 @@ def installed_transition_tool_instances() -> Generator[
             instances[transition_tool_class.__name__] = e
     yield instances
     for instance in instances.values():
-        if isinstance(instance, TransitionTool):
+        if isinstance(instance, TransitionToolServer):
             instance.shutdown()
 
 

@@ -11,7 +11,6 @@ from functools import cache
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional
 
-from execution_testing.exceptions.exceptions.block import BlockException
 import pytest
 
 from execution_testing.client_clis.file_utils import (
@@ -26,20 +25,20 @@ from execution_testing.exceptions import (
     ExceptionMapper,
     TransactionException,
 )
+from execution_testing.exceptions.exceptions.block import BlockException
 from execution_testing.fixtures.base import FixtureFormat
 from execution_testing.fixtures.blockchain import BlockchainFixture
 from execution_testing.fixtures.state import StateFixture
 from execution_testing.forks import Fork
 
-from ..transition_tool import TransitionTool
+from ..transition_tool import TransitionToolFileSystem
 
 
-class EvmOneTransitionTool(TransitionTool):
+class EvmOneTransitionTool(TransitionToolFileSystem):
     """Evmone `evmone-t8n` Transition tool interface wrapper class."""
 
     default_binary = Path("evmone-t8n")
     detect_binary_pattern = re.compile(r"^evmone-t8n\b")
-    t8n_use_stream = False
 
     binary: Path
     cached_version: Optional[str] = None

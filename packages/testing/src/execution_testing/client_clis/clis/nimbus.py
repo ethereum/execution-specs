@@ -13,10 +13,10 @@ from execution_testing.exceptions import (
 )
 from execution_testing.forks import Fork
 
-from ..transition_tool import TransitionTool
+from ..transition_tool import TransitionToolFileSystem
 
 
-class NimbusTransitionTool(TransitionTool):
+class NimbusTransitionTool(TransitionToolFileSystem):
     """Nimbus `evm` Transition tool interface wrapper class."""
 
     default_binary = Path("t8n")

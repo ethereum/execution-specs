@@ -25,7 +25,7 @@ from execution_testing.forks import Fork
 
 from ..ethereum_cli import EthereumCLI
 from ..fixture_consumer_tool import FixtureConsumerTool
-from ..transition_tool import TransitionTool, dump_files_to_directory
+from ..transition_tool import TransitionToolStream, dump_files_to_directory
 
 
 class GethExceptionMapper(ExceptionMapper):
@@ -225,12 +225,11 @@ class GethEvm(EthereumCLI):
         return self._run_command(help_command).stdout
 
 
-class GethTransitionTool(GethEvm, TransitionTool):
+class GethTransitionTool(GethEvm, TransitionToolStream):
     """go-ethereum `evm` Transition tool interface wrapper class."""
 
     subcommand: Optional[str] = "t8n"
     trace: bool
-    t8n_use_stream = True
 
     def __init__(
         self,
@@ -243,7 +242,7 @@ class GethTransitionTool(GethEvm, TransitionTool):
         if not exception_mapper:
             exception_mapper = GethExceptionMapper()
         GethEvm.__init__(self, binary=binary, trace=trace)
-        TransitionTool.__init__(
+        TransitionToolStream.__init__(
             self, binary=binary, exception_mapper=exception_mapper, trace=trace
         )
         help_command = [str(self.binary), str(self.subcommand), "--help"]
