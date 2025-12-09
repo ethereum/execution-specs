@@ -679,6 +679,9 @@ def process_system_transaction(
 
     system_tx_output = process_message_call(system_tx_message)
 
+    # EIP-7928: Filter net-zero changes before committing to block frame.
+    filter_net_zero_frame_changes(tx_env.state_changes, block_env.state)
+
     # Commit system transaction changes to block frame
     # System transactions always succeed (or block is invalid)
     commit_transaction_frame(tx_env.state_changes)
