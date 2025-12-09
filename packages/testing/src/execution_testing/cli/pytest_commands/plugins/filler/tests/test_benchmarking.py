@@ -92,7 +92,7 @@ def test_gas_benchmark_option_added(pytester: pytest.Pytester) -> None:
     assert result.ret == 0
     assert any("--gas-benchmark-values" in line for line in result.outlines)
     assert any(
-        "Specify gas benchmark values for tests" in line
+        "Gas limits (in millions) for benchmark tests" in line
         for line in result.outlines
     )
 
