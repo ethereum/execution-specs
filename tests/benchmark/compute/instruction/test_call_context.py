@@ -43,6 +43,7 @@ def test_call_frame_context_ops(
 ) -> None:
     """Benchmark call zero-parameter instructions."""
     benchmark_test(
+        target_opcode=opcode,
         code_generator=ExtCallGenerator(attack_block=opcode),
     )
 
@@ -55,6 +56,7 @@ def test_calldatasize(
 ) -> None:
     """Benchmark CALLDATASIZE instruction."""
     benchmark_test(
+        target_opcode=Op.CALLDATASIZE,
         code_generator=ExtCallGenerator(
             attack_block=Op.CALLDATASIZE,
             tx_kwargs={"data": b"\x00" * calldata_length},
@@ -71,6 +73,7 @@ def test_callvalue_from_origin(
     Benchmark CALLVALUE instruction from origin.
     """
     benchmark_test(
+        target_opcode=Op.CALLVALUE,
         code_generator=JumpLoopGenerator(
             attack_block=Op.POP(Op.CALLVALUE),
             tx_kwargs={"value": int(non_zero_value)},
@@ -123,6 +126,7 @@ def test_calldataload(
 ) -> None:
     """Benchmark CALLDATALOAD instruction."""
     benchmark_test(
+        target_opcode=Op.CALLDATALOAD,
         code_generator=JumpLoopGenerator(
             setup=Op.PUSH0,
             attack_block=Op.CALLDATALOAD,
@@ -195,11 +199,12 @@ def test_calldatacopy_from_origin(
     )
 
     benchmark_test(
+        target_opcode=Op.CALLDATACOPY,
         code_generator=JumpLoopGenerator(
             setup=setup,
             attack_block=attack_block,
             tx_kwargs={"data": data},
-        )
+        ),
     )
 
 
@@ -267,11 +272,12 @@ def test_calldatacopy_from_call(
     )
 
     benchmark_test(
+        target_opcode=Op.CALLDATACOPY,
         code_generator=ExtCallGenerator(
             setup=setup,
             attack_block=attack_block,
             tx_kwargs={"data": data},
-        )
+        ),
     )
 
 
@@ -316,6 +322,7 @@ def test_returndatasize_nonzero(
         )
 
     benchmark_test(
+        target_opcode=Op.RETURNDATASIZE,
         code_generator=JumpLoopGenerator(
             setup=setup, attack_block=Op.POP(Op.RETURNDATASIZE)
         ),
@@ -328,6 +335,7 @@ def test_returndatasize_zero(
 ) -> None:
     """Benchmark RETURNDATASIZE instruction with zero buffer."""
     benchmark_test(
+        target_opcode=Op.RETURNDATASIZE,
         code_generator=ExtCallGenerator(attack_block=Op.RETURNDATASIZE),
     )
 
@@ -377,6 +385,7 @@ def test_returndatacopy(
     attack_block = Op.RETURNDATACOPY(dst, Op.PUSH0, Op.RETURNDATASIZE)
 
     benchmark_test(
+        target_opcode=Op.RETURNDATACOPY,
         code_generator=JumpLoopGenerator(
             setup=returndata_gen,
             attack_block=attack_block,

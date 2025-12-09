@@ -36,6 +36,7 @@ def test_call_frame_context_ops(
 ) -> None:
     """Benchmark call zero-parameter instructions."""
     benchmark_test(
+        target_opcode=opcode,
         code_generator=ExtCallGenerator(attack_block=opcode),
     )
 
@@ -67,6 +68,7 @@ def test_blobhash(
         )
 
     benchmark_test(
+        target_opcode=Op.BLOBHASH,
         code_generator=ExtCallGenerator(
             attack_block=Op.BLOBHASH(blob_index),
             tx_kwargs=tx_kwargs,

@@ -30,6 +30,7 @@ def test_gas_op(
 ) -> None:
     """Benchmark GAS instruction."""
     benchmark_test(
+        target_opcode=Op.GAS,
         code_generator=ExtCallGenerator(attack_block=Op.GAS),
     )
 
@@ -39,6 +40,7 @@ def test_pc_op(
 ) -> None:
     """Benchmark PC instruction."""
     benchmark_test(
+        target_opcode=Op.PC,
         code_generator=ExtCallGenerator(attack_block=Op.PC),
     )
 
@@ -53,7 +55,10 @@ def test_jumps(
         sender=pre.fund_eoa(),
     )
 
-    benchmark_test(tx=tx)
+    benchmark_test(
+        target_opcode=Op.JUMP,
+        tx=tx,
+    )
 
 
 @pytest.mark.repricing
@@ -62,6 +67,7 @@ def test_jumpi_fallthrough(
 ) -> None:
     """Benchmark JUMPI instruction with fallthrough."""
     benchmark_test(
+        target_opcode=Op.JUMPI,
         code_generator=JumpLoopGenerator(
             attack_block=Op.JUMPI(Op.PUSH0, Op.PUSH0)
         ),
@@ -80,7 +86,10 @@ def test_jumpis(
         sender=pre.fund_eoa(),
     )
 
-    benchmark_test(tx=tx)
+    benchmark_test(
+        target_opcode=Op.JUMPI,
+        tx=tx,
+    )
 
 
 @pytest.mark.repricing
@@ -88,4 +97,7 @@ def test_jumpdests(
     benchmark_test: BenchmarkTestFiller,
 ) -> None:
     """Benchmark JUMPDEST instruction."""
-    benchmark_test(code_generator=JumpLoopGenerator(attack_block=Op.JUMPDEST))
+    benchmark_test(
+        target_opcode=Op.JUMPDEST,
+        code_generator=JumpLoopGenerator(attack_block=Op.JUMPDEST),
+    )

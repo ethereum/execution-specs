@@ -63,6 +63,7 @@ def test_keccak_max_permutations(
             optimal_input_length = i
 
     benchmark_test(
+        target_opcode=Op.SHA3,
         code_generator=JumpLoopGenerator(
             setup=Op.PUSH20[optimal_input_length],
             attack_block=Op.POP(Op.SHA3(Op.PUSH0, Op.DUP1)),
@@ -79,6 +80,7 @@ def test_keccak(
 ) -> None:
     """Benchmark KECCAK256 instruction with diff input data and offsets."""
     benchmark_test(
+        target_opcode=Op.SHA3,
         code_generator=JumpLoopGenerator(
             setup=Op.CALLDATACOPY(offset, Op.PUSH0, Op.CALLDATASIZE),
             attack_block=Op.POP(Op.SHA3(offset, Op.CALLDATASIZE)),

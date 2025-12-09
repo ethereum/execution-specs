@@ -45,6 +45,7 @@ def test_swap(
 ) -> None:
     """Benchmark SWAP instruction."""
     benchmark_test(
+        target_opcode=opcode,
         code_generator=JumpLoopGenerator(
             attack_block=opcode, setup=Op.PUSH0 * opcode.min_stack_height
         ),
@@ -80,6 +81,7 @@ def test_dup(
     """Benchmark DUP instruction."""
     min_stack_height = opcode.min_stack_height
     benchmark_test(
+        target_opcode=opcode,
         code_generator=ExtCallGenerator(
             setup=Op.PUSH0 * min_stack_height,
             attack_block=opcode,
@@ -132,6 +134,7 @@ def test_push(
 ) -> None:
     """Benchmark PUSH instruction."""
     benchmark_test(
+        target_opcode=opcode,
         code_generator=ExtCallGenerator(
             attack_block=opcode[1] if opcode.has_data_portion() else opcode
         ),
