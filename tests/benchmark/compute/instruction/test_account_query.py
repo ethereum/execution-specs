@@ -445,10 +445,14 @@ def test_ext_account_query_cold(
     absent_accounts: bool,
     env: Environment,
     gas_benchmark_value: int,
+    fixed_opcode_count: int,
 ) -> None:
     """
     Benchmark stateful opcodes accessing cold accounts.
     """
+    if fixed_opcode_count:
+        pytest.skip("Fixed opcode count is not supported for this test")
+
     attack_gas_limit = gas_benchmark_value
 
     gas_costs = fork.gas_costs()
