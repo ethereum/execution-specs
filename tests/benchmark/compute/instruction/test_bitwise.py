@@ -124,6 +124,7 @@ def test_not_op(
     )
 
 
+@pytest.mark.repricing
 @pytest.mark.parametrize("opcode", [Op.SHR, Op.SAR])
 def test_shifts(
     benchmark_test: BenchmarkTestFiller,

@@ -40,6 +40,7 @@ from execution_testing import (
 from tests.benchmark.compute.helpers import XOR_TABLE
 
 
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "opcode",
     [
@@ -247,6 +248,7 @@ def test_xcall(
     )
 
 
+@pytest.mark.repricing(max_code_size_ratio=0)
 @pytest.mark.parametrize(
     "opcode",
     [
@@ -358,6 +360,7 @@ def test_create(
     )
 
 
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "opcode",
     [
@@ -430,7 +433,7 @@ def test_creates_collisions(
     )
 
 
-@pytest.mark.repricing(return_size=1024, return_non_zero_data=True)
+@pytest.mark.repricing(return_size=0, return_non_zero_data=False)
 @pytest.mark.parametrize(
     "opcode",
     [Op.RETURN, Op.REVERT],
@@ -476,6 +479,7 @@ def test_return_revert(
     )
 
 
+@pytest.mark.repricing(value_bearing=True)
 @pytest.mark.parametrize("value_bearing", [True, False])
 def test_selfdestruct_existing(
     benchmark_test: BenchmarkTestFiller,
@@ -665,6 +669,7 @@ def test_selfdestruct_existing(
     )
 
 
+@pytest.mark.repricing(value_bearing=True)
 @pytest.mark.parametrize("value_bearing", [True, False])
 def test_selfdestruct_created(
     state_test: StateTestFiller,
@@ -773,6 +778,7 @@ def test_selfdestruct_created(
     )
 
 
+@pytest.mark.repricing(value_bearing=False)
 @pytest.mark.parametrize("value_bearing", [True, False])
 def test_selfdestruct_initcode(
     state_test: StateTestFiller,

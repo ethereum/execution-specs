@@ -35,6 +35,7 @@ def test_gas_op(
     )
 
 
+@pytest.mark.repricing
 def test_pc_op(
     benchmark_test: BenchmarkTestFiller,
 ) -> None:
@@ -45,6 +46,7 @@ def test_pc_op(
     )
 
 
+@pytest.mark.repricing
 def test_jumps(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,

@@ -159,7 +159,7 @@ def test_arithmetic(
     )
 
 
-@pytest.mark.repricing(mod_bits=255)
+@pytest.mark.repricing(mod_bits=127)
 @pytest.mark.parametrize("mod_bits", [255, 191, 127, 63])
 @pytest.mark.parametrize("opcode", [Op.MOD, Op.SMOD])
 def test_mod(
@@ -278,7 +278,7 @@ def test_mod(
     )
 
 
-@pytest.mark.repricing(mod_bits=255)
+@pytest.mark.repricing(mod_bits=191)
 @pytest.mark.parametrize("mod_bits", [255, 191, 127, 63])
 @pytest.mark.parametrize("opcode", [Op.ADDMOD, Op.MULMOD])
 def test_mod_arithmetic(
