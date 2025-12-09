@@ -19,6 +19,7 @@ from pydantic import ConfigDict, Field
 
 from execution_testing.base_types import Address, HexNumber
 from execution_testing.client_clis import TransitionTool
+from execution_testing.client_clis.cli_types import OpcodeCount
 from execution_testing.exceptions import (
     BlockException,
     TransactionException,
@@ -56,6 +57,7 @@ class BenchmarkCodeGenerator(ABC):
     fixed_opcode_count: int | None = None
     code_padding_opcode: Op | None = None
     _contract_address: Address | None = None
+    _inner_iterations: int = 1000
 
     @abstractmethod
     def deploy_contracts(self, *, pre: Alloc, fork: Fork) -> Address:
@@ -72,8 +74,13 @@ class BenchmarkCodeGenerator(ABC):
         )
         self._target_contract_address = pre.deploy_contract(code=code)
 
-        iterations = self.fixed_opcode_count
-        assert iterations is not None, "fixed_opcode_count is not set"
+        assert self.fixed_opcode_count is not None, (
+            "fixed_opcode_count is not set"
+        )
+        # Adjust outer loop iterations based on inner iterations
+        # If inner is 500 instead of 1000, double the outer loop
+        outer_multiplier = 1000 // self._inner_iterations
+        iterations = self.fixed_opcode_count * outer_multiplier
 
         prefix = Op.CALLDATACOPY(
             Op.PUSH0, Op.PUSH0, Op.CALLDATASIZE
@@ -82,7 +89,7 @@ class BenchmarkCodeGenerator(ABC):
             prefix
             + Op.JUMPDEST
             + Op.POP(
-                Op.STATICCALL(
+                Op.DELEGATECALL(
                     gas=Op.GAS,
                     address=self._target_contract_address,
                     args_offset=0,
@@ -148,11 +155,32 @@ class BenchmarkCodeGenerator(ABC):
         max_iterations = available_space // len(repeated_code)
 
         # Use fixed_opcode_count if provided, otherwise fill to max
+        # Iteration Logic: The goal is to set the total operation count proportional to a
+        # 'fixed_opcode_count' multiplied by 1000, across two contracts (Loop M * Target N).
+
+        # --- 1. Determine Inner Iterations (N) ---
+        # The Target Contract's loop count is determined by block filling, capped at 1000.
+        #
+        # 1a. Calculate 'max_iterations' to fill the block.
+        # 1b. The Inner Iteration count (N) is capped at 1000.
+        # 1c. If the calculated N is less than 1000, use 500 as the fallback count.
+
+        # --- 2. Determine Outer Iterations (M) ---
+        # The Loop Contract's call count (M) is set to ensure the final total execution is consistent.
+        #
+        # 2a. If N is 1000: Set M = fixed_opcode_count. (Total ops: fixed_opcode_count * 1000)
+        # 2b. If N is 500: Set M = fixed_opcode_count * 2. (Total ops: (fixed_opcode_count * 2) * 500 = fixed_opcode_count * 1000)
         if self.fixed_opcode_count is not None:
-            max_iterations = min(max_iterations, 1000)
+            inner_iterations = 1000 if max_iterations >= 1000 else 500
+            self._inner_iterations = min(max_iterations, inner_iterations)
 
         # TODO: Unify the PUSH0 and PUSH1 usage.
-        code = setup + Op.JUMPDEST + repeated_code * max_iterations
+        iterations = (
+            self._inner_iterations
+            if self.fixed_opcode_count
+            else max_iterations
+        )
+        code = setup + Op.JUMPDEST + repeated_code * iterations
         if self.fixed_opcode_count is None:
             code += cleanup + (
                 Op.JUMP(len(setup)) if len(setup) > 0 else Op.PUSH0 + Op.JUMP
@@ -197,6 +225,7 @@ class BenchmarkTest(BaseTest):
         default_factory=lambda: int(Environment().gas_limit)
     )
     fixed_opcode_count: int | None = None
+    target_opcode: Op | None = None
     code_generator: BenchmarkCodeGenerator | None = None
 
     supported_fixture_formats: ClassVar[
@@ -392,6 +421,31 @@ class BenchmarkTest(BaseTest):
             blocks=self.blocks,
         )
 
+    def _verify_target_opcode_count(
+        self, opcode_count: OpcodeCount | None
+    ) -> None:
+        """Verify the target opcode was executed the expected number of times."""
+        # Skip validation if opcode count is not available (e.g. currently only supported for evmone filling)
+        if opcode_count is None:
+            return
+
+        assert self.target_opcode is not None, "target_opcode is not set"
+        assert self.fixed_opcode_count is not None, (
+            "fixed_opcode_count is not set"
+        )
+
+        # fixed_opcode_count is in thousands units
+        expected = self.fixed_opcode_count * 1000
+
+        actual = opcode_count.root.get(self.target_opcode, 0)
+        tolerance = expected * 0.05  # 5% tolerance
+
+        if abs(actual - expected) > tolerance:
+            raise ValueError(
+                f"Target opcode {self.target_opcode} count mismatch: "
+                f"expected ~{expected} (±5%), got {actual}"
+            )
+
     def generate(
         self,
         t8n: TransitionTool,
@@ -402,9 +456,18 @@ class BenchmarkTest(BaseTest):
             exception=self.tx.error is not None if self.tx else False
         )
         if fixture_format in BlockchainTest.supported_fixture_formats:
-            return self.generate_blockchain_test().generate(
+            blockchain_test = self.generate_blockchain_test()
+            fixture = blockchain_test.generate(
                 t8n=t8n, fixture_format=fixture_format
             )
+
+            # Verify target opcode count if specified
+            if (
+                self.target_opcode is not None
+                and self.fixed_opcode_count is not None
+            ):
+                self._verify_target_opcode_count(blockchain_test._opcode_count)
+            return fixture
         else:
             raise Exception(f"Unsupported fixture format: {fixture_format}")
 
