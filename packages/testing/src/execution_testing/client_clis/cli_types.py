@@ -3,7 +3,7 @@
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Any, Dict, Generic, List, Self, TypeVar
+from typing import Annotated, Any, Dict, Generic, List, Self, TextIO, TypeVar
 
 from pydantic import Field, PlainSerializer, PlainValidator
 
@@ -304,6 +304,13 @@ class LazyAlloc(Generic[TRaw]):
         """Validate the alloc."""
         raise NotImplementedError("validate method not implemented.")
 
+    def to_file(self, f: TextIO) -> Alloc:
+        """
+        Dump the allocation to a file while avoiding validation when
+        possible.
+        """
+        raise NotImplementedError("to_file method not implemented.")
+
     def get(self) -> Alloc:
         """Model validate the allocation and return it."""
         if self.alloc is None:
@@ -329,6 +336,13 @@ class LazyAllocJson(LazyAlloc[JSONDict]):
         """Validate the alloc."""
         return Alloc.model_validate(self.raw)
 
+    def to_file(self, f: TextIO) -> Alloc:
+        """
+        Dump the allocation to a file while avoiding validation when
+        possible.
+        """
+        json.dump(self.raw, f, ensure_ascii=True, indent=4)
+
 
 class LazyAllocStr(LazyAlloc[str]):
     """
@@ -340,6 +354,13 @@ class LazyAllocStr(LazyAlloc[str]):
     def validate(self) -> Alloc:
         """Validate the alloc."""
         return Alloc.model_validate_json(self.raw)
+
+    def to_file(self, f: TextIO) -> Alloc:
+        """
+        Dump the allocation to a file while avoiding validation when
+        possible.
+        """
+        f.write(self.raw)
 
 
 @dataclass
