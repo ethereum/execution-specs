@@ -246,6 +246,7 @@ def pytest_collection_modifyitems(
         # If the test does not have the repricing marker, skip it
         repricing_marker = item.get_closest_marker("repricing")
         if not repricing_marker:
+            filtered.append(item)
             continue
 
         # If the test has the repricing marker but no specific kwargs,
