@@ -360,7 +360,6 @@ def test_create(
     )
 
 
-@pytest.mark.repricing
 @pytest.mark.parametrize(
     "opcode",
     [
@@ -433,7 +432,6 @@ def test_creates_collisions(
     )
 
 
-@pytest.mark.repricing(return_size=0, return_non_zero_data=False)
 @pytest.mark.parametrize(
     "opcode",
     [Op.RETURN, Op.REVERT],
@@ -479,7 +477,6 @@ def test_return_revert(
     )
 
 
-@pytest.mark.repricing(value_bearing=True)
 @pytest.mark.parametrize("value_bearing", [True, False])
 def test_selfdestruct_existing(
     benchmark_test: BenchmarkTestFiller,
