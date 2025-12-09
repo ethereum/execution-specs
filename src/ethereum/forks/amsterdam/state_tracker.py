@@ -436,21 +436,29 @@ def merge_on_failure(child_frame: StateChanges) -> None:
     # merged on failure - they are discarded
 
 
-def commit_transaction_frame(tx_frame: StateChanges) -> None:
+def commit_transaction_frame(
+    tx_frame: StateChanges,
+    state: "State",
+) -> None:
     """
     Commit transaction frame to block frame.
 
-    Unlike merge_on_success(), this merges ALL changes without net-zero
-    filtering (each tx's changes recorded at their respective index).
+    Filters net-zero changes before merging to ensure only actual state
+    modifications are recorded in the block access list.
 
     Parameters
     ----------
     tx_frame :
         The transaction frame to commit.
+    state :
+        The current state (used for net-zero filtering).
 
     """
     assert tx_frame.parent is not None
     block_frame = tx_frame.parent
+
+    # Filter net-zero changes before committing
+    filter_net_zero_frame_changes(tx_frame, state)
 
     # Merge address accesses
     block_frame.touched_addresses.update(tx_frame.touched_addresses)
@@ -468,7 +476,7 @@ def commit_transaction_frame(tx_frame: StateChanges) -> None:
     for addr, idx, nonce in tx_frame.nonce_changes:
         block_frame.nonce_changes.add((addr, idx, nonce))
 
-    # Merge code changes (net-zero filtering done in normalize_transaction)
+    # Merge code changes
     for (addr, idx), final_code in tx_frame.code_changes.items():
         block_frame.code_changes[(addr, idx)] = final_code
 
