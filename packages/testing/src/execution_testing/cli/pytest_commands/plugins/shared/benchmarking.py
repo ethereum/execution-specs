@@ -2,6 +2,7 @@
 
 import json
 import re
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -122,6 +123,15 @@ def pytest_collection_modifyitems(
         config_data = load_opcode_counts_config(config)
         if config_data:
             config._opcode_counts_config = config_data  # type: ignore[attr-defined]
+        else:
+            warnings.warn(
+                "--fixed-opcode-count was provided without a value, but "
+                ".fixed_opcode_counts.json was not found. "
+                "Run 'uv run benchmark_parser' to generate it, or provide "
+                "explicit values (e.g., --fixed-opcode-count 1,10,100).",
+                UserWarning,
+                stacklevel=1,
+            )
 
     # Check if -m repricing marker filter was specified
     markexpr = config.getoption("markexpr", "")
