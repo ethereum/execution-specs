@@ -71,6 +71,7 @@ def test_comparison(
     attack_block = Op.DUP2 + opcode
     cleanup = Op.POP + Op.POP + Op.DUP2 + Op.DUP2
     benchmark_test(
+        target_opcode=opcode,
         code_generator=JumpLoopGenerator(
             setup=setup,
             attack_block=attack_block,
@@ -88,6 +89,7 @@ def test_iszero(
     Benchmark ISZERO instruction (takes one arg, pushes one value).
     """
     benchmark_test(
+        target_opcode=Op.ISZERO,
         code_generator=JumpLoopGenerator(
             setup=Op.PUSH0,
             attack_block=Op.ISZERO,

@@ -349,11 +349,12 @@ def test_create(
     )
 
     benchmark_test(
+        target_opcode=opcode,
         code_generator=JumpLoopGenerator(
             setup=setup,
             attack_block=attack_block,
             contract_balance=1_000_000_000 if value > 0 else 0,
-        )
+        ),
     )
 
 
@@ -422,6 +423,7 @@ def test_creates_collisions(
             pre.deploy_contract(address=addr, code=Op.INVALID)
 
     benchmark_test(
+        target_opcode=opcode,
         code_generator=JumpLoopGenerator(
             setup=setup, attack_block=attack_block
         ),
@@ -465,6 +467,7 @@ def test_return_revert(
         Op.CODECOPY(size=return_size) if return_non_zero_data else Bytecode()
     )
     benchmark_test(
+        target_opcode=opcode,
         code_generator=ExtCallGenerator(
             setup=mem_preparation,
             attack_block=opcode(size=return_size),
@@ -653,6 +656,7 @@ def test_selfdestruct_existing(
 
     benchmark_test(
         post=post,
+        target_opcode=Op.SELFDESTRUCT,
         blocks=[
             Block(txs=setup_txs),
             Block(txs=exec_txs, fee_recipient=fee_recipient),

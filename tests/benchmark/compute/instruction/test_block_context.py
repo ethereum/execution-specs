@@ -43,6 +43,7 @@ def test_block_context_ops(
 ) -> None:
     """Benchmark zero-parameter block context instructions."""
     benchmark_test(
+        target_opcode=opcode,
         code_generator=ExtCallGenerator(attack_block=opcode),
     )
 
@@ -73,6 +74,7 @@ def test_blockhash(
     block_number = Op.AND(Op.GAS, 0xFF) if index is None else index
 
     benchmark_test(
+        target_opcode=Op.BLOCKHASH,
         setup_blocks=blocks,
         code_generator=ExtCallGenerator(
             attack_block=Op.BLOCKHASH(block_number)

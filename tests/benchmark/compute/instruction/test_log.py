@@ -81,6 +81,7 @@ def test_log(
     attack_block = Op.DUP1 * topic_count + size_op + offset + opcode
 
     benchmark_test(
+        target_opcode=opcode,
         code_generator=JumpLoopGenerator(
             setup=setup, attack_block=attack_block
         ),

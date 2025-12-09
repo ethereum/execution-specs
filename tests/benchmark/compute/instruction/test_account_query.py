@@ -49,6 +49,7 @@ def test_selfbalance(
 ) -> None:
     """Benchmark SELFBALANCE instruction."""
     benchmark_test(
+        target_opcode=Op.SELFBALANCE,
         code_generator=ExtCallGenerator(
             attack_block=Op.SELFBALANCE,
             contract_balance=contract_balance,
@@ -62,6 +63,7 @@ def test_codesize(
 ) -> None:
     """Benchmark CODESIZE instruction."""
     benchmark_test(
+        target_opcode=Op.CODESIZE,
         code_generator=ExtCallGenerator(attack_block=Op.CODESIZE),
     )
 
@@ -99,11 +101,12 @@ def test_codecopy(
     attack_block = Op.CODECOPY(src_dst, src_dst, Op.DUP1)  # DUP1 copies size.
 
     benchmark_test(
+        target_opcode=Op.CODECOPY,
         code_generator=JumpLoopGenerator(
             setup=setup,
             attack_block=attack_block,
             code_padding_opcode=Op.STOP,
-        )
+        ),
     )
 
 
@@ -334,6 +337,7 @@ def test_extcodecopy_warm(
     )
 
     benchmark_test(
+        target_opcode=Op.EXTCODECOPY,
         code_generator=JumpLoopGenerator(
             setup=Op.PUSH10(copied_size) + Op.PUSH20(copied_contract_address),
             attack_block=Op.EXTCODECOPY(Op.DUP4, 0, 0, Op.DUP2),
@@ -411,6 +415,7 @@ def test_ext_account_query_warm(
         post[target_addr] = Account(**contract_kwargs)
 
     benchmark_test(
+        target_opcode=opcode,
         post=post,
         code_generator=JumpLoopGenerator(
             setup=Op.MSTORE(0, target_addr),
@@ -568,6 +573,7 @@ def test_ext_account_query_cold(
     blocks.append(Block(txs=execution_txs))
 
     benchmark_test(
+        target_opcode=opcode,
         post=post,
         blocks=blocks,
     )

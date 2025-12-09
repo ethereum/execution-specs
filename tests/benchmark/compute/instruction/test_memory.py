@@ -27,6 +27,7 @@ def test_msize(
 ) -> None:
     """Benchmark MSIZE instruction."""
     benchmark_test(
+        target_opcode=Op.MSIZE,
         code_generator=ExtCallGenerator(
             setup=Op.POP(Op.MLOAD(Op.SELFBALANCE)),
             attack_block=Op.MSIZE,
@@ -67,6 +68,7 @@ def test_memory_access(
     )
 
     benchmark_test(
+        target_opcode=opcode,
         code_generator=JumpLoopGenerator(
             setup=setup, attack_block=attack_block
         ),
@@ -107,6 +109,7 @@ def test_mcopy(
         else Bytecode()
     )
     benchmark_test(
+        target_opcode=Op.MCOPY,
         code_generator=JumpLoopGenerator(
             attack_block=attack_block, cleanup=mem_touch
         ),
