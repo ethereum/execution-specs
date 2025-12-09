@@ -183,54 +183,53 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
             )
 
     if "fixed_opcode_count" in metafunc.fixturenames:
-        # Only parametrize if test has repricing marker
-        has_repricing = (
-            metafunc.definition.get_closest_marker("repricing") is not None
-        )
-        if has_repricing:
-            opcode_counts_to_use = None
+        # Parametrize for any benchmark test when --fixed-opcode-count is provided
+        if fixed_opcode_counts_cli is None:
+            return
 
-            if fixed_opcode_counts_cli and fixed_opcode_counts_cli != "":
-                # CLI flag with value takes precedence
-                opcode_counts_to_use = [
-                    int(x.strip()) for x in fixed_opcode_counts_cli.split(",")
-                ]
-            elif fixed_opcode_counts_cli == "":
-                # Flag provided without value - load from config file
-                # Check if config data was already loaded in pytest_collection_modifyitems
-                config_data = getattr(
-                    metafunc.config, "_opcode_counts_config", None
-                )
+        opcode_counts_to_use = None
 
-                # If not loaded yet (pytest_generate_tests runs first), load it now
-                if config_data is None:
-                    config_data = load_opcode_counts_config(metafunc.config)
-                    if config_data:
-                        metafunc.config._opcode_counts_config = config_data  # type: ignore[attr-defined]
+        if fixed_opcode_counts_cli:
+            # CLI flag with value takes precedence
+            opcode_counts_to_use = [
+                int(x.strip()) for x in fixed_opcode_counts_cli.split(",")
+            ]
+        else:
+            # Flag provided without value - load from config file
+            # Check if config data was already loaded in pytest_collection_modifyitems
+            config_data = getattr(
+                metafunc.config, "_opcode_counts_config", None
+            )
 
+            # If not loaded yet (pytest_generate_tests runs first), load it now
+            if config_data is None:
+                config_data = load_opcode_counts_config(metafunc.config)
                 if config_data:
-                    # Look up opcode counts using regex pattern matching
-                    test_name = metafunc.function.__name__
-                    opcode_counts_to_use = get_opcode_counts_for_test(
-                        test_name,
-                        config_data.get("scenario_configs", {}),
-                        config_data.get("default_counts", [1]),
-                    )
+                    metafunc.config._opcode_counts_config = config_data  # type: ignore[attr-defined]
 
-            # Parametrize if we have counts to use
-            if opcode_counts_to_use:
-                opcode_count_parameters = [
-                    pytest.param(
-                        opcode_count,
-                        id=f"opcount_{opcode_count}K",
-                    )
-                    for opcode_count in opcode_counts_to_use
-                ]
-                metafunc.parametrize(
-                    "fixed_opcode_count",
-                    opcode_count_parameters,
-                    scope="function",
+            if config_data:
+                # Look up opcode counts using regex pattern matching
+                test_name = metafunc.function.__name__
+                opcode_counts_to_use = get_opcode_counts_for_test(
+                    test_name,
+                    config_data.get("scenario_configs", {}),
+                    config_data.get("default_counts", [1]),
                 )
+
+        # Parametrize if we have counts to use
+        if opcode_counts_to_use:
+            opcode_count_parameters = [
+                pytest.param(
+                    opcode_count,
+                    id=f"opcount_{opcode_count}K",
+                )
+                for opcode_count in opcode_counts_to_use
+            ]
+            metafunc.parametrize(
+                "fixed_opcode_count",
+                opcode_count_parameters,
+                scope="function",
+            )
 
 
 @pytest.fixture(scope="function")
