@@ -70,8 +70,6 @@ class OpcodeExtractor(ast.NodeVisitor):
             pattern = f"{test_name}.*"
             self.patterns.append(pattern)
 
-        self.generic_visit(node)
-
     def _has_benchmark_test_param(self, node: ast.FunctionDef) -> bool:
         """Check if function has benchmark_test parameter."""
         return any(arg.arg == "benchmark_test" for arg in node.args.args)
