@@ -213,7 +213,9 @@ def test_repricing_marker_filter_with_benchmark_options(
 
     assert result.ret == 0
     # The repricing test should be collected
-    assert any("test_benchmark_with_repricing" in line for line in result.outlines)
+    assert any(
+        "test_benchmark_with_repricing" in line for line in result.outlines
+    )
     # The non-repricing test should NOT be collected
     assert not any(
         "test_benchmark_without_repricing" in line for line in result.outlines
