@@ -110,7 +110,7 @@ def get_opcode_counts_for_test(
 def pytest_collection_modifyitems(
     config: pytest.Config, items: list[pytest.Item]
 ) -> None:
-    """Filter tests based on repricing marker when benchmark options are used."""
+    """Filter tests based on repricing marker."""
     gas_benchmark_value = config.getoption("gas_benchmark_value")
     fixed_opcode_count = config.getoption("fixed_opcode_count")
 
@@ -140,11 +140,9 @@ def pytest_collection_modifyitems(
 
     filtered = []
     for item in items:
-        if not item.get_closest_marker("benchmark"):
-            continue
-
         repricing_marker = item.get_closest_marker("repricing")
         if not repricing_marker:
+            filtered.append(item)
             continue
 
         if not repricing_marker.kwargs:
@@ -251,7 +249,7 @@ def gas_benchmark_value(request: pytest.FixtureRequest) -> int:
     # Only use high gas limit if --fixed-opcode-count flag was provided
     fixed_opcode_count = request.config.getoption("fixed_opcode_count")
     if fixed_opcode_count is not None:
-        return HIGH_GAS_LIMIT
+        return BENCHMARKING_MAX_GAS
 
     return EnvironmentDefaults.gas_limit
 
@@ -266,7 +264,6 @@ def fixed_opcode_count(request: pytest.FixtureRequest) -> int | None:
 
 
 BENCHMARKING_MAX_GAS = 1_000_000_000_000
-HIGH_GAS_LIMIT = 1_000_000_000
 
 
 @pytest.fixture
