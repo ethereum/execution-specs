@@ -258,3 +258,57 @@ def test_bal_noop_write_filtering(
             test_address: Account(storage={2: 42, 3: 100, 4: 200}),
         },
     )
+
+
+def test_bal_system_contract_noop_filtering(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Test that system contract post-execution calls filter net-zero
+    storage writes.
+
+    When no transaction interacts with withdrawal/consolidation contracts
+    during a block, the post-execution system calls read storage slots
+    0-3 but don't modify them. These should appear as storage READS,
+    not storage CHANGES.
+    """
+    sender = pre.fund_eoa()
+    receiver = pre.fund_eoa(amount=0)
+
+    # simple transfer that doesn't interact with system contracts
+    tx = Transaction(
+        sender=sender,
+        to=receiver,
+        value=100,
+        gas_limit=21_000,
+    )
+
+    # withdrawal and consolidation contracts should NOT have any storage
+    # changes since they weren't modified - only reads occurred during
+    # post-execution system calls
+    expected_block_access_list = BlockAccessListExpectation(
+        account_expectations={
+            WITHDRAWAL_REQUEST_ADDRESS: BalAccountExpectation(
+                storage_changes=[],
+                storage_reads=[0x00, 0x01, 0x02, 0x03],
+            ),
+            CONSOLIDATION_REQUEST_ADDRESS: BalAccountExpectation(
+                storage_changes=[],
+                storage_reads=[0x00, 0x01, 0x02, 0x03],
+            ),
+        }
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_block_access_list=expected_block_access_list,
+            )
+        ],
+        post={
+            receiver: Account(balance=100),
+        },
+    )
