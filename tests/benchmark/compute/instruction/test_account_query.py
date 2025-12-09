@@ -41,7 +41,7 @@ from tests.benchmark.compute.helpers import (
 )
 
 
-@pytest.mark.repricing(contract_balance=0)
+@pytest.mark.repricing(contract_balance=1)
 @pytest.mark.parametrize("contract_balance", [0, 1])
 def test_selfbalance(
     benchmark_test: BenchmarkTestFiller,
@@ -68,6 +68,7 @@ def test_codesize(
     )
 
 
+@pytest.mark.repricing(max_code_size_ratio=0, fixed_src_dst=True)
 @pytest.mark.parametrize(
     "max_code_size_ratio",
     [
@@ -110,6 +111,7 @@ def test_codecopy(
     )
 
 
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "opcode",
     [
@@ -318,6 +320,7 @@ def test_extcode_ops(
     )
 
 
+@pytest.mark.repricing(copied_size=512)
 @pytest.mark.parametrize(
     "copied_size",
     [
@@ -345,6 +348,11 @@ def test_extcodecopy_warm(
     )
 
 
+@pytest.mark.repricing(
+    empty_code=True,
+    initial_balance=True,
+    initial_storage=True,
+)
 @pytest.mark.parametrize(
     "opcode",
     [
@@ -424,6 +432,7 @@ def test_ext_account_query_warm(
     )
 
 
+@pytest.mark.repricing(absent_accounts=True)
 @pytest.mark.parametrize(
     "opcode",
     [

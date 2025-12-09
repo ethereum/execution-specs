@@ -19,10 +19,10 @@ from execution_testing import (
 
 
 @pytest.mark.repricing(
-    size=1024 * 1024,
+    size=0,
     non_zero_data=True,
-    zeros_topic=False,
-    fixed_offset=True,
+    zeros_topic=0,
+    fixed_offset=False,
 )
 @pytest.mark.parametrize(
     "opcode",
