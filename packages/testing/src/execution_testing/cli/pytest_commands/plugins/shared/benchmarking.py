@@ -118,6 +118,22 @@ def pytest_collection_modifyitems(
     if not gas_benchmark_value and fixed_opcode_count is None:
         return
 
+    # In --fixed-opcode-count mode, we only support tests that meet all of the following:
+    #   - The test uses the benchmark_test fixture
+    #   - The benchmark test uses a code generator
+    #
+    # Here we filter out tests that do not use the benchmark_test fixture.
+    # Note: At this stage we cannot filter based on whether a code generator is used.
+    if fixed_opcode_count:
+        filtered = []
+        for item in items:
+            if (
+                hasattr(item, "fixturenames")
+                and "benchmark_test" in item.fixturenames
+            ):
+                filtered.append(item)
+        items[:] = filtered
+
     # Load config data if --fixed-opcode-count flag provided without value
     if fixed_opcode_count == "":
         config_data = load_opcode_counts_config(config)
