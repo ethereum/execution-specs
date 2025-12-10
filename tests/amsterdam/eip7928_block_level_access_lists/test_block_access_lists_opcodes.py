@@ -48,27 +48,6 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
 @pytest.fixture
-def call_memory_expansion_cost(fork: Fork) -> Callable[[int], int]:
-    """
-    Returns a function to calculate memory expansion cost for a given size.
-
-    Used by CALL/CALLCODE/DELEGATECALL/STATICCALL tests.
-
-    Memory cost formula: words * G_MEMORY + (words^2) // 512
-    where words = ceil(size / 32)
-    """
-    gas_costs = fork.gas_costs()
-
-    def calculate(size: int) -> int:
-        if size == 0:
-            return 0
-        words = (size + 31) // 32
-        return words * gas_costs.G_MEMORY + (words * words) // 512
-
-    return calculate
-
-
-@pytest.fixture
 def call_warmup_bytecode_cost(fork: Fork) -> int:
     """
     Bytecode cost for warming up one account via EXTCODESIZE.
@@ -454,7 +433,6 @@ def test_bal_call_success_no_delegation(
     target_is_empty: bool,
     value: int,
     memory_expansion: bool,
-    call_memory_expansion_cost: Callable[[int], int],
     call_warmup_bytecode_cost: int,
 ) -> None:
     """CALL without 7702 delegation - test successful execution."""
@@ -500,7 +478,7 @@ def test_bal_call_success_no_delegation(
         else gas_costs.G_COLD_ACCOUNT_ACCESS
     )
     transfer_cost = gas_costs.G_CALL_VALUE if value > 0 else 0
-    memory_cost = call_memory_expansion_cost(ret_size)
+    memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
 
     # Create cost: only if value > 0 AND target is empty
     create_cost = (
@@ -563,7 +541,6 @@ def test_bal_call_oog_before_target_access_no_delegation(
     target_is_empty: bool,
     value: int,
     memory_expansion: bool,
-    call_memory_expansion_cost: Callable[[int], int],
     call_warmup_bytecode_cost: int,
 ) -> None:
     """CALL without 7702 delegation - OOG before state access."""
@@ -609,7 +586,7 @@ def test_bal_call_oog_before_target_access_no_delegation(
         else gas_costs.G_COLD_ACCOUNT_ACCESS
     )
     transfer_cost = gas_costs.G_CALL_VALUE if value > 0 else 0
-    memory_cost = call_memory_expansion_cost(ret_size)
+    memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
 
     # static gas cost (before state access): access + transfer + memory
     static_gas_cost = access_cost + transfer_cost + memory_cost
@@ -658,7 +635,6 @@ def test_bal_call_oog_after_target_access_no_delegation(
     fork: Fork,
     target_is_warm: bool,
     memory_expansion: bool,
-    call_memory_expansion_cost: Callable[[int], int],
     call_warmup_bytecode_cost: int,
 ) -> None:
     """
@@ -717,7 +693,7 @@ def test_bal_call_oog_after_target_access_no_delegation(
         else gas_costs.G_COLD_ACCOUNT_ACCESS
     )
     transfer_cost = gas_costs.G_CALL_VALUE  # value > 0, so always charged
-    memory_cost = call_memory_expansion_cost(ret_size)
+    memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
 
     # static gas cost (before state access): access + transfer + memory
     static_gas_cost = access_cost + transfer_cost + memory_cost
@@ -775,7 +751,6 @@ def test_bal_call_and_oog_7702_delegation(
     delegation_is_warm: bool,
     value: int,
     memory_expansion: bool,
-    call_memory_expansion_cost: Callable[[int], int],
     call_warmup_bytecode_cost: int,
 ) -> None:
     """CALL with 7702 delegation - test all OOG boundaries."""
@@ -825,7 +800,7 @@ def test_bal_call_and_oog_7702_delegation(
         else gas_costs.G_COLD_ACCOUNT_ACCESS
     )
     transfer_cost = gas_costs.G_CALL_VALUE if value > 0 else 0
-    memory_cost = call_memory_expansion_cost(ret_size)
+    memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
 
     # Delegation cost
     delegation_cost = (
@@ -976,10 +951,7 @@ def test_bal_delegatecall_success_no_delegation(
     )
 
     # Memory expansion cost
-    memory_cost = 0
-    if memory_expansion:
-        words = (ret_offset + ret_size + 31) // 32
-        memory_cost = words * gas_costs.G_MEMORY + (words * words) // 512
+    memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
 
     # static gas (before state access) == second check (no delegation cost)
     static_gas_cost = access_cost + memory_cost
@@ -1076,11 +1048,7 @@ def test_bal_delegatecall_oog_before_target_access_no_delegation(
         else gas_costs.G_COLD_ACCOUNT_ACCESS
     )
 
-    # Memory expansion cost
-    memory_cost = 0
-    if memory_expansion:
-        words = (ret_offset + ret_size + 31) // 32
-        memory_cost = words * gas_costs.G_MEMORY + (words * words) // 512
+    memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
 
     # static gas: access + memory
     static_gas_cost = access_cost + memory_cost
@@ -1205,11 +1173,7 @@ def test_bal_delegatecall_and_oog_7702_delegation(
         else gas_costs.G_COLD_ACCOUNT_ACCESS
     )
 
-    # Memory expansion cost
-    memory_cost = 0
-    if memory_expansion:
-        words = (ret_offset + ret_size + 31) // 32
-        memory_cost = words * gas_costs.G_MEMORY + (words * words) // 512
+    memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
 
     # Delegation cost
     delegation_cost = (
@@ -1286,7 +1250,6 @@ def test_bal_callcode_success_no_delegation(
     target_is_warm: bool,
     value: int,
     memory_expansion: bool,
-    call_memory_expansion_cost: Callable[[int], int],
     call_warmup_bytecode_cost: int,
 ) -> None:
     """
@@ -1333,7 +1296,7 @@ def test_bal_callcode_success_no_delegation(
         else gas_costs.G_COLD_ACCOUNT_ACCESS
     )
     transfer_cost = gas_costs.G_CALL_VALUE if value > 0 else 0
-    memory_cost = call_memory_expansion_cost(ret_size)
+    memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
 
     # static gas: access + transfer + memory
     # static_gas_cost == second check (no delegation cost)
@@ -1379,7 +1342,6 @@ def test_bal_callcode_oog_before_target_access_no_delegation(
     target_is_warm: bool,
     value: int,
     memory_expansion: bool,
-    call_memory_expansion_cost: Callable[[int], int],
     call_warmup_bytecode_cost: int,
 ) -> None:
     """
@@ -1426,7 +1388,7 @@ def test_bal_callcode_oog_before_target_access_no_delegation(
         else gas_costs.G_COLD_ACCOUNT_ACCESS
     )
     transfer_cost = gas_costs.G_CALL_VALUE if value > 0 else 0
-    memory_cost = call_memory_expansion_cost(ret_size)
+    memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
 
     # static gas: access + transfer + memory
     static_gas_cost = access_cost + transfer_cost + memory_cost
@@ -1489,7 +1451,6 @@ def test_bal_callcode_and_oog_7702_delegation(
     delegation_is_warm: bool,
     value: int,
     memory_expansion: bool,
-    call_memory_expansion_cost: Callable[[int], int],
     call_warmup_bytecode_cost: int,
 ) -> None:
     """
@@ -1544,7 +1505,7 @@ def test_bal_callcode_and_oog_7702_delegation(
         else gas_costs.G_COLD_ACCOUNT_ACCESS
     )
     transfer_cost = gas_costs.G_CALL_VALUE if value > 0 else 0
-    memory_cost = call_memory_expansion_cost(ret_size)
+    memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
 
     # Delegation cost
     delegation_cost = (
@@ -1678,10 +1639,7 @@ def test_bal_staticcall_success_no_delegation(
     )
 
     # Memory expansion cost
-    memory_cost = 0
-    if memory_expansion:
-        words = (ret_offset + ret_size + 31) // 32
-        memory_cost = words * gas_costs.G_MEMORY + (words * words) // 512
+    memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
 
     # For non-delegation, static_gas_cost == second_check (no delegation cost)
     static_gas_cost = access_cost + memory_cost
@@ -1779,10 +1737,7 @@ def test_bal_staticcall_oog_before_target_access_no_delegation(
     )
 
     # Memory expansion cost
-    memory_cost = 0
-    if memory_expansion:
-        words = (ret_offset + ret_size + 31) // 32
-        memory_cost = words * gas_costs.G_MEMORY + (words * words) // 512
+    memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
 
     # static gas: access + memory
     static_gas_cost = access_cost + memory_cost
@@ -1907,11 +1862,7 @@ def test_bal_staticcall_and_oog_7702_delegation(
         else gas_costs.G_COLD_ACCOUNT_ACCESS
     )
 
-    # Memory expansion cost
-    memory_cost = 0
-    if memory_expansion:
-        words = (ret_offset + ret_size + 31) // 32
-        memory_cost = words * gas_costs.G_MEMORY + (words * words) // 512
+    memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
 
     # Delegation cost
     delegation_cost = (
@@ -2052,8 +2003,9 @@ def test_bal_extcodecopy_and_oog(
 
     if oog_scenario == "success":
         # Provide enough gas for everything including memory expansion
-        words = (memory_offset + copy_size + 31) // 32
-        memory_cost = (words * gas_costs.G_MEMORY) + (words * words // 512)
+        memory_cost = fork.memory_expansion_gas_calculator()(
+            new_bytes=memory_offset + copy_size
+        )
         execution_cost = push_cost + cold_access_cost + copy_cost + memory_cost
         tx_gas_limit = intrinsic_gas_cost + execution_cost
         target_in_bal = True
@@ -2069,8 +2021,9 @@ def test_bal_extcodecopy_and_oog(
         target_in_bal = False
     elif oog_scenario == "oog_at_memory_boundary":
         # Calculate memory cost and provide exactly 1 less than needed
-        words = (memory_offset + copy_size + 31) // 32
-        memory_cost = (words * gas_costs.G_MEMORY) + (words * words // 512)
+        memory_cost = fork.memory_expansion_gas_calculator()(
+            new_bytes=memory_offset + copy_size
+        )
         execution_cost = push_cost + cold_access_cost + copy_cost + memory_cost
         tx_gas_limit = intrinsic_gas_cost + execution_cost - 1
         target_in_bal = False
