@@ -13,6 +13,7 @@ urls = { "Homepage" = "https://github.com/ethereum/execution-specs" }
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Programming Language :: Python :: Implementation :: CPython",
     "Intended Audience :: Developers",
