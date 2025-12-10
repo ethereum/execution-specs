@@ -205,6 +205,46 @@ def test_valid(
             b"",
             id="pt_6_9_plus_pt_0x126198c_0x1e4dc",
         ),
+        pytest.param(
+            PointG1(Spec.G1.x + Spec.P, Spec.G1.y) + Spec.INF_G1,
+            b"",
+            id="Pplus1_2_plus_inf",
+        ),
+        pytest.param(
+            PointG1(Spec.G1.x, Spec.G1.y + Spec.P) + Spec.INF_G1,
+            b"",
+            id="1_Pplus2_plus_inf",
+        ),
+        pytest.param(
+            Spec.INF_G1 + PointG1(Spec.G1.x + Spec.P, Spec.G1.y),
+            b"",
+            id="Pplus1_2_plus_inf",
+        ),
+        pytest.param(
+            Spec.INF_G1 + PointG1(Spec.G1.x, Spec.G1.y + Spec.P),
+            b"",
+            id="inf_plus_1_Pplus2",
+        ),
+        pytest.param(
+            PointG1(Spec.P, 0) + Spec.INF_G1,
+            b"",
+            id="P_0_plus_inf",
+        ),
+        pytest.param(
+            PointG1(0, Spec.P) + Spec.INF_G1,
+            b"",
+            id="0_P_plus_inf",
+        ),
+        pytest.param(
+            Spec.INF_G1 + PointG1(Spec.P, 0),
+            b"",
+            id="inf_plus_P_0",
+        ),
+        pytest.param(
+            Spec.INF_G1 + PointG1(0, Spec.P),
+            b"",
+            id="inf_plus_0_P",
+        ),
     ],
 )
 @pytest.mark.ported_from(
