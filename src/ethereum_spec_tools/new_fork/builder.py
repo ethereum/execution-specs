@@ -214,6 +214,14 @@ class ReplaceForkName(CodemodArgs):
     def _to_args(
         self, fork_builder: "ForkBuilder", working_directory: Path
     ) -> list[list[str]]:
+        new_fork_title_case = fork_builder.new_fork.removeprefix("bpo")
+        if new_fork_title_case == fork_builder.new_fork:
+            new_fork_title_case = fork_builder.new_fork.replace(
+                "_", " "
+            ).title()
+        else:
+            new_fork_title_case = "BPO" + new_fork_title_case
+
         common = [
             str(working_directory),
             "--replace",
@@ -221,7 +229,7 @@ class ReplaceForkName(CodemodArgs):
             fork_builder.new_fork,
             "--replace",
             fork_builder.template_fork.title_case_name,
-            fork_builder.new_fork.replace("_", " ").title(),
+            new_fork_title_case,
             "--replace",
             fork_builder.template_fork.title_case_name.lower(),
             fork_builder.new_fork.replace("_", " ").lower(),

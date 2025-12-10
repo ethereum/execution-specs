@@ -9,7 +9,7 @@ Introduction
 ------------
 
 Hexadecimal utility functions used in this specification, specific to
-Bpo1 types.
+BPO1 types.
 """
 
 from ethereum_types.bytes import Bytes

@@ -360,6 +360,9 @@ class Hardfork:
         """
         Name of the hard fork.
         """
+        if self.short_name.startswith("bpo"):
+            return "BPO" + self.short_name[3:].replace("_", " ")
+
         return self.short_name.replace("_", " ").title()
 
     def __repr__(self) -> str:

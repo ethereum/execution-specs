@@ -128,6 +128,8 @@ def find_fork(
                 current_fork_module = fork
                 current_fork_block = fork_block
 
+    current_fork_module = re.sub("^b_p_o", "bpo", current_fork_module)
+
     for fork in forks:
         if current_fork_module == fork.short_name:
             return fork, current_fork_block
