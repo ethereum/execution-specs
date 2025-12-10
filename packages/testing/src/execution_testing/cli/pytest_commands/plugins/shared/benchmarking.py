@@ -224,7 +224,7 @@ def pytest_collection_modifyitems(
     #
     # Here we filter out tests that do not use the benchmark_test fixture.
     # Note: At this stage we cannot filter based on whether a code generator is used.
-    if fixed_opcode_count is not None:
+    if fixed_opcode_count:
         filtered = []
         for item in items:
             if (
@@ -234,9 +234,22 @@ def pytest_collection_modifyitems(
                 filtered.append(item)
         items[:] = filtered
 
-    # Extract the specified flag from the command line.
-    # If the `-m repricing` flag is not specified, or is negated,
-    # we skip filtering tests by the repricing marker.
+    # Load config data if --fixed-opcode-count flag provided without value
+    if fixed_opcode_count == "":
+        config_data = load_opcode_counts_config(config)
+        if config_data:
+            config._opcode_counts_config = config_data  # type: ignore[attr-defined]
+        else:
+            warnings.warn(
+                "--fixed-opcode-count was provided without a value, but "
+                ".fixed_opcode_counts.json was not found. "
+                "Run 'uv run benchmark_parser' to generate it, or provide "
+                "explicit values (e.g., --fixed-opcode-count 1,10,100).",
+                UserWarning,
+                stacklevel=1,
+            )
+
+    # Check if -m repricing marker filter was specified
     markexpr = config.getoption("markexpr", "")
     if "repricing" not in markexpr or "not repricing" in markexpr:
         return
