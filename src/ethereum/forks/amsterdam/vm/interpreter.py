@@ -117,11 +117,12 @@ def process_message_call(message: Message) -> MessageCallOutput:
     """
     block_env = message.block_env
     refund_counter = U256(0)
+    track_address(message.tx_env.state_changes, message.caller)
+    track_address(message.tx_env.state_changes, message.current_target)
     if message.target == Bytes0(b""):
         is_collision = account_has_code_or_nonce(
             block_env.state, message.current_target
         ) or account_has_storage(block_env.state, message.current_target)
-        track_address(message.tx_env.state_changes, message.current_target)
         if is_collision:
             return MessageCallOutput(
                 Uint(0),
