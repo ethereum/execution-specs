@@ -5,40 +5,91 @@ on:
     tags:
       - "tests-v[0-9]+.[0-9]+.[0-9]+*"
   workflow_dispatch:
+    inputs:
+      until_fork:
+        description: 'Fill until fork (default: BPO4)'
+        required: false
+        default: 'BPO4'
+      stable_fork:
+        description: 'Last stable/deployed fork (default: Prague)'
+        required: false
+        default: 'Prague'
 
 jobs:
-  features:
+  # Determine fork lists for matrix jobs
+  configure:
     runs-on: ubuntu-latest
     outputs:
-      features: ${{ steps.parse.outputs.features }}
+      until_fork: ${{ steps.config.outputs.until_fork }}
+      stable_fork: ${{ steps.config.outputs.stable_fork }}
+      all_forks: ${{ steps.forks.outputs.all_forks }}
+      stable_forks: ${{ steps.forks.outputs.stable_forks }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - name: Get names from .github/configs/feature.yaml
-        id: parse
-        shell: bash
-        run: |
-          # Get all features without `feature_only: true`
-          grep -Po "^[0-9a-zA-Z_\-]+" ./.github/configs/feature.yaml | \
-          while read feature; do
-            if ! awk "/^$feature:/{flag=1; next} /^[[:alnum:]]/{flag=0} flag && /feature_only:.*true/{exit 1}" \
-                  ./.github/configs/feature.yaml; then
-              continue
-            fi
-            echo "$feature"
-          done | jq -R . | jq -cs . > features.json
-          echo "features=$(cat features.json)" >> "$GITHUB_OUTPUT"
 
-  build:
-    needs: features
+      - name: Set fork configuration
+        id: config
+        run: |
+          echo "until_fork=${{ inputs.until_fork || 'BPO4' }}" >> "$GITHUB_OUTPUT"
+          echo "stable_fork=${{ inputs.stable_fork || 'Prague' }}" >> "$GITHUB_OUTPUT"
+
+      - name: Install uv and python
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+        with:
+          version: ${{ vars.UV_VERSION }}
+          python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
+
+      - name: Install EEST
+        run: uv sync --no-progress
+
+      - name: Get fork lists
+        id: forks
+        run: |
+          # Get all forks up to until_fork
+          ALL_FORKS=$(uv run python -c "
+          from execution_testing.forks.helpers import get_forks
+          import json
+          until_fork = '${{ steps.config.outputs.until_fork }}'
+          forks = []
+          for f in get_forks():
+              if f.ignore():
+                  continue
+              forks.append(f.name())
+              if f.name() == until_fork:
+                  break
+          print(json.dumps(forks))
+          ")
+          echo "all_forks=$ALL_FORKS" >> "$GITHUB_OUTPUT"
+
+          # Get stable forks (up to stable_fork)
+          STABLE_FORKS=$(uv run python -c "
+          from execution_testing.forks.helpers import get_forks
+          import json
+          stable_fork = '${{ steps.config.outputs.stable_fork }}'
+          forks = []
+          for f in get_forks():
+              if f.ignore():
+                  continue
+              forks.append(f.name())
+              if f.name() == stable_fork:
+                  break
+          print(json.dumps(forks))
+          ")
+          echo "stable_forks=$STABLE_FORKS" >> "$GITHUB_OUTPUT"
+
+          echo "All forks: $ALL_FORKS"
+          echo "Stable forks: $STABLE_FORKS"
+
+  # Phase 1: Generate pre-allocation groups for all forks
+  generate-pre-alloc:
+    needs: configure
     runs-on: [self-hosted-ghr, size-gigachungus-x64]
-    timeout-minutes: 1440
-    strategy:
-      matrix:
-        name: ${{ fromJson(needs.features.outputs.features) }}
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           submodules: true
+
       - name: Fetch lllc
         uses: ./.github/actions/fetch-binary
         with:
@@ -48,6 +99,7 @@ jobs:
           remote_name: lllc
           binary_name: lllc
           expected_sha256: 865a0d5379acb3b5471337b5dcf686a2dd71587c6b65b9da6c963de627e0b300
+
       - name: Fetch Solidity
         uses: ./.github/actions/fetch-binary
         with:
@@ -57,26 +109,197 @@ jobs:
           remote_name: solc-static-linux
           binary_name: solc
           expected_sha256: fb03a29a517452b9f12bcf459ef37d0a543765bb3bbc911e70a87d6a37c30d5f
-      - uses: ./.github/actions/build-fixtures
-        with:
-          release_name: ${{ matrix.name }}
-          uv_version: ${{ vars.UV_VERSION }}
-          python_version: ${{ vars.DEFAULT_PYTHON_VERSION }}
 
+      - name: Install uv and python
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+        with:
+          enable-cache: false
+          version: ${{ vars.UV_VERSION }}
+          python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
+
+      - name: Install EEST
+        run: uv sync --no-progress
+
+      - name: Generate pre-allocation groups (Phase 1)
+        run: |
+          echo "Generating pre-allocation groups for all forks up to ${{ needs.configure.outputs.until_fork }}"
+          uv run fill \
+            --generate-pre-alloc-groups \
+            --until=${{ needs.configure.outputs.until_fork }} \
+            --fill-static-tests \
+            --ignore=tests/static/state_tests/stQuadraticComplexityTest \
+            --clean \
+            -n auto
+
+      - name: Package pre-alloc groups
+        run: |
+          tar -czvf pre_alloc_groups.tar.gz -C fixtures/blockchain_tests_engine_x pre_alloc
+
+      - name: Upload pre-alloc groups artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pre_alloc_groups
+          path: pre_alloc_groups.tar.gz
+          retention-days: 1
+
+  # Phase 2: Fill fixtures for each fork in parallel
+  fill-fork:
+    needs: [configure, generate-pre-alloc]
+    runs-on: [self-hosted-ghr, size-gigachungus-x64]
+    timeout-minutes: 480
+    strategy:
+      fail-fast: false
+      matrix:
+        fork: ${{ fromJson(needs.configure.outputs.all_forks) }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: true
+
+      - name: Fetch lllc
+        uses: ./.github/actions/fetch-binary
+        with:
+          version: v1.0.0
+          repo_owner: felix314159
+          repo_name: lllc-custom
+          remote_name: lllc
+          binary_name: lllc
+          expected_sha256: 865a0d5379acb3b5471337b5dcf686a2dd71587c6b65b9da6c963de627e0b300
+
+      - name: Fetch Solidity
+        uses: ./.github/actions/fetch-binary
+        with:
+          version: v0.8.24
+          repo_owner: ethereum
+          repo_name: solidity
+          remote_name: solc-static-linux
+          binary_name: solc
+          expected_sha256: fb03a29a517452b9f12bcf459ef37d0a543765bb3bbc911e70a87d6a37c30d5f
+
+      - name: Install uv and python
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+        with:
+          enable-cache: false
+          version: ${{ vars.UV_VERSION }}
+          python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
+
+      - name: Install EEST
+        run: uv sync --no-progress
+
+      - name: Download pre-alloc groups
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: pre_alloc_groups
+
+      - name: Extract pre-alloc groups to output directory
+        run: |
+          mkdir -p fixtures_${{ matrix.fork }}/blockchain_tests_engine_x
+          tar -xzvf pre_alloc_groups.tar.gz -C fixtures_${{ matrix.fork }}/blockchain_tests_engine_x
+
+      - name: Fill fixtures for ${{ matrix.fork }} (Phase 2)
+        run: |
+          echo "Filling fixtures for fork: ${{ matrix.fork }}"
+          uv run fill \
+            --use-pre-alloc-groups \
+            --generate-all-formats \
+            --fork=${{ matrix.fork }} \
+            --fill-static-tests \
+            --ignore=tests/static/state_tests/stQuadraticComplexityTest \
+            --output=fixtures_${{ matrix.fork }} \
+            --build-name ${{ matrix.fork }} \
+            -n auto
+
+      - name: Package fork fixtures
+        run: |
+          tar -czvf fixtures_${{ matrix.fork }}.tar.gz -C fixtures_${{ matrix.fork }} .
+
+      - name: Upload fork fixtures artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fixtures_${{ matrix.fork }}
+          path: fixtures_${{ matrix.fork }}.tar.gz
+          retention-days: 1
+
+  # Phase 3: Merge fork fixtures into stable and develop tarballs
+  merge-fixtures:
+    needs: [configure, fill-fork]
+    runs-on: [self-hosted-ghr, size-gigachungus-x64]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Install uv and python
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+        with:
+          version: ${{ vars.UV_VERSION }}
+          python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
+
+      - name: Install EEST
+        run: uv sync --no-progress
+
+      - name: Download all fork fixture artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          path: artifacts
+          pattern: fixtures_*
+
+      - name: Download pre-alloc groups
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: pre_alloc_groups
+          path: artifacts/pre_alloc_groups
+
+      - name: Merge stable fixtures
+        run: |
+          uv run python .github/scripts/merge_fork_fixtures.py \
+            --forks '${{ needs.configure.outputs.stable_forks }}' \
+            --artifacts-dir artifacts \
+            --pre-alloc-tar artifacts/pre_alloc_groups/pre_alloc_groups.tar.gz \
+            --output fixtures_stable.tar.gz \
+            --build-name stable
+
+      - name: Merge develop fixtures
+        run: |
+          uv run python .github/scripts/merge_fork_fixtures.py \
+            --forks '${{ needs.configure.outputs.all_forks }}' \
+            --artifacts-dir artifacts \
+            --pre-alloc-tar artifacts/pre_alloc_groups/pre_alloc_groups.tar.gz \
+            --output fixtures_develop.tar.gz \
+            --build-name develop
+
+      - name: Upload stable fixtures
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fixtures_stable
+          path: fixtures_stable.tar.gz
+
+      - name: Upload develop fixtures
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fixtures_develop
+          path: fixtures_develop.tar.gz
+
+  # Create GitHub release
   release:
     runs-on: ubuntu-latest
-    needs: build
+    needs: merge-fixtures
     if: startsWith(github.ref, 'refs/tags/tests-')
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           submodules: false
 
-      - name: Download all artifacts
-        run: |
-          gh run download ${{ github.run_id }} --dir ./artifacts
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Download stable fixtures
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: fixtures_stable
+          path: ./artifacts
+
+      - name: Download develop fixtures
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: fixtures_develop
+          path: ./artifacts
 
       - name: Create Release
         run: |
@@ -88,6 +311,6 @@ jobs:
             --repo ethereum/execution-spec-tests \
             --draft \
             --generate-notes \
-            ./artifacts/**/*
+            ./artifacts/*.tar.gz
         env:
           GH_TOKEN: ${{ secrets.EEST_RELEASE_TOKEN }}

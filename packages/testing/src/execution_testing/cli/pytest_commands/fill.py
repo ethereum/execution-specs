@@ -36,23 +36,32 @@ class FillCommand(PytestCommand):
         generation.
 
         Returns single execution for normal filling, or two-phase execution
-        when --generate-pre-alloc-groups or --generate-all-formats is
-        specified.
+        when --generate-all-formats is specified or outputting to tarball.
+
+        --generate-pre-alloc-groups: Phase 1 only (generates pre-alloc groups)
+        --use-pre-alloc-groups: Phase 2 only (uses existing pre-alloc groups)
+        --generate-all-formats or tarball output: Phase 1 + Phase 2
         """
         processed_args = self.process_arguments(pytest_args)
         processed_args = self._add_default_ignores(processed_args)
 
-        # Check if we need two-phase execution
-        if self._should_use_two_phase_execution(processed_args):
+        # Handle explicit phase flags first
+        if "--generate-pre-alloc-groups" in processed_args:
+            # Only phase 1: generate pre-allocation groups
+            return self._create_phase1_only_execution(processed_args)
+        elif "--use-pre-alloc-groups" in processed_args:
+            # Only phase 2: using existing pre-allocation groups
+            # (works with --generate-all-formats to produce all formats)
+            return self._create_single_phase_with_pre_alloc_groups(
+                processed_args
+            )
+        # Check if we need two-phase execution (--generate-all-formats or
+        # tarball without explicit phase flags)
+        elif self._should_use_two_phase_execution(processed_args):
             processed_args = self._ensure_generate_all_formats_for_tarball(
                 processed_args
             )
             return self._create_two_phase_executions(processed_args)
-        elif "--use-pre-alloc-groups" in processed_args:
-            # Only phase 2: using existing pre-allocation groups
-            return self._create_single_phase_with_pre_alloc_groups(
-                processed_args
-            )
         else:
             # Normal single-phase execution
             return [
@@ -86,6 +95,19 @@ class FillCommand(PytestCommand):
                 args=phase2_args,
                 description="filling test fixtures",
             ),
+        ]
+
+    def _create_phase1_only_execution(
+        self, args: List[str]
+    ) -> List[PytestExecution]:
+        """Create single execution for phase 1 only (pre-alloc generation)."""
+        phase1_args = self._create_phase1_args(args)
+        return [
+            PytestExecution(
+                config_file=self.config_path,
+                args=phase1_args,
+                description="generating pre-allocation groups",
+            )
         ]
 
     def _create_single_phase_with_pre_alloc_groups(
@@ -193,12 +215,15 @@ class FillCommand(PytestCommand):
         return args + ["--use-pre-alloc-groups"]
 
     def _should_use_two_phase_execution(self, args: List[str]) -> bool:
-        """Determine if two-phase execution is needed."""
-        return (
-            "--generate-pre-alloc-groups" in args
-            or "--generate-all-formats" in args
-            or self._is_tarball_output(args)
-        )
+        """Determine if two-phase execution is needed.
+
+        Two-phase execution (Phase 1 + Phase 2) is triggered by:
+        - --generate-all-formats flag
+        - Tarball output (--output=*.tar.gz)
+
+        Note: --generate-pre-alloc-groups alone runs only Phase 1.
+        """
+        return "--generate-all-formats" in args or self._is_tarball_output(args)
 
     def _ensure_generate_all_formats_for_tarball(
         self, args: List[str]
