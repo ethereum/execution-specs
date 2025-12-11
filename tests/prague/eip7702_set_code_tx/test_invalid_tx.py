@@ -43,6 +43,7 @@ class OversizedInt(FixedSizeBytes[2]):  # type: ignore
 
     pass
 
+
 class OversizedZeroInt(FixedSizeBytes[1]):  # type: ignore
     """
     Oversized 1-byte zero.
