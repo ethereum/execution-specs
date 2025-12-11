@@ -121,11 +121,12 @@ def extract_client_files(
 
 def create_genesis_from_fixture(
     fixture_path: Path,
-) -> Tuple[FixtureHeader, Alloc, int]:
+) -> Tuple[FixtureHeader, Alloc, int, Fork]:
     """Create a client genesis state from a fixture file."""
     genesis: FixtureHeader
     alloc: Alloc
     chain_id: int = 1
+    fork: Fork
     with open(fixture_path, "r") as f:
         fixture_json = json.load(f)
 
@@ -145,12 +146,14 @@ def create_genesis_from_fixture(
         genesis = base_fixture.genesis
         alloc = base_fixture.pre
         chain_id = int(base_fixture.config.chain_id)
+        fork = base_fixture.fork
     else:
         pre_alloc_group = PreAllocGroup.model_validate(fixture_json)
         genesis = pre_alloc_group.genesis
         alloc = pre_alloc_group.pre
+        fork = pre_alloc_group.fork
 
-    return genesis, alloc, chain_id
+    return genesis, alloc, chain_id, fork
 
 
 def get_client_environment_for_fixture(fork: Fork, chain_id: int) -> dict:
@@ -256,10 +259,16 @@ def extract_config(
 
         click.echo(f"Using fixture: {fixture_path}")
 
+        # Load and check if it's a pre-alloc group to show label
+        with open(fixture_path, "r") as f:
+            fixture_json = json.load(f)
+        if "label" in fixture_json and fixture_json["label"]:
+            click.echo(f"  Label: {fixture_json['label']}")
+
         # Load fixture and create genesis
-        genesis, alloc, chain_id = create_genesis_from_fixture(fixture_path)
-        fork = genesis.fork
-        assert fork is not None
+        genesis, alloc, chain_id, fork = create_genesis_from_fixture(
+            fixture_path
+        )
         client_environment = get_client_environment_for_fixture(fork, chain_id)
 
         genesis_json = to_json(genesis)

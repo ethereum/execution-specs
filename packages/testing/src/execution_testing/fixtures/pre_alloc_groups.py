@@ -38,6 +38,10 @@ class PreAllocGroupBuilder(CamelModel):
     )
     fork: Fork = Field(..., alias="network")
     pre: Alloc
+    label: str | None = Field(
+        default=None,
+        description="Optional label to identify this pre-alloc group",
+    )
 
     def get_pre_account_count(self) -> int:
         """Return the amount of accounts the pre-allocation group holds."""
@@ -66,6 +70,21 @@ class PreAllocGroupBuilder(CamelModel):
 
     def build(self) -> "PreAllocGroup":
         """Build the pre-alloc group."""
+        # Generate a label based on test count and test IDs
+        # Only label benchmark tests
+        label = None
+        if self.test_ids and "tests/benchmark/" in self.test_ids[0]:
+            if len(self.test_ids) == 1:
+                # Single test - extract test name for label
+                test_id = self.test_ids[0]
+                # Format: "tests/benchmark/.../test_file.py::test_name[params]"
+                if "::" in test_id:
+                    test_name = test_id.split("::")[-1].split("[")[0]
+                    label = f"single_test_{test_name}"
+            elif len(self.test_ids) > 100:
+                # Large group - likely the main benchmark group
+                label = "main"
+
         return PreAllocGroup(
             test_ids=self.test_ids,
             environment=self.environment,
@@ -74,6 +93,7 @@ class PreAllocGroupBuilder(CamelModel):
             pre_account_count=self.get_pre_account_count(),
             test_count=self.get_test_count(),
             genesis=self.calculate_genesis(),
+            label=label,
         )
 
     def to_file(self, file: Path) -> None:
@@ -132,7 +152,23 @@ class PreAllocGroupBuilders(EthereumTestRootModel):
         """Save PreAllocGroups to a folder of pre-allocation files."""
         for key, value in self.root.items():
             assert value is not None, f"Value for key {key} is None"
-            value.to_file(folder / f"{key}.json")
+            # Check if this is a benchmark test group before building
+            is_benchmark = (
+                value.test_ids and "tests/benchmark/" in value.test_ids[0]
+            )
+
+            if is_benchmark:
+                # Build the group to generate label for benchmark tests
+                built_group = value.build()
+                # Include label in filename if present
+                if built_group.label:
+                    filename = f"{key}_{built_group.label}.json"
+                else:
+                    filename = f"{key}.json"
+                built_group.to_file(folder / filename)
+            else:
+                # For non-benchmark tests, use original behavior
+                value.to_file(folder / f"{key}.json")
 
     def add_test_pre(
         self,
