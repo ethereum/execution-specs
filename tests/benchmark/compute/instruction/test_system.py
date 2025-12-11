@@ -643,10 +643,9 @@ def test_selfdestruct_created(
     """
     Benchmark SELFDESTRUCT instruction for deployed contracts within same tx.
     """
-    # Avoid account creation costs in the SELFDESTRUCT receipient.
+    # Avoid account creation costs in the SELFDESTRUCT recipient.
     fee_recipient = pre.fund_eoa(amount=1)
     env.fee_recipient = fee_recipient
-
 
     # SELFDESTRUCT(COINBASE) contract deployment
     initcode = (
@@ -677,18 +676,17 @@ def test_selfdestruct_created(
         + gas_costs.G_BASE  #  Parameter GAS
     )
     extra_costs = (
-        gas_costs.G_BASE * 2  # POP, GAS
-        + gas_costs.G_VERY_LOW
-        * 18  # 6 PUSHs, MSTORE, MLOAD, ADD, GT, LT, AND, 2 CALLDATALOADs
+        gas_costs.G_BASE  # POP
+        + gas_costs.G_VERY_LOW * 6  # PUSHs, ADD, DUP, GT
         + gas_costs.G_HIGH  # JUMPI
         + gas_costs.G_JUMPDEST
     )
     loop_cost = create_costs + call_costs + extra_costs
 
     prefix_cost = (
-        gas_costs.G_VERY_LOW * 7  # 2 MSTOREs, 4 PUSHs, 1 CALLDATALOAD
-        + gas_costs.G_JUMPDEST
-        + memory_expansion_calc(new_bytes=64)  # Memory for 2 MSTORE slots
+        gas_costs.G_VERY_LOW * 3
+        + gas_costs.G_BASE
+        + memory_expansion_calc(new_bytes=32)
     )
     suffix_cost = (
         gas_costs.G_COLD_SLOAD
@@ -700,11 +698,7 @@ def test_selfdestruct_created(
 
     iterations = (gas_benchmark_value - base_costs) // loop_cost
 
-    code_prefix = (
-        Op.MSTORE(0, initcode.hex())
-        + Op.MSTORE(32, Op.CALLDATALOAD(0))
-        + Op.JUMPDEST
-    )
+    code_prefix = Op.MSTORE(0, initcode.hex()) + Op.PUSH0 + Op.JUMPDEST
     code_suffix = (
         Op.SSTORE(0, 42)  # Done for successful tx execution assertion below.
         + Op.STOP
@@ -719,17 +713,9 @@ def test_selfdestruct_created(
                 )
             )
         )
-        + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1))
-        + Op.JUMPI(
-            len(code_prefix) - 1,
-            Op.AND(
-                Op.GT(Op.GAS, suffix_cost + loop_cost),
-                Op.LT(
-                    Op.MLOAD(32),
-                    Op.ADD(Op.CALLDATALOAD(0), Op.CALLDATALOAD(32)),
-                ),
-            ),
-        )
+        + Op.PUSH1[1]
+        + Op.ADD
+        + Op.JUMPI(len(code_prefix) - 1, Op.GT(Op.GAS, Op.DUP1))
     )
     code = code_prefix + loop_body + code_suffix
     # The 0 storage slot is initialize to avoid creation costs in SSTORE above.
