@@ -21,7 +21,6 @@ from execution_testing import (
     Alloc,
     BenchmarkTestFiller,
     Block,
-    BlockchainTestFiller,
     Bytecode,
     Environment,
     ExtCallGenerator,
@@ -51,7 +50,7 @@ from tests.benchmark.compute.helpers import XOR_TABLE
     ],
 )
 def test_xcall(
-    blockchain_test: BlockchainTestFiller,
+    benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     fork: Fork,
     opcode: Op,
@@ -237,14 +236,13 @@ def test_xcall(
             sender=pre.fund_eoa(),
         )
 
-    blockchain_test(
+    benchmark_test(
         pre=pre,
         post=post,
         blocks=[
             Block(txs=[contracts_deployment_tx]),
             Block(txs=[opcode_tx]),
         ],
-        exclude_full_post_state_in_output=True,
     )
 
 

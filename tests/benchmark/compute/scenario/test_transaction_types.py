@@ -13,7 +13,6 @@ from execution_testing import (
     AuthorizationTuple,
     BenchmarkTestFiller,
     Block,
-    BlockchainTestFiller,
     Fork,
     Hash,
     Op,
@@ -401,7 +400,7 @@ def test_block_full_access_list_and_data(
 @pytest.mark.parametrize("empty_authority", [True, False])
 @pytest.mark.parametrize("zero_delegation", [True, False])
 def test_auth_transaction(
-    blockchain_test: BlockchainTestFiller,
+    benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     intrinsic_cost: int,
     gas_benchmark_value: int,
@@ -455,7 +454,7 @@ def test_auth_transaction(
             * iteration_count,
         )
 
-    blockchain_test(
+    benchmark_test(
         pre=pre,
         post={},
         blocks=[Block(txs=[tx])],

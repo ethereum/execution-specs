@@ -52,6 +52,7 @@ def test_tload(
     tx_data = b"42" if fixed_key and not fixed_value else b""
 
     benchmark_test(
+        target_opcode=Op.TLOAD,
         code_generator=ExtCallGenerator(
             setup=setup,
             attack_block=attack_block,
@@ -81,6 +82,7 @@ def test_tstore(
     cleanup = Op.POP + Op.GAS if not fixed_key else Bytecode()
 
     benchmark_test(
+        target_opcode=Op.TSTORE,
         code_generator=JumpLoopGenerator(
             setup=setup, attack_block=attack_block, cleanup=cleanup
         ),
@@ -91,39 +93,46 @@ def test_tstore(
     storage_action=StorageAction.WRITE_SAME_VALUE, absent_slots=False
 )
 @pytest.mark.parametrize(
-    "storage_action,tx_result",
+    "opcode,storage_action,tx_result",
     [
         pytest.param(
+            Op.SLOAD,
             StorageAction.READ,
             TransactionResult.SUCCESS,
             id="SSLOAD",
         ),
         pytest.param(
+            Op.SSTORE,
             StorageAction.WRITE_SAME_VALUE,
             TransactionResult.SUCCESS,
             id="SSTORE same value",
         ),
         pytest.param(
+            Op.SSTORE,
             StorageAction.WRITE_SAME_VALUE,
             TransactionResult.REVERT,
             id="SSTORE same value, revert",
         ),
         pytest.param(
+            Op.SSTORE,
             StorageAction.WRITE_SAME_VALUE,
             TransactionResult.OUT_OF_GAS,
             id="SSTORE same value, out of gas",
         ),
         pytest.param(
+            Op.SSTORE,
             StorageAction.WRITE_NEW_VALUE,
             TransactionResult.SUCCESS,
             id="SSTORE new value",
         ),
         pytest.param(
+            Op.SSTORE,
             StorageAction.WRITE_NEW_VALUE,
             TransactionResult.REVERT,
             id="SSTORE new value, revert",
         ),
         pytest.param(
+            Op.SSTORE,
             StorageAction.WRITE_NEW_VALUE,
             TransactionResult.OUT_OF_GAS,
             id="SSTORE new value, out of gas",
@@ -141,6 +150,7 @@ def test_storage_access_cold(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     fork: Fork,
+    opcode: Op,
     storage_action: StorageAction,
     absent_slots: bool,
     env: Environment,
@@ -279,6 +289,7 @@ def test_storage_access_cold(
     blocks.append(Block(txs=[op_tx]))
 
     benchmark_test(
+        target_opcode=opcode,
         blocks=blocks,
         expected_benchmark_gas_used=(
             total_gas_used
@@ -290,16 +301,21 @@ def test_storage_access_cold(
 
 @pytest.mark.repricing(storage_action=StorageAction.WRITE_SAME_VALUE)
 @pytest.mark.parametrize(
-    "storage_action",
+    "opcode,storage_action",
     [
-        pytest.param(StorageAction.READ, id="SLOAD"),
-        pytest.param(StorageAction.WRITE_SAME_VALUE, id="SSTORE same value"),
-        pytest.param(StorageAction.WRITE_NEW_VALUE, id="SSTORE new value"),
+        pytest.param(Op.SLOAD, StorageAction.READ, id="SLOAD"),
+        pytest.param(
+            Op.SSTORE, StorageAction.WRITE_SAME_VALUE, id="SSTORE same value"
+        ),
+        pytest.param(
+            Op.SSTORE, StorageAction.WRITE_NEW_VALUE, id="SSTORE new value"
+        ),
     ],
 )
 def test_storage_access_warm(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
+    opcode: Op,
     storage_action: StorageAction,
     gas_benchmark_value: int,
     env: Environment,
@@ -357,4 +373,4 @@ def test_storage_access_warm(
         )
         blocks.append(Block(txs=[op_tx]))
 
-    benchmark_test(blocks=blocks)
+    benchmark_test(target_opcode=opcode, blocks=blocks)
