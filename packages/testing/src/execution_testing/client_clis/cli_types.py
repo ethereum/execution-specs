@@ -304,7 +304,7 @@ class LazyAlloc(Generic[TRaw]):
         """Validate the alloc."""
         raise NotImplementedError("validate method not implemented.")
 
-    def to_file(self, f: TextIO) -> Alloc:
+    def to_file(self, f: TextIO) -> None:
         """
         Dump the allocation to a file while avoiding validation when
         possible.
@@ -336,7 +336,7 @@ class LazyAllocJson(LazyAlloc[JSONDict]):
         """Validate the alloc."""
         return Alloc.model_validate(self.raw)
 
-    def to_file(self, f: TextIO) -> Alloc:
+    def to_file(self, f: TextIO) -> None:
         """
         Dump the allocation to a file while avoiding validation when
         possible.
@@ -355,7 +355,7 @@ class LazyAllocStr(LazyAlloc[str]):
         """Validate the alloc."""
         return Alloc.model_validate_json(self.raw)
 
-    def to_file(self, f: TextIO) -> Alloc:
+    def to_file(self, f: TextIO) -> None:
         """
         Dump the allocation to a file while avoiding validation when
         possible.
