@@ -107,7 +107,7 @@ class BesuTransitionTool(TransitionToolServer):
                     self.server_url = f"http://localhost:{port}/"
                     break
 
-    def shutdown(self) -> None:
+    def shutdown_server(self) -> None:
         """Stop the t8n-server process if it was started."""
         if self.process:
             self.process.kill()

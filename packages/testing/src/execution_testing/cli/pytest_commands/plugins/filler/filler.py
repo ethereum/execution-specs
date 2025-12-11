@@ -31,8 +31,10 @@ from execution_testing.base_types import (
 from execution_testing.cli.gen_index import (
     generate_fixtures_index,
 )
-from execution_testing.client_clis import TransitionTool
-from execution_testing.client_clis.clis.geth import FixtureConsumerTool
+from execution_testing.client_clis import (
+    FixtureConsumerTool,
+    TransitionTool,
+)
 from execution_testing.fixtures import (
     BaseFixture,
     FixtureCollector,
@@ -992,8 +994,9 @@ def t8n(
             "exceptions.",
             stacklevel=2,
         )
+    t8n.__enter__()
     yield t8n
-    t8n.shutdown()
+    t8n.__exit__()
 
 
 @pytest.fixture(scope="session")

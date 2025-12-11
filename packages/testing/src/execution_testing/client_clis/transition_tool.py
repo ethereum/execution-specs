@@ -22,6 +22,7 @@ from typing import (
     LiteralString,
     Mapping,
     Optional,
+    Self,
     Type,
 )
 from urllib.parse import urlencode
@@ -134,7 +135,6 @@ class TransitionTool(EthereumCLI):
     cached_version: Optional[str] = None
     process: Optional[subprocess.Popen] = None
     supports_opcode_count: ClassVar[bool] = False
-
     supports_xdist: ClassVar[bool] = True
     supports_blob_params: ClassVar[bool] = False
 
@@ -165,6 +165,14 @@ class TransitionTool(EthereumCLI):
         """
         if not abstract:
             TransitionTool.register_tool(cls)
+
+    def __enter__(self) -> Self:
+        """Perform any initial tasks related to the tested tool."""
+        return self
+
+    def __exit__(self) -> None:
+        """Perform any cleanup tasks related to the tested tool."""
+        pass
 
     @abstractmethod
     def is_fork_supported(self, fork: Fork) -> bool:
@@ -342,6 +350,16 @@ class TransitionToolServer(TransitionTool, abstract=True):
 
     server_url: str | None = None
 
+    def __enter__(self) -> Self:
+        """Perform any initial tasks related to the tested tool."""
+        self.start_server()
+        return super().__enter__()
+
+    def __exit__(self) -> None:
+        """Perform any cleanup tasks related to the tested tool."""
+        self.shutdown_server()
+        super().__exit__()
+
     def start_server(self) -> None:
         """
         Start the t8n-server process, extract the port, and leave it
@@ -349,13 +367,13 @@ class TransitionToolServer(TransitionTool, abstract=True):
         """
         pass
 
-    def shutdown(self) -> None:
-        """Perform any cleanup tasks related to the tested tool."""
+    def shutdown_server(self) -> None:
+        """Stop the t8n-server process if it was started."""
         pass
 
     def _restart_server(self) -> None:
         """Check if server is still responsive and restart if needed."""
-        self.shutdown()
+        self.shutdown_server()
         time.sleep(0.1)
         self.start_server()
 

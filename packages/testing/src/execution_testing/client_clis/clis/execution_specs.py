@@ -12,7 +12,6 @@ import ethereum
 from ethereum_spec_tools.evm_tools import create_parser
 from ethereum_spec_tools.evm_tools.t8n import T8N, ForkCache
 from ethereum_spec_tools.evm_tools.utils import get_supported_forks
-from typing_extensions import override
 
 from execution_testing.client_clis.cli_types import TransitionToolOutput
 from execution_testing.client_clis.file_utils import (
@@ -51,8 +50,8 @@ class ExecutionSpecsTransitionTool(TransitionTool):
         self._info_metadata: Optional[Dict[str, Any]] = {}
         self.fork_cache = ForkCache()
 
-    @override
-    def shutdown(self) -> None:
+    def __exit__(self) -> None:
+        """Perform any cleanup tasks related to the tested tool."""
         self.fork_cache.__exit__()
 
     def version(self) -> str:
