@@ -30,6 +30,7 @@ from ethereum.exceptions import (
 
 from . import vm
 from .block_access_lists.builder import build_block_access_list
+from .block_access_lists.rlp_types import BlockAccessList
 from .block_access_lists.rlp_utils import compute_block_access_list_hash
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
@@ -206,7 +207,9 @@ def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
     return recent_block_hashes
 
 
-def state_transition(chain: BlockChain, block: Block) -> None:
+def state_transition(
+    chain: BlockChain, block: Block, block_access_list: BlockAccessList
+) -> None:
     """
     Attempts to apply a block to an existing block chain.
 
@@ -227,6 +230,8 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         History and current state.
     block :
         Block to apply to `chain`.
+    block_access_list :
+        The block access list containing all state accesses during block execution.
 
     """
     if len(rlp.encode(block)) > MAX_RLP_BLOCK_SIZE:
@@ -256,6 +261,11 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         transactions=block.transactions,
         withdrawals=block.withdrawals,
     )
+    
+    # Verify the provided block access list matches what was computed
+    if block_output.block_access_list != block_access_list:
+        raise InvalidBlock("Block access list mismatch")
+    
     block_state_root = state_root(block_env.state)
     transactions_root = root(block_output.transactions_trie)
     receipt_root = root(block_output.receipts_trie)
@@ -263,7 +273,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     withdrawals_root = root(block_output.withdrawals_trie)
     requests_hash = compute_requests_hash(block_output.requests)
     computed_block_access_list_hash = compute_block_access_list_hash(
-        block_output.block_access_list
+        block_access_list
     )
 
     if block_output.block_gas_used != block.header.gas_used:
