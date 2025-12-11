@@ -102,6 +102,7 @@ compare_fixtures = "execution_testing.cli.compare_fixtures:main"
 modify_static_test_gas_limits = "execution_testing.cli.modify_static_test_gas_limits:main"
 validate_changelog = "execution_testing.cli.tox_helpers:validate_changelog"
 benchmark_parser = "execution_testing.cli.benchmark_parser:main"
+benchmark_coverage = "execution_testing.cli.benchmark_coverage:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
