@@ -643,6 +643,11 @@ def test_selfdestruct_created(
     """
     Benchmark SELFDESTRUCT instruction for deployed contracts within same tx.
     """
+    # Avoid account creation costs in the SELFDESTRUCT receipient.
+    fee_recipient = pre.fund_eoa(amount=1)
+    env.fee_recipient = fee_recipient
+
+
     # SELFDESTRUCT(COINBASE) contract deployment
     initcode = (
         Op.MSTORE8(0, Op.COINBASE.int())
