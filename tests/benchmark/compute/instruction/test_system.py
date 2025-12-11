@@ -700,7 +700,7 @@ def test_selfdestruct_created(
 
     code_prefix = Op.MSTORE(0, initcode.hex()) + Op.PUSH0 + Op.JUMPDEST
     code_suffix = (
-        Op.SSTORE(0, 42)  # Done for successful tx execution assertion below.
+        Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1))  # Done for successful tx execution assertion below.
         + Op.STOP
     )
     loop_body = (
@@ -715,7 +715,7 @@ def test_selfdestruct_created(
         )
         + Op.PUSH1[1]
         + Op.ADD
-        + Op.JUMPI(len(code_prefix) - 1, Op.GT(Op.GAS, Op.DUP1))
+        + Op.JUMPI(len(code_prefix) - 1, Op.GT(Op.GAS, suffix_cost + loop_cost))
     )
     code = code_prefix + loop_body + code_suffix
     # The 0 storage slot is initialize to avoid creation costs in SSTORE above.
@@ -750,7 +750,7 @@ def test_selfdestruct_created(
                 )
             )
 
-    post = {code_addr: Account(storage={0: 42})}  # Check for successful
+    post = {code_addr: Account(storage={0: len(exec_txs)+1})}  # Check for successful
     # execution.
     benchmark_test(
         post=post,
