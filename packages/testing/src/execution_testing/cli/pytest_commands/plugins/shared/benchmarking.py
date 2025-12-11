@@ -249,7 +249,9 @@ def pytest_collection_modifyitems(
                 stacklevel=1,
             )
 
-    # Check if -m repricing marker filter was specified
+    # Extract the specified flag from the command line.
+    # If the `-m repricing` flag is not specified, or is negated,
+    # we skip filtering tests by the repricing marker.
     markexpr = config.getoption("markexpr", "")
     if "repricing" not in markexpr or "not repricing" in markexpr:
         return
@@ -259,7 +261,6 @@ def pytest_collection_modifyitems(
         # If the test does not have the repricing marker, skip it
         repricing_marker = item.get_closest_marker("repricing")
         if not repricing_marker:
-            filtered.append(item)
             continue
 
         # If the test has the repricing marker but no specific kwargs,
