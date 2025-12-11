@@ -54,6 +54,7 @@ def test_tload(
     tx_data = b"42" if fixed_key and not fixed_value else b""
 
     benchmark_test(
+        target_opcode=Op.TLOAD,
         code_generator=ExtCallGenerator(
             setup=setup,
             attack_block=attack_block,
@@ -83,6 +84,7 @@ def test_tstore(
     cleanup = Op.POP + Op.GAS if not fixed_key else Bytecode()
 
     benchmark_test(
+        target_opcode=Op.TSTORE,
         code_generator=JumpLoopGenerator(
             setup=setup, attack_block=attack_block, cleanup=cleanup
         ),
