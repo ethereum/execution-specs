@@ -42,8 +42,7 @@ ATTACK_SELECTOR = 0x64dd891a  # attack(uint256) - verified with: cast sig "attac
 # Maximum gas per transaction (Fusaka EIP limit)
 MAX_GAS_PER_TX = 16_000_000
 
-# Fixed number of contracts to deploy (reduced for testing in execute mode)
-NUM_CONTRACTS = 3  # Very small for debugging
+NUM_CONTRACTS = 15000  # Full test with 15,000 contracts
 
 # Nick's deterministic deployer address (must be pre-deployed in execute mode)
 NICK_DEPLOYER = Address("0x4e59b44847b379578588920ca78fbf26c0b4956c")
@@ -222,9 +221,9 @@ def test_worst_depth_stateroot_recomp(
     init_code_hash_expected = create2_data["init_code_hash"]
     contracts = create2_data["contracts"][:NUM_CONTRACTS]
 
-    # In execute mode, use a funded EOA as deployer
-    deployer_eoa = pre.fund_eoa(amount=10**21)  # 1000 ETH
-    deployer_address = deployer_eoa
+    # Create an EOA with a known private key for the deployer
+    deployer_eoa = pre.fund_eoa(amount=10000 * 10**18)  # 10,000 ETH
+    deployer_address = deployer_eoa  # Use this address for transactions
 
 
     # Get gas costs
@@ -237,16 +236,30 @@ def test_worst_depth_stateroot_recomp(
     print(f"  Account depth: {account_depth}")
     print(f"  Total auxiliary accounts: {NUM_CONTRACTS * account_depth}")
 
-    # Phase 1: Fund auxiliary accounts with 1 wei each to create trie depth
+    # Phase 0: Deploy orchestrator FIRST with nonce 0 to have deterministic address
+    print(f"\nPhase 0: Deploy attack orchestrator first")
+
+    # Compile the AttackOrchestrator contract
+    print(f"  Compiling AttackOrchestrator.sol...")
+    orchestrator_bytecode = compile_attack_orchestrator()
+
+    # Phase 1: Create funding transactions for auxiliary accounts
+    # We need to use transactions, not pre-allocation, for execute mode
+    funding_txs = []
     for i, contract_data in enumerate(contracts):
         auxiliary_accounts = contract_data.get("auxiliary_accounts", [])
         for aux_account in auxiliary_accounts:
             aux_address = Address(aux_account)
-            # Fund with 1 wei to ensure the account exists in the trie
-            pre.fund_eoa(aux_address, value=1)
-
-        if i < 3:  # Show first few for debugging
-            print(f"  Contract {i}: Funding {len(auxiliary_accounts)} auxiliary accounts")
+            # Create funding transaction with 1 wei to ensure the account exists in the trie
+            funding_tx = Transaction(
+                to=aux_address,
+                value=1,  # 1 wei to create the account in the trie
+                gas_limit=21_000,
+                sender=deployer_address,
+                max_fee_per_gas=10_000_000_000,  # 10 gwei
+                max_priority_fee_per_gas=1_000_000_000,  # 1 gwei
+            )
+            funding_txs.append(funding_tx)
 
     # Compile contract for the specified storage depth
     print(f"  Compiling depth_{storage_depth}.sol...")
@@ -282,9 +295,10 @@ def test_worst_depth_stateroot_recomp(
 
     # Calculate actual CREATE2 addresses using Nick's deployer
     actual_contracts = []
+    deployment_txs = []  # Track deployment transactions
 
     print(f"  Deploying {NUM_CONTRACTS} contracts via Nick's method...")
-    print(f"  Nick's deployer (stub): {NICK_DEPLOYER}")
+    print(f"  Nick's deployer: {NICK_DEPLOYER}")
 
     for i, contract_data in enumerate(contracts):
         salt = contract_data["salt"]
@@ -304,14 +318,20 @@ def test_worst_depth_stateroot_recomp(
         )
         contract_addr = keccak256(create2_input)[-20:]  # Last 20 bytes
 
-        # Pre-deploy the contract at the CREATE2 address
+        # In execute mode, we can't use pre.deploy_contract with address parameter
+        # Contract will be deployed via CREATE2 transactions to Nick's deployer
         contract_address = Address("0x" + contract_addr.hex())
 
-        # Pre-deploy with init_code - the constructor will set the storage
-        pre.deploy_contract(
-            address=contract_address,
-            code=init_code,  
+        # Create deployment transaction to Nick's deployer
+        deploy_tx = Transaction(
+            to=NICK_DEPLOYER,
+            data=calldata,
+            gas_limit=deployment_gas_per_contract + 50000,  # Add buffer for CREATE2 operation
+            sender=deployer_address,
+            max_fee_per_gas=10_000_000_000,  # 10 gwei
+            max_priority_fee_per_gas=1_000_000_000,  # 1 gwei
         )
+        deployment_txs.append(deploy_tx)
 
         # Track the actual contract address
         actual_contracts.append({
@@ -328,43 +348,16 @@ def test_worst_depth_stateroot_recomp(
     for i, c in enumerate(contracts[:10]):
         print(f"  {i}: {c['contract_address']}")
 
-    # Analyze address prefixes to verify trie depth
-    print(f"\nAddress prefix analysis (for trie depth verification):")
-
-    # Count prefix sharing at different depths
-    for prefix_len in [2, 4, 6, 8, 10]:  # 1-5 bytes
-        prefix_groups = {}
-        for c in contracts[:min(100, NUM_CONTRACTS)]:
-            addr = c['contract_address'][2:]  # Remove '0x'
-            prefix = addr[:prefix_len]
-            if prefix not in prefix_groups:
-                prefix_groups[prefix] = 0
-            prefix_groups[prefix] += 1
-
-        # Count how many addresses share prefixes
-        shared_prefixes = [(p, count) for p, count in prefix_groups.items() if count > 1]
-        if shared_prefixes:
-            shared_prefixes.sort(key=lambda x: x[1], reverse=True)
-            print(f"  {prefix_len//2} byte prefix ({prefix_len} hex chars):")
-            print(f"    Total groups with shared prefixes: {len(shared_prefixes)}")
-            print(f"    Max addresses sharing one prefix: {shared_prefixes[0][1]}")
-            for p, count in shared_prefixes[:3]:  # Show top 3
-                print(f"      0x{p}: {count} addresses")
 
     # Phase 2: Deploy and use attack orchestrator
     # The orchestrator derives CREATE2 addresses and calls attack() on each
-
     print(f"\nPhase 2: Attack orchestrator deployment and execution")
-
-    # Compile the AttackOrchestrator contract
-    print(f"  Compiling AttackOrchestrator.sol...")
     orchestrator_bytecode = compile_attack_orchestrator()
 
-    # Exact gas costs (calculated by Ethereum protocol analysis)
-    # Per attack: CREATE2 derivation (75) + loop overhead (16) + memory ops (9) + CALL (50,000) = 50,100
+    # TODO: Come back to this and compute the exact value.
     GAS_PER_ATTACK = 50_100
 
-    # Maximum attacks per 16M gas transaction
+    # TODO: Get back to this after we have the GAS_PER_ATTACK computed
     # Account for transaction overhead (~21,200) and function dispatch (~100)
     MAX_ATTACKS_PER_TX = 318  # (16,000,000 - 21,200) / 50,100
 
@@ -372,19 +365,13 @@ def test_worst_depth_stateroot_recomp(
     last_written_values = {}
     attack_value = 42  # Fixed value to write to all contracts
 
-    # Choose a deterministic address for the orchestrator
-    # We can use any address since we're pre-deploying it in pre-state
-    orchestrator_address = Address("0x0000000000000000000000000000000000001337")
-
-    # Deploy the attack orchestrator with constructor parameters
-    # Constructor takes: deployer address, init code hash
-    # The bytecode from solc already contains the constructor code
-    # We just need to append the constructor arguments as ABI-encoded data
-
     # ABI encode constructor parameters for Nick's deployer
     deployer_bytes = bytes(NICK_DEPLOYER)
     # Use the actual init code hash (computed from our compiled bytecode)
     hash_bytes = keccak256(bytes(init_code))
+
+    print(f"  Computed init code hash: 0x{hash_bytes.hex()}")
+    print(f"  Expected init code hash: {init_code_hash_expected}")
 
     # Constructor arguments are ABI-encoded: address (32 bytes) + bytes32 (32 bytes)
     constructor_args = deployer_bytes.rjust(32, b'\x00') + hash_bytes
@@ -392,11 +379,27 @@ def test_worst_depth_stateroot_recomp(
     # Combine bytecode with constructor arguments
     orchestrator_init_code = orchestrator_bytecode + constructor_args
 
-    # Pre-deploy the orchestrator with its init code
-    pre.deploy_contract(
-        address=orchestrator_address,
-        code=Bytecode(orchestrator_init_code),
+    # In execute mode, deploy orchestrator via transaction
+    # We can't use pre.deploy_contract with address parameter
+    orchestrator_deploy_tx = Transaction(
+        to=None,  # Contract creation transaction
+        data=orchestrator_init_code,
+        gas_limit=2_000_000,  # Sufficient for orchestrator deployment
+        sender=deployer_address,
+        max_fee_per_gas=10_000_000_000,  # 10 gwei
+        max_priority_fee_per_gas=1_000_000_000,  # 1 gwei
     )
+
+    # Calculate the orchestrator address based on nonce 0 (deployed FIRST)
+    import rlp
+    from eth_utils import keccak
+    # Nonce = 0 since orchestrator is deployed first
+    nonce_for_orchestrator = 0
+    deployer_bytes = bytes.fromhex(str(deployer_address)[2:])
+    orchestrator_address_bytes = keccak(rlp.encode([deployer_bytes, nonce_for_orchestrator]))[12:]
+    orchestrator_address = Address("0x" + orchestrator_address_bytes.hex())
+
+    print(f"  Orchestrator will be deployed at: {orchestrator_address}")
 
 
     # Create orchestrator attack transactions
@@ -428,21 +431,58 @@ def test_worst_depth_stateroot_recomp(
         )
         attack_txs.append(attack_tx)
 
-
-    print(f"\nAttack phase summary:")
-    print(f"  Total attack transactions: {len(attack_txs)}")
-    print(f"  Contracts attacked: {NUM_CONTRACTS}")
-    print(f"  Attack value written: {attack_value}")
-
-    # In execute mode with pre-allocation, we only have attack transactions
-    print(f"\nTransaction breakdown:")
-    print(f"  Attack txs: {len(attack_txs)}")
-
-    # Create blocks with only attack transactions
+    # Create blocks with all transactions in proper order
+    # IMPORTANT: Deploy orchestrator FIRST (nonce 0) to have deterministic address
+    # Respect gas_benchmark_value to split transactions across multiple blocks
     blocks = []
-    if attack_txs:
-        # Put all attack transactions in a single block
-        blocks.append(Block(txs=attack_txs))
+
+    # Gas limits:
+    # - MAX_GAS_PER_TX: 16M gas per transaction max (Fusaka limit)
+    # - gas_benchmark_value: max gas per block (already in gas units, e.g. 60000000 for 60M)
+    max_block_gas = gas_benchmark_value
+
+    # Combine all transactions in order
+    all_txs = [orchestrator_deploy_tx] + funding_txs + deployment_txs + attack_txs
+
+    if all_txs:
+        # First, verify no transaction exceeds the 16M gas limit
+        for i, tx in enumerate(all_txs):
+            tx_gas = tx.gas_limit if tx.gas_limit else 21000
+            if tx_gas > MAX_GAS_PER_TX:
+                raise ValueError(
+                    f"Transaction {i} exceeds MAX_GAS_PER_TX ({MAX_GAS_PER_TX:,}): "
+                    f"gas_limit={tx_gas:,}"
+                )
+
+        current_block_txs = []
+        current_block_gas = 0
+        block_count = 0
+
+        for tx in all_txs:
+            tx_gas = tx.gas_limit if tx.gas_limit else 21000  # Default gas for simple transfers
+
+            # Check if adding this transaction would exceed the block gas limit
+            if current_block_gas + tx_gas > max_block_gas and current_block_txs:
+                # Create a block with the current transactions
+                blocks.append(Block(txs=current_block_txs))
+                block_count += 1
+                print(f"  Block {block_count}: {len(current_block_txs)} txs, gas used: {current_block_gas:,}")
+
+                # Start a new block with this transaction
+                current_block_txs = [tx]
+                current_block_gas = tx_gas
+            else:
+                # Add transaction to current block
+                current_block_txs.append(tx)
+                current_block_gas += tx_gas
+
+        # Add the last block if there are remaining transactions
+        if current_block_txs:
+            blocks.append(Block(txs=current_block_txs))
+            block_count += 1
+            print(f"  Block {block_count}: {len(current_block_txs)} txs, gas used: {current_block_gas:,}")
+
+    print(f"Total blocks created: {len(blocks)}")
 
 
 
@@ -452,6 +492,8 @@ def test_worst_depth_stateroot_recomp(
 
     # Extract the deepest storage slot from the contract source
     # The deepest slot is the last sstore in the constructor
+    # TODO: This is garbage. But we have no other way to actually get this info.
+    # We can't make RPC requests from within the test.
     sol_filename = f"depth_{storage_depth}.sol"
     sol_path = Path(__file__).parent / sol_filename
 
@@ -487,14 +529,6 @@ def test_worst_depth_stateroot_recomp(
                 # Contract should exist with code
                 storage={
                     DEEP_SLOT: expected_value,  # Exact value from last attack
-                }
-            )
-        else:
-            # Edge case: contract deployed but not attacked (shouldn't occur)
-            post[contract_address] = Account(
-                # Contract should exist with code
-                storage={
-                    DEEP_SLOT: 1,  # Still has constructor's initial value
                 }
             )
 

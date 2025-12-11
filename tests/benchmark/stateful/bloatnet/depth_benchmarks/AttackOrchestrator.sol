@@ -37,10 +37,6 @@ contract AttackOrchestrator {
 
         // Use assembly for gas-efficient CREATE2 address derivation and calls
         assembly {
-            // Store function selector and value in memory once
-            mstore(0x00, shl(224, ATTACK_SELECTOR))  // Left-align selector in first 4 bytes
-            mstore(0x04, value)                       // Store value at offset 4
-
             // Use local variables instead of immutables
             let deployer := _deployer
             let codeHash := _codeHash
@@ -51,10 +47,13 @@ contract AttackOrchestrator {
                 // Formula: keccak256(0xff ++ deployer ++ salt ++ initCodeHash)[12:]
 
                 // Store CREATE2 preimage in memory
-                mstore(0x00, 0xff)                    // 0xff prefix
-                mstore(0x01, shl(96, deployer))       // deployer address (20 bytes)
-                mstore(0x15, i)                       // salt (index as bytes32)
-                mstore(0x35, codeHash)                // init code hash
+                // The layout should be: 0xff (1 byte) + deployer (20 bytes) + salt (32 bytes) + codeHash (32 bytes)
+                // Total: 85 bytes
+                let memPtr := 0x00
+                mstore8(memPtr, 0xff)                                    // 0xff prefix at byte 0
+                mstore(add(memPtr, 0x01), shl(96, deployer))            // deployer address at bytes 1-20
+                mstore(add(memPtr, 0x15), i)                            // salt (i as uint256) at bytes 21-52
+                mstore(add(memPtr, 0x35), codeHash)                     // init code hash at bytes 53-84
 
                 // Compute CREATE2 address
                 let target := and(
@@ -62,16 +61,18 @@ contract AttackOrchestrator {
                     0xffffffffffffffffffffffffffffffffffffffff  // Mask to 20 bytes
                 )
 
-                // Prepare memory for the attack call
-                mstore(0x00, shl(224, ATTACK_SELECTOR))  // Restore selector
-                mstore(0x04, value)                       // Restore value
+                // Prepare memory for the attack call at a different location to avoid overwriting
+                let callDataPtr := 0x80
+                // Hardcode the selector directly: 0x64dd891a shifted left by 224 bits
+                mstore(callDataPtr, 0x64dd891a00000000000000000000000000000000000000000000000000000000)
+                mstore(add(callDataPtr, 0x04), value)           // Value parameter
 
                 // Call attack(value) with 50,000 gas (increased for safety)
                 let success := call(
                     50000,      // gas
                     target,     // to
                     0,          // value (0 ETH)
-                    0,          // argsOffset
+                    callDataPtr,// argsOffset (where we stored the call data)
                     0x24,       // argsSize (4 + 32 = 36 bytes)
                     0,          // retOffset (don't store return data)
                     0           // retSize
