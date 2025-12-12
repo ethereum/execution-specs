@@ -8,6 +8,7 @@ Supported Opcodes:
 - TSTORE
 """
 
+import math
 import pytest
 from execution_testing import (
     Alloc,
@@ -297,6 +298,7 @@ def test_storage_access_warm(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     storage_action: StorageAction,
+    fork: Fork,
     gas_benchmark_value: int,
     env: Environment,
 ) -> None:
@@ -305,25 +307,24 @@ def test_storage_access_warm(
     """
     blocks = []
 
-    # The target storage slot for the warm access is storage slot 0.
-    storage_slot_initial_value = 10
+    # The warm access is done in storage slot 0.
 
     # Contract code
     execution_code_body = Bytecode()
     if storage_action == StorageAction.WRITE_SAME_VALUE:
         execution_code_body = Op.SSTORE(0, Op.DUP1)
     elif storage_action == StorageAction.WRITE_NEW_VALUE:
-        execution_code_body = Op.PUSH1(1) + Op.ADD + Op.SSTORE(0, Op.DUP1)
+        execution_code_body = Op.SSTORE(0, Op.GAS)
     elif storage_action == StorageAction.READ:
         execution_code_body = Op.POP(Op.SLOAD(0))
 
-    execution_code = Op.PUSH1(storage_slot_initial_value) + While(
+    execution_code = Op.SLOAD(0) + While(
         body=execution_code_body,
     )
     execution_code_address = pre.deploy_contract(code=execution_code)
 
     creation_code = (
-        Op.SSTORE(0, storage_slot_initial_value)
+        Op.SSTORE(0, 42)
         + Op.EXTCODECOPY(
             address=execution_code_address,
             dest_offset=0,
@@ -333,11 +334,12 @@ def test_storage_access_warm(
         + Op.RETURN(0, Op.MSIZE)
     )
 
+    tx_gas_limit_cap = fork.transaction_gas_limit_cap()
     with TestPhaseManager.setup():
         sender_addr = pre.fund_eoa()
         setup_tx = Transaction(
             to=None,
-            gas_limit=env.gas_limit,
+            gas_limit=tx_gas_limit_cap or env.gas_limit,
             data=creation_code,
             sender=sender_addr,
         )
@@ -346,11 +348,21 @@ def test_storage_access_warm(
     contract_address = compute_create_address(address=sender_addr, nonce=0)
 
     with TestPhaseManager.execution():
-        op_tx = Transaction(
-            to=contract_address,
-            gas_limit=gas_benchmark_value,
-            sender=pre.fund_eoa(),
+        tx_max_gas_limit = (
+            min(gas_benchmark_value, tx_gas_limit_cap)
+            if tx_gas_limit_cap is not None
+            else gas_benchmark_value
         )
-        blocks.append(Block(txs=[op_tx]))
+        num_exec_txs = math.ceil(gas_benchmark_value / tx_max_gas_limit)
+        txs = []
+        for i in range(num_exec_txs):
+            tx_gas_limit = min(tx_max_gas_limit, gas_benchmark_value - i * tx_max_gas_limit) 
+            op_tx = Transaction(
+                to=contract_address,
+                gas_limit=tx_gas_limit,
+                sender=pre.fund_eoa(),
+            )
+            txs.append(op_tx)
+        blocks.append(Block(txs=txs))
 
     benchmark_test(blocks=blocks)
