@@ -749,7 +749,6 @@ def test_selfdestruct_created(
                 Transaction(
                     to=code_addr,
                     gas_limit=effective_attack_gas_limit,
-                    data=Hash(start) + Hash(count),
                     sender=pre.fund_eoa(),
                 )
             )
