@@ -9,6 +9,7 @@ Supported Opcodes:
 """
 
 import math
+
 import pytest
 from execution_testing import (
     Alloc,
@@ -356,7 +357,9 @@ def test_storage_access_warm(
         num_exec_txs = math.ceil(gas_benchmark_value / tx_max_gas_limit)
         txs = []
         for i in range(num_exec_txs):
-            tx_gas_limit = min(tx_max_gas_limit, gas_benchmark_value - i * tx_max_gas_limit) 
+            tx_gas_limit = min(
+                tx_max_gas_limit, gas_benchmark_value - i * tx_max_gas_limit
+            )
             op_tx = Transaction(
                 to=contract_address,
                 gas_limit=tx_gas_limit,
