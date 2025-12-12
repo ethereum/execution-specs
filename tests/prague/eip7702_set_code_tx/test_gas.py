@@ -1279,7 +1279,9 @@ def test_call_to_pre_authorized_oog(
         # delegation is NOT tracked (OOG before reading it)
         account_expectations = {
             tx.sender: BalAccountExpectation(
-                nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
             ),
             callee_address: BalAccountExpectation.empty(),
             # read for calculating delegation access cost:

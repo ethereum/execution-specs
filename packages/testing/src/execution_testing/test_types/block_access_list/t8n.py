@@ -84,21 +84,21 @@ class BlockAccessList(EthereumTestRootModel[List[BalAccountChange]]):
                 if not change_list:
                     continue
 
-                tx_indices = [c.tx_index for c in change_list]
+                bal_indices = [c.block_access_index for c in change_list]
 
                 # Check both ordering and duplicates
-                if tx_indices != sorted(tx_indices):
+                if bal_indices != sorted(bal_indices):
                     raise BlockAccessListValidationError(
-                        f"Transaction indices not in ascending order in {field_name} of account "
-                        f"{account.address}. Got: {tx_indices}, Expected: {sorted(tx_indices)}"
+                        f"Block access indices not in ascending order in {field_name} of account "
+                        f"{account.address}. Got: {bal_indices}, Expected: {sorted(bal_indices)}"
                     )
 
-                if len(tx_indices) != len(set(tx_indices)):
+                if len(bal_indices) != len(set(bal_indices)):
                     duplicates = sorted(
                         {
                             idx
-                            for idx in tx_indices
-                            if tx_indices.count(idx) > 1
+                            for idx in bal_indices
+                            if bal_indices.count(idx) > 1
                         }
                     )
                     raise BlockAccessListValidationError(
@@ -118,27 +118,29 @@ class BlockAccessList(EthereumTestRootModel[List[BalAccountChange]]):
                         f"{account.storage_changes[i].slot}"
                     )
 
-            # Check transaction index ordering and uniqueness within storage slots
+            # Check bal index ordering and uniqueness within storage slots
             for storage_slot in account.storage_changes:
                 if not storage_slot.slot_changes:
                     continue
 
-                tx_indices = [c.tx_index for c in storage_slot.slot_changes]
+                bal_indices = [
+                    c.block_access_index for c in storage_slot.slot_changes
+                ]
 
                 # Check both ordering and duplicates
-                if tx_indices != sorted(tx_indices):
+                if bal_indices != sorted(bal_indices):
                     raise BlockAccessListValidationError(
                         f"Transaction indices not in ascending order in storage slot "
                         f"{storage_slot.slot} of account {account.address}. "
-                        f"Got: {tx_indices}, Expected: {sorted(tx_indices)}"
+                        f"Got: {bal_indices}, Expected: {sorted(bal_indices)}"
                     )
 
-                if len(tx_indices) != len(set(tx_indices)):
+                if len(bal_indices) != len(set(bal_indices)):
                     duplicates = sorted(
                         {
                             idx
-                            for idx in tx_indices
-                            if tx_indices.count(idx) > 1
+                            for idx in bal_indices
+                            if bal_indices.count(idx) > 1
                         }
                     )
                     raise BlockAccessListValidationError(

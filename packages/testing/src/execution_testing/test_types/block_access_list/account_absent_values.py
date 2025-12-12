@@ -52,14 +52,14 @@ class BalAccountAbsentValues(CamelModel):
         absent_values = BalAccountAbsentValues(
             nonce_changes=[
                 # Forbid exact nonce change at this tx
-                BalNonceChange(tx_index=1, post_nonce=5),
+                BalNonceChange(block_access_index=1, post_nonce=5),
             ],
             storage_changes=[
                 BalStorageSlot(
                     slot=0x42,
                     slot_changes=[
                         # Forbid exact storage change at this slot and tx
-                        BalStorageChange(tx_index=2, post_value=0x99)
+                        BalStorageChange(block_access_index=2, post_value=0x99)
                     ],
                 )
             ],
@@ -171,22 +171,23 @@ class BalAccountAbsentValues(CamelModel):
         self._validate_forbidden_changes(
             account.nonce_changes,
             self.nonce_changes,
-            lambda a, f: a.tx_index == f.tx_index
+            lambda a, f: a.block_access_index == f.block_access_index
             and a.post_nonce == f.post_nonce,
-            lambda a: f"Unexpected nonce change found at tx {a.tx_index}",
+            lambda a: f"Unexpected nonce change found at tx {a.block_access_index}",
         )
         self._validate_forbidden_changes(
             account.balance_changes,
             self.balance_changes,
-            lambda a, f: a.tx_index == f.tx_index
+            lambda a, f: a.block_access_index == f.block_access_index
             and a.post_balance == f.post_balance,
-            lambda a: f"Unexpected balance change found at tx {a.tx_index}",
+            lambda a: f"Unexpected balance change found at tx {a.block_access_index}",
         )
         self._validate_forbidden_changes(
             account.code_changes,
             self.code_changes,
-            lambda a, f: a.tx_index == f.tx_index and a.new_code == f.new_code,
-            lambda a: f"Unexpected code change found at tx {a.tx_index}",
+            lambda a, f: a.block_access_index == f.block_access_index
+            and a.new_code == f.new_code,
+            lambda a: f"Unexpected code change found at tx {a.block_access_index}",
         )
 
         for forbidden_storage_slot in self.storage_changes:
@@ -197,11 +198,11 @@ class BalAccountAbsentValues(CamelModel):
                         actual_storage_slot.slot_changes,
                         forbidden_storage_slot.slot_changes,
                         lambda a, f: (
-                            a.tx_index == f.tx_index
+                            a.block_access_index == f.block_access_index
                             and a.post_value == f.post_value
                         ),
                         lambda a, slot=slot_id: (
-                            f"Unexpected storage change found at slot {slot} in tx {a.tx_index}"
+                            f"Unexpected storage change found at slot {slot} in tx {a.block_access_index}"
                         ),
                     )
 

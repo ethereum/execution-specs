@@ -29,7 +29,9 @@ def test_address_exclusion_validation_passes() -> None:
         [
             BalAccountChange(
                 address=alice,
-                nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
             ),
         ]
     )
@@ -37,7 +39,9 @@ def test_address_exclusion_validation_passes() -> None:
     expectation = BlockAccessListExpectation(
         account_expectations={
             alice: BalAccountExpectation(
-                nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)]
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ]
             ),
             bob: None,  # expect Bob is not in BAL (correctly)
         }
@@ -55,12 +59,14 @@ def test_address_exclusion_validation_raises_when_address_is_present() -> None:
         [
             BalAccountChange(
                 address=alice,
-                nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
             ),
             BalAccountChange(
                 address=bob,
                 balance_changes=[
-                    BalBalanceChange(tx_index=1, post_balance=100)
+                    BalBalanceChange(block_access_index=1, post_balance=100)
                 ],
             ),
         ]
@@ -103,7 +109,9 @@ def test_empty_account_changes_definitions(
         [
             BalAccountChange(
                 address=alice,
-                nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
             ),
         ]
     )
@@ -153,14 +161,22 @@ def test_empty_list_validation() -> None:
 @pytest.mark.parametrize(
     "field,value",
     [
-        ["nonce_changes", BalNonceChange(tx_index=1, post_nonce=1)],
-        ["balance_changes", BalBalanceChange(tx_index=1, post_balance=100)],
-        ["code_changes", BalCodeChange(tx_index=1, new_code=b"code")],
+        ["nonce_changes", BalNonceChange(block_access_index=1, post_nonce=1)],
+        [
+            "balance_changes",
+            BalBalanceChange(block_access_index=1, post_balance=100),
+        ],
+        [
+            "code_changes",
+            BalCodeChange(block_access_index=1, new_code=b"code"),
+        ],
         [
             "storage_changes",
             BalStorageSlot(
                 slot=0x01,
-                slot_changes=[BalStorageChange(tx_index=1, post_value=0x42)],
+                slot_changes=[
+                    BalStorageChange(block_access_index=1, post_value=0x42)
+                ],
             ),
         ],
         ["storage_reads", 0x01],
@@ -179,7 +195,7 @@ def test_empty_list_validation_fails(field: str, value: Any) -> None:
         alice_acct_change.storage_reads = [value]
         # set another field to non-empty to avoid all-empty account change
         alice_acct_change.nonce_changes = [
-            BalNonceChange(tx_index=1, post_nonce=1)
+            BalNonceChange(block_access_index=1, post_nonce=1)
         ]
 
     else:
@@ -194,7 +210,7 @@ def test_empty_list_validation_fails(field: str, value: Any) -> None:
         # match the filled field in actual to avoid all-empty
         # account expectation
         alice_acct_expectation.nonce_changes = [
-            BalNonceChange(tx_index=1, post_nonce=1)
+            BalNonceChange(block_access_index=1, post_nonce=1)
         ]
     else:
         setattr(alice_acct_expectation, field, [])
@@ -219,9 +235,11 @@ def test_partial_validation() -> None:
         [
             BalAccountChange(
                 address=alice,
-                nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
                 balance_changes=[
-                    BalBalanceChange(tx_index=1, post_balance=100)
+                    BalBalanceChange(block_access_index=1, post_balance=100)
                 ],
                 storage_reads=[0x01, 0x02],
             ),
@@ -232,7 +250,9 @@ def test_partial_validation() -> None:
     expectation = BlockAccessListExpectation(
         account_expectations={
             alice: BalAccountExpectation(
-                nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
                 # balance_changes and storage_reads not set and won't be
                 # validated
             ),
@@ -255,7 +275,9 @@ def test_storage_changes_validation() -> None:
                     BalStorageSlot(
                         slot=0x01,
                         slot_changes=[
-                            BalStorageChange(tx_index=1, post_value=0x42)
+                            BalStorageChange(
+                                block_access_index=1, post_value=0x42
+                            )
                         ],
                     )
                 ],
@@ -271,7 +293,9 @@ def test_storage_changes_validation() -> None:
                     BalStorageSlot(
                         slot=0x01,
                         slot_changes=[
-                            BalStorageChange(tx_index=1, post_value=0x42)
+                            BalStorageChange(
+                                block_access_index=1, post_value=0x42
+                            )
                         ],
                     )
                 ],
@@ -291,7 +315,9 @@ def test_missing_expected_address() -> None:
         [
             BalAccountChange(
                 address=alice,
-                nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
             ),
         ]
     )
@@ -300,7 +326,9 @@ def test_missing_expected_address() -> None:
         account_expectations={
             # wrongly expect Bob to be present
             bob: BalAccountExpectation(
-                nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
             ),
         }
     )
@@ -474,9 +502,9 @@ def test_expected_tx_indices_ordering(
             BalAccountChange(
                 address=addr,
                 nonce_changes=[
-                    BalNonceChange(tx_index=1, post_nonce=1),
-                    BalNonceChange(tx_index=2, post_nonce=2),
-                    BalNonceChange(tx_index=3, post_nonce=3),
+                    BalNonceChange(block_access_index=1, post_nonce=1),
+                    BalNonceChange(block_access_index=2, post_nonce=2),
+                    BalNonceChange(block_access_index=3, post_nonce=3),
                 ],
             )
         ]
@@ -486,7 +514,7 @@ def test_expected_tx_indices_ordering(
         account_expectations={
             addr: BalAccountExpectation(
                 nonce_changes=[
-                    BalNonceChange(tx_index=idx, post_nonce=idx)
+                    BalNonceChange(block_access_index=idx, post_nonce=idx)
                     for idx in expected_tx_indices
                 ],
             ),
@@ -508,10 +536,12 @@ def test_absent_values_nonce_changes(has_change_should_raise: bool) -> None:
     """Test nonce_changes_at_tx validator with present/absent changes."""
     alice = Address(0xA)
 
-    nonce_changes = [BalNonceChange(tx_index=1, post_nonce=1)]
+    nonce_changes = [BalNonceChange(block_access_index=1, post_nonce=1)]
     if has_change_should_raise:
         # add nonce change at tx 2 which should trigger failure
-        nonce_changes.append(BalNonceChange(tx_index=2, post_nonce=2))
+        nonce_changes.append(
+            BalNonceChange(block_access_index=2, post_nonce=2)
+        )
 
     actual_bal = BlockAccessList(
         [
@@ -527,7 +557,9 @@ def test_absent_values_nonce_changes(has_change_should_raise: bool) -> None:
             # no nonce changes at tx 2
             alice: BalAccountExpectation(
                 absent_values=BalAccountAbsentValues(
-                    nonce_changes=[BalNonceChange(tx_index=2, post_nonce=2)]
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=2, post_nonce=2)
+                    ]
                 )
             )
         }
@@ -547,10 +579,14 @@ def test_absent_values_balance_changes(has_change_should_raise: bool) -> None:
     """Test balance_changes_at_tx validator with present/absent changes."""
     alice = Address(0xA)
 
-    balance_changes = [BalBalanceChange(tx_index=1, post_balance=100)]
+    balance_changes = [
+        BalBalanceChange(block_access_index=1, post_balance=100)
+    ]
     if has_change_should_raise:
         # add balance change at tx 2 which should trigger failure
-        balance_changes.append(BalBalanceChange(tx_index=2, post_balance=200))
+        balance_changes.append(
+            BalBalanceChange(block_access_index=2, post_balance=200)
+        )
 
     actual_bal = BlockAccessList(
         [
@@ -566,7 +602,9 @@ def test_absent_values_balance_changes(has_change_should_raise: bool) -> None:
             alice: BalAccountExpectation(
                 absent_values=BalAccountAbsentValues(
                     balance_changes=[
-                        BalBalanceChange(tx_index=2, post_balance=200)
+                        BalBalanceChange(
+                            block_access_index=2, post_balance=200
+                        )
                     ]
                 )
             ),
@@ -591,14 +629,18 @@ def test_absent_values_storage_changes(has_change_should_raise: bool) -> None:
     storage_changes = [
         BalStorageSlot(
             slot=0x01,
-            slot_changes=[BalStorageChange(tx_index=1, post_value=0x99)],
+            slot_changes=[
+                BalStorageChange(block_access_index=1, post_value=0x99)
+            ],
         )
     ]
     if has_change_should_raise:
         storage_changes.append(
             BalStorageSlot(
                 slot=0x42,
-                slot_changes=[BalStorageChange(tx_index=1, post_value=0xBEEF)],
+                slot_changes=[
+                    BalStorageChange(block_access_index=1, post_value=0xBEEF)
+                ],
             )
         )
 
@@ -620,7 +662,9 @@ def test_absent_values_storage_changes(has_change_should_raise: bool) -> None:
                         BalStorageSlot(
                             slot=0x42,
                             slot_changes=[
-                                BalStorageChange(tx_index=1, post_value=0xBEEF)
+                                BalStorageChange(
+                                    block_access_index=1, post_value=0xBEEF
+                                )
                             ],
                         )
                     ]
@@ -682,10 +726,12 @@ def test_absent_values_code_changes(has_change_should_raise: bool) -> None:
     """Test code_changes_at_tx validator with present/absent changes."""
     alice = Address(0xA)
 
-    code_changes = [BalCodeChange(tx_index=1, new_code=b"\x00")]
+    code_changes = [BalCodeChange(block_access_index=1, new_code=b"\x00")]
     if has_change_should_raise:
         # add code change at tx 2 which should trigger failure
-        code_changes.append(BalCodeChange(tx_index=2, new_code=b"\x60\x00"))
+        code_changes.append(
+            BalCodeChange(block_access_index=2, new_code=b"\x60\x00")
+        )
 
     actual_bal = BlockAccessList(
         [
@@ -702,7 +748,9 @@ def test_absent_values_code_changes(has_change_should_raise: bool) -> None:
             alice: BalAccountExpectation(
                 absent_values=BalAccountAbsentValues(
                     code_changes=[
-                        BalCodeChange(tx_index=2, new_code=b"\x60\x00")
+                        BalCodeChange(
+                            block_access_index=2, new_code=b"\x60\x00"
+                        )
                     ]
                 )
             ),
@@ -732,7 +780,9 @@ def test_multiple_absent_valuess() -> None:
                     BalStorageSlot(
                         slot=0x01,
                         slot_changes=[
-                            BalStorageChange(tx_index=1, post_value=0x99)
+                            BalStorageChange(
+                                block_access_index=1, post_value=0x99
+                            )
                         ],
                     )
                 ],
@@ -750,37 +800,43 @@ def test_multiple_absent_valuess() -> None:
                     BalStorageSlot(
                         slot=0x01,
                         slot_changes=[
-                            BalStorageChange(tx_index=1, post_value=0x99)
+                            BalStorageChange(
+                                block_access_index=1, post_value=0x99
+                            )
                         ],
                     )
                 ],
                 absent_values=BalAccountAbsentValues(
                     nonce_changes=[
-                        BalNonceChange(tx_index=1, post_nonce=0),
-                        BalNonceChange(tx_index=2, post_nonce=0),
+                        BalNonceChange(block_access_index=1, post_nonce=0),
+                        BalNonceChange(block_access_index=2, post_nonce=0),
                     ],
                     balance_changes=[
-                        BalBalanceChange(tx_index=1, post_balance=0),
-                        BalBalanceChange(tx_index=2, post_balance=0),
+                        BalBalanceChange(block_access_index=1, post_balance=0),
+                        BalBalanceChange(block_access_index=2, post_balance=0),
                     ],
                     storage_changes=[
                         BalStorageSlot(
                             slot=0x42,
                             slot_changes=[
-                                BalStorageChange(tx_index=1, post_value=0)
+                                BalStorageChange(
+                                    block_access_index=1, post_value=0
+                                )
                             ],
                         ),
                         BalStorageSlot(
                             slot=0x43,
                             slot_changes=[
-                                BalStorageChange(tx_index=1, post_value=0)
+                                BalStorageChange(
+                                    block_access_index=1, post_value=0
+                                )
                             ],
                         ),
                     ],
                     storage_reads=[StorageKey(0x42), StorageKey(0x43)],
                     code_changes=[
-                        BalCodeChange(tx_index=1, new_code=b""),
-                        BalCodeChange(tx_index=2, new_code=b""),
+                        BalCodeChange(block_access_index=1, new_code=b""),
+                        BalCodeChange(block_access_index=2, new_code=b""),
                     ],
                 ),
             ),
@@ -800,8 +856,8 @@ def test_absent_values_with_multiple_tx_indices() -> None:
                 address=alice,
                 nonce_changes=[
                     # nonce changes at tx 1 and 3
-                    BalNonceChange(tx_index=1, post_nonce=1),
-                    BalNonceChange(tx_index=3, post_nonce=2),
+                    BalNonceChange(block_access_index=1, post_nonce=1),
+                    BalNonceChange(block_access_index=3, post_nonce=2),
                 ],
             ),
         ]
@@ -811,13 +867,13 @@ def test_absent_values_with_multiple_tx_indices() -> None:
         account_expectations={
             alice: BalAccountExpectation(
                 nonce_changes=[
-                    BalNonceChange(tx_index=1, post_nonce=1),
-                    BalNonceChange(tx_index=3, post_nonce=2),
+                    BalNonceChange(block_access_index=1, post_nonce=1),
+                    BalNonceChange(block_access_index=3, post_nonce=2),
                 ],
                 absent_values=BalAccountAbsentValues(
                     nonce_changes=[
-                        BalNonceChange(tx_index=2, post_nonce=0),
-                        BalNonceChange(tx_index=4, post_nonce=0),
+                        BalNonceChange(block_access_index=2, post_nonce=0),
+                        BalNonceChange(block_access_index=4, post_nonce=0),
                     ]
                 ),
             ),
@@ -833,8 +889,8 @@ def test_absent_values_with_multiple_tx_indices() -> None:
                     nonce_changes=[
                         # wrongly forbid change at txs 1 and 2
                         # (1 exists, so should fail)
-                        BalNonceChange(tx_index=1, post_nonce=1),
-                        BalNonceChange(tx_index=2, post_nonce=0),
+                        BalNonceChange(block_access_index=1, post_nonce=1),
+                        BalNonceChange(block_access_index=2, post_nonce=0),
                     ]
                 ),
             ),
@@ -856,7 +912,9 @@ def test_bal_account_absent_values_comprehensive() -> None:
         [
             BalAccountChange(
                 address=addr,
-                nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
             )
         ]
     )
@@ -865,7 +923,9 @@ def test_bal_account_absent_values_comprehensive() -> None:
         account_expectations={
             addr: BalAccountExpectation(
                 absent_values=BalAccountAbsentValues(
-                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)]
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ]
                 )
             ),
         }
@@ -883,7 +943,7 @@ def test_bal_account_absent_values_comprehensive() -> None:
             BalAccountChange(
                 address=addr,
                 balance_changes=[
-                    BalBalanceChange(tx_index=2, post_balance=100)
+                    BalBalanceChange(block_access_index=2, post_balance=100)
                 ],
             )
         ]
@@ -894,7 +954,9 @@ def test_bal_account_absent_values_comprehensive() -> None:
             addr: BalAccountExpectation(
                 absent_values=BalAccountAbsentValues(
                     balance_changes=[
-                        BalBalanceChange(tx_index=2, post_balance=100)
+                        BalBalanceChange(
+                            block_access_index=2, post_balance=100
+                        )
                     ]
                 )
             ),
@@ -912,7 +974,9 @@ def test_bal_account_absent_values_comprehensive() -> None:
         [
             BalAccountChange(
                 address=addr,
-                code_changes=[BalCodeChange(tx_index=3, new_code=b"\x60\x00")],
+                code_changes=[
+                    BalCodeChange(block_access_index=3, new_code=b"\x60\x00")
+                ],
             )
         ]
     )
@@ -922,7 +986,9 @@ def test_bal_account_absent_values_comprehensive() -> None:
             addr: BalAccountExpectation(
                 absent_values=BalAccountAbsentValues(
                     code_changes=[
-                        BalCodeChange(tx_index=3, new_code=b"\x60\x00")
+                        BalCodeChange(
+                            block_access_index=3, new_code=b"\x60\x00"
+                        )
                     ]
                 )
             ),
@@ -965,7 +1031,9 @@ def test_bal_account_absent_values_comprehensive() -> None:
                     BalStorageSlot(
                         slot=0x01,
                         slot_changes=[
-                            BalStorageChange(tx_index=1, post_value=99)
+                            BalStorageChange(
+                                block_access_index=1, post_value=99
+                            )
                         ],
                     )
                 ],
@@ -981,7 +1049,9 @@ def test_bal_account_absent_values_comprehensive() -> None:
                         BalStorageSlot(
                             slot=0x01,
                             slot_changes=[
-                                BalStorageChange(tx_index=1, post_value=99)
+                                BalStorageChange(
+                                    block_access_index=1, post_value=99
+                                )
                             ],
                         )
                     ]

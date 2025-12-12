@@ -108,7 +108,7 @@ class BlockAccessListExpectation(CamelModel):
         expected_block_access_list = BlockAccessListExpectation(
             account_expectations={
                 alice: BalAccountExpectation(
-                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)]
+                    nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)]
                 ),
                 bob: None,  # Bob should NOT be in the BAL
             }
@@ -322,8 +322,8 @@ class BlockAccessListExpectation(CamelModel):
                                             slot_actual_idx
                                         ]
                                         if (
-                                            actual_change.tx_index
-                                            == expected_change.tx_index
+                                            actual_change.block_access_index
+                                            == expected_change.block_access_index
                                             and actual_change.post_value
                                             == expected_change.post_value
                                         ):
@@ -357,27 +357,32 @@ class BlockAccessListExpectation(CamelModel):
                 # Create tuples for comparison (ordering already validated)
                 if field_name == "nonce_changes":
                     expected_tuples = [
-                        (c.tx_index, c.post_nonce) for c in expected_list
+                        (c.block_access_index, c.post_nonce)
+                        for c in expected_list
                     ]
                     actual_tuples = [
-                        (c.tx_index, c.post_nonce) for c in actual_list
+                        (c.block_access_index, c.post_nonce)
+                        for c in actual_list
                     ]
                     item_type = "nonce"
                 elif field_name == "balance_changes":
                     expected_tuples = [
-                        (c.tx_index, int(c.post_balance))
+                        (c.block_access_index, int(c.post_balance))
                         for c in expected_list
                     ]
                     actual_tuples = [
-                        (c.tx_index, int(c.post_balance)) for c in actual_list
+                        (c.block_access_index, int(c.post_balance))
+                        for c in actual_list
                     ]
                     item_type = "balance"
                 elif field_name == "code_changes":
                     expected_tuples = [
-                        (c.tx_index, bytes(c.new_code)) for c in expected_list
+                        (c.block_access_index, bytes(c.new_code))
+                        for c in expected_list
                     ]
                     actual_tuples = [
-                        (c.tx_index, bytes(c.new_code)) for c in actual_list
+                        (c.block_access_index, bytes(c.new_code))
+                        for c in actual_list
                     ]
                     item_type = "code"
                 else:

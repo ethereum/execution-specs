@@ -10,14 +10,14 @@ address -> field -> block_access_index -> change.
 from dataclasses import dataclass
 from typing import List, Tuple
 
-from ethereum_types.bytes import Bytes, Bytes20, Bytes32
+from ethereum_types.bytes import Bytes, Bytes20
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint
 
 # Type aliases for clarity (matching EIP-7928 specification)
 Address = Bytes20
-StorageKey = Bytes32
-StorageValue = Bytes32
+StorageKey = U256
+StorageValue = U256
 CodeData = Bytes
 BlockAccessIndex = Uint  # uint16 in the spec, but using Uint for compatibility
 Balance = U256  # Post-transaction balance in wei

@@ -168,7 +168,9 @@ def test_bal_sstore_and_oog(
                         BalStorageSlot(
                             slot=0x01,
                             slot_changes=[
-                                BalStorageChange(tx_index=1, post_value=0x42)
+                                BalStorageChange(
+                                    block_access_index=1, post_value=0x42
+                                )
                             ],
                         ),
                     ]
@@ -505,11 +507,13 @@ def test_bal_call_no_delegation_and_oog_before_target_access(
     elif value > 0:
         account_expectations = {
             caller: BalAccountExpectation(
-                balance_changes=[BalBalanceChange(tx_index=1, post_balance=0)]
+                balance_changes=[
+                    BalBalanceChange(block_access_index=1, post_balance=0)
+                ]
             ),
             target: BalAccountExpectation(
                 balance_changes=[
-                    BalBalanceChange(tx_index=1, post_balance=value)
+                    BalBalanceChange(block_access_index=1, post_balance=value)
                 ]
             ),
         }
@@ -783,7 +787,9 @@ def test_bal_call_7702_delegation_and_oog(
     account_expectations: Dict[Address, BalAccountExpectation | None] = {
         caller: (
             BalAccountExpectation(
-                balance_changes=[BalBalanceChange(tx_index=1, post_balance=0)]
+                balance_changes=[
+                    BalBalanceChange(block_access_index=1, post_balance=0)
+                ]
             )
             if value_transferred
             else BalAccountExpectation.empty()
@@ -797,7 +803,7 @@ def test_bal_call_7702_delegation_and_oog(
         if value_transferred:
             account_expectations[target] = BalAccountExpectation(
                 balance_changes=[
-                    BalBalanceChange(tx_index=1, post_balance=value)
+                    BalBalanceChange(block_access_index=1, post_balance=value)
                 ]
             )
         else:
@@ -1797,18 +1803,21 @@ def test_bal_self_destruct(
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 alice: BalAccountExpectation(
-                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
                 ),
                 bob: BalAccountExpectation(
                     balance_changes=[
                         BalBalanceChange(
-                            tx_index=1, post_balance=expected_recipient_balance
+                            block_access_index=1,
+                            post_balance=expected_recipient_balance,
                         )
                     ]
                 ),
                 self_destructed_account: BalAccountExpectation(
                     balance_changes=[
-                        BalBalanceChange(tx_index=1, post_balance=0)
+                        BalBalanceChange(block_access_index=1, post_balance=0)
                     ]
                     if pre_funded
                     else [],
@@ -1822,7 +1831,9 @@ def test_bal_self_destruct(
                         BalStorageSlot(
                             slot=0x02,
                             slot_changes=[
-                                BalStorageChange(tx_index=1, post_value=0x42)
+                                BalStorageChange(
+                                    block_access_index=1, post_value=0x42
+                                )
                             ],
                         )
                     ]
@@ -1935,7 +1946,7 @@ def test_bal_self_destruct_oog(
 
     account_expectations: Dict[Address, BalAccountExpectation | None] = {
         alice: BalAccountExpectation(
-            nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
         ),
         caller_contract: BalAccountExpectation.empty(),
         selfdestruct_contract: BalAccountExpectation.empty(),
@@ -1996,14 +2007,18 @@ def test_bal_storage_write_read_same_frame(
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 alice: BalAccountExpectation(
-                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
                 ),
                 oracle: BalAccountExpectation(
                     storage_changes=[
                         BalStorageSlot(
                             slot=0x01,
                             slot_changes=[
-                                BalStorageChange(tx_index=1, post_value=0x42)
+                                BalStorageChange(
+                                    block_access_index=1, post_value=0x42
+                                )
                             ],
                         )
                     ],
@@ -2085,14 +2100,18 @@ def test_bal_storage_write_read_cross_frame(
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 alice: BalAccountExpectation(
-                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
                 ),
                 oracle: BalAccountExpectation(
                     storage_changes=[
                         BalStorageSlot(
                             slot=0x01,
                             slot_changes=[
-                                BalStorageChange(tx_index=1, post_value=0x42)
+                                BalStorageChange(
+                                    block_access_index=1, post_value=0x42
+                                )
                             ],
                         )
                     ],
@@ -2159,16 +2178,16 @@ def test_bal_create_oog_code_deposit(
     #   nonce/code changes rolled back on OOG)
     account_expectations = {
         alice: BalAccountExpectation(
-            nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
         ),
         factory: BalAccountExpectation(
-            nonce_changes=[BalNonceChange(tx_index=1, post_nonce=2)],
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=2)],
             storage_changes=[
                 BalStorageSlot(
                     slot=1,
                     slot_changes=[
                         # SSTORE saves 0 (CREATE failed)
-                        BalStorageChange(tx_index=1, post_value=0),
+                        BalStorageChange(block_access_index=1, post_value=0),
                     ],
                 )
             ],
@@ -2240,7 +2259,9 @@ def test_bal_sstore_static_context(
                     account_expectations={
                         alice: BalAccountExpectation(
                             nonce_changes=[
-                                BalNonceChange(tx_index=1, post_nonce=1)
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                )
                             ],
                         ),
                         contract_a: BalAccountExpectation(
@@ -2249,7 +2270,7 @@ def test_bal_sstore_static_context(
                                     slot=0x00,
                                     slot_changes=[
                                         BalStorageChange(
-                                            tx_index=1, post_value=1
+                                            block_access_index=1, post_value=1
                                         ),
                                     ],
                                 ),
@@ -2307,7 +2328,9 @@ def test_bal_create_contract_init_revert(
                     account_expectations={
                         alice: BalAccountExpectation(
                             nonce_changes=[
-                                BalNonceChange(tx_index=1, post_nonce=1)
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                )
                             ],
                         ),
                         caller: BalAccountExpectation.empty(),
@@ -2386,7 +2409,9 @@ def test_bal_call_revert_insufficient_funds(
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 alice: BalAccountExpectation(
-                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
                 ),
                 contract: BalAccountExpectation(
                     # Storage read for slot 0x01
@@ -2396,7 +2421,9 @@ def test_bal_call_revert_insufficient_funds(
                         BalStorageSlot(
                             slot=0x02,
                             slot_changes=[
-                                BalStorageChange(tx_index=1, post_value=0)
+                                BalStorageChange(
+                                    block_access_index=1, post_value=0
+                                )
                             ],
                         )
                     ],
@@ -2525,14 +2552,18 @@ def test_bal_create_selfdestruct_to_self_with_call(
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 alice: BalAccountExpectation(
-                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
                 ),
                 factory: BalAccountExpectation(
-                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=2)],
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=2)
+                    ],
                     # Balance changes: loses endowment (100)
                     balance_changes=[
                         BalBalanceChange(
-                            tx_index=1,
+                            block_access_index=1,
                             post_balance=factory_balance - endowment,
                         )
                     ],
@@ -2543,7 +2574,9 @@ def test_bal_create_selfdestruct_to_self_with_call(
                         BalStorageSlot(
                             slot=0x01,
                             slot_changes=[
-                                BalStorageChange(tx_index=1, post_value=0x42)
+                                BalStorageChange(
+                                    block_access_index=1, post_value=0x42
+                                )
                             ],
                         )
                     ],
@@ -2646,17 +2679,23 @@ def test_bal_create2_collision(
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 alice: BalAccountExpectation(
-                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
                 ),
                 factory: BalAccountExpectation(
                     # Nonce incremented 1→2 even on failed CREATE2
-                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=2)],
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=2)
+                    ],
                     # Storage changes: slot 0 = 0xDEAD → 0 (CREATE2 returned 0)
                     storage_changes=[
                         BalStorageSlot(
                             slot=0x00,
                             slot_changes=[
-                                BalStorageChange(tx_index=1, post_value=0)
+                                BalStorageChange(
+                                    block_access_index=1, post_value=0
+                                )
                             ],
                         )
                     ],
@@ -2726,7 +2765,9 @@ def test_bal_transient_storage_not_tracked(
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 alice: BalAccountExpectation(
-                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
                 ),
                 contract: BalAccountExpectation(
                     # Persistent storage change for slot 0x02
@@ -2734,7 +2775,9 @@ def test_bal_transient_storage_not_tracked(
                         BalStorageSlot(
                             slot=0x02,
                             slot_changes=[
-                                BalStorageChange(tx_index=1, post_value=0x42)
+                                BalStorageChange(
+                                    block_access_index=1, post_value=0x42
+                                )
                             ],
                         )
                     ],
@@ -2798,7 +2841,9 @@ def test_bal_selfdestruct_to_precompile(
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 alice: BalAccountExpectation(
-                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
                 ),
                 caller: BalAccountExpectation.empty(),
                 # Victim (selfdestructing contract): balance changes 100→0
@@ -2806,7 +2851,7 @@ def test_bal_selfdestruct_to_precompile(
                 victim: BalAccountExpectation(
                     nonce_changes=[],  # Contract nonce unchanged
                     balance_changes=[
-                        BalBalanceChange(tx_index=1, post_balance=0)
+                        BalBalanceChange(block_access_index=1, post_balance=0)
                     ],
                     code_changes=[],  # Code unchanged (post-Cancun)
                     storage_changes=[],  # No storage changes
@@ -2818,7 +2863,7 @@ def test_bal_selfdestruct_to_precompile(
                     nonce_changes=[],  # MUST NOT have nonce changes
                     balance_changes=[
                         BalBalanceChange(
-                            tx_index=1, post_balance=contract_balance
+                            block_access_index=1, post_balance=contract_balance
                         )
                     ],
                     code_changes=[],  # MUST NOT have code changes
@@ -2907,7 +2952,9 @@ def test_bal_create_early_failure(
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 alice: BalAccountExpectation(
-                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
                 ),
                 factory: BalAccountExpectation(
                     # NO nonce_changes - CREATE failed before increment_nonce
@@ -2917,7 +2964,9 @@ def test_bal_create_early_failure(
                         BalStorageSlot(
                             slot=0x00,
                             slot_changes=[
-                                BalStorageChange(tx_index=1, post_value=0)
+                                BalStorageChange(
+                                    block_access_index=1, post_value=0
+                                )
                             ],
                         )
                     ],

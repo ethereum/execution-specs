@@ -54,7 +54,7 @@ def _remove_field_from_accounts(
 
 def _modify_field_value(
     address: Address,
-    tx_index: int,
+    block_access_index: int,
     field_name: str,
     change_class: type,
     new_value: Any,
@@ -85,9 +85,12 @@ def _modify_field_value(
                                 for j, change in enumerate(
                                     storage_slot.slot_changes
                                 ):
-                                    if change.tx_index == tx_index:
+                                    if (
+                                        change.block_access_index
+                                        == block_access_index
+                                    ):
                                         kwargs = {
-                                            "tx_index": tx_index,
+                                            "block_access_index": block_access_index,
                                             value_field: new_value,
                                         }
                                         storage_slot.slot_changes[j] = (
@@ -98,9 +101,9 @@ def _modify_field_value(
                     else:
                         # flat structure (nonce, balance, code)
                         for i, change in enumerate(changes):
-                            if change.tx_index == tx_index:
+                            if change.block_access_index == block_access_index:
                                 kwargs = {
-                                    "tx_index": tx_index,
+                                    "block_access_index": block_access_index,
                                     value_field: new_value,
                                 }
                                 changes[i] = change_class(**kwargs)
@@ -172,23 +175,28 @@ def remove_code(
 
 
 def modify_nonce(
-    address: Address, tx_index: int, nonce: int
+    address: Address, block_access_index: int, nonce: int
 ) -> Callable[[BlockAccessList], BlockAccessList]:
     """Set an incorrect nonce value for a specific account and transaction."""
     return _modify_field_value(
-        address, tx_index, "nonce_changes", BalNonceChange, nonce, "post_nonce"
+        address,
+        block_access_index,
+        "nonce_changes",
+        BalNonceChange,
+        nonce,
+        "post_nonce",
     )
 
 
 def modify_balance(
-    address: Address, tx_index: int, balance: int
+    address: Address, block_access_index: int, balance: int
 ) -> Callable[[BlockAccessList], BlockAccessList]:
     """
     Set an incorrect balance value for a specific account and transaction.
     """
     return _modify_field_value(
         address,
-        tx_index,
+        block_access_index,
         "balance_changes",
         BalBalanceChange,
         balance,
@@ -197,7 +205,7 @@ def modify_balance(
 
 
 def modify_storage(
-    address: Address, tx_index: int, slot: int, value: int
+    address: Address, block_access_index: int, slot: int, value: int
 ) -> Callable[[BlockAccessList], BlockAccessList]:
     """
     Set an incorrect storage value for a specific account, transaction, and
@@ -205,7 +213,7 @@ def modify_storage(
     """
     return _modify_field_value(
         address,
-        tx_index,
+        block_access_index,
         "storage_changes",
         BalStorageChange,
         value,
@@ -216,11 +224,16 @@ def modify_storage(
 
 
 def modify_code(
-    address: Address, tx_index: int, code: bytes
+    address: Address, block_access_index: int, code: bytes
 ) -> Callable[[BlockAccessList], BlockAccessList]:
     """Set an incorrect code value for a specific account and transaction."""
     return _modify_field_value(
-        address, tx_index, "code_changes", BalCodeChange, code, "post_code"
+        address,
+        block_access_index,
+        "code_changes",
+        BalCodeChange,
+        code,
+        "post_code",
     )
 
 
@@ -242,46 +255,46 @@ def swap_tx_indices(
             # Swap in nonce changes
             if new_account.nonce_changes:
                 for nonce_change in new_account.nonce_changes:
-                    if nonce_change.tx_index == tx1:
+                    if nonce_change.block_access_index == tx1:
                         nonce_indices[tx1] = True
-                        nonce_change.tx_index = HexNumber(tx2)
-                    elif nonce_change.tx_index == tx2:
+                        nonce_change.block_access_index = HexNumber(tx2)
+                    elif nonce_change.block_access_index == tx2:
                         nonce_indices[tx2] = True
-                        nonce_change.tx_index = HexNumber(tx1)
+                        nonce_change.block_access_index = HexNumber(tx1)
 
             # Swap in balance changes
             if new_account.balance_changes:
                 for balance_change in new_account.balance_changes:
-                    if balance_change.tx_index == tx1:
+                    if balance_change.block_access_index == tx1:
                         balance_indices[tx1] = True
-                        balance_change.tx_index = HexNumber(tx2)
-                    elif balance_change.tx_index == tx2:
+                        balance_change.block_access_index = HexNumber(tx2)
+                    elif balance_change.block_access_index == tx2:
                         balance_indices[tx2] = True
-                        balance_change.tx_index = HexNumber(tx1)
+                        balance_change.block_access_index = HexNumber(tx1)
 
             # Swap in storage changes (nested structure)
             if new_account.storage_changes:
                 for storage_slot in new_account.storage_changes:
                     for storage_change in storage_slot.slot_changes:
-                        if storage_change.tx_index == tx1:
+                        if storage_change.block_access_index == tx1:
                             balance_indices[tx1] = True
-                            storage_change.tx_index = HexNumber(tx2)
-                        elif storage_change.tx_index == tx2:
+                            storage_change.block_access_index = HexNumber(tx2)
+                        elif storage_change.block_access_index == tx2:
                             balance_indices[tx2] = True
-                            storage_change.tx_index = HexNumber(tx1)
+                            storage_change.block_access_index = HexNumber(tx1)
 
-            # Note: storage_reads is just a list of StorageKey, no tx_index to
+            # Note: storage_reads is just a list of StorageKey, no block_access_index to
             # swap
 
             # Swap in code changes
             if new_account.code_changes:
                 for code_change in new_account.code_changes:
-                    if code_change.tx_index == tx1:
+                    if code_change.block_access_index == tx1:
                         code_indices[tx1] = True
-                        code_change.tx_index = HexNumber(tx2)
-                    elif code_change.tx_index == tx2:
+                        code_change.block_access_index = HexNumber(tx2)
+                    elif code_change.block_access_index == tx2:
                         code_indices[tx2] = True
-                        code_change.tx_index = HexNumber(tx1)
+                        code_change.block_access_index = HexNumber(tx1)
 
             new_root.append(new_account)
 

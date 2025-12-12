@@ -356,13 +356,17 @@ def test_create_oog_from_eoa_refunds(
             )
             created_bal = BalAccountExpectation(
                 nonce_changes=[
-                    BalNonceChange(tx_index=1, post_nonce=expected_nonce)
+                    BalNonceChange(
+                        block_access_index=1, post_nonce=expected_nonce
+                    )
                 ],
                 storage_changes=[
                     BalStorageSlot(
                         slot=0,
                         slot_changes=[
-                            BalStorageChange(tx_index=1, post_value=1)
+                            BalStorageChange(
+                                block_access_index=1, post_value=1
+                            )
                         ],
                     ),
                 ],
@@ -404,7 +408,9 @@ def test_create_oog_from_eoa_refunds(
         bal_expectation = BlockAccessListExpectation(
             account_expectations={
                 sender: BalAccountExpectation(
-                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
                 ),
                 created_address: created_bal,
             }
