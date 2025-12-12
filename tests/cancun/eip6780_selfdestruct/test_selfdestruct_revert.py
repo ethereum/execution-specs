@@ -454,7 +454,7 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
                 BalAccountExpectation(
                     balance_changes=[
                         BalBalanceChange(
-                            tx_index=1,
+                            block_access_index=1,
                             post_balance=1
                             if selfdestruct_on_outer_call == 1
                             else 2,
@@ -467,11 +467,15 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
                 selfdestruct_with_transfer_contract_address
             ] = BalAccountExpectation(
                 storage_reads=[1],
-                nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
-                balance_changes=[BalBalanceChange(tx_index=1, post_balance=1)],
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
+                balance_changes=[
+                    BalBalanceChange(block_access_index=1, post_balance=1)
+                ],
                 code_changes=[
                     BalCodeChange(
-                        tx_index=1,
+                        block_access_index=1,
                         new_code=selfdestruct_with_transfer_contract_code,
                     ),
                 ],
@@ -479,7 +483,9 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
                     BalStorageSlot(
                         slot=0,
                         slot_changes=[
-                            BalStorageChange(tx_index=1, post_value=1),
+                            BalStorageChange(
+                                block_access_index=1, post_value=1
+                            ),
                         ],
                     ),
                 ],
