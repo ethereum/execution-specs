@@ -494,10 +494,8 @@ ruleset: Dict[Fork, Dict[str, int]] = {
         "HIVE_CANCUN_TIMESTAMP": 0,
         "HIVE_PRAGUE_TIMESTAMP": 0,
         "HIVE_OSAKA_TIMESTAMP": 0,
-        # TODO: While we are still reworking BPO interaction with T8N,
-        #  turn off BPO timestamps for now.
-        # "HIVE_BPO1_TIMESTAMP": 0,
-        # "HIVE_BPO2_TIMESTAMP": 0,
+        "HIVE_BPO1_TIMESTAMP": 0,
+        "HIVE_BPO2_TIMESTAMP": 0,
         "HIVE_AMSTERDAM_TIMESTAMP": 0,
     },
 }
