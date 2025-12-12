@@ -230,7 +230,7 @@ def expected_block_access_list(
             else:
                 empty_account_expectation = BalAccountExpectation(
                     balance_changes=[
-                        BalBalanceChange(tx_index=1, post_balance=1)
+                        BalBalanceChange(block_access_index=1, post_balance=1)
                     ]
                 )
         else:
@@ -246,14 +246,16 @@ def expected_block_access_list(
                 empty_account: empty_account_expectation,
                 caller_address: BalAccountExpectation(
                     balance_changes=[
-                        BalBalanceChange(tx_index=1, post_balance=4)
+                        BalBalanceChange(block_access_index=1, post_balance=4)
                     ],
                     storage_reads=[0] if gas_shortage else [],
                     storage_changes=[
                         BalStorageSlot(
                             slot=0x00,
                             slot_changes=[
-                                BalStorageChange(tx_index=1, post_value=1),
+                                BalStorageChange(
+                                    block_access_index=1, post_value=1
+                                ),
                             ],
                         ),
                     ]
@@ -262,7 +264,11 @@ def expected_block_access_list(
                 ),
                 callee_address: BalAccountExpectation(
                     balance_changes=(
-                        [BalBalanceChange(tx_index=1, post_balance=2)]
+                        [
+                            BalBalanceChange(
+                                block_access_index=1, post_balance=2
+                            )
+                        ]
                         if not gas_shortage and callee_opcode == Op.CALL
                         else []
                     ),

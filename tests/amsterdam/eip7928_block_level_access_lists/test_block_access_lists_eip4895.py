@@ -62,7 +62,9 @@ def test_bal_withdrawal_empty_block(
             account_expectations={
                 charlie: BalAccountExpectation(
                     balance_changes=[
-                        BalBalanceChange(tx_index=1, post_balance=11 * GWEI)
+                        BalBalanceChange(
+                            block_access_index=1, post_balance=11 * GWEI
+                        )
                     ],
                 ),
             }
@@ -115,16 +117,20 @@ def test_bal_withdrawal_and_transaction(
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 alice: BalAccountExpectation(
-                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
                 ),
                 bob: BalAccountExpectation(
                     balance_changes=[
-                        BalBalanceChange(tx_index=1, post_balance=5)
+                        BalBalanceChange(block_access_index=1, post_balance=5)
                     ],
                 ),
                 charlie: BalAccountExpectation(
                     balance_changes=[
-                        BalBalanceChange(tx_index=2, post_balance=10 * GWEI)
+                        BalBalanceChange(
+                            block_access_index=2, post_balance=10 * GWEI
+                        )
                     ],
                 ),
             }
@@ -169,7 +175,9 @@ def test_bal_withdrawal_to_nonexistent_account(
             account_expectations={
                 charlie: BalAccountExpectation(
                     balance_changes=[
-                        BalBalanceChange(tx_index=1, post_balance=10 * GWEI)
+                        BalBalanceChange(
+                            block_access_index=1, post_balance=10 * GWEI
+                        )
                     ],
                 ),
             }
@@ -216,7 +224,9 @@ def test_bal_withdrawal_no_evm_execution(
             account_expectations={
                 oracle: BalAccountExpectation(
                     balance_changes=[
-                        BalBalanceChange(tx_index=1, post_balance=10 * GWEI)
+                        BalBalanceChange(
+                            block_access_index=1, post_balance=10 * GWEI
+                        )
                     ],
                     storage_reads=[],
                     storage_changes=[],
@@ -275,7 +285,9 @@ def test_bal_withdrawal_and_state_access_same_account(
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 alice: BalAccountExpectation(
-                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
                 ),
                 oracle: BalAccountExpectation(
                     storage_reads=[0x01],
@@ -283,12 +295,16 @@ def test_bal_withdrawal_and_state_access_same_account(
                         BalStorageSlot(
                             slot=0x02,
                             slot_changes=[
-                                BalStorageChange(tx_index=1, post_value=0x99)
+                                BalStorageChange(
+                                    block_access_index=1, post_value=0x99
+                                )
                             ],
                         )
                     ],
                     balance_changes=[
-                        BalBalanceChange(tx_index=2, post_balance=10 * GWEI)
+                        BalBalanceChange(
+                            block_access_index=2, post_balance=10 * GWEI
+                        )
                     ],
                 ),
             }
@@ -343,12 +359,18 @@ def test_bal_withdrawal_and_value_transfer_same_address(
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 alice: BalAccountExpectation(
-                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
                 ),
                 bob: BalAccountExpectation(
                     balance_changes=[
-                        BalBalanceChange(tx_index=1, post_balance=5 * GWEI),
-                        BalBalanceChange(tx_index=2, post_balance=15 * GWEI),
+                        BalBalanceChange(
+                            block_access_index=1, post_balance=5 * GWEI
+                        ),
+                        BalBalanceChange(
+                            block_access_index=2, post_balance=15 * GWEI
+                        ),
                     ],
                 ),
             }
@@ -388,7 +410,9 @@ def test_bal_multiple_withdrawals_same_address(
             account_expectations={
                 charlie: BalAccountExpectation(
                     balance_changes=[
-                        BalBalanceChange(tx_index=1, post_balance=30 * GWEI)
+                        BalBalanceChange(
+                            block_access_index=1, post_balance=30 * GWEI
+                        )
                     ],
                 ),
             }
@@ -443,17 +467,23 @@ def test_bal_withdrawal_and_selfdestruct(
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 alice: BalAccountExpectation(
-                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
                 ),
                 bob: BalAccountExpectation(
                     balance_changes=[
-                        BalBalanceChange(tx_index=1, post_balance=100 * GWEI)
+                        BalBalanceChange(
+                            block_access_index=1, post_balance=100 * GWEI
+                        )
                     ],
                 ),
                 oracle: BalAccountExpectation(
                     balance_changes=[
-                        BalBalanceChange(tx_index=1, post_balance=0),
-                        BalBalanceChange(tx_index=2, post_balance=50 * GWEI),
+                        BalBalanceChange(block_access_index=1, post_balance=0),
+                        BalBalanceChange(
+                            block_access_index=2, post_balance=50 * GWEI
+                        ),
                     ],
                 ),
             }
@@ -510,13 +540,21 @@ def test_bal_withdrawal_and_new_contract(
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 alice: BalAccountExpectation(
-                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
                 ),
                 oracle: BalAccountExpectation(
-                    code_changes=[BalCodeChange(tx_index=1, new_code=code)],
+                    code_changes=[
+                        BalCodeChange(block_access_index=1, new_code=code)
+                    ],
                     balance_changes=[
-                        BalBalanceChange(tx_index=1, post_balance=5 * GWEI),
-                        BalBalanceChange(tx_index=2, post_balance=15 * GWEI),
+                        BalBalanceChange(
+                            block_access_index=1, post_balance=5 * GWEI
+                        ),
+                        BalBalanceChange(
+                            block_access_index=2, post_balance=15 * GWEI
+                        ),
                     ],
                 ),
             }
@@ -621,7 +659,9 @@ def test_bal_withdrawal_to_precompiles(
             account_expectations={
                 precompile: BalAccountExpectation(
                     balance_changes=[
-                        BalBalanceChange(tx_index=1, post_balance=10 * GWEI)
+                        BalBalanceChange(
+                            block_access_index=1, post_balance=10 * GWEI
+                        )
                     ],
                     storage_reads=[],
                     storage_changes=[],
@@ -668,7 +708,8 @@ def test_bal_withdrawal_largest_amount(
                 charlie: BalAccountExpectation(
                     balance_changes=[
                         BalBalanceChange(
-                            tx_index=1, post_balance=max_amount * GWEI
+                            block_access_index=1,
+                            post_balance=max_amount * GWEI,
                         )
                     ],
                 ),
@@ -738,20 +779,23 @@ def test_bal_withdrawal_to_coinbase(
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 alice: BalAccountExpectation(
-                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
                 ),
                 bob: BalAccountExpectation(
                     balance_changes=[
-                        BalBalanceChange(tx_index=1, post_balance=5)
+                        BalBalanceChange(block_access_index=1, post_balance=5)
                     ],
                 ),
                 coinbase: BalAccountExpectation(
                     balance_changes=[
                         BalBalanceChange(
-                            tx_index=1, post_balance=tip_to_coinbase
+                            block_access_index=1, post_balance=tip_to_coinbase
                         ),
                         BalBalanceChange(
-                            tx_index=2, post_balance=coinbase_final_balance
+                            block_access_index=2,
+                            post_balance=coinbase_final_balance,
                         ),
                     ],
                 ),
@@ -798,7 +842,9 @@ def test_bal_withdrawal_to_coinbase_empty_block(
             account_expectations={
                 coinbase: BalAccountExpectation(
                     balance_changes=[
-                        BalBalanceChange(tx_index=1, post_balance=10 * GWEI)
+                        BalBalanceChange(
+                            block_access_index=1, post_balance=10 * GWEI
+                        )
                     ],
                 ),
             }

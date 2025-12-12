@@ -348,16 +348,16 @@ class Result:
                 storage_changes = []
                 for slot_change in account.storage_changes:
                     slot_data: Dict[str, Any] = {
-                        "slot": int.from_bytes(slot_change.slot, "big"),
+                        "slot": int(slot_change.slot),
                         "slotChanges": [],
                     }
                     for change in slot_change.changes:
                         slot_data["slotChanges"].append(
                             {
-                                "txIndex": int(change.block_access_index),
-                                "postValue": int.from_bytes(
-                                    change.new_value, "big"
+                                "blockAccessIndex": int(
+                                    change.block_access_index
                                 ),
+                                "postValue": int(change.new_value),
                             }
                         )
                     storage_changes.append(slot_data)
@@ -365,14 +365,13 @@ class Result:
 
             if account.storage_reads:
                 account_data["storageReads"] = [
-                    int.from_bytes(slot, "big")
-                    for slot in account.storage_reads
+                    int(slot) for slot in account.storage_reads
                 ]
 
             if account.balance_changes:
                 account_data["balanceChanges"] = [
                     {
-                        "txIndex": int(change.block_access_index),
+                        "blockAccessIndex": int(change.block_access_index),
                         "postBalance": int(change.post_balance),
                     }
                     for change in account.balance_changes
@@ -381,7 +380,7 @@ class Result:
             if account.nonce_changes:
                 account_data["nonceChanges"] = [
                     {
-                        "txIndex": int(change.block_access_index),
+                        "blockAccessIndex": int(change.block_access_index),
                         "postNonce": int(change.new_nonce),
                     }
                     for change in account.nonce_changes
@@ -390,7 +389,7 @@ class Result:
             if account.code_changes:
                 account_data["codeChanges"] = [
                     {
-                        "txIndex": int(change.block_access_index),
+                        "blockAccessIndex": int(change.block_access_index),
                         "newCode": "0x" + change.new_code.hex(),
                     }
                     for change in account.code_changes
