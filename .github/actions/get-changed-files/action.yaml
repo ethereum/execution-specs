@@ -16,18 +16,31 @@ runs:
         if [ "${{ github.event_name }}" = "pull_request" ]; then
           BASE_SHA=$(git merge-base "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}")
           HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+        elif [ "${{ github.event_name }}" = "push" ]; then
+          if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            # New branch - no base to compare against
+            BASE_SHA=""
+          else
+            BASE_SHA=$(git merge-base "${{ github.event.before }}" "${{ github.sha }}")
+          fi
+          HEAD_SHA="${{ github.sha }}"
         else
-        # On push or force push to the feature branch
-          BASE_SHA=$(git merge-base "${{ github.event.before }}" "${{ github.sha }}")
+          # workflow_dispatch, schedule, or other triggers - no base to compare
+          BASE_SHA=""
           HEAD_SHA="${{ github.sha }}"
         fi
 
-        echo "Diffing commits: $BASE_SHA..$HEAD_SHA"
-
         # Get changed files and save to disk (use absolute path for reliability)
         FILE_LIST="${GITHUB_WORKSPACE}/changed_files.txt"
-        git diff --name-only "$BASE_SHA" "$HEAD_SHA" > "$FILE_LIST"
+
+        if [ -z "$BASE_SHA" ]; then
+          echo "No base to compare, listing all files by default."
+          git ls-files > "$FILE_LIST"
+        else
+          echo "Diffing commits: $BASE_SHA..$HEAD_SHA to list changed files"
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" > "$FILE_LIST"
+        fi
         echo "Changed files saved to $FILE_LIST"
         echo "file_list=$FILE_LIST" >> $GITHUB_OUTPUT
-        echo "List of files changed in the PR"
+        echo "List of files is as follows:"
         cat $FILE_LIST
