@@ -16,7 +16,7 @@ The builder follows a two-phase approach:
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Dict, List, Set
 
-from ethereum_types.bytes import Bytes, Bytes32
+from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U64, U256
 
 from ..fork_types import Address
@@ -45,7 +45,7 @@ class AccountData:
     transaction index where it occurred.
     """
 
-    storage_changes: Dict[Bytes32, List[StorageChange]] = field(
+    storage_changes: Dict[U256, List[StorageChange]] = field(
         default_factory=dict
     )
     """
@@ -53,7 +53,7 @@ class AccountData:
     Each change includes the transaction index and new value.
     """
 
-    storage_reads: Set[Bytes32] = field(default_factory=set)
+    storage_reads: Set[U256] = field(default_factory=set)
     """
     Set of storage slots that were read but not modified.
     """
@@ -121,9 +121,9 @@ def ensure_account(builder: BlockAccessListBuilder, address: Address) -> None:
 def add_storage_write(
     builder: BlockAccessListBuilder,
     address: Address,
-    slot: Bytes32,
+    slot: U256,
     block_access_index: BlockAccessIndex,
-    new_value: Bytes32,
+    new_value: U256,
 ) -> None:
     """
     Add a storage write operation to the block access list.
@@ -171,7 +171,7 @@ def add_storage_write(
 
 
 def add_storage_read(
-    builder: BlockAccessListBuilder, address: Address, slot: Bytes32
+    builder: BlockAccessListBuilder, address: Address, slot: U256
 ) -> None:
     """
     Add a storage read operation to the block access list.
@@ -482,7 +482,7 @@ def build_block_access_list(
 
     # Add all storage reads
     for address, slot in state_changes.storage_reads:
-        add_storage_read(builder, address, slot)
+        add_storage_read(builder, address, U256(int.from_bytes(slot)))
 
     # Add all storage writes
     # Net-zero filtering happens at transaction commit time, not here.
@@ -492,10 +492,9 @@ def build_block_access_list(
         slot,
         block_access_index,
     ), value in state_changes.storage_writes.items():
-        # Convert U256 to Bytes32 for storage
-        value_bytes = Bytes32(value.to_bytes(U256(32), "big"))
+        u256_slot = U256(int.from_bytes(slot))
         add_storage_write(
-            builder, address, slot, block_access_index, value_bytes
+            builder, address, u256_slot, block_access_index, value
         )
 
     # Add all balance changes (balance_changes is keyed by (address, index))

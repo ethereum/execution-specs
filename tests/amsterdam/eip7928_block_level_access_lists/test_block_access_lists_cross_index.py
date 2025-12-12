@@ -82,12 +82,12 @@ def test_bal_withdrawal_contract_cross_index(
                                     slot_changes=[
                                         BalStorageChange(
                                             # Incremented during tx
-                                            tx_index=1,
+                                            block_access_index=1,
                                             post_value=1,
                                         ),
                                         BalStorageChange(
                                             # Reset during post-exec
-                                            tx_index=2,
+                                            block_access_index=2,
                                             post_value=0,
                                         ),
                                     ],
@@ -97,12 +97,12 @@ def test_bal_withdrawal_contract_cross_index(
                                     slot_changes=[
                                         BalStorageChange(
                                             # Incremented during tx
-                                            tx_index=1,
+                                            block_access_index=1,
                                             post_value=1,
                                         ),
                                         BalStorageChange(
                                             # Reset during post-exec
-                                            tx_index=2,
+                                            block_access_index=2,
                                             post_value=0,
                                         ),
                                     ],
@@ -154,12 +154,12 @@ def test_bal_consolidation_contract_cross_index(
                                     slot_changes=[
                                         BalStorageChange(
                                             # Incremented during tx
-                                            tx_index=1,
+                                            block_access_index=1,
                                             post_value=1,
                                         ),
                                         BalStorageChange(
                                             # Reset during post-exec
-                                            tx_index=2,
+                                            block_access_index=2,
                                             post_value=0,
                                         ),
                                     ],
@@ -169,12 +169,12 @@ def test_bal_consolidation_contract_cross_index(
                                     slot_changes=[
                                         BalStorageChange(
                                             # Incremented during tx
-                                            tx_index=1,
+                                            block_access_index=1,
                                             post_value=1,
                                         ),
                                         BalStorageChange(
                                             # Reset during post-exec
-                                            tx_index=2,
+                                            block_access_index=2,
                                             post_value=0,
                                         ),
                                     ],
@@ -232,13 +232,17 @@ def test_bal_noop_write_filtering(
                     BalStorageSlot(
                         slot=2,
                         slot_changes=[
-                            BalStorageChange(tx_index=1, post_value=42),
+                            BalStorageChange(
+                                block_access_index=1, post_value=42
+                            ),
                         ],
                     ),
                     BalStorageSlot(
                         slot=4,
                         slot_changes=[
-                            BalStorageChange(tx_index=1, post_value=200),
+                            BalStorageChange(
+                                block_access_index=1, post_value=200
+                            ),
                         ],
                     ),
                 ],
