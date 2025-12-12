@@ -15,7 +15,6 @@ from execution_testing.base_types import (
     CamelModel,
     HexNumber,
     RLPSerializable,
-    StorageKey,
 )
 
 
@@ -24,7 +23,7 @@ class BalNonceChange(CamelModel, RLPSerializable):
 
     model_config = CamelModel.model_config | {"extra": "forbid"}
 
-    tx_index: HexNumber = Field(
+    block_access_index: HexNumber = Field(
         HexNumber(1),
         description="Transaction index where the change occurred",
     )
@@ -32,7 +31,7 @@ class BalNonceChange(CamelModel, RLPSerializable):
         ..., description="Nonce value after the transaction"
     )
 
-    rlp_fields: ClassVar[List[str]] = ["tx_index", "post_nonce"]
+    rlp_fields: ClassVar[List[str]] = ["block_access_index", "post_nonce"]
 
 
 class BalBalanceChange(CamelModel, RLPSerializable):
@@ -40,7 +39,7 @@ class BalBalanceChange(CamelModel, RLPSerializable):
 
     model_config = CamelModel.model_config | {"extra": "forbid"}
 
-    tx_index: HexNumber = Field(
+    block_access_index: HexNumber = Field(
         HexNumber(1),
         description="Transaction index where the change occurred",
     )
@@ -48,7 +47,7 @@ class BalBalanceChange(CamelModel, RLPSerializable):
         ..., description="Balance after the transaction"
     )
 
-    rlp_fields: ClassVar[List[str]] = ["tx_index", "post_balance"]
+    rlp_fields: ClassVar[List[str]] = ["block_access_index", "post_balance"]
 
 
 class BalCodeChange(CamelModel, RLPSerializable):
@@ -56,13 +55,13 @@ class BalCodeChange(CamelModel, RLPSerializable):
 
     model_config = CamelModel.model_config | {"extra": "forbid"}
 
-    tx_index: HexNumber = Field(
+    block_access_index: HexNumber = Field(
         HexNumber(1),
         description="Transaction index where the change occurred",
     )
     new_code: Bytes = Field(..., description="New code bytes")
 
-    rlp_fields: ClassVar[List[str]] = ["tx_index", "new_code"]
+    rlp_fields: ClassVar[List[str]] = ["block_access_index", "new_code"]
 
 
 class BalStorageChange(CamelModel, RLPSerializable):
@@ -70,15 +69,15 @@ class BalStorageChange(CamelModel, RLPSerializable):
 
     model_config = CamelModel.model_config | {"extra": "forbid"}
 
-    tx_index: HexNumber = Field(
+    block_access_index: HexNumber = Field(
         HexNumber(1),
         description="Transaction index where the change occurred",
     )
-    post_value: StorageKey = Field(
+    post_value: HexNumber = Field(
         ..., description="Value after the transaction"
     )
 
-    rlp_fields: ClassVar[List[str]] = ["tx_index", "post_value"]
+    rlp_fields: ClassVar[List[str]] = ["block_access_index", "post_value"]
 
 
 class BalStorageSlot(CamelModel, RLPSerializable):
@@ -86,7 +85,7 @@ class BalStorageSlot(CamelModel, RLPSerializable):
 
     model_config = CamelModel.model_config | {"extra": "forbid"}
 
-    slot: StorageKey = Field(..., description="Storage slot key")
+    slot: HexNumber = Field(..., description="Storage slot key")
     slot_changes: List[BalStorageChange] = Field(
         default_factory=list, description="List of changes to this slot"
     )
@@ -112,7 +111,7 @@ class BalAccountChange(CamelModel, RLPSerializable):
     storage_changes: List[BalStorageSlot] = Field(
         default_factory=list, description="List of storage changes"
     )
-    storage_reads: List[StorageKey] = Field(
+    storage_reads: List[HexNumber] = Field(
         default_factory=list,
         description="List of storage slots that were read",
     )

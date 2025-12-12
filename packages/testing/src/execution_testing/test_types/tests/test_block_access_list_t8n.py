@@ -127,7 +127,7 @@ def test_bal_storage_reads_ordering() -> None:
     "field_name",
     ["nonce_changes", "balance_changes", "code_changes"],
 )
-def test_bal_tx_indices_ordering(field_name: str) -> None:
+def test_bal_block_access_indices_ordering(field_name: str) -> None:
     """
     Test that transaction indices must be in ascending order within change lists.
     """
@@ -138,51 +138,63 @@ def test_bal_tx_indices_ordering(field_name: str) -> None:
         Union[BalNonceChange, BalBalanceChange, BalCodeChange]
     ]
 
-    # Correct order: tx_index 1, 2, 3
+    # Correct order: block_access_index 1, 2, 3
     if field_name == "nonce_changes":
         changes_valid = [
-            BalNonceChange(tx_index=HexNumber(1), post_nonce=HexNumber(1)),
-            BalNonceChange(tx_index=HexNumber(2), post_nonce=HexNumber(2)),
-            BalNonceChange(tx_index=HexNumber(3), post_nonce=HexNumber(3)),
+            BalNonceChange(
+                block_access_index=HexNumber(1), post_nonce=HexNumber(1)
+            ),
+            BalNonceChange(
+                block_access_index=HexNumber(2), post_nonce=HexNumber(2)
+            ),
+            BalNonceChange(
+                block_access_index=HexNumber(3), post_nonce=HexNumber(3)
+            ),
         ]
         changes_invalid = [
-            BalNonceChange(tx_index=HexNumber(1), post_nonce=HexNumber(1)),
-            BalNonceChange(tx_index=HexNumber(3), post_nonce=HexNumber(3)),
-            BalNonceChange(tx_index=HexNumber(2), post_nonce=HexNumber(2)),
+            BalNonceChange(
+                block_access_index=HexNumber(1), post_nonce=HexNumber(1)
+            ),
+            BalNonceChange(
+                block_access_index=HexNumber(3), post_nonce=HexNumber(3)
+            ),
+            BalNonceChange(
+                block_access_index=HexNumber(2), post_nonce=HexNumber(2)
+            ),
         ]
     elif field_name == "balance_changes":
         changes_valid = [
             BalBalanceChange(
-                tx_index=HexNumber(1), post_balance=HexNumber(100)
+                block_access_index=HexNumber(1), post_balance=HexNumber(100)
             ),
             BalBalanceChange(
-                tx_index=HexNumber(2), post_balance=HexNumber(200)
+                block_access_index=HexNumber(2), post_balance=HexNumber(200)
             ),
             BalBalanceChange(
-                tx_index=HexNumber(3), post_balance=HexNumber(300)
+                block_access_index=HexNumber(3), post_balance=HexNumber(300)
             ),
         ]
         changes_invalid = [
             BalBalanceChange(
-                tx_index=HexNumber(1), post_balance=HexNumber(100)
+                block_access_index=HexNumber(1), post_balance=HexNumber(100)
             ),
             BalBalanceChange(
-                tx_index=HexNumber(3), post_balance=HexNumber(300)
+                block_access_index=HexNumber(3), post_balance=HexNumber(300)
             ),
             BalBalanceChange(
-                tx_index=HexNumber(2), post_balance=HexNumber(200)
+                block_access_index=HexNumber(2), post_balance=HexNumber(200)
             ),
         ]
     elif field_name == "code_changes":
         changes_valid = [
-            BalCodeChange(tx_index=HexNumber(1), new_code=b"code1"),
-            BalCodeChange(tx_index=HexNumber(2), new_code=b"code2"),
-            BalCodeChange(tx_index=HexNumber(3), new_code=b"code3"),
+            BalCodeChange(block_access_index=HexNumber(1), new_code=b"code1"),
+            BalCodeChange(block_access_index=HexNumber(2), new_code=b"code2"),
+            BalCodeChange(block_access_index=HexNumber(3), new_code=b"code3"),
         ]
         changes_invalid = [
-            BalCodeChange(tx_index=HexNumber(1), new_code=b"code1"),
-            BalCodeChange(tx_index=HexNumber(3), new_code=b"code3"),
-            BalCodeChange(tx_index=HexNumber(2), new_code=b"code2"),
+            BalCodeChange(block_access_index=HexNumber(1), new_code=b"code1"),
+            BalCodeChange(block_access_index=HexNumber(3), new_code=b"code3"),
+            BalCodeChange(block_access_index=HexNumber(2), new_code=b"code2"),
         ]
 
     bal_valid = BlockAccessList(
@@ -196,7 +208,7 @@ def test_bal_tx_indices_ordering(field_name: str) -> None:
 
     with pytest.raises(
         BlockAccessListValidationError,
-        match=f"Transaction indices not in ascending order in {field_name}",
+        match=f"Block access indices not in ascending order in {field_name}",
     ):
         bal_invalid.validate_structure()
 
@@ -205,7 +217,7 @@ def test_bal_tx_indices_ordering(field_name: str) -> None:
     "field_name",
     ["nonce_changes", "balance_changes", "code_changes"],
 )
-def test_bal_duplicate_tx_indices(field_name: str) -> None:
+def test_bal_duplicate_block_access_indices(field_name: str) -> None:
     """
     Test that BAL must not have duplicate tx indices in change lists.
     """
@@ -213,34 +225,38 @@ def test_bal_duplicate_tx_indices(field_name: str) -> None:
 
     changes: List[Union[BalNonceChange, BalBalanceChange, BalCodeChange]]
 
-    # Duplicate tx_index=1
+    # Duplicate block_access_index=1
     if field_name == "nonce_changes":
         changes = [
-            BalNonceChange(tx_index=HexNumber(1), post_nonce=HexNumber(1)),
             BalNonceChange(
-                tx_index=HexNumber(1), post_nonce=HexNumber(2)
-            ),  # duplicate tx_index
-            BalNonceChange(tx_index=HexNumber(2), post_nonce=HexNumber(3)),
+                block_access_index=HexNumber(1), post_nonce=HexNumber(1)
+            ),
+            BalNonceChange(
+                block_access_index=HexNumber(1), post_nonce=HexNumber(2)
+            ),  # duplicate block_access_index
+            BalNonceChange(
+                block_access_index=HexNumber(2), post_nonce=HexNumber(3)
+            ),
         ]
     elif field_name == "balance_changes":
         changes = [
             BalBalanceChange(
-                tx_index=HexNumber(1), post_balance=HexNumber(100)
+                block_access_index=HexNumber(1), post_balance=HexNumber(100)
             ),
             BalBalanceChange(
-                tx_index=HexNumber(1), post_balance=HexNumber(200)
-            ),  # duplicate tx_index
+                block_access_index=HexNumber(1), post_balance=HexNumber(200)
+            ),  # duplicate block_access_index
             BalBalanceChange(
-                tx_index=HexNumber(2), post_balance=HexNumber(300)
+                block_access_index=HexNumber(2), post_balance=HexNumber(300)
             ),
         ]
     elif field_name == "code_changes":
         changes = [
-            BalCodeChange(tx_index=HexNumber(1), new_code=b"code1"),
+            BalCodeChange(block_access_index=HexNumber(1), new_code=b"code1"),
             BalCodeChange(
-                tx_index=HexNumber(1), new_code=b""
-            ),  # duplicate tx_index
-            BalCodeChange(tx_index=HexNumber(2), new_code=b"code2"),
+                block_access_index=HexNumber(1), new_code=b""
+            ),  # duplicate block_access_index
+            BalCodeChange(block_access_index=HexNumber(2), new_code=b"code2"),
         ]
 
     bal = BlockAccessList(
@@ -254,13 +270,13 @@ def test_bal_duplicate_tx_indices(field_name: str) -> None:
         bal.validate_structure()
 
 
-def test_bal_storage_duplicate_tx_indices() -> None:
+def test_bal_storage_duplicate_block_access_indices() -> None:
     """
     Test that storage changes must not have duplicate tx indices within same slot.
     """
     addr = Address(0xA)
 
-    # Create storage changes with duplicate tx_index within the same slot
+    # Create storage changes with duplicate block_access_index within the same slot
     bal = BlockAccessList(
         [
             BalAccountChange(
@@ -270,15 +286,15 @@ def test_bal_storage_duplicate_tx_indices() -> None:
                         slot=StorageKey(0),
                         slot_changes=[
                             BalStorageChange(
-                                tx_index=HexNumber(1),
+                                block_access_index=HexNumber(1),
                                 post_value=StorageKey(100),
                             ),
                             BalStorageChange(
-                                tx_index=HexNumber(1),
+                                block_access_index=HexNumber(1),
                                 post_value=StorageKey(200),
-                            ),  # duplicate tx_index
+                            ),  # duplicate block_access_index
                             BalStorageChange(
-                                tx_index=HexNumber(2),
+                                block_access_index=HexNumber(2),
                                 post_value=StorageKey(300),
                             ),
                         ],
@@ -309,10 +325,12 @@ def test_bal_multiple_violations() -> None:
                 address=bob,  # Should come after alice
                 nonce_changes=[
                     BalNonceChange(
-                        tx_index=HexNumber(1), post_nonce=HexNumber(1)
+                        block_access_index=HexNumber(1),
+                        post_nonce=HexNumber(1),
                     ),
                     BalNonceChange(
-                        tx_index=HexNumber(1), post_nonce=HexNumber(2)
+                        block_access_index=HexNumber(1),
+                        post_nonce=HexNumber(2),
                     ),  # duplicate
                 ],
             ),
@@ -342,7 +360,8 @@ def test_bal_single_account_valid() -> None:
                 address=Address(0xA),
                 nonce_changes=[
                     BalNonceChange(
-                        tx_index=HexNumber(1), post_nonce=HexNumber(1)
+                        block_access_index=HexNumber(1),
+                        post_nonce=HexNumber(1),
                     )
                 ],
             )

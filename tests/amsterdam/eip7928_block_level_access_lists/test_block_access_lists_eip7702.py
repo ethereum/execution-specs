@@ -70,17 +70,21 @@ def test_bal_7702_delegation_create(
     account_expectations = {
         alice: BalAccountExpectation(
             nonce_changes=[
-                BalNonceChange(tx_index=1, post_nonce=2 if self_funded else 1)
+                BalNonceChange(
+                    block_access_index=1, post_nonce=2 if self_funded else 1
+                )
             ],
             code_changes=[
                 BalCodeChange(
-                    tx_index=1,
+                    block_access_index=1,
                     new_code=Spec7702.delegation_designation(oracle),
                 )
             ],
         ),
         bob: BalAccountExpectation(
-            balance_changes=[BalBalanceChange(tx_index=1, post_balance=10)]
+            balance_changes=[
+                BalBalanceChange(block_access_index=1, post_balance=10)
+            ]
         ),
         # Oracle must not be present in BAL - the account is never accessed
         oracle: None,
@@ -89,7 +93,7 @@ def test_bal_7702_delegation_create(
     # For sponsored variant, relayer must also be included in BAL
     if not self_funded:
         account_expectations[relayer] = BalAccountExpectation(
-            nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
         )
 
     block = Block(
@@ -181,24 +185,28 @@ def test_bal_7702_delegation_update(
     account_expectations = {
         alice: BalAccountExpectation(
             nonce_changes=[
-                BalNonceChange(tx_index=1, post_nonce=2 if self_funded else 1),
-                BalNonceChange(tx_index=2, post_nonce=4 if self_funded else 2),
+                BalNonceChange(
+                    block_access_index=1, post_nonce=2 if self_funded else 1
+                ),
+                BalNonceChange(
+                    block_access_index=2, post_nonce=4 if self_funded else 2
+                ),
             ],
             code_changes=[
                 BalCodeChange(
-                    tx_index=1,
+                    block_access_index=1,
                     new_code=Spec7702.delegation_designation(oracle1),
                 ),
                 BalCodeChange(
-                    tx_index=2,
+                    block_access_index=2,
                     new_code=Spec7702.delegation_designation(oracle2),
                 ),
             ],
         ),
         bob: BalAccountExpectation(
             balance_changes=[
-                BalBalanceChange(tx_index=1, post_balance=10),
-                BalBalanceChange(tx_index=2, post_balance=20),
+                BalBalanceChange(block_access_index=1, post_balance=10),
+                BalBalanceChange(block_access_index=2, post_balance=20),
             ]
         ),
         # Both delegation targets must not be present in BAL
@@ -211,8 +219,8 @@ def test_bal_7702_delegation_update(
     if not self_funded:
         account_expectations[relayer] = BalAccountExpectation(
             nonce_changes=[
-                BalNonceChange(tx_index=1, post_nonce=1),
-                BalNonceChange(tx_index=2, post_nonce=2),
+                BalNonceChange(block_access_index=1, post_nonce=1),
+                BalNonceChange(block_access_index=2, post_nonce=2),
             ],
         )
 
@@ -306,21 +314,25 @@ def test_bal_7702_delegation_clear(
     account_expectations = {
         alice: BalAccountExpectation(
             nonce_changes=[
-                BalNonceChange(tx_index=1, post_nonce=2 if self_funded else 1),
-                BalNonceChange(tx_index=2, post_nonce=4 if self_funded else 2),
+                BalNonceChange(
+                    block_access_index=1, post_nonce=2 if self_funded else 1
+                ),
+                BalNonceChange(
+                    block_access_index=2, post_nonce=4 if self_funded else 2
+                ),
             ],
             code_changes=[
                 BalCodeChange(
-                    tx_index=1,
+                    block_access_index=1,
                     new_code=Spec7702.delegation_designation(oracle),
                 ),
-                BalCodeChange(tx_index=2, new_code=""),
+                BalCodeChange(block_access_index=2, new_code=""),
             ],
         ),
         bob: BalAccountExpectation(
             balance_changes=[
-                BalBalanceChange(tx_index=1, post_balance=10),
-                BalBalanceChange(tx_index=2, post_balance=20),
+                BalBalanceChange(block_access_index=1, post_balance=10),
+                BalBalanceChange(block_access_index=2, post_balance=20),
             ]
         ),
         # Both delegation targets must not be present in BAL
@@ -333,8 +345,8 @@ def test_bal_7702_delegation_clear(
     if not self_funded:
         account_expectations[relayer] = BalAccountExpectation(
             nonce_changes=[
-                BalNonceChange(tx_index=1, post_nonce=1),
-                BalNonceChange(tx_index=2, post_nonce=2),
+                BalNonceChange(block_access_index=1, post_nonce=1),
+                BalNonceChange(block_access_index=2, post_nonce=2),
             ],
         )
 
@@ -395,20 +407,24 @@ def test_bal_7702_delegated_storage_access(
             account_expectations={
                 alice: BalAccountExpectation(
                     balance_changes=[
-                        BalBalanceChange(tx_index=1, post_balance=10)
+                        BalBalanceChange(block_access_index=1, post_balance=10)
                     ],
                     storage_changes=[
                         BalStorageSlot(
                             slot=0x02,
                             slot_changes=[
-                                BalStorageChange(tx_index=1, post_value=0x42)
+                                BalStorageChange(
+                                    block_access_index=1, post_value=0x42
+                                )
                             ],
                         )
                     ],
                     storage_reads=[0x01],
                 ),
                 bob: BalAccountExpectation(
-                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
                 ),
                 # Oracle appears in BAL due to account access
                 # (delegation target)
@@ -464,11 +480,13 @@ def test_bal_7702_invalid_nonce_authorization(
                 # Ensuring silent fail
                 bob: BalAccountExpectation(
                     balance_changes=[
-                        BalBalanceChange(tx_index=1, post_balance=10)
+                        BalBalanceChange(block_access_index=1, post_balance=10)
                     ]
                 ),
                 relayer: BalAccountExpectation(
-                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
                 ),
                 # Alice's account was marked warm but no changes were made
                 alice: BalAccountExpectation.empty(),
@@ -527,11 +545,13 @@ def test_bal_7702_invalid_chain_id_authorization(
                 # Ensuring silent fail
                 bob: BalAccountExpectation(
                     balance_changes=[
-                        BalBalanceChange(tx_index=1, post_balance=10)
+                        BalBalanceChange(block_access_index=1, post_balance=10)
                     ]
                 ),
                 relayer: BalAccountExpectation(
-                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
                 ),
                 # Oracle must NOT be present - authorization failed so
                 # account never accessed
@@ -592,7 +612,9 @@ def test_bal_7702_delegated_via_call_opcode(
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 bob: BalAccountExpectation(
-                    nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
                 ),
                 caller: BalAccountExpectation.empty(),
                 # `alice` is accessed due to being the call target
@@ -641,11 +663,13 @@ def test_bal_7702_null_address_delegation_no_code_change(
     # because setting code from b"" to b"" is a net-zero change
     account_expectations = {
         alice: BalAccountExpectation(
-            nonce_changes=[BalNonceChange(tx_index=1, post_nonce=2)],
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=2)],
             code_changes=[],  # explicit check for no code changes
         ),
         bob: BalAccountExpectation(
-            balance_changes=[BalBalanceChange(tx_index=1, post_balance=10)]
+            balance_changes=[
+                BalBalanceChange(block_access_index=1, post_balance=10)
+            ]
         ),
     }
 
@@ -720,18 +744,24 @@ def test_bal_7702_double_auth_reset(
                     account_expectations={
                         alice: BalAccountExpectation(
                             nonce_changes=[
-                                BalNonceChange(tx_index=1, post_nonce=2)
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=2
+                                )
                             ],
                             code_changes=[],
                         ),
                         bob: BalAccountExpectation(
                             balance_changes=[
-                                BalBalanceChange(tx_index=1, post_balance=10)
+                                BalBalanceChange(
+                                    block_access_index=1, post_balance=10
+                                )
                             ]
                         ),
                         relayer: BalAccountExpectation(
                             nonce_changes=[
-                                BalNonceChange(tx_index=1, post_nonce=1)
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                )
                             ],
                         ),
                         contract_a: None,
@@ -791,20 +821,22 @@ def test_bal_7702_double_auth_swap(
 
     account_expectations = {
         alice: BalAccountExpectation(
-            nonce_changes=[BalNonceChange(tx_index=1, post_nonce=2)],
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=2)],
             code_changes=[
                 # Should show final code (CONTRACT_B), not CONTRACT_A
                 BalCodeChange(
-                    tx_index=1,
+                    block_access_index=1,
                     new_code=Spec7702.delegation_designation(contract_b),
                 )
             ],
         ),
         bob: BalAccountExpectation(
-            balance_changes=[BalBalanceChange(tx_index=1, post_balance=10)]
+            balance_changes=[
+                BalBalanceChange(block_access_index=1, post_balance=10)
+            ]
         ),
         relayer: BalAccountExpectation(
-            nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
         ),
         # Neither contract appears in BAL during delegation setup
         contract_a: None,
@@ -901,25 +933,29 @@ def test_bal_selfdestruct_to_7702_delegation(
     account_expectations = {
         alice: BalAccountExpectation(
             # tx1: nonce change for auth, code change for delegation
-            nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
             code_changes=[
                 BalCodeChange(
-                    tx_index=1,
+                    block_access_index=1,
                     new_code=Spec7702.delegation_designation(oracle),
                 )
             ],
             # tx2: balance change from selfdestruct
             balance_changes=[
-                BalBalanceChange(tx_index=2, post_balance=alice_final_balance)
+                BalBalanceChange(
+                    block_access_index=2, post_balance=alice_final_balance
+                )
             ],
         ),
         bob: BalAccountExpectation(
-            balance_changes=[BalBalanceChange(tx_index=1, post_balance=10)]
+            balance_changes=[
+                BalBalanceChange(block_access_index=1, post_balance=10)
+            ]
         ),
         relayer: BalAccountExpectation(
             nonce_changes=[
-                BalNonceChange(tx_index=1, post_nonce=1),
-                BalNonceChange(tx_index=2, post_nonce=2),
+                BalNonceChange(block_access_index=1, post_nonce=1),
+                BalNonceChange(block_access_index=2, post_nonce=2),
             ],
         ),
         caller: BalAccountExpectation.empty(),
@@ -927,7 +963,9 @@ def test_bal_selfdestruct_to_7702_delegation(
         # Explicitly verify ALL fields to avoid false positives
         victim: BalAccountExpectation(
             nonce_changes=[],  # Contract nonce unchanged
-            balance_changes=[BalBalanceChange(tx_index=2, post_balance=0)],
+            balance_changes=[
+                BalBalanceChange(block_access_index=2, post_balance=0)
+            ],
             code_changes=[],  # Code unchanged (post-Cancun SELFDESTRUCT)
             storage_changes=[],  # No storage changes
             storage_reads=[],  # No storage reads
@@ -1018,23 +1056,27 @@ def test_bal_withdrawal_to_7702_delegation(
     account_expectations = {
         alice: BalAccountExpectation(
             # tx1: nonce change for auth, code change for delegation
-            nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
             code_changes=[
                 BalCodeChange(
-                    tx_index=1,
+                    block_access_index=1,
                     new_code=Spec7702.delegation_designation(oracle),
                 )
             ],
             # tx2 (withdrawal): balance change
             balance_changes=[
-                BalBalanceChange(tx_index=2, post_balance=alice_final_balance)
+                BalBalanceChange(
+                    block_access_index=2, post_balance=alice_final_balance
+                )
             ],
         ),
         bob: BalAccountExpectation(
-            balance_changes=[BalBalanceChange(tx_index=1, post_balance=10)]
+            balance_changes=[
+                BalBalanceChange(block_access_index=1, post_balance=10)
+            ]
         ),
         relayer: BalAccountExpectation(
-            nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
         ),
         # Oracle MUST NOT appear - withdrawals don't execute recipient code,
         # so delegation target is never accessed
