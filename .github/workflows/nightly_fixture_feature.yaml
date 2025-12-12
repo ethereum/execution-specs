@@ -14,6 +14,9 @@ on:
       branch:
         description: "Branch name for the release tag (leave empty to use current branch)"
         required: false
+      eip_filter:
+        description: "EIP filter for tests (e.g., 'eip7928' to only fill EIP-7928 tests)"
+        required: false
 
 jobs:
   build:
@@ -28,26 +31,42 @@ jobs:
         with:
           submodules: true
 
-      - name: Determine feature name and branch slug
+      - name: Determine feature name, EIP filter, and branch slug
         id: feature
         shell: bash
         run: |
-          # Determine feature name
+          BRANCH="${{ github.ref_name }}"
+
+          # Determine feature name and EIP filter based on branch
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.feature }}" ]; then
             FEATURE="${{ inputs.feature }}"
-          elif [[ "${{ github.ref_name }}" == eips/amsterdam/* ]]; then
+            # Use manual EIP filter if provided
+            if [ -n "${{ inputs.eip_filter }}" ]; then
+              EIP_FILTER="-k ${{ inputs.eip_filter }}"
+            else
+              EIP_FILTER=""
+            fi
+          elif [[ "$BRANCH" == eips/amsterdam/* ]]; then
             FEATURE="bal"
+            # Extract EIP number from branch name (e.g., eips/amsterdam/eip-7928 -> eip7928)
+            EIP=$(echo "$BRANCH" | grep -oP 'eip-?\d+' | tr -d '-' || true)
+            if [ -n "$EIP" ]; then
+              EIP_FILTER="-k ${EIP}"
+              echo "Detected EIP filter: ${EIP_FILTER}"
+            else
+              EIP_FILTER=""
+              echo "No EIP detected in branch name, building all tests"
+            fi
           else
             echo "Error: Could not determine feature name"
             exit 1
           fi
           echo "name=${FEATURE}" >> "$GITHUB_OUTPUT"
+          echo "eip_filter=${EIP_FILTER}" >> "$GITHUB_OUTPUT"
 
           # Determine branch for release tag
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.branch }}" ]; then
             BRANCH="${{ inputs.branch }}"
-          else
-            BRANCH="${{ github.ref_name }}"
           fi
           # Convert branch name to slug (replace / with -)
           BRANCH_SLUG="${BRANCH//\//-}"
@@ -78,6 +97,7 @@ jobs:
           release_name: ${{ steps.feature.outputs.name }}
           uv_version: ${{ vars.UV_VERSION }}
           python_version: ${{ vars.DEFAULT_PYTHON_VERSION }}
+          extra_fill_params: ${{ steps.feature.outputs.eip_filter }}
 
   release:
     runs-on: ubuntu-latest

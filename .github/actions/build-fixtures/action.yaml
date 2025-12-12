@@ -9,6 +9,10 @@ inputs:
   python_version:
     description: "Version of Python to install"
     required: true
+  extra_fill_params:
+    description: "Additional parameters to pass to fill command (e.g., '-k eip7928' to filter by EIP)"
+    required: false
+    default: ""
 runs:
   using: "composite"
   steps:
@@ -34,10 +38,12 @@ runs:
     - name: Generate fixtures using fill
       shell: bash
       run: |
+        # Only include extra_fill_params if non-empty
+        EXTRA_PARAMS="${{ inputs.extra_fill_params }}"
         if [ "${{ steps.evm-builder.outputs.impl }}" = "eels" ]; then
-          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} ${{ steps.properties.outputs.fill-params }} --output=fixtures_${{ inputs.release_name }}.tar.gz --build-name ${{ inputs.release_name }}
+          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} ${{ steps.properties.outputs.fill-params }} ${EXTRA_PARAMS:+$EXTRA_PARAMS} --output=fixtures_${{ inputs.release_name }}.tar.gz --build-name ${{ inputs.release_name }}
         else
-          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} --output=fixtures_${{ inputs.release_name }}.tar.gz --build-name ${{ inputs.release_name }}
+          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} ${EXTRA_PARAMS:+$EXTRA_PARAMS} --output=fixtures_${{ inputs.release_name }}.tar.gz --build-name ${{ inputs.release_name }}
         fi
     - name: Generate Benchmark Genesis Files
       if: contains(inputs.release_name, 'benchmark')
