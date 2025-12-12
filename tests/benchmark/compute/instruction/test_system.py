@@ -741,7 +741,7 @@ def test_selfdestruct_created(
 
 @pytest.mark.parametrize("value_bearing", [True, False])
 def test_selfdestruct_initcode(
-    state_test: StateTestFiller,
+    benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     value_bearing: bool,
     fork: Fork,
@@ -749,6 +749,7 @@ def test_selfdestruct_initcode(
     gas_benchmark_value: int,
 ) -> None:
     """Benchmark SELFDESTRUCT instruction executed in initcode."""
+    # Avoid account creation costs in the SELFDESTRUCT recipient.
     fee_recipient = pre.fund_eoa(amount=1)
     env.fee_recipient = fee_recipient
 
@@ -780,9 +781,10 @@ def test_selfdestruct_initcode(
         + memory_expansion_calc(new_bytes=32)
     )
     suffix_cost = (
-        gas_costs.G_COLD_SLOAD
+        gas_costs.G_VERY_LOW
+        + gas_costs.G_VERY_LOW * 3
+        + gas_costs.G_COLD_SLOAD
         + gas_costs.G_STORAGE_RESET
-        + (gas_costs.G_VERY_LOW * 2)
     )
 
     base_costs = prefix_cost + suffix_cost + intrinsic_gas_cost_calc()
@@ -792,7 +794,9 @@ def test_selfdestruct_initcode(
     initcode = Op.SELFDESTRUCT(Op.COINBASE)
     code_prefix = Op.MSTORE(0, initcode.hex()) + Op.PUSH0 + Op.JUMPDEST
     code_suffix = (
-        Op.SSTORE(0, 42)  # Done for successful tx execution assertion below.
+        Op.SSTORE(
+            0, Op.ADD(Op.SLOAD(0), 1)
+        )  # Done for successful tx execution assertion below.
         + Op.STOP
     )
 
@@ -806,24 +810,45 @@ def test_selfdestruct_initcode(
         )
         + Op.PUSH1[1]
         + Op.ADD
-        + Op.JUMPI(len(code_prefix) - 1, Op.GT(iterations, Op.DUP1))
+        + Op.JUMPI(
+            len(code_prefix) - 1, Op.GT(Op.GAS, suffix_cost + loop_cost)
+        )
     )
     code = code_prefix + loop_body + code_suffix
 
     # The 0 storage slot is initialize to avoid creation costs in SSTORE above.
     code_addr = pre.deploy_contract(code=code, balance=100_000, storage={0: 1})
-    code_tx = Transaction(
-        to=code_addr,
-        gas_limit=gas_benchmark_value,
-        gas_price=10,
-        sender=pre.fund_eoa(),
-    )
 
-    post = {code_addr: Account(storage={0: 42})}  # Check for successful
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    effective_attack_gas_limit = (
+        min(gas_benchmark_value, gas_limit_cap)
+        if gas_limit_cap is not None
+        else gas_benchmark_value
+    )
+    max_iterations_per_tx = (
+        effective_attack_gas_limit - base_costs
+    ) // loop_cost
+    num_exec_txs = math.ceil(iterations / max_iterations_per_tx)
+
+    exec_txs = []
+    with TestPhaseManager.execution():
+        for _ in range(num_exec_txs):
+            exec_txs.append(
+                Transaction(
+                    to=code_addr,
+                    gas_limit=effective_attack_gas_limit,
+                    sender=pre.fund_eoa(),
+                )
+            )
+
+    post = {
+        code_addr: Account(storage={0: len(exec_txs) + 1})
+    }  # Check for successful
     # execution.
-    state_test(
-        pre=pre,
+    benchmark_test(
         post=post,
-        tx=code_tx,
+        blocks=[
+            Block(txs=exec_txs),
+        ],
         expected_benchmark_gas_used=iterations * loop_cost + base_costs,
     )
