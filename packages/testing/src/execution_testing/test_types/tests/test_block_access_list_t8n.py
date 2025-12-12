@@ -127,7 +127,7 @@ def test_bal_storage_reads_ordering() -> None:
     "field_name",
     ["nonce_changes", "balance_changes", "code_changes"],
 )
-def test_bal_tx_indices_ordering(field_name: str) -> None:
+def test_bal_block_access_indices_ordering(field_name: str) -> None:
     """
     Test that transaction indices must be in ascending order within change lists.
     """
@@ -208,7 +208,7 @@ def test_bal_tx_indices_ordering(field_name: str) -> None:
 
     with pytest.raises(
         BlockAccessListValidationError,
-        match=f"Transaction indices not in ascending order in {field_name}",
+        match=f"Block access indices not in ascending order in {field_name}",
     ):
         bal_invalid.validate_structure()
 
@@ -217,7 +217,7 @@ def test_bal_tx_indices_ordering(field_name: str) -> None:
     "field_name",
     ["nonce_changes", "balance_changes", "code_changes"],
 )
-def test_bal_duplicate_tx_indices(field_name: str) -> None:
+def test_bal_duplicate_block_access_indices(field_name: str) -> None:
     """
     Test that BAL must not have duplicate tx indices in change lists.
     """
@@ -270,7 +270,7 @@ def test_bal_duplicate_tx_indices(field_name: str) -> None:
         bal.validate_structure()
 
 
-def test_bal_storage_duplicate_tx_indices() -> None:
+def test_bal_storage_duplicate_block_access_indices() -> None:
     """
     Test that storage changes must not have duplicate tx indices within same slot.
     """
