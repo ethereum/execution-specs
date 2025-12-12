@@ -2557,9 +2557,10 @@ def test_bal_lexicographic_address_ordering(
     """
     Test BAL enforces strict lexicographic byte-wise address ordering.
 
-    Addresses: addr_low (0x...01), addr_mid (0x...0100), addr_high (0x01...00).
-    Endian-trap: addr_endian_low (0x01...02), addr_endian_high (0x02...01).
-    Contract touches them in reverse order to verify sorting.
+    Addresses: addr_low (0x...020000), addr_mid (0x...02000000),
+    addr_high (0x20...00). Endian-trap: addr_endian_low (0x01...02),
+    addr_endian_high (0x02...01). Contract touches them in reverse
+    order to verify sorting.
 
     Expected BAL order: low < mid < high < endian_low < endian_high.
     Catches endianness bugs in address comparison.
@@ -2568,12 +2569,13 @@ def test_bal_lexicographic_address_ordering(
 
     # Create addresses with specific byte patterns for lexicographic testing
     # In lexicographic (byte-wise) order: low < mid < high
-    # addr_low:  0x00...01 (rightmost byte = 0x01)
-    # addr_mid:  0x00...0100 (second-rightmost byte = 0x01)
-    # addr_high: 0x01...00 (leftmost byte = 0x01)
-    addr_low = Address("0x0000000000000000000000000000000000000001")
-    addr_mid = Address("0x0000000000000000000000000000000000000100")
-    addr_high = Address("0x0100000000000000000000000000000000000000")
+    # addr_low:  0x00...020000 (0x02 in third-rightmost byte)
+    # addr_mid:  0x00...02000000 (0x02 in fourth-rightmost byte)
+    # addr_high: 0x20...00 (leftmost byte = 0x20)
+    # Note: Using 0x2xxxx addresses to avoid precompiles (0x01-0x11, 0x100)
+    addr_low = Address("0x0000000000000000000000000000000000020000")
+    addr_mid = Address("0x0000000000000000000000000000000002000000")
+    addr_high = Address("0x2000000000000000000000000000000000000000")
 
     # Endian-trap addresses: byte-reversals to catch byte-order bugs
     # addr_endian_low:  0x01...02 (0x01 at byte 0, 0x02 at byte 19)
