@@ -1367,6 +1367,10 @@ def test_bal_coinbase_zero_tip(
     )
 
 
+@pytest.mark.pre_alloc_group(
+    "precompile_funded",
+    reason="Expects clean precompile balances, must be isolated in EngineX format",
+)
 @pytest.mark.parametrize(
     "value",
     [
