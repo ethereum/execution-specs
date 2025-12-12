@@ -63,7 +63,7 @@ class OutOfGasBoundary(Enum):
     OOG boundary scenarios for call-type opcodes with 7702 delegation.
 
     For 7702 targets, there's ALWAYS a gap between static gas check and
-    second check (delegation_cost + message_gas). All 4 scenarios test
+    second check (delegation_cost). All 4 scenarios test
     distinct boundaries.
 
     Gas check order:
@@ -702,12 +702,8 @@ def test_bal_call_7702_delegation_and_oog(
     # memory expansion / no expansion
     ret_size = 32 if memory_expansion else 0
 
-    # Use gas=1 to test that when we have enough for delegation_cost but not
-    # enough for delegation_cost + message_gas, we still don't read the
-    # delegation (the EVM does a static check upfront)
-    message_gas = 1
     call_code = Op.CALL(
-        gas=message_gas,
+        gas=0,
         address=target,
         value=value,
         ret_size=ret_size,
@@ -723,10 +719,9 @@ def test_bal_call_7702_delegation_and_oog(
         access_list.append(
             AccessList(address=delegation_target, storage_keys=[])
         )
-    access_list_or_none = access_list if access_list else None
 
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()(
-        access_list=access_list_or_none
+        access_list=access_list
     )
 
     bytecode_cost = gas_costs.G_VERY_LOW * 7
@@ -745,20 +740,17 @@ def test_bal_call_7702_delegation_and_oog(
     )
 
     static_gas_cost = access_cost + transfer_cost + memory_cost
+
     # The EVM's second check cost is static_gas + delegation_cost.
-    # When gas_left == extra_gas, calculate_message_call_gas caps the
-    # provided gas to 0, so message_gas doesn't contribute to the cost.
     second_check_cost = static_gas_cost + delegation_cost
 
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
         gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost - 1
     elif oog_boundary == OutOfGasBoundary.OOG_AFTER_TARGET_ACCESS:
-        # Enough for static_gas only - not enough for delegation_cost.
+        # Enough for static_gas only - not enough for delegation_cost
         gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost
     elif oog_boundary == OutOfGasBoundary.OOG_SUCCESS_MINUS_1:
-        # One less than second_check_cost. This hits the early return path
-        # in calculate_message_call_gas where message_gas IS added to cost,
-        # causing OOG. Proves the exact boundary of the second check.
+        # One less than second_check_cost - not enough for full call
         gas_limit = intrinsic_cost + bytecode_cost + second_check_cost - 1
     else:
         gas_limit = intrinsic_cost + bytecode_cost + second_check_cost
@@ -767,7 +759,7 @@ def test_bal_call_7702_delegation_and_oog(
         sender=alice,
         to=caller,
         gas_limit=gas_limit,
-        access_list=access_list_or_none,
+        access_list=access_list,
     )
 
     # Access list warming does NOT add to BAL - only EVM execution does
@@ -984,13 +976,9 @@ def test_bal_delegatecall_7702_delegation_and_oog(
     ret_size = 32 if memory_expansion else 0
     ret_offset = 0
 
-    # Use gas=1 to test that when we have enough for delegation_cost but not
-    # enough for delegation_cost + message_gas, we still don't read the
-    # delegation (the EVM does a static check upfront)
-    message_gas = 1
     delegatecall_code = Op.DELEGATECALL(
+        gas=0,
         address=target,
-        gas=message_gas,
         ret_size=ret_size,
         ret_offset=ret_offset,
     )
@@ -1005,10 +993,9 @@ def test_bal_delegatecall_7702_delegation_and_oog(
         access_list.append(
             AccessList(address=delegation_target, storage_keys=[])
         )
-    access_list_or_none = access_list if access_list else None
 
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()(
-        access_list=access_list_or_none
+        access_list=access_list
     )
 
     bytecode_cost = gas_costs.G_VERY_LOW * 6
@@ -1026,20 +1013,17 @@ def test_bal_delegatecall_7702_delegation_and_oog(
     )
 
     static_gas_cost = access_cost + memory_cost
+
     # The EVM's second check cost is static_gas + delegation_cost.
-    # When gas_left == extra_gas, calculate_message_call_gas caps the
-    # provided gas to 0, so message_gas doesn't contribute to the cost.
     second_check_cost = static_gas_cost + delegation_cost
 
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
         gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost - 1
     elif oog_boundary == OutOfGasBoundary.OOG_AFTER_TARGET_ACCESS:
-        # Enough for static_gas only - not enough for delegation_cost.
+        # Enough for static_gas only - not enough for delegation_cost
         gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost
     elif oog_boundary == OutOfGasBoundary.OOG_SUCCESS_MINUS_1:
-        # One less than second_check_cost. This hits the early return path
-        # in calculate_message_call_gas where message_gas IS added to cost,
-        # causing OOG. Proves the exact boundary of the second check.
+        # One less than second_check_cost - not enough for full call
         gas_limit = intrinsic_cost + bytecode_cost + second_check_cost - 1
     else:
         gas_limit = intrinsic_cost + bytecode_cost + second_check_cost
@@ -1048,7 +1032,7 @@ def test_bal_delegatecall_7702_delegation_and_oog(
         sender=alice,
         to=caller,
         gas_limit=gas_limit,
-        access_list=access_list_or_none,
+        access_list=access_list,
     )
 
     # Access list warming does NOT add to BAL - only EVM execution does
@@ -1249,12 +1233,8 @@ def test_bal_callcode_7702_delegation_and_oog(
     # memory expansion / no expansion
     ret_size = 32 if memory_expansion else 0
 
-    # Use gas=1 to test that when we have enough for delegation_cost but not
-    # enough for delegation_cost + message_gas, we still don't read the
-    # delegation (the EVM does a static check upfront)
-    message_gas = 1
     callcode_code = Op.CALLCODE(
-        gas=message_gas,
+        gas=0,
         address=target,
         value=value,
         ret_size=ret_size,
@@ -1270,10 +1250,9 @@ def test_bal_callcode_7702_delegation_and_oog(
         access_list.append(
             AccessList(address=delegation_target, storage_keys=[])
         )
-    access_list_or_none = access_list if access_list else None
 
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()(
-        access_list=access_list_or_none
+        access_list=access_list
     )
 
     bytecode_cost = gas_costs.G_VERY_LOW * 7
@@ -1292,20 +1271,17 @@ def test_bal_callcode_7702_delegation_and_oog(
     )
 
     static_gas_cost = access_cost + transfer_cost + memory_cost
+
     # The EVM's second check cost is static_gas + delegation_cost.
-    # When gas_left == extra_gas, calculate_message_call_gas caps the
-    # provided gas to 0, so message_gas doesn't contribute to the cost.
     second_check_cost = static_gas_cost + delegation_cost
 
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
         gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost - 1
     elif oog_boundary == OutOfGasBoundary.OOG_AFTER_TARGET_ACCESS:
-        # Enough for static_gas only - not enough for delegation_cost.
+        # Enough for static_gas only - not enough for delegation_cost
         gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost
     elif oog_boundary == OutOfGasBoundary.OOG_SUCCESS_MINUS_1:
-        # One less than second_check_cost. This hits the early return path
-        # in calculate_message_call_gas where message_gas IS added to cost,
-        # causing OOG. Proves the exact boundary of the second check.
+        # One less than second_check_cost - not enough for full call
         gas_limit = intrinsic_cost + bytecode_cost + second_check_cost - 1
     else:
         gas_limit = intrinsic_cost + bytecode_cost + second_check_cost
@@ -1314,7 +1290,7 @@ def test_bal_callcode_7702_delegation_and_oog(
         sender=alice,
         to=caller,
         gas_limit=gas_limit,
-        access_list=access_list_or_none,
+        access_list=access_list,
     )
 
     # Access list warming does NOT add to BAL - only EVM execution does
@@ -1510,13 +1486,9 @@ def test_bal_staticcall_7702_delegation_and_oog(
     ret_size = 32 if memory_expansion else 0
     ret_offset = 0
 
-    # Use gas=1 to test that when we have enough for delegation_cost but not
-    # enough for delegation_cost + message_gas, we still don't read the
-    # delegation (the EVM does a static check upfront)
-    message_gas = 1
     staticcall_code = Op.STATICCALL(
+        gas=0,
         address=target,
-        gas=message_gas,
         ret_size=ret_size,
         ret_offset=ret_offset,
     )
@@ -1531,10 +1503,9 @@ def test_bal_staticcall_7702_delegation_and_oog(
         access_list.append(
             AccessList(address=delegation_target, storage_keys=[])
         )
-    access_list_or_none = access_list if access_list else None
 
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()(
-        access_list=access_list_or_none
+        access_list=access_list
     )
 
     bytecode_cost = gas_costs.G_VERY_LOW * 6
@@ -1552,20 +1523,17 @@ def test_bal_staticcall_7702_delegation_and_oog(
     )
 
     static_gas_cost = access_cost + memory_cost
-    # The EVM's second check cost is static_gas + delegation_cost.
-    # When gas_left == extra_gas, calculate_message_call_gas caps the
-    # provided gas to 0, so message_gas doesn't contribute to the cost.
+
+    # The EVM's second check cost is static_gas + delegation_cost
     second_check_cost = static_gas_cost + delegation_cost
 
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
         gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost - 1
     elif oog_boundary == OutOfGasBoundary.OOG_AFTER_TARGET_ACCESS:
-        # Enough for static_gas only - not enough for delegation_cost.
+        # Enough for static_gas only - not enough for delegation_cost
         gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost
     elif oog_boundary == OutOfGasBoundary.OOG_SUCCESS_MINUS_1:
-        # One less than second_check_cost. This hits the early return path
-        # in calculate_message_call_gas where message_gas IS added to cost,
-        # causing OOG. Proves the exact boundary of the second check.
+        # One less than second_check_cost - not enough for full call
         gas_limit = intrinsic_cost + bytecode_cost + second_check_cost - 1
     else:
         gas_limit = intrinsic_cost + bytecode_cost + second_check_cost
@@ -1574,7 +1542,7 @@ def test_bal_staticcall_7702_delegation_and_oog(
         sender=alice,
         to=caller,
         gas_limit=gas_limit,
-        access_list=access_list_or_none,
+        access_list=access_list,
     )
 
     # Access list warming does NOT add to BAL - only EVM execution does
