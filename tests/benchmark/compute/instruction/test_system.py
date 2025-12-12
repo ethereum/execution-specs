@@ -742,9 +742,7 @@ def test_selfdestruct_created(
 
     exec_txs = []
     with TestPhaseManager.execution():
-        for i in range(num_exec_txs):
-            start = i * max_iterations_per_tx
-            count = min(max_iterations_per_tx, iterations - start)
+        for _ in range(num_exec_txs):
             exec_txs.append(
                 Transaction(
                     to=code_addr,
