@@ -689,9 +689,10 @@ def test_selfdestruct_created(
         + memory_expansion_calc(new_bytes=32)
     )
     suffix_cost = (
-        gas_costs.G_COLD_SLOAD
+        gas_costs.G_VERY_LOW
+        + gas_costs.G_VERY_LOW * 3
+        + gas_costs.G_COLD_SLOAD
         + gas_costs.G_STORAGE_RESET
-        + (gas_costs.G_VERY_LOW * 2)
     )
 
     base_costs = prefix_cost + suffix_cost + intrinsic_gas_cost_calc()
