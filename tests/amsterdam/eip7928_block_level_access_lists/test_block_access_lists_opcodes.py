@@ -1698,6 +1698,10 @@ def test_bal_transient_storage_not_tracked(
     )
 
 
+@pytest.mark.pre_alloc_group(
+    "selfdestruct_to_precompile",
+    reason="Modifies precompile balance, must be isolated in EngineX format",
+)
 def test_bal_selfdestruct_to_precompile(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,

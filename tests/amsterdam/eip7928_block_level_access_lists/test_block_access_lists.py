@@ -2145,6 +2145,10 @@ def test_bal_cross_tx_storage_revert_to_zero(
     )
 
 
+@pytest.mark.pre_alloc_group(
+    "ripemd160_state_leak",
+    reason="Pre-funds RIPEMD-160, must be isolated in EngineX format",
+)
 def test_bal_cross_block_ripemd160_state_leak(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
