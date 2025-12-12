@@ -13,6 +13,10 @@ inputs:
     description: "Additional parameters to pass to fill command (e.g., '-k eip7928' to filter by EIP)"
     required: false
     default: ""
+  continue_on_test_failure:
+    description: "Continue generating fixtures even if some tests fail (useful for nightly builds)"
+    required: false
+    default: "false"
 runs:
   using: "composite"
   steps:
@@ -41,9 +45,9 @@ runs:
         # Only include extra_fill_params if non-empty
         EXTRA_PARAMS="${{ inputs.extra_fill_params }}"
         if [ "${{ steps.evm-builder.outputs.impl }}" = "eels" ]; then
-          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} ${{ steps.properties.outputs.fill-params }} ${EXTRA_PARAMS:+$EXTRA_PARAMS} --output=fixtures_${{ inputs.release_name }}.tar.gz --build-name ${{ inputs.release_name }}
+          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} ${{ steps.properties.outputs.fill-params }} ${EXTRA_PARAMS:+$EXTRA_PARAMS} --clean --output=fixtures_${{ inputs.release_name }}.tar.gz --build-name ${{ inputs.release_name }}
         else
-          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} ${EXTRA_PARAMS:+$EXTRA_PARAMS} --output=fixtures_${{ inputs.release_name }}.tar.gz --build-name ${{ inputs.release_name }}
+          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} ${EXTRA_PARAMS:+$EXTRA_PARAMS} --clean --output=fixtures_${{ inputs.release_name }}.tar.gz --build-name ${{ inputs.release_name }}
         fi
     - name: Generate Benchmark Genesis Files
       if: contains(inputs.release_name, 'benchmark')
