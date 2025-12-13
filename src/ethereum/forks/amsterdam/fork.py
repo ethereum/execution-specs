@@ -256,7 +256,6 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         transactions=block.transactions,
         withdrawals=block.withdrawals,
     )
-    
     block_state_root = state_root(block_env.state)
     transactions_root = root(block_output.transactions_trie)
     receipt_root = root(block_output.receipts_trie)
