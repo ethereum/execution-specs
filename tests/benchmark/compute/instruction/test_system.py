@@ -479,15 +479,14 @@ def test_selfdestruct_existing(
     fork: Fork,
     pre: Alloc,
     value_bearing: bool,
-    env: Environment,
     gas_benchmark_value: int,
+    tx_gas_limit: int,
 ) -> None:
     """
     Benchmark SELFDESTRUCT instruction for existing contracts.
     contracts.
     """
     attack_gas_limit = gas_benchmark_value
-    effective_tx_gas_limit = fork.transaction_gas_limit_cap() or env.gas_limit
     fee_recipient = pre.fund_eoa(amount=1)
 
     # Template code that will be used to deploy a large number of contracts.
@@ -576,9 +575,7 @@ def test_selfdestruct_existing(
     # The deployed code length is two-bytes. The dominant factor
     # is the static cost, plus a few glue opcodes/memory-expansion costs.
     estimated_gas_per_creation = gas_costs.G_CREATE + 3_000
-    max_creations_per_tx = int(
-        effective_tx_gas_limit // estimated_gas_per_creation
-    )
+    max_creations_per_tx = int(tx_gas_limit // estimated_gas_per_creation)
     num_setup_txs = math.ceil(num_contracts / max_creations_per_tx)
 
     setup_txs = []
@@ -590,7 +587,7 @@ def test_selfdestruct_existing(
             setup_txs.append(
                 Transaction(
                     to=factory_caller_address,
-                    gas_limit=effective_tx_gas_limit,
+                    gas_limit=tx_gas_limit,
                     data=Hash(count),
                     sender=pre.fund_eoa(),
                 )
@@ -624,13 +621,7 @@ def test_selfdestruct_existing(
     code_addr = pre.deploy_contract(code=code, storage={0: 1})
 
     # Calculate max targets per execution TX based on effective gas limit
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    effective_attack_gas_limit = (
-        min(attack_gas_limit, gas_limit_cap)
-        if gas_limit_cap is not None
-        else attack_gas_limit
-    )
-    max_targets_per_tx = (effective_attack_gas_limit - base_costs) // loop_cost
+    max_targets_per_tx = (tx_gas_limit - base_costs) // loop_cost
     num_exec_txs = math.ceil(num_contracts / max_targets_per_tx)
 
     exec_txs = []
@@ -641,7 +632,7 @@ def test_selfdestruct_existing(
             exec_txs.append(
                 Transaction(
                     to=code_addr,
-                    gas_limit=effective_attack_gas_limit,
+                    gas_limit=tx_gas_limit,
                     data=Hash(start) + Hash(count),
                     sender=pre.fund_eoa(),
                 )
