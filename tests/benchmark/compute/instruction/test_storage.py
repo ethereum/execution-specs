@@ -302,6 +302,7 @@ def test_storage_access_warm(
     fork: Fork,
     gas_benchmark_value: int,
     env: Environment,
+    tx_gas_limit: int,
 ) -> None:
     """
     Benchmark warm storage slot accesses.
@@ -335,12 +336,11 @@ def test_storage_access_warm(
         + Op.RETURN(0, Op.MSIZE)
     )
 
-    tx_gas_limit_cap = fork.transaction_gas_limit_cap()
     with TestPhaseManager.setup():
         sender_addr = pre.fund_eoa()
         setup_tx = Transaction(
             to=None,
-            gas_limit=tx_gas_limit_cap or env.gas_limit,
+            gas_limit=tx_gas_limit,
             data=creation_code,
             sender=sender_addr,
         )
@@ -349,20 +349,15 @@ def test_storage_access_warm(
     contract_address = compute_create_address(address=sender_addr, nonce=0)
 
     with TestPhaseManager.execution():
-        tx_max_gas_limit = (
-            min(gas_benchmark_value, tx_gas_limit_cap)
-            if tx_gas_limit_cap is not None
-            else gas_benchmark_value
-        )
-        num_exec_txs = math.ceil(gas_benchmark_value / tx_max_gas_limit)
+        num_exec_txs = math.ceil(gas_benchmark_value / tx_gas_limit)
         txs = []
         for i in range(num_exec_txs):
-            tx_gas_limit = min(
-                tx_max_gas_limit, gas_benchmark_value - i * tx_max_gas_limit
+            gas_limit = min(
+                tx_gas_limit, gas_benchmark_value - i * tx_gas_limit
             )
             op_tx = Transaction(
                 to=contract_address,
-                gas_limit=tx_gas_limit,
+                gas_limit=gas_limit,
                 sender=pre.fund_eoa(),
             )
             txs.append(op_tx)
