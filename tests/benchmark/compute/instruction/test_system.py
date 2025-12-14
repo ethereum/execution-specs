@@ -639,6 +639,7 @@ def test_selfdestruct_created(
     fork: Fork,
     env: Environment,
     gas_benchmark_value: int,
+    tx_gas_limit: int,
 ) -> None:
     """
     Benchmark SELFDESTRUCT instruction for deployed contracts within same tx.
@@ -730,15 +731,7 @@ def test_selfdestruct_created(
         storage={0: 1},
     )
 
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    effective_attack_gas_limit = (
-        min(gas_benchmark_value, gas_limit_cap)
-        if gas_limit_cap is not None
-        else gas_benchmark_value
-    )
-    max_iterations_per_tx = (
-        effective_attack_gas_limit - base_costs
-    ) // loop_cost
+    max_iterations_per_tx = (tx_gas_limit - base_costs) // loop_cost
     num_exec_txs = math.ceil(iterations / max_iterations_per_tx)
 
     exec_txs = []
@@ -747,15 +740,14 @@ def test_selfdestruct_created(
             exec_txs.append(
                 Transaction(
                     to=code_addr,
-                    gas_limit=effective_attack_gas_limit,
+                    gas_limit=tx_gas_limit,
                     sender=pre.fund_eoa(),
                 )
             )
 
     post = {
         code_addr: Account(storage={0: len(exec_txs) + 1})
-    }  # Check for successful
-    # execution.
+    }  # Check for successful execution.
     benchmark_test(
         post=post,
         blocks=[
