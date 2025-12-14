@@ -747,6 +747,7 @@ def test_selfdestruct_initcode(
     fork: Fork,
     env: Environment,
     gas_benchmark_value: int,
+    tx_gas_limit : int,
 ) -> None:
     """Benchmark SELFDESTRUCT instruction executed in initcode."""
     # Avoid account creation costs in the SELFDESTRUCT recipient.
@@ -820,13 +821,8 @@ def test_selfdestruct_initcode(
     code_addr = pre.deploy_contract(code=code, balance=100_000, storage={0: 1})
 
     gas_limit_cap = fork.transaction_gas_limit_cap()
-    effective_attack_gas_limit = (
-        min(gas_benchmark_value, gas_limit_cap)
-        if gas_limit_cap is not None
-        else gas_benchmark_value
-    )
     max_iterations_per_tx = (
-        effective_attack_gas_limit - base_costs
+        tx_gas_limit - base_costs
     ) // loop_cost
     num_exec_txs = math.ceil(iterations / max_iterations_per_tx)
 
@@ -836,7 +832,7 @@ def test_selfdestruct_initcode(
             exec_txs.append(
                 Transaction(
                     to=code_addr,
-                    gas_limit=effective_attack_gas_limit,
+                    gas_limit=tx_gas_limit,
                     sender=pre.fund_eoa(),
                 )
             )
