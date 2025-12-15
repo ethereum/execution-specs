@@ -19,22 +19,16 @@ from execution_testing.rpc.rpc_types import (
 )
 
 from execution_testing.logging import get_logger
-from ..helpers.exceptions import GenesisBlockMismatchExceptionError
+from ..helpers.exceptions import (
+    GenesisBlockMismatchExceptionError,
+    LoggedError,
+)
 from ..helpers.timing import TimingData
 
 logger = get_logger(__name__)
 
 MAX_RETRIES = 30
 DELAY_BETWEEN_RETRIES_IN_SEC = 1
-
-
-class LoggedError(Exception):
-    """Exception that uses the logger to log the failure."""
-
-    def __init__(self, *args: object) -> None:
-        """Initialize the exception and log the failure."""
-        super().__init__(*args)
-        logger.fail(str(self))
 
 
 def test_blockchain_via_engine(
