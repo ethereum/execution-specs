@@ -85,11 +85,34 @@ class BenchmarkCodeGenerator(ABC):
         prefix = Op.CALLDATACOPY(
             Op.PUSH0, Op.PUSH0, Op.CALLDATASIZE
         ) + Op.PUSH4(iterations)
+
+        is_state_changing_set = [
+            Op.SSTORE,
+            Op.TSTORE,
+            Op.CREATE,
+            Op.CREATE2,
+            Op.CALL,
+            Op.CALLCODE,
+            Op.SELFDESTRUCT,
+            Op.LOG0,
+            Op.LOG1,
+            Op.LOG2,
+            Op.LOG3,
+            Op.LOG4,
+        ]
+
+        # Select CALL for state-changing opcodes, STATICCALL otherwise
+        uses_state_changing_opcode = any(
+            bytes(opcode) in bytes(self.attack_block)
+            for opcode in is_state_changing_set
+        )
+        call_opcode = Op.CALL if uses_state_changing_opcode else Op.STATICCALL
+
         opcode = (
             prefix
             + Op.JUMPDEST
             + Op.POP(
-                Op.DELEGATECALL(
+                call_opcode(
                     gas=Op.GAS,
                     address=self._target_contract_address,
                     args_offset=0,
