@@ -515,9 +515,10 @@ def test_selfdestruct_existing(
         + 63  # ~Gluing opcodes
     )
     final_storage_gas = (
-        gas_costs.G_STORAGE_RESET
-        + gas_costs.G_COLD_SLOAD
-        + (gas_costs.G_VERY_LOW * 2)
+        gas_costs.G_VERY_LOW # ADD
+        + gas_costs.G_VERY_LOW * 3 # PUSHs
+        + gas_costs.G_COLD_SLOAD # SSTORE cold
+        + gas_costs.G_STORAGE_RESET # SSTORE new value
     )
     memory_expansion_cost = fork().memory_expansion_gas_calculator()(
         new_bytes=96
@@ -605,15 +606,11 @@ def test_selfdestruct_existing(
             body=Op.POP(Op.CALL(address=Op.SHA3(32 - 20 - 1, 85)))
             + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
             # Loop while we have enough gas AND within target count
-            condition=Op.AND(
-                Op.GT(Op.GAS, final_storage_gas + loop_cost),
-                Op.LT(
-                    Op.MLOAD(32),
-                    Op.ADD(Op.CALLDATALOAD(0), Op.CALLDATALOAD(32)),
-                ),
-            ),
+            condition=Op.GT(Op.GAS, final_storage_gas + loop_cost),
         )
-        + Op.SSTORE(0, 42)  # Done for successful tx execution assertion below.
+        + Op.SSTORE(
+            0, Op.ADD(Op.SLOAD(0), 1)
+        )  # Done for successful tx execution assertion below.
     )
     assert len(code) <= fork.max_code_size()
 
@@ -640,7 +637,9 @@ def test_selfdestruct_existing(
 
     post = {
         factory_address: Account(storage={0: num_contracts}),
-        code_addr: Account(storage={0: 42}),  # Check for successful execution.
+        code_addr: Account(
+            storage={0: len(exec_txs) + 1}
+        ),  # Check for successful execution.
     }
     deployed_contract_addresses = []
     for i in range(num_contracts):
