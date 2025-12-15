@@ -548,18 +548,21 @@ def test_ext_account_query_cold(
         ) // gas_costs.G_COLD_ACCOUNT_ACCESS
 
         num_execution_txs = math.ceil(num_target_accounts / max_target_per_tx)
+        gas_used = 0
         for i in range(num_execution_txs):
             address_start = i * int(max_target_per_tx)
             remaining = num_target_accounts - address_start
             num_to_query = min(int(max_target_per_tx), remaining)
+            gas_limit = min(tx_gas_limit, attack_gas_limit - gas_used)
             execution_txs.append(
                 Transaction(
                     to=op_address,
                     data=Hash(address_start) + Hash(num_to_query),
-                    gas_limit=tx_gas_limit,
+                    gas_limit=gas_limit,
                     sender=pre.fund_eoa(),
                 )
             )
+            gas_used += gas_limit
     blocks.append(Block(txs=execution_txs))
 
     benchmark_test(
