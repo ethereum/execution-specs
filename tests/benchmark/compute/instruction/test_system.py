@@ -815,7 +815,8 @@ def test_selfdestruct_initcode(
     )
     code = code_prefix + loop_body + code_suffix
 
-    # The 0 storage slot is initialized to avoid creation costs in SSTORE above.
+    # The 0 storage slot is initialized to avoid creation
+    # costs in SSTORE above.
     code_addr = pre.deploy_contract(code=code, balance=100_000, storage={0: 1})
 
     max_iterations_per_tx = (tx_gas_limit - base_costs) // loop_cost
