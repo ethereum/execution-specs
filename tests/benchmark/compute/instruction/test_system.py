@@ -511,8 +511,9 @@ def test_selfdestruct_existing(
         # cost for CREATE2
         + gas_costs.G_VERY_LOW * 3  # ~MSTOREs+ADDs
         + gas_costs.G_COLD_ACCOUNT_ACCESS  # CALL to self-destructing contract
+        + gas_costs.G_BASE
         + gas_costs.G_SELF_DESTRUCT
-        + 63  # ~Gluing opcodes
+        + 88  # ~Gluing opcodes
     )
     final_storage_gas = (
         gas_costs.G_VERY_LOW  # ADD
