@@ -7,18 +7,21 @@ Each `engine_newPayloadVX` is verified against the appropriate VALID/INVALID
 responses.
 """
 
-import time
-
 from execution_testing.exceptions import UndefinedException
 from execution_testing.fixtures import BlockchainEngineFixture
-from execution_testing.rpc import EngineRPC, EthRPC
+from execution_testing.logging import get_logger
+from execution_testing.rpc import (
+    EngineRPC,
+    EthRPC,
+    ForkchoiceUpdateTimeoutError,
+    forkchoice_updated_with_retry,
+)
 from execution_testing.rpc.rpc_types import (
     ForkchoiceState,
     JSONRPCError,
     PayloadStatusEnum,
 )
 
-from execution_testing.logging import get_logger
 from ..helpers.exceptions import (
     GenesisBlockMismatchExceptionError,
     LoggedError,
@@ -26,9 +29,6 @@ from ..helpers.exceptions import (
 from ..helpers.timing import TimingData
 
 logger = get_logger(__name__)
-
-MAX_RETRIES = 30
-DELAY_BETWEEN_RETRIES_IN_SEC = 1
 
 
 def test_blockchain_via_engine(
@@ -46,38 +46,30 @@ def test_blockchain_via_engine(
     3. For valid payloads a forkchoice update is performed to finalize the
        chain.
     """
-    # Send a initial forkchoice update
+    # Send initial forkchoice update
     with timing_data.time("Initial forkchoice update"):
         logger.info("Sending initial forkchoice update to genesis block...")
-        for attempt in range(1, MAX_RETRIES + 1):
-            forkchoice_response = engine_rpc.forkchoice_updated(
+        try:
+            response = forkchoice_updated_with_retry(
+                engine_rpc=engine_rpc,
                 forkchoice_state=ForkchoiceState(
                     head_block_hash=fixture.genesis.block_hash,
                 ),
-                payload_attributes=None,
-                version=fixture.payloads[0].forkchoice_updated_version,
+                forkchoice_version=fixture.payloads[
+                    0
+                ].forkchoice_updated_version,
+                max_attempts=30,
+                wait_fixed=1.0,
             )
-            status = forkchoice_response.payload_status.status
-            logger.info(
-                f"Initial forkchoice update response attempt {attempt}: {status}"
-            )
-            if status != PayloadStatusEnum.SYNCING:
-                break
-
-            if attempt < MAX_RETRIES:
-                time.sleep(DELAY_BETWEEN_RETRIES_IN_SEC)
-
-        if (
-            forkchoice_response.payload_status.status
-            != PayloadStatusEnum.VALID
-        ):
-            logger.error(
-                f"Client failed to initialize properly after {MAX_RETRIES} attempts, "
-                f"final status: {forkchoice_response.payload_status.status}"
-            )
+            if response.payload_status.status != PayloadStatusEnum.VALID:
+                raise LoggedError(
+                    f"Unexpected status on forkchoice updated to genesis: "
+                    f"{response.payload_status.status}"
+                )
+        except ForkchoiceUpdateTimeoutError as e:
             raise LoggedError(
-                f"unexpected status on forkchoice updated to genesis: {forkchoice_response}"
-            )
+                f"Timed out waiting for forkchoice update to genesis: {e}"
+            ) from None
 
     with timing_data.time("Get genesis block"):
         logger.info("Calling getBlockByNumber to get genesis block...")
