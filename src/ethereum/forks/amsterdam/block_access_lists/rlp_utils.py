@@ -77,21 +77,16 @@ def rlp_encode_block_access_list(block_access_list: BlockAccessList) -> Bytes:
         # balance_changes, nonce_changes, code_changes]
         storage_changes_list = [
             [
-                Uint.from_be_bytes(slot_changes.slot),
+                Uint(slot_changes.slot),
                 [
-                    [
-                        Uint(c.block_access_index),
-                        Uint.from_be_bytes(c.new_value),
-                    ]
+                    [Uint(c.block_access_index), Uint(c.new_value)]
                     for c in slot_changes.changes
                 ],
             ]
             for slot_changes in account.storage_changes
         ]
 
-        storage_reads_list = [
-            Uint.from_be_bytes(r) for r in account.storage_reads
-        ]
+        storage_reads_list = [Uint(r) for r in account.storage_reads]
 
         balance_changes_list = [
             [Uint(bc.block_access_index), Uint(bc.post_balance)]
