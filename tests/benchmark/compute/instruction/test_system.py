@@ -630,7 +630,7 @@ def test_selfdestruct_existing(
                 Transaction(
                     to=code_addr,
                     gas_limit=tx_gas_limit,
-                    data=Hash(start) + Hash(count),
+                    data=Hash(start),
                     sender=pre.fund_eoa(),
                 )
             )
