@@ -77,6 +77,27 @@ class SendTransactionExceptionError(Exception):
         return base
 
 
+class BlockNotAvailableError(Exception):
+    """Raised when block is not available after retry attempts."""
+
+    def __init__(
+        self,
+        block_hash: Hash,
+        attempts: int,
+        elapsed: float,
+        interval: float,
+    ):
+        """Initialize with retry statistics."""
+        self.block_hash = block_hash
+        self.attempts = attempts
+        self.elapsed = elapsed
+        self.interval = interval
+        super().__init__(
+            f"Block {block_hash} not available after {attempts} attempts "
+            f"over {elapsed:.1f}s (interval: {interval}s)"
+        )
+
+
 class ForkchoiceUpdateTimeoutError(Exception):
     """Raised when forkchoice update doesn't reach VALID within retry limits."""
 
@@ -329,6 +350,63 @@ class EthRPC(BaseRPC):
         params = [f"{block_hash}", full_txs]
         response = self.post_request(method="getBlockByHash", params=params)
         return response
+
+    def get_block_by_hash_with_retry(
+        self,
+        block_hash: Hash,
+        *,
+        max_attempts: int = 5,
+        wait_fixed: float = 1.0,
+        on_retry: Callable[[RetryCallState], None] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Get block by hash, retrying if not yet available.
+
+        Args:
+            block_hash: The hash of the block to retrieve.
+            max_attempts: Maximum number of attempts before giving up.
+            wait_fixed: Fixed interval in seconds between retries.
+            on_retry: Optional callback invoked before each retry sleep.
+                Receives tenacity RetryCallState. If None, logs at debug level.
+
+        Returns:
+            Block data as a dictionary.
+
+        Raises:
+            BlockNotAvailableError: If block not available after max_attempts.
+        """
+        attempts = 0
+        start_time = time.time()
+
+        def default_on_retry(retry_state: RetryCallState) -> None:
+            logger.debug(
+                f"Block {block_hash} not available, "
+                f"attempt {retry_state.attempt_number}, "
+                f"retrying in {wait_fixed}s..."
+            )
+
+        retry_callback = on_retry if on_retry is not None else default_on_retry
+
+        @retry(
+            stop=stop_after_attempt(max_attempts),
+            wait=wait_fixed_tenacity(wait_fixed),
+            before_sleep=retry_callback,
+            reraise=True,
+        )
+        def _get_block() -> dict[str, Any]:
+            nonlocal attempts
+            attempts += 1
+            block = self.get_block_by_hash(block_hash)
+            if block is None:
+                raise BlockNotAvailableError(
+                    block_hash=block_hash,
+                    attempts=attempts,
+                    elapsed=time.time() - start_time,
+                    interval=wait_fixed,
+                )
+            return block
+
+        return _get_block()
 
     def get_balance(
         self, address: Address, block_number: BlockNumberType = "latest"

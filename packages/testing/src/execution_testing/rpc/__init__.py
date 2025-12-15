@@ -4,6 +4,7 @@ JSON-RPC methods and helper functions for EEST consume based hive simulators.
 
 from .rpc import (
     AdminRPC,
+    BlockNotAvailableError,
     BlockNumberType,
     DebugRPC,
     EngineRPC,
@@ -26,6 +27,7 @@ __all__ = [
     "AdminRPC",
     "BlobAndProofV1",
     "BlobAndProofV2",
+    "BlockNotAvailableError",
     "BlockNumberType",
     "DebugRPC",
     "EngineRPC",
