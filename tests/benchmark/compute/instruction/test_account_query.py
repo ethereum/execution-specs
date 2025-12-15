@@ -554,10 +554,13 @@ def test_ext_account_query_cold(
             remaining = num_target_accounts - address_start
             num_to_query = min(int(max_target_per_tx), remaining)
             gas_limit = min(tx_gas_limit, attack_gas_limit - gas_used)
+            calldata = Hash(address_start) + Hash(num_to_query)
+            if gas_limit < intrinsic_gas_cost_calc(calldata=calldata):
+                break
             execution_txs.append(
                 Transaction(
                     to=op_address,
-                    data=Hash(address_start) + Hash(num_to_query),
+                    data=calldata,
                     gas_limit=gas_limit,
                     sender=pre.fund_eoa(),
                 )
