@@ -11,6 +11,7 @@ from .rpc import (
     EthRPC,
     ForkchoiceUpdateTimeoutError,
     NetRPC,
+    PeerConnectionTimeoutError,
     SendTransactionExceptionError,
     forkchoice_updated_with_retry,
 )
@@ -37,6 +38,7 @@ __all__ = [
     "ForkConfigBlobSchedule",
     "ForkchoiceUpdateTimeoutError",
     "NetRPC",
+    "PeerConnectionTimeoutError",
     "SendTransactionExceptionError",
     "TransactionProtocol",
     "forkchoice_updated_with_retry",

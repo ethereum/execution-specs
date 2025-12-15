@@ -119,6 +119,30 @@ class ForkchoiceUpdateTimeoutError(Exception):
         )
 
 
+class PeerConnectionTimeoutError(Exception):
+    """Raised when peer connection is not established within retry limits."""
+
+    def __init__(
+        self,
+        attempts: int,
+        elapsed: float,
+        interval: float,
+        expected_peers: int,
+        actual_peers: int,
+    ):
+        """Initialize with retry statistics and peer counts."""
+        self.attempts = attempts
+        self.elapsed = elapsed
+        self.interval = interval
+        self.expected_peers = expected_peers
+        self.actual_peers = actual_peers
+        super().__init__(
+            f"Peer connection not established after {attempts} attempts "
+            f"over {elapsed:.1f}s (interval: {interval}s), "
+            f"expected >= {expected_peers} peers, got {actual_peers}"
+        )
+
+
 class BaseRPC:
     """
     Represents a base RPC class for every RPC call used within EEST based hive
@@ -917,6 +941,66 @@ class NetRPC(BaseRPC):
         """`net_peerCount`: Get the number of peers connected to the client."""
         response = self.post_request(method="peerCount")
         return int(response, 16)  # hex -> int
+
+    def wait_for_peer_connection(
+        self,
+        *,
+        min_peers: int = 1,
+        max_attempts: int = 15,
+        wait_fixed: float = 0.1,
+        on_retry: Callable[[RetryCallState], None] | None = None,
+    ) -> int:
+        """
+        Wait for peer connections to be established.
+
+        Args:
+            min_peers: Minimum number of peers required.
+            max_attempts: Maximum number of attempts before giving up.
+            wait_fixed: Fixed interval in seconds between retries.
+            on_retry: Optional callback invoked before each retry sleep.
+                Receives tenacity RetryCallState. If None, logs at debug level.
+
+        Returns:
+            The peer count once min_peers threshold is reached.
+
+        Raises:
+            PeerConnectionTimeoutError: If min_peers not reached within limits.
+        """
+        attempts = 0
+        start_time = time.time()
+        last_peer_count = 0
+
+        def default_on_retry(retry_state: RetryCallState) -> None:
+            logger.debug(
+                f"Waiting for peer connection, attempt {retry_state.attempt_number}: "
+                f"{last_peer_count} peers, need >= {min_peers}, "
+                f"retrying in {wait_fixed}s..."
+            )
+
+        retry_callback = on_retry if on_retry is not None else default_on_retry
+
+        @retry(
+            stop=stop_after_attempt(max_attempts),
+            wait=wait_fixed_tenacity(wait_fixed),
+            before_sleep=retry_callback,
+            reraise=True,
+        )
+        def _wait_for_peers() -> int:
+            nonlocal attempts, last_peer_count
+            attempts += 1
+            peer_count = self.peer_count()
+            last_peer_count = peer_count
+            if peer_count < min_peers:
+                raise PeerConnectionTimeoutError(
+                    attempts=attempts,
+                    elapsed=time.time() - start_time,
+                    interval=wait_fixed,
+                    expected_peers=min_peers,
+                    actual_peers=peer_count,
+                )
+            return peer_count
+
+        return _wait_for_peers()
 
 
 class AdminRPC(BaseRPC):
