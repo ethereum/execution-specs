@@ -12,8 +12,6 @@ This simulator:
 4. Verifies that the sync was successful
 """
 
-import time
-
 import pytest
 
 from execution_testing.exceptions import UndefinedException
@@ -26,6 +24,7 @@ from execution_testing.rpc import (
     EthRPC,
     ForkchoiceUpdateTimeoutError,
     NetRPC,
+    PeerConnectionTimeoutError,
     forkchoice_updated_with_retry,
 )
 from execution_testing.rpc.rpc_types import (
@@ -319,20 +318,18 @@ def test_blockchain_via_sync(
     except Exception as e:
         raise LoggedError(f"admin_addPeer failed: {e}") from e
 
-    # quick sleep to allow for connection - TODO: is this necessary?
-    time.sleep(1)
-
+    # Wait for peer connection to establish
     try:
-        sync_peer_count = sync_net_rpc.peer_count()
-        client_peer_count = net_rpc.peer_count()
-        logger.info(
-            f"Peer count: sync_client={sync_peer_count}, client_under_test={client_peer_count}"
-        )
-
-        if sync_peer_count == 0 and client_peer_count == 0:
-            raise LoggedError("No P2P connection established between clients")
-    except Exception as e:
-        logger.warning(f"Could not verify peer connection: {e}")
+        sync_net_rpc.wait_for_peer_connection()
+        logger.info("Peer connection established on sync client")
+    except PeerConnectionTimeoutError:
+        try:
+            net_rpc.wait_for_peer_connection()
+            logger.info("Peer connection established on client under test")
+        except PeerConnectionTimeoutError as e:
+            raise LoggedError(
+                f"No P2P connection established between clients: {e}"
+            ) from e
 
     # Trigger sync by sending the target block via newPayload followed by
     # forkchoice update
@@ -404,23 +401,24 @@ def test_blockchain_via_sync(
                     "Sync client accepted the block, may start syncing ancestors"
                 )
 
-            # Give a moment for P2P connections to establish after sync starts
-            time.sleep(1)
-
-            # Check peer count after triggering sync Note: Reth does not
-            # actually raise the peer count but doesn't seem to need this to
-            # sync.
+            # Wait for P2P connections after sync starts
+            # Note: Reth does not report peer count but still syncs successfully
             try:
                 assert sync_net_rpc is not None, "sync_net_rpc is required"
-                client_peer_count = net_rpc.peer_count()
-                sync_peer_count = sync_net_rpc.peer_count()
-                if sync_peer_count > 0 or client_peer_count > 0:
+                sync_net_rpc.wait_for_peer_connection()
+                logger.debug(
+                    "Peer connection verified on sync client after sync trigger"
+                )
+            except PeerConnectionTimeoutError:
+                try:
+                    net_rpc.wait_for_peer_connection()
                     logger.debug(
-                        f"Peers connected: client_under_test={client_peer_count}, "
-                        f"sync_client={sync_peer_count}"
+                        "Peer connection verified on client under test"
                     )
-            except Exception as e:
-                logger.debug(f"Could not check peer count: {e}")
+                except PeerConnectionTimeoutError as e:
+                    logger.debug(
+                        f"Peer connection not verified (may still sync): {e}"
+                    )
 
         except Exception as e:
             logger.warning(
