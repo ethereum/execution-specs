@@ -194,46 +194,21 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
 
     if "fixed_opcode_count" in metafunc.fixturenames:
         # Parametrize for any benchmark test when --fixed-opcode-count is provided
-        if fixed_opcode_counts_cli is None:
-            return
-
-        opcode_counts_to_use = None
-
+        #
+        # NOTE:
+        # fixed_opcode_count is intentionally NOT parametrized here when the
+        # flag is provided without a value. The value is resolved at runtime
+        # from the test nodeid to allow opcode-specific matching.
         if fixed_opcode_counts_cli:
-            # CLI flag with value takes precedence
-            opcode_counts_to_use = [
+            opcode_counts = [
                 int(x.strip()) for x in fixed_opcode_counts_cli.split(",")
             ]
-        else:
-            # Flag provided without value - load from config file
-            # Check if config data was already loaded in pytest_collection_modifyitems
-            config_data = getattr(
-                metafunc.config, "_opcode_counts_config", None
-            )
-
-            # If not loaded yet (pytest_generate_tests runs first), load it now
-            if config_data is None:
-                config_data = load_opcode_counts_config(metafunc.config)
-                if config_data:
-                    metafunc.config._opcode_counts_config = config_data  # type: ignore[attr-defined]
-
-            if config_data:
-                # Look up opcode counts using regex pattern matching
-                test_name = metafunc.function.__name__
-                opcode_counts_to_use = get_opcode_counts_for_test(
-                    test_name,
-                    config_data.get("scenario_configs", {}),
-                    config_data.get("default_counts", [1]),
-                )
-
-        # Parametrize if we have counts to use
-        if opcode_counts_to_use:
             opcode_count_parameters = [
                 pytest.param(
                     opcode_count,
                     id=f"opcount_{opcode_count}K",
                 )
-                for opcode_count in opcode_counts_to_use
+                for opcode_count in opcode_counts
             ]
             metafunc.parametrize(
                 "fixed_opcode_count",
@@ -259,10 +234,32 @@ def gas_benchmark_value(request: pytest.FixtureRequest) -> int:
 @pytest.fixture(scope="function")
 def fixed_opcode_count(request: pytest.FixtureRequest) -> int | None:
     """Return a fixed opcode count for the current test, or None if not set."""
-    if hasattr(request, "param"):
-        return request.param
+    fixed_opcode_flag = request.config.getoption("fixed_opcode_count")
+    if fixed_opcode_flag is None:
+        return None
 
-    return None
+    # CLI flag with explicit value
+    if fixed_opcode_flag:
+        return int(fixed_opcode_flag.split(",")[0])
+
+    # Flag without value: resolve from config and nodeid
+    config_data = load_opcode_counts_config(request.config)
+    if not config_data:
+        return 1
+
+    scenario_configs = config_data["scenario_configs"]
+    default_counts = config_data["default_counts"]
+
+    nodeid = request.node.nodeid
+
+    for pattern, counts in scenario_configs.items():
+        try:
+            if re.search(pattern, nodeid):
+                return counts[0]
+        except re.error:
+            continue
+
+    return default_counts[0]
 
 
 BENCHMARKING_MAX_GAS = 1_000_000_000_000
