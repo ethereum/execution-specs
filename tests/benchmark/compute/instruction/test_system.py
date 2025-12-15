@@ -135,7 +135,7 @@ def test_xcall(
         # 0xFF+[Address(20bytes)]+[seed(32bytes)]+[initcode keccak(32bytes)]
         Op.MSTORE(0, factory_address)
         + Op.MSTORE8(32 - 20 - 1, 0xFF)
-        + Op.MSTORE(32, Op.CALLDATALOAD(0))
+        + Op.MSTORE(32, Op.CALLDATALOAD(0)) # Calldata is the starting value of the CREATE2 salt
         + Op.MSTORE(64, initcode.keccak256())
         # Main loop
         + While(
@@ -166,7 +166,7 @@ def test_xcall(
                 )
             )
             contract_start_index += num_targeted_contracts_per_full_tx
-        if remainder > 0:
+        if remainder > intrinsic_gas_cost_calc(calldata=32):
             opcode_txs.append(
                 Transaction(
                     to=attack_address,
