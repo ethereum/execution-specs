@@ -515,10 +515,10 @@ def test_selfdestruct_existing(
         + 63  # ~Gluing opcodes
     )
     final_storage_gas = (
-        gas_costs.G_VERY_LOW # ADD
-        + gas_costs.G_VERY_LOW * 3 # PUSHs
-        + gas_costs.G_COLD_SLOAD # SSTORE cold
-        + gas_costs.G_STORAGE_RESET # SSTORE new value
+        gas_costs.G_VERY_LOW  # ADD
+        + gas_costs.G_VERY_LOW * 3  # PUSHs
+        + gas_costs.G_COLD_SLOAD  # SSTORE cold
+        + gas_costs.G_STORAGE_RESET  # SSTORE new value
     )
     memory_expansion_cost = fork().memory_expansion_gas_calculator()(
         new_bytes=96
