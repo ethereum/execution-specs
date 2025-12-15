@@ -980,7 +980,7 @@ def process_transaction(
     for address in tx_output.accounts_to_delete:
         destroy_account(block_env.state, address)
 
-    block_output.block_gas_used += tx_gas_used_after_refund
+    block_output.block_gas_used += tx_gas_used_before_refund
     block_output.blob_gas_used += tx_blob_gas_used
 
     receipt = make_receipt(
