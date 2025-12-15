@@ -18,7 +18,8 @@ import sys
 from pathlib import Path
 
 
-def main():
+def main() -> int:
+    """Generate minimal test set for json_infra tests."""
     parser = argparse.ArgumentParser(
         description="Generate minimal test set for json_infra tests"
     )
@@ -43,9 +44,12 @@ def main():
     # Run all json_infra tests with coverage and test context tracking
     pytest_cmd = [
         "pytest",
-        "-m", "not slow",
-        "-n", "auto",
-        "--maxprocesses", "6",
+        "-m",
+        "not slow",
+        "-n",
+        "auto",
+        "--maxprocesses",
+        "6",
         "--dist=loadfile",
         "--cov=ethereum",
         "--cov-context=test",
@@ -58,7 +62,10 @@ def main():
     result = subprocess.run(pytest_cmd, check=False)
 
     if result.returncode != 0:
-        print("\nWarning: Some tests failed, but continuing with coverage analysis...")
+        print(
+            "\nWarning: Some tests failed, but continuing with "
+            "coverage analysis..."
+        )
 
     if not args.coverage_file.exists():
         print(f"\nError: Coverage file not found: {args.coverage_file}")
@@ -97,7 +104,10 @@ def main():
     print("2. Run minimal tests:")
     print(f"   pytest --tests-file={args.output} tests/json_infra")
     print("3. Verify coverage is maintained:")
-    print(f"   pytest --tests-file={args.output} --cov=ethereum --cov-report=term tests/json_infra")
+    print(
+        f"   pytest --tests-file={args.output} --cov=ethereum "
+        f"--cov-report=term tests/json_infra"
+    )
     print("4. Commit the minimal test list to version control")
 
     return 0
