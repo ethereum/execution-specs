@@ -2459,8 +2459,12 @@ class BPO5(BPO4, bpo_fork=True):
     pass
 
 
-class Amsterdam(Osaka):
+class Amsterdam(BPO2):
     """Amsterdam fork."""
+
+    # TODO: We may need to adjust which BPO Amsterdam inherits from as the
+    #  related Amsterdam specs change over time, and before Amsterdam is
+    #  live on mainnet.
 
     @classmethod
     def is_deployed(cls) -> bool:
