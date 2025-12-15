@@ -841,7 +841,7 @@ def test_selfdestruct_initcode(
     benchmark_test(
         post=post,
         blocks=[
-            Block(txs=exec_txs),
+            Block(txs=exec_txs, fee_recipient=fee_recipient),
         ],
         expected_benchmark_gas_used=iterations * loop_cost + base_costs,
     )
