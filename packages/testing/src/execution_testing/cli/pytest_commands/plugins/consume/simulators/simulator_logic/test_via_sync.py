@@ -18,14 +18,21 @@ import pytest
 
 from execution_testing.exceptions import UndefinedException
 from execution_testing.fixtures import BlockchainEngineSyncFixture
-from execution_testing.rpc import AdminRPC, EngineRPC, EthRPC, NetRPC
+from execution_testing.logging import get_logger
+from execution_testing.rpc import (
+    AdminRPC,
+    EngineRPC,
+    EthRPC,
+    ForkchoiceUpdateTimeoutError,
+    NetRPC,
+    forkchoice_updated_with_retry,
+)
 from execution_testing.rpc.rpc_types import (
     ForkchoiceState,
     JSONRPCError,
     PayloadStatusEnum,
 )
 
-from execution_testing.logging import get_logger
 from ..helpers.exceptions import (
     GenesisBlockMismatchExceptionError,
     LoggedError,
@@ -61,38 +68,27 @@ def test_blockchain_via_sync(
     # Initialize client under test
     with timing_data.time("Initialize client under test"):
         logger.info("Initializing client under test with genesis block...")
-
-        # Send initial forkchoice update to client under test
-        delay = 0.5
-        for attempt in range(3):
-            forkchoice_response = engine_rpc.forkchoice_updated(
+        try:
+            response = forkchoice_updated_with_retry(
+                engine_rpc=engine_rpc,
                 forkchoice_state=ForkchoiceState(
                     head_block_hash=fixture.genesis.block_hash,
                 ),
-                payload_attributes=None,
-                version=fixture.payloads[0].forkchoice_updated_version,
+                forkchoice_version=fixture.payloads[
+                    0
+                ].forkchoice_updated_version,
+                max_attempts=4,
+                wait_fixed=0.5,
             )
-            status = forkchoice_response.payload_status.status
-            logger.info(
-                f"Initial forkchoice update response attempt {attempt + 1}: {status}"
-            )
-            if status != PayloadStatusEnum.SYNCING:
-                break
-            if attempt < 2:
-                time.sleep(delay)
-                delay *= 2
-
-        if (
-            forkchoice_response.payload_status.status
-            != PayloadStatusEnum.VALID
-        ):
-            logger.error(
-                f"Client under test failed to initialize properly after 3 attempts, "
-                f"final status: {forkchoice_response.payload_status.status}"
-            )
+            if response.payload_status.status != PayloadStatusEnum.VALID:
+                raise LoggedError(
+                    f"Unexpected status on forkchoice updated to genesis: "
+                    f"{response.payload_status.status}"
+                )
+        except ForkchoiceUpdateTimeoutError as e:
             raise LoggedError(
-                f"unexpected status on forkchoice updated to genesis: {forkchoice_response}"
-            )
+                f"Timed out waiting for forkchoice update to genesis: {e}"
+            ) from None
 
     # Verify genesis block on client under test
     with timing_data.time("Verify genesis on client under test"):
@@ -290,39 +286,27 @@ def test_blockchain_via_sync(
     # Initialize sync client
     with timing_data.time("Initialize sync client"):
         logger.info("Initializing sync client with genesis block...")
-
-        # Send initial forkchoice update to sync client
-        delay = 0.5
-        for attempt in range(3):
-            forkchoice_response = sync_engine_rpc.forkchoice_updated(
+        try:
+            response = forkchoice_updated_with_retry(
+                engine_rpc=sync_engine_rpc,
                 forkchoice_state=ForkchoiceState(
                     head_block_hash=fixture.genesis.block_hash,
                 ),
-                payload_attributes=None,
-                version=fixture.payloads[0].forkchoice_updated_version,
+                forkchoice_version=fixture.payloads[
+                    0
+                ].forkchoice_updated_version,
+                max_attempts=4,
+                wait_fixed=0.5,
             )
-            status = forkchoice_response.payload_status.status
-            logger.info(
-                f"Sync client forkchoice update response attempt {attempt + 1}: {status}"
-            )
-            if status != PayloadStatusEnum.SYNCING:
-                break
-            if attempt < 2:
-                time.sleep(delay)
-                delay *= 2
-
-        if (
-            forkchoice_response.payload_status.status
-            != PayloadStatusEnum.VALID
-        ):
-            logger.error(
-                f"Sync client failed to initialize properly after 3 attempts, "
-                f"final status: {forkchoice_response.payload_status.status}"
-            )
+            if response.payload_status.status != PayloadStatusEnum.VALID:
+                raise LoggedError(
+                    f"Unexpected status on sync client forkchoice updated to genesis: "
+                    f"{response.payload_status.status}"
+                )
+        except ForkchoiceUpdateTimeoutError as e:
             raise LoggedError(
-                f"Unexpected status on sync client forkchoice updated to genesis: "
-                f"{forkchoice_response}"
-            )
+                f"Timed out waiting for sync client forkchoice update to genesis: {e}"
+            ) from None
 
     # Add peer using admin_addPeer This seems to be required... TODO: we can
     # maybe improve flow here if not required
@@ -458,44 +442,25 @@ def test_blockchain_via_sync(
             f"(hash: {last_valid_block_hash})"
         )
 
-        # Start monitoring sync progress
-        sync_start_time = time.time()
-        last_forkchoice_time = time.time()
-        forkchoice_interval = 2.0  # Send forkchoice updates every 2 seconds
-
-        while time.time() - sync_start_time < 15:  # 15 second timeout
-            # Send periodic forkchoice updates to keep sync alive
-            if time.time() - last_forkchoice_time >= forkchoice_interval:
-                try:
-                    # Send forkchoice update to sync client to trigger/maintain
-                    # sync
-                    assert sync_engine_rpc is not None, (
-                        "sync_engine_rpc is required"
-                    )
-                    sync_fc_response = sync_engine_rpc.forkchoice_updated(
-                        forkchoice_state=last_valid_block_forkchoice_state,
-                        payload_attributes=None,
-                        version=fixture.sync_payload.forkchoice_updated_version
-                        if fixture.sync_payload
-                        else fixture.payloads[-1].forkchoice_updated_version,
-                    )
-                    status = sync_fc_response.payload_status.status
-                    logger.debug(
-                        f"Periodic forkchoice update status: {status}"
-                    )
-                    if status.VALID:
-                        break
-                    last_forkchoice_time = time.time()
-                except Exception as fc_err:
-                    logger.debug(
-                        f"Periodic forkchoice update failed: {fc_err}"
-                    )
-            time.sleep(0.5)
-        else:
-            raise LoggedError(
-                f"Sync client failed to synchronize to block {last_valid_block_hash} "
-                f"within timeout"
+        try:
+            response = forkchoice_updated_with_retry(
+                engine_rpc=sync_engine_rpc,
+                forkchoice_state=last_valid_block_forkchoice_state,
+                forkchoice_version=fixture.sync_payload.forkchoice_updated_version
+                if fixture.sync_payload
+                else fixture.payloads[-1].forkchoice_updated_version,
+                max_attempts=30,
+                wait_fixed=0.5,
             )
+            if response.payload_status.status != PayloadStatusEnum.VALID:
+                raise LoggedError(
+                    f"Sync client failed to sync to block {last_valid_block_hash}: "
+                    f"unexpected status {response.payload_status.status}"
+                )
+        except ForkchoiceUpdateTimeoutError as e:
+            raise LoggedError(
+                f"Sync client timed out syncing to block {last_valid_block_hash}: {e}"
+            ) from None
 
         logger.info("Sync verification successful! FCU returned VALID.")
 
