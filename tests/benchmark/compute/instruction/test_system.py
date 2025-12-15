@@ -98,7 +98,7 @@ def test_xcall(
         # complexity and potential brittleness.
         num_contracts_per_tx = int(tx_gas_limit * 0.9) // (
             gas_costs.G_CODE_DEPOSIT_BYTE * max_contract_size
-        ) 
+        )
         setup_txs = math.ceil(num_contracts / num_contracts_per_tx)
 
         contracts_deployment_txs = []
