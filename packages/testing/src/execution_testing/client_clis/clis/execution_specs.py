@@ -97,7 +97,11 @@ class ExecutionSpecsTransitionTool(TransitionTool):
             t8n_args.append("--state-test")
 
         if transition_tool_data.blob_params:
-            t8n_args.append("--input.blobParams=stdin")
+            fork = transition_tool_data.fork
+            if fork.bpo_fork() and fork != fork.non_bpo_ancestor():
+                # Only send this information for BPO forks.
+                # TODO: This should be optimized by the t8n tool instead.
+                t8n_args.append("--input.blobParams=stdin")
 
         if self.trace:
             t8n_args.extend(
