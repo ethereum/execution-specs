@@ -21,6 +21,7 @@ from execution_testing.fixtures import BlockchainEngineSyncFixture
 from execution_testing.logging import get_logger
 from execution_testing.rpc import (
     AdminRPC,
+    BlockNotAvailableError,
     EngineRPC,
     EthRPC,
     ForkchoiceUpdateTimeoutError,
@@ -464,71 +465,53 @@ def test_blockchain_via_sync(
 
         logger.info("Sync verification successful! FCU returned VALID.")
 
-        # Verify the final state but give a few tries
-        assert eth_rpc is not None, "eth_rpc is required"
-        assert sync_eth_rpc is not None, "sync_eth_rpc is required"
+        # Verify the final state by fetching blocks from both clients
+        # Note: Block unavailability is acceptable - FCU VALID is authoritative
+        client_block = None
+        sync_block = None
 
-        max_attempts = 5  # 5 attempts with 1 second wait between
-        for attempt in range(max_attempts):
-            try:
-                sync_block = sync_eth_rpc.get_block_by_hash(
-                    last_valid_block_hash
+        try:
+            client_block = eth_rpc.get_block_by_hash_with_retry(
+                last_valid_block_hash,
+                max_attempts=5,
+                wait_fixed=1.0,
+            )
+        except BlockNotAvailableError as e:
+            logger.debug(
+                f"Block not available on client under test (acceptable): {e}"
+            )
+
+        try:
+            sync_block = sync_eth_rpc.get_block_by_hash_with_retry(
+                last_valid_block_hash,
+                max_attempts=5,
+                wait_fixed=1.0,
+            )
+        except BlockNotAvailableError as e:
+            logger.debug(
+                f"Block not available on sync client (acceptable): {e}"
+            )
+
+        if sync_block is not None and client_block is not None:
+            if sync_block["stateRoot"] != client_block["stateRoot"]:
+                raise LoggedError(
+                    f"State root mismatch after sync. "
+                    f"Sync client: {sync_block['stateRoot']}, "
+                    f"Client under test: {client_block['stateRoot']}"
                 )
-                client_block = eth_rpc.get_block_by_hash(last_valid_block_hash)
 
-                if sync_block is not None and client_block is not None:
-                    # If we have both blocks, verify they match
-                    if sync_block["stateRoot"] != client_block["stateRoot"]:
-                        raise LoggedError(
-                            f"State root mismatch after sync. "
-                            f"Sync client: {sync_block['stateRoot']}, "
-                            f"Client under test: {client_block['stateRoot']}"
-                        )
-
-                    if fixture.post_state_hash:
-                        if sync_block["stateRoot"] != str(
-                            fixture.post_state_hash
-                        ):
-                            raise LoggedError(
-                                f"Final state root mismatch. "
-                                f"Expected: {fixture.post_state_hash}, "
-                                f"Got: {sync_block['stateRoot']}"
-                            )
-
-                    logger.info(
-                        f"Block state verified via eth_getBlockByHash (attempt {attempt + 1}): "
-                        f"{sync_block['stateRoot']}"
+            # Verify against expected post-state hash if provided
+            if fixture.post_state_hash:
+                if sync_block["stateRoot"] != str(fixture.post_state_hash):
+                    raise LoggedError(
+                        f"Final state root mismatch. "
+                        f"Expected: {fixture.post_state_hash}, "
+                        f"Got: {sync_block['stateRoot']}"
                     )
-                    break
-                else:
-                    missing = []
-                    if sync_block is None:
-                        missing.append("sync_client")
-                    if client_block is None:
-                        missing.append("client_under_test")
 
-                    if attempt < max_attempts - 1:
-                        logger.debug(
-                            f"Block {last_valid_block_hash} not yet available on {', '.join(missing)} "
-                            f"(attempt {attempt + 1}/{max_attempts})"
-                        )
-                        time.sleep(1)
-                    else:
-                        # Final attempt and blocks still not available
-                        logger.debug(
-                            f"Block {last_valid_block_hash} not available via eth_getBlockByHash "
-                            f"after {max_attempts} attempts (missing from: {', '.join(missing)}). "
-                            f"This is acceptable as FCU VALID is the authoritative success signal."
-                        )
-            except LoggedError:
-                # Re-raise validation errors immediately with no retry
-                raise
-            except Exception as e:
-                # Log other errors without failing the test
-                logger.debug(
-                    f"Error fetching blocks for verification (attempt {attempt + 1}): {e}"
-                )
-                if attempt < max_attempts - 1:
-                    time.sleep(1)
+            logger.info(
+                f"Block state verified via eth_getBlockByHash: "
+                f"{sync_block['stateRoot']}"
+            )
 
     logger.info("Sync test completed successfully!")
