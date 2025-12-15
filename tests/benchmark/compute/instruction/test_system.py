@@ -790,8 +790,6 @@ def test_selfdestruct_initcode(
 
     base_costs = prefix_cost + suffix_cost + intrinsic_gas_cost_calc()
 
-    iterations = (gas_benchmark_value - base_costs) // loop_cost
-
     initcode = Op.SELFDESTRUCT(Op.COINBASE)
     code_prefix = Op.MSTORE(0, initcode.hex()) + Op.PUSH0 + Op.JUMPDEST
     code_suffix = (
@@ -817,22 +815,25 @@ def test_selfdestruct_initcode(
     )
     code = code_prefix + loop_body + code_suffix
 
-    # The 0 storage slot is initialize to avoid creation costs in SSTORE above.
+    # The 0 storage slot is initialized to avoid creation costs in SSTORE above.
     code_addr = pre.deploy_contract(code=code, balance=100_000, storage={0: 1})
 
     max_iterations_per_tx = (tx_gas_limit - base_costs) // loop_cost
-    num_exec_txs = math.ceil(iterations / max_iterations_per_tx)
-
     exec_txs = []
     with TestPhaseManager.execution():
-        for _ in range(num_exec_txs):
+        used_gas = 0
+        while used_gas < gas_benchmark_value:
+            gas_limit = min(tx_gas_limit, gas_benchmark_value - used_gas)
+            if gas_limit < intrinsic_gas_cost_calc():
+                break
             exec_txs.append(
                 Transaction(
                     to=code_addr,
-                    gas_limit=tx_gas_limit,
+                    gas_limit=gas_limit,
                     sender=pre.fund_eoa(),
                 )
             )
+            used_gas += gas_limit
 
     post = {
         code_addr: Account(storage={0: len(exec_txs) + 1})
@@ -846,5 +847,5 @@ def test_selfdestruct_initcode(
         expected_benchmark_gas_used=(
             max_iterations_per_tx * loop_cost + base_costs
         )
-        * num_exec_txs,
+        * len(exec_txs),
     )
