@@ -57,6 +57,7 @@ def test_xcall(
     opcode: Op,
     env: Environment,
     gas_benchmark_value: int,
+    tx_gas_limit: int,
 ) -> None:
     """Benchmark a system execution where a single opcode execution."""
     # The attack gas limit represents the transaction gas limit cap or
@@ -68,19 +69,6 @@ def test_xcall(
     max_contract_size = fork.max_code_size()
 
     gas_costs = fork.gas_costs()
-    tx_gas_limit_cap = fork.transaction_gas_limit_cap()
-
-    # Calculate the absolute minimum gas costs to deploy the contract This does
-    # not take into account setting up the actual memory (using KECCAK256 and
-    # XOR) so the actual costs of deploying the contract is higher
-    memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
-    memory_gas_minimum = memory_expansion_gas_calculator(
-        new_bytes=len(bytes(max_contract_size))
-    )
-    code_deposit_gas_minimum = (
-        fork.gas_costs().G_CODE_DEPOSIT_BYTE * max_contract_size
-        + memory_gas_minimum
-    )
 
     intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
     # Calculate the loop cost of the attacker to query one address
@@ -98,18 +86,6 @@ def test_xcall(
         attack_gas_limit - intrinsic_gas_cost_calc() - gas_costs.G_VERY_LOW * 4
     ) // loop_cost
 
-    # Set the block gas limit to a relative high value to ensure the code
-    # deposit tx fits in the block (there is enough gas available in the block
-    # to execute this)
-    minimum_gas_limit = code_deposit_gas_minimum * 2 * num_contracts
-    if env.gas_limit < minimum_gas_limit:
-        raise Exception(
-            f"`BENCHMARKING_MAX_GAS` ({env.gas_limit}) is no longer enough to"
-            f" support this test, which requires {minimum_gas_limit} gas for "
-            "its setup. Update the value or consider optimizing gas usage "
-            "during the setup phase of this test."
-        )
-
     initcode, factory_address, factory_caller_address = (
         _deploy_max_contract_factory(pre, fork)
     )
@@ -117,30 +93,20 @@ def test_xcall(
     # Deploy num_contracts via multiple txs (each capped by tx gas limit).
     with TestPhaseManager.setup():
         # Rough estimate (rounded down) of contracts per tx based on dominant
-        # cost factor only. E.g., 17M gas limit + 24KiB contracts = ~3 per tx.
+        # cost factor only, and up to 90% of the block gas limit.
         # The goal is to involve the minimum amount of gas pricing to avoid
         # complexity and potential brittleness.
-        # If this estimation is incorrect in the future (i.e. tx gas limit cap)
-        # is increased or cost per byte, the post-state check will detect it
-        # and can be adjusted with a more complex formula.
-        num_contracts_per_tx = (
-            tx_gas_limit_cap
-            // (gas_costs.G_CODE_DEPOSIT_BYTE * max_contract_size)
-            if tx_gas_limit_cap
-            else num_contracts
-        )
-        attack_txs = (
-            math.ceil(num_contracts / num_contracts_per_tx)
-            if num_contracts_per_tx
-            else 1
-        )
+        num_contracts_per_tx = int(tx_gas_limit * 0.9) // (
+            gas_costs.G_CODE_DEPOSIT_BYTE * max_contract_size
+        ) 
+        setup_txs = math.ceil(num_contracts / num_contracts_per_tx)
 
         contracts_deployment_txs = []
-        for _ in range(attack_txs):
+        for _ in range(setup_txs):
             contracts_deployment_txs.append(
                 Transaction(
                     to=factory_caller_address,
-                    gas_limit=tx_gas_limit_cap or env.gas_limit,
+                    gas_limit=tx_gas_limit,
                     data=Hash(num_contracts_per_tx),
                     sender=pre.fund_eoa(),
                 )
@@ -180,19 +146,13 @@ def test_xcall(
     attack_address = pre.deploy_contract(code=attack_code)
 
     with TestPhaseManager.execution():
-        full_txs = (
-            attack_gas_limit // tx_gas_limit_cap if tx_gas_limit_cap else 1
-        )
-        remainder = (
-            attack_gas_limit % tx_gas_limit_cap if tx_gas_limit_cap else 0
-        )
+        full_txs = attack_gas_limit // tx_gas_limit
+        remainder = attack_gas_limit % tx_gas_limit
 
         num_targeted_contracts_per_full_tx = (
             # Base available gas:
             # TX_GAS_LIMIT - intrinsic - (out of loop MSTOREs)
-            (tx_gas_limit_cap or attack_gas_limit)
-            - intrinsic_gas_cost_calc()
-            - gas_costs.G_VERY_LOW * 4
+            tx_gas_limit - intrinsic_gas_cost_calc() - gas_costs.G_VERY_LOW * 4
         ) // loop_cost
         contract_start_index = 0
         opcode_txs = []
@@ -200,7 +160,7 @@ def test_xcall(
             opcode_txs.append(
                 Transaction(
                     to=attack_address,
-                    gas_limit=tx_gas_limit_cap or attack_gas_limit,
+                    gas_limit=tx_gas_limit,
                     data=Hash(contract_start_index),
                     sender=pre.fund_eoa(),
                 )
