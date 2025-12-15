@@ -124,7 +124,7 @@ def pytest_collection_modifyitems(
     #
     # Here we filter out tests that do not use the benchmark_test fixture.
     # Note: At this stage we cannot filter based on whether a code generator is used.
-    if fixed_opcode_count:
+    if fixed_opcode_count or fixed_opcode_count == "":
         filtered = []
         for item in items:
             if (
