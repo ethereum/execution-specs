@@ -7,17 +7,19 @@ import os
 import time
 from itertools import count
 from pprint import pprint
-from typing import Any, ClassVar, Dict, List, Literal, Sequence
+from typing import Any, Callable, ClassVar, Dict, List, Literal, Sequence
 
 import requests
 from jwt import encode
 from pydantic import ValidationError
 from tenacity import (
+    RetryCallState,
     before_sleep_log,
     retry,
     retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
+    wait_fixed as wait_fixed_tenacity,
 )
 
 from execution_testing.base_types import Address, Bytes, Hash, to_json
@@ -34,6 +36,7 @@ from .rpc_types import (
     JSONRPCError,
     PayloadAttributes,
     PayloadStatus,
+    PayloadStatusEnum,
     TransactionByHashResponse,
     TransactionProtocol,
 )
@@ -72,6 +75,27 @@ class SendTransactionExceptionError(Exception):
         elif self.tx_rlp is not None:
             return f"{base} Transaction RLP={self.tx_rlp.hex()}"
         return base
+
+
+class ForkchoiceUpdateTimeoutError(Exception):
+    """Raised when forkchoice update doesn't reach VALID within retry limits."""
+
+    def __init__(
+        self,
+        attempts: int,
+        elapsed: float,
+        interval: float,
+        final_status: PayloadStatusEnum,
+    ):
+        """Initialize with retry statistics and final status."""
+        self.attempts = attempts
+        self.elapsed = elapsed
+        self.interval = interval
+        self.final_status = final_status
+        super().__init__(
+            f"Forkchoice update failed to reach VALID after {attempts} attempts "
+            f"over {elapsed:.1f}s (interval: {interval}s), final status: {final_status}"
+        )
 
 
 class BaseRPC:
@@ -732,6 +756,80 @@ class EngineRPC(BaseRPC):
             response,
             context=self.response_validation_context,
         )
+
+
+def forkchoice_updated_with_retry(
+    engine_rpc: EngineRPC,
+    forkchoice_state: ForkchoiceState,
+    forkchoice_version: int,
+    *,
+    max_attempts: int = 30,
+    wait_fixed: float = 1.0,
+    on_retry: Callable[[RetryCallState], None] | None = None,
+) -> ForkchoiceUpdateResponse:
+    """
+    Send forkchoice update, retrying while SYNCING until a terminal status.
+
+    Retries only while the client returns SYNCING status. Returns immediately
+    on any terminal status (VALID, INVALID, ACCEPTED, etc.) - the caller is
+    responsible for checking if the returned status matches expectations.
+
+    Args:
+        engine_rpc: The EngineRPC instance to use.
+        forkchoice_state: The forkchoice state to send.
+        forkchoice_version: The forkchoice updated version (e.g., 1, 2, 3).
+        max_attempts: Maximum number of attempts before giving up.
+        wait_fixed: Fixed interval in seconds between retries.
+        on_retry: Optional callback invoked before each retry sleep.
+            Receives tenacity RetryCallState. If None, logs at debug level.
+
+    Returns:
+        ForkchoiceUpdateResponse with a terminal status (VALID, INVALID, etc.).
+
+    Raises:
+        ForkchoiceUpdateTimeoutError: If still SYNCING after max_attempts.
+    """
+    # Track state for exception message in the case of timeout
+    attempts = 0
+    start_time = time.time()
+    last_response: ForkchoiceUpdateResponse | None = None
+
+    def default_on_retry(retry_state: RetryCallState) -> None:
+        logger.debug(
+            f"Forkchoice update attempt {retry_state.attempt_number}: "
+            f"status={last_response.payload_status.status if last_response else 'N/A'}, "
+            f"retrying in {wait_fixed}s..."
+        )
+
+    retry_callback = on_retry if on_retry is not None else default_on_retry
+
+    @retry(
+        stop=stop_after_attempt(max_attempts),
+        wait=wait_fixed_tenacity(wait_fixed),
+        before_sleep=retry_callback,
+        reraise=True,
+    )
+    def _do_forkchoice_update() -> ForkchoiceUpdateResponse:
+        nonlocal attempts, last_response
+        attempts += 1
+        response = engine_rpc.forkchoice_updated(
+            forkchoice_state=forkchoice_state,
+            payload_attributes=None,
+            version=forkchoice_version,
+        )
+        last_response = response
+        status = response.payload_status.status
+        logger.info(f"Forkchoice update attempt {attempts}: {status}")
+        if status == PayloadStatusEnum.SYNCING:
+            raise ForkchoiceUpdateTimeoutError(
+                attempts=attempts,
+                elapsed=time.time() - start_time,
+                interval=wait_fixed,
+                final_status=status,
+            )
+        return response
+
+    return _do_forkchoice_update()
 
 
 class NetRPC(BaseRPC):

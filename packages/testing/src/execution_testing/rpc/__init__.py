@@ -8,8 +8,10 @@ from .rpc import (
     DebugRPC,
     EngineRPC,
     EthRPC,
+    ForkchoiceUpdateTimeoutError,
     NetRPC,
     SendTransactionExceptionError,
+    forkchoice_updated_with_retry,
 )
 from .rpc_types import (
     BlobAndProofV1,
@@ -31,7 +33,9 @@ __all__ = [
     "EthRPC",
     "ForkConfig",
     "ForkConfigBlobSchedule",
+    "ForkchoiceUpdateTimeoutError",
     "NetRPC",
     "SendTransactionExceptionError",
     "TransactionProtocol",
+    "forkchoice_updated_with_retry",
 ]
