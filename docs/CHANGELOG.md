@@ -16,6 +16,7 @@ Test fixtures for use by clients are available for each release on the [Github r
 
 #### `execute`
 
+- ✨ Add transaction batching to avoid RPC overload when executing tests with many transactions. Transactions are now sent in configurable batches (default: 750) with progress logging. Use `--max-tx-per-batch` to configure the batch size ([#1907](https://github.com/ethereum/execution-specs/pull/1907)).
 - ✨ `execute hive` and `execute remote` now defer funding of accounts until the minimum amount required to send the test transactions is calculated, in order to optimize the amount of Eth used to execute the tests ([#1822](https://github.com/ethereum/execution-specs/pull/1822)).
 - ✨ Dynamically fetch gas prices from the network and update all transactions to use 1.5x the current values ([#1822](https://github.com/ethereum/execution-specs/pull/1822)).
 - ✨ New `--dry-run` flag to calculate the amount of Eth that will be spent executing a test given the current network gas prices ([#1822](https://github.com/ethereum/execution-specs/pull/1822)).
