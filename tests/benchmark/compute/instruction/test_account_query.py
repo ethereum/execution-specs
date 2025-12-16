@@ -438,7 +438,6 @@ def test_ext_account_query_cold(
     fork: Fork,
     opcode: Op,
     absent_accounts: bool,
-    env: Environment,
     gas_benchmark_value: int,
     tx_gas_limit: int,
 ) -> None:
