@@ -138,6 +138,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=False,
         help="Don't send transactions, just print the minimum balance required per test.",
     )
+    execute_group.addoption(
+        "--max-tx-per-batch",
+        action="store",
+        dest="max_tx_per_batch",
+        type=int,
+        default=None,
+        help=(
+            "Maximum number of transactions to send in a single batch to the RPC. "
+            "Default=750. Higher values may cause RPC instability."
+        ),
+    )
 
     report_group = parser.getgroup(
         "tests", "Arguments defining html report behavior"
@@ -309,6 +320,12 @@ def default_gas_price(request: pytest.FixtureRequest) -> int | None:
 def dry_run(request: pytest.FixtureRequest) -> bool:
     """Return True if the test is a dry run."""
     return request.config.getoption("dry_run")
+
+
+@pytest.fixture(scope="session")
+def max_transactions_per_batch(request: pytest.FixtureRequest) -> int | None:
+    """Return the maximum number of transactions per batch, or None for default."""
+    return request.config.getoption("max_tx_per_batch")
 
 
 @pytest.fixture(scope="session")
