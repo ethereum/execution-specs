@@ -205,6 +205,22 @@ Once the sender account is funded, the command will start executing tests one by
 
 Test transactions are not sent from the main sender account though, they are sent from a different unique account that is created for each test (accounts returned by `pre.fund_eoa`).
 
+### Transaction Batching
+
+When executing tests that generate many transactions (such as benchmark tests), transactions are automatically batched to avoid overloading the RPC endpoint. By default, transactions are sent in batches of 750.
+
+You can configure the batch size using the `--max-tx-per-batch` flag:
+
+```bash
+# Reduce batch size for slower RPC endpoints
+uv run execute remote --fork=Prague --rpc-endpoint=https://rpc.endpoint.io --max-tx-per-batch 100 --rpc-seed-key 0x... --chain-id 12345
+
+# Increase batch size for high-performance endpoints
+uv run execute remote --fork=Prague --rpc-endpoint=https://rpc.endpoint.io --max-tx-per-batch 1000 --rpc-seed-key 0x... --chain-id 12345
+```
+
+A warning is logged when the batch size exceeds 1000, as this may cause RPC service instability.
+
 ### Use with Parallel Execution
 
 If the `execute` is run using the `-n=N` flag (respectively `--sim-parallelism=N`), n>1, the tests will be executed in parallel, and each process will have its own separate sender account, so the amount that is swept from the seed account is divided by the number of processes, and this has to be taken into account when setting the sweep amount and also when funding the seed account.

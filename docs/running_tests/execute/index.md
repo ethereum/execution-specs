@@ -48,3 +48,35 @@ EOAs are funded after gas prices are determined, enabling accurate balance calcu
 ### Blob Transaction Support
 
 Blob transactions are fully supported in execute mode, including automatic gas pricing for blob gas fees and validation via `engine_getBlobsVX` endpoints when the Engine RPC is available.
+
+### Transaction Batching
+
+When executing tests with many transactions (e.g., benchmark tests), the `execute` plugin automatically batches transactions to avoid overloading the RPC service (The experiment transaction limit for RPC is 1000 requests.). This is particularly important for large-scale tests that may generate hundreds or thousands of transactions.
+
+**Default Behavior:**
+
+- Transactions are sent in batches of up to 750 transactions by default
+- Each batch is sent and confirmed before the next batch begins
+- Progress logging shows batch number and transaction ranges
+
+**CLI Configuration:**
+
+The batch size can be configured via the `--max-tx-per-batch` option:
+
+```bash
+# Use smaller batches for slower RPC endpoints
+execute --max-tx-per-batch 100 tests/
+
+# Use larger batches for high-performance RPC endpoints
+execute --max-tx-per-batch 1000 tests/
+```
+
+**Safety Threshold:**
+
+A warning is logged when `max_transactions_per_batch` exceeds 1000, as this may cause RPC service instability or failures depending on the RPC endpoint's capacity.
+
+**Use Cases:**
+
+- **Benchmark tests**: Tests that measure gas consumption often generate many transactions
+- **Stress testing**: When intentionally testing RPC endpoint limits
+- **Slow RPC endpoints**: Reduce batch size to avoid timeouts on slower endpoints
