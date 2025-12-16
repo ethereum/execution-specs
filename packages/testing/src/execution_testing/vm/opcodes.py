@@ -3,9 +3,10 @@ Ethereum Virtual Machine opcode definitions.
 
 Acknowledgments: The individual opcode documentation below is due to the work
 by [smlXL](https://github.com/smlxl) on [evm.codes](https://www.evm.codes/),
-available as open source [github.com/smlxl/
-evm.codes](https://github.com/smlxl/evm.codes) - thank you! And thanks
-to @ThreeHrSleep for integrating it in the docstrings.
+available as open source [`smlxl/evm.codes`][0]; thank you! And thanks to
+@ThreeHrSleep for integrating it in the docstrings.
+
+[0]: https://github.com/smlxl/evm.codes
 """
 
 from enum import Enum
