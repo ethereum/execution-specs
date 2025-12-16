@@ -408,56 +408,75 @@ def test_auth_transaction(
     fork: Fork,
     empty_authority: bool,
     zero_delegation: bool,
+    tx_gas_limit: int,
 ) -> None:
     """Test an auth block."""
     gas_costs = fork.gas_costs()
 
-    iteration_count = (
+    max_auths_per_tx = (
+        tx_gas_limit - intrinsic_cost
+    ) // gas_costs.G_AUTHORIZATION
+
+    total_auth_count = (
         gas_benchmark_value - intrinsic_cost
     ) // gas_costs.G_AUTHORIZATION
 
-    code = Op.STOP * fork.max_code_size()
+    num_txs = math.ceil(total_auth_count / max_auths_per_tx)
+
+    code = Op.INVALID * fork.max_code_size()
     auth_target = (
         Address(0) if zero_delegation else pre.deploy_contract(code=code)
     )
 
-    auth_tuples = []
-    for _ in range(iteration_count):
-        signer = (
-            pre.fund_eoa(amount=0, delegation=None)
-            if empty_authority
-            else pre.fund_eoa(amount=0, delegation=auth_target)
-        )
-        auth_tuple = AuthorizationTuple(
-            address=auth_target, nonce=signer.nonce, signer=signer
-        )
-        auth_tuples.append(auth_tuple)
+    txs = []
+    total_gas_used = 0
+    total_refund = 0
+    remaining_auths = total_auth_count
 
-    tx = Transaction(
-        to=pre.empty_account(),
-        gas_limit=gas_benchmark_value,
-        sender=pre.fund_eoa(),
-        authorization_list=auth_tuples,
-    )
+    for _ in range(num_txs):
+        # Calculate authorization tuples for this transaction
+        auths_in_this_tx = min(max_auths_per_tx, remaining_auths)
+        remaining_auths -= auths_in_this_tx
 
-    gas_used = fork.transaction_intrinsic_cost_calculator()(
-        authorization_list_or_count=auth_tuples
-    )
-
-    refund = 0
-    if not empty_authority:
-        refund = min(
-            gas_used // 5,
-            (
-                gas_costs.G_AUTHORIZATION
-                - gas_costs.R_AUTHORIZATION_EXISTING_AUTHORITY
+        auth_tuples = []
+        for _ in range(auths_in_this_tx):
+            signer = (
+                pre.fund_eoa(amount=0, delegation=None)
+                if empty_authority
+                else pre.fund_eoa(amount=0, delegation=auth_target)
             )
-            * iteration_count,
+            auth_tuple = AuthorizationTuple(
+                address=auth_target, nonce=signer.nonce, signer=signer
+            )
+            auth_tuples.append(auth_tuple)
+
+        tx_gas_used = fork.transaction_intrinsic_cost_calculator()(
+            authorization_list_or_count=auth_tuples
+        )
+        total_gas_used += tx_gas_used
+
+        if not empty_authority:
+            total_refund += min(
+                tx_gas_used // 5,
+                (
+                    gas_costs.G_AUTHORIZATION
+                    - gas_costs.R_AUTHORIZATION_EXISTING_AUTHORITY
+                )
+                * auths_in_this_tx,
+            )
+
+        txs.append(
+            Transaction(
+                to=pre.empty_account(),
+                gas_limit=tx_gas_used,
+                sender=pre.fund_eoa(),
+                authorization_list=auth_tuples,
+            )
         )
 
     blockchain_test(
         pre=pre,
         post={},
-        blocks=[Block(txs=[tx])],
-        expected_benchmark_gas_used=gas_used - refund,
+        blocks=[Block(txs=txs)],
+        expected_benchmark_gas_used=total_gas_used - total_refund,
     )
