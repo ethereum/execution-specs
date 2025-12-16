@@ -1,7 +1,8 @@
-"""Shared pytest definitions local to EIP-2537 tests."""
+"""Shared pytest definitions local to EIP-196 tests."""
 
 import pytest
 from execution_testing import (
+    Address,
     Fork,
 )
 
@@ -21,7 +22,7 @@ from .spec import Spec
 
 
 @pytest.fixture
-def precompile_gas(precompile_address: int, fork: Fork) -> int:
+def precompile_gas(precompile_address: Address, fork: Fork) -> int:
     """Gas cost for the precompile."""
     gas_costs = fork.gas_costs()
     match precompile_address:

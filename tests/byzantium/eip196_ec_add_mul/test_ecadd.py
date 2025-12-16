@@ -15,7 +15,7 @@ REFERENCE_SPEC_VERSION = ref_spec_196.version
 
 pytestmark = [
     pytest.mark.valid_from("Byzantium"),
-    pytest.mark.parametrize("precompile_address", [Spec.ECADD], ids=[""]),
+    pytest.mark.parametrize("precompile_address", [Spec.ECADD], ids=["ecadd"]),
 ]
 
 
@@ -45,15 +45,15 @@ def test_valid(
 
 
 @pytest.mark.parametrize(
-    "input_data",
+    "input_data, expected_output",
     [
         pytest.param(
             PointG1(1, 1) + Spec.INF_G1,
+            b"",
             id="pt_1_1_plus_inf",
         ),
     ],
 )
-@pytest.mark.parametrize("expected_output", [b""], ids=[""])
 def test_invalid(
     state_test: StateTestFiller,
     pre: Alloc,
