@@ -677,16 +677,11 @@ def test_selfdestruct_created(
         + gas_costs.G_BASE  #  Parameter GAS
     )
     extra_costs = (
-        gas_costs.G_BASE  # POP
-        + gas_costs.G_VERY_LOW * 6  # PUSHs, ADD, DUP, GT
+        gas_costs.G_BASE * 2  # POP, GAS
+        + gas_costs.G_VERY_LOW * 5  # PUSHs, ADD, DUP, GT
         + gas_costs.G_HIGH  # JUMPI
         + gas_costs.G_JUMPDEST
-extra_costs = (
-    gas_costs.G_BASE * 2  # POP, GAS
-    + gas_costs.G_VERY_LOW * 5  # PUSHs, ADD, DUP, GT
-    + gas_costs.G_HIGH  # JUMPI
-    + gas_costs.G_JUMPDEST
-)
+    )
     loop_cost = create_costs + call_costs + extra_costs
 
     prefix_cost = (
@@ -729,21 +724,17 @@ extra_costs = (
         )
     )
     code = code_prefix + loop_body + code_suffix
-    # The 0 storage slot is initialize to avoid creation costs in SSTORE above.
-max_iterations_per_tx = (tx_gas_limit - base_costs) // loop_cost
-num_exec_txs = math.ceil(iterations / max_iterations_per_tx)
-
-total_expected_iterations = max_iterations_per_tx * num_exec_txs
-
-# The 0 storage slot is initialize to avoid creation costs in SSTORE above.
-code_addr = pre.deploy_contract(
-    code=code,
-    balance=total_expected_iterations if value_bearing else 0,
-    storage={0: 1},
-)
 
     max_iterations_per_tx = (tx_gas_limit - base_costs) // loop_cost
     num_exec_txs = math.ceil(iterations / max_iterations_per_tx)
+    total_expected_iterations = max_iterations_per_tx * num_exec_txs
+
+    # The 0 storage slot is initialize to avoid creation costs in SSTORE above.
+    code_addr = pre.deploy_contract(
+        code=code,
+        balance=total_expected_iterations if value_bearing else 0,
+        storage={0: 1},
+    )
 
     exec_txs = []
     with TestPhaseManager.execution():
@@ -767,7 +758,7 @@ code_addr = pre.deploy_contract(
         expected_benchmark_gas_used=(
             max_iterations_per_tx * loop_cost + base_costs
         )
-        * num_exec_txs
+        * num_exec_txs,
     )
 
 
