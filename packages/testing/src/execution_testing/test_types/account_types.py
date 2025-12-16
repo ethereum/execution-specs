@@ -18,7 +18,6 @@ from typing import (
 from coincurve.keys import PrivateKey
 from ethereum_types.bytes import Bytes20
 from ethereum_types.numeric import U256, Bytes32, Uint
-from pydantic import PrivateAttr
 
 from execution_testing.base_types import (
     Account,
@@ -164,8 +163,6 @@ class EOA(Address):
 
 class Alloc(BaseAlloc):
     """Allocation of accounts in the state, pre and post test execution."""
-
-    _eoa_fund_amount_default: int = PrivateAttr(10**21)
 
     @dataclass(kw_only=True)
     class UnexpectedAccountError(Exception):
@@ -387,6 +384,24 @@ class Alloc(BaseAlloc):
                     account.check_alloc(address, got_account)
                 else:
                     raise Alloc.MissingAccountError(address=address)
+
+    def deterministic_deploy_contract(
+        self,
+        *,
+        deploy_code: BytesConvertible,
+        salt: Hash | int = 0,
+        initcode: BytesConvertible | None = None,
+        minimum_balance: NumberConvertible = 0,
+        setup_calldata: BytesConvertible | None = None,
+        label: str | None = None,
+    ) -> Address:
+        """
+        Deploy a contract to the allocation at a deterministic location
+        using a deterministic deployment proxy.
+        """
+        raise NotImplementedError(
+            "deterministic_deploy_contract is not implemented in the base class"
+        )
 
     def deploy_contract(
         self,

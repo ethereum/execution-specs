@@ -658,20 +658,20 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 # send the funds to the required sender accounts
                 pre.send_pending_transactions()
 
-                # wait for pre-requisite transactions to be included in blocks
-                pre.wait_for_transactions()
                 for (
                     deployed_contract,
                     expected_code,
                 ) in pre._deployed_contracts:
                     actual_code = eth_rpc.get_code(deployed_contract)
                     if actual_code != expected_code:
-                        raise Exception(
+                        msg = (
                             f"Deployed test contract didn't match expected code at address "
                             f"{deployed_contract} (not enough gas_limit?).\n"
                             f"Expected: {expected_code}\n"
                             f"Actual: {actual_code}"
                         )
+                        logger.error(msg)
+                        raise Exception(msg)
                 request.node.config.funded_accounts = ", ".join(
                     [str(eoa) for eoa in pre._funded_eoa]
                 )

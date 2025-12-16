@@ -25,6 +25,7 @@ from .helpers import (
     ceiling_division,
     compute_create2_address,
     compute_create_address,
+    compute_deterministic_create2_address,
     compute_eofcreate_address,
 )
 from .phase_manager import TestPhase, TestPhaseManager
@@ -82,6 +83,7 @@ __all__ = (
     "ceiling_division",
     "compute_create_address",
     "compute_create2_address",
+    "compute_deterministic_create2_address",
     "compute_eofcreate_address",
     "keccak256",
 )

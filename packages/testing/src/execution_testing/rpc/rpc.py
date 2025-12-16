@@ -677,7 +677,7 @@ class EthRPC(BaseRPC):
                 if tx is not None and tx.block_number is not None:
                     responses.append(tx)
                     logger.info(
-                        f"Tx {tx} was included in block {tx.block_number}"
+                        f"Tx {tx.hash} was included in block {tx.block_number}"
                     )
                     tx_hashes.pop(i)
                 else:

@@ -13,6 +13,8 @@ from pydantic import PrivateAttr
 from execution_testing.base_types import (
     Account,
     Address,
+    Bytes,
+    Hash,
     Number,
     Storage,
     StorageRootType,
@@ -28,9 +30,13 @@ from execution_testing.base_types.conversions import (
 from execution_testing.fixtures import LabeledFixtureFormat
 from execution_testing.forks import Fork
 from execution_testing.specs import BaseTest
-from execution_testing.test_types import EOA
+from execution_testing.test_types import (
+    EOA,
+    compute_deterministic_create2_address,
+)
 from execution_testing.test_types import Alloc as BaseAlloc
 from execution_testing.test_types.eof.v1 import Container
+from execution_testing.tools import Initcode
 from execution_testing.vm import Bytecode, EVMCodeType, Opcodes
 
 CONTRACT_START_ADDRESS_DEFAULT = 0x1000000000000000000000000000000000001000
@@ -95,6 +101,7 @@ DELEGATION_DESIGNATION = b"\xef\x01\x00"
 class Alloc(BaseAlloc):
     """Allocation of accounts in the state, pre and post test execution."""
 
+    _eoa_fund_amount_default: int = PrivateAttr(10**21)
     _alloc_mode: AllocMode = PrivateAttr()
     _contract_address_iterator: Iterator[Address] = PrivateAttr()
     _eoa_iterator: Iterator[EOA] = PrivateAttr()
@@ -141,6 +148,61 @@ class Alloc(BaseAlloc):
                     return Container.Code(code + Opcodes.STOP)
                 return Container.Code(code)
         return code
+
+    def deterministic_deploy_contract(
+        self,
+        *,
+        deploy_code: BytesConvertible,
+        salt: Hash | int = 0,
+        initcode: BytesConvertible | None = None,
+        minimum_balance: NumberConvertible = 0,
+        setup_calldata: BytesConvertible | None = None,
+        label: str | None = None,
+    ) -> Address:
+        """
+        Deploy a contract to the allocation at a deterministic location
+        using a deterministic deployment proxy.
+        """
+        if not isinstance(deploy_code, Bytes):
+            deploy_code = Bytes(deploy_code)
+        if initcode is None:
+            initcode = Initcode(deploy_code=deploy_code)
+        elif not isinstance(initcode, Bytes):
+            initcode = Bytes(initcode)
+        salt = Hash(salt)
+        contract_address = compute_deterministic_create2_address(
+            salt=salt, initcode=initcode
+        )
+        max_code_size = self._fork.max_code_size()
+        assert len(deploy_code) <= max_code_size, (
+            f"code too large: {len(deploy_code)} > {max_code_size}"
+        )
+
+        super().__setitem__(
+            contract_address,
+            Account(
+                nonce=1,
+                balance=minimum_balance,
+                code=deploy_code,
+                storage={},
+            ),
+        )
+        if label is None:
+            # Try to deduce the label from the code
+            frame = inspect.currentframe()
+            if frame is not None:
+                caller_frame = frame.f_back
+                if caller_frame is not None:
+                    code_context = inspect.getframeinfo(
+                        caller_frame
+                    ).code_context
+                    if code_context is not None:
+                        line = code_context[0].strip()
+                        if "=" in line:
+                            label = line.split("=")[0].strip()
+
+        contract_address.label = label
+        return contract_address
 
     def deploy_contract(
         self,

@@ -36,6 +36,7 @@ from execution_testing.test_types import (
     ChainConfig,
     Transaction,
     TransactionTestMetadata,
+    compute_deterministic_create2_address,
 )
 from execution_testing.test_types import Alloc as BaseAlloc
 from execution_testing.test_types.eof.v1 import Container
@@ -44,6 +45,16 @@ from execution_testing.vm import Bytecode, EVMCodeType, Op
 
 MAX_BYTECODE_SIZE = 24576
 MAX_INITCODE_SIZE = MAX_BYTECODE_SIZE * 2
+
+DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS = Address(
+    0x4E59B44847B379578588920CA78FBF26C0B4956C
+)
+DETERMINISTIC_DEPLOYMENT_SIGNER_ADDRESS = Address(
+    0x3FAB184622DC19B6109349B94811493BF2A45362
+)
+DETERMINISTIC_DEPLOYMENT_TRANSACTION = Bytes(
+    "0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222"
+)
 
 logger = get_logger(__name__)
 
@@ -187,6 +198,7 @@ class PendingTransaction(Transaction):
     """
 
     value: HexNumber | None = None  # type: ignore
+    requires_predecessor: bool = False
 
 
 class Alloc(BaseAlloc):
@@ -255,6 +267,176 @@ class Alloc(BaseAlloc):
                 return Container.Code(code)
         return code
 
+    def _add_pending_tx(
+        self,
+        *,
+        action: str | None,
+        target: str | None,
+        **kwargs: Any,
+    ) -> PendingTransaction:
+        """
+        Prepares a transaction to be sent to the network with the appropriate
+        metadata and adds it to the queue.
+        """
+        if "sender" not in kwargs and "v" not in kwargs:
+            kwargs["sender"] = self._sender
+        pending_tx = PendingTransaction(
+            **kwargs,
+        )
+        pending_tx.metadata = TransactionTestMetadata(
+            test_id=self._node_id,
+            phase="setup",
+            action=action,
+            target=target,
+            tx_index=len(self._pending_txs),
+        )
+        self._pending_txs.append(pending_tx)
+        return pending_tx
+
+    def deterministic_deploy_contract(
+        self,
+        *,
+        deploy_code: BytesConvertible,
+        salt: Hash | int = 0,
+        initcode: BytesConvertible | None = None,
+        minimum_balance: NumberConvertible = 0,
+        setup_calldata: BytesConvertible | None = None,
+        label: str | None = None,
+    ) -> Address:
+        """
+        Deploy a contract to the allocation at a deterministic location
+        using a deterministic deployment proxy.
+        """
+        gas_costs = self._fork.gas_costs()
+        memory_expansion_gas_calculator = (
+            self._fork.memory_expansion_gas_calculator()
+        )
+        calldata_gas_calculator = self._fork.calldata_gas_calculator(
+            block_number=0, timestamp=0
+        )
+        if not isinstance(deploy_code, Bytes):
+            deploy_code = Bytes(deploy_code)
+        if initcode is None:
+            initcode = Initcode(deploy_code=deploy_code)
+        elif not isinstance(initcode, Bytes):
+            initcode = Bytes(initcode)
+        minimum_balance = Number(minimum_balance)
+        salt = Hash(salt)
+        contract_address = compute_deterministic_create2_address(
+            salt=salt, initcode=initcode
+        )
+        # 1) Determine if this contract already exists
+        chain_code = self._eth_rpc.get_code(contract_address)
+        if chain_code != b"":
+            assert chain_code == deploy_code, (
+                "Deterministic deployed contract's code on chain does not "
+                "match the expected code: "
+                f"Expected: {deploy_code}, "
+                f"Current: {chain_code}"
+            )
+        else:
+            # 2) Determine if the deployment contract is already on chain
+            deployment_contract_code = self._eth_rpc.get_code(
+                DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS
+            )
+            if deployment_contract_code == b"":
+                # 2b) Add transaction to fund the deployer.
+                self._add_pending_tx(
+                    action="deterministic_deploy_contract",
+                    target=f"{DETERMINISTIC_DEPLOYMENT_SIGNER_ADDRESS}",
+                    to=DETERMINISTIC_DEPLOYMENT_SIGNER_ADDRESS,
+                    value=10**16,
+                )
+                # 2c) Add deployment transaction.
+                self._add_pending_tx(
+                    action="deterministic_deploy_contract",
+                    target=f"{DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS}",
+                    ty=0,
+                    protected=False,
+                    nonce=0,
+                    gas_price=0x174876E800,
+                    gas_limit=0x0186A0,
+                    to=None,
+                    value=0,
+                    data=Bytes(
+                        "0x604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
+                    ),
+                    v=0x1B,
+                    r=0x2222222222222222222222222222222222222222222222222222222222222222,
+                    s=0x2222222222222222222222222222222222222222222222222222222222222222,
+                    requires_predecessor=True,
+                )
+
+            # 3) Deploy the actual contract.
+            deploy_gas_limit = (
+                gas_costs.G_TRANSACTION + gas_costs.G_TRANSACTION_CREATE
+            )
+            deploy_gas_limit += (
+                len(deploy_code) * gas_costs.G_CODE_DEPOSIT_BYTE
+            )
+            deploy_gas_limit += memory_expansion_gas_calculator(
+                new_bytes=len(initcode)
+            )
+            deploy_gas_limit += calldata_gas_calculator(data=initcode)
+            deploy_gas_limit = min(deploy_gas_limit * 2, 30_000_000)
+            deploy_tx = self._add_pending_tx(
+                action="deterministic_deploy_contract",
+                target=label,
+                to=DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS,
+                data=Bytes(salt) + Bytes(initcode),
+                value=minimum_balance,
+                gas_limit=deploy_gas_limit,
+            )
+            logger.info(
+                f"Contract deployment tx created (label={label}): "
+                f"tx_nonce={deploy_tx.nonce}, gas_limit={deploy_gas_limit}, "
+                f"code_size={len(deploy_code)} bytes, initcode_size={len(initcode)} bytes, "
+                f"balance={Number(minimum_balance) / 10**18:.18f} ETH"
+            )
+
+            logger.debug(
+                f"Contract will be deployed at {contract_address} "
+                f"(label={label}, tx_index={len(self._pending_txs) - 1})"
+            )
+
+            self._deployed_contracts.append((contract_address, deploy_code))
+
+        balance = self._eth_rpc.get_balance(contract_address)
+        nonce = self._eth_rpc.get_transaction_count(contract_address)
+        super().__setitem__(
+            contract_address,
+            Account(
+                nonce=nonce,
+                balance=balance,
+                code=deploy_code,
+                storage={},
+            ),
+        )
+
+        if setup_calldata is not None:
+            value = 0
+            if balance < minimum_balance:
+                value = minimum_balance - balance
+            self._add_pending_tx(
+                action="deterministic_deploy_contract",
+                target=label,
+                value=value,
+                to=contract_address,
+                data=setup_calldata,
+                gas_limit=100_000,
+            )
+        elif balance < minimum_balance:
+            self._add_pending_tx(
+                action="deterministic_deploy_contract",
+                target=label,
+                value=minimum_balance - balance,
+                to=contract_address,
+                gas_limit=100_000,
+            )
+
+        contract_address.label = label
+        return contract_address
+
     def deploy_contract(
         self,
         code: BytesConvertible,
@@ -271,6 +453,16 @@ class Alloc(BaseAlloc):
         if storage is None:
             storage = {}
         assert address is None, "address parameter is not supported"
+
+        gas_costs = self._fork.gas_costs()
+        memory_expansion_gas_calculator = (
+            self._fork.memory_expansion_gas_calculator()
+        )
+        calldata_gas_calculator = self._fork.calldata_gas_calculator(
+            block_number=0, timestamp=0
+        )
+        if not isinstance(code, Bytes):
+            code = Bytes(code)
 
         if not isinstance(storage, Storage):
             storage = Storage(storage)  # type: ignore
@@ -309,7 +501,9 @@ class Alloc(BaseAlloc):
 
         initcode_prefix = Bytecode()
 
-        deploy_gas_limit = 21_000 + 32_000
+        deploy_gas_limit = (
+            gas_costs.G_TRANSACTION + gas_costs.G_TRANSACTION_CREATE
+        )
 
         if len(storage.root) > 0:
             initcode_prefix += sum(
@@ -326,57 +520,44 @@ class Alloc(BaseAlloc):
             f"code too large: {len(code)} > {MAX_BYTECODE_SIZE}"
         )
 
-        deploy_gas_limit += len(bytes(code)) * 200
+        deploy_gas_limit += len(code) * gas_costs.G_CODE_DEPOSIT_BYTE
 
-        initcode: Bytecode | Container
+        prepared_initcode: Bytecode | Container
 
         if evm_code_type == EVMCodeType.EOF_V1:
             assert isinstance(code, Container)
-            initcode = Container.Init(
+            prepared_initcode = Container.Init(
                 deploy_container=code, initcode_prefix=initcode_prefix
             )
         else:
-            initcode = Initcode(
+            prepared_initcode = Initcode(
                 deploy_code=code, initcode_prefix=initcode_prefix
             )
-            memory_expansion_gas_calculator = (
-                self._fork.memory_expansion_gas_calculator()
-            )
             deploy_gas_limit += memory_expansion_gas_calculator(
-                new_bytes=len(bytes(initcode))
+                new_bytes=len(bytes(prepared_initcode))
             )
 
-        assert len(initcode) <= MAX_INITCODE_SIZE, (
-            f"initcode too large {len(initcode)} > {MAX_INITCODE_SIZE}"
+        assert len(prepared_initcode) <= MAX_INITCODE_SIZE, (
+            f"initcode too large {len(prepared_initcode)} > {MAX_INITCODE_SIZE}"
         )
 
-        calldata_gas_calculator = self._fork.calldata_gas_calculator(
-            block_number=0, timestamp=0
-        )
-        deploy_gas_limit += calldata_gas_calculator(data=initcode)
+        deploy_gas_limit += calldata_gas_calculator(data=prepared_initcode)
 
         # Limit the gas limit
         deploy_gas_limit = min(deploy_gas_limit * 2, 30_000_000)
 
-        deploy_tx = PendingTransaction(
-            sender=self._sender,
+        deploy_tx = self._add_pending_tx(
+            action="deploy_contract",
+            target=label,
             to=None,
-            data=initcode,
+            data=prepared_initcode,
             value=balance,
             gas_limit=deploy_gas_limit,
         )
-        deploy_tx.metadata = TransactionTestMetadata(
-            test_id=self._node_id,
-            phase="setup",
-            action="deploy_contract",
-            target=label,
-            tx_index=len(self._pending_txs),
-        )
-        self._pending_txs.append(deploy_tx)
         logger.info(
             f"Contract deployment tx created (label={label}): "
             f"tx_nonce={deploy_tx.nonce}, gas_limit={deploy_gas_limit}, "
-            f"code_size={len(code)} bytes, initcode_size={len(initcode)} bytes, "
+            f"code_size={len(code)} bytes, initcode_size={len(prepared_initcode)} bytes, "
             f"balance={Number(balance) / 10**18:.18f} ETH, storage_slots={len(storage.root)}"
         )
 
@@ -385,7 +566,7 @@ class Alloc(BaseAlloc):
             f"Contract will be deployed at {contract_address} "
             f"(label={label}, tx_index={len(self._pending_txs) - 1})"
         )
-        self._deployed_contracts.append((contract_address, Bytes(code)))
+        self._deployed_contracts.append((contract_address, code))
 
         assert Number(nonce) >= 1, (
             "impossible to deploy contract with nonce lower than one"
@@ -450,8 +631,9 @@ class Alloc(BaseAlloc):
                     f"Storage contract deployed at {sstore_address} for EOA {eoa}"
                 )
 
-                set_storage_tx = PendingTransaction(
-                    sender=self._sender,
+                self._add_pending_tx(
+                    action="eoa_storage_set",
+                    target=label,
                     to=eoa,
                     value=0,
                     authorization_list=[
@@ -465,14 +647,6 @@ class Alloc(BaseAlloc):
                     gas_limit=100_000,
                 )
                 eoa.nonce = Number(eoa.nonce + 1)
-                set_storage_tx.metadata = TransactionTestMetadata(
-                    test_id=self._node_id,
-                    phase="setup",
-                    action="eoa_storage_set",
-                    target=label,
-                    tx_index=len(self._pending_txs),
-                )
-                self._pending_txs.append(set_storage_tx)
 
             if delegation is not None:
                 if (
@@ -482,8 +656,9 @@ class Alloc(BaseAlloc):
                     delegation = eoa
                 # TODO: This tx has side-effects on the EOA state because of
                 # the delegation
-                fund_tx = PendingTransaction(
-                    sender=self._sender,
+                fund_tx = self._add_pending_tx(
+                    action="fund_eoa",
+                    target=label,
                     to=eoa,
                     value=amount,
                     authorization_list=[
@@ -498,8 +673,9 @@ class Alloc(BaseAlloc):
                 )
                 eoa.nonce = Number(eoa.nonce + 1)
             else:
-                fund_tx = PendingTransaction(
-                    sender=self._sender,
+                fund_tx = self._add_pending_tx(
+                    action="fund_eoa",
+                    target=label,
                     to=eoa,
                     value=amount if amount is not None else 0,
                     authorization_list=[
@@ -517,21 +693,14 @@ class Alloc(BaseAlloc):
 
         else:
             if amount is None or Number(amount) > 0:
-                fund_tx = PendingTransaction(
-                    sender=self._sender,
+                fund_tx = self._add_pending_tx(
+                    action="fund_eoa",
+                    target=label,
                     to=eoa,
                     value=amount,
                 )
 
         if fund_tx is not None:
-            fund_tx.metadata = TransactionTestMetadata(
-                test_id=self._node_id,
-                phase="setup",
-                action="fund_eoa",
-                target=label,
-                tx_index=len(self._pending_txs),
-            )
-            self._pending_txs.append(fund_tx)
             logger.info(
                 f"Added funding transaction for EOA {eoa} (label={label}): "
                 f"tx_nonce={fund_tx.nonce}, "
@@ -569,19 +738,12 @@ class Alloc(BaseAlloc):
             f"Funding address {address} (label={address.label}): "
             f"{Number(amount) / 10**18:.18f} ETH"
         )
-        fund_tx = PendingTransaction(
-            sender=self._sender,
+        self._add_pending_tx(
+            action="fund_address",
+            target=address.label,
             to=address,
             value=amount,
         )
-        fund_tx.metadata = TransactionTestMetadata(
-            test_id=self._node_id,
-            phase="setup",
-            action="fund_address",
-            target=address.label,
-            tx_index=len(self._pending_txs),
-        )
-        self._pending_txs.append(fund_tx)
         if address in self:
             account = self[address]
             if account is not None:
@@ -651,6 +813,7 @@ class Alloc(BaseAlloc):
                 # never sends a transaction during the test.
                 assert tx.to in sender_balances, (
                     "Sender balance must be set before sending"
+                    f"{tx.model_dump_json()}"
                 )
                 sender_balance = sender_balances[tx.to]
                 logger.info(
@@ -667,32 +830,47 @@ class Alloc(BaseAlloc):
             minimum_balance += tx.signer_minimum_balance(fork=self._fork)
         return minimum_balance + gas_consumption * gas_price, gas_consumption
 
-    def send_pending_transactions(self) -> List[Hash]:
-        """Send all pending transactions."""
+    def send_pending_transactions(self) -> List[TransactionByHashResponse]:
+        """Send all pending transactions and wait for them to be included."""
         logger.info(
             f"Sending {len(self._pending_txs)} pending transactions "
             f"(deployed_contracts={len(self._deployed_contracts)}, "
             f"funded_eoas={len(self._funded_eoa)})"
         )
-        txs = [tx.with_signature_and_sender() for tx in self._pending_txs]
-        tx_hashes = self._eth_rpc.send_transactions(txs)
-        logger.info(
-            f"Sent {len(tx_hashes)} transactions: {[str(h) for h in tx_hashes[:5]]}"
-            + (f" and {len(tx_hashes) - 5} more" if len(tx_hashes) > 5 else "")
-        )
-        return tx_hashes
-
-    def wait_for_transactions(self) -> List[TransactionByHashResponse]:
-        """Wait for all transactions to be included in blocks."""
-        logger.info(
-            f"Waiting for {len(self._pending_txs)} transactions to be included in blocks"
-        )
+        transaction_batches: List[List[PendingTransaction]] = []
+        last_tx_batch: List[PendingTransaction] = []
         for tx in self._pending_txs:
             assert tx.value is not None, (
-                "Transaction value must be set before waiting for it to be included in a block"
+                "Transaction value must be set before sending them to the RPC."
             )
-        responses = self._eth_rpc.wait_for_transactions(self._pending_txs)
-        logger.info(f"All {len(responses)} transactions confirmed in blocks")
+            if tx.requires_predecessor and last_tx_batch:
+                transaction_batches.append(last_tx_batch)
+                last_tx_batch = []
+            last_tx_batch.append(tx)
+        if last_tx_batch:
+            transaction_batches.append(last_tx_batch)
+
+        responses: List[TransactionByHashResponse] = []
+        for tx_batch in transaction_batches:
+            txs = [tx.with_signature_and_sender() for tx in tx_batch]
+            tx_hashes = self._eth_rpc.send_transactions(txs)
+            logger.info(
+                f"Sent {len(tx_hashes)} transactions: {[str(h) for h in tx_hashes[:5]]}"
+                + (
+                    f" and {len(tx_hashes) - 5} more"
+                    if len(tx_hashes) > 5
+                    else ""
+                )
+            )
+            logger.info(
+                f"Waiting for {len(tx_batch)} transactions to be included in blocks"
+            )
+            responses += self._eth_rpc.wait_for_transactions(tx_batch)
+            logger.info(
+                f"All {len(responses)} transactions confirmed in blocks"
+            )
+        for response in responses:
+            logger.debug(f"Transaction response: {response.model_dump_json()}")
         return responses
 
 

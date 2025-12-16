@@ -19,6 +19,10 @@ from .utils import int_to_bytes
 Helper functions
 """
 
+DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS = Address(
+    0x4E59B44847B379578588920CA78FBF26C0B4956C
+)
+
 
 def ceiling_division(a: int, b: int) -> int:
     """
@@ -70,6 +74,21 @@ def compute_create2_address(
         b"\xff" + Address(address) + Hash(salt) + Bytes(initcode).keccak256()
     ).keccak256()
     return Address(hash_bytes[-20:])
+
+
+def compute_deterministic_create2_address(
+    salt: FixedSizeBytesConvertible,
+    initcode: BytesConvertible,
+) -> Address:
+    """
+    Compute address of the resulting contract created using the `CREATE2`
+    opcode using the `DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS`.
+    """
+    return compute_create2_address(
+        address=DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS,
+        salt=salt,
+        initcode=initcode,
+    )
 
 
 def compute_eofcreate_address(

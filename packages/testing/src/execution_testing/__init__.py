@@ -83,6 +83,7 @@ from .test_types import (
     ceiling_division,
     compute_create2_address,
     compute_create_address,
+    compute_deterministic_create2_address,
     compute_eofcreate_address,
     keccak256,
 )
@@ -210,6 +211,7 @@ __all__ = (
     "ceiling_division",
     "compute_create_address",
     "compute_create2_address",
+    "compute_deterministic_create2_address",
     "compute_eofcreate_address",
     "extend_with_defaults",
     "gas_test",
