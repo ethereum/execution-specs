@@ -6,7 +6,7 @@ from execution_testing import (
     Fork,
 )
 
-from ...prague.eip2537_bls_12_381_precompiles.conftest import (
+from ...common.precompile_fixtures import (
     call_contract_address,  # noqa: F401
     call_contract_code,  # noqa: F401
     call_contract_post_storage,  # noqa: F401
