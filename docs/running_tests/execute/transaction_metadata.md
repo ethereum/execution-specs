@@ -30,6 +30,7 @@ Each transaction includes a `TransactionTestMetadata` object with the following 
 Transactions that prepare the test environment:
 
 - **`deploy_contract`**: Contract deployment transactions
+- **`deterministic_deploy_contract`**: Deterministic contract deployments using `CREATE2`
 - **`fund_eoa`**: Funding EOAs with initial balances
 - **`eoa_storage_set`**: Setting storage values for EOAs
 - **`fund_address`**: Funding specific addresses

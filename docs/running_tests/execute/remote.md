@@ -32,6 +32,8 @@ These transactions are created from the seed or worker accounts provided via the
 
 When the test is executed, all `pre.fund_eoa` and `pre.deploy_contract` calls generate transactions that create the accounts on chain, instead of placing them directly in the `pre` object like `fill` does.
 
+If a test uses `pre.deterministic_deploy_contract`, the `execute` command first checks if the contract is already present on chain before attempting to deploy it. If the proxy used for deterministic deployment is not present on chain either, the command will automatically deploy it too. The address of these contracts is calculated using `keccak256( 0xff ++ 0x4E59B44847B379578588920CA78FBF26C0B4956C ++ salt ++ keccak256(init_code))[12:]`.
+
 The transactions are collected and only sent after the test function finishes execution. This is done in order to perform optimizations based on the transactions that the test requires to perform its verifications.
 
 One optimization is the deferred calculation of the funding amount for the EOA, which is calculated on the fly depending the test transactions that use the account as sender, and this amount is the minimum balance that the account would need in order for the transactions to be included given the current network gas prices.
