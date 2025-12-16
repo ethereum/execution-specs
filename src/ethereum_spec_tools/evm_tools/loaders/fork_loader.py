@@ -167,7 +167,7 @@ class ForkLoad:
 
     @property
     def has_compute_requests_hash(self) -> bool:
-        """Check if the fork has a `has_requests_hash` function."""
+        """Check if the fork has a `compute_requests_hash` function."""
         try:
             module = self._module("requests")
         except ModuleNotFoundError:
