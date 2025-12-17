@@ -432,6 +432,8 @@ class Alloc(BaseAlloc):
         fund_tx: PendingTransaction | None = None
         if delegation is not None or storage is not None:
             if storage is not None:
+                if not isinstance(storage, Storage):
+                    storage = Storage.model_validate(storage)
                 logger.debug(
                     f"Deploying storage contract for EOA {eoa} with {len(storage)} storage slots"
                 )
