@@ -753,7 +753,7 @@ def test_selfdestruct_created(
     benchmark_test(
         post=post,
         blocks=[
-            Block(txs=exec_txs),
+            Block(txs=exec_txs, fee_recipient=fee_recipient),
         ],
         expected_benchmark_gas_used=(
             max_iterations_per_tx * loop_cost + base_costs
