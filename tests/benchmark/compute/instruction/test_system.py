@@ -55,7 +55,6 @@ def test_xcall(
     pre: Alloc,
     fork: Fork,
     opcode: Op,
-    env: Environment,
     gas_benchmark_value: int,
     tx_gas_limit: int,
 ) -> None:
@@ -99,6 +98,8 @@ def test_xcall(
         num_contracts_per_tx = int(tx_gas_limit * 0.9) // (
             gas_costs.G_CODE_DEPOSIT_BYTE * max_contract_size
         )
+        if num_contracts_per_tx == 0:
+            pytest.skip("tx_gas_limit too low to deploy max-size contract")
         setup_txs = math.ceil(num_contracts / num_contracts_per_tx)
 
         contracts_deployment_txs = []
