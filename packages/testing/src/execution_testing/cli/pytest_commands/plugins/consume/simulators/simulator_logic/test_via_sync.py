@@ -25,7 +25,6 @@ from execution_testing.rpc import (
     ForkchoiceUpdateTimeoutError,
     NetRPC,
     PeerConnectionTimeoutError,
-    forkchoice_updated_with_retry,
 )
 from execution_testing.rpc.rpc_types import (
     ForkchoiceState,
@@ -69,8 +68,7 @@ def test_blockchain_via_sync(
     with timing_data.time("Initialize client under test"):
         logger.info("Initializing client under test with genesis block...")
         try:
-            response = forkchoice_updated_with_retry(
-                engine_rpc=engine_rpc,
+            response = engine_rpc.forkchoice_updated_with_retry(
                 forkchoice_state=ForkchoiceState(
                     head_block_hash=fixture.genesis.block_hash,
                 ),
@@ -287,8 +285,7 @@ def test_blockchain_via_sync(
     with timing_data.time("Initialize sync client"):
         logger.info("Initializing sync client with genesis block...")
         try:
-            response = forkchoice_updated_with_retry(
-                engine_rpc=sync_engine_rpc,
+            response = sync_engine_rpc.forkchoice_updated_with_retry(
                 forkchoice_state=ForkchoiceState(
                     head_block_hash=fixture.genesis.block_hash,
                 ),
@@ -442,8 +439,7 @@ def test_blockchain_via_sync(
         )
 
         try:
-            response = forkchoice_updated_with_retry(
-                engine_rpc=sync_engine_rpc,
+            response = sync_engine_rpc.forkchoice_updated_with_retry(
                 forkchoice_state=last_valid_block_forkchoice_state,
                 forkchoice_version=fixture.sync_payload.forkchoice_updated_version
                 if fixture.sync_payload

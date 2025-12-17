@@ -13,7 +13,6 @@ from .rpc import (
     NetRPC,
     PeerConnectionTimeoutError,
     SendTransactionExceptionError,
-    forkchoice_updated_with_retry,
 )
 from .rpc_types import (
     BlobAndProofV1,
@@ -41,5 +40,4 @@ __all__ = [
     "PeerConnectionTimeoutError",
     "SendTransactionExceptionError",
     "TransactionProtocol",
-    "forkchoice_updated_with_retry",
 ]

@@ -14,7 +14,6 @@ from execution_testing.rpc import (
     EngineRPC,
     EthRPC,
     ForkchoiceUpdateTimeoutError,
-    forkchoice_updated_with_retry,
 )
 from execution_testing.rpc.rpc_types import (
     ForkchoiceState,
@@ -50,8 +49,7 @@ def test_blockchain_via_engine(
     with timing_data.time("Initial forkchoice update"):
         logger.info("Sending initial forkchoice update to genesis block...")
         try:
-            response = forkchoice_updated_with_retry(
-                engine_rpc=engine_rpc,
+            response = engine_rpc.forkchoice_updated_with_retry(
                 forkchoice_state=ForkchoiceState(
                     head_block_hash=fixture.genesis.block_hash,
                 ),
