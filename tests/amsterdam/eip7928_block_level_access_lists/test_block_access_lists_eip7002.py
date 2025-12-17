@@ -59,7 +59,7 @@ def _encode_pubkey_amount_slot(withdrawal_request: WithdrawalRequest) -> bytes:
 
 def _build_queue_storage_slots(
     senders: list, withdrawal_requests: list[WithdrawalRequest]
-):
+) -> tuple[list, list]:
     """Build queue storage slots for withdrawal requests."""
     num_reqs = len(senders)
     queue_writes = []
@@ -299,10 +299,12 @@ def test_bal_7002_partial_sweep(
         for i in range(num_requests)
     ]
 
+    eip7002_address = Address(Spec7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS)
+
     txs_block_1 = [
         Transaction(
             sender=sender,
-            to=Address(Spec7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS),
+            to=eip7002_address,
             value=withdrawal_request.fee,
             data=withdrawal_request.calldata,
             gas_limit=200_000,
@@ -316,7 +318,7 @@ def test_bal_7002_partial_sweep(
         0, num_requests
     )
 
-    block_1_expectations = {
+    block_1_expectations: dict = {
         sender: BalAccountExpectation(
             nonce_changes=[
                 BalNonceChange(block_access_index=i + 1, post_nonce=1)
@@ -330,58 +332,56 @@ def test_bal_7002_partial_sweep(
         senders, withdrawal_requests
     )
 
-    block_1_expectations[Spec7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS] = (
-        BalAccountExpectation(
-            balance_changes=_build_incremental_changes(
-                num_requests,
-                BalBalanceChange,
-                "post_balance",
-                lambda i: fee * i,
+    block_1_expectations[eip7002_address] = BalAccountExpectation(
+        balance_changes=_build_incremental_changes(
+            num_requests,
+            BalBalanceChange,
+            "post_balance",
+            lambda i: fee * i,
+        ),
+        storage_reads=queue_reads,
+        storage_changes=[
+            # Excess is only updated once during
+            # dequeue
+            BalStorageSlot(
+                slot=Spec7002.EXCESS_WITHDRAWAL_REQUESTS_STORAGE_SLOT,
+                slot_changes=[
+                    BalStorageChange(
+                        block_access_index=num_requests + 1,
+                        post_value=excess_after_block_1,
+                    )
+                ],
             ),
-            storage_reads=queue_reads,
-            storage_changes=[
-                # Excess is only updated once during
-                # dequeue
-                BalStorageSlot(
-                    slot=Spec7002.EXCESS_WITHDRAWAL_REQUESTS_STORAGE_SLOT,
-                    slot_changes=[
-                        BalStorageChange(
-                            block_access_index=num_requests + 1,
-                            post_value=excess_after_block_1,
-                        )
-                    ],
+            BalStorageSlot(
+                slot=Spec7002.WITHDRAWAL_REQUEST_COUNT_STORAGE_SLOT,
+                slot_changes=_build_incremental_changes(
+                    num_requests,
+                    BalStorageChange,
+                    "post_value",
+                    lambda i: i,
+                    reset_to=0,
                 ),
-                BalStorageSlot(
-                    slot=Spec7002.WITHDRAWAL_REQUEST_COUNT_STORAGE_SLOT,
-                    slot_changes=_build_incremental_changes(
-                        num_requests,
-                        BalStorageChange,
-                        "post_value",
-                        lambda i: i,
-                        reset_to=0,
-                    ),
+            ),
+            BalStorageSlot(
+                slot=Spec7002.WITHDRAWAL_REQUEST_QUEUE_HEAD_STORAGE_SLOT,
+                slot_changes=[
+                    BalStorageChange(
+                        block_access_index=num_requests + 1,
+                        post_value=Spec7002.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK,
+                    )
+                ],
+            ),
+            BalStorageSlot(
+                slot=Spec7002.WITHDRAWAL_REQUEST_QUEUE_TAIL_STORAGE_SLOT,
+                slot_changes=_build_incremental_changes(
+                    num_requests,
+                    BalStorageChange,
+                    "post_value",
+                    lambda i: i,
                 ),
-                BalStorageSlot(
-                    slot=Spec7002.WITHDRAWAL_REQUEST_QUEUE_HEAD_STORAGE_SLOT,
-                    slot_changes=[
-                        BalStorageChange(
-                            block_access_index=num_requests + 1,
-                            post_value=Spec7002.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK,
-                        )
-                    ],
-                ),
-                BalStorageSlot(
-                    slot=Spec7002.WITHDRAWAL_REQUEST_QUEUE_TAIL_STORAGE_SLOT,
-                    slot_changes=_build_incremental_changes(
-                        num_requests,
-                        BalStorageChange,
-                        "post_value",
-                        lambda i: i,
-                    ),
-                ),
-            ]
-            + queue_writes,
-        )
+            ),
+        ]
+        + queue_writes,
     )
 
     # Block 2: Empty block, clean sweep of remaining 4 requests
@@ -390,7 +390,7 @@ def test_bal_7002_partial_sweep(
     )
 
     block_2_expectations = {
-        Spec7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS: BalAccountExpectation(
+        eip7002_address: BalAccountExpectation(
             storage_reads=[Spec7002.WITHDRAWAL_REQUEST_COUNT_STORAGE_SLOT],
             storage_changes=[
                 BalStorageSlot(
@@ -444,7 +444,7 @@ def test_bal_7002_partial_sweep(
         ],
         post={
             **{sender: Account(nonce=1) for sender in senders},
-            Spec7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS: Account(
+            eip7002_address: Account(
                 balance_changes=fee * num_requests,
                 storage=post_storage,
             ),
@@ -793,7 +793,7 @@ def test_bal_7002_request_invalid(
         ),
     )
 
-    post = {
+    post: dict = {
         alice: Account(nonce=1),
         Spec7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS: Account(storage={}),
     }
