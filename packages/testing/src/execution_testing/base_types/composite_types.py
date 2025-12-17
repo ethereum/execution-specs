@@ -211,6 +211,12 @@ class Storage(
         """Return a new storage that is the sum of two storages."""
         return Storage({**self.root, **other.root})
 
+    def __len__(self) -> int:
+        """
+        Return the number of keys that have been explicitly set in the storage.
+        """
+        return len(self.root)
+
     def keys(self) -> set[StorageKeyValueType]:
         """Return the keys of the storage."""
         return set(self.root.keys())
