@@ -819,8 +819,8 @@ def test_selfdestruct_initcode(
     # costs in SSTORE above.
     code_addr = pre.deploy_contract(code=code, balance=100_000, storage={0: 1})
 
-    max_iterations_per_tx = (tx_gas_limit - base_costs) // loop_cost
     exec_txs = []
+    expected_benchmark_gas_used = 0
     with TestPhaseManager.execution():
         used_gas = 0
         while used_gas < gas_benchmark_value:
@@ -835,18 +835,16 @@ def test_selfdestruct_initcode(
                 )
             )
             used_gas += gas_limit
+            iterations = (gas_limit - base_costs) // loop_cost
+            expected_benchmark_gas_used += iterations * loop_cost + base_costs
 
     post = {
         code_addr: Account(storage={0: len(exec_txs) + 1})
-    }  # Check for successful
-    # execution.
+    }  # Check for successful execution.
     benchmark_test(
         post=post,
         blocks=[
             Block(txs=exec_txs, fee_recipient=fee_recipient),
         ],
-        expected_benchmark_gas_used=(
-            max_iterations_per_tx * loop_cost + base_costs
-        )
-        * len(exec_txs),
+        expected_benchmark_gas_used=expected_benchmark_gas_used,
     )
