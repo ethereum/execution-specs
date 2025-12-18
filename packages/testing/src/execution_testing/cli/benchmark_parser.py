@@ -274,9 +274,10 @@ def generate_config_json(
     categories = categorize_patterns(config, pattern_sources)
 
     scenario_configs: dict[str, list[int]] = {}
+    output = OpcodeCountsConfig(scenario_configs=scenario_configs)
     for _, patterns in categories.items():
         for pattern in patterns:
-            scenario_configs[pattern] = config[pattern]
+            output.scenario_configs[pattern] = config[pattern]
 
     return OpcodeCountsConfig(
         scenario_configs=scenario_configs,
