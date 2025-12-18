@@ -6110,13 +6110,12 @@ class Macros(Macro, Enum):
 
 
 class UndefinedOpcodes(Opcode, Enum):
-    """Enum containing all unknown opcodes (88 at the moment)."""
+    """Enum containing all unknown opcodes (86 at the moment)."""
 
     OPCODE_0C = Opcode(0x0C)
     OPCODE_0D = Opcode(0x0D)
     OPCODE_0E = Opcode(0x0E)
     OPCODE_0F = Opcode(0x0F)
-    OPCODE_1E = Opcode(0x1E)
     OPCODE_1F = Opcode(0x1F)
     OPCODE_21 = Opcode(0x21)
     OPCODE_22 = Opcode(0x22)
