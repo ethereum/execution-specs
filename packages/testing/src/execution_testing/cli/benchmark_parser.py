@@ -11,9 +11,12 @@ Usage:
 
 import argparse
 import ast
-import json
 import sys
 from pathlib import Path
+
+from execution_testing.cli.pytest_commands.plugins.shared.benchmarking import (
+    OpcodeCountsConfig,
+)
 
 
 def get_repo_root() -> Path:
@@ -227,16 +230,11 @@ def scan_benchmark_tests(
     return config, pattern_sources
 
 
-def load_existing_config(config_file: Path) -> dict[str, list[int]]:
+def load_existing_config(config_file: Path) -> OpcodeCountsConfig:
     """Load existing config from .fixed_opcode_counts.json."""
     if not config_file.exists():
-        return {}
-
-    try:
-        data = json.loads(config_file.read_text())
-        return data.get("scenario_configs", {})
-    except (json.JSONDecodeError, KeyError):
-        return {}
+        return OpcodeCountsConfig()
+    return OpcodeCountsConfig.model_validate_json(config_file.read_bytes())
 
 
 def categorize_patterns(
@@ -270,18 +268,17 @@ def categorize_patterns(
 def generate_config_json(
     config: dict[str, list[int]],
     pattern_sources: dict[str, Path],
-) -> str:
+) -> OpcodeCountsConfig:
     """Generate the JSON config file content."""
     categories = categorize_patterns(config, pattern_sources)
 
     scenario_configs: dict[str, list[int]] = {}
+    output = OpcodeCountsConfig(scenario_configs=scenario_configs)
     for _, patterns in categories.items():
         for pattern in patterns:
-            scenario_configs[pattern] = config[pattern]
+            output.scenario_configs[pattern] = config[pattern]
 
-    output = {"scenario_configs": scenario_configs}
-
-    return json.dumps(output, indent=2) + "\n"
+    return output
 
 
 def main() -> int:
@@ -307,7 +304,8 @@ def main() -> int:
     detected, pattern_sources = scan_benchmark_tests(benchmark_dir)
     print(f"Detected {len(detected)} opcode patterns")
 
-    existing = load_existing_config(config_file)
+    existing_file = load_existing_config(config_file)
+    existing = existing_file.scenario_configs
     print(f"Loaded {len(existing)} existing entries")
 
     detected_keys = set(detected.keys())
@@ -355,7 +353,10 @@ def main() -> int:
             del merged[pattern]
 
     content = generate_config_json(merged, pattern_sources)
-    config_file.write_text(content)
+    content.default_counts = existing_file.default_counts
+    config_file.write_text(
+        content.model_dump_json(exclude_defaults=True, indent=2)
+    )
     print(f"\nUpdated {config_file}")
     return 0
 
