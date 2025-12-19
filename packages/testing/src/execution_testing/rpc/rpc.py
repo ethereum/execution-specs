@@ -267,8 +267,12 @@ class EthRPC(BaseRPC):
     within EEST based hive simulators.
     """
 
+    OVERLOAD_THRESHOLD: int = 1000
+    DEFAULT_MAX_TRANSACTIONS_PER_BATCH: int = 750
+
     transaction_wait_timeout: int = 60
     poll_interval: float = 1.0  # how often to poll for tx inclusion
+    max_transactions_per_batch: int = DEFAULT_MAX_TRANSACTIONS_PER_BATCH
 
     gas_information_stale_seconds: int
 
@@ -283,6 +287,7 @@ class EthRPC(BaseRPC):
         transaction_wait_timeout: int = 60,
         poll_interval: float | None = None,
         gas_information_stale_seconds: int = 12,
+        max_transactions_per_batch: int | None = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -319,6 +324,19 @@ class EthRPC(BaseRPC):
             "maxPriorityFeePerGas": 0.0,
             "blobBaseFee": 0.0,
         }
+
+        # Transaction batching configuration
+        if max_transactions_per_batch is None:
+            max_transactions_per_batch = (
+                self.DEFAULT_MAX_TRANSACTIONS_PER_BATCH
+            )
+        self.max_transactions_per_batch = max_transactions_per_batch
+        if max_transactions_per_batch > self.OVERLOAD_THRESHOLD:
+            logger.warning(
+                f"max_transactions_per_batch ({max_transactions_per_batch}) exceeds "
+                f"the safe threshold ({self.OVERLOAD_THRESHOLD}). "
+                "This may cause RPC service instability or failures."
+            )
 
     def config(self, timeout: int | None = None) -> EthConfigResponse | None:
         """
@@ -707,10 +725,25 @@ class EthRPC(BaseRPC):
     ) -> List[Any]:
         """
         Send list of transactions and waits until all of them are included in a
-        block.
+        block. Transactions are sent in batches to avoid RPC overload.
         """
-        self.send_transactions(transactions)
-        return self.wait_for_transactions(transactions)
+        results: List[Any] = []
+        batch_size = self.max_transactions_per_batch
+        total_txs = len(transactions)
+
+        for i in range(0, total_txs, batch_size):
+            batch = transactions[i : i + batch_size]
+            if total_txs > batch_size:
+                logger.info(
+                    f"Sending transaction batch {i // batch_size + 1} "
+                    f"({len(batch)} transactions, "
+                    f"{i + 1}-{min(i + batch_size, total_txs)} "
+                    f"of {total_txs})"
+                )
+            self.send_transactions(batch)
+            results.extend(self.wait_for_transactions(batch))
+
+        return results
 
 
 class DebugRPC(EthRPC):

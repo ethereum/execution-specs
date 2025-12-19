@@ -205,11 +205,13 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         get_payload_wait_time: float,
         initial_forkchoice_update_retries: int = 5,
         transaction_wait_timeout: int = 60,
+        max_transactions_per_batch: int | None = None,
     ):
         """Initialize the Ethereum RPC client for the hive simulator."""
         super().__init__(
             rpc_endpoint,
             transaction_wait_timeout=transaction_wait_timeout,
+            max_transactions_per_batch=max_transactions_per_batch,
         )
         self.fork = fork
         self.engine_rpc = engine_rpc

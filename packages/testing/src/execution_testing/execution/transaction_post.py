@@ -23,9 +23,6 @@ from .base import BaseExecute
 
 logger = get_logger(__name__)
 
-# Threshold above which RPC service may become unstable
-RPC_OVERLOAD_THRESHOLD = 1000
-
 
 class TransactionPost(BaseExecute):
     """
@@ -41,8 +38,6 @@ class TransactionPost(BaseExecute):
     skip_gas_used_validation: bool = (
         False  # Skip gas validation even if expected is set
     )
-    # Transaction batching to avoid RPC overload
-    max_transactions_per_batch: int = 750
 
     format_name: ClassVar[str] = "transaction_post_test"
     description: ClassVar[str] = (
@@ -85,21 +80,6 @@ class TransactionPost(BaseExecute):
         """Execute the format."""
         del fork
         del engine_rpc
-
-        # Check if CLI override for max_transactions_per_batch is provided
-        cli_max_tx_per_batch = request.config.getoption(
-            "max_tx_per_batch", None
-        )
-        if cli_max_tx_per_batch is not None:
-            self.max_transactions_per_batch = cli_max_tx_per_batch
-
-        # Warn if max_transactions_per_batch exceeds safe threshold
-        if self.max_transactions_per_batch > RPC_OVERLOAD_THRESHOLD:
-            logger.warning(
-                f"max_transactions_per_batch ({self.max_transactions_per_batch}) exceeds "
-                f"the safe threshold ({RPC_OVERLOAD_THRESHOLD}). "
-                "This may cause RPC service instability or failures."
-            )
 
         for block in self.blocks:
             for tx in block:
@@ -152,18 +132,9 @@ class TransactionPost(BaseExecute):
                             f"Transaction rejected as expected: {exc_info.value}"
                         )
             else:
-                # Send transactions in batches to avoid RPC overload
-                batch_size = self.max_transactions_per_batch
-                for i in range(0, len(signed_txs), batch_size):
-                    batch = signed_txs[i : i + batch_size]
-                    logger.info(
-                        f"Sending transaction batch {i // batch_size + 1} "
-                        f"({len(batch)} transactions, "
-                        f"{i + 1}-{min(i + batch_size, len(signed_txs))} "
-                        f"of {len(signed_txs)})"
-                    )
-                    eth_rpc.send_wait_transactions(batch)
-                    all_tx_hashes.extend([tx.hash for tx in batch])
+                # Send transactions (batching is handled by eth_rpc internally)
+                eth_rpc.send_wait_transactions(signed_txs)
+                all_tx_hashes.extend([tx.hash for tx in signed_txs])
 
         # Perform gas validation if required for benchmarking
         # Ensures benchmark tests consume exactly the expected gas
