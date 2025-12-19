@@ -5,15 +5,22 @@ This module implements the "marginal approach" for gas cost estimation as descri
 in the gas-cost-estimator project. The key insight is:
 
 1. Generate a series of programs where only the number of target opcodes varies
-2. Keep everything else constant (stack setup, cleanup)
+2. Keep everything else constant (stack setup, cleanup, or noop padding)
 3. The marginal cost of an opcode can be extracted via linear regression on execution times
 
-Program layout for an opcode that pops N values and pushes M values:
-    | PUSH × max_op_count × N | Stack setup (same for all op_counts)     |
-    | (OPCODE + POP×M) × op_count | Execute and clean results           |
-    | POP × (max_op_count - op_count) × N | Clean remaining stack items |
-    | SSTORE success marker   | Verify execution completed              |
-    | STOP                    | Halt                                     |
+Two strategies are used depending on whether the opcode returns values:
+
+Strategy 1: POP-based padding (for opcodes with pushes_per_op > 0)
+    | PUSH0 × max_op_count × pushes_per_op | Empty values for POP padding    |
+    | PUSH args × max_op_count             | Stack setup (same for all)      |
+    | OPCODE + (POP × pushes_per_op + OPCODE) × (op_count-1) | Interleaved   |
+    | POP × remaining                      | Constant total POPs             |
+    | SSTORE + STOP                        | Success marker                  |
+
+Strategy 2: Noop-based padding (for opcodes with pushes_per_op == 0, like MSTORE)
+    | (PUSH args + OPCODE) × op_count      | Real operations                 |
+    | (PUSH args) × (max_op_count - op_count) | Noops (same pushes, no op)   |
+    | SSTORE + STOP                        | Success marker                  |
 
 The program with op_count=K+1 differs from op_count=K by exactly ONE instance
 of the target opcode, enabling marginal cost estimation.
@@ -361,6 +368,16 @@ KECCAK256_CONFIG = MarginalOpcodeConfig(
 # Note: PUSH opcodes need special handling - they don't pop anything
 # and we need to pop their result to balance the stack
 
+PUSH0_CONFIG = MarginalOpcodeConfig(
+    name="PUSH0",
+    opcode=Op.PUSH0,  # EIP-3855, pushes 0 onto stack
+    max_op_count=200,
+    step=20,
+    stack_args=[],
+    pops_per_op=0,
+    pushes_per_op=1,
+)
+
 PUSH1_CONFIG = MarginalOpcodeConfig(
     name="PUSH1",
     opcode=Op.PUSH1(0xFF),  # Push max 1-byte value
@@ -456,6 +473,18 @@ SWAP16_CONFIG = MarginalOpcodeConfig(
     pushes_per_op=0,
 )
 
+# POP opcode: pops 1 value, pushes 0 (2 gas)
+# For marginal testing, we need to provide values to pop
+POP_CONFIG = MarginalOpcodeConfig(
+    name="POP",
+    opcode=Op.POP,
+    max_op_count=200,
+    step=20,
+    stack_args=[0xFF],  # Push a value to pop
+    pops_per_op=1,
+    pushes_per_op=0,
+)
+
 
 def push_value(value: int) -> Bytecode:
     """Generate appropriate PUSH opcode for a value based on its size."""
@@ -484,11 +513,19 @@ def generate_marginal_program(
     """
     Generate a marginal program for the given opcode configuration.
 
-    The program structure ensures that:
-    1. Total bytecode structure is constant regardless of op_count
-    2. Only the number of opcode executions varies
-    3. Stack is properly balanced at the end
-    4. Success marker is written to storage if execution completes
+    Following the gas-cost-estimator approach, there are two strategies:
+
+    1. For opcodes that RETURN values (pushes_per_op > 0):
+       - Push "empty" values first to ensure POPs always have something
+       - Push all arguments upfront
+       - Interleave opcodes with result POPs
+       - Total POPs = max_op_count * pushes_per_op (CONSTANT)
+
+    2. For opcodes that DON'T return values (pushes_per_op == 0):
+       - Use "noop" padding instead of POPs
+       - For op_count executions: push args + execute opcode
+       - For remaining (max_op_count - op_count): just push args (no opcode)
+       - This keeps total PUSH count constant while varying only opcode count
 
     Args:
         config: The opcode configuration
@@ -505,24 +542,66 @@ def generate_marginal_program(
     if config.setup_code is not None:
         code += config.setup_code
 
-    # 2. Push stack arguments for ALL potential opcode instances
-    # This ensures the stack setup is identical regardless of op_count
-    for _ in range(config.max_op_count):
-        for arg in config.stack_args:
-            code += push_value(arg)
+    if config.pushes_per_op > 0:
+        # ================================================================
+        # Strategy 1: POP-based padding for opcodes that return values
+        # ================================================================
+        
+        # 2. Push "empty" values to ensure there's always something to POP
+        total_result_pops = config.max_op_count * config.pushes_per_op
+        for _ in range(total_result_pops):
+            code += Op.PUSH0
 
-    # 3. Execute the opcode op_count times, each followed by POPs to clean results
-    for _ in range(op_count):
-        code += config.opcode
-        # Pop the results to keep stack balanced
-        for _ in range(config.pushes_per_op):
-            code += Op.POP
+        # 3. Push stack arguments for ALL potential opcode instances
+        for _ in range(config.max_op_count):
+            for arg in config.stack_args:
+                code += push_value(arg)
 
-    # 4. Pop remaining unused arguments from stack
-    # For each unused op, we have pops_per_op arguments still on stack
-    remaining_args = (config.max_op_count - op_count) * config.pops_per_op
-    for _ in range(remaining_args):
-        code += Op.POP
+        # 4. Execute opcodes with interleaved POPs
+        if op_count == 0:
+            # No opcodes, just POP all the empty values
+            for _ in range(total_result_pops):
+                code += Op.POP
+        else:
+            # Execute first opcode
+            code += config.opcode
+            # Interleave remaining opcodes with result POPs
+            interleaved_count = op_count - 1
+            for _ in range(interleaved_count):
+                for _ in range(config.pushes_per_op):
+                    code += Op.POP
+                code += config.opcode
+            # POP remaining results at the end
+            end_pops = total_result_pops - interleaved_count * config.pushes_per_op
+            for _ in range(end_pops):
+                code += Op.POP
+    else:
+        # ================================================================
+        # Strategy 2: Noop-based padding for opcodes that don't return
+        # (Following gas-cost-estimator's MSTORE/LOG approach)
+        # ================================================================
+        
+        # For each of the max_op_count iterations:
+        # - First op_count: push args + execute opcode
+        # - Remaining (max_op_count - op_count): just push args (noop)
+        #
+        # This ensures:
+        # - Total PUSH count is constant (max_op_count * len(stack_args))
+        # - Only the opcode execution count varies
+        
+        noop_count = config.max_op_count - op_count
+        
+        # Execute op_count real operations
+        for _ in range(op_count):
+            for arg in config.stack_args:
+                code += push_value(arg)
+            code += config.opcode
+        
+        # Execute noop_count "noops" (same pushes, no opcode)
+        # The pushed values stay on the stack
+        for _ in range(noop_count):
+            for arg in config.stack_args:
+                code += push_value(arg)
 
     # 5. Write success marker to storage (proves execution didn't revert)
     code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
@@ -1062,6 +1141,22 @@ def test_marginal_keccak256(
 @pytest.mark.valid_from("Prague")
 @pytest.mark.parametrize(
     "op_count",
+    generate_op_counts(PUSH0_CONFIG.max_op_count, PUSH0_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_push0(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for PUSH0 opcode (EIP-3855)."""
+    code = generate_marginal_program(PUSH0_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
     generate_op_counts(PUSH1_CONFIG.max_op_count, PUSH1_CONFIG.step),
     ids=lambda x: f"op_count_{x}",
 )
@@ -1199,5 +1294,1207 @@ def test_marginal_swap16(state_test: StateTestFiller, pre: Alloc, op_count: int)
     contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()
     tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(POP_CONFIG.max_op_count, POP_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_pop(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for POP opcode."""
+    code = generate_marginal_program(POP_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+# ============================================================================
+# ENVIRONMENT OPCODES - Return context/environment info (no input, push 1)
+# ============================================================================
+
+ADDRESS_CONFIG = MarginalOpcodeConfig(
+    name="ADDRESS",
+    opcode=Op.ADDRESS,
+    max_op_count=200,
+    step=20,
+    stack_args=[],  # No input
+    pops_per_op=0,
+    pushes_per_op=1,
+)
+
+ORIGIN_CONFIG = MarginalOpcodeConfig(
+    name="ORIGIN",
+    opcode=Op.ORIGIN,
+    max_op_count=200,
+    step=20,
+    stack_args=[],
+    pops_per_op=0,
+    pushes_per_op=1,
+)
+
+CALLER_CONFIG = MarginalOpcodeConfig(
+    name="CALLER",
+    opcode=Op.CALLER,
+    max_op_count=200,
+    step=20,
+    stack_args=[],
+    pops_per_op=0,
+    pushes_per_op=1,
+)
+
+CALLVALUE_CONFIG = MarginalOpcodeConfig(
+    name="CALLVALUE",
+    opcode=Op.CALLVALUE,
+    max_op_count=200,
+    step=20,
+    stack_args=[],
+    pops_per_op=0,
+    pushes_per_op=1,
+)
+
+CALLDATASIZE_CONFIG = MarginalOpcodeConfig(
+    name="CALLDATASIZE",
+    opcode=Op.CALLDATASIZE,
+    max_op_count=200,
+    step=20,
+    stack_args=[],
+    pops_per_op=0,
+    pushes_per_op=1,
+)
+
+CODESIZE_CONFIG = MarginalOpcodeConfig(
+    name="CODESIZE",
+    opcode=Op.CODESIZE,
+    max_op_count=200,
+    step=20,
+    stack_args=[],
+    pops_per_op=0,
+    pushes_per_op=1,
+)
+
+GASPRICE_CONFIG = MarginalOpcodeConfig(
+    name="GASPRICE",
+    opcode=Op.GASPRICE,
+    max_op_count=200,
+    step=20,
+    stack_args=[],
+    pops_per_op=0,
+    pushes_per_op=1,
+)
+
+RETURNDATASIZE_CONFIG = MarginalOpcodeConfig(
+    name="RETURNDATASIZE",
+    opcode=Op.RETURNDATASIZE,
+    max_op_count=200,
+    step=20,
+    stack_args=[],
+    pops_per_op=0,
+    pushes_per_op=1,
+)
+
+GAS_CONFIG = MarginalOpcodeConfig(
+    name="GAS",
+    opcode=Op.GAS,
+    max_op_count=200,
+    step=20,
+    stack_args=[],
+    pops_per_op=0,
+    pushes_per_op=1,
+)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(ADDRESS_CONFIG.max_op_count, ADDRESS_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_address(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for ADDRESS opcode."""
+    code = generate_marginal_program(ADDRESS_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(ORIGIN_CONFIG.max_op_count, ORIGIN_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_origin(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for ORIGIN opcode."""
+    code = generate_marginal_program(ORIGIN_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(CALLER_CONFIG.max_op_count, CALLER_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_caller(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for CALLER opcode."""
+    code = generate_marginal_program(CALLER_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(CALLVALUE_CONFIG.max_op_count, CALLVALUE_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_callvalue(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for CALLVALUE opcode."""
+    code = generate_marginal_program(CALLVALUE_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(CALLDATASIZE_CONFIG.max_op_count, CALLDATASIZE_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_calldatasize(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for CALLDATASIZE opcode."""
+    code = generate_marginal_program(CALLDATASIZE_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(CODESIZE_CONFIG.max_op_count, CODESIZE_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_codesize(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for CODESIZE opcode."""
+    code = generate_marginal_program(CODESIZE_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(GASPRICE_CONFIG.max_op_count, GASPRICE_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_gasprice(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for GASPRICE opcode."""
+    code = generate_marginal_program(GASPRICE_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(RETURNDATASIZE_CONFIG.max_op_count, RETURNDATASIZE_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_returndatasize(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for RETURNDATASIZE opcode."""
+    code = generate_marginal_program(RETURNDATASIZE_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(GAS_CONFIG.max_op_count, GAS_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_gas(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for GAS opcode."""
+    code = generate_marginal_program(GAS_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+# ============================================================================
+# BLOCK INFO OPCODES - Return block context (no input, push 1)
+# ============================================================================
+
+COINBASE_CONFIG = MarginalOpcodeConfig(
+    name="COINBASE",
+    opcode=Op.COINBASE,
+    max_op_count=200,
+    step=20,
+    stack_args=[],
+    pops_per_op=0,
+    pushes_per_op=1,
+)
+
+TIMESTAMP_CONFIG = MarginalOpcodeConfig(
+    name="TIMESTAMP",
+    opcode=Op.TIMESTAMP,
+    max_op_count=200,
+    step=20,
+    stack_args=[],
+    pops_per_op=0,
+    pushes_per_op=1,
+)
+
+NUMBER_CONFIG = MarginalOpcodeConfig(
+    name="NUMBER",
+    opcode=Op.NUMBER,
+    max_op_count=200,
+    step=20,
+    stack_args=[],
+    pops_per_op=0,
+    pushes_per_op=1,
+)
+
+PREVRANDAO_CONFIG = MarginalOpcodeConfig(
+    name="PREVRANDAO",
+    opcode=Op.PREVRANDAO,  # Was DIFFICULTY pre-merge
+    max_op_count=200,
+    step=20,
+    stack_args=[],
+    pops_per_op=0,
+    pushes_per_op=1,
+)
+
+GASLIMIT_CONFIG = MarginalOpcodeConfig(
+    name="GASLIMIT",
+    opcode=Op.GASLIMIT,
+    max_op_count=200,
+    step=20,
+    stack_args=[],
+    pops_per_op=0,
+    pushes_per_op=1,
+)
+
+CHAINID_CONFIG = MarginalOpcodeConfig(
+    name="CHAINID",
+    opcode=Op.CHAINID,
+    max_op_count=200,
+    step=20,
+    stack_args=[],
+    pops_per_op=0,
+    pushes_per_op=1,
+)
+
+SELFBALANCE_CONFIG = MarginalOpcodeConfig(
+    name="SELFBALANCE",
+    opcode=Op.SELFBALANCE,
+    max_op_count=200,
+    step=20,
+    stack_args=[],
+    pops_per_op=0,
+    pushes_per_op=1,
+)
+
+BASEFEE_CONFIG = MarginalOpcodeConfig(
+    name="BASEFEE",
+    opcode=Op.BASEFEE,
+    max_op_count=200,
+    step=20,
+    stack_args=[],
+    pops_per_op=0,
+    pushes_per_op=1,
+)
+
+BLOBBASEFEE_CONFIG = MarginalOpcodeConfig(
+    name="BLOBBASEFEE",
+    opcode=Op.BLOBBASEFEE,
+    max_op_count=200,
+    step=20,
+    stack_args=[],
+    pops_per_op=0,
+    pushes_per_op=1,
+)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(COINBASE_CONFIG.max_op_count, COINBASE_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_coinbase(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for COINBASE opcode."""
+    code = generate_marginal_program(COINBASE_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(TIMESTAMP_CONFIG.max_op_count, TIMESTAMP_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_timestamp(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for TIMESTAMP opcode."""
+    code = generate_marginal_program(TIMESTAMP_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(NUMBER_CONFIG.max_op_count, NUMBER_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_number(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for NUMBER opcode."""
+    code = generate_marginal_program(NUMBER_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(PREVRANDAO_CONFIG.max_op_count, PREVRANDAO_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_prevrandao(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for PREVRANDAO opcode (was DIFFICULTY)."""
+    code = generate_marginal_program(PREVRANDAO_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(GASLIMIT_CONFIG.max_op_count, GASLIMIT_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_gaslimit(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for GASLIMIT opcode."""
+    code = generate_marginal_program(GASLIMIT_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(CHAINID_CONFIG.max_op_count, CHAINID_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_chainid(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for CHAINID opcode."""
+    code = generate_marginal_program(CHAINID_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(SELFBALANCE_CONFIG.max_op_count, SELFBALANCE_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_selfbalance(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for SELFBALANCE opcode."""
+    code = generate_marginal_program(SELFBALANCE_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(BASEFEE_CONFIG.max_op_count, BASEFEE_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_basefee(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for BASEFEE opcode."""
+    code = generate_marginal_program(BASEFEE_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(BLOBBASEFEE_CONFIG.max_op_count, BLOBBASEFEE_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_blobbasefee(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for BLOBBASEFEE opcode."""
+    code = generate_marginal_program(BLOBBASEFEE_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+# ============================================================================
+# MEMORY OPCODES - Memory read/write operations
+# ============================================================================
+
+# Memory is pre-expanded via setup_code to avoid memory expansion costs in measurements
+
+MLOAD_CONFIG = MarginalOpcodeConfig(
+    name="MLOAD",
+    opcode=Op.MLOAD,
+    max_op_count=200,
+    step=20,
+    stack_args=[0],  # offset - read from offset 0
+    pops_per_op=1,
+    pushes_per_op=1,
+    setup_code=Op.MSTORE(0, MAX_U256),  # Pre-expand memory with data
+)
+
+MSTORE_CONFIG = MarginalOpcodeConfig(
+    name="MSTORE",
+    opcode=Op.MSTORE,
+    max_op_count=50,  # Reduced for blockchain tests
+    step=5,
+    stack_args=[MAX_U256, 0],  # value, offset (MSTORE pops offset first)
+    pops_per_op=2,
+    pushes_per_op=0,
+    setup_code=Op.MSTORE(0, 0),  # Pre-expand memory
+)
+
+MSTORE8_CONFIG = MarginalOpcodeConfig(
+    name="MSTORE8",
+    opcode=Op.MSTORE8,
+    max_op_count=100,
+    step=10,
+    stack_args=[0xFF, 0],  # value, offset (MSTORE8 pops offset first)
+    pops_per_op=2,
+    pushes_per_op=0,
+    setup_code=Op.MSTORE(0, 0),  # Pre-expand memory
+)
+
+MSIZE_CONFIG = MarginalOpcodeConfig(
+    name="MSIZE",
+    opcode=Op.MSIZE,
+    max_op_count=200,
+    step=20,
+    stack_args=[],
+    pops_per_op=0,
+    pushes_per_op=1,
+    setup_code=Op.MSTORE(0, 0),  # Pre-expand memory so MSIZE returns non-zero
+)
+
+# CALLDATACOPY: destOffset, offset, size (copies from calldata to memory)
+# Use small size to avoid memory expansion overhead
+CALLDATACOPY_CONFIG = MarginalOpcodeConfig(
+    name="CALLDATACOPY",
+    opcode=Op.CALLDATACOPY,
+    max_op_count=80,  # 3 args per op
+    step=8,
+    stack_args=[0, 0, 32],  # destOffset=0, offset=0, size=32 bytes
+    pops_per_op=3,
+    pushes_per_op=0,
+    setup_code=Op.MSTORE(0, 0),  # Pre-expand memory
+)
+
+# CODECOPY: destOffset, offset, size (copies from code to memory)
+CODECOPY_CONFIG = MarginalOpcodeConfig(
+    name="CODECOPY",
+    opcode=Op.CODECOPY,
+    max_op_count=80,  # 3 args per op
+    step=8,
+    stack_args=[0, 0, 32],  # destOffset=0, offset=0, size=32 bytes
+    pops_per_op=3,
+    pushes_per_op=0,
+    setup_code=Op.MSTORE(0, 0),  # Pre-expand memory
+)
+
+# MCOPY: destOffset, srcOffset, size (copies within memory) - EIP-5656
+MCOPY_CONFIG = MarginalOpcodeConfig(
+    name="MCOPY",
+    opcode=Op.MCOPY,
+    max_op_count=80,  # 3 args per op
+    step=8,
+    stack_args=[32, 0, 32],  # destOffset=32, srcOffset=0, size=32 (non-overlapping)
+    pops_per_op=3,
+    pushes_per_op=0,
+    setup_code=Op.MSTORE(0, MAX_U256) + Op.MSTORE(32, 0),  # Pre-expand 64 bytes
+)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(MLOAD_CONFIG.max_op_count, MLOAD_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_mload(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for MLOAD opcode."""
+    code = generate_marginal_program(MLOAD_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(MSTORE_CONFIG.max_op_count, MSTORE_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_mstore(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for MSTORE opcode."""
+    code = generate_marginal_program(MSTORE_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=5_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(MSTORE8_CONFIG.max_op_count, MSTORE8_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_mstore8(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for MSTORE8 opcode."""
+    code = generate_marginal_program(MSTORE8_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=5_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(MSIZE_CONFIG.max_op_count, MSIZE_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_msize(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for MSIZE opcode."""
+    code = generate_marginal_program(MSIZE_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(CALLDATACOPY_CONFIG.max_op_count, CALLDATACOPY_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_calldatacopy(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for CALLDATACOPY opcode."""
+    code = generate_marginal_program(CALLDATACOPY_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    # Send some calldata to copy
+    tx = Transaction(to=contract, gas_limit=5_000_000, sender=sender, data=bytes(64))
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(CODECOPY_CONFIG.max_op_count, CODECOPY_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_codecopy(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for CODECOPY opcode."""
+    code = generate_marginal_program(CODECOPY_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=5_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(MCOPY_CONFIG.max_op_count, MCOPY_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_mcopy(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for MCOPY opcode (EIP-5656)."""
+    code = generate_marginal_program(MCOPY_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=5_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+# ============================================================================
+# DATA ACCESS OPCODES
+# ============================================================================
+
+# CALLDATALOAD: pops offset, pushes 32 bytes from calldata
+CALLDATALOAD_CONFIG = MarginalOpcodeConfig(
+    name="CALLDATALOAD",
+    opcode=Op.CALLDATALOAD,
+    max_op_count=200,
+    step=20,
+    stack_args=[0],  # Load from offset 0
+    pops_per_op=1,
+    pushes_per_op=1,
+)
+
+# BLOCKHASH: pops block number, pushes hash (or 0 if out of range)
+# Note: BLOCKHASH has special handling in execution-specs that limits testing
+BLOCKHASH_CONFIG = MarginalOpcodeConfig(
+    name="BLOCKHASH",
+    opcode=Op.BLOCKHASH,
+    max_op_count=2,  # Minimal due to execution-specs limitations
+    step=1,
+    stack_args=[0],  # Block 0 (will return 0 but still executes)
+    pops_per_op=1,
+    pushes_per_op=1,
+)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(CALLDATALOAD_CONFIG.max_op_count, CALLDATALOAD_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_calldataload(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for CALLDATALOAD opcode."""
+    code = generate_marginal_program(CALLDATALOAD_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    # Send calldata so loads are meaningful
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender, data=bytes(64))
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+# BLOCKHASH test disabled due to execution-specs limitations
+# @pytest.mark.valid_from("Prague")
+# @pytest.mark.parametrize(
+#     "op_count",
+#     generate_op_counts(BLOCKHASH_CONFIG.max_op_count, BLOCKHASH_CONFIG.step),
+#     ids=lambda x: f"op_count_{x}",
+# )
+# def test_marginal_blockhash(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+#     """Marginal cost test for BLOCKHASH opcode."""
+#     code = generate_marginal_program(BLOCKHASH_CONFIG, op_count)
+#     contract = pre.deploy_contract(code=code)
+#     sender = pre.fund_eoa()
+#     tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+#     post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+#     state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+# ============================================================================
+# STORAGE OPCODES - SLOAD, SSTORE, TLOAD, TSTORE
+# ============================================================================
+
+# SLOAD: First access to cold slot costs 2100 gas, warm access costs 100 gas
+# For marginal testing, all accesses after the first use warm cost
+SLOAD_CONFIG = MarginalOpcodeConfig(
+    name="SLOAD",
+    opcode=Op.SLOAD,
+    max_op_count=50,  # Lower due to higher gas cost
+    step=5,
+    stack_args=[100],  # Storage slot 100 (different from SUCCESS_SLOT)
+    pops_per_op=1,
+    pushes_per_op=1,
+)
+
+# SSTORE: Complex gas rules (cold access, dirty/clean, refunds)
+# Slot 100, value 1 - repeated writes to same slot
+# Note: SSTORE pops slot first, then value, so push order is [value, slot]
+SSTORE_CONFIG = MarginalOpcodeConfig(
+    name="SSTORE",
+    opcode=Op.SSTORE,
+    max_op_count=20,  # Lower due to very high gas cost
+    step=4,
+    stack_args=[1, 100],  # value, slot (SSTORE pops slot first)
+    pops_per_op=2,
+    pushes_per_op=0,
+)
+
+# TLOAD: Transient storage load (EIP-1153) - 100 gas
+TLOAD_CONFIG = MarginalOpcodeConfig(
+    name="TLOAD",
+    opcode=Op.TLOAD,
+    max_op_count=100,
+    step=10,
+    stack_args=[0],  # Transient slot 0
+    pops_per_op=1,
+    pushes_per_op=1,
+)
+
+# TSTORE: Transient storage store (EIP-1153) - 100 gas
+# Note: TSTORE pops slot first, then value, so push order is [value, slot]
+TSTORE_CONFIG = MarginalOpcodeConfig(
+    name="TSTORE",
+    opcode=Op.TSTORE,
+    max_op_count=100,
+    step=10,
+    stack_args=[1, 0],  # value, slot (TSTORE pops slot first)
+    pops_per_op=2,
+    pushes_per_op=0,
+)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(SLOAD_CONFIG.max_op_count, SLOAD_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_sload(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for SLOAD opcode (warm access after first)."""
+    code = generate_marginal_program(SLOAD_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(SSTORE_CONFIG.max_op_count, SSTORE_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_sstore(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for SSTORE opcode."""
+    code = generate_marginal_program(SSTORE_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=5_000_000, sender=sender)  # Higher gas for SSTORE
+    # Note: slot 100 will have value 1 after execution if op_count > 0
+    if op_count > 0:
+        post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER, 100: 1})}
+    else:
+        post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(TLOAD_CONFIG.max_op_count, TLOAD_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_tload(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for TLOAD opcode (EIP-1153)."""
+    code = generate_marginal_program(TLOAD_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(TSTORE_CONFIG.max_op_count, TSTORE_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_tstore(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for TSTORE opcode (EIP-1153)."""
+    code = generate_marginal_program(TSTORE_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+# ============================================================================
+# CONTROL FLOW OPCODES
+# ============================================================================
+
+# JUMPDEST is just a marker (1 gas) - essentially a no-op
+JUMPDEST_CONFIG = MarginalOpcodeConfig(
+    name="JUMPDEST",
+    opcode=Op.JUMPDEST,
+    max_op_count=200,
+    step=20,
+    stack_args=[],
+    pops_per_op=0,
+    pushes_per_op=0,
+)
+
+# PC pushes the program counter value
+PC_CONFIG = MarginalOpcodeConfig(
+    name="PC",
+    opcode=Op.PC,
+    max_op_count=200,
+    step=20,
+    stack_args=[],
+    pops_per_op=0,
+    pushes_per_op=1,
+)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(JUMPDEST_CONFIG.max_op_count, JUMPDEST_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_jumpdest(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for JUMPDEST opcode."""
+    code = generate_marginal_program(JUMPDEST_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(PC_CONFIG.max_op_count, PC_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_pc(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for PC opcode."""
+    code = generate_marginal_program(PC_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+# ============================================================================
+# LOG OPCODES - LOG0 through LOG4
+# Gas: 375 + 8*size + 375*num_topics
+# ============================================================================
+
+# LOG0: offset, size (no topics) - 375 + 8*size
+LOG0_CONFIG = MarginalOpcodeConfig(
+    name="LOG0",
+    opcode=Op.LOG0,
+    max_op_count=20,  # Expensive
+    step=4,
+    stack_args=[0, 32],  # offset=0, size=32
+    pops_per_op=2,
+    pushes_per_op=0,
+    setup_code=Op.MSTORE(0, MAX_U256),  # Pre-expand memory with data
+)
+
+# LOG1: offset, size, topic1 - 375 + 8*size + 375
+# Use smaller topic value to reduce bytecode size
+LOG1_CONFIG = MarginalOpcodeConfig(
+    name="LOG1",
+    opcode=Op.LOG1,
+    max_op_count=4,  # Reduced due to 3 args per op
+    step=1,
+    stack_args=[0, 32, 0xFF],  # offset, size, topic1 (1-byte value)
+    pops_per_op=3,
+    pushes_per_op=0,
+    setup_code=Op.MSTORE(0, MAX_U256),
+)
+
+# LOG2: offset, size, topic1, topic2 - 375 + 8*size + 375*2
+LOG2_CONFIG = MarginalOpcodeConfig(
+    name="LOG2",
+    opcode=Op.LOG2,
+    max_op_count=4,  # Reduced due to 4 args per op
+    step=1,
+    stack_args=[0, 32, 0xFF, 0xFF],  # Use 1-byte topics
+    pops_per_op=4,
+    pushes_per_op=0,
+    setup_code=Op.MSTORE(0, MAX_U256),
+)
+
+# LOG3: offset, size, topic1, topic2, topic3 - 375 + 8*size + 375*3
+LOG3_CONFIG = MarginalOpcodeConfig(
+    name="LOG3",
+    opcode=Op.LOG3,
+    max_op_count=3,  # Reduced due to 5 args per op
+    step=1,
+    stack_args=[0, 32, 0xFF, 0xFF, 0xFF],  # Use 1-byte topics
+    pops_per_op=5,
+    pushes_per_op=0,
+    setup_code=Op.MSTORE(0, MAX_U256),
+)
+
+# LOG4: offset, size, topic1-4 - 375 + 8*size + 375*4
+LOG4_CONFIG = MarginalOpcodeConfig(
+    name="LOG4",
+    opcode=Op.LOG4,
+    max_op_count=3,  # Reduced due to 6 args per op
+    step=1,
+    stack_args=[0, 32, 0xFF, 0xFF, 0xFF, 0xFF],  # Use 1-byte topics
+    pops_per_op=6,
+    pushes_per_op=0,
+    setup_code=Op.MSTORE(0, MAX_U256),
+)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(LOG0_CONFIG.max_op_count, LOG0_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_log0(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for LOG0 opcode."""
+    code = generate_marginal_program(LOG0_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=5_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(LOG1_CONFIG.max_op_count, LOG1_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_log1(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for LOG1 opcode."""
+    code = generate_marginal_program(LOG1_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=5_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(LOG2_CONFIG.max_op_count, LOG2_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_log2(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for LOG2 opcode."""
+    code = generate_marginal_program(LOG2_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=5_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(LOG3_CONFIG.max_op_count, LOG3_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_log3(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for LOG3 opcode."""
+    code = generate_marginal_program(LOG3_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=5_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(LOG4_CONFIG.max_op_count, LOG4_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_log4(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for LOG4 opcode with 4 topics."""
+    code = generate_marginal_program(LOG4_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=5_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+# ============================================================================
+# EXTERNAL ACCOUNT OPCODES - BALANCE, EXTCODESIZE, EXTCODEHASH, EXTCODECOPY
+# These have cold/warm access patterns like storage
+# ============================================================================
+
+# BALANCE: pops address, pushes balance
+# Cold access: 2600 gas, warm access: 100 gas
+BALANCE_CONFIG = MarginalOpcodeConfig(
+    name="BALANCE",
+    opcode=Op.BALANCE,
+    max_op_count=20,  # Lower due to high cost
+    step=4,
+    stack_args=[0xDEAD],  # Query balance of address 0xDEAD
+    pops_per_op=1,
+    pushes_per_op=1,
+)
+
+# EXTCODESIZE: pops address, pushes code size
+# Cold access: 2600 gas, warm access: 100 gas
+EXTCODESIZE_CONFIG = MarginalOpcodeConfig(
+    name="EXTCODESIZE",
+    opcode=Op.EXTCODESIZE,
+    max_op_count=20,
+    step=4,
+    stack_args=[0xDEAD],  # Query code size of address 0xDEAD
+    pops_per_op=1,
+    pushes_per_op=1,
+)
+
+# EXTCODEHASH: pops address, pushes code hash
+# Cold access: 2600 gas, warm access: 100 gas
+EXTCODEHASH_CONFIG = MarginalOpcodeConfig(
+    name="EXTCODEHASH",
+    opcode=Op.EXTCODEHASH,
+    max_op_count=20,
+    step=4,
+    stack_args=[0xDEAD],  # Query code hash of address 0xDEAD
+    pops_per_op=1,
+    pushes_per_op=1,
+)
+
+# EXTCODECOPY: address, destOffset, offset, size (4 args, copies external code to memory)
+EXTCODECOPY_CONFIG = MarginalOpcodeConfig(
+    name="EXTCODECOPY",
+    opcode=Op.EXTCODECOPY,
+    max_op_count=8,  # Very expensive, 4 args per op
+    step=2,
+    stack_args=[0xDEAD, 0, 0, 32],  # address, destOffset, offset, size
+    pops_per_op=4,
+    pushes_per_op=0,
+    setup_code=Op.MSTORE(0, 0),  # Pre-expand memory
+)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(BALANCE_CONFIG.max_op_count, BALANCE_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_balance(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for BALANCE opcode (warm access after first)."""
+    code = generate_marginal_program(BALANCE_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(EXTCODESIZE_CONFIG.max_op_count, EXTCODESIZE_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_extcodesize(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for EXTCODESIZE opcode (warm access after first)."""
+    code = generate_marginal_program(EXTCODESIZE_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(EXTCODEHASH_CONFIG.max_op_count, EXTCODEHASH_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_extcodehash(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for EXTCODEHASH opcode (warm access after first)."""
+    code = generate_marginal_program(EXTCODEHASH_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(EXTCODECOPY_CONFIG.max_op_count, EXTCODECOPY_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_extcodecopy(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for EXTCODECOPY opcode."""
+    code = generate_marginal_program(EXTCODECOPY_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=5_000_000, sender=sender)
     post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
     state_test(env=Environment(), pre=pre, post=post, tx=tx)
