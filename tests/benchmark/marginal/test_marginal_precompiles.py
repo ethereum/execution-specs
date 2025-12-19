@@ -30,6 +30,16 @@ from execution_testing import (
     Transaction,
 )
 
+# Import BLS12-381 types from the EIP-2537 test spec
+from tests.prague.eip2537_bls_12_381_precompiles.spec import (
+    FP,
+    FP2,
+    PointG1,
+    PointG2,
+    Scalar,
+    Spec as BLS12Spec,
+)
+
 # Success marker written to storage if execution completes without revert
 SUCCESS_MARKER = 0xDEAD
 SUCCESS_SLOT = 0
@@ -45,6 +55,15 @@ BN128_MUL_ADDRESS = Address(0x07)
 BN128_PAIRING_ADDRESS = Address(0x08)
 BLAKE2F_ADDRESS = Address(0x09)
 POINT_EVALUATION_ADDRESS = Address(0x0A)
+
+# BLS12-381 precompile addresses (EIP-2537, Prague)
+BLS12_G1ADD_ADDRESS = Address(0x0B)
+BLS12_G1MSM_ADDRESS = Address(0x0C)
+BLS12_G2ADD_ADDRESS = Address(0x0D)
+BLS12_G2MSM_ADDRESS = Address(0x0E)
+BLS12_PAIRING_ADDRESS = Address(0x0F)
+BLS12_MAP_FP_TO_G1_ADDRESS = Address(0x10)
+BLS12_MAP_FP2_TO_G2_ADDRESS = Address(0x11)
 
 
 @dataclass
@@ -334,6 +353,125 @@ POINT_EVALUATION_CONFIG = MarginalPrecompileConfig(
     step=1,
     input_data=POINT_EVALUATION_INPUT,
     input_size=len(POINT_EVALUATION_INPUT),  # 192 bytes
+)
+
+# ============================================================================
+# BLS12-381 Precompiles (EIP-2537, Prague)
+# ============================================================================
+
+# BLS12_G1ADD (0x0B) - Add two G1 points
+# Gas: 375 (fixed)
+# Input: 256 bytes (two 128-byte G1 points)
+# Output: 128 bytes (one G1 point)
+# Using G1 generator + P1 (random test point) from EIP-2537 spec
+BLS12_G1ADD_INPUT = bytes(BLS12Spec.G1 + BLS12Spec.P1)
+
+BLS12_G1ADD_CONFIG = MarginalPrecompileConfig(
+    name="BLS12_G1ADD",
+    address=BLS12_G1ADD_ADDRESS,
+    max_op_count=50,  # 375 gas per call
+    step=5,
+    input_data=BLS12_G1ADD_INPUT,
+    input_size=len(BLS12_G1ADD_INPUT),  # 256 bytes
+)
+
+# BLS12_G1MSM (0x0C) - Multi-scalar multiplication on G1
+# Gas: variable based on k (number of pairs)
+# Input: k × 160 bytes (k pairs of G1 point + scalar)
+# Using k=2 with G1 generator and P1 points, scalar=1
+BLS12_G1MSM_INPUT = bytes(
+    BLS12Spec.G1 + Scalar(1) + BLS12Spec.P1 + Scalar(1)
+)
+
+BLS12_G1MSM_CONFIG = MarginalPrecompileConfig(
+    name="BLS12_G1MSM",
+    address=BLS12_G1MSM_ADDRESS,
+    max_op_count=30,  # Variable gas, k=2
+    step=3,
+    input_data=BLS12_G1MSM_INPUT,
+    input_size=len(BLS12_G1MSM_INPUT),  # 320 bytes (2 × 160)
+)
+
+# BLS12_G2ADD (0x0D) - Add two G2 points
+# Gas: 600 (fixed)
+# Input: 512 bytes (two 256-byte G2 points)
+# Output: 256 bytes (one G2 point)
+# Using G2 generator + P2 (random test point) from EIP-2537 spec
+BLS12_G2ADD_INPUT = bytes(BLS12Spec.G2 + BLS12Spec.P2)
+
+BLS12_G2ADD_CONFIG = MarginalPrecompileConfig(
+    name="BLS12_G2ADD",
+    address=BLS12_G2ADD_ADDRESS,
+    max_op_count=50,  # 600 gas per call
+    step=5,
+    input_data=BLS12_G2ADD_INPUT,
+    input_size=len(BLS12_G2ADD_INPUT),  # 512 bytes
+)
+
+# BLS12_G2MSM (0x0E) - Multi-scalar multiplication on G2
+# Gas: variable based on k
+# Input: k × 288 bytes (k pairs of G2 point + scalar)
+# Using k=2 with G2 generator and P2 points, scalar=1
+BLS12_G2MSM_INPUT = bytes(
+    BLS12Spec.G2 + Scalar(1) + BLS12Spec.P2 + Scalar(1)
+)
+
+BLS12_G2MSM_CONFIG = MarginalPrecompileConfig(
+    name="BLS12_G2MSM",
+    address=BLS12_G2MSM_ADDRESS,
+    max_op_count=20,  # Variable gas, k=2 (expensive)
+    step=2,
+    input_data=BLS12_G2MSM_INPUT,
+    input_size=len(BLS12_G2MSM_INPUT),  # 576 bytes (2 × 288)
+)
+
+# BLS12_PAIRING (0x0F) - Pairing check
+# Gas: 37700 + 32600 * k (k = number of pairs)
+# Input: k × 384 bytes (k pairs of G1 + G2 points)
+# Using k=2: e(G1, G2) * e(G1, -G2) = 1 (TRUE) - valid pairing from EIP-2537 spec
+BLS12_PAIRING_INPUT = bytes(
+    BLS12Spec.G1 + BLS12Spec.G2 + BLS12Spec.G1 + (-BLS12Spec.G2)
+)
+
+BLS12_PAIRING_CONFIG = MarginalPrecompileConfig(
+    name="BLS12_PAIRING",
+    address=BLS12_PAIRING_ADDRESS,
+    max_op_count=10,  # Variable gas, k=2
+    step=2,
+    input_data=BLS12_PAIRING_INPUT,
+    input_size=len(BLS12_PAIRING_INPUT),  # 768 bytes (2 × 384)
+)
+
+# BLS12_MAP_FP_TO_G1 (0x10) - Map field element to G1
+# Gas: 5,500 (fixed)
+# Input: 64 bytes (one Fp element, padded)
+# Output: 128 bytes (one G1 point)
+# Using FP(P-1) from EIP-2537 spec - non-trivial input for worst case
+BLS12_MAP_FP_TO_G1_INPUT = bytes(FP(BLS12Spec.P - 1))
+
+BLS12_MAP_FP_TO_G1_CONFIG = MarginalPrecompileConfig(
+    name="BLS12_MAP_FP_TO_G1",
+    address=BLS12_MAP_FP_TO_G1_ADDRESS,
+    max_op_count=50,  # 5,500 gas per call
+    step=5,
+    input_data=BLS12_MAP_FP_TO_G1_INPUT,
+    input_size=len(BLS12_MAP_FP_TO_G1_INPUT),  # 64 bytes
+)
+
+# BLS12_MAP_FP2_TO_G2 (0x11) - Map Fp2 element to G2
+# Gas: 23,800 (fixed)
+# Input: 128 bytes (one Fp2 element)
+# Output: 256 bytes (one G2 point)
+# Using FP2(P-1, P-1) from EIP-2537 spec - non-trivial input for worst case
+BLS12_MAP_FP2_TO_G2_INPUT = bytes(FP2((BLS12Spec.P - 1, BLS12Spec.P - 1)))
+
+BLS12_MAP_FP2_TO_G2_CONFIG = MarginalPrecompileConfig(
+    name="BLS12_MAP_FP2_TO_G2",
+    address=BLS12_MAP_FP2_TO_G2_ADDRESS,
+    max_op_count=30,  # 23,800 gas per call
+    step=3,
+    input_data=BLS12_MAP_FP2_TO_G2_INPUT,
+    input_size=len(BLS12_MAP_FP2_TO_G2_INPUT),  # 128 bytes
 )
 
 
@@ -792,6 +930,286 @@ def test_marginal_point_evaluation(
     Gas cost: 50,000 (fixed).
     """
     code, calldata = generate_marginal_precompile_program(POINT_EVALUATION_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=1_000_000,
+        data=calldata,
+        sender=sender,
+    )
+
+    post = {
+        contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
+    }
+
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+# ============================================================================
+# BLS12_G1ADD precompile tests (0x0B) - 375 gas per call
+# ============================================================================
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(BLS12_G1ADD_CONFIG.max_op_count, BLS12_G1ADD_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_bls12_g1add(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    op_count: int,
+) -> None:
+    """
+    Marginal cost estimation test for BLS12_G1ADD precompile.
+
+    Adds two G1 points on the BLS12-381 curve.
+    Gas cost: 375 (fixed).
+    """
+    code, calldata = generate_marginal_precompile_program(BLS12_G1ADD_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=1_000_000,
+        data=calldata,
+        sender=sender,
+    )
+
+    post = {
+        contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
+    }
+
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+# ============================================================================
+# BLS12_G1MSM precompile tests (0x0C) - variable gas per call
+# ============================================================================
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(BLS12_G1MSM_CONFIG.max_op_count, BLS12_G1MSM_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_bls12_g1msm(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    op_count: int,
+) -> None:
+    """
+    Marginal cost estimation test for BLS12_G1MSM precompile.
+
+    Multi-scalar multiplication on G1 with k=2 pairs for worst-case marginal cost.
+    Gas cost: variable based on k.
+    """
+    code, calldata = generate_marginal_precompile_program(BLS12_G1MSM_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=1_000_000,
+        data=calldata,
+        sender=sender,
+    )
+
+    post = {
+        contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
+    }
+
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+# ============================================================================
+# BLS12_G2ADD precompile tests (0x0D) - 600 gas per call
+# ============================================================================
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(BLS12_G2ADD_CONFIG.max_op_count, BLS12_G2ADD_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_bls12_g2add(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    op_count: int,
+) -> None:
+    """
+    Marginal cost estimation test for BLS12_G2ADD precompile.
+
+    Adds two G2 points on the BLS12-381 curve.
+    Gas cost: 600 (fixed).
+    """
+    code, calldata = generate_marginal_precompile_program(BLS12_G2ADD_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=1_000_000,
+        data=calldata,
+        sender=sender,
+    )
+
+    post = {
+        contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
+    }
+
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+# ============================================================================
+# BLS12_G2MSM precompile tests (0x0E) - variable gas per call
+# ============================================================================
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(BLS12_G2MSM_CONFIG.max_op_count, BLS12_G2MSM_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_bls12_g2msm(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    op_count: int,
+) -> None:
+    """
+    Marginal cost estimation test for BLS12_G2MSM precompile.
+
+    Multi-scalar multiplication on G2 with k=2 pairs for worst-case marginal cost.
+    Gas cost: variable based on k.
+    """
+    code, calldata = generate_marginal_precompile_program(BLS12_G2MSM_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=10_000_000,  # High limit for G2MSM
+        data=calldata,
+        sender=sender,
+    )
+
+    post = {
+        contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
+    }
+
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+# ============================================================================
+# BLS12_PAIRING precompile tests (0x0F) - variable gas per call
+# ============================================================================
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(BLS12_PAIRING_CONFIG.max_op_count, BLS12_PAIRING_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_bls12_pairing(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    op_count: int,
+) -> None:
+    """
+    Marginal cost estimation test for BLS12_PAIRING precompile.
+
+    Pairing check with k=2 pairs for worst-case marginal cost.
+    Gas cost: variable based on k.
+    """
+    code, calldata = generate_marginal_precompile_program(BLS12_PAIRING_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=10_000_000,  # Higher limit for pairing
+        data=calldata,
+        sender=sender,
+    )
+
+    post = {
+        contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
+    }
+
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+# ============================================================================
+# BLS12_MAP_FP_TO_G1 precompile tests (0x10) - 5,500 gas per call
+# ============================================================================
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(BLS12_MAP_FP_TO_G1_CONFIG.max_op_count, BLS12_MAP_FP_TO_G1_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_bls12_map_fp_to_g1(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    op_count: int,
+) -> None:
+    """
+    Marginal cost estimation test for BLS12_MAP_FP_TO_G1 precompile.
+
+    Maps a field element to a G1 point.
+    Gas cost: 5,500 (fixed).
+    """
+    code, calldata = generate_marginal_precompile_program(BLS12_MAP_FP_TO_G1_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=1_000_000,
+        data=calldata,
+        sender=sender,
+    )
+
+    post = {
+        contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
+    }
+
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+# ============================================================================
+# BLS12_MAP_FP2_TO_G2 precompile tests (0x11) - 23,800 gas per call
+# ============================================================================
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(BLS12_MAP_FP2_TO_G2_CONFIG.max_op_count, BLS12_MAP_FP2_TO_G2_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_bls12_map_fp2_to_g2(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    op_count: int,
+) -> None:
+    """
+    Marginal cost estimation test for BLS12_MAP_FP2_TO_G2 precompile.
+
+    Maps an Fp2 element to a G2 point.
+    Gas cost: 23,800 (fixed).
+    """
+    code, calldata = generate_marginal_precompile_program(BLS12_MAP_FP2_TO_G2_CONFIG, op_count)
     contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()
 
