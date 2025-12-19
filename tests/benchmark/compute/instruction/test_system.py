@@ -30,7 +30,6 @@ from execution_testing import (
     Hash,
     JumpLoopGenerator,
     Op,
-    StateTestFiller,
     TestPhaseManager,
     Transaction,
     While,
