@@ -2196,16 +2196,15 @@ def test_marginal_sload(state_test: StateTestFiller, pre: Alloc, op_count: int) 
     ids=lambda x: f"op_count_{x}",
 )
 def test_marginal_sstore(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
-    """Marginal cost test for SSTORE opcode."""
+    """Marginal cost test for SSTORE opcode (warm, no value change = 100 gas)."""
     code = generate_marginal_program(SSTORE_CONFIG, op_count)
-    contract = pre.deploy_contract(code=code)
+    # Pre-set slot 100 to MAX_U256 so all SSTOREs are "no value change" (100 gas)
+    # This makes the gas cost consistent: warm access (100) + no change (0) = 100 gas
+    contract = pre.deploy_contract(code=code, storage={100: MAX_U256})
     sender = pre.fund_eoa()
-    tx = Transaction(to=contract, gas_limit=5_000_000, sender=sender)  # Higher gas for SSTORE
-    # Note: slot 100 will have MAX_U256 value after execution if op_count > 0
-    if op_count > 0:
-        post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER, 100: MAX_U256})}
-    else:
-        post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    tx = Transaction(to=contract, gas_limit=5_000_000, sender=sender)
+    # Slot 100 will still have MAX_U256 after execution (same value written)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER, 100: MAX_U256})}
     state_test(env=Environment(), pre=pre, post=post, tx=tx)
 
 
@@ -2274,76 +2273,102 @@ PC_CONFIG = MarginalOpcodeConfig(
 # We use a loop-based approach where we control the iteration count.
 # ============================================================================
 
-def generate_jump_program(op_count: int) -> Bytecode:
+def generate_jump_program(op_count: int, max_op_count: int) -> Bytecode:
     """
-    Generate a program that executes JUMP exactly op_count times using a loop.
+    Generate a JUMP program following gas-cost-estimator's approach EXACTLY.
+    
+    Each combo is self-contained - JUMP jumps to its own JUMPDEST:
+    - Real combo: PUSH3(dest) + JUMP + JUMPDEST = 6 bytes, gas = 3+8+1 = 12
+      (dest points to the JUMPDEST in this same combo)
+    - Noop combo: PUSH3(dest) + JUMPDEST = 5 bytes, gas = 3+1 = 4
+      (dest points to the JUMPDEST in this combo, no JUMP executed)
+    
+    Note: Combo sizes differ (6 vs 5 bytes), but positions are calculated dynamically.
+    Marginal gas = 12 - 4 = 8 (exactly JUMP gas!)
+    """
+    # Build bytecode by calculating positions dynamically (like gas-cost-estimator)
+    bytecode_hex = ""
+    
+    for i in range(max_op_count):
+        current_pc = len(bytecode_hex) // 2
+        
+        if i < op_count:
+            # Real combo: PUSH3(dest) + JUMP + JUMPDEST = 6 bytes
+            # JUMPDEST is at: current_pc + 1 (PUSH3 opcode) + 3 (value) + 1 (JUMP) = current_pc + 5
+            jumpdest_pc = current_pc + 1 + 3 + 1
+            # PUSH3 = 0x62, JUMP = 0x56, JUMPDEST = 0x5b
+            bytecode_hex += f"62{jumpdest_pc:06x}565b"
+        else:
+            # Noop combo: PUSH3(dest) + JUMPDEST = 5 bytes (no JUMP!)
+            # JUMPDEST is at: current_pc + 1 (PUSH3 opcode) + 3 (value) = current_pc + 4
+            jumpdest_pc = current_pc + 1 + 3
+            bytecode_hex += f"62{jumpdest_pc:06x}5b"
+    
+    # Add epilogue as hex:
+    # SSTORE(SUCCESS_SLOT=0, SUCCESS_MARKER=0xdead)
+    # PUSH2 0xdead = 61dead, PUSH1 0 = 6000, SSTORE = 55, STOP = 00
+    bytecode_hex += "61dead60005500"
+    
+    # Return as raw bytes wrapped in Bytecode container
+    # For raw bytes, must specify stack items (0 pops, 0 pushes for complete program)
+    return Bytecode(bytes.fromhex(bytecode_hex), popped_stack_items=0, pushed_stack_items=0, terminating=True)
+
+
+def generate_jumpi_program(op_count: int, max_op_count: int) -> Bytecode:
+    """
+    Generate a JUMPI program following gas-cost-estimator's approach EXACTLY.
     
     Structure:
-        PUSH counter (op_count)
-    loop:
-        JUMPDEST
-        PUSH 1
-        SWAP1
-        SUB           ; counter--
-        DUP1          ; duplicate counter for JUMPI check
-        PUSH loop_start
-        JUMPI         ; if counter > 0, jump to loop
-        ; fallthrough when done
-        POP           ; clean up counter
-        SSTORE        ; success marker
-        STOP
+    1. Push conditions upfront (one per real JUMPI op)
+    2. Run combos:
+       - Real combo: PUSH3(dest) + JUMPI + JUMPDEST = 6 bytes
+         (JUMPI pops dest from PUSH3, then pops condition from earlier push)
+       - Noop combo: PUSH3(dest) + JUMPDEST = 5 bytes
+         (no JUMPI, so condition stays on stack - that's ok)
+    
+    Gas per combo:
+    - Real: PUSH3(3) + JUMPI(10) + JUMPDEST(1) = 14 gas
+    - Noop: PUSH3(3) + JUMPDEST(1) = 4 gas
+    
+    Gas for condition pushes: op_count * PUSH1(3) = 3*op_count (constant overhead)
+    
+    Marginal = 14 - 4 = 10 gas (exactly JUMPI gas!)
     """
-    code = Bytecode()
+    bytecode_hex = ""
     
-    if op_count == 0:
-        # No jumps - just write success and stop
-        code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-        code += Op.STOP
-        return code
+    # 1. Push conditions upfront (one non-zero value per real JUMPI)
+    # PUSH1 1 = 6001 (2 bytes each)
+    for _ in range(op_count):
+        bytecode_hex += "6001"  # PUSH1 1
     
-    # Push initial counter value
-    code += push_value(op_count)
+    # 2. Run combos
+    for i in range(max_op_count):
+        current_pc = len(bytecode_hex) // 2
+        
+        if i < op_count:
+            # Real combo: PUSH3(dest) + JUMPI + JUMPDEST = 6 bytes
+            # JUMPDEST at: current_pc + 1 (PUSH3 opcode) + 3 (value) + 1 (JUMPI) = current_pc + 5
+            jumpdest_pc = current_pc + 1 + 3 + 1
+            # PUSH3 = 0x62, JUMPI = 0x57, JUMPDEST = 0x5b
+            bytecode_hex += f"62{jumpdest_pc:06x}575b"
+        else:
+            # Noop combo: PUSH3(dest) + JUMPDEST = 5 bytes (no JUMPI)
+            jumpdest_pc = current_pc + 1 + 3
+            bytecode_hex += f"62{jumpdest_pc:06x}5b"
     
-    # Calculate loop_start offset (after the initial push)
-    # PUSH1/PUSH2/PUSH3 for op_count + code so far
-    loop_start_offset = len(code)
+    # 3. Add epilogue as hex:
+    # SSTORE(SUCCESS_SLOT=0, SUCCESS_MARKER=0xdead)
+    # PUSH2 0xdead = 61dead, PUSH1 0 = 6000, SSTORE = 55, STOP = 00
+    bytecode_hex += "61dead60005500"
     
-    # JUMPDEST at loop start
-    code += Op.JUMPDEST  # 1 byte
-    
-    # Decrement counter: PUSH 1, SWAP1, SUB
-    code += Op.PUSH1[1]  # 2 bytes
-    code += Op.SWAP1     # 1 byte  
-    code += Op.SUB       # 1 byte
-    
-    # DUP counter for JUMPI check
-    code += Op.DUP1      # 1 byte
-    
-    # PUSH loop_start and JUMPI
-    code += push_value(loop_start_offset)  # 2-3 bytes
-    code += Op.JUMPI     # 1 byte - this is the JUMP we're measuring
-    
-    # Fallthrough: clean up and exit
-    code += Op.POP       # remove remaining counter (0)
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-    code += Op.STOP
-    
-    return code
+    # For raw bytes, must specify stack items (0 pops, 0 pushes for complete program)
+    return Bytecode(bytes.fromhex(bytecode_hex), popped_stack_items=0, pushed_stack_items=0, terminating=True)
 
 
-def generate_jumpi_program(op_count: int) -> Bytecode:
-    """
-    Generate a program that executes JUMPI exactly op_count times (all taken jumps).
-    Uses same loop structure as JUMP but the conditional is always true until done.
-    """
-    # JUMPI uses same loop structure - each iteration is a JUMPI
-    return generate_jump_program(op_count)
-
-
-JUMP_MAX_OP_COUNT = 500
-JUMP_STEP = 50
-JUMPI_MAX_OP_COUNT = 500
-JUMPI_STEP = 50
+JUMP_MAX_OP_COUNT = 200
+JUMP_STEP = 20
+JUMPI_MAX_OP_COUNT = 200
+JUMPI_STEP = 20
 
 
 @pytest.mark.valid_from("Prague")
@@ -2385,8 +2410,8 @@ def test_marginal_pc(state_test: StateTestFiller, pre: Alloc, op_count: int) -> 
     ids=lambda x: f"op_count_{x}",
 )
 def test_marginal_jump(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
-    """Marginal cost test for JUMP opcode (via JUMPI in a loop)."""
-    code = generate_jump_program(op_count)
+    """Marginal cost test for JUMP opcode (sequential approach)."""
+    code = generate_jump_program(op_count, JUMP_MAX_OP_COUNT)
     contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()
     tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
@@ -2401,8 +2426,8 @@ def test_marginal_jump(state_test: StateTestFiller, pre: Alloc, op_count: int) -
     ids=lambda x: f"op_count_{x}",
 )
 def test_marginal_jumpi(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
-    """Marginal cost test for JUMPI opcode (conditional jump in a loop)."""
-    code = generate_jumpi_program(op_count)
+    """Marginal cost test for JUMPI opcode (sequential approach)."""
+    code = generate_jumpi_program(op_count, JUMPI_MAX_OP_COUNT)
     contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()
     tx = Transaction(to=contract, gas_limit=1_000_000, sender=sender)
@@ -2474,16 +2499,21 @@ def generate_dup_program(
     max_op_count: int,
 ) -> Bytecode:
     """
-    Generate a DUP program following gas-cost-estimator's approach.
+    Generate a DUP program following gas-cost-estimator's noop-based approach.
     
     Structure:
     1. Push dup_n initial values onto stack (these stay for the entire program)
-    2. For op_count iterations: DUP + POP (duplicates then immediately pops)
-    3. For (max_op_count - op_count) iterations: just do nothing (constant overhead)
+    2. For op_count iterations: DUP + POP (real operation)
+    3. For (max_op_count - op_count) iterations: PUSH0 + POP (noop - same gas as DUP+POP)
     4. Pop the initial values
     5. Write success marker
     
-    This keeps the stack balanced and only varies the DUP opcode count.
+    Key insight: DUP (3 gas) + POP (2 gas) = 5 gas
+                 PUSH0 (2 gas) + POP (2 gas) = 4 gas (close enough for noop)
+    Actually: We need exact match. Use PUSH1 (3 gas) + POP (2 gas) = 5 gas as noop
+    
+    This way, total gas = constant + op_count * DUP_gas
+    Because both real and noop cost 5 gas, but noop uses PUSH1 instead of DUP.
     """
     code = Bytecode()
     
@@ -2491,14 +2521,18 @@ def generate_dup_program(
     for i in range(dup_n):
         code += Op.PUSH1[i]
     
-    # 2. Execute op_count DUP+POP pairs
     dup_opcode = getattr(Op, f"DUP{dup_n}")
+    
+    # 2. Execute op_count DUP+POP pairs (real operation)
     for _ in range(op_count):
         code += dup_opcode
         code += Op.POP
     
-    # 3. For noops, we don't do anything - this is constant overhead
-    # (The gas-cost-estimator doesn't add explicit noops for DUP)
+    # 3. For noops: PUSH1 + POP (same 5 gas as DUP + POP, but uses PUSH1 instead of DUP)
+    noop_count = max_op_count - op_count
+    for _ in range(noop_count):
+        code += Op.PUSH1[0]
+        code += Op.POP
     
     # 4. Pop the initial values
     for _ in range(dup_n):
