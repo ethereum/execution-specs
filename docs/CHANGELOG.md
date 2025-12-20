@@ -11,6 +11,7 @@ Test fixtures for use by clients are available for each release on the [Github r
 ### 🛠️ Framework
 
 #### `fill`
+- 🔀 Remove hardcoded fork names in `tox.ini` commands and fetch the latest fork using `ethereum-spec-forks` CLI tool ([#1945](https://github.com/ethereum/execution-specs/pull/1945)).
 
 #### `consume`
 
