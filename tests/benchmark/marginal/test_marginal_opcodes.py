@@ -19,7 +19,7 @@ Strategy 1: POP-based padding (for opcodes with pushes_per_op > 0)
 
 Strategy 2: Noop-based padding (for opcodes with pushes_per_op == 0, like MSTORE)
     | (PUSH args + OPCODE) × op_count      | Real operations                 |
-    | (PUSH args) × (max_op_count - op_count) | Noops (same pushes, no op)   |
+    | (PUSH args) × (max_op_count - op_count) | Noops (push only, no op)     |
     | SSTORE + STOP                        | Success marker                  |
 
 The program with op_count=K+1 differs from op_count=K by exactly ONE instance
@@ -566,37 +566,31 @@ def generate_marginal_program(
                 code += Op.POP
     else:
         # ================================================================
-        # Strategy 2: Push-all-then-execute for non-returning opcodes
-        # (Following gas-cost-estimator's LOG approach)
+        # Strategy 2: Noop-based padding for non-returning opcodes
+        # (Following gas-cost-estimator's MSTORE/CALLDATACOPY approach)
         # ================================================================
         
-        # Structure:
-        # 1. Push all arguments for max_op_count operations upfront
-        # 2. Execute op_count opcodes (each consuming its arguments)
-        # 3. POP the remaining unused arguments
+        # Structure (matching gas-cost-estimator):
+        # 1. For op_count iterations: PUSH args + OPCODE
+        # 2. For (max_op_count - op_count) iterations: PUSH args only (no opcode)
         #
         # This ensures:
         # - Total PUSH count is constant (max_op_count * len(stack_args))
         # - Only the opcode execution count varies
+        # - Stack may be unbalanced at end (that's OK - STOP doesn't require it)
         
-        num_args = len(config.stack_args)
-        
-        # 1. Push ALL arguments for max_op_count operations
-        for _ in range(config.max_op_count):
+        # 1. Real operations: push args + execute opcode
+        for _ in range(op_count):
             for arg in config.stack_args:
                 code += push_value(arg)
-        
-        # 2. Execute op_count operations (each consumes num_args from stack)
-        for _ in range(op_count):
             code += config.opcode
         
-        # 3. POP remaining unused arguments
-        # We pushed max_op_count * num_args values
-        # op_count operations consumed op_count * num_args values
-        # Remaining: (max_op_count - op_count) * num_args
-        remaining_args = (config.max_op_count - op_count) * num_args
-        for _ in range(remaining_args):
-            code += Op.POP
+        # 2. Noops: just push args (no opcode, no pop)
+        # These values stay on stack - that's fine
+        noop_count = config.max_op_count - op_count
+        for _ in range(noop_count):
+            for arg in config.stack_args:
+                code += push_value(arg)
 
     # 5. Write success marker to storage (proves execution didn't revert)
     code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
