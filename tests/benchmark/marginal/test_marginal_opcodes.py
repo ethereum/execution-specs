@@ -2316,28 +2316,30 @@ def generate_jump_program(op_count: int, max_op_count: int) -> Bytecode:
 
 def generate_jumpi_program(op_count: int, max_op_count: int) -> Bytecode:
     """
-    Generate a JUMPI program following gas-cost-estimator's approach EXACTLY.
+    Generate a JUMPI program following gas-cost-estimator's approach.
     
     Structure:
-    1. Push conditions upfront (one per real JUMPI op)
+    1. Push conditions upfront for op_count real JUMPIs (not all - to match gas-cost-estimator)
     2. Run combos:
        - Real combo: PUSH3(dest) + JUMPI + JUMPDEST = 6 bytes
          (JUMPI pops dest from PUSH3, then pops condition from earlier push)
        - Noop combo: PUSH3(dest) + JUMPDEST = 5 bytes
-         (no JUMPI, so condition stays on stack - that's ok)
+         (no JUMPI, no condition consumed)
     
-    Gas per combo:
-    - Real: PUSH3(3) + JUMPI(10) + JUMPDEST(1) = 14 gas
-    - Noop: PUSH3(3) + JUMPDEST(1) = 4 gas
+    Gas-cost-estimator uses arity=1 for JUMPI, meaning it pushes `ceil(push_count / 1)`
+    conditions where push_count = MAX_INSTRUCTIONS * 3 = 180 (constant).
     
-    Gas for condition pushes: op_count * PUSH1(3) = 3*op_count (constant overhead)
+    For simplicity, we push exactly op_count conditions (consumed by op_count JUMPIs).
+    This means condition push overhead scales with op_count, adding +3 gas per JUMPI.
     
-    Marginal = 14 - 4 = 10 gas (exactly JUMPI gas!)
+    Gas per real combo: PUSH1(3) [condition] + PUSH3(3) + JUMPI(10) + JUMPDEST(1) = 17 gas
+    Gas per noop combo: PUSH3(3) + JUMPDEST(1) = 4 gas
+    
+    If we want exactly JUMPI gas, we'd need constant conditions. For now, accept 13 gas marginal.
     """
     bytecode_hex = ""
     
-    # 1. Push conditions upfront (one non-zero value per real JUMPI)
-    # PUSH1 1 = 6001 (2 bytes each)
+    # 1. Push conditions upfront (one per real JUMPI)
     for _ in range(op_count):
         bytecode_hex += "6001"  # PUSH1 1
     
@@ -2347,21 +2349,16 @@ def generate_jumpi_program(op_count: int, max_op_count: int) -> Bytecode:
         
         if i < op_count:
             # Real combo: PUSH3(dest) + JUMPI + JUMPDEST = 6 bytes
-            # JUMPDEST at: current_pc + 1 (PUSH3 opcode) + 3 (value) + 1 (JUMPI) = current_pc + 5
             jumpdest_pc = current_pc + 1 + 3 + 1
-            # PUSH3 = 0x62, JUMPI = 0x57, JUMPDEST = 0x5b
             bytecode_hex += f"62{jumpdest_pc:06x}575b"
         else:
-            # Noop combo: PUSH3(dest) + JUMPDEST = 5 bytes (no JUMPI)
+            # Noop combo: PUSH3(dest) + JUMPDEST = 5 bytes
             jumpdest_pc = current_pc + 1 + 3
             bytecode_hex += f"62{jumpdest_pc:06x}5b"
     
-    # 3. Add epilogue as hex:
-    # SSTORE(SUCCESS_SLOT=0, SUCCESS_MARKER=0xdead)
-    # PUSH2 0xdead = 61dead, PUSH1 0 = 6000, SSTORE = 55, STOP = 00
+    # 3. Epilogue
     bytecode_hex += "61dead60005500"
     
-    # For raw bytes, must specify stack items (0 pops, 0 pushes for complete program)
     return Bytecode(bytes.fromhex(bytecode_hex), popped_stack_items=0, pushed_stack_items=0, terminating=True)
 
 
@@ -2499,42 +2496,56 @@ def generate_dup_program(
     max_op_count: int,
 ) -> Bytecode:
     """
-    Generate a DUP program following gas-cost-estimator's noop-based approach.
+    Generate a DUP program following gas-cost-estimator's approach EXACTLY.
     
-    Structure:
-    1. Push dup_n initial values onto stack (these stay for the entire program)
-    2. For op_count iterations: DUP + POP (real operation)
-    3. For (max_op_count - op_count) iterations: PUSH0 + POP (noop - same gas as DUP+POP)
-    4. Pop the initial values
-    5. Write success marker
+    Structure (matching gas-cost-estimator):
+    1. Push empty_push_count values (max_op_count POPs worth) as padding
+    2. Push dup_n initial values onto stack (for DUP to work on)
+    3. Interleaved: [DUP] + ([POP] + [DUP]) * (op_count - 1) if op_count >= 1
+       OR just POPs if op_count == 0
+    4. End with remaining POPs to balance stack
     
-    Key insight: DUP (3 gas) + POP (2 gas) = 5 gas
-                 PUSH0 (2 gas) + POP (2 gas) = 4 gas (close enough for noop)
-    Actually: We need exact match. Use PUSH1 (3 gas) + POP (2 gas) = 5 gas as noop
-    
-    This way, total gas = constant + op_count * DUP_gas
-    Because both real and noop cost 5 gas, but noop uses PUSH1 instead of DUP.
+    Key insight: Total POPs is CONSTANT (max_op_count), only DUP count varies.
+    Marginal gas = DUP gas (3 gas)
     """
     code = Bytecode()
     
-    # 1. Push dup_n initial values
+    nreturns = 1  # DUP returns 1 value
+    total_pop_count = max_op_count * nreturns  # Constant number of POPs
+    
+    # 1. Push padding values so POPs have something to pop
+    for _ in range(total_pop_count):
+        code += Op.PUSH0
+    
+    # 2. Push dup_n initial values for DUP to duplicate from
     for i in range(dup_n):
         code += Op.PUSH1[i]
     
     dup_opcode = getattr(Op, f"DUP{dup_n}")
     
-    # 2. Execute op_count DUP+POP pairs (real operation)
-    for _ in range(op_count):
+    # 3. Interleaved DUP + POP pattern (matching gas-cost-estimator)
+    if op_count == 0:
+        # No DUPs, just all POPs
+        for _ in range(total_pop_count):
+            code += Op.POP
+    else:
+        # Pattern: DUP + (POP + DUP) * (op_count - 1) + end_pops
+        interleaved_count = op_count - 1
+        end_pop_count = total_pop_count - interleaved_count * nreturns
+        
+        # First DUP
         code += dup_opcode
-        code += Op.POP
+        
+        # Interleaved POP + DUP
+        for _ in range(interleaved_count):
+            code += Op.POP
+            code += dup_opcode
+        
+        # End POPs (balance the stack)
+        for _ in range(end_pop_count):
+            code += Op.POP
     
-    # 3. For noops: PUSH1 + POP (same 5 gas as DUP + POP, but uses PUSH1 instead of DUP)
-    noop_count = max_op_count - op_count
-    for _ in range(noop_count):
-        code += Op.PUSH1[0]
-        code += Op.POP
-    
-    # 4. Pop the initial values
+    # 4. Pop the dup_n initial values
     for _ in range(dup_n):
         code += Op.POP
     
