@@ -65,13 +65,17 @@ def beacon_root_system_call_expectations(
                 BalStorageSlot(
                     slot=timestamp_slot,
                     slot_changes=[
-                        BalStorageChange(tx_index=0, post_value=timestamp)
+                        BalStorageChange(
+                            block_access_index=0, post_value=timestamp
+                        )
                     ],
                 ),
                 BalStorageSlot(
                     slot=root_slot,
                     slot_changes=[
-                        BalStorageChange(tx_index=0, post_value=beacon_root)
+                        BalStorageChange(
+                            block_access_index=0, post_value=beacon_root
+                        )
                     ],
                 ),
             ],
@@ -149,15 +153,19 @@ def test_bal_4788_simple(
 
     # Add transaction-specific expectations
     account_expectations[alice] = BalAccountExpectation(
-        nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+        nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
     )
     account_expectations[bob] = BalAccountExpectation(
-        nonce_changes=[BalNonceChange(tx_index=2, post_nonce=1)],
+        nonce_changes=[BalNonceChange(block_access_index=2, post_nonce=1)],
     )
     account_expectations[charlie] = BalAccountExpectation(
         balance_changes=[
-            BalBalanceChange(tx_index=1, post_balance=transfer_value),
-            BalBalanceChange(tx_index=2, post_balance=transfer_value * 2),
+            BalBalanceChange(
+                block_access_index=1, post_balance=transfer_value
+            ),
+            BalBalanceChange(
+                block_access_index=2, post_balance=transfer_value * 2
+            ),
         ],
     )
 
@@ -302,12 +310,12 @@ def test_bal_4788_query(
     # Add balance changes if value is transferred
     if value > 0 and is_valid:
         account_expectations[BEACON_ROOTS_ADDRESS].balance_changes = [
-            BalBalanceChange(tx_index=1, post_balance=value)
+            BalBalanceChange(block_access_index=1, post_balance=value)
         ]
 
     # Add transaction-specific expectations
     account_expectations[alice] = BalAccountExpectation(
-        nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+        nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
     )
 
     account_expectations[query_contract] = BalAccountExpectation(
@@ -318,7 +326,9 @@ def test_bal_4788_query(
             BalStorageSlot(
                 slot=0,
                 slot_changes=[
-                    BalStorageChange(tx_index=1, post_value=expected_result)
+                    BalStorageChange(
+                        block_access_index=1, post_value=expected_result
+                    )
                 ],
             ),
         ]
@@ -391,15 +401,17 @@ def test_bal_4788_selfdestruct_to_beacon_root(
 
     # Add balance change from selfdestruct to beacon root address
     account_expectations[BEACON_ROOTS_ADDRESS].balance_changes = [
-        BalBalanceChange(tx_index=1, post_balance=contract_balance)
+        BalBalanceChange(block_access_index=1, post_balance=contract_balance)
     ]
 
     # Add transaction-specific expectations
     account_expectations[alice] = BalAccountExpectation(
-        nonce_changes=[BalNonceChange(tx_index=1, post_nonce=1)],
+        nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
     )
     account_expectations[selfdestruct_contract] = BalAccountExpectation(
-        balance_changes=[BalBalanceChange(tx_index=1, post_balance=0)],
+        balance_changes=[
+            BalBalanceChange(block_access_index=1, post_balance=0)
+        ],
     )
 
     block = Block(
