@@ -408,7 +408,7 @@ class Alloc(BaseAlloc):
         self,
         amount: NumberConvertible | None = None,
         label: str | None = None,
-        storage: Storage | None = None,
+        storage: Storage | StorageRootType | None = None,
         delegation: Address | Literal["Self"] | None = None,
         nonce: NumberConvertible | None = None,
     ) -> EOA:
@@ -432,18 +432,16 @@ class Alloc(BaseAlloc):
         fund_tx: PendingTransaction | None = None
         if delegation is not None or storage is not None:
             if storage is not None:
-                # Handle both Storage objects and plain dicts
-                storage_dict = (
-                    storage.root if isinstance(storage, Storage) else storage
-                )
+                if not isinstance(storage, Storage):
+                    storage = Storage.model_validate(storage)
                 logger.debug(
-                    f"Deploying storage contract for EOA {eoa} with {len(storage_dict)} storage slots"
+                    f"Deploying storage contract for EOA {eoa} with {len(storage)} storage slots"
                 )
                 sstore_address = self.deploy_contract(
                     code=(
                         sum(
                             Op.SSTORE(key, value)
-                            for key, value in storage_dict.items()
+                            for key, value in storage.items()
                         )
                         + Op.STOP
                     )

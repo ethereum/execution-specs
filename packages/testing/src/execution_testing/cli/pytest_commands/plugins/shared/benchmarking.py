@@ -1,14 +1,16 @@
 """The module contains the pytest hooks for the gas benchmark values."""
 
-import json
 import re
 import warnings
+from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
+from typing import ClassVar, Dict, List, Self
 
 import pytest
+from pydantic import BaseModel, Field, RootModel
 
 from execution_testing.test_types import Environment, EnvironmentDefaults
+from execution_testing.tools import ParameterSet
 
 from .execute_fill import OpMode
 
@@ -19,21 +21,21 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "benchmarking", "Arguments for benchmark test execution"
     )
     benchmark_group.addoption(
-        "--gas-benchmark-values",
+        GasBenchmarkValues.flag,
         action="store",
-        dest="gas_benchmark_value",
+        dest=GasBenchmarkValues.parameter_name,
         type=str,
         default=None,
         help=(
             "Gas limits (in millions) for benchmark tests. "
             "Example: '100,500' runs tests with 100M and 500M gas. "
-            "Cannot be used with --fixed-opcode-count."
+            f"Cannot be used with {OpcodeCountsConfig.flag}."
         ),
     )
     benchmark_group.addoption(
-        "--fixed-opcode-count",
+        OpcodeCountsConfig.flag,
         action="store",
-        dest="fixed_opcode_count",
+        dest=OpcodeCountsConfig.parameter_name,
         type=str,
         default=None,
         nargs="?",
@@ -42,7 +44,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "Opcode counts (in thousands) for benchmark tests. "
             "Example: '1,10,100' runs tests with 1K, 10K, 100K opcodes. "
             "Without value, uses .fixed_opcode_counts.json config. "
-            "Cannot be used with --gas-benchmark-values."
+            f"Cannot be used with {GasBenchmarkValues.flag}."
         ),
     )
 
@@ -54,68 +56,171 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "repricing: Mark test as reference test for gas repricing analysis",
     )
-    if config.getoption("gas_benchmark_value"):
+
+    # Ensure mutual exclusivity
+    gas_benchmark_values = GasBenchmarkValues.from_config(config)
+    fixed_opcode_count = OpcodeCountsConfig.from_config(config)
+    if gas_benchmark_values is not None and fixed_opcode_count is not None:
+        raise pytest.UsageError(
+            f"{GasBenchmarkValues.flag} and --fixed-opcode-count are mutually exclusive. "
+            "Use only one at a time."
+        )
+
+    if gas_benchmark_values is not None:
         config.op_mode = OpMode.BENCHMARKING  # type: ignore[attr-defined]
 
 
-def load_opcode_counts_config(
-    config: pytest.Config,
-) -> dict[str, Any] | None:
-    """
-    Load the opcode counts configuration from `.fixed_opcode_counts.json`.
+class BenchmarkParametrizer(ABC):
+    """Object used to parametrize benchmark tests using parameters."""
 
-    Returns dictionary with scenario_configs and default_counts, or None
-    if not found.
-    """
-    config_file = Path(config.rootpath) / ".fixed_opcode_counts.json"
+    flag: ClassVar[str]
+    parameter_name: ClassVar[str]
+    config_field: ClassVar[str]
 
-    if not config_file.exists():
-        return None
+    @classmethod
+    @abstractmethod
+    def from_parameter_value(
+        cls, config: pytest.Config, value: str
+    ) -> Self | None:
+        """Given the parameter value and config, return the expected object."""
+        pass
 
-    try:
-        data = json.loads(config_file.read_text())
-        return {
-            "scenario_configs": data.get("scenario_configs", {}),
-            "default_counts": [1],
-        }
-    except (json.JSONDecodeError, KeyError):
-        return None
+    @classmethod
+    def from_config(cls, config: pytest.Config) -> Self | None:
+        """
+        Parse the config the parametrizer configuration from the config.
+
+        Return `None` if the parameter is not specified.
+        """
+        if hasattr(config, cls.config_field):
+            return getattr(config, cls.config_field)
+
+        parameter_value = config.getoption(cls.parameter_name)
+        setattr(config, cls.config_field, None)
+
+        if parameter_value is None:
+            return None
+        else:
+            setattr(
+                config,
+                cls.config_field,
+                cls.from_parameter_value(config, parameter_value),
+            )
+        return getattr(config, cls.config_field)
+
+    @abstractmethod
+    def get_test_parameters(self, test_name: str) -> list[ParameterSet]:
+        """Get the parameters list for a given test."""
+        pass
+
+    def parametrize(self, metafunc: pytest.Metafunc) -> None:
+        """Parametrize a test."""
+        if self.parameter_name in metafunc.fixturenames:
+            test_name = metafunc.function.__name__
+            metafunc.parametrize(
+                self.parameter_name,
+                self.get_test_parameters(test_name),
+                scope="function",
+            )
 
 
-def get_opcode_counts_for_test(
-    test_name: str,
-    scenario_configs: dict[str, list[int]],
-    default_counts: list[int],
-) -> list[int]:
-    """
-    Get opcode counts for a test using regex pattern matching.
-    """
-    # Try exact match first (faster)
-    if test_name in scenario_configs:
-        return scenario_configs[test_name]
+class GasBenchmarkValues(RootModel, BenchmarkParametrizer):
+    """Gas benchmark values configuration object."""
 
-    # Try regex patterns
-    for pattern, counts in scenario_configs.items():
-        if pattern == test_name:
-            continue
-        try:
-            if re.search(pattern, test_name):
-                return counts
-        except re.error:
-            continue
+    root: List[int]
 
-    return default_counts
+    flag: ClassVar[str] = "--gas-benchmark-values"
+    config_field: ClassVar[str] = "_gas_benchmark_values_config"
+    parameter_name: ClassVar[str] = "gas_benchmark_value"
+
+    @classmethod
+    def from_parameter_value(
+        cls, config: pytest.Config, value: str
+    ) -> Self | None:
+        """Given the parameter value and config, return the expected object."""
+        return cls.model_validate(value.split(","))
+
+    def get_test_parameters(self, test_name: str) -> list[ParameterSet]:
+        """Get benchmark values. All tests have the same list."""
+        return [
+            pytest.param(
+                gas_value * 1_000_000,
+                id=f"benchmark-gas-value_{gas_value}M",
+            )
+            for gas_value in self.root
+        ]
+
+
+class OpcodeCountsConfig(BaseModel, BenchmarkParametrizer):
+    """Opcode counts configuration object."""
+
+    scenario_configs: Dict[str, List[int]] = Field(default_factory=dict)
+    default_counts: List[int] = Field(default_factory=lambda _: [1])
+
+    default_config_file_name: ClassVar[str] = ".fixed_opcode_counts.json"
+    flag: ClassVar[str] = "--fixed-opcode-count"
+    config_field: ClassVar[str] = "_opcode_counts_config"
+    parameter_name: ClassVar[str] = "fixed_opcode_count"
+
+    @classmethod
+    def from_parameter_value(
+        cls, config: pytest.Config, value: str
+    ) -> Self | None:
+        """Given the parameter value and config, return the expected object."""
+        if value == "":
+            default_file = Path(config.rootpath) / cls.default_config_file_name
+            if default_file.exists():
+                return cls.model_validate_json(default_file.read_bytes())
+            else:
+                warnings.warn(
+                    "--fixed-opcode-count was provided without a value, but "
+                    f"{cls.default_config_file_name} was not found. "
+                    "Run 'uv run benchmark_parser' to generate it, or provide "
+                    "explicit values (e.g., --fixed-opcode-count 1,10,100).",
+                    UserWarning,
+                    stacklevel=1,
+                )
+                return cls()
+        else:
+            return cls.model_validate({"default_counts": value.split(",")})
+
+    def get_test_parameters(self, test_name: str) -> list[ParameterSet]:
+        """
+        Get opcode counts for a test using regex pattern matching.
+        """
+        counts = self.default_counts
+        # Try exact match first (faster)
+        if test_name in self.scenario_configs:
+            counts = self.scenario_configs[test_name]
+        else:
+            # Try regex patterns
+            for pattern, pattern_counts in self.scenario_configs.items():
+                if pattern == test_name:
+                    continue
+                try:
+                    if re.search(pattern, test_name):
+                        counts = pattern_counts
+                        break
+                except re.error:
+                    continue
+        return [
+            pytest.param(
+                opcode_count,
+                id=f"opcount_{opcode_count}K",
+            )
+            for opcode_count in counts
+        ]
 
 
 def pytest_collection_modifyitems(
     config: pytest.Config, items: list[pytest.Item]
 ) -> None:
     """Filter tests based on repricing marker."""
-    gas_benchmark_value = config.getoption("gas_benchmark_value")
-    fixed_opcode_count = config.getoption("fixed_opcode_count")
+    gas_benchmark_value = GasBenchmarkValues.from_config(config)
+    fixed_opcode_count = OpcodeCountsConfig.from_config(config)
 
     # Only filter if either benchmark option is provided
-    if not gas_benchmark_value and fixed_opcode_count is None:
+    if not gas_benchmark_value and not fixed_opcode_count:
         return
 
     # In --fixed-opcode-count mode, we only support tests that meet all of the following:
@@ -133,21 +238,6 @@ def pytest_collection_modifyitems(
             ):
                 filtered.append(item)
         items[:] = filtered
-
-    # Load config data if --fixed-opcode-count flag provided without value
-    if fixed_opcode_count == "":
-        config_data = load_opcode_counts_config(config)
-        if config_data:
-            config._opcode_counts_config = config_data  # type: ignore[attr-defined]
-        else:
-            warnings.warn(
-                "--fixed-opcode-count was provided without a value, but "
-                ".fixed_opcode_counts.json was not found. "
-                "Run 'uv run benchmark_parser' to generate it, or provide "
-                "explicit values (e.g., --fixed-opcode-count 1,10,100).",
-                UserWarning,
-                stacklevel=1,
-            )
 
     # Extract the specified flag from the command line.
     # If the `-m repricing` flag is not specified, or is negated,
@@ -186,80 +276,12 @@ def pytest_collection_modifyitems(
 
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     """Generate tests for the gas benchmark values and fixed opcode counts."""
-    gas_benchmark_values = metafunc.config.getoption("gas_benchmark_value")
-    fixed_opcode_counts_cli = metafunc.config.getoption("fixed_opcode_count")
+    parametrizer = GasBenchmarkValues.from_config(
+        metafunc.config
+    ) or OpcodeCountsConfig.from_config(metafunc.config)
 
-    # Ensure mutual exclusivity
-    if gas_benchmark_values and fixed_opcode_counts_cli:
-        raise pytest.UsageError(
-            "--gas-benchmark-values and --fixed-opcode-count are mutually exclusive. "
-            "Use only one at a time."
-        )
-
-    if "gas_benchmark_value" in metafunc.fixturenames:
-        if gas_benchmark_values:
-            gas_values = [
-                int(x.strip()) for x in gas_benchmark_values.split(",")
-            ]
-            gas_parameters = [
-                pytest.param(
-                    gas_value * 1_000_000,
-                    id=f"benchmark-gas-value_{gas_value}M",
-                )
-                for gas_value in gas_values
-            ]
-            metafunc.parametrize(
-                "gas_benchmark_value", gas_parameters, scope="function"
-            )
-
-    if "fixed_opcode_count" in metafunc.fixturenames:
-        # Parametrize for any benchmark test when --fixed-opcode-count is provided
-        if fixed_opcode_counts_cli is None:
-            return
-
-        opcode_counts_to_use = None
-
-        if fixed_opcode_counts_cli:
-            # CLI flag with value takes precedence
-            opcode_counts_to_use = [
-                int(x.strip()) for x in fixed_opcode_counts_cli.split(",")
-            ]
-        else:
-            # Flag provided without value - load from config file
-            # Check if config data was already loaded in pytest_collection_modifyitems
-            config_data = getattr(
-                metafunc.config, "_opcode_counts_config", None
-            )
-
-            # If not loaded yet (pytest_generate_tests runs first), load it now
-            if config_data is None:
-                config_data = load_opcode_counts_config(metafunc.config)
-                if config_data:
-                    metafunc.config._opcode_counts_config = config_data  # type: ignore[attr-defined]
-
-            if config_data:
-                # Look up opcode counts using regex pattern matching
-                test_name = metafunc.function.__name__
-                opcode_counts_to_use = get_opcode_counts_for_test(
-                    test_name,
-                    config_data.get("scenario_configs", {}),
-                    config_data.get("default_counts", [1]),
-                )
-
-        # Parametrize if we have counts to use
-        if opcode_counts_to_use:
-            opcode_count_parameters = [
-                pytest.param(
-                    opcode_count,
-                    id=f"opcount_{opcode_count}K",
-                )
-                for opcode_count in opcode_counts_to_use
-            ]
-            metafunc.parametrize(
-                "fixed_opcode_count",
-                opcode_count_parameters,
-                scope="function",
-            )
+    if parametrizer:
+        parametrizer.parametrize(metafunc)
 
 
 @pytest.fixture(scope="function")
