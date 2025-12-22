@@ -76,7 +76,6 @@ class BenchmarkParametrizer(ABC):
     flag: ClassVar[str]
     parameter_name: ClassVar[str]
     config_field: ClassVar[str]
-    parameter_name: ClassVar[str]
 
     @classmethod
     @abstractmethod
