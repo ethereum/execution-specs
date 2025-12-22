@@ -13,17 +13,27 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, Optional, Tuple, cast
+from typing import Dict, Optional, Self
 
 import click
 from hive.simulation import Simulation
 from hive.testing import HiveTestResult
+from pydantic import (
+    BaseModel,
+    Field,
+    SerializerFunctionWrapHandler,
+    ValidationError,
+    model_serializer,
+)
 
-from execution_testing.base_types import Alloc, to_json
+from execution_testing.base_types import Alloc
 from execution_testing.cli.pytest_commands.plugins.consume.simulators.helpers.ruleset import (
     ruleset,
 )
-from execution_testing.fixtures import BlockchainFixtureCommon
+from execution_testing.fixtures import (
+    BlockchainEngineFixture,
+    BlockchainFixtureCommon,
+)
 from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.fixtures.file import Fixtures
 from execution_testing.fixtures.pre_alloc_groups import PreAllocGroup
@@ -119,54 +129,79 @@ def extract_client_files(
     return extracted_files
 
 
-def create_genesis_from_fixture(
-    fixture_path: Path,
-) -> Tuple[FixtureHeader, Alloc, int]:
-    """Create a client genesis state from a fixture file."""
-    genesis: FixtureHeader
+class GenesisState(BaseModel):
+    header: FixtureHeader
     alloc: Alloc
-    chain_id: int = 1
-    with open(fixture_path, "r") as f:
-        fixture_json = json.load(f)
+    chain_id: int = Field(exclude=True)
+    fork: Fork = Field(exclude=True)
 
-    if "_info" in fixture_json:
-        # Load the fixture
-        fixtures = Fixtures.model_validate_json(fixture_path.read_text())
+    @model_serializer(mode="wrap")
+    def serialize_model(
+        self, handler: SerializerFunctionWrapHandler
+    ) -> dict[str, object]:
+        serialized = handler(self)
+        output = serialized["header"]
+        output["alloc"] = {
+            k.replace("0x", ""): v for k, v in serialized["alloc"].items()
+        }
+        return output
 
-        # Get the first fixture (assuming single fixture file)
-        fixture_id = list(fixtures.keys())[0]
-        base_fixture = fixtures[fixture_id]
+    @classmethod
+    def from_fixture(cls, fixture_path: Path) -> Self:
+        """Create a client genesis state from a fixture file."""
+        fixture_bytes = fixture_path.read_bytes()
 
-        if not isinstance(base_fixture, BlockchainFixtureCommon):
+        try:
+            # Try to load the fixture
+            fixtures = Fixtures.model_validate_json(fixture_bytes)
+            # Go through the fixtures contained to try to get an usable fixture
+            for _, base_fixture in fixtures.items():
+                if isinstance(
+                    base_fixture,
+                    (BlockchainFixtureCommon, BlockchainEngineFixture),
+                ):
+                    return cls(
+                        header=base_fixture.genesis,
+                        alloc=base_fixture.pre,
+                        chain_id=int(base_fixture.config.chain_id),
+                        fork=base_fixture.config.fork,
+                    )
             raise ValueError(
-                f"Fixture {fixture_id} is not a blockchain fixture"
+                f"Fixture {fixture_path} does not contain a genesis"
             )
+        except ValidationError:
+            pass
 
-        genesis = base_fixture.genesis
-        alloc = base_fixture.pre
-        chain_id = int(base_fixture.config.chain_id)
-    else:
-        pre_alloc_group = PreAllocGroup.model_validate(fixture_json)
-        genesis = pre_alloc_group.genesis
-        alloc = pre_alloc_group.pre
+        try:
+            # Try to load pre-allocation group
+            pre_alloc_group = PreAllocGroup.model_validate_json(fixture_bytes)
+            return cls(
+                header=pre_alloc_group.genesis,
+                alloc=pre_alloc_group.pre,
+                chain_id=1,  # TODO: PreAllocGroups don't contain chain ID
+                fork=pre_alloc_group.fork,
+            )
+        except ValidationError:
+            pass
 
-    return genesis, alloc, chain_id
+        raise ValueError(
+            f"File {fixture_path} does not have a recognizable format."
+        )
 
+    def get_client_environment(self) -> dict:
+        """
+        Get the environment variables for starting a client with the given fixture.
+        """
+        if self.fork not in ruleset:
+            raise ValueError(f"Fork '{self.fork}' not found in hive ruleset")
 
-def get_client_environment_for_fixture(fork: Fork, chain_id: int) -> dict:
-    """
-    Get the environment variables for starting a client with the given fixture.
-    """
-    if fork not in ruleset:
-        raise ValueError(f"Fork '{fork}' not found in hive ruleset")
-
-    return {
-        "HIVE_CHAIN_ID": str(chain_id),
-        "HIVE_FORK_DAO_VOTE": "1",
-        "HIVE_NODETYPE": "full",
-        "HIVE_CHECK_LIVE_PORT": "8545",  # Using RPC port for liveness check
-        **{k: f"{v:d}" for k, v in ruleset[fork].items()},
-    }
+        return {
+            "HIVE_CHAIN_ID": str(self.chain_id),
+            "HIVE_FORK_DAO_VOTE": "1",
+            "HIVE_NODETYPE": "full",
+            "HIVE_CHECK_LIVE_PORT": "8545",  # Using RPC port for liveness check
+            **{k: f"{v:d}" for k, v in ruleset[self.fork].items()},
+        }
 
 
 @click.command()
@@ -257,25 +292,16 @@ def extract_config(
         click.echo(f"Using fixture: {fixture_path}")
 
         # Load fixture and create genesis
-        genesis, alloc, chain_id = create_genesis_from_fixture(fixture_path)
-        fork = genesis.fork
-        assert fork is not None
-        client_environment = get_client_environment_for_fixture(fork, chain_id)
-
-        genesis_json = to_json(genesis)
-        alloc_json = to_json(alloc)
-        genesis_json["alloc"] = {
-            k.replace("0x", ""): v for k, v in alloc_json.items()
-        }
-
-        genesis_json_str = json.dumps(genesis_json)
-        genesis_bytes = genesis_json_str.encode("utf-8")
+        genesis = GenesisState.from_fixture(fixture_path)
+        client_environment = genesis.get_client_environment()
+        genesis_bytes = genesis.model_dump_json(
+            by_alias=True, exclude_none=True
+        ).encode("utf-8")
 
         for client_type in client_types:
-            client_files = {}
-            client_files["/genesis.json"] = io.BufferedReader(
-                cast(io.RawIOBase, io.BytesIO(genesis_bytes))
-            )
+            client_files = {
+                "/genesis.json": io.BufferedReader(io.BytesIO(genesis_bytes))
+            }
             # Get containers before starting client
             containers_before = get_docker_containers()
 
