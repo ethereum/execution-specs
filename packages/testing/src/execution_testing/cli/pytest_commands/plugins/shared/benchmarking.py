@@ -61,7 +61,7 @@ def pytest_configure(config: pytest.Config) -> None:
     fixed_opcode_count = OpcodeCountsConfig.from_config(config)
     if gas_benchmark_values is not None and fixed_opcode_count is not None:
         raise pytest.UsageError(
-            f"{GasBenchmarkValues.flag} and --fixed-opcode-count are mutually exclusive. "
+            f"{GasBenchmarkValues.flag} and {OpcodeCountsConfig.flag} are mutually exclusive. "
             "Use only one at a time."
         )
 
@@ -182,20 +182,28 @@ class OpcodeCountsConfig(BaseModel, BenchmarkParametrizer):
     def get_test_parameters(self, test_name: str) -> list[ParameterSet]:
         """
         Get opcode counts for a test using regex pattern matching.
+
+        Uses most-specific-match-wins: longer patterns take priority over shorter ones.
+        This allows broad patterns like "test_bitwise.*" to be overridden by more
+        specific patterns like "test_bitwise.*AND.*".
         """
         counts = self.default_counts
-        # Try exact match first (faster)
+        # Try exact match first (most specific possible)
         if test_name in self.scenario_configs:
             counts = self.scenario_configs[test_name]
         else:
-            # Try regex patterns
+            # Find the most specific (longest) matching pattern
+            best_match_length = -1
             for pattern, pattern_counts in self.scenario_configs.items():
                 if pattern == test_name:
                     continue
                 try:
-                    if re.search(pattern, test_name):
+                    if (
+                        re.search(pattern, test_name)
+                        and len(pattern) > best_match_length
+                    ):
+                        best_match_length = len(pattern)
                         counts = pattern_counts
-                        break
                 except re.error:
                     continue
         return [
