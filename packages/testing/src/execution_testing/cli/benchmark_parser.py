@@ -11,12 +11,54 @@ Usage:
 
 import argparse
 import ast
+import re
 import sys
 from pathlib import Path
 
 from execution_testing.cli.pytest_commands.plugins.shared.benchmarking import (
     OpcodeCountsConfig,
 )
+
+
+def is_broader_pattern(pattern: str, detected_patterns: set[str]) -> bool:
+    """
+    Check if a pattern is a broader match that covers any detected patterns.
+
+    A broader pattern like "test_bitwise.*" covers more specific patterns like
+    "test_bitwise.*AND.*". These user-defined broader patterns should be preserved
+    since they provide a convenient way to configure multiple tests at once.
+
+    Returns True if the pattern matches at least one detected pattern.
+    """
+    try:
+        regex = re.compile(pattern)
+        for detected in detected_patterns:
+            # Check if the broader pattern matches the detected pattern string
+            # e.g., "test_bitwise.*" matches "test_bitwise.*AND.*"
+            if regex.search(detected):
+                return True
+    except re.error:
+        pass
+    return False
+
+
+def is_covered_by_broader(pattern: str, broader_patterns: list[str]) -> bool:
+    """
+    Check if a pattern is covered by any of the broader patterns.
+
+    For example, "test_push.*PUSH16.*" is covered by "test_push.*".
+    This is used to skip adding new detected patterns that are already
+    covered by user-defined broader patterns.
+
+    Returns True if the pattern is covered by at least one broader pattern.
+    """
+    for broader in broader_patterns:
+        try:
+            if re.search(broader, pattern):
+                return True
+        except re.error:
+            continue
+    return False
 
 
 def get_repo_root() -> Path:
@@ -243,26 +285,52 @@ def categorize_patterns(
     """
     Categorize patterns by deriving category from source file name.
 
-    Example: test_arithmetic.py -> ARITHMETIC
+    For detected patterns: use source file name (e.g., test_arithmetic.py -> ARITHMETIC)
+    For user-defined broader patterns: find a detected pattern it covers and use that
+    source file (e.g., test_push.* covers test_push.*PUSH0.* -> use test_push.py -> PUSH)
+
+    Categories are ordered by folder structure (instruction, precompile, scenario),
+    then alphabetically within each folder.
     """
-    categories: dict[str, list[str]] = {}
+    # Track category -> (folder, patterns)
+    category_info: dict[str, tuple[str, list[str]]] = {}
 
     for pattern in config.keys():
+        category = "OTHER_CATEGORY"
+        folder = "OTHER_FOLDER"  # Sort last
+
         if pattern in pattern_sources:
+            # Detected pattern: use its source file
             source_file = pattern_sources[pattern]
             file_name = source_file.stem
+            folder = source_file.parent.name
             if file_name.startswith("test_"):
-                category = file_name[5:].upper()  # Remove "test_" prefix
-            else:
-                category = "OTHER"
+                category = file_name[5:].upper()
         else:
-            category = "OTHER"
+            # User-defined pattern: find a detected pattern it covers
+            try:
+                regex = re.compile(pattern)
+                for detected, source_file in pattern_sources.items():
+                    if regex.search(detected):
+                        file_name = source_file.stem
+                        folder = source_file.parent.name
+                        if file_name.startswith("test_"):
+                            category = file_name[5:].upper()
+                        break
+            except re.error:
+                pass
 
-        if category not in categories:
-            categories[category] = []
-        categories[category].append(pattern)
+        if category not in category_info:
+            category_info[category] = (folder, [])
+        category_info[category][1].append(pattern)
 
-    return {k: sorted(v) for k, v in sorted(categories.items())}
+    # Sort by folder first, then by category name within each folder
+    sorted_categories = sorted(
+        category_info.items(),
+        key=lambda item: (item[1][0], item[0]),  # (folder, category_name)
+    )
+
+    return {k: sorted(patterns) for k, (_, patterns) in sorted_categories}
 
 
 def generate_config_json(
@@ -314,13 +382,42 @@ def main() -> int:
 
     detected_keys = set(detected.keys())
     existing_keys = set(existing.keys())
-    new_patterns = sorted(detected_keys - existing_keys)
-    obsolete_patterns = sorted(existing_keys - detected_keys)
+    potentially_obsolete = existing_keys - detected_keys
 
-    merged = detected.copy()
-    for pattern, counts in existing.items():
-        if pattern in detected_keys:
+    # Separate broader patterns (user-defined, cover detected patterns) from truly obsolete
+    broader_patterns: list[str] = []
+    obsolete_patterns: list[str] = []
+    for pattern in potentially_obsolete:
+        if is_broader_pattern(pattern, detected_keys):
+            broader_patterns.append(pattern)
+        else:
+            obsolete_patterns.append(pattern)
+    broader_patterns = sorted(broader_patterns)
+    obsolete_patterns = sorted(obsolete_patterns)
+
+    # Filter new patterns: skip those already covered by broader patterns
+    all_new_patterns = detected_keys - existing_keys
+    new_patterns: list[str] = []
+    skipped_patterns: list[str] = []
+    for pattern in sorted(all_new_patterns):
+        if is_covered_by_broader(pattern, broader_patterns):
+            skipped_patterns.append(pattern)
+        else:
+            new_patterns.append(pattern)
+
+    # Merge: start with detected, preserve existing counts, and keep broader patterns
+    # But skip detected patterns that are covered by broader patterns (unless in existing)
+    merged: dict[str, list[int]] = {}
+    for pattern, counts in detected.items():
+        if pattern in existing_keys:
+            # Preserve existing counts for patterns that were already in config
+            merged[pattern] = existing[pattern]
+        elif not is_covered_by_broader(pattern, broader_patterns):
+            # Add new detected patterns only if not covered by broader patterns
             merged[pattern] = counts
+    # Add broader patterns
+    for pattern in broader_patterns:
+        merged[pattern] = existing[pattern]
 
     print("\n" + "=" * 60)
     print(f"Detected {len(detected)} patterns in tests")
@@ -332,6 +429,21 @@ def main() -> int:
             print(f"    {p}")
         if len(new_patterns) > 15:
             print(f"    ... and {len(new_patterns) - 15} more")
+
+    if skipped_patterns:
+        print(
+            f"\n  Skipped {len(skipped_patterns)} patterns "
+            "(covered by broader patterns)"
+        )
+
+    if broader_patterns:
+        print(
+            f"\n~ Preserving {len(broader_patterns)} BROADER patterns (user-defined):"
+        )
+        for p in broader_patterns[:15]:
+            print(f"    {p}")
+        if len(broader_patterns) > 15:
+            print(f"    ... and {len(broader_patterns) - 15} more")
 
     if obsolete_patterns:
         print(f"\n- Found {len(obsolete_patterns)} OBSOLETE patterns:")
