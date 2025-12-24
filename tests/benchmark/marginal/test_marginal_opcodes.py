@@ -658,7 +658,7 @@ def generate_op_counts(max_op_count: int, step: int) -> List[int]:
 
 # Legacy constant for backward compatibility (new tests use config.num_calls)
 NUM_CALLS = 100
-CALLER_GAS_LIMIT = 100_000_000  # High gas limit for scaled benchmarking (100M)
+CALLER_GAS_LIMIT = 500_000_000  # High gas limit for scaled benchmarking (500M)
 
 
 def generate_target_contract_code(
@@ -837,7 +837,7 @@ def _create_caller_contract_test(config: MarginalOpcodeConfig):
 # Helper to generate test for any opcode config
 # ============================================================================
 
-def _create_opcode_test(config: MarginalOpcodeConfig, gas_limit: int = 100_000_000):
+def _create_opcode_test(config: MarginalOpcodeConfig, gas_limit: int = 500_000_000):
     """Factory to create test function for an opcode config."""
     @pytest.mark.valid_from("Prague")
     @pytest.mark.parametrize(
@@ -1236,7 +1236,7 @@ def test_marginal_returndatacopy(state_test: StateTestFiller, pre: Alloc, op_cou
     code = generate_marginal_program(RETURNDATACOPY_CONFIG, op_count)
     contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()
-    tx = Transaction(to=contract, gas_limit=100_000_000, sender=sender)
+    tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
     post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
     state_test(env=Environment(), pre=pre, post=post, tx=tx)
 
@@ -1298,7 +1298,7 @@ def test_marginal_blockhash(state_test: StateTestFiller, pre: Alloc, op_count: i
     code = generate_marginal_program(BLOCKHASH_CONFIG, op_count)
     contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()
-    tx = Transaction(to=contract, gas_limit=100_000_000, sender=sender)
+    tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
     post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
     state_test(env=Environment(), pre=pre, post=post, tx=tx)
 
@@ -1922,7 +1922,7 @@ def test_marginal_call(state_test: StateTestFiller, pre: Alloc, op_count: int) -
     
     contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()
-    tx = Transaction(to=contract, gas_limit=100_000_000, sender=sender)
+    tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
     post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
     state_test(env=Environment(), pre=pre, post=post, tx=tx)
 
@@ -1954,7 +1954,7 @@ def test_marginal_callcode(state_test: StateTestFiller, pre: Alloc, op_count: in
     
     contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()
-    tx = Transaction(to=contract, gas_limit=100_000_000, sender=sender)
+    tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
     post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
     state_test(env=Environment(), pre=pre, post=post, tx=tx)
 
@@ -1986,7 +1986,7 @@ def test_marginal_delegatecall(state_test: StateTestFiller, pre: Alloc, op_count
     
     contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()
-    tx = Transaction(to=contract, gas_limit=100_000_000, sender=sender)
+    tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
     post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
     state_test(env=Environment(), pre=pre, post=post, tx=tx)
 
@@ -2018,7 +2018,7 @@ def test_marginal_staticcall(state_test: StateTestFiller, pre: Alloc, op_count: 
     
     contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()
-    tx = Transaction(to=contract, gas_limit=100_000_000, sender=sender)
+    tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
     post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
     state_test(env=Environment(), pre=pre, post=post, tx=tx)
 
@@ -2068,7 +2068,7 @@ def test_marginal_create(state_test: StateTestFiller, pre: Alloc, op_count: int)
     
     contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()
-    tx = Transaction(to=contract, gas_limit=100_000_000, sender=sender)
+    tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
     post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
     state_test(env=Environment(), pre=pre, post=post, tx=tx)
 
@@ -2109,7 +2109,7 @@ def test_marginal_create2(state_test: StateTestFiller, pre: Alloc, op_count: int
     
     contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()
-    tx = Transaction(to=contract, gas_limit=100_000_000, sender=sender)
+    tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
     post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
     state_test(env=Environment(), pre=pre, post=post, tx=tx)
 
