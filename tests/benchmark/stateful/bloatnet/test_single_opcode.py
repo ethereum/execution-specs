@@ -456,7 +456,7 @@ def test_sstore_erc20_approve(
     )
 
 
-def storage_contract(sloads_before_sstore: bool) -> Bytecode:
+def sstore_helper_contract(sloads_before_sstore: bool) -> Bytecode:
     """
     Storage contract for benchmark slot access.
 
@@ -570,7 +570,7 @@ def test_sstore_variants(
     - initial_value/write_value: Storage transitions
       (zero_to_zero, zero_to_nonzero, nonzero_to_zero, nonzero_to_nonzero)
     """
-    base_contract = storage_contract(sloads_before_sstore)
+    base_contract = sstore_helper_contract(sloads_before_sstore)
     padded_contract = base_contract
 
     if len(base_contract) < contract_size:
@@ -639,5 +639,123 @@ def test_sstore_variants(
     benchmark_test(
         blocks=[Block(txs=txs)],
         post=post,
+        skip_gas_used_validation=True,
+    )
+
+
+def sload_helper_contract() -> Bytecode:
+    """
+    Storage contract for benchmark slot access.
+
+    # Calldata Layout:
+    # - CALLDATA[0..31]: incrementer
+    # - CALLDATA[32..63]: Number of slots to access
+    """
+    setup = Bytecode()
+    loop = Bytecode()
+    cleanup = Bytecode()
+
+    start_marker = 4
+    end_marker = 26
+
+    setup += Op.PUSH0  # counter
+    setup += Op.CALLDATALOAD(32)  # num_slots
+    setup += Op.JUMPDEST
+    # [num_slots, counter]
+
+    # Loop Condition: Counter < Num Slots
+    loop += Op.DUP1
+    loop += Op.ISZERO
+    loop += Op.PUSH1(end_marker)
+    loop += Op.JUMPI
+    # [num_slots, counter]
+
+    # Loop Body: SLOAD value at counter
+    loop += Op.PUSH1(1)
+    loop += Op.SWAP1
+    loop += Op.SUB
+    loop += Op.SWAP1
+    # [counter, num_slots-1]
+
+    loop += Op.DUP1
+    loop += Op.SLOAD
+    loop += Op.POP
+    # [counter, num_slots-1]
+
+    loop += Op.CALLDATALOAD(0)
+    loop += Op.ADD
+    loop += Op.SWAP1
+    # [num_slots-1, incrementer+counter]
+
+    loop += Op.PUSH1(start_marker)
+    loop += Op.JUMP
+    # [num_slots-1, incrementer+counter]
+
+    cleanup += Op.JUMPDEST
+    cleanup += Op.STOP
+
+    assert len(setup) - 1 == start_marker
+    assert len(setup) + len(loop) == end_marker
+    return setup + loop + cleanup
+
+
+@pytest.mark.parametrize("num_slots", [1, 10, 50, 100, 200])
+@pytest.mark.parametrize("warm_slots", [False, True])
+@pytest.mark.parametrize("storage_keys_set", [False, True])
+@pytest.mark.parametrize("incrementer", [0, 1])
+def test_storage_sload_benchmark(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    warm_slots: bool,
+    storage_keys_set: bool,
+    num_slots: int,
+    incrementer: int,
+    tx_gas_limit: int,
+) -> None:
+    """
+    Benchmark SSTORE instruction with various configurations.
+
+    Variants:
+    - use_access_list: Warm storage slots via access list
+    - contract_size: Contract code size
+      (just_created=0, small=1KB, medium=12KB, xen=24KB)
+    - sloads_before_sstore: Number of SLOADs per slot before SSTORE
+    - num_contracts: Number of contract instances (cold storage writes)
+    - initial_value/write_value: Storage transitions
+      (zero_to_zero, zero_to_nonzero, nonzero_to_zero, nonzero_to_nonzero)
+    """
+    slots: set[int] = set()
+    if storage_keys_set:
+        slots = {i * incrementer for i in range(num_slots)}
+    initial_storage = Storage.model_validate(dict.fromkeys(slots, 1))
+
+    storage_contract = pre.deploy_contract(
+        code=sload_helper_contract(),
+        storage=initial_storage,
+    )
+
+    calldata = incrementer.to_bytes(32, "big") + num_slots.to_bytes(32, "big")
+
+    access_lists: list[AccessList] = []
+
+    if warm_slots:
+        access_lists = [
+            AccessList(
+                address=storage_contract,
+                storage_keys=list(slots),
+            ),
+        ]
+
+    tx = Transaction(
+        to=storage_contract,
+        gas_limit=tx_gas_limit,
+        access_list=access_lists,
+        data=calldata,
+        sender=pre.fund_eoa(),
+    )
+
+    benchmark_test(
+        pre=pre,
+        blocks=[Block(txs=[tx])],
         skip_gas_used_validation=True,
     )

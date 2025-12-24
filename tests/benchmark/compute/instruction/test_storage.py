@@ -12,8 +12,6 @@ import math
 
 import pytest
 from execution_testing import (
-    AccessList,
-    Account,
     Alloc,
     BenchmarkTestFiller,
     Block,
@@ -21,10 +19,8 @@ from execution_testing import (
     Environment,
     ExtCallGenerator,
     Fork,
-    Hash,
     JumpLoopGenerator,
     Op,
-    Storage,
     TestPhaseManager,
     Transaction,
     While,
