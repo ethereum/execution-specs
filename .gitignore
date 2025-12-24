@@ -88,3 +88,4 @@ logs/
 env.yaml
 
 site/
+.venv/
